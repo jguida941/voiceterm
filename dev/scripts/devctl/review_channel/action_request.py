@@ -5,9 +5,13 @@ dialog prompts, Codex (the reviewer) can POST typed action requests into the
 ``## Action Requests`` bridge section.  Claude (the implementer) reads pending
 requests and executes them on Codex's behalf.
 
-This module owns the parsing, validation, and rendering helpers for that
-surface.  It does NOT own execution -- Claude reads the bridge and acts
-manually for now.
+This module owns the parsing, validation, rendering, and packet-projection
+helpers for that surface.  The canonical source of truth for action requests
+is ``kind="action_request"`` packets in the event store; the markdown regex
+parser is kept as a **legacy compatibility** path for bridge-only sessions
+that predate the packet transport.
+
+It does NOT own execution -- Claude reads the bridge and acts manually for now.
 """
 
 from __future__ import annotations
@@ -122,3 +126,49 @@ def render_action_requests_section(requests: list[ActionRequest]) -> str:
 def default_section_body() -> str:
     """Return the default empty-state body for the Action Requests section."""
     return "- No pending action requests."
+
+
+# ---------------------------------------------------------------------------
+# Packet-projection helpers: canonical source of truth for action requests
+# ---------------------------------------------------------------------------
+
+def action_requests_from_packets(
+    packets: list[dict[str, object]],
+) -> list[ActionRequest]:
+    """Project ``ActionRequest`` rows from pending ``kind="action_request"`` packets.
+
+    Each qualifying packet carries ``packet_id``, ``requested_action``, and
+    ``body`` which map onto the ``id``, ``action``, and ``payload`` fields of
+    an ``ActionRequest``.  Only packets whose ``status`` equals ``"pending"``
+    are included, so the projection always represents the live work queue.
+    """
+    results: list[ActionRequest] = []
+    for packet in packets:
+        if not isinstance(packet, dict):
+            continue
+        if str(packet.get("kind") or "") != "action_request":
+            continue
+        if str(packet.get("status") or "") != ActionStatus.PENDING.value:
+            continue
+        results.append(
+            ActionRequest(
+                id=str(packet.get("packet_id") or ""),
+                action=str(packet.get("requested_action") or ""),
+                payload=str(packet.get("body") or "").strip(),
+                status=ActionStatus.PENDING.value,
+            )
+        )
+    return results
+
+
+def render_action_requests_from_packets(
+    packets: list[dict[str, object]],
+) -> str:
+    """Render the ``## Action Requests`` bridge section body from packet state.
+
+    Returns the canonical markdown body (same format as
+    ``render_action_requests_section``) so the bridge projection uses the
+    packet transport as the single source of truth.
+    """
+    projected = action_requests_from_packets(packets)
+    return render_action_requests_section(projected)

@@ -29,6 +29,7 @@ from .commands import (
     controller_action,
     dashboard,
     data_science,
+    discover,
     docs_check,
     failure_cleanup,
     guard_run,
@@ -70,6 +71,7 @@ from .commands import (
     sync,
     triage,
     triage_loop,
+    view,
 )
 from .commands.vcs import push
 from .commands.governance import (
@@ -135,6 +137,8 @@ READ_ONLY_COMMANDS: frozenset[str] = frozenset({
     "platform-contracts",
     "mcp",
     "dashboard",
+    "discover",
+    "view",
     "list",
 })
 
@@ -199,6 +203,8 @@ def build_parser() -> argparse.ArgumentParser:
     add_context_graph_parser(sub)
     governance_startup_context.add_parser(sub)
     _add_dashboard_parser(sub)
+    discover.add_parser(sub)
+    view.add_parser(sub)
     return parser
 
 
@@ -306,6 +312,8 @@ COMMAND_HANDLERS = {
     "audit-scaffold": audit_scaffold.run,
     "context-graph": context_graph_run,
     "startup-context": governance_startup_context.run,
+    "discover": discover.run,
+    "view": view.run,
 }
 
 

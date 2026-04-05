@@ -33,6 +33,7 @@ class EnsureFollowDeps:
     read_publisher_state_fn: Callable[..., dict[str, object]]
     utc_timestamp_fn: Callable[[], str]
     sleep_fn: Callable[[float], None]
+    operator_interaction_mode: str = ""
 
 
 def run_ensure_follow_action(*, args, repo_root: Path, paths: dict[str, object], deps: EnsureFollowDeps) -> tuple[dict, int]:
@@ -109,6 +110,8 @@ def _build_ensure_follow_tick(
     if isinstance(status_dir, Path):
         report["publisher"] = deps.read_publisher_state_fn(status_dir)
     report["reviewer_heartbeat_suppressed"] = ensure_result.suppressed
+    if deps.operator_interaction_mode:
+        report["operator_interaction_mode"] = deps.operator_interaction_mode
     return FollowLoopTick(
         report=report,
         exit_code=exit_code,

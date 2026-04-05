@@ -28,6 +28,7 @@ def _paths() -> dict[str, str]:
     return {
         "compact_json": f"{status_dir}/compact.json",
         "full_json": f"{status_dir}/full.json",
+        "review_state_json": cfg.review_state_json_rel,
         "push_json": cfg.push_report_rel,
         # TODO: migrate receipt_json to RepoPathConfig
         "receipt_json": "dev/reports/startup/latest/receipt.json",

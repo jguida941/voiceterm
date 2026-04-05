@@ -21,6 +21,7 @@ from dev.scripts.devctl.context_graph.models import (
     EDGE_KIND_RELATED_TO,
     EDGE_KIND_ROUTES_TO,
     EDGE_KIND_SCOPED_BY,
+    NODE_KIND_CAPABILITY,
     NODE_KIND_COMMAND,
     NODE_KIND_CONCEPT,
     NODE_KIND_GUARD,
@@ -404,6 +405,31 @@ class TestConceptLayer(unittest.TestCase):
         result = query_context_graph("review_channel", self.nodes, self.edges)
         concept_nodes = [n for n in result.matched_nodes if n.node_kind == NODE_KIND_CONCEPT]
         self.assertGreater(len(concept_nodes), 0, "query should return concept nodes alongside source files")
+
+
+class TestCapabilityNodes(unittest.TestCase):
+    """Verify SystemCatalog surfaces appear as capability nodes."""
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.nodes, cls.edges = build_context_graph()
+
+    def test_capability_nodes_exist(self) -> None:
+        caps = [n for n in self.nodes if n.node_kind == NODE_KIND_CAPABILITY]
+        self.assertGreater(len(caps), 0, "should have capability nodes from SystemCatalog surfaces")
+
+    def test_capability_has_canonical_ref(self) -> None:
+        caps = [n for n in self.nodes if n.node_kind == NODE_KIND_CAPABILITY]
+        for c in caps:
+            self.assertTrue(
+                c.canonical_pointer_ref,
+                f"{c.node_id} missing canonical_pointer_ref",
+            )
+
+    def test_capability_provenance(self) -> None:
+        caps = [n for n in self.nodes if n.node_kind == NODE_KIND_CAPABILITY]
+        for c in caps:
+            self.assertEqual(c.provenance_ref, "system_catalog.surfaces")
 
 
 class TestConceptRenderers(unittest.TestCase):

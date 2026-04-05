@@ -9,6 +9,7 @@ from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 
+from .action_request import render_action_requests_from_packets
 from .bridge_section_validation import find_embedded_markdown_headings
 from .bridge_sanitize import (
     BRIDGE_ALLOWED_H2,
@@ -72,6 +73,7 @@ def build_bridge_projection_state(
     bridge_liveness: Mapping[str, object],
     current_session: Mapping[str, object] | None = None,
     bridge_state: Mapping[str, object] | None = None,
+    packets: list[dict[str, object]] | None = None,
 ) -> BridgeProjectionState:
     """Capture the typed bridge payload needed for a pure compatibility render."""
     snapshot = extract_bridge_snapshot(bridge_text)
@@ -79,6 +81,7 @@ def build_bridge_projection_state(
         _projection_sections(
             snapshot.sections,
             current_session=_mapping(current_session),
+            packets=packets,
         ),
         section_line_limits=BRIDGE_SECTION_LINE_LIMITS,
     )
@@ -123,6 +126,12 @@ def bridge_projection_state_from_review_state(
         )
     for heading in BRIDGE_SECTION_ORDER:
         sections.setdefault(heading, "")
+    # Overlay packet-projected action requests so the bridge section is
+    # derived from the event store, not from stale bridge markdown.
+    packets = review_state.get("packets")
+    if isinstance(packets, list):
+        packet_body = render_action_requests_from_packets(packets)
+        sections["Action Requests"] = packet_body
     state = BridgeProjectionState(
         metadata=metadata,
         sections=sections,
@@ -207,6 +216,7 @@ def _projection_sections(
     raw_sections: Mapping[str, str],
     *,
     current_session: Mapping[str, object],
+    packets: list[dict[str, object]] | None = None,
 ) -> dict[str, str]:
     sections = _tracked_sections(raw_sections)
     typed_overrides = {
@@ -227,6 +237,12 @@ def _projection_sections(
     for heading, value in typed_overrides.items():
         if value:
             sections[heading] = value
+    # Overlay action requests from packet transport when available so the
+    # bridge section is a projection of the event store, not a second queue.
+    if packets is not None:
+        sections["Action Requests"] = render_action_requests_from_packets(
+            packets
+        )
     return sections
 
 

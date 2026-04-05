@@ -7,6 +7,23 @@ from .contracts import ContractField, ContractSpec
 
 RUNTIME_STATE_CONTRACTS: tuple[ContractSpec, ...] = (
     ContractSpec(
+        contract_id="CheckResult",
+        owner_layer="governance_runtime",
+        purpose="Typed check-output envelope carrying step results, enriched status, and ViolationRecords for renderers and downstream consumers.",
+        required_fields=(
+            ContractField("timestamp", "str", "UTC timestamp for the run."),
+            ContractField("success", "bool", "Whether all steps passed."),
+            ContractField("total", "int", "Total step count."),
+            ContractField("passed", "int", "Passed step count."),
+            ContractField("failed", "int", "Failed step count."),
+            ContractField("skipped", "int", "Skipped step count."),
+            ContractField("steps", "tuple[dict, ...]", "Enriched step dicts with status and violation_summary."),
+            ContractField("violations", "tuple[ViolationRecord, ...]", "Typed violation records from failed steps."),
+        ),
+        runtime_model="dev.scripts.devctl.runtime.check_result_models:CheckResult",
+        startup_surface_tokens=("success", "total", "failed"),
+    ),
+    ContractSpec(
         contract_id="ControlState",
         owner_layer="governance_runtime",
         purpose=(

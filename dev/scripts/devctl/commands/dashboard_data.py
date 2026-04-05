@@ -17,6 +17,21 @@ from .dashboard_utils import (
     _tail_lines,
 )
 
+# Re-exported for backward compatibility with existing importers.
+from .dashboard_typed_state import (
+    _extract_typed_attention,
+    _extract_typed_doctor,
+    _extract_typed_packets,
+    _extract_typed_session,
+)
+
+__all__ = [
+    "_extract_typed_attention",
+    "_extract_typed_doctor",
+    "_extract_typed_packets",
+    "_extract_typed_session",
+]
+
 
 def _publication_effective(
     push_data: dict[str, Any] | None,
@@ -270,3 +285,5 @@ def _extract_cleanup_rate(gov_data: dict[str, Any] | None) -> float | str:
     if isinstance(rate, (int, float)):
         return float(rate)
     return "n/a"
+
+

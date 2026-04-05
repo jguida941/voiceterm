@@ -151,6 +151,29 @@ def test_attach_reviewer_runtime_snapshot_rejects_stale_approved_target_receipt(
     assert doctor["publication_source"] == "none"
 
 
+def test_follow_publisher_carries_operator_interaction_mode() -> None:
+    """Verify the follow controller deps propagate operator mode into report frames."""
+    from dev.scripts.devctl.review_channel.follow_controller import EnsureFollowDeps
+
+    deps = EnsureFollowDeps(
+        ensure_reviewer_heartbeat_fn=lambda **_kw: None,
+        reviewer_state_write_to_dict_fn=lambda _sw: None,
+        run_status_action_fn=lambda **_kw: ({}, 0),
+        attach_reviewer_worker_fn=lambda *_a, **_kw: None,
+        ensure_reviewer_supervisor_running_fn=None,
+        emit_follow_ndjson_frame_fn=lambda _f, **_kw: 0,
+        reset_follow_output_fn=lambda _o: None,
+        build_follow_completion_report_fn=lambda **_kw: {},
+        build_follow_output_error_report_fn=lambda **_kw: {},
+        write_publisher_heartbeat_fn=lambda _r, _h: None,
+        read_publisher_state_fn=lambda _s: {},
+        utc_timestamp_fn=lambda: "2026-04-04T00:00:00Z",
+        sleep_fn=lambda _s: None,
+        operator_interaction_mode="remote_control",
+    )
+    assert deps.operator_interaction_mode == "remote_control"
+
+
 def test_attach_reviewer_runtime_snapshot_prefers_review_state_attention_projection() -> None:
     review_state = SimpleNamespace(
         reviewer_runtime=_runtime_contract(publish_clear=False),

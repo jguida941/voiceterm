@@ -1916,6 +1916,8 @@ Core commands:
   - Builds/updates `dev/reports/audits/RUST_AUDIT_FINDINGS.md` from Rust/Python guard failures.
   - Auto-runs when AI-guard checks fail.
   - Run manually when you want a fresh findings file or a commit-range scoped view.
+- `discover` (static capability inventory of commands, guards, probes, and surfaces from existing registries; read-only, never mutates state)
+- `view` (thin presentation adapter over typed artifacts with `--surface ai|cli|phone` and `--mode slim|summary`; read-only renderer dispatch, not execution or state mutation)
 - `list`
 
 ### Quick command intent (plain language)

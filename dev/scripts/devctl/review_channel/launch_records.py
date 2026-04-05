@@ -38,6 +38,8 @@ class LaunchSessionRequest:
     provider_lane_map: dict[str, list["LaneAssignment"]] | None = None
     requested_worker_budgets: dict[str, int | None] | None = None
     providers_to_launch: tuple[str, ...] | None = None
+    interaction_mode: str = ""
+    rollover_provider: str = ""
 
 
 @dataclass(slots=True)
@@ -56,6 +58,8 @@ class PreparedSessionRecord:
     terminal_window_id: int | None = None
     log_path: Path | None = None
     metadata_path: Path | None = None
+    interaction_mode: str = ""
+    rollover_provider: str = ""
 
     def write_metadata(self) -> None:
         if self.metadata_path is None or self.log_path is None:
@@ -86,6 +90,8 @@ class PreparedSessionRecord:
                 requested_worker_budget=self.requested_worker_budget,
                 terminal_window_id=self.terminal_window_id,
                 planned_lanes=[asdict(lane) for lane in self.planned_lanes],
+                interaction_mode=self.interaction_mode,
+                rollover_provider=self.rollover_provider,
             )
         )
 
@@ -108,6 +114,8 @@ class PreparedSessionRecord:
                 ),
                 capture_mode="terminal-script" if self.log_path is not None else None,
                 terminal_window_id=self.terminal_window_id,
+                interaction_mode=self.interaction_mode,
+                rollover_provider=self.rollover_provider,
             )
         )
 
@@ -130,6 +138,8 @@ class SessionMetadataPayload:
     requested_worker_budget: int
     terminal_window_id: int | None
     planned_lanes: list[dict[str, object]]
+    interaction_mode: str = ""
+    rollover_provider: str = ""
 
 
 @dataclass(frozen=True, slots=True)
@@ -148,6 +158,8 @@ class SessionReportPayload:
     metadata_path: str | None
     capture_mode: str | None
     terminal_window_id: int | None
+    interaction_mode: str = ""
+    rollover_provider: str = ""
 
 
 def legacy_provider_lane_map(

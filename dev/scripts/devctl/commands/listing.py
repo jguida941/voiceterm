@@ -75,6 +75,8 @@ COMMANDS = [
     "security",
     "path-audit",
     "path-rewrite",
+    "discover",
+    "view",
     "list",
 ]
 

@@ -1773,6 +1773,135 @@ class ReviewChannelHelperTests(unittest.TestCase):
         self.assertIn("`review_channel`", prompt)
         escalation_mock.assert_called_once()
 
+class TestHandoffBundleRolloverProvider(unittest.TestCase):
+    """Verify HandoffBundle carries same-provider rollover state."""
+
+    def test_handoff_bundle_default_rollover_provider_is_empty(self) -> None:
+        from dev.scripts.devctl.review_channel.handoff import HandoffBundle
+
+        bundle = HandoffBundle(
+            bundle_dir="/tmp/test",
+            markdown_path="/tmp/test/handoff.md",
+            json_path="/tmp/test/handoff.json",
+            generated_at="2026-04-04T00:00:00Z",
+            rollover_id="rollover-test",
+            trigger="context-threshold",
+            threshold_pct=50,
+        )
+        self.assertEqual(bundle.rollover_provider, "")
+
+    def test_handoff_bundle_carries_rollover_provider(self) -> None:
+        from dev.scripts.devctl.review_channel.handoff import HandoffBundle
+
+        bundle = HandoffBundle(
+            bundle_dir="/tmp/test",
+            markdown_path="/tmp/test/handoff.md",
+            json_path="/tmp/test/handoff.json",
+            generated_at="2026-04-04T00:00:00Z",
+            rollover_id="rollover-test",
+            trigger="peer-stale",
+            threshold_pct=50,
+            rollover_provider="claude",
+        )
+        self.assertEqual(bundle.rollover_provider, "claude")
+
+    def test_handoff_bundle_to_dict_includes_rollover_provider(self) -> None:
+        from dev.scripts.devctl.review_channel.handoff import (
+            HandoffBundle,
+            handoff_bundle_to_dict,
+        )
+
+        bundle = HandoffBundle(
+            bundle_dir="/tmp/test",
+            markdown_path="/tmp/test/handoff.md",
+            json_path="/tmp/test/handoff.json",
+            generated_at="2026-04-04T00:00:00Z",
+            rollover_id="rollover-test",
+            trigger="peer-stale",
+            threshold_pct=50,
+            rollover_provider="codex",
+        )
+        as_dict = handoff_bundle_to_dict(bundle)
+        assert as_dict is not None
+        self.assertEqual(as_dict["rollover_provider"], "codex")
+
+
+class TestLaunchRecordsRolloverState(unittest.TestCase):
+    """Verify launch records carry rollover and interaction mode."""
+
+    def test_launch_session_request_defaults(self) -> None:
+        from dev.scripts.devctl.review_channel.launch_records import (
+            LaunchSessionRequest,
+        )
+
+        req = LaunchSessionRequest(
+            repo_root=Path("/tmp"),
+            review_channel_path=Path("/tmp/rc.md"),
+            bridge_path=Path("/tmp/bridge.md"),
+            codex_lanes=[],
+            claude_lanes=[],
+            codex_workers=1,
+            claude_workers=1,
+            rollover_threshold_pct=50,
+            await_ack_seconds=180,
+            retirement_note="test",
+            promotion_plan_rel="dev/active/plan.md",
+        )
+        self.assertEqual(req.interaction_mode, "")
+        self.assertEqual(req.rollover_provider, "")
+
+    def test_launch_session_request_carries_rollover_provider(self) -> None:
+        from dev.scripts.devctl.review_channel.launch_records import (
+            LaunchSessionRequest,
+        )
+
+        req = LaunchSessionRequest(
+            repo_root=Path("/tmp"),
+            review_channel_path=Path("/tmp/rc.md"),
+            bridge_path=Path("/tmp/bridge.md"),
+            codex_lanes=[],
+            claude_lanes=[],
+            codex_workers=1,
+            claude_workers=1,
+            rollover_threshold_pct=50,
+            await_ack_seconds=180,
+            retirement_note="test",
+            promotion_plan_rel="dev/active/plan.md",
+            interaction_mode="remote_control",
+            rollover_provider="claude",
+        )
+        self.assertEqual(req.interaction_mode, "remote_control")
+        self.assertEqual(req.rollover_provider, "claude")
+
+
+class TestPublisherAutoPollCadence(unittest.TestCase):
+    """Verify publisher auto-poll cadence uses operator interaction mode."""
+
+    def test_publisher_spawn_accepts_operator_interaction_mode(self) -> None:
+        from dev.scripts.devctl.commands.review_channel._publisher import (
+            _build_reviewer_supervisor_command,
+        )
+
+        command = _build_reviewer_supervisor_command(
+            repo_root=Path("/tmp/repo"),
+            operator_interaction_mode="remote_control",
+        )
+        idx = command.index("--follow-interval-seconds")
+        self.assertEqual(command[idx + 1], "30")
+
+    def test_publisher_spawn_local_terminal_keeps_default(self) -> None:
+        from dev.scripts.devctl.commands.review_channel._publisher import (
+            _build_reviewer_supervisor_command,
+        )
+
+        command = _build_reviewer_supervisor_command(
+            repo_root=Path("/tmp/repo"),
+            operator_interaction_mode="local_terminal",
+        )
+        idx = command.index("--follow-interval-seconds")
+        self.assertEqual(command[idx + 1], "150")
+
+
 class ReviewChannelWatchFollowTests(unittest.TestCase):
     def _build_follow_args(self, **overrides) -> SimpleNamespace:
         base = {

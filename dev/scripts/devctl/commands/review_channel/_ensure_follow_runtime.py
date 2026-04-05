@@ -13,8 +13,16 @@ from ...review_channel.follow_controller import (
 from ..review_channel_command import RuntimePaths, _coerce_runtime_paths
 
 
-def _build_ensure_follow_deps() -> EnsureFollowDeps:
-    """Return late-bound follow deps so tests can patch the compat surface."""
+def _build_ensure_follow_deps(
+    *,
+    operator_interaction_mode: str = "",
+) -> EnsureFollowDeps:
+    """Return late-bound follow deps so tests can patch the compat surface.
+
+    When ``operator_interaction_mode`` is ``remote_control``, the publisher
+    uses the auto-poll cadence for unprompted surface refreshes instead of
+    waiting for an operator at the keyboard.
+    """
     from . import _follow_runtime as compat_runtime
 
     return EnsureFollowDeps(
@@ -37,6 +45,7 @@ def _build_ensure_follow_deps() -> EnsureFollowDeps:
         read_publisher_state_fn=compat_runtime.read_publisher_state,
         utc_timestamp_fn=compat_runtime.utc_timestamp,
         sleep_fn=time.sleep,
+        operator_interaction_mode=operator_interaction_mode,
     )
 
 
@@ -48,9 +57,14 @@ def run_ensure_follow_action(
 ) -> tuple[dict, int]:
     """Run the persistent ensure-follow publisher."""
     runtime_paths = _coerce_runtime_paths(paths)
+    interaction_mode = str(
+        getattr(args, "operator_interaction_mode", "") or ""
+    ).strip()
     return _run_ensure_follow_action_impl(
         args=args,
         repo_root=repo_root,
         paths=runtime_paths,
-        deps=_build_ensure_follow_deps(),
+        deps=_build_ensure_follow_deps(
+            operator_interaction_mode=interaction_mode,
+        ),
     )

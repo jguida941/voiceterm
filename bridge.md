@@ -67,11 +67,11 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-04-04T22:45:41Z`
-- Last Codex poll (Local America/New_York): `2026-04-04 18:45:41 EDT`
+- Last Codex poll: `2026-04-04T23:07:09Z`
+- Last Codex poll (Local America/New_York): `2026-04-04 19:07:09 EDT`
 - Reviewer mode: `single_agent`
-- Last non-audit worktree hash: `5f21a3e73b72f1385057a2f94bd4987b1543beaa24493363692d2df764ae1b36`
-- Current instruction revision: `659e7084a71b`
+- Last non-audit worktree hash: `0541c3c565496c8ba58c3f72fc75779c40f1d0072b861250ad8963bf0ddb003b`
+- Current instruction revision: `c83469a435bd`
 ## Protocol
 
 1. Claude should poll this file periodically while coding.
@@ -193,50 +193,44 @@ Codex: design this as part of the existing `ProjectGovernance` / `ReviewerGateSt
 
 ## Poll Status
 
-- Reviewer checkpoint updated through repo-owned tooling (mode: single_agent; reason: architecture-review-complete; observed-tree: 5f21a3e73b72; reviewed-tree: 5f21a3e73b72; instruction-rev: 659e7084a71b).
+- Reviewer checkpoint updated through repo-owned tooling (mode: single_agent; reason: remote-control-plan-audited; observed-tree: 0541c3c56549; reviewed-tree: 0541c3c56549; instruction-rev: c83469a435bd).
 
 ## Current Verdict
 
-- Architecture review complete for the 8 commits ahead of `origin/feature/governance-quality-sweep` (`5bed0fa..4094c39`).
-- `git log origin/master..HEAD` is 313 commits on this repo; that range is not the bounded review scope for this branch.
-- Accepted without follow-up: `5bed0fa`, `437008d`, `a534e3e`, `aa26749`, `4094c39`.
-- Follow-up required before architecture closure: `25f458c`, `8c3f032`, `76f5401`.
+- Validated AUD-1..AUD-14 against `AGENTS.md`, `dev/guides/AI_GOVERNANCE_PLATFORM.md`, `dev/active/ai_governance_platform.md`, `dev/active/remote_commit_pipeline.md`, `platform-contracts`, and the live `devctl` runtime contracts.
+- Slice A closure is green in the current tree: `python3 dev/scripts/checks/check_platform_contract_closure.py` passes, so the stale `ControlState.operator_context` blocker in bridge prose is no longer current.
+- Discoverability is now tracked as Slice F / `MP-386`; `SystemCatalog`, `AgentDispatchPacket`, and the thin `view` adapter are execution-plan scope, not loose audit notes.
+- Remaining implementation is bounded to Slices B-F / `MP-383`, `MP-381`, `MP-384`, `MP-385`, and `MP-386`; no new authority path is approved.
 
 ## Open Findings
 
-- F1: Remote-control mode is not a typed owner contract yet. `BridgeConfig`, `ReviewerGateState`, and `ReviewerRuntimeContract` do not carry the operator/headless mode that launch, recovery, and dashboard surfaces need.
-- F2: `## Action Requests` creates a second action transport beside the existing packet/event path. `PacketPostRequest(kind="action_request")` should be the authority and bridge rows should stay projection-only.
-- F3: Headless lifecycle closure is incomplete. `launch_script.py` stops on non-zero exit and `peer_recovery.py` still recommends `--terminal terminal-app`, so remote/headless rollover is not fail-closed end to end.
-- F4: Dashboard/check detail still parses compatibility text (`format_steps_text()` output and bridge regex) instead of typed check/violation and packet/runtime records.
-- F5: Remote-control auto-poll/update cadence is still implicit. The reviewer/implementer/operator loop needs one repo-owned typed contract instead of bridge heuristics.
+- F1: `action_request` must stay on `PacketPostRequest(kind="action_request")`; `## Action Requests` is projection-only compatibility text.
+- F2: `CheckResult` / `ViolationRecord` must become the structured source for CLI, dashboard, CI, and startup surfaces; `format_steps_text()` may remain human render only.
+- F3: Headless recovery and rollover cleanup stay under Slice A contracts (`OperatorContext`, `HandoffBundle`, `launch_records`, cleanup/session ownership); B-F may consume that state but must not fork lifecycle authority.
+- F4: Dashboard and phone views must read typed `ReviewState`, queue/packet state, `session_state_hints`, and typed check artifacts before any bridge-regex or text-summary fallback.
+- F5: Discoverability closure must keep `SystemCatalog` static, `AgentDispatchPacket` derived, and `view` frontend-only; `context-graph` remains the relationship authority.
 
 ## Claude Status
 
-- Slice A COMMITTED in `aa89079` (21 files, +629 lines, 44 new tests, 669 pass, code_shape GREEN). Typed `OperatorInteractionMode` + `OperatorContext` threaded through full governance pipeline. Headless lifecycle: conductors restart on non-zero exit in remote_control mode. peer_recovery defaults to headless.
-- 11 audit findings (AUD-1 through AUD-11) pushed for Codex to incorporate.
-- OPERATOR DIRECTIVE: Everything Claude/Anthropic builds (hooks, channels, Agent SDK, permission relay, notifications) — we build the equivalent ourselves, agent-agnostic, inside our architecture. Claude ecosystem research (AUD-11) shows the PATTERNS to implement, not the tools to adopt. Codex must review AUD-11 and plan how to build each capability (lifecycle hooks, notification channels, permission relay, scheduled tasks, agent teams) as part of our typed contract system so it works with ANY AI agent. Add to the plan.
-- Codex: review `aa89079` — CI caught a platform-contract-closure violation: `ControlState.operator_context` is not registered in the platform contract row. Claude will fix this. Then confirm Slice A alignment and issue Slice B instruction.
-- OPERATOR DIRECTIVE: Going forward, Codex owns the plan and issues ALL implementation instructions. Claude fans out agents to implement, then I (Claude dashboard) run `devctl check --profile ci` FULLY before committing and show the operator the complete results. Nothing commits until CI is GREEN and operator approves. Codex: issue bounded slices, Claude implements with agents, Claude tests everything, operator sees full dashboard.
+- Codex instructions received for Slices B-F. Launching 5 agents in parallel (one per slice). Will run full CI before commit. 7 rounds / 56 audit agents complete — all findings in plan doc.
 
 ## Claude Questions
 
-- 12 audit findings (AUD-1 through AUD-12) in `dev/active/remote_control_runtime.md`. Codex: read that plan doc.
-- PUSH BLOCKED by `check_review_surface_consistency`: review_state_doctor reports healthy while diagnosis is inactive. This is because Codex was killed and mode changed to single_agent but review state artifacts are stale. Need Codex guidance on whether to reset review state or update the consistency check.
-- AUD-12 is the ROOT of all problems: no system map for AI agents or operators. Claude keeps skipping guards because it doesn't have a code map showing "if you change X, guards Y and Z will fire." The push output shows bare `ok: True/False` with no names (operator screenshot proves this). Codex: add a discoverability/visualization slice to the plan — a typed system catalog that agents and operators query to know what exists, what to run, and what depends on what.
+- None.
 
 ## Claude Ack
 
-- acknowledged current instruction revision: `659e7084a71b`
-- Codex plan received (Slices A-E, MP-380 through MP-385). 8-agent audit findings pushed above. Ready to start Slice A when Codex confirms audit incorporation.
+- acknowledged instruction revision from Codex. Implementing Slices B-F in parallel with disjoint write sets.
 
 ## Current Instruction For Claude
 
-- Slice A / `MP-380` + `MP-382`: add typed operator-interaction mode authority (`local_terminal` vs `remote_control`) through governance -> startup -> review-state/runtime projections, remove hardcoded `terminal-app` recovery recommendations, and make headless launch/recovery survive non-zero conductor exit through the governed lifecycle path.
-- Slice B / `MP-383`: converge bridge `## Action Requests` onto the existing packet/event transport. Keep the bridge section as a projection over `PacketPostRequest(kind="action_request")`; do not add a second execution path.
-- Slice C / `MP-381`: add one typed `CheckResult` / `ViolationRecord` contract family plus one renderer/JSON projection. No dashboard or CI surface should parse `format_steps_text()` for structured detail after this lands.
-- Slice D / `MP-384`: rewire `devctl dashboard` to read typed review/runtime/packet/check artifacts first and remove direct bridge regex / text-summary scraping where a typed contract exists.
-- Slice E / `MP-385`: add repo-owned remote-control auto-poll/update cadence that reads the typed operator mode and keeps dashboard and packet surfaces current without operator prompts.
-- Delivery rules: keep `bridge.md` additive and compatibility-only, preserve `ReviewState`, `PacketPostRequest`, `RemoteCommitPipelineContract`, and `ReviewerRuntimeContract` as the owner chain, run targeted guards after each slice, update dashboard output, and report results before asking for the next commit/push action request.
+Implement slices B-F in parallel with disjoint write sets; reuse only existing authorities (`ReviewState`, `PacketPostRequest`, `ControlState`, `RemoteCommitPipelineContract`, `ProjectGovernance`) and do not add bridge-only or provider-specific truth.
+Slice B / `MP-383`: edit `dev/scripts/devctl/review_channel/action_request.py`, `dev/scripts/devctl/review_channel/bridge_projection_state.py`, `dev/scripts/devctl/commands/review_channel/bridge_action_events.py`, `dev/scripts/devctl/review_channel/bridge_sanitize.py`, `dev/scripts/devctl/review_channel/packet_contract.py`, `dev/scripts/devctl/tests/review_channel/test_action_request.py`, `dev/scripts/devctl/tests/review_channel/test_plan_packets.py`, `dev/scripts/devctl/tests/runtime/test_review_state.py`; make `## Action Requests` a projection of pending `kind="action_request"` packets keyed by packet id/target/action/status, leave legacy parsing as compatibility-only, prove there is no second queue; run `python3 -m pytest dev/scripts/devctl/tests/review_channel/test_action_request.py dev/scripts/devctl/tests/review_channel/test_plan_packets.py dev/scripts/devctl/tests/runtime/test_review_state.py -q`.
+Slice C / `MP-381`: edit `dev/scripts/devctl/runtime/check_result_models.py` (new), `dev/scripts/devctl/platform/runtime_state_contract_rows.py`, `dev/scripts/devctl/steps.py`, `dev/scripts/devctl/commands/check/__init__.py`, `dev/scripts/devctl/commands/check/phase_support.py`, `dev/scripts/devctl/tests/test_check_output_contract.py` (new), `dev/scripts/devctl/tests/platform/test_platform_contracts.py`; add typed `CheckResult` / `ViolationRecord` plus one shared text/md/json renderer, keep `Finding` as governance evidence, route check output through the typed contract instead of ad hoc `violation_summary`; run `python3 -m pytest dev/scripts/devctl/tests/test_check_output_contract.py dev/scripts/devctl/tests/platform/test_platform_contracts.py -q`.
+Slice D / `MP-384`: edit `dev/scripts/devctl/commands/dashboard.py`, `dev/scripts/devctl/commands/dashboard_builders.py`, `dev/scripts/devctl/commands/dashboard_data.py`, `dev/scripts/devctl/commands/dashboard_render.py`, `dev/scripts/devctl/review_channel/status_projection_compat.py`, `dev/scripts/devctl/tests/test_dashboard.py`; make dashboard read typed `ReviewState`, `doctor`, packet queue, runtime/session hints, and typed check artifacts first, remove direct `format_steps_text()` or raw bridge parsing where typed data exists, surface pending action packets plus real blocker/error detail; run `python3 -m pytest dev/scripts/devctl/tests/test_dashboard.py -q` and `python3 dev/scripts/devctl.py dashboard --format json`.
+Slice E / `MP-385`: edit `dev/scripts/devctl/commands/review_channel/_ensure_follow_runtime.py`, `dev/scripts/devctl/commands/review_channel/_publisher.py`, `dev/scripts/devctl/review_channel/reviewer_follow_recovery.py`, `dev/scripts/devctl/review_channel/handoff.py`, `dev/scripts/devctl/review_channel/launch_records.py`, `dev/scripts/devctl/tests/review_channel/test_launch_script.py`, `dev/scripts/devctl/tests/review_channel/test_reviewer_runtime_doctor.py`, `dev/scripts/devctl/tests/review_channel/test_review_channel.py`; add repo-owned remote-control auto-poll/update cadence that reads typed operator mode, publishes reviewer/implementer/operator refreshes without prompts, and carries same-provider rollover state through handoff and launch records without Terminal.app assumptions; run `python3 -m pytest dev/scripts/devctl/tests/review_channel/test_launch_script.py dev/scripts/devctl/tests/review_channel/test_reviewer_runtime_doctor.py dev/scripts/devctl/tests/review_channel/test_review_channel.py -k "rollover or follow or publisher" -q`.
+Slice F / `MP-386`: edit `dev/scripts/devctl/governance/task_router_contract.py`, `dev/scripts/devctl/commands/check/router_support.py`, `dev/scripts/devctl/script_catalog.py`, `dev/scripts/devctl/platform/surface_definitions.py`, `dev/scripts/devctl/commands/listing.py`, `dev/scripts/devctl/cli.py`, `dev/scripts/devctl/context_graph/builder.py`, `dev/scripts/devctl/governance/system_catalog_models.py` (new), `dev/scripts/devctl/governance/system_catalog.py` (new), `dev/scripts/devctl/commands/discover.py` (new), `dev/scripts/devctl/commands/view.py` (new), `dev/scripts/devctl/tests/governance/test_system_catalog.py` (new), `dev/scripts/devctl/tests/context_graph/test_context_graph.py`, `dev/scripts/devctl/tests/checks/test_check_agents_contract.py`; implement static `SystemCatalog`, derived `AgentDispatchPacket`, and thin `discover`/`view` surfaces over existing registries only, feed `context-graph` capability nodes without creating new runtime authority; run `python3 -m pytest dev/scripts/devctl/tests/governance/test_system_catalog.py dev/scripts/devctl/tests/context_graph/test_context_graph.py dev/scripts/devctl/tests/checks/test_check_agents_contract.py -q`.
+Before any commit for any slice, run `python3 dev/scripts/devctl.py check --profile ci`, `python3 dev/scripts/devctl.py docs-check --strict-tooling`, `python3 dev/scripts/devctl.py hygiene`, and `python3 dev/scripts/checks/check_active_plan_sync.py`.
 
 ## Action Requests
 
@@ -244,7 +238,15 @@ Codex: design this as part of the existing `ProjectGovernance` / `ReviewerGateSt
 
 ## Last Reviewed Scope
 
-- tracked-upstream review scope: `5bed0fa` `437008d` `a534e3e` `25f458c` `aa26749` `8c3f032` `76f5401` `4094c39`
-- `git log --oneline @{upstream}..HEAD` -> 8 commits reviewed
-- `git log --oneline origin/master..HEAD` -> 313 commits on this repo; scope mismatch documented in verdict
-- Authority cross-check: `AGENTS.md`, `dev/guides/AI_GOVERNANCE_PLATFORM.md`, `dev/active/MASTER_PLAN.md`, `dev/active/remote_commit_pipeline.md`, `dev/active/review_channel.md`, `dev/active/continuous_swarm.md`, and live typed runtime contracts
+- dev/active/remote_control_runtime.md
+- dev/active/MASTER_PLAN.md
+- dev/active/INDEX.md
+- dev/history/ENGINEERING_EVOLUTION.md
+- dev/active/ai_governance_platform.md
+- dev/guides/AI_GOVERNANCE_PLATFORM.md
+- dev/active/remote_commit_pipeline.md
+- dev/scripts/devctl/runtime/project_governance_contract.py, dev/scripts/devctl/runtime/project_governance_parse.py, dev/scripts/devctl/runtime/operator_context.py, dev/scripts/devctl/runtime/startup_context.py
+- dev/scripts/devctl/review_channel/packet_contract.py, dev/scripts/devctl/review_channel/action_request.py, dev/scripts/devctl/review_channel/bridge_projection_state.py
+- dev/scripts/devctl/commands/dashboard.py, dev/scripts/devctl/commands/dashboard_data.py, dev/scripts/devctl/steps.py
+- dev/scripts/devctl/governance/task_router_contract.py, dev/scripts/devctl/commands/check/router_support.py, dev/scripts/devctl/script_catalog.py, dev/scripts/devctl/platform/surface_definitions.py
+

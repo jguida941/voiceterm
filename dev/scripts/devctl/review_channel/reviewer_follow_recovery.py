@@ -71,6 +71,7 @@ class ReviewerFollowRolloverInput:
     paths: dict[str, object]
     report: dict[str, object]
     rollover_state: ReviewerFollowRolloverState
+    rollover_provider: str = ""
 
 
 def maybe_auto_recover_stale_implementer(
@@ -231,7 +232,10 @@ def maybe_auto_trigger_rollover_on_stale_codex(
     if rollover_key and rollover_key == rollover_input.rollover_state.last_rollover_key:
         return None
 
-    rollover_args = _build_rollover_action_args(rollover_input.args)
+    rollover_args = _build_rollover_action_args(
+        rollover_input.args,
+        rollover_provider=rollover_input.rollover_provider,
+    )
     rollover_report, rollover_exit_code = rollover_fn(
         args=rollover_args,
         repo_root=rollover_input.repo_root,
@@ -248,6 +252,8 @@ def maybe_auto_trigger_rollover_on_stale_codex(
     payload["unchanged_reviewer_polls"] = unchanged_polls
     payload["rollover_exit_code"] = rollover_exit_code
     payload["launched"] = bool(rollover_report.get("launched"))
+    if rollover_input.rollover_provider:
+        payload["rollover_provider"] = rollover_input.rollover_provider
     handoff_ack_observed = rollover_report.get("handoff_ack_observed")
     if isinstance(handoff_ack_observed, dict):
         payload["handoff_ack_observed"] = handoff_ack_observed
@@ -315,7 +321,12 @@ def _build_recover_action_args(args) -> SimpleNamespace:
     return SimpleNamespace(**payload)
 
 
-def _build_rollover_action_args(args) -> SimpleNamespace:
+def _build_rollover_action_args(
+    args,
+    *,
+    rollover_provider: str = "",
+) -> SimpleNamespace:
+    """Build rollover action args with optional same-provider handoff routing."""
     payload = vars(args).copy()
     payload.update(
         action="rollover",
@@ -330,4 +341,6 @@ def _build_rollover_action_args(args) -> SimpleNamespace:
         await_ack_seconds=max(1, int(getattr(args, "await_ack_seconds", 180) or 180)),
         refresh_bridge_heartbeat_if_stale=True,
     )
+    if rollover_provider:
+        payload["rollover_provider"] = rollover_provider
     return SimpleNamespace(**payload)

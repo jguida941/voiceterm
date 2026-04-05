@@ -56,6 +56,31 @@ Evidence: `dev/scripts/devctl/review_channel/heartbeat.py`,
 `dev/scripts/devctl/repo_packs/voiceterm.py`,
 `dev/scripts/checks/review_channel_bridge/report.py`.
 
+### 2026-04-04 - Remote-control runtime closure now tracks discoverability as owned execution scope
+
+The follow-up architecture pass for the remote-control runtime plan found one
+remaining gap in plan authority: the audit/design notes for `SystemCatalog`,
+derived `AgentDispatchPacket`, and the thin `view` adapter were still only
+called out as review findings. That left the discoverability/system-map work
+as architecture intent without an active tracked slice, which is exactly the
+kind of "half-built system" drift the repo governance model is supposed to
+prevent.
+
+The plan now closes that gap explicitly. `dev/active/remote_control_runtime.md`,
+`dev/active/MASTER_PLAN.md`, and `dev/active/INDEX.md` all track the full
+remote-control closure path as `MP-380..MP-386`, with Slice F / `MP-386`
+reserved for generated discoverability/system-map surfaces. The contract is
+deliberately narrow: `SystemCatalog` must stay a static generated registry over
+existing authorities, `AgentDispatchPacket` must stay derived from the router
+and governance state, and `view` remains a frontend/presentation adapter
+instead of a second runtime authority.
+
+Evidence: `dev/active/remote_control_runtime.md`,
+`dev/active/MASTER_PLAN.md`,
+`dev/active/INDEX.md`,
+`dev/guides/AI_GOVERNANCE_PLATFORM.md`,
+`dev/active/ai_governance_platform.md`.
+
 ### 2026-04-04 - MP-377 now tracks remote-control runtime closure as its own active plan
 
 The 2026-04-04 architecture review of the eight commits ahead of

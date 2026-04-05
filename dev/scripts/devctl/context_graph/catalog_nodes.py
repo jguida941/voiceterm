@@ -8,6 +8,7 @@ from pathlib import Path
 from ..governance.doc_authority_rules import parse_index_registry
 from .models import (
     EDGE_KIND_ROUTES_TO,
+    NODE_KIND_CAPABILITY,
     NODE_KIND_COMMAND,
     NODE_KIND_GUIDE,
     NODE_KIND_PLAN,
@@ -158,4 +159,41 @@ def collect_command_nodes(node_ids: set[str]) -> tuple[list[GraphNode], list[Gra
                     edge_kind=EDGE_KIND_ROUTES_TO,
                 )
             )
+    return nodes, edges
+
+
+def collect_capability_nodes(
+    node_ids: set[str],
+) -> tuple[list[GraphNode], list[GraphEdge]]:
+    """Build capability nodes from the SystemCatalog for discoverability.
+
+    Each surface becomes a capability node. Guard/probe/command nodes are
+    already in the graph from their own collectors, so this only adds
+    surface-level capability nodes and links them to related commands.
+    """
+    try:
+        from ..governance.system_catalog import build_system_catalog
+        catalog = build_system_catalog()
+    # broad-except: allow reason=SystemCatalog may fail on partial repos or missing policy files fallback=return empty capability nodes gracefully.
+    except Exception:
+        return [], []
+
+    nodes: list[GraphNode] = []
+    edges: list[GraphEdge] = []
+    for surface in catalog.surfaces:
+        nid = f"capability:{surface.surface_id}"
+        nodes.append(
+            GraphNode(
+                node_id=nid,
+                node_kind=NODE_KIND_CAPABILITY,
+                label=surface.surface_id,
+                canonical_pointer_ref=f"surface:{surface.surface_id}",
+                provenance_ref="system_catalog.surfaces",
+                temperature=0.05,
+                metadata={
+                    "authority": surface.authority,
+                    "consumes_contracts": list(surface.consumes_contracts),
+                },
+            )
+        )
     return nodes, edges

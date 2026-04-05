@@ -8,6 +8,7 @@ import re
 from typing import Any
 
 from .dashboard import _VIEW_SECTIONS
+from . import dashboard_render_attention as _attn
 
 # Pre-compiled pattern for stripping ANSI escape sequences
 _ANSI_RE = re.compile(r"\033\[[^m]*m")
@@ -21,13 +22,17 @@ _DIM = "\033[2m"
 _BOLD = "\033[1m"
 _RESET = "\033[0m"
 
-# Flow stage display symbols
-_FLOW_SYMBOLS = {
-    "pass": f"{_GREEN}\u2713{_RESET}",
-    "active": f"{_CYAN}ACTIVE{_RESET}",
-    "blocked": f"{_RED}!{_RESET}",
-    "unknown": f"{_DIM}\u00b7{_RESET}",
-}
+# Job/review state color lookup built from grouped tuples to avoid
+# a standalone helper function.
+_JOB_STATE_COLORS: dict[str, str] = {}
+for _color, _states in (
+    (_CYAN, ("implementing", "active", "running")),
+    (_YELLOW, ("review_needed", "stale", "waiting")),
+    (_GREEN, ("idle", "pass", "done")),
+    (_RED, ("blocked", "failed", "error", "fail")),
+):
+    for _s in _states:
+        _JOB_STATE_COLORS[_s] = _color
 
 # Dashboard total width for right-alignment
 _WIDTH = 72
@@ -39,11 +44,7 @@ def render_json(snapshot: dict[str, Any]) -> str:
 
 
 def strip_ansi(text: str) -> str:
-    """Remove all ANSI escape sequences (e.g. ``\\033[1m``) from *text*.
-
-    Useful when piping terminal output to environments that render raw
-    escape codes as visible text (mobile apps, log files, CI artifacts).
-    """
+    """Remove all ANSI escape sequences from *text* for non-terminal output."""
     return _ANSI_RE.sub("", text)
 
 
@@ -88,6 +89,7 @@ def render_terminal(snapshot: dict[str, Any], *, no_color: bool = False) -> str:
         _render_reviewer_activity_terminal(snapshot, lines)
     if _view_includes(snapshot, "health"):
         _render_health_terminal(snapshot, lines)
+    _attn.render_typed_attention_terminal(snapshot, lines)
     if _view_includes(snapshot, "workers"):
         _render_workers_terminal(snapshot, lines)
     if _view_includes(snapshot, "plan"):
@@ -105,7 +107,7 @@ def render_terminal(snapshot: dict[str, Any], *, no_color: bool = False) -> str:
     if _view_includes(snapshot, "coordination"):
         _render_coordination_terminal(snapshot, lines)
     if _view_includes(snapshot, "flow"):
-        _render_flow_terminal(snapshot, lines)
+        _attn.render_flow_terminal(snapshot, lines)
     if _view_includes(snapshot, "timeline"):
         _render_timeline_terminal(snapshot, lines)
     result = "\n".join(lines)
@@ -125,6 +127,7 @@ def render_markdown(snapshot: dict[str, Any]) -> str:
         _render_reviewer_activity_markdown(snapshot, lines)
     if _view_includes(snapshot, "health"):
         _render_health_markdown(snapshot, lines)
+    _attn.render_typed_attention_markdown(snapshot, lines)
     if _view_includes(snapshot, "workers"):
         _render_workers_markdown(snapshot, lines)
     if _view_includes(snapshot, "plan"):
@@ -142,7 +145,7 @@ def render_markdown(snapshot: dict[str, Any]) -> str:
     if _view_includes(snapshot, "coordination"):
         _render_coordination_markdown(snapshot, lines)
     if _view_includes(snapshot, "flow"):
-        _render_flow_markdown(snapshot, lines)
+        _attn.render_flow_markdown(snapshot, lines)
     if _view_includes(snapshot, "timeline"):
         _render_timeline_markdown(snapshot, lines)
     return "\n".join(lines)
@@ -164,7 +167,7 @@ def _render_summary_terminal(snapshot: dict[str, Any], lines: list[str]) -> None
         lines.append("")
 
     state = summary.get("overall_state", "healthy").upper()
-    state_color = _summary_state_color(state)
+    state_color = {"BLOCKED": _RED, "WAITING": _YELLOW, "ACTIVE": _CYAN}.get(state, _GREEN)
     lines.append(f"{_BOLD}STATUS: {state_color}{state}{_RESET}")
 
     block_class = summary.get("block_class", "none")
@@ -191,18 +194,6 @@ def _render_summary_terminal(snapshot: dict[str, Any], lines: list[str]) -> None
     if secondary != "none":
         lines.append(f"         {_DIM}{secondary}{_RESET}")
     lines.append("")
-
-
-def _summary_state_color(state: str) -> str:
-    """Pick ANSI color for the summary overall_state label."""
-    upper = state.upper()
-    if upper == "BLOCKED":
-        return _RED
-    if upper == "WAITING":
-        return _YELLOW
-    if upper == "ACTIVE":
-        return _CYAN
-    return _GREEN
 
 
 def _render_summary_markdown(snapshot: dict[str, Any], lines: list[str]) -> None:
@@ -407,7 +398,7 @@ def _render_workers_terminal(snapshot: dict[str, Any], lines: list[str]) -> None
     )
     for w in workers:
         state = w.get("state", "UNKNOWN")
-        color = _state_color(state)
+        color = _JOB_STATE_COLORS.get(state.lower(), _DIM)
         lines.append(
             f"  {w.get('id', '?'):<5}"
             f"{w.get('scope', 'unknown'):<35}"
@@ -582,7 +573,7 @@ def _render_analytics_terminal(snapshot: dict[str, Any], lines: list[str]) -> No
 
 
 def _render_coordination_terminal(snapshot: dict[str, Any], lines: list[str]) -> None:
-    """COORDINATION: compact 2-field-per-line layout."""
+    """COORDINATION: compact 2-field-per-line layout with doctor and packets."""
     coord = snapshot.get("coordination", {})
 
     pending = coord.get("pending_packets", 0)
@@ -590,10 +581,9 @@ def _render_coordination_terminal(snapshot: dict[str, Any], lines: list[str]) ->
     rev_age = coord.get("reviewer_age", "--")
     impl_state = coord.get("implementer_state", "n/a")
     impl_color = _GREEN if impl_state == "current" else _YELLOW
-
     lines.append(f"{_BOLD}COORDINATION{_RESET}")
     lines.append(
-        f"  Packets    {pending} pending    "
+        f"  Packets    {_YELLOW if pending > 0 else _DIM}{pending} pending{_RESET}    "
         f"Instruction rev  {_DIM}{instr_rev}{_RESET}"
     )
     lines.append(
@@ -604,34 +594,8 @@ def _render_coordination_terminal(snapshot: dict[str, Any], lines: list[str]) ->
     session_started = coord.get("session_started", "")
     started_suffix = f" (started {session_started} UTC)" if session_started else ""
     lines.append(f"  Session    {session_age}{started_suffix}")
-    lines.append("")
-
-
-def _render_flow_terminal(snapshot: dict[str, Any], lines: list[str]) -> None:
-    """FLOW: horizontal pipeline with status symbols underneath."""
-    flow = snapshot.get("flow", {})
-    stage_order = ["review", "implement", "verify", "checkpoint", "push"]
-
-    # Build the pipeline labels with arrows
-    label_parts = []
-    for i, s in enumerate(stage_order):
-        label_parts.append(s.title())
-        if i < len(stage_order) - 1:
-            label_parts.append(" \u2500\u2500> ")
-    labels = "".join(label_parts)
-
-    # Build symbols aligned under each label
-    symbols = []
-    for s in stage_order:
-        state = flow.get(s, "unknown")
-        sym = _FLOW_SYMBOLS.get(state, _FLOW_SYMBOLS["unknown"])
-        symbols.append(sym)
-    # Pad symbols to roughly align under stage names
-    padded = _align_flow_symbols(stage_order, symbols)
-
-    lines.append(f"{_BOLD}FLOW{_RESET}")
-    lines.append(f"  {labels}")
-    lines.append(f"    {padded}")
+    _attn.render_doctor_terminal(coord, lines)
+    _attn.render_pending_packets_terminal(snapshot, lines)
     lines.append("")
 
 
@@ -651,23 +615,6 @@ def _render_timeline_terminal(snapshot: dict[str, Any], lines: list[str]) -> Non
             f"{evt.get('duration', 'n/a')}"
         )
     lines.append("")
-
-
-def _align_flow_symbols(stages: list[str], symbols: list[str]) -> str:
-    """Pad flow symbols to align under their stage labels."""
-    parts = []
-    for i, (stage, sym) in enumerate(zip(stages, symbols)):
-        parts.append(sym)
-        if i < len(stages) - 1:
-            # Pad to match label width plus arrow width
-            gap = len(stage) + 5 - _visible_len(sym)
-            parts.append(" " * max(1, gap))
-    return "".join(parts)
-
-
-def _visible_len(s: str) -> int:
-    """Length of a string excluding ANSI escape sequences."""
-    return len(_ANSI_RE.sub("", s))
 
 
 # ---------------------------------------------------------------------------
@@ -925,26 +872,8 @@ def _render_coordination_markdown(snapshot: dict[str, Any], lines: list[str]) ->
     session_started = coord.get("session_started", "")
     started_suffix = f" (started {session_started} UTC)" if session_started else ""
     lines.append(f"- **Session age**: {session_age}{started_suffix}")
-    lines.append("")
-
-
-def _render_flow_markdown(snapshot: dict[str, Any], lines: list[str]) -> None:
-    flow = snapshot.get("flow", {})
-    stage_order = ["review", "implement", "verify", "checkpoint", "push"]
-    md_symbols = {
-        "pass": "\u2705",
-        "active": "\U0001f539",
-        "blocked": "\u274c",
-        "unknown": "\u00b7",
-    }
-    lines.append("## Flow")
-    lines.append("")
-    lines.append("| Stage | Status |")
-    lines.append("|---|---|")
-    for stage in stage_order:
-        state = flow.get(stage, "unknown")
-        symbol = md_symbols.get(state, "\u00b7")
-        lines.append(f"| {stage.title()} | {symbol} {state} |")
+    _attn.render_doctor_markdown(coord, lines)
+    _attn.render_pending_packets_markdown(snapshot, lines)
     lines.append("")
 
 
@@ -991,20 +920,6 @@ def _mode_display(mode: str) -> str:
         "offline": "Offline",
     }
     return mapping.get(mode, mode)
-
-
-def _state_color(state: str) -> str:
-    """Pick ANSI color for a job/review state string."""
-    lower = state.lower()
-    if lower in ("implementing", "active", "running"):
-        return _CYAN
-    if lower in ("review_needed", "stale", "waiting"):
-        return _YELLOW
-    if lower in ("idle", "pass", "done"):
-        return _GREEN
-    if lower in ("blocked", "failed", "error", "fail"):
-        return _RED
-    return _DIM
 
 
 def _gate_color(val: str) -> str:

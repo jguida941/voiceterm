@@ -251,7 +251,15 @@ def _sanitize_claude_ack(raw: str, *, max_lines: int) -> str:
 
 
 def _sanitize_action_requests(raw: str, *, max_lines: int) -> str:
-    """Keep only well-formed action-request lines; drop noise."""
+    """Keep only well-formed action-request lines; drop noise.
+
+    **Legacy compatibility path**: when the bridge section is rebuilt from the
+    packet transport (``kind="action_request"`` packets), this function only
+    receives pre-rendered packet-projected text and acts as a pass-through
+    sanitizer.  The regex parser here handles the case where bridge-only
+    sessions wrote action requests directly into markdown before the packet
+    transport existed.
+    """
     parsed = parse_action_requests(raw)
     if not parsed:
         return _action_request_default()

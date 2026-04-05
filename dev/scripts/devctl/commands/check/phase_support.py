@@ -198,24 +198,29 @@ def build_report_and_emit_support(
     pipe_output_fn,
     write_output_fn,
 ) -> int:
-    """Format the final `devctl check` report and emit it if requested."""
-    success = all(step["returncode"] == 0 for step in ctx.steps)
-    enriched_steps = enrich_steps_for_json_fn(ctx.steps) if enrich_steps_for_json_fn else ctx.steps
-    report = {
-        "command": "check",
-        "timestamp": datetime.now(timezone.utc).isoformat(),
-        "success": success,
-        "steps": enriched_steps,
-    }
+    """Format the final `devctl check` report and emit it if requested.
 
-    if ctx.args.format == "text" and format_steps_text_fn is not None:
-        print(format_steps_text_fn(ctx.steps))
+    When callers provide typed-contract-aware callbacks, the renderer
+    delegates to CheckResult.  Legacy callers that pass raw format_steps_*
+    functions still work through the same underlying typed model via the
+    steps.py compatibility shims.
+    """
+    from ...runtime.check_result_models import build_check_result, render_check_result_md, render_check_result_text
+
+    check_result = build_check_result(
+        steps=ctx.steps,
+        timestamp=datetime.now(timezone.utc).isoformat(),
+    )
+
+    if ctx.args.format == "text":
+        if format_steps_text_fn is not None:
+            print(render_check_result_text(check_result))
 
     if should_emit_output_fn(ctx.args):
         if ctx.args.format == "md":
-            output = "# devctl check\n\n" + format_steps_md_fn(ctx.steps)
+            output = "# devctl check\n\n" + render_check_result_md(check_result)
         else:
-            output = json.dumps(report, indent=2)
+            output = json.dumps(check_result.to_dict(), indent=2)
         if ctx.args.output or ctx.args.format != "text":
             pipe_rc = emit_output_fn(
                 output,
@@ -228,4 +233,4 @@ def build_report_and_emit_support(
             if pipe_rc != 0:
                 return pipe_rc
 
-    return 0 if success else 1
+    return 0 if check_result.success else 1

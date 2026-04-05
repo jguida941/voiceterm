@@ -214,6 +214,24 @@ def repo_local_boundaries() -> tuple[RepoBoundarySpec, ...]:
     )
 
 
+def discovery_surfaces() -> tuple[FrontendSurfaceSpec, ...]:
+    """Surfaces available through the discover/view command family."""
+    return (
+        FrontendSurfaceSpec(
+            surface_id="discover",
+            authority="static catalog",
+            consumes_contracts=("SystemCatalog",),
+            notes="Typed inventory of commands, guards, probes, and surfaces.",
+        ),
+        FrontendSurfaceSpec(
+            surface_id="view",
+            authority="presentation adapter",
+            consumes_contracts=("SystemCatalog", "ControlState"),
+            notes="Thin renderer dispatch over typed artifacts for ai/cli/phone surfaces.",
+        ),
+    )
+
+
 def adoption_flow() -> tuple[str, ...]:
     return (
         "Install the reusable platform package and CLI entrypoint.",

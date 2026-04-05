@@ -7,8 +7,15 @@ import unittest
 from pathlib import Path
 from types import SimpleNamespace
 
+from dev.scripts.devctl.commands.review_channel._publisher import (
+    AutoPollCadence,
+    resolve_auto_poll_cadence,
+)
 from dev.scripts.devctl.review_channel.launch_script import build_session_script
 from dev.scripts.devctl.review_channel.reviewer_follow_recovery import (
+    ReviewerFollowRolloverInput,
+    ReviewerFollowRolloverState,
+    _build_rollover_action_args,
     _resolve_recovery_terminal,
 )
 
@@ -150,6 +157,87 @@ class TestResolveRecoveryTerminal(unittest.TestCase):
             operator_interaction_mode="dual_agent",
         )
         self.assertEqual(_resolve_recovery_terminal(args), "none")
+
+
+class TestAutoFollowPollCadence(unittest.TestCase):
+    """Verify resolve_auto_poll_cadence respects operator interaction mode."""
+
+    def test_remote_control_uses_tight_cadence(self) -> None:
+        cadence = resolve_auto_poll_cadence(
+            operator_interaction_mode="remote_control",
+        )
+        self.assertEqual(cadence.interval_seconds, 30)
+        self.assertEqual(cadence.operator_interaction_mode, "remote_control")
+
+    def test_local_terminal_uses_default_cadence(self) -> None:
+        cadence = resolve_auto_poll_cadence(
+            operator_interaction_mode="local_terminal",
+        )
+        self.assertEqual(cadence.interval_seconds, 150)
+
+    def test_single_agent_uses_relaxed_cadence(self) -> None:
+        cadence = resolve_auto_poll_cadence(
+            operator_interaction_mode="single_agent",
+        )
+        self.assertEqual(cadence.interval_seconds, 300)
+
+    def test_empty_mode_defaults_to_local_terminal(self) -> None:
+        cadence = resolve_auto_poll_cadence(operator_interaction_mode="")
+        self.assertEqual(cadence.interval_seconds, 150)
+        self.assertEqual(cadence.operator_interaction_mode, "local_terminal")
+
+    def test_explicit_interval_overrides_mode_default(self) -> None:
+        cadence = resolve_auto_poll_cadence(
+            operator_interaction_mode="remote_control",
+            explicit_interval_seconds=60,
+        )
+        self.assertEqual(cadence.interval_seconds, 60)
+
+    def test_cadence_interval_floor_is_one_second(self) -> None:
+        cadence = resolve_auto_poll_cadence(
+            operator_interaction_mode="remote_control",
+            explicit_interval_seconds=0,
+        )
+        self.assertEqual(cadence.interval_seconds, 1)
+
+    def test_unknown_mode_uses_default_interval(self) -> None:
+        cadence = resolve_auto_poll_cadence(
+            operator_interaction_mode="unknown_mode",
+        )
+        self.assertEqual(cadence.interval_seconds, 150)
+
+
+class TestRolloverProviderCarried(unittest.TestCase):
+    """Verify same-provider rollover state flows through args."""
+
+    def test_rollover_args_carry_provider(self) -> None:
+        base_args = SimpleNamespace(
+            terminal="none",
+            await_ack_seconds=180,
+        )
+        result = _build_rollover_action_args(
+            base_args, rollover_provider="claude",
+        )
+        self.assertEqual(result.rollover_provider, "claude")
+
+    def test_rollover_args_omit_provider_when_empty(self) -> None:
+        base_args = SimpleNamespace(
+            terminal="none",
+            await_ack_seconds=180,
+        )
+        result = _build_rollover_action_args(base_args, rollover_provider="")
+        self.assertFalse(hasattr(result, "rollover_provider"))
+
+    def test_rollover_input_carries_provider(self) -> None:
+        rollover_input = ReviewerFollowRolloverInput(
+            args=SimpleNamespace(),
+            repo_root=Path("/tmp"),
+            paths={},
+            report={},
+            rollover_state=ReviewerFollowRolloverState(),
+            rollover_provider="codex",
+        )
+        self.assertEqual(rollover_input.rollover_provider, "codex")
 
 
 if __name__ == "__main__":

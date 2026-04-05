@@ -27,6 +27,7 @@ from .dashboard_utils import (
 # Section-builder functions live in dashboard_builders; imported here so
 # _assemble can call them, and re-exported for backward-compatible test access.
 from .dashboard_builders import (  # noqa: E402
+    CoordinationContext,
     _build_analytics_section,
     _build_audit_section,
     _build_coordination_section,
@@ -51,6 +52,13 @@ from .dashboard_builders import (  # noqa: E402
     _first_meaningful_line,
     _is_reviewer_overdue,
     _publication_effective,
+)
+
+from .dashboard_typed_state import (
+    _extract_typed_attention,
+    _extract_typed_doctor,
+    _extract_typed_packets,
+    _extract_typed_session,
 )
 
 
@@ -400,14 +408,16 @@ def build_snapshot(
 ) -> dict[str, Any]:
     """Build a DashboardSnapshot dict from existing artifacts and git state.
 
-    When *view* is not ``overview``, only the artifacts needed for that view
-    are loaded; skipped sections appear as empty/default values so renderers
-    degrade gracefully.
+    Non-overview views only load artifacts their sections need. Typed
+    ReviewState (review_state.json) overrides compact.json for session,
+    doctor, attention, and packet queue when available.
     """
     git = _git_short()
     needs = _VIEW_SECTIONS.get(view, frozenset())
     load_all = not needs  # overview
     p = _paths()
+
+    review_state = _read_json(repo_root / p["review_state_json"]) if load_all or needs else None
 
     compact = _read_json(repo_root / p["compact_json"]) if load_all or (needs & {"review", "now", "coordination", "health", "workers"}) else None
     push_data = _read_json(repo_root / p["push_json"]) if load_all or (needs & {"publication", "quality", "flow"}) else None
@@ -430,6 +440,7 @@ def build_snapshot(
         session_info=session_info,
         repo_root=repo_root,
         view=view,
+        review_state=review_state,
     )
     return snapshot
 
@@ -460,31 +471,32 @@ def _assemble(
     repo_root: Path = REPO_ROOT,
     session_info: dict[str, Any] | None = None,
     view: str = "overview",
+    review_state: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Assemble the typed DashboardSnapshot from raw sources."""
-    session = (compact or {}).get("current_session", {})
-    doctor = (compact or {}).get("doctor", {})
-    instruction_rev = session.get("current_instruction_revision", "n/a")
+    """Assemble the typed DashboardSnapshot from raw sources.
 
+    Typed ReviewState overrides compact.json for session and doctor fields.
+    """
+    if review_state:
+        session = _extract_typed_session(review_state)
+        doctor = _extract_typed_doctor(review_state)
+    else:
+        session = (compact or {}).get("current_session", {})
+        doctor = (compact or {}).get("doctor", {})
+    instruction_rev = session.get("current_instruction_revision", "n/a")
     reviewer_agent = _find_agent_by_role(agents, "reviewer")
     implementer_agent = _find_agent_by_role(agents, "implementer")
-
     receipt_push = (receipt or {}).get("push_action", "n/a")
 
     publication_effective = _publication_effective(push_data, receipt, git)
     publication_effective["timers"] = _extract_push_timers(push_data)
     quality = _build_quality_section(push_data)
     quality["probes"] = _build_probes_section(probe_data)
-
-    # Derive top blocker from quality failures or open findings
     top_blocker = _derive_top_blocker(quality, session, doctor)
-
-    # Compute last-change age from bridge poll timestamp
-    poll_utc = bridge.get("last_poll_utc", "")
-    last_change_age = _age_seconds(poll_utc)
-
-    # Analytics view loads the full event timeline (not just last 10)
+    last_change_age = _age_seconds(bridge.get("last_poll_utc", ""))
     timeline_count = 100 if view == "analytics" else 10
+    typed_attention = _extract_typed_attention(review_state)
+    typed_packets = _extract_typed_packets(review_state)
 
     snapshot: dict[str, Any] = {
         "schema_version": 2,
@@ -515,10 +527,20 @@ def _assemble(
         "quality": quality,
         "audit": _build_audit_section(gov_data),
         "analytics": _build_analytics_section(ds_data, gov_data, repo_root),
-        "coordination": _build_coordination_section(session, instruction_rev, receipt_push, bridge, doctor, session_info or {}),
+        "coordination": _build_coordination_section(
+            session, bridge, doctor,
+            CoordinationContext(
+                instruction_rev=instruction_rev,
+                receipt_push=receipt_push,
+                session_info=session_info or {},
+                typed_packets=typed_packets,
+            ),
+        ),
         "reviewer_activity": _build_reviewer_activity_section(bridge, reviewer_agent),
         "flow": _build_flow_section(receipt, push_data, session),
         "timeline": _build_timeline_section(repo_root, count=timeline_count),
+        "typed_attention": typed_attention,
+        "pending_packets": typed_packets,
     }
     snapshot["summary"] = _compile_summary(snapshot)
     return snapshot

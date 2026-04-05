@@ -27,6 +27,7 @@ from ..script_catalog import (
 )
 from .artifact_inputs import resolve_graph_inputs
 from .catalog_nodes import (
+    collect_capability_nodes,
     collect_command_nodes,
     collect_guide_nodes,
     collect_plan_nodes,
@@ -326,6 +327,10 @@ def build_context_graph(
     command_nodes, command_edges = collect_command_nodes(node_ids)
     nodes.extend(command_nodes)
     edges.extend(command_edges)
+
+    capability_nodes, capability_edges = collect_capability_nodes(node_ids)
+    nodes.extend(capability_nodes)
+    edges.extend(capability_edges)
 
     concept_nodes, concept_edges = build_concept_nodes(nodes, edges)
     nodes.extend(concept_nodes)

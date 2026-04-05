@@ -23,6 +23,11 @@ from ...process_sweep.core import (
 from ...quality_policy import resolve_quality_policy
 from ...quality_scan_mode import resolve_scan_mode
 from ...script_catalog import check_script_cmd
+from ...runtime.check_result_models import (
+    build_check_result,
+    render_check_result_md,
+    render_check_result_text,
+)
 from ...steps import enrich_steps_for_json, format_steps_md, format_steps_text
 from . import phases as check_phases_module
 from .phases import (
@@ -44,20 +49,17 @@ from ..process_cleanup import build_process_cleanup_report
 
 def build_report_and_emit(ctx: CheckContext) -> int:
     """Format the final report while preserving existing test patch paths."""
-    success = all(step["returncode"] == 0 for step in ctx.steps)
-    report = {
-        "command": "check",
-        "timestamp": datetime.now(timezone.utc).isoformat(),
-        "success": success,
-        "steps": enrich_steps_for_json(ctx.steps),
-    }
+    check_result = build_check_result(
+        steps=ctx.steps,
+        timestamp=datetime.now(timezone.utc).isoformat(),
+    )
     if ctx.args.format == "text":
-        print(format_steps_text(ctx.steps))
+        print(render_check_result_text(check_result))
     if check_phases_module.should_emit_output(ctx.args):
         if ctx.args.format == "md":
-            output = "# devctl check\n\n" + format_steps_md(ctx.steps)
+            output = "# devctl check\n\n" + render_check_result_md(check_result)
         else:
-            output = json.dumps(report, indent=2)
+            output = json.dumps(check_result.to_dict(), indent=2)
         if ctx.args.output or ctx.args.format != "text":
             pipe_rc = check_phases_module.emit_output(
                 output,
@@ -69,7 +71,7 @@ def build_report_and_emit(ctx: CheckContext) -> int:
             )
             if pipe_rc != 0:
                 return pipe_rc
-    return 0 if success else 1
+    return 0 if check_result.success else 1
 
 
 def _parse_etime_seconds(raw: str) -> int | None:

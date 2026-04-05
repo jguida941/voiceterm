@@ -6,6 +6,7 @@ import os
 import subprocess
 import sys
 from collections.abc import Mapping
+from dataclasses import dataclass
 from pathlib import Path
 
 from ...review_channel.lifecycle_state import PublisherHeartbeat, write_publisher_heartbeat
@@ -18,6 +19,58 @@ from ..review_channel_command import (
     RuntimePaths,
     _coerce_runtime_paths,
 )
+
+# Auto-poll cadence defaults keyed by operator interaction mode.
+# remote_control uses a tighter cadence so the phone-steered operator
+# sees near-real-time surface updates without manual refresh.
+_AUTO_POLL_CADENCE_DEFAULTS: dict[str, int] = {
+    "remote_control": 30,
+    "local_terminal": 150,
+    "dual_agent": 150,
+    "single_agent": 300,
+}
+_DEFAULT_POLL_INTERVAL_SECONDS = 150
+
+
+@dataclass(frozen=True, slots=True)
+class AutoPollCadence:
+    """Resolved cadence parameters for follow-loop auto-poll."""
+
+    interval_seconds: int
+    operator_interaction_mode: str
+    inactivity_timeout_seconds: int
+
+
+def resolve_auto_poll_cadence(
+    *,
+    operator_interaction_mode: str = "",
+    explicit_interval_seconds: int | None = None,
+    explicit_inactivity_timeout_seconds: int | None = None,
+) -> AutoPollCadence:
+    """Derive follow-loop cadence from typed operator mode.
+
+    Remote-control mode uses a tighter default (30s) so operator surfaces
+    stay fresh without manual prompts.  An explicit interval always wins.
+    """
+    mode = (operator_interaction_mode or "").strip() or "local_terminal"
+    default_interval = _AUTO_POLL_CADENCE_DEFAULTS.get(
+        mode, _DEFAULT_POLL_INTERVAL_SECONDS
+    )
+    interval = (
+        explicit_interval_seconds
+        if explicit_interval_seconds is not None
+        else default_interval
+    )
+    inactivity = (
+        explicit_inactivity_timeout_seconds
+        if explicit_inactivity_timeout_seconds is not None
+        else 0
+    )
+    return AutoPollCadence(
+        interval_seconds=max(1, interval),
+        operator_interaction_mode=mode,
+        inactivity_timeout_seconds=max(0, inactivity),
+    )
 
 
 def spawn_follow_publisher(
@@ -150,13 +203,45 @@ REVIEWER_SUPERVISOR_FOLLOW_ARGS = [
 ]
 
 
+def _build_reviewer_supervisor_command(
+    *,
+    repo_root: Path,
+    operator_interaction_mode: str = "",
+) -> list[str]:
+    """Build the reviewer-supervisor subprocess command.
+
+    In remote_control mode the follow interval tightens so operator
+    surfaces refresh without manual prompts.
+    """
+    cadence = resolve_auto_poll_cadence(
+        operator_interaction_mode=operator_interaction_mode,
+    )
+    base = list(REVIEWER_SUPERVISOR_FOLLOW_ARGS)
+    # Override interval from cadence when it differs from the constant default.
+    try:
+        idx = base.index("--follow-interval-seconds")
+        base[idx + 1] = str(cadence.interval_seconds)
+    except (ValueError, IndexError):
+        base.extend(["--follow-interval-seconds", str(cadence.interval_seconds)])
+    return [
+        sys.executable,
+        str((repo_root / "dev/scripts/devctl.py").resolve()),
+        *base,
+    ]
+
+
 def spawn_reviewer_supervisor(
     *,
     args,
     repo_root: Path,
     paths: RuntimePaths | Mapping[str, object],
+    operator_interaction_mode: str = "",
 ) -> tuple[bool, int | None, str]:
-    """Start the reviewer supervisor follow loop as a detached process."""
+    """Start the reviewer supervisor follow loop as a detached process.
+
+    Accepts ``operator_interaction_mode`` so remote-control sessions
+    use a tighter poll cadence and never open a Terminal.app window.
+    """
     runtime_paths = _coerce_runtime_paths(paths)
 
     if runtime_paths.status_dir is None:
@@ -165,11 +250,10 @@ def spawn_reviewer_supervisor(
     log_path = runtime_paths.status_dir / "reviewer_supervisor_follow.log"
     log_path.parent.mkdir(parents=True, exist_ok=True)
 
-    command = [
-        sys.executable,
-        str((repo_root / "dev/scripts/devctl.py").resolve()),
-        *REVIEWER_SUPERVISOR_FOLLOW_ARGS,
-    ]
+    command = _build_reviewer_supervisor_command(
+        repo_root=repo_root,
+        operator_interaction_mode=operator_interaction_mode,
+    )
     if runtime_paths.bridge_path is not None:
         command.extend([
             "--bridge-path",
@@ -218,8 +302,14 @@ def ensure_reviewer_supervisor_running(
     if bool(supervisor_state.get("running")):
         return {"attempted": False, "started": False, "reason": "already_running"}
 
+    interaction_mode = str(
+        getattr(args, "operator_interaction_mode", "") or ""
+    ).strip()
     started, pid, log_path = spawn_reviewer_supervisor(
-        args=args, repo_root=repo_root, paths=runtime_paths,
+        args=args,
+        repo_root=repo_root,
+        paths=runtime_paths,
+        operator_interaction_mode=interaction_mode,
     )
     if not started:
         return {

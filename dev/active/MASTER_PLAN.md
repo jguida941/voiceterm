@@ -45,7 +45,7 @@
   spec for closing remote-control reviewer/runtime state, operator action
   transport, dashboard typed projections, and auto-poll cadence for
   phone-steered sessions; implementation tasks stay in that file under
-  `MP-380..MP-385` and must reuse `ReviewState`, `PacketPostRequest`, and the
+  `MP-380..MP-386` and must reuse `ReviewState`, `PacketPostRequest`, and the
   governed remote-commit path instead of creating bridge-only authority.
 - `dev/active/code_shape_expansion.md` is the research/calibration companion for future code-shape additions under `MP-378`; promotion into implementation still flows through `dev/active/review_probes.md` once Phase 5b evidence gates pass.
 - Deferred work lives in `dev/deferred/` and must be explicitly reactivated here before implementation.
@@ -112,10 +112,12 @@
   recover`) needed to close the Codex sandbox-commit blocker without manual
   shell steps or prose approval.
 - Current 2026-04-04 architecture-review closure inside that same lane:
-  `dev/active/remote_control_runtime.md` owns `MP-380..MP-385` for typed
+  `dev/active/remote_control_runtime.md` owns `MP-380..MP-386` for typed
   operator interaction mode, universal check/violation contracts, headless
   rollover closure, packet-backed action requests, dashboard typed-state
-  convergence, and repo-owned remote-control auto-poll/update cadence. The
+  convergence, repo-owned remote-control auto-poll/update cadence, and
+  discoverability/system-map closure through `SystemCatalog`,
+  `AgentDispatchPacket`, and a thin `view` adapter. The
   bridge remains compatibility-only; any new operator surface must consume
   typed runtime, packet, and check artifacts instead of regex-scraping
   bridge markdown or `format_steps_text()` output.

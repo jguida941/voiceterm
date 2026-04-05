@@ -766,5 +766,47 @@ class ReviewStateTests(unittest.TestCase):
         self.assertEqual(event_state.attention.status, "inactive")
 
 
+    def test_action_request_packets_project_into_review_state(self) -> None:
+        """Action-request packets land in the typed packet list like all other kinds."""
+        state = review_state_from_payload(
+            {
+                "schema_version": 1,
+                "command": "review-channel",
+                "action": "status",
+                "timestamp": "2026-04-04T00:00:00Z",
+                "ok": True,
+                "review_state": {
+                    "review": {"session_id": "session-action-req"},
+                    "queue": {"pending_total": 1},
+                    "bridge": {"reviewer_mode": "active_dual_agent"},
+                    "packets": [
+                        {
+                            "packet_id": "pkt-ar-001",
+                            "kind": "action_request",
+                            "from_agent": "codex",
+                            "to_agent": "claude",
+                            "summary": "Commit staged changes",
+                            "body": "-m 'fix typo'",
+                            "status": "pending",
+                            "policy_hint": "safe_auto_apply",
+                            "requested_action": "commit",
+                            "approval_required": False,
+                            "timestamp_utc": "2026-04-04T00:01:00Z",
+                        },
+                    ],
+                },
+            }
+        )
+
+        self.assertIsNotNone(state)
+        assert state is not None
+        self.assertEqual(len(state.packets), 1)
+        packet = state.packets[0]
+        self.assertEqual(packet.kind, "action_request")
+        self.assertEqual(packet.requested_action, "commit")
+        self.assertEqual(packet.body, "-m 'fix typo'")
+        self.assertEqual(packet.status, "pending")
+
+
 if __name__ == "__main__":
     unittest.main()

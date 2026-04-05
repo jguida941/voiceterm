@@ -29,6 +29,7 @@ class CompatProjectionInputs:
     bridge_state: object
     doctor: object
     snapshot_id: str = ""
+    packets: list[dict[str, object]] | None = None
 
 
 def build_bridge_compat_projection(
@@ -54,6 +55,7 @@ def build_bridge_compat_projection(
             bridge_liveness=inputs.bridge_liveness,
             current_session=_mapping(inputs.current_session),
             bridge_state=_mapping(inputs.bridge_state),
+            packets=inputs.packets,
         )
     )
     bridge_projection = compat.get("bridge_projection")

@@ -34,6 +34,7 @@ def test_platform_blueprint_contract_ids_are_unique() -> None:
     assert "ReviewState" in contract_ids
     assert "ReviewerRuntimeContract" in contract_ids
     assert "RemoteCommitPipelineContract" in contract_ids
+    assert "CheckResult" in contract_ids
     assert "Finding" in contract_ids
     assert "DecisionPacket" in contract_ids
     assert "FailurePacket" in contract_ids
@@ -48,6 +49,9 @@ def test_platform_blueprint_contract_shapes_cover_lifecycle_and_authority() -> N
         contract.contract_id: {field.name for field in contract.required_fields}
         for contract in blueprint.shared_contracts
     }
+    assert "violations" in contract_map["CheckResult"]
+    assert "success" in contract_map["CheckResult"]
+    assert "steps" in contract_map["CheckResult"]
     assert "shutdown_entrypoints" in contract_map["LocalServiceEndpoint"]
     assert "forbidden_actions" in contract_map["CallerAuthorityPolicy"]
     assert "signals" in contract_map["Finding"]
@@ -76,6 +80,7 @@ def test_platform_contracts_json_output(capsys) -> None:
         row["contract_id"]: {field["name"] for field in row["required_fields"]}
         for row in payload["shared_contracts"]
     }
+    assert "CheckResult" in contract_ids
     assert "WorkflowAdapter" in contract_ids
     assert "Finding" in contract_ids
     assert "DecisionPacket" in contract_ids

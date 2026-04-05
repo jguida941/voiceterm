@@ -9,7 +9,18 @@ audit/analytics/probes builders live in ``dashboard_data``.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Any
+
+
+@dataclass(frozen=True, slots=True)
+class CoordinationContext:
+    """Bundled inputs for the coordination section builder."""
+
+    instruction_rev: str
+    receipt_push: str
+    session_info: dict[str, Any]
+    typed_packets: list[dict[str, Any]]
 
 from .dashboard_utils import (
     _age_seconds,
@@ -193,29 +204,38 @@ def _build_plan_section(
 
 def _build_coordination_section(
     session: dict[str, Any],
-    instruction_rev: str,
-    receipt_push: str,
     bridge: dict[str, str],
     doctor: dict[str, Any],
-    session_info: dict[str, Any] | None = None,
+    ctx: CoordinationContext,
 ) -> dict[str, Any]:
-    """Build compact coordination section with dual-field layout."""
+    """Build compact coordination section with dual-field layout.
+
+    When ``ctx.typed_packets`` are supplied (from ReviewState),
+    pending_packets is derived from the actual queue count.
+    """
     findings = (session.get("open_findings") or "None").strip()
     finding_lines = [
         ln for ln in findings.splitlines() if ln.strip().startswith("-")
     ] if findings.lower() != "none" else []
 
     reviewer_age = _age_seconds(bridge.get("last_poll_utc", ""))
+    pending_count = len(ctx.typed_packets) if ctx.typed_packets else 0
+    doctor_status = doctor.get("status", "")
+    doctor_summary = doctor.get("summary", "")
+    doctor_blocked = doctor.get("blocked_reason", "")
 
     return {
-        "pending_packets": 0,
-        "instruction_rev": instruction_rev,
+        "pending_packets": pending_count,
+        "instruction_rev": ctx.instruction_rev,
         "reviewer_age": _format_age(reviewer_age),
         "implementer_state": "current" if session.get("implementer_ack_state") == "current" else "stale",
         "pending_findings": f"{len(finding_lines)} findings" if finding_lines else "0 findings",
-        "next_action": receipt_push,
-        "session_age": (session_info or {}).get("session_label", "--"),
-        "session_started": (session_info or {}).get("started_time", ""),
+        "next_action": ctx.receipt_push,
+        "session_age": ctx.session_info.get("session_label", "--"),
+        "session_started": ctx.session_info.get("started_time", ""),
+        "doctor_status": doctor_status if doctor_status else "n/a",
+        "doctor_summary": doctor_summary if doctor_summary else "n/a",
+        "doctor_blocked": doctor_blocked if doctor_blocked else "none",
     }
 
 

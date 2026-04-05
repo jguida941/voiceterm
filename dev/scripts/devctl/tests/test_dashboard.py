@@ -2251,5 +2251,415 @@ class TestViewFlag(unittest.TestCase):
         self.assertEqual(snapshot["view"], "dev")
 
 
+def _minimal_review_state() -> dict:
+    """A typed ReviewState dict matching the shape of review_state.json."""
+    return {
+        "schema_version": 1,
+        "contract_id": "ReviewState",
+        "command": "review-channel",
+        "action": "status",
+        "timestamp": "2026-04-04T03:00:00Z",
+        "ok": True,
+        "current_session": {
+            "current_instruction": "fix code shape in dashboard module",
+            "current_instruction_revision": "typed_rev_001",
+            "implementer_status": "implementing typed slice",
+            "implementer_ack_state": "current",
+            "open_findings": "- F1: code-shape debt\n- F2: stale docs",
+            "last_reviewed_scope": "dashboard.py",
+            "implementer_state_hash": "abc123hash",
+        },
+        "reviewer_runtime": {
+            "doctor": {
+                "status": "healthy",
+                "summary": "all checks passing",
+                "blocked_reason": "",
+            },
+        },
+        "attention": {
+            "status": "reviewer_overdue",
+            "owner": "operator",
+            "summary": "Codex reviewer has not polled in 15 minutes",
+            "recommended_action": "Relaunch Codex conductor",
+            "recommended_command": "python3 dev/scripts/devctl.py conductor-launch --provider codex",
+        },
+        "packets": [
+            {
+                "packet_id": "pkt_001",
+                "kind": "instruction",
+                "from_agent": "codex",
+                "to_agent": "claude",
+                "summary": "Fix code-shape debt in dashboard module",
+                "body": "Full body here",
+                "status": "pending",
+                "policy_hint": "",
+                "requested_action": "implement",
+                "approval_required": False,
+                "posted_at": "2026-04-04T02:55:00Z",
+            },
+            {
+                "packet_id": "pkt_002",
+                "kind": "action_request",
+                "from_agent": "claude",
+                "to_agent": "operator",
+                "summary": "Needs approval for force push",
+                "body": "",
+                "status": "pending",
+                "policy_hint": "",
+                "requested_action": "approve_force_push",
+                "approval_required": True,
+                "posted_at": "2026-04-04T02:56:00Z",
+            },
+            {
+                "packet_id": "pkt_003",
+                "kind": "finding",
+                "from_agent": "codex",
+                "to_agent": "claude",
+                "summary": "Already applied finding",
+                "body": "",
+                "status": "applied",
+                "policy_hint": "",
+                "requested_action": "review_only",
+                "approval_required": False,
+                "posted_at": "2026-04-04T02:50:00Z",
+            },
+        ],
+        "bridge": {},
+        "queue": {
+            "pending_total": 2,
+            "pending_codex": 0,
+            "pending_claude": 1,
+            "pending_cursor": 0,
+            "pending_operator": 1,
+            "stale_packet_count": 0,
+            "derived_next_instruction": "",
+            "derived_next_instruction_source": {},
+        },
+        "review": {},
+        "collaboration": {},
+        "registry": {"timestamp": "", "agents": []},
+        "warnings": [],
+        "errors": [],
+    }
+
+
+class TestTypedReviewState(unittest.TestCase):
+    """Verify dashboard reads typed ReviewState when available (Slice D)."""
+
+    def test_session_from_review_state(self) -> None:
+        """When review_state.json exists, session fields come from it."""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _write_artifact(
+                root,
+                "dev/reports/review_channel/state/latest.json",
+                _minimal_review_state(),
+            )
+            _write_artifact(
+                root,
+                "dev/reports/review_channel/latest/compact.json",
+                {"current_session": {"current_instruction_revision": "old_compact_rev"}},
+            )
+            bridge = root / "bridge.md"
+            bridge.write_text(_minimal_bridge_text(), encoding="utf-8")
+
+            with patch.object(dashboard, "_git_short", return_value={
+                "branch": "main", "head": "abc", "dirty": "CLEAN",
+            }), patch.object(dashboard, "_repo_name", return_value="test"):
+                snapshot = dashboard.build_snapshot(repo_root=root)
+
+            # The typed instruction_rev should come from review_state, not compact
+            coord = snapshot["coordination"]
+            self.assertEqual(coord["instruction_rev"], "typed_rev_001")
+
+    def test_typed_attention_populated(self) -> None:
+        """typed_attention section carries attention state from ReviewState."""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _write_artifact(
+                root,
+                "dev/reports/review_channel/state/latest.json",
+                _minimal_review_state(),
+            )
+            bridge = root / "bridge.md"
+            bridge.write_text(_minimal_bridge_text(), encoding="utf-8")
+
+            with patch.object(dashboard, "_git_short", return_value={
+                "branch": "main", "head": "abc", "dirty": "CLEAN",
+            }), patch.object(dashboard, "_repo_name", return_value="test"):
+                snapshot = dashboard.build_snapshot(repo_root=root)
+
+            attn = snapshot["typed_attention"]
+            self.assertIsNotNone(attn)
+            self.assertEqual(attn["status"], "reviewer_overdue")
+            self.assertEqual(attn["owner"], "operator")
+            self.assertIn("15 minutes", attn["summary"])
+            self.assertIn("Relaunch", attn["recommended_action"])
+            self.assertIn("conductor-launch", attn["recommended_command"])
+
+    def test_pending_packets_filtered(self) -> None:
+        """Only pending packets are surfaced, applied ones excluded."""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _write_artifact(
+                root,
+                "dev/reports/review_channel/state/latest.json",
+                _minimal_review_state(),
+            )
+            bridge = root / "bridge.md"
+            bridge.write_text(_minimal_bridge_text(), encoding="utf-8")
+
+            with patch.object(dashboard, "_git_short", return_value={
+                "branch": "main", "head": "abc", "dirty": "CLEAN",
+            }), patch.object(dashboard, "_repo_name", return_value="test"):
+                snapshot = dashboard.build_snapshot(repo_root=root)
+
+            packets = snapshot["pending_packets"]
+            self.assertEqual(len(packets), 2)
+            self.assertEqual(packets[0]["packet_id"], "pkt_001")
+            self.assertEqual(packets[1]["packet_id"], "pkt_002")
+            self.assertTrue(packets[1]["approval_required"])
+            # Applied packet (pkt_003) should not appear
+            ids = [p["packet_id"] for p in packets]
+            self.assertNotIn("pkt_003", ids)
+
+    def test_coordination_pending_from_typed_packets(self) -> None:
+        """coordination.pending_packets reflects typed packet count."""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _write_artifact(
+                root,
+                "dev/reports/review_channel/state/latest.json",
+                _minimal_review_state(),
+            )
+            bridge = root / "bridge.md"
+            bridge.write_text(_minimal_bridge_text(), encoding="utf-8")
+
+            with patch.object(dashboard, "_git_short", return_value={
+                "branch": "main", "head": "abc", "dirty": "CLEAN",
+            }), patch.object(dashboard, "_repo_name", return_value="test"):
+                snapshot = dashboard.build_snapshot(repo_root=root)
+
+            self.assertEqual(snapshot["coordination"]["pending_packets"], 2)
+
+    def test_doctor_fields_in_coordination(self) -> None:
+        """Doctor status from ReviewState appears in coordination section."""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            rs = _minimal_review_state()
+            rs["reviewer_runtime"]["doctor"]["status"] = "blocked"
+            rs["reviewer_runtime"]["doctor"]["blocked_reason"] = "stale_state"
+            _write_artifact(
+                root,
+                "dev/reports/review_channel/state/latest.json",
+                rs,
+            )
+            bridge = root / "bridge.md"
+            bridge.write_text(_minimal_bridge_text(), encoding="utf-8")
+
+            with patch.object(dashboard, "_git_short", return_value={
+                "branch": "main", "head": "abc", "dirty": "CLEAN",
+            }), patch.object(dashboard, "_repo_name", return_value="test"):
+                snapshot = dashboard.build_snapshot(repo_root=root)
+
+            coord = snapshot["coordination"]
+            self.assertEqual(coord["doctor_status"], "blocked")
+            self.assertEqual(coord["doctor_blocked"], "stale_state")
+
+    def test_fallback_to_compact_when_no_review_state(self) -> None:
+        """Without review_state.json, session comes from compact.json."""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _write_artifact(
+                root,
+                "dev/reports/review_channel/latest/compact.json",
+                _minimal_compact(),
+            )
+            bridge = root / "bridge.md"
+            bridge.write_text(_minimal_bridge_text(), encoding="utf-8")
+
+            with patch.object(dashboard, "_git_short", return_value={
+                "branch": "main", "head": "abc", "dirty": "CLEAN",
+            }), patch.object(dashboard, "_repo_name", return_value="test"):
+                snapshot = dashboard.build_snapshot(repo_root=root)
+
+            coord = snapshot["coordination"]
+            self.assertEqual(coord["instruction_rev"], "abc123")
+            self.assertIsNone(snapshot["typed_attention"])
+            self.assertEqual(snapshot["pending_packets"], [])
+
+    def test_graceful_with_empty_review_state(self) -> None:
+        """ReviewState with missing/empty fields degrades without crash."""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _write_artifact(
+                root,
+                "dev/reports/review_channel/state/latest.json",
+                {"schema_version": 1, "contract_id": "ReviewState"},
+            )
+            bridge = root / "bridge.md"
+            bridge.write_text(_minimal_bridge_text(), encoding="utf-8")
+
+            with patch.object(dashboard, "_git_short", return_value={
+                "branch": "main", "head": "abc", "dirty": "CLEAN",
+            }), patch.object(dashboard, "_repo_name", return_value="test"):
+                snapshot = dashboard.build_snapshot(repo_root=root)
+
+            self.assertIn("coordination", snapshot)
+            self.assertEqual(snapshot["pending_packets"], [])
+
+
+class TestTypedAttentionRendering(unittest.TestCase):
+    """Verify typed attention section renders in terminal and markdown."""
+
+    def _snapshot_with_attention(self) -> dict:
+        snap = _full_snapshot()
+        snap["typed_attention"] = {
+            "status": "reviewer_overdue",
+            "owner": "operator",
+            "summary": "Codex reviewer not polling",
+            "recommended_action": "Relaunch conductor",
+            "recommended_command": "devctl conductor-launch",
+        }
+        return snap
+
+    def test_terminal_renders_attention_section(self) -> None:
+        output = dashboard_render.render_terminal(
+            self._snapshot_with_attention(), no_color=True,
+        )
+        self.assertIn("ATTENTION", output)
+        self.assertIn("reviewer_overdue", output)
+        self.assertIn("operator", output)
+        self.assertIn("Relaunch conductor", output)
+        self.assertIn("devctl conductor-launch", output)
+
+    def test_markdown_renders_attention_section(self) -> None:
+        output = dashboard_render.render_markdown(
+            self._snapshot_with_attention(),
+        )
+        self.assertIn("## Attention", output)
+        self.assertIn("reviewer_overdue", output)
+        self.assertIn("Relaunch conductor", output)
+
+    def test_attention_skipped_when_healthy(self) -> None:
+        snap = _full_snapshot()
+        snap["typed_attention"] = {"status": "healthy", "owner": "system"}
+        output = dashboard_render.render_terminal(snap, no_color=True)
+        self.assertNotIn("ATTENTION", output)
+
+    def test_attention_skipped_when_none(self) -> None:
+        snap = _full_snapshot()
+        snap["typed_attention"] = None
+        output = dashboard_render.render_terminal(snap, no_color=True)
+        self.assertNotIn("ATTENTION", output)
+
+
+class TestPendingPacketRendering(unittest.TestCase):
+    """Verify pending packets render under COORDINATION."""
+
+    def _snapshot_with_packets(self) -> dict:
+        snap = _full_snapshot()
+        snap["pending_packets"] = [
+            {
+                "packet_id": "pkt_001",
+                "kind": "instruction",
+                "from_agent": "codex",
+                "to_agent": "claude",
+                "summary": "Fix the shape debt",
+                "status": "pending",
+                "requested_action": "implement",
+                "approval_required": False,
+            },
+            {
+                "packet_id": "pkt_002",
+                "kind": "action_request",
+                "from_agent": "claude",
+                "to_agent": "operator",
+                "summary": "Needs approval",
+                "status": "pending",
+                "requested_action": "approve",
+                "approval_required": True,
+            },
+        ]
+        snap["coordination"]["pending_packets"] = 2
+        return snap
+
+    def test_terminal_shows_packet_lines(self) -> None:
+        output = dashboard_render.render_terminal(
+            self._snapshot_with_packets(), no_color=True,
+        )
+        self.assertIn("PKT", output)
+        self.assertIn("instruction -> claude", output)
+        self.assertIn("Fix the shape debt", output)
+        self.assertIn("[approval]", output)
+
+    def test_markdown_shows_packet_lines(self) -> None:
+        output = dashboard_render.render_markdown(
+            self._snapshot_with_packets(),
+        )
+        self.assertIn("Pending action packets", output)
+        self.assertIn("`instruction`", output)
+        self.assertIn("Fix the shape debt", output)
+        self.assertIn("*[approval required]*", output)
+
+    def test_no_packets_no_section(self) -> None:
+        snap = _full_snapshot()
+        snap["pending_packets"] = []
+        output = dashboard_render.render_terminal(snap, no_color=True)
+        self.assertNotIn("PKT", output)
+
+
+class TestTypedDataExtractors(unittest.TestCase):
+    """Unit tests for the typed ReviewState extraction functions."""
+
+    def test_extract_typed_session(self) -> None:
+        from dev.scripts.devctl.commands.dashboard_data import _extract_typed_session
+        rs = _minimal_review_state()
+        session = _extract_typed_session(rs)
+        self.assertEqual(session["current_instruction_revision"], "typed_rev_001")
+        self.assertEqual(session["implementer_ack_state"], "current")
+        self.assertIn("code shape", session["current_instruction"])
+
+    def test_extract_typed_doctor(self) -> None:
+        from dev.scripts.devctl.commands.dashboard_data import _extract_typed_doctor
+        rs = _minimal_review_state()
+        doctor = _extract_typed_doctor(rs)
+        self.assertEqual(doctor["status"], "healthy")
+        self.assertEqual(doctor["blocked_reason"], "")
+
+    def test_extract_typed_doctor_fallback(self) -> None:
+        from dev.scripts.devctl.commands.dashboard_data import _extract_typed_doctor
+        rs = {"doctor": {"status": "blocked", "blocked_reason": "stale"}}
+        doctor = _extract_typed_doctor(rs)
+        self.assertEqual(doctor["status"], "blocked")
+
+    def test_extract_typed_attention(self) -> None:
+        from dev.scripts.devctl.commands.dashboard_data import _extract_typed_attention
+        rs = _minimal_review_state()
+        attn = _extract_typed_attention(rs)
+        self.assertIsNotNone(attn)
+        self.assertEqual(attn["status"], "reviewer_overdue")
+        self.assertIn("conductor-launch", attn["recommended_command"])
+
+    def test_extract_typed_attention_none(self) -> None:
+        from dev.scripts.devctl.commands.dashboard_data import _extract_typed_attention
+        self.assertIsNone(_extract_typed_attention(None))
+        self.assertIsNone(_extract_typed_attention({"attention": "not_a_dict"}))
+
+    def test_extract_typed_packets(self) -> None:
+        from dev.scripts.devctl.commands.dashboard_data import _extract_typed_packets
+        rs = _minimal_review_state()
+        packets = _extract_typed_packets(rs)
+        self.assertEqual(len(packets), 2)
+        self.assertEqual(packets[0]["kind"], "instruction")
+        self.assertTrue(packets[1]["approval_required"])
+
+    def test_extract_typed_packets_empty(self) -> None:
+        from dev.scripts.devctl.commands.dashboard_data import _extract_typed_packets
+        self.assertEqual(_extract_typed_packets(None), [])
+        self.assertEqual(_extract_typed_packets({"packets": "bad"}), [])
+        self.assertEqual(_extract_typed_packets({"packets": []}), [])
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -305,5 +305,59 @@ class ReviewChannelPlanPacketTests(unittest.TestCase):
                 )
 
 
+    def test_action_request_packet_posts_and_transitions_through_event_store(self) -> None:
+        """Action request packets use the same event transport as all other packets."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            review_channel_path = root / "dev/active/review_channel.md"
+            review_channel_path.parent.mkdir(parents=True, exist_ok=True)
+            review_channel_path.write_text(_review_channel_text(), encoding="utf-8")
+            artifact_paths = resolve_artifact_paths(repo_root=root)
+
+            bundle, event = post_packet(
+                repo_root=root,
+                review_channel_path=review_channel_path,
+                artifact_paths=artifact_paths,
+                request=PacketPostRequest(
+                    from_agent="codex",
+                    to_agent="claude",
+                    kind="action_request",
+                    summary="Commit the current staged changes",
+                    body="-m 'fix: resolve bridge drift'",
+                    evidence_refs=(),
+                    context_pack_refs=(),
+                    confidence=1.0,
+                    requested_action="commit",
+                    policy_hint="safe_auto_apply",
+                    approval_required=False,
+                ),
+            )
+
+            # Verify the packet landed with the correct kind and status
+            posted_packet = bundle.review_state["packets"][0]
+            self.assertEqual(posted_packet["kind"], "action_request")
+            self.assertEqual(posted_packet["status"], "pending")
+            self.assertEqual(posted_packet["requested_action"], "commit")
+            self.assertEqual(posted_packet["body"], "-m 'fix: resolve bridge drift'")
+
+            # Transition the packet to applied via the same event store
+            refreshed, apply_event = transition_packet(
+                repo_root=root,
+                review_channel_path=review_channel_path,
+                artifact_paths=artifact_paths,
+                request=PacketTransitionRequest(
+                    action="apply",
+                    packet_id=str(event["packet_id"]),
+                    actor="claude",
+                ),
+            )
+            applied_packet = next(
+                p for p in refreshed.review_state["packets"]
+                if p["packet_id"] == event["packet_id"]
+            )
+            self.assertEqual(applied_packet["status"], "applied")
+            self.assertEqual(apply_event["kind"], "action_request")
+
+
 if __name__ == "__main__":
     unittest.main()

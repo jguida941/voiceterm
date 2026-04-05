@@ -102,7 +102,13 @@ class BridgeLiveness:
 
 @dataclass(frozen=True)
 class HandoffBundle:
-    """Repo-visible rollover handoff artifact locations."""
+    """Repo-visible rollover handoff artifact locations.
+
+    ``rollover_provider`` tracks the provider being rolled over so
+    same-provider handoff (Claude -> Claude, Codex -> Codex) stays
+    distinguishable from cross-provider replacement in launch records
+    and operator-facing surfaces.
+    """
 
     bundle_dir: str
     markdown_path: str
@@ -111,6 +117,7 @@ class HandoffBundle:
     rollover_id: str
     trigger: str
     threshold_pct: int
+    rollover_provider: str = ""
 
 def extract_bridge_snapshot(bridge_text: str) -> BridgeSnapshot:
     """Parse tracked metadata and live sections from `bridge.md`."""
@@ -277,6 +284,7 @@ def write_handoff_bundle(
     threshold_pct: int,
     lane_assignments: list[dict[str, str]] | None = None,
     current_worktree_hash: str | None = None,
+    rollover_provider: str = "",
 ) -> HandoffBundle:
     """Write markdown + JSON handoff artifacts and return their locations."""
     generated_at = utc_timestamp()
@@ -306,6 +314,8 @@ def write_handoff_bundle(
         ),
         "resume_state": resume_state,
     }
+    if rollover_provider:
+        payload["rollover_provider"] = rollover_provider
 
     markdown_path = bundle_dir / "handoff.md"
     json_path = bundle_dir / "handoff.json"
@@ -326,6 +336,7 @@ def write_handoff_bundle(
         rollover_id=rollover_id,
         trigger=trigger,
         threshold_pct=threshold_pct,
+        rollover_provider=rollover_provider,
     )
 
 

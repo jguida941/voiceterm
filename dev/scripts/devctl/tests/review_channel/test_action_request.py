@@ -10,10 +10,12 @@ from dev.scripts.devctl.review_channel.action_request import (
     ActionStatus,
     SECTION_HEADING,
     VALID_ACTION_KINDS,
+    action_requests_from_packets,
     default_section_body,
     parse_action_requests,
     pending_action_requests,
     render_action_request_line,
+    render_action_requests_from_packets,
     render_action_requests_section,
     validate_action_request,
 )
@@ -217,3 +219,130 @@ class TestActionKindEnum:
     def test_valid_set_has_four_members(self) -> None:
         assert len(VALID_ACTION_KINDS) == 4
         assert VALID_ACTION_KINDS == {"commit", "run_check", "push", "kill_process"}
+
+
+class TestActionRequestsFromPackets:
+    """Packet-projection helpers: canonical transport for action requests."""
+
+    def test_projects_pending_action_request_packets(self) -> None:
+        packets: list[dict[str, object]] = [
+            {
+                "packet_id": "rev_pkt_0001",
+                "kind": "action_request",
+                "status": "pending",
+                "requested_action": "commit",
+                "body": "-m 'fix typo'",
+            },
+            {
+                "packet_id": "rev_pkt_0002",
+                "kind": "action_request",
+                "status": "pending",
+                "requested_action": "push",
+                "body": "origin main",
+            },
+        ]
+        result = action_requests_from_packets(packets)
+        assert len(result) == 2
+        assert result[0].id == "rev_pkt_0001"
+        assert result[0].action == "commit"
+        assert result[0].payload == "-m 'fix typo'"
+        assert result[0].status == "pending"
+        assert result[1].action == "push"
+
+    def test_excludes_non_pending_packets(self) -> None:
+        packets: list[dict[str, object]] = [
+            {
+                "packet_id": "rev_pkt_0001",
+                "kind": "action_request",
+                "status": "applied",
+                "requested_action": "commit",
+                "body": "-m 'done'",
+            },
+            {
+                "packet_id": "rev_pkt_0002",
+                "kind": "action_request",
+                "status": "pending",
+                "requested_action": "push",
+                "body": "origin main",
+            },
+        ]
+        result = action_requests_from_packets(packets)
+        assert len(result) == 1
+        assert result[0].id == "rev_pkt_0002"
+
+    def test_excludes_non_action_request_packets(self) -> None:
+        packets: list[dict[str, object]] = [
+            {
+                "packet_id": "rev_pkt_0001",
+                "kind": "finding",
+                "status": "pending",
+                "requested_action": "review_only",
+                "body": "Some finding.",
+            },
+            {
+                "packet_id": "rev_pkt_0002",
+                "kind": "action_request",
+                "status": "pending",
+                "requested_action": "run_check",
+                "body": "--profile ci",
+            },
+        ]
+        result = action_requests_from_packets(packets)
+        assert len(result) == 1
+        assert result[0].action == "run_check"
+
+    def test_empty_packets_returns_empty(self) -> None:
+        assert action_requests_from_packets([]) == []
+
+    def test_render_from_packets_matches_legacy_format(self) -> None:
+        """Packet-projected rendering produces the same format as legacy parsing."""
+        packets: list[dict[str, object]] = [
+            {
+                "packet_id": "ar-001",
+                "kind": "action_request",
+                "status": "pending",
+                "requested_action": "commit",
+                "body": "-m 'fix typo'",
+            },
+        ]
+        rendered = render_action_requests_from_packets(packets)
+        parsed_back = parse_action_requests(rendered)
+        assert len(parsed_back) == 1
+        assert parsed_back[0].id == "ar-001"
+        assert parsed_back[0].action == "commit"
+        assert parsed_back[0].payload == "-m 'fix typo'"
+        assert parsed_back[0].status == "pending"
+
+    def test_render_from_packets_empty_returns_default(self) -> None:
+        rendered = render_action_requests_from_packets([])
+        assert rendered == default_section_body()
+
+    def test_no_second_queue_packet_and_legacy_converge(self) -> None:
+        """Prove there is no second queue: packet projection and legacy parsing
+        produce identical ActionRequest rows for the same logical state."""
+        packets: list[dict[str, object]] = [
+            {
+                "packet_id": "ar-001",
+                "kind": "action_request",
+                "status": "pending",
+                "requested_action": "commit",
+                "body": "-m 'fix typo'",
+            },
+            {
+                "packet_id": "ar-002",
+                "kind": "action_request",
+                "status": "pending",
+                "requested_action": "push",
+                "body": "origin feature/foo",
+            },
+        ]
+        # Packet projection path
+        from_packets = action_requests_from_packets(packets)
+        rendered_from_packets = render_action_requests_section(from_packets)
+
+        # Legacy bridge-text path round-trips through the same markdown
+        from_legacy = parse_action_requests(rendered_from_packets)
+        rendered_from_legacy = render_action_requests_section(from_legacy)
+
+        assert from_packets == from_legacy
+        assert rendered_from_packets == rendered_from_legacy

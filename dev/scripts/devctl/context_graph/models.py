@@ -46,6 +46,7 @@ NODE_KIND_GUARD = "guard"
 NODE_KIND_PROBE = "probe"
 NODE_KIND_GUIDE = "guide"
 NODE_KIND_CONCEPT = "concept"
+NODE_KIND_CAPABILITY = "capability"
 
 @dataclass(frozen=True)
 class GraphSize:
