@@ -1222,10 +1222,43 @@ class TestGuardBundleFromReviewScope(unittest.TestCase):
                 Path(td), role="reviewer", head_sha=new_sha,
                 sources_override=sources,
             )
-            # last_reviewed_sha != head_sha, worktree clean, so range diff used
+            # local diffs checked first (empty), then commit-range fallback
             self.assertEqual(packet.next_guard_bundle, "bundle.runtime")
+            mock_local.assert_called_once()
             mock_range.assert_called_once_with(Path(td), old_sha, new_sha)
-            mock_local.assert_not_called()
+
+    @patch(
+        "dev.scripts.devctl.commands.governance.session_resume_support"
+        "._git_commit_range_paths",
+        return_value=["README.md"],
+    )
+    @patch(
+        "dev.scripts.devctl.commands.governance.session_resume_support"
+        "._git_changed_paths",
+        return_value=["rust/src/bin/voiceterm/main.rs"],
+    )
+    def test_dirty_worktree_takes_priority_over_commit_range(
+        self, mock_local, mock_range,
+    ) -> None:
+        """Dirty local runtime changes must not be hidden by docs-only commit range."""
+        old_sha = "aaa111bbb222"
+        new_sha = "ccc333ddd444"
+        sources = self._make_sources(
+            receipt={"advisory_action": "continue"},
+            compact={
+                "bridge": {"head_at_push_time": old_sha},
+                "current_session": {},
+            },
+        )
+        with tempfile.TemporaryDirectory() as td:
+            packet = build_from_sources(
+                Path(td), role="reviewer", head_sha=new_sha,
+                sources_override=sources,
+            )
+            # Local runtime diff takes priority — NOT docs from commit range
+            self.assertEqual(packet.next_guard_bundle, "bundle.runtime")
+            mock_local.assert_called_once()
+            mock_range.assert_not_called()
 
 
 class TestReadModelPureProjection(unittest.TestCase):

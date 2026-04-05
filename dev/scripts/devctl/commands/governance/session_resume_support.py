@@ -236,22 +236,20 @@ def _resolve_guard_bundle(
 ) -> str:
     """Classify changed paths into the appropriate guard bundle name.
 
-    Uses classify_lane from the check-router to determine which bundle
-    applies to the current change set.  When ``last_reviewed_sha`` differs
-    from ``head_sha`` and no explicit ``changed_paths`` are provided, the
-    diff between those two commits is used instead of local worktree diffs.
-    This ensures reviewer bootstrap on a clean worktree still gets the
-    correct bundle hint.
+    Source precedence: (1) explicit ``changed_paths``, (2) live local
+    worktree diffs, (3) commit-range fallback only when local diffs are
+    empty and ``last_reviewed_sha != head_sha``.  This ensures dirty
+    local changes always take priority over older commit-range diffs.
 
     Returns empty string when classification is unavailable (import fails
     or no paths provided).
     """
     if changed_paths is not None:
         paths = changed_paths
-    elif last_reviewed_sha and head_sha and last_reviewed_sha != head_sha:
-        paths = _git_commit_range_paths(repo_root, last_reviewed_sha, head_sha)
     else:
         paths = _git_changed_paths(repo_root)
+        if not paths and last_reviewed_sha and head_sha and last_reviewed_sha != head_sha:
+            paths = _git_commit_range_paths(repo_root, last_reviewed_sha, head_sha)
     if not paths:
         return ""
     try:
