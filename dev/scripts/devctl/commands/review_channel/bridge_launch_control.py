@@ -72,6 +72,7 @@ def prepare_rollover_bundle(
         )
     except (ValueError, OSError):
         rollover_hash = None
+    rollover_provider = str(getattr(args, "rollover_provider", "") or "")
     handoff_bundle = write_handoff_bundle(
         repo_root=repo_root,
         bridge_path=bridge_path,
@@ -81,6 +82,7 @@ def prepare_rollover_bundle(
         threshold_pct=args.rollover_threshold_pct,
         lane_assignments=[_lane_assignment_dict(lane) for lane in lanes],
         current_worktree_hash=rollover_hash,
+        rollover_provider=rollover_provider,
     )
     return handoff_bundle, [
         "Planned rollover created a repo-visible handoff bundle. "

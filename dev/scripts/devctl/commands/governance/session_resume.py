@@ -5,6 +5,7 @@ from __future__ import annotations
 from ...common import add_standard_output_arguments
 from ...config import get_repo_root
 from .common import emit_governance_command_output
+from .session_resume_paths import get_review_state_mtime
 from .session_resume_support import (
     SessionCachePacket,
     build_from_sources,
@@ -36,8 +37,14 @@ def run(args) -> int:
     repo_root = get_repo_root()
     role = getattr(args, "role", "implementer") or "implementer"
     head_sha = current_head(repo_root)
+    rs_mtime = get_review_state_mtime(repo_root)
 
-    cached = try_cache_hit(repo_root, head_sha=head_sha, role=role)
+    cached = try_cache_hit(
+        repo_root,
+        head_sha=head_sha,
+        role=role,
+        review_state_mtime=rs_mtime,
+    )
     if cached is not None:
         return _emit_packet(args, cached)
 

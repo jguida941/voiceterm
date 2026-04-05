@@ -265,6 +265,10 @@ def build_bridge_sessions(
     effective_resolve_cli_path = resolve_cli_path_fn
     if resolve_cli_path_fn is resolve_cli_path:
         effective_resolve_cli_path = _resolve_cli_path_or_provider_name
+    rollover_provider = str(getattr(args, "rollover_provider", "") or "")
+    interaction_mode = str(
+        getattr(args, "operator_interaction_mode", "") or ""
+    )
     return build_launch_sessions_fn(
         request=LaunchSessionRequest(
             repo_root=context.repo_root,
@@ -295,6 +299,8 @@ def build_bridge_sessions(
             if isinstance(context.script_dir, Path)
             else None,
             session_output_root=context.status_dir,
+            rollover_provider=rollover_provider,
+            interaction_mode=interaction_mode,
         ),
         resolve_cli_path_fn=effective_resolve_cli_path,
     )

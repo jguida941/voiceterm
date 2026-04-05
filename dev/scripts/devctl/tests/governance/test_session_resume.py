@@ -10,6 +10,10 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 from dev.scripts.devctl.commands.governance.session_resume import run
+from dev.scripts.devctl.commands.governance.session_resume_paths import (
+    get_review_state_mtime,
+    resolve_source_paths,
+)
 from dev.scripts.devctl.commands.governance.session_resume_support import (
     SessionCachePacket,
     build_from_sources,
@@ -167,6 +171,37 @@ class TestCacheHitMiss(unittest.TestCase):
             self.assertIsNotNone(result)
             self.assertEqual(result.branch, "main")
 
+    def test_cache_miss_review_state_mtime_changed(self) -> None:
+        """Cache invalidates when review_state.json mtime changes without a commit."""
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            cache_dir = root / "dev" / "reports" / "session_cache" / "latest"
+            cache_dir.mkdir(parents=True)
+            pkt = SessionCachePacket(
+                head_sha="abc123", role="implementer", review_state_mtime=1000.0,
+            )
+            (cache_dir / "cache.json").write_text(json.dumps(pkt.to_dict()))
+            # Same head and role but different mtime triggers a miss
+            self.assertIsNone(try_cache_hit(
+                root, head_sha="abc123", role="implementer", review_state_mtime=2000.0,
+            ))
+
+    def test_cache_hit_with_matching_mtime(self) -> None:
+        """Cache hits when head, role, and review_state mtime all match."""
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            cache_dir = root / "dev" / "reports" / "session_cache" / "latest"
+            cache_dir.mkdir(parents=True)
+            pkt = SessionCachePacket(
+                head_sha="abc123", role="implementer", review_state_mtime=42.5,
+            )
+            (cache_dir / "cache.json").write_text(json.dumps(pkt.to_dict()))
+            result = try_cache_hit(
+                root, head_sha="abc123", role="implementer", review_state_mtime=42.5,
+            )
+            self.assertIsNotNone(result)
+            self.assertEqual(result.review_state_mtime, 42.5)
+
     def test_write_creates_file(self) -> None:
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)
@@ -193,7 +228,11 @@ class TestBuildFromSources(unittest.TestCase):
         base.update(overrides)
         (receipt_dir / "receipt.json").write_text(json.dumps(base))
 
-    def test_build_with_receipt_and_compact(self) -> None:
+    @patch(
+        "dev.scripts.devctl.commands.governance.session_resume_paths.scan_repo_governance_safely",
+        return_value=None,
+    )
+    def test_build_with_receipt_and_compact(self, _mock_gov) -> None:
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)
             self._write_receipt(root)
@@ -217,12 +256,127 @@ class TestBuildFromSources(unittest.TestCase):
             self.assertTrue(packet.last_guard_ok)
             self.assertIn("ack_current=True", packet.key_rules)
 
-    def test_build_no_artifacts(self) -> None:
+    @patch(
+        "dev.scripts.devctl.commands.governance.session_resume_paths.scan_repo_governance_safely",
+        return_value=None,
+    )
+    def test_build_no_artifacts(self, _mock_gov) -> None:
         with tempfile.TemporaryDirectory() as td:
             packet = build_from_sources(Path(td), role="reviewer", head_sha="sha2")
             self.assertEqual(packet.role, "reviewer")
             self.assertEqual(packet.blockers, "startup_authority")
             self.assertFalse(packet.last_guard_ok)
+
+
+class TestRepoPackPaths(unittest.TestCase):
+    """Paths resolve from active_path_config, not hardcoded literals."""
+
+    @patch("dev.scripts.devctl.commands.governance.session_resume_paths.active_path_config")
+    def test_resolve_source_paths_uses_active_config(self, mock_config) -> None:
+        """resolve_source_paths reads review_status_dir_rel from repo-pack config."""
+        from dev.scripts.devctl.repo_packs.voiceterm import RepoPathConfig
+
+        custom = RepoPathConfig(review_status_dir_rel="custom/status/dir")
+        mock_config.return_value = custom
+        with tempfile.TemporaryDirectory() as td:
+            paths = resolve_source_paths(Path(td), governance=None)
+            self.assertEqual(paths["review_state"], Path("custom/status/dir/review_state.json"))
+            self.assertEqual(paths["compact"], Path("custom/status/dir/compact.json"))
+
+    @patch("dev.scripts.devctl.commands.governance.session_resume_paths.active_path_config")
+    def test_get_review_state_mtime_uses_config_path(self, mock_config) -> None:
+        """get_review_state_mtime resolves the review_state path via repo-pack config."""
+        from dev.scripts.devctl.repo_packs.voiceterm import RepoPathConfig
+
+        custom = RepoPathConfig(review_status_dir_rel="alt/review")
+        mock_config.return_value = custom
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            alt_dir = root / "alt" / "review"
+            alt_dir.mkdir(parents=True)
+            rs_path = alt_dir / "review_state.json"
+            rs_path.write_text(json.dumps({"current_session": {}}))
+            mtime = get_review_state_mtime(root, governance=None)
+            self.assertGreater(mtime, 0.0)
+
+    @patch("dev.scripts.devctl.commands.governance.session_resume_paths.active_path_config")
+    def test_get_review_state_mtime_absent_file(self, mock_config) -> None:
+        from dev.scripts.devctl.repo_packs.voiceterm import RepoPathConfig
+
+        mock_config.return_value = RepoPathConfig()
+        with tempfile.TemporaryDirectory() as td:
+            self.assertEqual(get_review_state_mtime(Path(td), governance=None), 0.0)
+
+
+class TestGovernanceInteractionMode(unittest.TestCase):
+    """interaction_mode reads from governance BridgeConfig first, not reviewer_mode."""
+
+    def _make_governance(self, interaction_mode: str):
+        """Build a minimal ProjectGovernance with the given interaction_mode."""
+        from dev.scripts.devctl.runtime.project_governance_contract import (
+            ArtifactRoots,
+            BridgeConfig,
+            BundleOverrides,
+            EnabledChecks,
+            MemoryRoots,
+            PathRoots,
+            PlanRegistry,
+            ProjectGovernance,
+            RepoIdentity,
+            RepoPackRef,
+        )
+
+        return ProjectGovernance(
+            schema_version=1,
+            contract_id="ProjectGovernance",
+            repo_identity=RepoIdentity(repo_name="test"),
+            repo_pack=RepoPackRef(pack_id="test"),
+            path_roots=PathRoots(),
+            plan_registry=PlanRegistry(),
+            artifact_roots=ArtifactRoots(),
+            memory_roots=MemoryRoots(),
+            bridge_config=BridgeConfig(operator_interaction_mode=interaction_mode),
+            enabled_checks=EnabledChecks(),
+            bundle_overrides=BundleOverrides(overrides={}),
+        )
+
+    def test_governance_mode_overrides_compact(self) -> None:
+        """When governance says active_dual_agent, compact's reviewer_mode is ignored."""
+        gov = self._make_governance("active_dual_agent")
+        compact = {"collaboration": {"reviewer_mode": "single_agent"}}
+        self.assertEqual(
+            derive_interaction_mode(compact, governance=gov),
+            "active_dual_agent",
+        )
+
+    def test_governance_local_terminal_overrides_compact(self) -> None:
+        """When governance says local_terminal, compact's dual-agent is ignored."""
+        gov = self._make_governance("local_terminal")
+        compact = {"collaboration": {"reviewer_mode": "active_dual_agent"}}
+        self.assertEqual(
+            derive_interaction_mode(compact, governance=gov),
+            "local_terminal",
+        )
+
+    def test_empty_governance_falls_through_to_compact(self) -> None:
+        """When governance has empty interaction_mode, compact is used as fallback."""
+        gov = self._make_governance("")
+        compact = {"collaboration": {"reviewer_mode": "active_dual_agent"}}
+        self.assertEqual(
+            derive_interaction_mode(compact, governance=gov),
+            "active_dual_agent",
+        )
+
+    def test_no_governance_falls_through_to_compact(self) -> None:
+        """Without governance, compact determines the mode (backward compat)."""
+        compact = {"collaboration": {"reviewer_mode": "active_dual_agent"}}
+        self.assertEqual(
+            derive_interaction_mode(compact, governance=None),
+            "active_dual_agent",
+        )
+
+    def test_no_governance_no_compact(self) -> None:
+        self.assertEqual(derive_interaction_mode(None, governance=None), "local_terminal")
 
 
 _PATCH_HEAD = "dev.scripts.devctl.commands.governance.session_resume.current_head"

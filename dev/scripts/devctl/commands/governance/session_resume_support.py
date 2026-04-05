@@ -6,17 +6,22 @@ import json
 import subprocess
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from ...time_utils import utc_timestamp
+from .session_resume_paths import (
+    get_review_state_mtime,
+    governance_interaction_mode,
+    resolve_governance,
+    resolve_source_paths,
+)
+
+if TYPE_CHECKING:
+    from ...runtime.project_governance import ProjectGovernance
 
 
 SESSION_CACHE_RELATIVE_DIR = Path("dev/reports/session_cache/latest")
 SESSION_CACHE_FILENAME = "cache.json"
-_RECEIPT_RELATIVE_PATH = Path("dev/reports/startup/latest/receipt.json")
-_REVIEW_STATE_RELATIVE_PATH = Path("dev/reports/review_channel/latest/review_state.json")
-_COMPACT_RELATIVE_PATH = Path("dev/reports/review_channel/latest/compact.json")
-
 
 @dataclass(frozen=True, slots=True)
 class SessionCachePacket:
@@ -37,6 +42,7 @@ class SessionCachePacket:
     ack_state: str = "missing"
     open_findings: str = ""
     last_guard_ok: bool = True
+    review_state_mtime: float = 0.0
     done_summary: str = ""
     next_action: str = ""
     key_rules: tuple[str, ...] = ()
@@ -47,16 +53,14 @@ class SessionCachePacket:
         return payload
 
 
-# -- cache hit / miss helpers ------------------------------------------------
-
-
 def try_cache_hit(
     repo_root: Path,
     *,
     head_sha: str,
     role: str,
+    review_state_mtime: float = 0.0,
 ) -> SessionCachePacket | None:
-    """Return the cached packet when it matches current HEAD and role."""
+    """Return the cached packet when it matches current HEAD, role, and review state."""
     cache_path = repo_root / SESSION_CACHE_RELATIVE_DIR / SESSION_CACHE_FILENAME
     if not cache_path.is_file():
         return None
@@ -69,6 +73,9 @@ def try_cache_hit(
     if str(payload.get("head_sha") or "").strip() != head_sha:
         return None
     if str(payload.get("role") or "").strip() != role:
+        return None
+    cached_mtime = float(payload.get("review_state_mtime") or 0.0)
+    if review_state_mtime != cached_mtime:
         return None
     return packet_from_mapping(payload)
 
@@ -84,19 +91,20 @@ def write_cache(repo_root: Path, packet: SessionCachePacket) -> None:
     )
 
 
-# -- source-artifact loading --------------------------------------------------
-
-
 def build_from_sources(
     repo_root: Path,
     *,
     role: str,
     head_sha: str,
+    governance: "ProjectGovernance | None" = None,
 ) -> SessionCachePacket:
     """Build a fresh packet from receipt, compact, and review-state sources."""
-    receipt = _load_json(repo_root / _RECEIPT_RELATIVE_PATH)
-    compact = _load_json(repo_root / _COMPACT_RELATIVE_PATH)
-    review_state = _load_json(repo_root / _REVIEW_STATE_RELATIVE_PATH)
+    resolved_governance = resolve_governance(repo_root, governance=governance)
+    paths = resolve_source_paths(repo_root, governance=resolved_governance)
+
+    receipt = _load_json(repo_root / paths["receipt"])
+    compact = _load_json(repo_root / paths["compact"])
+    review_state = _load_json(repo_root / paths["review_state"])
 
     branch = _str_field(receipt, "current_branch")
     advisory_action = _str_field(receipt, "advisory_action")
@@ -121,9 +129,10 @@ def build_from_sources(
         safe_to_continue=safe_to_continue,
         authority_ok=authority_ok,
     )
-    interaction_mode = derive_interaction_mode(compact)
+    interaction_mode = derive_interaction_mode(compact, governance=resolved_governance)
     next_action = derive_next_action(receipt, blockers)
     done_summary = _derive_done_summary(receipt)
+    rs_mtime = get_review_state_mtime(repo_root, governance=resolved_governance)
     key_rules = distill_key_rules(
         safe_to_continue=safe_to_continue,
         checkpoint_required=checkpoint_required,
@@ -146,13 +155,11 @@ def build_from_sources(
         ack_state=ack_state,
         open_findings=open_findings,
         last_guard_ok=last_guard_ok,
+        review_state_mtime=rs_mtime,
         done_summary=done_summary,
         next_action=next_action,
         key_rules=key_rules,
     )
-
-
-# -- field extraction helpers --------------------------------------------------
 
 
 def compute_blockers(
@@ -171,7 +178,15 @@ def compute_blockers(
     return ",".join(parts) if parts else "none"
 
 
-def derive_interaction_mode(compact: dict[str, Any] | None) -> str:
+def derive_interaction_mode(
+    compact: dict[str, Any] | None,
+    *,
+    governance: "ProjectGovernance | None" = None,
+) -> str:
+    """Derive interaction mode, preferring governance BridgeConfig over compact."""
+    gov_mode = governance_interaction_mode(governance)
+    if gov_mode:
+        return gov_mode
     if compact is None:
         return "local_terminal"
     collab = _nested_dict(compact, "collaboration")
@@ -213,9 +228,6 @@ def distill_key_rules(
         f"last_guard_ok={last_guard_ok}",
     ]
     return tuple(rules)
-
-
-# -- rendering -----------------------------------------------------------------
 
 
 def render_markdown(packet: SessionCachePacket) -> str:
@@ -267,9 +279,6 @@ def render_summary(packet: SessionCachePacket) -> str:
     return "\n".join(lines)
 
 
-# -- git helper ----------------------------------------------------------------
-
-
 def current_head(repo_root: Path) -> str:
     try:
         result = subprocess.run(
@@ -283,9 +292,6 @@ def current_head(repo_root: Path) -> str:
         return result.stdout.strip() if result.returncode == 0 else ""
     except (OSError, subprocess.TimeoutExpired):
         return ""
-
-
-# -- mapping restoration -------------------------------------------------------
 
 
 def packet_from_mapping(payload: dict[str, Any]) -> SessionCachePacket:
@@ -305,15 +311,13 @@ def packet_from_mapping(payload: dict[str, Any]) -> SessionCachePacket:
         ack_state=str(payload.get("ack_state") or "missing").strip(),
         open_findings=str(payload.get("open_findings") or "").strip(),
         last_guard_ok=bool(payload.get("last_guard_ok", True)),
+        review_state_mtime=float(payload.get("review_state_mtime") or 0.0),
         done_summary=str(payload.get("done_summary") or "").strip(),
         next_action=str(payload.get("next_action") or "").strip(),
         key_rules=tuple(
             str(r).strip() for r in payload.get("key_rules", ()) if str(r).strip()
         ),
     )
-
-
-# -- low-level helpers ---------------------------------------------------------
 
 
 def _load_json(path: Path) -> dict[str, Any] | None:

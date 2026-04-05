@@ -187,6 +187,8 @@ def build_launch_sessions(
             prepared_at=prepared_at,
             log_path=log_path,
             metadata_path=metadata_path,
+            interaction_mode=request.interaction_mode,
+            rollover_provider=request.rollover_provider,
         )
         session_record.write_metadata()
         script_path = build_session_script(
@@ -199,6 +201,7 @@ def build_launch_sessions(
             script_path=script_path,
             log_path=log_path,
             resolve_cli_path_fn=resolve_cli_path_fn,
+            interaction_mode=request.interaction_mode,
         )
         session_record.script_path = script_path
         sessions.append(

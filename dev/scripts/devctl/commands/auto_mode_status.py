@@ -14,6 +14,8 @@ from pathlib import Path
 
 from ..common import emit_output, write_output
 from ..config import REPO_ROOT
+from ..repo_packs import active_path_config
+from ..review_channel.action_request import action_requests_from_packets
 from ..runtime.auto_mode import (
     AUTO_MODE_CONTRACT_ID,
     AUTO_MODE_SCHEMA_VERSION,
@@ -22,6 +24,7 @@ from ..runtime.auto_mode import (
     AutoModeState,
     resolve_auto_mode_phase,
 )
+from ..runtime.governance_scan import scan_repo_governance_safely
 from ..time_utils import utc_timestamp
 
 
@@ -67,9 +70,12 @@ def _collect_inputs() -> AutoModeInputs:
     push_action, push_reason, worktree_clean, review_allows = (
         _read_push_decision()
     )
-    reviewer_mode, impl_blocked, impl_status = _read_review_state()
+    reviewer_mode, impl_blocked, impl_status, pending_actions = (
+        _read_review_state()
+    )
     guard_ok = _read_guard_status()
     head_commit = _read_head_commit()
+    interaction_mode = _resolve_interaction_mode()
     return AutoModeInputs(
         push_decision_action=push_action,
         push_decision_reason=push_reason,
@@ -80,15 +86,26 @@ def _collect_inputs() -> AutoModeInputs:
         implementer_status=impl_status,
         last_guard_ok=guard_ok,
         current_head_commit=head_commit,
-        pending_action_requests=0,
-        operator_interaction_mode="local_terminal",
+        pending_action_requests=pending_actions,
+        operator_interaction_mode=interaction_mode,
         timestamp_utc=utc_timestamp(),
     )
 
 
 def _read_push_decision() -> tuple[str, str, bool, bool]:
-    """Read the latest startup-context push decision from its receipt."""
-    receipt_path = REPO_ROOT / "dev" / "reports" / "startup_receipt.json"
+    """Read the latest startup-context push decision from its receipt.
+
+    Derives the receipt path from ``active_path_config()`` so the resolution
+    stays portable across repo-packs.
+    """
+    config = active_path_config()
+    receipt_path = (
+        REPO_ROOT
+        / config.reports_root_rel
+        / "startup"
+        / "latest"
+        / "receipt.json"
+    )
     if not receipt_path.is_file():
         return "", "", _worktree_is_clean(), False
     try:
@@ -104,27 +121,43 @@ def _read_push_decision() -> tuple[str, str, bool, bool]:
     )
 
 
-def _read_review_state() -> tuple[str, bool, str]:
-    """Read reviewer mode and implementation block from review_state.json."""
+def _read_review_state() -> tuple[str, bool, str, int]:
+    """Read reviewer mode, implementation block, and pending actions from review_state.
+
+    Returns (reviewer_mode, implementation_blocked, implementer_status,
+    pending_action_requests).  Pending actions are counted from the packet
+    queue so the auto-mode state machine reflects live remote-control demand.
+    """
     from ..runtime.review_state_locator import resolve_review_state_path
 
     rs_path = resolve_review_state_path(REPO_ROOT)
     if rs_path is None or not rs_path.is_file():
-        return "single_agent", False, ""
+        return "single_agent", False, "", 0
     try:
         payload = json.loads(rs_path.read_text(encoding="utf-8"))
     except (json.JSONDecodeError, OSError):
-        return "single_agent", False, ""
+        return "single_agent", False, "", 0
     reviewer_mode = str(payload.get("reviewer_mode", "single_agent"))
     session = payload.get("current_session") or {}
     impl_status = str(session.get("implementer_status", ""))
     blocked = bool(payload.get("implementation_blocked", False))
-    return reviewer_mode, blocked, impl_status
+    packets = payload.get("packets")
+    pending_count = (
+        len(action_requests_from_packets(packets))
+        if isinstance(packets, list)
+        else 0
+    )
+    return reviewer_mode, blocked, impl_status, pending_count
 
 
 def _read_guard_status() -> bool:
-    """Return True when the last guard run passed (or no report exists)."""
-    report_path = REPO_ROOT / "dev" / "reports" / "check_report.json"
+    """Return True when the last guard run passed (or no report exists).
+
+    Derives the report path from ``active_path_config()`` so guard-status
+    resolution stays portable across repo-packs.
+    """
+    config = active_path_config()
+    report_path = REPO_ROOT / config.reports_root_rel / "check_report.json"
     if not report_path.is_file():
         return True
     try:
@@ -140,6 +173,34 @@ def _read_head_commit() -> str:
 
     code, out, _ = run_git_capture(["rev-parse", "HEAD"])
     return out if code == 0 else ""
+
+
+def _resolve_interaction_mode() -> str:
+    """Read operator_interaction_mode from governance, falling back to review_state.
+
+    Governance is the preferred source (matches session-resume).  When
+    governance is unavailable the follow-controller's ``operator_interaction_mode``
+    field from review_state provides the live runtime value.
+    """
+    governance = scan_repo_governance_safely(REPO_ROOT)
+    if governance is not None:
+        mode = str(
+            governance.bridge_config.operator_interaction_mode or ""
+        ).strip()
+        if mode:
+            return mode
+    from ..runtime.review_state_locator import resolve_review_state_path
+
+    rs_path = resolve_review_state_path(REPO_ROOT)
+    if rs_path is not None and rs_path.is_file():
+        try:
+            payload = json.loads(rs_path.read_text(encoding="utf-8"))
+            mode = str(payload.get("operator_interaction_mode") or "").strip()
+            if mode:
+                return mode
+        except (json.JSONDecodeError, OSError):
+            pass
+    return "local_terminal"
 
 
 def _worktree_is_clean() -> bool:
