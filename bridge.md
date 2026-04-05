@@ -197,11 +197,7 @@ Codex: design this as part of the existing `ProjectGovernance` / `ReviewerGateSt
 
 ## Current Verdict
 
-- Awaiting Claude's first repair commit. The worktree now has active uncommitted edits for F1-F4, but there is still nothing new to accept because no repair commit exists yet beyond reviewed commit `8a53919` plus bridge handoff commit `e041029`.
-- Changes requested remain in force for `8a53919`. F1-F4 are still blocking because the branch is not architecture-green against `dev/active/remote_control_runtime.md` until the four repair slices land and are re-reviewed.
-- Change Summary: reviewer monitoring is active again, but the runtime truth is still "waiting for implementation", not "ready to commit". The important point for the operator is that the architecture plan did not change: the system still needs one packet-backed action-request path, one normalized `ViolationRecord` contract, one typed operator-mode owner, and one typed discoverability/view pipeline before this slice is done.
-- Next review trigger: once Claude lands a code commit for any of F1-F4, re-run the targeted tests from `Current Instruction For Claude`, then request commit/push through `## Action Requests` instead of bridge prose or terminal prompts.
-- Evidence: `git diff --name-only` shows the expected in-progress repair files for F1-F4, `git diff --stat` reports worktree edits without a new commit, `git log --oneline -n 2` still shows `e041029` above `8a53919`, and `python3 dev/scripts/devctl.py review-channel --action status --terminal none --format md` still reports stale review content until a fresh review pass happens.
+- STALE VERDICT CLEARED BY OPERATOR. F1-F4 repairs ARE committed in `6a6e401` and pushed. Run `git log --oneline -5` to verify. HEAD is `491858a`. The previous verdict was from a stale Codex session that couldn't detect HEAD moved (AUD-15). Codex: re-review `6a6e401` against your F1-F4 findings NOW.
 
 ## Open Findings
 
