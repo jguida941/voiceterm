@@ -376,5 +376,164 @@ class StatusProjectionPacketCountTests(unittest.TestCase):
         self.assertNotIn("dismissed", counts)
 
 
+class AutoModeFromControlPlaneReadModelTests(unittest.TestCase):
+    """Verify auto-mode derives inputs from ControlPlaneReadModel."""
+
+    def _build_model(self, **overrides):
+        from dev.scripts.devctl.runtime.control_plane_read_model import (
+            build_control_plane_read_model,
+        )
+        from pathlib import Path
+
+        sources = {
+            "receipt": None,
+            "review_state": None,
+            "push_report": None,
+            "publisher_hb": None,
+            "supervisor_hb": None,
+            "codex_conductor": None,
+            "claude_conductor": None,
+            "full_json": None,
+            "compact_json": None,
+        }
+        git = {
+            "branch": "feature/test",
+            "head": "abc1234",
+            "clean": True,
+            "ahead": 0,
+        }
+        sources.update(overrides.pop("sources", {}))
+        git.update(overrides.pop("git", {}))
+        return build_control_plane_read_model(
+            Path("/tmp/nonexistent"),
+            sources_override=sources,
+            git_override=git,
+        )
+
+    def test_idle_from_empty_read_model(self) -> None:
+        from dev.scripts.devctl.commands.auto_mode_status import (
+            inputs_from_read_model,
+        )
+
+        model = self._build_model()
+        inputs = inputs_from_read_model(model)
+        state = resolve_auto_mode_phase(inputs)
+        self.assertEqual(state.phase, "idle")
+        self.assertEqual(inputs.operator_interaction_mode, "local_terminal")
+        self.assertTrue(inputs.last_guard_ok)
+
+    def test_pushing_from_read_model_with_push_receipt(self) -> None:
+        from dev.scripts.devctl.commands.auto_mode_status import (
+            inputs_from_read_model,
+        )
+
+        model = self._build_model(
+            sources={"receipt": {"push_action": "run_devctl_push"}},
+        )
+        inputs = inputs_from_read_model(model)
+        state = resolve_auto_mode_phase(inputs)
+        self.assertEqual(state.phase, "pushing")
+        self.assertEqual(inputs.push_decision_action, "run_devctl_push")
+
+    def test_testing_from_read_model_with_guard_failure(self) -> None:
+        from dev.scripts.devctl.commands.auto_mode_status import (
+            inputs_from_read_model,
+        )
+
+        model = self._build_model(
+            sources={
+                "push_report": {"preflight_step": {"returncode": 1}},
+            },
+        )
+        inputs = inputs_from_read_model(model)
+        state = resolve_auto_mode_phase(inputs)
+        self.assertEqual(state.phase, "testing")
+        self.assertFalse(inputs.last_guard_ok)
+
+    def test_implementing_from_dirty_worktree(self) -> None:
+        from dev.scripts.devctl.commands.auto_mode_status import (
+            inputs_from_read_model,
+        )
+
+        model = self._build_model(git={"clean": False})
+        inputs = inputs_from_read_model(model)
+        state = resolve_auto_mode_phase(inputs)
+        self.assertEqual(state.phase, "implementing")
+        self.assertFalse(inputs.worktree_clean)
+
+    def test_reviewer_mode_propagates_from_read_model(self) -> None:
+        from dev.scripts.devctl.commands.auto_mode_status import (
+            inputs_from_read_model,
+        )
+
+        model = self._build_model(
+            sources={
+                "review_state": {
+                    "bridge": {"reviewer_mode": "active_dual_agent"},
+                },
+            },
+        )
+        inputs = inputs_from_read_model(model)
+        state = resolve_auto_mode_phase(inputs)
+        self.assertEqual(inputs.reviewer_mode, "active_dual_agent")
+        self.assertTrue(state.reviewer_alive)
+
+    def test_head_sha_propagates(self) -> None:
+        from dev.scripts.devctl.commands.auto_mode_status import (
+            inputs_from_read_model,
+        )
+
+        model = self._build_model(git={"head": "deadbeef9876"})
+        inputs = inputs_from_read_model(model)
+        self.assertEqual(inputs.current_head_commit, "deadbeef9876")
+
+    def test_pending_actions_propagate(self) -> None:
+        from dev.scripts.devctl.commands.auto_mode_status import (
+            inputs_from_read_model,
+        )
+
+        model = self._build_model(
+            sources={
+                "review_state": {
+                    "packets": [
+                        {"status": "pending", "packet_id": "p1"},
+                        {"status": "pending", "packet_id": "p2"},
+                        {"status": "acked", "packet_id": "p3"},
+                    ],
+                },
+            },
+        )
+        inputs = inputs_from_read_model(model)
+        self.assertEqual(inputs.pending_action_requests, 2)
+
+    def test_implementation_blocked_propagates(self) -> None:
+        from dev.scripts.devctl.commands.auto_mode_status import (
+            inputs_from_read_model,
+        )
+
+        model = self._build_model(
+            sources={"receipt": {"implementation_blocked": True}},
+        )
+        inputs = inputs_from_read_model(model)
+        state = resolve_auto_mode_phase(inputs)
+        self.assertTrue(inputs.implementation_blocked)
+        self.assertEqual(state.phase, "reviewing")
+
+    def test_read_model_and_direct_inputs_agree_on_phase(self) -> None:
+        """The read-model path and direct AutoModeInputs produce the same phase."""
+        from dev.scripts.devctl.commands.auto_mode_status import (
+            inputs_from_read_model,
+        )
+
+        model = self._build_model(
+            sources={"receipt": {"push_action": "await_review"}},
+        )
+        from_model = resolve_auto_mode_phase(inputs_from_read_model(model))
+        from_direct = resolve_auto_mode_phase(AutoModeInputs(
+            push_decision_action="await_review",
+        ))
+        self.assertEqual(from_model.phase, from_direct.phase)
+
+
 if __name__ == "__main__":
     unittest.main()
