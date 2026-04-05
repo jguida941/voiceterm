@@ -201,7 +201,7 @@ Round 7 found 0 new well-integrated subsystems in the outer ring.
 
 ## Operator Visibility Gaps (from live testing 2026-04-04)
 
-- AUD-16 (CODEX OUTPUT TRUNCATION): Codex CLI truncates tool output to `… +N lines` in the terminal. Operator sees ~20% of actual guard/check results. In remote-control mode, Codex should write full output to typed artifacts that the dashboard renders. Conductor log captures everything but nobody surfaces it.
+- AUD-16 (CODEX OUTPUT TRUNCATION + DESIGN AROUND): Codex CLI truncates tool output to `… +N lines`. Operator sees ~20%. Claude shows everything (ctrl+o to expand). Design around this: Codex writes full results to TYPED ARTIFACTS (review_state.json, check reports, verdict artifacts), not terminal. Dashboard reads artifacts and shows everything with expand/collapse — summary view by default, full detail on demand. Codex terminal becomes the ENGINE, dashboard becomes the UI. Short summary in bridge, full evidence in typed files. Same expand/collapse UX as Claude's ctrl+o but through our dashboard rendering. This means the operator never needs to read Codex's terminal directly.
 - AUD-17 (USER TIMEZONE): All timestamps should render in the operator's timezone, not UTC. `OperatorContext` needs a `timezone` field (e.g. `America/New_York`). Every surface reads it.
 - AUD-18 (CONTINUOUS UPDATE LOOP): Claude must update the operator at a user-set interval without stopping. No gaps. The operator should never have to say "what's going on" or "keep updating me." This is part of the auto-mode state machine (Q1 in bridge).
 
