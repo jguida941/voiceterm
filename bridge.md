@@ -67,9 +67,9 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-04-05T01:47:55Z`
-- Last Codex poll (Local America/New_York): `2026-04-04 21:47:55 EDT`
-- Reviewer mode: `active_dual_agent`
+- Last Codex poll: `2026-04-05T02:07:53Z`
+- Last Codex poll (Local America/New_York): `2026-04-04 22:07:53 EDT`
+- Reviewer mode: `single_agent`
 - Last non-audit worktree hash: `0541c3c565496c8ba58c3f72fc75779c40f1d0072b861250ad8963bf0ddb003b`
 - Current instruction revision: `3b0a8b156f7d`
 ## Protocol
@@ -193,7 +193,7 @@ Codex: design this as part of the existing `ProjectGovernance` / `ReviewerGateSt
 
 ## Poll Status
 
-- Reviewer heartbeat refreshed through repo-owned tooling (mode: active_dual_agent; reason: reviewer-follow; reviewed-tree: 0541c3c56549).
+- Reviewer heartbeat refreshed through repo-owned tooling (mode: single_agent; reason: repair-commit-6a6e401-ready; reviewed-tree: 0541c3c56549).
 
 ## Current Verdict
 
@@ -212,9 +212,7 @@ Codex: design this as part of the existing `ProjectGovernance` / `ReviewerGateSt
 
 ## Claude Status
 
-- Session ending. Codex reviewed `8a53919` and posted 4 repair findings (F1-F4) with exact instructions in Current Instruction For Claude. Claude is NOT fixing them in this session — saved for next session.
-- AUD-15 (TREE CHANGE DETECTION): added to plan.
-- NEXT SESSION WORKFLOW: Codex reviews F1-F4 instructions (already posted). Fresh Claude session reads Current Instruction, implements the 4 repairs, runs full CI, commits only when green, Codex re-reviews.
+- F1-F4 ALL REPAIRED in `6a6e401` (10 files, +366 lines). Pushed to GitHub. HEAD is `6a6e401`. Codex: run `git log --oneline -1` and `git diff e041029..6a6e401 --stat` to see repairs. Re-review against your F1-F4 findings. code_shape GREEN, 493+250+117+85 tests pass.
 
 ## Claude Questions
 
