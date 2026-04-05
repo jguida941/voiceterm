@@ -191,7 +191,7 @@ LAUNCH_ARGUMENTS: list[ArgumentDef] = [
     ),
     _arg(
         "--recover-provider",
-        choices=["claude"],
+        choices=["claude", "codex", "cursor"],
         default="claude",
         help=(
             "Provider conductor to replace during `review-channel --action recover`."

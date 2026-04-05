@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from .review_state_models import ConductorCapabilityState
-from .role_profile import TandemRole, role_for_provider
+from .role_profile import TandemRole, normalize_tandem_role, role_for_provider
 
 _STARTUP_CONTEXT_BASE_COMMAND = "python3 dev/scripts/devctl.py startup-context"
 _SESSION_RESUME_BASE_COMMAND = "python3 dev/scripts/devctl.py session-resume"
@@ -47,11 +47,14 @@ def build_conductor_capability_state(
     *,
     provider: str,
     reviewer_mode: str,
+    role: str | None = None,
 ) -> ConductorCapabilityState:
     """Return the typed execution capability for one conductor."""
-    role = role_for_provider(provider).value
+    resolved_role = (
+        normalize_tandem_role(role) or role_for_provider(provider)
+    ).value
     normalized_mode = normalize_reviewer_mode(reviewer_mode)
-    if role == TandemRole.REVIEWER.value:
+    if resolved_role == TandemRole.REVIEWER.value:
         return _reviewer_capability(
             provider=provider,
             reviewer_mode=normalized_mode,

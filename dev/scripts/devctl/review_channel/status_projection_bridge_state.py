@@ -13,6 +13,7 @@ from ..runtime.review_state_models import (
     ReviewerRuntimeContract,
 )
 from ..runtime.conductor_capability import build_conductor_capability_state
+from ..runtime.role_profile import TandemRole, default_provider_for_role
 from .collaboration_provider import collaboration_provider
 from .launch_truth import classify_launch_truth, effective_reviewer_mode
 from .handoff import BridgeSnapshot
@@ -47,12 +48,12 @@ def build_typed_bridge_liveness(
     reviewer_provider = collaboration_provider(
         collaboration,
         role_id="review_agent",
-        default="codex",
+        default=default_provider_for_role(TandemRole.REVIEWER),
     )
     implementer_provider = collaboration_provider(
         collaboration,
         role_id="coding_agent",
-        default="claude",
+        default=default_provider_for_role(TandemRole.IMPLEMENTER),
     )
     typed["reviewer_capability"] = asdict(
         build_conductor_capability_state(
@@ -92,12 +93,12 @@ def build_review_bridge_state(
     reviewer_provider = collaboration_provider(
         collaboration,
         role_id="review_agent",
-        default="codex",
+        default=default_provider_for_role(TandemRole.REVIEWER),
     )
     implementer_provider = collaboration_provider(
         collaboration,
         role_id="coding_agent",
-        default="claude",
+        default=default_provider_for_role(TandemRole.IMPLEMENTER),
     )
     return ReviewBridgeState(
         overall_state=overall_state,

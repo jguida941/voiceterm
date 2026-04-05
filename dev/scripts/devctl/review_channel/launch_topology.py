@@ -6,7 +6,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from ..runtime.role_profile import TandemRole, role_for_provider
+from ..runtime.role_profile import TandemRole, normalize_tandem_role, role_for_provider
 
 if TYPE_CHECKING:
     from .core import LaneAssignment
@@ -18,6 +18,7 @@ class ConductorLaunchSpec:
 
     provider: str
     provider_name: str
+    counterpart_provider: str
     counterpart_name: str
     role: str
     lanes: tuple["LaneAssignment", ...]
@@ -43,27 +44,48 @@ def build_conductor_launch_specs(
         )
         if provider and (lanes or provider in budgets)
     }
+    role_map = _provider_role_map(lane_map)
     providers = _ordered_providers(
         lane_map=lane_map,
+        role_map=role_map,
         providers_to_launch=providers_to_launch,
     )
     if not providers:
         return ()
 
-    reviewer_provider = _provider_for_role(providers, TandemRole.REVIEWER)
-    implementer_provider = _provider_for_role(providers, TandemRole.IMPLEMENTER)
+    reviewer_provider = next(
+        (
+            provider
+            for provider in providers
+            if role_map.get(provider, role_for_provider(provider))
+            == TandemRole.REVIEWER
+        ),
+        None,
+    )
+    implementer_provider = next(
+        (
+            provider
+            for provider in providers
+            if role_map.get(provider, role_for_provider(provider))
+            == TandemRole.IMPLEMENTER
+        ),
+        None,
+    )
     specs: list[ConductorLaunchSpec] = []
     for provider in providers:
-        role = role_for_provider(provider).value
+        role = role_map.get(provider, role_for_provider(provider)).value
+        counterpart_provider = _counterpart_provider(
+            provider=provider,
+            role_map=role_map,
+            reviewer_provider=reviewer_provider,
+            implementer_provider=implementer_provider,
+        )
         specs.append(
             ConductorLaunchSpec(
                 provider=provider,
                 provider_name=provider.title(),
-                counterpart_name=_counterpart_name(
-                    provider=provider,
-                    reviewer_provider=reviewer_provider,
-                    implementer_provider=implementer_provider,
-                ),
+                counterpart_provider=counterpart_provider,
+                counterpart_name=counterpart_provider.title(),
                 role=role,
                 lanes=lane_map.get(provider, ()),
                 requested_worker_budget=budgets.get(provider, 0),
@@ -75,6 +97,7 @@ def build_conductor_launch_specs(
 def _ordered_providers(
     *,
     lane_map: Mapping[str, tuple["LaneAssignment", ...]],
+    role_map: Mapping[str, TandemRole],
     providers_to_launch: Sequence[str] | None,
 ) -> tuple[str, ...]:
     providers = list(lane_map)
@@ -85,12 +108,15 @@ def _ordered_providers(
             if _normalize_provider(provider)
         }
         providers = [provider for provider in providers if provider in selected]
-    providers.sort(key=_provider_sort_key)
+    providers.sort(key=lambda provider: _provider_sort_key(provider, role_map))
     return tuple(providers)
 
 
-def _provider_sort_key(provider: str) -> tuple[int, str]:
-    role = role_for_provider(provider)
+def _provider_sort_key(
+    provider: str,
+    role_map: Mapping[str, TandemRole],
+) -> tuple[int, str]:
+    role = role_map.get(provider, role_for_provider(provider))
     if role == TandemRole.REVIEWER:
         return (0, provider)
     if role == TandemRole.IMPLEMENTER:
@@ -100,28 +126,42 @@ def _provider_sort_key(provider: str) -> tuple[int, str]:
     return (3, provider)
 
 
-def _provider_for_role(
-    providers: Sequence[str],
-    role: TandemRole,
-) -> str | None:
-    return next(
-        (provider for provider in providers if role_for_provider(provider) == role),
-        None,
-    )
-
-
-def _counterpart_name(
+def _counterpart_provider(
     *,
     provider: str,
+    role_map: Mapping[str, TandemRole],
     reviewer_provider: str | None,
     implementer_provider: str | None,
 ) -> str:
-    role = role_for_provider(provider)
+    role = role_map.get(provider, role_for_provider(provider))
     if role == TandemRole.REVIEWER:
-        return (implementer_provider or "implementer").title()
+        return implementer_provider or "implementer"
     if role == TandemRole.IMPLEMENTER:
-        return (reviewer_provider or "reviewer").title()
-    return (reviewer_provider or implementer_provider or "operator").title()
+        return reviewer_provider or "reviewer"
+    return reviewer_provider or implementer_provider or "operator"
+
+
+def _provider_role_map(
+    lane_map: Mapping[str, tuple["LaneAssignment", ...]],
+) -> dict[str, TandemRole]:
+    role_map: dict[str, TandemRole] = {}
+    for provider, lanes in lane_map.items():
+        lane_roles = {
+            resolved_role
+            for lane in lanes
+            if (
+                resolved_role := normalize_tandem_role(getattr(lane, "role", ""))
+            )
+            is not None
+        }
+        if len(lane_roles) > 1:
+            roles = ", ".join(sorted(role.value for role in lane_roles))
+            raise ValueError(
+                f"Provider `{provider}` has conflicting planned lane roles: {roles}"
+            )
+        if lane_roles:
+            role_map[provider] = next(iter(lane_roles))
+    return role_map
 
 
 def _normalize_provider(provider: object) -> str:

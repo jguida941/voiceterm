@@ -15,7 +15,12 @@ from .review_state_models import (
     ReviewBridgeState,
     ReviewCurrentSessionState,
 )
-from .role_profile import TandemRole, role_for_provider
+from .role_profile import (
+    TandemRole,
+    default_provider_for_role,
+    normalize_tandem_role,
+    role_for_provider,
+)
 
 
 def _legacy_collaboration_state(
@@ -85,15 +90,21 @@ def _legacy_role_assignments(
     reviewer_provider = _provider_from_registry(
         registry,
         TandemRole.REVIEWER.value,
-    ) or _capability_provider(bridge.reviewer_capability, default="codex")
+    ) or _capability_provider(
+        bridge.reviewer_capability,
+        default=default_provider_for_role(TandemRole.REVIEWER),
+    )
     implementer_provider = _provider_from_registry(
         registry,
         TandemRole.IMPLEMENTER.value,
-    ) or _capability_provider(bridge.implementer_capability, default="claude")
+    ) or _capability_provider(
+        bridge.implementer_capability,
+        default=default_provider_for_role(TandemRole.IMPLEMENTER),
+    )
     operator_provider = _provider_from_registry(
         registry,
         TandemRole.OPERATOR.value,
-    ) or "operator"
+    ) or default_provider_for_role(TandemRole.OPERATOR)
     return (
         CollaborationRoleAssignmentState(
             role_id="lead_agent",
@@ -214,6 +225,10 @@ def _provider_from_registry(
 ) -> str:
     for agent in registry.agents:
         provider = agent.provider or agent.agent_id
+        if (
+            normalized_job := normalize_tandem_role(agent.current_job)
+        ) is not None and normalized_job.value == role_name:
+            return provider
         if role_for_provider(provider).value == role_name:
             return provider
     return ""

@@ -321,6 +321,26 @@ The MP scopes remain valid but are now cross-cut by enforcement-first priority.
 
 ## Progress Log
 
+- 2026-04-05: Landed the provider-neutral role-bootstrap follow-up inside the
+  live `MP-382` / `MP-387` lane. `LaneAssignment` now carries an explicit
+  tandem role inferred from the planned review-channel lane text, conductor
+  launch specs/prompts consume that role instead of assuming
+  `codex -> reviewer` / `claude -> implementer`, and the typed conductor
+  capability/bootstrap path now accepts explicit role overrides so either
+  provider can own reviewer or implementer startup while still using the same
+  repo-owned `startup-context --role <role>` and
+  `session-resume --role <role> --format bootstrap` receipts. The bridge stays
+  compatibility-shaped for now (`Last Codex poll`, `Claude Status` /
+  `Claude Ack` headings remain), but start rules/prompts now explain those as
+  role-owned compatibility fields when provider assignments are swapped.
+  Narrow recover/reviewer-follow paths were widened the same way:
+  `review-channel --action recover --recover-provider <provider>` now accepts
+  the current implementer provider, while the live reviewer-session guard is
+  derived from planned role ownership instead of hardcoded Codex/Claude
+  assumptions. Focused permutation coverage now exercises
+  `Codex reviewer / Claude implementer` and
+  `Claude reviewer / Codex implementer` through launch-topology, prompt,
+  bridge-projection, recover, and runtime-capability tests.
 - 2026-04-05: Landed MP-380 + MP-382 first bounded slice (Claude).
   MP-380: Added `OperatorInteractionMode.UNRESOLVED` to `operator_context.py`
   with `resolve_operator_interaction_mode()`, `is_remote_mode()`,

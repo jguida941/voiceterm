@@ -314,12 +314,12 @@ Three quality layers matter in practice:
     is the repo-owned daemon reclaim path when those follow daemons need a
     clean replacement. In the same active-dual-agent loop, the reviewer
     follow daemon now auto-triggers the repo-owned
-    `review-channel --action recover --recover-provider claude` path when
-    Claude-owned progress stays unchanged across repeated stale/missing
+    `review-channel --action recover --recover-provider <provider>` path when
+    implementer-owned progress stays unchanged across repeated stale/missing
     implementer state instead of waiting forever on raw shell sleep loops or
-    operator chat nudges. That recovery replaces only the stale Claude
-    conductor, and it now fails closed unless a live repo-owned Codex
-    conductor session is already present. Repeated unchanged stale
+    operator chat nudges. That recovery replaces only the stale implementer
+    conductor for the requested provider, and it now fails closed unless the
+    current repo-owned reviewer conductor session is already present. Repeated unchanged stale
     reviewer/runtime states now obey the typed recovery contract instead of
     inventing a second stale-peer policy: when the allowed recovery command is
     `launch`, reviewer-follow must prefer the repo-owned
@@ -333,9 +333,9 @@ Three quality layers matter in practice:
     and rollover cleanup uses the retiring session snapshot to kill the old
     conductor pid before closing the old Terminal window.
   - Prefer the repo-owned wait primitives over ad hoc shell sleep loops:
-    `review-channel --action implementer-wait` is the Claude-side bounded
+    `review-channel --action implementer-wait` is the implementer-side bounded
     wait path, and `review-channel --action reviewer-wait` is the symmetric
-    Codex-side bounded wait path over `reviewer_worker` hash truth plus the
+    reviewer-side bounded wait path over `reviewer_worker` hash truth plus the
     projected typed `current_session` ACK/status fields from
     `review_state.json`.
   - `implementer-wait` is only valid under an explicit reviewer-owned wait
@@ -376,11 +376,19 @@ Three quality layers matter in practice:
     blocks `launch|rollover` solely because the current reviewer loop is stale
     on the implementer side or because a reviewer-state commit changed HEAD; those actions remain the sanctioned full-session
     relaunch path when the pair needs a fresh start, while `recover` is the
-    narrower Claude-only repair path when the repo-owned Codex reviewer is
+    narrower implementer-only repair path when the repo-owned reviewer is
     already live.
     Canonical reviewer-reset implementer placeholders (`Claude Status: - pending`,
     `Claude Ack: - pending`) are valid fresh-launch state for a new instruction
     revision, and the same reset now clears stale `Claude Questions` too.
+  - Fresh reviewer and implementer sessions should bootstrap from role-first
+    receipts, not provider-local lore: run
+    `python3 dev/scripts/devctl.py startup-context --role <reviewer|implementer> --format summary`,
+    then
+    `python3 dev/scripts/devctl.py session-resume --role <reviewer|implementer> --format bootstrap`,
+    then `python3 dev/scripts/devctl.py context-graph --mode bootstrap --format md`.
+    Planned lane text and typed collaboration/runtime state decide which
+    provider currently owns each role.
   - `observe_launch_state()` in `bridge_launch_control.py` uses a lightweight
     bridge-metadata + session-probe path for launch-time poll iterations
     instead of forcing the full `ReviewChannelStatusSnapshot` refresh. The

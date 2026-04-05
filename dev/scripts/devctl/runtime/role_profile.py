@@ -38,6 +38,12 @@ DEFAULT_PROVIDER_ROLE_MAP: dict[str, TandemRole] = {
     "human": TandemRole.OPERATOR,
 }
 
+_REVIEWER_ROLE_ALIASES = frozenset({"review", "reviewer"})
+_IMPLEMENTER_ROLE_ALIASES = frozenset(
+    {"code", "coder", "coding", "implement", "implementer"}
+)
+_OPERATOR_ROLE_ALIASES = frozenset({"operator", "approver"})
+
 
 @dataclass(frozen=True, slots=True)
 class RoleProfile:
@@ -95,6 +101,41 @@ def role_for_provider(
     mapping = provider_role_map or DEFAULT_PROVIDER_ROLE_MAP
     normalized = provider.strip().lower()
     return mapping.get(normalized, TandemRole.IMPLEMENTER)
+
+
+def normalize_tandem_role(role: str | TandemRole | None) -> TandemRole | None:
+    """Return one canonical tandem role or ``None`` for unknown text."""
+    if isinstance(role, TandemRole):
+        return role
+    normalized = coerce_string(role).lower()
+    if not normalized:
+        return None
+    if normalized in _REVIEWER_ROLE_ALIASES:
+        return TandemRole.REVIEWER
+    if normalized in _IMPLEMENTER_ROLE_ALIASES:
+        return TandemRole.IMPLEMENTER
+    if normalized in _OPERATOR_ROLE_ALIASES:
+        return TandemRole.OPERATOR
+    return None
+
+
+def default_provider_for_role(
+    role: str | TandemRole,
+    provider_role_map: dict[str, TandemRole] | None = None,
+) -> str:
+    """Return the default provider for one tandem role."""
+    normalized_role = normalize_tandem_role(role)
+    if normalized_role is None:
+        normalized_role = TandemRole.IMPLEMENTER
+    mapping = provider_role_map or DEFAULT_PROVIDER_ROLE_MAP
+    for provider, mapped_role in mapping.items():
+        if mapped_role == normalized_role:
+            return provider
+    if normalized_role == TandemRole.REVIEWER:
+        return "codex"
+    if normalized_role == TandemRole.OPERATOR:
+        return "operator"
+    return "claude"
 
 
 def role_profile_from_mapping(payload: Mapping[str, object]) -> RoleProfile:

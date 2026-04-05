@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from types import SimpleNamespace
 from typing import Callable
 
 from .follow_loop import STALL_ESCALATION_POLLS
@@ -17,6 +16,13 @@ from .reviewer_follow_runtime import (
 from .reviewer_follow_restore_policy import (
     auto_relaunch_allowed,
     restore_action_from_report,
+)
+from .reviewer_follow_recovery_support import (
+    build_launch_action_args,
+    build_recover_action_args,
+    build_rollover_action_args,
+    implementer_ack_current,
+    recover_provider_from_report,
 )
 
 _AUTO_RECOVERY_ATTENTION_STATUSES = frozenset(
@@ -170,7 +176,10 @@ def maybe_auto_recover_stale_implementer(
     if recovery_key and recovery_key == recovery_input.recovery_state.last_recovery_key:
         return None
 
-    recovery_args = _build_recover_action_args(recovery_input.args)
+    recovery_args = build_recover_action_args(
+        recovery_input.args,
+        recover_provider=recover_provider_from_report(recovery_input.report),
+    )
     recovery_report, recovery_exit_code = recovery_fn(
         args=recovery_args,
         repo_root=recovery_input.repo_root,
@@ -253,7 +262,7 @@ def maybe_auto_relaunch_review_loop(
         or bridge_liveness.get("launch_truth")
         or ""
     ).strip()
-    ack_current = _implementer_ack_current(
+    ack_current = implementer_ack_current(
         reviewer_runtime=reviewer_runtime,
         bridge_liveness=bridge_liveness,
     )
@@ -273,7 +282,7 @@ def maybe_auto_relaunch_review_loop(
     if relaunch_key and relaunch_key == rollover_input.rollover_state.last_restore_key:
         return None
 
-    launch_args = _build_launch_action_args(rollover_input.args)
+    launch_args = build_launch_action_args(rollover_input.args)
     launch_report, launch_exit_code = bridge_action_fn(
         args=launch_args,
         repo_root=rollover_input.repo_root,
@@ -362,7 +371,7 @@ def maybe_auto_trigger_rollover_on_stale_codex(
     if rollover_key and rollover_key == rollover_input.rollover_state.last_restore_key:
         return None
 
-    rollover_args = _build_rollover_action_args(
+    rollover_args = build_rollover_action_args(
         rollover_input.args,
         rollover_provider=rollover_input.rollover_provider,
     )
@@ -410,93 +419,3 @@ def _refresh_stall_progress(
         return 0
     state.unchanged_progress_polls += 1
     return state.unchanged_progress_polls
-
-
-def _resolve_recovery_terminal(args) -> str:
-    """Inherit terminal mode from the parent daemon args for remote-control support.
-
-    When the reviewer-follow daemon runs with ``--terminal none`` (remote/headless),
-    recovery and rollover actions must also use headless launch instead of
-    requiring Terminal.app via osascript.
-
-    When ``operator_interaction_mode`` is ``remote_control``, always use
-    headless (``none``) so recovery never opens a local Terminal window that
-    the remote operator cannot see.
-    """
-    interaction_mode = str(
-        getattr(args, "operator_interaction_mode", "") or ""
-    ).strip()
-    if interaction_mode == "remote_control":
-        return "none"
-    parent_terminal = str(getattr(args, "terminal", "") or "").strip()
-    if parent_terminal in {"terminal-app", "none"}:
-        return parent_terminal
-    return "terminal-app"
-
-
-def _build_recover_action_args(args) -> SimpleNamespace:
-    payload = vars(args).copy()
-    payload.update(
-        action="recover",
-        follow=False,
-        terminal=_resolve_recovery_terminal(args),
-        format="json",
-        output=None,
-        pipe_command=None,
-        pipe_args=None,
-        dry_run=False,
-        recover_provider="claude",
-        refresh_bridge_heartbeat_if_stale=True,
-    )
-    return SimpleNamespace(**payload)
-
-
-def _build_rollover_action_args(
-    args,
-    *,
-    rollover_provider: str = "",
-) -> SimpleNamespace:
-    """Build rollover action args with optional same-provider handoff routing."""
-    payload = vars(args).copy()
-    payload.update(
-        action="rollover",
-        follow=False,
-        terminal=_resolve_recovery_terminal(args),
-        format="json",
-        output=None,
-        pipe_command=None,
-        pipe_args=None,
-        dry_run=False,
-        rollover_trigger="peer-stale",
-        await_ack_seconds=max(1, int(getattr(args, "await_ack_seconds", 180) or 180)),
-        refresh_bridge_heartbeat_if_stale=True,
-    )
-    if rollover_provider:
-        payload["rollover_provider"] = rollover_provider
-    return SimpleNamespace(**payload)
-
-
-def _build_launch_action_args(args) -> SimpleNamespace:
-    payload = vars(args).copy()
-    payload.update(
-        action="launch",
-        follow=False,
-        terminal=_resolve_recovery_terminal(args),
-        format="json",
-        output=None,
-        pipe_command=None,
-        pipe_args=None,
-        dry_run=False,
-        refresh_bridge_heartbeat_if_stale=True,
-    )
-    return SimpleNamespace(**payload)
-
-
-def _implementer_ack_current(
-    *,
-    reviewer_runtime: dict[str, object],
-    bridge_liveness: dict[str, object],
-) -> bool:
-    if "implementer_ack_current" in reviewer_runtime:
-        return bool(reviewer_runtime.get("implementer_ack_current"))
-    return bool(bridge_liveness.get("claude_ack_current"))

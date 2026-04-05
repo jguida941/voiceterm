@@ -20,6 +20,17 @@ The current `P0` subordinate execution spec for startup authority, repo-pack
 activation, typed plan routing, runtime/evidence/context closure, and first
 cross-repo proof is `dev/active/platform_authority_loop.md`.
 
+Current 2026-04-05 role/bootstrap closure note:
+- Launch/bootstrap ownership in the shared governance runtime must stay
+  role-first (`reviewer`, `implementer`, `operator`), not provider-first.
+  A repo or operator may assign Codex, Claude, or another supported provider
+  to any of those roles, but the canonical bootstrap remains
+  `startup-context --role <role>` plus
+  `session-resume --role <role> --format bootstrap`, and review-channel /
+  recover / prompt surfaces must derive the current provider from typed lane
+  or collaboration state instead of hardcoding `codex reviewer` /
+  `claude coder`.
+
 ## Scope
 
 Turn the current VoiceTerm-local automation stack into a reusable AI governance

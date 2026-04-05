@@ -15,8 +15,10 @@ from dev.scripts.devctl.review_channel.launch_script import build_session_script
 from dev.scripts.devctl.review_channel.reviewer_follow_recovery import (
     ReviewerFollowRolloverInput,
     ReviewerFollowRolloverState,
-    _build_rollover_action_args,
-    _resolve_recovery_terminal,
+)
+from dev.scripts.devctl.review_channel.reviewer_follow_recovery_support import (
+    build_rollover_action_args,
+    resolve_recovery_terminal,
 )
 
 
@@ -127,36 +129,36 @@ class TestLaunchScriptInteractionMode(unittest.TestCase):
 
 
 class TestResolveRecoveryTerminal(unittest.TestCase):
-    """Verify _resolve_recovery_terminal respects operator_interaction_mode."""
+    """Verify resolve_recovery_terminal respects operator_interaction_mode."""
 
     def test_remote_control_forces_none(self) -> None:
         args = SimpleNamespace(
             terminal="terminal-app",
             operator_interaction_mode="remote_control",
         )
-        self.assertEqual(_resolve_recovery_terminal(args), "none")
+        self.assertEqual(resolve_recovery_terminal(args), "none")
 
     def test_local_terminal_inherits_parent(self) -> None:
         args = SimpleNamespace(
             terminal="terminal-app",
             operator_interaction_mode="local_terminal",
         )
-        self.assertEqual(_resolve_recovery_terminal(args), "terminal-app")
+        self.assertEqual(resolve_recovery_terminal(args), "terminal-app")
 
     def test_missing_interaction_mode_falls_through(self) -> None:
         args = SimpleNamespace(terminal="none")
-        self.assertEqual(_resolve_recovery_terminal(args), "none")
+        self.assertEqual(resolve_recovery_terminal(args), "none")
 
     def test_no_terminal_attr_defaults_to_terminal_app(self) -> None:
         args = SimpleNamespace()
-        self.assertEqual(_resolve_recovery_terminal(args), "terminal-app")
+        self.assertEqual(resolve_recovery_terminal(args), "terminal-app")
 
     def test_dual_agent_mode_inherits_parent_terminal(self) -> None:
         args = SimpleNamespace(
             terminal="none",
             operator_interaction_mode="dual_agent",
         )
-        self.assertEqual(_resolve_recovery_terminal(args), "none")
+        self.assertEqual(resolve_recovery_terminal(args), "none")
 
 
 class TestAutoFollowPollCadence(unittest.TestCase):
@@ -215,7 +217,7 @@ class TestRolloverProviderCarried(unittest.TestCase):
             terminal="none",
             await_ack_seconds=180,
         )
-        result = _build_rollover_action_args(
+        result = build_rollover_action_args(
             base_args, rollover_provider="claude",
         )
         self.assertEqual(result.rollover_provider, "claude")
@@ -225,7 +227,7 @@ class TestRolloverProviderCarried(unittest.TestCase):
             terminal="none",
             await_ack_seconds=180,
         )
-        result = _build_rollover_action_args(base_args, rollover_provider="")
+        result = build_rollover_action_args(base_args, rollover_provider="")
         self.assertFalse(hasattr(result, "rollover_provider"))
 
     def test_rollover_input_carries_provider(self) -> None:

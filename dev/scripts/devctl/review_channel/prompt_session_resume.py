@@ -11,7 +11,7 @@ import json
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from ..runtime.role_profile import role_for_provider
+from ..runtime.role_profile import normalize_tandem_role, role_for_provider
 
 if TYPE_CHECKING:
     from ..commands.governance.session_resume_support import SessionCachePacket
@@ -20,6 +20,7 @@ if TYPE_CHECKING:
 def build_session_resume_preamble(
     *,
     provider: str,
+    role: str | None = None,
     repo_root: Path,
     session_resume_packet: "SessionCachePacket | None" = None,
 ) -> str:
@@ -33,15 +34,23 @@ def build_session_resume_preamble(
     Returns empty string for non-reviewer providers or when no packet is
     available.
     """
-    if role_for_provider(provider) != "reviewer":
+    resolved_role = normalize_tandem_role(role) or role_for_provider(provider)
+    if resolved_role != "reviewer":
         return ""
-    packet = session_resume_packet or _try_build_session_resume(repo_root)
+    packet = session_resume_packet or _try_build_session_resume(
+        repo_root,
+        role=resolved_role.value,
+    )
     if packet is None:
         return ""
     return _format_session_resume_preamble(packet)
 
 
-def _try_build_session_resume(repo_root: Path) -> "SessionCachePacket | None":
+def _try_build_session_resume(
+    repo_root: Path,
+    *,
+    role: str,
+) -> "SessionCachePacket | None":
     """Attempt to build a SessionCachePacket from repo sources.
 
     Returns None when the import or build fails so the prompt degrades
@@ -61,7 +70,10 @@ def _try_build_session_resume(repo_root: Path) -> "SessionCachePacket | None":
             return None
         governance = resolve_governance(repo_root)
         return build_from_sources(
-            repo_root, role="reviewer", head_sha=head_sha, governance=governance,
+            repo_root,
+            role=role,
+            head_sha=head_sha,
+            governance=governance,
         )
     except Exception:  # broad-except: allow reason=graceful degradation to prose-based bootstrap fallback=return None
         return None

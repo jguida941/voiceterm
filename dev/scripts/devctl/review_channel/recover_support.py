@@ -7,10 +7,13 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from ..approval_mode import normalize_approval_mode
+from ..runtime.role_profile import TandemRole
 from ..time_utils import utc_timestamp
 from .ack_contract import ACK_REVISION_REQUIREMENT_PREFIX
+from .core import active_conductor_providers
 from .handoff import extract_bridge_snapshot, summarize_bridge_liveness
 from .peer_liveness import AttentionStatus, reviewer_mode_is_active
+from .state import refresh_status_snapshot
 
 _RECOVERABLE_ATTENTION_STATUSES = frozenset(
     {
@@ -32,8 +35,9 @@ class RecoverSessionBuildInput:
     repo_root: Path
     runtime_paths: object
     status_snapshot: object
-    codex_lanes: list
-    claude_lanes: list
+    reviewer_provider: str
+    recover_provider: str
+    provider_lane_map: dict[str, list]
 
 
 @dataclass(frozen=True)
@@ -80,6 +84,73 @@ def wait_for_claude_ack_refresh(
         time.sleep(max(poll_interval_seconds, 0.1))
 
 
+def validate_recover_runtime_paths(runtime_paths: object) -> str | None:
+    """Return an error when recover is missing required repo-owned paths."""
+    bridge_path = getattr(runtime_paths, "bridge_path", None)
+    review_channel_path = getattr(runtime_paths, "review_channel_path", None)
+    status_dir = getattr(runtime_paths, "status_dir", None)
+    if not isinstance(bridge_path, Path) or not isinstance(review_channel_path, Path):
+        return "review-channel recover requires resolved bridge and review-channel paths."
+    if not isinstance(status_dir, Path):
+        return "review-channel recover requires a resolved status-dir path."
+    return None
+
+
+def resolve_recover_provider(args) -> str | None:
+    """Normalize the requested recover provider."""
+    provider = str(getattr(args, "recover_provider", "claude") or "claude").strip().lower()
+    if provider not in {"claude", "codex", "cursor"}:
+        return None
+    return provider
+
+
+def validate_live_reviewer_session_for_recover(
+    *,
+    status_dir: Path,
+    reviewer_provider: str,
+    recover_provider: str,
+) -> str | None:
+    """Fail closed unless the current reviewer conductor is already live."""
+    active_providers = active_conductor_providers(session_output_root=status_dir)
+    if reviewer_provider in active_providers:
+        return None
+    return (
+        f"review-channel recover requires a live repo-owned {reviewer_provider.title()} conductor session. "
+        f"The current state would create a hybrid loop ({recover_provider.title()} in Terminal, "
+        f"{reviewer_provider.title()} in chat). "
+        "Relaunch the pair with `review-channel --action launch` or "
+        "`review-channel --action rollover` instead of relying on implementer-only recover."
+    )
+
+
+def refresh_recover_snapshot(
+    *,
+    args,
+    repo_root: Path,
+    runtime_paths: object,
+):
+    """Refresh the review-channel status snapshot for recover flows."""
+    bridge_path = getattr(runtime_paths, "bridge_path", None)
+    review_channel_path = getattr(runtime_paths, "review_channel_path", None)
+    status_dir = getattr(runtime_paths, "status_dir", None)
+    assert isinstance(bridge_path, Path)
+    assert isinstance(review_channel_path, Path)
+    assert isinstance(status_dir, Path)
+    return refresh_status_snapshot(
+        repo_root=repo_root,
+        bridge_path=bridge_path,
+        review_channel_path=review_channel_path,
+        output_root=status_dir,
+        promotion_plan_path=getattr(runtime_paths, "promotion_plan_path", None),
+        execution_mode=getattr(args, "execution_mode", "markdown-bridge"),
+        warnings=[],
+        errors=[],
+        reviewer_overdue_threshold_seconds=getattr(
+            args, "reviewer_overdue_seconds", None
+        ),
+    )
+
+
 def validate_recoverable_state(
     *,
     bridge_liveness: dict[str, object],
@@ -118,6 +189,36 @@ def recover_projection_errors(errors: list[str]) -> list[str]:
         for error in errors
         if not error.startswith(_RECOVERABLE_ERROR_PREFIXES)
     ]
+
+
+def planned_provider_for_role(
+    lanes: list,
+    *,
+    role: TandemRole,
+    default: str,
+) -> str:
+    """Return the provider assigned to the requested planned role."""
+    for lane in lanes:
+        if str(getattr(lane, "role", "") or "").strip() == role.value:
+            provider = str(getattr(lane, "provider", "") or "").strip().lower()
+            return provider or default
+    return default
+
+
+def has_role_lanes(lanes: list, *, role: TandemRole) -> bool:
+    """Return True when the lane set contains at least one planned role."""
+    return any(str(getattr(lane, "role", "") or "").strip() == role.value for lane in lanes)
+
+
+def recover_worker_budget(*, args, provider: str, lane_count: int) -> int:
+    """Clamp requested worker budget to the available planned lanes."""
+    if provider == "codex":
+        requested = getattr(args, "codex_workers", 0)
+    elif provider == "claude":
+        requested = getattr(args, "claude_workers", 0)
+    else:
+        requested = getattr(args, "cursor_workers", 0)
+    return min(int(requested or 0), lane_count)
 
 
 def base_recover_report(args) -> dict[str, object]:

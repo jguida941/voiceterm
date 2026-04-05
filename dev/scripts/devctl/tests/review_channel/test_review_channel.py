@@ -1398,13 +1398,13 @@ class ReviewChannelHelperTests(unittest.TestCase):
         self.assertFalse(liveness.implementer_completion_stall)
 
     def test_bootstrap_ordering_puts_repo_authority_before_handoff_bundle(self) -> None:
-        from dev.scripts.devctl.review_channel.prompt import _bootstrap_files
+        from dev.scripts.devctl.review_channel.prompt_support import bootstrap_files
         from dev.scripts.devctl.runtime.conductor_capability import (
             build_conductor_capability_state,
         )
 
         root = Path("/fake/repo")
-        files = _bootstrap_files(
+        files = bootstrap_files(
             capability=build_conductor_capability_state(
                 provider="codex",
                 reviewer_mode="active_dual_agent",
@@ -1724,6 +1724,81 @@ class ReviewChannelHelperTests(unittest.TestCase):
         )
         self.assertNotIn("MP-355 markdown-bridge swarm", prompt)
 
+    def test_swapped_role_prompt_uses_explicit_role_contract(self) -> None:
+        from dev.scripts.devctl.review_channel.prompt import build_conductor_prompt
+
+        root = Path("/fake/repo")
+        reviewer_prompt = build_conductor_prompt(
+            provider="claude",
+            provider_name="Claude",
+            other_name="Codex",
+            role="reviewer",
+            other_provider="codex",
+            repo_root=root,
+            review_channel_path=root / "dev/active/review_channel.md",
+            bridge_path=root / "bridge.md",
+            lanes=[],
+            codex_workers=1,
+            claude_workers=0,
+            requested_worker_budget=0,
+            dangerous=False,
+            rollover_threshold_pct=50,
+            await_ack_seconds=180,
+            retirement_note=REVIEW_CHANNEL_LAUNCH_RETIREMENT_NOTE,
+            rollover_command="python3 dev/scripts/devctl.py review-channel --action rollover",
+            promote_command="python3 dev/scripts/devctl.py review-channel --action promote --promotion-plan dev/active/continuous_swarm.md --terminal none --format md",
+            bridge_liveness=None,
+            handoff_bundle=None,
+        )
+        implementer_prompt = build_conductor_prompt(
+            provider="codex",
+            provider_name="Codex",
+            other_name="Claude",
+            role="implementer",
+            other_provider="claude",
+            repo_root=root,
+            review_channel_path=root / "dev/active/review_channel.md",
+            bridge_path=root / "bridge.md",
+            lanes=[],
+            codex_workers=1,
+            claude_workers=0,
+            requested_worker_budget=1,
+            dangerous=False,
+            rollover_threshold_pct=50,
+            await_ack_seconds=180,
+            retirement_note=REVIEW_CHANNEL_LAUNCH_RETIREMENT_NOTE,
+            rollover_command="python3 dev/scripts/devctl.py review-channel --action rollover",
+            promote_command="python3 dev/scripts/devctl.py review-channel --action promote --promotion-plan dev/active/continuous_swarm.md --terminal none --format md",
+            bridge_liveness=None,
+            handoff_bundle=None,
+        )
+
+        self.assertIn(
+            "python3 dev/scripts/devctl.py startup-context --role reviewer --format summary",
+            reviewer_prompt,
+        )
+        self.assertIn(
+            "Keep the Codex-targeted packet stream live too: use "
+            "`review-channel --action watch --target codex --status pending --follow`",
+            reviewer_prompt,
+        )
+        self.assertIn(
+            "Only the Claude conductor updates the reviewer-owned sections",
+            reviewer_prompt,
+        )
+        self.assertIn(
+            "review-channel --action inbox --target codex --status pending --format json",
+            implementer_prompt,
+        )
+        self.assertIn(
+            "If you are waiting on Claude review or the next instruction",
+            implementer_prompt,
+        )
+        self.assertIn(
+            "Requested worker fanout budget: 1",
+            implementer_prompt,
+        )
+
     @patch(
         "dev.scripts.devctl.review_channel.prompt_contract.load_repo_governance_section",
         return_value=(
@@ -1781,7 +1856,7 @@ class ReviewChannelHelperTests(unittest.TestCase):
         )
 
     @patch(
-        "dev.scripts.devctl.review_channel.prompt.build_context_escalation_packet"
+        "dev.scripts.devctl.review_channel.prompt_support.build_context_escalation_packet"
     )
     def test_prompt_includes_preloaded_context_packet_for_lane_scope(
         self,
@@ -9575,6 +9650,85 @@ class ReviewChannelCommandTests(unittest.TestCase):
             self.assertEqual(payload["sessions"], [])
             self.assertTrue(
                 any("requires a live repo-owned Codex conductor session" in error for error in payload["errors"])
+            )
+
+    def test_run_recover_uses_planned_reviewer_provider_for_swapped_roles(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            review_channel_path = root / "dev/active/review_channel.md"
+            review_channel_path.parent.mkdir(parents=True, exist_ok=True)
+            review_channel_path.write_text(
+                "\n".join(
+                    [
+                        "# Review Channel + Shared Screen Plan",
+                        "",
+                        "## Transitional Markdown Bridge (Current Operating Mode)",
+                        "",
+                        "`bridge.md` is the temporary bridge.",
+                        "",
+                        "## 0) Current Execution Mode",
+                        "",
+                        "| Agent | Lane | Primary active docs | MP scope | Worktree | Branch |",
+                        "|---|---|---|---|---|---|",
+                        "| `AGENT-1` | Claude architecture contract review | `dev/active/review_channel.md` | `MP-340, MP-355` | `../codex-voice-wt-a1` | `feature/a1` |",
+                        "| `AGENT-9` | Codex bridge push-safety fixes | `dev/active/review_channel.md` | `MP-303, MP-355` | `../codex-voice-wt-a9` | `feature/a9` |",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+            bridge_path = root / "bridge.md"
+            bridge_path.write_text(
+                _build_bridge_text(
+                    current_instruction="- replace the stale implementer conductor",
+                    claude_status="- continuing to poll",
+                    claude_ack="- waiting for reviewer promotion; instruction-rev: `deadbeefcafe`",
+                ),
+                encoding="utf-8",
+            )
+            output_path = root / "report.json"
+            status_dir = root / "dev/reports/review_channel/latest"
+            _write_live_runtime(status_dir)
+            args = SimpleNamespace(
+                action="recover",
+                execution_mode="auto",
+                terminal="none",
+                terminal_profile="auto-dark",
+                review_channel_path=str(review_channel_path.relative_to(root)),
+                bridge_path=str(bridge_path.relative_to(root)),
+                rollover_dir="dev/reports/review_channel/rollovers",
+                status_dir=str(status_dir.relative_to(root)),
+                promotion_plan=None,
+                rollover_threshold_pct=50,
+                rollover_trigger="peer-stale",
+                await_ack_seconds=180,
+                codex_workers=8,
+                claude_workers=8,
+                dangerous=False,
+                approval_mode="balanced",
+                script_dir=None,
+                dry_run=True,
+                recover_provider="codex",
+                refresh_bridge_heartbeat_if_stale=False,
+                format="json",
+                output=str(output_path),
+                json_output=None,
+                pipe_command=None,
+                pipe_args=None,
+            )
+
+            with patch.object(review_channel_command, "REPO_ROOT", root):
+                rc = review_channel_command.run(args)
+
+            self.assertEqual(rc, 1)
+            payload = json.loads(output_path.read_text(encoding="utf-8"))
+            self.assertFalse(payload["ok"])
+            self.assertEqual(payload["recover_provider"], "codex")
+            self.assertEqual(payload["sessions"], [])
+            self.assertTrue(
+                any(
+                    "requires a live repo-owned Claude conductor session" in error
+                    for error in payload["errors"]
+                )
             )
 
     def test_validate_recoverable_state_refuses_bridge_contract_error(self) -> None:

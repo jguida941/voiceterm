@@ -7,7 +7,6 @@ from pathlib import Path
 from ...review_channel.core import (
     AUTO_DARK_TERMINAL_PROFILES,
     DEFAULT_TERMINAL_PROFILE,
-    active_conductor_providers,
     ensure_launcher_prereqs,
     filter_provider_lanes,
 )
@@ -23,12 +22,19 @@ from ...review_channel.recover_support import (
     RecoverReportInput,
     RecoverSessionBuildInput,
     base_recover_report,
+    has_role_lanes,
+    planned_provider_for_role,
     recover_error,
     recover_projection_errors,
+    recover_worker_budget,
+    refresh_recover_snapshot,
+    resolve_recover_provider,
+    validate_live_reviewer_session_for_recover,
+    validate_recover_runtime_paths,
     validate_recoverable_state,
     wait_for_claude_ack_refresh,
 )
-from ...review_channel.state import refresh_status_snapshot
+from ...runtime.role_profile import TandemRole, default_provider_for_role
 from ..review_channel_command import RuntimePaths, _coerce_runtime_paths
 
 
@@ -40,7 +46,7 @@ def run_recover_action(
 ) -> tuple[dict[str, object], int]:
     """Launch one fresh implementer conductor and wait for a current ACK."""
     runtime_paths = _coerce_runtime_paths(paths)
-    path_error = _validate_runtime_paths(runtime_paths)
+    path_error = validate_recover_runtime_paths(runtime_paths)
     if path_error is not None:
         return recover_error(args, path_error)
     bridge_path = runtime_paths.bridge_path
@@ -50,20 +56,38 @@ def run_recover_action(
     assert isinstance(review_channel_path, Path)
     assert isinstance(status_dir, Path)
 
-    provider = _recover_provider(args)
+    provider = resolve_recover_provider(args)
     if provider is None:
         return recover_error(
             args,
             f"Unsupported recover provider: {getattr(args, 'recover_provider', None)}",
         )
 
-    status_snapshot = _refresh_recover_snapshot(
+    status_snapshot = refresh_recover_snapshot(
         args=args,
         repo_root=repo_root,
         runtime_paths=runtime_paths,
     )
-    peer_session_error = _validate_live_reviewer_session_for_recover(
-        status_dir=status_dir
+    _, lanes = ensure_launcher_prereqs(
+        review_channel_path=review_channel_path,
+        bridge_path=bridge_path,
+        execution_mode=getattr(args, "execution_mode", "markdown-bridge"),
+    )
+    reviewer_provider = planned_provider_for_role(
+        lanes,
+        role=TandemRole.REVIEWER,
+        default=default_provider_for_role(TandemRole.REVIEWER),
+    )
+    recover_lanes = filter_provider_lanes(lanes, provider=provider)
+    if not has_role_lanes(recover_lanes, role=TandemRole.IMPLEMENTER):
+        return recover_error(
+            args,
+            "review-channel recover requires at least one implementer lane for the requested provider in review_channel.md.",
+        )
+    peer_session_error = validate_live_reviewer_session_for_recover(
+        status_dir=status_dir,
+        reviewer_provider=reviewer_provider,
+        recover_provider=provider,
     )
     if peer_session_error is not None:
         return _invalid_recover_state_report(
@@ -84,27 +108,21 @@ def run_recover_action(
             provider=provider,
         )
 
-    _, lanes = ensure_launcher_prereqs(
-        review_channel_path=review_channel_path,
-        bridge_path=bridge_path,
-        execution_mode=getattr(args, "execution_mode", "markdown-bridge"),
-    )
-    claude_lanes = filter_provider_lanes(lanes, provider="claude")
-    codex_lanes = filter_provider_lanes(lanes, provider="codex")
-    if not claude_lanes:
-        return recover_error(
-            args,
-            "review-channel recover requires at least one Claude lane in review_channel.md.",
-        )
-
     terminal_profile_applied, current_instruction_revision, sessions = _build_recover_sessions(
         RecoverSessionBuildInput(
             args=args,
             repo_root=repo_root,
             runtime_paths=runtime_paths,
             status_snapshot=status_snapshot,
-            codex_lanes=codex_lanes,
-            claude_lanes=claude_lanes,
+            reviewer_provider=reviewer_provider,
+            recover_provider=provider,
+            provider_lane_map={
+                reviewer_provider: filter_provider_lanes(
+                    lanes,
+                    provider=reviewer_provider,
+                ),
+                provider: recover_lanes,
+            },
         )
     )
     launched, recover_ack_observed, exit_code = _maybe_launch_recover_sessions(
@@ -114,7 +132,7 @@ def run_recover_action(
         sessions=sessions,
         terminal_profile_applied=terminal_profile_applied,
     )
-    refreshed_snapshot = _refresh_recover_snapshot(
+    refreshed_snapshot = refresh_recover_snapshot(
         args=args,
         repo_root=repo_root,
         runtime_paths=runtime_paths,
@@ -130,69 +148,9 @@ def run_recover_action(
             terminal_profile_applied=terminal_profile_applied,
             launched=launched,
             recover_ack_observed=recover_ack_observed,
-        )
+    )
     )
     return report, exit_code
-
-
-def _validate_runtime_paths(runtime_paths: RuntimePaths) -> str | None:
-    bridge_path = runtime_paths.bridge_path
-    review_channel_path = runtime_paths.review_channel_path
-    status_dir = runtime_paths.status_dir
-    if not isinstance(bridge_path, Path) or not isinstance(review_channel_path, Path):
-        return "review-channel recover requires resolved bridge and review-channel paths."
-    if not isinstance(status_dir, Path):
-        return "review-channel recover requires a resolved status-dir path."
-    return None
-
-
-def _recover_provider(args) -> str | None:
-    provider = str(getattr(args, "recover_provider", "claude") or "claude")
-    if provider != "claude":
-        return None
-    return provider
-
-
-def _validate_live_reviewer_session_for_recover(
-    *,
-    status_dir: Path,
-) -> str | None:
-    active_providers = active_conductor_providers(session_output_root=status_dir)
-    if "codex" in active_providers:
-        return None
-    return (
-        "review-channel recover requires a live repo-owned Codex conductor session. "
-        "The current state would create a hybrid loop (Claude in Terminal, Codex in chat). "
-        "Relaunch the pair with `review-channel --action launch` or "
-        "`review-channel --action rollover` instead of relying on Claude-only recover."
-    )
-
-
-def _refresh_recover_snapshot(
-    *,
-    args,
-    repo_root: Path,
-    runtime_paths: RuntimePaths,
-):
-    bridge_path = runtime_paths.bridge_path
-    review_channel_path = runtime_paths.review_channel_path
-    status_dir = runtime_paths.status_dir
-    assert isinstance(bridge_path, Path)
-    assert isinstance(review_channel_path, Path)
-    assert isinstance(status_dir, Path)
-    return refresh_status_snapshot(
-        repo_root=repo_root,
-        bridge_path=bridge_path,
-        review_channel_path=review_channel_path,
-        output_root=status_dir,
-        promotion_plan_path=runtime_paths.promotion_plan_path,
-        execution_mode=getattr(args, "execution_mode", "markdown-bridge"),
-        warnings=[],
-        errors=[],
-        reviewer_overdue_threshold_seconds=getattr(
-            args, "reviewer_overdue_seconds", None
-        ),
-    )
 
 
 def _invalid_recover_state_report(
@@ -220,8 +178,9 @@ def _build_recover_sessions(
     repo_root = build_input.repo_root
     runtime_paths = build_input.runtime_paths
     status_snapshot = build_input.status_snapshot
-    codex_lanes = build_input.codex_lanes
-    claude_lanes = build_input.claude_lanes
+    reviewer_provider = build_input.reviewer_provider
+    recover_provider = build_input.recover_provider
+    provider_lane_map = build_input.provider_lane_map
     bridge_path = runtime_paths.bridge_path
     review_channel_path = runtime_paths.review_channel_path
     status_dir = runtime_paths.status_dir
@@ -245,20 +204,33 @@ def _build_recover_sessions(
             repo_root=repo_root,
             review_channel_path=review_channel_path,
             bridge_path=bridge_path,
-            codex_lanes=codex_lanes,
-            claude_lanes=claude_lanes,
+            codex_lanes=[],
+            claude_lanes=[],
             codex_workers=min(
                 int(getattr(args, "codex_workers", 0) or 0),
-                len(codex_lanes),
+                len(provider_lane_map.get("codex", ())),
             ),
             claude_workers=min(
-                int(getattr(args, "claude_workers", len(claude_lanes)) or len(claude_lanes)),
-                len(claude_lanes),
+                int(getattr(args, "claude_workers", 0) or 0),
+                len(provider_lane_map.get("claude", ())),
             ),
+            provider_lane_map=provider_lane_map,
+            requested_worker_budgets={
+                recover_provider: recover_worker_budget(
+                    args=args,
+                    provider=recover_provider,
+                    lane_count=len(provider_lane_map.get(recover_provider, ())),
+                ),
+                reviewer_provider: recover_worker_budget(
+                    args=args,
+                    provider=reviewer_provider,
+                    lane_count=len(provider_lane_map.get(reviewer_provider, ())),
+                ),
+            },
             rollover_threshold_pct=int(getattr(args, "rollover_threshold_pct", 50)),
             await_ack_seconds=int(getattr(args, "await_ack_seconds", 180)),
             retirement_note=(
-                "Recovery launcher: replace the stale Claude conductor from repo state "
+                f"Recovery launcher: replace the stale {recover_provider.title()} conductor from repo state "
                 "and wait for a current ACK before trusting the loop again."
             ),
             promotion_plan_rel="dev/active/review_channel.md",
@@ -268,7 +240,7 @@ def _build_recover_sessions(
             handoff_bundle=None,
             script_dir=runtime_paths.script_dir,
             session_output_root=status_dir,
-            providers_to_launch=("claude",),
+            providers_to_launch=(recover_provider,),
         ),
     )
     return terminal_profile_applied, current_instruction_revision, sessions
@@ -342,6 +314,6 @@ def _recover_report(
     report["recover_ack_observed"] = recover_ack_observed
     if exit_code != 0 and recover_ack_observed is not None:
         report["errors"].append(
-            "Fresh Claude conductor did not write a current ACK before the recovery timeout expired."
+            f"Fresh {provider.title()} conductor did not write a current ACK before the recovery timeout expired."
         )
     return report

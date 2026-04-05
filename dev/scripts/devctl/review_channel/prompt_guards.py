@@ -1,4 +1,4 @@
-"""Provider-specific guard lines for review-channel conductor prompts."""
+"""Role-driven, provider-aware guard lines for review-channel conductor prompts."""
 
 from __future__ import annotations
 
@@ -42,19 +42,43 @@ def provider_bootstrap_guard_lines(
     *,
     capability: ConductorCapabilityState,
     provider_name: str,
+    provider_id: str,
+    counterpart_provider_name: str,
+    counterpart_provider_id: str,
     promote_command: str,
 ) -> list[str]:
     """Return role-driven guardrails for unattended conductor sessions."""
     if capability.role == "reviewer":
-        return _reviewer_guard_lines(capability=capability, promote_command=promote_command)
-    return _implementer_guard_lines()
+        return _reviewer_guard_lines(
+            capability=capability,
+            counterpart_provider_name=counterpart_provider_name,
+            counterpart_provider_id=counterpart_provider_id,
+            provider_name=provider_name,
+            promote_command=promote_command,
+        )
+    return _implementer_guard_lines(
+        provider_id=provider_id,
+        provider_name=provider_name,
+        counterpart_provider_name=counterpart_provider_name,
+    )
 
 
 def _reviewer_guard_lines(
     *,
     capability: ConductorCapabilityState,
+    counterpart_provider_name: str,
+    counterpart_provider_id: str,
+    provider_name: str,
     promote_command: str,
 ) -> list[str]:
+    reviewer_poll_note = (
+        ""
+        if provider_name == "Codex"
+        else (
+            " `Last Codex poll` remains the reviewer-heartbeat compatibility "
+            "field even when the reviewer provider is not Codex."
+        )
+    )
     return [
         (
             "- A non-zero reviewer startup receipt is not automatically a loop-"
@@ -67,11 +91,11 @@ def _reviewer_guard_lines(
         (
             "- First action after bootstrap on every fresh launch: refresh "
             "`Last Codex poll`, `Last non-audit worktree hash`, and `Poll Status` "
-            "in `bridge.md` before worker fan-out or long-running analysis."
+            f"in `bridge.md` before worker fan-out or long-running analysis.{reviewer_poll_note}"
         ),
         (
             "- Do not spawn workers, start side investigations, or wait on "
-            "Claude until that refreshed `Last Codex poll` is visible in "
+            f"{counterpart_provider_name} until that refreshed `Last Codex poll` is visible in "
             "repo state. If you cannot advance the bridge heartbeat "
             "immediately, treat the launch as failed instead of pretending "
             "the reviewer loop is live."
@@ -91,17 +115,17 @@ def _reviewer_guard_lines(
             "Supported actions: `commit`, `run_check`, `push`, `kill_process`. "
             "Do not write to the `## Action Requests` bridge section directly; "
             "it is a projection-only surface rendered from packet state. "
-            "Claude will execute pending requests on the next packet poll."
+            f"{counterpart_provider_name} will execute pending requests on the next packet poll."
         ),
         (
-            "- If you are waiting on Claude-owned progress, ACK changes, or a "
+            f"- If you are waiting on {counterpart_provider_name}-owned progress, ACK changes, or a "
             "fresh diff to review, use the repo-owned `review-channel --action "
             "reviewer-wait` path instead of ad-hoc shell sleep loops, and "
             "resume the review pass as soon as implementer-owned state changes."
         ),
         (
-            "- Keep the Claude-targeted packet stream live too: use "
-            "`review-channel --action watch --target claude --status pending "
+            f"- Keep the {counterpart_provider_name}-targeted packet stream live too: use "
+            f"`review-channel --action watch --target {counterpart_provider_id} --status pending "
             "--follow` (or the equivalent inbox surface) while reviewing so "
             "new findings/instructions do not depend on manual repolling."
         ),
@@ -114,7 +138,7 @@ def _reviewer_guard_lines(
             f"`{capability.takeover_command}`."
         ),
         (
-            "- If Claude reports a slice complete and scoped work still remains, "
+            f"- If {counterpart_provider_name} reports a slice complete and scoped work still remains, "
             f"run `{promote_command}` to derive the next highest-priority "
             "unchecked plan item and rewrite `Current Instruction For Claude` "
             "instead of inventing the next task by hand or ending on a summary."
@@ -122,7 +146,12 @@ def _reviewer_guard_lines(
     ]
 
 
-def _implementer_guard_lines() -> list[str]:
+def _implementer_guard_lines(
+    *,
+    provider_id: str,
+    provider_name: str,
+    counterpart_provider_name: str,
+) -> list[str]:
     return [
         (
             "- `bridge.md` is the first thing to re-read whenever you need "
@@ -131,8 +160,8 @@ def _implementer_guard_lines() -> list[str]:
         ),
         (
             "- On each bridge repoll, also poll the packet inbox for pending "
-            "`action_request` packets via `review-channel --action inbox "
-            "--target claude --status pending --format json`. When Codex is "
+            f"`action_request` packets via `review-channel --action inbox "
+            f"--target {provider_id} --status pending --format json`. When {counterpart_provider_name} is "
             "blocked on an interactive permission prompt (commit, push, "
             "dialog dismissal), it posts a typed action request via "
             "`PacketPostRequest(kind=\"action_request\")` instead of waiting. "
@@ -149,22 +178,22 @@ def _implementer_guard_lines() -> list[str]:
         ),
         (
             "- If reviewer-owned bridge state says `hold steady`, `waiting for "
-            "reviewer promotion`, `Codex committing/pushing`, or equivalent "
+            f"reviewer promotion`, `{counterpart_provider_name} committing/pushing`, or equivalent "
             "wait language, that is a hard polling state. Do not scan plan docs "
             "for side work or reopen an accepted tranche until the reviewer-owned "
             "instruction changes."
         ),
         (
-            "- If a stale handoff summary says Codex is offline but the current "
+            f"- If a stale handoff summary says {counterpart_provider_name} is offline but the current "
             "bridge shows a newer reviewer checkpoint or fresh `Last Codex poll`, "
             "discard the stale summary and follow the live reviewer-owned bridge "
             "state."
         ),
         (
-            "- If you are waiting on Codex review or the next instruction, stay in "
+            f"- If you are waiting on {counterpart_provider_name} review or the next instruction, stay in "
             "the conductor role, use the repo-owned `review-channel --action "
             "implementer-wait` path instead of ad-hoc shell sleep loops, and "
-            "resume as soon as reviewer-owned bridge state or a fresh Claude-"
+            f"resume as soon as reviewer-owned bridge state or a fresh {provider_name}-"
             "targeted review packet changes."
         ),
         (
@@ -184,11 +213,11 @@ def _implementer_guard_lines() -> list[str]:
         (
             "- On each repoll, read `Last Codex poll` / `Poll Status` first, then "
             "re-read `Current Verdict`, `Open Findings`, and `Current Instruction "
-            "For Claude` together. On the same cadence, also poll the Claude-"
-            "targeted packet inbox/watch surface (`review-channel --action inbox "
-            "--target claude --status pending --format json` or equivalent) so "
+            "For Claude` together. On the same cadence, also poll the "
+            f"{provider_name}-targeted packet inbox/watch surface (`review-channel --action inbox "
+            f"--target {provider_id} --status pending --format json` or equivalent) so "
             "reviewer packets cannot be missed. If those reviewer-owned sections "
-            "and the pending Claude-targeted packet set are unchanged after you "
+            f"and the pending {provider_name}-targeted packet set are unchanged after you "
             "already finished the current bounded work, that is a live wait "
             "state; do not hammer one fixed offset or one cached line range."
         ),
@@ -205,7 +234,7 @@ def _implementer_guard_lines() -> list[str]:
             "- If `Current Instruction For Claude` still contains active work and "
             "the reviewer has not written an explicit wait state, do not say "
             "\"instruction unchanged\", \"done from my side\", \"No change. "
-            "Continuing.\", or \"Codex should review\" and park. Keep executing "
+            f"Continuing.\", or \"{counterpart_provider_name} should review\" and park. Keep executing "
             "the current bounded slice or post a concrete blocker in `Claude "
             "Questions`."
         ),
@@ -223,7 +252,7 @@ def _implementer_guard_lines() -> list[str]:
         ),
         (
             "- Posting `Claude Status` or `Claude Ack` is not the end of the loop. "
-            "After each coding summary, re-read the bridge, poll fresh Claude-"
+            f"After each coding summary, re-read the bridge, poll fresh {provider_name}-"
             "targeted review packets, look for the next live instruction, and "
             "keep the session alive instead of exiting."
         ),

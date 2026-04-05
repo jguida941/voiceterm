@@ -15,10 +15,11 @@ from dev.scripts.devctl.review_channel.launch_topology import (
 )
 
 
-def _lane(agent_id: str, provider: str, lane: str) -> LaneAssignment:
+def _lane(agent_id: str, provider: str, lane: str, *, role: str | None = None) -> LaneAssignment:
     return LaneAssignment(
         agent_id=agent_id,
         provider=provider,
+        role=role or "",
         lane=lane,
         docs="dev/active/review_channel.md",
         mp_scope="MP-355",
@@ -42,6 +43,36 @@ class LaunchTopologyTests(unittest.TestCase):
         self.assertEqual(specs[1].role, "implementer")
         self.assertEqual(specs[0].counterpart_name, "Claude")
         self.assertEqual(specs[1].requested_worker_budget, 2)
+
+    def test_build_conductor_launch_specs_respects_explicit_lane_roles(self) -> None:
+        specs = build_conductor_launch_specs(
+            provider_lane_map={
+                "claude": (
+                    _lane(
+                        "AGENT-1",
+                        "claude",
+                        "Claude architecture contract review",
+                        role="reviewer",
+                    ),
+                ),
+                "codex": (
+                    _lane(
+                        "AGENT-9",
+                        "codex",
+                        "Codex bridge fixes",
+                        role="implementer",
+                    ),
+                ),
+            },
+            requested_worker_budgets={"claude": 0, "codex": 1},
+        )
+
+        self.assertEqual([spec.provider for spec in specs], ["claude", "codex"])
+        self.assertEqual(specs[0].role, "reviewer")
+        self.assertEqual(specs[0].counterpart_provider, "codex")
+        self.assertEqual(specs[1].role, "implementer")
+        self.assertEqual(specs[1].counterpart_provider, "claude")
+        self.assertEqual(specs[1].requested_worker_budget, 1)
 
     def test_build_launch_sessions_accepts_provider_lane_map_and_writes_role_metadata(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -89,6 +120,59 @@ class LaunchTopologyTests(unittest.TestCase):
             self.assertEqual(metadata["planned_lane_count"], 1)
             self.assertIsNone(metadata["terminal_window_id"])
             self.assertIsNone(sessions[0]["terminal_window_id"])
+
+    def test_build_launch_sessions_preserves_swapped_role_metadata(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            review_channel_path = root / "dev/active/review_channel.md"
+            review_channel_path.parent.mkdir(parents=True, exist_ok=True)
+            review_channel_path.write_text("# Review Channel\n", encoding="utf-8")
+            bridge_path = root / "bridge.md"
+            bridge_path.write_text("# Bridge\n", encoding="utf-8")
+            status_dir = root / "dev/reports/review_channel/latest"
+
+            sessions = build_launch_sessions(
+                request=LaunchSessionRequest(
+                    repo_root=root,
+                    review_channel_path=review_channel_path,
+                    bridge_path=bridge_path,
+                    codex_lanes=[],
+                    claude_lanes=[],
+                    codex_workers=1,
+                    claude_workers=0,
+                    provider_lane_map={
+                        "claude": [
+                            _lane(
+                                "AGENT-1",
+                                "claude",
+                                "Claude reviewer",
+                                role="reviewer",
+                            )
+                        ],
+                        "codex": [
+                            _lane(
+                                "AGENT-9",
+                                "codex",
+                                "Codex coding",
+                                role="implementer",
+                            )
+                        ],
+                    },
+                    requested_worker_budgets={"claude": 0, "codex": 1},
+                    rollover_threshold_pct=20,
+                    await_ack_seconds=180,
+                    retirement_note="bridge-gated",
+                    promotion_plan_rel="dev/active/review_channel.md",
+                    session_output_root=status_dir,
+                ),
+                build_conductor_prompt_fn=lambda **_: "prompt",
+                resolve_cli_path_fn=lambda provider: provider,
+            )
+
+            self.assertEqual(
+                [(session["provider"], session["role"]) for session in sessions],
+                [("claude", "reviewer"), ("codex", "implementer")],
+            )
 
     def test_build_launch_sessions_uses_plan_safe_claude_permission_mode(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

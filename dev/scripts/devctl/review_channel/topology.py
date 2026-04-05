@@ -14,6 +14,8 @@ from ..runtime.review_state_models import (
 from ..runtime.role_profile import (
     TandemRole,
     build_default_tandem_profile,
+    default_provider_for_role,
+    normalize_tandem_role,
     role_for_provider,
 )
 from .core import LaneAssignment
@@ -78,25 +80,29 @@ def build_runtime_agent_registry(
         for provider, state in (provider_state or {}).items()
         if isinstance(state, Mapping)
     }
+    lane_role_map = _provider_role_map_from_lanes(lanes)
     providers = _runtime_provider_order(
         lanes=lanes,
+        lane_role_map=lane_role_map,
         provider_state=normalized_state,
         active_conductor_providers=active_conductor_providers,
     )
     reviewer_provider = _first_provider_for_role(
         providers,
+        lane_role_map,
         TandemRole.REVIEWER,
-        default="codex",
+        default=default_provider_for_role(TandemRole.REVIEWER),
     )
     implementer_providers = tuple(
         provider
         for provider in providers
-        if role_for_provider(provider) == TandemRole.IMPLEMENTER
-    ) or ("claude",)
+        if _provider_role(provider, lane_role_map) == TandemRole.IMPLEMENTER
+    ) or (default_provider_for_role(TandemRole.IMPLEMENTER),)
     operator_provider = _first_provider_for_role(
         providers,
+        lane_role_map,
         TandemRole.OPERATOR,
-        default="operator",
+        default=default_provider_for_role(TandemRole.OPERATOR),
     )
     profile = build_default_tandem_profile(
         reviewer_provider=reviewer_provider,
@@ -132,6 +138,7 @@ def build_planned_topology(
 
     provider_counts: dict[str, int] = {}
     provider_order: list[str] = []
+    provider_roles = _provider_role_map_from_lanes(lanes)
     for lane in lanes:
         provider = _normalize_provider(lane.provider)
         provider_counts[provider] = provider_counts.get(provider, 0) + 1
@@ -144,7 +151,7 @@ def build_planned_topology(
     providers = tuple(
         PlannedTopologyProviderState(
             provider=provider,
-            role=role_for_provider(provider).value,
+            role=_provider_role(provider, provider_roles).value,
             planned_lane_count=provider_counts[provider],
             requested_worker_budget=budgets.get(provider),
         )
@@ -165,6 +172,7 @@ def build_planned_topology(
 def _runtime_provider_order(
     *,
     lanes: Sequence[LaneAssignment],
+    lane_role_map: Mapping[str, TandemRole],
     provider_state: Mapping[str, Mapping[str, object]],
     active_conductor_providers: Sequence[str],
 ) -> tuple[str, ...]:
@@ -176,14 +184,21 @@ def _runtime_provider_order(
     for provider, state in provider_state.items():
         if _provider_has_signal(state):
             _append_provider(ordered, provider)
-    if not any(role_for_provider(provider) == TandemRole.REVIEWER for provider in ordered):
-        ordered.insert(0, "codex")
     if not any(
-        role_for_provider(provider) == TandemRole.IMPLEMENTER for provider in ordered
+        _provider_role(provider, lane_role_map) == TandemRole.REVIEWER
+        for provider in ordered
     ):
-        ordered.append("claude")
-    if not any(role_for_provider(provider) == TandemRole.OPERATOR for provider in ordered):
-        ordered.append("operator")
+        ordered.insert(0, default_provider_for_role(TandemRole.REVIEWER))
+    if not any(
+        _provider_role(provider, lane_role_map) == TandemRole.IMPLEMENTER
+        for provider in ordered
+    ):
+        ordered.append(default_provider_for_role(TandemRole.IMPLEMENTER))
+    if not any(
+        _provider_role(provider, lane_role_map) == TandemRole.OPERATOR
+        for provider in ordered
+    ):
+        ordered.append(default_provider_for_role(TandemRole.OPERATOR))
     return tuple(ordered)
 
 
@@ -209,6 +224,7 @@ def _provider_has_signal(state: Mapping[str, object]) -> bool:
 
 def _first_provider_for_role(
     providers: Sequence[str],
+    lane_role_map: Mapping[str, TandemRole],
     role: TandemRole,
     *,
     default: str,
@@ -217,7 +233,7 @@ def _first_provider_for_role(
         (
             provider
             for provider in providers
-            if role_for_provider(provider) == role
+            if _provider_role(provider, lane_role_map) == role
         ),
         default,
     )
@@ -276,6 +292,35 @@ def _default_script_profile(role: str) -> str:
 
 def _normalize_provider(provider: str) -> str:
     return str(provider or "").strip().lower()
+
+
+def _provider_role_map_from_lanes(
+    lanes: Sequence[LaneAssignment],
+) -> dict[str, TandemRole]:
+    role_map: dict[str, TandemRole] = {}
+    for lane in lanes:
+        provider = _normalize_provider(lane.provider)
+        if not provider:
+            continue
+        lane_role = normalize_tandem_role(getattr(lane, "role", ""))
+        if lane_role is None:
+            continue
+        existing = role_map.get(provider)
+        if existing is not None and existing != lane_role:
+            raise ValueError(
+                f"Provider `{provider}` has conflicting planned lane roles: "
+                f"`{existing.value}` vs `{lane_role.value}`."
+            )
+        role_map[provider] = lane_role
+    return role_map
+
+
+def _provider_role(
+    provider: str,
+    lane_role_map: Mapping[str, TandemRole],
+) -> TandemRole:
+    normalized = _normalize_provider(provider)
+    return lane_role_map.get(normalized, role_for_provider(normalized))
 
 
 def _string(value: object) -> str:

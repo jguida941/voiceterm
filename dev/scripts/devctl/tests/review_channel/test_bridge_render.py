@@ -227,6 +227,32 @@ def test_render_bridge_projection_drops_transcript_noise_and_extra_sections() ->
     assert bridge_hygiene_errors(rendered) == []
 
 
+def test_render_bridge_projection_tracks_swapped_reviewer_and_implementer() -> None:
+    review_state = _typed_review_state(_bridge_text())
+    review_state["collaboration"] = {
+        "role_assignments": [
+            {"role_id": "review_agent", "provider": "claude"},
+            {"role_id": "coding_agent", "provider": "codex"},
+        ]
+    }
+
+    rendered, _ = render_bridge_projection(
+        review_state=review_state,
+        last_worktree_hash="c" * 64,
+    )
+
+    assert "Claude is the reviewer. Codex is the coder." in rendered
+    assert "Live shared review channel for Claude <-> Codex coordination" in rendered
+    assert (
+        "Only the Claude conductor may update the reviewer-owned sections, "
+        "including the `Last Codex poll` compatibility heartbeat in this file."
+    ) in rendered
+    assert (
+        "Only the Codex conductor may update the implementer-owned compatibility "
+        "sections (`Claude Status`, `Claude Questions`, `Claude Ack`) in this"
+    ) in rendered
+
+
 def test_render_bridge_projection_drops_duplicate_packet_heading_and_stays_idempotent() -> None:
     dirty_bridge = _bridge_text().replace(
         "## Last Reviewed Scope",

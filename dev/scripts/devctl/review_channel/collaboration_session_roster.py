@@ -10,6 +10,7 @@ from ..runtime.review_state_models import (
 from ..runtime.role_profile import (
     TandemRole,
     build_default_tandem_profile,
+    normalize_tandem_role,
     role_for_provider,
 )
 from .session_probe import ConductorSessionRecord
@@ -131,7 +132,7 @@ def _build_delegated_work(
                     receipt_id=f"{record.session_name}:{agent_id}",
                     agent_id=agent_id,
                     provider=provider,
-                    role=role_for_provider(provider).value,
+                    role=_planned_lane_role(lane, provider=provider).value,
                     owner_session=record.session_name,
                     source="session_metadata",
                     status="planned",
@@ -171,11 +172,8 @@ def _text(value: object) -> str:
 
 
 def _record_role(record: ConductorSessionRecord) -> TandemRole:
-    role_text = _text(record.role)
-    if role_text == TandemRole.REVIEWER.value:
-        return TandemRole.REVIEWER
-    if role_text == TandemRole.OPERATOR.value:
-        return TandemRole.OPERATOR
-    if role_text == TandemRole.IMPLEMENTER.value:
-        return TandemRole.IMPLEMENTER
-    return role_for_provider(record.provider)
+    return normalize_tandem_role(record.role) or role_for_provider(record.provider)
+
+
+def _planned_lane_role(lane: dict[str, object], *, provider: str) -> TandemRole:
+    return normalize_tandem_role(_text(lane.get("role"))) or role_for_provider(provider)

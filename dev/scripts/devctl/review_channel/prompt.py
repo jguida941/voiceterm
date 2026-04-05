@@ -2,40 +2,47 @@
 
 from __future__ import annotations
 
-from dataclasses import asdict
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 from ..approval_mode import DEFAULT_APPROVAL_MODE
-from ..common import display_path
-from ..context_graph.escalation import build_context_escalation_packet, collect_query_terms, normalize_query_terms
-from ..runtime.conductor_capability import (
-    build_conductor_capability_state,
-    context_graph_bootstrap_command,
-    session_resume_command_for_role,
+from ..runtime.role_profile import normalize_tandem_role, role_for_provider
+from .prompt_sections import (
+    OperatingContractInput,
+    operating_contract_lines,
+    worker_budget_lines,
 )
-from ..runtime.role_profile import role_for_provider
-from ..runtime.review_state_models import ConductorCapabilityState
-from .handoff import BRIDGE_LIVENESS_KEYS, expected_rollover_ack_line, expected_rollover_ack_section
-from .prompt_guards import reviewer_takeover_note, startup_context_follow_up
-from .prompt_sections import operating_contract_lines
+from .prompt_support import (
+    bootstrap_files,
+    bridge_liveness_lines,
+    context_escalation_lines,
+    opening_line,
+    resolve_conductor_capability,
+    resolve_worker_budget,
+    rollover_ack_details,
+    rollover_ack_lines,
+)
 from .prompt_session_resume import build_session_resume_preamble
 
 if TYPE_CHECKING:
     from ..commands.governance.session_resume_support import SessionCachePacket
     from .core import LaneAssignment
 
+
 def build_conductor_prompt(
     *,
     provider: str,
     provider_name: str,
     other_name: str,
+    role: str | None = None,
+    other_provider: str | None = None,
     repo_root: Path,
     review_channel_path: Path,
     bridge_path: Path,
     lanes: list["LaneAssignment"],
     codex_workers: int,
     claude_workers: int,
+    requested_worker_budget: int | None = None,
     dangerous: bool,
     rollover_threshold_pct: int,
     await_ack_seconds: int,
@@ -48,12 +55,19 @@ def build_conductor_prompt(
     session_resume_packet: "SessionCachePacket | None" = None,
 ) -> str:
     """Render the initial conductor prompt for Codex or Claude."""
-    capability = _resolve_conductor_capability(
+    resolved_role = (normalize_tandem_role(role) or role_for_provider(provider)).value
+    capability = resolve_conductor_capability(
         provider=provider,
+        role=resolved_role,
         bridge_liveness=bridge_liveness,
     )
-    provider_worker_budget = codex_workers if role_for_provider(provider) == "reviewer" else claude_workers
-    rollover_ack_line, rollover_ack_section = _rollover_ack_details(
+    provider_worker_budget = resolve_worker_budget(
+        provider=provider,
+        requested_worker_budget=requested_worker_budget,
+        codex_workers=codex_workers,
+        claude_workers=claude_workers,
+    )
+    rollover_ack_line, rollover_ack_section = rollover_ack_details(
         provider=provider,
         handoff_bundle=handoff_bundle,
     )
@@ -64,20 +78,21 @@ def build_conductor_prompt(
         )
         for lane in lanes
     ]
-    context_lines = _context_escalation_lines(lanes=lanes)
+    context_lines = context_escalation_lines(lanes=lanes)
     preamble = build_session_resume_preamble(
         provider=provider,
+        role=resolved_role,
         repo_root=repo_root,
         session_resume_packet=session_resume_packet,
     )
     body = "\n".join(
         [
-            _opening_line(provider_name=provider_name, handoff_bundle=handoff_bundle),
+            opening_line(provider_name=provider_name, handoff_bundle=handoff_bundle),
             "",
             "Bootstrap in this exact order before acting:",
             *[
                 f"- {item}"
-                for item in _bootstrap_files(
+                for item in bootstrap_files(
                     capability=capability,
                     repo_root=repo_root,
                     review_channel_path=review_channel_path,
@@ -88,12 +103,17 @@ def build_conductor_prompt(
             "",
             "Operating contract:",
             *operating_contract_lines(
-                capability=capability,
-                provider_name=provider_name,
-                repo_root=repo_root,
-                approval_mode=approval_mode,
-                rollover_threshold_pct=rollover_threshold_pct,
-                promote_command=promote_command,
+                OperatingContractInput(
+                    capability=capability,
+                    provider_id=provider,
+                    provider_name=provider_name,
+                    counterpart_provider_id=str(other_provider or "").strip().lower(),
+                    counterpart_provider_name=other_name,
+                    repo_root=repo_root,
+                    approval_mode=approval_mode,
+                    rollover_threshold_pct=rollover_threshold_pct,
+                    promote_command=promote_command,
+                )
             ),
             f"- Planned rollover command: `{rollover_command}`",
             f"- Planned next-task promotion command: `{promote_command}`",
@@ -102,13 +122,13 @@ def build_conductor_prompt(
                 "handoff bundle, exit the old session cleanly so it does not linger "
                 "in memory or on the host."
             ),
-            *_bridge_liveness_lines(bridge_liveness),
-            *_rollover_ack_lines(
+            *bridge_liveness_lines(bridge_liveness),
+            *rollover_ack_lines(
                 rollover_ack_line=rollover_ack_line,
                 rollover_ack_section=rollover_ack_section,
             ),
             "",
-            *_worker_budget_lines(
+            *worker_budget_lines(
                 capability=capability,
                 provider_name=provider_name,
                 planned_lane_count=len(lanes),
@@ -139,220 +159,3 @@ def build_conductor_prompt(
     if preamble:
         return preamble + "\n\n" + body
     return body
-
-
-def _opening_line(
-    *,
-    provider_name: str,
-    handoff_bundle: dict[str, str] | None,
-) -> str:
-    return (
-        f"You are the fresh {provider_name} conductor for a planned "
-        "review-channel markdown-bridge rollover. Resume the existing "
-        "conductor role exactly."
-        if handoff_bundle is not None
-        else
-        f"You are the {provider_name} conductor for the active review-channel "
-        "markdown-bridge loop."
-    )
-
-
-def _bootstrap_files(
-    *,
-    capability: ConductorCapabilityState,
-    repo_root: Path,
-    review_channel_path: Path,
-    bridge_path: Path,
-    handoff_bundle: dict[str, str] | None,
-) -> list[str]:
-    resume_command = session_resume_command_for_role(capability.role)
-    files: list[str] = [
-        (
-            f"Run `{capability.startup_context_command}` first. "
-            + startup_context_follow_up(capability)
-            + " Then run "
-            f"`{resume_command}` for the canonical role bootstrap packet. Then run "
-            f"`{context_graph_bootstrap_command()}` for slim startup context "
-            "(repo state, active plans, hotspots, key commands). "
-            "Do not trust a user summary, prior chat continuity, or memory as a "
-            "substitute for this Step 0 receipt. "
-            "Do not echo the startup packet back into chat by default; keep any "
-            "bootstrap acknowledgement to blocker state plus next step unless the "
-            "operator asks for more detail. "
-            + reviewer_takeover_note(capability)
-            + " "
-            "Then follow deep links when task scope requires full authority: "
-            "`AGENTS.md` (SDLC policy), `dev/active/INDEX.md` (plan registry), "
-            "`dev/active/MASTER_PLAN.md` (execution state). "
-            "Use `--query '<term>'` for targeted subgraphs on specific files or MPs."
-        ),
-        display_path(review_channel_path, repo_root=repo_root),
-        display_path(bridge_path, repo_root=repo_root),
-    ]
-    if handoff_bundle is not None:
-        files.extend(
-            [
-                (
-                    "Treat the handoff bundle as restart context only. After you "
-                    "read it, re-read `bridge.md` and prefer the current reviewer-"
-                    "owned bridge sections plus typed startup/status output over "
-                    "any stale handoff summary. If the handoff bundle conflicts "
-                    "with live bridge state, the live bridge wins."
-                ),
-                display_path(Path(handoff_bundle["markdown_path"]), repo_root=repo_root),
-                display_path(Path(handoff_bundle["json_path"]), repo_root=repo_root),
-            ]
-        )
-    return files
-
-
-def _rollover_ack_details(
-    *,
-    provider: str,
-    handoff_bundle: dict[str, str] | None,
-) -> tuple[str | None, str | None]:
-    if handoff_bundle is None:
-        return None, None
-    return (
-        expected_rollover_ack_line(
-            provider=provider,
-            rollover_id=handoff_bundle["rollover_id"],
-        ),
-        expected_rollover_ack_section(provider=provider),
-    )
-
-
-def _bridge_liveness_lines(bridge_liveness: dict[str, object] | None) -> list[str]:
-    if bridge_liveness is None:
-        return []
-    lines = ["Current bridge liveness snapshot:"]
-    for key in BRIDGE_LIVENESS_KEYS:
-        if key == "last_reviewed_scope_present":
-            continue
-        value = bridge_liveness.get(key)
-        if key == "last_codex_poll_utc" and not value:
-            value = "n/a"
-        lines.append(f"- {key}: {value}")
-    lines.append("")
-    return lines
-
-
-def _rollover_ack_lines(
-    *,
-    rollover_ack_line: str | None,
-    rollover_ack_section: str | None,
-) -> list[str]:
-    if rollover_ack_line is None or rollover_ack_section is None:
-        return []
-    return [
-        (
-            "- First action after bootstrap: write this exact rollover "
-            f"ACK line into `{rollover_ack_section}` in `bridge.md`: "
-            f"`{rollover_ack_line}`"
-        ),
-        (
-            "- Do not start new work until that ACK line is visible in "
-            f"`{rollover_ack_section}`; the retiring session uses that "
-            "owned-section ACK to prove the fresh conductor is live."
-        ),
-    ]
-
-
-def _worker_budget_lines(
-    *,
-    capability: ConductorCapabilityState,
-    provider_name: str,
-    planned_lane_count: int,
-    provider_worker_budget: int,
-) -> list[str]:
-    worker_fallback = (
-        "If worker fanout is unavailable, stay in reviewer-only conductor "
-        "mode, keep the review loop alive yourself, and do not start local "
-        "implementation unless the workflow explicitly switches to takeover "
-        "(`reviewer_mode=single_agent` or "
-        f"`{capability.takeover_command}`)."
-        if capability.worker_unavailable_policy == "stay_reviewer_only"
-        else "If worker fanout is unavailable, stay in conductor mode and keep "
-        "executing the loop yourself."
-    )
-    missing_lane_fallback = (
-        "Before worker fanout, verify each assigned lane worktree exists and "
-        "is usable. If a listed worktree is missing or unavailable, do not "
-        "substitute a live-repo or read-only fallback lane; skip that lane, stay "
-        "reviewer-only, and use repo-owned review/promote/wait paths until the "
-        "repo-owned worktree contract is repaired."
-        if capability.worker_unavailable_policy == "stay_reviewer_only"
-        else "Before worker fanout, verify each assigned lane worktree exists and "
-        "is usable. If a listed worktree is missing or unavailable, do not "
-        "substitute a live-repo or read-only fallback lane; skip that lane "
-        "and stay conductor-only until the repo-owned worktree contract is "
-        "repaired."
-    )
-    lines = [
-        f"Static planned lane count: {planned_lane_count}",
-        f"Requested worker fanout budget: {provider_worker_budget}",
-    ]
-    if provider_worker_budget > 0:
-        lines.append(
-            "If this interface supports worker/sub-agent fanout, you may launch "
-            f"up to {provider_worker_budget} additional {provider_name} worker "
-            "lanes from the planned assignments below. Treat those assignments "
-            "as planned scope, not proof that repo-owned worker sessions "
-            f"already exist. {worker_fallback}"
-        )
-    else:
-        lines.append(
-            "No additional worker fanout is requested by default. Treat the "
-            "assignments below as planned lane scope and stay conductor-owned "
-            "unless an explicit runtime capability or later typed packet says "
-            f"otherwise. {worker_fallback}"
-        )
-    lines.append(missing_lane_fallback)
-    return lines
-
-
-def _resolve_conductor_capability(
-    *,
-    provider: str,
-    bridge_liveness: dict[str, object] | None,
-) -> ConductorCapabilityState:
-    reviewer_mode = str((bridge_liveness or {}).get("reviewer_mode") or "active_dual_agent")
-    return build_conductor_capability_state(
-        provider=provider,
-        reviewer_mode=reviewer_mode,
-    )
-
-
-def _context_escalation_lines(*, lanes: list["LaneAssignment"]) -> list[str]:
-    lines = [
-        "",
-        "Context escalation policy:",
-        (
-            "- When an instruction mentions an MP, file, guard, or subsystem you "
-            "have not read yet, run `python3 dev/scripts/devctl.py context-graph "
-            "--query '<term>' --format md` before widening scope."
-        ),
-        (
-            "- Trigger the same query before editing unread files, after repeated "
-            "failed attempts, or when blast radius is unclear."
-        ),
-    ]
-    lane_terms = normalize_query_terms(
-        ("review_channel", *collect_query_terms([lane.mp_scope for lane in lanes], max_terms=3)),
-        max_terms=4,
-    )
-    packet = build_context_escalation_packet(
-        trigger="review-channel-bootstrap",
-        query_terms=lane_terms,
-        options={"max_chars": 1200},
-    )
-    if packet is None:
-        return lines
-    payload = asdict(packet)
-    lines.extend(
-        [
-            "- Preloaded bounded packet for the active lane scopes:",
-            payload["markdown"],
-        ]
-    )
-    return lines

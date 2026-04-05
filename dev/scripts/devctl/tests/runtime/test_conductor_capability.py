@@ -61,6 +61,25 @@ class TestConductorCapability(unittest.TestCase):
         self.assertEqual(capability.worker_unavailable_policy, "self_execute")
         self.assertEqual(capability.queue_policy, "implement_assigned_work")
 
+    def test_explicit_role_override_allows_swapped_provider_assignments(self) -> None:
+        reviewer = build_conductor_capability_state(
+            provider="claude",
+            role="reviewer",
+            reviewer_mode="active_dual_agent",
+        )
+        implementer = build_conductor_capability_state(
+            provider="codex",
+            role="implementer",
+            reviewer_mode="active_dual_agent",
+        )
+
+        self.assertEqual(reviewer.provider, "claude")
+        self.assertEqual(reviewer.role, "reviewer")
+        self.assertFalse(reviewer.may_edit_repo)
+        self.assertEqual(implementer.provider, "codex")
+        self.assertEqual(implementer.role, "implementer")
+        self.assertTrue(implementer.may_edit_repo)
+
     def test_role_bootstrap_commands_are_canonical(self) -> None:
         self.assertEqual(
             session_resume_command_for_role("reviewer"),

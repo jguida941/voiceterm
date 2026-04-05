@@ -1,29 +1,40 @@
-"""Shared prompt section builders for review-channel conductor prompts."""
+"""Shared section renderers for review-channel conductor prompts."""
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from pathlib import Path
 
 from ..runtime.review_state_models import ConductorCapabilityState
-from .prompt_guards import provider_bootstrap_guard_lines
 from .prompt_contract import shared_post_edit_verification_lines
+from .prompt_guards import provider_bootstrap_guard_lines
 
 
-def operating_contract_lines(
-    *,
-    capability: ConductorCapabilityState,
-    provider_name: str,
-    repo_root: Path,
-    approval_mode: str,
-    rollover_threshold_pct: int,
-    promote_command: str,
-) -> list[str]:
+@dataclass(frozen=True, slots=True)
+class OperatingContractInput:
+    """Inputs required to render the shared operating contract block."""
+
+    capability: ConductorCapabilityState
+    provider_id: str
+    provider_name: str
+    counterpart_provider_id: str
+    counterpart_provider_name: str
+    repo_root: Path
+    approval_mode: str
+    rollover_threshold_pct: int
+    promote_command: str
+
+
+def operating_contract_lines(contract: OperatingContractInput) -> list[str]:
     """Return the shared operating-contract lines for one conductor prompt."""
+    capability = contract.capability
     owned_sections = (
-        "`Poll Status`, `Current Verdict`, `Open Findings`, "
-        "`Current Instruction For Claude`"
+        "the reviewer-owned sections `Poll Status`, `Current Verdict`, "
+        "`Open Findings`, `Current Instruction For Claude`, plus the "
+        "reviewer-heartbeat compatibility field `Last Codex poll`"
         if capability.role == "reviewer"
-        else "`Claude Status`, `Claude Questions`, `Claude Ack`"
+        else "the implementer-owned compatibility sections `Claude Status`, "
+        "`Claude Questions`, `Claude Ack`"
     )
     queue_progress_line = (
         "- Read the active queue from `bridge.md`, keep the review loop live, "
@@ -52,16 +63,19 @@ def operating_contract_lines(
             "- Use the repo-owned `devctl`/check scripts instead of ad-hoc shell "
             "work whenever policy already defines the command path."
         ),
-        *shared_post_edit_verification_lines(repo_root=repo_root),
+        *shared_post_edit_verification_lines(repo_root=contract.repo_root),
         (
             "- Shared approval mode for this conductor session is "
-            f"`{approval_mode}`. Destructive/publish-class actions still require "
+            f"`{contract.approval_mode}`. Destructive/publish-class actions still require "
             "explicit approval even when provider CLI prompts are relaxed."
         ),
-        f"- Only the {provider_name} conductor updates {owned_sections} in `bridge.md`.",
         (
-            f"- Specialist {provider_name} workers must report back to the "
-            f"{provider_name} conductor instead of editing `bridge.md` directly."
+            f"- Only the {contract.provider_name} conductor updates {owned_sections} "
+            "in `bridge.md`."
+        ),
+        (
+            f"- Specialist {contract.provider_name} workers must report back to the "
+            f"{contract.provider_name} conductor instead of editing `bridge.md` directly."
         ),
         (
             "- Treat scratch/reference artifacts such as `convo.md` and "
@@ -82,8 +96,8 @@ def operating_contract_lines(
             "conductor session."
         ),
         (
-            "- On each repoll, also poll the Claude-targeted packet "
-            "inbox/watch surface (`review-channel --action inbox --target claude "
+            f"- On each repoll, also poll the {contract.provider_name}-targeted packet "
+            f"inbox/watch surface (`review-channel --action inbox --target {contract.provider_id} "
             "--status pending --format json` or equivalent) so reviewer packets "
             "cannot be missed behind bridge-only polling."
         ),
@@ -108,13 +122,70 @@ def operating_contract_lines(
             "rest of the required `bundle.tooling` surfaces in `AGENTS.md`."
         ),
         (
-            f"- When the interface shows {rollover_threshold_pct}% context remaining "
+            f"- When the interface shows {contract.rollover_threshold_pct}% context remaining "
             "or lower, finish the current atomic step, update your owned bridge "
             "state, and trigger a planned rollover before compaction."
         ),
         *provider_bootstrap_guard_lines(
             capability=capability,
-            provider_name=provider_name,
-            promote_command=promote_command,
+            provider_name=contract.provider_name,
+            provider_id=contract.provider_id,
+            counterpart_provider_name=contract.counterpart_provider_name,
+            counterpart_provider_id=contract.counterpart_provider_id,
+            promote_command=contract.promote_command,
         ),
     ]
+
+
+def worker_budget_lines(
+    *,
+    capability: ConductorCapabilityState,
+    provider_name: str,
+    planned_lane_count: int,
+    provider_worker_budget: int,
+) -> list[str]:
+    """Render worker-fanout instructions for one provider."""
+    worker_fallback = (
+        "If worker fanout is unavailable, stay in reviewer-only conductor "
+        "mode, keep the review loop alive yourself, and do not start local "
+        "implementation unless the workflow explicitly switches to takeover "
+        "(`reviewer_mode=single_agent` or "
+        f"`{capability.takeover_command}`)."
+        if capability.worker_unavailable_policy == "stay_reviewer_only"
+        else "If worker fanout is unavailable, stay in conductor mode and keep "
+        "executing the loop yourself."
+    )
+    missing_lane_fallback = (
+        "Before worker fanout, verify each assigned lane worktree exists and "
+        "is usable. If a listed worktree is missing or unavailable, do not "
+        "substitute a live-repo or read-only fallback lane; skip that lane, stay "
+        "reviewer-only, and use repo-owned review/promote/wait paths until the "
+        "repo-owned worktree contract is repaired."
+        if capability.worker_unavailable_policy == "stay_reviewer_only"
+        else "Before worker fanout, verify each assigned lane worktree exists and "
+        "is usable. If a listed worktree is missing or unavailable, do not "
+        "substitute a live-repo or read-only fallback lane; skip that lane "
+        "and stay conductor-only until the repo-owned worktree contract is "
+        "repaired."
+    )
+    lines = [
+        f"Static planned lane count: {planned_lane_count}",
+        f"Requested worker fanout budget: {provider_worker_budget}",
+    ]
+    if provider_worker_budget > 0:
+        lines.append(
+            "If this interface supports worker/sub-agent fanout, you may launch "
+            f"up to {provider_worker_budget} additional {provider_name} worker "
+            "lanes from the planned assignments below. Treat those assignments "
+            "as planned scope, not proof that repo-owned worker sessions "
+            f"already exist. {worker_fallback}"
+        )
+    else:
+        lines.append(
+            "No additional worker fanout is requested by default. Treat the "
+            "assignments below as planned lane scope and stay conductor-owned "
+            "unless an explicit runtime capability or later typed packet says "
+            f"otherwise. {worker_fallback}"
+        )
+    lines.append(missing_lane_fallback)
+    return lines

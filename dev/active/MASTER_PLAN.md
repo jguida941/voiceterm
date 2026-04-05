@@ -146,6 +146,14 @@
   slice only: explicit type hints, typed/dataclass boundaries, closed variant
   types, minimal `NewType` use where swap risk is real, owner-side
   construction helpers, and typed lifecycle/typestate over loose booleans.
+- Current 2026-04-05 provider-neutral bootstrap follow-up inside that same
+  lane: reviewer/implementer ownership is now tracked as role-first launch
+  state instead of fixed Codex/Claude identity. Planned lane parsing,
+  conductor launch specs, prompts, bridge start rules, and narrow recover
+  flows must resolve the active reviewer/implementer provider from typed lane
+  role data and repo-owned collaboration/runtime state, while the canonical
+  bootstrap commands remain `startup-context --role <role>` and
+  `session-resume --role <role> --format bootstrap`.
 - Current clean-tree operational blocker inside that same lane: the repo is not
   blocked on plan/doc drift, it is blocked on live reviewer cadence.
   `startup-context` currently fails closed on `reviewer_overdue`, and detached

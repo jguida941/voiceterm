@@ -37,6 +37,33 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 - [User Path (5 min)](#user-path-5-min)
 - [Developer Path (15 min)](#developer-path-15-min)
 
+### 2026-04-05 - Reviewer/implementer bootstrap is now role-first instead of Codex/Claude-first
+
+The review-channel runtime had already grown typed reviewer/implementer role
+slots, but a lot of the launch/bootstrap/recover path still assumed fixed
+provider identity: Codex was implicitly the reviewer, Claude was implicitly
+the implementer, and narrow recover logic only knew how to replace Claude.
+That meant the architecture looked portable in late runtime state while the
+actual launcher still depended on vendor-shaped prompt lore.
+
+The current closure slice moves the contract back to the real abstraction.
+Planned lane parsing now carries an explicit tandem role, conductor launch
+specs/prompts consume that role directly, the canonical new-session bootstrap
+is `startup-context --role <role>` plus
+`session-resume --role <role> --format bootstrap`, and recover now accepts the
+current implementer provider while deriving the live reviewer requirement from
+typed role ownership instead of hardcoded Codex/Claude assumptions. The
+compatibility bridge headings (`Last Codex poll`, `Claude Status`, `Claude Ack`)
+still exist for now, but the repo-owned prompts/start rules now explain them as
+role-owned compatibility fields rather than provider-owned truth.
+
+Evidence: `dev/scripts/devctl/review_channel/core.py`,
+`dev/scripts/devctl/review_channel/launch_topology.py`,
+`dev/scripts/devctl/review_channel/prompt.py`,
+`dev/scripts/devctl/commands/review_channel/_recover.py`,
+`dev/active/remote_control_runtime.md`,
+`dev/scripts/README.md`.
+
 ### 2026-04-05 - Remote-control closure now tracks reviewer bootstrap truth and structural commit gating
 
 The latest pushed-branch architecture review turned a loose set of runtime

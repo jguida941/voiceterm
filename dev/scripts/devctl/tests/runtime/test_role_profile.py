@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from dev.scripts.devctl.runtime.role_profile import (
     DEFAULT_PROVIDER_ROLE_MAP,
+    default_provider_for_role,
+    normalize_tandem_role,
     RoleProfile,
     TandemProfile,
     TandemRole,
@@ -46,6 +48,18 @@ class TestRoleForProvider:
     def test_custom_map(self):
         custom = {"gemini": TandemRole.REVIEWER}
         assert role_for_provider("gemini", custom) == TandemRole.REVIEWER
+
+
+class TestRoleHelpers:
+    def test_normalize_tandem_role_accepts_aliases(self):
+        assert normalize_tandem_role("review") == TandemRole.REVIEWER
+        assert normalize_tandem_role("coder") == TandemRole.IMPLEMENTER
+        assert normalize_tandem_role("approver") == TandemRole.OPERATOR
+
+    def test_default_provider_for_role_uses_default_mapping(self):
+        assert default_provider_for_role("reviewer") == "codex"
+        assert default_provider_for_role("implementer") == "claude"
+        assert default_provider_for_role("operator") == "operator"
 
 
 class TestRoleProfile:

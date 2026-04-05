@@ -442,11 +442,12 @@ checklist plus chat memory.
     `action=repair_reviewer_loop`, checkpoint/budget blockers, or typed
     stale/non-live reviewer runtime as the relaunch/repair boundary.
     The narrower stale-implementer replacement path is now
-    `python3 dev/scripts/devctl.py review-channel --action recover --recover-provider claude`;
-    it replaces only the stale Claude conductor and now requires an already-live
-    repo-owned Codex conductor session. If the reviewer side is not already
-    live, fail closed and use `launch|rollover` to relaunch the pair instead of
-    drifting into a hybrid "Claude in Terminal, Codex in chat" loop.
+    `python3 dev/scripts/devctl.py review-channel --action recover --recover-provider <provider>`;
+    it replaces only the stale implementer conductor for the requested
+    provider and now requires the current repo-owned reviewer provider session
+    to already be live. If the reviewer side is not already live, fail closed
+    and use `launch|rollover` to relaunch the pair instead of drifting into a
+    hybrid provider loop.
 4.4.1 In that same active review-channel loop, detached publisher/supervisor
     heartbeats are not proof the dual-agent session is still alive. If
     `reviewer_mode=active_dual_agent` but repo-owned conductor sessions are
@@ -1980,7 +1981,7 @@ Core commands:
 | `python3 dev/scripts/devctl.py autonomy-swarm --agents 10 --question-file <plan.md> --mode report-only --run-label <label> --format md` | you want one-command live swarm execution with built-in review lane and digest | runs bounded worker fanout, reserves default `AGENT-REVIEW` when possible, and auto-runs post-audit digest artifacts |
 | `python3 dev/scripts/devctl.py mutation-loop --branch develop --mode report-only --threshold 0.80 --max-attempts 3 --format md` | you want bounded mutation remediation automation with hotspot evidence | runs report/fix loop and writes actionable mutation artifacts |
 | `python3 dev/scripts/devctl.py reports-cleanup --dry-run` | hygiene warns report artifacts are stale/heavy | previews retention cleanup candidates under managed `dev/reports/**` roots |
-| `python3 dev/scripts/devctl.py session-resume --role reviewer --format json` | fresh reviewer/implementer session start or session rollover | typed bootstrap packet with `head_sha`, `last_reviewed_sha`, blockers, and exact next guard bundle so the session starts from typed state instead of re-reading the repo |
+| `python3 dev/scripts/devctl.py session-resume --role reviewer --format bootstrap` | fresh reviewer/implementer session start or session rollover | canonical role-first bootstrap packet; use `--role reviewer` or `--role implementer` so either provider can start from the typed `head_sha`, `last_reviewed_sha`, blockers, and exact next guard bundle instead of re-reading the repo |
 | `python3 dev/scripts/devctl.py security` | deps or security-sensitive code changed | catches policy/advisory issues |
 | `python3 dev/scripts/devctl.py audit-scaffold --force --yes --format md` | guard failures need a fix plan | creates one shared remediation file |
 
