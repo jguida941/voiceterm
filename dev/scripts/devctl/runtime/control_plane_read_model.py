@@ -138,6 +138,7 @@ def build_control_plane_read_model(
         implementation_blocked=impl_blocked,
         last_guard_ok=quality["last_guard_ok"],
         current_head_commit=git.get("head", ""),
+        last_reviewed_sha=reviewer.get("last_reviewed_sha", ""),
         pending_action_requests=pending,
         operator_interaction_mode=op_mode,
         timestamp_utc=utc_now_iso(),

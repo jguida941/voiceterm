@@ -32,6 +32,7 @@ from .reviewer_follow_guard import (
     maybe_queue_reviewer_follow_packet,
     maybe_refresh_automation_reviewer_heartbeat,
 )
+from .reviewer_head_tracking import compute_review_range
 from .reviewer_follow_recovery import (
     ReviewerFollowRecoveryInput,
     ReviewerFollowRecoveryState,
@@ -130,6 +131,12 @@ def _build_reviewer_follow_tick(
         bridge_path=bridge_path,
         status_dir=paths.get("status_dir"),
     )
+    review_range = compute_review_range(
+        repo_root=repo_root,
+        bridge_path=bridge_path,
+    )
+    if review_range is not None:
+        report["review_range"] = review_range
     auto_promotion = _maybe_auto_promote(
         args=args,
         repo_root=repo_root,

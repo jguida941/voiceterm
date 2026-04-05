@@ -66,6 +66,7 @@ class AutoModeInputs:
     implementer_status: str = ""
     last_guard_ok: bool = True
     current_head_commit: str = ""
+    last_reviewed_sha: str = ""
     pending_action_requests: int = 0
     operator_interaction_mode: str = "local_terminal"
     timestamp_utc: str = ""
@@ -79,6 +80,7 @@ _TRANSITION_RUN_PUSH = "run governed push via devctl push --execute"
 _TRANSITION_RUN_GUARDS = "run guard bundle to validate current edits"
 _TRANSITION_CONTINUE_IMPLEMENTING = "continue editing toward the current slice"
 _TRANSITION_IDLE = "no active work; start a new slice or await instructions"
+_TRANSITION_HEAD_DRIFT = "HEAD moved past last reviewed commit; review the new commits"
 
 
 def resolve_auto_mode_phase(inputs: AutoModeInputs) -> AutoModeState:
@@ -142,10 +144,20 @@ def _resolve_phase_and_transition(
     if not inputs.worktree_clean:
         return AutoModePhase.IMPLEMENTING.value, _TRANSITION_CONTINUE_IMPLEMENTING
 
+    if _head_has_drifted(inputs):
+        return AutoModePhase.REVIEWING.value, _TRANSITION_HEAD_DRIFT
+
     if action == "no_push_needed" and inputs.worktree_clean:
         return AutoModePhase.IDLE.value, _TRANSITION_IDLE
 
     return AutoModePhase.IDLE.value, _TRANSITION_IDLE
+
+
+def _head_has_drifted(inputs: AutoModeInputs) -> bool:
+    """Return True when HEAD has moved past the last reviewed commit."""
+    if not inputs.last_reviewed_sha or not inputs.current_head_commit:
+        return False
+    return inputs.current_head_commit != inputs.last_reviewed_sha
 
 
 def auto_mode_state_from_mapping(value: object) -> AutoModeState:

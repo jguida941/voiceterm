@@ -16,9 +16,13 @@ from dev.scripts.devctl.commands.review_channel_command.helpers import _validate
 from dev.scripts.devctl.review_channel.current_session_projection import (
     compute_implementer_state_hash,
 )
+from dev.scripts.devctl.review_channel.handoff import extract_bridge_snapshot
 from dev.scripts.devctl.review_channel.reviewer_state import (
     ReviewerCheckpointUpdate,
     write_reviewer_checkpoint,
+)
+from dev.scripts.devctl.commands.governance.session_resume_support import (
+    build_from_sources,
 )
 
 
@@ -560,3 +564,69 @@ def test_write_reviewer_checkpoint_rejects_stale_implementer_state_hash(
                 ),
             ),
         )
+
+
+def test_checkpoint_write_persists_head_sha_and_session_resume_reads_it(
+    tmp_path: Path,
+) -> None:
+    """End-to-end: checkpoint records HEAD in bridge metadata, and
+    session-resume extracts it as last_reviewed_sha."""
+    fake_head = "abc123def456789000deadbeef"
+    root = tmp_path
+    bridge_path = root / "bridge.md"
+    bridge_path.write_text(_build_bridge_text(), encoding="utf-8")
+
+    with (
+        patch("dev.scripts.devctl.review_channel.state.refresh_status_snapshot"),
+        patch(
+            "dev.scripts.devctl.review_channel.reviewer_state._current_head_sha",
+            return_value=fake_head,
+        ),
+    ):
+        state_write = write_reviewer_checkpoint(
+            repo_root=root,
+            bridge_path=bridge_path,
+            reviewer_mode="active_dual_agent",
+            reason="test-e2e-head-sha",
+            checkpoint=ReviewerCheckpointUpdate(
+                current_verdict="- accepted",
+                open_findings="- none",
+                current_instruction="- next task",
+                reviewed_scope_items=("bridge.md",),
+            ),
+        )
+
+    # Verify the returned ReviewerStateWrite carries head_at_push_time
+    assert state_write.head_at_push_time == fake_head
+
+    # Verify the bridge markdown now contains the HEAD metadata line
+    updated_bridge = bridge_path.read_text(encoding="utf-8")
+    assert f"- Head at push time: `{fake_head}`" in updated_bridge
+
+    # Verify bridge snapshot extraction reads it back
+    snapshot = extract_bridge_snapshot(updated_bridge)
+    assert snapshot.metadata.get("head_at_push_time") == fake_head
+
+    # Verify session-resume reads last_reviewed_sha from compact projection
+    sources = {
+        "receipt": {"advisory_action": "continue", "advisory_reason": "ok"},
+        "review_state": None,
+        "push_report": None,
+        "publisher_hb": None,
+        "supervisor_hb": None,
+        "codex_conductor": None,
+        "claude_conductor": None,
+        "full_json": None,
+        "compact_json": {
+            "bridge": {"head_at_push_time": fake_head},
+            "current_session": {},
+        },
+    }
+    packet = build_from_sources(
+        root,
+        role="implementer",
+        head_sha="new_head_after_more_commits",
+        sources_override=sources,
+    )
+    assert packet.last_reviewed_sha == fake_head
+    assert packet.head_sha != packet.last_reviewed_sha

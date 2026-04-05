@@ -34,8 +34,14 @@ from .write_preconditions import (
 from .current_session_projection import bridge_implementer_state_hash
 from .handoff import extract_bridge_snapshot
 from .peer_liveness import ReviewerMode, normalize_reviewer_mode
+from .reviewer_head_tracking import (
+    compute_review_range as compute_review_range,
+    current_head_sha as _current_head_sha,
+)
 
 REVIEWER_MODE_RE = re.compile(r"(?m)^- Reviewer mode:\s*`.*?`\s*$")
+
+
 @dataclass(frozen=True)
 class ReviewerCheckpointUpdate:
     """Reviewer-owned section updates for one checkpoint write."""
@@ -107,6 +113,7 @@ def write_reviewer_checkpoint(
         ),
         excluded_prefixes=non_audit_hash_excluded_prefixes(),
     )
+    head_sha = _current_head_sha(repo_root)
     preserve_reviewed_hash = reason.strip().lower() == "next-plan-item"
     reviewed_scope_body = _format_markdown_list(checkpoint.reviewed_scope_items)
     validate_reviewer_checkpoint_sections(
@@ -161,6 +168,7 @@ def write_reviewer_checkpoint(
                 worktree_hash=effective_hash,
                 current_instruction_revision=instruction_revision,
                 reviewer_accepted_implementer_state_hash=accepted_impl_hash,
+                head_at_push_time=head_sha,
                 poll_note=(
                     (
                         "Reviewer checkpoint preserved reviewed baseline through "

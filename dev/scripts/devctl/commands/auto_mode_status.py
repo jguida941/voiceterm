@@ -86,6 +86,7 @@ def inputs_from_read_model(model: ControlPlaneReadModel) -> AutoModeInputs:
         implementer_status=implementer_status,
         last_guard_ok=model.last_guard_ok,
         current_head_commit=model.head_sha,
+        last_reviewed_sha=model.last_reviewed_sha,
         pending_action_requests=model.pending_action_requests,
         operator_interaction_mode=model.operator_interaction_mode,
         timestamp_utc=model.timestamp or utc_timestamp(),

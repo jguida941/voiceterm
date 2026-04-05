@@ -229,6 +229,49 @@ class ResolveAutoModePhaseTests(unittest.TestCase):
         ))
         self.assertEqual(state.phase, "pushing")
 
+    def test_head_drift_forces_reviewing(self) -> None:
+        """When HEAD has moved past last_reviewed_sha, phase is reviewing."""
+        state = resolve_auto_mode_phase(self._inputs(
+            current_head_commit="new_head_abc",
+            last_reviewed_sha="old_reviewed_123",
+        ))
+        self.assertEqual(state.phase, "reviewing")
+        self.assertIn("HEAD moved", state.next_transition)
+
+    def test_no_drift_when_head_matches_reviewed(self) -> None:
+        """When HEAD matches last_reviewed_sha, no drift is detected."""
+        state = resolve_auto_mode_phase(self._inputs(
+            current_head_commit="same_sha",
+            last_reviewed_sha="same_sha",
+        ))
+        self.assertEqual(state.phase, "idle")
+
+    def test_no_drift_when_reviewed_sha_empty(self) -> None:
+        """When no push has happened yet, no drift is detected."""
+        state = resolve_auto_mode_phase(self._inputs(
+            current_head_commit="abc123",
+            last_reviewed_sha="",
+        ))
+        self.assertEqual(state.phase, "idle")
+
+    def test_dirty_worktree_overrides_head_drift(self) -> None:
+        """Dirty worktree takes priority over head drift."""
+        state = resolve_auto_mode_phase(self._inputs(
+            worktree_clean=False,
+            current_head_commit="new_head",
+            last_reviewed_sha="old_reviewed",
+        ))
+        self.assertEqual(state.phase, "implementing")
+
+    def test_guard_failure_overrides_head_drift(self) -> None:
+        """Guard failure takes priority over head drift."""
+        state = resolve_auto_mode_phase(self._inputs(
+            last_guard_ok=False,
+            current_head_commit="new_head",
+            last_reviewed_sha="old_reviewed",
+        ))
+        self.assertEqual(state.phase, "testing")
+
 
 class AutoModeContractTests(unittest.TestCase):
     """Verify contract ID and schema version stability."""

@@ -16,6 +16,7 @@ from .lifecycle_state import (
     PublisherHeartbeat,
 )
 from .reviewer_follow_guard import maybe_refresh_automation_reviewer_heartbeat
+from .reviewer_head_tracking import compute_review_range
 
 
 @dataclass(frozen=True)
@@ -96,6 +97,12 @@ def _build_ensure_follow_tick(
                 paths=paths,
             )
             report["reviewer_supervisor_auto_start"] = reviewer_supervisor_auto_start
+    review_range = compute_review_range(
+        repo_root=repo_root,
+        bridge_path=bridge_path,
+    )
+    if review_range is not None:
+        report["review_range"] = review_range
     if ensure_result.state_write is not None:
         report["reviewer_state_write"] = deps.reviewer_state_write_to_dict_fn(
             ensure_result.state_write
