@@ -8,13 +8,14 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from ...time_utils import utc_timestamp
-from .session_resume_paths import (
-    get_review_state_mtime,
-    governance_interaction_mode,
-    resolve_governance,
-    resolve_source_paths,
+from ...runtime.control_plane_read_model import (
+    ControlPlaneReadModel,
+    build_control_plane_read_model,
 )
+from ...runtime.control_plane_resolve import load_git_state, load_sources
+from ...runtime.value_coercion import coerce_string
+from ...time_utils import utc_timestamp
+from .session_resume_paths import get_review_state_mtime, governance_interaction_mode
 
 if TYPE_CHECKING:
     from ...runtime.project_governance import ProjectGovernance
@@ -23,7 +24,7 @@ if TYPE_CHECKING:
 SESSION_CACHE_RELATIVE_DIR = Path("dev/reports/session_cache/latest")
 SESSION_CACHE_FILENAME = "cache.json"
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True, slots=True)  # noqa: too-many-instance-attributes
 class SessionCachePacket:
     """Compact session state replacing full bootstrap output."""
 
@@ -97,69 +98,81 @@ def build_from_sources(
     role: str,
     head_sha: str,
     governance: "ProjectGovernance | None" = None,
+    read_model_override: "ControlPlaneReadModel | None" = None,
+    sources_override: dict[str, Any] | None = None,
 ) -> SessionCachePacket:
-    """Build a fresh packet from receipt, compact, and review-state sources."""
-    resolved_governance = resolve_governance(repo_root, governance=governance)
-    paths = resolve_source_paths(repo_root, governance=resolved_governance)
+    """Build a fresh packet from the ControlPlaneReadModel.
 
-    receipt = _load_json(repo_root / paths["receipt"])
-    compact = _load_json(repo_root / paths["compact"])
-    review_state = _load_json(repo_root / paths["review_state"])
+    Loads all artifacts once through the read-model builder so gate
+    resolution is identical to dashboard and other governance surfaces.
+    Session-specific fields (instruction, ack, findings) are extracted
+    from the same sources the read model consumed.
 
-    branch = _str_field(receipt, "current_branch")
-    advisory_action = _str_field(receipt, "advisory_action")
-    advisory_reason = _str_field(receipt, "advisory_reason")
-    checkpoint_required = bool(receipt.get("checkpoint_required", False)) if receipt else False
-    safe_to_continue = bool(receipt.get("safe_to_continue_editing", True)) if receipt else True
-    authority_ok = bool(receipt.get("startup_authority_ok", False)) if receipt else False
-    review_gate_push = bool(receipt.get("review_gate_allows_push", False)) if receipt else False
-    last_guard_ok = authority_ok
+    ``read_model_override`` and ``sources_override`` let tests inject
+    pre-built data without touching the filesystem.
+    """
+    sources = sources_override if sources_override is not None else load_sources(repo_root)
+    git = load_git_state(repo_root) if sources_override is None else {
+        "branch": "unknown", "head": head_sha, "clean": True, "ahead": 0,
+    }
 
-    current_session = _nested_dict(compact, "current_session")
-    if not current_session:
-        current_session = _nested_dict(review_state, "current_session")
-
-    current_instruction = _str_field(current_session, "current_instruction")
-    instruction_revision = _str_field(current_session, "current_instruction_revision")
-    ack_state = _str_field(current_session, "implementer_ack_state") or "missing"
-    open_findings = _str_field(current_session, "open_findings")
-
-    blockers = compute_blockers(
-        checkpoint_required=checkpoint_required,
-        safe_to_continue=safe_to_continue,
-        authority_ok=authority_ok,
+    model = read_model_override or build_control_plane_read_model(
+        repo_root, sources_override=sources, git_override=git,
     )
-    interaction_mode = derive_interaction_mode(compact, governance=resolved_governance)
-    next_action = derive_next_action(receipt, blockers)
-    done_summary = _derive_done_summary(receipt)
-    rs_mtime = get_review_state_mtime(repo_root, governance=resolved_governance)
+
+    receipt = sources.get("receipt")
+    session = _extract_current_session(sources)
+
+    advisory_action = coerce_string((receipt or {}).get("advisory_action"))
+    advisory_reason = coerce_string((receipt or {}).get("advisory_reason"))
+    checkpoint_required = bool((receipt or {}).get("checkpoint_required", False))
+    safe_to_continue = bool((receipt or {}).get("safe_to_continue_editing", True))
+    review_gate_push = model.review_accepted
+
+    current_instruction = _str_field(session, "current_instruction")
+    instruction_revision = _str_field(session, "current_instruction_revision")
+    ack_state = _str_field(session, "implementer_ack_state") or "missing"
+    open_findings = _str_field(session, "open_findings")
+
+    rs_mtime = get_review_state_mtime(repo_root, governance=governance)
+
     key_rules = distill_key_rules(
         safe_to_continue=safe_to_continue,
         checkpoint_required=checkpoint_required,
         ack_current=(ack_state == "current"),
         review_gate_allows_push=review_gate_push,
-        last_guard_ok=last_guard_ok,
+        last_guard_ok=model.last_guard_ok,
     )
 
     return SessionCachePacket(
         generated_at_utc=utc_timestamp(),
         role=role,
-        branch=branch,
+        branch=model.branch,
         head_sha=head_sha,
         advisory_action=advisory_action,
         advisory_reason=advisory_reason,
-        blockers=blockers,
-        interaction_mode=interaction_mode,
+        blockers=model.top_blocker,
+        interaction_mode=model.operator_interaction_mode,
         current_instruction=current_instruction,
         instruction_revision=instruction_revision,
         ack_state=ack_state,
         open_findings=open_findings,
-        last_guard_ok=last_guard_ok,
+        last_guard_ok=model.last_guard_ok,
         review_state_mtime=rs_mtime,
-        done_summary=done_summary,
-        next_action=next_action,
+        done_summary=_derive_done_summary(receipt),
+        next_action=model.next_command or model.next_action,
         key_rules=key_rules,
     )
+
+
+def _extract_current_session(sources: dict[str, Any]) -> dict[str, Any] | None:
+    """Pull current_session from compact or review_state, preferring compact."""
+    compact = sources.get("compact_json")
+    review_state = sources.get("review_state")
+    session = _nested_dict(compact, "current_session")
+    if not session:
+        session = _nested_dict(review_state, "current_session")
+    return session
 
 
 def compute_blockers(
@@ -318,16 +331,6 @@ def packet_from_mapping(payload: dict[str, Any]) -> SessionCachePacket:
             str(r).strip() for r in payload.get("key_rules", ()) if str(r).strip()
         ),
     )
-
-
-def _load_json(path: Path) -> dict[str, Any] | None:
-    if not path.is_file():
-        return None
-    try:
-        payload = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        return None
-    return dict(payload) if isinstance(payload, dict) else None
 
 
 def _nested_dict(data: dict[str, Any] | None, key: str) -> dict[str, Any] | None:

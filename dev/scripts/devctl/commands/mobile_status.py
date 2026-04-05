@@ -1,4 +1,9 @@
-"""devctl mobile-status command implementation."""
+"""devctl mobile-status command implementation.
+
+Enriches the merged mobile snapshot with resolved gates from
+``ControlPlaneReadModel`` so mobile-status consumers receive the same
+single source of truth as every other governance surface.
+"""
 
 from __future__ import annotations
 
@@ -17,6 +22,25 @@ from ..mobile_status_views import (
 )
 from ..repo_packs.review_helpers import load_mobile_review_state
 from ..runtime import ControlStateContext, build_control_state
+from ..runtime.control_plane_read_model import (
+    ControlPlaneReadModel,
+    build_control_plane_read_model,
+)
+
+
+def _control_plane_section(model: ControlPlaneReadModel) -> dict[str, Any]:
+    """Extract governance-surface fields from the shared read model."""
+    return {
+        "resolved_phase": model.resolved_phase,
+        "top_blocker": model.top_blocker,
+        "next_action": model.next_action,
+        "next_command": model.next_command,
+        "push_eligible": model.push_eligible,
+        "review_accepted": model.review_accepted,
+        "reviewer_mode": model.reviewer_mode,
+        "last_guard_ok": model.last_guard_ok,
+        "pending_action_requests": model.pending_action_requests,
+    }
 
 
 def _iso_z(value: datetime) -> str:
@@ -87,6 +111,7 @@ def run(args) -> int:
         )
 
     merged_payload: dict[str, Any] = {}
+    cp_section: dict[str, Any] = {}
     if not errors:
         approval_mode = normalize_approval_mode(getattr(args, "approval_mode", None))
         approval_policy = build_approval_policy_payload(approval_mode)
@@ -107,6 +132,8 @@ def run(args) -> int:
                 errors=tuple(errors),
             ),
         )
+        cp_model = build_control_plane_read_model(repo_root)
+        cp_section = _control_plane_section(cp_model)
         merged_payload = {
             "schema_version": 1,
             "command": "mobile-status",
@@ -116,6 +143,7 @@ def run(args) -> int:
             "controller_payload": controller_payload,
             "review_payload": review_payload,
             "control_state": control_state.to_dict(),
+            "control_plane": cp_section,
         }
 
     selected_view = view_payload(merged_payload, str(args.view)) if not errors else {}
@@ -139,6 +167,7 @@ def run(args) -> int:
         "review_projection_files": review_projection_files,
         "view": str(args.view),
         "view_payload": selected_view,
+        "control_plane": cp_section if not errors else {},
         "projection_dir": projection_dir,
         "projection_files": projection_files,
         "warnings": warnings,

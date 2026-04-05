@@ -67,11 +67,11 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-04-05T06:38:05Z`
-- Last Codex poll (Local America/New_York): `2026-04-05 02:38:05 EDT`
+- Last Codex poll: `2026-04-05T06:48:15Z`
+- Last Codex poll (Local America/New_York): `2026-04-05 02:48:15 EDT`
 - Reviewer mode: `single_agent`
-- Last non-audit worktree hash: `ae256e567775d6c7e2af28b6b41ef023c35caef8af27e3c9bbc882a1409cb19b`
-- Current instruction revision: `086327804354`
+- Last non-audit worktree hash: `af1560cea19c115e7058637aa99bc88cb00d7ac4f4dc74a07edd7adc83882ba7`
+- Current instruction revision: `f9d6721a83be`
 ## Protocol
 
 1. Claude should poll this file periodically while coding.
@@ -193,19 +193,22 @@ Codex: design this as part of the existing `ProjectGovernance` / `ReviewerGateSt
 
 ## Poll Status
 
-- Codex review pass complete (mode: single_agent; reason: accepted; observed-tree: ae256e567775; reviewed-tree: ae256e567775; instruction-rev: 086327804354).
+- Codex review pass complete (mode: single_agent; reason: changes_requested; observed-tree: af1560cea19c; reviewed-tree: af1560cea19c; instruction-rev: f9d6721a83be).
 
 ## Current Verdict
 
-- Accepted: `79be213` fixes the two blocking `ControlPlaneReadModel` contract bugs from `afd6866`.
-- `resolve_reviewer_state()` now trusts the typed `review_acceptance.review_accepted` boolean before falling back to verdict prose, so accepted reviewer state no longer depends on fragile string matching.
-- `ControlPlaneReadModel` now exposes `codex_conductor_alive` and `claude_conductor_alive` separately, so the shared read model can represent asymmetric reviewer/implementer liveness again.
-- Verified on current HEAD `62e072c`: targeted unit tests pass, and a live-PID manual repro still yields `codex_conductor_alive=False` / `claude_conductor_alive=True`.
-- Change Summary: this follow-up keeps the typed authority the repo already owns instead of re-parsing human text or collapsing provider state. That makes the shared control-plane contract safe to keep adopting.
+- Changes requested for `976f816` (`Wire auto-mode to ControlPlaneReadModel`).
+- The refactor is directionally correct because `auto-mode` now consumes the shared read-model path instead of six independent artifact loaders, but the migration is not behavior-preserving yet.
+- `inputs_from_read_model()` drops `implementer_status`, so the shared path can no longer report `implementer_alive=True` even when `review_state.current_session.implementer_status` says Claude is actively implementing.
+- `operator_interaction_mode` now comes through the read model's receipt-only fallback, so remote-control sessions regress to `local_terminal` whenever the startup receipt is absent or stale even if review-state still says `remote_control`.
+- Verification: `python3 -m unittest dev.scripts.devctl.tests.runtime.test_auto_mode` passes, but targeted manual repros still show `{'implementer_status': '', 'implementer_alive': False}` for an implementing session and `{'operator_interaction_mode': 'local_terminal'}` for a review-state-driven remote-control session.
+- Change Summary: the shared read-model migration is the right architecture move, but this slice dropped two live runtime signals on the way in. That makes auto-mode under-report implementer activity and remote-control state, which is unsafe for the next session-resume, phone/mobile, and operator-console adoption work.
 
 ## Open Findings
 
-- None blocking for `afd6866..79be213`.
+- `dev/scripts/devctl/commands/auto_mode_status.py` no longer populates `AutoModeInputs.implementer_status`, while `dev/scripts/devctl/runtime/auto_mode.py` still derives `implementer_alive` only from that field. Result: the shared path always renders the implementer as not alive.
+- `dev/scripts/devctl/runtime/control_plane_read_model.py` currently resolves `operator_interaction_mode` from the startup receipt only. The pre-refactor auto-mode path preferred governance and then `review_state`, so this commit regresses remote-control truth whenever the receipt is missing or stale.
+- The new tests cover phase parity, but they do not assert these two runtime-parity cases yet, which is why the regression ships green.
 
 ## Claude Status
 
@@ -221,9 +224,12 @@ Codex: design this as part of the existing `ProjectGovernance` / `ReviewerGateSt
 
 ## Current Instruction For Claude
 
-Hold steady.
-1. No new coding is required for this review slice. `79be213` closes the blocking F1/F2 contract bugs from `afd6866`.
-2. Optional follow-up only if the operator wants tighter proof: make `test_codex_dead_claude_alive_observable` use a live Claude PID (for example `os.getpid()`), assert `codex_conductor_alive=False` and `claude_conductor_alive=True`, then rerun `python3 -m unittest dev.scripts.devctl.tests.runtime.test_control_plane_read_model dev.scripts.devctl.tests.runtime.test_control_plane_regressions`.
+1. Fix the two auto-mode parity regressions in `976f816` before widening the ControlPlaneReadModel rollout:
+   - preserve implementer liveness by threading `review_state.current_session.implementer_status` (or an equivalent typed field) through the shared read model and back into `AutoModeInputs`;
+   - restore typed `operator_interaction_mode` precedence through the shared read model so remote-control truth still comes from governance/review-state when the startup receipt is absent.
+2. Add focused regression tests for both cases in `dev/scripts/devctl/tests/runtime/test_auto_mode.py`.
+3. Rerun `python3 -m unittest dev.scripts.devctl.tests.runtime.test_auto_mode` and any focused runtime consumer tests you touch, then post the results.
+4. After the parity fix lands cleanly, continue the remaining ControlPlaneReadModel consumer-closure slice across session-resume, phone/mobile, and operator-console surfaces without reintroducing local artifact loaders or bridge parsing.
 
 ## Action Requests
 
@@ -231,12 +237,13 @@ Hold steady.
 
 ## Last Reviewed Scope
 
-- code review diff under review `afd6866..79be213` (`Fix ControlPlaneReadModel: typed review_accepted, per-provider conductors`)
-- active docs/context checked: `dev/active/INDEX.md`, `dev/active/MASTER_PLAN.md`, `dev/active/review_channel.md`, `dev/active/platform_authority_loop.md`, `dev/active/ai_governance_platform.md`
+- code review diff under review `51ee640..976f816` (`Wire auto-mode to ControlPlaneReadModel`)
+- active docs/context checked: `dev/active/INDEX.md`, `dev/active/MASTER_PLAN.md`, `dev/active/remote_control_runtime.md`, `dev/active/operator_console.md`
+- `dev/scripts/devctl/commands/auto_mode_status.py`
+- `dev/scripts/devctl/runtime/auto_mode.py`
 - `dev/scripts/devctl/runtime/control_plane_read_model.py`
 - `dev/scripts/devctl/runtime/control_plane_resolve.py`
-- `dev/scripts/devctl/tests/runtime/test_control_plane_read_model.py`
-- `dev/scripts/devctl/tests/runtime/test_control_plane_regressions.py`
-- verification: `python3 -m unittest dev.scripts.devctl.tests.runtime.test_control_plane_read_model dev.scripts.devctl.tests.runtime.test_control_plane_regressions` (pass)
-- manual repro: `resolve_reviewer_state(... review_accepted=True, current_verdict="- Reviewer-accepted.") -> review_accepted=True`
-- manual repro: `resolve_daemon_state({... claude_conductor: {"session_pid": os.getpid()}}) -> claude_conductor_alive=True`
+- `dev/scripts/devctl/tests/runtime/test_auto_mode.py`
+- verification: `python3 -m unittest dev.scripts.devctl.tests.runtime.test_auto_mode` (pass; 42 tests)
+- manual repro: `review_state.current_session.implementer_status="implementing"` still yields `{'implementer_status': '', 'implementer_alive': False}` through `inputs_from_read_model(...) -> resolve_auto_mode_phase(...)`
+- manual repro: `review_state.operator_interaction_mode="remote_control"` with no startup receipt still yields `{'operator_interaction_mode': 'local_terminal'}` through `build_control_plane_read_model(...)`

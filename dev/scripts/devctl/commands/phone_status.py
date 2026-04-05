@@ -1,4 +1,9 @@
-"""devctl phone-status command implementation."""
+"""devctl phone-status command implementation.
+
+Enriches the autonomy queue artifact with resolved gates from
+``ControlPlaneReadModel`` so phone-status consumers get the same single
+source of truth as every other governance surface.
+"""
 
 from __future__ import annotations
 
@@ -14,6 +19,7 @@ from ..phone_status_views import (
     view_payload,
     write_projection_bundle,
 )
+from ..runtime.control_plane_read_model import build_control_plane_read_model
 
 
 def _iso_z(value: datetime) -> str:
@@ -46,11 +52,28 @@ def _load_payload(input_path: Path) -> tuple[dict[str, Any], list[str]]:
     return loaded, []
 
 
+def _build_control_plane_section(repo_root: Path) -> dict[str, Any]:
+    """Build the control_plane enrichment section from the shared read model."""
+    model = build_control_plane_read_model(repo_root)
+    return {
+        "resolved_phase": model.resolved_phase,
+        "top_blocker": model.top_blocker,
+        "next_action": model.next_action,
+        "next_command": model.next_command,
+        "push_eligible": model.push_eligible,
+        "review_accepted": model.review_accepted,
+        "reviewer_mode": model.reviewer_mode,
+        "last_guard_ok": model.last_guard_ok,
+        "pending_action_requests": model.pending_action_requests,
+    }
+
+
 def run(args) -> int:
     """Render one phone-oriented autonomy status view from latest queue artifact."""
     warnings: list[str] = []
     errors: list[str] = []
 
+    repo_root = Path(getattr(args, "repo_root", None) or REPO_ROOT).resolve()
     input_path = _resolve_path(str(args.phone_json))
     payload, load_errors = _load_payload(input_path)
     errors.extend(load_errors)
@@ -64,6 +87,8 @@ def run(args) -> int:
         projection_files = write_projection_bundle(projection_root, payload)
         projection_dir = str(projection_root)
 
+    control_plane = _build_control_plane_section(repo_root)
+
     report = {
         "command": "phone-status",
         "timestamp": _iso_z(datetime.now(timezone.utc)),
@@ -71,6 +96,7 @@ def run(args) -> int:
         "input_path": str(input_path),
         "view": str(args.view),
         "view_payload": selected_view,
+        "control_plane": control_plane,
         "projection_dir": projection_dir,
         "projection_files": projection_files,
         "warnings": warnings,

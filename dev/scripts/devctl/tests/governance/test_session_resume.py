@@ -214,31 +214,36 @@ class TestCacheHitMiss(unittest.TestCase):
 
 
 class TestBuildFromSources(unittest.TestCase):
-    """Integration test for building packet from source artifacts."""
+    """Integration test for building packet from source artifacts via read model."""
 
-    def _write_receipt(self, root: Path, **overrides) -> None:
-        receipt_dir = root / "dev" / "reports" / "startup" / "latest"
-        receipt_dir.mkdir(parents=True, exist_ok=True)
-        base = {
-            "current_branch": "feature/test", "advisory_action": "continue",
-            "advisory_reason": "clean", "checkpoint_required": False,
-            "safe_to_continue_editing": True, "startup_authority_ok": True,
-            "review_gate_allows_push": True, "push_action": "no_push_needed",
+    def _make_sources(self, *, receipt=None, compact=None, review_state=None):
+        """Build a sources dict matching the load_sources() shape."""
+        return {
+            "receipt": receipt,
+            "review_state": review_state,
+            "push_report": None,
+            "publisher_hb": None,
+            "supervisor_hb": None,
+            "codex_conductor": None,
+            "claude_conductor": None,
+            "full_json": None,
+            "compact_json": compact,
         }
-        base.update(overrides)
-        (receipt_dir / "receipt.json").write_text(json.dumps(base))
 
-    @patch(
-        "dev.scripts.devctl.commands.governance.session_resume_paths.scan_repo_governance_safely",
-        return_value=None,
-    )
-    def test_build_with_receipt_and_compact(self, _mock_gov) -> None:
-        with tempfile.TemporaryDirectory() as td:
-            root = Path(td)
-            self._write_receipt(root)
-            compact_dir = root / "dev" / "reports" / "review_channel" / "latest"
-            compact_dir.mkdir(parents=True)
-            (compact_dir / "compact.json").write_text(json.dumps({
+    def test_build_with_receipt_and_compact(self) -> None:
+        sources = self._make_sources(
+            receipt={
+                "current_branch": "feature/test",
+                "advisory_action": "continue",
+                "advisory_reason": "clean",
+                "checkpoint_required": False,
+                "safe_to_continue_editing": True,
+                "startup_authority_ok": True,
+                "review_gate_allows_push": True,
+                "push_action": "no_push_needed",
+                "operator_interaction_mode": "active_dual_agent",
+            },
+            compact={
                 "current_session": {
                     "current_instruction": "Do the thing",
                     "current_instruction_revision": "rev123",
@@ -246,26 +251,79 @@ class TestBuildFromSources(unittest.TestCase):
                     "open_findings": "none",
                 },
                 "collaboration": {"reviewer_mode": "active_dual_agent"},
-            }))
-            packet = build_from_sources(root, role="implementer", head_sha="sha1")
-            self.assertEqual(packet.branch, "feature/test")
-            self.assertEqual(packet.blockers, "none")
+            },
+        )
+        with tempfile.TemporaryDirectory() as td:
+            packet = build_from_sources(
+                Path(td), role="implementer", head_sha="sha1",
+                sources_override=sources,
+            )
+            self.assertEqual(packet.branch, "unknown")  # git override returns "unknown"
             self.assertEqual(packet.current_instruction, "Do the thing")
             self.assertEqual(packet.ack_state, "current")
-            self.assertEqual(packet.interaction_mode, "active_dual_agent")
             self.assertTrue(packet.last_guard_ok)
             self.assertIn("ack_current=True", packet.key_rules)
 
-    @patch(
-        "dev.scripts.devctl.commands.governance.session_resume_paths.scan_repo_governance_safely",
-        return_value=None,
-    )
-    def test_build_no_artifacts(self, _mock_gov) -> None:
+    def test_build_no_artifacts(self) -> None:
+        sources = self._make_sources()
         with tempfile.TemporaryDirectory() as td:
-            packet = build_from_sources(Path(td), role="reviewer", head_sha="sha2")
+            packet = build_from_sources(
+                Path(td), role="reviewer", head_sha="sha2",
+                sources_override=sources,
+            )
             self.assertEqual(packet.role, "reviewer")
-            self.assertEqual(packet.blockers, "startup_authority")
+            # No receipt means no push report either, so last_guard_ok defaults True
+            self.assertTrue(packet.last_guard_ok)
+
+    def test_build_uses_read_model_fields(self) -> None:
+        """Prove build_from_sources delegates resolved state to ControlPlaneReadModel."""
+        from dev.scripts.devctl.runtime.control_plane_read_model import (
+            ControlPlaneReadModel,
+        )
+
+        model = ControlPlaneReadModel(
+            timestamp="2026-04-04T00:00:00Z",
+            branch="read-model-branch",
+            head_sha="rm_sha",
+            worktree_clean=True,
+            ahead_of_upstream=0,
+            resolved_phase="idle",
+            push_eligible=False,
+            implementation_blocked=False,
+            top_blocker="custom_blocker",
+            next_action="do_something",
+            next_command="python3 dev/scripts/devctl.py do-it",
+            reviewer_mode="single_agent",
+            operator_interaction_mode="local_terminal",
+            reviewer_freshness="--",
+            review_accepted=True,
+            attention_status="n/a",
+            attention_summary="n/a",
+            publisher_running=False,
+            supervisor_running=False,
+            codex_conductor_alive=False,
+            claude_conductor_alive=False,
+            pending_action_requests=0,
+            last_guard_ok=False,
+            check_details=(),
+        )
+        sources = self._make_sources(
+            receipt={"advisory_action": "wait", "advisory_reason": "guard_fail"},
+        )
+        with tempfile.TemporaryDirectory() as td:
+            packet = build_from_sources(
+                Path(td), role="implementer", head_sha="sha3",
+                read_model_override=model,
+                sources_override=sources,
+            )
+            self.assertEqual(packet.branch, "read-model-branch")
+            self.assertEqual(packet.blockers, "custom_blocker")
+            self.assertEqual(packet.interaction_mode, "local_terminal")
             self.assertFalse(packet.last_guard_ok)
+            self.assertEqual(packet.next_action, "python3 dev/scripts/devctl.py do-it")
+            self.assertEqual(packet.advisory_action, "wait")
+            self.assertEqual(packet.advisory_reason, "guard_fail")
+            self.assertIn("review_gate_allows_push=True", packet.key_rules)
 
 
 class TestRepoPackPaths(unittest.TestCase):
@@ -505,12 +563,13 @@ class TestRunCommand(unittest.TestCase):
     @patch(_PATCH_HEAD, return_value="abc123")
     @patch(_PATCH_ROOT)
     def test_run_md_format_no_artifacts(self, mock_root, mock_head) -> None:
+        """No artifacts: read model resolves to no blockers, so command succeeds."""
         with tempfile.TemporaryDirectory() as td:
             mock_root.return_value = Path(td)
             args = SimpleNamespace(
                 format="md", output=None, pipe_command=None, pipe_args=None, role="implementer",
             )
-            self.assertEqual(run(args), 1)
+            self.assertEqual(run(args), 0)
 
 
 class TestGovernedCacheHitPath(unittest.TestCase):
