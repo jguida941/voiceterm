@@ -92,7 +92,7 @@ def add_commit_parser(subparsers: argparse._SubParsersAction) -> None:
     )
     commit_cmd.add_argument(
         "passthrough",
-        nargs="*",
-        help="Additional arguments passed through to git commit",
+        nargs=argparse.REMAINDER,
+        help="Additional arguments passed through to git commit (use -- before option-style flags)",
     )
     add_standard_output_arguments(commit_cmd)

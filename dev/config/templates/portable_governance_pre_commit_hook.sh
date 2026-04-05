@@ -11,14 +11,15 @@
 # Skip (emergency only):
 #   git commit --no-verify ...
 
-set -euo pipefail
+set -uo pipefail
 
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 
 # Use --profile quick for speed; the full CI profile runs in push preflight
 # and CI pipelines. --format json suppresses interactive decoration.
-python3 "$REPO_ROOT/dev/scripts/devctl.py" check --profile quick --format json 2>/dev/null
-exit_code=$?
+# Guard exit code is captured explicitly so the remediation message prints.
+exit_code=0
+python3 "$REPO_ROOT/dev/scripts/devctl.py" check --profile quick --format json 2>/dev/null || exit_code=$?
 
 if [ $exit_code -ne 0 ]; then
     echo ""

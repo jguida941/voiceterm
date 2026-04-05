@@ -218,5 +218,47 @@ class TestGuardBundleRunner(unittest.TestCase):
         self.assertIn("quick", cmd_str)
 
 
+class TestCommitParserEndToEnd(unittest.TestCase):
+    """Prove the real CLI parser accepts option-style passthrough args."""
+
+    def test_parser_accepts_option_passthrough_with_separator(self) -> None:
+        """devctl commit -m 'test' -- --allow-empty must parse without error."""
+        from dev.scripts.devctl.sync_parser import add_commit_parser
+        import argparse
+
+        parser = argparse.ArgumentParser()
+        sub = parser.add_subparsers()
+        add_commit_parser(sub)
+        args = parser.parse_args(["commit", "-m", "test", "--", "--allow-empty"])
+        self.assertEqual(args.message, "test")
+        self.assertIn("--allow-empty", args.passthrough)
+
+    def test_parser_accepts_plain_passthrough(self) -> None:
+        """devctl commit -m 'test' -- file.py must parse without error."""
+        from dev.scripts.devctl.sync_parser import add_commit_parser
+        import argparse
+
+        parser = argparse.ArgumentParser()
+        sub = parser.add_subparsers()
+        add_commit_parser(sub)
+        args = parser.parse_args(["commit", "-m", "test", "--", "file.py"])
+        self.assertEqual(args.message, "test")
+        self.assertIn("file.py", args.passthrough)
+
+
+class TestPreCommitHookGuidance(unittest.TestCase):
+    """Prove the hook template prints remediation guidance on failure."""
+
+    def test_hook_captures_exit_code_without_errexit(self) -> None:
+        """Hook must not use set -e for the guard invocation."""
+        hook_path = REPO_ROOT / "dev/config/templates/portable_governance_pre_commit_hook.sh"
+        content = hook_path.read_text()
+        # Must NOT have set -e (or set -euo) before the guard call
+        self.assertNotIn("set -euo", content)
+        self.assertNotIn("set -e\n", content)
+        # Must capture exit code explicitly
+        self.assertIn("|| exit_code=$?", content)
+
+
 if __name__ == "__main__":
     unittest.main()
