@@ -23,8 +23,14 @@ def build_typed_bridge_liveness(
     bridge_liveness: Mapping[str, object],
     current_session: ReviewCurrentSessionState,
     collaboration: CollaborationSessionState | None = None,
+    snapshot: BridgeSnapshot | None = None,
 ) -> dict[str, object]:
     typed = dict(bridge_liveness)
+    if snapshot is not None:
+        typed.setdefault(
+            "head_at_push_time",
+            str(snapshot.metadata.get("head_at_push_time") or "").strip(),
+        )
     reviewer_mode = str(typed.get("reviewer_mode") or "active_dual_agent")
     typed["current_instruction_revision"] = current_session.current_instruction_revision
     typed["claude_ack_revision"] = current_session.implementer_ack_revision
@@ -128,6 +134,9 @@ def build_review_bridge_state(
             snapshot,
             reviewer_runtime=reviewer_runtime,
         ),
+        head_at_push_time=str(
+            snapshot.metadata.get("head_at_push_time") or ""
+        ).strip(),
         implementer_completion_stall=bool(
             bridge_liveness.get("implementer_completion_stall")
         ),

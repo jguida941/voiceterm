@@ -151,6 +151,9 @@ def build_event_bridge_state_projection(
     )
     bridge_state["reviewed_hash_current"] = bridge_liveness.get("reviewed_hash_current")
     bridge_state["review_needed"] = bridge_liveness.get("review_needed")
+    bridge_state["head_at_push_time"] = str(
+        bridge_liveness.get("head_at_push_time") or ""
+    )
     bridge_state["review_accepted"] = bool(
         reviewer_runtime.review_acceptance.review_accepted
         if reviewer_runtime is not None

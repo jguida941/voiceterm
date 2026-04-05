@@ -74,7 +74,7 @@ from .commands import (
     triage_loop,
     view,
 )
-from .commands.vcs import push
+from .commands.vcs import commit as vcs_commit, push
 from .commands.governance import (
     bootstrap as governance_bootstrap,
     doc_authority as governance_doc_authority,
@@ -122,7 +122,7 @@ from .publication_sync.parser import add_publication_sync_parser
 from .reports_cleanup_parser import add_reports_cleanup_parser
 from .review_channel.parser import add_review_channel_parser
 from .security.parser import add_security_parser
-from .sync_parser import add_push_parser, add_sync_parser
+from .sync_parser import add_commit_parser, add_push_parser, add_sync_parser
 from .runtime.machine_output import clear_machine_output_metrics, consume_machine_output_metrics
 from .runtime.startup_gate import enforce_startup_gate
 from .triage.loop_parser import add_triage_loop_parser
@@ -200,6 +200,7 @@ def build_parser() -> argparse.ArgumentParser:
     add_mutation_loop_parser(sub)
     add_failure_cleanup_parser(sub, default_ci_limit=DEFAULT_CI_LIMIT)
     add_reports_cleanup_parser(sub)
+    add_commit_parser(sub)
     add_push_parser(sub)
     add_sync_parser(sub)
     add_integrations_sync_parser(sub)
@@ -291,6 +292,7 @@ COMMAND_HANDLERS = {
     "swarm_run": autonomy_run.run,
     "autonomy-report": autonomy_report.run,
     "phone-status": phone_status.run,
+    "commit": vcs_commit.run,
     "push": push.run,
     "mobile-app": mobile_app.run,
     "mobile-status": mobile_status.run,

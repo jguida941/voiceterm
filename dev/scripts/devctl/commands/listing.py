@@ -7,6 +7,7 @@ from ..time_utils import utc_timestamp
 
 COMMANDS = [
     "check",
+    "commit",
     "check-router",
     "dashboard",
     "mutants",

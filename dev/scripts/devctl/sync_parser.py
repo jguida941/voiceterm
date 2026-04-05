@@ -1,4 +1,4 @@
-"""Shared parser wiring for the devctl sync command."""
+"""Shared parser wiring for the devctl sync, push, and commit commands."""
 
 from __future__ import annotations
 
@@ -72,3 +72,27 @@ def add_push_parser(subparsers: argparse._SubParsersAction) -> None:
         help="Override the repo governance policy path for this run",
     )
     add_standard_output_arguments(push_cmd)
+
+
+def add_commit_parser(subparsers: argparse._SubParsersAction) -> None:
+    """Register commit parser and arguments."""
+    commit_cmd = subparsers.add_parser(
+        "commit",
+        help="Governed commit — runs guard bundle before git commit",
+    )
+    commit_cmd.add_argument(
+        "-m",
+        "--message",
+        help="Commit message (passed to git commit -m)",
+    )
+    commit_cmd.add_argument(
+        "--amend",
+        action="store_true",
+        help="Amend the previous commit (passed to git commit --amend)",
+    )
+    commit_cmd.add_argument(
+        "passthrough",
+        nargs="*",
+        help="Additional arguments passed through to git commit",
+    )
+    add_standard_output_arguments(commit_cmd)

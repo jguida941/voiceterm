@@ -199,6 +199,8 @@ class ReviewBridgeState:
     review_needed: bool | None = None
     review_accepted: bool = False
     """Compatibility projection over ``ReviewerRuntimeContract.review_acceptance``."""
+    head_at_push_time: str = ""
+    """HEAD SHA recorded at the last reviewer checkpoint or push."""
     implementer_completion_stall: bool = False
     publisher_running: bool = False
     codex_conductor_active: bool = False

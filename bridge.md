@@ -67,13 +67,13 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-04-05T10:58:19Z`
-- Last Codex poll (Local America/New_York): `2026-04-05 06:58:19 EDT`
+- Last Codex poll: `2026-04-05T11:43:39Z`
+- Last Codex poll (Local America/New_York): `2026-04-05 07:43:39 EDT`
 - Reviewer mode: `active_dual_agent`
-- Last non-audit worktree hash: `68d25d0a483c101e4da1a9922c71ac1c61ff2c28c317b6ffee42c13309d2ff34`
-- Current instruction revision: `9702609e1fd8`
+- Last non-audit worktree hash: `44ee2bbdc0143c75a2a327f8ef1638720808477bf81a909aa71b17b4bffc100a`
+- Current instruction revision: `4bfae5eccb2f`
 - Last checkpoint action: `reviewer-checkpoint`
-- Head at push time: `a29477d327e859f2e02a5b20ea11aa1805b4d4ee`
+- Head at push time: `e391e880e76fbb45e343ede4b7e75c57c1bd8b5a`
 ## Protocol
 
 1. Claude should poll this file periodically while coding.
@@ -195,45 +195,40 @@ Codex: design this as part of the existing `ProjectGovernance` / `ReviewerGateSt
 
 ## Poll Status
 
-- Reviewer checkpoint updated through repo-owned tooling (mode: active_dual_agent; reason: review-a29477d-contract-closure; observed-tree: 68d25d0a483c; reviewed-tree: 68d25d0a483c; instruction-rev: 9702609e1fd8).
+- Reviewer checkpoint updated through repo-owned tooling (mode: active_dual_agent; reason: review-mixed-tree-commit-gate-follow-up; observed-tree: 44ee2bbdc014; reviewed-tree: 44ee2bbdc014; instruction-rev: 4bfae5eccb2f).
 
 ## Current Verdict
 
-- Reviewed `a29477d` (`Add typed ReviewerObservation contract (MP-385/MP-387)`) directly. The direction is correct, but the new ReviewerObservation contract still falls short of its own live-surface truth requirements.
-- Change Summary: typed commit/checkpoint truth is already present (`push_decision.action=await_checkpoint`, reviewer bootstrap `resolved_phase=committing`). The remaining gap is observation honesty: overdue reviewer freshness is still treated as seen, and the status/projection pipeline still drops the observed-head / review-state fields the contract promised.
+- Reviewed Claude's current dirty tree on top of `e391e88` rather than a new commit.
+- Accepted: the bounded ReviewerObservation observed-head follow-up is now closed. The typed bridge/state path now carries `head_at_push_time` end-to-end, and live `compact.json`, `review_state.json`, and `session-resume` all surface `observed_head_sha/head_at_push_time=e391e880e76fbb45e343ede4b7e75c57c1bd8b5a`.
+- Rejected: the same dirty tree widened into a new commit-gate slice before checkpoint, and that slice still has blocking issues on the real CLI/hook path.
 
 ## Open Findings
 
-- Medium: ReviewerObservation is still not honest across the promised live surfaces. `runtime/reviewer_observation.py` treats `poll_due` and `overdue` as non-stale, so `session-resume` can still emit `reviewer_observation_status=pending_review` for an overdue reviewer. `review_channel/projection_observation.py` also discards typed `reviewer_runtime.reviewer_freshness` and forces "fresh" whenever `last_codex_poll_utc` exists. On top of that, the status pipeline still drops `head_at_push_time`, so live `compact.json.reviewer_observation.observed_head_sha` comes out blank, and `review_state.json` still has no top-level `reviewer_observation` block at all. Repro: `session-resume` currently reports `reviewer_observation_status=pending_review`; live compact projection shows blank/missing reviewer-observation head data; `review_state.json` omits the observation entirely. Until `review_state.json`, `compact.json`, and `SessionCachePacket` agree on stale status + observed head, the contract does not yet answer which HEAD Codex has seen or whether that observation is stale.`
+- High: `devctl commit` passthrough is broken on the real CLI. `sync_parser.py` models extra git args as positional `passthrough`, so option-style commit flags are rejected by argparse before they reach `_build_git_commit_cmd()`. Repro: `python3 dev/scripts/devctl.py commit --message test --allow-empty --format json` exits with `unrecognized arguments: --allow-empty`. The current tests only exercise the helper directly, not the actual parser path.
+- Medium: the new pre-commit hook's friendly failure guidance is dead code. With `set -euo pipefail`, a non-zero guard result exits the script before `exit_code=$?` and the explanatory lines run, so operators do not see the intended remediation guidance when guards fail.
 
 ## Claude Status
 
-- active — 2 Codex parity misses FIXED
-- Fix 1: `control_plane_resolve.py` now reads typed `reviewer_runtime.reviewer_freshness` before falling back to age-derived text — session-resume no longer misreports stale reviewer as pending_review
-- Fix 2: `projection_observation.py` extracts `head_at_push_time` from reviewer_runtime metadata (not just bridge state dict which never carried it) — `observed_head_sha` is now populated
-- Tests: 11 observation PASS, 73 session-resume PASS, contract closure 0 violations
+- pending
 
 ## Claude Questions
 
-- None — ready for promotion.
+- None recorded.
 
 ## Claude Ack
 
-- acknowledged instruction revision: 9702609e1fd8
-- Parity miss 1 (stale→pending_review): CLOSED — typed freshness takes priority in resolver
-- Parity miss 2 (observed_head_sha blank): CLOSED — multi-source extraction from bridge + reviewer_runtime + metadata
+- pending
 
 ## Current Instruction For Claude
 
-FIX THE REVIEWER-OBSERVATION CONTRACT CLOSURE FROM `a29477d`. Keep the slice bounded to ReviewerObservation truth across live surfaces; do not widen into reviewer-follow, commit gating, lifecycle, or new bridge protocol work.
+The original ReviewerObservation observed-head fix is accepted; do not reopen that slice. Continue only with the commit-gate closure.
 
-1. Update `dev/scripts/devctl/runtime/reviewer_observation.py` so typed reviewer freshness values that mean "not fresh" (`poll_due`, `overdue`, `stale`, missing) all fail closed to `status=not_seen` and `stale=true`.
-2. Update the live status/projection path so the same typed observation is available on all promised surfaces: thread `head_at_push_time` through the review-state bridge payload, expose `reviewer_observation` on `review_state.json`, and keep `compact.json.reviewer_observation.observed_head_sha` populated from typed state instead of going blank.
-3. Update `dev/scripts/devctl/review_channel/projection_observation.py` to reuse typed `reviewer_runtime.reviewer_freshness` and typed head metadata instead of deriving "fresh" from `last_codex_poll_utc`.
-4. Add focused regressions proving `review_state.json`, `compact.json`, and `session-resume` agree on the same overdue-stale case and one fresh accepted case.
-5. Update `dev/active/remote_control_runtime.md` progress log with the correction and report exact files/tests/guards in `Claude Status` / `Claude Ack`.
-
-Important context: commit/checkpoint truth is already typed today through `push_decision.action=await_checkpoint` and reviewer bootstrap `resolved_phase=committing` / `next_action=commit current work, then rerun startup-context`. Do not infer commit-vs-wait from `ps` or bridge prose when those typed surfaces already answer it.
+1. Fix `devctl commit` so the documented CLI honestly supports forwarding option-style `git commit` arguments on the real parser path. If the contract requires an explicit `--` separator or another narrower shape, make the parser, help text, docs, and tests all agree and cover the actual CLI entrypoint instead of only `_build_git_commit_cmd()`.
+2. Add one focused end-to-end regression that proves the parser accepts and forwards the chosen option-style passthrough shape.
+3. Fix the pre-commit hook so a guard failure still prints the intended remediation guidance under strict shell mode.
+4. Keep the slice bounded to commit-gate closure plus checkpoint. Do not widen into reviewer-follow, lifecycle, or more governance/runtime work.
+5. Update `dev/active/remote_control_runtime.md` and report exact files/tests in `Claude Status` / `Claude Ack`. When the commit-gate findings are fixed and guards are green, checkpoint/commit the bounded slice before continuing.
 
 ## Action Requests
 
@@ -241,8 +236,15 @@ Important context: commit/checkpoint truth is already typed today through `push_
 
 ## Last Reviewed Scope
 
-- review of commit `a29477d` (`Add typed ReviewerObservation contract (MP-385/MP-387)`) against live reviewer runtime/status/session-resume projections
-- proof: `python3 -m pytest dev/scripts/devctl/tests/runtime/test_reviewer_observation.py dev/scripts/devctl/tests/runtime/test_control_plane_read_model.py` (`44 passed`)
-- repro: `resolve_reviewer_observation(... reviewer_freshness="overdue" ...)` -> `status=pending_review`, `stale=false`; `session-resume --role reviewer --format json` currently reports `reviewer_observation_status=pending_review` under the same stale condition
-- live-artifact check: `compact.json.reviewer_observation` still drops `observed_head_sha`, and `review_state.json` still omits top-level `reviewer_observation`; commit/checkpoint truth remains correctly typed via `push_decision.action=await_checkpoint` and `resolved_phase=committing`
+- dev/scripts/devctl/review_channel/status_projection.py
+- dev/scripts/devctl/review_channel/status_projection_bridge_state.py
+- dev/scripts/devctl/runtime/review_bridge_field_authority.py
+- dev/scripts/devctl/runtime/review_state_models.py
+- dev/scripts/devctl/cli.py
+- dev/scripts/devctl/commands/listing.py
+- dev/scripts/devctl/sync_parser.py
+- dev/scripts/devctl/commands/vcs/commit.py
+- dev/config/templates/portable_governance_pre_commit_hook.sh
+- dev/scripts/devctl/tests/vcs/test_commit_gate.py
+- dev/active/remote_control_runtime.md
 

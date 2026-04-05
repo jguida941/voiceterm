@@ -100,6 +100,7 @@ def build_bridge_review_state(
         bridge_liveness=bridge_liveness,
         current_session=current_session,
         collaboration=collaboration,
+        snapshot=snapshot,
     )
     reviewer_runtime = build_reviewer_runtime_contract(
         ReviewerRuntimeInputs(

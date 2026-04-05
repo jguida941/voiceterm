@@ -17,6 +17,7 @@ EVENT_BRIDGE_CANONICAL_FIELDS = frozenset({
     "publisher_running",
     "codex_conductor_active",
     "claude_conductor_active",
+    "head_at_push_time",
 })
 
 EVENT_BRIDGE_COMPATIBILITY_DERIVED_FIELDS = frozenset({
