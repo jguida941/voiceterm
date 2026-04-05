@@ -4166,6 +4166,92 @@ class ReviewChannelWatchFollowTests(unittest.TestCase):
         self.assertEqual(attention["status"], "publisher_detached_exit")
         self.assertIn("unexpectedly", attention["summary"])
 
+    # -- AUD-21: reviewer-completion fail-closed path -------------------------
+
+    def test_attention_detects_reviewer_completion_unrecorded(self) -> None:
+        """Regression: reviewer says 'accepted' but skips reviewer-checkpoint."""
+        from dev.scripts.devctl.review_channel.attention import derive_bridge_attention
+
+        liveness = {
+            "overall_state": "fresh",
+            "codex_poll_state": "fresh",
+            "reviewer_mode": "active_dual_agent",
+            "claude_status_present": True,
+            "claude_ack_present": True,
+            "claude_ack_current": True,
+            "reviewed_hash_current": True,
+            "implementer_completion_stall": False,
+            "publisher_running": True,
+            "bridge_verdict_accepted": True,
+            "poll_status_action": "reviewer-heartbeat",
+        }
+        attention = derive_bridge_attention(liveness)
+        self.assertEqual(attention["status"], "reviewer_completion_unrecorded")
+        self.assertIn("checkpoint", attention["summary"].lower())
+
+    def test_attention_healthy_when_checkpoint_recorded_after_acceptance(self) -> None:
+        """Complement to AUD-21: checkpoint was recorded, no escape detected."""
+        from dev.scripts.devctl.review_channel.attention import derive_bridge_attention
+
+        liveness = {
+            "overall_state": "fresh",
+            "codex_poll_state": "fresh",
+            "reviewer_mode": "active_dual_agent",
+            "claude_status_present": True,
+            "claude_ack_present": True,
+            "claude_ack_current": True,
+            "reviewed_hash_current": True,
+            "implementer_completion_stall": False,
+            "publisher_running": True,
+            "bridge_verdict_accepted": True,
+            "poll_status_action": "reviewer-checkpoint",
+        }
+        attention = derive_bridge_attention(liveness)
+        self.assertEqual(attention["status"], "healthy")
+
+    def test_attention_ignores_unrecorded_when_verdict_not_accepted(self) -> None:
+        """No false positive when verdict is not accepted."""
+        from dev.scripts.devctl.review_channel.attention import derive_bridge_attention
+
+        liveness = {
+            "overall_state": "fresh",
+            "codex_poll_state": "fresh",
+            "reviewer_mode": "active_dual_agent",
+            "claude_status_present": True,
+            "claude_ack_present": True,
+            "claude_ack_current": True,
+            "reviewed_hash_current": True,
+            "implementer_completion_stall": False,
+            "publisher_running": True,
+            "bridge_verdict_accepted": False,
+            "poll_status_action": "reviewer-heartbeat",
+        }
+        attention = derive_bridge_attention(liveness)
+        self.assertEqual(attention["status"], "healthy")
+
+    def test_attention_ignores_unrecorded_when_review_still_needed(self) -> None:
+        """No false positive when review_needed is True (hash diverged)."""
+        from dev.scripts.devctl.review_channel.attention import derive_bridge_attention
+
+        liveness = {
+            "overall_state": "fresh",
+            "codex_poll_state": "fresh",
+            "reviewer_mode": "active_dual_agent",
+            "claude_status_present": True,
+            "claude_ack_present": True,
+            "claude_ack_current": True,
+            "reviewed_hash_current": False,
+            "review_needed": True,
+            "implementer_completion_stall": False,
+            "publisher_running": True,
+            "reviewer_supervisor_running": True,
+            "bridge_verdict_accepted": True,
+            "poll_status_action": "reviewer-heartbeat",
+        }
+        attention = derive_bridge_attention(liveness)
+        # Should be review_follow_up_required, not reviewer_completion_unrecorded
+        self.assertNotEqual(attention["status"], "reviewer_completion_unrecorded")
+
     def test_ensure_follow_stops_on_timeout_and_writes_final_state(self) -> None:
         args = self._build_ensure_follow_args(
             max_follow_snapshots=0, timeout_minutes=1,

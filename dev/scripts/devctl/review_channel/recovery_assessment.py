@@ -198,6 +198,8 @@ def _action_id(*, status: str, ctx) -> str:
         return "refresh_reviewer_verdict"
     if status == AttentionStatus.DUAL_AGENT_IDLE.value:
         return "start_reviewer_follow_loop"
+    if status == AttentionStatus.REVIEWER_COMPLETION_UNRECORDED.value:
+        return "cut_checkpoint"
     return "refresh_review_status"
 
 
@@ -235,6 +237,8 @@ def _blocked_alternatives(*, status: str) -> tuple[str, ...]:
         AttentionStatus.REVIEWED_HASH_STALE.value,
     }:
         return ("promote_next_slice_without_refreshing_review",)
+    if status == AttentionStatus.REVIEWER_COMPLETION_UNRECORDED.value:
+        return ("treat_heartbeat_acceptance_as_valid_checkpoint",)
     return ("ignore_recovery_signal",)
 
 
@@ -273,6 +277,11 @@ def _supporting_causes(
         causes.append("implementer_conductor_inactive")
     if ctx.checkpoint_required or not ctx.safe_to_continue_editing:
         causes.append("checkpoint_budget_exhausted")
+    if (
+        status == AttentionStatus.REVIEWER_COMPLETION_UNRECORDED.value
+        and ctx.poll_status_action
+    ):
+        causes.append(f"poll_status_action:{ctx.poll_status_action}")
     causes.extend(f"contract_error:{error}" for error in contract_errors[:3])
     return tuple(dict.fromkeys(cause for cause in causes if cause))
 
@@ -378,6 +387,19 @@ def _evidence_rows(
                 field="checkpoint_required",
                 value=_bool_string(ctx.checkpoint_required),
                 detail="Repo governance checkpoint budget state.",
+            )
+        )
+    if status == AttentionStatus.REVIEWER_COMPLETION_UNRECORDED.value:
+        rows.append(
+            RecoveryEvidenceState(
+                code="poll_status_action",
+                surface="bridge_liveness",
+                field="poll_status_action",
+                value=str(ctx.poll_status_action or ""),
+                detail=(
+                    "Last reviewer bridge write action; expected "
+                    "'reviewer-checkpoint' when verdict shows acceptance."
+                ),
             )
         )
     for error in contract_errors[:3]:

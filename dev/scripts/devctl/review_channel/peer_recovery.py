@@ -280,6 +280,21 @@ _STALE_PEER_RECOVERY_ROWS: tuple[tuple[str, dict[str, str | None | TandemRole]],
         ),
         "recommended_command": REVIEW_CHANNEL_ENSURE_START_PUBLISHER_COMMAND,
     }),
+    ("reviewer_completion_unrecorded", {
+        "guard_behavior": "block_loop",
+        "owner": "codex",
+        "summary": (
+            "Bridge verdict shows acceptance but the reviewer never called "
+            "`reviewer-checkpoint`; bridge and review_state.json are stale."
+        ),
+        "recovery": (
+            "Route the completion through `review-channel --action "
+            "reviewer-checkpoint` so Current Verdict, open findings, and the "
+            "next instruction are atomically recorded. Do not treat a heartbeat-"
+            "only acceptance as a valid review pass."
+        ),
+        "recommended_command": REVIEW_CHANNEL_STATUS_INSPECT_COMMAND,
+    }),
     ("healthy", {
         "guard_behavior": "none",
         "owner": "system",

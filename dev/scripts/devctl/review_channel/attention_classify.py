@@ -54,6 +54,8 @@ class BridgeAttentionContext:
     resettable_error_seen: bool
     session_hint_state: str
     active_contract_errors: list[str] | None
+    bridge_verdict_accepted: bool
+    poll_status_action: str
     bridge_liveness: dict[str, object]
 
 
@@ -156,8 +158,30 @@ def extract_attention_context(
         active_contract_errors=active_contract_errors_for_mode(
             contract_errors, reviewer_mode_active=reviewer_mode_active,
         ),
+        bridge_verdict_accepted=bool(bridge_liveness.get("bridge_verdict_accepted")),
+        poll_status_action=str(bridge_liveness.get("poll_status_action") or ""),
         bridge_liveness=bridge_liveness,
     )
+
+
+def _reviewer_completion_unrecorded(ctx: BridgeAttentionContext) -> bool:
+    """Detect when a reviewer completed a pass but skipped the checkpoint writer.
+
+    The fail-closed signal: bridge verdict shows acceptance language, the reviewer
+    heartbeat is active and fresh, yet the last Poll Status write was a heartbeat
+    (not ``reviewer-checkpoint``).  That means the reviewer said "accepted" in
+    terminal prose but never routed the completion through the repo-owned
+    checkpoint path, leaving ``Current Verdict`` and ``review_state.json`` stale.
+    """
+    if not ctx.reviewer_mode_active:
+        return False
+    if not ctx.bridge_verdict_accepted:
+        return False
+    if ctx.poll_status_action == "reviewer-checkpoint":
+        return False
+    if ctx.review_needed:
+        return False
+    return True
 
 
 def _classify_reviewer_freshness(ctx: BridgeAttentionContext) -> str | None:
@@ -315,5 +339,8 @@ def classify_attention_status(
     publisher_status = _classify_publisher_state(ctx)
     if publisher_status is not None:
         return publisher_status
+
+    if _reviewer_completion_unrecorded(ctx):
+        return AttentionStatus.REVIEWER_COMPLETION_UNRECORDED
 
     return AttentionStatus.HEALTHY

@@ -61,6 +61,7 @@ from .lifecycle_state import (
     write_reviewer_supervisor_heartbeat,
 )
 from .attach_auth_policy import build_attach_auth_policy
+from .bridge_validation_acceptance import review_acceptance_projection
 from .service_identity import build_service_identity
 
 
@@ -101,6 +102,10 @@ def refresh_status_snapshot(
         bridge_text=bridge_text,
     )
     bridge_liveness["review_needed"] = bool(reviewer_worker.get("review_needed"))
+    _verdict, _findings, bridge_verdict_accepted = review_acceptance_projection(
+        bridge_snapshot
+    )
+    bridge_liveness["bridge_verdict_accepted"] = bridge_verdict_accepted
     merged_errors.extend(validate_live_bridge_contract(bridge_snapshot))
     publisher_state, reviewer_supervisor_state = _load_lifecycle_states(output_root)
     prior_review_state = _load_prior_review_state(output_root)
