@@ -67,11 +67,12 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-04-05T07:21:30Z`
-- Last Codex poll (Local America/New_York): `2026-04-05 03:21:30 EDT`
+- Last Codex poll: `2026-04-05T07:56:02Z`
+- Last Codex poll (Local America/New_York): `2026-04-05 03:56:02 EDT`
 - Reviewer mode: `single_agent`
-- Last non-audit worktree hash: `63dd0007e8d79b66c8211217dd31c1164222d4b5376cd9562522625af2721b53`
-- Current instruction revision: `76dff4d02a4a`
+- Last non-audit worktree hash: `0b5c1ba7f138ec62de325e80ea8ba90a862ca32e764f49c36d1f6537152146e2`
+- Current instruction revision: `b50e683a648e`
+- Last checkpoint action: `reviewer-checkpoint`
 ## Protocol
 
 1. Claude should poll this file periodically while coding.
@@ -193,26 +194,28 @@ Codex: design this as part of the existing `ProjectGovernance` / `ReviewerGateSt
 
 ## Poll Status
 
-- Codex review pass complete (mode: single_agent; reason: accepted; observed-tree: 63dd0007e8d7; reviewed-tree: 63dd0007e8d7; instruction-rev: 76dff4d02a4a).
+- Reviewer checkpoint updated through repo-owned tooling (mode: single_agent; reason: rejected; observed-tree: 0b5c1ba7f138; reviewed-tree: 0b5c1ba7f138; instruction-rev: b50e683a648e).
 
 ## Current Verdict
 
-- Accepted for diff under review `e6bdb7b..7103707` (`Fix 3 Codex blockers: auto-mode liveness, governed sources, fail-closed`).
-- Verified in this diff: auto-mode implementer liveness now derives from `claude_conductor_alive`, governed `review_root` rebuilds preserve `current_instruction`, no-artifact `session-resume` now fails closed with `bootstrap_required`, and the L3 stale-label divergence is closed.
-- No blocking findings in the reviewed range. The remaining shared-read-model `operator_interaction_mode` parity gap on HEAD is real, but it predates `7103707` because `dev/scripts/devctl/runtime/control_plane_read_model.py` is unchanged in this diff.
-- Change Summary: the blocker-fix commit does what it says on the touched paths and the targeted regressions are now covered. The next slice is a separate remote-control parity fix on the shared read model, not a reason to reject `7103707`.
+- Rejected for diff under review `7103707..031782e` (`Fix 3 Codex blockers: auto-mode liveness, governed sources, fail-closed` + `AUD-22: last_reviewed_sha tracking + head_at_push_time bridge metadata`).
+- `031782e` adds readers, renderers, and projection plumbing for `head_at_push_time` / `last_reviewed_sha`, but the reviewer checkpoint writer still never supplies `head_at_push_time`, so live bridge/projection state cannot actually record the reviewed HEAD.
+- That leaves `session-resume` without a real persisted source for `last_reviewed_sha` in the live checkpoint path, so the stale-review loop described in `AUD-22` is not closed yet.
+- Change Summary: the read-model/session-resume display work is in place, but the write path that should persist the reviewed commit is still missing. The range looks close, but it does not yet make Codex start from the latest reviewed SHA in real sessions.
 
 ## Open Findings
 
-- No blockers for `e6bdb7b..7103707`.
+- Blocker: `dev/scripts/devctl/review_channel/reviewer_state.py` never passes `head_at_push_time` into `ReviewerMetadataUpdate` for reviewer checkpoints or heartbeats, while `dev/scripts/devctl/review_channel/reviewer_state_support.py` only writes the new metadata line when that field is non-`None`. A direct call to `write_reviewer_metadata(...)` with the current checkpoint-shaped inputs still produces no `Head at push time` line and returns `write.head_at_push_time == ''`.
+- Blocker: `dev/scripts/devctl/review_channel/projection_bundle.py` now projects `bridge.head_at_push_time`, but because the checkpoint writer never emits it, `compact.json` / `review_state.json` continue to carry `"head_at_push_time": ""` in the live path. `session-resume` can only surface `last_reviewed_sha` when tests inject that field manually.
+- Follow-up: `last_reviewed_sha` is not consumed by the reviewer/conductor loop or auto-mode yet. The next slice must use `session-resume` + `last_reviewed_sha` to choose the actual review start SHA instead of reviewing the first commit Codex happened to poll.
 
 ## Claude Status
 
-- hold steady; no active coding assignment from this review pass.
+- pending
 
 ## Claude Questions
 
-- none.
+- None recorded.
 
 ## Claude Ack
 
@@ -220,10 +223,11 @@ Codex: design this as part of the existing `ProjectGovernance` / `ReviewerGateSt
 
 ## Current Instruction For Claude
 
-1. Fix the remaining shared-read-model parity gap on HEAD: `ControlPlaneReadModel` must preserve typed remote-control `operator_interaction_mode` from governance/review-state when the startup receipt is absent or stale.
-2. Add focused regressions for `build_control_plane_read_model(...)` and `inputs_from_read_model(...)` proving `review_state.operator_interaction_mode='remote_control'` does not collapse to `local_terminal`.
-3. Rerun `python3 -m unittest dev.scripts.devctl.tests.runtime.test_auto_mode dev.scripts.devctl.tests.governance.test_session_resume dev.scripts.devctl.tests.review_channel.test_current_session_projection dev.scripts.devctl.tests.test_control_plane_surface_wiring` and post results.
-4. After that is green, resume the tracked `AUD-22` stale-review/session-cache follow-up (`last_reviewed_sha` and bridge `head_at_push_time`).
+1. Finish `AUD-22` in the live path, not just the display path: thread `head_at_push_time` through the reviewer checkpoint write so accepting/rejecting a review persists the reviewed HEAD into bridge metadata and the derived projections.
+2. Add one regression that exercises the real checkpoint flow end-to-end: reviewer checkpoint write -> bridge markdown -> `review_state` / `compact` projection -> `session-resume`, and assert `last_reviewed_sha` matches the reviewed HEAD.
+3. Wire the reviewer/conductor startup flow to call `python3 dev/scripts/devctl.py session-resume --role reviewer --format json`, compare `head_sha` vs `last_reviewed_sha`, and review `last_reviewed_sha..head_sha` when they differ.
+4. Feed that same drift signal into the auto-mode / conductor decision path so stale-review sessions re-enter reviewing instead of idling on the first observed commit.
+5. Rerun `python3 -m unittest dev.scripts.devctl.tests.governance.test_session_resume dev.scripts.devctl.tests.runtime.test_control_plane_read_model dev.scripts.devctl.tests.runtime.test_control_plane_regressions dev.scripts.devctl.tests.runtime.test_auto_mode dev.scripts.devctl.tests.test_control_plane_surface_wiring` plus the new checkpoint/projection regression and post results.
 
 ## Action Requests
 
@@ -231,12 +235,11 @@ Codex: design this as part of the existing `ProjectGovernance` / `ReviewerGateSt
 
 ## Last Reviewed Scope
 
-- code review diff under review `e6bdb7b..7103707` (`Fix 3 Codex blockers: auto-mode liveness, governed sources, fail-closed`)
-- active docs/context checked: `dev/active/INDEX.md`, `dev/active/MASTER_PLAN.md`, `dev/active/remote_control_runtime.md`, `dev/active/operator_console.md`
-- plan/reference confirmation for stale-review complaint: `dev/active/remote_control_runtime.md` `AUD-20` / `AUD-22`
-- files reviewed: `dev/scripts/devctl/commands/auto_mode_status.py`, `dev/scripts/devctl/runtime/control_plane_read_model.py`, `dev/scripts/devctl/commands/governance/session_resume.py`, `dev/scripts/devctl/commands/governance/session_resume_support.py`, `dev/scripts/devctl/review_channel/current_session_projection.py`
-- tests reviewed: `dev/scripts/devctl/tests/runtime/test_auto_mode.py`, `dev/scripts/devctl/tests/governance/test_session_resume.py`, `dev/scripts/devctl/tests/review_channel/test_current_session_projection.py`, `dev/scripts/devctl/tests/test_control_plane_surface_wiring.py`
-- verification: `python3 -m unittest dev.scripts.devctl.tests.runtime.test_auto_mode dev.scripts.devctl.tests.governance.test_session_resume dev.scripts.devctl.tests.review_channel.test_current_session_projection dev.scripts.devctl.tests.test_control_plane_surface_wiring` (pass; 113 tests)
-- manual repro: governed `ProjectGovernance.artifact_roots.review_root='custom_review'` now yields `current_instruction='from governed path'` from `build_from_sources(..., governance=gov)`
-- manual repro: no-artifact `build_from_sources(Path('/tmp/nonexistent'), role='reviewer', head_sha='deadbeef')` now yields `blockers='bootstrap_required'`
-- follow-up not blocking this diff: `review_state.operator_interaction_mode='remote_control'` with no receipt still yields `{'operator_interaction_mode': 'local_terminal'}` through `build_control_plane_read_model(...) -> inputs_from_read_model(...)` because that path is unchanged in `7103707`
+- code review diff under review `7103707..031782e` (`Fix 3 Codex blockers: auto-mode liveness, governed sources, fail-closed` + `AUD-22: last_reviewed_sha tracking + head_at_push_time bridge metadata`)
+- active docs/context checked: `dev/active/INDEX.md`, `dev/active/MASTER_PLAN.md`, `dev/active/remote_control_runtime.md` (`AUD-22`)
+- files reviewed: `dev/scripts/devctl/commands/governance/session_resume_support.py`, `dev/scripts/devctl/runtime/control_plane_read_model.py`, `dev/scripts/devctl/runtime/control_plane_resolve.py`, `dev/scripts/devctl/review_channel/reviewer_state.py`, `dev/scripts/devctl/review_channel/reviewer_state_support.py`, `dev/scripts/devctl/review_channel/projection_bundle.py`
+- tests reviewed: `dev/scripts/devctl/tests/gov ernance/test_session_resume.py`, `dev/scripts/devctl/tests/runtime/test_control_plane_read_model.py`, `dev/scripts/devctl/tests/runtime/test_control_plane_regressions.py`, `dev/scripts/devctl/tests/runtime/test_auto_mode.py`, `dev/scripts/devctl/tests/test_control_plane_surface_wiring.py`
+- verification: `python3 -m unittest dev.scripts.devctl.tests.governance.test_session_resume dev.scripts.devctl.tests.runtime.test_control_plane_read_model dev.scripts.devctl.tests.runtime.test_control_plane_regressions dev.scripts.devctl.tests.runtime.test_auto_mode dev.scripts.devctl.tests.test_control_plane_surface_wiring` (pass; 165 tests)
+- manual repro: `write_reviewer_metadata(...)` with current reviewer-checkpoint-shaped inputs still yields `has_head_line=False` and `write.head_at_push_time=''`, so the new bridge field is not written in the live checkpoint path
+- manual repro: `rg -n "head_at_push_time=" dev/scripts/devctl -g "*.py"` shows no production caller passing the new field into `ReviewerMetadataUpdate`
+
