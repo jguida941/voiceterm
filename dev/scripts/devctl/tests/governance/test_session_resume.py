@@ -308,6 +308,83 @@ class TestRepoPackPaths(unittest.TestCase):
             self.assertEqual(get_review_state_mtime(Path(td), governance=None), 0.0)
 
 
+class TestGovernanceReviewRoot(unittest.TestCase):
+    """session-resume paths resolve from governance review-root when available."""
+
+    def _make_governance(self, review_root: str):
+        from dev.scripts.devctl.runtime.project_governance_contract import (
+            ArtifactRoots,
+            BridgeConfig,
+            BundleOverrides,
+            EnabledChecks,
+            MemoryRoots,
+            PathRoots,
+            PlanRegistry,
+            ProjectGovernance,
+            RepoIdentity,
+            RepoPackRef,
+        )
+
+        return ProjectGovernance(
+            schema_version=1,
+            contract_id="ProjectGovernance",
+            repo_identity=RepoIdentity(repo_name="test"),
+            repo_pack=RepoPackRef(pack_id="test"),
+            path_roots=PathRoots(),
+            plan_registry=PlanRegistry(),
+            artifact_roots=ArtifactRoots(review_root=review_root),
+            memory_roots=MemoryRoots(),
+            bridge_config=BridgeConfig(),
+            enabled_checks=EnabledChecks(),
+            bundle_overrides=BundleOverrides(overrides={}),
+        )
+
+    @patch("dev.scripts.devctl.commands.governance.session_resume_paths.active_path_config")
+    def test_governance_review_root_overrides_config(self, mock_config) -> None:
+        """When governance has a review_root, paths resolve from that root."""
+        from dev.scripts.devctl.repo_packs.voiceterm import RepoPathConfig
+
+        mock_config.return_value = RepoPathConfig(review_status_dir_rel="default/status")
+        gov = self._make_governance("custom/governance/review")
+        with tempfile.TemporaryDirectory() as td:
+            paths = resolve_source_paths(Path(td), governance=gov)
+            self.assertEqual(
+                paths["review_state"],
+                Path("custom/governance/review/review_state.json"),
+            )
+            self.assertEqual(
+                paths["compact"],
+                Path("custom/governance/review/compact.json"),
+            )
+
+    @patch("dev.scripts.devctl.commands.governance.session_resume_paths.active_path_config")
+    def test_empty_governance_review_root_falls_back(self, mock_config) -> None:
+        """When governance review_root is empty, repo-pack config is used."""
+        from dev.scripts.devctl.repo_packs.voiceterm import RepoPathConfig
+
+        mock_config.return_value = RepoPathConfig(review_status_dir_rel="fallback/dir")
+        gov = self._make_governance("")
+        with tempfile.TemporaryDirectory() as td:
+            paths = resolve_source_paths(Path(td), governance=gov)
+            self.assertEqual(
+                paths["review_state"],
+                Path("fallback/dir/review_state.json"),
+            )
+
+    @patch("dev.scripts.devctl.commands.governance.session_resume_paths.active_path_config")
+    def test_no_governance_uses_config(self, mock_config) -> None:
+        """Without governance, repo-pack config paths are used (backward compat)."""
+        from dev.scripts.devctl.repo_packs.voiceterm import RepoPathConfig
+
+        mock_config.return_value = RepoPathConfig(review_status_dir_rel="pack/status")
+        with tempfile.TemporaryDirectory() as td:
+            paths = resolve_source_paths(Path(td), governance=None)
+            self.assertEqual(
+                paths["review_state"],
+                Path("pack/status/review_state.json"),
+            )
+
+
 class TestGovernanceInteractionMode(unittest.TestCase):
     """interaction_mode reads from governance BridgeConfig first, not reviewer_mode."""
 

@@ -21,13 +21,16 @@ def resolve_source_paths(
 ) -> dict[str, Path]:
     """Return repo-relative Paths for receipt, compact, and review_state.
 
-    Derives all paths from ``active_path_config()`` so session-resume stays
-    portable across repo-packs without hardcoding VoiceTerm literals.
+    When governance provides a ``review_root``, the review-state and compact
+    paths are resolved from that root so session-resume honours the same
+    governance artifact routing used by ``review_state_locator`` and
+    ``startup_context``.  Falls back to ``active_path_config()`` when
+    governance is unavailable or has an empty review_root.
     """
     config = active_path_config()
     reports_root = config.reports_root_rel
     receipt_rel = Path(reports_root) / _RECEIPT_ARTIFACT_SUBPATH
-    status_dir = config.review_status_dir_rel
+    status_dir = _governed_review_status_dir(governance, fallback=config.review_status_dir_rel)
     review_state_rel = Path(status_dir) / "review_state.json"
     compact_rel = Path(status_dir) / "compact.json"
     return {
@@ -35,6 +38,19 @@ def resolve_source_paths(
         "review_state": review_state_rel,
         "compact": compact_rel,
     }
+
+
+def _governed_review_status_dir(
+    governance: "ProjectGovernance | None",
+    *,
+    fallback: str,
+) -> str:
+    """Prefer governance review_root when set; fall back to repo-pack config."""
+    if governance is not None:
+        review_root = str(governance.artifact_roots.review_root or "").strip()
+        if review_root:
+            return review_root
+    return fallback
 
 
 def get_review_state_mtime(

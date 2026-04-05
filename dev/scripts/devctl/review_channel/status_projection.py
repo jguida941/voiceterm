@@ -65,6 +65,7 @@ class ReviewStateContext:
     prior_review_state: Mapping[str, object] | None = None
     reviewer_accepted_implementer_state_hash_override: str | None = None
     recovery_assessment: RecoveryAssessmentState | None = None
+    pending_packets: tuple[dict[str, object], ...] = ()
 
 
 def build_bridge_review_state(
@@ -157,7 +158,10 @@ def build_bridge_review_state(
         timestamp=context.timestamp,
         ok=_projection_ok(overall_state, context.errors),
         review=_build_review_session(context),
-        queue=_build_queue_state(promotion_candidate),
+        queue=_build_queue_state(
+            promotion_candidate,
+            pending_packets=context.pending_packets,
+        ),
         current_session=current_session,
         collaboration=collaboration,
         bridge=bridge_state,
@@ -167,7 +171,7 @@ def build_bridge_review_state(
             typed_attention,
             recovery_assessment=recovery_assessment,
         ),
-        packets=(),
+        packets=context.pending_packets,
         registry=_build_agent_registry(
             timestamp=context.timestamp,
             plan_id=context.plan_id,
@@ -258,13 +262,16 @@ def _build_agent_registry(
 
 def _build_queue_state(
     promotion_candidate: PromotionCandidate | None,
+    *,
+    pending_packets: tuple[dict[str, object], ...] = (),
 ) -> ReviewQueueState:
+    pending_counts = _count_pending_by_target(pending_packets)
     return ReviewQueueState(
-        pending_total=0,
-        pending_codex=0,
-        pending_claude=0,
-        pending_cursor=0,
-        pending_operator=0,
+        pending_total=sum(pending_counts.values()),
+        pending_codex=pending_counts.get("codex", 0),
+        pending_claude=pending_counts.get("claude", 0),
+        pending_cursor=pending_counts.get("cursor", 0),
+        pending_operator=pending_counts.get("operator", 0),
         stale_packet_count=0,
         derived_next_instruction=(
             promotion_candidate.instruction if promotion_candidate is not None else ""
@@ -275,6 +282,22 @@ def _build_queue_state(
             else {}
         ),
     )
+
+
+def _count_pending_by_target(
+    packets: tuple[dict[str, object], ...],
+) -> dict[str, int]:
+    """Count pending packets grouped by target agent."""
+    counts: dict[str, int] = {}
+    for packet in packets:
+        if not isinstance(packet, dict):
+            continue
+        if str(packet.get("status") or "") != "pending":
+            continue
+        target = str(packet.get("to_agent") or "").strip().lower()
+        if target:
+            counts[target] = counts.get(target, 0) + 1
+    return counts
 
 
 def _build_attention(

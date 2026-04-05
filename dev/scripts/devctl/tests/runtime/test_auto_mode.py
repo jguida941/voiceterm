@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import unittest
+import unittest.mock
 
 from dev.scripts.devctl.runtime.auto_mode import (
     AUTO_MODE_CONTRACT_ID,
@@ -237,6 +238,142 @@ class AutoModeContractTests(unittest.TestCase):
 
     def test_schema_version(self) -> None:
         self.assertEqual(AUTO_MODE_SCHEMA_VERSION, 1)
+
+
+class LaunchInteractionModeTests(unittest.TestCase):
+    """Verify governance-first interaction mode resolution for launch paths."""
+
+    def _make_governance(self, interaction_mode: str):
+        from dev.scripts.devctl.runtime.project_governance_contract import (
+            ArtifactRoots,
+            BridgeConfig,
+            BundleOverrides,
+            EnabledChecks,
+            MemoryRoots,
+            PathRoots,
+            PlanRegistry,
+            ProjectGovernance,
+            RepoIdentity,
+            RepoPackRef,
+        )
+
+        return ProjectGovernance(
+            schema_version=1,
+            contract_id="ProjectGovernance",
+            repo_identity=RepoIdentity(repo_name="test"),
+            repo_pack=RepoPackRef(pack_id="test"),
+            path_roots=PathRoots(),
+            plan_registry=PlanRegistry(),
+            artifact_roots=ArtifactRoots(),
+            memory_roots=MemoryRoots(),
+            bridge_config=BridgeConfig(operator_interaction_mode=interaction_mode),
+            enabled_checks=EnabledChecks(),
+            bundle_overrides=BundleOverrides(overrides={}),
+        )
+
+    @unittest.mock.patch(
+        "dev.scripts.devctl.commands.review_channel.bridge_action_support"
+        ".scan_repo_governance_safely",
+    )
+    def test_remote_control_governance_forces_headless_interaction(self, mock_gov) -> None:
+        """Launch with remote_control governance resolves interaction_mode correctly."""
+        from dev.scripts.devctl.commands.review_channel.bridge_action_support import (
+            _resolve_launch_interaction_mode,
+        )
+        from pathlib import Path
+
+        mock_gov.return_value = self._make_governance("remote_control")
+        mode = _resolve_launch_interaction_mode(
+            repo_root=Path("/tmp/fake"),
+            args_fallback="local_terminal",
+        )
+        self.assertEqual(mode, "remote_control")
+
+    @unittest.mock.patch(
+        "dev.scripts.devctl.commands.review_channel.bridge_action_support"
+        ".scan_repo_governance_safely",
+    )
+    def test_empty_governance_falls_back_to_args(self, mock_gov) -> None:
+        """When governance has no interaction_mode, args fallback is used."""
+        from dev.scripts.devctl.commands.review_channel.bridge_action_support import (
+            _resolve_launch_interaction_mode,
+        )
+        from pathlib import Path
+
+        mock_gov.return_value = self._make_governance("")
+        mode = _resolve_launch_interaction_mode(
+            repo_root=Path("/tmp/fake"),
+            args_fallback="dual_agent",
+        )
+        self.assertEqual(mode, "dual_agent")
+
+    @unittest.mock.patch(
+        "dev.scripts.devctl.commands.review_channel.bridge_action_support"
+        ".scan_repo_governance_safely",
+    )
+    def test_no_governance_falls_back_to_args(self, mock_gov) -> None:
+        """Without governance, args fallback determines the mode."""
+        from dev.scripts.devctl.commands.review_channel.bridge_action_support import (
+            _resolve_launch_interaction_mode,
+        )
+        from pathlib import Path
+
+        mock_gov.return_value = None
+        mode = _resolve_launch_interaction_mode(
+            repo_root=Path("/tmp/fake"),
+            args_fallback="single_agent",
+        )
+        self.assertEqual(mode, "single_agent")
+
+
+class StatusProjectionPacketCountTests(unittest.TestCase):
+    """Verify status projection carries real pending packet counts."""
+
+    def test_queue_counts_from_pending_packets(self) -> None:
+        """_build_queue_state derives counts from pending packet tuples."""
+        from dev.scripts.devctl.review_channel.status_projection import (
+            _build_queue_state,
+        )
+
+        packets = (
+            {"status": "pending", "to_agent": "codex", "packet_id": "p1"},
+            {"status": "pending", "to_agent": "codex", "packet_id": "p2"},
+            {"status": "pending", "to_agent": "claude", "packet_id": "p3"},
+            {"status": "acked", "to_agent": "codex", "packet_id": "p4"},
+        )
+        queue = _build_queue_state(None, pending_packets=packets)
+        self.assertEqual(queue.pending_total, 3)
+        self.assertEqual(queue.pending_codex, 2)
+        self.assertEqual(queue.pending_claude, 1)
+        self.assertEqual(queue.pending_cursor, 0)
+        self.assertEqual(queue.pending_operator, 0)
+
+    def test_queue_counts_empty_packets(self) -> None:
+        """Empty packet tuple yields zero counts (backward compat)."""
+        from dev.scripts.devctl.review_channel.status_projection import (
+            _build_queue_state,
+        )
+
+        queue = _build_queue_state(None, pending_packets=())
+        self.assertEqual(queue.pending_total, 0)
+        self.assertEqual(queue.pending_codex, 0)
+
+    def test_count_pending_by_target(self) -> None:
+        """_count_pending_by_target groups only pending packets by to_agent."""
+        from dev.scripts.devctl.review_channel.status_projection import (
+            _count_pending_by_target,
+        )
+
+        packets = (
+            {"status": "pending", "to_agent": "operator"},
+            {"status": "pending", "to_agent": "operator"},
+            {"status": "pending", "to_agent": "cursor"},
+            {"status": "dismissed", "to_agent": "operator"},
+        )
+        counts = _count_pending_by_target(packets)
+        self.assertEqual(counts["operator"], 2)
+        self.assertEqual(counts["cursor"], 1)
+        self.assertNotIn("dismissed", counts)
 
 
 if __name__ == "__main__":

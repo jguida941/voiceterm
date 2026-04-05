@@ -110,6 +110,7 @@ def _build_status_review_state(
             promotion_plan_path=context.promotion_plan_path,
             require_exists=False,
         )
+    pending_packets = _load_pending_packets(context.repo_root)
     review_state = build_bridge_review_state(
         context=ReviewStateContext(
             repo_root=context.repo_root,
@@ -128,6 +129,7 @@ def _build_status_review_state(
             reviewer_accepted_implementer_state_hash_override=(
                 context.reviewer_accepted_implementer_state_hash_override
             ),
+            pending_packets=pending_packets,
         ),
         snapshot=snapshot,
         bridge_liveness=context.bridge_liveness,
@@ -194,6 +196,45 @@ def _status_full_extras(
             snapshot_id,
         )
     return extras
+
+
+def _load_pending_packets(repo_root: Path) -> tuple[dict[str, object], ...]:
+    """Load pending packets from the event store when available.
+
+    Returns only packets whose status is ``"pending"`` so the bridge-backed
+    status projection carries real queue counts instead of hardcoded zeros.
+    """
+    from ..repo_packs import active_path_config
+    from .event_store import load_events
+
+    config = active_path_config()
+    events_path = repo_root / config.review_event_log_rel
+    if not events_path.is_file():
+        return ()
+    try:
+        events = load_events(events_path)
+    except (OSError, ValueError):
+        return ()
+    packets: dict[str, dict[str, object]] = {}
+    for event in events:
+        if not isinstance(event, dict):
+            continue
+        packet_id = str(event.get("packet_id") or "").strip()
+        event_type = str(event.get("event_type") or "").strip()
+        if not packet_id:
+            continue
+        if event_type == "packet_posted":
+            packets[packet_id] = dict(event)
+        elif event_type in ("packet_acked", "packet_dismissed", "packet_expired"):
+            existing = packets.get(packet_id)
+            if existing is not None:
+                updated = dict(existing)
+                updated["status"] = event_type.replace("packet_", "")
+                packets[packet_id] = updated
+    return tuple(
+        pkt for pkt in packets.values()
+        if str(pkt.get("status") or "") == "pending"
+    )
 
 
 def _with_snapshot_id(

@@ -8,6 +8,7 @@ from pathlib import Path
 
 from ...approval_mode import normalize_approval_mode
 from ...common import display_path
+from ...runtime.governance_scan import scan_repo_governance_safely
 from ...review_channel.core import (
     REVIEW_CHANNEL_LAUNCH_RETIREMENT_NOTE,
     detect_active_session_conflicts,
@@ -266,8 +267,9 @@ def build_bridge_sessions(
     if resolve_cli_path_fn is resolve_cli_path:
         effective_resolve_cli_path = _resolve_cli_path_or_provider_name
     rollover_provider = str(getattr(args, "rollover_provider", "") or "")
-    interaction_mode = str(
-        getattr(args, "operator_interaction_mode", "") or ""
+    interaction_mode = _resolve_launch_interaction_mode(
+        repo_root=context.repo_root,
+        args_fallback=str(getattr(args, "operator_interaction_mode", "") or ""),
     )
     return build_launch_sessions_fn(
         request=LaunchSessionRequest(
@@ -304,6 +306,25 @@ def build_bridge_sessions(
         ),
         resolve_cli_path_fn=effective_resolve_cli_path,
     )
+
+
+def _resolve_launch_interaction_mode(
+    *,
+    repo_root: Path,
+    args_fallback: str = "",
+) -> str:
+    """Read operator interaction mode from governance, falling back to CLI args.
+
+    Matches the governance-first pattern in ``_ensure_follow_runtime.py`` so
+    the launch path does not depend on the parser defining a flag that may be
+    absent on older CLI invocations.
+    """
+    governance = scan_repo_governance_safely(repo_root)
+    if governance is not None:
+        mode = (governance.bridge_config.operator_interaction_mode or "").strip()
+        if mode:
+            return mode
+    return args_fallback.strip() or ""
 
 
 def _resolve_cli_path_or_provider_name(provider: str) -> str:
