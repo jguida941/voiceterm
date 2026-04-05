@@ -49,7 +49,7 @@ def run(args) -> int:
     if cached is not None:
         return _emit_packet(args, cached)
 
-    packet = build_from_sources(repo_root, role=role, head_sha=head_sha)
+    packet = build_from_sources(repo_root, role=role, head_sha=head_sha, governance=governance)
     write_cache(repo_root, packet)
     return _emit_packet(args, packet)
 

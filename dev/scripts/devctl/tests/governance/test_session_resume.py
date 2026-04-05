@@ -274,6 +274,8 @@ class TestBuildFromSources(unittest.TestCase):
             self.assertEqual(packet.role, "reviewer")
             # No receipt means no push report either, so last_guard_ok defaults True
             self.assertTrue(packet.last_guard_ok)
+            # No receipt means fail-closed: blockers must be bootstrap_required
+            self.assertEqual(packet.blockers, "bootstrap_required")
 
     def test_build_uses_read_model_fields(self) -> None:
         """Prove build_from_sources delegates resolved state to ControlPlaneReadModel."""
@@ -562,14 +564,156 @@ class TestRunCommand(unittest.TestCase):
 
     @patch(_PATCH_HEAD, return_value="abc123")
     @patch(_PATCH_ROOT)
-    def test_run_md_format_no_artifacts(self, mock_root, mock_head) -> None:
-        """No artifacts: read model resolves to no blockers, so command succeeds."""
+    def test_run_md_format_no_artifacts_fails_closed(self, mock_root, mock_head) -> None:
+        """No artifacts: session-resume fails closed with non-zero exit."""
         with tempfile.TemporaryDirectory() as td:
             mock_root.return_value = Path(td)
             args = SimpleNamespace(
                 format="md", output=None, pipe_command=None, pipe_args=None, role="implementer",
             )
-            self.assertEqual(run(args), 0)
+            self.assertEqual(run(args), 1)
+
+
+class TestBuildGovernedReviewRoot(unittest.TestCase):
+    """build_from_sources respects governance review_root for artifact loading."""
+
+    def _make_governance(self, review_root: str):
+        from dev.scripts.devctl.runtime.project_governance_contract import (
+            ArtifactRoots,
+            BridgeConfig,
+            BundleOverrides,
+            EnabledChecks,
+            MemoryRoots,
+            PathRoots,
+            PlanRegistry,
+            ProjectGovernance,
+            RepoIdentity,
+            RepoPackRef,
+        )
+
+        return ProjectGovernance(
+            schema_version=1,
+            contract_id="ProjectGovernance",
+            repo_identity=RepoIdentity(repo_name="test"),
+            repo_pack=RepoPackRef(pack_id="test"),
+            path_roots=PathRoots(),
+            plan_registry=PlanRegistry(),
+            artifact_roots=ArtifactRoots(review_root=review_root),
+            memory_roots=MemoryRoots(),
+            bridge_config=BridgeConfig(),
+            enabled_checks=EnabledChecks(),
+            bundle_overrides=BundleOverrides(overrides={}),
+        )
+
+    @patch("dev.scripts.devctl.commands.governance.session_resume_support.load_sources")
+    @patch("dev.scripts.devctl.commands.governance.session_resume_support.resolve_source_paths")
+    @patch("dev.scripts.devctl.commands.governance.session_resume_support.read_json_artifact")
+    def test_governed_review_root_loads_from_governed_path(
+        self, mock_read, mock_paths, mock_load,
+    ) -> None:
+        """When governance has a review_root, review_state loads from that root."""
+        mock_load.return_value = {
+            "receipt": {"advisory_action": "continue"},
+            "review_state": None,
+            "push_report": None,
+            "publisher_hb": None,
+            "supervisor_hb": None,
+            "codex_conductor": None,
+            "claude_conductor": None,
+            "full_json": None,
+            "compact_json": None,
+        }
+        mock_paths.return_value = {
+            "receipt": Path("dev/reports/startup/latest/receipt.json"),
+            "review_state": Path("custom_review/review_state.json"),
+            "compact": Path("custom_review/compact.json"),
+        }
+        governed_review_data = {"current_session": {"current_instruction": "governed"}}
+        mock_read.side_effect = lambda p: governed_review_data if "review_state" in str(p) else None
+        gov = self._make_governance("custom_review")
+        with tempfile.TemporaryDirectory() as td:
+            packet = build_from_sources(
+                Path(td), role="implementer", head_sha="abc123",
+                governance=gov,
+            )
+            # Verify resolve_source_paths was called with governance
+            mock_paths.assert_called_once()
+            call_kwargs = mock_paths.call_args
+            self.assertIs(call_kwargs.kwargs.get("governance"), gov)
+
+    def test_governed_review_root_reads_correct_artifact(self) -> None:
+        """End-to-end: governed review_root causes review_state to load from governed dir."""
+        gov = self._make_governance("custom_review")
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            # Create governed review_state with identifiable content
+            gov_dir = root / "custom_review"
+            gov_dir.mkdir(parents=True)
+            gov_rs = gov_dir / "review_state.json"
+            gov_rs.write_text(json.dumps({
+                "current_session": {"current_instruction": "from governed path"},
+            }))
+            # Create a receipt so we don't hit bootstrap_required
+            receipt_dir = root / "dev" / "reports" / "startup" / "latest"
+            receipt_dir.mkdir(parents=True)
+            (receipt_dir / "receipt.json").write_text(json.dumps({
+                "advisory_action": "continue", "advisory_reason": "ok",
+            }))
+            packet = build_from_sources(
+                root, role="implementer", head_sha="sha1", governance=gov,
+            )
+            self.assertEqual(packet.current_instruction, "from governed path")
+
+
+class TestNoArtifactFailClosed(unittest.TestCase):
+    """Session-resume must fail closed when no receipt exists."""
+
+    def _make_sources(self, *, receipt=None, compact=None, review_state=None):
+        return {
+            "receipt": receipt,
+            "review_state": review_state,
+            "push_report": None,
+            "publisher_hb": None,
+            "supervisor_hb": None,
+            "codex_conductor": None,
+            "claude_conductor": None,
+            "full_json": None,
+            "compact_json": compact,
+        }
+
+    def test_no_receipt_sets_bootstrap_required(self) -> None:
+        """Without a receipt, blockers must be 'bootstrap_required', not 'none'."""
+        sources = self._make_sources()
+        with tempfile.TemporaryDirectory() as td:
+            packet = build_from_sources(
+                Path(td), role="implementer", head_sha="sha1",
+                sources_override=sources,
+            )
+            self.assertEqual(packet.blockers, "bootstrap_required")
+
+    def test_receipt_present_uses_model_blocker(self) -> None:
+        """With a receipt, blockers come from the read model's top_blocker."""
+        sources = self._make_sources(
+            receipt={"advisory_action": "continue", "advisory_reason": "ok"},
+        )
+        with tempfile.TemporaryDirectory() as td:
+            packet = build_from_sources(
+                Path(td), role="implementer", head_sha="sha1",
+                sources_override=sources,
+            )
+            self.assertEqual(packet.blockers, "none")
+
+    def test_no_receipt_with_review_state_still_fails_closed(self) -> None:
+        """Even with review_state but no receipt, blockers = bootstrap_required."""
+        sources = self._make_sources(
+            review_state={"current_session": {"current_instruction": "do stuff"}},
+        )
+        with tempfile.TemporaryDirectory() as td:
+            packet = build_from_sources(
+                Path(td), role="reviewer", head_sha="sha2",
+                sources_override=sources,
+            )
+            self.assertEqual(packet.blockers, "bootstrap_required")
 
 
 class TestGovernedCacheHitPath(unittest.TestCase):

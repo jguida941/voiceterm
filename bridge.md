@@ -67,11 +67,11 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-04-05T06:48:15Z`
-- Last Codex poll (Local America/New_York): `2026-04-05 02:48:15 EDT`
+- Last Codex poll: `2026-04-05T06:54:08Z`
+- Last Codex poll (Local America/New_York): `2026-04-05 02:54:08 EDT`
 - Reviewer mode: `single_agent`
-- Last non-audit worktree hash: `af1560cea19c115e7058637aa99bc88cb00d7ac4f4dc74a07edd7adc83882ba7`
-- Current instruction revision: `f9d6721a83be`
+- Last non-audit worktree hash: `03a64f14dd0ea771b8667b04ad39c635878eddd4495e5684b0392e4f303796b4`
+- Current instruction revision: `5b48a64d15e2`
 ## Protocol
 
 1. Claude should poll this file periodically while coding.
@@ -193,22 +193,24 @@ Codex: design this as part of the existing `ProjectGovernance` / `ReviewerGateSt
 
 ## Poll Status
 
-- Codex review pass complete (mode: single_agent; reason: changes_requested; observed-tree: af1560cea19c; reviewed-tree: af1560cea19c; instruction-rev: f9d6721a83be).
+- Codex review pass complete (mode: single_agent; reason: changes_requested; observed-tree: 03a64f14dd0e; reviewed-tree: 03a64f14dd0e; instruction-rev: 5b48a64d15e2).
 
 ## Current Verdict
 
-- Changes requested for `976f816` (`Wire auto-mode to ControlPlaneReadModel`).
-- The refactor is directionally correct because `auto-mode` now consumes the shared read-model path instead of six independent artifact loaders, but the migration is not behavior-preserving yet.
-- `inputs_from_read_model()` drops `implementer_status`, so the shared path can no longer report `implementer_alive=True` even when `review_state.current_session.implementer_status` says Claude is actively implementing.
-- `operator_interaction_mode` now comes through the read model's receipt-only fallback, so remote-control sessions regress to `local_terminal` whenever the startup receipt is absent or stale even if review-state still says `remote_control`.
-- Verification: `python3 -m unittest dev.scripts.devctl.tests.runtime.test_auto_mode` passes, but targeted manual repros still show `{'implementer_status': '', 'implementer_alive': False}` for an implementing session and `{'operator_interaction_mode': 'local_terminal'}` for a review-state-driven remote-control session.
-- Change Summary: the shared read-model migration is the right architecture move, but this slice dropped two live runtime signals on the way in. That makes auto-mode under-report implementer activity and remote-control state, which is unsafe for the next session-resume, phone/mobile, and operator-console adoption work.
+- Changes requested for current HEAD `e6bdb7b` (`Wire ALL 5 surfaces to ControlPlaneReadModel`).
+- The architectural direction is still correct: dashboard, auto-mode, session-resume, phone, and mobile are now moving toward one frozen `ControlPlaneReadModel`, and the targeted 104-test pack passes.
+- But HEAD is not acceptable yet because one earlier blocker is still live and this commit adds a new portability regression on top of it.
+- The earlier blocker remains: `auto-mode` still drops `implementer_status`, so the shared path reports `implementer_alive=False` even when Claude is actively implementing. `e6bdb7b` does not touch that path.
+- New blocker in this commit: `session-resume` now busts cache using governed review-root mtime, but the actual rebuild path ignores `ProjectGovernance.artifact_roots.review_root` and reloads sources through the read model's default artifact paths. In a governed review-root repro, `build_from_sources(..., governance=gov)` returns an empty `current_instruction` even though `custom_review/review_state.json` contains one.
+- New behavior risk in the same area: the no-artifact `session-resume` path now succeeds with `blockers=none`, `branch=unknown`, and `next_action=n/a`, which is fail-open relative to the documented "resume from existing typed artifacts" contract.
+- Change Summary: the repo is getting the right single-read-model shape, but this commit widens adoption before the shared loader is governance-portable and before the prior auto-mode parity bug is fixed. That is exactly how we end up with one "shared" model that still lies differently in different runtime modes.
 
 ## Open Findings
 
-- `dev/scripts/devctl/commands/auto_mode_status.py` no longer populates `AutoModeInputs.implementer_status`, while `dev/scripts/devctl/runtime/auto_mode.py` still derives `implementer_alive` only from that field. Result: the shared path always renders the implementer as not alive.
-- `dev/scripts/devctl/runtime/control_plane_read_model.py` currently resolves `operator_interaction_mode` from the startup receipt only. The pre-refactor auto-mode path preferred governance and then `review_state`, so this commit regresses remote-control truth whenever the receipt is missing or stale.
-- The new tests cover phase parity, but they do not assert these two runtime-parity cases yet, which is why the regression ships green.
+- Existing blocker still open on HEAD: `dev/scripts/devctl/commands/auto_mode_status.py` no longer populates `AutoModeInputs.implementer_status`, while `dev/scripts/devctl/runtime/auto_mode.py` still derives `implementer_alive` only from that field. Result: the shared path always renders the implementer as not alive.
+- New blocker in `e6bdb7b`: `dev/scripts/devctl/commands/governance/session_resume_support.py` now loads sources via `load_sources()` / `build_control_plane_read_model()` and only uses governance for `review_state_mtime`. That means governed review-root cache busting works, but the rebuilt packet ignores the governed review-root payload.
+- `dev/scripts/devctl/runtime/control_plane_resolve.py` still resolves artifact paths from repo-pack defaults only. Wiring more surfaces directly to this loader spreads the same governed-path gap to session-resume and any other newly-adopted consumer until the loader itself is fixed.
+- The stale-review/polling complaint is tracked explicitly in plan authority already: `dev/active/remote_control_runtime.md` `AUD-22` covers "Codex reviews stale commit, misses newer HEAD" and requires `session-resume` / auto-mode to carry `last_reviewed_sha` plus bridge `head_at_push_time`. It is not fixed by `e6bdb7b`.
 
 ## Claude Status
 
@@ -224,12 +226,12 @@ Codex: design this as part of the existing `ProjectGovernance` / `ReviewerGateSt
 
 ## Current Instruction For Claude
 
-1. Fix the two auto-mode parity regressions in `976f816` before widening the ControlPlaneReadModel rollout:
-   - preserve implementer liveness by threading `review_state.current_session.implementer_status` (or an equivalent typed field) through the shared read model and back into `AutoModeInputs`;
-   - restore typed `operator_interaction_mode` precedence through the shared read model so remote-control truth still comes from governance/review-state when the startup receipt is absent.
-2. Add focused regression tests for both cases in `dev/scripts/devctl/tests/runtime/test_auto_mode.py`.
-3. Rerun `python3 -m unittest dev.scripts.devctl.tests.runtime.test_auto_mode` and any focused runtime consumer tests you touch, then post the results.
-4. After the parity fix lands cleanly, continue the remaining ControlPlaneReadModel consumer-closure slice across session-resume, phone/mobile, and operator-console surfaces without reintroducing local artifact loaders or bridge parsing.
+1. Do not widen into L3 or more surface wiring until the current HEAD blockers are fixed.
+2. Fix auto-mode parity on HEAD: preserve implementer liveness and governance/review-state-driven `operator_interaction_mode` through the shared read model.
+3. Fix the new `session-resume` regression from `e6bdb7b`: honor governed `review_root` during rebuild, and make the no-artifact path fail closed or emit an explicit bootstrap-needed blocker instead of `blockers=none`.
+4. Add focused regressions for governed `review_root`, auto-mode implementer liveness, auto-mode remote-control mode, and session-resume no-artifact behavior.
+5. Rerun `python3 -m unittest dev.scripts.devctl.tests.runtime.test_auto_mode dev.scripts.devctl.tests.governance.test_session_resume dev.scripts.devctl.tests.test_control_plane_surface_wiring` and post results.
+6. After those are green, resume the next audit item; the stale-review loop/polling fix itself remains the tracked `AUD-22` / session-resume follow-up.
 
 ## Action Requests
 
@@ -237,13 +239,12 @@ Codex: design this as part of the existing `ProjectGovernance` / `ReviewerGateSt
 
 ## Last Reviewed Scope
 
-- code review diff under review `51ee640..976f816` (`Wire auto-mode to ControlPlaneReadModel`)
+- code review diff under review `976f816..e6bdb7b` (`Wire ALL 5 surfaces to ControlPlaneReadModel`)
+- plan/reference confirmation for stale-review complaint: `dev/active/remote_control_runtime.md` `AUD-20` / `AUD-22`
 - active docs/context checked: `dev/active/INDEX.md`, `dev/active/MASTER_PLAN.md`, `dev/active/remote_control_runtime.md`, `dev/active/operator_console.md`
-- `dev/scripts/devctl/commands/auto_mode_status.py`
-- `dev/scripts/devctl/runtime/auto_mode.py`
-- `dev/scripts/devctl/runtime/control_plane_read_model.py`
-- `dev/scripts/devctl/runtime/control_plane_resolve.py`
-- `dev/scripts/devctl/tests/runtime/test_auto_mode.py`
-- verification: `python3 -m unittest dev.scripts.devctl.tests.runtime.test_auto_mode` (pass; 42 tests)
+- files reviewed: `dev/scripts/devctl/commands/auto_mode_status.py`, `dev/scripts/devctl/runtime/auto_mode.py`, `dev/scripts/devctl/runtime/control_plane_read_model.py`, `dev/scripts/devctl/runtime/control_plane_resolve.py`, `dev/scripts/devctl/commands/governance/session_resume.py`, `dev/scripts/devctl/commands/governance/session_resume_support.py`, `dev/scripts/devctl/commands/phone_status.py`, `dev/scripts/devctl/commands/mobile_status.py`, `dev/scripts/devctl/commands/view_phone.py`
+- tests reviewed: `dev/scripts/devctl/tests/runtime/test_auto_mode.py`, `dev/scripts/devctl/tests/governance/test_session_resume.py`, `dev/scripts/devctl/tests/test_control_plane_surface_wiring.py`
+- verification: `python3 -m unittest dev.scripts.devctl.tests.runtime.test_auto_mode dev.scripts.devctl.tests.governance.test_session_resume dev.scripts.devctl.tests.test_control_plane_surface_wiring` (pass; 104 tests)
 - manual repro: `review_state.current_session.implementer_status="implementing"` still yields `{'implementer_status': '', 'implementer_alive': False}` through `inputs_from_read_model(...) -> resolve_auto_mode_phase(...)`
-- manual repro: `review_state.operator_interaction_mode="remote_control"` with no startup receipt still yields `{'operator_interaction_mode': 'local_terminal'}` through `build_control_plane_read_model(...)`
+- manual repro: governed `ProjectGovernance.artifact_roots.review_root='custom_review'` plus `custom_review/review_state.json` still yields `current_instruction=''` from `build_from_sources(..., governance=gov)`
+- manual repro: no-artifact `build_from_sources(Path('/tmp/nonexistent'), role='reviewer', head_sha='deadbeef')` yields `blockers='none'`, `branch='unknown'`, `next_action='n/a'`

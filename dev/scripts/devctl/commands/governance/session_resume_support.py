@@ -12,10 +12,18 @@ from ...runtime.control_plane_read_model import (
     ControlPlaneReadModel,
     build_control_plane_read_model,
 )
-from ...runtime.control_plane_resolve import load_git_state, load_sources
+from ...runtime.control_plane_resolve import (
+    load_git_state,
+    load_sources,
+    read_json_artifact,
+)
 from ...runtime.value_coercion import coerce_string
 from ...time_utils import utc_timestamp
-from .session_resume_paths import get_review_state_mtime, governance_interaction_mode
+from .session_resume_paths import (
+    get_review_state_mtime,
+    governance_interaction_mode,
+    resolve_source_paths,
+)
 
 if TYPE_CHECKING:
     from ...runtime.project_governance import ProjectGovernance
@@ -111,7 +119,9 @@ def build_from_sources(
     ``read_model_override`` and ``sources_override`` let tests inject
     pre-built data without touching the filesystem.
     """
-    sources = sources_override if sources_override is not None else load_sources(repo_root)
+    sources = sources_override if sources_override is not None else _load_governed_sources(
+        repo_root, governance=governance,
+    )
     git = load_git_state(repo_root) if sources_override is None else {
         "branch": "unknown", "head": head_sha, "clean": True, "ahead": 0,
     }
@@ -144,6 +154,8 @@ def build_from_sources(
         last_guard_ok=model.last_guard_ok,
     )
 
+    blockers = _resolve_blockers(receipt, model.top_blocker)
+
     return SessionCachePacket(
         generated_at_utc=utc_timestamp(),
         role=role,
@@ -151,7 +163,7 @@ def build_from_sources(
         head_sha=head_sha,
         advisory_action=advisory_action,
         advisory_reason=advisory_reason,
-        blockers=model.top_blocker,
+        blockers=blockers,
         interaction_mode=model.operator_interaction_mode,
         current_instruction=current_instruction,
         instruction_revision=instruction_revision,
@@ -331,6 +343,42 @@ def packet_from_mapping(payload: dict[str, Any]) -> SessionCachePacket:
             str(r).strip() for r in payload.get("key_rules", ()) if str(r).strip()
         ),
     )
+
+
+def _resolve_blockers(
+    receipt: dict[str, Any] | None,
+    top_blocker: str,
+) -> str:
+    """Return the effective blocker string, failing closed when no receipt exists.
+
+    Without a receipt, there is no startup authority proof, so the session
+    must require a bootstrap pass rather than silently reporting success.
+    """
+    if receipt is None:
+        return "bootstrap_required"
+    return top_blocker
+
+
+def _load_governed_sources(
+    repo_root: Path,
+    *,
+    governance: "ProjectGovernance | None" = None,
+) -> dict[str, Any]:
+    """Load sources using governance-aware path resolution.
+
+    When governance provides a ``review_root``, the review_state and compact
+    paths are resolved from that root instead of the repo-pack default.
+    Non-review artifacts (receipt, push_report, heartbeats) continue to use
+    the standard ``load_sources`` paths since they are not affected by the
+    review_root override.
+    """
+    base = load_sources(repo_root)
+    gov_paths = resolve_source_paths(repo_root, governance=governance)
+    review_state_path = repo_root / gov_paths["review_state"]
+    compact_path = repo_root / gov_paths["compact"]
+    base["review_state"] = read_json_artifact(review_state_path)
+    base["compact_json"] = read_json_artifact(compact_path)
+    return base
 
 
 def _nested_dict(data: dict[str, Any] | None, key: str) -> dict[str, Any] | None:

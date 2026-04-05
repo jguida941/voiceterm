@@ -76,18 +76,33 @@ def inputs_from_read_model(model: ControlPlaneReadModel) -> AutoModeInputs:
     surface uses.
     """
     push_action = _push_action_from_next_action(model.next_action)
+    implementer_status = _implementer_status_from_model(model)
     return AutoModeInputs(
         push_decision_action=push_action,
         worktree_clean=model.worktree_clean,
         review_gate_allows_push=model.review_accepted,
         reviewer_mode=model.reviewer_mode,
         implementation_blocked=model.implementation_blocked,
+        implementer_status=implementer_status,
         last_guard_ok=model.last_guard_ok,
         current_head_commit=model.head_sha,
         pending_action_requests=model.pending_action_requests,
         operator_interaction_mode=model.operator_interaction_mode,
         timestamp_utc=model.timestamp or utc_timestamp(),
     )
+
+
+def _implementer_status_from_model(model: ControlPlaneReadModel) -> str:
+    """Derive implementer_status from the read model's conductor liveness.
+
+    The ControlPlaneReadModel tracks ``claude_conductor_alive`` from the
+    session heartbeat.  When the conductor process is alive, the implementer
+    is actively running, so we report ``"active"`` so that
+    ``resolve_auto_mode_phase`` can derive ``implementer_alive=True``.
+    """
+    if model.claude_conductor_alive:
+        return "active"
+    return ""
 
 
 def _push_action_from_next_action(next_action: str) -> str:

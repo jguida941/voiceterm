@@ -244,5 +244,63 @@ class MobileStatusControlPlaneTests(unittest.TestCase):
             self.assertEqual(report["control_plane"], {})
 
 
+class AutoModeImplementerLivenessWiringTests(unittest.TestCase):
+    """Verify implementer liveness propagates from read model to auto-mode."""
+
+    def test_claude_conductor_alive_maps_to_implementer_alive(self) -> None:
+        """ControlPlaneReadModel.claude_conductor_alive drives implementer_alive."""
+        from dev.scripts.devctl.commands.auto_mode_status import (
+            inputs_from_read_model,
+        )
+        from dev.scripts.devctl.runtime.auto_mode import resolve_auto_mode_phase
+        from dev.scripts.devctl.runtime.control_plane_read_model import (
+            ControlPlaneReadModel,
+        )
+
+        model = ControlPlaneReadModel(
+            timestamp="2026-04-04T12:00:00Z",
+            branch="feature/test",
+            head_sha="abc1234",
+            worktree_clean=True,
+            ahead_of_upstream=0,
+            resolved_phase="idle",
+            push_eligible=False,
+            implementation_blocked=False,
+            top_blocker="none",
+            next_action="n/a",
+            next_command="",
+            reviewer_mode="single_agent",
+            operator_interaction_mode="local_terminal",
+            reviewer_freshness="--",
+            review_accepted=False,
+            attention_status="n/a",
+            attention_summary="n/a",
+            publisher_running=False,
+            supervisor_running=False,
+            codex_conductor_alive=False,
+            claude_conductor_alive=True,
+            pending_action_requests=0,
+            last_guard_ok=True,
+            check_details=(),
+        )
+        inputs = inputs_from_read_model(model)
+        self.assertEqual(inputs.implementer_status, "active")
+        state = resolve_auto_mode_phase(inputs)
+        self.assertTrue(state.implementer_alive)
+
+    def test_dead_conductor_means_implementer_not_alive(self) -> None:
+        """When claude_conductor_alive is False, implementer_alive must be False."""
+        from dev.scripts.devctl.commands.auto_mode_status import (
+            inputs_from_read_model,
+        )
+        from dev.scripts.devctl.runtime.auto_mode import resolve_auto_mode_phase
+
+        model = _build_model()
+        inputs = inputs_from_read_model(model)
+        self.assertEqual(inputs.implementer_status, "")
+        state = resolve_auto_mode_phase(inputs)
+        self.assertFalse(state.implementer_alive)
+
+
 if __name__ == "__main__":
     unittest.main()

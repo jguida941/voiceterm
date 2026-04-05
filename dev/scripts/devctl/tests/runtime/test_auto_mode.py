@@ -534,6 +534,66 @@ class AutoModeFromControlPlaneReadModelTests(unittest.TestCase):
         ))
         self.assertEqual(from_model.phase, from_direct.phase)
 
+    def test_implementer_alive_from_claude_conductor(self) -> None:
+        """claude_conductor_alive in read model maps to implementer_alive=True."""
+        from dev.scripts.devctl.commands.auto_mode_status import (
+            inputs_from_read_model,
+        )
+
+        model = self._build_model(
+            sources={
+                "claude_conductor": {"session_pid": 99999},
+            },
+        )
+        # session_pid check uses os.kill(pid, 0) which will fail for
+        # a non-existent PID, so inject via a read-model override instead
+        from dev.scripts.devctl.runtime.control_plane_read_model import (
+            ControlPlaneReadModel,
+        )
+
+        alive_model = ControlPlaneReadModel(
+            timestamp=model.timestamp,
+            branch=model.branch,
+            head_sha=model.head_sha,
+            worktree_clean=model.worktree_clean,
+            ahead_of_upstream=model.ahead_of_upstream,
+            resolved_phase=model.resolved_phase,
+            push_eligible=model.push_eligible,
+            implementation_blocked=model.implementation_blocked,
+            top_blocker=model.top_blocker,
+            next_action=model.next_action,
+            next_command=model.next_command,
+            reviewer_mode=model.reviewer_mode,
+            operator_interaction_mode=model.operator_interaction_mode,
+            reviewer_freshness=model.reviewer_freshness,
+            review_accepted=model.review_accepted,
+            attention_status=model.attention_status,
+            attention_summary=model.attention_summary,
+            publisher_running=model.publisher_running,
+            supervisor_running=model.supervisor_running,
+            codex_conductor_alive=model.codex_conductor_alive,
+            claude_conductor_alive=True,
+            pending_action_requests=model.pending_action_requests,
+            last_guard_ok=model.last_guard_ok,
+            check_details=model.check_details,
+        )
+        inputs = inputs_from_read_model(alive_model)
+        self.assertEqual(inputs.implementer_status, "active")
+        state = resolve_auto_mode_phase(inputs)
+        self.assertTrue(state.implementer_alive)
+
+    def test_implementer_not_alive_when_conductor_dead(self) -> None:
+        """claude_conductor_alive=False maps to implementer_alive=False."""
+        from dev.scripts.devctl.commands.auto_mode_status import (
+            inputs_from_read_model,
+        )
+
+        model = self._build_model()
+        inputs = inputs_from_read_model(model)
+        self.assertEqual(inputs.implementer_status, "")
+        state = resolve_auto_mode_phase(inputs)
+        self.assertFalse(state.implementer_alive)
+
 
 if __name__ == "__main__":
     unittest.main()

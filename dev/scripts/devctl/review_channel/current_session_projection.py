@@ -108,7 +108,7 @@ def build_event_current_session(
             implementer_status=implementer_status,
             implementer_ack=implementer_ack,
             ack_current=bool(bridge_liveness.get("claude_ack_current")),
-            stale_label="unknown",
+            stale_label="stale",
             is_substantive_text=_is_substantive_text,
         ),
         implementer_state_hash=compute_implementer_state_hash(
