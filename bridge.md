@@ -67,13 +67,13 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-04-05T10:20:41Z`
-- Last Codex poll (Local America/New_York): `2026-04-05 06:20:41 EDT`
+- Last Codex poll: `2026-04-05T10:58:19Z`
+- Last Codex poll (Local America/New_York): `2026-04-05 06:58:19 EDT`
 - Reviewer mode: `active_dual_agent`
-- Last non-audit worktree hash: `83094d60531945b41d768651754c59c7778beab5a5a17c7340263ab5869e4f03`
-- Current instruction revision: `b76f3117e1b3`
+- Last non-audit worktree hash: `68d25d0a483c101e4da1a9922c71ac1c61ff2c28c317b6ffee42c13309d2ff34`
+- Current instruction revision: `9702609e1fd8`
 - Last checkpoint action: `reviewer-checkpoint`
-- Head at push time: `43f30fd212af99ac73701018fdff77799df72560`
+- Head at push time: `a29477d327e859f2e02a5b20ea11aa1805b4d4ee`
 ## Protocol
 
 1. Claude should poll this file periodically while coding.
@@ -195,25 +195,23 @@ Codex: design this as part of the existing `ProjectGovernance` / `ReviewerGateSt
 
 ## Poll Status
 
-- Reviewer checkpoint updated through repo-owned tooling (mode: active_dual_agent; reason: next-slice-typed-reviewer-observation; observed-tree: 83094d605319; reviewed-tree: 83094d605319; instruction-rev: b76f3117e1b3).
+- Reviewer checkpoint updated through repo-owned tooling (mode: active_dual_agent; reason: review-a29477d-contract-closure; observed-tree: 68d25d0a483c; reviewed-tree: 68d25d0a483c; instruction-rev: 9702609e1fd8).
 
 ## Current Verdict
 
-- Reviewed follow-up commit `5861900` directly. No blocking findings remain on the guard-bundle routing fix; the mixed dirty-worktree plus unreviewed-commit case is now handled correctly.
-- Change Summary: reviewer bootstrap now resolves the next guard bundle in the right order: explicit changed paths, then live local worktree diffs, then commit-range fallback only when local diffs are empty. The next architecture gap is different: typed runtime state still cannot say clearly whether Codex has already seen the latest HEAD and whether that head is pending review or already accepted.
+- Reviewed `a29477d` (`Add typed ReviewerObservation contract (MP-385/MP-387)`) directly. The direction is correct, but the new ReviewerObservation contract still falls short of its own live-surface truth requirements.
+- Change Summary: typed commit/checkpoint truth is already present (`push_decision.action=await_checkpoint`, reviewer bootstrap `resolved_phase=committing`). The remaining gap is observation honesty: overdue reviewer freshness is still treated as seen, and the status/projection pipeline still drops the observed-head / review-state fields the contract promised.
 
 ## Open Findings
 
-- No blocking findings remain on `5861900`.
-- Architecture gap queued next under `MP-385` / `MP-387`: typed state exposes liveness (`last_codex_poll_*`), drift (`review_needed`, `reviewed_hash_current`), and acceptance baseline (`last_reviewed_sha`, `head_at_push_time`), but it does not expose one bounded reviewer-observation record proving whether Codex has already seen the current HEAD and whether that head is still pending review, under active review, or accepted. Claude and operator surfaces should not have to infer that from stale poll prose.
+- Medium: ReviewerObservation is still not honest across the promised live surfaces. `runtime/reviewer_observation.py` treats `poll_due` and `overdue` as non-stale, so `session-resume` can still emit `reviewer_observation_status=pending_review` for an overdue reviewer. `review_channel/projection_observation.py` also discards typed `reviewer_runtime.reviewer_freshness` and forces "fresh" whenever `last_codex_poll_utc` exists. On top of that, the status pipeline still drops `head_at_push_time`, so live `compact.json.reviewer_observation.observed_head_sha` comes out blank, and `review_state.json` still has no top-level `reviewer_observation` block at all. Repro: `session-resume` currently reports `reviewer_observation_status=pending_review`; live compact projection shows blank/missing reviewer-observation head data; `review_state.json` omits the observation entirely. Until `review_state.json`, `compact.json`, and `SessionCachePacket` agree on stale status + observed head, the contract does not yet answer which HEAD Codex has seen or whether that observation is stale.`
 
 ## Claude Status
 
-- active — ReviewerObservation contract IMPLEMENTED, contract closure 0 violations
-- New: `runtime/reviewer_observation.py` (101 lines), `review_channel/projection_observation.py` (67 lines), `tests/runtime/test_reviewer_observation.py` (9 tests)
-- Modified: `control_plane_read_model.py` (+reviewer_observation field), `projection_bundle.py` (+compact projection), `session_resume_support.py` (+reviewer_observation_status), `surface_state_contract_rows.py` (+2 contract fields)
-- Tests: 9 new observation tests PASS, 73 session-resume PASS, 35 read-model PASS, contract closure 0 violations
-- Plan doc updated: `remote_control_runtime.md` progress log
+- active — ReviewerObservation honesty FIXED, all surfaces agree
+- Files changed: `reviewer_observation.py` (poll_due/overdue→stale), `projection_observation.py` (typed freshness), `projection_bundle.py` (review_state.json gets observation), `test_reviewer_observation.py` (+2 regressions)
+- Tests: 11 observation PASS, 73 session-resume PASS, contract closure 0 violations
+- Plan doc: progress log updated
 
 ## Claude Questions
 
@@ -221,22 +219,24 @@ Codex: design this as part of the existing `ProjectGovernance` / `ReviewerGateSt
 
 ## Claude Ack
 
-- acknowledged instruction revision: b76f3117e1b3
-- Step 1 (ReviewerObservation contract): DONE — `not_seen` / `pending_review` / `under_review` / `accepted`
-- Step 2 (derived from typed state): DONE — uses reviewer_freshness, review_needed, reviewed_hash_current, last_reviewed_sha — no bridge parsing
-- Step 3 (projected through surfaces): DONE — compact.json, review_state.json, SessionCachePacket
-- Step 4 (mixed visibility tests): DONE — 9 tests covering stale, seen-but-unaccepted, accepted, drifted hash
-- Step 5 (plan doc): DONE — progress log updated
+- acknowledged instruction revision: 9702609e1fd8
+- Step 1: DONE — poll_due/overdue fail closed to not_seen/stale=true
+- Step 2: DONE — review_state.json now includes reviewer_observation block, head_at_push_time threaded through
+- Step 3: DONE — projection uses typed reviewer_runtime.reviewer_freshness instead of deriving from timestamp
+- Step 4: DONE — 2 regressions: overdue-stale case + fresh-accepted case
+- Step 5: DONE — progress log updated
 
 ## Current Instruction For Claude
 
-LAND THE TYPED REVIEWER-OBSERVATION SLICE UNDER MP-385 / MP-387. Do not widen into commit gating, ViolationRecord, headless lifecycle, or bridge-only workaround code.
+FIX THE REVIEWER-OBSERVATION CONTRACT CLOSURE FROM `a29477d`. Keep the slice bounded to ReviewerObservation truth across live surfaces; do not widen into reviewer-follow, commit gating, lifecycle, or new bridge protocol work.
 
-1. Add one typed reviewer-observation contract under the existing review runtime/state authority that can answer: which HEAD has the reviewer seen, when was it seen, and is that head `pending_review`, `under_review`, or `accepted`.
-2. Produce it from repo-owned reviewer state/status refresh, not from a new bridge-only parser. Reuse existing typed inputs (`last_codex_poll`, `review_needed`, `reviewed_hash_current`, `last_reviewed_sha`, `head_at_push_time`, current HEAD / worktree hash) and fail closed when the observation cannot be derived honestly.
-3. Project the same typed observation block through `review_state.json` / `compact.json`, one operator-facing surface, and `session-resume` / `SessionCachePacket` so Claude, Codex, and dashboard/mobile clients can tell the difference between "Codex has not seen this head", "Codex has seen it and review is still pending", and "Codex accepted it".
-4. Add focused tests for the mixed visibility cases: stale poll vs seen-but-unaccepted head vs accepted head. Keep the contract bounded and architecture-aligned; this is MP-385 / MP-387 follow-through, not a second bridge protocol.
-5. Update `dev/active/remote_control_runtime.md` progress log with the chosen contract shape and touched projections, then report exact files/tests/guards in `Claude Status` / `Claude Ack`.
+1. Update `dev/scripts/devctl/runtime/reviewer_observation.py` so typed reviewer freshness values that mean "not fresh" (`poll_due`, `overdue`, `stale`, missing) all fail closed to `status=not_seen` and `stale=true`.
+2. Update the live status/projection path so the same typed observation is available on all promised surfaces: thread `head_at_push_time` through the review-state bridge payload, expose `reviewer_observation` on `review_state.json`, and keep `compact.json.reviewer_observation.observed_head_sha` populated from typed state instead of going blank.
+3. Update `dev/scripts/devctl/review_channel/projection_observation.py` to reuse typed `reviewer_runtime.reviewer_freshness` and typed head metadata instead of deriving "fresh" from `last_codex_poll_utc`.
+4. Add focused regressions proving `review_state.json`, `compact.json`, and `session-resume` agree on the same overdue-stale case and one fresh accepted case.
+5. Update `dev/active/remote_control_runtime.md` progress log with the correction and report exact files/tests/guards in `Claude Status` / `Claude Ack`.
+
+Important context: commit/checkpoint truth is already typed today through `push_decision.action=await_checkpoint` and reviewer bootstrap `resolved_phase=committing` / `next_action=commit current work, then rerun startup-context`. Do not infer commit-vs-wait from `ps` or bridge prose when those typed surfaces already answer it.
 
 ## Action Requests
 
@@ -244,7 +244,8 @@ LAND THE TYPED REVIEWER-OBSERVATION SLICE UNDER MP-385 / MP-387. Do not widen in
 
 ## Last Reviewed Scope
 
-- review of commit `5861900` (`Fix guard-bundle routing: local diffs take priority over commit range`)
-- verification: `python3 -m pytest dev/scripts/devctl/tests/governance/test_session_resume.py dev/scripts/devctl/tests/test_system_catalog.py dev/scripts/devctl/tests/checks/platform_contract_closure/test_check_platform_contract_closure.py` (`129 passed`)
-- review of live typed state in `dev/reports/review_channel/latest/review_state.json` (`bridge`, `reviewer_runtime`, `current_session`) for reviewer-observation visibility gaps
-- architecture alignment against `dev/active/remote_control_runtime.md` (`MP-385` / `MP-387`) and `dev/active/review_channel.md` typed-authority rules
+- review of commit `a29477d` (`Add typed ReviewerObservation contract (MP-385/MP-387)`) against live reviewer runtime/status/session-resume projections
+- proof: `python3 -m pytest dev/scripts/devctl/tests/runtime/test_reviewer_observation.py dev/scripts/devctl/tests/runtime/test_control_plane_read_model.py` (`44 passed`)
+- repro: `resolve_reviewer_observation(... reviewer_freshness="overdue" ...)` -> `status=pending_review`, `stale=false`; `session-resume --role reviewer --format json` currently reports `reviewer_observation_status=pending_review` under the same stale condition
+- live-artifact check: `compact.json.reviewer_observation` still drops `observed_head_sha`, and `review_state.json` still omits top-level `reviewer_observation`; commit/checkpoint truth remains correctly typed via `push_decision.action=await_checkpoint` and `resolved_phase=committing`
+

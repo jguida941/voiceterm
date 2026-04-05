@@ -72,14 +72,19 @@ def resolve_reviewer_observation(
     )
 
 
+_NOT_FRESH = frozenset({"stale", "poll_due", "overdue", "--", ""})
+
+
 def _is_stale(reviewer_freshness: str, last_codex_poll_utc: str) -> bool:
-    """Return True when the reviewer poll is stale or absent."""
+    """Return True when the reviewer poll is not fresh.
+
+    Any freshness value that means "not actively polling" fails closed
+    to stale so the observation status becomes ``not_seen``.
+    """
     if not last_codex_poll_utc or last_codex_poll_utc.strip() == "":
         return True
     freshness_lower = reviewer_freshness.lower().strip()
-    if freshness_lower in ("stale", "--", ""):
-        return True
-    return False
+    return freshness_lower in _NOT_FRESH
 
 
 def _derive_status(

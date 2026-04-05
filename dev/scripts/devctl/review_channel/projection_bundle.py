@@ -53,6 +53,9 @@ def write_projection_bundle(
     full_extras: dict[str, object] | None = None,
 ) -> ReviewChannelProjectionPaths:
     """Write a projection bundle from one reduced review-state snapshot."""
+    obs_proj = build_observation_projection(review_state)
+    if obs_proj is not None and "reviewer_observation" not in review_state:
+        review_state["reviewer_observation"] = obs_proj
     compact = _build_compact_projection(review_state)
     actions = _build_actions_projection(review_state)
     full = {

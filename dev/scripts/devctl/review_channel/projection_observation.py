@@ -25,7 +25,7 @@ def build_observation_projection(review_state: dict[str, object]) -> dict[str, o
     reviewer_runtime = review_state.get("reviewer_runtime")
     review_accepted = _extract_review_accepted(reviewer_runtime)
 
-    reviewer_freshness = _derive_freshness_label(poll_utc)
+    reviewer_freshness = _extract_typed_freshness(reviewer_runtime, poll_utc)
 
     obs = resolve_reviewer_observation(
         head_sha="",
@@ -60,8 +60,16 @@ def _extract_review_accepted(reviewer_runtime: Any) -> bool:
     return verdict in ("accepted", "approved", "pass")
 
 
-def _derive_freshness_label(poll_utc: str) -> str:
-    """Return a freshness label suitable for the observation builder."""
+def _extract_typed_freshness(reviewer_runtime: Any, poll_utc: str) -> str:
+    """Extract typed reviewer_freshness from reviewer_runtime dict.
+
+    Falls back to "--" when no typed freshness is available instead of
+    assuming "fresh" from the existence of a poll timestamp.
+    """
+    if isinstance(reviewer_runtime, dict):
+        typed = str(reviewer_runtime.get("reviewer_freshness") or "").strip()
+        if typed:
+            return typed
     if not poll_utc:
         return "--"
-    return "fresh"
+    return "stale"

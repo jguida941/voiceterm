@@ -157,5 +157,39 @@ class TestResolveReviewerObservation(unittest.TestCase):
         self.assertEqual(obs.last_reviewed_sha, "reviewed1")
 
 
+    def test_overdue_fails_closed_to_not_seen(self) -> None:
+        """poll_due and overdue freshness must fail closed to not_seen."""
+        for freshness in ("poll_due", "overdue"):
+            obs = resolve_reviewer_observation(
+                head_sha="abc",
+                last_codex_poll_utc="2026-04-05T12:00:00Z",
+                reviewer_freshness=freshness,
+                review_needed=True,
+                reviewed_hash_current=False,
+                last_reviewed_sha="old",
+                head_at_push_time="old",
+                review_accepted=False,
+            )
+            self.assertEqual(obs.status, STATUS_NOT_SEEN, f"freshness={freshness}")
+            self.assertTrue(obs.stale, f"freshness={freshness}")
+
+    def test_fresh_accepted_surfaces_agree(self) -> None:
+        """All surfaces must agree on accepted status for fresh, hash-current reviewer."""
+        obs = resolve_reviewer_observation(
+            head_sha="abc",
+            last_codex_poll_utc="2026-04-05T12:00:00Z",
+            reviewer_freshness="fresh",
+            review_needed=False,
+            reviewed_hash_current=True,
+            last_reviewed_sha="abc",
+            head_at_push_time="abc",
+            review_accepted=True,
+        )
+        self.assertEqual(obs.status, STATUS_ACCEPTED)
+        self.assertFalse(obs.stale)
+        self.assertFalse(obs.review_needed)
+        self.assertTrue(obs.reviewed_hash_current)
+
+
 if __name__ == "__main__":
     unittest.main()

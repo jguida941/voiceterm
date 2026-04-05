@@ -281,6 +281,28 @@ The MP scopes remain valid but are now cross-cut by enforcement-first priority.
 
 ## Progress Log
 
+- 2026-04-05: Fixed ReviewerObservation honesty (Codex review of `a29477d`).
+  `poll_due`/`overdue` now fail closed to `not_seen`/`stale=true`.
+  Projection uses typed `reviewer_runtime.reviewer_freshness` instead of
+  inferring "fresh" from timestamp. `review_state.json` now includes
+  `reviewer_observation`. 11 tests (2 new regressions for overdue + accepted).
+- 2026-04-05: Reviewed `a29477d` (`ReviewerObservation`). One bounded
+  follow-up remains before the contract is honest across live surfaces. The
+  core reducer in `runtime/reviewer_observation.py` still treats
+  `reviewer_freshness=poll_due|overdue` as non-stale, so
+  `SessionCachePacket.reviewer_observation_status` can still report
+  `pending_review` for an overdue reviewer. The compatibility projection in
+  `review_channel/projection_observation.py` also drops typed freshness and
+  forces `"fresh"` whenever `last_codex_poll_utc` exists, so compact/read-model
+  consumers disagree about whether Codex has actually seen the current HEAD.
+  Validation of the refreshed artifacts also showed the status pipeline still
+  strips `head_at_push_time`, leaving `compact.json.reviewer_observation`
+  without `observed_head_sha`, and `review_state.json` still does not expose a
+  top-level `reviewer_observation` block. Bound the next slice to staleness
+  normalization plus honest `review_state.json` / `compact.json` projection
+  coverage; the commit/checkpoint decision is already typed elsewhere via
+  `push_decision.action=await_checkpoint` and reviewer bootstrap
+  `resolved_phase=committing`.
 - 2026-04-05: Landed typed `ReviewerObservation` contract (MP-385/MP-387).
   Frozen dataclass with status enum: `not_seen` / `pending_review` /
   `under_review` / `accepted`. Derived from `reviewer_freshness`,
