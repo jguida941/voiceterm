@@ -51,6 +51,8 @@ REQUIRED_BRIDGE_MARKERS = [
     "Codex is the reviewer. Claude is the coder.",
     "`python3 dev/scripts/devctl.py startup-context --role reviewer --format summary`",
     "`python3 dev/scripts/devctl.py startup-context --role implementer --format summary`",
+    "`python3 dev/scripts/devctl.py session-resume --role reviewer --format bootstrap`",
+    "`python3 dev/scripts/devctl.py session-resume --role implementer --format bootstrap`",
     "`python3 dev/scripts/devctl.py context-graph --mode bootstrap --format md`",
     "`AGENTS.md`",
     "`dev/active/INDEX.md`",
@@ -340,4 +342,3 @@ def render_md(report: dict) -> str:
         if state_errors:
             lines.append("- " f"{key}_state_errors: " f"{', '.join(state_errors) if state_errors else 'none'}")
     return "\n".join(lines)
-

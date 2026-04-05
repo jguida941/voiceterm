@@ -6,6 +6,10 @@ from .review_state_models import ConductorCapabilityState
 from .role_profile import TandemRole, role_for_provider
 
 _STARTUP_CONTEXT_BASE_COMMAND = "python3 dev/scripts/devctl.py startup-context"
+_SESSION_RESUME_BASE_COMMAND = "python3 dev/scripts/devctl.py session-resume"
+_CONTEXT_GRAPH_BOOTSTRAP_COMMAND = (
+    "python3 dev/scripts/devctl.py context-graph --mode bootstrap --format md"
+)
 _DEFAULT_REVIEWER_MODE = "active_dual_agent"
 _KNOWN_REVIEWER_MODES = {
     "active_dual_agent",
@@ -19,6 +23,16 @@ _KNOWN_REVIEWER_MODES = {
 def startup_context_command_for_role(role: str) -> str:
     """Return the canonical startup receipt command for one role."""
     return f"{_STARTUP_CONTEXT_BASE_COMMAND} --role {role} --format summary"
+
+
+def session_resume_command_for_role(role: str, *, format: str = "bootstrap") -> str:
+    """Return the canonical role-bound session bootstrap packet command."""
+    return f"{_SESSION_RESUME_BASE_COMMAND} --role {role} --format {format}"
+
+
+def context_graph_bootstrap_command() -> str:
+    """Return the canonical slim bootstrap context command."""
+    return _CONTEXT_GRAPH_BOOTSTRAP_COMMAND
 
 
 def reviewer_takeover_command() -> str:

@@ -16,6 +16,10 @@ except ImportError:  # pragma: no cover - script-package fallback
     )
     from checks.code_shape.code_shape_policy import LANGUAGE_POLICIES
 
+from ..runtime.conductor_capability import (
+    context_graph_bootstrap_command,
+    session_resume_command_for_role,
+)
 from .task_router_contract import render_task_router_table_markdown
 
 
@@ -76,9 +80,20 @@ def render_bootstrap_steps(
     """Render the AI session-start bootstrap checklist."""
     steps = (
         "Step 0 for any edit, validation, or repo-owned launcher session: run `python3 dev/scripts/devctl.py startup-context --format summary`. If it exits non-zero, checkpoint or repair the state before editing or launching more work. Do not treat a user summary, stale chat continuity, or memory as a substitute for this receipt.",
-        "Run `python3 dev/scripts/devctl.py context-graph --mode bootstrap --format md` for a slim startup packet: repo identity, active plans, hotspots, key commands, and recent quality signals when artifacts exist.",
+        (
+            "For a role-bound starter packet, run "
+            f"`{session_resume_command_for_role('reviewer')}` or "
+            f"`{session_resume_command_for_role('implementer')}`. This is the "
+            "canonical new-conversation bootstrap surface; use it instead of "
+            "operator memory or hand-written mode prompts."
+        ),
+        (
+            f"Run `{context_graph_bootstrap_command()}` for a slim startup "
+            "packet: repo identity, active plans, hotspots, key commands, and "
+            "recent quality signals when artifacts exist."
+        ),
         "Do not echo bootstrap packets back into chat by default. Keep any chat bootstrap acknowledgement to blocker state plus next step; inspect repo-owned artifacts or terminal output when more detail is needed.",
-        f"Follow the deep links from steps 1-2 when full authority is needed: read `{process_doc}`, `{active_registry_doc}`, and `{execution_tracker_doc}`.",
+        f"Follow the deep links from steps 1-3 when full authority is needed: read `{process_doc}`, `{active_registry_doc}`, and `{execution_tracker_doc}`.",
         "Use `python3 dev/scripts/devctl.py context-graph --query '<term>' --format md` for bounded subgraphs instead of opening whole docs when only one file, guard, command, or MP scope is relevant.",
         "Use `python3 dev/scripts/devctl.py context-graph --mode diff --from previous --to latest --format md` when the slice needs proof over saved graph baselines.",
         "Only load additional active docs when the task class requires them, but do not treat `startup-context` as optional escalation once you intend to mutate the repo.",
@@ -96,6 +111,14 @@ def render_key_commands_block() -> str:
         (
             "Typed startup packet",
             "python3 dev/scripts/devctl.py startup-context --format summary",
+        ),
+        (
+            "Reviewer bootstrap packet",
+            session_resume_command_for_role("reviewer"),
+        ),
+        (
+            "Implementer bootstrap packet",
+            session_resume_command_for_role("implementer"),
         ),
         (
             "Governed push execute",

@@ -380,7 +380,7 @@ def distill_key_rules(
 
 
 # Rendering moved to session_resume_render.py (file-size modularization)
-from .session_resume_render import render_markdown, render_summary  # noqa: F401
+from .session_resume_render import render_bootstrap, render_markdown, render_summary  # noqa: F401
 
 
 def current_head(repo_root: Path) -> str:
@@ -480,4 +480,3 @@ def _str_field(data: dict[str, Any] | None, key: str) -> str:
     if data is None:
         return ""
     return str(data.get(key) or "").strip()
-

@@ -9,7 +9,11 @@ from typing import TYPE_CHECKING
 from ..approval_mode import DEFAULT_APPROVAL_MODE
 from ..common import display_path
 from ..context_graph.escalation import build_context_escalation_packet, collect_query_terms, normalize_query_terms
-from ..runtime.conductor_capability import build_conductor_capability_state
+from ..runtime.conductor_capability import (
+    build_conductor_capability_state,
+    context_graph_bootstrap_command,
+    session_resume_command_for_role,
+)
 from ..runtime.role_profile import role_for_provider
 from ..runtime.review_state_models import ConductorCapabilityState
 from .handoff import BRIDGE_LIVENESS_KEYS, expected_rollover_ack_line, expected_rollover_ack_section
@@ -161,13 +165,15 @@ def _bootstrap_files(
     bridge_path: Path,
     handoff_bundle: dict[str, str] | None,
 ) -> list[str]:
+    resume_command = session_resume_command_for_role(capability.role)
     files: list[str] = [
         (
             f"Run `{capability.startup_context_command}` first. "
             + startup_context_follow_up(capability)
             + " Then run "
-            "`python3 dev/scripts/devctl.py context-graph --mode bootstrap --format md` "
-            "for slim startup context (repo state, active plans, hotspots, key commands). "
+            f"`{resume_command}` for the canonical role bootstrap packet. Then run "
+            f"`{context_graph_bootstrap_command()}` for slim startup context "
+            "(repo state, active plans, hotspots, key commands). "
             "Do not trust a user summary, prior chat continuity, or memory as a "
             "substitute for this Step 0 receipt. "
             "Do not echo the startup packet back into chat by default; keep any "

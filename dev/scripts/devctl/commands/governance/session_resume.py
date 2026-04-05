@@ -10,6 +10,7 @@ from .session_resume_support import (
     SessionCachePacket,
     build_from_sources,
     current_head,
+    render_bootstrap,
     render_markdown,
     render_summary,
     try_cache_hit,
@@ -29,7 +30,10 @@ def add_parser(subparsers) -> None:
         default="implementer",
         help="Declare caller role (default: implementer).",
     )
-    add_standard_output_arguments(cmd, format_choices=("json", "md", "summary"))
+    add_standard_output_arguments(
+        cmd,
+        format_choices=("json", "md", "summary", "bootstrap"),
+    )
 
 
 def run(args) -> int:
@@ -58,6 +62,8 @@ def _emit_packet(args, packet: SessionCachePacket) -> int:
     fmt = getattr(args, "format", "md")
     if fmt == "summary":
         human = render_summary(packet)
+    elif fmt == "bootstrap":
+        human = render_bootstrap(packet)
     elif fmt == "md":
         human = render_markdown(packet)
     else:

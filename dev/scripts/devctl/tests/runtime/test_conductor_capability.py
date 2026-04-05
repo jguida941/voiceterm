@@ -6,8 +6,10 @@ import unittest
 
 from dev.scripts.devctl.runtime.conductor_capability import (
     build_conductor_capability_state,
+    context_graph_bootstrap_command,
     reviewer_local_implementation_allowed,
     reviewer_takeover_command,
+    session_resume_command_for_role,
 )
 
 
@@ -58,3 +60,17 @@ class TestConductorCapability(unittest.TestCase):
         self.assertFalse(capability.requires_explicit_takeover)
         self.assertEqual(capability.worker_unavailable_policy, "self_execute")
         self.assertEqual(capability.queue_policy, "implement_assigned_work")
+
+    def test_role_bootstrap_commands_are_canonical(self) -> None:
+        self.assertEqual(
+            session_resume_command_for_role("reviewer"),
+            "python3 dev/scripts/devctl.py session-resume --role reviewer --format bootstrap",
+        )
+        self.assertEqual(
+            session_resume_command_for_role("implementer"),
+            "python3 dev/scripts/devctl.py session-resume --role implementer --format bootstrap",
+        )
+        self.assertEqual(
+            context_graph_bootstrap_command(),
+            "python3 dev/scripts/devctl.py context-graph --mode bootstrap --format md",
+        )

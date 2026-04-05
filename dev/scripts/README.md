@@ -75,7 +75,11 @@ normal reviewer-owned bootstrap state while the live loop is healthy.
 Continue into `review-channel --action status` plus the reviewer-owned
 heartbeat/bridge refresh; reserve relaunch/repair for
 `action=repair_reviewer_loop`, checkpoint/budget blockers, or typed stale /
-non-live reviewer runtime.
+non-live reviewer runtime. After that Step 0 receipt, the canonical role-bound
+starter packet for a fresh Codex or Claude conversation is
+`python3 dev/scripts/devctl.py session-resume --role reviewer|implementer --format bootstrap`;
+use that repo-owned packet instead of hand-written mode prompts or operator
+memory.
 For plain-language CI lane docs, see `.github/workflows/README.md`.
 
 For workflow routing (what to run for a normal push vs tooling/process changes vs tagged release), follow `AGENTS.md` first.
@@ -1304,6 +1308,13 @@ Machine-first output note:
     when `DEVCTL_NO_ARTIFACT_WRITES=1` signals an intentional read-only
     context.  Bootstrap polling and read-only mounts get the typed packet
     output even if the on-disk receipt write fails.
+- `session-resume`: compact cached role bootstrap packet over the same typed
+  startup/review/runtime sources. `--format summary|md|json` stays available
+  for status inspection, and `--format bootstrap` is the canonical fresh-
+  conversation starter surface for reviewer and implementer sessions. Run the
+  matching role after `startup-context` to get the exact role commands,
+  authority docs, review range/current instruction, and next guard bundle from
+  repo-owned state instead of operator memory or stale bridge prose.
 - `startup-context --repair`: repo-owned startup auto-triage/repair mode; reads typed
   `startup-context`, startup-authority, and the canonical typed review-state
   owner surfaced by `review-channel` status refresh,

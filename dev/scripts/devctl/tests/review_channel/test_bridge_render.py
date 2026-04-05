@@ -80,6 +80,7 @@ def _bridge_text() -> str:
             "",
             "Codex is the reviewer. Claude is the coder.",
             "Codex uses `python3 dev/scripts/devctl.py startup-context --role reviewer --format summary` and Claude uses `python3 dev/scripts/devctl.py startup-context --role implementer --format summary` first before coding or relaunching conductor work.",
+            "Then Codex uses `python3 dev/scripts/devctl.py session-resume --role reviewer --format bootstrap` and Claude uses `python3 dev/scripts/devctl.py session-resume --role implementer --format bootstrap` as the canonical role bootstrap packet.",
             "Then run `python3 dev/scripts/devctl.py context-graph --mode bootstrap --format md` for slim startup context.",
             "Keep chat bootstrap acknowledgements concise: blocker state plus next step, not a replay of the packet, unless the operator asks for the detail.",
             "Codex should start from `Poll Status`, `Current Verdict`, `Open Findings`, `Current Instruction For Claude`, and `Last Reviewed Scope`.",

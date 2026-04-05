@@ -584,6 +584,30 @@ class TestRunCommand(unittest.TestCase):
             )
             self.assertEqual(run(args), 1)
 
+    @patch(_PATCH_HEAD, return_value="abc123")
+    @patch(_PATCH_ROOT)
+    def test_run_bootstrap_format_uses_human_renderer(self, mock_root, mock_head) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            mock_root.return_value = root
+            cache_dir = root / "dev" / "reports" / "session_cache" / "latest"
+            cache_dir.mkdir(parents=True)
+            pkt = SessionCachePacket(
+                head_sha="abc123",
+                role="reviewer",
+                blockers="none",
+                last_guard_ok=True,
+            )
+            (cache_dir / "cache.json").write_text(json.dumps(pkt.to_dict()))
+            args = SimpleNamespace(
+                format="bootstrap",
+                output=None,
+                pipe_command=None,
+                pipe_args=None,
+                role="reviewer",
+            )
+            self.assertEqual(run(args), 0)
+
 
 class TestBuildGovernedReviewRoot(unittest.TestCase):
     """build_from_sources respects governance review_root for artifact loading."""
@@ -882,6 +906,57 @@ class TestLastReviewedSha(unittest.TestCase):
         )
         summary = render_summary(packet)
         self.assertIn("last_reviewed=112233", summary)
+
+    def test_render_bootstrap_reviewer_includes_role_packet_and_diff_range(self) -> None:
+        """Bootstrap format gives reviewer-specific commands and diff guidance."""
+        from dev.scripts.devctl.commands.governance.session_resume_support import (
+            render_bootstrap,
+        )
+
+        packet = SessionCachePacket(
+            role="reviewer",
+            head_sha="aabbccddeeff0011",
+            last_reviewed_sha="1122334455667788",
+            operator_interaction_mode="active_dual_agent",
+            resolved_phase="reviewing",
+            next_guard_bundle="bundle.tooling",
+        )
+
+        md = render_bootstrap(packet)
+        self.assertIn("Reviewer Bootstrap Packet", md)
+        self.assertIn(
+            "python3 dev/scripts/devctl.py session-resume --role reviewer --format bootstrap",
+            md,
+        )
+        self.assertIn("1122334455667788..aabbccddeeff0011", md)
+        self.assertIn(
+            "python3 dev/scripts/devctl.py review-channel --action status --terminal none --format json",
+            md,
+        )
+        self.assertIn("Stay reviewer-only", md)
+
+    def test_render_bootstrap_implementer_mentions_ack_and_instruction(self) -> None:
+        """Bootstrap format gives implementer-specific starter guidance."""
+        from dev.scripts.devctl.commands.governance.session_resume_support import (
+            render_bootstrap,
+        )
+
+        packet = SessionCachePacket(
+            role="implementer",
+            instruction_revision="rev-123",
+            current_instruction="Implement the bounded slice.",
+            operator_interaction_mode="active_dual_agent",
+        )
+
+        md = render_bootstrap(packet)
+        self.assertIn("Implementer Bootstrap Packet", md)
+        self.assertIn(
+            "python3 dev/scripts/devctl.py session-resume --role implementer --format bootstrap",
+            md,
+        )
+        self.assertIn("Acknowledge the live `instruction_revision` before coding.", md)
+        self.assertIn("Current instruction revision to acknowledge: `rev-123`.", md)
+        self.assertIn("Implement the bounded slice.", md)
 
 
 class TestV2Fields(unittest.TestCase):

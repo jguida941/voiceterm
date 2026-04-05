@@ -216,6 +216,7 @@ def _build_bridge_text(
             "Codex is the reviewer. Claude is the coder.",
             "At conversation start, both agents must bootstrap repo authority in this order before acting: `AGENTS.md`, `dev/active/INDEX.md`, `dev/active/MASTER_PLAN.md`, and `dev/active/review_channel.md`.",
             "Codex uses `python3 dev/scripts/devctl.py startup-context --role reviewer --format summary` and Claude uses `python3 dev/scripts/devctl.py startup-context --role implementer --format summary` first before coding or relaunching conductor work.",
+            "Then Codex uses `python3 dev/scripts/devctl.py session-resume --role reviewer --format bootstrap` and Claude uses `python3 dev/scripts/devctl.py session-resume --role implementer --format bootstrap` as the canonical role bootstrap packet.",
             "Then run `python3 dev/scripts/devctl.py context-graph --mode bootstrap --format md` for slim startup context.",
             "Keep chat bootstrap acknowledgements concise: blocker state plus next step, not a replay of the packet, unless the operator asks for the detail.",
             "Codex must poll non-`bridge.md` worktree changes every 2-3 minutes while code is moving.",
@@ -1424,6 +1425,10 @@ class ReviewChannelHelperTests(unittest.TestCase):
             files[0],
         )
         self.assertIn(
+            "session-resume --role reviewer --format bootstrap",
+            files[0],
+        )
+        self.assertIn(
             "Do not echo the startup packet back into chat by default; keep any bootstrap acknowledgement to blocker state plus next step unless the operator asks for more detail.",
             files[0],
         )
@@ -1531,6 +1536,10 @@ class ReviewChannelHelperTests(unittest.TestCase):
             prompt,
         )
         self.assertIn(
+            "python3 dev/scripts/devctl.py session-resume --role reviewer --format bootstrap",
+            prompt,
+        )
+        self.assertIn(
             "`action=continue_editing` with `reason=review_pending`",
             prompt,
         )
@@ -1624,6 +1633,10 @@ class ReviewChannelHelperTests(unittest.TestCase):
         )
         self.assertIn(
             "python3 dev/scripts/devctl.py startup-context --role implementer --format summary",
+            prompt,
+        )
+        self.assertIn(
+            "python3 dev/scripts/devctl.py session-resume --role implementer --format bootstrap",
             prompt,
         )
         self.assertIn(

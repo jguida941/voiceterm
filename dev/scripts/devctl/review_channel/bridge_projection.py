@@ -6,7 +6,9 @@ from dataclasses import asdict, dataclass
 
 from ..runtime.conductor_capability import (
     build_conductor_capability_state,
+    context_graph_bootstrap_command,
     reviewer_takeover_command,
+    session_resume_command_for_role,
 )
 from .bridge_projection_state import (
     BRIDGE_SECTION_ORDER,
@@ -125,6 +127,8 @@ def _render_start_rules_body(*, reviewer_mode: str) -> str:
         provider="claude",
         reviewer_mode=reviewer_mode,
     )
+    reviewer_resume_command = session_resume_command_for_role("reviewer")
+    implementer_resume_command = session_resume_command_for_role("implementer")
     lines = [
         "If this file is attached at the start of a new Codex or Claude conversation,",
         "treat these rules as active workflow instructions immediately.",
@@ -138,8 +142,11 @@ def _render_start_rules_body(*, reviewer_mode: str) -> str:
         f"`{implementer_capability.startup_context_command}` first. If either exits",
         "   non-zero, checkpoint or repair the repo state before coding or",
         "   relaunching conductor work. User summaries, stale chat continuity, or",
-        "   remembered prior state are not substitutes for this Step 0 receipt. Then run",
-        "   `python3 dev/scripts/devctl.py context-graph --mode bootstrap --format md`.",
+        "   remembered prior state are not substitutes for this Step 0 receipt.",
+        f"   Then Codex uses `{reviewer_resume_command}` and Claude uses",
+        f"   `{implementer_resume_command}` as the canonical role bootstrap packet.",
+        "   Then run",
+        f"   `{context_graph_bootstrap_command()}`.",
         "   Keep chat bootstrap acknowledgements concise: blocker state plus next step,",
         "   not a replay of the packet, unless the operator asks for the detail.",
         "4. Treat `AGENTS.md`, `dev/active/INDEX.md`, `dev/active/MASTER_PLAN.md`, and",

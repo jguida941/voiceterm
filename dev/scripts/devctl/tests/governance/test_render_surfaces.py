@@ -165,6 +165,14 @@ class RenderSurfacesPolicyTests(unittest.TestCase):
             rendered_text,
         )
         self.assertIn(
+            "python3 dev/scripts/devctl.py session-resume --role reviewer --format bootstrap",
+            rendered_text,
+        )
+        self.assertIn(
+            "python3 dev/scripts/devctl.py session-resume --role implementer --format bootstrap",
+            rendered_text,
+        )
+        self.assertIn(
             "If it exits non-zero, checkpoint or repair the state before editing or launching more work.",
             rendered_text,
         )
@@ -174,6 +182,10 @@ class RenderSurfacesPolicyTests(unittest.TestCase):
         )
         self.assertIn(
             "Do not echo bootstrap packets back into chat by default.",
+            rendered_text,
+        )
+        self.assertIn(
+            "This is the canonical new-conversation bootstrap surface",
             rendered_text,
         )
         self.assertIn(
