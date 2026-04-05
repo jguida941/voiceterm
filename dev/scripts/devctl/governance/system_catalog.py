@@ -124,6 +124,7 @@ def resolve_agent_dispatch(
     changed_paths: list[str],
     *,
     bundle_by_lane: Mapping[str, str] | None = None,
+    enabled_checks: object | None = None,
     repo_root: Path = REPO_ROOT,
 ) -> AgentDispatchPacket:
     """Derive an AgentDispatchPacket for a bounded change set.
@@ -131,6 +132,11 @@ def resolve_agent_dispatch(
     Composes classify_lane(), quality policy guard/probe filtering, and
     the BUNDLE_BY_LANE mapping to produce a self-contained routing
     recommendation without creating new policy authority.
+
+    When *enabled_checks* is provided (an ``EnabledChecks`` instance from
+    ``ProjectGovernance`` or ``StartupContext``), guard and probe IDs are
+    intersected with the enabled set so the dispatch only includes checks
+    the repo has turned on.
     """
     from ..commands.check.router_support import classify_lane
     from ..commands.check.router_constants import BUNDLE_BY_LANE as DEFAULT_BUNDLE_BY_LANE
@@ -151,14 +157,21 @@ def resolve_agent_dispatch(
         spec.script_id for spec in policy.review_probe_checks
     )
 
+    applicable_guards, applicable_probes = _apply_enabled_checks_filter(
+        applicable_guards, applicable_probes, enabled_checks,
+    )
+
     preflight = (f"python3 dev/scripts/devctl.py check --profile ci",)
-    evidence = (
+    evidence_list = [
         f"lane={lane}",
         f"bundle={bundle_name}",
         f"guards={len(applicable_guards)}",
         f"probes={len(applicable_probes)}",
         f"changed_paths={len(changed_paths)}",
-    )
+    ]
+    if enabled_checks is not None:
+        evidence_list.append("enabled_checks_filter=applied")
+    evidence = tuple(evidence_list)
 
     return AgentDispatchPacket(
         lane=lane,
@@ -170,6 +183,51 @@ def resolve_agent_dispatch(
         changed_paths=tuple(changed_paths),
         evidence=evidence,
     )
+
+
+def _apply_enabled_checks_filter(
+    guards: tuple[str, ...],
+    probes: tuple[str, ...],
+    enabled_checks: object | None,
+) -> tuple[tuple[str, ...], tuple[str, ...]]:
+    """Intersect guard/probe IDs with EnabledChecks when provided.
+
+    If *enabled_checks* is None or has empty ID tuples, the original
+    sets pass through unchanged (open-world default).
+    """
+    if enabled_checks is None:
+        return guards, probes
+    guard_ids = getattr(enabled_checks, "guard_ids", ()) or ()
+    probe_ids = getattr(enabled_checks, "probe_ids", ()) or ()
+    if guard_ids:
+        guard_set = set(guard_ids)
+        guards = tuple(g for g in guards if g in guard_set)
+    if probe_ids:
+        probe_set = set(probe_ids)
+        probes = tuple(p for p in probes if p in probe_set)
+    return guards, probes
+
+
+def filter_guards_for_file(
+    file_path: str,
+    *,
+    repo_root: Path = REPO_ROOT,
+) -> tuple[str, ...]:
+    """Return deterministic guard IDs applicable to a single file path.
+
+    Checks file extension against guard language scopes from the quality
+    policy. Used by ``discover --filter guards-for-file:<path>``.
+    """
+    from ..quality_policy import resolve_quality_policy
+
+    policy = resolve_quality_policy(repo_root=repo_root)
+    path_languages = _detect_languages([file_path])
+    applicable: list[str] = []
+    for spec in policy.ai_guard_checks:
+        if spec.languages and not path_languages.intersection(spec.languages):
+            continue
+        applicable.append(spec.script_id)
+    return tuple(applicable)
 
 
 def _filter_guards_for_paths(

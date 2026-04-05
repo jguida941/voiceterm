@@ -8,8 +8,11 @@ the *check output* shape.
 
 from __future__ import annotations
 
+import re as _re_mod
 from dataclasses import asdict, dataclass, field
 from typing import Any
+
+_re_compile = _re_mod.compile
 
 CHECK_RESULT_CONTRACT_ID = "CheckResult"
 CHECK_RESULT_SCHEMA_VERSION = 1
@@ -31,6 +34,12 @@ class ViolationRecord:
     summary: str
     error: str = ""
     failure_output: str = ""
+    file_path: str = ""
+    line: int = 0
+    policy: str = ""
+    fix: str = ""
+    source: str = ""
+    severity: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         result: dict[str, Any] = {
@@ -42,6 +51,18 @@ class ViolationRecord:
             result["error"] = self.error
         if self.failure_output:
             result["failure_output"] = self.failure_output
+        if self.file_path:
+            result["file_path"] = self.file_path
+        if self.line:
+            result["line"] = self.line
+        if self.policy:
+            result["policy"] = self.policy
+        if self.fix:
+            result["fix"] = self.fix
+        if self.source:
+            result["source"] = self.source
+        if self.severity:
+            result["severity"] = self.severity
         return result
 
 
@@ -100,6 +121,41 @@ def _extract_violation_summary(step: dict[str, Any]) -> str:
 # -------------------------------------------------------
 
 
+_VIOLATION_DETAIL_RE = _re_compile(
+    r"((?:dev|rust|app|src)/\S+\.(?:py|rs|md)):(\d+)"
+)
+
+
+def _extract_violation_detail(step: dict[str, Any]) -> dict[str, str | int]:
+    """Extract file_path, line, policy, fix, source, and severity from step data.
+
+    Checks for explicit structured fields first (``violation_detail`` dict),
+    then falls back to regex extraction from failure_output text.
+    """
+    detail = step.get("violation_detail") or {}
+    if detail:
+        return {
+            "file_path": str(detail.get("file_path") or ""),
+            "line": int(detail.get("line") or 0),
+            "policy": str(detail.get("policy") or ""),
+            "fix": str(detail.get("fix") or ""),
+            "source": str(detail.get("source") or step.get("name", "")),
+            "severity": str(detail.get("severity") or ""),
+        }
+    output = str(step.get("failure_output") or "")
+    m = _VIOLATION_DETAIL_RE.search(output)
+    file_path = m.group(1) if m else ""
+    line = int(m.group(2)) if m else 0
+    return {
+        "file_path": file_path,
+        "line": line,
+        "policy": "",
+        "fix": "",
+        "source": step.get("name", ""),
+        "severity": "",
+    }
+
+
 def build_check_result(
     *,
     steps: list[dict[str, Any]],
@@ -111,16 +167,7 @@ def build_check_result(
     failed_steps = [s for s in steps if s["returncode"] != 0 and not s.get("skipped")]
     skipped = sum(1 for s in steps if s.get("skipped"))
 
-    violations = tuple(
-        ViolationRecord(
-            step_name=s["name"],
-            exit_code=s["returncode"],
-            summary=_extract_violation_summary(s),
-            error=str(s.get("error") or "").strip(),
-            failure_output=str(s.get("failure_output") or "").strip(),
-        )
-        for s in failed_steps
-    )
+    violations = tuple(_build_violation(s) for s in failed_steps)
 
     enriched = tuple(_enrich_step(s) for s in steps)
     return CheckResult(
@@ -135,6 +182,24 @@ def build_check_result(
         skipped=skipped,
         steps=enriched,
         violations=violations,
+    )
+
+
+def _build_violation(step: dict[str, Any]) -> ViolationRecord:
+    """Build a ViolationRecord from one failed step dict."""
+    detail = _extract_violation_detail(step)
+    return ViolationRecord(
+        step_name=step["name"],
+        exit_code=step["returncode"],
+        summary=_extract_violation_summary(step),
+        error=str(step.get("error") or "").strip(),
+        failure_output=str(step.get("failure_output") or "").strip(),
+        file_path=str(detail.get("file_path") or ""),
+        line=int(detail.get("line") or 0),
+        policy=str(detail.get("policy") or ""),
+        fix=str(detail.get("fix") or ""),
+        source=str(detail.get("source") or ""),
+        severity=str(detail.get("severity") or ""),
     )
 
 
@@ -164,6 +229,7 @@ def render_check_result_text(result: CheckResult) -> str:
     if result.skipped:
         header += f", {result.skipped} skipped"
     lines = ["", header, "-" * len(header)]
+    violation_by_step = {v.step_name: v for v in result.violations}
     for step in result.steps:
         status = step.get("status", _step_status(step))
         line = f"  {status:<4}  {step['name']}"
@@ -172,8 +238,32 @@ def render_check_result_text(result: CheckResult) -> str:
             if summary:
                 line += f"  -- {summary}"
         lines.append(line)
+        if status == "FAIL":
+            _append_violation_detail_text(lines, violation_by_step.get(step["name"]))
     lines.append("")
     return "\n".join(lines)
+
+
+def _append_violation_detail_text(
+    lines: list[str], violation: ViolationRecord | None,
+) -> None:
+    """Append file/line/policy/fix detail lines for a violation if present."""
+    if violation is None:
+        return
+    parts: list[str] = []
+    if violation.file_path:
+        loc = violation.file_path
+        if violation.line:
+            loc += f":{violation.line}"
+        parts.append(f"file={loc}")
+    if violation.policy:
+        parts.append(f"policy={violation.policy}")
+    if violation.severity:
+        parts.append(f"severity={violation.severity}")
+    if violation.fix:
+        parts.append(f"fix={violation.fix}")
+    if parts:
+        lines.append(f"          {' | '.join(parts)}")
 
 
 def render_check_result_md(result: CheckResult) -> str:
@@ -190,6 +280,21 @@ def render_check_result_md(result: CheckResult) -> str:
             f"| {step['name']} | {status} | {step.get('duration_s', 0)} "
             f"| `{cmd_str(step.get('cmd', []))}` |"
         )
+
+    violations_with_detail = [
+        v for v in result.violations if v.file_path or v.policy
+    ]
+    if violations_with_detail:
+        lines.append("")
+        lines.append("## Violation Detail")
+        lines.append("")
+        lines.append("| Step | File | Line | Policy | Severity | Fix |")
+        lines.append("|------|------|------|--------|----------|-----|")
+        for v in violations_with_detail:
+            lines.append(
+                f"| {v.step_name} | {v.file_path} | {v.line or ''} "
+                f"| {v.policy} | {v.severity} | {v.fix} |"
+            )
 
     failed_with_output = [
         step for step in result.steps

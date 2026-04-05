@@ -111,7 +111,11 @@ def _build_quality_section(push_data: dict[str, Any] | None) -> dict[str, Any]:
     if preflight_ok is False:
         failure_out = preflight.get("failure_output", "")
         base["failing"] = _extract_failing_files(failure_out)
-        base["check_details"] = _extract_check_details(failure_out)
+        typed_violations = push_data.get("violations")
+        if typed_violations:
+            base["check_details"] = _check_details_from_violations(typed_violations)
+        else:
+            base["check_details"] = _extract_check_details(failure_out)
 
     return base
 
@@ -145,6 +149,9 @@ def _extract_check_details(output: str) -> list[dict[str, str]]:
         ``  FAIL  check_name  -- one-line violation``
     Only failing checks are included in the result to keep the dashboard
     focused on actionable items.
+
+    Prefer ``_check_details_from_violations`` when typed ``ViolationRecord``
+    dicts are available in the push data.
     """
     details: list[dict[str, str]] = []
     for line in output.splitlines():
@@ -159,6 +166,50 @@ def _extract_check_details(output: str) -> list[dict[str, str]]:
             "status": status,
             "violation": violation.strip(),
         })
+        if len(details) >= 10:
+            break
+    return details
+
+
+def _check_details_from_violations(
+    violations: list[dict[str, Any]],
+) -> list[dict[str, str]]:
+    """Build check detail dicts from typed ViolationRecord payloads.
+
+    Reads the normalized fields (file_path, line, policy, fix, source,
+    severity) so the dashboard can display structured violation data
+    instead of regex-parsed text.
+    """
+    details: list[dict[str, str]] = []
+    for v in violations:
+        file_path = str(v.get("file_path") or "")
+        line_num = v.get("line") or ""
+        location = f"{file_path}:{line_num}" if file_path and line_num else file_path
+        violation_text = str(v.get("summary") or "")
+        if location and location not in violation_text:
+            violation_text = f"{location} {violation_text}".strip()
+        entry: dict[str, str] = {
+            "check": str(v.get("step_name") or "unknown"),
+            "status": "FAIL",
+            "violation": violation_text,
+        }
+        if file_path:
+            entry["file_path"] = file_path
+        if line_num:
+            entry["line"] = str(line_num)
+        policy = str(v.get("policy") or "")
+        if policy:
+            entry["policy"] = policy
+        fix = str(v.get("fix") or "")
+        if fix:
+            entry["fix"] = fix
+        source = str(v.get("source") or "")
+        if source:
+            entry["source"] = source
+        severity = str(v.get("severity") or "")
+        if severity:
+            entry["severity"] = severity
+        details.append(entry)
         if len(details) >= 10:
             break
     return details

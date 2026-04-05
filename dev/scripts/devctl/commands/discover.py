@@ -27,22 +27,63 @@ def add_parser(sub) -> None:
     add_standard_output_arguments(cmd, format_choices=("json", "md"))
     cmd.add_argument(
         "--filter",
-        choices=["all", "commands", "guards", "probes", "surfaces"],
         default="all",
-        help="Show only one category (default: all)",
+        help=(
+            "Filter category: all, commands, guards, probes, surfaces, "
+            "or guards-for-file:<path> for file-specific guard list"
+        ),
     )
 
 
 def run(args) -> int:
     """Build and emit the SystemCatalog."""
-    catalog = build_system_catalog()
     category = getattr(args, "filter", None) or "all"
+
+    if category.startswith("guards-for-file:"):
+        return _run_guards_for_file(args, category)
+
+    catalog = build_system_catalog()
     payload = _build_payload(catalog, category)
 
     if args.format == "json":
         output = json.dumps(payload, indent=2)
     else:
         output = _render_markdown(payload, category)
+
+    emit_output(
+        output,
+        output_path=args.output,
+        pipe_command=getattr(args, "pipe_command", None),
+        pipe_args=getattr(args, "pipe_args", None),
+        writer=write_output,
+    )
+    return 0
+
+
+def _run_guards_for_file(args, category: str) -> int:
+    """Handle ``--filter guards-for-file:<path>`` by returning applicable guards."""
+    from ..governance.system_catalog import filter_guards_for_file
+
+    file_path = category.split(":", 1)[1]
+    guard_ids = filter_guards_for_file(file_path)
+    payload = {
+        "command": "discover",
+        "timestamp": utc_timestamp(),
+        "filter": category,
+        "file_path": file_path,
+        "guards": list(guard_ids),
+        "total_guards": len(guard_ids),
+    }
+
+    if args.format == "json":
+        output = json.dumps(payload, indent=2)
+    else:
+        lines = [f"# Guards for `{file_path}`", ""]
+        for gid in guard_ids:
+            lines.append(f"- `{gid}`")
+        lines.append("")
+        lines.append(f"Total: {len(guard_ids)}")
+        output = "\n".join(lines)
 
     emit_output(
         output,

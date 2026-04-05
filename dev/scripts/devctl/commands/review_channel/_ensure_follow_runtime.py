@@ -10,7 +10,27 @@ from ...review_channel.follow_controller import (
     EnsureFollowDeps,
     run_ensure_follow_action as _run_ensure_follow_action_impl,
 )
+from ...runtime.governance_scan import scan_repo_governance_safely
 from ..review_channel_command import RuntimePaths, _coerce_runtime_paths
+
+
+def _resolve_operator_interaction_mode(
+    *,
+    repo_root: Path,
+    args_fallback: str = "",
+) -> str:
+    """Read operator interaction mode from ProjectGovernance typed state.
+
+    Falls back to the CLI args value only when governance state is unavailable,
+    so the follow loop does not depend on a launch-time flag surviving across
+    daemon restarts.
+    """
+    governance = scan_repo_governance_safely(repo_root)
+    if governance is not None:
+        mode = (governance.bridge_config.operator_interaction_mode or "").strip()
+        if mode:
+            return mode
+    return args_fallback.strip() or ""
 
 
 def _build_ensure_follow_deps(
@@ -55,11 +75,26 @@ def run_ensure_follow_action(
     repo_root: Path,
     paths: RuntimePaths | Mapping[str, object],
 ) -> tuple[dict, int]:
-    """Run the persistent ensure-follow publisher."""
+    """Run the persistent ensure-follow publisher.
+
+    Resolves operator interaction mode from governance typed state first,
+    falling back to the CLI launch flag. The resolved value is propagated
+    onto ``args`` so downstream recovery/rollover helpers also use it.
+    """
     runtime_paths = _coerce_runtime_paths(paths)
-    interaction_mode = str(
+    args_fallback = str(
         getattr(args, "operator_interaction_mode", "") or ""
     ).strip()
+    interaction_mode = _resolve_operator_interaction_mode(
+        repo_root=repo_root,
+        args_fallback=args_fallback,
+    )
+    # Propagate governance-resolved mode onto args so downstream recovery
+    # and rollover helpers read the typed value instead of a stale CLI flag.
+    try:
+        args.operator_interaction_mode = interaction_mode
+    except (AttributeError, TypeError):
+        pass
     return _run_ensure_follow_action_impl(
         args=args,
         repo_root=repo_root,

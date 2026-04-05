@@ -276,6 +276,25 @@ def spawn_reviewer_supervisor(
     return True, process.pid, str(log_path)
 
 
+def _resolve_publisher_interaction_mode(
+    *,
+    repo_root: Path,
+    args_fallback: str = "",
+) -> str:
+    """Read operator interaction mode from governance typed state.
+
+    Falls back to args only when governance state is unavailable.
+    """
+    from ...runtime.governance_scan import scan_repo_governance_safely
+
+    governance = scan_repo_governance_safely(repo_root)
+    if governance is not None:
+        mode = (governance.bridge_config.operator_interaction_mode or "").strip()
+        if mode:
+            return mode
+    return args_fallback.strip() or ""
+
+
 def ensure_reviewer_supervisor_running(
     *,
     args,
@@ -302,9 +321,13 @@ def ensure_reviewer_supervisor_running(
     if bool(supervisor_state.get("running")):
         return {"attempted": False, "started": False, "reason": "already_running"}
 
-    interaction_mode = str(
+    args_fallback = str(
         getattr(args, "operator_interaction_mode", "") or ""
     ).strip()
+    interaction_mode = _resolve_publisher_interaction_mode(
+        repo_root=repo_root,
+        args_fallback=args_fallback,
+    )
     started, pid, log_path = spawn_reviewer_supervisor(
         args=args,
         repo_root=repo_root,
@@ -312,17 +335,8 @@ def ensure_reviewer_supervisor_running(
         operator_interaction_mode=interaction_mode,
     )
     if not started:
-        return {
-            "attempted": True, "started": False, "pid": pid,
-            "log_path": log_path, "start_status": "spawn_failed",
-        }
+        return {"attempted": True, "started": False, "pid": pid, "log_path": log_path, "start_status": "spawn_failed"}
     _time.sleep(sleep_seconds)
-    start_status = verify_reviewer_supervisor_start(
-        pid=pid, paths=runtime_paths,
-        reviewer_mode=str(getattr(args, "reviewer_mode", "active_dual_agent")),
-    )
-    return {
-        "attempted": True,
-        "started": start_status == "started",
-        "pid": pid, "log_path": log_path, "start_status": start_status,
-    }
+    mode = str(getattr(args, "reviewer_mode", "active_dual_agent"))
+    start_status = verify_reviewer_supervisor_start(pid=pid, paths=runtime_paths, reviewer_mode=mode)
+    return {"attempted": True, "started": start_status == "started", "pid": pid, "log_path": log_path, "start_status": start_status}

@@ -67,9 +67,9 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-04-05T00:15:49Z`
-- Last Codex poll (Local America/New_York): `2026-04-04 20:15:49 EDT`
-- Reviewer mode: `single_agent`
+- Last Codex poll: `2026-04-05T01:47:55Z`
+- Last Codex poll (Local America/New_York): `2026-04-04 21:47:55 EDT`
+- Reviewer mode: `active_dual_agent`
 - Last non-audit worktree hash: `0541c3c565496c8ba58c3f72fc75779c40f1d0072b861250ad8963bf0ddb003b`
 - Current instruction revision: `3b0a8b156f7d`
 ## Protocol
@@ -193,13 +193,15 @@ Codex: design this as part of the existing `ProjectGovernance` / `ReviewerGateSt
 
 ## Poll Status
 
-- Reviewed commit `8a53919` against `MP-381`, `MP-383`, `MP-384`, `MP-385`, and `MP-386`; changes requested before any new scope (mode: single_agent; observed-tree: 8a53919; reviewed-tree: 8a53919; instruction-rev: 3b0a8b156f7d).
+- Reviewer heartbeat refreshed through repo-owned tooling (mode: active_dual_agent; reason: reviewer-follow; reviewed-tree: 0541c3c56549).
 
 ## Current Verdict
 
-- Changes requested for commit `8a53919`. Slice B packet projection, parts of Slice E rollover plumbing, and the Slice F catalog scaffolding move toward the plan, but the commit is not architecture-green against `dev/active/remote_control_runtime.md`.
-- Change Summary: the branch added typed surfaces, but it stopped at partial projection instead of single-owner runtime truth. Permission requests can still be authored in bridge markdown, violation output is still step-summary text instead of normalized typed records, dashboard still scrapes bridge/check text, operator mode still rides launch args, and discover/view are still partial stubs rather than the planned typed discoverability pipeline.
-- Evidence: `python3 -m pytest dev/scripts/devctl/tests/review_channel/test_action_request.py dev/scripts/devctl/tests/review_channel/test_plan_packets.py dev/scripts/devctl/tests/runtime/test_review_state.py -q` passed (`52 passed`). The dashboard ANSI check only failed under this shell's `NO_COLOR=1`; rerunning `env -u NO_COLOR python3 -m pytest dev/scripts/devctl/tests/test_dashboard.py::TestDashboardTerminalOutput::test_terminal_has_all_sections -q` passed.
+- Awaiting Claude's first repair commit. The worktree now has active uncommitted edits for F1-F4, but there is still nothing new to accept because no repair commit exists yet beyond reviewed commit `8a53919` plus bridge handoff commit `e041029`.
+- Changes requested remain in force for `8a53919`. F1-F4 are still blocking because the branch is not architecture-green against `dev/active/remote_control_runtime.md` until the four repair slices land and are re-reviewed.
+- Change Summary: reviewer monitoring is active again, but the runtime truth is still "waiting for implementation", not "ready to commit". The important point for the operator is that the architecture plan did not change: the system still needs one packet-backed action-request path, one normalized `ViolationRecord` contract, one typed operator-mode owner, and one typed discoverability/view pipeline before this slice is done.
+- Next review trigger: once Claude lands a code commit for any of F1-F4, re-run the targeted tests from `Current Instruction For Claude`, then request commit/push through `## Action Requests` instead of bridge prose or terminal prompts.
+- Evidence: `git diff --name-only` shows the expected in-progress repair files for F1-F4, `git diff --stat` reports worktree edits without a new commit, `git log --oneline -n 2` still shows `e041029` above `8a53919`, and `python3 dev/scripts/devctl.py review-channel --action status --terminal none --format md` still reports stale review content until a fresh review pass happens.
 
 ## Open Findings
 

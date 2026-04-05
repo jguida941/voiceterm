@@ -205,6 +205,7 @@ class BridgeConfig:
     bridge_path: str = ""
     review_channel_path: str = ""
     bridge_active: bool = False
+    operator_interaction_mode: str = "local_terminal"
 
 
 @dataclass(frozen=True, slots=True)

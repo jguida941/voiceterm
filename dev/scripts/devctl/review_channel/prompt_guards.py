@@ -85,11 +85,13 @@ def _reviewer_guard_lines(
         (
             "- When an interactive permission prompt blocks progress (commit, "
             "push, process kill, or dialog dismissal) and the operator is not "
-            "available in the terminal, post a typed action request in "
-            "`## Action Requests` using the format "
-            "`- [<id>] <action>: <payload> (status: pending)`. "
+            "available in the terminal, post a typed action request via "
+            "`review-channel --action post` with "
+            "`PacketPostRequest(kind=\"action_request\")`. "
             "Supported actions: `commit`, `run_check`, `push`, `kill_process`. "
-            "Claude will execute pending requests on the next bridge poll."
+            "Do not write to the `## Action Requests` bridge section directly; "
+            "it is a projection-only surface rendered from packet state. "
+            "Claude will execute pending requests on the next packet poll."
         ),
         (
             "- If you are waiting on Claude-owned progress, ACK changes, or a "
@@ -128,12 +130,16 @@ def _implementer_guard_lines() -> list[str]:
             "operator to restate the reviewer process in chat."
         ),
         (
-            "- On each bridge repoll, also check `## Action Requests` for "
-            "pending entries. When Codex is blocked on an interactive "
-            "permission prompt (commit, push, dialog dismissal), it posts a "
-            "typed action request instead of waiting. Execute pending "
-            "requests in order, then update each line's status to "
-            "`completed` or `failed`."
+            "- On each bridge repoll, also poll the packet inbox for pending "
+            "`action_request` packets via `review-channel --action inbox "
+            "--target claude --status pending --format json`. When Codex is "
+            "blocked on an interactive permission prompt (commit, push, "
+            "dialog dismissal), it posts a typed action request via "
+            "`PacketPostRequest(kind=\"action_request\")` instead of waiting. "
+            "Execute pending requests in order, then transition each packet "
+            "to `completed` or `failed` via the packet transport. Do not "
+            "read or write the `## Action Requests` bridge section directly; "
+            "it is a projection-only surface."
         ),
         (
             "- Before you summarize state for the operator or ask a question "

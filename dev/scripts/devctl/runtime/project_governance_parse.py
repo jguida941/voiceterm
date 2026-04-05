@@ -101,11 +101,15 @@ def bridge_config_from_mapping(
     payload: Mapping[str, object],
 ) -> BridgeConfig:
     mode = coerce_string(payload.get("bridge_mode")) or "single_agent"
+    interaction_mode = (
+        coerce_string(payload.get("operator_interaction_mode")) or "local_terminal"
+    )
     return BridgeConfig(
         bridge_mode=mode,
         bridge_path=coerce_string(payload.get("bridge_path")),
         review_channel_path=coerce_string(payload.get("review_channel_path")),
         bridge_active=coerce_bool(payload.get("bridge_active")),
+        operator_interaction_mode=interaction_mode,
     )
 
 
