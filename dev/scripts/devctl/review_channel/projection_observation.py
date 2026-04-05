@@ -20,9 +20,9 @@ def build_observation_projection(review_state: dict[str, object]) -> dict[str, o
     poll_utc = str(bridge.get("last_codex_poll_utc") or "").strip()
     review_needed = bool(bridge.get("review_needed", True))
     reviewed_hash_current = bool(bridge.get("reviewed_hash_current", False))
-    head_at_push_time = str(bridge.get("head_at_push_time") or "").strip()
 
     reviewer_runtime = review_state.get("reviewer_runtime")
+    head_at_push_time = _extract_head_at_push_time(bridge, reviewer_runtime)
     review_accepted = _extract_review_accepted(reviewer_runtime)
 
     reviewer_freshness = _extract_typed_freshness(reviewer_runtime, poll_utc)
@@ -58,6 +58,28 @@ def _extract_review_accepted(reviewer_runtime: Any) -> bool:
         return raw
     verdict = str(acceptance.get("current_verdict") or "").strip().lower()
     return verdict in ("accepted", "approved", "pass")
+
+
+def _extract_head_at_push_time(bridge: dict[str, Any], reviewer_runtime: Any) -> str:
+    """Extract head_at_push_time from the best available typed source.
+
+    Checks: (1) bridge state dict, (2) reviewer_runtime metadata,
+    (3) reviewer_runtime.review_acceptance. Returns empty string when
+    no source carries the field.
+    """
+    val = str(bridge.get("head_at_push_time") or "").strip()
+    if val:
+        return val
+    if isinstance(reviewer_runtime, dict):
+        val = str(reviewer_runtime.get("head_at_push_time") or "").strip()
+        if val:
+            return val
+        meta = reviewer_runtime.get("reviewer_metadata")
+        if isinstance(meta, dict):
+            val = str(meta.get("head_at_push_time") or "").strip()
+            if val:
+                return val
+    return ""
 
 
 def _extract_typed_freshness(reviewer_runtime: Any, poll_utc: str) -> str:

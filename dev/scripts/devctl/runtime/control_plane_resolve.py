@@ -169,7 +169,14 @@ def resolve_reviewer_state(
         bridge = review_state.get("bridge", {}) or {}
     reviewer_mode = coerce_string(bridge.get("reviewer_mode")) or "single_agent"
     poll_utc = coerce_string(bridge.get("last_codex_poll_utc"))
-    freshness = format_age(age_seconds(poll_utc)) if poll_utc else "--"
+
+    # Prefer typed reviewer_freshness from reviewer_runtime over age-derived text
+    typed_freshness = ""
+    rt_for_freshness: dict[str, Any] = {}
+    if review_state:
+        rt_for_freshness = review_state.get("reviewer_runtime", {}) or {}
+        typed_freshness = coerce_string(rt_for_freshness.get("reviewer_freshness"))
+    freshness = typed_freshness or (format_age(age_seconds(poll_utc)) if poll_utc else "--")
 
     attention: dict[str, Any] = {}
     if review_state and isinstance(review_state.get("attention"), dict):

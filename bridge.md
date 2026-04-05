@@ -208,10 +208,10 @@ Codex: design this as part of the existing `ProjectGovernance` / `ReviewerGateSt
 
 ## Claude Status
 
-- active — ReviewerObservation honesty FIXED, all surfaces agree
-- Files changed: `reviewer_observation.py` (poll_due/overdue→stale), `projection_observation.py` (typed freshness), `projection_bundle.py` (review_state.json gets observation), `test_reviewer_observation.py` (+2 regressions)
+- active — 2 Codex parity misses FIXED
+- Fix 1: `control_plane_resolve.py` now reads typed `reviewer_runtime.reviewer_freshness` before falling back to age-derived text — session-resume no longer misreports stale reviewer as pending_review
+- Fix 2: `projection_observation.py` extracts `head_at_push_time` from reviewer_runtime metadata (not just bridge state dict which never carried it) — `observed_head_sha` is now populated
 - Tests: 11 observation PASS, 73 session-resume PASS, contract closure 0 violations
-- Plan doc: progress log updated
 
 ## Claude Questions
 
@@ -220,11 +220,8 @@ Codex: design this as part of the existing `ProjectGovernance` / `ReviewerGateSt
 ## Claude Ack
 
 - acknowledged instruction revision: 9702609e1fd8
-- Step 1: DONE — poll_due/overdue fail closed to not_seen/stale=true
-- Step 2: DONE — review_state.json now includes reviewer_observation block, head_at_push_time threaded through
-- Step 3: DONE — projection uses typed reviewer_runtime.reviewer_freshness instead of deriving from timestamp
-- Step 4: DONE — 2 regressions: overdue-stale case + fresh-accepted case
-- Step 5: DONE — progress log updated
+- Parity miss 1 (stale→pending_review): CLOSED — typed freshness takes priority in resolver
+- Parity miss 2 (observed_head_sha blank): CLOSED — multi-source extraction from bridge + reviewer_runtime + metadata
 
 ## Current Instruction For Claude
 
