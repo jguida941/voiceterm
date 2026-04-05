@@ -171,6 +171,21 @@ External review identified core problem: "too many partially smart surfaces, not
 - **Parallel worktrees**: `LaneAssignment.worktree` parsed but never consumed by launcher. 3 gaps: add worktree_path to LaunchSessionRequest, wire git worktree in build_session_script, pass per-worktree path to conductor prompt.
 - **Portability**: `repo_packs/voiceterm.py` correctly isolated but `active_path_config()` defaults to VoiceTerm. No pip package. No second repo-pack registered.
 
+## Architecture Authority Audit (8-lane, Codex-directed, 2026-04-05)
+
+| Lane | Verdict | Finding |
+|---|---|---|
+| L1 Raw bridge | 2 GAPS | `_parse_bridge_mode` (governance scan) has no typed alt. Launch reads raw bridge. |
+| L2 Reducers | DISAGREE | 3 reducers. Fallback recomputes from raw bridge when `typed_authority_complete` false. |
+| L3 Session parity | DIVERGES | `stale_label` "stale" vs "unknown" between bridge/event paths → `implementation_blocked` diverges. |
+| L4 Writers | CONFLICT | 4 writers share Poll Status with no concurrency guard. `refresh_bridge_heartbeat` skips `Reviewer mode`. |
+| L5 Paths | 3 PATTERNS | `REPO_ROOT` bypasses repo-pack+governance. `active_path_config` ignores governance. Only `review_state_locator` is fully correct. |
+| L6 Consumers | 5 INDEPENDENT | Console, dashboard, phone, mobile, control-state all compute state independently. |
+| L7 Packets | CLEAN | Action requests properly projection-only (MP-383 accepted). |
+| L8 Plan coverage | 0/8 DONE | All MPs open. 5 subsystems (release, mutation, triage, autonomy, doc-authority) have NO owner. |
+
+Highest-value next slice: ONE resolved `ControlPlaneReadModel` builder that replaces the 5 independent state computations (L6) and the 3 disagreeing reducers (L2) with a single source. L7 is the reference pattern. L3's stale_label divergence is the cheapest single fix.
+
 ## Outer Ring Audit (Round 7, 8-agent, 2026-04-04)
 
 | Subsystem | Status | Detail |
