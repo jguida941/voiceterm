@@ -11,6 +11,10 @@ from typing import Any
 
 from ..common import emit_output, write_output
 from ..config import REPO_ROOT
+from ..runtime.control_plane_read_model import (
+    ControlPlaneReadModel,
+    build_control_plane_read_model,
+)
 from ..time_utils import utc_timestamp
 
 # Shared utilities extracted to break circular import with dashboard_builders.
@@ -19,6 +23,8 @@ from .dashboard_utils import (
     _extract_time_from_iso,
     _format_age,
     _format_duration,
+    _parse_bridge,
+    _parse_bridge_findings,
     _paths,
     _read_json,
     _tail_lines,
@@ -126,93 +132,6 @@ def _parse_ahead_behind(header: str) -> tuple[int, int]:
         ahead = int(am.group(1)) if am else 0
         behind = int(bm.group(1)) if bm else 0
     return ahead, behind
-
-
-def _parse_bridge(path: Path) -> dict[str, str]:
-    """Extract lightweight coordination fields from bridge.md."""
-    fields: dict[str, str] = {
-        "last_poll": "n/a",
-        "last_poll_utc": "",
-        "reviewer_mode": "n/a",
-        "instruction": "n/a",
-        "verdict": "n/a",
-        "findings_raw": "",
-        "reviewed_scope_raw": "",
-        "instruction_full": "n/a",
-    }
-    try:
-        text = path.read_text(encoding="utf-8")
-    except OSError:
-        return fields
-    for line in text.splitlines():
-        stripped = line.strip()
-        if stripped.startswith("- Last Codex poll:"):
-            raw_poll = stripped.split(":", 1)[1].strip().strip("`")
-            fields["last_poll"] = raw_poll
-            fields["last_poll_utc"] = raw_poll
-        elif stripped.startswith("- Reviewer mode:"):
-            fields["reviewer_mode"] = stripped.split(":", 1)[1].strip().strip("`")
-    instr_match = re.search(
-        r"## Current Instruction For Claude\s*\n(.*?)(?=\n## |\Z)",
-        text, re.DOTALL,
-    )
-    if instr_match:
-        raw = instr_match.group(1).strip()
-        fields["instruction"] = raw[:120] + ("..." if len(raw) > 120 else "")
-        fields["instruction_full"] = raw
-    verdict_match = re.search(
-        r"## Current Verdict\s*\n(.*?)(?=\n## |\Z)",
-        text, re.DOTALL,
-    )
-    if verdict_match:
-        fields["verdict"] = verdict_match.group(1).strip()
-    findings_match = re.search(
-        r"## Open Findings\s*\n(.*?)(?=\n## |\Z)",
-        text, re.DOTALL,
-    )
-    if findings_match:
-        fields["findings_raw"] = findings_match.group(1).strip()
-    scope_match = re.search(
-        r"## Last Reviewed Scope\s*\n(.*?)(?=\n## |\Z)",
-        text, re.DOTALL,
-    )
-    if scope_match:
-        fields["reviewed_scope_raw"] = scope_match.group(1).strip()
-    return fields
-
-
-def _parse_bridge_findings(path: Path) -> list[dict[str, str]]:
-    """Extract structured findings from the ## Open Findings section of bridge.md.
-
-    Each finding is returned as {"id": "F1", "summary": "first 80 chars..."}.
-    Returns an empty list when bridge.md is missing or the section is empty.
-    """
-    try:
-        text = path.read_text(encoding="utf-8")
-    except OSError:
-        return []
-    section_match = re.search(
-        r"## Open Findings\s*\n(.*?)(?=\n## |\Z)",
-        text, re.DOTALL,
-    )
-    if not section_match:
-        return []
-    findings: list[dict[str, str]] = []
-    for line in section_match.group(1).splitlines():
-        stripped = line.strip()
-        if not stripped.startswith("- "):
-            continue
-        body = stripped[2:].strip()
-        fid_match = re.match(r"(F\d+)\s*:\s*(.*)", body)
-        if fid_match:
-            fid = fid_match.group(1)
-            desc = fid_match.group(2).strip()
-        else:
-            fid = f"F{len(findings) + 1}"
-            desc = body
-        summary = desc[:80] + ("..." if len(desc) > 80 else "")
-        findings.append({"id": fid, "summary": summary})
-    return findings
 
 
 def _session_age(repo_root: Path) -> dict[str, Any]:
@@ -430,6 +349,10 @@ def build_snapshot(
 
     session_info = _session_age(repo_root) if load_all or (needs & {"repo", "coordination"}) else None
 
+    # Build the single resolved control-plane read model so downstream
+    # sections can read from it instead of recomputing state independently.
+    cp_model = build_control_plane_read_model(repo_root)
+
     snapshot = _assemble(
         git, compact, push_data, receipt, agents, pipeline, bridge, plan,
         gov_data=gov_data, probe_data=probe_data, ds_data=ds_data,
@@ -438,6 +361,7 @@ def build_snapshot(
         repo_root=repo_root,
         view=view,
         review_state=review_state,
+        control_plane=cp_model,
     )
     return snapshot
 
@@ -469,10 +393,13 @@ def _assemble(
     session_info: dict[str, Any] | None = None,
     view: str = "overview",
     review_state: dict[str, Any] | None = None,
+    control_plane: ControlPlaneReadModel | None = None,
 ) -> dict[str, Any]:
     """Assemble the typed DashboardSnapshot from raw sources.
 
-    Typed ReviewState overrides compact.json for session and doctor fields.
+    When ``control_plane`` is supplied, the summary/now/health/coordination
+    sections read resolved gates from the single read model instead of
+    recomputing them independently.
     """
     if review_state:
         session = _extract_typed_session(review_state)
@@ -489,11 +416,19 @@ def _assemble(
     publication_effective["timers"] = _extract_push_timers(push_data)
     quality = _build_quality_section(push_data)
     quality["probes"] = _build_probes_section(probe_data)
-    top_blocker = _derive_top_blocker(quality, session, doctor)
+    top_blocker = control_plane.top_blocker if control_plane else _derive_top_blocker(quality, session, doctor)
     last_change_age = _age_seconds(bridge.get("last_poll_utc", ""))
     timeline_count = 100 if view == "analytics" else 10
     typed_attention = _extract_typed_attention(review_state)
     typed_packets = _extract_typed_packets(review_state)
+
+    # Build the health section, injecting read-model truth for daemon/conductor liveness
+    health = _build_health_section(repo_root, compact)
+    if control_plane:
+        health["publisher"]["running"] = control_plane.publisher_running
+        health["supervisor"]["running"] = control_plane.supervisor_running
+        health["attention_status"] = control_plane.attention_status
+        health["attention_summary"] = control_plane.attention_summary
 
     snapshot: dict[str, Any] = {
         "schema_version": 2,
@@ -515,7 +450,7 @@ def _assemble(
             bridge, reviewer_agent, implementer_agent, session,
             top_blocker, last_change_age,
         ),
-        "health": _build_health_section(repo_root, compact),
+        "health": health,
         "review": _build_review_section(bridge, reviewer_agent, implementer_agent, session),
         "workers": _build_workers_section(agents),
         "plan": _build_plan_section(plan or {}, session, bridge_findings or []),
@@ -528,7 +463,7 @@ def _assemble(
             session, bridge, doctor,
             CoordinationContext(
                 instruction_rev=instruction_rev,
-                receipt_push=receipt_push,
+                receipt_push=control_plane.next_action if control_plane else receipt_push,
                 session_info=session_info or {},
                 typed_packets=typed_packets,
             ),
@@ -538,6 +473,7 @@ def _assemble(
         "timeline": _build_timeline_section(repo_root, count=timeline_count),
         "typed_attention": typed_attention,
         "pending_packets": typed_packets,
+        "control_plane": control_plane.to_dict() if control_plane else None,
     }
     snapshot["summary"] = _compile_summary(snapshot)
     return snapshot

@@ -33,6 +33,13 @@ from .check_result_models import (
     render_check_result_md,
     render_check_result_text,
 )
+from .control_plane_read_model import (
+    CONTROL_PLANE_READ_MODEL_CONTRACT_ID,
+    CONTROL_PLANE_READ_MODEL_SCHEMA_VERSION,
+    ControlPlaneReadModel,
+    build_control_plane_read_model,
+    control_plane_read_model_from_mapping,
+)
 from .control_state import (
     ActiveRunState,
     ApprovalPolicyState,
@@ -205,6 +212,9 @@ __all__ = [
     "DocRegistryEntry",
     "ContextPackRefState",
     "CommitIntentState",
+    "CONTROL_PLANE_READ_MODEL_CONTRACT_ID",
+    "CONTROL_PLANE_READ_MODEL_SCHEMA_VERSION",
+    "ControlPlaneReadModel",
     "ControlState",
     "ControlStateContext",
     "ControlStateSources",
@@ -276,6 +286,7 @@ __all__ = [
     "artifact_roots_from_mapping",
     "bridge_config_from_mapping",
     "build_check_result",
+    "build_control_plane_read_model",
     "build_control_state",
     "auto_mode_state_from_mapping",
     "build_default_tandem_profile",
@@ -284,6 +295,7 @@ __all__ = [
     "clear_machine_output_metrics",
     "collect_failure_packet",
     "consume_machine_output_metrics",
+    "control_plane_read_model_from_mapping",
     "control_state_from_payload",
     "operator_context_from_mapping",
     "decision_packet_from_finding",

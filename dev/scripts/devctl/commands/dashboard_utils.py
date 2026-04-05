@@ -8,6 +8,7 @@ import between the two.
 from __future__ import annotations
 
 import json
+import re
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -128,3 +129,68 @@ def _extract_time_from_iso(ts: str) -> str:
         return dt.strftime("%H:%M:%S")
     except (ValueError, TypeError):
         return "--:--:--"
+
+
+def _parse_bridge(path: Path) -> dict[str, str]:
+    """Extract lightweight coordination fields from bridge.md."""
+    fields: dict[str, str] = {
+        "last_poll": "n/a", "last_poll_utc": "", "reviewer_mode": "n/a",
+        "instruction": "n/a", "verdict": "n/a", "findings_raw": "",
+        "reviewed_scope_raw": "", "instruction_full": "n/a",
+    }
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError:
+        return fields
+    for line in text.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("- Last Codex poll:"):
+            raw_poll = stripped.split(":", 1)[1].strip().strip("`")
+            fields["last_poll"] = raw_poll
+            fields["last_poll_utc"] = raw_poll
+        elif stripped.startswith("- Reviewer mode:"):
+            fields["reviewer_mode"] = stripped.split(":", 1)[1].strip().strip("`")
+    for section_key, heading in (
+        ("instruction", "## Current Instruction For Claude"),
+        ("verdict", "## Current Verdict"),
+        ("findings_raw", "## Open Findings"),
+        ("reviewed_scope_raw", "## Last Reviewed Scope"),
+    ):
+        match = re.search(
+            re.escape(heading) + r"\s*\n(.*?)(?=\n## |\Z)", text, re.DOTALL,
+        )
+        if match:
+            raw = match.group(1).strip()
+            if section_key == "instruction":
+                fields["instruction"] = raw[:120] + ("..." if len(raw) > 120 else "")
+                fields["instruction_full"] = raw
+            else:
+                fields[section_key] = raw
+    return fields
+
+
+def _parse_bridge_findings(path: Path) -> list[dict[str, str]]:
+    """Extract structured findings from the Open Findings section of bridge.md."""
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError:
+        return []
+    section_match = re.search(
+        r"## Open Findings\s*\n(.*?)(?=\n## |\Z)", text, re.DOTALL,
+    )
+    if not section_match:
+        return []
+    findings: list[dict[str, str]] = []
+    for line in section_match.group(1).splitlines():
+        stripped = line.strip()
+        if not stripped.startswith("- "):
+            continue
+        body = stripped[2:].strip()
+        fid_match = re.match(r"(F\d+)\s*:\s*(.*)", body)
+        if fid_match:
+            fid, desc = fid_match.group(1), fid_match.group(2).strip()
+        else:
+            fid, desc = f"F{len(findings) + 1}", body
+        summary = desc[:80] + ("..." if len(desc) > 80 else "")
+        findings.append({"id": fid, "summary": summary})
+    return findings
