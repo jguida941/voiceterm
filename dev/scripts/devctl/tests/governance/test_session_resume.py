@@ -32,12 +32,17 @@ class TestSessionCachePacket(unittest.TestCase):
 
     def test_defaults(self) -> None:
         pkt = SessionCachePacket()
-        self.assertEqual(pkt.schema_version, 1)
+        self.assertEqual(pkt.schema_version, 2)
         self.assertEqual(pkt.contract_id, "SessionCachePacket")
         self.assertEqual(pkt.role, "implementer")
         self.assertEqual(pkt.blockers, "none")
         self.assertTrue(pkt.last_guard_ok)
         self.assertEqual(pkt.key_rules, ())
+        self.assertEqual(pkt.head_at_push_time, "")
+        self.assertEqual(pkt.operator_interaction_mode, "local_terminal")
+        self.assertEqual(pkt.resolved_phase, "idle")
+        self.assertEqual(pkt.next_guard_bundle, "")
+        self.assertEqual(pkt.next_recommended_command, "")
 
     def test_to_dict_converts_tuple(self) -> None:
         pkt = SessionCachePacket(key_rules=("a=1", "b=2"))
@@ -324,9 +329,14 @@ class TestBuildFromSources(unittest.TestCase):
             self.assertEqual(packet.interaction_mode, "local_terminal")
             self.assertFalse(packet.last_guard_ok)
             self.assertEqual(packet.next_action, "python3 dev/scripts/devctl.py do-it")
-            self.assertEqual(packet.advisory_action, "wait")
-            self.assertEqual(packet.advisory_reason, "guard_fail")
+            # advisory_action/reason now come from read model, not receipt
+            self.assertEqual(packet.advisory_action, "do_something")
+            self.assertEqual(packet.advisory_reason, "custom_blocker")
             self.assertIn("review_gate_allows_push=True", packet.key_rules)
+            # v2 fields from read model
+            self.assertEqual(packet.resolved_phase, "idle")
+            self.assertEqual(packet.operator_interaction_mode, "local_terminal")
+            self.assertEqual(packet.next_recommended_command, "python3 dev/scripts/devctl.py do-it")
 
 
 class TestRepoPackPaths(unittest.TestCase):
@@ -872,6 +882,381 @@ class TestLastReviewedSha(unittest.TestCase):
         )
         summary = render_summary(packet)
         self.assertIn("last_reviewed=112233", summary)
+
+
+class TestV2Fields(unittest.TestCase):
+    """v2 fields: resolved_phase, next_guard_bundle, operator_interaction_mode,
+    head_at_push_time, next_recommended_command."""
+
+    def _make_sources(self, *, receipt=None, compact=None, review_state=None):
+        return {
+            "receipt": receipt,
+            "review_state": review_state,
+            "push_report": None,
+            "publisher_hb": None,
+            "supervisor_hb": None,
+            "codex_conductor": None,
+            "claude_conductor": None,
+            "full_json": None,
+            "compact_json": compact,
+        }
+
+    def test_resolved_phase_from_read_model(self) -> None:
+        """resolved_phase is sourced from the ControlPlaneReadModel."""
+        from dev.scripts.devctl.runtime.control_plane_read_model import (
+            ControlPlaneReadModel,
+        )
+
+        model = ControlPlaneReadModel(
+            timestamp="t", branch="b", head_sha="h",
+            worktree_clean=True, ahead_of_upstream=0,
+            resolved_phase="implementing",
+            push_eligible=False, implementation_blocked=False,
+            top_blocker="none", next_action="n/a", next_command="",
+            reviewer_mode="single_agent",
+            operator_interaction_mode="local_terminal",
+            reviewer_freshness="--", review_accepted=False,
+            last_reviewed_sha="", attention_status="n/a",
+            attention_summary="n/a",
+            publisher_running=False, supervisor_running=False,
+            codex_conductor_alive=False, claude_conductor_alive=False,
+            pending_action_requests=0, last_guard_ok=True,
+            check_details=(),
+        )
+        sources = self._make_sources(
+            receipt={"advisory_action": "continue"},
+        )
+        with tempfile.TemporaryDirectory() as td:
+            packet = build_from_sources(
+                Path(td), role="implementer", head_sha="abc",
+                read_model_override=model, sources_override=sources,
+            )
+            self.assertEqual(packet.resolved_phase, "implementing")
+
+    def test_operator_interaction_mode_from_read_model(self) -> None:
+        """operator_interaction_mode mirrors the read model field."""
+        from dev.scripts.devctl.runtime.control_plane_read_model import (
+            ControlPlaneReadModel,
+        )
+
+        model = ControlPlaneReadModel(
+            timestamp="t", branch="b", head_sha="h",
+            worktree_clean=True, ahead_of_upstream=0,
+            resolved_phase="idle",
+            push_eligible=False, implementation_blocked=False,
+            top_blocker="none", next_action="n/a", next_command="",
+            reviewer_mode="active_dual_agent",
+            operator_interaction_mode="active_dual_agent",
+            reviewer_freshness="--", review_accepted=False,
+            last_reviewed_sha="", attention_status="n/a",
+            attention_summary="n/a",
+            publisher_running=False, supervisor_running=False,
+            codex_conductor_alive=False, claude_conductor_alive=False,
+            pending_action_requests=0, last_guard_ok=True,
+            check_details=(),
+        )
+        sources = self._make_sources(
+            receipt={"advisory_action": "continue"},
+        )
+        with tempfile.TemporaryDirectory() as td:
+            packet = build_from_sources(
+                Path(td), role="implementer", head_sha="abc",
+                read_model_override=model, sources_override=sources,
+            )
+            self.assertEqual(packet.operator_interaction_mode, "active_dual_agent")
+
+    def test_head_at_push_time_from_bridge(self) -> None:
+        """head_at_push_time is extracted from bridge metadata."""
+        sources = self._make_sources(
+            receipt={"advisory_action": "continue"},
+            compact={
+                "bridge": {"head_at_push_time": "pushed_sha_123"},
+                "current_session": {},
+            },
+        )
+        with tempfile.TemporaryDirectory() as td:
+            packet = build_from_sources(
+                Path(td), role="implementer", head_sha="current_sha",
+                sources_override=sources,
+            )
+            self.assertEqual(packet.head_at_push_time, "pushed_sha_123")
+            # last_reviewed_sha should match head_at_push_time
+            self.assertEqual(packet.last_reviewed_sha, "pushed_sha_123")
+
+    def test_next_guard_bundle_from_changed_paths(self) -> None:
+        """next_guard_bundle classifies changed paths to a bundle name."""
+        sources = self._make_sources(
+            receipt={"advisory_action": "continue"},
+        )
+        with tempfile.TemporaryDirectory() as td:
+            packet = build_from_sources(
+                Path(td), role="implementer", head_sha="abc",
+                sources_override=sources,
+                changed_paths=["dev/scripts/devctl/commands/governance/session_resume_support.py"],
+            )
+            self.assertEqual(packet.next_guard_bundle, "bundle.tooling")
+
+    def test_next_guard_bundle_runtime(self) -> None:
+        """Runtime paths produce bundle.runtime."""
+        sources = self._make_sources(
+            receipt={"advisory_action": "continue"},
+        )
+        with tempfile.TemporaryDirectory() as td:
+            packet = build_from_sources(
+                Path(td), role="implementer", head_sha="abc",
+                sources_override=sources,
+                changed_paths=["rust/src/bin/voiceterm/main.rs"],
+            )
+            self.assertEqual(packet.next_guard_bundle, "bundle.runtime")
+
+    def test_next_guard_bundle_empty_when_no_paths(self) -> None:
+        """Empty changed paths produce empty guard bundle."""
+        sources = self._make_sources(
+            receipt={"advisory_action": "continue"},
+        )
+        with tempfile.TemporaryDirectory() as td:
+            packet = build_from_sources(
+                Path(td), role="implementer", head_sha="abc",
+                sources_override=sources,
+                changed_paths=[],
+            )
+            self.assertEqual(packet.next_guard_bundle, "")
+
+    def test_next_recommended_command_from_read_model(self) -> None:
+        """next_recommended_command comes from the read model next_command."""
+        from dev.scripts.devctl.runtime.control_plane_read_model import (
+            ControlPlaneReadModel,
+        )
+
+        model = ControlPlaneReadModel(
+            timestamp="t", branch="b", head_sha="h",
+            worktree_clean=True, ahead_of_upstream=0,
+            resolved_phase="pushing",
+            push_eligible=True, implementation_blocked=False,
+            top_blocker="none",
+            next_action="run_devctl_push",
+            next_command="python3 dev/scripts/devctl.py push --execute",
+            reviewer_mode="single_agent",
+            operator_interaction_mode="local_terminal",
+            reviewer_freshness="--", review_accepted=True,
+            last_reviewed_sha="", attention_status="n/a",
+            attention_summary="n/a",
+            publisher_running=False, supervisor_running=False,
+            codex_conductor_alive=False, claude_conductor_alive=False,
+            pending_action_requests=0, last_guard_ok=True,
+            check_details=(),
+        )
+        sources = self._make_sources(
+            receipt={"advisory_action": "continue"},
+        )
+        with tempfile.TemporaryDirectory() as td:
+            packet = build_from_sources(
+                Path(td), role="implementer", head_sha="abc",
+                read_model_override=model, sources_override=sources,
+            )
+            self.assertEqual(
+                packet.next_recommended_command,
+                "python3 dev/scripts/devctl.py push --execute",
+            )
+
+    def test_advisory_action_from_read_model_not_receipt(self) -> None:
+        """advisory_action is derived from read model next_action, not receipt."""
+        from dev.scripts.devctl.runtime.control_plane_read_model import (
+            ControlPlaneReadModel,
+        )
+
+        model = ControlPlaneReadModel(
+            timestamp="t", branch="b", head_sha="h",
+            worktree_clean=True, ahead_of_upstream=0,
+            resolved_phase="idle",
+            push_eligible=False, implementation_blocked=False,
+            top_blocker="none",
+            next_action="model_derived_action",
+            next_command="model_derived_command",
+            reviewer_mode="single_agent",
+            operator_interaction_mode="local_terminal",
+            reviewer_freshness="--", review_accepted=False,
+            last_reviewed_sha="", attention_status="n/a",
+            attention_summary="n/a",
+            publisher_running=False, supervisor_running=False,
+            codex_conductor_alive=False, claude_conductor_alive=False,
+            pending_action_requests=0, last_guard_ok=True,
+            check_details=(),
+        )
+        sources = self._make_sources(
+            receipt={
+                "advisory_action": "receipt_action_should_be_ignored",
+                "advisory_reason": "receipt_reason_should_be_ignored",
+            },
+        )
+        with tempfile.TemporaryDirectory() as td:
+            packet = build_from_sources(
+                Path(td), role="implementer", head_sha="abc",
+                read_model_override=model, sources_override=sources,
+            )
+            # Advisory comes from read model, not receipt
+            self.assertEqual(packet.advisory_action, "model_derived_action")
+            self.assertEqual(packet.advisory_reason, "none")
+
+    def test_roundtrip_preserves_v2_fields(self) -> None:
+        """packet_from_mapping preserves all v2 fields across serialization."""
+        original = SessionCachePacket(
+            head_sha="abc",
+            head_at_push_time="old_push_sha",
+            operator_interaction_mode="active_dual_agent",
+            resolved_phase="testing",
+            next_guard_bundle="bundle.tooling",
+            next_recommended_command="python3 dev/scripts/devctl.py check --profile ci",
+        )
+        restored = packet_from_mapping(original.to_dict())
+        self.assertEqual(restored.head_at_push_time, "old_push_sha")
+        self.assertEqual(restored.operator_interaction_mode, "active_dual_agent")
+        self.assertEqual(restored.resolved_phase, "testing")
+        self.assertEqual(restored.next_guard_bundle, "bundle.tooling")
+        self.assertEqual(
+            restored.next_recommended_command,
+            "python3 dev/scripts/devctl.py check --profile ci",
+        )
+
+    def test_render_markdown_includes_v2_fields(self) -> None:
+        """Markdown output includes phase, mode, and bundle."""
+        from dev.scripts.devctl.commands.governance.session_resume_support import (
+            render_markdown,
+        )
+        packet = SessionCachePacket(
+            head_sha="aabbccdd",
+            head_at_push_time="11223344",
+            operator_interaction_mode="active_dual_agent",
+            resolved_phase="testing",
+            next_guard_bundle="bundle.runtime",
+            next_recommended_command="run checks",
+        )
+        md = render_markdown(packet)
+        self.assertIn("phase", md)
+        self.assertIn("testing", md)
+        self.assertIn("head_at_push", md)
+        self.assertIn("112233", md)
+        self.assertIn("guard_bundle", md)
+        self.assertIn("bundle.runtime", md)
+        self.assertIn("active_dual_agent", md)
+
+    def test_render_summary_includes_v2_fields(self) -> None:
+        """Summary output includes phase, mode, and bundle."""
+        from dev.scripts.devctl.commands.governance.session_resume_support import (
+            render_summary,
+        )
+        packet = SessionCachePacket(
+            head_sha="aabbccdd",
+            head_at_push_time="11223344",
+            operator_interaction_mode="active_dual_agent",
+            resolved_phase="implementing",
+            next_guard_bundle="bundle.tooling",
+            next_recommended_command="run checks",
+        )
+        summary = render_summary(packet)
+        self.assertIn("phase=implementing", summary)
+        self.assertIn("head_at_push=112233", summary)
+        self.assertIn("guard_bundle=bundle.tooling", summary)
+        self.assertIn("mode=active_dual_agent", summary)
+
+    def test_to_dict_includes_v2_fields(self) -> None:
+        """to_dict() includes all v2 fields in the output."""
+        pkt = SessionCachePacket(
+            head_at_push_time="push_sha",
+            operator_interaction_mode="active_dual_agent",
+            resolved_phase="committing",
+            next_guard_bundle="bundle.runtime",
+            next_recommended_command="push --execute",
+        )
+        d = pkt.to_dict()
+        self.assertEqual(d["head_at_push_time"], "push_sha")
+        self.assertEqual(d["operator_interaction_mode"], "active_dual_agent")
+        self.assertEqual(d["resolved_phase"], "committing")
+        self.assertEqual(d["next_guard_bundle"], "bundle.runtime")
+        self.assertEqual(d["next_recommended_command"], "push --execute")
+        self.assertEqual(d["schema_version"], 2)
+
+
+class TestReadModelPureProjection(unittest.TestCase):
+    """build_from_sources derives gate booleans from read model, not receipt."""
+
+    def _make_sources(self, *, receipt=None, compact=None, review_state=None):
+        return {
+            "receipt": receipt,
+            "review_state": review_state,
+            "push_report": None,
+            "publisher_hb": None,
+            "supervisor_hb": None,
+            "codex_conductor": None,
+            "claude_conductor": None,
+            "full_json": None,
+            "compact_json": compact,
+        }
+
+    def test_safe_to_continue_from_top_blocker(self) -> None:
+        """safe_to_continue key rule is derived from top_blocker == 'none'."""
+        from dev.scripts.devctl.runtime.control_plane_read_model import (
+            ControlPlaneReadModel,
+        )
+
+        model = ControlPlaneReadModel(
+            timestamp="t", branch="b", head_sha="h",
+            worktree_clean=True, ahead_of_upstream=0,
+            resolved_phase="idle",
+            push_eligible=False, implementation_blocked=False,
+            top_blocker="guard fail: code_shape",
+            next_action="fix guards", next_command="",
+            reviewer_mode="single_agent",
+            operator_interaction_mode="local_terminal",
+            reviewer_freshness="--", review_accepted=False,
+            last_reviewed_sha="", attention_status="n/a",
+            attention_summary="n/a",
+            publisher_running=False, supervisor_running=False,
+            codex_conductor_alive=False, claude_conductor_alive=False,
+            pending_action_requests=0, last_guard_ok=False,
+            check_details=(),
+        )
+        sources = self._make_sources(
+            receipt={"advisory_action": "continue"},
+        )
+        with tempfile.TemporaryDirectory() as td:
+            packet = build_from_sources(
+                Path(td), role="implementer", head_sha="abc",
+                read_model_override=model, sources_override=sources,
+            )
+            self.assertIn("safe_to_continue=False", packet.key_rules)
+
+    def test_checkpoint_required_from_resolved_phase(self) -> None:
+        """checkpoint_required key rule is derived from resolved_phase == 'committing'."""
+        from dev.scripts.devctl.runtime.control_plane_read_model import (
+            ControlPlaneReadModel,
+        )
+
+        model = ControlPlaneReadModel(
+            timestamp="t", branch="b", head_sha="h",
+            worktree_clean=False, ahead_of_upstream=0,
+            resolved_phase="committing",
+            push_eligible=False, implementation_blocked=False,
+            top_blocker="none", next_action="commit", next_command="",
+            reviewer_mode="single_agent",
+            operator_interaction_mode="local_terminal",
+            reviewer_freshness="--", review_accepted=False,
+            last_reviewed_sha="", attention_status="n/a",
+            attention_summary="n/a",
+            publisher_running=False, supervisor_running=False,
+            codex_conductor_alive=False, claude_conductor_alive=False,
+            pending_action_requests=0, last_guard_ok=True,
+            check_details=(),
+        )
+        sources = self._make_sources(
+            receipt={"advisory_action": "continue"},
+        )
+        with tempfile.TemporaryDirectory() as td:
+            packet = build_from_sources(
+                Path(td), role="implementer", head_sha="abc",
+                read_model_override=model, sources_override=sources,
+            )
+            self.assertIn("checkpoint_required=True", packet.key_rules)
 
 
 if __name__ == "__main__":

@@ -38,6 +38,7 @@ from .reviewer_follow_recovery import (
     ReviewerFollowRecoveryState,
     ReviewerFollowRolloverInput,
     ReviewerFollowRolloverState,
+    maybe_auto_relaunch_review_loop,
     maybe_auto_recover_stale_implementer,
     maybe_auto_trigger_rollover_on_stale_codex,
 )
@@ -49,7 +50,7 @@ class ReviewerFollowDeps:
     build_reviewer_state_report_fn: Callable[..., tuple[dict, int]]
     reviewer_state_write_to_dict_fn: Callable[..., dict[str, object] | None]
     run_recovery_action_fn: Callable[..., tuple[dict, int]] | None
-    run_rollover_action_fn: Callable[..., tuple[dict, int]] | None
+    run_bridge_action_fn: Callable[..., tuple[dict, int]] | None
     emit_follow_ndjson_frame_fn: Callable[..., int]
     reset_follow_output_fn: Callable[..., None]
     build_follow_completion_report_fn: Callable[..., dict[str, object]]
@@ -190,8 +191,36 @@ def _build_reviewer_follow_tick(
                 repo_root=repo_root,
                 bridge_path=bridge_path,
             )
+    auto_relaunch = maybe_auto_relaunch_review_loop(
+        bridge_action_fn=deps.run_bridge_action_fn,
+        rollover_input=ReviewerFollowRolloverInput(
+            args=args,
+            repo_root=repo_root,
+            paths=paths,
+            report=report,
+            rollover_state=loop_state.rollover,
+        ),
+    )
+    if auto_relaunch is not None:
+        report["auto_relaunch"] = auto_relaunch
+        if bool(auto_relaunch.get("launched")):
+            report, frame_exit_code = deps.build_reviewer_state_report_fn(
+                args=args,
+                repo_root=repo_root,
+                paths=paths,
+            )
+            attach_reviewer_runtime_contract(
+                report=report,
+                bridge_path=bridge_path,
+                status_dir=paths.get("status_dir"),
+            )
+            report["auto_relaunch"] = auto_relaunch
+            progress_token = build_claude_progress_token(
+                repo_root=repo_root,
+                bridge_path=bridge_path,
+            )
     auto_rollover = maybe_auto_trigger_rollover_on_stale_codex(
-        rollover_fn=deps.run_rollover_action_fn,
+        bridge_action_fn=deps.run_bridge_action_fn,
         rollover_input=ReviewerFollowRolloverInput(
             args=args,
             repo_root=repo_root,

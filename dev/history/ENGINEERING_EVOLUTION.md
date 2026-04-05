@@ -4,7 +4,7 @@
 
 **Status:** Draft v4 (historical design and process record)
 **Audience:** users and developers
-**Last Updated:** 2026-04-04
+**Last Updated:** 2026-04-05
 
 ## At a Glance
 
@@ -36,6 +36,33 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 - [Quick Read (2 min)](#quick-read-2-min)
 - [User Path (5 min)](#user-path-5-min)
 - [Developer Path (15 min)](#developer-path-15-min)
+
+### 2026-04-05 - Remote-control closure now tracks reviewer bootstrap truth and structural commit gating
+
+The latest pushed-branch architecture review turned a loose set of runtime
+complaints into explicit owner-plan work. Before this update, the remote-
+control plan tracked typed operator mode, headless lifecycle, dashboard
+convergence, and discoverability, but it did not yet make slim reviewer
+bootstrap/session-resume truth a first-class owned slice, and the remote-
+commit plan still left raw `git commit` as a structurally ungated escape hatch.
+
+The governed execution state now records both gaps directly. The
+remote-control runtime lane extends to `MP-387` so `SessionCachePacket` /
+`session-resume` can become a typed first-hop reviewer bootstrap with
+`last_reviewed_sha`, `head_at_push_time`, and fail-closed operator-mode truth.
+The same lane now explicitly tracks contract-catalog coverage for
+`ControlPlaneReadModel`, `AutoModeState`, and `SessionCachePacket`, terminal-
+none proof-of-life launch validation, stale-review invalidation, and queue-
+metric split. In parallel, the remote-commit pipeline plan now records the
+structural fix for unguarded commits: one repo-owned commit gate plus typed
+guard-freshness projection into doctor/status/auto-mode. This matters because
+the repo's core promise is not "better reminders for agents"; it is enforced,
+typed execution truth that keeps Claude and Codex on the same architecture.
+
+Evidence: `dev/active/remote_control_runtime.md`,
+`dev/active/remote_commit_pipeline.md`,
+`dev/active/MASTER_PLAN.md`,
+`dev/active/INDEX.md`.
 
 ### 2026-04-04 - Bridge rendering portability via RepoPathConfig
 

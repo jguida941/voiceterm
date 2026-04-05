@@ -54,8 +54,8 @@ def _surface_policy_with_tokens(*tokens: str) -> SurfacePolicy:
 def test_platform_contract_closure_passes_on_current_blueprint() -> None:
     report = build_report()
     assert report["ok"] is True
-    assert report["checked_field_routes"] == 6
-    assert report["checked_field_route_families"] == 2
+    assert report["checked_field_routes"] == 13
+    assert report["checked_field_route_families"] == 6
     assert report["violations"] == []
 
 
@@ -238,9 +238,14 @@ def test_platform_contract_closure_flags_missing_decision_mode_ralph_route() -> 
 
 def test_platform_contract_closure_flags_incomplete_decision_mode_route_family() -> None:
     blueprint = build_platform_blueprint()
+    reduced_checks = tuple(
+        check
+        for check in field_routes.FIELD_ROUTE_CHECKS
+        if getattr(check, "__name__", "") != "check_decision_packet_mode_guard_run_route"
+    )
     with patch(
         "dev.scripts.checks.platform_contract_closure.support.field_routes.FIELD_ROUTE_CHECKS",
-        new=field_routes.FIELD_ROUTE_CHECKS[:-1],
+        new=reduced_checks,
     ):
         _coverage, violations = evaluate_platform_contract_closure(
             blueprint,
@@ -543,5 +548,5 @@ def test_platform_contract_closure_markdown_lists_violations() -> None:
 def test_platform_contract_closure_markdown_lists_field_route_count() -> None:
     report = build_report()
     output = render_md(report)
-    assert "checked_field_routes: 6" in output
-    assert "checked_field_route_families: 2" in output
+    assert "checked_field_routes: 13" in output
+    assert "checked_field_route_families: 6" in output

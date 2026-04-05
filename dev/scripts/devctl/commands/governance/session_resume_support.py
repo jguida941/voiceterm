@@ -28,6 +28,13 @@ from .session_resume_paths import (
 if TYPE_CHECKING:
     from ...runtime.project_governance import ProjectGovernance
 
+_BUNDLE_BY_LANE = {
+    "docs": "bundle.docs",
+    "runtime": "bundle.runtime",
+    "tooling": "bundle.tooling",
+    "release": "bundle.release",
+}
+
 
 SESSION_CACHE_RELATIVE_DIR = Path("dev/reports/session_cache/latest")
 SESSION_CACHE_FILENAME = "cache.json"
@@ -36,7 +43,7 @@ SESSION_CACHE_FILENAME = "cache.json"
 class SessionCachePacket:
     """Compact session state replacing full bootstrap output."""
 
-    schema_version: int = 1
+    schema_version: int = 2
     contract_id: str = "SessionCachePacket"
     generated_at_utc: str = ""
     role: str = "implementer"
@@ -56,6 +63,12 @@ class SessionCachePacket:
     done_summary: str = ""
     next_action: str = ""
     key_rules: tuple[str, ...] = ()
+    # v2 fields: typed bootstrap for reviewer
+    head_at_push_time: str = ""
+    operator_interaction_mode: str = "local_terminal"
+    resolved_phase: str = "idle"
+    next_guard_bundle: str = ""
+    next_recommended_command: str = ""
 
     def to_dict(self) -> dict[str, object]:
         payload = asdict(self)
@@ -109,13 +122,14 @@ def build_from_sources(
     governance: "ProjectGovernance | None" = None,
     read_model_override: "ControlPlaneReadModel | None" = None,
     sources_override: dict[str, Any] | None = None,
+    changed_paths: list[str] | None = None,
 ) -> SessionCachePacket:
-    """Build a fresh packet from the ControlPlaneReadModel.
+    """Build a fresh packet as a pure projection of ControlPlaneReadModel.
 
-    Loads all artifacts once through the read-model builder so gate
-    resolution is identical to dashboard and other governance surfaces.
-    Session-specific fields (instruction, ack, findings) are extracted
-    from the same sources the read model consumed.
+    All gate resolution comes from the read model so every governance
+    surface (dashboard, phone, session-resume) renders from one source.
+    Session-specific fields (instruction, ack, findings) come from the
+    same sources the read model consumed.
 
     ``read_model_override`` and ``sources_override`` let tests inject
     pre-built data without touching the filesystem.
@@ -131,14 +145,8 @@ def build_from_sources(
         repo_root, sources_override=sources, git_override=git,
     )
 
-    receipt = sources.get("receipt")
     session = _extract_current_session(sources)
-
-    advisory_action = coerce_string((receipt or {}).get("advisory_action"))
-    advisory_reason = coerce_string((receipt or {}).get("advisory_reason"))
-    checkpoint_required = bool((receipt or {}).get("checkpoint_required", False))
-    safe_to_continue = bool((receipt or {}).get("safe_to_continue_editing", True))
-    review_gate_push = model.review_accepted
+    receipt = sources.get("receipt")
 
     current_instruction = _str_field(session, "current_instruction")
     instruction_revision = _str_field(session, "current_instruction_revision")
@@ -147,24 +155,31 @@ def build_from_sources(
 
     rs_mtime = get_review_state_mtime(repo_root, governance=governance)
 
+    # Gate booleans derived from read model, not receipt
+    safe_to_continue = model.top_blocker == "none"
+    checkpoint_required = model.resolved_phase == "committing"
+
     key_rules = distill_key_rules(
         safe_to_continue=safe_to_continue,
         checkpoint_required=checkpoint_required,
         ack_current=(ack_state == "current"),
-        review_gate_allows_push=review_gate_push,
+        review_gate_allows_push=model.review_accepted,
         last_guard_ok=model.last_guard_ok,
     )
 
     blockers = _resolve_blockers(receipt, model.top_blocker)
     last_reviewed_sha = _extract_last_reviewed_sha(sources)
+    head_at_push_time = _extract_head_at_push_time(sources)
+    guard_bundle = _resolve_guard_bundle(repo_root, changed_paths)
+    next_cmd = model.next_command or model.next_action
 
     return SessionCachePacket(
         generated_at_utc=utc_timestamp(),
         role=role,
         branch=model.branch,
         head_sha=head_sha,
-        advisory_action=advisory_action,
-        advisory_reason=advisory_reason,
+        advisory_action=model.next_action,
+        advisory_reason=model.top_blocker,
         blockers=blockers,
         interaction_mode=model.operator_interaction_mode,
         current_instruction=current_instruction,
@@ -174,9 +189,14 @@ def build_from_sources(
         last_guard_ok=model.last_guard_ok,
         last_reviewed_sha=last_reviewed_sha,
         review_state_mtime=rs_mtime,
-        done_summary=_derive_done_summary(receipt),
-        next_action=model.next_command or model.next_action,
+        done_summary=next_cmd,
+        next_action=next_cmd,
         key_rules=key_rules,
+        head_at_push_time=head_at_push_time,
+        operator_interaction_mode=model.operator_interaction_mode,
+        resolved_phase=model.resolved_phase,
+        next_guard_bundle=guard_bundle,
+        next_recommended_command=next_cmd,
     )
 
 
@@ -190,19 +210,57 @@ def _extract_current_session(sources: dict[str, Any]) -> dict[str, Any] | None:
     return session
 
 
-def _extract_last_reviewed_sha(sources: dict[str, Any]) -> str:
-    """Return the HEAD SHA recorded at last push from bridge metadata.
-
-    Checks the compact projection's bridge sub-dict first, then falls
-    back to the review_state bridge sub-dict.  Returns empty string when
-    no push SHA has been recorded yet.
-    """
+def _extract_head_at_push_time(sources: dict[str, Any]) -> str:
+    """Return head_at_push_time from bridge metadata in compact or review_state."""
     for key in ("compact_json", "review_state"):
         bridge = _nested_dict(sources.get(key), "bridge")
         sha = _str_field(bridge, "head_at_push_time")
         if sha:
             return sha
     return ""
+
+
+# Alias kept for backward compatibility with existing callers
+_extract_last_reviewed_sha = _extract_head_at_push_time
+
+
+def _resolve_guard_bundle(
+    repo_root: Path,
+    changed_paths: list[str] | None,
+) -> str:
+    """Classify changed paths into the appropriate guard bundle name.
+
+    Uses classify_lane from the check-router to determine which bundle
+    applies to the current change set.  Returns empty string when
+    classification is unavailable (import fails or no paths provided).
+    """
+    paths = changed_paths if changed_paths is not None else _git_changed_paths(repo_root)
+    if not paths:
+        return ""
+    try:
+        from ..check.router_support import classify_lane
+        result = classify_lane(paths, repo_root=repo_root)
+        lane = str(result.get("lane", "")).strip()
+        return _BUNDLE_BY_LANE.get(lane, "")
+    except Exception:  # broad-except: allow reason=graceful degradation when router is unavailable fallback=return empty
+        return ""
+
+
+def _git_changed_paths(repo_root: Path) -> list[str]:
+    """Return changed file paths from unstaged and staged diffs."""
+    try:
+        for cmd in (["git", "diff", "--name-only", "HEAD"],
+                    ["git", "diff", "--name-only", "--cached"]):
+            out = subprocess.run(
+                cmd, cwd=str(repo_root), capture_output=True,
+                text=True, timeout=5, check=False,
+            ).stdout.strip()
+            paths = [p for p in out.splitlines() if p.strip()]
+            if paths:
+                return paths
+        return []
+    except (OSError, subprocess.TimeoutExpired):
+        return []
 
 
 def compute_blockers(
@@ -273,55 +331,8 @@ def distill_key_rules(
     return tuple(rules)
 
 
-def render_markdown(packet: SessionCachePacket) -> str:
-    lines = [
-        "## Session Resume",
-        "",
-        f"- **role**: {packet.role}",
-        f"- **branch**: {packet.branch}",
-        f"- **head**: `{packet.head_sha[:12]}`" if packet.head_sha else "- **head**: (unknown)",
-        f"- **last_reviewed**: `{packet.last_reviewed_sha[:12]}`" if packet.last_reviewed_sha else "- **last_reviewed**: (none)",
-        f"- **advisory**: {packet.advisory_action} / {packet.advisory_reason}",
-        f"- **blockers**: {packet.blockers}",
-        f"- **mode**: {packet.interaction_mode}",
-        f"- **ack**: {packet.ack_state}",
-        f"- **guard_ok**: {packet.last_guard_ok}",
-        "",
-    ]
-    if packet.current_instruction:
-        lines.append("### Current instruction")
-        lines.append(packet.current_instruction)
-        lines.append("")
-    if packet.open_findings:
-        lines.append("### Open findings")
-        lines.append(packet.open_findings)
-        lines.append("")
-    if packet.next_action:
-        lines.append(f"**Next**: `{packet.next_action}`")
-        lines.append("")
-    if packet.key_rules:
-        lines.append("### Key rules")
-        for rule in packet.key_rules:
-            lines.append(f"- {rule}")
-        lines.append("")
-    return "\n".join(lines)
-
-
-def render_summary(packet: SessionCachePacket) -> str:
-    lines = [
-        f"role={packet.role}",
-        f"branch={packet.branch}",
-        f"head={packet.head_sha[:12]}" if packet.head_sha else "head=unknown",
-        f"last_reviewed={packet.last_reviewed_sha[:12]}" if packet.last_reviewed_sha else "last_reviewed=none",
-        f"action={packet.advisory_action}",
-        f"reason={packet.advisory_reason}",
-        f"blockers={packet.blockers}",
-        f"mode={packet.interaction_mode}",
-        f"ack={packet.ack_state}",
-        f"guard_ok={packet.last_guard_ok}",
-        f"next={packet.next_action}",
-    ]
-    return "\n".join(lines)
+# Rendering moved to session_resume_render.py (file-size modularization)
+from .session_resume_render import render_markdown, render_summary  # noqa: F401
 
 
 def current_head(repo_root: Path) -> str:
@@ -341,7 +352,7 @@ def current_head(repo_root: Path) -> str:
 
 def packet_from_mapping(payload: dict[str, Any]) -> SessionCachePacket:
     return SessionCachePacket(
-        schema_version=int(payload.get("schema_version") or 1),
+        schema_version=int(payload.get("schema_version") or 2),
         contract_id=str(payload.get("contract_id") or "SessionCachePacket").strip(),
         generated_at_utc=str(payload.get("generated_at_utc") or "").strip(),
         role=str(payload.get("role") or "implementer").strip(),
@@ -363,6 +374,13 @@ def packet_from_mapping(payload: dict[str, Any]) -> SessionCachePacket:
         key_rules=tuple(
             str(r).strip() for r in payload.get("key_rules", ()) if str(r).strip()
         ),
+        head_at_push_time=str(payload.get("head_at_push_time") or "").strip(),
+        operator_interaction_mode=str(
+            payload.get("operator_interaction_mode") or "local_terminal"
+        ).strip(),
+        resolved_phase=str(payload.get("resolved_phase") or "idle").strip(),
+        next_guard_bundle=str(payload.get("next_guard_bundle") or "").strip(),
+        next_recommended_command=str(payload.get("next_recommended_command") or "").strip(),
     )
 
 
@@ -414,8 +432,3 @@ def _str_field(data: dict[str, Any] | None, key: str) -> str:
         return ""
     return str(data.get(key) or "").strip()
 
-
-def _derive_done_summary(receipt: dict[str, Any] | None) -> str:
-    if receipt is None:
-        return ""
-    return _str_field(receipt, "push_next_step_summary")

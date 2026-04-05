@@ -31,6 +31,23 @@ _AUTO_ROLLOVER_ATTENTION_STATUSES = frozenset(
     }
 )
 
+_AUTO_RELAUNCH_ATTENTION_STATUSES = frozenset(
+    {
+        AttentionStatus.REVIEWER_HEARTBEAT_MISSING.value,
+        AttentionStatus.REVIEWER_HEARTBEAT_STALE.value,
+        AttentionStatus.REVIEWER_OVERDUE.value,
+        AttentionStatus.REVIEW_LOOP_RELAUNCH_REQUIRED.value,
+    }
+)
+
+_AUTO_RELAUNCH_LAUNCH_TRUTHS = frozenset(
+    {
+        "runtime_missing",
+        "detached_runtime_only",
+        "hybrid_claude_only",
+    }
+)
+
 
 @dataclass
 class ReviewerFollowRecoveryState:
@@ -43,11 +60,11 @@ class ReviewerFollowRecoveryState:
 
 @dataclass
 class ReviewerFollowRolloverState:
-    """Mutable state for bounded stale-reviewer auto-rollover."""
+    """Mutable state for bounded stale-reviewer relaunch/rollover automation."""
 
     last_progress_token: str = ""
     unchanged_progress_polls: int = 0
-    last_rollover_key: str = ""
+    last_restore_key: str = ""
 
 
 @dataclass(frozen=True)
@@ -175,13 +192,13 @@ def maybe_auto_recover_stale_implementer(
     return payload
 
 
-def maybe_auto_trigger_rollover_on_stale_codex(
+def maybe_auto_relaunch_review_loop(
     *,
-    rollover_fn: Callable[..., tuple[dict[str, object], int]] | None,
+    bridge_action_fn: Callable[..., tuple[dict[str, object], int]] | None,
     rollover_input: ReviewerFollowRolloverInput,
 ) -> dict[str, object] | None:
-    """Return one rollover payload when the reviewer side stays stale."""
-    if rollover_fn is None:
+    """Return one launch payload when review is pending but the loop is detached."""
+    if bridge_action_fn is None:
         return None
     reviewer_runtime = reviewer_runtime_mapping(rollover_input.report)
     bridge_liveness = rollover_input.report.get("bridge_liveness")
@@ -190,7 +207,7 @@ def maybe_auto_trigger_rollover_on_stale_codex(
         _refresh_stall_progress(
             rollover_input.rollover_state,
             "",
-            key_attr="last_rollover_key",
+            key_attr="last_restore_key",
         )
         return None
 
@@ -213,14 +230,111 @@ def maybe_auto_trigger_rollover_on_stale_codex(
         _refresh_stall_progress(
             rollover_input.rollover_state,
             reviewer_progress,
-            key_attr="last_rollover_key",
+            key_attr="last_restore_key",
         )
         return None
 
     unchanged_polls = _refresh_stall_progress(
         rollover_input.rollover_state,
         reviewer_progress,
-        key_attr="last_rollover_key",
+        key_attr="last_restore_key",
+    )
+    launch_truth = str(
+        reviewer_runtime_text(reviewer_runtime, "launch_truth")
+        or bridge_liveness.get("launch_truth")
+        or ""
+    ).strip()
+    ack_current = _implementer_ack_current(
+        reviewer_runtime=reviewer_runtime,
+        bridge_liveness=bridge_liveness,
+    )
+    if (
+        attention_status not in _AUTO_RELAUNCH_ATTENTION_STATUSES
+        or launch_truth not in _AUTO_RELAUNCH_LAUNCH_TRUTHS
+        or not bool(rollover_input.report.get("review_needed"))
+        or not ack_current
+        or unchanged_polls < STALL_ESCALATION_POLLS
+    ):
+        return None
+
+    relaunch_key = "\0".join(("launch", attention_status, reviewer_progress)).strip(
+        "\0"
+    )
+    if relaunch_key and relaunch_key == rollover_input.rollover_state.last_restore_key:
+        return None
+
+    launch_args = _build_launch_action_args(rollover_input.args)
+    launch_report, launch_exit_code = bridge_action_fn(
+        args=launch_args,
+        repo_root=rollover_input.repo_root,
+        paths=rollover_input.paths,
+    )
+    launched = launch_exit_code == 0 and bool(launch_report.get("launched"))
+    if launched and relaunch_key:
+        rollover_input.rollover_state.last_restore_key = relaunch_key
+
+    payload: dict[str, object] = {}
+    payload["attempted"] = True
+    payload["launched"] = launched
+    payload["relaunch_action"] = "launch"
+    payload["attention_status"] = attention_status
+    payload["launch_truth"] = launch_truth
+    payload["review_needed"] = True
+    payload["implementer_ack_current"] = ack_current
+    payload["unchanged_reviewer_polls"] = unchanged_polls
+    payload["launch_exit_code"] = launch_exit_code
+    errors = launch_report.get("errors")
+    if isinstance(errors, list) and errors:
+        payload["errors"] = [str(item).strip() for item in errors if str(item).strip()]
+    return payload
+
+
+def maybe_auto_trigger_rollover_on_stale_codex(
+    *,
+    bridge_action_fn: Callable[..., tuple[dict[str, object], int]] | None,
+    rollover_input: ReviewerFollowRolloverInput,
+) -> dict[str, object] | None:
+    """Return one rollover payload when the reviewer side stays stale."""
+    if bridge_action_fn is None:
+        return None
+    reviewer_runtime = reviewer_runtime_mapping(rollover_input.report)
+    bridge_liveness = rollover_input.report.get("bridge_liveness")
+    attention = rollover_input.report.get("attention")
+    if not isinstance(bridge_liveness, dict) or not isinstance(attention, dict):
+        _refresh_stall_progress(
+            rollover_input.rollover_state,
+            "",
+            key_attr="last_restore_key",
+        )
+        return None
+
+    attention_status = (
+        reviewer_runtime_text(reviewer_runtime, "stale_reason")
+        or str(attention.get("status") or "")
+    )
+    reviewer_progress = reviewer_progress_token(
+        reviewer_runtime=reviewer_runtime,
+        bridge_liveness=bridge_liveness,
+        attention_status=attention_status,
+    )
+    reviewer_mode = str(
+        reviewer_runtime_text(reviewer_runtime, "effective_reviewer_mode")
+        or bridge_liveness.get("effective_reviewer_mode")
+        or bridge_liveness.get("reviewer_mode")
+        or ""
+    )
+    if not reviewer_mode_is_active(reviewer_mode):
+        _refresh_stall_progress(
+            rollover_input.rollover_state,
+            reviewer_progress,
+            key_attr="last_restore_key",
+        )
+        return None
+
+    unchanged_polls = _refresh_stall_progress(
+        rollover_input.rollover_state,
+        reviewer_progress,
+        key_attr="last_restore_key",
     )
     if (
         attention_status not in _AUTO_ROLLOVER_ATTENTION_STATUSES
@@ -229,20 +343,20 @@ def maybe_auto_trigger_rollover_on_stale_codex(
         return None
 
     rollover_key = "\0".join((attention_status, reviewer_progress)).strip("\0")
-    if rollover_key and rollover_key == rollover_input.rollover_state.last_rollover_key:
+    if rollover_key and rollover_key == rollover_input.rollover_state.last_restore_key:
         return None
 
     rollover_args = _build_rollover_action_args(
         rollover_input.args,
         rollover_provider=rollover_input.rollover_provider,
     )
-    rollover_report, rollover_exit_code = rollover_fn(
+    rollover_report, rollover_exit_code = bridge_action_fn(
         args=rollover_args,
         repo_root=rollover_input.repo_root,
         paths=rollover_input.paths,
     )
     if rollover_exit_code == 0 and rollover_key:
-        rollover_input.rollover_state.last_rollover_key = rollover_key
+        rollover_input.rollover_state.last_restore_key = rollover_key
 
     payload: dict[str, object] = {}
     payload["attempted"] = True
@@ -344,3 +458,29 @@ def _build_rollover_action_args(
     if rollover_provider:
         payload["rollover_provider"] = rollover_provider
     return SimpleNamespace(**payload)
+
+
+def _build_launch_action_args(args) -> SimpleNamespace:
+    payload = vars(args).copy()
+    payload.update(
+        action="launch",
+        follow=False,
+        terminal=_resolve_recovery_terminal(args),
+        format="json",
+        output=None,
+        pipe_command=None,
+        pipe_args=None,
+        dry_run=False,
+        refresh_bridge_heartbeat_if_stale=True,
+    )
+    return SimpleNamespace(**payload)
+
+
+def _implementer_ack_current(
+    *,
+    reviewer_runtime: dict[str, object],
+    bridge_liveness: dict[str, object],
+) -> bool:
+    if "implementer_ack_current" in reviewer_runtime:
+        return bool(reviewer_runtime.get("implementer_ack_current"))
+    return bool(bridge_liveness.get("claude_ack_current"))

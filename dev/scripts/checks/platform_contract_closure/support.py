@@ -21,6 +21,7 @@ _STARTUP_SURFACE_TOKENS = (
 )
 _RUNTIME_LAYER_PREFIXES = {
     "governance_runtime": ("dev.scripts.devctl.runtime.",),
+    "governance_commands": ("dev.scripts.devctl.commands.",),
 }
 
 

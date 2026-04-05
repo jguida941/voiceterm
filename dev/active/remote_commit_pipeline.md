@@ -1,6 +1,6 @@
 # Remote Commit Pipeline Plan
 
-**Status**: active  |  **Last updated**: 2026-04-03 | **Owner:** Tooling/control plane/review runtime
+**Status**: active  |  **Last updated**: 2026-04-05 | **Owner:** Tooling/control plane/review runtime
 Execution plan contract: required
 This spec remains execution mirrored in `dev/active/MASTER_PLAN.md` under
 `MP-377`. It freezes the Phase-0 design for the typed remote-session
@@ -61,6 +61,10 @@ Out of scope in this phase:
 7. `doctor` is a projection. It may summarize readiness and recommended next
    action, but it must derive from typed owners rather than recomputing a
    second decision layer.
+8. Guarded commit creation must be structural, not advisory. Remote-control
+   work may not rely on agent discipline or chat instructions to remember guard
+   runs; a repo-owned commit gate must enforce the same guard freshness that
+   the typed pipeline and operator surfaces project.
 
 ## Cross-Plan Dependencies
 
@@ -350,9 +354,23 @@ surface for remote sessions. It should project:
       governed executor path.
 - [x] Reuse the existing guarded push flow from the new pipeline and prove end-
       to-end remote approval -> commit -> push without local keyboard input.
+- [ ] Add a repo-owned commit gate that runs the routed guard bundle before any
+      remote-control or governed local commit is created, records current guard
+      freshness in typed state, and blocks raw unguarded commit attempts.
+- [ ] Surface commit-gate freshness / last-guard truth through doctor, status,
+      and auto-mode so approval-ready state cannot be inferred from stale or
+      bypassed guard runs.
 
 ## Progress Log
 
+- 2026-04-05: Absorbed the pushed-branch architecture review through
+  `b819efa`. The governed stage/commit/push path exists, but the repo still
+  allows raw `git commit` to bypass the guard path entirely. That is a
+  structural failure, not an operator-discipline problem. The accepted follow-
+  up for this lane is one repo-owned commit gate (hook and/or `devctl commit`)
+  plus typed guard-freshness projection into doctor, status, and auto-mode so
+  the remote-control pipeline can prove whether a commit was created under the
+  same guarded authority it claims to use.
 - 2026-04-04: Corrected the plan boundary after the governed push/runtime
   slices landed. This file is not design-only anymore: the executor, typed
   push stages, and doctor/status projections already exist, so the remaining
@@ -420,12 +438,13 @@ surface for remote sessions. It should project:
 
 - Current status: Phases 0 through 4 for the remote commit pipeline are
   implemented locally for this lane, including the governed stage/commit/push
-  path, shared surface `snapshot_id`, bounded startup ownership map, and the
-  focused Phase-4 proof tests.
-- Next action: keep the broader repo guard bundle and checkpoint/publish steps
-  separate from this remote session until an operator with local keyboard
-  access can approve those host-bound actions; do not regress to raw git or
-  prose approval while waiting on that boundary.
+  path, shared surface `snapshot_id`, bounded startup ownership map, the
+  focused Phase-4 proof tests, and an explicit remaining gap: raw local
+  `git commit` is still not structurally forced through the same guarded path.
+- Next action: land the repo-owned commit gate and thread its freshness receipt
+  into doctor, status, and auto-mode before widening more remote-control
+  polish. Do not rely on agent discipline, chat reminders, or raw git recovery
+  steps as a substitute for enforced commit gating.
 - Context rule: read `dev/active/platform_authority_loop.md`,
   `dev/active/review_channel.md`, and `dev/active/continuous_swarm.md` with
   this plan before changing remote commit/push behavior.
@@ -461,6 +480,8 @@ surface for remote sessions. It should project:
 - Design inputs read for this plan:
   - `AGENTS.md`
   - `AUDIT_STATUS.md`
+  - `.pre-commit-config.yaml`
+  - `.github/workflows/pre_commit.yml`
   - `dev/active/PLAN_FORMAT.md`
   - `dev/active/INDEX.md`
   - `dev/active/MASTER_PLAN.md`
