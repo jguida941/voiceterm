@@ -536,6 +536,19 @@ Acceptance:
       and calibration companion for this tranche, not a second probe roadmap.
       Promotion into implementation authority happens here after signal-quality
       review, portability review, and metadata completion.
+- [ ] Absorb the 2026-04-05 Python contract-shape audit into reusable
+      enforcement instead of reviewer-only prose. Keep the rollout layered:
+      widen `probe_stringly_typed` for finite variant drift, widen
+      `probe_dict_as_struct` toward typed-boundary erosion, and baseline
+      whether missing type hints on edited runtime seams, boolean-lifecycle
+      bundles that want typestate, construction-path duplication, and
+      swap-prone identifier parameters should become probes, hard guards, or
+      remain plan-level guidance.
+- [ ] Keep the promotion bar explicit for that audit family: missing typed
+      seams may graduate into deterministic guard coverage once the signal is
+      low-noise, while typestate/newtype/construction-function opportunities
+      should stay advisory until baseline evidence proves the detector is
+      portable and specific enough to avoid style-only churn.
 - [ ] Require every promoted probe candidate to carry explicit
       `review_lens`, `risk_type`, severity thresholds, and a matching
       `practices.py` teaching entry before implementation starts, so the
@@ -594,6 +607,15 @@ Acceptance:
 
 ## Progress Log
 
+- 2026-04-05: Reconciled the live remote-control contract-shape audit with the
+  probe architecture. Existing probes already cover part of the Python audit
+  (`probe_stringly_typed`, `probe_dict_as_struct`, and the typed-seam guard
+  family), but the repo still lacks a reusable detector strategy for
+  typestate-worthy boolean bundles, construction-path duplication, and
+  swap-prone identifier parameters. Accepted follow-up: keep the current
+  `MP-380` / `MP-382` worker slice bounded to runtime fixes, and route the
+  future-catching portion into Phase 5b as the next explicit probe/guard
+  calibration tranche instead of leaving it as reviewer memory.
 - 2026-03-26: Promoted the architecture-alignment Pass 1 probe-quality gap
   into the tracked probe lane. The portable issue is no longer just "more
   probes"; `fp_classifier.py`, recommendation thresholds, and evidence-score

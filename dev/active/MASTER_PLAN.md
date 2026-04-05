@@ -134,6 +134,18 @@
   `reviewed_hash_current=false`, queue metrics must separate pending packets
   from actionable requests, and the cross-plan remote-commit lane must make
   raw `git commit` structurally impossible without the governed guard path.
+- Current 2026-04-05 live-loop execution order inside that same lane:
+  treat the reviewer-follow relaunch defect as a symptom of the broader
+  remote-control closure, not as a loop-local special case. The next bounded
+  worker slice is `MP-380` + `MP-382`: fail-closed operator-mode propagation
+  plus terminal-none proof-of-life. Only after that should the loop widen into
+  `MP-383` / `MP-381` packet-backed action-request and shared
+  `ViolationRecord` convergence, then `MP-384` / `MP-385` / `MP-387`
+  dashboard, auto-poll, and reviewer-bootstrap/session-resume convergence.
+  Apply the 2026-04-05 Python contract-shape audit to touched files in that
+  slice only: explicit type hints, typed/dataclass boundaries, closed variant
+  types, minimal `NewType` use where swap risk is real, owner-side
+  construction helpers, and typed lifecycle/typestate over loose booleans.
 - Current clean-tree operational blocker inside that same lane: the repo is not
   blocked on plan/doc drift, it is blocked on live reviewer cadence.
   `startup-context` currently fails closed on `reviewer_overdue`, and detached

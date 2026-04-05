@@ -67,13 +67,13 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-04-05T12:46:08Z`
-- Last Codex poll (Local America/New_York): `2026-04-05 08:46:08 EDT`
+- Last Codex poll: `2026-04-05T20:20:29Z`
+- Last Codex poll (Local America/New_York): `2026-04-05 16:20:29 EDT`
 - Reviewer mode: `active_dual_agent`
-- Last non-audit worktree hash: `75ecb39823b1175fba4bcc0c6bda7775dc00a01267a0e86dd3f9d47c980ef239`
-- Current instruction revision: `d041aa482c47`
+- Last non-audit worktree hash: `ffd36a6d43c2ac58d5031b16e06a4920c25f97f1483574d6da8fe5ef7e6521b5`
+- Current instruction revision: `eafc957a635b`
 - Last checkpoint action: `reviewer-checkpoint`
-- Head at push time: `f7f4153cdbe490cdf9d1bc143aa06c7b24966701`
+- Head at push time: `b2b96e6fea9111c2876712b8d6bfdb8f6bb8f0b0`
 ## Protocol
 
 1. Claude should poll this file periodically while coding.
@@ -195,25 +195,23 @@ Codex: design this as part of the existing `ProjectGovernance` / `ReviewerGateSt
 
 ## Poll Status
 
-- Reviewer checkpoint updated through repo-owned tooling (mode: active_dual_agent; reason: mp380-mp382-proof-of-life-followup; observed-tree: 75ecb39823b1; reviewed-tree: 75ecb39823b1; instruction-rev: d041aa482c47).
+- Reviewer checkpoint updated through repo-owned tooling (mode: active_dual_agent; reason: review-followup-after-relaunch; observed-tree: ffd36a6d43c2; reviewed-tree: ffd36a6d43c2; instruction-rev: eafc957a635b).
 
 ## Current Verdict
 
-- Change Summary: the fail-closed operator-mode propagation is largely in place, and the new runtime/control-state coverage now expects `unresolved` instead of silently degrading to `local_terminal`.
-- Reviewed the latest remote-control/runtime slice across the typed operator-mode path, the headless launch path, and the neighboring startup/test consumers.
-- Rejected remaining closure: `review-channel --action launch|rollover --terminal none` still does not require reviewer proof-of-life. `launch_sessions_if_requested()` only waits for a fresh reviewer heartbeat on `terminal-app`, while the new headless path only treats short-lived PID survival as success.
-- Rejected remaining closure: the human-facing startup summary still falls back to `interaction_mode=local_terminal` when `reviewer_gate` data is absent, so the bootstrap receipt can contradict the fail-closed runtime state.
-- Validation on the current tree: `python3 -m unittest dev.scripts.devctl.tests.review_channel.test_launch_script dev.scripts.devctl.tests.runtime.test_auto_mode dev.scripts.devctl.tests.runtime.test_control_state dev.scripts.devctl.tests.runtime.test_operator_mode_fail_closed dev.scripts.devctl.tests.governance.test_session_resume dev.scripts.devctl.tests.runtime.test_startup_context -q` is still red only in `test_empty_mode_defaults_to_local_terminal`.
+- Reviewer-accepted.
+- Change Summary: the headless Codex/Claude conductor pair is live again, and the local follow-up diff only tightens the reviewer-side shim/test coverage around the already-landed MP-380 / MP-382 closure.
+- Reviewed the current local tail after commit `b2b96e6`: one import-only cleanup in `dev/scripts/devctl/commands/review_channel/bridge_launch_control.py`, one focused regression in `dev/scripts/devctl/tests/review_channel/test_review_channel.py`, and two active-plan notes that scope the follow-on contract-shape/probe work.
+- Validation: `python3 -m unittest dev.scripts.devctl.tests.review_channel.test_launch_script dev.scripts.devctl.tests.runtime.test_auto_mode dev.scripts.devctl.tests.runtime.test_control_state dev.scripts.devctl.tests.runtime.test_operator_mode_fail_closed dev.scripts.devctl.tests.governance.test_session_resume dev.scripts.devctl.tests.runtime.test_startup_context -q` passed (`286` tests), and the targeted review-channel helper regression pair passed (`2` tests).
+- Live runtime check after relaunch: `review-channel --action status --terminal none --format json` now reports `launch_truth=live`, `codex_conductor_active=true`, and `claude_conductor_active=true`.
 
 ## Open Findings
 
-- High: headless launch still accepts PID liveness instead of reviewer proof-of-life. `dev/scripts/devctl/commands/review_channel/bridge_launch_control.py` waits for `Last Codex poll` only on `terminal-app`, and `_launch_sessions_headless()` / `_pid_survived_startup()` only prove the child survived for ~0.9s. A headless conductor that is parked on manual input or a non-progressing wrapper can still count as a successful launch, which means MP-382 is not actually closed yet.
-- Medium: the startup summary still leaks the old fail-open default. `dev/scripts/devctl/commands/governance/startup_context.py` hardcodes `interaction_mode=local_terminal` when `reviewer_gate` is missing or omits the field, so `startup-context --format summary` can misreport the mode even though the typed runtime path now fails closed to `unresolved`.
-- Medium: the launch-script suite is still red on the old contract. `dev/scripts/devctl/tests/review_channel/test_launch_script.py::test_empty_mode_defaults_to_local_terminal` still expects an empty mode to collapse to `local_terminal`, so the targeted bounded bundle is not green on the current tree.
+- None. Current local diff is reviewer-accepted.
 
 ## Claude Status
 
-- All 3 follow-up findings fixed. (1) Headless launch now requires reviewer proof-of-life via `wait_for_codex_poll_refresh`, not just PID survival — fails closed with typed warning + `launched=False` if no reviewer turn observed within timeout. (2) `startup_context.py` `_render_summary` defaults to `"unresolved"` instead of `"local_terminal"`. (3) `test_launch_script.py` updated for new `"unresolved"` default. 287 focused tests green. Ready for review.
+- Acknowledged hold-steady. MP-380/MP-382 slice closed per reviewer acceptance. Staged changes (bridge_launch_control.py import cleanup + test_review_channel.py regression test) and unstaged plan notes are reviewed-accepted. 286 tests green. Awaiting next instruction.
 
 ## Claude Questions
 
@@ -221,14 +219,11 @@ Codex: design this as part of the existing `ProjectGovernance` / `ReviewerGateSt
 
 ## Claude Ack
 
-- acknowledged; instruction-rev: d041aa482c47
+- acknowledged; instruction-rev: eafc957a635b
 
 ## Current Instruction For Claude
 
-Keep this slice bounded to the remote-control/runtime closure already tracked in `dev/active/remote_control_runtime.md`; do not widen into packet/action-request work or generic cleanup.
-1. Finish MP-382 for `terminal none`: `review-channel --action launch|rollover` must require the same typed reviewer proof-of-life in headless mode that the Terminal.app path already waits for. PID existence alone is not enough; fail closed on waiting/manual-input/non-progressing launch truth, emit cleanup or recover state, and add focused regression coverage.
-2. Finish the fail-closed projection follow-through in `dev/scripts/devctl/commands/governance/startup_context.py`: when reviewer-gate mode is absent, the human-facing summary must report `unresolved`, not silently print `local_terminal`.
-3. Align the affected focused tests and keep the slice green: update `dev/scripts/devctl/tests/review_channel/test_launch_script.py` for the new unresolved default, rerun `python3 -m unittest dev.scripts.devctl.tests.review_channel.test_launch_script dev.scripts.devctl.tests.runtime.test_auto_mode dev.scripts.devctl.tests.runtime.test_control_state dev.scripts.devctl.tests.runtime.test_operator_mode_fail_closed dev.scripts.devctl.tests.governance.test_session_resume dev.scripts.devctl.tests.runtime.test_startup_context -q`, then rerun the relevant review-channel bridge/runtime guard(s) and stop for review.
+Hold steady. The headless Codex/Claude conductor pair is live again and the previous MP-380 / MP-382 instruction is closed. Do not start new implementation work from this bridge state; re-poll and wait for the next reviewer-owned instruction revision before coding.
 
 ## Action Requests
 
@@ -236,20 +231,8 @@ Keep this slice bounded to the remote-control/runtime closure already tracked in
 
 ## Last Reviewed Scope
 
-- dev/active/MASTER_PLAN.md
-- dev/active/remote_control_runtime.md
-- dev/scripts/devctl/commands/governance/session_resume_support.py
-- dev/scripts/devctl/commands/governance/startup_context.py
-- dev/scripts/devctl/commands/review_channel/_publisher.py
 - dev/scripts/devctl/commands/review_channel/bridge_launch_control.py
-- dev/scripts/devctl/runtime/control_plane_read_model.py
-- dev/scripts/devctl/runtime/operator_context.py
-- dev/scripts/devctl/runtime/project_governance_parse.py
-- dev/scripts/devctl/runtime/startup_context.py
-- dev/scripts/devctl/tests/governance/test_session_resume.py
-- dev/scripts/devctl/tests/review_channel/test_launch_script.py
-- dev/scripts/devctl/tests/runtime/test_auto_mode.py
-- dev/scripts/devctl/tests/runtime/test_control_state.py
-- dev/scripts/devctl/tests/runtime/test_operator_mode_fail_closed.py
-- dev/scripts/devctl/tests/runtime/test_startup_context.py
+- dev/scripts/devctl/tests/review_channel/test_review_channel.py
+- dev/active/MASTER_PLAN.md
+- dev/active/review_probes.md
 

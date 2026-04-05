@@ -901,6 +901,64 @@ class ReviewChannelHelperTests(unittest.TestCase):
         self.assertEqual(cleanup_warnings, [])
         self.assertEqual(cleanup_calls, ["codex-conductor"])
 
+    def test_launch_sessions_if_requested_headless_requires_reviewer_proof_of_life(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            bridge_path = Path(tmpdir) / "bridge.md"
+            initial_poll = _fresh_utc_z(seconds_offset=-30)
+            bridge_path.write_text(
+                _build_bridge_text(last_codex_poll=initial_poll),
+                encoding="utf-8",
+            )
+
+            launch_poll = {
+                "observed": False,
+                "poll_advanced": False,
+                "poll_status_changed": False,
+                "poll_status_automation_only": False,
+                "poll_status_reason": "",
+                "launch_truth": "detached_runtime_only",
+                "codex_conductor_active": False,
+                "claude_conductor_active": False,
+                "last_codex_poll_utc": initial_poll,
+            }
+
+            with (
+                patch(
+                    "dev.scripts.devctl.commands.review_channel.bridge_launch_control._launch_sessions_headless",
+                    return_value=True,
+                ),
+                patch(
+                    "dev.scripts.devctl.commands.review_channel.bridge_launch_control.wait_for_codex_poll_refresh",
+                    return_value=launch_poll,
+                ),
+            ):
+                launched, ack_required, ack_observed, cleanup_warnings = launch_sessions_if_requested(
+                    BridgeLaunchSessionRequest(
+                        args=SimpleNamespace(
+                            action="launch",
+                            terminal="none",
+                            dry_run=False,
+                            await_ack_seconds=1,
+                        ),
+                        sessions=[{"script_path": "/tmp/codex-conductor.sh"}],
+                        bridge_path=bridge_path,
+                        handoff_bundle=None,
+                        terminal_profile_applied=None,
+                    )
+                )
+
+        self.assertFalse(launched)
+        self.assertFalse(ack_required)
+        self.assertIsNone(ack_observed)
+        self.assertEqual(len(cleanup_warnings), 1)
+        self.assertIn(
+            "Headless launch did not produce reviewer proof-of-life",
+            cleanup_warnings[0],
+        )
+        self.assertIn("typed launch truth stayed `detached_runtime_only`", cleanup_warnings[0])
+
     def test_ensure_launch_runtime_daemons_starts_missing_publisher(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             repo_root = Path(tmpdir)

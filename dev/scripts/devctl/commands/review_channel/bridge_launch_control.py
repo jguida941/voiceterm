@@ -8,12 +8,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from .bridge_launch_headless import (
-    HeadlessLaunchResult,
-    HeadlessLaunchStatus,
-    launch_sessions_headless as _launch_sessions_headless,
-    spawn_one_headless_session as _spawn_one_headless_session,
-)
+from .bridge_launch_headless import launch_sessions_headless as _launch_sessions_headless
 from ...review_channel.core import (
     AUTO_DARK_TERMINAL_PROFILES,
     DEFAULT_TERMINAL_PROFILE,
