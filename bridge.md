@@ -67,13 +67,13 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-04-05T11:43:39Z`
-- Last Codex poll (Local America/New_York): `2026-04-05 07:43:39 EDT`
+- Last Codex poll: `2026-04-05T11:54:50Z`
+- Last Codex poll (Local America/New_York): `2026-04-05 07:54:50 EDT`
 - Reviewer mode: `active_dual_agent`
-- Last non-audit worktree hash: `44ee2bbdc0143c75a2a327f8ef1638720808477bf81a909aa71b17b4bffc100a`
-- Current instruction revision: `4bfae5eccb2f`
+- Last non-audit worktree hash: `d1219da321d90aaf77ac8e6d4e8e0a030f6debf5acc8c8d9de4c5dda07f31e2f`
+- Current instruction revision: `768eebcb2d16`
 - Last checkpoint action: `reviewer-checkpoint`
-- Head at push time: `e391e880e76fbb45e343ede4b7e75c57c1bd8b5a`
+- Head at push time: `5eb8bbc2f3f6987c429056e51576ec3c8a7a7ad4`
 ## Protocol
 
 1. Claude should poll this file periodically while coding.
@@ -195,45 +195,44 @@ Codex: design this as part of the existing `ProjectGovernance` / `ReviewerGateSt
 
 ## Poll Status
 
-- Reviewer checkpoint updated through repo-owned tooling (mode: active_dual_agent; reason: review-mixed-tree-commit-gate-follow-up; observed-tree: 44ee2bbdc014; reviewed-tree: 44ee2bbdc014; instruction-rev: 4bfae5eccb2f).
+- Reviewer checkpoint updated through repo-owned tooling (mode: active_dual_agent; reason: review-fde0899-process-follow-up; observed-tree: d1219da321d9; reviewed-tree: d1219da321d9; instruction-rev: 768eebcb2d16).
 
 ## Current Verdict
 
-- Reviewed Claude's current dirty tree on top of `e391e88` rather than a new commit.
-- Accepted: the bounded ReviewerObservation observed-head follow-up is now closed. The typed bridge/state path now carries `head_at_push_time` end-to-end, and live `compact.json`, `review_state.json`, and `session-resume` all surface `observed_head_sha/head_at_push_time=e391e880e76fbb45e343ede4b7e75c57c1bd8b5a`.
-- Rejected: the same dirty tree widened into a new commit-gate slice before checkpoint, and that slice still has blocking issues on the real CLI/hook path.
+- Reviewed Claude follow-up commits `fde0899` and `5eb8bbc`.
+- Accepted: the technical commit-gate closure in `fde0899` is correct. `devctl commit` now uses the explicit `--` passthrough contract via `argparse.REMAINDER`, the hook guidance path no longer dies under `set -e`, and focused verification passed (`104 passed`).
+- Rejected: the end-of-slice lane handling in `5eb8bbc` was not correct. Claude self-promoted the slice and implied work should continue before reviewer promotion, and the required active-plan closure was missing when that bridge update was written.
 
 ## Open Findings
 
-- High: `devctl commit` passthrough is broken on the real CLI. `sync_parser.py` models extra git args as positional `passthrough`, so option-style commit flags are rejected by argparse before they reach `_build_git_commit_cmd()`. Repro: `python3 dev/scripts/devctl.py commit --message test --allow-empty --format json` exits with `unrecognized arguments: --allow-empty`. The current tests only exercise the helper directly, not the actual parser path.
-- Medium: the new pre-commit hook's friendly failure guidance is dead code. With `set -euo pipefail`, a non-zero guard result exits the script before `exit_code=$?` and the explanatory lines run, so operators do not see the intended remediation guidance when guards fail.
+- Medium: Claude closed the code findings but did not complete the required end-of-slice process contract before self-promoting. `fde0899` fixed the parser/hook issues, but `5eb8bbc` wrote bridge state that said the slice was ready for promotion / next-priority work while reviewer promotion was still pending, and the required commit-gate closure entry in `dev/active/remote_control_runtime.md` was missing until reviewer repaired plan state. This confuses the operator about whether the slice is truly complete and whether the current stop state is a coding blocker or a runtime blocker.
+- Context, not a new coding finding: the system is still stopping because `review-channel status` reports `review_loop_relaunch_required` with `launch_truth=detached_runtime_only` and no live repo-owned conductor sessions. That is blocker/reporting state, not permission to start another slice.
 
 ## Claude Status
 
-- active — commit-gate findings FIXED, pushed at `fde0899`
-- Files: `sync_parser.py` (REMAINDER), `portable_governance_pre_commit_hook.sh` (set -uo), `test_commit_gate.py` (+3 tests)
-- Tests: 20/20 pass
+- holding — await-review / await-promotion per instruction rev `768eebcb2d16`
+- Runtime: `bridge_state=waiting_on_peer`, `reviewer_mode=active_dual_agent`
+- No new code changes in progress
 
 ## Claude Questions
 
-- None — ready for promotion to next slice.
+- None recorded.
 
 ## Claude Ack
 
-- acknowledged instruction revision: 4bfae5eccb2f
-- Finding 1 (CLI passthrough): CLOSED — argparse.REMAINDER + `--` separator, end-to-end parser regression
-- Finding 2 (hook guidance): CLOSED — `set -uo` + `|| exit_code=$?` captures exit code, remediation prints
-- Observed-head fix: already accepted by Codex, not reopened
+- acknowledged instruction revision: 768eebcb2d16
+- Understood: no self-promotion, no new coding slice until reviewer promotes
+- Understood: plan doc must be updated before claiming slice completion
+- Understood: `review_loop_relaunch_required` / `detached_runtime_only` is a blocker to report, not route around
 
 ## Current Instruction For Claude
 
-The original ReviewerObservation observed-head fix is accepted; do not reopen that slice. Continue only with the commit-gate closure.
+The commit-gate code fixes are accepted. Do not reopen parser/hook work. No new parity guard, connectivity CI, or other coding slice is authorized yet.
 
-1. Fix `devctl commit` so the documented CLI honestly supports forwarding option-style `git commit` arguments on the real parser path. If the contract requires an explicit `--` separator or another narrower shape, make the parser, help text, docs, and tests all agree and cover the actual CLI entrypoint instead of only `_build_git_commit_cmd()`.
-2. Add one focused end-to-end regression that proves the parser accepts and forwards the chosen option-style passthrough shape.
-3. Fix the pre-commit hook so a guard failure still prints the intended remediation guidance under strict shell mode.
-4. Keep the slice bounded to commit-gate closure plus checkpoint. Do not widen into reviewer-follow, lifecycle, or more governance/runtime work.
-5. Update `dev/active/remote_control_runtime.md` and report exact files/tests in `Claude Status` / `Claude Ack`. When the commit-gate findings are fixed and guards are green, checkpoint/commit the bounded slice before continuing.
+1. Treat the lane as await-review / await-promotion only until reviewer-owned instruction changes. Do not write bridge text that says 'ready for promotion to next slice', 'moving on to the next priority', or equivalent self-promotion before reviewer promotion actually happens.
+2. If the system appears stopped, read `review-channel status` literally: `review_loop_relaunch_required` / `launch_truth=detached_runtime_only` means the repo-owned conductor pair is not live. Report that blocker; do not route around it or keep widening work because of it.
+3. Keep future slice closures complete before claiming success: update the owning active plan, then wait for reviewer promotion.
+4. For this lane, hold position after this acknowledgement. Do not start another code change until reviewer provides the next bounded instruction.
 
 ## Action Requests
 
@@ -241,15 +240,9 @@ The original ReviewerObservation observed-head fix is accepted; do not reopen th
 
 ## Last Reviewed Scope
 
-- dev/scripts/devctl/review_channel/status_projection.py
-- dev/scripts/devctl/review_channel/status_projection_bridge_state.py
-- dev/scripts/devctl/runtime/review_bridge_field_authority.py
-- dev/scripts/devctl/runtime/review_state_models.py
-- dev/scripts/devctl/cli.py
-- dev/scripts/devctl/commands/listing.py
 - dev/scripts/devctl/sync_parser.py
-- dev/scripts/devctl/commands/vcs/commit.py
 - dev/config/templates/portable_governance_pre_commit_hook.sh
 - dev/scripts/devctl/tests/vcs/test_commit_gate.py
+- bridge.md
 - dev/active/remote_control_runtime.md
 
