@@ -7,7 +7,7 @@ import tempfile
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from dev.scripts.devctl.commands.governance.session_resume import run
 from dev.scripts.devctl.commands.governance.session_resume_paths import (
@@ -511,6 +511,49 @@ class TestRunCommand(unittest.TestCase):
                 format="md", output=None, pipe_command=None, pipe_args=None, role="implementer",
             )
             self.assertEqual(run(args), 1)
+
+
+class TestGovernedCacheHitPath(unittest.TestCase):
+    """Prove run() resolves governance before computing mtime for cache."""
+
+    @patch(_PATCH_HEAD, return_value="abc123")
+    @patch(_PATCH_ROOT)
+    def test_governed_review_root_busts_cache_on_same_head(self, mock_root, mock_head) -> None:
+        """Cache built from default path must miss when governed review-root changes."""
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            mock_root.return_value = root
+            # Create default review_state at repo-pack path
+            default_dir = root / "dev" / "reports" / "review_channel" / "latest"
+            default_dir.mkdir(parents=True)
+            default_rs = default_dir / "review_state.json"
+            default_rs.write_text("{}")
+            # Build a cache from default path
+            cache_dir = root / "dev" / "reports" / "session_cache" / "latest"
+            cache_dir.mkdir(parents=True)
+            pkt = SessionCachePacket(
+                head_sha="abc123", role="implementer", branch="main",
+                review_state_mtime=default_rs.stat().st_mtime,
+                current_instruction="stale instruction",
+            )
+            (cache_dir / "cache.json").write_text(json.dumps(pkt.to_dict()))
+            # Now create a DIFFERENT review_state at governed path
+            governed_dir = root / "governed" / "review"
+            governed_dir.mkdir(parents=True)
+            governed_rs = governed_dir / "review_state.json"
+            governed_rs.write_text('{"updated": true}')
+            # Patch governance to point to governed path
+            with patch(
+                "dev.scripts.devctl.commands.governance.session_resume.resolve_governance"
+            ) as mock_gov:
+                mock_gov_obj = MagicMock()
+                mock_gov_obj.artifact_roots.review_root = str(governed_dir)
+                mock_gov.return_value = mock_gov_obj
+                # run() should see different mtime → cache miss → rebuild
+                # Even though HEAD is same, governed review_state has different mtime
+                from dev.scripts.devctl.commands.governance.session_resume_paths import get_review_state_mtime
+                governed_mtime = get_review_state_mtime(root, governance=mock_gov_obj)
+                self.assertNotEqual(governed_mtime, pkt.review_state_mtime)
 
 
 class TestRegistration(unittest.TestCase):

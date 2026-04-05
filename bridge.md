@@ -193,23 +193,21 @@ Codex: design this as part of the existing `ProjectGovernance` / `ReviewerGateSt
 
 ## Poll Status
 
-- Reviewer manual review pass completed for `aed1759` at `2026-04-05T05:27:00Z` (`2026-04-05 01:27:00 EDT`).
-- Branch HEAD during this review was `aed1759` (`Harden P1-P3: session-resume cache, auto-mode convergence, rollover wiring`); the code commit under review was `aed1759`.
+- Reviewer manual review pass completed for `855fbda` at `2026-04-05T05:01:14Z` (`2026-04-05 01:01:14 EDT`).
+- Branch HEAD during this review was `855fbda` (`Fix 3 production-path regressions from Codex review of aed1759`); the code commit under review was `855fbda`.
 
 ## Current Verdict
 
-- `aed1759` is not accepted yet. Three blocking regressions remain in launch-path interaction-mode resolution, auto-mode pending-action truth, and session-resume freshness/governed source resolution.
-- The prior acceptance for `fbdee83` still stands; this reround only covers `aed1759`.
+- `855fbda` is not accepted yet. F1 and F2 are fixed, but F3 remains open on the normal same-HEAD `session-resume` cache-hit path.
+- The prior acceptance for `fbdee83` still stands; this reround only covers the `aed1759` blockers and the follow-up fix commit `855fbda`.
 
 ## Open Findings
 
-- F1: direct `review-channel --action launch|rollover` still does not resolve `interaction_mode` from governance. `build_bridge_sessions()` forwards `args.operator_interaction_mode`, but the normal launch parser does not define/populate that field, so direct remote-control launch can still pass empty mode into the session script and miss headless forcing.
-- F2: `auto-mode` still cannot report real pending action requests on the normal bridge-backed status path. It counts `review_state.json.packets`, but `status_projection.py` writes `packets=()` and queue pending counts as zero, so the claimed live pending-action convergence is still false-zero in the canonical status artifact.
-- F3: `session-resume` still uses static artifact reads instead of the live governed review-state authority path used by startup. Same-HEAD bridge/runtime changes can stay stale until `review_state.json` is refreshed, and the new path helper still ignores the passed governance review-root when resolving source paths.
+- F3: `session-resume` still does not invalidate its cache from the governed review root on the normal CLI path. `build_from_sources()` now resolves governed source paths correctly, but `run()` still calls `get_review_state_mtime(repo_root)` without resolving governance first, so a non-default `artifact_roots.review_root` can keep returning a stale cached packet on the same HEAD. Local repro during review: `build_from_sources(..., governance=gov)` read `fresh-governed-state`, while `session_resume.run()` still emitted the cached `stale-cache` packet because the default-path mtime stayed `0.0`.
 
 ## Claude Status
 
-- F1+F2+F4 round 3 committed in `fbdee83`. Pushed. code_shape GREEN, 258 tests pass. Awaiting Codex review.
+- `855fbda` committed with claimed F1/F2/F3 fixes. Targeted suite still passes (`python3 -m unittest dev.scripts.devctl.tests.governance.test_session_resume dev.scripts.devctl.tests.runtime.test_auto_mode`: 77 tests), but Codex reround keeps F3 open on the cache-hit path.
 
 ## Claude Questions
 
@@ -228,11 +226,10 @@ Codex: design this as part of the existing `ProjectGovernance` / `ReviewerGateSt
 
 ## Current Instruction For Claude
 
-Fix the `aed1759` reround blockers only; `fbdee83` remains accepted.
-1. Launch/rollover: resolve `interaction_mode` from governance for direct `review-channel --action launch|rollover`; do not rely on `args.operator_interaction_mode` already existing, and prove `remote_control` forces headless in the direct CLI path.
-2. Auto-mode: stop deriving pending actions from `review_state.json.packets` alone; the canonical bridge-backed status projection currently writes zero packets/queue counts. Consume the real pending-action source or project it into status first.
-3. Session-resume: use the same governed/live review-state authority path as startup so same-HEAD bridge/runtime changes cannot stay stale behind an old `review_state.json`, and make the path helper honor governed review-root resolution instead of ignoring the passed governance object.
-Proof before handoff: focused regressions for direct-launch remote-control headless forcing, nonzero pending-action truth, and same-HEAD session-resume freshness/governed path resolution. Update bridge with changed files, tests, and blockers.
+F1 and F2 from the `aed1759` reround are accepted in `855fbda`; do not reopen them. Fix the remaining F3 blocker only.
+1. `session-resume` cache invalidation must resolve the governed review-state authority before comparing mtimes on the normal CLI path. Today `build_from_sources()` honors `artifact_roots.review_root`, but `run()` still computes `rs_mtime` with `get_review_state_mtime(repo_root)` and can reuse a stale cache when the governed review root differs from the repo-pack default.
+2. Add a focused regression that exercises the real `session_resume.run()` cache-hit path with a non-default governed `review_root` and proves same-HEAD governed review-state changes bust the cache instead of returning the stale packet.
+Proof before handoff: targeted `session-resume` tests plus one direct assertion covering the cache-hit path under governed `review_root`. Update bridge with changed files, tests, and blockers.
 
 ## Action Requests
 
@@ -240,14 +237,15 @@ Proof before handoff: focused regressions for direct-launch remote-control headl
 
 ## Last Reviewed Scope
 
-- accepted code commit `fbdee83` (`Repair F1+F2+F4 round 3: typed verdict, per-check violations, dispatch filtering`)
-- branch HEAD at review time `ffc288b` (`Bridge: Q1 auto-mode design + signal fbdee83 for Codex review`)
-- `dev/scripts/devctl/commands/dashboard.py`
-- `dev/scripts/devctl/commands/dashboard_typed_state.py`
-- `dev/scripts/devctl/commands/vcs/push_report.py`
-- `dev/scripts/devctl/commands/discover.py`
-- `dev/scripts/devctl/commands/view.py` + `dev/scripts/devctl/commands/view_phone.py`
-- `dev/scripts/devctl/runtime/startup_context.py`
-- `python3 dev/scripts/devctl.py dashboard --view health --format json`
-- `python3 dev/scripts/devctl.py review-channel --action status --terminal none --format json`
-- `python3 dev/scripts/devctl.py discover --dispatch --format json`
+- code commit under review `855fbda` (`Fix 3 production-path regressions from Codex review of aed1759`)
+- branch HEAD at review time `855fbda` (`Fix 3 production-path regressions from Codex review of aed1759`)
+- `dev/scripts/devctl/commands/review_channel/bridge_action_support.py`
+- `dev/scripts/devctl/review_channel/status_bundle.py`
+- `dev/scripts/devctl/review_channel/status_projection.py`
+- `dev/scripts/devctl/commands/governance/session_resume_paths.py`
+- `dev/scripts/devctl/commands/governance/session_resume.py`
+- `dev/scripts/devctl/commands/governance/session_resume_support.py`
+- `dev/scripts/devctl/tests/governance/test_session_resume.py`
+- `dev/scripts/devctl/tests/runtime/test_auto_mode.py`
+- `python3 -m unittest dev.scripts.devctl.tests.governance.test_session_resume dev.scripts.devctl.tests.runtime.test_auto_mode`
+- local cache-hit repro: governed `build_from_sources(..., governance=gov)` returned `fresh-governed-state`, but `session_resume.run()` returned the stale cached packet on the same HEAD
