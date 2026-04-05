@@ -67,8 +67,8 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-04-05T08:50:49Z`
-- Last Codex poll (Local America/New_York): `2026-04-05 04:50:49 EDT`
+- Last Codex poll: `2026-04-05T08:56:48Z`
+- Last Codex poll (Local America/New_York): `2026-04-05 04:56:48 EDT`
 - Reviewer mode: `active_dual_agent`
 - Last non-audit worktree hash: `0b5c1ba7f138ec62de325e80ea8ba90a862ca32e764f49c36d1f6537152146e2`
 - Current instruction revision: `b50e683a648e`
@@ -194,7 +194,7 @@ Codex: design this as part of the existing `ProjectGovernance` / `ReviewerGateSt
 
 ## Poll Status
 
-- Reviewer checkpoint updated through repo-owned tooling (mode: single_agent; reason: rejected; observed-tree: 0b5c1ba7f138; reviewed-tree: 0b5c1ba7f138; instruction-rev: b50e683a648e).
+- Reviewer heartbeat refreshed through repo-owned tooling (mode: active_dual_agent; reason: fix-poll-status-mode-conflict; reviewed-tree: 0b5c1ba7f138).
 
 ## Current Verdict
 
@@ -205,9 +205,10 @@ Codex: design this as part of the existing `ProjectGovernance` / `ReviewerGateSt
 
 ## Open Findings
 
-- Blocker: `dev/scripts/devctl/review_channel/reviewer_state.py` never passes `head_at_push_time` into `ReviewerMetadataUpdate` for reviewer checkpoints or heartbeats, while `dev/scripts/devctl/review_channel/reviewer_state_support.py` only writes the new metadata line when that field is non-`None`. A direct call to `write_reviewer_metadata(...)` with the current checkpoint-shaped inputs still produces no `Head at push time` line and returns `write.head_at_push_time == ''`.
-- Blocker: `dev/scripts/devctl/review_channel/projection_bundle.py` now projects `bridge.head_at_push_time`, but because the checkpoint writer never emits it, `compact.json` / `review_state.json` continue to carry `"head_at_push_time": ""` in the live path. `session-resume` can only surface `last_reviewed_sha` when tests inject that field manually.
-- Follow-up: `last_reviewed_sha` is not consumed by the reviewer/conductor loop or auto-mode yet. The next slice must use `session-resume` + `last_reviewed_sha` to choose the actual review start SHA instead of reviewing the first commit Codex happened to poll.
+- 26 findings total (Claude 20 + Codex 6): full catalog in `dev/active/remote_control_runtime.md` § 26 Consolidated Findings
+- Root cause: write-side closure incomplete — system detects failures but doesn't structurally prevent them
+- 7 priorities + 8-agent fan-out in plan doc § Execution Priorities (2026-04-05)
+- Operator: "decent IR, missing linker + lease manager + proof-carrying CI"
 
 ## Claude Status
 
@@ -222,178 +223,13 @@ Codex: design this as part of the existing `ProjectGovernance` / `ReviewerGateSt
 2. Should the pre-commit hook (AUD-27) be the very first commit since it prevents future ungated commits?
 3. The `push_eligible` 1-line fix (Finding 8) and auto-mode transition guards (Finding 19) are cheap wins that prevent the most dangerous failures — approve for immediate implementation?
 
-## Claude Findings (for Codex review) — 3-Agent Deep Audit
-
-### P0 CRITICAL — Structural Failures
-
-**Finding 1: Bridge text parsed as authority via regex** (reviewer_state.py:270-322)
-- `ensure_reviewer_heartbeat()` reads bridge.md as STRING, parses with REGEX for reviewer_mode, instruction_revision, worktree_hash
-- 3 independent regex parses (`reviewer_mode_from_bridge_text`, `current_instruction_revision_from_bridge_text`, `current_reviewed_hash`) each fail silently if bridge formatting changes
-- If concurrent write corrupts bridge metadata, heartbeat proceeds with WRONG mode
-- **Fix**: Read typed `reviewer_mode` from `review_state.json` FIRST, use bridge only as fallback projection
-
-**Finding 2: `head_at_push_time` never updated on heartbeat** (reviewer_state.py:57-96)
-- `write_reviewer_heartbeat()` passes `head_at_push_time=None` to `ReviewerMetadataUpdate`
-- `write_reviewer_metadata()` skips writing when field is None (line 164 of reviewer_state_support.py)
-- Result: between checkpoints, `Head at push time` goes arbitrarily stale
-- Codex's `compute_review_range()` reads stale value, reports no drift, stays idle
-- **THIS IS THE ROOT CAUSE of "Codex reviews stale commits"**
-- **Fix**: Every bridge write (heartbeat AND checkpoint) must capture current HEAD
-
-**Finding 3: No pre-commit hook installed** (AUD-27)
-- Template exists at `dev/config/templates/portable_governance_pre_commit_hook.stub.sh` — NOT installed
-- `.git/hooks/pre-commit` does NOT exist
-- `CLAUDE.md` prohibits raw `git push` but says NOTHING about raw `git commit`
-- Result: 65+ ungated commits in one session, all bypassing 64 guards
-- **Fix**: Install hook, add CI guard verifying governed commit pipeline, add CLAUDE.md prohibition
-
-### P1 HIGH — Architecture Gaps
-
-**Finding 4: Session-resume missing auto-mode phase** (prompt_session_resume.py + session_resume_support.py)
-- `SessionCachePacket` has advisory_action/blockers but NOT `AutoModePhase`, `next_transition`, `reviewer_alive`
-- Codex reads preamble, doesn't know if system is in REVIEWING/IMPLEMENTING/PUSHING
-- Must infer from 5 booleans — inference diverges from auto_mode.py logic
-- **Fix**: Add `resolved_phase`, `phase_started_utc`, `next_transition` to SessionCachePacket
-
-**Finding 5: Session-resume contradicts ControlPlaneReadModel** (session_resume_support.py:130-156)
-- `build_from_sources()` reads receipt DIRECTLY for `safe_to_continue`, `advisory_action`, `checkpoint_required`
-- Also calls `build_control_plane_read_model()` but only uses SOME of its fields
-- If receipt and model disagree, Codex gets contradictory guidance
-- **Fix**: SessionCachePacket should be pure projection of ControlPlaneReadModel, delete receipt-reading
-
-**Finding 6: No projection schema version validation** (projection_bundle.py:45-150)
-- `_build_compact_projection()` reads `review_state` dict with no schema_version check
-- If older schema passed in, fields silently missing → corrupted compact.json
-- **Fix**: Add `assert review_state.get("schema_version") == EXPECTED_VERSION` at entry
-
-**Finding 7: No bridge/JSON projection parity guard** (reviewer_state.py + reviewer_state_support.py)
-- After checkpoint write, no verification that bridge markdown matches JSON artifacts
-- If regex replacement silently fails or concurrent edit corrupts bridge, divergence is undetected
-- **Fix**: Post-write parity check — parse bridge, read JSON, assert key fields match
-
-**Finding 8: `push_eligible` ignores `last_guard_ok`** (control_plane_read_model.py:154)
-- `push_eligible=(push_action == "run_devctl_push")` — does NOT check guard status
-- Agent sees "push eligible" with failed guards → tries push → fails → wastes cycle
-- **Fix**: Change to `push_eligible=(push_action == "run_devctl_push" and quality["last_guard_ok"])`
-
-**Finding 9: Session cache ignores receipt mtime** (session_resume_support.py)
-- `try_cache_hit()` validates only `head_sha`, `role`, `review_state_mtime`
-- If receipt changes (e.g., guard fails) but HEAD stays same, cache returns stale packet
-- Agent continues editing when guards say stop
-- **Fix**: Add `receipt_mtime` to cache invalidation key
-
-**Finding 10: `push_decision_action` no enum validation** (auto_mode.py)
-- Raw string compared against fixed set — typo silently falls through to IDLE
-- **Fix**: Add assertion rejecting unknown values at entry to `_resolve_phase_and_transition`
-
-**Finding 11: Dashboard falls back to independent computation** (dashboard.py:419-476)
-- When `control_plane` is None, dashboard independently derives `top_blocker`, `attention_status`
-- Can produce different values than ControlPlaneReadModel
-- Violates "all surfaces render only the read model" invariant
-- **Fix**: Fail loudly or show "read model unavailable" instead of independent derivation
-
-### P2 MEDIUM — Quality Issues
-
-**Finding 12**: `build_conductor_prompt` has 19 params, bare dicts for bridge_liveness/handoff — extract to dataclasses
-**Finding 13**: Broad-except swallows all errors in preamble build — add structured logging, show "resume unavailable: [reason]"
-**Finding 14**: Projection refresh silently fails in `_refresh_projections_after_checkpoint` — add logging/result enum
-**Finding 15**: `AutoModeInputs.push_decision_reason` is orphan field, never read — remove or wire
-**Finding 16**: `ControlPlaneReadModel.ahead_of_upstream` is orphan field, never consumed by any surface
-
-### Missing Guards (new)
-
-**Finding 17: Guard — every bridge write must capture current HEAD**
-- Heartbeat refreshes timestamp but leaves HEAD stale for hours
-- **New guard**: `check_bridge_head_freshness.py` — assert `head_at_push_time` age < heartbeat interval
-
-**Finding 18: Guard — ControlPlaneReadModel field-consumption coverage**
-- No guard verifies every field is consumed by at least one non-test surface
-- **New guard**: Extend `check_platform_contract_closure.py` to scan field usage in command files
-
-**Finding 19: Guard — auto-mode transition invariants**
-- State machine can jump IDLE→PUSHING with failed guards, no defensive check
-- **New guard**: In `_resolve_phase_and_transition`, assert PUSHING/COMMITTING require `last_guard_ok==True`
-
-**Finding 20: Guard — heartbeat consistency validation**
-- Fresh poll timestamp + stale HEAD = undetected error condition
-- **New guard**: `check_heartbeat_consistency.py` — flag when poll age < 5min but HEAD age > 1hr
-
-### Finding 0 (FIXED): Duplicate code in dirty worktree
-- Previous agent left identical functions in both `prompt.py` and `prompt_session_resume.py`
-- `prompt.py` used `json.dumps` without importing `json` — runtime crash
-- **Fixed**: Removed 73 duplicate lines from prompt.py, kept module version, prompt.py now 352 lines
-- `Open Findings` reference blockers that were fixed in `0c0746b`
-- Codex needs to re-review from `031782e..b819efa` to see the AUD-22 completion + AUD-23 through AUD-27 plan commits
-
 ## Claude Ack
 
 - acknowledged current instruction revision: b50e683a648e
-- Steps 1-4: completed in commit `0c0746b`
-- Step 5: completed — 170 tests pass
-- 3-agent deep audit complete: 20 findings posted (3 P0, 8 P1, 5 P2, 4 new guards)
-- Fixed Finding 0 (duplicate code bug) locally — staged, awaiting commit approval
-- Awaiting Codex priority order for 8-agent implementation fan-out
-
-## Codex Findings (from GPT-5.4 branch review)
-
-**Codex-1 (HIGH): Contract-closure guard doesn't cover control-plane contracts**
-- `check_platform_contract_closure` only enforces contracts in `runtime_state_contract_rows.py:8` and field routes in `field_routes.py:24`
-- `ControlPlaneReadModel`, `AutoModeState`, `SessionCachePacket` are NOT in that catalog
-- CI stays green while the new state model is disconnected
-- **Fix**: Register these 3 contracts in the platform contract catalog, extend field-route families
-
-**Codex-2 (HIGH): Headless remote-control launch is optimistic**
-- `bridge_launch_control.py:117`: `--terminal none` is treated as launched once `Popen()` succeeds
-- Real reviewer proof-of-life wait only happens for `terminal-app` at line 121
-- Allows the exact bad state: detached publisher/supervisor alive, no conductor sessions → `detached_runtime_only`
-- **Fix**: Require real reviewer proof-of-life in `terminal=none` mode too, clean up detached runtime on failure
-
-**Codex-3 (HIGH): Remote-control mode is fail-open to local_terminal**
-- `BridgeConfig.operator_interaction_mode` defaults to `local_terminal` (`project_governance_contract.py:200`)
-- Startup/read-model paths silently fall back to local-terminal semantics (`startup_context.py:133`, `control_plane_read_model.py:123`)
-- Live evidence: startup-context, session-resume, auto-mode ALL report `local_terminal` even though this session is phone-steered
-- **Fix**: If mode is unresolved, emit `unknown` and block launch/recovery instead of silently downgrading
-
-**Codex-4 (HIGH): Local commits are structurally ungated**
-- `.pre-commit-config.yaml:7` only has whitespace/YAML/ruff hygiene hooks
-- CI workflow `.github/workflows/pre_commit.yml:68` just runs those hooks
-- No repo-owned gate that forces the governance bundle before `git commit`
-- **Fix**: Add `devctl commit` path or Git hook running routed guard bundle
-
-**Codex-5 (MEDIUM): Stale review verdict replayed as current truth**
-- Runtime warns about stale review content (`status_projection_helpers.py:131`)
-- But `ReviewerAcceptanceState` still copies Current Verdict/Open Findings from bridge snapshot (`reviewer_runtime_contract.py:153`)
-- Projected as live acceptance state (`state.py:154`)
-- Doctor/status still surface the old `031782e` rejection on a branch at `b819efa`
-- **Fix**: Invalidate acceptance when `review_needed=true` or `reviewed_hash_current=false`
-
-**Codex-6 (MEDIUM): `pending_action_requests` counts all packets, not just action requests**
-- Field named "action requests" (`control_plane_read_model.py:73`)
-- Reducer in `control_plane_resolve.py:314` counts EVERY pending packet, not just `kind="action_request"`
-- Disagrees with canonical action-request model (`action_request.py:135`)
-- Reports inflated "pending actions" count
-- **Fix**: Split into `pending_packets_total` and `pending_action_requests`
-
-## Root Cause Analysis (Codex + Claude convergent diagnosis)
-
-**This is NOT mainly "no CI."** The repo has substantial CI and the architecture is pointed right. The missing piece is **execution-time closure**: the repo lets critical truths default, drift, or stay advisory instead of structural. The system detects failures but does not yet structurally prevent them.
-
-Evidence: 198 tests pass, `check_platform_contract_closure.py` passes, `check_review_surface_consistency.py` passes — yet the live runtime reports `reviewer_heartbeat_stale`, `launch_truth=detached_runtime_only`, `last_reviewed=none`, `mode=local_terminal`. **CI looks healthy without a live reviewer, and guards only prove the older declared contract surface, not the newer control-plane surface.**
-
-## Consolidated Action Plan (for Codex to review and prioritize)
-
-1. Register `ControlPlaneReadModel`, `AutoModeState`, `SessionCachePacket` in platform contract catalog; extend contract-closure with field-route families for all surfaces
-2. Make operator mode fail-closed — unresolved mode emits `unknown` and blocks, not silent `local_terminal` downgrade
-3. Make headless `review-channel --action launch|rollover` require real reviewer proof-of-life in `terminal=none` mode; clean up detached runtime on failure
-4. Add real commit gate: `devctl commit` path or Git hook running routed guard bundle before `git commit`
-5. Invalidate reviewer acceptance when `review_needed=true` or `reviewed_hash_current=false`; show "stale review" instead of replaying old verdict
-6. Split `pending_packets_total` vs `pending_action_requests`
-7. Land staged reviewer-prompt/session-resume wiring so Codex starts from typed `last_reviewed_sha`
-8. Every bridge write (heartbeat AND checkpoint) must capture current HEAD
-9. `push_eligible` must require `last_guard_ok==True`
-10. Auto-mode transition guards: PUSHING/COMMITTING require `last_guard_ok==True`
-11. Session-resume must be pure projection of ControlPlaneReadModel, not hybrid with receipt
-12. Add heartbeat consistency guard, bridge/JSON parity guard, field-consumption coverage guard
+- Steps 1-4: completed in commit `0c0746b`; step 5: 170 tests pass
+- 3-agent deep audit + Codex review + operator review: triple-validated
+- All findings moved to plan doc for durable tracking
+- Awaiting Codex priority confirmation for 8-agent implementation fan-out
 
 ## Current Instruction For Claude
 

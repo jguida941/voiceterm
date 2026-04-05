@@ -2,17 +2,18 @@
 
 **Status**: active  |  **Last updated**: 2026-04-05 | **Owner:** Tooling/control plane/review runtime/dashboard
 Execution plan contract: required
-This spec is mirrored in `dev/active/MASTER_PLAN.md` under `MP-380..MP-386`.
+This spec is mirrored in `dev/active/MASTER_PLAN.md` under `MP-380..MP-387`.
 It closes the remote-control/operator-surface gaps found in the 2026-04-04
-architecture review of commits `5bed0fa..4094c39`.
+architecture review of commits `5bed0fa..4094c39` and the 2026-04-05
+pushed-branch review through `b819efa`.
 
 ## Scope
 
 Close the remaining phone/remote-control architecture gaps without creating a
 second bridge-only authority path. The target is one typed remote-control
 runtime that drives reviewer lifecycle, action requests, dashboard projections,
-and auto-poll behavior across CLI, bridge compatibility text, and later
-phone/operator-console clients.
+auto-poll behavior, and slim reviewer bootstrap/session-resume truth across
+CLI, bridge compatibility text, and later phone/operator-console clients.
 
 Out of scope for this tranche: a second VCS executor, a second packet/action
 transport, or any new frontend that parses raw bridge markdown once a typed
@@ -44,6 +45,35 @@ contract exists.
       `SystemCatalog`, derived `AgentDispatchPacket`, and a thin `view`
       adapter so agents/operators can ask what exists, what to run, and how to
       render it without reviving prose-only discovery.
+- [ ] MP-387 Make `session-resume` / `SessionCachePacket` the first-hop
+      reviewer bootstrap with `last_reviewed_sha`, `head_at_push_time`,
+      current-head freshness, and typed operator-mode truth derived from repo-
+      owned artifacts instead of stale bridge prose.
+
+### 2026-04-05 Architecture Absorption Tranche
+
+- [ ] MP-380 Fail closed on unresolved operator interaction mode. Remote-
+      control sessions must not silently downgrade to `local_terminal` in
+      `ProjectGovernance`, `StartupContext`, or `ControlPlaneReadModel`.
+- [ ] MP-381 Extend platform contract closure to `ControlPlaneReadModel`,
+      `AutoModeState`, and `SessionCachePacket`, including field-route families
+      for dashboard, phone/mobile, startup-context, auto-mode, and session-
+      resume projections.
+- [ ] MP-382 Require reviewer proof-of-life for
+      `review-channel --action launch|rollover --terminal none`; detached
+      publisher/supervisor heartbeats without live conductor sessions are a
+      launch failure plus cleanup/recover state, not a healthy launch.
+- [ ] MP-384 Invalidate stale review verdict/findings when
+      `review_needed=true` or `reviewed_hash_current=false`; operator-facing
+      surfaces must project stale-review truth instead of replaying old verdict
+      text as current authority.
+- [ ] MP-384 and MP-385 Split `pending_packets_total` from
+      `pending_action_requests` so dashboard/doctor/auto-mode/operator surfaces
+      stop treating every queued packet as an actionable request.
+- [ ] MP-386 and MP-387 Make guard/contract discoverability and reviewer
+      bootstrap align: `SystemCatalog` / `AgentDispatchPacket` should expose
+      the exact guard bundle and typed context a fresh Claude or Codex session
+      must consume before acting.
 
 ## Cross-Cutting Closure Rules
 
@@ -185,11 +215,84 @@ The MP scopes remain valid but are now cross-cut by enforcement-first priority.
 
 ## 26 Consolidated Findings (Claude 20 + Codex 6, 2026-04-05)
 
-See `bridge.md` § Claude Findings and § Codex Findings for the full catalog.
-Summary: 3 P0, 8 P1 (including Codex HIGH), 5 P2, 4 new guards needed.
+### P0 CRITICAL
+
+| ID | Finding | File(s) | Fix |
+|---|---|---|---|
+| F1 | Bridge parsed as authority via regex (3 independent regex parses fail silently) | reviewer_state.py:270-322 | Read typed state from review_state.json first |
+| F2 | `head_at_push_time` never updated on heartbeat — ROOT CAUSE of stale reviews | reviewer_state.py:57-96 | Every bridge write must capture current HEAD |
+| F3 | No pre-commit hook installed (AUD-27) — 65+ ungated commits | .git/hooks/ | Install hook + `devctl commit` + CI audit |
+
+### P1 HIGH (Claude)
+
+| ID | Finding | File(s) | Fix |
+|---|---|---|---|
+| F4 | Session-resume missing auto-mode phase | session_resume_support.py | Add resolved_phase, next_transition to SessionCachePacket |
+| F5 | Session-resume contradicts ControlPlaneReadModel (reads receipt directly) | session_resume_support.py:130-156 | Pure projection of read model, delete receipt-reading |
+| F6 | No projection schema version validation | projection_bundle.py:45-150 | Assert schema_version at entry |
+| F7 | No bridge/JSON projection parity guard | reviewer_state.py, reviewer_state_support.py | Post-write parity check |
+| F8 | `push_eligible` ignores `last_guard_ok` | control_plane_read_model.py:154 | Gate on both push_action AND last_guard_ok |
+| F9 | Session cache ignores receipt mtime | session_resume_support.py | Add receipt_mtime to cache key |
+| F10 | `push_decision_action` no enum validation | auto_mode.py | Assert valid values at entry |
+| F11 | Dashboard falls back to independent computation | dashboard.py:419-476 | Fail loudly or show "read model unavailable" |
+
+### P1 HIGH (Codex)
+
+| ID | Finding | File(s) | Fix |
+|---|---|---|---|
+| C1 | Contract-closure doesn't cover control-plane contracts | runtime_state_contract_rows.py, field_routes.py | Register ControlPlaneReadModel/AutoModeState/SessionCachePacket |
+| C2 | Headless launch optimistic — no reviewer proof-of-life in terminal=none | bridge_launch_control.py:117 | Require proof-of-life, cleanup on failure |
+| C3 | Remote-control mode fail-open to local_terminal | project_governance_contract.py:200 | Emit unknown and block if unresolved |
+| C4 | Local commits structurally ungated | .pre-commit-config.yaml | devctl commit or Git hook with guard bundle |
+
+### P2 MEDIUM
+
+| ID | Finding | Fix |
+|---|---|---|
+| C5 | Stale review verdict replayed as current truth | Invalidate acceptance when reviewed_hash_current=false |
+| C6 | pending_action_requests counts all packets | Split into pending_packets_total and pending_action_requests |
+| F12 | build_conductor_prompt has 19 params, bare dicts | Extract to dataclasses |
+| F13 | Broad-except swallows errors in preamble build | Add structured logging |
+| F14 | Projection refresh silently fails | Add logging/result enum |
+| F15 | AutoModeInputs.push_decision_reason orphan field | Remove or wire |
+| F16 | ControlPlaneReadModel.ahead_of_upstream orphan field | Remove or wire |
+
+### Missing Guards (new)
+
+| ID | Guard | Check |
+|---|---|---|
+| F17 | check_bridge_head_freshness.py | head_at_push_time age < heartbeat interval |
+| F18 | Extend check_platform_contract_closure.py | Every ControlPlaneReadModel field consumed by ≥1 surface |
+| F19 | Auto-mode transition invariants | PUSHING/COMMITTING require last_guard_ok==True |
+| F20 | check_heartbeat_consistency.py | Fresh poll + stale HEAD = error |
+
+### 8-Agent Implementation Fan-Out (pending Codex approval)
+
+| Agent | Scope | Priority | Touches |
+|---|---|---|---|
+| 1 | `devctl commit` wrapper + pre-commit hook | P1 / AUD-27 | F3, C4 |
+| 2 | Session-resume mandatory reviewer bootstrap | P2 / AUD-22 | F2, F4 |
+| 3 | `check_control_plane_parity.py` guard | P3 / AUD-24 | F18, F11 |
+| 4 | Register contracts in platform catalog | P4 / Codex-1 | C1, F18 |
+| 5 | Invalidate stale reviewer acceptance | P5 / Codex-5 | C5, F7 |
+| 6 | push_eligible + auto-mode transition invariants | Quick wins | F8, F10, F19 |
+| 7 | Split pending_action_requests + cache fix | Codex-6 | C6, F9 |
+| 8 | Headless launch proof-of-life + operator mode | Codex-2/3 | C2, C3 |
 
 ## Progress Log
 
+- 2026-04-05: Reviewed the pushed branch through `b819efa` and converted the
+  architecture review into tracked closure work. The live runtime still
+  reports `launch_truth=detached_runtime_only`,
+  `reviewer_heartbeat_stale`, and `operator_interaction_mode=local_terminal`
+  while the control-plane lane already has typed runtime contracts in flight.
+  Accepted blockers now tracked here: operator mode still fails open to
+  `local_terminal`, headless launch still treats detached daemon heartbeats as
+  success, platform contract closure still does not catalog
+  `ControlPlaneReadModel` / `AutoModeState` / `SessionCachePacket`, stale
+  review verdict text still projects as current truth after head drift, and
+  pending packet counts are still mislabeled as actionable requests. The
+  structural raw-commit gap stays tracked in `dev/active/remote_commit_pipeline.md`.
 - 2026-04-04: Reviewed the 8 commits ahead of
   `origin/feature/governance-quality-sweep`
   (`5bed0fa`, `437008d`, `a534e3e`, `25f458c`, `aa26749`, `8c3f032`,
@@ -361,13 +464,15 @@ No `ControlPlaneReadModel` exists. Each surface independently reads raw artifact
 
 ## Session Resume
 
-- Current status: architecture review is complete, Slice A (`MP-380/382`) is
-  committed and validated by targeted contract checks, and the remaining
-  execution queue is `MP-383..MP-386`.
-- Next action: keep Slice A limited to review/validation, then fan out
-  `MP-383`, `MP-381`, `MP-384`, `MP-385`, and `MP-386` in bounded parallel
-  with disjoint write sets and one final CI/docs/plan-sync pass before
-  commit/push approval.
+- Current status: the review/runtime architecture is mapped cleanly enough to
+  stop guessing. The remaining gaps are now explicit tracked closure items:
+  fail-closed operator mode, terminal-none proof-of-life launch validation,
+  control-plane contract-catalog coverage, stale-review invalidation, queue
+  metric split, and typed reviewer bootstrap/session-resume truth.
+- Next action: land `MP-380`, `MP-382`, `MP-381`, and `MP-387` first because
+  they close the fail-open authority gaps; then finish `MP-384..MP-386` once
+  status, doctor, dashboard, auto-mode, and session-resume all read the same
+  control-plane truth.
 - Context rule: read `dev/guides/AI_GOVERNANCE_PLATFORM.md`,
   `dev/active/ai_governance_platform.md`,
   `dev/active/platform_authority_loop.md`,
@@ -382,23 +487,42 @@ No `ControlPlaneReadModel` exists. Each surface independently reads raw artifact
 - `python3 dev/scripts/devctl.py startup-context --role reviewer --format summary`
 - `python3 dev/scripts/devctl.py context-graph --mode bootstrap --format md`
 - `python3 dev/scripts/devctl.py platform-contracts --format md`
+- `python3 dev/scripts/checks/check_platform_contract_closure.py --format md`
+- `python3 dev/scripts/checks/check_review_surface_consistency.py`
+- `python3 dev/scripts/devctl.py review-channel --action status --terminal none --format json`
+- `python3 dev/scripts/devctl.py review-channel --action doctor --terminal none --format json`
+- `python3 dev/scripts/devctl.py session-resume --role reviewer --format summary`
+- `python3 dev/scripts/devctl.py auto-mode --format json`
+- `python3 -m pytest dev/scripts/devctl/tests/runtime/test_control_plane_read_model.py dev/scripts/devctl/tests/runtime/test_auto_mode.py dev/scripts/devctl/tests/governance/test_session_resume.py dev/scripts/devctl/tests/review_channel/test_reviewer_checkpoint_inputs.py dev/scripts/devctl/tests/review_channel/test_launch_script.py dev/scripts/devctl/tests/test_control_plane_surface_wiring.py`
 - `git log --oneline origin/master..HEAD`
 - `git log --oneline @{upstream}..HEAD`
 - Key contract/code review inputs:
   `dev/scripts/devctl/runtime/project_governance_contract.py`,
   `dev/scripts/devctl/runtime/project_governance_parse.py`,
+  `dev/scripts/devctl/runtime/control_plane_read_model.py`,
+  `dev/scripts/devctl/runtime/control_plane_resolve.py`,
+  `dev/scripts/devctl/runtime/auto_mode.py`,
+  `dev/scripts/devctl/commands/governance/session_resume_support.py`,
   `dev/scripts/devctl/runtime/startup_context.py`,
   `dev/scripts/devctl/runtime/reviewer_runtime_models.py`,
   `dev/scripts/devctl/runtime/operator_context.py`,
+  `dev/scripts/devctl/commands/review_channel/bridge_launch_control.py`,
+  `dev/scripts/devctl/review_channel/launch_truth.py`,
   `dev/scripts/devctl/review_channel/packet_contract.py`,
   `dev/scripts/devctl/review_channel/action_request.py`,
   `dev/scripts/devctl/review_channel/bridge_projection_state.py`,
+  `dev/scripts/devctl/review_channel/reviewer_runtime_contract.py`,
+  `dev/scripts/devctl/review_channel/status_projection_helpers.py`,
+  `dev/scripts/devctl/review_channel/state.py`,
   `dev/scripts/devctl/review_channel/launch_script.py`,
   `dev/scripts/devctl/review_channel/peer_recovery.py`,
   `dev/scripts/devctl/commands/dashboard.py`,
   `dev/scripts/devctl/commands/dashboard_data.py`,
   `dev/scripts/devctl/steps.py`,
   `dev/scripts/devctl/governance/task_router_contract.py`,
+  `dev/scripts/devctl/platform/runtime_state_contract_rows.py`,
+  `dev/scripts/checks/platform_contract_closure/field_routes.py`,
+  `dev/scripts/checks/platform_contract_closure/support.py`,
   `dev/scripts/devctl/commands/check/router_support.py`,
   `dev/scripts/devctl/script_catalog.py`,
   `dev/scripts/devctl/platform/surface_definitions.py`.
