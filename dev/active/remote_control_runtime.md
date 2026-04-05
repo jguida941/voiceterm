@@ -201,7 +201,11 @@ Round 7 found 0 new well-integrated subsystems in the outer ring.
 
 ## Operator Visibility Gaps (from live testing 2026-04-04)
 
-- AUD-16 (CODEX OUTPUT TRUNCATION + DESIGN AROUND): Codex CLI truncates tool output to `… +N lines`. Operator sees ~20%. Claude shows everything (ctrl+o to expand). Design around this: Codex writes full results to TYPED ARTIFACTS (review_state.json, check reports, verdict artifacts), not terminal. Dashboard reads artifacts and shows everything with expand/collapse — summary view by default, full detail on demand. Codex terminal becomes the ENGINE, dashboard becomes the UI. Short summary in bridge, full evidence in typed files. Same expand/collapse UX as Claude's ctrl+o but through our dashboard rendering. This means the operator never needs to read Codex's terminal directly.
+- AUD-16 (CODEX OUTPUT — FULL VISIBILITY LIKE CLAUDE): Codex CLI truncates tool output to `… +N lines`. Claude has ctrl+o to expand everything. Operator loses ~80% of Codex output. THREE approaches, all additive:
+  - (a) TYPED ARTIFACTS: Codex writes full results to typed artifacts (review_state, check reports, verdict files). Dashboard reads artifacts and renders with expand/collapse. Operator reads dashboard, not terminal.
+  - (b) CONDUCTOR LOG RENDERER: `launch_script.py` already pipes Codex through `script` to a log file. Add a real-time TUI/overlay renderer that reads the conductor log and shows summary + expandable detail — same UX as Claude's ctrl+o but through our system. The VoiceTerm overlay TUI surface already exists in `surface_definitions.py`.
+  - (c) OPERATOR CONSOLE PANEL: PyQt6 desktop app gets a "Codex Live" panel that reads conductor log in real-time. Full output, searchable, filterable.
+  - Design rule: the operator should NEVER have to read raw Codex terminal with truncated output. Whether they use dashboard, TUI overlay, or operator console — they see everything Claude shows, through our rendering system. Push to Codex to design which approach lands first.
 - AUD-17 (USER TIMEZONE): All timestamps should render in the operator's timezone, not UTC. `OperatorContext` needs a `timezone` field (e.g. `America/New_York`). Every surface reads it.
 - AUD-18 (CONTINUOUS UPDATE LOOP): Claude must update the operator at a user-set interval without stopping. No gaps. The operator should never have to say "what's going on" or "keep updating me." This is part of the auto-mode state machine (Q1 in bridge).
 
