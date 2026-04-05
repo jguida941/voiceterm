@@ -181,8 +181,13 @@ def resolve_reviewer_state(
     if review_state:
         rt = review_state.get("reviewer_runtime", {}) or {}
         acceptance = rt.get("review_acceptance", {}) or {}
-        verdict = coerce_string(acceptance.get("current_verdict"))
-        accepted = verdict.lower() in ("accepted", "approved", "pass")
+        # Prefer the typed boolean when present; verdict text is display-only fallback
+        raw_bool = acceptance.get("review_accepted")
+        if isinstance(raw_bool, bool):
+            accepted = raw_bool
+        else:
+            verdict = coerce_string(acceptance.get("current_verdict"))
+            accepted = verdict.lower() in ("accepted", "approved", "pass")
 
     return {
         "reviewer_mode": reviewer_mode,
@@ -202,7 +207,8 @@ def resolve_daemon_state(sources: dict[str, Any]) -> dict[str, Any]:
     return {
         "publisher_running": pub_running,
         "supervisor_running": sup_running,
-        "conductor_alive": codex_alive or claude_alive,
+        "codex_conductor_alive": codex_alive,
+        "claude_conductor_alive": claude_alive,
     }
 
 

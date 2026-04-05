@@ -67,7 +67,8 @@ class ControlPlaneReadModel:
     # Session health
     publisher_running: bool
     supervisor_running: bool
-    conductor_alive: bool
+    codex_conductor_alive: bool
+    claude_conductor_alive: bool
     pending_action_requests: int
 
     # Quality
@@ -145,7 +146,8 @@ def build_control_plane_read_model(
         attention_summary=reviewer["attention_summary"],
         publisher_running=daemons["publisher_running"],
         supervisor_running=daemons["supervisor_running"],
-        conductor_alive=daemons["conductor_alive"],
+        codex_conductor_alive=daemons["codex_conductor_alive"],
+        claude_conductor_alive=daemons["claude_conductor_alive"],
         pending_action_requests=pending,
         last_guard_ok=quality["last_guard_ok"],
         check_details=quality["check_details"],
@@ -192,7 +194,8 @@ def control_plane_read_model_from_mapping(
         attention_summary=coerce_string(value.get("attention_summary")) or "n/a",
         publisher_running=coerce_bool(value.get("publisher_running", False)),
         supervisor_running=coerce_bool(value.get("supervisor_running", False)),
-        conductor_alive=coerce_bool(value.get("conductor_alive", False)),
+        codex_conductor_alive=coerce_bool(value.get("codex_conductor_alive", False)),
+        claude_conductor_alive=coerce_bool(value.get("claude_conductor_alive", False)),
         pending_action_requests=coerce_int(value.get("pending_action_requests")),
         last_guard_ok=coerce_bool(value.get("last_guard_ok", True)),
         check_details=tuple(details),
@@ -221,7 +224,8 @@ def _default_read_model() -> ControlPlaneReadModel:
         attention_summary="n/a",
         publisher_running=False,
         supervisor_running=False,
-        conductor_alive=False,
+        codex_conductor_alive=False,
+        claude_conductor_alive=False,
         pending_action_requests=0,
         last_guard_ok=True,
         check_details=(),

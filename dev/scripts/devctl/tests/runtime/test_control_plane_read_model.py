@@ -65,7 +65,8 @@ class ControlPlaneReadModelDataclassTests(unittest.TestCase):
             "next_command", "reviewer_mode", "operator_interaction_mode",
             "reviewer_freshness", "review_accepted", "attention_status",
             "attention_summary", "publisher_running", "supervisor_running",
-            "conductor_alive", "pending_action_requests", "last_guard_ok",
+            "codex_conductor_alive", "claude_conductor_alive",
+            "pending_action_requests", "last_guard_ok",
             "check_details",
         }
         actual_fields = set(model.to_dict().keys())
@@ -278,7 +279,8 @@ class BuildWithDaemonHeartbeatsTests(unittest.TestCase):
         )
         self.assertFalse(model.publisher_running)
         self.assertFalse(model.supervisor_running)
-        self.assertFalse(model.conductor_alive)
+        self.assertFalse(model.codex_conductor_alive)
+        self.assertFalse(model.claude_conductor_alive)
 
 
 class ResolverUnitTests(unittest.TestCase):
@@ -311,7 +313,8 @@ class ResolverUnitTests(unittest.TestCase):
         d = resolve_daemon_state(_empty_sources())
         self.assertFalse(d["publisher_running"])
         self.assertFalse(d["supervisor_running"])
-        self.assertFalse(d["conductor_alive"])
+        self.assertFalse(d["codex_conductor_alive"])
+        self.assertFalse(d["claude_conductor_alive"])
 
     def test_resolve_pending_packets_none(self) -> None:
         self.assertEqual(resolve_pending_packets(None), 0)

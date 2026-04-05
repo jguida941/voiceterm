@@ -67,11 +67,11 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-04-05T05:15:51Z`
-- Last Codex poll (Local America/New_York): `2026-04-05 01:15:51 EDT`
+- Last Codex poll: `2026-04-05T06:12:10Z`
+- Last Codex poll (Local America/New_York): `2026-04-05 02:12:10 EDT`
 - Reviewer mode: `single_agent`
-- Last non-audit worktree hash: `db065746677852492b8c663bb46285333d4b708d6b7af6f4474eca83c848da2b`
-- Current instruction revision: `e6f72691d30e`
+- Last non-audit worktree hash: `70e41fafc875a5bde1ce92a4b8cb26204105d47e39e7327415a6b13361a755c1`
+- Current instruction revision: `a7e02ecf50bd`
 ## Protocol
 
 1. Claude should poll this file periodically while coding.
@@ -193,20 +193,20 @@ Codex: design this as part of the existing `ProjectGovernance` / `ReviewerGateSt
 
 ## Poll Status
 
-- Reviewer checkpoint updated through repo-owned tooling (mode: single_agent; reason: review-pass; observed-tree: db0657466778; reviewed-tree: db0657466778; instruction-rev: e6f72691d30e).
+- Codex review pass complete (mode: single_agent; reason: review-rejected; observed-tree: 70e41fafc875; reviewed-tree: 70e41fafc875; instruction-rev: a7e02ecf50bd).
 
 ## Current Verdict
 
-- Rejected: `bcccaf8` does not close AUD-21 end-to-end yet.
-- The new `reviewer_completion_unrecorded` status is only wired where callers go through `refresh_status_snapshot()`. Raw bridge-liveness callers still never receive `bridge_verdict_accepted`, so the new fail-closed signal disappears on those paths.
-- `launch`/`rollover` attention gating still builds raw liveness from `summarize_bridge_liveness()` and immediately classifies attention from that dict. Because that raw dict does not carry `bridge_verdict_accepted`, an accepted-without-checkpoint bridge can still look healthy there instead of blocking the loop.
-- Change Summary: the core classifier and status snapshot wiring are good, but the authority surfaces that consume raw or fallback liveness were not updated to carry the new acceptance signal. AUD-21 is only partially fixed until those paths fail closed too.
+- Rejected: `afd6866` is not safe to promote as the shared `ControlPlaneReadModel` yet.
+- The new reviewer reducer drops the typed `review_acceptance.review_accepted` boolean and re-parses free-form verdict text instead, so accepted states like `- Reviewer-accepted.` collapse to `review_accepted=False`.
+- The new contract also collapses reviewer and implementer conductor liveness into one `conductor_alive` bit. That loses the exact remote-control failure shape we are trying to detect: Codex dead while Claude is still alive.
+- Change Summary: the builder extraction is a good direction, but this first contract version strips two pieces of authority the repo already has: typed acceptance truth and role-specific conductor liveness. Fix those before widening adoption to more surfaces.
 
 ## Open Findings
 
-- F1 (blocking): `dev/scripts/devctl/commands/review_channel/bridge_support.py` still feeds `enforce_bridge_launch_attention()` a raw `summarize_bridge_liveness()` dict, and `dev/scripts/devctl/review_channel/bridge_runtime_state.py` classifies attention directly from that raw dict. That dict has `poll_status_action`, but it never gets `bridge_verdict_accepted`, so `reviewer_completion_unrecorded` cannot trigger on launch/rollover gating. Fix by carrying the acceptance projection into the base bridge-liveness model or by computing it before raw launch attention is derived. Add a regression that proves launch/rollover attention blocks when the bridge shows acceptance without a reviewer-checkpoint receipt.
-- F2 (blocking): `dev/scripts/devctl/review_channel/turn_authority.py` fallback authority only overlays a small lifecycle key set, and that list omits `bridge_verdict_accepted`. Even when typed `bridge_liveness` already has the new field, fallback recovery assessment drops it and reclassifies the state as healthy. Fix the fallback overlay/authority path so the same accepted-without-checkpoint bridge stays fail-closed there too, and add one regression around `_build_fallback_liveness_dict()` or the public turn-authority surface.
-- The mixed concerns in `recovery_assessment.py` and the stale override in `check_structural_complexity.py` are pre-existing debt, not AUD-21 blockers, unless the follow-up patch materially expands or worsens them.
+- F1 (blocking): `dev/scripts/devctl/runtime/control_plane_resolve.py` reads `reviewer_runtime.review_acceptance.current_verdict` and infers acceptance from exact strings instead of trusting the typed `review_acceptance.review_accepted` boolean the runtime already owns. Repro from review: `resolve_reviewer_state({\"reviewer_runtime\": {\"review_acceptance\": {\"review_accepted\": True, \"current_verdict\": \"- Reviewer-accepted.\"}}}, None, None)` returns `review_accepted=False`. Fix by reading the typed boolean first and keep verdict text as fallback/display-only data. Add a regression for the existing reviewer-runtime contract shape.
+- F2 (blocking): `dev/scripts/devctl/runtime/control_plane_resolve.py` ORs Codex and Claude liveness into one `conductor_alive` bit, and `dev/scripts/devctl/runtime/control_plane_read_model.py` exposes only that collapsed field. The remote-control root cause is specifically asymmetric liveness, so this contract cannot represent "Codex dead, Claude alive". Split the field by provider and add a regression that proves the reviewer-dead/implementer-alive state stays observable to downstream surfaces.
+- F3 (coverage gap): `dev/scripts/devctl/tests/runtime/test_control_plane_read_model.py` only covers `current_verdict=\"accepted\"` and all-dead conductor cases, so both contract holes above pass green today. Add explicit regressions for typed `review_accepted=True` with human-form verdict text and for asymmetric conductor liveness.
 
 ## Claude Status
 
@@ -224,13 +224,11 @@ Codex: design this as part of the existing `ProjectGovernance` / `ReviewerGateSt
 
 ## Current Instruction For Claude
 
-Operator requested a broader architecture audit before more patching. Run one 8-agent audit focused on typed authority, single-source-of-truth, and cross-surface parity.
-1. Bootstrap from `AGENTS.md`, `dev/active/INDEX.md`, `dev/active/MASTER_PLAN.md`, `dev/active/review_channel.md`, `dev/active/platform_authority_loop.md`, `dev/active/ai_governance_platform.md`, and `dev/active/remote_control_runtime.md`. Treat those docs as the contract: structured state is canonical, markdown is projection-only, and raw bridge/fallback truth is transitional debt.
-2. Split the audit into 8 lanes: raw bridge/launch/fallback authority; attention/recovery/turn-authority reducers; event-vs-status-vs-current-session parity; reviewer heartbeat/checkpoint/acceptance writers; repo-pack/runtime path resolution; operator console/dashboard/mobile consumers; action-request/remote-control packet authority; plan coverage / missing owner scope.
-3. For each lane, report only concrete findings with file refs, severity, current truth flow, intended canonical typed owner, and whether an active plan already owns the gap. Call out every place where multiple reducers, raw bridge parsing, repo-shaped fallbacks, or duplicate typed/markdown versions can disagree.
-4. Do not start a cleanup patch yet. This pass is an audit and architecture-gap inventory. If you spot a bug that directly explains AUD-21 or another fail-closed break, note it as a finding, but do not widen into speculative refactors.
-5. Keep the mixed concerns in `recovery_assessment.py` and the stale `check_structural_complexity.py` override labeled as pre-existing debt unless this audit proves they still create live authority drift.
-Proof before handoff: one merged audit summary in reviewer terms, grouped by subsystem, plus the highest-value next implementation slice that would remove the most duplicate or conflicting authority at once.
+Fix the `ControlPlaneReadModel` contract before widening adoption.
+1. In `dev/scripts/devctl/runtime/control_plane_resolve.py`, derive `review_accepted` from typed `review_acceptance.review_accepted` first; use `current_verdict` only as a fallback display signal. Add a regression proving `- Reviewer-accepted.` with `review_accepted=True` stays accepted.
+2. Preserve per-provider conductor liveness in the shared read model. Replace the single `conductor_alive` bit with distinct Codex/Claude fields, wire dashboard use through those typed fields, and add a regression for the remote-control failure shape: Codex dead while Claude is alive.
+3. Update the runtime contract/tests together, then rerun `python3 -m unittest dev.scripts.devctl.tests.runtime.test_control_plane_read_model` and the targeted dashboard tests for the touched integration.
+4. Stop after those contract fixes; do not widen this slice into mobile/operator-console adoption yet.
 
 ## Action Requests
 
@@ -238,14 +236,16 @@ Proof before handoff: one merged audit summary in reviewer terms, grouped by sub
 
 ## Last Reviewed Scope
 
-- code commit under review `bcccaf8` (`AUD-21: fail-closed reviewer completion path`)
-- active plans: `dev/active/review_channel.md`, `dev/active/platform_authority_loop.md`, `dev/active/ai_governance_platform.md`, `dev/active/remote_control_runtime.md`
-- `dev/scripts/devctl/review_channel/attention_classify.py`
-- `dev/scripts/devctl/review_channel/bridge_runtime_state.py`
-- `dev/scripts/devctl/commands/review_channel/bridge_support.py`
-- `dev/scripts/devctl/review_channel/state.py`
-- `dev/scripts/devctl/review_channel/turn_authority.py`
-- event projections: `dev/scripts/devctl/review_channel/event_projection.py`, `dev/scripts/devctl/review_channel/event_projection_bridge.py`
-- `dev/scripts/devctl/review_channel/poll_status.py`
-- `dev/scripts/devctl/review_channel/bridge_validation_acceptance.py`
-- operator/runtime consumers: `app/operator_console/state/bridge/*`, `app/operator_console/state/snapshots/snapshot_builder.py`, `dev/scripts/devctl/commands/dashboard_builders.py`, `dev/scripts/devctl/runtime/review_state_locator.py`
+- code commit under review `afd6866` (`ControlPlaneReadModel: ONE builder replaces 5 independent state computations`)
+- active plans/context checked: `dev/active/MASTER_PLAN.md`, `dev/active/review_channel.md`, `dev/active/platform_authority_loop.md`, `dev/active/ai_governance_platform.md`
+- `dev/scripts/devctl/runtime/control_plane_read_model.py`
+- `dev/scripts/devctl/runtime/control_plane_resolve.py`
+- `dev/scripts/devctl/runtime/reviewer_runtime_models.py`
+- `dev/scripts/devctl/review_channel/reviewer_runtime_contract.py`
+- `dev/scripts/devctl/commands/dashboard.py`
+- `dev/scripts/devctl/commands/dashboard_utils.py`
+- `dev/scripts/devctl/commands/auto_mode_status.py`
+- `dev/scripts/devctl/commands/mobile_status.py`
+- `dev/scripts/devctl/tests/runtime/test_control_plane_read_model.py`
+- verification: `python3 -m unittest dev.scripts.devctl.tests.runtime.test_control_plane_read_model` (pass)
+- verification: `python3 -m unittest dev.scripts.devctl.tests.test_dashboard` (2 existing ANSI-output failures observed during review run)
