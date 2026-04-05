@@ -567,6 +567,7 @@ class AutoModeFromControlPlaneReadModelTests(unittest.TestCase):
             operator_interaction_mode=model.operator_interaction_mode,
             reviewer_freshness=model.reviewer_freshness,
             review_accepted=model.review_accepted,
+            last_reviewed_sha=getattr(model, "last_reviewed_sha", ""),
             attention_status=model.attention_status,
             attention_summary=model.attention_summary,
             publisher_running=model.publisher_running,

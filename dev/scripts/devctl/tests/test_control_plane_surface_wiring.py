@@ -273,6 +273,7 @@ class AutoModeImplementerLivenessWiringTests(unittest.TestCase):
             operator_interaction_mode="local_terminal",
             reviewer_freshness="--",
             review_accepted=False,
+            last_reviewed_sha="",
             attention_status="n/a",
             attention_summary="n/a",
             publisher_running=False,

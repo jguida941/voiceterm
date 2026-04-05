@@ -189,10 +189,17 @@ def resolve_reviewer_state(
             verdict = coerce_string(acceptance.get("current_verdict"))
             accepted = verdict.lower() in ("accepted", "approved", "pass")
 
+    last_reviewed_sha = coerce_string(bridge.get("head_at_push_time"))
+    if not last_reviewed_sha and compact:
+        compact_bridge = compact.get("bridge")
+        if isinstance(compact_bridge, dict):
+            last_reviewed_sha = coerce_string(compact_bridge.get("head_at_push_time"))
+
     return {
         "reviewer_mode": reviewer_mode,
         "reviewer_freshness": freshness,
         "review_accepted": accepted,
+        "last_reviewed_sha": last_reviewed_sha,
         "attention_status": coerce_string(attention.get("status")) or "n/a",
         "attention_summary": coerce_string(attention.get("summary")) or "n/a",
     }

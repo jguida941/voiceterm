@@ -52,6 +52,7 @@ class SessionCachePacket:
     open_findings: str = ""
     last_guard_ok: bool = True
     review_state_mtime: float = 0.0
+    last_reviewed_sha: str = ""
     done_summary: str = ""
     next_action: str = ""
     key_rules: tuple[str, ...] = ()
@@ -155,6 +156,7 @@ def build_from_sources(
     )
 
     blockers = _resolve_blockers(receipt, model.top_blocker)
+    last_reviewed_sha = _extract_last_reviewed_sha(sources)
 
     return SessionCachePacket(
         generated_at_utc=utc_timestamp(),
@@ -170,6 +172,7 @@ def build_from_sources(
         ack_state=ack_state,
         open_findings=open_findings,
         last_guard_ok=model.last_guard_ok,
+        last_reviewed_sha=last_reviewed_sha,
         review_state_mtime=rs_mtime,
         done_summary=_derive_done_summary(receipt),
         next_action=model.next_command or model.next_action,
@@ -185,6 +188,21 @@ def _extract_current_session(sources: dict[str, Any]) -> dict[str, Any] | None:
     if not session:
         session = _nested_dict(review_state, "current_session")
     return session
+
+
+def _extract_last_reviewed_sha(sources: dict[str, Any]) -> str:
+    """Return the HEAD SHA recorded at last push from bridge metadata.
+
+    Checks the compact projection's bridge sub-dict first, then falls
+    back to the review_state bridge sub-dict.  Returns empty string when
+    no push SHA has been recorded yet.
+    """
+    for key in ("compact_json", "review_state"):
+        bridge = _nested_dict(sources.get(key), "bridge")
+        sha = _str_field(bridge, "head_at_push_time")
+        if sha:
+            return sha
+    return ""
 
 
 def compute_blockers(
@@ -262,6 +280,7 @@ def render_markdown(packet: SessionCachePacket) -> str:
         f"- **role**: {packet.role}",
         f"- **branch**: {packet.branch}",
         f"- **head**: `{packet.head_sha[:12]}`" if packet.head_sha else "- **head**: (unknown)",
+        f"- **last_reviewed**: `{packet.last_reviewed_sha[:12]}`" if packet.last_reviewed_sha else "- **last_reviewed**: (none)",
         f"- **advisory**: {packet.advisory_action} / {packet.advisory_reason}",
         f"- **blockers**: {packet.blockers}",
         f"- **mode**: {packet.interaction_mode}",
@@ -293,6 +312,7 @@ def render_summary(packet: SessionCachePacket) -> str:
         f"role={packet.role}",
         f"branch={packet.branch}",
         f"head={packet.head_sha[:12]}" if packet.head_sha else "head=unknown",
+        f"last_reviewed={packet.last_reviewed_sha[:12]}" if packet.last_reviewed_sha else "last_reviewed=none",
         f"action={packet.advisory_action}",
         f"reason={packet.advisory_reason}",
         f"blockers={packet.blockers}",
@@ -336,6 +356,7 @@ def packet_from_mapping(payload: dict[str, Any]) -> SessionCachePacket:
         ack_state=str(payload.get("ack_state") or "missing").strip(),
         open_findings=str(payload.get("open_findings") or "").strip(),
         last_guard_ok=bool(payload.get("last_guard_ok", True)),
+        last_reviewed_sha=str(payload.get("last_reviewed_sha") or "").strip(),
         review_state_mtime=float(payload.get("review_state_mtime") or 0.0),
         done_summary=str(payload.get("done_summary") or "").strip(),
         next_action=str(payload.get("next_action") or "").strip(),

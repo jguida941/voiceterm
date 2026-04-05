@@ -33,6 +33,9 @@ CURRENT_INSTRUCTION_REVISION_RE = re.compile(
 LAST_CHECKPOINT_ACTION_RE = re.compile(
     r"(?m)^- Last checkpoint action:\s*`.*?`\s*$"
 )
+HEAD_AT_PUSH_TIME_RE = re.compile(
+    r"(?m)^- Head at push time:\s*`.*?`\s*$"
+)
 _REPO_OWNED_POLL_STATUS_PREFIXES = (
     AUTO_REFRESH_PREFIX,
     "- Reviewer checkpoint updated through repo-owned tooling",

@@ -299,6 +299,7 @@ class TestBuildFromSources(unittest.TestCase):
             operator_interaction_mode="local_terminal",
             reviewer_freshness="--",
             review_accepted=True,
+            last_reviewed_sha="",
             attention_status="n/a",
             attention_summary="n/a",
             publisher_running=False,
@@ -773,6 +774,104 @@ class TestRegistration(unittest.TestCase):
     def test_in_read_only_commands(self) -> None:
         from dev.scripts.devctl.cli import READ_ONLY_COMMANDS
         self.assertIn("session-resume", READ_ONLY_COMMANDS)
+
+
+class TestLastReviewedSha(unittest.TestCase):
+    """AUD-22: session-resume surfaces last_reviewed_sha so Codex knows when HEAD moved."""
+
+    def _make_sources(self, *, receipt=None, compact=None, review_state=None):
+        return {
+            "receipt": receipt,
+            "review_state": review_state,
+            "push_report": None,
+            "publisher_hb": None,
+            "supervisor_hb": None,
+            "codex_conductor": None,
+            "claude_conductor": None,
+            "full_json": None,
+            "compact_json": compact,
+        }
+
+    def test_last_reviewed_sha_from_compact_bridge(self) -> None:
+        """last_reviewed_sha is extracted from compact bridge head_at_push_time."""
+        sources = self._make_sources(
+            receipt={"advisory_action": "continue", "advisory_reason": "ok"},
+            compact={
+                "bridge": {"head_at_push_time": "abc123def456"},
+                "current_session": {},
+            },
+        )
+        with tempfile.TemporaryDirectory() as td:
+            packet = build_from_sources(
+                Path(td), role="implementer", head_sha="new_head_sha",
+                sources_override=sources,
+            )
+            self.assertEqual(packet.last_reviewed_sha, "abc123def456")
+            self.assertEqual(packet.head_sha, "new_head_sha")
+
+    def test_head_moved_after_push(self) -> None:
+        """When HEAD differs from last_reviewed_sha, session-resume exposes the drift."""
+        old_push_sha = "aaa111bbb222ccc333"
+        new_head_sha = "ddd444eee555fff666"
+        sources = self._make_sources(
+            receipt={"advisory_action": "continue", "advisory_reason": "ok"},
+            compact={
+                "bridge": {"head_at_push_time": old_push_sha},
+                "current_session": {},
+            },
+        )
+        with tempfile.TemporaryDirectory() as td:
+            packet = build_from_sources(
+                Path(td), role="implementer", head_sha=new_head_sha,
+                sources_override=sources,
+            )
+            self.assertNotEqual(packet.head_sha, packet.last_reviewed_sha)
+            self.assertEqual(packet.head_sha, new_head_sha)
+            self.assertEqual(packet.last_reviewed_sha, old_push_sha)
+
+    def test_no_push_sha_returns_empty(self) -> None:
+        """When no push has happened, last_reviewed_sha is empty."""
+        sources = self._make_sources(
+            receipt={"advisory_action": "continue", "advisory_reason": "ok"},
+            compact={"bridge": {}, "current_session": {}},
+        )
+        with tempfile.TemporaryDirectory() as td:
+            packet = build_from_sources(
+                Path(td), role="implementer", head_sha="some_sha",
+                sources_override=sources,
+            )
+            self.assertEqual(packet.last_reviewed_sha, "")
+
+    def test_roundtrip_preserves_last_reviewed_sha(self) -> None:
+        """packet_from_mapping preserves last_reviewed_sha across serialization."""
+        original = SessionCachePacket(
+            head_sha="new_head", last_reviewed_sha="old_reviewed",
+        )
+        restored = packet_from_mapping(original.to_dict())
+        self.assertEqual(restored.last_reviewed_sha, "old_reviewed")
+
+    def test_render_markdown_includes_last_reviewed(self) -> None:
+        """Markdown output includes last_reviewed line when SHA is present."""
+        from dev.scripts.devctl.commands.governance.session_resume_support import (
+            render_markdown,
+        )
+        packet = SessionCachePacket(
+            head_sha="aabbccdd", last_reviewed_sha="11223344",
+        )
+        md = render_markdown(packet)
+        self.assertIn("last_reviewed", md)
+        self.assertIn("112233", md)
+
+    def test_render_summary_includes_last_reviewed(self) -> None:
+        """Summary output includes last_reviewed when SHA is present."""
+        from dev.scripts.devctl.commands.governance.session_resume_support import (
+            render_summary,
+        )
+        packet = SessionCachePacket(
+            head_sha="aabbccdd", last_reviewed_sha="11223344",
+        )
+        summary = render_summary(packet)
+        self.assertIn("last_reviewed=112233", summary)
 
 
 if __name__ == "__main__":

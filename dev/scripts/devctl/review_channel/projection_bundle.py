@@ -138,6 +138,7 @@ def _build_compact_projection(review_state: dict[str, object]) -> dict[str, obje
         "bridge": {
             "last_codex_poll_utc": bridge.get("last_codex_poll_utc"),
             "last_worktree_hash": bridge.get("last_worktree_hash"),
+            "head_at_push_time": bridge.get("head_at_push_time", ""),
             "current_instruction": current_focus,
         },
         "queue": {

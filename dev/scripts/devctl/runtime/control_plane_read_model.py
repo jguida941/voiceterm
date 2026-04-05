@@ -61,6 +61,7 @@ class ControlPlaneReadModel:
     operator_interaction_mode: str
     reviewer_freshness: str
     review_accepted: bool
+    last_reviewed_sha: str
     attention_status: str
     attention_summary: str
 
@@ -158,6 +159,7 @@ def build_control_plane_read_model(
         operator_interaction_mode=op_mode,
         reviewer_freshness=reviewer["reviewer_freshness"],
         review_accepted=reviewer["review_accepted"],
+        last_reviewed_sha=reviewer.get("last_reviewed_sha", ""),
         attention_status=reviewer["attention_status"],
         attention_summary=reviewer["attention_summary"],
         publisher_running=daemons["publisher_running"],
@@ -206,6 +208,7 @@ def control_plane_read_model_from_mapping(
         operator_interaction_mode=coerce_string(value.get("operator_interaction_mode")) or "local_terminal",
         reviewer_freshness=coerce_string(value.get("reviewer_freshness")) or "--",
         review_accepted=coerce_bool(value.get("review_accepted", False)),
+        last_reviewed_sha=coerce_string(value.get("last_reviewed_sha")),
         attention_status=coerce_string(value.get("attention_status")) or "n/a",
         attention_summary=coerce_string(value.get("attention_summary")) or "n/a",
         publisher_running=coerce_bool(value.get("publisher_running", False)),
@@ -236,6 +239,7 @@ def _default_read_model() -> ControlPlaneReadModel:
         operator_interaction_mode="local_terminal",
         reviewer_freshness="--",
         review_accepted=False,
+        last_reviewed_sha="",
         attention_status="n/a",
         attention_summary="n/a",
         publisher_running=False,

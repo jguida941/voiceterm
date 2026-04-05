@@ -12,6 +12,7 @@ from typing import Iterable
 from ..common import display_path
 from .heartbeat import (
     CURRENT_INSTRUCTION_REVISION_RE,
+    HEAD_AT_PUSH_TIME_RE,
     LAST_CHECKPOINT_ACTION_RE,
     LAST_CODEX_POLL_LOCAL_RE,
     LAST_CODEX_POLL_RE,
@@ -46,6 +47,7 @@ class ReviewerStateWrite:
     last_worktree_hash: str
     current_instruction_revision: str = ""
     reviewer_accepted_implementer_state_hash: str = ""
+    head_at_push_time: str = ""
 
 
 @dataclass(frozen=True)
@@ -59,6 +61,7 @@ class ReviewerMetadataUpdate:
     current_instruction_revision: str | None
     poll_note: str
     reviewer_accepted_implementer_state_hash: str = ""
+    head_at_push_time: str | None = None
 
 
 @dataclass(frozen=True)
@@ -157,6 +160,14 @@ def write_reviewer_metadata(
             pattern=LAST_CHECKPOINT_ACTION_RE,
             replacement=f"- Last checkpoint action: `{update.action}`",
         )
+    effective_head_at_push = ""
+    if update.head_at_push_time is not None:
+        updated_text = _replace_or_insert_metadata_line(
+            updated_text,
+            pattern=HEAD_AT_PUSH_TIME_RE,
+            replacement=f"- Head at push time: `{update.head_at_push_time}`",
+        )
+        effective_head_at_push = update.head_at_push_time
     updated_text = _rewrite_poll_status(updated_text, note=f"- {update.poll_note}")
     return updated_text, ReviewerStateWrite(
         bridge_path=display_path(bridge_path, repo_root=repo_root),
@@ -170,6 +181,7 @@ def write_reviewer_metadata(
         reviewer_accepted_implementer_state_hash=getattr(
             update, "reviewer_accepted_implementer_state_hash", ""
         ),
+        head_at_push_time=effective_head_at_push,
     )
 
 
