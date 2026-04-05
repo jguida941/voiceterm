@@ -187,5 +187,45 @@ class ConductorSplitRegressionTests(unittest.TestCase):
         )
 
 
+class OperatorModeFromReviewStateTests(unittest.TestCase):
+    """Prove review_state operator_interaction_mode survives without receipt."""
+
+    def test_review_state_remote_control_without_receipt(self) -> None:
+        sources = {
+            "receipt": None,
+            "review_state": {
+                "collaboration": {"operator_interaction_mode": "remote_control"},
+            },
+            "push_report": None,
+            "publisher_hb": None,
+            "supervisor_hb": None,
+            "codex_conductor": None,
+            "claude_conductor": None,
+            "full_json": None,
+            "compact_json": None,
+        }
+        model = build_control_plane_read_model(
+            Path("/tmp"), sources_override=sources, git_override={"branch": "test", "head": "abc", "clean": True, "ahead": 0},
+        )
+        self.assertEqual(model.operator_interaction_mode, "remote_control")
+
+    def test_receipt_mode_used_when_review_state_empty(self) -> None:
+        sources = {
+            "receipt": {"operator_interaction_mode": "dual_agent"},
+            "review_state": None,
+            "push_report": None,
+            "publisher_hb": None,
+            "supervisor_hb": None,
+            "codex_conductor": None,
+            "claude_conductor": None,
+            "full_json": None,
+            "compact_json": None,
+        }
+        model = build_control_plane_read_model(
+            Path("/tmp"), sources_override=sources, git_override={"branch": "test", "head": "abc", "clean": True, "ahead": 0},
+        )
+        self.assertEqual(model.operator_interaction_mode, "dual_agent")
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -79,6 +79,16 @@ class ControlPlaneReadModel:
         return asdict(self)
 
 
+def _nested_get(d: dict[str, Any] | None, *keys: str) -> Any:
+    """Safely traverse nested dicts, returning None on any miss."""
+    cur: Any = d
+    for k in keys:
+        if not isinstance(cur, dict):
+            return None
+        cur = cur.get(k)
+    return cur
+
+
 # -------------------------------------------------------
 # Public builder: one call, one frozen model
 # -------------------------------------------------------
@@ -110,7 +120,13 @@ def build_control_plane_read_model(
     pending = resolve_pending_packets(review_state)
 
     impl_blocked = coerce_bool((receipt or {}).get("implementation_blocked", False))
-    op_mode = coerce_string((receipt or {}).get("operator_interaction_mode")) or "local_terminal"
+    # Governance-first: review_state > receipt > default
+    op_mode = (
+        coerce_string(_nested_get(review_state, "collaboration", "operator_interaction_mode"))
+        or coerce_string(_nested_get(review_state, "reviewer_runtime", "operator_interaction_mode"))
+        or coerce_string((receipt or {}).get("operator_interaction_mode"))
+        or "local_terminal"
+    )
     push_action = coerce_string((receipt or {}).get("push_action"))
 
     auto_state = resolve_auto_mode_phase(AutoModeInputs(
