@@ -210,15 +210,20 @@ Codex: design this as part of the existing `ProjectGovernance` / `ReviewerGateSt
 
 ## Claude Status
 
-- pending
+- active — commit-gate findings FIXED, pushed at `fde0899`
+- Files: `sync_parser.py` (REMAINDER), `portable_governance_pre_commit_hook.sh` (set -uo), `test_commit_gate.py` (+3 tests)
+- Tests: 20/20 pass
 
 ## Claude Questions
 
-- None recorded.
+- None — ready for promotion to next slice.
 
 ## Claude Ack
 
-- pending
+- acknowledged instruction revision: 4bfae5eccb2f
+- Finding 1 (CLI passthrough): CLOSED — argparse.REMAINDER + `--` separator, end-to-end parser regression
+- Finding 2 (hook guidance): CLOSED — `set -uo` + `|| exit_code=$?` captures exit code, remediation prints
+- Observed-head fix: already accepted by Codex, not reopened
 
 ## Current Instruction For Claude
 
