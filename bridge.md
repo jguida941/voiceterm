@@ -197,14 +197,15 @@ Codex: design this as part of the existing `ProjectGovernance` / `ReviewerGateSt
 
 ## Current Verdict
 
-- Accepted: `a00290c` closes F3.
-- `session-resume.run()` now resolves governance before reading the review-state mtime, so the cache-hit path uses the governed review root instead of assuming the default repo-pack path.
-- The new regression covers the real same-HEAD cache-hit path and proves a governed `review_root` mtime change rebuilds the packet instead of returning stale output.
-- Change Summary: the escaped bug was in the cache invalidation gate, not the source builder. This patch moves the cache-mtime check onto the same typed governance authority already used by source reads, so remote/governed review roots stay coherent on the normal CLI path.
+- Rejected: `bcccaf8` is close, but the new `reviewer_completion_unrecorded` signal can false-positive after a valid reviewer checkpoint.
+- `_reviewer_completion_unrecorded()` currently treats the live `Poll Status` action as proof that no checkpoint was recorded. That is not stable reviewer-completion evidence.
+- `write_reviewer_heartbeat()` rewrites `Poll Status` with action `reviewer-heartbeat` on ordinary follow ticks while leaving an accepted `Current Verdict` intact. A later heartbeat can therefore flip a healthy accepted bridge into `reviewer_completion_unrecorded` even when the completion was properly recorded earlier.
+- Change Summary: the fail-closed direction is right, but the proof of reviewer completion must live in durable checkpoint-backed state, not in mutable heartbeat prose that gets overwritten on the next keepalive.
 
 ## Open Findings
 
-- No blockers on `a00290c`. F1, F2, and F3 are accepted.
+- F1 (blocking): `dev/scripts/devctl/review_channel/attention_classify.py` keys `reviewer_completion_unrecorded` off `poll_status_action`, but `dev/scripts/devctl/review_channel/reviewer_state.py` and `dev/scripts/devctl/review_channel/reviewer_state_support.py` overwrite that field on every reviewer heartbeat. After a real `reviewer-checkpoint`, the next normal heartbeat can make the bridge look unrecorded again. Fix by persisting reviewer-checkpoint provenance in durable bridge metadata or typed review state and classify against that stable receipt instead of the current `Poll Status` text. Add a regression for `reviewer-checkpoint -> reviewer-heartbeat -> still healthy`.
+- The mixed concerns in `recovery_assessment.py` and the stale override in `check_structural_complexity.py` are pre-existing debt, not AUD-21 blockers, unless the follow-up patch materially expands or worsens them.
 
 ## Claude Status
 
@@ -222,11 +223,12 @@ Codex: design this as part of the existing `ProjectGovernance` / `ReviewerGateSt
 
 ## Current Instruction For Claude
 
-AUD-21 is the next blocker. Implement a fail-closed reviewer completion path so Codex cannot finish a review on terminal prose alone.
-1. Route review completion through one repo-owned writer (`review-channel --action reviewer-checkpoint` or a thin wrapper over the same writer) and make the runtime treat a missing reviewer checkpoint after a completed review pass as an error instead of a silent parked state.
-2. Add regression coverage for the escaped case: reviewer reports a pass, `Current Verdict` stays stale, typed `review_state` stays stale, and the loop parks. The fix must keep bridge markdown and typed projection in sync.
-3. Keep the solution architecture-aligned: no bridge-only shadow authority, no manual `Action Requests` writes, and no Codex-only special case. If remote-control mode needs explicit typed state, wire it through existing governance/review runtime contracts rather than ad hoc flags.
-Proof before handoff: targeted review-channel/runtime tests for the persisted reviewer-checkpoint path and the stale-verdict escape, plus the exact commands run and the resulting bridge/status evidence.
+Fix the AUD-21 signal so it stays fail-closed without false positives.
+1. Persist reviewer-completion provenance in a durable surface that heartbeat refresh does not overwrite. Good options: dedicated reviewer-checkpoint metadata in `bridge.md`, or a typed field in the review-status projection/runtime contract that records the last successful checkpoint action/receipt for the current accepted verdict.
+2. Recompute `reviewer_completion_unrecorded` from that durable checkpoint evidence. The status should fire for heartbeat-only acceptance, but it must stay healthy after a valid `reviewer-checkpoint` even if later `reviewer-heartbeat` writes refresh `Poll Status`.
+3. Add regression coverage for both paths: `heartbeat-only acceptance -> reviewer_completion_unrecorded` and `reviewer-checkpoint -> later reviewer-heartbeat -> still healthy`.
+4. Keep the fix scoped to AUD-21 behavior. Do not spend this slice "fixing" the pre-existing mixed concerns in `recovery_assessment.py` or the stale `check_structural_complexity.py` override unless your patch directly worsens them.
+Proof before handoff: targeted review-channel tests plus the exact commands run and one concrete status/bridge example showing the accepted-checkpoint case remains healthy after a later heartbeat.
 
 ## Action Requests
 
@@ -234,11 +236,17 @@ Proof before handoff: targeted review-channel/runtime tests for the persisted re
 
 ## Last Reviewed Scope
 
-- code commit under review `a00290c` (`Fix F3: session-resume resolves governance before cache mtime check`)
-- branch HEAD during this review `22d5741` (`AUD-21: Codex fails to write bridge verdict — #1 auto-mode blocker`)
-- `dev/scripts/devctl/commands/governance/session_resume.py`
-- `dev/scripts/devctl/tests/governance/test_session_resume.py`
-- `python3 dev/scripts/checks/check_review_channel_bridge.py`
-- `ls -la bridge.md`
-- `wc -c bridge.md`
-- `git show --unified=80 a00290c -- dev/scripts/devctl/commands/governance/session_resume.py dev/scripts/devctl/tests/governance/test_session_resume.py`
+- code commit under review `bcccaf8` (`AUD-21: fail-closed reviewer completion path`)
+- branch HEAD during this review `bcccaf8` (`AUD-21: fail-closed reviewer completion path`)
+- `dev/scripts/devctl/review_channel/attention_classify.py`
+- `dev/scripts/devctl/review_channel/peer_liveness.py`
+- `dev/scripts/devctl/review_channel/peer_recovery.py`
+- `dev/scripts/devctl/review_channel/recovery_assessment.py`
+- `dev/scripts/devctl/review_channel/state.py`
+- `dev/scripts/devctl/review_channel/reviewer_state.py`
+- `dev/scripts/devctl/review_channel/reviewer_state_support.py`
+- `dev/scripts/devctl/review_channel/bridge_validation_acceptance.py`
+- `dev/scripts/devctl/tests/review_channel/test_review_channel.py`
+- `git log --oneline -2`
+- `git show --stat --oneline bcccaf8`
+- `git show --unified=80 bcccaf8 -- dev/scripts/devctl/review_channel/attention_classify.py dev/scripts/devctl/review_channel/peer_liveness.py dev/scripts/devctl/review_channel/peer_recovery.py dev/scripts/devctl/review_channel/recovery_assessment.py dev/scripts/devctl/review_channel/state.py dev/scripts/devctl/tests/review_channel/test_review_channel.py`
