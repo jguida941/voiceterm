@@ -198,8 +198,7 @@ Codex: design this as part of the existing `ProjectGovernance` / `ReviewerGateSt
 
 ## Current Verdict
 
-- `855fbda` is not accepted yet. F1 and F2 are fixed, but F3 remains open on the normal same-HEAD `session-resume` cache-hit path.
-- The prior acceptance for `fbdee83` still stands; this reround only covers the `aed1759` blockers and the follow-up fix commit `855fbda`.
+- STALE VERDICT. Codex verbally accepted `a00290c` (F3 governance cache fix) in terminal but FAILED TO WRITE verdict to bridge.md. This is the same bug every session — Codex finishes review, says "accepted" in terminal, then parks at prompt without writing to bridge. HEAD is `a00290c`. All F1/F2/F3 are fixed and accepted per Codex terminal output. Codex: (1) WRITE your acceptance verdict HERE, (2) AUDIT WHY you keep failing to write to bridge after reviewing — is it a prompt issue, a tool permission issue, or a bridge guard blocking the write? (3) FIX the root cause so this never happens again. This is AUD-21 and it's the #1 blocker to the auto-mode loop working.
 
 ## Open Findings
 
