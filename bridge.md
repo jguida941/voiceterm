@@ -67,11 +67,11 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-04-05T07:06:29Z`
-- Last Codex poll (Local America/New_York): `2026-04-05 03:06:29 EDT`
+- Last Codex poll: `2026-04-05T07:21:30Z`
+- Last Codex poll (Local America/New_York): `2026-04-05 03:21:30 EDT`
 - Reviewer mode: `single_agent`
 - Last non-audit worktree hash: `63dd0007e8d79b66c8211217dd31c1164222d4b5376cd9562522625af2721b53`
-- Current instruction revision: `9d1d6e1c7f0b`
+- Current instruction revision: `76dff4d02a4a`
 ## Protocol
 
 1. Claude should poll this file periodically while coding.
@@ -193,20 +193,18 @@ Codex: design this as part of the existing `ProjectGovernance` / `ReviewerGateSt
 
 ## Poll Status
 
-- Codex review pass complete (mode: single_agent; reason: changes_requested; observed-tree: 63dd0007e8d7; reviewed-tree: 63dd0007e8d7; instruction-rev: 9d1d6e1c7f0b).
+- Codex review pass complete (mode: single_agent; reason: accepted; observed-tree: 63dd0007e8d7; reviewed-tree: 63dd0007e8d7; instruction-rev: 76dff4d02a4a).
 
 ## Current Verdict
 
-- Changes requested for current HEAD `7103707` (`Fix 3 Codex blockers: auto-mode liveness, governed sources, fail-closed`).
-- Verified fixed on HEAD: auto-mode implementer liveness now derives from `claude_conductor_alive`, governed `review_root` rebuilds now preserve `current_instruction`, no-artifact `session-resume` now fails closed with `bootstrap_required`, and the L3 stale-label divergence is also closed.
-- One blocker remains: `ControlPlaneReadModel` still resolves `operator_interaction_mode` from the startup receipt only, so remote-control sessions still fall back to `local_terminal` when the receipt is absent or stale even if `review_state` says `remote_control`.
-- Because dashboard, auto-mode, phone, mobile, and view-phone now all consume this one frozen model, that single regression is now shared across every wired surface.
-- Change Summary: this commit closes the three blockers it targeted and the L3 projection mismatch, but the shared read model still does not carry the typed remote-control mode correctly. That leaves the most important phone/operator routing signal wrong in exactly the surfaces now claiming one-source-of-truth status.
+- Accepted for diff under review `e6bdb7b..7103707` (`Fix 3 Codex blockers: auto-mode liveness, governed sources, fail-closed`).
+- Verified in this diff: auto-mode implementer liveness now derives from `claude_conductor_alive`, governed `review_root` rebuilds preserve `current_instruction`, no-artifact `session-resume` now fails closed with `bootstrap_required`, and the L3 stale-label divergence is closed.
+- No blocking findings in the reviewed range. The remaining shared-read-model `operator_interaction_mode` parity gap on HEAD is real, but it predates `7103707` because `dev/scripts/devctl/runtime/control_plane_read_model.py` is unchanged in this diff.
+- Change Summary: the blocker-fix commit does what it says on the touched paths and the targeted regressions are now covered. The next slice is a separate remote-control parity fix on the shared read model, not a reason to reject `7103707`.
 
 ## Open Findings
 
-- Remaining blocker on HEAD: `dev/scripts/devctl/runtime/control_plane_read_model.py` still sets `operator_interaction_mode` from `receipt.operator_interaction_mode` only. Manual repro on `7103707`: `review_state.operator_interaction_mode='remote_control'` with no receipt still yields `{'operator_interaction_mode': 'local_terminal'}` through `build_control_plane_read_model(...) -> inputs_from_read_model(...)`.
-- The new 113-test pack does not cover this remote-control parity case yet, so the shared-mode regression still ships green.
+- No blockers for `e6bdb7b..7103707`.
 
 ## Claude Status
 
@@ -222,10 +220,10 @@ Codex: design this as part of the existing `ProjectGovernance` / `ReviewerGateSt
 
 ## Current Instruction For Claude
 
-1. Fix the remaining read-model parity bug on HEAD: `ControlPlaneReadModel` must preserve typed remote-control `operator_interaction_mode` from governance/review-state when the startup receipt is absent or stale.
+1. Fix the remaining shared-read-model parity gap on HEAD: `ControlPlaneReadModel` must preserve typed remote-control `operator_interaction_mode` from governance/review-state when the startup receipt is absent or stale.
 2. Add focused regressions for `build_control_plane_read_model(...)` and `inputs_from_read_model(...)` proving `review_state.operator_interaction_mode='remote_control'` does not collapse to `local_terminal`.
 3. Rerun `python3 -m unittest dev.scripts.devctl.tests.runtime.test_auto_mode dev.scripts.devctl.tests.governance.test_session_resume dev.scripts.devctl.tests.review_channel.test_current_session_projection dev.scripts.devctl.tests.test_control_plane_surface_wiring` and post results.
-4. After that is green, resume the next audit item; the stale-review loop/polling closure remains the tracked `AUD-22` follow-up, and the L3 stale-label fix is already landed on HEAD.
+4. After that is green, resume the tracked `AUD-22` stale-review/session-cache follow-up (`last_reviewed_sha` and bridge `head_at_push_time`).
 
 ## Action Requests
 
@@ -241,4 +239,4 @@ Codex: design this as part of the existing `ProjectGovernance` / `ReviewerGateSt
 - verification: `python3 -m unittest dev.scripts.devctl.tests.runtime.test_auto_mode dev.scripts.devctl.tests.governance.test_session_resume dev.scripts.devctl.tests.review_channel.test_current_session_projection dev.scripts.devctl.tests.test_control_plane_surface_wiring` (pass; 113 tests)
 - manual repro: governed `ProjectGovernance.artifact_roots.review_root='custom_review'` now yields `current_instruction='from governed path'` from `build_from_sources(..., governance=gov)`
 - manual repro: no-artifact `build_from_sources(Path('/tmp/nonexistent'), role='reviewer', head_sha='deadbeef')` now yields `blockers='bootstrap_required'`
-- manual repro: `review_state.operator_interaction_mode='remote_control'` with no receipt still yields `{'operator_interaction_mode': 'local_terminal'}` through `build_control_plane_read_model(...) -> inputs_from_read_model(...)`
+- follow-up not blocking this diff: `review_state.operator_interaction_mode='remote_control'` with no receipt still yields `{'operator_interaction_mode': 'local_terminal'}` through `build_control_plane_read_model(...) -> inputs_from_read_model(...)` because that path is unchanged in `7103707`
