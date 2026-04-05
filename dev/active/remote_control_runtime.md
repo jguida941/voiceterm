@@ -208,6 +208,7 @@ Round 7 found 0 new well-integrated subsystems in the outer ring.
   - Design rule: the operator should NEVER have to read raw Codex terminal with truncated output. Whether they use dashboard, TUI overlay, or operator console — they see everything Claude shows, through our rendering system. Push to Codex to design which approach lands first.
 - AUD-17 (USER TIMEZONE): All timestamps should render in the operator's timezone, not UTC. `OperatorContext` needs a `timezone` field (e.g. `America/New_York`). Every surface reads it.
 - AUD-18 (CONTINUOUS UPDATE LOOP): Claude must update the operator at a user-set interval without stopping. No gaps. The operator should never have to say "what's going on" or "keep updating me." This is part of the auto-mode state machine (Q1 in bridge).
+- AUD-19 (CODEX CONTEXT EFFICIENCY): Codex burns 70%+ of context on file exploration before acting. One planning session read 40+ files, ran 50+ searches, used 148K/258K tokens, and produced ZERO instructions. The system needs: (1) a slim reviewer bootstrap that gives Codex ONLY what it needs (plan doc + changed files, not the entire codebase), (2) context budget guidance in the prompt ("use <30% of context for reading, spend the rest on output"), (3) if Codex uses >50% context without posting to bridge, auto-save and rollover. This is part of the auto-mode state machine and session lease model.
 
 ## Infrastructure Seam Audit (Round 5, 8-agent, 2026-04-04)
 
