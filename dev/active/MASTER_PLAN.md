@@ -353,6 +353,17 @@
   `dev/guides/DEVELOPMENT.md`, `dev/scripts/README.md`, and the owning
   `MP-377` plan docs instead of leaving the runtime approval vocabulary in one
   narrow surface.
+- Latest same-lane closure on 2026-04-05: review-channel terminal-policy and
+  visibility truth now share one owned contract. Launch/recovery/follow paths
+  resolve terminal mode through one helper so explicit `--terminal` still wins,
+  governed `remote_control` stays headless, already-headless parent sessions
+  keep recovery headless, and otherwise local relaunch defaults back to visible
+  `Terminal.app`; the CLI help text now says plainly that `--terminal none`
+  means a real headless background conductor. The same slice extends
+  `ReviewerRuntimeContract` with typed `conductor_visibility`, keeps reviewer
+  `session_visibility` explicit in status/doctor payloads, and updates the
+  platform-contract row/docs so AI and operators do not have to infer hidden
+  headless state from raw `terminal_window_id` nulls.
 - Latest same-lane closure on 2026-04-03: the workflow-enforcement parity for
   the Phase 3/4 remote-commit proof guards is now explicit.
   `.github/workflows/tooling_control_plane.yml` and

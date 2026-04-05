@@ -31,6 +31,17 @@ Current 2026-04-05 role/bootstrap closure note:
   or collaboration state instead of hardcoding `codex reviewer` /
   `claude coder`.
 
+Current 2026-04-05 terminal/visibility closure note:
+- Headless-vs-visible launch is runtime authority, not chat lore. Shared
+  review-channel launch/recovery/follow paths must resolve terminal mode
+  through one policy: explicit `--terminal` wins, governed `remote_control`
+  stays headless, already-headless parent sessions keep recovery headless, and
+  otherwise local launches default to visible `Terminal.app`. The same runtime
+  contract must expose typed visibility (`reviewer_runtime.conductor_visibility`
+  plus reviewer `session_owner.session_visibility`) so operators and AI can
+  detect hidden conductor state without reverse-engineering `terminal_window_id`
+  nulls or guessing from detached heartbeats.
+
 ## Scope
 
 Turn the current VoiceTerm-local automation stack into a reusable AI governance

@@ -76,7 +76,7 @@ LAUNCH_ARGUMENTS: list[ArgumentDef] = [
         "--terminal",
         choices=["terminal-app", "none"],
         default="terminal-app",
-        help="Launch via Terminal.app on macOS or just emit scripts/report output",
+        help="Launch via Terminal.app on macOS or run the conductors headless in the background",
     ),
     _arg(
         "--terminal-profile",

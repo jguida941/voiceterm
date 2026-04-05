@@ -331,7 +331,13 @@ Three quality layers matter in practice:
     launch now
     records the returned `terminal_window_id` in conductor session metadata,
     and rollover cleanup uses the retiring session snapshot to kill the old
-    conductor pid before closing the old Terminal window.
+    conductor pid before closing the old Terminal window. Status/runtime
+    surfaces now also emit explicit visibility state
+    (`reviewer_runtime.conductor_visibility` and reviewer
+    `session_owner.session_visibility`) so operators and AI do not infer
+    headless vs visible sessions from raw `terminal_window_id`, and local
+    recovery guidance defaults back to visible `--terminal terminal-app`
+    unless governed `remote_control` mode keeps the session headless.
   - Prefer the repo-owned wait primitives over ad hoc shell sleep loops:
     `review-channel --action implementer-wait` is the implementer-side bounded
     wait path, and `review-channel --action reviewer-wait` is the symmetric

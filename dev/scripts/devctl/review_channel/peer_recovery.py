@@ -6,6 +6,7 @@ import os
 import sys
 
 from ..runtime.role_profile import TandemRole
+from .terminal_mode import resolve_terminal_mode
 
 _DEVCTL_INTERPRETER = os.path.basename(sys.executable)
 """Interpreter name matching the runtime that loaded this module."""
@@ -15,10 +16,9 @@ def recovery_terminal_for_interaction_mode(
     operator_interaction_mode: str = "",
 ) -> str:
     """Return the live recovery terminal for the current operator mode."""
-    mode = str(operator_interaction_mode or "").strip()
-    if mode == "remote_control":
-        return "none"
-    return "terminal-app"
+    return resolve_terminal_mode(
+        operator_interaction_mode=operator_interaction_mode,
+    )
 
 
 def build_live_relaunch_command(

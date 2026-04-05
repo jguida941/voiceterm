@@ -5,28 +5,22 @@ from __future__ import annotations
 from types import SimpleNamespace
 
 from .collaboration_provider import coding_provider_from_report
+from .terminal_mode import resolve_terminal_mode
 
 
 def resolve_recovery_terminal(args) -> str:
     """Resolve headless vs Terminal.app recovery from the parent daemon args.
 
-    When the reviewer-follow daemon runs with ``--terminal none`` (remote/headless),
-    recovery and rollover actions must also use headless launch instead of
-    requiring Terminal.app via osascript.
-
-    When ``operator_interaction_mode`` is ``remote_control``, always use
-    headless (``none``) so recovery never opens a local Terminal window that
-    the remote operator cannot see.
+    Recovery/rollover should honor the same terminal policy as direct launches:
+    explicit terminal wins, remote-control stays headless, otherwise inherit the
+    parent follow-loop terminal when present before falling back to Terminal.app.
     """
-    interaction_mode = str(
-        getattr(args, "operator_interaction_mode", "") or ""
-    ).strip()
-    if interaction_mode == "remote_control":
-        return "none"
-    parent_terminal = str(getattr(args, "terminal", "") or "").strip()
-    if parent_terminal in {"terminal-app", "none"}:
-        return parent_terminal
-    return "terminal-app"
+    return resolve_terminal_mode(
+        operator_interaction_mode=str(
+            getattr(args, "operator_interaction_mode", "") or ""
+        ).strip(),
+        parent_terminal=str(getattr(args, "terminal", "") or "").strip(),
+    )
 
 
 def build_recover_action_args(

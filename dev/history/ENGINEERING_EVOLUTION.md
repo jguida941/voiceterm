@@ -64,6 +64,37 @@ Evidence: `dev/scripts/devctl/review_channel/core.py`,
 `dev/active/remote_control_runtime.md`,
 `dev/scripts/README.md`.
 
+### 2026-04-05 - Review-channel terminal policy and headless visibility are now explicit typed runtime truth
+
+The review-channel launch surface still had one unsafe ambiguity: local
+recovery/relaunch guidance had already moved back toward visible
+`Terminal.app`, but terminal selection still lived in more than one helper,
+the CLI help text described `--terminal none` too softly, and a hidden
+conductor could still look like "just no window id" unless you manually
+interpreted session metadata. That left too much room for AI or operators to
+accidentally treat a real headless loop as harmless script emission.
+
+The runtime now states the policy and state directly. Review-channel
+launch/recovery/follow terminal selection routes through one helper: explicit
+`--terminal` wins, governed `remote_control` stays headless, already-headless
+parent sessions keep recovery headless, and otherwise local relaunch defaults
+to visible `Terminal.app`. The CLI help text now says that `--terminal none`
+is a real headless background conductor launch, and the typed
+`ReviewerRuntimeContract` now carries `conductor_visibility` while reviewer
+session ownership exposes `session_visibility`. That means status/doctor,
+automation, and future AI launchers can read one typed safety signal instead
+of inferring hidden runtime state from null window ids or stale detached
+heartbeats.
+
+Evidence: `dev/scripts/devctl/review_channel/terminal_mode.py`,
+`dev/scripts/devctl/review_channel/peer_recovery.py`,
+`dev/scripts/devctl/review_channel/reviewer_follow_recovery_support.py`,
+`dev/scripts/devctl/review_channel/parser.py`,
+`dev/scripts/devctl/platform/runtime_state_contract_rows.py`,
+`dev/scripts/README.md`,
+`dev/active/MASTER_PLAN.md`,
+`dev/active/ai_governance_platform.md`.
+
 ### 2026-04-05 - Remote-control closure now tracks reviewer bootstrap truth and structural commit gating
 
 The latest pushed-branch architecture review turned a loose set of runtime

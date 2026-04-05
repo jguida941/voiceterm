@@ -23,6 +23,7 @@ from dev.scripts.devctl.review_channel.reviewer_follow_recovery_support import (
     build_rollover_action_args,
     resolve_recovery_terminal,
 )
+from dev.scripts.devctl.review_channel.terminal_mode import resolve_terminal_mode
 
 
 def _build_script(
@@ -162,6 +163,32 @@ class TestResolveRecoveryTerminal(unittest.TestCase):
             operator_interaction_mode="dual_agent",
         )
         self.assertEqual(resolve_recovery_terminal(args), "none")
+
+
+class TestResolveTerminalMode(unittest.TestCase):
+    """Verify the shared review-channel terminal policy."""
+
+    def test_explicit_terminal_wins(self) -> None:
+        self.assertEqual(
+            resolve_terminal_mode(
+                "terminal-app",
+                operator_interaction_mode="remote_control",
+                parent_terminal="none",
+            ),
+            "terminal-app",
+        )
+
+    def test_remote_control_defaults_headless(self) -> None:
+        self.assertEqual(
+            resolve_terminal_mode(operator_interaction_mode="remote_control"),
+            "none",
+        )
+
+    def test_parent_headless_is_inherited(self) -> None:
+        self.assertEqual(resolve_terminal_mode(parent_terminal="none"), "none")
+
+    def test_local_default_is_visible(self) -> None:
+        self.assertEqual(resolve_terminal_mode(), "terminal-app")
 
 
 class TestRecoveryCommands(unittest.TestCase):

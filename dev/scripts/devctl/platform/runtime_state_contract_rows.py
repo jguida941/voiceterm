@@ -197,6 +197,11 @@ RUNTIME_STATE_CONTRACTS: tuple[ContractSpec, ...] = (
                 "Attention-state reason when the lifecycle is not healthy.",
             ),
             ContractField(
+                "conductor_visibility",
+                "str",
+                "Typed visibility classification for the current repo-owned conductor sessions.",
+            ),
+            ContractField(
                 "implementer_ack_current",
                 "bool",
                 "Whether the current implementer ACK matches the live instruction revision.",

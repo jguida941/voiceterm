@@ -62,6 +62,7 @@ def test_platform_blueprint_contract_shapes_cover_lifecycle_and_authority() -> N
     assert "reviewer_runtime" in contract_map["ReviewState"]
     assert "commit_pipeline" in contract_map["ReviewState"]
     assert "snapshot_id" in contract_map["ReviewState"]
+    assert "conductor_visibility" in contract_map["ReviewerRuntimeContract"]
     assert "publish_clear" in contract_map["ReviewerRuntimeContract"]
     assert "approval_expires_at_utc" in contract_map["RemoteCommitPipelineContract"]
     assert "approved_target_identity" in contract_map["RemoteCommitPipelineContract"]
