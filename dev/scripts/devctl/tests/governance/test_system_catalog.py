@@ -324,8 +324,8 @@ class TestViewCommand(unittest.TestCase):
         output = _render_phone_summary(args)
         payload = json.loads(output)
         self.assertEqual(payload["surface"], "phone")
-        self.assertIn("overall_state", payload)
-        self.assertIn("primary_blocker", payload)
+        self.assertIn("resolved_phase", payload)
+        self.assertIn("top_blocker", payload)
         self.assertIn("next_actor", payload)
 
     def test_view_phone_summary_md_has_state(self) -> None:
