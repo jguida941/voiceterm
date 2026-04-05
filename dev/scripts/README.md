@@ -379,10 +379,15 @@ Portability note:
   path instead of leaving the loop parked on operator-visible polling prose
   forever. That recovery replaces only the stale Claude conductor, and it
   now fails closed unless a live repo-owned Codex conductor session is
-  already present. If the reviewer side is not already live, use full
-  `launch|rollover` instead of creating a hybrid "Claude in Terminal, Codex
-  in chat" loop. Full `rollover` still handles bounded round/context
-  rotation.
+  already present. Repeated unchanged stale reviewer/runtime states now obey
+  the typed recovery command too: reviewer-follow prefers repo-owned
+  `review-channel --action launch` when the recovery contract says launch,
+  only auto-executes that relaunch when the typed decision marks it
+  auto-fixable, and otherwise fails closed back to the queued reviewer-turn
+  packet path instead of silently degrading to `rollover`. If the reviewer
+  side is not already live, use full `launch|rollover` instead of creating a
+  hybrid "Claude in Terminal, Codex in chat" loop. Full `rollover` still handles bounded
+  round/context rotation.
   `active_dual_agent` with detached publisher/supervisor heartbeats but no
   repo-owned conductors is now a bridge-contract error instead of a healthy
   steady-state loop.

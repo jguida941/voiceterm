@@ -3176,6 +3176,11 @@ become the main product surface.
   `check_tandem_consistency.py` validates role-profile seam alignment across
   peer-liveness, event-reducer, status-projection, launch, prompt, and handoff
   modules; wired into bundle.tooling, CI workflows, and quality-policy presets.
+  2026-04-05 follow-up: reviewer-follow stale-runtime recovery now obeys the
+  typed recovery command instead of hardcoding peer-stale `rollover`; typed
+  `launch` can auto-run only when the typed decision marks relaunch
+  auto-fixable, and approval-gated relaunch stays fail-closed on the queued
+  reviewer-turn packet path.
   A second 2026-03-15 anti-stall hardening pass now blocks the next real loop
   failure shape too: `implementer_completion_stall` fails when Claude-owned
   status/ack text parks on "instruction unchanged / continuing to poll /

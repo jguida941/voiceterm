@@ -14,6 +14,10 @@ from .reviewer_follow_runtime import (
     reviewer_runtime_mapping,
     reviewer_runtime_text,
 )
+from .reviewer_follow_restore_policy import (
+    auto_relaunch_allowed,
+    restore_action_from_report,
+)
 
 _AUTO_RECOVERY_ATTENTION_STATUSES = frozenset(
     {
@@ -201,6 +205,11 @@ def maybe_auto_relaunch_review_loop(
     if bridge_action_fn is None:
         return None
     reviewer_runtime = reviewer_runtime_mapping(rollover_input.report)
+    if restore_action_from_report(
+        report=rollover_input.report,
+        reviewer_runtime=reviewer_runtime,
+    ) != "launch":
+        return None
     bridge_liveness = rollover_input.report.get("bridge_liveness")
     attention = rollover_input.report.get("attention")
     if not isinstance(bridge_liveness, dict) or not isinstance(attention, dict):
@@ -253,6 +262,7 @@ def maybe_auto_relaunch_review_loop(
         or launch_truth not in _AUTO_RELAUNCH_LAUNCH_TRUTHS
         or not bool(rollover_input.report.get("review_needed"))
         or not ack_current
+        or not auto_relaunch_allowed(rollover_input.report)
         or unchanged_polls < STALL_ESCALATION_POLLS
     ):
         return None
@@ -298,6 +308,12 @@ def maybe_auto_trigger_rollover_on_stale_codex(
     if bridge_action_fn is None:
         return None
     reviewer_runtime = reviewer_runtime_mapping(rollover_input.report)
+    restore_action = restore_action_from_report(
+        report=rollover_input.report,
+        reviewer_runtime=reviewer_runtime,
+    )
+    if restore_action and restore_action != "rollover":
+        return None
     bridge_liveness = rollover_input.report.get("bridge_liveness")
     attention = rollover_input.report.get("attention")
     if not isinstance(bridge_liveness, dict) or not isinstance(attention, dict):

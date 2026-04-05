@@ -64,6 +64,31 @@ Evidence: `dev/active/remote_control_runtime.md`,
 `dev/active/MASTER_PLAN.md`,
 `dev/active/INDEX.md`.
 
+### 2026-04-05 - Reviewer-follow stale-runtime recovery now obeys typed launch authority
+
+The live review loop had a narrow but important architecture leak: the
+repo already computed a typed stale-runtime recovery decision, but the
+reviewer-follow daemon still hardcoded peer-stale `rollover` for stale
+reviewer/runtime states. That meant the long-lived automation loop could
+invent a second recovery policy right next to `recovery_assessment` /
+`recovery_action_allowed`, which is exactly how detached-runtime problems keep
+turning into inconsistent agent behavior.
+
+The recovery seam is now fail-closed and typed. Reviewer-follow reads the
+allowed recovery command first, prefers repo-owned `launch` when the typed
+contract says `launch`, and only auto-executes that relaunch when the typed
+decision explicitly marks it auto-fixable. Approval-gated relaunch no longer degrades into an
+unreviewed `rollover`; it stays on the existing queued reviewer-turn packet
+path until the operator/runtime contract allows the launch. This keeps the
+automation loop aligned with the same deterministic control objects the rest
+of the platform is supposed to trust.
+
+Evidence: `dev/scripts/devctl/review_channel/reviewer_follow_recovery.py`,
+`dev/scripts/devctl/review_channel/reviewer_follow.py`,
+`dev/scripts/devctl/tests/review_channel/test_review_channel.py`,
+`dev/active/continuous_swarm.md`,
+`dev/active/MASTER_PLAN.md`.
+
 ### 2026-04-04 - Bridge rendering portability via RepoPathConfig
 
 The markdown bridge compatibility projection no longer hardcodes

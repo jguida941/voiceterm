@@ -320,13 +320,15 @@ Three quality layers matter in practice:
     operator chat nudges. That recovery replaces only the stale Claude
     conductor, and it now fails closed unless a live repo-owned Codex
     conductor session is already present. Repeated unchanged stale
-    reviewer/runtime states now also auto-trigger the repo-owned
-    `review-channel --action rollover` path so stale Codex-side remote-
-    control recovery reuses the structured handoff bundle plus visible
-    rollover ACK contract instead of ad hoc restarts. If the reviewer side is
-    not already live, use full `launch|rollover` instead of creating a hybrid
-    "Claude in Terminal, Codex in chat" loop. Full `rollover` remains the
-    bounded round/context-rotation restart path. Live Terminal.app launch now
+    reviewer/runtime states now obey the typed recovery contract instead of
+    inventing a second stale-peer policy: when the allowed recovery command is
+    `launch`, reviewer-follow must prefer the repo-owned
+    `review-channel --action launch` path and may only auto-trigger it when
+    the typed decision says relaunch is auto-fixable. Approval-gated relaunch
+    stays fail-closed and falls back to the queued reviewer-turn packet path
+    instead of silently degrading to peer-stale `rollover`. Full `rollover`
+    remains the bounded round/context-rotation restart path. Live Terminal.app
+    launch now
     records the returned `terminal_window_id` in conductor session metadata,
     and rollover cleanup uses the retiring session snapshot to kill the old
     conductor pid before closing the old Terminal window.

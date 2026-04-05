@@ -25,7 +25,7 @@ from .promotion import (
     promote_bridge_instruction,
     validate_promotion_ready,
 )
-from .reviewer_follow_runtime import attach_reviewer_runtime_contract
+from .reviewer_follow_actions import apply_auto_action, refresh_follow_report
 from .reviewer_follow_guard import (
     ReviewerFollowPacketRequest,
     ReviewerFollowTriggerState,
@@ -111,10 +111,7 @@ def _build_reviewer_follow_tick(
 ) -> FollowLoopTick:
     bridge_path = paths["bridge_path"]
     assert isinstance(bridge_path, Path)
-    progress_token = build_claude_progress_token(
-        repo_root=repo_root,
-        bridge_path=bridge_path,
-    )
+    progress_token = build_claude_progress_token(repo_root=repo_root, bridge_path=bridge_path)
     ensure_result = maybe_refresh_automation_reviewer_heartbeat(
         repo_root=repo_root,
         bridge_path=bridge_path,
@@ -122,20 +119,14 @@ def _build_reviewer_follow_tick(
         requested_reviewer_mode=getattr(args, "reviewer_mode", None),
         ensure_reviewer_heartbeat_fn=deps.ensure_reviewer_heartbeat_fn,
     )
-    report, frame_exit_code = deps.build_reviewer_state_report_fn(
+    report, frame_exit_code = refresh_follow_report(
         args=args,
         repo_root=repo_root,
         paths=paths,
-    )
-    attach_reviewer_runtime_contract(
-        report=report,
         bridge_path=bridge_path,
-        status_dir=paths.get("status_dir"),
+        build_reviewer_state_report_fn=deps.build_reviewer_state_report_fn,
     )
-    review_range = compute_review_range(
-        repo_root=repo_root,
-        bridge_path=bridge_path,
-    )
+    review_range = compute_review_range(repo_root=repo_root, bridge_path=bridge_path)
     if review_range is not None:
         report["review_range"] = review_range
     auto_promotion = _maybe_auto_promote(
@@ -144,24 +135,19 @@ def _build_reviewer_follow_tick(
         paths=paths,
         bridge_path=bridge_path,
     )
-    if auto_promotion is not None:
-        report["auto_promotion"] = auto_promotion
-        if bool(auto_promotion.get("promoted")):
-            report, frame_exit_code = deps.build_reviewer_state_report_fn(
-                args=args,
-                repo_root=repo_root,
-                paths=paths,
-            )
-            attach_reviewer_runtime_contract(
-                report=report,
-                bridge_path=bridge_path,
-                status_dir=paths.get("status_dir"),
-            )
-            report["auto_promotion"] = auto_promotion
-            progress_token = build_claude_progress_token(
-                repo_root=repo_root,
-                bridge_path=bridge_path,
-            )
+    report, frame_exit_code, progress_token = apply_auto_action(
+        action_key="auto_promotion",
+        success_key="promoted",
+        action_payload=auto_promotion,
+        report=report,
+        frame_exit_code=frame_exit_code,
+        progress_token=progress_token,
+        args=args,
+        repo_root=repo_root,
+        paths=paths,
+        bridge_path=bridge_path,
+        build_reviewer_state_report_fn=deps.build_reviewer_state_report_fn,
+    )
     auto_recovery = maybe_auto_recover_stale_implementer(
         recovery_fn=deps.run_recovery_action_fn,
         recovery_input=ReviewerFollowRecoveryInput(
@@ -173,24 +159,19 @@ def _build_reviewer_follow_tick(
             recovery_state=loop_state.recovery,
         ),
     )
-    if auto_recovery is not None:
-        report["auto_recovery"] = auto_recovery
-        if bool(auto_recovery.get("recovered")):
-            report, frame_exit_code = deps.build_reviewer_state_report_fn(
-                args=args,
-                repo_root=repo_root,
-                paths=paths,
-            )
-            attach_reviewer_runtime_contract(
-                report=report,
-                bridge_path=bridge_path,
-                status_dir=paths.get("status_dir"),
-            )
-            report["auto_recovery"] = auto_recovery
-            progress_token = build_claude_progress_token(
-                repo_root=repo_root,
-                bridge_path=bridge_path,
-            )
+    report, frame_exit_code, progress_token = apply_auto_action(
+        action_key="auto_recovery",
+        success_key="recovered",
+        action_payload=auto_recovery,
+        report=report,
+        frame_exit_code=frame_exit_code,
+        progress_token=progress_token,
+        args=args,
+        repo_root=repo_root,
+        paths=paths,
+        bridge_path=bridge_path,
+        build_reviewer_state_report_fn=deps.build_reviewer_state_report_fn,
+    )
     auto_relaunch = maybe_auto_relaunch_review_loop(
         bridge_action_fn=deps.run_bridge_action_fn,
         rollover_input=ReviewerFollowRolloverInput(
@@ -201,52 +182,44 @@ def _build_reviewer_follow_tick(
             rollover_state=loop_state.rollover,
         ),
     )
-    if auto_relaunch is not None:
-        report["auto_relaunch"] = auto_relaunch
-        if bool(auto_relaunch.get("launched")):
-            report, frame_exit_code = deps.build_reviewer_state_report_fn(
-                args=args,
-                repo_root=repo_root,
-                paths=paths,
-            )
-            attach_reviewer_runtime_contract(
-                report=report,
-                bridge_path=bridge_path,
-                status_dir=paths.get("status_dir"),
-            )
-            report["auto_relaunch"] = auto_relaunch
-            progress_token = build_claude_progress_token(
-                repo_root=repo_root,
-                bridge_path=bridge_path,
-            )
-    auto_rollover = maybe_auto_trigger_rollover_on_stale_codex(
-        bridge_action_fn=deps.run_bridge_action_fn,
-        rollover_input=ReviewerFollowRolloverInput(
-            args=args,
-            repo_root=repo_root,
-            paths=paths,
-            report=report,
-            rollover_state=loop_state.rollover,
-        ),
+    report, frame_exit_code, progress_token = apply_auto_action(
+        action_key="auto_relaunch",
+        success_key="launched",
+        action_payload=auto_relaunch,
+        report=report,
+        frame_exit_code=frame_exit_code,
+        progress_token=progress_token,
+        args=args,
+        repo_root=repo_root,
+        paths=paths,
+        bridge_path=bridge_path,
+        build_reviewer_state_report_fn=deps.build_reviewer_state_report_fn,
     )
-    if auto_rollover is not None:
-        report["auto_rollover"] = auto_rollover
-        if bool(auto_rollover.get("rolled_over")):
-            report, frame_exit_code = deps.build_reviewer_state_report_fn(
+    auto_rollover = None
+    if auto_relaunch is None:
+        auto_rollover = maybe_auto_trigger_rollover_on_stale_codex(
+            bridge_action_fn=deps.run_bridge_action_fn,
+            rollover_input=ReviewerFollowRolloverInput(
                 args=args,
                 repo_root=repo_root,
                 paths=paths,
-            )
-            attach_reviewer_runtime_contract(
                 report=report,
-                bridge_path=bridge_path,
-                status_dir=paths.get("status_dir"),
-            )
-            report["auto_rollover"] = auto_rollover
-            progress_token = build_claude_progress_token(
-                repo_root=repo_root,
-                bridge_path=bridge_path,
-            )
+                rollover_state=loop_state.rollover,
+            ),
+        )
+    report, frame_exit_code, progress_token = apply_auto_action(
+        action_key="auto_rollover",
+        success_key="rolled_over",
+        action_payload=auto_rollover,
+        report=report,
+        frame_exit_code=frame_exit_code,
+        progress_token=progress_token,
+        args=args,
+        repo_root=repo_root,
+        paths=paths,
+        bridge_path=bridge_path,
+        build_reviewer_state_report_fn=deps.build_reviewer_state_report_fn,
+    )
     review_trigger = maybe_queue_reviewer_follow_packet(
         request=ReviewerFollowPacketRequest(
             args=args,

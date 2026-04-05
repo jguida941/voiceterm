@@ -451,7 +451,13 @@ checklist plus chat memory.
     heartbeats are not proof the dual-agent session is still alive. If
     `reviewer_mode=active_dual_agent` but repo-owned conductor sessions are
     missing, treat the state as a bridge-contract error and relaunch the
-    pair instead of trusting stale "fresh" status.
+    pair instead of trusting stale "fresh" status. Reviewer-follow recovery
+    must obey the typed recovery contract here too: when
+    `recovery_action_allowed` / `recovery_assessment.decision.command` says
+    `launch`, do not silently degrade to peer-stale `rollover`. Auto-relaunch
+    is only allowed when the typed decision marks the relaunch auto-fixable;
+    otherwise fail closed and use the queued reviewer-turn packet / explicit
+    launch path.
 4.4.2 Claude-side waiting is also fail-closed now: use the repo-owned
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state. If `Current Instruction For Claude` still

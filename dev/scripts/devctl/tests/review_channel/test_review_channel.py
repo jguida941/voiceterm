@@ -2868,7 +2868,7 @@ class ReviewChannelWatchFollowTests(unittest.TestCase):
             self.assertEqual(recovery_args.action, "recover")
             self.assertEqual(recovery_args.terminal, "none")
 
-    def test_reviewer_follow_auto_triggers_rollover_for_stale_reviewer(self) -> None:
+    def test_reviewer_follow_skips_stale_reviewer_restore_when_review_is_not_needed(self) -> None:
         args = self._build_reviewer_follow_args(max_follow_snapshots=7)
         frames: list[dict[str, object]] = []
         ensure_result = EnsureHeartbeatResult(
@@ -2912,11 +2912,10 @@ class ReviewChannelWatchFollowTests(unittest.TestCase):
                 "session_owner": {
                     "provider": "codex",
                     "session_name": "codex-review",
-                    "session_pid": 42,
-                    "terminal_window_id": 7,
-                    "script_path": "/tmp/codex-review.sh",
-                },
-                "recovery_action_allowed": "python3 dev/scripts/devctl.py review-channel --action launch --terminal terminal-app --format json --execution-mode markdown-bridge --refresh-bridge-heartbeat-if-stale",
+                "session_pid": 42,
+                "terminal_window_id": 7,
+                "script_path": "/tmp/codex-review.sh",
+            },
                 "review_acceptance": {
                     "current_verdict": "Needs-review.",
                     "open_findings": "- runtime missing",
@@ -2973,18 +2972,8 @@ class ReviewChannelWatchFollowTests(unittest.TestCase):
             self.assertEqual(rc, 0)
             self.assertEqual(report["snapshots_emitted"], 7)
             self.assertEqual(len(frames), 7)
-            rollover_frames = [
-                frame for frame in frames if frame.get("auto_rollover")
-            ]
-            self.assertEqual(len(rollover_frames), 1)
-            self.assertTrue(rollover_frames[0]["auto_rollover"]["rolled_over"])
-            self.assertTrue(
-                rollover_frames[0]["auto_rollover"]["handoff_ack_observed"]["observed"]
-            )
-            self.assertEqual(
-                rollover_frames[0]["auto_rollover"]["handoff_bundle"]["rollover_id"],
-                "rollover-123",
-            )
+            self.assertFalse(any(frame.get("auto_relaunch") for frame in frames))
+            self.assertFalse(any(frame.get("auto_rollover") for frame in frames))
             self.assertEqual(
                 frames[0]["reviewer_runtime"]["stale_reason"],
                 "review_loop_relaunch_required",
@@ -2993,11 +2982,226 @@ class ReviewChannelWatchFollowTests(unittest.TestCase):
                 frames[0]["doctor"]["status"],
                 "review_loop_relaunch_required",
             )
-            mocked_rollover.assert_called_once()
-            rollover_args = mocked_rollover.call_args.kwargs["args"]
-            self.assertEqual(rollover_args.action, "rollover")
-            self.assertEqual(rollover_args.terminal, "none")
-            self.assertEqual(rollover_args.rollover_trigger, "peer-stale")
+            mocked_rollover.assert_not_called()
+
+    def test_reviewer_follow_prefers_launch_when_typed_recovery_can_auto_fix(self) -> None:
+        args = self._build_reviewer_follow_args(max_follow_snapshots=7)
+        frames: list[dict[str, object]] = []
+        ensure_result = EnsureHeartbeatResult(
+            refreshed=True,
+            reviewer_mode="active_dual_agent",
+            reason="reviewer-follow",
+            state_write=None,
+            error=None,
+        )
+        status_report = {
+            "command": "review-channel",
+            "action": "reviewer-heartbeat",
+            "ok": True,
+            "errors": [],
+            "review_needed": True,
+            "bridge_liveness": {
+                "reviewer_mode": "active_dual_agent",
+                "effective_reviewer_mode": "active_dual_agent",
+                "current_instruction_revision": "56bcd5d01510",
+                "launch_truth": "detached_runtime_only",
+                "claude_ack_current": True,
+                "poll_status_automation_only": True,
+                "push_enforcement": {
+                    "checkpoint_required": False,
+                    "safe_to_continue_editing": True,
+                },
+            },
+            "attention": {
+                "status": "review_loop_relaunch_required",
+                "summary": "The declared dual-agent review loop is not actually live.",
+            },
+            "recovery_assessment": {
+                "decision": {
+                    "action_id": "relaunch_review_loop",
+                    "command": "python3 dev/scripts/devctl.py review-channel --action launch --terminal none --format json --execution-mode markdown-bridge --refresh-bridge-heartbeat-if-stale",
+                    "requires_approval": False,
+                    "can_auto_fix": True,
+                }
+            },
+            "reviewer_runtime": {
+                "reviewer_mode": "active_dual_agent",
+                "effective_reviewer_mode": "active_dual_agent",
+                "reviewer_freshness": "stale",
+                "stale_reason": "review_loop_relaunch_required",
+                "implementer_ack_current": True,
+                "last_poll": {
+                    "last_codex_poll_utc": "2026-04-02T00:00:00Z",
+                    "last_codex_poll_age_seconds": 400,
+                },
+            },
+            "reviewer_worker": {
+                "state": "review_needed",
+                "review_needed": True,
+                "semantic_review_claimed": False,
+            },
+        }
+        launch_report = {
+            "launched": True,
+            "errors": [],
+        }
+
+        def fake_emit(payload: dict[str, object], *, args) -> int:
+            frames.append(payload)
+            return 0
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            bridge_path = root / "bridge.md"
+            bridge_path.write_text(_build_bridge_text(), encoding="utf-8")
+            review_channel_path = root / "dev/active/review_channel.md"
+            review_channel_path.parent.mkdir(parents=True, exist_ok=True)
+            review_channel_path.write_text(
+                _build_review_channel_text(),
+                encoding="utf-8",
+            )
+            with (
+                patch.object(review_channel_follow_runtime, "ensure_reviewer_heartbeat", return_value=ensure_result),
+                patch.object(review_channel_follow_runtime, "_build_reviewer_state_report", return_value=(status_report, 0)),
+                patch.object(review_channel_follow_runtime, "emit_follow_ndjson_frame", side_effect=fake_emit),
+                patch.object(review_channel_follow_runtime, "reset_follow_output", return_value=None),
+                patch.object(review_channel_follow_runtime, "_run_bridge_action", return_value=(launch_report, 0)) as mocked_launch,
+                patch.object(review_channel_command.time, "sleep", return_value=None),
+            ):
+                report, rc = review_channel_command._run_reviewer_follow_action(
+                    args=args,
+                    repo_root=root,
+                    paths={
+                        "bridge_path": bridge_path,
+                        "review_channel_path": review_channel_path,
+                        "rollover_dir": root / "dev/reports/review_channel/rollovers",
+                        "status_dir": root / "dev/reports/review_channel/latest",
+                    },
+                )
+
+            self.assertEqual(rc, 0)
+            self.assertEqual(report["snapshots_emitted"], 7)
+            self.assertEqual(len(frames), 7)
+            relaunch_frames = [
+                frame for frame in frames if frame.get("auto_relaunch")
+            ]
+            self.assertEqual(len(relaunch_frames), 1)
+            self.assertTrue(relaunch_frames[0]["auto_relaunch"]["launched"])
+            self.assertEqual(
+                relaunch_frames[0]["auto_relaunch"]["relaunch_action"],
+                "launch",
+            )
+            self.assertFalse(any(frame.get("auto_rollover") for frame in frames))
+            mocked_launch.assert_called_once()
+            launch_args = mocked_launch.call_args.kwargs["args"]
+            self.assertEqual(launch_args.action, "launch")
+            self.assertEqual(launch_args.terminal, "none")
+
+    def test_reviewer_follow_does_not_rollover_when_launch_is_approval_gated(self) -> None:
+        args = self._build_reviewer_follow_args(max_follow_snapshots=7)
+        frames: list[dict[str, object]] = []
+        ensure_result = EnsureHeartbeatResult(
+            refreshed=True,
+            reviewer_mode="active_dual_agent",
+            reason="reviewer-follow",
+            state_write=None,
+            error=None,
+        )
+        status_report = {
+            "command": "review-channel",
+            "action": "reviewer-heartbeat",
+            "ok": True,
+            "errors": [],
+            "review_needed": True,
+            "service_identity": {"service_id": "review-channel:test"},
+            "bridge_liveness": {
+                "reviewer_mode": "active_dual_agent",
+                "effective_reviewer_mode": "active_dual_agent",
+                "current_instruction_revision": "56bcd5d01510",
+                "launch_truth": "detached_runtime_only",
+                "claude_ack_current": True,
+                "poll_status_automation_only": True,
+                "push_enforcement": {
+                    "checkpoint_required": True,
+                    "safe_to_continue_editing": False,
+                },
+            },
+            "attention": {
+                "status": "review_loop_relaunch_required",
+                "summary": "The declared dual-agent review loop is not actually live.",
+                "recommended_command": "python3 dev/scripts/devctl.py review-channel --action launch",
+            },
+            "recovery_assessment": {
+                "decision": {
+                    "action_id": "relaunch_review_loop",
+                    "command": "python3 dev/scripts/devctl.py review-channel --action launch --terminal none --format json --execution-mode markdown-bridge --refresh-bridge-heartbeat-if-stale",
+                    "requires_approval": True,
+                    "can_auto_fix": False,
+                }
+            },
+            "reviewer_runtime": {
+                "reviewer_mode": "active_dual_agent",
+                "effective_reviewer_mode": "active_dual_agent",
+                "reviewer_freshness": "stale",
+                "stale_reason": "review_loop_relaunch_required",
+                "implementer_ack_current": True,
+                "recovery_action_allowed": "python3 dev/scripts/devctl.py review-channel --action launch --terminal none --format json --execution-mode markdown-bridge --refresh-bridge-heartbeat-if-stale",
+                "last_poll": {
+                    "last_codex_poll_utc": "2026-04-02T00:00:00Z",
+                    "last_codex_poll_age_seconds": 400,
+                },
+            },
+            "reviewer_worker": {
+                "state": "review_needed",
+                "review_needed": True,
+                "current_hash": "b" * 64,
+                "reviewed_hash": "a" * 64,
+                "semantic_review_claimed": False,
+            },
+        }
+
+        def fake_emit(payload: dict[str, object], *, args) -> int:
+            frames.append(payload)
+            return 0
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            bridge_path = root / "bridge.md"
+            bridge_path.write_text(_build_bridge_text(), encoding="utf-8")
+            review_channel_path = root / "dev/active/review_channel.md"
+            review_channel_path.parent.mkdir(parents=True, exist_ok=True)
+            review_channel_path.write_text(
+                _build_review_channel_text(),
+                encoding="utf-8",
+            )
+            artifact_paths = resolve_artifact_paths(repo_root=root)
+            with (
+                patch.object(review_channel_follow_runtime, "ensure_reviewer_heartbeat", return_value=ensure_result),
+                patch.object(review_channel_follow_runtime, "_build_reviewer_state_report", return_value=(status_report, 0)),
+                patch.object(review_channel_follow_runtime, "emit_follow_ndjson_frame", side_effect=fake_emit),
+                patch.object(review_channel_follow_runtime, "reset_follow_output", return_value=None),
+                patch.object(review_channel_follow_runtime, "_run_bridge_action", return_value=({"launched": True}, 0)) as mocked_launch,
+                patch.object(review_channel_command.time, "sleep", return_value=None),
+            ):
+                report, rc = review_channel_command._run_reviewer_follow_action(
+                    args=args,
+                    repo_root=root,
+                    paths={
+                        "bridge_path": bridge_path,
+                        "review_channel_path": review_channel_path,
+                        "rollover_dir": root / "dev/reports/review_channel/rollovers",
+                        "status_dir": root / "dev/reports/review_channel/latest",
+                        "artifact_paths": artifact_paths,
+                    },
+                )
+
+            self.assertEqual(rc, 0)
+            self.assertEqual(report["snapshots_emitted"], 7)
+            self.assertEqual(len(frames), 7)
+            self.assertFalse(any(frame.get("auto_relaunch") for frame in frames))
+            self.assertFalse(any(frame.get("auto_rollover") for frame in frames))
+            self.assertTrue(any(frame.get("review_trigger", {}).get("queued") for frame in frames))
+            mocked_launch.assert_not_called()
 
     def test_reviewer_follow_queues_claude_trigger_when_relaunch_is_required(self) -> None:
         args = self._build_reviewer_follow_args(max_follow_snapshots=1)
@@ -3256,7 +3460,7 @@ class ReviewChannelWatchFollowTests(unittest.TestCase):
         result = None
         for _ in range(STALL_ESCALATION_POLLS + 2):
             result = maybe_auto_trigger_rollover_on_stale_codex(
-                rollover_fn=fake_rollover,
+                bridge_action_fn=fake_rollover,
                 rollover_input=ReviewerFollowRolloverInput(
                     args=SimpleNamespace(await_ack_seconds=180),
                     repo_root=Path("."),
@@ -3362,7 +3566,7 @@ class ReviewChannelWatchFollowTests(unittest.TestCase):
         result = None
         for _ in range(STALL_ESCALATION_POLLS + 2):
             result = maybe_auto_trigger_rollover_on_stale_codex(
-                rollover_fn=fake_rollover,
+                bridge_action_fn=fake_rollover,
                 rollover_input=ReviewerFollowRolloverInput(
                     args=SimpleNamespace(await_ack_seconds=180),
                     repo_root=Path("."),

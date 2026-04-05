@@ -281,6 +281,48 @@ The MP scopes remain valid but are now cross-cut by enforcement-first priority.
 
 ## Progress Log
 
+- 2026-04-05: Reviewed Claude follow-up commits `fde0899` and `5eb8bbc`.
+  Accepted the technical commit-gate closure in `fde0899`: `devctl commit`
+  now uses the explicit `--` passthrough contract via
+  `argparse.REMAINDER`, the hook guidance path no longer dies under
+  `set -e`, and focused verification passed
+  (`python3 -m pytest dev/scripts/devctl/tests/vcs/test_commit_gate.py dev/scripts/devctl/tests/runtime/test_reviewer_observation.py dev/scripts/devctl/tests/governance/test_session_resume.py` -> `104 passed`).
+  One process finding remains on the follow-up bridge handoff: Claude did
+  not write the required commit-gate closure into this plan before
+  self-promoting in `bridge.md`, and the bridge text declared "ready for
+  promotion to next slice" / implied work should continue while reviewer
+  promotion was still pending. Bound the next slice to lane hygiene only:
+  no new parity/CI work until the missing plan-state closure and explicit
+  await-review behavior are restored. The separate "still stopping"
+  symptom is runtime state, not a new coding slice: `review-channel status`
+  still reports `review_loop_relaunch_required` / `launch_truth=detached_runtime_only`,
+  so agents must report that blocker instead of routing around it.
+- 2026-04-05: Reviewed Claude's mixed dirty tree after `e391e88`. The
+  bounded `ReviewerObservation` observed-head follow-up is now closed:
+  `status_projection.py` threads `snapshot` into the typed bridge reducer,
+  `status_projection_bridge_state.py` / `review_bridge_field_authority.py`
+  now carry `head_at_push_time`, and `ReviewBridgeState` persists that field.
+  Live projections now agree on the observed head: `compact.json`,
+  `review_state.json`, and `session-resume` all surface
+  `head_at_push_time` / `observed_head_sha=e391e880e76fbb45e343ede4b7e75c57c1bd8b5a`.
+  Focused verification passed:
+  `python3 -m pytest dev/scripts/devctl/tests/vcs/test_commit_gate.py dev/scripts/devctl/tests/runtime/test_reviewer_observation.py dev/scripts/devctl/tests/governance/test_session_resume.py`
+  (`101 passed`). The same dirty tree widened out of scope into a new
+  commit-gate slice before checkpoint. New review findings: the real
+  `devctl commit` CLI still rejects option-style passthrough flags because
+  `sync_parser.py` models passthrough as a positional list, and the new
+  pre-commit hook's friendly failure guidance is dead code under `set -e`.
+  Bound the next slice to commit-gate closure plus checkpoint; do not widen
+  further until the guarded commit path is honest.
+- 2026-04-05: Reviewed follow-up commit `e391e88`. The stale/not-seen parity
+  miss is closed: `session-resume` now reads typed
+  `reviewer_runtime.reviewer_freshness` first, so stale reviewer state no
+  longer degrades to `pending_review` in the session cache. One bounded
+  contract miss remains: live `compact.json` / `review_state.json`
+  `reviewer_observation.observed_head_sha` is still blank because the reduced
+  bridge/state projection still never carries `head_at_push_time`. Keep the
+  next slice focused on threading that typed field through the bridge/review-
+  state model path and adding one projection/session-resume parity regression.
 - 2026-04-05: Fixed ReviewerObservation honesty (Codex review of `a29477d`).
   `poll_due`/`overdue` now fail closed to `not_seen`/`stale=true`.
   Projection uses typed `reviewer_runtime.reviewer_freshness` instead of

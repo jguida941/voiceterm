@@ -405,6 +405,18 @@ Out of scope until the local proof gate is green:
 
 ## Progress Log
 
+- 2026-04-05: Tightened the reviewer-follow stale-runtime recovery seam so it
+  now obeys the typed recovery command instead of inventing a second stale-
+  reviewer policy. `reviewer_follow_recovery.py` now suppresses the legacy
+  peer-stale `rollover` path whenever `recovery_assessment` /
+  `recovery_action_allowed` says the correct repair is `launch`, and
+  auto-launch only fires when the typed decision explicitly marks relaunch as
+  auto-fixable. When relaunch stays approval-gated, the follow loop now fails
+  closed and relies on the existing queued reviewer-turn packet instead of
+  taking the wrong side effect. Focused reviewer-follow regressions now cover
+  typed launch preference, approval-gated no-auto-launch, skipped restore when
+  review is not needed, and helper-level rollover fallback.
+
 - 2026-04-03: Landed Slice 1 and Slice 1.5 of the review-loop authority
   repair on the live `MP-358` lane. The new shared
   `review_channel/turn_authority.py` projection now derives reviewer mode /
