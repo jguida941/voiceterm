@@ -210,15 +210,25 @@ def _extract_preflight_violations(
 ) -> list[dict[str, Any]]:
     """Build typed ViolationRecord dicts from the preflight step result.
 
-    Wraps the preflight step in a minimal steps list and delegates to
-    ``build_check_result`` so the dashboard can consume file/line/policy/fix/
-    source/severity without re-parsing ``format_steps_text`` output.
+    Parses the preflight step's ``failure_output`` for individual per-check
+    step lines (``FAIL  check_name  -- summary``) emitted by the check-router.
+    Each failed check becomes its own ViolationRecord with the real check name.
+    Falls back to treating the whole preflight as one violation when the output
+    cannot be parsed into individual checks.
     Returns an empty list when no preflight step ran or it passed.
     """
     if not preflight_step:
         return []
     if preflight_step.get("returncode", 0) == 0:
         return []
+    failure_output = str(preflight_step.get("failure_output") or "")
+    per_check = _parse_per_check_failures(failure_output)
+    if per_check:
+        steps = _per_check_to_steps(per_check, preflight_step)
+        result = build_check_result(
+            steps=steps, timestamp=timestamp, command="push-preflight",
+        )
+        return [v.to_dict() for v in result.violations]
     step = dict(preflight_step)
     if "name" not in step:
         step["name"] = "push-preflight"
@@ -226,6 +236,48 @@ def _extract_preflight_violations(
         steps=[step], timestamp=timestamp, command="push-preflight",
     )
     return [v.to_dict() for v in result.violations]
+
+
+_CHECK_LINE_RE = __import__("re").compile(
+    r"^\s*(PASS|FAIL|SKIP)\s+(\S+)(?:\s+--\s+(.*))?$"
+)
+
+
+def _parse_per_check_failures(
+    failure_output: str,
+) -> list[dict[str, str]]:
+    """Extract individual check results from check-router text output.
+
+    Recognizes lines like ``  FAIL  code_shape  -- file too long`` emitted
+    by ``render_check_result_text``.  Returns only the failed entries.
+    """
+    results: list[dict[str, str]] = []
+    for line in failure_output.splitlines():
+        m = _CHECK_LINE_RE.match(line)
+        if not m:
+            continue
+        status, name, summary = m.group(1), m.group(2), (m.group(3) or "")
+        if status == "FAIL":
+            results.append({"name": name, "summary": summary.strip()})
+    return results
+
+
+def _per_check_to_steps(
+    per_check: list[dict[str, str]],
+    preflight_step: dict[str, Any],
+) -> list[dict[str, Any]]:
+    """Convert parsed per-check failures into step dicts for build_check_result."""
+    rc = preflight_step.get("returncode", 1)
+    return [
+        {
+            "name": entry["name"],
+            "cmd": preflight_step.get("cmd", []),
+            "returncode": rc,
+            "failure_output": entry["summary"],
+            "skipped": False,
+        }
+        for entry in per_check
+    ]
 
 
 def _timestamp() -> str:

@@ -2869,6 +2869,109 @@ class TestViolationRecordInPushReport(unittest.TestCase):
         )
         self.assertEqual(_extract_preflight_violations(None, "2026-01-01T00:00:00Z"), [])
 
+    def test_per_check_violations_from_failure_output(self) -> None:
+        """Preflight failure_output with per-check lines yields individual violations."""
+        from dev.scripts.devctl.commands.vcs.push_report import (
+            _extract_preflight_violations,
+        )
+        output = (
+            "\ncheck summary: 2/4 passed, 2 failed\n"
+            "------------------------------------\n"
+            "  PASS  docs_check\n"
+            "  FAIL  code_shape  -- dev/scripts/devctl/commands/dashboard.py:412 exceeds soft limit\n"
+            "  FAIL  function_duplication  -- duplicate body in push_report.py\n"
+            "  PASS  hygiene\n"
+        )
+        step = {
+            "name": "push-preflight",
+            "cmd": ["bash", "-lc", "check-router"],
+            "returncode": 1,
+            "failure_output": output,
+        }
+        violations = _extract_preflight_violations(step, "2026-01-01T00:00:00Z")
+        names = [v["step_name"] for v in violations]
+        self.assertIn("code_shape", names)
+        self.assertIn("function_duplication", names)
+        self.assertEqual(len(violations), 2)
+
+    def test_preflight_fallback_when_no_per_check_lines(self) -> None:
+        """When failure_output has no parseable check lines, falls back to one blob."""
+        from dev.scripts.devctl.commands.vcs.push_report import (
+            _extract_preflight_violations,
+        )
+        step = {
+            "name": "push-preflight",
+            "returncode": 1,
+            "failure_output": "unexpected error: process crashed",
+        }
+        violations = _extract_preflight_violations(step, "2026-01-01T00:00:00Z")
+        self.assertEqual(len(violations), 1)
+        self.assertEqual(violations[0]["step_name"], "push-preflight")
+
+
+class TestTypedVerdictExtraction(unittest.TestCase):
+    """Regression: typed ReviewState verdict must populate reviewer_activity."""
+
+    def test_typed_bridge_verdict_from_reviewer_runtime(self) -> None:
+        """_extract_typed_bridge_fields reads reviewer_runtime.review_acceptance.current_verdict."""
+        from dev.scripts.devctl.commands.dashboard_typed_state import (
+            _extract_typed_bridge_fields,
+        )
+        review_state = {
+            "bridge": {
+                "current_instruction": "fix shape",
+                "last_codex_poll_utc": "2026-04-04T00:00:00Z",
+                "reviewer_mode": "active_dual_agent",
+            },
+            "reviewer_runtime": {
+                "review_acceptance": {
+                    "current_verdict": "- Reviewer-accepted.",
+                },
+            },
+        }
+        fields = _extract_typed_bridge_fields(review_state)
+        self.assertEqual(fields["verdict"], "- Reviewer-accepted.")
+
+    def test_typed_bridge_verdict_fallback_missing_runtime(self) -> None:
+        """Verdict stays n/a when reviewer_runtime is absent."""
+        from dev.scripts.devctl.commands.dashboard_typed_state import (
+            _extract_typed_bridge_fields,
+        )
+        review_state = {"bridge": {}}
+        fields = _extract_typed_bridge_fields(review_state)
+        self.assertEqual(fields["verdict"], "n/a")
+
+    def test_health_view_includes_reviewer_activity_verdict(self) -> None:
+        """dashboard --view health --format json has reviewer_activity.last_verdict populated."""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            review_state = {
+                "reviewer_runtime": {
+                    "review_acceptance": {
+                        "current_verdict": "- Needs rework on F2.",
+                    },
+                },
+                "bridge": {
+                    "current_instruction": "fix code shape",
+                    "last_codex_poll_utc": "2026-04-04T01:00:00Z",
+                    "reviewer_mode": "active_dual_agent",
+                    "open_findings": "- F2: code_shape violation",
+                    "last_reviewed_scope": "- dev/scripts/devctl/commands/dashboard.py",
+                },
+                "current_session": {},
+            }
+            _write_artifact(root, "dev/reports/review_channel/state/latest.json", review_state)
+            _write_artifact(root, "dev/reports/review_channel/latest/compact.json", _minimal_compact())
+
+            with patch.object(dashboard, "_git_short", return_value={
+                "branch": "main", "head": "abc", "dirty": "CLEAN",
+            }), patch.object(dashboard, "_repo_name", return_value="test"):
+                snapshot = dashboard.build_snapshot(repo_root=root, view="health")
+
+            activity = snapshot.get("reviewer_activity", {})
+            self.assertNotEqual(activity.get("last_verdict"), "n/a")
+            self.assertIn("Needs rework", activity.get("last_verdict", ""))
+
 
 if __name__ == "__main__":
     unittest.main()

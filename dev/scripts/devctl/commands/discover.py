@@ -78,12 +78,15 @@ def _run_dispatch(args, paths: list[str]) -> int:
     """Handle ``--dispatch [PATH ...]`` by resolving an AgentDispatchPacket.
 
     When no paths are given, uses ``git diff --name-only`` to derive
-    the current change set automatically.
+    the current change set automatically.  Loads ``enabled_checks`` from
+    ``ProjectGovernance`` so the dispatch packet only includes guards and
+    probes that the repo has turned on.
     """
     from ..governance.system_catalog import resolve_agent_dispatch
 
     changed = list(paths) if paths else _git_diff_paths()
-    packet = resolve_agent_dispatch(changed)
+    enabled = _load_enabled_checks()
+    packet = resolve_agent_dispatch(changed, enabled_checks=enabled)
     payload = asdict(packet)
     payload["command"] = "discover"
     payload["dispatch"] = True
@@ -102,6 +105,23 @@ def _run_dispatch(args, paths: list[str]) -> int:
         writer=write_output,
     )
     return 0
+
+
+def _load_enabled_checks() -> object | None:
+    """Load EnabledChecks from ProjectGovernance, returning None on failure.
+
+    Delegates to ``scan_repo_governance`` which resolves the quality-policy
+    for this repo.  Returns None (open-world default) if the governance
+    scan fails so dispatch degrades gracefully.
+    """
+    try:
+        from ..config import REPO_ROOT
+        from ..governance.draft import scan_repo_governance
+
+        gov = scan_repo_governance(REPO_ROOT)
+        return gov.enabled_checks
+    except Exception:
+        return None
 
 
 def _git_diff_paths() -> list[str]:

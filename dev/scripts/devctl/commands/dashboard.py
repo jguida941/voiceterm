@@ -384,7 +384,7 @@ _VIEW_SECTIONS: dict[str, frozenset[str]] = {
         "repo", "publication", "flow", "coordination", "summary",
     }),
     "health": frozenset({
-        "repo", "health", "review", "coordination", "summary",
+        "repo", "health", "review", "coordination", "reviewer_activity", "summary",
     }),
 }
 

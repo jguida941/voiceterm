@@ -142,7 +142,8 @@ def _extract_typed_bridge_fields(
 
     The typed ReviewBridgeState carries current_instruction, open_findings,
     reviewer_mode, last_codex_poll_utc, and last_reviewed_scope. Verdict is
-    bridge-markdown-only and not modeled in ReviewState, so it stays "n/a".
+    extracted from ``reviewer_runtime.review_acceptance.current_verdict``
+    which is the typed equivalent of the bridge "Current Verdict" section.
     """
     bridge = review_state.get("bridge", {})
     if not isinstance(bridge, dict):
@@ -152,16 +153,33 @@ def _extract_typed_bridge_fields(
     findings = bridge.get("open_findings", "")
     scope = bridge.get("last_reviewed_scope", "")
     truncated = instr[:120] + ("..." if len(instr) > 120 else "") if instr else "n/a"
+    verdict = _resolve_typed_verdict(review_state)
     return BridgeFields(
         last_poll=poll_utc if poll_utc else "n/a",
         last_poll_utc=poll_utc,
         reviewer_mode=bridge.get("reviewer_mode", "n/a"),
         instruction=truncated,
-        verdict="n/a",
+        verdict=verdict,
         findings_raw=findings,
         reviewed_scope_raw=scope,
         instruction_full=instr if instr else "n/a",
     )
+
+
+def _resolve_typed_verdict(review_state: dict[str, Any]) -> str:
+    """Extract the current verdict from ReviewerRuntimeContract.review_acceptance.
+
+    Falls back to "n/a" when the reviewer_runtime subtree is absent or
+    the current_verdict field is empty.
+    """
+    rt = review_state.get("reviewer_runtime", {})
+    if not isinstance(rt, dict):
+        return "n/a"
+    acceptance = rt.get("review_acceptance", {})
+    if not isinstance(acceptance, dict):
+        return "n/a"
+    verdict = acceptance.get("current_verdict", "")
+    return verdict.strip() if verdict and verdict.strip() else "n/a"
 
 
 def _extract_typed_bridge_findings(

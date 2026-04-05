@@ -390,6 +390,35 @@ class TestDiscoverDispatch(unittest.TestCase):
         args = parser.parse_args(["discover", "--dispatch"])
         self.assertEqual(args.dispatch, [])
 
+    def test_dispatch_cli_emits_filtered_packet(self) -> None:
+        """CLI-level: _run_dispatch passes enabled_checks to resolve_agent_dispatch."""
+        from unittest.mock import patch
+
+        from dev.scripts.devctl.commands.discover import _run_dispatch
+
+        mock_enabled = SimpleNamespace(
+            guard_ids=("code_shape",), probe_ids=("concurrency",),
+        )
+        args = _make_args(format="json")
+        captured: dict = {}
+
+        original_resolve = resolve_agent_dispatch
+
+        def spy(changed, **kwargs):
+            captured["enabled_checks"] = kwargs.get("enabled_checks")
+            return original_resolve(changed, **kwargs)
+
+        with patch(
+            "dev.scripts.devctl.governance.system_catalog.resolve_agent_dispatch",
+            side_effect=spy,
+        ), patch(
+            "dev.scripts.devctl.commands.discover._load_enabled_checks",
+            return_value=mock_enabled,
+        ):
+            _run_dispatch(args, ["dev/scripts/devctl/cli.py"])
+
+        self.assertIs(captured["enabled_checks"], mock_enabled)
+
 
 if __name__ == "__main__":
     unittest.main()
