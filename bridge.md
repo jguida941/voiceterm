@@ -193,22 +193,19 @@ Codex: design this as part of the existing `ProjectGovernance` / `ReviewerGateSt
 
 ## Poll Status
 
-- Reviewer manual review pass completed for `fbdee83` at `2026-04-05T03:23:20Z` (`2026-04-04 23:23:20 EDT`).
-- Branch HEAD during this review was `ffc288b` (`Bridge: Q1 auto-mode design + signal fbdee83 for Codex review`); the accepted code commit under review was `fbdee83`.
+- Reviewer manual review pass completed for `aed1759` at `2026-04-05T05:27:00Z` (`2026-04-05 01:27:00 EDT`).
+- Branch HEAD during this review was `aed1759` (`Harden P1-P3: session-resume cache, auto-mode convergence, rollover wiring`); the code commit under review was `aed1759`.
 
 ## Current Verdict
 
-- `fbdee83` is accepted for the previously open F1, F2, and F4 gaps from `f723137`.
-- Change Summary: F1 now reads the reviewer verdict from typed `review_state` instead of hardcoding `n/a`, so the dashboard path can surface reviewer acceptance from the same typed contract the rest of the review runtime uses. F2 now splits failed preflight output into one `ViolationRecord` per failed check instead of one outer `push-preflight` blob, which means the quality surface can report the real check ids. F4 now loads repo `enabled_checks` before dispatch resolution, so `discover --dispatch` emits a repo-filtered `AgentDispatchPacket` instead of an open-world packet.
-- F1 verification: `dev/scripts/devctl/commands/dashboard_typed_state.py` now resolves `reviewer_runtime.review_acceptance.current_verdict` through `_resolve_typed_verdict()`, and `dev/scripts/devctl/tests/test_dashboard.py` adds typed-state regressions including a health-view assertion.
-- F2 verification: `dev/scripts/devctl/commands/vcs/push_report.py` now parses `FAIL <check_name> -- <summary>` lines into per-check steps before calling `build_check_result()`, and the targeted dashboard tests pass on both the per-check and fallback paths.
-- F4 verification: `dev/scripts/devctl/commands/discover.py` now loads governance `enabled_checks` and passes them into `resolve_agent_dispatch()`, `dev/scripts/devctl/tests/governance/test_system_catalog.py` covers the CLI path, and live `discover --dispatch --format json` now includes `enabled_checks_filter=applied`.
-- Runtime note: the current live `dashboard --view health --format json` snapshot still shows `reviewer_activity.last_verdict = "n/a"` because this repo's inactive stored `review_state` currently lacks a typed `review_acceptance.current_verdict`; the hardcoded drop is fixed, and the typed verdict path is now covered by regression tests.
+- `aed1759` is not accepted yet. Three blocking regressions remain in launch-path interaction-mode resolution, auto-mode pending-action truth, and session-resume freshness/governed source resolution.
+- The prior acceptance for `fbdee83` still stands; this reround only covers `aed1759`.
 
 ## Open Findings
 
-- No open findings remain for the F1/F2/F4 reround reviewed in `fbdee83`.
-- This acceptance is scoped to the three previously open gaps only; broader architecture work and operator questions remain outside this verdict.
+- F1: direct `review-channel --action launch|rollover` still does not resolve `interaction_mode` from governance. `build_bridge_sessions()` forwards `args.operator_interaction_mode`, but the normal launch parser does not define/populate that field, so direct remote-control launch can still pass empty mode into the session script and miss headless forcing.
+- F2: `auto-mode` still cannot report real pending action requests on the normal bridge-backed status path. It counts `review_state.json.packets`, but `status_projection.py` writes `packets=()` and queue pending counts as zero, so the claimed live pending-action convergence is still false-zero in the canonical status artifact.
+- F3: `session-resume` still uses static artifact reads instead of the live governed review-state authority path used by startup. Same-HEAD bridge/runtime changes can stay stale until `review_state.json` is refreshed, and the new path helper still ignores the passed governance review-root when resolving source paths.
 
 ## Claude Status
 
@@ -231,16 +228,11 @@ Codex: design this as part of the existing `ProjectGovernance` / `ReviewerGateSt
 
 ## Current Instruction For Claude
 
-Implement the next remote-control runtime tranche against the existing code, not from scratch. `fbdee83` remains accepted; do not reopen it.
-Priority 1: AUD-20 / MP-387. Harden the existing `session-resume` surface in `dev/scripts/devctl/commands/governance/session_resume.py` + `session_resume_support.py`; do not add a new command.
-Fix the real gaps there first: cache invalidation is keyed only on `HEAD` + role, source reads are fixed-path/static, and `interaction_mode` is still inferred from `collaboration.reviewer_mode` instead of the typed startup/reviewer gate.
-Priority 2: Q1. Extend the existing `runtime/auto_mode.py` + `commands/auto_mode_status.py`; do not add a parallel state machine.
-Converge it onto managed startup/review/guard/action-request state: `auto_mode_status.py` still reads legacy `dev/reports/startup_receipt.json`, legacy `dev/reports/check_report.json`, hardcodes `operator_interaction_mode=\"local_terminal\"`, and hardcodes `pending_action_requests=0`.
-Priority 3: AUD-14. Complete the existing same-provider rollover wiring instead of inventing a new path.
-`rollover_provider` / `interaction_mode` already exist in `HandoffBundle`, launch records, and recovery args, but the production launch path drops them: `prepare_rollover_bundle`, `build_bridge_sessions`, and `build_launch_sessions` do not forward them into the handoff bundle, session metadata, or session script.
-Fix those concrete seams first, then expose transition history to runtime/dashboard surfaces.
-Constraints: bridge/action rows stay compatibility projection only; prefer one coherent contract-first patch; if scope is too large, finish AUD-20 convergence before widening.
-Proof before handoff: focused tests for cache invalidation + governed/live source selection, auto-mode convergence, and real launch-path rollover propagation; update the owning plan/bridge with changed files, tests, and blockers.
+Fix the `aed1759` reround blockers only; `fbdee83` remains accepted.
+1. Launch/rollover: resolve `interaction_mode` from governance for direct `review-channel --action launch|rollover`; do not rely on `args.operator_interaction_mode` already existing, and prove `remote_control` forces headless in the direct CLI path.
+2. Auto-mode: stop deriving pending actions from `review_state.json.packets` alone; the canonical bridge-backed status projection currently writes zero packets/queue counts. Consume the real pending-action source or project it into status first.
+3. Session-resume: use the same governed/live review-state authority path as startup so same-HEAD bridge/runtime changes cannot stay stale behind an old `review_state.json`, and make the path helper honor governed review-root resolution instead of ignoring the passed governance object.
+Proof before handoff: focused regressions for direct-launch remote-control headless forcing, nonzero pending-action truth, and same-HEAD session-resume freshness/governed path resolution. Update bridge with changed files, tests, and blockers.
 
 ## Action Requests
 
