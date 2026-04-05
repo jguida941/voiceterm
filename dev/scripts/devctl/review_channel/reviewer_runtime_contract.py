@@ -26,7 +26,10 @@ from .peer_liveness import reviewer_mode_is_active
 from .peer_recovery import STALE_PEER_RECOVERY
 from .reviewer_runtime_doctor import build_reviewer_doctor_surface
 from .reviewer_runtime_rollover import resolve_reviewer_rollover_state
-from .reviewer_runtime_session_owner import resolve_reviewer_session_owner
+from .reviewer_runtime_session_owner import (
+    conductor_visibility,
+    resolve_reviewer_session_owner,
+)
 
 
 @dataclass(frozen=True)
@@ -105,6 +108,10 @@ def build_reviewer_runtime_contract(
         effective_reviewer_mode=effective_mode,
         reviewer_freshness=reviewer_freshness,
         stale_reason=stale_reason,
+        conductor_visibility=(
+            str(bridge_liveness.get("conductor_visibility") or "").strip()
+            or conductor_visibility(session_output_root=inputs.session_output_root)
+        ),
         implementer_ack_current=implementer_ack_current,
         implementation_blocked=implementation_blocked,
         implementation_block_reason=implementation_block_reason,

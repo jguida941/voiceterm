@@ -17,6 +17,8 @@ from .peer_liveness import AttentionStatus
 from .peer_recovery import (
     REVIEW_CHANNEL_RENDER_BRIDGE_COMMAND,
     STALE_PEER_RECOVERY,
+    build_implementer_recover_command,
+    build_live_relaunch_command,
 )
 
 _AFFECTED_SURFACES = (
@@ -38,6 +40,7 @@ def build_recovery_assessment(
     current_session: ReviewCurrentSessionState | None = None,
     push_state: Mapping[str, object] | None = None,
     contract_errors: Sequence[object] | None = None,
+    operator_interaction_mode: str = "",
 ) -> RecoveryAssessmentState:
     """Build the authoritative diagnosis/decision pair from typed review inputs."""
     liveness = dict(bridge_liveness)
@@ -71,6 +74,7 @@ def build_recovery_assessment(
         decision=_decision_state(
             status=status,
             ctx=ctx,
+            operator_interaction_mode=operator_interaction_mode,
         ),
     )
 
@@ -117,10 +121,17 @@ def _decision_state(
     *,
     status: str,
     ctx,
+    operator_interaction_mode: str,
 ) -> RecoveryDecisionState:
     entry = _recovery_entry(status)
     action_id = _action_id(status=status, ctx=ctx)
-    command = _command(status=status, ctx=ctx, default=str(entry.get("recommended_command") or ""))
+    command = _command(
+        status=status,
+        ctx=ctx,
+        action_id=action_id,
+        default=str(entry.get("recommended_command") or ""),
+        operator_interaction_mode=operator_interaction_mode,
+    )
     return RecoveryDecisionState(
         action_id=action_id,
         command=command,
@@ -203,7 +214,18 @@ def _action_id(*, status: str, ctx) -> str:
     return "refresh_review_status"
 
 
-def _command(*, status: str, ctx, default: str) -> str:
+def _command(
+    *,
+    status: str,
+    ctx,
+    action_id: str,
+    default: str,
+    operator_interaction_mode: str,
+) -> str:
+    if action_id == "relaunch_review_loop":
+        return build_live_relaunch_command(operator_interaction_mode)
+    if action_id == "recover_implementer":
+        return build_implementer_recover_command(operator_interaction_mode)
     if status == AttentionStatus.BRIDGE_CONTRACT_ERROR.value and _can_render_bridge(
         ctx.bridge_liveness
     ):

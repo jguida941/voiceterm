@@ -1,6 +1,6 @@
 # Platform Authority Loop Plan
 
-**Status**: active  |  **Last updated**: 2026-04-04 | **Owner:** Tooling/control plane/product architecture
+**Status**: active  |  **Last updated**: 2026-04-05 | **Owner:** Tooling/control plane/product architecture
 Execution plan contract: required
 This spec remains execution mirrored in `dev/active/MASTER_PLAN.md` under
 `MP-377`. It is the current subordinate execution spec for the `P0`
@@ -239,6 +239,22 @@ intended execution order is:
       evidence queries, success criteria, and any blast-radius / approval
       policy needed for the current slice. Runtime should consume that packet
       instead of asking AI/chat to restate plan truth from prose each run.
+- [ ] Extend that same pre-mutation contract with an explicit execution-lane
+      boundary: `deterministic_repair`, `governed_decision`, and
+      `governance_evolution` must be typed runtime states rather than prompt
+      lore. Known invariant repairs may auto-enforce only when repo-owned
+      authority already defines the canonical result; ambiguous or
+      behavior-shaping work must stop at packet/review/approval surfaces.
+- [ ] Add one typed `CandidateInvariant` / rule-promotion proposal family for
+      misses discovered through `missing_guard`, `missing_probe`,
+      false-positive root-cause review, or escaped external findings. Required
+      first fields: counterexample identity, proposed prevention surface,
+      replay corpus refs, FP/FN evidence, approval state, and promotion /
+      rejection outcome.
+- [ ] Keep runtime auto-repair scoped to predeclared invariant closure only:
+      contract-backed, idempotent, reversible, narrow-blast-radius repairs may
+      auto-apply; policy changes and new invariants must remain proposals until
+      the typed candidate/replay/approval path says otherwise.
 - [ ] Compile plan-derived worker/lane packets from that same
       `PlanExpectationPacket` path before any multi-agent fan-out:
       each packet must declare role, owned `PlanTargetRef` / issue cluster,
@@ -974,6 +990,20 @@ blocker or exception in plan state before skipping the declared order.
       (or equivalent typed row family), migrate `ledger_helpers.py` /
       `governance_review_log.py` to that contract, and keep raw
       `dict[str, Any]` only at narrow serialization edges.
+- [ ] Audit the remaining governed control-path seams for "meaning still lives
+      in prose/strings/bools" debt: when a startup/review/push/runtime concept
+      has a stable shape, replace free-string status values, boolean bundles,
+      and fixed-shape `dict[str, Any]` helpers with closed vocabularies,
+      frozen typed records, or explicit transition/state-machine contracts.
+      Keep this scoped to the portable governance boundary, not as a blanket
+      adopter-repo style rule.
+- [ ] Define one typed symbol-semantics companion family for the same governed
+      boundary (`SemanticSymbolRecord` / `SemanticDocRecord` or equivalent):
+      for selected governance/runtime symbols capture owner contract,
+      authority kind, typed inputs/outputs, bounded states, invariants,
+      transition notes, consumer surfaces, projection-only status, and
+      freshness hashes. This is the linker between canonical typed contracts
+      and semantic projection surfaces; it is not a second authority path.
 - [ ] Add one `GovernanceFinding` aggregate root (or equivalently bounded
       aggregate contract) over `FindingRecord`, `DecisionPacketRecord`, and
       the typed governance-review row so finding/decision/review lifecycle
@@ -1061,6 +1091,60 @@ blocker or exception in plan state before skipping the declared order.
       changed, why the system chose continue/checkpoint/review/push, which
       evidence blocked or allowed that choice, and the exact next command
       without inventing a parallel authority path.
+- [ ] Make developer-facing runtime output obey one explicit three-layer truth
+      stack on that same owner chain:
+      command layer (`source_command` / executed action),
+      fact layer (typed receipt / projection fields),
+      summary layer (short readable sentence). Terminal/chat/dashboard/mobile
+      summaries must be projections over those typed fields, not freeform
+      claims that require trust in model-private reasoning.
+- [ ] Add one provenance seam for observed vs inferred statements in the same
+      closure tranche: when a startup/status/review surface reports a
+      synthesized conclusion (`continue_editing`, `checkpoint_required`,
+      `review_needed`, `launch_truth`, `reviewer_accepted`, or similar), the
+      owning runtime contract should expose the source fields and command id so
+      a developer can recover "what exactly was observed?" without spelunking
+      through chat or unrelated logs.
+- [ ] Standardize the first developer-facing command surfaces on one shared
+      projection contract in that same tranche: `startup-context`,
+      `session-resume`, and the future `explain-latest` should all emit the
+      same minimal developer-view packet family (`source_command`,
+      `source_receipt_ref`, typed fact fields, observed-vs-inferred labels,
+      and `next_command`) so summary/markdown/bootstrap modes render from one
+      owner path instead of hand-built strings that re-derive guidance in the
+      presentation layer.
+- [ ] Route governed semantic-doc projection through the same owner chain:
+      `DocRegistry` / `doc-authority` should admit symbol-level semantic
+      records for selected governance/runtime symbols, `context-graph` /
+      ZGraph-compatible retrieval should expose them as near-code discovery,
+      and `SystemCatalog` / `discover` / bootstrap surfaces should consume the
+      same registry instead of re-describing symbol meaning in prose. Semantic
+      doc projection remains subordinate to the owning typed contract.
+- [ ] Remove remaining markdown-as-data consumers once the typed owner path is
+      live: dashboard/mobile/review helpers must stop regex-parsing `bridge.md`
+      / `Open Findings` / compatibility sections for structured fields when
+      `ReviewState.current_session`, `BridgeProjectionState`, reduced packet
+      state, or the new developer-view packet already expose the same truth.
+      Keep bridge markdown as compatibility projection only.
+- [ ] Converge overlapping read-side reducers in that same owner chain:
+      `ControlPlaneReadModel` plus reduced packet/state contracts should own
+      canonical read-side shaping, while `ControlState`, legacy
+      `controller_payload` / `review_payload`, and bridge-derived compatibility
+      helpers stay fallback-only during migration. Remove duplicate shaping
+      once parity proves a consumer can read the shared backend directly.
+- [ ] Add one developer-surface parity guard for that owner chain:
+      `startup-context`, `session-resume`, `review-channel status`,
+      dashboard, and mobile readouts must agree on shared command/fact-layer
+      fields, and every synthesized conclusion must carry a typed
+      source-command ref plus explicit observed-vs-inferred labeling before
+      the projection is considered closed.
+- [ ] Add one semantic-drift guard for that same symbol/doc lane before
+      promotion: fail when a governed semantic doc block or registry row
+      mentions fields missing from the owning dataclass/schema, states not
+      present in the contract's `Enum`/`Literal` space, undeclared consumers,
+      stale signature hashes, or projection-only surfaces mislabeled as
+      canonical authority. Stale semantic docs must degrade or block; they do
+      not silently remain trusted hints.
 - [ ] Use `PlanExpectationPacket` for plan-to-runtime reconciliation in the
       same closure tranche: compare selected plan expectations against
       observed runtime/test evidence and emit deterministic `Finding` rows for
@@ -1174,6 +1258,13 @@ blocker or exception in plan state before skipping the declared order.
       snapshots second, and the first operator/agent implementation stays
       report-only (`context-graph` / hot-index query over existing artifacts)
       until the contract is proven.
+- [ ] Freeze the semantic-routing boot order before wiring richer graph
+      behavior into live intake: continuation work still boots through
+      `session-resume`, `SessionCachePacket`, and typed startup/work-intake
+      state first; deterministic changed-path/lane/policy narrowing produces
+      the bounded candidate set second; only then may `ConceptIndex` /
+      ZGraph-compatible reducers rank, compress, or explain that frontier.
+      Semantic routing reduces search space; it does not widen authority.
 - [ ] Freeze the typed context-escalation policy on top of that graph:
       injection is allowed only for unread scope, repeated failed attempt,
       guard-hit scope, or explicit blast-radius uncertainty. Escalation stays
@@ -1228,6 +1319,24 @@ blocker or exception in plan state before skipping the declared order.
       matches first, trigger/concept expansion second, typed-relation walks
       third, bounded 2-3 hop inference fourth, and fail-closed fallback only
       after the cheaper filters reject the scope.
+- [ ] Upgrade `SystemCatalog` from flat capability inventory to the static
+      graph root for routing in that same lane: commands/guards/probes/
+      surfaces remain the first node families, then add authority-linked
+      contract/packet/subsystem/query nodes plus typed edges for consumers,
+      proof surfaces, changed-path triggers, and bounded related scope. Keep
+      it generated from canonical registries and repo state, never as live
+      runtime truth.
+- [ ] Upgrade `AgentDispatchPacket` from "what bundle should run?" to the
+      bounded semantic frontier packet in that same proof: carry primary
+      nodes, adjacent nodes, stop conditions, proof surfaces, mutation
+      surfaces, confidence, and dispatch mode while staying derived from lane
+      classification, live policy, startup context, and the catalog. It must
+      recommend where to inspect first without becoming a second policy store.
+- [ ] Keep the first routing graph coarse-to-fine in that same proof:
+      lane/subsystem/contract/command/guard/projection/changed-path-trigger
+      nodes first, file/symbol/detail edges only after the bounded frontier is
+      chosen. The dispatch layer must not try to traverse the whole repo at
+      full-fidelity graph depth on every turn.
 - [ ] Add a generated-only graph normalization/compaction reducer after that
       first query-engine proof: distinguish routing-grade vs render-only
       edges, precompute bounded high-signal neighborhoods for startup /
@@ -1235,6 +1344,15 @@ blocker or exception in plan state before skipping the declared order.
       preserves canonical refs while lowering default query noise. Keep the
       reducer reversible and disposable so it never becomes a second
       authority store.
+- [ ] Add one semantic-routing evaluation gate before any broader ZGraph
+      promotion in the same lane: support at least
+      `dispatch_mode=deterministic`,
+      `dispatch_mode=deterministic_plus_semantic`, and
+      `dispatch_mode=semantic_audit`; then measure files opened before first
+      correct touch, tokens before first useful action, missed authority
+      nodes, wrong guard/test bundle selection, and human override rate on
+      representative repo tasks. If semantic routing increases missed-proof or
+      closure errors, fail closed to deterministic dispatch.
 - [ ] Keep `context-graph --mode bootstrap` subordinate to the same startup
       family: it may expose a hot-index/bootstrap helper view over cached
       authority artifacts, but `startup-context` remains the single canonical
@@ -1534,6 +1652,56 @@ blocker or exception in plan state before skipping the declared order.
 
 ## Session Resume
 
+- 2026-04-05 repair-vs-proposal boundary correction: the latest owner review
+  confirmed that this lane already has typed startup/work-intake, finding,
+  review-ledger, external-finding, and quality-feedback surfaces, but it does
+  not yet have the runtime closure to call the system self-hardening end to
+  end. Resume from this lane by keeping one strict boundary in view:
+  predeclared invariants may auto-enforce, but missed cases must become typed
+  candidate invariants that carry counterexample evidence, replay corpus refs,
+  FP/FN evaluation, and approval before guard/probe promotion. The next
+  authority-loop work should therefore land `PlanExpectationPacket` plus lane
+  classification, the `CandidateInvariant` proposal surface, and the first
+  real `RunRecord`-backed slice before any broader "autonomous learning"
+  claims.
+- 2026-04-05 developer-truth-stack implementation review: the durable
+  architecture rule is right, but current closure is still partial. The repo
+  already emits typed startup/session packets, yet `startup-context` and
+  `session-resume` still mix those facts with renderer-owned guidance/prose,
+  and some dashboard/review helpers still parse compatibility markdown for
+  structured state. Resume this tranche by standardizing one shared
+  developer-view packet, removing markdown-as-data consumers, and landing
+  parity/observed-vs-inferred guards before calling the visible surface
+  projection-complete.
+- 2026-04-05 portable typed-structure review: the current codebase already has
+  the right durable companion guide (`PYTHON_ARCHITECTURE.md`), but this
+  owner spec now also treats the doctrine as executable closure work instead
+  of reference-only advice. Resume from one narrow rule: on platform-owned
+  governance/control seams, move stable meaning from prose into typed
+  contracts and explicit transitions before leaving it to projections. Do not
+  widen that into a blanket adopter-app style law.
+- 2026-04-05 governed semantic-doc/system-linker review: the stronger
+  docstring idea is accepted here too, but only when it rides the same owner
+  chain as typed runtime authority. Resume by defining one typed symbol-
+  semantics registry for selected governance/runtime symbols, making
+  `DocRegistry` / `doc-authority` / `context-graph` / `discover` /
+  bootstrap surfaces consume it, and adding semantic-drift guards so semantic
+  docs become checked projection rather than prose shadow policy.
+- 2026-04-05 semantic-routing integration review: the user's deeper ZGraph /
+  code-shape argument is accepted here in narrowed form. Resume by keeping
+  semantics first-class for routing/compression but not for truth ownership:
+  `session-resume` + typed startup/work-intake stay the boot path,
+  deterministic lane/path/policy narrowing bounds the candidate set, and only
+  then may `SystemCatalog` / `AgentDispatchPacket` + optional
+  ZGraph-compatible ranking compress or order the search. Promotion beyond
+  deterministic dispatch now requires a measured evaluation gate.
+- 2026-04-05 truth-source convergence review: the target architecture remains
+  one shared backend truth with thin projections, but the live repo still has
+  migration overlap. Resume by treating duplicate read-side shaping as active
+  closure work: shared read models and reduced packets absorb more truth,
+  `ControlState` / legacy payloads stay fallback-only, `session-resume`
+  finishes moving off local side reduction, and bridge markdown stays
+  projection-only instead of becoming a second data source.
 - 2026-04-04 extension/adopter closure correction: the latest architecture
   audit is now part of this lane's tracked Phase-2/Phase-7 work before code
   implementation. Resume from this owner chain by treating four deliverables
@@ -2057,6 +2225,73 @@ blocker or exception in plan state before skipping the declared order.
 
 ## Progress Log
 
+- 2026-04-05: Reviewed the current authority-loop implementation against the
+  intended counterexample-driven hardening story and recorded the honest gap in
+  owner-plan state. Startup/work-intake already project typed bounded state,
+  probe hints already normalize into canonical findings, design-decision
+  allowlists already emit typed `DecisionPacket` evidence, external findings
+  can be imported/adjudicated across repos, and quality-feedback snapshots can
+  classify false-positive families and recommend tuning. The missing closure is
+  still runtime and promotion authority: `RunRecord` is not yet generalized,
+  `PlanExpectationPacket` is still planned, misses still require manual
+  prevention-surface selection, and recommendations do not self-promote into
+  new policy. The lane checklist now reflects the accepted correction:
+  separate deterministic repair from governed decision from governance
+  evolution, and require typed candidate invariant + replay + approval before
+  new rules can harden.
+- 2026-04-05: Added the next developer-facing closure rule to the same lane:
+  startup/review/launch surfaces should not stop at "typed truth exists
+  somewhere in the repo." The visible developer surface itself must project
+  that truth in one auditable stack: executed command, typed fact fields, then
+  short readable summary. The remaining gap is to encode that stack and its
+  observed-vs-inferred seam directly in `DecisionTrace` / `current_session` /
+  startup-status contracts so chat/terminal/UI output becomes an explicit
+  projection layer instead of a mix of receipts plus model narration.
+- 2026-04-05: Reviewed the live implementation of that truth-stack rule before
+  widening the claim. `startup_context_render.py` still derives backlog/rule
+  guidance in the presentation layer, `session_resume_render.py` still mixes
+  typed fields with role-teaching/bootstrap prose, and `dashboard_utils.py`
+  plus adjacent compatibility helpers still regex-parse `bridge.md` /
+  `Open Findings` for structured data in places. The plan now captures the
+  concrete closure path: move startup/resume/explain onto one shared
+  developer-view packet, retire markdown-as-data consumers, and add parity
+  guards so visible summaries cannot outrun typed authority.
+- 2026-04-05: Promoted the next portable type-structure correction into this
+  authority-loop lane after comparing the current runtime against the user's
+  "typed structure -> validated transitions -> projections -> prose" model.
+  The repo already prefers `TypedDict`/`dataclass` in the companion guide, but
+  the active closure work still needed the more operational version: treat
+  free strings, boolean bundles, fixed-shape `dict[str, Any]`, and
+  comment-only policy on platform-owned governance paths as real authority
+  debt, not stylistic noise. The checklist now captures that as portable
+  runtime hardening work rather than a VoiceTerm-only coding preference.
+- 2026-04-05: Extended that same closure lane to cover governed semantic-doc
+  projection as part of the owner chain, not as optional prose polish. The
+  accepted implementation shape is now explicit: define one typed
+  `SemanticSymbolRecord` / `SemanticDocRecord` family for selected
+  governance/runtime symbols, route it through `DocRegistry` / doc-authority,
+  expose it to `context-graph` / ZGraph-style retrieval plus
+  `SystemCatalog` / `discover` / bootstrap surfaces, and fail closed on
+  semantic drift. That keeps near-code semantic docs useful for AI/context
+  compression without letting them outrank the owning typed contracts.
+- 2026-04-05: Accepted the deeper semantic-search correction into the same
+  authority-loop lane after reconciling the user's ZGraph/code-shape framing
+  against the live repo. The architecture rule is now explicit: semantics are
+  not secondary commentary here; they are the search-space control system. But
+  they integrate only behind the deterministic authority chain. The checklist
+  now captures the real implementation path for this repo: continuity and
+  startup packets first, deterministic narrowing second, `SystemCatalog` as
+  graph root third, `AgentDispatchPacket` as bounded frontier fourth,
+  optional ZGraph ranking fifth, and proof/parity fallback around all of it.
+- 2026-04-05: Added an explicit truth-source convergence correction after
+  reviewing the user's backend/projection framing against the live runtime.
+  The codebase is directionally correct, but the migration still carries
+  duplicate shapers: `ControlState` accepts legacy compatibility payloads,
+  `session-resume` still extracts some local fields/next-step state, and
+  bridge compatibility surfaces are still present. The checklist now treats
+  that as concrete closure work instead of vague migration debt: converge on
+  `ControlPlaneReadModel` plus reduced packet contracts, keep compatibility
+  adapters fallback-only, and delete overlapping reducers after parity.
 - 2026-04-04: Accepted the architecture-audit extension/adopter closure
   tranche into the active authority-loop owner chain before implementation.
   Phase 2 now explicitly owns no-write-safe read-only command semantics and a

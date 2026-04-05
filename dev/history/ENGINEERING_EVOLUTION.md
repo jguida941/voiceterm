@@ -116,6 +116,202 @@ Evidence: `dev/scripts/devctl/review_channel/reviewer_follow_recovery.py`,
 `dev/active/continuous_swarm.md`,
 `dev/active/MASTER_PLAN.md`.
 
+### 2026-04-05 - MP-377 now records the self-hardening boundary explicitly
+
+A focused architecture review of the active `MP-377` owner chain tightened an
+important boundary that had been implicit in code and chat but not preserved
+cleanly in plan authority. The repo already has the raw ingredients for a
+counterexample-driven governance loop: typed startup/work-intake packets,
+canonical findings, probe decision packets, adjudicated review ledgers,
+external-finding import, and quality-feedback snapshots. What it does not yet
+have is permission to let those surfaces redefine policy on their own.
+
+The owner plans now say the rule plainly: predeclared invariants may
+auto-enforce, but new invariants must earn promotion. That separates three
+lanes that were previously easy to blur together:
+
+1. deterministic repair over contract-backed, idempotent, reversible, narrow-
+   blast-radius fixes whose canonical result is already governed;
+2. governed decision work for ambiguous refactors, behavior changes, and other
+   intent-shaped changes that must emit packets/review instead of silent edits;
+3. governance evolution, where misses become typed candidate invariants with
+   replay/corpus evidence, FP/FN evaluation, approval, and only then guard or
+   probe promotion.
+
+This matters because the active authority-loop/runtime implementation is still
+partial. `TypedAction -> ActionResult -> RunRecord` is only live in bounded
+lanes, `PlanExpectationPacket` is still planned, and current
+`governance-quality-feedback` outputs recommendations rather than self-
+promoting new policy. Capturing that boundary in owner docs keeps the platform
+self-hardening instead of letting it drift into self-redefinition.
+
+Evidence: `dev/active/MASTER_PLAN.md`,
+`dev/active/ai_governance_platform.md`,
+`dev/active/platform_authority_loop.md`.
+
+### 2026-04-05 - Developer-facing output is now treated as a truth stack
+
+The platform docs now state more explicitly that developer-visible output
+should not be treated as "model narration with some receipts nearby." The
+intended shape is one stack:
+
+1. command layer: the exact repo-owned command or action that ran;
+2. fact layer: the typed receipt / packet / projection fields that state what
+   the system observed, decided, or requires next;
+3. summary layer: the short human-readable explanation over those fields.
+
+This matters because the developer should be able to answer, from the visible
+surface itself, what exact command ran, which state claims are machine-owned,
+what next command is required, and what was inferred versus directly observed.
+The active `MP-377` authority-loop plan now records that as an explicit
+closure requirement instead of leaving it as chat-only architecture language.
+
+The same review kept the claim honest about current code. The repo already has
+typed startup/session state, but several surfaces still compute part of the
+meaning in presentation code (`startup_context_render.py`,
+`session_resume_render.py`) and some downstream helpers still parse
+compatibility markdown (`bridge.md`, `Open Findings`) as data. The tracked
+follow-up is therefore concrete rather than rhetorical: standardize one shared
+developer-view packet, retire markdown-as-data consumers where typed state
+already exists, and add parity/observed-vs-inferred guards across the visible
+startup/session/status/dashboard/mobile surfaces.
+
+Evidence: `dev/guides/AI_GOVERNANCE_PLATFORM.md`,
+`dev/active/MASTER_PLAN.md`,
+`dev/active/ai_governance_platform.md`,
+`dev/active/platform_authority_loop.md`,
+`dev/scripts/devctl/commands/governance/startup_context_render.py`,
+`dev/scripts/devctl/commands/governance/session_resume_render.py`,
+`dev/scripts/devctl/commands/dashboard_utils.py`.
+
+### 2026-04-05 - One backend truth is now tracked as a convergence rule, not just a target shape
+
+The active `MP-377` plans now also record the sharper migration warning from
+the same review: the codebase direction is correct, but the live repo still
+contains duplicate read-side shaping while the migration is in flight.
+
+The accepted closure rule is explicit:
+
+1. shared read models and reduced packet contracts absorb canonical truth;
+2. `ControlState`, legacy `controller_payload` / `review_payload`, and bridge
+   compatibility helpers remain fallback-only adapters;
+3. `session-resume` finishes moving local side extraction/reduction into the
+   shared backend;
+4. overlapping reducers are deleted once parity proves the direct shared-backend
+   path is stable.
+
+That keeps "one backend truth, many projections" grounded in executable
+closure work instead of letting compatibility layers fossilize into permanent
+second authorities.
+
+Evidence: `dev/active/MASTER_PLAN.md`,
+`dev/active/ai_governance_platform.md`,
+`dev/active/platform_authority_loop.md`,
+`dev/scripts/devctl/runtime/control_plane_read_model.py`,
+`dev/scripts/devctl/runtime/control_state.py`,
+`dev/scripts/devctl/commands/governance/session_resume_support.py`,
+`dev/guides/AI_GOVERNANCE_PLATFORM.md`.
+
+### 2026-04-05 - Portable governance paths now treat typed structure as the primary semantic carrier
+
+The active `MP-377` plans now state a narrower, portable version of the
+"write Python more like Rust" idea. The accepted rule is not a repo-wide style
+law for arbitrary adopter code. It is platform-owned governance doctrine:
+inside the governed control/runtime boundary, stable meaning should move into
+typed contracts and explicit transitions before it is left in projections or
+prose.
+
+The ordering is now explicit in plan authority:
+
+1. typed structure;
+2. validated transitions;
+3. derived projections;
+4. comments/docstrings as explanation only.
+
+That turns free strings, boolean bundles, fixed-shape `dict[str, Any]`, and
+comment-only policy on startup/review/push/governance paths into real
+authority debt instead of stylistic cleanup. Repo-pack/governance policy still
+decides where that boundary starts for any adopting repo, which keeps the rule
+portable rather than VoiceTerm-specific.
+
+Evidence: `dev/active/MASTER_PLAN.md`,
+`dev/active/ai_governance_platform.md`,
+`dev/active/platform_authority_loop.md`,
+`dev/guides/PYTHON_ARCHITECTURE.md`.
+
+### 2026-04-05 - Governed semantic docs are now tracked as checked projection, not prose authority
+
+The active `MP-377` plans now also capture the stronger governed-docstring
+idea in a repo-portable way. The accepted rule is narrow and architectural:
+symbol-level semantic docs can help AI navigation, ZGraph/context retrieval,
+bootstrap, and discovery only when they are structured, machine-validated
+projection over canonical typed contracts.
+
+The tracked closure work now calls for one typed
+`SemanticSymbolRecord` / `SemanticDocRecord` family on selected
+governance/runtime symbols, routed through existing owner surfaces instead of
+creating a second prose system:
+
+1. `ProjectGovernance` / `DocRegistry` / `doc-authority` for lifecycle and
+   visibility;
+2. `context-graph` / ZGraph-style retrieval for near-code semantic discovery;
+3. `SystemCatalog` / `discover` / bootstrap surfaces for capability and
+   consumer awareness;
+4. CI semantic-drift guards for stale signature hashes, undeclared states,
+   missing fields, bad consumer claims, or projection-only surfaces mislabeled
+   as canonical authority.
+
+That keeps semantic docs useful as a checked semantic index while preserving
+the core rule that typed contracts and explicit transitions remain the primary
+authority surface.
+
+Evidence: `dev/active/MASTER_PLAN.md`,
+`dev/active/ai_governance_platform.md`,
+`dev/active/platform_authority_loop.md`.
+
+### 2026-04-05 - ZGraph semantics are now tracked as bounded routing, not runtime authority
+
+The active `MP-377` plans now record a sharper integration point for the
+user's deeper ZGraph/code-shape architecture. The accepted rule is:
+semantics are first-class for search-space control, but they still must not
+expand the runtime authority surface.
+
+For this repo, the staged order is now explicit:
+
+1. `session-resume` / typed startup continuity boot first;
+2. deterministic changed-path, lane, and policy narrowing bound the candidate
+   set second;
+3. `SystemCatalog` plus `AgentDispatchPacket` define the bounded routing seam;
+4. optional `ConceptIndex` / ZGraph-compatible ranking compresses and orders
+   that seam;
+5. guards, parity, and end-to-end proof still verify the result and force
+   deterministic fallback when semantic confidence is low or authority nodes
+   are missing.
+
+That keeps semantics important in the way the codebase actually needs them:
+not as prose help, and not as a second planner-truth hybrid, but as the
+planner/search reducer that helps agents and developers avoid broad repo
+wandering while the typed authority chain remains canonical.
+
+The same tracked follow-up now calls for:
+
+1. `SystemCatalog` to grow from flat inventory into the static graph root;
+2. `AgentDispatchPacket` to grow into the bounded frontier packet;
+3. semantic-routing eval modes (`deterministic`,
+   `deterministic_plus_semantic`, `semantic_audit`);
+4. measured promotion gates based on search cost, missed-authority nodes,
+   guard/test routing quality, and override rate.
+5. a coarse-to-fine graph hierarchy so lane/subsystem/contract/command/guard
+   nodes bound the first pass and file/symbol detail only appears inside the
+   selected frontier.
+
+Evidence: `dev/active/MASTER_PLAN.md`,
+`dev/active/ai_governance_platform.md`,
+`dev/active/platform_authority_loop.md`,
+`dev/scripts/devctl/governance/system_catalog_models.py`,
+`dev/scripts/devctl/context_graph/concepts.py`,
+`ZGRAPH_RESEARCH_EVIDENCE.md`.
+
 ### 2026-04-04 - Bridge rendering portability via RepoPathConfig
 
 The markdown bridge compatibility projection no longer hardcodes

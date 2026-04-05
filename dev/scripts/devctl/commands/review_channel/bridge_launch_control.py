@@ -152,18 +152,21 @@ def launch_sessions_if_requested(
             rollover_id=request.handoff_bundle.rollover_id,
             timeout_seconds=args.await_ack_seconds,
         )
-    if (
-        args.action == "rollover"
-        and request.retired_sessions
-        and (
-            not handoff_ack_required
-            or (
-                isinstance(handoff_ack_observed, dict)
-                and bool(handoff_ack_observed)
-                and all(bool(value) for value in handoff_ack_observed.values())
+    cleanup_retired_sessions = (
+        args.action == "launch"
+        or (
+            args.action == "rollover"
+            and (
+                not handoff_ack_required
+                or (
+                    isinstance(handoff_ack_observed, dict)
+                    and bool(handoff_ack_observed)
+                    and all(bool(value) for value in handoff_ack_observed.values())
+                )
             )
         )
-    ):
+    )
+    if cleanup_retired_sessions and request.retired_sessions:
         for retired_session in request.retired_sessions:
             cleanup_warnings.extend(
                 request.cleanup_terminal_session_fn(retired_session)

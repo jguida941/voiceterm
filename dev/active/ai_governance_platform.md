@@ -1,6 +1,6 @@
 # AI Governance Platform Plan
 
-**Status**: active  |  **Last updated**: 2026-04-04 | **Owner:** Tooling/control plane/product architecture
+**Status**: active  |  **Last updated**: 2026-04-05 | **Owner:** Tooling/control plane/product architecture
 Execution plan contract: required
 This spec remains execution mirrored in `dev/active/MASTER_PLAN.md` under
 `MP-377`, and it is the canonical active architecture plan for the standalone
@@ -232,13 +232,176 @@ surfaces are evaluated.
    capabilities, boundaries, and schema knowledge should move into typed
    contracts, generated artifacts, repo-pack policy, and guards; AI judgment
    remains for the unresolved remainder after those cheaper layers have run.
-6. Hold a governance-weight budget. Overhead that costs more than it saves is
+6. Keep developer-visible truth layered. Command/UI/chat surfaces should show:
+   the repo-owned command or receipt that ran, the typed fact packet or
+   projection fields that state what the system observed/decided, and only
+   then a short readable summary over those fields. The human sentence is a
+   projection over machine-owned truth, not a substitute for it.
+7. Make observed vs inferred seams auditable. If a launch/status/bootstrap
+   surface reports "continue", "checkpoint", "review needed", or other
+   synthesized conclusions, the owning typed fields and source command must be
+   recoverable without reading model-private reasoning.
+8. Hold a governance-weight budget. Overhead that costs more than it saves is
    a product failure: avoid brittle compiled artifacts, expensive invalidation,
    stale indices, oversized IR/catalog layers, and ceremony that makes humans
    or agents bypass the governed path.
-7. VoiceTerm is one adopter and self-hosting client of the platform, not the
+9. VoiceTerm is one adopter and self-hosting client of the platform, not the
    platform's identity. Platform doctrine must survive repos that do not ship
    the VoiceTerm app or its paths, workflows, or terminology.
+
+## Repair And Evolution Boundary
+
+Use one explicit boundary for self-hardening so the platform does not slide
+from governed enforcement into unguided self-redefinition.
+
+1. Auto-fix code, not policy. Runtime may auto-apply only predeclared
+   invariants whose canonical form already exists in repo-owned authority:
+   contract-backed formatting, known structural rewrites, package/layout
+   normalization, idempotent repairs, reversible repairs, and narrow-blast-
+   radius fixes that a governed validator already knows how to judge.
+2. Keep three separate lanes:
+   - `deterministic repair lane`: safe auto-repairs over known invariants.
+   - `governed decision lane`: ambiguous refactors, behavior changes,
+     architectural tradeoffs, repo-specific semantics, and other intent-shaped
+     work. These must emit `Finding`, `DecisionPacket`, review, or approval
+     artifacts instead of silent mutation.
+   - `governance evolution lane`: misses that imply a new guard, probe, test,
+     card, or invariant. These must become typed candidate proposals with
+     replay evidence, not self-installed rules.
+3. Runtime may reduce uncertainty automatically, but it may not expand
+   authority automatically. If a change requires new interpretation, new
+   permission, new doctrine, or a new cross-cutting rule, it is a proposal,
+   not a repair.
+4. "Best practice" is not authority. Auto-repair must anchor to canonical repo
+   shape, declared contract, tested rule, bounded proof surface, and measured
+   validator behavior rather than generic AI cleanup taste.
+5. Predeclared invariants can auto-enforce. New invariants must earn
+   promotion through candidate rule capture, corpus replay, false-positive /
+   false-negative evaluation, approval, and then promotion. The platform
+   should be self-hardening, not self-redefining.
+
+## Developer-Facing Truth Stack
+
+Treat developer-visible repo surfaces as one explicit projection stack rather
+than a freeform chat stream.
+
+1. `command layer`: the exact repo-owned command/action that executed
+   (`startup-context`, `session-resume`, `review-channel status`, `push`,
+   etc.).
+2. `fact layer`: the typed receipt / packet / projection that carries the
+   observed state (`action`, `reason`, `review_range`, `review_needed`,
+   `open_findings`, `recommended_command`, and similar fields).
+3. `summary layer`: the short human-readable explanation shown in terminal,
+   chat, dashboard, or mobile views.
+
+The design rule is strict: the summary layer may compress the fact layer, but
+it must not become a second authority owner. If the readable sentence says the
+repo is clean, review is accepted, or the next step is relaunch, the typed
+fields and owning command should already say that. The system should make it
+easy for a developer to answer:
+
+- what exact command ran
+- what exact state claims were observed
+- what next command the repo requires
+- what was inferred vs observed
+
+## Machine-Checkable Structure First
+
+For portable governance/runtime paths, move meaning downward from prose into
+structure the runtime and checkers can actually enforce.
+
+1. `typed structure`: prefer named `dataclass` / `TypedDict` / `Enum` /
+   `Literal` / `Protocol` contracts and frozen value objects for stable
+   governance concepts. Avoid free strings, boolean bundles, and
+   `dict[str, Any]` once a concept's shape is known.
+2. `validated transitions`: keep legal state changes in explicit transition
+   functions, guards, or bounded state machines rather than in comments,
+   conventions, or renderer-local branches.
+3. `derived projections`: terminal/chat/dashboard/mobile/markdown surfaces
+   should render from typed state and explicit transition outcomes. They do
+   not become a second policy owner.
+4. `explanatory prose`: comments and docstrings may explain ownership,
+   invariants, and why a contract exists, but they must not be the only place
+   where structured meaning or policy lives.
+5. `governed semantic docs`: when a repo wants near-code semantic docstrings
+   or symbol-level semantic blocks, treat them as structured projection over
+   canonical typed contracts, not as freeform authority. They may summarize
+   ownership, authority tier, invariants, bounded states, transition notes,
+   and consumer surfaces, but they must fail closed on drift and must not
+   invent policy that the owning contract does not declare.
+
+This is platform-owned doctrine for the governed boundary, not a repo-wide
+style law for arbitrary adopter application code. Repo-pack / governance
+policy decides where that boundary starts. Inside it, every important concept
+should graduate through:
+
+- plan name
+- canonical typed contract
+- validator / guard
+- governed semantic doc projection where useful
+- projection / render surface
+- parity or end-to-end proof
+
+For this codebase, the missing linker is not "more comments." It is one typed
+symbol-semantics layer for selected governance/runtime symbols so the full
+platform stack can consume the same semantic record:
+
+- canonical contract owner (`contract_id`, `owner_domain`, `authority_kind`)
+- typed inputs / outputs and bounded states
+- invariants and transition notes
+- declared consumer surfaces
+- projection-only vs canonical status
+- freshness proof (`signature_hash`, `doc_hash`, version)
+
+That symbol-semantics family should plug into existing repo-owned surfaces
+instead of becoming a second prose system:
+
+- `ProjectGovernance` / `DocPolicy` / `DocRegistry` for doc authority and
+  lifecycle
+- `context-graph` / ZGraph-compatible discovery for retrieval and bootstrap
+  context
+- `SystemCatalog` / `discover` / dispatch surfaces for capability and consumer
+  awareness
+- bootstrap/session/render surfaces as near-code semantic projection, never as
+  checkpoint or policy authority
+
+The guard rule is strict: when a semantic doc or symbol block mentions a field,
+state, consumer, or authority level that the owning typed contract does not
+declare, CI should fail and the projection should be treated as stale.
+
+## Semantic Routing Boundary
+
+For this repo, semantics are not "just docstrings" and not merely decorative
+metadata. They are the search-space control layer. But the control boundary
+must stay explicit:
+
+1. `resume before search`: if a task is a continuation, `session-resume`,
+   `SessionCachePacket`, `StartupContext`, and related typed continuity facts
+   stay the first-hop bootstrap path.
+2. `deterministic narrowing before semantics`: changed paths, lane
+   classification, enabled checks, `ProjectGovernance`, `SystemCatalog`, and
+   typed work-intake state bound the candidate frontier first.
+3. `semantic ranking inside the bound`: `ConceptIndex` / ZGraph-compatible
+   graph layers rank, compress, and explain that frontier second. They answer
+   "where should the agent look first?" and "how deep should it go?" without
+   becoming a new truth owner.
+4. `proof after ranking`: guards, parity, end-to-end checks, and typed
+   runtime state still prove the decision path. If graph confidence is low or
+   a required authority node is missing, the system widens back out to the
+   deterministic catalog instead of trusting semantic compression blindly.
+
+That makes the semantic layer first-class for AI/developer navigation while
+preserving the compiler-style authority split:
+
+- typed contracts / state machines own legality
+- semantic graph / catalog owns routing and compression
+- guards / parity / e2e own proof
+- docstrings / markdown / dashboards are projections or graph-fed labels
+
+The immediate codebase fit is therefore not "make ZGraph the runtime spine."
+It is "make ZGraph a bounded ranking layer behind `SystemCatalog` and
+`AgentDispatchPacket`, and prove it improves search without widening authority
+or degrading closure."
 
 ## Runtime Adoption Checklist
 
@@ -3585,11 +3748,45 @@ alone. Use these proof gates:
       cited working slice for the current task, and reviewer/autonomy/Ralph
       AI loops stay the expensive fallback/controller layer only when the
       cheaper layers cannot decide or fix the issue safely.
+- [ ] Freeze the boot/search order more explicitly before widening the graph
+      lane: `session-resume` / typed continuity packets stay the first-hop
+      bootstrap path for continuation work, deterministic changed-path/lane/
+      policy narrowing stays second, and only then may `ConceptIndex` /
+      ZGraph-compatible layers rank or compress the bounded candidate set.
+      Semantic routing reduces search space; it does not become boot-time or
+      control-plane authority.
 - [ ] Add a graph-capability ladder instead of one flat “wire ZGraph
       everywhere” task: connected typed plan/doc/command edges first, then
       bounded transitive blast-radius queries, then test-to-code /
       test-selection edges, then agent-authored graph queries. Each step must
       stay reversible to canonical refs and pass the same honesty rules.
+- [ ] Extend the generated discovery stack in bounded steps rather than
+      treating it as one monolith:
+      `SystemCatalog` becomes the static graph root for "what exists",
+      `AgentDispatchPacket` becomes the bounded routing frontier for "what to
+      inspect/run next", and optional ZGraph-compatible reducers only rank or
+      compress that frontier. Do not let semantic routing duplicate runtime
+      truth already owned by `StartupContext`, `ControlPlaneReadModel`, or
+      packet/state contracts.
+- [ ] Keep the first graph hierarchy coarse-to-fine in that same lane:
+      lane/subsystem/contract/command/guard/projection/changed-path-trigger
+      nodes first, then descend to file/symbol detail only after the bounded
+      frontier is selected. Do not model or traverse the whole repo at
+      full-fidelity graph depth on every startup or review turn.
+- [ ] Add one evaluation gate before broader semantic-routing promotion:
+      support at least `dispatch_mode=deterministic`,
+      `dispatch_mode=deterministic_plus_semantic`, and
+      `dispatch_mode=semantic_audit`; measure files opened before first
+      correct touch, tokens spent before first useful action, missed
+      authority/proof nodes, wrong guard/test bundle selection, and human
+      override rate on representative repo tasks. Promote semantic routing
+      only if it lowers search cost without increasing missed-authority
+      regressions.
+- [ ] Treat governed docstrings / semantic symbol blocks as graph-fed node
+      features in that same lane, not as a separate planner. They may improve
+      retrieval cues, semantic labeling, and local navigation, but the graph
+      and its symbol registry remain subordinate to the owning typed
+      contracts.
 - [ ] Preserve the broader cross-domain graph backlog explicitly as later
       generated reducer work instead of letting it disappear behind the `P0`
       authority slice: workflow/CI DAG edges, git-history/change-intent edges,
@@ -4453,6 +4650,67 @@ alone. Use these proof gates:
 Use this section as the single "left off here" surface for fresh AI sessions
 working on `MP-377`.
 
+- 2026-04-05 developer-truth-stack implementation review:
+  keep the three-layer projection rule, but do not overclaim current closure.
+  The repo already has typed startup/session/review packets, yet some visible
+  surfaces still compute guidance in renderer code and a few downstream
+  consumers still read compatibility markdown as data. The next product-owned
+  closure slice is therefore concrete: standardize one shared
+  developer-surface packet family, remove markdown-as-data consumers where the
+  typed state already exists, and add parity/observed-vs-inferred guards so
+  the human-facing sentence stays a projection over machine-owned truth.
+- 2026-04-05 typed-structure portability review:
+  keep the existing Python architecture guide, but promote the missing runtime
+  doctrine into active `MP-377` plan state too. The portable correction is
+  not "write every repo like Rust" and not a repo-wide style law. It is a
+  governed-boundary rule: platform-owned control/governance paths should move
+  stable meaning into typed contracts, closed vocabularies, and explicit
+  transitions before falling back to projections or prose. Resume by applying
+  that rule to the remaining stringly / dict-shaped / prose-shaped control
+  seams without widening it into adopter app-code mandates.
+- 2026-04-05 governed semantic-doc projection review:
+  the same owner chain now also accepts the stronger docstring idea in bounded
+  form. The platform should support structured, machine-validated semantic
+  docstrings or symbol-level semantic blocks for selected governance/runtime
+  symbols, but only as projection over canonical contracts. Resume by wiring
+  this through the existing docs/runtime system instead of inventing a second
+  prose authority: `SemanticDocRecord` / `SemanticSymbolRecord` metadata,
+  freshness/signature checks, `DocRegistry` / doc-authority visibility,
+  context-graph + SystemCatalog discoverability, bootstrap/discover surfacing,
+  and drift guards that fail when the semantic doc claims outrun the typed
+  contract.
+- 2026-04-05 semantic-routing boundary review:
+  the user's deeper ZGraph/search-space argument is accepted, but at a more
+  precise integration point than "make semantics the runtime spine." Resume
+  from this rule: semantics are first-class as the repo's routing/compression
+  layer, yet they still sit behind typed continuity and deterministic
+  narrowing. The next product-owned closure is therefore to keep
+  `session-resume` / `StartupContext` as bootstrap authority, extend
+  `SystemCatalog` + `AgentDispatchPacket` into the bounded semantic-routing
+  seam, add optional ZGraph-style ranking behind evaluation gates, and prove
+  it reduces search without widening authority or weakening closure/parity.
+- 2026-04-05 truth-source convergence review:
+  the "one backend owns facts, surfaces render them" direction is correct and
+  is already partially real in code/docs, but the migration overlap is still
+  active. Resume from one explicit closure rule: `ControlPlaneReadModel` and
+  reduced packet/state contracts must keep absorbing read-side shaping, while
+  `ControlState`, legacy `controller_payload` / `review_payload`, and bridge
+  compatibility surfaces remain fallback-only adapters until parity proves
+  they can be deleted. Do not let compatibility reducers or markdown bridges
+  silently remain second truth owners.
+- 2026-04-05 self-hardening boundary review:
+  treat the current platform as partially closed-loop, not fully autonomous.
+  The repo already has typed startup/work-intake/finding/review/
+  quality-feedback surfaces, but the runtime spine is still incomplete:
+  `TypedAction -> ActionResult -> RunRecord` is only live in bounded lanes,
+  `PlanExpectationPacket` is still planned, escapes still require manual
+  `governance-review` absorption, and quality feedback recommends tuning but
+  does not promote new policy. Resume from this owner chain by preserving one
+  hard boundary: predeclared invariants may auto-enforce, but new invariants
+  must route through typed candidate capture, corpus replay, FP/FN evaluation,
+  approval, and only then promotion. The next product-owned closure slice is
+  to encode that repair-vs-proposal boundary in runtime contracts and owner
+  plans before widening autonomy claims.
 - 2026-04-04 dashboard v3 consolidated research (8 agents, awaiting Codex review):
   **View flags**: `--view {overview|dev|analytics|audit|codebase|quality|publication|health}`.
   Each view loads only needed artifacts. Default is `overview`. Follows
@@ -5739,6 +5997,61 @@ Execution order for this section:
 
 ## Progress Log
 
+- 2026-04-05: Accepted the next portable architecture correction into the main
+  `MP-377` plan after reviewing the user's "types vs comments/docstrings"
+  framing against the current codebase and plan chain. The repo already had
+  the right direction in `PYTHON_ARCHITECTURE.md`, but the active owner plans
+  did not yet state the execution-order rule clearly enough: on governed
+  platform paths, prefer typed structure first, validated transitions second,
+  derived projections third, and explanatory prose last. The accepted scope is
+  intentionally narrower than a repo-wide coding rule. Repo-pack/governance
+  policy still decides where the governed boundary starts for any adopter
+  repo; inside that boundary, stable concepts should graduate from plan name
+  to typed contract to validator to projection to parity proof.
+- 2026-04-05: Extended that same architecture correction to cover governed
+  semantic docstrings as part of the platform rather than leaving them as chat
+  theory. The accepted rule is strict: docstrings can add real value for AI
+  navigation and semantic indexing only when they are structured, machine-
+  validated, freshness-checked projections over canonical typed contracts.
+  Product-owned follow-up is now explicit: define a portable
+  `SemanticDocRecord` / `SemanticSymbolRecord`-style contract for selected
+  governance symbols, route it through doc-authority/context-graph/discovery/
+  bootstrap surfaces, let `ProjectGovernance` / `DocRegistry` own its
+  lifecycle, and fail closed when semantic doc claims drift from the owning
+  type/state-machine contract.
+- 2026-04-05: Accepted the deeper semantic-routing correction after reviewing
+  the repo's actual `SystemCatalog`, `AgentDispatchPacket`, `context-graph`,
+  and ZGraph evidence. The right fit for this codebase is not "ZGraph as
+  control-plane truth." It is "ZGraph as bounded search/ranking over typed
+  truth." The plan now records the exact order: continuity/bootstrap first,
+  deterministic narrowing second, semantic ranking third, proof/parity
+  fourth. Product-owned next work is to turn `SystemCatalog` into the graph
+  root, upgrade `AgentDispatchPacket` into a bounded frontier packet, and gate
+  any semantic-routing promotion behind measurable non-inferiority on real
+  repo tasks.
+- 2026-04-05: Added an explicit truth-source convergence note after reviewing
+  the user's "one backend truth, multiple projections" framing against the
+  live runtime. The architecture target is correct, but the repo still has
+  migration-time duplicate shapers: `ControlState` still accepts legacy
+  `controller_payload` / `review_payload`, `session-resume` still performs
+  some local extraction/reduction, and bridge compatibility surfaces still
+  exist. The active plan now records the closure rule plainly: converge those
+  readers onto `ControlPlaneReadModel` plus reduced packet contracts, keep
+  compatibility payloads fallback-only, and delete overlap instead of letting
+  it fossilize.
+- 2026-04-05: Captured the self-hardening architecture correction in the main
+  `MP-377` product plan after a codepath review of startup/work-intake,
+  finding/review ledgers, probe decision packets, external-finding import, and
+  quality-feedback snapshots. The accepted conclusion is explicit now:
+  the repo already compiles typed evidence and reviewed outcomes, but it does
+  not yet close the whole loop automatically. `TypedAction -> ActionResult ->
+  RunRecord` is only partially live, misses still become new prevention
+  surfaces through manual adjudication, and recommendation output is advisory
+  rather than self-promoting policy. Product authority now preserves the
+  boundary that should guide the next tranche: auto-fix only predeclared
+  invariant violations, emit packets/review for ambiguous or behavior-shaped
+  changes, and require candidate invariant capture plus replay/approval before
+  any new guard/probe promotion.
 - 2026-04-04: Accepted the architecture-audit extension/adopter follow-up into
   canonical `MP-377` plan authority before implementation. The tracked closure
   tranche is now explicit and product-owned: read-only `devctl`/MCP surfaces

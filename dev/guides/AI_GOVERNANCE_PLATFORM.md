@@ -166,6 +166,21 @@ Projection rule:
   document channel for AI loops.
 - Apply that receipt rule to JSON-canonical report/packet surfaces, not
   indiscriminately to every human-first CLI command in the repo.
+- For developer-facing command surfaces, preserve one explicit three-layer
+  stack:
+  1. command layer: the exact repo-owned command or action receipt that ran;
+  2. fact layer: the typed packet / projection fields that state what the
+     system observed, decided, or requires next;
+  3. summary layer: short readable prose that explains those fields.
+- The summary layer must be a projection over machine-owned truth, not the
+  model's private interpretation of truth. A readable sentence such as
+  "startup authority is clear; relaunch the loop next" should render from
+  explicit fields like `action`, `reason`, `review_range`, `open_findings`,
+  `reviewed_hash_current`, and `recommended_command`, not replace them.
+- When a command/UI surface mixes observed facts with inference, label the
+  seam truthfully. Developers should be able to tell what exact command ran,
+  which fields were observed from repo-owned artifacts, and which higher-level
+  conclusion was inferred from those fields.
 
 ## Do Not Copy Every File By Hand
 

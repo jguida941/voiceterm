@@ -18,6 +18,7 @@ from dev.scripts.devctl.runtime.review_state_models import ReviewAttentionState
 from dev.scripts.devctl.runtime.reviewer_runtime_models import (
     ReviewerAcceptanceState,
     ReviewerRuntimeContract,
+    ReviewerSessionOwnerState,
 )
 
 
@@ -208,3 +209,24 @@ def test_attach_reviewer_runtime_snapshot_prefers_review_state_attention_project
     assert report["attention"]["status"] == "implementer_state_reset_required"
     assert report["doctor"]["root_cause"] == "Claude Ack is stale for the live instruction."
     assert "reset-implementer-state" in report["doctor"]["recommended_command"]
+
+
+def test_build_reviewer_doctor_surface_exposes_visibility_state() -> None:
+    doctor = build_reviewer_doctor_surface(
+        contract=ReviewerRuntimeContract(
+            reviewer_mode="active_dual_agent",
+            effective_reviewer_mode="active_dual_agent",
+            reviewer_freshness="fresh",
+            conductor_visibility="mixed",
+            session_owner=ReviewerSessionOwnerState(
+                provider="codex",
+                session_name="codex-conductor",
+                terminal_window_id=77,
+                script_path="/tmp/codex-conductor.sh",
+                session_visibility="visible",
+            ),
+        )
+    )
+
+    assert doctor["conductor_visibility"] == "mixed"
+    assert doctor["session_visibility"] == "visible"

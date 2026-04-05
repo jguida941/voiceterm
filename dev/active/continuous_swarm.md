@@ -405,6 +405,18 @@ Out of scope until the local proof gate is green:
 
 ## Progress Log
 
+- 2026-04-05: Closed two operator-facing review-loop safety gaps on the same
+  `MP-358` slice. The live recovery-command authority now recommends visible
+  `--terminal terminal-app` relaunch/recover commands by default for local
+  terminal sessions and keeps `remote_control` sessions headless, so repo-
+  owned status/doctor/startup surfaces stop steering AI launch decisions
+  toward hidden conductors on a desktop machine. The same slice now derives
+  explicit visibility state from existing session metadata and emits it as
+  typed runtime state (`reviewer_runtime.conductor_visibility` and reviewer
+  `session_owner.session_visibility`) instead of forcing operators or AI to
+  infer "headless vs visible vs mixed" from raw `terminal_window_id` values.
+  Focused recovery/launcher/runtime-doctor regressions are green.
+
 - 2026-04-05: Tightened the reviewer-follow stale-runtime recovery seam so it
   now obeys the typed recovery command instead of inventing a second stale-
   reviewer policy. `reviewer_follow_recovery.py` now suppresses the legacy

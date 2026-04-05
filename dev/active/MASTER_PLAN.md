@@ -90,6 +90,66 @@
   worktree/path scope, `expected_revision`, `state_hash`) into one repo-owned
   JSON/Markdown artifact plus one compact GitHub-visible markdown summary
   before client migration begins.
+- Current 2026-04-05 self-hardening boundary correction inside that same lane:
+  keep the platform self-hardening, not self-redefining. Predeclared
+  invariants may auto-enforce when repo-owned authority already defines the
+  canonical result, but new invariants must route through typed candidate rule
+  capture, replay/corpus validation, FP/FN evaluation, approval, and only then
+  promotion. The same review confirmed the runtime loop is still partial, not
+  closed: typed startup/work-intake/finding/review/quality-feedback surfaces
+  exist, but `PlanExpectationPacket`, generalized `RunRecord`, and candidate
+  invariant promotion remain open authority-loop work.
+- Current 2026-04-05 developer-surface closure correction inside that same
+  lane: typed truth existing in artifacts is not enough. The visible
+  developer-facing surface should render one explicit stack:
+  `source_command -> typed fact packet/projection -> readable summary`.
+  Repo-owned startup/review/launch/chat/dashboard/mobile output must make it
+  easy to answer what command ran, what exact fields were observed, what next
+  command is required, and what was inferred vs observed. Concrete next
+  closure is now explicit too: move `startup-context` / `session-resume` /
+  later `explain-latest` onto one shared developer-view packet, stop parsing
+  compatibility markdown as structured dashboard/review data where typed state
+  already exists, and add parity guards across startup/session/status/
+  dashboard/mobile projections.
+- Current 2026-04-05 portable typed-structure correction inside that same
+  lane: keep this as governed-boundary doctrine, not a repo-wide style rule.
+  For platform-owned governance/control paths that any adopter repo may use,
+  prefer typed contracts and closed transition vocabularies over free strings,
+  boolean bundles, fixed-shape `dict[str, Any]`, and comment-only policy.
+  The next closure slice is to treat those seams as real authority debt in the
+  active runtime, while repo-pack/governance policy still decides where the
+  governed boundary starts for each adopter.
+- Current 2026-04-05 governed semantic-doc follow-up inside that same lane:
+  accept the stronger docstring/indexing idea only as checked projection over
+  typed authority. The next product-owned closure is one typed
+  `SemanticSymbolRecord` / `SemanticDocRecord` family for selected
+  governance/runtime symbols, wired into `DocRegistry` / doc-authority,
+  `context-graph` / ZGraph-style retrieval, `SystemCatalog` / `discover`,
+  and bootstrap surfaces, with CI drift guards so semantic docs cannot become
+  shadow policy.
+- Current 2026-04-05 semantic-routing correction inside that same lane:
+  accept the deeper ZGraph/code-shape thesis, but keep the integration point
+  precise for this codebase. Semantics are first-class as the repo's
+  search-space reducer and dispatch planner, not as a new truth owner. The
+  staged order is now explicit: `session-resume` / typed startup continuity
+  first, deterministic changed-path/lane/policy narrowing second,
+  `SystemCatalog` + `AgentDispatchPacket` as the bounded routing seam third,
+  optional ZGraph ranking fourth, and proof/parity fallback around all of it.
+  Promotion past deterministic dispatch now requires measured evals on real
+  repo tasks. The graph shape stays coarse-to-fine on purpose: lane/subsystem/
+  contract/command/guard/projection nodes first, then descend to file/symbol
+  detail only inside the bounded frontier instead of traversing the whole repo
+  at full fidelity on every turn.
+- Current 2026-04-05 truth-source convergence correction inside that same
+  lane: the target remains one shared backend truth with projections only
+  rendering it, but the active repo is still mid-migration. Track the
+  remaining overlap explicitly as product-owned closure: `ControlPlaneReadModel`
+  and reduced packet contracts must become the canonical read-side source,
+  `ControlState` plus legacy `controller_payload` / `review_payload` inputs
+  stay compatibility/fallback-only, `session-resume` must stop doing local
+  side reduction that already belongs in shared state, and markdown bridge
+  surfaces must remain projection-only instead of sneaking back in as data
+  sources.
 - Current 2026-04-04 architecture-audit follow-up inside that same lane:
   freeze the extension/adopter closure tranche before broader packaging or
   client-migration claims. The accepted deliverables are explicit: true

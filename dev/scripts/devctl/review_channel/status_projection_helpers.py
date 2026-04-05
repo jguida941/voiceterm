@@ -14,6 +14,7 @@ from .peer_liveness import (
     ReviewerFreshness,
     reviewer_mode_is_active,
 )
+from .reviewer_runtime_session_owner import conductor_visibility
 from .session_state_hints import provider_session_state_hint
 from ..governance.push_policy import load_push_policy
 from ..governance.push_state import PushEnforcementSnapshot, detect_push_enforcement_state
@@ -147,6 +148,9 @@ def attach_conductor_session_state(
     bridge_liveness["active_conductor_providers"] = list(active_providers)
     bridge_liveness["codex_conductor_active"] = "codex" in active_providers
     bridge_liveness["claude_conductor_active"] = "claude" in active_providers
+    bridge_liveness["conductor_visibility"] = conductor_visibility(
+        session_output_root=output_root
+    )
     bridge_liveness["launch_truth"] = classify_launch_truth(bridge_liveness).value
     bridge_liveness["effective_reviewer_mode"] = effective_reviewer_mode(
         bridge_liveness

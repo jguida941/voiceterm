@@ -691,19 +691,14 @@ class ReviewChannelHelperTests(unittest.TestCase):
 
         self.assertEqual(lines[0], 'tell application "Terminal"')
         self.assertEqual(lines[1], "activate")
-        self.assertEqual(lines[2], 'do script ""')
+        self.assertEqual(lines[2], 'do script "/bin/zsh /tmp/claude-conductor.sh"')
         self.assertEqual(lines[3], "set launched_window_id to id of front window")
         self.assertEqual(
             lines[4],
             'set current settings of selected tab of front window to settings set "Pro"',
         )
-        self.assertEqual(lines[5], "delay 0.5")
-        self.assertEqual(
-            lines[6],
-            'do script "/bin/zsh /tmp/claude-conductor.sh" in selected tab of front window',
-        )
-        self.assertEqual(lines[7], "return launched_window_id as text")
-        self.assertEqual(lines[8], "end tell")
+        self.assertEqual(lines[5], "return launched_window_id as text")
+        self.assertEqual(lines[6], "end tell")
 
     def test_build_terminal_launch_lines_uses_direct_launch_without_profile(self) -> None:
         lines = _build_terminal_launch_lines(
@@ -899,6 +894,43 @@ class ReviewChannelHelperTests(unittest.TestCase):
         self.assertTrue(launched)
         self.assertTrue(ack_required)
         self.assertEqual(ack_observed, {"codex": True, "claude": True})
+        self.assertEqual(cleanup_warnings, [])
+        self.assertEqual(cleanup_calls, ["codex-conductor"])
+
+    def test_launch_sessions_if_requested_cleans_retired_launch_sessions(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            bridge_path = Path(tmpdir) / "bridge.md"
+            bridge_path.write_text(_build_bridge_text(), encoding="utf-8")
+            cleanup_calls: list[str] = []
+            retired_session = _conductor_session_record(
+                terminal_window_id=222,
+                session_pid=None,
+            )
+
+            launched, ack_required, ack_observed, cleanup_warnings = launch_sessions_if_requested(
+                BridgeLaunchSessionRequest(
+                    args=SimpleNamespace(
+                        action="launch",
+                        terminal="terminal-app",
+                        dry_run=False,
+                        await_ack_seconds=0,
+                    ),
+                    sessions=[{"launch_command": "/bin/zsh /tmp/new-codex.sh"}],
+                    bridge_path=bridge_path,
+                    handoff_bundle=None,
+                    terminal_profile_applied="Pro",
+                    launch_terminal_sessions_fn=lambda *args, **kwargs: None,
+                    retired_sessions=(retired_session,),
+                    cleanup_terminal_session_fn=lambda session: cleanup_calls.append(
+                        session.session_name
+                    )
+                    or [],
+                )
+            )
+
+        self.assertTrue(launched)
+        self.assertFalse(ack_required)
+        self.assertIsNone(ack_observed)
         self.assertEqual(cleanup_warnings, [])
         self.assertEqual(cleanup_calls, ["codex-conductor"])
 

@@ -10,9 +10,45 @@ from ..runtime.role_profile import TandemRole
 _DEVCTL_INTERPRETER = os.path.basename(sys.executable)
 """Interpreter name matching the runtime that loaded this module."""
 
+
+def recovery_terminal_for_interaction_mode(
+    operator_interaction_mode: str = "",
+) -> str:
+    """Return the live recovery terminal for the current operator mode."""
+    mode = str(operator_interaction_mode or "").strip()
+    if mode == "remote_control":
+        return "none"
+    return "terminal-app"
+
+
+def build_live_relaunch_command(
+    operator_interaction_mode: str = "",
+) -> str:
+    """Build the canonical reviewer relaunch command for the current mode."""
+    terminal = recovery_terminal_for_interaction_mode(operator_interaction_mode)
+    return (
+        f"{_DEVCTL_INTERPRETER} dev/scripts/devctl.py review-channel --action launch "
+        f"--terminal {terminal} --format json --execution-mode markdown-bridge "
+        "--refresh-bridge-heartbeat-if-stale"
+    )
+
+
+def build_implementer_recover_command(
+    operator_interaction_mode: str = "",
+) -> str:
+    """Build the canonical implementer recovery command for the current mode."""
+    terminal = recovery_terminal_for_interaction_mode(operator_interaction_mode)
+    return (
+        f"{_DEVCTL_INTERPRETER} dev/scripts/devctl.py review-channel --action recover "
+        "--recover-provider claude "
+        f"--terminal {terminal} --format json --execution-mode markdown-bridge "
+        "--refresh-bridge-heartbeat-if-stale"
+    )
+
+
 REVIEW_CHANNEL_STATUS_INSPECT_COMMAND = f"{_DEVCTL_INTERPRETER} dev/scripts/devctl.py review-channel --action status --terminal none --format json --execution-mode markdown-bridge --refresh-bridge-heartbeat-if-stale"
-REVIEW_CHANNEL_LIVE_RELAUNCH_COMMAND = f"{_DEVCTL_INTERPRETER} dev/scripts/devctl.py review-channel --action launch --terminal none --format json --execution-mode markdown-bridge --refresh-bridge-heartbeat-if-stale"
-REVIEW_CHANNEL_IMPLEMENTER_RECOVER_COMMAND = f"{_DEVCTL_INTERPRETER} dev/scripts/devctl.py review-channel --action recover --recover-provider claude --terminal none --format json --execution-mode markdown-bridge --refresh-bridge-heartbeat-if-stale"
+REVIEW_CHANNEL_LIVE_RELAUNCH_COMMAND = build_live_relaunch_command()
+REVIEW_CHANNEL_IMPLEMENTER_RECOVER_COMMAND = build_implementer_recover_command()
 REVIEW_CHANNEL_IMPLEMENTER_RESET_COMMAND = f"{_DEVCTL_INTERPRETER} dev/scripts/devctl.py review-channel --action reset-implementer-state --reviewer-mode active_dual_agent --reason stale-implementer-launch-block --terminal none --format json --execution-mode markdown-bridge"
 REVIEW_CHANNEL_RENDER_BRIDGE_COMMAND = f"{_DEVCTL_INTERPRETER} dev/scripts/devctl.py review-channel --action render-bridge --terminal none --format json --execution-mode markdown-bridge"
 REVIEW_CHANNEL_ENSURE_START_PUBLISHER_COMMAND = f"{_DEVCTL_INTERPRETER} dev/scripts/devctl.py review-channel --action ensure --start-publisher-if-missing --terminal none --format json --execution-mode markdown-bridge"

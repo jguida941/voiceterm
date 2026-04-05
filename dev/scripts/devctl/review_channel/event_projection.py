@@ -6,6 +6,7 @@ from dataclasses import asdict, replace
 from collections.abc import Mapping
 from pathlib import Path
 
+from ..runtime.governance_scan import scan_repo_governance_safely
 from ..runtime.review_state_models import ReviewQueueState
 from ..runtime.surface_snapshot import build_surface_snapshot_id
 from .attach_auth_policy import build_attach_auth_policy
@@ -47,6 +48,13 @@ from .event_projection_queue import (
     derive_event_next_instruction_source,
 )
 from .service_identity import build_service_identity
+
+
+def _operator_interaction_mode(repo_root: Path) -> str:
+    governance = scan_repo_governance_safely(repo_root)
+    if governance is None:
+        return ""
+    return str(governance.bridge_config.operator_interaction_mode or "").strip()
 
 
 def build_event_queue_summary(
@@ -129,6 +137,7 @@ def enrich_event_review_state(
     recovery_assessment = build_recovery_assessment(
         bridge_liveness=bridge_liveness,
         current_session=current_session,
+        operator_interaction_mode=_operator_interaction_mode(repo_root),
     )
     attention = recovery_assessment_to_attention_payload(recovery_assessment)
     collaboration = build_collaboration_session(

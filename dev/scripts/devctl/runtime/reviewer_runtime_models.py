@@ -25,6 +25,7 @@ class ReviewerSessionOwnerState:
     session_pid: int | None = None
     terminal_window_id: int | None = None
     script_path: str = ""
+    session_visibility: str = "unknown"
 
 
 @dataclass(frozen=True, slots=True)
@@ -41,6 +42,7 @@ class ReviewerRuntimeContract:
     effective_reviewer_mode: str = "single_agent"
     reviewer_freshness: str = "unknown"
     stale_reason: str = ""
+    conductor_visibility: str = "unknown"
     implementer_ack_current: bool = False
     implementation_blocked: bool = False
     implementation_block_reason: str = ""

@@ -106,6 +106,11 @@ def _typed_reviewer_runtime_state(
             or "unknown"
         ),
         stale_reason=stale_reason,
+        conductor_visibility=(
+            _string(reviewer_runtime.get("conductor_visibility"))
+            or _string(bridge_liveness.get("conductor_visibility"))
+            or "unknown"
+        ),
         implementer_ack_current=implementer_ack_current,
         implementation_blocked=implementation_blocked,
         implementation_block_reason=implementation_block_reason,
@@ -127,6 +132,8 @@ def _typed_reviewer_runtime_state(
             session_pid=_optional_int(session_owner.get("session_pid")),
             terminal_window_id=_optional_int(session_owner.get("terminal_window_id")),
             script_path=_string(session_owner.get("script_path")),
+            session_visibility=_string(session_owner.get("session_visibility"))
+            or "unknown",
         ),
         recovery_action_allowed=(
             _string(reviewer_runtime.get("recovery_action_allowed")) or recovery_command
@@ -180,6 +187,8 @@ def _bridge_reviewer_runtime_state(
         or _string(bridge_liveness.get("reviewer_freshness"))
         or "unknown",
         stale_reason=_stale_reason("", attention_status=attention_status),
+        conductor_visibility=_string(bridge_liveness.get("conductor_visibility"))
+        or "unknown",
         implementer_ack_current=implementer_ack_current,
         implementation_blocked=implementation_blocked,
         implementation_block_reason=implementation_block_reason,

@@ -72,6 +72,7 @@ def build_reviewer_doctor_surface(
     surface["effective_reviewer_mode"] = contract.effective_reviewer_mode
     surface["reviewer_freshness"] = contract.reviewer_freshness
     surface["stale_reason"] = contract.stale_reason
+    surface["conductor_visibility"] = contract.conductor_visibility
     surface["implementer_ack_current"] = contract.implementer_ack_current
     surface["implementation_blocked"] = contract.implementation_blocked
     surface["implementation_block_reason"] = contract.implementation_block_reason
@@ -83,6 +84,7 @@ def build_reviewer_doctor_surface(
     surface["session_pid"] = contract.session_owner.session_pid
     surface["terminal_window_id"] = contract.session_owner.terminal_window_id
     surface["script_path"] = contract.session_owner.script_path
+    surface["session_visibility"] = contract.session_owner.session_visibility
     surface["recovery_action_allowed"] = contract.recovery_action_allowed
     surface["recommended_command"] = recommended_command
     surface["decision_action_id"] = decision.action_id if decision is not None else ""

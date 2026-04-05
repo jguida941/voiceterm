@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from ..runtime.governance_scan import scan_repo_governance_safely
 from .bridge_validation import validate_live_bridge_contract
 from .core import (
     LaneAssignment,
@@ -131,6 +132,7 @@ def refresh_status_snapshot(
         bridge_liveness=bridge_liveness,
         current_session=current_session,
         contract_errors=merged_errors,
+        operator_interaction_mode=_operator_interaction_mode(repo_root),
     )
     attention = recovery_assessment_to_attention_payload(
         recovery_assessment
@@ -228,6 +230,13 @@ def _load_status_lanes(
         execution_mode=execution_mode,
     )
     return lanes
+
+
+def _operator_interaction_mode(repo_root: Path) -> str:
+    governance = scan_repo_governance_safely(repo_root)
+    if governance is None:
+        return ""
+    return str(governance.bridge_config.operator_interaction_mode or "").strip()
 
 
 def _build_status_bridge_liveness(

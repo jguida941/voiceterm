@@ -295,7 +295,7 @@ def _run_bridge_action(
         warnings=warnings,
     )
     retired_sessions = ()
-    if args.action == "rollover" and not args.dry_run:
+    if args.action in {"launch", "rollover"} and not args.dry_run:
         retired_sessions = load_conductor_sessions(session_output_root=status_dir)
     sessions = build_bridge_sessions(
         args=args,

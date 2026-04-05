@@ -8,10 +8,13 @@ from pathlib import Path
 from types import SimpleNamespace
 
 from dev.scripts.devctl.commands.review_channel._publisher import (
-    AutoPollCadence,
     resolve_auto_poll_cadence,
 )
 from dev.scripts.devctl.review_channel.launch_script import build_session_script
+from dev.scripts.devctl.review_channel.peer_recovery import (
+    build_implementer_recover_command,
+    build_live_relaunch_command,
+)
 from dev.scripts.devctl.review_channel.reviewer_follow_recovery import (
     ReviewerFollowRolloverInput,
     ReviewerFollowRolloverState,
@@ -159,6 +162,30 @@ class TestResolveRecoveryTerminal(unittest.TestCase):
             operator_interaction_mode="dual_agent",
         )
         self.assertEqual(resolve_recovery_terminal(args), "none")
+
+
+class TestRecoveryCommands(unittest.TestCase):
+    """Verify human-facing recovery commands respect operator interaction mode."""
+
+    def test_live_relaunch_defaults_to_terminal_app(self) -> None:
+        command = build_live_relaunch_command()
+        self.assertIn("--action launch", command)
+        self.assertIn("--terminal terminal-app", command)
+
+    def test_live_relaunch_remote_control_stays_headless(self) -> None:
+        command = build_live_relaunch_command("remote_control")
+        self.assertIn("--action launch", command)
+        self.assertIn("--terminal none", command)
+
+    def test_implementer_recover_defaults_to_terminal_app(self) -> None:
+        command = build_implementer_recover_command()
+        self.assertIn("--action recover", command)
+        self.assertIn("--terminal terminal-app", command)
+
+    def test_implementer_recover_remote_control_stays_headless(self) -> None:
+        command = build_implementer_recover_command("remote_control")
+        self.assertIn("--action recover", command)
+        self.assertIn("--terminal none", command)
 
 
 class TestAutoFollowPollCadence(unittest.TestCase):
