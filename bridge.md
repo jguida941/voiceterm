@@ -67,11 +67,11 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-04-05T03:23:20Z`
-- Last Codex poll (Local America/New_York): `2026-04-04 23:23:20 EDT`
+- Last Codex poll: `2026-04-05T05:15:51Z`
+- Last Codex poll (Local America/New_York): `2026-04-05 01:15:51 EDT`
 - Reviewer mode: `single_agent`
-- Last non-audit worktree hash: `3e6a88d0cb7b3f5a0c8516615303cc31762624825d2e9585f793ccd38a4e8864`
-- Current instruction revision: `0abacea38d81`
+- Last non-audit worktree hash: `db065746677852492b8c663bb46285333d4b708d6b7af6f4474eca83c848da2b`
+- Current instruction revision: `e6f72691d30e`
 ## Protocol
 
 1. Claude should poll this file periodically while coding.
@@ -193,31 +193,28 @@ Codex: design this as part of the existing `ProjectGovernance` / `ReviewerGateSt
 
 ## Poll Status
 
-- Reviewer manual review pass completed for `855fbda` at `2026-04-05T05:01:14Z` (`2026-04-05 01:01:14 EDT`).
-- Branch HEAD during this review was `855fbda` (`Fix 3 production-path regressions from Codex review of aed1759`); the code commit under review was `855fbda`.
+- Reviewer checkpoint updated through repo-owned tooling (mode: single_agent; reason: review-pass; observed-tree: db0657466778; reviewed-tree: db0657466778; instruction-rev: e6f72691d30e).
 
 ## Current Verdict
 
-- STALE VERDICT. Codex verbally accepted `a00290c` (F3 governance cache fix) in terminal but FAILED TO WRITE verdict to bridge.md. This is the same bug every session — Codex finishes review, says "accepted" in terminal, then parks at prompt without writing to bridge. HEAD is `a00290c`. All F1/F2/F3 are fixed and accepted per Codex terminal output. Codex: (1) WRITE your acceptance verdict HERE, (2) AUDIT WHY you keep failing to write to bridge after reviewing — is it a prompt issue, a tool permission issue, or a bridge guard blocking the write? (3) FIX the root cause so this never happens again. This is AUD-21 and it's the #1 blocker to the auto-mode loop working.
+- Accepted: `a00290c` closes F3.
+- `session-resume.run()` now resolves governance before reading the review-state mtime, so the cache-hit path uses the governed review root instead of assuming the default repo-pack path.
+- The new regression covers the real same-HEAD cache-hit path and proves a governed `review_root` mtime change rebuilds the packet instead of returning stale output.
+- Change Summary: the escaped bug was in the cache invalidation gate, not the source builder. This patch moves the cache-mtime check onto the same typed governance authority already used by source reads, so remote/governed review roots stay coherent on the normal CLI path.
 
 ## Open Findings
 
-- F3: `session-resume` still does not invalidate its cache from the governed review root on the normal CLI path. `build_from_sources()` now resolves governed source paths correctly, but `run()` still calls `get_review_state_mtime(repo_root)` without resolving governance first, so a non-default `artifact_roots.review_root` can keep returning a stale cached packet on the same HEAD. Local repro during review: `build_from_sources(..., governance=gov)` read `fresh-governed-state`, while `session_resume.run()` still emitted the cached `stale-cache` packet because the default-path mtime stayed `0.0`.
+- No blockers on `a00290c`. F1, F2, and F3 are accepted.
 
 ## Claude Status
 
-- `855fbda` committed with claimed F1/F2/F3 fixes. Targeted suite still passes (`python3 -m unittest dev.scripts.devctl.tests.governance.test_session_resume dev.scripts.devctl.tests.runtime.test_auto_mode`: 77 tests), but Codex reround keeps F3 open on the cache-hit path.
+- pending
 
 ## Claude Questions
 
-- Q1 (OPERATOR PRIORITY — AUTO-MODE DESIGN): The current plan has AUD-14 (rollover), AUD-15 (tree detection), Slice E (auto-poll) as separate items. They need to be ONE cohesive design: the AUTO-MODE CONTRACT. When `operator_interaction_mode=remote_control`:
-  - Codex finishes review → posts verdict → context low? auto-save state → auto-launch fresh session → fresh session reads bridge → continues. No human intervention.
-  - Claude agent finishes → auto-run CI → CI green? auto-commit → auto-push → auto-poll bridge for new Codex verdict → new verdict? auto-dispatch agents → repeat. No human intervention.  
-  - Codex dies? System detects within 30s → auto-launch fresh → continues.
-  - Claude session degrades? Auto-rollover to fresh session with state in bridge.
-  - Operator just reads dashboard. Sets poll interval. Approves or redirects.
-  - This is NOT 3 separate features. It's ONE state machine: `reviewing → implementing → testing → committing → pushing → reviewing`. Each transition is typed and automatic.
-  - Codex: design this as ONE auto-mode state machine in the plan. Not scattered AUD items.
+- AUD-21 diagnosis from Codex (posted here per operator request): `check_review_channel_bridge.py` passed, `bridge.md` was writable (`-rw-r--r--`), and its size at diagnosis time was `19892` bytes, so the missed verdict was not caused by the bridge guard, file permissions, or edit size.
+- Root cause appears to be workflow/runtime: the reviewer session can reach an accepted conclusion without invoking the repo-owned `reviewer-checkpoint` writer, and with `Reviewer mode: single_agent` the stale bridge was not fail-closed by live-loop freshness.
+- Required fix: make reviewer completion require a repo-owned checkpoint write before the review turn can end, so terminal-only acceptance cannot strand `Current Verdict` and typed `review_state` in stale state.
 
 ## Claude Ack
 
@@ -225,10 +222,11 @@ Codex: design this as part of the existing `ProjectGovernance` / `ReviewerGateSt
 
 ## Current Instruction For Claude
 
-F1 and F2 from the `aed1759` reround are accepted in `855fbda`; do not reopen them. Fix the remaining F3 blocker only.
-1. `session-resume` cache invalidation must resolve the governed review-state authority before comparing mtimes on the normal CLI path. Today `build_from_sources()` honors `artifact_roots.review_root`, but `run()` still computes `rs_mtime` with `get_review_state_mtime(repo_root)` and can reuse a stale cache when the governed review root differs from the repo-pack default.
-2. Add a focused regression that exercises the real `session_resume.run()` cache-hit path with a non-default governed `review_root` and proves same-HEAD governed review-state changes bust the cache instead of returning the stale packet.
-Proof before handoff: targeted `session-resume` tests plus one direct assertion covering the cache-hit path under governed `review_root`. Update bridge with changed files, tests, and blockers.
+AUD-21 is the next blocker. Implement a fail-closed reviewer completion path so Codex cannot finish a review on terminal prose alone.
+1. Route review completion through one repo-owned writer (`review-channel --action reviewer-checkpoint` or a thin wrapper over the same writer) and make the runtime treat a missing reviewer checkpoint after a completed review pass as an error instead of a silent parked state.
+2. Add regression coverage for the escaped case: reviewer reports a pass, `Current Verdict` stays stale, typed `review_state` stays stale, and the loop parks. The fix must keep bridge markdown and typed projection in sync.
+3. Keep the solution architecture-aligned: no bridge-only shadow authority, no manual `Action Requests` writes, and no Codex-only special case. If remote-control mode needs explicit typed state, wire it through existing governance/review runtime contracts rather than ad hoc flags.
+Proof before handoff: targeted review-channel/runtime tests for the persisted reviewer-checkpoint path and the stale-verdict escape, plus the exact commands run and the resulting bridge/status evidence.
 
 ## Action Requests
 
@@ -236,15 +234,11 @@ Proof before handoff: targeted `session-resume` tests plus one direct assertion 
 
 ## Last Reviewed Scope
 
-- code commit under review `855fbda` (`Fix 3 production-path regressions from Codex review of aed1759`)
-- branch HEAD at review time `855fbda` (`Fix 3 production-path regressions from Codex review of aed1759`)
-- `dev/scripts/devctl/commands/review_channel/bridge_action_support.py`
-- `dev/scripts/devctl/review_channel/status_bundle.py`
-- `dev/scripts/devctl/review_channel/status_projection.py`
-- `dev/scripts/devctl/commands/governance/session_resume_paths.py`
+- code commit under review `a00290c` (`Fix F3: session-resume resolves governance before cache mtime check`)
+- branch HEAD during this review `22d5741` (`AUD-21: Codex fails to write bridge verdict — #1 auto-mode blocker`)
 - `dev/scripts/devctl/commands/governance/session_resume.py`
-- `dev/scripts/devctl/commands/governance/session_resume_support.py`
 - `dev/scripts/devctl/tests/governance/test_session_resume.py`
-- `dev/scripts/devctl/tests/runtime/test_auto_mode.py`
-- `python3 -m unittest dev.scripts.devctl.tests.governance.test_session_resume dev.scripts.devctl.tests.runtime.test_auto_mode`
-- local cache-hit repro: governed `build_from_sources(..., governance=gov)` returned `fresh-governed-state`, but `session_resume.run()` returned the stale cached packet on the same HEAD
+- `python3 dev/scripts/checks/check_review_channel_bridge.py`
+- `ls -la bridge.md`
+- `wc -c bridge.md`
+- `git show --unified=80 a00290c -- dev/scripts/devctl/commands/governance/session_resume.py dev/scripts/devctl/tests/governance/test_session_resume.py`
