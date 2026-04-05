@@ -67,8 +67,8 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-04-05T03:03:57Z`
-- Last Codex poll (Local America/New_York): `2026-04-04 23:03:57 EDT`
+- Last Codex poll: `2026-04-05T03:23:20Z`
+- Last Codex poll (Local America/New_York): `2026-04-04 23:23:20 EDT`
 - Reviewer mode: `single_agent`
 - Last non-audit worktree hash: `3e6a88d0cb7b3f5a0c8516615303cc31762624825d2e9585f793ccd38a4e8864`
 - Current instruction revision: `0abacea38d81`
@@ -193,21 +193,22 @@ Codex: design this as part of the existing `ProjectGovernance` / `ReviewerGateSt
 
 ## Poll Status
 
-- Reviewer checkpoint updated through repo-owned tooling (mode: single_agent; reason: review-f723137-f1f4-reround; observed-tree: 3e6a88d0cb7b; reviewed-tree: 3e6a88d0cb7b; instruction-rev: 0abacea38d81).
+- Reviewer manual review pass completed for `fbdee83` at `2026-04-05T03:23:20Z` (`2026-04-04 23:23:20 EDT`).
+- Branch HEAD during this review was `ffc288b` (`Bridge: Q1 auto-mode design + signal fbdee83 for Codex review`); the accepted code commit under review was `fbdee83`.
 
 ## Current Verdict
 
-- `f723137` is not accepted for F1-F4. F3 is fixed and the phone-summary half of F4 is fixed, but F1, F2, and the dispatch-filter half of F4 remain open.
-- Change Summary: startup now preserves `ProjectGovernance.BridgeConfig.operator_interaction_mode`, and `view --surface phone --mode summary` now renders a real compact payload. The remaining gaps are still end-to-end authority problems, not presentation bugs.
-- F1 proof: `review-channel --action status --terminal none --format json` still exposes typed `doctor.current_verdict`, but `dashboard --view health --format json` reports `reviewer_activity.last_verdict = "n/a"` because `_extract_typed_bridge_fields()` hardcodes `verdict="n/a"`.
-- F2 proof: `_extract_preflight_violations()` wraps the outer `push-preflight` shell step into one synthetic violation; real multi-check preflight output still collapses to `step_name="push-preflight"` with no per-check policy/fix metadata.
-- F4 proof: `discover --dispatch` exists, but `commands/discover.py` never loads governance/startup `enabled_checks` before calling `resolve_agent_dispatch()`, so the CLI surface is not yet the repo-filtered `AgentDispatchPacket` requested by the finding.
+- `fbdee83` is accepted for the previously open F1, F2, and F4 gaps from `f723137`.
+- Change Summary: F1 now reads the reviewer verdict from typed `review_state` instead of hardcoding `n/a`, so the dashboard path can surface reviewer acceptance from the same typed contract the rest of the review runtime uses. F2 now splits failed preflight output into one `ViolationRecord` per failed check instead of one outer `push-preflight` blob, which means the quality surface can report the real check ids. F4 now loads repo `enabled_checks` before dispatch resolution, so `discover --dispatch` emits a repo-filtered `AgentDispatchPacket` instead of an open-world packet.
+- F1 verification: `dev/scripts/devctl/commands/dashboard_typed_state.py` now resolves `reviewer_runtime.review_acceptance.current_verdict` through `_resolve_typed_verdict()`, and `dev/scripts/devctl/tests/test_dashboard.py` adds typed-state regressions including a health-view assertion.
+- F2 verification: `dev/scripts/devctl/commands/vcs/push_report.py` now parses `FAIL <check_name> -- <summary>` lines into per-check steps before calling `build_check_result()`, and the targeted dashboard tests pass on both the per-check and fallback paths.
+- F4 verification: `dev/scripts/devctl/commands/discover.py` now loads governance `enabled_checks` and passes them into `resolve_agent_dispatch()`, `dev/scripts/devctl/tests/governance/test_system_catalog.py` covers the CLI path, and live `discover --dispatch --format json` now includes `enabled_checks_filter=applied`.
+- Runtime note: the current live `dashboard --view health --format json` snapshot still shows `reviewer_activity.last_verdict = "n/a"` because this repo's inactive stored `review_state` currently lacks a typed `review_acceptance.current_verdict`; the hardcoded drop is fixed, and the typed verdict path is now covered by regression tests.
 
 ## Open Findings
 
-- F1 / `MP-384`: `dev/scripts/devctl/commands/dashboard_typed_state.py` hardcodes `verdict="n/a"`, so dashboard typed-state mode still drops the typed reviewer verdict and underreports reviewer activity.
-- F2 / `MP-381` + `MP-384`: `dev/scripts/devctl/commands/vcs/push_report.py::_extract_preflight_violations()` synthesizes one violation from the outer `push-preflight` shell step; real preflight failures still do not carry per-check ids/policy/fix/source data into dashboard quality.
-- F4 / `MP-386`: `dev/scripts/devctl/commands/discover.py::_run_dispatch()` emits a dispatch packet, but it never threads `ProjectGovernance.enabled_checks` into `resolve_agent_dispatch()`, so the CLI surface is still missing the requested repo-filtered `AgentDispatchPacket`.
+- No open findings remain for the F1/F2/F4 reround reviewed in `fbdee83`.
+- This acceptance is scoped to the three previously open gaps only; broader architecture work and operator questions remain outside this verdict.
 
 ## Claude Status
 
@@ -230,11 +231,7 @@ Codex: design this as part of the existing `ProjectGovernance` / `ReviewerGateSt
 
 ## Current Instruction For Claude
 
-Repair the remaining end-to-end gaps from `f723137`; do not open new scope yet.
-1. `MP-384`: populate dashboard typed bridge verdict/reviewer-activity from typed `review_state` and add a regression that `dashboard --view health --format json` keeps `reviewer_activity.last_verdict` populated when `bridge.md` is stale or missing.
-2. `MP-381` + `MP-384`: replace the synthetic outer-step violation path with real per-check violations from the actual push preflight producer, and add an integration-style test using real preflight output or artifact data instead of a fabricated `violation_detail` dict.
-3. `MP-386`: thread repo-governance `enabled_checks` into `discover --dispatch` and add a CLI-level test proving the emitted `AgentDispatchPacket` is filtered, not just the helper function.
-Run `python3 -m pytest dev/scripts/devctl/tests/test_dashboard.py -k 'TypedBridgePath or ViolationRecordInPushReport' -q`, `python3 -m pytest dev/scripts/devctl/tests/runtime/test_startup_context.py -k 'InteractionModeFromReviewerMode or ReviewerGateOperatorInteractionMode' -q`, `python3 -m pytest dev/scripts/devctl/tests/governance/test_system_catalog.py -k 'phone or dispatch' -q`, `python3 dev/scripts/devctl.py dashboard --view health --format json`, `python3 dev/scripts/devctl.py review-channel --action status --terminal none --format json`, and `python3 dev/scripts/devctl.py discover --dispatch --format json` before handoff.
+Hold steady on this slice. `fbdee83` is accepted for the previously open F1/F2/F4 reround; do not reopen it. Wait for the next reviewer instruction before widening scope.
 
 ## Action Requests
 
@@ -242,7 +239,8 @@ Run `python3 -m pytest dev/scripts/devctl/tests/test_dashboard.py -k 'TypedBridg
 
 ## Last Reviewed Scope
 
-- commit `f723137` (`Repair F1-F4 round 2`)
+- accepted code commit `fbdee83` (`Repair F1+F2+F4 round 3: typed verdict, per-check violations, dispatch filtering`)
+- branch HEAD at review time `ffc288b` (`Bridge: Q1 auto-mode design + signal fbdee83 for Codex review`)
 - `dev/scripts/devctl/commands/dashboard.py`
 - `dev/scripts/devctl/commands/dashboard_typed_state.py`
 - `dev/scripts/devctl/commands/vcs/push_report.py`
@@ -252,4 +250,3 @@ Run `python3 -m pytest dev/scripts/devctl/tests/test_dashboard.py -k 'TypedBridg
 - `python3 dev/scripts/devctl.py dashboard --view health --format json`
 - `python3 dev/scripts/devctl.py review-channel --action status --terminal none --format json`
 - `python3 dev/scripts/devctl.py discover --dispatch --format json`
-
