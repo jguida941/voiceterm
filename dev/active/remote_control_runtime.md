@@ -281,6 +281,27 @@ The MP scopes remain valid but are now cross-cut by enforcement-first priority.
 
 ## Progress Log
 
+- 2026-04-05: Landed typed `ReviewerObservation` contract (MP-385/MP-387).
+  Frozen dataclass with status enum: `not_seen` / `pending_review` /
+  `under_review` / `accepted`. Derived from `reviewer_freshness`,
+  `review_needed`, `reviewed_hash_current`, `last_reviewed_sha` — no bridge
+  parsing. Wired through: `ControlPlaneReadModel.reviewer_observation`,
+  `compact.json` via `build_observation_projection()`,
+  `SessionCachePacket.reviewer_observation_status`. Contract closure
+  updated: both new fields registered, 0 violations. 9 new tests,
+  73 session-resume tests pass, 35 read-model tests pass.
+- 2026-04-05: Accepted follow-up commit `5861900` for the reviewer-bootstrap
+  mixed-state routing bug. Live typed status still does not expose one
+  reviewer-observation receipt that answers "has Codex already seen the
+  current HEAD, and is that head still pending review or already accepted?"
+  Existing contracts expose poll freshness (`last_codex_poll_*`), drift
+  (`review_needed`, `reviewed_hash_current`), and acceptance baseline
+  (`last_reviewed_sha`, `head_at_push_time`), but not one bounded
+  observation block for `observed_head -> observation time -> review state`.
+  Bound the next slice to `MP-385` / `MP-387`: add one typed
+  reviewer-observation contract projected through review-state/status,
+  operator-facing surfaces, and `session-resume` instead of extending bridge
+  prose.
 - 2026-04-05: Reviewed the pushed branch through `b819efa` and converted the
   architecture review into tracked closure work. The live runtime still
   reports `launch_truth=detached_runtime_only`,

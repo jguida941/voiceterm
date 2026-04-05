@@ -58,6 +58,11 @@ SURFACE_STATE_CONTRACTS: tuple[ContractSpec, ...] = (
                 "tuple[dict[str, str], ...]",
                 "Per-check status detail rows from the last guard run.",
             ),
+            ContractField(
+                "reviewer_observation",
+                "ReviewerObservation | None",
+                "Typed reviewer-observation record for HEAD visibility and review status.",
+            ),
         ),
         runtime_model="dev.scripts.devctl.runtime.control_plane_read_model:ControlPlaneReadModel",
         startup_surface_tokens=("push_eligible", "top_blocker", "resolved_phase"),
@@ -122,6 +127,11 @@ SURFACE_STATE_CONTRACTS: tuple[ContractSpec, ...] = (
             ContractField("resolved_phase", "str", "Auto-mode phase from ControlPlaneReadModel."),
             ContractField("next_guard_bundle", "str", "Recommended guard bundle for current changed paths."),
             ContractField("next_recommended_command", "str", "Exact devctl command to run next."),
+            ContractField(
+                "reviewer_observation_status",
+                "str",
+                "Reviewer observation status: not_seen, pending_review, under_review, or accepted.",
+            ),
         ),
         runtime_model=(
             "dev.scripts.devctl.commands.governance.session_resume_support:"

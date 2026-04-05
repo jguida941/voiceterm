@@ -27,6 +27,7 @@ from .control_plane_resolve import (
     resolve_reviewer_state,
     utc_now_iso,
 )
+from .reviewer_observation import ReviewerObservation, resolve_reviewer_observation
 from .value_coercion import coerce_bool, coerce_int, coerce_string
 
 
@@ -76,6 +77,9 @@ class ControlPlaneReadModel:
     last_guard_ok: bool
     check_details: tuple[dict[str, str], ...]
 
+    # Typed reviewer observation (derived from bridge state)
+    reviewer_observation: ReviewerObservation | None = None
+
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
 
@@ -88,6 +92,36 @@ def _nested_get(d: dict[str, Any] | None, *keys: str) -> Any:
             return None
         cur = cur.get(k)
     return cur
+
+
+def _build_reviewer_observation(
+    *,
+    head_sha: str,
+    reviewer: dict[str, Any],
+    review_state: dict[str, Any] | None,
+) -> ReviewerObservation | None:
+    """Build a ReviewerObservation from resolved reviewer dict and raw bridge data.
+
+    Returns None when no review_state is available (single-agent mode with
+    no bridge data to derive observation from).
+    """
+    bridge: dict[str, Any] = {}
+    if review_state:
+        bridge = review_state.get("bridge", {}) or {}
+    poll_utc = coerce_string(bridge.get("last_codex_poll_utc"))
+    review_needed = bool(bridge.get("review_needed", True))
+    reviewed_hash_current = bool(bridge.get("reviewed_hash_current", False))
+    head_at_push_time = coerce_string(bridge.get("head_at_push_time"))
+    return resolve_reviewer_observation(
+        head_sha=head_sha,
+        last_codex_poll_utc=poll_utc,
+        reviewer_freshness=reviewer["reviewer_freshness"],
+        review_needed=review_needed,
+        reviewed_hash_current=reviewed_hash_current,
+        last_reviewed_sha=reviewer.get("last_reviewed_sha", ""),
+        head_at_push_time=head_at_push_time,
+        review_accepted=reviewer["review_accepted"],
+    )
 
 
 # -------------------------------------------------------
@@ -144,6 +178,12 @@ def build_control_plane_read_model(
         timestamp_utc=utc_now_iso(),
     ))
 
+    observation = _build_reviewer_observation(
+        head_sha=git.get("head", "unknown"),
+        reviewer=reviewer,
+        review_state=review_state,
+    )
+
     return ControlPlaneReadModel(
         timestamp=utc_now_iso(),
         branch=git.get("branch", "unknown"),
@@ -163,6 +203,7 @@ def build_control_plane_read_model(
         last_reviewed_sha=reviewer.get("last_reviewed_sha", ""),
         attention_status=reviewer["attention_status"],
         attention_summary=reviewer["attention_summary"],
+        reviewer_observation=observation,
         publisher_running=daemons["publisher_running"],
         supervisor_running=daemons["supervisor_running"],
         codex_conductor_alive=daemons["codex_conductor_alive"],
@@ -212,6 +253,7 @@ def control_plane_read_model_from_mapping(
         last_reviewed_sha=coerce_string(value.get("last_reviewed_sha")),
         attention_status=coerce_string(value.get("attention_status")) or "n/a",
         attention_summary=coerce_string(value.get("attention_summary")) or "n/a",
+        reviewer_observation=_observation_from_mapping(value.get("reviewer_observation")),
         publisher_running=coerce_bool(value.get("publisher_running", False)),
         supervisor_running=coerce_bool(value.get("supervisor_running", False)),
         codex_conductor_alive=coerce_bool(value.get("codex_conductor_alive", False)),
@@ -219,6 +261,22 @@ def control_plane_read_model_from_mapping(
         pending_action_requests=coerce_int(value.get("pending_action_requests")),
         last_guard_ok=coerce_bool(value.get("last_guard_ok", True)),
         check_details=tuple(details),
+    )
+
+
+def _observation_from_mapping(raw: object) -> ReviewerObservation | None:
+    """Deserialize a ReviewerObservation from a JSON-like mapping."""
+    if not isinstance(raw, dict):
+        return None
+    return ReviewerObservation(
+        head_sha=coerce_string(raw.get("head_sha")),
+        observed_head_sha=coerce_string(raw.get("observed_head_sha")),
+        observed_at_utc=coerce_string(raw.get("observed_at_utc")),
+        last_reviewed_sha=coerce_string(raw.get("last_reviewed_sha")),
+        status=coerce_string(raw.get("status")) or "not_seen",
+        review_needed=coerce_bool(raw.get("review_needed", True)),
+        reviewed_hash_current=coerce_bool(raw.get("reviewed_hash_current", False)),
+        stale=coerce_bool(raw.get("stale", True)),
     )
 
 

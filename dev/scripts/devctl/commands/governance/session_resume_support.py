@@ -69,6 +69,7 @@ class SessionCachePacket:
     resolved_phase: str = "idle"
     next_guard_bundle: str = ""
     next_recommended_command: str = ""
+    reviewer_observation_status: str = ""
 
     def to_dict(self) -> dict[str, object]:
         payload = asdict(self)
@@ -176,6 +177,10 @@ def build_from_sources(
     )
     next_cmd = model.next_command or model.next_action
 
+    obs_status = ""
+    if model.reviewer_observation is not None:
+        obs_status = model.reviewer_observation.status
+
     return SessionCachePacket(
         generated_at_utc=utc_timestamp(),
         role=role,
@@ -200,6 +205,7 @@ def build_from_sources(
         resolved_phase=model.resolved_phase,
         next_guard_bundle=guard_bundle,
         next_recommended_command=next_cmd,
+        reviewer_observation_status=obs_status,
     )
 
 
@@ -417,6 +423,7 @@ def packet_from_mapping(payload: dict[str, Any]) -> SessionCachePacket:
         resolved_phase=str(payload.get("resolved_phase") or "idle").strip(),
         next_guard_bundle=str(payload.get("next_guard_bundle") or "").strip(),
         next_recommended_command=str(payload.get("next_recommended_command") or "").strip(),
+        reviewer_observation_status=str(payload.get("reviewer_observation_status") or "").strip(),
     )
 
 

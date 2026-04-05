@@ -17,6 +17,7 @@ from .current_session_projection import (
 )
 from .doctor_markdown import append_doctor_markdown
 from .projection_markdown import append_push_markdown
+from .projection_observation import build_observation_projection
 
 
 @dataclass(frozen=True)
@@ -145,6 +146,7 @@ def _build_compact_projection(review_state: dict[str, object]) -> dict[str, obje
             **queue,
             "current_focus": current_focus,
         },
+        "reviewer_observation": build_observation_projection(review_state),
         "warnings": review_state.get("warnings", []),
         "errors": review_state.get("errors", []),
     }
