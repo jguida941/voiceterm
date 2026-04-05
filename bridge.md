@@ -67,11 +67,11 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-04-05T06:12:10Z`
-- Last Codex poll (Local America/New_York): `2026-04-05 02:12:10 EDT`
+- Last Codex poll: `2026-04-05T06:38:05Z`
+- Last Codex poll (Local America/New_York): `2026-04-05 02:38:05 EDT`
 - Reviewer mode: `single_agent`
-- Last non-audit worktree hash: `70e41fafc875a5bde1ce92a4b8cb26204105d47e39e7327415a6b13361a755c1`
-- Current instruction revision: `a7e02ecf50bd`
+- Last non-audit worktree hash: `ae256e567775d6c7e2af28b6b41ef023c35caef8af27e3c9bbc882a1409cb19b`
+- Current instruction revision: `086327804354`
 ## Protocol
 
 1. Claude should poll this file periodically while coding.
@@ -193,30 +193,27 @@ Codex: design this as part of the existing `ProjectGovernance` / `ReviewerGateSt
 
 ## Poll Status
 
-- Codex review pass complete (mode: single_agent; reason: review-rejected; observed-tree: 70e41fafc875; reviewed-tree: 70e41fafc875; instruction-rev: a7e02ecf50bd).
+- Codex review pass complete (mode: single_agent; reason: accepted; observed-tree: ae256e567775; reviewed-tree: ae256e567775; instruction-rev: 086327804354).
 
 ## Current Verdict
 
-- Rejected: `afd6866` is not safe to promote as the shared `ControlPlaneReadModel` yet.
-- The new reviewer reducer drops the typed `review_acceptance.review_accepted` boolean and re-parses free-form verdict text instead, so accepted states like `- Reviewer-accepted.` collapse to `review_accepted=False`.
-- The new contract also collapses reviewer and implementer conductor liveness into one `conductor_alive` bit. That loses the exact remote-control failure shape we are trying to detect: Codex dead while Claude is still alive.
-- Change Summary: the builder extraction is a good direction, but this first contract version strips two pieces of authority the repo already has: typed acceptance truth and role-specific conductor liveness. Fix those before widening adoption to more surfaces.
+- Accepted: `79be213` fixes the two blocking `ControlPlaneReadModel` contract bugs from `afd6866`.
+- `resolve_reviewer_state()` now trusts the typed `review_acceptance.review_accepted` boolean before falling back to verdict prose, so accepted reviewer state no longer depends on fragile string matching.
+- `ControlPlaneReadModel` now exposes `codex_conductor_alive` and `claude_conductor_alive` separately, so the shared read model can represent asymmetric reviewer/implementer liveness again.
+- Verified on current HEAD `62e072c`: targeted unit tests pass, and a live-PID manual repro still yields `codex_conductor_alive=False` / `claude_conductor_alive=True`.
+- Change Summary: this follow-up keeps the typed authority the repo already owns instead of re-parsing human text or collapsing provider state. That makes the shared control-plane contract safe to keep adopting.
 
 ## Open Findings
 
-- F1 (blocking): `dev/scripts/devctl/runtime/control_plane_resolve.py` reads `reviewer_runtime.review_acceptance.current_verdict` and infers acceptance from exact strings instead of trusting the typed `review_acceptance.review_accepted` boolean the runtime already owns. Repro from review: `resolve_reviewer_state({\"reviewer_runtime\": {\"review_acceptance\": {\"review_accepted\": True, \"current_verdict\": \"- Reviewer-accepted.\"}}}, None, None)` returns `review_accepted=False`. Fix by reading the typed boolean first and keep verdict text as fallback/display-only data. Add a regression for the existing reviewer-runtime contract shape.
-- F2 (blocking): `dev/scripts/devctl/runtime/control_plane_resolve.py` ORs Codex and Claude liveness into one `conductor_alive` bit, and `dev/scripts/devctl/runtime/control_plane_read_model.py` exposes only that collapsed field. The remote-control root cause is specifically asymmetric liveness, so this contract cannot represent "Codex dead, Claude alive". Split the field by provider and add a regression that proves the reviewer-dead/implementer-alive state stays observable to downstream surfaces.
-- F3 (coverage gap): `dev/scripts/devctl/tests/runtime/test_control_plane_read_model.py` only covers `current_verdict=\"accepted\"` and all-dead conductor cases, so both contract holes above pass green today. Add explicit regressions for typed `review_accepted=True` with human-form verdict text and for asymmetric conductor liveness.
+- None blocking for `afd6866..79be213`.
 
 ## Claude Status
 
-- pending
+- hold steady; no active coding assignment from this review pass.
 
 ## Claude Questions
 
-- AUD-21 diagnosis from Codex (posted here per operator request): `check_review_channel_bridge.py` passed, `bridge.md` was writable (`-rw-r--r--`), and its size at diagnosis time was `19892` bytes, so the missed verdict was not caused by the bridge guard, file permissions, or edit size.
-- Root cause appears to be workflow/runtime: the reviewer session can reach an accepted conclusion without invoking the repo-owned `reviewer-checkpoint` writer, and with `Reviewer mode: single_agent` the stale bridge was not fail-closed by live-loop freshness.
-- Required fix: make reviewer completion require a repo-owned checkpoint write before the review turn can end, so terminal-only acceptance cannot strand `Current Verdict` and typed `review_state` in stale state.
+- none.
 
 ## Claude Ack
 
@@ -224,11 +221,9 @@ Codex: design this as part of the existing `ProjectGovernance` / `ReviewerGateSt
 
 ## Current Instruction For Claude
 
-Fix the `ControlPlaneReadModel` contract before widening adoption.
-1. In `dev/scripts/devctl/runtime/control_plane_resolve.py`, derive `review_accepted` from typed `review_acceptance.review_accepted` first; use `current_verdict` only as a fallback display signal. Add a regression proving `- Reviewer-accepted.` with `review_accepted=True` stays accepted.
-2. Preserve per-provider conductor liveness in the shared read model. Replace the single `conductor_alive` bit with distinct Codex/Claude fields, wire dashboard use through those typed fields, and add a regression for the remote-control failure shape: Codex dead while Claude is alive.
-3. Update the runtime contract/tests together, then rerun `python3 -m unittest dev.scripts.devctl.tests.runtime.test_control_plane_read_model` and the targeted dashboard tests for the touched integration.
-4. Stop after those contract fixes; do not widen this slice into mobile/operator-console adoption yet.
+Hold steady.
+1. No new coding is required for this review slice. `79be213` closes the blocking F1/F2 contract bugs from `afd6866`.
+2. Optional follow-up only if the operator wants tighter proof: make `test_codex_dead_claude_alive_observable` use a live Claude PID (for example `os.getpid()`), assert `codex_conductor_alive=False` and `claude_conductor_alive=True`, then rerun `python3 -m unittest dev.scripts.devctl.tests.runtime.test_control_plane_read_model dev.scripts.devctl.tests.runtime.test_control_plane_regressions`.
 
 ## Action Requests
 
@@ -236,16 +231,12 @@ Fix the `ControlPlaneReadModel` contract before widening adoption.
 
 ## Last Reviewed Scope
 
-- code commit under review `afd6866` (`ControlPlaneReadModel: ONE builder replaces 5 independent state computations`)
-- active plans/context checked: `dev/active/MASTER_PLAN.md`, `dev/active/review_channel.md`, `dev/active/platform_authority_loop.md`, `dev/active/ai_governance_platform.md`
+- code review diff under review `afd6866..79be213` (`Fix ControlPlaneReadModel: typed review_accepted, per-provider conductors`)
+- active docs/context checked: `dev/active/INDEX.md`, `dev/active/MASTER_PLAN.md`, `dev/active/review_channel.md`, `dev/active/platform_authority_loop.md`, `dev/active/ai_governance_platform.md`
 - `dev/scripts/devctl/runtime/control_plane_read_model.py`
 - `dev/scripts/devctl/runtime/control_plane_resolve.py`
-- `dev/scripts/devctl/runtime/reviewer_runtime_models.py`
-- `dev/scripts/devctl/review_channel/reviewer_runtime_contract.py`
-- `dev/scripts/devctl/commands/dashboard.py`
-- `dev/scripts/devctl/commands/dashboard_utils.py`
-- `dev/scripts/devctl/commands/auto_mode_status.py`
-- `dev/scripts/devctl/commands/mobile_status.py`
 - `dev/scripts/devctl/tests/runtime/test_control_plane_read_model.py`
-- verification: `python3 -m unittest dev.scripts.devctl.tests.runtime.test_control_plane_read_model` (pass)
-- verification: `python3 -m unittest dev.scripts.devctl.tests.test_dashboard` (2 existing ANSI-output failures observed during review run)
+- `dev/scripts/devctl/tests/runtime/test_control_plane_regressions.py`
+- verification: `python3 -m unittest dev.scripts.devctl.tests.runtime.test_control_plane_read_model dev.scripts.devctl.tests.runtime.test_control_plane_regressions` (pass)
+- manual repro: `resolve_reviewer_state(... review_accepted=True, current_verdict="- Reviewer-accepted.") -> review_accepted=True`
+- manual repro: `resolve_daemon_state({... claude_conductor: {"session_pid": os.getpid()}}) -> claude_conductor_alive=True`
