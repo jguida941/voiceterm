@@ -15,8 +15,10 @@ from ..runtime.review_state_models import ConductorCapabilityState
 from .handoff import BRIDGE_LIVENESS_KEYS, expected_rollover_ack_line, expected_rollover_ack_section
 from .prompt_guards import reviewer_takeover_note, startup_context_follow_up
 from .prompt_sections import operating_contract_lines
+from .prompt_session_resume import build_session_resume_preamble
 
 if TYPE_CHECKING:
+    from ..commands.governance.session_resume_support import SessionCachePacket
     from .core import LaneAssignment
 
 def build_conductor_prompt(
@@ -39,6 +41,7 @@ def build_conductor_prompt(
     approval_mode: str = DEFAULT_APPROVAL_MODE,
     bridge_liveness: dict[str, object] | None = None,
     handoff_bundle: dict[str, str] | None = None,
+    session_resume_packet: "SessionCachePacket | None" = None,
 ) -> str:
     """Render the initial conductor prompt for Codex or Claude."""
     capability = _resolve_conductor_capability(
@@ -58,7 +61,12 @@ def build_conductor_prompt(
         for lane in lanes
     ]
     context_lines = _context_escalation_lines(lanes=lanes)
-    return "\n".join(
+    preamble = build_session_resume_preamble(
+        provider=provider,
+        repo_root=repo_root,
+        session_resume_packet=session_resume_packet,
+    )
+    body = "\n".join(
         [
             _opening_line(provider_name=provider_name, handoff_bundle=handoff_bundle),
             "",
@@ -124,6 +132,9 @@ def build_conductor_prompt(
             ),
         ]
     )
+    if preamble:
+        return preamble + "\n\n" + body
+    return body
 
 
 def _opening_line(
