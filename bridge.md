@@ -197,14 +197,15 @@ Codex: design this as part of the existing `ProjectGovernance` / `ReviewerGateSt
 
 ## Current Verdict
 
-- Rejected: `bcccaf8` is close, but the new `reviewer_completion_unrecorded` signal can false-positive after a valid reviewer checkpoint.
-- `_reviewer_completion_unrecorded()` currently treats the live `Poll Status` action as proof that no checkpoint was recorded. That is not stable reviewer-completion evidence.
-- `write_reviewer_heartbeat()` rewrites `Poll Status` with action `reviewer-heartbeat` on ordinary follow ticks while leaving an accepted `Current Verdict` intact. A later heartbeat can therefore flip a healthy accepted bridge into `reviewer_completion_unrecorded` even when the completion was properly recorded earlier.
-- Change Summary: the fail-closed direction is right, but the proof of reviewer completion must live in durable checkpoint-backed state, not in mutable heartbeat prose that gets overwritten on the next keepalive.
+- Rejected: `bcccaf8` does not close AUD-21 end-to-end yet.
+- The new `reviewer_completion_unrecorded` status is only wired where callers go through `refresh_status_snapshot()`. Raw bridge-liveness callers still never receive `bridge_verdict_accepted`, so the new fail-closed signal disappears on those paths.
+- `launch`/`rollover` attention gating still builds raw liveness from `summarize_bridge_liveness()` and immediately classifies attention from that dict. Because that raw dict does not carry `bridge_verdict_accepted`, an accepted-without-checkpoint bridge can still look healthy there instead of blocking the loop.
+- Change Summary: the core classifier and status snapshot wiring are good, but the authority surfaces that consume raw or fallback liveness were not updated to carry the new acceptance signal. AUD-21 is only partially fixed until those paths fail closed too.
 
 ## Open Findings
 
-- F1 (blocking): `dev/scripts/devctl/review_channel/attention_classify.py` keys `reviewer_completion_unrecorded` off `poll_status_action`, but `dev/scripts/devctl/review_channel/reviewer_state.py` and `dev/scripts/devctl/review_channel/reviewer_state_support.py` overwrite that field on every reviewer heartbeat. After a real `reviewer-checkpoint`, the next normal heartbeat can make the bridge look unrecorded again. Fix by persisting reviewer-checkpoint provenance in durable bridge metadata or typed review state and classify against that stable receipt instead of the current `Poll Status` text. Add a regression for `reviewer-checkpoint -> reviewer-heartbeat -> still healthy`.
+- F1 (blocking): `dev/scripts/devctl/commands/review_channel/bridge_support.py` still feeds `enforce_bridge_launch_attention()` a raw `summarize_bridge_liveness()` dict, and `dev/scripts/devctl/review_channel/bridge_runtime_state.py` classifies attention directly from that raw dict. That dict has `poll_status_action`, but it never gets `bridge_verdict_accepted`, so `reviewer_completion_unrecorded` cannot trigger on launch/rollover gating. Fix by carrying the acceptance projection into the base bridge-liveness model or by computing it before raw launch attention is derived. Add a regression that proves launch/rollover attention blocks when the bridge shows acceptance without a reviewer-checkpoint receipt.
+- F2 (blocking): `dev/scripts/devctl/review_channel/turn_authority.py` fallback authority only overlays a small lifecycle key set, and that list omits `bridge_verdict_accepted`. Even when typed `bridge_liveness` already has the new field, fallback recovery assessment drops it and reclassifies the state as healthy. Fix the fallback overlay/authority path so the same accepted-without-checkpoint bridge stays fail-closed there too, and add one regression around `_build_fallback_liveness_dict()` or the public turn-authority surface.
 - The mixed concerns in `recovery_assessment.py` and the stale override in `check_structural_complexity.py` are pre-existing debt, not AUD-21 blockers, unless the follow-up patch materially expands or worsens them.
 
 ## Claude Status
@@ -223,12 +224,12 @@ Codex: design this as part of the existing `ProjectGovernance` / `ReviewerGateSt
 
 ## Current Instruction For Claude
 
-Fix the AUD-21 signal so it stays fail-closed without false positives.
-1. Persist reviewer-completion provenance in a durable surface that heartbeat refresh does not overwrite. Good options: dedicated reviewer-checkpoint metadata in `bridge.md`, or a typed field in the review-status projection/runtime contract that records the last successful checkpoint action/receipt for the current accepted verdict.
-2. Recompute `reviewer_completion_unrecorded` from that durable checkpoint evidence. The status should fire for heartbeat-only acceptance, but it must stay healthy after a valid `reviewer-checkpoint` even if later `reviewer-heartbeat` writes refresh `Poll Status`.
-3. Add regression coverage for both paths: `heartbeat-only acceptance -> reviewer_completion_unrecorded` and `reviewer-checkpoint -> later reviewer-heartbeat -> still healthy`.
+Finish threading AUD-21 through every authority path that classifies reviewer attention.
+1. Update the raw bridge-liveness / launch-gating path so `bridge_verdict_accepted` is available before `derive_bridge_attention()` runs for `launch`/`rollover`. Either promote acceptance into the core liveness model or compute/attach it in `bridge_launch_state()` before attention classification.
+2. Update the fallback turn-authority path so `_build_fallback_liveness_dict()` preserves `bridge_verdict_accepted` from typed `bridge_liveness` instead of dropping it.
+3. Add regressions for both escaped surfaces: raw launch attention and fallback authority/recovery assessment. The expected result is `reviewer_completion_unrecorded`, not `healthy`, when the bridge shows accepted/no-findings and the last action was not `reviewer-checkpoint`.
 4. Keep the fix scoped to AUD-21 behavior. Do not spend this slice "fixing" the pre-existing mixed concerns in `recovery_assessment.py` or the stale `check_structural_complexity.py` override unless your patch directly worsens them.
-Proof before handoff: targeted review-channel tests plus the exact commands run and one concrete status/bridge example showing the accepted-checkpoint case remains healthy after a later heartbeat.
+Proof before handoff: exact targeted test commands, plus one concrete launch/fallback example showing the new status survives outside `refresh_status_snapshot()`.
 
 ## Action Requests
 
@@ -239,14 +240,15 @@ Proof before handoff: targeted review-channel tests plus the exact commands run 
 - code commit under review `bcccaf8` (`AUD-21: fail-closed reviewer completion path`)
 - branch HEAD during this review `bcccaf8` (`AUD-21: fail-closed reviewer completion path`)
 - `dev/scripts/devctl/review_channel/attention_classify.py`
-- `dev/scripts/devctl/review_channel/peer_liveness.py`
-- `dev/scripts/devctl/review_channel/peer_recovery.py`
-- `dev/scripts/devctl/review_channel/recovery_assessment.py`
+- `dev/scripts/devctl/review_channel/bridge_runtime_state.py`
+- `dev/scripts/devctl/commands/review_channel/bridge_support.py`
 - `dev/scripts/devctl/review_channel/state.py`
-- `dev/scripts/devctl/review_channel/reviewer_state.py`
-- `dev/scripts/devctl/review_channel/reviewer_state_support.py`
+- `dev/scripts/devctl/review_channel/turn_authority.py`
+- `dev/scripts/devctl/review_channel/poll_status.py`
 - `dev/scripts/devctl/review_channel/bridge_validation_acceptance.py`
 - `dev/scripts/devctl/tests/review_channel/test_review_channel.py`
 - `git log --oneline -2`
 - `git show --stat --oneline bcccaf8`
 - `git show --unified=80 bcccaf8 -- dev/scripts/devctl/review_channel/attention_classify.py dev/scripts/devctl/review_channel/peer_liveness.py dev/scripts/devctl/review_channel/peer_recovery.py dev/scripts/devctl/review_channel/recovery_assessment.py dev/scripts/devctl/review_channel/state.py dev/scripts/devctl/tests/review_channel/test_review_channel.py`
+- `python3 - <<'PY' ... write_reviewer_checkpoint(); write_reviewer_heartbeat(); extract_poll_status_write_context(...) ... PY`
+- `python3 - <<'PY' ... _build_fallback_liveness_dict(...); build_recovery_assessment(...); recovery_assessment_to_attention_payload(...) ... PY`
