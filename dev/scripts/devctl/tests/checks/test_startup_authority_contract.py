@@ -14,7 +14,32 @@ import pytest
 from dev.scripts.checks.startup_authority_contract.command import _build_report
 from dev.scripts.checks.startup_authority_contract.runtime_checks import (
     collect_import_index_atomicity_findings,
+    collect_post_checkpoint_dirty_worktree_errors,
 )
+
+
+def _fake_pipeline(
+    *,
+    pipeline_id: str = "pipeline-test",
+    state: str = "guards_failed",
+    staged_tree_hash: str = "deadbeefcafef00d",
+    staged_path_count: int = 8,
+):
+    """Build a minimal pipeline namespace for the parked-at-checkpoint exemption.
+
+    The shape matches the ``RemoteCommitPipelineContract`` attributes that the
+    startup-authority check reads: ``pipeline_id``, ``state``, and
+    ``intent.{staged_tree_hash, staged_path_count}``. Any looser shape must
+    fall back to normal enforcement.
+    """
+    return SimpleNamespace(
+        pipeline_id=pipeline_id,
+        state=state,
+        intent=SimpleNamespace(
+            staged_tree_hash=staged_tree_hash,
+            staged_path_count=staged_path_count,
+        ),
+    )
 
 
 def _mock_subprocess_run(*_args, **_kwargs):
@@ -280,6 +305,207 @@ def test_startup_authority_allows_pre_checkpoint_dirty_worktree(
         patch(
             "dev.scripts.checks.startup_authority_contract.command.collect_import_index_atomicity_findings",
             return_value=([], []),
+        ),
+    ):
+        report = _build_report(repo_root=tmp_path)
+
+    assert report["ok"] is True
+    assert not any(
+        "dirty worktree after a local checkpoint" in error for error in report["errors"]
+    )
+
+
+def test_post_checkpoint_dirty_exempted_when_pipeline_parked_at_guards_failed() -> None:
+    """Exact live failing shape: dirty worktree + pipeline parked at guards_failed.
+
+    Router-19 was rejecting ``recommended_action=commit_before_push`` while a
+    governed remote-commit pipeline was intentionally holding the frozen
+    staged snapshot awaiting reviewer adjudication. The typed pipeline
+    contract is the exemption proof, so the collector must return no errors.
+    """
+    gov = _fake_governance(
+        Path("/tmp/repo"),
+        worktree_dirty=True,
+        worktree_clean=False,
+        ahead_of_upstream_commits=1,
+        dirty_path_count=11,
+        untracked_path_count=0,
+        recommended_action="commit_before_push",
+    )
+
+    errors = collect_post_checkpoint_dirty_worktree_errors(
+        gov, pipeline=_fake_pipeline(state="guards_failed")
+    )
+
+    assert errors == []
+
+
+def test_post_checkpoint_dirty_exempted_when_pipeline_parked_at_staged() -> None:
+    """Pre-guard parking: dirty worktree + pipeline in state=staged must exempt.
+
+    ``staged`` is the first parked state after the typed stage action records
+    the frozen snapshot; the startup-authority check must not rediscover that
+    parking as a contract violation.
+    """
+    gov = _fake_governance(
+        Path("/tmp/repo"),
+        worktree_dirty=True,
+        worktree_clean=False,
+        ahead_of_upstream_commits=1,
+        dirty_path_count=8,
+        untracked_path_count=0,
+        recommended_action="commit_before_push",
+    )
+
+    errors = collect_post_checkpoint_dirty_worktree_errors(
+        gov, pipeline=_fake_pipeline(state="staged")
+    )
+
+    assert errors == []
+
+
+def test_post_checkpoint_dirty_still_fails_for_post_commit_pipeline_states() -> None:
+    """Exemption must not widen into post-commit states where the snapshot is behind a commit.
+
+    ``commit_recorded`` means the staged snapshot already landed as a git
+    commit; any remaining dirt is new dirt and deserves the normal
+    ``commit_before_push`` rejection. The same holds for ``push_pending``,
+    ``push_blocked``, ``push_completed``, and ``rejected`` (the pipeline is
+    dead). Checking ``commit_recorded`` is sufficient to prove the narrow
+    exemption boundary holds.
+    """
+    gov = _fake_governance(
+        Path("/tmp/repo"),
+        worktree_dirty=True,
+        worktree_clean=False,
+        ahead_of_upstream_commits=1,
+        dirty_path_count=3,
+        untracked_path_count=0,
+        recommended_action="commit_before_push",
+    )
+
+    errors = collect_post_checkpoint_dirty_worktree_errors(
+        gov, pipeline=_fake_pipeline(state="commit_recorded")
+    )
+
+    assert len(errors) == 1
+    assert "dirty worktree after a local checkpoint" in errors[0]
+
+
+def test_post_checkpoint_dirty_still_fails_when_pipeline_id_is_empty() -> None:
+    """A pipeline artifact with an empty pipeline_id must NOT trigger the exemption.
+
+    An empty pipeline_id is how the typed artifact represents "no active
+    pipeline" — exempting this case would silently disable the check for
+    every dirty-after-checkpoint worktree on repos that happen to carry an
+    empty pipeline file.
+    """
+    gov = _fake_governance(
+        Path("/tmp/repo"),
+        worktree_dirty=True,
+        worktree_clean=False,
+        ahead_of_upstream_commits=1,
+        dirty_path_count=3,
+        untracked_path_count=0,
+        recommended_action="commit_before_push",
+    )
+
+    errors = collect_post_checkpoint_dirty_worktree_errors(
+        gov, pipeline=_fake_pipeline(pipeline_id="", state="staged")
+    )
+
+    assert len(errors) == 1
+    assert "dirty worktree after a local checkpoint" in errors[0]
+
+
+def test_post_checkpoint_dirty_still_fails_when_staged_tree_hash_is_empty() -> None:
+    """A parked-state pipeline with no staged_tree_hash must NOT trigger the exemption.
+
+    The staged_tree_hash is the cross-check that the typed stage action
+    actually ran and captured a real index. Without it, the "parking" claim
+    is unsupported and the normal enforcement path must still fire.
+    """
+    gov = _fake_governance(
+        Path("/tmp/repo"),
+        worktree_dirty=True,
+        worktree_clean=False,
+        ahead_of_upstream_commits=1,
+        dirty_path_count=3,
+        untracked_path_count=0,
+        recommended_action="commit_before_push",
+    )
+
+    errors = collect_post_checkpoint_dirty_worktree_errors(
+        gov,
+        pipeline=_fake_pipeline(
+            state="guards_failed",
+            staged_tree_hash="",
+            staged_path_count=0,
+        ),
+    )
+
+    assert len(errors) == 1
+    assert "dirty worktree after a local checkpoint" in errors[0]
+
+
+def test_startup_authority_integration_allows_dirty_when_live_pipeline_parked(
+    tmp_path: Path,
+) -> None:
+    """End-to-end: real ``commit_pipeline.json`` on disk unsticks the live shape.
+
+    Writes a minimal canonical artifact under the repo-local review-status
+    dir, then runs ``_build_report`` with a dirty+ahead governance snapshot.
+    Proves the loader path is wired correctly and that the exact router-19
+    failing shape from the MP-381 live pipeline (state=guards_failed, staged
+    snapshot frozen) no longer fails the startup-authority contract.
+    """
+    _setup_full_layout(tmp_path)
+    status_dir = tmp_path / "dev" / "reports" / "review_channel" / "latest"
+    status_dir.mkdir(parents=True, exist_ok=True)
+    (status_dir / "commit_pipeline.json").write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "contract_id": "RemoteCommitPipelineContract",
+                "pipeline_id": "pipeline-live-test",
+                "state": "guards_failed",
+                "intent": {
+                    "staged_tree_hash": "93026842b5ba832eec5c72971df8b19c56a0cae8",
+                    "staged_path_count": 8,
+                },
+                "approval_state": "not_requested",
+                "blocked_reason": "bundle_failed",
+            }
+        ),
+        encoding="utf-8",
+    )
+    fake_module = SimpleNamespace(
+        scan_repo_governance=lambda _root: _fake_governance(
+            tmp_path,
+            checkpoint_required=False,
+            safe_to_continue_editing=True,
+            checkpoint_reason="within_dirty_budget",
+            worktree_clean=False,
+            worktree_dirty=True,
+            ahead_of_upstream_commits=1,
+            dirty_path_count=11,
+            untracked_path_count=0,
+            recommended_action="commit_before_push",
+        )
+    )
+
+    with (
+        patch(
+            "dev.scripts.checks.startup_authority_contract.command.import_repo_module",
+            return_value=fake_module,
+        ),
+        patch(
+            "dev.scripts.checks.startup_authority_contract.command.collect_import_index_atomicity_findings",
+            return_value=([], []),
+        ),
+        patch(
+            "dev.scripts.checks.startup_authority_contract.command.collect_push_decision_contract_errors",
+            return_value=[],
         ),
     ):
         report = _build_report(repo_root=tmp_path)

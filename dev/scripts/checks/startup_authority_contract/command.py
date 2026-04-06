@@ -138,7 +138,9 @@ def _runtime_authority_checks(
         checks_passed += 1
 
     checks_run += 1
-    post_checkpoint_dirty_errors = collect_post_checkpoint_dirty_worktree_errors(gov)
+    post_checkpoint_dirty_errors = collect_post_checkpoint_dirty_worktree_errors(
+        gov, repo_root=root
+    )
     if post_checkpoint_dirty_errors:
         errors.extend(post_checkpoint_dirty_errors)
     else:
