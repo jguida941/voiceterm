@@ -7,10 +7,13 @@ from pathlib import Path
 _IMPLEMENTATION_STRICT_INTENT = "implementation_strict"
 _REVIEWER_BOOTSTRAP_INTENT = "reviewer_bootstrap"
 
-# Canonical location for the governed remote-commit-pipeline projection.
-# Kept in lockstep with ``active_path_config().review_status_dir_rel`` — this
-# is the repo-local path every other governance surface already agrees on.
-_REVIEW_STATUS_DIR_REL = "dev/reports/review_channel/latest"
+# Hard fallback for the governed remote-commit-pipeline projection root,
+# used only when neither ``ProjectGovernance.artifact_roots.review_root``
+# nor a repo-pack override resolves a path. The canonical resolution path
+# is ``_resolve_commit_pipeline_root_rel`` below — this constant exists so
+# the check still has a deterministic last-chance default in completely
+# unconfigured environments.
+_DEFAULT_REVIEW_STATUS_DIR_REL = "dev/reports/review_channel/latest"
 
 # Pipeline states where the frozen staged snapshot is intentionally held in
 # the dirty worktree awaiting the next governed step (guard bundle, approval
@@ -63,29 +66,88 @@ _load_remote_commit_pipeline_contract = import_repo_module(
     repo_root=REPO_ROOT,
 ).load_remote_commit_pipeline_contract
 
+_active_path_config = import_repo_module(
+    "dev.scripts.devctl.repo_packs",
+    repo_root=REPO_ROOT,
+).active_path_config
+
+_index_tree_hash = import_repo_module(
+    "dev.scripts.devctl.commands.vcs.governed_executor_git",
+    repo_root=REPO_ROOT,
+).index_tree_hash
+
+
+def _resolve_commit_pipeline_root_rel(governance) -> str:
+    """Return the repo-relative review-status dir for the commit-pipeline artifact.
+
+    Resolution order matches the canonical pattern in
+    ``dev/scripts/devctl/runtime/review_state_locator.py``:
+
+    1. ``governance.artifact_roots.review_root`` when set on the typed
+       contract (the most specific authority).
+    2. ``active_path_config().review_status_dir_rel`` from the active
+       repo-pack (covers non-default product layouts that override the
+       review-status dir without writing it back to ``ProjectGovernance``).
+    3. ``_DEFAULT_REVIEW_STATUS_DIR_REL`` as a last-chance hard fallback
+       so the check still has a deterministic answer in environments
+       where neither typed source resolves a path.
+
+    Each step is fail-soft: an exception or empty value falls through to
+    the next candidate; only the final fallback can never fail.
+    """
+    if governance is not None:
+        try:
+            review_root = str(
+                governance.artifact_roots.review_root or ""
+            ).strip()
+        except AttributeError:
+            review_root = ""
+        if review_root:
+            return review_root.rstrip("/")
+    try:
+        repo_pack_rel = str(
+            _active_path_config().review_status_dir_rel or ""
+        ).strip()
+    except (AttributeError, RuntimeError):
+        repo_pack_rel = ""
+    if repo_pack_rel:
+        return repo_pack_rel.rstrip("/")
+    return _DEFAULT_REVIEW_STATUS_DIR_REL
+
 
 def _governed_pipeline_parked_at_checkpoint(
     repo_root: Path | None,
     *,
+    governance=None,
     pipeline=None,
+    current_tree_hash: str | None = None,
 ) -> bool:
     """Return True iff a governed remote-commit pipeline is holding the worktree.
 
     The exemption is narrow by design: the pipeline must carry a non-empty
     ``pipeline_id``, its ``state`` must be in the canonical parked-at-checkpoint
-    set, and its ``intent`` must declare both a ``staged_tree_hash`` and a
-    ``staged_path_count >= 1``. Any looser shape falls through to normal
-    enforcement. Callers may inject ``pipeline`` directly for unit tests;
-    otherwise the contract is loaded from the canonical review-status dir
-    relative to ``repo_root`` and unreadable/malformed artifacts fail closed
-    by returning False (i.e. no exemption).
+    set, its ``intent`` must declare both a ``staged_tree_hash`` and a
+    ``staged_path_count >= 1``, AND the current git index tree hash must
+    still match ``intent.staged_tree_hash`` so the parked snapshot has not
+    drifted under the operator. Any looser shape falls through to normal
+    enforcement.
+
+    The pipeline artifact root is resolved via
+    ``_resolve_commit_pipeline_root_rel`` so non-default product layouts
+    that point ``ProjectGovernance.artifact_roots.review_root`` or the
+    active repo-pack at a different review-status dir still find the
+    canonical ``commit_pipeline.json``.
+
+    Callers may inject ``pipeline`` and/or ``current_tree_hash`` directly
+    for unit tests; otherwise both are read from the live repo. Unreadable
+    or malformed artifacts fail closed by returning False (no exemption).
     """
     if pipeline is None:
         if repo_root is None:
             return False
         try:
             pipeline = _load_remote_commit_pipeline_contract(
-                output_root=repo_root / _REVIEW_STATUS_DIR_REL,
+                output_root=repo_root / _resolve_commit_pipeline_root_rel(governance),
             )
         except (OSError, ValueError):
             return False
@@ -99,13 +161,29 @@ def _governed_pipeline_parked_at_checkpoint(
     intent = getattr(pipeline, "intent", None)
     if intent is None:
         return False
-    if not getattr(intent, "staged_tree_hash", ""):
+    staged_tree_hash = getattr(intent, "staged_tree_hash", "") or ""
+    if not staged_tree_hash:
         return False
     try:
         staged_path_count = int(getattr(intent, "staged_path_count", 0) or 0)
     except (TypeError, ValueError):
         return False
     if staged_path_count <= 0:
+        return False
+    # F18: bind the exemption to the current index tree hash so a drifted
+    # worktree (edits landed after staging) does not get silently exempted.
+    # ``vcs.commit`` would later reject the same drift as
+    # ``staged_snapshot_changed``; this check stays consistent with that
+    # contract by refusing the exemption when the hashes diverge.
+    resolved_current = current_tree_hash
+    if resolved_current is None:
+        if repo_root is None:
+            return False
+        try:
+            resolved_current = (_index_tree_hash(repo_root) or "").strip()
+        except (OSError, ValueError):
+            return False
+    if not resolved_current or resolved_current != staged_tree_hash:
         return False
     return True
 
@@ -128,18 +206,25 @@ def collect_post_checkpoint_dirty_worktree_errors(
     *,
     repo_root: Path | None = None,
     pipeline=None,
+    current_tree_hash: str | None = None,
 ) -> list[str]:
     """Return fail-closed errors when a local checkpoint exists but the worktree is dirty again.
 
     The normal enforcement still demands a clean worktree after a checkpoint.
     The one narrow exemption is a governed remote-commit pipeline that is
-    intentionally parked at the checkpoint/approval boundary: in that case
-    the dirty worktree IS the staged snapshot the pipeline is landing, and
-    flagging ``commit_before_push`` here would collide with the very step
-    that is trying to commit. The exemption is gated by the typed pipeline
-    contract loaded from the canonical review-status dir under ``repo_root``
-    (or injected directly via ``pipeline`` for unit tests). Any other
-    dirty-after-checkpoint shape still fails closed.
+    intentionally parked at the checkpoint/approval boundary AND whose
+    frozen ``intent.staged_tree_hash`` still matches the current git index
+    tree hash. In that case the dirty worktree IS the staged snapshot the
+    pipeline is landing, and flagging ``commit_before_push`` here would
+    collide with the very step that is trying to commit. The exemption is
+    gated by the typed pipeline contract loaded from the resolved
+    review-status dir (``ProjectGovernance.artifact_roots.review_root`` ->
+    repo-pack override -> hard fallback) and by a tree-hash bind-check so
+    a drifted worktree (edits landed after staging) is NOT exempted. Any
+    other dirty-after-checkpoint shape still fails closed.
+
+    Tests may inject ``pipeline`` and/or ``current_tree_hash`` directly to
+    bypass live git/policy reads.
     """
     push = gov.push_enforcement
     ahead = getattr(push, "ahead_of_upstream_commits", None)
@@ -148,7 +233,12 @@ def collect_post_checkpoint_dirty_worktree_errors(
     if not getattr(push, "worktree_dirty", False):
         return []
     if (repo_root is not None or pipeline is not None) and (
-        _governed_pipeline_parked_at_checkpoint(repo_root, pipeline=pipeline)
+        _governed_pipeline_parked_at_checkpoint(
+            repo_root,
+            governance=gov,
+            pipeline=pipeline,
+            current_tree_hash=current_tree_hash,
+        )
     ):
         return []
     return [

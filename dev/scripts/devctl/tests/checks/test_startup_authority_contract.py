@@ -334,7 +334,9 @@ def test_post_checkpoint_dirty_exempted_when_pipeline_parked_at_guards_failed() 
     )
 
     errors = collect_post_checkpoint_dirty_worktree_errors(
-        gov, pipeline=_fake_pipeline(state="guards_failed")
+        gov,
+        pipeline=_fake_pipeline(state="guards_failed"),
+        current_tree_hash="deadbeefcafef00d",
     )
 
     assert errors == []
@@ -358,7 +360,9 @@ def test_post_checkpoint_dirty_exempted_when_pipeline_parked_at_staged() -> None
     )
 
     errors = collect_post_checkpoint_dirty_worktree_errors(
-        gov, pipeline=_fake_pipeline(state="staged")
+        gov,
+        pipeline=_fake_pipeline(state="staged"),
+        current_tree_hash="deadbeefcafef00d",
     )
 
     assert errors == []
@@ -507,6 +511,13 @@ def test_startup_authority_integration_allows_dirty_when_live_pipeline_parked(
             "dev.scripts.checks.startup_authority_contract.command.collect_push_decision_contract_errors",
             return_value=[],
         ),
+        # F18: stub the live tree-hash so the parked-pipeline exemption can
+        # bind against the artifact's staged_tree_hash without needing a
+        # real git index in tmp_path.
+        patch(
+            "dev.scripts.checks.startup_authority_contract.runtime_checks._index_tree_hash",
+            return_value="93026842b5ba832eec5c72971df8b19c56a0cae8",
+        ),
     ):
         report = _build_report(repo_root=tmp_path)
 
@@ -514,6 +525,195 @@ def test_startup_authority_integration_allows_dirty_when_live_pipeline_parked(
     assert not any(
         "dirty worktree after a local checkpoint" in error for error in report["errors"]
     )
+
+
+def test_post_checkpoint_dirty_rejects_when_current_tree_hash_drifts_from_pipeline() -> None:
+    """F18: dirty worktree + parked pipeline + drifted current tree -> exemption denied.
+
+    Codex finding F18: the parked-pipeline exemption must stay bound to
+    the *current* git index tree hash. If new edits land after staging,
+    the staged snapshot has drifted under the operator and ``vcs.commit``
+    will later reject the same drift as ``staged_snapshot_changed``.
+    The startup-authority check must mirror that contract by refusing
+    the exemption whenever the current index hash diverges from
+    ``pipeline.intent.staged_tree_hash``, so the dashboard and operator
+    surfaces still see the dirty-after-checkpoint error in this case.
+    """
+    gov = _fake_governance(
+        Path("/tmp/repo"),
+        worktree_dirty=True,
+        worktree_clean=False,
+        ahead_of_upstream_commits=1,
+        dirty_path_count=11,
+        untracked_path_count=0,
+        recommended_action="commit_before_push",
+    )
+
+    # The pipeline still claims a frozen snapshot at "deadbeefcafef00d",
+    # but the worktree has drifted to a different tree ("driftedhash...").
+    # The exemption MUST refuse and the normal error MUST fire.
+    errors = collect_post_checkpoint_dirty_worktree_errors(
+        gov,
+        pipeline=_fake_pipeline(
+            state="guards_failed",
+            staged_tree_hash="deadbeefcafef00d",
+        ),
+        current_tree_hash="driftedhashfromnewedits",
+    )
+
+    assert len(errors) == 1
+    assert "dirty worktree after a local checkpoint" in errors[0]
+
+
+def test_post_checkpoint_dirty_rejects_when_current_tree_hash_is_empty() -> None:
+    """A failed/empty current tree hash read must NOT exempt the dirty state.
+
+    The fail-closed boundary: if the live ``index_tree_hash`` call returns
+    an empty string (e.g. ``git write-tree`` failed), the bind-check has
+    no proof that the worktree still matches the staged snapshot and the
+    exemption must be refused.
+    """
+    gov = _fake_governance(
+        Path("/tmp/repo"),
+        worktree_dirty=True,
+        worktree_clean=False,
+        ahead_of_upstream_commits=1,
+        dirty_path_count=11,
+        untracked_path_count=0,
+        recommended_action="commit_before_push",
+    )
+
+    errors = collect_post_checkpoint_dirty_worktree_errors(
+        gov,
+        pipeline=_fake_pipeline(state="guards_failed"),
+        current_tree_hash="",
+    )
+
+    assert len(errors) == 1
+    assert "dirty worktree after a local checkpoint" in errors[0]
+
+
+def test_post_checkpoint_dirty_resolves_pipeline_via_governance_review_root(
+    tmp_path: Path,
+) -> None:
+    """F19: non-default ``governance.artifact_roots.review_root`` resolves the artifact.
+
+    Codex finding F19: the commit-pipeline artifact root must be resolved
+    through ``ProjectGovernance.artifact_roots.review_root`` (with
+    repo-pack override fallback) instead of the hardcoded VoiceTerm
+    default ``dev/reports/review_channel/latest``. This test points
+    governance at a non-default ``custom/review`` directory, writes the
+    canonical ``commit_pipeline.json`` there, and proves the loader
+    finds it through the typed resolver — without writing anything to
+    the default `dev/reports/review_channel/latest` location.
+    """
+    custom_root_rel = "custom/review/state"
+    pipeline_dir = tmp_path / custom_root_rel
+    pipeline_dir.mkdir(parents=True, exist_ok=True)
+    (pipeline_dir / "commit_pipeline.json").write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "contract_id": "RemoteCommitPipelineContract",
+                "pipeline_id": "pipeline-non-default-root",
+                "state": "guards_failed",
+                "intent": {
+                    "staged_tree_hash": "abc123nondefault",
+                    "staged_path_count": 4,
+                },
+                "approval_state": "not_requested",
+                "blocked_reason": "bundle_failed",
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    # Build a governance namespace with the non-default review_root.
+    gov = SimpleNamespace(
+        artifact_roots=SimpleNamespace(review_root=custom_root_rel),
+        push_enforcement=SimpleNamespace(
+            checkpoint_required=False,
+            safe_to_continue_editing=True,
+            checkpoint_reason="within_dirty_budget",
+            worktree_clean=False,
+            worktree_dirty=True,
+            ahead_of_upstream_commits=1,
+            dirty_path_count=4,
+            untracked_path_count=0,
+            recommended_action="commit_before_push",
+        ),
+    )
+
+    with patch(
+        "dev.scripts.checks.startup_authority_contract.runtime_checks._index_tree_hash",
+        return_value="abc123nondefault",
+    ):
+        errors = collect_post_checkpoint_dirty_worktree_errors(
+            gov,
+            repo_root=tmp_path,
+        )
+
+    assert errors == []
+
+
+def test_post_checkpoint_dirty_governance_review_root_takes_priority(
+    tmp_path: Path,
+) -> None:
+    """When `governance.artifact_roots.review_root` is set it MUST be preferred.
+
+    Negative-side proof for F19: writing the artifact ONLY to the
+    non-default location and never to `dev/reports/review_channel/latest`
+    must still resolve the parked-pipeline exemption. If the typed
+    resolver were ignored, this test would fall back to the hardcoded
+    default and fail to find the pipeline file.
+    """
+    custom_root_rel = "alt/path/review"
+    pipeline_dir = tmp_path / custom_root_rel
+    pipeline_dir.mkdir(parents=True, exist_ok=True)
+    (pipeline_dir / "commit_pipeline.json").write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "contract_id": "RemoteCommitPipelineContract",
+                "pipeline_id": "pipeline-alt-path",
+                "state": "staged",
+                "intent": {
+                    "staged_tree_hash": "alt123hash",
+                    "staged_path_count": 2,
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    # Confirm the default location is empty so any fallback would fail.
+    default_dir = tmp_path / "dev" / "reports" / "review_channel" / "latest"
+    assert not (default_dir / "commit_pipeline.json").exists()
+
+    gov = SimpleNamespace(
+        artifact_roots=SimpleNamespace(review_root=custom_root_rel),
+        push_enforcement=SimpleNamespace(
+            checkpoint_required=False,
+            safe_to_continue_editing=True,
+            checkpoint_reason="within_dirty_budget",
+            worktree_clean=False,
+            worktree_dirty=True,
+            ahead_of_upstream_commits=1,
+            dirty_path_count=2,
+            untracked_path_count=0,
+            recommended_action="commit_before_push",
+        ),
+    )
+
+    with patch(
+        "dev.scripts.checks.startup_authority_contract.runtime_checks._index_tree_hash",
+        return_value="alt123hash",
+    ):
+        errors = collect_post_checkpoint_dirty_worktree_errors(
+            gov,
+            repo_root=tmp_path,
+        )
+
+    assert errors == []
 
 
 @patch("dev.scripts.devctl.governance.draft.subprocess.run", _mock_subprocess_run)
