@@ -94,6 +94,40 @@ Evidence: `dev/scripts/devctl/review_channel/review_candidate.py`,
 `dev/scripts/devctl/tests/governance/test_session_resume.py`,
 `dev/active/remote_control_runtime.md`.
 
+### 2026-04-06 - Interrupted reviewer local takeover now has a sanctioned repair path, and the handoff seam stays split under shape limits
+
+The next failure was not a bad implementation slice; it was a self-hosting
+reviewer interruption. A live `active_dual_agent` Codex conductor bootstrapped,
+narrowed into the bounded post-push shape cleanup, and then the terminal
+conversation itself was interrupted. That left the runtime in a hybrid
+Claude-only shape with stale reviewer heartbeat and a half-finished local
+refactor in the worktree.
+
+The repair path is now explicit in maintainer docs and was exercised locally:
+stop detached review daemons through the repo-owned `review-channel --action
+stop --daemon-kind all` path, then record sanctioned local takeover with
+`review-channel --action reviewer-heartbeat --reviewer-mode single_agent`
+before continuing the slice. The interrupted refactor itself was worth
+keeping: `review_candidate.py`, `recovery_assessment.py`, and
+`review_state_models.py` are now back under the soft limit by delegating to
+`candidate_parse.py`, `candidate_paths.py`, `recovery_decision.py`,
+`recovery_evidence.py`, and `review_state_collaboration_models.py` rather than
+re-growing the orchestration files.
+
+Evidence: `AGENTS.md`,
+`dev/guides/DEVELOPMENT.md`,
+`dev/scripts/README.md`,
+`dev/active/MASTER_PLAN.md`,
+`dev/active/ai_governance_platform.md`,
+`dev/scripts/devctl/review_channel/review_candidate.py`,
+`dev/scripts/devctl/review_channel/candidate_parse.py`,
+`dev/scripts/devctl/review_channel/candidate_paths.py`,
+`dev/scripts/devctl/review_channel/recovery_assessment.py`,
+`dev/scripts/devctl/review_channel/recovery_decision.py`,
+`dev/scripts/devctl/review_channel/recovery_evidence.py`,
+`dev/scripts/devctl/runtime/review_state_models.py`,
+`dev/scripts/devctl/runtime/review_state_collaboration_models.py`.
+
 ### 2026-04-05 - Review-channel terminal policy and headless visibility are now explicit typed runtime truth
 
 The review-channel launch surface still had one unsafe ambiguity: local

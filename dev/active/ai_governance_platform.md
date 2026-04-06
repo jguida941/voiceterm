@@ -321,6 +321,10 @@ Dirty-tree review handoff depends on that distinction. If an implementer can
 finish a bounded slice before checkpointing, the reviewer must receive a
 typed frozen `ReviewCandidateRecord` from the fact layer rather than infer the
 review target from `HEAD`/`last_reviewed_sha` plus compatibility bridge text.
+The same closure now applies to self-hosting cleanup of that fact layer: keep
+candidate parsing/path discovery, recovery decision/evidence shaping, and
+collaboration-session dataclasses in small helper modules so the typed
+handoff/runtime seam stays readable enough for both humans and AI.
 
 ## Machine-Checkable Structure First
 
@@ -6089,6 +6093,18 @@ Execution order for this section:
   calling the slice green. The sanctioned many-agent proof path for that work
   is the bridge-gated review launch with `--codex-workers 0 --claude-workers
   3`.
+- 2026-04-06: Closed the next self-hosting shape pass on that same post-push
+  blocker without changing the underlying review-candidate/recovery contract.
+  `review_candidate.py` now delegates text/command parsing and changed-path
+  discovery to `candidate_parse.py` / `candidate_paths.py`,
+  `recovery_assessment.py` delegates decision/evidence shaping to
+  `recovery_decision.py` / `recovery_evidence.py`, and
+  `review_state_models.py` re-exports collaboration dataclasses from
+  `review_state_collaboration_models.py`. The same slice also clarified the
+  reviewer takeover rule for self-hosting interruptions: if a live
+  `active_dual_agent` reviewer conductor dies mid-slice, stop the detached
+  daemons and re-establish reviewer truth through `single_agent`
+  `reviewer-heartbeat` before continuing locally.
 - 2026-04-03: Tightened the tracked `MP-377` plan state after re-reviewing the
   new cross-client reducer against the live bridge/runtime handoff. The shared
   `system-picture` / external-review slice now explicitly requires

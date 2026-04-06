@@ -555,6 +555,14 @@ checklist plus chat memory.
     remains the authority for review truth; when the typed `current_session`
     ACK state is unknown, fall back to `bridge.claude_ack_current` before
     reading bridge prose.
+    If an `active_dual_agent` reviewer session is interrupted, no repo-owned
+    Codex conductor remains live, or the loop degrades into a Claude-only /
+    hybrid state, stop the detached reviewer daemons through the repo-owned
+    `review-channel --action stop --daemon-kind all` path and cut back to
+    sanctioned local takeover with
+    `review-channel --action reviewer-heartbeat --reviewer-mode single_agent`
+    before reviewing or repairing code locally. Do not keep coding against a
+    stale `active_dual_agent` bridge contract.
     The same typed status artifact now also carries `reviewer_runtime` as the
     single owner of reviewer lifecycle truth: reviewer mode/effective mode,
     freshness, stale reason, last poll, rollover state, session owner,

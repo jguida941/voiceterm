@@ -423,6 +423,12 @@ Portability note:
   typed `bridge` block now also carries `effective_reviewer_mode`; use that
   field for live-authority decisions when declared bridge `reviewer_mode`
   still says `active_dual_agent` but typed `launch_truth` has already demoted
+  the loop. The current handoff/recovery seam now stays shape-bounded through
+  helper modules too: `review_candidate.py` orchestrates `candidate_parse.py`
+  + `candidate_paths.py`, `recovery_assessment.py` orchestrates
+  `recovery_decision.py` + `recovery_evidence.py`, and
+  `review_state_models.py` re-exports collaboration dataclasses from
+  `review_state_collaboration_models.py`.
   the loop to an inactive read-only state.
 - The same status projection now also emits `reviewer_runtime` as the single
   owner of reviewer lifecycle truth: reviewer mode/effective mode, freshness,
@@ -508,6 +514,11 @@ Portability note:
   (`status`, `owner`, `summary`, `recommended_action`, `recommended_command`);
   field drift is a CI-blocking error. Both `tooling_control_plane.yml` and
   `release_preflight.yml` now enforce it.
+- If a launched reviewer terminal is interrupted and status degrades into a
+  Claude-only / hybrid loop, treat that as a runtime repair boundary instead of
+  a coding invitation. Use `review-channel --action stop --daemon-kind all`
+  followed by `review-channel --action reviewer-heartbeat --reviewer-mode single_agent`
+  to record local takeover before inspecting or finishing the interrupted slice.
 - `dev/scripts/checks/check_audit_status_sync.py`
   (`check_audit_status_sync.py`) keeps `AUDIT_STATUS.md` honest by failing when
   the audit file still says Phase 3/4 ownership, consistency, or integration
@@ -1417,6 +1428,7 @@ Machine-first output note:
 | `ralph-status --report-dir dev/reports/ralph --with-charts --format md` | you want one current view of Ralph guardrail progress before wiring phone or PyQt controls on top | aggregates `ralph-report*.json` artifacts, prints fix/open counts plus architecture breakdowns, and writes SVG charts when `--with-charts` is enabled |
 | `controller-action --action dispatch-report-only --repo owner/repo --branch develop --dry-run --format md` | you want one guarded operator action without ad-hoc shell scripting | validates policy + mode gates and executes (or previews) bounded dispatch/pause/resume/status actions with structured output and a stable `typed_action` contract |
 | `review-channel --action status --terminal none --format md` | you need the current bridge-backed review snapshot without relaunching anything | reads the governed review-channel plan plus compatibility bridge, refreshes the governed review-channel status root (in VoiceTerm today: `dev/reports/review_channel/latest/`), emits the typed runtime participant registry plus planned-topology compatibility projection, typed `current_session` live-status state, frozen `review_candidate` truth for dirty-tree review handoff, and typed conductor visibility (`reviewer_runtime.conductor_visibility` plus reviewer `session_visibility`) for operator or tooling consumers, and fails closed when `active_dual_agent` no longer has the repo-owned conductor pair behind it or implementer-complete state has no valid review candidate |
+| `review-channel --action reviewer-heartbeat --reviewer-mode single_agent --terminal none --format md` | a dual-agent reviewer session was interrupted and you need to resume locally without trusting stale dual-agent metadata | records sanctioned local reviewer takeover, refreshes `Last Codex poll` / reviewer mode through the repo-owned bridge path, and gives local review/repair work one consistent authority source before more code changes land |
 | `review-channel --action implementer-wait --terminal none --format json` | Claude is under an explicit reviewer-owned wait state and needs to wait safely for the next Codex review/update without leaving a raw shell poller behind | polls the bridge on the normal cadence, exits immediately when reviewer-owned bridge content changes or a new instruction is already waiting, fails closed when the reviewer loop is unhealthy, times out after one hour by default, and is not a substitute for substantive `Claude Status` / `Claude Ack` updates while active work is still assigned |
 | `review-channel --action reset-implementer-state --terminal none --format md` | live status/attention says the implementer-owned bridge sections need a clean pending reset without changing reviewer instruction truth | rewrites `Claude Status`, `Claude Questions`, and `Claude Ack` to canonical pending state, refreshes the typed review-channel projection, and leaves reviewer-owned instruction / verdict fields untouched |
 | `review-channel --action promote --terminal none --format md` | the current review slice is accepted and you want the next repo-owned task queued without hand-editing the bridge | reads the configured active-plan checklist, fail-closes unless the current verdict is resolved and findings are clear, rewrites `Current Instruction For Claude`, and refreshes the latest review projections from the same derived next-step source |

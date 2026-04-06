@@ -411,6 +411,13 @@ Three quality layers matter in practice:
     inspection. If implementer-complete bridge state claims a finished slice
     without a valid candidate, treat that as a fail-closed handoff bug and
     repair `review-channel --action status`/implementer state before review.
+  - The review-candidate / recovery / collaboration-model seams are now split
+    into helper modules (`candidate_parse.py`, `candidate_paths.py`,
+    `recovery_decision.py`, `recovery_evidence.py`,
+    `review_state_collaboration_models.py`) so the orchestration files stay
+    under code-shape limits. Extend those helpers instead of re-growing
+    `review_candidate.py`, `recovery_assessment.py`, or
+    `review_state_models.py` into new God files.
   - `observe_launch_state()` in `bridge_launch_control.py` uses a lightweight
     bridge-metadata + session-probe path for launch-time poll iterations
     instead of forcing the full `ReviewChannelStatusSnapshot` refresh. The
@@ -699,6 +706,8 @@ the concrete minimum inventory after edits:
    - `python3 dev/scripts/checks/check_rust_runtime_panic_policy.py`
    - `python3 dev/scripts/checks/check_audit_status_sync.py`
    - `python3 dev/scripts/checks/check_review_surface_consistency.py` (enforces that `review_state.attention` matches the canonical projection from `recovery_assessment` when both are present; also validates snapshot/pipeline convergence)
+   - For review-candidate / recovery / collaboration-model refactors, also run focused proof on the owning seams:
+     `python3 -m pytest dev/scripts/devctl/tests/review_channel/test_review_candidate.py dev/scripts/devctl/tests/review_channel/test_prompt_session_resume.py dev/scripts/devctl/tests/runtime/test_review_state.py dev/scripts/devctl/tests/governance/test_session_resume.py dev/scripts/devctl/tests/governance/test_startup_repair.py dev/scripts/devctl/tests/checks/platform_contract_closure/test_check_platform_contract_closure.py -q --tb=short`
    - Bridge rendering portability: heartbeat timestamps, worktree-hash exclusion prefixes, and review-channel plan path are now derived from `RepoPathConfig` (`display_timezone`, `local_state_prefix_rel`, `review_channel_rel`) instead of hardcoded VoiceTerm-specific values.
    - `python3 dev/scripts/checks/check_tandem_consistency.py` (prefers typed `review_state.json` when available; bridge-text fallback for checks without a typed equivalent)
    - `markdownlint -c dev/config/markdownlint.yaml -p dev/config/markdownlint.ignore README.md QUICK_START.md guides/*.md dev/README.md scripts/README.md pypi/README.md app/README.md`

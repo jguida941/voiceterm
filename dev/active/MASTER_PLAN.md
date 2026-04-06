@@ -196,6 +196,16 @@
   drift or scope mismatch makes the candidate stale. The remaining parity gate
   in this lane is explicit too: implementer-complete bridge/runtime state must
   not claim a finished slice unless a matching valid review candidate exists.
+- Current 2026-04-06 self-hosting cleanup inside that same lane: the next
+  bounded code-shape closure for the review handoff seam is now local-helper
+  extraction, not new behavior. `review_candidate.py`,
+  `recovery_assessment.py`, and `review_state_models.py` shrink back under the
+  soft limit by delegating command/path parsing, recovery decision/evidence
+  mapping, and collaboration dataclasses to dedicated helper modules. When a
+  live dual-agent reviewer session is interrupted mid-slice, the sanctioned
+  recovery path is explicit too: stop detached daemons, cut back to
+  `single_agent` via repo-owned reviewer heartbeat, then continue the bounded
+  slice locally instead of trusting stale dual-agent bridge state.
 - Current 2026-04-05 architecture-absorption follow-up inside that same lane:
   the pushed-branch review through `b819efa` narrowed the remaining separation
   to fail-closed execution gaps, not missing ideas. The active closure order is
