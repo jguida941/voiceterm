@@ -652,7 +652,18 @@ Three quality layers matter in practice:
   AST-backed and ignores module/class/function docstrings, so new route
   tokens must be identifiers, attribute names, dotted chains, or explicit
   string-literal keys that the consumer genuinely executes, and a docstring
-  or comment mention alone will not satisfy the check.
+  or comment mention alone will not satisfy the check. Shared
+  `ViolationRecord` projection for probe-report and governance-review rows
+  lands in `dev/scripts/devctl/runtime/probe_report_violations.py` and
+  `dev/scripts/devctl/runtime/governance_review_violations.py`; both are
+  one-way, non-mutating adapters that let dashboards and startup surfaces
+  render domain findings through the shared `render_check_result_*`
+  path. The governance-review adapter is explicitly a **recent-window**
+  helper that reads `report["recent_findings"]` (bounded by
+  `build_governance_review_report(recent_limit=...)`), not a live
+  open-governance feed, so surfaces that need the full unresolved set
+  must widen the upstream report call instead of calling this adapter
+  on the default payload.
 - Use `python3 dev/scripts/devctl.py system-picture --format md` when that
   same platform/governance slice should refresh the generated external-review
   reducer and proof-ledger projection rather than leaving the proof surface as

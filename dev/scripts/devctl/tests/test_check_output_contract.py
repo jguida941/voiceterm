@@ -10,6 +10,7 @@ from dev.scripts.devctl.runtime.check_result_models import (
     CheckResult,
     ViolationRecord,
     build_check_result,
+    render_check_result_json,
     render_check_result_md,
     render_check_result_text,
 )
@@ -240,3 +241,69 @@ def test_violation_summary_truncation() -> None:
         timestamp="2026-04-04T00:00:00Z",
     )
     assert len(result.violations[0].summary) == 120
+
+
+# -------------------------------------------------------
+# render_check_result_json (Q2 closure: text/md/json parity)
+# -------------------------------------------------------
+
+
+def test_render_check_result_json_round_trips_through_to_dict() -> None:
+    """JSON renderer must produce the same payload as ``to_dict()``.
+
+    The JSON renderer is the third entry point in the ``text/md/json``
+    triad and must stay schema-compatible with ``CheckResult.to_dict``.
+    Round-tripping through ``json.loads`` proves the renderer does not
+    drop, rename, or reshape any field — important for downstream
+    consumers that already parse ``to_dict()`` output.
+    """
+    result = build_check_result(
+        steps=[
+            _make_step("fmt"),
+            _make_step("clippy", 2, failure_output="warning: unused"),
+        ],
+        timestamp="2026-04-04T00:00:00Z",
+    )
+
+    rendered = render_check_result_json(result)
+    parsed = json.loads(rendered)
+
+    assert parsed == result.to_dict()
+    assert parsed["schema_version"] == CHECK_RESULT_SCHEMA_VERSION
+    assert parsed["contract_id"] == CHECK_RESULT_CONTRACT_ID
+    assert parsed["passed"] == 1
+    assert parsed["failed"] == 1
+    assert parsed["violations"][0]["step_name"] == "clippy"
+
+
+def test_render_check_result_json_default_indent_is_human_readable() -> None:
+    """Default ``indent=2`` must produce a multi-line operator-readable form."""
+    result = build_check_result(
+        steps=[_make_step("fmt")],
+        timestamp="2026-04-04T00:00:00Z",
+    )
+    rendered = render_check_result_json(result)
+    assert "\n" in rendered
+    assert "  " in rendered  # 2-space indent present
+
+
+def test_render_check_result_json_compact_one_line() -> None:
+    """``indent=None`` must produce a single-line compact form for event logs."""
+    result = build_check_result(
+        steps=[_make_step("fmt")],
+        timestamp="2026-04-04T00:00:00Z",
+    )
+    rendered = render_check_result_json(result, indent=None)
+    assert "\n" not in rendered
+    assert json.loads(rendered) == result.to_dict()
+
+
+def test_render_check_result_json_keys_sorted_for_diff_stability() -> None:
+    """Sorted keys keep dashboards/event-logs diff-stable across runs."""
+    result = build_check_result(
+        steps=[_make_step("fmt")],
+        timestamp="2026-04-04T00:00:00Z",
+    )
+    rendered = render_check_result_json(result, indent=None)
+    # contract_id should appear before schema_version when sorted
+    assert rendered.index('"contract_id"') < rendered.index('"schema_version"')

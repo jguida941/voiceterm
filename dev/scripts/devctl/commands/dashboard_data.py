@@ -16,6 +16,11 @@ from .dashboard_utils import (
     _paths,
     _tail_lines,
 )
+from .dashboard_violations import (
+    audit_recent_violations,
+    probes_recent_violations,
+    violations_to_dashboard_cells,
+)
 
 # Re-exported for backward compatibility with existing importers.
 from .dashboard_typed_state import (
@@ -174,45 +179,15 @@ def _extract_check_details(output: str) -> list[dict[str, str]]:
 def _check_details_from_violations(
     violations: list[dict[str, Any]],
 ) -> list[dict[str, str]]:
-    """Build check detail dicts from typed ViolationRecord payloads.
+    """Build dashboard cells from typed ViolationRecord-shaped payloads.
 
-    Reads the normalized fields (file_path, line, policy, fix, source,
-    severity) so the dashboard can display structured violation data
-    instead of regex-parsed text.
+    Thin wrapper that delegates to the shared mapper in
+    ``dashboard_violations``. The CHECKS path was the original consumer
+    of this layout; the audit and probes panels now share the same
+    flattening so every dashboard ``recent_violations`` field follows
+    one cell shape regardless of which sibling adapter produced it.
     """
-    details: list[dict[str, str]] = []
-    for v in violations:
-        file_path = str(v.get("file_path") or "")
-        line_num = v.get("line") or ""
-        location = f"{file_path}:{line_num}" if file_path and line_num else file_path
-        violation_text = str(v.get("summary") or "")
-        if location and location not in violation_text:
-            violation_text = f"{location} {violation_text}".strip()
-        entry: dict[str, str] = {
-            "check": str(v.get("step_name") or "unknown"),
-            "status": "FAIL",
-            "violation": violation_text,
-        }
-        if file_path:
-            entry["file_path"] = file_path
-        if line_num:
-            entry["line"] = str(line_num)
-        policy = str(v.get("policy") or "")
-        if policy:
-            entry["policy"] = policy
-        fix = str(v.get("fix") or "")
-        if fix:
-            entry["fix"] = fix
-        source = str(v.get("source") or "")
-        if source:
-            entry["source"] = source
-        severity = str(v.get("severity") or "")
-        if severity:
-            entry["severity"] = severity
-        details.append(entry)
-        if len(details) >= 10:
-            break
-    return details
+    return violations_to_dashboard_cells(violations)
 
 
 def _extract_push_timers(push_data: dict[str, Any] | None) -> dict[str, Any]:
@@ -231,10 +206,17 @@ def _extract_push_timers(push_data: dict[str, Any] | None) -> dict[str, Any]:
 
 
 def _build_audit_section(gov_data: dict[str, Any] | None) -> dict[str, Any]:
-    """Build audit section from governance review summary stats."""
+    """Build audit section from governance review summary stats.
+
+    Adds a ``recent_violations`` list of dashboard cells projected from
+    the governance-review *recent* window through the shared
+    ``ViolationRecord`` adapter. Empty when no governance data is
+    loaded so renderers can read the field unconditionally.
+    """
     na: dict[str, Any] = {
         "total_findings": "n/a", "fixed_count": "n/a",
         "cleanup_rate_pct": "n/a", "open_finding_count": "n/a",
+        "recent_violations": [],
     }
     if gov_data is None:
         return na
@@ -244,26 +226,38 @@ def _build_audit_section(gov_data: dict[str, Any] | None) -> dict[str, Any]:
         "fixed_count": stats.get("fixed_count", "n/a"),
         "cleanup_rate_pct": stats.get("cleanup_rate_pct", "n/a"),
         "open_finding_count": stats.get("open_finding_count", "n/a"),
+        "recent_violations": audit_recent_violations(gov_data),
     }
 
 
 def _build_probes_section(probe_data: dict[str, Any] | None) -> dict[str, Any]:
-    """Build probe quality summary from probe report summary."""
+    """Build probe quality summary from probe report summary.
+
+    Adds a ``recent_violations`` list of dashboard cells projected from
+    the probe-report risk hints through the shared ``ViolationRecord``
+    adapter. Empty when no probe data is loaded so renderers can read
+    the field unconditionally. ``recent_violations`` is appended after
+    the literal so the underlying dict literal stays under the
+    ``check_python_dict_schema`` large-dict threshold.
+    """
     na: dict[str, Any] = {
         "risk_hints": "n/a", "high": "n/a", "medium": "n/a",
         "probes_enabled": "n/a", "files_scanned": "n/a",
     }
+    na["recent_violations"] = []
     if probe_data is None:
         return na
     summary = probe_data.get("summary", {})
     severity = summary.get("hints_by_severity", {})
-    return {
+    section: dict[str, Any] = {
         "risk_hints": summary.get("risk_hints", "n/a"),
         "high": severity.get("high", 0),
         "medium": severity.get("medium", 0),
         "probes_enabled": summary.get("probe_count", "n/a"),
         "files_scanned": summary.get("files_scanned", "n/a"),
     }
+    section["recent_violations"] = probes_recent_violations(probe_data)
+    return section
 
 
 def _build_analytics_section(

@@ -196,6 +196,22 @@
   drift or scope mismatch makes the candidate stale. The remaining parity gate
   in this lane is explicit too: implementer-complete bridge/runtime state must
   not claim a finished slice unless a matching valid review candidate exists.
+- Current 2026-04-06 field-route contract-closure fix inside that same lane:
+  the `MP-381` field-route proof helper
+  (`dev/scripts/checks/platform_contract_closure/field_routes_surface_state.py::_source_contains_any`)
+  no longer accepts docstring or package-token coincidences as proof of
+  executable consumption. The helper now parses each candidate module with
+  `ast.parse`, strips module/class/function docstrings, and walks the
+  remaining tree for exact identifier, attribute, dotted-chain, or
+  string-literal references. `check_push_eligible_dashboard_route` now
+  enumerates both `push_eligible` and `push_eligible_now` as accepted token
+  forms so the receipt projection is explicit rather than implicit via
+  substring overlap. The dashboard route for `ControlPlaneReadModel.top_blocker`
+  passes against the real `dashboard_render` package because its submodules
+  use `snapshot.get("top_blocker", ...)`, which the AST walk matches as an
+  executable string-literal key. Regression locked by one focused test in
+  `test_check_platform_contract_closure.py` plus the new helper unit suite
+  in `test_field_routes_ast_helper.py`.
 - Current 2026-04-06 self-hosting cleanup inside that same lane: the next
   bounded code-shape closure for the review handoff seam is now local-helper
   extraction, not new behavior. `review_candidate.py`,
@@ -229,6 +245,16 @@
   slice only: explicit type hints, typed/dataclass boundaries, closed variant
   types, minimal `NewType` use where swap risk is real, owner-side
   construction helpers, and typed lifecycle/typestate over loose booleans.
+- Current 2026-04-06 bounded `MP-381` follow-up inside that same lane:
+  sanctioned local takeover is now explicit too. After recording
+  `review-channel --action reviewer-heartbeat --reviewer-mode single_agent`,
+  the next local slice is the first thin `ViolationRecord` convergence seam,
+  not the whole frontend rewrite: `dev/scripts/devctl/runtime/probe_report_violations.py`
+  maps enriched probe hints into `tuple[ViolationRecord, ...]` and focused
+  tests pin that contract without changing probe-report's own JSON/markdown
+  output or the existing check pipeline. Keep the next widening steps bounded:
+  consume that shared row contract in remaining probe/governance/startup
+  surfaces before treating `MP-381` as complete.
 - Current 2026-04-05 provider-neutral bootstrap follow-up inside that same
   lane: reviewer/implementer ownership is now tracked as role-first launch
   state instead of fixed Codex/Claude identity. Planned lane parsing,

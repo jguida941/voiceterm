@@ -986,6 +986,24 @@ Portable policy note:
   substring overlap can never satisfy the proof. New field-route tokens
   must be enumerated explicitly if a consumer surface uses a renamed
   projection (for example `push_eligible_now` beside `push_eligible`).
+- Shared `ViolationRecord` convergence for non-check signal sources lives
+  in `dev/scripts/devctl/runtime/` alongside `check_result_models.py`.
+  As of 2026-04-06 two one-way, non-mutating adapters project
+  domain-specific findings onto the shared contract:
+  `probe_report_violations.probe_report_to_violations(report)` maps
+  enriched `probe-report` `risk_hints` into
+  `tuple[ViolationRecord, ...]`, and
+  `governance_review_violations.governance_review_recent_to_violations(report)`
+  projects the **recent window** of `governance-review` findings
+  (from `report["recent_findings"]`, not the full live open-governance
+  set) with the default include verdict `("confirmed_issue",)`. Both
+  adapters share
+  `dev/scripts/devctl/runtime/violation_adapter_support.py` helpers
+  (`coerce_stripped_str`, `coerce_positive_int`, `build_bounded_summary`)
+  so dashboard, startup summary, and operator surfaces can render
+  probe and governance findings through the same
+  `render_check_result_text` / `render_check_result_md` path without a
+  domain-specific renderer.
 - Once a field has more than one declared live consumer, keep that same guard
   honest at the family level too: record the expected route family and fail if
   any declared consumer disappears, not only when the first surviving route

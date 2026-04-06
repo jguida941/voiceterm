@@ -1,6 +1,6 @@
 # AI Governance Platform Plan
 
-**Status**: active  |  **Last updated**: 2026-04-05 | **Owner:** Tooling/control plane/product architecture
+**Status**: active  |  **Last updated**: 2026-04-06 | **Owner:** Tooling/control plane/product architecture
 Execution plan contract: required
 This spec remains execution mirrored in `dev/active/MASTER_PLAN.md` under
 `MP-377`, and it is the canonical active architecture plan for the standalone
@@ -41,6 +41,18 @@ Current 2026-04-05 terminal/visibility closure note:
   plus reviewer `session_owner.session_visibility`) so operators and AI can
   detect hidden conductor state without reverse-engineering `terminal_window_id`
   nulls or guessing from detached heartbeats.
+
+Current 2026-04-06 shared-violation convergence note:
+- `MP-381` has started as a bounded contract-first slice rather than a broad
+  frontend rewrite. The new
+  `dev/scripts/devctl/runtime/probe_report_violations.py` seam maps enriched
+  `probe-report` hints into `tuple[ViolationRecord, ...]` so probes can join
+  the shared `CheckResult` / `ViolationRecord` projection path without
+  changing probe-report's existing JSON/markdown artifacts or promoting
+  `Finding` into the general-purpose check-output row. Treat this as the first
+  linker step for shared violation rendering: next consumers should reuse the
+  same row contract in governance-review, startup summaries, and dashboard
+  surfaces instead of growing another probe-specific presentation family.
 
 ## Scope
 

@@ -167,6 +167,52 @@ Evidence: `dev/scripts/checks/platform_contract_closure/field_routes_surface_sta
 `dev/scripts/devctl/tests/checks/platform_contract_closure/test_check_platform_contract_closure.py`,
 `dev/scripts/devctl/tests/checks/platform_contract_closure/test_field_routes_ast_helper.py`.
 
+### 2026-04-06 - Shared ViolationRecord convergence begins with probe-report and recent-window governance-review adapters
+
+The typed `CheckResult` / `ViolationRecord` contract family in
+`dev/scripts/devctl/runtime/check_result_models.py` had already reached
+the check pipeline, the dashboard data builder, the push-report surface,
+and the platform contract-row registry, but other signal producers were
+still rendering through their own one-off paths. `devctl probe-report`
+returned findings through a probe-only markdown/terminal pipeline, and
+`devctl governance-review` emitted adjudicated finding rows through its
+own markdown renderer. That meant any surface that wanted probe or
+governance findings alongside check violations had to grow a
+domain-specific renderer instead of reusing the shared contract.
+
+The 2026-04-06 slice opens the convergence with two one-way,
+non-mutating adapters in `dev/scripts/devctl/runtime/`. The probe-report
+adapter `probe_report_violations.probe_report_to_violations(report)`
+reads enriched `risk_hints` from the aggregated probe-report payload and
+projects each hint into a `ViolationRecord` with a precise field map
+(`check_id -> step_name`/`source`, `ai_instruction` -> compact summary
+and full `fix`, `review_lens -> policy`, `line` coerced safely, etc.).
+The governance-review adapter
+`governance_review_violations.governance_review_recent_to_violations(report)`
+is deliberately scoped as a **recent-window** helper: it reads
+`report["recent_findings"]`, which `build_governance_review_report`
+slices to the last `recent_limit` rows (default 10). A regression test
+with more than ten rows locks that the adapter never re-trims inside
+itself and that the default verdict filter `("confirmed_issue",)` keeps
+resolved states (fixed / waived / deferred / false_positive / unknown)
+out of the projection. Both adapters share coercion and summary helpers
+from a new `runtime/violation_adapter_support.py` module so duplicated
+control flow never re-grows, and docstrings/comments in both helpers
+explicitly say what they are not (a live open-governance feed in the
+governance case, or a replacement for probe-report's own JSON/markdown
+artifacts in the probe case).
+
+Evidence: `dev/scripts/devctl/runtime/probe_report_violations.py`,
+`dev/scripts/devctl/runtime/governance_review_violations.py`,
+`dev/scripts/devctl/runtime/violation_adapter_support.py`,
+`dev/scripts/devctl/tests/runtime/test_probe_report_violations.py`,
+`dev/scripts/devctl/tests/runtime/test_governance_review_violations.py`,
+`AGENTS.md`,
+`dev/guides/DEVELOPMENT.md`,
+`dev/scripts/README.md`,
+`dev/active/MASTER_PLAN.md`,
+`dev/active/ai_governance_platform.md`.
+
 ### 2026-04-05 - Review-channel terminal policy and headless visibility are now explicit typed runtime truth
 
 The review-channel launch surface still had one unsafe ambiguity: local

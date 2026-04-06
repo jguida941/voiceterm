@@ -8,6 +8,7 @@ the *check output* shape.
 
 from __future__ import annotations
 
+import json as _json_mod
 import re as _re_mod
 from dataclasses import asdict, dataclass, field
 from typing import Any
@@ -311,3 +312,26 @@ def render_check_result_md(result: CheckResult) -> str:
             lines.append("```")
             lines.append("")
     return "\n".join(lines)
+
+
+def render_check_result_json(
+    result: CheckResult,
+    *,
+    indent: int | None = 2,
+) -> str:
+    """Serialize a CheckResult into the canonical JSON projection.
+
+    Symmetric companion to ``render_check_result_text`` and
+    ``render_check_result_md`` so every consumer of the shared
+    ``CheckResult`` / ``ViolationRecord`` family has one obvious entry
+    point per output mode (text / md / json) instead of mixing
+    ``render_*`` calls with ad hoc ``json.dumps(result.to_dict())``.
+
+    The serialization passes through ``CheckResult.to_dict`` so the
+    schema (schema_version / contract_id / per-step shape / nested
+    ViolationRecord projection) stays driven by the dataclass contract.
+    Pass ``indent=None`` for the compact one-line form used by event
+    logs and packet payloads; the default ``indent=2`` is the
+    operator-readable form used by report files.
+    """
+    return _json_mod.dumps(result.to_dict(), indent=indent, sort_keys=True)

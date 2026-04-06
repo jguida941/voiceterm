@@ -1266,6 +1266,23 @@ Machine-first output note:
     like `push_eligible` vs `push_eligible_now` no longer masquerades as
     the same route. Add new field-route tokens explicitly when a consumer
     uses a renamed receipt projection.
+  - The 2026-04-06 shared-`ViolationRecord` convergence slice adds two
+    one-way adapters under `dev/scripts/devctl/runtime/`:
+    `probe_report_violations.probe_report_to_violations(report)` projects
+    enriched `probe-report` `risk_hints` into
+    `tuple[ViolationRecord, ...]`, and
+    `governance_review_violations.governance_review_recent_to_violations(report)`
+    projects the **recent window** of `governance-review` findings (from
+    `report["recent_findings"]`, with default include verdict
+    `("confirmed_issue",)`) onto the same shared contract. Both adapters
+    import `coerce_stripped_str`, `coerce_positive_int`, and
+    `build_bounded_summary` from
+    `dev/scripts/devctl/runtime/violation_adapter_support.py`. The
+    governance helper is explicitly NOT a live-governance feed — it
+    reads only the bounded recent window emitted by
+    `build_governance_review_report`, so unresolved rows older than that
+    window do not appear; widen the upstream `recent_limit` or use a
+    different governance data source for full-open semantics.
 - `system-picture`: generated startup-to-external-review reducer that composes
   the repo-owned typed ledgers into one bounded snapshot and proof-ledger
   projection
