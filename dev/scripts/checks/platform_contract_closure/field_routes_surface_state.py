@@ -17,14 +17,23 @@ def _source_contains_any(module_path: str, tokens: tuple[str, ...]) -> bool:
     """Return True when the source at *module_path* contains any of *tokens*.
 
     Resolves dotted module paths to filesystem paths relative to the
-    repo root.
+    repo root. Accepts both flat modules (``foo/bar.py``) and packages
+    (``foo/bar/__init__.py``); for packages, scans every ``*.py`` file
+    in the package root so tokens rendered by submodules still count.
     """
-    rel = module_path.replace(".", "/") + ".py"
-    src_path = _REPO_ROOT / rel
-    if not src_path.is_file():
-        return False
-    text = src_path.read_text(encoding="utf-8", errors="replace")
-    return any(token in text for token in tokens)
+    rel_module = module_path.replace(".", "/")
+    flat_path = _REPO_ROOT / f"{rel_module}.py"
+    if flat_path.is_file():
+        text = flat_path.read_text(encoding="utf-8", errors="replace")
+        return any(token in text for token in tokens)
+
+    package_dir = _REPO_ROOT / rel_module
+    if package_dir.is_dir():
+        for py_file in sorted(package_dir.glob("*.py")):
+            text = py_file.read_text(encoding="utf-8", errors="replace")
+            if any(token in text for token in tokens):
+                return True
+    return False
 
 
 def _build_coverage(
