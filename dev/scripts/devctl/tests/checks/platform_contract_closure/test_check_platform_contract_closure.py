@@ -584,6 +584,48 @@ def test_auto_mode_phase_route_fails_when_renderer_drops_resolved_phase() -> Non
     assert violation["field_name"] == "phase"
 
 
+def test_top_blocker_dashboard_route_rejects_docstring_only_package_match(
+    monkeypatch, tmp_path,
+) -> None:
+    """Regression for F1: a package ``__init__.py`` docstring that merely
+    mentions ``top_blocker`` must not satisfy the dashboard field-route proof.
+
+    Before the AST-backed helper landed, ``_source_contains_any`` scanned every
+    ``*.py`` file in a package and short-circuited on the first raw-text hit.
+    After the ``dashboard_render`` flat->package refactor, the new
+    ``__init__.py`` docstring mentioned ``top_blocker`` and satisfied the
+    check even when no submodule actually rendered the field. This test locks
+    the fix: a synthetic dashboard_render package whose ``__init__.py`` only
+    *documents* ``top_blocker`` and whose submodules never reference it must
+    fail the route check with an ``unconsumed-field-route`` violation.
+    """
+    from dev.scripts.checks.platform_contract_closure import (
+        field_routes_surface_state as mod,
+    )
+
+    fake_package = (
+        tmp_path / "dev" / "scripts" / "devctl" / "commands" / "dashboard_render"
+    )
+    fake_package.mkdir(parents=True)
+    (fake_package / "__init__.py").write_text(
+        '"""Docstring that mentions top_blocker but performs no executable use."""\n',
+        encoding="utf-8",
+    )
+    (fake_package / "markdown.py").write_text(
+        "def render(snapshot):\n"
+        "    return snapshot.get('other_field', '')\n",
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(mod, "_REPO_ROOT", tmp_path)
+
+    coverage, violation = mod.check_top_blocker_dashboard_route()
+    assert coverage["ok"] is False
+    assert violation is not None
+    assert violation["rule"] == "unconsumed-field-route"
+    assert violation["field_name"] == "top_blocker"
+
+
 def test_platform_contract_closure_markdown_lists_field_route_count() -> None:
     report = build_report()
     output = render_md(report)

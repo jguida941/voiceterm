@@ -128,6 +128,45 @@ Evidence: `AGENTS.md`,
 `dev/scripts/devctl/runtime/review_state_models.py`,
 `dev/scripts/devctl/runtime/review_state_collaboration_models.py`.
 
+### 2026-04-06 - Field-route contract closure now proves executable consumption, not docstring coincidence
+
+The platform contract-closure guard proves that key surface-state fields
+(`ControlPlaneReadModel.push_eligible`, `top_blocker`, `AutoModeState.phase`,
+`SessionCachePacket.last_reviewed_sha`, and family members) actually reach
+their declared consumer surfaces. The proof helper `_source_contains_any` in
+`dev/scripts/checks/platform_contract_closure/field_routes_surface_state.py`
+was a raw Python `in` substring scan over the full file text: it counted
+any token appearance, including inside module, class, and function
+docstrings, and short-circuited on the first match in lexical order when
+scanning a package directory.
+
+Two silent failure modes followed. First, the recent flat-to-package
+refactor of `dashboard_render` put a new `__init__.py` docstring at the
+lexically-first slot inside the package, and its prose mentioned
+`top_blocker`; the field-route proof for
+`check_top_blocker_dashboard_route` then passed on that documentation
+coincidence even if `markdown.py` and `terminal.py` stopped reading the
+field entirely. Second, the substring operator conflated
+`push_eligible` with `push_eligible_now` — two structurally distinct
+receipt projections — so `check_push_eligible_dashboard_route` was
+silently coasting on a prefix overlap instead of checking either form
+explicitly.
+
+The contract helper now parses each candidate file with `ast.parse`,
+strips module/class/function docstrings in-place, and walks the remaining
+tree looking for exact identifier, attribute, dotted-chain, or
+string-literal references. Parse failures fail closed (no raw-text
+fallback), and `check_push_eligible_dashboard_route` now enumerates both
+`push_eligible` and `push_eligible_now` as accepted token forms so the
+matched surface is explicit instead of implicit. The dashboard route
+check stays green against the real `dashboard_render` package because
+its submodules use `snapshot.get("top_blocker", ...)`, which the AST walk
+matches as an executable string-literal key.
+
+Evidence: `dev/scripts/checks/platform_contract_closure/field_routes_surface_state.py`,
+`dev/scripts/devctl/tests/checks/platform_contract_closure/test_check_platform_contract_closure.py`,
+`dev/scripts/devctl/tests/checks/platform_contract_closure/test_field_routes_ast_helper.py`.
+
 ### 2026-04-05 - Review-channel terminal policy and headless visibility are now explicit typed runtime truth
 
 The review-channel launch surface still had one unsafe ambiguity: local

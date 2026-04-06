@@ -1256,6 +1256,16 @@ Machine-first output note:
     autonomy-loop, and `guard-run` consumers together, and
     `DecisionPacket.decision_mode` must gate those same routes, so one
     surviving consumer no longer masks a dropped sibling.
+  - As of 2026-04-06 the field-route proof helper
+    `_source_contains_any` in
+    `dev/scripts/checks/platform_contract_closure/field_routes_surface_state.py`
+    is AST-backed: it parses the candidate consumer module, strips
+    module/class/function docstrings, and matches exact identifier,
+    attribute, dotted-chain, or string-literal references. Docstring or
+    comment mentions no longer satisfy the proof, and a substring overlap
+    like `push_eligible` vs `push_eligible_now` no longer masquerades as
+    the same route. Add new field-route tokens explicitly when a consumer
+    uses a renamed receipt projection.
 - `system-picture`: generated startup-to-external-review reducer that composes
   the repo-owned typed ledgers into one bounded snapshot and proof-ledger
   projection

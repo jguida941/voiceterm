@@ -977,7 +977,15 @@ Portable policy note:
 - When a critical contract field gains a live consumer route (for example
   `Finding.ai_instruction` flowing from probe artifacts into the Ralph prompt),
   extend `check_platform_contract_closure.py` with a deterministic field-route
-  proof so produced-but-unconsumed regressions fail before handoff.
+  proof so produced-but-unconsumed regressions fail before handoff. The
+  field-route helper `_source_contains_any` in
+  `dev/scripts/checks/platform_contract_closure/field_routes_surface_state.py`
+  is AST-backed as of 2026-04-06: it parses candidate modules, strips
+  docstrings, and matches exact identifier, attribute, dotted-chain, or
+  string-literal references so a module docstring mention or prefix
+  substring overlap can never satisfy the proof. New field-route tokens
+  must be enumerated explicitly if a consumer surface uses a renamed
+  projection (for example `push_eligible_now` beside `push_eligible`).
 - Once a field has more than one declared live consumer, keep that same guard
   honest at the family level too: record the expected route family and fail if
   any declared consumer disappears, not only when the first surviving route

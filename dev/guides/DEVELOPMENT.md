@@ -648,7 +648,11 @@ Three quality layers matter in practice:
   consumed" regressions fail as contract drift instead of surviving as prose.
   Keep `startup_surface_tokens` current on every implemented platform
   contract row so startup/bootstrap surfaces project the same inventory the
-  closure guard validates.
+  closure guard validates. As of 2026-04-06 the field-route proof helper is
+  AST-backed and ignores module/class/function docstrings, so new route
+  tokens must be identifiers, attribute names, dotted chains, or explicit
+  string-literal keys that the consumer genuinely executes, and a docstring
+  or comment mention alone will not satisfy the check.
 - Use `python3 dev/scripts/devctl.py system-picture --format md` when that
   same platform/governance slice should refresh the generated external-review
   reducer and proof-ledger projection rather than leaving the proof surface as
