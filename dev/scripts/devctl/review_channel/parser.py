@@ -88,6 +88,20 @@ LAUNCH_ARGUMENTS: list[ArgumentDef] = [
         ),
     ),
     _arg(
+        "--allow-headless-override",
+        action="store_true",
+        default=False,
+        help=(
+            "F21 launcher-discipline override: explicitly permit a headless "
+            "(`--terminal none`) launch even when typed `interaction_mode` is "
+            "`local_terminal` or unresolved. The default refuses headless in "
+            "local mode because the Codex CLI cannot answer auth/permission "
+            "prompts headlessly. Set this only for legitimate cases like CI "
+            "runs or automated test harnesses; the operator is responsible "
+            "for justifying the override."
+        ),
+    ),
+    _arg(
         "--review-channel-path",
         default=DEFAULT_REVIEW_CHANNEL_REL,
         help="Path to the active review-channel plan markdown",

@@ -124,6 +124,12 @@ def _launch_and_refresh(
             bridge_path=context.bridge_path,
             handoff_bundle=execution.handoff_bundle,
             terminal_profile_applied=execution.terminal_profile_applied,
+            interaction_mode=str(
+                execution.status_snapshot.bridge_liveness.get(
+                    "interaction_mode", ""
+                )
+                or ""
+            ),
             launch_terminal_sessions_fn=launch_terminal_sessions,
             retired_sessions=tuple(execution.retired_sessions),
             observe_launch_state_fn=partial(

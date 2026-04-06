@@ -9,6 +9,10 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from .bridge_launch_headless import launch_sessions_headless as _launch_sessions_headless
+from .launcher_discipline import (
+    LauncherDisciplineVerdict,
+    validate_visible_launch_in_local_mode,
+)
 from ...review_channel.core import (
     AUTO_DARK_TERMINAL_PROFILES,
     DEFAULT_TERMINAL_PROFILE,
@@ -39,13 +43,24 @@ _PUBLISHER_START_WAIT_SECONDS = 0.1
 
 @dataclass(frozen=True)
 class LaunchSessionRequest:
-    """Typed launch inputs for the bridge-backed conductor start path."""
+    """Typed launch inputs for the bridge-backed conductor start path.
+
+    F21 (launcher discipline): ``interaction_mode`` is the typed operator
+    interaction mode read by the caller from
+    ``bridge_liveness.interaction_mode`` (or equivalent typed authority).
+    The dispatcher uses it together with ``args.terminal`` and
+    ``args.allow_headless_override`` to decide whether a headless launch
+    is allowed in the current operator context. Empty string means
+    "unresolved" and is treated fail-closed by the launcher discipline
+    validator (see ``launcher_discipline.py``).
+    """
 
     args: object
     sessions: list[dict[str, object]]
     bridge_path: Path
     handoff_bundle: object
     terminal_profile_applied: str | None
+    interaction_mode: str = ""
     launch_terminal_sessions_fn: Callable[..., None] = launch_terminal_sessions
     retired_sessions: tuple["ConductorSessionRecord", ...] = ()
     cleanup_terminal_session_fn: Callable[..., list[str]] = cleanup_terminal_session
@@ -93,7 +108,18 @@ def prepare_rollover_bundle(
 def launch_sessions_if_requested(
     request: LaunchSessionRequest,
 ) -> tuple[bool, bool, dict[str, bool] | None, list[str]]:
-    """Launch conductor sessions via Terminal.app or headless subprocess."""
+    """Launch conductor sessions via Terminal.app or headless subprocess.
+
+    F21 launcher-discipline gate: before any spawn happens, the dispatcher
+    calls ``validate_visible_launch_in_local_mode`` with the typed
+    ``interaction_mode`` carried on the request, the caller-provided
+    ``args.terminal`` value, and the explicit
+    ``args.allow_headless_override`` flag. A denial fails closed by
+    raising ``ValueError`` with the typed operator-visible reason from
+    the verdict so the caller can surface the typed denial to the
+    operator instead of silently spawning a headless conductor that
+    cannot answer auth/permission prompts (the F4 trap).
+    """
     args = request.args
     launched = False
     handoff_ack_required = False
@@ -101,6 +127,26 @@ def launch_sessions_if_requested(
     cleanup_warnings: list[str] = []
     if args.action not in {"launch", "rollover"} or args.dry_run:
         return launched, handoff_ack_required, handoff_ack_observed, cleanup_warnings
+    # F21: launcher-discipline pre-flight gate. Fails closed when a
+    # headless launch is requested in local_terminal/unresolved mode
+    # without an explicit operator override. The pure helper lives in
+    # ``launcher_discipline.py``; this is the integration point Codex
+    # specifically called out as the gap in the prior pure-helper slice.
+    discipline_verdict: LauncherDisciplineVerdict = (
+        validate_visible_launch_in_local_mode(
+            interaction_mode=request.interaction_mode,
+            terminal_arg=str(getattr(args, "terminal", "")),
+            allow_headless_override=bool(
+                getattr(args, "allow_headless_override", False)
+            ),
+        )
+    )
+    if not discipline_verdict.allowed:
+        raise ValueError(
+            "Launcher discipline refused this launch: "
+            f"reason={discipline_verdict.denial_reason}. "
+            f"{discipline_verdict.operator_message}"
+        )
     prelaunch_snapshot = extract_bridge_snapshot(
         request.bridge_path.read_text(encoding="utf-8")
     )
