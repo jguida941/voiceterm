@@ -163,10 +163,10 @@ def build_reviewer_doctor_surface(
 
 
 def _doctor_status(contract: ReviewerRuntimeContract) -> str:
-    if contract.publish_clear:
-        return "healthy"
     if contract.stale_reason:
         return contract.stale_reason
+    if contract.publish_clear:
+        return "healthy"
     if contract.rollover.ack_pending:
         return "rollover_ack_pending"
     if not contract.review_acceptance.review_accepted:

@@ -71,13 +71,13 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-04-06T01:25:02Z`
-- Last Codex poll (Local America/New_York): `2026-04-05 21:25:02 EDT`
+- Last Codex poll: `2026-04-06T01:30:03Z`
+- Last Codex poll (Local America/New_York): `2026-04-05 21:30:03 EDT`
 - Reviewer mode: `single_agent`
-- Last non-audit worktree hash: `697ed328063babff658ad99bf39a49bf7936869be48152a5f037b9e3be94195f`
-- Current instruction revision: `4f536e279408`
+- Last non-audit worktree hash: `c6b1d2c936d216beeb7441706587beed0db45db1190a4bc98cc2c37a95e0e093`
+- Current instruction revision: `0b75e7c096e0`
 - Last checkpoint action: `reviewer-checkpoint`
-- Head at push time: `e02affe9735acbcec95fcfadfc9b3ad2b5b75103`
+- Head at push time: `b81bbd4444fb55fd2203ab7bf9a2ae206b33d69e`
 ## Protocol
 
 1. Claude should poll this file periodically while coding.
@@ -199,13 +199,13 @@ Codex: design this as part of the existing `ProjectGovernance` / `ReviewerGateSt
 
 ## Poll Status
 
-- Reviewer checkpoint updated through repo-owned tooling (mode: single_agent; reason: review-pass-takeover; observed-tree: 697ed328063b; reviewed-tree: 697ed328063b; instruction-rev: 4f536e279408).
+- Reviewer checkpoint updated through repo-owned tooling (mode: single_agent; reason: review-pass-takeover; observed-tree: c6b1d2c936d2; reviewed-tree: c6b1d2c936d2; instruction-rev: 0b75e7c096e0).
 
 ## Current Verdict
 
 - accepted
-- Review-candidate handoff, push authorization, governed executor modularization, discover command packaging, and runtime contract row splits are complete on the staged tree.
-- Verified with focused pytest for runtime/vcs/platform coverage, docs-check --strict-tooling, active-plan sync, platform-contracts render, and quick-guard substantive checks.
+- Review-candidate handoff, push authorization, governed executor modularization, discover command packaging, runtime contract row splits, and reviewer-doctor consistency closure are complete on the staged tree.
+- Verified with focused pytest for runtime/vcs/platform/review-channel coverage, docs-check --strict-tooling, active-plan sync, platform-contracts render, and check_review_surface_consistency.
 
 ## Open Findings
 
@@ -225,7 +225,7 @@ Codex: design this as part of the existing `ProjectGovernance` / `ReviewerGateSt
 
 ## Current Instruction For Claude
 
-- hold steady while Codex commits and runs the governed push for the current review-candidate, push-authorization, and command/package cleanup slice.
+- hold steady while Codex commits and runs the governed push for the current review-candidate, push-authorization, command/package cleanup, and reviewer-doctor consistency slice.
 
 ## Action Requests
 
@@ -235,7 +235,7 @@ Codex: design this as part of the existing `ProjectGovernance` / `ReviewerGateSt
 
 - AGENTS.md plus dev/active/MASTER_PLAN.md, dev/active/ai_governance_platform.md, dev/active/platform_authority_loop.md, dev/active/remote_commit_pipeline.md
 - dev/guides/DEVELOPMENT.md plus dev/history/ENGINEERING_EVOLUTION.md and dev/scripts/README.md
-- dev/scripts/checks/code_shape/code_shape_policy.py
+- dev/scripts/checks/code_shape/code_shape_policy.py plus check_review_surface_consistency.py
 - dev/scripts/devctl/commands/discover.py plus dev/scripts/devctl/commands/discover/__init__.py
 - dev/scripts/devctl/commands/vcs/governed_executor.py plus governed_executor_support.py
 - dev/scripts/devctl/commands/vcs/governed_executor_authorization.py, governed_executor_field_access.py, governed_executor_packets.py, governed_executor_push_result.py
@@ -246,5 +246,5 @@ Codex: design this as part of the existing `ProjectGovernance` / `ReviewerGateSt
 - dev/scripts/devctl/runtime/__init__.py plus project_governance_push.py and push_authorization.py
 - dev/scripts/devctl/runtime/remote_commit_pipeline_models.py plus review_state.py, review_state_models.py, review_state_parser.py
 - dev/scripts/devctl/runtime/startup_gate.py plus startup_push_decision.py
-- dev/scripts/devctl/tests/platform/test_platform_contracts.py plus runtime/vcs regression suites for push authorization, remote commit phases, review state, startup gate, governed executor, and push
+- dev/scripts/devctl/tests/platform/test_platform_contracts.py plus runtime/vcs/review-channel regression suites for push authorization, remote commit phases, review state, startup gate, governed executor, push, doctor, and review-surface consistency
 

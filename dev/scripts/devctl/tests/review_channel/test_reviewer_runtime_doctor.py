@@ -230,3 +230,21 @@ def test_build_reviewer_doctor_surface_exposes_visibility_state() -> None:
 
     assert doctor["conductor_visibility"] == "mixed"
     assert doctor["session_visibility"] == "visible"
+
+
+def test_build_reviewer_doctor_surface_prefers_inactive_diagnosis_over_publish_clear() -> None:
+    doctor = build_reviewer_doctor_surface(
+        contract=ReviewerRuntimeContract(
+            reviewer_mode="single_agent",
+            effective_reviewer_mode="single_agent",
+            publish_clear=True,
+            stale_reason="inactive",
+            review_acceptance=ReviewerAcceptanceState(
+                current_verdict="- accepted",
+                open_findings="- all clear",
+                review_accepted=True,
+            ),
+        )
+    )
+
+    assert doctor["status"] == "inactive"
