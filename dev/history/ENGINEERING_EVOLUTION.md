@@ -95,6 +95,39 @@ Evidence: `dev/scripts/devctl/review_channel/terminal_mode.py`,
 `dev/active/MASTER_PLAN.md`,
 `dev/active/ai_governance_platform.md`.
 
+### 2026-04-05 - Bootstrap surfaces now teach launch authority first, and publish override stays inside the governed plan
+
+The next operator review was less about new philosophy and more about first-hop
+operational truth. The repo already had the right compiler-style architecture,
+but fresh AI still had to infer too much about launch posture from scattered
+docs and stale session lore. The maintainer/bootstrap surfaces now make the
+launch packet explicit: read `startup-context.action`, `interaction_mode`,
+`reviewer_runtime.conductor_visibility`, and
+`reviewer_runtime.session_owner.session_visibility` before choosing visible
+`--terminal terminal-app` versus headless `--terminal none`. That keeps local
+terminal sessions visible by default unless headless was explicitly requested
+or the governed runtime is `remote_control`.
+
+The same review tightened the publish-exception story. The current system is
+already meaningfully governed because it tries the canonical `devctl push`
+path, surfaces typed blocks, and requires explicit human intervention before a
+manual push can happen. The remaining design gap is narrower: a human override
+should stay inside the same typed control plane instead of normalizing raw
+`git push` as the fallback. The remote-commit pipeline plan now tracks that as
+one generation-bound `override_push` extension over
+`RemoteCommitPipelineContract`, typed packets, and the canonical `vcs.push`
+executor.
+
+Evidence: `dev/config/templates/claude_instructions.template.md`,
+`CLAUDE.md`,
+`AGENTS.md`,
+`dev/guides/DEVELOPMENT.md`,
+`dev/scripts/README.md`,
+`dev/active/platform_authority_loop.md`,
+`dev/active/review_channel.md`,
+`dev/active/remote_commit_pipeline.md`,
+`dev/active/remote_control_runtime.md`.
+
 ### 2026-04-05 - Remote-control closure now tracks reviewer bootstrap truth and structural commit gating
 
 The latest pushed-branch architecture review turned a loose set of runtime

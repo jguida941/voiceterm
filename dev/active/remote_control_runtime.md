@@ -33,7 +33,9 @@ contract exists.
 - [x] MP-382 Finish headless session lifecycle closure so launch, recovery,
       and rollover honor typed operator mode, survive non-zero conductor exit,
       and do not recommend `Terminal.app` in remote-control mode.
-      (Partial: proof-of-life slice landed; rollover + recovery deferred.)
+      (Partial: terminal-mode/visibility plus proof-of-life slices landed;
+      session cleanup, orphan refusal, startup preflight cleanup, and full
+      rollover/recovery closure remain.)
 - [ ] MP-383 Converge bridge `## Action Requests` onto the existing
       `PacketPostRequest(kind="action_request")` event path and keep bridge
       action rows as projection-only compatibility text.
@@ -65,6 +67,9 @@ contract exists.
       `review-channel --action launch|rollover --terminal none`; detached
       publisher/supervisor heartbeats without live conductor sessions are a
       launch failure plus cleanup/recover state, not a healthy launch.
+- [ ] MP-382 Follow-through: add `devctl session-cleanup`, prelaunch orphan
+      detection, and launch refusal/force-clean semantics so session lifecycle
+      safety matches the now-typed terminal visibility contract.
 - [ ] MP-384 Invalidate stale review verdict/findings when
       `review_needed=true` or `reviewed_hash_current=false`; operator-facing
       surfaces must project stale-review truth instead of replaying old verdict
@@ -321,6 +326,14 @@ The MP scopes remain valid but are now cross-cut by enforcement-first priority.
 
 ## Progress Log
 
+- 2026-04-05: Accepted the post-visibility architecture nuance for `MP-382`.
+  Terminal-mode selection is no longer the honest blocker here: typed operator
+  mode, typed visibility, and headless proof-of-life now exist. The remaining
+  lifecycle gap is stale-session cleanup and refusal: session-end cleanup,
+  startup preflight cleanup, orphan Terminal/daemon detection, and operator-
+  visible orphan state in dashboard/doctor/status. Keep that work in this
+  owner lane instead of reopening visible-vs-headless wording as if it were
+  the unsolved problem.
 - 2026-04-05: Landed the provider-neutral role-bootstrap follow-up inside the
   live `MP-382` / `MP-387` lane. `LaneAssignment` now carries an explicit
   tandem role inferred from the planned review-channel lane text, conductor
@@ -660,8 +673,9 @@ No `ControlPlaneReadModel` exists. Each surface independently reads raw artifact
 - Current status: the review/runtime architecture is mapped cleanly enough to
   stop guessing. The remaining gaps are now explicit tracked closure items:
   fail-closed operator mode, terminal-none proof-of-life launch validation,
-  control-plane contract-catalog coverage, stale-review invalidation, queue
-  metric split, and typed reviewer bootstrap/session-resume truth.
+  session cleanup/orphan refusal/startup preflight cleanup, control-plane
+  contract-catalog coverage, stale-review invalidation, queue metric split,
+  and typed reviewer bootstrap/session-resume truth.
 - Next action: keep the live Claude worker on the first bounded
   `MP-380` + `MP-382` slice only. Land fail-closed operator-mode propagation
   through governance/startup/read-model/session-resume plus terminal-none

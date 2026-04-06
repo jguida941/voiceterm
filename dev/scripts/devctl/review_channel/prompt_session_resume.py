@@ -90,9 +90,29 @@ def _format_session_resume_preamble(packet: "SessionCachePacket") -> str:
         json.dumps(packet.to_dict(), indent=2),
         "```",
     ]
+    candidate = packet.review_candidate
     head = packet.head_sha.strip()
     last_reviewed = packet.last_reviewed_sha.strip()
-    if head and last_reviewed and head != last_reviewed:
+    if candidate is not None and candidate.valid and candidate.ready_for_review:
+        lines.extend([
+            "",
+            f"Frozen review candidate: `{candidate.candidate_id}` ({candidate.artifact_kind})",
+        ])
+        if candidate.changed_paths:
+            lines.append(
+                "Review these candidate paths first: "
+                + ", ".join(f"`{path}`" for path in candidate.changed_paths[:8])
+            )
+        if candidate.artifact_kind == "dirty_tree":
+            lines.append(
+                "This slice currently lives in dirty-tree state; prefer the candidate "
+                "path set and worktree hash over raw commit-range review."
+            )
+        if candidate.invalidation_reason:
+            lines.append(
+                f"Candidate warning: `{candidate.invalidation_reason}`"
+            )
+    elif head and last_reviewed and head != last_reviewed:
         lines.extend([
             "",
             f"Unreviewed changes detected: `{last_reviewed[:12]}..{head[:12]}`",

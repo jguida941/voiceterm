@@ -40,18 +40,26 @@ def render_bootstrap(packet: "SessionCachePacket") -> str:
     elif packet.next_action:
         lines.append(f"- **next_command**: `{packet.next_action}`")
 
-    lines.extend(
-        [
-            "",
-            "### Run In Order",
-            f"1. `{startup_context_command_for_role(role)}`",
-            f"2. `{session_resume_command_for_role(role)}`",
-            f"3. `{context_graph_bootstrap_command()}`",
-        ]
-    )
     if role == "reviewer":
-        lines.append(
-            "4. `python3 dev/scripts/devctl.py review-channel --action status --terminal none --format json`"
+        lines.extend(
+            [
+                "",
+                "### Run In Order",
+                f"1. `{startup_context_command_for_role(role)}`",
+                f"2. `{session_resume_command_for_role(role)}`",
+                "3. `python3 dev/scripts/devctl.py review-channel --action status --terminal none --format json`",
+                f"4. `{context_graph_bootstrap_command()}`",
+            ]
+        )
+    else:
+        lines.extend(
+            [
+                "",
+                "### Run In Order",
+                f"1. `{startup_context_command_for_role(role)}`",
+                f"2. `{session_resume_command_for_role(role)}`",
+                f"3. `{context_graph_bootstrap_command()}`",
+            ]
         )
 
     lines.extend(
@@ -81,6 +89,9 @@ def render_bootstrap(packet: "SessionCachePacket") -> str:
                 packet.current_instruction,
             ]
         )
+    candidate_lines = _review_candidate_lines(packet)
+    if candidate_lines:
+        lines.extend(candidate_lines)
     if packet.open_findings:
         lines.extend(
             [
@@ -120,6 +131,10 @@ def render_markdown(packet: "SessionCachePacket") -> str:
         lines.append("### Open findings")
         lines.append(packet.open_findings)
         lines.append("")
+    candidate_lines = _review_candidate_lines(packet)
+    if candidate_lines:
+        lines.extend(candidate_lines)
+        lines.append("")
     if packet.next_recommended_command:
         lines.append(f"**Next**: `{packet.next_recommended_command}`")
         lines.append("")
@@ -150,6 +165,11 @@ def render_summary(packet: "SessionCachePacket") -> str:
         f"ack={packet.ack_state}",
         f"guard_ok={packet.last_guard_ok}",
         f"guard_bundle={packet.next_guard_bundle}" if packet.next_guard_bundle else "guard_bundle=none",
+        (
+            f"review_candidate={packet.review_candidate.candidate_id}"
+            if packet.review_candidate is not None
+            else "review_candidate=none"
+        ),
         f"next={packet.next_recommended_command or packet.next_action}",
     ]
     return "\n".join(lines)
@@ -175,6 +195,12 @@ def _short_sha(value: str) -> str:
 
 
 def _review_range_line(packet: "SessionCachePacket") -> str:
+    candidate = packet.review_candidate
+    if candidate is not None and candidate.valid and candidate.ready_for_review:
+        return (
+            f"- **review_target**: candidate `{candidate.candidate_id}` "
+            f"({candidate.artifact_kind or 'unknown'})"
+        )
     head = packet.head_sha.strip()
     last_reviewed = packet.last_reviewed_sha.strip()
     if head and last_reviewed and head != last_reviewed:
@@ -197,9 +223,24 @@ def _reviewer_bootstrap_section(packet: "SessionCachePacket") -> list[str]:
         "- Use this packet as the first-hop reviewer bootstrap instead of operator memory or stale bridge prose.",
         "- Start from `Poll Status`, `Current Verdict`, `Open Findings`, `Current Instruction For Claude`, and `Last Reviewed Scope`.",
     ]
+    candidate = packet.review_candidate
     head = packet.head_sha.strip()
     last_reviewed = packet.last_reviewed_sha.strip()
-    if head and last_reviewed and head != last_reviewed:
+    if candidate is not None and candidate.valid and candidate.ready_for_review:
+        lines.append(
+            f"- Prefer frozen review candidate `{candidate.candidate_id}` over raw HEAD drift."
+        )
+        if candidate.changed_paths:
+            lines.append(
+                "- Review the candidate path set first: "
+                + ", ".join(f"`{path}`" for path in candidate.changed_paths[:6])
+                + ("." if len(candidate.changed_paths) <= 6 else ", ...")
+            )
+        if candidate.artifact_kind == "dirty_tree" and candidate.worktree_hash:
+            lines.append(
+                f"- Inspect the dirty-tree candidate at worktree hash `{candidate.worktree_hash[:12]}` before any commit-range fallback."
+            )
+    elif head and last_reviewed and head != last_reviewed:
         lines.append(
             f"- Review the exact diff range `{last_reviewed}..{head}` before widening scope."
         )
@@ -219,6 +260,8 @@ def _reviewer_bootstrap_section(packet: "SessionCachePacket") -> list[str]:
                 "Reviewer lane only. Run "
                 f"`{startup_context_command_for_role('reviewer')}`, then "
                 f"`{session_resume_command_for_role('reviewer')}`, then "
+                "`python3 dev/scripts/devctl.py review-channel --action status "
+                "--terminal none --format json`, then "
                 f"`{context_graph_bootstrap_command()}`. Use this packet plus typed "
                 "review-state/`bridge.md` as live authority."
             ),
@@ -253,4 +296,35 @@ def _implementer_bootstrap_section(packet: "SessionCachePacket") -> list[str]:
             ),
         ]
     )
+    return lines
+
+
+def _review_candidate_lines(packet: "SessionCachePacket") -> list[str]:
+    candidate = packet.review_candidate
+    if candidate is None:
+        return []
+    lines = [
+        "",
+        "### Review Candidate",
+        f"- **candidate_id**: `{candidate.candidate_id}`",
+        f"- **artifact_kind**: {candidate.artifact_kind or 'n/a'}",
+        f"- **valid**: {candidate.valid}",
+        f"- **ready_for_review**: {candidate.ready_for_review}",
+    ]
+    if candidate.worktree_hash:
+        lines.append(f"- **worktree_hash**: `{candidate.worktree_hash[:12]}`")
+    if candidate.changed_paths:
+        lines.append(
+            "- **changed_paths**: "
+            + ", ".join(f"`{path}`" for path in candidate.changed_paths[:6])
+            + ("." if len(candidate.changed_paths) <= 6 else ", ...")
+        )
+    if candidate.missing_scope_paths:
+        lines.append(
+            "- **missing_scope_paths**: "
+            + ", ".join(f"`{path}`" for path in candidate.missing_scope_paths[:6])
+            + ("." if len(candidate.missing_scope_paths) <= 6 else ", ...")
+        )
+    if candidate.invalidation_reason:
+        lines.append(f"- **invalidation_reason**: `{candidate.invalidation_reason}`")
     return lines

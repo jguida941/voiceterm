@@ -29,6 +29,7 @@ from .handoff import BridgeSnapshot
 from .peer_liveness import OverallLivenessState
 from .promotion import PromotionCandidate, promotion_candidate_to_dict
 from .remote_commit_pipeline_artifact import load_remote_commit_pipeline_contract
+from .review_candidate import build_review_candidate, review_candidate_error
 from .status_projection_bridge_state import (
     build_review_bridge_state,
     build_typed_bridge_liveness,
@@ -82,6 +83,8 @@ def build_bridge_review_state(
     """Build a canonical ReviewState dict from bridge markdown state."""
     overall_state = str(bridge_liveness.get("overall_state") or "unknown")
     current_session = build_bridge_current_session(snapshot, bridge_liveness)
+    warnings = list(context.warnings)
+    errors = list(context.errors)
     typed_attention = (
         attention
         if isinstance(attention, Mapping)
@@ -127,6 +130,18 @@ def build_bridge_review_state(
         collaboration=collaboration,
         reviewer_runtime=reviewer_runtime,
     )
+    review_candidate = build_review_candidate(
+        repo_root=context.repo_root,
+        current_session=current_session,
+        bridge_liveness=typed_bridge_liveness,
+        prior_review_state=context.prior_review_state,
+    )
+    candidate_error = review_candidate_error(
+        current_session=current_session,
+        candidate=review_candidate,
+    )
+    if candidate_error and candidate_error not in errors:
+        errors.append(candidate_error)
     commit_pipeline = load_remote_commit_pipeline_contract(
         output_root=context.output_root,
     )
@@ -157,7 +172,7 @@ def build_bridge_review_state(
         command="review-channel",
         action="status",
         timestamp=context.timestamp,
-        ok=_projection_ok(overall_state, context.errors),
+        ok=_projection_ok(overall_state, tuple(errors)),
         review=_build_review_session(context),
         queue=_build_queue_state(
             promotion_candidate,
@@ -166,6 +181,7 @@ def build_bridge_review_state(
         current_session=current_session,
         collaboration=collaboration,
         bridge=bridge_state,
+        review_candidate=review_candidate,
         reviewer_runtime=reviewer_runtime,
         commit_pipeline=commit_pipeline,
         attention=_build_attention(
@@ -179,8 +195,8 @@ def build_bridge_review_state(
             collaboration=collaboration,
         ),
         recovery_assessment=recovery_assessment,
-        warnings=context.warnings,
-        errors=context.errors,
+        warnings=tuple(warnings),
+        errors=tuple(errors),
         snapshot_id=snapshot_id,
     )
 

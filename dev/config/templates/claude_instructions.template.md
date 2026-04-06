@@ -9,12 +9,34 @@ gitignored).
 
 {{bootstrap_steps}}
 
+- Before making any launch, relaunch, or recovery choice, read these typed
+  fields first: `startup-context.action`, `startup-context.interaction_mode`,
+  `reviewer_runtime.conductor_visibility`, and
+  `reviewer_runtime.session_owner.session_visibility`. Treat them as launch
+  authority, not bridge prose or remembered operator preference.
+- In `local_terminal`, default relaunch/recovery to visible
+  `--terminal terminal-app` unless the operator explicitly asked for headless
+  or the governed session is already intentionally headless. In
+  `remote_control`, keep `--terminal none`.
 - Before coding or validating a non-trivial slice, also read
   `dev/guides/DEVELOPMENT.md` and `dev/scripts/README.md` so the routed check
   stack and failure-recovery rules stay aligned with the maintainer flow.
 - In `active_dual_agent` mode, also read `dev/guides/DEVCTL_AUTOGUIDE.md`
   before acting so the live review-channel/tandem workflow matches the
   repo-owned command surface instead of chat memory.
+
+## Bootstrap Decision Table
+
+| Read first | If it says | Next step |
+|---|---|---|
+| `startup-context.action` + `reason` | repair / checkpoint / review blocker state | follow that repo-owned next step before editing or launching more work |
+| `push_decision` | `await_checkpoint` or `await_review` | checkpoint or wait/review; do not push |
+| `push_decision` | `run_devctl_push` | run `python3 dev/scripts/devctl.py push --execute` |
+| `interaction_mode` + typed visibility | `local_terminal` and launch/recover is needed | prefer `review-channel --action launch|rollover --terminal terminal-app` |
+| `interaction_mode` + typed visibility | `remote_control` or already-headless recovery | use `--terminal none`; do not recommend `Terminal.app` |
+
+- `--terminal none` is a real headless background conductor, not a report-only
+  preview.
 
 ## System model
 
@@ -86,6 +108,9 @@ required.
 - When `push_decision` is `await_review`, pause editing/push work, refresh the
   repo-owned review state, and rerun `startup-context` after reviewer-owned
   acceptance changes.
+- If governed push blocks, stop at the typed decision surface. Do not
+  normalize raw `git push` as a fallback workflow; any human override belongs
+  in a typed repo-owned override receipt, not an ad hoc shell push.
 - In `single_agent`, `tools_only`, `paused`, or portable adopted repos with no
   live dual-agent bridge, the same `startup-context` / `push_decision` contract
   still applies. Push readiness must not depend on bridge prose existing.

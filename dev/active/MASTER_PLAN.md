@@ -171,7 +171,10 @@
   commit/push pipeline
   (`stage -> guard -> operator approval packet -> commit -> governed push ->
   recover`) needed to close the Codex sandbox-commit blocker without manual
-  shell steps or prose approval.
+  shell steps or prose approval. The next bounded extension in that same owner
+  lane is a typed operator `override_push` receipt for publish exceptions so
+  human authority stays inside the governed pipeline instead of falling back
+  to raw `git push`.
 - Current 2026-04-04 architecture-review closure inside that same lane:
   `dev/active/remote_control_runtime.md` owns `MP-380..MP-387` for typed
   operator interaction mode, universal check/violation contracts, headless
@@ -363,7 +366,17 @@
   `ReviewerRuntimeContract` with typed `conductor_visibility`, keeps reviewer
   `session_visibility` explicit in status/doctor payloads, and updates the
   platform-contract row/docs so AI and operators do not have to infer hidden
-  headless state from raw `terminal_window_id` nulls.
+  headless state from raw `terminal_window_id` nulls. Remaining honest
+  `MP-382` closure is lifecycle cleanup/orphan refusal/startup preflight
+  cleanup, not another round of terminal-mode wording.
+- Latest same-lane closure on 2026-04-05: the bootstrap/authority surfaces now
+  make launch and push interpretation explicit instead of leaving it to fresh
+  AI inference. The owner docs and rendered AI bootstrap surface now direct
+  new sessions to read `startup-context` `action` / `reason`,
+  `interaction_mode`, `push_decision`, and typed reviewer visibility before
+  any launch/recover choice, while the active `MP-377` owner docs now reserve
+  a governed `override_push` receipt so future human publish overrides stay
+  inside canonical `vcs.push` instead of raw shell fallback.
 - Latest same-lane closure on 2026-04-03: the workflow-enforcement parity for
   the Phase 3/4 remote-commit proof guards is now explicit.
   `.github/workflows/tooling_control_plane.yml` and

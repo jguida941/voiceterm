@@ -465,7 +465,11 @@ Portability note:
   continuity, or remembered prior state are not substitutes for that
   receipt. Keep chat bootstrap acknowledgements to blocker state plus next
   step by default; inspect the repo-owned artifacts or terminal output for the
-  richer packet detail. Startup now also carries a bounded
+  richer packet detail. For launch/recovery choices, read
+  `startup-context.action`, `interaction_mode`,
+  `reviewer_runtime.conductor_visibility`, and
+  `reviewer_runtime.session_owner.session_visibility` together before picking
+  `--terminal terminal-app` vs `--terminal none`. Startup now also carries a bounded
   `contract_ownership_map` derived from the shared `ContractSpec` registry plus
   the same shared `snapshot_id` stamped onto its `push_decision`, so bootstrap
   consumers can see both startup-surface ownership and cross-surface snapshot
@@ -535,6 +539,9 @@ Portability note:
 | `await_review` | Local checkpoint is clean, but reviewer-owned acceptance is not current yet. | Wait for the review gate to advance, then rerun `python3 dev/scripts/devctl.py startup-context --format summary`. `review-channel --action reviewer-checkpoint` updates review truth; it does not push by itself. |
 | `run_devctl_push` | Repo policy now allows the governed push path. | Run `python3 dev/scripts/devctl.py push --execute`; do not substitute raw `git push`. |
 | `no_push_needed` | The branch already matches its upstream. | Stop; no governed push is required. |
+- If the governed push path blocks, stop there. Do not treat the block as a
+  casual raw `git push` fallback; the planned operator exception path is a
+  typed override inside the same governed control plane.
 - Keep the mode model simple: `active_dual_agent` means live reviewer/implementer
   freshness is enforced; `single_agent`, `tools_only`, `paused`, and `offline`
   keep the same backend and checks but suspend stale dual-agent warnings until

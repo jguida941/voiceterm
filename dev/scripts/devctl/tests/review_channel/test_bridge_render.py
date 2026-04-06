@@ -366,6 +366,27 @@ def test_render_bridge_projection_rejects_embedded_markdown_headings_in_typed_se
         )
 
 
+def test_render_bridge_projection_includes_full_reviewer_startup_contract() -> None:
+    """Rendered bridge must include every canonical reviewer non-zero startup
+    semantic from prompt_guards.startup_context_follow_up(): read summary fields,
+    review_pending exception, status poll, heartbeat refresh, and repair boundary."""
+    rendered, _ = render_bridge_projection(
+        review_state=_typed_review_state(_bridge_text()),
+        last_worktree_hash="d" * 64,
+    )
+
+    assert "review_pending" in rendered
+    assert "review_pending_before_push" in rendered
+    assert "review-channel --action status" in rendered
+    assert "read the summary fields" in rendered
+    assert "before widening scope" in rendered
+    assert "heartbeat before attempting repair" in rendered
+    assert "repair_reviewer_loop" in rendered
+    assert "checkpoint/budget blockers" in rendered
+    assert "stale/non-live reviewer runtime" in rendered
+    assert "repair or relaunch boundary" in rendered
+
+
 def test_review_channel_render_bridge_action_rewrites_live_bridge(tmp_path: Path) -> None:
     root = tmp_path
     review_channel_path = root / "dev/active/review_channel.md"

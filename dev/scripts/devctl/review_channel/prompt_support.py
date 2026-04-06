@@ -104,7 +104,12 @@ def resolve_conductor_capability(
     bridge_liveness: dict[str, object] | None,
 ) -> ConductorCapabilityState:
     """Return the typed capability contract for one conductor prompt."""
-    reviewer_mode = str((bridge_liveness or {}).get("reviewer_mode") or "active_dual_agent")
+    liveness = bridge_liveness or {}
+    reviewer_mode = str(
+        liveness.get("effective_reviewer_mode")
+        or liveness.get("reviewer_mode")
+        or "active_dual_agent"
+    )
     return build_conductor_capability_state(
         provider=provider,
         role=role,

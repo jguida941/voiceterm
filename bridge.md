@@ -71,13 +71,13 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-04-05T23:36:33Z`
-- Last Codex poll (Local America/New_York): `2026-04-05 19:36:33 EDT`
+- Last Codex poll: `2026-04-06T00:07:27Z`
+- Last Codex poll (Local America/New_York): `2026-04-05 20:07:27 EDT`
 - Reviewer mode: `active_dual_agent`
-- Last non-audit worktree hash: `35583ddee491ea9375748b8899264d84f354e42e95dccd5cf17784a0b1a3ec54`
-- Current instruction revision: `4483363ce2dd`
+- Last non-audit worktree hash: `8b09d430b0acf380904f21ccfbdc8bcc61805faf8f882db730fbc9f05a0b8434`
+- Current instruction revision: `b59ae9ced7af`
 - Last checkpoint action: `reviewer-checkpoint`
-- Head at push time: `5812d116a595b6217a2585b117c29fbe00a4cb1a`
+- Head at push time: `953cf94d03c99118f622fc69cfff492384bbca93`
 ## Protocol
 
 1. Claude should poll this file periodically while coding.
@@ -199,20 +199,18 @@ Codex: design this as part of the existing `ProjectGovernance` / `ReviewerGateSt
 
 ## Poll Status
 
-- Reviewer checkpoint updated through repo-owned tooling (mode: active_dual_agent; reason: review-pass; observed-tree: 35583ddee491; reviewed-tree: 35583ddee491; instruction-rev: 4483363ce2dd).
+- Reviewer checkpoint updated through repo-owned tooling (mode: active_dual_agent; reason: review-pass; observed-tree: 8b09d430b0ac; reviewed-tree: 8b09d430b0ac; instruction-rev: b59ae9ced7af).
 
 ## Current Verdict
 
-- Review pending.
-- Review anchor: current local HEAD `5812d116a595` plus typed reviewer receipts from April 5, 2026 (`startup-context --role reviewer --format summary` => `action=continue_editing` / `reason=review_pending`; `review-channel --action status --terminal none --format json` => `launch_truth=hybrid_claude_only`, `effective_reviewer_mode=tools_only`).
-- Architecture audit: the role-first bootstrap slice moved the system forward, but this tree still leaves three reviewer-surface contract splits. Two projection/bootstrap surfaces drift from the canonical reviewer startup guard, and one prompt capability resolver still trusts declared reviewer mode over typed effective runtime mode. That violates the intended facts -> guards/probes -> packets/state -> projections pipeline.
-- Result: not accepted yet. The next bounded slice is to close those three contract gaps only, then rerun the focused regressions and bridge/status guards.
+- accepted
+- Focused reviewer-contract closure is complete for this slice.
+- Verified on the current tree with `python3 -m pytest dev/scripts/devctl/tests/governance/test_session_resume.py dev/scripts/devctl/tests/review_channel/test_bridge_render.py dev/scripts/devctl/tests/review_channel/test_prompt_support.py -q`, `python3 dev/scripts/checks/check_review_channel_bridge.py --format json`, `python3 dev/scripts/devctl.py docs-check --strict-tooling`, `python3 dev/scripts/checks/check_active_plan_sync.py`, and `python3 dev/scripts/checks/check_multi_agent_sync.py`.
+- Result: no remaining findings in the scoped reviewer bootstrap / prompt capability slice.
 
 ## Open Findings
 
-- High: `dev/scripts/devctl/review_channel/bridge_projection.py` rebuilds `bridge.md` with a generic "if either exits non-zero, checkpoint or repair" rule and omits the reviewer-only `review_pending` / `review_pending_before_push` exception plus the required `review-channel --action status` poll before repair. `render-bridge` can therefore regenerate a bridge that tells a fresh reviewer to relaunch a still-live review-pending loop.
-- Medium: `dev/scripts/devctl/commands/governance/session_resume_render.py` still advertises reviewer bootstrap as `startup-context -> session-resume -> context-graph -> review-channel status`, which conflicts with the canonical flow in `prompt_guards.startup_context_follow_up()` where the status poll is the immediate follow-up to a non-zero reviewer startup receipt.
-- Medium: `dev/scripts/devctl/review_channel/prompt_support.py` still resolves conductor capability from declared `reviewer_mode` only and ignores `bridge_liveness.effective_reviewer_mode`. In detached states like the current `hybrid_claude_only` / `tools_only` status, the generated prompt can still treat the loop as live `active_dual_agent` even after typed status has already demoted it.
+- all clear
 
 ## Claude Status
 
@@ -228,16 +226,7 @@ Codex: design this as part of the existing `ProjectGovernance` / `ReviewerGateSt
 
 ## Current Instruction For Claude
 
-Implement only the reviewer-approved contract repair below; no wider refactor.
-
-1. In `dev/scripts/devctl/review_channel/bridge_projection.py`, update `_render_start_rules_body()` so the rendered bridge keeps the same reviewer-specific non-zero startup path already encoded in `prompt_guards.startup_context_follow_up()`: reviewer `review_pending` / `review_pending_before_push` receipts continue bootstrap, poll `review-channel --action status`, and refresh reviewer-owned heartbeat before repair.
-2. In `dev/scripts/devctl/commands/governance/session_resume_render.py`, make the reviewer bootstrap ordering match that same contract. The reviewer packet must no longer imply that `review-channel --action status` always comes after `context-graph`; the immediate non-zero reviewer follow-up belongs before widening scope.
-3. In `dev/scripts/devctl/review_channel/prompt_support.py`, make `resolve_conductor_capability()` prefer typed `effective_reviewer_mode` when present, then fall back to declared `reviewer_mode`.
-4. Add only focused regressions for those seams: 1 in `dev/scripts/devctl/tests/review_channel/test_bridge_render.py`, 2 in `dev/scripts/devctl/tests/governance/test_session_resume.py`, and 2 in `dev/scripts/devctl/tests/review_channel/test_prompt_support.py` (or the nearest existing owner test file if that file does not exist yet).
-5. Run the focused test bundle for touched files plus `python3 dev/scripts/checks/check_review_channel_bridge.py --format json`.
-6. In `Claude Status`, report the exact files changed and the tests run. In `Claude Ack`, acknowledge the current instruction revision before coding.
-
-Guardrails: keep the fix provider-neutral and repo-pack/typed-state aligned; do not add repo-specific side authority, do not widen docs/plans in this slice, and do not touch unrelated prompt wording.
+- hold steady while reviewer/operator handles the required checkpoint and repo-owned review-loop relaunch. Do not start a new slice until reviewer-owned sections change.
 
 ## Action Requests
 
@@ -245,9 +234,15 @@ Guardrails: keep the fix provider-neutral and repo-pack/typed-state aligned; do 
 
 ## Last Reviewed Scope
 
-- dev/scripts/devctl/review_channel/bridge_projection.py
 - dev/scripts/devctl/commands/governance/session_resume_render.py
+- dev/scripts/devctl/review_channel/bridge_projection.py
 - dev/scripts/devctl/review_channel/prompt_support.py
-- dev/scripts/devctl/review_channel/prompt_guards.py
+- dev/scripts/devctl/tests/governance/test_session_resume.py
+- dev/scripts/devctl/tests/review_channel/test_bridge_render.py
+- dev/scripts/devctl/tests/review_channel/test_prompt_support.py
+- AGENTS.md
+- dev/guides/DEVELOPMENT.md
+- dev/scripts/README.md
+- dev/history/ENGINEERING_EVOLUTION.md
 - bridge.md
 

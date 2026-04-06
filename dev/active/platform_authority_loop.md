@@ -164,6 +164,12 @@ intended execution order is:
       (`validation_ready`, `published_remote`, `post_push_green`) and remove
       or policy-gate unrestricted `--skip-preflight` / `--skip-post-push`
       bypass from the canonical `devctl push` workflow.
+- [ ] Define one operator-approved governed push override path on top of that
+      same push policy so a blocked publish may retry only under a
+      generation-bound `override_push` decision tied to exact approved target
+      identity, expiry, approving actor, and rationale. The canonical
+      executor must still run normal `TypedAction(action_id="vcs.push")`;
+      raw shell `git push` remains outside the governed lane.
 - [ ] Define the repo-pack-owned documentation contract that
       `ProjectGovernance` points at (`DocPolicy`): doc classes
       (`tracker`, `spec`, `runbook`, `guide`, `reference`,
@@ -352,10 +358,13 @@ intended execution order is:
       reclassify `published_remote` work as unresolved publication.
 - [ ] Make that startup path enforceable instead of advisory: the first typed
       `startup-context` / `WorkIntakePacket` flow must emit a startup receipt
-      tied to repo/worktree identity, current tree hash, command goal, and
-      bootstrap mode (`full` `bundle.bootstrap` vs slim bounded bootstrap).
-      Review-channel, Ralph/autonomy loops, and other agent launchers should
-      require that receipt and fail closed on ad hoc partial startup.
+      tied to repo/worktree identity, current tree hash, command goal,
+      bootstrap mode (`full` `bundle.bootstrap` vs slim bounded bootstrap),
+      current `interaction_mode`, requested/recommended terminal mode, and
+      typed launch visibility (`conductor_visibility`,
+      `session_visibility`). Review-channel, Ralph/autonomy loops, and other
+      agent launchers should require that receipt and fail closed on ad hoc
+      partial startup.
       Controller rule: repo-owned launch/review loops must consume one typed
       continuation decision derived from `push_enforcement`, review freshness /
       acceptance, and blocking docs-governance or guard failures. When that
@@ -400,9 +409,12 @@ intended execution order is:
       recompute at any time. Required first fields: repo/worktree identity,
       tree hash or commit sha, touched paths + diff stats, routed plan scope,
       guard/check summary, reviewer verdict summary, checkpoint-budget
-      snapshot, invalidation metadata, and rolling batch-size percentiles
-      (changed files per checkpoint, LOC per push, guard pass rate per bundle)
-      so calibration thresholds become empirical instead of fixed.
+      snapshot, launch-authority snapshot (`interaction_mode`,
+      requested/recommended terminal mode, `conductor_visibility`,
+      `session_visibility`), invalidation metadata, and rolling batch-size
+      percentiles (changed files per checkpoint, LOC per push, guard pass
+      rate per bundle) so calibration thresholds become empirical instead of
+      fixed.
       Performance rule: startup may read the packet as a fast path, but it
       must fall back to canonical sources when the packet is missing or stale
       rather than blocking on cache regeneration.
@@ -1652,6 +1664,16 @@ blocker or exception in plan state before skipping the declared order.
 
 ## Session Resume
 
+- 2026-04-05 launch-authority packet review: the compiler-style model is
+  already strong enough as the architecture thesis; the remaining gap is the
+  first-hop operational packet. Resume by making `startup-context` and its
+  warm-start companion surface `interaction_mode`, requested/recommended
+  terminal mode, and typed visibility (`conductor_visibility`,
+  `session_visibility`) before any launcher or bootstrap surface chooses
+  headless vs visible behavior, then regenerate the AI bootstrap surfaces from
+  that same authority. Keep explicit human publish override in this same owner
+  lane by reserving a generation-bound `override_push` receipt for canonical
+  `vcs.push`.
 - 2026-04-05 repair-vs-proposal boundary correction: the latest owner review
   confirmed that this lane already has typed startup/work-intake, finding,
   review-ledger, external-finding, and quality-feedback surfaces, but it does
@@ -2225,6 +2247,17 @@ blocker or exception in plan state before skipping the declared order.
 
 ## Progress Log
 
+- 2026-04-05: Accepted the operator audit that the repo's compiler-style
+  governance framing is already the right durable model. The next closure is
+  operational, not philosophical: fresh AI still needs one first-hop launch
+  packet instead of scattered clues. The checklist and session resume now
+  require startup/warm-start authority to project `interaction_mode`,
+  requested/recommended terminal mode, and typed reviewer/session visibility
+  so launchers and bootstrap surfaces stop inferring headless vs visible state
+  from prose or missing Terminal windows. The same review also accepted one
+  narrower publish-authority follow-up: human override should stay inside a
+  typed `override_push` receipt on canonical `vcs.push`, not fall back to raw
+  shell push.
 - 2026-04-05: Reviewed the current authority-loop implementation against the
   intended counterexample-driven hardening story and recorded the honest gap in
   owner-plan state. Startup/work-intake already project typed bounded state,

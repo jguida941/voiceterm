@@ -1278,7 +1278,10 @@ Acceptance:
       reason, keep reviewer/implementer ACK synchronization live, and carry
       the same typed summary/recommended action through `review-channel
       status`, `latest.md`, `review_state.json`, and bridge projections so
-      Claude can keep polling/ACKing without looking stalled or offline.
+      Claude can keep polling/ACKing without looking stalled or offline. The
+      same live summary should also surface `interaction_mode`,
+      `conductor_visibility`, and `session_visibility` so launch posture is
+      explicit instead of inferred from absent windows or stale bridge lore.
       Partial: a bounded same-lane follow-up now also emits
       `review_follow_up_required` when the implementer changes the live tree
       under active reviewer supervision and `reviewed_hash_current=false`, so
@@ -1931,18 +1934,27 @@ Complete this table only after all active swarm lanes are merged.
   and use `--terminal none` only for explicit headless launches, dry-run/script
   generation, or governed `remote_control` sessions where no local window can
   be observed safely.
+- Next action: make the next startup/bootstrap slice read launch authority in
+  one first-hop packet: `startup-context.action`, `interaction_mode`,
+  `reviewer_runtime.conductor_visibility`, and
+  `reviewer_runtime.session_owner.session_visibility`. MP-355 may surface that
+  summary through status/bridge attention, but MP-377 keeps the governing
+  decision logic.
 - Next action: for the next `MP-377` publish-state closure slice, launch the
   sanctioned bridge-gated reviewer/coder loop with
-  `python3 dev/scripts/devctl.py review-channel --action launch --terminal none
+  `python3 dev/scripts/devctl.py review-channel --action launch --terminal terminal-app
   --dry-run --refresh-bridge-heartbeat-if-stale --codex-workers 0
   --claude-workers 3 --format md` first, then use the same worker budget in
-  the live launch to resume `active_dual_agent`. Keep Codex conductor-owned
-  over bridge/plan state, and keep the three Claude workers on disjoint owned
-  scopes (render parity, push receipt/current-target matching, event/runtime
-  propagation) so the branch proves governed multi-agent execution instead of
-  default zero-fanout lore. Conductor sequencing for that slice is explicit:
-  immutable receipt/current-target work first, render-truth cleanup second,
-  and event-snapshot propagation last.
+  the live launch to resume `active_dual_agent` when `interaction_mode` is
+  `local_terminal`; if the same slice is resumed under governed
+  `remote_control`, keep the worker budget but switch the launch to
+  `--terminal none`. Keep Codex conductor-owned over bridge/plan state, and
+  keep the three Claude workers on disjoint owned scopes (render parity, push
+  receipt/current-target matching, event/runtime propagation) so the branch
+  proves governed multi-agent execution instead of default zero-fanout lore.
+  Conductor sequencing for that slice is explicit: immutable
+  receipt/current-target work first, render-truth cleanup second, and
+  event-snapshot propagation last.
 - Next action: keep the owner split explicit for the active repair lane.
   `ReviewState.reviewer_runtime` remains the reviewer-lifecycle owner and the
   new `review_channel.turn_authority` sibling projection now owns

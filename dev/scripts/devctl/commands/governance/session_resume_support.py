@@ -12,6 +12,10 @@ from ...runtime.control_plane_read_model import (
     ControlPlaneReadModel,
     build_control_plane_read_model,
 )
+from ...runtime.review_state_models import (
+    ReviewCandidateRecord,
+    review_candidate_from_mapping,
+)
 from ...runtime.control_plane_resolve import (
     load_git_state,
     load_sources,
@@ -70,6 +74,7 @@ class SessionCachePacket:
     next_guard_bundle: str = ""
     next_recommended_command: str = ""
     reviewer_observation_status: str = ""
+    review_candidate: ReviewCandidateRecord | None = None
 
     def to_dict(self) -> dict[str, object]:
         payload = asdict(self)
@@ -171,6 +176,7 @@ def build_from_sources(
     blockers = _resolve_blockers(receipt, model.top_blocker)
     last_reviewed_sha = _extract_last_reviewed_sha(sources)
     head_at_push_time = _extract_head_at_push_time(sources)
+    review_candidate = _extract_review_candidate(sources)
     guard_bundle = _resolve_guard_bundle(
         repo_root, changed_paths,
         head_sha=head_sha, last_reviewed_sha=last_reviewed_sha,
@@ -206,6 +212,7 @@ def build_from_sources(
         next_guard_bundle=guard_bundle,
         next_recommended_command=next_cmd,
         reviewer_observation_status=obs_status,
+        review_candidate=review_candidate,
     )
 
 
@@ -227,6 +234,25 @@ def _extract_head_at_push_time(sources: dict[str, Any]) -> str:
         if sha:
             return sha
     return ""
+
+
+def _extract_review_candidate(
+    sources: dict[str, Any],
+) -> ReviewCandidateRecord | None:
+    """Return the current typed review candidate from governed status sources."""
+    for key in ("review_state", "compact_json", "full_json"):
+        payload = sources.get(key)
+        if not isinstance(payload, dict):
+            continue
+        candidate = review_candidate_from_mapping(payload.get("review_candidate"))
+        if candidate is not None:
+            return candidate
+        review_state = payload.get("review_state")
+        if isinstance(review_state, dict):
+            candidate = review_candidate_from_mapping(review_state.get("review_candidate"))
+            if candidate is not None:
+                return candidate
+    return None
 
 
 # Alias kept for backward compatibility with existing callers
@@ -430,6 +456,7 @@ def packet_from_mapping(payload: dict[str, Any]) -> SessionCachePacket:
         next_guard_bundle=str(payload.get("next_guard_bundle") or "").strip(),
         next_recommended_command=str(payload.get("next_recommended_command") or "").strip(),
         reviewer_observation_status=str(payload.get("reviewer_observation_status") or "").strip(),
+        review_candidate=review_candidate_from_mapping(payload.get("review_candidate")),
     )
 
 

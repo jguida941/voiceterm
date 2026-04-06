@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import asdict, dataclass, field
 from typing import Any
 
@@ -52,6 +53,77 @@ class ReviewCurrentSessionState:
     implementer_session_hint: str = ""
     open_findings: str = ""
     last_reviewed_scope: str = ""
+
+
+@dataclass(frozen=True, slots=True)
+class ReviewCandidateRecord:
+    candidate_id: str
+    instruction_revision: str
+    artifact_kind: str
+    base_sha: str
+    head_sha: str
+    worktree_hash: str
+    changed_paths: tuple[str, ...] = ()
+    tests_run: tuple[str, ...] = ()
+    guards_run: tuple[str, ...] = ()
+    implementer_status_written: bool = False
+    ready_for_review: bool = False
+    valid: bool = False
+    invalidation_reason: str = ""
+    implementer_state_hash: str = ""
+    emitted_at_utc: str = ""
+    scope_paths: tuple[str, ...] = ()
+    missing_scope_paths: tuple[str, ...] = ()
+
+
+def review_candidate_from_mapping(value: object) -> ReviewCandidateRecord | None:
+    """Deserialize one ReviewCandidateRecord from a JSON-like mapping."""
+    if not isinstance(value, Mapping):
+        return None
+    candidate_id = str(value.get("candidate_id") or "").strip()
+    if not candidate_id:
+        return None
+    return ReviewCandidateRecord(
+        candidate_id=candidate_id,
+        instruction_revision=str(value.get("instruction_revision") or "").strip(),
+        artifact_kind=str(value.get("artifact_kind") or "").strip(),
+        base_sha=str(value.get("base_sha") or "").strip(),
+        head_sha=str(value.get("head_sha") or "").strip(),
+        worktree_hash=str(value.get("worktree_hash") or "").strip(),
+        changed_paths=tuple(
+            str(item).strip()
+            for item in value.get("changed_paths", ())
+            if str(item).strip()
+        ),
+        tests_run=tuple(
+            str(item).strip()
+            for item in value.get("tests_run", ())
+            if str(item).strip()
+        ),
+        guards_run=tuple(
+            str(item).strip()
+            for item in value.get("guards_run", ())
+            if str(item).strip()
+        ),
+        implementer_status_written=bool(
+            value.get("implementer_status_written", False)
+        ),
+        ready_for_review=bool(value.get("ready_for_review", False)),
+        valid=bool(value.get("valid", False)),
+        invalidation_reason=str(value.get("invalidation_reason") or "").strip(),
+        implementer_state_hash=str(value.get("implementer_state_hash") or "").strip(),
+        emitted_at_utc=str(value.get("emitted_at_utc") or "").strip(),
+        scope_paths=tuple(
+            str(item).strip()
+            for item in value.get("scope_paths", ())
+            if str(item).strip()
+        ),
+        missing_scope_paths=tuple(
+            str(item).strip()
+            for item in value.get("missing_scope_paths", ())
+            if str(item).strip()
+        ),
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -341,6 +413,7 @@ class ReviewState:
     attention: ReviewAttentionState | None
     packets: tuple[ReviewPacketState, ...]
     registry: AgentRegistryState
+    review_candidate: ReviewCandidateRecord | None = None
     recovery_assessment: RecoveryAssessmentState | None = None
     reviewer_runtime: ReviewerRuntimeContract = field(
         default_factory=ReviewerRuntimeContract

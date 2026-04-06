@@ -958,6 +958,108 @@ class TestLastReviewedSha(unittest.TestCase):
         self.assertIn("Current instruction revision to acknowledge: `rev-123`.", md)
         self.assertIn("Implement the bounded slice.", md)
 
+    def test_render_bootstrap_reviewer_prefers_review_candidate(self) -> None:
+        """Reviewer bootstrap should prefer a typed review candidate over raw diff range."""
+        from dev.scripts.devctl.commands.governance.session_resume_support import (
+            render_bootstrap,
+        )
+        from dev.scripts.devctl.runtime.review_state_models import (
+            ReviewCandidateRecord,
+        )
+
+        packet = SessionCachePacket(
+            role="reviewer",
+            head_sha="bbbbbbbbbbbbbbbb",
+            last_reviewed_sha="aaaaaaaaaaaaaaaa",
+            operator_interaction_mode="active_dual_agent",
+            review_candidate=ReviewCandidateRecord(
+                candidate_id="review-candidate-123",
+                instruction_revision="rev-123",
+                artifact_kind="dirty_tree",
+                base_sha="aaaaaaaaaaaaaaaa",
+                head_sha="bbbbbbbbbbbbbbbb",
+                worktree_hash="c" * 64,
+                changed_paths=("tracked.txt",),
+                implementer_status_written=True,
+                ready_for_review=True,
+                valid=True,
+                implementer_state_hash="state-123",
+            ),
+        )
+
+        md = render_bootstrap(packet)
+        self.assertIn("review_target", md)
+        self.assertIn("review-candidate-123", md)
+        self.assertIn("Prefer frozen review candidate", md)
+        self.assertNotIn("Review the exact diff range", md)
+
+
+    def test_render_bootstrap_reviewer_status_poll_before_context_graph(self) -> None:
+        """Reviewer Run In Order must put review-channel status before context-graph."""
+        from dev.scripts.devctl.commands.governance.session_resume_support import (
+            render_bootstrap,
+        )
+
+        packet = SessionCachePacket(
+            role="reviewer",
+            head_sha="aabbccddeeff0011",
+            operator_interaction_mode="active_dual_agent",
+        )
+
+        md = render_bootstrap(packet)
+        status_idx = md.index("review-channel --action status")
+        context_idx = md.index("context-graph --mode bootstrap")
+        self.assertLess(
+            status_idx,
+            context_idx,
+            "Reviewer must poll review-channel status before context-graph",
+        )
+
+    def test_render_bootstrap_reviewer_conversation_starter_includes_status_poll(self) -> None:
+        """Reviewer Conversation Starter must mention review-channel status before context-graph."""
+        from dev.scripts.devctl.commands.governance.session_resume_support import (
+            render_bootstrap,
+        )
+
+        packet = SessionCachePacket(
+            role="reviewer",
+            head_sha="aabbccddeeff0011",
+            operator_interaction_mode="active_dual_agent",
+        )
+
+        md = render_bootstrap(packet)
+        starter_section = md[md.index("### Conversation Starter"):]
+        next_section_idx = starter_section.find("\n### ", 1)
+        if next_section_idx > 0:
+            starter_section = starter_section[:next_section_idx]
+        self.assertIn("review-channel --action status", starter_section)
+        status_idx = starter_section.index("review-channel --action status")
+        context_idx = starter_section.index("context-graph --mode bootstrap")
+        self.assertLess(
+            status_idx,
+            context_idx,
+            "Reviewer Conversation Starter must put review-channel status before context-graph",
+        )
+
+    def test_render_bootstrap_implementer_no_status_poll_step(self) -> None:
+        """Implementer Run In Order must not include review-channel status as a step."""
+        from dev.scripts.devctl.commands.governance.session_resume_support import (
+            render_bootstrap,
+        )
+
+        packet = SessionCachePacket(
+            role="implementer",
+            instruction_revision="rev-456",
+            operator_interaction_mode="active_dual_agent",
+        )
+
+        md = render_bootstrap(packet)
+        run_in_order_section = md[md.index("### Run In Order"):]
+        next_section_idx = run_in_order_section.find("\n### ", 1)
+        if next_section_idx > 0:
+            run_in_order_section = run_in_order_section[:next_section_idx]
+        self.assertNotIn("review-channel --action status", run_in_order_section)
+
 
 class TestV2Fields(unittest.TestCase):
     """v2 fields: resolved_phase, next_guard_bundle, operator_interaction_mode,

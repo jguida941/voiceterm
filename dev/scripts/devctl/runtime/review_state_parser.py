@@ -19,10 +19,12 @@ from .review_state_models import (
     AgentRegistryState,
     ContextPackRefState,
     ReviewCurrentSessionState,
+    ReviewCandidateRecord,
     ReviewPacketState,
     ReviewQueueState,
     ReviewSessionState,
     ReviewState,
+    review_candidate_from_mapping,
 )
 from .review_state_commit_pipeline_parse import commit_pipeline_from_review_payload
 from .reviewer_runtime_parser import reviewer_runtime_state_from_payload
@@ -106,6 +108,9 @@ def review_state_from_payload(payload: Mapping[str, object]) -> ReviewState | No
         attention=attention,
         recovery_assessment=recovery_assessment,
     )
+    review_candidate = review_candidate_from_mapping(
+        review_payload.get("review_candidate")
+    )
 
     return ReviewState(
         schema_version=_int(payload.get("schema_version"))
@@ -154,6 +159,7 @@ def review_state_from_payload(payload: Mapping[str, object]) -> ReviewState | No
         recovery_assessment=assessment_state,
         packets=_packet_states_from_value(review_payload.get("packets")),
         registry=registry_state,
+        review_candidate=review_candidate,
         reviewer_runtime=reviewer_runtime_state,
         commit_pipeline=commit_pipeline,
         warnings=tuple(warnings),

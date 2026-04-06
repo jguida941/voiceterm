@@ -139,6 +139,17 @@ Two new typed records are sufficient for Phase 0:
    - `blocked_reason`
    - `recovery_action_allowed`
    - `generation_id`
+   - `approval_expires_at_utc`
+   - `approved_target_identity`
+   - `override_state`
+   - `override_request_packet_id`
+   - `override_decision_packet_id`
+   - `override_reason_code`
+   - `override_scope`
+   - `override_expires_at_utc`
+   - `override_approved_target_identity`
+   - `override_approved_by`
+   - `override_rationale`
 2. `CommitIntentState`
    Purpose: immutable staged-work snapshot consumed by guard, approval, and
    commit steps.
@@ -189,6 +200,7 @@ artifact for auditability.
 | `approve` | `PacketPostRequest(kind="commit_approval")` for both request and operator decision packets | review-channel transport | `guards_passed -> approved` or `rejected` | no packet, stale packet, mismatched target revision, or prose-only approval keeps state at `operator_approval_pending` or forces `recover` |
 | `commit` | `TypedAction(action_id="vcs.commit")` executed by governed VCS executor | local repo-owned executor | `approved -> commit_recorded` | `push_blocked` with `commit_failed` reason and `ActionResult` evidence; never tell the operator to run raw `git commit` |
 | `push` | existing `TypedAction(action_id="vcs.push")` | existing canonical push path | `commit_recorded -> push_completed` | `push_blocked` with existing push report + `ActionResult`; publication and post-push green remain separate truths |
+| `override_push` | typed `override_push` decision packet bound to the current pipeline generation and approved target identity | review-channel transport + existing canonical push path | `push_blocked -> push_pending` by rerunning normal `TypedAction(action_id="vcs.push")` under the recorded override receipt | no packet, expired approval, target drift, or operator rejection keeps `push_blocked` or forces `recover`; never tell the operator to run raw `git push` |
 | `recover` | `TypedAction(action_id="vcs.pipeline.recover")` | governance runtime | blocked state -> fresh `drafted` or `staged` pipeline | if recovery cannot prove current repo state, return typed blocked receipt and stop |
 
 ### Packet Vocabulary For Remote Approval
@@ -235,6 +247,36 @@ Rules:
 3. The phone/dashboard never flips a boolean directly in `review_state.json`;
    it emits the decision packet and waits for the repo-owned pipeline owner to
    record the state transition.
+
+### Governed Operator Push Override
+
+The current blocked-vs-approved boundary is already meaningful: the governed
+pipeline must try `vcs.push`, surface the typed block, and stop. If a human
+chooses to override that block, the override should remain inside the same
+pipeline instead of falling back to raw `git push`.
+
+Design rule:
+
+1. The override targets one exact pipeline generation and one exact publish
+   identity. It is a bounded `override_push` decision, not a blanket bypass.
+2. The operator approves the override through the existing typed packet path.
+3. The repo-owned executor still performs the canonical
+   `TypedAction(action_id="vcs.push")`; the override changes policy state, not
+   the executor path.
+4. Raw `git push` remains outside the desired control plane and should not be
+   normalized as the standard operator-override workflow.
+
+Reserved first fields for that extension on `RemoteCommitPipelineContract`:
+
+- `override_state`: `not_requested|pending|approved|rejected|expired`
+- `override_request_packet_id`
+- `override_decision_packet_id`
+- `override_reason_code`
+- `override_scope`
+- `override_expires_at_utc`
+- `override_approved_target_identity`
+- `override_approved_by`
+- `override_rationale`
 
 ### Executor Boundary
 
@@ -291,6 +333,9 @@ surface for remote sessions. It should project:
 6. recovery posture
    - `recovery_action_allowed`
    - `approval_expires_at_utc`
+   - `override_state`
+   - `override_expires_at_utc`
+   - `override_approved_by`
    - `generation_id`
 
 ### Fail-Closed Rules
@@ -315,6 +360,9 @@ surface for remote sessions. It should project:
    `unknown` and require `recover`; never silently pick one source.
 10. Rejected or expired approvals never auto-reopen. Recovery must mint a new
     packet with a new generation-bound request.
+11. Any future operator push override must stay generation-bound and target-
+    bound, then execute through the normal governed `vcs.push` path. It must
+    not become a shell-only bypass around the pipeline owner.
 
 ### Migration Plan
 
@@ -360,9 +408,22 @@ surface for remote sessions. It should project:
 - [ ] Surface commit-gate freshness / last-guard truth through doctor, status,
       and auto-mode so approval-ready state cannot be inferred from stale or
       bypassed guard runs.
+- [ ] Add one typed `override_push` extension for operator-approved publish
+      exceptions so a blocked governed push can stay inside
+      `RemoteCommitPipelineContract`, typed packets, and the canonical
+      `vcs.push` executor instead of falling back to raw `git push`.
 
 ## Progress Log
 
+- 2026-04-05: Accepted the operator-override publish review for this lane. The
+  current system did the important part correctly: it attempted the governed
+  push, surfaced the typed block, and required explicit human intervention
+  before publication continued. The remaining architecture gap is narrower
+  than "AI ignored governance": human override still escaped the typed control
+  plane. The next follow-up here is one generation-bound `override_push`
+  decision/receipt path that keeps operator authority inside
+  `RemoteCommitPipelineContract` and the existing `vcs.push` executor instead
+  of normalizing raw `git push`.
 - 2026-04-05: Absorbed the pushed-branch architecture review through
   `b819efa`. The governed stage/commit/push path exists, but the repo still
   allows raw `git commit` to bypass the guard path entirely. That is a
@@ -441,10 +502,16 @@ surface for remote sessions. It should project:
   path, shared surface `snapshot_id`, bounded startup ownership map, the
   focused Phase-4 proof tests, and an explicit remaining gap: raw local
   `git commit` is still not structurally forced through the same guarded path.
+  The same lane now also owns the next publish-exception closure: operator
+  `override_push` must stay inside typed pipeline state instead of becoming a
+  normalized raw-shell fallback.
 - Next action: land the repo-owned commit gate and thread its freshness receipt
   into doctor, status, and auto-mode before widening more remote-control
-  polish. Do not rely on agent discipline, chat reminders, or raw git recovery
-  steps as a substitute for enforced commit gating.
+  polish. Immediately after that, add the generation-bound `override_push`
+  receipt/approval path so governed publish exceptions still execute through
+  canonical `vcs.push`. Do not rely on agent discipline, chat reminders, or
+  raw git recovery steps as a substitute for enforced commit gating or typed
+  override control.
 - Context rule: read `dev/active/platform_authority_loop.md`,
   `dev/active/review_channel.md`, and `dev/active/continuous_swarm.md` with
   this plan before changing remote commit/push behavior.

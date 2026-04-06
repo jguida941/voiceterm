@@ -118,6 +118,10 @@ from push cleanliness so advisory files do not strand reviewed commits.
 | `run_devctl_push` | Local cleanliness, review state, and branch posture now allow the governed push path. | Run `python3 dev/scripts/devctl.py push --execute` instead of raw `git push`. |
 | `no_push_needed` | The current branch already matches its upstream. | Stop; no governed push is required. |
 
+If the governed push path blocks, stop at that typed decision surface. Do not
+turn a push block into a casual raw `git push`; the planned human-override
+shape is a typed repo-owned exception path, not an ad hoc shell fallback.
+
 ```mermaid
 flowchart TD
   A[Start session] --> B[Run bootstrap checks and read active docs]
@@ -338,6 +342,12 @@ Three quality layers matter in practice:
     headless vs visible sessions from raw `terminal_window_id`, and local
     recovery guidance defaults back to visible `--terminal terminal-app`
     unless governed `remote_control` mode keeps the session headless.
+  - Before choosing launch or recovery posture, read the typed startup/runtime
+    fields together: `startup-context.action`, `interaction_mode`,
+    `reviewer_runtime.conductor_visibility`, and reviewer
+    `session_owner.session_visibility`. In `local_terminal`, visible is the
+    default unless the session is intentionally headless; in `remote_control`,
+    headless remains the governed default.
   - Prefer the repo-owned wait primitives over ad hoc shell sleep loops:
     `review-channel --action implementer-wait` is the implementer-side bounded
     wait path, and `review-channel --action reviewer-wait` is the symmetric

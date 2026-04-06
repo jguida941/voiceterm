@@ -132,6 +132,11 @@ SURFACE_STATE_CONTRACTS: tuple[ContractSpec, ...] = (
                 "str",
                 "Reviewer observation status: not_seen, pending_review, under_review, or accepted.",
             ),
+            ContractField(
+                "review_candidate",
+                "ReviewCandidateRecord | None",
+                "Frozen current review target preferred over raw HEAD diff inference.",
+            ),
         ),
         runtime_model=(
             "dev.scripts.devctl.commands.governance.session_resume_support:"

@@ -117,6 +117,7 @@ def _build_compact_projection(review_state: dict[str, object]) -> dict[str, obje
     queue = review_state.get("queue", {})
     bridge = review_state.get("bridge", {})
     current_session = review_state.get("current_session", {})
+    review_candidate = review_state.get("review_candidate")
     compat = review_state.get("_compat") or {}
     service_identity = compat.get("service_identity")
     attach_auth_policy = compat.get("attach_auth_policy")
@@ -133,6 +134,7 @@ def _build_compact_projection(review_state: dict[str, object]) -> dict[str, obje
         "ok": review_state.get("ok"),
         "review": review_state.get("review"),
         "current_session": current_session,
+        "review_candidate": review_candidate,
         "recovery_assessment": review_state.get("recovery_assessment"),
         "service_identity": service_identity,
         "attach_auth_policy": attach_auth_policy,
@@ -211,6 +213,7 @@ def _render_latest_markdown(
     queue = review_state.get("queue", {})
     bridge = review_state.get("bridge", {})
     current_session = review_state.get("current_session", {})
+    review_candidate = review_state.get("review_candidate", {})
     md_compat = review_state.get("_compat") or {}
     runtime = md_compat.get("runtime", {})
     service_identity = md_compat.get("service_identity", {})
@@ -255,6 +258,7 @@ def _render_latest_markdown(
     append_doctor_markdown(lines, doctor)
     append_push_markdown(lines, push_enforcement, push_decision)
     append_current_session_markdown(lines, current_session)
+    _append_review_candidate_markdown(lines, review_candidate)
     lines.append("")
     lines.append("## Current Instruction")
     lines.append(current_focus_line(review_state))
@@ -297,6 +301,45 @@ def _render_latest_markdown(
                 summary += f" | packs: {pack_kinds}"
             lines.append(summary)
     return "\n".join(lines)
+
+
+def _append_review_candidate_markdown(
+    lines: list[str],
+    review_candidate: object,
+) -> None:
+    if not isinstance(review_candidate, dict):
+        return
+    candidate_id = str(review_candidate.get("candidate_id") or "").strip()
+    if not candidate_id:
+        return
+    lines.append("")
+    lines.append("## Review Candidate")
+    lines.append(f"- candidate_id: {candidate_id}")
+    lines.append(
+        f"- artifact_kind: {review_candidate.get('artifact_kind') or 'n/a'}"
+    )
+    lines.append(f"- valid: {bool(review_candidate.get('valid'))}")
+    lines.append(
+        f"- ready_for_review: {bool(review_candidate.get('ready_for_review'))}"
+    )
+    lines.append(
+        f"- worktree_hash: {review_candidate.get('worktree_hash') or 'n/a'}"
+    )
+    changed_paths = review_candidate.get("changed_paths")
+    if isinstance(changed_paths, list) and changed_paths:
+        lines.append("- changed_paths:")
+        for path in changed_paths[:8]:
+            lines.append(f"  - {path}")
+    missing_scope_paths = review_candidate.get("missing_scope_paths")
+    if isinstance(missing_scope_paths, list) and missing_scope_paths:
+        lines.append("- missing_scope_paths:")
+        for path in missing_scope_paths[:8]:
+            lines.append(f"  - {path}")
+    if review_candidate.get("invalidation_reason"):
+        lines.append(
+            "- invalidation_reason: "
+            f"{review_candidate.get('invalidation_reason')}"
+        )
 
 
 def _append_runtime_markdown(lines: list[str], runtime: object) -> None:
