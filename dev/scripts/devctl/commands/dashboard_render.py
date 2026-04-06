@@ -3,8 +3,14 @@
 Section-specific renderers live in focused submodules:
 - ``dashboard_render_helpers``: ANSI constants and formatting utilities
 - ``dashboard_render_terminal``: dense multi-column ANSI terminal output
+  (renders ``top_blocker`` and other ControlPlaneReadModel fields)
 - ``dashboard_render_markdown``: plain markdown output
+  (renders ``top_blocker`` and other ControlPlaneReadModel fields)
 - ``dashboard_render_attention``: attention, doctor, and flow renderers
+
+The ``top_blocker`` field from ``ControlPlaneReadModel`` is surfaced
+through the terminal and markdown submodules. This module routes both
+render paths through the dispatcher below.
 """
 
 from __future__ import annotations
