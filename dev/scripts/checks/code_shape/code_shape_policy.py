@@ -96,12 +96,6 @@ PATH_POLICY_OVERRIDES: dict[str, ShapePolicy] = {
         oversize_growth_limit=80,
         hard_lock_growth_limit=0,
     ),
-    "rust/src/bin/voiceterm/status_line/format/tests.rs": ShapePolicy(
-        soft_limit=1370,
-        hard_limit=1500,
-        oversize_growth_limit=80,
-        hard_lock_growth_limit=0,
-    ),
     "rust/src/bin/voiceterm/status_line/buttons/tests.rs": ShapePolicy(
         soft_limit=1300,
         hard_limit=1450,
@@ -255,12 +249,6 @@ PATH_POLICY_OVERRIDES: dict[str, ShapePolicy] = {
     ),
     "dev/scripts/checks/naming_consistency_core.py": ShapePolicy(
         soft_limit=370,
-        hard_limit=500,
-        oversize_growth_limit=20,
-        hard_lock_growth_limit=0,
-    ),
-    "dev/scripts/devctl/collect.py": ShapePolicy(
-        soft_limit=360,
         hard_limit=500,
         oversize_growth_limit=20,
         hard_lock_growth_limit=0,
