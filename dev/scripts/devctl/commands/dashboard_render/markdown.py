@@ -8,8 +8,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from . import dashboard_render_attention as _attn
-from .dashboard_render_helpers import (
+from . import attention as _attn
+from .helpers import (
     _fmt_pct,
     _fmt_timer,
     _loop_label,
@@ -275,7 +275,7 @@ def _render_audit_markdown(snapshot: dict[str, Any], lines: list[str]) -> None:
 
 def _render_analytics_markdown(snapshot: dict[str, Any], lines: list[str]) -> None:
     """ANALYTICS: event stats, sparklines, and bar charts."""
-    from .dashboard_charts import bar_chart, progress_bar, sparkline
+    from ..dashboard_charts import bar_chart, progress_bar, sparkline
 
     analytics = snapshot.get("analytics", {})
     if not analytics or analytics.get("total_events") == "n/a":

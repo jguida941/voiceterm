@@ -20,11 +20,11 @@ import os
 import re
 from typing import Any
 
-from .dashboard import _VIEW_SECTIONS
-from . import dashboard_render_attention as _attn
-from . import dashboard_render_terminal as _term
-from . import dashboard_render_markdown as _md
-from .dashboard_render_helpers import (
+from ..dashboard import _VIEW_SECTIONS
+from . import attention as _attn
+from . import terminal as _term
+from . import markdown as _md
+from .helpers import (
     _BOLD,
     _CYAN,
     _DIM,
