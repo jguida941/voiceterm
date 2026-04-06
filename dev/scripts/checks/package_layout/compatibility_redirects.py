@@ -48,6 +48,9 @@ def _record_redirect(
             ),
             "target_exists": resolved_target is not None,
             "policy_source": policy_source,
+            "owner": str(metadata.get("owner") or "").strip(),
+            "reason": str(metadata.get("reason") or "").strip(),
+            "expiry": str(metadata.get("expiry") or "").strip(),
         },
     )
 

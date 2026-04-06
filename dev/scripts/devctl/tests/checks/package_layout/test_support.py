@@ -1018,6 +1018,9 @@ class CodeShapeLayoutSupportTests(unittest.TestCase):
                     "resolved_target": "dev/scripts/checks/package_layout/command.py",
                     "target_exists": True,
                     "policy_source": "directory_crowding:dev/scripts/checks",
+                    "owner": "platform",
+                    "reason": "preserve the stable public check entrypoint during package migration",
+                    "expiry": "2026-06-01",
                 }
             ],
         )

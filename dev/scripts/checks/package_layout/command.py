@@ -59,9 +59,18 @@ collect_namespace_layout_violations = import_attr(
     "package_layout.support",
     "collect_namespace_layout_violations",
 )
+resolve_layout_rules = import_attr(
+    "package_layout.rule_resolution", "resolve_layout_rules"
+)
+resolve_root_role_rules = import_attr(
+    "package_layout.rule_resolution", "resolve_root_role_rules"
+)
 list_changed_paths = import_attr("rust_guard_common", "list_changed_paths")
 GuardContext = import_attr("rust_guard_common", "GuardContext")
 
+build_organization_surface = import_attr(
+    "package_layout.organization", "build_organization_surface"
+)
 guard = GuardContext(REPO_ROOT)
 _layout_status = layout_status
 _render_md = render_md
@@ -205,6 +214,14 @@ def main() -> int:
     if baseline_debt_enforced:
         report["enforced_crowded_directories"] = enforced_dirs
         report["enforced_crowded_namespace_families"] = enforced_families
+
+    report["organization"] = build_organization_surface(
+        repo_root=REPO_ROOT,
+        compatibility_redirects=compatibility_redirects,
+        crowded_directories=crowded_directories,
+        crowded_namespace_families=crowded_namespace_families,
+        root_role_findings=root_role_findings,
+    )
 
     if args.format == "json":
         print(json.dumps(report, indent=2))

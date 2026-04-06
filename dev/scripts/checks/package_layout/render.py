@@ -174,4 +174,58 @@ def render_md(report: dict) -> str:
                 f"- `{violation['path']}` ({violation['reason']}): "
                 f"{violation['guidance']} [policy: {violation['policy_source']}]"
             )
+
+    org = report.get("organization")
+    if org:
+        lines.append("")
+        lines.extend(_render_organization_surface(org))
+
     return "\n".join(lines)
+
+
+def _render_organization_surface(org: dict) -> list[str]:
+    """Render the unified organization surface section."""
+    lines = [
+        "## Organization Surface",
+        "",
+        f"- total_roles: {org.get('total_roles', 0)}",
+        f"- total_redirects: {org.get('total_redirects', 0)}",
+        f"- total_debt_items: {org.get('total_debt_items', 0)}",
+        f"- redirects_with_missing_targets: {org.get('redirects_with_missing_targets', 0)}",
+    ]
+
+    roles = org.get("package_roles") or []
+    if roles:
+        lines.append("")
+        lines.append("### Declared Package Roles")
+        for role in roles:
+            debt_marker = " **[DEBT]**" if role.get("debt_detected") else ""
+            lines.append(
+                f"- `{role['root']}`: {role['total_files']} files"
+                f" ({role['compat_shim_files']} shims,"
+                f" {role['public_entrypoint_files']} entrypoints,"
+                f" {role['support_module_files']}/{role['max_support_modules']} support,"
+                f" {role['implementation_module_files']}/{role['max_implementation_modules']} impl)"
+                f"{debt_marker}"
+            )
+
+    redirects = org.get("compatibility_redirects") or []
+    if redirects:
+        lines.append("")
+        lines.append("### Compatibility Redirects")
+        for r in redirects:
+            target_ok = "ok" if r.get("target_exists") else "MISSING"
+            expiry = f", expires {r['expiry']}" if r.get("expiry") else ""
+            owner = f" [{r['owner']}]" if r.get("owner") else ""
+            lines.append(
+                f"- `{r['path']}` -> `{r['target']}` ({target_ok}{expiry}){owner}"
+            )
+
+    debt = org.get("layout_debt") or []
+    if debt:
+        lines.append("")
+        lines.append("### Layout Debt")
+        for d in debt:
+            lines.append(f"- [{d['kind']}] `{d['root']}`: {d['detail']}")
+
+    return lines

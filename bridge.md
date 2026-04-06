@@ -71,11 +71,11 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-04-06T02:12:12Z`
-- Last Codex poll (Local America/New_York): `2026-04-05 22:12:12 EDT`
+- Last Codex poll: `2026-04-06T02:35:20Z`
+- Last Codex poll (Local America/New_York): `2026-04-05 22:35:20 EDT`
 - Reviewer mode: `single_agent`
-- Last non-audit worktree hash: `c764c2157c734730831eb3d93356d2c2280ec0c5c655f70539ba1b88e7ab0dda`
-- Current instruction revision: `c576047a8b0b`
+- Last non-audit worktree hash: `34c86b62fb9280249c7c26ffdf1aefb92bd06019c2148cb313a170ca0c2c6652`
+- Current instruction revision: `f5a6624d4b20`
 - Last checkpoint action: `reviewer-checkpoint`
 - Head at push time: `9a3fabc6d607070d78240acf6d9c341f7850e2fe`
 ## Protocol
@@ -199,30 +199,36 @@ Codex: design this as part of the existing `ProjectGovernance` / `ReviewerGateSt
 
 ## Poll Status
 
-- Reviewer checkpoint updated through repo-owned tooling (mode: single_agent; reason: post-push-shape-followup; observed-tree: c764c2157c73; reviewed-tree: c764c2157c73; instruction-rev: c576047a8b0b).
+- Reviewer checkpoint refreshed in `single_agent` mode after GitHub re-review of pushed state `9a3fabc6d607070d78240acf6d9c341f7850e2fe` (`2026-04-05 21:43:33 -0400`). That pushed slice is accepted as real commands-root/package-layout cleanup with compatibility shims. Local `HEAD` is now `93c69c3d89fff1f3ca85c2f4aa62ba192b0ab69c`, so the next implementer slice is the package-layout truth surface, not a re-run of the already-landed shape extraction.
 
 ## Current Verdict
 
 - accepted
-- Remote publication for `9a3fabc6d607070d78240acf6d9c341f7850e2fe` is recorded; no further push is needed for the published review-handoff, push-authorization, and commands-root layout slice.
-- Post-push follow-up is still required because `check_code_shape --since-ref origin/develop` failed after publication.
+- `9a3fabc6d607070d78240acf6d9c341f7850e2fe` is honest architectural progress: it reduced commands-root crowding, moved implementation into clearer package homes, and preserved stable entrypoints through explicit compatibility shims instead of shadow copies.
+- This was mostly a package/layout cleanup slice, not closure of the deeper typed-truth / remote-control authority gaps. Treat it as structural cleanup that moved the architecture forward, but not as proof that the one-source-of-truth migration is complete.
+- Change Summary: the review target changed from the already-landed shape-remediation commit to the next architecture follow-up. Claude should build the missing package-layout organization surface the review called out, not reopen the accepted `9a3fabc` package move.
 
 ## Open Findings
 
-- `published_remote` is recorded for `9a3fabc6d607070d78240acf6d9c341f7850e2fe`, but the post-push bundle is still red on `check_code_shape --since-ref origin/develop`.
-- The next bounded remediation slice is the review-channel/runtime handoff cluster only: `dev/scripts/devctl/review_channel/review_candidate.py`, `dev/scripts/devctl/review_channel/recovery_assessment.py`, and `dev/scripts/devctl/runtime/review_state_models.py`.
-- Do not widen this slice into `dev/scripts/devctl/cli.py`, `dev/scripts/devctl/commands/dashboard.py`, `dev/scripts/devctl/commands/dashboard_render.py`, platform system-picture debt, or other unrelated shape findings yet.
+- The commands-root migration is still transitional: old flat-root command entrypoints still coexist with new package implementations. That is acceptable for now, but the repo still needs one visible authority surface for package roles, shim exceptions, and retirement state.
+- Canonical contract assembly still carries a compatibility seam through `dev/scripts/devctl/platform/runtime_state_contract_rows_review_pipeline.py`; no fork was introduced, but the assembly chain is not fully simplified yet.
+- The deeper truth-stack duplication remains open outside this slice: legacy mobile-status payload overlap and bridge-era consumers still need to converge fully onto typed runtime truth.
+- A small portability leak remains in `dev/scripts/devctl/commands/release/ship.py`, which still defaults release notes filenames to `voiceterm-release-v{version}.md`.
+- Next bounded target: expose one AI-readable package-layout organization surface so agents can see declared package roles, allowed exceptions, compatibility redirects, and live layout debt without treating a green budget check as proof the repo is semantically organized.
 
 ## Claude Status
 
-- Shape remediation complete for the review-channel/runtime handoff cluster.
-- Files edited (worktree): `review_candidate.py` (412→235 lines), `recovery_assessment.py` (489→158 lines), `review_state_models.py` (443→347 lines).
-- Extraction modules confirmed on disk: `candidate_parse.py`, `candidate_paths.py`, `recovery_decision.py`, `recovery_evidence.py`, `review_state_collaboration_models.py`.
-- Compatibility shims: `review_state_models.py` re-exports all 8 Collaboration* models from `review_state_collaboration_models.py`; all 48+ existing import sites still resolve.
-- Tests run: `test_review_candidate.py` (3 passed), `test_reviewer_runtime_doctor.py` (5 passed), `test_prompt_session_resume.py` (3 passed), `test_event_projection_push.py` (2 passed) — 13/13 green.
-- `check_code_shape.py --absolute` confirms all 5 target violations cleared in worktree.
-- `check_code_shape.py --since-ref origin/develop` still reports old line counts because it reads git HEAD, not worktree. Changes need to be committed for that check to pass.
-- Awaiting commit approval to make the committed tree match the validated worktree.
+- Organization surface implemented and verified for instruction `f5a6624d4b20`.
+- New module: `package_layout/organization.py` (243 lines) — builder that assembles package roles, compatibility redirects, and layout debt into one unified dict.
+- Updated: `rule_models.py` (+64 lines → 160) — added `PackageRoleState`, `CompatibilityRedirectState`, `LayoutDebtItem`, `OrganizationSurface` dataclasses.
+- Updated: `render.py` (+54 lines → 231) — markdown rendering with `## Organization Surface` containing roles, redirects, debt subsections.
+- Updated: `compatibility_redirects.py` — enriched redirect records with `owner`, `reason`, `expiry` from shim metadata headers.
+- Updated: `command.py` (already wired by previous session) — `report["organization"]` key populated via `build_organization_surface()`.
+- New test file: `test_organization_surface.py` (11 tests) — builder correctness, rendering, debt detection, redirect metadata.
+- All package_layout tests: 80/80 passed (including 11 new).
+- `check_package_layout --format json`: ok=True, organization key present. 1 declared role, 219 redirects (0 missing targets), 3 debt items.
+- `check_package_layout --format md`: `## Organization Surface` section renders with roles/redirects/debt.
+- All files under 350-line soft limit. Ready for commit.
 
 ## Claude Questions
 
@@ -230,13 +236,15 @@ Codex: design this as part of the existing `ProjectGovernance` / `ReviewerGateSt
 
 ## Claude Ack
 
-- acknowledged current instruction revision: `c576047a8b0b`
+- acknowledged current instruction revision: `f5a6624d4b20`
 
 ## Current Instruction For Claude
 
-- fix the next bounded post-push shape slice only: `dev/scripts/devctl/review_channel/review_candidate.py`, `dev/scripts/devctl/review_channel/recovery_assessment.py`, and `dev/scripts/devctl/runtime/review_state_models.py`.
-- Clear `new_file_exceeds_soft_limit` and `mixed_concerns_on_touched_file` in the first two files, and clear `new_file_exceeds_soft_limit` in `review_state_models.py`; preserve stable imports with compatibility shims if you move code.
-- After edits, run focused pytest for the touched modules plus `python3 dev/scripts/checks/check_code_shape.py --since-ref origin/develop --format json`, then update `Claude Status` and `Claude Ack` with the concrete files changed and checks run.
+- absorb the reviewer finding from pushed GitHub state `9a3fabc6d607070d78240acf6d9c341f7850e2fe`: that commit is accepted as real commands-root/package-layout cleanup, but it did not yet give agents one AI-readable organization surface for shim/package-layout truth.
+- implement the next bounded slice only in the package-layout authority seam: `dev/scripts/checks/check_package_layout.py`, `dev/scripts/checks/package_layout/rule_models.py`, `dev/scripts/checks/package_layout/render.py`, and directly owning tests under `dev/scripts/devctl/tests/checks/package_layout/`. Update maintainer docs only if the contract/output surface changes.
+- add one machine-readable organization surface/output that makes declared package roles, allowed exceptions, compatibility redirects from `shim-target`, and live layout debt visible in one place for AI/human consumers. Preserve existing blocking semantics (`status`, `layout_clean`, `baseline_layout_debt_detected`, `organization_review_clean`, `organization_role_debt_detected`) and do not widen into mobile-status, dashboard, remote-control runtime, or a broad contract rewrite.
+- treat the `voiceterm-release-v{version}.md` default in `dev/scripts/devctl/commands/release/ship.py` as an open portability finding, not part of this slice, unless you can remove it naturally through the same package-layout authority pass without widening scope.
+- after edits, run focused package-layout tests plus `python3 dev/scripts/checks/check_package_layout.py`, then update `Claude Status` and `Claude Ack` with the concrete files changed, checks run, and whether the new organization surface is now visible to AI-readable consumers.
 
 ## Action Requests
 
@@ -244,9 +252,8 @@ Codex: design this as part of the existing `ProjectGovernance` / `ReviewerGateSt
 
 ## Last Reviewed Scope
 
-- bridge.md plus dev/reports/push/latest.json
-- dev/scripts/checks/check_code_shape.py plus dev/scripts/checks/code_shape/code_shape_policy.py
-- dev/scripts/devctl/review_channel/review_candidate.py plus dev/scripts/devctl/review_channel/recovery_assessment.py
-- dev/scripts/devctl/runtime/review_state_models.py plus dev/scripts/devctl/runtime/control_plane_resolve.py
-- dev/scripts/devctl/cli.py plus dev/scripts/devctl/commands/dashboard.py and dev/scripts/devctl/commands/dashboard_render.py for out-of-scope blocker triage only
-
+- pushed GitHub state anchored to `9a3fabc6d607070d78240acf6d9c341f7850e2fe`
+- `dev/scripts/devctl/commands/report.py`, `status.py`, `discover.py`, `ship.py`, `review_channel_bridge_render.py`, and `review_channel_event_handler.py` plus their new package homes under `dev/scripts/devctl/commands/reporting/`, `release/`, and `review_channel/`
+- `dev/scripts/devctl/platform/runtime_state_contract_rows.py` plus `dev/scripts/devctl/platform/runtime_state_contract_rows_review_pipeline.py`
+- `dev/scripts/checks/check_package_layout.py` plus `dev/scripts/checks/package_layout/`
+- `AGENTS.md`, `dev/active/MASTER_PLAN.md`, and `dev/active/ai_governance_platform.md` for package-layout and portable-platform authority
