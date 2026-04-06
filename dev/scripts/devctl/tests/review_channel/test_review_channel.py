@@ -974,11 +974,22 @@ class ReviewChannelHelperTests(unittest.TestCase):
                             terminal="none",
                             dry_run=False,
                             await_ack_seconds=1,
+                            allow_headless_override=False,
                         ),
                         sessions=[{"script_path": "/tmp/codex-conductor.sh"}],
                         bridge_path=bridge_path,
                         handoff_bundle=None,
                         terminal_profile_applied=None,
+                        # F21 launcher-discipline integration: this test
+                        # exercises the headless proof-of-life path, which
+                        # is the canonical headless case (remote operator
+                        # legitimately running --terminal none). Set the
+                        # typed interaction_mode to remote_control so the
+                        # F21 gate allows the launch and the test can
+                        # still verify the proof-of-life timeout flow.
+                        # Without this, the F21 gate fires fail-closed
+                        # before the proof-of-life check ever runs.
+                        interaction_mode="remote_control",
                     )
                 )
 
@@ -4333,6 +4344,36 @@ class ReviewChannelWatchFollowTests(unittest.TestCase):
 
         self.assertEqual(attention["status"], "implementer_relaunch_required")
 
+    def test_attention_treats_missing_live_claude_conductor_as_implementer_relaunch_required(
+        self,
+    ) -> None:
+        from dev.scripts.devctl.review_channel.attention import derive_bridge_attention
+
+        liveness = {
+            "overall_state": "waiting_on_peer",
+            "codex_poll_state": "fresh",
+            "reviewer_mode": "active_dual_agent",
+            "claude_status_present": False,
+            "claude_ack_present": False,
+            "claude_ack_current": False,
+            "review_needed": False,
+            "reviewed_hash_current": True,
+            "implementer_completion_stall": False,
+            "implementer_state_pending": False,
+            "publisher_running": True,
+            "reviewer_supervisor_running": True,
+            "reviewer_freshness": "fresh",
+            "current_instruction_revision": "abcd1234ef56",
+            "last_reviewed_scope_present": True,
+            "codex_conductor_active": True,
+            "claude_conductor_active": False,
+        }
+
+        attention = derive_bridge_attention(liveness)
+
+        self.assertEqual(attention["status"], "implementer_relaunch_required")
+        self.assertIn("recover", attention["recommended_command"])
+
     def test_attention_prioritizes_bridge_contract_error_over_checkpoint_required(self) -> None:
         from dev.scripts.devctl.review_channel.attention import derive_bridge_attention
 
@@ -7546,7 +7587,17 @@ class ReviewChannelCommandTests(unittest.TestCase):
                 pipe_args=None,
             )
 
-            with patch.object(review_channel_command, "REPO_ROOT", root):
+            with (
+                patch.object(review_channel_command, "REPO_ROOT", root),
+                patch(
+                    "dev.scripts.devctl.review_channel.state.compute_non_audit_worktree_hash",
+                    return_value="a" * 64,
+                ),
+                patch(
+                    "dev.scripts.devctl.review_channel.reviewer_worker.compute_non_audit_worktree_hash",
+                    return_value="a" * 64,
+                ),
+            ):
                 rc = review_channel_command.run(args)
 
             self.assertEqual(rc, 0)
@@ -7648,7 +7699,17 @@ class ReviewChannelCommandTests(unittest.TestCase):
                 pipe_args=None,
             )
 
-            with patch.object(review_channel_command, "REPO_ROOT", root):
+            with (
+                patch.object(review_channel_command, "REPO_ROOT", root),
+                patch(
+                    "dev.scripts.devctl.review_channel.state.compute_non_audit_worktree_hash",
+                    return_value="a" * 64,
+                ),
+                patch(
+                    "dev.scripts.devctl.review_channel.reviewer_worker.compute_non_audit_worktree_hash",
+                    return_value="a" * 64,
+                ),
+            ):
                 rc = review_channel_command.run(args)
 
             self.assertEqual(rc, 0)
@@ -7703,7 +7764,17 @@ class ReviewChannelCommandTests(unittest.TestCase):
                 pipe_args=None,
             )
 
-            with patch.object(review_channel_command, "REPO_ROOT", root):
+            with (
+                patch.object(review_channel_command, "REPO_ROOT", root),
+                patch(
+                    "dev.scripts.devctl.review_channel.state.compute_non_audit_worktree_hash",
+                    return_value="a" * 64,
+                ),
+                patch(
+                    "dev.scripts.devctl.review_channel.reviewer_worker.compute_non_audit_worktree_hash",
+                    return_value="a" * 64,
+                ),
+            ):
                 rc = review_channel_command.run(args)
 
             self.assertEqual(rc, 0)
@@ -9683,6 +9754,82 @@ class ReviewChannelCommandTests(unittest.TestCase):
             self.assertTrue(
                 any("requires a live repo-owned Codex conductor session" in error for error in payload["errors"])
             )
+
+    def test_run_recover_allows_missing_live_claude_conductor_when_loop_is_otherwise_fresh(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            review_channel_path = root / "dev/active/review_channel.md"
+            review_channel_path.parent.mkdir(parents=True, exist_ok=True)
+            review_channel_path.write_text(
+                _build_review_channel_text(),
+                encoding="utf-8",
+            )
+            bridge_path = root / "bridge.md"
+            bridge_path.write_text(
+                _build_bridge_text(
+                    current_instruction="- replace the stale implementer conductor",
+                    claude_status="- pending",
+                    claude_ack="- pending",
+                ),
+                encoding="utf-8",
+            )
+            output_path = root / "report.json"
+            status_dir = root / "dev/reports/review_channel/latest"
+            _write_live_runtime(status_dir)
+            _write_active_conductor_session(status_dir, provider="codex")
+            args = SimpleNamespace(
+                action="recover",
+                execution_mode="auto",
+                terminal="terminal-app",
+                terminal_profile="auto-dark",
+                review_channel_path=str(review_channel_path.relative_to(root)),
+                bridge_path=str(bridge_path.relative_to(root)),
+                rollover_dir="dev/reports/review_channel/rollovers",
+                status_dir=str(status_dir.relative_to(root)),
+                promotion_plan=None,
+                rollover_threshold_pct=50,
+                rollover_trigger="peer-stale",
+                await_ack_seconds=180,
+                codex_workers=8,
+                claude_workers=8,
+                dangerous=False,
+                approval_mode="balanced",
+                script_dir=None,
+                dry_run=True,
+                recover_provider="claude",
+                refresh_bridge_heartbeat_if_stale=False,
+                format="json",
+                output=str(output_path),
+                json_output=None,
+                pipe_command=None,
+                pipe_args=None,
+            )
+
+            with (
+                patch.object(review_channel_command, "REPO_ROOT", root),
+                patch(
+                    "dev.scripts.devctl.review_channel.state.compute_non_audit_worktree_hash",
+                    return_value="a" * 64,
+                ),
+                patch(
+                    "dev.scripts.devctl.review_channel.reviewer_worker.compute_non_audit_worktree_hash",
+                    return_value="a" * 64,
+                ),
+            ):
+                rc = review_channel_command.run(args)
+
+            self.assertEqual(rc, 0)
+            payload = json.loads(output_path.read_text(encoding="utf-8"))
+            self.assertTrue(payload["ok"])
+            self.assertEqual(payload["recover_provider"], "claude")
+            self.assertEqual(
+                payload["attention"]["status"],
+                "implementer_relaunch_required",
+            )
+            self.assertFalse(payload["launched"])
+            self.assertTrue(payload["sessions"])
 
     def test_run_recover_uses_planned_reviewer_provider_for_swapped_roles(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
