@@ -71,13 +71,13 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-04-06T01:22:00Z`
-- Last Codex poll (Local America/New_York): `2026-04-05 21:22:00 EDT`
+- Last Codex poll: `2026-04-06T01:25:02Z`
+- Last Codex poll (Local America/New_York): `2026-04-05 21:25:02 EDT`
 - Reviewer mode: `single_agent`
 - Last non-audit worktree hash: `697ed328063babff658ad99bf39a49bf7936869be48152a5f037b9e3be94195f`
-- Current instruction revision: `6b6147d4567b`
+- Current instruction revision: `4f536e279408`
 - Last checkpoint action: `reviewer-checkpoint`
-- Head at push time: `b0ee4761f1af39063494f0159135ac99fac7ed47`
+- Head at push time: `e02affe9735acbcec95fcfadfc9b3ad2b5b75103`
 ## Protocol
 
 1. Claude should poll this file periodically while coding.
@@ -199,7 +199,7 @@ Codex: design this as part of the existing `ProjectGovernance` / `ReviewerGateSt
 
 ## Poll Status
 
-- Reviewer checkpoint updated through repo-owned tooling (mode: single_agent; reason: review-pass-takeover; observed-tree: 697ed328063b; reviewed-tree: 697ed328063b; instruction-rev: 6b6147d4567b).
+- Reviewer checkpoint updated through repo-owned tooling (mode: single_agent; reason: review-pass-takeover; observed-tree: 697ed328063b; reviewed-tree: 697ed328063b; instruction-rev: 4f536e279408).
 
 ## Current Verdict
 
@@ -225,7 +225,7 @@ Codex: design this as part of the existing `ProjectGovernance` / `ReviewerGateSt
 
 ## Current Instruction For Claude
 
-- hold steady while Codex commits and runs the governed push for the accepted review-candidate, push-authorization, and command/package cleanup slice.
+- hold steady while Codex commits and runs the governed push for the current review-candidate, push-authorization, and command/package cleanup slice.
 
 ## Action Requests
 
@@ -233,53 +233,18 @@ Codex: design this as part of the existing `ProjectGovernance` / `ReviewerGateSt
 
 ## Last Reviewed Scope
 
-- AGENTS.md
-- dev/active/MASTER_PLAN.md
-- dev/active/ai_governance_platform.md
-- dev/active/platform_authority_loop.md
-- dev/active/remote_commit_pipeline.md
-- dev/guides/DEVELOPMENT.md
-- dev/history/ENGINEERING_EVOLUTION.md
-- dev/scripts/README.md
+- AGENTS.md plus dev/active/MASTER_PLAN.md, dev/active/ai_governance_platform.md, dev/active/platform_authority_loop.md, dev/active/remote_commit_pipeline.md
+- dev/guides/DEVELOPMENT.md plus dev/history/ENGINEERING_EVOLUTION.md and dev/scripts/README.md
 - dev/scripts/checks/code_shape/code_shape_policy.py
-- dev/scripts/devctl/commands/discover.py
-- dev/scripts/devctl/commands/discover/__init__.py
-- dev/scripts/devctl/commands/vcs/governed_executor.py
-- dev/scripts/devctl/commands/vcs/governed_executor_authorization.py
-- dev/scripts/devctl/commands/vcs/governed_executor_field_access.py
-- dev/scripts/devctl/commands/vcs/governed_executor_packets.py
-- dev/scripts/devctl/commands/vcs/governed_executor_push_result.py
-- dev/scripts/devctl/commands/vcs/governed_executor_support.py
-- dev/scripts/devctl/commands/vcs/push.py
-- dev/scripts/devctl/commands/vcs/push_report.py
-- dev/scripts/devctl/commands/vcs/push_snapshot.py
-- dev/scripts/devctl/governance/push_state.py
-- dev/scripts/devctl/governance/push_state_authorization.py
-- dev/scripts/devctl/governance/push_state_git.py
-- dev/scripts/devctl/governance/push_state_report.py
-- dev/scripts/devctl/governance/push_state_support.py
-- dev/scripts/devctl/platform/runtime_state_contract_rows.py
-- dev/scripts/devctl/platform/runtime_state_contract_rows_pipeline.py
-- dev/scripts/devctl/platform/runtime_state_contract_rows_review.py
-- dev/scripts/devctl/platform/runtime_state_contract_rows_review_pipeline.py
-- dev/scripts/devctl/review_channel/event_projection.py
-- dev/scripts/devctl/review_channel/reviewer_runtime_doctor.py
-- dev/scripts/devctl/review_channel/status_projection.py
-- dev/scripts/devctl/review_channel/status_projection_compat.py
-- dev/scripts/devctl/runtime/__init__.py
-- dev/scripts/devctl/runtime/project_governance_push.py
-- dev/scripts/devctl/runtime/push_authorization.py
-- dev/scripts/devctl/runtime/remote_commit_pipeline_models.py
-- dev/scripts/devctl/runtime/review_state.py
-- dev/scripts/devctl/runtime/review_state_models.py
-- dev/scripts/devctl/runtime/review_state_parser.py
-- dev/scripts/devctl/runtime/startup_gate.py
-- dev/scripts/devctl/runtime/startup_push_decision.py
-- dev/scripts/devctl/tests/platform/test_platform_contracts.py
-- dev/scripts/devctl/tests/runtime/test_push_authorization.py
-- dev/scripts/devctl/tests/runtime/test_remote_commit_pipeline_phases34.py
-- dev/scripts/devctl/tests/runtime/test_review_state.py
-- dev/scripts/devctl/tests/runtime/test_startup_gate.py
-- dev/scripts/devctl/tests/vcs/test_governed_executor.py
-- dev/scripts/devctl/tests/vcs/test_push.py
+- dev/scripts/devctl/commands/discover.py plus dev/scripts/devctl/commands/discover/__init__.py
+- dev/scripts/devctl/commands/vcs/governed_executor.py plus governed_executor_support.py
+- dev/scripts/devctl/commands/vcs/governed_executor_authorization.py, governed_executor_field_access.py, governed_executor_packets.py, governed_executor_push_result.py
+- dev/scripts/devctl/commands/vcs/push.py plus push_report.py and push_snapshot.py
+- dev/scripts/devctl/governance/push_state.py plus push_state_support.py, push_state_authorization.py, push_state_git.py, push_state_report.py
+- dev/scripts/devctl/platform/runtime_state_contract_rows.py plus runtime_state_contract_rows_review.py, runtime_state_contract_rows_pipeline.py, runtime_state_contract_rows_review_pipeline.py
+- dev/scripts/devctl/review_channel/event_projection.py plus reviewer_runtime_doctor.py, status_projection.py, status_projection_compat.py
+- dev/scripts/devctl/runtime/__init__.py plus project_governance_push.py and push_authorization.py
+- dev/scripts/devctl/runtime/remote_commit_pipeline_models.py plus review_state.py, review_state_models.py, review_state_parser.py
+- dev/scripts/devctl/runtime/startup_gate.py plus startup_push_decision.py
+- dev/scripts/devctl/tests/platform/test_platform_contracts.py plus runtime/vcs regression suites for push authorization, remote commit phases, review state, startup gate, governed executor, and push
 
