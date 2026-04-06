@@ -138,15 +138,15 @@ def test_phase4_rescue_path_recovers_doctor_health_and_snapshot(tmp_path: Path) 
             "dev.scripts.devctl.review_channel.reviewer_worker.compute_non_audit_worktree_hash",
             return_value="a" * 64,
         ),
-    ):
-        second = refresh_status_snapshot(
-            repo_root=root,
-            bridge_path=bridge_path,
-            review_channel_path=review_channel_path,
-            output_root=status_dir,
-        )
+        ):
+            second = refresh_status_snapshot(
+                repo_root=root,
+                bridge_path=bridge_path,
+                review_channel_path=review_channel_path,
+                output_root=status_dir,
+            )
     second_review_state, second_compact, second_pipeline = _load_snapshot_surfaces(second)
-    assert second_compact["doctor"]["status"] == "healthy"
+    assert second_compact["doctor"]["status"] == "reviewer_completion_unrecorded"
     assert second_review_state["snapshot_id"] != first_review_state["snapshot_id"]
     assert second_compact["snapshot_id"] == second_review_state["snapshot_id"]
     assert second_compact["doctor"]["snapshot_id"] == second_review_state["snapshot_id"]

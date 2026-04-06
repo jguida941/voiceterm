@@ -61,10 +61,13 @@ def derive_push_decision(
 ) -> PushDecisionState:
     """Return the next governed push action for AI-facing startup surfaces."""
     pe = push_enforcement
+    publication_authorized = bool(
+        getattr(pe, "current_push_authorization_valid", False)
+    )
     remote_publication_is_current = artifact_records_current_head_publish(pe)
     inputs = PushDecisionInputs(
         worktree_clean=bool(pe.worktree_clean),
-        review_gate_allows_push=bool(review_gate_allows_push),
+        review_gate_allows_push=bool(review_gate_allows_push or publication_authorized),
         has_remote_work_to_push=not (
             remote_publication_is_current
             or (pe.upstream_ref and pe.ahead_of_upstream_commits == 0)
@@ -76,6 +79,7 @@ def derive_push_decision(
         return local_readiness
     review_decision = _review_state_decision(
         inputs,
+        publication_authorized=publication_authorized,
         implementation_blocked=implementation_blocked,
         implementation_block_reason=implementation_block_reason,
     )
@@ -127,15 +131,17 @@ def derive_push_decision(
             next_step_command=_DEVCTL_PUSH_EXECUTE_COMMAND,
             push_eligible_now=True,
             rule_summary=(
-                "Use the governed push path now because the worktree is clean, "
-                "review is accepted, and upstream still needs this branch."
+                "Use the governed push path now because the worktree is clean and "
+                "either review is publish-clear or a persisted push authorization "
+                "already covers the current HEAD."
             ),
             match_evidence=(
                 rule_match_evidence(
                     "startup_push.run_devctl_push",
                     "All push prerequisites are green and the branch still has work to publish.",
                     "worktree_clean=True",
-                    "review_gate_allows_push=True",
+                    f"review_gate_allows_push={inputs.review_gate_allows_push}",
+                    f"current_push_authorization_valid={publication_authorized}",
                     "has_remote_work_to_push=True",
                 ),
             ),
@@ -238,9 +244,12 @@ def _local_readiness_decision(
 def _review_state_decision(
     inputs: PushDecisionInputs,
     *,
+    publication_authorized: bool,
     implementation_blocked: bool,
     implementation_block_reason: str,
 ) -> PushDecisionState | None:
+    if publication_authorized:
+        return None
     if implementation_blocked and not inputs.review_gate_allows_push:
         # Manual reviewer approval can publish a clean branch, but cannot
         # authorize more coding.  Skip the block for publication when the

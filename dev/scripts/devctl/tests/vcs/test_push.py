@@ -71,20 +71,28 @@ def make_policy(**overrides) -> PushPolicy:
     )
 
 
-def _startup_context(
+def _publication_authorization(
     *,
-    action: str = "run_devctl_push",
-    reason: str = "push_preconditions_satisfied",
-    next_step_summary: str = "Use the governed push path now.",
-    next_step_command: str = "python3 dev/scripts/devctl.py push --execute",
+    authorized: bool = True,
+    reason: str = "push_authorization_current",
+    summary: str = "Publication is authorized for the current HEAD.",
+    approved_target_identity: str = "tree-receipt-20260403T010000Z:tree-123",
+    authorization_id: str = "push-auth-20260403T010000Z",
+    approval_mode: str = "commit_pipeline_approval",
 ) -> SimpleNamespace:
     return SimpleNamespace(
-        push_decision=SimpleNamespace(
-            action=action,
-            reason=reason,
-            next_step_summary=next_step_summary,
-            next_step_command=next_step_command,
-        )
+        authorized=authorized,
+        reason=reason,
+        summary=summary,
+        push_authorization=(
+            SimpleNamespace(
+                approved_target_identity=approved_target_identity,
+                authorization_id=authorization_id,
+                approval_mode=approval_mode,
+            )
+            if authorized
+            else None
+        ),
     )
 
 
@@ -115,6 +123,10 @@ class PushCommandTests(unittest.TestCase):
         return_value=None,
     )
     @patch(
+        "dev.scripts.devctl.governance.push_state._worktree_change_counts",
+        return_value=(3, 1),
+    )
+    @patch(
         "dev.scripts.devctl.governance.push_state._git_stdout",
         side_effect=[
             "",
@@ -128,6 +140,7 @@ class PushCommandTests(unittest.TestCase):
     def test_detect_push_enforcement_requires_checkpoint_when_budget_exceeded(
         self,
         _git_stdout_mock,
+        _worktree_change_counts_mock,
         _lookup_receipt_mock,
     ) -> None:
         policy = make_policy(
@@ -150,6 +163,10 @@ class PushCommandTests(unittest.TestCase):
         return_value=None,
     )
     @patch(
+        "dev.scripts.devctl.governance.push_state._worktree_change_counts",
+        return_value=(1, 1),
+    )
+    @patch(
         "dev.scripts.devctl.governance.push_state._git_stdout",
         side_effect=[
             "",
@@ -163,6 +180,7 @@ class PushCommandTests(unittest.TestCase):
     def test_detect_push_enforcement_allows_editing_within_budget(
         self,
         _git_stdout_mock,
+        _worktree_change_counts_mock,
         _lookup_receipt_mock,
     ) -> None:
         policy = make_policy(
@@ -185,6 +203,10 @@ class PushCommandTests(unittest.TestCase):
         return_value=None,
     )
     @patch(
+        "dev.scripts.devctl.governance.push_state._worktree_change_counts",
+        return_value=(0, 0),
+    )
+    @patch(
         "dev.scripts.devctl.governance.push_state._git_stdout",
         side_effect=[
             "",
@@ -198,6 +220,7 @@ class PushCommandTests(unittest.TestCase):
     def test_detect_push_enforcement_ignores_advisory_context_paths(
         self,
         _git_stdout_mock,
+        _worktree_change_counts_mock,
         _lookup_receipt_mock,
     ) -> None:
         policy = make_policy(
@@ -221,14 +244,16 @@ class PushCommandTests(unittest.TestCase):
         return_value=None,
     )
     @patch(
+        "dev.scripts.devctl.governance.push_state._worktree_change_counts",
+        return_value=(0, 0),
+    )
+    @patch(
         "dev.scripts.devctl.governance.push_state.latest_push_report_relpath",
         return_value="dev/reports/push/latest.json",
     )
     @patch(
-        "dev.scripts.devctl.governance.push_state.load_remote_commit_pipeline_contract",
-        return_value=SimpleNamespace(
-            approved_target_identity="tree-receipt-20260403T010000Z:tree-123"
-        ),
+        "dev.scripts.devctl.governance.push_state._current_approved_target_identity",
+        return_value="tree-receipt-20260403T010000Z:tree-123",
     )
     @patch(
         "dev.scripts.devctl.governance.push_state.load_latest_push_report",
@@ -249,8 +274,9 @@ class PushCommandTests(unittest.TestCase):
         self,
         git_stdout_mock,
         _load_latest_push_report_mock,
-        _load_remote_commit_pipeline_contract_mock,
+        _current_approved_target_identity_mock,
         _latest_push_report_relpath_mock,
+        _worktree_change_counts_mock,
         _lookup_receipt_mock,
     ) -> None:
         def _fake_git_stdout(_repo_root, *cmd):
@@ -284,14 +310,16 @@ class PushCommandTests(unittest.TestCase):
         return_value=None,
     )
     @patch(
+        "dev.scripts.devctl.governance.push_state._worktree_change_counts",
+        return_value=(0, 0),
+    )
+    @patch(
         "dev.scripts.devctl.governance.push_state.latest_push_report_relpath",
         return_value="dev/reports/push/latest.json",
     )
     @patch(
-        "dev.scripts.devctl.governance.push_state.load_remote_commit_pipeline_contract",
-        return_value=SimpleNamespace(
-            approved_target_identity="tree-receipt-20260403T010000Z:tree-123"
-        ),
+        "dev.scripts.devctl.governance.push_state._current_approved_target_identity",
+        return_value="tree-receipt-20260403T010000Z:tree-123",
     )
     @patch(
         "dev.scripts.devctl.governance.push_state.load_latest_push_report",
@@ -312,8 +340,9 @@ class PushCommandTests(unittest.TestCase):
         self,
         git_stdout_mock,
         _load_latest_push_report_mock,
-        _load_remote_commit_pipeline_contract_mock,
+        _current_approved_target_identity_mock,
         _latest_push_report_relpath_mock,
+        _worktree_change_counts_mock,
         _lookup_receipt_mock,
     ) -> None:
         def _fake_git_stdout(_repo_root, *cmd):
@@ -347,14 +376,16 @@ class PushCommandTests(unittest.TestCase):
         return_value=None,
     )
     @patch(
+        "dev.scripts.devctl.governance.push_state._worktree_change_counts",
+        return_value=(0, 0),
+    )
+    @patch(
         "dev.scripts.devctl.governance.push_state.latest_push_report_relpath",
         return_value="dev/reports/push/latest.json",
     )
     @patch(
-        "dev.scripts.devctl.governance.push_state.load_remote_commit_pipeline_contract",
-        return_value=SimpleNamespace(
-            approved_target_identity="tree-receipt-20260403T010000Z:tree-123"
-        ),
+        "dev.scripts.devctl.governance.push_state._current_approved_target_identity",
+        return_value="tree-receipt-20260403T010000Z:tree-123",
     )
     @patch(
         "dev.scripts.devctl.governance.push_state.load_latest_push_report",
@@ -375,8 +406,9 @@ class PushCommandTests(unittest.TestCase):
         self,
         git_stdout_mock,
         _load_latest_push_report_mock,
-        _load_remote_commit_pipeline_contract_mock,
+        _current_approved_target_identity_mock,
         _latest_push_report_relpath_mock,
+        _worktree_change_counts_mock,
         _lookup_receipt_mock,
     ) -> None:
         def _fake_git_stdout(_repo_root, *cmd):
@@ -410,6 +442,10 @@ class PushCommandTests(unittest.TestCase):
         return_value=None,
     )
     @patch(
+        "dev.scripts.devctl.governance.push_state._worktree_change_counts",
+        return_value=(0, 0),
+    )
+    @patch(
         "dev.scripts.devctl.governance.push_state.latest_push_report_relpath",
         return_value="dev/reports/push/latest.json",
     )
@@ -440,6 +476,7 @@ class PushCommandTests(unittest.TestCase):
         _load_latest_push_report_mock,
         _load_remote_commit_pipeline_contract_mock,
         _latest_push_report_relpath_mock,
+        _worktree_change_counts_mock,
         _lookup_receipt_mock,
     ) -> None:
         def _fake_git_stdout(_repo_root, *cmd):
@@ -468,10 +505,10 @@ class PushCommandTests(unittest.TestCase):
 
     @patch("dev.scripts.devctl.commands.vcs.push.remote_exists", return_value=True)
     @patch("dev.scripts.devctl.commands.vcs.push.collect_git_status")
-    @patch("dev.scripts.devctl.commands.vcs.push.build_startup_context")
+    @patch("dev.scripts.devctl.commands.vcs.push.publication_authorization_decision")
     def test_push_loader_ignores_advisory_context_paths(
         self,
-        build_startup_context_mock,
+        publication_authorization_mock,
         collect_git_status_mock,
         _remote_exists_mock,
     ) -> None:
@@ -479,7 +516,7 @@ class PushCommandTests(unittest.TestCase):
             "branch": "feature/demo",
             "changes": [{"path": "convo.md"}],
         }
-        build_startup_context_mock.return_value = _startup_context()
+        publication_authorization_mock.return_value = _publication_authorization()
         policy = make_policy(
             checkpoint=PushCheckpointPolicy(
                 advisory_context_paths=("convo.md",),
@@ -528,10 +565,10 @@ class PushCommandTests(unittest.TestCase):
     @patch("dev.scripts.devctl.commands.vcs.push.remote_exists", return_value=True)
     @patch("dev.scripts.devctl.commands.vcs.push.load_push_policy")
     @patch("dev.scripts.devctl.commands.vcs.push.collect_git_status")
-    @patch("dev.scripts.devctl.commands.vcs.push.build_startup_context")
+    @patch("dev.scripts.devctl.commands.vcs.push.publication_authorization_decision")
     def test_push_default_run_validates_and_stops_before_git_push(
         self,
-        build_startup_context_mock,
+        publication_authorization_mock,
         collect_git_status_mock,
         load_policy_mock,
         _remote_exists_mock,
@@ -544,7 +581,7 @@ class PushCommandTests(unittest.TestCase):
     ) -> None:
         collect_git_status_mock.return_value = {"branch": "feature/demo", "changes": []}
         load_policy_mock.return_value = make_policy()
-        build_startup_context_mock.return_value = _startup_context()
+        publication_authorization_mock.return_value = _publication_authorization()
         run_cmd_mock.side_effect = [
             {
                 "name": "git-fetch",
@@ -587,6 +624,18 @@ class PushCommandTests(unittest.TestCase):
         self.assertEqual(payload["status"], "validation_ready")
         self.assertEqual(payload["artifacts"]["latest_json"], "dev/reports/push/latest.json")
         self.assertEqual(
+            payload["push_authorization_id"],
+            "push-auth-20260403T010000Z",
+        )
+        self.assertEqual(
+            payload["push_authorization_mode"],
+            "commit_pipeline_approval",
+        )
+        self.assertEqual(
+            payload["approved_target_identity"],
+            "tree-receipt-20260403T010000Z:tree-123",
+        )
+        self.assertEqual(
             payload["action_result"]["artifact_paths"],
             ["dev/reports/push/latest.json"],
         )
@@ -610,10 +659,10 @@ class PushCommandTests(unittest.TestCase):
     @patch("dev.scripts.devctl.commands.vcs.push.remote_exists", return_value=True)
     @patch("dev.scripts.devctl.commands.vcs.push.load_push_policy")
     @patch("dev.scripts.devctl.commands.vcs.push.collect_git_status")
-    @patch("dev.scripts.devctl.commands.vcs.push.build_startup_context")
+    @patch("dev.scripts.devctl.commands.vcs.push.publication_authorization_decision")
     def test_push_skips_preflight_when_branch_is_already_published(
         self,
-        build_startup_context_mock,
+        publication_authorization_mock,
         collect_git_status_mock,
         load_policy_mock,
         _remote_exists_mock,
@@ -624,7 +673,7 @@ class PushCommandTests(unittest.TestCase):
     ) -> None:
         collect_git_status_mock.return_value = {"branch": "feature/demo", "changes": []}
         load_policy_mock.return_value = make_policy()
-        build_startup_context_mock.return_value = _startup_context(action="no_push_needed")
+        publication_authorization_mock.return_value = _publication_authorization()
         run_cmd_mock.side_effect = [
             {
                 "name": "git-fetch",
@@ -667,10 +716,10 @@ class PushCommandTests(unittest.TestCase):
     @patch("dev.scripts.devctl.commands.vcs.push.remote_exists", return_value=True)
     @patch("dev.scripts.devctl.commands.vcs.push.load_push_policy")
     @patch("dev.scripts.devctl.commands.vcs.push.collect_git_status")
-    @patch("dev.scripts.devctl.commands.vcs.push.build_startup_context")
+    @patch("dev.scripts.devctl.commands.vcs.push.publication_authorization_decision")
     def test_push_execute_noops_when_branch_is_already_published(
         self,
-        build_startup_context_mock,
+        publication_authorization_mock,
         collect_git_status_mock,
         load_policy_mock,
         _remote_exists_mock,
@@ -681,7 +730,7 @@ class PushCommandTests(unittest.TestCase):
     ) -> None:
         collect_git_status_mock.return_value = {"branch": "feature/demo", "changes": []}
         load_policy_mock.return_value = make_policy()
-        build_startup_context_mock.return_value = _startup_context(action="no_push_needed")
+        publication_authorization_mock.return_value = _publication_authorization()
         run_cmd_mock.side_effect = [
             {
                 "name": "git-fetch",
@@ -724,10 +773,10 @@ class PushCommandTests(unittest.TestCase):
     @patch("dev.scripts.devctl.commands.vcs.push.load_push_policy")
     @patch("dev.scripts.devctl.commands.vcs.push.collect_git_status")
     @patch("dev.scripts.devctl.commands.vcs.push.run_cmd")
-    @patch("dev.scripts.devctl.commands.vcs.push.build_startup_context")
+    @patch("dev.scripts.devctl.commands.vcs.push.publication_authorization_decision")
     def test_push_execute_sets_upstream_and_runs_post_push_bundle(
         self,
-        build_startup_context_mock,
+        publication_authorization_mock,
         run_cmd_mock,
         collect_git_status_mock,
         load_policy_mock,
@@ -740,7 +789,7 @@ class PushCommandTests(unittest.TestCase):
     ) -> None:
         collect_git_status_mock.return_value = {"branch": "feature/demo", "changes": []}
         load_policy_mock.return_value = make_policy()
-        build_startup_context_mock.return_value = _startup_context()
+        publication_authorization_mock.return_value = _publication_authorization()
         run_cmd_mock.side_effect = [
             {
                 "name": "git-fetch",
@@ -797,6 +846,10 @@ class PushCommandTests(unittest.TestCase):
         self.assertEqual(payload["status"], "post_push_green")
         self.assertEqual(payload["artifacts"]["latest_json"], "dev/reports/push/latest.json")
         self.assertEqual(
+            payload["push_authorization_mode"],
+            "commit_pipeline_approval",
+        )
+        self.assertEqual(
             payload["action_result"]["artifact_paths"],
             ["dev/reports/push/latest.json"],
         )
@@ -810,27 +863,67 @@ class PushCommandTests(unittest.TestCase):
         )
 
     @patch("dev.scripts.devctl.commands.vcs.push.write_output")
+    @patch("dev.scripts.devctl.commands.vcs.push.run_cmd")
+    @patch(
+        "dev.scripts.devctl.commands.vcs.push.current_upstream_ref",
+        return_value="origin/feature/demo",
+    )
+    @patch(
+        "dev.scripts.devctl.commands.vcs.push.build_preflight_shell_command",
+        return_value="python3 dev/scripts/devctl.py check-router --since-ref origin/feature/demo --execute",
+    )
+    @patch(
+        "dev.scripts.devctl.commands.vcs.push.branch_divergence",
+        return_value={"behind": 0, "ahead": 1, "error": None},
+    )
+    @patch("dev.scripts.devctl.commands.vcs.push.remote_branch_exists", return_value=True)
     @patch("dev.scripts.devctl.commands.vcs.push.remote_exists", return_value=True)
     @patch("dev.scripts.devctl.commands.vcs.push.load_push_policy")
     @patch("dev.scripts.devctl.commands.vcs.push.collect_git_status")
-    @patch("dev.scripts.devctl.commands.vcs.push.build_startup_context")
-    def test_push_blocks_when_startup_push_gate_requires_review(
+    @patch("dev.scripts.devctl.commands.vcs.push.publication_authorization_decision")
+    def test_push_blocks_when_publication_authorization_is_missing(
         self,
-        build_startup_context_mock,
+        publication_authorization_mock,
         collect_git_status_mock,
         load_policy_mock,
         _remote_exists_mock,
+        _remote_branch_exists_mock,
+        _branch_divergence_mock,
+        _build_preflight_mock,
+        _current_upstream_ref_mock,
+        run_cmd_mock,
         write_output_mock,
     ) -> None:
         collect_git_status_mock.return_value = {"branch": "feature/demo", "changes": []}
         load_policy_mock.return_value = make_policy()
-        build_startup_context_mock.return_value = _startup_context(
-            action="await_review",
-            reason="review_pending_before_push",
-            next_step_summary="Wait for review acceptance before any push attempt.",
-            next_step_command=(
-                "python3 dev/scripts/devctl.py review-channel --action status "
-                "--terminal none --format json"
+        run_cmd_mock.side_effect = [
+            {
+                "name": "git-fetch",
+                "cmd": ["git", "fetch", "origin"],
+                "cwd": ".",
+                "returncode": 0,
+                "duration_s": 0.1,
+                "skipped": False,
+            },
+            {
+                "name": "push-preflight",
+                "cmd": [
+                    "bash",
+                    "-lc",
+                    "python3 dev/scripts/devctl.py check-router --since-ref origin/feature/demo --execute",
+                ],
+                "cwd": ".",
+                "returncode": 0,
+                "duration_s": 0.1,
+                "skipped": False,
+            },
+        ]
+        publication_authorization_mock.return_value = _publication_authorization(
+            authorized=False,
+            reason="push_authorization_missing",
+            summary=(
+                "Publication requires a typed `PushAuthorizationRecord` for the "
+                "current HEAD."
             ),
         )
 
@@ -839,16 +932,16 @@ class PushCommandTests(unittest.TestCase):
         self.assertEqual(rc, 1)
         payload = json.loads(write_output_mock.call_args.args[0])
         self.assertEqual(payload["status"], "blocked")
-        self.assertIn("Startup push gate blocks", payload["errors"][0])
+        self.assertIn("Publication authorization blocks", payload["errors"][0])
 
     @patch("dev.scripts.devctl.commands.vcs.push.write_output")
     @patch("dev.scripts.devctl.commands.vcs.push.remote_exists", return_value=True)
     @patch("dev.scripts.devctl.commands.vcs.push.load_push_policy")
     @patch("dev.scripts.devctl.commands.vcs.push.collect_git_status")
-    @patch("dev.scripts.devctl.commands.vcs.push.build_startup_context")
+    @patch("dev.scripts.devctl.commands.vcs.push.publication_authorization_decision")
     def test_push_rejects_skip_preflight_when_policy_disallows_bypass(
         self,
-        build_startup_context_mock,
+        publication_authorization_mock,
         collect_git_status_mock,
         load_policy_mock,
         _remote_exists_mock,
@@ -856,7 +949,7 @@ class PushCommandTests(unittest.TestCase):
     ) -> None:
         collect_git_status_mock.return_value = {"branch": "feature/demo", "changes": []}
         load_policy_mock.return_value = make_policy()
-        build_startup_context_mock.return_value = _startup_context()
+        publication_authorization_mock.return_value = _publication_authorization()
 
         rc = push.run(make_args(skip_preflight=True))
 
@@ -869,10 +962,10 @@ class PushCommandTests(unittest.TestCase):
     @patch("dev.scripts.devctl.commands.vcs.push.remote_exists", return_value=True)
     @patch("dev.scripts.devctl.commands.vcs.push.load_push_policy")
     @patch("dev.scripts.devctl.commands.vcs.push.collect_git_status")
-    @patch("dev.scripts.devctl.commands.vcs.push.build_startup_context")
+    @patch("dev.scripts.devctl.commands.vcs.push.publication_authorization_decision")
     def test_push_rejects_skip_post_push_when_policy_disallows_bypass(
         self,
-        build_startup_context_mock,
+        publication_authorization_mock,
         collect_git_status_mock,
         load_policy_mock,
         _remote_exists_mock,
@@ -880,7 +973,7 @@ class PushCommandTests(unittest.TestCase):
     ) -> None:
         collect_git_status_mock.return_value = {"branch": "feature/demo", "changes": []}
         load_policy_mock.return_value = make_policy()
-        build_startup_context_mock.return_value = _startup_context()
+        publication_authorization_mock.return_value = _publication_authorization()
 
         rc = push.run(make_args(skip_post_push=True))
 
@@ -888,6 +981,33 @@ class PushCommandTests(unittest.TestCase):
         payload = json.loads(write_output_mock.call_args.args[0])
         self.assertEqual(payload["status"], "blocked")
         self.assertIn("Repo policy blocks `--skip-post-push`", payload["errors"][0])
+
+    @patch("dev.scripts.devctl.commands.vcs.push.write_output")
+    @patch("dev.scripts.devctl.commands.vcs.push.remote_exists", return_value=True)
+    @patch("dev.scripts.devctl.commands.vcs.push.load_push_policy")
+    @patch("dev.scripts.devctl.commands.vcs.push.collect_git_status")
+    @patch("dev.scripts.devctl.commands.vcs.push.publication_authorization_decision")
+    def test_push_blocks_dirty_tree_even_with_publication_authorization(
+        self,
+        publication_authorization_mock,
+        collect_git_status_mock,
+        load_policy_mock,
+        _remote_exists_mock,
+        write_output_mock,
+    ) -> None:
+        collect_git_status_mock.return_value = {
+            "branch": "feature/demo",
+            "changes": [{"path": "tracked.py"}],
+        }
+        load_policy_mock.return_value = make_policy()
+        publication_authorization_mock.return_value = _publication_authorization()
+
+        rc = push.run(make_args(execute=True))
+
+        self.assertEqual(rc, 1)
+        payload = json.loads(write_output_mock.call_args.args[0])
+        self.assertEqual(payload["status"], "blocked")
+        self.assertIn("Working tree has uncommitted changes", payload["errors"][0])
 
     @patch("dev.scripts.devctl.commands.vcs.push.write_output")
     @patch(
@@ -903,10 +1023,10 @@ class PushCommandTests(unittest.TestCase):
     @patch("dev.scripts.devctl.commands.vcs.push.load_push_policy")
     @patch("dev.scripts.devctl.commands.vcs.push.collect_git_status")
     @patch("dev.scripts.devctl.commands.vcs.push.run_cmd")
-    @patch("dev.scripts.devctl.commands.vcs.push.build_startup_context")
+    @patch("dev.scripts.devctl.commands.vcs.push.publication_authorization_decision")
     def test_push_policy_gated_skip_post_push_reports_remote_publication(
         self,
-        build_startup_context_mock,
+        publication_authorization_mock,
         run_cmd_mock,
         collect_git_status_mock,
         load_policy_mock,
@@ -920,7 +1040,7 @@ class PushCommandTests(unittest.TestCase):
         load_policy_mock.return_value = make_policy(
             bypass=PushBypassPolicy(allow_skip_post_push=True),
         )
-        build_startup_context_mock.return_value = _startup_context()
+        publication_authorization_mock.return_value = _publication_authorization()
         run_cmd_mock.side_effect = [
             {
                 "name": "git-fetch",
@@ -990,10 +1110,10 @@ class PushCommandTests(unittest.TestCase):
     @patch("dev.scripts.devctl.commands.vcs.push.load_push_policy")
     @patch("dev.scripts.devctl.commands.vcs.push.collect_git_status")
     @patch("dev.scripts.devctl.commands.vcs.push.run_cmd")
-    @patch("dev.scripts.devctl.commands.vcs.push.build_startup_context")
+    @patch("dev.scripts.devctl.commands.vcs.push.publication_authorization_decision")
     def test_push_post_push_failure_reports_remote_published_not_green(
         self,
-        build_startup_context_mock,
+        publication_authorization_mock,
         run_cmd_mock,
         collect_git_status_mock,
         load_policy_mock,
@@ -1006,7 +1126,7 @@ class PushCommandTests(unittest.TestCase):
     ) -> None:
         collect_git_status_mock.return_value = {"branch": "feature/demo", "changes": []}
         load_policy_mock.return_value = make_policy()
-        build_startup_context_mock.return_value = _startup_context()
+        publication_authorization_mock.return_value = _publication_authorization()
         run_cmd_mock.side_effect = [
             {
                 "name": "git-fetch",
@@ -1086,10 +1206,10 @@ class PushCommandTests(unittest.TestCase):
     @patch("dev.scripts.devctl.commands.vcs.push.load_push_policy")
     @patch("dev.scripts.devctl.commands.vcs.push.collect_git_status")
     @patch("dev.scripts.devctl.commands.vcs.push.run_cmd")
-    @patch("dev.scripts.devctl.commands.vcs.push.build_startup_context")
+    @patch("dev.scripts.devctl.commands.vcs.push.publication_authorization_decision")
     def test_push_persists_remote_publication_snapshot_before_post_push_bundle_finishes(
         self,
-        build_startup_context_mock,
+        publication_authorization_mock,
         run_cmd_mock,
         collect_git_status_mock,
         load_policy_mock,
@@ -1104,7 +1224,7 @@ class PushCommandTests(unittest.TestCase):
     ) -> None:
         collect_git_status_mock.return_value = {"branch": "feature/demo", "changes": []}
         load_policy_mock.return_value = make_policy()
-        build_startup_context_mock.return_value = _startup_context()
+        publication_authorization_mock.return_value = _publication_authorization()
         run_cmd_mock.side_effect = [
             {
                 "name": "git-fetch",
@@ -1407,6 +1527,10 @@ class PushReceiptTests(unittest.TestCase):
         return_value="dev/reports/push/latest.json",
     )
     @patch(
+        "dev.scripts.devctl.governance.push_state._worktree_change_counts",
+        return_value=(0, 0),
+    )
+    @patch(
         "dev.scripts.devctl.governance.push_state.load_remote_commit_pipeline_contract",
         return_value=SimpleNamespace(approved_target_identity=""),
     )
@@ -1443,6 +1567,7 @@ class PushReceiptTests(unittest.TestCase):
         _lookup_receipt_mock,
         _load_latest_mock,
         _load_pipeline_mock,
+        _worktree_change_counts_mock,
         _relpath_mock,
     ) -> None:
         def _fake_git_stdout(_repo_root, *cmd):

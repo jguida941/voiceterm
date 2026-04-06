@@ -198,8 +198,8 @@ artifact for auditability.
 | `stage` | `TypedAction(action_id="vcs.stage")` | governance runtime | `drafted -> staged` | reject if worktree is dirty beyond the selected scope, if another active pipeline exists, or if runtime is not healthy enough to supervise the rest of the flow |
 | `guard` | routed guard bundle recorded as `ActionResult(action_id="quality.guard_bundle")` | existing repo guard stack | `staged -> guards_passed` | `guards_failed` on `fail`, `unknown`, or `defer`; no approval request is posted |
 | `approve` | `PacketPostRequest(kind="commit_approval")` for both request and operator decision packets | review-channel transport | `guards_passed -> approved` or `rejected` | no packet, stale packet, mismatched target revision, or prose-only approval keeps state at `operator_approval_pending` or forces `recover` |
-| `commit` | `TypedAction(action_id="vcs.commit")` executed by governed VCS executor | local repo-owned executor | `approved -> commit_recorded` | `push_blocked` with `commit_failed` reason and `ActionResult` evidence; never tell the operator to run raw `git commit` |
-| `push` | existing `TypedAction(action_id="vcs.push")` | existing canonical push path | `commit_recorded -> push_completed` | `push_blocked` with existing push report + `ActionResult`; publication and post-push green remain separate truths |
+| `commit` | `TypedAction(action_id="vcs.commit")` executed by governed VCS executor | local repo-owned executor | `approved -> commit_recorded` + emit `PushAuthorizationRecord` bound to the exact commit/check/review proof | `push_blocked` with `commit_failed` reason and `ActionResult` evidence; never tell the operator to run raw `git commit` |
+| `push` | existing `TypedAction(action_id="vcs.push")` consuming the current `PushAuthorizationRecord` | existing canonical push path | `commit_recorded -> push_completed` | `push_blocked` with existing push report + `ActionResult`; publication and post-push green remain separate truths |
 | `override_push` | typed `override_push` decision packet bound to the current pipeline generation and approved target identity | review-channel transport + existing canonical push path | `push_blocked -> push_pending` by rerunning normal `TypedAction(action_id="vcs.push")` under the recorded override receipt | no packet, expired approval, target drift, or operator rejection keeps `push_blocked` or forces `recover`; never tell the operator to run raw `git push` |
 | `recover` | `TypedAction(action_id="vcs.pipeline.recover")` | governance runtime | blocked state -> fresh `drafted` or `staged` pipeline | if recovery cannot prove current repo state, return typed blocked receipt and stop |
 
@@ -265,6 +265,25 @@ Design rule:
    the executor path.
 4. Raw `git push` remains outside the desired control plane and should not be
    normalized as the standard operator-override workflow.
+
+### Push Authorization Boundary
+
+Publication authority is separate from startup/edit authority.
+
+Design rule:
+
+1. `startup-context` may still decide whether editing, relaunch, or repair is
+   safe, but it must not be the final proof object for publishing a finished
+   artifact.
+2. `vcs.commit` emits one typed `PushAuthorizationRecord` bound to the exact
+   `commit_sha`, staged snapshot hash, approved target identity, guard/check
+   receipt, and review decision packet that authorized publication.
+3. `vcs.push` consumes that `PushAuthorizationRecord`; reviewer heartbeat
+   freshness may block new editing or relaunch, but it does not invalidate an
+   already-authorized unchanged head by itself.
+4. `PushAuthorizationRecord` may expire by policy or be replaced by a bounded
+   override authorization, but drift in `HEAD`, staged target identity, or
+   required check proof must fail closed.
 
 Reserved first fields for that extension on `RemoteCommitPipelineContract`:
 
@@ -408,10 +427,17 @@ surface for remote sessions. It should project:
 - [ ] Surface commit-gate freshness / last-guard truth through doctor, status,
       and auto-mode so approval-ready state cannot be inferred from stale or
       bypassed guard runs.
+- [ ] Split publication authority from startup/edit gating by emitting one
+      typed `PushAuthorizationRecord` after the governed commit is recorded and
+      making direct `devctl push` consume that exact-head authorization instead
+      of `startup-context` / live reviewer-heartbeat freshness.
 - [ ] Add one typed `override_push` extension for operator-approved publish
       exceptions so a blocked governed push can stay inside
       `RemoteCommitPipelineContract`, typed packets, and the canonical
       `vcs.push` executor instead of falling back to raw `git push`.
+- [ ] Land `PushAuthorizationRecord` as the canonical publication receipt for
+      governed push so `vcs.push` depends on exact head/check/review proof
+      instead of rerunning startup/edit gates or reviewer-liveness checks.
 
 ## Progress Log
 

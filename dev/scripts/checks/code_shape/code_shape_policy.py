@@ -193,12 +193,6 @@ PATH_POLICY_OVERRIDES: dict[str, ShapePolicy] = {
         oversize_growth_limit=35,
         hard_lock_growth_limit=0,
     ),
-    "dev/scripts/checks/check_structural_complexity.py": ShapePolicy(
-        soft_limit=400,
-        hard_limit=650,
-        oversize_growth_limit=25,
-        hard_lock_growth_limit=0,
-    ),
     "dev/scripts/checks/compat_matrix_smoke.py": ShapePolicy(
         soft_limit=450,
         hard_limit=650,

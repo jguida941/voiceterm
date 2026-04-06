@@ -15,7 +15,7 @@ from ...governance.push_policy import build_post_push_commands, load_push_policy
 from ...governance.push_routing import PushRefRoutingState, build_preflight_shell_command
 from ...governance.push_state import current_head_commit_sha, current_upstream_ref
 from ...runtime import TypedAction
-from ...runtime.startup_context import build_startup_context
+from ...runtime.push_authorization import publication_authorization_decision
 from ...runtime.vcs import (
     branch_divergence,
     remote_branch_exists,
@@ -54,6 +54,9 @@ class PushRunState:
     post_push_steps: list[dict[str, Any]] = field(default_factory=list)
     branch_has_remote: bool = False
     ahead: int | None = None
+    approved_target_identity: str = ""
+    push_authorization_id: str = ""
+    push_authorization_mode: str = ""
 
 
 def _build_push_parameters(
@@ -74,26 +77,6 @@ def _build_push_parameters(
     if approved_target_identity:
         parameters["approved_target_identity"] = approved_target_identity
     return parameters
-
-
-def _build_typed_action(
-    *,
-    repo_pack_id: str,
-    branch: str,
-    remote: str,
-    args,
-) -> TypedAction:
-    return build_push_action(
-        repo_pack_id=repo_pack_id,
-        branch=branch,
-        remote=remote,
-        execute=bool(args.execute),
-        skip_preflight=bool(args.skip_preflight),
-        skip_post_push=bool(args.skip_post_push),
-        approved_target_identity=str(
-            getattr(args, "approved_target_identity", "") or ""
-        ).strip(),
-    )
 
 
 def build_push_action(
@@ -131,7 +114,6 @@ def _load_run_state(
     args,
     *,
     repo_root: Path = REPO_ROOT,
-    build_startup_context_fn=None,
 ) -> PushRunState:
     state = PushRunState()
     state.remote = str(args.remote or policy.default_remote).strip() or policy.default_remote
@@ -163,11 +145,6 @@ def _load_run_state(
         )
     if not remote_exists(state.remote, repo_root=repo_root):
         state.errors.append(f"Remote `{state.remote}` is not configured.")
-    _append_startup_push_gate_errors(
-        state,
-        repo_root=repo_root,
-        build_startup_context_fn=build_startup_context_fn,
-    )
     return state
 
 
@@ -186,29 +163,35 @@ def _append_bypass_policy_errors(state: PushRunState, policy, args) -> None:
         )
 
 
-def _append_startup_push_gate_errors(
+def _append_publication_authorization_errors(
     state: PushRunState,
     *,
     repo_root: Path = REPO_ROOT,
-    build_startup_context_fn=None,
+    publication_authorization_fn=None,
 ) -> None:
-    """Fail closed when startup/review state says governed push is not ready."""
+    """Fail closed when publication proof for the current HEAD is missing."""
     if state.errors:
         return
-    startup_context_fn = (
-        build_startup_context
-        if build_startup_context_fn is None
-        else build_startup_context_fn
-    )
-    ctx = startup_context_fn(repo_root=repo_root)
-    decision = ctx.push_decision
-    if decision.action in {"run_devctl_push", "no_push_needed"}:
+    if state.branch_has_remote and state.ahead == 0:
         return
-    summary = str(decision.next_step_summary or decision.reason or "").strip()
+    authorization_fn = (
+        publication_authorization_decision
+        if publication_authorization_fn is None
+        else publication_authorization_fn
+    )
+    decision = authorization_fn(repo_root=repo_root)
+    if decision.authorized:
+        authorization = decision.push_authorization
+        if authorization is not None:
+            state.approved_target_identity = authorization.approved_target_identity
+            state.push_authorization_id = authorization.authorization_id
+            state.push_authorization_mode = authorization.approval_mode
+        return
+    summary = str(decision.summary or decision.reason or "").strip()
     detail = f" {summary}" if summary else ""
     state.errors.append(
-        "Startup push gate blocks `devctl push`: "
-        f"push_decision=`{decision.action}` ({decision.reason}).{detail}"
+        "Publication authorization blocks `devctl push`: "
+        f"reason=`{decision.reason}`.{detail}"
     )
 
 
@@ -338,7 +321,7 @@ def run_push_action(
     emit_output_report: bool = True,
     run_cmd_fn=None,
     build_post_push_commands_fn=None,
-    build_startup_context_fn=None,
+    publication_authorization_fn=None,
     writer=None,
     piper=None,
 ) -> tuple[int, dict[str, Any]]:
@@ -351,15 +334,33 @@ def run_push_action(
         resolved_policy,
         args,
         repo_root=repo_root,
-        build_startup_context_fn=build_startup_context_fn,
     )
     head_commit = current_head_commit_sha(repo_root=repo_root)
+    _run_fetch_and_preflight(
+        state,
+        resolved_policy,
+        args,
+        repo_root=repo_root,
+        run_cmd_fn=run_cmd_fn,
+    )
+    _append_publication_authorization_errors(
+        state,
+        repo_root=repo_root,
+        publication_authorization_fn=publication_authorization_fn,
+    )
+    approved_target_identity = (
+        str(getattr(args, "approved_target_identity", "") or "").strip()
+        or state.approved_target_identity
+    )
     typed_action = asdict(
-        _build_typed_action(
+        build_push_action(
             repo_pack_id=resolved_policy.repo_pack_id,
             branch=state.branch,
             remote=state.remote,
-            args=args,
+            execute=bool(args.execute),
+            skip_preflight=bool(args.skip_preflight),
+            skip_post_push=bool(args.skip_post_push),
+            approved_target_identity=approved_target_identity,
         )
     )
     artifact_path = latest_push_report_relpath(repo_root=repo_root)
@@ -371,16 +372,9 @@ def run_push_action(
         head_commit=head_commit,
         typed_action=typed_action,
         artifact_path=artifact_path,
-        approved_target_identity=str(
-            getattr(args, "approved_target_identity", "") or ""
-        ).strip(),
-    )
-    _run_fetch_and_preflight(
-        state,
-        resolved_policy,
-        args,
-        repo_root=repo_root,
-        run_cmd_fn=run_cmd_fn,
+        approved_target_identity=approved_target_identity,
+        push_authorization_id=state.push_authorization_id,
+        push_authorization_mode=state.push_authorization_mode,
     )
     command_runner = run_cmd if run_cmd_fn is None else run_cmd_fn
     post_push_commands = (

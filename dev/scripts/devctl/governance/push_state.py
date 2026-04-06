@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import os
-import subprocess
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
@@ -19,6 +18,20 @@ from ..review_channel.remote_commit_pipeline_artifact import (
 )
 from .push_publication import build_publication_backlog_state
 from .push_policy import PushCheckpointPolicy, PushPolicy
+from .push_state_authorization import (
+    checkpoint_reason as _checkpoint_reason,
+    current_approved_target_identity as _current_approved_target_identity,
+    current_push_authorization_state as _current_push_authorization_state,
+)
+from .push_state_git import (
+    git_stdout as _git_stdout,
+    worktree_change_counts as _worktree_change_counts,
+)
+from .push_state_report import (
+    current_target_remote as _current_target_remote,
+    latest_push_report_approved_target_identity as _latest_push_report_approved_target_identity,
+    latest_push_report_state as _latest_push_report_state,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -65,6 +78,14 @@ class PushEnforcementSnapshot:
     latest_push_report_matches_current_approved_target: bool = False
     latest_push_report_matches_current_branch: bool = False
     latest_push_report_matches_current_head: bool = False
+    current_push_authorization_id: str = ""
+    current_push_authorization_mode: str = ""
+    current_push_authorization_head_commit: str = ""
+    current_push_authorization_expires_at_utc: str = ""
+    current_push_authorization_approved_target_identity: str = ""
+    current_push_authorization_matches_current_head: bool = False
+    current_push_authorization_matches_current_approved_target: bool = False
+    current_push_authorization_valid: bool = False
 
 
 def detect_push_enforcement_state(
@@ -73,23 +94,15 @@ def detect_push_enforcement_state(
     repo_root: Path = REPO_ROOT,
 ) -> dict[str, object]:
     """Return repo-owned push/checkpoint state for startup/runtime surfaces."""
-    hook_path_text = _git_stdout(repo_root, "rev-parse", "--git-path", "hooks/pre-push")
-    hook_path = Path(hook_path_text) if hook_path_text else (repo_root / ".git" / "hooks" / "pre-push")
-    current_branch = _git_stdout(repo_root, "rev-parse", "--abbrev-ref", "HEAD")
-    current_head_commit = current_head_commit_sha(repo_root=repo_root)
-    current_approved_target_identity = _current_approved_target_identity(repo_root=repo_root)
-    hook_installed = hook_path.is_file()
-    raw_guarded = hook_installed and os.access(hook_path, os.X_OK)
-    upstream_ref = current_upstream_ref(repo_root=repo_root)
-    ahead: int | None = None
-    if upstream_ref:
-        ahead_text = _git_stdout(repo_root, "rev-list", "--count", f"{upstream_ref}..HEAD")
-        ahead = int(ahead_text) if ahead_text.isdigit() else None
+    runtime = _detect_runtime_inputs(policy=policy, repo_root=repo_root)
     excluded_paths = (
         *policy.checkpoint.compatibility_projection_paths,
         *policy.checkpoint.advisory_context_paths,
     )
-    dirty_path_count, untracked_path_count = _worktree_change_counts(repo_root, exclude_paths=excluded_paths)
+    dirty_path_count, untracked_path_count = _worktree_change_counts(
+        repo_root,
+        exclude_paths=excluded_paths,
+    )
     worktree_dirty = dirty_path_count > 0
     worktree_clean = not worktree_dirty
     checkpoint_required = (
@@ -99,8 +112,8 @@ def detect_push_enforcement_state(
     safe_to_continue_editing = not checkpoint_required
     checkpoint_reason = "clean_worktree"
     receipt = lookup_push_receipt(
-        branch=current_branch,
-        head_commit=current_head_commit,
+        branch=runtime.current_branch,
+        head_commit=runtime.current_head_commit,
         repo_root=repo_root,
     )
     latest_push_report = receipt or load_latest_push_report(repo_root=repo_root) or {}
@@ -117,11 +130,14 @@ def detect_push_enforcement_state(
         latest_push_report_matches_current_approved_target,
     ) = _latest_push_report_state(
         report=latest_push_report,
-        current_branch=current_branch,
-        current_head_commit=current_head_commit,
-        current_approved_target_identity=current_approved_target_identity,
+        current_branch=runtime.current_branch,
+        current_head_commit=runtime.current_head_commit,
+        current_approved_target_identity=runtime.current_approved_target_identity,
     )
-    current_target_remote = _current_target_remote(upstream_ref=upstream_ref, default_remote=policy.default_remote)
+    current_target_remote = _current_target_remote(
+        upstream_ref=runtime.upstream_ref,
+        default_remote=policy.default_remote,
+    )
     recorded_remote_publication_for_current_target = (
         bool(push_stages.get("published_remote"))
         and latest_push_report_matches_current_branch
@@ -129,7 +145,10 @@ def detect_push_enforcement_state(
         and latest_push_report_matches_current_approved_target
         and (not latest_push_report_remote or latest_push_report_remote == current_target_remote)
     )
-    has_remote_work_to_push = not (recorded_remote_publication_for_current_target or (ahead == 0 and upstream_ref))
+    has_remote_work_to_push = not (
+        recorded_remote_publication_for_current_target
+        or (runtime.ahead_of_upstream_commits == 0 and runtime.upstream_ref)
+    )
     if checkpoint_required:
         recommended_action = "checkpoint_before_continue"
         checkpoint_reason = _checkpoint_reason(
@@ -140,27 +159,29 @@ def detect_push_enforcement_state(
     elif worktree_dirty:
         recommended_action = "commit_before_push"
         checkpoint_reason = "within_dirty_budget"
-    elif recorded_remote_publication_for_current_target or (ahead == 0 and upstream_ref):
+    elif recorded_remote_publication_for_current_target or (
+        runtime.ahead_of_upstream_commits == 0 and runtime.upstream_ref
+    ):
         recommended_action = "no_push_needed"
     else:
         recommended_action = "use_devctl_push"
     publication_backlog = build_publication_backlog_state(
-        ahead_of_upstream_commits=ahead,
+        ahead_of_upstream_commits=runtime.ahead_of_upstream_commits,
         has_remote_work_to_push=has_remote_work_to_push,
         recommend_after_ahead_commits=policy.publication.recommend_after_ahead_commits,
         urgent_after_ahead_commits=policy.publication.urgent_after_ahead_commits,
     )
     snapshot = PushEnforcementSnapshot(
-        current_branch=current_branch,
-        current_head_commit=current_head_commit,
+        current_branch=runtime.current_branch,
+        current_head_commit=runtime.current_head_commit,
         default_remote=policy.default_remote,
         development_branch=policy.development_branch,
         release_branch=policy.release_branch,
-        pre_push_hook_path=str(hook_path),
-        pre_push_hook_installed=hook_installed,
-        raw_git_push_guarded=raw_guarded,
-        upstream_ref=upstream_ref,
-        ahead_of_upstream_commits=ahead,
+        pre_push_hook_path=str(runtime.hook_path),
+        pre_push_hook_installed=runtime.hook_installed,
+        raw_git_push_guarded=runtime.raw_git_push_guarded,
+        upstream_ref=runtime.upstream_ref,
+        ahead_of_upstream_commits=runtime.ahead_of_upstream_commits,
         dirty_path_count=dirty_path_count,
         untracked_path_count=untracked_path_count,
         max_dirty_paths_before_checkpoint=policy.checkpoint.max_dirty_paths_before_checkpoint,
@@ -186,13 +207,93 @@ def detect_push_enforcement_state(
         latest_push_report_reason=str(latest_push_report.get("reason") or "").strip(),
         latest_push_report_published_remote=bool(push_stages.get("published_remote")),
         latest_push_report_post_push_green=bool(push_stages.get("post_push_green")),
-        current_approved_target_identity=current_approved_target_identity,
+        current_approved_target_identity=runtime.current_approved_target_identity,
         latest_push_report_approved_target_identity=latest_push_report_approved_target_identity,
         latest_push_report_matches_current_approved_target=latest_push_report_matches_current_approved_target,
         latest_push_report_matches_current_branch=latest_push_report_matches_current_branch,
         latest_push_report_matches_current_head=latest_push_report_matches_current_head,
+        current_push_authorization_id=runtime.current_push_authorization_id,
+        current_push_authorization_mode=runtime.current_push_authorization_mode,
+        current_push_authorization_head_commit=runtime.current_push_authorization_head_commit,
+        current_push_authorization_expires_at_utc=runtime.current_push_authorization_expires_at_utc,
+        current_push_authorization_approved_target_identity=(
+            runtime.current_push_authorization_approved_target_identity
+        ),
+        current_push_authorization_matches_current_head=(
+            runtime.current_push_authorization_matches_current_head
+        ),
+        current_push_authorization_matches_current_approved_target=(
+            runtime.current_push_authorization_matches_current_approved_target
+        ),
+        current_push_authorization_valid=runtime.current_push_authorization_valid,
     )
     return asdict(snapshot)
+
+
+@dataclass(frozen=True, slots=True)
+class _PushRuntimeInputs:
+    hook_path: Path
+    hook_installed: bool
+    raw_git_push_guarded: bool
+    current_branch: str
+    current_head_commit: str
+    current_approved_target_identity: str
+    current_push_authorization_id: str
+    current_push_authorization_mode: str
+    current_push_authorization_head_commit: str
+    current_push_authorization_expires_at_utc: str
+    current_push_authorization_approved_target_identity: str
+    current_push_authorization_matches_current_head: bool
+    current_push_authorization_matches_current_approved_target: bool
+    current_push_authorization_valid: bool
+    upstream_ref: str
+    ahead_of_upstream_commits: int | None
+
+
+def _detect_runtime_inputs(
+    *,
+    policy: PushPolicy,
+    repo_root: Path,
+) -> _PushRuntimeInputs:
+    """Return current git/push-authorization facts used by push-state detection."""
+    hook_path_text = _git_stdout(repo_root, "rev-parse", "--git-path", "hooks/pre-push")
+    hook_path = (
+        Path(hook_path_text)
+        if hook_path_text
+        else (repo_root / ".git" / "hooks" / "pre-push")
+    )
+    current_branch = _git_stdout(repo_root, "rev-parse", "--abbrev-ref", "HEAD")
+    current_head_commit = current_head_commit_sha(repo_root=repo_root)
+    current_approved_target_identity = _current_approved_target_identity(repo_root=repo_root)
+    authorization_state = _current_push_authorization_state(
+        repo_root=repo_root,
+        current_head_commit=current_head_commit,
+        current_approved_target_identity=current_approved_target_identity,
+    )
+    upstream_ref = current_upstream_ref(repo_root=repo_root)
+    ahead: int | None = None
+    if upstream_ref:
+        ahead_text = _git_stdout(repo_root, "rev-list", "--count", f"{upstream_ref}..HEAD")
+        ahead = int(ahead_text) if ahead_text.isdigit() else None
+    hook_installed = hook_path.is_file()
+    return _PushRuntimeInputs(
+        hook_path=hook_path,
+        hook_installed=hook_installed,
+        raw_git_push_guarded=hook_installed and os.access(hook_path, os.X_OK),
+        current_branch=current_branch,
+        current_head_commit=current_head_commit,
+        current_approved_target_identity=current_approved_target_identity,
+        current_push_authorization_id=authorization_state[0],
+        current_push_authorization_mode=authorization_state[1],
+        current_push_authorization_head_commit=authorization_state[2],
+        current_push_authorization_expires_at_utc=authorization_state[3],
+        current_push_authorization_approved_target_identity=authorization_state[4],
+        current_push_authorization_matches_current_head=authorization_state[5],
+        current_push_authorization_matches_current_approved_target=authorization_state[6],
+        current_push_authorization_valid=authorization_state[7],
+        upstream_ref=upstream_ref,
+        ahead_of_upstream_commits=ahead,
+    )
 
 
 def current_upstream_ref(*, repo_root: Path = REPO_ROOT) -> str:
@@ -209,132 +310,3 @@ def current_upstream_ref(*, repo_root: Path = REPO_ROOT) -> str:
 def current_head_commit_sha(*, repo_root: Path = REPO_ROOT) -> str:
     """Return the current HEAD commit SHA, or empty when unavailable."""
     return _git_stdout(repo_root, "rev-parse", "HEAD")
-
-
-def _latest_push_report_state(
-    *,
-    report: dict[str, object],
-    current_branch: str,
-    current_head_commit: str,
-    current_approved_target_identity: str,
-) -> tuple[str, str, str, str, bool, bool, bool]:
-    branch = str(report.get("branch") or "").strip()
-    remote = str(report.get("remote") or "").strip()
-    head_commit = str(report.get("head_commit") or "").strip()
-    approved_target_identity = _latest_push_report_approved_target_identity(report)
-    return (
-        branch,
-        remote,
-        head_commit,
-        approved_target_identity,
-        bool(current_branch and branch and current_branch == branch),
-        bool(current_head_commit and head_commit and current_head_commit == head_commit),
-        bool(
-            (
-                not current_approved_target_identity
-                and not approved_target_identity
-            )
-            or (
-                current_approved_target_identity
-                and approved_target_identity
-                and current_approved_target_identity == approved_target_identity
-            )
-        ),
-    )
-
-
-def _git_stdout(repo_root: Path, *cmd: str) -> str:
-    """Run a git command and return rstrip'd stdout, or empty on failure.
-
-    Uses ``rstrip()`` (not ``strip()``) to preserve leading whitespace in
-    git-status XY format lines like ``' M bridge.md'``.
-    """
-    try:
-        result = subprocess.run(
-            ["git", *cmd],
-            cwd=str(repo_root),
-            capture_output=True,
-            text=True,
-            timeout=5,
-            check=False,
-        )
-    except (OSError, subprocess.TimeoutExpired):
-        return ""
-    return result.stdout.rstrip() if result.returncode == 0 else ""
-
-
-def _worktree_change_counts(
-    repo_root: Path,
-    *,
-    exclude_paths: tuple[str, ...] = (),
-) -> tuple[int, int]:
-    status_raw = _git_stdout(repo_root, "status", "--porcelain", "--untracked-files=all")
-    if not status_raw:
-        return 0, 0
-    exclude_set = set(exclude_paths)
-    dirty_paths: set[str] = set()
-    untracked_paths: set[str] = set()
-    for line in status_raw.splitlines():
-        if not line:
-            continue
-        status = line[:2].strip()
-        path = line[3:]
-        if "->" in path:
-            path = path.split("->")[-1].strip()
-        path = path.strip()
-        if not path:
-            continue
-        if path in exclude_set:
-            continue
-        dirty_paths.add(path)
-        if status == "??":
-            untracked_paths.add(path)
-    return len(dirty_paths), len(untracked_paths)
-
-
-def _current_approved_target_identity(*, repo_root: Path) -> str:
-    pipeline = load_remote_commit_pipeline_contract(
-        output_root=repo_root / active_path_config().review_status_dir_rel
-    )
-    if pipeline is None:
-        return ""
-    return str(pipeline.approved_target_identity or "").strip()
-
-
-def _current_target_remote(*, upstream_ref: str, default_remote: str) -> str:
-    if "/" in upstream_ref:
-        return upstream_ref.split("/", 1)[0]
-    return default_remote
-
-
-def _latest_push_report_approved_target_identity(
-    report: dict[str, object],
-) -> str:
-    direct_value = str(report.get("approved_target_identity") or "").strip()
-    if direct_value:
-        return direct_value
-    typed_action = report.get("typed_action")
-    if not isinstance(typed_action, dict):
-        return ""
-    parameters = typed_action.get("parameters")
-    if not isinstance(parameters, dict):
-        return ""
-    return str(parameters.get("approved_target_identity") or "").strip()
-
-
-def _checkpoint_reason(
-    *,
-    dirty_path_count: int,
-    untracked_path_count: int,
-    policy: PushCheckpointPolicy,
-) -> str:
-    if (
-        dirty_path_count >= policy.max_dirty_paths_before_checkpoint
-        and untracked_path_count >= policy.max_untracked_paths_before_checkpoint
-    ):
-        return "dirty_and_untracked_budget_exceeded"
-    if dirty_path_count >= policy.max_dirty_paths_before_checkpoint:
-        return "dirty_path_budget_exceeded"
-    if untracked_path_count >= policy.max_untracked_paths_before_checkpoint:
-        return "untracked_path_budget_exceeded"
-    return "within_dirty_budget"

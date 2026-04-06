@@ -64,6 +64,36 @@ Evidence: `dev/scripts/devctl/review_channel/core.py`,
 `dev/active/remote_control_runtime.md`,
 `dev/scripts/README.md`.
 
+### 2026-04-05 - Dirty-tree review handoff now uses a typed review candidate instead of raw HEAD inference
+
+The review loop had become strong enough that implementer and reviewer could
+both behave correctly and still miss each other. Claude could finish a bounded
+slice in the worktree, run the right tests/guards, and update the bridge, but
+reviewer bootstrap still centered the target around
+`last_reviewed_sha..head_sha`. In a dirty-tree slice that meant Codex could
+review the committed range honestly and still miss the actual finished work.
+
+The new closure slice adds the missing handoff object directly into repo-owned
+state. `review-channel --action status` now emits a frozen
+`ReviewCandidateRecord` with candidate id, changed-path scope, worktree hash,
+check/test evidence, and validity/invalidation state. `session-resume` and
+reviewer prompt bootstrap prefer that candidate over raw commit-range review,
+status fails closed when implementer-complete bridge state has no valid
+candidate, and dirty-tree target drift invalidates the candidate until a new
+completion claim is emitted. This matters because the system now binds review
+to an explicit produced artifact instead of hoping HEAD shape and bridge prose
+still line up.
+
+Evidence: `dev/scripts/devctl/review_channel/review_candidate.py`,
+`dev/scripts/devctl/review_channel/status_projection.py`,
+`dev/scripts/devctl/commands/governance/session_resume_support.py`,
+`dev/scripts/devctl/commands/governance/session_resume_render.py`,
+`dev/scripts/devctl/review_channel/prompt_session_resume.py`,
+`dev/scripts/devctl/runtime/review_state_models.py`,
+`dev/scripts/devctl/tests/review_channel/test_review_candidate.py`,
+`dev/scripts/devctl/tests/governance/test_session_resume.py`,
+`dev/active/remote_control_runtime.md`.
+
 ### 2026-04-05 - Review-channel terminal policy and headless visibility are now explicit typed runtime truth
 
 The review-channel launch surface still had one unsafe ambiguity: local

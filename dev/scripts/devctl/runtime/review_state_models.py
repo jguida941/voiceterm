@@ -13,7 +13,10 @@ from .reviewer_runtime_models import (
     ReviewerRuntimeContract,
     ReviewerSessionOwnerState,
 )
-from .remote_commit_pipeline_models import RemoteCommitPipelineContract
+from .remote_commit_pipeline_models import (
+    PushAuthorizationRecord,
+    RemoteCommitPipelineContract,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -414,6 +417,7 @@ class ReviewState:
     packets: tuple[ReviewPacketState, ...]
     registry: AgentRegistryState
     review_candidate: ReviewCandidateRecord | None = None
+    push_authorization: PushAuthorizationRecord | None = None
     recovery_assessment: RecoveryAssessmentState | None = None
     reviewer_runtime: ReviewerRuntimeContract = field(
         default_factory=ReviewerRuntimeContract

@@ -172,9 +172,11 @@
   (`stage -> guard -> operator approval packet -> commit -> governed push ->
   recover`) needed to close the Codex sandbox-commit blocker without manual
   shell steps or prose approval. The next bounded extension in that same owner
-  lane is a typed operator `override_push` receipt for publish exceptions so
-  human authority stays inside the governed pipeline instead of falling back
-  to raw `git push`.
+  lane is one typed `PushAuthorizationRecord` keyed to exact head/check/review
+  proof plus a typed operator `override_push` receipt for publish exceptions
+  so publication authority stops reusing startup/edit gates and human
+  authority stays inside the governed pipeline instead of falling back to raw
+  `git push`.
 - Current 2026-04-04 architecture-review closure inside that same lane:
   `dev/active/remote_control_runtime.md` owns `MP-380..MP-387` for typed
   operator interaction mode, universal check/violation contracts, headless
@@ -191,7 +193,9 @@
   one typed `ReviewCandidateRecord` emitted through the review-state/status
   path, preferred by `session-resume` / reviewer bootstrap over raw
   `last_reviewed_sha..head_sha`, and invalidated fail-closed when worktree
-  drift or scope mismatch makes the candidate stale.
+  drift or scope mismatch makes the candidate stale. The remaining parity gate
+  in this lane is explicit too: implementer-complete bridge/runtime state must
+  not claim a finished slice unless a matching valid review candidate exists.
 - Current 2026-04-05 architecture-absorption follow-up inside that same lane:
   the pushed-branch review through `b819efa` narrowed the remaining separation
   to fail-closed execution gaps, not missing ideas. The active closure order is
@@ -383,6 +387,11 @@
   any launch/recover choice, while the active `MP-377` owner docs now reserve
   a governed `override_push` receipt so future human publish overrides stay
   inside canonical `vcs.push` instead of raw shell fallback.
+- Current accepted same-lane follow-up on 2026-04-06: publication authority
+  must stop reusing startup/edit receipts. The next `MP-377` closure slice is
+  one typed `PushAuthorizationRecord` bound to exact approved HEAD/check
+  bundle identity so `devctl push --execute` consumes persisted publish proof
+  instead of `startup-context` freshness or live reviewer-heartbeat state.
 - Latest same-lane closure on 2026-04-03: the workflow-enforcement parity for
   the Phase 3/4 remote-commit proof guards is now explicit.
   `.github/workflows/tooling_control_plane.yml` and

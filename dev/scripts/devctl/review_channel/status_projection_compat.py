@@ -70,5 +70,24 @@ def build_bridge_compat_projection(
     return compat
 
 
+def attach_bridge_compat_projection(
+    *,
+    result: dict[str, object],
+    inputs: CompatProjectionInputs,
+) -> dict[str, object]:
+    """Attach the `_compat` payload and return the canonical review-state dict."""
+    result["_compat"] = build_bridge_compat_projection(inputs=inputs)
+    return result
+
+
+def legacy_agent_entry(agent: object) -> dict[str, object]:
+    """Project one runtime registry row into the legacy bridge-agent shape."""
+    entry = dict(agent) if isinstance(agent, dict) else {}
+    entry["status"] = entry.get("job_state", "")
+    entry["role"] = entry.get("current_job", "")
+    entry["capabilities"] = []
+    return entry
+
+
 def _mapping(value: object) -> Mapping[str, object]:
     return value if isinstance(value, Mapping) else {}

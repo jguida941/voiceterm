@@ -183,6 +183,11 @@ def enrich_event_review_state(
     review_state["collaboration"] = asdict(collaboration)
     review_state["reviewer_runtime"] = asdict(reviewer_runtime)
     review_state["commit_pipeline"] = commit_pipeline.to_dict()
+    review_state["push_authorization"] = (
+        None
+        if commit_pipeline.push_authorization is None
+        else asdict(commit_pipeline.push_authorization)
+    )
     review_state["recovery_assessment"] = asdict(recovery_assessment)
     review_state["bridge"] = build_event_bridge_state_projection(
         review_state=review_state,
@@ -203,6 +208,7 @@ def enrich_event_review_state(
         recovery_assessment=recovery_assessment,
         attention=attention,
         commit_pipeline=commit_pipeline,
+        push_authorization=commit_pipeline.push_authorization,
         push_enforcement=push_enforcement,
         runtime_state=runtime_daemons,
         snapshot_id=snapshot_id,

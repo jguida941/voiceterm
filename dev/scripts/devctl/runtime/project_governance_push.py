@@ -52,6 +52,14 @@ class PushEnforcement:
     latest_push_report_matches_current_approved_target: bool = False
     latest_push_report_matches_current_branch: bool = False
     latest_push_report_matches_current_head: bool = False
+    current_push_authorization_id: str = ""
+    current_push_authorization_mode: str = ""
+    current_push_authorization_head_commit: str = ""
+    current_push_authorization_expires_at_utc: str = ""
+    current_push_authorization_approved_target_identity: str = ""
+    current_push_authorization_matches_current_head: bool = False
+    current_push_authorization_matches_current_approved_target: bool = False
+    current_push_authorization_valid: bool = False
 
 
 def push_enforcement_from_mapping(
@@ -152,5 +160,29 @@ def push_enforcement_from_mapping(
         ),
         latest_push_report_matches_current_head=coerce_bool(
             payload.get("latest_push_report_matches_current_head")
+        ),
+        current_push_authorization_id=coerce_string(
+            payload.get("current_push_authorization_id")
+        ),
+        current_push_authorization_mode=coerce_string(
+            payload.get("current_push_authorization_mode")
+        ),
+        current_push_authorization_head_commit=coerce_string(
+            payload.get("current_push_authorization_head_commit")
+        ),
+        current_push_authorization_expires_at_utc=coerce_string(
+            payload.get("current_push_authorization_expires_at_utc")
+        ),
+        current_push_authorization_approved_target_identity=coerce_string(
+            payload.get("current_push_authorization_approved_target_identity")
+        ),
+        current_push_authorization_matches_current_head=coerce_bool(
+            payload.get("current_push_authorization_matches_current_head")
+        ),
+        current_push_authorization_matches_current_approved_target=coerce_bool(
+            payload.get("current_push_authorization_matches_current_approved_target")
+        ),
+        current_push_authorization_valid=coerce_bool(
+            payload.get("current_push_authorization_valid")
         ),
     )

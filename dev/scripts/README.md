@@ -411,7 +411,13 @@ Portability note:
   `current_session` block in `dev/reports/review_channel/latest/review_state.json`
   and `compact.json`; prefer it for live current instruction / implementer ACK
   reads while the bridge migration remains in progress. `latest.md` renders
-  its current-session section from that typed state. `review-channel --action
+  its current-session section from that typed state. The same status refresh
+  now also emits a frozen `review_candidate` object when implementer state
+  claims a review-ready slice, including candidate id, artifact kind, changed
+  paths, worktree hash, checks run, and scope coverage. Reviewers and
+  `session-resume` should consume that candidate first for dirty-tree review,
+  and status fails closed when implementer-complete state has no valid
+  candidate or the candidate omits the instructed scope. `review-channel --action
   bridge-poll` now follows the same rule by refreshing and preferring that
   typed `review_state` projection before deciding live ACK freshness. The same
   typed `bridge` block now also carries `effective_reviewer_mode`; use that
@@ -1320,8 +1326,11 @@ Machine-first output note:
   for status inspection, and `--format bootstrap` is the canonical fresh-
   conversation starter surface for reviewer and implementer sessions. Run the
   matching role after `startup-context` to get the exact role commands,
-  authority docs, review range/current instruction, and next guard bundle from
-  repo-owned state instead of operator memory or stale bridge prose.
+  authority docs, review range/current instruction, frozen `review_candidate`
+  when dirty-tree review is ready, and next guard bundle from repo-owned state
+  instead of operator memory or stale bridge prose. Reviewer bootstrap prefers
+  that typed candidate over raw `last_reviewed_sha..head_sha` inference and
+  falls back to commit-range review only when no valid candidate exists.
 - `startup-context --repair`: repo-owned startup auto-triage/repair mode; reads typed
   `startup-context`, startup-authority, and the canonical typed review-state
   owner surfaced by `review-channel` status refresh,
@@ -1407,7 +1416,7 @@ Machine-first output note:
 | `mobile-app --action device-install --development-team <TEAM_ID> --format md` | you have a plugged-in iPhone/iPad and want devctl to attempt the real install instead of only opening Xcode | builds the signed `VoiceTermMobileApp` for `iphoneos`, installs it with `xcrun devicectl`, launches it on-device, and fails with explicit prerequisite errors when device trust or signing is not ready |
 | `ralph-status --report-dir dev/reports/ralph --with-charts --format md` | you want one current view of Ralph guardrail progress before wiring phone or PyQt controls on top | aggregates `ralph-report*.json` artifacts, prints fix/open counts plus architecture breakdowns, and writes SVG charts when `--with-charts` is enabled |
 | `controller-action --action dispatch-report-only --repo owner/repo --branch develop --dry-run --format md` | you want one guarded operator action without ad-hoc shell scripting | validates policy + mode gates and executes (or previews) bounded dispatch/pause/resume/status actions with structured output and a stable `typed_action` contract |
-| `review-channel --action status --terminal none --format md` | you need the current bridge-backed review snapshot without relaunching anything | reads the governed review-channel plan plus compatibility bridge, refreshes the governed review-channel status root (in VoiceTerm today: `dev/reports/review_channel/latest/`), emits the typed runtime participant registry plus planned-topology compatibility projection, typed `current_session` live-status state, and typed conductor visibility (`reviewer_runtime.conductor_visibility` plus reviewer `session_visibility`) for operator or tooling consumers, and fails closed when `active_dual_agent` no longer has the repo-owned conductor pair behind it |
+| `review-channel --action status --terminal none --format md` | you need the current bridge-backed review snapshot without relaunching anything | reads the governed review-channel plan plus compatibility bridge, refreshes the governed review-channel status root (in VoiceTerm today: `dev/reports/review_channel/latest/`), emits the typed runtime participant registry plus planned-topology compatibility projection, typed `current_session` live-status state, frozen `review_candidate` truth for dirty-tree review handoff, and typed conductor visibility (`reviewer_runtime.conductor_visibility` plus reviewer `session_visibility`) for operator or tooling consumers, and fails closed when `active_dual_agent` no longer has the repo-owned conductor pair behind it or implementer-complete state has no valid review candidate |
 | `review-channel --action implementer-wait --terminal none --format json` | Claude is under an explicit reviewer-owned wait state and needs to wait safely for the next Codex review/update without leaving a raw shell poller behind | polls the bridge on the normal cadence, exits immediately when reviewer-owned bridge content changes or a new instruction is already waiting, fails closed when the reviewer loop is unhealthy, times out after one hour by default, and is not a substitute for substantive `Claude Status` / `Claude Ack` updates while active work is still assigned |
 | `review-channel --action reset-implementer-state --terminal none --format md` | live status/attention says the implementer-owned bridge sections need a clean pending reset without changing reviewer instruction truth | rewrites `Claude Status`, `Claude Questions`, and `Claude Ack` to canonical pending state, refreshes the typed review-channel projection, and leaves reviewer-owned instruction / verdict fields untouched |
 | `review-channel --action promote --terminal none --format md` | the current review slice is accepted and you want the next repo-owned task queued without hand-editing the bridge | reads the configured active-plan checklist, fail-closes unless the current verdict is resolved and findings are clear, rewrites `Current Instruction For Claude`, and refreshes the latest review projections from the same derived next-step source |

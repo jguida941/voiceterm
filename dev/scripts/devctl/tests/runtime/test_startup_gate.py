@@ -19,7 +19,7 @@ def _args(command: str, *, action: str = "") -> SimpleNamespace:
 
 class StartupGateRoutingTests(unittest.TestCase):
     def test_gate_targets_only_scoped_commands(self) -> None:
-        self.assertTrue(command_requires_startup_gate(_args("push")))
+        self.assertFalse(command_requires_startup_gate(_args("push")))
         self.assertTrue(command_requires_startup_gate(_args("guard-run")))
         self.assertTrue(command_requires_startup_gate(_args("autonomy-loop")))
         self.assertTrue(command_requires_startup_gate(_args("autonomy-swarm")))
@@ -69,7 +69,7 @@ class StartupGateEnforcementTests(unittest.TestCase):
         _load_receipt,
         _authority_report,
     ) -> None:
-        message = enforce_startup_gate(_args("push"))
+        message = enforce_startup_gate(_args("guard-run"))
 
         self.assertIsNotNone(message)
         self.assertIn("Startup receipt is missing", message or "")

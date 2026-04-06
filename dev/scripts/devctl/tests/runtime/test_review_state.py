@@ -158,6 +158,44 @@ class ReviewStateTests(unittest.TestCase):
         self.assertEqual(state.review_candidate.artifact_kind, "dirty_tree")
         self.assertEqual(state.review_candidate.changed_paths, ("tracked.txt",))
 
+    def test_review_state_parses_top_level_push_authorization_record(self) -> None:
+        state = review_state_from_payload(
+            {
+                "schema_version": 1,
+                "command": "review-channel",
+                "action": "status",
+                "timestamp": "2026-04-05T00:00:00Z",
+                "ok": True,
+                "review_state": {
+                    "review": {"session_id": "push-auth-session"},
+                    "queue": {"pending_total": 0},
+                    "bridge": {"reviewer_mode": "active_dual_agent"},
+                    "push_authorization": {
+                        "authorization_id": "push-auth-123",
+                        "pipeline_id": "pipeline-123",
+                        "generation_id": "gen-123",
+                        "authorized_head_sha": "deadbeef",
+                        "approved_target_identity": "tree-receipt-123",
+                        "review_verdict": "approved",
+                        "approval_mode": "commit_pipeline_approval",
+                        "guard_action_id": "quality.guard_bundle",
+                        "guard_status": "pass",
+                        "guard_reason": "all_green",
+                    },
+                },
+            }
+        )
+
+        self.assertIsNotNone(state)
+        assert state is not None
+        assert state.push_authorization is not None
+        self.assertEqual(state.push_authorization.authorization_id, "push-auth-123")
+        self.assertEqual(state.push_authorization.authorized_head_sha, "deadbeef")
+        self.assertEqual(
+            state.push_authorization.approval_mode,
+            "commit_pipeline_approval",
+        )
+
     def test_review_state_parses_plan_review_packet_fields(self) -> None:
         state = review_state_from_payload(
             {
@@ -841,6 +879,49 @@ class ReviewStateTests(unittest.TestCase):
         self.assertEqual(packet.requested_action, "commit")
         self.assertEqual(packet.body, "-m 'fix typo'")
         self.assertEqual(packet.status, "pending")
+
+    def test_review_state_promotes_commit_pipeline_push_authorization(self) -> None:
+        state = review_state_from_payload(
+            {
+                "schema_version": 1,
+                "command": "review-channel",
+                "action": "status",
+                "timestamp": "2026-04-05T00:00:00Z",
+                "ok": True,
+                "review_state": {
+                    "review": {"session_id": "session-push-auth"},
+                    "queue": {"pending_total": 0},
+                    "bridge": {"reviewer_mode": "active_dual_agent"},
+                    "commit_pipeline": {
+                        "pipeline_id": "pipeline-123",
+                        "state": "push_pending",
+                        "commit_sha": "abc123",
+                        "approved_target_identity": "origin/main@abc123",
+                        "push_authorization": {
+                            "authorization_id": "push-auth-123",
+                            "pipeline_id": "pipeline-123",
+                            "generation_id": "gen-123",
+                            "authorized_head_sha": "abc123",
+                            "approved_target_identity": "origin/main@abc123",
+                            "review_verdict": "approved",
+                            "approval_mode": "commit_pipeline_approval",
+                            "guard_action_id": "quality.guard_bundle",
+                            "guard_status": "pass",
+                        },
+                    },
+                },
+            }
+        )
+
+        self.assertIsNotNone(state)
+        assert state is not None
+        self.assertIsNotNone(state.push_authorization)
+        assert state.push_authorization is not None
+        self.assertEqual(state.push_authorization.authorization_id, "push-auth-123")
+        self.assertEqual(
+            state.commit_pipeline.push_authorization,
+            state.push_authorization,
+        )
 
 
 if __name__ == "__main__":

@@ -404,7 +404,13 @@ Three quality layers matter in practice:
     `python3 dev/scripts/devctl.py session-resume --role <reviewer|implementer> --format bootstrap`,
     then `python3 dev/scripts/devctl.py context-graph --mode bootstrap --format md`.
     Planned lane text and typed collaboration/runtime state decide which
-    provider currently owns each role.
+    provider currently owns each role. For reviewer sessions, the bootstrap
+    packet now prefers a frozen typed `review_candidate` when a bounded slice
+    is ready only in dirty/staged state; only when no valid candidate exists
+    should review fall back to raw `last_reviewed_sha..head_sha` range
+    inspection. If implementer-complete bridge state claims a finished slice
+    without a valid candidate, treat that as a fail-closed handoff bug and
+    repair `review-channel --action status`/implementer state before review.
   - `observe_launch_state()` in `bridge_launch_control.py` uses a lightweight
     bridge-metadata + session-probe path for launch-time poll iterations
     instead of forcing the full `ReviewChannelStatusSnapshot` refresh. The

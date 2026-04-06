@@ -1,4 +1,4 @@
-"""Shared helpers that keep the governed executor module shape bounded."""
+"""Commit-readiness helpers for the governed executor."""
 
 from __future__ import annotations
 
@@ -7,24 +7,10 @@ from dataclasses import dataclass, replace
 
 from ...runtime import ActionResult
 from ...runtime.action_contracts import ActionOutcome
-from ...runtime.remote_commit_pipeline_models import RemoteCommitPipelineContract
-from ...runtime.review_state_models import ReviewPacketState
-
-
-def approved_target_identity(
-    *,
-    staged_tree_hash: str,
-    decision_packet: ReviewPacketState,
-    fallback_generation: str,
-) -> str:
-    """Build the reviewer-approved tree receipt carried into push recovery."""
-    receipt_timestamp = (
-        decision_packet.applied_at_utc
-        or decision_packet.posted_at
-        or fallback_generation
-    )
-    receipt_id = f"tree-receipt-{_safe_timestamp_token(receipt_timestamp)}"
-    return f"{receipt_id}:{staged_tree_hash}"
+from ...runtime.remote_commit_pipeline_models import (
+    PushAuthorizationRecord,
+    RemoteCommitPipelineContract,
+)
 
 
 def commit_failed_pipeline(
@@ -57,6 +43,7 @@ def commit_recorded_pipeline(
     pending_pipeline: RemoteCommitPipelineContract,
     action_id: str,
     commit_sha: str,
+    push_authorization: PushAuthorizationRecord,
     artifact_relpath: str,
     result_builder: Callable[..., ActionResult],
 ) -> RemoteCommitPipelineContract:
@@ -73,6 +60,7 @@ def commit_recorded_pipeline(
             artifact_paths=(artifact_relpath,),
         ),
         commit_sha=commit_sha,
+        push_authorization=push_authorization,
         blocked_reason="",
     )
 
@@ -153,7 +141,3 @@ def evaluate_commit_readiness(
 
 def _commit_failure_guidance() -> str:
     return "Inspect the git commit failure, repair the repo state, then recover the pipeline."
-
-
-def _safe_timestamp_token(timestamp: str) -> str:
-    return timestamp.replace("-", "").replace(":", "").replace(".", "").replace("+", "")

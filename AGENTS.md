@@ -434,9 +434,15 @@ checklist plus chat memory.
     `python3 dev/scripts/devctl.py startup-context --role reviewer --format summary`,
     then `python3 dev/scripts/devctl.py session-resume --role reviewer --format json`
     to get the typed reviewer bootstrap packet with `head_sha`,
-    `last_reviewed_sha`, current blockers, and exact next guard bundle.
-    When `head_sha != last_reviewed_sha`, the reviewer must review that
-    exact range instead of polling blindly.
+    `last_reviewed_sha`, current blockers, exact next guard bundle, and any
+    ready `review_candidate`. When a valid `review_candidate` is present,
+    the reviewer must inspect that frozen target first, including its
+    `candidate_id`, changed-path scope, and dirty-tree `worktree_hash`;
+    fall back to raw `last_reviewed_sha..head_sha` review only when no
+    candidate exists. If implementer-complete status/ACK claims a finished
+    slice but the typed state has no valid candidate, fail closed and repair
+    the handoff before review instead of inferring from bridge prose or HEAD
+    alone.
     Before any launch/recover choice, read that bootstrap packet's
     `interaction_mode` plus typed reviewer visibility. In `local_terminal`,
     prefer visible `review-channel --action launch|rollover --terminal terminal-app`;
@@ -1942,7 +1948,7 @@ Core commands:
   - Builds/updates `dev/reports/audits/RUST_AUDIT_FINDINGS.md` from Rust/Python guard failures.
   - Auto-runs when AI-guard checks fail.
   - Run manually when you want a fresh findings file or a commit-range scoped view.
-- `session-resume` (typed reviewer/implementer bootstrap packet built from `ControlPlaneReadModel` and repo artifacts; emits `SessionCachePacket` with `head_sha`, `last_reviewed_sha`, blockers, interaction mode, and key rules so fresh sessions start from typed state instead of re-reading the repo)
+- `session-resume` (typed reviewer/implementer bootstrap packet built from `ControlPlaneReadModel` and repo artifacts; emits `SessionCachePacket` with `head_sha`, `last_reviewed_sha`, optional frozen `review_candidate`, blockers, interaction mode, and key rules so fresh sessions start from typed state instead of re-reading the repo)
 - `discover` (static capability inventory of commands, guards, probes, and surfaces from existing registries; read-only, never mutates state)
 - `view` (thin presentation adapter over typed artifacts with `--surface ai|cli|phone` and `--mode slim|summary`; read-only renderer dispatch, not execution or state mutation)
 - `list`
@@ -1995,7 +2001,7 @@ Core commands:
 | `python3 dev/scripts/devctl.py autonomy-swarm --agents 10 --question-file <plan.md> --mode report-only --run-label <label> --format md` | you want one-command live swarm execution with built-in review lane and digest | runs bounded worker fanout, reserves default `AGENT-REVIEW` when possible, and auto-runs post-audit digest artifacts |
 | `python3 dev/scripts/devctl.py mutation-loop --branch develop --mode report-only --threshold 0.80 --max-attempts 3 --format md` | you want bounded mutation remediation automation with hotspot evidence | runs report/fix loop and writes actionable mutation artifacts |
 | `python3 dev/scripts/devctl.py reports-cleanup --dry-run` | hygiene warns report artifacts are stale/heavy | previews retention cleanup candidates under managed `dev/reports/**` roots |
-| `python3 dev/scripts/devctl.py session-resume --role reviewer --format bootstrap` | fresh reviewer/implementer session start or session rollover | canonical role-first bootstrap packet; use `--role reviewer` or `--role implementer` so either provider can start from the typed `head_sha`, `last_reviewed_sha`, blockers, and exact next guard bundle instead of re-reading the repo |
+| `python3 dev/scripts/devctl.py session-resume --role reviewer --format bootstrap` | fresh reviewer/implementer session start or session rollover | canonical role-first bootstrap packet; use `--role reviewer` or `--role implementer` so either provider can start from the typed `head_sha`, `last_reviewed_sha`, frozen `review_candidate` when dirty-tree review is ready, blockers, and exact next guard bundle instead of re-reading the repo |
 | `python3 dev/scripts/devctl.py security` | deps or security-sensitive code changed | catches policy/advisory issues |
 | `python3 dev/scripts/devctl.py audit-scaffold --force --yes --format md` | guard failures need a fix plan | creates one shared remediation file |
 

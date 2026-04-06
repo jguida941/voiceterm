@@ -301,7 +301,8 @@ than a freeform chat stream.
    etc.).
 2. `fact layer`: the typed receipt / packet / projection that carries the
    observed state (`action`, `reason`, `review_range`, `review_needed`,
-   `open_findings`, `recommended_command`, and similar fields).
+   `open_findings`, `recommended_command`, frozen dirty-tree
+   `review_candidate` targets, and similar fields).
 3. `summary layer`: the short human-readable explanation shown in terminal,
    chat, dashboard, or mobile views.
 
@@ -315,6 +316,11 @@ easy for a developer to answer:
 - what exact state claims were observed
 - what next command the repo requires
 - what was inferred vs observed
+
+Dirty-tree review handoff depends on that distinction. If an implementer can
+finish a bounded slice before checkpointing, the reviewer must receive a
+typed frozen `ReviewCandidateRecord` from the fact layer rather than infer the
+review target from `HEAD`/`last_reviewed_sha` plus compatibility bridge text.
 
 ## Machine-Checkable Structure First
 

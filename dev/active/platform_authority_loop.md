@@ -1671,9 +1671,10 @@ blocker or exception in plan state before skipping the declared order.
   terminal mode, and typed visibility (`conductor_visibility`,
   `session_visibility`) before any launcher or bootstrap surface chooses
   headless vs visible behavior, then regenerate the AI bootstrap surfaces from
-  that same authority. Keep explicit human publish override in this same owner
-  lane by reserving a generation-bound `override_push` receipt for canonical
-  `vcs.push`.
+  that same authority. Keep publication authority separate from that startup
+  lane: `startup-context` remains the work-start/edit gate, while canonical
+  publish proof moves through one generation-bound `PushAuthorizationRecord`
+  plus explicit human `override_push` receipt on canonical `vcs.push`.
 - 2026-04-05 repair-vs-proposal boundary correction: the latest owner review
   confirmed that this lane already has typed startup/work-intake, finding,
   review-ledger, external-finding, and quality-feedback surfaces, but it does

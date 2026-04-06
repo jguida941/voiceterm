@@ -19,7 +19,6 @@ _REVIEW_CHANNEL_GATED_ACTIONS = {"launch", "rollover"}
 _CONTROLLER_ACTION_GATED_ACTIONS = {"dispatch-report-only", "resume-loop"}
 _GATED_COMMANDS = {
     "autonomy-swarm",
-    "push",
     "guard-run",
     "sync",
     "autonomy-loop",

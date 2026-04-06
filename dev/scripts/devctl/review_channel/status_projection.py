@@ -36,7 +36,9 @@ from .status_projection_bridge_state import (
 )
 from .status_projection_compat import (
     CompatProjectionInputs,
+    attach_bridge_compat_projection,
     build_bridge_compat_projection,
+    legacy_agent_entry,
 )
 from .reviewer_runtime_contract import (
     ReviewerRuntimeInputs,
@@ -130,15 +132,10 @@ def build_bridge_review_state(
         collaboration=collaboration,
         reviewer_runtime=reviewer_runtime,
     )
-    review_candidate = build_review_candidate(
-        repo_root=context.repo_root,
+    review_candidate, candidate_error = _review_candidate_with_errors(
+        context=context,
         current_session=current_session,
         bridge_liveness=typed_bridge_liveness,
-        prior_review_state=context.prior_review_state,
-    )
-    candidate_error = review_candidate_error(
-        current_session=current_session,
-        candidate=review_candidate,
     )
     if candidate_error and candidate_error not in errors:
         errors.append(candidate_error)
@@ -161,6 +158,7 @@ def build_bridge_review_state(
         recovery_assessment=recovery_assessment,
         attention=typed_attention,
         commit_pipeline=commit_pipeline,
+        push_authorization=commit_pipeline.push_authorization,
         push_enforcement=typed_bridge_liveness.get("push_enforcement"),
         runtime_state=runtime_daemons,
         snapshot_id=snapshot_id,
@@ -182,6 +180,7 @@ def build_bridge_review_state(
         collaboration=collaboration,
         bridge=bridge_state,
         review_candidate=review_candidate,
+        push_authorization=commit_pipeline.push_authorization,
         reviewer_runtime=reviewer_runtime,
         commit_pipeline=commit_pipeline,
         attention=_build_attention(
@@ -201,36 +200,22 @@ def build_bridge_review_state(
     )
 
     result: dict[str, object] = asdict(review_state)
-
-    # Bridge-specific extras live under _compat so the canonical ReviewState
-    # payload stays exact.  Consumers should migrate to _compat access; once
-    # all callers are migrated the _compat key can be removed entirely.
-    registry_dict = result.get("registry")
-    raw_agents = registry_dict.get("agents", []) if isinstance(registry_dict, dict) else []
-    legacy_agents = []
-    for agent in raw_agents:
-        entry = dict(agent) if isinstance(agent, dict) else {}
-        entry["status"] = entry.get("job_state", "")
-        entry["role"] = entry.get("current_job", "")
-        entry["capabilities"] = []
-        legacy_agents.append(entry)
-
-    compat_inputs = CompatProjectionInputs(
-        project_id=context.project_id,
-        bridge_text=context.bridge_text,
-        bridge_liveness=typed_bridge_liveness,
-        reduced_runtime=reduced_runtime,
-        service_identity=context.service_identity,
-        attach_auth_policy=context.attach_auth_policy,
-        legacy_agents=legacy_agents,
-        current_session=result.get("current_session"),
-        bridge_state=result.get("bridge"),
-        doctor=doctor,
-        snapshot_id=snapshot_id,
+    return attach_bridge_compat_projection(
+        result=result,
+        inputs=CompatProjectionInputs(
+            project_id=context.project_id,
+            bridge_text=context.bridge_text,
+            bridge_liveness=typed_bridge_liveness,
+            reduced_runtime=reduced_runtime,
+            service_identity=context.service_identity,
+            attach_auth_policy=context.attach_auth_policy,
+            legacy_agents=_legacy_agents(result.get("registry")),
+            current_session=result.get("current_session"),
+            bridge_state=result.get("bridge"),
+            doctor=doctor,
+            snapshot_id=snapshot_id,
+        ),
     )
-    result["_compat"] = _build_compat_projection(compat_inputs)
-
-    return result
 
 
 def _projection_ok(overall_state: str, errors: tuple[str, ...]) -> bool:
@@ -246,6 +231,12 @@ def _build_compat_projection(
     inputs: CompatProjectionInputs,
 ) -> dict[str, object]:
     return build_bridge_compat_projection(inputs=inputs)
+
+
+def _legacy_agents(registry: object) -> list[dict[str, object]]:
+    registry_dict = registry if isinstance(registry, dict) else {}
+    raw_agents = registry_dict.get("agents", [])
+    return [legacy_agent_entry(agent) for agent in raw_agents]
 
 
 def _build_review_session(context: ReviewStateContext) -> ReviewSessionState:
@@ -274,6 +265,24 @@ def _build_agent_registry(
         timestamp=timestamp,
         plan_id=plan_id,
         collaboration=collaboration,
+    )
+
+
+def _review_candidate_with_errors(
+    *,
+    context: ReviewStateContext,
+    current_session,
+    bridge_liveness,
+) -> tuple[object, str]:
+    candidate = build_review_candidate(
+        repo_root=context.repo_root,
+        current_session=current_session,
+        bridge_liveness=bridge_liveness,
+        prior_review_state=context.prior_review_state,
+    )
+    return candidate, review_candidate_error(
+        current_session=current_session,
+        candidate=candidate,
     )
 
 

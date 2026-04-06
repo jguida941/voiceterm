@@ -71,13 +71,13 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-04-06T00:15:02Z`
-- Last Codex poll (Local America/New_York): `2026-04-05 20:15:02 EDT`
-- Reviewer mode: `active_dual_agent`
-- Last non-audit worktree hash: `8b09d430b0acf380904f21ccfbdc8bcc61805faf8f882db730fbc9f05a0b8434`
-- Current instruction revision: `b59ae9ced7af`
+- Last Codex poll: `2026-04-06T01:22:00Z`
+- Last Codex poll (Local America/New_York): `2026-04-05 21:22:00 EDT`
+- Reviewer mode: `single_agent`
+- Last non-audit worktree hash: `697ed328063babff658ad99bf39a49bf7936869be48152a5f037b9e3be94195f`
+- Current instruction revision: `6b6147d4567b`
 - Last checkpoint action: `reviewer-checkpoint`
-- Head at push time: `953cf94d03c99118f622fc69cfff492384bbca93`
+- Head at push time: `b0ee4761f1af39063494f0159135ac99fac7ed47`
 ## Protocol
 
 1. Claude should poll this file periodically while coding.
@@ -199,14 +199,13 @@ Codex: design this as part of the existing `ProjectGovernance` / `ReviewerGateSt
 
 ## Poll Status
 
-- Reviewer checkpoint updated through repo-owned tooling (mode: active_dual_agent; reason: review-pass; observed-tree: 8b09d430b0ac; reviewed-tree: 8b09d430b0ac; instruction-rev: b59ae9ced7af).
+- Reviewer checkpoint updated through repo-owned tooling (mode: single_agent; reason: review-pass-takeover; observed-tree: 697ed328063b; reviewed-tree: 697ed328063b; instruction-rev: 6b6147d4567b).
 
 ## Current Verdict
 
 - accepted
-- Focused reviewer-contract closure is complete for this slice.
-- Verified on the current tree with `python3 -m pytest dev/scripts/devctl/tests/governance/test_session_resume.py dev/scripts/devctl/tests/review_channel/test_bridge_render.py dev/scripts/devctl/tests/review_channel/test_prompt_support.py -q`, `python3 dev/scripts/checks/check_review_channel_bridge.py --format json`, `python3 dev/scripts/devctl.py docs-check --strict-tooling`, `python3 dev/scripts/checks/check_active_plan_sync.py`, and `python3 dev/scripts/checks/check_multi_agent_sync.py`.
-- Result: no remaining findings in the scoped reviewer bootstrap / prompt capability slice.
+- Review-candidate handoff, push authorization, governed executor modularization, discover command packaging, and runtime contract row splits are complete on the staged tree.
+- Verified with focused pytest for runtime/vcs/platform coverage, docs-check --strict-tooling, active-plan sync, platform-contracts render, and quick-guard substantive checks.
 
 ## Open Findings
 
@@ -226,7 +225,7 @@ Codex: design this as part of the existing `ProjectGovernance` / `ReviewerGateSt
 
 ## Current Instruction For Claude
 
-- hold steady while reviewer/operator handles the required checkpoint and repo-owned review-loop relaunch. Do not start a new slice until reviewer-owned sections change.
+- hold steady while Codex commits and runs the governed push for the accepted review-candidate, push-authorization, and command/package cleanup slice.
 
 ## Action Requests
 
@@ -234,15 +233,53 @@ Codex: design this as part of the existing `ProjectGovernance` / `ReviewerGateSt
 
 ## Last Reviewed Scope
 
-- dev/scripts/devctl/commands/governance/session_resume_render.py
-- dev/scripts/devctl/review_channel/bridge_projection.py
-- dev/scripts/devctl/review_channel/prompt_support.py
-- dev/scripts/devctl/tests/governance/test_session_resume.py
-- dev/scripts/devctl/tests/review_channel/test_bridge_render.py
-- dev/scripts/devctl/tests/review_channel/test_prompt_support.py
 - AGENTS.md
+- dev/active/MASTER_PLAN.md
+- dev/active/ai_governance_platform.md
+- dev/active/platform_authority_loop.md
+- dev/active/remote_commit_pipeline.md
 - dev/guides/DEVELOPMENT.md
-- dev/scripts/README.md
 - dev/history/ENGINEERING_EVOLUTION.md
-- bridge.md
+- dev/scripts/README.md
+- dev/scripts/checks/code_shape/code_shape_policy.py
+- dev/scripts/devctl/commands/discover.py
+- dev/scripts/devctl/commands/discover/__init__.py
+- dev/scripts/devctl/commands/vcs/governed_executor.py
+- dev/scripts/devctl/commands/vcs/governed_executor_authorization.py
+- dev/scripts/devctl/commands/vcs/governed_executor_field_access.py
+- dev/scripts/devctl/commands/vcs/governed_executor_packets.py
+- dev/scripts/devctl/commands/vcs/governed_executor_push_result.py
+- dev/scripts/devctl/commands/vcs/governed_executor_support.py
+- dev/scripts/devctl/commands/vcs/push.py
+- dev/scripts/devctl/commands/vcs/push_report.py
+- dev/scripts/devctl/commands/vcs/push_snapshot.py
+- dev/scripts/devctl/governance/push_state.py
+- dev/scripts/devctl/governance/push_state_authorization.py
+- dev/scripts/devctl/governance/push_state_git.py
+- dev/scripts/devctl/governance/push_state_report.py
+- dev/scripts/devctl/governance/push_state_support.py
+- dev/scripts/devctl/platform/runtime_state_contract_rows.py
+- dev/scripts/devctl/platform/runtime_state_contract_rows_pipeline.py
+- dev/scripts/devctl/platform/runtime_state_contract_rows_review.py
+- dev/scripts/devctl/platform/runtime_state_contract_rows_review_pipeline.py
+- dev/scripts/devctl/review_channel/event_projection.py
+- dev/scripts/devctl/review_channel/reviewer_runtime_doctor.py
+- dev/scripts/devctl/review_channel/status_projection.py
+- dev/scripts/devctl/review_channel/status_projection_compat.py
+- dev/scripts/devctl/runtime/__init__.py
+- dev/scripts/devctl/runtime/project_governance_push.py
+- dev/scripts/devctl/runtime/push_authorization.py
+- dev/scripts/devctl/runtime/remote_commit_pipeline_models.py
+- dev/scripts/devctl/runtime/review_state.py
+- dev/scripts/devctl/runtime/review_state_models.py
+- dev/scripts/devctl/runtime/review_state_parser.py
+- dev/scripts/devctl/runtime/startup_gate.py
+- dev/scripts/devctl/runtime/startup_push_decision.py
+- dev/scripts/devctl/tests/platform/test_platform_contracts.py
+- dev/scripts/devctl/tests/runtime/test_push_authorization.py
+- dev/scripts/devctl/tests/runtime/test_remote_commit_pipeline_phases34.py
+- dev/scripts/devctl/tests/runtime/test_review_state.py
+- dev/scripts/devctl/tests/runtime/test_startup_gate.py
+- dev/scripts/devctl/tests/vcs/test_governed_executor.py
+- dev/scripts/devctl/tests/vcs/test_push.py
 

@@ -166,6 +166,7 @@ from .review_state import (
 )
 from .remote_commit_pipeline_models import (
     CommitIntentState,
+    PushAuthorizationRecord,
     RemoteCommitPipelineContract,
     commit_intent_state_from_mapping,
     remote_commit_pipeline_contract_from_mapping,
@@ -212,6 +213,7 @@ __all__ = [
     "DocRegistryEntry",
     "ContextPackRefState",
     "CommitIntentState",
+    "PushAuthorizationRecord",
     "CONTROL_PLANE_READ_MODEL_CONTRACT_ID",
     "CONTROL_PLANE_READ_MODEL_SCHEMA_VERSION",
     "ControlPlaneReadModel",

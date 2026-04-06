@@ -27,6 +27,7 @@ from .review_state_models import (
 from .review_state_parser import review_state_from_payload
 from .remote_commit_pipeline_models import (
     CommitIntentState,
+    PushAuthorizationRecord,
     RemoteCommitPipelineContract,
 )
 
@@ -43,6 +44,7 @@ __all__ = [
     "ContextPackRefState",
     "CommitIntentState",
     "DelegatedWorkReceiptState",
+    "PushAuthorizationRecord",
     "RemoteCommitPipelineContract",
     "RecoveryAssessmentState",
     "RecoveryDecisionState",

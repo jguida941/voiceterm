@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 
 from .control_state import _int, _mapping, _string, _string_rows
+from .remote_commit_pipeline_models import push_authorization_from_mapping
 from .review_state_collaboration_parse import collaboration_state_from_payload
 from .review_state_parse_support import (
     _bool,
@@ -25,6 +26,7 @@ from .review_state_models import (
     ReviewState,
     review_candidate_from_mapping,
 )
+from .remote_commit_pipeline_models import push_authorization_from_mapping
 from .review_state_commit_pipeline_parse import commit_pipeline_from_review_payload
 from .reviewer_runtime_parser import reviewer_runtime_state_from_payload
 
@@ -110,6 +112,13 @@ def review_state_from_payload(payload: Mapping[str, object]) -> ReviewState | No
     review_candidate = review_candidate_from_mapping(
         review_payload.get("review_candidate")
     )
+    push_authorization = (
+        push_authorization_from_mapping(
+            _mapping(review_payload.get("push_authorization"))
+            or _mapping(payload.get("push_authorization"))
+        )
+        or commit_pipeline.push_authorization
+    )
 
     return ReviewState(
         schema_version=_int(payload.get("schema_version"))
@@ -159,6 +168,7 @@ def review_state_from_payload(payload: Mapping[str, object]) -> ReviewState | No
         packets=_packet_states_from_value(review_payload.get("packets")),
         registry=registry_state,
         review_candidate=review_candidate,
+        push_authorization=push_authorization,
         reviewer_runtime=reviewer_runtime_state,
         commit_pipeline=commit_pipeline,
         warnings=tuple(warnings),

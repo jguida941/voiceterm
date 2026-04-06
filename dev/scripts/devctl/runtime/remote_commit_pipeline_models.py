@@ -17,6 +17,8 @@ from .value_coercion import (
 
 REMOTE_COMMIT_PIPELINE_CONTRACT_ID = "RemoteCommitPipelineContract"
 REMOTE_COMMIT_PIPELINE_SCHEMA_VERSION = 1
+PUSH_AUTHORIZATION_CONTRACT_ID = "PushAuthorizationRecord"
+PUSH_AUTHORIZATION_SCHEMA_VERSION = 1
 
 
 @dataclass(frozen=True, slots=True)
@@ -42,6 +44,52 @@ class CommitIntentState:
         payload["push_requested"] = self.push_requested
         payload["guard_profile"] = self.guard_profile
         payload["work_intake_ref"] = self.work_intake_ref
+        return payload
+
+
+@dataclass(frozen=True, slots=True)
+class PushAuthorizationRecord:
+    """Frozen publication proof bound to one reviewed commit and check receipt."""
+
+    schema_version: int = PUSH_AUTHORIZATION_SCHEMA_VERSION
+    contract_id: str = PUSH_AUTHORIZATION_CONTRACT_ID
+    authorization_id: str = ""
+    pipeline_id: str = ""
+    generation_id: str = ""
+    authorized_head_sha: str = ""
+    approved_target_identity: str = ""
+    review_verdict: str = ""
+    approval_mode: str = ""
+    guard_action_id: str = ""
+    guard_status: str = ""
+    guard_reason: str = ""
+    request_packet_id: str = ""
+    decision_packet_id: str = ""
+    approved_by: str = ""
+    approved_at_utc: str = ""
+    expires_at_utc: str = ""
+    override_reason: str = ""
+
+    def to_dict(self) -> dict[str, object]:
+        payload: dict[str, object] = {}
+        payload["schema_version"] = self.schema_version
+        payload["contract_id"] = self.contract_id
+        payload["authorization_id"] = self.authorization_id
+        payload["pipeline_id"] = self.pipeline_id
+        payload["generation_id"] = self.generation_id
+        payload["authorized_head_sha"] = self.authorized_head_sha
+        payload["approved_target_identity"] = self.approved_target_identity
+        payload["review_verdict"] = self.review_verdict
+        payload["approval_mode"] = self.approval_mode
+        payload["guard_action_id"] = self.guard_action_id
+        payload["guard_status"] = self.guard_status
+        payload["guard_reason"] = self.guard_reason
+        payload["request_packet_id"] = self.request_packet_id
+        payload["decision_packet_id"] = self.decision_packet_id
+        payload["approved_by"] = self.approved_by
+        payload["approved_at_utc"] = self.approved_at_utc
+        payload["expires_at_utc"] = self.expires_at_utc
+        payload["override_reason"] = self.override_reason
         return payload
 
 
@@ -74,6 +122,7 @@ class RemoteCommitPipelineContract:
     generation_id: str = ""
     approval_expires_at_utc: str = ""
     approved_target_identity: str = ""
+    push_authorization: PushAuthorizationRecord | None = None
     snapshot_id: str = ""
 
     def to_dict(self) -> dict[str, object]:
@@ -109,8 +158,49 @@ class RemoteCommitPipelineContract:
         payload["generation_id"] = self.generation_id
         payload["approval_expires_at_utc"] = self.approval_expires_at_utc
         payload["approved_target_identity"] = self.approved_target_identity
+        payload["push_authorization"] = (
+            self.push_authorization.to_dict()
+            if self.push_authorization is not None
+            else None
+        )
         payload["snapshot_id"] = self.snapshot_id
         return payload
+
+
+def push_authorization_from_mapping(
+    payload: Mapping[str, object],
+) -> PushAuthorizationRecord | None:
+    """Normalize one publication-authorization mapping into the shared model."""
+    mapping = coerce_mapping(payload)
+    if not mapping:
+        return None
+    authorization_id = coerce_string(mapping.get("authorization_id"))
+    if not authorization_id:
+        return None
+    return PushAuthorizationRecord(
+        schema_version=coerce_int(mapping.get("schema_version"))
+        or PUSH_AUTHORIZATION_SCHEMA_VERSION,
+        contract_id=coerce_string(mapping.get("contract_id"))
+        or PUSH_AUTHORIZATION_CONTRACT_ID,
+        authorization_id=authorization_id,
+        pipeline_id=coerce_string(mapping.get("pipeline_id")),
+        generation_id=coerce_string(mapping.get("generation_id")),
+        authorized_head_sha=coerce_string(mapping.get("authorized_head_sha")),
+        approved_target_identity=coerce_string(
+            mapping.get("approved_target_identity")
+        ),
+        review_verdict=coerce_string(mapping.get("review_verdict")),
+        approval_mode=coerce_string(mapping.get("approval_mode")),
+        guard_action_id=coerce_string(mapping.get("guard_action_id")),
+        guard_status=coerce_string(mapping.get("guard_status")),
+        guard_reason=coerce_string(mapping.get("guard_reason")),
+        request_packet_id=coerce_string(mapping.get("request_packet_id")),
+        decision_packet_id=coerce_string(mapping.get("decision_packet_id")),
+        approved_by=coerce_string(mapping.get("approved_by")),
+        approved_at_utc=coerce_string(mapping.get("approved_at_utc")),
+        expires_at_utc=coerce_string(mapping.get("expires_at_utc")),
+        override_reason=coerce_string(mapping.get("override_reason")),
+    )
 
 
 def commit_intent_state_from_mapping(payload: Mapping[str, object]) -> CommitIntentState:
@@ -168,6 +258,9 @@ def remote_commit_pipeline_contract_from_mapping(
         approval_expires_at_utc=coerce_string(mapping.get("approval_expires_at_utc")),
         approved_target_identity=coerce_string(
             mapping.get("approved_target_identity")
+        ),
+        push_authorization=push_authorization_from_mapping(
+            coerce_mapping(mapping.get("push_authorization"))
         ),
         snapshot_id=coerce_string(mapping.get("snapshot_id")),
     )

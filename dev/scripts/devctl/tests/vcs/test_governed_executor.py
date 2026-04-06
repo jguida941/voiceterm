@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import subprocess
+from dataclasses import replace
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -212,6 +213,9 @@ def test_full_pipeline_commits_and_pushes_to_local_remote(tmp_path: Path) -> Non
     assert commit_result.ok is True
 
     committed_pipeline = executor.load_pipeline()
+    assert committed_pipeline.push_authorization is not None
+    assert committed_pipeline.push_authorization.authorized_head_sha == committed_pipeline.commit_sha
+    assert committed_pipeline.push_authorization.approval_mode == "commit_pipeline_approval"
     push_result = executor.execute(
         build_push_action(
             repo_pack_id="test-pack",
@@ -232,11 +236,243 @@ def test_full_pipeline_commits_and_pushes_to_local_remote(tmp_path: Path) -> Non
     assert remote_head == pushed_pipeline.commit_sha
 
 
-def _executor(repo_root: Path) -> GovernedVcsExecutor:
+def test_push_override_reissues_publication_authorization_through_pipeline(tmp_path: Path) -> None:
+    repo_root = _init_repo(tmp_path / "repo")
+    remote_root = tmp_path / "remote.git"
+    _run_git(remote_root.parent, "init", "--bare", str(remote_root))
+    _run_git(repo_root, "remote", "add", "origin", str(remote_root))
+    (repo_root / "tracked.txt").write_text("updated\n", encoding="utf-8")
+    executor = _executor(repo_root)
+
+    executor.execute(
+        build_stage_action(
+            repo_pack_id="test-pack",
+            paths=("tracked.txt",),
+            commit_message_draft="feat: override push auth",
+            push_requested=True,
+            guard_profile="bundle.tooling",
+            work_intake_ref="MP-377",
+        )
+    )
+    executor.record_guard_result(_passing_guard_result())
+    pipeline = executor.load_pipeline()
+    artifact_paths = resolve_artifact_paths(repo_root=repo_root)
+    post_packet(
+        repo_root=repo_root,
+        review_channel_path=repo_root / "dev/active/review_channel.md",
+        artifact_paths=artifact_paths,
+        request=build_commit_approval_request(pipeline),
+    )
+    _, decision_event = post_packet(
+        repo_root=repo_root,
+        review_channel_path=repo_root / "dev/active/review_channel.md",
+        artifact_paths=artifact_paths,
+        request=PacketPostRequest(
+            from_agent="operator",
+            to_agent="system",
+            kind=APPROVAL_PACKET_KIND,
+            summary="Approve governed commit pipeline",
+            body="Operator approved the guarded staged snapshot.",
+            requested_action="approve_commit_pipeline",
+            policy_hint="operator_approval_required",
+            approval_required=False,
+            trace_id=pipeline.pipeline_id,
+            target=PacketTargetFields.from_values(
+                target_kind="runtime",
+                target_ref=f"remote_commit_pipeline:{pipeline.pipeline_id}",
+                target_revision=pipeline.generation_id,
+            ),
+            runtime_approval=PacketRuntimeApprovalFields.from_values(
+                pipeline_generation=pipeline.generation_id,
+                staged_snapshot_hash=pipeline.intent.staged_tree_hash,
+                guard_results_summary='{"action_id": "quality.guard_bundle", "reason": "", "status": "pass"}',
+            ),
+        ),
+    )
+    transition_packet(
+        repo_root=repo_root,
+        review_channel_path=repo_root / "dev/active/review_channel.md",
+        artifact_paths=artifact_paths,
+        request=PacketTransitionRequest(
+            action="apply",
+            packet_id=str(decision_event["packet_id"]),
+            actor="operator",
+        ),
+    )
+
+    commit_result = executor.execute(
+        build_commit_action(repo_pack_id="test-pack", pipeline_id=pipeline.pipeline_id)
+    )
+    assert commit_result.ok is True
+
+    committed_pipeline = executor.load_pipeline()
+    expired_auth = replace(
+        committed_pipeline.push_authorization,
+        expires_at_utc="2026-04-01T00:00:00Z",
+    )
+    executor._persist_pipeline(
+        replace(
+            committed_pipeline,
+            state="push_blocked",
+            blocked_reason="push_authorization_expired",
+            push_authorization=expired_auth,
+        )
+    )
+    _, override_event = post_packet(
+        repo_root=repo_root,
+        review_channel_path=repo_root / "dev/active/review_channel.md",
+        artifact_paths=artifact_paths,
+        request=PacketPostRequest(
+            from_agent="operator",
+            to_agent="system",
+            kind=APPROVAL_PACKET_KIND,
+            summary="Override push authorization",
+            body="Operator approved publication of the exact already-reviewed commit.",
+            requested_action="override_push",
+            policy_hint="operator_approval_required",
+            approval_required=False,
+            trace_id=committed_pipeline.pipeline_id,
+            target=PacketTargetFields.from_values(
+                target_kind="runtime",
+                target_ref=f"remote_commit_pipeline:{committed_pipeline.pipeline_id}",
+                target_revision=committed_pipeline.approved_target_identity,
+            ),
+            runtime_approval=PacketRuntimeApprovalFields.from_values(
+                pipeline_generation=committed_pipeline.generation_id,
+                staged_snapshot_hash=committed_pipeline.intent.staged_tree_hash,
+                guard_results_summary='{"action_id": "quality.guard_bundle", "reason": "", "status": "pass"}',
+            ),
+        ),
+    )
+    transition_packet(
+        repo_root=repo_root,
+        review_channel_path=repo_root / "dev/active/review_channel.md",
+        artifact_paths=artifact_paths,
+        request=PacketTransitionRequest(
+            action="apply",
+            packet_id=str(override_event["packet_id"]),
+            actor="operator",
+        ),
+    )
+
+    push_result = executor.execute(
+        build_push_action(
+            repo_pack_id="test-pack",
+            branch="feature/pipeline-e2e",
+            remote="origin",
+            execute=True,
+            skip_preflight=True,
+            skip_post_push=False,
+            requested_by="remote_commit_pipeline",
+        )
+    )
+
+    pushed_pipeline = executor.load_pipeline()
+    assert push_result.ok is True
+    assert pushed_pipeline.push_authorization is not None
+    assert pushed_pipeline.push_authorization.approval_mode == "override_push"
+    assert pushed_pipeline.push_authorization.review_verdict == "override_push_approved"
+    assert (
+        pushed_pipeline.push_authorization.decision_packet_id
+        == str(override_event["packet_id"])
+    )
+
+
+def test_commit_does_not_reread_startup_publish_gate_after_approval(tmp_path: Path) -> None:
+    repo_root = _init_repo(tmp_path / "repo")
+    (repo_root / "tracked.txt").write_text("updated\n", encoding="utf-8")
+    startup_calls = 0
+
+    def startup_context_once(*, repo_root: Path) -> SimpleNamespace:
+        nonlocal startup_calls
+        del repo_root
+        startup_calls += 1
+        if startup_calls > 1:
+            raise AssertionError(
+                "`vcs.commit` should use pipeline proof, not live startup context."
+            )
+        return _startup_context(repo_root=Path("."))
+
+    executor = _executor(repo_root, startup_context_fn=startup_context_once)
+
+    executor.execute(
+        build_stage_action(
+            repo_pack_id="test-pack",
+            paths=("tracked.txt",),
+            commit_message_draft="feat: pipeline proof owns commit",
+            push_requested=True,
+            guard_profile="bundle.tooling",
+            work_intake_ref="MP-377",
+        )
+    )
+    executor.record_guard_result(_passing_guard_result())
+    pipeline = executor.load_pipeline()
+    artifact_paths = resolve_artifact_paths(repo_root=repo_root)
+    post_packet(
+        repo_root=repo_root,
+        review_channel_path=repo_root / "dev/active/review_channel.md",
+        artifact_paths=artifact_paths,
+        request=build_commit_approval_request(pipeline),
+    )
+    _, decision_event = post_packet(
+        repo_root=repo_root,
+        review_channel_path=repo_root / "dev/active/review_channel.md",
+        artifact_paths=artifact_paths,
+        request=PacketPostRequest(
+            from_agent="operator",
+            to_agent="system",
+            kind=APPROVAL_PACKET_KIND,
+            summary="Approve governed commit pipeline",
+            body="Operator approved the guarded staged snapshot.",
+            requested_action="approve_commit_pipeline",
+            policy_hint="operator_approval_required",
+            approval_required=False,
+            trace_id=pipeline.pipeline_id,
+            target=PacketTargetFields.from_values(
+                target_kind="runtime",
+                target_ref=f"remote_commit_pipeline:{pipeline.pipeline_id}",
+                target_revision=pipeline.generation_id,
+            ),
+            runtime_approval=PacketRuntimeApprovalFields.from_values(
+                pipeline_generation=pipeline.generation_id,
+                staged_snapshot_hash=pipeline.intent.staged_tree_hash,
+                guard_results_summary='{"action_id": "quality.guard_bundle", "reason": "", "status": "pass"}',
+            ),
+        ),
+    )
+    transition_packet(
+        repo_root=repo_root,
+        review_channel_path=repo_root / "dev/active/review_channel.md",
+        artifact_paths=artifact_paths,
+        request=PacketTransitionRequest(
+            action="apply",
+            packet_id=str(decision_event["packet_id"]),
+            actor="operator",
+        ),
+    )
+
+    commit_result = executor.execute(
+        build_commit_action(repo_pack_id="test-pack", pipeline_id=pipeline.pipeline_id)
+    )
+
+    committed_pipeline = executor.load_pipeline()
+    assert commit_result.ok is True
+    assert committed_pipeline.state == "commit_recorded"
+    assert committed_pipeline.push_authorization is not None
+    assert startup_calls == 1
+
+
+def _executor(
+    repo_root: Path,
+    *,
+    startup_context_fn=None,
+) -> GovernedVcsExecutor:
+    if startup_context_fn is None:
+        startup_context_fn = _startup_context
     return GovernedVcsExecutor(
         repo_root=repo_root,
         review_channel_path=repo_root / "dev/active/review_channel.md",
-        startup_context_fn=_startup_context,
+        startup_context_fn=startup_context_fn,
         push_policy=_push_policy(),
         build_post_push_commands_fn=lambda policy, quality_policy_path=None: [],
         refresh_projections=True,

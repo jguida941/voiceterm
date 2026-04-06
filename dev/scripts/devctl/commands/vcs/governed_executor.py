@@ -2,24 +2,17 @@
 
 from __future__ import annotations
 
-import json
 import secrets
-from collections.abc import Mapping, Sequence
+from collections.abc import Sequence
 from dataclasses import dataclass, replace
-from datetime import datetime, timezone
-from hashlib import sha256
 from pathlib import Path
 from typing import Any
 
 from ...config import REPO_ROOT
+from ...governance.push_state_support import is_expired
 from ...repo_packs import active_path_config
 from ...review_channel.event_reducer import load_or_refresh_event_bundle, refresh_event_bundle
 from ...review_channel.event_store import resolve_artifact_paths
-from ...review_channel.packet_contract import (
-    PacketPostRequest,
-    PacketRuntimeApprovalFields,
-    PacketTargetFields,
-)
 from ...review_channel.remote_commit_pipeline_artifact import (
     load_remote_commit_pipeline_contract,
     persist_remote_commit_pipeline_contract,
@@ -38,9 +31,24 @@ from ...runtime.remote_commit_pipeline_models import (
 from ...runtime.review_state_models import ReviewPacketState
 from ...runtime.startup_context import build_startup_context
 from ...runtime.vcs import run_git_capture
+from .governed_executor_authorization import (
+    approved_target_identity,
+    build_push_authorization,
+)
+from .governed_executor_field_access import (
+    bool_field,
+    field,
+    string_field,
+    string_value,
+)
+from .governed_executor_packets import (
+    approval_decision_packet,
+    build_commit_approval_request,
+    latest_matching_packet,
+)
+from .governed_executor_push_result import pipeline_push_result
 from .governed_executor_support import (
     CommitBlock,
-    approved_target_identity,
     commit_failed_pipeline,
     commit_recorded_pipeline,
     evaluate_commit_readiness,
@@ -72,6 +80,13 @@ _RECOVERABLE_PIPELINE_STATES = frozenset(
         "rejected",
         "push_blocked",
         "push_completed",
+    }
+)
+_PUSHABLE_PIPELINE_STATES = frozenset(
+    {
+        "commit_recorded",
+        "push_pending",
+        "push_blocked",
     }
 )
 
@@ -139,39 +154,6 @@ def build_recover_action(
         parameters={"strategy": strategy},
         requested_by=requested_by,
         dry_run=False,
-    )
-
-
-def build_commit_approval_request(
-    pipeline: RemoteCommitPipelineContract,
-    *,
-    expires_in_minutes: int = 30,
-) -> PacketPostRequest:
-    """Build the canonical operator approval request packet for one pipeline."""
-    return PacketPostRequest(
-        from_agent="system",
-        to_agent="operator",
-        kind=APPROVAL_PACKET_KIND,
-        summary=f"Approve governed commit pipeline `{pipeline.pipeline_id}`",
-        body=(
-            "Operator approval is required before the governed executor may "
-            "commit the staged snapshot."
-        ),
-        requested_action="approve_commit_pipeline",
-        policy_hint="operator_approval_required",
-        approval_required=True,
-        trace_id=pipeline.pipeline_id,
-        expires_in_minutes=expires_in_minutes,
-        target=PacketTargetFields.from_values(
-            target_kind="runtime",
-            target_ref=_pipeline_target_ref(pipeline),
-            target_revision=pipeline.generation_id,
-        ),
-        runtime_approval=PacketRuntimeApprovalFields.from_values(
-            pipeline_generation=pipeline.generation_id,
-            staged_snapshot_hash=pipeline.intent.staged_tree_hash,
-            guard_results_summary=_guard_results_summary(pipeline.guard_result),
-        ),
     )
 
 
@@ -255,9 +237,9 @@ class GovernedVcsExecutor:
 
     def _execute_stage(self, action: TypedAction) -> ActionResult:
         startup_context = self.startup_context_fn(repo_root=self.repo_root)
-        if _bool_field(_field(startup_context, "reviewer_gate"), "implementation_blocked"):
-            reason = _string_field(
-                _field(startup_context, "reviewer_gate"),
+        if bool_field(field(startup_context, "reviewer_gate"), "implementation_blocked"):
+            reason = string_field(
+                field(startup_context, "reviewer_gate"),
                 "implementation_block_reason",
             ) or "reviewer_gate_blocked"
             return self._result(
@@ -353,18 +335,18 @@ class GovernedVcsExecutor:
 
         pipeline_id = f"pipeline-{secrets.token_hex(6)}"
         generation_id = f"gen-{secrets.token_hex(6)}"
-        remote = _string_value(action.parameters.get("remote")) or "origin"
+        remote = string_value(action.parameters.get("remote")) or "origin"
         intent = CommitIntentState(
             staged_tree_hash=tree_hash,
             staged_path_count=len(staged_paths),
             staged_paths=tuple(staged_paths),
             diff_summary=self._staged_diff_summary(),
-            commit_message_draft=_string_value(
+            commit_message_draft=string_value(
                 action.parameters.get("commit_message_draft")
             ),
             push_requested=bool(action.parameters.get("push_requested")),
-            guard_profile=_string_value(action.parameters.get("guard_profile")),
-            work_intake_ref=_string_value(action.parameters.get("work_intake_ref")),
+            guard_profile=string_value(action.parameters.get("guard_profile")),
+            work_intake_ref=string_value(action.parameters.get("work_intake_ref")),
         )
         pipeline = RemoteCommitPipelineContract(
             pipeline_id=pipeline_id,
@@ -373,7 +355,6 @@ class GovernedVcsExecutor:
             branch=self._current_branch(),
             remote=remote,
             intent=intent,
-            reviewer_runtime_generation=_reviewer_runtime_generation(startup_context),
             blocked_reason="",
             recovery_action_allowed=RECOVER_ACTION_ID,
             generation_id=generation_id,
@@ -393,24 +374,10 @@ class GovernedVcsExecutor:
         )
 
     def _execute_commit(self, action: TypedAction) -> ActionResult:
-        startup_context = self.startup_context_fn(repo_root=self.repo_root)
-        review_gate = _field(startup_context, "reviewer_gate")
         artifact_relpath = self._pipeline_artifact_relpath()
 
-        if not _bool_field(review_gate, "review_gate_allows_push"):
-            return self._result(
-                action_id=action.action_id,
-                ok=False,
-                status=ActionOutcome.FAIL,
-                reason="review_gate_not_publish_clear",
-                operator_guidance=(
-                    "Repair the reviewer runtime or accepted verdict before "
-                    "running `vcs.commit`."
-                ),
-            )
-
         pipeline = self.load_pipeline()
-        requested_pipeline_id = _string_value(action.parameters.get("pipeline_id"))
+        requested_pipeline_id = string_value(action.parameters.get("pipeline_id"))
         if not pipeline.pipeline_id or (
             requested_pipeline_id and requested_pipeline_id != pipeline.pipeline_id
         ):
@@ -423,31 +390,10 @@ class GovernedVcsExecutor:
             )
 
         pipeline = self._sync_pipeline_approval(pipeline)
-        current_runtime_generation = _reviewer_runtime_generation(startup_context)
-        if pipeline.reviewer_runtime_generation != current_runtime_generation:
-            pipeline = replace(
-                pipeline,
-                state="push_blocked",
-                blocked_reason="reviewer_runtime_changed",
-            )
-            warnings = self._persist_pipeline(pipeline)
-            return self._result(
-                action_id=action.action_id,
-                ok=False,
-                status=ActionOutcome.FAIL,
-                reason="reviewer_runtime_changed",
-                operator_guidance=(
-                    "Recover the pipeline and request a fresh approval after "
-                    "the reviewer/runtime state stabilizes."
-                ),
-                warnings=tuple(warnings),
-                artifact_paths=(artifact_relpath,),
-            )
-
         readiness = evaluate_commit_readiness(
             pipeline=pipeline,
             current_tree_hash=self._index_tree_hash(),
-            requested_commit_message=_string_value(
+            requested_commit_message=string_value(
                 action.parameters.get("commit_message_draft")
             ),
         )
@@ -499,6 +445,13 @@ class GovernedVcsExecutor:
             pending_pipeline=commit_pending,
             action_id=action.action_id,
             commit_sha=commit_sha,
+            push_authorization=build_push_authorization(
+                pipeline=commit_pending,
+                commit_sha=commit_sha,
+                decision_packet=self._approval_decision_packet(commit_pending),
+                approval_mode="commit_pipeline_approval",
+                request_packet_id=commit_pending.approval_packet_id,
+            ),
             artifact_relpath=artifact_relpath,
             result_builder=self._result,
         )
@@ -517,8 +470,8 @@ class GovernedVcsExecutor:
         )
 
     def _execute_push(self, action: TypedAction) -> ActionResult:
-        pipeline = self.load_pipeline()
-        if pipeline.state not in {"commit_recorded", "push_pending"} or not pipeline.commit_sha:
+        pipeline = self._sync_pipeline_push_authorization(self.load_pipeline())
+        if pipeline.state not in _PUSHABLE_PIPELINE_STATES or not pipeline.commit_sha:
             return self._result(
                 action_id=action.action_id,
                 ok=False,
@@ -531,9 +484,9 @@ class GovernedVcsExecutor:
             )
 
         push_args = build_push_args(
-            remote=_string_value(action.parameters.get("remote")) or pipeline.remote,
+            remote=string_value(action.parameters.get("remote")) or pipeline.remote,
             quality_policy=(
-                _string_value(action.parameters.get("quality_policy")) or None
+                string_value(action.parameters.get("quality_policy")) or None
             ),
             execute=bool(action.parameters.get("execute", not action.dry_run)),
             skip_preflight=bool(action.parameters.get("skip_preflight")),
@@ -554,22 +507,19 @@ class GovernedVcsExecutor:
             policy=self.push_policy,
             emit_output_report=False,
             build_post_push_commands_fn=self.build_post_push_commands_fn,
-            build_startup_context_fn=self.startup_context_fn,
         )
-        push_result = _pipeline_push_result(
+        push_result = pipeline_push_result(
             action_id=action.action_id,
             report=report,
         )
-        push_report_path = _string_value(
-            _field(report, "artifacts", {})
-            if isinstance(report, dict)
-            else {}
+        push_report_path = string_value(
+            field(report, "artifacts", {}) if isinstance(report, dict) else {}
         )
         artifacts = ()
         if isinstance(report, dict):
             artifacts_dict = report.get("artifacts")
             if isinstance(artifacts_dict, dict):
-                latest_json = _string_value(artifacts_dict.get("latest_json"))
+                latest_json = string_value(artifacts_dict.get("latest_json"))
                 if latest_json:
                     artifacts = (latest_json,)
                     push_report_path = latest_json
@@ -581,7 +531,7 @@ class GovernedVcsExecutor:
             and stages.get("post_push_green")
         )
         next_state = "push_completed" if push_completed else "push_blocked"
-        blocked_reason = "" if push_completed else _string_value(report.get("reason"))
+        blocked_reason = "" if push_completed else string_value(report.get("reason"))
         updated = replace(
             pending,
             state=next_state,
@@ -606,7 +556,7 @@ class GovernedVcsExecutor:
 
     def _execute_recover(self, action: TypedAction) -> ActionResult:
         pipeline = self.load_pipeline()
-        strategy = _string_value(action.parameters.get("strategy")) or "clear"
+        strategy = string_value(action.parameters.get("strategy")) or "clear"
         force = bool(action.parameters.get("force"))
         if not force and pipeline.pipeline_id and pipeline.state not in _RECOVERABLE_PIPELINE_STATES:
             return self._result(
@@ -682,17 +632,19 @@ class GovernedVcsExecutor:
         pipeline: RemoteCommitPipelineContract,
     ) -> RemoteCommitPipelineContract:
         packets = self._event_packets()
-        request_packet = _latest_matching_packet(
+        request_packet = latest_matching_packet(
             packets,
             pipeline,
             require_apply=False,
             request_kind="request",
+            approval_packet_kind=APPROVAL_PACKET_KIND,
         )
-        decision_packet = _latest_matching_packet(
+        decision_packet = latest_matching_packet(
             packets,
             pipeline,
             require_apply=True,
             request_kind="decision",
+            approval_packet_kind=APPROVAL_PACKET_KIND,
         )
         approval_state = "not_requested"
         next_state = pipeline.state
@@ -710,7 +662,7 @@ class GovernedVcsExecutor:
             approval_expires_at_utc = (
                 decision_packet.expires_at_utc or approval_expires_at_utc
             )
-            if _is_expired(decision_packet.expires_at_utc):
+            if is_expired(decision_packet.expires_at_utc):
                 approval_state = "expired"
                 next_state = "push_blocked"
                 blocked_reason = "approval_expired"
@@ -742,6 +694,49 @@ class GovernedVcsExecutor:
             approved_target_identity=approved_identity,
             blocked_reason=blocked_reason,
         )
+
+    def _approval_decision_packet(
+        self,
+        pipeline: RemoteCommitPipelineContract,
+    ) -> ReviewPacketState:
+        return approval_decision_packet(
+            self._event_packets(),
+            pipeline,
+            approval_packet_kind=APPROVAL_PACKET_KIND,
+        )
+
+    def _sync_pipeline_push_authorization(
+        self,
+        pipeline: RemoteCommitPipelineContract,
+    ) -> RemoteCommitPipelineContract:
+        if not pipeline.commit_sha:
+            return pipeline
+        override_packet = latest_matching_packet(
+            self._event_packets(),
+            pipeline,
+            require_apply=True,
+            request_kind="override_decision",
+            approval_packet_kind=APPROVAL_PACKET_KIND,
+            allowed_target_revisions=(pipeline.approved_target_identity,),
+        )
+        if override_packet is None or is_expired(override_packet.expires_at_utc):
+            return pipeline
+        authorization = build_push_authorization(
+            pipeline=pipeline,
+            commit_sha=pipeline.commit_sha,
+            decision_packet=override_packet,
+            approval_mode="override_push",
+            override_reason=string_value(override_packet.summary)
+            or string_value(override_packet.body),
+        )
+        if pipeline.push_authorization == authorization:
+            return pipeline
+        updated = replace(
+            pipeline,
+            push_authorization=authorization,
+        )
+        self._persist_pipeline(updated)
+        return updated
 
     def _persist_pipeline(self, pipeline: RemoteCommitPipelineContract) -> list[str]:
         persist_remote_commit_pipeline_contract(pipeline, output_root=self.projections_root)
@@ -882,131 +877,6 @@ class GovernedVcsExecutor:
         )
 
 
-def _pipeline_push_result(
-    *,
-    action_id: str,
-    report: Mapping[str, object],
-) -> ActionResult:
-    stages = _mapping(report.get("push_stages"))
-    published_remote = bool(stages.get("published_remote"))
-    post_push_green = bool(stages.get("post_push_green"))
-    if published_remote and post_push_green:
-        return ActionResult(
-            schema_version=ACTION_RESULT_SCHEMA_VERSION,
-            contract_id=ACTION_RESULT_CONTRACT_ID,
-            action_id=action_id,
-            ok=True,
-            status=ActionOutcome.PASS,
-            reason="push_completed",
-            operator_guidance="Remote publication and post-push validation completed.",
-        )
-    if published_remote:
-        return ActionResult(
-            schema_version=ACTION_RESULT_SCHEMA_VERSION,
-            contract_id=ACTION_RESULT_CONTRACT_ID,
-            action_id=action_id,
-            ok=False,
-            status=ActionOutcome.FAIL,
-            reason=_string_value(report.get("reason")) or "post_push_incomplete",
-            retryable=True,
-            partial_progress=True,
-            operator_guidance=(
-                "Remote publication succeeded, but post-push validation is not green yet."
-            ),
-        )
-    return ActionResult(
-        schema_version=ACTION_RESULT_SCHEMA_VERSION,
-        contract_id=ACTION_RESULT_CONTRACT_ID,
-        action_id=action_id,
-        ok=False,
-        status=ActionOutcome.FAIL,
-        reason=_string_value(report.get("reason")) or "push_failed",
-        retryable=True,
-        operator_guidance=_string_value(
-            _mapping(report.get("action_result")).get("operator_guidance")
-        )
-        or "Inspect the push failure and retry through the governed path.",
-    )
-
-
-def _latest_matching_packet(
-    packets: Sequence[ReviewPacketState],
-    pipeline: RemoteCommitPipelineContract,
-    *,
-    require_apply: bool,
-    request_kind: str,
-) -> ReviewPacketState | None:
-    matches: list[ReviewPacketState] = []
-    for packet in packets:
-        if packet.kind != APPROVAL_PACKET_KIND:
-            continue
-        if packet.target_kind != "runtime":
-            continue
-        if packet.target_ref != _pipeline_target_ref(pipeline):
-            continue
-        if packet.pipeline_generation != pipeline.generation_id:
-            continue
-        if packet.staged_snapshot_hash != pipeline.intent.staged_tree_hash:
-            continue
-        if packet.target_revision not in {"", pipeline.generation_id, pipeline.intent.staged_tree_hash}:
-            continue
-        if request_kind == "request" and not packet.approval_required:
-            continue
-        if request_kind == "decision" and packet.requested_action not in {
-            "approve_commit_pipeline",
-            "reject_commit_pipeline",
-        }:
-            continue
-        if require_apply and packet.status != "applied":
-            continue
-        matches.append(packet)
-    if not matches:
-        return None
-    matches.sort(
-        key=lambda packet: (
-            packet.applied_at_utc or "",
-            packet.posted_at or "",
-            packet.latest_event_id or "",
-        )
-    )
-    return matches[-1]
-
-
-def _pipeline_target_ref(pipeline: RemoteCommitPipelineContract) -> str:
-    return f"remote_commit_pipeline:{pipeline.pipeline_id}"
-def _guard_results_summary(result: ActionResult | None) -> str:
-    if result is None:
-        return ""
-    payload = {
-        "action_id": result.action_id,
-        "status": result.status,
-        "reason": result.reason,
-    }
-    return json.dumps(payload, sort_keys=True)
-
-
-def _reviewer_runtime_generation(startup_context: object) -> str:
-    reviewer_gate = _field(startup_context, "reviewer_gate")
-    payload = {
-        "reviewer_mode": _string_field(reviewer_gate, "reviewer_mode"),
-        "effective_reviewer_mode": _string_field(
-            reviewer_gate,
-            "effective_reviewer_mode",
-        ),
-        "review_gate_allows_push": _bool_field(
-            reviewer_gate,
-            "review_gate_allows_push",
-        ),
-        "implementation_blocked": _bool_field(
-            reviewer_gate,
-            "implementation_blocked",
-        ),
-        "advisory_action": _string_field(startup_context, "advisory_action"),
-        "advisory_reason": _string_field(startup_context, "advisory_reason"),
-    }
-    return sha256(json.dumps(payload, sort_keys=True).encode("utf-8")).hexdigest()[:12]
-
-
 def _ignored_prefixes() -> tuple[str, ...]:
     config = active_path_config()
     prefixes = [
@@ -1031,20 +901,12 @@ def _normalize_paths(value: object) -> list[str]:
         return []
     paths: list[str] = []
     for item in value:
-        text = _string_value(item)
+        text = string_value(item)
         if text:
             paths.append(text)
     return paths
 
 
-def _is_expired(timestamp: str) -> bool:
-    if not timestamp:
-        return False
-    try:
-        parsed = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
-    except ValueError:
-        return False
-    return parsed <= datetime.now(timezone.utc)
 
 
 def _repo_relpath(path: Path, *, repo_root: Path) -> str:
@@ -1052,30 +914,3 @@ def _repo_relpath(path: Path, *, repo_root: Path) -> str:
         return str(path.resolve().relative_to(repo_root.resolve()))
     except ValueError:
         return str(path.resolve())
-
-
-def _field(value: object, key: str, default: object = None) -> object:
-    if isinstance(value, Mapping):
-        return value.get(key, default)
-    return getattr(value, key, default)
-
-
-def _mapping(value: object) -> Mapping[str, object]:
-    return value if isinstance(value, Mapping) else {}
-
-
-def _string_value(value: object) -> str:
-    return str(value or "").strip()
-
-
-def _string_field(value: object, key: str) -> str:
-    return _string_value(_field(value, key, ""))
-
-
-def _bool_field(value: object, key: str) -> bool:
-    raw = _field(value, key, False)
-    if isinstance(raw, bool):
-        return raw
-    if isinstance(raw, str):
-        return raw.strip().lower() in {"1", "true", "yes", "on"}
-    return bool(raw)

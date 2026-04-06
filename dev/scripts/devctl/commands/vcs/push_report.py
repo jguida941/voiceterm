@@ -51,6 +51,8 @@ class PushReportInputs:
     errors: list[str]
     artifact_path: str = ""
     approved_target_identity: str = ""
+    push_authorization_id: str = ""
+    push_authorization_mode: str = ""
 
 
 def build_push_report(inputs: PushReportInputs) -> dict[str, Any]:
@@ -84,6 +86,10 @@ def build_push_report(inputs: PushReportInputs) -> dict[str, Any]:
     report["errors"] = inputs.errors
     if inputs.approved_target_identity:
         report["approved_target_identity"] = inputs.approved_target_identity
+    if inputs.push_authorization_id:
+        report["push_authorization_id"] = inputs.push_authorization_id
+    if inputs.push_authorization_mode:
+        report["push_authorization_mode"] = inputs.push_authorization_mode
     if inputs.artifact_path:
         report["artifacts"] = {"latest_json": inputs.artifact_path}
     return report
@@ -101,6 +107,14 @@ def render_push_report(report: dict[str, Any]) -> str:
     if report.get("approved_target_identity"):
         lines.append(
             f"- approved_target_identity: {report.get('approved_target_identity')}"
+        )
+    if report.get("push_authorization_id"):
+        lines.append(
+            f"- push_authorization_id: {report.get('push_authorization_id')}"
+        )
+    if report.get("push_authorization_mode"):
+        lines.append(
+            f"- push_authorization_mode: {report.get('push_authorization_mode')}"
         )
     lines.append(f"- execute: {report.get('execute')}")
     lines.append(f"- policy_path: {report.get('policy_path')}")
