@@ -71,13 +71,13 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-04-06T01:30:03Z`
-- Last Codex poll (Local America/New_York): `2026-04-05 21:30:03 EDT`
+- Last Codex poll: `2026-04-06T01:42:43Z`
+- Last Codex poll (Local America/New_York): `2026-04-05 21:42:43 EDT`
 - Reviewer mode: `single_agent`
-- Last non-audit worktree hash: `c6b1d2c936d216beeb7441706587beed0db45db1190a4bc98cc2c37a95e0e093`
-- Current instruction revision: `0b75e7c096e0`
+- Last non-audit worktree hash: `c764c2157c734730831eb3d93356d2c2280ec0c5c655f70539ba1b88e7ab0dda`
+- Current instruction revision: `91fdbf4ac84a`
 - Last checkpoint action: `reviewer-checkpoint`
-- Head at push time: `b81bbd4444fb55fd2203ab7bf9a2ae206b33d69e`
+- Head at push time: `dfa82fc12e4377bfdbea6a7aab2a206e732f74cc`
 ## Protocol
 
 1. Claude should poll this file periodically while coding.
@@ -199,13 +199,13 @@ Codex: design this as part of the existing `ProjectGovernance` / `ReviewerGateSt
 
 ## Poll Status
 
-- Reviewer checkpoint updated through repo-owned tooling (mode: single_agent; reason: review-pass-takeover; observed-tree: c6b1d2c936d2; reviewed-tree: c6b1d2c936d2; instruction-rev: 0b75e7c096e0).
+- Reviewer checkpoint updated through repo-owned tooling (mode: single_agent; reason: review-pass-takeover; observed-tree: c764c2157c73; reviewed-tree: c764c2157c73; instruction-rev: 91fdbf4ac84a).
 
 ## Current Verdict
 
 - accepted
-- Review-candidate handoff, push authorization, governed executor modularization, discover command packaging, runtime contract row splits, and reviewer-doctor consistency closure are complete on the staged tree.
-- Verified with focused pytest for runtime/vcs/platform/review-channel coverage, docs-check --strict-tooling, active-plan sync, platform-contracts render, and check_review_surface_consistency.
+- Review-candidate handoff, push authorization, governed executor modularization, discover command packaging, runtime contract row splits, reviewer-doctor consistency closure, and commands-root compatibility-shim layout reduction are complete on the staged tree.
+- Verified with focused pytest for reporting/release/runtime/review-channel coverage, check_package_layout --fail-on-baseline-debt --baseline-debt-root dev/scripts/devctl/commands, compileall for moved command modules, docs-check --strict-tooling, active-plan sync, platform-contracts render, and check_review_surface_consistency.
 
 ## Open Findings
 
@@ -225,7 +225,7 @@ Codex: design this as part of the existing `ProjectGovernance` / `ReviewerGateSt
 
 ## Current Instruction For Claude
 
-- hold steady while Codex commits and runs the governed push for the current review-candidate, push-authorization, command/package cleanup, and reviewer-doctor consistency slice.
+- hold steady while Codex commits and runs the governed push for the current review-candidate, reviewer-doctor consistency, and commands-root layout-fix slice.
 
 ## Action Requests
 
@@ -235,16 +235,17 @@ Codex: design this as part of the existing `ProjectGovernance` / `ReviewerGateSt
 
 - AGENTS.md plus dev/active/MASTER_PLAN.md, dev/active/ai_governance_platform.md, dev/active/platform_authority_loop.md, dev/active/remote_commit_pipeline.md
 - dev/guides/DEVELOPMENT.md plus dev/history/ENGINEERING_EVOLUTION.md and dev/scripts/README.md
-- dev/scripts/checks/code_shape/code_shape_policy.py plus check_review_surface_consistency.py
+- dev/scripts/checks/code_shape/code_shape_policy.py plus check_review_surface_consistency.py and check_package_layout.py
 - dev/scripts/devctl/commands/discover.py plus dev/scripts/devctl/commands/discover/__init__.py
 - dev/scripts/devctl/commands/vcs/governed_executor.py plus governed_executor_support.py
 - dev/scripts/devctl/commands/vcs/governed_executor_authorization.py, governed_executor_field_access.py, governed_executor_packets.py, governed_executor_push_result.py
 - dev/scripts/devctl/commands/vcs/push.py plus push_report.py and push_snapshot.py
+- dev/scripts/devctl/commands/report.py, status.py, orchestrate_status.py, auto_mode_status.py, ship.py, review_channel_bridge_render.py, review_channel_bridge_render_sections.py, review_channel_event_handler.py compatibility shims
+- dev/scripts/devctl/commands/reporting/__init__.py plus reporting/auto_mode_status.py, reporting/status.py, reporting/report.py, reporting/orchestrate_status.py
+- dev/scripts/devctl/commands/release/ship.py plus release/ship_common.py and release/ship_steps.py
+- dev/scripts/devctl/commands/review_channel/bridge_render.py, bridge_render_sections.py, event_handler.py, event_projection.py, reviewer_runtime_doctor.py, status_projection.py, status_projection_compat.py
 - dev/scripts/devctl/governance/push_state.py plus push_state_support.py, push_state_authorization.py, push_state_git.py, push_state_report.py
 - dev/scripts/devctl/platform/runtime_state_contract_rows.py plus runtime_state_contract_rows_review.py, runtime_state_contract_rows_pipeline.py, runtime_state_contract_rows_review_pipeline.py
-- dev/scripts/devctl/review_channel/event_projection.py plus reviewer_runtime_doctor.py, status_projection.py, status_projection_compat.py
-- dev/scripts/devctl/runtime/__init__.py plus project_governance_push.py and push_authorization.py
-- dev/scripts/devctl/runtime/remote_commit_pipeline_models.py plus review_state.py, review_state_models.py, review_state_parser.py
-- dev/scripts/devctl/runtime/startup_gate.py plus startup_push_decision.py
-- dev/scripts/devctl/tests/platform/test_platform_contracts.py plus runtime/vcs/review-channel regression suites for push authorization, remote commit phases, review state, startup gate, governed executor, push, doctor, and review-surface consistency
+- dev/scripts/devctl/runtime/__init__.py plus project_governance_push.py, push_authorization.py, remote_commit_pipeline_models.py, review_state.py, review_state_models.py, review_state_parser.py, startup_gate.py, startup_push_decision.py
+- dev/scripts/devctl/tests/platform/test_platform_contracts.py plus runtime/vcs/review-channel/reporting/release regression suites for push authorization, remote commit phases, review state, startup gate, governed executor, push, doctor, review-surface consistency, status, report, orchestrate-status, auto-mode, and ship
 
