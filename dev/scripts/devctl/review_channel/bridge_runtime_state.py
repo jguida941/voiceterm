@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from .attention import derive_bridge_attention
-from .turn_authority import attention_block_detail, is_attention_launch_blocked
+from .turn_authority_helpers import attention_block_detail, is_attention_launch_blocked
 
 
 @dataclass(frozen=True)

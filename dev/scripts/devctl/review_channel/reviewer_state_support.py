@@ -10,6 +10,15 @@ from pathlib import Path
 from typing import Iterable
 
 from ..common import display_path
+from .reviewer_state_normalize import (
+    current_instruction_body_from_bridge_text as _current_instruction_body_from_bridge_text,
+    instruction_revision as _instruction_revision,
+    normalize_instruction_body as _normalize_instruction_body,
+    normalize_open_findings_for_live_state as _normalize_open_findings_for_live_state,
+    prune_resolved_open_findings as _prune_resolved_open_findings,
+    split_markdown_items as _split_markdown_items,
+    is_ack_stale_finding as _is_ack_stale_finding,
+)
 from .heartbeat import (
     CURRENT_INSTRUCTION_REVISION_RE,
     HEAD_AT_PUSH_TIME_RE,
@@ -285,93 +294,3 @@ def validate_reviewer_checkpoint_sections(
             )
 
 
-def _current_instruction_body_from_bridge_text(bridge_text: str) -> str:
-    match = re.search(
-        SECTION_RE_TEMPLATE.format(
-            heading=re.escape("Current Instruction For Claude"),
-        ),
-        bridge_text,
-        re.MULTILINE | re.DOTALL,
-    )
-    if match is None:
-        return ""
-    return _normalize_instruction_body(match.group(2))
-
-
-def _normalize_instruction_body(text: str) -> str:
-    lines = [line.rstrip() for line in text.splitlines()]
-    normalized = "\n".join(lines).strip()
-    return normalized
-
-
-def _instruction_revision(text: str) -> str:
-    normalized = text.strip()
-    if not normalized:
-        return ""
-    return hashlib.sha256(normalized.encode("utf-8")).hexdigest()[:12]
-
-
-def _normalize_open_findings_for_live_state(bridge_text: str) -> str:
-    """Drop stale ACK-mismatch findings once the live ACK is current."""
-    snapshot = extract_bridge_snapshot(bridge_text)
-    open_findings = snapshot.sections.get(_OPEN_FINDINGS_HEADING, "").strip()
-    if not open_findings:
-        return bridge_text
-    liveness = summarize_bridge_liveness(snapshot)
-    normalized_findings = _prune_resolved_open_findings(
-        open_findings=open_findings,
-        claude_ack_current=liveness.claude_ack_current,
-    )
-    if normalized_findings == open_findings:
-        return bridge_text
-    return _replace_section(
-        bridge_text,
-        heading=_OPEN_FINDINGS_HEADING,
-        body=normalized_findings,
-    )
-
-
-def _prune_resolved_open_findings(
-    *,
-    open_findings: str,
-    claude_ack_current: bool,
-) -> str:
-    if not claude_ack_current:
-        return open_findings
-    items = _split_markdown_items(open_findings)
-    kept = [item for item in items if not _is_ack_stale_finding(item)]
-    if not kept:
-        return "- none"
-    return "\n".join(kept)
-
-
-def _split_markdown_items(text: str) -> list[str]:
-    """Split a markdown list body into top-level bullet blocks."""
-    lines = text.splitlines()
-    if not any(line.lstrip().startswith("- ") for line in lines):
-        return [text.strip()] if text.strip() else []
-    items: list[list[str]] = []
-    current: list[str] = []
-    for line in lines:
-        if line.lstrip().startswith("- "):
-            if current:
-                items.append(current)
-            current = [line]
-            continue
-        if current:
-            current.append(line)
-    if current:
-        items.append(current)
-    return ["\n".join(block).strip() for block in items if "\n".join(block).strip()]
-
-
-def _is_ack_stale_finding(item: str) -> bool:
-    lower = item.lower()
-    if "claude ack" not in lower:
-        return False
-    return (
-        "stale" in lower
-        or "does not match" in lower
-        or "instruction revision" in lower
-        or "instruction-rev" in lower
-    )

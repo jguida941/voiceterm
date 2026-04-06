@@ -319,12 +319,6 @@ PATH_POLICY_OVERRIDES: dict[str, ShapePolicy] = {
         oversize_growth_limit=35,
         hard_lock_growth_limit=0,
     ),
-    "dev/scripts/devctl/review_channel/state.py": ShapePolicy(
-        soft_limit=325,
-        hard_limit=425,
-        oversize_growth_limit=30,
-        hard_lock_growth_limit=0,
-    ),
     "app/operator_console/state/activity/activity_reports.py": ShapePolicy(
         soft_limit=675,
         hard_limit=750,

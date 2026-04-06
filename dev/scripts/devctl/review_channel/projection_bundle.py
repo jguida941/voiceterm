@@ -6,17 +6,9 @@ import json
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
-from .attach_auth_render import append_attach_auth_policy_markdown
-from .context_refs import (
-    context_pack_ref_summary,
-    normalize_context_pack_refs,
-)
-from .current_session_projection import (
-    append_current_session_markdown,
-    current_focus_line,
-)
-from .doctor_markdown import append_doctor_markdown
-from .projection_markdown import append_push_markdown
+from .context_refs import normalize_context_pack_refs
+from .current_session_projection import current_focus_line
+from .projection_bundle_markdown import render_latest_markdown
 from .projection_observation import build_observation_projection
 
 
@@ -71,7 +63,7 @@ def write_projection_bundle(
     }
     if isinstance(full_extras, dict):
         full.update(full_extras)
-    latest_markdown = _render_latest_markdown(review_state, agent_registry)
+    latest_markdown = render_latest_markdown(review_state, agent_registry)
 
     registry_dir = output_root / "registry"
     registry_dir.mkdir(parents=True, exist_ok=True)
@@ -204,189 +196,3 @@ def _render_trace_projection(trace_events: list[dict[str, object]]) -> str:
     for event in trace_events:
         lines.append(json.dumps(event, sort_keys=True))
     return "\n".join(lines) + ("\n" if lines else "")
-
-
-def _render_latest_markdown(
-    review_state: dict[str, object],
-    agent_registry: dict[str, object],
-) -> str:
-    queue = review_state.get("queue", {})
-    bridge = review_state.get("bridge", {})
-    current_session = review_state.get("current_session", {})
-    review_candidate = review_state.get("review_candidate", {})
-    md_compat = review_state.get("_compat") or {}
-    runtime = md_compat.get("runtime", {})
-    service_identity = md_compat.get("service_identity", {})
-    attach_auth_policy = md_compat.get("attach_auth_policy", {})
-    planned_topology = md_compat.get("planned_topology", {})
-    push_enforcement = md_compat.get("push_enforcement", {})
-    push_decision = md_compat.get("push_decision", {})
-    doctor = md_compat.get("doctor", {})
-    agents = agent_registry.get("agents", [])
-    packets = review_state.get("packets", [])
-    lines = ["# review-channel status", ""]
-    lines.append(f"- timestamp: {review_state.get('timestamp')}")
-    lines.append(f"- ok: {review_state.get('ok')}")
-    lines.append(f"- pending_total: {queue.get('pending_total')}")
-    lines.append(f"- stale_packet_count: {queue.get('stale_packet_count')}")
-    lines.append(
-        f"- last_codex_poll_utc: {bridge.get('last_codex_poll_utc') or 'n/a'}"
-    )
-    lines.append(
-        f"- last_worktree_hash: {bridge.get('last_worktree_hash') or 'n/a'}"
-    )
-    reviewed_hash_current = bridge.get("reviewed_hash_current")
-    if reviewed_hash_current is not None:
-        lines.append(f"- reviewed_hash_current: {reviewed_hash_current}")
-    if isinstance(service_identity, dict):
-        lines.append("")
-        lines.append("## Service Identity")
-        lines.append(f"- service_id: {service_identity.get('service_id') or 'n/a'}")
-        lines.append(f"- project_id: {service_identity.get('project_id') or 'n/a'}")
-        lines.append(f"- repo_root: {service_identity.get('repo_root') or 'n/a'}")
-        lines.append(
-            f"- worktree_root: {service_identity.get('worktree_root') or 'n/a'}"
-        )
-        lines.append(f"- bridge_path: {service_identity.get('bridge_path') or 'n/a'}")
-        lines.append(
-            "- review_channel_path: "
-            f"{service_identity.get('review_channel_path') or 'n/a'}"
-        )
-        lines.append(f"- status_root: {service_identity.get('status_root') or 'n/a'}")
-    append_attach_auth_policy_markdown(lines, attach_auth_policy)
-    _append_runtime_markdown(lines, runtime)
-    append_doctor_markdown(lines, doctor)
-    append_push_markdown(lines, push_enforcement, push_decision)
-    append_current_session_markdown(lines, current_session)
-    _append_review_candidate_markdown(lines, review_candidate)
-    lines.append("")
-    lines.append("## Current Instruction")
-    lines.append(current_focus_line(review_state))
-    derived_next_instruction = queue.get("derived_next_instruction")
-    derived_source = queue.get("derived_next_instruction_source")
-    if derived_next_instruction:
-        lines.append("")
-        lines.append("## Derived Next Instruction")
-        lines.append(str(derived_next_instruction))
-        if isinstance(derived_source, dict):
-            lines.append(
-                f"- source: {derived_source.get('source_path') or 'unknown'}"
-            )
-            if derived_source.get("phase_heading"):
-                lines.append(f"- phase: {derived_source['phase_heading']}")
-    _append_planned_topology_markdown(lines, planned_topology)
-    lines.append("")
-    lines.append("## Agents")
-    if isinstance(agents, list):
-        for agent in agents:
-            if not isinstance(agent, dict):
-                continue
-            lines.append(
-                f"- {agent.get('agent_id')}: {agent.get('job_state')} | "
-                f"{agent.get('lane_title')} | {agent.get('branch') or 'n/a'}"
-            )
-    if isinstance(packets, list) and packets:
-        lines.append("")
-        lines.append("## Packets")
-        for packet in packets[:5]:
-            if not isinstance(packet, dict):
-                continue
-            summary = (
-                f"- {packet.get('packet_id')}: {packet.get('status')} | "
-                f"{packet.get('from_agent')} -> {packet.get('to_agent')} | "
-                f"{packet.get('summary')}"
-            )
-            pack_kinds = context_pack_ref_summary(packet.get("context_pack_refs"))
-            if pack_kinds:
-                summary += f" | packs: {pack_kinds}"
-            lines.append(summary)
-    return "\n".join(lines)
-
-
-def _append_review_candidate_markdown(
-    lines: list[str],
-    review_candidate: object,
-) -> None:
-    if not isinstance(review_candidate, dict):
-        return
-    candidate_id = str(review_candidate.get("candidate_id") or "").strip()
-    if not candidate_id:
-        return
-    lines.append("")
-    lines.append("## Review Candidate")
-    lines.append(f"- candidate_id: {candidate_id}")
-    lines.append(
-        f"- artifact_kind: {review_candidate.get('artifact_kind') or 'n/a'}"
-    )
-    lines.append(f"- valid: {bool(review_candidate.get('valid'))}")
-    lines.append(
-        f"- ready_for_review: {bool(review_candidate.get('ready_for_review'))}"
-    )
-    lines.append(
-        f"- worktree_hash: {review_candidate.get('worktree_hash') or 'n/a'}"
-    )
-    changed_paths = review_candidate.get("changed_paths")
-    if isinstance(changed_paths, list) and changed_paths:
-        lines.append("- changed_paths:")
-        for path in changed_paths[:8]:
-            lines.append(f"  - {path}")
-    missing_scope_paths = review_candidate.get("missing_scope_paths")
-    if isinstance(missing_scope_paths, list) and missing_scope_paths:
-        lines.append("- missing_scope_paths:")
-        for path in missing_scope_paths[:8]:
-            lines.append(f"  - {path}")
-    if review_candidate.get("invalidation_reason"):
-        lines.append(
-            "- invalidation_reason: "
-            f"{review_candidate.get('invalidation_reason')}"
-        )
-
-
-def _append_runtime_markdown(lines: list[str], runtime: object) -> None:
-    if not isinstance(runtime, dict):
-        return
-    daemons = runtime.get("daemons")
-    lines.append("")
-    lines.append("## Runtime")
-    lines.append(f"- active_daemons: {runtime.get('active_daemons') or 0}")
-    lines.append(
-        f"- last_daemon_event_utc: {runtime.get('last_daemon_event_utc') or 'n/a'}"
-    )
-    if not isinstance(daemons, dict):
-        return
-    for daemon_kind in ("publisher", "reviewer_supervisor"):
-        daemon_state = daemons.get(daemon_kind)
-        if not isinstance(daemon_state, dict):
-            continue
-        lines.append(
-            f"- {daemon_kind}: "
-            f"running={bool(daemon_state.get('running'))} "
-            f"pid={int(daemon_state.get('pid', 0) or 0)} "
-            f"snapshots={int(daemon_state.get('snapshots_emitted', 0) or 0)} "
-            f"last_heartbeat_utc={daemon_state.get('last_heartbeat_utc') or 'n/a'} "
-            f"stop_reason={daemon_state.get('stop_reason') or 'n/a'}"
-        )
-
-
-def _append_planned_topology_markdown(
-    lines: list[str],
-    planned_topology: object,
-) -> None:
-    if not isinstance(planned_topology, dict):
-        return
-    providers = planned_topology.get("providers")
-    if not isinstance(providers, (list, tuple)) or not providers:
-        return
-    lines.append("")
-    lines.append("## Planned Topology")
-    for provider in providers:
-        if not isinstance(provider, dict):
-            continue
-        requested_budget = provider.get("requested_worker_budget")
-        budget_text = "n/a" if requested_budget is None else str(requested_budget)
-        lines.append(
-            f"- {provider.get('provider')}: "
-            f"role={provider.get('role') or 'unknown'} | "
-            f"planned_lane_count={provider.get('planned_lane_count') or 0} | "
-            f"requested_worker_budget={budget_text}"
-        )
