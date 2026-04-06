@@ -50,9 +50,10 @@ contract exists.
       adapter so agents/operators can ask what exists, what to run, and how to
       render it without reviving prose-only discovery.
 - [ ] MP-387 Make `session-resume` / `SessionCachePacket` the first-hop
-      reviewer bootstrap with `last_reviewed_sha`, `head_at_push_time`,
-      current-head freshness, and typed operator-mode truth derived from repo-
-      owned artifacts instead of stale bridge prose.
+      reviewer bootstrap with `last_reviewed_sha`, `head_at_push_time`, one
+      frozen `ReviewCandidateRecord` for dirty-tree or commit-range review
+      targets, current-head freshness, and typed operator-mode truth derived
+      from repo-owned artifacts instead of stale bridge prose.
 
 ### 2026-04-05 Architecture Absorption Tranche
 
@@ -326,6 +327,18 @@ The MP scopes remain valid but are now cross-cut by enforcement-first priority.
 
 ## Progress Log
 
+- 2026-04-05: Closed the dirty-tree reviewer/implementer handoff seam inside
+  `MP-387` without adding a second authority store. Bridge-backed status now
+  emits one typed `ReviewCandidateRecord` into `review_state.json` /
+  `compact.json`, `session-resume` / reviewer prompt rendering prefer that
+  candidate over raw `last_reviewed_sha..head_sha` inference, and the status
+  pipeline fails closed when Claude claims a completed slice but the candidate
+  is missing, invalid, or stale. The candidate is frozen against
+  instruction-revision + implementer-state hash + changed-path/worktree target
+  and invalidates on worktree drift without a new implementer completion.
+  Focused regressions now cover dirty-tree candidate emission, scope-mismatch
+  rejection, drift invalidation, review-state parsing, and reviewer bootstrap
+  rendering.
 - 2026-04-05: Accepted the post-visibility architecture nuance for `MP-382`.
   Terminal-mode selection is no longer the honest blocker here: typed operator
   mode, typed visibility, and headless proof-of-life now exist. The remaining

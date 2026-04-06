@@ -1275,8 +1275,72 @@ class TestV2Fields(unittest.TestCase):
             self.assertEqual(packet.advisory_action, "model_derived_action")
             self.assertEqual(packet.advisory_reason, "none")
 
+    def test_build_from_sources_preserves_review_candidate(self) -> None:
+        """build_from_sources should lift the typed review candidate into the session cache."""
+        from dev.scripts.devctl.runtime.control_plane_read_model import (
+            ControlPlaneReadModel,
+        )
+
+        model = ControlPlaneReadModel(
+            timestamp="t", branch="b", head_sha="abc",
+            worktree_clean=False, ahead_of_upstream=0,
+            resolved_phase="reviewing",
+            push_eligible=False, implementation_blocked=False,
+            top_blocker="none",
+            next_action="review_candidate_present",
+            next_command="python3 dev/scripts/devctl.py review-channel --action status --terminal none --format json",
+            reviewer_mode="active_dual_agent",
+            operator_interaction_mode="active_dual_agent",
+            reviewer_freshness="fresh", review_accepted=False,
+            last_reviewed_sha="oldsha", attention_status="healthy",
+            attention_summary="healthy",
+            publisher_running=False, supervisor_running=False,
+            codex_conductor_alive=True, claude_conductor_alive=True,
+            pending_action_requests=0, last_guard_ok=True,
+            check_details=(),
+        )
+        sources = self._make_sources(
+            review_state={
+                "current_session": {
+                    "current_instruction": "- review `tracked.txt`",
+                    "current_instruction_revision": "rev-123",
+                    "implementer_status": "- implemented the slice",
+                    "implementer_ack": "- ready for review",
+                    "implementer_ack_state": "current",
+                },
+                "review_candidate": {
+                    "candidate_id": "review-candidate-123",
+                    "instruction_revision": "rev-123",
+                    "artifact_kind": "dirty_tree",
+                    "base_sha": "oldsha",
+                    "head_sha": "abc",
+                    "worktree_hash": "e" * 64,
+                    "changed_paths": ["tracked.txt"],
+                    "implementer_status_written": True,
+                    "ready_for_review": True,
+                    "valid": True,
+                    "implementer_state_hash": "state-123",
+                },
+                "bridge": {"head_at_push_time": "oldsha"},
+            },
+        )
+        with tempfile.TemporaryDirectory() as td:
+            packet = build_from_sources(
+                Path(td), role="reviewer", head_sha="abc",
+                read_model_override=model, sources_override=sources,
+            )
+            assert packet.review_candidate is not None
+            self.assertEqual(
+                packet.review_candidate.candidate_id,
+                "review-candidate-123",
+            )
+
     def test_roundtrip_preserves_v2_fields(self) -> None:
         """packet_from_mapping preserves all v2 fields across serialization."""
+        from dev.scripts.devctl.runtime.review_state_models import (
+            ReviewCandidateRecord,
+        )
+
         original = SessionCachePacket(
             head_sha="abc",
             head_at_push_time="old_push_sha",
@@ -1284,6 +1348,19 @@ class TestV2Fields(unittest.TestCase):
             resolved_phase="testing",
             next_guard_bundle="bundle.tooling",
             next_recommended_command="python3 dev/scripts/devctl.py check --profile ci",
+            review_candidate=ReviewCandidateRecord(
+                candidate_id="review-candidate-123",
+                instruction_revision="rev-123",
+                artifact_kind="dirty_tree",
+                base_sha="old_push_sha",
+                head_sha="abc",
+                worktree_hash="d" * 64,
+                changed_paths=("tracked.txt",),
+                implementer_status_written=True,
+                ready_for_review=True,
+                valid=True,
+                implementer_state_hash="state-123",
+            ),
         )
         restored = packet_from_mapping(original.to_dict())
         self.assertEqual(restored.head_at_push_time, "old_push_sha")
@@ -1293,6 +1370,11 @@ class TestV2Fields(unittest.TestCase):
         self.assertEqual(
             restored.next_recommended_command,
             "python3 dev/scripts/devctl.py check --profile ci",
+        )
+        assert restored.review_candidate is not None
+        self.assertEqual(
+            restored.review_candidate.candidate_id,
+            "review-candidate-123",
         )
 
     def test_render_markdown_includes_v2_fields(self) -> None:

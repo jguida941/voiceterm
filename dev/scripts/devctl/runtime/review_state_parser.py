@@ -19,7 +19,6 @@ from .review_state_models import (
     AgentRegistryState,
     ContextPackRefState,
     ReviewCurrentSessionState,
-    ReviewCandidateRecord,
     ReviewPacketState,
     ReviewQueueState,
     ReviewSessionState,

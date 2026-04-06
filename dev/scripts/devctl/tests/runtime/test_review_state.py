@@ -123,6 +123,41 @@ class ReviewStateTests(unittest.TestCase):
         self.assertEqual(state.pending_approvals()[0].packet_id, "pkt-1")
         self.assertEqual(state.lane_agents("codex")[0].current_job, "Reviewing slice")
 
+    def test_review_state_parses_review_candidate_record(self) -> None:
+        state = review_state_from_payload(
+            {
+                "schema_version": 1,
+                "command": "review-channel",
+                "action": "status",
+                "timestamp": "2026-04-05T00:00:00Z",
+                "ok": True,
+                "review_state": {
+                    "review": {"session_id": "candidate-session"},
+                    "queue": {"pending_total": 0},
+                    "bridge": {"reviewer_mode": "active_dual_agent"},
+                    "review_candidate": {
+                        "candidate_id": "review-candidate-123",
+                        "instruction_revision": "rev-123",
+                        "artifact_kind": "dirty_tree",
+                        "base_sha": "aaaa",
+                        "head_sha": "bbbb",
+                        "worktree_hash": "c" * 64,
+                        "changed_paths": ["tracked.txt"],
+                        "ready_for_review": True,
+                        "valid": True,
+                        "implementer_state_hash": "state-123",
+                    },
+                },
+            }
+        )
+
+        self.assertIsNotNone(state)
+        assert state is not None
+        assert state.review_candidate is not None
+        self.assertEqual(state.review_candidate.candidate_id, "review-candidate-123")
+        self.assertEqual(state.review_candidate.artifact_kind, "dirty_tree")
+        self.assertEqual(state.review_candidate.changed_paths, ("tracked.txt",))
+
     def test_review_state_parses_plan_review_packet_fields(self) -> None:
         state = review_state_from_payload(
             {

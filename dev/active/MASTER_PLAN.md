@@ -186,6 +186,12 @@
   bridge remains compatibility-only; any new operator surface must consume
   typed runtime, packet, and check artifacts instead of regex-scraping
   bridge markdown or `format_steps_text()` output.
+- Current 2026-04-05 reviewer-handoff closure inside that same lane: `MP-387`
+  now also owns the missing dirty-tree review target. The active closure is
+  one typed `ReviewCandidateRecord` emitted through the review-state/status
+  path, preferred by `session-resume` / reviewer bootstrap over raw
+  `last_reviewed_sha..head_sha`, and invalidated fail-closed when worktree
+  drift or scope mismatch makes the candidate stale.
 - Current 2026-04-05 architecture-absorption follow-up inside that same lane:
   the pushed-branch review through `b819efa` narrowed the remaining separation
   to fail-closed execution gaps, not missing ideas. The active closure order is
