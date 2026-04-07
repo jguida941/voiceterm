@@ -169,7 +169,10 @@ def _render_footer(lines: list[str], snapshot: ReviewSnapshot) -> None:
     lines.append(
         "Projection produced by `devctl review-snapshot`. "
         f"Generation stamp `{identity.generation_stamp}` binds this file to "
-        f"HEAD `{identity.head_sha_short}`; if they drift, the freshness guard will fail CI."
+        f"HEAD `{identity.head_sha_short}`; if they drift, the freshness guard "
+        "will fail CI. When the latest commit only refreshes this generated "
+        "snapshot, the guard accepts this file as bound to that commit's parent "
+        "code state."
     )
 
 

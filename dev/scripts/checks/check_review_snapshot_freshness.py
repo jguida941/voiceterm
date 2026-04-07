@@ -45,9 +45,11 @@ def build_report(
     snapshot_override_text: str | None = None,
     live_head_sha: str | None = None,
     live_generation_stamp: str | None = None,
+    live_snapshot_parent_sha: str | None = None,
 ) -> dict[str, object]:
     """Return a typed guard report comparing on-disk snapshot vs. live state."""
     snapshot_path = _resolve_snapshot_path(repo_root)
+    snapshot_rel = str(snapshot_path.relative_to(repo_root))
     snapshot_text = (
         snapshot_override_text
         if snapshot_override_text is not None
@@ -65,7 +67,7 @@ def build_report(
         return {
             "command": "check_review_snapshot_freshness",
             "ok": ok,
-            "snapshot_path": str(snapshot_path.relative_to(repo_root)),
+            "snapshot_path": snapshot_rel,
             "errors": errors,
         }
 
@@ -77,11 +79,25 @@ def build_report(
         if live_generation_stamp is not None
         else _current_generation_stamp(repo_root)
     )
+    snapshot_parent = (
+        live_snapshot_parent_sha
+        if live_snapshot_parent_sha is not None
+        else _snapshot_only_parent_sha(repo_root, snapshot_rel)
+    )
+    snapshot_only_parent_match = bool(
+        embedded_head
+        and snapshot_parent
+        and snapshot_parent.startswith(embedded_head.strip())
+    )
 
     if not embedded_head:
         ok = False
         errors.append("snapshot_header_missing_head: HEAD line not found in snapshot")
-    elif current_head and not current_head.startswith(embedded_head.strip()):
+    elif (
+        current_head
+        and not current_head.startswith(embedded_head.strip())
+        and not snapshot_only_parent_match
+    ):
         ok = False
         errors.append(
             f"snapshot_head_drift: file claims HEAD={embedded_head} but git HEAD={current_head[:12]}. "
@@ -93,7 +109,11 @@ def build_report(
         errors.append(
             "snapshot_header_missing_generation_stamp: generation stamp line not found"
         )
-    elif current_stamp and embedded_stamp.strip() != current_stamp:
+    elif (
+        current_stamp
+        and embedded_stamp.strip() != current_stamp
+        and not snapshot_only_parent_match
+    ):
         ok = False
         errors.append(
             f"snapshot_generation_drift: file stamp={embedded_stamp} vs live stamp={current_stamp}. "
@@ -108,6 +128,8 @@ def build_report(
         "embedded_generation_stamp": embedded_stamp or "",
         "live_head": current_head or "",
         "live_generation_stamp": current_stamp or "",
+        "snapshot_only_parent_head": snapshot_parent or "",
+        "snapshot_only_parent_match": snapshot_only_parent_match,
         "errors": errors,
     }
 
@@ -161,6 +183,32 @@ def _current_generation_stamp(repo_root: Path) -> str:
     return snapshot.identity.generation_stamp
 
 
+def _snapshot_only_parent_sha(repo_root: Path, snapshot_rel: str) -> str:
+    """Return HEAD^ when HEAD only refreshes the generated snapshot file."""
+    try:
+        from devctl.runtime.vcs import run_git_capture
+    except Exception:
+        return ""
+
+    code, stdout, _ = run_git_capture(
+        ["diff-tree", "--no-commit-id", "--name-only", "-r", "HEAD"],
+        repo_root=repo_root,
+    )
+    if code != 0:
+        return ""
+    changed_paths = [line.strip() for line in stdout.splitlines() if line.strip()]
+    if changed_paths != [snapshot_rel]:
+        return ""
+
+    parent_code, parent_stdout, _ = run_git_capture(
+        ["rev-parse", "HEAD^"],
+        repo_root=repo_root,
+    )
+    if parent_code != 0:
+        return ""
+    return parent_stdout.strip()
+
+
 def _extract_match(pattern: re.Pattern[str], text: str) -> str:
     match = pattern.search(text)
     return match.group(1) if match else ""
@@ -176,6 +224,10 @@ def _render_report(report: dict[str, object]) -> str:
     live_stamp = report.get("live_generation_stamp") or "—"
     lines.append(f"- embedded_head: {embedded_head}")
     lines.append(f"- live_head: {live_head}")
+    if report.get("snapshot_only_parent_head"):
+        lines.append(
+            f"- snapshot_only_parent_head: {report.get('snapshot_only_parent_head')}"
+        )
     lines.append(f"- embedded_generation_stamp: {embedded_stamp}")
     lines.append(f"- live_generation_stamp: {live_stamp}")
     errors = report.get("errors") or []

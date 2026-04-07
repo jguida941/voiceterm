@@ -65,6 +65,27 @@ Evidence: `dev/scripts/devctl/review_channel/action_request.py`,
 `dev/scripts/devctl/tests/review_channel/test_plan_packets.py`,
 `dev/active/remote_control_runtime.md`, `dev/scripts/README.md`.
 
+### 2026-04-07 - ReviewSnapshot freshness now supports a snapshot-only publication commit
+
+The external-review snapshot hook had a structural limit that looked like a
+bug in practice: a pre-commit refresh cannot know the commit SHA it is about
+to help create. If the snapshot file embeds the final SHA, changing the file
+changes the SHA again. The prior workaround was a manual post-commit refresh,
+but that made the worktree dirty and the freshness guard still treated a
+snapshot-only publication commit as stale.
+
+The guard now has an explicit state for that lifecycle. When the latest commit
+changes only `dev/audits/REVIEW_SNAPSHOT.md`, the generated snapshot is
+allowed to bind to the parent code commit. Any non-snapshot HEAD drift still
+fails closed. This gives outside reviewers and ChatGPT a publishable GitHub
+surface for planning: land code, regenerate the snapshot from that code state,
+commit the generated snapshot alone, and push through `devctl push --execute`.
+
+Evidence: `dev/scripts/checks/check_review_snapshot_freshness.py`,
+`dev/scripts/devctl/runtime/review_snapshot_render.py`,
+`dev/scripts/devctl/tests/checks/test_check_review_snapshot_freshness.py`,
+`dev/active/remote_commit_pipeline.md`, `dev/audits/REVIEW_SNAPSHOT.md`.
+
 ### 2026-04-07 - Validation routing is now phased before commit-gate and portability expansion
 
 The commit/push path exposed a process problem that was architectural, not a

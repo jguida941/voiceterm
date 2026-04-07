@@ -536,9 +536,12 @@ Portability note:
 - `dev/scripts/checks/check_review_snapshot_freshness.py`
   (`check_review_snapshot_freshness.py`) keeps `dev/audits/REVIEW_SNAPSHOT.md`
   bound to the current HEAD + generation stamp by comparing the fields
-  embedded in the file against the live typed projection. Whenever HEAD moves
-  or the typed generation stamp changes without a snapshot rewrite, the
-  guard fails and instructs the caller to rerun
+  embedded in the file against the live typed projection. A final commit that
+  changes only the generated snapshot is also accepted when the snapshot binds
+  to that commit's parent, because a file inside a commit cannot contain its
+  own final SHA. Whenever non-snapshot HEAD moves or the typed generation
+  stamp changes without a snapshot rewrite, the guard fails and instructs the
+  caller to rerun
   `python3 dev/scripts/devctl.py review-snapshot --write`. Both
   `tooling_control_plane.yml` and `release_preflight.yml` enforce it.
 - Portable-authority rule: new reusable runtime/tooling code should resolve

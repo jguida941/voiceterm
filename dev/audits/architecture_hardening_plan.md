@@ -22,6 +22,13 @@ edit it and do not treat it as a plan; regenerate it with
 `python3 dev/scripts/devctl.py review-snapshot --write` when the snapshot must
 change.
 
+Current publication-freshness rule: a snapshot that lives inside the same
+commit cannot contain that commit's final SHA, because changing the file
+changes the SHA. The sanctioned fast path is therefore code commit first,
+`review-snapshot --write` second, snapshot-only commit third. The freshness
+guard accepts that trailing snapshot-only commit when the generated snapshot
+binds to its parent code state; non-snapshot HEAD drift still fails closed.
+
 ## Codex handoff summary (read this first)
 
 **What's done and live on GitHub** (branch `feature/governance-quality-sweep`, tip `f9388da`):

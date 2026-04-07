@@ -80,6 +80,19 @@ def test_build_report_fails_when_generation_stamp_drifted(tmp_path: Path) -> Non
     assert any("snapshot_generation_drift" in err for err in report["errors"])  # type: ignore[arg-type]
 
 
+def test_build_report_accepts_snapshot_only_parent_binding(tmp_path: Path) -> None:
+    report = build_report(
+        repo_root=tmp_path,
+        snapshot_override_text=_FRESH_FILE,
+        live_head_sha="9999999999992222222222223333333333334444",
+        live_generation_stamp="snap-bbbbbbbbbbbb",
+        live_snapshot_parent_sha="abc123def456abc123def456abc123def456dead",
+    )
+    assert report["ok"] is True
+    assert report["errors"] == []
+    assert report["snapshot_only_parent_match"] is True
+
+
 def test_build_report_fails_when_head_line_missing(tmp_path: Path) -> None:
     report = build_report(
         repo_root=tmp_path,

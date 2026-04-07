@@ -1123,7 +1123,10 @@ false positives, and fixes real issues — then re-runs CodeRabbit to verify.
    The current Phase 3/4 remote-commit surface-convergence closure keeps
    `check_review_snapshot_freshness.py` and
    `check_review_surface_consistency.py` in both
-   `tooling_control_plane.yml` and `release_preflight.yml`.
+   `tooling_control_plane.yml` and `release_preflight.yml`. The snapshot
+   freshness guard intentionally accepts a trailing snapshot-only commit when
+   the snapshot binds to that commit's parent code state; non-snapshot HEAD
+   drift still fails closed.
 3. Guard output format MUST support `--since-ref`/`--head-ref` for growth-based gating.
 4. The Ralph AI fix wrapper MUST run architecture-specific validation after fixes.
 5. No architecture may bypass the Ralph loop — all CodeRabbit findings across Rust,

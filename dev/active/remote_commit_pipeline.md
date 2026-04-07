@@ -504,9 +504,20 @@ surface for remote sessions. It should project:
       `install-git-hooks`, and bind ReviewSnapshot freshness/traceability into
       the same validation and push-authorization proof rather than relying on
       courtesy markdown receipts.
+- [x] Accept snapshot-only trailing commits as a first-class freshness state:
+      when the latest commit changes only `dev/audits/REVIEW_SNAPSHOT.md`, the
+      freshness guard may bind the generated snapshot to that commit's parent
+      code state instead of requiring an impossible self-referential commit SHA.
 
 ## Progress Log
 
+- 2026-04-07: Closed the immediate ReviewSnapshot publication-freshness bug
+  exposed by the packet/action-request checkpoint. The pre-commit hook cannot
+  embed the final commit SHA because the SHA changes when the file content
+  changes, so the guard now accepts a final snapshot-only commit whose
+  generated snapshot is bound to the parent code commit. This gives the fast
+  planning path a publishable GitHub HEAD: code commit first, generated
+  snapshot refresh commit second, then governed push.
 - 2026-04-07: Routed the ReviewSnapshot architecture hardening audit into this
   lane for commit/push ownership. The accepted items here are raw `git commit`
   hook proof, override receipt enforcement, managed-hook integrity, additional
