@@ -19,7 +19,10 @@ from ..phone_status_views import (
     view_payload,
     write_projection_bundle,
 )
-from ..runtime.control_plane_read_model import build_control_plane_read_model
+from ..runtime.control_plane_read_model import (
+    ControlPlaneReadModel,
+    build_control_plane_read_model,
+)
 
 
 def _iso_z(value: datetime) -> str:
@@ -52,9 +55,15 @@ def _load_payload(input_path: Path) -> tuple[dict[str, Any], list[str]]:
     return loaded, []
 
 
-def _build_control_plane_section(repo_root: Path) -> dict[str, Any]:
-    """Build the control_plane enrichment section from the shared read model."""
-    model = build_control_plane_read_model(repo_root)
+def _control_plane_section(model: ControlPlaneReadModel) -> dict[str, Any]:
+    """Project the governance-surface fields straight from the shared read model.
+
+    Pure projection: no I/O, no derivation. The parity guard
+    `check_control_plane_parity` (see
+    `dev/scripts/checks/platform_contract_closure/field_routes_parity.py`)
+    feeds a fixture model directly into this helper to prove the phone
+    surface renders the same fields as every other governance surface.
+    """
     return {
         "resolved_phase": model.resolved_phase,
         "top_blocker": model.top_blocker,
@@ -66,6 +75,18 @@ def _build_control_plane_section(repo_root: Path) -> dict[str, Any]:
         "last_guard_ok": model.last_guard_ok,
         "pending_action_requests": model.pending_action_requests,
     }
+
+
+def _build_control_plane_section(repo_root: Path) -> dict[str, Any]:
+    """Build the control_plane enrichment section from the shared read model.
+
+    Thin wrapper that loads the live model from disk and forwards to the
+    pure `_control_plane_section` projection. Keep both layers so the live
+    `phone-status` command path stays disk-driven while the parity guard
+    can exercise the projection without filesystem state.
+    """
+    model = build_control_plane_read_model(repo_root)
+    return _control_plane_section(model)
 
 
 def run(args) -> int:

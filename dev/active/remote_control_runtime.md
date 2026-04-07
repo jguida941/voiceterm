@@ -234,11 +234,21 @@ The MP scopes remain valid but are now cross-cut by enforcement-first priority.
 - **Why second**: Fixes the stale-review loop (AUD-22) and makes reviewer sessions deterministic
 - **Touches**: MP-382 (session lifecycle), AUD-22, Finding 2
 
-### Priority 3: Hard parity guard — `check_control_plane_parity.py`
+### Priority 3: Hard parity guard — `check_control_plane_parity.py` [LANDED 2026-04-07]
 - **What**: One fixture proves dashboard, auto-mode, session-resume, phone, and mobile agree on the same ControlPlaneReadModel inputs
 - **Scope**: New guard or extension of `check_platform_contract_closure.py`
 - **Why third**: Without parity proof, surfaces can silently disagree and the operator sees different state depending on which surface they check
 - **Touches**: MP-381 (typed contracts), AUD-24, Findings 5, 11, 18
+- **Closure (2026-04-07)**: Implemented as the new
+  `dev/scripts/checks/platform_contract_closure/field_routes_parity.py` module
+  wired into `check_platform_contract_closure`. One deterministic fixture
+  flows through dashboard `_assemble`, `inputs_from_read_model`,
+  `build_from_sources`, and the pure phone/mobile `_control_plane_section`
+  helpers; the comparator fails the closure aggregator on any cross-surface
+  disagreement on the parity fields. Phone surface refactored to expose a
+  pure `_control_plane_section(model)` matching `mobile_status` so the
+  fixture path stays I/O-free. Follow-up: Finding F11 also needs a
+  loud-failure mode at the dashboard layer when the read model is missing.
 
 ### Priority 4: Field-registry / closure pass (AUD-25)
 - **What**: New typed fields registered once, auto-checked for consumer coverage, test scaffolding, renderer binding, SystemCatalog presence
@@ -323,7 +333,7 @@ The MP scopes remain valid but are now cross-cut by enforcement-first priority.
 |---|---|---|---|
 | 1 | `devctl commit` wrapper + pre-commit hook | P1 / AUD-27 | F3, C4 |
 | 2 | Session-resume mandatory reviewer bootstrap | P2 / AUD-22 | F2, F4 |
-| 3 | `check_control_plane_parity.py` guard | P3 / AUD-24 | F18, F11 |
+| 3 | `check_control_plane_parity.py` guard (landed 2026-04-07) | P3 / AUD-24 | F18, F11 |
 | 4 | Register contracts in platform catalog | P4 / Codex-1 | C1, F18 |
 | 5 | Invalidate stale reviewer acceptance | P5 / Codex-5 | C5, F7 |
 | 6 | push_eligible + auto-mode transition invariants | Quick wins | F8, F10, F19 |
@@ -332,6 +342,7 @@ The MP scopes remain valid but are now cross-cut by enforcement-first priority.
 
 ## Progress Log
 
+- 2026-04-07: Landed MP-381 Priority 3 (Hard parity guard) — `check_control_plane_parity` now part of `check_platform_contract_closure`. One deterministic `ControlPlaneReadModel` fixture is rendered through all 5 governance surfaces (dashboard, auto-mode, session-resume, phone, mobile) and the guard fails CI if any surface disagrees on resolved_phase, top_blocker, next_action, next_command, push_eligible, review_accepted, last_guard_ok, or pending_action_requests. Also refactored `phone_status._build_control_plane_section` to match `mobile_status._control_plane_section`'s pure-function shape — both now take a `ControlPlaneReadModel` directly, enabling fixture-driven testing without disk I/O. This closes the "silent surface disagreement" gap flagged by Finding F11 (Dashboard falls back to independent computation) for the parity axis; follow-up work is required to also harden Finding F11 at the dashboard layer itself. Follow-ups A/B (Priorities 2 and 4) and other MP-381 subpriorities remain open.
 - 2026-04-07: Closed the `MP-383` action-request projection/binding repair
   after the single-agent recovery turn exposed the root cause: packet state,
   bridge compatibility text, and session-resume/bootstrap cache could drift

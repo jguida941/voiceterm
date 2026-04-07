@@ -283,6 +283,16 @@ def evaluate_platform_contract_closure(
         if parity_violation is not None:
             violations.append(parity_violation)
 
+    # Control-plane parity guard (MP-381 Priority 3): one fixture is
+    # rendered through every governance surface and divergence on the
+    # ControlPlaneReadModel parity fields fails the closure aggregator.
+    from .field_routes_parity import run_parity_checks
+
+    for cp_coverage, cp_violation in run_parity_checks():
+        coverage_rows.append(cp_coverage)
+        if cp_violation is not None:
+            violations.append(cp_violation)
+
     route_rows: list[dict[str, object]] = []
     for route_check in field_routes.FIELD_ROUTE_CHECKS:
         route_coverage, route_violation = route_check()
