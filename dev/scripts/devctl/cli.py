@@ -86,6 +86,7 @@ from .commands.governance import (
     quality_feedback as governance_quality_feedback,
     render_surfaces,
     review as governance_review,
+    install_git_hooks as governance_install_git_hooks,
     review_snapshot as governance_review_snapshot,
     session_resume as governance_session_resume,
     simple_lanes,
@@ -210,6 +211,7 @@ def build_parser() -> argparse.ArgumentParser:
     governance_startup_context.add_parser(sub)
     governance_session_resume.add_parser(sub)
     governance_review_snapshot.add_parser(sub)
+    governance_install_git_hooks.add_parser(sub)
     _add_dashboard_parser(sub)
     auto_mode_status.add_parser(sub)
     discover.add_parser(sub)
@@ -325,6 +327,7 @@ COMMAND_HANDLERS = {
     "startup-context": governance_startup_context.run,
     "session-resume": governance_session_resume.run,
     "review-snapshot": governance_review_snapshot.run,
+    "install-git-hooks": governance_install_git_hooks.run,
     "discover": discover.run,
     "view": view.run,
 }
