@@ -529,6 +529,12 @@ class TestGovernanceInteractionMode(unittest.TestCase):
 
 _PATCH_HEAD = "dev.scripts.devctl.commands.governance.session_resume.current_head"
 _PATCH_ROOT = "dev.scripts.devctl.commands.governance.session_resume.get_repo_root"
+# Cache-hit tests exercise the head/role/mtime-only freshness gate; the
+# typed continuity gate is covered by the Leg 3 test suite
+# (dev/scripts/devctl/tests/governance/test_session_resume_support.py).
+# Stub the CLI resolver to None so legacy cases behave like callers that
+# cannot build a SessionContinuityState (for example an empty tempdir).
+_PATCH_CONTINUITY = "dev.scripts.devctl.commands.governance.session_resume._resolve_continuity"
 
 
 class TestRunCommand(unittest.TestCase):
@@ -555,9 +561,10 @@ class TestRunCommand(unittest.TestCase):
             cache_path = root / "dev" / "reports" / "session_cache" / "latest" / "cache.json"
             self.assertTrue(cache_path.is_file())
 
+    @patch(_PATCH_CONTINUITY, return_value=None)
     @patch(_PATCH_HEAD, return_value="abc123")
     @patch(_PATCH_ROOT)
-    def test_run_cache_hit_skips_rebuild(self, mock_root, mock_head) -> None:
+    def test_run_cache_hit_skips_rebuild(self, mock_root, mock_head, mock_cont) -> None:
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)
             mock_root.return_value = root
@@ -584,9 +591,10 @@ class TestRunCommand(unittest.TestCase):
             )
             self.assertEqual(run(args), 1)
 
+    @patch(_PATCH_CONTINUITY, return_value=None)
     @patch(_PATCH_HEAD, return_value="abc123")
     @patch(_PATCH_ROOT)
-    def test_run_bootstrap_format_uses_human_renderer(self, mock_root, mock_head) -> None:
+    def test_run_bootstrap_format_uses_human_renderer(self, mock_root, mock_head, mock_cont) -> None:
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)
             mock_root.return_value = root

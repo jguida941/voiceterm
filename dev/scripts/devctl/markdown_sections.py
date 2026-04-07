@@ -32,4 +32,12 @@ def _flush_section(
 ) -> None:
     if current_name is None:
         return
-    sections[current_name] = "\n".join(current_lines).strip()
+    # Duplicate headings append-concatenate so downstream parsers still see
+    # every block. Silent last-wins would lose append-log style resume data.
+    body = "\n".join(current_lines).strip()
+    existing = sections.get(current_name)
+    if existing:
+        if body:
+            sections[current_name] = f"{existing}\n\n{body}"
+        return
+    sections[current_name] = body

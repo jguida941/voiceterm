@@ -4,6 +4,12 @@ from __future__ import annotations
 
 from ...common import add_standard_output_arguments
 from ...config import get_repo_root
+from ...runtime.work_intake_continuity import build_continuity
+from ...runtime.work_intake_models import SessionContinuityState
+from ...runtime.work_intake_selection import (
+    load_review_state,
+    select_active_plan_entry,
+)
 from .common import emit_governance_command_output
 from .session_resume_paths import get_review_state_mtime, resolve_governance
 from .session_resume_support import (
@@ -43,12 +49,14 @@ def run(args) -> int:
     head_sha = current_head(repo_root)
     governance = resolve_governance(repo_root)
     rs_mtime = get_review_state_mtime(repo_root, governance=governance)
+    continuity = _resolve_continuity(repo_root, governance)
 
     cached = try_cache_hit(
         repo_root,
         head_sha=head_sha,
         role=role,
         review_state_mtime=rs_mtime,
+        continuity=continuity,
     )
     if cached is not None:
         return _emit_packet(args, cached)
@@ -56,6 +64,23 @@ def run(args) -> int:
     packet = build_from_sources(repo_root, role=role, head_sha=head_sha, governance=governance)
     write_cache(repo_root, packet)
     return _emit_packet(args, packet)
+
+
+def _resolve_continuity(repo_root, governance) -> SessionContinuityState | None:
+    """Build a typed continuity state for the cache-freshness gate.
+
+    Returns ``None`` when governance cannot be resolved so the cache gate
+    falls back to the head/role/mtime-only path rather than crashing the
+    CLI on empty or partially-initialized repos.
+    """
+    if governance is None:
+        return None
+    try:
+        review_state = load_review_state(repo_root, governance=governance)
+        active_entry = select_active_plan_entry(governance, review_state)
+        return build_continuity(active_entry, review_state)
+    except Exception:  # broad-except: allow reason=best-effort continuity signal fallback=cache without gate
+        return None
 
 
 def _emit_packet(args, packet: SessionCachePacket) -> int:

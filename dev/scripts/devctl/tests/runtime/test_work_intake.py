@@ -5,6 +5,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
 from dev.scripts.devctl.runtime.project_governance import (
     PROJECT_GOVERNANCE_CONTRACT_ID,
     PROJECT_GOVERNANCE_SCHEMA_VERSION,
@@ -535,3 +537,270 @@ def test_build_work_intake_packet_surfaces_shared_backlog_refs_and_sink(
         "dev/active/MASTER_PLAN.md",
         "backlog.md",
     )
+
+
+def _seed_minimal_repo(tmp_path: Path) -> None:
+    """Drop the standard plan/doc fixture into ``tmp_path``."""
+    _write(tmp_path / "AGENTS.md", "# Agents\n")
+    _write(tmp_path / "bridge.md", "# Bridge\n")
+    _write(tmp_path / "dev/active/INDEX.md", "# Index\n")
+    _write(tmp_path / "dev/active/MASTER_PLAN.md", "# Tracker\n")
+    _write(tmp_path / "dev/active/platform_authority_loop.md", "# Authority Loop\n")
+
+
+def _write_review_state(
+    tmp_path: Path,
+    *,
+    last_reviewed_scope: str,
+    current_instruction: str,
+    plan_id: str = "MP-377",
+) -> None:
+    """Drop a review_state.json projection with the requested resume fields."""
+    _write(
+        tmp_path / "dev/reports/review_channel/latest/review_state.json",
+        json.dumps(
+            {
+                "bridge": {"reviewer_mode": "active_dual_agent"},
+                "review": {"plan_id": plan_id},
+                "current_session": {
+                    "last_reviewed_scope": last_reviewed_scope,
+                    "current_instruction": current_instruction,
+                    "open_findings": "none",
+                    "implementer_status": "coding",
+                    "implementer_ack_state": "current",
+                },
+            }
+        ),
+    )
+
+
+def test_build_work_intake_packet_emits_scope_aligned_when_only_scope_matches(
+    tmp_path: Path,
+) -> None:
+    _seed_minimal_repo(tmp_path)
+    _write_review_state(
+        tmp_path,
+        last_reviewed_scope="MP-377",
+        current_instruction="Chase an unrelated backlog item nobody has scoped yet.",
+    )
+
+    packet = build_work_intake_packet(
+        repo_root=tmp_path,
+        governance=_governance(),
+        advisory_action="continue_editing",
+        advisory_reason="clean_worktree",
+    )
+
+    assert packet.continuity.alignment_status == "scope_aligned"
+    assert packet.continuity.alignment_reason == "review_scope_matches_plan_target"
+
+
+def test_build_work_intake_packet_emits_instruction_aligned_when_only_instruction_matches(
+    tmp_path: Path,
+) -> None:
+    _seed_minimal_repo(tmp_path)
+    # Scope deliberately points at an MP that is not in the plan registry
+    # so the MP-token gate drops scope-match but instruction keywords still
+    # align with the session_resume next_action.
+    _write_review_state(
+        tmp_path,
+        last_reviewed_scope="MP-999",
+        current_instruction="Run bundle tooling and inspect failures in detail.",
+    )
+
+    packet = build_work_intake_packet(
+        repo_root=tmp_path,
+        governance=_governance(),
+        advisory_action="continue_editing",
+        advisory_reason="clean_worktree",
+    )
+
+    assert packet.continuity.alignment_status == "instruction_aligned"
+    assert (
+        packet.continuity.alignment_reason
+        == "review_instruction_matches_session_resume"
+    )
+
+
+def test_build_work_intake_packet_emits_needs_review_when_neither_matches(
+    tmp_path: Path,
+) -> None:
+    _seed_minimal_repo(tmp_path)
+    _write_review_state(
+        tmp_path,
+        last_reviewed_scope="MP-999",
+        current_instruction="Completely unrelated prose with no overlap whatsoever.",
+    )
+
+    packet = build_work_intake_packet(
+        repo_root=tmp_path,
+        governance=_governance(),
+        advisory_action="continue_editing",
+        advisory_reason="clean_worktree",
+    )
+
+    assert packet.continuity.alignment_status == "needs_review"
+    assert packet.continuity.alignment_reason == "plan_review_mismatch"
+
+
+def test_build_work_intake_packet_emits_review_only_when_session_resume_missing(
+    tmp_path: Path,
+) -> None:
+    _seed_minimal_repo(tmp_path)
+    _write_review_state(
+        tmp_path,
+        last_reviewed_scope="MP-700",
+        current_instruction="Some instruction the reviewer cares about.",
+        plan_id="MP-700",
+    )
+
+    # Strip session_resume off every plan entry so build_continuity sees a
+    # plan target with no resume but a live review state.
+    base = _governance()
+    stripped_entries = tuple(
+        PlanRegistryEntry(
+            path=entry.path,
+            role=entry.role,
+            authority=entry.authority,
+            scope=entry.scope,
+            when_agents_read=entry.when_agents_read,
+            artifact_role=entry.artifact_role,
+            authority_kind=entry.authority_kind,
+            system_scope=entry.system_scope,
+            consumer_scope=entry.consumer_scope,
+            title=entry.title,
+            session_resume=None,
+        )
+        for entry in base.plan_registry.entries
+    )
+    governance = ProjectGovernance(
+        schema_version=base.schema_version,
+        contract_id=base.contract_id,
+        repo_identity=base.repo_identity,
+        repo_pack=base.repo_pack,
+        path_roots=base.path_roots,
+        plan_registry=PlanRegistry(
+            tracker_path=base.plan_registry.tracker_path,
+            index_path=base.plan_registry.index_path,
+            entries=stripped_entries,
+        ),
+        doc_policy=base.doc_policy,
+        doc_registry=base.doc_registry,
+        artifact_roots=base.artifact_roots,
+        memory_roots=base.memory_roots,
+        bridge_config=base.bridge_config,
+        enabled_checks=base.enabled_checks,
+        bundle_overrides=base.bundle_overrides,
+        push_enforcement=base.push_enforcement,
+        startup_order=base.startup_order,
+        docs_authority=base.docs_authority,
+        workflow_profiles=base.workflow_profiles,
+        command_routing_defaults=base.command_routing_defaults,
+    )
+
+    packet = build_work_intake_packet(
+        repo_root=tmp_path,
+        governance=governance,
+        advisory_action="continue_editing",
+        advisory_reason="clean_worktree",
+    )
+
+    assert packet.continuity.alignment_status == "review_only"
+    assert packet.continuity.alignment_reason == "no_plan_session_resume"
+
+
+def test_build_work_intake_packet_emits_missing_when_no_plan_or_review_state(
+    tmp_path: Path,
+) -> None:
+    _write(tmp_path / "AGENTS.md", "# Agents\n")
+    _write(tmp_path / "dev/active/INDEX.md", "# Index\n")
+
+    # Empty plan registry: no plan target at all, and no review_state.json
+    # projection on disk. This must land on the `missing` branch.
+    base = _governance()
+    governance = ProjectGovernance(
+        schema_version=base.schema_version,
+        contract_id=base.contract_id,
+        repo_identity=base.repo_identity,
+        repo_pack=base.repo_pack,
+        path_roots=base.path_roots,
+        plan_registry=PlanRegistry(
+            tracker_path=base.plan_registry.tracker_path,
+            index_path=base.plan_registry.index_path,
+            entries=(),
+        ),
+        doc_policy=base.doc_policy,
+        doc_registry=base.doc_registry,
+        artifact_roots=base.artifact_roots,
+        memory_roots=base.memory_roots,
+        bridge_config=base.bridge_config,
+        enabled_checks=base.enabled_checks,
+        bundle_overrides=base.bundle_overrides,
+        push_enforcement=base.push_enforcement,
+        startup_order=base.startup_order,
+        docs_authority=base.docs_authority,
+        workflow_profiles=base.workflow_profiles,
+        command_routing_defaults=base.command_routing_defaults,
+    )
+
+    packet = build_work_intake_packet(
+        repo_root=tmp_path,
+        governance=governance,
+        advisory_action="checkpoint_allowed",
+        advisory_reason="clean_worktree",
+    )
+
+    assert packet.continuity.alignment_status == "missing"
+    assert packet.continuity.alignment_reason == "no_plan_resume_or_review_state"
+
+
+def test_build_continuity_does_not_falsely_match_mp3_to_mp377(
+    tmp_path: Path,
+) -> None:
+    _seed_minimal_repo(tmp_path)
+    # `MP-3` substring-leaks into `MP-377` under the old heuristic. The
+    # token-aware gate must refuse that and fall out of `scope_aligned`.
+    _write_review_state(
+        tmp_path,
+        last_reviewed_scope="MP-3",
+        current_instruction="Completely unrelated instruction with no overlap.",
+        plan_id="MP-3",
+    )
+
+    packet = build_work_intake_packet(
+        repo_root=tmp_path,
+        governance=_governance(),
+        advisory_action="continue_editing",
+        advisory_reason="clean_worktree",
+    )
+
+    assert packet.continuity.alignment_status != "scope_aligned"
+    assert packet.continuity.alignment_status != "aligned"
+    # MP-3 and MP-377 are disjoint MP tokens, and the instruction prose
+    # shares no meaningful keywords, so the only admissible state is the
+    # explicit mismatch branch.
+    assert packet.continuity.alignment_status == "needs_review"
+
+
+def test_build_work_intake_packet_handles_empty_review_state_as_plan_only(
+    tmp_path: Path,
+) -> None:
+    _seed_minimal_repo(tmp_path)
+    # Review state exists on disk but carries no scope or instruction text.
+    # The old ladder collapsed this to `needs_review`; the fix re-routes it
+    # to `plan_only` with an explicit `empty_review_state` reason.
+    _write_review_state(
+        tmp_path,
+        last_reviewed_scope="   ",
+        current_instruction="",
+    )
+
+    packet = build_work_intake_packet(
+        repo_root=tmp_path,
+        governance=_governance(),
+        advisory_action="continue_editing",
+        advisory_reason="clean_worktree",
+    )
+
+    assert packet.continuity.alignment_status == "plan_only"
+    assert packet.continuity.alignment_reason == "empty_review_state"

@@ -22,6 +22,7 @@ from ...runtime.control_plane_resolve import (
     read_json_artifact,
 )
 from ...runtime.value_coercion import coerce_string
+from ...runtime.work_intake_models import SessionContinuityState
 from ...time_utils import utc_timestamp
 from .session_resume_paths import (
     get_review_state_mtime,
@@ -42,6 +43,15 @@ _BUNDLE_BY_LANE = {
 
 SESSION_CACHE_RELATIVE_DIR = Path("dev/reports/session_cache/latest")
 SESSION_CACHE_FILENAME = "cache.json"
+
+# Typed continuity states that invalidate a cached session packet even when
+# head/role/mtime all match. `alignment_status` values outside this set
+# (for example `aligned`, `scope_aligned`, `instruction_aligned`) leave the
+# cache intact. Keep this set in sync with
+# ``runtime.work_intake_continuity.build_continuity`` outputs.
+_STALE_CONTINUITY_STATUSES: frozenset[str] = frozenset(
+    {"needs_review", "plan_only", "review_only", "missing"}
+)
 
 @dataclass(frozen=True, slots=True)  # noqa: too-many-instance-attributes
 class SessionCachePacket:
@@ -88,8 +98,19 @@ def try_cache_hit(
     head_sha: str,
     role: str,
     review_state_mtime: float = 0.0,
+    continuity: SessionContinuityState | None = None,
 ) -> SessionCachePacket | None:
-    """Return the cached packet when it matches current HEAD, role, and review state."""
+    """Return the cached packet when it matches current HEAD, role, and review state.
+
+    Continuity gate: even if the head/mtime/role freshness signals match,
+    refuse a cached packet when the typed continuity state shows the plan
+    and review state have drifted. Stale continuity means the cached
+    resume does not reflect the current target, and downstream callers
+    would otherwise act on outdated state. Callers that cannot build a
+    ``SessionContinuityState`` (for example legacy tests that only exercise
+    the head/role/mtime gate) may omit the parameter and will see the
+    existing behavior unchanged.
+    """
     cache_path = repo_root / SESSION_CACHE_RELATIVE_DIR / SESSION_CACHE_FILENAME
     if not cache_path.is_file():
         return None
@@ -105,6 +126,8 @@ def try_cache_hit(
         return None
     cached_mtime = float(payload.get("review_state_mtime") or 0.0)
     if review_state_mtime != cached_mtime:
+        return None
+    if continuity is not None and continuity.alignment_status in _STALE_CONTINUITY_STATUSES:
         return None
     return packet_from_mapping(payload)
 

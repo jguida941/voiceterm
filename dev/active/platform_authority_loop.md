@@ -332,6 +332,38 @@ intended execution order is:
       `WorkIntakePacket`, and reconcile it with handoff/current-session
       artifacts before any auto-resume or warm-start decision. (evidence:
       `UNIVERSAL_SYSTEM_EVIDENCE.md` Part 28)
+- [x] (closed 2026-04-07 by MP-377 Follow-up A landing) Parser robustness in
+      `dev/scripts/devctl/runtime/session_resume.py` and
+      `dev/scripts/devctl/markdown_sections.py`: handle leading markdown
+      emphasis on bullet labels (`- **Current goal:** ...`), fall back to
+      subsection heading when no inline label exists, and concatenate
+      duplicate `## Session Resume` blocks instead of silently dropping
+      earlier content. Pinning tests added in
+      `dev/scripts/devctl/tests/runtime/test_session_resume.py`.
+- [x] (closed 2026-04-07 by MP-377 Follow-up B landing) Alignment
+      correctness in `dev/scripts/devctl/runtime/work_intake_continuity.py`:
+      replace substring-leniency `_text_overlap` (which conflated `MP-3`
+      with `MP-377`) with token-aware `_scope_match` and `_instruction_match`
+      that prefer `MP-<digits>` set intersection and fall back to Jaccard
+      similarity at threshold 0.4; reclassify empty-but-present
+      `ReviewState` as `plan_only` / `empty_review_state` instead of
+      `needs_review`. Pinning tests added in
+      `dev/scripts/devctl/tests/runtime/test_work_intake.py`.
+- [x] (closed 2026-04-07 by MP-377 Follow-up C / Leg 3 landing) Load-bearing
+      consumption: wire `WorkIntakePacket.continuity.alignment_status` into
+      `dev/scripts/devctl/commands/governance/session_resume_support.py::try_cache_hit`
+      so a stale-continuity case forces a cache miss and downstream callers
+      see a fresh build instead of an outdated cached packet. This closes
+      the actual reconciliation requirement on the original parent item:
+      modeling and surfacing were already done by 2026-03-23, but Leg 3
+      (real production decision consumer) landed only on 2026-04-07.
+      Forcing function: a real test
+      (`test_session_cache_invalidates_on_continuity_drift` or similar)
+      lives in
+      `dev/scripts/devctl/tests/governance/test_session_resume_support.py`
+      and the prior strict-xfail hard-trace
+      `test_alignment_status_is_consumed_by_a_production_decision` has
+      been retired in the same slice now that the consumer exists.
 - [ ] Add one bounded `startup-context` command/surface over that same intake
       path so AI agents and humans can read the active target, changed scope,
       routed bundle/check plan, convention/probe subset, bounded doc subset,
@@ -2305,6 +2337,25 @@ blocker or exception in plan state before skipping the declared order.
 
 ## Progress Log
 
+- 2026-04-07: Closed the MP-377 typed-continuity tranche end to end. The
+  prior 2026-03-23 entry recorded that Legs 1+2 (modeling, packet
+  threading, surfacing of `alignment_status`) had landed but did NOT
+  acknowledge that Leg 3 (load-bearing consumption — `alignment_status`
+  consulted by some production decision) was never wired. Today's slice
+  lands all three remaining items: parser robustness fixes in
+  `runtime/session_resume.py` + `markdown_sections.py`, alignment
+  correctness fixes in `runtime/work_intake_continuity.py` (including the
+  `MP-3 ⊂ MP-377` substring leniency bug), and the actual Leg 3 wire in
+  `commands/governance/session_resume_support.py::try_cache_hit` which now
+  refuses to honor a cached packet when
+  `WorkIntakePacket.continuity.alignment_status` indicates the plan and
+  review state have drifted (`needs_review`, `plan_only`, `review_only`,
+  `missing`). The forcing-function strict-xfail
+  `test_alignment_status_is_consumed_by_a_production_decision` has been
+  retired and replaced with a real positive test that exercises the
+  cache-invalidation path. The original `[ ]` item at line 329 stays as
+  the historical anchor with its `[x]` follow-up children documenting the
+  honest landing sequence.
 - 2026-04-07: Recorded the external review verdict that the platform is
   portable by architecture but not yet portable by default. The accepted next
   lane is not another theory layer and not random adopter testing first. It is

@@ -2,9 +2,17 @@
 
 from __future__ import annotations
 
+import re
+
 from .project_governance import PlanRegistryEntry
 from .review_state_models import ReviewState
 from .work_intake_models import SessionContinuityState
+
+_MP_TOKEN_RE = re.compile(r"\bMP-\d+\b", re.IGNORECASE)
+# Token-set Jaccard threshold for instruction-level fuzzy match. Tuned to
+# accept short paraphrases of the plan's current goal while rejecting
+# drive-by substring hits from unrelated review prose.
+_JACCARD_THRESHOLD = 0.4
 
 
 def build_continuity(
@@ -44,6 +52,26 @@ def build_continuity(
             next_action=_brief_text(session_resume.next_action, limit=240),
             alignment_status="plan_only",
             alignment_reason="no_typed_review_state",
+        )
+
+    # A non-None ReviewState whose scope AND instruction are both empty is
+    # shaped the same as `review_state is None` from the continuity lens.
+    # Collapsing to `needs_review` would falsely blame the plan. Classify
+    # as `plan_only` so downstream confidence stays on the plan surface.
+    if not review_scope.strip() and not review_instruction.strip():
+        return SessionContinuityState(
+            source_plan_path=entry.path if entry is not None else "",
+            source_plan_title=entry.title if entry is not None else "",
+            source_scope=entry.scope if entry is not None else "",
+            summary=_brief_text(session_resume.summary, limit=240),
+            current_goal=_brief_text(session_resume.current_goal, limit=200),
+            next_action=_brief_text(session_resume.next_action, limit=240),
+            review_scope=review_scope,
+            review_instruction=review_instruction,
+            review_open_findings=review_open_findings,
+            implementer_status=implementer_status,
+            alignment_status="plan_only",
+            alignment_reason="empty_review_state",
         )
 
     alignment_status, alignment_reason = _alignment_result(
@@ -107,10 +135,11 @@ def _alignment_result(
     if entry is None or entry.session_resume is None:
         return "missing", "no_plan_target"
 
-    scope_match = _text_overlap(review_scope, entry.scope)
-    scope_match = scope_match or _text_overlap(review_scope, entry.title)
+    scope_match = _scope_match(review_scope, entry.scope) or _scope_match(
+        review_scope, entry.title
+    )
     instruction_match = any(
-        _text_overlap(review_instruction, candidate)
+        _instruction_match(review_instruction, candidate)
         for candidate in (
             entry.session_resume.next_action,
             entry.session_resume.current_goal,
@@ -127,16 +156,55 @@ def _alignment_result(
     return "needs_review", "plan_review_mismatch"
 
 
-def _text_overlap(left: str, right: str) -> bool:
-    lhs = _normalize(left)
-    rhs = _normalize(right)
-    if not lhs or not rhs:
+def _scope_match(left: str, right: str) -> bool:
+    """Compare scope fields with MP-token priority, then Jaccard fallback."""
+    lhs_tokens = _extract_mp_tokens(left)
+    rhs_tokens = _extract_mp_tokens(right)
+    # If either side advertises MP identifiers, those are the only signal
+    # that matters. `MP-3` must not absorb `MP-377` via substring leniency.
+    if lhs_tokens and rhs_tokens:
+        return bool(lhs_tokens & rhs_tokens)
+    if lhs_tokens or rhs_tokens:
         return False
-    return lhs == rhs or lhs in rhs or rhs in lhs
+    return _token_set_similarity(left, right) >= _JACCARD_THRESHOLD
 
 
-def _normalize(value: str) -> str:
-    return " ".join(value.casefold().split())
+def _instruction_match(left: str, right: str) -> bool:
+    """Compare instruction strings with MP-token priority, then Jaccard."""
+    lhs_tokens = _extract_mp_tokens(left)
+    rhs_tokens = _extract_mp_tokens(right)
+    if lhs_tokens and rhs_tokens and lhs_tokens & rhs_tokens:
+        return True
+    return _token_set_similarity(left, right) >= _JACCARD_THRESHOLD
+
+
+def _extract_mp_tokens(text: str) -> frozenset[str]:
+    """Return the casefolded set of `MP-<digits>` identifiers in ``text``."""
+    if not text:
+        return frozenset()
+    return frozenset(match.group(0).casefold() for match in _MP_TOKEN_RE.finditer(text))
+
+
+def _token_set_similarity(left: str, right: str) -> float:
+    """Jaccard similarity over casefolded whitespace tokens (length >= 2)."""
+    lhs = _word_tokens(left)
+    rhs = _word_tokens(right)
+    if not lhs or not rhs:
+        return 0.0
+    intersection = lhs & rhs
+    if not intersection:
+        return 0.0
+    union = lhs | rhs
+    return len(intersection) / len(union)
+
+
+def _word_tokens(value: str) -> frozenset[str]:
+    """Cheap word-tokenizer for fuzzy instruction comparison."""
+    if not value:
+        return frozenset()
+    return frozenset(
+        token for token in re.findall(r"[A-Za-z0-9]+", value.casefold()) if len(token) > 1
+    )
 
 
 def _brief_text(value: str, *, limit: int) -> str:

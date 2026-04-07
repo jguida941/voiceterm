@@ -15,6 +15,9 @@ _ITEM_RE = re.compile(r"^(?:[-*+]|\d+\.)\s+(?P<value>.+)$")
 _HEADING_RE = re.compile(r"^###\s+(?P<value>.+?)\s*$")
 _DATE_RE = re.compile(r"^(?P<value>\d{4}-\d{2}-\d{2})\b")
 _LABEL_RE = re.compile(r"^(?P<label>[A-Za-z][A-Za-z0-9 /_-]{1,80}):\s*(?P<body>.+)$")
+# Matched in order; longer tokens must come before their prefixes so `**`
+# wins over `*` and `__` wins over `_`.
+_LEADING_EMPHASIS_TOKENS: tuple[str, ...] = ("**", "__", "*", "_")
 
 
 @dataclass(frozen=True, slots=True)
@@ -170,12 +173,26 @@ def _build_entry(
     subsection: str,
 ) -> SessionResumeEntry:
     normalized = normalize_inline_markdown(text)
+    # Authors commonly wrap the label in emphasis (`**Current goal:** ...`).
+    # The raw regex requires a bare alpha start, so peel a leading token,
+    # try the label match against the unwrapped head, and drop the matching
+    # closing token from the body so it does not leak into typed fields.
     label = ""
     body = normalized
-    label_match = _LABEL_RE.match(normalized)
+    unwrapped, leading_token = _strip_leading_emphasis(normalized)
+    label_match = _LABEL_RE.match(unwrapped)
     if label_match is not None:
         label = label_match.group("label").strip()
-        body = label_match.group("body").strip()
+        candidate_body = label_match.group("body").strip()
+        if leading_token and candidate_body.startswith(leading_token):
+            # `**Current goal:** Land X.` — the closing `**` sits at the
+            # start of the body because `:` terminated the label regex.
+            candidate_body = candidate_body[len(leading_token) :].lstrip()
+        elif leading_token and candidate_body.endswith(leading_token):
+            # `**Current goal: Land X.**` — the closing `**` wraps the
+            # whole entry instead of just the label.
+            candidate_body = candidate_body[: -len(leading_token)].rstrip()
+        body = normalize_inline_markdown(candidate_body)
     date_match = _DATE_RE.match(body)
     return SessionResumeEntry(
         text=body,
@@ -184,6 +201,14 @@ def _build_entry(
         label=label,
         date_hint=date_match.group("value") if date_match is not None else "",
     )
+
+
+def _strip_leading_emphasis(value: str) -> tuple[str, str]:
+    """Peel a single leading markdown emphasis token off a short fragment."""
+    for token in _LEADING_EMPHASIS_TOKENS:
+        if value.startswith(token) and len(value) > len(token):
+            return value[len(token) :].lstrip(), token
+    return value, ""
 
 
 def _normalize_block(lines: list[str]) -> str:
@@ -196,9 +221,17 @@ def _pick_labeled_entry(
     entries: tuple[SessionResumeEntry, ...],
     label: str,
 ) -> str:
+    # Label-bound bullets (`- Current goal: ...`) always win over subsection
+    # context so an author-written label beats an inherited heading name.
     lowered = label.casefold()
     for entry in entries:
         if entry.label.casefold() == lowered:
+            return entry.text
+    # Fallback: `### Current goal\n\n- bullet text` carries the label on the
+    # subsection heading instead of each bullet. Pick the first bullet under
+    # a matching subsection so typed continuity still binds.
+    for entry in entries:
+        if entry.subsection.casefold() == lowered and entry.text:
             return entry.text
     return ""
 

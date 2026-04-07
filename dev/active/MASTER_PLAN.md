@@ -4317,9 +4317,10 @@ become the main product surface.
     worktree/path scope, allowed command families, required guards,
     expected artifacts, and conductor return contracts. Treat the 8+8 lane
     table as maximum capacity only, not as permanent role truth.
-  - [ ] Replace boolean-only `Session Resume` detection with typed continuity
+  - [x] Replace boolean-only `Session Resume` detection with typed continuity
     state in `startup-context` / intake routing. (evidence:
-    `UNIVERSAL_SYSTEM_EVIDENCE.md` Part 28)
+    `UNIVERSAL_SYSTEM_EVIDENCE.md` Part 28) (closed 2026-04-07 — see
+    `platform_authority_loop.md` typed-continuity tranche follow-ups A/B/C)
   - [ ] Turn report-only governance-routing and AI-guidance fields into live
     runtime inputs across startup, repair, review, and `guard-run` flows.
     First proof slices landed: Ralph now consumes exact file-matched
