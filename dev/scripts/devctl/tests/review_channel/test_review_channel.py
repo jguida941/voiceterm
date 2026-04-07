@@ -974,7 +974,6 @@ class ReviewChannelHelperTests(unittest.TestCase):
                             terminal="none",
                             dry_run=False,
                             await_ack_seconds=1,
-                            allow_headless_override=False,
                         ),
                         sessions=[{"script_path": "/tmp/codex-conductor.sh"}],
                         bridge_path=bridge_path,
@@ -2061,6 +2060,42 @@ class TestLaunchRecordsRolloverState(unittest.TestCase):
         )
         self.assertEqual(req.interaction_mode, "remote_control")
         self.assertEqual(req.rollover_provider, "claude")
+
+    def test_prepared_session_record_carries_launch_authority_metadata(self) -> None:
+        from dev.scripts.devctl.review_channel.launch_records import (
+            PreparedSessionRecord,
+        )
+
+        record = PreparedSessionRecord(
+            session_name="claude-conductor",
+            provider="claude",
+            provider_name="Claude",
+            role="implementer",
+            approval_mode="balanced",
+            planned_lanes=[],
+            requested_worker_budget=0,
+            repo_root=Path("/tmp/repo"),
+            script_path=Path("/tmp/claude.sh"),
+            launch_command="/bin/zsh /tmp/claude.sh",
+            prepared_at="2026-04-07T00:00:00Z",
+            log_path=Path("/tmp/claude.log"),
+            metadata_path=Path("/tmp/claude.json"),
+            prepared_head_sha="head-123",
+            prepared_instruction_revision="rev-123",
+            prepared_session_token="token-123",
+            review_state_path=Path("/tmp/review_state.json"),
+        )
+
+        metadata = record.metadata_payload()
+        report = record.report_payload()
+        self.assertEqual(metadata["prepared_head_sha"], "head-123")
+        self.assertEqual(metadata["prepared_instruction_revision"], "rev-123")
+        self.assertEqual(metadata["prepared_session_token"], "token-123")
+        self.assertEqual(metadata["review_state_path"], "/tmp/review_state.json")
+        self.assertEqual(report["prepared_head_sha"], "head-123")
+        self.assertEqual(report["prepared_instruction_revision"], "rev-123")
+        self.assertEqual(report["prepared_session_token"], "token-123")
+        self.assertEqual(report["review_state_path"], "/tmp/review_state.json")
 
 
 class TestPublisherAutoPollCadence(unittest.TestCase):
@@ -7591,11 +7626,11 @@ class ReviewChannelCommandTests(unittest.TestCase):
                 patch.object(review_channel_command, "REPO_ROOT", root),
                 patch(
                     "dev.scripts.devctl.review_channel.state.compute_non_audit_worktree_hash",
-                    return_value="a" * 64,
+                    return_value="b" * 64,
                 ),
                 patch(
                     "dev.scripts.devctl.review_channel.reviewer_worker.compute_non_audit_worktree_hash",
-                    return_value="a" * 64,
+                    return_value="b" * 64,
                 ),
             ):
                 rc = review_channel_command.run(args)

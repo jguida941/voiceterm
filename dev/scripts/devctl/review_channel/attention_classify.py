@@ -17,6 +17,7 @@ from .attention_helpers import (
     is_resettable_implementer_error,
     relaunch_required_contract_error,
 )
+from .attention_implementer_relaunch import classify_implementer_relaunch
 from .peer_liveness import (
     AttentionStatus,
     CODEX_POLL_OVERDUE_AFTER_SECONDS,
@@ -256,97 +257,72 @@ def _classify_publisher_state(ctx: BridgeAttentionContext) -> str | None:
     return AttentionStatus.PUBLISHER_MISSING
 
 
-def classify_attention_status(
-    ctx: BridgeAttentionContext,
-) -> str:
-    """Priority-ordered attention status classification."""
+def _classify_startup_attention(ctx: BridgeAttentionContext) -> str | None:
     if not ctx.reviewer_mode_active:
         return AttentionStatus.INACTIVE
-
     if _requires_implementer_state_reset(ctx):
         return AttentionStatus.IMPLEMENTER_STATE_RESET_REQUIRED
-
     if (
         ctx.overall_state == OverallLivenessState.RUNTIME_MISSING
         or not ctx.reviewer_runtime_running
     ):
         return AttentionStatus.RUNTIME_MISSING
+    return _classify_reviewer_freshness(ctx)
 
-    freshness = _classify_reviewer_freshness(ctx)
-    if freshness is not None:
-        return freshness
 
+def _classify_review_attention(ctx: BridgeAttentionContext) -> str | None:
     if ctx.launch_truth in {
         LaunchTruthState.DETACHED_RUNTIME_ONLY.value,
         LaunchTruthState.HYBRID_CLAUDE_ONLY.value,
     } or relaunch_required_contract_error(ctx.active_contract_errors):
         return AttentionStatus.REVIEW_LOOP_RELAUNCH_REQUIRED
-
     if blocking_contract_errors(
         ctx.active_contract_errors,
         implementer_state_pending=ctx.implementer_state_pending,
     ):
         return AttentionStatus.BRIDGE_CONTRACT_ERROR
-
     if ctx.review_needed and ctx.reviewer_supervisor_running and ctx.reviewed_hash_current is False:
         return AttentionStatus.REVIEW_FOLLOW_UP_REQUIRED
-
     if ctx.review_needed and not ctx.reviewer_supervisor_running:
         return AttentionStatus.REVIEWER_SUPERVISOR_REQUIRED
-
     if ctx.checkpoint_required or not ctx.safe_to_continue_editing:
         return AttentionStatus.CHECKPOINT_REQUIRED
+    return None
 
-    fresh_poll = ctx.codex_poll_state in {CodexPollState.FRESH, CodexPollState.POLL_DUE}
 
-    if (
-        fresh_poll
-        and ctx.overall_state == OverallLivenessState.WAITING_ON_PEER
-        and ctx.implementer_completion_stall
-        and (not ctx.claude_ack_present or not ctx.claude_ack_current)
-        and not ctx.review_needed
-    ):
-        return AttentionStatus.IMPLEMENTER_RELAUNCH_REQUIRED
-
-    if (
-        fresh_poll
-        and ctx.overall_state == OverallLivenessState.WAITING_ON_PEER
-        and not ctx.implementer_state_pending
-        and ctx.session_hint_state in RESETTABLE_IMPLEMENTER_SESSION_STATES
-        and (not ctx.claude_status_present or not ctx.claude_ack_current)
-        and not ctx.review_needed
-    ):
-        return AttentionStatus.IMPLEMENTER_RELAUNCH_REQUIRED
-
-    if (
-        fresh_poll
-        and ctx.implementer_completion_stall
-        and ctx.claude_ack_current
-        and not ctx.review_needed
-    ):
-        return AttentionStatus.DUAL_AGENT_IDLE
-
+def _classify_remaining_attention(ctx: BridgeAttentionContext) -> str | None:
     peer_status = _classify_peer_waiting(ctx)
     if peer_status is not None:
         return peer_status
-
     if blocking_contract_errors(
         ctx.active_contract_errors,
         implementer_state_pending=ctx.implementer_state_pending,
     ):
         return AttentionStatus.BRIDGE_CONTRACT_ERROR
-
     if ctx.reviewed_hash_current is False:
         return AttentionStatus.REVIEWED_HASH_STALE
-
     if ctx.implementer_completion_stall:
         return AttentionStatus.IMPLEMENTER_COMPLETION_STALL
-
     publisher_status = _classify_publisher_state(ctx)
     if publisher_status is not None:
         return publisher_status
-
     if _reviewer_completion_unrecorded(ctx):
         return AttentionStatus.REVIEWER_COMPLETION_UNRECORDED
+    return None
 
+
+def classify_attention_status(
+    ctx: BridgeAttentionContext,
+) -> str:
+    """Priority-ordered attention status classification."""
+    classifiers = (
+        _classify_startup_attention,
+        _classify_review_attention,
+        classify_implementer_relaunch,
+        _classify_remaining_attention,
+    )
+    for classifier in classifiers:
+        status = classifier(ctx)
+        if status is not None:
+            return status
     return AttentionStatus.HEALTHY

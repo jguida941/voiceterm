@@ -16,17 +16,13 @@ from ..context_graph.escalation_render import append_compact_context_packet_mark
 from ..repo_packs import active_path_config
 from .bridge_file import rewrite_bridge_markdown
 from .handoff import (
-    IDLE_FINDING_MARKERS,
-    IDLE_NEXT_ACTION_MARKERS,
-    RESOLVED_VERDICT_MARKERS,
-    BridgeSnapshot,
     extract_bridge_snapshot,
 )
-from .peer_liveness import REVIEWER_WAIT_STATE_MARKERS
 from .promotion_support import (
     InstructionRewriteContext,
     instruction_needs_plan_promotion,
     rewrite_instruction_and_metadata,
+    validate_promotion_ready,
 )
 from .promotion_context import (
     build_promotion_context_packet as _build_promotion_context_packet_impl,
@@ -39,22 +35,6 @@ EXECUTION_CHECKLIST_HEADING = "## Execution Checklist"
 CHECKLIST_ITEM_RE = re.compile(r"^- \[(?P<mark>[ xX])\]\s+(?P<body>.+)$")
 SECTION_RE = re.compile(r"^##\s+")
 SUBSECTION_RE = re.compile(r"^###\s+(?P<title>.+?)\s*$")
-PROMOTABLE_INSTRUCTION_MARKERS = (
-    *IDLE_NEXT_ACTION_MARKERS,
-    *REVIEWER_WAIT_STATE_MARKERS,
-    *RESOLVED_VERDICT_MARKERS,
-    "next unchecked",
-    "continue checklist",
-    "continue the next",
-    "continue next",
-    "start the next",
-    "complete",
-    "completed",
-    "done",
-    "fixed",
-    "accepted",
-)
-CURRENT_INSTRUCTION_SECTION = "Current Instruction For Claude"
 
 
 @dataclass(frozen=True)
@@ -82,6 +62,7 @@ def build_promotion_context_packet(
         build_context_escalation_packet_fn=build_context_escalation_packet,
         collect_query_terms_fn=collect_query_terms,
     )
+
 
 def derive_promotion_candidate(
     *,
@@ -125,35 +106,6 @@ def derive_promotion_candidate(
         checklist_item=checklist_item,
         context_packet=context_packet,
     )
-
-
-def validate_promotion_ready(snapshot: BridgeSnapshot) -> list[str]:
-    """Return fail-closed bridge-state errors before promoting the next item."""
-    errors: list[str] = []
-    current_verdict = snapshot.sections.get("Current Verdict", "").strip().lower()
-    open_findings = snapshot.sections.get("Open Findings", "").strip().lower()
-    current_instruction = snapshot.sections.get(CURRENT_INSTRUCTION_SECTION, "").strip().lower()
-
-    if not current_verdict:
-        errors.append("Missing `Current Verdict`; cannot promote from unknown review state.")
-    elif not _contains_any(current_verdict, RESOLVED_VERDICT_MARKERS):
-        errors.append("`Current Verdict` must show an accepted/resolved slice before " "the next task is promoted.")
-
-    if open_findings and not _contains_any(open_findings, IDLE_FINDING_MARKERS):
-        errors.append(
-            "`Open Findings` still contains unresolved blockers; resolve or "
-            "clear them before promoting the next task."
-        )
-
-    if current_instruction and not (
-        _contains_any(current_instruction, PROMOTABLE_INSTRUCTION_MARKERS)
-        or instruction_needs_plan_promotion(current_instruction)
-    ):
-        errors.append(
-            "`Current Instruction For Claude` still looks live; refuse to " "overwrite an active instruction."
-        )
-
-    return errors
 
 
 def promote_bridge_instruction(
@@ -340,8 +292,3 @@ def scope_bridge_instruction(
 
         rewrite_bridge_markdown(bridge_path, transform=transform)
     return candidate
-
-
-def _contains_any(value: str, markers: tuple[str, ...]) -> bool:
-    lowered = value.lower()
-    return any(marker in lowered for marker in markers)

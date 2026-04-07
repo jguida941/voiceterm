@@ -46,13 +46,11 @@ class LaunchSessionRequest:
     """Typed launch inputs for the bridge-backed conductor start path.
 
     F21 (launcher discipline): ``interaction_mode`` is the typed operator
-    interaction mode read by the caller from
-    ``bridge_liveness.interaction_mode`` (or equivalent typed authority).
-    The dispatcher uses it together with ``args.terminal`` and
-    ``args.allow_headless_override`` to decide whether a headless launch
-    is allowed in the current operator context. Empty string means
-    "unresolved" and is treated fail-closed by the launcher discipline
-    validator (see ``launcher_discipline.py``).
+    interaction mode read by the caller from governance/startup authority.
+    The dispatcher uses it together with ``args.terminal`` to decide whether
+    a headless launch is allowed in the current operator context. Empty
+    string means "unresolved" and is treated fail-closed by the launcher
+    discipline validator (see ``launcher_discipline.py``).
     """
 
     args: object
@@ -114,11 +112,10 @@ def launch_sessions_if_requested(
     calls ``validate_visible_launch_in_local_mode`` with the typed
     ``interaction_mode`` carried on the request, the caller-provided
     ``args.terminal`` value, and the explicit
-    ``args.allow_headless_override`` flag. A denial fails closed by
-    raising ``ValueError`` with the typed operator-visible reason from
-    the verdict so the caller can surface the typed denial to the
-    operator instead of silently spawning a headless conductor that
-    cannot answer auth/permission prompts (the F4 trap).
+    A denial fails closed by raising ``ValueError`` with the typed operator-
+    visible reason from the verdict so the caller can surface the typed
+    denial to the operator instead of silently spawning a headless conductor
+    that cannot answer auth/permission prompts (the F4 trap).
     """
     args = request.args
     launched = False
@@ -136,9 +133,6 @@ def launch_sessions_if_requested(
         validate_visible_launch_in_local_mode(
             interaction_mode=request.interaction_mode,
             terminal_arg=str(getattr(args, "terminal", "")),
-            allow_headless_override=bool(
-                getattr(args, "allow_headless_override", False)
-            ),
         )
     )
     if not discipline_verdict.allowed:

@@ -4,7 +4,7 @@
 
 **Status:** Draft v4 (historical design and process record)
 **Audience:** users and developers
-**Last Updated:** 2026-04-05
+**Last Updated:** 2026-04-06
 
 ## At a Glance
 
@@ -212,6 +212,59 @@ Evidence: `dev/scripts/devctl/runtime/probe_report_violations.py`,
 `dev/scripts/README.md`,
 `dev/active/MASTER_PLAN.md`,
 `dev/active/ai_governance_platform.md`.
+
+### 2026-04-06 - Reviewer follow auto-promotion now fails closed on explicit state markers instead of prose substrings
+
+Review-channel promotion still had one hidden prose-authority seam. The
+follow loop and bridge promotion helpers were scanning whole reviewer
+sections for loose substrings like `accepted`, `resolved`, and `none`.
+That let a still-rejected slice look promotion-ready when the verdict
+contained a later explanatory `Accepted:` bullet, an open finding
+mentioned `--terminal none` or `unresolved`, or an active instruction
+carried generic words in later context. In practice, reviewer-follow
+could overwrite a fresh launch-authority instruction with the next MP-381
+plan item even though the live verdict still said `changes_requested`.
+
+The fix tightens promotion readiness to explicit primary state markers.
+`promotion.py` now parses normalized markdown items and only trusts the
+first verdict item, explicit idle finding markers, and the primary
+instruction item. `instruction_needs_plan_promotion()` uses the same
+primary-item rule, so later explanatory context can no longer masquerade
+as queue-advance authority. The bridge remains compatibility text, but
+the overwrite decision now behaves like a typed state machine instead of
+a substring grep.
+
+Evidence: `dev/scripts/devctl/review_channel/promotion.py`,
+`dev/scripts/devctl/review_channel/promotion_support.py`,
+`dev/scripts/devctl/tests/review_channel/test_promotion_guard.py`,
+`AGENTS.md`,
+`dev/guides/DEVELOPMENT.md`,
+`dev/scripts/README.md`,
+`dev/active/MASTER_PLAN.md`.
+
+### 2026-04-07 - Review-channel launch replay now fails closed on typed authority drift
+
+The live launcher still had a lowering gap after the pure terminal policy
+helper landed. The bridge handler built sessions from governed operator mode,
+but the final pre-spawn dispatcher read `bridge_liveness.interaction_mode`,
+which the real status payload does not expose. Generated conductor scripts
+also stayed replayable after HEAD or reviewer instruction state drifted, and
+headless supervision restarted every non-zero provider/preflight exit.
+
+The closure threads one resolved governance/startup interaction mode through
+session preparation and the dispatcher gate, removes the unowned
+`--allow-headless-override` CLI surface, and binds prepared scripts to HEAD,
+current instruction revision, and a typed turn/session token from
+`review_state.json`. Stale prepared authority exits before provider start with
+a non-restartable code so headless mode stops visibly instead of looping.
+
+Evidence: `dev/scripts/devctl/commands/review_channel/bridge_handler.py`,
+`dev/scripts/devctl/commands/review_channel/bridge_launch_control.py`,
+`dev/scripts/devctl/review_channel/launch_authority.py`,
+`dev/scripts/devctl/review_channel/launch_script.py`,
+`dev/scripts/devctl/tests/review_channel/test_launcher_discipline.py`,
+`dev/scripts/devctl/tests/review_channel/test_launch_script.py`,
+`dev/scripts/devctl/tests/review_channel/test_review_channel.py`.
 
 ### 2026-04-05 - Review-channel terminal policy and headless visibility are now explicit typed runtime truth
 

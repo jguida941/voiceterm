@@ -48,6 +48,10 @@ class ConductorSessionRecord:
     metadata_path: str
     live: bool
     age_seconds: int | None
+    prepared_head_sha: str = ""
+    prepared_instruction_revision: str = ""
+    prepared_session_token: str = ""
+    review_state_path: str = ""
 
 
 def detect_active_session_conflicts(
@@ -192,6 +196,22 @@ def load_conductor_sessions(
                     freshness_seconds=freshness_seconds,
                 ),
                 age_seconds=age_seconds,
+                prepared_head_sha=_session_metadata_text(
+                    metadata, "prepared_head_sha"
+                )
+                or "",
+                prepared_instruction_revision=_session_metadata_text(
+                    metadata, "prepared_instruction_revision"
+                )
+                or "",
+                prepared_session_token=_session_metadata_text(
+                    metadata, "prepared_session_token"
+                )
+                or "",
+                review_state_path=_session_metadata_text(
+                    metadata, "review_state_path"
+                )
+                or "",
             )
         )
     return tuple(records)

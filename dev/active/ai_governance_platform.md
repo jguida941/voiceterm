@@ -1,6 +1,6 @@
 # AI Governance Platform Plan
 
-**Status**: active  |  **Last updated**: 2026-04-06 | **Owner:** Tooling/control plane/product architecture
+**Status**: active  |  **Last updated**: 2026-04-07 | **Owner:** Tooling/control plane/product architecture
 Execution plan contract: required
 This spec remains execution mirrored in `dev/active/MASTER_PLAN.md` under
 `MP-377`, and it is the canonical active architecture plan for the standalone
@@ -6030,6 +6030,15 @@ Execution order for this section:
 
 ## Progress Log
 
+- 2026-04-07: Accepted the commit/push validation-cadence correction into the
+  main `MP-377` architecture lane. The portable rule is not "run everything on
+  every edit" and not "trust an agent to choose fast vs full"; it is to emit a
+  deterministic, tree-bound validation plan and receipt from repo policy, then
+  require governed checkpoint/commit/push surfaces to consume that receipt.
+  This sharpens the existing deterministic-validation lane: missing quality
+  evidence must be `unknown` / `stale`, selected bundle/add-on/escalation
+  reasons must be inspectable, and heavy proof remains at push/release
+  boundaries unless repo-owned routing escalates a smaller slice.
 - 2026-04-05: Accepted the next portable architecture correction into the main
   `MP-377` plan after reviewing the user's "types vs comments/docstrings"
   framing against the current codebase and plan chain. The repo already had

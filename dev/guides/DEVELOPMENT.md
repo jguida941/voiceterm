@@ -67,6 +67,16 @@ Use docs like this:
   typed state, default requested worker fanout is zero unless explicitly
   requested, and `bridge.md` remains a compatibility projection until native
   `CollaborationSession` worker topology lands.
+- Review-channel promotion/follow automation is fail-closed on explicit state
+  markers only. When you touch bridge promotion/readiness code, treat the
+  first verdict/instruction item or typed `current_session` state as authority;
+  do not substring-scan explanatory prose for words like `accepted`,
+  `resolved`, or `none`.
+- Review-channel launch/replay code is authority-bound. When you touch
+  conductor launch paths, resolve operator interaction mode through governance
+  or startup authority once, pass the same value into session preparation and
+  the pre-spawn gate, and keep prepared script replay bound to current HEAD,
+  instruction revision, and the typed `review_state.json` turn/session token.
 - `dev/scripts/remote-bridge-loop.sh` is only a repo-local wrapper over that
   same review-channel runtime. It syncs the tracked `/project:bridge-loop`
   prompt, checks `claude auth status`, prints typed review-channel health, and

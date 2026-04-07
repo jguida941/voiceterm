@@ -8,8 +8,16 @@ import re
 from pathlib import Path
 
 from .bridge_section_validation import find_embedded_markdown_headings
+from .handoff import (
+    IDLE_FINDING_MARKERS,
+    IDLE_NEXT_ACTION_MARKERS,
+    RESOLVED_VERDICT_MARKERS,
+    BridgeSnapshot,
+)
+from .handoff_constants import MARKDOWN_ITEM_RE
 from .instruction_reset import reset_implementer_sections_on_instruction_change
-from .peer_liveness import normalize_reviewer_mode
+from .peer_liveness import REVIEWER_WAIT_STATE_MARKERS, normalize_reviewer_mode
+from .promotion_marker_match import matches_any_marker
 from .reviewer_state_support import (
     ReviewerMetadataUpdate,
     current_instruction_revision_from_bridge_text,
@@ -32,6 +40,21 @@ _GENERIC_PROGRESS_MARKERS = (
     "continue next",
     "start the next",
 )
+PROMOTABLE_INSTRUCTION_MARKERS = (
+    *IDLE_NEXT_ACTION_MARKERS,
+    *REVIEWER_WAIT_STATE_MARKERS,
+    *RESOLVED_VERDICT_MARKERS,
+    "next unchecked",
+    "continue checklist",
+    "continue the next",
+    "continue next",
+    "start the next",
+    "complete",
+    "completed",
+    "done",
+    "fixed",
+    "accepted",
+)
 
 
 @dataclass(frozen=True)
@@ -48,12 +71,59 @@ class InstructionRewriteContext:
 
 def instruction_needs_plan_promotion(instruction: str) -> bool:
     """Return True when instruction text is a generic progression placeholder."""
-    lowered = instruction.strip().lower()
-    if not lowered:
+    primary_item = _primary_instruction_item(instruction)
+    if not primary_item:
         return True
-    if "next scoped plan item (" in lowered:
+    if primary_item.startswith("next scoped plan item ("):
         return False
-    return any(marker in lowered for marker in _GENERIC_PROGRESS_MARKERS)
+    return any(
+        primary_item == marker
+        or primary_item.startswith(f"{marker}:")
+        or primary_item.startswith(f"{marker} ")
+        for marker in _GENERIC_PROGRESS_MARKERS
+    )
+
+
+def validate_promotion_ready(snapshot: BridgeSnapshot) -> list[str]:
+    """Return fail-closed bridge-state errors before promoting the next item."""
+    errors: list[str] = []
+    current_verdict = snapshot.sections.get("Current Verdict", "").strip().lower()
+    open_findings = snapshot.sections.get("Open Findings", "").strip().lower()
+    current_instruction = snapshot.sections.get(
+        CURRENT_INSTRUCTION_SECTION, ""
+    ).strip().lower()
+    verdict_items = _state_items(current_verdict)
+    finding_items = _state_items(open_findings)
+    instruction_items = _state_items(current_instruction)
+
+    if not current_verdict:
+        errors.append("Missing `Current Verdict`; cannot promote from unknown review state.")
+    elif not verdict_items or not matches_any_marker(
+        verdict_items[0], RESOLVED_VERDICT_MARKERS
+    ):
+        errors.append(
+            "`Current Verdict` must show an accepted/resolved slice before "
+            "the next task is promoted."
+        )
+
+    if finding_items and not all(
+        matches_any_marker(item, IDLE_FINDING_MARKERS) for item in finding_items
+    ):
+        errors.append(
+            "`Open Findings` still contains unresolved blockers; resolve or "
+            "clear them before promoting the next task."
+        )
+
+    if instruction_items and not (
+        matches_any_marker(instruction_items[0], PROMOTABLE_INSTRUCTION_MARKERS)
+        or instruction_needs_plan_promotion(current_instruction)
+    ):
+        errors.append(
+            "`Current Instruction For Claude` still looks live; refuse to "
+            "overwrite an active instruction."
+        )
+
+    return errors
 
 
 def rewrite_current_instruction(
@@ -139,3 +209,31 @@ def _instruction_revision(text: str) -> str:
     if not normalized:
         return ""
     return hashlib.sha256(normalized.encode("utf-8")).hexdigest()[:12]
+
+
+def _primary_instruction_item(instruction: str) -> str:
+    for raw_line in instruction.splitlines():
+        stripped = raw_line.strip()
+        if not stripped:
+            continue
+        match = MARKDOWN_ITEM_RE.match(stripped)
+        candidate = match.group("value").strip() if match is not None else stripped
+        normalized = candidate.lower().strip()
+        if normalized:
+            return normalized
+    return ""
+
+
+def _state_items(value: str) -> tuple[str, ...]:
+    """Return normalized markdown-item payloads from one bridge section."""
+    items: list[str] = []
+    for raw_line in value.splitlines():
+        stripped = raw_line.strip()
+        if not stripped:
+            continue
+        match = MARKDOWN_ITEM_RE.match(stripped)
+        candidate = match.group("value").strip() if match is not None else stripped
+        normalized = candidate.lower().strip()
+        if normalized:
+            items.append(normalized)
+    return tuple(items)

@@ -1,6 +1,6 @@
 # Remote Commit Pipeline Plan
 
-**Status**: active  |  **Last updated**: 2026-04-05 | **Owner:** Tooling/control plane/review runtime
+**Status**: active  |  **Last updated**: 2026-04-07 | **Owner:** Tooling/control plane/review runtime
 Execution plan contract: required
 This spec remains execution mirrored in `dev/active/MASTER_PLAN.md` under
 `MP-377`. It freezes the Phase-0 design for the typed remote-session
@@ -65,6 +65,11 @@ Out of scope in this phase:
    work may not rely on agent discipline or chat instructions to remember guard
    runs; a repo-owned commit gate must enforce the same guard freshness that
    the typed pipeline and operator surfaces project.
+9. Validation tier selection must be deterministic repo policy, not actor
+   judgment. Agents and humans may ask for a fast or full proof, but governed
+   checkpoint/commit/push must consume a tree-bound validation plan/receipt
+   emitted by repo-owned routing. Missing, stale, or mismatched quality
+   evidence is `unknown` or blocked; it is never equivalent to green.
 
 ## Cross-Plan Dependencies
 
@@ -108,12 +113,13 @@ Canonical surfaces:
 | `TypedAction -> ActionResult` | every stageable action emits the same governed request/receipt pair instead of terminal-only text |
 | `PacketPostRequest` | carries operator approval request and operator decision through the existing review-channel transport |
 | Existing guard bundles | the `guard` node reuses the repo-routed task bundle plus risk-matrix add-ons instead of inventing a second validation stack |
+| `check-router` / task routing | emits the selected bundle, risk add-ons, changed-path evidence, and escalation reasons that the validation-plan follow-up must bind to staged tree identity |
 | Current `vcs.push` flow | remains the only publish executor; the new pipeline records and projects its existing staged truth (`validation_ready`, `published_remote`, `post_push_green`) |
 | `LocalServiceEndpoint` + `CallerAuthorityPolicy` | define which backend path is allowed to execute commit/push and which callers may request, approve, or recover pipeline state |
 
 ### New Typed Records
 
-Two new typed records are sufficient for Phase 0:
+Two typed records were sufficient for Phase 0:
 
 1. `RemoteCommitPipelineContract`
    Purpose: singular orchestration owner for the remote commit/push lifecycle.
@@ -162,6 +168,39 @@ Two new typed records are sufficient for Phase 0:
    - `push_requested`
    - `guard_profile`
    - `work_intake_ref`
+
+Validation-gate follow-up:
+
+3. `ValidationPlan`
+   Purpose: immutable repo-selected proof contract for one worktree or staged
+   tree, replacing actor-selected "fast vs full" judgment.
+   Required fields:
+   - `validation_plan_id`
+   - `source_tree_hash` or `staged_tree_hash`
+   - `changed_paths`
+   - `selected_bundle`
+   - `required_addons`
+   - `proof_level`
+   - `escalation_reason`
+   - `sufficient_for_checkpoint`
+   - `sufficient_for_push`
+   - `policy_hash`
+   - `expires_at_utc`
+   - `invalidation_reasons`
+4. `ValidationReceipt`
+   Purpose: executed proof evidence bound to one `ValidationPlan` and exact
+   tree identity.
+   Required fields:
+   - `validation_receipt_id`
+   - `validation_plan_id`
+   - `tree_hash`
+   - `executed_commands`
+   - `action_results`
+   - `status`
+   - `failure_summary`
+   - `artifact_paths`
+   - `sufficient_for_checkpoint`
+   - `sufficient_for_push`
 
 If implementation promotes the top-level record into the platform contract
 catalog, it should follow `platform/contracts.py` and land as a `ContractSpec`
@@ -424,9 +463,22 @@ surface for remote sessions. It should project:
 - [ ] Add a repo-owned commit gate that runs the routed guard bundle before any
       remote-control or governed local commit is created, records current guard
       freshness in typed state, and blocks raw unguarded commit attempts.
+- [ ] Add a typed `ValidationPlan` / `ValidationReceipt` contract emitted from
+      `check-router` or a sibling router command, bound to current worktree or
+      staged tree hash, with selected bundle, risk add-ons, escalation reason,
+      and checkpoint/push sufficiency flags.
+- [ ] Bind `vcs.stage`, `vcs.commit`, and governed `vcs.push` to a fresh
+      matching validation receipt for the exact staged tree or approved commit
+      target, instead of trusting `guard_profile` strings or actor memory.
+- [ ] Fix missing quality evidence to fail closed as `unknown` / `stale`
+      before using automated validation-tier routing as a push or checkpoint
+      proof; a missing push/guard report must not project `last_guard_ok=true`.
 - [ ] Surface commit-gate freshness / last-guard truth through doctor, status,
       and auto-mode so approval-ready state cannot be inferred from stale or
       bypassed guard runs.
+- [ ] Surface validation-plan reasons through doctor/status/dashboard: selected
+      bundle, triggering paths, required add-ons, why the tier escalated or did
+      not escalate, and whether the proof is enough for checkpoint or push.
 - [ ] Split publication authority from startup/edit gating by emitting one
       typed `PushAuthorizationRecord` after the governed commit is recorded and
       making direct `devctl push` consume that exact-head authorization instead
@@ -441,6 +493,19 @@ surface for remote sessions. It should project:
 
 ## Progress Log
 
+- 2026-04-07: Accepted the validation-cadence architecture review for this
+  lane. The answer is not "run the whole world on every local edit" and not
+  "let the model choose a fast path"; it is to keep enforcement depth while
+  compiling proof-tier selection into repo-owned typed artifacts. Code review
+  confirmed the current seam: `build_stage_action()` carries scoped paths,
+  `guard_profile`, and `work_intake_ref`, and `execute_stage()` enforces dirty
+  path scope plus staged tree hash, but the pipeline does not yet require a
+  tree-bound validation plan/receipt. `resolve_quality()` also treats a missing
+  push report as `last_guard_ok=true`, which is too fail-open for automated
+  tier routing. The accepted follow-up is one `ValidationPlan` /
+  `ValidationReceipt` contract emitted from routed check policy, bound to the
+  worktree/staged-tree identity, consumed by stage/commit/push, and projected
+  with reasons in doctor/status/dashboard.
 - 2026-04-05: Accepted the operator-override publish review for this lane. The
   current system did the important part correctly: it attempted the governed
   push, surfaced the typed block, and required explicit human intervention
@@ -530,14 +595,18 @@ surface for remote sessions. It should project:
   `git commit` is still not structurally forced through the same guarded path.
   The same lane now also owns the next publish-exception closure: operator
   `override_push` must stay inside typed pipeline state instead of becoming a
-  normalized raw-shell fallback.
-- Next action: land the repo-owned commit gate and thread its freshness receipt
-  into doctor, status, and auto-mode before widening more remote-control
-  polish. Immediately after that, add the generation-bound `override_push`
-  receipt/approval path so governed publish exceptions still execute through
-  canonical `vcs.push`. Do not rely on agent discipline, chat reminders, or
-  raw git recovery steps as a substitute for enforced commit gating or typed
-  override control.
+  normalized raw-shell fallback. It now also owns validation-tier closure:
+  fast/checkpoint/push/release proof selection must be a typed repo-owned
+  contract bound to tree identity, not a human/AI memory choice.
+- Next action: land the repo-owned commit gate as a validation-contract slice:
+  first fix fail-open missing quality evidence to `unknown` / `stale`, then
+  add `ValidationPlan` / `ValidationReceipt`, then bind stage/commit/push to a
+  fresh matching receipt and project the selected bundle/add-ons/reasons in
+  doctor, status, and dashboard. Immediately after that, add the generation-
+  bound `override_push` receipt/approval path so governed publish exceptions
+  still execute through canonical `vcs.push`. Do not rely on agent discipline,
+  chat reminders, or raw git recovery steps as a substitute for enforced
+  commit gating, validation receipts, or typed override control.
 - Context rule: read `dev/active/platform_authority_loop.md`,
   `dev/active/review_channel.md`, and `dev/active/continuous_swarm.md` with
   this plan before changing remote commit/push behavior.
@@ -570,6 +639,19 @@ surface for remote sessions. It should project:
     `startup-authority-contract-guard` and `tandem-consistency-guard` because
     the live review runtime is missing and the newly added files are not in the
     git index yet. No stage/commit was performed in this session.
+- 2026-04-07 reviewer architecture intake for validation cadence:
+  - `python3 dev/scripts/devctl.py startup-context --format summary`
+    failed closed with `action=checkpoint_before_continue`,
+    `reason=dirty_path_budget_exceeded`, and
+    `blockers=startup_authority,checkpoint_required,runtime_missing`.
+  - `python3 dev/scripts/devctl.py context-graph --mode bootstrap --format md`
+    confirmed the same dirty/checkpoint blockers plus `ahead_of_upstream=7`.
+  - Code inspection covered
+    `dev/scripts/devctl/commands/vcs/governed_executor_actions.py`,
+    `dev/scripts/devctl/commands/vcs/governed_executor_phases.py`,
+    `dev/scripts/devctl/runtime/remote_commit_pipeline_models.py`,
+    `dev/scripts/devctl/runtime/control_plane_resolve.py`, and
+    `dev/scripts/devctl/commands/check/router.py`.
 - Design inputs read for this plan:
   - `AGENTS.md`
   - `AUDIT_STATUS.md`

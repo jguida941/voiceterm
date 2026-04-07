@@ -97,45 +97,7 @@ def test_headless_in_remote_control_with_extra_whitespace_is_allowed() -> None:
     assert verdict.allowed is True
 
 
-# ---------- Decision rule 4: explicit operator override is allowed ----------
-
-
-def test_headless_with_explicit_override_is_allowed_in_local_mode() -> None:
-    """Explicit operator override permits headless even in local mode.
-
-    This is the escape hatch for legitimate cases (CI runs, automated
-    test harnesses). The caller is responsible for justifying it; the
-    gate trusts the override flag once set.
-    """
-    verdict = validate_visible_launch_in_local_mode(
-        interaction_mode="local_terminal",
-        terminal_arg="none",
-        allow_headless_override=True,
-    )
-    assert verdict.allowed is True
-
-
-def test_headless_with_explicit_override_is_allowed_in_unresolved_mode() -> None:
-    """Override also bypasses the unresolved-mode fail-closed default."""
-    verdict = validate_visible_launch_in_local_mode(
-        interaction_mode="",
-        terminal_arg="none",
-        allow_headless_override=True,
-    )
-    assert verdict.allowed is True
-
-
-def test_headless_with_explicit_override_is_allowed_in_unknown_mode() -> None:
-    """Override also bypasses the unknown-mode fail-closed default."""
-    verdict = validate_visible_launch_in_local_mode(
-        interaction_mode="some_future_mode_value",
-        terminal_arg="none",
-        allow_headless_override=True,
-    )
-    assert verdict.allowed is True
-
-
-# ---------- Decision rule 5: F21 trap fires (the main reason this guard exists) ----------
+# ---------- Decision rule 4: F21 trap fires (the main reason this guard exists) ----------
 
 
 def test_headless_in_local_terminal_mode_is_denied_without_override() -> None:
@@ -191,7 +153,7 @@ def test_headless_with_empty_interaction_mode_is_denied_without_override() -> No
     assert verdict.denial_reason == "headless_launch_in_local_mode"
 
 
-# ---------- Decision rule 6: unknown interaction_mode fails closed ----------
+# ---------- Decision rule 5: unknown interaction_mode fails closed ----------
 
 
 def test_headless_with_unknown_interaction_mode_is_denied_without_override() -> None:
@@ -280,7 +242,6 @@ def _dispatcher_args(
     action: str = "launch",
     terminal: str = "none",
     dry_run: bool = False,
-    allow_headless_override: bool = False,
     await_ack_seconds: int = 0,
 ) -> SimpleNamespace:
     """Build a minimal ``args`` shim for the dispatcher tests."""
@@ -288,7 +249,6 @@ def _dispatcher_args(
         action=action,
         terminal=terminal,
         dry_run=dry_run,
-        allow_headless_override=allow_headless_override,
         await_ack_seconds=await_ack_seconds,
     )
 
@@ -374,19 +334,6 @@ def test_dispatcher_allows_headless_launch_in_remote_control_mode() -> None:
         launch_sessions_if_requested(request)
 
 
-def test_dispatcher_allows_headless_launch_with_explicit_override_in_local_mode() -> None:
-    """Explicit ``--allow-headless-override`` permits headless even in local mode."""
-    args = _dispatcher_args(
-        action="launch", terminal="none", allow_headless_override=True
-    )
-    request = _dispatcher_request(args=args, interaction_mode="local_terminal")
-
-    # Validation passes (override accepted); dispatcher then tries to read
-    # bridge_path which doesn't exist -> proves gate let it past.
-    with pytest.raises((FileNotFoundError, OSError)):
-        launch_sessions_if_requested(request)
-
-
 def test_dispatcher_skips_validation_for_non_launch_actions() -> None:
     """The discipline gate must NOT fire for non-launch/non-rollover actions.
 
@@ -434,3 +381,78 @@ def test_dispatcher_refuses_rollover_with_headless_in_local_mode() -> None:
         launch_sessions_if_requested(request)
 
     assert "headless_launch_in_local_mode" in str(exc_info.value)
+
+
+def test_bridge_handler_launch_uses_resolved_governance_mode_not_bridge_liveness(
+    tmp_path: Path,
+) -> None:
+    """The real bridge-handler path must not read missing bridge_liveness mode."""
+    from dev.scripts.devctl.commands.review_channel.bridge_contexts import (
+        LaunchExecutionContext,
+        LaunchRefreshContext,
+    )
+    from dev.scripts.devctl.commands.review_channel.bridge_handler import (
+        _launch_and_refresh,
+    )
+    from unittest.mock import patch
+
+    bridge_path = tmp_path / "bridge.md"
+    bridge_path.write_text(
+        "\n".join(
+            [
+                "# Bridge",
+                "",
+                "- Last Codex poll: `2026-04-07T00:00:00Z`",
+                "- Reviewer mode: `active_dual_agent`",
+                "- Current instruction revision: `rev-123`",
+                "",
+                "## Current Instruction For Claude",
+                "",
+                "- continue",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    status_snapshot = SimpleNamespace(
+        warnings=[],
+        bridge_liveness={"reviewer_mode": "active_dual_agent"},
+    )
+
+    with (
+        patch(
+            "dev.scripts.devctl.commands.review_channel.bridge_handler.ensure_launch_runtime_daemons",
+            return_value=(True, []),
+        ),
+        patch(
+            "dev.scripts.devctl.commands.review_channel.bridge_launch_control._launch_sessions_headless",
+            return_value=True,
+        ),
+        patch(
+            "dev.scripts.devctl.commands.review_channel.bridge_handler.post_session_lifecycle_event",
+            return_value=None,
+        ),
+        patch(
+            "dev.scripts.devctl.commands.review_channel.bridge_handler._refresh_snapshot",
+            return_value=status_snapshot,
+        ),
+    ):
+        launched, _, _, _ = _launch_and_refresh(
+            args=_dispatcher_args(action="launch", terminal="none"),
+            context=LaunchRefreshContext(
+                repo_root=tmp_path,
+                review_channel_path=tmp_path / "review_channel.md",
+                bridge_path=bridge_path,
+                status_dir=tmp_path,
+                promotion_plan_path=None,
+                artifact_paths=None,
+            ),
+            execution=LaunchExecutionContext(
+                sessions=[{"launch_command": "/bin/zsh /tmp/claude.sh"}],
+                handoff_bundle=None,
+                terminal_profile_applied=None,
+                status_snapshot=status_snapshot,
+                interaction_mode="remote_control",
+            ),
+        )
+
+    assert launched is True

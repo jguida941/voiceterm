@@ -255,6 +255,22 @@
   output or the existing check pipeline. Keep the next widening steps bounded:
   consume that shared row contract in remaining probe/governance/startup
   surfaces before treating `MP-381` as complete.
+- Current 2026-04-06 review-channel blocker inside that same lane:
+  reviewer-follow auto-promotion must not infer slice resolution from
+  substring hits inside reviewer prose. Promotion/readiness now needs one
+  explicit primary state marker (for example the first verdict bullet or
+  explicit idle findings) or typed `current_session` truth; text such as
+  `--terminal none`, `unresolved`, or a later explanatory `Accepted:` line is
+  not sufficient authority to overwrite a live rejected instruction.
+- Current 2026-04-07 `MP-382` / `MP-387` launch-authority closure inside that
+  same lane: live launch/rollover now resolves operator interaction mode once
+  through governance/startup authority and threads that value through session
+  preparation plus the pre-spawn dispatcher gate; the unowned
+  `--allow-headless-override` surface is removed. Prepared conductor metadata
+  and generated scripts carry prepared HEAD, current instruction revision, and
+  a typed turn/session token; direct script replay re-reads `review_state.json`
+  and exits with a non-restartable stale-authority code before provider start
+  when any value drifts.
 - Current 2026-04-05 provider-neutral bootstrap follow-up inside that same
   lane: reviewer/implementer ownership is now tracked as role-first launch
   state instead of fixed Codex/Claude identity. Planned lane parsing,
@@ -428,6 +444,19 @@
   one typed `PushAuthorizationRecord` bound to exact approved HEAD/check
   bundle identity so `devctl push --execute` consumes persisted publish proof
   instead of `startup-context` freshness or live reviewer-heartbeat state.
+- Current accepted same-lane follow-up on 2026-04-07: commit/push latency must
+  be improved by typed validation routing, not by weakening safeguards or
+  asking agents to choose a "fast path" from memory. `check-router` already
+  reports selected bundle, risk add-ons, changed paths, and reasons, while the
+  governed stage pipeline already scopes paths and records staged tree hash;
+  the gap is the missing tree-bound `ValidationPlan` / `ValidationReceipt`
+  consumed by checkpoint/stage/commit/push. The first implementation order is:
+  make missing quality evidence `unknown` / `stale` instead of green, emit the
+  validation plan/receipt from repo-owned routing, bind VCS mutation and
+  governed push to a fresh matching receipt, then project bundle/add-on/
+  escalation reasons plus checkpoint/push sufficiency in doctor/status/
+  dashboard. Keep strict full proof at push/release boundaries, but let the
+  repo select targeted checkpoint proof deterministically.
 - Latest same-lane closure on 2026-04-03: the workflow-enforcement parity for
   the Phase 3/4 remote-commit proof guards is now explicit.
   `.github/workflows/tooling_control_plane.yml` and

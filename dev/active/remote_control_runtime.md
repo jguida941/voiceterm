@@ -1,6 +1,6 @@
 # Remote Control Runtime Closure Plan
 
-**Status**: active  |  **Last updated**: 2026-04-05 | **Owner:** Tooling/control plane/review runtime/dashboard
+**Status**: active  |  **Last updated**: 2026-04-07 | **Owner:** Tooling/control plane/review runtime/dashboard
 Execution plan contract: required
 This spec is mirrored in `dev/active/MASTER_PLAN.md` under `MP-380..MP-387`.
 It closes the remote-control/operator-surface gaps found in the 2026-04-04
@@ -82,6 +82,11 @@ contract exists.
       bootstrap align: `SystemCatalog` / `AgentDispatchPacket` should expose
       the exact guard bundle and typed context a fresh Claude or Codex session
       must consume before acting.
+- [ ] MP-381 and MP-384 Make validation cadence deterministic and inspectable:
+      expose a tree-bound `ValidationPlan` / `ValidationReceipt` selected by
+      repo routing, project selected bundle/add-ons/escalation reasons plus
+      checkpoint/push sufficiency, and treat missing quality evidence as
+      `unknown` / `stale` instead of green.
 
 ## Cross-Cutting Closure Rules
 
@@ -327,6 +332,49 @@ The MP scopes remain valid but are now cross-cut by enforcement-first priority.
 
 ## Progress Log
 
+- 2026-04-07: Integrated the operator concern about commit/push latency as a
+  plan-owned architecture finding instead of a request to weaken safeguards.
+  Accepted conclusion: the system should keep strict proof, but stop leaving
+  fast/checkpoint/push/release tier selection to actor judgment. The code
+  seam is real: the remote VCS stage intent carries `guard_profile` but no
+  validation plan id/tree-bound receipt, stage execution scopes paths and
+  records a staged tree hash but does not verify a validation receipt, and
+  the control-plane quality reducer still treats a missing push report as
+  guard-green. This remains queued under `MP-381` / `MP-384` plus the
+  `dev/active/remote_commit_pipeline.md` commit-gate lane; Claude should not
+  widen the current push/checkpoint work into a discretionary "run fewer
+  checks" change.
+- 2026-04-07: Closed the bounded `MP-382` / `MP-387` launch-authority
+  follow-up from the active reviewer verdict. The live bridge-handler path no
+  longer reads missing `bridge_liveness.interaction_mode`; it resolves the
+  governed operator interaction mode once and passes that value to both
+  `build_launch_sessions()` and `launch_sessions_if_requested()`. The
+  unowned `--allow-headless-override` CLI/test surface was removed. Prepared
+  conductor metadata and generated launch scripts now carry prepared HEAD,
+  current instruction revision, and a typed turn/session token; the script
+  re-reads `review_state.json` before provider start and treats stale
+  authority as a non-restartable headless exit instead of looping forever.
+- 2026-04-06: Integrated the operator-supplied static GitHub branch review
+  against the live local reviewer/runtime state. The review is directionally
+  correct and aligns with this plan's existing architecture diagnosis: the
+  platform is stronger at typed modeling than at enforced lowering/execution.
+  Triaged outcome:
+  `MP-382` current-slice fit: the stale/inactive recovery guidance gap was
+  real in local reviewer runtime, so the bounded fix landed locally in the
+  review-channel attention/recover path (missing live Claude conductor now
+  escalates to `implementer_relaunch_required`, and repo-owned recover now
+  dry-runs successfully from the fresh reviewer checkpoint state).
+  Plan-only, do-not-widen items: `ControlPlaneReadModel` fail-open quality /
+  daemon truth tightening stays queued under `MP-381` / `MP-384`; one typed
+  operator-directive ingress and packet-backed operator actions stay queued
+  under `MP-380` / `MP-383` / `MP-385`; broader auto-mode decisiveness and
+  dashboard-as-single-surface remain `MP-384` / `MP-385`; discoverability and
+  bootstrap closure remain `MP-386` / `MP-387`; governed VCS self-hosting
+  repair parity stays queued with the existing executor/pipeline work and must
+  not be folded into the live launch-authority slice. Result: keep Claude on
+  the existing `MP-382` + `MP-387` launch-authority/runtime closure turn and
+  treat the broader branch-review findings as confirmed backlog within this
+  plan, not as ad hoc new scope.
 - 2026-04-05: Closed the dirty-tree reviewer/implementer handoff seam inside
   `MP-387` without adding a second authority store. Bridge-backed status now
   emits one typed `ReviewCandidateRecord` into `review_state.json` /
@@ -688,7 +736,8 @@ No `ControlPlaneReadModel` exists. Each surface independently reads raw artifact
   fail-closed operator mode, terminal-none proof-of-life launch validation,
   session cleanup/orphan refusal/startup preflight cleanup, control-plane
   contract-catalog coverage, stale-review invalidation, queue metric split,
-  and typed reviewer bootstrap/session-resume truth.
+  typed reviewer bootstrap/session-resume truth, and deterministic validation
+  plan/receipt routing for checkpoint/commit/push cadence.
 - Next action: keep the live Claude worker on the first bounded
   `MP-380` + `MP-382` slice only. Land fail-closed operator-mode propagation
   through governance/startup/read-model/session-resume plus terminal-none
@@ -697,8 +746,11 @@ No `ControlPlaneReadModel` exists. Each surface independently reads raw artifact
   closed variants, minimal newtypes only where justified, owner-side
   constructors, and typestate instead of boolean bundles); stop for review
   before widening into `MP-383` / `MP-381` action-request or
-  `ViolationRecord` convergence, then resume `MP-384..MP-387` once that
-  runtime truth is green.
+  `ViolationRecord` convergence. For the validation-cadence concern, hand
+  Claude the `remote_commit_pipeline.md` sequence: fail-open quality becomes
+  unknown/stale first, then `ValidationPlan` / `ValidationReceipt`, then
+  stage/commit/push binding and dashboard/doctor reason projection. Do not
+  implement a prompt-only fast path.
 - Context rule: read `dev/guides/AI_GOVERNANCE_PLATFORM.md`,
   `dev/active/ai_governance_platform.md`,
   `dev/active/platform_authority_loop.md`,
@@ -710,8 +762,40 @@ No `ControlPlaneReadModel` exists. Each surface independently reads raw artifact
 
 ## Audit Evidence
 
+- 2026-04-07 launch-authority/runtime closure validation:
+  `python3 -m pytest dev/scripts/devctl/tests/review_channel/test_launcher_discipline.py dev/scripts/devctl/tests/review_channel/test_launch_script.py dev/scripts/devctl/tests/review_channel/test_promotion_guard.py dev/scripts/devctl/tests/review_channel/test_review_channel.py dev/scripts/devctl/tests/runtime/test_auto_mode.py -q --tb=short`
+  passed (`383 passed`). `python3 dev/scripts/devctl.py check --profile ci`
+  reached `38/40` passing; remaining failures are governance-state blockers
+  only (`startup-authority-contract-guard` dirty checkpoint budget and
+  `tandem-consistency-guard` missing live repo-owned conductors). Follow-up
+  handoff guards passed:
+  `python3 dev/scripts/checks/check_review_channel_bridge.py`,
+  `python3 dev/scripts/checks/check_active_plan_sync.py`,
+  `python3 dev/scripts/checks/check_multi_agent_sync.py`, and
+  `python3 dev/scripts/devctl.py docs-check --strict-tooling`.
+- Operator-supplied static GitHub branch review of the Apr 5-6 commit cluster,
+  cross-checked against the active `MP-380..MP-387` plan and the live local
+  reviewer/runtime state.
+- `python3 dev/scripts/devctl.py review-channel --action stop --daemon-kind reviewer_supervisor --format json`
+- `python3 dev/scripts/devctl.py review-channel --action stop --daemon-kind publisher --format json`
+- `python3 dev/scripts/devctl.py review-channel --action reviewer-checkpoint --reviewer-mode active_dual_agent --reason launch-authority-runtime-closure --checkpoint-payload-file /tmp/reviewer-checkpoint-runtime-fix.json --expected-instruction-revision f6a4ce8b1d85 --expected-implementer-state-hash 3173468d76d917c8958a811594411b999c946920130e5bd5ea2ea527b6d49953 --format json`
+- `python3 dev/scripts/devctl.py review-channel --action ensure --follow --terminal none --format json --execution-mode markdown-bridge --follow-inactivity-timeout-seconds 0`
+- `python3 dev/scripts/devctl.py review-channel --action recover --recover-provider claude --terminal terminal-app --dry-run --format json`
+- `python3 -m pytest dev/scripts/devctl/tests/review_channel/test_promotion_guard.py dev/scripts/devctl/tests/review_channel/test_launcher_discipline.py -q --tb=short`
+- `python3 -m pytest dev/scripts/devctl/tests/review_channel/test_review_channel.py -q -k "recover_allows_missing_live_claude_conductor or missing_live_claude_conductor or attention_treats_pending_implementer_reset_as_waiting_on_peer or attention_treats_waiting_input_hint_as_implementer_relaunch_required or reviewer_follow_auto_recovers_stalled_implementer or auto_promote_skipped_when_bridge_has_active_instruction" --tb=short`
+- `python3 dev/scripts/checks/check_review_channel_bridge.py`
+- `python3 dev/scripts/checks/check_active_plan_sync.py`
+- `python3 dev/scripts/checks/check_multi_agent_sync.py`
+- `python3 dev/scripts/devctl.py docs-check --strict-tooling`
 - `python3 dev/scripts/devctl.py startup-context --role reviewer --format summary`
 - `python3 dev/scripts/devctl.py context-graph --mode bootstrap --format md`
+- 2026-04-07 validation-cadence architecture intake:
+  `python3 dev/scripts/devctl.py startup-context --format summary` failed
+  closed with `action=checkpoint_before_continue`,
+  `reason=dirty_path_budget_exceeded`; `python3 dev/scripts/devctl.py context-graph --mode bootstrap --format md`
+  confirmed the same checkpoint blockers. Code inspection covered the governed
+  VCS stage/commit seams, `control_plane_resolve.resolve_quality()`, and
+  `check-router` routed lane output before the accepted plan update.
 - `python3 dev/scripts/devctl.py platform-contracts --format md`
 - `python3 dev/scripts/checks/check_platform_contract_closure.py --format md`
 - `python3 dev/scripts/checks/check_review_surface_consistency.py`

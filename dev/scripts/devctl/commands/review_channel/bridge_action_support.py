@@ -66,6 +66,7 @@ class BridgeSessionContext:
     promotion_plan_path: Path | None
     script_dir: Path | None
     status_dir: Path
+    interaction_mode: str = ""
 
 
 def attach_service_identity(
@@ -267,10 +268,6 @@ def build_bridge_sessions(
     if resolve_cli_path_fn is resolve_cli_path:
         effective_resolve_cli_path = _resolve_cli_path_or_provider_name
     rollover_provider = str(getattr(args, "rollover_provider", "") or "")
-    interaction_mode = _resolve_launch_interaction_mode(
-        repo_root=context.repo_root,
-        args_fallback=str(getattr(args, "operator_interaction_mode", "") or ""),
-    )
     return build_launch_sessions_fn(
         request=LaunchSessionRequest(
             repo_root=context.repo_root,
@@ -302,13 +299,13 @@ def build_bridge_sessions(
             else None,
             session_output_root=context.status_dir,
             rollover_provider=rollover_provider,
-            interaction_mode=interaction_mode,
+            interaction_mode=context.interaction_mode,
         ),
         resolve_cli_path_fn=effective_resolve_cli_path,
     )
 
 
-def _resolve_launch_interaction_mode(
+def resolve_launch_interaction_mode(
     *,
     repo_root: Path,
     args_fallback: str = "",

@@ -18,6 +18,7 @@ from .launch_records import (
     legacy_provider_lane_map,
     session_output_paths,
 )
+from .launch_authority import build_prepared_launch_authority
 from .launch_topology import build_conductor_launch_specs
 from .launch_script import build_session_script
 from .prompt import build_conductor_prompt
@@ -123,6 +124,21 @@ def build_launch_sessions(
         if request.session_output_root is not None
         else None
     )
+    review_state_path = (
+        request.review_state_path
+        if request.review_state_path is not None
+        else (
+            request.session_output_root / "review_state.json"
+            if request.session_output_root is not None
+            else None
+        )
+    )
+    launch_authority = build_prepared_launch_authority(
+        repo_root=request.repo_root,
+        bridge_path=request.bridge_path,
+        bridge_liveness=request.bridge_liveness,
+        review_state_path=review_state_path,
+    )
     prepared_at = utc_timestamp()
     launch_specs = build_conductor_launch_specs(
         provider_lane_map=request.provider_lane_map
@@ -192,6 +208,10 @@ def build_launch_sessions(
             metadata_path=metadata_path,
             interaction_mode=request.interaction_mode,
             rollover_provider=request.rollover_provider,
+            prepared_head_sha=launch_authority.head_sha,
+            prepared_instruction_revision=launch_authority.instruction_revision,
+            prepared_session_token=launch_authority.session_token,
+            review_state_path=launch_authority.review_state_path,
         )
         session_record.write_metadata()
         script_path = build_session_script(
@@ -205,6 +225,10 @@ def build_launch_sessions(
             log_path=log_path,
             resolve_cli_path_fn=resolve_cli_path_fn,
             interaction_mode=request.interaction_mode,
+            prepared_head_sha=launch_authority.head_sha,
+            prepared_instruction_revision=launch_authority.instruction_revision,
+            prepared_session_token=launch_authority.session_token,
+            review_state_path=launch_authority.review_state_path,
         )
         session_record.script_path = script_path
         sessions.append(

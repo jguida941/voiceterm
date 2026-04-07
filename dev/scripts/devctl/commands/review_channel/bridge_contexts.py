@@ -26,6 +26,7 @@ class LaunchExecutionContext:
     handoff_bundle: object
     terminal_profile_applied: str | None
     status_snapshot: object
+    interaction_mode: str = ""
     retired_sessions: tuple[object, ...] = ()
 
 

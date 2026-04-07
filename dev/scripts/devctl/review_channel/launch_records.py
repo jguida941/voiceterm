@@ -40,6 +40,7 @@ class LaunchSessionRequest:
     providers_to_launch: tuple[str, ...] | None = None
     interaction_mode: str = ""
     rollover_provider: str = ""
+    review_state_path: Path | None = None
 
 
 @dataclass(slots=True)
@@ -60,6 +61,10 @@ class PreparedSessionRecord:
     metadata_path: Path | None = None
     interaction_mode: str = ""
     rollover_provider: str = ""
+    prepared_head_sha: str = ""
+    prepared_instruction_revision: str = ""
+    prepared_session_token: str = ""
+    review_state_path: Path | None = None
 
     def write_metadata(self) -> None:
         if self.metadata_path is None or self.log_path is None:
@@ -92,6 +97,14 @@ class PreparedSessionRecord:
                 planned_lanes=[asdict(lane) for lane in self.planned_lanes],
                 interaction_mode=self.interaction_mode,
                 rollover_provider=self.rollover_provider,
+                prepared_head_sha=self.prepared_head_sha,
+                prepared_instruction_revision=self.prepared_instruction_revision,
+                prepared_session_token=self.prepared_session_token,
+                review_state_path=(
+                    str(self.review_state_path)
+                    if self.review_state_path is not None
+                    else ""
+                ),
             )
         )
 
@@ -116,6 +129,14 @@ class PreparedSessionRecord:
                 terminal_window_id=self.terminal_window_id,
                 interaction_mode=self.interaction_mode,
                 rollover_provider=self.rollover_provider,
+                prepared_head_sha=self.prepared_head_sha,
+                prepared_instruction_revision=self.prepared_instruction_revision,
+                prepared_session_token=self.prepared_session_token,
+                review_state_path=(
+                    str(self.review_state_path)
+                    if self.review_state_path is not None
+                    else None
+                ),
             )
         )
 
@@ -140,6 +161,10 @@ class SessionMetadataPayload:
     planned_lanes: list[dict[str, object]]
     interaction_mode: str = ""
     rollover_provider: str = ""
+    prepared_head_sha: str = ""
+    prepared_instruction_revision: str = ""
+    prepared_session_token: str = ""
+    review_state_path: str = ""
 
 
 @dataclass(frozen=True, slots=True)
@@ -160,6 +185,10 @@ class SessionReportPayload:
     terminal_window_id: int | None
     interaction_mode: str = ""
     rollover_provider: str = ""
+    prepared_head_sha: str = ""
+    prepared_instruction_revision: str = ""
+    prepared_session_token: str = ""
+    review_state_path: str | None = None
 
 
 def legacy_provider_lane_map(

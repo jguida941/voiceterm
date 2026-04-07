@@ -321,12 +321,12 @@ class LaunchInteractionModeTests(unittest.TestCase):
     def test_remote_control_governance_forces_headless_interaction(self, mock_gov) -> None:
         """Launch with remote_control governance resolves interaction_mode correctly."""
         from dev.scripts.devctl.commands.review_channel.bridge_action_support import (
-            _resolve_launch_interaction_mode,
+            resolve_launch_interaction_mode,
         )
         from pathlib import Path
 
         mock_gov.return_value = self._make_governance("remote_control")
-        mode = _resolve_launch_interaction_mode(
+        mode = resolve_launch_interaction_mode(
             repo_root=Path("/tmp/fake"),
             args_fallback="local_terminal",
         )
@@ -339,12 +339,12 @@ class LaunchInteractionModeTests(unittest.TestCase):
     def test_empty_governance_falls_back_to_args(self, mock_gov) -> None:
         """When governance has no interaction_mode, args fallback is used."""
         from dev.scripts.devctl.commands.review_channel.bridge_action_support import (
-            _resolve_launch_interaction_mode,
+            resolve_launch_interaction_mode,
         )
         from pathlib import Path
 
         mock_gov.return_value = self._make_governance("")
-        mode = _resolve_launch_interaction_mode(
+        mode = resolve_launch_interaction_mode(
             repo_root=Path("/tmp/fake"),
             args_fallback="dual_agent",
         )
@@ -357,12 +357,12 @@ class LaunchInteractionModeTests(unittest.TestCase):
     def test_no_governance_falls_back_to_args(self, mock_gov) -> None:
         """Without governance, args fallback determines the mode."""
         from dev.scripts.devctl.commands.review_channel.bridge_action_support import (
-            _resolve_launch_interaction_mode,
+            resolve_launch_interaction_mode,
         )
         from pathlib import Path
 
         mock_gov.return_value = None
-        mode = _resolve_launch_interaction_mode(
+        mode = resolve_launch_interaction_mode(
             repo_root=Path("/tmp/fake"),
             args_fallback="single_agent",
         )

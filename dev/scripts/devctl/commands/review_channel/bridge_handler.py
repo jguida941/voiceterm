@@ -25,9 +25,7 @@ from ...review_channel.state import refresh_status_snapshot
 from .bridge_action_support import (
     BridgeLifecycleEventContext,
     BridgePromotionContext,
-    BridgeSessionContext,
     attach_service_identity,
-    build_bridge_sessions,
     post_session_lifecycle_event,
     resolve_promotion_and_terminal_state,
     validate_live_launch_conflicts,
@@ -52,6 +50,10 @@ from .bridge_support import (
     bridge_launch_state,
     build_bridge_guard_report,
     resolve_launch_promotion_plan_path,
+)
+from .bridge_session_build import (
+    BridgeSessionBuildContext,
+    build_sessions_for_bridge_action,
 )
 
 BRIDGE_ACTIONS = {"launch", "rollover", "promote"}
@@ -124,12 +126,7 @@ def _launch_and_refresh(
             bridge_path=context.bridge_path,
             handoff_bundle=execution.handoff_bundle,
             terminal_profile_applied=execution.terminal_profile_applied,
-            interaction_mode=str(
-                execution.status_snapshot.bridge_liveness.get(
-                    "interaction_mode", ""
-                )
-                or ""
-            ),
+            interaction_mode=execution.interaction_mode,
             launch_terminal_sessions_fn=launch_terminal_sessions,
             retired_sessions=tuple(execution.retired_sessions),
             observe_launch_state_fn=partial(
@@ -303,20 +300,17 @@ def _run_bridge_action(
     retired_sessions = ()
     if args.action in {"launch", "rollover"} and not args.dry_run:
         retired_sessions = load_conductor_sessions(session_output_root=status_dir)
-    sessions = build_bridge_sessions(
+    sessions, interaction_mode = build_sessions_for_bridge_action(
         args=args,
-        context=BridgeSessionContext(
+        context=BridgeSessionBuildContext(
             repo_root=repo_root,
             review_channel_path=review_channel_path,
             bridge_path=bridge_path,
-            bridge_liveness=bridge_state.bridge_liveness,
-            codex_lanes=bridge_state.codex_lanes,
-            claude_lanes=bridge_state.claude_lanes,
-            cursor_lanes=bridge_state.cursor_lanes,
-            handoff_bundle=handoff_bundle,
-            promotion_plan_path=promotion_plan_path,
-            script_dir=script_dir if isinstance(script_dir, Path) else None,
             status_dir=status_dir,
+            script_dir=script_dir,
+            promotion_plan_path=promotion_plan_path,
+            bridge_state=bridge_state,
+            handoff_bundle=handoff_bundle,
         ),
         resolve_cli_path_fn=resolve_cli_path,
         build_launch_sessions_fn=build_launch_sessions,
@@ -329,6 +323,7 @@ def _run_bridge_action(
             handoff_bundle=handoff_bundle,
             terminal_profile_applied=terminal_profile_applied,
             status_snapshot=status_snapshot,
+            interaction_mode=interaction_mode,
             retired_sessions=tuple(retired_sessions),
         ),
     )

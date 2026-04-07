@@ -28,9 +28,8 @@ exactly such a compatibility seam — it looks like a launch but cannot
 actually run a CLI conductor that needs an interactive Terminal.
 
 The integration into ``launch_sessions_if_requested`` (in
-``bridge_launch_control.py``) is intentionally deferred to a follow-up
-slice so this module can be reviewed in isolation and the integration
-can be reviewed against a fixed contract.
+``bridge_launch_control.py``) is the live dispatch gate. The caller must pass
+governance/startup-owned interaction mode, not compatibility bridge prose.
 """
 
 from __future__ import annotations
@@ -79,7 +78,6 @@ def validate_visible_launch_in_local_mode(
     *,
     interaction_mode: str,
     terminal_arg: str,
-    allow_headless_override: bool = False,
 ) -> LauncherDisciplineVerdict:
     """Return a typed verdict for one launch-time terminal-mode decision.
 
@@ -92,12 +90,6 @@ def validate_visible_launch_in_local_mode(
     - ``terminal_arg``: the value of ``--terminal`` on the launch
       invocation. The two valid values today are ``"terminal-app"`` and
       ``"none"``; any other value is rejected as malformed.
-    - ``allow_headless_override``: an explicit operator override that
-      permits headless launches even when the interaction mode would
-      normally require visible Terminal. This is the escape hatch for
-      legitimate cases (e.g. CI runs, automated test harnesses) but the
-      caller must set it deliberately — there is no default.
-
     Verdict semantics:
 
     - ``allowed=True`` with empty ``denial_reason`` -> launch may proceed.
@@ -117,15 +109,11 @@ def validate_visible_launch_in_local_mode(
        ``interaction_mode == "remote_control"`` -> ALLOWED. Remote
        operator legitimately needs headless because they cannot open a
        local Terminal window.
-    4. ``terminal_arg == "none"`` AND ``allow_headless_override=True`` ->
-       ALLOWED. Explicit operator override for legitimate headless
-       scenarios. The caller is responsible for justifying the override;
-       this gate trusts it.
-    5. ``terminal_arg == "none"`` AND
+    4. ``terminal_arg == "none"`` AND
        ``interaction_mode in {"local_terminal", "unresolved", ""}`` AND
-       no override -> DENIED with ``headless_launch_in_local_mode``. This
-       is the F21 trap.
-    6. Anything else hitting ``terminal_arg == "none"`` (unknown
+       no override -> DENIED with ``headless_launch_in_local_mode``. This is
+       the F21 trap.
+    5. Anything else hitting ``terminal_arg == "none"`` (unknown
        interaction_mode value not covered above) -> DENIED with
        ``headless_launch_unknown_interaction_mode``. Fail-closed default
        so a future enum value cannot silently bypass the gate.
@@ -149,8 +137,6 @@ def validate_visible_launch_in_local_mode(
     normalized_mode = (interaction_mode or "").strip()
     if normalized_mode == _HEADLESS_PERMITTED_INTERACTION_MODE:
         return LauncherDisciplineVerdict(allowed=True)
-    if allow_headless_override:
-        return LauncherDisciplineVerdict(allowed=True)
     if normalized_mode in _VISIBLE_REQUIRED_INTERACTION_MODES:
         return LauncherDisciplineVerdict(
             allowed=False,
@@ -161,9 +147,7 @@ def validate_visible_launch_in_local_mode(
                 " not `remote_control`. Headless Codex CLI silently hangs on"
                 " auth/permission prompts and the publisher daemon then fakes"
                 " aliveness. Use `--terminal terminal-app` (visible local"
-                " launch) per CLAUDE.md Bootstrap, or pass an explicit"
-                " operator-headless override if this launch is intentionally"
-                " headless (e.g. a CI run or automated test harness)."
+                " launch) per CLAUDE.md Bootstrap."
             ),
         )
     # Fail-closed default for any unknown interaction_mode token. A future
@@ -175,8 +159,8 @@ def validate_visible_launch_in_local_mode(
         operator_message=(
             "Refusing headless Codex launch (`--terminal none`) because typed"
             f" interaction_mode `{normalized_mode!r}` is not in the recognized"
-            " set. Update the visible-required set or pass an explicit"
-            " operator-headless override if this is intentional."
+            " set. Update the visible-required or headless-permitted set before"
+            " launching headless."
         ),
     )
 

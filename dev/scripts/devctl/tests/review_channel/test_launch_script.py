@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import json
+import os
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
@@ -11,6 +14,11 @@ from dev.scripts.devctl.commands.review_channel._publisher import (
     resolve_auto_poll_cadence,
 )
 from dev.scripts.devctl.review_channel.launch_script import build_session_script
+from dev.scripts.devctl.review_channel.launch_authority import (
+    NON_RESTARTABLE_LAUNCH_AUTHORITY_EXIT_CODE,
+    current_head_sha,
+    launch_session_token,
+)
 from dev.scripts.devctl.review_channel.peer_recovery import (
     build_implementer_recover_command,
     build_live_relaunch_command,
@@ -130,6 +138,94 @@ class TestLaunchScriptInteractionMode(unittest.TestCase):
             'REVIEW_CHANNEL_HEADLESS_MODE="${REVIEW_CHANNEL_HEADLESS_MODE:-0}"',
             script,
         )
+
+
+class TestLaunchScriptAuthority(unittest.TestCase):
+    """Verify prepared launcher scripts fail closed on stale typed authority."""
+
+    def _write_review_state(
+        self,
+        root: Path,
+        *,
+        instruction_revision: str,
+        last_codex_poll_utc: str,
+    ) -> Path:
+        review_state_path = root / "review_state.json"
+        review_state_path.write_text(
+            json.dumps(
+                {
+                    "review": {"session_id": "markdown-bridge"},
+                    "current_session": {
+                        "current_instruction_revision": instruction_revision,
+                    },
+                    "bridge": {
+                        "current_instruction_revision": instruction_revision,
+                        "last_codex_poll_utc": last_codex_poll_utc,
+                    },
+                }
+            ),
+            encoding="utf-8",
+        )
+        return review_state_path
+
+    def _run_authority_script(
+        self,
+        *,
+        review_state_revision: str,
+        prepared_revision: str = "rev-1",
+        headless: bool = True,
+    ) -> subprocess.CompletedProcess[str]:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            last_poll = "2026-04-07T00:00:00Z"
+            review_state_path = self._write_review_state(
+                root,
+                instruction_revision=review_state_revision,
+                last_codex_poll_utc=last_poll,
+            )
+            script_path = root / "conductor.sh"
+            repo_root = Path.cwd()
+            build_session_script(
+                provider="claude",
+                repo_root=repo_root,
+                prompt="test prompt",
+                script_path=script_path,
+                resolve_cli_path_fn=lambda _provider: "/usr/bin/true",
+                headless=headless,
+                prepared_head_sha=current_head_sha(repo_root),
+                prepared_instruction_revision=prepared_revision,
+                prepared_session_token=launch_session_token(
+                    session_id="markdown-bridge",
+                    instruction_revision=prepared_revision,
+                    last_codex_poll_utc=last_poll,
+                ),
+                review_state_path=review_state_path,
+            )
+            env = {**os.environ, "REVIEW_CHANNEL_EXIT_ON_SUCCESS": "1"}
+            return subprocess.run(
+                ["/bin/zsh", str(script_path)],
+                capture_output=True,
+                text=True,
+                env=env,
+                timeout=10,
+                check=False,
+            )
+
+    def test_fresh_authority_allows_provider_start(self) -> None:
+        result = self._run_authority_script(review_state_revision="rev-1")
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_stale_instruction_revision_exits_non_restartable_headless(self) -> None:
+        result = self._run_authority_script(review_state_revision="rev-2")
+
+        self.assertEqual(
+            result.returncode,
+            NON_RESTARTABLE_LAUNCH_AUTHORITY_EXIT_CODE,
+        )
+        self.assertIn("launch authority stale", result.stderr)
+        self.assertIn("non-restartable status", result.stderr)
+        self.assertNotIn("restarting in", result.stderr)
 
 
 class TestResolveRecoveryTerminal(unittest.TestCase):
