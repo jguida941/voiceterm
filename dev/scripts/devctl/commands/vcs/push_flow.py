@@ -88,6 +88,12 @@ def execute_push_flow_with_dependencies(
             stages=PushStageTruth(validation_ready=True),
         )
 
+    # Note: ReviewSnapshot refresh is NOT wired here. The canonical refresh
+    # hook runs pre-commit inside governed_executor_phases.execute_commit so
+    # the committed tree (and therefore the pushed commit on GitHub) carries
+    # the updated projection. A pre-push refresh would only dirty the
+    # worktree, not the committed/pushed history.
+
     push_cmd = ["git", "push", state.remote, state.branch]
     if not state.branch_has_remote:
         push_cmd = ["git", "push", "--set-upstream", state.remote, state.branch]

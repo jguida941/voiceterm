@@ -524,11 +524,14 @@ Portability note:
   a coding invitation. Use `review-channel --action stop --daemon-kind all`
   followed by `review-channel --action reviewer-heartbeat --reviewer-mode single_agent`
   to record local takeover before inspecting or finishing the interrupted slice.
-- `dev/scripts/checks/check_audit_status_sync.py`
-  (`check_audit_status_sync.py`) keeps `AUDIT_STATUS.md` honest by failing when
-  the audit file still says Phase 3/4 ownership, consistency, or integration
-  proof work is open after the corresponding code/tests already exist. Both
-  `tooling_control_plane.yml` and `release_preflight.yml` now enforce it too.
+- `dev/scripts/checks/check_review_snapshot_freshness.py`
+  (`check_review_snapshot_freshness.py`) keeps `dev/audits/REVIEW_SNAPSHOT.md`
+  bound to the current HEAD + generation stamp by comparing the fields
+  embedded in the file against the live typed projection. Whenever HEAD moves
+  or the typed generation stamp changes without a snapshot rewrite, the
+  guard fails and instructs the caller to rerun
+  `python3 dev/scripts/devctl.py review-snapshot --write`. Both
+  `tooling_control_plane.yml` and `release_preflight.yml` enforce it.
 - Portable-authority rule: new reusable runtime/tooling code should resolve
   plan docs, artifact roots, bridge/review state, and generated bootstrap
   instructions through `ProjectGovernance` / repo-pack state instead of

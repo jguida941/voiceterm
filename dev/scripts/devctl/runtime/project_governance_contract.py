@@ -181,6 +181,7 @@ class ArtifactRoots:
     review_root: str = ""
     governance_log_root: str = "dev/reports/governance"
     probe_report_root: str = "dev/reports/probes/latest"
+    review_snapshot_path: str = "dev/audits/REVIEW_SNAPSHOT.md"
 
 
 @dataclass(frozen=True, slots=True)

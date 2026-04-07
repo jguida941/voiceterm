@@ -10,6 +10,7 @@ from typing import Any
 from ...runtime import ActionResult, TypedAction
 from ...runtime.action_contracts import ActionOutcome
 from ...runtime.remote_commit_pipeline_models import RemoteCommitPipelineContract
+from ...runtime.review_snapshot_refresh import refresh_and_stage_review_snapshot
 from ...runtime.vcs import run_git_capture
 from .governed_executor_actions import (
     APPROVAL_PACKET_KIND,
@@ -237,6 +238,16 @@ def execute_commit(
     )
     persist_pipeline(commit_pending)
 
+    # Pre-commit refresh: regenerate dev/audits/REVIEW_SNAPSHOT.md and stage it
+    # so the committed tree (and therefore the pushed commit on GitHub) carries
+    # the refreshed projection. The snapshot inside commit C describes the
+    # state C was committed against — the only internally consistent frame,
+    # since a file inside a commit cannot describe its own SHA. A no-op on
+    # fresh repos where the file has not been initialized yet.
+    snapshot_refresh_warnings = refresh_and_stage_review_snapshot(
+        repo_root=repo_root
+    )
+
     commit_code, _, commit_error = run_git_capture(
         ["commit", "-m", commit_message],
         repo_root=repo_root,
@@ -284,6 +295,7 @@ def execute_commit(
         result_builder=result_builder,
     )
     warnings = persist_pipeline(completed)
+    warnings = warnings + list(snapshot_refresh_warnings)
     return result_builder(
         action_id=action.action_id,
         ok=True,

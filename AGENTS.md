@@ -1120,7 +1120,7 @@ false positives, and fixes real issues — then re-runs CodeRabbit to verify.
 1. Every new guard script MUST be registered in `dev/scripts/devctl/quality_policy.py` and enabled in `dev/config/devctl_repo_policy.json` when this repo should run it by default.
 2. Every repo-enabled AI guard MUST have a step in `tooling_control_plane.yml`.
    The current Phase 3/4 remote-commit surface-convergence closure keeps
-   `check_audit_status_sync.py` and
+   `check_review_snapshot_freshness.py` and
    `check_review_surface_consistency.py` in both
    `tooling_control_plane.yml` and `release_preflight.yml`.
 3. Guard output format MUST support `--since-ref`/`--head-ref` for growth-based gating.
@@ -1429,7 +1429,7 @@ python3 dev/scripts/checks/check_release_version_parity.py
 python3 dev/scripts/checks/check_repo_url_parity.py
 python3 dev/scripts/checks/check_guard_enforcement_inventory.py
 python3 dev/scripts/checks/check_architecture_surface_sync.py
-python3 dev/scripts/checks/check_audit_status_sync.py
+python3 dev/scripts/checks/check_review_snapshot_freshness.py
 python3 dev/scripts/checks/check_guide_contract_sync.py
 python3 dev/scripts/checks/check_instruction_surface_sync.py
 python3 dev/scripts/checks/check_bundle_registry_dry.py
@@ -1495,7 +1495,7 @@ python3 dev/scripts/checks/check_release_version_parity.py
 python3 dev/scripts/checks/check_repo_url_parity.py
 python3 dev/scripts/checks/check_guard_enforcement_inventory.py
 python3 dev/scripts/checks/check_architecture_surface_sync.py
-python3 dev/scripts/checks/check_audit_status_sync.py
+python3 dev/scripts/checks/check_review_snapshot_freshness.py
 python3 dev/scripts/checks/check_guide_contract_sync.py
 python3 dev/scripts/checks/check_instruction_surface_sync.py
 python3 dev/scripts/checks/check_bundle_registry_dry.py

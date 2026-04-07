@@ -79,11 +79,13 @@ def path_roots_from_mapping(
 def artifact_roots_from_mapping(
     payload: Mapping[str, object],
 ) -> ArtifactRoots:
+    review_snapshot_path = coerce_string(payload.get("review_snapshot_path"))
     return ArtifactRoots(
         audit_root=coerce_string(payload.get("audit_root")),
         review_root=coerce_string(payload.get("review_root")),
         governance_log_root=coerce_string(payload.get("governance_log_root")),
         probe_report_root=coerce_string(payload.get("probe_report_root")),
+        review_snapshot_path=review_snapshot_path or "dev/audits/REVIEW_SNAPSHOT.md",
     )
 
 

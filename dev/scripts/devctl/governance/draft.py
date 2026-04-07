@@ -78,6 +78,7 @@ def _scan_artifact_roots(repo_root: Path) -> ArtifactRoots:
             repo_root,
             "dev/reports/probes/latest",
         ),
+        review_snapshot_path="dev/audits/REVIEW_SNAPSHOT.md",
     )
 
 

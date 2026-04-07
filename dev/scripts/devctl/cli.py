@@ -86,6 +86,7 @@ from .commands.governance import (
     quality_feedback as governance_quality_feedback,
     render_surfaces,
     review as governance_review,
+    review_snapshot as governance_review_snapshot,
     session_resume as governance_session_resume,
     simple_lanes,
     startup_context as governance_startup_context,
@@ -208,6 +209,7 @@ def build_parser() -> argparse.ArgumentParser:
     add_context_graph_parser(sub)
     governance_startup_context.add_parser(sub)
     governance_session_resume.add_parser(sub)
+    governance_review_snapshot.add_parser(sub)
     _add_dashboard_parser(sub)
     auto_mode_status.add_parser(sub)
     discover.add_parser(sub)
@@ -322,6 +324,7 @@ COMMAND_HANDLERS = {
     "context-graph": context_graph_run,
     "startup-context": governance_startup_context.run,
     "session-resume": governance_session_resume.run,
+    "review-snapshot": governance_review_snapshot.run,
     "discover": discover.run,
     "view": view.run,
 }

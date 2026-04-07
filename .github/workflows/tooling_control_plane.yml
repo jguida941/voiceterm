@@ -376,8 +376,8 @@ jobs:
             --since-ref "${{ steps.range.outputs.since }}" \
             --head-ref "${{ steps.range.outputs.head }}"
 
-      - name: Run audit-status sync guard
-        run: python3 dev/scripts/checks/check_audit_status_sync.py
+      - name: Run review-snapshot freshness guard
+        run: python3 dev/scripts/checks/check_review_snapshot_freshness.py
 
       - name: Run guide-contract sync guard
         run: python3 dev/scripts/checks/check_guide_contract_sync.py
