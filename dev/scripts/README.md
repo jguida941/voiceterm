@@ -297,6 +297,15 @@ Portability note:
   `post|ack|apply`, `actions.json`, and typed review-state parsing. Discovery
   and workflow policy for that lane stay mirrored in `AGENTS.md`,
   `dev/guides/DEVELOPMENT.md`, and `dev/active/remote_commit_pipeline.md`.
+- `review-channel --action post --kind action_request` is the event-backed
+  source for bridge `## Action Requests`, but executable requests are
+  fail-closed on typed runtime binding. Use `--requested-action run_check` or
+  `kill_process` with `--target-kind runtime`, `--target-ref`, and
+  `--target-revision`; use `--requested-action commit` or `push` only with
+  `--target-ref remote_commit_pipeline:<pipeline_id>` plus
+  `--pipeline-generation`, `--staged-snapshot-hash`, and
+  `--guard-results-summary`. Prose-only runtime requests stay in packet
+  history but are not projected into the bridge execution queue.
 - The same lane no longer trusts bridge prose or raw HEAD equality for
   publish authority. `reviewer_runtime` owns implementer ACK/block truth,
   `bridge_review_accepted` is typed-only, and push recovery matches

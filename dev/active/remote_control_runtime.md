@@ -36,7 +36,7 @@ contract exists.
       (Partial: terminal-mode/visibility plus proof-of-life slices landed;
       session cleanup, orphan refusal, startup preflight cleanup, and full
       rollover/recovery closure remain.)
-- [ ] MP-383 Converge bridge `## Action Requests` onto the existing
+- [x] MP-383 Converge bridge `## Action Requests` onto the existing
       `PacketPostRequest(kind="action_request")` event path and keep bridge
       action rows as projection-only compatibility text.
 - [ ] MP-384 Make `devctl dashboard` the single operator surface over typed
@@ -332,6 +332,21 @@ The MP scopes remain valid but are now cross-cut by enforcement-first priority.
 
 ## Progress Log
 
+- 2026-04-07: Closed the `MP-383` action-request projection/binding repair
+  after the single-agent recovery turn exposed the root cause: packet state,
+  bridge compatibility text, and session-resume/bootstrap cache could drift
+  because the bridge renderer trusted an incomplete compatibility projection
+  and generic `action_request` packets could encode commit/check/push-class
+  work as prose-only bodies. The repair keeps `## Action Requests` as a
+  projection-only view over event packets, reconstructs missing fixed bridge
+  sections from typed review-state fallbacks, compacts packet bodies before
+  rendering, and only projects executable runtime action requests that carry
+  target binding. New `commit` / `push` action-request posts must now carry a
+  runtime target plus remote-commit pipeline generation, staged snapshot hash,
+  and guard summary; `run_check` / `kill_process` requests require a runtime
+  target ref and revision. This prevents another packet -> bridge -> runtime
+  split-brain where the packet inbox sees a request but the live bridge cannot
+  render it safely or tells an implementer to execute an unbound action.
 - 2026-04-07: Integrated the operator concern about commit/push latency as a
   plan-owned architecture finding instead of a request to weaken safeguards.
   Accepted conclusion: the system should keep strict proof, but stop leaving
@@ -747,20 +762,14 @@ No `ControlPlaneReadModel` exists. Each surface independently reads raw artifact
   session cleanup/orphan refusal/startup preflight cleanup, control-plane
   contract-catalog coverage, stale-review invalidation, queue metric split,
   typed reviewer bootstrap/session-resume truth, and deterministic validation
-  plan/receipt routing for checkpoint/commit/push cadence.
-- Next action: keep the live Claude worker on the first bounded
-  `MP-380` + `MP-382` slice only. Land fail-closed operator-mode propagation
-  through governance/startup/read-model/session-resume plus terminal-none
-  proof-of-life launch behavior first, using the Python contract-shape rules
-  in this plan for touched files (typed signatures, dataclass boundaries,
-  closed variants, minimal newtypes only where justified, owner-side
-  constructors, and typestate instead of boolean bundles); stop for review
-  before widening into `MP-383` / `MP-381` action-request or
-  `ViolationRecord` convergence. For the validation-cadence concern, hand
-  Claude the `remote_commit_pipeline.md` sequence: fail-open quality becomes
-  unknown/stale first, then `ValidationPlan` / `ValidationReceipt`, then
-  stage/commit/push binding and dashboard/doctor reason projection. Do not
-  implement a prompt-only fast path.
+  plan/receipt routing for checkpoint/commit/push cadence. The `MP-383`
+  bridge Action Requests queue is now projection-only and runtime-bound for
+  executable actions.
+- Next action: after validation, relaunch the repo-owned dual-agent loop and
+  have Codex review this single-agent repair plus the already-landed
+  `MP-382` / `MP-387` launch-authority closure. Keep future work bounded to
+  the remaining lifecycle/queue/dashboard/session-resume items above; do not
+  reopen a bridge-prose-only permission path.
 - Context rule: read `dev/guides/AI_GOVERNANCE_PLATFORM.md`,
   `dev/active/ai_governance_platform.md`,
   `dev/active/platform_authority_loop.md`,
@@ -772,6 +781,12 @@ No `ControlPlaneReadModel` exists. Each surface independently reads raw artifact
 
 ## Audit Evidence
 
+- 2026-04-07 action-request projection/binding validation:
+  `python3 -m pytest dev/scripts/devctl/tests/review_channel/test_action_request.py dev/scripts/devctl/tests/review_channel/test_plan_packets.py dev/scripts/devctl/tests/review_channel/test_bridge_render.py -q --tb=short`
+  passed (`56 passed`), and
+  `python3 dev/scripts/devctl.py review-channel --action render-bridge --terminal none --format json`
+  passed after previously failing on an overgrown packet-projected
+  `## Action Requests` section.
 - 2026-04-07 launch-authority/runtime closure validation:
   `python3 -m pytest dev/scripts/devctl/tests/review_channel/test_launcher_discipline.py dev/scripts/devctl/tests/review_channel/test_launch_script.py dev/scripts/devctl/tests/review_channel/test_promotion_guard.py dev/scripts/devctl/tests/review_channel/test_review_channel.py dev/scripts/devctl/tests/runtime/test_auto_mode.py -q --tb=short`
   passed (`383 passed`). `python3 dev/scripts/devctl.py check --profile ci`

@@ -1,9 +1,26 @@
 # ReviewSnapshot Architecture Hardening Plan
 
-**Status:** draft — synthesizing audit findings for Codex review
-**Last updated:** 2026-04-07
-**Owner:** operator + Codex (planned)
-**Purpose:** Multi-agent audit of the ReviewSnapshot + install-git-hooks subsystem identifying gaps between the current architecture and a maximally portable, deterministic, typed, load-bearing governance surface. This document is the input plan for the next Codex session.
+**Status**: draft — synthesizing audit findings for Codex review  |  **Last updated**: 2026-04-07 | **Owner:** operator + Codex (planned)
+**Purpose**: Multi-agent audit of the ReviewSnapshot + install-git-hooks subsystem identifying gaps between the current architecture and a maximally portable, deterministic, typed, load-bearing governance surface. This document is audit intake for the tracked MP-377 / MP-376 owner plans, not canonical execution authority by itself.
+
+## Authority and routing
+
+This file intentionally stays under `dev/audits/`. It is not a governed
+`dev/active/` execution plan until a future slice rewrites it onto the full
+active-plan contract and registers it in `dev/active/INDEX.md`. Accepted work
+must be mirrored into the canonical owner docs before implementation:
+
+| Intake | Canonical owner | Routing rule |
+|---|---|---|
+| ReviewSnapshot path defaults, `DocPolicy` / `ArtifactRoots` diagnostics, missing roots, policy-load source, and hardcoded verification commands | `dev/active/platform_authority_loop.md` | Treat as MP-377 startup / repo-pack / doc-authority closure. |
+| Raw commit gating, pre-commit hook proof, override receipt enforcement, `PushAuthorizationRecord`, additional git hooks, and publication override integrity | `dev/active/remote_commit_pipeline.md` | Treat as MP-377 governed commit/push pipeline closure. |
+| Cross-surface consistency, contract registration, schema/version coverage, suggested-command execution, WhyRecord consumers, generated-artifact integrity, MCP / Agent SDK surfaces, and ecosystem adapters | `dev/active/ai_governance_platform.md` | Treat as MP-377 product/runtime contract work, with narrow checklist items in the subordinate owner when implementation starts. |
+| Adopter portability matrix, repo-pack distribution, fresh-adopter diagnostics, and cross-repo fixture proof | `dev/active/portable_code_governance.md` | Treat as MP-376 companion proof, with MP-377 blockers routed back to the authority-loop plan. |
+
+`dev/audits/REVIEW_SNAPSHOT.md` is a generated report projection. Do not hand
+edit it and do not treat it as a plan; regenerate it with
+`python3 dev/scripts/devctl.py review-snapshot --write` when the snapshot must
+change.
 
 ## Codex handoff summary (read this first)
 
@@ -1088,4 +1105,8 @@ Use `git reset --hard` or amend only on local branches. Never on branches that h
 
 ---
 
-*This document is a living plan. Add findings, strike through resolved items, and commit the updates as the Codex slices land. Each appendix is an independent slice shape — Codex can pick them up in any order that preserves the tier dependencies.*
+*This document is living audit intake. Add findings here only as supporting
+evidence, and mirror accepted work into the tracked owner plans before treating
+it as executable scope. Each appendix is an independent slice shape; Codex can
+pick them up in any order that preserves the tier dependencies once the
+canonical owner plan carries the slice.*

@@ -37,6 +37,34 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 - [User Path (5 min)](#user-path-5-min)
 - [Developer Path (15 min)](#developer-path-15-min)
 
+### 2026-04-07 - Bridge action requests now require packet projection and runtime binding
+
+The Codex/Claude bridge exposed a split-brain failure across three authority
+planes: event-backed packets, the markdown bridge compatibility projection, and
+session-resume/bootstrap cache state. A reviewer could post a
+`kind="action_request"` packet and see it in the packet inbox, while
+`render-bridge` failed before projecting it into `## Action Requests`. Runtime
+commit/check/push-class requests could also be described as free-form prose,
+leaving the action unbound to the target HEAD, pipeline generation, staged
+snapshot, or guard result.
+
+The repair keeps the markdown bridge as projection-only compatibility text.
+`render-bridge` now reconstructs missing fixed sections from typed review
+state, overlays pending packet-backed action requests, and sanitizes the final
+bridge payload so oversized packet bodies do not break the fixed section
+contract. Executable `action_request` packets now fail closed unless they
+carry runtime target binding; `commit` and `push` additionally require
+remote-commit pipeline generation, staged snapshot hash, and guard summary
+before they can appear in the bridge execution queue.
+
+Evidence: `dev/scripts/devctl/review_channel/action_request.py`,
+`dev/scripts/devctl/review_channel/bridge_projection_state.py`,
+`dev/scripts/devctl/review_channel/packet_contract.py`,
+`dev/scripts/devctl/tests/review_channel/test_action_request.py`,
+`dev/scripts/devctl/tests/review_channel/test_bridge_render.py`,
+`dev/scripts/devctl/tests/review_channel/test_plan_packets.py`,
+`dev/active/remote_control_runtime.md`, `dev/scripts/README.md`.
+
 ### 2026-04-07 - Validation routing is now phased before commit-gate and portability expansion
 
 The commit/push path exposed a process problem that was architectural, not a

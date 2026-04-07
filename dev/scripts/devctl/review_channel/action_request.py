@@ -17,6 +17,7 @@ It does NOT own execution -- Claude reads the bridge and acts manually for now.
 from __future__ import annotations
 
 import re
+from collections.abc import Mapping
 from dataclasses import dataclass
 from enum import Enum
 
@@ -29,6 +30,7 @@ SECTION_HEADING = "Action Requests"
 
 # Line budget for the bridge section (keeps the bridge compact).
 SECTION_LINE_LIMIT = 12
+MAX_PACKET_PAYLOAD_CHARS = 220
 
 
 class ActionKind(str, Enum):
@@ -41,6 +43,7 @@ class ActionKind(str, Enum):
 
 
 VALID_ACTION_KINDS = frozenset(member.value for member in ActionKind)
+PIPELINE_ACTION_KINDS = frozenset({ActionKind.COMMIT.value, ActionKind.PUSH.value})
 
 
 class ActionStatus(str, Enum):
@@ -137,10 +140,11 @@ def action_requests_from_packets(
 ) -> list[ActionRequest]:
     """Project ``ActionRequest`` rows from pending ``kind="action_request"`` packets.
 
-    Each qualifying packet carries ``packet_id``, ``requested_action``, and
-    ``body`` which map onto the ``id``, ``action``, and ``payload`` fields of
-    an ``ActionRequest``.  Only packets whose ``status`` equals ``"pending"``
-    are included, so the projection always represents the live work queue.
+    Each qualifying packet carries a supported ``requested_action`` plus typed
+    runtime target metadata.  Only packets whose ``status`` equals
+    ``"pending"`` are included, so the projection always represents the live
+    executable work queue and never turns prose-only requests into bridge
+    commands.
     """
     results: list[ActionRequest] = []
     for packet in packets:
@@ -150,11 +154,16 @@ def action_requests_from_packets(
             continue
         if str(packet.get("status") or "") != ActionStatus.PENDING.value:
             continue
+        requested_action = str(packet.get("requested_action") or "").strip()
+        if requested_action not in VALID_ACTION_KINDS:
+            continue
+        if not _has_runtime_binding(packet, requested_action=requested_action):
+            continue
         results.append(
             ActionRequest(
                 id=str(packet.get("packet_id") or ""),
-                action=str(packet.get("requested_action") or ""),
-                payload=str(packet.get("body") or "").strip(),
+                action=requested_action,
+                payload=_packet_payload(packet),
                 status=ActionStatus.PENDING.value,
             )
         )
@@ -172,3 +181,43 @@ def render_action_requests_from_packets(
     """
     projected = action_requests_from_packets(packets)
     return render_action_requests_section(projected)
+
+
+def _has_runtime_binding(
+    packet: Mapping[str, object],
+    *,
+    requested_action: str,
+) -> bool:
+    if str(packet.get("target_kind") or "").strip() != "runtime":
+        return False
+    if not str(packet.get("target_ref") or "").strip():
+        return False
+    if not str(packet.get("target_revision") or "").strip():
+        return False
+    if requested_action in PIPELINE_ACTION_KINDS:
+        return all(
+            str(packet.get(field) or "").strip()
+            for field in (
+                "pipeline_generation",
+                "staged_snapshot_hash",
+                "guard_results_summary",
+            )
+        )
+    return True
+
+
+def _packet_payload(packet: Mapping[str, object]) -> str:
+    target_kind = str(packet.get("target_kind") or "").strip()
+    target_ref = str(packet.get("target_ref") or "").strip()
+    target_revision = str(packet.get("target_revision") or "").strip()
+    summary = str(packet.get("summary") or packet.get("body") or "").strip()
+    target = f"target={target_kind}:{target_ref}@{target_revision}"
+    payload = "; ".join(part for part in (target, summary) if part)
+    return _single_line(payload)
+
+
+def _single_line(text: str) -> str:
+    compact = " ".join(str(text or "").split())
+    if len(compact) <= MAX_PACKET_PAYLOAD_CHARS:
+        return compact
+    return compact[: MAX_PACKET_PAYLOAD_CHARS - 3].rstrip() + "..."

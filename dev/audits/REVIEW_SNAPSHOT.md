@@ -5,14 +5,14 @@
 ## Quick status
 
 - Branch: `feature/governance-quality-sweep`
-- HEAD: `e21d8e878a70` — Close MP-377 typed-continuity tranche (Legs 1+2+3 follow-ups A/B/C)
-- Tree hash: `d6def1bf83c2`
-- Generation stamp: `snap-89d55a079802`
-- Generated at (UTC): 2026-04-07T22:00:21Z
-- Push decision: `await_checkpoint` — worktree_dirty
-- Reviewer mode: `active_dual_agent` (interaction: `local_terminal`)
+- HEAD: `ee13a6c6337f` — Add architecture hardening plan for Codex review
+- Tree hash: `281dea218510`
+- Generation stamp: `snap-bc721171389e`
+- Generated at (UTC): 2026-04-07T22:34:28Z
+- Push decision: `await_checkpoint` — dirty_path_budget_exceeded
+- Reviewer mode: `single_agent` (interaction: `local_terminal`)
 - Pipeline state: `n/a` (approval: `n/a`)
-- Delta since last snapshot: 25 commits, 141 files, +16593/-4702
+- Delta since last snapshot: 24 commits, 135 files, +16907/-4732
 - Governance findings: 39 open / 68 fixed / 121 total
 - Probe hints: 0 total across 0 files scanned
 
@@ -54,25 +54,24 @@ adopters arrive.
 - Remote: `https://github.com/jguida941/voiceterm.git`
 - Default branch: `master`
 - Current branch: `feature/governance-quality-sweep`
-- HEAD SHA: `e21d8e878a703a9c4ec108439d262ff71ae8d930`
+- HEAD SHA: `ee13a6c6337f395afa574e99a4234f2eaf45a161`
 - HEAD author: Justin Guida
-- HEAD timestamp (UTC): 2026-04-07T17:56:26-04:00
+- HEAD timestamp (UTC): 2026-04-07T18:00:13-04:00
 
 ## 2. Governance state
 
 ### Push decision
 - action: `await_checkpoint`
-- reason: worktree_dirty
+- reason: dirty_path_budget_exceeded
 - push_eligible_now: False
 - worktree_clean: False
 - next_step_command: `n/a`
-- publication_backlog: queued
-- publication_guidance: 1 local commit(s) waiting for governed push once the current slice is checkpoint-clean.
+- publication_backlog: none
 
 ### Reviewer runtime
-- reviewer_mode: `active_dual_agent`
+- reviewer_mode: `single_agent`
 - reviewer_freshness: unknown
-- reviewer_publish_clear: False
+- reviewer_publish_clear: True
 - interaction_mode: `local_terminal`
 
 ### Remote commit pipeline
@@ -83,16 +82,17 @@ adopters arrive.
 - active plan: **Master Plan (Active, Unified)**
 - plan path: `dev/active/MASTER_PLAN.md`
 - active MP scope: all active MP execution state
-- advisory: `continue_editing` — review_pending
+- advisory: `checkpoint_before_continue` — dirty_path_budget_exceeded
+- checkpoint_required: **yes**
 
 ## 3. Delta — what changed since the previous snapshot
 
-Range: last 25 commits ending at `e21d8e878a70`
+Range: last 24 commits ending at `ee13a6c6337f`
 
-- commits: 25
-- files changed: 141
-- insertions: +16593
-- deletions: -4702
+- commits: 24
+- files changed: 135
+- insertions: +16907
+- deletions: -4732
 - bundle classes touched: tooling, docs
 - risk add-ons triggered: Parser / ANSI boundary
 - authority surfaces touched: 36 file(s)
@@ -101,31 +101,30 @@ Range: last 25 commits ending at `e21d8e878a70`
 
 | # | SHA | Subject | Files | +/- | Bundle | Risk |
 |---|---|---|---|---|---|---|
-| 1 | `e21d8e8` | Close MP-377 typed-continuity tranche (Legs 1+2+3 follow-up… | 12 | +872/-68 | tooling |  |
-| 2 | `f9388da` | Add install-git-hooks command for portable pre-commit snaps… | 5 | +704/-50 | tooling |  |
-| 3 | `d155b02` | Refresh REVIEW_SNAPSHOT to track branch tip at 60bcd68 | 1 | +112/-108 | tooling |  |
-| 4 | `60bcd68` | Open policy-gated skip-preflight bypass window for ReviewSn… | 2 | +100/-1 | tooling |  |
-| 5 | `c98d471` | Restore script_catalog entries stripped during previous edit | 1 | +14/-0 | tooling |  |
-| 6 | `4b45f9a` | Register python_typed_seams in script_catalog | 1 | +1/-0 | tooling |  |
-| 7 | `5978dce` | Add ReviewSnapshot external-review surface via pre-commit r… | 33 | +4198/-680 | tooling |  |
-| 8 | `b6be213` | Land reviewer-supervisor restart-policy follow-up checkpoint | 21 | +549/-98 | tooling |  |
-| 9 | `244ae83` | Land MP-382 + MP-387 launch-authority closure (F21/F21a/F23… | 30 | +1306/-333 | tooling | Parser / ANSI boundary |
-| 10 | `fefa621` | Checkpoint reviewer bridge state: F21/F21a/F23/F24 launch-a… | 1 | +39/-92 | docs |  |
-| 11 | `846987c` | Update test_launch_sessions_if_requested_headless_requires_… | 1 | +150/-3 | tooling |  |
-| 12 | `84e60bc` | Land F21 integration: wire launcher_discipline into the lau… | 4 | +248/-2 | tooling | Parser / ANSI boundary |
-| 13 | `b748c6e` | Land F21 launcher-discipline pre-flight validation (pure fu… | 2 | +443/-0 | tooling |  |
-| 14 | `7a8b427` | Land MP-381 dashboard wiring + ViolationRecord consumer ada… | 15 | +1728/-42 | tooling |  |
-| 15 | `e35c4e3` | Land MP-381 F18 + F19 fixes per Codex instruction 269e91f22… | 2 | +312/-22 | tooling |  |
-| 16 | `e564969` | Land MP-381 F14 fix: exempt parked governed pipelines from… | 3 | +330/-3 | tooling |  |
-| 17 | `4f93b48` | Land F1 AST field-route helper plus MP-381 probe-report Vio… | 11 | +806/-35 | tooling |  |
-| 18 | `b22bf96` | Teach field-route guard to scan package sources | 1 | +16/-7 | tooling |  |
-| 19 | `080f4df` | Convert dashboard_render flat files to a package | 5 | +11/-11 | tooling |  |
-| 20 | `705b7ef` | Preserve top_blocker field-route visibility in dashboard_re… | 1 | +6/-0 | tooling |  |
-| 21 | `1f5e6a4` | Checkpoint reviewer bridge state | 1 | +22/-36 | docs |  |
-| 22 | `d9a76f2` | Modularize oversized files flagged by post-push code_shape… | 27 | +3792/-3071 | tooling |  |
-| 23 | `f66a4ec` | Remove stale PATH_POLICY_OVERRIDES for shrunken files | 1 | +0/-12 | tooling |  |
-| 24 | `28f5453` | Document review-handoff recovery seam | 6 | +89/-0 | tooling |  |
-| 25 | `9c83677` | Add AI-readable package-layout organization surface | 8 | +745/-28 | tooling |  |
+| 1 | `ee13a6c` | Add architecture hardening plan for Codex review | 2 | +1148/-58 | tooling |  |
+| 2 | `e21d8e8` | Close MP-377 typed-continuity tranche (Legs 1+2+3 follow-up… | 12 | +872/-68 | tooling |  |
+| 3 | `f9388da` | Add install-git-hooks command for portable pre-commit snaps… | 5 | +704/-50 | tooling |  |
+| 4 | `d155b02` | Refresh REVIEW_SNAPSHOT to track branch tip at 60bcd68 | 1 | +112/-108 | tooling |  |
+| 5 | `60bcd68` | Open policy-gated skip-preflight bypass window for ReviewSn… | 2 | +100/-1 | tooling |  |
+| 6 | `c98d471` | Restore script_catalog entries stripped during previous edit | 1 | +14/-0 | tooling |  |
+| 7 | `4b45f9a` | Register python_typed_seams in script_catalog | 1 | +1/-0 | tooling |  |
+| 8 | `5978dce` | Add ReviewSnapshot external-review surface via pre-commit r… | 33 | +4198/-680 | tooling |  |
+| 9 | `b6be213` | Land reviewer-supervisor restart-policy follow-up checkpoint | 21 | +549/-98 | tooling |  |
+| 10 | `244ae83` | Land MP-382 + MP-387 launch-authority closure (F21/F21a/F23… | 30 | +1306/-333 | tooling | Parser / ANSI boundary |
+| 11 | `fefa621` | Checkpoint reviewer bridge state: F21/F21a/F23/F24 launch-a… | 1 | +39/-92 | docs |  |
+| 12 | `846987c` | Update test_launch_sessions_if_requested_headless_requires_… | 1 | +150/-3 | tooling |  |
+| 13 | `84e60bc` | Land F21 integration: wire launcher_discipline into the lau… | 4 | +248/-2 | tooling | Parser / ANSI boundary |
+| 14 | `b748c6e` | Land F21 launcher-discipline pre-flight validation (pure fu… | 2 | +443/-0 | tooling |  |
+| 15 | `7a8b427` | Land MP-381 dashboard wiring + ViolationRecord consumer ada… | 15 | +1728/-42 | tooling |  |
+| 16 | `e35c4e3` | Land MP-381 F18 + F19 fixes per Codex instruction 269e91f22… | 2 | +312/-22 | tooling |  |
+| 17 | `e564969` | Land MP-381 F14 fix: exempt parked governed pipelines from… | 3 | +330/-3 | tooling |  |
+| 18 | `4f93b48` | Land F1 AST field-route helper plus MP-381 probe-report Vio… | 11 | +806/-35 | tooling |  |
+| 19 | `b22bf96` | Teach field-route guard to scan package sources | 1 | +16/-7 | tooling |  |
+| 20 | `080f4df` | Convert dashboard_render flat files to a package | 5 | +11/-11 | tooling |  |
+| 21 | `705b7ef` | Preserve top_blocker field-route visibility in dashboard_re… | 1 | +6/-0 | tooling |  |
+| 22 | `1f5e6a4` | Checkpoint reviewer bridge state | 1 | +22/-36 | docs |  |
+| 23 | `d9a76f2` | Modularize oversized files flagged by post-push code_shape… | 27 | +3792/-3071 | tooling |  |
+| 24 | `f66a4ec` | Remove stale PATH_POLICY_OVERRIDES for shrunken files | 1 | +0/-12 | tooling |  |
 
 ### Files
 
@@ -133,31 +132,27 @@ Range: last 25 commits ending at `e21d8e878a70`
 |---|---|---|
 | `.github/workflows/release_preflight.yml` | tooling | +1/-1 |
 | `.github/workflows/tooling_control_plane.yml` | tooling | +2/-2 |
-| `AGENTS.md` | docs | +41/-4 |
+| `AGENTS.md` | docs | +33/-4 |
 | `AUDIT_STATUS.md` | docs | +0/-474 |
-| `bridge.md` | docs | +188/-180 |
-| `dev/active/MASTER_PLAN.md` | tooling | +96/-3 |
-| `dev/active/ai_governance_platform.md` | tooling | +88/-3 |
+| `bridge.md` | docs | +153/-152 |
+| `dev/active/MASTER_PLAN.md` | tooling | +86/-3 |
+| `dev/active/ai_governance_platform.md` | tooling | +72/-3 |
 | `dev/active/platform_authority_loop.md` | tooling | +126/-8 |
 | `dev/active/portable_code_governance.md` | tooling | +40/-8 |
 | `dev/active/remote_commit_pipeline.md` | tooling | +99/-16 |
 | `dev/active/remote_control_runtime.md` | tooling | +102/-4 |
-| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +657/-208 |
+| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +714/-266 |
+| `dev/audits/architecture_hardening_plan.md` | tooling | +1091/-0 |
 | `dev/audits/push_override_receipts/20260407T173000Z_review_snapshot_landing.md` | tooling | +99/-0 |
 | `dev/config/devctl_repo_policy.json` | tooling | +1/-1 |
 | `dev/config/git_hooks/pre-commit-review-snapshot.sh` | tooling | +97/-0 |
 | `dev/config/launchd/review_channel_publisher_service.py` | tooling | +4/-0 |
-| `dev/guides/DEVELOPMENT.md` | docs | +43/-5 |
-| `dev/history/ENGINEERING_EVOLUTION.md` | tooling | +226/-2 |
-| `dev/scripts/README.md` | tooling | +56/-6 |
+| `dev/guides/DEVELOPMENT.md` | docs | +34/-5 |
+| `dev/history/ENGINEERING_EVOLUTION.md` | tooling | +192/-2 |
+| `dev/scripts/README.md` | tooling | +44/-6 |
 | `dev/scripts/checks/check_audit_status_sync.py` | tooling | +0/-112 |
 | `dev/scripts/checks/check_review_snapshot_freshness.py` | tooling | +203/-0 |
 | `dev/scripts/checks/code_shape/code_shape_policy.py` | tooling | +0/-18 |
-| `dev/scripts/checks/package_layout/command.py` | tooling | +17/-0 |
-| `dev/scripts/checks/package_layout/compatibility_redirects.py` | tooling | +3/-0 |
-| `dev/scripts/checks/package_layout/organization.py` | tooling | +243/-0 |
-| `dev/scripts/checks/package_layout/render.py` | tooling | +54/-0 |
-| `dev/scripts/checks/package_layout/rule_models.py` | tooling | +65/-0 |
 | `dev/scripts/checks/platform_contract_closure/field_routes_surface_state.py` | tooling | +126/-18 |
 | `dev/scripts/checks/startup_authority_contract/command.py` | tooling | +3/-1 |
 | `dev/scripts/checks/startup_authority_contract/runtime_checks.py` | tooling | +211/-22 |
@@ -171,7 +166,11 @@ Range: last 25 commits ending at `e21d8e878a70`
 | `dev/scripts/devctl/commands/dashboard_violations.py` | tooling | +158/-0 |
 | `dev/scripts/devctl/commands/governance/install_git_hooks.py` | tooling | +331/-0 |
 | `dev/scripts/devctl/commands/governance/review_snapshot.py` | tooling | +180/-0 |
-| _101 more files trimmed_ | | |
+| `dev/scripts/devctl/commands/governance/session_resume.py` | tooling | +25/-0 |
+| `dev/scripts/devctl/commands/governance/session_resume_support.py` | tooling | +24/-1 |
+| `dev/scripts/devctl/commands/review_channel/_ensure_helpers.py` | tooling | +8/-0 |
+| `dev/scripts/devctl/commands/review_channel/_ensure_supervisor.py` | tooling | +16/-0 |
+| _95 more files trimmed_ | | |
 
 ## 4. Quality signals
 
@@ -280,7 +279,6 @@ Recent findings:
 - **contract_mutation**: Contract / typed model mutated (`dev/scripts/devctl/tests/test_check_output_contract.py`) — Commit 7a8b427 changed dev/scripts/devctl/tests/test_check_output_contract.py
 - **contract_mutation**: Contract / typed model mutated (`dev/scripts/devctl/tests/checks/test_startup_authority_contract.py`) — Commit e35c4e3 changed dev/scripts/devctl/tests/checks/test_startup_authority_contract.py
 - **contract_mutation**: Contract / typed model mutated (`dev/scripts/devctl/review_channel/reviewer_follow_recovery_models.py`) — Commit d9a76f2 changed dev/scripts/devctl/review_channel/reviewer_follow_recovery_models.py
-- **contract_mutation**: Contract / typed model mutated (`dev/scripts/checks/package_layout/rule_models.py`) — Commit 9c83677 changed dev/scripts/checks/package_layout/rule_models.py
 
 ### Suggested verification commands
 
@@ -294,6 +292,10 @@ Recent findings:
 
 ### Per-commit rationale
 
+- **`ee13a6c`** — Add architecture hardening plan for Codex review
+  - Drafts the next-session hardening plan for the ReviewSnapshot +
+  - install-git-hooks subsystem at dev/audits/architecture_hardening_plan.md.
+  - evolution: The Codex/Claude bridge exposed a split-brain failure across three authority planes: event-backed packets, the markdown bridge compatibility projection, and session-resume/bootstrap cache state. A reviewer could post a …
 - **`e21d8e8` | MPs: MP-377, MP-3** — Close MP-377 typed-continuity tranche (Legs 1+2+3 follow-ups A/B/C)
   - Lands the three remaining items on the typed-continuity Session Resume
   - parent in dev/active/MASTER_PLAN.md (the [ ] item: "Replace boolean-only
@@ -302,54 +304,54 @@ Recent findings:
   - plan: `dev/active/platform_authority_loop.md`
   - plan: `dev/active/remote_commit_pipeline.md`
   - plan: `dev/active/PLAN_FORMAT.md`
-  - evolution: The commit/push path exposed a process problem that was architectural, not a reason to weaken checks. The repo already knew how to route bundles and risk add-ons, but the governed mutation path still carried only a `gua…
+  - evolution: The Codex/Claude bridge exposed a split-brain failure across three authority planes: event-backed packets, the markdown bridge compatibility projection, and session-resume/bootstrap cache state. A reviewer could post a …
 - **`f9388da`** — Add install-git-hooks command for portable pre-commit snapshot refresh
   - Closes the gap between the architectural promise "every governed commit
   - regenerates the ReviewSnapshot inside the commit" and the reality that
   - the pre-commit hook inside governed_executor_phases.execute_commit only
-  - evolution: The commit/push path exposed a process problem that was architectural, not a reason to weaken checks. The repo already knew how to route bundles and risk add-ons, but the governed mutation path still carried only a `gua…
+  - evolution: The Codex/Claude bridge exposed a split-brain failure across three authority planes: event-backed packets, the markdown bridge compatibility projection, and session-resume/bootstrap cache state. A reviewer could post a …
 - **`d155b02`** — Refresh REVIEW_SNAPSHOT to track branch tip at 60bcd68
   - The ReviewSnapshot surface committed in 5978dce recorded state at
   - its parent (b6be213), which is correct for the pre-commit-hook
   - semantics it demonstrates. But every subsequent commit in the
-  - evolution: The commit/push path exposed a process problem that was architectural, not a reason to weaken checks. The repo already knew how to route bundles and risk add-ons, but the governed mutation path still carried only a `gua…
+  - evolution: The Codex/Claude bridge exposed a split-brain failure across three authority planes: event-backed packets, the markdown bridge compatibility projection, and session-resume/bootstrap cache state. A reviewer could post a …
 - **`60bcd68`** — Open policy-gated skip-preflight bypass window for ReviewSnapshot landing
   - Typed override receipt for publishing the ReviewSnapshot slice
   - (5978dce + 4b45f9a + c98d471) through the governed push path when
   - the stale reviewer-loop state (reason=reviewer_heartbeat_stale,
-  - evolution: The commit/push path exposed a process problem that was architectural, not a reason to weaken checks. The repo already knew how to route bundles and risk add-ons, but the governed mutation path still carried only a `gua…
+  - evolution: The Codex/Claude bridge exposed a split-brain failure across three authority planes: event-backed packets, the markdown bridge compatibility projection, and session-resume/bootstrap cache state. A reviewer could post a …
 - **`c98d471`** — Restore script_catalog entries stripped during previous edit
   - Regression fix: 14 entries that were present at HEAD got silently
   - stripped from _CHECK_SCRIPT_ENTRIES and _PROBE_SCRIPT_ENTRIES during
   - an earlier edit to script_catalog.py and then committed into the
-  - evolution: The commit/push path exposed a process problem that was architectural, not a reason to weaken checks. The repo already knew how to route bundles and risk add-ons, but the governed mutation path still carried only a `gua…
+  - evolution: The Codex/Claude bridge exposed a split-brain failure across three authority planes: event-backed packets, the markdown bridge compatibility projection, and session-resume/bootstrap cache state. A reviewer could post a …
 - **`4b45f9a`** — Register python_typed_seams in script_catalog
   - Pre-push scaffolding fix: check_python_typed_seams.py exists on disk
   - and is referenced by both quality_policy/defaults.py:136,315 (as an
   - AI guard ID) and bundles/registry.py:65 (as a command string), but
-  - evolution: The commit/push path exposed a process problem that was architectural, not a reason to weaken checks. The repo already knew how to route bundles and risk add-ons, but the governed mutation path still carried only a `gua…
+  - evolution: The Codex/Claude bridge exposed a split-brain failure across three authority planes: event-backed packets, the markdown bridge compatibility projection, and session-resume/bootstrap cache state. A reviewer could post a …
 - **`5978dce`** — Add ReviewSnapshot external-review surface via pre-commit refresh hook
   - Introduces dev/audits/REVIEW_SNAPSHOT.md as a deterministic typed
   - projection of repo governance state, designed to be read directly
   - from GitHub by external reviewers (ChatGPT Pro, human auditors) so
-  - evolution: The commit/push path exposed a process problem that was architectural, not a reason to weaken checks. The repo already knew how to route bundles and risk add-ons, but the governed mutation path still carried only a `gua…
+  - evolution: The Codex/Claude bridge exposed a split-brain failure across three authority planes: event-backed packets, the markdown bridge compatibility projection, and session-resume/bootstrap cache state. A reviewer could post a …
 - **`b6be213` | MPs: MP-382, MP-387** — Land reviewer-supervisor restart-policy follow-up checkpoint
   - Closes the manual_stop / completed restart-policy gap left open after
   - 244ae83 (MP-382 + MP-387 launch-authority closure). The launchd publisher
   - wrapper already treated those stop reasons as non-restartable, but two
   - plan: `dev/active/remote_control_runtime.md`
-  - evolution: The commit/push path exposed a process problem that was architectural, not a reason to weaken checks. The repo already knew how to route bundles and risk add-ons, but the governed mutation path still carried only a `gua…
+  - evolution: The Codex/Claude bridge exposed a split-brain failure across three authority planes: event-backed packets, the markdown bridge compatibility projection, and session-resume/bootstrap cache state. A reviewer could post a …
 - **`244ae83` | MPs: MP-382, MP-387 | markers: F21, F21a, F23, F24** — Land MP-382 + MP-387 launch-authority closure (F21/F21a/F23/F24)
   - Resolves operator interaction mode once through governance/startup
   - authority and threads it through session preparation plus the pre-spawn
   - dispatcher gate, closing F21: _launch_and_refresh() in bridge_handler.py
   - plan: `dev/active/remote_control_runtime.md`
-  - evolution: The commit/push path exposed a process problem that was architectural, not a reason to weaken checks. The repo already knew how to route bundles and risk add-ons, but the governed mutation path still carried only a `gua…
+  - evolution: The Codex/Claude bridge exposed a split-brain failure across three authority planes: event-backed packets, the markdown bridge compatibility projection, and session-resume/bootstrap cache state. A reviewer could post a …
 - **`fefa621` | markers: F21, F21a, F23, F24** — Checkpoint reviewer bridge state: F21/F21a/F23/F24 launch-authority findings
   - Reviewer flipped mode from single_agent to active_dual_agent and posted
   - new open findings against commit 84e60bc's F21 integration:
   - bridge_handler.py was sourcing the dispatcher gate from
-  - evolution: The commit/push path exposed a process problem that was architectural, not a reason to weaken checks. The repo already knew how to route bundles and risk add-ons, but the governed mutation path still carried only a `gua…
+  - evolution: The Codex/Claude bridge exposed a split-brain failure across three authority planes: event-backed packets, the markdown bridge compatibility projection, and session-resume/bootstrap cache state. A reviewer could post a …
 - **`846987c` | markers: F21** — Update test_launch_sessions_if_requested_headless_requires_reviewer_proof_of_life for F21 integration
   - Closes a regression my F21 integration commit 84e60bc introduced in
   - test_review_channel.py:937. Self-correction caught by the broader
@@ -408,11 +410,6 @@ Recent findings:
   - are well under their language defaults (900 and 350 respectively). The
   - code_shape guard flagged these overrides as stale during push preflight.
   - evolution: The next failure was not a bad implementation slice; it was a self-hosting reviewer interruption. A live `active_dual_agent` Codex conductor bootstrapped, narrowed into the bounded post-push shape cleanup, and then the …
-- **`28f5453`** — Document review-handoff recovery seam
-  - evolution: The next failure was not a bad implementation slice; it was a self-hosting reviewer interruption. A live `active_dual_agent` Codex conductor bootstrapped, narrowed into the bounded post-push shape cleanup, and then the …
-- **`9c83677`** — Add AI-readable package-layout organization surface
-  - Implement unified organization surface in check_package_layout output:
-  - evolution: The review-channel runtime had already grown typed reviewer/implementer role slots, but a lot of the launch/bootstrap/recover path still assumed fixed provider identity: Codex was implicitly the reviewer, Claude was imp…
 ### Active MP scope (from MASTER_PLAN.md)
 
 - `dev/active/devctl_reporting_upgrade.md` is the phased `devctl` reporting/CIHub specification, but not a separate execution tracker; implementation tasks stay in this file under `MP-297..MP-300`, `MP-303`, `MP-306`, `MP…
@@ -430,8 +427,12 @@ Recent findings:
 
 - open governance findings: 39
 
+### Startup advisories
+- checkpoint_before_continue: dirty_path_budget_exceeded
+
 ### Stale warnings
-- Pause and wait for reviewer-owned state.
+- Keep editing the current slice.
+- Move straight to the governed push path.
 
 ### Open gap rows
 - **governance_open** (`dev/scripts/devctl/review_channel/bridge_sanitize.py`): agent_checkpoint_contract_ignorance: 
@@ -445,4 +446,4 @@ Recent findings:
 
 ---
 
-Projection produced by `devctl review-snapshot`. Generation stamp `snap-89d55a079802` binds this file to HEAD `e21d8e878a70`; if they drift, the freshness guard will fail CI.
+Projection produced by `devctl review-snapshot`. Generation stamp `snap-bc721171389e` binds this file to HEAD `ee13a6c6337f`; if they drift, the freshness guard will fail CI.

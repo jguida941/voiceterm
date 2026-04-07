@@ -227,6 +227,76 @@ def test_render_bridge_projection_drops_transcript_noise_and_extra_sections() ->
     assert bridge_hygiene_errors(rendered) == []
 
 
+def test_render_bridge_projection_projects_bound_action_request_packets() -> None:
+    review_state = _typed_review_state(_bridge_text())
+    review_state["packets"] = [
+        {
+            "packet_id": "rev_pkt_0001",
+            "kind": "action_request",
+            "status": "pending",
+            "requested_action": "run_check",
+            "summary": "Run focused bridge check",
+            "body": "python3 dev/scripts/checks/check_review_channel_bridge.py",
+            "target_kind": "runtime",
+            "target_ref": "guard:check_review_channel_bridge",
+            "target_revision": "tree-123",
+        },
+        {
+            "packet_id": "rev_pkt_0002",
+            "kind": "action_request",
+            "status": "pending",
+            "requested_action": "commit",
+            "body": "-m 'unbound legacy commit'",
+        },
+    ]
+
+    rendered, _ = render_bridge_projection(
+        review_state=review_state,
+        last_worktree_hash="b" * 64,
+    )
+
+    action_requests = extract_bridge_snapshot(rendered).sections["Action Requests"]
+    assert "rev_pkt_0001" in action_requests
+    assert "guard:check_review_channel_bridge" in action_requests
+    assert "rev_pkt_0002" not in action_requests
+    assert len(action_requests.splitlines()) <= 12
+    assert bridge_hygiene_errors(rendered) == []
+
+
+def test_render_bridge_projection_falls_back_when_fixed_sections_missing() -> None:
+    review_state = {
+        "timestamp": "2026-04-07T22:15:00Z",
+        "current_session": {
+            "current_instruction": "- Keep the review-channel bridge live.",
+            "current_instruction_revision": "abc123",
+        },
+        "reviewer_runtime": {
+            "review_acceptance": {
+                "current_verdict": "- changes_requested",
+                "open_findings": "- F25: bridge projection must not fail closed.",
+            }
+        },
+        "_compat": {
+            "bridge_projection": {
+                "metadata": {"current_instruction_revision": "abc123"},
+                "sections": {},
+            },
+        },
+        "packets": [],
+    }
+
+    rendered, _ = render_bridge_projection(
+        review_state=review_state,
+        last_worktree_hash="b" * 64,
+    )
+
+    assert "## Poll Status" in rendered
+    assert "## Current Verdict" in rendered
+    assert "## Open Findings" in rendered
+    assert "- Keep the review-channel bridge live." in rendered
+    assert bridge_hygiene_errors(rendered) == []
+
+
 def test_render_bridge_projection_tracks_swapped_reviewer_and_implementer() -> None:
     review_state = _typed_review_state(_bridge_text())
     review_state["collaboration"] = {

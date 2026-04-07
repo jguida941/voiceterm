@@ -230,24 +230,34 @@ class TestActionRequestsFromPackets:
                 "packet_id": "rev_pkt_0001",
                 "kind": "action_request",
                 "status": "pending",
-                "requested_action": "commit",
-                "body": "-m 'fix typo'",
+                "requested_action": "run_check",
+                "summary": "Run the focused bridge check",
+                "body": "python3 dev/scripts/checks/check_review_channel_bridge.py",
+                "target_kind": "runtime",
+                "target_ref": "guard:check_review_channel_bridge",
+                "target_revision": "tree-123",
             },
             {
                 "packet_id": "rev_pkt_0002",
                 "kind": "action_request",
                 "status": "pending",
-                "requested_action": "push",
-                "body": "origin main",
+                "requested_action": "kill_process",
+                "summary": "Stop stale publisher pid 123",
+                "body": "pid 123",
+                "target_kind": "runtime",
+                "target_ref": "process:123",
+                "target_revision": "session-token-1",
             },
         ]
         result = action_requests_from_packets(packets)
         assert len(result) == 2
         assert result[0].id == "rev_pkt_0001"
-        assert result[0].action == "commit"
-        assert result[0].payload == "-m 'fix typo'"
+        assert result[0].action == "run_check"
+        assert "target=runtime:guard:check_review_channel_bridge@tree-123" in (
+            result[0].payload
+        )
         assert result[0].status == "pending"
-        assert result[1].action == "push"
+        assert result[1].action == "kill_process"
 
     def test_excludes_non_pending_packets(self) -> None:
         packets: list[dict[str, object]] = [
@@ -255,15 +265,22 @@ class TestActionRequestsFromPackets:
                 "packet_id": "rev_pkt_0001",
                 "kind": "action_request",
                 "status": "applied",
-                "requested_action": "commit",
+                "requested_action": "run_check",
                 "body": "-m 'done'",
+                "target_kind": "runtime",
+                "target_ref": "guard:bundle.tooling",
+                "target_revision": "tree-123",
             },
             {
                 "packet_id": "rev_pkt_0002",
                 "kind": "action_request",
                 "status": "pending",
-                "requested_action": "push",
-                "body": "origin main",
+                "requested_action": "run_check",
+                "summary": "Run docs-check",
+                "body": "docs-check",
+                "target_kind": "runtime",
+                "target_ref": "guard:docs-check",
+                "target_revision": "tree-123",
             },
         ]
         result = action_requests_from_packets(packets)
@@ -285,11 +302,40 @@ class TestActionRequestsFromPackets:
                 "status": "pending",
                 "requested_action": "run_check",
                 "body": "--profile ci",
+                "target_kind": "runtime",
+                "target_ref": "guard:ci",
+                "target_revision": "tree-123",
             },
         ]
         result = action_requests_from_packets(packets)
         assert len(result) == 1
         assert result[0].action == "run_check"
+
+    def test_excludes_unbound_runtime_action_packets(self) -> None:
+        packets: list[dict[str, object]] = [
+            {
+                "packet_id": "rev_pkt_0001",
+                "kind": "action_request",
+                "status": "pending",
+                "requested_action": "commit",
+                "body": "-m 'unbound commit'",
+            },
+        ]
+
+        assert action_requests_from_packets(packets) == []
+
+    def test_excludes_unknown_requested_action_packets(self) -> None:
+        packets: list[dict[str, object]] = [
+            {
+                "packet_id": "rev_pkt_0001",
+                "kind": "action_request",
+                "status": "pending",
+                "requested_action": "reset_to_reviewer_only",
+                "body": "Long instruction-like packet body.",
+            },
+        ]
+
+        assert action_requests_from_packets(packets) == []
 
     def test_empty_packets_returns_empty(self) -> None:
         assert action_requests_from_packets([]) == []
@@ -301,17 +347,40 @@ class TestActionRequestsFromPackets:
                 "packet_id": "ar-001",
                 "kind": "action_request",
                 "status": "pending",
-                "requested_action": "commit",
-                "body": "-m 'fix typo'",
+                "requested_action": "run_check",
+                "summary": "Run focused check",
+                "body": "python3 dev/scripts/checks/check_review_channel_bridge.py",
+                "target_kind": "runtime",
+                "target_ref": "guard:bridge",
+                "target_revision": "tree-123",
             },
         ]
         rendered = render_action_requests_from_packets(packets)
         parsed_back = parse_action_requests(rendered)
         assert len(parsed_back) == 1
         assert parsed_back[0].id == "ar-001"
-        assert parsed_back[0].action == "commit"
-        assert parsed_back[0].payload == "-m 'fix typo'"
+        assert parsed_back[0].action == "run_check"
+        assert "target=runtime:guard:bridge@tree-123" in parsed_back[0].payload
         assert parsed_back[0].status == "pending"
+
+    def test_render_from_packets_compacts_multiline_packet_body(self) -> None:
+        packets: list[dict[str, object]] = [
+            {
+                "packet_id": "ar-001",
+                "kind": "action_request",
+                "status": "pending",
+                "requested_action": "run_check",
+                "body": "Run this check.\nDo not create a second bridge queue.",
+                "target_kind": "runtime",
+                "target_ref": "guard:bridge",
+                "target_revision": "tree-123",
+            },
+        ]
+
+        rendered = render_action_requests_from_packets(packets)
+
+        assert len(rendered.splitlines()) == 1
+        assert "Do not create a second bridge queue" in rendered
 
     def test_render_from_packets_empty_returns_default(self) -> None:
         rendered = render_action_requests_from_packets([])
@@ -325,15 +394,21 @@ class TestActionRequestsFromPackets:
                 "packet_id": "ar-001",
                 "kind": "action_request",
                 "status": "pending",
-                "requested_action": "commit",
-                "body": "-m 'fix typo'",
+                "requested_action": "run_check",
+                "body": "--profile quick",
+                "target_kind": "runtime",
+                "target_ref": "guard:quick",
+                "target_revision": "tree-123",
             },
             {
                 "packet_id": "ar-002",
                 "kind": "action_request",
                 "status": "pending",
-                "requested_action": "push",
-                "body": "origin feature/foo",
+                "requested_action": "kill_process",
+                "body": "pid 123",
+                "target_kind": "runtime",
+                "target_ref": "process:123",
+                "target_revision": "session-token-1",
             },
         ]
         # Packet projection path

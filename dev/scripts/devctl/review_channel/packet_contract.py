@@ -15,12 +15,13 @@ from .packet_agents import default_packet_agent_ids
 
 VALID_AGENT_IDS = frozenset(default_packet_agent_ids())
 COMMIT_APPROVAL_PACKET_KIND = "commit_approval"
+ACTION_REQUEST_PACKET_KIND = "action_request"
 VALID_PACKET_KINDS = {
     "finding",
     "question",
     "draft",
     "instruction",
-    "action_request",
+    ACTION_REQUEST_PACKET_KIND,
     "approval_request",
     "decision",
     "system_notice",
@@ -35,6 +36,8 @@ PLANNING_PACKET_KINDS = {
     "plan_ready_gate",
 }
 RUNTIME_TARGET_PACKET_KINDS = {COMMIT_APPROVAL_PACKET_KIND}
+RUNTIME_ACTION_REQUEST_ACTIONS = {"commit", "run_check", "push", "kill_process"}
+PIPELINE_ACTION_REQUEST_ACTIONS = {"commit", "push"}
 VALID_POLICY_HINTS = {
     "review_only",
     "stage_draft",
@@ -223,6 +226,7 @@ def validate_post_request(
         raise ValueError("--expires-in-minutes must be greater than zero.")
     _validate_target_fields(
         kind=request.kind,
+        requested_action=request.requested_action,
         target=request.target,
         runtime_approval=request.runtime_approval,
     )
@@ -231,6 +235,7 @@ def validate_post_request(
 def _validate_target_fields(
     *,
     kind: str,
+    requested_action: str,
     target: PacketTargetFields,
     runtime_approval: PacketRuntimeApprovalFields,
 ) -> None:
@@ -252,6 +257,14 @@ def _validate_target_fields(
 
     if runtime_target_kind:
         _validate_runtime_approval_target_fields(
+            target=target,
+            runtime_approval=runtime_approval,
+        )
+        return
+
+    if kind == ACTION_REQUEST_PACKET_KIND:
+        _validate_action_request_target_fields(
+            requested_action=requested_action,
             target=target,
             runtime_approval=runtime_approval,
         )
@@ -323,6 +336,63 @@ def _validate_runtime_approval_target_fields(
         raise ValueError("Commit approval packets require --staged-snapshot-hash.")
     if not runtime_approval.guard_results_summary:
         raise ValueError("Commit approval packets require --guard-results-summary.")
+
+
+def _validate_action_request_target_fields(
+    *,
+    requested_action: str,
+    target: PacketTargetFields,
+    runtime_approval: PacketRuntimeApprovalFields,
+) -> None:
+    action = (requested_action or "").strip()
+    if action not in RUNTIME_ACTION_REQUEST_ACTIONS:
+        if target.has_values() or runtime_approval.has_values():
+            raise ValueError(
+                "Target fields on `action_request` packets are only allowed "
+                "for runtime actions: "
+                + ", ".join(sorted(RUNTIME_ACTION_REQUEST_ACTIONS))
+                + "."
+            )
+        return
+
+    if target.target_kind != "runtime":
+        raise ValueError(
+            "Runtime action_request packets must set --target-kind runtime."
+        )
+    if not target.target_ref:
+        raise ValueError("Runtime action_request packets require --target-ref.")
+    if not target.target_revision:
+        raise ValueError("Runtime action_request packets require --target-revision.")
+    if target.anchor_refs or target.intake_ref or target.mutation_op:
+        raise ValueError(
+            "Plan mutation fields are not valid on runtime action_request packets."
+        )
+
+    if action in PIPELINE_ACTION_REQUEST_ACTIONS:
+        if not target.target_ref.startswith("remote_commit_pipeline:"):
+            raise ValueError(
+                "Commit/push action_request packets must target "
+                "`remote_commit_pipeline:<pipeline_id>`."
+            )
+        if not runtime_approval.pipeline_generation:
+            raise ValueError(
+                "Commit/push action_request packets require --pipeline-generation."
+            )
+        if not runtime_approval.staged_snapshot_hash:
+            raise ValueError(
+                "Commit/push action_request packets require --staged-snapshot-hash."
+            )
+        if not runtime_approval.guard_results_summary:
+            raise ValueError(
+                "Commit/push action_request packets require --guard-results-summary."
+            )
+        return
+
+    if runtime_approval.has_values():
+        raise ValueError(
+            "Runtime approval fields are only allowed on commit/push "
+            "action_request packets or `commit_approval` packets."
+        )
 
 
 def _clean_optional_text(value: object) -> str | None:

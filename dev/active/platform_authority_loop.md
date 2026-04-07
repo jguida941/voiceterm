@@ -104,6 +104,12 @@ Out of scope until the authority loop is closed:
 6. `AGENTS.md`, `dev/active/INDEX.md`, `dev/active/MASTER_PLAN.md`,
    `dev/scripts/README.md`, and `dev/guides/DEVCTL_AUTOGUIDE.md` must stay
    aligned with any new startup-authority or repo-pack contract surface.
+7. `dev/audits/architecture_hardening_plan.md` is ReviewSnapshot audit intake,
+   not a peer plan. This file owns the Tier 1 / Tier 2 path-default,
+   `ArtifactRoots`, `DocPolicy`, policy-load diagnostic, missing-root
+   diagnostic, and repo-pack verification-command parts before implementation;
+   commit/push and override-integrity items route to
+   `dev/active/remote_commit_pipeline.md`.
 
 ## Execution Checklist
 
@@ -220,6 +226,14 @@ intended execution order is:
       `dev/reports/*`. Either discover repo-owned authority from governed
       state or fail closed, and prove the same path on a custom-layout fixture
       repo.
+- [ ] Absorb the ReviewSnapshot hardening audit's path/default and diagnostics
+      tranche through the same authority seam instead of making a new active
+      plan: collapse all `dev/audits/REVIEW_SNAPSHOT.md` fallback sites behind
+      one repo-pack-aware resolver, move ReviewSnapshot why-extractor
+      `MASTER_PLAN` / `INDEX` / evolution refs into `DocPolicy`, surface
+      configured-vs-fallback-vs-missing path diagnostics, make policy-load and
+      missing artifact-root diagnostics visible to fresh adopters, and move
+      VoiceTerm-shaped suggested verification commands into repo-pack policy.
 - [ ] Land the first read-only operator/AI entrypoint for that docs system:
       `python3 dev/scripts/devctl.py doc-authority --format md`.
       It should emit governed-doc counts, registry coverage, metadata-format
@@ -2337,6 +2351,15 @@ blocker or exception in plan state before skipping the declared order.
 
 ## Progress Log
 
+- 2026-04-07: Absorbed `dev/audits/architecture_hardening_plan.md` as
+  ReviewSnapshot audit intake instead of promoting it into `dev/active/` as a
+  second execution tracker. The MP-377 ownership split is now explicit: this
+  authority-loop plan owns the path/default, repo-pack, `ArtifactRoots`,
+  `DocPolicy`, policy-load, missing-root, and verification-command diagnostic
+  tranche; `remote_commit_pipeline.md` owns raw commit/push and override
+  integrity; `ai_governance_platform.md` owns contract/ecosystem surfaces; and
+  `portable_code_governance.md` owns adopter proof. `REVIEW_SNAPSHOT.md`
+  remains generated evidence only.
 - 2026-04-07: Closed the MP-377 typed-continuity tranche end to end. The
   prior 2026-03-23 entry recorded that Legs 1+2 (modeling, packet
   threading, surfacing of `alignment_status`) had landed but did NOT

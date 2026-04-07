@@ -65,6 +65,17 @@ Current 2026-04-07 portability-by-default closure note:
   must not silently resurrect VoiceTerm path/layout, `bridge.md`, tandem, or
   local-terminal defaults.
 
+Current 2026-04-07 ReviewSnapshot audit-intake routing note:
+- `dev/audits/architecture_hardening_plan.md` is accepted as reference audit
+  intake for MP-377 / MP-376, not as a new active plan. The main product plan
+  owns cross-surface consistency, contract registration, generated-artifact
+  integrity, suggested-command and WhyRecord production consumers, and later
+  MCP / Agent SDK ecosystem surfaces. Path/default cleanup belongs to
+  `platform_authority_loop.md`, commit/push and override integrity belong to
+  `remote_commit_pipeline.md`, and fresh-adopter proof belongs to
+  `portable_code_governance.md`. `dev/audits/REVIEW_SNAPSHOT.md` remains a
+  generated projection.
+
 ## Scope
 
 Turn the current VoiceTerm-local automation stack into a reusable AI governance
@@ -6058,6 +6069,13 @@ Execution order for this section:
 
 ## Progress Log
 
+- 2026-04-07: Absorbed the ReviewSnapshot hardening audit as routed intake
+  rather than a shadow plan. The accepted product-level work is cross-surface
+  consistency for the snapshot, contract registration/schema coverage,
+  generated-artifact integrity, load-bearing consumers for suggested commands
+  and WhyRecord data, and later MCP / Agent SDK ecosystem adapters. Immediate
+  path/doc-authority and commit/push slices stay in the subordinate owner
+  docs so `MP-377` keeps one main active architecture plan.
 - 2026-04-07: Accepted the commit/push validation-cadence correction into the
   main `MP-377` architecture lane. The portable rule is not "run everything on
   every edit" and not "trust an agent to choose fast vs full"; it is to emit a

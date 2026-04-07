@@ -85,6 +85,12 @@ Out of scope in this phase:
    harness that will consume this pipeline once implemented.
 5. `dev/active/operator_console.md` may later project the same pipeline, but
    it does not own a second approval path or an alternate VCS backend.
+6. `dev/audits/architecture_hardening_plan.md` is ReviewSnapshot audit intake,
+   not a peer plan. This file owns the raw-commit hook proof, override
+   receipt enforcement, additional git-hook, `PushAuthorizationRecord`
+   integrity, and generated publish/commit traceability findings from that
+   audit; path/default and adopter-diagnostic findings route to
+   `platform_authority_loop.md` / `portable_code_governance.md`.
 
 ## Data Contracts
 
@@ -491,9 +497,24 @@ surface for remote sessions. It should project:
 - [ ] Land `PushAuthorizationRecord` as the canonical publication receipt for
       governed push so `vcs.push` depends on exact head/check/review proof
       instead of rerunning startup/edit gates or reviewer-liveness checks.
+- [ ] Absorb the ReviewSnapshot hardening audit's commit/push tranche without
+      adding a parallel plan: add the raw `git commit` hook regression lock,
+      make override receipts load-bearing for `override_push`, move stronger
+      managed-hook integrity and additional hook families through
+      `install-git-hooks`, and bind ReviewSnapshot freshness/traceability into
+      the same validation and push-authorization proof rather than relying on
+      courtesy markdown receipts.
 
 ## Progress Log
 
+- 2026-04-07: Routed the ReviewSnapshot architecture hardening audit into this
+  lane for commit/push ownership. The accepted items here are raw `git commit`
+  hook proof, override receipt enforcement, managed-hook integrity, additional
+  git-hook families, and `PushAuthorizationRecord` / ReviewSnapshot
+  traceability hardening. Path/default cleanup stays in
+  `platform_authority_loop.md`, and the generated
+  `dev/audits/REVIEW_SNAPSHOT.md` remains a report projection rather than a
+  mutable plan.
 - 2026-04-07: Accepted the validation-cadence architecture review for this
   lane. The answer is not "run the whole world on every local edit" and not
   "let the model choose a fast path"; it is to keep enforcement depth while

@@ -11,19 +11,24 @@ treat these rules as active workflow instructions immediately.
    current loop. Do not create parallel control files for the same work.
 2. Codex is the reviewer. Claude is the coder.
 3. At conversation start, both agents must bootstrap repo authority before
-   acting. Codex uses `python3 dev/scripts/devctl.py startup-context --role reviewer --format summary` and Claude uses `python3 dev/scripts/devctl.py startup-context --role implementer --format summary` first. If either exits
-   non-zero, checkpoint or repair the repo state before coding or
-   relaunching conductor work. User summaries, stale chat continuity, or
-   remembered prior state are not substitutes for this Step 0 receipt. In
-   reviewer mode, a non-zero `action=continue_editing` / `reason=review_pending`
-   or `action=await_review` / `reason=review_pending_before_push` receipt is
-   still a normal reviewer-bootstrap state while the loop is live; continue
-   into `review-channel --action status` and refresh the reviewer-owned
-   heartbeat before escalating into repair. Then Codex uses
-   `python3 dev/scripts/devctl.py session-resume --role reviewer --format bootstrap`
-   and Claude uses
-   `python3 dev/scripts/devctl.py session-resume --role implementer --format bootstrap`
-   as the canonical role bootstrap packet. Then run
+   acting. Codex uses `python3 dev/scripts/devctl.py startup-context --role reviewer --format summary` and Claude uses `python3 dev/scripts/devctl.py startup-context --role implementer --format summary` first.
+   If Claude's receipt exits non-zero, checkpoint or repair the
+   repo state before coding or relaunching conductor work.
+   If Codex's receipt exits non-zero, read the summary fields
+   before widening scope. `action=continue_editing` /
+   `reason=review_pending` and `action=await_review` /
+   `reason=review_pending_before_push` are normal reviewer-bootstrap
+   states while the collaboration lane is still live; continue bootstrap,
+   poll `review-channel --action status`, and refresh the reviewer-owned
+   bridge heartbeat before attempting repair. Treat only
+   `action=repair_reviewer_loop`, checkpoint/budget blockers, or typed
+   review-channel status showing stale/non-live reviewer runtime as a
+   repair or relaunch boundary.
+   User summaries, stale chat continuity, or
+   remembered prior state are not substitutes for this Step 0 receipt.
+   Then Codex uses `python3 dev/scripts/devctl.py session-resume --role reviewer --format bootstrap` and Claude uses
+   `python3 dev/scripts/devctl.py session-resume --role implementer --format bootstrap` as the canonical role bootstrap packet.
+   Then run
    `python3 dev/scripts/devctl.py context-graph --mode bootstrap --format md`.
    Keep chat bootstrap acknowledgements concise: blocker state plus next step,
    not a replay of the packet, unless the operator asks for the detail.
@@ -32,6 +37,7 @@ treat these rules as active workflow instructions immediately.
 5. Start from the live sections in this file:
    - Codex should start from `Poll Status`, `Current Verdict`, `Open Findings`, `Current Instruction For Claude`, and `Last Reviewed Scope`.
    - Claude should start from `Poll Status`, `Current Verdict`, `Open Findings`, `Current Instruction For Claude`, and `Last Reviewed Scope`, then acknowledge the active instruction in `Claude Ack` before coding.
+   - `Last Codex poll` remains the reviewer-heartbeat compatibility field and `Claude Status` / `Claude Ack` remain the implementer-owned compatibility sections until native role-labeled bridge headings land.
    - `Claude Ack` must acknowledge the current instruction revision with a machine-readable line such as `- acknowledged current instruction revision: <rev>` or `- acknowledged; instruction-rev: <rev>`.
    - Claude must read `Last Codex poll` / `Poll Status` first on each repoll.
 6. Codex must poll non-`bridge.md` worktree changes every 2-3 minutes while
@@ -71,13 +77,12 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-04-07T18:34:31Z`
-- Last Codex poll (Local America/New_York): `2026-04-07 14:34:31 EDT`
-- Reviewer mode: `active_dual_agent`
-- Last non-audit worktree hash: `c81ca3d995abf49a3fe03b23a18f473016396c0214cfa09dd285fae4d6c03ea5`
+- Last Codex poll: `2026-04-07T22:20:50Z`
+- Last Codex poll (Local America/New_York): `2026-04-07 18:20:50 EDT`
+- Reviewer mode: `single_agent`
+- Last non-audit worktree hash: `173d66f131c8866184a73475c3286740a0bea8e1352e48fe2ad20df1d676ff91`
 - Current instruction revision: `18ca6ee8c6ba`
-- Last checkpoint action: `reviewer-checkpoint`
-- Head at push time: `846987c3f6f2229e51ab95035cafc18ff40187dc`
+
 ## Protocol
 
 1. Claude should poll this file periodically while coding.
@@ -199,16 +204,12 @@ Codex: design this as part of the existing `ProjectGovernance` / `ReviewerGateSt
 
 ## Poll Status
 
-- Reviewer checkpoint updated through repo-owned tooling (mode: active_dual_agent; reason: f21-integration-review; observed-tree: c81ca3d995ab; reviewed-tree: c81ca3d995ab; instruction-rev: 18ca6ee8c6ba).
+- Reviewer heartbeat updated through repo-owned tooling (mode: single_agent; reason: plan-routing-cleanup-single-reviewer; observed-tree: fd13d6223f4c; reviewed-tree: fd13d6223f4c; instruction-rev: 18ca6ee8c6ba).
 
 ## Current Verdict
 
 - changes_requested
 - Change Summary: `84e60bc` is closer, but F21 is still not closed. The live launch dispatcher now calls `validate_visible_launch_in_local_mode(...)`, yet `_launch_and_refresh()` feeds that gate from `execution.status_snapshot.bridge_liveness.get("interaction_mode", "")`. Real typed status does not publish `bridge_liveness.interaction_mode`, so the live launch/rollover path collapses to `""` and denies legitimate headless `remote_control` launches. `846987c` only patches one test around that integration and also over-commits unrelated `test_review_channel.py` changes.
-- Accepted: `e35c4e3` remains accepted. `b748c6e` remains a good pure seam.
-- Not accepted yet: `84e60bc` / `846987c` do not close F21, and F23/F24 are still open.
-- Scope note: stay inside the bounded `MP-382 + MP-387` launch-authority/runtime slice. Do not widen into dashboard, startup-authority, or F22 raw-stage enforcement here.
-- Review evidence: code review of `bridge_handler.py`, `bridge_launch_control.py`, `bridge_action_support.py`, `_recover.py`, `state.py`, `launch.py`, `launch_records.py`, `launch_script.py`, `parser.py`, `test_launcher_discipline.py`, `test_review_channel.py`, plus live `review-channel status` / `bridge-poll` proving `bridge_liveness` currently has no `interaction_mode` field.
 
 ## Open Findings
 
@@ -236,14 +237,6 @@ Codex: design this as part of the existing `ProjectGovernance` / `ReviewerGateSt
 - First repair F21 correctly: use one governance-first operator interaction mode resolution path and feed the same resolved value to both `build_launch_sessions()` and the live `launch_sessions_if_requested()` gate. Do not read `interaction_mode` from `bridge_liveness`.
 - Unless you can point to a concrete repo-owned caller that requires it, remove `--allow-headless-override` and its override-only tests. The current bug is wrong authority wiring, not a missing escape hatch.
 - Then land F23: prepared session metadata and the generated launcher script must carry prepared HEAD SHA, current instruction revision, and the live turn/session token from typed review state; direct script invocation must re-read typed authority and fail before provider start on mismatch.
-- Then land F24: classify stale-authority/preflight failures as non-restartable in headless mode so the shell loop exits with an operator-visible reason instead of relaunching.
-- Add focused regression coverage for: the real bridge-handler/dispatcher path uses governed interaction mode for remote_control headless launch; local_terminal still fails closed; stale prepared head/revision/token rejects before provider start; stale-preflight exits do not restart-loop; fresh sessions still pass.
-- Verification: `python3 -m pytest dev/scripts/devctl/tests/review_channel/test_launcher_discipline.py dev/scripts/devctl/tests/review_channel/test_launch_script.py dev/scripts/devctl/tests/review_channel/test_review_channel.py -q --tb=short`, then `python3 dev/scripts/checks/check_review_channel_bridge.py`, `python3 dev/scripts/checks/check_active_plan_sync.py`, `python3 dev/scripts/checks/check_multi_agent_sync.py`, and `python3 dev/scripts/devctl.py docs-check --strict-tooling`.
-- After coding, stop and repoll. I will review the next checkpoint from there.
-
-## Action Requests
-
-- No pending action requests.
 
 ## Last Reviewed Scope
 
@@ -258,3 +251,7 @@ Codex: design this as part of the existing `ProjectGovernance` / `ReviewerGateSt
 - dev/scripts/devctl/review_channel/parser.py
 - dev/scripts/devctl/tests/review_channel/test_launcher_discipline.py
 - dev/scripts/devctl/tests/review_channel/test_review_channel.py
+
+## Action Requests
+
+- No pending action requests.

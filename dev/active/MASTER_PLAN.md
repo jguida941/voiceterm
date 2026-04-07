@@ -49,6 +49,16 @@
   `ReviewState`, `PacketPostRequest`, and the governed remote-commit path
   instead of creating bridge-only authority.
 - `dev/active/code_shape_expansion.md` is the research/calibration companion for future code-shape additions under `MP-378`; promotion into implementation still flows through `dev/active/review_probes.md` once Phase 5b evidence gates pass.
+- `dev/audits/architecture_hardening_plan.md` is ReviewSnapshot hardening
+  audit intake, not a new active execution plan. Accepted items route into
+  the existing MP-377 / MP-376 owner chain: `platform_authority_loop.md` for
+  path/doc-authority and repo-pack diagnostics, `remote_commit_pipeline.md`
+  for commit/push and override integrity, `ai_governance_platform.md` for
+  contract/ecosystem surfaces, and `portable_code_governance.md` for adopter
+  proof.
+- `dev/audits/REVIEW_SNAPSHOT.md` is a generated review-snapshot projection.
+  Do not hand-edit it and do not treat it as active plan authority; regenerate
+  it through `devctl review-snapshot --write` when the projection must move.
 - Deferred work lives in `dev/deferred/` and must be explicitly reactivated here before implementation.
 
 ## Status Snapshot (2026-04-05)
@@ -275,6 +285,15 @@
   repo-owned `ensure` / reviewer-heartbeat auto-start path, and the launchd
   publisher wrapper treats launch-authority exit `82` as a no-restart service
   exit.
+- Current 2026-04-07 `MP-383` bridge Action Requests closure inside that same
+  lane: the markdown `## Action Requests` section is projection-only over
+  event-backed `PacketPostRequest(kind="action_request")` rows, not a second
+  queue. `render-bridge` now reconstructs missing fixed sections from typed
+  review-state fallbacks, compacts packet bodies before rendering, and only
+  projects executable runtime action requests that carry target binding. New
+  `commit` / `push` action requests require remote-commit pipeline binding
+  (`runtime` target, generation, staged snapshot hash, guard summary), while
+  `run_check` / `kill_process` requests require runtime target ref/revision.
 - Current 2026-04-05 provider-neutral bootstrap follow-up inside that same
   lane: reviewer/implementer ownership is now tracked as role-first launch
   state instead of fixed Codex/Claude identity. Planned lane parsing,
@@ -484,6 +503,19 @@
   of implied infrastructure, and `SystemCatalog` / contract-closure checks
   must block missing repo-pack/capability bindings across generated
   dashboard/session-resume/phone/CI projections.
+- Current 2026-04-07 ReviewSnapshot audit-intake routing inside that same
+  lane: `dev/audits/architecture_hardening_plan.md` is accepted as
+  reference intake, not as another active plan. The next execution order from
+  that audit is now absorbed into owner docs: Tier 1 path/default/doc-policy
+  and diagnostics findings belong to `platform_authority_loop.md`; raw
+  commit hook proof, override receipt enforcement, additional git hooks, and
+  `PushAuthorizationRecord` integrity belong to
+  `remote_commit_pipeline.md`; cross-surface consistency, contract
+  registration, suggested-command/WhyRecord production consumers, generated
+  artifact integrity, MCP, and Agent SDK surfaces belong to
+  `ai_governance_platform.md`; fresh-adopter proof and repo-pack distribution
+  belong to `portable_code_governance.md`. `dev/audits/REVIEW_SNAPSHOT.md`
+  stays generated evidence only.
 - Latest same-lane closure on 2026-04-03: the workflow-enforcement parity for
   the Phase 3/4 remote-commit proof guards is now explicit.
   `.github/workflows/tooling_control_plane.yml` and
@@ -4961,6 +4993,9 @@ Control-plane program sequencing (maps to MP-330/331/332/336/338/340/355/360..36
 - Pre-release architecture/tooling cleanup execution plan: `dev/active/pre_release_architecture_audit.md`
 - Consolidated full-surface audit findings evidence (reference-only): `dev/active/audit.md`
 - Raw multi-agent audit merge transcript evidence (reference-only): `dev/active/move.md`
+- ReviewSnapshot hardening audit intake (reference-only, routed through the
+  MP-377 / MP-376 owner chain): `dev/audits/architecture_hardening_plan.md`
+- Generated ReviewSnapshot projection (do not hand-edit): `dev/audits/REVIEW_SNAPSHOT.md`
 - Devctl MCP + contract alignment guide: `dev/MCP_DEVCTL_ALIGNMENT.md`
 - Autonomous loop + mobile control-plane execution spec: `dev/active/autonomous_control_plane.md`
 - Loop artifact-to-chat suggestion coordination runbook: `dev/active/loop_chat_bridge.md`

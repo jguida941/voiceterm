@@ -322,14 +322,19 @@ class ReviewChannelPlanPacketTests(unittest.TestCase):
                     from_agent="codex",
                     to_agent="claude",
                     kind="action_request",
-                    summary="Commit the current staged changes",
-                    body="-m 'fix: resolve bridge drift'",
+                    summary="Run focused bridge check",
+                    body="python3 dev/scripts/checks/check_review_channel_bridge.py",
                     evidence_refs=(),
                     context_pack_refs=(),
                     confidence=1.0,
-                    requested_action="commit",
+                    requested_action="run_check",
                     policy_hint="safe_auto_apply",
                     approval_required=False,
+                    target=PacketTargetFields.from_values(
+                        target_kind="runtime",
+                        target_ref="guard:check_review_channel_bridge",
+                        target_revision="tree-123",
+                    ),
                 ),
             )
 
@@ -337,8 +342,16 @@ class ReviewChannelPlanPacketTests(unittest.TestCase):
             posted_packet = bundle.review_state["packets"][0]
             self.assertEqual(posted_packet["kind"], "action_request")
             self.assertEqual(posted_packet["status"], "pending")
-            self.assertEqual(posted_packet["requested_action"], "commit")
-            self.assertEqual(posted_packet["body"], "-m 'fix: resolve bridge drift'")
+            self.assertEqual(posted_packet["requested_action"], "run_check")
+            self.assertEqual(
+                posted_packet["body"],
+                "python3 dev/scripts/checks/check_review_channel_bridge.py",
+            )
+            self.assertEqual(posted_packet["target_kind"], "runtime")
+            self.assertEqual(
+                posted_packet["target_ref"],
+                "guard:check_review_channel_bridge",
+            )
 
             # Transition the packet to applied via the same event store
             refreshed, apply_event = transition_packet(
@@ -357,6 +370,80 @@ class ReviewChannelPlanPacketTests(unittest.TestCase):
             )
             self.assertEqual(applied_packet["status"], "applied")
             self.assertEqual(apply_event["kind"], "action_request")
+
+    def test_runtime_action_request_packets_require_typed_runtime_binding(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            review_channel_path = root / "dev/active/review_channel.md"
+            review_channel_path.parent.mkdir(parents=True, exist_ok=True)
+            review_channel_path.write_text(_review_channel_text(), encoding="utf-8")
+            artifact_paths = resolve_artifact_paths(repo_root=root)
+
+            with self.assertRaisesRegex(
+                ValueError,
+                "Runtime action_request packets must set --target-kind runtime",
+            ):
+                post_packet(
+                    repo_root=root,
+                    review_channel_path=review_channel_path,
+                    artifact_paths=artifact_paths,
+                    request=PacketPostRequest(
+                        from_agent="codex",
+                        to_agent="claude",
+                        kind="action_request",
+                        summary="Commit the current staged changes",
+                        body="-m 'fix: resolve bridge drift'",
+                        requested_action="commit",
+                        policy_hint="safe_auto_apply",
+                        approval_required=False,
+                    ),
+                )
+
+    def test_commit_action_request_packets_preserve_runtime_binding(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            review_channel_path = root / "dev/active/review_channel.md"
+            review_channel_path.parent.mkdir(parents=True, exist_ok=True)
+            review_channel_path.write_text(_review_channel_text(), encoding="utf-8")
+            artifact_paths = resolve_artifact_paths(repo_root=root)
+
+            bundle, _ = post_packet(
+                repo_root=root,
+                review_channel_path=review_channel_path,
+                artifact_paths=artifact_paths,
+                request=PacketPostRequest(
+                    from_agent="codex",
+                    to_agent="claude",
+                    kind="action_request",
+                    summary="Commit the current staged changes",
+                    body="Commit the approved remote-commit pipeline.",
+                    requested_action="commit",
+                    policy_hint="operator_approval_required",
+                    approval_required=True,
+                    target=PacketTargetFields.from_values(
+                        target_kind="runtime",
+                        target_ref="remote_commit_pipeline:pipeline-123",
+                        target_revision="gen-9",
+                    ),
+                    runtime_approval=PacketRuntimeApprovalFields.from_values(
+                        pipeline_generation="gen-9",
+                        staged_snapshot_hash="tree-123",
+                        guard_results_summary="bundle.tooling pass",
+                    ),
+                ),
+            )
+
+            posted_packet = bundle.review_state["packets"][0]
+
+        self.assertEqual(posted_packet["kind"], "action_request")
+        self.assertEqual(posted_packet["requested_action"], "commit")
+        self.assertEqual(posted_packet["target_kind"], "runtime")
+        self.assertEqual(
+            posted_packet["target_ref"],
+            "remote_commit_pipeline:pipeline-123",
+        )
+        self.assertEqual(posted_packet["pipeline_generation"], "gen-9")
+        self.assertEqual(posted_packet["staged_snapshot_hash"], "tree-123")
 
 
 if __name__ == "__main__":

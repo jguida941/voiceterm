@@ -95,6 +95,15 @@ Use docs like this:
   plus typed `--pipeline-generation`, `--staged-snapshot-hash`, and
   `--guard-results-summary` fields so approval survives `post|ack|apply`,
   `actions.json`, and typed `ReviewState` parsing.
+- Bridge `## Action Requests` are also packet-backed now. Use
+  `review-channel --action post --kind action_request` only with an explicit
+  `--requested-action`; bridge-executable `run_check` / `kill_process`
+  packets require `--target-kind runtime`, `--target-ref`, and
+  `--target-revision`, and `commit` / `push` additionally require
+  `--target-ref remote_commit_pipeline:<pipeline_id>`,
+  `--pipeline-generation`, `--staged-snapshot-hash`, and
+  `--guard-results-summary`. Prose-only runtime requests remain packet
+  history, not executable bridge authority.
 - The same Phase-2 authority cleanup now keeps review/push truth on typed
   runtime contracts too: `reviewer_runtime` owns
   `implementer_ack_current`, `implementation_blocked`, and

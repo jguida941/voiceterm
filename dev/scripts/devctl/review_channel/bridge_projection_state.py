@@ -116,29 +116,34 @@ def bridge_projection_state_from_review_state(
     projection = _mapping(compat.get("bridge_projection"))
     metadata = _string_mapping(projection.get("metadata"))
     sections = _string_mapping(projection.get("sections"))
-    missing = [
-        heading for heading in _FLAT_BRIDGE_SECTION_ORDER if heading not in sections
-    ]
-    if missing:
-        raise ValueError(
-            "Typed bridge projection is missing fixed sections: "
-            + ", ".join(f"`{heading}`" for heading in missing)
-        )
+    sections = _with_fallback_sections(review_state, sections)
     for heading in BRIDGE_SECTION_ORDER:
         sections.setdefault(heading, "")
+
     # Overlay packet-projected action requests so the bridge section is
     # derived from the event store, not from stale bridge markdown.
     packets = review_state.get("packets")
     if isinstance(packets, list):
         packet_body = render_action_requests_from_packets(packets)
         sections["Action Requests"] = packet_body
+    sections, sanitized_sections = sanitize_bridge_sections(
+        sections,
+        section_line_limits=BRIDGE_SECTION_LINE_LIMITS,
+    )
     state = BridgeProjectionState(
         metadata=metadata,
         sections=sections,
         lines_before=_int_value(projection.get("lines_before")),
         bytes_before=_int_value(projection.get("bytes_before")),
         dropped_headings=_tuple_strings(projection.get("dropped_headings")),
-        sanitized_sections=_tuple_strings(projection.get("sanitized_sections")),
+        sanitized_sections=tuple(
+            _ordered_unique(
+                (
+                    *_tuple_strings(projection.get("sanitized_sections")),
+                    *sanitized_sections,
+                )
+            )
+        ),
     )
     _validate_flat_bridge_sections(state.sections)
     return state
@@ -244,6 +249,100 @@ def _projection_sections(
             packets
         )
     return sections
+
+
+def _with_fallback_sections(
+    review_state: Mapping[str, object],
+    sections: Mapping[str, str],
+) -> dict[str, str]:
+    result = {heading: str(sections.get(heading, "")) for heading in BRIDGE_SECTION_ORDER}
+    current_session = _mapping(review_state.get("current_session"))
+    reviewer_runtime = _mapping(review_state.get("reviewer_runtime"))
+    review_acceptance = _mapping(reviewer_runtime.get("review_acceptance"))
+    bridge_state = _mapping(review_state.get("bridge"))
+
+    _set_missing(
+        result,
+        "Poll Status",
+        _poll_status_fallback(review_state),
+    )
+    _set_missing(
+        result,
+        "Current Verdict",
+        _section_text(
+            review_acceptance.get("current_verdict"),
+            current_session.get("current_verdict"),
+            default="- reviewer state unavailable",
+        ),
+    )
+    _set_missing(
+        result,
+        "Open Findings",
+        _section_text(
+            review_acceptance.get("open_findings"),
+            current_session.get("open_findings"),
+            default="- none",
+        ),
+    )
+    _set_missing(
+        result,
+        "Claude Status",
+        _section_text(
+            current_session.get("implementer_status"),
+            default="- Status unavailable.",
+        ),
+    )
+    _set_missing(result, "Claude Questions", "- None recorded.")
+    _set_missing(
+        result,
+        "Claude Ack",
+        _section_text(current_session.get("implementer_ack"), default="- missing"),
+    )
+    _set_missing(
+        result,
+        "Current Instruction For Claude",
+        _section_text(
+            current_session.get("current_instruction"),
+            bridge_state.get("current_instruction"),
+            default="- Await reviewer instruction refresh.",
+        ),
+    )
+    _set_missing(
+        result,
+        "Last Reviewed Scope",
+        _section_text(
+            current_session.get("last_reviewed_scope"),
+            bridge_state.get("last_reviewed_scope"),
+            default="- (missing)",
+        ),
+    )
+    return result
+
+
+def _set_missing(sections: dict[str, str], heading: str, value: str) -> None:
+    if not sections.get(heading, "").strip():
+        sections[heading] = value
+
+
+def _poll_status_fallback(review_state: Mapping[str, object]) -> str:
+    timestamp = str(review_state.get("timestamp") or "").strip()
+    suffix = f" at {timestamp}" if timestamp else ""
+    return "- Reviewer state rebuilt from typed review-state projection" + suffix + "."
+
+
+def _section_text(*values: object, default: str) -> str:
+    for value in values:
+        if isinstance(value, (list, tuple)):
+            rows = [str(item).strip() for item in value if str(item).strip()]
+            if rows:
+                return "\n".join(
+                    row if row.startswith("- ") else f"- {row}" for row in rows
+                )
+            continue
+        text = str(value or "").strip()
+        if text:
+            return text
+    return default
 
 
 def _tracked_sections(raw_sections: Mapping[str, str]) -> dict[str, str]:
