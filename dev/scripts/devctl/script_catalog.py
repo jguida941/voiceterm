@@ -32,6 +32,7 @@ _CHECK_SCRIPT_ENTRIES = (
     ("code_shape", "check_code_shape.py"),
     ("package_layout", "check_package_layout.py"),
     ("platform_layer_boundaries", "check_platform_layer_boundaries.py"),
+    ("platform_contract_closure", "check_platform_contract_closure.py"),
     ("platform_contract_sync", "check_platform_contract_sync.py"),
     ("coderabbit_gate", "check_coderabbit_gate.py"),
     ("coderabbit_ralph_gate", "check_coderabbit_ralph_gate.py"),
@@ -42,12 +43,14 @@ _CHECK_SCRIPT_ENTRIES = (
     ),
     ("naming_consistency", "check_naming_consistency.py"),
     ("mobile_relay_protocol", "check_mobile_relay_protocol.py"),
+    ("daemon_state_parity", "check_daemon_state_parity.py"),
     ("multi_agent_sync", "check_multi_agent_sync.py"),
     ("markdown_metadata_header", "check_markdown_metadata_header.py"),
     ("mutation_score", "check_mutation_score.py"),
     ("publication_sync", "check_publication_sync.py"),
     ("release_version_parity", "check_release_version_parity.py"),
     ("repo_url_parity", "check_repo_url_parity.py"),
+    ("review_surface_consistency", "check_review_surface_consistency.py"),
     ("review_channel_bridge", "check_review_channel_bridge.py"),
     ("tandem_consistency", "check_tandem_consistency.py"),
     ("rust_best_practices", "check_rust_best_practices.py"),
@@ -73,9 +76,11 @@ _CHECK_SCRIPT_ENTRIES = (
     ("rust_test_shape", "check_rust_test_shape.py"),
     ("rustsec_policy", "check_rustsec_policy.py"),
     ("screenshot_integrity", "check_screenshot_integrity.py"),
+    ("startup_authority_contract", "check_startup_authority_contract.py"),
     ("test_coverage_parity", "check_test_coverage_parity.py"),
     ("workflow_action_pinning", "check_workflow_action_pinning.py"),
     ("workflow_shell_hygiene", "check_workflow_shell_hygiene.py"),
+    ("governance_closure", "check_governance_closure.py"),
 )
 
 CHECK_SCRIPT_FILES = dict(_CHECK_SCRIPT_ENTRIES)
@@ -101,6 +106,15 @@ _PROBE_SCRIPT_ENTRIES = (
     ("probe_exception_quality", "probe_exception_quality.py"),
     ("probe_compatibility_shims", "probe_compatibility_shims.py"),
     ("probe_blank_line_frequency", "probe_blank_line_frequency.py"),
+    ("probe_identifier_density", "probe_identifier_density.py"),
+    ("probe_term_consistency", "probe_term_consistency.py"),
+    ("probe_cognitive_complexity", "probe_cognitive_complexity.py"),
+    ("probe_mutable_parameter_density", "probe_mutable_parameter_density.py"),
+    ("probe_fan_out", "probe_fan_out.py"),
+    ("probe_side_effect_mixing", "probe_side_effect_mixing.py"),
+    ("probe_match_arm_complexity", "probe_match_arm_complexity.py"),
+    ("probe_mixed_concerns", "probe_mixed_concerns.py"),
+    ("probe_tuple_return_complexity", "probe_tuple_return_complexity.py"),
 )
 
 PROBE_SCRIPT_FILES = dict(_PROBE_SCRIPT_ENTRIES)
