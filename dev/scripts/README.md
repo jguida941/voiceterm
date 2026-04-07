@@ -549,7 +549,12 @@ Portability note:
   the post-commit receipt hook, and the latter delegates to
   `python3 dev/scripts/devctl.py review-snapshot --write --receipt-commit`
   so the final pushed branch can end with a snapshot-only planning receipt
-  instead of a manually refreshed dirty worktree.
+  instead of a manually refreshed dirty worktree. `devctl push` consumes that
+  shape directly: a snapshot-only HEAD may satisfy a current
+  `PushAuthorizationRecord` through its parent commit, while stale detached
+  pipeline records are ignored in `single_agent` mode so an older override
+  cannot block a newer clean governed push. Active dual-agent and current
+  pipeline publication still require exact typed authorization.
 - Portable-authority rule: new reusable runtime/tooling code should resolve
   plan docs, artifact roots, bridge/review state, and generated bootstrap
   instructions through `ProjectGovernance` / repo-pack state instead of

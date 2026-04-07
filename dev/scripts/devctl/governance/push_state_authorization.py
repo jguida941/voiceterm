@@ -17,9 +17,14 @@ def current_approved_target_identity(*, repo_root: Path) -> str:
     pipeline = load_remote_commit_pipeline_contract(
         output_root=repo_root / active_path_config().review_status_dir_rel
     )
+    return approved_target_identity_from_pipeline(pipeline)
+
+
+def approved_target_identity_from_pipeline(pipeline: object) -> str:
+    """Return the approved publish identity carried by one pipeline object."""
     if pipeline is None:
         return ""
-    return str(pipeline.approved_target_identity or "").strip()
+    return str(getattr(pipeline, "approved_target_identity", "") or "").strip()
 
 
 def current_push_authorization_state(
@@ -32,7 +37,23 @@ def current_push_authorization_state(
     pipeline = load_remote_commit_pipeline_contract(
         output_root=repo_root / active_path_config().review_status_dir_rel
     )
-    authorization = None if pipeline is None else getattr(pipeline, "push_authorization", None)
+    return push_authorization_state_from_pipeline(
+        pipeline=pipeline,
+        current_head_commit=current_head_commit,
+        current_approved_target_identity=current_approved_target_identity,
+    )
+
+
+def push_authorization_state_from_pipeline(
+    *,
+    pipeline: object,
+    current_head_commit: str,
+    current_approved_target_identity: str,
+) -> tuple[str, str, str, str, str, bool, bool, bool]:
+    """Return the current push-authorization summary for one pipeline object."""
+    authorization = (
+        None if pipeline is None else getattr(pipeline, "push_authorization", None)
+    )
     if authorization is None:
         return ("", "", "", "", "", False, False, False)
     authorized_head_commit = str(authorization.authorized_head_sha or "").strip()

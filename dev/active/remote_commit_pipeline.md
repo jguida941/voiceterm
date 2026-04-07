@@ -504,6 +504,14 @@ surface for remote sessions. It should project:
       `install-git-hooks`, and bind ReviewSnapshot freshness/traceability into
       the same validation and push-authorization proof rather than relying on
       courtesy markdown receipts.
+- [ ] Treat hook expansion as a trigger-layer closure, not a second VCS policy:
+      pre-commit, post-commit receipt, pre-push, prepare-commit-msg,
+      commit-msg, session start, and session stop hooks may call typed
+      `devctl` actions, refresh projections, and block bypasses. Validation
+      selection, override authorization, publication proof, and path
+      resolution must remain in `ValidationPlan`, `ValidationReceipt`,
+      `PushAuthorizationRecord`, `override_push`, repo-pack policy, and
+      guards.
 - [x] Accept snapshot-only trailing commits as a first-class freshness state:
       when the latest commit changes only `dev/audits/REVIEW_SNAPSHOT.md`, the
       freshness guard may bind the generated snapshot to that commit's parent
@@ -513,6 +521,12 @@ surface for remote sessions. It should project:
       `install-git-hooks` installs both the pre-commit projection hook and the
       post-commit receipt hook that invokes that typed command with recursion
       disabled.
+- [x] Keep snapshot receipts and single-agent push receipts aligned:
+      `devctl push` accepts a snapshot-only HEAD when its parent matches the
+      active `PushAuthorizationRecord`, and it ignores stale detached pipeline
+      records in `single_agent` mode instead of letting an old override block a
+      newer checkpoint-clean governed push. Active dual-agent and current
+      pipeline targets still require exact typed authorization.
 
 ## Progress Log
 
@@ -527,6 +541,12 @@ surface for remote sessions. It should project:
   `review-snapshot --receipt-commit` refuses non-snapshot dirty state, commits
   only the generated snapshot with hook recursion disabled, and the managed
   post-commit hook calls that command after ordinary raw git commits.
+- 2026-04-07: Closed the matching publish-authority follow-up. `devctl push`
+  now treats a snapshot-only receipt HEAD as the authorized parent when the
+  active `PushAuthorizationRecord` points at that parent, and stale detached
+  override pipelines no longer block a clean single-agent push. Dual-agent and
+  current-pipeline publication still fail closed on missing, stale, expired,
+  guard-failed, or drifted typed authorization.
 - 2026-04-07: Routed the ReviewSnapshot architecture hardening audit into this
   lane for commit/push ownership. The accepted items here are raw `git commit`
   hook proof, override receipt enforcement, managed-hook integrity, additional
@@ -535,6 +555,10 @@ surface for remote sessions. It should project:
   `platform_authority_loop.md`, and the generated
   `dev/audits/REVIEW_SNAPSHOT.md` remains a report projection rather than a
   mutable plan.
+- 2026-04-07: Clarified the hook-layer sequencing for this lane: hooks can
+  force raw git and session/provider entrypoints back into typed `devctl`
+  actions, but hook bodies must not decide validation tiers, publication
+  authority, override approval, or ReviewSnapshot paths locally.
 - 2026-04-07: Accepted the validation-cadence architecture review for this
   lane. The answer is not "run the whole world on every local edit" and not
   "let the model choose a fast path"; it is to keep enforcement depth while

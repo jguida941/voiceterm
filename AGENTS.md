@@ -1130,7 +1130,11 @@ false positives, and fixes real issues — then re-runs CodeRabbit to verify.
    installs both the pre-commit projection hook and a post-commit receipt hook
    that delegates to `devctl review-snapshot --write --receipt-commit`, so raw
    commits can produce the same two-phase publication shape without a manual
-   snapshot-only follow-up.
+   snapshot-only follow-up. The governed push path accepts that receipt shape
+   when the snapshot-only HEAD's parent matches the active
+   `PushAuthorizationRecord`; stale detached pipeline records are ignored in
+   `single_agent` mode, while active dual-agent and current pipeline targets
+   still require exact typed authorization.
 3. Guard output format MUST support `--since-ref`/`--head-ref` for growth-based gating.
 4. The Ralph AI fix wrapper MUST run architecture-specific validation after fixes.
 5. No architecture may bypass the Ralph loop — all CodeRabbit findings across Rust,

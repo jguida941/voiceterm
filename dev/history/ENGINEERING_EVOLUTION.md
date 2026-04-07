@@ -37,6 +37,28 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 - [User Path (5 min)](#user-path-5-min)
 - [Developer Path (15 min)](#developer-path-15-min)
 
+### 2026-04-07 - ReviewSnapshot hook hardening routed through owner plans
+
+The ReviewSnapshot hardening audit is now plan intake, not a new execution
+authority. The active owner docs keep the same routing rule: path/default and
+artifact resolver work belongs to the platform authority loop, commit/push and
+override integrity belongs to the remote commit pipeline, and product-level
+contract/ecosystem surfaces belong to the main AI governance platform plan.
+The newest clarification is that hooks are only trigger/entry adapters. They
+may force raw git, session, or provider paths into typed `devctl` commands and
+record receipts, but they must not carry separate policy, path fallback,
+validation-tier, override, or review logic. The push side now understands the
+same receipt boundary: snapshot-only ReviewSnapshot HEAD commits can satisfy
+publication through their parent `PushAuthorizationRecord`, and stale detached
+pipeline records cannot block a clean `single_agent` governed push. Active
+dual-agent and current pipeline targets still require exact typed authorization.
+
+Evidence: `dev/active/MASTER_PLAN.md`,
+`dev/active/ai_governance_platform.md`,
+`dev/active/platform_authority_loop.md`,
+`dev/active/remote_commit_pipeline.md`,
+`dev/scripts/devctl/runtime/push_authorization.py`.
+
 ### 2026-04-07 - Bridge action requests now require packet projection and runtime binding
 
 The Codex/Claude bridge exposed a split-brain failure across three authority

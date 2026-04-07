@@ -522,7 +522,10 @@
   artifact integrity, MCP, and Agent SDK surfaces belong to
   `ai_governance_platform.md`; fresh-adopter proof and repo-pack distribution
   belong to `portable_code_governance.md`. `dev/audits/REVIEW_SNAPSHOT.md`
-  stays generated evidence only.
+  stays generated evidence only. The same intake also locks the hook stance:
+  git/session/provider hooks may force entry into typed `devctl` commands and
+  close bypasses, but they must not become a second governance engine; typed
+  contracts, receipts, and guards remain the decision authority.
 - Latest same-lane closure on 2026-04-03: the workflow-enforcement parity for
   the Phase 3/4 remote-commit proof guards is now explicit.
   `.github/workflows/tooling_control_plane.yml` and

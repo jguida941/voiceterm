@@ -19,9 +19,9 @@ from ..review_channel.remote_commit_pipeline_artifact import (
 from .push_publication import build_publication_backlog_state
 from .push_policy import PushCheckpointPolicy, PushPolicy
 from .push_state_authorization import (
+    approved_target_identity_from_pipeline as _approved_target_identity_from_pipeline,
     checkpoint_reason as _checkpoint_reason,
-    current_approved_target_identity as _current_approved_target_identity,
-    current_push_authorization_state as _current_push_authorization_state,
+    push_authorization_state_from_pipeline as _push_authorization_state_from_pipeline,
 )
 from .push_state_git import (
     git_stdout as _git_stdout,
@@ -264,9 +264,14 @@ def _detect_runtime_inputs(
     )
     current_branch = _git_stdout(repo_root, "rev-parse", "--abbrev-ref", "HEAD")
     current_head_commit = current_head_commit_sha(repo_root=repo_root)
-    current_approved_target_identity = _current_approved_target_identity(repo_root=repo_root)
-    authorization_state = _current_push_authorization_state(
-        repo_root=repo_root,
+    pipeline = load_remote_commit_pipeline_contract(
+        output_root=repo_root / active_path_config().review_status_dir_rel
+    )
+    current_approved_target_identity = _approved_target_identity_from_pipeline(
+        pipeline
+    )
+    authorization_state = _push_authorization_state_from_pipeline(
+        pipeline=pipeline,
         current_head_commit=current_head_commit,
         current_approved_target_identity=current_approved_target_identity,
     )

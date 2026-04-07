@@ -73,8 +73,11 @@ Current 2026-04-07 ReviewSnapshot audit-intake routing note:
   MCP / Agent SDK ecosystem surfaces. Path/default cleanup belongs to
   `platform_authority_loop.md`, commit/push and override integrity belong to
   `remote_commit_pipeline.md`, and fresh-adopter proof belongs to
-  `portable_code_governance.md`. `dev/audits/REVIEW_SNAPSHOT.md` remains a
-  generated projection.
+  `portable_code_governance.md`. Hook surfaces from this intake are adapters:
+  pre-commit, pre-push, session, provider, and future ecosystem hooks may
+  trigger typed commands and record receipts, but the policy stays in typed
+  contracts, action packets, and guards. `dev/audits/REVIEW_SNAPSHOT.md`
+  remains a generated projection.
 
 Current 2026-04-07 ReviewSnapshot receipt-hook closure note:
 - The external-review planning surface now has a repo-owned two-phase raw-git
@@ -6086,6 +6089,11 @@ Execution order for this section:
   and WhyRecord data, and later MCP / Agent SDK ecosystem adapters. Immediate
   path/doc-authority and commit/push slices stay in the subordinate owner
   docs so `MP-377` keeps one main active architecture plan.
+- 2026-04-07: Clarified the hook expansion rule for that same intake. Hooks
+  are valid trigger/entry surfaces for raw git, provider, session-start, and
+  session-stop bypass closure, but they must delegate to typed `devctl`
+  commands and verified receipts instead of carrying their own resolver,
+  command, policy, or review logic.
 - 2026-04-07: Accepted the commit/push validation-cadence correction into the
   main `MP-377` architecture lane. The portable rule is not "run everything on
   every edit" and not "trust an agent to choose fast vs full"; it is to emit a

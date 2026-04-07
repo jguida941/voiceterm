@@ -5,14 +5,14 @@
 ## Quick status
 
 - Branch: `feature/governance-quality-sweep`
-- HEAD: `0f2bf3e73901` — Add ReviewSnapshot receipt hook
-- Tree hash: `56eb56c86fc2`
-- Generation stamp: `snap-b9b249b96cae`
-- Generated at (UTC): 2026-04-07T22:55:59Z
-- Push decision: `run_devctl_push` — push_preconditions_satisfied
+- HEAD: `93b92d69e705` — Refresh external review snapshot for 0f2bf3e
+- Tree hash: `7a875f2498a4`
+- Generation stamp: `snap-e156f145bcd4`
+- Generated at (UTC): 2026-04-07T23:16:25Z
+- Push decision: `await_checkpoint` — dirty_path_budget_exceeded
 - Reviewer mode: `single_agent` (interaction: `local_terminal`)
 - Pipeline state: `n/a` (approval: `n/a`)
-- Delta since last snapshot: 24 commits, 118 files, +14754/-2051
+- Delta since last snapshot: 25 commits, 118 files, +14827/-2139
 - Governance findings: 39 open / 68 fixed / 121 total
 - Probe hints: 0 total across 0 files scanned
 
@@ -54,20 +54,20 @@ adopters arrive.
 - Remote: `https://github.com/jguida941/voiceterm.git`
 - Default branch: `master`
 - Current branch: `feature/governance-quality-sweep`
-- HEAD SHA: `0f2bf3e73901c0e5f807927387140428b6222d5b`
+- HEAD SHA: `93b92d69e70569b7ac7965e4728612497cbb65fc`
 - HEAD author: Justin Guida
 - HEAD timestamp (UTC): 2026-04-07T18:55:42-04:00
 
 ## 2. Governance state
 
 ### Push decision
-- action: `run_devctl_push`
-- reason: push_preconditions_satisfied
-- push_eligible_now: True
-- worktree_clean: True
-- next_step_command: `python3 dev/scripts/devctl.py push --execute`
+- action: `await_checkpoint`
+- reason: dirty_path_budget_exceeded
+- push_eligible_now: False
+- worktree_clean: False
+- next_step_command: `n/a`
 - publication_backlog: recommended
-- publication_guidance: 3 local commit(s) waiting for governed push. Run `python3 dev/scripts/devctl.py push --execute` now.
+- publication_guidance: 4 local commit(s) waiting for governed push once the current slice is checkpoint-clean.
 
 ### Reviewer runtime
 - reviewer_mode: `single_agent`
@@ -83,17 +83,18 @@ adopters arrive.
 - active plan: **Master Plan (Active, Unified)**
 - plan path: `dev/active/MASTER_PLAN.md`
 - active MP scope: all active MP execution state
-- advisory: `push_allowed` — worktree_clean_and_review_accepted
+- advisory: `checkpoint_before_continue` — dirty_path_budget_exceeded
+- checkpoint_required: **yes**
 
 ## 3. Delta — what changed since the previous snapshot
 
-Range: last 24 commits ending at `0f2bf3e73901`
+Range: last 25 commits ending at `93b92d69e705`
 
-- commits: 24
+- commits: 25
 - files changed: 118
-- insertions: +14754
-- deletions: -2051
-- bundle classes touched: docs, tooling
+- insertions: +14827
+- deletions: -2139
+- bundle classes touched: tooling, docs
 - risk add-ons triggered: Parser / ANSI boundary
 - authority surfaces touched: 30 file(s)
 
@@ -101,30 +102,31 @@ Range: last 24 commits ending at `0f2bf3e73901`
 
 | # | SHA | Subject | Files | +/- | Bundle | Risk |
 |---|---|---|---|---|---|---|
-| 1 | `0f2bf3e` | Add ReviewSnapshot receipt hook | 18 | +678/-201 | tooling |  |
-| 2 | `922b376` | Accept snapshot-only review snapshot receipts | 10 | +186/-69 | tooling |  |
-| 3 | `4d8a128` | Close packet-backed action request binding | 18 | +797/-168 | tooling |  |
-| 4 | `ee13a6c` | Add architecture hardening plan for Codex review | 2 | +1148/-58 | tooling |  |
-| 5 | `e21d8e8` | Close MP-377 typed-continuity tranche (Legs 1+2+3 follow-up… | 12 | +872/-68 | tooling |  |
-| 6 | `f9388da` | Add install-git-hooks command for portable pre-commit snaps… | 5 | +704/-50 | tooling |  |
-| 7 | `d155b02` | Refresh REVIEW_SNAPSHOT to track branch tip at 60bcd68 | 1 | +112/-108 | tooling |  |
-| 8 | `60bcd68` | Open policy-gated skip-preflight bypass window for ReviewSn… | 2 | +100/-1 | tooling |  |
-| 9 | `c98d471` | Restore script_catalog entries stripped during previous edit | 1 | +14/-0 | tooling |  |
-| 10 | `4b45f9a` | Register python_typed_seams in script_catalog | 1 | +1/-0 | tooling |  |
-| 11 | `5978dce` | Add ReviewSnapshot external-review surface via pre-commit r… | 33 | +4198/-680 | tooling |  |
-| 12 | `b6be213` | Land reviewer-supervisor restart-policy follow-up checkpoint | 21 | +549/-98 | tooling |  |
-| 13 | `244ae83` | Land MP-382 + MP-387 launch-authority closure (F21/F21a/F23… | 30 | +1306/-333 | tooling | Parser / ANSI boundary |
-| 14 | `fefa621` | Checkpoint reviewer bridge state: F21/F21a/F23/F24 launch-a… | 1 | +39/-92 | docs |  |
-| 15 | `846987c` | Update test_launch_sessions_if_requested_headless_requires_… | 1 | +150/-3 | tooling |  |
-| 16 | `84e60bc` | Land F21 integration: wire launcher_discipline into the lau… | 4 | +248/-2 | tooling | Parser / ANSI boundary |
-| 17 | `b748c6e` | Land F21 launcher-discipline pre-flight validation (pure fu… | 2 | +443/-0 | tooling |  |
-| 18 | `7a8b427` | Land MP-381 dashboard wiring + ViolationRecord consumer ada… | 15 | +1728/-42 | tooling |  |
-| 19 | `e35c4e3` | Land MP-381 F18 + F19 fixes per Codex instruction 269e91f22… | 2 | +312/-22 | tooling |  |
-| 20 | `e564969` | Land MP-381 F14 fix: exempt parked governed pipelines from… | 3 | +330/-3 | tooling |  |
-| 21 | `4f93b48` | Land F1 AST field-route helper plus MP-381 probe-report Vio… | 11 | +806/-35 | tooling |  |
-| 22 | `b22bf96` | Teach field-route guard to scan package sources | 1 | +16/-7 | tooling |  |
-| 23 | `080f4df` | Convert dashboard_render flat files to a package | 5 | +11/-11 | tooling |  |
-| 24 | `705b7ef` | Preserve top_blocker field-route visibility in dashboard_re… | 1 | +6/-0 | tooling |  |
+| 1 | `93b92d6` | Refresh external review snapshot for 0f2bf3e | 1 | +73/-88 | tooling |  |
+| 2 | `0f2bf3e` | Add ReviewSnapshot receipt hook | 18 | +678/-201 | tooling |  |
+| 3 | `922b376` | Accept snapshot-only review snapshot receipts | 10 | +186/-69 | tooling |  |
+| 4 | `4d8a128` | Close packet-backed action request binding | 18 | +797/-168 | tooling |  |
+| 5 | `ee13a6c` | Add architecture hardening plan for Codex review | 2 | +1148/-58 | tooling |  |
+| 6 | `e21d8e8` | Close MP-377 typed-continuity tranche (Legs 1+2+3 follow-up… | 12 | +872/-68 | tooling |  |
+| 7 | `f9388da` | Add install-git-hooks command for portable pre-commit snaps… | 5 | +704/-50 | tooling |  |
+| 8 | `d155b02` | Refresh REVIEW_SNAPSHOT to track branch tip at 60bcd68 | 1 | +112/-108 | tooling |  |
+| 9 | `60bcd68` | Open policy-gated skip-preflight bypass window for ReviewSn… | 2 | +100/-1 | tooling |  |
+| 10 | `c98d471` | Restore script_catalog entries stripped during previous edit | 1 | +14/-0 | tooling |  |
+| 11 | `4b45f9a` | Register python_typed_seams in script_catalog | 1 | +1/-0 | tooling |  |
+| 12 | `5978dce` | Add ReviewSnapshot external-review surface via pre-commit r… | 33 | +4198/-680 | tooling |  |
+| 13 | `b6be213` | Land reviewer-supervisor restart-policy follow-up checkpoint | 21 | +549/-98 | tooling |  |
+| 14 | `244ae83` | Land MP-382 + MP-387 launch-authority closure (F21/F21a/F23… | 30 | +1306/-333 | tooling | Parser / ANSI boundary |
+| 15 | `fefa621` | Checkpoint reviewer bridge state: F21/F21a/F23/F24 launch-a… | 1 | +39/-92 | docs |  |
+| 16 | `846987c` | Update test_launch_sessions_if_requested_headless_requires_… | 1 | +150/-3 | tooling |  |
+| 17 | `84e60bc` | Land F21 integration: wire launcher_discipline into the lau… | 4 | +248/-2 | tooling | Parser / ANSI boundary |
+| 18 | `b748c6e` | Land F21 launcher-discipline pre-flight validation (pure fu… | 2 | +443/-0 | tooling |  |
+| 19 | `7a8b427` | Land MP-381 dashboard wiring + ViolationRecord consumer ada… | 15 | +1728/-42 | tooling |  |
+| 20 | `e35c4e3` | Land MP-381 F18 + F19 fixes per Codex instruction 269e91f22… | 2 | +312/-22 | tooling |  |
+| 21 | `e564969` | Land MP-381 F14 fix: exempt parked governed pipelines from… | 3 | +330/-3 | tooling |  |
+| 22 | `4f93b48` | Land F1 AST field-route helper plus MP-381 probe-report Vio… | 11 | +806/-35 | tooling |  |
+| 23 | `b22bf96` | Teach field-route guard to scan package sources | 1 | +16/-7 | tooling |  |
+| 24 | `080f4df` | Convert dashboard_render flat files to a package | 5 | +11/-11 | tooling |  |
+| 25 | `705b7ef` | Preserve top_blocker field-route visibility in dashboard_re… | 1 | +6/-0 | tooling |  |
 
 ### Files
 
@@ -141,7 +143,7 @@ Range: last 24 commits ending at `0f2bf3e73901`
 | `dev/active/portable_code_governance.md` | tooling | +40/-8 |
 | `dev/active/remote_commit_pipeline.md` | tooling | +140/-16 |
 | `dev/active/remote_control_runtime.md` | tooling | +132/-19 |
-| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +914/-462 |
+| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +987/-550 |
 | `dev/audits/architecture_hardening_plan.md` | tooling | +1140/-16 |
 | `dev/audits/push_override_receipts/20260407T173000Z_review_snapshot_landing.md` | tooling | +99/-0 |
 | `dev/config/devctl_repo_policy.json` | tooling | +1/-1 |
@@ -286,16 +288,18 @@ Recent findings:
 
 ### Per-commit rationale
 
+- **`93b92d6`** — Refresh external review snapshot for 0f2bf3e
+  - evolution: The ReviewSnapshot hardening audit is now plan intake, not a new execution authority. The active owner docs keep the same routing rule: path/default and artifact resolver work belongs to the platform authority loop, com…
 - **`0f2bf3e`** — Add ReviewSnapshot receipt hook
-  - evolution: The Codex/Claude bridge exposed a split-brain failure across three authority planes: event-backed packets, the markdown bridge compatibility projection, and session-resume/bootstrap cache state. A reviewer could post a …
+  - evolution: The ReviewSnapshot hardening audit is now plan intake, not a new execution authority. The active owner docs keep the same routing rule: path/default and artifact resolver work belongs to the platform authority loop, com…
 - **`922b376`** — Accept snapshot-only review snapshot receipts
-  - evolution: The Codex/Claude bridge exposed a split-brain failure across three authority planes: event-backed packets, the markdown bridge compatibility projection, and session-resume/bootstrap cache state. A reviewer could post a …
+  - evolution: The ReviewSnapshot hardening audit is now plan intake, not a new execution authority. The active owner docs keep the same routing rule: path/default and artifact resolver work belongs to the platform authority loop, com…
 - **`4d8a128`** — Close packet-backed action request binding
-  - evolution: The Codex/Claude bridge exposed a split-brain failure across three authority planes: event-backed packets, the markdown bridge compatibility projection, and session-resume/bootstrap cache state. A reviewer could post a …
+  - evolution: The ReviewSnapshot hardening audit is now plan intake, not a new execution authority. The active owner docs keep the same routing rule: path/default and artifact resolver work belongs to the platform authority loop, com…
 - **`ee13a6c`** — Add architecture hardening plan for Codex review
   - Drafts the next-session hardening plan for the ReviewSnapshot +
   - install-git-hooks subsystem at dev/audits/architecture_hardening_plan.md.
-  - evolution: The Codex/Claude bridge exposed a split-brain failure across three authority planes: event-backed packets, the markdown bridge compatibility projection, and session-resume/bootstrap cache state. A reviewer could post a …
+  - evolution: The ReviewSnapshot hardening audit is now plan intake, not a new execution authority. The active owner docs keep the same routing rule: path/default and artifact resolver work belongs to the platform authority loop, com…
 - **`e21d8e8` | MPs: MP-377, MP-3** — Close MP-377 typed-continuity tranche (Legs 1+2+3 follow-ups A/B/C)
   - Lands the three remaining items on the typed-continuity Session Resume
   - parent in dev/active/MASTER_PLAN.md (the [ ] item: "Replace boolean-only
@@ -304,54 +308,54 @@ Recent findings:
   - plan: `dev/active/platform_authority_loop.md`
   - plan: `dev/active/remote_commit_pipeline.md`
   - plan: `dev/active/PLAN_FORMAT.md`
-  - evolution: The Codex/Claude bridge exposed a split-brain failure across three authority planes: event-backed packets, the markdown bridge compatibility projection, and session-resume/bootstrap cache state. A reviewer could post a …
+  - evolution: The ReviewSnapshot hardening audit is now plan intake, not a new execution authority. The active owner docs keep the same routing rule: path/default and artifact resolver work belongs to the platform authority loop, com…
 - **`f9388da`** — Add install-git-hooks command for portable pre-commit snapshot refresh
   - Closes the gap between the architectural promise "every governed commit
   - regenerates the ReviewSnapshot inside the commit" and the reality that
   - the pre-commit hook inside governed_executor_phases.execute_commit only
-  - evolution: The Codex/Claude bridge exposed a split-brain failure across three authority planes: event-backed packets, the markdown bridge compatibility projection, and session-resume/bootstrap cache state. A reviewer could post a …
+  - evolution: The ReviewSnapshot hardening audit is now plan intake, not a new execution authority. The active owner docs keep the same routing rule: path/default and artifact resolver work belongs to the platform authority loop, com…
 - **`d155b02`** — Refresh REVIEW_SNAPSHOT to track branch tip at 60bcd68
   - The ReviewSnapshot surface committed in 5978dce recorded state at
   - its parent (b6be213), which is correct for the pre-commit-hook
   - semantics it demonstrates. But every subsequent commit in the
-  - evolution: The Codex/Claude bridge exposed a split-brain failure across three authority planes: event-backed packets, the markdown bridge compatibility projection, and session-resume/bootstrap cache state. A reviewer could post a …
+  - evolution: The ReviewSnapshot hardening audit is now plan intake, not a new execution authority. The active owner docs keep the same routing rule: path/default and artifact resolver work belongs to the platform authority loop, com…
 - **`60bcd68`** — Open policy-gated skip-preflight bypass window for ReviewSnapshot landing
   - Typed override receipt for publishing the ReviewSnapshot slice
   - (5978dce + 4b45f9a + c98d471) through the governed push path when
   - the stale reviewer-loop state (reason=reviewer_heartbeat_stale,
-  - evolution: The Codex/Claude bridge exposed a split-brain failure across three authority planes: event-backed packets, the markdown bridge compatibility projection, and session-resume/bootstrap cache state. A reviewer could post a …
+  - evolution: The ReviewSnapshot hardening audit is now plan intake, not a new execution authority. The active owner docs keep the same routing rule: path/default and artifact resolver work belongs to the platform authority loop, com…
 - **`c98d471`** — Restore script_catalog entries stripped during previous edit
   - Regression fix: 14 entries that were present at HEAD got silently
   - stripped from _CHECK_SCRIPT_ENTRIES and _PROBE_SCRIPT_ENTRIES during
   - an earlier edit to script_catalog.py and then committed into the
-  - evolution: The Codex/Claude bridge exposed a split-brain failure across three authority planes: event-backed packets, the markdown bridge compatibility projection, and session-resume/bootstrap cache state. A reviewer could post a …
+  - evolution: The ReviewSnapshot hardening audit is now plan intake, not a new execution authority. The active owner docs keep the same routing rule: path/default and artifact resolver work belongs to the platform authority loop, com…
 - **`4b45f9a`** — Register python_typed_seams in script_catalog
   - Pre-push scaffolding fix: check_python_typed_seams.py exists on disk
   - and is referenced by both quality_policy/defaults.py:136,315 (as an
   - AI guard ID) and bundles/registry.py:65 (as a command string), but
-  - evolution: The Codex/Claude bridge exposed a split-brain failure across three authority planes: event-backed packets, the markdown bridge compatibility projection, and session-resume/bootstrap cache state. A reviewer could post a …
+  - evolution: The ReviewSnapshot hardening audit is now plan intake, not a new execution authority. The active owner docs keep the same routing rule: path/default and artifact resolver work belongs to the platform authority loop, com…
 - **`5978dce`** — Add ReviewSnapshot external-review surface via pre-commit refresh hook
   - Introduces dev/audits/REVIEW_SNAPSHOT.md as a deterministic typed
   - projection of repo governance state, designed to be read directly
   - from GitHub by external reviewers (ChatGPT Pro, human auditors) so
-  - evolution: The Codex/Claude bridge exposed a split-brain failure across three authority planes: event-backed packets, the markdown bridge compatibility projection, and session-resume/bootstrap cache state. A reviewer could post a …
+  - evolution: The ReviewSnapshot hardening audit is now plan intake, not a new execution authority. The active owner docs keep the same routing rule: path/default and artifact resolver work belongs to the platform authority loop, com…
 - **`b6be213` | MPs: MP-382, MP-387** — Land reviewer-supervisor restart-policy follow-up checkpoint
   - Closes the manual_stop / completed restart-policy gap left open after
   - 244ae83 (MP-382 + MP-387 launch-authority closure). The launchd publisher
   - wrapper already treated those stop reasons as non-restartable, but two
   - plan: `dev/active/remote_control_runtime.md`
-  - evolution: The Codex/Claude bridge exposed a split-brain failure across three authority planes: event-backed packets, the markdown bridge compatibility projection, and session-resume/bootstrap cache state. A reviewer could post a …
+  - evolution: The ReviewSnapshot hardening audit is now plan intake, not a new execution authority. The active owner docs keep the same routing rule: path/default and artifact resolver work belongs to the platform authority loop, com…
 - **`244ae83` | MPs: MP-382, MP-387 | markers: F21, F21a, F23, F24** — Land MP-382 + MP-387 launch-authority closure (F21/F21a/F23/F24)
   - Resolves operator interaction mode once through governance/startup
   - authority and threads it through session preparation plus the pre-spawn
   - dispatcher gate, closing F21: _launch_and_refresh() in bridge_handler.py
   - plan: `dev/active/remote_control_runtime.md`
-  - evolution: The Codex/Claude bridge exposed a split-brain failure across three authority planes: event-backed packets, the markdown bridge compatibility projection, and session-resume/bootstrap cache state. A reviewer could post a …
+  - evolution: The ReviewSnapshot hardening audit is now plan intake, not a new execution authority. The active owner docs keep the same routing rule: path/default and artifact resolver work belongs to the platform authority loop, com…
 - **`fefa621` | markers: F21, F21a, F23, F24** — Checkpoint reviewer bridge state: F21/F21a/F23/F24 launch-authority findings
   - Reviewer flipped mode from single_agent to active_dual_agent and posted
   - new open findings against commit 84e60bc's F21 integration:
   - bridge_handler.py was sourcing the dispatcher gate from
-  - evolution: The Codex/Claude bridge exposed a split-brain failure across three authority planes: event-backed packets, the markdown bridge compatibility projection, and session-resume/bootstrap cache state. A reviewer could post a …
+  - evolution: The ReviewSnapshot hardening audit is now plan intake, not a new execution authority. The active owner docs keep the same routing rule: path/default and artifact resolver work belongs to the platform authority loop, com…
 - **`846987c` | markers: F21** — Update test_launch_sessions_if_requested_headless_requires_reviewer_proof_of_life for F21 integration
   - Closes a regression my F21 integration commit 84e60bc introduced in
   - test_review_channel.py:937. Self-correction caught by the broader
@@ -417,10 +421,11 @@ Recent findings:
 - open governance findings: 39
 
 ### Startup advisories
-- push_allowed: worktree_clean_and_review_accepted
+- checkpoint_before_continue: dirty_path_budget_exceeded
 
 ### Stale warnings
-- Stop because nothing remains to push.
+- Keep editing the current slice.
+- Move straight to the governed push path.
 
 ### Open gap rows
 - **governance_open** (`dev/scripts/devctl/review_channel/bridge_sanitize.py`): agent_checkpoint_contract_ignorance: 
@@ -434,4 +439,4 @@ Recent findings:
 
 ---
 
-Projection produced by `devctl review-snapshot`. Generation stamp `snap-b9b249b96cae` binds this file to HEAD `0f2bf3e73901`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
+Projection produced by `devctl review-snapshot`. Generation stamp `snap-e156f145bcd4` binds this file to HEAD `93b92d69e705`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.

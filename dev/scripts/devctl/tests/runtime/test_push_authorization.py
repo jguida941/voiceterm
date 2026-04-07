@@ -27,6 +27,17 @@ def _review_state() -> SimpleNamespace:
     )
 
 
+def _single_agent_review_state() -> SimpleNamespace:
+    return SimpleNamespace(
+        reviewer_runtime=SimpleNamespace(
+            reviewer_mode="single_agent",
+            effective_reviewer_mode="single_agent",
+            reviewer_freshness="overdue",
+            stale_reason="inactive",
+        )
+    )
+
+
 def _pipeline(*, authorized_head_sha: str) -> RemoteCommitPipelineContract:
     return RemoteCommitPipelineContract(
         pipeline_id="pipeline-123",
@@ -72,16 +83,19 @@ def test_publication_authorization_allows_current_head_with_stale_reviewer_runti
 
 @patch("dev.scripts.devctl.runtime.push_authorization.scan_repo_governance")
 @patch("dev.scripts.devctl.runtime.push_authorization.load_review_state")
+@patch("dev.scripts.devctl.runtime.push_authorization._snapshot_only_receipt_parent_sha")
 @patch("dev.scripts.devctl.runtime.push_authorization.current_head_commit_sha")
 @patch("dev.scripts.devctl.runtime.push_authorization._load_pipeline")
 def test_publication_authorization_blocks_when_head_changes_after_authorization(
     load_pipeline_mock,
     current_head_mock,
+    snapshot_parent_mock,
     load_review_state_mock,
     _scan_governance_mock,
 ) -> None:
     load_review_state_mock.return_value = _review_state()
     current_head_mock.return_value = "head-new"
+    snapshot_parent_mock.return_value = ""
     load_pipeline_mock.return_value = _pipeline(authorized_head_sha="head-old")
 
     decision = publication_authorization_decision(repo_root=Path("/tmp/repo"))
@@ -89,3 +103,51 @@ def test_publication_authorization_blocks_when_head_changes_after_authorization(
     assert decision.authorized is False
     assert decision.reason == "head_changed_after_authorization"
     assert decision.push_authorization is not None
+
+
+@patch("dev.scripts.devctl.runtime.push_authorization.scan_repo_governance")
+@patch("dev.scripts.devctl.runtime.push_authorization.load_review_state")
+@patch("dev.scripts.devctl.runtime.push_authorization._snapshot_only_receipt_parent_sha")
+@patch("dev.scripts.devctl.runtime.push_authorization.current_head_commit_sha")
+@patch("dev.scripts.devctl.runtime.push_authorization._load_pipeline")
+def test_publication_authorization_allows_snapshot_only_receipt_head(
+    load_pipeline_mock,
+    current_head_mock,
+    snapshot_parent_mock,
+    load_review_state_mock,
+    _scan_governance_mock,
+) -> None:
+    load_review_state_mock.return_value = _review_state()
+    current_head_mock.return_value = "head-receipt"
+    snapshot_parent_mock.return_value = "head-old"
+    load_pipeline_mock.return_value = _pipeline(authorized_head_sha="head-old")
+
+    decision = publication_authorization_decision(repo_root=Path("/tmp/repo"))
+
+    assert decision.authorized is True
+    assert decision.reason == "push_authorization_snapshot_receipt_current"
+    assert decision.push_authorization is not None
+
+
+@patch("dev.scripts.devctl.runtime.push_authorization.scan_repo_governance")
+@patch("dev.scripts.devctl.runtime.push_authorization.load_review_state")
+@patch("dev.scripts.devctl.runtime.push_authorization._snapshot_only_receipt_parent_sha")
+@patch("dev.scripts.devctl.runtime.push_authorization.current_head_commit_sha")
+@patch("dev.scripts.devctl.runtime.push_authorization._load_pipeline")
+def test_publication_authorization_ignores_stale_pipeline_in_single_agent_mode(
+    load_pipeline_mock,
+    current_head_mock,
+    snapshot_parent_mock,
+    load_review_state_mock,
+    _scan_governance_mock,
+) -> None:
+    load_review_state_mock.return_value = _single_agent_review_state()
+    current_head_mock.return_value = "head-new"
+    snapshot_parent_mock.return_value = ""
+    load_pipeline_mock.return_value = _pipeline(authorized_head_sha="head-old")
+
+    decision = publication_authorization_decision(repo_root=Path("/tmp/repo"))
+
+    assert decision.authorized is True
+    assert decision.authorization_required is False
+    assert decision.reason == "authorization_not_required"

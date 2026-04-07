@@ -2360,6 +2360,11 @@ blocker or exception in plan state before skipping the declared order.
   integrity; `ai_governance_platform.md` owns contract/ecosystem surfaces; and
   `portable_code_governance.md` owns adopter proof. `REVIEW_SNAPSHOT.md`
   remains generated evidence only.
+- 2026-04-07: Clarified that hook-installed paths from the same audit must
+  consume this lane's canonical repo-pack/doc/artifact resolvers instead of
+  carrying local fallback defaults inside shell hook bodies or provider
+  adapters. Hook install/render can be a bootstrap path; resolver authority
+  stays here.
 - 2026-04-07: Closed the MP-377 typed-continuity tranche end to end. The
   prior 2026-03-23 entry recorded that Legs 1+2 (modeling, packet
   threading, surfacing of `alignment_status`) had landed but did NOT

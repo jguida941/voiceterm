@@ -252,8 +252,10 @@ class PushCommandTests(unittest.TestCase):
         return_value="dev/reports/push/latest.json",
     )
     @patch(
-        "dev.scripts.devctl.governance.push_state._current_approved_target_identity",
-        return_value="tree-receipt-20260403T010000Z:tree-123",
+        "dev.scripts.devctl.governance.push_state.load_remote_commit_pipeline_contract",
+        return_value=SimpleNamespace(
+            approved_target_identity="tree-receipt-20260403T010000Z:tree-123"
+        ),
     )
     @patch(
         "dev.scripts.devctl.governance.push_state.load_latest_push_report",
@@ -274,7 +276,7 @@ class PushCommandTests(unittest.TestCase):
         self,
         git_stdout_mock,
         _load_latest_push_report_mock,
-        _current_approved_target_identity_mock,
+        _load_remote_commit_pipeline_contract_mock,
         _latest_push_report_relpath_mock,
         _worktree_change_counts_mock,
         _lookup_receipt_mock,
@@ -318,8 +320,10 @@ class PushCommandTests(unittest.TestCase):
         return_value="dev/reports/push/latest.json",
     )
     @patch(
-        "dev.scripts.devctl.governance.push_state._current_approved_target_identity",
-        return_value="tree-receipt-20260403T010000Z:tree-123",
+        "dev.scripts.devctl.governance.push_state.load_remote_commit_pipeline_contract",
+        return_value=SimpleNamespace(
+            approved_target_identity="tree-receipt-20260403T010000Z:tree-123"
+        ),
     )
     @patch(
         "dev.scripts.devctl.governance.push_state.load_latest_push_report",
@@ -340,7 +344,7 @@ class PushCommandTests(unittest.TestCase):
         self,
         git_stdout_mock,
         _load_latest_push_report_mock,
-        _current_approved_target_identity_mock,
+        _load_remote_commit_pipeline_contract_mock,
         _latest_push_report_relpath_mock,
         _worktree_change_counts_mock,
         _lookup_receipt_mock,
@@ -384,8 +388,10 @@ class PushCommandTests(unittest.TestCase):
         return_value="dev/reports/push/latest.json",
     )
     @patch(
-        "dev.scripts.devctl.governance.push_state._current_approved_target_identity",
-        return_value="tree-receipt-20260403T010000Z:tree-123",
+        "dev.scripts.devctl.governance.push_state.load_remote_commit_pipeline_contract",
+        return_value=SimpleNamespace(
+            approved_target_identity="tree-receipt-20260403T010000Z:tree-123"
+        ),
     )
     @patch(
         "dev.scripts.devctl.governance.push_state.load_latest_push_report",
@@ -406,7 +412,7 @@ class PushCommandTests(unittest.TestCase):
         self,
         git_stdout_mock,
         _load_latest_push_report_mock,
-        _current_approved_target_identity_mock,
+        _load_remote_commit_pipeline_contract_mock,
         _latest_push_report_relpath_mock,
         _worktree_change_counts_mock,
         _lookup_receipt_mock,
