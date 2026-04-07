@@ -543,7 +543,13 @@ Portability note:
   stamp changes without a snapshot rewrite, the guard fails and instructs the
   caller to rerun
   `python3 dev/scripts/devctl.py review-snapshot --write`. Both
-  `tooling_control_plane.yml` and `release_preflight.yml` enforce it.
+  `tooling_control_plane.yml` and `release_preflight.yml` enforce it. The
+  managed raw-git hook path is now explicit two-phase automation:
+  `devctl install-git-hooks` installs both the pre-commit projection hook and
+  the post-commit receipt hook, and the latter delegates to
+  `python3 dev/scripts/devctl.py review-snapshot --write --receipt-commit`
+  so the final pushed branch can end with a snapshot-only planning receipt
+  instead of a manually refreshed dirty worktree.
 - Portable-authority rule: new reusable runtime/tooling code should resolve
   plan docs, artifact roots, bridge/review state, and generated bootstrap
   instructions through `ProjectGovernance` / repo-pack state instead of

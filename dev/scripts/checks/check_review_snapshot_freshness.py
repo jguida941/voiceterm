@@ -6,7 +6,8 @@ commit/push. This guard is the generation-stamp-and-HEAD binding that makes
 sure the on-disk file is never stale relative to what git actually contains:
 if HEAD moved or the typed generation stamp changed without a snapshot
 rewrite, the guard fails so CI blocks the merge until ``devctl
-review-snapshot --write`` is rerun.
+review-snapshot --write`` is rerun locally or ``devctl review-snapshot
+--write --receipt-commit`` is used for the publication receipt path.
 
 The guard replaces the narrow ``check_audit_status_sync.py`` marker check —
 instead of matching against fixed phase-3/4 strings, it compares live typed
@@ -101,7 +102,8 @@ def build_report(
         ok = False
         errors.append(
             f"snapshot_head_drift: file claims HEAD={embedded_head} but git HEAD={current_head[:12]}. "
-            "Run `python3 dev/scripts/devctl.py review-snapshot --write`."
+            "Run `python3 dev/scripts/devctl.py review-snapshot --write --receipt-commit` "
+            "when preparing a publishable external-review receipt."
         )
 
     if not embedded_stamp:
@@ -117,7 +119,8 @@ def build_report(
         ok = False
         errors.append(
             f"snapshot_generation_drift: file stamp={embedded_stamp} vs live stamp={current_stamp}. "
-            "Run `python3 dev/scripts/devctl.py review-snapshot --write`."
+            "Run `python3 dev/scripts/devctl.py review-snapshot --write --receipt-commit` "
+            "when preparing a publishable external-review receipt."
         )
 
     return {

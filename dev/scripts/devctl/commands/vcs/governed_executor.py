@@ -136,11 +136,11 @@ class GovernedVcsExecutor:
 
     def _execute_commit(self, action: TypedAction) -> ActionResult:
         # The ReviewSnapshot refresh is wired pre-commit inside
-        # execute_commit() so the committed tree contains the refreshed
-        # projection. Do NOT add a post-commit refresh here — a post-commit
-        # write dirties the worktree without publishing the updated snapshot
-        # through the pushed commit, which is the regression the external
-        # reviewer caught.
+        # execute_commit() so the code commit contains a projection. The
+        # raw-git hook installer also ships a post-commit receipt hook that
+        # delegates to `review-snapshot --receipt-commit`; keep that as the
+        # explicit trailing snapshot-only publication path instead of adding
+        # an uncommitted post-commit write here.
         return execute_commit(
             action,
             repo_root=self.repo_root,

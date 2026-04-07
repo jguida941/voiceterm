@@ -76,6 +76,16 @@ Current 2026-04-07 ReviewSnapshot audit-intake routing note:
   `portable_code_governance.md`. `dev/audits/REVIEW_SNAPSHOT.md` remains a
   generated projection.
 
+Current 2026-04-07 ReviewSnapshot receipt-hook closure note:
+- The external-review planning surface now has a repo-owned two-phase raw-git
+  path instead of a manual dirty-worktree step. `review-snapshot --receipt-commit`
+  creates a snapshot-only receipt commit only when no other path is dirty, and
+  `install-git-hooks` installs both the pre-commit projection hook and the
+  post-commit receipt hook that invokes that command with recursion disabled.
+  This keeps the portable platform contract honest: a snapshot cannot contain
+  its own final commit SHA, so freshness is represented as a typed parent-code
+  binding rather than a self-referential markdown claim.
+
 ## Scope
 
 Turn the current VoiceTerm-local automation stack into a reusable AI governance

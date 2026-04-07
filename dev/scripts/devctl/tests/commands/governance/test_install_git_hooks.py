@@ -27,8 +27,7 @@ def _make_main_worktree(tmp_path: Path) -> Path:
     repo_root = tmp_path / "repo"
     (repo_root / ".git" / "hooks").mkdir(parents=True)
     (repo_root / "dev" / "config" / "git_hooks").mkdir(parents=True)
-    template = repo_root / "dev" / "config" / "git_hooks" / "pre-commit-review-snapshot.sh"
-    template.write_text(_MANAGED_HOOK_BODY, encoding="utf-8")
+    _write_hook_templates(repo_root)
     return repo_root
 
 
@@ -43,9 +42,17 @@ def _make_linked_worktree(tmp_path: Path) -> tuple[Path, Path]:
     linked_repo.mkdir()
     (linked_repo / ".git").write_text(f"gitdir: {gitdir}\n", encoding="utf-8")
     (linked_repo / "dev" / "config" / "git_hooks").mkdir(parents=True)
-    template = linked_repo / "dev" / "config" / "git_hooks" / "pre-commit-review-snapshot.sh"
-    template.write_text(_MANAGED_HOOK_BODY, encoding="utf-8")
+    _write_hook_templates(linked_repo)
     return linked_repo, gitdir / "hooks"
+
+
+def _write_hook_templates(repo_root: Path) -> None:
+    hook_root = repo_root / "dev" / "config" / "git_hooks"
+    for filename in (
+        "pre-commit-review-snapshot.sh",
+        "post-commit-review-snapshot.sh",
+    ):
+        (hook_root / filename).write_text(_MANAGED_HOOK_BODY, encoding="utf-8")
 
 
 # ---------------------------------------------------------------------------
@@ -117,11 +124,14 @@ def test_run_install_copies_template_into_hooks_dir(
     )
     exit_code = run(args)
     assert exit_code == 0
-    installed = repo_root / ".git" / "hooks" / "pre-commit"
-    assert installed.is_file()
-    assert "devctl-install-git-hooks: managed hook" in installed.read_text(encoding="utf-8")
-    # Hook must be executable after install.
-    assert installed.stat().st_mode & 0o111 != 0
+    for hook_name in ("pre-commit", "post-commit"):
+        installed = repo_root / ".git" / "hooks" / hook_name
+        assert installed.is_file()
+        assert "devctl-install-git-hooks: managed hook" in installed.read_text(
+            encoding="utf-8"
+        )
+        # Hook must be executable after install.
+        assert installed.stat().st_mode & 0o111 != 0
 
 
 def test_run_install_refuses_to_overwrite_non_managed_hook_without_force(

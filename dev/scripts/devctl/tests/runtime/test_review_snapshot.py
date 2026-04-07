@@ -379,6 +379,47 @@ def test_governed_commit_includes_review_snapshot_in_committed_tree(tmp_path) ->
     )
 
 
+def test_receipt_commit_commits_only_review_snapshot(tmp_path) -> None:
+    from devctl.commands.governance.review_snapshot import _commit_snapshot_receipt
+
+    repo_root = _init_receipt_repo(tmp_path / "repo")
+    snapshot_path = repo_root / "dev/audits/REVIEW_SNAPSHOT.md"
+    snapshot_path.parent.mkdir(parents=True, exist_ok=True)
+    snapshot_path.write_text("# Review Snapshot\n\nreceipt\n", encoding="utf-8")
+
+    result = _commit_snapshot_receipt(
+        repo_root=repo_root,
+        target_rel="dev/audits/REVIEW_SNAPSHOT.md",
+    )
+
+    assert result["ok"] is True
+    assert result["reason"] == "receipt_committed"
+    changed = subprocess.run(
+        ["git", "diff-tree", "--no-commit-id", "--name-only", "-r", "HEAD"],
+        cwd=repo_root,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    assert changed.stdout.strip() == "dev/audits/REVIEW_SNAPSHOT.md"
+
+
+def test_receipt_commit_preflight_rejects_non_snapshot_dirty_paths(tmp_path) -> None:
+    from devctl.commands.governance.review_snapshot import _preflight_receipt_commit
+
+    repo_root = _init_receipt_repo(tmp_path / "repo")
+    (repo_root / "tracked.txt").write_text("dirty\n", encoding="utf-8")
+
+    result = _preflight_receipt_commit(
+        repo_root=repo_root,
+        target_rel="dev/audits/REVIEW_SNAPSHOT.md",
+    )
+
+    assert result["ok"] is False
+    assert result["reason"] == "non_snapshot_paths_dirty"
+    assert result["dirty_paths"] == ["tracked.txt"]
+
+
 def test_refresh_skips_when_content_already_matches(tmp_path, monkeypatch) -> None:
     from devctl.runtime import review_snapshot_refresh as refresh_module
     from devctl.runtime.review_snapshot_models import ReviewSnapshot
@@ -416,3 +457,27 @@ def test_refresh_skips_when_content_already_matches(tmp_path, monkeypatch) -> No
     # Same content → no write → mtime preserved.
     assert target.stat().st_mtime_ns == mtime_before
     assert target.read_text(encoding="utf-8") == "fixture-content\n"
+
+
+def _init_receipt_repo(repo_root: Path) -> Path:
+    repo_root.mkdir(parents=True)
+    subprocess.run(["git", "init"], cwd=repo_root, check=True, capture_output=True)
+    subprocess.run(
+        ["git", "config", "user.email", "tests@example.com"],
+        cwd=repo_root,
+        check=True,
+    )
+    subprocess.run(
+        ["git", "config", "user.name", "ReviewSnapshot Tests"],
+        cwd=repo_root,
+        check=True,
+    )
+    (repo_root / "README.md").write_text("init\n", encoding="utf-8")
+    subprocess.run(["git", "add", "README.md"], cwd=repo_root, check=True)
+    subprocess.run(
+        ["git", "commit", "-m", "init"],
+        cwd=repo_root,
+        check=True,
+        capture_output=True,
+    )
+    return repo_root

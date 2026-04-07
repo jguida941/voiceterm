@@ -508,6 +508,11 @@ surface for remote sessions. It should project:
       when the latest commit changes only `dev/audits/REVIEW_SNAPSHOT.md`, the
       freshness guard may bind the generated snapshot to that commit's parent
       code state instead of requiring an impossible self-referential commit SHA.
+- [x] Add the raw-git receipt fast path: `review-snapshot --receipt-commit`
+      stages and commits only the generated snapshot, while
+      `install-git-hooks` installs both the pre-commit projection hook and the
+      post-commit receipt hook that invokes that typed command with recursion
+      disabled.
 
 ## Progress Log
 
@@ -518,6 +523,10 @@ surface for remote sessions. It should project:
   generated snapshot is bound to the parent code commit. This gives the fast
   planning path a publishable GitHub HEAD: code commit first, generated
   snapshot refresh commit second, then governed push.
+- 2026-04-07: Added the repo-owned receipt automation for that two-phase shape:
+  `review-snapshot --receipt-commit` refuses non-snapshot dirty state, commits
+  only the generated snapshot with hook recursion disabled, and the managed
+  post-commit hook calls that command after ordinary raw git commits.
 - 2026-04-07: Routed the ReviewSnapshot architecture hardening audit into this
   lane for commit/push ownership. The accepted items here are raw `git commit`
   hook proof, override receipt enforcement, managed-hook integrity, additional

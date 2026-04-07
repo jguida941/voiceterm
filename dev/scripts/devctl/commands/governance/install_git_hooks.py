@@ -1,16 +1,14 @@
 """devctl install-git-hooks command.
 
-Installs the repo-owned pre-commit hook that makes raw ``git commit``
-auto-refresh the ReviewSnapshot file before every commit, so the committed
-tree always carries a current typed projection — even when the commit
-goes through a path that doesn't route through the governed executor
-(IDE plugins, editor git tools, AI tools using raw git, plain CLI).
+Installs the repo-owned git hooks that make raw ``git commit`` auto-refresh
+the ReviewSnapshot projection and create a trailing snapshot-only receipt
+commit, so GitHub/external-review consumers can plan from a snapshot bound
+to the code commit that was just sealed.
 
 Portability:
 
-- Hook template lives at ``dev/config/git_hooks/pre-commit-review-snapshot.sh``
-  and is shipped with the governance platform. Adopter repos get it for
-  free.
+- Hook templates live under ``dev/config/git_hooks/`` and are shipped with
+  the governance platform. Adopter repos get them for free.
 - Target hooks directory is resolved through git plumbing so the command
   works in main worktrees (where ``.git`` is a directory) AND in linked
   worktrees (where ``.git`` is a file pointing at ``.git/worktrees/<name>/``).
@@ -22,11 +20,11 @@ Portability:
 Safety:
 
 - Idempotent: reinstalling overwrites the managed hook.
-- Non-managed hook detection: refuses to overwrite an existing pre-commit
-  hook unless ``--force`` is passed, so developers with their own hooks
-  don't silently lose them.
+- Non-managed hook detection: refuses to overwrite existing hooks unless
+  ``--force`` is passed, so developers with their own hooks don't silently
+  lose them.
 - Uninstall: ``--uninstall`` removes only managed hooks, never touches
-  non-managed ones.
+  non-managed ones unless ``--force`` is passed.
 - Check: ``--check`` reports install status without writing anything.
 """
 
@@ -43,8 +41,10 @@ from .common import emit_governance_command_output
 _MANAGED_MARKER = (
     "devctl-install-git-hooks: managed hook for review-snapshot refresh"
 )
-_HOOK_TEMPLATE_RELPATH = "dev/config/git_hooks/pre-commit-review-snapshot.sh"
-_HOOK_NAME = "pre-commit"
+_HOOK_TEMPLATE_RELPATHS = {
+    "pre-commit": "dev/config/git_hooks/pre-commit-review-snapshot.sh",
+    "post-commit": "dev/config/git_hooks/post-commit-review-snapshot.sh",
+}
 
 
 def add_parser(subparsers) -> None:
@@ -53,7 +53,7 @@ def add_parser(subparsers) -> None:
         "install-git-hooks",
         help=(
             "Install repo-owned git hooks so raw `git commit` auto-refreshes "
-            "the ReviewSnapshot file before staging."
+            "the ReviewSnapshot file and creates a trailing snapshot receipt."
         ),
     )
     cmd.add_argument(
@@ -66,53 +66,65 @@ def add_parser(subparsers) -> None:
         "--uninstall",
         action="store_true",
         default=False,
-        help="Remove the managed pre-commit hook installed by this command.",
+        help="Remove the managed git hooks installed by this command.",
     )
     cmd.add_argument(
         "--force",
         action="store_true",
         default=False,
         help=(
-            "Overwrite an existing non-managed pre-commit hook. Use only when "
-            "you have verified the existing hook is safe to replace."
+            "Overwrite existing non-managed git hooks. Use only when you have "
+            "verified the existing hooks are safe to replace."
         ),
     )
     add_standard_output_arguments(cmd, format_choices=("md", "json"))
 
 
 def run(args) -> int:
-    """Install, verify, or remove the managed pre-commit hook."""
+    """Install, verify, or remove the managed ReviewSnapshot hooks."""
     repo_root = REPO_ROOT
     hooks_dir = resolve_hooks_dir(repo_root)
-    template_path = repo_root / _HOOK_TEMPLATE_RELPATH
-    target_path = hooks_dir / _HOOK_NAME
 
     check_mode = bool(getattr(args, "check", False))
     uninstall_mode = bool(getattr(args, "uninstall", False))
     force = bool(getattr(args, "force", False))
 
-    status = current_install_status(target_path)
-    target_display = _safe_relative(target_path, repo_root)
+    hook_targets = _hook_targets(repo_root=repo_root, hooks_dir=hooks_dir)
+    statuses = {
+        hook_name: current_install_status(paths["target"])
+        for hook_name, paths in hook_targets.items()
+    }
+    target_display = {
+        hook_name: _safe_relative(paths["target"], repo_root)
+        for hook_name, paths in hook_targets.items()
+    }
 
     if check_mode:
+        ok = all(status == "managed" for status in statuses.values())
         return _emit(
             args,
-            ok=(status == "managed"),
+            ok=ok,
             summary={
-                "hook_status": status,
-                "target_path": target_display,
+                "hook_status": "managed" if ok else "incomplete",
+                "hook_statuses": statuses,
+                "target_paths": target_display,
             },
-            human_output=_render_status_markdown(status, target_display),
+            human_output=_render_status_markdown(statuses, target_display),
         )
 
     if uninstall_mode:
-        return _run_uninstall(args, status, target_path, target_display, force)
+        return _run_uninstall(
+            args,
+            statuses=statuses,
+            hook_targets=hook_targets,
+            target_display=target_display,
+            force=force,
+        )
 
     return _run_install(
         args,
-        status=status,
-        template_path=template_path,
-        target_path=target_path,
+        statuses=statuses,
+        hook_targets=hook_targets,
         target_display=target_display,
         hooks_dir=hooks_dir,
         force=force,
@@ -160,72 +172,89 @@ def current_install_status(target_path: Path) -> str:
 def _run_install(
     args,
     *,
-    status: str,
-    template_path: Path,
-    target_path: Path,
-    target_display: str,
+    statuses: dict[str, str],
+    hook_targets: dict[str, dict[str, Path]],
+    target_display: dict[str, str],
     hooks_dir: Path,
     force: bool,
     repo_root: Path,
 ) -> int:
-    if not template_path.is_file():
-        template_display = _safe_relative(template_path, repo_root)
+    missing_templates = {
+        hook_name: _safe_relative(paths["template"], repo_root)
+        for hook_name, paths in hook_targets.items()
+        if not paths["template"].is_file()
+    }
+    if missing_templates:
         return _emit(
             args,
             ok=False,
             summary={
-                "hook_status": status,
+                "hook_status": "template_missing",
+                "hook_statuses": statuses,
                 "error": "template_missing",
-                "template_path": template_display,
+                "template_paths": missing_templates,
             },
             human_output=(
                 f"# install-git-hooks\n\n"
                 f"- status: error\n"
-                f"- error: hook template missing at `{template_display}`\n"
+                f"- error: hook templates missing: `{missing_templates}`\n"
                 "- fix: restore the template from the governance platform "
                 "shipping bundle and rerun `devctl install-git-hooks`.\n"
             ),
         )
 
-    if status == "non_managed" and not force:
+    non_managed = {
+        hook_name: target_display[hook_name]
+        for hook_name, status in statuses.items()
+        if status == "non_managed"
+    }
+    if non_managed and not force:
         return _emit(
             args,
             ok=False,
             summary={
                 "hook_status": "non_managed",
-                "target_path": target_display,
+                "hook_statuses": statuses,
+                "target_paths": non_managed,
             },
             human_output=(
                 f"# install-git-hooks\n\n"
                 f"- status: refused\n"
-                f"- target: `{target_display}`\n"
-                f"- reason: an existing non-managed pre-commit hook was "
+                f"- targets: `{non_managed}`\n"
+                f"- reason: existing non-managed git hooks were "
                 f"found. Inspect the file, then rerun with `--force` to "
-                f"replace it.\n"
+                "replace them.\n"
             ),
         )
 
     hooks_dir.mkdir(parents=True, exist_ok=True)
-    shutil.copy2(template_path, target_path)
-    target_path.chmod(
-        target_path.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH
-    )
+    for paths in hook_targets.values():
+        target_path = paths["target"]
+        shutil.copy2(paths["template"], target_path)
+        target_path.chmod(
+            target_path.stat().st_mode
+            | stat.S_IXUSR
+            | stat.S_IXGRP
+            | stat.S_IXOTH
+        )
     return _emit(
         args,
         ok=True,
         summary={
             "hook_status": "managed",
-            "target_path": target_display,
+            "hook_statuses": {hook_name: "managed" for hook_name in hook_targets},
+            "target_paths": target_display,
         },
         human_output=(
             f"# install-git-hooks\n\n"
             f"- status: installed\n"
-            f"- target: `{target_display}`\n\n"
-            "Every `git commit` in this clone will now auto-refresh the "
-            "ReviewSnapshot file through `devctl review-snapshot --write` "
-            "and stage it into the commit, regardless of whether the commit "
-            "is made via the CLI, an IDE plugin, an editor git tool, or an "
-            "AI assistant. The CI freshness guard "
+            f"- targets: `{target_display}`\n\n"
+            "Every `git commit` in this clone will now auto-refresh a "
+            "ReviewSnapshot into the commit and then create a trailing "
+            "snapshot-only receipt commit through "
+            "`devctl review-snapshot --write --receipt-commit`, regardless "
+            "of whether the commit is made via the CLI, an IDE plugin, an "
+            "editor git tool, or an AI assistant. The CI freshness guard "
             "(`check_review_snapshot_freshness.py`) remains the CI-side "
             "backstop.\n\n"
             "To opt out temporarily: set `DEVCTL_NO_REVIEW_SNAPSHOT_REFRESH=1` "
@@ -236,72 +265,102 @@ def _run_install(
 
 def _run_uninstall(
     args,
-    status: str,
-    target_path: Path,
-    target_display: str,
+    *,
+    statuses: dict[str, str],
+    hook_targets: dict[str, dict[str, Path]],
+    target_display: dict[str, str],
     force: bool,
 ) -> int:
-    if status == "absent":
-        return _emit(
-            args,
-            ok=True,
-            summary={"hook_status": "absent"},
-            human_output=(
-                "# install-git-hooks\n\n"
-                "- status: absent\n"
-                "- note: no managed hook to remove.\n"
-            ),
-        )
-    if status == "non_managed" and not force:
+    removable = {
+        hook_name: paths
+        for hook_name, paths in hook_targets.items()
+        if statuses[hook_name] == "managed"
+        or (statuses[hook_name] == "non_managed" and force)
+    }
+    non_managed = {
+        hook_name: target_display[hook_name]
+        for hook_name, status in statuses.items()
+        if status == "non_managed"
+    }
+    if non_managed and not force:
         return _emit(
             args,
             ok=False,
             summary={
                 "hook_status": "non_managed",
-                "target_path": target_display,
+                "hook_statuses": statuses,
+                "target_paths": non_managed,
             },
             human_output=(
                 f"# install-git-hooks\n\n"
                 f"- status: refused\n"
-                f"- target: `{target_display}`\n"
-                f"- reason: refusing to remove a non-managed pre-commit hook. "
+                f"- targets: `{non_managed}`\n"
+                f"- reason: refusing to remove non-managed git hooks. "
                 f"Rerun with `--force` if the removal is intentional.\n"
             ),
         )
-    try:
-        target_path.unlink()
-    except OSError as exc:
+    if not removable:
         return _emit(
             args,
-            ok=False,
-            summary={
-                "hook_status": status,
-                "error": f"unlink_failed: {exc}",
-            },
+            ok=True,
+            summary={"hook_status": "absent", "hook_statuses": statuses},
             human_output=(
-                f"# install-git-hooks\n\n"
-                f"- status: error\n"
-                f"- error: failed to remove `{target_display}`: {exc}\n"
+                "# install-git-hooks\n\n"
+                "- status: absent\n"
+                "- note: no managed hooks to remove.\n"
             ),
         )
+    removed: dict[str, str] = {}
+    for hook_name, paths in removable.items():
+        try:
+            paths["target"].unlink()
+            removed[hook_name] = target_display[hook_name]
+        except OSError as exc:
+            return _emit(
+                args,
+                ok=False,
+                summary={
+                    "hook_status": statuses[hook_name],
+                    "hook_statuses": statuses,
+                    "error": f"unlink_failed: {exc}",
+                },
+                human_output=(
+                    f"# install-git-hooks\n\n"
+                    f"- status: error\n"
+                    f"- error: failed to remove `{target_display[hook_name]}`: {exc}\n"
+                ),
+            )
     return _emit(
         args,
         ok=True,
-        summary={"hook_status": "uninstalled"},
+        summary={"hook_status": "uninstalled", "removed": removed},
         human_output=(
             f"# install-git-hooks\n\n"
             f"- status: uninstalled\n"
-            f"- note: removed managed pre-commit hook from `{target_display}`.\n"
+            f"- note: removed managed hooks: `{removed}`.\n"
         ),
     )
 
 
-def _render_status_markdown(status: str, target_display: str) -> str:
+def _render_status_markdown(statuses: dict[str, str], target_display: dict[str, str]) -> str:
+    rows = "\n".join(
+        f"- {hook_name}: {statuses[hook_name]} at `{target_display[hook_name]}`"
+        for hook_name in sorted(statuses)
+    )
     return (
         "# install-git-hooks\n\n"
-        f"- status: {status}\n"
-        f"- target: `{target_display}`\n"
+        f"{rows}\n"
     )
+
+
+def _hook_targets(*, repo_root: Path, hooks_dir: Path) -> dict[str, dict[str, Path]]:
+    return {
+        hook_name: {
+            "template": repo_root / template_relpath,
+            "target": hooks_dir / hook_name,
+        }
+        for hook_name, template_relpath in _HOOK_TEMPLATE_RELPATHS.items()
+    }
 
 
 def _safe_relative(path: Path, repo_root: Path) -> str:

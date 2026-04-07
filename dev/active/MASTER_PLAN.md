@@ -294,6 +294,13 @@
   `commit` / `push` action requests require remote-commit pipeline binding
   (`runtime` target, generation, staged snapshot hash, guard summary), while
   `run_check` / `kill_process` requests require runtime target ref/revision.
+- Current 2026-04-07 ReviewSnapshot receipt-hook closure inside that same
+  lane: the external-review snapshot publication path is now explicitly
+  two-phase. `review-snapshot --write --receipt-commit` refuses non-snapshot
+  dirty state and creates a snapshot-only receipt commit bound to the current
+  code HEAD, while `install-git-hooks` installs the pre-commit projection hook
+  plus a post-commit receipt hook that invokes that typed path with hook
+  recursion disabled.
 - Current 2026-04-05 provider-neutral bootstrap follow-up inside that same
   lane: reviewer/implementer ownership is now tracked as role-first launch
   state instead of fixed Codex/Claude identity. Planned lane parsing,
@@ -508,8 +515,8 @@
   reference intake, not as another active plan. The next execution order from
   that audit is now absorbed into owner docs: Tier 1 path/default/doc-policy
   and diagnostics findings belong to `platform_authority_loop.md`; raw
-  commit hook proof, override receipt enforcement, additional git hooks, and
-  `PushAuthorizationRecord` integrity belong to
+  raw commit hook proof, override receipt enforcement, remaining hook-family
+  follow-ups, and `PushAuthorizationRecord` integrity belong to
   `remote_commit_pipeline.md`; cross-surface consistency, contract
   registration, suggested-command/WhyRecord production consumers, generated
   artifact integrity, MCP, and Agent SDK surfaces belong to

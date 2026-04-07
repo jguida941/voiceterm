@@ -5,14 +5,14 @@
 ## Quick status
 
 - Branch: `feature/governance-quality-sweep`
-- HEAD: `4d8a128d98d7` — Close packet-backed action request binding
-- Tree hash: `624b056e18c6`
-- Generation stamp: `snap-2195575dae72`
-- Generated at (UTC): 2026-04-07T22:41:08Z
-- Push decision: `await_checkpoint` — worktree_dirty
+- HEAD: `922b3769bc12` — Accept snapshot-only review snapshot receipts
+- Tree hash: `b443e301b356`
+- Generation stamp: `snap-439a9844d034`
+- Generated at (UTC): 2026-04-07T22:55:50Z
+- Push decision: `await_checkpoint` — dirty_path_budget_exceeded
 - Reviewer mode: `single_agent` (interaction: `local_terminal`)
 - Pipeline state: `n/a` (approval: `n/a`)
-- Delta since last snapshot: 25 commits, 141 files, +17704/-4900
+- Delta since last snapshot: 25 commits, 141 files, +17890/-4957
 - Governance findings: 39 open / 68 fixed / 121 total
 - Probe hints: 0 total across 0 files scanned
 
@@ -54,20 +54,20 @@ adopters arrive.
 - Remote: `https://github.com/jguida941/voiceterm.git`
 - Default branch: `master`
 - Current branch: `feature/governance-quality-sweep`
-- HEAD SHA: `4d8a128d98d720543c7feb2d1d05998845729bf3`
+- HEAD SHA: `922b3769bc1261d35b5e9405d815f0f8bd44af03`
 - HEAD author: Justin Guida
-- HEAD timestamp (UTC): 2026-04-07T18:34:20-04:00
+- HEAD timestamp (UTC): 2026-04-07T18:41:00-04:00
 
 ## 2. Governance state
 
 ### Push decision
 - action: `await_checkpoint`
-- reason: worktree_dirty
+- reason: dirty_path_budget_exceeded
 - push_eligible_now: False
 - worktree_clean: False
 - next_step_command: `n/a`
-- publication_backlog: queued
-- publication_guidance: 1 local commit(s) waiting for governed push once the current slice is checkpoint-clean.
+- publication_backlog: recommended
+- publication_guidance: 2 local commit(s) waiting for governed push once the current slice is checkpoint-clean.
 
 ### Reviewer runtime
 - reviewer_mode: `single_agent`
@@ -83,16 +83,17 @@ adopters arrive.
 - active plan: **Master Plan (Active, Unified)**
 - plan path: `dev/active/MASTER_PLAN.md`
 - active MP scope: all active MP execution state
-- advisory: `checkpoint_allowed` — worktree_dirty_within_budget
+- advisory: `checkpoint_before_continue` — dirty_path_budget_exceeded
+- checkpoint_required: **yes**
 
 ## 3. Delta — what changed since the previous snapshot
 
-Range: last 25 commits ending at `4d8a128d98d7`
+Range: last 25 commits ending at `922b3769bc12`
 
 - commits: 25
 - files changed: 141
-- insertions: +17704
-- deletions: -4900
+- insertions: +17890
+- deletions: -4957
 - bundle classes touched: docs, tooling
 - risk add-ons triggered: Parser / ANSI boundary
 - authority surfaces touched: 37 file(s)
@@ -101,31 +102,31 @@ Range: last 25 commits ending at `4d8a128d98d7`
 
 | # | SHA | Subject | Files | +/- | Bundle | Risk |
 |---|---|---|---|---|---|---|
-| 1 | `4d8a128` | Close packet-backed action request binding | 18 | +797/-168 | tooling |  |
-| 2 | `ee13a6c` | Add architecture hardening plan for Codex review | 2 | +1148/-58 | tooling |  |
-| 3 | `e21d8e8` | Close MP-377 typed-continuity tranche (Legs 1+2+3 follow-up… | 12 | +872/-68 | tooling |  |
-| 4 | `f9388da` | Add install-git-hooks command for portable pre-commit snaps… | 5 | +704/-50 | tooling |  |
-| 5 | `d155b02` | Refresh REVIEW_SNAPSHOT to track branch tip at 60bcd68 | 1 | +112/-108 | tooling |  |
-| 6 | `60bcd68` | Open policy-gated skip-preflight bypass window for ReviewSn… | 2 | +100/-1 | tooling |  |
-| 7 | `c98d471` | Restore script_catalog entries stripped during previous edit | 1 | +14/-0 | tooling |  |
-| 8 | `4b45f9a` | Register python_typed_seams in script_catalog | 1 | +1/-0 | tooling |  |
-| 9 | `5978dce` | Add ReviewSnapshot external-review surface via pre-commit r… | 33 | +4198/-680 | tooling |  |
-| 10 | `b6be213` | Land reviewer-supervisor restart-policy follow-up checkpoint | 21 | +549/-98 | tooling |  |
-| 11 | `244ae83` | Land MP-382 + MP-387 launch-authority closure (F21/F21a/F23… | 30 | +1306/-333 | tooling | Parser / ANSI boundary |
-| 12 | `fefa621` | Checkpoint reviewer bridge state: F21/F21a/F23/F24 launch-a… | 1 | +39/-92 | docs |  |
-| 13 | `846987c` | Update test_launch_sessions_if_requested_headless_requires_… | 1 | +150/-3 | tooling |  |
-| 14 | `84e60bc` | Land F21 integration: wire launcher_discipline into the lau… | 4 | +248/-2 | tooling | Parser / ANSI boundary |
-| 15 | `b748c6e` | Land F21 launcher-discipline pre-flight validation (pure fu… | 2 | +443/-0 | tooling |  |
-| 16 | `7a8b427` | Land MP-381 dashboard wiring + ViolationRecord consumer ada… | 15 | +1728/-42 | tooling |  |
-| 17 | `e35c4e3` | Land MP-381 F18 + F19 fixes per Codex instruction 269e91f22… | 2 | +312/-22 | tooling |  |
-| 18 | `e564969` | Land MP-381 F14 fix: exempt parked governed pipelines from… | 3 | +330/-3 | tooling |  |
-| 19 | `4f93b48` | Land F1 AST field-route helper plus MP-381 probe-report Vio… | 11 | +806/-35 | tooling |  |
-| 20 | `b22bf96` | Teach field-route guard to scan package sources | 1 | +16/-7 | tooling |  |
-| 21 | `080f4df` | Convert dashboard_render flat files to a package | 5 | +11/-11 | tooling |  |
-| 22 | `705b7ef` | Preserve top_blocker field-route visibility in dashboard_re… | 1 | +6/-0 | tooling |  |
-| 23 | `1f5e6a4` | Checkpoint reviewer bridge state | 1 | +22/-36 | docs |  |
-| 24 | `d9a76f2` | Modularize oversized files flagged by post-push code_shape… | 27 | +3792/-3071 | tooling |  |
-| 25 | `f66a4ec` | Remove stale PATH_POLICY_OVERRIDES for shrunken files | 1 | +0/-12 | tooling |  |
+| 1 | `922b376` | Accept snapshot-only review snapshot receipts | 10 | +186/-69 | tooling |  |
+| 2 | `4d8a128` | Close packet-backed action request binding | 18 | +797/-168 | tooling |  |
+| 3 | `ee13a6c` | Add architecture hardening plan for Codex review | 2 | +1148/-58 | tooling |  |
+| 4 | `e21d8e8` | Close MP-377 typed-continuity tranche (Legs 1+2+3 follow-up… | 12 | +872/-68 | tooling |  |
+| 5 | `f9388da` | Add install-git-hooks command for portable pre-commit snaps… | 5 | +704/-50 | tooling |  |
+| 6 | `d155b02` | Refresh REVIEW_SNAPSHOT to track branch tip at 60bcd68 | 1 | +112/-108 | tooling |  |
+| 7 | `60bcd68` | Open policy-gated skip-preflight bypass window for ReviewSn… | 2 | +100/-1 | tooling |  |
+| 8 | `c98d471` | Restore script_catalog entries stripped during previous edit | 1 | +14/-0 | tooling |  |
+| 9 | `4b45f9a` | Register python_typed_seams in script_catalog | 1 | +1/-0 | tooling |  |
+| 10 | `5978dce` | Add ReviewSnapshot external-review surface via pre-commit r… | 33 | +4198/-680 | tooling |  |
+| 11 | `b6be213` | Land reviewer-supervisor restart-policy follow-up checkpoint | 21 | +549/-98 | tooling |  |
+| 12 | `244ae83` | Land MP-382 + MP-387 launch-authority closure (F21/F21a/F23… | 30 | +1306/-333 | tooling | Parser / ANSI boundary |
+| 13 | `fefa621` | Checkpoint reviewer bridge state: F21/F21a/F23/F24 launch-a… | 1 | +39/-92 | docs |  |
+| 14 | `846987c` | Update test_launch_sessions_if_requested_headless_requires_… | 1 | +150/-3 | tooling |  |
+| 15 | `84e60bc` | Land F21 integration: wire launcher_discipline into the lau… | 4 | +248/-2 | tooling | Parser / ANSI boundary |
+| 16 | `b748c6e` | Land F21 launcher-discipline pre-flight validation (pure fu… | 2 | +443/-0 | tooling |  |
+| 17 | `7a8b427` | Land MP-381 dashboard wiring + ViolationRecord consumer ada… | 15 | +1728/-42 | tooling |  |
+| 18 | `e35c4e3` | Land MP-381 F18 + F19 fixes per Codex instruction 269e91f22… | 2 | +312/-22 | tooling |  |
+| 19 | `e564969` | Land MP-381 F14 fix: exempt parked governed pipelines from… | 3 | +330/-3 | tooling |  |
+| 20 | `4f93b48` | Land F1 AST field-route helper plus MP-381 probe-report Vio… | 11 | +806/-35 | tooling |  |
+| 21 | `b22bf96` | Teach field-route guard to scan package sources | 1 | +16/-7 | tooling |  |
+| 22 | `080f4df` | Convert dashboard_render flat files to a package | 5 | +11/-11 | tooling |  |
+| 23 | `705b7ef` | Preserve top_blocker field-route visibility in dashboard_re… | 1 | +6/-0 | tooling |  |
+| 24 | `1f5e6a4` | Checkpoint reviewer bridge state | 1 | +22/-36 | docs |  |
+| 25 | `d9a76f2` | Modularize oversized files flagged by post-push code_shape… | 27 | +3792/-3071 | tooling |  |
 
 ### Files
 
@@ -133,27 +134,27 @@ Range: last 25 commits ending at `4d8a128d98d7`
 |---|---|---|
 | `.github/workflows/release_preflight.yml` | tooling | +1/-1 |
 | `.github/workflows/tooling_control_plane.yml` | tooling | +2/-2 |
-| `AGENTS.md` | docs | +35/-4 |
+| `AGENTS.md` | docs | +39/-5 |
 | `AUDIT_STATUS.md` | docs | +0/-474 |
 | `bridge.md` | docs | +182/-184 |
 | `dev/active/MASTER_PLAN.md` | tooling | +121/-3 |
 | `dev/active/ai_governance_platform.md` | tooling | +90/-3 |
 | `dev/active/platform_authority_loop.md` | tooling | +149/-8 |
 | `dev/active/portable_code_governance.md` | tooling | +40/-8 |
-| `dev/active/remote_commit_pipeline.md` | tooling | +120/-16 |
+| `dev/active/remote_commit_pipeline.md` | tooling | +131/-16 |
 | `dev/active/remote_control_runtime.md` | tooling | +132/-19 |
-| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +792/-343 |
-| `dev/audits/architecture_hardening_plan.md` | tooling | +1117/-5 |
+| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +856/-403 |
+| `dev/audits/architecture_hardening_plan.md` | tooling | +1124/-5 |
 | `dev/audits/push_override_receipts/20260407T173000Z_review_snapshot_landing.md` | tooling | +99/-0 |
 | `dev/config/devctl_repo_policy.json` | tooling | +1/-1 |
 | `dev/config/git_hooks/pre-commit-review-snapshot.sh` | tooling | +97/-0 |
 | `dev/config/launchd/review_channel_publisher_service.py` | tooling | +4/-0 |
-| `dev/guides/DEVELOPMENT.md` | docs | +43/-5 |
-| `dev/history/ENGINEERING_EVOLUTION.md` | tooling | +220/-2 |
-| `dev/scripts/README.md` | tooling | +53/-6 |
+| `dev/guides/DEVELOPMENT.md` | docs | +44/-6 |
+| `dev/history/ENGINEERING_EVOLUTION.md` | tooling | +241/-2 |
+| `dev/scripts/README.md` | tooling | +59/-9 |
 | `dev/scripts/checks/check_audit_status_sync.py` | tooling | +0/-112 |
-| `dev/scripts/checks/check_review_snapshot_freshness.py` | tooling | +203/-0 |
-| `dev/scripts/checks/code_shape/code_shape_policy.py` | tooling | +0/-18 |
+| `dev/scripts/checks/check_review_snapshot_freshness.py` | tooling | +258/-3 |
+| `dev/scripts/checks/code_shape/code_shape_policy.py` | tooling | +0/-6 |
 | `dev/scripts/checks/platform_contract_closure/field_routes_surface_state.py` | tooling | +126/-18 |
 | `dev/scripts/checks/startup_authority_contract/command.py` | tooling | +3/-1 |
 | `dev/scripts/checks/startup_authority_contract/runtime_checks.py` | tooling | +211/-22 |
@@ -239,9 +240,11 @@ Recent findings:
 
 - **risk**: Parser / ANSI boundary — Delta touches a risk-sensitive surface; verify the routed bundle
 - **authority_surface**: Typed authority surface touched (`dev/active/remote_commit_pipeline.md`) — Review contract-level invariants for this file
+- **authority_surface**: Typed authority surface touched (`dev/scripts/checks/check_review_snapshot_freshness.py`) — Review contract-level invariants for this file
+- **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/runtime/review_snapshot_render.py`) — Review contract-level invariants for this file
+- **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/tests/checks/test_check_review_snapshot_freshness.py`) — Review contract-level invariants for this file
 - **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/review_channel/bridge_projection_state.py`) — Review contract-level invariants for this file
 - **authority_surface**: Typed authority surface touched (`dev/audits/push_override_receipts/20260407T173000Z_review_snapshot_landing.md`) — Review contract-level invariants for this file
-- **authority_surface**: Typed authority surface touched (`dev/scripts/checks/check_review_snapshot_freshness.py`) — Review contract-level invariants for this file
 - **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/commands/governance/review_snapshot.py`) — Review contract-level invariants for this file
 - **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/commands/vcs/governed_executor.py`) — Review contract-level invariants for this file
 - **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/commands/vcs/governed_executor_phases.py`) — Review contract-level invariants for this file
@@ -253,12 +256,10 @@ Recent findings:
 - **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/runtime/review_snapshot_hints.py`) — Review contract-level invariants for this file
 - **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/runtime/review_snapshot_models.py`) — Review contract-level invariants for this file
 - **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/runtime/review_snapshot_refresh.py`) — Review contract-level invariants for this file
-- **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/runtime/review_snapshot_render.py`) — Review contract-level invariants for this file
 - **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/runtime/review_snapshot_render_sections.py`) — Review contract-level invariants for this file
 - **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/runtime/review_snapshot_sections.py`) — Review contract-level invariants for this file
 - **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/runtime/review_snapshot_serialize.py`) — Review contract-level invariants for this file
 - **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/runtime/review_snapshot_why.py`) — Review contract-level invariants for this file
-- **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/tests/checks/test_check_review_snapshot_freshness.py`) — Review contract-level invariants for this file
 - **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/tests/runtime/test_review_snapshot.py`) — Review contract-level invariants for this file
 - **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/commands/review_channel/bridge_action_support.py`) — Review contract-level invariants for this file
 - **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/commands/review_channel/bridge_contexts.py`) — Review contract-level invariants for this file
@@ -295,6 +296,8 @@ Recent findings:
 
 ### Per-commit rationale
 
+- **`922b376`** — Accept snapshot-only review snapshot receipts
+  - evolution: The Codex/Claude bridge exposed a split-brain failure across three authority planes: event-backed packets, the markdown bridge compatibility projection, and session-resume/bootstrap cache state. A reviewer could post a …
 - **`4d8a128`** — Close packet-backed action request binding
   - evolution: The Codex/Claude bridge exposed a split-brain failure across three authority planes: event-backed packets, the markdown bridge compatibility projection, and session-resume/bootstrap cache state. A reviewer could post a …
 - **`ee13a6c`** — Add architecture hardening plan for Codex review
@@ -410,11 +413,6 @@ Recent findings:
   - Split four subsystem clusters that exceeded the 350-line soft limit,
   - plus remove one stale path override now below language default.
   - evolution: The next failure was not a bad implementation slice; it was a self-hosting reviewer interruption. A live `active_dual_agent` Codex conductor bootstrapped, narrowed into the bounded post-push shape cleanup, and then the …
-- **`f66a4ec`** — Remove stale PATH_POLICY_OVERRIDES for shrunken files
-  - status_line/format/tests.rs (98 lines) and devctl/collect.py (253 lines)
-  - are well under their language defaults (900 and 350 respectively). The
-  - code_shape guard flagged these overrides as stale during push preflight.
-  - evolution: The next failure was not a bad implementation slice; it was a self-hosting reviewer interruption. A live `active_dual_agent` Codex conductor bootstrapped, narrowed into the bounded post-push shape cleanup, and then the …
 ### Active MP scope (from MASTER_PLAN.md)
 
 - `dev/active/devctl_reporting_upgrade.md` is the phased `devctl` reporting/CIHub specification, but not a separate execution tracker; implementation tasks stay in this file under `MP-297..MP-300`, `MP-303`, `MP-306`, `MP…
@@ -433,9 +431,10 @@ Recent findings:
 - open governance findings: 39
 
 ### Startup advisories
-- checkpoint_allowed: worktree_dirty_within_budget
+- checkpoint_before_continue: dirty_path_budget_exceeded
 
 ### Stale warnings
+- Keep editing the current slice.
 - Move straight to the governed push path.
 
 ### Open gap rows
@@ -450,4 +449,4 @@ Recent findings:
 
 ---
 
-Projection produced by `devctl review-snapshot`. Generation stamp `snap-2195575dae72` binds this file to HEAD `4d8a128d98d7`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
+Projection produced by `devctl review-snapshot`. Generation stamp `snap-439a9844d034` binds this file to HEAD `922b3769bc12`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.

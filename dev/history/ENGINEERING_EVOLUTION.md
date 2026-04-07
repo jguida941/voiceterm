@@ -81,6 +81,12 @@ fails closed. This gives outside reviewers and ChatGPT a publishable GitHub
 surface for planning: land code, regenerate the snapshot from that code state,
 commit the generated snapshot alone, and push through `devctl push --execute`.
 
+The follow-up automation makes that two-phase shape repo-owned instead of
+manual: `devctl review-snapshot --write --receipt-commit` refuses
+non-snapshot dirty state and creates the receipt commit with hook recursion
+disabled, and `devctl install-git-hooks` now installs the post-commit hook that
+invokes that path after ordinary raw `git commit` operations.
+
 Evidence: `dev/scripts/checks/check_review_snapshot_freshness.py`,
 `dev/scripts/devctl/runtime/review_snapshot_render.py`,
 `dev/scripts/devctl/tests/checks/test_check_review_snapshot_freshness.py`,

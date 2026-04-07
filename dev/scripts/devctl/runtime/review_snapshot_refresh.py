@@ -3,10 +3,10 @@
 Publish contract: the refresh runs *before* the governed ``git commit``
 inside ``governed_executor_phases.execute_commit``. The helper regenerates
 ``dev/audits/REVIEW_SNAPSHOT.md`` and auto-stages it via ``git add`` so the
-committed tree — and therefore the pushed commit on GitHub — actually
-contains the refreshed projection. A post-commit refresh would only dirty
-the worktree without publishing the file, which is the bug this module is
-explicitly designed to prevent.
+committed tree contains a refreshed projection. A post-commit *write* would
+only dirty the worktree without publishing the file, so the post-commit
+publication path lives in ``devctl review-snapshot --receipt-commit`` and
+creates a snapshot-only receipt commit instead.
 
 Initialization contract: the refresh is a no-op when the configured
 snapshot file does not yet exist. Fresh adopter repos opt in by running
@@ -103,10 +103,9 @@ def refresh_and_stage_review_snapshot(
 
     This is the canonical governed-commit hook: call it *before* the
     governed executor runs ``git commit``, so the committed tree contains
-    the refreshed snapshot and the pushed commit on GitHub actually shows
-    the updated review surface. A post-commit refresh cannot achieve this
-    because the commit object is already sealed by the time the refresh
-    would run.
+    the refreshed snapshot. Use ``review-snapshot --receipt-commit`` for the
+    separate post-commit receipt path; a plain post-commit write is still
+    invalid because the commit object is already sealed.
 
     Returns any warning strings from refresh or staging — callers fold them
     into their existing warnings surface. Never raises.

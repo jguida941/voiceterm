@@ -1126,7 +1126,11 @@ false positives, and fixes real issues — then re-runs CodeRabbit to verify.
    `tooling_control_plane.yml` and `release_preflight.yml`. The snapshot
    freshness guard intentionally accepts a trailing snapshot-only commit when
    the snapshot binds to that commit's parent code state; non-snapshot HEAD
-   drift still fails closed.
+   drift still fails closed. The managed `install-git-hooks` surface now
+   installs both the pre-commit projection hook and a post-commit receipt hook
+   that delegates to `devctl review-snapshot --write --receipt-commit`, so raw
+   commits can produce the same two-phase publication shape without a manual
+   snapshot-only follow-up.
 3. Guard output format MUST support `--since-ref`/`--head-ref` for growth-based gating.
 4. The Ralph AI fix wrapper MUST run architecture-specific validation after fixes.
 5. No architecture may bypass the Ralph loop — all CodeRabbit findings across Rust,

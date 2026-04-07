@@ -25,17 +25,20 @@ change.
 Current publication-freshness rule: a snapshot that lives inside the same
 commit cannot contain that commit's final SHA, because changing the file
 changes the SHA. The sanctioned fast path is therefore code commit first,
-`review-snapshot --write` second, snapshot-only commit third. The freshness
-guard accepts that trailing snapshot-only commit when the generated snapshot
-binds to its parent code state; non-snapshot HEAD drift still fails closed.
+`review-snapshot --write --receipt-commit` second, which creates the
+snapshot-only receipt commit. The freshness guard accepts that trailing
+snapshot-only commit when the generated snapshot binds to its parent code
+state; non-snapshot HEAD drift still fails closed. `install-git-hooks` now
+installs the pre-commit projection hook plus the post-commit receipt hook so
+raw `git commit` can run that two-phase path automatically.
 
 ## Codex handoff summary (read this first)
 
-**What's done and live on GitHub** (branch `feature/governance-quality-sweep`, tip `f9388da`):
+**Baseline done state from the original audit tranche** (branch `feature/governance-quality-sweep`, original tip `f9388da`; later local closures are tracked above and in `dev/active/remote_commit_pipeline.md`):
 - ReviewSnapshot builder, renderer, freshness guard, devctl command (5 commits)
-- Pre-commit refresh hook via `governed_executor_phases` (for `devctl vcs.commit`) AND via installable git hook (for raw `git commit`)
-- `devctl install-git-hooks` command with worktree-aware install + idempotent + tamper-resistant
-- 27 + 12 = 39 unit tests passing
+- Pre-commit refresh hook via `governed_executor_phases` (for `devctl vcs.commit`) AND installable raw-git hooks for pre-commit projection plus post-commit receipt commits
+- `devctl install-git-hooks` command with worktree-aware install, idempotent behavior, tamper-resistant overwrite checks, and the two-hook ReviewSnapshot receipt pair
+- Unit coverage for the ReviewSnapshot projection, freshness guard, and hook installer
 - Typed override chain walked end-to-end (PushBypassPolicy + PushAuthorizationRecord + markdown receipt)
 - `dev/audits/REVIEW_SNAPSHOT.md` rendering from typed sources, published on GitHub
 
@@ -382,19 +385,21 @@ Concrete design:
 
 **Implementation slice**: `dev/scripts/devctl/review_daemon/` package with Agent SDK scaffolding. Agent SDK reads from repo governance state, makes decisions using the existing typed contracts, writes back through the review channel. Operator launches once via `launchd` / `systemd` / similar.
 
-### Additional git hooks beyond pre-commit
+### Additional git hooks beyond the current receipt pair
 
-The `install-git-hooks` command currently installs only `pre-commit`. There are other git hooks that could close additional gaps:
+The `install-git-hooks` command now installs `pre-commit` plus `post-commit`
+for the ReviewSnapshot projection/receipt flow. There are still other git
+hooks that could close additional gaps:
 
 | Hook | Purpose |
 |---|---|
 | `prepare-commit-msg` | Inject the current generation stamp into the commit message body automatically, so every commit message carries traceability to its snapshot state. No manual copy-paste. |
 | `commit-msg` | Validate the commit message references an MP (`MP-NNN`) or checkpoint marker (`FNN`), rejecting commits without traceability. Makes the MP-reference extraction load-bearing. |
-| `post-commit` | Verify the snapshot was committed correctly. If not, log a loud warning. Last line of defense against a broken `pre-commit` hook. |
+| `post-commit` | Current installed hook creates the snapshot-only receipt commit by calling `review-snapshot --receipt-commit`; future work can add richer verification/journal output. |
 | `post-merge` | After `git pull` or `git merge`, re-run the freshness guard. Catches cases where pulling in new commits drifts the snapshot relative to the new tree. |
 | `pre-push` | Local-client-side equivalent of the governed push preflight. Runs `devctl push --execute --dry-run` locally before the actual push reaches the remote. Redundant with the governed push path but catches developers who accidentally type raw `git push`. |
 
-**Implementation slice**: extend `install-git-hooks` to install any subset of these via `--hooks <list>` flag. Each hook template lives in `dev/config/git_hooks/`.
+**Implementation slice**: extend `install-git-hooks` to install any subset of the remaining hooks via `--hooks <list>` flag. Each hook template lives in `dev/config/git_hooks/`.
 
 ### Other deterministic-typed-system opportunities
 
