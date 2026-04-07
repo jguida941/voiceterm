@@ -81,6 +81,14 @@ def _supervisor_restart_detail(restart_attempt) -> str | None:
     if restart_attempt.restarted:
         return "Reviewer supervisor was dead; auto-restarted."
 
+    start_status = str(restart_attempt.start_status or "")
+    if start_status.startswith("non_restartable_stop_reason:"):
+        stop_reason = start_status.split(":", 1)[1]
+        return (
+            f"Reviewer supervisor has stop_reason={stop_reason}; "
+            "not auto-restarting."
+        )
+
     if not restart_attempt.attempted:
         return None
 

@@ -8,6 +8,9 @@ from dev.scripts.devctl.cli import build_parser
 from dev.scripts.devctl.commands.review_channel._publisher import (
     REVIEWER_SUPERVISOR_FOLLOW_ARGS,
 )
+from dev.scripts.devctl.commands.review_channel._reviewer_supervisor_autostart import (
+    ensure_reviewer_supervisor_running,
+)
 from dev.scripts.devctl.commands.review_channel._stop import (
     StopActionDeps,
     run_stop_action,
@@ -113,6 +116,38 @@ def test_run_stop_action_stops_reviewer_supervisor(
     result = report["results"][0]
     assert result["reason"] == "manual_stop"
     assert result["state"]["stop_reason"] == "manual_stop"
+
+
+def test_reviewer_supervisor_auto_start_respects_manual_stop(
+    tmp_path: Path,
+) -> None:
+    status_dir = tmp_path / "status"
+    status_dir.mkdir()
+    write_reviewer_supervisor_heartbeat(
+        status_dir,
+        ReviewerSupervisorHeartbeat(
+            pid=4242,
+            started_at_utc="2026-03-25T12:00:00Z",
+            last_heartbeat_utc="2026-03-25T12:00:05Z",
+            snapshots_emitted=3,
+            reviewer_mode="active_dual_agent",
+            stop_reason="manual_stop",
+            stopped_at_utc="2026-03-25T12:00:05Z",
+        ),
+    )
+
+    report = ensure_reviewer_supervisor_running(
+        args=SimpleNamespace(follow=False, reviewer_mode="active_dual_agent"),
+        repo_root=tmp_path,
+        paths={"status_dir": status_dir},
+    )
+
+    assert report == {
+        "attempted": False,
+        "started": False,
+        "reason": "non_restartable_stop_reason",
+        "stop_reason": "manual_stop",
+    }
 
 
 def test_run_stop_action_is_idempotent_when_daemon_is_not_running(tmp_path: Path) -> None:

@@ -19,7 +19,6 @@ from ..review_channel_command import (
     RuntimePaths,
     _coerce_runtime_paths,
 )
-
 # Auto-poll cadence defaults keyed by operator interaction mode.
 # remote_control uses a tighter cadence so the phone-steered operator
 # sees near-real-time surface updates without manual refresh.
@@ -119,7 +118,6 @@ def spawn_follow_publisher(
             start_new_session=True,
         )
     return True, process.pid, str(log_path)
-
 
 def verify_detached_start(
     *,
@@ -275,69 +273,3 @@ def spawn_reviewer_supervisor(
             start_new_session=True,
         )
     return True, process.pid, str(log_path)
-
-
-def _resolve_publisher_interaction_mode(
-    *,
-    repo_root: Path,
-    args_fallback: str = "",
-) -> str:
-    """Read operator interaction mode from governance typed state.
-
-    Falls back to args only when governance state is unavailable.
-    """
-    from ...runtime.governance_scan import scan_repo_governance_safely
-
-    governance = scan_repo_governance_safely(repo_root)
-    if governance is not None:
-        mode = (governance.bridge_config.operator_interaction_mode or "").strip()
-        if mode:
-            return mode
-    return args_fallback.strip() or ""
-
-
-def ensure_reviewer_supervisor_running(
-    *,
-    args,
-    repo_root: Path,
-    paths: RuntimePaths | Mapping[str, object],
-    allow_follow: bool = False,
-    sleep_seconds: float = 0.5,
-) -> dict[str, object] | None:
-    """Keep the detached reviewer supervisor alive for active reviewer mode."""
-    from ...review_channel.lifecycle_state import read_reviewer_supervisor_state
-    from ...review_channel.peer_liveness import reviewer_mode_is_active
-    import time as _time
-
-    if getattr(args, "follow", False) and not allow_follow:
-        return None
-    if not reviewer_mode_is_active(getattr(args, "reviewer_mode", None)):
-        return None
-
-    runtime_paths = _coerce_runtime_paths(paths)
-    if runtime_paths.status_dir is None:
-        return {"attempted": False, "started": False, "reason": "status_dir_not_resolved"}
-
-    supervisor_state = read_reviewer_supervisor_state(runtime_paths.status_dir)
-    if bool(supervisor_state.get("running")):
-        return {"attempted": False, "started": False, "reason": "already_running"}
-
-    args_fallback = str(
-        getattr(args, "operator_interaction_mode", "") or ""
-    ).strip()
-    interaction_mode = _resolve_publisher_interaction_mode(
-        repo_root=repo_root,
-        args_fallback=args_fallback,
-    )
-    started, pid, log_path = spawn_reviewer_supervisor(
-        args=args,
-        repo_root=repo_root,
-        paths=runtime_paths,
-        operator_interaction_mode=interaction_mode,
-    )
-    if not started:
-        return {"attempted": True, "started": False, "pid": pid, "log_path": log_path, "start_status": "spawn_failed"}
-    _time.sleep(sleep_seconds)
-    mode = str(getattr(args, "reviewer_mode", "active_dual_agent"))
-    start_status = verify_reviewer_supervisor_start(pid=pid, paths=runtime_paths, reviewer_mode=mode)
-    return {"attempted": True, "started": start_status == "started", "pid": pid, "log_path": log_path, "start_status": start_status}

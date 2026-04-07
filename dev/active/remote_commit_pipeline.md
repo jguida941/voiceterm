@@ -460,9 +460,9 @@ surface for remote sessions. It should project:
       governed executor path.
 - [x] Reuse the existing guarded push flow from the new pipeline and prove end-
       to-end remote approval -> commit -> push without local keyboard input.
-- [ ] Add a repo-owned commit gate that runs the routed guard bundle before any
-      remote-control or governed local commit is created, records current guard
-      freshness in typed state, and blocks raw unguarded commit attempts.
+- [ ] Fix missing quality evidence to fail closed as `unknown` / `stale`
+      before using automated validation-tier routing as a push or checkpoint
+      proof; a missing push/guard report must not project `last_guard_ok=true`.
 - [ ] Add a typed `ValidationPlan` / `ValidationReceipt` contract emitted from
       `check-router` or a sibling router command, bound to current worktree or
       staged tree hash, with selected bundle, risk add-ons, escalation reason,
@@ -470,9 +470,10 @@ surface for remote sessions. It should project:
 - [ ] Bind `vcs.stage`, `vcs.commit`, and governed `vcs.push` to a fresh
       matching validation receipt for the exact staged tree or approved commit
       target, instead of trusting `guard_profile` strings or actor memory.
-- [ ] Fix missing quality evidence to fail closed as `unknown` / `stale`
-      before using automated validation-tier routing as a push or checkpoint
-      proof; a missing push/guard report must not project `last_guard_ok=true`.
+- [ ] Add a repo-owned commit gate on top of that validation contract: before
+      any remote-control or governed local commit is created, require a fresh
+      matching validation receipt for the staged tree, record current proof
+      freshness in typed state, and block raw unguarded commit attempts.
 - [ ] Surface commit-gate freshness / last-guard truth through doctor, status,
       and auto-mode so approval-ready state cannot be inferred from stale or
       bypassed guard runs.

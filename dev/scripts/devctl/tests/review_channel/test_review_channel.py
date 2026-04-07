@@ -6595,6 +6595,62 @@ class ReviewChannelCommandTests(unittest.TestCase):
         self.assertIn("auto-restarted", report["detail"])
         self.assertNotIn("reviewer supervisor follow loop is required", report["detail"])
 
+    def test_ensure_respects_manual_supervisor_stop_reason(self) -> None:
+        """Ensure must not undo an explicit reviewer-supervisor manual stop."""
+        args = SimpleNamespace(follow=False, start_publisher_if_missing=False)
+        status_report = {
+            "bridge_liveness": {
+                "reviewer_mode": "active_dual_agent",
+                "codex_poll_state": "fresh",
+                "last_codex_poll_age_seconds": 0,
+                "claude_ack_current": True,
+                "review_needed": True,
+            },
+            "attention": {"status": "reviewer_supervisor_required"},
+            "reviewer_worker": {"review_needed": True},
+            "reviewer_supervisor": {
+                "running": False,
+                "stop_reason": "manual_stop",
+            },
+            "service_identity": None,
+            "attach_auth_policy": None,
+        }
+
+        with (
+            patch.object(
+                review_channel_follow_runtime,
+                "_run_status_action",
+                return_value=(status_report, 0),
+            ),
+            patch.object(
+                review_channel_follow_runtime,
+                "_spawn_reviewer_supervisor",
+            ) as spawn_supervisor,
+            patch.object(
+                review_channel_ensure_mod,
+                "assess_publisher_lifecycle",
+                return_value=review_channel_command.PublisherLifecycleAssessment(
+                    publisher_state={"running": True},
+                    publisher_running=True,
+                    publisher_required=True,
+                    publisher_status="running",
+                ),
+            ),
+        ):
+            report, rc = review_channel_command._run_ensure_action(
+                args=args,
+                repo_root=Path("/tmp/repo"),
+                paths={},
+            )
+
+        self.assertEqual(rc, 1)
+        self.assertFalse(report["ok"])
+        self.assertIn(
+            "Reviewer supervisor has stop_reason=manual_stop; not auto-restarting.",
+            report["detail"],
+        )
+        spawn_supervisor.assert_not_called()
+
     def test_ensure_reloads_failed_start_state_after_supervisor_restart_attempt(self) -> None:
         """Failed supervisor restarts must re-read lifecycle state before reporting ensure status."""
         args = SimpleNamespace(follow=False, start_publisher_if_missing=False)

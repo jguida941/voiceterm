@@ -1,6 +1,6 @@
 # Portable Code Governance Plan
 
-**Status**: active  |  **Last updated**: 2026-04-02 | **Owner:** Tooling/code governance
+**Status**: active  |  **Last updated**: 2026-04-07 | **Owner:** Tooling/code governance
 Execution plan contract: required
 This spec remains execution mirrored in `dev/active/MASTER_PLAN.md` under
 `MP-376`. It is the narrower engine/adoption companion to
@@ -515,7 +515,11 @@ Use one deterministic triage on every failing repo before widening again:
       `active_path_config()` capture, and bridge-markdown current-status reads
       outside approved compatibility adapters. Start report-only, then promote
       low-noise subsets into blocking guards once the current fallback backlog
-      is burned down.
+      is burned down. Seed the first report pattern set with `dev/active`,
+      `dev/reports`, `dev/scripts`, `bridge.md`, `local_terminal`,
+      `VOICETERM_*`, fixed review-status/session-cache paths, and VoiceTerm
+      package/layout names when they appear outside repo-pack or product-
+      integration boundaries.
 - [ ] Land the first explicit authority-drift guards from that scan: implement
       `check_repo_pack_activation.py` for hidden VoiceTerm-default resolution
       and `check_frozen_path_config_imports.py` for import-time path-config
@@ -527,12 +531,15 @@ Use one deterministic triage on every failing repo before widening again:
       from that map instead of ambient directory naming.
 - [ ] Add a multi-repo portability fixture matrix that exercises the governed
       startup/adoption path on at least four shapes with no core patching:
-      empty repo bootstrap, custom docs/layout repo with non-VoiceTerm
-      authority filenames and report roots, existing mixed-language repo, and
-      repo with tandem/review disabled. The matrix must prove
-      `governance-bootstrap`, `startup-context`, routed base checks, and
-      generated instruction surfaces work through repo policy / repo-pack
-      inputs instead of VoiceTerm defaults.
+      tiny Python app, Rust CLI, mixed Python/Rust repo, and custom docs/layout
+      repo with non-VoiceTerm authority filenames, report roots, and tandem /
+      review disabled. Keep this controlled matrix ahead of random external
+      repo trials so failures classify cleanly as startup authority,
+      repo-pack activation, capability gating, generated-surface, or governed
+      VCS blockers. The matrix must prove `governance-bootstrap`,
+      `startup-context`, routed base checks, and generated instruction
+      surfaces work through repo policy / repo-pack inputs instead of
+      VoiceTerm defaults.
 - [ ] Keep the governed external Python repo matrix explicit and honest:
       two real repos are enough to expose engine defects and seed regression
       anchors, but not enough to claim broad portability. Expand the matrix
@@ -739,6 +746,23 @@ Use one deterministic triage on every failing repo before widening again:
 
 ## Progress Log
 
+- 2026-04-07: Re-reviewed the portability phasing against the current
+  validation-contract concern. The lane is still ordered correctly: multi-repo
+  matrix proof is a primary pressure test for VoiceTerm leakage, but it must
+  not jump ahead of `MP-377` repo-pack/startup/validation authority blockers.
+  When the matrix exposes Step-0, repo-pack activation, governed commit/push,
+  or validation-plan gaps, stop classifying them as adopter quirks and route
+  them back to `dev/active/platform_authority_loop.md` /
+  `dev/active/remote_commit_pipeline.md`. Resume wider corpus waves only after
+  the blocker is typed, guarded, and rerun across the already-green anchors.
+- 2026-04-07: Accepted the stronger portability-by-default correction for the
+  adopter lane. Do not frame the next work as "try random repos and see what
+  breaks." First make the drift scanner explicit, then keep the controlled
+  fixture matrix small enough to diagnose root causes: tiny Python app, Rust
+  CLI, mixed Python/Rust repo, and custom-layout/no-tandem repo. Only after
+  that matrix proves repo-pack/bootstrap/check/generated-surface behavior
+  without VoiceTerm fallbacks should the lane widen back into broad real-world
+  repo trials and imported adopter finding adjudication.
 - 2026-04-02: Completed Wave 1 on `zgraph-scientific-package`, `mkgui`,
   `requests`, `interactions.py`, and `pre-commit-hooks`. All five repos
   completed `governance-bootstrap`, `probe-report --repo-path --adoption-scan`,
@@ -1596,6 +1620,14 @@ Use one deterministic triage on every failing repo before widening again:
 
 ## Session Resume
 
+- 2026-04-07 portability-by-default review: keep this lane focused on proof,
+  not new platform architecture. `MP-377` owns removing hidden VoiceTerm
+  defaults and adding typed capability/repo-pack contracts; this `MP-376`
+  companion proves those contracts on controlled adopters. Resume by making
+  the authority-drift scanner concrete, running the small Python/Rust/mixed/
+  custom-layout fixture matrix before random repo trials, and routing any
+  Step-0/startup/repo-pack/generated-surface/governed-push failures back to
+  the `MP-377` owner blockers rather than classifying them as adopter quirks.
 - 2026-04-02 Wave 1 result: no new `engine_bug` across the first five seeded
   repos. `zgraph-scientific-package`, `mkgui`, `requests`, `interactions.py`,
   and `pre-commit-hooks` all completed the governed

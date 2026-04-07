@@ -1,6 +1,6 @@
 # Platform Authority Loop Plan
 
-**Status**: active  |  **Last updated**: 2026-04-05 | **Owner:** Tooling/control plane/product architecture
+**Status**: active  |  **Last updated**: 2026-04-07 | **Owner:** Tooling/control plane/product architecture
 Execution plan contract: required
 This spec remains execution mirrored in `dev/active/MASTER_PLAN.md` under
 `MP-377`. It is the current subordinate execution spec for the `P0`
@@ -164,6 +164,16 @@ intended execution order is:
       (`validation_ready`, `published_remote`, `post_push_green`) and remove
       or policy-gate unrestricted `--skip-preflight` / `--skip-post-push`
       bypass from the canonical `devctl push` workflow.
+- [ ] Add the narrow VCS validation-plan closure before broad decision-trace
+      work: commit/checkpoint/push routing needs one tree-bound
+      `ValidationPlan` / `ValidationReceipt` emitted from repo-owned
+      check-router policy, with selected bundle, risk add-ons, escalation
+      reason, proof level, checkpoint sufficiency, push sufficiency, and
+      invalidation rules. This is the immediate mutation-proof contract for
+      `vcs.stage` / `vcs.commit` / `vcs.push`; the later Phase 5b
+      `DecisionPacket.validation_plan` work generalizes the same pattern for
+      repair/apply/evidence flows and must not be used as a reason to leave
+      the current commit gate on `guard_profile` strings.
 - [ ] Define one operator-approved governed push override path on top of that
       same push policy so a blocked publish may retry only under a
       generation-bound `override_push` decision tied to exact approved target
@@ -236,9 +246,13 @@ intended execution order is:
 - [ ] Derive a `DerivedCapabilityContract` from that same startup path before
       mutable execution begins: allowed/denied/ask-first tool families,
       autonomy scope, publish/network/worktree permissions, subagent/fanout
-      allowance, and session TTL must be projected from repo-owned governance
-      and current review/mode state instead of being inferred ad hoc by the
-      provider runtime.
+      allowance, review-channel/tandem/bridge availability, operator-console
+      availability, terminal/visibility mode, and session TTL must be
+      projected from repo-owned governance and current review/mode state
+      instead of being inferred ad hoc by the provider runtime. Defaults for
+      review-channel, autonomy, operator console, `bridge.md`, and
+      `local_terminal` are denied or unresolved unless the active repo-pack
+      explicitly enables them.
 - [ ] Compile the selected `PlanTargetRef` / `WorkIntakePacket` into one typed
       `PlanExpectationPacket` before mutation or validation begins:
       required artifacts, forbidden states, invariants, validation commands,
@@ -655,9 +669,16 @@ intended execution order is:
 - [ ] Remove silent VoiceTerm-default authority from portable runtime mode:
       `ProjectGovernance`, `DocPolicy`, `PlanRegistry`, `ArtifactRoots`, and
       `BridgeConfig` must stop treating `dev/active/*`, `dev/reports/*`, and
-      `bridge.md` as implicit truth in portable mode. Compatibility mode may
-      keep bounded defaults only when the active repo-pack explicitly declares
-      them and receipts/runtime state make that fallback visible.
+      `bridge.md` as implicit truth in portable mode. Add the currently known
+      closure targets to that same burn-down: `PathRoots` defaults for
+      `dev/active`, `dev/reports`, and `dev/scripts`; `BridgeConfig`
+      defaulting to `local_terminal`; `session_resume_support.py` fixed
+      `dev/reports/session_cache/latest`; `control_plane_resolve`
+      `artifact_paths()` fallback to `dev/review_status` / `dev/reports`;
+      and `VOICETERM_*` / `voiceterm_repo_root()` fallbacks in shared
+      runtime. Compatibility mode may keep bounded defaults only when the
+      active repo-pack explicitly declares them and receipts/runtime state make
+      that fallback visible.
 - [ ] Freeze one dependency-injection pattern for portable runtime code:
       top-level commands, service constructors, and helper entrypoints accept
       `RepoPack` or `RepoPathConfig` explicitly and thread it through;
@@ -751,6 +772,12 @@ intended execution order is:
       portable layers, plus fixture-repo tests that prove empty-repo bootstrap,
       existing-repo adoption, alternate governed-doc roots, and
       tandem-disabled repos do not silently collapse back to VoiceTerm rules.
+      The initial report-only pattern set should explicitly flag `dev/active`,
+      `dev/reports`, `dev/scripts`, `bridge.md`, `local_terminal`,
+      `VOICETERM_*`, fixed review-status/session-cache paths, and VoiceTerm
+      package/layout names outside approved repo-pack or product-integration
+      boundaries; only promote subsets to blocking once the current migration
+      backlog is burned down enough to avoid CI deadlock.
 - [ ] Move reviewer-freshness/hash exclusions and other ephemeral-artifact
       filters onto repo-pack / governance-owned exclusion families: tandem
       checks and reviewer heartbeats must not hardcode `.voiceterm/memory/`,
@@ -939,6 +966,12 @@ blocker or exception in plan state before skipping the declared order.
 
 #### Phase 5b.1 - Foundation And Boundary Contracts
 
+- [ ] Reuse the Phase 1 VCS `ValidationPlan` / `ValidationReceipt` shape
+      instead of inventing a second validation vocabulary: Phase 5b broadens
+      tree-bound validation proof from checkpoint/commit/push into
+      `DecisionPacket.validation_plan`, repair/apply, and evidence
+      projection. If Phase 1 has not landed the VCS contract yet, this item is
+      blocked rather than allowed to proceed as a parallel schema.
 - [ ] Extend the Phase 5a identity freeze across guards, probes, external
       imports, review ledgers, and decision packets so every evidence family
       materializes the same canonical `Finding` contract with
@@ -1337,7 +1370,11 @@ blocker or exception in plan state before skipping the declared order.
       contract/packet/subsystem/query nodes plus typed edges for consumers,
       proof surfaces, changed-path triggers, and bounded related scope. Keep
       it generated from canonical registries and repo state, never as live
-      runtime truth.
+      runtime truth. Extend the same catalog/contract-closure path to
+      repo-pack fields and portability capabilities so a new capability or
+      path-root field cannot land without declared consumers/projections in
+      startup/session-resume, dashboard, phone/mobile, CI, and generated
+      extension surfaces or an explicit deferral.
 - [ ] Upgrade `AgentDispatchPacket` from "what bundle should run?" to the
       bounded semantic frontier packet in that same proof: carry primary
       nodes, adjacent nodes, stop conditions, proof surfaces, mutation
@@ -1527,6 +1564,14 @@ blocker or exception in plan state before skipping the declared order.
       emitted Codex/Claude/MCP surfaces were exercised without core patches.
 - [ ] Prove the authority loop on at least two repositories with different
       layouts and no core-engine patches between them.
+- [ ] Run the controlled fixture matrix before broad real-world repo trials:
+      at minimum one tiny Python app, one Rust CLI, one mixed Python/Rust
+      repo, and one custom-layout/no-tandem repo with non-VoiceTerm doc and
+      artifact roots. Treat failures in startup authority, repo-pack
+      activation, generated instruction surfaces, review/tandem capability
+      gating, or governed commit/push as `MP-377` blockers rather than
+      adopter quirks; only widen to random/external repos after the controlled
+      matrix produces clean, typed receipts without core-engine patches.
 - [ ] Freeze Phase 7 success criteria as "all portable and language-
       appropriate guards/probes pass, repo-pack activation is explicit in
       receipts, and no core-engine patches are required between repos", not
@@ -1664,6 +1709,18 @@ blocker or exception in plan state before skipping the declared order.
 
 ## Session Resume
 
+- 2026-04-07 portability-by-default review: the current architecture is not
+  blocked by missing thesis; it is blocked by closure. Resume by treating
+  hidden VoiceTerm defaults as the next authority-loop P0 work: shared
+  runtime/tooling modules must resolve paths, capabilities, operator mode, and
+  review topology from `ProjectGovernance` / active `RepoPack` / typed
+  runtime state or fail closed. Make review-channel, autonomy, operator
+  console, bridge/tandem, and terminal visibility explicit capabilities; add a
+  static portability guard for the known forbidden literal families; then run
+  the controlled Python/Rust/mixed/custom-layout fixture matrix before broad
+  external repo trials. Do not ask Claude to paper over these leaks manually;
+  use guard and `SystemCatalog` / contract-closure projection checks to make
+  missing bindings visible.
 - 2026-04-05 launch-authority packet review: the compiler-style model is
   already strong enough as the architecture thesis; the remaining gap is the
   first-hop operational packet. Resume by making `startup-context` and its
@@ -2248,6 +2305,16 @@ blocker or exception in plan state before skipping the declared order.
 
 ## Progress Log
 
+- 2026-04-07: Recorded the external review verdict that the platform is
+  portable by architecture but not yet portable by default. The accepted next
+  lane is not another theory layer and not random adopter testing first. It is
+  the closure sequence now reflected in Phase 1/2/6/7: make repo-pack and
+  bootstrap authority mandatory for shared layers, convert review/autonomy/
+  operator-console/bridge/local-terminal assumptions into typed capabilities,
+  add a report-first portability guard over forbidden VoiceTerm literals and
+  import-time path captures, prove a controlled Python/Rust/mixed/custom-
+  layout fixture matrix, and extend `SystemCatalog` / platform contract
+  closure so repo-pack/capability fields cannot miss generated projections.
 - 2026-04-05: Accepted the operator audit that the repo's compiler-style
   governance framing is already the right durable model. The next closure is
   operational, not philosophical: fresh AI still needs one first-hop launch

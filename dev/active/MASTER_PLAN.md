@@ -270,7 +270,11 @@
   and generated scripts carry prepared HEAD, current instruction revision, and
   a typed turn/session token; direct script replay re-reads `review_state.json`
   and exits with a non-restartable stale-authority code before provider start
-  when any value drifts.
+  when any value drifts. Follow-up restart-policy closure: governed
+  `manual_stop` / `completed` reviewer-supervisor state is now honored by the
+  repo-owned `ensure` / reviewer-heartbeat auto-start path, and the launchd
+  publisher wrapper treats launch-authority exit `82` as a no-restart service
+  exit.
 - Current 2026-04-05 provider-neutral bootstrap follow-up inside that same
   lane: reviewer/implementer ownership is now tracked as role-first launch
   state instead of fixed Codex/Claude identity. Planned lane parsing,
@@ -457,6 +461,29 @@
   escalation reasons plus checkpoint/push sufficiency in doctor/status/
   dashboard. Keep strict full proof at push/release boundaries, but let the
   repo select targeted checkpoint proof deterministically.
+- Current 2026-04-07 phase-order review inside that same lane: keep the next
+  coding order architecture-first. The narrow VCS `ValidationPlan` /
+  `ValidationReceipt` is a Phase-1/P0 mutation-proof prerequisite for the
+  commit gate and smarter checkpoint/push cadence, while the broader
+  `DecisionPacket.validation_plan` lane remains Phase 5b evidence/provenance
+  generalization. `MP-376` multi-repo matrix work is still primary proof for
+  VoiceTerm leakage, but Step-0/startup/repo-pack/governed-push failures from
+  that matrix must route back to `MP-377` blockers before wider adopter waves
+  or frontend/operator expansion. Do not build dashboard, automation,
+  operator-console, or future review-loop features as new authority surfaces
+  before their typed contracts and repo-pack capability gates exist.
+- Current 2026-04-07 portability-by-default review inside that same lane: the
+  platform is portable by architecture but not yet portable by default. The
+  next execution order is explicit: remove hidden VoiceTerm defaults from
+  shared runtime/tooling layers, add a static portability guard for forbidden
+  shared-layer literals and import-time path captures, prove the controlled
+  repo matrix first (Python-only, Rust CLI, mixed Python/Rust, and custom
+  docs/layout/no-tandem shapes), and only then widen into broader external
+  repo trials. Review-channel, autonomy, operator-console, bridge/tandem, and
+  local-terminal assumptions must become typed repo-pack capabilities instead
+  of implied infrastructure, and `SystemCatalog` / contract-closure checks
+  must block missing repo-pack/capability bindings across generated
+  dashboard/session-resume/phone/CI projections.
 - Latest same-lane closure on 2026-04-03: the workflow-enforcement parity for
   the Phase 3/4 remote-commit proof guards is now explicit.
   `.github/workflows/tooling_control_plane.yml` and

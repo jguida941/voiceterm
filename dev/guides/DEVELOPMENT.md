@@ -326,7 +326,11 @@ Three quality layers matter in practice:
     launches now pin `--follow-inactivity-timeout-seconds 0`, and
     `review-channel --action stop --daemon-kind <publisher|reviewer_supervisor|all>`
     is the repo-owned daemon reclaim path when those follow daemons need a
-    clean replacement. In the same active-dual-agent loop, the reviewer
+    clean replacement. A governed reviewer-supervisor `manual_stop` or
+    `completed` lifecycle record is non-restartable for implicit `ensure` /
+    reviewer-heartbeat auto-start; restore it through an explicit
+    launch/rollover/follow command instead of letting background automation
+    undo the stop. In the same active-dual-agent loop, the reviewer
     follow daemon now auto-triggers the repo-owned
     `review-channel --action recover --recover-provider <provider>` path when
     implementer-owned progress stays unchanged across repeated stale/missing

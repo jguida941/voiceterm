@@ -5,6 +5,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Callable
 
+from ._supervisor_restart_policy import (
+    non_restartable_reviewer_supervisor_stop_reason,
+)
+
 
 @dataclass(frozen=True, slots=True)
 class EnsureStatusSnapshot:
@@ -50,6 +54,18 @@ def try_restart_reviewer_supervisor(
         or deps.spawn_reviewer_supervisor_fn is None
     ):
         return no_restart
+    reviewer_supervisor = report.get("reviewer_supervisor")
+    blocked_reason = non_restartable_reviewer_supervisor_stop_reason(
+        reviewer_supervisor if isinstance(reviewer_supervisor, dict) else None,
+    )
+    if blocked_reason:
+        return ReviewerSupervisorRestartAttempt(
+            attempted=False,
+            restarted=False,
+            report=report,
+            bridge_state=bridge_state,
+            start_status=f"non_restartable_stop_reason:{blocked_reason}",
+        )
     try:
         started, sup_pid, _ = deps.spawn_reviewer_supervisor_fn(
             args=args,

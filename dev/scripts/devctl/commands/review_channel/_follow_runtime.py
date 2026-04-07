@@ -24,7 +24,7 @@ from .bridge_handler import _run_bridge_action
 from . import ensure as _ensure_mod
 from ._ensure_follow_runtime import run_ensure_follow_action
 from ._ensure_runtime import run_ensure_action
-from ._publisher import (
+from ._reviewer_supervisor_autostart import (
     ensure_reviewer_supervisor_running as _ensure_reviewer_supervisor_running,
 )
 from ._publisher import spawn_follow_publisher as _spawn_follow_publisher

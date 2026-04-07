@@ -54,6 +54,17 @@ Current 2026-04-06 shared-violation convergence note:
   same row contract in governance-review, startup summaries, and dashboard
   surfaces instead of growing another probe-specific presentation family.
 
+Current 2026-04-07 portability-by-default closure note:
+- Accept the review verdict as plan state: the architecture is portable by
+  design, but the live system is not yet portable by default. Treat the next
+  `MP-377` / `MP-376` order as hidden-default extraction first, typed
+  capability gating second, controlled fixture proof third, and broad
+  real-world adopter trials fourth. Shared layers that need paths,
+  capabilities, operator mode, or review topology must consume
+  `ProjectGovernance` / `RepoPack` / typed runtime state or fail closed; they
+  must not silently resurrect VoiceTerm path/layout, `bridge.md`, tandem, or
+  local-terminal defaults.
+
 ## Scope
 
 Turn the current VoiceTerm-local automation stack into a reusable AI governance
@@ -3128,7 +3139,12 @@ alone. Use these proof gates:
       literals plus import-time path-config capture in portable layers, and
       prove the result on fixture repos that cover empty-repo bootstrap,
       existing-repo adoption, alternate layout roots, and tandem-disabled
-      operation.
+      operation. The first forbidden-literal set should include
+      `dev/active`, `dev/reports`, `dev/scripts`, `bridge.md`,
+      `local_terminal`, `VOICETERM_*`, fixed review-status/session-cache
+      paths, and VoiceTerm package/layout names when they appear in
+      portable/runtime/tooling layers outside approved compatibility or
+      repo-pack integration surfaces.
 - [ ] Make read-only control surfaces truly no-write-safe: `platform-contracts`,
       `quality-policy`, `mcp`, `system-picture`, and other report/status
       surfaces must be able to run on read-only mounts or restricted adopters
@@ -4683,6 +4699,18 @@ alone. Use these proof gates:
 Use this section as the single "left off here" surface for fresh AI sessions
 working on `MP-377`.
 
+- 2026-04-07 portability-by-default review:
+  agree with the review distinction: the repo has the right typed abstraction
+  shape (`ProjectGovernance`, repo-pack/path roots, typed startup push
+  decisions, path-derived next guard bundles, fail-closed operator mode), but
+  shared runtime still carries VoiceTerm-shaped defaults and fallback
+  behavior. Resume by making repo-pack/bootstrap mandatory for shared layers,
+  adding explicit capability records for optional review-channel/autonomy/
+  operator-console/bridge behavior, landing a static portability guard over
+  forbidden VoiceTerm literals, and proving a controlled fixture matrix before
+  broad external repo trials. Use `SystemCatalog` / contract-closure checks to
+  block missing repo-pack/capability bindings in generated projections rather
+  than asking Claude/Codex to remember this from prose.
 - 2026-04-05 developer-truth-stack implementation review:
   keep the three-layer projection rule, but do not overclaim current closure.
   The repo already has typed startup/session/review packets, yet some visible
@@ -6039,6 +6067,26 @@ Execution order for this section:
   evidence must be `unknown` / `stale`, selected bundle/add-on/escalation
   reasons must be inspectable, and heavy proof remains at push/release
   boundaries unless repo-owned routing escalates a smaller slice.
+- 2026-04-07: Rechecked the phase ordering after the operator asked whether
+  the platform is building future surfaces ahead of their typed architecture.
+  The order stays architecture-first: `MP-377` must close startup/repo-pack
+  authority plus the narrow VCS validation-plan receipt before relying on
+  smarter commit/push cadence; `MP-376` multi-repo matrix work remains the
+  pressure-test lane for portability leaks, but Step-0/startup/governed-push
+  failures discovered there route back into `MP-377` blockers instead of
+  being worked around per adopter; dashboard/operator/frontends stay projection
+  work after typed state exists, not a second backend.
+- 2026-04-07: Accepted the portability-by-default review into the main product
+  lane. The honest state is "portable by design, not yet portable by default":
+  typed repo contracts exist, but remaining shared-layer defaults such as
+  fixed VoiceTerm paths, bridge/tandem assumptions, local-terminal fallbacks,
+  and fixed review/session-cache paths can still make adopters look like
+  VoiceTerm unless manually babysat. The next order is hidden-default
+  extraction, explicit capability gating, a static portability-drift guard,
+  controlled fixture proof, and only then broader real-world repo trials.
+  Contract closure should extend `SystemCatalog` / generated binding checks so
+  capability and repo-pack fields cannot be added without dashboard,
+  session-resume, phone/mobile, CI, and bootstrap projection coverage.
 - 2026-04-05: Accepted the next portable architecture correction into the main
   `MP-377` plan after reviewing the user's "types vs comments/docstrings"
   framing against the current codebase and plan chain. The repo already had

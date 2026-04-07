@@ -4,7 +4,7 @@
 
 **Status:** Draft v4 (historical design and process record)
 **Audience:** users and developers
-**Last Updated:** 2026-04-06
+**Last Updated:** 2026-04-07
 
 ## At a Glance
 
@@ -36,6 +36,32 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 - [Quick Read (2 min)](#quick-read-2-min)
 - [User Path (5 min)](#user-path-5-min)
 - [Developer Path (15 min)](#developer-path-15-min)
+
+### 2026-04-07 - Validation routing is now phased before commit-gate and portability expansion
+
+The commit/push path exposed a process problem that was architectural, not a
+reason to weaken checks. The repo already knew how to route bundles and risk
+add-ons, but the governed mutation path still carried only a `guard_profile`
+string rather than a tree-bound proof contract. That made "fast vs full"
+validation too dependent on the actor remembering the rules.
+
+The active plans now put the dependency in the right order: missing quality
+evidence must become `unknown` / `stale`, then a `ValidationPlan` /
+`ValidationReceipt` binds selected bundle, add-ons, escalation reason, proof
+level, and checkpoint/push sufficiency to the current tree, and only then does
+the commit gate rely on that proof. The broader
+`DecisionPacket.validation_plan` work remains Phase 5b generalization; it is
+not a reason to leave the current VCS path on a loose guard-profile string.
+The multi-repo matrix stays a primary portability pressure test, but Step-0,
+repo-pack activation, governed push, or validation-plan failures found there
+route back into `MP-377` blockers before wider adopter waves or frontend
+expansion.
+
+Evidence: `dev/active/MASTER_PLAN.md`,
+`dev/active/ai_governance_platform.md`,
+`dev/active/platform_authority_loop.md`,
+`dev/active/portable_code_governance.md`,
+`dev/active/remote_commit_pipeline.md`.
 
 ### 2026-04-05 - Reviewer/implementer bootstrap is now role-first instead of Codex/Claude-first
 
@@ -264,6 +290,32 @@ Evidence: `dev/scripts/devctl/commands/review_channel/bridge_handler.py`,
 `dev/scripts/devctl/review_channel/launch_script.py`,
 `dev/scripts/devctl/tests/review_channel/test_launcher_discipline.py`,
 `dev/scripts/devctl/tests/review_channel/test_launch_script.py`,
+`dev/scripts/devctl/tests/review_channel/test_review_channel.py`.
+
+### 2026-04-07 - Reviewer-supervisor manual stop now stays stopped across auto-start paths
+
+The live push-prep incident exposed a narrower restart boundary than the
+provider-conductor fix. The active process was the repo-owned
+`reviewer-heartbeat --follow --auto-promote` supervisor, not a prepared
+Codex/Claude conductor script. `manual_stop` already meant no restart for the
+launchd publisher wrapper, but the repo-owned `ensure` and reviewer-heartbeat
+auto-start paths could still recreate the reviewer supervisor after a governed
+stop.
+
+The restart policy now treats `manual_stop` and `completed` reviewer-supervisor
+states as non-restartable for implicit auto-heal. Explicit launch/rollover or
+operator-directed follow commands remain the way to restore the loop. The
+launchd publisher wrapper also treats launch-authority exit `82` as a
+successful no-restart service exit so stale prepared authority does not become
+login-time churn.
+
+Evidence:
+`dev/scripts/devctl/commands/review_channel/_supervisor_restart_policy.py`,
+`dev/scripts/devctl/commands/review_channel/_publisher.py`,
+`dev/scripts/devctl/commands/review_channel/_ensure_supervisor.py`,
+`dev/config/launchd/review_channel_publisher_service.py`,
+`dev/scripts/devctl/tests/review_channel/test_stop.py`,
+`dev/scripts/devctl/tests/review_channel/test_launchd_service.py`,
 `dev/scripts/devctl/tests/review_channel/test_review_channel.py`.
 
 ### 2026-04-05 - Review-channel terminal policy and headless visibility are now explicit typed runtime truth

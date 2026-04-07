@@ -162,6 +162,29 @@ def test_launchd_service_maps_output_error_to_restart_exit_code(
     assert rc == 75
 
 
+def test_launchd_service_maps_non_restartable_launch_authority_exit_to_success(
+    tmp_path: Path,
+) -> None:
+    module = _load_service_module()
+    repo_root = tmp_path / "repo"
+
+    def _run(command, **kwargs):
+        del kwargs
+        if command[4] == "status":
+            return _completed(
+                stdout=json.dumps(
+                    {"bridge_liveness": {"effective_reviewer_mode": "active_dual_agent"}}
+                )
+            )
+        _write_publisher_state(repo_root, running=False)
+        return _completed(returncode=82)
+
+    with patch.object(module.subprocess, "run", side_effect=_run):
+        rc = module.main(script_path=_script_path(repo_root))
+
+    assert rc == 0
+
+
 def test_launchd_service_maps_timeout_stop_reason_to_restart_exit_code(
     tmp_path: Path,
 ) -> None:

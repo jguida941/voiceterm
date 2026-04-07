@@ -354,6 +354,16 @@ The MP scopes remain valid but are now cross-cut by enforcement-first priority.
   current instruction revision, and a typed turn/session token; the script
   re-reads `review_state.json` before provider start and treats stale
   authority as a non-restartable headless exit instead of looping forever.
+- 2026-04-07: Closed the follow-up reviewer-supervisor restart-policy gap
+  exposed during push preparation. The live respawn symptom was the
+  repo-owned `reviewer-heartbeat --follow --auto-promote` supervisor, not a
+  provider conductor script; `manual_stop` was non-restartable in the launchd
+  publisher wrapper but the repo-owned ensure/reviewer-heartbeat auto-start
+  path could still recreate the supervisor. The reviewer-supervisor restart
+  policy now treats `manual_stop` / `completed` as non-restartable for both
+  `ensure` auto-heal and reviewer-heartbeat auto-start, while the launchd
+  publisher wrapper also maps the stale launch-authority exit code `82` to a
+  successful no-restart service exit.
 - 2026-04-06: Integrated the operator-supplied static GitHub branch review
   against the live local reviewer/runtime state. The review is directionally
   correct and aligns with this plan's existing architecture diagnosis: the
@@ -773,6 +783,10 @@ No `ControlPlaneReadModel` exists. Each surface independently reads raw artifact
   `python3 dev/scripts/checks/check_active_plan_sync.py`,
   `python3 dev/scripts/checks/check_multi_agent_sync.py`, and
   `python3 dev/scripts/devctl.py docs-check --strict-tooling`.
+- 2026-04-07 reviewer-supervisor restart-policy validation:
+  `python3 -m py_compile dev/config/launchd/review_channel_publisher_service.py dev/scripts/devctl/commands/review_channel/_publisher.py dev/scripts/devctl/commands/review_channel/_ensure_supervisor.py dev/scripts/devctl/commands/review_channel/_ensure_helpers.py dev/scripts/devctl/commands/review_channel/_supervisor_restart_policy.py`,
+  `python3 -m pytest dev/scripts/devctl/tests/review_channel/test_launchd_service.py dev/scripts/devctl/tests/review_channel/test_stop.py -q`,
+  and the targeted `ReviewChannelCommandTests` supervisor ensure tests passed.
 - Operator-supplied static GitHub branch review of the Apr 5-6 commit cluster,
   cross-checked against the active `MP-380..MP-387` plan and the live local
   reviewer/runtime state.

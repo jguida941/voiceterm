@@ -12,6 +12,8 @@ ACTIVE_REVIEWER_MODE = "active_dual_agent"
 PUBLISHER_HEARTBEAT_REL = Path(
     "dev/reports/review_channel/latest/publisher_heartbeat.json"
 )
+NON_RESTARTABLE_LAUNCH_AUTHORITY_EXIT_CODE = 82
+NON_RESTART_EXIT_CODES = frozenset({NON_RESTARTABLE_LAUNCH_AUTHORITY_EXIT_CODE})
 RESTART_EXIT_CODES = {
     "timed_out": 70,
     "inactivity_timeout": 70,
@@ -120,6 +122,8 @@ def launchd_exit_code(stop_reason: str, *, returncode: int) -> int:
     """Map the publisher stop reason into launchd restart semantics."""
     reason = stop_reason.strip()
     if reason in NO_RESTART_STOP_REASONS:
+        return 0
+    if returncode in NON_RESTART_EXIT_CODES:
         return 0
     mapped = RESTART_EXIT_CODES.get(reason)
     if mapped is not None:
