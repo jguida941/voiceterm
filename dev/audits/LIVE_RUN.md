@@ -28,11 +28,77 @@ the entry — the log is append-only trial data.
 
 ## Findings (append-only, in discovery order)
 
+### Q29 — PUSH PREFLIGHT — `check_review_surface_consistency` fails on stale `commit_pipeline.json` until `review-channel --action status` is run
+
+- **Discovered**: 2026-04-08T19:00Z
+- **Severity**: push preflight friction, medium (blocks governed push
+  until manual refresh)
+- **Body**: After the Q1 fix landed, `devctl push --execute` still
+  blocked on `router-20` running
+  `dev/scripts/checks/check_review_surface_consistency.py`. The
+  guard enumerates 12 review-surface projections and checks they
+  all share the same `snapshot_id`. At the time of the check:
+    - 11 surfaces converged on `snap-91d2f694976a` ✓
+      (bridge_poll, compact, compact_doctor, compact_push_decision,
+      review_state, review_state_bridge_projection,
+      review_state_commit_pipeline, review_state_doctor,
+      startup_context, startup_push_decision, turn_authority)
+    - `commit_pipeline` was stale on `snap-f8bda2f470b5` ✗
+  Running `devctl review-channel --action status --terminal none
+  --format json` refreshed all projections and re-running the
+  consistency guard showed all 12 surfaces unified on
+  `snap-34dc0c138f94`.
+- **Interpretation**: this is **NOT an F1 bug** — Claude-CLI's F1
+  fix correctly converges the surfaces. The issue is that the
+  standalone `dev/reports/review_channel/latest/commit_pipeline.json`
+  file was written by an earlier code path that didn't get touched
+  by the F1 unification, so its snapshot_id sticks until something
+  (like `review-channel status`) explicitly rewrites it. The push
+  preflight doesn't auto-refresh projections before calling the
+  consistency check, so operators hit the stale blob.
+- **Fix recommendations**:
+    1. Push preflight should call `review-channel --action status`
+       (or equivalent projection-refresh) immediately before running
+       `check_review_surface_consistency`.
+    2. Alternatively, `check_review_surface_consistency` should
+       trigger its own refresh if a surface is stale beyond N
+       seconds, rather than failing closed.
+    3. As a Claude-CLI follow-up to F1, the commit_pipeline write
+       path should also route through the shared
+       `load_current_review_state_payload` so its snapshot_id
+       auto-updates with the rest.
+- **Status**: UNBLOCKED THIS CYCLE (manual `review-channel status`
+  call cleared it); STRUCTURAL FIX OPEN
+
+### Q1 — **FIXED** — `devctl commit` self-block cleared via env-var bypass (commit `2bd24b1`)
+
+- **Fix commit**: `2bd24b1` — first successful `devctl commit` of the
+  session landed this very fix using `devctl commit` itself. Every
+  subsequent commit in the session and future sessions goes through
+  the governed commit path without falling back to raw `git commit`.
+- **Fix mechanism**: `commit.py` now sets
+  `DEVCTL_COMMIT_GATE_BYPASS_STARTUP_AUTHORITY=1` on the guard-bundle
+  subprocess only. `runtime_checks.py`'s dirty-worktree-after-checkpoint
+  rule returns `[]` early when the env var is set — because the caller
+  is the commit path itself, not a post-commit push gate.
+- **Scope**: bypass is narrow (only the dirty-worktree rule is
+  suppressed, only when the caller is `commit.py`). All other guards
+  in the `quick` profile still run normally.
+- **Follow-up (not in this fix)**: the PROPER structural fix is to
+  have `devctl commit` write a transient `RemoteCommitPipelineContract`
+  record with `state=staged` and `intent.staged_tree_hash` bound to
+  the current git index tree hash, so the existing parked-pipeline
+  exemption path in `runtime_checks.py:225-254` fires naturally.
+  That requires touching the vcs command package and the contract
+  loader and carries real test risk. The env-var bypass is the
+  surgical tactical fix; the structural fix is a cleaner follow-up
+  for Codex.
+
 ### Q1 — BUG — `devctl commit` self-blocks via `check --profile quick`
 
 - **Discovered**: 2026-04-08T16:43Z
 - **Packet**: `rev_pkt_0126`
-- **Severity**: bug, load-bearing (blocks the governed commit path)
+- **Severity**: bug, load-bearing (blocks the governed commit path) — **FIXED** in `2bd24b1`
 - **Location**: `dev/scripts/devctl/commands/vcs/commit.py` → runs `check --profile quick` → `dev/scripts/checks/check_startup_authority_contract.py` → `dev/scripts/checks/startup_authority_contract/runtime_checks.py:225-254` → `dev/scripts/devctl/governance/push_state.py:detect_push_enforcement_state` → `dev/scripts/devctl/governance/push_state_git.py:25 worktree_change_counts`
 - **Body**: `devctl commit` runs `check --profile quick` as its pre-commit gate,
   which includes `startup-authority-contract-guard`. That guard calls
@@ -1093,6 +1159,155 @@ The AI-capability-discovery spec that this session argues for:
    commands never silently report zeros.
 5. **System-picture that actually reports populated sections** (fix
    Q23) so the AI doesn't discount the plan layer.
+
+## Automation gaps — where Claude-Code manually did what the system should do
+
+This section enumerates every time during this session that Claude-Code
+(the remote_control AI operator proxy) had to perform a manual or
+out-of-band action that the governance system should have automated.
+The operator raised this explicitly: **"if there's any issues or our
+system should do something or you have to go out of your way to do
+something, but our system is doing it and not you"** — any such gap is
+itself a finding.
+
+### A1 — Auto-commit when all guards green (not just when operator asks)
+
+- **Observed**: After Claude-CLI finished F1/F2/F3 and wrote
+  "Awaiting operator commit permission (remote_control gate)" to its
+  bridge Status, the work sat in the dirty worktree for ~20 minutes
+  waiting for the operator on phone to tell me to commit it. In
+  remote_control mode, the system should auto-commit when:
+  (a) all guards are green, (b) the coder has explicitly flagged
+  completion in its Status, (c) the scoped instruction is satisfied.
+- **Fix**: add a `remote_control_auto_commit_when_green` policy flag
+  to `devctl_repo_policy.json` that triggers `devctl commit` on those
+  three conditions. The typed `ReviewerGateStatus` surface would emit
+  a "ready_to_commit" decision packet, and a governed watcher would
+  execute the commit. Operator retains a `pause-loop` override via
+  `controller-action`.
+
+### A2 — Auto-push when commits accumulate and ready
+
+- **Observed**: 9+ commits accumulated ahead of origin this session
+  because nothing auto-pushes when the commit buffer exceeds a
+  threshold and `push_decision=run_devctl_push`. The policy already
+  defines `urgent_after_ahead_commits: 5` in `devctl_repo_policy.json`
+  but nothing WATCHES that counter and triggers a push.
+- **Fix**: add a governed `auto_push_watcher` that fires
+  `devctl push --execute` when (a) `push_decision=run_devctl_push`
+  AND (b) `ahead_of_upstream_commits >= urgent_after_ahead_commits`
+  AND (c) `interaction_mode=remote_control`. Same pause/resume
+  override path as A1.
+
+### A3 — Auto-refresh projections before consistency checks
+
+- **Observed**: Q29 — push preflight's `check_review_surface_consistency`
+  tripped on a stale `commit_pipeline.json`. A single
+  `review-channel --action status` refresh cleared it. The push
+  preflight should have auto-refreshed before running the check.
+- **Fix**: either wrap every projection-consuming guard with a
+  pre-run refresh, or add a `--refresh-first` flag to the guard,
+  or have the consistency check detect staleness and rebuild
+  before rendering its verdict.
+
+### A4 — Auto-log findings to Codex via a governed channel
+
+- **Observed**: I manually edited `bridge.md` Claude Questions and
+  appended to `dev/audits/LIVE_RUN.md` every time I found an issue.
+  The packet transport (`review-channel --action post`) is supposed
+  to be the canonical path but is broken (Q20). Even when working,
+  no automation routes a finding from "Claude-Code observes something
+  wrong" to "typed packet in Codex's inbox". I had to compose every
+  packet body by hand.
+- **Fix**: a typed `finding_pipeline` CLI (`devctl finding --post
+  --kind bug --summary "..." --body-file -`) that validates, writes
+  to the event store, updates the inbox projection, AND appends to
+  LIVE_RUN.md (or its successor) in one atomic call. Plus a shell
+  helper so `devctl finding` can be invoked from inside
+  `devctl commit`'s post-commit hook automatically.
+
+### A5 — Auto-discover capabilities (devctl discover is crashed per Q22)
+
+- **Observed**: I reinvented workarounds for `phone-status`,
+  `autonomy-loop`, `autonomy-swarm`, `controller-action`,
+  `mobile-status`, `ralph-status`, `loop-packet` for the first HOUR
+  of this session because `devctl discover` (the capability
+  enumeration command) crashed with `KeyError: 'id'`. The operator
+  finally pointed me at the right commands by asking directly.
+- **Fix**: Q22 (fix the crash) is the first step. Then add a
+  bootstrap hook that runs `devctl discover --for-task "$CURRENT_TASK"`
+  at AI session start and prints a "here are the commands that
+  match what you're about to do" primer. Optionally cache this in
+  `~/.claude/ai_capability_primer_<repo_id>.md`.
+
+### A6 — Auto-kill orphaned conductor shells BEFORE push preflight (or recognize them as live, per Q28)
+
+- **Observed**: The `devctl hygiene` preflight step failed because
+  the claude-conductor `script` wrapper (PID 28267) was flagged as
+  "orphaned" (PPID=1). It's not orphaned — it's the live conductor.
+  I had to either kill it (breaks the session) or wait for hygiene
+  to be tolerant. Q28 covers the tolerance gap; A6 is the
+  operator-facing expression: the governance system should
+  distinguish live-session PPID=1 children from actually-orphaned
+  processes without operator intervention.
+- **Fix**: the session registry should carry each conductor PID
+  as a typed `live_participant.pid` field; hygiene reads the registry
+  and excludes registered PIDs from the orphan sweep.
+
+### A7 — Auto-manage the cron/loop/watching via governed scheduling
+
+- **Observed**: I scheduled the dashboard poll cron job
+  (`be574ff0`) via Claude-Code's in-session `CronCreate` tool. That
+  schedule lives ONLY in my Claude-Code session memory. When this
+  session ends, the schedule is gone with no record in the repo.
+  The operator has no way to inspect, edit, or resume the poll
+  after a session handoff.
+- **Fix**: durable scheduling should live in a repo-tracked
+  `dev/config/scheduled_actions.json` readable by
+  `devctl schedule --list`, runnable via a governed watcher. This
+  matches the scheduled_actions enhancement proposal E7.
+
+### A8 — Auto-relaunch Codex reviewer when the process dies silently
+
+- **Observed**: The Codex CLI (PID 28266) died silently during the
+  session — its log stopped growing, CPU went to 0%, eventually the
+  process was gone from `ps`. Neither the publisher nor any
+  supervisor detected the death or relaunched it. The operator had
+  to notice via dashboard poll and ask me to relaunch.
+- **Fix**: a liveness-watcher daemon that (a) monitors conductor
+  PIDs via a heartbeat file, (b) auto-relaunches on death with the
+  same instruction scope, (c) emits a typed `participant_relaunched`
+  event so the operator sees it happened. This is arguably what
+  `reviewer_supervisor` was supposed to be (Q10), but empirically
+  it isn't load-bearing.
+
+### A9 — Auto-route LIVE_RUN.md findings into Codex's review queue
+
+- **Observed**: LIVE_RUN.md contains 29 findings (Q1-Q29) + 12
+  enhancement proposals (E1-E12) + 9 automation gaps (A1-A9). Codex
+  is reviewing it by reading the file directly, but there's no
+  governed push that maps each Q/E/A entry to a typed finding
+  packet for the reviewer inbox. Codex has to parse the markdown.
+- **Fix**: a `devctl findings-sync --from dev/audits/LIVE_RUN.md
+  --to review-channel-inbox` command that parses the file's
+  structured entries, deduplicates against the existing inbox,
+  and posts missing ones as typed packets. Plus a round-trip check
+  that flags any LIVE_RUN entry not present in the inbox.
+
+### A10 — Auto-post enhancement and automation-gap entries to reviewer as improvement proposals
+
+- **Observed**: The E1-E12 enhancement proposals and A1-A10
+  automation gaps are observations about what the system SHOULD
+  do, not bugs in what it currently does. They don't fit the
+  `finding` packet kind and have no dedicated governed path.
+  I'm accumulating them in LIVE_RUN.md hoping Codex will design
+  features from them, but there's no pipeline.
+- **Fix**: add a `enhancement` kind to the typed packet schema
+  (alongside `finding`, `action_request`, `question`), with its
+  own inbox filter and its own review lifecycle
+  (proposed → triaged → accepted → designed → scheduled → landed).
+  Let me post E/A entries as typed enhancement packets instead
+  of appending to a markdown file.
 
 ## Retirement plan for this file
 
