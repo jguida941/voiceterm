@@ -5,14 +5,14 @@
 ## Quick status
 
 - Branch: `feature/governance-quality-sweep`
-- HEAD: `015cec99de8e` — Refresh external review snapshot for 7889291
-- Tree hash: `2b3962dcdbc4`
-- Generation stamp: `snap-660cc43fef7a`
-- Generated at (UTC): 2026-04-08T19:23:50Z
+- HEAD: `738420297762` — Extend Q1 bypass to concurrent-writer rule (Q30) + regen AGENTS.md after Q18 fix
+- Tree hash: `8800a326407f`
+- Generation stamp: `snap-130959cc8199`
+- Generated at (UTC): 2026-04-08T19:32:54Z
 - Push decision: `await_checkpoint` — worktree_dirty
-- Reviewer mode: `single_agent` (interaction: `local_terminal`)
+- Reviewer mode: `active_dual_agent` (interaction: `local_terminal`)
 - Pipeline state: `n/a` (approval: `n/a`)
-- Delta since last snapshot: 24 commits, 16 files, +2486/-1420
+- Delta since last snapshot: 25 commits, 17 files, +2536/-1468
 - Governance findings: 39 open / 68 fixed / 121 total
 - Probe hints: 0 total across 0 files scanned
 
@@ -54,9 +54,9 @@ adopters arrive.
 - Remote: `https://github.com/jguida941/voiceterm.git`
 - Default branch: `master`
 - Current branch: `feature/governance-quality-sweep`
-- HEAD SHA: `015cec99de8ea877fbfa52174827e86fe70c9cfc`
+- HEAD SHA: `738420297762520695f76247552b4067bfcb9881`
 - HEAD author: Justin Guida
-- HEAD timestamp (UTC): 2026-04-08T15:15:16-04:00
+- HEAD timestamp (UTC): 2026-04-08T15:23:42-04:00
 
 ## 2. Governance state
 
@@ -72,12 +72,12 @@ adopters arrive.
 - authorized_head_commit: `ee13a6c6337f395afa574e99a4234f2eaf45a161`
 - approved_target_identity: `tree-receipt-20260407T220000Z:281dea21851063411d2c43c2b4621a1c2a1168b5`
 - publication_backlog: urgent
-- publication_guidance: 7 local commit(s) waiting for governed push once the current slice is checkpoint-clean.
+- publication_guidance: 8 local commit(s) waiting for governed push once the current slice is checkpoint-clean.
 
 ### Reviewer runtime
-- reviewer_mode: `single_agent`
+- reviewer_mode: `active_dual_agent`
 - reviewer_freshness: unknown
-- reviewer_publish_clear: True
+- reviewer_publish_clear: False
 - interaction_mode: `local_terminal`
 
 ### Remote commit pipeline
@@ -88,57 +88,59 @@ adopters arrive.
 - active plan: **Master Plan (Active, Unified)**
 - plan path: `dev/active/MASTER_PLAN.md`
 - active MP scope: all active MP execution state
-- advisory: `checkpoint_allowed` — worktree_dirty_within_budget
+- advisory: `continue_editing` — review_pending
 
 ## 3. Delta — what changed since the previous snapshot
 
-Range: last 24 commits ending at `015cec99de8e`
+Range: last 25 commits ending at `738420297762`
 
-- commits: 24
-- files changed: 16
-- insertions: +2486
-- deletions: -1420
-- bundle classes touched: tooling, docs
+- commits: 25
+- files changed: 17
+- insertions: +2536
+- deletions: -1468
+- bundle classes touched: docs, tooling
 - authority surfaces touched: 4 file(s)
 
 ### Commits
 
 | # | SHA | Subject | Files | +/- | Bundle | Risk |
 |---|---|---|---|---|---|---|
-| 1 | `015cec9` | Refresh external review snapshot for 7889291 | 1 | +52/-57 | tooling |  |
-| 2 | `7889291` | Fix Q18: bundle.docs docs-check missing --since-ref origin/… | 2 | +59/-49 | tooling |  |
-| 3 | `1259410` | Refresh external review snapshot for 44c0018 | 1 | +41/-47 | tooling |  |
-| 4 | `44c0018` | Refresh external review snapshot for d9a9a3b | 1 | +52/-57 | tooling |  |
-| 5 | `d9a9a3b` | CHANGELOG: Q1 FIXED + A1-A10 automation gaps entry (unblock… | 2 | +70/-48 | docs |  |
-| 6 | `2ec6991` | Refresh external review snapshot for 2ee89e5 | 1 | +52/-56 | tooling |  |
-| 7 | `2ee89e5` | LIVE_RUN: Q1 FIXED + Q29 + A1-A10 automation gaps (remote_c… | 2 | +267/-50 | tooling |  |
-| 8 | `5c95b87` | Refresh external review snapshot for ee0a1d0 | 1 | +40/-46 | tooling |  |
-| 9 | `ee0a1d0` | Refresh external review snapshot for 2bd24b1 | 1 | +55/-49 | tooling |  |
-| 10 | `2bd24b1` | Fix Q1: devctl commit self-block via DEVCTL_COMMIT_GATE_BYP… | 3 | +85/-60 | tooling |  |
-| 11 | `a967137` | Refresh external review snapshot for 199291a | 1 | +40/-37 | tooling |  |
-| 12 | `199291a` | Refresh external review snapshot for 3bd849c | 1 | +64/-51 | tooling |  |
-| 13 | `3bd849c` | Land F1/F2/F3: unified review-state loader + packet labels… | 9 | +271/-201 | tooling |  |
-| 14 | `9f9d8d7` | bridge + LIVE_RUN refresh: Codex F4 verdict + Q23/Q25/Q26/Q… | 3 | +197/-56 | tooling |  |
-| 15 | `53d54b9` | LIVE_RUN: Q22-Q24 + capability discovery gap from devctl co… | 2 | +177/-42 | tooling |  |
-| 16 | `003f117` | Bridge Action Request + LIVE_RUN retirement plan + enhancem… | 3 | +330/-63 | tooling |  |
-| 17 | `3758302` | LIVE_RUN: acknowledge Codex F4 regression from Q4 tactical… | 2 | +77/-43 | tooling |  |
-| 18 | `46c94dd` | Revert "Q4 tactical fix: flip BridgeConfig.operator_interac… | 2 | +65/-66 | tooling |  |
-| 19 | `2a93f52` | Refresh external review snapshot for f54116e | 1 | +44/-41 | tooling |  |
-| 20 | `f54116e` | bridge: point Claude Questions at LIVE_RUN.md; announce Q20… | 2 | +83/-79 | docs |  |
-| 21 | `9a6dd2f` | LIVE_RUN: append Q18-Q20 findings discovered during push+re… | 2 | +152/-65 | tooling |  |
-| 22 | `409e65e` | Refresh external review snapshot for e31232a | 1 | +44/-46 | tooling |  |
-| 23 | `e31232a` | Refresh external review snapshot for 2602f22 | 1 | +56/-53 | tooling |  |
-| 24 | `2602f22` | Add CHANGELOG entry for LIVE_RUN.md + log Q17 router misrou… | 3 | +113/-58 | tooling |  |
+| 1 | `7384202` | Extend Q1 bypass to concurrent-writer rule (Q30) + regen AG… | 3 | +50/-48 | tooling |  |
+| 2 | `015cec9` | Refresh external review snapshot for 7889291 | 1 | +52/-57 | tooling |  |
+| 3 | `7889291` | Fix Q18: bundle.docs docs-check missing --since-ref origin/… | 2 | +59/-49 | tooling |  |
+| 4 | `1259410` | Refresh external review snapshot for 44c0018 | 1 | +41/-47 | tooling |  |
+| 5 | `44c0018` | Refresh external review snapshot for d9a9a3b | 1 | +52/-57 | tooling |  |
+| 6 | `d9a9a3b` | CHANGELOG: Q1 FIXED + A1-A10 automation gaps entry (unblock… | 2 | +70/-48 | docs |  |
+| 7 | `2ec6991` | Refresh external review snapshot for 2ee89e5 | 1 | +52/-56 | tooling |  |
+| 8 | `2ee89e5` | LIVE_RUN: Q1 FIXED + Q29 + A1-A10 automation gaps (remote_c… | 2 | +267/-50 | tooling |  |
+| 9 | `5c95b87` | Refresh external review snapshot for ee0a1d0 | 1 | +40/-46 | tooling |  |
+| 10 | `ee0a1d0` | Refresh external review snapshot for 2bd24b1 | 1 | +55/-49 | tooling |  |
+| 11 | `2bd24b1` | Fix Q1: devctl commit self-block via DEVCTL_COMMIT_GATE_BYP… | 3 | +85/-60 | tooling |  |
+| 12 | `a967137` | Refresh external review snapshot for 199291a | 1 | +40/-37 | tooling |  |
+| 13 | `199291a` | Refresh external review snapshot for 3bd849c | 1 | +64/-51 | tooling |  |
+| 14 | `3bd849c` | Land F1/F2/F3: unified review-state loader + packet labels… | 9 | +271/-201 | tooling |  |
+| 15 | `9f9d8d7` | bridge + LIVE_RUN refresh: Codex F4 verdict + Q23/Q25/Q26/Q… | 3 | +197/-56 | tooling |  |
+| 16 | `53d54b9` | LIVE_RUN: Q22-Q24 + capability discovery gap from devctl co… | 2 | +177/-42 | tooling |  |
+| 17 | `003f117` | Bridge Action Request + LIVE_RUN retirement plan + enhancem… | 3 | +330/-63 | tooling |  |
+| 18 | `3758302` | LIVE_RUN: acknowledge Codex F4 regression from Q4 tactical… | 2 | +77/-43 | tooling |  |
+| 19 | `46c94dd` | Revert "Q4 tactical fix: flip BridgeConfig.operator_interac… | 2 | +65/-66 | tooling |  |
+| 20 | `2a93f52` | Refresh external review snapshot for f54116e | 1 | +44/-41 | tooling |  |
+| 21 | `f54116e` | bridge: point Claude Questions at LIVE_RUN.md; announce Q20… | 2 | +83/-79 | docs |  |
+| 22 | `9a6dd2f` | LIVE_RUN: append Q18-Q20 findings discovered during push+re… | 2 | +152/-65 | tooling |  |
+| 23 | `409e65e` | Refresh external review snapshot for e31232a | 1 | +44/-46 | tooling |  |
+| 24 | `e31232a` | Refresh external review snapshot for 2602f22 | 1 | +56/-53 | tooling |  |
+| 25 | `2602f22` | Add CHANGELOG entry for LIVE_RUN.md + log Q17 router misrou… | 3 | +113/-58 | tooling |  |
 
 ### Files
 
 | Path | Bundle | +/- |
 |---|---|---|
+| `AGENTS.md` | docs | +1/-1 |
 | `bridge.md` | docs | +35/-31 |
 | `dev/CHANGELOG.md` | docs | +45/-0 |
 | `dev/audits/LIVE_RUN.md` | tooling | +904/-2 |
-| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1237/-1266 |
-| `dev/scripts/checks/startup_authority_contract/runtime_checks.py` | tooling | +10/-0 |
+| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1284/-1313 |
+| `dev/scripts/checks/startup_authority_contract/runtime_checks.py` | tooling | +12/-0 |
 | `dev/scripts/devctl/bundles/registry.py` | tooling | +8/-1 |
 | `dev/scripts/devctl/commands/dashboard_render/attention.py` | tooling | +11/-2 |
 | `dev/scripts/devctl/commands/governance/session_resume_support.py` | tooling | +8/-8 |
@@ -237,6 +239,8 @@ Recent findings:
 
 ### Per-commit rationale
 
+- **`7384202`** — Extend Q1 bypass to concurrent-writer rule (Q30) + regen AGENTS.md after Q18 fix
+  - evolution: The next coordination follow-up was not another reducer. The reducer already existed and multiple rich surfaces already rendered it. The miss was load-bearing: the shared `ControlPlaneReadModel` still had no coordinatio…
 - **`015cec9`** — Refresh external review snapshot for 7889291
   - evolution: The next coordination follow-up was not another reducer. The reducer already existed and multiple rich surfaces already rendered it. The miss was load-bearing: the shared `ControlPlaneReadModel` still had no coordinatio…
 - **`7889291`** — Fix Q18: bundle.docs docs-check missing --since-ref origin/develop
@@ -329,11 +333,8 @@ Recent findings:
 
 - open governance findings: 39
 
-### Startup advisories
-- checkpoint_allowed: worktree_dirty_within_budget
-
 ### Stale warnings
-- Move straight to the governed push path.
+- Pause and wait for reviewer-owned state.
 
 ### Open gap rows
 - **governance_open** (`dev/scripts/devctl/review_channel/bridge_sanitize.py`): agent_checkpoint_contract_ignorance: 
@@ -347,4 +348,4 @@ Recent findings:
 
 ---
 
-Projection produced by `devctl review-snapshot`. Generation stamp `snap-660cc43fef7a` binds this file to HEAD `015cec99de8e`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
+Projection produced by `devctl review-snapshot`. Generation stamp `snap-130959cc8199` binds this file to HEAD `738420297762`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
