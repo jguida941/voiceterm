@@ -5,14 +5,14 @@
 ## Quick status
 
 - Branch: `feature/governance-quality-sweep`
-- HEAD: `84f9140e3286` — Clear stale path overrides and refresh bridge checkpoint
-- Tree hash: `86bdbdf17133`
-- Generation stamp: `snap-84b78bc05bb7`
-- Generated at (UTC): 2026-04-08T16:51:51Z
+- HEAD: `5fe9148ad5de` — Refresh external review snapshot for 84f9140
+- Tree hash: `6f04c1013d18`
+- Generation stamp: `snap-044726748162`
+- Generated at (UTC): 2026-04-08T16:56:37Z
 - Push decision: `run_devctl_push` — push_preconditions_satisfied
 - Reviewer mode: `single_agent` (interaction: `local_terminal`)
 - Pipeline state: `n/a` (approval: `n/a`)
-- Delta since last snapshot: 24 commits, 121 files, +12230/-2142
+- Delta since last snapshot: 24 commits, 121 files, +12212/-2148
 - Governance findings: 39 open / 68 fixed / 121 total
 - Probe hints: 0 total across 0 files scanned
 
@@ -54,7 +54,7 @@ adopters arrive.
 - Remote: `https://github.com/jguida941/voiceterm.git`
 - Default branch: `master`
 - Current branch: `feature/governance-quality-sweep`
-- HEAD SHA: `84f9140e3286d2a6392da75f7118829b961032a8`
+- HEAD SHA: `5fe9148ad5de868214d900eafabe8e779bf6607c`
 - HEAD author: Justin Guida
 - HEAD timestamp (UTC): 2026-04-08T12:51:31-04:00
 
@@ -72,7 +72,7 @@ adopters arrive.
 - authorized_head_commit: `ee13a6c6337f395afa574e99a4234f2eaf45a161`
 - approved_target_identity: `tree-receipt-20260407T220000Z:281dea21851063411d2c43c2b4621a1c2a1168b5`
 - publication_backlog: urgent
-- publication_guidance: 16 local commit(s) waiting for governed push. Run `python3 dev/scripts/devctl.py push --execute` now.
+- publication_guidance: 17 local commit(s) waiting for governed push. Run `python3 dev/scripts/devctl.py push --execute` now.
 
 ### Reviewer runtime
 - reviewer_mode: `single_agent`
@@ -92,43 +92,43 @@ adopters arrive.
 
 ## 3. Delta — what changed since the previous snapshot
 
-Range: last 24 commits ending at `84f9140e3286`
+Range: last 24 commits ending at `5fe9148ad5de`
 
 - commits: 24
 - files changed: 121
-- insertions: +12230
-- deletions: -2142
-- bundle classes touched: docs, tooling
+- insertions: +12212
+- deletions: -2148
+- bundle classes touched: tooling, docs
 - authority surfaces touched: 14 file(s)
 
 ### Commits
 
 | # | SHA | Subject | Files | +/- | Bundle | Risk |
 |---|---|---|---|---|---|---|
-| 1 | `84f9140` | Clear stale path overrides and refresh bridge checkpoint | 3 | +83/-94 | tooling |  |
-| 2 | `d2e648f` | Refresh external review snapshot for dff02c8 | 1 | +79/-77 | tooling |  |
-| 3 | `dff02c8` | Converge coordination control-plane read model | 38 | +1496/-112 | tooling |  |
-| 4 | `fb212c0` | Refresh review bridge checkpoint state | 2 | +54/-51 | docs |  |
-| 5 | `fb46a8a` | Refresh external review snapshot for 70290f0 | 1 | +67/-66 | tooling |  |
-| 6 | `70290f0` | Add coordination posture reducers | 19 | +2131/-62 | tooling |  |
-| 7 | `36addcb` | Refresh external review snapshot for 05bc3c5 | 1 | +65/-65 | tooling |  |
-| 8 | `05bc3c5` | Add PlanningIRSnapshot platform reducer | 14 | +1419/-66 | tooling |  |
-| 9 | `941781e` | Refresh external review snapshot for b681930 | 1 | +62/-64 | tooling |  |
-| 10 | `b681930` | Checkpoint startup coordination and session hint fixes | 14 | +344/-108 | tooling |  |
-| 11 | `ca07a33` | Add typed startup coordination state | 26 | +2273/-141 | tooling |  |
-| 12 | `f858e28` | Route startup blockers through shared check renderer | 7 | +481/-187 | tooling |  |
-| 13 | `b2a8dbb` | Refresh external review snapshot for b8234a7 | 1 | +61/-64 | tooling |  |
-| 14 | `b8234a7` | Prioritize review-loop relaunch recovery | 11 | +236/-98 | tooling |  |
-| 15 | `e2b3940` | Reclaim stale review-channel launch windows | 7 | +491/-109 | tooling |  |
-| 16 | `9858988` | Fix review-channel session liveness fallback | 4 | +454/-101 | tooling |  |
-| 17 | `483df5b` | Refresh external review snapshot for 7d7aa7c | 1 | +60/-67 | tooling |  |
-| 18 | `7d7aa7c` | checkpoint: close review-channel authority convergence | 24 | +583/-149 | tooling |  |
-| 19 | `1b55564` | Refresh external review snapshot for 8b77c5c | 1 | +53/-56 | tooling |  |
-| 20 | `8b77c5c` | checkpoint: record dashboard observer audit findings | 3 | +225/-70 | tooling |  |
-| 21 | `fba090f` | checkpoint: close push preflight bypass window | 9 | +129/-73 | tooling |  |
-| 22 | `02ca820` | Refresh external review snapshot for fed1dec | 1 | +72/-79 | tooling |  |
-| 23 | `fed1dec` | checkpoint: harden reviewer packet guards and runtime counts | 31 | +1230/-108 | tooling |  |
-| 24 | `0a678e5` | Refresh external review snapshot for 47c7845 | 1 | +82/-75 | tooling |  |
+| 1 | `5fe9148` | Refresh external review snapshot for 84f9140 | 1 | +64/-81 | tooling |  |
+| 2 | `84f9140` | Clear stale path overrides and refresh bridge checkpoint | 3 | +83/-94 | tooling |  |
+| 3 | `d2e648f` | Refresh external review snapshot for dff02c8 | 1 | +79/-77 | tooling |  |
+| 4 | `dff02c8` | Converge coordination control-plane read model | 38 | +1496/-112 | tooling |  |
+| 5 | `fb212c0` | Refresh review bridge checkpoint state | 2 | +54/-51 | docs |  |
+| 6 | `fb46a8a` | Refresh external review snapshot for 70290f0 | 1 | +67/-66 | tooling |  |
+| 7 | `70290f0` | Add coordination posture reducers | 19 | +2131/-62 | tooling |  |
+| 8 | `36addcb` | Refresh external review snapshot for 05bc3c5 | 1 | +65/-65 | tooling |  |
+| 9 | `05bc3c5` | Add PlanningIRSnapshot platform reducer | 14 | +1419/-66 | tooling |  |
+| 10 | `941781e` | Refresh external review snapshot for b681930 | 1 | +62/-64 | tooling |  |
+| 11 | `b681930` | Checkpoint startup coordination and session hint fixes | 14 | +344/-108 | tooling |  |
+| 12 | `ca07a33` | Add typed startup coordination state | 26 | +2273/-141 | tooling |  |
+| 13 | `f858e28` | Route startup blockers through shared check renderer | 7 | +481/-187 | tooling |  |
+| 14 | `b2a8dbb` | Refresh external review snapshot for b8234a7 | 1 | +61/-64 | tooling |  |
+| 15 | `b8234a7` | Prioritize review-loop relaunch recovery | 11 | +236/-98 | tooling |  |
+| 16 | `e2b3940` | Reclaim stale review-channel launch windows | 7 | +491/-109 | tooling |  |
+| 17 | `9858988` | Fix review-channel session liveness fallback | 4 | +454/-101 | tooling |  |
+| 18 | `483df5b` | Refresh external review snapshot for 7d7aa7c | 1 | +60/-67 | tooling |  |
+| 19 | `7d7aa7c` | checkpoint: close review-channel authority convergence | 24 | +583/-149 | tooling |  |
+| 20 | `1b55564` | Refresh external review snapshot for 8b77c5c | 1 | +53/-56 | tooling |  |
+| 21 | `8b77c5c` | checkpoint: record dashboard observer audit findings | 3 | +225/-70 | tooling |  |
+| 22 | `fba090f` | checkpoint: close push preflight bypass window | 9 | +129/-73 | tooling |  |
+| 23 | `02ca820` | Refresh external review snapshot for fed1dec | 1 | +72/-79 | tooling |  |
+| 24 | `fed1dec` | checkpoint: harden reviewer packet guards and runtime counts | 31 | +1230/-108 | tooling |  |
 
 ### Files
 
@@ -140,7 +140,7 @@ Range: last 24 commits ending at `84f9140e3286`
 | `dev/active/ai_governance_platform.md` | tooling | +115/-12 |
 | `dev/active/platform_authority_loop.md` | tooling | +89/-1 |
 | `dev/active/remote_control_runtime.md` | tooling | +73/-2 |
-| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1410/-1425 |
+| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1392/-1431 |
 | `dev/audits/architecture_alignment.md` | tooling | +65/-0 |
 | `dev/audits/architecture_hardening_plan.md` | tooling | +101/-0 |
 | `dev/config/devctl_repo_policy.json` | tooling | +1/-1 |
@@ -281,6 +281,8 @@ Recent findings:
 
 ### Per-commit rationale
 
+- **`5fe9148`** — Refresh external review snapshot for 84f9140
+  - evolution: The next coordination follow-up was not another reducer. The reducer already existed and multiple rich surfaces already rendered it. The miss was load-bearing: the shared `ControlPlaneReadModel` still had no coordinatio…
 - **`84f9140`** — Clear stale path overrides and refresh bridge checkpoint
   - Bundles two mutually dependent changes: `devctl commit` cannot land
   - either one in isolation because its pre-commit guard
@@ -324,7 +326,6 @@ Recent findings:
 - **`fba090f`** — checkpoint: close push preflight bypass window
 - **`02ca820`** — Refresh external review snapshot for fed1dec
 - **`fed1dec`** — checkpoint: harden reviewer packet guards and runtime counts
-- **`0a678e5`** — Refresh external review snapshot for 47c7845
 ### Active MP scope (from MASTER_PLAN.md)
 
 - `dev/active/devctl_reporting_upgrade.md` is the phased `devctl` reporting/CIHub specification, but not a separate execution tracker; implementation tasks stay in this file under `MP-297..MP-300`, `MP-303`, `MP-306`, `MP…
@@ -360,4 +361,4 @@ Recent findings:
 
 ---
 
-Projection produced by `devctl review-snapshot`. Generation stamp `snap-84b78bc05bb7` binds this file to HEAD `84f9140e3286`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
+Projection produced by `devctl review-snapshot`. Generation stamp `snap-044726748162` binds this file to HEAD `5fe9148ad5de`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
