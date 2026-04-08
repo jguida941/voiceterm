@@ -5,14 +5,14 @@
 ## Quick status
 
 - Branch: `feature/governance-quality-sweep`
-- HEAD: `dde778654d8d` — LIVE_RUN: add AI Research Lane architecture proposal (Codex review lane)
-- Tree hash: `b2de89da66c9`
-- Generation stamp: `snap-0d9b702c9887`
-- Generated at (UTC): 2026-04-08T20:37:59Z
-- Push decision: `await_checkpoint` — worktree_dirty
+- HEAD: `079d7f3f1228` — Preserve Claude-CLI WIP (F1 consumer wiring) from session 5 death
+- Tree hash: `b981e5c7b3e2`
+- Generation stamp: `snap-3d360cd519ca`
+- Generated at (UTC): 2026-04-08T20:38:09Z
+- Push decision: `await_review` — reviewer_overdue
 - Reviewer mode: `tools_only` (interaction: `local_terminal`)
 - Pipeline state: `n/a` (approval: `n/a`)
-- Delta since last snapshot: 24 commits, 11 files, +2421/-1192
+- Delta since last snapshot: 24 commits, 13 files, +2536/-1310
 - Governance findings: 39 open / 68 fixed / 121 total
 - Probe hints: 0 total across 0 files scanned
 
@@ -54,25 +54,25 @@ adopters arrive.
 - Remote: `https://github.com/jguida941/voiceterm.git`
 - Default branch: `master`
 - Current branch: `feature/governance-quality-sweep`
-- HEAD SHA: `dde778654d8deccc3cd76722a7f48e58c1725594`
+- HEAD SHA: `079d7f3f1228b70744ad226ef7a8b86a803bae85`
 - HEAD author: Justin Guida
-- HEAD timestamp (UTC): 2026-04-08T16:32:23-04:00
+- HEAD timestamp (UTC): 2026-04-08T16:37:50-04:00
 
 ## 2. Governance state
 
 ### Push decision
-- action: `await_checkpoint`
-- reason: worktree_dirty
+- action: `await_review`
+- reason: reviewer_overdue
 - push_eligible_now: False
-- worktree_clean: False
-- next_step_command: `n/a`
+- worktree_clean: True
+- next_step_command: `python3 dev/scripts/devctl.py review-channel --action status --terminal none --format json`
 - latest_push_report: `dev/reports/push/latest.json`
 - latest_push_report_state: `blocked` (validation_failed)
 - current_push_authorization: `push-auth-20260407T220000Z-hardening-plan` (valid=False)
 - authorized_head_commit: `ee13a6c6337f395afa574e99a4234f2eaf45a161`
 - approved_target_identity: `tree-receipt-20260407T220000Z:281dea21851063411d2c43c2b4621a1c2a1168b5`
 - publication_backlog: urgent
-- publication_guidance: 20 local commit(s) waiting for governed push once the current slice is checkpoint-clean.
+- publication_guidance: 21 local commit(s) waiting for governed push once review is accepted.
 
 ### Reviewer runtime
 - reviewer_mode: `tools_only`
@@ -89,62 +89,64 @@ adopters arrive.
 - active plan: **Master Plan (Active, Unified)**
 - plan path: `dev/active/MASTER_PLAN.md`
 - active MP scope: all active MP execution state
-- advisory: `checkpoint_before_continue` — concurrent_writer_activity
+- advisory: `repair_reviewer_loop` — reviewer_overdue
 
 ## 3. Delta — what changed since the previous snapshot
 
-Range: last 24 commits ending at `dde778654d8d`
+Range: last 24 commits ending at `079d7f3f1228`
 
 - commits: 24
-- files changed: 11
-- insertions: +2421
-- deletions: -1192
-- bundle classes touched: tooling, docs
+- files changed: 13
+- insertions: +2536
+- deletions: -1310
+- bundle classes touched: docs, tooling
 - authority surfaces touched: 1 file(s)
 
 ### Commits
 
 | # | SHA | Subject | Files | +/- | Bundle | Risk |
 |---|---|---|---|---|---|---|
-| 1 | `dde77865` | LIVE_RUN: add AI Research Lane architecture proposal (Codex… | 2 | +217/-49 | tooling |  |
-| 2 | `9515a083` | LIVE_RUN: Q45/Q46/Q47 from typed-state discoverability audit | 2 | +147/-45 | tooling |  |
-| 3 | `5f5c049f` | LIVE_RUN: Q43 publisher lifecycle drift + Q44 publisher rea… | 2 | +150/-55 | tooling |  |
-| 4 | `a65da5bf` | Refresh external review snapshot for e596901 | 1 | +55/-54 | tooling |  |
-| 5 | `e5969014` | Preserve Claude-CLI WIP (F1 extension) from second session… | 3 | +230/-46 | tooling |  |
-| 6 | `4522b125` | Fix Q41: exclude registered conductor shells from orphan/st… | 2 | +98/-45 | tooling |  |
-| 7 | `b7674a38` | LIVE_RUN: Q41 ROOT CAUSE — process-sweep-post reaps live co… | 2 | +109/-49 | tooling |  |
-| 8 | `c60bd77b` | LIVE_RUN: Q33-Q40 findings from full surface audit + guard-… | 3 | +238/-57 | tooling |  |
-| 9 | `839008c6` | Refresh external review snapshot for 17d7c73 | 1 | +41/-38 | tooling |  |
-| 10 | `17d7c734` | Refresh external review snapshot for 1de0fc0 | 1 | +41/-41 | tooling |  |
-| 11 | `1de0fc06` | Bridge refresh: Codex polls post-relaunch at 19:30:05Z + 19… | 2 | +58/-60 | docs |  |
-| 12 | `7a1ba282` | LIVE_RUN: A11 + Q31 role drift self-correction + Q32 Q4 reg… | 2 | +174/-49 | tooling |  |
-| 13 | `73842029` | Extend Q1 bypass to concurrent-writer rule (Q30) + regen AG… | 3 | +50/-48 | tooling |  |
-| 14 | `015cec99` | Refresh external review snapshot for 7889291 | 1 | +52/-57 | tooling |  |
-| 15 | `78892916` | Fix Q18: bundle.docs docs-check missing --since-ref origin/… | 2 | +59/-49 | tooling |  |
-| 16 | `12594100` | Refresh external review snapshot for 44c0018 | 1 | +41/-47 | tooling |  |
-| 17 | `44c0018d` | Refresh external review snapshot for d9a9a3b | 1 | +52/-57 | tooling |  |
-| 18 | `d9a9a3b7` | CHANGELOG: Q1 FIXED + A1-A10 automation gaps entry (unblock… | 2 | +70/-48 | docs |  |
-| 19 | `2ec69918` | Refresh external review snapshot for 2ee89e5 | 1 | +52/-56 | tooling |  |
-| 20 | `2ee89e50` | LIVE_RUN: Q1 FIXED + Q29 + A1-A10 automation gaps (remote_c… | 2 | +267/-50 | tooling |  |
-| 21 | `5c95b87b` | Refresh external review snapshot for ee0a1d0 | 1 | +40/-46 | tooling |  |
-| 22 | `ee0a1d08` | Refresh external review snapshot for 2bd24b1 | 1 | +55/-49 | tooling |  |
-| 23 | `2bd24b15` | Fix Q1: devctl commit self-block via DEVCTL_COMMIT_GATE_BYP… | 3 | +85/-60 | tooling |  |
-| 24 | `a9671376` | Refresh external review snapshot for 199291a | 1 | +40/-37 | tooling |  |
+| 1 | `079d7f3f` | Preserve Claude-CLI WIP (F1 consumer wiring) from session 5… | 4 | +155/-155 | tooling |  |
+| 2 | `dde77865` | LIVE_RUN: add AI Research Lane architecture proposal (Codex… | 2 | +217/-49 | tooling |  |
+| 3 | `9515a083` | LIVE_RUN: Q45/Q46/Q47 from typed-state discoverability audit | 2 | +147/-45 | tooling |  |
+| 4 | `5f5c049f` | LIVE_RUN: Q43 publisher lifecycle drift + Q44 publisher rea… | 2 | +150/-55 | tooling |  |
+| 5 | `a65da5bf` | Refresh external review snapshot for e596901 | 1 | +55/-54 | tooling |  |
+| 6 | `e5969014` | Preserve Claude-CLI WIP (F1 extension) from second session… | 3 | +230/-46 | tooling |  |
+| 7 | `4522b125` | Fix Q41: exclude registered conductor shells from orphan/st… | 2 | +98/-45 | tooling |  |
+| 8 | `b7674a38` | LIVE_RUN: Q41 ROOT CAUSE — process-sweep-post reaps live co… | 2 | +109/-49 | tooling |  |
+| 9 | `c60bd77b` | LIVE_RUN: Q33-Q40 findings from full surface audit + guard-… | 3 | +238/-57 | tooling |  |
+| 10 | `839008c6` | Refresh external review snapshot for 17d7c73 | 1 | +41/-38 | tooling |  |
+| 11 | `17d7c734` | Refresh external review snapshot for 1de0fc0 | 1 | +41/-41 | tooling |  |
+| 12 | `1de0fc06` | Bridge refresh: Codex polls post-relaunch at 19:30:05Z + 19… | 2 | +58/-60 | docs |  |
+| 13 | `7a1ba282` | LIVE_RUN: A11 + Q31 role drift self-correction + Q32 Q4 reg… | 2 | +174/-49 | tooling |  |
+| 14 | `73842029` | Extend Q1 bypass to concurrent-writer rule (Q30) + regen AG… | 3 | +50/-48 | tooling |  |
+| 15 | `015cec99` | Refresh external review snapshot for 7889291 | 1 | +52/-57 | tooling |  |
+| 16 | `78892916` | Fix Q18: bundle.docs docs-check missing --since-ref origin/… | 2 | +59/-49 | tooling |  |
+| 17 | `12594100` | Refresh external review snapshot for 44c0018 | 1 | +41/-47 | tooling |  |
+| 18 | `44c0018d` | Refresh external review snapshot for d9a9a3b | 1 | +52/-57 | tooling |  |
+| 19 | `d9a9a3b7` | CHANGELOG: Q1 FIXED + A1-A10 automation gaps entry (unblock… | 2 | +70/-48 | docs |  |
+| 20 | `2ec69918` | Refresh external review snapshot for 2ee89e5 | 1 | +52/-56 | tooling |  |
+| 21 | `2ee89e50` | LIVE_RUN: Q1 FIXED + Q29 + A1-A10 automation gaps (remote_c… | 2 | +267/-50 | tooling |  |
+| 22 | `5c95b87b` | Refresh external review snapshot for ee0a1d0 | 1 | +40/-46 | tooling |  |
+| 23 | `ee0a1d08` | Refresh external review snapshot for 2bd24b1 | 1 | +55/-49 | tooling |  |
+| 24 | `2bd24b15` | Fix Q1: devctl commit self-block via DEVCTL_COMMIT_GATE_BYP… | 3 | +85/-60 | tooling |  |
 
 ### Files
 
 | Path | Bundle | +/- |
 |---|---|---|
 | `AGENTS.md` | docs | +1/-1 |
-| `bridge.md` | docs | +7/-7 |
+| `bridge.md` | docs | +24/-24 |
 | `dev/CHANGELOG.md` | docs | +19/-0 |
 | `dev/audits/LIVE_RUN.md` | tooling | +965/-1 |
-| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1149/-1175 |
+| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1178/-1220 |
 | `dev/scripts/checks/startup_authority_contract/runtime_checks.py` | tooling | +12/-0 |
 | `dev/scripts/devctl/bundles/registry.py` | tooling | +8/-1 |
+| `dev/scripts/devctl/commands/governance/session_resume_support.py` | tooling | +42/-43 |
 | `dev/scripts/devctl/commands/vcs/commit.py` | tooling | +24/-2 |
 | `dev/scripts/devctl/platform/coordination_snapshot.py` | tooling | +11/-1 |
 | `dev/scripts/devctl/process_sweep/internals.py` | tooling | +51/-4 |
+| `dev/scripts/devctl/runtime/control_plane_read_model.py` | tooling | +27/-13 |
 | `dev/scripts/devctl/runtime/coordination_loader.py` | tooling | +174/-0 |
 
 ## 4. Quality signals
@@ -229,6 +231,11 @@ Recent findings:
 
 ### Per-commit rationale
 
+- **`079d7f3f` | markers: F1** — Preserve Claude-CLI WIP (F1 consumer wiring) from session 5 death
+  - Session 5 (PIDs 32968/33008) died at 20:20:57Z after reaching 18:44
+  - elapsed, just past the Q41-protected ~7min death window (proving Q41
+  - fixed the process-sweep cause) but still short of task completion.
+  - evolution: The next coordination follow-up was not another reducer. The reducer already existed and multiple rich surfaces already rendered it. The miss was load-bearing: the shared `ControlPlaneReadModel` still had no coordinatio…
 - **`dde77865` | MPs: MP-388** — LIVE_RUN: add AI Research Lane architecture proposal (Codex review lane)
   - Operator requested formalizing the beta-test flow this session has
   - been running ad-hoc ('research → LIVE_RUN → Codex review → Claude
@@ -287,8 +294,6 @@ Recent findings:
   - evolution: The next coordination follow-up was not another reducer. The reducer already existed and multiple rich surfaces already rendered it. The miss was load-bearing: the shared `ControlPlaneReadModel` still had no coordinatio…
 - **`2bd24b15`** — Fix Q1: devctl commit self-block via DEVCTL_COMMIT_GATE_BYPASS_STARTUP_AUTHORITY env var
   - evolution: The next coordination follow-up was not another reducer. The reducer already existed and multiple rich surfaces already rendered it. The miss was load-bearing: the shared `ControlPlaneReadModel` still had no coordinatio…
-- **`a9671376`** — Refresh external review snapshot for 199291a
-  - evolution: The next coordination follow-up was not another reducer. The reducer already existed and multiple rich surfaces already rendered it. The miss was load-bearing: the shared `ControlPlaneReadModel` still had no coordinatio…
 ### Active MP scope (from MASTER_PLAN.md)
 
 - `dev/active/devctl_reporting_upgrade.md` is the phased `devctl` reporting/CIHub specification, but not a separate execution tracker; implementation tasks stay in this file under `MP-297..MP-300`, `MP-303`, `MP-306`, `MP…
@@ -307,10 +312,10 @@ Recent findings:
 - open governance findings: 39
 
 ### Startup advisories
-- checkpoint_before_continue: concurrent_writer_activity
+- repair_reviewer_loop: reviewer_overdue
 
 ### Stale warnings
-- Keep editing the current slice.
+- Cut a checkpoint before doing anything else.
 
 ### Open gap rows
 - **governance_open** (`dev/scripts/devctl/review_channel/bridge_sanitize.py`): agent_checkpoint_contract_ignorance: 
@@ -324,4 +329,4 @@ Recent findings:
 
 ---
 
-Projection produced by `devctl review-snapshot`. Generation stamp `snap-0d9b702c9887` binds this file to HEAD `dde778654d8d`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
+Projection produced by `devctl review-snapshot`. Generation stamp `snap-3d360cd519ca` binds this file to HEAD `079d7f3f1228`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
