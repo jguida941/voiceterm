@@ -752,6 +752,18 @@ Three quality layers matter in practice:
   keep it typed and rerun
   `python3 -m pytest dev/scripts/devctl/tests/platform/test_planning_ir.py dev/scripts/devctl/tests/platform/test_system_picture.py -q --tb=short`
   before trusting the broader platform bundle.
+- The same platform package now also carries bounded coordination posture
+  reducers under `dev/scripts/devctl/platform/coordination_snapshot.py` and
+  `dev/scripts/devctl/platform/coordination_topology.py`. Use them as the
+  canonical answer for "who else is here?", "is fanout safe?", "are worker
+  worktrees isolated?", and "must this session resync?" instead of rebuilding
+  that logic separately from `reviewer_runtime`, `runtime_counts`, bridge
+  prose, or startup-summary hints. `CoordinationSnapshot` is the first
+  repo-visible `system-picture` consumer; `CoordinationTopologySnapshot` is
+  the richer shared contract for startup/status/dashboard/remote-control
+  follow-on wiring. When you touch either seam, rerun
+  `python3 -m pytest dev/scripts/devctl/tests/platform/test_coordination_snapshot.py dev/scripts/devctl/tests/platform/test_coordination_topology.py dev/scripts/devctl/tests/platform/test_system_picture.py -q --tb=short`
+  before trusting the broader platform bundle.
 - Use `python3 dev/scripts/devctl.py system-picture --format md` when that
   same platform/governance slice should refresh the generated external-review
   reducer and proof-ledger projection rather than leaving the proof surface as

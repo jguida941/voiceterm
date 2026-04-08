@@ -27,6 +27,7 @@ from ..runtime.startup_receipt import (
 )
 from ..runtime.startup_signals import load_startup_quality_signals
 from ..time_utils import utc_timestamp
+from .coordination_snapshot import build_coordination_snapshot
 from .system_picture_models import (
     SYSTEM_PICTURE_CONTRACT_ID,
     SYSTEM_PICTURE_SCHEMA_VERSION,
@@ -43,6 +44,7 @@ from .system_picture_sections import (
     build_review_runtime_section,
     build_startup_section,
 )
+from .system_picture_sections_coordination import build_coordination_section
 from .system_picture_sections_artifacts import (
     build_data_science_section,
     build_external_findings_section,
@@ -121,6 +123,11 @@ def build_system_picture_snapshot(
     review_state = load_current_review_state(resolved_root, governance=startup_context.governance)
     review_state_path_val = resolve_review_state_path(resolved_root, governance=startup_context.governance)
     quality_signals = load_startup_quality_signals(resolved_root)
+    coordination_snapshot = build_coordination_snapshot(
+        repo_root=resolved_root,
+        startup_context=startup_context,
+        review_state=review_state,
+    )
 
     sections = [
         build_startup_section(
@@ -141,6 +148,11 @@ def build_system_picture_snapshot(
         build_review_runtime_section(
             repo_root=resolved_root,
             review_state=review_state,
+            review_state_path=review_state_path_val,
+        ),
+        build_coordination_section(
+            repo_root=resolved_root,
+            snapshot=coordination_snapshot,
             review_state_path=review_state_path_val,
         ),
         build_quality_signals_section(

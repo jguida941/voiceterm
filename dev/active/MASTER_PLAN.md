@@ -103,7 +103,19 @@
   `unowned_hot_paths`, and `plan_finding_mismatches`. The immediate follow-up
   is projection work, not another raw-state pass: feed that reducer into
   startup/dashboard/bridge surfaces and validate it against one more live
-  multi-agent launch before widening beyond bounded simulation coverage.
+  multi-agent launch before widening beyond bounded simulation coverage. That
+  projection tranche has now started too: `dev/scripts/devctl/platform/
+  coordination_snapshot.py` builds one typed `CoordinationSnapshot` over the
+  existing startup/work-intake packet, `CollaborationSession`, delegated
+  worktree receipts, ready gates, and the shared conflict helper. The first
+  consumer is `system-picture`, which now exposes one bounded coordination
+  section for declared-vs-observed topology, fanout posture, worktree
+  isolation strategy, and resync requirement instead of leaving those facts
+  scattered across status/startup/runtime packets. Live proof still shows the
+  repair target clearly: planned multi-agent scaffolding with isolated worker
+  worktrees, but observed `single_agent` runtime and inactive reviewer-loop
+  resync, so the next slice should be real remote-control/runtime validation
+  rather than another theory-only reducer.
 - Current 2026-04-05 self-hardening boundary correction inside that same lane:
   keep the platform self-hardening, not self-redefining. Predeclared
   invariants may auto-enforce when repo-owned authority already defines the

@@ -135,6 +135,7 @@ Release-governance note:
 | Where is the full reusable AI governance platform / package-extraction architecture plan? | `dev/active/ai_governance_platform.md` (the only main active architecture plan for this product scope) |
 | Where is the current `MP-377` startup-authority / repo-pack / typed-plan-registry / runtime-evidence-context closure plan? | `dev/active/platform_authority_loop.md` (subordinate `MP-377` execution spec; read after `dev/active/ai_governance_platform.md`) |
 | Where is the scheduler-facing planning reducer for multi-agent slice routing documented? | `dev/active/ai_governance_platform.md` for execution authority, plus `dev/scripts/README.md` for the maintainer-facing `PlanningIRSnapshot` module surface |
+| Where is the bounded coordination/topology reducer for live roster, ownership posture, fanout safety, worktree isolation, and resync state documented? | `dev/active/ai_governance_platform.md` for execution authority, plus `dev/scripts/README.md` for the maintainer-facing `CoordinationSnapshot` / `CoordinationTopologySnapshot` module surfaces |
 | Where is the shared repo-visible backlog intake for humans + AI? | `backlog.md` (shared intake only; promote items into `dev/active/MASTER_PLAN.md` plus the owning active plan before execution) |
 | Where is the governed active-plan markdown contract used by docs-governance and future `PlanRegistry` work? | `dev/active/PLAN_FORMAT.md` (reference-only companion for plan-doc schema/self-hosting) |
 | Where is the durable reusable AI governance platform thesis/architecture guide? | `dev/guides/AI_GOVERNANCE_PLATFORM.md` (durable companion to the active platform plan) |
@@ -892,6 +893,17 @@ review/work-intake runtime state into bounded scheduling outputs
 `plan_finding_mismatches`). Treat that reducer as the authoritative
 multi-agent scheduling seam; do not reconstruct the same state from
 `bridge.md` prose or ad hoc startup-summary parsing.
+The same platform layer also owns bounded coordination/topology reducers for
+live multi-agent posture. `coordination_snapshot.py` is the first repo-visible
+projection consumed by `system-picture`; it joins startup/work-intake posture,
+review-state collaboration, delegated-worktree receipts, ready gates, and
+conflict summaries into one answer for declared-vs-observed topology, fanout
+posture, worktree strategy, and resync requirement. The adjacent
+`coordination_topology.py` contract is the richer shared topology surface for
+participant rows, delegated worktrees, ready gates, fanout safety, and
+resync command. Prefer those typed reducers over recomputing the same answers
+from `runtime_counts`, `reviewer_runtime`, bridge markdown, or startup-summary
+prose in each consumer.
 Keep `startup_surface_tokens` populated on every current platform contract row
 so `platform-contracts`, startup surfaces, and closure guards keep projecting
 the same contract inventory.

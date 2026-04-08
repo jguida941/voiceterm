@@ -14,6 +14,9 @@ from unittest.mock import patch
 from dev.scripts.devctl import cli
 from dev.scripts.devctl.commands import listing, system_picture
 from dev.scripts.devctl.platform.system_picture import build_system_picture_snapshot
+from dev.scripts.devctl.platform.coordination_snapshot_models import (
+    CoordinationSnapshot,
+)
 from dev.scripts.devctl.platform.system_picture_models import (
     SystemPictureSection,
     SystemPictureSnapshot,
@@ -260,6 +263,28 @@ def test_build_system_picture_snapshot_reads_typed_sources() -> None:
                 "dev.scripts.devctl.platform.system_picture.load_startup_quality_signals",
                 return_value={"probe_report_status": "current"},
             ),
+            patch(
+                "dev.scripts.devctl.platform.system_picture.build_coordination_snapshot",
+                return_value=CoordinationSnapshot(
+                    generated_at_utc="2026-04-03T12:01:45Z",
+                    repo_name="codex-voice",
+                    repo_root=str(repo_root),
+                    current_branch="feature/system-picture",
+                    head_commit_sha="abc123",
+                    declared_topology="multi_agent_orchestrated",
+                    observed_topology="dual_agent",
+                    recommended_topology="single_agent",
+                    fanout_posture="planned_not_live",
+                    safe_to_fanout=False,
+                    worktree_strategy="isolated_worker_worktrees",
+                    resync_required=True,
+                    resync_reasons=("runtime_truth:blocked",),
+                    observed_active_participant_count=2,
+                    declared_participant_count=2,
+                    planned_delegated_worker_count=1,
+                    live_delegated_worker_count=0,
+                ),
+            ),
         ):
             snapshot = build_system_picture_snapshot(repo_root=repo_root)
 
@@ -267,12 +292,13 @@ def test_build_system_picture_snapshot_reads_typed_sources() -> None:
     assert snapshot.contract_id == "SystemPicture"
     assert snapshot.current_branch == "feature/system-picture"
     assert snapshot.head_commit_sha == "abc123"
-    assert snapshot.current_section_count == 7
+    assert snapshot.current_section_count == 8
     assert snapshot.stale_section_count == 0
     assert snapshot.missing_section_count == 0
     assert sections["startup"].summary["startup_receipt_fresh"] is True
     assert sections["graph"].summary["node_count"] == 2411
     assert sections["review_runtime"].summary["review_needed"] is True
+    assert sections["coordination"].summary["recommended_topology"] == "single_agent"
     assert sections["governance_review"].summary["total_findings"] == 8
     assert sections["external_findings"].summary["unique_repo_count"] == 2
     assert sections["data_science"].summary["total_events"] == 25

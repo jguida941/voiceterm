@@ -39,6 +39,47 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 
 ### 2026-04-07 - ReviewSnapshot hook hardening routed through owner plans
 
+### 2026-04-08 - Coordination reducers now collapse topology, fanout, and resync posture into typed state
+
+The next step after `PlanningIRSnapshot` was not another larger startup packet.
+The repo already had the raw facts: startup/work-intake ownership posture,
+review-state collaboration participants, delegated-worktree receipts, ready
+gates, and reviewer-runtime freshness. What it lacked was one bounded answer
+to the operator question "who else is here, is fanout safe, and do we need to
+resync?" without rebuilding that answer from several typed islands or bridge
+prose.
+
+That gap is now narrowed in the platform package. `CoordinationSnapshot`
+joins startup/work-intake posture, `ReviewState.collaboration`, delegated
+worker receipts, ready gates, and conflict summaries into one typed projection
+for declared-vs-observed topology, recommended topology, fanout posture,
+worktree strategy, and resync requirement. `system-picture` now consumes that
+projection directly, so the generated proof surface can show a real typed
+coordination answer instead of leaving multi-agent posture scattered across
+status JSON and runtime markdown.
+
+The same worktree also carries the adjacent richer contract
+`CoordinationTopologySnapshot`, which projects bounded participant rows,
+delegated worktree rows, ready gates, fanout safety, recommended topology,
+and explicit resync command. That contract is the intended shared topology
+surface for startup/status/dashboard/remote-control parity work, while the
+current `system-picture` slice proves the reducer on a live repo state first.
+Live proof is already useful: declared multi-agent topology can now be shown
+as observed single-agent runtime with planned scaffolding only, isolated
+worker worktrees, `fanout_safe=false`, and typed resync reasons.
+
+Evidence: `dev/scripts/devctl/platform/coordination_snapshot.py`,
+`dev/scripts/devctl/platform/coordination_snapshot_models.py`,
+`dev/scripts/devctl/platform/coordination_topology.py`,
+`dev/scripts/devctl/platform/system_picture.py`,
+`dev/scripts/devctl/platform/system_picture_sections_coordination.py`,
+`dev/scripts/devctl/tests/platform/test_coordination_snapshot.py`,
+`dev/scripts/devctl/tests/platform/test_coordination_topology.py`,
+`dev/scripts/devctl/tests/platform/test_system_picture.py`,
+`dev/active/MASTER_PLAN.md`,
+`dev/active/ai_governance_platform.md`,
+`dev/active/platform_authority_loop.md`.
+
 ### 2026-04-08 - PlanningIRSnapshot turns multi-agent scheduling into a typed reducer
 
 The next architecture step after startup coordination was not another wider

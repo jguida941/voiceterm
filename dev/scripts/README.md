@@ -259,9 +259,20 @@ Portability note:
   boundary without reverse-engineering it from active-plan prose alone.
 - `system-picture` is the generated external-review reducer for this repo: it
   composes startup, graph, review-runtime, governance-review, imported
-  findings, and telemetry signals into one bounded snapshot under
-  `dev/reports/system_picture/`, and `--write-ledger` refreshes the tracked
-  proof ledger projection at `dev/audits/AI_GOVERNANCE_PLATFORM_PROOF_LEDGER.md`.
+  findings, telemetry signals, and the current bounded coordination posture
+  into one snapshot under `dev/reports/system_picture/`, and `--write-ledger`
+  refreshes the tracked proof ledger projection at
+  `dev/audits/AI_GOVERNANCE_PLATFORM_PROOF_LEDGER.md`.
+- Multi-agent topology/fanout truth now has dedicated platform reducers too:
+  `dev/scripts/devctl/platform/coordination_snapshot.py` is the first
+  repo-visible summary projection for declared-vs-observed topology, fanout
+  posture, worktree strategy, and resync need, while
+  `dev/scripts/devctl/platform/coordination_topology.py` is the richer shared
+  contract for participant rows, delegated worktrees, ready gates, fanout
+  safety, recommended topology, and resync command. Startup, status,
+  dashboard, and remote-control follow-on work should consume one of those
+  typed reducers instead of reconstructing coordination from scattered
+  runtime/bridge fields or prose.
 - Repo-owned governance surfaces now live in
   `dev/config/devctl_repo_policy.json` too: `repo_governance.check_router`
   defines lane selection + risk add-ons, `repo_governance.docs_check` defines

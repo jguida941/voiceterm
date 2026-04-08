@@ -2375,6 +2375,19 @@ blocker or exception in plan state before skipping the declared order.
 
 ## Progress Log
 
+- 2026-04-08: Landed the first bounded coordination projection on top of the
+  startup/work-intake and collaboration-state path instead of asking every
+  consumer to re-derive topology from scattered runtime fields. The new
+  `CoordinationSnapshot` reducer under `dev/scripts/devctl/platform/` joins
+  `WorkIntakePacket`, `CollaborationSession`, delegated-worktree receipts,
+  ready gates, and the shared concurrent-writer conflict helper into one
+  typed answer for declared vs observed topology, fanout posture, worktree
+  strategy, resync reasons, and recommended fallback topology. The first
+  consumer is `system-picture`, which now exposes a coordination section that
+  makes the current live mismatch explicit: planned multi-agent scaffolding
+  with isolated worker worktrees, but observed `single_agent` runtime and an
+  inactive reviewer loop that still requires resync before safe fanout or
+  remote-control proof.
 - 2026-04-08: Landed the first scheduler-facing planning reducer beside
   `SystemPicture` instead of leaving the idea in `MASTER_PLAN` prose. The new
   `PlanningIRSnapshot` builder under `dev/scripts/devctl/platform/` consumes

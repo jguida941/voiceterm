@@ -137,6 +137,15 @@ Current 2026-04-08 collaboration-topology / ownership note:
   `next_best_slices`, `concurrent_writer_conflicts`, `unowned_hot_paths`, and
   `plan_finding_mismatches`. Projection into startup/dashboard/bridge remains
   the next follow-up, but the reducer itself is no longer plan-only theory.
+  The first projection slice is now real too: `CoordinationSnapshot` lives
+  beside those reducers under `dev/scripts/devctl/platform/`, joins startup
+  work-intake posture with `ReviewState.collaboration` / delegated-worktree
+  receipts / ready gates, and projects one bounded answer for
+  declared-vs-observed topology, fanout posture, worktree isolation, and
+  resync requirement. `system-picture` now consumes that snapshot as its
+  first repo-visible typed coordination section, so fresh sessions no longer
+  need to reconstruct the inactive-loop / planned-fanout mismatch from raw
+  status JSON or bridge prose.
 
 ## Scope
 
@@ -6131,6 +6140,18 @@ Execution order for this section:
 
 ## Progress Log
 
+- 2026-04-08: Landed the first bounded coordination projection that sits on
+  top of the new planning/work-intake state instead of reopening bridge-only
+  inference. `dev/scripts/devctl/platform/coordination_snapshot.py` now
+  builds `CoordinationSnapshot` from the existing `WorkIntakePacket`,
+  `CollaborationSession`, delegated-worktree receipts, ready gates, and the
+  shared concurrent-writer conflict helper. The contract keeps the answer
+  small but operational: declared vs observed topology, recommended topology,
+  fanout posture, worktree strategy, resync reasons, and bounded actor
+  exemplars. `system-picture` is the first consumer, so live repo snapshots
+  now show the exact current mismatch in typed form: planned multi-agent
+  scaffolding with isolated worker worktrees, but observed `single_agent`
+  runtime and inactive reviewer-loop resync still blocking safe fanout.
 - 2026-04-08: Landed the first higher-order scheduler reducer as typed code
   instead of another prose-only architecture note. The new
   `dev/scripts/devctl/platform/planning_ir.py` /
