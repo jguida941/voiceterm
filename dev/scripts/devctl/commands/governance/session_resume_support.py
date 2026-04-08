@@ -571,17 +571,17 @@ def _load_governed_sources(
 ) -> dict[str, Any]:
     """Load sources using governance-aware path resolution.
 
-    When governance provides a ``review_root``, the review_state and compact
-    paths are resolved from that root instead of the repo-pack default.
-    Non-review artifacts (receipt, push_report, heartbeats) continue to use
-    the standard ``load_sources`` paths since they are not affected by the
-    review_root override.
+    ``load_sources`` routes review_state through
+    ``load_current_review_state_payload`` when governance is supplied, so
+    dashboard, session-resume, and startup-context all see the same
+    bridge-refreshed projection. The compact projection still honors the
+    governance ``review_root`` explicitly because ``load_sources`` reads
+    it from the repo-pack ``review_status_dir_rel``, which may point at a
+    different directory than the governance review root.
     """
-    base = load_sources(repo_root)
+    base = load_sources(repo_root, governance=governance)
     gov_paths = resolve_source_paths(repo_root, governance=governance)
-    review_state_path = repo_root / gov_paths["review_state"]
     compact_path = repo_root / gov_paths["compact"]
-    base["review_state"] = read_json_artifact(review_state_path)
     base["compact_json"] = read_json_artifact(compact_path)
     return base
 

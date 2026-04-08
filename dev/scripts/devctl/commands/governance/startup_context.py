@@ -141,6 +141,9 @@ def _summary_coordination_lines(ctx_dict: dict) -> list[str]:
         f"safe_to_fanout={bool(coordination.get('safe_to_fanout', False))}",
         f"resync_required={bool(coordination.get('resync_required', False))}",
     ]
+    ownership_status = str(coordination.get("ownership_status") or "").strip()
+    if ownership_status:
+        lines.append(f"ownership_status={ownership_status}")
     fanout_posture = str(coordination.get("fanout_posture") or "").strip()
     if fanout_posture:
         lines.append(f"fanout_posture={fanout_posture}")

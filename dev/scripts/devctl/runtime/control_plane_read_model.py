@@ -14,7 +14,7 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from ..platform.coordination_snapshot_models import (
     CoordinationSnapshot,
@@ -33,6 +33,9 @@ from .control_plane_resolve import (
 )
 from .reviewer_observation import ReviewerObservation, resolve_reviewer_observation
 from .value_coercion import coerce_bool, coerce_int, coerce_string
+
+if TYPE_CHECKING:
+    from .project_governance import ProjectGovernance
 
 
 CONTROL_PLANE_READ_MODEL_CONTRACT_ID = "ControlPlaneReadModel"
@@ -170,13 +173,19 @@ def build_control_plane_read_model(
     *,
     sources_override: dict[str, Any] | None = None,
     git_override: dict[str, Any] | None = None,
+    governance: "ProjectGovernance | None" = None,
 ) -> ControlPlaneReadModel:
     """Load all artifacts ONCE, resolve ALL gates, return frozen model.
 
     ``sources_override`` and ``git_override`` allow tests to inject
-    pre-built data without touching the filesystem or git.
+    pre-built data without touching the filesystem or git. When
+    ``governance`` is supplied, ``load_sources`` uses it so every
+    surface that resolves governance up front (for example
+    session-resume) shares the same bridge-refreshed review-state.
     """
-    sources = sources_override if sources_override is not None else load_sources(repo_root)
+    sources = sources_override if sources_override is not None else load_sources(
+        repo_root, governance=governance,
+    )
     git = git_override if git_override is not None else load_git_state(repo_root)
 
     receipt = sources.get("receipt")

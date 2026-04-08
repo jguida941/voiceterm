@@ -4,9 +4,12 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from .control_plane_daemons import load_conductor_sources
+
+if TYPE_CHECKING:
+    from .project_governance import ProjectGovernance
 
 
 def read_json_artifact(path: Path) -> dict[str, Any] | None:
@@ -39,13 +42,37 @@ def artifact_paths(repo_root: Path) -> dict[str, Path]:
         )
 
 
-def load_sources(repo_root: Path) -> dict[str, Any]:
-    """Load every artifact the read model needs, exactly once."""
+def load_sources(
+    repo_root: Path,
+    *,
+    governance: "ProjectGovernance | None" = None,
+) -> dict[str, Any]:
+    """Load every artifact the read model needs, exactly once.
+
+    Review-state is loaded through ``load_current_review_state_payload`` so
+    every governance surface (dashboard, session-resume, startup-context)
+    observes the same bridge-refreshed projection instead of diverging
+    across multiple persisted review-state files on disk.
+    """
     paths = artifact_paths(repo_root)
     conductor_sources = load_conductor_sources(paths)
+    # Imported lazily to avoid a control_plane_sources <-> review_state_locator
+    # initialization cycle at module load time.
+    from .review_state_locator import load_current_review_state_payload
+
+    review_state_payload = load_current_review_state_payload(
+        repo_root, governance=governance,
+    )
+    # Legacy fallback: environments without an overridden repo-pack config
+    # and without a governance-backed review_root cannot produce a payload
+    # through the typed locator. Drop back to ``paths["review_state"]`` so
+    # older fixtures and bare repos keep working; the primary fresh-read
+    # path above still satisfies the F1 parity contract in production.
+    if review_state_payload is None:
+        review_state_payload = read_json_artifact(paths["review_state"])
     sources: dict[str, Any] = {
         "receipt": read_json_artifact(paths["receipt"]),
-        "review_state": read_json_artifact(paths["review_state"]),
+        "review_state": review_state_payload,
         "push_report": read_json_artifact(paths["push_report"]),
         "publisher_hb": read_json_artifact(paths["publisher_hb"]),
         "supervisor_hb": read_json_artifact(paths["supervisor_hb"]),

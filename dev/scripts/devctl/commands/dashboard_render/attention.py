@@ -120,12 +120,21 @@ def render_doctor_markdown(
 def render_pending_packets_markdown(
     snapshot: dict[str, Any], lines: list[str],
 ) -> None:
-    """Pending packets for the markdown coordination section."""
+    """Pending packets for the markdown coordination section.
+
+    The upstream ``_extract_typed_packets`` helper forwards every pending
+    packet kind (instruction, finding, system_notice, action_request...),
+    so the heading must be generic. Labelling the section "action packets"
+    is a typed-contract violation: only ``kind == "action_request"``
+    packets actually encode operator actions, and MP-384/MP-385 will
+    later split ``pending_packets_total`` from ``pending_action_requests``
+    so we can render a dedicated action-requests view.
+    """
     packets = snapshot.get("pending_packets", [])
     if not packets:
         return
     lines.append("")
-    lines.append("**Pending action packets**:")
+    lines.append("**Pending packets**:")
     lines.append("")
     for pkt in packets[:5]:
         kind = pkt.get("kind", "?")

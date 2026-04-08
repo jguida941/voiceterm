@@ -2645,7 +2645,13 @@ class TestPendingPacketRendering(unittest.TestCase):
         output = dashboard_render.render_markdown(
             self._snapshot_with_packets(),
         )
-        self.assertIn("Pending action packets", output)
+        # Generic "Pending packets" heading: the pending-packets list carries
+        # every kind, so labelling the section "action packets" would
+        # misreport instructions, findings, and system notices as operator
+        # actions. MP-384/MP-385 will split the counters and let us render a
+        # dedicated action-request view.
+        self.assertIn("Pending packets", output)
+        self.assertNotIn("Pending action packets", output)
         self.assertIn("`instruction`", output)
         self.assertIn("Fix the shape debt", output)
         self.assertIn("*[approval required]*", output)
