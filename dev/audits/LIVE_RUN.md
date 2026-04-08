@@ -1886,6 +1886,178 @@ been reviewer-implementer work. The operator corrected this explicitly:
   Let me post E/A entries as typed enhancement packets instead
   of appending to a markdown file.
 
+## AI Research Lane — proposed architecture (for Codex review + Claude-CLI implementation)
+
+**Status**: proposal — awaiting Codex triage + instruction for Claude-CLI
+**Operator request**: 2026-04-08T20:20Z — "Whenever I see something
+unavailable or hard to run, the system should make it easier. This
+session's pattern of 'run devctl command → find gap → log to
+LIVE_RUN → Codex reviews → Claude-CLI codes' should be formalized
+as a first-class governed flow, not ad-hoc."
+
+### Problem statement
+
+This session is a beta test of the governance platform. During it,
+Claude-Code (the remote operator proxy) manually:
+
+1. Enumerated devctl commands to find missing capabilities
+2. Ran typed-state queries to diagnose loop health
+3. Cross-compared outputs across surfaces to find drift
+4. Appended findings to LIVE_RUN.md by hand
+5. Pushed findings into the bridge's `## Claude Questions` section
+6. Waited for Codex to read LIVE_RUN.md and triage
+7. Watched Claude-CLI implement based on Codex's instructions
+
+Every step was manual. Every step was re-invented from scratch. There
+is no governed flow for "AI agent researches the system, finds
+issues, pushes them into the review lane." The result: the operator
+had to repeat guidance like "this is beta testing, log everything,
+push to Codex" many times because there was no typed path encoding it.
+
+### Proposed flow (5 phases)
+
+**Phase 1 — Discovery primer** (solves Q22, Q46)
+
+- **Fix `devctl discover`** (Q22: KeyError crash in `_render_category`)
+  so it actually enumerates the repo's commands, guards, probes,
+  and live surfaces in one shot. Required for any AI agent to
+  discover what's available.
+- **New `devctl describe-status`** — prints every populated field in
+  `review-channel status --format json` with example values, so
+  future operators don't repeat the Q45/Q46 mistake of pathing
+  wrong.
+- **Rename `bridge_liveness` → `dual_agent_loop_state`** (Q45) with
+  backcompat alias. Makes discoverability obvious.
+- **Bootstrap hook**: when a Claude-Code session opens in
+  `remote_control` mode, auto-run `devctl describe-status` +
+  `devctl discover --for-task monitoring` and print the primer
+  into the session transcript.
+
+**Phase 2 — Research lane** (the thing this plan is about)
+
+- **New `devctl research-probe --command <cmd>`** — runs any devctl
+  command, captures output, diffs against a stored baseline,
+  on divergence auto-appends a structured Q-entry to
+  `dev/audits/LIVE_RUN.md`. Replaces the ad-hoc grep-and-write
+  loop I've been doing.
+- **New `devctl research-sweep`** — runs `research-probe` across
+  every registered devctl command in sequence (via `devctl list`),
+  captures the full output matrix, and logs any drift.
+- **Post-commit hook**: after every commit, run `research-sweep
+  --quick` in background and auto-append regressions.
+- **Scheduled cron**: run `research-sweep --full` every N minutes
+  (configurable per operator preference). In this session that
+  cadence is 3 min via `CronCreate be574ff0`.
+
+**Phase 3 — Finding pipeline** (solves Q20, A9)
+
+- **Fix Q20** (packet transport inbox/history contract mismatch +
+  packet loss) so the typed packet queue is reliable.
+- **New `devctl finding --post --from-file dev/audits/LIVE_RUN.md`** —
+  parses every `### QN —` entry in LIVE_RUN.md, deduplicates
+  against existing packet inbox, posts missing ones as typed
+  `finding` packets addressed to Codex. This closes A9 (auto-route
+  LIVE_RUN entries to reviewer inbox).
+- **Round-trip check**: on post, verify each finding appears in
+  `review-channel --action inbox --target codex` before returning
+  ok. If not, emit a `finding_sync_failed` typed warning.
+
+**Phase 4 — Review loop observability** (solves Q45, Q46, Q47)
+
+- **Add `what_are_they_doing` summary field** to
+  `dual_agent_loop_state` that synthesizes `current_instruction +
+  claude_status + open_findings` into a one-line answer.
+- **Add `handoff_latency_seconds` field** (Q47) for dual-agent
+  handoff monitoring.
+- **Add `claude_ack_current=False` warning banner** to
+  `devctl dashboard --format terminal` and `--format phone`.
+- **Add `publisher.bound_session_id`** (Q43) so cross-generation
+  publisher state is detectable.
+
+**Phase 5 — Self-healing** (solves A11, Q48)
+
+- **New `conductor_liveness_watcher` daemon**. Polls
+  `runtime_counts.live_reviewer_count + live_implementer_count`
+  every 30s. On death detection:
+    - Auto-preserves any dirty WIP via `git stash push -m "auto-wip-
+      conductor-exit-<ts>"` (solves Q38).
+    - Auto-relaunches the pair with the last known instruction
+      scope.
+    - Emits typed `conductor_relaunched` event.
+- **Investigate Q48** (post-Q41 session 5 death at ~18 min). The
+  existing `supervision_mode: restart-on-clean-exit` field in
+  `codex-conductor.json` suggests the intent was already there,
+  but nothing fires on it. Either wire it up or document why it
+  doesn't.
+
+### Role contract enforcement
+
+This plan explicitly names the role boundaries (Q31 self-correction):
+
+- **Codex (reviewer)**: reads LIVE_RUN.md, triages findings, writes
+  typed instructions for Claude-CLI, audits Claude-CLI's commits.
+- **Claude-CLI (coder)**: implements Codex's instructions, creates
+  sibling modules per user preference, writes tests alongside code.
+- **Claude-Code (remote dashboard)**: runs `research-probe` and
+  `research-sweep`, pushes findings to LIVE_RUN.md, polls typed
+  state, projects the dashboard, does NOT write code fixes.
+- **Publisher daemon**: projects review_state.json → bridge.md,
+  Q41-protected, Q44-protected, session-bound (Q43).
+- **Reviewer supervisor**: (TBD) — currently dead code per Q10,
+  needs either clear ownership or removal.
+
+### Integration with existing architecture
+
+- **No new MD files** — all proposals land as sections in
+  `dev/audits/LIVE_RUN.md` (this file) per operator request.
+- **Uses existing `review-channel --action post` packet transport**
+  once Q20 is fixed.
+- **Uses existing `CronCreate` scheduler** for `research-sweep`.
+- **Uses existing `dev/scripts/devctl.py` CLI entry point** —
+  adds `discover` fix, `describe-status`, `research-probe`,
+  `research-sweep`, `finding` as new subcommands under the
+  existing command dispatcher.
+- **Uses existing `dev/config/devctl_repo_policy.json`** for policy
+  knobs like the research-sweep cadence, baseline storage path,
+  finding auto-post toggle.
+- **Uses existing bridge Action Requests section** for operator
+  requests during a live run.
+
+### Why this is worth building
+
+1. This session found **48+ distinct beta-test observations** by
+   manually running commands and pattern-matching. A
+   `research-sweep` would find most of them in one automated
+   pass and keep finding new ones on every cycle.
+2. The operator repeated guidance many times because there was no
+   typed encoding of the "dashboard operator checks X, pushes Y
+   to Z" flow. Encoding it removes the need to repeat.
+3. The AI-capability-discovery gap (Q22/Q45/Q46) means EVERY new
+   Claude-Code session onboards blind. A bootstrap primer + working
+   `discover` fixes this once for all future sessions.
+4. The finding pipeline (Phase 3) is the thing that lets Codex
+   actually see what Claude-Code found. Today it's
+   file-based-with-manual-routing; it should be typed packets.
+5. The self-healing phase (Phase 5) eliminates the ~18-min session
+   death pattern that's costing work every cycle.
+
+### Asks for Codex
+
+When Codex reads this section from LIVE_RUN.md:
+
+1. **Triage** this plan against the existing `dev/active/*.md`
+   plan set. Decide if it needs a new plan doc (probably under
+   MP-388 or similar) or whether individual phases fold into
+   existing plans (e.g. Phase 3 could extend
+   `remote_control_runtime.md`).
+2. **Write typed instructions** for Claude-CLI to implement the
+   phases in priority order (suggested: Q22 first, then Phase 2
+   research-probe, then Phase 3 finding pipeline).
+3. **Post verdicts** on the proposed phase ordering and any phases
+   that should be dropped or redesigned.
+4. **Do not implement directly** — this is a Claude-CLI coding
+   slice once the instruction is ready.
+
 ## Retirement plan for this file
 
 LIVE_RUN.md is an **emergency workaround** for Q20 (packet transport broken).

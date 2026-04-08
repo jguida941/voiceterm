@@ -5,14 +5,14 @@
 ## Quick status
 
 - Branch: `feature/governance-quality-sweep`
-- HEAD: `5f5c049f61b9` — LIVE_RUN: Q43 publisher lifecycle drift + Q44 publisher reaper risk
-- Tree hash: `92076b320c9a`
-- Generation stamp: `snap-b3b39cdd6809`
-- Generated at (UTC): 2026-04-08T20:20:20Z
+- HEAD: `9515a0838845` — LIVE_RUN: Q45/Q46/Q47 from typed-state discoverability audit
+- Tree hash: `c03b559c382a`
+- Generation stamp: `snap-3b14c6a08dec`
+- Generated at (UTC): 2026-04-08T20:32:32Z
 - Push decision: `await_checkpoint` — worktree_dirty
-- Reviewer mode: `active_dual_agent` (interaction: `local_terminal`)
+- Reviewer mode: `tools_only` (interaction: `local_terminal`)
 - Pipeline state: `n/a` (approval: `n/a`)
-- Delta since last snapshot: 25 commits, 19 files, +2589/-1406
+- Delta since last snapshot: 25 commits, 19 files, +2539/-1395
 - Governance findings: 39 open / 68 fixed / 121 total
 - Probe hints: 0 total across 0 files scanned
 
@@ -54,9 +54,9 @@ adopters arrive.
 - Remote: `https://github.com/jguida941/voiceterm.git`
 - Default branch: `master`
 - Current branch: `feature/governance-quality-sweep`
-- HEAD SHA: `5f5c049f61b9b3761b0413ed7b7ca39190fec25e`
+- HEAD SHA: `9515a083884570dc400b1434167acf9eb8012638`
 - HEAD author: Justin Guida
-- HEAD timestamp (UTC): 2026-04-08T16:11:22-04:00
+- HEAD timestamp (UTC): 2026-04-08T16:20:11-04:00
 
 ## 2. Governance state
 
@@ -72,14 +72,14 @@ adopters arrive.
 - authorized_head_commit: `ee13a6c6337f395afa574e99a4234f2eaf45a161`
 - approved_target_identity: `tree-receipt-20260407T220000Z:281dea21851063411d2c43c2b4621a1c2a1168b5`
 - publication_backlog: urgent
-- publication_guidance: 18 local commit(s) waiting for governed push once the current slice is checkpoint-clean.
+- publication_guidance: 19 local commit(s) waiting for governed push once the current slice is checkpoint-clean.
 
 ### Reviewer runtime
-- reviewer_mode: `active_dual_agent`
+- reviewer_mode: `tools_only`
 - reviewer_freshness: unknown
 - reviewer_publish_clear: False
 - interaction_mode: `local_terminal`
-- implementation_blocked: yes — reviewer_heartbeat_stale
+- implementation_blocked: yes — reviewer_overdue
 
 ### Remote commit pipeline
 - state: `n/a`
@@ -93,12 +93,12 @@ adopters arrive.
 
 ## 3. Delta — what changed since the previous snapshot
 
-Range: last 25 commits ending at `5f5c049f61b9`
+Range: last 25 commits ending at `9515a0838845`
 
 - commits: 25
 - files changed: 19
-- insertions: +2589
-- deletions: -1406
+- insertions: +2539
+- deletions: -1395
 - bundle classes touched: tooling, docs
 - authority surfaces touched: 3 file(s)
 
@@ -106,41 +106,41 @@ Range: last 25 commits ending at `5f5c049f61b9`
 
 | # | SHA | Subject | Files | +/- | Bundle | Risk |
 |---|---|---|---|---|---|---|
-| 1 | `5f5c049` | LIVE_RUN: Q43 publisher lifecycle drift + Q44 publisher rea… | 2 | +150/-55 | tooling |  |
-| 2 | `a65da5b` | Refresh external review snapshot for e596901 | 1 | +55/-54 | tooling |  |
-| 3 | `e596901` | Preserve Claude-CLI WIP (F1 extension) from second session… | 3 | +230/-46 | tooling |  |
-| 4 | `4522b12` | Fix Q41: exclude registered conductor shells from orphan/st… | 2 | +98/-45 | tooling |  |
-| 5 | `b7674a3` | LIVE_RUN: Q41 ROOT CAUSE — process-sweep-post reaps live co… | 2 | +109/-49 | tooling |  |
-| 6 | `c60bd77` | LIVE_RUN: Q33-Q40 findings from full surface audit + guard-… | 3 | +238/-57 | tooling |  |
-| 7 | `839008c` | Refresh external review snapshot for 17d7c73 | 1 | +41/-38 | tooling |  |
-| 8 | `17d7c73` | Refresh external review snapshot for 1de0fc0 | 1 | +41/-41 | tooling |  |
-| 9 | `1de0fc0` | Bridge refresh: Codex polls post-relaunch at 19:30:05Z + 19… | 2 | +58/-60 | docs |  |
-| 10 | `7a1ba28` | LIVE_RUN: A11 + Q31 role drift self-correction + Q32 Q4 reg… | 2 | +174/-49 | tooling |  |
-| 11 | `7384202` | Extend Q1 bypass to concurrent-writer rule (Q30) + regen AG… | 3 | +50/-48 | tooling |  |
-| 12 | `015cec9` | Refresh external review snapshot for 7889291 | 1 | +52/-57 | tooling |  |
-| 13 | `7889291` | Fix Q18: bundle.docs docs-check missing --since-ref origin/… | 2 | +59/-49 | tooling |  |
-| 14 | `1259410` | Refresh external review snapshot for 44c0018 | 1 | +41/-47 | tooling |  |
-| 15 | `44c0018` | Refresh external review snapshot for d9a9a3b | 1 | +52/-57 | tooling |  |
-| 16 | `d9a9a3b` | CHANGELOG: Q1 FIXED + A1-A10 automation gaps entry (unblock… | 2 | +70/-48 | docs |  |
-| 17 | `2ec6991` | Refresh external review snapshot for 2ee89e5 | 1 | +52/-56 | tooling |  |
-| 18 | `2ee89e5` | LIVE_RUN: Q1 FIXED + Q29 + A1-A10 automation gaps (remote_c… | 2 | +267/-50 | tooling |  |
-| 19 | `5c95b87` | Refresh external review snapshot for ee0a1d0 | 1 | +40/-46 | tooling |  |
-| 20 | `ee0a1d0` | Refresh external review snapshot for 2bd24b1 | 1 | +55/-49 | tooling |  |
-| 21 | `2bd24b1` | Fix Q1: devctl commit self-block via DEVCTL_COMMIT_GATE_BYP… | 3 | +85/-60 | tooling |  |
-| 22 | `a967137` | Refresh external review snapshot for 199291a | 1 | +40/-37 | tooling |  |
-| 23 | `199291a` | Refresh external review snapshot for 3bd849c | 1 | +64/-51 | tooling |  |
-| 24 | `3bd849c` | Land F1/F2/F3: unified review-state loader + packet labels… | 9 | +271/-201 | tooling |  |
-| 25 | `9f9d8d7` | bridge + LIVE_RUN refresh: Codex F4 verdict + Q23/Q25/Q26/Q… | 3 | +197/-56 | tooling |  |
+| 1 | `9515a08` | LIVE_RUN: Q45/Q46/Q47 from typed-state discoverability audit | 2 | +147/-45 | tooling |  |
+| 2 | `5f5c049` | LIVE_RUN: Q43 publisher lifecycle drift + Q44 publisher rea… | 2 | +150/-55 | tooling |  |
+| 3 | `a65da5b` | Refresh external review snapshot for e596901 | 1 | +55/-54 | tooling |  |
+| 4 | `e596901` | Preserve Claude-CLI WIP (F1 extension) from second session… | 3 | +230/-46 | tooling |  |
+| 5 | `4522b12` | Fix Q41: exclude registered conductor shells from orphan/st… | 2 | +98/-45 | tooling |  |
+| 6 | `b7674a3` | LIVE_RUN: Q41 ROOT CAUSE — process-sweep-post reaps live co… | 2 | +109/-49 | tooling |  |
+| 7 | `c60bd77` | LIVE_RUN: Q33-Q40 findings from full surface audit + guard-… | 3 | +238/-57 | tooling |  |
+| 8 | `839008c` | Refresh external review snapshot for 17d7c73 | 1 | +41/-38 | tooling |  |
+| 9 | `17d7c73` | Refresh external review snapshot for 1de0fc0 | 1 | +41/-41 | tooling |  |
+| 10 | `1de0fc0` | Bridge refresh: Codex polls post-relaunch at 19:30:05Z + 19… | 2 | +58/-60 | docs |  |
+| 11 | `7a1ba28` | LIVE_RUN: A11 + Q31 role drift self-correction + Q32 Q4 reg… | 2 | +174/-49 | tooling |  |
+| 12 | `7384202` | Extend Q1 bypass to concurrent-writer rule (Q30) + regen AG… | 3 | +50/-48 | tooling |  |
+| 13 | `015cec9` | Refresh external review snapshot for 7889291 | 1 | +52/-57 | tooling |  |
+| 14 | `7889291` | Fix Q18: bundle.docs docs-check missing --since-ref origin/… | 2 | +59/-49 | tooling |  |
+| 15 | `1259410` | Refresh external review snapshot for 44c0018 | 1 | +41/-47 | tooling |  |
+| 16 | `44c0018` | Refresh external review snapshot for d9a9a3b | 1 | +52/-57 | tooling |  |
+| 17 | `d9a9a3b` | CHANGELOG: Q1 FIXED + A1-A10 automation gaps entry (unblock… | 2 | +70/-48 | docs |  |
+| 18 | `2ec6991` | Refresh external review snapshot for 2ee89e5 | 1 | +52/-56 | tooling |  |
+| 19 | `2ee89e5` | LIVE_RUN: Q1 FIXED + Q29 + A1-A10 automation gaps (remote_c… | 2 | +267/-50 | tooling |  |
+| 20 | `5c95b87` | Refresh external review snapshot for ee0a1d0 | 1 | +40/-46 | tooling |  |
+| 21 | `ee0a1d0` | Refresh external review snapshot for 2bd24b1 | 1 | +55/-49 | tooling |  |
+| 22 | `2bd24b1` | Fix Q1: devctl commit self-block via DEVCTL_COMMIT_GATE_BYP… | 3 | +85/-60 | tooling |  |
+| 23 | `a967137` | Refresh external review snapshot for 199291a | 1 | +40/-37 | tooling |  |
+| 24 | `199291a` | Refresh external review snapshot for 3bd849c | 1 | +64/-51 | tooling |  |
+| 25 | `3bd849c` | Land F1/F2/F3: unified review-state loader + packet labels… | 9 | +271/-201 | tooling |  |
 
 ### Files
 
 | Path | Bundle | +/- |
 |---|---|---|
 | `AGENTS.md` | docs | +1/-1 |
-| `bridge.md` | docs | +22/-20 |
+| `bridge.md` | docs | +7/-7 |
 | `dev/CHANGELOG.md` | docs | +19/-0 |
-| `dev/audits/LIVE_RUN.md` | tooling | +825/-2 |
-| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1220/-1258 |
+| `dev/audits/LIVE_RUN.md` | tooling | +793/-1 |
+| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1217/-1261 |
 | `dev/scripts/checks/startup_authority_contract/runtime_checks.py` | tooling | +12/-0 |
 | `dev/scripts/devctl/bundles/registry.py` | tooling | +8/-1 |
 | `dev/scripts/devctl/commands/dashboard_render/attention.py` | tooling | +11/-2 |
@@ -240,6 +240,8 @@ Recent findings:
 
 ### Per-commit rationale
 
+- **`9515a08`** — LIVE_RUN: Q45/Q46/Q47 from typed-state discoverability audit
+  - evolution: The next coordination follow-up was not another reducer. The reducer already existed and multiple rich surfaces already rendered it. The miss was load-bearing: the shared `ControlPlaneReadModel` still had no coordinatio…
 - **`5f5c049`** — LIVE_RUN: Q43 publisher lifecycle drift + Q44 publisher reaper risk
   - evolution: The next coordination follow-up was not another reducer. The reducer already existed and multiple rich surfaces already rendered it. The miss was load-bearing: the shared `ControlPlaneReadModel` still had no coordinatio…
 - **`a65da5b`** — Refresh external review snapshot for e596901
@@ -300,12 +302,6 @@ Recent findings:
   - on autonomously during the remote_control session while Codex was
   - polling as reviewer. The operator (remote) explicitly authorized this
   - evolution: The next coordination follow-up was not another reducer. The reducer already existed and multiple rich surfaces already rendered it. The miss was load-bearing: the shared `ControlPlaneReadModel` still had no coordinatio…
-- **`9f9d8d7` | MPs: MP-380 | markers: F4** — bridge + LIVE_RUN refresh: Codex F4 verdict + Q23/Q25/Q26/Q27 appends
-  - Bridge:
-  - - Codex's latest poll at 18:26:17Z posted a new Current Verdict
-  -   (`changes requested`) and added F4 as an Open Finding: the Q4
-  - plan: `dev/active/remote_control_runtime.md`
-  - evolution: The next coordination follow-up was not another reducer. The reducer already existed and multiple rich surfaces already rendered it. The miss was load-bearing: the shared `ControlPlaneReadModel` still had no coordinatio…
 ### Active MP scope (from MASTER_PLAN.md)
 
 - `dev/active/devctl_reporting_upgrade.md` is the phased `devctl` reporting/CIHub specification, but not a separate execution tracker; implementation tasks stay in this file under `MP-297..MP-300`, `MP-303`, `MP-306`, `MP…
@@ -341,4 +337,4 @@ Recent findings:
 
 ---
 
-Projection produced by `devctl review-snapshot`. Generation stamp `snap-b3b39cdd6809` binds this file to HEAD `5f5c049f61b9`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
+Projection produced by `devctl review-snapshot`. Generation stamp `snap-3b14c6a08dec` binds this file to HEAD `9515a0838845`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
