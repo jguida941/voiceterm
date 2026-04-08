@@ -195,7 +195,14 @@ _BUNDLE_SPECS: Final[tuple[BundleSpec, ...]] = (
     BundleSpec(
         "bundle.docs",
         (
-        "python3 dev/scripts/devctl.py docs-check --user-facing",
+        # --since-ref origin/develop aligned with bundle.post-push so the
+        # docs-check "user-facing updates present" rule evaluates against
+        # the full local-branch diff instead of only HEAD's most recent
+        # commit. Without it, a receipt-refresh commit between a real
+        # CHANGELOG update and HEAD hides the update from the checker and
+        # push preflight false-negatives on a real CHANGELOG entry.
+        # See LIVE_RUN.md Q18.
+        "python3 dev/scripts/devctl.py docs-check --user-facing --since-ref origin/develop",
         "python3 dev/scripts/devctl.py hygiene",
         *_GUARD_CHECKS,
         ),
