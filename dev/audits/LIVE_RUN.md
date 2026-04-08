@@ -1394,6 +1394,103 @@ been reviewer-implementer work. The operator corrected this explicitly:
   Action Requests for Codex and Claude-CLI to address.
 - **Status**: OPEN (needs Codex triage + role-contract enforcement)
 
+### Q62 — ERROR SYSTEM TOO COARSE — `attention.status` and related surfaces don't distinguish severity or actionable next steps
+
+- **Discovered**: 2026-04-08T21:54Z (operator quote: "We always need
+  a way better error system to know what is going on")
+- **Severity**: operator experience, HIGH
+- **Body**: The typed `attention` block has 5 fields (`status`,
+  `owner`, `summary`, `recommended_action`, `recommended_command`).
+  During this session I observed the same `status=reviewer_heartbeat_stale`
+  value under wildly different real conditions:
+    - Codex fully dead (PID gone) — needs urgent relaunch
+    - Codex polling slowly but alive — benign, wait
+    - Claude-CLI working without a reviewer in
+      `hybrid_claude_only` mode — degraded, partial work
+    - 33 local commits waiting for review, push blocked (urgent)
+    - Typed state lying about who's alive (Q61 — not even
+      reflected in attention)
+  All five of these are serious operator concerns that need
+  different actions, but the typed attention surface returns the
+  same generic string for all of them.
+- **Evidence this session**: I repeatedly asked the operator
+  "what do you want me to do?" because the typed state didn't
+  give me enough signal to differentiate. The `recommended_action`
+  field was populated for some states (e.g. reviewer_overdue had
+  a specific relaunch command) but EMPTY for the degraded states
+  that actually need action. And there's no `severity` field —
+  no way to sort between info/warn/critical.
+- **Fix recommendations**:
+    1. Add a `severity` enum to attention: `info | warn |
+       critical | blocking`. Operators and dashboards can color-
+       code or escalate on severity.
+    2. Break `attention.status` into specific typed enum values
+       per failure mode. Current session observed:
+       `reviewer_heartbeat_stale`, `reviewer_overdue`,
+       `reviewer_poll_due`, `reviewer_supervisor_required`,
+       `inactive`, `runtime_missing`, `hybrid_claude_only`.
+       Plus new ones we need: `push_backlog_urgent`,
+       `typed_state_inconsistent_with_os` (Q61),
+       `review_acceptance_gate_stuck` (Q48/Q47 compound),
+       `session_death_detected_relaunch_required` (A11).
+    3. Every attention status MUST have a populated
+       `recommended_command` string — no exceptions.
+    4. Cross-reference LIVE_RUN findings: add
+       `attention.related_findings: tuple[str, ...]` so when
+       the system emits e.g. `reviewer_overdue`, it includes
+       `["Q47", "Q48"]` so the operator can look up context.
+    5. Add an attention history/trace: the current attention is
+       a point-in-time snapshot. Operators need to see "attention
+       was X at T1, moved to Y at T2 when Z happened" to diagnose
+       degradation patterns.
+- **Related**: Q52 (typed state discoverability), Q53 (bootstrap
+  primer missing), Q55 (authority-lane split surfaces as generic
+  attention messages), Q61 (typed state lies about process state).
+- **Status**: OPEN
+
+### Q61 — TYPED STATE LIES — `claude_conductor_active` reports `True` after PID was killed 5 minutes ago
+
+- **Discovered**: 2026-04-08T21:54Z (during session 8 solo-Codex
+  diagnostic audit)
+- **Severity**: data quality, HIGH (typed state cannot be trusted
+  as source of truth when it lags OS reality)
+- **Body**: At 21:49Z I killed Claude-CLI PID 93331 and its wrapper
+  PIDs 93060/93071 via `kill -KILL` as part of the Q57 workaround
+  for solo-Codex session 8. Verified 0 remaining Claude-CLI
+  processes via `ps`. Five minutes later (21:54Z) the typed state
+  still reports:
+    ```
+    bridge_liveness.claude_conductor_active:  True
+    runtime_counts.live_implementer_count:    1
+    runtime_counts.active_conductor_count:    2
+    ```
+  **All wrong.** Only Codex is actually running. Claude-CLI has
+  been OS-dead for 5+ minutes.
+- **Root cause hypothesis**: the typed state's conductor-liveness
+  detection doesn't poll OS PIDs. It reads from the session
+  registry files (`dev/reports/review_channel/latest/sessions/*.json`)
+  or from the publisher's snapshot cache. Neither of those gets
+  invalidated when a conductor PID dies — they only update on
+  the next publisher cycle or on an explicit `review-channel
+  --action stop`. The publisher snapshot cycle is ~30s; the PID
+  death detection lag is at least that.
+- **Operator impact**: the dashboard I've been reporting for the
+  last ~5 min says "Claude-CLI alive" when it isn't. Every decision
+  based on `claude_conductor_active` or `live_implementer_count`
+  has been operating on stale/wrong data. This is a **typed
+  state integrity failure**, not just a cosmetic lag.
+- **Fix recommendations**:
+    1. Add OS-level PID liveness check to
+       `control_plane_read_model.build_read_model()` — for every
+       conductor in the registry, stat the PID and set
+       `<provider>_conductor_active=False` if `pid_alive=False`.
+    2. Add `runtime_counts.active_conductor_pid_alive_count` that
+       cross-checks registry against OS — any mismatch is a
+       finding candidate.
+    3. Fire an `attention.status=typed_state_inconsistent_with_os`
+       event when the two disagree.
+- **Status**: OPEN
+
 ### Q58 — CAPABILITY NOT DISCOVERED — `devctl autonomy-swarm` is the multi-agent swarm runner, not `review-channel launch`
 
 - **Discovered**: 2026-04-08T21:33Z (operator question + capability re-audit)
