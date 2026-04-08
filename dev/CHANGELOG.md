@@ -7,8 +7,27 @@ Note: Some historical entries reference internal documents that are not publishe
 
 ## [Unreleased]
 
+### Fixed
+
+- `dev/scripts/devctl/commands/vcs/commit.py` +
+  `dev/scripts/checks/startup_authority_contract/runtime_checks.py` —
+  `devctl commit` self-block (LIVE_RUN.md Q1) cleared via narrow
+  `DEVCTL_COMMIT_GATE_BYPASS_STARTUP_AUTHORITY` env var. The governed
+  commit path now works end-to-end instead of falling back to raw
+  `git commit`. Landed in commit `2bd24b1`.
+
 ### Added
 
+- `dev/audits/LIVE_RUN.md` automation-gaps section (A1-A10):
+  enumerates every manual step Claude-Code took during the
+  remote_control beta test that the governance system should have
+  automated. A1 auto-commit on green; A2 auto-push when commits
+  accumulate; A3 auto-refresh projections before consistency checks;
+  A4 auto-log findings via governed channel; A5 auto-discover
+  capabilities; A6 distinguish live conductors from orphans; A7
+  governed scheduled-action registry; A8 auto-relaunch on conductor
+  death; A9 sync LIVE_RUN entries into reviewer inbox; A10 first-
+  class `enhancement` packet kind.
 - `dev/audits/LIVE_RUN.md` — running trial log of a remote-control
   session documenting every finding, every confirmed-working surface,
   and every unknown / suspected blind spot during the Q1-Q17 issue
