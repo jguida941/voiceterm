@@ -1394,6 +1394,155 @@ been reviewer-implementer work. The operator corrected this explicitly:
   Action Requests for Codex and Claude-CLI to address.
 - **Status**: OPEN (needs Codex triage + role-contract enforcement)
 
+### Q51 — UPDATE CADENCE DRIFT — surfaces refresh on different schedules, AIs see different truths at the same timestamp
+
+- **Discovered**: 2026-04-08T20:52Z (operator observation)
+- **Severity**: architectural, HIGH (causes AI-to-AI misalignment)
+- **Body**: This session has four+ surfaces that hold typed state, and
+  each refreshes on its own cadence. A single operator poll at time
+  T sees all of them together, but each surface was last written at
+  a different time. The result: **Codex, Claude-CLI, and Claude-Code
+  can all be reading the same file at the same instant and see
+  different values**, because the values were written at different
+  times by different producers.
+
+  Observed cadences this session:
+
+  | Surface | Written by | Cadence | Typical staleness at read |
+  |---|---|---|---|
+  | `publisher_heartbeat.<pid>.json` | publisher daemon | ~30s heartbeat | <60s |
+  | `bridge.md` | publisher projection | on state-change trigger | 0–30s |
+  | `review_state.json` | typed action writers (post/heartbeat/checkpoint) | on each action | seconds to minutes |
+  | `REVIEW_SNAPSHOT.md` | review-snapshot --write | on commit hook | minutes to hours |
+  | `codex_poll_state` | Codex CLI poll cycle | ~2–5 min | can be 10+ min stale |
+  | `claude_ack_revision` | Claude-CLI ack writer | triggered when Claude-CLI decides | can be NEVER (session 5 died before ack'ing Q49) |
+  | `commit_pipeline.json` | vcs action | on commit/push events | hours |
+  | `typed runtime_counts` | control-plane reducer | on status refresh | seconds |
+
+  When AI agent A reads the state at T and agent B reads at T+30s,
+  they may both be reading "current state" but fields they rely on
+  have different freshness. Example from this session:
+
+    - At 20:46:24Z Codex polled → `last_codex_poll_utc=20:46:24Z`
+    - Between 20:46:24Z and 20:51:50Z Claude-CLI was working and
+      producing new tree state → `current_hash=0ff08577...`
+    - The `reviewer_worker.reviewed_hash=8c72dbb8...` is still the
+      hash Codex saw at its poll
+    - `review_needed=True` because reviewed != current
+    - But `overall_state=stale` and the warning says
+      "bridge review content is stale: worktree has changed since
+      last reviewed hash"
+
+  Codex saw one thing. Claude-CLI is making new state. The publisher
+  projected both into the same snapshot. The operator dashboard sees
+  the mismatch. **There's no synchronized "as-of" timestamp that
+  every surface agrees on.**
+
+- **Operator quote**: "The problem is the system is not updating
+  stuff at certain times so the AIs are not aligning on one stuff.
+  Updates need to be given to Codex and it needs to test it by
+  running one agent that is a reviewer and one agent that is a
+  coder so it's able to run both systems and see the mismatches."
+
+- **Fix recommendations**:
+    1. **Add a synchronized refresh action**:
+       `devctl review-channel --action sync-all` that atomically
+       writes ALL projections with one shared `snapshot_id` and
+       `as_of_utc`. Operators and AIs should be able to request
+       "snapshot at T" and get every field bound to the same T.
+    2. **Add `as_of_utc` field to every typed record** so a reader
+       can tell which fields are fresh vs stale relative to the
+       read time.
+    3. **Test protocol**: Codex should launch a reviewer + coder
+       agent and run a cadence-drift audit: record the timestamps
+       on every field, cross-compare across surfaces, emit a
+       typed `cadence_drift` report that shows which surfaces are
+       out of sync and by how much.
+    4. **Heartbeat alignment**: every producer should honor a
+       common refresh tick (e.g. 30s) so reads at any given
+       instant see approximately-consistent data. Today the
+       cadences vary from seconds to hours.
+    5. **First-class alignment metric**: add
+       `bridge_liveness.max_field_staleness_seconds` that reports
+       the oldest field in the current payload, so operators
+       immediately see "this state is up to 847s stale in places."
+- **Status**: OPEN (architectural, high priority — belongs in the
+  Research Lane Phase 4 "Review loop observability" bucket)
+
+### Q50 — META — Claude-Code's dashboard reports were lazy; used 5 fields of 200+ available
+
+- **Discovered**: 2026-04-08T20:51Z (operator correction)
+- **Severity**: operator dashboard quality, high
+- **Body**: For ~4 hours of this session, Claude-Code reported the
+  same five fields every cron cycle: PID, CPU%, log mtime, elapsed,
+  HEAD. The typed `review-channel status` response actually contains:
+
+    - `bridge_liveness`: 42 fields (mode, launch, instruction,
+      ack, status, verdict, findings, poll state, revision hashes,
+      freshness, conductor flags, visibility, more)
+    - `runtime_counts`: 15 fields (live participant/reviewer/
+      implementer counts, daemon totals, planned lanes, worker
+      budgets)
+    - `doctor`: 69 fields
+    - `push_decision`: 14 fields (action, reason, next-step
+      command, publication backlog)
+    - `commit_pipeline`: 27 fields (approval state, staged tree
+      hash, intent, blocked reason, guard/commit/push result)
+    - `reviewer_runtime`: 14 fields (freshness, rollover,
+      session owner, recovery command, review acceptance)
+    - `publisher`: 11 fields (pid, heartbeat age, snapshots
+      emitted, start time, stop reason)
+    - `reviewer_supervisor`: 11 fields (same shape as publisher)
+    - `reviewer_worker`: 7 fields (state, reviewed vs current
+      hash, semantic review claim)
+    - `attention`: 5 fields (status, owner, summary,
+      recommended_action, recommended_command) ←
+      **the system literally tells you what to do next**
+    - `projection_paths`: 9 fields (canonical file paths for
+      every projection)
+    - plus `service_identity`, `attach_auth_policy`, warnings,
+      errors, handoff_bundle, etc.
+
+  That's **200+ typed fields** per status call. Claude-Code was
+  reporting **five**. Operator correctly pointed out that reports
+  limited to CPU% and PID were ignoring the entire typed governance
+  surface this repo is built on.
+
+- **Downstream impact**: Claude-Code's cron-fired dashboard prompt
+  template is locked in via `CronCreate be574ff0`. That template
+  only asks for the 5 lazy fields. Every cron fire reproduces the
+  laziness. Need to either (a) replace the template via
+  `CronDelete` + new `CronCreate`, or (b) have the dashboard
+  prompt call a new `devctl dashboard-full` command that dumps
+  the 200+ fields in a structured phone-readable format.
+
+- **Also**: Codex and Claude-CLI equally need to see this full
+  view during their reviews. If I'm consuming typed state via
+  `review-channel status` and only reading 5 fields, they may
+  well be doing the same. The Research Lane E4 (`devctl
+  describe-status`) fix would surface every field to every AI
+  consumer simultaneously.
+
+- **Self-correction applied**: next dashboard cycle will report
+  `bridge_liveness.attention`, `runtime_counts`, `push_decision`,
+  `commit_pipeline.approval_state`, `reviewer_runtime.review_acceptance`,
+  publisher + supervisor heartbeats, and warnings/errors as a
+  minimum. PID/CPU/elapsed become secondary.
+
+- **Fix recommendations**:
+    1. Replace the `CronCreate be574ff0` prompt template with one
+       that calls a dedicated `devctl dashboard --format
+       phone-full` command.
+    2. Add that `dashboard --format phone-full` command that
+       returns the 200+ typed fields pre-organized for operator
+       triage.
+    3. Ship a canonical "operator dashboard spec" doc listing
+       which typed fields belong in every dashboard cycle vs
+       drill-down.
+
+- **Status**: OPEN (self-correction in progress; structural fix
+  is Research Lane Phase 4)
+
 ### Q47 — HANDOFF LATENCY — dual-agent instruction handoff sits in `waiting_on_peer` without a typed escalation
 
 - **Discovered**: 2026-04-08T20:17Z
