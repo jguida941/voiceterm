@@ -1365,6 +1365,20 @@ Machine-first output note:
     review, governance-review, imported-findings, and telemetry state.
   - Treat it as the maintainer-facing proof refresh surface after
     platform/governance contract changes that affect external-review claims.
+- `planning_ir`: scheduler-facing planning reducer module under
+  `dev/scripts/devctl/platform/planning_ir.py`
+  - There is no standalone CLI yet; maintainers use the module/tests directly
+    while the bounded reducer surface settles.
+  - `PlanningIRSnapshot` joins `PlanRegistry` / `PlanTargetRef`, recent
+    governance-review findings, context-graph `scoped_by` ownership,
+    `ReviewState`, `WorkIntakeOwnershipState`, and
+    `WorkIntakeCoordinationState`.
+  - The first bounded outputs are `next_best_slices`,
+    `concurrent_writer_conflicts`, `unowned_hot_paths`, and
+    `plan_finding_mismatches`.
+  - Treat it as the typed multi-agent scheduling seam beside
+    `system-picture`, not as something agents should re-infer from
+    `bridge.md` prose or startup-summary text.
 - `doc-authority`: read-only governed-markdown authority scan that derives the
   current doc-registry surface from the repo-pack/governance contract, reports
   active-doc registry coverage, class budgets, overlapping authority, and

@@ -93,15 +93,17 @@
 - Current same-lane focus inside that `MP-377` execution spec: finish the
   current truth-source hardening / ReviewSnapshot evidence slice already in
   the worktree, checkpoint it, and relaunch reviewer-first from that bounded
-  state before widening again. The active closure is persisted typed
-  `current_session` + `reviewer_runtime.review_acceptance` authority over
-  stale bridge prose plus first-class ReviewSnapshot probe-run/push-receipt
-  evidence. The immediate follow-ups after checkpoint/review are fresh
-  open-finding recomputation for snapshot surfaces and distinct startup
-  detection of external-agent authority drift instead of generic dirty-budget
-  loops. The broader `system-picture` / external-review reducer remains the
-  next later bounded artifact surface once this truth-source slice is
-  checkpointed and reviewed.
+  state before widening again. That checkpoint is now landed, and the next
+  same-lane scheduler artifact is live too: `dev/scripts/devctl/platform/
+  planning_ir.py` now builds one typed `PlanningIRSnapshot` beside
+  `SystemPicture`, joining `PlanRegistry` / `PlanTargetRef`, bounded live
+  governance-review findings, context-graph `scoped_by` ownership, and the
+  current work-intake ownership/coordination state. The first bounded outputs
+  stay operational: `next_best_slices`, `concurrent_writer_conflicts`,
+  `unowned_hot_paths`, and `plan_finding_mismatches`. The immediate follow-up
+  is projection work, not another raw-state pass: feed that reducer into
+  startup/dashboard/bridge surfaces and validate it against one more live
+  multi-agent launch before widening beyond bounded simulation coverage.
 - Current 2026-04-05 self-hardening boundary correction inside that same lane:
   keep the platform self-hardening, not self-redefining. Predeclared
   invariants may auto-enforce when repo-owned authority already defines the

@@ -2375,6 +2375,19 @@ blocker or exception in plan state before skipping the declared order.
 
 ## Progress Log
 
+- 2026-04-08: Landed the first scheduler-facing planning reducer beside
+  `SystemPicture` instead of leaving the idea in `MASTER_PLAN` prose. The new
+  `PlanningIRSnapshot` builder under `dev/scripts/devctl/platform/` consumes
+  the current `PlanRegistry` / `PlanTargetRef`, recent governance-review rows
+  normalized into `FindingRecord`, context-graph `scoped_by` ownership, and
+  the live work-intake ownership/coordination state. The first bounded
+  outputs are intentionally small and operational: `next_best_slices`,
+  `concurrent_writer_conflicts`, `unowned_hot_paths`, and
+  `plan_finding_mismatches`. This keeps the authority-loop shape honest:
+  startup no longer has to infer "who owns the next slice?" from bridge prose
+  or one overloaded coordination string, while projection back into
+  startup/dashboard/bridge remains an explicit later step rather than hidden
+  coupling inside the reducer.
 - 2026-04-07: Absorbed `dev/audits/architecture_hardening_plan.md` as
   ReviewSnapshot audit intake instead of promoting it into `dev/active/` as a
   second execution tracker. The MP-377 ownership split is now explicit: this
@@ -3628,6 +3641,12 @@ blocker or exception in plan state before skipping the declared order.
 
 ## Audit Evidence
 
+- Planning-reducer simulation proof (2026-04-08): `python3 -m pytest
+  dev/scripts/devctl/tests/platform/test_planning_ir.py -q --tb=short`
+  passed and locks the first bounded scheduler behaviors: active-plan slice
+  ranking, fail-closed single-writer posture when concurrent-writer signals
+  are live, and explicit `unowned_hot_paths` / `plan_finding_mismatches`
+  reporting from synthetic graph + governance-review inputs.
 - Maintained platform proof ledger (reference-only, non-authoritative):
   `dev/audits/AI_GOVERNANCE_PLATFORM_PROOF_LEDGER.md` is the current human
   index for what the platform already proves, what still blocks broader

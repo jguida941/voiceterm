@@ -5,14 +5,14 @@
 ## Quick status
 
 - Branch: `feature/governance-quality-sweep`
-- HEAD: `b681930744de` — Checkpoint startup coordination and session hint fixes
-- Tree hash: `0f8f00cd5f5c`
-- Generation stamp: `snap-b0251f77309e`
-- Generated at (UTC): 2026-04-08T14:08:01Z
-- Push decision: `run_devctl_push` — push_preconditions_satisfied
+- HEAD: `941781e02f1c` — Refresh external review snapshot for b681930
+- Tree hash: `a3268b72bdba`
+- Generation stamp: `snap-4bc36d60dff7`
+- Generated at (UTC): 2026-04-08T14:36:05Z
+- Push decision: `await_checkpoint` — dirty_path_budget_exceeded
 - Reviewer mode: `single_agent` (interaction: `local_terminal`)
 - Pipeline state: `n/a` (approval: `n/a`)
-- Delta since last snapshot: 24 commits, 123 files, +10695/-3334
+- Delta since last snapshot: 24 commits, 123 files, +10695/-3331
 - Governance findings: 39 open / 68 fixed / 121 total
 - Probe hints: 0 total across 0 files scanned
 
@@ -54,25 +54,25 @@ adopters arrive.
 - Remote: `https://github.com/jguida941/voiceterm.git`
 - Default branch: `master`
 - Current branch: `feature/governance-quality-sweep`
-- HEAD SHA: `b681930744de1cfed901ea640926f91024025adc`
+- HEAD SHA: `941781e02f1c3874e162a0e8969d6a8c26af8a3b`
 - HEAD author: Justin Guida
 - HEAD timestamp (UTC): 2026-04-08T10:07:41-04:00
 
 ## 2. Governance state
 
 ### Push decision
-- action: `run_devctl_push`
-- reason: push_preconditions_satisfied
-- push_eligible_now: True
-- worktree_clean: True
-- next_step_command: `python3 dev/scripts/devctl.py push --execute`
+- action: `await_checkpoint`
+- reason: dirty_path_budget_exceeded
+- push_eligible_now: False
+- worktree_clean: False
+- next_step_command: `n/a`
 - latest_push_report: `dev/reports/push/latest.json`
 - latest_push_report_state: `published_remote` (post_push_bundle_failed)
 - current_push_authorization: `push-auth-20260407T220000Z-hardening-plan` (valid=False)
 - authorized_head_commit: `ee13a6c6337f395afa574e99a4234f2eaf45a161`
 - approved_target_identity: `tree-receipt-20260407T220000Z:281dea21851063411d2c43c2b4621a1c2a1168b5`
 - publication_backlog: urgent
-- publication_guidance: 7 local commit(s) waiting for governed push. Run `python3 dev/scripts/devctl.py push --execute` now.
+- publication_guidance: 8 local commit(s) waiting for governed push once the current slice is checkpoint-clean.
 
 ### Reviewer runtime
 - reviewer_mode: `single_agent`
@@ -88,47 +88,48 @@ adopters arrive.
 - active plan: **Master Plan (Active, Unified)**
 - plan path: `dev/active/MASTER_PLAN.md`
 - active MP scope: all active MP execution state
-- advisory: `push_allowed` — worktree_clean_and_review_accepted
+- advisory: `checkpoint_before_continue` — dirty_path_budget_exceeded
+- checkpoint_required: **yes**
 
 ## 3. Delta — what changed since the previous snapshot
 
-Range: last 24 commits ending at `b681930744de`
+Range: last 24 commits ending at `941781e02f1c`
 
 - commits: 24
 - files changed: 123
 - insertions: +10695
-- deletions: -3334
-- bundle classes touched: docs, tooling
+- deletions: -3331
+- bundle classes touched: tooling, docs
 - authority surfaces touched: 31 file(s)
 
 ### Commits
 
 | # | SHA | Subject | Files | +/- | Bundle | Risk |
 |---|---|---|---|---|---|---|
-| 1 | `b681930` | Checkpoint startup coordination and session hint fixes | 14 | +344/-108 | tooling |  |
-| 2 | `ca07a33` | Add typed startup coordination state | 26 | +2273/-141 | tooling |  |
-| 3 | `f858e28` | Route startup blockers through shared check renderer | 7 | +481/-187 | tooling |  |
-| 4 | `b2a8dbb` | Refresh external review snapshot for b8234a7 | 1 | +61/-64 | tooling |  |
-| 5 | `b8234a7` | Prioritize review-loop relaunch recovery | 11 | +236/-98 | tooling |  |
-| 6 | `e2b3940` | Reclaim stale review-channel launch windows | 7 | +491/-109 | tooling |  |
-| 7 | `9858988` | Fix review-channel session liveness fallback | 4 | +454/-101 | tooling |  |
-| 8 | `483df5b` | Refresh external review snapshot for 7d7aa7c | 1 | +60/-67 | tooling |  |
-| 9 | `7d7aa7c` | checkpoint: close review-channel authority convergence | 24 | +583/-149 | tooling |  |
-| 10 | `1b55564` | Refresh external review snapshot for 8b77c5c | 1 | +53/-56 | tooling |  |
-| 11 | `8b77c5c` | checkpoint: record dashboard observer audit findings | 3 | +225/-70 | tooling |  |
-| 12 | `fba090f` | checkpoint: close push preflight bypass window | 9 | +129/-73 | tooling |  |
-| 13 | `02ca820` | Refresh external review snapshot for fed1dec | 1 | +72/-79 | tooling |  |
-| 14 | `fed1dec` | checkpoint: harden reviewer packet guards and runtime counts | 31 | +1230/-108 | tooling |  |
-| 15 | `0a678e5` | Refresh external review snapshot for 47c7845 | 1 | +82/-75 | tooling |  |
-| 16 | `47c7845` | checkpoint: truth-source hardening and review snapshot evid… | 36 | +2207/-1285 | tooling |  |
-| 17 | `92a3358` | Refresh external review snapshot for 262bbad | 1 | +53/-57 | tooling |  |
-| 18 | `262bbad` | docs: record review-channel revision drift fix | 4 | +99/-87 | tooling |  |
-| 19 | `dec706e` | Refresh external review snapshot for 51dbf3c | 1 | +54/-60 | tooling |  |
-| 20 | `51dbf3c` | checkpoint: capture residual review-channel test change | 2 | +63/-66 | tooling |  |
-| 21 | `249bef9` | checkpoint: save current worktree state | 19 | +567/-95 | tooling |  |
-| 22 | `6ade1a0` | Refresh external review snapshot for 4c3d9e9 | 1 | +63/-68 | tooling |  |
-| 23 | `4c3d9e9` | checkpoint: add initial control-plane parity guard | 8 | +753/-64 | tooling |  |
-| 24 | `d383dc2` | Refresh external review snapshot for a3628e3 | 1 | +62/-67 | tooling |  |
+| 1 | `941781e` | Refresh external review snapshot for b681930 | 1 | +62/-64 | tooling |  |
+| 2 | `b681930` | Checkpoint startup coordination and session hint fixes | 14 | +344/-108 | tooling |  |
+| 3 | `ca07a33` | Add typed startup coordination state | 26 | +2273/-141 | tooling |  |
+| 4 | `f858e28` | Route startup blockers through shared check renderer | 7 | +481/-187 | tooling |  |
+| 5 | `b2a8dbb` | Refresh external review snapshot for b8234a7 | 1 | +61/-64 | tooling |  |
+| 6 | `b8234a7` | Prioritize review-loop relaunch recovery | 11 | +236/-98 | tooling |  |
+| 7 | `e2b3940` | Reclaim stale review-channel launch windows | 7 | +491/-109 | tooling |  |
+| 8 | `9858988` | Fix review-channel session liveness fallback | 4 | +454/-101 | tooling |  |
+| 9 | `483df5b` | Refresh external review snapshot for 7d7aa7c | 1 | +60/-67 | tooling |  |
+| 10 | `7d7aa7c` | checkpoint: close review-channel authority convergence | 24 | +583/-149 | tooling |  |
+| 11 | `1b55564` | Refresh external review snapshot for 8b77c5c | 1 | +53/-56 | tooling |  |
+| 12 | `8b77c5c` | checkpoint: record dashboard observer audit findings | 3 | +225/-70 | tooling |  |
+| 13 | `fba090f` | checkpoint: close push preflight bypass window | 9 | +129/-73 | tooling |  |
+| 14 | `02ca820` | Refresh external review snapshot for fed1dec | 1 | +72/-79 | tooling |  |
+| 15 | `fed1dec` | checkpoint: harden reviewer packet guards and runtime counts | 31 | +1230/-108 | tooling |  |
+| 16 | `0a678e5` | Refresh external review snapshot for 47c7845 | 1 | +82/-75 | tooling |  |
+| 17 | `47c7845` | checkpoint: truth-source hardening and review snapshot evid… | 36 | +2207/-1285 | tooling |  |
+| 18 | `92a3358` | Refresh external review snapshot for 262bbad | 1 | +53/-57 | tooling |  |
+| 19 | `262bbad` | docs: record review-channel revision drift fix | 4 | +99/-87 | tooling |  |
+| 20 | `dec706e` | Refresh external review snapshot for 51dbf3c | 1 | +54/-60 | tooling |  |
+| 21 | `51dbf3c` | checkpoint: capture residual review-channel test change | 2 | +63/-66 | tooling |  |
+| 22 | `249bef9` | checkpoint: save current worktree state | 19 | +567/-95 | tooling |  |
+| 23 | `6ade1a0` | Refresh external review snapshot for 4c3d9e9 | 1 | +63/-68 | tooling |  |
+| 24 | `4c3d9e9` | checkpoint: add initial control-plane parity guard | 8 | +753/-64 | tooling |  |
 
 ### Files
 
@@ -141,7 +142,7 @@ Range: last 24 commits ending at `b681930744de`
 | `dev/active/platform_authority_loop.md` | tooling | +33/-1 |
 | `dev/active/remote_control_runtime.md` | tooling | +55/-4 |
 | `dev/active/review_channel.md` | tooling | +20/-18 |
-| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1377/-1452 |
+| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1377/-1449 |
 | `dev/audits/architecture_alignment.md` | tooling | +65/-0 |
 | `dev/audits/architecture_hardening_plan.md` | tooling | +101/-0 |
 | `dev/config/devctl_repo_policy.json` | tooling | +1/-1 |
@@ -295,22 +296,24 @@ Recent findings:
 
 ### Per-commit rationale
 
+- **`941781e`** — Refresh external review snapshot for b681930
+  - evolution: The next architecture step after startup coordination was not another wider startup packet and not more bridge prose. The repo already had the primitives: `PlanRegistry`, `PlanTargetRef`, bounded typed review/runtime st…
 - **`b681930`** — Checkpoint startup coordination and session hint fixes
-  - evolution: The next startup/work-intake hardening pass closed an operator-visible blind spot in the typed governance loop. The repo already knew whether the worktree was dirty and whether the collaboration lane still had live peer…
+  - evolution: The next architecture step after startup coordination was not another wider startup packet and not more bridge prose. The repo already had the primitives: `PlanRegistry`, `PlanTargetRef`, bounded typed review/runtime st…
 - **`ca07a33`** — Add typed startup coordination state
-  - evolution: The next startup/work-intake hardening pass closed an operator-visible blind spot in the typed governance loop. The repo already knew whether the worktree was dirty and whether the collaboration lane still had live peer…
+  - evolution: The next architecture step after startup coordination was not another wider startup packet and not more bridge prose. The repo already had the primitives: `PlanRegistry`, `PlanTargetRef`, bounded typed review/runtime st…
 - **`f858e28`** — Route startup blockers through shared check renderer
-  - evolution: The next startup/work-intake hardening pass closed an operator-visible blind spot in the typed governance loop. The repo already knew whether the worktree was dirty and whether the collaboration lane still had live peer…
+  - evolution: The next architecture step after startup coordination was not another wider startup packet and not more bridge prose. The repo already had the primitives: `PlanRegistry`, `PlanTargetRef`, bounded typed review/runtime st…
 - **`b2a8dbb`** — Refresh external review snapshot for b8234a7
-  - evolution: The next startup/work-intake hardening pass closed an operator-visible blind spot in the typed governance loop. The repo already knew whether the worktree was dirty and whether the collaboration lane still had live peer…
+  - evolution: The next architecture step after startup coordination was not another wider startup packet and not more bridge prose. The repo already had the primitives: `PlanRegistry`, `PlanTargetRef`, bounded typed review/runtime st…
 - **`b8234a7`** — Prioritize review-loop relaunch recovery
-  - evolution: The next startup/work-intake hardening pass closed an operator-visible blind spot in the typed governance loop. The repo already knew whether the worktree was dirty and whether the collaboration lane still had live peer…
+  - evolution: The next architecture step after startup coordination was not another wider startup packet and not more bridge prose. The repo already had the primitives: `PlanRegistry`, `PlanTargetRef`, bounded typed review/runtime st…
 - **`e2b3940`** — Reclaim stale review-channel launch windows
-  - evolution: The next startup/work-intake hardening pass closed an operator-visible blind spot in the typed governance loop. The repo already knew whether the worktree was dirty and whether the collaboration lane still had live peer…
+  - evolution: The next architecture step after startup coordination was not another wider startup packet and not more bridge prose. The repo already had the primitives: `PlanRegistry`, `PlanTargetRef`, bounded typed review/runtime st…
 - **`9858988`** — Fix review-channel session liveness fallback
-  - evolution: The next startup/work-intake hardening pass closed an operator-visible blind spot in the typed governance loop. The repo already knew whether the worktree was dirty and whether the collaboration lane still had live peer…
+  - evolution: The next architecture step after startup coordination was not another wider startup packet and not more bridge prose. The repo already had the primitives: `PlanRegistry`, `PlanTargetRef`, bounded typed review/runtime st…
 - **`483df5b`** — Refresh external review snapshot for 7d7aa7c
-  - evolution: The next startup/work-intake hardening pass closed an operator-visible blind spot in the typed governance loop. The repo already knew whether the worktree was dirty and whether the collaboration lane still had live peer…
+  - evolution: The next architecture step after startup coordination was not another wider startup packet and not more bridge prose. The repo already had the primitives: `PlanRegistry`, `PlanTargetRef`, bounded typed review/runtime st…
 - **`7d7aa7c`** — checkpoint: close review-channel authority convergence
 - **`1b55564`** — Refresh external review snapshot for 8b77c5c
 - **`8b77c5c`** — checkpoint: record dashboard observer audit findings
@@ -326,7 +329,6 @@ Recent findings:
 - **`249bef9`** — checkpoint: save current worktree state
 - **`6ade1a0`** — Refresh external review snapshot for 4c3d9e9
 - **`4c3d9e9`** — checkpoint: add initial control-plane parity guard
-- **`d383dc2`** — Refresh external review snapshot for a3628e3
 ### Active MP scope (from MASTER_PLAN.md)
 
 - `dev/active/devctl_reporting_upgrade.md` is the phased `devctl` reporting/CIHub specification, but not a separate execution tracker; implementation tasks stay in this file under `MP-297..MP-300`, `MP-303`, `MP-306`, `MP…
@@ -345,10 +347,11 @@ Recent findings:
 - open governance findings: 39
 
 ### Startup advisories
-- push_allowed: worktree_clean_and_review_accepted
+- checkpoint_before_continue: dirty_path_budget_exceeded
 
 ### Stale warnings
-- Stop because nothing remains to push.
+- Keep editing the current slice.
+- Move straight to the governed push path.
 
 ### Open gap rows
 - **governance_open** (`dev/scripts/devctl/review_channel/bridge_sanitize.py`): agent_checkpoint_contract_ignorance: 
@@ -362,4 +365,4 @@ Recent findings:
 
 ---
 
-Projection produced by `devctl review-snapshot`. Generation stamp `snap-b0251f77309e` binds this file to HEAD `b681930744de`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
+Projection produced by `devctl review-snapshot`. Generation stamp `snap-4bc36d60dff7` binds this file to HEAD `941781e02f1c`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.

@@ -128,9 +128,15 @@ Current 2026-04-08 collaboration-topology / ownership note:
   dirty-path overlap lands, so a fresh session can see both "who else is
   active?" and "is this slice still exclusively owned?" from one packet
   instead of inferring from reviewer mode, bridge prose, and worktree drift
-  separately. Broader plan/finding/boundary graph reduction is still the next
-  higher-order scheduler layer, but the current runtime no longer has to
-  overload one `mode` string just to answer startup ownership questions.
+  separately. The next higher-order scheduler layer is now real too:
+  `PlanningIRSnapshot` lives beside `SystemPicture` under
+  `dev/scripts/devctl/platform/` and reduces `PlanRegistry` /
+  `PlanTargetRef`, recent governance-review findings normalized into
+  `FindingRecord`, context-graph `scoped_by` ownership, and live
+  ownership/coordination runtime state into four bounded outputs:
+  `next_best_slices`, `concurrent_writer_conflicts`, `unowned_hot_paths`, and
+  `plan_finding_mismatches`. Projection into startup/dashboard/bridge remains
+  the next follow-up, but the reducer itself is no longer plan-only theory.
 
 ## Scope
 
@@ -6125,6 +6131,22 @@ Execution order for this section:
 
 ## Progress Log
 
+- 2026-04-08: Landed the first higher-order scheduler reducer as typed code
+  instead of another prose-only architecture note. The new
+  `dev/scripts/devctl/platform/planning_ir.py` /
+  `planning_ir_models.py` pair now builds `PlanningIRSnapshot` beside
+  `SystemPicture`, joining live `PlanRegistry` / `PlanTargetRef` selection,
+  recent governance-review findings normalized into `FindingRecord`,
+  context-graph `scoped_by` ownership edges, and the current
+  `WorkIntakeOwnershipState` / `WorkIntakeCoordinationState` projection. The
+  first output set is intentionally bounded and operational rather than
+  aspirational: rank a few `next_best_slices`, surface
+  `concurrent_writer_conflicts`, flag `unowned_hot_paths`, and call out
+  `plan_finding_mismatches`. Simulation tests now lock the three critical
+  behaviors: active-plan slice ranking, fail-closed single-writer scheduling
+  when topology/ownership conflict, and explicit reporting of unowned hot
+  files plus off-target findings. The next step is projection and live-loop
+  proof, not more raw-state accumulation.
 - 2026-04-08: Closed the next bounded truth-source leak in the `MP-377`
   self-hosting lane. Bridge-backed review status/compat reads now prefer the
   persisted typed `current_session` and

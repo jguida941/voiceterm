@@ -39,6 +39,41 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 
 ### 2026-04-07 - ReviewSnapshot hook hardening routed through owner plans
 
+### 2026-04-08 - PlanningIRSnapshot turns multi-agent scheduling into a typed reducer
+
+The next architecture step after startup coordination was not another wider
+startup packet and not more bridge prose. The repo already had the primitives:
+`PlanRegistry`, `PlanTargetRef`, bounded typed review/runtime state,
+context-graph `scoped_by` edges, and governance-review rows. What it lacked
+was one reducer that joins those surfaces into a scheduler-facing view of the
+next slice.
+
+That reducer now exists as `PlanningIRSnapshot` beside `SystemPicture` under
+`dev/scripts/devctl/platform/`. The new builder consumes the active plan
+registry/target, recent governance-review rows normalized into
+`FindingRecord`, context-graph ownership edges, and the live
+`WorkIntakeOwnershipState` / `WorkIntakeCoordinationState` projection. Its
+first outputs stay intentionally bounded: rank a few `next_best_slices`,
+surface `concurrent_writer_conflicts`, flag `unowned_hot_paths`, and call out
+`plan_finding_mismatches`. In other words, the system can now answer "who
+should write where next?" from typed state rather than from bridge markdown,
+manual repo crawling, or chat memory.
+
+This slice deliberately stops before projection work. Startup, dashboard, and
+bridge consumers are still follow-on wiring, because the point of the change
+was to make the reducer itself load-bearing first and only then reuse it
+across surfaces. Focused platform simulations now prove the three most useful
+behaviors: active-plan ranking, fail-closed single-writer posture under live
+coordination conflicts, and explicit reporting of unowned hot paths plus
+off-target findings.
+
+Evidence: `dev/scripts/devctl/platform/planning_ir.py`,
+`dev/scripts/devctl/platform/planning_ir_models.py`,
+`dev/scripts/devctl/tests/platform/test_planning_ir.py`,
+`dev/active/MASTER_PLAN.md`,
+`dev/active/ai_governance_platform.md`,
+`dev/active/platform_authority_loop.md`.
+
 ### 2026-04-08 - Startup authority now distinguishes concurrent writers from generic dirty budget
 
 The next startup/work-intake hardening pass closed an operator-visible blind

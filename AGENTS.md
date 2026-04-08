@@ -134,6 +134,7 @@ Release-governance note:
 | Where is the portable code-governance engine / multi-repo portability and measurement plan? | `dev/active/portable_code_governance.md` (engine/adoption companion plan) |
 | Where is the full reusable AI governance platform / package-extraction architecture plan? | `dev/active/ai_governance_platform.md` (the only main active architecture plan for this product scope) |
 | Where is the current `MP-377` startup-authority / repo-pack / typed-plan-registry / runtime-evidence-context closure plan? | `dev/active/platform_authority_loop.md` (subordinate `MP-377` execution spec; read after `dev/active/ai_governance_platform.md`) |
+| Where is the scheduler-facing planning reducer for multi-agent slice routing documented? | `dev/active/ai_governance_platform.md` for execution authority, plus `dev/scripts/README.md` for the maintainer-facing `PlanningIRSnapshot` module surface |
 | Where is the shared repo-visible backlog intake for humans + AI? | `backlog.md` (shared intake only; promote items into `dev/active/MASTER_PLAN.md` plus the owning active plan before execution) |
 | Where is the governed active-plan markdown contract used by docs-governance and future `PlanRegistry` work? | `dev/active/PLAN_FORMAT.md` (reference-only companion for plan-doc schema/self-hosting) |
 | Where is the durable reusable AI governance platform thesis/architecture guide? | `dev/guides/AI_GOVERNANCE_PLATFORM.md` (durable companion to the active platform plan) |
@@ -882,6 +883,15 @@ shared runtime contract models, probe/report schema constants, or
 Use `python3 dev/scripts/devctl.py system-picture --format md` when that same
 platform/governance change should refresh the generated external-review proof
 reducer or its tracked proof-ledger projection.
+The same platform layer now also owns the scheduler-facing planning reducer:
+`dev/scripts/devctl/platform/planning_ir.py` builds `PlanningIRSnapshot`
+beside `SystemPicture` by joining typed plan ownership, recent
+governance-review findings, context-graph `scoped_by` edges, and
+review/work-intake runtime state into bounded scheduling outputs
+(`next_best_slices`, `concurrent_writer_conflicts`, `unowned_hot_paths`,
+`plan_finding_mismatches`). Treat that reducer as the authoritative
+multi-agent scheduling seam; do not reconstruct the same state from
+`bridge.md` prose or ad hoc startup-summary parsing.
 Keep `startup_surface_tokens` populated on every current platform contract row
 so `platform-contracts`, startup surfaces, and closure guards keep projecting
 the same contract inventory.

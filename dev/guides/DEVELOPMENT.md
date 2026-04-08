@@ -742,6 +742,16 @@ Three quality layers matter in practice:
   open-governance feed, so surfaces that need the full unresolved set
   must widen the upstream report call instead of calling this adapter
   on the default payload.
+- The same platform package now includes the scheduler-facing planning reducer
+  at `dev/scripts/devctl/platform/planning_ir.py`. `PlanningIRSnapshot`
+  joins `PlanRegistry`, recent governance-review findings, context-graph
+  `scoped_by` ownership, `ReviewState`, and work-intake ownership/
+  coordination state into bounded outputs
+  (`next_best_slices`, `concurrent_writer_conflicts`,
+  `unowned_hot_paths`, `plan_finding_mismatches`). When you touch that seam,
+  keep it typed and rerun
+  `python3 -m pytest dev/scripts/devctl/tests/platform/test_planning_ir.py dev/scripts/devctl/tests/platform/test_system_picture.py -q --tb=short`
+  before trusting the broader platform bundle.
 - Use `python3 dev/scripts/devctl.py system-picture --format md` when that
   same platform/governance slice should refresh the generated external-review
   reducer and proof-ledger projection rather than leaving the proof surface as
@@ -810,6 +820,7 @@ the concrete minimum inventory after edits:
    - `python3 dev/scripts/checks/check_platform_contract_closure.py`
    - `python3 dev/scripts/devctl.py platform-contracts --format md`
    - `python3 dev/scripts/devctl.py system-picture --format md`
+   - `python3 -m pytest dev/scripts/devctl/tests/platform/test_planning_ir.py dev/scripts/devctl/tests/platform/test_system_picture.py -q --tb=short`
 5. For bounded context on specific files, MPs, guards, or subsystems during
    development, use `python3 dev/scripts/devctl.py context-graph --query '<term>' --format md`
    (the renderer suppresses the global summary on zero-match results).
