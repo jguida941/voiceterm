@@ -205,7 +205,7 @@
         "execute": true
       },
       "bypass": {
-        "allow_skip_preflight": true,
+        "allow_skip_preflight": false,
         "allow_skip_post_push": false
       },
       "checkpoint": {

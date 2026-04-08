@@ -18,6 +18,7 @@ from dev.scripts.devctl.governance.push_policy import (
     PushPreflightPolicy,
     PushPublicationPolicy,
     detect_push_enforcement_state,
+    load_push_policy,
 )
 
 
@@ -115,6 +116,12 @@ class PushParserTests(unittest.TestCase):
         self.assertEqual(args.remote, "upstream")
         self.assertTrue(args.execute)
         self.assertTrue(args.skip_post_push)
+
+    def test_repo_policy_disallows_skip_preflight_by_default(self) -> None:
+        policy = load_push_policy()
+
+        self.assertFalse(policy.bypass.allow_skip_preflight)
+        self.assertFalse(policy.bypass.allow_skip_post_push)
 
 
 class PushCommandTests(unittest.TestCase):

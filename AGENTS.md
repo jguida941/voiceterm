@@ -1209,7 +1209,10 @@ Routine helper:
 - `python3 dev/scripts/devctl.py push --execute` runs the same preflight,
   performs the current short-lived branch push, and then executes the
   configured post-push bundle. `--skip-preflight` / `--skip-post-push` are
-  policy-gated under `repo_governance.push.bypass`; a remote update is not the
+  policy-gated under `repo_governance.push.bypass`; the repo-owned default
+  should keep `allow_skip_preflight` closed unless a narrowly-scoped
+  temporary override is explicitly being landed and then reverted in the same
+  tracked lane. A remote update is not the
   same state as post-push green. When the persisted artifact says
   `published_remote=true` and `post_push_green=false`, treat remote
   publication as settled and repair the post-push follow-up instead of

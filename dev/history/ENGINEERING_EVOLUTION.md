@@ -145,6 +145,27 @@ Evidence: `dev/scripts/devctl/review_channel/pending_packets.py`,
 `dev/scripts/devctl/tests/commands/reporting/test_dashboard_runtime_counts.py`,
 `dev/active/MASTER_PLAN.md`.
 
+### 2026-04-08 - Checked-in push policy no longer leaves skip-preflight bypass open
+
+The paired follow-up for the recent push-override tranche is now closed in the
+checked-in repo policy itself. `dev/config/devctl_repo_policy.json` no longer
+keeps `repo_governance.push.bypass.allow_skip_preflight` enabled after the
+override push landed, and the repo now carries a regression in
+`dev/scripts/devctl/tests/vcs/test_push.py` that loads the real policy file
+and asserts both skip-bypass toggles stay disabled by default.
+
+That matters because the earlier override receipt was only an audit promise,
+not enforcement. Without a repo-owned regression proof, the branch could keep
+advertising a typed push-bypass escape hatch long after the one-off recovery
+window was supposed to close. Historical override receipts remain immutable
+evidence; the checked-in policy and CI-backed regression now carry the live
+default.
+
+Evidence: `dev/config/devctl_repo_policy.json`,
+`dev/scripts/devctl/tests/vcs/test_push.py`,
+`dev/active/platform_authority_loop.md`,
+`dev/active/MASTER_PLAN.md`.
+
 ### 2026-04-07 - ReviewSnapshot hook hardening routed through owner plans
 The ReviewSnapshot hardening audit is now plan intake, not a new execution
 authority. The active owner docs keep the same routing rule: path/default and

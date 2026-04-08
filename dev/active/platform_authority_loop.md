@@ -1,6 +1,6 @@
 # Platform Authority Loop Plan
 
-**Status**: active  |  **Last updated**: 2026-04-07 | **Owner:** Tooling/control plane/product architecture
+**Status**: active  |  **Last updated**: 2026-04-08 | **Owner:** Tooling/control plane/product architecture
 Execution plan contract: required
 This spec remains execution mirrored in `dev/active/MASTER_PLAN.md` under
 `MP-377`. It is the current subordinate execution spec for the `P0`
@@ -1845,6 +1845,13 @@ blocker or exception in plan state before skipping the declared order.
   external agents that edit the repo without repo-owned checkpoint flows are
   surfaced as a distinct authority/drift condition instead of trapping clean
   consumers in repeated checkpoint loops.
+- 2026-04-08 push-bypass closure follow-up: reverted the temporary checked-in
+  `repo_governance.push.bypass.allow_skip_preflight` window back to `false`
+  and added repo-policy regression proof in `dev/scripts/devctl/tests/vcs/
+  test_push.py` that loads the real repo policy file. Historical override
+  receipts remain immutable evidence only; fresh governed pushes now have to
+  prove the same path works without leaving a lingering branch-visible bypass
+  toggle behind.
 - 2026-04-04 extension/adopter closure correction: the latest architecture
   audit is now part of this lane's tracked Phase-2/Phase-7 work before code
   implementation. Resume from this owner chain by treating four deliverables
@@ -2922,6 +2929,14 @@ blocker or exception in plan state before skipping the declared order.
   upstream divergence is still stale until the next fetch. That closes the
   exact "push already happened but recovery still recommends pushing again"
   failure mode the repo just hit in live use.
+- 2026-04-08: Closed the temporary governed-push preflight bypass window
+  opened for the snapshot/push-authorization landing tranche. The repo-owned
+  push policy now sets `allow_skip_preflight` back to `false`, and push
+  regression coverage loads the real repo policy so the bypass cannot reopen
+  silently through tree-state drift. Clean-tree `startup-context` and
+  `python3 dev/scripts/devctl.py check --profile ci` are green after the
+  revert, so the current push lane is proven without the temporary
+  skip-preflight escape hatch.
   success state.
 - 2026-03-26: Rechecked the authority-loop scope against the user's repo-
   neutral bar. The current runtime can honor alternate authority/doc roots

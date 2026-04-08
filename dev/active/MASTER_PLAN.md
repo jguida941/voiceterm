@@ -1160,6 +1160,13 @@
   settled; repair the follow-up" instead of "push unresolved". Remaining
   MP-377 closure is the fuller branch/tree-hash `PushPreflightPacket`, not a
   second push authority.
+- 2026-04-08 governed-push bypass closure: reverted the temporary
+  `repo_governance.push.bypass.allow_skip_preflight=true` repo-policy window
+  back to `false` and added a regression that loads the real repo policy so
+  the bypass stays closed by default. Clean-tree `startup-context` plus
+  `python3 dev/scripts/devctl.py check --profile ci` now prove the current
+  snapshot/push authorization lane without the temporary skip-preflight
+  escape hatch left open in tree state.
 - 2026-04-02 governed-push operator-visibility follow-up: keep the same typed
   publication truth, but make long post-push bundles visibly honest in live
   terminals too. `devctl push --execute` now emits explicit progress notices
@@ -4937,7 +4944,11 @@ become the main product surface.
   rewrites closed when pending reviewer-targeted packets still exist in the
   event-backed inbox, and projects explicit runtime counts through doctor /
   dashboard / bridge-status surfaces so remote-control dashboards can see live
-  conductor and daemon totals without inferring from bridge prose.
+  conductor and daemon totals without inferring from bridge prose. The same
+  governed-push lane now closes the temporary repo-policy bypass window too:
+  `allow_skip_preflight` is back to `false`, and `test_push.py` loads the
+  checked-in repo policy file so a future override cannot linger silently in
+  branch-visible state after the paired recovery commit is supposed to land.
   keeps `check_code_shape.py` green while preserving the same reviewer-worker
   contract. The review-surface parity proof now also checks persisted disk
   `review_state` against the computed turn-authority / bridge-poll

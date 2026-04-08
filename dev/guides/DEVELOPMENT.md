@@ -1013,7 +1013,10 @@ Workflow permissions note:
    `published_remote`, `post_push_green`) so remote publication is not
    mistaken for full post-push green, and `--skip-preflight` /
    `--skip-post-push` only work when repo policy explicitly allows those
-   bypasses. The managed latest-push artifact at
+   bypasses. The normal repo-owned policy keeps `allow_skip_preflight`
+   closed by default; any temporary override must be a tracked,
+   short-lived exception rather than a standing local convenience. The
+   managed latest-push artifact at
    `dev/reports/push/latest.json` preserves that stage truth for later
    startup/recovery, writes a `published_remote` snapshot immediately after
    `git push` succeeds, and matches that artifact against the current HEAD so
