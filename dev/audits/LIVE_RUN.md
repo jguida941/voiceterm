@@ -94,6 +94,39 @@ the entry — the log is append-only trial data.
   same file list. This is a narrow instance of F1.
 - **Status**: OPEN (subsumed by F1)
 
+### Q4 REVIEW — Codex reviewed my tactical fix and raised F4 (regression)
+
+- **Codex verdict timestamp**: 2026-04-08T18:26:17Z (approx)
+- **Codex's F4 text (verbatim from bridge Open Findings)**:
+  > `BridgeConfig.operator_interaction_mode` now defaults to
+  > `remote_control` in the contract model, but `_scan_bridge_config()`
+  > still never reads that field from repo policy. Every scan-based
+  > consumer therefore treats an unconfigured repo as remote-control:
+  > `scan_repo_governance(policy={}).bridge_config.operator_interaction_mode`
+  > now returns `remote_control`, while the typed parse path still
+  > resolves the same missing field to `unresolved`. That breaks the
+  > MP-380 fail-closed contract and can silently permit headless launch
+  > behavior in repos that never opted into remote control.
+- **Assessment**: Codex is correct. My one-line default flip fixed this
+  session's launch but broke the MP-380 fail-closed contract for every
+  other repo. The proper fix is to wire `_scan_bridge_config` to read
+  the field from `devctl_repo_policy.json` AND keep the fail-closed
+  default (`unresolved`) so unconfigured repos do NOT silently become
+  remote-control. Codex even named the missing test file
+  (`test_operator_mode_fail_closed.py`) and provided a runtime proof:
+  ```
+  scan_repo_governance(policy={}).bridge_config.operator_interaction_mode -> remote_control
+  bridge_config_from_mapping({}).operator_interaction_mode -> unresolved
+  ```
+- **Action**: this session will REVERT commit `f177aae` (the Q4
+  tactical fix) and leave the structural fix for Codex to land. The
+  revert re-introduces the launch-blocker for THIS session, but the
+  launch already succeeded post-fix so the session is alive and the
+  finding set is already posted. Reverting is safer than keeping a
+  known MP-380 contract violation in the tree.
+- **Status**: Q4 DEFAULT-FLIP REVERTED (see commit TBD); STRUCTURAL
+  FIX tracked as Codex F4 (Codex is the owner)
+
 ### Q4 — BUG — `operator_interaction_mode` is a hardcoded constant (root cause for headless-launch refusal in remote mode)
 
 - **Discovered**: 2026-04-08T16:50Z
