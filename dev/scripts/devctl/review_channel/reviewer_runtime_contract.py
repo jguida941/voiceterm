@@ -157,6 +157,19 @@ def _review_acceptance_state(
             reviewer_accepted_implementer_state_hash_override
         ),
     )
+    prior_acceptance = _prior_review_acceptance_state(prior_review_state)
+    if prior_acceptance is not None:
+        return ReviewerAcceptanceState(
+            current_verdict=prior_acceptance.current_verdict,
+            open_findings=prior_acceptance.open_findings
+            or current_session.open_findings
+            or str(bridge_liveness.get("open_findings") or ""),
+            review_accepted=prior_acceptance.review_accepted,
+            reviewer_accepted_implementer_state_hash=(
+                accepted_impl_hash
+                or prior_acceptance.reviewer_accepted_implementer_state_hash
+            ),
+        )
     if snapshot is not None:
         current_verdict, open_findings, review_accepted = review_acceptance_projection(
             snapshot
@@ -176,6 +189,29 @@ def _review_acceptance_state(
         open_findings=open_findings,
         review_accepted=bool(bridge_liveness.get("review_accepted")),
         reviewer_accepted_implementer_state_hash=accepted_impl_hash,
+    )
+
+
+def _prior_review_acceptance_state(
+    prior_review_state: Mapping[str, object] | None,
+) -> ReviewerAcceptanceState | None:
+    prior_payload = prior_review_state if isinstance(prior_review_state, Mapping) else {}
+    review_state = prior_payload.get("review_state")
+    if not isinstance(review_state, Mapping):
+        review_state = prior_payload
+    reviewer_runtime = review_state.get("reviewer_runtime")
+    if not isinstance(reviewer_runtime, Mapping):
+        return None
+    review_acceptance = reviewer_runtime.get("review_acceptance")
+    if not isinstance(review_acceptance, Mapping):
+        return None
+    return ReviewerAcceptanceState(
+        current_verdict=str(review_acceptance.get("current_verdict") or "").strip(),
+        open_findings=str(review_acceptance.get("open_findings") or "").strip(),
+        review_accepted=bool(review_acceptance.get("review_accepted", False)),
+        reviewer_accepted_implementer_state_hash=str(
+            review_acceptance.get("reviewer_accepted_implementer_state_hash") or ""
+        ).strip(),
     )
 
 

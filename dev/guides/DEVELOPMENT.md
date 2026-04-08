@@ -420,6 +420,11 @@ Three quality layers matter in practice:
     Canonical reviewer-reset implementer placeholders (`Claude Status: - pending`,
     `Claude Ack: - pending`) are valid fresh-launch state for a new instruction
     revision, and the same reset now clears stale `Claude Questions` too.
+    When persisted typed `review_state.json` already exists, that same status
+    path now prefers typed `current_session` for live instruction / ACK state
+    and typed `reviewer_runtime.review_acceptance` for verdict/findings truth.
+    Raw bridge verdict/findings prose remains compatibility or drift evidence,
+    not primary runtime authority.
   - Fresh reviewer and implementer sessions should bootstrap from role-first
     receipts, not provider-local lore: run
     `python3 dev/scripts/devctl.py startup-context --role <reviewer|implementer> --format summary`,
@@ -582,6 +587,11 @@ Three quality layers matter in practice:
     and refresh the reviewer-owned bridge heartbeat before escalating into
     relaunch/repair. Reserve repair for `action=repair_reviewer_loop`,
     checkpoint/budget blockers, or typed stale/non-live reviewer runtime.
+    Current limitation: if another agent edits the repo outside the repo-owned
+    checkpoint/review flow, startup still reports the result as a generic
+    dirty-tree / checkpoint-budget blocker rather than a distinct
+    concurrent-writer authority condition. Treat that as worktree drift to
+    reconcile, not as proof your current slice should keep widening.
   - Read-only command safety: `startup-context` always attempts the receipt
     write (the launcher validates it), but degrades gracefully on `OSError`
     when `DEVCTL_NO_ARTIFACT_WRITES=1` signals an intentional read-only
@@ -1643,6 +1653,7 @@ Docs governance guardrails:
 - `python3 dev/scripts/checks/check_agents_bundle_render.py` blocks AGENTS rendered bundle-reference drift against `dev/scripts/devctl/bundle_registry.py` and can regenerate the section with `--write`.
 - `python3 dev/scripts/checks/check_review_surface_consistency.py` blocks startup/review/compact/commit-pipeline snapshot drift by requiring one shared `snapshot_id` plus one shared remote-pipeline `generation_id` across those projections; both `tooling_control_plane.yml` and `release_preflight.yml` now run it to keep bundle/workflow parity closed.
 - `python3 dev/scripts/checks/check_review_snapshot_freshness.py` blocks stale `dev/audits/REVIEW_SNAPSHOT.md` by comparing the HEAD SHA and generation stamp embedded in the file against the live typed projection. The guard also accepts a final snapshot-only commit when the generated snapshot binds to that commit's parent code state, because a file inside a commit cannot contain its own final SHA. If non-snapshot HEAD or stamp drift occurs, the guard fails and instructs the caller to rerun `devctl review-snapshot --write`; both `tooling_control_plane.yml` and `release_preflight.yml` run it. The managed raw-git path is two phase: `install-git-hooks` installs a pre-commit projection hook plus a post-commit receipt hook that calls `devctl review-snapshot --write --receipt-commit`, creating a snapshot-only publication commit with recursion disabled. `devctl push` accepts that receipt shape when the snapshot-only HEAD's parent matches the active `PushAuthorizationRecord`, and it ignores stale detached pipeline records in `single_agent` mode; active dual-agent and current pipeline targets still require exact typed authorization.
+- `python3 dev/scripts/checks/check_review_snapshot_freshness.py` blocks stale `dev/audits/REVIEW_SNAPSHOT.md` by comparing the HEAD SHA and generation stamp embedded in the file against the live typed projection. The guard also accepts a final snapshot-only commit when the generated snapshot binds to that commit's parent code state, because a file inside a commit cannot contain its own final SHA. If non-snapshot HEAD or stamp drift occurs, the guard fails and instructs the caller to rerun `devctl review-snapshot --write`; both `tooling_control_plane.yml` and `release_preflight.yml` run it. The managed raw-git path is two phase: `install-git-hooks` installs a pre-commit projection hook plus a post-commit receipt hook that calls `devctl review-snapshot --write --receipt-commit`, creating a snapshot-only publication commit with recursion disabled. `devctl push` accepts that receipt shape when the snapshot-only HEAD's parent matches the active `PushAuthorizationRecord`, and it ignores stale detached pipeline records in `single_agent` mode; active dual-agent and current pipeline targets still require exact typed authorization. The typed snapshot now also carries first-class probe run-state/artifact refs plus current push receipt/authorization refs so external review surfaces can cite emitted evidence instead of only replaying next-command suggestions.
 - `devctl` structured status reports for `check`/`triage` now emit UTC timestamps for deterministic run-correlation across local + CI artifacts.
 - `python3 dev/scripts/checks/check_agents_contract.py` validates required `AGENTS.md` SOP sections/bundles/router rows.
 - `python3 dev/scripts/checks/check_active_plan_sync.py` validates `dev/active/INDEX.md` registry coverage, tracker authority, active-doc cross-link integrity, execution-plan metadata/marker/section parity, and `MP-*` scope parity between index/spec docs and `MASTER_PLAN`.

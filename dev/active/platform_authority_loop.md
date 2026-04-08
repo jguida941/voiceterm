@@ -1828,6 +1828,23 @@ blocker or exception in plan state before skipping the declared order.
   `ControlState` / legacy payloads stay fallback-only, `session-resume`
   finishes moving off local side reduction, and bridge markdown stays
   projection-only instead of becoming a second data source.
+- 2026-04-08 bounded truth-source follow-up: closed the next bridge-backed
+  read-side leak in the review/status path and tightened ReviewSnapshot
+  evidence shape. Bridge-backed status/review projection now prefers the
+  persisted typed `current_session` plus prior typed
+  `reviewer_runtime.review_acceptance` whenever `review_state.json` already
+  exists, while raw bridge verdict text remains a compatibility/drift signal
+  (`bridge_verdict_accepted`) instead of silently retaking authority. The
+  same slice made ReviewSnapshot project first-class probe run state
+  (`state`, `mode`, warning/error counts, summary artifacts) and push receipt
+  refs (`latest_push_report`, pipeline push report, push-authorization
+  identity) so the external review surface stops speaking only in next-command
+  prose. Immediate same-lane follow-up: replace the bounded
+  `governance-review recent_findings` tail with a fresh open-finding
+  recomputation for snapshot surfaces, and harden Step 0/startup so concurrent
+  external agents that edit the repo without repo-owned checkpoint flows are
+  surfaced as a distinct authority/drift condition instead of trapping clean
+  consumers in repeated checkpoint loops.
 - 2026-04-04 extension/adopter closure correction: the latest architecture
   audit is now part of this lane's tracked Phase-2/Phase-7 work before code
   implementation. Resume from this owner chain by treating four deliverables

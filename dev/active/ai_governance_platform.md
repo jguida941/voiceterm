@@ -89,6 +89,20 @@ Current 2026-04-07 ReviewSnapshot receipt-hook closure note:
   its own final commit SHA, so freshness is represented as a typed parent-code
   binding rather than a self-referential markdown claim.
 
+Current 2026-04-08 review-status authority / ReviewSnapshot evidence note:
+- The next bounded `MP-377` closure tightened live review/status truth without
+  reopening bridge authority. When persisted typed `review_state.json`
+  already exists, bridge-backed status/compat projection now prefers typed
+  `current_session` for instruction/ACK state and typed
+  `reviewer_runtime.review_acceptance` for verdict/findings truth, leaving raw
+  `bridge.md` prose as compatibility/drift evidence only. The same slice made
+  ReviewSnapshot cite emitted evidence instead of only next-command prose by
+  projecting probe run-state/artifact refs and current push
+  receipt/authorization refs. The remaining same-lane startup gap is explicit:
+  concurrent out-of-band writers still collapse into a generic dirty-tree /
+  checkpoint-budget blocker instead of one typed concurrent-writer authority
+  condition.
+
 ## Scope
 
 Turn the current VoiceTerm-local automation stack into a reusable AI governance
@@ -6082,6 +6096,18 @@ Execution order for this section:
 
 ## Progress Log
 
+- 2026-04-08: Closed the next bounded truth-source leak in the `MP-377`
+  self-hosting lane. Bridge-backed review status/compat reads now prefer the
+  persisted typed `current_session` and
+  `reviewer_runtime.review_acceptance` state whenever `review_state.json`
+  already exists, so live current-instruction/verdict findings no longer
+  drift back to raw bridge prose. ReviewSnapshot now also projects first-class
+  probe run-state/artifact refs plus current push receipt/authorization refs,
+  which keeps external review surfaces grounded in typed emitted evidence
+  rather than command-only suggestions. The remaining authority-loop gap from
+  the same session is startup/checkpoint UX for concurrent uncontrolled
+  writers: the system still reports that case as a generic dirty-budget block
+  instead of a separate authority-drift condition.
 - 2026-04-07: Absorbed the ReviewSnapshot hardening audit as routed intake
   rather than a shadow plan. The accepted product-level work is cross-surface
   consistency for the snapshot, contract registration/schema coverage,

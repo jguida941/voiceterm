@@ -90,16 +90,18 @@
   ownership routing for product-vs-engine-vs-integration changes, explicit
   second-repo proof gates, and review-channel provider/terminal-host
   abstraction under singular reviewer/writer authority.
-- Current same-lane focus inside that `MP-377` execution spec: land the shared
-  `system-picture` / external-review orientation reducer as the next bounded
-  slice. It must project repo/worktree/service identity, `StartupContext`,
-  typed review/runtime/control state, `CollaborationSession`,
-  session-capability / worker-fanout state, governance-review /
-  external-findings / quality-feedback summaries, delegated-worker receipts /
-  topology, and collision-safe ownership metadata (`writer_lease`, owned
-  worktree/path scope, `expected_revision`, `state_hash`) into one repo-owned
-  JSON/Markdown artifact plus one compact GitHub-visible markdown summary
-  before client migration begins.
+- Current same-lane focus inside that `MP-377` execution spec: finish the
+  current truth-source hardening / ReviewSnapshot evidence slice already in
+  the worktree, checkpoint it, and relaunch reviewer-first from that bounded
+  state before widening again. The active closure is persisted typed
+  `current_session` + `reviewer_runtime.review_acceptance` authority over
+  stale bridge prose plus first-class ReviewSnapshot probe-run/push-receipt
+  evidence. The immediate follow-ups after checkpoint/review are fresh
+  open-finding recomputation for snapshot surfaces and distinct startup
+  detection of external-agent authority drift instead of generic dirty-budget
+  loops. The broader `system-picture` / external-review reducer remains the
+  next later bounded artifact surface once this truth-source slice is
+  checkpointed and reviewed.
 - Current 2026-04-05 self-hardening boundary correction inside that same lane:
   keep the platform self-hardening, not self-redefining. Predeclared
   invariants may auto-enforce when repo-owned authority already defines the
@@ -322,11 +324,16 @@
   `run_check` / `kill_process` requests require runtime target ref/revision.
 - Current 2026-04-07 ReviewSnapshot receipt-hook closure inside that same
   lane: the external-review snapshot publication path is now explicitly
-  two-phase. `review-snapshot --write --receipt-commit` refuses non-snapshot
-  dirty state and creates a snapshot-only receipt commit bound to the current
-  code HEAD, while `install-git-hooks` installs the pre-commit projection hook
-  plus a post-commit receipt hook that invokes that typed path with hook
-  recursion disabled.
+  two-phase. Fresh evidence now includes probe-run output plus push-receipt
+  records, and typed `current_session` / `reviewer_runtime` authority stays
+  ahead of stale bridge prose when those sources disagree. `review-snapshot
+  --write --receipt-commit` refuses non-snapshot dirty state and creates a
+  snapshot-only receipt commit bound to the current code HEAD, while
+  `install-git-hooks` installs the pre-commit projection hook plus a
+  post-commit receipt hook that invokes that typed path with hook recursion
+  disabled. Next follow-ups are fresh open-finding recomputation from the
+  renewed snapshot inputs and a distinct external-agent authority-drift
+  detector.
 - Current 2026-04-05 provider-neutral bootstrap follow-up inside that same
   lane: reviewer/implementer ownership is now tracked as role-first launch
   state instead of fixed Codex/Claude identity. Planned lane parsing,
@@ -783,7 +790,11 @@
   that typed state over append-only bridge prose. The remaining work is to
   migrate writer/mutation paths plus the remaining push/preflight consumers so
   `bridge.md` becomes a generated repo-pack-owned compatibility projection
-  instead of a live current-status authority or freshness gate.
+  instead of a live current-status authority or freshness gate. Fresh-session
+  bootstrap now treats checkpoint-before-continue as the start point, with
+  `current_session` / `reviewer_runtime` preferred over stale bridge prose
+  when they diverge; the next follow-ups are fresh open-finding recomputation
+  and a distinct external-agent authority-drift detector.
   `startup-context`, `check_tandem_consistency`, and the governed push gate
   now refresh the bridge-backed typed review-state projection before
   consuming `current_session` / review freshness, so stale

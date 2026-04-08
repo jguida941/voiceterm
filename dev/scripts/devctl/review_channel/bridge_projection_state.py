@@ -72,6 +72,7 @@ def build_bridge_projection_state(
     bridge_text: str,
     bridge_liveness: Mapping[str, object],
     current_session: Mapping[str, object] | None = None,
+    reviewer_runtime: Mapping[str, object] | None = None,
     bridge_state: Mapping[str, object] | None = None,
     packets: list[dict[str, object]] | None = None,
 ) -> BridgeProjectionState:
@@ -81,6 +82,7 @@ def build_bridge_projection_state(
         _projection_sections(
             snapshot.sections,
             current_session=_mapping(current_session),
+            reviewer_runtime=_mapping(reviewer_runtime),
             packets=packets,
         ),
         section_line_limits=BRIDGE_SECTION_LINE_LIMITS,
@@ -221,25 +223,41 @@ def _projection_sections(
     raw_sections: Mapping[str, str],
     *,
     current_session: Mapping[str, object],
+    reviewer_runtime: Mapping[str, object],
     packets: list[dict[str, object]] | None = None,
 ) -> dict[str, str]:
     sections = _tracked_sections(raw_sections)
-    typed_overrides = {
-        "Open Findings": _typed_section_override(
-            current_session.get("open_findings")
+    review_acceptance = _mapping(reviewer_runtime.get("review_acceptance"))
+    typed_overrides = (
+        (
+            "Current Verdict",
+            _typed_section_override(review_acceptance.get("current_verdict")),
         ),
-        "Claude Status": _typed_section_override(
-            current_session.get("implementer_status")
+        (
+            "Open Findings",
+            _typed_section_override(
+                review_acceptance.get("open_findings")
+                or current_session.get("open_findings")
+            ),
         ),
-        "Claude Ack": _typed_section_override(current_session.get("implementer_ack")),
-        "Current Instruction For Claude": _typed_section_override(
-            current_session.get("current_instruction")
+        (
+            "Claude Status",
+            _typed_section_override(current_session.get("implementer_status")),
         ),
-        "Last Reviewed Scope": _typed_section_override(
-            current_session.get("last_reviewed_scope")
+        (
+            "Claude Ack",
+            _typed_section_override(current_session.get("implementer_ack")),
         ),
-    }
-    for heading, value in typed_overrides.items():
+        (
+            "Current Instruction For Claude",
+            _typed_section_override(current_session.get("current_instruction")),
+        ),
+        (
+            "Last Reviewed Scope",
+            _typed_section_override(current_session.get("last_reviewed_scope")),
+        ),
+    )
+    for heading, value in typed_overrides:
         if value:
             sections[heading] = value
     # Overlay action requests from packet transport when available so the

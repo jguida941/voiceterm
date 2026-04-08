@@ -24,7 +24,7 @@ from ..runtime.review_state_models import (
 )
 from ..runtime.surface_snapshot import build_surface_snapshot_id
 from .collaboration_session import build_collaboration_session
-from .current_session_projection import build_bridge_current_session
+from .current_session_projection import resolve_current_session_authority
 from .handoff import BridgeSnapshot
 from .peer_liveness import OverallLivenessState
 from .promotion import PromotionCandidate, promotion_candidate_to_dict
@@ -84,18 +84,14 @@ def build_bridge_review_state(
 ) -> dict[str, object]:
     """Build a canonical ReviewState dict from bridge markdown state."""
     overall_state = str(bridge_liveness.get("overall_state") or "unknown")
-    current_session = build_bridge_current_session(
-        snapshot,
-        bridge_liveness,
+    current_session = resolve_current_session_authority(
+        snapshot=snapshot,
+        bridge_liveness=bridge_liveness,
         prior_review_state=context.prior_review_state,
     )
     warnings = list(context.warnings)
     errors = list(context.errors)
-    typed_attention = (
-        attention
-        if isinstance(attention, Mapping)
-        else {}
-    )
+    typed_attention = attention if isinstance(attention, Mapping) else {}
     collaboration = build_collaboration_session(
         timestamp=context.timestamp,
         plan_id=context.plan_id,
@@ -215,6 +211,7 @@ def build_bridge_review_state(
             attach_auth_policy=context.attach_auth_policy,
             legacy_agents=_legacy_agents(result.get("registry")),
             current_session=result.get("current_session"),
+            reviewer_runtime=result.get("reviewer_runtime"),
             bridge_state=result.get("bridge"),
             doctor=doctor,
             snapshot_id=snapshot_id,

@@ -70,6 +70,48 @@ Evidence: `dev/scripts/devctl/review_channel/current_session_projection.py`,
 `dev/active/review_channel.md`,
 `dev/active/MASTER_PLAN.md`.
 
+### 2026-04-08 - Review status now prefers typed reviewer/runtime authority and ReviewSnapshot cites emitted evidence
+
+The next review-channel closure removed another bridge-as-input leak without
+pretending the bridge is gone. When persisted typed `review_state.json`
+already exists, bridge-backed status/compat projection now prefers typed
+`current_session` for live instruction / implementer ACK state and typed
+`reviewer_runtime.review_acceptance` for verdict/findings truth. Raw bridge
+verdict/findings prose still matters, but only as compatibility or drift
+evidence; it no longer silently retakes authority during status refresh.
+
+The same slice also made `dev/audits/REVIEW_SNAPSHOT.md` materially more
+useful as evidence. The typed snapshot now projects first-class probe run
+state (`state`, `mode`, warning/error counts, summary artifact refs) and
+current push receipt/authorization refs (`latest_push_report`, pipeline push
+report path, push-authorization identity), so external review consumers can
+see which emitted artifacts back the snapshot instead of inferring everything
+from suggested commands. One limitation remains explicit in owner docs:
+startup/checkpoint handling still reports concurrent out-of-band writers as a
+generic dirty-budget blocker rather than a distinct authority-drift class.
+
+Evidence: `dev/scripts/devctl/review_channel/current_session_projection.py`,
+`dev/scripts/devctl/review_channel/reviewer_runtime_contract.py`,
+`dev/scripts/devctl/review_channel/state.py`,
+`dev/scripts/devctl/review_channel/status_projection.py`,
+`dev/scripts/devctl/review_channel/status_projection_compat.py`,
+`dev/scripts/devctl/review_channel/bridge_projection_state.py`,
+`dev/scripts/devctl/runtime/review_snapshot.py`,
+`dev/scripts/devctl/runtime/review_snapshot_models.py`,
+`dev/scripts/devctl/runtime/review_snapshot_render.py`,
+`dev/scripts/devctl/runtime/review_snapshot_render_sections.py`,
+`dev/scripts/devctl/runtime/review_snapshot_sections.py`,
+`dev/scripts/devctl/runtime/review_snapshot_serialize.py`,
+`dev/scripts/devctl/tests/review_channel/test_ack_contract.py`,
+`dev/scripts/devctl/tests/review_channel/test_review_channel.py`,
+`dev/scripts/devctl/tests/runtime/test_review_snapshot.py`,
+`AGENTS.md`,
+`dev/guides/DEVELOPMENT.md`,
+`dev/scripts/README.md`,
+`dev/active/MASTER_PLAN.md`,
+`dev/active/ai_governance_platform.md`,
+`dev/active/platform_authority_loop.md`.
+
 ### 2026-04-07 - ReviewSnapshot hook hardening routed through owner plans
 The ReviewSnapshot hardening audit is now plan intake, not a new execution
 authority. The active owner docs keep the same routing rule: path/default and

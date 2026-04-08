@@ -12,6 +12,7 @@ from devctl.runtime.review_snapshot_git import (
     extract_mp_refs,
     first_body_excerpt,
 )
+from devctl.runtime.review_snapshot_render import render_review_snapshot_markdown
 from devctl.runtime.review_snapshot_hints import (
     build_suggested_commands,
     classify_bundle_lane,
@@ -77,9 +78,26 @@ def test_build_review_snapshot_reads_governance_inputs() -> None:
             "state": "commit_pending",
             "blocked_reason": "awaiting_reviewer",
             "approval_state": "not_requested",
+            "push_report_path": "dev/reports/review_channel/latest/push.json",
+            "push_authorization": {
+                "authorization_id": "push-auth-123",
+                "authorized_head_sha": "deadbeef1234",
+                "approved_target_identity": "tree-123:gen-9",
+            },
         },
         "governance": {
-            "push_enforcement": {"checkpoint_required": True},
+            "push_enforcement": {
+                "checkpoint_required": True,
+                "latest_push_report_path": "dev/reports/push/latest.json",
+                "latest_push_report_status": "published_remote",
+                "latest_push_report_reason": "post_push_pending",
+                "latest_push_report_published_remote": True,
+                "latest_push_report_post_push_green": False,
+                "current_push_authorization_id": "push-auth-123",
+                "current_push_authorization_valid": True,
+                "current_push_authorization_head_commit": "deadbeef1234",
+                "current_push_authorization_approved_target_identity": "tree-123:gen-9",
+            },
             "repo_identity": {
                 "repo_name": "test-repo",
                 "default_branch": "main",
@@ -125,6 +143,14 @@ def test_build_review_snapshot_reads_governance_inputs() -> None:
         ],
     }
     probe_summary = {
+        "generated_at": "2026-04-08T00:00:00Z",
+        "mode": "working-tree",
+        "warnings": ["probe warning"],
+        "errors": [],
+        "artifact_paths": {
+            "summary_json": "dev/reports/probe_report/latest/summary.json",
+            "summary_md": "dev/reports/probe_report/latest/summary.md",
+        },
         "summary": {
             "files_scanned": 441,
             "risk_hints": 23,
@@ -149,6 +175,10 @@ def test_build_review_snapshot_reads_governance_inputs() -> None:
         context_graph_payload={},
     )
     assert snap.governance_state.push_action == "await_checkpoint"
+    assert snap.governance_state.latest_push_report_path == "dev/reports/push/latest.json"
+    assert snap.governance_state.pipeline_push_report_path == "dev/reports/review_channel/latest/push.json"
+    assert snap.governance_state.current_push_authorization_id == "push-auth-123"
+    assert snap.governance_state.current_push_authorization_valid is True
     assert snap.governance_state.reviewer_mode == "active_dual_agent"
     assert snap.governance_state.interaction_mode == "local_terminal"
     assert snap.governance_state.pipeline_state == "commit_pending"
@@ -158,6 +188,13 @@ def test_build_review_snapshot_reads_governance_inputs() -> None:
     assert snap.identity.product_thesis == "Portable AI governance platform"
     assert snap.quality.governance_total_findings == 120
     assert snap.quality.governance_open_findings == 30
+    assert snap.quality.probe_run_state == "ok"
+    assert snap.quality.probe_run_mode == "working-tree"
+    assert snap.quality.probe_warning_count == 1
+    assert (
+        snap.quality.probe_summary_json_path
+        == "dev/reports/probe_report/latest/summary.json"
+    )
     assert snap.quality.probe_hints_total == 23
     assert snap.quality.probe_hints_by_severity == {"high": 8, "medium": 14, "low": 1}
     assert len(snap.architecture.contract_ownership_map) == 1
@@ -166,6 +203,62 @@ def test_build_review_snapshot_reads_governance_inputs() -> None:
     assert snap.known_gaps.startup_action_advisories == (
         "checkpoint_required: worktree_dirty",
     )
+
+
+def test_render_review_snapshot_surfaces_probe_run_and_push_receipts() -> None:
+    snap = build_review_snapshot(
+        startup_payload={
+            "push_decision": {
+                "action": "run_devctl_push",
+                "reason": "ready",
+                "next_step_command": "python3 dev/scripts/devctl.py push --execute",
+                "push_eligible_now": True,
+                "worktree_clean": True,
+                "publication_backlog": {"backlog_state": "none"},
+            },
+            "reviewer_gate": {
+                "effective_reviewer_mode": "single_agent",
+                "operator_interaction_mode": "local_terminal",
+                "required_checks_status": "fresh",
+                "review_gate_allows_push": True,
+            },
+            "remote_commit_pipeline": {
+                "state": "push_ready",
+                "approval_state": "approved",
+                "push_report_path": "dev/reports/review_channel/latest/push.json",
+            },
+            "governance": {
+                "push_enforcement": {
+                    "latest_push_report_path": "dev/reports/push/latest.json",
+                    "latest_push_report_status": "published_remote",
+                    "latest_push_report_reason": "post_push_pending",
+                    "current_push_authorization_id": "push-auth-123",
+                    "current_push_authorization_valid": True,
+                }
+            },
+        },
+        governance_payload={},
+        probe_payload={
+            "generated_at": "2026-04-08T00:00:00Z",
+            "mode": "working-tree",
+            "warnings": [],
+            "errors": [],
+            "artifact_paths": {
+                "summary_json": "dev/reports/probe_report/latest/summary.json",
+                "summary_md": "dev/reports/probe_report/latest/summary.md",
+            },
+            "summary": {"files_scanned": 0, "risk_hints": 0, "hints_by_severity": {}},
+        },
+        context_graph_payload={},
+    )
+
+    rendered = render_review_snapshot_markdown(snap)
+
+    assert "- latest_push_report: `dev/reports/push/latest.json`" in rendered
+    assert "- pipeline_push_report: `dev/reports/review_channel/latest/push.json`" in rendered
+    assert "- current_push_authorization: `push-auth-123` (valid=True)" in rendered
+    assert "- run_state: `ok`" in rendered
+    assert "- summary_json: `dev/reports/probe_report/latest/summary.json`" in rendered
 
 
 # ---------------------------------------------------------------------------

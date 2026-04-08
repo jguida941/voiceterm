@@ -4,37 +4,29 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import asdict
-from hashlib import sha256
-from typing import Any
 
 from .ack_contract import extract_implementer_ack_revision
-from .reviewer_state_normalize import (
-    instruction_revision as _normalized_instruction_revision,
-    normalize_instruction_body as _normalize_instruction_body,
-)
-from ..runtime.review_state_semantics import classify_implementer_ack_state
-from ..runtime.review_state_models import ReviewCurrentSessionState
-from .handoff import BridgeSnapshot
 from .handoff_constants import _is_substantive_text
+from .current_session_render import (
+    append_current_session_markdown,
+    current_focus_line,
+)
+from .current_session_support import (
+    compute_implementer_state_hash,
+    current_session_authority_drift_warning,
+    event_agent_status,
+    event_claude_ack,
+    event_current_instruction,
+    event_open_findings,
+    instruction_revision_reuse_warning,
+    prior_typed_current_session,
+    resolve_instruction_revision as _resolve_instruction_revision,
+)
+from .handoff import BridgeSnapshot
 from .session_state_hints import provider_session_state_hint
 from .status_projection_helpers import clean_section
-
-
-def compute_implementer_state_hash(
-    *,
-    implementer_status: str,
-    implementer_questions: str = "",
-    implementer_ack: str,
-) -> str:
-    """Return a stable digest for Claude-owned live bridge state."""
-    normalized = (
-        clean_section(implementer_status),
-        clean_section(implementer_questions),
-        clean_section(implementer_ack),
-    )
-    if not any(normalized):
-        return ""
-    return sha256("\0".join(normalized).encode("utf-8")).hexdigest()
+from ..runtime.review_state_models import ReviewCurrentSessionState
+from ..runtime.review_state_semantics import classify_implementer_ack_state
 
 
 def bridge_implementer_state_hash(snapshot: BridgeSnapshot) -> str:
@@ -57,11 +49,11 @@ def build_bridge_current_session(
     implementer_status = _section_text(snapshot, "Claude Status")
     implementer_questions = _section_text(snapshot, "Claude Questions")
     implementer_ack = _section_text(snapshot, "Claude Ack")
-    current_instruction_revision = _current_instruction_revision(
+    current_instruction_revision = _resolve_instruction_revision(
         snapshot=snapshot,
         bridge_liveness=bridge_liveness,
         current_instruction=current_instruction,
-        prior_review_state=_mapping(prior_review_state),
+        prior_review_state=prior_review_state,
     )
     implementer_ack_revision = extract_implementer_ack_revision(implementer_ack)
     ack_current = _is_substantive_text(implementer_ack) and (
@@ -91,6 +83,23 @@ def build_bridge_current_session(
         implementer_session_hint=str(claude_hint.get("summary") or ""),
         open_findings=_section_text(snapshot, "Open Findings"),
         last_reviewed_scope=_section_text(snapshot, "Last Reviewed Scope"),
+    )
+
+
+def resolve_current_session_authority(
+    *,
+    snapshot: BridgeSnapshot,
+    bridge_liveness: Mapping[str, object],
+    prior_review_state: Mapping[str, object] | None = None,
+) -> ReviewCurrentSessionState:
+    """Return the canonical current-session owner for bridge-backed status."""
+    prior_session = prior_typed_current_session(prior_review_state)
+    if prior_session is not None:
+        return prior_session
+    return build_bridge_current_session(
+        snapshot,
+        bridge_liveness,
+        prior_review_state=prior_review_state,
     )
 
 
@@ -145,230 +154,9 @@ def current_session_mapping(
     return _mapping(review_state.get("current_session"))
 
 
-def append_current_session_markdown(
-    lines: list[str],
-    current_session: object,
-) -> None:
-    """Render the typed current-session summary into latest.md output."""
-    if not isinstance(current_session, dict):
-        return
-    lines.append("")
-    lines.append("## Current Session")
-    lines.append(
-        "- instruction_revision: "
-        f"{current_session.get('current_instruction_revision') or 'n/a'}"
-    )
-    lines.append(
-        "- implementer_status: "
-        f"{current_session.get('implementer_status') or 'n/a'}"
-    )
-    lines.append(
-        "- implementer_ack_state: "
-        f"{current_session.get('implementer_ack_state') or 'n/a'}"
-    )
-    if current_session.get("implementer_session_state"):
-        lines.append(
-            "- implementer_session_state: "
-            f"{current_session.get('implementer_session_state') or 'n/a'}"
-        )
-    lines.append(
-        "- last_reviewed_scope: "
-        f"{current_session.get('last_reviewed_scope') or 'n/a'}"
-    )
-
-
-def current_focus_line(review_state: dict[str, object]) -> str:
-    """Return the best current instruction from typed state or fallbacks."""
-    current_session = review_state.get("current_session", {})
-    if isinstance(current_session, dict):
-        current_instruction = str(
-            current_session.get("current_instruction") or ""
-        ).strip()
-        if current_instruction:
-            return current_instruction
-    bridge = review_state.get("bridge", {})
-    if isinstance(bridge, dict):
-        current_instruction = str(bridge.get("current_instruction") or "").strip()
-        if current_instruction:
-            return current_instruction
-    queue = review_state.get("queue", {})
-    if isinstance(queue, dict):
-        derived_next_instruction = str(
-            queue.get("derived_next_instruction") or ""
-        ).strip()
-        if derived_next_instruction:
-            return derived_next_instruction
-    packets = review_state.get("packets")
-    if not isinstance(packets, list):
-        return "(missing)"
-    pending_packet = next(
-        (
-            packet
-            for packet in packets
-            if isinstance(packet, dict) and packet.get("status") == "pending"
-        ),
-        None,
-    )
-    if isinstance(pending_packet, dict):
-        summary = str(pending_packet.get("summary") or "").strip()
-        if summary:
-            return summary
-    latest_packet = packets[0] if packets else None
-    if isinstance(latest_packet, dict):
-        summary = str(latest_packet.get("summary") or "").strip()
-        if summary:
-            return summary
-    return "(missing)"
-
-
-def event_current_instruction(review_state: Mapping[str, object]) -> str:
-    """Derive the event-backed current instruction from queue or packets."""
-    queue = _mapping(review_state.get("queue"))
-    derived = str(queue.get("derived_next_instruction") or "").strip()
-    if derived:
-        return derived
-    packets = review_state.get("packets")
-    if isinstance(packets, list):
-        for packet in packets:
-            if not isinstance(packet, dict) or packet.get("status") != "pending":
-                continue
-            summary = str(packet.get("summary") or "").strip()
-            if summary:
-                return summary
-    return ""
-
-
-def event_open_findings(queue: Mapping[str, object]) -> str:
-    """Summarize pending event-backed findings for the current session."""
-    pending_total = int(queue.get("pending_total") or 0)
-    if pending_total <= 0:
-        return "none"
-    return f"{pending_total} pending review packet(s)"
-
-
-def event_claude_ack(queue: Mapping[str, object]) -> str:
-    """Derive the implementer ACK state from event-backed queue counts."""
-    pending_claude = int(queue.get("pending_claude") or 0)
-    return "pending" if pending_claude else "acknowledged"
-
-
-def event_agent_status(
-    review_state: Mapping[str, object],
-    agent_id: str,
-) -> str:
-    """Read one agent status from typed registry rows before compatibility fallbacks."""
-    registry = _mapping(review_state.get("registry"))
-    registry_agents = registry.get("agents")
-    compat = review_state.get("_compat")
-    compat_agents = compat.get("agents") if isinstance(compat, dict) else None
-    agents = registry_agents or compat_agents or review_state.get("agents")
-    if not isinstance(agents, list):
-        return ""
-    for agent in agents:
-        if not isinstance(agent, dict) or agent.get("agent_id") != agent_id:
-            continue
-        return str(
-            agent.get("job_state")
-            or agent.get("job_status")
-            or agent.get("status")
-            or ""
-        )
-    return ""
-
-
 def _section_text(snapshot: BridgeSnapshot, section: str) -> str:
     raw = snapshot.sections.get(section, "")
     return clean_section(raw)
-
-
-def _current_instruction_revision(
-    *,
-    snapshot: BridgeSnapshot,
-    bridge_liveness: Mapping[str, object],
-    current_instruction: str,
-    prior_review_state: Mapping[str, object],
-) -> str:
-    revision = str(bridge_liveness.get("current_instruction_revision") or "").strip()
-    if revision and _instruction_revision_reused_for_changed_instruction(
-        revision=revision,
-        current_instruction=current_instruction,
-        prior_review_state=prior_review_state,
-    ):
-        return _derived_instruction_revision(current_instruction)
-    if revision:
-        return revision
-    revision = str(snapshot.metadata.get("current_instruction_revision") or "").strip()
-    if revision and _instruction_revision_reused_for_changed_instruction(
-        revision=revision,
-        current_instruction=current_instruction,
-        prior_review_state=prior_review_state,
-    ):
-        return _derived_instruction_revision(current_instruction)
-    if revision:
-        return revision
-    return _derived_instruction_revision(current_instruction)
-
-
-def instruction_revision_reuse_warning(
-    *,
-    snapshot: BridgeSnapshot,
-    bridge_liveness: Mapping[str, object],
-    prior_review_state: Mapping[str, object] | None,
-) -> str:
-    """Return a warning when reviewer instruction text changed under one revision."""
-    current_instruction = _section_text(snapshot, "Current Instruction For Claude")
-    explicit_revision = str(
-        snapshot.metadata.get("current_instruction_revision")
-        or bridge_liveness.get("current_instruction_revision")
-        or ""
-    ).strip()
-    if not explicit_revision:
-        return ""
-    if not _instruction_revision_reused_for_changed_instruction(
-        revision=explicit_revision,
-        current_instruction=current_instruction,
-        prior_review_state=_mapping(prior_review_state),
-    ):
-        return ""
-    derived_revision = _derived_instruction_revision(current_instruction)
-    if not derived_revision:
-        return ""
-    return (
-        "Current reviewer instruction text changed while `Current instruction "
-        f"revision` stayed at `{explicit_revision}`. Typed state re-derived the "
-        f"live revision as `{derived_revision}`; refresh reviewer-owned bridge "
-        "metadata so the markdown header matches the current instruction body."
-    )
-
-
-def _instruction_revision_reused_for_changed_instruction(
-    *,
-    revision: str,
-    current_instruction: str,
-    prior_review_state: Mapping[str, object],
-) -> bool:
-    if not revision:
-        return False
-    prior_session = _mapping(prior_review_state.get("current_session"))
-    prior_revision = str(prior_session.get("current_instruction_revision") or "").strip()
-    if prior_revision != revision:
-        return False
-    prior_instruction = _normalize_instruction_body(
-        str(prior_session.get("current_instruction") or "")
-    )
-    current_normalized = _normalize_instruction_body(current_instruction)
-    if not prior_instruction or not current_normalized:
-        return False
-    return prior_instruction != current_normalized
-
-
-def _derived_instruction_revision(current_instruction: str) -> str:
-    normalized_instruction = _normalize_instruction_body(current_instruction)
-    if normalized_instruction == "(missing)":
-        return ""
-    if not normalized_instruction:
-        return ""
-    return _normalized_instruction_revision(normalized_instruction)
 
 
 def _mapping(value: object) -> Mapping[str, Any]:

@@ -89,6 +89,17 @@ def render_quality(lines: list[str], snapshot: ReviewSnapshot) -> None:
             )
     lines.append("")
     lines.append("### Probe report")
+    lines.append(f"- run_state: `{quality.probe_run_state}`")
+    if quality.probe_run_mode:
+        lines.append(f"- mode: `{quality.probe_run_mode}`")
+    if quality.probe_generated_at:
+        lines.append(f"- generated_at: {quality.probe_generated_at}")
+    lines.append(f"- warnings: {quality.probe_warning_count}")
+    lines.append(f"- errors: {quality.probe_error_count}")
+    if quality.probe_summary_json_path:
+        lines.append(f"- summary_json: `{quality.probe_summary_json_path}`")
+    if quality.probe_summary_md_path:
+        lines.append(f"- summary_markdown: `{quality.probe_summary_md_path}`")
     lines.append(f"- files scanned: {quality.probe_files_scanned}")
     lines.append(f"- total hints: {quality.probe_hints_total}")
     if quality.probe_hints_by_severity:

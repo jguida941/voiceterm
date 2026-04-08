@@ -5,7 +5,6 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from ..runtime.governance_scan import scan_repo_governance_safely
 from .bridge_validation import validate_live_bridge_contract
 from .core import (
     LaneAssignment,
@@ -28,16 +27,12 @@ from .projection_bundle import (
     projection_paths_to_dict as projection_paths_to_dict,
     write_projection_bundle as write_projection_bundle,
 )
-from .current_session_projection import (
-    build_bridge_current_session,
-    instruction_revision_reuse_warning,
-)
-from .recovery_assessment import (
-    build_recovery_assessment,
-    recovery_assessment_to_attention_payload,
-)
 from .reviewer_worker import check_review_needed, reviewer_worker_tick_to_dict
 from .status_models import ReviewChannelStatusSnapshot
+from .status_snapshot_authority import (
+    StatusAuthorityInputs,
+    build_status_authority,
+)
 from .status_push_decision import build_status_push_decision
 from .status_bundle import (
     StatusProjectionContext,
@@ -51,10 +46,6 @@ from .status_projection_helpers import (
     hybrid_loop_errors,
 )
 from .session_state_hints import detect_session_state_hints, session_state_hints_to_dict
-from .reviewer_runtime_contract import (
-    ReviewerRuntimeInputs,
-    build_reviewer_runtime_contract,
-)
 from .lifecycle_state import (
     DEFAULT_REVIEW_STATUS_DIR_REL,
     PublisherHeartbeat,
@@ -130,54 +121,21 @@ def refresh_status_snapshot(
         )
     merged_warnings.extend(bridge_liveness_warnings(bridge_liveness))
     merged_errors.extend(hybrid_loop_errors(bridge_liveness))
-    current_session = build_bridge_current_session(
-        bridge_snapshot,
-        bridge_liveness,
-        prior_review_state=prior_review_state,
-    )
-    revision_warning = instruction_revision_reuse_warning(
-        snapshot=bridge_snapshot,
-        bridge_liveness=bridge_liveness,
-        prior_review_state=prior_review_state,
-    )
-    if revision_warning and revision_warning not in merged_warnings:
-        merged_warnings.append(revision_warning)
-    bridge_liveness["current_instruction"] = current_session.current_instruction
-    bridge_liveness["current_instruction_revision"] = (
-        current_session.current_instruction_revision
-    )
-    bridge_liveness["claude_status"] = current_session.implementer_status
-    bridge_liveness["claude_ack"] = current_session.implementer_ack
-    bridge_liveness["claude_ack_revision"] = current_session.implementer_ack_revision
-    bridge_liveness["claude_ack_current"] = (
-        current_session.implementer_ack_state == "current"
-    )
-    bridge_liveness["implementer_state_hash"] = current_session.implementer_state_hash
-    bridge_liveness["open_findings"] = current_session.open_findings
-    bridge_liveness["last_reviewed_scope"] = current_session.last_reviewed_scope
-    recovery_assessment = build_recovery_assessment(
-        bridge_liveness=bridge_liveness,
-        current_session=current_session,
-        contract_errors=merged_errors,
-        operator_interaction_mode=_operator_interaction_mode(repo_root),
-    )
-    attention = recovery_assessment_to_attention_payload(
-        recovery_assessment
-    )
-    reviewer_runtime = build_reviewer_runtime_contract(
-        ReviewerRuntimeInputs(
-            snapshot=bridge_snapshot,
-            bridge_liveness=bridge_liveness,
-            current_session=current_session,
-            recovery_assessment=recovery_assessment,
-            attention=attention,
-            session_output_root=output_root,
-            rollover_dir=output_root.parent / "rollovers",
-            bridge_text=bridge_text,
-            prior_review_state=prior_review_state,
-            reviewer_accepted_implementer_state_hash_override=(
-                reviewer_accepted_implementer_state_hash_override
-            ),
+    current_session, attention, recovery_assessment, reviewer_runtime = (
+        build_status_authority(
+            StatusAuthorityInputs(
+                repo_root=repo_root,
+                output_root=output_root,
+                bridge_snapshot=bridge_snapshot,
+                bridge_text=bridge_text,
+                bridge_liveness=bridge_liveness,
+                prior_review_state=prior_review_state,
+                merged_warnings=merged_warnings,
+                merged_errors=merged_errors,
+                reviewer_accepted_implementer_state_hash_override=(
+                    reviewer_accepted_implementer_state_hash_override
+                ),
+            )
         )
     )
     bridge_liveness["review_accepted"] = (
@@ -243,8 +201,6 @@ def refresh_status_snapshot(
         attach_auth_policy=attach_auth_policy,
         review_state=review_state,
     )
-
-
 def _load_status_lanes(
     *,
     review_channel_path: Path,
@@ -257,15 +213,6 @@ def _load_status_lanes(
         execution_mode=execution_mode,
     )
     return lanes
-
-
-def _operator_interaction_mode(repo_root: Path) -> str:
-    governance = scan_repo_governance_safely(repo_root)
-    if governance is None:
-        return ""
-    return str(governance.bridge_config.operator_interaction_mode or "").strip()
-
-
 def _build_status_bridge_liveness(
     *,
     bridge_snapshot,

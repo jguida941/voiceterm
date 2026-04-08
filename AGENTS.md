@@ -578,6 +578,11 @@ checklist plus chat memory.
     the persisted `review_state` artifact and the computed turn-authority /
     bridge-poll projection, so review-surface reads cannot drift silently from
     the on-disk review snapshot.
+    When persisted typed review state exists, bridge-backed status and
+    compatibility projection must also prefer typed `current_session` plus
+    typed `reviewer_runtime.review_acceptance` for live instruction / ACK /
+    verdict / findings truth. Raw `bridge.md` verdict and findings prose
+    remains compatibility or drift evidence only.
 4.6 Treat `startup-context` the same way: prefer typed
     `review_state.json` fields such as
     `reviewer_runtime.review_acceptance.review_accepted` and
@@ -605,6 +610,11 @@ checklist plus chat memory.
     packet now carries the bounded `WorkIntakePacket` startup projection, so
     `startup_order`, typed plan continuity, and routing defaults travel
     through one startup-family surface instead of staying report-only.
+    Current limitation: when another agent edits the repo outside the
+    repo-owned checkpoint/review flow, startup/status still surface the result
+    as a generic dirty-tree / checkpoint-budget blocker instead of a distinct
+    concurrent-writer authority condition. Treat that as authority drift and
+    reconcile the worktree before widening the slice.
     Startup recovery now also reads the managed latest-push artifact at
     `dev/reports/push/latest.json`: `devctl push --execute` writes a
     `published_remote` snapshot as soon as `git push` succeeds, keyed to the
@@ -1150,7 +1160,10 @@ false positives, and fixes real issues — then re-runs CodeRabbit to verify.
    when the snapshot-only HEAD's parent matches the active
    `PushAuthorizationRecord`; stale detached pipeline records are ignored in
    `single_agent` mode, while active dual-agent and current pipeline targets
-   still require exact typed authorization.
+   still require exact typed authorization. The typed ReviewSnapshot surface
+   now also carries first-class probe run-state/artifact refs plus current
+   push receipt/authorization refs so external review consumers can cite
+   emitted evidence instead of command-only prose.
 3. Guard output format MUST support `--since-ref`/`--head-ref` for growth-based gating.
 4. The Ralph AI fix wrapper MUST run architecture-specific validation after fixes.
 5. No architecture may bypass the Ralph loop — all CodeRabbit findings across Rust,

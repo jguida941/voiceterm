@@ -26,6 +26,7 @@ class CompatProjectionInputs:
     attach_auth_policy: dict[str, object]
     legacy_agents: list[dict[str, object]]
     current_session: object
+    reviewer_runtime: object
     bridge_state: object
     doctor: object
     snapshot_id: str = ""
@@ -54,6 +55,7 @@ def build_bridge_compat_projection(
             bridge_text=inputs.bridge_text,
             bridge_liveness=inputs.bridge_liveness,
             current_session=_mapping(inputs.current_session),
+            reviewer_runtime=_mapping(inputs.reviewer_runtime),
             bridge_state=_mapping(inputs.bridge_state),
             packets=inputs.packets,
         )

@@ -7502,6 +7502,154 @@ class ReviewChannelCommandTests(unittest.TestCase):
             "checkpoint_before_continue",
         )
 
+    def test_refresh_status_snapshot_prefers_prior_typed_session_authority(
+        self,
+    ) -> None:
+        from dev.scripts.devctl.review_channel.state import refresh_status_snapshot
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            review_channel_path = root / "dev/active/review_channel.md"
+            review_channel_path.parent.mkdir(parents=True, exist_ok=True)
+            review_channel_path.write_text(
+                _build_review_channel_text(),
+                encoding="utf-8",
+            )
+            bridge_path = root / "bridge.md"
+            bridge_path.write_text(
+                _build_bridge_text().replace(
+                    "- reviewer checkpoint pending",
+                    "- accepted",
+                ).replace(
+                    "- keep the slice bounded",
+                    "- none",
+                ).replace(
+                    "- Implement the bounded bridge cleanup slice.",
+                    "- bridge drift from an unmanaged writer.",
+                ).replace(
+                    "- **Current slice — DONE, needs-review**",
+                    "- unmanaged bridge status",
+                ),
+                encoding="utf-8",
+            )
+            status_dir = root / "dev/reports/review_channel/latest"
+            status_dir.mkdir(parents=True, exist_ok=True)
+            prior_review_state = {
+                "review_state": {
+                    "review": {"session_id": "markdown-bridge"},
+                    "queue": {"pending_total": 0},
+                    "current_session": {
+                        "current_instruction": "- typed authority instruction",
+                        "current_instruction_revision": "typedrev123456",
+                        "implementer_status": "- typed status",
+                        "implementer_ack": "- acknowledged; instruction-rev: `typedrev123456`",
+                        "implementer_ack_revision": "typedrev123456",
+                        "implementer_ack_state": "current",
+                        "implementer_state_hash": "typed-state-hash",
+                        "open_findings": "- typed findings",
+                        "last_reviewed_scope": "- typed/scope.py",
+                    },
+                    "bridge": {
+                        "reviewer_mode": "active_dual_agent",
+                        "effective_reviewer_mode": "active_dual_agent",
+                        "reviewer_freshness": "fresh",
+                        "current_instruction_revision": "typedrev123456",
+                        "claude_ack_revision": "typedrev123456",
+                        "claude_ack_current": True,
+                        "review_accepted": False,
+                    },
+                    "reviewer_runtime": {
+                        "reviewer_mode": "active_dual_agent",
+                        "effective_reviewer_mode": "active_dual_agent",
+                        "reviewer_freshness": "fresh",
+                        "stale_reason": "",
+                        "implementer_ack_current": True,
+                        "implementation_blocked": False,
+                        "implementation_block_reason": "",
+                        "last_poll": {
+                            "last_codex_poll_utc": "2026-04-08T00:00:00Z",
+                            "last_codex_poll_age_seconds": 5,
+                        },
+                        "rollover": {
+                            "rollover_id": "",
+                            "ack_pending": False,
+                            "trigger": "",
+                        },
+                        "session_owner": {
+                            "provider": "codex",
+                            "session_name": "codex-conductor",
+                            "session_pid": 1,
+                            "terminal_window_id": 1,
+                            "script_path": "/tmp/codex.sh",
+                            "session_visibility": "visible",
+                        },
+                        "review_acceptance": {
+                            "current_verdict": "- typed verdict",
+                            "open_findings": "- typed findings",
+                            "review_accepted": False,
+                            "reviewer_accepted_implementer_state_hash": "typed-state-hash",
+                        },
+                        "publish_clear": False,
+                    },
+                }
+            }
+            (status_dir / "review_state.json").write_text(
+                json.dumps(prior_review_state),
+                encoding="utf-8",
+            )
+
+            with patch(
+                "dev.scripts.devctl.review_channel.state.build_bridge_push_enforcement_state",
+                return_value={
+                    "checkpoint_required": False,
+                    "safe_to_continue_editing": True,
+                },
+            ), patch(
+                "dev.scripts.devctl.review_channel.state._load_lifecycle_states",
+                return_value=(
+                    {"running": True, "stop_reason": "", "pid": 10101},
+                    {"running": True, "stop_reason": "", "pid": 20202},
+                ),
+            ):
+                status_snapshot = refresh_status_snapshot(
+                    repo_root=root,
+                    bridge_path=bridge_path,
+                    review_channel_path=review_channel_path,
+                    output_root=status_dir,
+                    promotion_plan_path=root / "dev/active/continuous_swarm.md",
+                    execution_mode="markdown-bridge",
+                    warnings=[],
+                    errors=[],
+                )
+
+            review_state = json.loads(
+                Path(status_snapshot.projection_paths.review_state_path).read_text(
+                    encoding="utf-8"
+                )
+            )
+
+        self.assertEqual(
+            review_state["current_session"]["current_instruction"],
+            "- typed authority instruction",
+        )
+        self.assertEqual(
+            review_state["current_session"]["implementer_status"],
+            "- typed status",
+        )
+        self.assertEqual(
+            review_state["reviewer_runtime"]["review_acceptance"]["current_verdict"],
+            "- typed verdict",
+        )
+        self.assertFalse(
+            review_state["reviewer_runtime"]["review_acceptance"]["review_accepted"]
+        )
+        self.assertTrue(
+            any(
+                "typed `current_session` authority" in warning
+                for warning in status_snapshot.warnings
+            )
+        )
+
     def test_run_status_can_refresh_stale_bridge_heartbeat_but_not_claim_live_review(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)

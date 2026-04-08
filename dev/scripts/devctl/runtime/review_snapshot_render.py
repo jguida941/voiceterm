@@ -125,6 +125,29 @@ def _render_governance_state(lines: list[str], snapshot: ReviewSnapshot) -> None
     lines.append(f"- push_eligible_now: {state.push_eligible_now}")
     lines.append(f"- worktree_clean: {state.worktree_clean}")
     lines.append(f"- next_step_command: `{state.next_step_command or 'n/a'}`")
+    if state.latest_push_report_path:
+        lines.append(f"- latest_push_report: `{state.latest_push_report_path}`")
+    if state.latest_push_report_status or state.latest_push_report_reason:
+        lines.append(
+            f"- latest_push_report_state: `{state.latest_push_report_status or 'n/a'}`"
+            f" ({state.latest_push_report_reason or 'n/a'})"
+        )
+    if state.pipeline_push_report_path:
+        lines.append(f"- pipeline_push_report: `{state.pipeline_push_report_path}`")
+    if state.current_push_authorization_id:
+        lines.append(
+            f"- current_push_authorization: `{state.current_push_authorization_id}` "
+            f"(valid={state.current_push_authorization_valid})"
+        )
+    if state.current_push_authorization_head_commit:
+        lines.append(
+            f"- authorized_head_commit: `{state.current_push_authorization_head_commit}`"
+        )
+    if state.current_push_authorization_approved_target_identity:
+        lines.append(
+            "- approved_target_identity: "
+            f"`{state.current_push_authorization_approved_target_identity}`"
+        )
     if state.publication_backlog_state:
         lines.append(f"- publication_backlog: {state.publication_backlog_state}")
     if state.publication_guidance:

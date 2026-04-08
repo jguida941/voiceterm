@@ -1811,6 +1811,7 @@ Complete this table only after all active swarm lanes are merged.
 
 | UTC | Actor | Action | Result | Next step |
 |---|---|---|---|---|
+| `2026-04-08T00:42:46Z` | `CODEX` | Refined the tracker slice so typed `current_session` / `reviewer_runtime` remain preferred over stale bridge prose, fresh sessions checkpoint before continue, and the ReviewSnapshot evidence set now expands to probe-run plus push-receipt records alongside the existing receipt-hook closure. | `planned` | Keep the current truth-source slice bounded: land the authority-preference and evidence-expansion proof, then wire the fresh open-finding recomputation and external-agent drift detector into the next pass. |
 | `2026-04-08T00:25:00Z` | `CODEX` | Closed the stale-reviewer-revision mismatch that let live bridge text and typed ACK authority drift apart. Bridge-backed `current_session` now compares the live instruction body against the prior typed snapshot, re-derives the effective instruction revision when reviewer text changed under a reused revision, threads that corrected revision/ACK state through `status` and `bridge-poll`, surfaces a reviewer-facing warning instead of silently calling Claude ACK current, and lets repo-owned reviewer writes accept either the raw bridge revision or the effective typed revision during repair. Focused current-session, bridge-poll, reviewer-checkpoint, and refresh-status regressions are green on the current tree. | `partial-pass` | Re-run the MP-355 tooling/docs bundle, then perform one live reviewer/implementer launch where Codex rewrites an instruction and Claude repolls through the repo-owned path to confirm the warning/corrected revision stay aligned in practice. |
 | `2026-04-05T23:45:00Z` | `CODEX` | Closed the next operator-facing launch-policy mismatch that was steering local sessions into hidden relaunches after a stale loop. Typed recovery/doctor surfaces now build launch and implementer-recover commands from governed operator interaction mode so `local_terminal` defaults back to visible `terminal-app` recovery while `remote_control` remains headless, and the Terminal.app profile path now launches the conductor command directly instead of opening a blank shell and injecting a second `do script` into the live tab. Focused launch/recovery/runtime regressions are green, including full `test_review_channel.py` coverage on the current tree. | `partial-pass` | Run the repo-owned tooling/docs guard bundle, then perform one operator-visible relaunch to confirm the stale hidden Claude loop is reclaimed before the fresh visible pair takes over. |
 | `2026-04-05T23:20:00Z` | `CODEX` | Closed the next operator-facing live-launch honesty gap after a broken visible relaunch left stale session ownership behind and garbled the Terminal bootstrap command. Terminal.app profile launches now open the conductor script directly in the new window instead of creating a blank shell and injecting a second `do script`, and plain `review-channel --action launch --terminal terminal-app` now snapshots retiring conductor metadata before writing fresh session files so superseded hidden windows/processes can be reaped after the new pair is live. Focused launch-session regressions now cover the launch-side cleanup path in addition to the existing rollover cleanup proof. | `partial-pass` | Re-run the focused launch/runtime/tooling bundle, then perform one operator-visible relaunch to confirm the fresh Terminal windows start cleanly and the stale hidden session no longer survives the handoff. |
@@ -1938,24 +1939,21 @@ Complete this table only after all active swarm lanes are merged.
 - Next action: make the next startup/bootstrap slice read launch authority in
   one first-hop packet: `startup-context.action`, `interaction_mode`,
   `reviewer_runtime.conductor_visibility`, and
-  `reviewer_runtime.session_owner.session_visibility`. MP-355 may surface that
-  summary through status/bridge attention, but MP-377 keeps the governing
-  decision logic.
-- Next action: for the next `MP-377` publish-state closure slice, launch the
-  sanctioned bridge-gated reviewer/coder loop with
-  `python3 dev/scripts/devctl.py review-channel --action launch --terminal terminal-app
-  --dry-run --refresh-bridge-heartbeat-if-stale --codex-workers 0
-  --claude-workers 3 --format md` first, then use the same worker budget in
-  the live launch to resume `active_dual_agent` when `interaction_mode` is
-  `local_terminal`; if the same slice is resumed under governed
-  `remote_control`, keep the worker budget but switch the launch to
-  `--terminal none`. Keep Codex conductor-owned over bridge/plan state, and
-  keep the three Claude workers on disjoint owned scopes (render parity, push
-  receipt/current-target matching, event/runtime propagation) so the branch
-  proves governed multi-agent execution instead of default zero-fanout lore.
-  Conductor sequencing for that slice is explicit: immutable
-  receipt/current-target work first, render-truth cleanup second, and
-  event-snapshot propagation last.
+  `reviewer_runtime.session_owner.session_visibility`. `current_session` and
+  `reviewer_runtime` stay ahead of stale bridge prose when they disagree, and
+  fresh sessions should checkpoint-before-continue instead of treating the
+  bridge as the start point. MP-355 may surface that summary through
+  status/bridge attention, but MP-377 keeps the governing decision logic.
+- Next action: do not relaunch a new coding swarm from stale bridge
+  instruction. The fresh-session start point is the current unpublished
+  truth-source slice already in the worktree, and the repo-owned gate says
+  `checkpoint_before_continue`. After checkpoint, resume reviewer-first:
+  refresh the reviewer-owned bridge/runtime state, keep Claude in wait/ack
+  mode rather than coding mode, and review the current bounded slice before
+  assigning the next coding pass. Only after that review turn should the next
+  Claude-owned implementation slice begin, and it should stay bounded to the
+  tracked follow-ups (fresh ReviewSnapshot open-finding recomputation and
+  distinct external-agent authority-drift detection).
 - Next action: keep the owner split explicit for the active repair lane.
   `ReviewState.reviewer_runtime` remains the reviewer-lifecycle owner and the
   new `review_channel.turn_authority` sibling projection now owns
@@ -1965,6 +1963,9 @@ Complete this table only after all active swarm lanes are merged.
 - Next action: the next bounded repair slice is the reviewer-accepted
   implementer-state baseline on typed reviewer acceptance/runtime state so the
   reviewed-current completion dead zone closes without prose parsing.
+- Next action: recompute open findings from fresh ReviewSnapshot inputs, and
+  keep external-agent authority drift distinct from ordinary freshness so
+  imported agent state does not get mistaken for the local truth source.
 - Next action: this bounded rollover follow-up is now in. Use the stored
   `terminal_window_id` + `session_pid` session snapshot when working on any
   later Terminal-host cleanup/recovery slice, and do not regress back to

@@ -106,9 +106,16 @@ def test_build_bridge_projection_state_prefers_typed_current_session_sections() 
             "open_findings": "- Typed findings win.",
             "last_reviewed_scope": "- typed/scope.py",
         },
+        reviewer_runtime={
+            "review_acceptance": {
+                "current_verdict": "- Typed verdict wins.",
+                "open_findings": "- Typed findings win.",
+            }
+        },
         bridge_state={"current_instruction_revision": "56bcd5d01510"},
     )
 
+    assert projection_state.sections["Current Verdict"] == "- Typed verdict wins."
     assert projection_state.sections["Open Findings"] == "- Typed findings win."
     assert projection_state.sections["Claude Status"] == "- Typed status wins."
     assert (
@@ -147,4 +154,3 @@ def test_build_bridge_poll_result_prefers_typed_current_session_authority() -> N
     assert result.changed_since_last_ack is False
     assert result.reviewed_hash_current is True
     assert result.review_needed is False
-
