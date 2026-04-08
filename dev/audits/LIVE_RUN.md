@@ -826,6 +826,269 @@ intervention to verify. Codex should treat these as potential blind spots.
    dev/scripts/devctl/tests/ -q -k interaction_mode` to find any tests
    that assume the old default.
 
+## Retirement plan for this file
+
+LIVE_RUN.md is an **emergency workaround** for Q20 (packet transport broken).
+The architectural end-state is:
+
+1. **Q20 fixed**: `review-channel --action inbox` round-trips 100% of packets
+   posted via `review-channel --action post`, across all status filters and
+   across session restarts.
+2. **Q11/Q12 fixed**: `ReviewState.packets` is populated with typed
+   `ReviewPacketState` instances (not raw dicts), so the `pending_approvals`
+   iterator and all downstream consumers work natively.
+3. **Retirement gate declared by Codex**: on the next reviewer checkpoint
+   after Q20+Q11+Q12 land, Codex writes a `session_conclusion` note in
+   this file saying "packet transport verified; LIVE_RUN.md frozen as
+   historical audit log; new findings use `review-channel post`."
+4. **Post-retirement**: no new Q-entries appended to this file. The
+   existing Q-series stays as a historical record of what was wrong
+   during the remote_control trial session. New findings flow through
+   the typed receipt system (`TypedAction → ActionResult → RunRecord`)
+   and are reviewable via `review-channel --action inbox` / `history`.
+
+Until the retirement gate lands, **this file is the canonical source
+of truth for findings**. Codex should always consult it before
+relying on the packet queue alone.
+
+## Enhancement proposals — type-system data gaps observed during this session
+
+This is a beta-test session. Every time Claude-Code (this remote
+operator interface) had to fall back to OS-level inspection, raw
+log tailing, or manual grep/heuristics, that's a gap the type system
+could close. These are not bugs — they are missing capabilities that
+would make the remote_control operator experience much better.
+
+### Per-participant activity visibility (E1)
+
+**Gap**: to answer "what is the reviewer / coder doing right now?" I had
+to `tail -c` each conductor log file, strip ANSI escape sequences by
+hand, and look for tab-title strings like
+`⠂ Fix coordination state divergence across governance surfaces`.
+That text exists in the Terminal escape sequences but isn't exposed
+typed anywhere.
+
+**Proposal**: add `current_activity` and `current_task_label` fields to
+each participant record:
+
+    reviewer_runtime.participants[*] : {
+        participant_id: str
+        provider: str  # "codex" | "claude" | "cursor"
+        role: str  # "reviewer" | "implementer" | "approver"
+        current_task_label: str  # parsed from TUI title bar
+        current_activity: Literal["idle", "polling", "thinking",
+                                  "editing", "reviewing", "testing",
+                                  "stalled", "waiting_for_input"]
+        last_activity_utc: str
+        last_file_write_paths: tuple[str, ...]  # files touched in last 60s
+    }
+
+### Bridge-poll cadence vs real activity separation (E2)
+
+**Gap**: `codex_poll_state=stale` does not distinguish "Codex is dead"
+from "Codex is doing real file-system work without polling the bridge".
+During this session Codex's CPU jumped from 0.1% → 1.9% with zero new
+bridge polls, meaning it was reviewing tree state directly via file
+reads. The operator dashboard saw `codex_poll=stale` and assumed
+Codex was hung.
+
+**Proposal**: add a `codex_activity_source` field that reports the
+highest-confidence activity signal:
+
+    codex_activity_source: Literal[
+        "bridge_poll",       # bridge.md mtime
+        "tree_read",         # strace / ps-based file access
+        "cpu_heuristic",     # CPU > 1% sustained
+        "stdout_growth",     # conductor log growing
+        "inactive"           # all four cold
+    ]
+    codex_last_activity_utc: str  # max of above signals
+
+### Packet transport health (E3)
+
+**Gap**: Q20 was only detectable by posting 12 packets and then noticing
+`inbox --status pending` returned 0 while `history` showed 5 of them.
+There's no first-class "packet transport health" surface.
+
+**Proposal**: add a `packet_transport_health` block to
+`review-channel --action status` and `doctor`:
+
+    packet_transport_health: {
+        total_posted_this_session: int
+        total_visible_in_inbox: int
+        total_visible_in_history: int
+        inbox_history_delta: int  # should be 0
+        lost_packet_ids: tuple[str, ...]
+        last_post_at_utc: str
+        last_delivery_at_utc: str
+        health: Literal["healthy", "degraded", "broken"]
+    }
+
+### CPU and memory per participant (E4)
+
+**Gap**: I used `ps -p <pid> -o pid,pcpu,state,etime,rss` to read
+CPU/RSS for each conductor because the type system exposes `pid` but
+not `pcpu` or `rss`. CPU is the single most load-bearing signal for
+"idle polling vs actively thinking".
+
+**Proposal**: add to each participant record:
+
+    cpu_percent_rolling_1min: float
+    rss_bytes: int
+    child_process_count: int
+
+### Communication-channel diagnostics (E5)
+
+**Gap**: in this session, three channels carry findings between me
+and Codex: (a) bridge `## Claude Questions`, (b) `review-channel post`
+packets, (c) `dev/audits/LIVE_RUN.md`. I had no way to tell which
+Codex was actually reading, short of grepping Codex's verdict text
+for explicit mentions. The type system should tell me.
+
+**Proposal**: reviewer checkpoints should explicitly list the
+information sources consulted in a typed field:
+
+    reviewer_checkpoint.sources_consulted: tuple[str, ...]
+    # e.g. ("bridge:Claude Questions", "packet_inbox", "file:dev/audits/LIVE_RUN.md")
+
+### Stash inventory (E6)
+
+**Gap**: I stashed Codex's WIP F1/F2/F3 work earlier with `git stash
+push`. That stash is invisible to the type system — there's no way
+for a future operator (or future me) to see it existed. `git stash
+list` is an OS-level probe, not a typed field.
+
+**Proposal**: surface `git stash list` contents as a typed
+`vcs.worktree.stashes` record:
+
+    worktree_state.stashes: tuple[StashEntry, ...] = ()
+    class StashEntry:
+        id: str  # stash@{0}
+        message: str
+        author: str  # claude | codex | operator
+        created_utc: str
+        files_changed: int
+        lines_changed: int
+
+### Scheduled / cron action visibility (E7)
+
+**Gap**: the cron job `be574ff0` I scheduled for dashboard polls lives
+only in my Claude-Code session memory. The type system has no record
+of it, no log of when it fired, no way for the operator to see it
+exists after my session ends.
+
+**Proposal**: a `scheduled_actions` registry that persists to
+`dev/reports/scheduled_actions.jsonl`:
+
+    scheduled_actions[*]: {
+        job_id: str
+        owner_agent: str  # "claude-code-remote"
+        cron_expression: str
+        prompt_hash: str
+        created_utc: str
+        last_fired_utc: str
+        fire_count: int
+    }
+
+### Instruction-scope progress (E8)
+
+**Gap**: I don't know how far Claude-CLI is through its F1/F2/F3
+instruction. I can see it touched 7 files, but I don't know whether
+that's 30% done or 90% done of the planned scope. The instruction
+is free-text inside `Current Instruction For Claude` and has no
+machine-readable scope.
+
+**Proposal**: instructions should carry an optional typed
+`scope_contract`:
+
+    current_instruction.scope_contract: {
+        planned_files: tuple[str, ...]
+        planned_test_files: tuple[str, ...]
+        planned_finding_acknowledgements: tuple[str, ...]  # e.g. ("F1", "F2", "F3")
+        definition_of_done: tuple[str, ...]
+        estimated_loc: int
+    }
+
+And the reviewer worker should compute progress:
+
+    reviewer_worker.instruction_progress: {
+        planned_files_touched: int
+        planned_files_untouched: int
+        unexpected_files_touched: int  # scope creep
+        planned_tests_touched: int
+        percent_complete: float  # heuristic
+    }
+
+### Operator dashboard delta tracking (E9)
+
+**Gap**: for every dashboard poll I had to manually compare against
+my previous baseline to compute deltas ("edit stats were 3 files +44/-15,
+now they're 7 files +91/-18, so +4 files and +47 lines"). The type
+system should compute deltas automatically and expose them as a field.
+
+**Proposal**: add a `since_last_poll` block to status:
+
+    bridge_liveness.since_last_poll: {
+        prior_snapshot_utc: str
+        commits_added: int
+        files_touched_added: int
+        files_touched_removed: int  # reverted/committed-away
+        lines_added: int
+        lines_removed: int
+        codex_polls_added: int
+        claude_log_bytes_added: int
+        codex_log_bytes_added: int
+        packets_posted_added: int
+        state_transitions: tuple[str, ...]  # e.g. ("mode: single_agent -> active_dual_agent")
+    }
+
+### Remote operator presence (E10)
+
+**Gap**: I don't know when the operator last saw a dashboard update.
+When their phone is in their pocket, should I keep updating the loop
+or pause? There's no `last_operator_ack_utc` field.
+
+**Proposal**: a typed remote-operator presence record:
+
+    remote_operator: {
+        visibility: Literal["watching", "occasional", "away"]
+        last_ack_utc: str
+        session_started_utc: str
+        interaction_cadence_seconds: int  # time between operator messages
+        preferred_update_interval_seconds: int  # from schedule config
+    }
+
+### Post-push bundle visibility (E11)
+
+**Gap**: during `devctl push --execute` the branch was published to
+origin (status=`published_remote`) but the post-push bundle failed at
+step 13/43. I had no way to see a live progress view — I could only
+read the JSON AFTER the bundle finished. If it had hung, I wouldn't
+have known which step.
+
+**Proposal**: `devctl push --execute` should emit per-step typed
+progress records to `dev/reports/push/progress.ndjson`:
+
+    {step_index: 13, step_name: "check_code_shape", status: "running", started_utc: ...}
+    {step_index: 13, step_name: "check_code_shape", status: "failed", exit_code: 1, duration_s: 9.47}
+
+### Retirement-gate declaration contract (E12)
+
+**Gap**: there's no typed way for Codex to say "LIVE_RUN.md can be
+retired now" or "F1 is landed, Q5 can be closed". Everything is
+prose in verdict text.
+
+**Proposal**: a `reviewer_gate_declarations` typed record:
+
+    reviewer_gates[*]: {
+        gate_id: str  # "live_run_retirement", "F1_landed", "Q5_closed"
+        declared_at_utc: str
+        declared_by: str  # reviewer agent id
+        declaration: Literal["open", "pending", "closed", "retired"]
+        evidence_refs: tuple[str, ...]  # commit hashes, test names
+        rollback_if: str  # condition that would reopen the gate
+    }
+
 ## Instructions for Codex (when you read this file)
 
 1. Treat every Q-entry in this file as authoritative. Cross-reference with

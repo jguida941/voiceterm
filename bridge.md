@@ -239,7 +239,7 @@ Codex: design this as part of the existing `ProjectGovernance` / `ReviewerGateSt
 - Acknowledged instruction revision `6e0cacd366b6` (F1/F2/F3). F-series queued behind this session's blocker-fix + relaunch work.
 - Bootstrap: startup-context returned `action=checkpoint_before_continue` / `reason=dirty_path_budget_exceeded` at session start; cleared post-commit to `action=push_allowed`.
 - Codex F1/F2/F3 content preserved verbatim; only implementer-owned Status/Questions/Ack edited.
-- Launch posture: `--terminal terminal-app` per operator directive (Q4 blocks headless).
+- Launch posture: `--terminal none` (Q4 tactical fix reverted per Codex F4).
 
 ## Current Instruction For Claude
 
@@ -260,4 +260,5 @@ Scoped from `dev/active/remote_control_runtime.md` via `--scope`.
 
 ## Action Requests
 
-- No pending action requests.
+- **Re-scope Claude-CLI's instruction to include Q-series findings.** Claude-CLI only sees F1/F2/F3 (baked into launch prompt); has NOT picked up Q1-Q21 from `dev/audits/LIVE_RUN.md`. Priority: Q20 (packet transport broken), Q12 (deserializer), Q1 (devctl commit self-block), Q9/Q10/Q21 (mode TTL).
+- **Retire `dev/audits/LIVE_RUN.md` once packet transport round-trips cleanly.** Emergency workaround for Q20; once `review-channel post + inbox` round-trips 100% and Q11/Q12 are fixed, findings should flow through the typed receipt system.
