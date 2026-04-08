@@ -621,7 +621,18 @@ Three quality layers matter in practice:
     machine-summary payload now project the richer `CoordinationSnapshot`
     reduction too: topology convergence, fanout safety, `resync_required`,
     `current_slice`, and `active_target` are load-bearing bootstrap fields,
-    not markdown-only detail.
+    not markdown-only detail. Every coordination read surface
+    (`startup-context`, `session-resume`, dashboard /
+    `ControlPlaneReadModel`) must resolve its `CoordinationSnapshot`
+    through `dev/scripts/devctl/runtime/coordination_loader.py::load_coordination_snapshot`
+    rather than constructing its own `build_coordination_snapshot`
+    wrapper. The MP-384/MP-387 parity regression in
+    `dev/scripts/devctl/tests/runtime/test_coordination_loader_wiring.py`
+    locks that invariant in: a structural mock test proves
+    `build_startup_context` calls the loader, and two end-to-end tests
+    assert the three surfaces plus a direct loader call all agree on
+    `declared_topology`, `observed_topology`, `recommended_topology`,
+    `ownership_status`, and `resync_reasons` for a single tree.
   - Read-only command safety: `startup-context` always attempts the receipt
     write (the launcher validates it), but degrades gracefully on `OSError`
     when `DEVCTL_NO_ARTIFACT_WRITES=1` signals an intentional read-only

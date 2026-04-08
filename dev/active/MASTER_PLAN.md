@@ -152,6 +152,27 @@
   Codex-reviewer/Claude-coder launch. The same slice should also decide
   whether retargeting that launch from typed plan + coordination state can be
   automated repo-owned instead of remaining a manual operator rewrite.
+- Current 2026-04-08 coordination loader closure inside that same lane
+  (MP-384/MP-387 F1 + F4): the earlier slice added
+  `dev/scripts/devctl/runtime/coordination_loader.py` as the canonical
+  resolution path and wired it into `session_resume_support` and
+  `control_plane_read_model`, but `build_startup_context` still built its
+  `CoordinationSnapshot` directly via `build_coordination_snapshot(startup_
+  context=SimpleNamespace(work_intake=...))`. That left three proof surfaces
+  running through two reducers and allowed `observed_topology`/
+  `ownership_status`/`resync_reasons` to silently disagree on the same
+  tree. `build_startup_context` now delegates its coordination snapshot to
+  `load_coordination_snapshot` with the same governance + review-state +
+  reviewer-gate already derived higher in the function, keeping the old
+  direct build only as a bare-repo / legacy-fixture fallback. The same
+  slice closes F4 by making `draft_policy_scan._scan_bridge_config` read
+  `operator_interaction_mode` from `repo_governance.bridge_config` and
+  resolve it through `resolve_operator_interaction_mode`, so
+  `scan_repo_governance(policy={}).bridge_config.operator_interaction_mode`
+  now fails closed to `unresolved` instead of silently inheriting the
+  dataclass `local_terminal` default. Parity coverage landed in
+  `dev/scripts/devctl/tests/runtime/test_coordination_loader_wiring.py`
+  and `dev/scripts/devctl/tests/runtime/test_operator_mode_fail_closed.py`.
 - Current 2026-04-05 portable typed-structure correction inside that same
   lane: keep this as governed-boundary doctrine, not a repo-wide style rule.
   For platform-owned governance/control paths that any adopter repo may use,

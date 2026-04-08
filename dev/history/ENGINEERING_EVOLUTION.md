@@ -39,6 +39,48 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 
 ### 2026-04-07 - ReviewSnapshot hook hardening routed through owner plans
 
+### 2026-04-08 - Startup-context coordination snapshot now routes through the shared governed loader
+
+The previous coordination slice landed `CoordinationSnapshot` on
+`ControlPlaneReadModel` and added `dev/scripts/devctl/runtime/coordination_loader.py`
+as the canonical resolution path. `session_resume_support` and
+`control_plane_read_model` adopted it, but `build_startup_context` still
+called `build_coordination_snapshot` directly against its own
+`SimpleNamespace(work_intake=work_intake)` wrapper. That left three
+proof surfaces — `startup-context --format json`,
+`session-resume --format json`, and `dashboard --format json` — running
+through two different reducers even with matching inputs, so they could
+silently disagree on `observed_topology`, `ownership_status`, and
+`resync_reasons`.
+
+`build_startup_context` now delegates its `CoordinationSnapshot` to
+`load_coordination_snapshot` with the same governance + review-state +
+reviewer-gate already derived higher in the function. The old direct
+`build_coordination_snapshot` call remains only as a bare-repo / legacy-
+fixture fallback when the loader returns `None`. After the wiring, all
+three proof surfaces observe the same bounded reducer output for one
+tick on any given tree. The parity is covered by a new structural mock
+test plus a live end-to-end test in
+`dev/scripts/devctl/tests/runtime/test_coordination_loader_wiring.py`.
+
+The same slice closed a separate fail-closed drift in
+`dev/scripts/devctl/governance/draft_policy_scan.py::_scan_bridge_config`.
+Before this fix, `scan_repo_governance(policy={}).bridge_config.operator_interaction_mode`
+returned `local_terminal` (the `BridgeConfig` dataclass default), while
+`bridge_config_from_mapping({}).operator_interaction_mode` returned
+`unresolved`. The scan path now reads `operator_interaction_mode` from
+`repo_governance.bridge_config` with the same
+`resolve_operator_interaction_mode` resolver the parse path uses, so
+both paths collapse to `unresolved` on empty policy and preserve
+explicit `remote_control` / `dual_agent` values alike.
+
+Evidence: `dev/scripts/devctl/runtime/startup_context.py`,
+`dev/scripts/devctl/governance/draft_policy_scan.py`,
+`dev/scripts/devctl/tests/runtime/test_coordination_loader_wiring.py`,
+`dev/scripts/devctl/tests/runtime/test_operator_mode_fail_closed.py`,
+`dev/active/MASTER_PLAN.md`,
+`dev/active/ai_governance_platform.md`.
+
 ### 2026-04-08 - Step-0 startup summary and the shared read model now carry coordination truth
 
 The next coordination follow-up was not another reducer. The reducer already

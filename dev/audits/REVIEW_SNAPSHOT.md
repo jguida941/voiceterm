@@ -5,14 +5,14 @@
 ## Quick status
 
 - Branch: `feature/governance-quality-sweep`
-- HEAD: `527eb1b2d807` — LIVE_RUN: Q54 role separation unclear — publisher vs supervisor + no typed role contracts
-- Tree hash: `d06ce26be0b9`
-- Generation stamp: `snap-55c3ee76a580`
-- Generated at (UTC): 2026-04-08T21:20:23Z
+- HEAD: `7ac4d4f13969` — Preserve Claude-CLI session 6 WIP (F1 + F4 + test + README) before solo-Codex test
+- Tree hash: `75d102aab0df`
+- Generation stamp: `snap-4924b60838d3`
+- Generated at (UTC): 2026-04-08T21:23:12Z
 - Push decision: `await_checkpoint` — worktree_dirty
-- Reviewer mode: `active_dual_agent` (interaction: `dual_agent`)
+- Reviewer mode: `tools_only` (interaction: `unresolved`)
 - Pipeline state: `n/a` (approval: `n/a`)
-- Delta since last snapshot: 24 commits, 12 files, +2810/-1297
+- Delta since last snapshot: 24 commits, 15 files, +2960/-1331
 - Governance findings: 39 open / 68 fixed / 121 total
 - Probe hints: 0 total across 0 files scanned
 
@@ -54,9 +54,9 @@ adopters arrive.
 - Remote: `https://github.com/jguida941/voiceterm.git`
 - Default branch: `master`
 - Current branch: `feature/governance-quality-sweep`
-- HEAD SHA: `527eb1b2d80733b40f26162dadf9a086d01a2fd0`
+- HEAD SHA: `7ac4d4f13969f7aaf14d597da375867dbbd41c7d`
 - HEAD author: Justin Guida
-- HEAD timestamp (UTC): 2026-04-08T17:09:58-04:00
+- HEAD timestamp (UTC): 2026-04-08T17:20:14-04:00
 
 ## 2. Governance state
 
@@ -72,13 +72,14 @@ adopters arrive.
 - authorized_head_commit: `ee13a6c6337f395afa574e99a4234f2eaf45a161`
 - approved_target_identity: `tree-receipt-20260407T220000Z:281dea21851063411d2c43c2b4621a1c2a1168b5`
 - publication_backlog: urgent
-- publication_guidance: 26 local commit(s) waiting for governed push once the current slice is checkpoint-clean.
+- publication_guidance: 27 local commit(s) waiting for governed push once the current slice is checkpoint-clean.
 
 ### Reviewer runtime
-- reviewer_mode: `active_dual_agent`
+- reviewer_mode: `tools_only`
 - reviewer_freshness: unknown
 - reviewer_publish_clear: False
-- interaction_mode: `dual_agent`
+- interaction_mode: `unresolved`
+- implementation_blocked: yes — runtime_missing
 
 ### Remote commit pipeline
 - state: `n/a`
@@ -92,60 +93,63 @@ adopters arrive.
 
 ## 3. Delta — what changed since the previous snapshot
 
-Range: last 24 commits ending at `527eb1b2d807`
+Range: last 24 commits ending at `7ac4d4f13969`
 
 - commits: 24
-- files changed: 12
-- insertions: +2810
-- deletions: -1297
-- bundle classes touched: tooling, docs
-- authority surfaces touched: 1 file(s)
+- files changed: 15
+- insertions: +2960
+- deletions: -1331
+- bundle classes touched: docs, tooling
+- authority surfaces touched: 2 file(s)
 
 ### Commits
 
 | # | SHA | Subject | Files | +/- | Bundle | Risk |
 |---|---|---|---|---|---|---|
-| 1 | `527eb1b2` | LIVE_RUN: Q54 role separation unclear — publisher vs superv… | 2 | +166/-40 | tooling |  |
-| 2 | `22b06b22` | LIVE_RUN: Q53 bootstrap guidance missing — AI agents learn… | 2 | +182/-63 | tooling |  |
-| 3 | `c5890296` | LIVE_RUN: Q52 TOP-LEVEL ARCHITECTURAL FAILURE — AI agents f… | 2 | +170/-42 | tooling |  |
-| 4 | `e9a37347` | LIVE_RUN: Q50 lazy dashboard + Q51 update cadence drift (AI… | 2 | +200/-53 | tooling |  |
-| 5 | `81cff0d8` | Refresh external review snapshot for 079d7f3f | 1 | +55/-50 | tooling |  |
-| 6 | `079d7f3f` | Preserve Claude-CLI WIP (F1 consumer wiring) from session 5… | 4 | +155/-155 | tooling |  |
-| 7 | `dde77865` | LIVE_RUN: add AI Research Lane architecture proposal (Codex… | 2 | +217/-49 | tooling |  |
-| 8 | `9515a083` | LIVE_RUN: Q45/Q46/Q47 from typed-state discoverability audit | 2 | +147/-45 | tooling |  |
-| 9 | `5f5c049f` | LIVE_RUN: Q43 publisher lifecycle drift + Q44 publisher rea… | 2 | +150/-55 | tooling |  |
-| 10 | `a65da5bf` | Refresh external review snapshot for e596901 | 1 | +55/-54 | tooling |  |
-| 11 | `e5969014` | Preserve Claude-CLI WIP (F1 extension) from second session… | 3 | +230/-46 | tooling |  |
-| 12 | `4522b125` | Fix Q41: exclude registered conductor shells from orphan/st… | 2 | +98/-45 | tooling |  |
-| 13 | `b7674a38` | LIVE_RUN: Q41 ROOT CAUSE — process-sweep-post reaps live co… | 2 | +109/-49 | tooling |  |
-| 14 | `c60bd77b` | LIVE_RUN: Q33-Q40 findings from full surface audit + guard-… | 3 | +238/-57 | tooling |  |
-| 15 | `839008c6` | Refresh external review snapshot for 17d7c73 | 1 | +41/-38 | tooling |  |
-| 16 | `17d7c734` | Refresh external review snapshot for 1de0fc0 | 1 | +41/-41 | tooling |  |
-| 17 | `1de0fc06` | Bridge refresh: Codex polls post-relaunch at 19:30:05Z + 19… | 2 | +58/-60 | docs |  |
-| 18 | `7a1ba282` | LIVE_RUN: A11 + Q31 role drift self-correction + Q32 Q4 reg… | 2 | +174/-49 | tooling |  |
-| 19 | `73842029` | Extend Q1 bypass to concurrent-writer rule (Q30) + regen AG… | 3 | +50/-48 | tooling |  |
-| 20 | `015cec99` | Refresh external review snapshot for 7889291 | 1 | +52/-57 | tooling |  |
-| 21 | `78892916` | Fix Q18: bundle.docs docs-check missing --since-ref origin/… | 2 | +59/-49 | tooling |  |
-| 22 | `12594100` | Refresh external review snapshot for 44c0018 | 1 | +41/-47 | tooling |  |
-| 23 | `44c0018d` | Refresh external review snapshot for d9a9a3b | 1 | +52/-57 | tooling |  |
-| 24 | `d9a9a3b7` | CHANGELOG: Q1 FIXED + A1-A10 automation gaps entry (unblock… | 2 | +70/-48 | docs |  |
+| 1 | `7ac4d4f1` | Preserve Claude-CLI session 6 WIP (F1 + F4 + test + README)… | 6 | +220/-82 | tooling |  |
+| 2 | `527eb1b2` | LIVE_RUN: Q54 role separation unclear — publisher vs superv… | 2 | +166/-40 | tooling |  |
+| 3 | `22b06b22` | LIVE_RUN: Q53 bootstrap guidance missing — AI agents learn… | 2 | +182/-63 | tooling |  |
+| 4 | `c5890296` | LIVE_RUN: Q52 TOP-LEVEL ARCHITECTURAL FAILURE — AI agents f… | 2 | +170/-42 | tooling |  |
+| 5 | `e9a37347` | LIVE_RUN: Q50 lazy dashboard + Q51 update cadence drift (AI… | 2 | +200/-53 | tooling |  |
+| 6 | `81cff0d8` | Refresh external review snapshot for 079d7f3f | 1 | +55/-50 | tooling |  |
+| 7 | `079d7f3f` | Preserve Claude-CLI WIP (F1 consumer wiring) from session 5… | 4 | +155/-155 | tooling |  |
+| 8 | `dde77865` | LIVE_RUN: add AI Research Lane architecture proposal (Codex… | 2 | +217/-49 | tooling |  |
+| 9 | `9515a083` | LIVE_RUN: Q45/Q46/Q47 from typed-state discoverability audit | 2 | +147/-45 | tooling |  |
+| 10 | `5f5c049f` | LIVE_RUN: Q43 publisher lifecycle drift + Q44 publisher rea… | 2 | +150/-55 | tooling |  |
+| 11 | `a65da5bf` | Refresh external review snapshot for e596901 | 1 | +55/-54 | tooling |  |
+| 12 | `e5969014` | Preserve Claude-CLI WIP (F1 extension) from second session… | 3 | +230/-46 | tooling |  |
+| 13 | `4522b125` | Fix Q41: exclude registered conductor shells from orphan/st… | 2 | +98/-45 | tooling |  |
+| 14 | `b7674a38` | LIVE_RUN: Q41 ROOT CAUSE — process-sweep-post reaps live co… | 2 | +109/-49 | tooling |  |
+| 15 | `c60bd77b` | LIVE_RUN: Q33-Q40 findings from full surface audit + guard-… | 3 | +238/-57 | tooling |  |
+| 16 | `839008c6` | Refresh external review snapshot for 17d7c73 | 1 | +41/-38 | tooling |  |
+| 17 | `17d7c734` | Refresh external review snapshot for 1de0fc0 | 1 | +41/-41 | tooling |  |
+| 18 | `1de0fc06` | Bridge refresh: Codex polls post-relaunch at 19:30:05Z + 19… | 2 | +58/-60 | docs |  |
+| 19 | `7a1ba282` | LIVE_RUN: A11 + Q31 role drift self-correction + Q32 Q4 reg… | 2 | +174/-49 | tooling |  |
+| 20 | `73842029` | Extend Q1 bypass to concurrent-writer rule (Q30) + regen AG… | 3 | +50/-48 | tooling |  |
+| 21 | `015cec99` | Refresh external review snapshot for 7889291 | 1 | +52/-57 | tooling |  |
+| 22 | `78892916` | Fix Q18: bundle.docs docs-check missing --since-ref origin/… | 2 | +59/-49 | tooling |  |
+| 23 | `12594100` | Refresh external review snapshot for 44c0018 | 1 | +41/-47 | tooling |  |
+| 24 | `44c0018d` | Refresh external review snapshot for d9a9a3b | 1 | +52/-57 | tooling |  |
 
 ### Files
 
 | Path | Bundle | +/- |
 |---|---|---|
 | `AGENTS.md` | docs | +1/-1 |
-| `bridge.md` | docs | +24/-24 |
-| `dev/CHANGELOG.md` | docs | +19/-0 |
+| `bridge.md` | docs | +53/-59 |
 | `dev/audits/LIVE_RUN.md` | tooling | +1265/-0 |
-| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1186/-1210 |
+| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1175/-1202 |
+| `dev/scripts/README.md` | tooling | +12/-0 |
 | `dev/scripts/checks/startup_authority_contract/runtime_checks.py` | tooling | +2/-0 |
 | `dev/scripts/devctl/bundles/registry.py` | tooling | +8/-1 |
 | `dev/scripts/devctl/commands/governance/session_resume_support.py` | tooling | +42/-43 |
+| `dev/scripts/devctl/governance/draft_policy_scan.py` | tooling | +18/-0 |
 | `dev/scripts/devctl/platform/coordination_snapshot.py` | tooling | +11/-1 |
 | `dev/scripts/devctl/process_sweep/internals.py` | tooling | +51/-4 |
 | `dev/scripts/devctl/runtime/control_plane_read_model.py` | tooling | +27/-13 |
 | `dev/scripts/devctl/runtime/coordination_loader.py` | tooling | +174/-0 |
+| `dev/scripts/devctl/runtime/startup_context.py` | tooling | +28/-7 |
+| `dev/scripts/devctl/tests/runtime/test_operator_mode_fail_closed.py` | tooling | +93/-0 |
 
 ## 4. Quality signals
 
@@ -215,6 +219,7 @@ Recent findings:
 
 ### Targeted hints
 
+- **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/runtime/startup_context.py`) — Review contract-level invariants for this file
 - **authority_surface**: Typed authority surface touched (`dev/scripts/checks/startup_authority_contract/runtime_checks.py`) — Review contract-level invariants for this file
 
 ### Suggested verification commands
@@ -229,6 +234,11 @@ Recent findings:
 
 ### Per-commit rationale
 
+- **`7ac4d4f1` | markers: F1, F4** — Preserve Claude-CLI session 6 WIP (F1 + F4 + test + README) before solo-Codex test
+  - Session 6 (PIDs 71697/71734) survived 34+ minutes — new session
+  - record, 2.5x longer than session 5 death — but Claude-CLI never
+  - committed its in-flight work, so Codex had nothing new to review
+  - evolution: The previous coordination slice landed `CoordinationSnapshot` on `ControlPlaneReadModel` and added `dev/scripts/devctl/runtime/coordination_loader.py` as the canonical resolution path. `session_resume_support` and `cont…
 - **`527eb1b2`** — LIVE_RUN: Q54 role separation unclear — publisher vs supervisor + no typed role contracts
   - evolution: The previous coordination slice landed `CoordinationSnapshot` on `ControlPlaneReadModel` and added `dev/scripts/devctl/runtime/coordination_loader.py` as the canonical resolution path. `session_resume_support` and `cont…
 - **`22b06b22`** — LIVE_RUN: Q53 bootstrap guidance missing — AI agents learn by trial and error
@@ -296,8 +306,6 @@ Recent findings:
   - evolution: The previous coordination slice landed `CoordinationSnapshot` on `ControlPlaneReadModel` and added `dev/scripts/devctl/runtime/coordination_loader.py` as the canonical resolution path. `session_resume_support` and `cont…
 - **`44c0018d`** — Refresh external review snapshot for d9a9a3b
   - evolution: The previous coordination slice landed `CoordinationSnapshot` on `ControlPlaneReadModel` and added `dev/scripts/devctl/runtime/coordination_loader.py` as the canonical resolution path. `session_resume_support` and `cont…
-- **`d9a9a3b7`** — CHANGELOG: Q1 FIXED + A1-A10 automation gaps entry (unblock docs-check)
-  - evolution: The previous coordination slice landed `CoordinationSnapshot` on `ControlPlaneReadModel` and added `dev/scripts/devctl/runtime/coordination_loader.py` as the canonical resolution path. `session_resume_support` and `cont…
 ### Active MP scope (from MASTER_PLAN.md)
 
 - `dev/active/devctl_reporting_upgrade.md` is the phased `devctl` reporting/CIHub specification, but not a separate execution tracker; implementation tasks stay in this file under `MP-297..MP-300`, `MP-303`, `MP-306`, `MP…
@@ -333,4 +341,4 @@ Recent findings:
 
 ---
 
-Projection produced by `devctl review-snapshot`. Generation stamp `snap-55c3ee76a580` binds this file to HEAD `527eb1b2d807`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
+Projection produced by `devctl review-snapshot`. Generation stamp `snap-4924b60838d3` binds this file to HEAD `7ac4d4f13969`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.

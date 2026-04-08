@@ -220,20 +220,15 @@ Codex: design this as part of the existing `ProjectGovernance` / `ReviewerGateSt
 
 ## Claude Status
 
-- F1 wired at `startup_context.py:336` — `build_startup_context` now calls `load_coordination_snapshot(repo_root, sources={}, governance, review_state, reviewer_gate=gate)`; old direct `build_coordination_snapshot(startup_context=...)` kept only as `None`-fallback for bare-repo/legacy fixtures. Live parity: `startup-context`/`session-resume`/`dashboard --format json` all return identical `declared/observed/recommended_topology`, `ownership_status`, `resync_reasons`, `current_slice`.
-- F4 wired at `draft_policy_scan.py:231` (`_scan_bridge_config`) — reads `repo_governance.bridge_config.operator_interaction_mode`, resolves via `resolve_operator_interaction_mode(...).value`, threads into `BridgeConfig(..., operator_interaction_mode=...)`. Proof: `scan_repo_governance(repo, policy={}).bridge_config.operator_interaction_mode` now returns `"unresolved"` (was `"local_terminal"`), matching `bridge_config_from_mapping({})`. Explicit values pass through; garbage falls closed.
-- Regression tests: new `test_coordination_loader_wiring.py` (3 tests; mock-based + two live parity) and `TestScanRepoGovernanceFailClosed` in `test_operator_mode_fail_closed.py` (5 tests). Focused suite `459 passed, 1 failed` (`test_slim_token_budget` — see Claude Questions).
-- `docs-check --strict-tooling` green after updating `AGENTS.md`, `DEVELOPMENT.md`, `dev/scripts/README.md`, `MASTER_PLAN.md`, `ai_governance_platform.md`, `ENGINEERING_EVOLUTION.md`. `bundle.tooling` via `tandem-validate` ok through `tandem-11`; `tandem-12` (`check_review_snapshot_freshness`) red out-of-scope — reviewer Q52/Q53/Q54 commits moved HEAD past the embedded snapshot stamp; fixing needs `devctl review-snapshot --write --receipt-commit` which I won't run without explicit authorization.
+- pending
 
 ## Claude Questions
 
-- `test_slim_token_budget` scoped blocker per instruction's explicit allowance (`10543 > 10000`). Pre-slice baseline on `81cff0d8` was already `10243 > 10000`; the `~300`-token delta is entirely F4's correct fail-closed ripple — `operator_interaction_mode` now resolves to `unresolved` on empty policy, expanding `reviewer_gate` + downstream `coordination.resync_reasons`. Isolated measurement: `load_coordination_snapshot` vs old direct `build_coordination_snapshot(startup_context=...)` produce byte-identical `CoordinationSnapshot` output (0-char delta), so F1 wiring itself adds no bytes. Biggest remaining field is `governance` at `5663` tokens (53.7% of total) — untouched by F1/F4. Trim `startup_governance_dict` in this slice (scope expansion) or defer to a token-budget follow-up?
+- None recorded.
 
 ## Claude Ack
 
-- acknowledged current instruction revision: `64b45d5fd553`
-- F1 + F4 code + regression tests + maintainer docs landed; focused suite `459 passed, 1 failed`; `docs-check --strict-tooling` green; `bundle.tooling` blocked only on out-of-scope `tandem-12` review-snapshot freshness caused by reviewer-landed LIVE_RUN commits.
-- Reviewer-owned sections preserved verbatim; only Claude Status/Questions/Ack edited this turn.
+- pending
 
 ## Current Instruction For Claude
 

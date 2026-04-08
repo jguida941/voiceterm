@@ -6150,6 +6150,31 @@ Execution order for this section:
 
 ## Progress Log
 
+- 2026-04-08: Closed MP-384/MP-387 F1 and F4 (governance-quality-sweep
+  lane) by making the three coordination proof surfaces structurally
+  unified and the scan-based governance path fail closed on missing
+  operator interaction mode. `build_startup_context` no longer builds
+  its `CoordinationSnapshot` through a direct
+  `build_coordination_snapshot(startup_context=SimpleNamespace(...))`
+  path; it now delegates to `load_coordination_snapshot` with the same
+  governance + review-state + reviewer-gate it already derived, leaving
+  the direct build only as a bare-repo / legacy-fixture fallback. That
+  removes the last remaining path where `startup-context --format json`,
+  `session-resume --format json`, and `dashboard --format json` could
+  silently disagree on `declared_topology`, `observed_topology`,
+  `ownership_status`, or `resync_reasons` for one tree. F4 closes a
+  separate fail-closed drift in `draft_policy_scan._scan_bridge_config`:
+  it now reads `operator_interaction_mode` from
+  `repo_governance.bridge_config` and resolves it via
+  `resolve_operator_interaction_mode`, so
+  `scan_repo_governance(policy={}).bridge_config.operator_interaction_mode`
+  returns `unresolved` instead of silently inheriting `BridgeConfig`'s
+  `local_terminal` default. Parity is locked in by
+  `dev/scripts/devctl/tests/runtime/test_coordination_loader_wiring.py`
+  (mock-based structural test plus two end-to-end tests across startup,
+  read model, and direct loader) and new scan-path tests in
+  `dev/scripts/devctl/tests/runtime/test_operator_mode_fail_closed.py`
+  (`TestScanRepoGovernanceFailClosed`).
 - 2026-04-08: Reframed the remaining coordination issue as a product-owned
   truth/projection closure gap, not a missing-schema gap. The repo now has
   enough typed coordination truth to answer owned slice, fanout safety,
