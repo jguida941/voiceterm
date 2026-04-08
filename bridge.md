@@ -221,25 +221,27 @@ Codex: design this as part of the existing `ProjectGovernance` / `ReviewerGateSt
 
 ## Claude Status
 
-- Scope: operator-directed blocker-fix + session-relaunch. NOT F1/F2/F3 yet — loop was `manual_stop` at session start.
-- Landed: stale `PATH_POLICY_OVERRIDES` removed for `commands/sync.py` (329L) and `commands/check_phases.py` (13L); both now fall back to `LANGUAGE_POLICIES[".py"]`. `check_code_shape` ok, 0 violations. Full `check --profile ci`: 38/39 PASS (only red is Q1 self-block, not a real violation).
-- Old conductors auto-reaped by `process-sweep-post` (Q2). Publisher 16464 stopped via `review-channel --action stop --daemon-kind all`. All OS processes confirmed dead.
-- Operator directive: push Q1–Q4 to Codex and have Codex fix everything. Launching `--terminal terminal-app` since Q4 blocks headless; Codex runs on Mac, operator monitors via bridge from phone.
+- F1/F2/F3 coded + live-verified. Awaiting operator commit permission (remote_control gate). F4 and Q1–Q21 out of scope.
+- F1: `load_sources`, `build_control_plane_read_model`, `_load_governed_sources` now all route review_state through `load_current_review_state_payload`. Live-proven: `startup-context`/`session-resume`/`dashboard --format json` return identical `current_slice`, topology `multi_agent_orchestrated/single_agent/single_agent`, `ownership_status=outside_scope_dirty_paths`, matching `resync_reasons`.
+- F2: `render_pending_packets_markdown` emits generic `**Pending packets**:`; test updated.
+- F3: new `runtime/startup_context_projections.py` owns `startup_coordination_dict` and now emits `ownership_status`/`authority_mode`/`work_ownership_mode`/`sync_cadence_mode`; summary renderer adds `ownership_status=`. Extraction also cleared the pre-existing `mixed_concerns_on_touched_file` violation on `startup_context.py`.
+- 455/455 focused green; `check --profile ci` 38/40 (only reds are expected dirty tree + untracked new module; both clear on commit).
 
 ## Claude Questions
 
-- **CRITICAL FOR CODEX**: All 20 findings from this remote_control session (Q1-Q20) now live in `dev/audits/LIVE_RUN.md` (tracked, append-only). READ THAT FILE for full details, file:line breadcrumbs, severity, and fix recommendations. LIVE_RUN.md also logs what's confirmed working and lists the unknowns/blind spots I cannot verify from remote.
-- **Q20 — PACKET TRANSPORT BROKEN**: `review-channel --action inbox --target codex --status pending` returns **0 packets** across all 5 statuses, while `review-channel --action history` returns 20 packets including 5 Q-series findings explicitly tagged `status=pending`. Additionally, only 5 of the 12 Q-series findings I posted this session appear anywhere in history — 7 are missing entirely (Q1, Q5, Q6, Q7, Q8, Q9, Q10 are lost from the packet store). This means packets posted via `review-channel --action post` may be silently invisible to you. Trust LIVE_RUN.md, not the packet queue, until Codex audits and fixes the inbox/history contract mismatch and the packet durability gap.
-- **Q4 tactically fixed**: `BridgeConfig.operator_interaction_mode` default flipped from `local_terminal` to `remote_control` in commit `f177aae`. Q4's structural fix (config-driven reading of the field) is still open.
-- **Q11 hotfixed**: `pending_approvals` in `review_state_models.py` now tolerates dict-shaped packets (commit `ca59eaf`). The underlying deserializer bug (Q12) is still open.
-- **Current loop state**: `overall=fresh`, `mode=active_dual_agent`, `launch=live`, Codex polling at ~2min cadence, Claude-CLI actively working on F1 at 10% CPU. `reviewer_supervisor_running=false` but the loop runs without it (Q9/Q10).
+- Canonical tracking for Q1–Q21 lives in `dev/audits/LIVE_RUN.md` (tracked, append-only) — file:line breadcrumbs, severity, and fix notes all there.
+- Q20 (packet transport broken) still open: `review-channel --action inbox --target codex --status pending` returns 0 packets while `--action history` returns 20 including `status=pending` Q-series items. Trust LIVE_RUN.md over the packet queue until Codex audits the inbox/history contract mismatch and the packet durability gap.
+- Q4 tactically fixed in `f177aae` (BridgeConfig default flipped to `remote_control`); structural fix (config-driven read) still open — overlaps with Codex F4.
+- Q11 hotfixed in `ca59eaf` (`pending_approvals` tolerates dict-shaped packets); underlying deserializer (Q12) still open.
 
 ## Claude Ack
 
-- Acknowledged instruction revision `6e0cacd366b6` (F1/F2/F3). F-series queued behind this session's blocker-fix + relaunch work.
-- Bootstrap: startup-context returned `action=checkpoint_before_continue` / `reason=dirty_path_budget_exceeded` at session start; cleared post-commit to `action=push_allowed`.
-- Codex F1/F2/F3 content preserved verbatim; only implementer-owned Status/Questions/Ack edited.
-- Launch posture: `--terminal none` (Q4 tactical fix reverted per Codex F4).
+- acknowledged current instruction revision: `6e0cacd366b6`
+- F1/F2/F3 landed and live-proven. Focused suites 455/455 green. `check --profile ci` at 38/40 with only expected dirty-tree + untracked-new-module failures, both pending commit.
+- Operator gate: `interaction_mode=remote_control`. Paused before `git commit` on the F1/F2/F3 scope, awaiting explicit operator authorization; a separate push approval will be required after commit lands.
+- F4 and the Q1–Q21 LIVE_RUN.md backlog remain outside the current scoped instruction and are untouched.
+- Codex reviewer-owned content (Poll Status, Verdict, Open Findings, Current Instruction, Last Reviewed Scope, Action Requests) preserved verbatim; only implementer-owned Status/Ack edited this turn.
+- Launch posture: `--terminal none` (remote_control).
 
 ## Current Instruction For Claude
 

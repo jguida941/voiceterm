@@ -852,7 +852,115 @@ intervention to verify. Codex should treat these as potential blind spots.
 - **Status**: OPEN (high-leverage — fixing this unblocks AI agent
   capability discovery for the whole system)
 
-### Q23 — BUG — `system-picture` context graph reports `plan_count: 0` when repo has 29 plan docs
+### Q26 — BUG — `doc-authority` lifecycle classifier fails on 26 of 27 non-index docs
+
+- **Discovered**: 2026-04-08T18:44Z
+- **Severity**: governance data quality, high
+- **Body**: `devctl doc-authority --format md` reports:
+  ```
+  By Lifecycle:
+    active: 27
+    complete: 1
+    draft: 1
+    unknown: 26
+  ```
+  27 docs are listed as `active` (via registry state) but only 1 is
+  `complete` and 1 is `draft` — the remaining **26 have
+  `lifecycle: unknown`**. That's 96% of non-index governed docs with
+  no lifecycle classification. The doc registry table confirms this:
+  even `MASTER_PLAN.md` shows `lifecycle: unknown`.
+- **Impact**: any governance audit that routes by doc lifecycle
+  ("find all active plans", "find docs safe to archive") returns
+  mostly wrong results. The `unknown` bucket is the default, not an
+  exception — which means the classifier isn't extracting the
+  lifecycle metadata from the docs (probably looking for a field
+  that doesn't exist or isn't required).
+- **Fix recommendation**: audit `dev/scripts/checks/check_doc_authority.py`
+  (or equivalent) for the lifecycle extraction logic. Either (a)
+  require a `---\nlifecycle: active\n---` frontmatter block on all
+  governed docs and fail-closed when missing, or (b) default lifecycle
+  to `active` if the doc is in `dev/active/` and `archived` otherwise.
+  Current behavior (`unknown` for 96% of docs) is the worst of both
+  worlds — no information value.
+- **Status**: OPEN
+
+### Q27 — GOVERNANCE DEBT — 19 doc budget violations + 10 consolidation candidates are invisible outside `doc-authority`
+
+- **Discovered**: 2026-04-08T18:44Z
+- **Severity**: silent governance debt, high
+- **Body**: `devctl doc-authority --format md` surfaces substantial
+  hidden governance debt that does not appear in `dashboard`,
+  `system-picture`, push-preflight, or any guard bundle:
+    - **19 budget violations**, including:
+        - `dev/active/ai_governance_platform.md` — **8540 lines** vs limit 2000 (4.3× over)
+        - `dev/active/platform_authority_loop.md` — 3820 lines vs 2000 (1.9×)
+        - `dev/active/ide_provider_modularization.md` — 2947 vs 2000 (1.5×)
+        - `AGENTS.md` — 2436 vs 1500 (1.6×)
+        - `dev/guides/DEVELOPMENT.md` — 2021 vs 1500 (1.35×)
+        - `dev/guides/SYSTEM_AUDIT.md` — 1936 vs 1500 (1.29×)
+        - `dev/active/code_shape_expansion.md` — 747 vs 300 (2.5×)
+        - 12 more "warning" or "exceeded" entries
+    - **4 authority overlaps** — multiple docs claiming the same MP:
+        - MP-338: `autonomous_control_plane.md` + `loop_chat_bridge.md`
+        - MP-347, MP-349: `audit.md` + `move.md` + `pre_release_architecture_audit.md`
+        - MP-377: **4 docs** (`PLAN_FORMAT.md`, `ai_governance_platform.md`,
+          `platform_authority_loop.md`, `remote_commit_pipeline.md`)
+    - **10 consolidation candidates** including
+      `pre_release_architecture_audit.md` (`lifecycle: complete` —
+      candidate for archive) and 6 tiny reference docs.
+- **Impact**: the quality layer has 19 active budget violations and
+  10 archive candidates that are invisible unless an operator
+  specifically runs `doc-authority`. Neither CI nor push-preflight
+  flags these, so they accumulate silently. For a governance
+  platform, this is a hole in the "catches everything" story.
+- **Fix recommendation**: add a `doc-authority-summary` line to
+  `devctl dashboard` (next to code_shape and package_layout), and
+  wire `doc-authority --strict` into `bundle.docs` as a required
+  guard. Surface the MP authority overlaps via a typed
+  `plan_authority_conflicts` field on `orchestrate-status`.
+- **Status**: OPEN
+
+### Q23 — BUG — `system-picture` reads stale context graph snapshot and presents `plan_count: 0` as current
+
+- **Discovered**: 2026-04-08T18:39Z (updated 18:44Z after fresh
+  context-graph run)
+- **Severity**: data quality, high (stale cache presented as current)
+- **Body**: `devctl system-picture --format md` reported:
+  ```
+  ### Context Graph
+  - status: stale
+  - notes:
+    - Latest saved ContextGraphSnapshot was captured on an older commit;
+      rerun `python3 dev/scripts/devctl.py context-graph --mode bootstrap --format md` to refresh it.
+  - node_count: 2828
+  - guard_count: 69
+  - probe_count: 25
+  - plan_count: 0       ← from stale 4-day-old snapshot
+  ```
+  BUT when I ran `context-graph --mode bootstrap` fresh:
+  ```
+  Graph: 2638 source files, 69 guards, 25 probes, 20 plans, 60129 edges
+  ```
+  The context graph ingestor DOES find plans correctly — 20 of them,
+  listed by path/role/scope (MASTER_PLAN, theme_upgrade, memory_studio,
+  review_channel, continuous_swarm, remote_control_runtime, etc.).
+- **The actual bug**: `system-picture` surfaces stale snapshot fields
+  next to a small `status: stale` notice and a recommendation to
+  rerun. But the field-level payload (`plan_count: 0`, `node_count:
+  2828`, etc.) looks like current data — there is no visible "this
+  field is stale, do not trust it" overlay on the individual numbers.
+  A reader scanning the markdown sees `plan_count: 0` and concludes
+  the repo has zero plans. The staleness warning is too quiet.
+- **Fix recommendation**: stale sections in `system-picture` output
+  should either (a) refuse to render the field-level payload at all
+  and only show the recommendation, (b) prefix every stale field
+  with `STALE:` or similar, or (c) auto-refresh on read (run the
+  source command transparently if the snapshot is older than N
+  hours).
+- **Status**: OPEN (reinterpreted from "missing plans" to "stale
+  data presented as current")
+
+### Q23-legacy (superseded) — BUG — context graph missing plans
 
 - **Discovered**: 2026-04-08T18:39Z
 - **Severity**: data quality, high (false-negative on a load-bearing
@@ -886,6 +994,34 @@ intervention to verify. Codex should treat these as potential blind spots.
   commit") is ALSO misleading — even the fresh graph would say 0
   because the ingestor is the bug, not the refresh cadence.
 - **Status**: OPEN
+
+### Q25 — DASHBOARD — `git diff --name-only` and `orchestrate-status` disagree on changed file count because of untracked files
+
+- **Discovered**: 2026-04-08T18:42Z
+- **Severity**: dashboard accuracy, medium (caused several cycles of
+  undercount in my operator reports)
+- **Body**: For several cycles this session I reported "Claude-CLI
+  touched 7 files" based on `git diff --name-only`. Then
+  `devctl orchestrate-status --format md` reported
+  `changed_paths: 8`, and the 8th was
+  `dev/scripts/devctl/runtime/startup_context_projections.py` — a
+  brand-new file Claude-CLI created but had not yet `git add`ed, so
+  it shows as `??` in `git status` (untracked) and is excluded from
+  `git diff --name-only`.
+- **Impact**: any dashboard consumer that uses `git diff --name-only`
+  as its "changed file" metric will systematically undercount new
+  files created by a parallel agent. My dashboard cycle logic was
+  wrong for 15+ minutes of this session — I was reporting Claude-CLI
+  progress as 7 files when it was actually 8, because Claude-CLI
+  was doing exactly the right thing (modular split — creating a new
+  sibling file), and my metric didn't see it.
+- **Fix recommendation**: dashboard / operator reports should use
+  `git diff --name-only && git ls-files --others --exclude-standard`
+  OR prefer the typed `orchestrate-status.changed_paths` field which
+  already unions both sources. Add a `orchestrate-status` pointer
+  to the dashboard doc as the canonical "what's dirty" source.
+- **Status**: OPEN (consumer fix — all dashboard helpers need to
+  route through the unified source)
 
 ### Q24 — PATTERN — Many diagnostic commands silently return empty when their upstream producer isn't running
 
