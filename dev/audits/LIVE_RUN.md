@@ -1394,6 +1394,104 @@ been reviewer-implementer work. The operator corrected this explicitly:
   Action Requests for Codex and Claude-CLI to address.
 - **Status**: OPEN (needs Codex triage + role-contract enforcement)
 
+### Q44 — PUBLISHER REAPER RISK — long-lived publisher can be reaped as "stale" by `process-sweep` beyond 600s
+
+- **Discovered**: 2026-04-08T20:09Z (during Q43 audit)
+- **Severity**: architectural, medium (latent — manifests only under
+  `process-sweep` host-cleanup runs when publisher exceeds 600s)
+- **Body**: `publisher_heartbeat.28091.json` reports the publisher
+  has been running for 1:52:30 (elapsed 6750s > 600s stale
+  threshold). The Q41 conductor-exclude fix matches the command
+  line against `review_channel/latest/sessions`, `-conductor.sh`,
+  `-conductor.log` — none of which match the publisher's command
+  (`review-channel --action ensure --follow --status-dir
+  dev/reports/review_channel/latest`). So the publisher is NOT
+  protected by the Q41 carve-out.
+- **Consequence**: if any code path runs `process-sweep` host-cleanup
+  against orphaned/stale rows with the 600s threshold, the publisher
+  will be classified as stale (elapsed > 600s, PPID=1 on macOS
+  backgrounded process) and reaped. The publisher is the load-
+  bearing daemon that projects review_state.json → bridge.md. Its
+  death stops the bridge projection loop.
+- **Fix**: extend `_is_registered_conductor_process` (or add a sibling
+  `_is_registered_publisher_process`) to also match publisher
+  command lines containing `review-channel --action ensure --follow`
+  AND `--status-dir`. Alternatively, the session registry file
+  should carry the publisher's PID explicitly so the sweep can read
+  it deterministically instead of string-matching.
+- **Status**: OPEN (latent but critical once discovered)
+
+### Q43 — PUBLISHER LIFECYCLE DRIFT — publisher survives across 4+ conductor generations with no session identity tracking
+
+- **Discovered**: 2026-04-08T20:08Z (operator observation via phone
+  dashboard: "why is the publisher so much longer? Are they even
+  all in sync?")
+- **Severity**: session-identity / lineage-tracking gap, high
+- **Forensic evidence**:
+    ```
+    Publisher PID 28091:
+      started_at_utc:    2026-04-08T18:17:13Z  (elapsed 1:52:30)
+      snapshots_emitted: 44
+      stop_reason:       ""  (never stopped through any conductor death)
+      reviewer_mode:     active_dual_agent
+
+    Session 2 (PIDs 71966/72006):  17:08-17:52  (died before publisher spawn)
+    Session 3 (PIDs 28266/28377):  17:56-18:32  (overlapped publisher)
+    Session 4 (PIDs 62800/62835):  19:30-19:37  (outlived by publisher)
+    Session 5 (PIDs 32968/33008):  20:02-alive  (current, outlived by publisher)
+
+    66 publisher_heartbeat.*.json files in dev/reports/review_channel/latest/
+    ```
+- **Body**: The publisher daemon was spawned during the Q11 crash
+  recovery at 18:17Z and has outlived FOUR separate conductor pair
+  generations. It has no concept of "session boundary" — it just
+  reads `review_state.json` and projects whatever's there into
+  `bridge.md`, continuously, regardless of whether the conductors
+  that produced that state are still alive. The typed state carries
+  no `publisher.bound_session_id` / `publisher.respawned_for_session`
+  / `publisher.current_generation` field that would let operators
+  verify the publisher they're reading projections from is the one
+  belonging to the current conductor pair.
+- **Observable symptoms**:
+    1. `snapshots_emitted: 44` spans multiple conductor lifetimes.
+       Snapshot #1 referenced session 3 state; snapshot #44
+       references session 5 state; there's no boundary between them.
+    2. **66 `publisher_heartbeat.*.json` files** accumulated in
+       `dev/reports/review_channel/latest/` from historical
+       publisher PIDs. No cleanup mechanism removes them when a
+       new publisher takes over.
+    3. When the conductors died (19:37Z, second time), the
+       publisher kept emitting snapshots showing stale data because
+       nothing told it "the loop is dead, stop projecting".
+    4. When the new conductors spawned (20:02Z), the publisher
+       silently started projecting their state without any event
+       marking the transition.
+- **Why this matters for operator trust** (operator quote):
+  "Shouldn't the timings on this being an issue or something to
+  push the code? Why is the publisher so much longer? Are they
+  even all in sync?" — The operator correctly identified this
+  as a lifecycle contradiction just by reading the elapsed times
+  on the phone dashboard. The dashboard HAS the information to
+  detect the drift; it just doesn't surface it as a warning.
+- **Fix recommendations**:
+    1. Add a `publisher.bound_session_id` field that records which
+       conductor session the publisher was most recently reconciled
+       with. Bump it on conductor relaunch.
+    2. Add a `publisher.respawned_count` counter incremented every
+       time `review-channel --action ensure --follow` is invoked
+       fresh.
+    3. Emit a `publisher_session_drift` warning in `bridge_liveness`
+       when the publisher's `started_at_utc` is older than the
+       conductor `started_at_utc` by more than one session boundary.
+    4. Clean up old `publisher_heartbeat.*.json` files on publisher
+       startup — only keep the file for the current live PID.
+    5. Display the publisher elapsed vs conductor elapsed mismatch
+       in `devctl dashboard` as a first-class typed field.
+- **Related**: Q44 (publisher reaper risk), A11 (no auto-restart
+  watcher — why the publisher kept running without a supervisor
+  reconcile), E2 (source-of-activity signals).
+- **Status**: OPEN
+
 ### Q41 — **ROOT CAUSE OF ALL SESSION DEATHS** — `devctl commit` + `devctl push` trigger `process-sweep-post` which reaps live conductor PIDs
 
 - **Discovered**: 2026-04-08T19:49Z (forensic analysis of second conductor death)
