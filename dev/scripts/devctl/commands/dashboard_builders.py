@@ -21,6 +21,7 @@ class CoordinationContext:
     receipt_push: str
     session_info: dict[str, Any]
     typed_packets: list[dict[str, Any]]
+    runtime_counts: dict[str, int]
 
 from .dashboard_utils import (
     _age_seconds,
@@ -236,6 +237,16 @@ def _build_coordination_section(
         "doctor_status": doctor_status if doctor_status else "n/a",
         "doctor_summary": doctor_summary if doctor_summary else "n/a",
         "doctor_blocked": doctor_blocked if doctor_blocked else "none",
+        "active_conductors": ctx.runtime_counts.get("active_conductor_count", 0),
+        "live_agents": ctx.runtime_counts.get("live_participant_count", 0),
+        "live_reviewers": ctx.runtime_counts.get("live_reviewer_count", 0),
+        "live_implementers": ctx.runtime_counts.get("live_implementer_count", 0),
+        "running_daemons": ctx.runtime_counts.get("running_daemon_count", 0),
+        "delegated_agents": ctx.runtime_counts.get("delegated_work_total", 0),
+        "planned_lanes": ctx.runtime_counts.get("planned_lane_total", 0),
+        "requested_worker_budget": ctx.runtime_counts.get(
+            "requested_worker_budget_total", 0
+        ),
     }
 
 

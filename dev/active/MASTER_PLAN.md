@@ -4932,7 +4932,12 @@ become the main product surface.
   cleanup on the current local diff is already in: bridge-backed `status` and
   `_build_reviewer_state_report()` now reuse the already-computed
   `status_snapshot.reviewer_worker` value instead of re-running
-  `check_review_needed()`, and the supporting lifecycle/follow helper split
+  `check_review_needed()`, and the supporting lifecycle/follow helper split.
+  The next local truth-closure slice now also fails reviewer-owned bridge
+  rewrites closed when pending reviewer-targeted packets still exist in the
+  event-backed inbox, and projects explicit runtime counts through doctor /
+  dashboard / bridge-status surfaces so remote-control dashboards can see live
+  conductor and daemon totals without inferring from bridge prose.
   keeps `check_code_shape.py` green while preserving the same reviewer-worker
   contract. The review-surface parity proof now also checks persisted disk
   `review_state` against the computed turn-authority / bridge-poll

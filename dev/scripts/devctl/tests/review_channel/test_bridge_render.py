@@ -180,6 +180,24 @@ def _typed_review_state(bridge_text: str) -> dict[str, object]:
     }
 
 
+def _write_pending_packet(root: Path) -> None:
+    path = root / "dev/reports/review_channel/events/trace.ndjson"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    event = {
+        "schema_version": 1,
+        "event_id": "rev_evt_0001",
+        "packet_id": "rev_pkt_0001",
+        "trace_id": "trace_0001",
+        "event_type": "packet_posted",
+        "status": "pending",
+        "from_agent": "claude",
+        "to_agent": "codex",
+        "kind": "finding",
+        "summary": "Keep the prior reviewer finding visible before render-bridge.",
+    }
+    path.write_text(json.dumps(event) + "\n", encoding="utf-8")
+
+
 def test_sanitize_bridge_sections_rewrites_live_state_sections() -> None:
     sections = {
         "Claude Status": "\n".join(
@@ -506,3 +524,52 @@ def test_review_channel_render_bridge_action_rewrites_live_bridge(tmp_path: Path
     assert "olderrev123456" not in rewritten
     assert "test writer::state::tests::foo ... ok" not in rewritten
     assert bridge_hygiene_errors(rewritten) == []
+
+
+def test_review_channel_render_bridge_fails_closed_with_pending_reviewer_packets(
+    tmp_path: Path,
+) -> None:
+    root = tmp_path
+    review_channel_path = root / "dev/active/review_channel.md"
+    review_channel_path.parent.mkdir(parents=True, exist_ok=True)
+    review_channel_path.write_text(_review_channel_text(), encoding="utf-8")
+    bridge_path = root / "bridge.md"
+    original = _bridge_text()
+    bridge_path.write_text(original, encoding="utf-8")
+    status_dir = root / "dev/reports/review_channel/latest"
+    status_dir.mkdir(parents=True, exist_ok=True)
+    (status_dir / "review_state.json").write_text(
+        json.dumps(_typed_review_state(original), indent=2),
+        encoding="utf-8",
+    )
+    _write_pending_packet(root)
+    output_path = root / "report.json"
+
+    parser = build_parser()
+    args = parser.parse_args(
+        [
+            "review-channel",
+            "--action",
+            "render-bridge",
+            "--terminal",
+            "none",
+            "--format",
+            "json",
+            "--review-channel-path",
+            str(review_channel_path.relative_to(root)),
+            "--bridge-path",
+            str(bridge_path.relative_to(root)),
+            "--status-dir",
+            "dev/reports/review_channel/latest",
+            "--output",
+            str(output_path),
+        ]
+    )
+
+    with patch.object(review_channel_command, "REPO_ROOT", root):
+        rc = review_channel_command.run(args)
+
+    payload = json.loads(output_path.read_text(encoding="utf-8"))
+    assert rc == 1
+    assert "pending review packet" in payload["errors"][0]
+    assert bridge_path.read_text(encoding="utf-8") == original

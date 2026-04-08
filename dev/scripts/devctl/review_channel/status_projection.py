@@ -155,6 +155,7 @@ def build_bridge_review_state(
     )
     doctor = build_reviewer_doctor_surface(
         contract=reviewer_runtime,
+        collaboration=asdict(collaboration),
         recovery_assessment=recovery_assessment,
         attention=typed_attention,
         commit_pipeline=commit_pipeline,

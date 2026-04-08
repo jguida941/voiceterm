@@ -14,6 +14,7 @@ from ...review_channel.promotion import promotion_candidate_to_dict
 from ...review_channel.projection_markdown import append_push_markdown
 from ...review_channel.peer_liveness import OverallLivenessState
 from ...review_channel.reviewer_state import reviewer_state_write_to_dict
+from ...review_channel.runtime_counts import build_runtime_counts
 from ...review_channel.state import projection_paths_to_dict
 from ...time_utils import utc_timestamp
 from .bridge_wait_render import append_wait_state_markdown
@@ -68,6 +69,27 @@ def render_bridge_md(
         "- claude_requested_worker_budget: "
         f"{report.get('claude_requested_worker_budget', 0)}"
     )
+    runtime_counts = report.get("runtime_counts")
+    if isinstance(runtime_counts, dict):
+        lines.append(
+            f"- active_conductor_count: {runtime_counts.get('active_conductor_count', 0)}"
+        )
+        lines.append(
+            f"- live_participant_count: {runtime_counts.get('live_participant_count', 0)}"
+        )
+        lines.append(
+            f"- running_daemon_count: {runtime_counts.get('running_daemon_count', 0)}"
+        )
+        lines.append(
+            f"- delegated_work_total: {runtime_counts.get('delegated_work_total', 0)}"
+        )
+        lines.append(
+            f"- planned_lane_total: {runtime_counts.get('planned_lane_total', 0)}"
+        )
+        lines.append(
+            "- requested_worker_budget_total: "
+            f"{runtime_counts.get('requested_worker_budget_total', 0)}"
+        )
     lines.append(f"- retirement_note: {report.get('retirement_note')}")
     _append_bridge_liveness_lines(
         lines,
@@ -162,6 +184,17 @@ def build_bridge_success_report(
         "codex_requested_worker_budget": args.codex_workers,
         "claude_requested_worker_budget": args.claude_workers,
         "retirement_note": REVIEW_CHANNEL_LAUNCH_RETIREMENT_NOTE,
+        "runtime_counts": build_runtime_counts(
+            bridge_liveness=bridge_liveness,
+            planned_lane_counts={
+                "codex": len(codex_lanes),
+                "claude": len(claude_lanes),
+            },
+            requested_worker_budgets={
+                "codex": args.codex_workers,
+                "claude": args.claude_workers,
+            },
+        ),
         "warnings": warnings,
         "errors": [],
         "sessions": sessions,

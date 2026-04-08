@@ -18,6 +18,7 @@ from .bridge_file import rewrite_bridge_markdown
 from .handoff import (
     extract_bridge_snapshot,
 )
+from .pending_packets import assert_no_pending_reviewer_packets
 from .promotion_support import (
     InstructionRewriteContext,
     instruction_needs_plan_promotion,
@@ -123,6 +124,11 @@ def promote_bridge_instruction(
         require_exists=True,
     )
     assert candidate is not None
+    if bridge_path.exists():
+        assert_no_pending_reviewer_packets(
+            repo_root=repo_root,
+            action_label="next-task promotion",
+        )
 
     def transform(bridge_text: str) -> str:
         snapshot = extract_bridge_snapshot(bridge_text)
@@ -261,9 +267,12 @@ def scope_bridge_instruction(
     """Rewrite the bridge instruction from a scoped active-plan doc.
 
     Unlike ``promote_bridge_instruction``, this does NOT validate that the
-    current instruction is idle/resolved — the operator explicitly asked to
-    re-scope, so we overwrite unconditionally. When the bridge file does not
-    exist the candidate is still derived but no bridge rewrite occurs.
+    current instruction is idle/resolved. The operator explicitly asked to
+    re-scope, so the bridge may be rewritten even while the prior instruction
+    is still active. Pending review packets still fail closed because those are
+    live reviewer inputs that must be reconciled before any scoped rewrite.
+    When the bridge file does not exist the candidate is still derived but no
+    bridge rewrite occurs.
     """
     candidate = derive_promotion_candidate(
         repo_root=repo_root,
@@ -272,6 +281,10 @@ def scope_bridge_instruction(
     )
     assert candidate is not None
     if bridge_path.exists():
+        assert_no_pending_reviewer_packets(
+            repo_root=repo_root,
+            action_label="scoped launch rewrite",
+        )
         source = display_path(scope_plan_path, repo_root=repo_root)
         instruction = f"Scoped from `{source}` via `--scope`.\n\n" f"{candidate.instruction}"
 

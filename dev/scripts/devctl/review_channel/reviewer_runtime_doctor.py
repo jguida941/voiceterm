@@ -14,6 +14,7 @@ from ..runtime.review_state_models import RecoveryAssessmentState
 from ..runtime.reviewer_runtime_models import ReviewerRuntimeContract
 from .peer_liveness import reviewer_mode_is_active
 from .peer_recovery import STALE_PEER_RECOVERY
+from .runtime_counts import build_runtime_counts
 from .reviewer_runtime_publication import (
     PublicationTruth,
     resolve_publication_blocked_reason,
@@ -24,6 +25,7 @@ from .reviewer_runtime_publication import (
 def build_reviewer_doctor_surface(
     *,
     contract: ReviewerRuntimeContract,
+    collaboration: Mapping[str, object] | None = None,
     recovery_assessment: RecoveryAssessmentState | None = None,
     attention: Mapping[str, object] | None = None,
     commit_pipeline: RemoteCommitPipelineContract | None = None,
@@ -113,6 +115,11 @@ def build_reviewer_doctor_surface(
             publisher=publisher,
             reviewer_supervisor=reviewer_supervisor,
         )
+    )
+    surface["runtime_counts"] = build_runtime_counts(
+        collaboration=collaboration,
+        publisher_running=bool(publisher.get("running")),
+        reviewer_supervisor_running=bool(reviewer_supervisor.get("running")),
     )
     surface["pipeline_id"] = pipeline.pipeline_id
     surface["pipeline_state"] = pipeline.state

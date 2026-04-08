@@ -82,3 +82,21 @@ def _fmt_pct(val: Any) -> str:
     if isinstance(val, (int, float)):
         return f"{val}%"
     return str(val)
+
+
+def _append_markdown_agent_counts(
+    lines: list[str],
+    agent_counts: dict[str, Any],
+) -> None:
+    """Append markdown health lines for live agent/runtime counts."""
+    lines.append(
+        "- **Active agents**: "
+        f"{agent_counts.get('live_participants_total', 0)} live "
+        f"({agent_counts.get('live_reviewer_total', 0)} reviewer, "
+        f"{agent_counts.get('live_implementer_total', 0)} implementer)"
+    )
+    lines.append(
+        "- **Planned lanes / worker budget**: "
+        f"{agent_counts.get('planned_lane_total', 0)} / "
+        f"{agent_counts.get('requested_worker_budget_total', 0)}"
+    )

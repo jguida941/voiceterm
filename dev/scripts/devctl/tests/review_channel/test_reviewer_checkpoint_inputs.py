@@ -173,6 +173,24 @@ def _reviewer_args() -> SimpleNamespace:
     )
 
 
+def _write_pending_packet(root: Path) -> None:
+    path = root / "dev/reports/review_channel/events/trace.ndjson"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    event = {
+        "schema_version": 1,
+        "event_id": "rev_evt_0001",
+        "packet_id": "rev_pkt_0001",
+        "trace_id": "trace_0001",
+        "event_type": "packet_posted",
+        "status": "pending",
+        "from_agent": "claude",
+        "to_agent": "codex",
+        "kind": "finding",
+        "summary": "Do not overwrite this reviewer finding yet.",
+    }
+    path.write_text(json.dumps(event) + "\n", encoding="utf-8")
+
+
 def test_validate_args_accepts_file_backed_reviewer_checkpoint_fields() -> None:
     args = _reviewer_args()
     args.verdict_file = "verdict.md"
@@ -590,11 +608,11 @@ def test_write_reviewer_checkpoint_rejects_stale_implementer_state_hash(
     with (
         patch("dev.scripts.devctl.review_channel.state.refresh_status_snapshot"),
         pytest.raises(ValueError, match="expected implementer state hash"),
-    ):
-        write_reviewer_checkpoint(
-            repo_root=root,
-            bridge_path=bridge_path,
-            reviewer_mode="active_dual_agent",
+        ):
+            write_reviewer_checkpoint(
+                repo_root=root,
+                bridge_path=bridge_path,
+                reviewer_mode="active_dual_agent",
             reason="stale-implementer-state",
             checkpoint=ReviewerCheckpointUpdate(
                 current_verdict="- accepted",
@@ -606,6 +624,35 @@ def test_write_reviewer_checkpoint_rejects_stale_implementer_state_hash(
                     implementer_questions="- none",
                     implementer_ack="- acknowledged; instruction-rev: `56bcd5d01510`",
                 ),
+                ),
+            )
+
+
+def test_write_reviewer_checkpoint_refuses_pending_reviewer_packets(
+    tmp_path: Path,
+) -> None:
+    root = tmp_path
+    review_channel_path = root / "dev/active/review_channel.md"
+    review_channel_path.parent.mkdir(parents=True, exist_ok=True)
+    review_channel_path.write_text(_build_review_channel_text(), encoding="utf-8")
+    bridge_path = root / "bridge.md"
+    bridge_path.write_text(_build_bridge_text(), encoding="utf-8")
+    _write_pending_packet(root)
+
+    with (
+        patch("dev.scripts.devctl.review_channel.state.refresh_status_snapshot"),
+        pytest.raises(ValueError, match="pending review packet"),
+    ):
+        write_reviewer_checkpoint(
+            repo_root=root,
+            bridge_path=bridge_path,
+            reviewer_mode="active_dual_agent",
+            reason="pending-packet-guard",
+            checkpoint=ReviewerCheckpointUpdate(
+                current_verdict="- accepted",
+                open_findings="- none",
+                current_instruction="- next task",
+                reviewed_scope_items=("bridge.md",),
             ),
         )
 

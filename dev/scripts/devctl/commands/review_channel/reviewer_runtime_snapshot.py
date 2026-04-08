@@ -45,6 +45,9 @@ def attach_reviewer_runtime_snapshot(
     )
     report["doctor"] = build_reviewer_doctor_surface(
         contract=review_state.reviewer_runtime,
+        collaboration=asdict(getattr(review_state, "collaboration", None))
+        if getattr(review_state, "collaboration", None) is not None
+        else None,
         recovery_assessment=recovery_assessment,
         attention=effective_attention,
         commit_pipeline=review_state.commit_pipeline,

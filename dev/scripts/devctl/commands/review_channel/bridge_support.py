@@ -29,6 +29,7 @@ from ...review_channel.heartbeat import (
 from ...review_channel.plan_resolution import resolve_promotion_plan_path
 from ...review_channel.promotion import (
     DEFAULT_PROMOTION_PLAN_REL,
+    derive_promotion_candidate,
     resolve_scope_plan_path,
     scope_bridge_instruction,
 )
@@ -171,6 +172,12 @@ def apply_scope_if_requested(*, args, repo_root: Path, bridge_path: Path) -> obj
         repo_root=repo_root,
         scope_value=scope_value,
     )
+    if getattr(args, "dry_run", False):
+        return derive_promotion_candidate(
+            repo_root=repo_root,
+            promotion_plan_path=scope_plan_path,
+            require_exists=True,
+        )
     expected_instruction_revision = getattr(
         args,
         "expected_instruction_revision",

@@ -10,6 +10,7 @@ from typing import Any
 
 from . import attention as _attn
 from .helpers import (
+    _append_markdown_agent_counts,
     _fmt_pct,
     _fmt_timer,
     _loop_label,
@@ -153,6 +154,9 @@ def _render_health_markdown(snapshot: dict[str, Any], lines: list[str]) -> None:
     summary = health.get("attention_summary", "n/a")
     lines.append(f"- **Attention**: {attn} — {summary}")
     lines.append(f"- **Active daemons**: {health.get('active_daemons', 0)}")
+    agent_counts = health.get("agent_counts", {})
+    if agent_counts:
+        _append_markdown_agent_counts(lines, agent_counts)
     lines.append("")
 
 

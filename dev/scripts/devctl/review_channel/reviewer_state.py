@@ -33,6 +33,7 @@ from .write_preconditions import (
 )
 from .current_session_projection import bridge_implementer_state_hash
 from .handoff import extract_bridge_snapshot
+from .pending_packets import assert_no_pending_reviewer_packets
 from .peer_liveness import ReviewerMode, normalize_reviewer_mode
 from .reviewer_head_tracking import (
     compute_review_range as compute_review_range,
@@ -121,6 +122,10 @@ def write_reviewer_checkpoint(
         open_findings=checkpoint.open_findings.strip(),
         current_instruction=checkpoint.current_instruction.strip(),
         reviewed_scope_body=reviewed_scope_body,
+    )
+    assert_no_pending_reviewer_packets(
+        repo_root=repo_root,
+        action_label="reviewer checkpoint",
     )
     write: ReviewerStateWrite | None = None
 

@@ -13,6 +13,7 @@ from ...review_channel.bridge_projection import (
 )
 from ...review_channel.core import filter_provider_lanes
 from ...review_channel.heartbeat import compute_non_audit_worktree_hash
+from ...review_channel.pending_packets import assert_no_pending_reviewer_packets
 from ...review_channel.state import (
     build_attach_auth_policy,
     build_service_identity,
@@ -56,6 +57,10 @@ def run_render_bridge_action(
     )
     typed_review_state = _load_typed_review_state(status_dir)
     render_result = None
+    assert_no_pending_reviewer_packets(
+        repo_root=repo_root,
+        action_label="bridge compatibility render",
+    )
 
     def transform(_bridge_text: str) -> str:
         nonlocal render_result

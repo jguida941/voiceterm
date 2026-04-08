@@ -283,7 +283,10 @@ Three quality layers matter in practice:
     `active_dual_agent`, always pass the live
     `--expected-instruction-revision` and
     `--expected-implementer-state-hash` from `review-channel --action status`
-    or `bridge-poll`.
+    or `bridge-poll`. Reviewer-owned checkpoint/promotion/render writes now
+    also fail closed when pending reviewer-targeted packets still exist in the
+    event-backed inbox, so later bridge rewrites cannot silently erase earlier
+    reviewer findings.
   - Keep the implementer ACK contract identical across prompts, validators,
     and typed status reads. In `Claude Ack`, acknowledge the current
     instruction revision with one machine-readable line such as
@@ -313,6 +316,10 @@ Three quality layers matter in practice:
     fails closed on oversize bridges, duplicate/unsupported sections,
     transcript/ANSI contamination, embedded markdown headings inside fixed
     flat sections, and overgrown live `Claude Status` / `Claude Ack` blocks.
+    Doctor/dashboard/reporting surfaces now also carry explicit runtime counts
+    for live conductors, delegated receipts, planned lanes, worker budget, and
+    running daemons so remote-control dashboards can report how many agents are
+    actually live without guessing from bridge prose.
     `check_review_surface_consistency.py` also proves disk parity against the
     persisted `review_state` artifact and the computed turn-authority /
     bridge-poll projection, so the review surface cannot silently drift from

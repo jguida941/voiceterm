@@ -10,6 +10,8 @@ from __future__ import annotations
 import re
 from typing import Any, TypedDict
 
+from ..review_channel.runtime_counts import build_runtime_counts
+
 
 class SessionFields(TypedDict):
     """Flat session shape matching compact.json's current_session layout."""
@@ -78,6 +80,9 @@ def _extract_typed_doctor(review_state: dict[str, Any]) -> dict[str, Any]:
     doctor = rt.get("doctor", {}) if isinstance(rt, dict) else {}
     if not doctor:
         doctor = review_state.get("doctor", {})
+    if not doctor:
+        compat = review_state.get("_compat", {})
+        doctor = compat.get("doctor", {}) if isinstance(compat, dict) else {}
     return doctor if isinstance(doctor, dict) else {}
 
 
@@ -216,3 +221,35 @@ def _extract_typed_bridge_findings(
         summary = desc[:80] + ("..." if len(desc) > 80 else "")
         findings.append({"id": fid, "summary": summary})
     return findings
+
+
+def _extract_typed_runtime_counts(
+    review_state: dict[str, Any] | None,
+) -> dict[str, int]:
+    """Extract derived live/planned runtime counts from typed ReviewState."""
+    if review_state is None:
+        return {}
+    doctor = _extract_typed_doctor(review_state)
+    runtime_counts = doctor.get("runtime_counts", {})
+    if isinstance(runtime_counts, dict) and runtime_counts:
+        return {
+            str(key): int(value or 0)
+            for key, value in runtime_counts.items()
+            if isinstance(key, str)
+        }
+    return build_runtime_counts(
+        bridge_liveness=(
+            review_state.get("bridge")
+            if isinstance(review_state.get("bridge"), dict)
+            else {}
+        ),
+        collaboration=(
+            review_state.get("collaboration")
+            if isinstance(review_state.get("collaboration"), dict)
+            else {}
+        ),
+        publisher_running=bool(doctor.get("publisher_running")),
+        reviewer_supervisor_running=bool(
+            doctor.get("reviewer_supervisor_running")
+        ),
+    )

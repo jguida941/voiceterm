@@ -112,6 +112,39 @@ Evidence: `dev/scripts/devctl/review_channel/current_session_projection.py`,
 `dev/active/ai_governance_platform.md`,
 `dev/active/platform_authority_loop.md`.
 
+### 2026-04-08 - Reviewer-owned bridge rewrites now fail closed on pending reviewer packets and operator surfaces show runtime counts
+
+The next follow-up closed the "later rewrite silently overwrites earlier
+finding" failure mode without pretending the bridge is the source of truth.
+Reviewer-owned `scope`, `promote`, `reviewer-checkpoint`, and
+`render-bridge` writes now consult the event-backed packet inbox first and
+refuse to rewrite reviewer-owned bridge sections while pending
+reviewer-targeted packets still exist. That keeps earlier Codex findings
+visible until the reviewer has actually reconciled the inbox instead of
+letting a later compatibility projection or scoped rewrite erase them.
+
+The same slice also made runtime presence explicit on operator-facing
+surfaces. The shared doctor/dashboard/bridge report stack now carries typed
+runtime counts for live conductors, delegated receipts, planned lanes, worker
+budget, and running daemons, and the terminal dashboard renders those counts
+directly. Phone and remote-control dashboards no longer have to infer "how
+many agents are really live?" from raw bridge prose or ad hoc process
+inspection.
+
+Evidence: `dev/scripts/devctl/review_channel/pending_packets.py`,
+`dev/scripts/devctl/review_channel/promotion.py`,
+`dev/scripts/devctl/review_channel/promotion_support.py`,
+`dev/scripts/devctl/review_channel/reviewer_state.py`,
+`dev/scripts/devctl/commands/review_channel/_render_bridge.py`,
+`dev/scripts/devctl/review_channel/runtime_counts.py`,
+`dev/scripts/devctl/review_channel/reviewer_runtime_doctor.py`,
+`dev/scripts/devctl/commands/dashboard_render/terminal.py`,
+`dev/scripts/devctl/tests/review_channel/test_pending_packet_guards.py`,
+`dev/scripts/devctl/tests/review_channel/test_bridge_render.py`,
+`dev/scripts/devctl/tests/review_channel/test_reviewer_checkpoint_inputs.py`,
+`dev/scripts/devctl/tests/commands/reporting/test_dashboard_runtime_counts.py`,
+`dev/active/MASTER_PLAN.md`.
+
 ### 2026-04-07 - ReviewSnapshot hook hardening routed through owner plans
 The ReviewSnapshot hardening audit is now plan intake, not a new execution
 authority. The active owner docs keep the same routing rule: path/default and

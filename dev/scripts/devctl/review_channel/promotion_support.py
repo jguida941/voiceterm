@@ -17,6 +17,7 @@ from .handoff import (
 from .handoff_constants import MARKDOWN_ITEM_RE
 from .instruction_reset import reset_implementer_sections_on_instruction_change
 from .peer_liveness import REVIEWER_WAIT_STATE_MARKERS, normalize_reviewer_mode
+from .pending_packets import assert_no_pending_reviewer_packets
 from .promotion_marker_match import matches_any_marker
 from .reviewer_state_support import (
     ReviewerMetadataUpdate,
@@ -171,6 +172,10 @@ def rewrite_instruction_and_metadata(
         bridge_text=bridge_text,
         expected_implementer_state_hash=context.expected_implementer_state_hash,
         action="instruction-rewrite",
+    )
+    assert_no_pending_reviewer_packets(
+        repo_root=context.repo_root,
+        action_label="reviewer-owned instruction rewrite",
     )
     previous_instruction_revision = current_instruction_revision_from_bridge_text(
         bridge_text

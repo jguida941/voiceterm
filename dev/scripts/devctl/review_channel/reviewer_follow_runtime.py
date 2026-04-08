@@ -64,6 +64,11 @@ def attach_reviewer_runtime_contract(
         report["commit_pipeline"] = asdict(commit_pipeline)
     report["doctor"] = build_reviewer_doctor_surface(
         contract=contract,
+        collaboration=(
+            report.get("collaboration")
+            if isinstance(report.get("collaboration"), dict)
+            else None
+        ),
         attention=attention,
         commit_pipeline=commit_pipeline,
         push_enforcement=bridge_liveness.get("push_enforcement"),

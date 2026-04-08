@@ -15,6 +15,7 @@ from ..runtime.control_plane_read_model import (
     ControlPlaneReadModel,
     build_control_plane_read_model,
 )
+from ..review_channel.runtime_counts import build_runtime_counts
 from ..time_utils import utc_timestamp
 
 # Shared utilities extracted to break circular import with dashboard_builders.
@@ -66,6 +67,7 @@ from .dashboard_typed_state import (
     _extract_typed_bridge_findings,
     _extract_typed_doctor,
     _extract_typed_packets,
+    _extract_typed_runtime_counts,
     _extract_typed_session,
 )
 
@@ -229,6 +231,8 @@ def _read_conductor_liveness(path: Path) -> dict[str, Any]:
 def _build_health_section(
     repo_root: Path,
     compact: dict[str, Any] | None,
+    *,
+    runtime_counts: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Build the HEALTH section from daemon heartbeats, conductors, and attention."""
     p = _paths()
@@ -245,6 +249,16 @@ def _build_health_section(
     attention_summary = attention.get("summary", "n/a")
 
     active_daemons = sum(1 for d in (publisher, supervisor) if d["running"])
+    agent_counts = runtime_counts or build_runtime_counts(
+        publisher_running=publisher["running"],
+        reviewer_supervisor_running=supervisor["running"],
+        bridge_liveness={
+            "codex_conductor_active": codex_conductor["alive"],
+            "claude_conductor_active": claude_conductor["alive"],
+            "publisher_running": publisher["running"],
+            "reviewer_supervisor_running": supervisor["running"],
+        },
+    )
 
     return {
         "publisher": publisher,
@@ -254,6 +268,7 @@ def _build_health_section(
         "attention_status": attention_status,
         "attention_summary": attention_summary,
         "active_daemons": active_daemons,
+        "agent_counts": agent_counts,
     }
 
 
@@ -421,9 +436,14 @@ def _assemble(
     timeline_count = 100 if view == "analytics" else 10
     typed_attention = _extract_typed_attention(review_state)
     typed_packets = _extract_typed_packets(review_state)
+    typed_runtime_counts = _extract_typed_runtime_counts(review_state)
 
     # Build the health section, injecting read-model truth for daemon/conductor liveness
-    health = _build_health_section(repo_root, compact)
+    health = _build_health_section(
+        repo_root,
+        compact,
+        runtime_counts=typed_runtime_counts,
+    )
     if control_plane:
         health["publisher"]["running"] = control_plane.publisher_running
         health["supervisor"]["running"] = control_plane.supervisor_running
@@ -466,6 +486,7 @@ def _assemble(
                 receipt_push=control_plane.next_action if control_plane else receipt_push,
                 session_info=session_info or {},
                 typed_packets=typed_packets,
+                runtime_counts=typed_runtime_counts,
             ),
         ),
         "reviewer_activity": _build_reviewer_activity_section(bridge, reviewer_agent),

@@ -248,3 +248,44 @@ def test_build_reviewer_doctor_surface_prefers_inactive_diagnosis_over_publish_c
     )
 
     assert doctor["status"] == "inactive"
+
+
+def test_build_reviewer_doctor_surface_includes_runtime_counts() -> None:
+    doctor = build_reviewer_doctor_surface(
+        contract=_runtime_contract(),
+        collaboration={
+            "participants": [
+                {
+                    "agent_id": "codex",
+                    "role": "reviewer",
+                    "live": True,
+                    "planned_lane_count": 8,
+                    "requested_worker_budget": 0,
+                },
+                {
+                    "agent_id": "claude",
+                    "role": "implementer",
+                    "live": True,
+                    "planned_lane_count": 8,
+                    "requested_worker_budget": 0,
+                },
+            ],
+            "delegated_work": [
+                {"receipt_id": "receipt_001", "live": False},
+                {"receipt_id": "receipt_002", "live": True},
+            ],
+        },
+        runtime_state={
+            "publisher": {"running": True},
+            "reviewer_supervisor": {"running": False},
+        },
+    )
+
+    counts = doctor["runtime_counts"]
+    assert counts["participants_total"] == 2
+    assert counts["live_participants_total"] == 2
+    assert counts["active_conductor_count"] == 2
+    assert counts["live_participant_count"] == 2
+    assert counts["delegated_receipt_total"] == 2
+    assert counts["delegated_work_total"] == 2
+    assert counts["running_daemon_count"] == 1

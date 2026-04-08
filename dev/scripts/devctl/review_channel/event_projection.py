@@ -205,6 +205,7 @@ def enrich_event_review_state(
         merged_compat["push_enforcement"] = push_enforcement
     merged_compat["doctor"] = build_reviewer_doctor_surface(
         contract=reviewer_runtime,
+        collaboration=asdict(collaboration),
         recovery_assessment=recovery_assessment,
         attention=attention,
         commit_pipeline=commit_pipeline,

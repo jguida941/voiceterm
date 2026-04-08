@@ -217,6 +217,20 @@ def _render_health_terminal(snapshot: dict[str, Any], lines: list[str]) -> None:
         f"  {'Attention':<15}{attn_color}{attn_status}{_RESET}"
         f"{sep}{_DIM}{summary_text}{_RESET}"
     )
+    lines.append(f"  {'Active daemons':<15}{health.get('active_daemons', 0)}")
+    agent_counts = health.get("agent_counts", {})
+    if agent_counts:
+        lines.append(
+            f"  {'Active agents':<15}"
+            f"{agent_counts.get('live_participants_total', 0)} live "
+            f"({_DIM}{agent_counts.get('live_reviewer_total', 0)} reviewer, "
+            f"{agent_counts.get('live_implementer_total', 0)} implementer{_RESET})"
+        )
+        lines.append(
+            f"  {'Planned / budget':<15}"
+            f"{agent_counts.get('planned_lane_total', 0)} / "
+            f"{agent_counts.get('requested_worker_budget_total', 0)}"
+        )
     lines.append("")
 
 
