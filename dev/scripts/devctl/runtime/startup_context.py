@@ -333,16 +333,37 @@ def build_startup_context(
             reviewer_gate=gate,
         ),
     )
-    from ..platform.coordination_snapshot import build_coordination_snapshot
+    # F1: route the coordination snapshot through the shared governed
+    # loader so startup-context, session-resume, and dashboard/
+    # ControlPlaneReadModel all observe the exact same reducer output.
+    # Before this wiring, each surface built its own snapshot via a
+    # distinct call path and the three could silently diverge on
+    # declared/observed/recommended topology even with matching inputs.
+    # See dev/scripts/devctl/runtime/coordination_loader.py for the
+    # canonical resolution order.
+    from .coordination_loader import load_coordination_snapshot
 
-    coordination_snapshot = build_coordination_snapshot(
+    coordination_snapshot = load_coordination_snapshot(
         repo_root=repo_root,
-        startup_context=SimpleNamespace(
-            governance=governance,
-            work_intake=work_intake,
-        ),
+        sources={},
+        governance=governance,
         review_state=review_state,
+        reviewer_gate=gate,
     )
+    if coordination_snapshot is None:
+        # Fallback path for bare-repo / legacy fixtures that lack a typed
+        # review state. Keeps build_startup_context returning a snapshot
+        # so callers that assume a non-None coordination field still work.
+        from ..platform.coordination_snapshot import build_coordination_snapshot
+
+        coordination_snapshot = build_coordination_snapshot(
+            repo_root=repo_root,
+            startup_context=SimpleNamespace(
+                governance=governance,
+                work_intake=work_intake,
+            ),
+            review_state=review_state,
+        )
     quality_signals = load_startup_quality_signals(repo_root)
     snapshot_id = (
         str(getattr(review_state, "snapshot_id", "") or "").strip()

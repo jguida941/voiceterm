@@ -124,6 +124,99 @@ class TestBridgeConfigParseFailClosed(unittest.TestCase):
         self.assertEqual(config.operator_interaction_mode, "unresolved")
 
 
+class TestScanRepoGovernanceFailClosed(unittest.TestCase):
+    """F4: scan_repo_governance must fail closed on missing operator_interaction_mode.
+
+    Before this regression landed, ``_scan_bridge_config`` built ``BridgeConfig``
+    without the ``operator_interaction_mode`` field, so scan-based consumers
+    silently inherited the dataclass default (``local_terminal``) instead of
+    the typed fail-closed parse result (``unresolved``). This disagreed with
+    ``bridge_config_from_mapping`` and left scan-path governance weaker than
+    the serialized-path governance. The tests below lock in parity with the
+    parse path for both the empty-policy and explicit-policy cases.
+    """
+
+    def _repo_root(self) -> "Path":
+        from pathlib import Path
+
+        # tests/runtime/test_operator_mode_fail_closed.py lives five parents
+        # below the repo root: runtime -> tests -> devctl -> scripts -> dev
+        # -> repo_root.
+        return Path(__file__).resolve().parents[5]
+
+    def test_empty_policy_fails_closed_to_unresolved(self) -> None:
+        """Bare policy dict must resolve to 'unresolved', not 'local_terminal'."""
+        from dev.scripts.devctl.governance.draft import scan_repo_governance
+
+        governance = scan_repo_governance(self._repo_root(), policy={})
+        self.assertEqual(
+            governance.bridge_config.operator_interaction_mode,
+            "unresolved",
+        )
+
+    def test_empty_policy_matches_bridge_config_from_mapping(self) -> None:
+        """F4 parity: scan and parse paths must agree on empty policy."""
+        from dev.scripts.devctl.governance.draft import scan_repo_governance
+
+        scan_mode = scan_repo_governance(
+            self._repo_root(), policy={},
+        ).bridge_config.operator_interaction_mode
+        parse_mode = bridge_config_from_mapping({}).operator_interaction_mode
+        self.assertEqual(scan_mode, parse_mode)
+        self.assertEqual(scan_mode, "unresolved")
+
+    def test_policy_remote_control_flows_through_scan(self) -> None:
+        """Explicit remote_control in policy must survive the scan path."""
+        from dev.scripts.devctl.governance.draft import scan_repo_governance
+
+        governance = scan_repo_governance(
+            self._repo_root(),
+            policy={
+                "repo_governance": {
+                    "bridge_config": {"operator_interaction_mode": "remote_control"},
+                },
+            },
+        )
+        self.assertEqual(
+            governance.bridge_config.operator_interaction_mode,
+            "remote_control",
+        )
+
+    def test_policy_dual_agent_flows_through_scan(self) -> None:
+        """Explicit dual_agent in policy must survive the scan path."""
+        from dev.scripts.devctl.governance.draft import scan_repo_governance
+
+        governance = scan_repo_governance(
+            self._repo_root(),
+            policy={
+                "repo_governance": {
+                    "bridge_config": {"operator_interaction_mode": "dual_agent"},
+                },
+            },
+        )
+        self.assertEqual(
+            governance.bridge_config.operator_interaction_mode,
+            "dual_agent",
+        )
+
+    def test_policy_unknown_value_falls_closed(self) -> None:
+        """Garbage policy values must resolve to 'unresolved', not pass through."""
+        from dev.scripts.devctl.governance.draft import scan_repo_governance
+
+        governance = scan_repo_governance(
+            self._repo_root(),
+            policy={
+                "repo_governance": {
+                    "bridge_config": {"operator_interaction_mode": "banana"},
+                },
+            },
+        )
+        self.assertEqual(
+            governance.bridge_config.operator_interaction_mode,
+            "unresolved",
+        )
+
+
 # -------------------------------------------------------
 # MP-380: Startup context layer
 # -------------------------------------------------------

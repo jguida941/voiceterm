@@ -77,13 +77,13 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-04-08T20:10:08Z`
-- Last Codex poll (Local America/New_York): `2026-04-08 16:10:08 EDT`
+- Last Codex poll: `2026-04-08T20:52:34Z`
+- Last Codex poll (Local America/New_York): `2026-04-08 16:52:34 EDT`
 - Reviewer mode: `active_dual_agent`
-- Last non-audit worktree hash: `8c72dbb81cb362ae197c9a59a1aa8b207314f8bdfc6faff4aae7b60b2a4f24ac`
-- Current instruction revision: `2eeb0d181911`
+- Last non-audit worktree hash: `0ff08577b656f51e9e665e5510263621c0dd92e8c531628b069c3d0cb0923e74`
+- Current instruction revision: `64b45d5fd553`
 - Last checkpoint action: `reviewer-checkpoint`
-- Head at push time: `9a6dd2faac4586b3dea8b525461007fa77e78b5f`
+- Head at push time: `81cff0d87d8d20b871a71d69dd69a7eb2116b0fe`
 ## Protocol
 
 1. Claude should poll this file periodically while coding.
@@ -205,60 +205,54 @@ Codex: design this as part of the existing `ProjectGovernance` / `ReviewerGateSt
 
 ## Poll Status
 
-- Reviewer heartbeat refreshed through repo-owned tooling (mode: active_dual_agent; reason: manual-review; reviewed-tree: 8c72dbb81cb3).
+- Reviewer checkpoint updated through repo-owned tooling (mode: active_dual_agent; reason: review-pass; observed-tree: 0ff08577b656; reviewed-tree: 0ff08577b656; instruction-rev: 64b45d5fd553).
 
 ## Current Verdict
 
 - changes requested
-- Change Summary: F2 and F3 are fixed on `a65da5b`: dashboard markdown now labels the mixed packet queue generically, and startup bootstrap now carries `ownership_status`. F1 is still open because the new shared coordination loader is not wired into the live proof surfaces, so `startup-context --format json` still reports `observed_topology=single_agent` while `session-resume` and `dashboard` report `dual_agent`. F4 is still open because the scan-based governance path still ignores repo-policy `operator_interaction_mode` and falls back to `local_terminal` instead of the required `unresolved`.
+- Change Summary: The preserved WIP in `079d7f3f` partially wires `session-resume` and the dashboard read model to the shared coordination loader, but the governing startup surface still bypasses that loader, so live coordination parity is still broken. The scan-based governance path also still constructs `BridgeConfig` without repo-policy `operator_interaction_mode`, so missing policy keeps failing open to `local_terminal` instead of the required `unresolved`. Focused validation is not handoff-ready either: the targeted suite is still red on the startup token-budget check.
 
 ## Open Findings
 
-- F1: `dev/scripts/devctl/runtime/coordination_loader.py` defines the shared loader this slice needs, but the live proof surfaces still do not call it. `startup-context` still builds coordination through `build_work_intake_coordination_state` + `build_coordination_snapshot`, while `session-resume` and `ControlPlaneReadModel`/dashboard keep their local `_extract_coordination()` paths. Live proof still diverges: `startup-context --role reviewer --format json` reports `coordination=multi_agent_orchestrated/single_agent->single_agent`, while `session-resume --role reviewer --format json` and `dashboard --format json` report `coordination=multi_agent_orchestrated/dual_agent->single_agent`.
-- F4: `_scan_bridge_config()` still never reads `operator_interaction_mode` from repo policy and constructs `BridgeConfig` without that field, so scan-based consumers inherit the dataclass default (`local_terminal`) instead of the typed fail-closed parse result (`unresolved`). Live proof on this head: `scan_repo_governance(policy={}).bridge_config.operator_interaction_mode` returns `local_terminal`, while `bridge_config_from_mapping({}).operator_interaction_mode` returns `unresolved`. `dev/active/remote_control_runtime.md` still requires unresolved fail-closed state here.
+- F1: `dev/scripts/devctl/runtime/startup_context.py` still bypasses the shared loader. `build_startup_context()` continues to build coordination through `build_work_intake_coordination_state()` + `build_coordination_snapshot()` instead of `coordination_loader.load_coordination_snapshot()`, while `session_resume_support.py` and `control_plane_read_model.py` now reuse the loader-backed read model. Live proof on this head still diverges: `startup-context --role reviewer --format json` reports `declared_topology=multi_agent_orchestrated`, `observed_topology=single_agent`, `recommended_topology=single_agent`, `ownership_status=clear`, `resync_reasons=[attention:review_loop_relaunch_required,...]`, while `session-resume --role reviewer --format json` and `dashboard --format json` report `observed_topology=dual_agent` with the same slice/ownership fields. This violates the MP-384 / MP-387 one-snapshot parity requirement.
+- F4: `dev/scripts/devctl/governance/draft_policy_scan.py` still returns `BridgeConfig(...)` without threading repo-policy `operator_interaction_mode`, so scan-based governance inherits the dataclass default `local_terminal` instead of the fail-closed parse result used by `bridge_config_from_mapping()`. Live proof on this head: `scan_repo_governance(repo, policy={}).bridge_config.operator_interaction_mode` returns `local_terminal`, while `bridge_config_from_mapping({}).operator_interaction_mode` returns `unresolved`. `startup-context --role reviewer --format json` still exposes that fail-open scan result under `governance.bridge_config.operator_interaction_mode` and `reviewer_gate.operator_interaction_mode`.
+- F5: This diff did not add the focused regression coverage the instruction asked for, and the required focused suite is still red. `python3 -m pytest dev/scripts/devctl/tests/runtime/test_operator_mode_fail_closed.py dev/scripts/devctl/tests/runtime/test_control_plane_read_model.py dev/scripts/devctl/tests/runtime/test_startup_context.py dev/scripts/devctl/tests/governance/test_session_resume.py dev/scripts/devctl/tests/test_dashboard.py -q --tb=short` finished `1 failed, 451 passed`; the failure is `dev/scripts/devctl/tests/runtime/test_startup_context.py::TestStartupContextBuild::test_slim_token_budget` (`10139` tokens, budget `< 10000`). Do not claim this slice verified until the missing regression coverage is added and the focused suite is green or explicitly blocked.
 
 ## Claude Status
 
-- F1/F2/F3 coded + live-verified. Awaiting operator commit permission (remote_control gate). F4 and Q1–Q21 out of scope.
-- F1: `load_sources`, `build_control_plane_read_model`, `_load_governed_sources` now all route review_state through `load_current_review_state_payload`. Live-proven: `startup-context`/`session-resume`/`dashboard --format json` return identical `current_slice`, topology `multi_agent_orchestrated/single_agent/single_agent`, `ownership_status=outside_scope_dirty_paths`, matching `resync_reasons`.
-- F2: `render_pending_packets_markdown` emits generic `**Pending packets**:`; test updated.
-- F3: new `runtime/startup_context_projections.py` owns `startup_coordination_dict` and now emits `ownership_status`/`authority_mode`/`work_ownership_mode`/`sync_cadence_mode`; summary renderer adds `ownership_status=`. Extraction also cleared the pre-existing `mixed_concerns_on_touched_file` violation on `startup_context.py`.
-- 455/455 focused green; `check --profile ci` 38/40 (only reds are expected dirty tree + untracked new module; both clear on commit).
+- F1 wired at `startup_context.py:336` — `build_startup_context` now calls `load_coordination_snapshot(repo_root, sources={}, governance, review_state, reviewer_gate=gate)`; old direct `build_coordination_snapshot(startup_context=...)` kept only as `None`-fallback for bare-repo/legacy fixtures. Live parity: `startup-context`/`session-resume`/`dashboard --format json` all return identical `declared/observed/recommended_topology`, `ownership_status`, `resync_reasons`, `current_slice`.
+- F4 wired at `draft_policy_scan.py:231` (`_scan_bridge_config`) — reads `repo_governance.bridge_config.operator_interaction_mode`, resolves via `resolve_operator_interaction_mode(...).value`, threads into `BridgeConfig(..., operator_interaction_mode=...)`. Proof: `scan_repo_governance(repo, policy={}).bridge_config.operator_interaction_mode` now returns `"unresolved"` (was `"local_terminal"`), matching `bridge_config_from_mapping({})`. Explicit values pass through; garbage falls closed.
+- Regression tests: new `test_coordination_loader_wiring.py` (3 tests; mock-based + two live parity) and `TestScanRepoGovernanceFailClosed` in `test_operator_mode_fail_closed.py` (5 tests). Focused suite `459 passed, 1 failed` (`test_slim_token_budget` — see Claude Questions).
+- `docs-check --strict-tooling` green after updating `AGENTS.md`, `DEVELOPMENT.md`, `dev/scripts/README.md`, `MASTER_PLAN.md`, `ai_governance_platform.md`, `ENGINEERING_EVOLUTION.md`. `bundle.tooling` via `tandem-validate` ok through `tandem-11`; `tandem-12` (`check_review_snapshot_freshness`) red out-of-scope — reviewer Q52/Q53/Q54 commits moved HEAD past the embedded snapshot stamp; fixing needs `devctl review-snapshot --write --receipt-commit` which I won't run without explicit authorization.
 
 ## Claude Questions
 
-- Canonical tracking for Q1–Q21 lives in `dev/audits/LIVE_RUN.md` (tracked, append-only) — file:line breadcrumbs, severity, and fix notes all there.
-- Q20 (packet transport broken) still open: `review-channel --action inbox --target codex --status pending` returns 0 packets while `--action history` returns 20 including `status=pending` Q-series items. Trust LIVE_RUN.md over the packet queue until Codex audits the inbox/history contract mismatch and the packet durability gap.
-- Q4 tactically fixed in `f177aae` (BridgeConfig default flipped to `remote_control`); structural fix (config-driven read) still open — overlaps with Codex F4.
-- Q11 hotfixed in `ca59eaf` (`pending_approvals` tolerates dict-shaped packets); underlying deserializer (Q12) still open.
+- `test_slim_token_budget` scoped blocker per instruction's explicit allowance (`10543 > 10000`). Pre-slice baseline on `81cff0d8` was already `10243 > 10000`; the `~300`-token delta is entirely F4's correct fail-closed ripple — `operator_interaction_mode` now resolves to `unresolved` on empty policy, expanding `reviewer_gate` + downstream `coordination.resync_reasons`. Isolated measurement: `load_coordination_snapshot` vs old direct `build_coordination_snapshot(startup_context=...)` produce byte-identical `CoordinationSnapshot` output (0-char delta), so F1 wiring itself adds no bytes. Biggest remaining field is `governance` at `5663` tokens (53.7% of total) — untouched by F1/F4. Trim `startup_governance_dict` in this slice (scope expansion) or defer to a token-budget follow-up?
 
 ## Claude Ack
 
-- acknowledged current instruction revision: `6e0cacd366b6`
-- F1/F2/F3 landed and live-proven. Focused suites 455/455 green. `check --profile ci` at 38/40 with only expected dirty-tree + untracked-new-module failures, both pending commit.
-- Operator gate: `interaction_mode=remote_control`. Paused before `git commit` on the F1/F2/F3 scope, awaiting explicit operator authorization; a separate push approval will be required after commit lands.
-- F4 and the Q1–Q21 LIVE_RUN.md backlog remain outside the current scoped instruction and are untouched.
-- Codex reviewer-owned content (Poll Status, Verdict, Open Findings, Current Instruction, Last Reviewed Scope, Action Requests) preserved verbatim; only implementer-owned Status/Ack edited this turn.
-- Launch posture: `--terminal none` (remote_control).
+- acknowledged current instruction revision: `64b45d5fd553`
+- F1 + F4 code + regression tests + maintainer docs landed; focused suite `459 passed, 1 failed`; `docs-check --strict-tooling` green; `bundle.tooling` blocked only on out-of-scope `tandem-12` review-snapshot freshness caused by reviewer-landed LIVE_RUN commits.
+- Reviewer-owned sections preserved verbatim; only Claude Status/Questions/Ack edited this turn.
 
 ## Current Instruction For Claude
 
 Scoped from `dev/active/remote_control_runtime.md` via `--scope`.
 
-- Fix F1 for real by routing all three proof surfaces through one shared governed coordination loader. `dev/scripts/devctl/runtime/coordination_loader.py` is the intended abstraction, but it is not wired into `startup-context`, `session-resume`, or `ControlPlaneReadModel` yet. After the fix, `startup-context --role reviewer --format json`, `session-resume --role reviewer --format json`, and `dashboard --format json` must return identical `current_slice`, `declared_topology`, `observed_topology`, `recommended_topology`, `ownership_status`, and `resync_reasons`.
-- Fix F4 by making the scan-based governance path fail closed on missing `operator_interaction_mode` and by reading that field from repo policy instead of inheriting `BridgeConfig`'s default. `scan_repo_governance(policy={}).bridge_config.operator_interaction_mode` and `bridge_config_from_mapping({}).operator_interaction_mode` must both resolve to `unresolved` when the field is absent.
-- Add focused regression coverage for both fixes.
-- Re-run the focused coordination/startup/session-resume/dashboard/operator-mode tests, then run the required tooling verification bundle before handoff.
+- Finish F1 by routing `startup-context` through the same governed coordination loader path that `session-resume` and `ControlPlaneReadModel` now use. After the fix, `startup-context --role reviewer --format json`, `session-resume --role reviewer --format json`, and `dashboard --format json` must return identical `current_slice`, `declared_topology`, `observed_topology`, `recommended_topology`, `ownership_status`, and `resync_reasons` from one snapshot per tick.
+- Finish F4 by teaching the scan-based governance path to read repo-policy `operator_interaction_mode` and pass it through `BridgeConfig` via the same fail-closed parser used by `bridge_config_from_mapping()`. `scan_repo_governance(policy={}).bridge_config.operator_interaction_mode` and `bridge_config_from_mapping({}).operator_interaction_mode` must both resolve to `unresolved` when the field is absent.
+- Add focused regression coverage for both fixes: one parity test that proves startup-context/session-resume/dashboard coordination fields match on the same governed state, and one scan-governance test that proves missing `operator_interaction_mode` stays `unresolved` while explicit values survive.
+- Re-run `python3 -m pytest dev/scripts/devctl/tests/runtime/test_operator_mode_fail_closed.py dev/scripts/devctl/tests/runtime/test_control_plane_read_model.py dev/scripts/devctl/tests/runtime/test_startup_context.py dev/scripts/devctl/tests/governance/test_session_resume.py dev/scripts/devctl/tests/test_dashboard.py -q --tb=short` and keep working until it is green. The current red test is `dev/scripts/devctl/tests/runtime/test_startup_context.py::TestStartupContextBuild::test_slim_token_budget`; if that budget failure remains after F1/F4, reduce the startup packet or record a scoped blocker before handoff.
+- Then run the required tooling verification bundle before handoff.
 
 ## Last Reviewed Scope
 
-- Review range `9a6dd2faac4586b3dea8b525461007fa77e78b5f..a65da5bfecd46fb11187d8e78cc1c9271387e5f0`
-- Files reviewed: `coordination_loader.py`, `control_plane_read_model.py`, `session_resume_support.py`, `startup_context.py`, `draft_policy_scan.py`, `project_governance_contract.py`
-- Live parity proof: `startup-context --role reviewer --format json` -> `coordination=multi_agent_orchestrated/single_agent->single_agent`, `ownership_status=clear`; `session-resume --role reviewer --format json` and `dashboard --format json` -> `coordination=multi_agent_orchestrated/dual_agent->single_agent`, `ownership_status=clear`
-- F2 closed proof: `python3 dev/scripts/devctl.py dashboard --format md` renders `**Pending packets**:`
-- F3 closed proof: `python3 dev/scripts/devctl.py startup-context --role reviewer --format summary` and `--format json` both carry `ownership_status=clear`
-- F4 proof: `scan_repo_governance(policy={}).bridge_config.operator_interaction_mode` -> `local_terminal`, while `bridge_config_from_mapping({}).operator_interaction_mode` -> `unresolved`
-- Focused validation: `python3 -m pytest dev/scripts/devctl/tests/runtime/test_operator_mode_fail_closed.py -q`
+- Review range `9a6dd2faac4586b3dea8b525461007fa77e78b5f..81cff0d87d8d20b871a71d69dd69a7eb2116b0fe`.
+- New code-carrying commit after the prior reviewer scope: `079d7f3f` (`session_resume_support.py`, `control_plane_read_model.py`). The later commits in this range are bridge/audit refreshes, not new F1/F4 code.
+- Relevant code paths reviewed: `dev/scripts/devctl/commands/governance/session_resume_support.py`, `dev/scripts/devctl/runtime/control_plane_read_model.py`, `dev/scripts/devctl/runtime/startup_context.py`, `dev/scripts/devctl/runtime/coordination_loader.py`, `dev/scripts/devctl/governance/draft_policy_scan.py`, `dev/scripts/devctl/runtime/project_governance_parse.py`, `dev/scripts/devctl/tests/runtime/test_operator_mode_fail_closed.py`.
+- Live F1 proof: `startup-context --role reviewer --format json` still reports `declared_topology=multi_agent_orchestrated`, `observed_topology=single_agent`, `recommended_topology=single_agent`; `session-resume --role reviewer --format json` and `dashboard --format json` report `observed_topology=dual_agent` with the same slice and ownership fields.
+- Live F4 proof: `python3 -c 'from pathlib import Path; from dev.scripts.devctl.governance.draft import scan_repo_governance; from dev.scripts.devctl.runtime.project_governance_parse import bridge_config_from_mapping; repo=Path(".").resolve(); print(scan_repo_governance(repo, policy={}).bridge_config.operator_interaction_mode); print(bridge_config_from_mapping({}).operator_interaction_mode)'` prints `local_terminal` then `unresolved`.
+- Focused validation: `python3 -m pytest dev/scripts/devctl/tests/runtime/test_operator_mode_fail_closed.py dev/scripts/devctl/tests/runtime/test_control_plane_read_model.py dev/scripts/devctl/tests/runtime/test_startup_context.py dev/scripts/devctl/tests/governance/test_session_resume.py dev/scripts/devctl/tests/test_dashboard.py -q --tb=short` -> `1 failed, 451 passed`; failing test: `dev/scripts/devctl/tests/runtime/test_startup_context.py::TestStartupContextBuild::test_slim_token_budget`.
 
 ## Action Requests
 

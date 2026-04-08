@@ -228,11 +228,29 @@ def _scan_bridge_config(
             mode = _parse_bridge_mode(text)
         except OSError:
             pass
+    # F4: resolve operator_interaction_mode from repo policy with the same
+    # fail-closed semantics as bridge_config_from_mapping. Previously the
+    # scan path constructed BridgeConfig without this field and silently
+    # inherited the dataclass default ("local_terminal"), which meant
+    # scan-based consumers disagreed with the typed parse path when the
+    # field was absent. Read from repo_governance.bridge_config.operator_
+    # interaction_mode (same shape the serialized payload uses) and
+    # resolve empty/unknown values to 'unresolved'.
+    from ..runtime.operator_context import resolve_operator_interaction_mode
+
+    bridge_policy = repo_governance_payload(policy).get("bridge_config")
+    if not isinstance(bridge_policy, dict):
+        bridge_policy = {}
+    raw_interaction = str(
+        bridge_policy.get("operator_interaction_mode") or ""
+    ).strip()
+    interaction_mode = resolve_operator_interaction_mode(raw_interaction).value
     return BridgeConfig(
         bridge_mode=mode,
         bridge_path=bridge_path,
         review_channel_path=review_channel_path,
         bridge_active=bridge_exists,
+        operator_interaction_mode=interaction_mode,
     )
 
 

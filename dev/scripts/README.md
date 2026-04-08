@@ -277,6 +277,18 @@ Portability note:
   dashboard, and remote-control follow-on work should consume one of those
   typed reducers instead of reconstructing coordination from scattered
   runtime/bridge fields or prose.
+- Every coordination read surface must resolve its `CoordinationSnapshot`
+  through the shared governed loader
+  `dev/scripts/devctl/runtime/coordination_loader.py::load_coordination_snapshot`,
+  not through a local `build_coordination_snapshot` wrapper.
+  `build_startup_context`, `build_control_plane_read_model`, and
+  `session_resume_support.build_from_sources` all delegate to the loader
+  so `startup-context --format json`, `session-resume --format json`, and
+  `dashboard --format json` cannot silently disagree on topology,
+  ownership, or resync truth for a single tree. The MP-384/MP-387 parity
+  regression in
+  `dev/scripts/devctl/tests/runtime/test_coordination_loader_wiring.py`
+  locks that invariant in.
 - Repo-owned governance surfaces now live in
   `dev/config/devctl_repo_policy.json` too: `repo_governance.check_router`
   defines lane selection + risk add-ons, `repo_governance.docs_check` defines
