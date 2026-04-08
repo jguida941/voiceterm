@@ -177,8 +177,17 @@ def build_coordination_snapshot_for_review_state(
     repo_root: Path | None = None,
     governance: object | None,
     review_state: object | None,
+    reviewer_gate: object | None = None,
 ) -> CoordinationSnapshot | None:
-    """Bridge typed review-state runtime into the canonical coordination reducer."""
+    """Bridge typed review-state runtime into the canonical coordination reducer.
+
+    ``reviewer_gate`` is forwarded to ``build_work_intake_coordination_state``
+    so callers that already derived a typed gate (startup-context, the shared
+    coordination loader) get the same reviewer-gate-aware reducer as the
+    upstream ``build_startup_context`` path. Without this, dashboard and
+    session-resume see raw review-state topology while startup-context sees
+    the gate-corrected topology — that asymmetry is the F1 divergence.
+    """
     if governance is None or review_state is None:
         return None
     resolved_root = (repo_root or get_repo_root()).resolve()
@@ -190,6 +199,7 @@ def build_coordination_snapshot_for_review_state(
         governance=governance,
         review_state=review_state,
         ownership=ownership,
+        reviewer_gate=reviewer_gate,
     )
     active_target = build_target_ref(
         resolved_root,
