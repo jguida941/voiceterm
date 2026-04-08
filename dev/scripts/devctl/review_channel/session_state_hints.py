@@ -12,6 +12,7 @@ from .session_probe import _load_session_metadata, _log_age_seconds, _session_me
 _SESSION_PROVIDERS = ("codex", "claude", "cursor")
 _SESSION_LOG_TAIL_BYTES = 16_384
 _MAX_SESSION_HINT_LOG_AGE_SECONDS = 900
+_MIN_WAITING_FOR_INPUT_HINT_AGE_SECONDS = 30
 _INTERRUPT_PROMPT_PATTERNS = (
     re.compile(
         r"conversation interrupted\b.*tell the model what to do differently",
@@ -25,6 +26,10 @@ _INTERRUPT_PROMPT_PATTERNS = (
 _WAITING_FOR_INPUT_PATTERNS = (
     re.compile(r"(?m)^[❯›>]\s*$"),
     re.compile(r"(?m)^[❯›>]\s+"),
+)
+_ACTIVE_PROGRESS_PATTERNS = (
+    re.compile(r"\besc\s+to\s+interrupt\b", re.IGNORECASE),
+    re.compile(r"\bctrl\+t\s+to\s+hide\s+tasks\b", re.IGNORECASE),
 )
 
 
@@ -128,7 +133,17 @@ def _classify_session_state_hint(
             log_path=log_path,
             age_seconds=age_seconds,
         )
-    if any(pattern.search(normalized) for pattern in _WAITING_FOR_INPUT_PATTERNS):
+    waiting_for_input = any(
+        pattern.search(normalized) for pattern in _WAITING_FOR_INPUT_PATTERNS
+    )
+    if waiting_for_input and _active_progress_detected(normalized):
+        return None
+    if waiting_for_input and (
+        age_seconds is not None
+        and age_seconds < _MIN_WAITING_FOR_INPUT_HINT_AGE_SECONDS
+    ):
+        return None
+    if waiting_for_input:
         return SessionStateHint(
             provider=provider,
             state="waiting_for_user_input",
@@ -140,3 +155,7 @@ def _classify_session_state_hint(
             age_seconds=age_seconds,
         )
     return None
+
+
+def _active_progress_detected(cleaned_tail: str) -> bool:
+    return any(pattern.search(cleaned_tail) for pattern in _ACTIVE_PROGRESS_PATTERNS)

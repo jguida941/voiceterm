@@ -147,6 +147,7 @@ def enrich_event_review_state(
         bridge_liveness=bridge_liveness,
         current_session=current_session,
         attention=attention,
+        repo_root=repo_root,
         session_output_root=projections_root,
     )
     reviewer_runtime = build_reviewer_runtime_contract(

@@ -98,10 +98,14 @@ Current 2026-04-08 review-status authority / ReviewSnapshot evidence note:
   `bridge.md` prose as compatibility/drift evidence only. The same slice made
   ReviewSnapshot cite emitted evidence instead of only next-command prose by
   projecting probe run-state/artifact refs and current push
-  receipt/authorization refs. The remaining same-lane startup gap is explicit:
-  concurrent out-of-band writers still collapse into a generic dirty-tree /
-  checkpoint-budget blocker instead of one typed concurrent-writer authority
-  condition.
+  receipt/authorization refs. The same lane now closes the startup ownership
+  gap too: `startup-context` / `WorkIntakePacket` emit one bounded ownership
+  classifier for dirty paths (`clear`, `in_scope_dirty_paths`,
+  `scope_unknown_dirty_paths`, `outside_scope_dirty_paths`,
+  `concurrent_writer_activity`), and startup authority consumes that typed
+  state so outside-scope dirt with active peer activity fails closed as a
+  concurrent-writer condition instead of collapsing into generic
+  dirty-budget prose.
 
 Current 2026-04-08 dashboard/current-session/queue authority note:
 - The next same-lane observability slice closes the remaining mixed-owner
@@ -113,6 +117,20 @@ Current 2026-04-08 dashboard/current-session/queue authority note:
   the expiry-aware pending-packet owner so inbox/status/doctor/dashboard agree
   on pending vs stale counts. This is the bounded observer closure before the
   broader `DecisionTrace` / `explain-latest` explanation chain.
+
+Current 2026-04-08 collaboration-topology / ownership note:
+- The next bounded same-lane scheduler closure no longer treats
+  concurrent-writer awareness as startup-only truth. `WorkIntakePacket` now
+  carries one typed coordination reduction alongside dirty-slice ownership:
+  `collaboration_topology`, `authority_mode`, `work_ownership_mode`, and
+  `sync_cadence_mode`, plus bounded participant/delegated-worker exemplars.
+  That same reduction fails closed on duplicated delegated worktrees before
+  dirty-path overlap lands, so a fresh session can see both "who else is
+  active?" and "is this slice still exclusively owned?" from one packet
+  instead of inferring from reviewer mode, bridge prose, and worktree drift
+  separately. Broader plan/finding/boundary graph reduction is still the next
+  higher-order scheduler layer, but the current runtime no longer has to
+  overload one `mode` string just to answer startup ownership questions.
 
 ## Scope
 
@@ -6115,10 +6133,12 @@ Execution order for this section:
   drift back to raw bridge prose. ReviewSnapshot now also projects first-class
   probe run-state/artifact refs plus current push receipt/authorization refs,
   which keeps external review surfaces grounded in typed emitted evidence
-  rather than command-only suggestions. The remaining authority-loop gap from
-  the same session is startup/checkpoint UX for concurrent uncontrolled
-  writers: the system still reports that case as a generic dirty-budget block
-  instead of a separate authority-drift condition.
+  rather than command-only suggestions. The same lane now pushes startup
+  ownership truth through the typed path too: work-intake emits bounded
+  dirty-slice ownership state, startup summaries surface that classification,
+  and the startup-authority guard fails closed on
+  `concurrent_writer_activity` instead of reporting concurrent uncontrolled
+  writers as a generic dirty-budget block.
 - 2026-04-07: Absorbed the ReviewSnapshot hardening audit as routed intake
   rather than a shadow plan. The accepted product-level work is cross-surface
   consistency for the snapshot, contract registration/schema coverage,

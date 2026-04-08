@@ -23,8 +23,8 @@ from ...process_sweep.core import (
 from ...quality_policy import resolve_quality_policy
 from ...quality_scan_mode import resolve_scan_mode
 from ...script_catalog import check_script_cmd
-from ...runtime.check_result_models import (
-    build_check_result,
+from ...runtime.check_result_models import build_check_result
+from ...runtime.check_result_render import (
     render_check_result_md,
     render_check_result_text,
 )

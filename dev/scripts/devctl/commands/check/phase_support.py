@@ -205,7 +205,8 @@ def build_report_and_emit_support(
     functions still work through the same underlying typed model via the
     steps.py compatibility shims.
     """
-    from ...runtime.check_result_models import build_check_result, render_check_result_md, render_check_result_text
+    from ...runtime.check_result_models import build_check_result
+    from ...runtime.check_result_render import render_check_result_md, render_check_result_text
 
     check_result = build_check_result(
         steps=ctx.steps,

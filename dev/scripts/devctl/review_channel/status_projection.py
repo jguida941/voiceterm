@@ -99,6 +99,7 @@ def build_bridge_review_state(
         bridge_liveness=bridge_liveness,
         current_session=current_session,
         attention=typed_attention,
+        repo_root=context.repo_root,
         session_output_root=context.output_root,
     )
     typed_bridge_liveness = build_typed_bridge_liveness(

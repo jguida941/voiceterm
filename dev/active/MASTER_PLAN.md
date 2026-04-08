@@ -322,6 +322,14 @@
   `stale_packet_count`. That keeps inbox, status, doctor, and dashboard
   aligned on the same repo-owned runtime truth before the broader
   `DecisionTrace` / `explain-latest` chain lands.
+- Current 2026-04-08 `MP-381` startup-coordination closure inside that same
+  lane: `WorkIntakePacket` now reduces live collaboration into one bounded
+  coordination packet (`collaboration_topology`, `authority_mode`,
+  `work_ownership_mode`, `sync_cadence_mode`) instead of making fresh
+  sessions infer those answers from overloaded reviewer-mode strings and
+  dirty-tree prose. The same reducer also fails closed when live delegated
+  workers share one worktree, so multi-agent startup can block on typed
+  worktree-collision evidence before overlapping edits land.
 - Current 2026-04-07 `MP-383` bridge Action Requests closure inside that same
   lane: the markdown `## Action Requests` section is projection-only over
   event-backed `PacketPostRequest(kind="action_request")` rows, not a second
@@ -3298,6 +3306,12 @@ become the main product surface.
   status/startup/doctor no longer misroute that state through
   `reset-implementer-state`; they emit `review_loop_relaunch_required` and
   the reviewer-owned `launch|rollover` recovery command instead.
+  2026-04-08 launch-warmup follow-up: typed session-state hints now require a
+  true idle prompt before they emit `waiting_for_user_input`. Fresh Terminal
+  launch/recover sessions that still show active `esc to interrupt` progress,
+  or logs still inside the short warmup window, stay out of the manual-input
+  recovery path so the live loop does not stack duplicate Claude windows while
+  the new conductor is still bootstrapping.
   A 2026-03-30 stale-reader follow-up closed the next same-lane write-safety
   gap: bridge-backed `status` / `bridge-poll` now emit a typed
   `implementer_state_hash`, active-dual-agent `reviewer-checkpoint` writes

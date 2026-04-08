@@ -366,6 +366,11 @@ Three quality layers matter in practice:
     records the returned `terminal_window_id` in conductor session metadata,
     and rollover cleanup uses the retiring session snapshot to kill the old
     conductor pid before closing the old Terminal window. Status/runtime
+    session hints also need a warmup guard: a fresh Terminal launch that still
+    shows active `esc to interrupt` progress must not be downgraded to
+    `waiting_for_user_input` just because the terminal UI renders a prompt
+    line while the conductor is still starting.
+    Status/runtime
     surfaces now also emit explicit visibility state
     (`reviewer_runtime.conductor_visibility` and reviewer
     `session_owner.session_visibility`) so operators and AI do not infer
@@ -600,11 +605,19 @@ Three quality layers matter in practice:
     and refresh the reviewer-owned bridge heartbeat before escalating into
     relaunch/repair. Reserve repair for `action=repair_reviewer_loop`,
     checkpoint/budget blockers, or typed stale/non-live reviewer runtime.
-    Current limitation: if another agent edits the repo outside the repo-owned
-    checkpoint/review flow, startup still reports the result as a generic
-    dirty-tree / checkpoint-budget blocker rather than a distinct
-    concurrent-writer authority condition. Treat that as worktree drift to
-    reconcile, not as proof your current slice should keep widening.
+    Startup now exposes that ownership drift directly when the slice publishes
+    explicit file claims. `WorkIntakePacket.ownership` classifies the dirty
+    worktree as `clear`, `in_scope_dirty_paths`, `scope_unknown_dirty_paths`,
+    `outside_scope_dirty_paths`, or `concurrent_writer_activity`, and
+    `check_startup_authority_contract.py` fails closed on
+    `concurrent_writer_activity` when outside-scope dirt overlaps typed peer
+    activity. If scope claims are missing, startup stays fail-soft with
+    `scope_unknown_dirty_paths` instead of guessing ownership. The same intake
+    packet now also carries a bounded coordination reduction
+    (`collaboration_topology`, `authority_mode`, `work_ownership_mode`,
+    `sync_cadence_mode`) so fresh sessions can see active participants,
+    delegated workers, and duplicate delegated-worktree conflicts before
+    widening a slice.
   - Read-only command safety: `startup-context` always attempts the receipt
     write (the launcher validates it), but degrades gracefully on `OSError`
     when `DEVCTL_NO_ARTIFACT_WRITES=1` signals an intentional read-only

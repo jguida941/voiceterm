@@ -39,6 +39,78 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 
 ### 2026-04-07 - ReviewSnapshot hook hardening routed through owner plans
 
+### 2026-04-08 - Startup authority now distinguishes concurrent writers from generic dirty budget
+
+The next startup/work-intake hardening pass closed an operator-visible blind
+spot in the typed governance loop. The repo already knew whether the worktree
+was dirty and whether the collaboration lane still had live peer activity, but
+fresh sessions still had to infer "someone else is editing" by noticing an
+unexpected dirty file and guessing from bridge prose. That was the wrong shape
+for a typed system: the startup receipt was collapsing concurrent ownership
+drift into the same generic dirty-budget language used for ordinary local WIP.
+
+The fix now lives in the startup/work-intake contract itself. Startup emits a
+bounded ownership classifier for dirty paths:
+`clear`, `in_scope_dirty_paths`, `scope_unknown_dirty_paths`,
+`outside_scope_dirty_paths`, or `concurrent_writer_activity`. The classifier
+derives scope claims from the typed current instruction and matching
+review-candidate scope paths, compares them to real git dirt, and carries the
+same result into `startup-context`, markdown rendering, and
+`check_startup_authority_contract.py`. That means typed peer activity plus
+outside-scope dirt now fail closed as `concurrent_writer_activity` instead of
+looking like a generic checkpoint-budget warning, while missing scope claims
+stay fail-soft as `scope_unknown_dirty_paths`.
+
+The follow-up made the same startup packet smarter about live multi-agent
+topology instead of leaving that reasoning spread across `reviewer_mode`,
+collaboration state, and worktree lore. `WorkIntakePacket` now also carries a
+bounded coordination reduction: collaboration topology, authority mode, work
+ownership mode, sync cadence, active participant exemplars, delegated-worker
+exemplars, and a typed duplicate-delegated-worktree conflict. That gives a
+fresh session one bounded answer to "who else is active and is this slice
+still exclusively owned?" before it starts editing.
+
+Evidence: `dev/scripts/devctl/runtime/scope_path_claims.py`,
+`dev/scripts/devctl/runtime/work_intake_ownership.py`,
+`dev/scripts/devctl/runtime/work_intake.py`,
+`dev/scripts/devctl/runtime/startup_advisory_decision.py`,
+`dev/scripts/checks/startup_authority_contract/runtime_checks.py`,
+`dev/scripts/devctl/tests/runtime/test_work_intake.py`,
+`dev/scripts/devctl/tests/runtime/test_startup_context.py`,
+`dev/scripts/devctl/tests/checks/test_startup_authority_contract.py`,
+`dev/guides/DEVELOPMENT.md`,
+`dev/scripts/README.md`,
+`dev/active/ai_governance_platform.md`.
+
+### 2026-04-08 - Fresh review-channel launches no longer masquerade as manual-input stalls
+
+The next review-channel repair was smaller than another launch policy change,
+but it mattered because it was poisoning the typed recovery loop. A freshly
+launched Claude Terminal window still renders a prompt line while the
+conductor is starting, and the session-log hint parser was treating that UI
+prompt as proof of `waiting_for_user_input` immediately. In practice that made
+`status`, `doctor`, and recovery logic try to replace a brand-new conductor
+before it had a chance to publish its first current ACK, which looked like the
+system stacking duplicate Claude windows even though the actual launch had
+worked.
+
+The fix stays in the typed session-evidence layer instead of inventing a new
+bridge exception. Session-state hints now require a true idle prompt: if the
+log still shows active `esc to interrupt` progress, or the prompt-only tail is
+still inside the short warmup window after launch, the hint path emits nothing
+instead of `waiting_for_user_input`. Once the session really settles into an
+idle prompt, the same hint still appears and the existing recovery path
+remains valid. Focused regressions now prove the difference between a fresh
+prompt-only launch tail, an actively progressing launch tail, and an aged idle
+prompt.
+
+Evidence: `dev/scripts/devctl/review_channel/session_state_hints.py`,
+`dev/scripts/devctl/tests/review_channel/test_session_state_hints.py`,
+`AGENTS.md`,
+`dev/guides/DEVELOPMENT.md`,
+`dev/scripts/README.md`,
+`dev/active/MASTER_PLAN.md`.
+
 ### 2026-04-08 - Detached review loops now relaunch instead of misrouting into implementer reset
 
 The live review-channel runtime exposed one more precedence bug after typed
