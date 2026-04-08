@@ -1394,6 +1394,190 @@ been reviewer-implementer work. The operator corrected this explicitly:
   Action Requests for Codex and Claude-CLI to address.
 - **Status**: OPEN (needs Codex triage + role-contract enforcement)
 
+### Q40 — TANDEM CONSISTENCY — `check_tandem_consistency` blocks ALL commits when conductors die (including documentation)
+
+- **Discovered**: 2026-04-08T19:46Z
+- **Severity**: automation loop chicken-and-egg, high
+- **Body**: `check_tandem_consistency --ci-bundle` is part of `check
+  --profile quick` which is run by `devctl commit`. When both
+  conductors die, the guard correctly reports
+  `launch_truth issues: No live repo-owned Codex or Claude conductor
+  sessions are present` and fails. This blocks ALL governed commits
+  — including pure documentation commits (like updating
+  `dev/audits/LIVE_RUN.md` with new findings) which have nothing to
+  do with the dual-agent loop. Result: when the loop dies, the
+  operator cannot even COMMIT the record of the death through the
+  governed path. They're forced back to raw `git commit` or to
+  relaunch the loop first before documenting the failure.
+- **Fix**: documentation-only commits (touching only `dev/audits/`,
+  `dev/reports/`, `bridge.md`, `CHANGELOG.md`) should bypass the
+  tandem-consistency rule, or should run a narrower profile that
+  excludes conductor-liveness checks. The typed commit path needs
+  a "documentation-only" mode that's safe during loop downtime.
+- **Status**: OPEN
+
+### Q39 — REVIEWER LOOP BLOCK — `collect_reviewer_loop_block_errors` fires on stale heartbeat even for non-implementation commits
+
+- **Discovered**: 2026-04-08T19:46Z
+- **Severity**: automation gap, high
+- **Body**: `check_startup_authority_contract.py` calls
+  `collect_reviewer_loop_block_errors` (separate rule from the
+  dirty-worktree and concurrent-writer rules the Q1 bypass already
+  covers). That rule reports:
+  > Reviewer loop blocks a new implementation slice:
+  > reviewer_mode=active_dual_agent, review_accepted=False,
+  > reason=reviewer_heartbeat_stale.
+  The intent is to prevent an implementer from starting a new slice
+  while the reviewer's previous review hasn't been accepted and the
+  heartbeat is stale. But the rule fires for EVERY commit that
+  isn't documentation, including operator-side bridge refreshes and
+  LIVE_RUN.md updates that aren't implementation slices at all. The
+  Q1 env-var bypass doesn't cover this rule.
+- **Fix**: extend `DEVCTL_COMMIT_GATE_BYPASS_STARTUP_AUTHORITY` to
+  suppress this rule too when the caller is `devctl commit`, since
+  `devctl commit` isn't inherently starting a new implementation
+  slice — it's committing whatever's staged. OR add a
+  `--slice-kind documentation|support|implementation` flag to
+  `devctl commit` that tells the guards which rules apply.
+- **Status**: OPEN
+
+### Q38 — UNCOMMITTED WORK LOST when conductors die silently
+
+- **Discovered**: 2026-04-08T19:41Z
+- **Severity**: data loss risk, high
+- **Body**: During the second conductor session (PIDs 62800 Codex,
+  62835 Claude-CLI), Claude-CLI created a new file
+  `dev/scripts/devctl/runtime/coordination_loader.py` and began
+  editing `dev/scripts/devctl/platform/coordination_snapshot.py` (+12
+  lines). Both conductors died silently at 19:37:34Z after ~7 minutes
+  of runtime. The in-progress edits are still in the worktree (one
+  untracked, one modified) but weren't committed. If the operator
+  doesn't manually preserve them before the next relaunch, they'll
+  either be overwritten or orphaned. Claude-CLI had no "save-on-exit"
+  hook and the parent watcher didn't detect the death in time to
+  commit the in-progress work.
+- **Fix**: a typed `participant_exit_hook` contract that fires
+  `devctl commit --wip` on any conductor exit (intentional or not),
+  stamping the commit with `author=claude-cli-coder` and
+  `scope=wip-preservation`. The commit can be automatically squashed
+  or reverted later but at least the work is preserved.
+- **Status**: OPEN
+
+### Q37 — CONTRADICTION — `bridge_liveness` conductor flags vs `runtime_counts` counters disagree in same payload
+
+- **Discovered**: 2026-04-08T19:41Z (during full audit)
+- **Severity**: typed contract violation, high
+- **Body**: Single `review-channel --action status --format json`
+  response returned both of these simultaneously:
+    - `bridge_liveness.codex_conductor_active: True`
+    - `bridge_liveness.claude_conductor_active: True`
+  AND
+    - `runtime_counts.live_participant_count: 0`
+    - `runtime_counts.active_conductor_count: 0`
+    - `runtime_counts.live_reviewer_count: 0`
+    - `runtime_counts.live_implementer_count: 0`
+  Two different counters in the SAME typed payload give opposite
+  answers. Neither is wrong per se — `bridge_liveness` is reading
+  one projection, `runtime_counts` another — but they should
+  reconcile before the payload is emitted.
+- **Later cycle**: after the conductors died, `overall_state` still
+  reported `fresh` while both `conductor_active` flags were `False`
+  — another angle on the same issue (typed state doesn't demote
+  when underlying liveness drops).
+- **Fix**: add a post-projection reconciliation step that cross-
+  validates `bridge_liveness.conductor_active` against
+  `runtime_counts.active_conductor_count` and fails closed (or
+  emits a warning) on mismatch.
+- **Status**: OPEN
+
+### Q36 — NEW STATE — `launch_truth: detached_runtime_only` exposed for the first time
+
+- **Discovered**: 2026-04-08T19:30Z
+- **Severity**: state-machine gap, medium
+- **Body**: During the post-relaunch audit, `bridge_liveness.launch_truth`
+  reported `detached_runtime_only` — a value I hadn't seen in any
+  prior cycle. The transitions observed this session:
+    - `inactive` → `live` (after launch + heartbeat)
+    - `live` → `runtime_missing` (after Q11 crash killed publisher)
+    - `runtime_missing` → `live` (after publisher restart)
+    - `live` → `detached_runtime_only` (during this relaunch window)
+    - `detached_runtime_only` → `inactive` (after both conductors died)
+  The `detached_runtime_only` state means the runtime projection has
+  detached from the spawned conductors — they exist as OS processes
+  but the control plane no longer sees them as "owned" by the
+  current launch. Nothing in the operator surfaces explains what
+  triggered the detach or what recovery path applies. It's a silent
+  transitional state between `live` and `inactive`.
+- **Fix**: document the full `launch_truth` state enum with entry/
+  exit transitions and recovery commands for each terminal state.
+  Today there are 4+ known values and no documented state machine.
+- **Status**: OPEN
+
+### Q35 — DRIFT — `reviewer_mode` and `effective_reviewer_mode` silently diverge
+
+- **Discovered**: 2026-04-08T19:30Z
+- **Severity**: state-machine contract, medium-high
+- **Body**: `bridge_liveness.reviewer_mode` and
+  `bridge_liveness.effective_reviewer_mode` are supposed to be the
+  same value except during an explicit degradation. During the
+  post-relaunch audit, the former reported `active_dual_agent` while
+  the latter reported `tools_only`. No warning surfaces explained
+  the difference, no event log showed when the degradation happened,
+  no typed reason was attached.
+- **Fix**: when `effective_reviewer_mode != reviewer_mode`, the
+  typed payload should carry a `reviewer_mode_degradation_reason`
+  field (e.g. `conductor_absence`, `stale_heartbeat`,
+  `policy_override`) AND emit a `reviewer_mode_degraded` event
+  packet. Operators should never silently see the wrong mode.
+- **Status**: OPEN
+
+### Q34 — BRIDGE FRESHNESS — `check_review_channel_bridge` 5min threshold fails during normal polling gaps
+
+- **Discovered**: 2026-04-08T19:35Z (during push preflight)
+- **Severity**: push preflight false-negative, medium
+- **Body**: `dev/scripts/checks/check_review_channel_bridge.py`
+  requires `Last Codex poll` to be within **5 minutes** when the
+  bridge is active. But Codex's natural polling cadence in this
+  session was 2-3 minutes, and the gap between push attempts can
+  easily push the last poll past 5 minutes. Push preflight fails
+  with `bridge_metadata_errors: Last Codex poll is stale` even
+  though the loop is functioning normally.
+- **Fix**: either (a) raise the threshold to 10 minutes (aligned
+  with Codex's actual cadence + safety margin), or (b) have push
+  preflight force a `reviewer-heartbeat` immediately before the
+  bridge-freshness check to refresh the timestamp, or (c) exempt
+  push-preflight from the bridge freshness rule since push itself
+  is a non-polling action.
+- **Status**: OPEN
+
+### Q33 — RECEIPT-COMMIT DEADLOCK — `review-snapshot --write --receipt-commit` cannot succeed while publisher is live
+
+- **Discovered**: 2026-04-08T19:36Z
+- **Severity**: automation loop deadlock, high
+- **Body**: `devctl review-snapshot --write --receipt-commit` returns
+  `ok: false, reason: non_snapshot_paths_dirty` whenever any
+  non-snapshot file is dirty. But the publisher daemon continuously
+  rewrites `bridge.md` (that's its job), so bridge.md is ALWAYS
+  either dirty or about to be dirty while the loop runs. The
+  receipt-commit path therefore cannot succeed in its designed
+  "refresh snapshot on a clean tree" mode without first either
+  killing the publisher or committing bridge.md independently. The
+  resulting dance:
+    1. devctl commit (lands operator work)
+    2. Publisher rewrites bridge.md → dirty tree
+    3. devctl review-snapshot --write --receipt-commit → refuses
+    4. devctl commit bridge.md → lands the publisher state
+    5. devctl review-snapshot --write --receipt-commit → might
+       succeed IF the publisher hasn't rewritten bridge.md again
+    6. devctl push --execute
+  Every cycle has a race condition between steps 5 and 6.
+- **Fix**: `--receipt-commit` should treat `bridge.md` (and any
+  other `policy.checkpoint.compatibility_projection_paths`) the
+  same way the dirty-path counter does — exclude them from the
+  "non-snapshot dirty" test. The publisher should be allowed to
+  keep projecting without blocking snapshot receipts.
+- **Status**: OPEN
+
 ### Q32 — Q4 REGRESSION — Headless launch still blocked after Q4 tactical revert
 
 - **Observed**: 2026-04-08T19:25Z (post-relaunch attempt)
