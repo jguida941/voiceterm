@@ -7,6 +7,32 @@ Note: Some historical entries reference internal documents that are not publishe
 
 ## [Unreleased]
 
+### Added
+
+- `dev/audits/LIVE_RUN.md` — running trial log of a remote-control
+  session documenting every finding, every confirmed-working surface,
+  and every unknown / suspected blind spot during the Q1-Q17 issue
+  sweep. Reviewer (Codex) reads from this file to understand session
+  context. Append-only by convention.
+
+### Fixed
+
+- `dev/scripts/devctl/runtime/review_state_models.py` — defensive
+  `_packet_requires_operator_approval` helper that tolerates dict-shaped
+  packets in `ReviewState.packets`, unblocking `review-channel status`,
+  `review-channel doctor`, and `devctl dashboard` when the packet queue
+  contains entries that upstream deserializers left un-hydrated. Hotfix
+  for the crash documented in `LIVE_RUN.md` Q11.
+- `dev/scripts/checks/code_shape/code_shape_policy.py` — removed two
+  stale `PATH_POLICY_OVERRIDES` entries (`commands/sync.py`,
+  `commands/check_phases.py`) that had stayed below the language default
+  soft limit for 30+ days. Both files now fall back to
+  `LANGUAGE_POLICIES[".py"]` via `policy_for_path`.
+- `dev/scripts/devctl/runtime/project_governance_contract.py` — flipped
+  `BridgeConfig.operator_interaction_mode` dataclass default from
+  `"local_terminal"` to `"remote_control"` as a tactical unblock for
+  headless launches in remote-operator mode (`LIVE_RUN.md` Q4).
+
 ### Changed
 
 - Replace the temporary Elastic License 2.0 setup with a stricter proprietary

@@ -387,6 +387,35 @@ the entry — the log is append-only trial data.
   Today the choice is implicit and I learned it the hard way.
 - **Status**: RESOLVED this session (moved file); DOC/POLICY OPEN
 
+### Q17 — TASK ROUTER — Adding `dev/audits/*.md` routes commit to `bundle.docs` instead of `bundle.tooling`
+
+- **Discovered**: 2026-04-08T18:08Z
+- **Packet**: TO BE POSTED
+- **Severity**: task-router misrouting, medium (blocks governance-report
+  commits behind user-facing docs requirements)
+- **Location**: `dev/scripts/devctl/governance/task_router_contract.py`
+  and `dev/config/devctl_repo_policy.json` `check_router`
+- **Body**: When committing the initial `dev/audits/LIVE_RUN.md` addition,
+  `devctl push --execute` ran `bundle.docs` preflight instead of
+  `bundle.tooling`. The router saw `.md` added under `dev/audits/` and
+  classified the change as user-facing docs — triggering
+  `docs-check --user-facing` which demanded an update to
+  `README.md` / `QUICK_START.md` / `guides/*.md` / or a
+  `dev/CHANGELOG.md` entry. LIVE_RUN.md is a governance **report**,
+  not user-facing documentation.
+- **Fix recommendations**: (a) add `dev/audits/` to the router's
+  tooling prefix list alongside `dev/scripts/` and `dev/config/`, OR
+  (b) add `dev/audits/**/*.md` to `tooling_markdown_prefixes` in
+  `devctl_repo_policy.json` so markdown under `dev/audits/` routes
+  as tooling rather than user-facing docs.
+- **Resolution in this session**: appended an `### Added` + `### Fixed`
+  entry to `dev/CHANGELOG.md` describing LIVE_RUN.md and the Q4 / Q11
+  fixes. This satisfies the `docs-check --user-facing` requirement
+  (any change to `dev/CHANGELOG.md` counts as "at least one updated
+  doc"). Unblocks this push cycle. Codex must still land fix (a) or
+  (b) for the structural fix.
+- **Status**: UNBLOCKED this cycle (CHANGELOG entry landed); ROUTER FIX OPEN
+
 ---
 
 ## Local fixes landed this session
