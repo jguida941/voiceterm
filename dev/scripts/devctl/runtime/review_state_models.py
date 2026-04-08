@@ -305,6 +305,20 @@ class AgentRegistryState:
     agents: tuple[AgentRegistryEntryState, ...]
 
 
+def _packet_requires_operator_approval(packet: object) -> bool:
+    """Defensive check that matches `ReviewPacketState.requires_operator_approval`
+    when ``packet`` is a typed model, and mirrors the same logic when a
+    deserializer upstream left the packet as a raw dict. The typed path is the
+    intended shape; the dict branch is a load-bearing safety net that keeps
+    status/doctor/dashboard operator surfaces projecting even when packet
+    hydration drops typing on the way through.
+    """
+    if isinstance(packet, dict):
+        return bool(packet.get("approval_required")) and packet.get("status") == "pending"
+    check = getattr(packet, "requires_operator_approval", None)
+    return bool(check()) if callable(check) else False
+
+
 @dataclass(frozen=True, slots=True)
 class ReviewState:
     schema_version: int
@@ -336,7 +350,11 @@ class ReviewState:
     snapshot_id: str = ""
 
     def pending_approvals(self) -> tuple[ReviewPacketState, ...]:
-        return tuple(packet for packet in self.packets if packet.requires_operator_approval())
+        return tuple(
+            packet
+            for packet in self.packets
+            if _packet_requires_operator_approval(packet)
+        )
 
     def lane_agents(self, lane_name: str) -> tuple[AgentRegistryEntryState, ...]:
         return tuple(
