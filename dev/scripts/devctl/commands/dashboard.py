@@ -15,6 +15,7 @@ from ..runtime.control_plane_read_model import (
     ControlPlaneReadModel,
     build_control_plane_read_model,
 )
+from ..review_channel.session_probe import load_conductor_sessions
 from ..review_channel.runtime_counts import build_runtime_counts
 from ..time_utils import utc_timestamp
 
@@ -218,10 +219,20 @@ def _pid_is_alive(pid: int) -> bool:
 
 
 def _read_conductor_liveness(path: Path) -> dict[str, Any]:
-    """Read a conductor session JSON and probe whether its PID is still alive."""
+    """Read conductor liveness through the shared repo-owned session probe."""
     data = _read_json(path)
     if data is None:
         return {"pid": None, "alive": False}
+
+    provider = str(data.get("provider") or path.stem.removesuffix("-conductor")).strip()
+    session_output_root = path.parent.parent
+    for record in load_conductor_sessions(session_output_root=session_output_root):
+        if record.provider != provider:
+            continue
+        if record.session_pid is None and not record.live:
+            break
+        return {"pid": record.session_pid, "alive": record.live}
+
     pid = data.get("session_pid")
     if pid is None or not isinstance(pid, int) or pid <= 0:
         return {"pid": None, "alive": False}

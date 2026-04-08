@@ -313,6 +313,15 @@
   only current `MP-381` slice. The 2026-04-06 ViolationRecord-seam entry
   above remains active because that is a separate `MP-381` deliverable
   still in progress.
+- Current 2026-04-08 `MP-381` observability closure inside that same lane:
+  dashboard/control-plane conductor liveness now prefers the shared
+  review-channel `session_probe` owner before falling back to static
+  conductor metadata, event-backed `current_session` preserves
+  `implementer_session_state` / `implementer_session_hint`, and queue
+  projections now count only unexpired pending packets while surfacing
+  `stale_packet_count`. That keeps inbox, status, doctor, and dashboard
+  aligned on the same repo-owned runtime truth before the broader
+  `DecisionTrace` / `explain-latest` chain lands.
 - Current 2026-04-07 `MP-383` bridge Action Requests closure inside that same
   lane: the markdown `## Action Requests` section is projection-only over
   event-backed `PacketPostRequest(kind="action_request")` rows, not a second

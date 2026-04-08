@@ -17,9 +17,9 @@ from pathlib import Path
 from typing import Any
 
 from .auto_mode import AutoModeInputs, AutoModePhase, resolve_auto_mode_phase
+from .control_plane_sources import load_sources
 from .control_plane_resolve import (
     load_git_state,
-    load_sources,
     resolve_blocker_and_action,
     resolve_daemon_state,
     resolve_pending_packets,

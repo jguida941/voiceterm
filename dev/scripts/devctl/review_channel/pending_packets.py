@@ -3,10 +3,20 @@
 from __future__ import annotations
 
 from collections.abc import Iterable, Mapping
+from dataclasses import dataclass
+from datetime import datetime, timezone
 import json
 from pathlib import Path
 
 from ..repo_packs import active_path_config
+
+
+@dataclass(frozen=True)
+class PendingPacketQueueSnapshot:
+    """Expiry-aware pending/stale packet view derived from the event log."""
+
+    pending_packets: tuple[dict[str, object], ...]
+    stale_packet_count: int = 0
 
 
 def load_pending_packets(
@@ -15,10 +25,22 @@ def load_pending_packets(
     fail_closed: bool = False,
 ) -> tuple[dict[str, object], ...]:
     """Return the current pending review packets from the event log."""
+    return load_pending_packet_queue(
+        repo_root,
+        fail_closed=fail_closed,
+    ).pending_packets
+
+
+def load_pending_packet_queue(
+    repo_root: Path,
+    *,
+    fail_closed: bool = False,
+) -> PendingPacketQueueSnapshot:
+    """Return the current pending and stale review packets from the event log."""
     config = active_path_config()
     events_path = repo_root / config.review_event_log_rel
     if not events_path.is_file():
-        return ()
+        return PendingPacketQueueSnapshot(pending_packets=())
     try:
         events = _load_events(events_path)
     except (OSError, ValueError) as exc:
@@ -27,7 +49,7 @@ def load_pending_packets(
                 "Unable to verify pending review packets before rewriting "
                 f"reviewer-owned instruction state: {events_path}"
             ) from exc
-        return ()
+        return PendingPacketQueueSnapshot(pending_packets=())
 
     packets: dict[str, dict[str, object]] = {}
     for event in events:
@@ -51,10 +73,19 @@ def load_pending_packets(
             updated = dict(existing)
             updated["status"] = event_type.replace("packet_", "")
             packets[packet_id] = updated
-    return tuple(
-        packet
-        for packet in packets.values()
-        if str(packet.get("status") or "pending") == "pending"
+
+    pending_packets: list[dict[str, object]] = []
+    stale_packet_count = 0
+    for packet in packets.values():
+        if str(packet.get("status") or "pending") != "pending":
+            continue
+        if _is_packet_expired(packet):
+            stale_packet_count += 1
+            continue
+        pending_packets.append(packet)
+    return PendingPacketQueueSnapshot(
+        pending_packets=tuple(pending_packets),
+        stale_packet_count=stale_packet_count,
     )
 
 
@@ -137,6 +168,22 @@ def summarize_pending_packets(
 
 def _packet_target(packet: Mapping[str, object]) -> str:
     return str(packet.get("to_agent") or "").strip()
+
+
+def _is_packet_expired(packet: Mapping[str, object]) -> bool:
+    expires_at = _parse_utc(str(packet.get("expires_at_utc") or "").strip())
+    if expires_at is None:
+        return False
+    return expires_at <= datetime.now(timezone.utc)
+
+
+def _parse_utc(raw_value: str) -> datetime | None:
+    if not raw_value:
+        return None
+    try:
+        return datetime.fromisoformat(raw_value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
 
 
 def _load_events(events_path: Path) -> list[dict[str, object]]:

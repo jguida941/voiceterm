@@ -6,6 +6,7 @@ from collections.abc import Mapping
 from dataclasses import asdict
 
 from .ack_contract import extract_implementer_ack_revision
+from .current_session_authority import prefer_bridge_current_session
 from .handoff_constants import _is_substantive_text
 from .current_session_render import (
     append_current_session_markdown,
@@ -93,14 +94,20 @@ def resolve_current_session_authority(
     prior_review_state: Mapping[str, object] | None = None,
 ) -> ReviewCurrentSessionState:
     """Return the canonical current-session owner for bridge-backed status."""
-    prior_session = prior_typed_current_session(prior_review_state)
-    if prior_session is not None:
-        return prior_session
-    return build_bridge_current_session(
+    bridge_session = build_bridge_current_session(
         snapshot,
         bridge_liveness,
         prior_review_state=prior_review_state,
     )
+    prior_session = prior_typed_current_session(prior_review_state)
+    if prior_session is None:
+        return bridge_session
+    if prefer_bridge_current_session(
+        prior_session=prior_session,
+        bridge_session=bridge_session,
+    ):
+        return bridge_session
+    return prior_session
 
 
 def build_event_current_session(
@@ -112,6 +119,7 @@ def build_event_current_session(
     queue = _mapping(review_state.get("queue"))
     implementer_ack = event_claude_ack(queue)
     implementer_status = event_agent_status(review_state, "claude")
+    claude_hint = provider_session_state_hint(dict(bridge_liveness), provider="claude")
     return ReviewCurrentSessionState(
         current_instruction=event_current_instruction(review_state),
         current_instruction_revision=str(
@@ -131,8 +139,8 @@ def build_event_current_session(
             implementer_status=implementer_status,
             implementer_ack=implementer_ack,
         ),
-        implementer_session_state="",
-        implementer_session_hint="",
+        implementer_session_state=str(claude_hint.get("state") or ""),
+        implementer_session_hint=str(claude_hint.get("summary") or ""),
         open_findings=event_open_findings(queue),
         last_reviewed_scope=str(
             _mapping(review_state.get("review")).get("plan_id") or ""

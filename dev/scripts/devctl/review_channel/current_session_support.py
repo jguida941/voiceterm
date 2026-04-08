@@ -182,9 +182,10 @@ def current_session_authority_drift_warning(
     if len(drifted) > 3:
         joined += ", ..."
     return (
-        "Live bridge sections drift from typed `current_session` authority "
-        f"({joined}). Status is projecting the persisted typed session until a "
-        "repo-owned writer refreshes the bridge compatibility projection."
+        "Live bridge sections drift from persisted typed `current_session` "
+        f"authority ({joined}). This refresh is reprojecting the live bridge "
+        "state so the next typed snapshot converges on the reviewer-owned "
+        "checkpoint."
     )
 
 
@@ -307,7 +308,5 @@ def _derived_instruction_revision(current_instruction: str) -> str:
 
 def _section_text(snapshot: BridgeSnapshot, section: str) -> str:
     return clean_section(snapshot.sections.get(section, ""))
-
-
 def _mapping(value: object) -> Mapping[str, object]:
     return value if isinstance(value, Mapping) else {}

@@ -14,7 +14,7 @@ from .projection_bundle import (
     ReviewChannelProjectionPaths,
     write_projection_bundle,
 )
-from .pending_packets import load_pending_packets
+from .pending_packets import load_pending_packet_queue
 from .promotion import derive_promotion_candidate
 from .status_projection import ReviewStateContext, build_bridge_review_state
 from .topology import build_planned_topology
@@ -111,7 +111,7 @@ def _build_status_review_state(
             promotion_plan_path=context.promotion_plan_path,
             require_exists=False,
         )
-    pending_packets = load_pending_packets(context.repo_root)
+    pending_queue = load_pending_packet_queue(context.repo_root)
     review_state = build_bridge_review_state(
         context=ReviewStateContext(
             repo_root=context.repo_root,
@@ -130,7 +130,8 @@ def _build_status_review_state(
             reviewer_accepted_implementer_state_hash_override=(
                 context.reviewer_accepted_implementer_state_hash_override
             ),
-            pending_packets=pending_packets,
+            pending_packets=pending_queue.pending_packets,
+            stale_packet_count=pending_queue.stale_packet_count,
         ),
         snapshot=snapshot,
         bridge_liveness=context.bridge_liveness,

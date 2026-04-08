@@ -7,27 +7,14 @@ done by the caller in ``control_plane_read_model.py``.
 
 from __future__ import annotations
 
-import json
-import os
 import re
 import subprocess
 from datetime import datetime, timezone
-from pathlib import Path
 from typing import Any
 
+from .control_plane_daemons import resolve_daemon_state
+from .control_plane_sources import artifact_paths, load_sources, read_json_artifact
 from .value_coercion import coerce_bool, coerce_string
-
-
-# -------------------------------------------------------
-# Shared IO/time helpers (used by loader and resolvers)
-# -------------------------------------------------------
-
-def read_json_artifact(path: Path) -> dict[str, Any] | None:
-    """Read a JSON artifact, returning None on any failure."""
-    try:
-        return json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError, ValueError):
-        return None
 
 
 def utc_now_iso() -> str:
@@ -52,72 +39,6 @@ def format_age(seconds: int | None) -> str:
     if seconds < 3600:
         return f"{seconds // 60}m ago"
     return f"{seconds // 3600}h ago"
-
-
-def pid_is_alive(pid: int) -> bool:
-    try:
-        os.kill(pid, 0)
-        return True
-    except (ProcessLookupError, OSError):
-        return False
-
-
-# -------------------------------------------------------
-# Artifact path resolution
-# -------------------------------------------------------
-
-def artifact_paths(repo_root: Path) -> dict[str, Path]:
-    """Resolve all artifact paths needed for the read model."""
-    try:
-        from ..repo_packs import active_path_config
-        cfg = active_path_config()
-        status_dir = cfg.review_status_dir_rel
-        return {
-            "receipt": repo_root / "dev/reports/startup/latest/receipt.json",
-            "review_state": repo_root / cfg.review_state_json_rel,
-            "push_report": repo_root / cfg.push_report_rel,
-            "publisher_hb": repo_root / f"{status_dir}/publisher_heartbeat.json",
-            "supervisor_hb": repo_root / f"{status_dir}/reviewer_supervisor_heartbeat.json",
-            "codex_conductor": repo_root / f"{status_dir}/sessions/codex-conductor.json",
-            "claude_conductor": repo_root / f"{status_dir}/sessions/claude-conductor.json",
-            "full_json": repo_root / f"{status_dir}/full.json",
-            "compact_json": repo_root / f"{status_dir}/compact.json",
-        }
-    except Exception:
-        status_dir = "dev/review_status"
-        return {
-            "receipt": repo_root / "dev/reports/startup/latest/receipt.json",
-            "review_state": repo_root / f"{status_dir}/review_state.json",
-            "push_report": repo_root / "dev/reports/push/latest/push_report.json",
-            "publisher_hb": repo_root / f"{status_dir}/publisher_heartbeat.json",
-            "supervisor_hb": repo_root / f"{status_dir}/reviewer_supervisor_heartbeat.json",
-            "codex_conductor": repo_root / f"{status_dir}/sessions/codex-conductor.json",
-            "claude_conductor": repo_root / f"{status_dir}/sessions/claude-conductor.json",
-            "full_json": repo_root / f"{status_dir}/full.json",
-            "compact_json": repo_root / f"{status_dir}/compact.json",
-        }
-
-
-# -------------------------------------------------------
-# Source loading
-# -------------------------------------------------------
-
-def load_sources(repo_root: Path) -> dict[str, Any]:
-    """Load every artifact the read model needs, exactly once."""
-    paths = artifact_paths(repo_root)
-    return {
-        "receipt": read_json_artifact(paths["receipt"]),
-        "review_state": read_json_artifact(paths["review_state"]),
-        "push_report": read_json_artifact(paths["push_report"]),
-        "publisher_hb": read_json_artifact(paths["publisher_hb"]),
-        "supervisor_hb": read_json_artifact(paths["supervisor_hb"]),
-        "codex_conductor": read_json_artifact(paths["codex_conductor"]),
-        "claude_conductor": read_json_artifact(paths["claude_conductor"]),
-        "full_json": read_json_artifact(paths["full_json"]),
-        "compact_json": read_json_artifact(paths["compact_json"]),
-    }
-
-
 def load_git_state(repo_root: Path) -> dict[str, Any]:
     """Load branch, HEAD, dirty state, and ahead count from git."""
     result: dict[str, Any] = {
@@ -210,35 +131,6 @@ def resolve_reviewer_state(
         "attention_status": coerce_string(attention.get("status")) or "n/a",
         "attention_summary": coerce_string(attention.get("summary")) or "n/a",
     }
-
-
-def resolve_daemon_state(sources: dict[str, Any]) -> dict[str, Any]:
-    """Derive publisher/supervisor/conductor liveness from heartbeats."""
-    pub_running = _is_daemon_running(sources.get("publisher_hb"))
-    sup_running = _is_daemon_running(sources.get("supervisor_hb"))
-    codex_alive = _is_conductor_alive(sources.get("codex_conductor"))
-    claude_alive = _is_conductor_alive(sources.get("claude_conductor"))
-    return {
-        "publisher_running": pub_running,
-        "supervisor_running": sup_running,
-        "codex_conductor_alive": codex_alive,
-        "claude_conductor_alive": claude_alive,
-    }
-
-
-def _is_daemon_running(data: dict[str, Any] | None) -> bool:
-    if data is None:
-        return False
-    return not bool(data.get("stopped_at_utc", ""))
-
-
-def _is_conductor_alive(data: dict[str, Any] | None) -> bool:
-    if data is None:
-        return False
-    pid = data.get("session_pid")
-    if not isinstance(pid, int) or pid <= 0:
-        return False
-    return pid_is_alive(pid)
 
 
 def resolve_quality(push_report: dict[str, Any] | None) -> dict[str, Any]:

@@ -1452,6 +1452,13 @@ Machine-first output note:
     counts for live conductors, delegated receipts, planned lanes, worker
     budget, and running daemons so phone or remote dashboards can report how
     many agents are actually live without inferring from bridge prose.
+  - Review-channel observability now closes the owner split too: dashboard and
+    control-plane prefer the shared `session_probe` conductor view before
+    falling back to static `session_pid` metadata, event-backed
+    `current_session` preserves `implementer_session_state` /
+    `implementer_session_hint`, and bridge-backed status/doctor/render guards
+    count only unexpired pending packets while surfacing `stale_packet_count`
+    so inbox/status/dashboard numbers stay aligned.
   - Promotion readiness now treats reviewer prose as compatibility text, not substring authority. Auto-promotion / follow paths may only trust explicit primary state markers (for example the first verdict bullet, explicit idle findings, or typed `current_session` truth), so text like `--terminal none`, `unresolved`, or a later `Accepted:` explanation cannot silently promote the next plan item.
   - Launch/replay authority is typed and fail-closed: launch/rollover resolves operator interaction mode once through governance/startup authority, session preparation and the live pre-spawn gate use that same value, and generated conductor scripts re-read `review_state.json` to reject stale prepared HEAD / instruction revision / turn-token state with a non-restartable headless exit before provider start.
   - Reviewer-supervisor restart policy is non-restartable after governed `manual_stop` / `completed` lifecycle state. `ensure` and reviewer-heartbeat auto-start leave that supervisor stopped until an explicit launch, rollover, or follow command restores it, and the launchd publisher wrapper maps launch-authority exit `82` to no restart.

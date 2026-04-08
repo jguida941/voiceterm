@@ -1,6 +1,6 @@
 # Remote Control Runtime Closure Plan
 
-**Status**: active  |  **Last updated**: 2026-04-07 | **Owner:** Tooling/control plane/review runtime/dashboard
+**Status**: active  |  **Last updated**: 2026-04-08 | **Owner:** Tooling/control plane/review runtime/dashboard
 Execution plan contract: required
 This spec is mirrored in `dev/active/MASTER_PLAN.md` under `MP-380..MP-387`.
 It closes the remote-control/operator-surface gaps found in the 2026-04-04
@@ -342,6 +342,20 @@ The MP scopes remain valid but are now cross-cut by enforcement-first priority.
 
 ## Progress Log
 
+- 2026-04-08: Closed one bounded MP-381/MP-384/MP-387 review-runtime
+  observability slice. Bridge-backed `status` no longer pins reviewer-owned
+  `current_session` to stale persisted state when the live bridge checkpoint
+  changed, event-backed `current_session` now preserves Claude session-state
+  hints, expiry-aware pending/stale packet counting now flows through the
+  bridge-backed status/rewrite guard path, and dashboard/control-plane
+  conductor liveness now reuses the shared repo-owned `session_probe`
+  authority instead of metadata-only `session_pid` reads. Session-resume
+  bootstrap now converges on the same reviewer instruction/finding truth after
+  status refresh, and the dashboard packet surface is relabeled as generic
+  pending packets instead of action-only packets. Focused regressions cover the
+  bridge-authority cutover, session hints, stale packet filtering/counting, and
+  shared session-probe liveness fallback. Live launch proof remains the next
+  step once the tooling bundle is green.
 - 2026-04-07: Landed MP-381 Priority 3 (Hard parity guard) — `check_control_plane_parity` now part of `check_platform_contract_closure`. One deterministic `ControlPlaneReadModel` fixture is rendered through all 5 governance surfaces (dashboard, auto-mode, session-resume, phone, mobile) and the guard fails CI if any surface disagrees on resolved_phase, top_blocker, next_action, next_command, push_eligible, review_accepted, last_guard_ok, or pending_action_requests. Also refactored `phone_status._build_control_plane_section` to match `mobile_status._control_plane_section`'s pure-function shape — both now take a `ControlPlaneReadModel` directly, enabling fixture-driven testing without disk I/O. This closes the "silent surface disagreement" gap flagged by Finding F11 (Dashboard falls back to independent computation) for the parity axis; follow-up work is required to also harden Finding F11 at the dashboard layer itself. Follow-ups A/B (Priorities 2 and 4) and other MP-381 subpriorities remain open.
 - 2026-04-07: Closed the `MP-383` action-request projection/binding repair
   after the single-agent recovery turn exposed the root cause: packet state,

@@ -6,10 +6,12 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 
 from dev.scripts.devctl.commands import dashboard
 from dev.scripts.devctl.commands import dashboard_render
+from dev.scripts.devctl.commands.dashboard_render import attention as dashboard_attention
 
 
 def _write_artifact(root: Path, rel_path: str, payload: object) -> None:
@@ -173,3 +175,51 @@ class DashboardRuntimeCountTests(unittest.TestCase):
         self.assertIn("Active agents", terminal)
         self.assertIn("2 live", terminal)
         self.assertIn("Planned / budget", terminal)
+
+    def test_conductor_liveness_uses_shared_session_probe_without_session_pid(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            path = root / "dev/reports/review_channel/latest/sessions/codex-conductor.json"
+            _write_artifact(
+                root,
+                "dev/reports/review_channel/latest/sessions/codex-conductor.json",
+                {"provider": "codex"},
+            )
+            with patch.object(
+                dashboard,
+                "load_conductor_sessions",
+                return_value=(
+                    SimpleNamespace(
+                        provider="codex",
+                        session_pid=4242,
+                        live=True,
+                        script_path="codex-conductor.sh",
+                    ),
+                ),
+            ):
+                result = dashboard._read_conductor_liveness(path)
+
+        self.assertEqual(result["pid"], 4242)
+        self.assertTrue(result["alive"])
+
+    def test_pending_packets_markdown_heading_matches_queue_scope(self) -> None:
+        lines: list[str] = []
+        dashboard_attention.render_pending_packets_markdown(
+            {
+                "pending_packets": [
+                    {
+                        "kind": "instruction",
+                        "summary": "Fix the shape debt",
+                        "approval_required": True,
+                        "to_agent": "operator",
+                    }
+                ]
+            },
+            lines,
+        )
+
+        output = "\n".join(lines)
+        self.assertIn("Pending packets", output)
+        self.assertIn("`instruction`", output)
+        self.assertIn("Fix the shape debt", output)
+        self.assertIn("*[approval required]*", output)

@@ -637,6 +637,12 @@ Three quality layers matter in practice:
     revision changes, so the typed `current_session` projection stops
     mirroring stale implementer text until Claude repolls and acknowledges the
     new revision.
+  - Review-channel/dashboard convergence is typed too: dashboard and
+    control-plane reducers should prefer the shared `session_probe`
+    conductor-liveness owner before static session metadata, event-backed
+    `current_session` must preserve `implementer_session_state` /
+    `implementer_session_hint`, and status/doctor/dashboard queue counts
+    should agree with inbox on pending vs stale after packet expiry.
   - If `tandem-validate` is red only because a release-lane external status
     check cannot reach GitHub or another off-repo dependency, treat that as an
     environment blocker and call it out separately from code-quality failures.

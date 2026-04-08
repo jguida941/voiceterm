@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import tempfile
 import unittest
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -12,6 +13,7 @@ from dev.scripts.devctl.commands.review_channel.bridge_support import (
     apply_scope_if_requested,
 )
 from dev.scripts.devctl.review_channel.pending_packets import (
+    load_pending_packet_queue,
     assert_no_pending_reviewer_packets,
     load_pending_packets,
 )
@@ -120,6 +122,17 @@ def _write_pending_packet(root: Path, *, to_agent: str = "codex") -> None:
     path.write_text(json.dumps(event) + "\n", encoding="utf-8")
 
 
+def _write_packet_events(
+    root: Path,
+    *,
+    packets: list[dict[str, object]],
+) -> None:
+    path = root / "dev/reports/review_channel/events/trace.ndjson"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    rows = [json.dumps(packet) for packet in packets]
+    path.write_text("\n".join(rows) + "\n", encoding="utf-8")
+
+
 class PendingPacketInstructionRewriteGuardTests(unittest.TestCase):
     def test_scope_dry_run_derives_candidate_without_rewriting_bridge(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -159,6 +172,53 @@ class PendingPacketInstructionRewriteGuardTests(unittest.TestCase):
 
         self.assertEqual(len(pending), 1)
         self.assertEqual(pending[0]["packet_id"], "rev_pkt_0001")
+
+    def test_load_pending_packets_ignores_expired_rows_and_tracks_stale_count(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            now = datetime.now(timezone.utc)
+            _write_packet_events(
+                root,
+                packets=[
+                    {
+                        "schema_version": 1,
+                        "event_id": "rev_evt_0001",
+                        "packet_id": "rev_pkt_live",
+                        "trace_id": "trace_live",
+                        "event_type": "packet_posted",
+                        "status": "pending",
+                        "from_agent": "claude",
+                        "to_agent": "codex",
+                        "kind": "finding",
+                        "summary": "Live pending packet",
+                        "expires_at_utc": (
+                            now + timedelta(minutes=30)
+                        ).isoformat().replace("+00:00", "Z"),
+                    },
+                    {
+                        "schema_version": 1,
+                        "event_id": "rev_evt_0002",
+                        "packet_id": "rev_pkt_expired",
+                        "trace_id": "trace_expired",
+                        "event_type": "packet_posted",
+                        "status": "pending",
+                        "from_agent": "claude",
+                        "to_agent": "codex",
+                        "kind": "finding",
+                        "summary": "Expired pending packet",
+                        "expires_at_utc": (
+                            now - timedelta(minutes=30)
+                        ).isoformat().replace("+00:00", "Z"),
+                    },
+                ],
+            )
+
+            pending = load_pending_packets(root)
+            queue = load_pending_packet_queue(root)
+
+        self.assertEqual(len(pending), 1)
+        self.assertEqual(pending[0]["packet_id"], "rev_pkt_live")
+        self.assertEqual(queue.stale_packet_count, 1)
 
     def test_reviewer_guard_ignores_packets_for_other_agents(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

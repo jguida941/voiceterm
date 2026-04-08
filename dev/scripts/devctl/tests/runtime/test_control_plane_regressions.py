@@ -151,6 +151,14 @@ class ConductorSplitRegressionTests(unittest.TestCase):
         self.assertFalse(d["codex_conductor_alive"])
         self.assertFalse(d["claude_conductor_alive"])
 
+    def test_resolver_prefers_shared_probe_liveness_flag(self) -> None:
+        """Session-probe `live` truth wins even without embedded session_pid."""
+        sources = _empty_sources()
+        sources["codex_conductor"] = {"live": True, "session_pid": None}
+        d = resolve_daemon_state(sources)
+        self.assertTrue(d["codex_conductor_alive"])
+        self.assertFalse(d["claude_conductor_alive"])
+
     def test_split_fields_in_read_model(self) -> None:
         """Build verifies split conductor fields propagate to the model."""
         sources = _empty_sources()

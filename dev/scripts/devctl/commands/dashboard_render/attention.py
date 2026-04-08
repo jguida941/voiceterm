@@ -76,7 +76,7 @@ def render_typed_attention_markdown(
 def render_pending_packets_terminal(
     snapshot: dict[str, Any], lines: list[str],
 ) -> None:
-    """Inline pending action packets under COORDINATION when present."""
+    """Inline pending packets under COORDINATION when present."""
     packets = snapshot.get("pending_packets", [])
     if not packets:
         return
@@ -120,12 +120,12 @@ def render_doctor_markdown(
 def render_pending_packets_markdown(
     snapshot: dict[str, Any], lines: list[str],
 ) -> None:
-    """Pending action packets for the markdown coordination section."""
+    """Pending packets for the markdown coordination section."""
     packets = snapshot.get("pending_packets", [])
     if not packets:
         return
     lines.append("")
-    lines.append("**Pending action packets**:")
+    lines.append("**Pending packets**:")
     lines.append("")
     for pkt in packets[:5]:
         kind = pkt.get("kind", "?")

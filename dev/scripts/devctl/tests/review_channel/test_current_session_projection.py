@@ -8,6 +8,7 @@ from dev.scripts.devctl.review_channel.current_session_projection import (
     build_bridge_current_session,
     build_event_current_session,
     event_agent_status,
+    resolve_current_session_authority,
 )
 from dev.scripts.devctl.review_channel.handoff import BridgeSnapshot
 
@@ -64,6 +65,43 @@ def test_build_event_current_session_uses_registry_without_compat_agents() -> No
     assert state.implementer_status == "active"
     assert state.implementer_ack == "acknowledged"
     assert state.last_reviewed_scope == "MP-355"
+
+
+def test_build_event_current_session_preserves_session_hints() -> None:
+    state = build_event_current_session(
+        review_state={
+            "review": {"plan_id": "MP-355"},
+            "queue": {
+                "pending_total": 0,
+                "pending_claude": 0,
+                "derived_next_instruction": "Fix the producer parity gap.",
+            },
+            "registry": {
+                "agents": [
+                    {
+                        "agent_id": "claude",
+                        "job_state": "active",
+                    }
+                ]
+            },
+        },
+        bridge_liveness={
+            "current_instruction_revision": "abc123def456",
+            "claude_ack_revision": "",
+            "claude_ack_current": False,
+            "session_state_hints": {
+                "claude": {
+                    "state": "waiting_for_user_input",
+                    "summary": "Claude conductor is waiting for manual input.",
+                }
+            },
+        },
+    )
+
+    assert state.implementer_session_state == "waiting_for_user_input"
+    assert state.implementer_session_hint == (
+        "Claude conductor is waiting for manual input."
+    )
 
 
 def test_bridge_and_event_paths_produce_same_ack_state_when_stale() -> None:
@@ -159,3 +197,41 @@ def test_build_bridge_current_session_rederives_revision_when_instruction_change
     assert bridge_state.current_instruction_revision == expected_revision
     assert bridge_state.implementer_ack_revision == "abc123def456"
     assert bridge_state.implementer_ack_state == "stale"
+
+
+def test_resolve_current_session_authority_prefers_live_bridge_checkpoint() -> None:
+    resolved = resolve_current_session_authority(
+        snapshot=BridgeSnapshot(
+            metadata={"current_instruction_revision": "bridge-rev-123"},
+            sections={
+                "Current Instruction For Claude": "Implement the live bridge checkpoint.",
+                "Claude Status": "waiting for review",
+                "Claude Questions": "",
+                "Claude Ack": "Acknowledged instruction revision `bridge-rev-123`",
+                "Open Findings": "- F1: keep reviewer checkpoint visible",
+                "Last Reviewed Scope": "MP-355",
+            },
+        ),
+        bridge_liveness={
+            "current_instruction_revision": "bridge-rev-123",
+            "claude_ack_revision": "bridge-rev-123",
+            "claude_ack_current": True,
+        },
+        prior_review_state={
+            "current_session": {
+                "current_instruction": "Session launch: Codex, Claude conductors started",
+                "current_instruction_revision": "typed-rev-999",
+                "implementer_status": "(missing)",
+                "implementer_ack": "acknowledged",
+                "implementer_ack_revision": "",
+                "implementer_ack_state": "stale",
+                "implementer_state_hash": "old-hash",
+                "open_findings": "1 pending review packet(s)",
+                "last_reviewed_scope": "MP-355",
+            }
+        },
+    )
+
+    assert resolved.current_instruction == "Implement the live bridge checkpoint."
+    assert resolved.current_instruction_revision == "bridge-rev-123"
+    assert resolved.open_findings == "- F1: keep reviewer checkpoint visible"

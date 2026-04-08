@@ -26,7 +26,7 @@ class SessionFields(TypedDict):
 
 
 class PendingPacketFields(TypedDict):
-    """Typed shape for a single pending action packet."""
+    """Typed shape for a single pending review packet."""
 
     packet_id: str
     kind: str
@@ -111,7 +111,7 @@ def _extract_typed_attention(
 def _extract_typed_packets(
     review_state: dict[str, Any] | None,
 ) -> list[PendingPacketFields]:
-    """Extract pending action packets from a typed ReviewState dict.
+    """Extract pending review packets from a typed ReviewState dict.
 
     Returns only packets with status=pending so the dashboard surfaces
     actionable items that need operator or agent attention.

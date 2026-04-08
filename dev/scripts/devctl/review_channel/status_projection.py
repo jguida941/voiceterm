@@ -37,7 +37,6 @@ from .status_projection_bridge_state import (
 from .status_projection_compat import (
     CompatProjectionInputs,
     attach_bridge_compat_projection,
-    build_bridge_compat_projection,
     legacy_agent_entry,
 )
 from .reviewer_runtime_contract import (
@@ -69,6 +68,7 @@ class ReviewStateContext:
     reviewer_accepted_implementer_state_hash_override: str | None = None
     recovery_assessment: RecoveryAssessmentState | None = None
     pending_packets: tuple[dict[str, object], ...] = ()
+    stale_packet_count: int = 0
 
 
 def build_bridge_review_state(
@@ -176,6 +176,7 @@ def build_bridge_review_state(
         queue=_build_queue_state(
             promotion_candidate,
             pending_packets=context.pending_packets,
+            stale_packet_count=context.stale_packet_count,
         ),
         current_session=current_session,
         collaboration=collaboration,
@@ -227,14 +228,6 @@ def _projection_ok(overall_state: str, errors: tuple[str, ...]) -> bool:
         OverallLivenessState.FRESH,
         OverallLivenessState.INACTIVE,
     )
-
-
-def _build_compat_projection(
-    inputs: CompatProjectionInputs,
-) -> dict[str, object]:
-    return build_bridge_compat_projection(inputs=inputs)
-
-
 def _legacy_agents(registry: object) -> list[dict[str, object]]:
     registry_dict = registry if isinstance(registry, dict) else {}
     raw_agents = registry_dict.get("agents", [])
@@ -292,6 +285,7 @@ def _build_queue_state(
     promotion_candidate: PromotionCandidate | None,
     *,
     pending_packets: tuple[dict[str, object], ...] = (),
+    stale_packet_count: int = 0,
 ) -> ReviewQueueState:
     pending_counts = _count_pending_by_target(pending_packets)
     return ReviewQueueState(
@@ -300,7 +294,7 @@ def _build_queue_state(
         pending_claude=pending_counts.get("claude", 0),
         pending_cursor=pending_counts.get("cursor", 0),
         pending_operator=pending_counts.get("operator", 0),
-        stale_packet_count=0,
+        stale_packet_count=stale_packet_count,
         derived_next_instruction=(
             promotion_candidate.instruction if promotion_candidate is not None else ""
         ),

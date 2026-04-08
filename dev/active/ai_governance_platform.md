@@ -1,6 +1,6 @@
 # AI Governance Platform Plan
 
-**Status**: active  |  **Last updated**: 2026-04-07 | **Owner:** Tooling/control plane/product architecture
+**Status**: active  |  **Last updated**: 2026-04-08 | **Owner:** Tooling/control plane/product architecture
 Execution plan contract: required
 This spec remains execution mirrored in `dev/active/MASTER_PLAN.md` under
 `MP-377`, and it is the canonical active architecture plan for the standalone
@@ -102,6 +102,17 @@ Current 2026-04-08 review-status authority / ReviewSnapshot evidence note:
   concurrent out-of-band writers still collapse into a generic dirty-tree /
   checkpoint-budget blocker instead of one typed concurrent-writer authority
   condition.
+
+Current 2026-04-08 dashboard/current-session/queue authority note:
+- The next same-lane observability slice closes the remaining mixed-owner
+  read path without widening back into bridge prose. Dashboard/control-plane
+  conductor liveness now prefers the shared review-channel `session_probe`
+  owner before static `session_pid` metadata fallback; event-backed
+  `current_session` preserves `implementer_session_state` /
+  `implementer_session_hint`; and bridge-backed queue/state surfaces now reuse
+  the expiry-aware pending-packet owner so inbox/status/doctor/dashboard agree
+  on pending vs stale counts. This is the bounded observer closure before the
+  broader `DecisionTrace` / `explain-latest` explanation chain.
 
 ## Scope
 

@@ -39,6 +39,54 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 
 ### 2026-04-07 - ReviewSnapshot hook hardening routed through owner plans
 
+### 2026-04-08 - Dashboard, current-session, and queue surfaces now share one runtime owner chain
+
+The next review-channel follow-up closed the operator-facing contradiction that
+still survived after typed `current_session` landed. Dashboard and
+control-plane reducers were still deciding conductor liveness from static
+`*-conductor.json.session_pid` metadata, event-backed `current_session` was
+dropping the typed implementer session hint/state fields, and bridge-backed
+queue projections could keep counting expired packets as pending forever even
+while inbox already treated them as stale. The result was one repo showing
+`active_dual_agent` plus dead conductors, "what is Claude doing?" blanks even
+when hints existed, and mismatched pending/stale totals across inbox, status,
+doctor, and dashboard.
+
+The closure keeps one bounded owner chain instead of inventing another bridge
+cache. Dashboard/control-plane now prefer the shared review-channel
+`session_probe` conductor view before falling back to static metadata;
+event-backed `current_session` preserves `implementer_session_state` and
+`implementer_session_hint`; and bridge-backed status/queue paths reuse the
+expiry-aware pending-packet owner and surface `stale_packet_count`. The same
+slice also tightened the local code shape around those reducers by splitting
+current-session authority, control-plane daemon loading, and control-plane
+artifact loading into focused modules while keeping the old import surfaces
+available for existing governance callers.
+
+Evidence: `dev/scripts/devctl/commands/dashboard.py`,
+`dev/scripts/devctl/commands/dashboard_render/attention.py`,
+`dev/scripts/devctl/commands/dashboard_typed_state.py`,
+`dev/scripts/devctl/review_channel/current_session_authority.py`,
+`dev/scripts/devctl/review_channel/current_session_projection.py`,
+`dev/scripts/devctl/review_channel/current_session_support.py`,
+`dev/scripts/devctl/review_channel/pending_packets.py`,
+`dev/scripts/devctl/review_channel/status_bundle.py`,
+`dev/scripts/devctl/review_channel/status_projection.py`,
+`dev/scripts/devctl/runtime/control_plane_daemons.py`,
+`dev/scripts/devctl/runtime/control_plane_resolve.py`,
+`dev/scripts/devctl/runtime/control_plane_sources.py`,
+`dev/scripts/devctl/tests/commands/reporting/test_dashboard_runtime_counts.py`,
+`dev/scripts/devctl/tests/review_channel/test_current_session_projection.py`,
+`dev/scripts/devctl/tests/review_channel/test_pending_packet_guards.py`,
+`dev/scripts/devctl/tests/runtime/test_control_plane_read_model.py`,
+`dev/scripts/devctl/tests/runtime/test_control_plane_regressions.py`,
+`AGENTS.md`,
+`dev/guides/DEVELOPMENT.md`,
+`dev/scripts/README.md`,
+`dev/active/MASTER_PLAN.md`,
+`dev/active/ai_governance_platform.md`,
+`dev/active/remote_control_runtime.md`.
+
 ### 2026-04-08 - Review-channel now detects stale reviewer instruction revisions
 
 The live review-channel loop exposed a subtle bridge/runtime split: a reviewer
