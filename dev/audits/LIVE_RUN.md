@@ -1394,6 +1394,129 @@ been reviewer-implementer work. The operator corrected this explicitly:
   Action Requests for Codex and Claude-CLI to address.
 - **Status**: OPEN (needs Codex triage + role-contract enforcement)
 
+### Q54 — ROLE SEPARATION UNCLEAR — publisher vs reviewer_supervisor responsibilities are not documented in the typed state
+
+- **Discovered**: 2026-04-08T21:07Z (operator question: "What are the
+  different jobs of the publisher, Codex, Claude, and the supervisor,
+  and are you sure we have all these roles properly set up in a
+  smart way for our system")
+- **Severity**: architectural clarity, HIGH (blocks operator and AI
+  understanding of who owns which responsibility)
+- **Body**: This repo has at least 5 actors in the governance loop:
+    - **Publisher** daemon (`review-channel --action ensure --follow`)
+    - **Reviewer supervisor** daemon
+    - **Codex** conductor (reviewer role)
+    - **Claude-CLI** conductor (coder/implementer role)
+    - **Claude-Code** (this operator proxy dashboard role)
+
+  From the typed state, I can describe what each is DOING observationally:
+
+    - **Publisher**: reads `review_state.json` → writes `bridge.md`;
+      emits snapshots; maintains heartbeat files; is load-bearing
+      for `launch_truth=live` (when it died post-Q11, launch_truth
+      flipped to `runtime_missing`).
+    - **Codex**: reads `bridge.md`, writes `current_instruction`,
+      `open_findings`, `current_verdict`; polls on 2-5 min cadence;
+      bumps `current_instruction_revision`.
+    - **Claude-CLI**: reads Codex's instruction; implements code;
+      should ack via `claude_ack_revision` (often doesn't — Q47).
+    - **Claude-Code**: operator dashboard; reads typed state; pushes
+      findings to LIVE_RUN.md; runs cron poll.
+    - **Reviewer supervisor**: **UNKNOWN** — has same 11-field shape
+      as publisher (running, pid, heartbeat_age, snapshots_emitted),
+      but no `reviewer_supervisor.role_description` or
+      `reviewer_supervisor.owned_actions` field. Sessions 2-5
+      operated fine with supervisor dead (Q10). Session 6 has it
+      running. What does it do? No typed answer.
+
+  **Concrete gaps I can cite**:
+
+  1. **Publisher + Supervisor overlap**: both are daemons, both have
+     identical 11-field shape in typed state (`running`, `pid`,
+     `pid_alive`, `stale`, `heartbeat_age_seconds`, `started_at_utc`,
+     `last_heartbeat_utc`, `snapshots_emitted`, `reviewer_mode`,
+     `stop_reason`, `stopped_at_utc`). The job difference between
+     them is NOT documented in typed state.
+
+  2. **Q10 (supervisor possibly dead code) still unresolved**:
+     sessions 2-5 ran fine without supervisor. Session 6 has it
+     running. **What changed**, and **why does the loop sometimes
+     work without the supervisor and sometimes need it**? No typed
+     signal answers either question.
+
+  3. **Publisher is the bridge owner AND the state projector AND
+     the follow daemon**: three jobs in one daemon. Single point of
+     failure; when it crashed in Q11, the entire projection loop
+     stopped.
+
+  4. **No typed role contract**: there is no
+     `ReviewerRuntimeContract.participants[*].role_contract.allowed_actions`
+     or similar. I can't query "what is the reviewer allowed to do
+     but not the coder?" from the typed state. Role separation is
+     implicit via which CLI binary is wrapped in which script
+     wrapper. Q31 (Claude-Code role drift, writing code it shouldn't
+     have) happened because no typed guard blocked it.
+
+  5. **Supervisor responsibility claim is missing**: when I see
+     `reviewer_supervisor_running=True` in session 6, I cannot tell
+     whether the supervisor owns:
+       - mode promotion (`active_dual_agent` flag flip)
+       - heartbeat freshness enforcement
+       - conductor death detection + relaunch (A11 — which isn't
+         happening, so either it's not the supervisor's job or the
+         supervisor is silently failing at it)
+       - recovery action orchestration
+     The typed state just says it's alive. Nothing says what it's
+     responsible for.
+
+- **Fix recommendations**:
+
+  1. **Add `role_contract` to `ReviewerRuntimeContract.participants`**:
+     ```
+     participants[*].role_contract: {
+       role: "reviewer" | "implementer" | "approver" | "dashboard"
+       allowed_actions: tuple[str, ...]
+       forbidden_actions: tuple[str, ...]
+       required_fields_to_read: tuple[str, ...]
+       required_fields_to_write: tuple[str, ...]
+       escalation_path: str  # who to notify on failure
+     }
+     ```
+
+  2. **Add `daemon_charter` to each daemon's typed state** (publisher,
+     reviewer_supervisor, any future daemon):
+     ```
+     daemon_charter: {
+       canonical_name: str
+       job_description: str  # "projects review_state.json to bridge.md"
+       owned_outputs: tuple[str, ...]  # paths this daemon is authoritative for
+       depends_on: tuple[str, ...]  # other daemons/files this daemon requires
+       failure_escalation: str  # what happens when this daemon dies
+     }
+     ```
+
+  3. **Resolve Q10**: explicitly decide whether `reviewer_supervisor`
+     is load-bearing. If yes, document its responsibility contract
+     and make it fail-closed (mode cannot be promoted without a live
+     supervisor). If no, delete the field and the related typed
+     surfaces so future operators don't waste time tracking it.
+
+  4. **Merge or clarify publisher + supervisor**: either collapse
+     them into one daemon with a clearly documented charter, or
+     split them into distinct responsibilities with typed
+     non-overlapping contracts.
+
+  5. **Document the 5-actor role mesh in a typed diagram**: one
+     typed artifact (e.g. `dev/audits/role_mesh.json`) that
+     enumerates actors → their read/write fields → their
+     escalation paths. Operators and AIs read this at bootstrap.
+
+- **Related findings**: Q10 (supervisor dead code), Q31 (Claude-Code
+  role drift), Q43 (publisher lifecycle drift), Q52 (AIs fly blind
+  on typed state), Q53 (bootstrap guidance missing).
+
+- **Status**: OPEN
+
 ### Q53 — BOOTSTRAP GUIDANCE MISSING — the system doesn't teach AI agents when to run which commands at session start
 
 - **Discovered**: 2026-04-08T21:06Z (operator quote: "You should've
