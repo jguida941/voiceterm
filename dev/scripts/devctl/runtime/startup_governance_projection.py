@@ -54,19 +54,31 @@ def startup_governance_dict(governance: ProjectGovernance) -> dict[str, Any]:
 
 
 def _startup_plan_entry_dict(entry) -> dict[str, object]:
+    """Bounded plan-registry entry projection for the startup packet.
+
+    The startup packet has a strict token budget (enforced by
+    ``test_slim_token_budget``). Plan-registry entries are the dominant
+    cost: a typical repo exposes 20+ entries and each additional field
+    carries its own key/value/quote overhead, so every field kept here
+    multiplies across the whole list. The fields below are the ones
+    agent bootstraps actually need — file path, human title, the
+    classification that tells them when and why to read the entry —
+    and everything else is only available via the live
+    ``ProjectGovernance.plan_registry.entries`` dataclass. Rendering
+    code and ``governance.to_dict()`` consumers still see the full
+    entry, so trimming is scoped to this single projection.
+
+    Assignments are incremental rather than a single dict literal so the
+    helper stays consistent with ``bounded_contract_ownership_map`` and
+    the governed-projection idiom used elsewhere in this package.
+    """
     payload: dict[str, object] = {}
     payload["path"] = entry.path
-    payload["role"] = entry.role
-    payload["artifact_role"] = entry.artifact_role
-    payload["authority_kind"] = entry.authority_kind
-    payload["system_scope"] = entry.system_scope
-    payload["consumer_scope"] = entry.consumer_scope
-    payload["authority"] = entry.authority
-    payload["scope"] = entry.scope
-    payload["when_agents_read"] = entry.when_agents_read
     payload["title"] = entry.title
-    payload["lifecycle"] = entry.lifecycle
-    payload["has_execution_plan_contract"] = entry.has_execution_plan_contract
+    payload["artifact_role"] = entry.artifact_role
+    payload["consumer_scope"] = entry.consumer_scope
+    payload["when_agents_read"] = entry.when_agents_read
+    payload["scope"] = entry.scope
     if entry.session_resume is not None and entry.session_resume.summary:
         payload["session_resume_summary"] = entry.session_resume.summary
     return payload

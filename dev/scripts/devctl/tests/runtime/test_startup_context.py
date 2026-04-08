@@ -148,6 +148,97 @@ class TestStartupContextBuild(unittest.TestCase):
         self.assertLess(tokens, 10000, f"startup context too large: {tokens} tokens")
 
 
+class TestCoordinationParityF1(unittest.TestCase):
+    """F1 / MP-384 / MP-387: startup-context, session-resume, and dashboard
+    must return identical coordination fields from one governed state.
+
+    Before the ``coordination_loader`` wiring each surface built its own
+    coordination snapshot via a distinct helper — ``build_startup_context``
+    used the gate-aware ``build_work_intake_coordination_state`` reducer,
+    while ``session_resume`` and ``ControlPlaneReadModel`` echoed the
+    persisted ``coordination`` mapping on disk. The three surfaces could
+    disagree on ``declared_topology``, ``observed_topology``,
+    ``recommended_topology``, ``ownership_status``, and ``resync_reasons``
+    for the same repo tick. MP-384 fixes that by routing every read
+    surface through one shared loader; this test locks the parity in so a
+    future refactor cannot silently regress it.
+    """
+
+    def test_three_surfaces_report_identical_coordination(self) -> None:
+        from dev.scripts.devctl.commands.governance.session_resume_support import (
+            build_from_sources,
+            current_head,
+        )
+        from dev.scripts.devctl.config import get_repo_root
+        from dev.scripts.devctl.governance.draft import scan_repo_governance
+        from dev.scripts.devctl.runtime.control_plane_read_model import (
+            build_control_plane_read_model,
+        )
+
+        repo = get_repo_root()
+        governance = scan_repo_governance(repo)
+        head_sha = current_head(repo)
+
+        startup = build_startup_context(repo_root=repo)
+        dashboard = build_control_plane_read_model(repo, governance=governance)
+        session = build_from_sources(
+            repo,
+            role="reviewer",
+            head_sha=head_sha,
+            governance=governance,
+        )
+
+        startup_c = startup.coordination
+        dashboard_c = dashboard.coordination
+        session_c = session.coordination
+
+        self.assertIsNotNone(
+            startup_c, "startup-context must carry a coordination snapshot",
+        )
+        self.assertIsNotNone(
+            dashboard_c, "dashboard must carry a coordination snapshot",
+        )
+        self.assertIsNotNone(
+            session_c, "session-resume must carry a coordination snapshot",
+        )
+
+        parity_fields = (
+            "declared_topology",
+            "observed_topology",
+            "recommended_topology",
+            "ownership_status",
+            "current_slice",
+            "fanout_posture",
+            "safe_to_fanout",
+            "resync_required",
+        )
+        for field_name in parity_fields:
+            startup_value = getattr(startup_c, field_name)
+            dashboard_value = getattr(dashboard_c, field_name)
+            session_value = getattr(session_c, field_name)
+            self.assertEqual(
+                startup_value,
+                dashboard_value,
+                f"F1 parity: startup-context vs dashboard disagree on {field_name}",
+            )
+            self.assertEqual(
+                startup_value,
+                session_value,
+                f"F1 parity: startup-context vs session-resume disagree on {field_name}",
+            )
+
+        self.assertEqual(
+            tuple(startup_c.resync_reasons),
+            tuple(dashboard_c.resync_reasons),
+            "F1 parity: startup-context vs dashboard disagree on resync_reasons",
+        )
+        self.assertEqual(
+            tuple(startup_c.resync_reasons),
+            tuple(session_c.resync_reasons),
+            "F1 parity: startup-context vs session-resume disagree on resync_reasons",
+        )
+
+
 class TestCLIRegistration(unittest.TestCase):
     """Verify startup-context is wired into the CLI."""
 
