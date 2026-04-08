@@ -2,7 +2,15 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
+
+# Env var set by ``devctl commit`` on the guard-bundle subprocess to
+# suppress the dirty-worktree-after-checkpoint rejection: the staged
+# content is what the commit is landing, not post-commit dirt. The
+# existing parked-pipeline exemption is only wired for governed push.
+# See LIVE_RUN.md Q1.
+_COMMIT_GATE_BYPASS_ENV = "DEVCTL_COMMIT_GATE_BYPASS_STARTUP_AUTHORITY"
 
 _IMPLEMENTATION_STRICT_INTENT = "implementation_strict"
 _REVIEWER_BOOTSTRAP_INTENT = "reviewer_bootstrap"
@@ -238,6 +246,8 @@ def collect_post_checkpoint_dirty_worktree_errors(
     Tests may inject ``pipeline`` and/or ``current_tree_hash`` directly to
     bypass live git/policy reads.
     """
+    if os.environ.get(_COMMIT_GATE_BYPASS_ENV, "").strip() == "1":
+        return []  # devctl commit gate bypass — see module-level comment (LIVE_RUN Q1)
     push = gov.push_enforcement
     ahead = getattr(push, "ahead_of_upstream_commits", None)
     if not isinstance(ahead, int) or ahead <= 0:
