@@ -4781,6 +4781,16 @@ alone. Use these proof gates:
 Use this section as the single "left off here" surface for fresh AI sessions
 working on `MP-377`.
 
+- 2026-04-08 coordination projection-divergence review:
+  the repo now has enough typed coordination truth to answer who is active,
+  what slice is owned, whether fanout is safe, and whether resync is
+  required. The remaining product-owned gap is load-bearing projection and
+  launcher automation, not another reducer. Resume from this rule:
+  `CoordinationSnapshot` may stay the bounded authority packet, but
+  `ControlPlaneReadModel`, startup summary/machine-summary, dashboard, and
+  repo-owned launch/promotion scope must all consume the same answer so
+  remote-control bootstrap does not regress to stale bridge-first work
+  selection.
 - 2026-04-07 portability-by-default review:
   agree with the review distinction: the repo has the right typed abstraction
   shape (`ProjectGovernance`, repo-pack/path roots, typed startup push
@@ -6140,6 +6150,25 @@ Execution order for this section:
 
 ## Progress Log
 
+- 2026-04-08: Reframed the remaining coordination issue as a product-owned
+  truth/projection closure gap, not a missing-schema gap. The repo now has
+  enough typed coordination truth to answer owned slice, fanout safety,
+  topology, and resync posture, but the most load-bearing launch/bootstrap
+  surfaces still do not all read the same packet. The next bounded closure in
+  `platform_authority_loop.md` + `remote_control_runtime.md` is explicit:
+  carry `CoordinationSnapshot` through `ControlPlaneReadModel`, project it in
+  `startup-context` summary/machine-summary and dashboard authority surfaces,
+  and evaluate whether review-channel retarget + remote-control launch can be
+  automated from typed plan/runtime state instead of a manual bridge rewrite.
+- 2026-04-08: Closed the first multi-surface consumer loop on top of the new
+  bounded coordination reducer. `CoordinationSnapshot` is now projected into
+  startup, typed review-state/status, session-resume remote-control bootstrap,
+  dashboard, doctor/status, and Claude prompt bootstrap so those surfaces no
+  longer tell different stories about topology, fanout safety, worktree
+  isolation, or resync need. The key runtime fix is explicit single-agent
+  fallback: when the reviewer loop is inactive, bootstrap/dashboard can still
+  see the active governed slice from startup/work-intake authority instead of
+  treating stale review prose as the only visibility source.
 - 2026-04-08: Landed the first bounded coordination projection that sits on
   top of the new planning/work-intake state instead of reopening bridge-only
   inference. `dev/scripts/devctl/platform/coordination_snapshot.py` now

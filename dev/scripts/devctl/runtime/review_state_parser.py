@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 
+from ..platform.coordination_snapshot_models import coordination_snapshot_from_mapping
 from .control_state import _int, _mapping, _string, _string_rows
 from .remote_commit_pipeline_models import push_authorization_from_mapping
 from .review_state_collaboration_parse import collaboration_state_from_payload
@@ -119,6 +120,10 @@ def review_state_from_payload(payload: Mapping[str, object]) -> ReviewState | No
         )
         or commit_pipeline.push_authorization
     )
+    coordination = (
+        coordination_snapshot_from_mapping(review_payload.get("coordination"))
+        or coordination_snapshot_from_mapping(payload.get("coordination"))
+    )
 
     return ReviewState(
         schema_version=_int(payload.get("schema_version"))
@@ -171,6 +176,7 @@ def review_state_from_payload(payload: Mapping[str, object]) -> ReviewState | No
         push_authorization=push_authorization,
         reviewer_runtime=reviewer_runtime_state,
         commit_pipeline=commit_pipeline,
+        coordination=coordination,
         warnings=tuple(warnings),
         errors=errors,
         snapshot_id=_string(payload.get("snapshot_id"))

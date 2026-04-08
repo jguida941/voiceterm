@@ -617,7 +617,11 @@ Three quality layers matter in practice:
     (`collaboration_topology`, `authority_mode`, `work_ownership_mode`,
     `sync_cadence_mode`) so fresh sessions can see active participants,
     delegated workers, and duplicate delegated-worktree conflicts before
-    widening a slice.
+    widening a slice. The Step-0 `startup-context --format summary` and the
+    machine-summary payload now project the richer `CoordinationSnapshot`
+    reduction too: topology convergence, fanout safety, `resync_required`,
+    `current_slice`, and `active_target` are load-bearing bootstrap fields,
+    not markdown-only detail.
   - Read-only command safety: `startup-context` always attempts the receipt
     write (the launcher validates it), but degrades gracefully on `OSError`
     when `DEVCTL_NO_ARTIFACT_WRITES=1` signals an intentional read-only

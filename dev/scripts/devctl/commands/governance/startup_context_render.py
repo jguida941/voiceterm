@@ -353,6 +353,55 @@ def _append_work_intake(lines: list[str], ctx_dict: dict) -> None:
     if isinstance(writeback_sinks, list) and writeback_sinks:
         lines.append(f"- writeback_sinks: {_join_paths(writeback_sinks)}")
     lines.append("")
+
+
+def _append_coordination_snapshot(lines: list[str], ctx_dict: dict) -> None:
+    coordination = ctx_dict.get("coordination", {})
+    if not isinstance(coordination, dict) or not coordination:
+        return
+    lines.append("## Coordination Snapshot")
+    target = coordination.get("active_target", {})
+    if isinstance(target, dict) and target:
+        lines.append(
+            f"- active_target: `{target.get('plan_path', '?')}` "
+            f"[{target.get('target_kind', '?')}]"
+        )
+    current_slice = str(coordination.get("current_slice") or "").strip()
+    if current_slice:
+        lines.append(f"- current_slice: {current_slice}")
+    scope_paths = coordination.get("scope_paths")
+    if isinstance(scope_paths, list) and scope_paths:
+        lines.append(f"- scope_paths: {_join_paths(scope_paths)}")
+    lines.append(
+        "- topology: "
+        f"`{coordination.get('declared_topology', 'single_agent')}` / "
+        f"`{coordination.get('observed_topology', 'single_agent')}` -> "
+        f"`{coordination.get('recommended_topology', 'single_agent')}`"
+    )
+    lines.append(f"- fanout_posture: `{coordination.get('fanout_posture', 'single_agent_only')}`")
+    lines.append(f"- safe_to_fanout: {coordination.get('safe_to_fanout', False)}")
+    lines.append(
+        f"- worktree_strategy: `{coordination.get('worktree_strategy', 'shared_primary_worktree')}`"
+    )
+    lines.append(f"- resync_required: {coordination.get('resync_required', False)}")
+    resync_reasons = coordination.get("resync_reasons")
+    if isinstance(resync_reasons, list) and resync_reasons:
+        lines.append(f"- resync_reasons: {_join_paths(resync_reasons)}")
+    duplicate_worktrees = coordination.get("duplicate_worktrees")
+    if isinstance(duplicate_worktrees, list) and duplicate_worktrees:
+        lines.append(f"- duplicate_worktrees: {_join_paths(duplicate_worktrees)}")
+    actors = coordination.get("actors")
+    if isinstance(actors, list) and actors:
+        actor_labels = [
+            f"{str(row.get('actor_id') or '').strip()}:{str(row.get('presence') or '').strip()}"
+            for row in actors
+            if isinstance(row, dict) and str(row.get("actor_id") or "").strip()
+        ]
+        if actor_labels:
+            lines.append(f"- actors: {_join_paths(actor_labels)}")
+    lines.append("")
+
+
 def _append_continuity_roots(lines: list[str], gov: dict) -> None:
     memory_roots = gov.get("memory_roots", {})
     if not isinstance(memory_roots, dict):
@@ -415,6 +464,7 @@ def render_markdown(ctx_dict: dict) -> str:
         _append_push_decision(lines, push_decision)
     _append_startup_gate(lines, ctx_dict)
     _append_work_intake(lines, ctx_dict)
+    _append_coordination_snapshot(lines, ctx_dict)
     _append_continuity_roots(lines, gov)
 
     append_quality_signal_lines(lines, ctx_dict.get("quality_signals"))

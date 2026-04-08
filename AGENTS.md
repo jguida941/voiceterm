@@ -618,6 +618,11 @@ checklist plus chat memory.
     non-zero when another implementation slice should not start yet. That same
     packet now carries the bounded `WorkIntakePacket` startup projection, so
     `startup_order`, typed plan continuity, and routing defaults travel
+    together with one bounded coordination answer too: Step 0 summary now
+    surfaces declared/observed/recommended topology, fanout safety,
+    `resync_required`, `current_slice`, and `active_target`, and it treats
+    coordination resync as a real startup/launch blocker instead of leaving
+    that truth only in markdown/bootstrap renderers.
     through one startup-family surface instead of staying report-only.
     Current limitation: when another agent edits the repo outside the
     repo-owned checkpoint/review flow, startup/status still surface the result

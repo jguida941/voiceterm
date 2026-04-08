@@ -132,6 +132,11 @@ REVIEW_STATE_CONTRACTS: tuple[ContractSpec, ...] = (
                 "Typed remote commit/push lifecycle owner mirrored into review-state projections.",
             ),
             ContractField(
+                "coordination",
+                "CoordinationSnapshot | None",
+                "Shared bounded coordination authority mirrored into review-state projections for status, doctor, and dashboard parity.",
+            ),
+            ContractField(
                 "attention",
                 "ReviewAttentionState | None",
                 "Current top-priority attention state, if any.",

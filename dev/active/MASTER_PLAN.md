@@ -115,7 +115,12 @@
   repair target clearly: planned multi-agent scaffolding with isolated worker
   worktrees, but observed `single_agent` runtime and inactive reviewer-loop
   resync, so the next slice should be real remote-control/runtime validation
-  rather than another theory-only reducer.
+  rather than another theory-only reducer. That convergence slice is now live
+  too: `StartupContext`, `ReviewState`, `SessionCachePacket`, dashboard, and
+  remote-control/Claude bootstrap all read the same `CoordinationSnapshot`
+  packet, and single-agent remote-control fallback now comes from
+  startup/work-intake coordination authority instead of stale reviewer-only
+  bridge fields.
 - Current 2026-04-05 self-hardening boundary correction inside that same lane:
   keep the platform self-hardening, not self-redefining. Predeclared
   invariants may auto-enforce when repo-owned authority already defines the
@@ -137,6 +142,16 @@
   compatibility markdown as structured dashboard/review data where typed state
   already exists, and add parity guards across startup/session/status/
   dashboard/mobile projections.
+- Current 2026-04-08 coordination read-model closure inside that same lane:
+  the live defect is now projection divergence, not missing typed state. The
+  next bounded closure order is explicit: add `CoordinationSnapshot` to
+  `ControlPlaneReadModel`, make `startup-context` summary/machine-summary
+  surfaces load-bearing on coordination/resync truth, demote dashboard local
+  topology/fanout guesses to telemetry under typed coordination authority, and
+  then prove the same answer through a governed remote-control
+  Codex-reviewer/Claude-coder launch. The same slice should also decide
+  whether retargeting that launch from typed plan + coordination state can be
+  automated repo-owned instead of remaining a manual operator rewrite.
 - Current 2026-04-05 portable typed-structure correction inside that same
   lane: keep this as governed-boundary doctrine, not a repo-wide style rule.
   For platform-owned governance/control paths that any adopter repo may use,
@@ -344,6 +359,21 @@
   dirty-tree prose. The same reducer also fails closed when live delegated
   workers share one worktree, so multi-agent startup can block on typed
   worktree-collision evidence before overlapping edits land.
+- Current 2026-04-08 coordination read-model closure inside that same lane:
+  the remaining gap is projection divergence, not missing typed state.
+  `CoordinationSnapshot` already reaches startup markdown/json,
+  session-resume, review-state projections, and the dashboard coordination
+  section, but the load-bearing operator/bootstrap surfaces still split
+  truth: `startup-context --format summary` and machine-summary omit
+  coordination, `ControlPlaneReadModel` still carries no coordination field,
+  dashboard still mixes typed coordination with local loop heuristics, and
+  scoped launch targeting still falls back to stale checklist order. The next
+  bounded slice is therefore to carry `coordination` on
+  `ControlPlaneReadModel`, project the same packet through startup
+  summary/machine-summary/dashboard/session-resume, treat local heuristics as
+  telemetry only, and let repo-owned launch/promotion consume the
+  coordination-owned slice so remote-control sessions stop rebooting into the
+  stale MP-381 instruction.
 - Current 2026-04-07 `MP-383` bridge Action Requests closure inside that same
   lane: the markdown `## Action Requests` section is projection-only over
   event-backed `PacketPostRequest(kind="action_request")` rows, not a second

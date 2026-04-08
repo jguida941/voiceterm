@@ -14,6 +14,7 @@ from collections.abc import Mapping
 from pathlib import Path
 
 from ..common import display_path
+from ..runtime.governance_scan import scan_repo_governance_safely
 from ..runtime.review_state_models import (
     AgentRegistryState,
     RecoveryAssessmentState,
@@ -200,6 +201,19 @@ def build_bridge_review_state(
         warnings=tuple(warnings),
         errors=tuple(errors),
         snapshot_id=snapshot_id,
+    )
+    governance = scan_repo_governance_safely(context.repo_root)
+    from ..platform.coordination_snapshot import (
+        build_coordination_snapshot_for_review_state,
+    )
+
+    review_state = replace(
+        review_state,
+        coordination=build_coordination_snapshot_for_review_state(
+            repo_root=context.repo_root,
+            governance=governance,
+            review_state=review_state,
+        ),
     )
 
     result: dict[str, object] = asdict(review_state)

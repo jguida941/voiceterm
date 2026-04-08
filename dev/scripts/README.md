@@ -79,7 +79,11 @@ non-live reviewer runtime. After that Step 0 receipt, the canonical role-bound
 starter packet for a fresh Codex or Claude conversation is
 `python3 dev/scripts/devctl.py session-resume --role reviewer|implementer --format bootstrap`;
 use that repo-owned packet instead of hand-written mode prompts or operator
-memory.
+memory. The Step-0 summary now also carries bounded coordination truth
+(`coordination`, `safe_to_fanout`, `resync_required`, `current_slice`,
+`active_target`) and may direct the operator or launcher back to
+`review-channel --action status` when resync is required before a fresh
+reviewer/coder launch.
 For plain-language CI lane docs, see `.github/workflows/README.md`.
 
 For workflow routing (what to run for a normal push vs tooling/process changes vs tagged release), follow `AGENTS.md` first.

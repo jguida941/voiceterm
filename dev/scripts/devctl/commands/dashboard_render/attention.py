@@ -125,7 +125,7 @@ def render_pending_packets_markdown(
     if not packets:
         return
     lines.append("")
-    lines.append("**Pending packets**:")
+    lines.append("**Pending action packets**:")
     lines.append("")
     for pkt in packets[:5]:
         kind = pkt.get("kind", "?")

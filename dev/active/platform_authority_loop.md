@@ -1755,6 +1755,25 @@ blocker or exception in plan state before skipping the declared order.
 
 ## Session Resume
 
+- 2026-04-08 coordination read-model follow-up: resume from the remaining
+  load-bearing gap, not from reducer design. `CoordinationSnapshot` exists and
+  is already visible on markdown/bootstrap paths, but the shared
+  `ControlPlaneReadModel` still omits it and `startup-context --format summary`
+  still hides it. The next bounded slice is: make coordination one field on
+  the read model, project the same topology/fanout/resync/current-slice answer
+  through summary + machine-summary, treat `resync_required` as a real
+  bootstrap/launch blocker, and add the missing fallback/parity regression
+  locks before the next remote-control proof launch.
+- 2026-04-08 coordination-convergence follow-up: the bounded
+  `CoordinationSnapshot` reducer is no longer `system-picture`-only. Startup,
+  review-state projection, session-resume/remote-control bootstrap, dashboard,
+  doctor/status, and Claude prompt bootstrap now all consume the same typed
+  packet instead of recomputing local topology/fanout/resync prose. Resume
+  this lane by proving the new fallback in live single-agent mode too: when
+  the reviewer loop is inactive, `session-resume` / remote-control should
+  still see the active governed slice through startup/work-intake authority
+  rather than frozen review-channel prose, and the remaining work is a real
+  live parity proof plus mode-transition simulations.
 - 2026-04-07 portability-by-default review: the current architecture is not
   blocked by missing thesis; it is blocked by closure. Resume by treating
   hidden VoiceTerm defaults as the next authority-loop P0 work: shared
@@ -2375,6 +2394,28 @@ blocker or exception in plan state before skipping the declared order.
 
 ## Progress Log
 
+- 2026-04-08: Accepted the next coordination convergence tranche as
+  read-model/launcher closure work, not another reducer expansion. The
+  remaining gap is that `CoordinationSnapshot` still threads through several
+  consumers directly while `ControlPlaneReadModel`, `startup-context --format
+  summary`, and launch/blocker logic stay partly silent. The bounded
+  implementation order is now explicit: add coordination to the shared read
+  model, make startup summary + machine-summary project the same bounded
+  fields, treat resync/fanout posture as gating data instead of advisory-only
+  prose, and then prove the result in a remote-control launch where the coder
+  boots into the coordination-read-model slice automatically.
+- 2026-04-08: Projected `CoordinationSnapshot` into the live authority
+  surfaces that previously disagreed about what the system was doing.
+  `StartupContext`, `ReviewState`, and `SessionCachePacket` now carry the
+  typed coordination packet; review-channel status/event projections and
+  doctor surfaces emit it; dashboard/session-resume renderers read it; and
+  Claude prompt bootstrap now receives the same packet in implementer mode as
+  reviewer mode. The important runtime correction is the new single-agent
+  fallback: when the review loop is inactive, session-resume/dashboard now
+  fall back to startup/work-intake coordination truth so remote control can
+  still see the active governed slice, ownership scope, fanout safety, and
+  resync posture instead of concluding "Codex is doing nothing" from stale
+  reviewer-only fields.
 - 2026-04-08: Landed the first bounded coordination projection on top of the
   startup/work-intake and collaboration-state path instead of asking every
   consumer to re-derive topology from scattered runtime fields. The new

@@ -80,6 +80,7 @@ def render_bootstrap(packet: "SessionCachePacket") -> str:
         )
 
     lines.extend(_role_bootstrap_section(packet, role=role))
+    lines.extend(_coordination_lines(packet))
 
     if packet.current_instruction:
         lines.extend(
@@ -135,6 +136,7 @@ def render_markdown(packet: "SessionCachePacket") -> str:
     if candidate_lines:
         lines.extend(candidate_lines)
         lines.append("")
+    lines.extend(_coordination_lines(packet))
     if packet.next_recommended_command:
         lines.append(f"**Next**: `{packet.next_recommended_command}`")
         lines.append("")
@@ -169,6 +171,24 @@ def render_summary(packet: "SessionCachePacket") -> str:
             f"review_candidate={packet.review_candidate.candidate_id}"
             if packet.review_candidate is not None
             else "review_candidate=none"
+        ),
+        (
+            "coordination="
+            f"{packet.coordination.declared_topology}/"
+            f"{packet.coordination.observed_topology}->"
+            f"{packet.coordination.recommended_topology}"
+            if packet.coordination is not None
+            else "coordination=none"
+        ),
+        (
+            f"safe_to_fanout={packet.coordination.safe_to_fanout}"
+            if packet.coordination is not None
+            else "safe_to_fanout=unknown"
+        ),
+        (
+            f"resync_required={packet.coordination.resync_required}"
+            if packet.coordination is not None
+            else "resync_required=unknown"
         ),
         f"next={packet.next_recommended_command or packet.next_action}",
     ]
@@ -327,4 +347,54 @@ def _review_candidate_lines(packet: "SessionCachePacket") -> list[str]:
         )
     if candidate.invalidation_reason:
         lines.append(f"- **invalidation_reason**: `{candidate.invalidation_reason}`")
+    return lines
+
+
+def _coordination_lines(packet: "SessionCachePacket") -> list[str]:
+    coordination = packet.coordination
+    if coordination is None:
+        return []
+    lines = [
+        "",
+        "### Coordination",
+        (
+            "- **topology**: "
+            f"`{coordination.declared_topology}` / "
+            f"`{coordination.observed_topology}` -> "
+            f"`{coordination.recommended_topology}`"
+        ),
+        (
+            "- **fanout**: "
+            f"`{coordination.fanout_posture}` | safe_to_fanout={coordination.safe_to_fanout}"
+        ),
+        f"- **worktree_strategy**: `{coordination.worktree_strategy}`",
+        f"- **resync_required**: {coordination.resync_required}",
+    ]
+    if coordination.active_target is not None:
+        lines.append(
+            f"- **active_target**: `{coordination.active_target.plan_path}` "
+            f"[{coordination.active_target.target_kind}]"
+        )
+    if coordination.current_slice:
+        lines.append(f"- **current_slice**: {coordination.current_slice}")
+    if coordination.scope_paths:
+        lines.append(
+            "- **scope_paths**: "
+            + ", ".join(f"`{path}`" for path in coordination.scope_paths[:4])
+            + ("." if len(coordination.scope_paths) <= 4 else ", ...")
+        )
+    if coordination.resync_reasons:
+        lines.append(
+            "- **resync_reasons**: "
+            + ", ".join(f"`{reason}`" for reason in coordination.resync_reasons)
+        )
+    if coordination.actors:
+        lines.append(
+            "- **actors**: "
+            + ", ".join(
+                f"`{actor.actor_id}:{actor.presence}`"
+                for actor in coordination.actors[:4]
+            )
+            + ("." if len(coordination.actors) <= 4 else ", ...")
+        )
     return lines

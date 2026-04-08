@@ -54,6 +54,7 @@ def build_doctor_report(
     doctor_report["doctor"] = status_report.get("doctor")
     doctor_report["reviewer_runtime"] = status_report.get("reviewer_runtime")
     doctor_report["commit_pipeline"] = status_report.get("commit_pipeline")
+    doctor_report["coordination"] = status_report.get("coordination")
     doctor_report["projection_paths"] = status_report.get("projection_paths")
     doctor_report["service_identity"] = status_report.get("service_identity")
     doctor_report["attach_auth_policy"] = status_report.get("attach_auth_policy")

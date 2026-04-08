@@ -108,6 +108,16 @@ def _extract_typed_attention(
     }
 
 
+def _extract_typed_coordination(
+    review_state: dict[str, Any] | None,
+) -> dict[str, Any] | None:
+    """Extract the shared coordination snapshot from a typed ReviewState dict."""
+    if review_state is None:
+        return None
+    coordination = review_state.get("coordination")
+    return coordination if isinstance(coordination, dict) else None
+
+
 def _extract_typed_packets(
     review_state: dict[str, Any] | None,
 ) -> list[PendingPacketFields]:

@@ -3,11 +3,15 @@
 from __future__ import annotations
 
 from pathlib import Path
+from types import SimpleNamespace
 
 from ..config import get_repo_root
 from ..governance.push_state import current_head_commit_sha
 from ..runtime.review_state_locator import load_current_review_state
 from ..runtime.startup_context import build_startup_context
+from ..runtime.work_intake_coordination import build_work_intake_coordination_state
+from ..runtime.work_intake_ownership import build_work_intake_ownership_state
+from ..runtime.work_intake_selection import build_target_ref, select_active_plan_entry
 from ..time_utils import utc_timestamp
 from .coordination_snapshot_models import CoordinationSnapshot
 from .coordination_snapshot_support import (
@@ -31,24 +35,42 @@ def build_coordination_snapshot(
     repo_root: Path | None = None,
     startup_context: object | None = None,
     review_state: object | None = None,
+    governance: object | None = None,
+    work_intake: object | None = None,
 ) -> CoordinationSnapshot:
     """Build one bounded answer for topology, ownership, fanout, and resync."""
     resolved_root = (repo_root or get_repo_root()).resolve()
-    resolved_startup = startup_context or build_startup_context(repo_root=resolved_root)
-    resolved_governance = getattr(resolved_startup, "governance", None)
+    resolved_startup = startup_context
+    resolved_governance = (
+        getattr(resolved_startup, "governance", None)
+        if resolved_startup is not None
+        else governance
+    )
+    resolved_work_intake = (
+        getattr(resolved_startup, "work_intake", None)
+        if resolved_startup is not None
+        else work_intake
+    )
+    if resolved_governance is None or resolved_work_intake is None:
+        resolved_startup = startup_context or build_startup_context(repo_root=resolved_root)
+        if resolved_governance is None:
+            resolved_governance = getattr(resolved_startup, "governance", None)
+        if resolved_work_intake is None:
+            resolved_work_intake = getattr(resolved_startup, "work_intake", None)
     resolved_review_state = review_state or load_current_review_state(
         resolved_root,
         governance=resolved_governance,
     )
-    work_intake = getattr(resolved_startup, "work_intake", None)
-    if work_intake is None:
-        raise ValueError("startup_context.work_intake is required")
+    if resolved_work_intake is None:
+        raise ValueError("coordination snapshot requires startup_context.work_intake")
 
-    ownership = work_intake.ownership
-    coordination = work_intake.coordination
+    ownership = resolved_work_intake.ownership
+    coordination = resolved_work_intake.coordination
     collaboration = getattr(resolved_review_state, "collaboration", None)
     delegated_work = tuple(getattr(collaboration, "delegated_work", ()) or ())
     participants = tuple(getattr(collaboration, "participants", ()) or ())
+    continuity = getattr(resolved_work_intake, "continuity", None)
+    active_target = getattr(resolved_work_intake, "active_target", None)
     duplicate_worktree_rows = duplicate_worktrees(
         delegated_work=delegated_work,
         startup_duplicates=tuple(coordination.duplicate_delegated_worktrees),
@@ -94,14 +116,18 @@ def build_coordination_snapshot(
     repo_identity = getattr(resolved_governance, "repo_identity", None)
     current_slice = text(getattr(collaboration, "current_slice", "")) or text(
         getattr(getattr(resolved_review_state, "current_session", None), "current_instruction", "")
-    )
+    ) or text(getattr(continuity, "current_goal", "")) or text(
+        getattr(continuity, "next_action", "")
+    ) or text(getattr(continuity, "summary", "")) or text(
+        getattr(active_target, "plan_title", "")
+    ) or text(getattr(active_target, "plan_path", ""))
     return CoordinationSnapshot(
         generated_at_utc=utc_timestamp(),
         repo_name=repo_name(resolved_governance, resolved_root),
         repo_root=str(resolved_root),
         current_branch=text(getattr(repo_identity, "current_branch", "")),
         head_commit_sha=current_head_commit_sha(repo_root=resolved_root) or "",
-        active_target=getattr(work_intake, "active_target", None),
+        active_target=active_target,
         current_slice=current_slice,
         scope_paths=tuple(getattr(ownership, "scope_paths", ()) or ()),
         ownership_status=text(getattr(ownership, "status", "")),
@@ -146,4 +172,42 @@ def build_coordination_snapshot(
     )
 
 
-__all__ = ["build_coordination_snapshot"]
+def build_coordination_snapshot_for_review_state(
+    *,
+    repo_root: Path | None = None,
+    governance: object | None,
+    review_state: object | None,
+) -> CoordinationSnapshot | None:
+    """Bridge typed review-state runtime into the canonical coordination reducer."""
+    if governance is None or review_state is None:
+        return None
+    resolved_root = (repo_root or get_repo_root()).resolve()
+    ownership = build_work_intake_ownership_state(
+        repo_root=resolved_root,
+        review_state=review_state,
+    )
+    coordination = build_work_intake_coordination_state(
+        governance=governance,
+        review_state=review_state,
+        ownership=ownership,
+    )
+    active_target = build_target_ref(
+        resolved_root,
+        select_active_plan_entry(governance, review_state),
+    )
+    return build_coordination_snapshot(
+        repo_root=resolved_root,
+        review_state=review_state,
+        governance=governance,
+        work_intake=SimpleNamespace(
+            active_target=active_target,
+            ownership=ownership,
+            coordination=coordination,
+        ),
+    )
+
+
+__all__ = [
+    "build_coordination_snapshot",
+    "build_coordination_snapshot_for_review_state",
+]

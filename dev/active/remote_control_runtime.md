@@ -21,6 +21,18 @@ contract exists.
 
 ## Execution Checklist
 
+- [ ] MP-384 / MP-387 coordination-read-model convergence: carry
+      `CoordinationSnapshot` through `ControlPlaneReadModel`, make
+      `startup-context` summary/machine-summary and reviewer bootstrap read the
+      same bounded coordination/current-slice/resync truth, and prove one
+      governed remote-control launch where the operator sees the same topology,
+      fanout, ownership, and resync answer across dashboard, bootstrap, and
+      phone-facing views.
+- [ ] MP-383 / MP-385 remote participant communication slice: project one
+      typed actor/work-claim view for reviewer, coder, and delegated agents,
+      then route repo-owned packet/action-request communication from
+      remote-control/dashboard/phone surfaces to those participants without
+      reviving bridge-only prose as authority.
 - [x] Architecture-review the 8 commits ahead of the tracked upstream and map
       the gaps onto existing owner contracts.
 - [x] MP-380 Add one typed operator-interaction mode (`local_terminal` vs
@@ -368,6 +380,17 @@ The MP scopes remain valid but are now cross-cut by enforcement-first priority.
 
 ## Progress Log
 
+- 2026-04-08: Accepted the remote-control/operator follow-up for the new
+  coordination packet. The remaining failure is architectural projection
+  drift: `session-resume` and markdown bootstrap already show coordination,
+  but `ControlPlaneReadModel` still has no coordination field, the Step-0
+  `startup-context --format summary` surface stays silent, and dashboard still
+  mixes typed coordination truth with local topology heuristics. The next
+  bounded MP-384/MP-387 slice is therefore explicit: read coordination from
+  the shared control-plane model, make summary/machine-summary load-bearing on
+  current-slice/topology/resync truth, demote dashboard heuristics to
+  telemetry, and check whether launch retargeting into this slice can become a
+  repo-owned automation path instead of a manual operator rewrite.
 - 2026-04-08: Closed one bounded MP-381/MP-384/MP-387 review-runtime
   observability slice. Bridge-backed `status` no longer pins reviewer-owned
   `current_session` to stale persisted state when the live bridge checkpoint
@@ -807,6 +830,14 @@ No `ControlPlaneReadModel` exists. Each surface independently reads raw artifact
 
 ## Session Resume
 
+- Current status update: the coordination packet now exists on the live
+  runtime, but the launch-critical read side is still split. Resume from the
+  concrete closure order: add coordination to `ControlPlaneReadModel`, expose
+  the same bounded fields in `startup-context --format summary` /
+  machine-summary, make `resync_required` and unsafe fanout posture visible to
+  blocker/next-command selection, then relaunch the governed remote-control
+  Codex-reviewer / Claude-coder loop on this scope and decide whether that
+  retarget/relaunch can be automated by repo-owned state.
 - Current status: the review/runtime architecture is mapped cleanly enough to
   stop guessing. The remaining gaps are now explicit tracked closure items:
   fail-closed operator mode, terminal-none proof-of-life launch validation,

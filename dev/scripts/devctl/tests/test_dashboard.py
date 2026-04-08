@@ -509,7 +509,8 @@ class TestDashboardTerminalOutput(unittest.TestCase):
 
     def test_terminal_has_all_sections(self) -> None:
         snapshot = _full_snapshot()
-        output = dashboard_render.render_terminal(snapshot)
+        with patch.dict("os.environ", {"NO_COLOR": ""}, clear=False):
+            output = dashboard_render.render_terminal(snapshot)
 
         self.assertIn("\033[", output)
         self.assertIn("GOVERNANCE DASHBOARD", output)
@@ -1507,7 +1508,8 @@ class TestNoColorFlag(unittest.TestCase):
 
     def test_render_terminal_default_has_ansi(self) -> None:
         snapshot = _full_snapshot()
-        output = dashboard_render.render_terminal(snapshot)
+        with patch.dict("os.environ", {"NO_COLOR": ""}, clear=False):
+            output = dashboard_render.render_terminal(snapshot)
         self.assertIn("\033[", output)
 
     def test_no_color_env_var(self) -> None:
@@ -2465,6 +2467,52 @@ class TestTypedReviewState(unittest.TestCase):
             coord = snapshot["coordination"]
             self.assertEqual(coord["doctor_status"], "blocked")
             self.assertEqual(coord["doctor_blocked"], "stale_state")
+
+    def test_typed_coordination_fields_flow_into_dashboard_snapshot(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            rs = _minimal_review_state()
+            rs["coordination"] = {
+                "contract_id": "CoordinationSnapshot",
+                "current_slice": "Surface single-agent implementer work in dashboard.",
+                "declared_topology": "multi_agent_orchestrated",
+                "observed_topology": "single_agent",
+                "recommended_topology": "single_agent",
+                "fanout_posture": "planned_scaffolding_only",
+                "safe_to_fanout": False,
+                "worktree_strategy": "isolated_worker_worktrees",
+                "resync_required": True,
+                "resync_reasons": ["declared_topology:multi_agent_orchestrated"],
+                "actors": [
+                    {
+                        "actor_id": "codex",
+                        "provider": "codex",
+                        "role": "implementer",
+                        "presence": "live",
+                    }
+                ],
+            }
+            _write_artifact(
+                root,
+                "dev/reports/review_channel/state/latest.json",
+                rs,
+            )
+            bridge = root / "bridge.md"
+            bridge.write_text(_minimal_bridge_text(), encoding="utf-8")
+
+            with patch.object(dashboard, "_git_short", return_value={
+                "branch": "main", "head": "abc", "dirty": "CLEAN",
+            }), patch.object(dashboard, "_repo_name", return_value="test"):
+                snapshot = dashboard.build_snapshot(repo_root=root)
+
+            coord = snapshot["coordination"]
+            self.assertEqual(
+                coord["current_slice"],
+                "Surface single-agent implementer work in dashboard.",
+            )
+            self.assertEqual(coord["recommended_topology"], "single_agent")
+            self.assertTrue(coord["resync_required"])
+            self.assertEqual(coord["actors"][0]["actor_id"], "codex")
 
     def test_fallback_to_compact_when_no_review_state(self) -> None:
         """Without review_state.json, session comes from compact.json."""

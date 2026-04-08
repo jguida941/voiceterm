@@ -55,6 +55,7 @@ class ControlPlaneReadModelDataclassTests(unittest.TestCase):
         self.assertEqual(d["branch"], "unknown")
         self.assertEqual(d["resolved_phase"], "idle")
         self.assertEqual(d["check_details"], ())
+        self.assertIsNone(d["coordination"])
 
     def test_all_fields_present(self) -> None:
         model = _default_read_model()
@@ -69,7 +70,7 @@ class ControlPlaneReadModelDataclassTests(unittest.TestCase):
             "publisher_running", "supervisor_running",
             "codex_conductor_alive", "claude_conductor_alive",
             "pending_action_requests", "last_guard_ok",
-            "check_details",
+            "check_details", "coordination",
         }
         actual_fields = set(model.to_dict().keys())
         self.assertEqual(expected_fields, actual_fields)
@@ -214,6 +215,33 @@ class BuildWithReviewStateTests(unittest.TestCase):
             git_override=_base_git(),
         )
         self.assertEqual(model.pending_action_requests, 2)
+
+    def test_coordination_extracted_from_typed_review_state(self) -> None:
+        sources = _empty_sources()
+        sources["review_state"] = {
+            "coordination": {
+                "contract_id": "CoordinationSnapshot",
+                "current_slice": "Drive startup summary from shared coordination.",
+                "declared_topology": "multi_agent_orchestrated",
+                "observed_topology": "single_agent",
+                "recommended_topology": "single_agent",
+                "fanout_posture": "planned_scaffolding_only",
+                "safe_to_fanout": False,
+                "resync_required": True,
+            }
+        }
+        model = build_control_plane_read_model(
+            Path("/tmp/nonexistent"),
+            sources_override=sources,
+            git_override=_base_git(),
+        )
+        self.assertIsNotNone(model.coordination)
+        assert model.coordination is not None
+        self.assertEqual(
+            model.coordination.current_slice,
+            "Drive startup summary from shared coordination.",
+        )
+        self.assertTrue(model.coordination.resync_required)
 
 
 class BuildWithPushReportTests(unittest.TestCase):
@@ -374,6 +402,7 @@ class DeserializationTests(unittest.TestCase):
         self.assertEqual(restored.push_eligible, original.push_eligible)
         self.assertEqual(restored.reviewer_mode, original.reviewer_mode)
         self.assertEqual(restored.last_guard_ok, original.last_guard_ok)
+        self.assertEqual(restored.coordination, original.coordination)
 
     def test_check_details_roundtrip(self) -> None:
         sources = _empty_sources()

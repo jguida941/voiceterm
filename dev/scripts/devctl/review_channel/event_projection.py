@@ -7,6 +7,7 @@ from collections.abc import Mapping
 from pathlib import Path
 
 from ..runtime.governance_scan import scan_repo_governance_safely
+from ..runtime.review_state_parser import review_state_from_payload
 from ..runtime.review_state_models import ReviewQueueState
 from ..runtime.surface_snapshot import build_surface_snapshot_id
 from .attach_auth_policy import build_attach_auth_policy
@@ -134,10 +135,15 @@ def enrich_event_review_state(
         review_state=review_state,
         bridge_liveness=bridge_liveness,
     )
+    governance = scan_repo_governance_safely(repo_root)
     recovery_assessment = build_recovery_assessment(
         bridge_liveness=bridge_liveness,
         current_session=current_session,
-        operator_interaction_mode=_operator_interaction_mode(repo_root),
+        operator_interaction_mode=(
+            str(governance.bridge_config.operator_interaction_mode or "").strip()
+            if governance is not None
+            else ""
+        ),
     )
     attention = recovery_assessment_to_attention_payload(recovery_assessment)
     collaboration = build_collaboration_session(
@@ -196,6 +202,18 @@ def enrich_event_review_state(
         reviewer_runtime=reviewer_runtime,
     )
     review_state["attention"] = attention
+    typed_review_state = review_state_from_payload(review_state)
+    from ..platform.coordination_snapshot import (
+        build_coordination_snapshot_for_review_state,
+    )
+
+    coordination = build_coordination_snapshot_for_review_state(
+        repo_root=repo_root,
+        governance=governance,
+        review_state=typed_review_state,
+    )
+    if coordination is not None:
+        review_state["coordination"] = coordination.to_dict()
     runtime_daemons = _mapping(_mapping(merged_compat.get("runtime")).get("daemons"))
     merged_compat["service_identity"] = build_service_identity_state(raw_service_identity)
     merged_compat["attach_auth_policy"] = build_attach_auth_policy_state(

@@ -20,6 +20,8 @@ def _startup_context(
     repo_root: Path,
     ownership: WorkIntakeOwnershipState,
     coordination: WorkIntakeCoordinationState,
+    continuity: object | None = None,
+    active_target: PlanTargetRef | None = None,
 ) -> SimpleNamespace:
     return SimpleNamespace(
         governance=SimpleNamespace(
@@ -29,7 +31,8 @@ def _startup_context(
             )
         ),
         work_intake=SimpleNamespace(
-            active_target=PlanTargetRef(
+            active_target=active_target
+            or PlanTargetRef(
                 target_id="plan-target-1",
                 plan_path="dev/active/platform_authority_loop.md",
                 plan_title="Platform Authority Loop",
@@ -40,6 +43,7 @@ def _startup_context(
             ),
             ownership=ownership,
             coordination=coordination,
+            continuity=continuity,
         ),
     )
 
@@ -328,3 +332,129 @@ def test_build_coordination_snapshot_flags_duplicate_worktrees(
     assert snapshot.safe_to_fanout is False
     assert snapshot.duplicate_worktrees == ("../codex-voice-wt-a1",)
     assert snapshot.recommended_topology == "single_agent"
+
+
+def test_build_coordination_snapshot_falls_back_to_current_instruction(
+    tmp_path: Path,
+) -> None:
+    startup = _startup_context(
+        repo_root=tmp_path,
+        ownership=WorkIntakeOwnershipState(status="clear"),
+        coordination=WorkIntakeCoordinationState(
+            collaboration_topology="single_agent",
+            authority_mode="self_directed",
+            work_ownership_mode="exclusive_slice",
+            sync_cadence_mode="before_publish",
+            active_participant_count=1,
+            active_participants=("claude:implementer",),
+        ),
+        continuity=SimpleNamespace(current_goal="", next_action="", summary=""),
+    )
+    review_state = _review_state(
+        topology_mode="single_agent",
+        participants=(),
+        delegated_work=(),
+        ready_gates=(),
+        attention_status="inactive",
+        reviewer_freshness="overdue",
+        registry_agents=(),
+    )
+    review_state.collaboration.current_slice = ""
+    review_state.current_session.current_instruction = (
+        "Drive the shared coordination read model first."
+    )
+
+    snapshot = build_coordination_snapshot(
+        repo_root=tmp_path,
+        startup_context=startup,
+        review_state=review_state,
+    )
+
+    assert snapshot.current_slice == "Drive the shared coordination read model first."
+
+
+def test_build_coordination_snapshot_falls_back_to_continuity_next_action(
+    tmp_path: Path,
+) -> None:
+    startup = _startup_context(
+        repo_root=tmp_path,
+        ownership=WorkIntakeOwnershipState(status="clear"),
+        coordination=WorkIntakeCoordinationState(
+            collaboration_topology="single_agent",
+            authority_mode="self_directed",
+            work_ownership_mode="exclusive_slice",
+            sync_cadence_mode="before_publish",
+            active_participant_count=1,
+            active_participants=("claude:implementer",),
+        ),
+        continuity=SimpleNamespace(
+            current_goal="",
+            next_action="Show reviewer/coder state in remote control.",
+            summary="",
+        ),
+    )
+    review_state = _review_state(
+        topology_mode="single_agent",
+        participants=(),
+        delegated_work=(),
+        ready_gates=(),
+        attention_status="inactive",
+        reviewer_freshness="overdue",
+        registry_agents=(),
+    )
+    review_state.collaboration.current_slice = ""
+    review_state.current_session.current_instruction = ""
+
+    snapshot = build_coordination_snapshot(
+        repo_root=tmp_path,
+        startup_context=startup,
+        review_state=review_state,
+    )
+
+    assert snapshot.current_slice == "Show reviewer/coder state in remote control."
+
+
+def test_build_coordination_snapshot_falls_back_to_active_target_title(
+    tmp_path: Path,
+) -> None:
+    startup = _startup_context(
+        repo_root=tmp_path,
+        ownership=WorkIntakeOwnershipState(status="clear"),
+        coordination=WorkIntakeCoordinationState(
+            collaboration_topology="single_agent",
+            authority_mode="self_directed",
+            work_ownership_mode="exclusive_slice",
+            sync_cadence_mode="before_publish",
+            active_participant_count=1,
+            active_participants=("claude:implementer",),
+        ),
+        continuity=SimpleNamespace(current_goal="", next_action="", summary=""),
+        active_target=PlanTargetRef(
+            target_id="plan-target-2",
+            plan_path="dev/active/remote_control_runtime.md",
+            plan_title="Remote Control Runtime Closure Plan",
+            plan_scope="MP-380..MP-387",
+            target_kind="plan_doc",
+            anchor_ref="section:execution-checklist",
+            expected_revision="rev-2",
+        ),
+    )
+    review_state = _review_state(
+        topology_mode="single_agent",
+        participants=(),
+        delegated_work=(),
+        ready_gates=(),
+        attention_status="inactive",
+        reviewer_freshness="overdue",
+        registry_agents=(),
+    )
+    review_state.collaboration.current_slice = ""
+    review_state.current_session.current_instruction = ""
+
+    snapshot = build_coordination_snapshot(
+        repo_root=tmp_path,
+        startup_context=startup,
+        review_state=review_state,
+    )
+
+    assert snapshot.current_slice == "Remote Control Runtime Closure Plan"

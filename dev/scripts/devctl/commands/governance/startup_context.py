@@ -65,6 +65,10 @@ def _summary_blockers(ctx_dict: dict) -> str:
         ).strip()
         blockers.append(block_reason or "reviewer_gate")
 
+    coordination = _coordination_dict(ctx_dict)
+    if bool(coordination.get("resync_required", False)):
+        blockers.append("coordination_resync_required")
+
     return ",".join(blockers) if blockers else "none"
 
 
@@ -75,6 +79,10 @@ def _summary_next_command(ctx_dict: dict) -> str:
     reviewer_command = _reviewer_recovery_command(ctx_dict)
     if reviewer_command:
         return reviewer_command
+
+    coordination = _coordination_dict(ctx_dict)
+    if bool(coordination.get("resync_required", False)):
+        return _REVIEW_STATUS_COMMAND
 
     push_decision = ctx_dict.get("push_decision")
     if isinstance(push_decision, dict):
@@ -114,6 +122,42 @@ def _reviewer_recovery_command(ctx_dict: dict) -> str:
     return command or _REVIEW_STATUS_COMMAND
 
 
+def _coordination_dict(ctx_dict: dict) -> dict[str, object]:
+    coordination = ctx_dict.get("coordination")
+    return coordination if isinstance(coordination, dict) else {}
+
+
+def _summary_coordination_lines(ctx_dict: dict) -> list[str]:
+    coordination = _coordination_dict(ctx_dict)
+    if not coordination:
+        return []
+    declared = str(coordination.get("declared_topology") or "single_agent").strip()
+    observed = str(coordination.get("observed_topology") or "single_agent").strip()
+    recommended = str(
+        coordination.get("recommended_topology") or observed or "single_agent"
+    ).strip()
+    lines = [
+        f"coordination={declared}/{observed}->{recommended}",
+        f"safe_to_fanout={bool(coordination.get('safe_to_fanout', False))}",
+        f"resync_required={bool(coordination.get('resync_required', False))}",
+    ]
+    fanout_posture = str(coordination.get("fanout_posture") or "").strip()
+    if fanout_posture:
+        lines.append(f"fanout_posture={fanout_posture}")
+    worktree_strategy = str(coordination.get("worktree_strategy") or "").strip()
+    if worktree_strategy:
+        lines.append(f"worktree_strategy={worktree_strategy}")
+    current_slice = str(coordination.get("current_slice") or "").strip()
+    if current_slice:
+        lines.append(f"current_slice={current_slice}")
+    active_target = coordination.get("active_target")
+    if isinstance(active_target, dict):
+        plan_path = str(active_target.get("plan_path") or "").strip()
+        if plan_path:
+            lines.append(f"active_target={plan_path}")
+    return lines
+
+
 def _render_summary(ctx_dict: dict) -> str:
     action = str(ctx_dict.get("advisory_action") or "").strip() or "unknown"
     reason = str(ctx_dict.get("advisory_reason") or "").strip() or "unknown"
@@ -131,6 +175,7 @@ def _render_summary(ctx_dict: dict) -> str:
         f"blockers={_summary_blockers(ctx_dict)}",
         f"next={_summary_next_command(ctx_dict)}",
     ]
+    lines.extend(_summary_coordination_lines(ctx_dict))
     ahead = publication_backlog_count(ctx_dict)
     if ahead is not None and ahead > 0:
         lines.append(f"ahead_of_upstream_commits={ahead}")
@@ -238,6 +283,22 @@ def _machine_summary(
     summary["publication_guidance"] = ctx.push_decision.publication_guidance
     summary["startup_authority_ok"] = bool(authority_report.get("ok", False))
     summary["startup_receipt_path"] = startup_receipt_path
+    if ctx.coordination is not None:
+        summary["coordination"] = {
+            "declared_topology": ctx.coordination.declared_topology,
+            "observed_topology": ctx.coordination.observed_topology,
+            "recommended_topology": ctx.coordination.recommended_topology,
+            "fanout_posture": ctx.coordination.fanout_posture,
+            "safe_to_fanout": bool(ctx.coordination.safe_to_fanout),
+            "worktree_strategy": ctx.coordination.worktree_strategy,
+            "resync_required": bool(ctx.coordination.resync_required),
+            "current_slice": ctx.coordination.current_slice,
+            "active_target": (
+                ctx.coordination.active_target.to_dict()
+                if ctx.coordination.active_target is not None
+                else None
+            ),
+        }
     return summary
 
 

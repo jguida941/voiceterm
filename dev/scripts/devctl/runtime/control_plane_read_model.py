@@ -16,6 +16,10 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
 
+from ..platform.coordination_snapshot_models import (
+    CoordinationSnapshot,
+    coordination_snapshot_from_mapping,
+)
 from .auto_mode import AutoModeInputs, AutoModePhase, resolve_auto_mode_phase
 from .control_plane_sources import load_sources
 from .control_plane_resolve import (
@@ -79,9 +83,13 @@ class ControlPlaneReadModel:
 
     # Typed reviewer observation (derived from bridge state)
     reviewer_observation: ReviewerObservation | None = None
+    coordination: CoordinationSnapshot | None = None
 
     def to_dict(self) -> dict[str, Any]:
-        return asdict(self)
+        payload = asdict(self)
+        if self.coordination is not None:
+            payload["coordination"] = self.coordination.to_dict()
+        return payload
 
 
 def _nested_get(d: dict[str, Any] | None, *keys: str) -> Any:
@@ -122,6 +130,35 @@ def _build_reviewer_observation(
         head_at_push_time=head_at_push_time,
         review_accepted=reviewer["review_accepted"],
     )
+
+
+def _extract_coordination(
+    *,
+    repo_root: Path,
+    sources: dict[str, Any],
+    allow_startup_fallback: bool,
+) -> CoordinationSnapshot | None:
+    """Return shared coordination truth for the read model when available."""
+    for key in ("review_state", "full_json", "compact_json"):
+        payload = sources.get(key)
+        if not isinstance(payload, dict):
+            continue
+        direct = coordination_snapshot_from_mapping(payload.get("coordination"))
+        if direct is not None:
+            return direct
+        nested = payload.get("review_state")
+        if isinstance(nested, dict):
+            direct = coordination_snapshot_from_mapping(nested.get("coordination"))
+            if direct is not None:
+                return direct
+    if not allow_startup_fallback:
+        return None
+    try:
+        from .startup_context import build_startup_context
+    except ImportError:
+        return None
+    startup_context = build_startup_context(repo_root=repo_root)
+    return startup_context.coordination
 
 
 # -------------------------------------------------------
@@ -183,6 +220,11 @@ def build_control_plane_read_model(
         reviewer=reviewer,
         review_state=review_state,
     )
+    coordination = _extract_coordination(
+        repo_root=repo_root,
+        sources=sources,
+        allow_startup_fallback=sources_override is None,
+    )
 
     return ControlPlaneReadModel(
         timestamp=utc_now_iso(),
@@ -211,6 +253,7 @@ def build_control_plane_read_model(
         pending_action_requests=pending,
         last_guard_ok=quality["last_guard_ok"],
         check_details=quality["check_details"],
+        coordination=coordination,
     )
 
 
@@ -261,6 +304,7 @@ def control_plane_read_model_from_mapping(
         pending_action_requests=coerce_int(value.get("pending_action_requests")),
         last_guard_ok=coerce_bool(value.get("last_guard_ok", True)),
         check_details=tuple(details),
+        coordination=coordination_snapshot_from_mapping(value.get("coordination")),
     )
 
 
@@ -308,4 +352,5 @@ def _default_read_model() -> ControlPlaneReadModel:
         pending_action_requests=0,
         last_guard_ok=True,
         check_details=(),
+        coordination=None,
     )

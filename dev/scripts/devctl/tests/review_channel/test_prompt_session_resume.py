@@ -5,6 +5,9 @@ from __future__ import annotations
 from dev.scripts.devctl.commands.governance.session_resume_support import (
     SessionCachePacket,
 )
+from dev.scripts.devctl.platform.coordination_snapshot_models import (
+    CoordinationSnapshot,
+)
 from dev.scripts.devctl.review_channel.prompt_session_resume import (
     _format_session_resume_preamble,
 )
@@ -37,4 +40,28 @@ def test_format_session_resume_preamble_prefers_review_candidate() -> None:
     assert "review-candidate-123" in preamble
     assert "dirty-tree state" in preamble
     assert "tracked.txt" in preamble
+    assert "Review the diff with:" not in preamble
+
+
+def test_format_session_resume_preamble_for_implementer_includes_coordination() -> None:
+    packet = SessionCachePacket(
+        role="implementer",
+        coordination=CoordinationSnapshot(
+            current_slice="Continue the coordination bootstrap slice.",
+            declared_topology="multi_agent_orchestrated",
+            observed_topology="single_agent",
+            recommended_topology="single_agent",
+            fanout_posture="planned_scaffolding_only",
+            safe_to_fanout=False,
+            worktree_strategy="isolated_worker_worktrees",
+            resync_required=True,
+            resync_reasons=("declared_topology:multi_agent_orchestrated",),
+        ),
+    )
+
+    preamble = _format_session_resume_preamble(packet)
+
+    assert "Coordination:" in preamble
+    assert "Current governed slice" in preamble
+    assert "safe_to_fanout=False" in preamble
     assert "Review the diff with:" not in preamble

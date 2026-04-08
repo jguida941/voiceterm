@@ -1345,6 +1345,9 @@ class TestV2Fields(unittest.TestCase):
 
     def test_roundtrip_preserves_v2_fields(self) -> None:
         """packet_from_mapping preserves all v2 fields across serialization."""
+        from dev.scripts.devctl.platform.coordination_snapshot_models import (
+            CoordinationSnapshot,
+        )
         from dev.scripts.devctl.runtime.review_state_models import (
             ReviewCandidateRecord,
         )
@@ -1369,6 +1372,17 @@ class TestV2Fields(unittest.TestCase):
                 valid=True,
                 implementer_state_hash="state-123",
             ),
+            coordination=CoordinationSnapshot(
+                current_slice="Wire remote-control bootstrap through CoordinationSnapshot.",
+                declared_topology="multi_agent_orchestrated",
+                observed_topology="single_agent",
+                recommended_topology="single_agent",
+                fanout_posture="planned_scaffolding_only",
+                safe_to_fanout=False,
+                worktree_strategy="isolated_worker_worktrees",
+                resync_required=True,
+                resync_reasons=("declared_topology:multi_agent_orchestrated",),
+            ),
         )
         restored = packet_from_mapping(original.to_dict())
         self.assertEqual(restored.head_at_push_time, "old_push_sha")
@@ -1384,6 +1398,12 @@ class TestV2Fields(unittest.TestCase):
             restored.review_candidate.candidate_id,
             "review-candidate-123",
         )
+        assert restored.coordination is not None
+        self.assertEqual(
+            restored.coordination.current_slice,
+            "Wire remote-control bootstrap through CoordinationSnapshot.",
+        )
+        self.assertTrue(restored.coordination.resync_required)
 
     def test_render_markdown_includes_v2_fields(self) -> None:
         """Markdown output includes phase, mode, and bundle."""

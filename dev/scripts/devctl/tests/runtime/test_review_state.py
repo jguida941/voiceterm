@@ -218,6 +218,52 @@ class ReviewStateTests(unittest.TestCase):
             "commit_pipeline_approval",
         )
 
+    def test_review_state_parses_coordination_snapshot(self) -> None:
+        state = review_state_from_payload(
+            {
+                "schema_version": 1,
+                "command": "review-channel",
+                "action": "status",
+                "timestamp": "2026-04-08T00:00:00Z",
+                "ok": True,
+                "review_state": {
+                    "review": {"session_id": "coordination-session"},
+                    "queue": {"pending_total": 0},
+                    "bridge": {"reviewer_mode": "single_agent"},
+                    "coordination": {
+                        "contract_id": "CoordinationSnapshot",
+                        "current_slice": "Wire dashboard parity from typed coordination.",
+                        "declared_topology": "multi_agent_orchestrated",
+                        "observed_topology": "single_agent",
+                        "recommended_topology": "single_agent",
+                        "fanout_posture": "planned_scaffolding_only",
+                        "safe_to_fanout": False,
+                        "worktree_strategy": "isolated_worker_worktrees",
+                        "resync_required": True,
+                        "resync_reasons": ["declared_topology:multi_agent_orchestrated"],
+                        "actors": [
+                            {
+                                "actor_id": "codex",
+                                "provider": "codex",
+                                "role": "reviewer",
+                                "presence": "live",
+                            }
+                        ],
+                    },
+                },
+            }
+        )
+
+        self.assertIsNotNone(state)
+        assert state is not None
+        assert state.coordination is not None
+        self.assertEqual(
+            state.coordination.current_slice,
+            "Wire dashboard parity from typed coordination.",
+        )
+        self.assertEqual(state.coordination.recommended_topology, "single_agent")
+        self.assertEqual(state.coordination.actors[0].actor_id, "codex")
+
     def test_review_state_parses_plan_review_packet_fields(self) -> None:
         state = review_state_from_payload(
             {

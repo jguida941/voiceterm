@@ -318,6 +318,37 @@ def _render_coordination_markdown(snapshot: dict[str, Any], lines: list[str]) ->
     session_started = coord.get("session_started", "")
     started_suffix = f" (started {session_started} UTC)" if session_started else ""
     lines.append(f"- **Session age**: {session_age}{started_suffix}")
+    current_slice = coord.get("current_slice", "")
+    if current_slice:
+        lines.append(f"- **Current slice**: {current_slice}")
+    if coord.get("declared_topology"):
+        lines.append(
+            "- **Topology**: "
+            f"`{coord.get('declared_topology', 'single_agent')}` / "
+            f"`{coord.get('observed_topology', 'single_agent')}` -> "
+            f"`{coord.get('recommended_topology', 'single_agent')}`"
+        )
+        lines.append(
+            "- **Fanout**: "
+            f"`{coord.get('fanout_posture', 'single_agent_only')}` | "
+            f"safe_to_fanout={coord.get('safe_to_fanout', False)}"
+        )
+        lines.append(
+            f"- **Worktree strategy**: `{coord.get('worktree_strategy', 'shared_primary_worktree')}`"
+        )
+        lines.append(f"- **Resync required**: {coord.get('resync_required', False)}")
+    resync_reasons = coord.get("resync_reasons", [])
+    if isinstance(resync_reasons, list) and resync_reasons:
+        lines.append("- **Resync reasons**: " + ", ".join(f"`{row}`" for row in resync_reasons))
+    actors = coord.get("actors", [])
+    if isinstance(actors, list) and actors:
+        actor_labels = [
+            f"`{row.get('actor_id', '?')}:{row.get('presence', '?')}`"
+            for row in actors[:4]
+            if isinstance(row, dict)
+        ]
+        if actor_labels:
+            lines.append("- **Actors**: " + ", ".join(actor_labels))
     _attn.render_doctor_markdown(coord, lines)
     _attn.render_pending_packets_markdown(snapshot, lines)
     lines.append("")

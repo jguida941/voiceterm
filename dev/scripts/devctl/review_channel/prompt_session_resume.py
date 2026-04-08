@@ -1,8 +1,8 @@
-"""Session-resume preamble builder for reviewer conductor prompts.
+"""Session-resume preamble builder for conductor prompts.
 
-When the provider is the reviewer (codex), the conductor prompt is
-prepended with a structured JSON block from session-resume so the
-reviewer starts from typed repo state instead of prose docs.
+Conductor prompts prepend a structured JSON block from session-resume so
+reviewer and implementer sessions both start from typed repo state
+instead of stale bridge prose.
 """
 
 from __future__ import annotations
@@ -24,22 +24,11 @@ def build_session_resume_preamble(
     repo_root: Path,
     session_resume_packet: "SessionCachePacket | None" = None,
 ) -> str:
-    """Build a session-resume JSON preamble for the reviewer (codex) prompt.
-
-    When ``provider`` is codex (the reviewer), this returns a structured
-    preamble containing the session-resume packet JSON so the reviewer
-    starts from typed state instead of prose docs. Includes a diff-review
-    hint when ``last_reviewed_sha`` differs from ``head_sha``.
-
-    Returns empty string for non-reviewer providers or when no packet is
-    available.
-    """
-    resolved_role = normalize_tandem_role(role) or role_for_provider(provider)
-    if resolved_role != "reviewer":
-        return ""
+    """Build a session-resume JSON preamble for reviewer or implementer prompts."""
+    resolved_role = (normalize_tandem_role(role) or role_for_provider(provider)).value
     packet = session_resume_packet or _try_build_session_resume(
         repo_root,
-        role=resolved_role.value,
+        role=resolved_role,
     )
     if packet is None:
         return ""
@@ -80,20 +69,48 @@ def _try_build_session_resume(
 
 
 def _format_session_resume_preamble(packet: "SessionCachePacket") -> str:
-    """Render the session-resume JSON block plus diff-review hint."""
+    """Render the session-resume JSON block plus role-aware coordination hints."""
+    role = str(packet.role or "").strip().lower()
     lines = [
         "## Session Resume State (source of truth)",
         "",
-        "IGNORE old bridge verdicts. Start from this session-resume state.",
+        "IGNORE stale bridge prose. Start from this session-resume state.",
         "",
         "```json",
         json.dumps(packet.to_dict(), indent=2),
         "```",
     ]
+    coordination = packet.coordination
+    if coordination is not None:
+        lines.extend([
+            "",
+            (
+                "Coordination: "
+                f"`{coordination.declared_topology}` / "
+                f"`{coordination.observed_topology}` -> "
+                f"`{coordination.recommended_topology}`"
+            ),
+            (
+                "Fanout posture: "
+                f"`{coordination.fanout_posture}` | "
+                f"safe_to_fanout={coordination.safe_to_fanout}"
+            ),
+            (
+                "Resync required: "
+                f"{coordination.resync_required}"
+                + (
+                    " (" + ", ".join(coordination.resync_reasons) + ")"
+                    if coordination.resync_reasons
+                    else ""
+                )
+            ),
+        ])
+        if coordination.current_slice:
+            lines.append(f"Current governed slice: `{coordination.current_slice}`")
     candidate = packet.review_candidate
     head = packet.head_sha.strip()
     last_reviewed = packet.last_reviewed_sha.strip()
-    if candidate is not None and candidate.valid and candidate.ready_for_review:
+    if role == "reviewer" and candidate is not None and candidate.valid and candidate.ready_for_review:
         lines.extend([
             "",
             f"Frozen review candidate: `{candidate.candidate_id}` ({candidate.artifact_kind})",
@@ -112,13 +129,13 @@ def _format_session_resume_preamble(packet: "SessionCachePacket") -> str:
             lines.append(
                 f"Candidate warning: `{candidate.invalidation_reason}`"
             )
-    elif head and last_reviewed and head != last_reviewed:
+    elif role == "reviewer" and head and last_reviewed and head != last_reviewed:
         lines.extend([
             "",
             f"Unreviewed changes detected: `{last_reviewed[:12]}..{head[:12]}`",
             f"Review the diff with: `git diff {last_reviewed}..{head}`",
         ])
-    elif head and not last_reviewed:
+    elif role == "reviewer" and head and not last_reviewed:
         lines.extend([
             "",
             "No previous review SHA recorded. Review all pending changes.",

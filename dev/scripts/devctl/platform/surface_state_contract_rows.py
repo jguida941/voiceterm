@@ -13,6 +13,70 @@ from .contracts import ContractField, ContractSpec
 
 SURFACE_STATE_CONTRACTS: tuple[ContractSpec, ...] = (
     ContractSpec(
+        contract_id="CoordinationSnapshot",
+        owner_layer="governance_core",
+        purpose=(
+            "Single bounded coordination authority shared by startup, "
+            "review-channel, dashboard, and remote-control bootstrap surfaces."
+        ),
+        required_fields=(
+            ContractField("generated_at_utc", "str", "UTC timestamp when the coordination snapshot was built."),
+            ContractField("repo_name", "str", "Resolved repo name for the coordination snapshot."),
+            ContractField("repo_root", "str", "Resolved repo root for the coordination snapshot."),
+            ContractField("current_branch", "str", "Current branch observed by the reducer."),
+            ContractField("head_commit_sha", "str", "Current HEAD commit SHA observed by the reducer."),
+            ContractField("active_target", "PlanTargetRef | None", "Current governed plan target."),
+            ContractField("current_slice", "str", "Current governed slice or instruction summary."),
+            ContractField("scope_paths", "tuple[str, ...]", "Bounded owned path cluster for the slice."),
+            ContractField("ownership_status", "str", "Current ownership/conflict posture."),
+            ContractField("authority_mode", "str", "Authority model currently governing coordination."),
+            ContractField("work_ownership_mode", "str", "Current work-ownership posture."),
+            ContractField("sync_cadence_mode", "str", "Current sync cadence between participants."),
+            ContractField("declared_topology", "str", "Planned topology declared by runtime state."),
+            ContractField("observed_topology", "str", "Observed live topology from active participants."),
+            ContractField("recommended_topology", "str", "Safe recommended topology under current truth."),
+            ContractField("fanout_posture", "str", "Bounded fanout posture classification."),
+            ContractField("safe_to_fanout", "bool", "Whether widening into fanout is currently safe."),
+            ContractField("worktree_strategy", "str", "Current worker worktree isolation strategy."),
+            ContractField("resync_required", "bool", "Whether operators must resync before fanout."),
+            ContractField("resync_reasons", "tuple[str, ...]", "Bounded reasons that force resync."),
+            ContractField(
+                "observed_active_participant_count",
+                "int",
+                "Observed active participant count from typed runtime state.",
+            ),
+            ContractField(
+                "declared_participant_count",
+                "int",
+                "Declared participant count from live collaboration state.",
+            ),
+            ContractField(
+                "planned_delegated_worker_count",
+                "int",
+                "Planned delegated worker fanout count.",
+            ),
+            ContractField(
+                "live_delegated_worker_count",
+                "int",
+                "Observed live delegated worker count.",
+            ),
+            ContractField(
+                "active_participants",
+                "tuple[str, ...]",
+                "Identifiers for the currently active participants.",
+            ),
+            ContractField("duplicate_worktrees", "tuple[str, ...]", "Duplicate worker worktree conflicts."),
+            ContractField("conflict_summaries", "tuple[str, ...]", "Bounded conflict summaries for concurrent work."),
+            ContractField("actors", "tuple[CoordinationActorRecord, ...]", "Visible actors and delegated lanes."),
+            ContractField("summary", "str", "Compact coordination summary line."),
+        ),
+        runtime_model=(
+            "dev.scripts.devctl.platform.coordination_snapshot_models:"
+            "CoordinationSnapshot"
+        ),
+        startup_surface_tokens=("current_slice", "recommended_topology", "resync_required"),
+    ),
+    ContractSpec(
         contract_id="ControlPlaneReadModel",
         owner_layer="governance_runtime",
         purpose=(
@@ -62,6 +126,11 @@ SURFACE_STATE_CONTRACTS: tuple[ContractSpec, ...] = (
                 "reviewer_observation",
                 "ReviewerObservation | None",
                 "Typed reviewer-observation record for HEAD visibility and review status.",
+            ),
+            ContractField(
+                "coordination",
+                "CoordinationSnapshot | None",
+                "Shared bounded coordination authority for dashboard/bootstrap parity.",
             ),
         ),
         runtime_model="dev.scripts.devctl.runtime.control_plane_read_model:ControlPlaneReadModel",
@@ -136,6 +205,11 @@ SURFACE_STATE_CONTRACTS: tuple[ContractSpec, ...] = (
                 "review_candidate",
                 "ReviewCandidateRecord | None",
                 "Frozen current review target preferred over raw HEAD diff inference.",
+            ),
+            ContractField(
+                "coordination",
+                "CoordinationSnapshot | None",
+                "Shared bounded coordination authority for remote-control bootstrap and dashboard parity.",
             ),
         ),
         runtime_model=(

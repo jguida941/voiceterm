@@ -4,9 +4,11 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field, replace
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 
 from ..platform.contract_definitions import shared_contracts
+from ..platform.coordination_snapshot_models import CoordinationSnapshot
 from .finding_contracts import RejectedRuleTraceRecord, RuleMatchEvidenceRecord
 from .conductor_capability import normalize_reviewer_mode
 from .governance_scan import scan_repo_governance_safely
@@ -67,6 +69,7 @@ class StartupContext:
     rejected_rule_traces: tuple[RejectedRuleTraceRecord, ...] = ()
     product_thesis: str = ""
     work_intake: WorkIntakePacket | None = None
+    coordination: CoordinationSnapshot | None = None
     quality_signals: dict[str, object] = field(default_factory=dict)
     contract_ownership_map: dict[str, dict[str, object]] = field(default_factory=dict)
     snapshot_id: str = ""
@@ -97,6 +100,8 @@ class StartupContext:
             d["governance"] = _startup_governance_dict(self.governance)
         if self.work_intake is not None:
             d["work_intake"] = self.work_intake.to_dict()
+        if self.coordination is not None:
+            d["coordination"] = _startup_coordination_dict(self.coordination)
         return d
 
 
@@ -387,6 +392,16 @@ def build_startup_context(
             reviewer_gate=gate,
         ),
     )
+    from ..platform.coordination_snapshot import build_coordination_snapshot
+
+    coordination_snapshot = build_coordination_snapshot(
+        repo_root=repo_root,
+        startup_context=SimpleNamespace(
+            governance=governance,
+            work_intake=work_intake,
+        ),
+        review_state=review_state,
+    )
     quality_signals = load_startup_quality_signals(repo_root)
     snapshot_id = (
         str(getattr(review_state, "snapshot_id", "") or "").strip()
@@ -413,6 +428,7 @@ def build_startup_context(
         rejected_rule_traces=advisory.rejected_rule_traces,
         product_thesis=governance.product_thesis if governance else "",
         work_intake=work_intake,
+        coordination=coordination_snapshot,
         quality_signals=quality_signals,
         contract_ownership_map=_build_contract_ownership_map(),
         snapshot_id=snapshot_id,
@@ -437,3 +453,31 @@ def blocks_new_implementation(ctx: StartupContext) -> bool:
 def _startup_governance_dict(governance: ProjectGovernance) -> dict[str, Any]:
     """Return a bounded governance projection suitable for startup packets."""
     return startup_governance_dict(governance)
+
+
+def _startup_coordination_dict(coordination: CoordinationSnapshot) -> dict[str, object]:
+    payload: dict[str, object] = {
+        "declared_topology": coordination.declared_topology,
+        "observed_topology": coordination.observed_topology,
+        "recommended_topology": coordination.recommended_topology,
+        "fanout_posture": coordination.fanout_posture,
+        "safe_to_fanout": coordination.safe_to_fanout,
+        "worktree_strategy": coordination.worktree_strategy,
+        "resync_required": coordination.resync_required,
+    }
+    if coordination.active_target is not None:
+        payload["active_target"] = coordination.active_target.to_dict()
+    if coordination.current_slice:
+        payload["current_slice"] = coordination.current_slice
+    if coordination.scope_paths:
+        payload["scope_paths"] = list(coordination.scope_paths)
+    if coordination.resync_reasons:
+        payload["resync_reasons"] = list(coordination.resync_reasons)
+    if coordination.duplicate_worktrees:
+        payload["duplicate_worktrees"] = list(coordination.duplicate_worktrees)
+    if coordination.actors:
+        payload["actors"] = [
+            {"actor_id": actor.actor_id, "presence": actor.presence}
+            for actor in coordination.actors[:4]
+        ]
+    return payload

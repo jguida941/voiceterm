@@ -39,6 +39,38 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 
 ### 2026-04-07 - ReviewSnapshot hook hardening routed through owner plans
 
+### 2026-04-08 - Step-0 startup summary and the shared read model now carry coordination truth
+
+The next coordination follow-up was not another reducer. The reducer already
+existed and multiple rich surfaces already rendered it. The miss was
+load-bearing: the shared `ControlPlaneReadModel` still had no coordination
+field, and the canonical Step-0 `startup-context --format summary` surface was
+still blind to the same topology/fanout/resync/current-slice answer that
+markdown/bootstrap surfaces already knew.
+
+That gap is now narrower. `ControlPlaneReadModel` carries
+`CoordinationSnapshot`, dashboard can consume that shared coordination packet
+instead of reaching around it first, and the Step-0 startup summary plus
+machine-summary payload now project coordination directly. Startup summary also
+elevates `coordination_resync_required` into the blocker set and points the
+next-command answer back at repo-owned review status instead of pretending the
+session is ready to widen.
+
+The same slice also corrected the platform catalog so
+`CoordinationSnapshot`'s contract row matches the reducer we are actually
+shipping, not a smaller imagined subset. Focused runtime tests plus
+`check_platform_contract_closure.py` now pass with the updated contract.
+
+Evidence: `dev/scripts/devctl/runtime/control_plane_read_model.py`,
+`dev/scripts/devctl/commands/governance/startup_context.py`,
+`dev/scripts/devctl/platform/surface_state_contract_rows.py`,
+`dev/scripts/devctl/tests/runtime/test_control_plane_read_model.py`,
+`dev/scripts/devctl/tests/runtime/test_startup_context.py`,
+`dev/scripts/devctl/tests/platform/test_coordination_snapshot.py`,
+`dev/active/MASTER_PLAN.md`,
+`dev/active/platform_authority_loop.md`,
+`dev/active/remote_control_runtime.md`.
+
 ### 2026-04-08 - Coordination reducers now collapse topology, fanout, and resync posture into typed state
 
 The next step after `PlanningIRSnapshot` was not another larger startup packet.

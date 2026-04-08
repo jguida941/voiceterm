@@ -66,6 +66,7 @@ from .dashboard_typed_state import (
     _extract_typed_attention,
     _extract_typed_bridge_fields,
     _extract_typed_bridge_findings,
+    _extract_typed_coordination,
     _extract_typed_doctor,
     _extract_typed_packets,
     _extract_typed_runtime_counts,
@@ -446,8 +447,19 @@ def _assemble(
     last_change_age = _age_seconds(bridge.get("last_poll_utc", ""))
     timeline_count = 100 if view == "analytics" else 10
     typed_attention = _extract_typed_attention(review_state)
+    typed_coordination = (
+        control_plane.coordination.to_dict()
+        if control_plane and control_plane.coordination is not None
+        else _extract_typed_coordination(review_state)
+    )
     typed_packets = _extract_typed_packets(review_state)
     typed_runtime_counts = _extract_typed_runtime_counts(review_state)
+    if not typed_coordination or not str(typed_coordination.get("current_slice") or "").strip():
+        from ..runtime.startup_context import build_startup_context
+
+        startup_context = build_startup_context(repo_root=repo_root)
+        if startup_context.coordination is not None:
+            typed_coordination = startup_context.coordination.to_dict()
 
     # Build the health section, injecting read-model truth for daemon/conductor liveness
     health = _build_health_section(
@@ -460,6 +472,34 @@ def _assemble(
         health["supervisor"]["running"] = control_plane.supervisor_running
         health["attention_status"] = control_plane.attention_status
         health["attention_summary"] = control_plane.attention_summary
+
+    coordination = _build_coordination_section(
+        session, bridge, doctor,
+        CoordinationContext(
+            instruction_rev=instruction_rev,
+            receipt_push=control_plane.next_action if control_plane else receipt_push,
+            session_info=session_info or {},
+            typed_packets=typed_packets,
+            runtime_counts=typed_runtime_counts,
+        ),
+    )
+    if typed_coordination:
+        coordination.update({
+            "active_target": typed_coordination.get("active_target"),
+            "current_slice": typed_coordination.get("current_slice", ""),
+            "scope_paths": typed_coordination.get("scope_paths", []),
+            "ownership_status": typed_coordination.get("ownership_status", ""),
+            "declared_topology": typed_coordination.get("declared_topology", ""),
+            "observed_topology": typed_coordination.get("observed_topology", ""),
+            "recommended_topology": typed_coordination.get("recommended_topology", ""),
+            "fanout_posture": typed_coordination.get("fanout_posture", ""),
+            "safe_to_fanout": typed_coordination.get("safe_to_fanout", False),
+            "worktree_strategy": typed_coordination.get("worktree_strategy", ""),
+            "resync_required": typed_coordination.get("resync_required", False),
+            "resync_reasons": typed_coordination.get("resync_reasons", []),
+            "duplicate_worktrees": typed_coordination.get("duplicate_worktrees", []),
+            "actors": typed_coordination.get("actors", []),
+        })
 
     snapshot: dict[str, Any] = {
         "schema_version": 2,
@@ -490,16 +530,7 @@ def _assemble(
         "quality": quality,
         "audit": _build_audit_section(gov_data),
         "analytics": _build_analytics_section(ds_data, gov_data, repo_root),
-        "coordination": _build_coordination_section(
-            session, bridge, doctor,
-            CoordinationContext(
-                instruction_rev=instruction_rev,
-                receipt_push=control_plane.next_action if control_plane else receipt_push,
-                session_info=session_info or {},
-                typed_packets=typed_packets,
-                runtime_counts=typed_runtime_counts,
-            ),
-        ),
+        "coordination": coordination,
         "reviewer_activity": _build_reviewer_activity_section(bridge, reviewer_agent),
         "flow": _build_flow_section(receipt, push_data, session),
         "timeline": _build_timeline_section(repo_root, count=timeline_count),

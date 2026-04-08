@@ -6,6 +6,7 @@ from collections.abc import Mapping
 from dataclasses import asdict, dataclass, field
 from typing import Any
 
+from ..platform.coordination_snapshot_models import CoordinationSnapshot
 from .reviewer_runtime_models import (
     ReviewerAcceptanceState,
     ReviewerLastPollState,
@@ -329,6 +330,7 @@ class ReviewState:
     commit_pipeline: RemoteCommitPipelineContract = field(
         default_factory=RemoteCommitPipelineContract
     )
+    coordination: CoordinationSnapshot | None = None
     warnings: tuple[str, ...] = ()
     errors: tuple[str, ...] = ()
     snapshot_id: str = ""

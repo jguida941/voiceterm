@@ -445,6 +445,22 @@ def _render_coordination_terminal(snapshot: dict[str, Any], lines: list[str]) ->
     session_started = coord.get("session_started", "")
     started_suffix = f" (started {session_started} UTC)" if session_started else ""
     lines.append(f"  Session    {session_age}{started_suffix}")
+    current_slice = coord.get("current_slice", "")
+    if current_slice:
+        lines.append(f"  Slice      {_CYAN}{current_slice}{_RESET}")
+    if coord.get("declared_topology"):
+        lines.append(
+            "  Topology   "
+            f"{coord.get('declared_topology', 'single_agent')} / "
+            f"{coord.get('observed_topology', 'single_agent')} -> "
+            f"{coord.get('recommended_topology', 'single_agent')}"
+        )
+        lines.append(
+            "  Fanout     "
+            f"{coord.get('fanout_posture', 'single_agent_only')}   "
+            f"safe={coord.get('safe_to_fanout', False)}   "
+            f"resync={coord.get('resync_required', False)}"
+        )
     _attn.render_doctor_terminal(coord, lines)
     _attn.render_pending_packets_terminal(snapshot, lines)
     lines.append("")

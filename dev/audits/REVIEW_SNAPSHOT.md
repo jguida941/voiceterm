@@ -5,14 +5,14 @@
 ## Quick status
 
 - Branch: `feature/governance-quality-sweep`
-- HEAD: `fb46a8a42a83` — Refresh external review snapshot for 70290f0
-- Tree hash: `d930607e33b9`
-- Generation stamp: `snap-d7a97bb17354`
-- Generated at (UTC): 2026-04-08T15:18:20Z
-- Push decision: `await_checkpoint` — worktree_dirty
+- HEAD: `fb212c03805b` — Refresh review bridge checkpoint state
+- Tree hash: `251388cb526e`
+- Generation stamp: `snap-79e4d9bf5c10`
+- Generated at (UTC): 2026-04-08T16:20:59Z
+- Push decision: `await_checkpoint` — dirty_path_budget_exceeded
 - Reviewer mode: `single_agent` (interaction: `local_terminal`)
 - Pipeline state: `n/a` (approval: `n/a`)
-- Delta since last snapshot: 24 commits, 131 files, +12931/-3297
+- Delta since last snapshot: 24 commits, 131 files, +12931/-3288
 - Governance findings: 39 open / 68 fixed / 121 total
 - Probe hints: 0 total across 0 files scanned
 
@@ -54,15 +54,15 @@ adopters arrive.
 - Remote: `https://github.com/jguida941/voiceterm.git`
 - Default branch: `master`
 - Current branch: `feature/governance-quality-sweep`
-- HEAD SHA: `fb46a8a42a83bccfc21e53fa1fb8af069a42d1a1`
+- HEAD SHA: `fb212c03805bf01481ed15224ee896665bf614f5`
 - HEAD author: Justin Guida
-- HEAD timestamp (UTC): 2026-04-08T11:13:03-04:00
+- HEAD timestamp (UTC): 2026-04-08T11:18:11-04:00
 
 ## 2. Governance state
 
 ### Push decision
 - action: `await_checkpoint`
-- reason: worktree_dirty
+- reason: dirty_path_budget_exceeded
 - push_eligible_now: False
 - worktree_clean: False
 - next_step_command: `n/a`
@@ -72,7 +72,7 @@ adopters arrive.
 - authorized_head_commit: `ee13a6c6337f395afa574e99a4234f2eaf45a161`
 - approved_target_identity: `tree-receipt-20260407T220000Z:281dea21851063411d2c43c2b4621a1c2a1168b5`
 - publication_backlog: urgent
-- publication_guidance: 12 local commit(s) waiting for governed push once the current slice is checkpoint-clean.
+- publication_guidance: 13 local commit(s) waiting for governed push once the current slice is checkpoint-clean.
 
 ### Reviewer runtime
 - reviewer_mode: `single_agent`
@@ -88,60 +88,61 @@ adopters arrive.
 - active plan: **Master Plan (Active, Unified)**
 - plan path: `dev/active/MASTER_PLAN.md`
 - active MP scope: all active MP execution state
-- advisory: `checkpoint_allowed` — worktree_dirty_within_budget
+- advisory: `checkpoint_before_continue` — dirty_path_budget_exceeded
+- checkpoint_required: **yes**
 
 ## 3. Delta — what changed since the previous snapshot
 
-Range: last 24 commits ending at `fb46a8a42a83`
+Range: last 24 commits ending at `fb212c03805b`
 
 - commits: 24
 - files changed: 131
 - insertions: +12931
-- deletions: -3297
-- bundle classes touched: tooling, docs
+- deletions: -3288
+- bundle classes touched: docs, tooling
 - authority surfaces touched: 31 file(s)
 
 ### Commits
 
 | # | SHA | Subject | Files | +/- | Bundle | Risk |
 |---|---|---|---|---|---|---|
-| 1 | `fb46a8a` | Refresh external review snapshot for 70290f0 | 1 | +67/-66 | tooling |  |
-| 2 | `70290f0` | Add coordination posture reducers | 19 | +2131/-62 | tooling |  |
-| 3 | `36addcb` | Refresh external review snapshot for 05bc3c5 | 1 | +65/-65 | tooling |  |
-| 4 | `05bc3c5` | Add PlanningIRSnapshot platform reducer | 14 | +1419/-66 | tooling |  |
-| 5 | `941781e` | Refresh external review snapshot for b681930 | 1 | +62/-64 | tooling |  |
-| 6 | `b681930` | Checkpoint startup coordination and session hint fixes | 14 | +344/-108 | tooling |  |
-| 7 | `ca07a33` | Add typed startup coordination state | 26 | +2273/-141 | tooling |  |
-| 8 | `f858e28` | Route startup blockers through shared check renderer | 7 | +481/-187 | tooling |  |
-| 9 | `b2a8dbb` | Refresh external review snapshot for b8234a7 | 1 | +61/-64 | tooling |  |
-| 10 | `b8234a7` | Prioritize review-loop relaunch recovery | 11 | +236/-98 | tooling |  |
-| 11 | `e2b3940` | Reclaim stale review-channel launch windows | 7 | +491/-109 | tooling |  |
-| 12 | `9858988` | Fix review-channel session liveness fallback | 4 | +454/-101 | tooling |  |
-| 13 | `483df5b` | Refresh external review snapshot for 7d7aa7c | 1 | +60/-67 | tooling |  |
-| 14 | `7d7aa7c` | checkpoint: close review-channel authority convergence | 24 | +583/-149 | tooling |  |
-| 15 | `1b55564` | Refresh external review snapshot for 8b77c5c | 1 | +53/-56 | tooling |  |
-| 16 | `8b77c5c` | checkpoint: record dashboard observer audit findings | 3 | +225/-70 | tooling |  |
-| 17 | `fba090f` | checkpoint: close push preflight bypass window | 9 | +129/-73 | tooling |  |
-| 18 | `02ca820` | Refresh external review snapshot for fed1dec | 1 | +72/-79 | tooling |  |
-| 19 | `fed1dec` | checkpoint: harden reviewer packet guards and runtime counts | 31 | +1230/-108 | tooling |  |
-| 20 | `0a678e5` | Refresh external review snapshot for 47c7845 | 1 | +82/-75 | tooling |  |
-| 21 | `47c7845` | checkpoint: truth-source hardening and review snapshot evid… | 36 | +2207/-1285 | tooling |  |
-| 22 | `92a3358` | Refresh external review snapshot for 262bbad | 1 | +53/-57 | tooling |  |
-| 23 | `262bbad` | docs: record review-channel revision drift fix | 4 | +99/-87 | tooling |  |
-| 24 | `dec706e` | Refresh external review snapshot for 51dbf3c | 1 | +54/-60 | tooling |  |
+| 1 | `fb212c0` | Refresh review bridge checkpoint state | 2 | +54/-51 | docs |  |
+| 2 | `fb46a8a` | Refresh external review snapshot for 70290f0 | 1 | +67/-66 | tooling |  |
+| 3 | `70290f0` | Add coordination posture reducers | 19 | +2131/-62 | tooling |  |
+| 4 | `36addcb` | Refresh external review snapshot for 05bc3c5 | 1 | +65/-65 | tooling |  |
+| 5 | `05bc3c5` | Add PlanningIRSnapshot platform reducer | 14 | +1419/-66 | tooling |  |
+| 6 | `941781e` | Refresh external review snapshot for b681930 | 1 | +62/-64 | tooling |  |
+| 7 | `b681930` | Checkpoint startup coordination and session hint fixes | 14 | +344/-108 | tooling |  |
+| 8 | `ca07a33` | Add typed startup coordination state | 26 | +2273/-141 | tooling |  |
+| 9 | `f858e28` | Route startup blockers through shared check renderer | 7 | +481/-187 | tooling |  |
+| 10 | `b2a8dbb` | Refresh external review snapshot for b8234a7 | 1 | +61/-64 | tooling |  |
+| 11 | `b8234a7` | Prioritize review-loop relaunch recovery | 11 | +236/-98 | tooling |  |
+| 12 | `e2b3940` | Reclaim stale review-channel launch windows | 7 | +491/-109 | tooling |  |
+| 13 | `9858988` | Fix review-channel session liveness fallback | 4 | +454/-101 | tooling |  |
+| 14 | `483df5b` | Refresh external review snapshot for 7d7aa7c | 1 | +60/-67 | tooling |  |
+| 15 | `7d7aa7c` | checkpoint: close review-channel authority convergence | 24 | +583/-149 | tooling |  |
+| 16 | `1b55564` | Refresh external review snapshot for 8b77c5c | 1 | +53/-56 | tooling |  |
+| 17 | `8b77c5c` | checkpoint: record dashboard observer audit findings | 3 | +225/-70 | tooling |  |
+| 18 | `fba090f` | checkpoint: close push preflight bypass window | 9 | +129/-73 | tooling |  |
+| 19 | `02ca820` | Refresh external review snapshot for fed1dec | 1 | +72/-79 | tooling |  |
+| 20 | `fed1dec` | checkpoint: harden reviewer packet guards and runtime counts | 31 | +1230/-108 | tooling |  |
+| 21 | `0a678e5` | Refresh external review snapshot for 47c7845 | 1 | +82/-75 | tooling |  |
+| 22 | `47c7845` | checkpoint: truth-source hardening and review snapshot evid… | 36 | +2207/-1285 | tooling |  |
+| 23 | `92a3358` | Refresh external review snapshot for 262bbad | 1 | +53/-57 | tooling |  |
+| 24 | `262bbad` | docs: record review-channel revision drift fix | 4 | +99/-87 | tooling |  |
 
 ### Files
 
 | Path | Bundle | +/- |
 |---|---|---|
 | `AGENTS.md` | docs | +55/-3 |
-| `bridge.md` | docs | +73/-74 |
+| `bridge.md` | docs | +79/-78 |
 | `dev/active/MASTER_PLAN.md` | tooling | +106/-29 |
 | `dev/active/ai_governance_platform.md` | tooling | +112/-12 |
 | `dev/active/platform_authority_loop.md` | tooling | +65/-1 |
 | `dev/active/remote_control_runtime.md` | tooling | +42/-2 |
 | `dev/active/review_channel.md` | tooling | +20/-18 |
-| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1400/-1455 |
+| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1394/-1442 |
 | `dev/audits/architecture_alignment.md` | tooling | +65/-0 |
 | `dev/audits/architecture_hardening_plan.md` | tooling | +101/-0 |
 | `dev/config/devctl_repo_policy.json` | tooling | +1/-1 |
@@ -216,6 +217,7 @@ Recent findings:
 | `CheckResult` | `governance_runtime` | `n/a` | success |
 | `ControlPlaneReadModel` | `governance_runtime` | `n/a` | push_eligible |
 | `ControlState` | `governance_runtime` | `n/a` | approvals |
+| `CoordinationSnapshot` | `governance_core` | `n/a` | current_slice |
 | `DecisionPacket` | `governance_runtime` | `n/a` | decision_mode |
 | `FailurePacket` | `governance_runtime` | `n/a` | runner |
 | `Finding` | `governance_runtime` | `n/a` | check_id |
@@ -298,32 +300,34 @@ Recent findings:
 
 ### Per-commit rationale
 
+- **`fb212c0`** — Refresh review bridge checkpoint state
+  - evolution: The next coordination follow-up was not another reducer. The reducer already existed and multiple rich surfaces already rendered it. The miss was load-bearing: the shared `ControlPlaneReadModel` still had no coordinatio…
 - **`fb46a8a`** — Refresh external review snapshot for 70290f0
-  - evolution: The next step after `PlanningIRSnapshot` was not another larger startup packet. The repo already had the raw facts: startup/work-intake ownership posture, review-state collaboration participants, delegated-worktree rece…
+  - evolution: The next coordination follow-up was not another reducer. The reducer already existed and multiple rich surfaces already rendered it. The miss was load-bearing: the shared `ControlPlaneReadModel` still had no coordinatio…
 - **`70290f0`** — Add coordination posture reducers
-  - evolution: The next step after `PlanningIRSnapshot` was not another larger startup packet. The repo already had the raw facts: startup/work-intake ownership posture, review-state collaboration participants, delegated-worktree rece…
+  - evolution: The next coordination follow-up was not another reducer. The reducer already existed and multiple rich surfaces already rendered it. The miss was load-bearing: the shared `ControlPlaneReadModel` still had no coordinatio…
 - **`36addcb`** — Refresh external review snapshot for 05bc3c5
-  - evolution: The next step after `PlanningIRSnapshot` was not another larger startup packet. The repo already had the raw facts: startup/work-intake ownership posture, review-state collaboration participants, delegated-worktree rece…
+  - evolution: The next coordination follow-up was not another reducer. The reducer already existed and multiple rich surfaces already rendered it. The miss was load-bearing: the shared `ControlPlaneReadModel` still had no coordinatio…
 - **`05bc3c5`** — Add PlanningIRSnapshot platform reducer
-  - evolution: The next step after `PlanningIRSnapshot` was not another larger startup packet. The repo already had the raw facts: startup/work-intake ownership posture, review-state collaboration participants, delegated-worktree rece…
+  - evolution: The next coordination follow-up was not another reducer. The reducer already existed and multiple rich surfaces already rendered it. The miss was load-bearing: the shared `ControlPlaneReadModel` still had no coordinatio…
 - **`941781e`** — Refresh external review snapshot for b681930
-  - evolution: The next step after `PlanningIRSnapshot` was not another larger startup packet. The repo already had the raw facts: startup/work-intake ownership posture, review-state collaboration participants, delegated-worktree rece…
+  - evolution: The next coordination follow-up was not another reducer. The reducer already existed and multiple rich surfaces already rendered it. The miss was load-bearing: the shared `ControlPlaneReadModel` still had no coordinatio…
 - **`b681930`** — Checkpoint startup coordination and session hint fixes
-  - evolution: The next step after `PlanningIRSnapshot` was not another larger startup packet. The repo already had the raw facts: startup/work-intake ownership posture, review-state collaboration participants, delegated-worktree rece…
+  - evolution: The next coordination follow-up was not another reducer. The reducer already existed and multiple rich surfaces already rendered it. The miss was load-bearing: the shared `ControlPlaneReadModel` still had no coordinatio…
 - **`ca07a33`** — Add typed startup coordination state
-  - evolution: The next step after `PlanningIRSnapshot` was not another larger startup packet. The repo already had the raw facts: startup/work-intake ownership posture, review-state collaboration participants, delegated-worktree rece…
+  - evolution: The next coordination follow-up was not another reducer. The reducer already existed and multiple rich surfaces already rendered it. The miss was load-bearing: the shared `ControlPlaneReadModel` still had no coordinatio…
 - **`f858e28`** — Route startup blockers through shared check renderer
-  - evolution: The next step after `PlanningIRSnapshot` was not another larger startup packet. The repo already had the raw facts: startup/work-intake ownership posture, review-state collaboration participants, delegated-worktree rece…
+  - evolution: The next coordination follow-up was not another reducer. The reducer already existed and multiple rich surfaces already rendered it. The miss was load-bearing: the shared `ControlPlaneReadModel` still had no coordinatio…
 - **`b2a8dbb`** — Refresh external review snapshot for b8234a7
-  - evolution: The next step after `PlanningIRSnapshot` was not another larger startup packet. The repo already had the raw facts: startup/work-intake ownership posture, review-state collaboration participants, delegated-worktree rece…
+  - evolution: The next coordination follow-up was not another reducer. The reducer already existed and multiple rich surfaces already rendered it. The miss was load-bearing: the shared `ControlPlaneReadModel` still had no coordinatio…
 - **`b8234a7`** — Prioritize review-loop relaunch recovery
-  - evolution: The next step after `PlanningIRSnapshot` was not another larger startup packet. The repo already had the raw facts: startup/work-intake ownership posture, review-state collaboration participants, delegated-worktree rece…
+  - evolution: The next coordination follow-up was not another reducer. The reducer already existed and multiple rich surfaces already rendered it. The miss was load-bearing: the shared `ControlPlaneReadModel` still had no coordinatio…
 - **`e2b3940`** — Reclaim stale review-channel launch windows
-  - evolution: The next step after `PlanningIRSnapshot` was not another larger startup packet. The repo already had the raw facts: startup/work-intake ownership posture, review-state collaboration participants, delegated-worktree rece…
+  - evolution: The next coordination follow-up was not another reducer. The reducer already existed and multiple rich surfaces already rendered it. The miss was load-bearing: the shared `ControlPlaneReadModel` still had no coordinatio…
 - **`9858988`** — Fix review-channel session liveness fallback
-  - evolution: The next step after `PlanningIRSnapshot` was not another larger startup packet. The repo already had the raw facts: startup/work-intake ownership posture, review-state collaboration participants, delegated-worktree rece…
+  - evolution: The next coordination follow-up was not another reducer. The reducer already existed and multiple rich surfaces already rendered it. The miss was load-bearing: the shared `ControlPlaneReadModel` still had no coordinatio…
 - **`483df5b`** — Refresh external review snapshot for 7d7aa7c
-  - evolution: The next step after `PlanningIRSnapshot` was not another larger startup packet. The repo already had the raw facts: startup/work-intake ownership posture, review-state collaboration participants, delegated-worktree rece…
+  - evolution: The next coordination follow-up was not another reducer. The reducer already existed and multiple rich surfaces already rendered it. The miss was load-bearing: the shared `ControlPlaneReadModel` still had no coordinatio…
 - **`7d7aa7c`** — checkpoint: close review-channel authority convergence
 - **`1b55564`** — Refresh external review snapshot for 8b77c5c
 - **`8b77c5c`** — checkpoint: record dashboard observer audit findings
@@ -334,7 +338,6 @@ Recent findings:
 - **`47c7845`** — checkpoint: truth-source hardening and review snapshot evidence
 - **`92a3358`** — Refresh external review snapshot for 262bbad
 - **`262bbad`** — docs: record review-channel revision drift fix
-- **`dec706e`** — Refresh external review snapshot for 51dbf3c
 ### Active MP scope (from MASTER_PLAN.md)
 
 - `dev/active/devctl_reporting_upgrade.md` is the phased `devctl` reporting/CIHub specification, but not a separate execution tracker; implementation tasks stay in this file under `MP-297..MP-300`, `MP-303`, `MP-306`, `MP…
@@ -353,9 +356,10 @@ Recent findings:
 - open governance findings: 39
 
 ### Startup advisories
-- checkpoint_allowed: worktree_dirty_within_budget
+- checkpoint_before_continue: dirty_path_budget_exceeded
 
 ### Stale warnings
+- Keep editing the current slice.
 - Move straight to the governed push path.
 
 ### Open gap rows
@@ -370,4 +374,4 @@ Recent findings:
 
 ---
 
-Projection produced by `devctl review-snapshot`. Generation stamp `snap-d7a97bb17354` binds this file to HEAD `fb46a8a42a83`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
+Projection produced by `devctl review-snapshot`. Generation stamp `snap-79e4d9bf5c10` binds this file to HEAD `fb212c03805b`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.

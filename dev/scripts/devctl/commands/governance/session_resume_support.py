@@ -8,10 +8,15 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from ...platform.coordination_snapshot_models import (
+    CoordinationSnapshot,
+    coordination_snapshot_from_mapping,
+)
 from ...runtime.control_plane_read_model import (
     ControlPlaneReadModel,
     build_control_plane_read_model,
 )
+from ...runtime.review_state_parser import review_state_from_payload
 from ...runtime.review_state_models import (
     ReviewCandidateRecord,
     review_candidate_from_mapping,
@@ -85,10 +90,13 @@ class SessionCachePacket:
     next_recommended_command: str = ""
     reviewer_observation_status: str = ""
     review_candidate: ReviewCandidateRecord | None = None
+    coordination: CoordinationSnapshot | None = None
 
     def to_dict(self) -> dict[str, object]:
         payload = asdict(self)
         payload["key_rules"] = list(self.key_rules)
+        if self.coordination is not None:
+            payload["coordination"] = self.coordination.to_dict()
         return payload
 
 
@@ -209,6 +217,11 @@ def build_from_sources(
     obs_status = ""
     if model.reviewer_observation is not None:
         obs_status = model.reviewer_observation.status
+    coordination = _extract_coordination(
+        sources,
+        repo_root=repo_root,
+        governance=governance,
+    )
 
     return SessionCachePacket(
         generated_at_utc=utc_timestamp(),
@@ -236,6 +249,7 @@ def build_from_sources(
         next_recommended_command=next_cmd,
         reviewer_observation_status=obs_status,
         review_candidate=review_candidate,
+        coordination=coordination,
     )
 
 
@@ -276,6 +290,58 @@ def _extract_review_candidate(
             if candidate is not None:
                 return candidate
     return None
+
+
+def _extract_coordination(
+    sources: dict[str, Any],
+    *,
+    repo_root: Path,
+    governance: "ProjectGovernance | None",
+) -> CoordinationSnapshot | None:
+    """Return governed coordination truth from sources or a typed fallback build."""
+    for key in ("review_state", "compact_json", "full_json"):
+        payload = sources.get(key)
+        if not isinstance(payload, dict):
+            continue
+        direct = coordination_snapshot_from_mapping(payload.get("coordination"))
+        if direct is not None:
+            return direct
+        nested = payload.get("review_state")
+        if isinstance(nested, dict):
+            direct = coordination_snapshot_from_mapping(nested.get("coordination"))
+            if direct is not None:
+                return direct
+
+    if governance is None:
+        try:
+            from ...runtime.startup_context import build_startup_context
+        except ImportError:
+            return None
+        startup_context = build_startup_context(repo_root=repo_root)
+        return startup_context.coordination
+
+    for key in ("review_state", "full_json"):
+        payload = sources.get(key)
+        if not isinstance(payload, dict):
+            continue
+        typed_review_state = review_state_from_payload(payload)
+        if typed_review_state is None:
+            continue
+        from ...platform.coordination_snapshot import (
+            build_coordination_snapshot_for_review_state,
+        )
+
+        return build_coordination_snapshot_for_review_state(
+            repo_root=repo_root,
+            governance=governance,
+            review_state=typed_review_state,
+        )
+    try:
+        from ...runtime.startup_context import build_startup_context
+    except ImportError:
+        return None
+    startup_context = build_startup_context(repo_root=repo_root)
+    return startup_context.coordination
 
 
 # Alias kept for backward compatibility with existing callers
@@ -480,6 +546,7 @@ def packet_from_mapping(payload: dict[str, Any]) -> SessionCachePacket:
         next_recommended_command=str(payload.get("next_recommended_command") or "").strip(),
         reviewer_observation_status=str(payload.get("reviewer_observation_status") or "").strip(),
         review_candidate=review_candidate_from_mapping(payload.get("review_candidate")),
+        coordination=coordination_snapshot_from_mapping(payload.get("coordination")),
     )
 
 

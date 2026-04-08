@@ -7,15 +7,18 @@ import unittest
 from dataclasses import replace
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from types import SimpleNamespace
 from unittest.mock import patch
 
 from dev.scripts.devctl.cli import COMMAND_HANDLERS, build_parser
 from dev.scripts.devctl.commands.listing import COMMANDS
 from dev.scripts.devctl.commands.governance.startup_context import (
+    _machine_summary,
     _render_markdown,
     _render_summary,
 )
 from dev.scripts.devctl.commands.governance import startup_context as startup_context_command
+from dev.scripts.devctl.platform.coordination_snapshot_models import CoordinationSnapshot
 from dev.scripts.devctl.runtime.startup_context import (
     ReviewerGateState,
     StartupContext,
@@ -42,6 +45,7 @@ from dev.scripts.devctl.runtime.project_governance import (
     PROJECT_GOVERNANCE_SCHEMA_VERSION,
 )
 from dev.scripts.devctl.runtime.work_intake_models import (
+    PlanTargetRef,
     WorkIntakeCoordinationState,
     WorkIntakeOwnershipState,
 )
@@ -328,6 +332,49 @@ class TestCLIRegistration(unittest.TestCase):
             "workflow_profile_rule_summary: Selected bundle.tooling for edit-first work.",
             rendered,
         )
+
+    def test_markdown_renders_top_level_coordination_snapshot(self) -> None:
+        rendered = _render_markdown(
+            {
+                "advisory_action": "continue_editing",
+                "advisory_reason": "clean_worktree",
+                "reviewer_gate": {},
+                "governance": {
+                    "repo_identity": {"repo_name": "test", "current_branch": "feature/x"},
+                },
+                "coordination": {
+                    "active_target": {
+                        "plan_path": "dev/active/platform_authority_loop.md",
+                        "target_kind": "session_resume",
+                    },
+                    "current_slice": "Wire remote-control bootstrap through CoordinationSnapshot.",
+                    "scope_paths": ["dev/scripts/devctl/commands/governance"],
+                    "declared_topology": "multi_agent_orchestrated",
+                    "observed_topology": "single_agent",
+                    "recommended_topology": "single_agent",
+                    "fanout_posture": "planned_scaffolding_only",
+                    "safe_to_fanout": False,
+                    "worktree_strategy": "isolated_worker_worktrees",
+                    "resync_required": True,
+                    "resync_reasons": ["declared_topology:multi_agent_orchestrated"],
+                    "actors": [{"actor_id": "codex", "presence": "live"}],
+                },
+            }
+        )
+
+        self.assertIn("## Coordination Snapshot", rendered)
+        self.assertIn(
+            "current_slice: Wire remote-control bootstrap through CoordinationSnapshot.",
+            rendered,
+        )
+        self.assertIn(
+            "topology: `multi_agent_orchestrated` / `single_agent` -> `single_agent`",
+            rendered,
+        )
+        self.assertIn("fanout_posture: `planned_scaffolding_only`", rendered)
+        self.assertIn("safe_to_fanout: False", rendered)
+        self.assertIn("resync_required: True", rendered)
+        self.assertIn("actors: `codex:live`", rendered)
 
     def test_markdown_renders_latest_push_receipt_fields(self) -> None:
         rendered = _render_markdown(
@@ -804,6 +851,62 @@ class TestCLIRegistration(unittest.TestCase):
         self.assertIn("action=repair_reviewer_loop", rendered)
         self.assertIn("blockers=startup_authority,reviewer_heartbeat_stale", rendered)
         self.assertIn("review-channel --action launch", rendered)
+
+    def test_summary_surfaces_coordination_and_resync_blocker(self) -> None:
+        rendered = _render_summary(
+            {
+                "advisory_action": "continue_editing",
+                "advisory_reason": "coordination_visible",
+                "reviewer_gate": {
+                    "implementation_blocked": False,
+                    "implementation_block_reason": "",
+                    "operator_interaction_mode": "remote_control",
+                },
+                "startup_authority": {"ok": True},
+                "governance": {
+                    "push_enforcement": {
+                        "checkpoint_required": False,
+                        "safe_to_continue_editing": True,
+                    }
+                },
+                "push_decision": {
+                    "action": "no_push_needed",
+                    "next_step_command": "",
+                },
+                "coordination": {
+                    "declared_topology": "multi_agent_orchestrated",
+                    "observed_topology": "single_agent",
+                    "recommended_topology": "single_agent",
+                    "fanout_posture": "planned_scaffolding_only",
+                    "safe_to_fanout": False,
+                    "worktree_strategy": "isolated_worker_worktrees",
+                    "resync_required": True,
+                    "current_slice": "Drive startup summary from shared coordination.",
+                    "active_target": {
+                        "plan_path": "dev/active/remote_control_runtime.md",
+                    },
+                },
+            }
+        )
+
+        self.assertIn("blockers=coordination_resync_required", rendered)
+        self.assertIn(
+            "next=python3 dev/scripts/devctl.py review-channel --action status --terminal none --format json",
+            rendered,
+        )
+        self.assertIn(
+            "coordination=multi_agent_orchestrated/single_agent->single_agent",
+            rendered,
+        )
+        self.assertIn("safe_to_fanout=False", rendered)
+        self.assertIn("resync_required=True", rendered)
+        self.assertIn("fanout_posture=planned_scaffolding_only", rendered)
+        self.assertIn("worktree_strategy=isolated_worker_worktrees", rendered)
+        self.assertIn(
+            "current_slice=Drive startup summary from shared coordination.",
+            rendered,
+        )
+        self.assertIn("active_target=dev/active/remote_control_runtime.md", rendered)
 
     def test_summary_surfaces_push_backlog_when_remote_work_is_waiting(self) -> None:
         rendered = _render_summary(
@@ -2046,6 +2149,62 @@ class TestReviewerGateOperatorInteractionMode(unittest.TestCase):
             "push_decision": {"action": "no_push_needed", "next_step_command": ""},
         })
         self.assertIn("interaction_mode=unresolved", rendered)
+
+    def test_machine_summary_includes_coordination_block(self) -> None:
+        coordination = CoordinationSnapshot(
+            current_slice="Wire startup summary from shared coordination.",
+            declared_topology="multi_agent_orchestrated",
+            observed_topology="single_agent",
+            recommended_topology="single_agent",
+            fanout_posture="planned_scaffolding_only",
+            safe_to_fanout=False,
+            worktree_strategy="isolated_worker_worktrees",
+            resync_required=True,
+            active_target=PlanTargetRef(
+                target_id="target-1",
+                plan_path="dev/active/remote_control_runtime.md",
+                plan_title="Remote Control Runtime",
+                plan_scope="MP-380..MP-387",
+                target_kind="plan_doc",
+                anchor_ref="section:execution-checklist",
+                expected_revision="rev-1",
+            ),
+        )
+        ctx = SimpleNamespace(
+            advisory_action="continue_editing",
+            advisory_reason="coordination_visible",
+            reviewer_gate=SimpleNamespace(bridge_active=True),
+            push_decision=SimpleNamespace(
+                push_eligible_now=False,
+                action="await_review",
+                next_step_command="python3 dev/scripts/devctl.py review-channel --action status --terminal none --format json",
+                publication_backlog=SimpleNamespace(
+                    backlog_state="none",
+                    backlog_recommended=False,
+                    backlog_urgent=False,
+                ),
+                publication_guidance="",
+            ),
+            coordination=coordination,
+        )
+
+        summary = _machine_summary(
+            ctx=ctx,
+            push=None,
+            authority_report={"ok": True},
+            startup_receipt_path="dev/reports/startup/latest.json",
+        )
+
+        self.assertIn("coordination", summary)
+        self.assertEqual(
+            summary["coordination"]["current_slice"],
+            "Wire startup summary from shared coordination.",
+        )
+        self.assertEqual(
+            summary["coordination"]["recommended_topology"],
+            "single_agent",
+        )
+        self.assertTrue(summary["coordination"]["resync_required"])
 
 
 if __name__ == "__main__":
