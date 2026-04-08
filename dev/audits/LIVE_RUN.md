@@ -1394,6 +1394,72 @@ been reviewer-implementer work. The operator corrected this explicitly:
   Action Requests for Codex and Claude-CLI to address.
 - **Status**: OPEN (needs Codex triage + role-contract enforcement)
 
+### Q41 — **ROOT CAUSE OF ALL SESSION DEATHS** — `devctl commit` + `devctl push` trigger `process-sweep-post` which reaps live conductor PIDs
+
+- **Discovered**: 2026-04-08T19:49Z (forensic analysis of second conductor death)
+- **Severity**: architectural root cause, CRITICAL
+- **Body**: This is the single most impactful finding of the session.
+  It is the root cause of Q14 (publisher won't die), A11 (no auto-
+  relaunch), Q36 (detached_runtime_only), and every silent conductor
+  death I observed. The mechanism:
+    1. `review-channel --action launch` spawns Codex/Claude-CLI as
+       fire-and-forget background processes. Their parent (the
+       launcher CLI) exits. The children reparent to PID 1 (init).
+    2. `devctl commit` → `check --profile quick` →
+       `process-sweep-post` (internal step) → `process-sweep
+       --kill-orphans-or-stale`.
+    3. `process-sweep` sees the conductor PIDs with `PPID=1` and
+       classifies them as "orphans" — because from a pure `ps` view,
+       they have no parent.
+    4. `process-sweep` reaps them.
+    5. The conductors die mid-task. The review loop collapses.
+  **Every governed commit kills the very agents it's supposed to
+  protect.**
+- **Forensic evidence from this session**:
+    - Codex conductor log last line (19:37:34Z):
+      `⠋ codex-voice \ Working` — the spinner animation
+      was still updating, meaning Codex was actively doing work.
+      Not a crash, not an auth prompt, not an idle timeout.
+    - Claude-CLI conductor log last line (19:37:34Z):
+      `PR#16 · esc to interrupt · ctrl+t to hide tasks ✶ 3 working`
+      — also mid-task, actively computing, with the task name visible.
+    - I ran `devctl commit` + `devctl push --execute` multiple
+      times between 19:30-19:37. Each push ran
+      `bundle.tooling` and `bundle.docs` which both include
+      `process-sweep-post` (indirectly via the `check` steps they
+      share).
+    - First session (PIDs 22113/22183) died the same way —
+      `process-sweep-post` killed them as a side effect of my
+      `check --profile quick` run. I already logged that as Q2.
+  Q41 is Q2's consequence at architectural scale.
+- **Related drop**: `codex-conductor.json` correctly populates
+  `terminal_window_id: 10910` and
+  `supervision_mode: restart-on-clean-exit` on disk, but neither
+  of those fields is surfaced in `bridge_liveness` typed state,
+  and `supervision_mode` is not acted on — restart-on-clean-exit
+  should auto-respawn the conductor after a clean exit, but it
+  doesn't.
+- **Fix recommendations** (in priority order):
+    1. `process-sweep` must NEVER kill PIDs registered in the
+       current session's `review_channel/latest/sessions/*.json`
+       files. Add a "registered conductor" exclude list to the
+       sweep logic.
+    2. The `restart-on-clean-exit` supervision mode should actually
+       fire: a watcher should detect conductor exit and respawn
+       within ~5s.
+    3. `process-sweep-post` should run FIRST in the guard bundle
+       (before any other guards), not LAST, so it doesn't reap
+       mid-check; and it should only reap PIDs with `etime >
+       THRESHOLD` that aren't in the live session registry.
+    4. Documentation-only commits (LIVE_RUN.md, bridge.md, etc.)
+       should skip `process-sweep-post` entirely — there's no
+       orphan risk from editing markdown.
+- **Operator-facing consequence**: for the remainder of this beta
+  test, the operator should use raw `git commit` for documentation
+  updates and avoid `devctl commit` until Q41 lands. Every
+  `devctl commit` risks killing the live conductor pair.
+- **Status**: OPEN — **highest priority fix of the session**
+
 ### Q40 — TANDEM CONSISTENCY — `check_tandem_consistency` blocks ALL commits when conductors die (including documentation)
 
 - **Discovered**: 2026-04-08T19:46Z

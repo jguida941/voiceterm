@@ -5,14 +5,14 @@
 ## Quick status
 
 - Branch: `feature/governance-quality-sweep`
-- HEAD: `839008c60916` — Refresh external review snapshot for 17d7c73
-- Tree hash: `17311335b84a`
-- Generation stamp: `snap-3a5e5b31dae7`
-- Generated at (UTC): 2026-04-08T19:49:14Z
+- HEAD: `c60bd77beca3` — LIVE_RUN: Q33-Q40 findings from full surface audit + guard-block cascade
+- Tree hash: `15f36a95246e`
+- Generation stamp: `snap-fc0af397c03b`
+- Generated at (UTC): 2026-04-08T19:51:08Z
 - Push decision: `await_checkpoint` — worktree_dirty
 - Reviewer mode: `tools_only` (interaction: `local_terminal`)
 - Pipeline state: `n/a` (approval: `n/a`)
-- Delta since last snapshot: 25 commits, 17 files, +2485/-1434
+- Delta since last snapshot: 24 commits, 17 files, +2596/-1371
 - Governance findings: 39 open / 68 fixed / 121 total
 - Probe hints: 0 total across 0 files scanned
 
@@ -54,9 +54,9 @@ adopters arrive.
 - Remote: `https://github.com/jguida941/voiceterm.git`
 - Default branch: `master`
 - Current branch: `feature/governance-quality-sweep`
-- HEAD SHA: `839008c60916b321018aad83fa96a97612db6c1b`
+- HEAD SHA: `c60bd77beca34bfb9511259adf5b154780cf8c07`
 - HEAD author: Justin Guida
-- HEAD timestamp (UTC): 2026-04-08T15:36:09-04:00
+- HEAD timestamp (UTC): 2026-04-08T15:49:05-04:00
 
 ## 2. Governance state
 
@@ -72,7 +72,7 @@ adopters arrive.
 - authorized_head_commit: `ee13a6c6337f395afa574e99a4234f2eaf45a161`
 - approved_target_identity: `tree-receipt-20260407T220000Z:281dea21851063411d2c43c2b4621a1c2a1168b5`
 - publication_backlog: urgent
-- publication_guidance: 12 local commit(s) waiting for governed push once the current slice is checkpoint-clean.
+- publication_guidance: 13 local commit(s) waiting for governed push once the current slice is checkpoint-clean.
 
 ### Reviewer runtime
 - reviewer_mode: `tools_only`
@@ -93,54 +93,53 @@ adopters arrive.
 
 ## 3. Delta — what changed since the previous snapshot
 
-Range: last 25 commits ending at `839008c60916`
+Range: last 24 commits ending at `c60bd77beca3`
 
-- commits: 25
+- commits: 24
 - files changed: 17
-- insertions: +2485
-- deletions: -1434
-- bundle classes touched: tooling, docs
+- insertions: +2596
+- deletions: -1371
+- bundle classes touched: docs, tooling
 - authority surfaces touched: 4 file(s)
 
 ### Commits
 
 | # | SHA | Subject | Files | +/- | Bundle | Risk |
 |---|---|---|---|---|---|---|
-| 1 | `839008c` | Refresh external review snapshot for 17d7c73 | 1 | +41/-38 | tooling |  |
-| 2 | `17d7c73` | Refresh external review snapshot for 1de0fc0 | 1 | +41/-41 | tooling |  |
-| 3 | `1de0fc0` | Bridge refresh: Codex polls post-relaunch at 19:30:05Z + 19… | 2 | +58/-60 | docs |  |
-| 4 | `7a1ba28` | LIVE_RUN: A11 + Q31 role drift self-correction + Q32 Q4 reg… | 2 | +174/-49 | tooling |  |
-| 5 | `7384202` | Extend Q1 bypass to concurrent-writer rule (Q30) + regen AG… | 3 | +50/-48 | tooling |  |
-| 6 | `015cec9` | Refresh external review snapshot for 7889291 | 1 | +52/-57 | tooling |  |
-| 7 | `7889291` | Fix Q18: bundle.docs docs-check missing --since-ref origin/… | 2 | +59/-49 | tooling |  |
-| 8 | `1259410` | Refresh external review snapshot for 44c0018 | 1 | +41/-47 | tooling |  |
-| 9 | `44c0018` | Refresh external review snapshot for d9a9a3b | 1 | +52/-57 | tooling |  |
-| 10 | `d9a9a3b` | CHANGELOG: Q1 FIXED + A1-A10 automation gaps entry (unblock… | 2 | +70/-48 | docs |  |
-| 11 | `2ec6991` | Refresh external review snapshot for 2ee89e5 | 1 | +52/-56 | tooling |  |
-| 12 | `2ee89e5` | LIVE_RUN: Q1 FIXED + Q29 + A1-A10 automation gaps (remote_c… | 2 | +267/-50 | tooling |  |
-| 13 | `5c95b87` | Refresh external review snapshot for ee0a1d0 | 1 | +40/-46 | tooling |  |
-| 14 | `ee0a1d0` | Refresh external review snapshot for 2bd24b1 | 1 | +55/-49 | tooling |  |
-| 15 | `2bd24b1` | Fix Q1: devctl commit self-block via DEVCTL_COMMIT_GATE_BYP… | 3 | +85/-60 | tooling |  |
-| 16 | `a967137` | Refresh external review snapshot for 199291a | 1 | +40/-37 | tooling |  |
-| 17 | `199291a` | Refresh external review snapshot for 3bd849c | 1 | +64/-51 | tooling |  |
-| 18 | `3bd849c` | Land F1/F2/F3: unified review-state loader + packet labels… | 9 | +271/-201 | tooling |  |
-| 19 | `9f9d8d7` | bridge + LIVE_RUN refresh: Codex F4 verdict + Q23/Q25/Q26/Q… | 3 | +197/-56 | tooling |  |
-| 20 | `53d54b9` | LIVE_RUN: Q22-Q24 + capability discovery gap from devctl co… | 2 | +177/-42 | tooling |  |
-| 21 | `003f117` | Bridge Action Request + LIVE_RUN retirement plan + enhancem… | 3 | +330/-63 | tooling |  |
-| 22 | `3758302` | LIVE_RUN: acknowledge Codex F4 regression from Q4 tactical… | 2 | +77/-43 | tooling |  |
-| 23 | `46c94dd` | Revert "Q4 tactical fix: flip BridgeConfig.operator_interac… | 2 | +65/-66 | tooling |  |
-| 24 | `2a93f52` | Refresh external review snapshot for f54116e | 1 | +44/-41 | tooling |  |
-| 25 | `f54116e` | bridge: point Claude Questions at LIVE_RUN.md; announce Q20… | 2 | +83/-79 | docs |  |
+| 1 | `c60bd77` | LIVE_RUN: Q33-Q40 findings from full surface audit + guard-… | 3 | +238/-57 | tooling |  |
+| 2 | `839008c` | Refresh external review snapshot for 17d7c73 | 1 | +41/-38 | tooling |  |
+| 3 | `17d7c73` | Refresh external review snapshot for 1de0fc0 | 1 | +41/-41 | tooling |  |
+| 4 | `1de0fc0` | Bridge refresh: Codex polls post-relaunch at 19:30:05Z + 19… | 2 | +58/-60 | docs |  |
+| 5 | `7a1ba28` | LIVE_RUN: A11 + Q31 role drift self-correction + Q32 Q4 reg… | 2 | +174/-49 | tooling |  |
+| 6 | `7384202` | Extend Q1 bypass to concurrent-writer rule (Q30) + regen AG… | 3 | +50/-48 | tooling |  |
+| 7 | `015cec9` | Refresh external review snapshot for 7889291 | 1 | +52/-57 | tooling |  |
+| 8 | `7889291` | Fix Q18: bundle.docs docs-check missing --since-ref origin/… | 2 | +59/-49 | tooling |  |
+| 9 | `1259410` | Refresh external review snapshot for 44c0018 | 1 | +41/-47 | tooling |  |
+| 10 | `44c0018` | Refresh external review snapshot for d9a9a3b | 1 | +52/-57 | tooling |  |
+| 11 | `d9a9a3b` | CHANGELOG: Q1 FIXED + A1-A10 automation gaps entry (unblock… | 2 | +70/-48 | docs |  |
+| 12 | `2ec6991` | Refresh external review snapshot for 2ee89e5 | 1 | +52/-56 | tooling |  |
+| 13 | `2ee89e5` | LIVE_RUN: Q1 FIXED + Q29 + A1-A10 automation gaps (remote_c… | 2 | +267/-50 | tooling |  |
+| 14 | `5c95b87` | Refresh external review snapshot for ee0a1d0 | 1 | +40/-46 | tooling |  |
+| 15 | `ee0a1d0` | Refresh external review snapshot for 2bd24b1 | 1 | +55/-49 | tooling |  |
+| 16 | `2bd24b1` | Fix Q1: devctl commit self-block via DEVCTL_COMMIT_GATE_BYP… | 3 | +85/-60 | tooling |  |
+| 17 | `a967137` | Refresh external review snapshot for 199291a | 1 | +40/-37 | tooling |  |
+| 18 | `199291a` | Refresh external review snapshot for 3bd849c | 1 | +64/-51 | tooling |  |
+| 19 | `3bd849c` | Land F1/F2/F3: unified review-state loader + packet labels… | 9 | +271/-201 | tooling |  |
+| 20 | `9f9d8d7` | bridge + LIVE_RUN refresh: Codex F4 verdict + Q23/Q25/Q26/Q… | 3 | +197/-56 | tooling |  |
+| 21 | `53d54b9` | LIVE_RUN: Q22-Q24 + capability discovery gap from devctl co… | 2 | +177/-42 | tooling |  |
+| 22 | `003f117` | Bridge Action Request + LIVE_RUN retirement plan + enhancem… | 3 | +330/-63 | tooling |  |
+| 23 | `3758302` | LIVE_RUN: acknowledge Codex F4 regression from Q4 tactical… | 2 | +77/-43 | tooling |  |
+| 24 | `46c94dd` | Revert "Q4 tactical fix: flip BridgeConfig.operator_interac… | 2 | +65/-66 | tooling |  |
 
 ### Files
 
 | Path | Bundle | +/- |
 |---|---|---|
 | `AGENTS.md` | docs | +1/-1 |
-| `bridge.md` | docs | +39/-35 |
+| `bridge.md` | docs | +25/-22 |
 | `dev/CHANGELOG.md` | docs | +19/-0 |
-| `dev/audits/LIVE_RUN.md` | tooling | +905/-2 |
-| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1254/-1275 |
+| `dev/audits/LIVE_RUN.md` | tooling | +1089/-2 |
+| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1195/-1225 |
 | `dev/scripts/checks/startup_authority_contract/runtime_checks.py` | tooling | +12/-0 |
 | `dev/scripts/devctl/bundles/registry.py` | tooling | +8/-1 |
 | `dev/scripts/devctl/commands/dashboard_render/attention.py` | tooling | +11/-2 |
@@ -240,6 +239,8 @@ Recent findings:
 
 ### Per-commit rationale
 
+- **`c60bd77`** — LIVE_RUN: Q33-Q40 findings from full surface audit + guard-block cascade
+  - evolution: The next coordination follow-up was not another reducer. The reducer already existed and multiple rich surfaces already rendered it. The miss was load-bearing: the shared `ControlPlaneReadModel` still had no coordinatio…
 - **`839008c`** — Refresh external review snapshot for 17d7c73
   - evolution: The next coordination follow-up was not another reducer. The reducer already existed and multiple rich surfaces already rendered it. The miss was load-bearing: the shared `ControlPlaneReadModel` still had no coordinatio…
 - **`17d7c73`** — Refresh external review snapshot for 1de0fc0
@@ -304,13 +305,6 @@ Recent findings:
 - **`46c94dd`** — Revert "Q4 tactical fix: flip BridgeConfig.operator_interaction_mode default to remote_control"
   - This reverts commit f177aae4081fa638fb347c046570ad3bd0b58ef4.
   - evolution: The next coordination follow-up was not another reducer. The reducer already existed and multiple rich surfaces already rendered it. The miss was load-bearing: the shared `ControlPlaneReadModel` still had no coordinatio…
-- **`2a93f52`** — Refresh external review snapshot for f54116e
-  - evolution: The next coordination follow-up was not another reducer. The reducer already existed and multiple rich surfaces already rendered it. The miss was load-bearing: the shared `ControlPlaneReadModel` still had no coordinatio…
-- **`f54116e`** — bridge: point Claude Questions at LIVE_RUN.md; announce Q20 packet transport break
-  - Replaces the inline Q1-Q4 detail blocks with a single pointer to
-  - dev/audits/LIVE_RUN.md (which now contains all 20 findings in full).
-  - Frees ~3000 bytes of bridge budget and gives Codex a stable canonical
-  - evolution: The next coordination follow-up was not another reducer. The reducer already existed and multiple rich surfaces already rendered it. The miss was load-bearing: the shared `ControlPlaneReadModel` still had no coordinatio…
 ### Active MP scope (from MASTER_PLAN.md)
 
 - `dev/active/devctl_reporting_upgrade.md` is the phased `devctl` reporting/CIHub specification, but not a separate execution tracker; implementation tasks stay in this file under `MP-297..MP-300`, `MP-303`, `MP-306`, `MP…
@@ -346,4 +340,4 @@ Recent findings:
 
 ---
 
-Projection produced by `devctl review-snapshot`. Generation stamp `snap-3a5e5b31dae7` binds this file to HEAD `839008c60916`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
+Projection produced by `devctl review-snapshot`. Generation stamp `snap-fc0af397c03b` binds this file to HEAD `c60bd77beca3`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
