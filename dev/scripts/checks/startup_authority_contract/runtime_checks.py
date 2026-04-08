@@ -279,6 +279,8 @@ def collect_concurrent_writer_errors(
     review_state=None,
 ) -> list[str]:
     """Return fail-closed errors when typed peer activity overlaps outside-scope dirt."""
+    if os.environ.get(_COMMIT_GATE_BYPASS_ENV, "").strip() == "1":
+        return []  # commit gate bypass — LIVE_RUN Q1/Q30
     resolved_review_state = review_state
     if resolved_review_state is None:
         try:

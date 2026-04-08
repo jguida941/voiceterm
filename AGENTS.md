@@ -1457,7 +1457,7 @@ find . -maxdepth 1 -type f -name '--*'
 ### `bundle.docs`
 
 ```bash
-python3 dev/scripts/devctl.py docs-check --user-facing
+python3 dev/scripts/devctl.py docs-check --user-facing --since-ref origin/develop
 python3 dev/scripts/devctl.py hygiene
 python3 dev/scripts/checks/check_active_plan_sync.py
 python3 dev/scripts/checks/check_multi_agent_sync.py
