@@ -4,7 +4,7 @@
 
 **Status:** Draft v4 (historical design and process record)
 **Audience:** users and developers
-**Last Updated:** 2026-04-07
+**Last Updated:** 2026-04-08
 
 ## At a Glance
 
@@ -39,6 +39,38 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 
 ### 2026-04-07 - ReviewSnapshot hook hardening routed through owner plans
 
+### 2026-04-08 - Review-channel now detects stale reviewer instruction revisions
+
+The live review-channel loop exposed a subtle bridge/runtime split: a reviewer
+could rewrite `Current Instruction For Claude` directly in `bridge.md`, forget
+to update `Current instruction revision`, and the typed stack would still treat
+Claude's ACK as current because it only compared revision strings. That left
+the markdown bridge, `status`/`bridge-poll`, and the launched Codex/Claude
+conductors with contradictory authority about whether a new slice was live.
+
+The repair stays inside the existing typed bridge-to-runtime reduction instead
+of inventing a second authority store. Bridge-backed `current_session` now
+compares the live instruction body against the prior typed snapshot; when the
+body changed under a reused revision, it re-derives the effective live
+revision from the current instruction text, downgrades Claude ACK freshness,
+and threads that corrected state through `review-channel --action status` and
+`bridge-poll`. The repo also records a reviewer-facing warning for that drift
+and lets reviewer write preconditions accept either the raw bridge revision or
+the effective typed revision during repair, so repo-owned checkpoint/promotion
+flows remain recoverable instead of deadlocking on the stale header.
+
+Evidence: `dev/scripts/devctl/review_channel/current_session_projection.py`,
+`dev/scripts/devctl/review_channel/state.py`,
+`dev/scripts/devctl/review_channel/status_projection.py`,
+`dev/scripts/devctl/review_channel/write_preconditions.py`,
+`dev/scripts/devctl/commands/review_channel/_bridge_poll.py`,
+`dev/scripts/devctl/tests/review_channel/test_current_session_projection.py`,
+`dev/scripts/devctl/tests/review_channel/test_bridge_poll.py`,
+`dev/scripts/devctl/tests/review_channel/test_reviewer_checkpoint_inputs.py`,
+`dev/active/review_channel.md`,
+`dev/active/MASTER_PLAN.md`.
+
+### 2026-04-07 - ReviewSnapshot hook hardening routed through owner plans
 The ReviewSnapshot hardening audit is now plan intake, not a new execution
 authority. The active owner docs keep the same routing rule: path/default and
 artifact resolver work belongs to the platform authority loop, commit/push and

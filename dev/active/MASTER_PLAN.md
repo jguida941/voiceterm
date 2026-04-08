@@ -3459,7 +3459,13 @@ become the main product surface.
   typed recovery command instead of hardcoding peer-stale `rollover`; typed
   `launch` can auto-run only when the typed decision marks relaunch
   auto-fixable, and approval-gated relaunch stays fail-closed on the queued
-  reviewer-turn packet path.
+  reviewer-turn packet path. 2026-04-08 follow-up: bridge-backed
+  `current_session` now detects the operator-observed stale reviewer edit
+  shape where `Current Instruction For Claude` changed under a reused
+  instruction revision; status/bridge-poll re-derive the effective revision,
+  downgrade Claude ACK freshness instead of silently leaving it `current`, and
+  reviewer-write preconditions accept that effective typed revision during
+  repair so repo-owned checkpoint/promotion flows remain recoverable.
   A second 2026-03-15 anti-stall hardening pass now blocks the next real loop
   failure shape too: `implementer_completion_stall` fails when Claude-owned
   status/ack text parks on "instruction unchanged / continuing to poll /
