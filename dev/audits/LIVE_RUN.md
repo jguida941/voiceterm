@@ -826,6 +826,138 @@ intervention to verify. Codex should treat these as potential blind spots.
    dev/scripts/devctl/tests/ -q -k interaction_mode` to find any tests
    that assume the old default.
 
+### Q22 — CRASH — `devctl discover --format md` crashes with KeyError
+
+- **Discovered**: 2026-04-08T18:38Z
+- **Severity**: crash, medium (the capability-discovery surface itself is broken)
+- **Location**: `dev/scripts/devctl/commands/discover/__init__.py:254` in `_render_category`
+- **Body**: `devctl discover --format md` crashes with:
+  ```
+  File "dev/scripts/devctl/commands/discover/__init__.py", line 254, in _render_category
+    lines.append(f"- `{item['id']}`")
+                       ~~~~^^^^^^
+  KeyError: 'id'
+  ```
+  The iterator expects `item['id']` but guard items use a different key
+  (likely `name`, `guard_id`, or `script`). This means the command that
+  should help AI agents discover all repo capabilities is itself broken,
+  which is probably why neither Codex nor I found `phone-status`,
+  `autonomy-loop`, `controller-action`, `autonomy-swarm`, and the other
+  remote-control commands until deep into this session.
+- **Fix recommendation**: fix the key lookup in `_render_category` and
+  add a round-trip test (`discover` must not crash on any valid
+  category). Also add an `--assume-present` fallback so missing
+  fields don't fatally error the whole render — a best-effort
+  discovery surface is better than nothing.
+- **Status**: OPEN (high-leverage — fixing this unblocks AI agent
+  capability discovery for the whole system)
+
+### Q23 — BUG — `system-picture` context graph reports `plan_count: 0` when repo has 29 plan docs
+
+- **Discovered**: 2026-04-08T18:39Z
+- **Severity**: data quality, high (false-negative on a load-bearing
+  registry)
+- **Body**: `devctl system-picture --format md` reports:
+  ```
+  node_count: 2828
+  edge_count: 53786
+  guard_count: 69
+  probe_count: 25
+  plan_count: 0       ← absurd
+  ```
+  But `ls dev/active/*.md` shows 29 markdown plan docs including
+  `MASTER_PLAN.md`, `INDEX.md`, `ai_governance_platform.md`,
+  `autonomous_control_plane.md`, `continuous_swarm.md`,
+  `devctl_reporting_upgrade.md`, `host_process_hygiene.md`,
+  `ide_provider_modularization.md`, `loop_chat_bridge.md`,
+  `memory_studio.md`, and many more. The context graph is **not
+  ingesting plan docs at all**, not even the MASTER_PLAN.
+- **Impact**: any AI agent or human reading `system-picture` will
+  conclude the repo has no plans and may not even look for them.
+  `plan_count: 0` is worse than missing — it's a confident wrong
+  answer. This is probably WHY neither Codex nor I routed work
+  through the plan layer during the F1/F2/F3 triage: the top-level
+  view asserted the plan layer was empty.
+- **Fix recommendation**: the context graph's plan ingestor must
+  enumerate `dev/active/*.md` (and whatever repo-policy paths
+  `active_registry_doc` / `execution_tracker_doc` point at). Add a
+  test that asserts `plan_count > 0` for any repo with plans.
+  Also: the staleness note on the snapshot ("captured on an older
+  commit") is ALSO misleading — even the fresh graph would say 0
+  because the ingestor is the bug, not the refresh cadence.
+- **Status**: OPEN
+
+### Q24 — PATTERN — Many diagnostic commands silently return empty when their upstream producer isn't running
+
+- **Discovered**: 2026-04-08T18:40Z
+- **Severity**: pattern / architectural, medium
+- **Body**: `phone-status`, `ralph-status`, and probably others (e.g.
+  `mobile-status`, `orchestrate-status`) read from artifact files
+  written by upstream producers. When the producer is not running,
+  the command returns an empty-but-well-formed response:
+  ```
+  # Ralph Guardrail Status
+  - report_count: 0
+  - total_violations: 0
+  ## Errors
+  - report directory not found: dev/reports/ralph
+  ```
+  The `ok:` field is False and there's an error, but the rest of
+  the payload fields are zeros — which look like "everything is
+  fine" to a casual reader. There is no typed
+  `producer_not_running` signal that distinguishes "no data" from
+  "healthy zero".
+- **Impact**: operators (and AI agents) can't distinguish a green
+  system with genuinely zero violations from a broken system where
+  the producer is dead. Particularly dangerous for Ralph Guardrail
+  which is a safety layer — "zero violations" could mean either
+  "Ralph is working and all good" or "Ralph isn't running so nothing
+  is being watched."
+- **Fix recommendation**: every consumer command that reads from an
+  artifact should emit a typed `producer_status` field:
+  ```
+  producer_status: Literal["running", "not_started", "stopped", "failed"]
+  producer_last_heartbeat_utc: str
+  producer_source_command: str  # how to start it
+  ```
+  So a 0 count is unambiguous.
+- **Status**: OPEN
+
+---
+
+## Capability discovery gap — system-wide observation
+
+Between Q22 (`discover` crashes) and Q23 (`plan_count: 0`) and Q24
+(`producer_not_running` indistinguishable from `healthy_zero`), the
+overall finding is that **the repo has dozens of high-value commands
+and subsystems built, but there is no reliable AI-facing discovery
+layer that exposes them all in a trustworthy way**.
+
+During this session, AI Claude-Code only found the remote-control
+commands (`phone-status`, `autonomy-loop`, `autonomy-swarm`,
+`controller-action`, `mobile-status`, `ralph-status`, `loop-packet`)
+**after** the operator asked directly and I ran `devctl list`. Before
+that, I was reinventing workarounds for things the repo already has
+as first-class commands.
+
+The AI-capability-discovery spec that this session argues for:
+
+1. **A working `devctl discover`** (fix Q22) that enumerates guards,
+   probes, commands, and producers.
+2. **A routing layer that, given a task description, suggests
+   relevant commands.** "Operator is on phone and wants autonomous
+   work" → `autonomy-loop` + `phone-status` + `controller-action`.
+   "Operator wants live review feedback" → `review-channel --action
+   status`. "Operator wants dashboard" → `dashboard`. Right now the
+   only router is the human reading `list` output.
+3. **A machine-readable command catalog** (probably already exists as
+   `script_catalog.py` per project memory) that every AI session
+   loads at bootstrap.
+4. **Producer health on every consumer command** (fix Q24) so
+   commands never silently report zeros.
+5. **System-picture that actually reports populated sections** (fix
+   Q23) so the AI doesn't discount the plan layer.
+
 ## Retirement plan for this file
 
 LIVE_RUN.md is an **emergency workaround** for Q20 (packet transport broken).
