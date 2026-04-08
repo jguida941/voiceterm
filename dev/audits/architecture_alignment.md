@@ -2133,3 +2133,68 @@ platform to a new repo, VoiceTerm product work must be preserved:
 | 20 CI workflows exist ONLY on branches (including product-critical Rust CI) | HIGH |
 | PyPI bootstrap, new CLI flags, security fixes only on branches | HIGH |
 | Option C (branch-based extraction with focused product PR) is safest path | RECOMMENDATION |
+
+## Pass 14 (2026-04-08) — Dashboard Observer Cross-Plan Drift
+
+**Method**: Live remote-control session with operator on iPhone, Claude as read-only dashboard observer, Codex GPT-5.4 reviewer/coder running in parallel local Mac terminal. Four parallel research subagents commissioned by the dashboard observer to audit (1) active-plan priorities, (2) recent findings, (3) Codex's current slice mapping, and (4) cross-plan alignment. Results synthesized into typed packets posted to the bridge as `rev_pkt_0103`, `rev_pkt_0104`, `rev_pkt_0105`, `rev_pkt_0107`, plus this appendix.
+
+**Operator framing principle**: *"any signal a downstream observer can compute should be a typed dashboard field, not narrative chat. If we see anything dashboard cant, that is dumb — it has all the data, something might be off."*
+
+**Cross-reference**: see `dev/audits/architecture_hardening_plan.md` *Session 2026-04-08 — Dashboard Observer Live-Session Appendix* for the full 25-gap observability catalog and the recommended next-slice sequence.
+
+### Issue 14.1 — MP-381 LANDED Status Contradiction (CRITICAL plan-state drift)
+
+`MASTER_PLAN.md` and `remote_control_runtime.md` disagree about whether MP-381 is fully landed.
+
+- `dev/active/MASTER_PLAN.md:310` records: *"Priority 3 (LANDED 2026-04-07)"* in a context that reads as MP-381 closure.
+- `dev/active/remote_control_runtime.md:30-31` shows the MP-381 checkbox as `[ ]` (unchecked).
+- `dev/active/remote_control_runtime.md:345+` says only the parity-guard slice is landed; *"follow-ups A/B (Priorities 2 and 4) and other MP-381 subpriorities remain open."*
+
+**This is the exact same architectural bug that Codex is currently fixing in the runtime layer**: two surfaces expressing different views of the same field, with no parity guard catching the drift. The plan-status fields themselves are drifting in the same way the runtime fields drift. The typed governance system needs a `check_active_plan_field_parity.py` guard analogous to the existing `check_control_plane_parity.py`, or else MASTER_PLAN.md and the subordinate plans will continue to disagree silently as work lands.
+
+**Suggested reconciliation**: Update `MASTER_PLAN.md:310` to mark MP-381 as PARTIAL with explicit subpriorities still open (2, 4, A, B). Add a new `## Open MP-377 Execution Gaps` section in MASTER_PLAN.md that lists all partial-completion items across MP-380..MP-387 with explicit next-slice owners. Run `python3 dev/scripts/checks/check_active_plan_sync.py` after each update; if it does not yet flag this discrepancy, extend the guard to compare LANDED markers across plans.
+
+### Issue 14.2 — Execution priority sequencing mismatch
+
+- `MASTER_PLAN.md:79-84` says the current highest-priority subordinate lane is `dev/active/platform_authority_loop.md` (the authority-loop spine closure).
+- `dev/active/remote_control_runtime.md:222+` re-prioritizes work as **enforcement-first** and lists `devctl commit` + repo pre-commit hook (AUD-27) as Priority 1 with the rationale: *"Why first: Every other fix can be committed ungated without this. Nothing else matters if commits bypass guards."*
+- `dev/active/INDEX.md` load order routes remote-control work AFTER `platform_authority_loop.md` reads complete, but does not declare which is execution-blocking.
+
+**The plans agree on architecture** (authority chains are clear, roles are distinct) but **disagree on execution sequencing**: MASTER_PLAN implies authority-loop closure is blocking everything; `remote_control_runtime.md` treats enforcement-first (AUD-27) as the actual blocking priority. Codex's current slice is doing P4-P5 work (Codex-5 verdict invalidation + Codex-6 pending_action_requests split) while neither P1 (AUD-27) nor P2 (session-resume bootstrap) has landed.
+
+**Suggested reconciliation**: have Codex confirm explicitly whether the current slice is intentional out-of-order work (because P4-P5 unblocks something P1 needs) or whether P1 should be the next slice after this one commits. If the answer is "P1 next," update MASTER_PLAN.md to call out AUD-27 as the explicit blocker for any further reviewer-owned write work.
+
+### Issue 14.3 — Highest-severity unresolved finding NOT in any current slice
+
+`audit_review_state_contract_drift` (file: `dev/scripts/devctl/runtime/review_state_parser.py`) — **CRITICAL severity, 21 days old (created 2026-03-17), never resolved**. From the finding text: *"Bridge-backed and event-backed review-channel producers emit different shapes; compatibility glue normalizes instead of enforcing one authoritative ReviewState contract. Blocks typed contract closure."*
+
+**This is the root architectural cause of the entire bridge/typed-state drift family.** Every dashboard observability gap (G1-G25 in the hardening plan appendix) is downstream of this finding. Codex's current slice fixes downstream symptoms (fail-closed write guards, runtime count extraction) but does not touch the root drift. Once the current slice commits, this should be the next priority.
+
+### Issue 14.4 — Recurring finding clusters in core typed surfaces
+
+From the agent audit of 280 reviewed findings (42 unresolved), the highest-recurrence clusters in core typed surfaces are:
+
+| Cluster | File | Unresolved findings | Age | Severity |
+|---|---|---|---|---|
+| `state.py` cluster | `dev/scripts/devctl/review_channel/state.py` | **5** | 5-6d | HIGH systemic |
+| `startup_context.py` cluster | `dev/scripts/devctl/runtime/startup_context.py` | **3** | 5-6d | HIGH (authority boundary violation) |
+| Cursor agent / role drift | `dev/scripts/devctl/review_channel/status_projection.py` | **4** | 24d | HIGH (parity) |
+| `bridge_projection_drops_operator_direction` | `dev/scripts/devctl/review_channel/bridge_projection_state.py` | 1 (SYSTEMIC) | 5d | HIGH |
+| `launch_gate_stale_head_loop` | `dev/scripts/devctl/runtime/startup_receipt.py` | 1 (SYSTEMIC) | 4d | HIGH |
+| `bridge_acceptance_should_be_projection` | `dev/scripts/devctl/review_channel/bridge_validation_acceptance.py` | 1 (SYSTEMIC) | 5d | HIGH |
+| `push_invalidation_head_equality` | `dev/scripts/devctl/review_channel/push_state.py` | 1 (SYSTEMIC) | 5d | HIGH |
+
+The `state.py` and `startup_context.py` clusters are 5+ days old and **directly adjacent to Codex's current slice** (same review_channel + runtime subsystems) but Codex's patch does not touch those files specifically. They are excellent candidates for the next slice once the current refactor commits.
+
+### Pass 14 Summary
+
+| Finding | Severity |
+|---------|----------|
+| MP-381 LANDED contradiction between MASTER_PLAN.md and remote_control_runtime.md | CRITICAL (plan parity) |
+| Execution sequencing disagreement between MASTER_PLAN.md and remote_control_runtime.md | HIGH (operator should reconcile) |
+| `audit_review_state_contract_drift` 21 days old, CRITICAL, never resolved, root cause of dashboard drift family | CRITICAL |
+| 5-finding cluster in `review_channel/state.py` adjacent to current slice but not addressed | HIGH systemic |
+| 3-finding cluster in `runtime/startup_context.py` (authority boundary) not addressed | HIGH systemic |
+| Codex current slice is P4-P5 work (Codex-5 + Codex-6 territory) while P1 (AUD-27) and P2 (session-resume) remain unstarted | HIGH (sequencing) |
+| 25 dashboard observability gaps cataloged in `architecture_hardening_plan.md` Session 2026-04-08 appendix | MIXED (10 high, 12 medium, 3 advisory) |
+| Plan stack alignment score: 74/100 (architecture coherent, execution-state drifted) | RECOMMENDATION |

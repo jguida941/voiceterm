@@ -1114,6 +1114,107 @@ Use `git reset --hard` or amend only on local branches. Never on branches that h
 - **2026-04-07 expansion**: added Appendix A (concrete slash-command file shapes), Appendix B (settings.json hook schemas), Appendix C (Operator Console integration surfaces), Appendix D (deterministic seams inventory), Appendix E (pre-receive server-side enforcement), Appendix F (further reading pointers).
 - **2026-04-07 deep-pass**: added Appendix G (six deterministic-typed idioms the subsystem is missing — lifecycle events, contract spec registration, typed refresh action, packet-based override, typed snapshot diff, bridge-as-projection documentation), Appendix H (Rust-side governance parity including cross-language contract codegen), Appendix I (cross-repo pack distribution model for adopter packages), Appendix J (property-based test scaffolding with Hypothesis).
 - **2026-04-07 handoff-and-observability**: added Codex handoff summary at the top so Codex doesn't have to read the whole document to understand priority, Appendix K (observability metrics jsonl pipeline), Appendix L (five determinism proofs with concrete tests), Appendix M (plan-level meta questions that need Codex judgment), Appendix N (anti-patterns to avoid based on failures from the prior session).
+- **2026-04-08 dashboard-observer-session**: added Session 2026-04-08 appendix capturing live-session evidence from a Claude remote-control dashboard observer running in parallel with a Codex GPT-5.4 reviewer/coder slice. See cross-reference in `dev/audits/architecture_alignment.md` Pass 14.
+
+## Session 2026-04-08 — Dashboard Observer Live-Session Appendix
+
+**Observer**: Claude (read-only dashboard mode) acting as remote-control dashboard for operator on iPhone.
+**Parallel actor**: Codex GPT-5.4 reviewer/coder running in local Mac terminal session.
+**Operator instruction principle**: *"any signal a downstream observer can compute should be a typed dashboard field, not narrative chat."*
+**Observer contract**: 0 file edits in repo, 0 commits, 0 pushes; mutation limited to typed packet posts via `review-channel --action post` and this audit appendix.
+
+### Observed in-flight Codex slice (uncommitted at time of writing)
+
+- HEAD `0a678e5`, 2 commits ahead of remote, 26-30 dirty files in worktree
+- Codex is patching the `--scope --dry-run` silent overwrite bug at the contract level (not just plugging the leak)
+- New typed modules being extracted:
+  - `dev/scripts/devctl/review_channel/pending_packets.py` — typed pending-packet handling, includes `assert_no_pending_reviewer_packets()` guard
+  - `dev/scripts/devctl/review_channel/runtime_counts.py` — extracted runtime count helpers with bridge-live fallback
+  - `dev/scripts/devctl/tests/review_channel/test_pending_packet_guards.py` — regression tests
+  - `dev/scripts/devctl/tests/commands/reporting/test_dashboard_runtime_counts.py` — focused dashboard runtime-count coverage
+- Hard guard wired into three reviewer-owned write surfaces: `write_reviewer_checkpoint()`, `render_bridge()`, `apply_scope_if_requested()`. All three now fail closed when reviewer-targeted packets are pending in the event-backed inbox.
+- Test added: `test_scope_dry_run_derives_candidate_without_rewriting_bridge` — proves `--dry-run` returns a candidate AND leaves the bridge unchanged.
+- Test added: `test_write_reviewer_checkpoint_refuses_pending_reviewer_packets` — proves checkpoint refuses to write when reviewer packets are pending.
+- Test added: `test_review_channel_render_bridge_fails_closed_with_pending_reviewer_packets` — proves render-bridge fails closed under the same condition.
+- `--scope --dry-run` test variant: previously could rewrite reviewer-owned bridge sections silently, even under dry-run. Now structurally impossible.
+- Documentation surfaces updated to reflect the two behavior changes: `AGENTS.md`, `dev/scripts/README.md`, `dev/active/MASTER_PLAN.md`, `dev/guides/DEVELOPMENT.md`, `dev/history/ENGINEERING_EVOLUTION.md`.
+
+### MP scope this slice closes (per Codex's edits in MASTER_PLAN.md)
+
+- **MP-381** — partial: parity-guard slice extends to runtime_counts on the dashboard side
+- **MP-382 / MP-387** — partial: launch-authority closure extends through the new fail-closed write surface
+- **MP-383** — partial: action-request projection now backed by the typed pending_packets reader
+
+### MP scope this slice does NOT address (still open after this lands)
+
+- **AUD-27 / Priority 1**: `devctl commit` enforcement + repo pre-commit hook so raw `git commit` is structurally impossible. *Per `remote_control_runtime.md:225-229`: "Why first: Every other fix can be committed ungated without this. Nothing else matters if commits bypass guards."*
+- **AUD-22 / Priority 2**: Session-resume as mandatory reviewer bootstrap (`session-resume --role reviewer` before any reviewer poll), with `head_sha != last_reviewed_sha` triggering range review.
+- **MP-380**: Fail-closed `operator_interaction_mode` propagation across governance, startup-context, control-plane read model, session-resume, and launch/recovery. *This is the bug that blocked the dashboard observer from launching the dual-agent loop in this session — `operator_interaction_mode` silently defaulted to `local_terminal` when the operator was in an iPhone Claude remote-control session.*
+- **`audit_review_state_contract_drift`**: 21-day-old CRITICAL finding that bridge-backed and event-backed review-channel producers emit different shapes. Compatibility glue normalizes instead of enforcing one authoritative `ReviewState` contract. **This is the root architectural cause of the entire bridge/typed-state drift family.** Every observability gap below is downstream of this finding.
+- **MP-384 / MP-385**: dashboard / auto-poll / reviewer-bootstrap convergence.
+
+### Twenty-five typed observability gaps observed live in this session
+
+Filed to Codex inbox as `rev_pkt_0107` (kind=finding). Summarized here as the operator-facing audit catalog. Each gap is something the dashboard observer could not see directly through typed state and had to compute manually, work around, or escalate. Per the operator's framing principle, every gap below is either (a) a missing typed projection or (b) a missing governed write path.
+
+**Category A — live observability gaps (3 gaps)**
+
+- **G10**: Dashboard cannot see Codex's interactive read/search/sub-agent activity. Codex spent 2m 50s reading dashboard projection layer files; none of that activity appeared on the typed timeline because the timeline only records `devctl` invocations.
+- **G11**: Sub-agent / sidecar activity invisible (Codex used `Ramanujan` and `Curie` explorer sidecars for verification before patching).
+- **G12**: MCP server boot invisible (`Booting MCP server: codex_apps` left no typed signal beyond a side-effect packet).
+
+**Category B — dashboard projection completeness (8 gaps, includes G1-G9 already filed in `rev_pkt_0104`/`rev_pkt_0105`)**
+
+- **G1**: No consecutive-failure streak detection (5x `check FAIL` streak invisible to dashboard).
+- **G2**: No convergence-anomaly flag (`avg_time_to_green=16.5s` baseline vs ~14 minutes stuck, ratio ~50x, no alert).
+- **G3**: `quality.failing[]` decoupled from timeline (live FAILs do not populate the quality block).
+- **G4**: `flow.implement` and `flow.verify` stuck at "unknown" even when timeline shows clear activity.
+- **G5**: No strategy-pivot detection (5x `check` to `docs-check` switch invisible).
+- **G6**: No event emission when packets arrive (silent state changes).
+- **G7**: `reviewer_activity.instruction_summary` collapses to LATEST only; no queue rendering.
+- **G8**: No `seconds_since_last_command` / stall projection (9-min Codex devctl silence required manual computation).
+- **G9**: `control_plane.resolved_phase` and `next_action` are typed TARGETS, not typed CURRENTS.
+- **G13**: Bridge events do not propagate to the timeline (a `Session rollover` system_notice arrived without a corresponding timeline entry).
+- **G14**: `summary.primary_blocker` review-packet count uses an undocumented allow-list of packet kinds (`question` bumps the count, `finding` does not, `system_notice` does).
+- **G15**: `reviewer_activity.last_poll_age` triggers on ANY bridge write, including the observer's own posts; cannot distinguish reviewer activity from any-actor activity.
+- **G16**: `dirty_files` count has no breakdown (which files, +/- lines, by-subsystem) and no rate of change.
+- **G17**: No `dashboard --watch` / SSE / event-stream projection — only polling.
+
+**Category C — typed contract gaps / no governed setter (2 gaps)**
+
+- **G18**: `operator_interaction_mode` has no governed setter. Documented in `dev/active/remote_control_runtime.md:213` but not yet fixed. Blocked the dashboard observer from launching the dual-agent loop in this session.
+- **G19**: Two surfaces have two different defaults for `operator_interaction_mode` (`runtime/project_governance_contract.py:209` defaults to `"local_terminal"`; `session_cache/latest/cache.json` defaults to `"unresolved"`).
+
+**Category D — cross-surface drift (2 gaps)**
+
+- **G20**: `control_plane.resolved_phase` shows "committing" while `now.owner` flips between "Implementer" and "Reviewer" inconsistently. Without reading both fields, the observer cannot tell who is supposed to do the next action.
+- **G21**: `bridge.md` contents and `review_state.json` contents do not always agree.
+
+**Category E — resilience under refactor (2 gaps)**
+
+- **G22**: No degraded fallback projection when the dashboard module is broken. Twice in this session Codex's mid-edit broke the dashboard (`ImportError: cannot import name 'commits_between'` and `TypeError: build_runtime_counts() got an unexpected keyword argument 'bridge_liveness'`); the dashboard observer went fully blind both times. **For unattended remote-control sessions this is the worst possible failure**: the surface designed to provide observability disappears precisely when the system is changing.
+- **G23**: No `check_dashboard_renders.py` guard before commits — the dashboard module chain could in principle commit broken without any guard catching it.
+
+**Category F — operator-mode friction (2 gaps)**
+
+- **G24**: No auto-commit-when-green hook for remote-control mode. Codex stalls on per-command commit approval indefinitely if operator is AFK. Suggested design in `rev_pkt_0107`: typed `operator_consent.auto_commit_when_green: bool` policy that auto-promotes commits where `next_action ∈ {await_checkpoint, run_devctl_push}` AND all routed guards PASS AND `interaction_mode = remote_control`. Operator opts in once via typed policy, not per-commit.
+- **G25**: No "operator presence on iPhone via Claude remote-control" detection signal. Without it the system cannot make policy decisions like "should we auto-commit?" or "should we wait for the operator?"
+
+### Highest-priority unresolved finding NOT in any current slice
+
+`audit_review_state_contract_drift` — **CRITICAL severity, 21 days old** (created 2026-03-17), never resolved. Located at `dev/scripts/devctl/runtime/review_state_parser.py`. This is the root cause of the entire bridge/typed-state drift family. Every gap above (G1-G25) is downstream of this finding. Codex's current slice fixes downstream symptoms (write guards, runtime counts) but does not touch the root contract drift. **Recommend filing as the next slice after the current refactor commits.**
+
+### Recommended next-slice sequence (in priority order, after current slice commits)
+
+1. **Slice A — `audit_review_state_contract_drift` closure** (CRITICAL, 21d old): replace the bridge-backed vs event-backed compatibility glue with one authoritative `ReviewState` contract; update all consumers to read from the typed contract; add a parity guard.
+2. **Slice B — Priority 1: AUD-27 `devctl commit` + repo pre-commit hook**: structurally prevent raw `git commit` from bypassing guards. Per `remote_control_runtime.md:225-229` this is the highest-priority enforcement gap.
+3. **Slice C — MP-380 `operator_interaction_mode` setter and propagation**: governed write path so the typed mode can be set explicitly (e.g., when a remote-control session attaches), and the value propagates atomically across governance, startup-context, control-plane read model, session-resume, launch/recovery. Closes G18 + G19.
+4. **Slice D — G22 dashboard fallback projection**: a slim degraded read that bypasses the broken dashboard module chain and reads only the underlying typed sources directly. Critical for unattended remote-control monitoring.
+5. **Slice E — G24 auto-commit-when-green policy**: typed `operator_consent.auto_commit_when_green` policy that lets remote-control sessions opt into structurally-safe commit auto-promotion when all routed guards pass.
+
+### Cross-reference
+
+See `dev/audits/architecture_alignment.md` Pass 14 (2026-04-08) for the cross-plan drift findings from the same session, including the **MP-381 LANDED status contradiction** between `MASTER_PLAN.md:310` and `remote_control_runtime.md:30-31`. That contradiction is the same family of bug as the typed-state drift this audit is trying to close.
 
 ---
 
