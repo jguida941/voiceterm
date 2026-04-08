@@ -1394,6 +1394,134 @@ been reviewer-implementer work. The operator corrected this explicitly:
   Action Requests for Codex and Claude-CLI to address.
 - **Status**: OPEN (needs Codex triage + role-contract enforcement)
 
+### Q52 — **TOP-LEVEL ARCHITECTURAL FAILURE** — AI agents don't know what's in the typed state they're consuming
+
+- **Discovered**: 2026-04-08T20:53Z (operator quote:
+  "The fact that [Claude-Code] didn't even know to run [the full
+  typed status] is a failure, need to push that to Codex. The fact
+  that we have all these systems and AI doesn't [know about them]
+  is a massive [failure]")
+- **Severity**: **CRITICAL** (architectural — undermines the entire
+  governance-by-typed-contracts thesis)
+- **Scope**: affects Claude-Code (remote dashboard), Codex
+  (reviewer), Claude-CLI (implementer). All three are AI consumers
+  of the same typed state surface. **None of them systematically
+  enumerates the available fields before making decisions.**
+
+- **Body**: This repo's product thesis (per
+  `dev/audits/REVIEW_SNAPSHOT.md` section 1) is:
+
+  > "Executable local governance is the authority: the CLI/runtime
+  > owns typed actions, guards, artifacts, and approvals; frontends
+  > and adapters consume those contracts instead of replacing them.
+  > Every claim about quality, safety, or process compliance must
+  > be backed by a repo-owned executable artifact that produces the
+  > same result regardless of which AI model or operator runs it."
+
+  The entire platform is built on **typed state as the source of
+  truth**. `review-channel status --format json` exposes 200+
+  fields across 14 top-level dicts (`bridge_liveness` 42 fields,
+  `doctor` 69, `commit_pipeline` 27, `runtime_counts` 15,
+  `push_decision` 14, `reviewer_runtime` 14, `publisher` 11,
+  `reviewer_supervisor` 11, `reviewer_worker` 7, `attention` 5,
+  `projection_paths` 9, `service_identity` 8, plus
+  `attach_auth_policy`, warnings, errors, etc.).
+
+  **BUT**: during this 4-hour session, Claude-Code (the remote
+  operator proxy running this dashboard) reported only ~5 of those
+  fields per cycle (PID, CPU, elapsed, log-mtime, HEAD). The other
+  195+ were ignored not because they weren't useful, but because
+  Claude-Code **didn't know they existed**. The operator had to
+  point this out manually ("You're just looking at CPU information?
+  There is so much more...").
+
+  The same failure applies to the other AI agents in the loop:
+    - **Codex** (reviewer) — does it read `runtime_counts`,
+      `commit_pipeline`, `push_decision`, `attention` before
+      writing verdicts? Or does it just read the bridge prose
+      sections and miss the typed signals?
+    - **Claude-CLI** (coder) — does it check
+      `reviewer_worker.state`, `implementation_blocked`,
+      `review_gate_allows_push` before starting new work? Or
+      does it charge ahead based on the instruction text alone?
+
+  **Every AI consumer is flying blind in proportion to its own
+  discovery effort.** The platform invests heavily in producing
+  typed state but nothing enforces that consumers enumerate +
+  honor the fields. The result is that "governance by typed
+  contracts" degrades to "governance by whatever prose the AI
+  happens to read in bridge.md" — which is exactly the prompt-
+  based governance the thesis rejects.
+
+- **Related findings that compound this**:
+    - **Q22** — `devctl discover` crashes (AI capability
+      discovery is itself broken)
+    - **Q45** — `bridge_liveness` misnaming hides the most
+      important field bundle
+    - **Q46** — Claude-Code bootstrap didn't enumerate typed
+      state at session start
+    - **Q50** — Claude-Code's dashboard template was locked to
+      5 fields via `CronCreate`
+    - All of E1-E12 (typed-state enhancement proposals) are
+      downstream of this single meta-problem
+
+- **Why this is the TOP-LEVEL failure**: every other finding in
+  this LIVE_RUN.md is a symptom. Fix Q52 and most of the
+  discoverability/alignment findings become easy to surface and
+  fix. Leave Q52 unfixed and every future AI session onboards
+  blind just like this one did.
+
+- **Proposed fix architecture**:
+
+  1. **Mandatory AI-onboarding primer**:
+     - Every AI session (Claude-Code, Codex-conductor,
+       Claude-CLI-conductor) runs a typed-state dump at launch.
+     - The dump is captured from
+       `devctl describe-status --format markdown` (new command
+       per E-series) AND stored in the session's instruction
+       context before the AI sees any chat or prompt.
+     - The AI is REQUIRED to reference typed fields by path
+       (e.g. `bridge_liveness.push_decision.action`) when making
+       claims, not free prose.
+
+  2. **Typed state contract enforcement**:
+     - A new guard `check_typed_state_usage.py` watches AI
+       outputs (bridge sections, packet bodies, commit messages)
+       for free-prose claims that could have been typed-field
+       citations. Emits warnings that land in LIVE_RUN.md.
+
+  3. **Self-describing status output**:
+     - `review-channel status --format json` gains a top-level
+       `_schema` block that enumerates every populated field path
+       with a one-line description. No AI can claim "I didn't
+       know" after reading the output once.
+
+  4. **Dashboard template that uses the full surface**:
+     - Replace the `CronCreate be574ff0` 5-field template with a
+       200-field template driven by `devctl dashboard --format
+       phone-full` (the new command).
+     - Codex and Claude-CLI's own poll templates get the same
+       upgrade — they read the full typed surface on every
+       poll, not the prose-only bridge sections.
+
+  5. **Codex explicit test**: the operator specifically asked
+     Codex to "run one agent that is a reviewer and one agent
+     that is a coder so it's able to run both systems and see
+     the mismatches." That matches the Research Lane Phase 2
+     `research-sweep` command. Codex should land that command
+     + a specific variant `--test-ai-alignment` that spins up a
+     reviewer + coder, feeds them the same typed state, and
+     asserts they make consistent decisions. Mismatches become
+     typed `ai_alignment_drift` packets.
+
+- **Operator expectation**: Codex (when it reads this) should
+  treat Q52 as **blocking for the Research Lane plan**. No other
+  phase of the plan matters until AI consumers actually use the
+  typed state. Priority: Q52 → Q22 → Q20 → F1 → rest.
+
+- **Status**: OPEN (architectural root cause; fix is the entire
+  AI-capability-discovery track of the Research Lane plan)
+
 ### Q51 — UPDATE CADENCE DRIFT — surfaces refresh on different schedules, AIs see different truths at the same timestamp
 
 - **Discovered**: 2026-04-08T20:52Z (operator observation)
