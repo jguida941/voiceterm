@@ -1394,6 +1394,216 @@ been reviewer-implementer work. The operator corrected this explicitly:
   Action Requests for Codex and Claude-CLI to address.
 - **Status**: OPEN (needs Codex triage + role-contract enforcement)
 
+### Q58 — CAPABILITY NOT DISCOVERED — `devctl autonomy-swarm` is the multi-agent swarm runner, not `review-channel launch`
+
+- **Discovered**: 2026-04-08T21:33Z (operator question + capability re-audit)
+- **Severity**: capability discovery gap, medium (compounds Q22/Q46/Q52)
+- **Body**: Operator asked "shouldn't Codex play every role as a
+  different agent" — a multi-role same-provider test. I looked at
+  `review-channel launch --codex-workers N` but those flags only
+  set the count of conductor shells of a given provider, not their
+  role assignments. Every shell shares the same lane. Then I
+  discovered (via `devctl autonomy-swarm --help`) that there is a
+  DEDICATED swarm-runner command I hadn't used:
+
+    ```
+    devctl autonomy-swarm \
+      --agents N \
+      --adaptive / --no-adaptive \
+      --min-agents N / --max-agents N \
+      --mode {report-only, plan-then-fix, fix-only} \
+      --parallel-workers N \
+      --reviewer-lane / --no-reviewer-lane \
+      --question-file PATH \
+      --target-paths PATH [PATH ...] \
+      --token-budget N \
+      --dry-run / --plan-only \
+      --post-audit / --no-post-audit
+    ```
+
+  It spawns N parallel agents, optionally includes a separate
+  reviewer lane, scopes to target paths, runs for max-rounds or
+  max-hours, and emits a typed audit. **This is the command I
+  should be using for multi-role diagnostic tests, not
+  `review-channel launch`.**
+
+- **Q46 recurrence**: this is the fourth time this session I've
+  failed to enumerate a relevant capability that was in the repo
+  the whole time. Prior instances: `phone-status` / `autonomy-loop`
+  / `controller-action` discovered after operator pushed me; the
+  200+ typed status fields discovered after operator corrected me;
+  the `bridge_liveness.current_instruction` field discovered after
+  operator asked "what is Codex doing"; and now `autonomy-swarm`
+  after operator asked about multi-agent testing. Every one of
+  these would have been surfaced by Q53's proposed
+  `devctl bootstrap-primer --for-role claude-code` command at
+  session start.
+
+- **Fix**: Q22 + Q53 + Q58 all converge on the same solution —
+  a working capability-discovery primer that runs at AI session
+  bootstrap and enumerates every relevant command, typed field,
+  and known-working pattern for the role. Until that lands,
+  every new AI session will repeat this mistake.
+
+- **Status**: OPEN (blocks multi-agent diagnostic testing)
+
+---
+
+## Full system test plan (operator request + Q55 closure)
+
+**Operator asked**: "What do you think is the best way to test all
+of this system make sure it's fully connected, etc." This section
+proposes a concrete multi-phase test plan that would exercise
+every surface, surface contract drift, and isolate the known
+failure modes (Q48, Q55, Q56).
+
+### Test 1 — Cross-surface equivalence (Q55 closure gate)
+
+**Goal**: prove that every coordination-state reader returns
+identical values at a single snapshot instant. If any two readers
+disagree, that's a Q55 violation.
+
+**Surfaces to hit at time T**:
+1. `devctl startup-context --role reviewer --format json`
+2. `devctl session-resume --role reviewer --format json`
+3. `devctl dashboard --format json`
+4. `devctl review-channel --action status --format json`
+5. `dev/audits/REVIEW_SNAPSHOT.md` (the external review file)
+6. `bridge.md` (the compatibility projection)
+7. `devctl doctor` (the diagnostic surface, 69 fields)
+8. `devctl review-channel --action doctor --format json`
+
+**Fields to compare**:
+    - `current_slice`
+    - `declared_topology` / `observed_topology` / `recommended_topology`
+    - `ownership_status`
+    - `resync_reasons`
+    - `reviewer_mode` / `effective_reviewer_mode`
+    - `interaction_mode`
+    - `push_decision.action` / `push_decision.reason`
+    - `worktree_clean` / `dirty_path_count`
+
+**Pass criteria**: all 8 surfaces return identical values for
+all 9 fields at the same T. Any disagreement is a typed contract
+violation and triggers a `Q55_contract_violation_<field>` finding.
+
+**Implementation**: a standalone `devctl test-cross-surface-equivalence`
+command (new) or a bash script runnable by the operator from
+GitHub. Could also live in `dev/scripts/checks/
+check_cross_surface_equivalence.py` as a guard that runs in CI.
+
+### Test 2 — Multi-agent solo-Codex swarm via `autonomy-swarm`
+
+**Goal**: exercise the swarm runner with a real Q-series triage
+task, verify all agents see the same LIVE_RUN.md + typed state,
+and compare their decisions for alignment drift.
+
+**Command**:
+```
+devctl autonomy-swarm \
+  --agents 3 \
+  --mode report-only \
+  --dry-run \
+  --question-file /tmp/swarm_q_series_triage.md \
+  --target-paths dev/audits/LIVE_RUN.md dev/scripts/devctl/runtime/ \
+  --reviewer-lane \
+  --max-rounds 3 \
+  --max-hours 1 \
+  --format md
+```
+
+**Question file content** (`/tmp/swarm_q_series_triage.md`):
+> "Read `dev/audits/LIVE_RUN.md` (58 findings). Identify the top
+> 5 findings you would fix first and explain your prioritization.
+> Specifically address Q55 (authority-lane split) — propose the
+> single canonical reader and name every surface that must route
+> through it. Respond with a structured verdict."
+
+**Pass criteria**: all 3 agents' verdicts name Q55 in their top
+5. All 3 name the same set of bypass surfaces. Any disagreement
+is a typed `ai_alignment_drift` event.
+
+### Test 3 — Solo-Claude mirror test
+
+**Goal**: verify Claude-CLI makes the same triage decisions as
+Codex given the same question + typed state. Any divergence is
+a `provider_behavior_drift` finding.
+
+**Blocker**: the swarm needs a Claude-only mode. Unclear from
+the `autonomy-swarm` help whether this is supported — need to
+investigate.
+
+### Test 4 — Failure-injection test
+
+**Goal**: verify the system correctly detects + reports each
+failure mode.
+
+**Injections**:
+    1. `kill -9 <publisher_pid>` while conductors alive →
+       expect: `launch_truth: runtime_missing`, attention escalates
+    2. `kill -9 <codex_conductor_pid>` while Claude-CLI alive →
+       expect: `codex_conductor_active=False`,
+       `live_reviewer_count=0`, attention=relaunch
+    3. Stale the reviewer heartbeat by 10 min →
+       expect: `reviewer_freshness=stale`, attention escalates
+       from `reviewer_heartbeat_stale` to `reviewer_overdue`
+    4. Dirty the tree mid-session → expect:
+       `reviewer_worker.review_needed=True`, current_hash moves
+    5. Write to `bridge.md` directly → expect: publisher either
+       overwrites it or detects the drift and warns
+
+**Pass criteria**: every injection produces a correct typed
+response within 60 seconds.
+
+### Test 5 — Contract drift detector (N-minute sampling)
+
+**Goal**: catch fields that move when they shouldn't (and
+vice versa) across a long session.
+
+**Command**:
+```
+for i in $(seq 1 20); do
+  timestamp=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+  review-channel status --format json > /tmp/sample_${timestamp}.json
+  sleep 30
+done
+```
+
+Then diff the samples field-by-field. Produces a
+`field_drift_report.json` showing which fields changed and how
+often.
+
+### Test 6 — Commit-cadence enforcement test
+
+**Goal**: verify that Claude-CLI commits every slice (the Q48
+root-cause hypothesis).
+
+**Setup**: start a session, give Claude-CLI an instruction that
+says "commit every file after you edit it." Watch `git log`
+growing in real time. If Claude-CLI goes more than 3 minutes
+without a commit while the worktree is dirty, that's an
+`implementer_commit_stall` finding.
+
+### Phase ordering
+
+1. **Phase 0**: Fix Q22 (`devctl discover` crash) + land Q53
+   bootstrap primer. Without these, every test is repeatedly
+   re-discovering capabilities.
+2. **Phase 1**: Test 1 (cross-surface equivalence). Proves/closes
+   Q55.
+3. **Phase 2**: Test 4 (failure injection). Verifies detection
+   contracts.
+4. **Phase 3**: Test 6 (commit cadence). Isolates Q48 root cause.
+5. **Phase 4**: Test 2 + Test 3 (multi-agent swarm). Requires
+   autonomy-swarm to actually work for both providers.
+6. **Phase 5**: Test 5 (drift detector). Long-running sanity.
+
+### Priority (per operator's "what's the best way"):
+
+**Test 1 is the highest ROI.** It's the closure gate for Q55 (the
+disease). Every other test assumes a stable coordination state,
+which Q55 says we don't have yet. Start there.
+
 ### Q57 — BUG — `--claude-workers 0` flag is a no-op on `review-channel launch`
 
 - **Discovered**: 2026-04-08T21:20Z (during solo-Codex session 7 attempt)
