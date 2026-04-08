@@ -1394,6 +1394,237 @@ been reviewer-implementer work. The operator corrected this explicitly:
   Action Requests for Codex and Claude-CLI to address.
 - **Status**: OPEN (needs Codex triage + role-contract enforcement)
 
+### Q57 — BUG — `--claude-workers 0` flag is a no-op on `review-channel launch`
+
+- **Discovered**: 2026-04-08T21:20Z (during solo-Codex session 7 attempt)
+- **Severity**: provider filter bug, medium
+- **Body**: Operator requested a solo-Codex test session to isolate
+  Q48 (Codex silent-freeze) from dual-agent interactions. The
+  `review-channel launch` command accepts `--codex-workers N` and
+  `--claude-workers N` flags. I invoked:
+  ```
+  review-channel --action launch --reviewer-mode active_dual_agent
+    --terminal terminal-app --instruction-file /tmp/session7_codex_solo.md
+    --claude-workers 0 --codex-workers 1 --format json
+  ```
+  Expected: only Codex CLI spawns, no Claude-CLI conductor.
+  Actual: BOTH conductors spawned. `ps` shows
+  `/Users/jguida941/.local/bin/claude --permission-mode default ...`
+  running as PID 31148. Typed state reports
+  `claude_conductor_active=True`.
+- **Impact**: cannot run provider-filtered diagnostic sessions
+  (e.g. solo-Codex or solo-Claude tests) that would help isolate
+  whether bugs are agent-specific or interaction-specific.
+- **Fix**: the `--claude-workers 0` path through the launcher should
+  actually suppress Claude-CLI conductor spawn. Likely fix is in
+  `review_channel/launch.py` or wherever `planned_lane_count` is
+  computed from the worker flags.
+- **Status**: OPEN
+
+### Q56 — **SMOKING GUN** — REVIEW_SNAPSHOT.md and live dashboard report contradictory state at the same instant
+
+- **Discovered**: 2026-04-08T21:19Z (operator external audit)
+- **Severity**: **CRITICAL** — proves Q55 authority-lane split is
+  already breaking operator-visible contracts
+- **Body**: Operator ran an independent audit with a second AI (via
+  ChatGPT Pro) and captured this contradiction:
+
+  **Live dashboard state (via `devctl dashboard` / `review-channel
+  status`)**:
+  ```
+  overall_state:        stale
+  reviewer_mode:        active_dual_agent
+  codex_poll_state:     stale (13+ min)
+  current_verdict:      (empty)
+  pending_packets:      1
+  push_action:          await_checkpoint
+  worktree_state:       dirty
+  ```
+
+  **REVIEW_SNAPSHOT.md state (same branch, same instant)**:
+  ```
+  Reviewer mode:        single_agent
+  interaction_mode:     local_terminal
+  Push decision:        push_preconditions_satisfied
+  worktree_clean:       True
+  Next step:            run_devctl_push
+  ```
+
+  **These cannot both be true.** The live dashboard says:
+    - mode is `active_dual_agent`
+    - worktree is DIRTY
+    - push is blocked `await_checkpoint`
+    - there's a PENDING review packet
+
+  The snapshot says:
+    - mode is `single_agent` (wrong — we've been in
+      `active_dual_agent` for hours)
+    - `worktree_clean: True` (wrong — every cycle has shown dirty
+      state)
+    - push is READY (`run_devctl_push` — wrong, push is blocked)
+    - interaction_mode `local_terminal` (wrong — operator is on
+      phone, it should be `remote_control`)
+
+  **Every single field disagrees.** This is not projection lag —
+  these fields should not be more than a few seconds apart. This
+  is contract drift between two producers who believe they each
+  own the authority on the same question.
+
+- **Why this is the smoking gun**: it's the first time an EXTERNAL
+  audit has independently captured Q55 (authority-lane split) as
+  a black-box observation. If the operator's phone dashboard and
+  the repo's external review snapshot say different things, then:
+    - Operators get different answers depending on which surface
+      they read
+    - Reviewers (Codex) get different context depending on which
+      file they load
+    - Implementers (Claude-CLI) get different instructions depending
+      on which projection hit their conductor first
+    - The entire typed-contracts thesis degrades to "governance
+      by whatever projection you happened to grab"
+
+- **Related findings this upgrades**:
+    - Q43 (publisher lifecycle drift — the publisher is projecting
+      state from an older session)
+    - Q45 (field naming confusion — operators read the wrong path)
+    - Q51 (update cadence drift — different surfaces refresh on
+      different schedules)
+    - Q52 (AIs don't enumerate typed state)
+
+- **Fix requirements**: the fix must be architectural. Every
+  projection must derive from a single authoritative coordination
+  read model AT ONE SNAPSHOT ID PER REFRESH. No surface should
+  ever compute coordination state independently. See Q55 below.
+
+- **Operator quote**: "Your live remote-control surface appears to
+  think it is in an active dual-agent/stale-reviewer situation,
+  while the generated review snapshot says single-agent/local-
+  terminal and push-ready. Those should not both be true at the
+  same time unless you have a clearly defined projection lag
+  contract. Right now it looks like contract drift, not benign lag."
+
+- **Status**: OPEN (critical — blocks operator trust in every
+  surface)
+
+### Q55 — **THE DISEASE** — Authority-lane split: multiple read paths for coordination state, no single canonical reader
+
+- **Discovered**: 2026-04-08T21:19Z (operator external audit)
+- **Severity**: **CRITICAL** — root architectural failure this
+  session's work has been circling without naming
+- **Operator's diagnosis (quoted verbatim)**:
+
+  > "Codex freezing is probably a symptom; authority-lane split is
+  > the disease. If startup, session-resume, dashboard, bridge, and
+  > review snapshot do not all derive from the same typed
+  > coordination read model, you will keep getting: stale/live
+  > disagreement, 'process is alive but functionally dead'
+  > ambiguity, empty verdict + pending packet states, phone
+  > dashboard uncertainty about whether to relaunch, wait, or push.
+  > So the sharpest next check is not 'is Codex down,' but:
+  > Which file is the canonical reader for remote-control
+  > coordination state, and do all of these surfaces call that
+  > exact reader?"
+
+- **Evidence from this session's file tree audit**:
+  `dev/scripts/devctl/runtime/startup_context.py`'s
+  `build_startup_context()` function **still builds startup state
+  from its own assembly lane**: calls `scan_repo_governance()`,
+  `load_current_review_state()`, reviewer-gate derivation, push
+  decision derivation, and work-intake assembly — all locally.
+  **There is no obvious shared coordination-loader call in that
+  path.** Session 6 Claude-CLI created
+  `dev/scripts/devctl/runtime/coordination_loader.py` and wired
+  `session_resume_support.py` + `control_plane_read_model.py` to
+  use it — but `startup_context.py` is still bypassing the loader.
+
+  Codex's own F1 open finding (bridge_liveness.open_findings at
+  21:05Z) confirmed this exact diagnosis:
+  > "dev/scripts/devctl/runtime/startup_context.py still bypasses
+  > the shared loader. build_startup_context() continues to build
+  > coordination through build_work_intake_coordination_state() +
+  > build_coordination_snapshot() instead of
+  > coordination_loader.load_coordination_snapshot(), while
+  > session_resume_support.py and control_plane_read_model.py now
+  > reuse the loader-backed read model."
+
+- **Why Q55 is the root cause of everything**:
+
+  This single disease manifests as:
+    - **Q48** (Codex silent-freeze) — Codex polls, sees divergent
+      state across surfaces, can't produce a coherent verdict, idles
+    - **Q35** (`reviewer_mode` vs `effective_reviewer_mode` split)
+      — different producers set them via different paths
+    - **Q36** (`detached_runtime_only`) — runtime read-path lost
+      track of conductors while another path thinks they're live
+    - **Q37** (`bridge_liveness.conductor_active` ≠ `runtime_counts`)
+      — two counters, two readers, no reconciliation
+    - **Q43** (publisher lifecycle drift) — publisher projects
+      from one read path while new conductors spawn into another
+    - **Q45/Q46/Q50/Q52/Q53** — discoverability failures on top
+      of fields that themselves disagree across readers
+    - **Q54** (role separation unclear) — daemons can't have
+      clear charters when they all compute state independently
+    - **Q56** — the external audit's smoking gun
+
+- **The sharp question Codex must answer**:
+
+  > "Which file is the canonical reader for remote-control
+  > coordination state, and do all of these surfaces call that
+  > exact reader?"
+
+  As of this session (HEAD `ffc7f954`), the answer is:
+  - `coordination_loader.py` is INTENDED to be the canonical reader
+  - `session_resume_support.py`: ✅ calls it
+  - `control_plane_read_model.py`: ✅ calls it
+  - `startup_context.py`: ❌ does NOT call it (Codex's F1 finding)
+  - `dashboard.py`: ❓ unknown
+  - Publisher's `review_state.json → bridge.md` projection: ❓
+    unknown
+  - `review-snapshot --write` (REVIEW_SNAPSHOT.md generator): ❓
+    probably NOT (Q56 proves it disagrees with live dashboard)
+  - `startup-context` CLI: ❌ inherits startup_context.py's bypass
+  - `session-resume` CLI: ✅ via session_resume_support.py
+  - `review-channel status` CLI: ❓ partially (via reviewer_runtime)
+
+  **Fewer than half of the surfaces go through the canonical
+  reader.** The rest compute state independently. Every additional
+  producer is another opportunity for drift.
+
+- **Operator-visible diagnostic test this failure must pass**:
+
+  > "At the same instant T, `startup-context`, `session-resume`,
+  > `dashboard`, `bridge.md`, and `REVIEW_SNAPSHOT.md` must all
+  > return identical values for: current_slice, declared_topology,
+  > observed_topology, recommended_topology, ownership_status,
+  > resync_reasons, reviewer_mode, interaction_mode, push_decision,
+  > worktree_clean. Any disagreement is a contract violation."
+
+  Codex + Claude-CLI's F1 work has been chasing this for this
+  entire session without closing it.
+
+- **Smallest closure slice** (operator's suggestion, pending audit):
+
+  1. Audit every surface for its coordination read path.
+  2. Force every surface through `coordination_loader.load_coordination_snapshot()`.
+  3. Delete or compatibility-alias every bypass path so future
+     code can't reintroduce drift.
+  4. Add a guard (`check_coordination_loader_single_reader.py`)
+     that fails CI when any surface imports
+     `build_work_intake_coordination_state` or
+     `build_coordination_snapshot` directly instead of going
+     through the loader.
+  5. Add a cross-surface equivalence test that asserts all 10+
+     surfaces return identical coordination state at a single
+     snapshot id.
+
+- **This is THE slice that closes the architectural gap.** Every
+  finding before Q55 in this LIVE_RUN file is a symptom. Q55 is
+  the disease. Codex must treat this as blocking for the
+  Research Lane plan and for the F1 completion work. No other
+  fix matters until one canonical reader owns coordination state.
+
+- **Status**: OPEN (CRITICAL — blocks everything else)
+
 ### Q54 — ROLE SEPARATION UNCLEAR — publisher vs reviewer_supervisor responsibilities are not documented in the typed state
 
 - **Discovered**: 2026-04-08T21:07Z (operator question: "What are the
