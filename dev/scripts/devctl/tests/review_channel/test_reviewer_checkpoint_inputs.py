@@ -546,7 +546,10 @@ def test_write_reviewer_checkpoint_accepts_effective_instruction_revision(
     )
 
     effective_revision = hashlib.sha256(
-        current_instruction.encode("utf-8")
+        extract_bridge_snapshot(bridge_path.read_text(encoding="utf-8"))
+        .sections["Current Instruction For Claude"]
+        .strip()
+        .encode("utf-8")
     ).hexdigest()[:12]
 
     with patch("dev.scripts.devctl.review_channel.state.refresh_status_snapshot"):
