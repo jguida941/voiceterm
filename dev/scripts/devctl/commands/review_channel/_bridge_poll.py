@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from pathlib import Path
 
 from ...approval_mode import normalize_approval_mode
@@ -55,16 +56,18 @@ def run_bridge_poll_action(
         )
 
     snapshot = extract_bridge_snapshot(bridge_text)
-    errors = _bridge_poll_errors(snapshot)
+    typed_review_state = load_typed_poll_authority(
+        repo_root=repo_root,
+        paths=runtime_paths,
+    )
+    errors = _bridge_poll_errors(snapshot, typed_review_state=typed_review_state)
+    warnings = _bridge_poll_warnings(typed_review_state)
     payload = build_bridge_poll_result(
         bridge_text,
         current_worktree_hash=_current_worktree_hash(
             repo_root, bridge_rel=str(bridge_path.relative_to(repo_root)),
         ),
-        typed_review_state=load_typed_poll_authority(
-            repo_root=repo_root,
-            paths=runtime_paths,
-        ),
+        typed_review_state=typed_review_state,
     )
     exit_code = 1 if errors else 0
     report: dict[str, object] = {}
@@ -87,7 +90,7 @@ def run_bridge_poll_action(
     )
     report["dangerous"] = bool(getattr(args, "dangerous", False))
     report["bridge_active"] = True
-    report["warnings"] = []
+    report["warnings"] = warnings
     report["errors"] = errors
     report.update(payload.to_dict())
     return report, exit_code
@@ -107,12 +110,44 @@ def _current_worktree_hash(repo_root: Path, *, bridge_rel: str) -> str | None:
         return None
 
 
-def _bridge_poll_errors(snapshot: BridgeSnapshot) -> list[str]:
-    return [
+def _bridge_poll_errors(
+    snapshot: BridgeSnapshot,
+    *,
+    typed_review_state: Mapping[str, object] | None = None,
+) -> list[str]:
+    errors = [
         error
         for error in validate_live_bridge_contract(snapshot)
         if not error.startswith(_ACK_ONLY_ERROR_PREFIXES)
     ]
+    for error in _typed_messages(typed_review_state, field_name="errors"):
+        if error not in errors:
+            errors.append(error)
+    return errors
+
+
+def _bridge_poll_warnings(
+    typed_review_state: Mapping[str, object] | None,
+) -> list[str]:
+    return _typed_messages(typed_review_state, field_name="warnings")
+
+
+def _typed_messages(
+    typed_review_state: Mapping[str, object] | None,
+    *,
+    field_name: str,
+) -> list[str]:
+    if not isinstance(typed_review_state, Mapping):
+        return []
+    values = typed_review_state.get(field_name)
+    if not isinstance(values, list):
+        return []
+    messages: list[str] = []
+    for value in values:
+        text = str(value).strip()
+        if text and text not in messages:
+            messages.append(text)
+    return messages
 
 
 def _bridge_poll_error(args, message: str) -> tuple[dict[str, object], int]:

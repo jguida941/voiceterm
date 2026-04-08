@@ -369,6 +369,38 @@ Evidence: `dev/scripts/devctl/commands/review_channel/bridge_handler.py`,
 `dev/scripts/devctl/tests/review_channel/test_launch_script.py`,
 `dev/scripts/devctl/tests/review_channel/test_review_channel.py`.
 
+### 2026-04-07 - Control-plane parity guard now covers remote-control mode fields and fails closed on a broken next_action route
+
+The MP-381 Priority 3 control-plane parity guard landed as
+`field_routes_parity` but the first version still had two gaps. `PARITY_FIELDS`
+did not include `reviewer_mode` or `operator_interaction_mode`, so a single
+governance surface could drift to `single_agent` / `unresolved` while the rest
+stayed correct and the "all 5 surfaces agree" proof would still pass. The
+auto-mode extractor also fell back to `model.next_action` whenever
+`inputs.push_decision_action` was empty, masking exactly the broken-route
+regression class the guard exists to catch: a future change that drops
+`next_action` propagation inside `inputs_from_read_model` would have stayed
+green forever.
+
+The fix extends `PARITY_FIELDS` to cover both mode signals, removes the
+fallback so `_extract_from_auto_mode` reads `next_action` straight from
+`inputs.push_decision_action`, and adds a regression test that monkeypatches
+`inputs_from_read_model` to return `push_decision_action=""` and asserts the
+comparator surfaces a typed `next_action` divergence violation. Phone and
+mobile `_control_plane_section` helpers now project
+`operator_interaction_mode` alongside `reviewer_mode`, and the session-resume
+extractor threads `packet.operator_interaction_mode` from
+`SessionCachePacket`. SessionCachePacket has no direct `reviewer_mode` slot
+(only an internal `mode` derivation), so its parity output intentionally
+omits `reviewer_mode`; the comparator already skips absent fields.
+
+Evidence: `dev/scripts/checks/platform_contract_closure/field_routes_parity.py`,
+`dev/scripts/devctl/commands/phone_status.py`,
+`dev/scripts/devctl/commands/mobile_status.py`,
+`dev/scripts/devctl/tests/checks/platform_contract_closure/test_field_routes_parity.py`,
+`dev/active/MASTER_PLAN.md`,
+`dev/active/remote_control_runtime.md`.
+
 ### 2026-04-07 - Reviewer-supervisor manual stop now stays stopped across auto-start paths
 
 The live push-prep incident exposed a narrower restart boundary than the

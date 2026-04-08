@@ -28,7 +28,10 @@ from .projection_bundle import (
     projection_paths_to_dict as projection_paths_to_dict,
     write_projection_bundle as write_projection_bundle,
 )
-from .current_session_projection import build_bridge_current_session
+from .current_session_projection import (
+    build_bridge_current_session,
+    instruction_revision_reuse_warning,
+)
 from .recovery_assessment import (
     build_recovery_assessment,
     recovery_assessment_to_attention_payload,
@@ -127,7 +130,31 @@ def refresh_status_snapshot(
         )
     merged_warnings.extend(bridge_liveness_warnings(bridge_liveness))
     merged_errors.extend(hybrid_loop_errors(bridge_liveness))
-    current_session = build_bridge_current_session(bridge_snapshot, bridge_liveness)
+    current_session = build_bridge_current_session(
+        bridge_snapshot,
+        bridge_liveness,
+        prior_review_state=prior_review_state,
+    )
+    revision_warning = instruction_revision_reuse_warning(
+        snapshot=bridge_snapshot,
+        bridge_liveness=bridge_liveness,
+        prior_review_state=prior_review_state,
+    )
+    if revision_warning and revision_warning not in merged_warnings:
+        merged_warnings.append(revision_warning)
+    bridge_liveness["current_instruction"] = current_session.current_instruction
+    bridge_liveness["current_instruction_revision"] = (
+        current_session.current_instruction_revision
+    )
+    bridge_liveness["claude_status"] = current_session.implementer_status
+    bridge_liveness["claude_ack"] = current_session.implementer_ack
+    bridge_liveness["claude_ack_revision"] = current_session.implementer_ack_revision
+    bridge_liveness["claude_ack_current"] = (
+        current_session.implementer_ack_state == "current"
+    )
+    bridge_liveness["implementer_state_hash"] = current_session.implementer_state_hash
+    bridge_liveness["open_findings"] = current_session.open_findings
+    bridge_liveness["last_reviewed_scope"] = current_session.last_reviewed_scope
     recovery_assessment = build_recovery_assessment(
         bridge_liveness=bridge_liveness,
         current_session=current_session,

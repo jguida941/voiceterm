@@ -46,6 +46,14 @@ from .field_routes_parity_compare import (
 #: Fields the guard inspects across every surface. Adding a new field
 #: requires updating ``_fixture_read_model`` and at least one extractor
 #: so the regression-catching test still has a value to compare.
+#:
+#: ``reviewer_mode`` and ``operator_interaction_mode`` drive remote-control
+#: behavior across the dashboard, auto-mode, phone, and mobile surfaces. The
+#: ``SessionCachePacket`` projection used by session-resume exposes
+#: ``operator_interaction_mode`` directly but only derives an internal mode
+#: from ``reviewer_mode``, so its parity output intentionally omits
+#: ``reviewer_mode`` — the comparator already skips absent fields and only
+#: fails on present-but-disagreeing values.
 PARITY_FIELDS: tuple[str, ...] = (
     "resolved_phase",
     "push_eligible",
@@ -56,6 +64,8 @@ PARITY_FIELDS: tuple[str, ...] = (
     "review_accepted",
     "last_guard_ok",
     "pending_action_requests",
+    "reviewer_mode",
+    "operator_interaction_mode",
 )
 
 _SURFACE_DASHBOARD = "dashboard"
@@ -165,6 +175,14 @@ def _extract_from_auto_mode(model: ControlPlaneReadModel) -> dict[str, Any]:
     which produces an ``AutoModeInputs`` projection. Only fields the
     surface actually carries are returned; absent fields are skipped so
     the comparator only checks values the surface really exposes.
+
+    F2 (no silent fallback): ``next_action`` is read straight from
+    ``inputs.push_decision_action``. The previous ``or model.next_action``
+    fallback masked the exact regression this guard exists to catch — if
+    the auto-mode mapping stops propagating ``next_action`` and starts
+    returning ``""``, the comparator must surface that as a parity
+    divergence against the surfaces that read ``next_action`` from the
+    model directly, not silently substitute the model value.
     """
     from dev.scripts.devctl.commands.reporting.auto_mode_status import (
         inputs_from_read_model,
@@ -172,14 +190,13 @@ def _extract_from_auto_mode(model: ControlPlaneReadModel) -> dict[str, Any]:
 
     inputs = inputs_from_read_model(model)
     return {
-        # ``push_decision_action`` filters non-push actions to ""; fall
-        # back to the model's next_action so we always emit a value when
-        # the fixture set a recognized push action.
-        "next_action": inputs.push_decision_action or model.next_action,
+        "next_action": inputs.push_decision_action,
         "review_accepted": inputs.review_gate_allows_push,
         "last_guard_ok": inputs.last_guard_ok,
         "pending_action_requests": inputs.pending_action_requests,
         "implementation_blocked": inputs.implementation_blocked,
+        "reviewer_mode": inputs.reviewer_mode,
+        "operator_interaction_mode": inputs.operator_interaction_mode,
     }
 
 
@@ -213,6 +230,7 @@ def _extract_from_session_resume(model: ControlPlaneReadModel) -> dict[str, Any]
         "next_action": packet.advisory_action,
         "next_command": packet.next_recommended_command,
         "last_guard_ok": packet.last_guard_ok,
+        "operator_interaction_mode": packet.operator_interaction_mode,
     }
 
 

@@ -666,7 +666,20 @@ Three quality layers matter in practice:
   families. Pair it with `python3 dev/scripts/devctl.py platform-contracts --format md`
   after changing `dev/scripts/devctl/platform/**`, shared runtime contract
   models, durable probe/report schema constants, or startup-surface contract
-  routing in repo policy. When a critical field starts flowing into a live
+  routing in repo policy. The closure guard now also runs the cross-surface
+  control-plane parity check
+  (`dev/scripts/checks/platform_contract_closure/field_routes_parity.py`),
+  which renders one deterministic `ControlPlaneReadModel` fixture through
+  every governance surface (dashboard, auto-mode, session-resume, phone,
+  mobile) and fails on any cross-surface disagreement. As of 2026-04-07
+  `PARITY_FIELDS` covers `reviewer_mode` and `operator_interaction_mode`
+  in addition to phase/blocker/next-action/guard fields, and
+  `_extract_from_auto_mode` no longer falls back to `model.next_action`.
+  When you touch any of `field_routes_parity.py`, the phone/mobile
+  `_control_plane_section` helpers, or `inputs_from_read_model`, run
+  `python3 -m pytest dev/scripts/devctl/tests/checks/platform_contract_closure/test_field_routes_parity.py -q`
+  so a broken auto-mode `next_action` route fails as a typed parity
+  divergence instead of a silent green pass. When a critical field starts flowing into a live
   consumer, add a deterministic field-route proof there so "produced but never
   consumed" regressions fail as contract drift instead of surviving as prose.
   Keep `startup_surface_tokens` current on every implemented platform

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 from datetime import datetime, timezone
 from pathlib import Path
@@ -525,6 +526,46 @@ def test_write_reviewer_checkpoint_rejects_stale_expected_instruction_revision(
                 expected_instruction_revision="deadbeefcafe",
             ),
         )
+
+
+def test_write_reviewer_checkpoint_accepts_effective_instruction_revision(
+    tmp_path: Path,
+) -> None:
+    root = tmp_path
+    review_channel_path = root / "dev/active/review_channel.md"
+    review_channel_path.parent.mkdir(parents=True, exist_ok=True)
+    review_channel_path.write_text(_build_review_channel_text(), encoding="utf-8")
+    bridge_path = root / "bridge.md"
+    current_instruction = "- Repair the live review mismatch."
+    bridge_path.write_text(
+        _build_bridge_text().replace(
+            "## Current Instruction For Claude\n\n- current task",
+            "## Current Instruction For Claude\n\n" + current_instruction,
+        ),
+        encoding="utf-8",
+    )
+
+    effective_revision = hashlib.sha256(
+        current_instruction.encode("utf-8")
+    ).hexdigest()[:12]
+
+    with patch("dev.scripts.devctl.review_channel.state.refresh_status_snapshot"):
+        write_reviewer_checkpoint(
+            repo_root=root,
+            bridge_path=bridge_path,
+            reviewer_mode="active_dual_agent",
+            reason="repair-stale-revision",
+            checkpoint=ReviewerCheckpointUpdate(
+                current_verdict="- accepted",
+                open_findings="- none",
+                current_instruction="- next task",
+                reviewed_scope_items=("bridge.md",),
+                expected_instruction_revision=effective_revision,
+            ),
+        )
+
+    updated_bridge = bridge_path.read_text(encoding="utf-8")
+    assert "- next task" in updated_bridge
 
 
 def test_write_reviewer_checkpoint_rejects_stale_implementer_state_hash(

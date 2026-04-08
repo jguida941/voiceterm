@@ -1287,6 +1287,19 @@ Machine-first output note:
     autonomy-loop, and `guard-run` consumers together, and
     `DecisionPacket.decision_mode` must gate those same routes, so one
     surviving consumer no longer masks a dropped sibling.
+  - The closure guard also runs the cross-surface control-plane parity proof
+    (`dev/scripts/checks/platform_contract_closure/field_routes_parity.py`),
+    which feeds one deterministic `ControlPlaneReadModel` fixture through
+    dashboard `_assemble`, `inputs_from_read_model`, `build_from_sources`,
+    and the pure phone/mobile `_control_plane_section` helpers and fails on
+    any cross-surface disagreement. As of 2026-04-07 `PARITY_FIELDS` also
+    covers `reviewer_mode` and `operator_interaction_mode`,
+    `_extract_from_auto_mode` reads `next_action` straight from
+    `inputs.push_decision_action` (no `model.next_action` fallback), and a
+    regression test pins that a broken `inputs_from_read_model` mapping
+    surfaces as a typed `next_action` divergence. The session-resume
+    extractor intentionally omits `reviewer_mode` because `SessionCachePacket`
+    has no direct slot for it; the comparator skips absent fields.
   - As of 2026-04-06 the field-route proof helper
     `_source_contains_any` in
     `dev/scripts/checks/platform_contract_closure/field_routes_surface_state.py`

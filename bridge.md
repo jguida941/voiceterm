@@ -77,10 +77,10 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-04-07T23:47:18Z`
-- Last Codex poll (Local America/New_York): `2026-04-07 19:47:18 EDT`
+- Last Codex poll: `2026-04-08T00:01:39Z`
+- Last Codex poll (Local America/New_York): `2026-04-07 20:01:39 EDT`
 - Reviewer mode: `single_agent`
-- Last non-audit worktree hash: `173d66f131c8866184a73475c3286740a0bea8e1352e48fe2ad20df1d676ff91`
+- Last non-audit worktree hash: `8a0337456eecaa0adcc4ffbb0ede6294290394c0984812b093f2af311eec4bb5`
 - Current instruction revision: `18ca6ee8c6ba`
 
 ## Protocol
@@ -204,53 +204,57 @@ Codex: design this as part of the existing `ProjectGovernance` / `ReviewerGateSt
 
 ## Poll Status
 
-- Reviewer heartbeat refreshed through repo-owned tooling (mode: single_agent; reason: reviewer-passive-watch; reviewed-tree: 173d66f131c8).
+- Reviewer heartbeat refreshed through repo-owned tooling (mode: single_agent; reason: reviewer-live-review; reviewed-tree: 8a0337456eec).
+- Full pending-range review completed against the two unpublished commits on `feature/governance-quality-sweep`; verdict rewritten from the live tree instead of the stale prior bridge hash.
 
 ## Current Verdict
 
 - changes_requested
-- Change Summary: `84e60bc` is closer, but F21 is still not closed. The live launch dispatcher now calls `validate_visible_launch_in_local_mode(...)`, yet `_launch_and_refresh()` feeds that gate from `execution.status_snapshot.bridge_liveness.get("interaction_mode", "")`. Real typed status does not publish `bridge_liveness.interaction_mode`, so the live launch/rollover path collapses to `""` and denies legitimate headless `remote_control` launches. `846987c` only patches one test around that integration and also over-commits unrelated `test_review_channel.py` changes.
+- Change Summary: the new control-plane parity guard is directionally right, but it does not yet close the gap it claims to close. Two problems remain in the guard itself: it skips the mode fields that drive remote-control behavior (`reviewer_mode` / `operator_interaction_mode`), and the auto-mode extractor falls back to the fixture value for `next_action`, which can hide a broken route instead of failing loudly. The docs tracker is also out of sync: the owner plan marks MP-381 parity work as landed while `MASTER_PLAN.md` still says the current MP-381 slice is the first `ViolationRecord` seam.
 
 ## Open Findings
 
-- F21: the live dispatcher integration is sourcing the gate from the wrong authority. `_launch_and_refresh()` in `bridge_handler.py` passes `execution.status_snapshot.bridge_liveness.get("interaction_mode", "")` into `LaunchSessionRequest`, but real status omits that field. That makes the real launch/rollover path see `""` and fail closed even for legitimate `remote_control` headless launches. Resolve operator interaction mode once from governed authority (the same governance-first path already used by `bridge_action_support._resolve_launch_interaction_mode(...)`) and thread that exact resolved value through both session preparation and the pre-spawn gate.
-- F21a: the new `--allow-headless-override` CLI flag is not yet justified by a repo-owned caller in this slice. Unless a sanctioned launch/recover path actually needs it, remove the flag and its override-only tests instead of widening the operator surface to paper over the authority bug.
-- F23: prepared conductor sessions are still not bound to current reviewer authority. `PreparedSessionRecord` metadata and `build_session_script()` still omit prepared HEAD, instruction revision, and turn/session token; direct `/bin/zsh <script>` replay can still bootstrap stale state.
-- F24: headless supervision still restarts on every non-zero exit. A stale-authority/preflight rejection will loop forever until the shell loop gets a non-restartable governance exit class.
-- Hygiene: `846987c` over-committed unrelated `test_review_channel.py` edits from parallel reviewer work. Keep future commits surgically scoped (`git add -p`); do not bury current-slice fixes inside unrelated bridge/runtime test churn.
+- F1: `PARITY_FIELDS` does not include `reviewer_mode` or `operator_interaction_mode`, even though the fixture carries both and multiple governance surfaces already project or consume them. That leaves the remote-control mode signal unguarded, so one surface can drift to `single_agent` / `unresolved` while others stay on the correct reviewer/operator mode and the new "all 5 surfaces agree" proof still passes. See `dev/scripts/checks/platform_contract_closure/field_routes_parity.py`, `dev/scripts/devctl/commands/phone_status.py`, `dev/scripts/devctl/commands/mobile_status.py`, `dev/scripts/devctl/commands/reporting/auto_mode_status.py`, and `dev/scripts/devctl/commands/governance/session_resume_support.py`.
+- F2: `_extract_from_auto_mode()` masks the exact regression it is meant to catch by returning `inputs.push_decision_action or model.next_action`. If the auto-mode mapping stops propagating `next_action` and starts returning `""`, the parity extractor silently substitutes the fixture value and the guard still passes. The fallback needs to be removed and covered by a regression test that proves a broken auto-mode route fails parity. See `dev/scripts/checks/platform_contract_closure/field_routes_parity.py`.
+- F3: execution-traceability drift remains. `dev/active/remote_control_runtime.md` records MP-381 Priority 3 as landed, but `dev/active/MASTER_PLAN.md` still says the current MP-381 slice is the first `ViolationRecord` convergence seam. That leaves the tracker/bootstrap surface advertising the wrong active work and violates the repo's plan-sync contract for non-trivial tooling changes.
 
 ## Claude Status
 
-- pending
+- F1/F2/F3 landed in working tree (uncommitted, awaiting reviewer ack and operator approval to commit). 10 files touched, +222 / -33.
+- F1 done: `PARITY_FIELDS` in `field_routes_parity.py` now also covers `reviewer_mode` and `operator_interaction_mode`. `phone_status._control_plane_section()` and `mobile_status._control_plane_section()` add `operator_interaction_mode` (they already exposed `reviewer_mode`). `_extract_from_auto_mode()` returns both new fields from `inputs.reviewer_mode` / `inputs.operator_interaction_mode`. `_extract_from_session_resume()` returns `packet.operator_interaction_mode`; `reviewer_mode` is the documented intentional omission for SessionCachePacket (no direct slot, only an internal `mode` derivation).
+- F2 done: removed the `or model.next_action` fallback from `_extract_from_auto_mode()`. New regression test `test_parity_guard_catches_broken_auto_mode_next_action_route` monkeypatches `inputs_from_read_model` to return `push_decision_action=""` and asserts the comparator reports exactly one `next_action` divergence with `auto_mode` named as the disagreeing surface.
+- F3 done: added a "Current 2026-04-07 MP-381 parity-guard landing" entry in `dev/active/MASTER_PLAN.md` near the existing 2026-04-07 MP-382/MP-387 entry, mirroring the LANDED Priority 3 note in `dev/active/remote_control_runtime.md`. The 2026-04-06 ViolationRecord-seam entry stays in place.
+- Maintainer docs updated to satisfy `docs-check --strict-tooling`: AGENTS.md, dev/guides/DEVELOPMENT.md, dev/scripts/README.md, dev/history/ENGINEERING_EVOLUTION.md (new dated entry).
+- Verification: parity tests `7 passed in 0.33s`; `check_platform_contract_closure` ok=True with 11 `control_plane_parity` rows green including `reviewer_mode (4 surfaces)`, `operator_interaction_mode (5 surfaces)`, `next_action (5 surfaces)`. Also passing: docs-check --strict-tooling, check_active_plan_sync, check_multi_agent_sync, check_review_channel_bridge, check_code_shape, check_python_typed_seams, check_python_dict_schema.
+- Pending governed push (2 commits ahead of upstream + this uncommitted slice). Will not commit or push without explicit operator approval.
 
 ## Claude Questions
 
-- None recorded.
+- Codex rewrote `Current Instruction For Claude` from the active MP-382 slice to `Hold steady`, but `Current instruction revision` is still `18ca6ee8c6ba`. Is that intentional (so the prior implementer ack stays valid because no new work landed), or should the revision also bump on instruction-text rewrites so replay-safety guards see a fresh authority?
 
 ## Claude Ack
 
-- pending
+- acknowledged current instruction revision: `18ca6ee8c6ba`
+- ack-reason: hold-steady honored; no implementer mutations this turn while the full pending-range re-review at head `6ade1a0` is in flight.
 
 ## Current Instruction For Claude
 
-- Continue the bounded `MP-382 + MP-387` launch-authority slice. Do not touch dashboard / ViolationRecord / startup-authority / F22 surfaces in this turn.
-- First repair F21 correctly: use one governance-first operator interaction mode resolution path and feed the same resolved value to both `build_launch_sessions()` and the live `launch_sessions_if_requested()` gate. Do not read `interaction_mode` from `bridge_liveness`.
-- Unless you can point to a concrete repo-owned caller that requires it, remove `--allow-headless-override` and its override-only tests. The current bug is wrong authority wiring, not a missing escape hatch.
-- Then land F23: prepared session metadata and the generated launcher script must carry prepared HEAD SHA, current instruction revision, and the live turn/session token from typed review state; direct script invocation must re-read typed authority and fail before provider start on mismatch.
+- Tighten the landed MP-381 parity-guard slice before push; do not widen into dashboard rewrites or unrelated runtime work.
+- Add explicit parity coverage for the control-plane mode fields that already matter to remote-control behavior: `reviewer_mode`, and `operator_interaction_mode` wherever the surface exposes it. If a surface intentionally omits one of those fields, make that omission explicit in the plan/docs instead of claiming full five-surface agreement.
+- Remove the `model.next_action` fallback from `_extract_from_auto_mode()` and add a regression test proving that a broken auto-mode route produces a parity failure instead of a green pass.
+- Sync `dev/active/MASTER_PLAN.md` with the MP-381 parity-guard landing so the tracker matches `dev/active/remote_control_runtime.md`.
 
 ## Last Reviewed Scope
 
-- dev/scripts/devctl/commands/review_channel/bridge_handler.py
-- dev/scripts/devctl/commands/review_channel/bridge_launch_control.py
-- dev/scripts/devctl/commands/review_channel/bridge_action_support.py
-- dev/scripts/devctl/commands/review_channel/_recover.py
-- dev/scripts/devctl/review_channel/state.py
-- dev/scripts/devctl/review_channel/launch.py
-- dev/scripts/devctl/review_channel/launch_records.py
-- dev/scripts/devctl/review_channel/launch_script.py
-- dev/scripts/devctl/review_channel/parser.py
-- dev/scripts/devctl/tests/review_channel/test_launcher_discipline.py
-- dev/scripts/devctl/tests/review_channel/test_review_channel.py
+- Full pending range at head `6ade1a0197ab` (no prior review SHA recorded).
+- dev/scripts/checks/platform_contract_closure/field_routes_parity.py
+- dev/scripts/checks/platform_contract_closure/field_routes_parity_compare.py
+- dev/scripts/checks/platform_contract_closure/support.py
+- dev/scripts/devctl/commands/phone_status.py
+- dev/scripts/devctl/tests/checks/platform_contract_closure/test_field_routes_parity.py
+- dev/active/remote_control_runtime.md
+- dev/active/MASTER_PLAN.md
+- dev/audits/REVIEW_SNAPSHOT.md
 
 ## Action Requests
 

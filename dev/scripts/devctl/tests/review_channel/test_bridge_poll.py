@@ -344,6 +344,46 @@ def test_bridge_poll_reports_changed_since_last_ack(tmp_path: Path) -> None:
     assert payload["turn_state_token"]
 
 
+def test_bridge_poll_surfaces_typed_revision_reuse_warning(tmp_path: Path) -> None:
+    new_instruction = "- Start the re-reviewed parity guard repair slice."
+    derived_revision = "9d0be0ca64ec"
+    typed_review_state = _typed_review_state(
+        instruction_revision=derived_revision,
+    )
+    typed_review_state["warnings"] = [
+        "Current reviewer instruction text changed while `Current instruction revision` stayed at `c5d49df4cfd1`."
+    ]
+    typed_review_state["current_session"]["current_instruction"] = new_instruction
+    typed_review_state["current_session"]["current_instruction_revision"] = derived_revision
+    typed_review_state["current_session"]["implementer_ack"] = (
+        "- acknowledged; instruction-rev: `c5d49df4cfd1`"
+    )
+    typed_review_state["current_session"]["implementer_ack_revision"] = "c5d49df4cfd1"
+    typed_review_state["current_session"]["implementer_ack_state"] = "stale"
+    typed_review_state["bridge"]["current_instruction_revision"] = derived_revision
+    typed_review_state["bridge"]["claude_ack_revision"] = "c5d49df4cfd1"
+    typed_review_state["bridge"]["claude_ack_current"] = False
+    typed_review_state["reviewer_runtime"]["implementer_ack_current"] = False
+
+    rc, payload = _run_bridge_poll(
+        tmp_path,
+        _build_bridge_text(
+            instruction_revision="c5d49df4cfd1",
+            claude_ack_revision="c5d49df4cfd1",
+            current_instruction=new_instruction,
+        ),
+        typed_review_state=typed_review_state,
+    )
+
+    assert rc == 0
+    assert payload["warnings"] == [
+        "Current reviewer instruction text changed while `Current instruction revision` stayed at `c5d49df4cfd1`."
+    ]
+    assert payload["current_instruction_revision"] == derived_revision
+    assert payload["claude_ack_current"] is False
+    assert payload["changed_since_last_ack"] is True
+
+
 def test_bridge_poll_reports_reviewer_wait_state_when_hold_steady_is_acked() -> None:
     result = build_bridge_poll_result(
         _build_bridge_text(

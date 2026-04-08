@@ -987,6 +987,22 @@ Portable policy note:
   substring overlap can never satisfy the proof. New field-route tokens
   must be enumerated explicitly if a consumer surface uses a renamed
   projection (for example `push_eligible_now` beside `push_eligible`).
+- The control-plane parity guard
+  (`dev/scripts/checks/platform_contract_closure/field_routes_parity.py`)
+  is the cross-surface "all 5 surfaces agree" proof for
+  `ControlPlaneReadModel`. As of 2026-04-07 `PARITY_FIELDS` also covers
+  the remote-control mode signals `reviewer_mode` and
+  `operator_interaction_mode`, and `_extract_from_auto_mode` reads
+  `next_action` straight from `inputs.push_decision_action` without
+  falling back to `model.next_action`. A regression test pins that a
+  broken `inputs_from_read_model` mapping surfaces as a typed
+  `next_action` divergence instead of a silent green pass. When you
+  touch a governance surface that exposes either mode signal, mirror
+  the field on the surface's `_control_plane_section` (or equivalent
+  extractor) so the comparator catches mode-field drift; the
+  `SessionCachePacket` projection used by session-resume intentionally
+  omits `reviewer_mode` because it has no direct slot for it, and the
+  comparator skips absent fields.
 - Shared `ViolationRecord` convergence for non-check signal sources lives
   in `dev/scripts/devctl/runtime/` alongside `check_result_models.py`.
   As of 2026-04-06 two one-way, non-mutating adapters project

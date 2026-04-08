@@ -182,6 +182,72 @@ def test_parity_guard_reports_extractor_crash() -> None:
     assert "intentionally broken" in extractor_errors[0]["detail"]
 
 
+def test_parity_guard_catches_broken_auto_mode_next_action_route(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A broken auto-mode next_action route must produce a parity violation.
+
+    The previous ``_extract_from_auto_mode`` returned
+    ``inputs.push_decision_action or model.next_action``. That fallback
+    silently masked exactly the regression class this guard exists to
+    catch: if ``inputs_from_read_model`` stopped propagating
+    ``next_action`` and started returning ``""``, the extractor would
+    substitute the model value and the cross-surface comparator would
+    still report "all 5 surfaces agree." With the fallback removed, a
+    broken ``inputs_from_read_model`` mapping must visibly diverge from
+    the surfaces that read ``next_action`` straight from the model.
+    """
+    from dev.scripts.devctl.commands.reporting import auto_mode_status
+
+    real_inputs_from_read_model = auto_mode_status.inputs_from_read_model
+
+    def _broken_inputs_from_read_model(model: ControlPlaneReadModel):
+        # Simulate a broken auto-mode mapping that stops emitting a push
+        # action. Every other field stays on the real AutoModeInputs so
+        # the only divergence the comparator can flag is ``next_action``.
+        return replace(
+            real_inputs_from_read_model(model),
+            push_decision_action="",
+        )
+
+    monkeypatch.setattr(
+        auto_mode_status,
+        "inputs_from_read_model",
+        _broken_inputs_from_read_model,
+    )
+
+    results = run_parity_checks()
+    violations = [v for _, v in results if v is not None]
+    next_action_violations = [
+        v for v in violations
+        if v.get("field_name") == "next_action"
+        and v.get("rule") == "control-plane-parity-divergence"
+    ]
+    assert len(next_action_violations) == 1, (
+        "with the model.next_action fallback removed, a broken auto-mode "
+        "route must produce exactly one next_action divergence violation; "
+        f"got {next_action_violations}"
+    )
+
+    violation = next_action_violations[0]
+    observed = violation["observed"]
+    assert "auto_mode" in observed, (
+        "violation must name the auto_mode surface as the disagreeing one"
+    )
+    assert observed["auto_mode"] == "", (
+        "violation must echo the broken empty value so operators can locate "
+        "the regression inside inputs_from_read_model"
+    )
+    healthy_values = [
+        value for key, value in observed.items()
+        if key != "auto_mode" and value == "run_devctl_push"
+    ]
+    assert healthy_values, (
+        "at least one healthy surface must still echo the fixture's "
+        "next_action value of run_devctl_push so the divergence is genuine"
+    )
+
+
 def test_phone_pure_function_matches_disk_function(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

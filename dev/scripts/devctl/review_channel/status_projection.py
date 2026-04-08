@@ -84,7 +84,11 @@ def build_bridge_review_state(
 ) -> dict[str, object]:
     """Build a canonical ReviewState dict from bridge markdown state."""
     overall_state = str(bridge_liveness.get("overall_state") or "unknown")
-    current_session = build_bridge_current_session(snapshot, bridge_liveness)
+    current_session = build_bridge_current_session(
+        snapshot,
+        bridge_liveness,
+        prior_review_state=context.prior_review_state,
+    )
     warnings = list(context.warnings)
     errors = list(context.errors)
     typed_attention = (

@@ -72,6 +72,7 @@ def _control_plane_section(model: ControlPlaneReadModel) -> dict[str, Any]:
         "push_eligible": model.push_eligible,
         "review_accepted": model.review_accepted,
         "reviewer_mode": model.reviewer_mode,
+        "operator_interaction_mode": model.operator_interaction_mode,
         "last_guard_ok": model.last_guard_ok,
         "pending_action_requests": model.pending_action_requests,
     }

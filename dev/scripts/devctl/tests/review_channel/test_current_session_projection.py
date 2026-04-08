@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from hashlib import sha256
+
 from dev.scripts.devctl.review_channel.current_session_projection import (
     build_bridge_current_session,
     build_event_current_session,
@@ -123,3 +125,37 @@ def test_bridge_and_event_paths_produce_same_ack_state_when_stale() -> None:
         "both projection paths must produce the same implementer_ack_state "
         "so that implementation_blocked computes identically"
     )
+
+
+def test_build_bridge_current_session_rederives_revision_when_instruction_changes() -> None:
+    current_instruction = "Implement the repaired reviewer authority slice."
+    bridge_state = build_bridge_current_session(
+        snapshot=BridgeSnapshot(
+            metadata={"current_instruction_revision": "abc123def456"},
+            sections={
+                "Current Instruction For Claude": current_instruction,
+                "Claude Status": "working on the current slice",
+                "Claude Questions": "",
+                "Claude Ack": "Acknowledged instruction revision `abc123def456`",
+                "Open Findings": "none",
+                "Last Reviewed Scope": "MP-355",
+            },
+        ),
+        bridge_liveness={
+            "current_instruction_revision": "abc123def456",
+            "claude_ack_revision": "abc123def456",
+            "claude_ack_current": True,
+        },
+        prior_review_state={
+            "current_session": {
+                "current_instruction": "Implement the previous slice.",
+                "current_instruction_revision": "abc123def456",
+            }
+        },
+    )
+
+    expected_revision = sha256(current_instruction.encode("utf-8")).hexdigest()[:12]
+
+    assert bridge_state.current_instruction_revision == expected_revision
+    assert bridge_state.implementer_ack_revision == "abc123def456"
+    assert bridge_state.implementer_ack_state == "stale"

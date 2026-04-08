@@ -285,6 +285,32 @@
   repo-owned `ensure` / reviewer-heartbeat auto-start path, and the launchd
   publisher wrapper treats launch-authority exit `82` as a no-restart service
   exit.
+- Current 2026-04-07 `MP-381` parity-guard landing inside that same lane: the
+  hard control-plane parity guard
+  (`dev/scripts/checks/platform_contract_closure/field_routes_parity.py`) is
+  now wired into `check_platform_contract_closure`. One deterministic
+  `ControlPlaneReadModel` fixture flows through dashboard `_assemble`,
+  `inputs_from_read_model`, `build_from_sources`, and the pure
+  phone/mobile `_control_plane_section` helpers; the comparator fails the
+  closure aggregator on any cross-surface disagreement. `PARITY_FIELDS` now
+  also covers the remote-control mode signals `reviewer_mode` and
+  `operator_interaction_mode` so a surface drifting to `single_agent` /
+  `unresolved` while the rest stay correct can no longer pass the
+  "all 5 surfaces agree" proof. The `_extract_from_auto_mode` helper no
+  longer falls back to `model.next_action`, and a new regression test in
+  `dev/scripts/devctl/tests/checks/platform_contract_closure/test_field_routes_parity.py`
+  proves a broken `inputs_from_read_model` mapping (`push_decision_action=""`)
+  surfaces as a typed `next_action` divergence instead of a silent green
+  pass. The `SessionCachePacket` projection used by session-resume
+  intentionally omits `reviewer_mode` because it has no direct slot for it
+  (only an internal `mode` derivation); the comparator already skips
+  absent fields. Owner-plan tracking stays in
+  `dev/active/remote_control_runtime.md` Priority 3 (LANDED 2026-04-07);
+  this entry mirrors that landing into the master tracker so the bootstrap
+  packet stops advertising the `ViolationRecord` convergence seam as the
+  only current `MP-381` slice. The 2026-04-06 ViolationRecord-seam entry
+  above remains active because that is a separate `MP-381` deliverable
+  still in progress.
 - Current 2026-04-07 `MP-383` bridge Action Requests closure inside that same
   lane: the markdown `## Action Requests` section is projection-only over
   event-backed `PacketPostRequest(kind="action_request")` rows, not a second
