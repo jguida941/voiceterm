@@ -1394,6 +1394,111 @@ been reviewer-implementer work. The operator corrected this explicitly:
   Action Requests for Codex and Claude-CLI to address.
 - **Status**: OPEN (needs Codex triage + role-contract enforcement)
 
+### Q47 — HANDOFF LATENCY — dual-agent instruction handoff sits in `waiting_on_peer` without a typed escalation
+
+- **Discovered**: 2026-04-08T20:17Z
+- **Severity**: workflow throughput, medium
+- **Body**: At 20:10:08Z Codex posted a new F1 instruction
+  (revision `2eeb0d181911`) and the state machine correctly reported
+  `overall_state=waiting_on_peer`. But Claude-CLI did not
+  acknowledge the new revision for 7+ minutes —
+  `claude_ack_revision` remained at the previous `6e0cacd366b6`
+  and `claude_ack_current` stayed `False`. During that window the
+  state degraded `waiting_on_peer → stale` at the 5-minute mark
+  and stayed stale with no escalation, no nudge, no typed alert.
+  The two agents are co-present and alive but neither has a typed
+  "your peer is waiting on you" signal.
+- **Fix recommendations**:
+    1. When `claude_ack_current=False` and the instruction is more
+       than N seconds old, emit a `claude_ack_overdue` attention
+       event visible in `devctl dashboard` and `phone-status`.
+    2. Optionally, the publisher could automatically inject a
+       lightweight "your peer has a new instruction" prompt into
+       the implementer conductor's bridge-polling loop so the
+       coder notices the new revision sooner.
+    3. Add a `handoff_latency_seconds` typed field that tracks the
+       time since the instruction was issued.
+- **Status**: OPEN
+
+### Q46 — META — Claude-Code did not run full typed-state enumeration at session start
+
+- **Discovered**: 2026-04-08T20:11Z (self-correction)
+- **Severity**: operator bootstrap gap, high
+- **Body**: For nearly 3 hours of this session, Claude-Code (the
+  remote operator proxy) repeatedly reported "I can't tell what
+  Codex/Claude-CLI are doing." The reason was not that the typed
+  system lacked the data — it had all of it in
+  `bridge_liveness.current_instruction`,
+  `bridge_liveness.claude_status`, `bridge_liveness.claude_ack`,
+  `bridge_liveness.open_findings`, and
+  `bridge_liveness.last_reviewed_scope`. The reason was that
+  Claude-Code was pathing to `current_session.*` (which doesn't
+  exist at the top level) instead of dumping the full JSON
+  structure and exploring it. A simple
+  `review-channel status --format json | walk keys` at session
+  start would have surfaced every available field. This is a
+  discoverability failure on Claude-Code's side, not a contract
+  gap — though Q45 (field-naming confusion) is the downstream
+  contract fix that would make this mistake harder.
+- **Fix recommendations**:
+    1. Claude-Code's session bootstrap prompt should include an
+       explicit "dump the full `review-channel status --format
+       json` and walk every top-level key" step before claiming
+       any `missing` diagnosis.
+    2. Ship a `devctl describe-status` command that prints the
+       full available field inventory with example values, so
+       operators and AI sessions can discover the contract
+       without raw JSON diving.
+    3. The `review-channel status` output should carry a
+       self-describing header block listing every populated field
+       path, so consumers don't have to guess.
+- **Status**: OPEN (documentation/bootstrap fix — Q45 below is
+  the related contract-level cleanup)
+
+### Q45 — FIELD NAMING CONFUSION — activity data lives under `bridge_liveness.*` despite the name implying "is the bridge alive"
+
+- **Discovered**: 2026-04-08T20:11Z
+- **Severity**: contract/API ergonomics, medium-high
+- **Body**: The `bridge_liveness` dict returned by
+  `review-channel status --format json` contains **42 fields**,
+  most of which describe the current dual-agent loop state, not
+  bridge aliveness:
+    - `current_instruction` (full instruction text)
+    - `current_instruction_revision` (hash)
+    - `claude_status` (coder's latest Status block)
+    - `claude_ack` (coder's latest Ack block)
+    - `claude_questions` (coder's Questions section)
+    - `claude_ack_revision` + `claude_ack_current` (ack lineage)
+    - `open_findings` (reviewer's Open Findings text)
+    - `last_reviewed_scope` (reviewer's Last Reviewed Scope text)
+    - `codex_poll_state` / `last_codex_poll_utc`
+    - `effective_reviewer_mode` / `reviewer_mode`
+    - `launch_truth` / `conductor_visibility`
+    - plus 30+ more
+  None of these describe "is bridge.md file present and readable"
+  (which is what "bridge liveness" sounds like). The semantic name
+  is at best "dual_agent_loop_state". Every Claude-Code operator
+  who inherits this codebase will waste time pathing to
+  `current_session.*` or `reviewer_runtime.*` looking for these
+  fields.
+- **Fix recommendations**:
+    1. Rename `bridge_liveness` → `dual_agent_loop_state` (or
+       similar), keeping `bridge_liveness` as a compatibility
+       alias with a deprecation note.
+    2. Alternatively, split the dict into two nested dicts:
+       `bridge_liveness.bridge_health` (actual file/projection
+       aliveness signals) and
+       `bridge_liveness.dual_agent_state` (the loop content).
+    3. Document the full field list in
+       `dev/guides/DEVELOPMENT.md` or a dedicated
+       `typed_contracts.md` so operators don't have to grep.
+- **Operator-impact note**: this finding came from the operator's
+  direct question ("how do you not know what is going on? we have
+  a fully typed system") — the answer was "I was looking in the
+  wrong key path" but the wrong path was an honest guess given
+  the name. Q45 is the root of that misdiscovery.
+- **Status**: OPEN
+
 ### Q44 — PUBLISHER REAPER RISK — long-lived publisher can be reaped as "stale" by `process-sweep` beyond 600s
 
 - **Discovered**: 2026-04-08T20:09Z (during Q43 audit)
