@@ -854,6 +854,62 @@ class ReviewChannelHelperTests(unittest.TestCase):
         self.assertEqual(sessions[0].terminal_window_id, 777)
         self.assertEqual(sessions[0].session_pid, 31337)
 
+    def test_load_conductor_sessions_keeps_terminal_window_backed_session_live_after_script_probe_miss(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            status_dir = Path(tmpdir)
+            sessions_dir = status_dir / "sessions"
+            sessions_dir.mkdir(parents=True, exist_ok=True)
+            metadata_path = sessions_dir / "codex-conductor.json"
+            metadata_path.write_text(
+                json.dumps(
+                    {
+                        "provider": "codex",
+                        "provider_name": "Codex",
+                        "session_name": "codex-conductor",
+                        "capture_mode": "terminal-script",
+                        "prepared_at": _fresh_utc_z(seconds_offset=-20),
+                        "repo_root": str(status_dir),
+                        "script_path": "/tmp/codex-conductor.sh",
+                        "log_path": str(sessions_dir / "codex-conductor.log"),
+                        "launch_command": "/bin/zsh /tmp/codex-conductor.sh",
+                        "supervision_mode": "restart-on-clean-exit",
+                        "approval_mode": "balanced",
+                        "role": "reviewer",
+                        "planned_lane_count": 1,
+                        "requested_worker_budget": 0,
+                        "terminal_window_id": 777,
+                        "planned_lanes": [],
+                    },
+                    indent=2,
+                ),
+                encoding="utf-8",
+            )
+            (sessions_dir / "codex-conductor.log").write_text("live\n", encoding="utf-8")
+
+            with (
+                patch(
+                    "dev.scripts.devctl.review_channel.session_probe._probe_script_pid",
+                    return_value=None,
+                ),
+                patch(
+                    "dev.scripts.devctl.review_channel.session_probe._probe_script_running",
+                    return_value=False,
+                ),
+                patch(
+                    "dev.scripts.devctl.review_channel.session_liveness._probe_terminal_window_open",
+                    return_value=True,
+                ),
+            ):
+                sessions = load_conductor_sessions(session_output_root=status_dir)
+
+        self.assertEqual(len(sessions), 1)
+        self.assertTrue(sessions[0].live)
+        self.assertEqual(sessions[0].script_probe_state, "not_found")
+        self.assertEqual(sessions[0].terminal_window_state, "open")
+        self.assertIn("still open", sessions[0].live_reason)
+
     def test_launch_sessions_if_requested_cleans_retired_rollover_sessions_after_ack(
         self,
     ) -> None:
@@ -1313,6 +1369,83 @@ class ReviewChannelHelperTests(unittest.TestCase):
         self.assertEqual(len(conflicts), 1)
         self.assertEqual(conflicts[0].provider, "codex")
         self.assertIn("updated", conflicts[0].reason)
+
+    def test_detect_active_session_conflicts_blocks_on_open_terminal_window_after_script_probe_miss(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            sessions_dir = root / "latest/sessions"
+            sessions_dir.mkdir(parents=True, exist_ok=True)
+            metadata_path = sessions_dir / "codex-conductor.json"
+            log_path = sessions_dir / "codex-conductor.log"
+            metadata_path.write_text(
+                json.dumps(
+                    {
+                        "provider": "codex",
+                        "session_name": "codex-conductor",
+                        "script_path": str(sessions_dir / "codex-conductor.sh"),
+                        "log_path": str(log_path),
+                        "terminal_window_id": 777,
+                    }
+                ),
+                encoding="utf-8",
+            )
+            log_path.write_text("still live\n", encoding="utf-8")
+
+            with (
+                patch(
+                    "dev.scripts.devctl.review_channel.session_probe._probe_script_running",
+                    return_value=False,
+                ),
+                patch(
+                    "dev.scripts.devctl.review_channel.session_liveness._probe_terminal_window_open",
+                    return_value=True,
+                ),
+            ):
+                conflicts = detect_active_session_conflicts(session_output_root=root / "latest")
+
+        self.assertEqual(len(conflicts), 1)
+        self.assertEqual(conflicts[0].provider, "codex")
+        self.assertIn("Terminal window 777 is still open", conflicts[0].reason)
+
+    def test_detect_active_session_conflicts_uses_fresh_logs_after_script_probe_no_match(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            sessions_dir = root / "latest/sessions"
+            sessions_dir.mkdir(parents=True, exist_ok=True)
+            metadata_path = sessions_dir / "codex-conductor.json"
+            log_path = sessions_dir / "codex-conductor.log"
+            metadata_path.write_text(
+                json.dumps(
+                    {
+                        "provider": "codex",
+                        "session_name": "codex-conductor",
+                        "script_path": str(sessions_dir / "codex-conductor.sh"),
+                        "log_path": str(log_path),
+                    }
+                ),
+                encoding="utf-8",
+            )
+            log_path.write_text("still live\n", encoding="utf-8")
+
+            with (
+                patch(
+                    "dev.scripts.devctl.review_channel.session_probe._probe_script_running",
+                    return_value=False,
+                ),
+                patch(
+                    "dev.scripts.devctl.review_channel.session_liveness._probe_terminal_window_open",
+                    return_value=None,
+                ),
+            ):
+                conflicts = detect_active_session_conflicts(session_output_root=root / "latest")
+
+        self.assertEqual(len(conflicts), 1)
+        self.assertEqual(conflicts[0].provider, "codex")
+        self.assertIn("returned no match", conflicts[0].reason)
 
     def test_summarize_active_session_conflicts_includes_provider_and_log_path(self) -> None:
         summary = summarize_active_session_conflicts(
@@ -4408,6 +4541,84 @@ class ReviewChannelWatchFollowTests(unittest.TestCase):
 
         self.assertEqual(attention["status"], "implementer_relaunch_required")
         self.assertIn("recover", attention["recommended_command"])
+
+    def test_attention_prefers_relaunch_over_implementer_reset_when_loop_is_detached(
+        self,
+    ) -> None:
+        from dev.scripts.devctl.review_channel.attention import derive_bridge_attention
+
+        liveness = {
+            "overall_state": "fresh",
+            "codex_poll_state": "fresh",
+            "reviewer_mode": "active_dual_agent",
+            "claude_status_present": True,
+            "claude_ack_present": True,
+            "claude_ack_current": True,
+            "review_needed": False,
+            "reviewed_hash_current": True,
+            "implementer_completion_stall": False,
+            "implementer_state_pending": False,
+            "publisher_running": True,
+            "reviewer_supervisor_running": False,
+            "reviewer_freshness": "fresh",
+            "current_instruction_revision": "18ca6ee8c6ba",
+            "last_reviewed_scope_present": True,
+            "poll_status_automation_only": True,
+            "codex_conductor_active": False,
+            "claude_conductor_active": False,
+            "session_state_hints": {
+                "claude": {"state": "waiting_for_user_input"}
+            },
+        }
+
+        attention = derive_bridge_attention(
+            liveness,
+            contract_errors=[
+                "Reviewer mode is `active_dual_agent` but no live repo-owned Codex or Claude conductor sessions are present."
+            ],
+        )
+
+        self.assertEqual(attention["status"], "review_loop_relaunch_required")
+        self.assertIn("review-channel --action launch", attention["recommended_command"])
+
+    def test_attention_prefers_relaunch_over_implementer_reset_for_automation_only_poll(
+        self,
+    ) -> None:
+        from dev.scripts.devctl.review_channel.attention import derive_bridge_attention
+
+        liveness = {
+            "overall_state": "fresh",
+            "codex_poll_state": "fresh",
+            "reviewer_mode": "active_dual_agent",
+            "claude_status_present": True,
+            "claude_ack_present": True,
+            "claude_ack_current": True,
+            "review_needed": False,
+            "reviewed_hash_current": True,
+            "implementer_completion_stall": False,
+            "implementer_state_pending": False,
+            "publisher_running": True,
+            "reviewer_supervisor_running": True,
+            "reviewer_freshness": "fresh",
+            "current_instruction_revision": "18ca6ee8c6ba",
+            "last_reviewed_scope_present": True,
+            "poll_status_automation_only": True,
+            "codex_conductor_active": True,
+            "claude_conductor_active": True,
+            "session_state_hints": {
+                "claude": {"state": "waiting_for_user_input"}
+            },
+        }
+
+        attention = derive_bridge_attention(
+            liveness,
+            contract_errors=[
+                "Repo-owned Codex conductor sessions are present, but the latest reviewer poll still comes from automation-only heartbeat refresh (`reviewer-follow`) rather than a reviewer-owned turn. Do not treat the live loop as started until `Poll Status` advances through a real Codex reviewer action."
+            ],
+        )
+
+        self.assertEqual(attention["status"], "review_loop_relaunch_required")
+        self.assertIn("review-channel --action launch", attention["recommended_command"])
 
     def test_attention_prioritizes_bridge_contract_error_over_checkpoint_required(self) -> None:
         from dev.scripts.devctl.review_channel.attention import derive_bridge_attention

@@ -9,6 +9,8 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 
+from .session_liveness import SessionLivenessEvidence, build_session_liveness_evidence
+
 ACTIVE_SESSION_FRESHNESS_SECONDS = 120
 
 
@@ -22,7 +24,6 @@ class ActiveSessionConflict:
     log_path: str | None
     age_seconds: int | None
     reason: str
-
 
 @dataclass(frozen=True)
 class ConductorSessionRecord:
@@ -52,6 +53,9 @@ class ConductorSessionRecord:
     prepared_instruction_revision: str = ""
     prepared_session_token: str = ""
     review_state_path: str = ""
+    live_reason: str = ""
+    script_probe_state: str = ""
+    terminal_window_state: str = ""
 
 
 def detect_active_session_conflicts(
@@ -76,22 +80,16 @@ def detect_active_session_conflicts(
         log_path_text = _session_metadata_text(metadata, "log_path")
         script_path_text = _session_metadata_text(metadata, "script_path")
         process_running = _probe_script_running(script_path_text)
-        if process_running is True:
-            conflicts.append(
-                ActiveSessionConflict(
-                    provider=provider,
-                    session_name=session_name,
-                    metadata_path=str(metadata_path),
-                    log_path=log_path_text,
-                    age_seconds=_log_age_seconds(log_path_text),
-                    reason="existing conductor script process is still running",
-                )
-            )
-            continue
-        if process_running is False:
-            continue
         age_seconds = _log_age_seconds(log_path_text)
-        if age_seconds is None or age_seconds > freshness_seconds:
+        liveness = build_session_liveness_evidence(
+            process_running=process_running,
+            terminal_window_id=_session_metadata_optional_int(
+                metadata, "terminal_window_id"
+            ),
+            age_seconds=age_seconds,
+            freshness_seconds=freshness_seconds,
+        )
+        if not liveness.live:
             continue
         conflicts.append(
             ActiveSessionConflict(
@@ -100,10 +98,7 @@ def detect_active_session_conflicts(
                 metadata_path=str(metadata_path),
                 log_path=log_path_text,
                 age_seconds=age_seconds,
-                reason=(
-                    "session trace was updated "
-                    f"{age_seconds}s ago and the script process could not be probed"
-                ),
+                reason=liveness.reason,
             )
         )
     return tuple(conflicts)
@@ -161,8 +156,19 @@ def load_conductor_sessions(
         planned_lanes = tuple(_planned_lane_rows(metadata.get("planned_lanes")))
         script_path_text = _session_metadata_text(metadata, "script_path")
         log_path_text = _session_metadata_text(metadata, "log_path")
+        terminal_window_id = _session_metadata_optional_int(metadata, "terminal_window_id")
         session_pid = _probe_script_pid(script_path_text)
+        process_running = _probe_script_running(
+            script_path_text,
+            session_pid=session_pid,
+        )
         age_seconds = _log_age_seconds(log_path_text)
+        liveness = build_session_liveness_evidence(
+            process_running=process_running,
+            terminal_window_id=terminal_window_id,
+            age_seconds=age_seconds,
+            freshness_seconds=freshness_seconds,
+        )
         records.append(
             ConductorSessionRecord(
                 provider=provider,
@@ -184,17 +190,11 @@ def load_conductor_sessions(
                 requested_worker_budget=_session_metadata_optional_int(
                     metadata, "requested_worker_budget"
                 ),
-                terminal_window_id=_session_metadata_optional_int(
-                    metadata, "terminal_window_id"
-                ),
+                terminal_window_id=terminal_window_id,
                 session_pid=session_pid,
                 planned_lanes=planned_lanes,
                 metadata_path=str(metadata_path),
-                live=_metadata_is_live(
-                    script_path_text=script_path_text,
-                    age_seconds=age_seconds,
-                    freshness_seconds=freshness_seconds,
-                ),
+                live=liveness.live,
                 age_seconds=age_seconds,
                 prepared_head_sha=_session_metadata_text(
                     metadata, "prepared_head_sha"
@@ -212,6 +212,9 @@ def load_conductor_sessions(
                     metadata, "review_state_path"
                 )
                 or "",
+                live_reason=liveness.reason,
+                script_probe_state=liveness.script_probe_state,
+                terminal_window_state=liveness.terminal_window_state,
             )
         )
     return tuple(records)
@@ -279,8 +282,12 @@ def _normalize_session_text(value: object) -> str:
     return text
 
 
-def _probe_script_running(script_path_text: str | None) -> bool | None:
-    pid = _probe_script_pid(script_path_text)
+def _probe_script_running(
+    script_path_text: str | None,
+    *,
+    session_pid: int | None = None,
+) -> bool | None:
+    pid = session_pid if session_pid is not None else _probe_script_pid(script_path_text)
     if pid is not None:
         return True
     if not script_path_text or shutil.which("pgrep") is None:
@@ -319,20 +326,6 @@ def _probe_script_pid(script_path_text: str | None) -> int | None:
         return int(result.stdout.strip().splitlines()[0])
     except (IndexError, TypeError, ValueError):
         return None
-
-
-def _metadata_is_live(
-    *,
-    script_path_text: str | None,
-    age_seconds: int | None,
-    freshness_seconds: int,
-) -> bool:
-    process_running = _probe_script_running(script_path_text)
-    if process_running is True:
-        return True
-    if process_running is False:
-        return False
-    return age_seconds is not None and age_seconds <= freshness_seconds
 
 
 def _log_age_seconds(log_path_text: str | None) -> int | None:
