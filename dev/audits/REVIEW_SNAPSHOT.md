@@ -5,14 +5,14 @@
 ## Quick status
 
 - Branch: `feature/governance-quality-sweep`
-- HEAD: `e31232a48acb` — Refresh external review snapshot for 2602f22
-- Tree hash: `c9d83712d6bd`
-- Generation stamp: `snap-65a854377b35`
-- Generated at (UTC): 2026-04-08T18:13:14Z
-- Push decision: `run_devctl_push` — push_preconditions_satisfied
-- Reviewer mode: `single_agent` (interaction: `remote_control`)
+- HEAD: `409e65e9061c` — Refresh external review snapshot for e31232a
+- Tree hash: `f84307ff26fc`
+- Generation stamp: `snap-9831a69608c0`
+- Generated at (UTC): 2026-04-08T18:25:21Z
+- Push decision: `await_checkpoint` — worktree_dirty
+- Reviewer mode: `active_dual_agent` (interaction: `remote_control`)
 - Pipeline state: `n/a` (approval: `n/a`)
-- Delta since last snapshot: 24 commits, 81 files, +9546/-1617
+- Delta since last snapshot: 24 commits, 60 files, +7317/-1522
 - Governance findings: 39 open / 68 fixed / 121 total
 - Probe hints: 0 total across 0 files scanned
 
@@ -54,30 +54,30 @@ adopters arrive.
 - Remote: `https://github.com/jguida941/voiceterm.git`
 - Default branch: `master`
 - Current branch: `feature/governance-quality-sweep`
-- HEAD SHA: `e31232a48acb0b4ad1b860696d39df39ffa8c264`
+- HEAD SHA: `409e65e9061c9637b305cd3ce0fbe5e12f7cce4d`
 - HEAD author: Justin Guida
-- HEAD timestamp (UTC): 2026-04-08T14:12:41-04:00
+- HEAD timestamp (UTC): 2026-04-08T14:13:15-04:00
 
 ## 2. Governance state
 
 ### Push decision
-- action: `run_devctl_push`
-- reason: push_preconditions_satisfied
-- push_eligible_now: True
-- worktree_clean: True
-- next_step_command: `python3 dev/scripts/devctl.py push --execute`
+- action: `await_checkpoint`
+- reason: worktree_dirty
+- push_eligible_now: False
+- worktree_clean: False
+- next_step_command: `n/a`
 - latest_push_report: `dev/reports/push/latest.json`
 - latest_push_report_state: `blocked` (validation_failed)
 - current_push_authorization: `push-auth-20260407T220000Z-hardening-plan` (valid=False)
 - authorized_head_commit: `ee13a6c6337f395afa574e99a4234f2eaf45a161`
 - approved_target_identity: `tree-receipt-20260407T220000Z:281dea21851063411d2c43c2b4621a1c2a1168b5`
 - publication_backlog: urgent
-- publication_guidance: 5 local commit(s) waiting for governed push. Run `python3 dev/scripts/devctl.py push --execute` now.
+- publication_guidance: 6 local commit(s) waiting for governed push once the current slice is checkpoint-clean.
 
 ### Reviewer runtime
-- reviewer_mode: `single_agent`
+- reviewer_mode: `active_dual_agent`
 - reviewer_freshness: unknown
-- reviewer_publish_clear: True
+- reviewer_publish_clear: False
 - interaction_mode: `remote_control`
 
 ### Remote commit pipeline
@@ -88,47 +88,47 @@ adopters arrive.
 - active plan: **Master Plan (Active, Unified)**
 - plan path: `dev/active/MASTER_PLAN.md`
 - active MP scope: all active MP execution state
-- advisory: `push_allowed` — worktree_clean_and_review_accepted
+- advisory: `checkpoint_before_continue` — concurrent_writer_activity
 
 ## 3. Delta — what changed since the previous snapshot
 
-Range: last 24 commits ending at `e31232a48acb`
+Range: last 24 commits ending at `409e65e9061c`
 
 - commits: 24
-- files changed: 81
-- insertions: +9546
-- deletions: -1617
+- files changed: 60
+- insertions: +7317
+- deletions: -1522
 - bundle classes touched: tooling, docs
-- authority surfaces touched: 8 file(s)
+- authority surfaces touched: 4 file(s)
 
 ### Commits
 
 | # | SHA | Subject | Files | +/- | Bundle | Risk |
 |---|---|---|---|---|---|---|
-| 1 | `e31232a` | Refresh external review snapshot for 2602f22 | 1 | +56/-53 | tooling |  |
-| 2 | `2602f22` | Add CHANGELOG entry for LIVE_RUN.md + log Q17 router misrou… | 3 | +113/-58 | tooling |  |
-| 3 | `f58c69f` | Refresh external review snapshot for b6af0d3 | 1 | +44/-45 | tooling |  |
-| 4 | `b6af0d3` | Refresh external review snapshot for 69719d3 | 1 | +55/-51 | tooling |  |
-| 5 | `69719d3` | Add LIVE_RUN.md — running trial log of every issue found th… | 2 | +736/-50 | tooling |  |
-| 6 | `e215663` | Refresh external review snapshot for f177aae | 1 | +69/-65 | tooling |  |
-| 7 | `f177aae` | Q4 tactical fix: flip BridgeConfig.operator_interaction_mod… | 2 | +52/-46 | tooling |  |
-| 8 | `ca59eaf` | Hotfix: defensive pending_approvals tolerates dict-shaped p… | 2 | +74/-55 | tooling |  |
-| 9 | `f567eb1` | Refresh external review snapshot for d58eecb | 1 | +52/-49 | tooling |  |
-| 10 | `d58eecb` | Expand Q4 root cause with file:line breadcrumbs for Codex f… | 2 | +51/-51 | docs |  |
-| 11 | `00640d0` | Refresh external review snapshot for 6546c09 | 1 | +62/-64 | tooling |  |
-| 12 | `6546c09` | Add Q4 remote_control interaction_mode classification bug t… | 2 | +45/-43 | docs |  |
-| 13 | `5fe9148` | Refresh external review snapshot for 84f9140 | 1 | +64/-81 | tooling |  |
-| 14 | `84f9140` | Clear stale path overrides and refresh bridge checkpoint | 3 | +83/-94 | tooling |  |
-| 15 | `d2e648f` | Refresh external review snapshot for dff02c8 | 1 | +79/-77 | tooling |  |
-| 16 | `dff02c8` | Converge coordination control-plane read model | 38 | +1496/-112 | tooling |  |
-| 17 | `fb212c0` | Refresh review bridge checkpoint state | 2 | +54/-51 | docs |  |
-| 18 | `fb46a8a` | Refresh external review snapshot for 70290f0 | 1 | +67/-66 | tooling |  |
-| 19 | `70290f0` | Add coordination posture reducers | 19 | +2131/-62 | tooling |  |
-| 20 | `36addcb` | Refresh external review snapshot for 05bc3c5 | 1 | +65/-65 | tooling |  |
-| 21 | `05bc3c5` | Add PlanningIRSnapshot platform reducer | 14 | +1419/-66 | tooling |  |
-| 22 | `941781e` | Refresh external review snapshot for b681930 | 1 | +62/-64 | tooling |  |
-| 23 | `b681930` | Checkpoint startup coordination and session hint fixes | 14 | +344/-108 | tooling |  |
-| 24 | `ca07a33` | Add typed startup coordination state | 26 | +2273/-141 | tooling |  |
+| 1 | `409e65e` | Refresh external review snapshot for e31232a | 1 | +44/-46 | tooling |  |
+| 2 | `e31232a` | Refresh external review snapshot for 2602f22 | 1 | +56/-53 | tooling |  |
+| 3 | `2602f22` | Add CHANGELOG entry for LIVE_RUN.md + log Q17 router misrou… | 3 | +113/-58 | tooling |  |
+| 4 | `f58c69f` | Refresh external review snapshot for b6af0d3 | 1 | +44/-45 | tooling |  |
+| 5 | `b6af0d3` | Refresh external review snapshot for 69719d3 | 1 | +55/-51 | tooling |  |
+| 6 | `69719d3` | Add LIVE_RUN.md — running trial log of every issue found th… | 2 | +736/-50 | tooling |  |
+| 7 | `e215663` | Refresh external review snapshot for f177aae | 1 | +69/-65 | tooling |  |
+| 8 | `f177aae` | Q4 tactical fix: flip BridgeConfig.operator_interaction_mod… | 2 | +52/-46 | tooling |  |
+| 9 | `ca59eaf` | Hotfix: defensive pending_approvals tolerates dict-shaped p… | 2 | +74/-55 | tooling |  |
+| 10 | `f567eb1` | Refresh external review snapshot for d58eecb | 1 | +52/-49 | tooling |  |
+| 11 | `d58eecb` | Expand Q4 root cause with file:line breadcrumbs for Codex f… | 2 | +51/-51 | docs |  |
+| 12 | `00640d0` | Refresh external review snapshot for 6546c09 | 1 | +62/-64 | tooling |  |
+| 13 | `6546c09` | Add Q4 remote_control interaction_mode classification bug t… | 2 | +45/-43 | docs |  |
+| 14 | `5fe9148` | Refresh external review snapshot for 84f9140 | 1 | +64/-81 | tooling |  |
+| 15 | `84f9140` | Clear stale path overrides and refresh bridge checkpoint | 3 | +83/-94 | tooling |  |
+| 16 | `d2e648f` | Refresh external review snapshot for dff02c8 | 1 | +79/-77 | tooling |  |
+| 17 | `dff02c8` | Converge coordination control-plane read model | 38 | +1496/-112 | tooling |  |
+| 18 | `fb212c0` | Refresh review bridge checkpoint state | 2 | +54/-51 | docs |  |
+| 19 | `fb46a8a` | Refresh external review snapshot for 70290f0 | 1 | +67/-66 | tooling |  |
+| 20 | `70290f0` | Add coordination posture reducers | 19 | +2131/-62 | tooling |  |
+| 21 | `36addcb` | Refresh external review snapshot for 05bc3c5 | 1 | +65/-65 | tooling |  |
+| 22 | `05bc3c5` | Add PlanningIRSnapshot platform reducer | 14 | +1419/-66 | tooling |  |
+| 23 | `941781e` | Refresh external review snapshot for b681930 | 1 | +62/-64 | tooling |  |
+| 24 | `b681930` | Checkpoint startup coordination and session hint fixes | 14 | +344/-108 | tooling |  |
 
 ### Files
 
@@ -142,13 +142,11 @@ Range: last 24 commits ending at `e31232a48acb`
 | `dev/active/platform_authority_loop.md` | tooling | +73/-0 |
 | `dev/active/remote_control_runtime.md` | tooling | +31/-0 |
 | `dev/audits/LIVE_RUN.md` | tooling | +716/-0 |
-| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1382/-1360 |
+| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1337/-1315 |
 | `dev/guides/DEVELOPMENT.md` | docs | +46/-6 |
 | `dev/history/ENGINEERING_EVOLUTION.md` | tooling | +180/-0 |
 | `dev/scripts/README.md` | tooling | +50/-10 |
 | `dev/scripts/checks/code_shape/code_shape_policy.py` | tooling | +0/-12 |
-| `dev/scripts/checks/startup_authority_contract/command.py` | tooling | +8/-0 |
-| `dev/scripts/checks/startup_authority_contract/runtime_checks.py` | tooling | +59/-0 |
 | `dev/scripts/devctl/commands/check/__init__.py` | tooling | +2/-2 |
 | `dev/scripts/devctl/commands/check/phase_support.py` | tooling | +2/-1 |
 | `dev/scripts/devctl/commands/dashboard.py` | tooling | +41/-10 |
@@ -159,9 +157,8 @@ Range: last 24 commits ending at `e31232a48acb`
 | `dev/scripts/devctl/commands/governance/session_resume_render.py` | tooling | +70/-0 |
 | `dev/scripts/devctl/commands/governance/session_resume_support.py` | tooling | +67/-0 |
 | `dev/scripts/devctl/commands/governance/startup_context.py` | tooling | +61/-0 |
-| `dev/scripts/devctl/commands/governance/startup_context_render.py` | tooling | +112/-0 |
+| `dev/scripts/devctl/commands/governance/startup_context_render.py` | tooling | +50/-0 |
 | `dev/scripts/devctl/commands/review_channel/doctor_support.py` | tooling | +1/-0 |
-| `dev/scripts/devctl/commands/vcs/governed_executor_git.py` | tooling | +9/-22 |
 | `dev/scripts/devctl/platform/coordination_snapshot.py` | tooling | +223/-10 |
 | `dev/scripts/devctl/platform/coordination_snapshot_models.py` | tooling | +210/-0 |
 | `dev/scripts/devctl/platform/coordination_snapshot_support.py` | tooling | +296/-0 |
@@ -174,7 +171,10 @@ Range: last 24 commits ending at `e31232a48acb`
 | `dev/scripts/devctl/platform/planning_ir_reduction.py` | tooling | +334/-0 |
 | `dev/scripts/devctl/platform/planning_ir_sources.py` | tooling | +272/-0 |
 | `dev/scripts/devctl/platform/runtime_state_contract_rows_review.py` | tooling | +5/-0 |
-| _41 more files trimmed_ | | |
+| `dev/scripts/devctl/platform/surface_state_contract_rows.py` | tooling | +74/-0 |
+| `dev/scripts/devctl/platform/system_picture.py` | tooling | +12/-0 |
+| `dev/scripts/devctl/platform/system_picture_sections_coordination.py` | tooling | +79/-0 |
+| _20 more files trimmed_ | | |
 
 ## 4. Quality signals
 
@@ -248,19 +248,12 @@ Recent findings:
 - **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/commands/governance/startup_context.py`) — Review contract-level invariants for this file
 - **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/runtime/startup_context.py`) — Review contract-level invariants for this file
 - **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/tests/runtime/test_startup_context.py`) — Review contract-level invariants for this file
-- **authority_surface**: Typed authority surface touched (`dev/scripts/checks/startup_authority_contract/command.py`) — Review contract-level invariants for this file
-- **authority_surface**: Typed authority surface touched (`dev/scripts/checks/startup_authority_contract/runtime_checks.py`) — Review contract-level invariants for this file
-- **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/commands/vcs/governed_executor_git.py`) — Review contract-level invariants for this file
-- **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/tests/checks/test_startup_authority_contract.py`) — Review contract-level invariants for this file
 - **contract_mutation**: Contract / typed model mutated (`dev/scripts/devctl/runtime/project_governance_contract.py`) — Commit f177aae changed dev/scripts/devctl/runtime/project_governance_contract.py
 - **contract_mutation**: Contract / typed model mutated (`dev/scripts/devctl/runtime/review_state_models.py`) — Commit ca59eaf changed dev/scripts/devctl/runtime/review_state_models.py
 - **contract_mutation**: Contract / typed model mutated (`dev/scripts/devctl/platform/coordination_snapshot_models.py`) — Commit dff02c8 changed dev/scripts/devctl/platform/coordination_snapshot_models.py
 - **contract_mutation**: Contract / typed model mutated (`dev/scripts/devctl/platform/surface_state_contract_rows.py`) — Commit dff02c8 changed dev/scripts/devctl/platform/surface_state_contract_rows.py
 - **contract_mutation**: Contract / typed model mutated (`dev/scripts/devctl/platform/coordination_topology_models.py`) — Commit 70290f0 changed dev/scripts/devctl/platform/coordination_topology_models.py
 - **contract_mutation**: Contract / typed model mutated (`dev/scripts/devctl/platform/planning_ir_models.py`) — Commit 05bc3c5 changed dev/scripts/devctl/platform/planning_ir_models.py
-- **contract_mutation**: Contract / typed model mutated (`dev/scripts/devctl/runtime/review_state_collaboration_models.py`) — Commit ca07a33 changed dev/scripts/devctl/runtime/review_state_collaboration_models.py
-- **contract_mutation**: Contract / typed model mutated (`dev/scripts/devctl/runtime/work_intake_models.py`) — Commit ca07a33 changed dev/scripts/devctl/runtime/work_intake_models.py
-- **contract_mutation**: Contract / typed model mutated (`dev/scripts/devctl/tests/checks/test_startup_authority_contract.py`) — Commit ca07a33 changed dev/scripts/devctl/tests/checks/test_startup_authority_contract.py
 
 ### Suggested verification commands
 
@@ -274,6 +267,8 @@ Recent findings:
 
 ### Per-commit rationale
 
+- **`409e65e`** — Refresh external review snapshot for e31232a
+  - evolution: The next coordination follow-up was not another reducer. The reducer already existed and multiple rich surfaces already rendered it. The miss was load-bearing: the shared `ControlPlaneReadModel` still had no coordinatio…
 - **`e31232a`** — Refresh external review snapshot for 2602f22
   - evolution: The next coordination follow-up was not another reducer. The reducer already existed and multiple rich surfaces already rendered it. The miss was load-bearing: the shared `ControlPlaneReadModel` still had no coordinatio…
 - **`2602f22`** — Add CHANGELOG entry for LIVE_RUN.md + log Q17 router misrouting
@@ -340,8 +335,6 @@ Recent findings:
   - evolution: The next coordination follow-up was not another reducer. The reducer already existed and multiple rich surfaces already rendered it. The miss was load-bearing: the shared `ControlPlaneReadModel` still had no coordinatio…
 - **`b681930`** — Checkpoint startup coordination and session hint fixes
   - evolution: The next coordination follow-up was not another reducer. The reducer already existed and multiple rich surfaces already rendered it. The miss was load-bearing: the shared `ControlPlaneReadModel` still had no coordinatio…
-- **`ca07a33`** — Add typed startup coordination state
-  - evolution: The next coordination follow-up was not another reducer. The reducer already existed and multiple rich surfaces already rendered it. The miss was load-bearing: the shared `ControlPlaneReadModel` still had no coordinatio…
 ### Active MP scope (from MASTER_PLAN.md)
 
 - `dev/active/devctl_reporting_upgrade.md` is the phased `devctl` reporting/CIHub specification, but not a separate execution tracker; implementation tasks stay in this file under `MP-297..MP-300`, `MP-303`, `MP-306`, `MP…
@@ -360,10 +353,10 @@ Recent findings:
 - open governance findings: 39
 
 ### Startup advisories
-- push_allowed: worktree_clean_and_review_accepted
+- checkpoint_before_continue: concurrent_writer_activity
 
 ### Stale warnings
-- Stop because nothing remains to push.
+- Keep editing the current slice.
 
 ### Open gap rows
 - **governance_open** (`dev/scripts/devctl/review_channel/bridge_sanitize.py`): agent_checkpoint_contract_ignorance: 
@@ -377,4 +370,4 @@ Recent findings:
 
 ---
 
-Projection produced by `devctl review-snapshot`. Generation stamp `snap-65a854377b35` binds this file to HEAD `e31232a48acb`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
+Projection produced by `devctl review-snapshot`. Generation stamp `snap-9831a69608c0` binds this file to HEAD `409e65e9061c`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.

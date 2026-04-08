@@ -416,6 +416,100 @@ the entry — the log is append-only trial data.
   (b) for the structural fix.
 - **Status**: UNBLOCKED this cycle (CHANGELOG entry landed); ROUTER FIX OPEN
 
+### Q18 — BUG — `docs-check` in push-preflight vs standalone give different results
+
+- **Discovered**: 2026-04-08T18:11Z
+- **Packet**: TO BE POSTED (packet transport currently broken — see Q20)
+- **Severity**: bug, medium (false-negative preflight blocks governed push)
+- **Body**: During push-preflight, `docs-check --user-facing` reported
+  `changelog_updated: False` / `updated_docs: none` on the exact same
+  tree where the standalone invocation
+  `devctl docs-check --user-facing --since-ref origin/develop` reported
+  `changelog_updated: True` / `updated_docs: README.md, QUICK_START.md,
+  guides/USAGE.md, guides/CLI_FLAGS.md, guides/INSTALL.md,
+  guides/TROUBLESHOOTING.md` / `user_facing_ok: True`. Same command,
+  same tree, different results. The push-preflight wrapper is
+  calling `docs-check` with different arguments (probably without
+  `--since-ref origin/develop`) so the two see different commit
+  ranges.
+- **Impact**: any legitimate CHANGELOG update in a commit that isn't
+  the exact HEAD commit (e.g. followed by a receipt-commit) is
+  invisible to preflight even though it's visible to standalone.
+  Operators get "missing CHANGELOG" errors they can't reproduce manually.
+- **Fix recommendation**: the push-preflight's `docs-check` invocation
+  must honor the same `--since-ref` the standalone uses, and the
+  reference should be the merge-base with the target branch, not
+  `HEAD^`. Also fixes the interaction with Q15 (preflight markdown
+  leakage) — if preflight actually ran docs-check the standard way,
+  its output would be one clean JSON blob instead of interleaved
+  markdown.
+- **Status**: OPEN
+
+### Q19 — BUG — `review-channel launch` JSON returns `launched: false` after actually spawning processes
+
+- **Discovered**: 2026-04-08T18:20Z
+- **Packet**: TO BE POSTED (packet transport currently broken — see Q20)
+- **Severity**: bug, medium (false operator signal during launch)
+- **Body**: `review-channel --action launch --reviewer-mode active_dual_agent
+  --terminal none --format json` returned `ok: true` but with
+  `launched: false` and `runtime_counts.live_participant_count: 0`.
+  Simultaneously, `ps` showed 7 freshly spawned processes (publisher +
+  codex conductor + claude conductor + 4 shell wrappers). Within ~90s,
+  both conductors were polling the bridge and the typed state flipped
+  to `active_dual_agent` / `fresh` / `live`.
+- **Impact**: operators watching the JSON report would conclude the
+  launch failed and possibly re-launch, spawning duplicates. In this
+  session I almost did exactly that before spotting the fresh PIDs in
+  `ps`.
+- **Fix recommendation**: `launch` should not return until
+  `runtime_counts.live_participant_count >= 2` (or whatever the
+  planned lane count requires). Alternatively, the JSON should
+  distinguish `launched_processes: true, participants_registered: false`
+  from `launched_processes: false, participants_registered: false`.
+- **Status**: OPEN
+
+### Q20 — BUG — Packet transport `inbox` / `history` contract mismatch; 7 of 12 posted packets missing
+
+- **Discovered**: 2026-04-08T18:23Z
+- **Packet**: TO BE POSTED (irony: the bug is in the packet transport
+  itself)
+- **Severity**: bug, high (makes governance findings invisible to the
+  reviewer)
+- **Body**: Two separate problems observed simultaneously after the
+  fresh headless relaunch:
+    1. **Contract mismatch**: `review-channel --action inbox --target
+       codex --status pending` returns 0 packets while
+       `review-channel --action history` returns 20 packets, 5 of
+       which are Q-series findings with `status=pending`. The inbox
+       filter on `status=pending` does NOT match `history`'s `status`
+       field even though both claim to be reporting the same queue.
+       Filters across all statuses (`pending`, `acked`, `dismissed`,
+       `applied`, `expired`) also returned 0. The inbox view is
+       effectively empty.
+    2. **Packet loss**: Only 5 of the 12 Q-series findings I posted in
+       this session appear in history (Q2, Q3, Q4, Q11, Q12). Missing:
+       Q1, Q5, Q6, Q7, Q8, Q9, Q10. Posted IDs `rev_pkt_0120..0125`
+       (Q5-Q10) and `rev_pkt_0126` (Q1) are not in history. The
+       history may be truncated to the last 20 entries globally (not
+       per-target), but even so the Q-series should have been the most
+       recent posts and should dominate.
+- **Impact**: this is why LIVE_RUN.md at `dev/audits/LIVE_RUN.md` is
+  the only trustworthy path for sharing findings with Codex right now.
+  The packet transport is broken. Codex can still see Q1-Q4 via the
+  bridge `## Claude Questions` section text, but Q5-Q10 + Q13-Q20 only
+  exist in this LIVE_RUN.md file and in the original shell history.
+- **Fix recommendations**:
+    1. Audit the `inbox` filter to see why it rejects the same
+       `status` values that `history` reports.
+    2. Confirm whether `history` is truncated, and if so raise the
+       limit or add pagination.
+    3. Verify that posted packets are durably written to the event
+       store (not held only in memory where a restart would lose them).
+    4. Add a packet count reconciliation check in `doctor` that
+       compares posted-count vs `history` vs `inbox` totals and flags
+       mismatches.
+- **Status**: OPEN (critical — breaks governance feedback loop)
+
 ---
 
 ## Local fixes landed this session
