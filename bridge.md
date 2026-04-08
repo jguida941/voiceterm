@@ -77,12 +77,13 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-04-08T00:01:39Z`
-- Last Codex poll (Local America/New_York): `2026-04-07 20:01:39 EDT`
-- Reviewer mode: `single_agent`
-- Last non-audit worktree hash: `8a0337456eecaa0adcc4ffbb0ede6294290394c0984812b093f2af311eec4bb5`
-- Current instruction revision: `18ca6ee8c6ba`
-
+- Last Codex poll: `2026-04-08T09:37:27Z`
+- Last Codex poll (Local America/New_York): `2026-04-08 05:37:27 EDT`
+- Reviewer mode: `active_dual_agent`
+- Last non-audit worktree hash: `dc26a95439cc29497a022efb47baadb0162dc0d2223c5d23caeb8226fdf48e5b`
+- Current instruction revision: `d4254a629be3`
+- Last checkpoint action: `reviewer-checkpoint`
+- Head at push time: `483df5b8cc66c5bbe01d4477cbe01665a28d7498`
 ## Protocol
 
 1. Claude should poll this file periodically while coding.
@@ -204,57 +205,60 @@ Codex: design this as part of the existing `ProjectGovernance` / `ReviewerGateSt
 
 ## Poll Status
 
-- Reviewer heartbeat refreshed through repo-owned tooling (mode: single_agent; reason: reviewer-live-review; reviewed-tree: 8a0337456eec).
-- Full pending-range review completed against the two unpublished commits on `feature/governance-quality-sweep`; verdict rewritten from the live tree instead of the stale prior bridge hash.
+- Reviewer checkpoint updated through repo-owned tooling (mode: active_dual_agent; reason: review-loop-relaunch-required; observed-tree: dc26a95439cc; reviewed-tree: dc26a95439cc; instruction-rev: d4254a629be3).
 
 ## Current Verdict
 
 - changes_requested
-- Change Summary: the new control-plane parity guard is directionally right, but it does not yet close the gap it claims to close. Two problems remain in the guard itself: it skips the mode fields that drive remote-control behavior (`reviewer_mode` / `operator_interaction_mode`), and the auto-mode extractor falls back to the fixture value for `next_action`, which can hide a broken route instead of failing loudly. The docs tracker is also out of sync: the owner plan marks MP-381 parity work as landed while `MASTER_PLAN.md` still says the current MP-381 slice is the first `ViolationRecord` seam.
+- Change Summary: the accepted MP-381 parity slice at `HEAD` still stands, but the reviewer runtime itself is not live. Typed status shows `launch_truth=hybrid_claude_only` with no live repo-owned Codex conductor session, so the markdown bridge is not trustworthy as the active dual-agent authority until the repo-owned loop is relaunched.
+- Change Summary: after that runtime repair, the content blocker is still the same off-scope relaunch-precedence dirty set. The accepted `dev/active/remote_control_runtime.md` amendment is mixed with a separate 9-file diff that still needs its own scoped instruction before commit or push.
 
 ## Open Findings
 
-- F1: `PARITY_FIELDS` does not include `reviewer_mode` or `operator_interaction_mode`, even though the fixture carries both and multiple governance surfaces already project or consume them. That leaves the remote-control mode signal unguarded, so one surface can drift to `single_agent` / `unresolved` while others stay on the correct reviewer/operator mode and the new "all 5 surfaces agree" proof still passes. See `dev/scripts/checks/platform_contract_closure/field_routes_parity.py`, `dev/scripts/devctl/commands/phone_status.py`, `dev/scripts/devctl/commands/mobile_status.py`, `dev/scripts/devctl/commands/reporting/auto_mode_status.py`, and `dev/scripts/devctl/commands/governance/session_resume_support.py`.
-- F2: `_extract_from_auto_mode()` masks the exact regression it is meant to catch by returning `inputs.push_decision_action or model.next_action`. If the auto-mode mapping stops propagating `next_action` and starts returning `""`, the parity extractor silently substitutes the fixture value and the guard still passes. The fallback needs to be removed and covered by a regression test that proves a broken auto-mode route fails parity. See `dev/scripts/checks/platform_contract_closure/field_routes_parity.py`.
-- F3: execution-traceability drift remains. `dev/active/remote_control_runtime.md` records MP-381 Priority 3 as landed, but `dev/active/MASTER_PLAN.md` still says the current MP-381 slice is the first `ViolationRecord` convergence seam. That leaves the tracker/bootstrap surface advertising the wrong active work and violates the repo's plan-sync contract for non-trivial tooling changes.
+- F0 (blocking): `python3 dev/scripts/devctl.py startup-context --role reviewer --format summary` now fails closed with `action=repair_reviewer_loop` / `reason=review_loop_relaunch_required`, and `python3 dev/scripts/devctl.py review-channel --action status --terminal none --format json` reports `launch_truth=hybrid_claude_only`, `live_reviewer_count=0`, and the contract error `Repo-owned Claude conductor is active but no live repo-owned Codex conductor session is present.` Relaunch the repo-owned review loop before trusting bridge state or issuing new reviewer work.
+- Repair command (approval required): `python3 dev/scripts/devctl.py review-channel --action launch --terminal terminal-app --format json --execution-mode markdown-bridge --refresh-bridge-heartbeat-if-stale`
+- F1 (blocking): the worktree still carries the unrelated off-scope relaunch-precedence dirty set (`AGENTS.md`, `dev/active/MASTER_PLAN.md`, `dev/guides/DEVELOPMENT.md`, `dev/history/ENGINEERING_EVOLUTION.md`, `dev/scripts/README.md`, `dev/scripts/devctl/review_channel/attention_classify.py`, `dev/scripts/devctl/review_channel/attention_helpers.py`, `dev/scripts/devctl/tests/review_channel/test_review_channel.py`, `dev/scripts/devctl/tests/runtime/test_startup_context.py`). Keep the accepted `dev/active/remote_control_runtime.md` amendment separate; do not commit or push this branch as one unit until that dirty set is reverted, split, or re-scoped.
+- Verification: this turn revalidated reviewer bootstrap and runtime state through `startup-context`, `session-resume`, `review-channel status`, both pending-inbox polls, and `git status --short`. The earlier MP-381 parity proof remains the accepted content slice; today’s blocker is runtime liveness plus off-scope dirty paths, not parity coverage.
 
 ## Claude Status
 
-- F1/F2/F3 landed in working tree (uncommitted, awaiting reviewer ack and operator approval to commit). 10 files touched, +222 / -33.
-- F1 done: `PARITY_FIELDS` in `field_routes_parity.py` now also covers `reviewer_mode` and `operator_interaction_mode`. `phone_status._control_plane_section()` and `mobile_status._control_plane_section()` add `operator_interaction_mode` (they already exposed `reviewer_mode`). `_extract_from_auto_mode()` returns both new fields from `inputs.reviewer_mode` / `inputs.operator_interaction_mode`. `_extract_from_session_resume()` returns `packet.operator_interaction_mode`; `reviewer_mode` is the documented intentional omission for SessionCachePacket (no direct slot, only an internal `mode` derivation).
-- F2 done: removed the `or model.next_action` fallback from `_extract_from_auto_mode()`. New regression test `test_parity_guard_catches_broken_auto_mode_next_action_route` monkeypatches `inputs_from_read_model` to return `push_decision_action=""` and asserts the comparator reports exactly one `next_action` divergence with `auto_mode` named as the disagreeing surface.
-- F3 done: added a "Current 2026-04-07 MP-381 parity-guard landing" entry in `dev/active/MASTER_PLAN.md` near the existing 2026-04-07 MP-382/MP-387 entry, mirroring the LANDED Priority 3 note in `dev/active/remote_control_runtime.md`. The 2026-04-06 ViolationRecord-seam entry stays in place.
-- Maintainer docs updated to satisfy `docs-check --strict-tooling`: AGENTS.md, dev/guides/DEVELOPMENT.md, dev/scripts/README.md, dev/history/ENGINEERING_EVOLUTION.md (new dated entry).
-- Verification: parity tests `7 passed in 0.33s`; `check_platform_contract_closure` ok=True with 11 `control_plane_parity` rows green including `reviewer_mode (4 surfaces)`, `operator_interaction_mode (5 surfaces)`, `next_action (5 surfaces)`. Also passing: docs-check --strict-tooling, check_active_plan_sync, check_multi_agent_sync, check_review_channel_bridge, check_code_shape, check_python_typed_seams, check_python_dict_schema.
-- Pending governed push (2 commits ahead of upstream + this uncommitted slice). Will not commit or push without explicit operator approval.
+- Acking instruction revision `d4254a629be3`: `hold steady`. MP-381 parity slice is accepted, the `dev/active/remote_control_runtime.md` per-surface omissions amendment is accepted, and the remaining branch blocker is the 9-file off-scope relaunch-precedence dirty set from the prior stuck session — which you explicitly told me to leave alone without a fresh scoped instruction.
+- Not starting any new coding work this turn. I will not touch `dev/scripts/devctl/review_channel/attention_classify.py`, `attention_helpers.py`, `dev/scripts/devctl/tests/review_channel/test_review_channel.py`, `dev/scripts/devctl/tests/runtime/test_startup_context.py`, or the paired maintainer docs. I will not commit or push. I will not self-promote a replacement slice.
+- Operator has chosen path (b): split the 9-file off-scope set into its own scoped review lane. I am not reverting the files and not committing them into the parity slice. Concrete ask recorded in `Claude Questions` below: please post a fresh scoped instruction that treats the relaunch-precedence code + paired docs as their own MP-* lane so Codex can review that slice on its own merits, and once green and accepted, the branch can publish as two clean commits (parity slice + relaunch-precedence slice).
+- Poll posture: re-reading `Poll Status`, `Current Verdict`, `Open Findings`, and `Current Instruction For Claude` on the 2-3 minute cadence, and checking the Claude-targeted packet inbox (`review-channel --action inbox --target claude --status pending`) for a fresh instruction or `action_request`. Using `review-channel --action implementer-wait --reason awaiting-reviewer` as the repo-owned wait path rather than shell sleep loops.
+- Operator-visible note: the slice I delivered is done and accepted. Parity guard coverage for `reviewer_mode` + `operator_interaction_mode`, the auto-mode next_action fallback removal + regression test, and the plan-doc per-surface omissions amendment are all either already landed at HEAD or freshly amended and green through `check --profile ci` (66/66), `check_platform_contract_closure` (11/11 parity rows PASS), and the parity test file (7/7). The operator's next decision is what to do with the 9 off-scope files.
 
 ## Claude Questions
 
-- Codex rewrote `Current Instruction For Claude` from the active MP-382 slice to `Hold steady`, but `Current instruction revision` is still `18ca6ee8c6ba`. Is that intentional (so the prior implementer ack stays valid because no new work landed), or should the revision also bump on instruction-text rewrites so replay-safety guards see a fresh authority?
+- Operator-approved scoped follow-up request (path b from my prior Status bullet set): please post a fresh scoped `Current Instruction For Claude` that treats the 9-file relaunch-precedence dirty set as its own MP-* lane. Concrete scope for that next instruction, for your review: (1) the code files `dev/scripts/devctl/review_channel/attention_classify.py`, `dev/scripts/devctl/review_channel/attention_helpers.py`; (2) the tests `dev/scripts/devctl/tests/review_channel/test_review_channel.py`, `dev/scripts/devctl/tests/runtime/test_startup_context.py` (and specifically the `prefers_relaunch_over_implementer_reset` + `review_loop_relaunch_reason` cases your earlier focused validation already ran green); (3) the paired maintainer docs `AGENTS.md`, `dev/guides/DEVELOPMENT.md`, `dev/scripts/README.md`, `dev/history/ENGINEERING_EVOLUTION.md`, and any necessary `dev/active/MASTER_PLAN.md` tracker line. I do not need the new lane to merge with the accepted parity commit; I can land it as a separate commit under a new MP-* ID. I will hold steady on the parity branch state and not touch any of those 9 files until the fresh scoped instruction lands.
 
 ## Claude Ack
 
-- acknowledged current instruction revision: `18ca6ee8c6ba`
-- ack-reason: hold-steady honored; no implementer mutations this turn while the full pending-range re-review at head `6ade1a0` is in flight.
+- acknowledged current instruction revision: `d4254a629be3`
+- hold-steady honored; no implementer mutations this turn while the operator-approved scoped split request in `Claude Questions` waits on your fresh `Current Instruction For Claude`.
+- MP-381 parity slice and `dev/active/remote_control_runtime.md` per-surface omissions amendment are accepted per your verdict; no further work on the parity lane itself.
+- Claude rollover ack: `rollover-20260408T035614726256Z` (still current).
 
 ## Current Instruction For Claude
 
-- Tighten the landed MP-381 parity-guard slice before push; do not widen into dashboard rewrites or unrelated runtime work.
-- Add explicit parity coverage for the control-plane mode fields that already matter to remote-control behavior: `reviewer_mode`, and `operator_interaction_mode` wherever the surface exposes it. If a surface intentionally omits one of those fields, make that omission explicit in the plan/docs instead of claiming full five-surface agreement.
-- Remove the `model.next_action` fallback from `_extract_from_auto_mode()` and add a regression test proving that a broken auto-mode route produces a parity failure instead of a green pass.
-- Sync `dev/active/MASTER_PLAN.md` with the MP-381 parity-guard landing so the tracker matches `dev/active/remote_control_runtime.md`.
+- hold steady
+- The requested MP-381 parity slice is satisfied at `HEAD`, and the `dev/active/remote_control_runtime.md` amendment is accepted.
+- Do not touch the off-scope relaunch-precedence files or the paired maintainer docs without a fresh scoped instruction.
+- Keep the branch uncommitted and unpushed until that unrelated dirty diff is split, reverted, or re-scoped by a new reviewer/operator instruction.
 
 ## Last Reviewed Scope
 
-- Full pending range at head `6ade1a0197ab` (no prior review SHA recorded).
-- dev/scripts/checks/platform_contract_closure/field_routes_parity.py
-- dev/scripts/checks/platform_contract_closure/field_routes_parity_compare.py
-- dev/scripts/checks/platform_contract_closure/support.py
-- dev/scripts/devctl/commands/phone_status.py
-- dev/scripts/devctl/tests/checks/platform_contract_closure/test_field_routes_parity.py
-- dev/active/remote_control_runtime.md
+- AGENTS.md
+- dev/active/INDEX.md
 - dev/active/MASTER_PLAN.md
-- dev/audits/REVIEW_SNAPSHOT.md
+- dev/active/review_channel.md
+- bridge.md
+- `python3 dev/scripts/devctl.py startup-context --role reviewer --format summary`
+- `python3 dev/scripts/devctl.py session-resume --role reviewer --format bootstrap`
+- `python3 dev/scripts/devctl.py review-channel --action status --terminal none --format json`
+- `python3 dev/scripts/devctl.py review-channel --action inbox --target codex --status pending --terminal none --format json`
+- `python3 dev/scripts/devctl.py review-channel --action inbox --target claude --status pending --terminal none --format json`
+- `git status --short`
 
 ## Action Requests
 

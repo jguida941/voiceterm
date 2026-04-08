@@ -14,11 +14,11 @@ _RESETTABLE_IMPLEMENTER_ERROR_PREFIXES = (
     "Live `Claude Ack` revision does not match the current reviewer instruction revision.",
     "Claude Status/Ack show implementer completion-stall language while ",
     "Reviewer mode is `active_dual_agent` but no live repo-owned Codex or Claude conductor sessions are present.",
-    "Repo-owned Codex conductor sessions are present, but the latest reviewer poll still comes from automation-only heartbeat refresh",
 )
 _RELAUNCH_REQUIRED_ERROR_PREFIXES = (
     "Reviewer mode is `active_dual_agent` but no live repo-owned Codex or Claude conductor sessions are present.",
     "Repo-owned Claude conductor is active but no live repo-owned Codex conductor session is present.",
+    "Repo-owned Codex conductor sessions are present, but the latest reviewer poll still comes from automation-only heartbeat refresh",
 )
 RESETTABLE_IMPLEMENTER_SESSION_STATES = frozenset(
     {"interrupt_prompt", "waiting_for_user_input"}

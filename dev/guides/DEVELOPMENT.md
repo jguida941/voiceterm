@@ -398,7 +398,13 @@ Three quality layers matter in practice:
     repair path when live status/attention says implementer-owned bridge
     sections must return to canonical pending state. It rewrites `Claude
     Status`, `Claude Questions`, and `Claude Ack` to `- pending` and then
-    refreshes the typed review-channel projection.
+    refreshes the typed review-channel projection. Do not use it as the
+    generic fix for a detached dual-agent loop: when typed status shows a
+    current Claude ACK but `launch_truth=detached_runtime_only`,
+    `launch_truth=automation_only`, or `launch_truth=hybrid_claude_only`,
+    the correct typed diagnosis is `review_loop_relaunch_required` and the
+    sanctioned recovery is the reviewer-owned
+    `review-channel --action launch|rollover` path.
   - `review-channel --action status` also projects repo-governance
     `push_enforcement` state (`checkpoint_required`,
     `safe_to_continue_editing`, `raw_git_push_guarded`,

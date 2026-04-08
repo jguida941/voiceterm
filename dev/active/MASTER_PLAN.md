@@ -3291,6 +3291,13 @@ become the main product surface.
   heartbeat refresh instead of widening into generic repair. Real repair stays
   bounded to `repair_reviewer_loop`, checkpoint/budget blockers, or typed
   stale/non-live reviewer runtime.
+  2026-04-08 recovery-precedence follow-up: typed bridge/runtime recovery now
+  keeps the detached-loop path honest too. Once `current_session` shows a
+  current Claude ACK but launch truth degrades to
+  `detached_runtime_only`/`automation_only`/`hybrid_claude_only`,
+  status/startup/doctor no longer misroute that state through
+  `reset-implementer-state`; they emit `review_loop_relaunch_required` and
+  the reviewer-owned `launch|rollover` recovery command instead.
   A 2026-03-30 stale-reader follow-up closed the next same-lane write-safety
   gap: bridge-backed `status` / `bridge-poll` now emit a typed
   `implementer_state_hash`, active-dual-agent `reviewer-checkpoint` writes

@@ -39,6 +39,38 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 
 ### 2026-04-07 - ReviewSnapshot hook hardening routed through owner plans
 
+### 2026-04-08 - Detached review loops now relaunch instead of misrouting into implementer reset
+
+The live review-channel runtime exposed one more precedence bug after typed
+Claude ACK state landed. Once `Claude Status` / `Claude Ack` were current
+again, bridge-backed `status`, `doctor`, and `startup-context` could still
+misdiagnose a detached or automation-only dual-agent loop as
+`implementer_state_reset_required` because the reset classifier ran before the
+launch-truth relaunch path. That produced the wrong repo-owned next step:
+`reset-implementer-state` even when `launch_truth=detached_runtime_only`,
+`launch_truth=automation_only`,
+`effective_reviewer_mode=tools_only`, and the real problem was "the reviewer
+loop is gone, relaunch it."
+
+The fix stays inside the typed authority chain. Recovery classification now
+refuses the implementer-reset path when launch truth already says the pair is
+detached, automation-only, or hybrid, so the same typed state now resolves to
+`review_loop_relaunch_required` with the reviewer-owned
+`review-channel --action launch` recovery command. Focused regressions lock
+both layers: the attention classifier now reproduces the exact
+`current_ack + detached_runtime_only + waiting_for_user_input` shape and the
+automation-only poll shape, and
+startup-context confirms the typed reviewer gate keeps the relaunch reason
+instead of inventing a stale implementer reset.
+
+Evidence: `dev/scripts/devctl/review_channel/attention_classify.py`,
+`dev/scripts/devctl/tests/review_channel/test_review_channel.py`,
+`dev/scripts/devctl/tests/runtime/test_startup_context.py`,
+`AGENTS.md`,
+`dev/guides/DEVELOPMENT.md`,
+`dev/scripts/README.md`,
+`dev/active/MASTER_PLAN.md`.
+
 ### 2026-04-08 - Dashboard, current-session, and queue surfaces now share one runtime owner chain
 
 The next review-channel follow-up closed the operator-facing contradiction that

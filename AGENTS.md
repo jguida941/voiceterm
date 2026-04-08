@@ -477,6 +477,13 @@ checklist plus chat memory.
     is only allowed when the typed decision marks the relaunch auto-fixable;
     otherwise fail closed and use the queued reviewer-turn packet / explicit
     launch path.
+    Recovery precedence is fail-closed too: when typed `current_session`
+    already shows a current Claude ACK but `launch_truth` falls to
+    `detached_runtime_only`, `automation_only`, or `hybrid_claude_only`,
+    classify the state as `review_loop_relaunch_required` and use the
+    reviewer-owned `launch|rollover` path. `reset-implementer-state` is
+    reserved for stale implementer bridge sections while the repo-owned
+    reviewer loop is still otherwise live.
 4.4.2 Claude-side waiting is also fail-closed now: use the repo-owned
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state. If `Current Instruction For Claude` still

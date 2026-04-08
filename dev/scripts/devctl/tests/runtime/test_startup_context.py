@@ -1472,6 +1472,52 @@ class TestTypedReviewStateGatePath(unittest.TestCase):
             self.assertTrue(gate.implementation_blocked)
             self.assertEqual(gate.implementation_block_reason, "runtime_missing")
 
+    def test_typed_path_uses_review_loop_relaunch_reason_for_detached_dual_agent(self) -> None:
+        """Detached dual-agent state should request relaunch, not implementer reset."""
+        with TemporaryDirectory() as tmp:
+            repo_root = Path(tmp)
+            self._write_bridge_and_typed_state(
+                repo_root,
+                "Needs-review. Relaunch the reviewer loop before coding.",
+                "- none",
+                reviewer_mode="active_dual_agent",
+                effective_reviewer_mode="tools_only",
+                claude_ack_current=True,
+                attention_status="review_loop_relaunch_required",
+            )
+            gate = _detect_reviewer_gate(repo_root)
+            self.assertTrue(gate.bridge_active)
+            self.assertEqual(gate.reviewer_mode, "active_dual_agent")
+            self.assertEqual(gate.effective_reviewer_mode, "tools_only")
+            self.assertTrue(gate.implementation_blocked)
+            self.assertEqual(
+                gate.implementation_block_reason,
+                "review_loop_relaunch_required",
+            )
+
+    def test_typed_path_uses_review_loop_relaunch_reason_for_automation_only_poll(self) -> None:
+        """Automation-only reviewer polling should still surface the relaunch reason."""
+        with TemporaryDirectory() as tmp:
+            repo_root = Path(tmp)
+            self._write_bridge_and_typed_state(
+                repo_root,
+                "Needs-review. Relaunch the reviewer loop before coding.",
+                "- none",
+                reviewer_mode="active_dual_agent",
+                effective_reviewer_mode="tools_only",
+                claude_ack_current=True,
+                attention_status="review_loop_relaunch_required",
+            )
+            gate = _detect_reviewer_gate(repo_root)
+            self.assertTrue(gate.bridge_active)
+            self.assertEqual(gate.reviewer_mode, "active_dual_agent")
+            self.assertEqual(gate.effective_reviewer_mode, "tools_only")
+            self.assertTrue(gate.implementation_blocked)
+            self.assertEqual(
+                gate.implementation_block_reason,
+                "review_loop_relaunch_required",
+            )
+
     def test_typed_path_uses_governance_review_root_candidate(self) -> None:
         with TemporaryDirectory() as tmp:
             repo_root = Path(tmp)

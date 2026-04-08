@@ -91,6 +91,14 @@ def _requires_implementer_state_reset(ctx: BridgeAttentionContext) -> bool:
         return False
     if ctx.implementer_state_pending:
         return False
+    if ctx.launch_truth in {
+        LaunchTruthState.DETACHED_RUNTIME_ONLY.value,
+        LaunchTruthState.HYBRID_CLAUDE_ONLY.value,
+        LaunchTruthState.AUTOMATION_ONLY.value,
+    }:
+        return False
+    if relaunch_required_contract_error(ctx.active_contract_errors):
+        return False
     if not _reviewer_state_seeded(ctx.bridge_liveness):
         return False
     implementer_state_invalid = (
@@ -273,6 +281,7 @@ def _classify_startup_attention(ctx: BridgeAttentionContext) -> str | None:
 def _classify_review_attention(ctx: BridgeAttentionContext) -> str | None:
     if ctx.launch_truth in {
         LaunchTruthState.DETACHED_RUNTIME_ONLY.value,
+        LaunchTruthState.AUTOMATION_ONLY.value,
         LaunchTruthState.HYBRID_CLAUDE_ONLY.value,
     } or relaunch_required_contract_error(ctx.active_contract_errors):
         return AttentionStatus.REVIEW_LOOP_RELAUNCH_REQUIRED

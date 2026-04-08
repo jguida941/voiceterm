@@ -235,7 +235,7 @@ The MP scopes remain valid but are now cross-cut by enforcement-first priority.
 - **Touches**: MP-382 (session lifecycle), AUD-22, Finding 2
 
 ### Priority 3: Hard parity guard — `check_control_plane_parity.py` [LANDED 2026-04-07]
-- **What**: One fixture proves dashboard, auto-mode, session-resume, phone, and mobile agree on the same ControlPlaneReadModel inputs
+- **What**: One fixture proves dashboard, auto-mode, session-resume, phone, and mobile agree on every parity field each surface actually exposes from the same ControlPlaneReadModel inputs. Surfaces that intentionally omit a field are skipped by the comparator rather than treated as parity violations (see **Per-surface omissions** below).
 - **Scope**: New guard or extension of `check_platform_contract_closure.py`
 - **Why third**: Without parity proof, surfaces can silently disagree and the operator sees different state depending on which surface they check
 - **Touches**: MP-381 (typed contracts), AUD-24, Findings 5, 11, 18
@@ -249,6 +249,32 @@ The MP scopes remain valid but are now cross-cut by enforcement-first priority.
   pure `_control_plane_section(model)` matching `mobile_status` so the
   fixture path stays I/O-free. Follow-up: Finding F11 also needs a
   loud-failure mode at the dashboard layer when the read model is missing.
+- **Closure tightening (2026-04-08)**: `PARITY_FIELDS` now explicitly covers
+  `reviewer_mode` and `operator_interaction_mode` on every surface that
+  carries them, and the auto-mode extractor no longer falls back to
+  `model.next_action` when `inputs_from_read_model` returns an empty
+  `push_decision_action`. A new regression test
+  `test_parity_guard_catches_broken_auto_mode_next_action_route` proves a
+  broken auto-mode route now surfaces as a `next_action` parity divergence
+  naming `auto_mode` as the disagreeing surface instead of silently going
+  green.
+- **Per-surface omissions** (intentional, comparator skips absent fields
+  rather than flagging parity violations):
+  - `SessionCachePacket` (session-resume) has no direct `reviewer_mode`
+    slot and only derives mode internally from an upstream `reviewer_mode`
+    input, so the parity guard does not check `reviewer_mode` against
+    session-resume; the remaining four surfaces still cross-check it.
+    `SessionCachePacket` also does not carry `push_eligible`,
+    `implementation_blocked`, `review_accepted`, or
+    `pending_action_requests`, because those are not part of the
+    session-resume bootstrap contract.
+  - `AutoModeInputs` scopes itself to the auto-mode decision surface and
+    therefore omits `resolved_phase`, `push_eligible`, `top_blocker`, and
+    `next_command`; the four remaining surfaces still cross-check those.
+  - The phone `_control_plane_section` intentionally omits
+    `implementation_blocked`; mobile, dashboard, and auto-mode continue to
+    cross-check it, and `test_phone_pure_function_matches_disk_function`
+    pins the omission so it cannot silently widen.
 
 ### Priority 4: Field-registry / closure pass (AUD-25)
 - **What**: New typed fields registered once, auto-checked for consumer coverage, test scaffolding, renderer binding, SystemCatalog presence
