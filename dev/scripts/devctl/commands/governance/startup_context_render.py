@@ -8,6 +8,7 @@ from ...runtime.startup_push_recovery import (
     artifact_publication_truth,
     effective_publication_summary,
 )
+from .startup_context_blocker_render import append_blocker_table
 
 _DEVCTL_PUSH_EXECUTE_COMMAND = "python3 dev/scripts/devctl.py push --execute"
 
@@ -327,6 +328,7 @@ def render_markdown(ctx_dict: dict) -> str:
         summary_label="startup_rule_summary",
     )
     lines.append("")
+    append_blocker_table(lines, ctx_dict)
 
     thesis = str(ctx_dict.get("product_thesis") or "").strip()
     if thesis:

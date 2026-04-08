@@ -1,14 +1,16 @@
 """Typed check-output contract for devctl check steps.
 
-CheckResult and ViolationRecord replace ad hoc violation_summary strings
-with a typed contract that renders to text, Markdown, or JSON through one
-shared renderer.  Finding stays as governance evidence; these models own
-the *check output* shape.
+``CheckResult`` and ``ViolationRecord`` replace ad hoc
+``violation_summary`` strings with a typed contract. The shared
+text / markdown / JSON renderers live next door in
+``check_result_render`` so this module owns the *data model* half of
+the MP-381 contract family and the sibling module owns the *projection*
+half; both stay under the ``code_shape`` soft limit and
+``Finding`` stays separate as governance evidence.
 """
 
 from __future__ import annotations
 
-import json as _json_mod
 import re as _re_mod
 from dataclasses import asdict, dataclass, field
 from typing import Any
@@ -215,123 +217,10 @@ def _enrich_step(step: dict[str, Any]) -> dict[str, Any]:
     return entry
 
 
-# -------------------------------------------------------
-# Shared renderer: text / md / json
-# -------------------------------------------------------
-
-
-def render_check_result_text(result: CheckResult) -> str:
-    """Compact terminal-friendly summary."""
-    if not result.steps:
-        return "no check steps ran"
-    header = f"check summary: {result.passed}/{result.total} passed"
-    if result.failed:
-        header += f", {result.failed} failed"
-    if result.skipped:
-        header += f", {result.skipped} skipped"
-    lines = ["", header, "-" * len(header)]
-    violation_by_step = {v.step_name: v for v in result.violations}
-    for step in result.steps:
-        status = step.get("status", _step_status(step))
-        line = f"  {status:<4}  {step['name']}"
-        if status == "FAIL":
-            summary = step.get("violation_summary", "")
-            if summary:
-                line += f"  -- {summary}"
-        lines.append(line)
-        if status == "FAIL":
-            _append_violation_detail_text(lines, violation_by_step.get(step["name"]))
-    lines.append("")
-    return "\n".join(lines)
-
-
-def _append_violation_detail_text(
-    lines: list[str], violation: ViolationRecord | None,
-) -> None:
-    """Append file/line/policy/fix detail lines for a violation if present."""
-    if violation is None:
-        return
-    parts: list[str] = []
-    if violation.file_path:
-        loc = violation.file_path
-        if violation.line:
-            loc += f":{violation.line}"
-        parts.append(f"file={loc}")
-    if violation.policy:
-        parts.append(f"policy={violation.policy}")
-    if violation.severity:
-        parts.append(f"severity={violation.severity}")
-    if violation.fix:
-        parts.append(f"fix={violation.fix}")
-    if parts:
-        lines.append(f"          {' | '.join(parts)}")
-
-
-def render_check_result_md(result: CheckResult) -> str:
-    """Markdown table of step results with failure-output appendix."""
-    from ..common import cmd_str
-
-    lines = [
-        "| Step | Status | Duration (s) | Command |",
-        "|------|--------|--------------|---------|",
-    ]
-    for step in result.steps:
-        status = step.get("status", _step_status(step))
-        lines.append(
-            f"| {step['name']} | {status} | {step.get('duration_s', 0)} "
-            f"| `{cmd_str(step.get('cmd', []))}` |"
-        )
-
-    violations_with_detail = [
-        v for v in result.violations if v.file_path or v.policy
-    ]
-    if violations_with_detail:
-        lines.append("")
-        lines.append("## Violation Detail")
-        lines.append("")
-        lines.append("| Step | File | Line | Policy | Severity | Fix |")
-        lines.append("|------|------|------|--------|----------|-----|")
-        for v in violations_with_detail:
-            lines.append(
-                f"| {v.step_name} | {v.file_path} | {v.line or ''} "
-                f"| {v.policy} | {v.severity} | {v.fix} |"
-            )
-
-    failed_with_output = [
-        step for step in result.steps
-        if step.get("returncode", 0) != 0 and step.get("failure_output")
-    ]
-    if failed_with_output:
-        lines.append("")
-        lines.append("## Failure Output")
-        lines.append("")
-        for step in failed_with_output:
-            lines.append(f"### `{step['name']}`")
-            lines.append("```text")
-            lines.append(step["failure_output"])
-            lines.append("```")
-            lines.append("")
-    return "\n".join(lines)
-
-
-def render_check_result_json(
-    result: CheckResult,
-    *,
-    indent: int | None = 2,
-) -> str:
-    """Serialize a CheckResult into the canonical JSON projection.
-
-    Symmetric companion to ``render_check_result_text`` and
-    ``render_check_result_md`` so every consumer of the shared
-    ``CheckResult`` / ``ViolationRecord`` family has one obvious entry
-    point per output mode (text / md / json) instead of mixing
-    ``render_*`` calls with ad hoc ``json.dumps(result.to_dict())``.
-
-    The serialization passes through ``CheckResult.to_dict`` so the
-    schema (schema_version / contract_id / per-step shape / nested
-    ViolationRecord projection) stays driven by the dataclass contract.
-    Pass ``indent=None`` for the compact one-line form used by event
-    logs and packet payloads; the default ``indent=2`` is the
-    operator-readable form used by report files.
-    """
-    return _json_mod.dumps(result.to_dict(), indent=indent, sort_keys=True)
+# Shared text / markdown / JSON renderers for ``CheckResult`` live in
+# ``check_result_render`` — the data-model half and the projection half
+# of the MP-381 contract family stay split so both files remain under
+# the ``code_shape`` soft limit and neither depends on the other at
+# import time. Callers should ``from ..check_result_render import
+# render_check_result_text`` (etc.) rather than re-routing through
+# this module.

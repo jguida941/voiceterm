@@ -454,6 +454,58 @@ class TestCLIRegistration(unittest.TestCase):
             rendered,
         )
 
+    def test_markdown_blocker_section_omitted_when_state_is_healthy(self) -> None:
+        """Healthy startup dicts must render without the shared Blockers table."""
+        rendered = _render_markdown(
+            {
+                "advisory_action": "continue_editing",
+                "advisory_reason": "no_blockers",
+                "reviewer_gate": {},
+                "governance": {
+                    "repo_identity": {"repo_name": "test", "current_branch": "feature/x"},
+                },
+            }
+        )
+        self.assertNotIn("## Blockers", rendered)
+
+    def test_markdown_blocker_section_uses_shared_renderer_contract(self) -> None:
+        """Blocking startup states must route through the shared CheckResult renderer.
+
+        Proves the MP-381 contract family has ``startup-context`` as a live
+        production caller: ``startup_summary_to_violations`` →
+        ``render_check_result_md`` feeds a ``## Blockers`` section carrying
+        the ``## Violation Detail`` subtable with typed policy attribution
+        (``startup_authority`` / ``push_state_machine``).
+        """
+        rendered = _render_markdown(
+            {
+                "advisory_action": "await_review",
+                "advisory_reason": "review_pending_before_push",
+                "reviewer_gate": {
+                    "implementation_blocked": True,
+                    "implementation_block_reason": "review pending acceptance",
+                    "reviewer_mode": "active_dual_agent",
+                },
+                "governance": {
+                    "repo_identity": {"repo_name": "test", "current_branch": "feature/x"},
+                },
+                "push_decision": {
+                    "action": "await_review",
+                    "reason": "review_pending_before_push",
+                    "next_step_summary": "Wait for review acceptance before push.",
+                    "next_step_command": "python3 dev/scripts/devctl.py push --execute",
+                },
+            }
+        )
+        self.assertIn("## Blockers", rendered)
+        self.assertIn("## Violation Detail", rendered)
+        self.assertIn("| Step | File | Line | Policy | Severity | Fix |", rendered)
+        self.assertIn("startup_authority", rendered)
+        self.assertIn("reviewer_gate", rendered)
+        self.assertIn("push_state_machine", rendered)
+        # The hollow step table preamble must not leak into startup output.
+        self.assertNotIn("| Step | Status | Duration (s) | Command |", rendered)
+
     def test_push_decision_recovers_remote_published_post_push_failure_for_current_head(
         self,
     ) -> None:

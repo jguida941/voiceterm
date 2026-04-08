@@ -10,6 +10,8 @@ from dev.scripts.devctl.runtime.check_result_models import (
     CheckResult,
     ViolationRecord,
     build_check_result,
+)
+from dev.scripts.devctl.runtime.check_result_render import (
     render_check_result_json,
     render_check_result_md,
     render_check_result_text,
@@ -205,6 +207,104 @@ def test_render_md_failure_output_section() -> None:
     md = render_check_result_md(result)
     assert "## Failure Output" in md
     assert "warning: unused" in md
+
+
+# -------------------------------------------------------
+# Violations-only rendering (MP-381: adapter-backed consumers)
+# -------------------------------------------------------
+
+
+def _violations_only_result() -> CheckResult:
+    """Build a step-less CheckResult carrying two typed ViolationRecords.
+
+    Matches the shape adapter-backed consumers (startup summaries,
+    standalone probe lists) synthesize when they have findings but no
+    check-step run to report.
+    """
+    violations = (
+        ViolationRecord(
+            step_name="startup_authority",
+            exit_code=0,
+            summary="await_review: review pending before push",
+            policy="startup_authority",
+            source="startup-context",
+            severity="high",
+        ),
+        ViolationRecord(
+            step_name="push_decision",
+            exit_code=0,
+            summary="await_review: 4 commits waiting for governed push",
+            policy="push_state_machine",
+            source="startup-context",
+            severity="medium",
+        ),
+    )
+    return CheckResult(
+        schema_version=CHECK_RESULT_SCHEMA_VERSION,
+        contract_id=CHECK_RESULT_CONTRACT_ID,
+        command="startup-context",
+        timestamp="2026-04-08T12:00:00Z",
+        success=False,
+        total=0,
+        passed=0,
+        failed=len(violations),
+        skipped=0,
+        steps=(),
+        violations=violations,
+    )
+
+
+def test_render_text_violations_only_emits_body() -> None:
+    """Step-less CheckResult with violations must render a blocker body."""
+    result = _violations_only_result()
+    text = render_check_result_text(result)
+    assert "no check steps ran" not in text
+    assert "violation summary: 2 blocker(s)" in text
+    assert "startup_authority" in text
+    assert "push_decision" in text
+    assert "await_review" in text
+    assert "policy=startup_authority" in text
+
+
+def test_render_text_empty_result_still_marker() -> None:
+    """Step-less AND violations-less result must keep the legacy marker."""
+    empty = CheckResult(
+        schema_version=CHECK_RESULT_SCHEMA_VERSION,
+        contract_id=CHECK_RESULT_CONTRACT_ID,
+        command="check",
+        timestamp="2026-04-04T00:00:00Z",
+        success=True,
+        total=0,
+        passed=0,
+        failed=0,
+        skipped=0,
+        steps=(),
+        violations=(),
+    )
+    assert render_check_result_text(empty) == "no check steps ran"
+
+
+def test_render_md_violations_only_skips_step_table() -> None:
+    """Step-less CheckResult must skip the step table header entirely."""
+    md = render_check_result_md(_violations_only_result())
+    assert "| Step | Status | Duration (s) | Command |" not in md
+    assert "## Violation Detail" in md
+    assert "| Step | File | Line | Policy | Severity | Fix |" in md
+    assert "startup_authority" in md
+    assert "push_state_machine" in md
+    assert not md.startswith("\n")
+
+
+def test_render_json_violations_only_preserves_schema() -> None:
+    """JSON projection of a step-less result must round-trip through to_dict."""
+    result = _violations_only_result()
+    parsed = json.loads(render_check_result_json(result))
+    assert parsed == result.to_dict()
+    assert parsed["schema_version"] == CHECK_RESULT_SCHEMA_VERSION
+    assert parsed["contract_id"] == CHECK_RESULT_CONTRACT_ID
+    assert parsed["steps"] == []
+    assert len(parsed["violations"]) == 2
+    assert parsed["violations"][0]["policy"] == "startup_authority"
 
 
 # -------------------------------------------------------
