@@ -11,8 +11,6 @@ from ...common import display_path
 from ...runtime.governance_scan import scan_repo_governance_safely
 from ...review_channel.core import (
     REVIEW_CHANNEL_LAUNCH_RETIREMENT_NOTE,
-    detect_active_session_conflicts,
-    summarize_active_session_conflicts,
 )
 from ...review_channel.current_session_projection import bridge_implementer_state_hash
 from ...review_channel.bridge_runtime_state import BridgeStateContext
@@ -37,6 +35,7 @@ from .bridge_action_events import (
     BridgeLifecycleEventContext,
     post_session_lifecycle_event,
 )
+from .launch_conflicts import validate_live_launch_conflicts
 from .bridge_support import (
     bridge_launch_state,
     build_bridge_guard_report,
@@ -88,31 +87,6 @@ def attach_service_identity(
     report["attach_auth_policy"] = build_attach_auth_policy(
         service_identity=service_identity,
     )
-
-
-def validate_live_launch_conflicts(
-    *,
-    args,
-    status_dir: Path,
-    detect_active_session_conflicts_fn: Callable[..., object] | None = None,
-    summarize_active_session_conflicts_fn: Callable[..., str] | None = None,
-) -> None:
-    """Reject live Terminal launches when previous session traces still look active."""
-    if detect_active_session_conflicts_fn is None:
-        detect_active_session_conflicts_fn = detect_active_session_conflicts
-    if summarize_active_session_conflicts_fn is None:
-        summarize_active_session_conflicts_fn = summarize_active_session_conflicts
-    if args.action == "launch" and args.terminal == "terminal-app" and not args.dry_run:
-        active_session_conflicts = detect_active_session_conflicts_fn(
-            session_output_root=status_dir,
-        )
-        if active_session_conflicts:
-            raise ValueError(
-                "Live review-channel launch refused because existing session "
-                "artifacts still look active. Close the current conductor "
-                "windows or wait for the session traces to go stale before "
-                "launching again: " + summarize_active_session_conflicts_fn(active_session_conflicts)
-            )
 
 
 def resolve_terminal_launch_state(

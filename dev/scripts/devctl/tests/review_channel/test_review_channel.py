@@ -347,6 +347,12 @@ def _conductor_session_record(
     provider: str = "codex",
     terminal_window_id: int | None = None,
     session_pid: int | None = None,
+    live: bool = True,
+    live_reason: str = "",
+    script_probe_state: str = "unknown",
+    terminal_window_state: str = "not_applicable",
+    launch_authority_state: str = "",
+    launch_authority_reason: str = "",
 ) -> ConductorSessionRecord:
     return ConductorSessionRecord(
         provider=provider,
@@ -367,8 +373,13 @@ def _conductor_session_record(
         session_pid=session_pid,
         planned_lanes=(),
         metadata_path=f"/tmp/{provider}-conductor.json",
-        live=True,
+        live=live,
         age_seconds=0,
+        live_reason=live_reason,
+        script_probe_state=script_probe_state,
+        terminal_window_state=terminal_window_state,
+        launch_authority_state=launch_authority_state,
+        launch_authority_reason=launch_authority_reason,
     )
 
 
@@ -910,6 +921,68 @@ class ReviewChannelHelperTests(unittest.TestCase):
         self.assertEqual(sessions[0].terminal_window_state, "open")
         self.assertIn("still open", sessions[0].live_reason)
 
+    def test_load_conductor_sessions_marks_stale_authority_visible_shell_reclaimable(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            status_dir = Path(tmpdir)
+            sessions_dir = status_dir / "sessions"
+            sessions_dir.mkdir(parents=True, exist_ok=True)
+            review_state_path = status_dir / "review_state.json"
+            review_state_path.write_text(
+                json.dumps(
+                    {
+                        "review": {"session_id": "markdown-bridge"},
+                        "bridge": {
+                            "current_instruction_revision": "rev-current",
+                            "last_codex_poll_utc": _fresh_utc_z(seconds_offset=-30),
+                        },
+                        "current_session": {
+                            "current_instruction_revision": "rev-current",
+                        },
+                    }
+                ),
+                encoding="utf-8",
+            )
+            metadata_path = sessions_dir / "codex-conductor.json"
+            log_path = sessions_dir / "codex-conductor.log"
+            metadata_path.write_text(
+                json.dumps(
+                    {
+                        "provider": "codex",
+                        "session_name": "codex-conductor",
+                        "repo_root": tmpdir,
+                        "script_path": str(sessions_dir / "codex-conductor.sh"),
+                        "log_path": str(log_path),
+                        "terminal_window_id": 777,
+                        "review_state_path": str(review_state_path),
+                        "prepared_instruction_revision": "rev-current",
+                        "prepared_session_token": "stale-token",
+                    }
+                ),
+                encoding="utf-8",
+            )
+            log_path.write_text("stale authority exit\n", encoding="utf-8")
+
+            with (
+                patch(
+                    "dev.scripts.devctl.review_channel.session_probe._probe_script_running",
+                    return_value=False,
+                ),
+                patch(
+                    "dev.scripts.devctl.review_channel.session_liveness._probe_terminal_window_open",
+                    return_value=True,
+                ),
+            ):
+                sessions = load_conductor_sessions(session_output_root=status_dir)
+
+        self.assertEqual(len(sessions), 1)
+        self.assertFalse(sessions[0].live)
+        self.assertEqual(sessions[0].launch_authority_state, "stale")
+        self.assertEqual(sessions[0].script_probe_state, "not_found")
+        self.assertEqual(sessions[0].terminal_window_state, "open")
+        self.assertIn("no longer matches", sessions[0].live_reason)
+
     def test_launch_sessions_if_requested_cleans_retired_rollover_sessions_after_ack(
         self,
     ) -> None:
@@ -1409,6 +1482,63 @@ class ReviewChannelHelperTests(unittest.TestCase):
         self.assertEqual(conflicts[0].provider, "codex")
         self.assertIn("Terminal window 777 is still open", conflicts[0].reason)
 
+    def test_detect_active_session_conflicts_ignores_stale_authority_visible_shell(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            sessions_dir = root / "latest/sessions"
+            sessions_dir.mkdir(parents=True, exist_ok=True)
+            review_state_path = root / "latest/review_state.json"
+            review_state_path.write_text(
+                json.dumps(
+                    {
+                        "review": {"session_id": "markdown-bridge"},
+                        "bridge": {
+                            "current_instruction_revision": "rev-current",
+                            "last_codex_poll_utc": _fresh_utc_z(seconds_offset=-30),
+                        },
+                        "current_session": {
+                            "current_instruction_revision": "rev-current",
+                        },
+                    }
+                ),
+                encoding="utf-8",
+            )
+            metadata_path = sessions_dir / "codex-conductor.json"
+            log_path = sessions_dir / "codex-conductor.log"
+            metadata_path.write_text(
+                json.dumps(
+                    {
+                        "provider": "codex",
+                        "session_name": "codex-conductor",
+                        "repo_root": tmpdir,
+                        "script_path": str(sessions_dir / "codex-conductor.sh"),
+                        "log_path": str(log_path),
+                        "terminal_window_id": 777,
+                        "review_state_path": str(review_state_path),
+                        "prepared_instruction_revision": "rev-current",
+                        "prepared_session_token": "stale-token",
+                    }
+                ),
+                encoding="utf-8",
+            )
+            log_path.write_text("stale authority exit\n", encoding="utf-8")
+
+            with (
+                patch(
+                    "dev.scripts.devctl.review_channel.session_probe._probe_script_running",
+                    return_value=False,
+                ),
+                patch(
+                    "dev.scripts.devctl.review_channel.session_liveness._probe_terminal_window_open",
+                    return_value=True,
+                ),
+            ):
+                conflicts = detect_active_session_conflicts(session_output_root=root / "latest")
+
+        self.assertEqual(conflicts, ())
+
     def test_detect_active_session_conflicts_uses_fresh_logs_after_script_probe_no_match(
         self,
     ) -> None:
@@ -1446,6 +1576,63 @@ class ReviewChannelHelperTests(unittest.TestCase):
         self.assertEqual(len(conflicts), 1)
         self.assertEqual(conflicts[0].provider, "codex")
         self.assertIn("returned no match", conflicts[0].reason)
+
+    def test_validate_live_launch_conflicts_cleans_reclaimable_stale_visible_sessions(
+        self,
+    ) -> None:
+        cleanup_calls: list[str] = []
+        stale_session = _conductor_session_record(
+            terminal_window_id=777,
+            session_pid=None,
+            live=False,
+            live_reason="Terminal window 777 is still open, but prepared session token is stale",
+            script_probe_state="not_found",
+            terminal_window_state="open",
+            launch_authority_state="stale",
+            launch_authority_reason="prepared session token is stale",
+        )
+        args = SimpleNamespace(action="launch", terminal="terminal-app", dry_run=False)
+
+        review_channel_bridge_action_support.validate_live_launch_conflicts(
+            args=args,
+            status_dir=Path("/tmp/review/latest"),
+            load_conductor_sessions_fn=lambda **kwargs: (stale_session,)
+            if not cleanup_calls
+            else (),
+            cleanup_terminal_session_fn=lambda session: cleanup_calls.append(
+                session.session_name
+            )
+            or [],
+            detect_active_session_conflicts_fn=lambda **kwargs: (),
+            summarize_active_session_conflicts_fn=lambda conflicts: "",
+        )
+
+        self.assertEqual(cleanup_calls, ["codex-conductor"])
+
+    def test_validate_live_launch_conflicts_blocks_when_stale_visible_session_persists(
+        self,
+    ) -> None:
+        stale_session = _conductor_session_record(
+            terminal_window_id=777,
+            session_pid=None,
+            live=False,
+            live_reason="Terminal window 777 is still open, but prepared session token is stale",
+            script_probe_state="not_found",
+            terminal_window_state="open",
+            launch_authority_state="stale",
+            launch_authority_reason="prepared session token is stale",
+        )
+        args = SimpleNamespace(action="launch", terminal="terminal-app", dry_run=False)
+
+        with self.assertRaisesRegex(ValueError, "could not be reclaimed"):
+            review_channel_bridge_action_support.validate_live_launch_conflicts(
+                args=args,
+                status_dir=Path("/tmp/review/latest"),
+                load_conductor_sessions_fn=lambda **kwargs: (stale_session,),
+                cleanup_terminal_session_fn=lambda session: [],
+                detect_active_session_conflicts_fn=lambda **kwargs: (),
+                summarize_active_session_conflicts_fn=lambda conflicts: "",
+            )
 
     def test_summarize_active_session_conflicts_includes_provider_and_log_path(self) -> None:
         summary = summarize_active_session_conflicts(

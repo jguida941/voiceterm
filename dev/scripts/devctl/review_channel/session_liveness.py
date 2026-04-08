@@ -24,6 +24,8 @@ def build_session_liveness_evidence(
     terminal_window_id: int | None,
     age_seconds: int | None,
     freshness_seconds: int,
+    launch_authority_state: str = "",
+    launch_authority_reason: str = "",
 ) -> SessionLivenessEvidence:
     """Resolve one session's liveness from process, Terminal, and log evidence."""
     script_probe_state = _script_probe_state(process_running)
@@ -37,6 +39,21 @@ def build_session_liveness_evidence(
         return SessionLivenessEvidence(
             live=True,
             reason="existing conductor script process is still running",
+            script_probe_state=script_probe_state,
+            terminal_window_state=terminal_window_state,
+        )
+
+    if process_running is False and launch_authority_state == "stale":
+        reason = launch_authority_reason or (
+            "prepared launch authority is stale and the session is reclaimable"
+        )
+        if terminal_window_open is True and terminal_window_id is not None:
+            reason = (
+                f"Terminal window {terminal_window_id} is still open, but {reason}"
+            )
+        return SessionLivenessEvidence(
+            live=False,
+            reason=reason,
             script_probe_state=script_probe_state,
             terminal_window_state=terminal_window_state,
         )

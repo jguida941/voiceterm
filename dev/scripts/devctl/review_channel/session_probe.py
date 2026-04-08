@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 
+from .launch_authority import assess_prepared_launch_authority
 from .session_liveness import SessionLivenessEvidence, build_session_liveness_evidence
 
 ACTIVE_SESSION_FRESHNESS_SECONDS = 120
@@ -56,6 +57,8 @@ class ConductorSessionRecord:
     live_reason: str = ""
     script_probe_state: str = ""
     terminal_window_state: str = ""
+    launch_authority_state: str = ""
+    launch_authority_reason: str = ""
 
 
 def detect_active_session_conflicts(
@@ -64,41 +67,21 @@ def detect_active_session_conflicts(
     freshness_seconds: int = ACTIVE_SESSION_FRESHNESS_SECONDS,
 ) -> tuple[ActiveSessionConflict, ...]:
     """Return live-looking session artifacts that should block a second launch."""
-    session_dir = session_output_root / "sessions"
-    if not session_dir.exists():
-        return ()
-
     conflicts: list[ActiveSessionConflict] = []
-    for provider in ("codex", "claude", "cursor"):
-        metadata_path = session_dir / f"{provider}-conductor.json"
-        if not metadata_path.exists():
-            continue
-        metadata = _load_session_metadata(metadata_path)
-        if metadata is None:
-            continue
-        session_name = _session_metadata_text(metadata, "session_name") or f"{provider}-conductor"
-        log_path_text = _session_metadata_text(metadata, "log_path")
-        script_path_text = _session_metadata_text(metadata, "script_path")
-        process_running = _probe_script_running(script_path_text)
-        age_seconds = _log_age_seconds(log_path_text)
-        liveness = build_session_liveness_evidence(
-            process_running=process_running,
-            terminal_window_id=_session_metadata_optional_int(
-                metadata, "terminal_window_id"
-            ),
-            age_seconds=age_seconds,
-            freshness_seconds=freshness_seconds,
-        )
-        if not liveness.live:
+    for session in load_conductor_sessions(
+        session_output_root=session_output_root,
+        freshness_seconds=freshness_seconds,
+    ):
+        if not session.live:
             continue
         conflicts.append(
             ActiveSessionConflict(
-                provider=provider,
-                session_name=session_name,
-                metadata_path=str(metadata_path),
-                log_path=log_path_text,
-                age_seconds=age_seconds,
-                reason=liveness.reason,
+                provider=session.provider,
+                session_name=session.session_name,
+                metadata_path=session.metadata_path,
+                log_path=session.log_path or None,
+                age_seconds=session.age_seconds,
+                reason=session.live_reason,
             )
         )
     return tuple(conflicts)
@@ -154,8 +137,10 @@ def load_conductor_sessions(
         if not provider:
             continue
         planned_lanes = tuple(_planned_lane_rows(metadata.get("planned_lanes")))
+        repo_root_text = _session_metadata_text(metadata, "repo_root") or ""
         script_path_text = _session_metadata_text(metadata, "script_path")
         log_path_text = _session_metadata_text(metadata, "log_path")
+        review_state_path_text = _session_metadata_text(metadata, "review_state_path") or ""
         terminal_window_id = _session_metadata_optional_int(metadata, "terminal_window_id")
         session_pid = _probe_script_pid(script_path_text)
         process_running = _probe_script_running(
@@ -163,11 +148,29 @@ def load_conductor_sessions(
             session_pid=session_pid,
         )
         age_seconds = _log_age_seconds(log_path_text)
+        launch_authority = assess_prepared_launch_authority(
+            repo_root=Path(repo_root_text) if repo_root_text else None,
+            review_state_path=Path(review_state_path_text)
+            if review_state_path_text
+            else None,
+            prepared_head_sha=_session_metadata_text(metadata, "prepared_head_sha")
+            or "",
+            prepared_instruction_revision=_session_metadata_text(
+                metadata, "prepared_instruction_revision"
+            )
+            or "",
+            prepared_session_token=_session_metadata_text(
+                metadata, "prepared_session_token"
+            )
+            or "",
+        )
         liveness = build_session_liveness_evidence(
             process_running=process_running,
             terminal_window_id=terminal_window_id,
             age_seconds=age_seconds,
             freshness_seconds=freshness_seconds,
+            launch_authority_state=launch_authority.state,
+            launch_authority_reason=launch_authority.reason,
         )
         records.append(
             ConductorSessionRecord(
@@ -179,7 +182,7 @@ def load_conductor_sessions(
                 or f"{provider}-conductor",
                 capture_mode=_session_metadata_text(metadata, "capture_mode") or "",
                 prepared_at=_session_metadata_text(metadata, "prepared_at") or "",
-                repo_root=_session_metadata_text(metadata, "repo_root") or "",
+                repo_root=repo_root_text,
                 script_path=script_path_text or "",
                 log_path=log_path_text or "",
                 launch_command=_session_metadata_text(metadata, "launch_command") or "",
@@ -208,13 +211,12 @@ def load_conductor_sessions(
                     metadata, "prepared_session_token"
                 )
                 or "",
-                review_state_path=_session_metadata_text(
-                    metadata, "review_state_path"
-                )
-                or "",
+                review_state_path=review_state_path_text,
                 live_reason=liveness.reason,
                 script_probe_state=liveness.script_probe_state,
                 terminal_window_state=liveness.terminal_window_state,
+                launch_authority_state=launch_authority.state,
+                launch_authority_reason=launch_authority.reason,
             )
         )
     return tuple(records)

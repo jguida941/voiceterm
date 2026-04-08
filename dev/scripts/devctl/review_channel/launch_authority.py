@@ -24,6 +24,14 @@ class PreparedLaunchAuthority:
     review_state_path: Path | None = None
 
 
+@dataclass(frozen=True, slots=True)
+class PreparedLaunchAuthorityState:
+    """Comparison result between prepared launch metadata and current state."""
+
+    state: str = "unknown"
+    reason: str = ""
+
+
 def build_prepared_launch_authority(
     *,
     repo_root: Path,
@@ -66,6 +74,81 @@ def build_prepared_launch_authority(
     )
 
 
+def assess_prepared_launch_authority(
+    *,
+    repo_root: Path | None,
+    review_state_path: Path | None,
+    prepared_head_sha: str = "",
+    prepared_instruction_revision: str = "",
+    prepared_session_token: str = "",
+) -> PreparedLaunchAuthorityState:
+    """Classify whether prepared launch metadata is still current."""
+    if not any(
+        (
+            prepared_head_sha.strip(),
+            prepared_instruction_revision.strip(),
+            prepared_session_token.strip(),
+        )
+    ):
+        return PreparedLaunchAuthorityState(
+            state="not_applicable",
+            reason="session metadata did not record prepared launch authority",
+        )
+
+    if repo_root is None:
+        return PreparedLaunchAuthorityState(
+            state="unknown",
+            reason="repo_root missing from session metadata",
+        )
+
+    if review_state_path is None or not review_state_path.exists():
+        return PreparedLaunchAuthorityState(
+            state="unknown",
+            reason="typed review state path is unavailable",
+        )
+
+    current_authority = _current_launch_authority(
+        repo_root=repo_root,
+        review_state_path=review_state_path,
+    )
+
+    if prepared_head_sha.strip() and current_authority.head_sha != prepared_head_sha.strip():
+        return PreparedLaunchAuthorityState(
+            state="stale",
+            reason=(
+                "prepared git HEAD no longer matches the current repo HEAD"
+            ),
+        )
+
+    if (
+        prepared_instruction_revision.strip()
+        and current_authority.instruction_revision
+        != prepared_instruction_revision.strip()
+    ):
+        return PreparedLaunchAuthorityState(
+            state="stale",
+            reason=(
+                "prepared instruction revision no longer matches typed review state"
+            ),
+        )
+
+    if (
+        prepared_session_token.strip()
+        and current_authority.session_token != prepared_session_token.strip()
+    ):
+        return PreparedLaunchAuthorityState(
+            state="stale",
+            reason=(
+                "prepared session token no longer matches the current typed reviewer turn"
+            ),
+        )
+
+    return PreparedLaunchAuthorityState(
+        state="current",
+        reason="prepared launch authority still matches current typed state",
+    )
+
+
 def launch_session_token(
     *,
     session_id: str,
@@ -97,6 +180,37 @@ def current_head_sha(repo_root: Path) -> str:
     except (OSError, subprocess.TimeoutExpired):
         return ""
     return result.stdout.strip() if result.returncode == 0 else ""
+
+
+def _current_launch_authority(
+    *,
+    repo_root: Path,
+    review_state_path: Path,
+) -> PreparedLaunchAuthority:
+    review_state = _load_review_state(review_state_path)
+    bridge = _mapping(review_state.get("bridge")) if review_state else {}
+    review = _mapping(review_state.get("review")) if review_state else {}
+    current_session = (
+        _mapping(review_state.get("current_session")) if review_state else {}
+    )
+
+    instruction_revision = _first_text(
+        current_session.get("current_instruction_revision"),
+        bridge.get("current_instruction_revision"),
+    )
+    last_codex_poll = _first_text(bridge.get("last_codex_poll_utc"))
+    session_id = _first_text(review.get("session_id"), "markdown-bridge")
+
+    return PreparedLaunchAuthority(
+        head_sha=current_head_sha(repo_root),
+        instruction_revision=instruction_revision,
+        session_token=launch_session_token(
+            session_id=session_id,
+            instruction_revision=instruction_revision,
+            last_codex_poll_utc=last_codex_poll,
+        ),
+        review_state_path=review_state_path,
+    )
 
 
 def _load_review_state(path: Path | None) -> dict[str, object]:

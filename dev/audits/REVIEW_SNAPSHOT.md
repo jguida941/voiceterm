@@ -5,14 +5,14 @@
 ## Quick status
 
 - Branch: `feature/governance-quality-sweep`
-- HEAD: `483df5b8cc66` — Refresh external review snapshot for 7d7aa7c
-- Tree hash: `97adf9b49445`
-- Generation stamp: `snap-e88cb992fa08`
-- Generated at (UTC): 2026-04-08T05:50:58Z
+- HEAD: `985898847284` — Fix review-channel session liveness fallback
+- Tree hash: `872305415b25`
+- Generation stamp: `snap-1799d7e007d9`
+- Generated at (UTC): 2026-04-08T06:54:40Z
 - Push decision: `await_checkpoint` — dirty_path_budget_exceeded
 - Reviewer mode: `tools_only` (interaction: `local_terminal`)
 - Pipeline state: `n/a` (approval: `n/a`)
-- Delta since last snapshot: 25 commits, 112 files, +11186/-3328
+- Delta since last snapshot: 25 commits, 112 files, +10936/-3379
 - Governance findings: 39 open / 68 fixed / 121 total
 - Probe hints: 0 total across 0 files scanned
 
@@ -54,9 +54,9 @@ adopters arrive.
 - Remote: `https://github.com/jguida941/voiceterm.git`
 - Default branch: `master`
 - Current branch: `feature/governance-quality-sweep`
-- HEAD SHA: `483df5b8cc66c5bbe01d4477cbe01665a28d7498`
+- HEAD SHA: `98589884728479fb4ac6d76b42a6a771c9b04415`
 - HEAD author: Justin Guida
-- HEAD timestamp (UTC): 2026-04-08T00:40:49-04:00
+- HEAD timestamp (UTC): 2026-04-08T01:50:49-04:00
 
 ## 2. Governance state
 
@@ -71,7 +71,8 @@ adopters arrive.
 - current_push_authorization: `push-auth-20260407T220000Z-hardening-plan` (valid=False)
 - authorized_head_commit: `ee13a6c6337f395afa574e99a4234f2eaf45a161`
 - approved_target_identity: `tree-receipt-20260407T220000Z:281dea21851063411d2c43c2b4621a1c2a1168b5`
-- publication_backlog: none
+- publication_backlog: queued
+- publication_guidance: 1 local commit(s) waiting for governed push once the current slice is checkpoint-clean.
 
 ### Reviewer runtime
 - reviewer_mode: `tools_only`
@@ -93,12 +94,12 @@ adopters arrive.
 
 ## 3. Delta — what changed since the previous snapshot
 
-Range: last 25 commits ending at `483df5b8cc66`
+Range: last 25 commits ending at `985898847284`
 
 - commits: 25
 - files changed: 112
-- insertions: +11186
-- deletions: -3328
+- insertions: +10936
+- deletions: -3379
 - bundle classes touched: tooling, docs
 - authority surfaces touched: 30 file(s)
 
@@ -106,31 +107,31 @@ Range: last 25 commits ending at `483df5b8cc66`
 
 | # | SHA | Subject | Files | +/- | Bundle | Risk |
 |---|---|---|---|---|---|---|
-| 1 | `483df5b` | Refresh external review snapshot for 7d7aa7c | 1 | +60/-67 | tooling |  |
-| 2 | `7d7aa7c` | checkpoint: close review-channel authority convergence | 24 | +583/-149 | tooling |  |
-| 3 | `1b55564` | Refresh external review snapshot for 8b77c5c | 1 | +53/-56 | tooling |  |
-| 4 | `8b77c5c` | checkpoint: record dashboard observer audit findings | 3 | +225/-70 | tooling |  |
-| 5 | `fba090f` | checkpoint: close push preflight bypass window | 9 | +129/-73 | tooling |  |
-| 6 | `02ca820` | Refresh external review snapshot for fed1dec | 1 | +72/-79 | tooling |  |
-| 7 | `fed1dec` | checkpoint: harden reviewer packet guards and runtime counts | 31 | +1230/-108 | tooling |  |
-| 8 | `0a678e5` | Refresh external review snapshot for 47c7845 | 1 | +82/-75 | tooling |  |
-| 9 | `47c7845` | checkpoint: truth-source hardening and review snapshot evid… | 36 | +2207/-1285 | tooling |  |
-| 10 | `92a3358` | Refresh external review snapshot for 262bbad | 1 | +53/-57 | tooling |  |
-| 11 | `262bbad` | docs: record review-channel revision drift fix | 4 | +99/-87 | tooling |  |
-| 12 | `dec706e` | Refresh external review snapshot for 51dbf3c | 1 | +54/-60 | tooling |  |
-| 13 | `51dbf3c` | checkpoint: capture residual review-channel test change | 2 | +63/-66 | tooling |  |
-| 14 | `249bef9` | checkpoint: save current worktree state | 19 | +567/-95 | tooling |  |
-| 15 | `6ade1a0` | Refresh external review snapshot for 4c3d9e9 | 1 | +63/-68 | tooling |  |
-| 16 | `4c3d9e9` | checkpoint: add initial control-plane parity guard | 8 | +753/-64 | tooling |  |
-| 17 | `d383dc2` | Refresh external review snapshot for a3628e3 | 1 | +62/-67 | tooling |  |
-| 18 | `a3628e3` | Align push authorization with snapshot receipts | 14 | +373/-100 | tooling |  |
-| 19 | `93b92d6` | Refresh external review snapshot for 0f2bf3e | 1 | +73/-88 | tooling |  |
-| 20 | `0f2bf3e` | Add ReviewSnapshot receipt hook | 18 | +678/-201 | tooling |  |
-| 21 | `922b376` | Accept snapshot-only review snapshot receipts | 10 | +186/-69 | tooling |  |
-| 22 | `4d8a128` | Close packet-backed action request binding | 18 | +797/-168 | tooling |  |
-| 23 | `ee13a6c` | Add architecture hardening plan for Codex review | 2 | +1148/-58 | tooling |  |
-| 24 | `e21d8e8` | Close MP-377 typed-continuity tranche (Legs 1+2+3 follow-up… | 12 | +872/-68 | tooling |  |
-| 25 | `f9388da` | Add install-git-hooks command for portable pre-commit snaps… | 5 | +704/-50 | tooling |  |
+| 1 | `9858988` | Fix review-channel session liveness fallback | 4 | +454/-101 | tooling |  |
+| 2 | `483df5b` | Refresh external review snapshot for 7d7aa7c | 1 | +60/-67 | tooling |  |
+| 3 | `7d7aa7c` | checkpoint: close review-channel authority convergence | 24 | +583/-149 | tooling |  |
+| 4 | `1b55564` | Refresh external review snapshot for 8b77c5c | 1 | +53/-56 | tooling |  |
+| 5 | `8b77c5c` | checkpoint: record dashboard observer audit findings | 3 | +225/-70 | tooling |  |
+| 6 | `fba090f` | checkpoint: close push preflight bypass window | 9 | +129/-73 | tooling |  |
+| 7 | `02ca820` | Refresh external review snapshot for fed1dec | 1 | +72/-79 | tooling |  |
+| 8 | `fed1dec` | checkpoint: harden reviewer packet guards and runtime counts | 31 | +1230/-108 | tooling |  |
+| 9 | `0a678e5` | Refresh external review snapshot for 47c7845 | 1 | +82/-75 | tooling |  |
+| 10 | `47c7845` | checkpoint: truth-source hardening and review snapshot evid… | 36 | +2207/-1285 | tooling |  |
+| 11 | `92a3358` | Refresh external review snapshot for 262bbad | 1 | +53/-57 | tooling |  |
+| 12 | `262bbad` | docs: record review-channel revision drift fix | 4 | +99/-87 | tooling |  |
+| 13 | `dec706e` | Refresh external review snapshot for 51dbf3c | 1 | +54/-60 | tooling |  |
+| 14 | `51dbf3c` | checkpoint: capture residual review-channel test change | 2 | +63/-66 | tooling |  |
+| 15 | `249bef9` | checkpoint: save current worktree state | 19 | +567/-95 | tooling |  |
+| 16 | `6ade1a0` | Refresh external review snapshot for 4c3d9e9 | 1 | +63/-68 | tooling |  |
+| 17 | `4c3d9e9` | checkpoint: add initial control-plane parity guard | 8 | +753/-64 | tooling |  |
+| 18 | `d383dc2` | Refresh external review snapshot for a3628e3 | 1 | +62/-67 | tooling |  |
+| 19 | `a3628e3` | Align push authorization with snapshot receipts | 14 | +373/-100 | tooling |  |
+| 20 | `93b92d6` | Refresh external review snapshot for 0f2bf3e | 1 | +73/-88 | tooling |  |
+| 21 | `0f2bf3e` | Add ReviewSnapshot receipt hook | 18 | +678/-201 | tooling |  |
+| 22 | `922b376` | Accept snapshot-only review snapshot receipts | 10 | +186/-69 | tooling |  |
+| 23 | `4d8a128` | Close packet-backed action request binding | 18 | +797/-168 | tooling |  |
+| 24 | `ee13a6c` | Add architecture hardening plan for Codex review | 2 | +1148/-58 | tooling |  |
+| 25 | `e21d8e8` | Close MP-377 typed-continuity tranche (Legs 1+2+3 follow-up… | 12 | +872/-68 | tooling |  |
 
 ### Files
 
@@ -144,12 +145,11 @@ Range: last 25 commits ending at `483df5b8cc66`
 | `dev/active/remote_commit_pipeline.md` | tooling | +65/-0 |
 | `dev/active/remote_control_runtime.md` | tooling | +58/-18 |
 | `dev/active/review_channel.md` | tooling | +20/-18 |
-| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1458/-1530 |
+| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1464/-1537 |
 | `dev/audits/architecture_alignment.md` | tooling | +65/-0 |
 | `dev/audits/architecture_hardening_plan.md` | tooling | +1241/-16 |
 | `dev/config/devctl_repo_policy.json` | tooling | +1/-1 |
 | `dev/config/git_hooks/post-commit-review-snapshot.sh` | tooling | +91/-0 |
-| `dev/config/git_hooks/pre-commit-review-snapshot.sh` | tooling | +97/-0 |
 | `dev/guides/DEVELOPMENT.md` | docs | +55/-6 |
 | `dev/history/ENGINEERING_EVOLUTION.md` | tooling | +286/-1 |
 | `dev/scripts/README.md` | tooling | +76/-8 |
@@ -157,7 +157,6 @@ Range: last 25 commits ending at `483df5b8cc66`
 | `dev/scripts/checks/platform_contract_closure/field_routes_parity.py` | tooling | +318/-4 |
 | `dev/scripts/checks/platform_contract_closure/field_routes_parity_compare.py` | tooling | +135/-0 |
 | `dev/scripts/checks/platform_contract_closure/support.py` | tooling | +10/-0 |
-| `dev/scripts/devctl/cli.py` | tooling | +3/-0 |
 | `dev/scripts/devctl/commands/dashboard.py` | tooling | +34/-2 |
 | `dev/scripts/devctl/commands/dashboard_builders.py` | tooling | +11/-0 |
 | `dev/scripts/devctl/commands/dashboard_render/attention.py` | tooling | +3/-3 |
@@ -165,7 +164,7 @@ Range: last 25 commits ending at `483df5b8cc66`
 | `dev/scripts/devctl/commands/dashboard_render/markdown.py` | tooling | +4/-0 |
 | `dev/scripts/devctl/commands/dashboard_render/terminal.py` | tooling | +14/-0 |
 | `dev/scripts/devctl/commands/dashboard_typed_state.py` | tooling | +39/-2 |
-| `dev/scripts/devctl/commands/governance/install_git_hooks.py` | tooling | +480/-90 |
+| `dev/scripts/devctl/commands/governance/install_git_hooks.py` | tooling | +149/-90 |
 | `dev/scripts/devctl/commands/governance/review_snapshot.py` | tooling | +211/-6 |
 | `dev/scripts/devctl/commands/governance/session_resume.py` | tooling | +25/-0 |
 | `dev/scripts/devctl/commands/governance/session_resume_support.py` | tooling | +24/-1 |
@@ -176,6 +175,8 @@ Range: last 25 commits ending at `483df5b8cc66`
 | `dev/scripts/devctl/commands/review_channel/bridge_render.py` | tooling | +33/-0 |
 | `dev/scripts/devctl/commands/review_channel/bridge_support.py` | tooling | +7/-0 |
 | `dev/scripts/devctl/commands/review_channel/reviewer_runtime_snapshot.py` | tooling | +3/-0 |
+| `dev/scripts/devctl/commands/vcs/governed_executor.py` | tooling | +5/-5 |
+| `dev/scripts/devctl/commands/vcs/push_flow.py` | tooling | +4/-5 |
 | _72 more files trimmed_ | | |
 
 ## 4. Quality signals
@@ -292,6 +293,8 @@ Recent findings:
 
 ### Per-commit rationale
 
+- **`9858988`** — Fix review-channel session liveness fallback
+  - evolution: The live review-channel runtime exposed one more precedence bug after typed Claude ACK state landed. Once `Claude Status` / `Claude Ack` were current again, bridge-backed `status`, `doctor`, and `startup-context` could …
 - **`483df5b`** — Refresh external review snapshot for 7d7aa7c
   - evolution: The live review-channel runtime exposed one more precedence bug after typed Claude ACK state landed. Once `Claude Status` / `Claude Ack` were current again, bridge-backed `status`, `doctor`, and `startup-context` could …
 - **`7d7aa7c`** — checkpoint: close review-channel authority convergence
@@ -326,10 +329,6 @@ Recent findings:
   - plan: `dev/active/platform_authority_loop.md`
   - plan: `dev/active/remote_commit_pipeline.md`
   - plan: `dev/active/PLAN_FORMAT.md`
-- **`f9388da`** — Add install-git-hooks command for portable pre-commit snapshot refresh
-  - Closes the gap between the architectural promise "every governed commit
-  - regenerates the ReviewSnapshot inside the commit" and the reality that
-  - the pre-commit hook inside governed_executor_phases.execute_commit only
 ### Active MP scope (from MASTER_PLAN.md)
 
 - `dev/active/devctl_reporting_upgrade.md` is the phased `devctl` reporting/CIHub specification, but not a separate execution tracker; implementation tasks stay in this file under `MP-297..MP-300`, `MP-303`, `MP-306`, `MP…
@@ -366,4 +365,4 @@ Recent findings:
 
 ---
 
-Projection produced by `devctl review-snapshot`. Generation stamp `snap-e88cb992fa08` binds this file to HEAD `483df5b8cc66`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
+Projection produced by `devctl review-snapshot`. Generation stamp `snap-1799d7e007d9` binds this file to HEAD `985898847284`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
