@@ -139,21 +139,34 @@ def _extract_coordination(
     *,
     repo_root: Path,
     sources: dict[str, Any],
+    governance: "ProjectGovernance | None",
     allow_startup_fallback: bool,
 ) -> CoordinationSnapshot | None:
-    """Return shared coordination truth for the read model when available."""
-    for key in ("review_state", "full_json", "compact_json"):
-        payload = sources.get(key)
-        if not isinstance(payload, dict):
-            continue
-        direct = coordination_snapshot_from_mapping(payload.get("coordination"))
-        if direct is not None:
-            return direct
-        nested = payload.get("review_state")
-        if isinstance(nested, dict):
-            direct = coordination_snapshot_from_mapping(nested.get("coordination"))
-            if direct is not None:
-                return direct
+    """Return shared coordination truth via the governed loader.
+
+    Delegates to ``coordination_loader.load_coordination_snapshot`` so every
+    surface (dashboard, session-resume, startup-context) observes the same
+    gate-aware reducer output for one tick. Before this wiring, the read
+    model preferred any persisted ``coordination`` mapping found in the
+    sources dict over a fresh build, which meant dashboard and session-
+    resume could echo stale topology while startup-context emitted the
+    gate-corrected answer — the exact F1 divergence MP-384/MP-387 must
+    close.
+
+    ``allow_startup_fallback`` preserves the legacy fixture path: tests
+    that inject a synthetic ``sources_override`` without governance still
+    fall through to an on-disk ``build_startup_context`` only when
+    explicitly allowed.
+    """
+    from .coordination_loader import load_coordination_snapshot
+
+    fresh = load_coordination_snapshot(
+        repo_root=repo_root,
+        sources=sources,
+        governance=governance,
+    )
+    if fresh is not None:
+        return fresh
     if not allow_startup_fallback:
         return None
     try:
@@ -232,6 +245,7 @@ def build_control_plane_read_model(
     coordination = _extract_coordination(
         repo_root=repo_root,
         sources=sources,
+        governance=governance,
         allow_startup_fallback=sources_override is None,
     )
 

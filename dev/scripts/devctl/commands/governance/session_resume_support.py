@@ -178,8 +178,18 @@ def build_from_sources(
         "branch": "unknown", "head": head_sha, "clean": True, "ahead": 0,
     }
 
+    # Thread governance so the read model resolves coordination via the
+    # same governed loader path session-resume used to pick ``sources``.
+    # Without this, ``build_control_plane_read_model`` reconstructed
+    # coordination without governance and would only ever see the persisted
+    # ``coordination`` mapping, while session-resume's own ``_extract_
+    # coordination`` call did a fresh gate-aware build — the two-snapshot
+    # divergence at the heart of F1.
     model = read_model_override or build_control_plane_read_model(
-        repo_root, sources_override=sources, git_override=git,
+        repo_root,
+        sources_override=sources,
+        git_override=git,
+        governance=governance,
     )
 
     session = _extract_current_session(sources)
@@ -217,11 +227,18 @@ def build_from_sources(
     obs_status = ""
     if model.reviewer_observation is not None:
         obs_status = model.reviewer_observation.status
-    coordination = _extract_coordination(
-        sources,
-        repo_root=repo_root,
-        governance=governance,
-    )
+    # One coordination snapshot per tick: reuse the read model's
+    # already-resolved answer (built via the governed
+    # ``coordination_loader``) so session-resume and dashboard cannot
+    # diverge. ``_extract_coordination`` remains callable from tests and
+    # legacy code paths that do not go through the read model.
+    coordination = model.coordination
+    if coordination is None:
+        coordination = _extract_coordination(
+            sources,
+            repo_root=repo_root,
+            governance=governance,
+        )
 
     return SessionCachePacket(
         generated_at_utc=utc_timestamp(),
@@ -298,44 +315,26 @@ def _extract_coordination(
     repo_root: Path,
     governance: "ProjectGovernance | None",
 ) -> CoordinationSnapshot | None:
-    """Return governed coordination truth from sources or a typed fallback build."""
-    for key in ("review_state", "compact_json", "full_json"):
-        payload = sources.get(key)
-        if not isinstance(payload, dict):
-            continue
-        direct = coordination_snapshot_from_mapping(payload.get("coordination"))
-        if direct is not None:
-            return direct
-        nested = payload.get("review_state")
-        if isinstance(nested, dict):
-            direct = coordination_snapshot_from_mapping(nested.get("coordination"))
-            if direct is not None:
-                return direct
+    """Return governed coordination truth via the shared loader.
 
-    if governance is None:
-        try:
-            from ...runtime.startup_context import build_startup_context
-        except ImportError:
-            return None
-        startup_context = build_startup_context(repo_root=repo_root)
-        return startup_context.coordination
+    Kept as a thin adapter around ``coordination_loader.load_coordination_
+    snapshot`` for direct test callers and any legacy code path that still
+    calls this helper. The primary code path inside ``build_from_sources``
+    reuses ``ControlPlaneReadModel.coordination`` so it and the dashboard
+    render from exactly one resolved snapshot. When neither the loader
+    nor the sources dict can produce a snapshot, a typed startup-context
+    build is used as a last-resort fallback so legacy fixtures without
+    governance still resolve something.
+    """
+    from ...runtime.coordination_loader import load_coordination_snapshot
 
-    for key in ("review_state", "full_json"):
-        payload = sources.get(key)
-        if not isinstance(payload, dict):
-            continue
-        typed_review_state = review_state_from_payload(payload)
-        if typed_review_state is None:
-            continue
-        from ...platform.coordination_snapshot import (
-            build_coordination_snapshot_for_review_state,
-        )
-
-        return build_coordination_snapshot_for_review_state(
-            repo_root=repo_root,
-            governance=governance,
-            review_state=typed_review_state,
-        )
+    fresh = load_coordination_snapshot(
+        repo_root=repo_root,
+        sources=sources,
+        governance=governance,
+    )
+    if fresh is not None:
+        return fresh
     try:
         from ...runtime.startup_context import build_startup_context
     except ImportError:

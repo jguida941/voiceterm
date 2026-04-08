@@ -77,11 +77,11 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-04-08T19:37:05Z`
-- Last Codex poll (Local America/New_York): `2026-04-08 15:37:05 EDT`
+- Last Codex poll: `2026-04-08T20:10:08Z`
+- Last Codex poll (Local America/New_York): `2026-04-08 16:10:08 EDT`
 - Reviewer mode: `active_dual_agent`
 - Last non-audit worktree hash: `8c72dbb81cb362ae197c9a59a1aa8b207314f8bdfc6faff4aae7b60b2a4f24ac`
-- Current instruction revision: `6e0cacd366b6`
+- Current instruction revision: `2eeb0d181911`
 - Last checkpoint action: `reviewer-checkpoint`
 - Head at push time: `9a6dd2faac4586b3dea8b525461007fa77e78b5f`
 ## Protocol
@@ -205,19 +205,17 @@ Codex: design this as part of the existing `ProjectGovernance` / `ReviewerGateSt
 
 ## Poll Status
 
-- Reviewer heartbeat refreshed through repo-owned tooling (mode: active_dual_agent; reason: push-preflight-refresh; reviewed-tree: 8c72dbb81cb3).
+- Reviewer heartbeat refreshed through repo-owned tooling (mode: active_dual_agent; reason: manual-review; reviewed-tree: 8c72dbb81cb3).
 
 ## Current Verdict
 
 - changes requested
-- Change Summary: the newly reviewed commit range does not address the scoped F1/F2/F3 coordination/dashboard/startup parity work, so those findings remain open. It also introduces a new operator-mode regression: the governance scan path now defaults missing `operator_interaction_mode` to `remote_control`, which bypasses the intended fail-closed `unresolved` behavior instead of wiring the mode through repo policy.
+- Change Summary: F2 and F3 are fixed on `a65da5b`: dashboard markdown now labels the mixed packet queue generically, and startup bootstrap now carries `ownership_status`. F1 is still open because the new shared coordination loader is not wired into the live proof surfaces, so `startup-context --format json` still reports `observed_topology=single_agent` while `session-resume` and `dashboard` report `dual_agent`. F4 is still open because the scan-based governance path still ignores repo-policy `operator_interaction_mode` and falls back to `local_terminal` instead of the required `unresolved`.
 
 ## Open Findings
 
-- F1: Coordination source-of-truth still diverges across the target surfaces. `ControlPlaneReadModel`/dashboard still read `cfg.review_state_json_rel` (`dev/reports/review_channel/state/latest.json`), `session-resume` reads `<review_root>/review_state.json`, and `startup-context` refreshes a bridge-backed snapshot. On this branch those three paths already disagree: `startup-context --role reviewer --format summary` reports `coordination=multi_agent_orchestrated/single_agent->single_agent`, `session-resume --role reviewer --format json` reports `multi_agent_orchestrated/dual_agent->single_agent`, and `dashboard --format json` reports `single_agent/single_agent->single_agent` with `current_slice="Session rollover: Codex, Claude conductors started"`. Until all three surfaces share one governed loader, the scoped MP-384/MP-387 parity proof is false.
-- F2: The markdown dashboard now mislabels every pending packet as an action packet. `render_pending_packets_markdown()` prints `Pending action packets`, but `_extract_typed_packets()` still forwards every pending packet kind, so notices/findings/instructions are presented as operator actions.
-- F3: `StartupContext.coordination` still drops the ownership answer that this slice is supposed to converge. `_startup_coordination_dict()` and the machine summary keep topology/fanout/resync fields but omit `ownership_status` (and the related authority/work-ownership posture), so startup bootstrap cannot provide the promised ownership truth even when the underlying `CoordinationSnapshot` has it.
-- F4: `BridgeConfig.operator_interaction_mode` now defaults to `remote_control` in the contract model, but `_scan_bridge_config()` still never reads that field from repo policy. Every scan-based consumer therefore treats an unconfigured repo as remote-control: `scan_repo_governance(policy={}).bridge_config.operator_interaction_mode` now returns `remote_control`, while the typed parse path still resolves the same missing field to `unresolved`. That breaks the MP-380 fail-closed contract and can silently permit headless launch behavior in repos that never opted into remote control.
+- F1: `dev/scripts/devctl/runtime/coordination_loader.py` defines the shared loader this slice needs, but the live proof surfaces still do not call it. `startup-context` still builds coordination through `build_work_intake_coordination_state` + `build_coordination_snapshot`, while `session-resume` and `ControlPlaneReadModel`/dashboard keep their local `_extract_coordination()` paths. Live proof still diverges: `startup-context --role reviewer --format json` reports `coordination=multi_agent_orchestrated/single_agent->single_agent`, while `session-resume --role reviewer --format json` and `dashboard --format json` report `coordination=multi_agent_orchestrated/dual_agent->single_agent`.
+- F4: `_scan_bridge_config()` still never reads `operator_interaction_mode` from repo policy and constructs `BridgeConfig` without that field, so scan-based consumers inherit the dataclass default (`local_terminal`) instead of the typed fail-closed parse result (`unresolved`). Live proof on this head: `scan_repo_governance(policy={}).bridge_config.operator_interaction_mode` returns `local_terminal`, while `bridge_config_from_mapping({}).operator_interaction_mode` returns `unresolved`. `dev/active/remote_control_runtime.md` still requires unresolved fail-closed state here.
 
 ## Claude Status
 
@@ -247,17 +245,19 @@ Codex: design this as part of the existing `ProjectGovernance` / `ReviewerGateSt
 
 Scoped from `dev/active/remote_control_runtime.md` via `--scope`.
 
-- Fix F1 by routing `ControlPlaneReadModel`, dashboard, `startup-context`, and `session-resume` through one shared governed review-state/coordination loader. Do not keep dashboard on `state/latest.json` while `session-resume` reads `<review_root>/review_state.json` and `startup-context` regenerates a third snapshot. After the fix, prove the live repo returns the same `current_slice`, `declared/observed/recommended_topology`, `ownership_status`, and `resync_reasons` from `startup-context --role reviewer --format json`, `session-resume --role reviewer --format json`, and `dashboard --format json`.
-- Fix F2 by either filtering the markdown dashboard section to `kind == "action_request"` or restoring a generic pending-packets label until MP-384/MP-385 splits `pending_packets_total` from `pending_action_requests`.
-- Fix F3 by keeping `StartupContext.coordination` lossless enough for the scoped parity contract: include `ownership_status` in the typed startup payload and machine summary if startup bootstrap remains one of the proof surfaces.
-- Re-run the focused coordination/startup/session-resume/dashboard tests, then run the required tooling verification bundle before handoff.
+- Fix F1 for real by routing all three proof surfaces through one shared governed coordination loader. `dev/scripts/devctl/runtime/coordination_loader.py` is the intended abstraction, but it is not wired into `startup-context`, `session-resume`, or `ControlPlaneReadModel` yet. After the fix, `startup-context --role reviewer --format json`, `session-resume --role reviewer --format json`, and `dashboard --format json` must return identical `current_slice`, `declared_topology`, `observed_topology`, `recommended_topology`, `ownership_status`, and `resync_reasons`.
+- Fix F4 by making the scan-based governance path fail closed on missing `operator_interaction_mode` and by reading that field from repo policy instead of inheriting `BridgeConfig`'s default. `scan_repo_governance(policy={}).bridge_config.operator_interaction_mode` and `bridge_config_from_mapping({}).operator_interaction_mode` must both resolve to `unresolved` when the field is absent.
+- Add focused regression coverage for both fixes.
+- Re-run the focused coordination/startup/session-resume/dashboard/operator-mode tests, then run the required tooling verification bundle before handoff.
 
 ## Last Reviewed Scope
 
-- Review range `d2e648f6a7e33f6aa4adb6aae4c42ef5801652c2..409e65e9061c9637b305cd3ce0fbe5e12f7cce4d`
-- `dev/scripts/devctl/runtime/project_governance_contract.py` and `dev/scripts/devctl/runtime/review_state_models.py`
-- `dev/scripts/checks/code_shape/code_shape_policy.py` plus the generated/update-only artifacts in `dev/CHANGELOG.md`, `dev/audits/LIVE_RUN.md`, `dev/audits/REVIEW_SNAPSHOT.md`, and `bridge.md`
-- Runtime proof: `scan_repo_governance(policy={}).bridge_config.operator_interaction_mode` -> `remote_control`, while `bridge_config_from_mapping({}).operator_interaction_mode` -> `unresolved`
+- Review range `9a6dd2faac4586b3dea8b525461007fa77e78b5f..a65da5bfecd46fb11187d8e78cc1c9271387e5f0`
+- Files reviewed: `coordination_loader.py`, `control_plane_read_model.py`, `session_resume_support.py`, `startup_context.py`, `draft_policy_scan.py`, `project_governance_contract.py`
+- Live parity proof: `startup-context --role reviewer --format json` -> `coordination=multi_agent_orchestrated/single_agent->single_agent`, `ownership_status=clear`; `session-resume --role reviewer --format json` and `dashboard --format json` -> `coordination=multi_agent_orchestrated/dual_agent->single_agent`, `ownership_status=clear`
+- F2 closed proof: `python3 dev/scripts/devctl.py dashboard --format md` renders `**Pending packets**:`
+- F3 closed proof: `python3 dev/scripts/devctl.py startup-context --role reviewer --format summary` and `--format json` both carry `ownership_status=clear`
+- F4 proof: `scan_repo_governance(policy={}).bridge_config.operator_interaction_mode` -> `local_terminal`, while `bridge_config_from_mapping({}).operator_interaction_mode` -> `unresolved`
 - Focused validation: `python3 -m pytest dev/scripts/devctl/tests/runtime/test_operator_mode_fail_closed.py -q`
 
 ## Action Requests

@@ -5,14 +5,14 @@
 ## Quick status
 
 - Branch: `feature/governance-quality-sweep`
-- HEAD: `9515a0838845` — LIVE_RUN: Q45/Q46/Q47 from typed-state discoverability audit
-- Tree hash: `c03b559c382a`
-- Generation stamp: `snap-3b14c6a08dec`
-- Generated at (UTC): 2026-04-08T20:32:32Z
+- HEAD: `dde778654d8d` — LIVE_RUN: add AI Research Lane architecture proposal (Codex review lane)
+- Tree hash: `b2de89da66c9`
+- Generation stamp: `snap-0d9b702c9887`
+- Generated at (UTC): 2026-04-08T20:37:59Z
 - Push decision: `await_checkpoint` — worktree_dirty
 - Reviewer mode: `tools_only` (interaction: `local_terminal`)
 - Pipeline state: `n/a` (approval: `n/a`)
-- Delta since last snapshot: 25 commits, 19 files, +2539/-1395
+- Delta since last snapshot: 24 commits, 11 files, +2421/-1192
 - Governance findings: 39 open / 68 fixed / 121 total
 - Probe hints: 0 total across 0 files scanned
 
@@ -54,9 +54,9 @@ adopters arrive.
 - Remote: `https://github.com/jguida941/voiceterm.git`
 - Default branch: `master`
 - Current branch: `feature/governance-quality-sweep`
-- HEAD SHA: `9515a083884570dc400b1434167acf9eb8012638`
+- HEAD SHA: `dde778654d8deccc3cd76722a7f48e58c1725594`
 - HEAD author: Justin Guida
-- HEAD timestamp (UTC): 2026-04-08T16:20:11-04:00
+- HEAD timestamp (UTC): 2026-04-08T16:32:23-04:00
 
 ## 2. Governance state
 
@@ -72,7 +72,7 @@ adopters arrive.
 - authorized_head_commit: `ee13a6c6337f395afa574e99a4234f2eaf45a161`
 - approved_target_identity: `tree-receipt-20260407T220000Z:281dea21851063411d2c43c2b4621a1c2a1168b5`
 - publication_backlog: urgent
-- publication_guidance: 19 local commit(s) waiting for governed push once the current slice is checkpoint-clean.
+- publication_guidance: 20 local commit(s) waiting for governed push once the current slice is checkpoint-clean.
 
 ### Reviewer runtime
 - reviewer_mode: `tools_only`
@@ -93,44 +93,43 @@ adopters arrive.
 
 ## 3. Delta — what changed since the previous snapshot
 
-Range: last 25 commits ending at `9515a0838845`
+Range: last 24 commits ending at `dde778654d8d`
 
-- commits: 25
-- files changed: 19
-- insertions: +2539
-- deletions: -1395
+- commits: 24
+- files changed: 11
+- insertions: +2421
+- deletions: -1192
 - bundle classes touched: tooling, docs
-- authority surfaces touched: 3 file(s)
+- authority surfaces touched: 1 file(s)
 
 ### Commits
 
 | # | SHA | Subject | Files | +/- | Bundle | Risk |
 |---|---|---|---|---|---|---|
-| 1 | `9515a08` | LIVE_RUN: Q45/Q46/Q47 from typed-state discoverability audit | 2 | +147/-45 | tooling |  |
-| 2 | `5f5c049` | LIVE_RUN: Q43 publisher lifecycle drift + Q44 publisher rea… | 2 | +150/-55 | tooling |  |
-| 3 | `a65da5b` | Refresh external review snapshot for e596901 | 1 | +55/-54 | tooling |  |
-| 4 | `e596901` | Preserve Claude-CLI WIP (F1 extension) from second session… | 3 | +230/-46 | tooling |  |
-| 5 | `4522b12` | Fix Q41: exclude registered conductor shells from orphan/st… | 2 | +98/-45 | tooling |  |
-| 6 | `b7674a3` | LIVE_RUN: Q41 ROOT CAUSE — process-sweep-post reaps live co… | 2 | +109/-49 | tooling |  |
-| 7 | `c60bd77` | LIVE_RUN: Q33-Q40 findings from full surface audit + guard-… | 3 | +238/-57 | tooling |  |
-| 8 | `839008c` | Refresh external review snapshot for 17d7c73 | 1 | +41/-38 | tooling |  |
-| 9 | `17d7c73` | Refresh external review snapshot for 1de0fc0 | 1 | +41/-41 | tooling |  |
-| 10 | `1de0fc0` | Bridge refresh: Codex polls post-relaunch at 19:30:05Z + 19… | 2 | +58/-60 | docs |  |
-| 11 | `7a1ba28` | LIVE_RUN: A11 + Q31 role drift self-correction + Q32 Q4 reg… | 2 | +174/-49 | tooling |  |
-| 12 | `7384202` | Extend Q1 bypass to concurrent-writer rule (Q30) + regen AG… | 3 | +50/-48 | tooling |  |
-| 13 | `015cec9` | Refresh external review snapshot for 7889291 | 1 | +52/-57 | tooling |  |
-| 14 | `7889291` | Fix Q18: bundle.docs docs-check missing --since-ref origin/… | 2 | +59/-49 | tooling |  |
-| 15 | `1259410` | Refresh external review snapshot for 44c0018 | 1 | +41/-47 | tooling |  |
-| 16 | `44c0018` | Refresh external review snapshot for d9a9a3b | 1 | +52/-57 | tooling |  |
-| 17 | `d9a9a3b` | CHANGELOG: Q1 FIXED + A1-A10 automation gaps entry (unblock… | 2 | +70/-48 | docs |  |
-| 18 | `2ec6991` | Refresh external review snapshot for 2ee89e5 | 1 | +52/-56 | tooling |  |
-| 19 | `2ee89e5` | LIVE_RUN: Q1 FIXED + Q29 + A1-A10 automation gaps (remote_c… | 2 | +267/-50 | tooling |  |
-| 20 | `5c95b87` | Refresh external review snapshot for ee0a1d0 | 1 | +40/-46 | tooling |  |
-| 21 | `ee0a1d0` | Refresh external review snapshot for 2bd24b1 | 1 | +55/-49 | tooling |  |
-| 22 | `2bd24b1` | Fix Q1: devctl commit self-block via DEVCTL_COMMIT_GATE_BYP… | 3 | +85/-60 | tooling |  |
-| 23 | `a967137` | Refresh external review snapshot for 199291a | 1 | +40/-37 | tooling |  |
-| 24 | `199291a` | Refresh external review snapshot for 3bd849c | 1 | +64/-51 | tooling |  |
-| 25 | `3bd849c` | Land F1/F2/F3: unified review-state loader + packet labels… | 9 | +271/-201 | tooling |  |
+| 1 | `dde77865` | LIVE_RUN: add AI Research Lane architecture proposal (Codex… | 2 | +217/-49 | tooling |  |
+| 2 | `9515a083` | LIVE_RUN: Q45/Q46/Q47 from typed-state discoverability audit | 2 | +147/-45 | tooling |  |
+| 3 | `5f5c049f` | LIVE_RUN: Q43 publisher lifecycle drift + Q44 publisher rea… | 2 | +150/-55 | tooling |  |
+| 4 | `a65da5bf` | Refresh external review snapshot for e596901 | 1 | +55/-54 | tooling |  |
+| 5 | `e5969014` | Preserve Claude-CLI WIP (F1 extension) from second session… | 3 | +230/-46 | tooling |  |
+| 6 | `4522b125` | Fix Q41: exclude registered conductor shells from orphan/st… | 2 | +98/-45 | tooling |  |
+| 7 | `b7674a38` | LIVE_RUN: Q41 ROOT CAUSE — process-sweep-post reaps live co… | 2 | +109/-49 | tooling |  |
+| 8 | `c60bd77b` | LIVE_RUN: Q33-Q40 findings from full surface audit + guard-… | 3 | +238/-57 | tooling |  |
+| 9 | `839008c6` | Refresh external review snapshot for 17d7c73 | 1 | +41/-38 | tooling |  |
+| 10 | `17d7c734` | Refresh external review snapshot for 1de0fc0 | 1 | +41/-41 | tooling |  |
+| 11 | `1de0fc06` | Bridge refresh: Codex polls post-relaunch at 19:30:05Z + 19… | 2 | +58/-60 | docs |  |
+| 12 | `7a1ba282` | LIVE_RUN: A11 + Q31 role drift self-correction + Q32 Q4 reg… | 2 | +174/-49 | tooling |  |
+| 13 | `73842029` | Extend Q1 bypass to concurrent-writer rule (Q30) + regen AG… | 3 | +50/-48 | tooling |  |
+| 14 | `015cec99` | Refresh external review snapshot for 7889291 | 1 | +52/-57 | tooling |  |
+| 15 | `78892916` | Fix Q18: bundle.docs docs-check missing --since-ref origin/… | 2 | +59/-49 | tooling |  |
+| 16 | `12594100` | Refresh external review snapshot for 44c0018 | 1 | +41/-47 | tooling |  |
+| 17 | `44c0018d` | Refresh external review snapshot for d9a9a3b | 1 | +52/-57 | tooling |  |
+| 18 | `d9a9a3b7` | CHANGELOG: Q1 FIXED + A1-A10 automation gaps entry (unblock… | 2 | +70/-48 | docs |  |
+| 19 | `2ec69918` | Refresh external review snapshot for 2ee89e5 | 1 | +52/-56 | tooling |  |
+| 20 | `2ee89e50` | LIVE_RUN: Q1 FIXED + Q29 + A1-A10 automation gaps (remote_c… | 2 | +267/-50 | tooling |  |
+| 21 | `5c95b87b` | Refresh external review snapshot for ee0a1d0 | 1 | +40/-46 | tooling |  |
+| 22 | `ee0a1d08` | Refresh external review snapshot for 2bd24b1 | 1 | +55/-49 | tooling |  |
+| 23 | `2bd24b15` | Fix Q1: devctl commit self-block via DEVCTL_COMMIT_GATE_BYP… | 3 | +85/-60 | tooling |  |
+| 24 | `a9671376` | Refresh external review snapshot for 199291a | 1 | +40/-37 | tooling |  |
 
 ### Files
 
@@ -139,22 +138,14 @@ Range: last 25 commits ending at `9515a0838845`
 | `AGENTS.md` | docs | +1/-1 |
 | `bridge.md` | docs | +7/-7 |
 | `dev/CHANGELOG.md` | docs | +19/-0 |
-| `dev/audits/LIVE_RUN.md` | tooling | +793/-1 |
-| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1217/-1261 |
+| `dev/audits/LIVE_RUN.md` | tooling | +965/-1 |
+| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1149/-1175 |
 | `dev/scripts/checks/startup_authority_contract/runtime_checks.py` | tooling | +12/-0 |
 | `dev/scripts/devctl/bundles/registry.py` | tooling | +8/-1 |
-| `dev/scripts/devctl/commands/dashboard_render/attention.py` | tooling | +11/-2 |
-| `dev/scripts/devctl/commands/governance/session_resume_support.py` | tooling | +8/-8 |
-| `dev/scripts/devctl/commands/governance/startup_context.py` | tooling | +3/-0 |
 | `dev/scripts/devctl/commands/vcs/commit.py` | tooling | +24/-2 |
 | `dev/scripts/devctl/platform/coordination_snapshot.py` | tooling | +11/-1 |
 | `dev/scripts/devctl/process_sweep/internals.py` | tooling | +51/-4 |
-| `dev/scripts/devctl/runtime/control_plane_read_model.py` | tooling | +12/-3 |
-| `dev/scripts/devctl/runtime/control_plane_sources.py` | tooling | +31/-4 |
 | `dev/scripts/devctl/runtime/coordination_loader.py` | tooling | +174/-0 |
-| `dev/scripts/devctl/runtime/startup_context.py` | tooling | +9/-99 |
-| `dev/scripts/devctl/runtime/startup_context_projections.py` | tooling | +141/-0 |
-| `dev/scripts/devctl/tests/test_dashboard.py` | tooling | +7/-1 |
 
 ## 4. Quality signals
 
@@ -225,8 +216,6 @@ Recent findings:
 ### Targeted hints
 
 - **authority_surface**: Typed authority surface touched (`dev/scripts/checks/startup_authority_contract/runtime_checks.py`) — Review contract-level invariants for this file
-- **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/commands/governance/startup_context.py`) — Review contract-level invariants for this file
-- **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/runtime/startup_context.py`) — Review contract-level invariants for this file
 
 ### Suggested verification commands
 
@@ -240,67 +229,65 @@ Recent findings:
 
 ### Per-commit rationale
 
-- **`9515a08`** — LIVE_RUN: Q45/Q46/Q47 from typed-state discoverability audit
+- **`dde77865` | MPs: MP-388** — LIVE_RUN: add AI Research Lane architecture proposal (Codex review lane)
+  - Operator requested formalizing the beta-test flow this session has
+  - been running ad-hoc ('research → LIVE_RUN → Codex review → Claude
+  - implement') as a first-class governed architecture. Proposal is
   - evolution: The next coordination follow-up was not another reducer. The reducer already existed and multiple rich surfaces already rendered it. The miss was load-bearing: the shared `ControlPlaneReadModel` still had no coordinatio…
-- **`5f5c049`** — LIVE_RUN: Q43 publisher lifecycle drift + Q44 publisher reaper risk
+- **`9515a083`** — LIVE_RUN: Q45/Q46/Q47 from typed-state discoverability audit
   - evolution: The next coordination follow-up was not another reducer. The reducer already existed and multiple rich surfaces already rendered it. The miss was load-bearing: the shared `ControlPlaneReadModel` still had no coordinatio…
-- **`a65da5b`** — Refresh external review snapshot for e596901
+- **`5f5c049f`** — LIVE_RUN: Q43 publisher lifecycle drift + Q44 publisher reaper risk
   - evolution: The next coordination follow-up was not another reducer. The reducer already existed and multiple rich surfaces already rendered it. The miss was load-bearing: the shared `ControlPlaneReadModel` still had no coordinatio…
-- **`e596901` | markers: F1** — Preserve Claude-CLI WIP (F1 extension) from second session death (Q38)
+- **`a65da5bf`** — Refresh external review snapshot for e596901
+  - evolution: The next coordination follow-up was not another reducer. The reducer already existed and multiple rich surfaces already rendered it. The miss was load-bearing: the shared `ControlPlaneReadModel` still had no coordinatio…
+- **`e5969014` | markers: F1** — Preserve Claude-CLI WIP (F1 extension) from second session death (Q38)
   - The second conductor session (PIDs 62800 Codex, 62835 Claude-CLI at
   - 19:30-19:37Z) produced the following in-progress edits before both
   - conductors were silently reaped by process-sweep-post (Q41):
   - evolution: The next coordination follow-up was not another reducer. The reducer already existed and multiple rich surfaces already rendered it. The miss was load-bearing: the shared `ControlPlaneReadModel` still had no coordinatio…
-- **`4522b12`** — Fix Q41: exclude registered conductor shells from orphan/stale reap
+- **`4522b125`** — Fix Q41: exclude registered conductor shells from orphan/stale reap
   - Root cause of every silent conductor death observed during the
   - remote_control beta test (see LIVE_RUN.md Q41). devctl commit →
   - check --profile quick → process-sweep-post → split_orphaned_processes
   - evolution: The next coordination follow-up was not another reducer. The reducer already existed and multiple rich surfaces already rendered it. The miss was load-bearing: the shared `ControlPlaneReadModel` still had no coordinatio…
-- **`b7674a3`** — LIVE_RUN: Q41 ROOT CAUSE — process-sweep-post reaps live conductors
+- **`b7674a38`** — LIVE_RUN: Q41 ROOT CAUSE — process-sweep-post reaps live conductors
   - This is the architectural root cause of every silent conductor death
   - observed during this remote_control beta test session. devctl commit
   - runs check --profile quick which includes process-sweep-post which
   - evolution: The next coordination follow-up was not another reducer. The reducer already existed and multiple rich surfaces already rendered it. The miss was load-bearing: the shared `ControlPlaneReadModel` still had no coordinatio…
-- **`c60bd77`** — LIVE_RUN: Q33-Q40 findings from full surface audit + guard-block cascade
+- **`c60bd77b`** — LIVE_RUN: Q33-Q40 findings from full surface audit + guard-block cascade
   - evolution: The next coordination follow-up was not another reducer. The reducer already existed and multiple rich surfaces already rendered it. The miss was load-bearing: the shared `ControlPlaneReadModel` still had no coordinatio…
-- **`839008c`** — Refresh external review snapshot for 17d7c73
+- **`839008c6`** — Refresh external review snapshot for 17d7c73
   - evolution: The next coordination follow-up was not another reducer. The reducer already existed and multiple rich surfaces already rendered it. The miss was load-bearing: the shared `ControlPlaneReadModel` still had no coordinatio…
-- **`17d7c73`** — Refresh external review snapshot for 1de0fc0
+- **`17d7c734`** — Refresh external review snapshot for 1de0fc0
   - evolution: The next coordination follow-up was not another reducer. The reducer already existed and multiple rich surfaces already rendered it. The miss was load-bearing: the shared `ControlPlaneReadModel` still had no coordinatio…
-- **`1de0fc0`** — Bridge refresh: Codex polls post-relaunch at 19:30:05Z + 19:31:03Z heartbeat
+- **`1de0fc06`** — Bridge refresh: Codex polls post-relaunch at 19:30:05Z + 19:31:03Z heartbeat
   - evolution: The next coordination follow-up was not another reducer. The reducer already existed and multiple rich surfaces already rendered it. The miss was load-bearing: the shared `ControlPlaneReadModel` still had no coordinatio…
-- **`7a1ba28`** — LIVE_RUN: A11 + Q31 role drift self-correction + Q32 Q4 regression
+- **`7a1ba282`** — LIVE_RUN: A11 + Q31 role drift self-correction + Q32 Q4 regression
   - evolution: The next coordination follow-up was not another reducer. The reducer already existed and multiple rich surfaces already rendered it. The miss was load-bearing: the shared `ControlPlaneReadModel` still had no coordinatio…
-- **`7384202`** — Extend Q1 bypass to concurrent-writer rule (Q30) + regen AGENTS.md after Q18 fix
+- **`73842029`** — Extend Q1 bypass to concurrent-writer rule (Q30) + regen AGENTS.md after Q18 fix
   - evolution: The next coordination follow-up was not another reducer. The reducer already existed and multiple rich surfaces already rendered it. The miss was load-bearing: the shared `ControlPlaneReadModel` still had no coordinatio…
-- **`015cec9`** — Refresh external review snapshot for 7889291
+- **`015cec99`** — Refresh external review snapshot for 7889291
   - evolution: The next coordination follow-up was not another reducer. The reducer already existed and multiple rich surfaces already rendered it. The miss was load-bearing: the shared `ControlPlaneReadModel` still had no coordinatio…
-- **`7889291`** — Fix Q18: bundle.docs docs-check missing --since-ref origin/develop
+- **`78892916`** — Fix Q18: bundle.docs docs-check missing --since-ref origin/develop
   - evolution: The next coordination follow-up was not another reducer. The reducer already existed and multiple rich surfaces already rendered it. The miss was load-bearing: the shared `ControlPlaneReadModel` still had no coordinatio…
-- **`1259410`** — Refresh external review snapshot for 44c0018
+- **`12594100`** — Refresh external review snapshot for 44c0018
   - evolution: The next coordination follow-up was not another reducer. The reducer already existed and multiple rich surfaces already rendered it. The miss was load-bearing: the shared `ControlPlaneReadModel` still had no coordinatio…
-- **`44c0018`** — Refresh external review snapshot for d9a9a3b
+- **`44c0018d`** — Refresh external review snapshot for d9a9a3b
   - evolution: The next coordination follow-up was not another reducer. The reducer already existed and multiple rich surfaces already rendered it. The miss was load-bearing: the shared `ControlPlaneReadModel` still had no coordinatio…
-- **`d9a9a3b`** — CHANGELOG: Q1 FIXED + A1-A10 automation gaps entry (unblock docs-check)
+- **`d9a9a3b7`** — CHANGELOG: Q1 FIXED + A1-A10 automation gaps entry (unblock docs-check)
   - evolution: The next coordination follow-up was not another reducer. The reducer already existed and multiple rich surfaces already rendered it. The miss was load-bearing: the shared `ControlPlaneReadModel` still had no coordinatio…
-- **`2ec6991`** — Refresh external review snapshot for 2ee89e5
+- **`2ec69918`** — Refresh external review snapshot for 2ee89e5
   - evolution: The next coordination follow-up was not another reducer. The reducer already existed and multiple rich surfaces already rendered it. The miss was load-bearing: the shared `ControlPlaneReadModel` still had no coordinatio…
-- **`2ee89e5`** — LIVE_RUN: Q1 FIXED + Q29 + A1-A10 automation gaps (remote_control beta test)
+- **`2ee89e50`** — LIVE_RUN: Q1 FIXED + Q29 + A1-A10 automation gaps (remote_control beta test)
   - evolution: The next coordination follow-up was not another reducer. The reducer already existed and multiple rich surfaces already rendered it. The miss was load-bearing: the shared `ControlPlaneReadModel` still had no coordinatio…
-- **`5c95b87`** — Refresh external review snapshot for ee0a1d0
+- **`5c95b87b`** — Refresh external review snapshot for ee0a1d0
   - evolution: The next coordination follow-up was not another reducer. The reducer already existed and multiple rich surfaces already rendered it. The miss was load-bearing: the shared `ControlPlaneReadModel` still had no coordinatio…
-- **`ee0a1d0`** — Refresh external review snapshot for 2bd24b1
+- **`ee0a1d08`** — Refresh external review snapshot for 2bd24b1
   - evolution: The next coordination follow-up was not another reducer. The reducer already existed and multiple rich surfaces already rendered it. The miss was load-bearing: the shared `ControlPlaneReadModel` still had no coordinatio…
-- **`2bd24b1`** — Fix Q1: devctl commit self-block via DEVCTL_COMMIT_GATE_BYPASS_STARTUP_AUTHORITY env var
+- **`2bd24b15`** — Fix Q1: devctl commit self-block via DEVCTL_COMMIT_GATE_BYPASS_STARTUP_AUTHORITY env var
   - evolution: The next coordination follow-up was not another reducer. The reducer already existed and multiple rich surfaces already rendered it. The miss was load-bearing: the shared `ControlPlaneReadModel` still had no coordinatio…
-- **`a967137`** — Refresh external review snapshot for 199291a
-  - evolution: The next coordination follow-up was not another reducer. The reducer already existed and multiple rich surfaces already rendered it. The miss was load-bearing: the shared `ControlPlaneReadModel` still had no coordinatio…
-- **`199291a`** — Refresh external review snapshot for 3bd849c
-  - evolution: The next coordination follow-up was not another reducer. The reducer already existed and multiple rich surfaces already rendered it. The miss was load-bearing: the shared `ControlPlaneReadModel` still had no coordinatio…
-- **`3bd849c` | MPs: MP-384, MP-385 | markers: F1, F2, F3** — Land F1/F2/F3: unified review-state loader + packet labels + ownership projection
-  - This commit lands the F1/F2/F3 work that the Claude-CLI coder worked
-  - on autonomously during the remote_control session while Codex was
-  - polling as reviewer. The operator (remote) explicitly authorized this
+- **`a9671376`** — Refresh external review snapshot for 199291a
   - evolution: The next coordination follow-up was not another reducer. The reducer already existed and multiple rich surfaces already rendered it. The miss was load-bearing: the shared `ControlPlaneReadModel` still had no coordinatio…
 ### Active MP scope (from MASTER_PLAN.md)
 
@@ -337,4 +324,4 @@ Recent findings:
 
 ---
 
-Projection produced by `devctl review-snapshot`. Generation stamp `snap-3b14c6a08dec` binds this file to HEAD `9515a0838845`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
+Projection produced by `devctl review-snapshot`. Generation stamp `snap-0d9b702c9887` binds this file to HEAD `dde778654d8d`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
