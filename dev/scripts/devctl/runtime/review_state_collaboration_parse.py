@@ -8,6 +8,7 @@ from .control_state import _int, _mapping, _string
 from .review_state_collaboration_fields import (
     _arbitration_state_from_mapping,
     _delegated_work_from_value,
+    ownership_state_from_mapping,
     _participants_from_value,
     _peer_review_state_from_mapping,
     _ready_gates_from_value,
@@ -66,6 +67,14 @@ def collaboration_state_from_payload(
             participants=_participants_from_value(collaboration.get("participants")),
             delegated_work=_delegated_work_from_value(
                 collaboration.get("delegated_work")
+            ),
+            topology_mode=_string(collaboration.get("topology_mode")) or "single_agent",
+            work_ownership_mode=(
+                _string(collaboration.get("work_ownership_mode"))
+                or "exclusive_slice"
+            ),
+            ownership=ownership_state_from_mapping(
+                _mapping(collaboration.get("ownership"))
             ),
         )
     return _legacy_collaboration_state(

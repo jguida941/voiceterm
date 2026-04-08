@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from pathlib import Path
 
 from ..runtime.review_state_models import (
@@ -14,6 +15,11 @@ from .collaboration_session_roster import (
     _build_participants,
     _build_role_assignments,
     _text,
+)
+from .collaboration_session_coordination import (
+    build_collaboration_ownership,
+    collaboration_topology_mode,
+    work_ownership_mode,
 )
 from .collaboration_session_status import (
     _agent_for_role,
@@ -34,6 +40,7 @@ def build_collaboration_session(
     bridge_liveness: Mapping[str, object],
     current_session: ReviewCurrentSessionState,
     attention: Mapping[str, object] | None = None,
+    repo_root: Path | None = None,
     session_output_root: Path | None = None,
 ) -> CollaborationSessionState:
     """Build the typed collaboration/session state for review-channel runtime."""
@@ -58,6 +65,14 @@ def build_collaboration_session(
     reviewer_mode = _text(bridge_liveness.get("reviewer_mode")) or "tools_only"
     effective_mode = _text(bridge_liveness.get("effective_reviewer_mode")) or reviewer_mode
     current_slice = current_session.current_instruction or current_session.last_reviewed_scope
+    ownership = build_collaboration_ownership(
+        repo_root=repo_root,
+        current_session=current_session,
+        participants=participants,
+        delegated_work=delegated_work,
+        reviewer_mode=reviewer_mode,
+        effective_mode=effective_mode,
+    )
     return CollaborationSessionState(
         schema_version=1,
         contract_id="CollaborationSession",
@@ -95,4 +110,11 @@ def build_collaboration_session(
         role_assignments=role_assignments,
         participants=participants,
         delegated_work=delegated_work,
+        topology_mode=collaboration_topology_mode(
+            reviewer_mode=effective_mode,
+            participants=participants,
+            delegated_work=delegated_work,
+        ),
+        work_ownership_mode=work_ownership_mode(ownership),
+        ownership=ownership,
     )

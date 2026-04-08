@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+
+from .work_intake_models import WorkIntakeOwnershipState
 
 
 @dataclass(frozen=True, slots=True)
@@ -111,3 +113,8 @@ class CollaborationSessionState:
     role_assignments: tuple[CollaborationRoleAssignmentState, ...]
     participants: tuple[CollaborationParticipantState, ...]
     delegated_work: tuple[DelegatedWorkReceiptState, ...]
+    topology_mode: str = "single_agent"
+    work_ownership_mode: str = "exclusive_slice"
+    ownership: WorkIntakeOwnershipState = field(
+        default_factory=WorkIntakeOwnershipState
+    )

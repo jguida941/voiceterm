@@ -14,6 +14,7 @@ from pathlib import Path
 
 from .runtime_checks import (
     collect_checkpoint_budget_errors,
+    collect_concurrent_writer_errors,
     collect_import_index_atomicity_findings,
     collect_post_checkpoint_dirty_worktree_errors,
     collect_push_decision_contract_errors,
@@ -143,6 +144,13 @@ def _runtime_authority_checks(
     )
     if post_checkpoint_dirty_errors:
         errors.extend(post_checkpoint_dirty_errors)
+    else:
+        checks_passed += 1
+
+    checks_run += 1
+    concurrent_writer_errors = collect_concurrent_writer_errors(root, gov)
+    if concurrent_writer_errors:
+        errors.extend(concurrent_writer_errors)
     else:
         checks_passed += 1
 

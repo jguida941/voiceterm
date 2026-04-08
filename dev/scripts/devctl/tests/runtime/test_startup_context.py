@@ -41,6 +41,10 @@ from dev.scripts.devctl.runtime.project_governance import (
     PROJECT_GOVERNANCE_CONTRACT_ID,
     PROJECT_GOVERNANCE_SCHEMA_VERSION,
 )
+from dev.scripts.devctl.runtime.work_intake_models import (
+    WorkIntakeCoordinationState,
+    WorkIntakeOwnershipState,
+)
 
 
 def _minimal_governance(**push_overrides) -> ProjectGovernance:
@@ -230,6 +234,36 @@ class TestCLIRegistration(unittest.TestCase):
                         "alignment_reason": "scope_and_instruction_match",
                         "summary": "Land the first startup intake packet.",
                     },
+                    "ownership": {
+                        "status": "concurrent_writer_activity",
+                        "scope_source": "current_session.current_instruction",
+                        "summary": (
+                            "Dirty paths fall outside the claimed slice while "
+                            "typed peer activity is still present."
+                        ),
+                        "outside_scope_dirty_paths": [
+                            "dev/scripts/devctl/review_channel/session_state_hints.py"
+                        ],
+                        "live_agents": ["codex", "claude"],
+                    },
+                    "coordination": {
+                        "collaboration_topology": "dual_agent",
+                        "authority_mode": "reviewer_gated",
+                        "work_ownership_mode": "concurrent_writer_conflict",
+                        "sync_cadence_mode": "before_scope_change",
+                        "summary": (
+                            "dual_agent, reviewer_gated, "
+                            "concurrent_writer_conflict, before_scope_change, "
+                            "not publish-ready"
+                        ),
+                        "active_roles": ["reviewer", "implementer"],
+                        "active_participants": [
+                            "codex:reviewer",
+                            "claude:implementer",
+                        ],
+                        "delegated_worktrees": ["../codex-voice-wt-a1"],
+                        "duplicate_delegated_worktrees": ["../codex-voice-wt-a1"],
+                    },
                     "routing": {
                         "selected_workflow_profile": "bundle.tooling",
                         "preflight_command": "python3 dev/scripts/devctl.py check-router --since-ref origin/develop --execute",
@@ -266,6 +300,29 @@ class TestCLIRegistration(unittest.TestCase):
         self.assertIn("## Work Intake", rendered)
         self.assertIn("dev/active/platform_authority_loop.md", rendered)
         self.assertIn("continuity_summary: Land the first startup intake packet.", rendered)
+        self.assertIn("ownership: `concurrent_writer_activity`", rendered)
+        self.assertIn(
+            "outside_scope_dirty_paths: `dev/scripts/devctl/review_channel/session_state_hints.py`",
+            rendered,
+        )
+        self.assertIn("live_agents: `codex`, `claude`", rendered)
+        self.assertIn("collaboration_topology: `dual_agent`", rendered)
+        self.assertIn("authority_mode: `reviewer_gated`", rendered)
+        self.assertIn(
+            "work_ownership_mode: `concurrent_writer_conflict`",
+            rendered,
+        )
+        self.assertIn("sync_cadence_mode: `before_scope_change`", rendered)
+        self.assertIn("active_roles: `reviewer`, `implementer`", rendered)
+        self.assertIn(
+            "active_participants: `codex:reviewer`, `claude:implementer`",
+            rendered,
+        )
+        self.assertIn("delegated_worktrees: `../codex-voice-wt-a1`", rendered)
+        self.assertIn(
+            "duplicate_delegated_worktrees: `../codex-voice-wt-a1`",
+            rendered,
+        )
         self.assertIn("selected_workflow_profile: `bundle.tooling`", rendered)
         self.assertIn(
             "workflow_profile_rule_summary: Selected bundle.tooling for edit-first work.",
@@ -1192,6 +1249,45 @@ class TestAdvisoryAction(unittest.TestCase):
         action, reason = _derive_advisory_action(gov, gate)
         self.assertEqual(action, "repair_reviewer_loop")
         self.assertEqual(reason, "claude_ack_stale")
+
+    def test_concurrent_writer_activity_blocks_with_distinct_reason(self) -> None:
+        gov = _minimal_governance(worktree_clean=False, worktree_dirty=True)
+        gate = ReviewerGateState()
+        ownership = WorkIntakeOwnershipState(
+            status="concurrent_writer_activity",
+            outside_scope_dirty_paths=(
+                "dev/scripts/devctl/review_channel/session_state_hints.py",
+            ),
+            live_agents=("codex", "claude"),
+            concurrent_writer_detected=True,
+        )
+        action, reason = _derive_advisory_action(gov, gate, ownership=ownership)
+        self.assertEqual(action, "checkpoint_before_continue")
+        self.assertEqual(reason, "concurrent_writer_activity")
+
+    def test_duplicate_delegated_worktree_conflict_blocks_with_same_reason(self) -> None:
+        gov = _minimal_governance(worktree_clean=False, worktree_dirty=True)
+        gate = ReviewerGateState(
+            bridge_active=True,
+            reviewer_mode="active_dual_agent",
+            effective_reviewer_mode="active_dual_agent",
+        )
+        coordination = WorkIntakeCoordinationState(
+            collaboration_topology="multi_agent_orchestrated",
+            authority_mode="reviewer_gated",
+            work_ownership_mode="concurrent_writer_conflict",
+            sync_cadence_mode="before_scope_change",
+            delegated_agents=("codex-worker-1", "claude-worker-1"),
+            duplicate_delegated_worktrees=("../codex-voice-wt-a1",),
+            concurrent_writer_conflict_detected=True,
+        )
+        action, reason = _derive_advisory_action(
+            gov,
+            gate,
+            coordination=coordination,
+        )
+        self.assertEqual(action, "checkpoint_before_continue")
+        self.assertEqual(reason, "concurrent_writer_activity")
 
     # -- Detached-publication-only regression tests (F7/F8) --
 

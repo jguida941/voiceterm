@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -34,6 +35,33 @@ from dev.scripts.devctl.runtime.work_intake import build_work_intake_packet
 def _write(path: Path, text: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(text, encoding="utf-8")
+
+
+def _init_git_repo(path: Path) -> None:
+    subprocess.run(
+        ["git", "init", "-q"],
+        cwd=path,
+        check=True,
+    )
+
+
+def _commit_repo_snapshot(path: Path, *, message: str) -> None:
+    subprocess.run(["git", "add", "-A"], cwd=path, check=True)
+    subprocess.run(
+        [
+            "git",
+            "-c",
+            "user.name=Tests",
+            "-c",
+            "user.email=tests@example.com",
+            "commit",
+            "-q",
+            "-m",
+            message,
+        ],
+        cwd=path,
+        check=True,
+    )
 
 
 def _governance(
@@ -541,11 +569,13 @@ def test_build_work_intake_packet_surfaces_shared_backlog_refs_and_sink(
 
 def _seed_minimal_repo(tmp_path: Path) -> None:
     """Drop the standard plan/doc fixture into ``tmp_path``."""
+    _init_git_repo(tmp_path)
     _write(tmp_path / "AGENTS.md", "# Agents\n")
     _write(tmp_path / "bridge.md", "# Bridge\n")
     _write(tmp_path / "dev/active/INDEX.md", "# Index\n")
     _write(tmp_path / "dev/active/MASTER_PLAN.md", "# Tracker\n")
     _write(tmp_path / "dev/active/platform_authority_loop.md", "# Authority Loop\n")
+    _commit_repo_snapshot(tmp_path, message="seed repo")
 
 
 def _write_review_state(
@@ -804,3 +834,281 @@ def test_build_work_intake_packet_handles_empty_review_state_as_plan_only(
 
     assert packet.continuity.alignment_status == "plan_only"
     assert packet.continuity.alignment_reason == "empty_review_state"
+
+
+def test_build_work_intake_packet_marks_in_scope_dirty_paths_when_claims_match(
+    tmp_path: Path,
+) -> None:
+    _seed_minimal_repo(tmp_path)
+    _write_review_state(
+        tmp_path,
+        last_reviewed_scope="MP-377",
+        current_instruction=(
+            "Stay on `dev/scripts/devctl/runtime/work_intake.py` and "
+            "`dev/scripts/devctl/runtime/work_intake_models.py` only."
+        ),
+    )
+    _write(tmp_path / "dev/scripts/devctl/runtime/work_intake.py", "# dirty\n")
+
+    packet = build_work_intake_packet(
+        repo_root=tmp_path,
+        governance=_governance(),
+        advisory_action="continue_editing",
+        advisory_reason="clean_worktree",
+    )
+
+    assert packet.ownership.status == "in_scope_dirty_paths"
+    assert packet.ownership.dirty_paths == (
+        "dev/scripts/devctl/runtime/work_intake.py",
+    )
+    assert packet.ownership.outside_scope_dirty_paths == ()
+
+
+def test_build_work_intake_packet_marks_concurrent_writer_activity_for_outside_scope_dirty_paths(
+    tmp_path: Path,
+) -> None:
+    _seed_minimal_repo(tmp_path)
+    _write(
+        tmp_path / "dev/reports/review_channel/latest/review_state.json",
+        json.dumps(
+            {
+                "bridge": {
+                    "reviewer_mode": "active_dual_agent",
+                    "effective_reviewer_mode": "active_dual_agent",
+                },
+                "review": {"plan_id": "MP-377"},
+                "current_session": {
+                    "last_reviewed_scope": "MP-377",
+                    "current_instruction": (
+                        "Stay on `dev/scripts/checks/platform_contract_closure/"
+                        "field_routes_parity.py` and "
+                        "`dev/scripts/checks/platform_contract_closure/"
+                        "field_routes_parity_compare.py`."
+                    ),
+                    "open_findings": "none",
+                    "implementer_status": "coding",
+                    "implementer_ack_state": "current",
+                },
+                "collaboration": {
+                    "participants": [
+                        {
+                            "agent_id": "codex",
+                            "provider": "codex",
+                            "role": "reviewer",
+                            "live": True,
+                            "status": "live",
+                        },
+                        {
+                            "agent_id": "claude",
+                            "provider": "claude",
+                            "role": "implementer",
+                            "live": True,
+                            "status": "live",
+                        },
+                    ]
+                },
+            }
+        ),
+    )
+    _write(
+        tmp_path / "dev/scripts/devctl/review_channel/session_state_hints.py",
+        "# unrelated dirty path\n",
+    )
+
+    packet = build_work_intake_packet(
+        repo_root=tmp_path,
+        governance=_governance(),
+        advisory_action="continue_editing",
+        advisory_reason="clean_worktree",
+    )
+
+    assert packet.ownership.status == "concurrent_writer_activity"
+    assert packet.ownership.concurrent_writer_detected is True
+    assert packet.ownership.outside_scope_dirty_paths == (
+        "dev/scripts/devctl/review_channel/session_state_hints.py",
+    )
+    assert packet.ownership.live_agents == ("codex", "claude")
+    assert packet.coordination.collaboration_topology == "dual_agent"
+    assert packet.coordination.authority_mode == "reviewer_gated"
+    assert packet.coordination.work_ownership_mode == "concurrent_writer_conflict"
+    assert packet.coordination.sync_cadence_mode == "before_scope_change"
+    assert packet.coordination.active_roles == ("reviewer", "implementer")
+    assert packet.coordination.active_participants == (
+        "codex:reviewer",
+        "claude:implementer",
+    )
+
+
+def test_build_work_intake_packet_marks_multi_agent_orchestrated_when_live_workers_exist(
+    tmp_path: Path,
+) -> None:
+    _seed_minimal_repo(tmp_path)
+    _write(
+        tmp_path / "dev/reports/review_channel/latest/review_state.json",
+        json.dumps(
+            {
+                "bridge": {
+                    "reviewer_mode": "active_dual_agent",
+                    "effective_reviewer_mode": "active_dual_agent",
+                },
+                "review": {"plan_id": "MP-377"},
+                "current_session": {
+                    "last_reviewed_scope": "MP-377",
+                    "current_instruction": (
+                        "Stay on `dev/scripts/devctl/runtime/work_intake.py` only."
+                    ),
+                    "implementer_ack_state": "current",
+                },
+                "collaboration": {
+                    "participants": [
+                        {
+                            "agent_id": "codex",
+                            "provider": "codex",
+                            "role": "reviewer",
+                            "live": True,
+                            "status": "live",
+                        },
+                        {
+                            "agent_id": "claude",
+                            "provider": "claude",
+                            "role": "implementer",
+                            "live": True,
+                            "status": "live",
+                        },
+                    ],
+                    "delegated_work": [
+                        {
+                            "receipt_id": "worker-1",
+                            "agent_id": "codex-worker-1",
+                            "provider": "codex",
+                            "role": "implementer",
+                            "owner_session": "codex",
+                            "status": "live",
+                            "live": True,
+                            "lane": "AGENT-1",
+                            "worktree": "../codex-voice-wt-a1",
+                            "branch": "feature/a1",
+                        }
+                    ],
+                },
+            }
+        ),
+    )
+
+    packet = build_work_intake_packet(
+        repo_root=tmp_path,
+        governance=_governance(),
+        advisory_action="continue_editing",
+        advisory_reason="clean_worktree",
+    )
+
+    assert packet.coordination.collaboration_topology == "multi_agent_orchestrated"
+    assert packet.coordination.live_delegated_worker_count == 1
+    assert packet.coordination.work_ownership_mode == "shared_slice"
+    assert packet.coordination.delegated_agents == ("codex-worker-1",)
+    assert packet.coordination.delegated_worktrees == ("../codex-voice-wt-a1",)
+
+
+def test_build_work_intake_packet_flags_duplicate_delegated_worktrees_before_dirty_overlap(
+    tmp_path: Path,
+) -> None:
+    _seed_minimal_repo(tmp_path)
+    _write(
+        tmp_path / "dev/reports/review_channel/latest/review_state.json",
+        json.dumps(
+            {
+                "bridge": {
+                    "reviewer_mode": "active_dual_agent",
+                    "effective_reviewer_mode": "active_dual_agent",
+                },
+                "review": {"plan_id": "MP-377"},
+                "current_session": {
+                    "last_reviewed_scope": "MP-377",
+                    "current_instruction": (
+                        "Stay on `dev/scripts/devctl/runtime/work_intake.py` only."
+                    ),
+                    "implementer_ack_state": "current",
+                },
+                "collaboration": {
+                    "participants": [
+                        {
+                            "agent_id": "codex",
+                            "provider": "codex",
+                            "role": "reviewer",
+                            "live": True,
+                            "status": "live",
+                        },
+                        {
+                            "agent_id": "claude",
+                            "provider": "claude",
+                            "role": "implementer",
+                            "live": True,
+                            "status": "live",
+                        },
+                    ],
+                    "delegated_work": [
+                        {
+                            "receipt_id": "worker-1",
+                            "agent_id": "codex-worker-1",
+                            "provider": "codex",
+                            "role": "implementer",
+                            "owner_session": "codex",
+                            "status": "live",
+                            "live": True,
+                            "lane": "AGENT-1",
+                            "worktree": "../codex-voice-wt-a1",
+                            "branch": "feature/a1",
+                        },
+                        {
+                            "receipt_id": "worker-2",
+                            "agent_id": "claude-worker-1",
+                            "provider": "claude",
+                            "role": "implementer",
+                            "owner_session": "claude",
+                            "status": "live",
+                            "live": True,
+                            "lane": "AGENT-2",
+                            "worktree": "../codex-voice-wt-a1",
+                            "branch": "feature/a2",
+                        },
+                    ],
+                },
+            }
+        ),
+    )
+
+    packet = build_work_intake_packet(
+        repo_root=tmp_path,
+        governance=_governance(),
+        advisory_action="continue_editing",
+        advisory_reason="clean_worktree",
+    )
+
+    assert packet.coordination.collaboration_topology == "multi_agent_orchestrated"
+    assert packet.coordination.work_ownership_mode == "concurrent_writer_conflict"
+    assert packet.coordination.concurrent_writer_conflict_detected is True
+    assert packet.coordination.duplicate_delegated_worktrees == (
+        "../codex-voice-wt-a1",
+    )
+
+
+def test_build_work_intake_packet_marks_scope_unknown_when_dirty_paths_lack_file_claims(
+    tmp_path: Path,
+) -> None:
+    _seed_minimal_repo(tmp_path)
+    _write_review_state(
+        tmp_path,
+        last_reviewed_scope="MP-377",
+        current_instruction="Keep working on the current lane.",
+    )
+    _write(tmp_path / "dev/scripts/devctl/runtime/work_intake.py", "# dirty\n")
+
+    packet = build_work_intake_packet(
+        repo_root=tmp_path,
+        governance=_governance(),
+        advisory_action="continue_editing",
+        advisory_reason="clean_worktree",
+    )
+
+    assert packet.ownership.status == "scope_unknown_dirty_paths"
+    assert packet.ownership.scope_paths == ()

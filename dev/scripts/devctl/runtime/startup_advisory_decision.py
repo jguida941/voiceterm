@@ -13,6 +13,10 @@ if TYPE_CHECKING:
     from .project_governance import ProjectGovernance
     from .project_governance_push import PushEnforcement
     from .startup_context import ReviewerGateState
+    from .work_intake_models import (
+        WorkIntakeCoordinationState,
+        WorkIntakeOwnershipState,
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -29,6 +33,8 @@ class StartupAdvisoryDecision:
 def derive_advisory_decision(
     governance: "ProjectGovernance",
     gate: "ReviewerGateState",
+    ownership: "WorkIntakeOwnershipState | None" = None,
+    coordination: "WorkIntakeCoordinationState | None" = None,
 ) -> StartupAdvisoryDecision:
     """Derive the advisory action from push enforcement and reviewer state."""
     push = governance.push_enforcement
@@ -36,6 +42,13 @@ def derive_advisory_decision(
         return _checkpoint_required_decision(push)
     if not push.safe_to_continue_editing:
         return _budget_exceeded_decision(push)
+    if ownership is not None and ownership.concurrent_writer_detected:
+        return _concurrent_writer_decision(ownership)
+    if (
+        coordination is not None
+        and coordination.concurrent_writer_conflict_detected
+    ):
+        return _coordination_conflict_decision(coordination)
     if gate.implementation_blocked and not gate.review_gate_allows_push:
         # Manual reviewer approval can publish a clean branch, but cannot
         # authorize more coding.  Skip the blocked-loop route for detached
@@ -322,6 +335,68 @@ def _blocked_loop_decision(gate: "ReviewerGateState") -> StartupAdvisoryDecision
                 "startup_advisory.checkpoint_before_continue",
                 "Cut a checkpoint before doing anything else.",
                 "The continuation budget is still green; the blocked reviewer loop is the stricter next action.",
+            ),
+        ),
+    )
+
+
+def _concurrent_writer_decision(
+    ownership: "WorkIntakeOwnershipState",
+) -> StartupAdvisoryDecision:
+    outside_paths = ", ".join(ownership.outside_scope_dirty_paths[:3]) or "unknown"
+    live_agents = ", ".join(ownership.live_agents[:3]) or "unknown"
+    return _decision(
+        "checkpoint_before_continue",
+        "concurrent_writer_activity",
+        (
+            "Startup blocks another local edit slice because dirty paths fall "
+            "outside the claimed scope while typed peer activity is present."
+        ),
+        (
+            rule_match_evidence(
+                "startup_advisory.concurrent_writer_activity",
+                "Outside-scope dirty paths overlapped with active peer ownership.",
+                f"outside_scope_dirty_paths={outside_paths}",
+                f"live_agents={live_agents}",
+            ),
+        ),
+        (
+            rejected_rule_trace(
+                "startup_advisory.continue_editing",
+                "Keep editing the current slice.",
+                "Another typed agent or delegated lane still appears active on a divergent dirty path set.",
+            ),
+        ),
+    )
+
+
+def _coordination_conflict_decision(
+    coordination: "WorkIntakeCoordinationState",
+) -> StartupAdvisoryDecision:
+    duplicate_worktrees = ", ".join(
+        coordination.duplicate_delegated_worktrees[:3]
+    ) or "unknown"
+    delegated_agents = ", ".join(coordination.delegated_agents[:3]) or "unknown"
+    return _decision(
+        "checkpoint_before_continue",
+        "concurrent_writer_activity",
+        (
+            "Startup blocks another local edit slice because delegated lanes "
+            "still overlap on the same claimed worktree."
+        ),
+        (
+            rule_match_evidence(
+                "startup_advisory.concurrent_writer_assignment_conflict",
+                "Delegated worker worktree assignments overlap before the next slice starts.",
+                f"duplicate_delegated_worktrees={duplicate_worktrees}",
+                f"delegated_agents={delegated_agents}",
+            ),
+        ),
+        (
+            rejected_rule_trace(
+                "startup_advisory.continue_editing",
+                "Keep editing the current slice.",
+                "The typed worker topology still points multiple live lanes at the same worktree.",
             ),
         ),
     )

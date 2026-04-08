@@ -11,8 +11,8 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import List
 
-from .runtime.check_result_models import (
-    build_check_result,
+from .runtime.check_result_models import build_check_result
+from .runtime.check_result_render import (
     render_check_result_md,
     render_check_result_text,
 )

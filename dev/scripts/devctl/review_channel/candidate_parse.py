@@ -5,12 +5,10 @@ from __future__ import annotations
 import re
 
 from ..runtime.review_state_models import ReviewCurrentSessionState
+from ..runtime.scope_path_claims import extract_scope_paths
 from ..runtime.review_state_semantics import is_pending_implementer_state
 
 _BACKTICK_RE = re.compile(r"`([^`]+)`")
-_PATH_RE = re.compile(
-    r"(?P<path>[A-Za-z0-9_./-]+\.(?:py|rs|md|json|ya?ml|toml|txt|tsx?|jsx?|sh))"
-)
 _COMMAND_PREFIXES = (
     "python3 ",
     "python -m ",
@@ -88,17 +86,6 @@ def completion_claimed(
         or guards_run
         or any(marker in combined for marker in _COMPLETION_MARKERS)
     )
-
-
-def extract_scope_paths(*texts: str) -> tuple[str, ...]:
-    """Extract file paths from instruction/scope text."""
-    scope_paths: list[str] = []
-    for text in texts:
-        for match in _PATH_RE.finditer(text):
-            path = match.group("path").strip().lstrip("./")
-            if path and path not in scope_paths:
-                scope_paths.append(path)
-    return tuple(scope_paths)
 
 
 def _append_command(commands: list[str], candidate: str) -> None:

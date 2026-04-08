@@ -60,6 +60,18 @@ _detect_reviewer_gate = import_repo_module(
     "dev.scripts.devctl.runtime.startup_context",
     repo_root=REPO_ROOT,
 )._detect_reviewer_gate
+_build_work_intake_ownership_state = import_repo_module(
+    "dev.scripts.devctl.runtime.work_intake_ownership",
+    repo_root=REPO_ROOT,
+).build_work_intake_ownership_state
+_build_work_intake_coordination_state = import_repo_module(
+    "dev.scripts.devctl.runtime.work_intake_coordination",
+    repo_root=REPO_ROOT,
+).build_work_intake_coordination_state
+_load_current_review_state = import_repo_module(
+    "dev.scripts.devctl.runtime.review_state_locator",
+    repo_root=REPO_ROOT,
+).load_current_review_state
 
 _load_remote_commit_pipeline_contract = import_repo_module(
     "dev.scripts.devctl.review_channel.remote_commit_pipeline_artifact",
@@ -248,6 +260,53 @@ def collect_post_checkpoint_dirty_worktree_errors(
         f"untracked_path_count={getattr(push, 'untracked_path_count', 0)}, "
         f"recommended_action={getattr(push, 'recommended_action', '') or 'checkpoint_before_continue'}."
     ]
+
+
+def collect_concurrent_writer_errors(
+    repo_root: Path,
+    gov,
+    *,
+    review_state=None,
+) -> list[str]:
+    """Return fail-closed errors when typed peer activity overlaps outside-scope dirt."""
+    resolved_review_state = review_state
+    if resolved_review_state is None:
+        try:
+            resolved_review_state = _load_current_review_state(
+                repo_root,
+                governance=gov,
+            )
+        except (AttributeError, OSError, ValueError):
+            resolved_review_state = None
+    ownership = _build_work_intake_ownership_state(
+        repo_root=repo_root,
+        review_state=resolved_review_state,
+    )
+    coordination = _build_work_intake_coordination_state(
+        governance=gov,
+        review_state=resolved_review_state,
+        ownership=ownership,
+    )
+    if ownership.status == "concurrent_writer_activity":
+        outside_paths = ", ".join(ownership.outside_scope_dirty_paths[:4]) or "unknown"
+        live_agents = ", ".join(ownership.live_agents[:4]) or "unknown"
+        return [
+            "Startup authority detected concurrent writer activity: "
+            f"outside_scope_dirty_paths={outside_paths}, "
+            f"live_agents={live_agents}, "
+            f"scope_source={ownership.scope_source or 'unknown'}."
+        ]
+    if coordination.concurrent_writer_conflict_detected:
+        duplicate_worktrees = ", ".join(
+            coordination.duplicate_delegated_worktrees[:4]
+        ) or "unknown"
+        delegated_agents = ", ".join(coordination.delegated_agents[:4]) or "unknown"
+        return [
+            "Startup authority detected concurrent writer activity: "
+            f"duplicate_delegated_worktrees={duplicate_worktrees}, "
+            f"delegated_agents={delegated_agents}."
+        ]
+    return []
 
 
 def collect_reviewer_loop_block_errors(

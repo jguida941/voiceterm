@@ -17,6 +17,7 @@ from .review_state_models import (
     ReviewCurrentSessionState,
 )
 from .review_state_parse_support import _bool
+from .work_intake_models import WorkIntakeOwnershipState
 
 
 def _peer_review_state_from_mapping(
@@ -188,3 +189,50 @@ def _optional_int(value: object) -> int | None:
     if value in (None, ""):
         return None
     return _int(value)
+
+
+def ownership_state_from_mapping(
+    mapping: Mapping[str, object],
+) -> WorkIntakeOwnershipState:
+    return WorkIntakeOwnershipState(
+        status=_string(mapping.get("status")) or "clear",
+        summary=_string(mapping.get("summary")),
+        scope_source=_string(mapping.get("scope_source")),
+        scope_path_count=_int(mapping.get("scope_path_count")),
+        dirty_path_count=_int(mapping.get("dirty_path_count")),
+        outside_scope_dirty_path_count=_int(
+            mapping.get("outside_scope_dirty_path_count")
+        ),
+        scope_paths=tuple(
+            _string(item)
+            for item in mapping.get("scope_paths", ())
+            if _string(item)
+        ),
+        dirty_paths=tuple(
+            _string(item)
+            for item in mapping.get("dirty_paths", ())
+            if _string(item)
+        ),
+        in_scope_dirty_paths=tuple(
+            _string(item)
+            for item in mapping.get("in_scope_dirty_paths", ())
+            if _string(item)
+        ),
+        outside_scope_dirty_paths=tuple(
+            _string(item)
+            for item in mapping.get("outside_scope_dirty_paths", ())
+            if _string(item)
+        ),
+        live_agents=tuple(
+            _string(item)
+            for item in mapping.get("live_agents", ())
+            if _string(item)
+        ),
+        live_delegated_agents=tuple(
+            _string(item)
+            for item in mapping.get("live_delegated_agents", ())
+            if _string(item)
+        ),
+        peer_activity_detected=_bool(mapping.get("peer_activity_detected")),
+        concurrent_writer_detected=_bool(mapping.get("concurrent_writer_detected")),
+    )

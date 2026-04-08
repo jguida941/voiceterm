@@ -30,6 +30,8 @@ from .check_result_models import (
     CheckResult,
     ViolationRecord,
     build_check_result,
+)
+from .check_result_render import (
     render_check_result_md,
     render_check_result_text,
 )

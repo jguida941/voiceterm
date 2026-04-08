@@ -5,7 +5,10 @@ from __future__ import annotations
 from collections.abc import Sequence
 from pathlib import Path
 
-from ...repo_packs import active_path_config
+from ...runtime.dirty_path_filter import (
+    ignored_dirty_path_prefixes,
+    path_is_ignored_for_dirty_paths,
+)
 from ...runtime.vcs import run_git_capture
 from .governed_executor_field_access import string_value
 
@@ -19,7 +22,7 @@ def dirty_paths(repo_root: Path) -> list[str]:
     if code != 0:
         raise ValueError(error or "git status failed")
     result: list[str] = []
-    ignored_prefixes = _ignored_prefixes()
+    ignored_prefixes = ignored_dirty_path_prefixes()
     for line in output.splitlines():
         if not line:
             continue
@@ -28,7 +31,10 @@ def dirty_paths(repo_root: Path) -> list[str]:
         if "->" in path:
             path = path.split("->")[-1].strip()
         normalized = path.strip()
-        if not normalized or _path_is_ignored(normalized, ignored_prefixes):
+        if not normalized or path_is_ignored_for_dirty_paths(
+            normalized,
+            ignored_prefixes,
+        ):
             continue
         result.append(normalized)
     return result
@@ -95,22 +101,3 @@ def repo_relpath(path: Path, *, repo_root: Path) -> str:
         return str(path.resolve().relative_to(repo_root.resolve()))
     except ValueError:
         return str(path.resolve())
-
-
-def _ignored_prefixes() -> tuple[str, ...]:
-    config = active_path_config()
-    prefixes = [
-        config.review_status_dir_rel.strip("/"),
-        config.review_artifact_root_rel.strip("/"),
-        config.push_report_rel.strip("/"),
-        config.bridge_rel.strip("/"),
-        "convo.md",
-    ]
-    return tuple(prefix for prefix in prefixes if prefix)
-
-
-def _path_is_ignored(path: str, prefixes: Sequence[str]) -> bool:
-    for prefix in prefixes:
-        if path == prefix or path.startswith(prefix + "/"):
-            return True
-    return False

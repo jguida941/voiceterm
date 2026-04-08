@@ -13,9 +13,11 @@ import pytest
 
 from dev.scripts.checks.startup_authority_contract.command import _build_report
 from dev.scripts.checks.startup_authority_contract.runtime_checks import (
+    collect_concurrent_writer_errors,
     collect_import_index_atomicity_findings,
     collect_post_checkpoint_dirty_worktree_errors,
 )
+from dev.scripts.devctl.runtime.review_state_parser import review_state_from_payload
 
 
 def _fake_pipeline(
@@ -60,6 +62,33 @@ def _setup_full_layout(root: Path) -> None:
     (root / "dev" / "active" / "INDEX.md").write_text("# Index\n", encoding="utf-8")
     (root / "dev" / "active" / "MASTER_PLAN.md").write_text(
         "# Master Plan\n", encoding="utf-8"
+    )
+
+
+def _init_git_repo(root: Path) -> None:
+    subprocess.run(
+        ["git", "init", "-q"],
+        cwd=root,
+        check=True,
+    )
+
+
+def _commit_repo_snapshot(root: Path, *, message: str) -> None:
+    subprocess.run(["git", "add", "-A"], cwd=root, check=True)
+    subprocess.run(
+        [
+            "git",
+            "-c",
+            "user.name=Tests",
+            "-c",
+            "user.email=tests@example.com",
+            "commit",
+            "-q",
+            "-m",
+            message,
+        ],
+        cwd=root,
+        check=True,
     )
 
 
@@ -313,6 +342,163 @@ def test_startup_authority_allows_pre_checkpoint_dirty_worktree(
     assert not any(
         "dirty worktree after a local checkpoint" in error for error in report["errors"]
     )
+
+
+def test_collect_concurrent_writer_errors_when_outside_scope_dirty_paths_overlap_live_agents(
+    tmp_path: Path,
+) -> None:
+    _setup_full_layout(tmp_path)
+    _init_git_repo(tmp_path)
+    _commit_repo_snapshot(tmp_path, message="seed repo")
+    review_root = tmp_path / "dev/reports/review_channel/latest"
+    review_root.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "bridge": {
+            "reviewer_mode": "active_dual_agent",
+            "effective_reviewer_mode": "active_dual_agent",
+        },
+        "review": {"plan_id": "MP-377"},
+        "current_session": {
+            "last_reviewed_scope": "MP-377",
+            "current_instruction": (
+                "Stay on `dev/scripts/devctl/runtime/work_intake.py` only."
+            ),
+            "implementer_ack_state": "current",
+        },
+        "collaboration": {
+            "participants": [
+                {
+                    "agent_id": "codex",
+                    "provider": "codex",
+                    "role": "reviewer",
+                    "live": True,
+                    "status": "live",
+                },
+                {
+                    "agent_id": "claude",
+                    "provider": "claude",
+                    "role": "implementer",
+                    "live": True,
+                    "status": "live",
+                },
+            ]
+        },
+    }
+    (review_root / "review_state.json").write_text(
+        json.dumps(payload),
+        encoding="utf-8",
+    )
+    outside_scope_path = (
+        tmp_path / "dev/scripts/devctl/review_channel/session_state_hints.py"
+    )
+    outside_scope_path.parent.mkdir(parents=True, exist_ok=True)
+    outside_scope_path.write_text("# dirty\n", encoding="utf-8")
+
+    errors = collect_concurrent_writer_errors(
+        tmp_path,
+        _fake_governance(
+            tmp_path,
+            checkpoint_required=False,
+            safe_to_continue_editing=True,
+            worktree_clean=False,
+            worktree_dirty=True,
+            ahead_of_upstream_commits=0,
+        ),
+        review_state=review_state_from_payload(payload),
+    )
+
+    assert len(errors) == 1
+    assert "concurrent writer activity" in errors[0].lower()
+    assert "session_state_hints.py" in errors[0]
+
+
+def test_collect_concurrent_writer_errors_when_live_workers_share_one_worktree(
+    tmp_path: Path,
+) -> None:
+    _setup_full_layout(tmp_path)
+    _init_git_repo(tmp_path)
+    _commit_repo_snapshot(tmp_path, message="seed repo")
+    review_root = tmp_path / "dev/reports/review_channel/latest"
+    review_root.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "bridge": {
+            "reviewer_mode": "active_dual_agent",
+            "effective_reviewer_mode": "active_dual_agent",
+        },
+        "review": {"plan_id": "MP-377"},
+        "current_session": {
+            "last_reviewed_scope": "MP-377",
+            "current_instruction": (
+                "Stay on `dev/scripts/devctl/runtime/work_intake.py` only."
+            ),
+            "implementer_ack_state": "current",
+        },
+        "collaboration": {
+            "participants": [
+                {
+                    "agent_id": "codex",
+                    "provider": "codex",
+                    "role": "reviewer",
+                    "live": True,
+                    "status": "live",
+                },
+                {
+                    "agent_id": "claude",
+                    "provider": "claude",
+                    "role": "implementer",
+                    "live": True,
+                    "status": "live",
+                },
+            ],
+            "delegated_work": [
+                {
+                    "receipt_id": "worker-1",
+                    "agent_id": "codex-worker-1",
+                    "provider": "codex",
+                    "role": "implementer",
+                    "owner_session": "codex",
+                    "status": "live",
+                    "live": True,
+                    "lane": "AGENT-1",
+                    "worktree": "../codex-voice-wt-a1",
+                    "branch": "feature/a1",
+                },
+                {
+                    "receipt_id": "worker-2",
+                    "agent_id": "claude-worker-1",
+                    "provider": "claude",
+                    "role": "implementer",
+                    "owner_session": "claude",
+                    "status": "live",
+                    "live": True,
+                    "lane": "AGENT-2",
+                    "worktree": "../codex-voice-wt-a1",
+                    "branch": "feature/a2",
+                },
+            ],
+        },
+    }
+    (review_root / "review_state.json").write_text(
+        json.dumps(payload),
+        encoding="utf-8",
+    )
+
+    errors = collect_concurrent_writer_errors(
+        tmp_path,
+        _fake_governance(
+            tmp_path,
+            checkpoint_required=False,
+            safe_to_continue_editing=True,
+            worktree_clean=True,
+            worktree_dirty=False,
+            ahead_of_upstream_commits=0,
+        ),
+        review_state=review_state_from_payload(payload),
+    )
+
+    assert len(errors) == 1
+    assert "concurrent writer activity" in errors[0].lower()
+    assert "duplicate_delegated_worktrees=../codex-voice-wt-a1" in errors[0]
 
 
 def test_post_checkpoint_dirty_exempted_when_pipeline_parked_at_guards_failed() -> None:

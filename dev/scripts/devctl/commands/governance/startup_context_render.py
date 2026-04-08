@@ -250,6 +250,7 @@ def _append_work_intake(lines: list[str], ctx_dict: dict) -> None:
     target = intake.get("active_target", {})
     continuity = intake.get("continuity", {})
     routing = intake.get("routing", {})
+    coordination = intake.get("coordination", {})
     lines.append("## Work Intake")
     if isinstance(target, dict) and target:
         lines.append(
@@ -272,6 +273,67 @@ def _append_work_intake(lines: list[str], ctx_dict: dict) -> None:
         summary = str(continuity.get("summary") or "").strip()
         if summary:
             lines.append(f"- continuity_summary: {summary}")
+    ownership = intake.get("ownership", {})
+    if isinstance(ownership, dict) and ownership:
+        lines.append(
+            f"- ownership: `{ownership.get('status', 'clear')}`"
+            + (
+                f" ({ownership.get('scope_source')})"
+                if ownership.get("scope_source")
+                else ""
+            )
+        )
+        ownership_summary = str(ownership.get("summary") or "").strip()
+        if ownership_summary:
+            lines.append(f"- ownership_summary: {ownership_summary}")
+        outside_scope = ownership.get("outside_scope_dirty_paths")
+        if isinstance(outside_scope, list) and outside_scope:
+            lines.append(
+                f"- outside_scope_dirty_paths: {_join_paths(outside_scope)}"
+            )
+        live_agents = ownership.get("live_agents")
+        if isinstance(live_agents, list) and live_agents:
+            lines.append(f"- live_agents: {_join_paths(live_agents)}")
+    if isinstance(coordination, dict) and coordination:
+        lines.append(
+            "- collaboration_topology: "
+            f"`{coordination.get('collaboration_topology', 'single_agent')}`"
+        )
+        lines.append(
+            f"- authority_mode: `{coordination.get('authority_mode', 'self_directed')}`"
+        )
+        lines.append(
+            "- work_ownership_mode: "
+            f"`{coordination.get('work_ownership_mode', 'exclusive_slice')}`"
+        )
+        lines.append(
+            f"- sync_cadence_mode: `{coordination.get('sync_cadence_mode', 'continuous')}`"
+        )
+        coordination_summary = str(coordination.get("summary") or "").strip()
+        if coordination_summary:
+            lines.append(f"- coordination_summary: {coordination_summary}")
+        active_roles = coordination.get("active_roles")
+        if isinstance(active_roles, list) and active_roles:
+            lines.append(f"- active_roles: {_join_paths(active_roles)}")
+        active_participants = coordination.get("active_participants")
+        if isinstance(active_participants, list) and active_participants:
+            lines.append(
+                f"- active_participants: {_join_paths(active_participants)}"
+            )
+        delegated_agents = coordination.get("delegated_agents")
+        if isinstance(delegated_agents, list) and delegated_agents:
+            lines.append(f"- delegated_agents: {_join_paths(delegated_agents)}")
+        delegated_worktrees = coordination.get("delegated_worktrees")
+        if isinstance(delegated_worktrees, list) and delegated_worktrees:
+            lines.append(
+                f"- delegated_worktrees: {_join_paths(delegated_worktrees)}"
+            )
+        duplicate_worktrees = coordination.get("duplicate_delegated_worktrees")
+        if isinstance(duplicate_worktrees, list) and duplicate_worktrees:
+            lines.append(
+                "- duplicate_delegated_worktrees: "
+                f"{_join_paths(duplicate_worktrees)}"
+            )
     if isinstance(routing, dict) and routing:
         profile = str(routing.get("selected_workflow_profile") or "").strip()
         if profile:

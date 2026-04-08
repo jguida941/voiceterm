@@ -36,6 +36,8 @@ class ReviewStateTests(unittest.TestCase):
                         "review_agent": "codex",
                         "coding_agent": "claude",
                         "current_slice": "continue",
+                        "topology_mode": "dual_agent",
+                        "work_ownership_mode": "concurrent_writer_conflict",
                         "peer_review": {
                             "current_instruction": "continue",
                             "current_instruction_revision": "",
@@ -43,6 +45,17 @@ class ReviewStateTests(unittest.TestCase):
                             "implementer_status": "active",
                             "implementer_ack": "",
                             "implementer_ack_state": "unknown",
+                        },
+                        "ownership": {
+                            "status": "concurrent_writer_activity",
+                            "summary": "Dirty paths fall outside the claimed slice while typed peer activity is still present.",
+                            "scope_source": "current_session.current_instruction",
+                            "outside_scope_dirty_paths": [
+                                "dev/scripts/devctl/review_channel/session_state_hints.py"
+                            ],
+                            "live_agents": ["codex", "claude"],
+                            "peer_activity_detected": True,
+                            "concurrent_writer_detected": True,
                         },
                         "arbitration": {
                             "status": "clear",
@@ -116,6 +129,15 @@ class ReviewStateTests(unittest.TestCase):
         self.assertEqual(state.current_session.current_instruction, "continue")
         self.assertEqual(state.collaboration.contract_id, "CollaborationSession")
         self.assertEqual(state.collaboration.review_agent, "codex")
+        self.assertEqual(state.collaboration.topology_mode, "dual_agent")
+        self.assertEqual(
+            state.collaboration.work_ownership_mode,
+            "concurrent_writer_conflict",
+        )
+        self.assertEqual(
+            state.collaboration.ownership.status,
+            "concurrent_writer_activity",
+        )
         self.assertEqual(state.bridge.overall_state, "fresh")
         self.assertEqual(state.bridge.reviewer_mode, "tools_only")
         self.assertEqual(state.attention.status, "healthy")

@@ -21,7 +21,15 @@ from .startup_push_decision import (
 )
 from .startup_signals import load_startup_quality_signals
 from .surface_snapshot import build_surface_snapshot_id
-from .work_intake import WorkIntakePacket, build_work_intake_packet
+from .work_intake import (
+    WorkIntakePacket,
+    WorkIntakeStateInputs,
+    build_work_intake_packet,
+)
+from .work_intake_coordination import build_work_intake_coordination_state
+from .work_intake_ownership import build_work_intake_ownership_state
+
+_MAX_STARTUP_SURFACE_TOKENS = 1
 
 
 @dataclass(frozen=True, slots=True)
@@ -79,7 +87,9 @@ class StartupContext:
         d["reviewer_gate"] = asdict(self.reviewer_gate)
         d["push_decision"] = self.push_decision.to_dict()
         d["quality_signals"] = dict(self.quality_signals)
-        d["contract_ownership_map"] = dict(self.contract_ownership_map)
+        d["contract_ownership_map"] = _bounded_contract_ownership_map(
+            self.contract_ownership_map
+        )
         d["snapshot_id"] = self.snapshot_id
         if self.product_thesis:
             d["product_thesis"] = self.product_thesis
@@ -224,9 +234,59 @@ def _build_contract_ownership_map() -> dict[str, dict[str, object]]:
         ownership[spec.contract_id] = {
             "owner_layer": spec.owner_layer,
             "runtime_model": spec.runtime_model,
-            "startup_surface_tokens": list(spec.startup_surface_tokens),
+            "startup_surface_token_count": len(spec.startup_surface_tokens),
+            "startup_surface_tokens": _bounded_startup_surface_tokens(
+                spec.startup_surface_tokens
+            ),
         }
     return ownership
+
+
+def _bounded_contract_ownership_map(
+    ownership: dict[str, dict[str, object]],
+) -> dict[str, dict[str, object]]:
+    """Serialize a slim startup-facing contract ownership projection."""
+    bounded: dict[str, dict[str, object]] = {}
+    for contract_id, payload in ownership.items():
+        row: dict[str, object] = {}
+        owner_layer = str(payload.get("owner_layer") or "").strip()
+        if owner_layer:
+            row["owner_layer"] = owner_layer
+        runtime_model = str(payload.get("runtime_model") or "").strip()
+        if contract_id in {
+            "ReviewState",
+            "RemoteCommitPipelineContract",
+            "WorkIntakePacket",
+            "CollaborationSession",
+        } and runtime_model:
+            row["runtime_model"] = runtime_model
+        tokens = _bounded_contract_tokens(payload.get("startup_surface_tokens"))
+        if tokens:
+            row["startup_surface_tokens"] = tokens
+        bounded[contract_id] = row
+    return bounded
+
+
+def _bounded_contract_tokens(value: object) -> list[str]:
+    seen: list[str] = []
+    raw_tokens = [str(item).strip() for item in (value or ()) if str(item).strip()]
+    for token in ("snapshot_id", "implementer_state_hash", "push_eligible_now"):
+        if token in raw_tokens and token not in seen:
+            seen.append(token)
+    for token in raw_tokens:
+        if token not in seen:
+            seen.append(token)
+        if len(seen) >= 2:
+            break
+    return seen
+
+
+def _bounded_startup_surface_tokens(tokens: tuple[str, ...]) -> list[str]:
+    if "snapshot_id" in tokens:
+        return ["snapshot_id"]
+    if not tokens:
+        return []
+    return [tokens[0]]
 
 
 def _detect_reviewer_gate_without_typed_state(
@@ -262,8 +322,16 @@ def _detect_reviewer_gate_without_typed_state(
 def _derive_advisory_action(
     governance: ProjectGovernance,
     gate: ReviewerGateState,
+    *,
+    ownership=None,
+    coordination=None,
 ) -> tuple[str, str]:
-    decision = _derive_advisory_decision(governance, gate)
+    decision = _derive_advisory_decision(
+        governance,
+        gate,
+        ownership=ownership,
+        coordination=coordination,
+    )
     return decision.action, decision.reason
 
 
@@ -291,12 +359,33 @@ def build_startup_context(
         implementation_blocked=gate.implementation_blocked,
         implementation_block_reason=gate.implementation_block_reason,
     )
-    advisory = _derive_advisory_decision(governance, gate)
+    ownership = build_work_intake_ownership_state(
+        repo_root=repo_root,
+        review_state=review_state,
+    )
+    coordination = build_work_intake_coordination_state(
+        governance=governance,
+        review_state=review_state,
+        ownership=ownership,
+        reviewer_gate=gate,
+    )
+    advisory = _derive_advisory_decision(
+        governance,
+        gate,
+        ownership=ownership,
+        coordination=coordination,
+    )
     work_intake = build_work_intake_packet(
         repo_root=repo_root,
         governance=governance,
         advisory_action=advisory.action,
         advisory_reason=advisory.reason,
+        state_inputs=WorkIntakeStateInputs(
+            review_state=review_state,
+            ownership=ownership,
+            coordination=coordination,
+            reviewer_gate=gate,
+        ),
     )
     quality_signals = load_startup_quality_signals(repo_root)
     snapshot_id = (
