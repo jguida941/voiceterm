@@ -1394,6 +1394,122 @@ been reviewer-implementer work. The operator corrected this explicitly:
   Action Requests for Codex and Claude-CLI to address.
 - **Status**: OPEN (needs Codex triage + role-contract enforcement)
 
+### Q53 — BOOTSTRAP GUIDANCE MISSING — the system doesn't teach AI agents when to run which commands at session start
+
+- **Discovered**: 2026-04-08T21:06Z (operator quote: "You should've
+  known that from the beginning. We need to make sure the system
+  and Claude know to run our full system when to run which things.
+  All of that should have been pushed to the system to continually
+  get better.")
+- **Severity**: architectural bootstrap, HIGH (root cause of
+  every "I didn't know X" finding this session)
+- **Scope**: affects every fresh Claude-Code / Codex / Claude-CLI
+  session regardless of operator
+- **Body**: During this 4-hour beta test, Claude-Code repeatedly
+  discovered capabilities late:
+    - **Hour 1**: Didn't know `phone-status`, `autonomy-loop`,
+      `autonomy-swarm`, `controller-action`, `mobile-status`,
+      `ralph-status` exist. Operator had to say "run `devctl list`"
+      for these to surface. (See `## Capability discovery gap`
+      section above.)
+    - **Hour 2**: Didn't know `bridge_liveness` contained 42
+      fields including `current_instruction`, `claude_status`,
+      `open_findings`, `last_reviewed_scope`. Operator had to
+      ask "how do you not know what is going on?" for me to
+      dump the full JSON. (Q45, Q46)
+    - **Hour 3**: Didn't know `doctor` has 69 fields,
+      `runtime_counts` has 15, `commit_pipeline` has 27,
+      `push_decision` has 14, `reviewer_runtime` has 14, or
+      that `attention` literally tells me what to do next. My
+      dashboard reported 5 fields of 200+. Operator had to point
+      this out. (Q50)
+    - **Hour 4**: Didn't know the Codex instruction lived in
+      `bridge_liveness.current_instruction` AND there's a typed
+      `open_findings` field that shows what Codex found. Operator
+      had to say "tell me what Codex is doing" before I pulled
+      it from the typed state.
+
+  **The common thread**: at session bootstrap, Claude-Code is given
+  a generic prompt and told to "operate the dashboard." There is
+  NO typed onboarding protocol that says:
+    - "Run `devctl describe-status` first to learn every field."
+    - "Run `devctl list` to enumerate available commands."
+    - "Run `devctl discover --for-task <task>` for context-routed
+      command suggestions."
+    - "Run `review-channel status --format json | jq` and walk
+      every top-level key."
+    - "Read `dev/audits/LIVE_RUN.md` to see current findings."
+    - "Check `bridge_liveness.attention.recommended_action`
+      before deciding what to do."
+
+  The same applies to Codex and Claude-CLI conductor sessions.
+  None of them receive an explicit "here's what to run first and
+  here's what to check before every decision" guide. They start
+  from prompt text and figure it out by trial and error. That's
+  not governance by typed contracts — that's governance by
+  prompt-induced luck.
+
+- **Observed outcome**: Claude-Code made the same discoverability
+  mistakes over 4 hours that would have been one-shot avoided by
+  a proper bootstrap primer. Every new AI session in every repo
+  will repeat these mistakes unless the bootstrap surface is
+  fixed.
+
+- **Related findings**:
+    - Q22 (`devctl discover` crashes — the command that should
+      provide the primer is itself broken)
+    - Q45 (field naming confusion hides the typed state)
+    - Q46 (Claude-Code didn't run full typed-state enumeration)
+    - Q50 (lazy dashboard template)
+    - Q52 (top-level: AIs don't use the typed state they're
+      given)
+
+- **Fix recommendations**:
+
+  1. **New `devctl bootstrap-primer --for-role <claude-code|
+     codex-conductor|claude-cli-conductor|operator> --format md`**
+     command. Prints a role-specific primer listing:
+       - Every relevant devctl command for the role
+       - Every typed field the role should read
+       - Every field the role should populate
+       - The role-specific checklist for "what to do at start"
+       - The role-specific checklist for "what to check before
+         every decision"
+       - Known pitfalls (from LIVE_RUN.md findings)
+
+  2. **Auto-invoke at session start**: Claude-Code's wrapper runs
+     `bootstrap-primer --for-role claude-code` automatically
+     before handing the session over to the AI. Codex and
+     Claude-CLI conductors do the same via their launcher.
+
+  3. **Primer-assertion contract**: AI session prompts include a
+     "you have been primed with the following typed surface:
+     [checksum]" line so later queries can verify the AI
+     actually consumed the primer.
+
+  4. **Rolling primer updates**: every time a new finding lands
+     in LIVE_RUN.md, a post-commit hook updates the primer
+     output so future AI sessions learn from past discoveries.
+
+  5. **Operator meta-dashboard**: `devctl dashboard --show-primer`
+     displays what the current AI session was primed with, so
+     operators can verify the AI actually has the context it
+     claims to have.
+
+- **Why this matters for the Research Lane plan**: Q53 is
+  Phase 1 of the Research Lane plan. Without a working bootstrap
+  primer, every Phase 2/3/4/5 feature will be re-discovered from
+  scratch by every AI session that needs it. The primer is the
+  bootstrap mechanism.
+
+- **Operator context**: the operator has been manually priming
+  me this whole session ("run this command", "look at that
+  field", "stop doing X, start doing Y") because the system
+  doesn't do it automatically. Every correction the operator has
+  issued is a line item the primer should have included.
+
+- **Status**: OPEN (blocking for Research Lane Phase 1)
+
 ### Q52 — **TOP-LEVEL ARCHITECTURAL FAILURE** — AI agents don't know what's in the typed state they're consuming
 
 - **Discovered**: 2026-04-08T20:53Z (operator quote:
