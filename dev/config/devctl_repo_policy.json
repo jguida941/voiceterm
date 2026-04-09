@@ -187,6 +187,9 @@
         }
       ]
     },
+    "bridge_config": {
+      "operator_interaction_mode": "remote_control"
+    },
     "push": {
       "default_remote": "origin",
       "development_branch": "develop",
