@@ -38,6 +38,9 @@ from ..review_channel_command import (
 )
 from ..review_channel_event_handler import _run_event_action
 from ._bridge_poll import run_bridge_poll_action as _run_bridge_poll_action_impl
+from ._attach_remote_control import (
+    run_attach_remote_control_action as _run_attach_remote_control_action,
+)
 from ._follow_runtime import (
     _build_reviewer_state_report,
     _ensure_reviewer_supervisor_running,
@@ -135,6 +138,12 @@ def _dispatch_action(
         )
     elif action is ReviewChannelAction.RENDER_BRIDGE:
         result = _run_render_bridge_action(
+            args=args,
+            repo_root=repo_root,
+            paths=paths,
+        )
+    elif action is ReviewChannelAction.ATTACH_REMOTE_CONTROL:
+        result = _run_attach_remote_control_action(
             args=args,
             repo_root=repo_root,
             paths=paths,

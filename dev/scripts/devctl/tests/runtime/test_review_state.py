@@ -264,6 +264,42 @@ class ReviewStateTests(unittest.TestCase):
         self.assertEqual(state.coordination.recommended_topology, "single_agent")
         self.assertEqual(state.coordination.actors[0].actor_id, "codex")
 
+    def test_review_state_parses_remote_control_attachment(self) -> None:
+        state = review_state_from_payload(
+            {
+                "schema_version": 1,
+                "command": "review-channel",
+                "action": "status",
+                "timestamp": "2026-04-09T00:00:00Z",
+                "ok": True,
+                "review_state": {
+                    "review": {"session_id": "remote-session"},
+                    "queue": {"pending_total": 0},
+                    "bridge": {"reviewer_mode": "single_agent"},
+                    "reviewer_runtime": {
+                        "remote_control_attachment": {
+                            "provider": "claude",
+                            "role": "implementer",
+                            "attachment_id": "remote-attach-1",
+                            "session_name": "VoiceTerm Bridge Loop",
+                            "remote_session_id": "session_abc123",
+                            "session_url": "https://claude.ai/code/session_abc123",
+                            "status": "attached",
+                        }
+                    },
+                },
+            }
+        )
+
+        self.assertIsNotNone(state)
+        assert state is not None
+        attachment = state.reviewer_runtime.remote_control_attachment
+        self.assertIsNotNone(attachment)
+        assert attachment is not None
+        self.assertEqual(attachment.provider, "claude")
+        self.assertEqual(attachment.remote_session_id, "session_abc123")
+        self.assertEqual(attachment.status, "attached")
+
     def test_review_state_parses_plan_review_packet_fields(self) -> None:
         state = review_state_from_payload(
             {

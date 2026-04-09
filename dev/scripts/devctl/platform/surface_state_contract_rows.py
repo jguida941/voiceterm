@@ -128,6 +128,11 @@ SURFACE_STATE_CONTRACTS: tuple[ContractSpec, ...] = (
                 "Typed reviewer-observation record for HEAD visibility and review status.",
             ),
             ContractField(
+                "remote_control_attachment",
+                "RemoteControlAttachmentState | None",
+                "Typed external remote-control attachment surfaced through the read model.",
+            ),
+            ContractField(
                 "coordination",
                 "CoordinationSnapshot | None",
                 "Shared bounded coordination authority for dashboard/bootstrap parity.",
@@ -205,6 +210,11 @@ SURFACE_STATE_CONTRACTS: tuple[ContractSpec, ...] = (
                 "review_candidate",
                 "ReviewCandidateRecord | None",
                 "Frozen current review target preferred over raw HEAD diff inference.",
+            ),
+            ContractField(
+                "remote_control_attachment",
+                "RemoteControlAttachmentState | None",
+                "Typed external remote-control attachment carried into session bootstrap.",
             ),
             ContractField(
                 "coordination",

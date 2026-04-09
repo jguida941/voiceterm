@@ -251,12 +251,18 @@ REVIEW_STATE_CONTRACTS: tuple[ContractSpec, ...] = (
                 "bool",
                 "Whether reviewer lifecycle state is fully green for push/review gates.",
             ),
+            ContractField(
+                "remote_control_attachment",
+                "RemoteControlAttachmentState | None",
+                "Optional typed attachment for an external phone-steered remote-control session.",
+            ),
         ),
         runtime_model="dev.scripts.devctl.runtime.review_state_models:ReviewerRuntimeContract",
         startup_surface_tokens=(
             "reviewer_mode",
             "reviewer_freshness",
             "publish_clear",
+            "remote_control_attachment",
         ),
     ),
 )

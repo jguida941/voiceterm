@@ -464,7 +464,11 @@ checklist plus chat memory.
     that field before spelunking nested compatibility projections. Apply the
     same rule to diff-sensitive follow-up: hook/launcher shims should reuse
     repo-owned push/startup diff-base truth instead of recomputing branch
-    literals such as `origin/develop`.
+    literals such as `origin/develop`. When that field resolves only to a
+    typed decision id (for example `resume_live_review_loop`) instead of an
+    executable shell command, treat it as repo-owned decision state and fall
+    back to the sanctioned command for that state; do not auto-execute raw
+    ids as if they were commands.
     The same release-lane bootstrap truth is now publication-aware on
     feature branches: local governed pre-push CodeRabbit gates may treat
     "current SHA not present in any local remote-tracking ref yet" as a

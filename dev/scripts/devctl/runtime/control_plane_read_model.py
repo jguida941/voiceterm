@@ -34,6 +34,11 @@ from .control_plane_resolve import (
 )
 from .operator_context import is_resolved, resolve_operator_interaction_mode
 from .reviewer_observation import ReviewerObservation, resolve_reviewer_observation
+from .reviewer_runtime_models import (
+    RemoteControlAttachmentState,
+    has_active_remote_control_attachment,
+    remote_control_attachment_from_mapping,
+)
 from .value_coercion import coerce_bool, coerce_int, coerce_string
 
 if TYPE_CHECKING:
@@ -89,6 +94,7 @@ class ControlPlaneReadModel:
 
     # Typed reviewer observation (derived from bridge state)
     reviewer_observation: ReviewerObservation | None = None
+    remote_control_attachment: RemoteControlAttachmentState | None = None
     coordination: CoordinationSnapshot | None = None
 
     def to_dict(self) -> dict[str, Any]:
@@ -172,6 +178,12 @@ def _derive_operator_interaction_mode(
     resolved_mode = resolve_operator_interaction_mode(explicit_mode)
     if is_resolved(resolved_mode.value):
         return resolved_mode.value
+
+    attachment = remote_control_attachment_from_mapping(
+        _nested_get(review_state_payload, "reviewer_runtime", "remote_control_attachment")
+    )
+    if has_active_remote_control_attachment(attachment):
+        return "remote_control"
 
     normalized_mode = normalize_reviewer_mode(reviewer_mode)
     if normalized_mode == "active_dual_agent":
@@ -331,6 +343,13 @@ def build_control_plane_read_model(
         allow_startup_fallback=sources_override is None,
         review_state=review_state,
     )
+    remote_control_attachment = remote_control_attachment_from_mapping(
+        _nested_get(
+            review_state_payload,
+            "reviewer_runtime",
+            "remote_control_attachment",
+        )
+    )
 
     return ControlPlaneReadModel(
         timestamp=utc_now_iso(),
@@ -359,6 +378,7 @@ def build_control_plane_read_model(
         pending_action_requests=pending,
         last_guard_ok=quality["last_guard_ok"],
         check_details=quality["check_details"],
+        remote_control_attachment=remote_control_attachment,
         coordination=coordination,
     )
 
@@ -403,6 +423,9 @@ def control_plane_read_model_from_mapping(
         attention_status=coerce_string(value.get("attention_status")) or "n/a",
         attention_summary=coerce_string(value.get("attention_summary")) or "n/a",
         reviewer_observation=_observation_from_mapping(value.get("reviewer_observation")),
+        remote_control_attachment=remote_control_attachment_from_mapping(
+            value.get("remote_control_attachment")
+        ),
         publisher_running=coerce_bool(value.get("publisher_running", False)),
         supervisor_running=coerce_bool(value.get("supervisor_running", False)),
         codex_conductor_alive=coerce_bool(value.get("codex_conductor_alive", False)),
@@ -458,5 +481,6 @@ def _default_read_model() -> ControlPlaneReadModel:
         pending_action_requests=0,
         last_guard_ok=True,
         check_details=(),
+        remote_control_attachment=None,
         coordination=None,
     )

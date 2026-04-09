@@ -231,3 +231,17 @@ def test_run_check_mode_reports_status_without_writing(
     assert exit_code != 0
     # And nothing was written.
     assert not (repo_root / ".git" / "hooks" / "pre-commit").exists()
+
+
+def test_repo_pre_push_template_uses_typed_runtime_guidance() -> None:
+    template_path = (
+        Path(__file__).resolve().parents[6]
+        / "dev"
+        / "config"
+        / "git_hooks"
+        / "pre-push-governed-push.sh"
+    )
+    content = template_path.read_text(encoding="utf-8")
+    assert "startup-context --format summary" in content
+    assert "Next typed step:" in content
+    assert "Governed path: python3 dev/scripts/devctl.py push --execute" in content

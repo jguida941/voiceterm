@@ -21,6 +21,11 @@ from ...runtime.review_state_models import (
     ReviewCandidateRecord,
     review_candidate_from_mapping,
 )
+from ...runtime.reviewer_runtime_models import (
+    RemoteControlAttachmentState,
+    has_active_remote_control_attachment,
+    remote_control_attachment_from_mapping,
+)
 from ...runtime.control_plane_resolve import (
     load_git_state,
     load_sources,
@@ -63,7 +68,7 @@ _STALE_CONTINUITY_STATUSES: frozenset[str] = frozenset(
 class SessionCachePacket:
     """Compact session state replacing full bootstrap output."""
 
-    schema_version: int = 2
+    schema_version: int = 3
     contract_id: str = "SessionCachePacket"
     generated_at_utc: str = ""
     role: str = "implementer"
@@ -91,6 +96,7 @@ class SessionCachePacket:
     next_recommended_command: str = ""
     reviewer_observation_status: str = ""
     review_candidate: ReviewCandidateRecord | None = None
+    remote_control_attachment: RemoteControlAttachmentState | None = None
     coordination: CoordinationSnapshot | None = None
 
     def to_dict(self) -> dict[str, object]:
@@ -280,6 +286,7 @@ def build_from_sources(
         next_recommended_command=next_cmd,
         reviewer_observation_status=obs_status,
         review_candidate=review_candidate,
+        remote_control_attachment=getattr(model, "remote_control_attachment", None),
         coordination=coordination,
     )
 
@@ -463,6 +470,15 @@ def derive_interaction_mode(
         return gov_mode
     if compact is None:
         return "unresolved"
+    reviewer_runtime = _nested_dict(compact, "reviewer_runtime")
+    if has_active_remote_control_attachment(
+        remote_control_attachment_from_mapping(
+            reviewer_runtime.get("remote_control_attachment")
+            if reviewer_runtime
+            else None
+        )
+    ):
+        return "remote_control"
     collab = _nested_dict(compact, "collaboration")
     if not collab:
         return "unresolved"
@@ -527,7 +543,7 @@ def current_head(repo_root: Path) -> str:
 
 def packet_from_mapping(payload: dict[str, Any]) -> SessionCachePacket:
     return SessionCachePacket(
-        schema_version=int(payload.get("schema_version") or 2),
+        schema_version=int(payload.get("schema_version") or 3),
         contract_id=str(payload.get("contract_id") or "SessionCachePacket").strip(),
         generated_at_utc=str(payload.get("generated_at_utc") or "").strip(),
         role=str(payload.get("role") or "implementer").strip(),
@@ -558,6 +574,9 @@ def packet_from_mapping(payload: dict[str, Any]) -> SessionCachePacket:
         next_recommended_command=str(payload.get("next_recommended_command") or "").strip(),
         reviewer_observation_status=str(payload.get("reviewer_observation_status") or "").strip(),
         review_candidate=review_candidate_from_mapping(payload.get("review_candidate")),
+        remote_control_attachment=remote_control_attachment_from_mapping(
+            payload.get("remote_control_attachment")
+        ),
         coordination=coordination_snapshot_from_mapping(payload.get("coordination")),
     )
 

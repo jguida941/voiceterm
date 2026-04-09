@@ -9,6 +9,10 @@ from typing import TYPE_CHECKING, Any
 
 from ..platform.coordination_snapshot_models import CoordinationSnapshot
 from .finding_contracts import RejectedRuleTraceRecord, RuleMatchEvidenceRecord
+from .reviewer_runtime_models import (
+    RemoteControlAttachmentState,
+    has_active_remote_control_attachment,
+)
 
 if TYPE_CHECKING:
     from .review_state_models import ReviewState
@@ -78,6 +82,7 @@ class StartupContext:
     product_thesis: str = ""
     work_intake: WorkIntakePacket | None = None
     coordination: CoordinationSnapshot | None = None
+    remote_control_attachment: RemoteControlAttachmentState | None = None
     quality_signals: dict[str, object] = field(default_factory=dict)
     contract_ownership_map: dict[str, dict[str, object]] = field(default_factory=dict)
     snapshot_id: str = ""
@@ -110,6 +115,8 @@ class StartupContext:
             d["work_intake"] = self.work_intake.to_dict()
         if self.coordination is not None:
             d["coordination"] = startup_coordination_dict(self.coordination)
+        if self.remote_control_attachment is not None:
+            d["remote_control_attachment"] = asdict(self.remote_control_attachment)
         return d
 
 
@@ -165,6 +172,7 @@ def _detect_reviewer_gate_from_typed_state(
 def _interaction_mode_from_reviewer_mode(
     effective_mode: str,
     governance_mode: str = "",
+    remote_control_attachment: RemoteControlAttachmentState | None = None,
 ) -> str:
     """Derive operator interaction mode; fails closed to 'unresolved'."""
     gov = (governance_mode or "").strip()
@@ -173,6 +181,8 @@ def _interaction_mode_from_reviewer_mode(
         return resolved.value
     if gov == "local_terminal":
         return "local_terminal"
+    if has_active_remote_control_attachment(remote_control_attachment):
+        return "remote_control"
     normalized = normalize_reviewer_mode(effective_mode)
     if normalized == "active_dual_agent":
         return "dual_agent"
@@ -204,13 +214,16 @@ def _detect_reviewer_gate_from_review_state(
         if assessment is not None
         else ""
     )
+    attachment = reviewer_runtime.remote_control_attachment
     recovery_command = (
         str(assessment.decision.command or "").strip()
         if assessment is not None
         else ""
     )
     interaction_mode = _interaction_mode_from_reviewer_mode(
-        effective_mode, governance_mode=governance_mode,
+        effective_mode,
+        governance_mode=governance_mode,
+        remote_control_attachment=attachment,
     )
     declared_active = normalize_reviewer_mode(mode) == "active_dual_agent"
     effective_active = normalize_reviewer_mode(effective_mode) == "active_dual_agent"
@@ -427,6 +440,11 @@ def build_startup_context(
         product_thesis=governance.product_thesis if governance else "",
         work_intake=work_intake,
         coordination=coordination_snapshot,
+        remote_control_attachment=(
+            review_state.reviewer_runtime.remote_control_attachment
+            if review_state is not None
+            else None
+        ),
         quality_signals=quality_signals,
         contract_ownership_map=build_contract_ownership_map(),
         snapshot_id=snapshot_id,

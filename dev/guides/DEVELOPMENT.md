@@ -81,8 +81,12 @@ Use docs like this:
   same review-channel runtime. It syncs the tracked `/project:bridge-loop`
   prompt, checks `claude auth status`, prints typed review-channel health, and
   can relaunch the sanctioned pair, but it does not create a separate Codex
-  backend or a private "recover codex" path. Remote commit/push authority also
-  does not live in that wrapper; it routes through the Phase-0 design in
+  backend or a private "recover codex" path. The wrapper now also surfaces the
+  top-level typed `recommended_command`, typed runtime
+  `doctor.decision_command`, and managed git-hook health; only executable
+  repo-owned shell commands should be auto-run from those fields, while typed
+  decision ids remain state labels. Remote commit/push authority also does not
+  live in that wrapper; it routes through the Phase-0 design in
   `dev/active/remote_commit_pipeline.md`, while remote-control operator mode,
   action transport, dashboard convergence, and auto-poll behavior now route
   through `dev/active/remote_control_runtime.md`.

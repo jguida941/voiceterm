@@ -28,6 +28,7 @@ from .reviewer_runtime_doctor import build_reviewer_doctor_surface
 from .reviewer_runtime_rollover import resolve_reviewer_rollover_state
 from .reviewer_runtime_session_owner import (
     conductor_visibility,
+    resolve_remote_control_attachment,
     resolve_reviewer_session_owner,
 )
 
@@ -139,6 +140,9 @@ def build_reviewer_runtime_contract(
             stale_reason=stale_reason,
             rollover=rollover,
             review_accepted=review_acceptance.review_accepted,
+        ),
+        remote_control_attachment=resolve_remote_control_attachment(
+            session_output_root=inputs.session_output_root,
         ),
     )
 

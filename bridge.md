@@ -77,9 +77,9 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-04-09T07:12:51Z`
-- Last Codex poll (Local America/New_York): `2026-04-09 03:12:51 EDT`
-- Reviewer mode: `single_agent`
+- Last Codex poll: `2026-04-09T15:30:06Z`
+- Last Codex poll (Local America/New_York): `2026-04-09 11:30:06 EDT`
+- Reviewer mode: `active_dual_agent`
 - Last non-audit worktree hash: `d3d7ea32de53a78f9e3e146d4f60d3a9a0645aff7e6cc2c6575b204efb28e0ca`
 - Current instruction revision: `7f94c6cae1a6`
 - Last checkpoint action: `reviewer-checkpoint`
@@ -205,7 +205,7 @@ Codex: design this as part of the existing `ProjectGovernance` / `ReviewerGateSt
 
 ## Poll Status
 
-- Reviewer heartbeat refreshed through repo-owned tooling (mode: single_agent; reason: local-gate0-recovery; reviewed-tree: d3d7ea32de53).
+- Auto-refreshed reviewer heartbeat: `2026-04-09T15:30:06Z` (reason: ensure; observed-tree: f8d1947aedc4; reviewed-tree: d3d7ea32de53).
 
 ## Current Verdict
 

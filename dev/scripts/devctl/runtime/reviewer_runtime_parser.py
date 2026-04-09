@@ -9,11 +9,13 @@ from .review_state_parse_support import _bool
 from .review_state_models import ReviewCurrentSessionState
 from .reviewer_gate_logic import ReviewerRuntimeBlockInputs, reviewer_runtime_block_state
 from .reviewer_runtime_models import (
+    RemoteControlAttachmentState,
     ReviewerAcceptanceState,
     ReviewerLastPollState,
     ReviewerRolloverState,
     ReviewerRuntimeContract,
     ReviewerSessionOwnerState,
+    remote_control_attachment_from_mapping,
 )
 
 
@@ -68,6 +70,9 @@ def _typed_reviewer_runtime_state(
     rollover = _mapping(reviewer_runtime.get("rollover"))
     session_owner = _mapping(reviewer_runtime.get("session_owner"))
     review_acceptance = _mapping(reviewer_runtime.get("review_acceptance"))
+    remote_control_attachment = remote_control_attachment_from_mapping(
+        reviewer_runtime.get("remote_control_attachment")
+    )
     review_accepted = _bool(review_acceptance.get("review_accepted"))
     reviewer_mode = (
         _string(reviewer_runtime.get("reviewer_mode"))
@@ -152,6 +157,7 @@ def _typed_reviewer_runtime_state(
             if "publish_clear" in reviewer_runtime
             else review_accepted
         ),
+        remote_control_attachment=remote_control_attachment,
     )
 
 

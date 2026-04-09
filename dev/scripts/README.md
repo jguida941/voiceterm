@@ -93,6 +93,12 @@ memory. The Step-0 summary now also carries bounded coordination truth
 (`coordination`, `safe_to_fanout`, `resync_required`, `current_slice`,
 `active_target`) and may direct the operator or launcher back to
 `review-channel --action status` when resync is required before a fresh
+implementation slice. When a typed `reviewer_runtime.remote_control_attachment`
+is present, remote-control launchers should treat that attachment as the live
+external Claude session record, elevate fallback interaction-mode reads to
+`remote_control`, and route commit-class mutations through governed
+`devctl commit` so the phone-steered session does not stall on a separate
+approval prompt.
 reviewer/coder launch.
 For plain-language CI lane docs, see `.github/workflows/README.md`.
 
@@ -494,6 +500,10 @@ Portability note:
   `recovery_decision.py` + `recovery_evidence.py`, and
   `review_state_models.py` re-exports collaboration dataclasses from
   `review_state_collaboration_models.py`.
+  Reviewer runtime now also carries an optional typed
+  `remote_control_attachment` sidecar for the external phone-steered Claude
+  session. Write it through `review-channel --action attach-remote-control`;
+  do not stash the live session URL only in chat memory or bridge prose.
   When persisted typed review state exists, status/compat projection now also
   prefers typed `reviewer_runtime.review_acceptance` for verdict/findings
   truth, so raw bridge verdict prose remains compatibility or drift evidence
@@ -692,10 +702,14 @@ Portability note:
 - `dev/scripts/remote-bridge-loop.sh` is also repo-local wrapper glue: it
   syncs the project-local `/project:bridge-loop` slash command from
   `dev/scripts/remote_bridge_prompt.md`, checks `claude auth status`, prints
-  typed review-channel health, and steers the same repo-owned
-  `review-channel` launch/recovery surfaces from a phone-controlled Claude
-  session. It does not create a second reviewer backend or a hidden Codex
-  recover path.
+  typed review-channel health, surfaces the repo-owned top-level
+  `recommended_command` plus runtime `doctor.decision_command`, and steers the
+  same repo-owned `review-channel` launch/recovery surfaces from a
+  phone-controlled Claude session. When given `--session-url` or
+  `--session-id`, it also registers that external Claude session into the
+  typed `remote_control_attachment` runtime state so startup/session-resume/
+  dashboard can talk about the same phone session. It does not create a
+  second reviewer backend or a hidden Codex recover path.
 - Higher-level workflow helpers such as mutation, Ralph, process hygiene, and
   some docs-routing commands still include VoiceTerm repo policy and are not
   yet fully repo-agnostic.
@@ -1637,7 +1651,8 @@ Machine-first output note:
 | `review-channel --action promote --terminal none --format md` | the current review slice is accepted and you want the next repo-owned task queued without hand-editing the bridge | reads the configured active-plan checklist, fail-closes unless the current verdict is resolved and findings are clear, rewrites `Current Instruction For Claude`, and refreshes the latest review projections from the same derived next-step source |
 | `review-channel --action launch --terminal none --dry-run --format md --refresh-bridge-heartbeat-if-stale` | you want to bootstrap the current Codex-reviewer / Claude-implementer compatibility loop from a fresh conversation without hand-editing stale heartbeat metadata first | enforces the fail-closed launch contract, blocks launch when the typed checkpoint budget already says the slice must checkpoint first, auto-refreshes stale/missing reviewer heartbeat metadata only when the rest of the live bridge contract is already valid, accepts canonical reviewer-reset implementer placeholders (`Claude Status: - pending`, `Claude Ack: - pending`) for a fresh instruction revision, reads the static planned lane table from `dev/active/review_channel.md`, treats the emitted `registry/agents.json` as provider/session-backed runtime state, generates conductor launch scripts with clean-exit auto-relaunch supervision, and shows the exact bootstrap before opening any terminals. Use `--terminal none` for dry-run/script-only work, explicit headless launches, or governed `remote_control` sessions rather than as the casual local default. |
 | `review-channel --action launch --terminal terminal-app --refresh-bridge-heartbeat-if-stale` | you want the live Codex + Claude conductor windows and the bridge heartbeat may have aged out | performs the same guarded bootstrap, refuses a fresh launch when the typed checkpoint budget is already over limit, repairs stale/missing reviewer heartbeat metadata when that is the only blocker, accepts canonical reviewer-reset implementer placeholders for a new instruction revision, then opens one Terminal.app window per provider; it still fails closed if the existing repo-owned session artifacts still look active so a second launch cannot silently race on the same `latest/sessions/` logs, and a successful plain launch now also reaps superseded stale conductor metadata/windows after the fresh pair comes up. In `local_terminal` sessions this is the default live launch/recovery path; typed recovery/doctor surfaces only recommend headless relaunch when the runtime is explicitly `remote_control`, and visible local launch/recover now also fail closed when the repo root is a transient temp clone (`/tmp`, `/private/tmp`, or the active system temp dir) so provider directory-trust prompts cannot stall automation before the conductor even starts. |
-| `./dev/scripts/remote-bridge-loop.sh --bootstrap-review-channel` | you want one phone-steerable Claude session on your local Mac and may need to relaunch the repo-owned review pair first | syncs `.claude/commands/bridge-loop.md` from the tracked `dev/scripts/remote_bridge_prompt.md` source, checks `claude auth status`, prints typed `review-channel` health, optionally runs the sanctioned `review-channel --action launch` path when the loop is inactive, keeps the Mac awake while the session is open, and then opens Claude Code remote control so the phone session can read bridge state, relay what Codex last wrote, and drive the same repo-owned launch/recovery commands from the local machine |
+| `review-channel --action attach-remote-control --session-url https://claude.ai/code/session_... --terminal none --format json` | you need the external Claude phone session represented inside the typed runtime instead of only in chat memory | writes the canonical `remote_control_attachment` sidecar under the review status root, refreshes typed `review_state.json` when bridge/runtime paths are available, and projects the same attachment upward through reviewer runtime, session-resume, startup, and control-plane readers |
+| `./dev/scripts/remote-bridge-loop.sh --bootstrap-review-channel --session-url https://claude.ai/code/session_...` | you want one phone-steerable Claude session on your local Mac, may need to relaunch the repo-owned review pair first, and want the typed runtime to know the live phone session too | syncs `.claude/commands/bridge-loop.md` from the tracked `dev/scripts/remote_bridge_prompt.md` source, checks `claude auth status`, prints typed `review-channel` health plus top-level `recommended_command` / runtime `doctor.decision_command`, prefers that typed review-channel recovery command when bootstrap is requested, falls back to the sanctioned `review-channel --action launch` path only when no typed recovery command exists, registers the external Claude remote session into the same typed review runtime when the URL/id is provided, keeps the Mac awake while the session is open, and then opens Claude Code remote control so the phone session can read bridge state, relay what Codex last wrote, and drive the same repo-owned launch/recovery commands from the local machine |
 | `review-channel --action rollover --rollover-threshold-pct 50 --await-ack-seconds 180 --format md` | the active conductor is nearing compaction and needs a clean relaunch instead of summary-only recovery | writes a repo-visible handoff bundle, relaunches fresh Codex/Claude conductors, and waits for visible rollover ACK lines in `bridge.md` before the retiring session exits |
 | `autonomy-benchmark --plan-doc dev/active/autonomous_control_plane.md --mp-scope MP-338 --swarm-counts 10,15,20,30,40 --tactics uniform,specialized,research-first,test-first --dry-run` | you want measurable swarm tradeoff data before scaling live runs | validates active-plan scope, runs tactic/swarm-size matrix batches, and emits one benchmark report with per-scenario metrics/charts |
 | `swarm_run --plan-doc dev/active/autonomous_control_plane.md --mp-scope MP-338 --mode report-only --run-label <label>` | you want one fully-guarded plan-scoped swarm run without manual glue steps | loads active-plan scope, executes swarm with reviewer+post-audit defaults, runs governance checks, appends progress/audit evidence to the plan doc, and in continuous mode can auto-tune agent count with `--feedback-*` sizing controls |

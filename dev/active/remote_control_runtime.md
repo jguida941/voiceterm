@@ -456,12 +456,48 @@ The MP scopes remain valid but are now cross-cut by enforcement-first priority.
 
 ## Progress Log
 
+- 2026-04-09: Closed one bounded external-session identity slice for the
+  phone-steered Claude path without creating a second authority channel.
+  `review-channel --action attach-remote-control` now writes one canonical
+  `remote_control_attachment` sidecar under the review status root, refreshes
+  typed `review_state.json` when the governed bridge/runtime paths are
+  available, and projects the same typed record through
+  `ReviewerRuntimeContract`, `ControlPlaneReadModel`, `SessionCachePacket`,
+  and `StartupContext`. The repo-local `remote-bridge-loop.sh` wrapper now
+  marks external Claude remote-control sessions as typed runtime state
+  (`unknown` on launch when the URL is not known yet, `attached` when the
+  caller supplies `--session-url` / `--session-id`, `detached` on exit), and
+  the managed pre-push hook now prints typed next-step guidance from
+  `startup-context --format summary` instead of only a static fallback.
 - 2026-04-09: Absorbed the repo-specific graph-backed read-side tranche into
   this owner doc. The next concrete proofs are now explicit: schema diff
   across startup/session/dashboard/mobile, raw-bridge-reader regression
   closure, `SystemCatalog` union-diff, recurring-finding clustering, dead
   topology evidence, and one cross-surface snapshot-parity artifact for the
   live proof tick.
+- 2026-04-09: Closed one bounded phone/remote-control bootstrap drift in the
+  repo-local Claude wrapper/prompt path without inventing a second authority
+  layer. `dev/scripts/remote-bridge-loop.sh` now surfaces the typed top-level
+  `recommended_command` plus `doctor.decision_command` from
+  `review-channel --action status` and prefers that repo-owned review-channel
+  recovery command when `--bootstrap-review-channel` is requested, falling
+  back to the full `launch` pair only when no typed recovery path exists. The
+  paired `dev/scripts/remote_bridge_prompt.md` / `.claude/commands/
+  bridge-loop.md` prompt now bootstraps through `session-resume --role
+  implementer --format bootstrap`, prefers typed next-command / recovery
+  fields over hand-built launch prose, and routes commit/push through
+  governed `devctl commit` / `devctl push` instead of raw git. This keeps the
+  external Claude remote-control session on the same typed runtime and
+  governed mutation path as repo-owned local flows.
+- 2026-04-09: Closed the promptless remote-control commit gap in the governed
+  mutation lane. A live `reviewer_runtime.remote_control_attachment` now
+  promotes fallback interaction-mode derivation to `remote_control` across
+  `ControlPlaneReadModel`, `StartupContext`, and `session-resume`, and the
+  governed `devctl commit` path now self-applies its typed approval packet in
+  `remote_control` mode instead of parking on `operator_approval_pending`.
+  This is the structural fix for phone-steered Claude sessions hanging on
+  commit-class approval prompts while still staying inside the typed mutation
+  pipeline.
 - 2026-04-09: Closed one bounded MP-384/MP-387 command-boundary freeze
   follow-up for the reopened F1 parity rerun. `session-resume` cache misses
   now force one live `load_current_review_state(... prefer_cached_projection=
@@ -984,6 +1020,13 @@ No `ControlPlaneReadModel` exists. Each surface independently reads raw artifact
 
 ## Session Resume
 
+- 2026-04-09 external-session attachment closure: resume from the next
+  consumer/UI pass, not another write-path invention. The typed
+  `remote_control_attachment` record now exists in reviewer runtime,
+  startup-context, session-resume, and the control-plane read model. The next
+  bounded follow-up is projection parity: surface it where helpful in
+  dashboard/operator views and then reuse it for the live remote-control proof
+  instead of introducing another remote-session registry.
 - 2026-04-09 command-boundary freeze closure: the reopened MP-384/MP-387 F1
   parity rerun is now repaired at the CLI edge too, not only in reducer-only
   tests. Resume from the next bounded follow-up only: keep the remaining

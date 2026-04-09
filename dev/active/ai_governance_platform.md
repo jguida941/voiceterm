@@ -6302,6 +6302,19 @@ Execution order for this section:
 
 ## Progress Log
 
+- 2026-04-09: Closed the next remote-control convergence seam without
+  creating a second runtime registry. External Claude phone sessions can now
+  be written into typed repo-owned state through
+  `review-channel --action attach-remote-control`, persisted as a canonical
+  review-status sidecar, and projected back out through
+  `ReviewerRuntimeContract`, `ControlPlaneReadModel`, `StartupContext`, and
+  `SessionCachePacket`. This is the same `MP-377` pattern as the rest of the
+  platform work: one write path, one typed owner, many projections. The
+  paired wrapper/hook follow-through matters too: `remote-bridge-loop.sh`
+  now records external remote-control presence into typed state instead of
+  keeping it only in chat memory, and the managed pre-push hook now prints
+  typed next-step guidance from `startup-context` instead of a static
+  fallback string.
 - 2026-04-09: Closed the next hook-registration self-hosting gap instead of
   treating it as "just config drift." The graph-backed
   `mutation_bypass_graph_closure` guard is now promoted through the same

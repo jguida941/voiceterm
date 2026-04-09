@@ -5,7 +5,11 @@ from __future__ import annotations
 from pathlib import Path
 
 from ..runtime.review_state_models import CollaborationSessionState
-from ..runtime.reviewer_runtime_models import ReviewerSessionOwnerState
+from ..runtime.reviewer_runtime_models import (
+    RemoteControlAttachmentState,
+    ReviewerSessionOwnerState,
+)
+from .remote_control_attachment_artifact import load_remote_control_attachment
 from .collaboration_provider import collaboration_provider
 from .session_probe import load_conductor_sessions
 
@@ -77,3 +81,13 @@ def resolve_reviewer_session_owner(
         script_path=selected.script_path,
         session_visibility=session_visibility(selected.terminal_window_id),
     )
+
+
+def resolve_remote_control_attachment(
+    *,
+    session_output_root: Path | None,
+) -> RemoteControlAttachmentState | None:
+    """Return the current external remote-control attachment when present."""
+    if not isinstance(session_output_root, Path):
+        return None
+    return load_remote_control_attachment(output_root=session_output_root)

@@ -5,14 +5,14 @@
 ## Quick status
 
 - Branch: `feature/governance-quality-sweep`
-- HEAD: `838b762c609b` — Refresh external review snapshot for d7e7e597
-- Tree hash: `5f6a139a4a7f`
-- Generation stamp: `snap-ea850cd2870c`
-- Generated at (UTC): 2026-04-09T15:49:57Z
-- Push decision: `await_checkpoint` — staged_index_present
+- HEAD: `a5ad7fc0889c` — fix(runtime): F1 coordination parity via review_state_override
+- Tree hash: `1530ee346288`
+- Generation stamp: `snap-bfd1e6bc6d54`
+- Generated at (UTC): 2026-04-09T15:51:42Z
+- Push decision: `await_checkpoint` — staged_index_budget_exceeded
 - Reviewer mode: `tools_only` (interaction: `remote_control`)
 - Pipeline state: `n/a` (approval: `n/a`)
-- Delta since last snapshot: 25 commits, 174 files, +12657/-4411
+- Delta since last snapshot: 24 commits, 175 files, +12726/-4414
 - Governance findings: 39 open / 68 fixed / 121 total
 - Probe hints: 0 total across 0 files scanned
 
@@ -54,18 +54,18 @@ adopters arrive.
 - Remote: `https://github.com/jguida941/voiceterm.git`
 - Default branch: `master`
 - Current branch: `feature/governance-quality-sweep`
-- HEAD SHA: `838b762c609bc46f40ee1c16e26773df30731073`
+- HEAD SHA: `a5ad7fc0889ca6df7a227ce5936c94cf52459b8b`
 - HEAD author: Justin Guida
-- HEAD timestamp (UTC): 2026-04-09T11:13:39-04:00
+- HEAD timestamp (UTC): 2026-04-09T11:49:49-04:00
 
 ## 2. Governance state
 
 ### Push decision
 - action: `await_checkpoint`
-- reason: staged_index_present
+- reason: staged_index_budget_exceeded
 - push_eligible_now: False
 - worktree_clean: False
-- staged_path_count: 6
+- staged_path_count: 35
 - unstaged_path_count: 0
 - next_step_command: `n/a`
 - latest_push_report: `dev/reports/push/latest.json`
@@ -73,8 +73,8 @@ adopters arrive.
 - current_push_authorization: `push-auth-20260409T132557373695Z` (valid=False)
 - authorized_head_commit: `08770a66080c0f4cb096bf642ebd2686fc3a1ec9`
 - approved_target_identity: `tree-receipt-20260409T132557373695Z:f94740d60423a9e197ed696a6de7e89983b7b90e`
-- publication_backlog: recommended
-- publication_guidance: 4 local commit(s) waiting for governed push once the current slice is checkpoint-clean.
+- publication_backlog: urgent
+- publication_guidance: 5 local commit(s) waiting for governed push once the current slice is checkpoint-clean.
 
 ### Reviewer runtime
 - reviewer_mode: `tools_only`
@@ -91,16 +91,17 @@ adopters arrive.
 - active plan: **Master Plan (Active, Unified)**
 - plan path: `dev/active/MASTER_PLAN.md`
 - active MP scope: all active MP execution state
-- advisory: `checkpoint_before_continue` — concurrent_writer_activity
+- advisory: `checkpoint_before_continue` — staged_index_budget_exceeded
+- checkpoint_required: **yes**
 
 ## 3. Delta — what changed since the previous snapshot
 
-Range: last 25 commits ending at `838b762c609b`
+Range: last 24 commits ending at `a5ad7fc0889c`
 
-- commits: 25
-- files changed: 174
-- insertions: +12657
-- deletions: -4411
+- commits: 24
+- files changed: 175
+- insertions: +12726
+- deletions: -4414
 - bundle classes touched: tooling, docs
 - authority surfaces touched: 27 file(s)
 
@@ -108,31 +109,30 @@ Range: last 25 commits ending at `838b762c609b`
 
 | # | SHA | Subject | Files | +/- | Bundle | Risk |
 |---|---|---|---|---|---|---|
-| 1 | `838b762c` | Refresh external review snapshot for d7e7e597 | 1 | +57/-51 | tooling |  |
-| 2 | `d7e7e597` | policy: declare operator_interaction_mode=remote_control | 2 | +63/-63 | tooling |  |
-| 3 | `08770a66` | Refresh external review snapshot for 675ca93d | 1 | +65/-69 | tooling |  |
-| 4 | `675ca93d` | fix: scope post-push validation to published diff | 13 | +359/-91 | tooling |  |
-| 5 | `a60f1470` | Refresh external review snapshot for 69317302 | 1 | +52/-49 | tooling |  |
-| 6 | `69317302` | fix: support coderabbit gate script imports | 3 | +82/-65 | tooling |  |
-| 7 | `bc1a40ec` | Refresh external review snapshot for 013e15f6 | 1 | +63/-66 | tooling |  |
-| 8 | `013e15f6` | fix: defer coderabbit gates until publish | 11 | +380/-178 | tooling |  |
-| 9 | `46de6f81` | Refresh external review snapshot for 4c8aeb5b | 1 | +63/-70 | tooling |  |
-| 10 | `4c8aeb5b` | chore: route release checks and review commands | 13 | +285/-61 | tooling |  |
-| 11 | `a3fd3393` | Refresh external review snapshot for 38535f77 | 1 | +63/-62 | tooling |  |
-| 12 | `38535f77` | chore: wire mutation bypass guard into shared lanes | 14 | +146/-63 | tooling |  |
-| 13 | `0a194dfe` | Refresh external review snapshot for a547a2be | 1 | +59/-65 | tooling |  |
-| 14 | `a547a2be` | refactor: move path audit behind compatibility shim | 9 | +528/-417 | tooling |  |
-| 15 | `d094550c` | chore: register mutation guard and unify bootstrap catalog | 27 | +1108/-432 | tooling |  |
-| 16 | `dacb1a26` | Refresh external review snapshot for 67ec68f7 | 1 | +52/-51 | tooling |  |
-| 17 | `67ec68f7` | test: pin single-agent interaction mode resolution | 3 | +83/-65 | tooling |  |
-| 18 | `1c70b2c5` | checkpoint: capture governance and review-channel batch | 27 | +976/-194 | tooling |  |
-| 19 | `47d483b4` | Harden governed push and typed review-state reads | 89 | +4035/-993 | tooling |  |
-| 20 | `6eb4945b` | Refresh external review snapshot for 73908286 | 1 | +63/-95 | tooling |  |
-| 21 | `73908286` | docs: align graph-backed convergence plan | 6 | +510/-86 | tooling |  |
-| 22 | `516e839c` | Refresh external review snapshot for c1a1ee28 | 1 | +96/-69 | tooling |  |
-| 23 | `c1a1ee28` | Advance typed authority convergence across mutation and con… | 59 | +3285/-956 | tooling |  |
-| 24 | `1c74c07f` | Refresh external review snapshot for f294de63 | 1 | +68/-59 | tooling |  |
-| 25 | `f294de63` | Operator-directed commit+push: F1 parity flake fix + bridge… | 5 | +116/-41 | tooling |  |
+| 1 | `a5ad7fc0` | fix(runtime): F1 coordination parity via review_state_overr… | 7 | +253/-103 | tooling |  |
+| 2 | `838b762c` | Refresh external review snapshot for d7e7e597 | 1 | +57/-51 | tooling |  |
+| 3 | `d7e7e597` | policy: declare operator_interaction_mode=remote_control | 2 | +63/-63 | tooling |  |
+| 4 | `08770a66` | Refresh external review snapshot for 675ca93d | 1 | +65/-69 | tooling |  |
+| 5 | `675ca93d` | fix: scope post-push validation to published diff | 13 | +359/-91 | tooling |  |
+| 6 | `a60f1470` | Refresh external review snapshot for 69317302 | 1 | +52/-49 | tooling |  |
+| 7 | `69317302` | fix: support coderabbit gate script imports | 3 | +82/-65 | tooling |  |
+| 8 | `bc1a40ec` | Refresh external review snapshot for 013e15f6 | 1 | +63/-66 | tooling |  |
+| 9 | `013e15f6` | fix: defer coderabbit gates until publish | 11 | +380/-178 | tooling |  |
+| 10 | `46de6f81` | Refresh external review snapshot for 4c8aeb5b | 1 | +63/-70 | tooling |  |
+| 11 | `4c8aeb5b` | chore: route release checks and review commands | 13 | +285/-61 | tooling |  |
+| 12 | `a3fd3393` | Refresh external review snapshot for 38535f77 | 1 | +63/-62 | tooling |  |
+| 13 | `38535f77` | chore: wire mutation bypass guard into shared lanes | 14 | +146/-63 | tooling |  |
+| 14 | `0a194dfe` | Refresh external review snapshot for a547a2be | 1 | +59/-65 | tooling |  |
+| 15 | `a547a2be` | refactor: move path audit behind compatibility shim | 9 | +528/-417 | tooling |  |
+| 16 | `d094550c` | chore: register mutation guard and unify bootstrap catalog | 27 | +1108/-432 | tooling |  |
+| 17 | `dacb1a26` | Refresh external review snapshot for 67ec68f7 | 1 | +52/-51 | tooling |  |
+| 18 | `67ec68f7` | test: pin single-agent interaction mode resolution | 3 | +83/-65 | tooling |  |
+| 19 | `1c70b2c5` | checkpoint: capture governance and review-channel batch | 27 | +976/-194 | tooling |  |
+| 20 | `47d483b4` | Harden governed push and typed review-state reads | 89 | +4035/-993 | tooling |  |
+| 21 | `6eb4945b` | Refresh external review snapshot for 73908286 | 1 | +63/-95 | tooling |  |
+| 22 | `73908286` | docs: align graph-backed convergence plan | 6 | +510/-86 | tooling |  |
+| 23 | `516e839c` | Refresh external review snapshot for c1a1ee28 | 1 | +96/-69 | tooling |  |
+| 24 | `c1a1ee28` | Advance typed authority convergence across mutation and con… | 59 | +3285/-956 | tooling |  |
 
 ### Files
 
@@ -141,7 +141,7 @@ Range: last 25 commits ending at `838b762c609b`
 | `.github/workflows/release_preflight.yml` | tooling | +1/-0 |
 | `.github/workflows/tooling_control_plane.yml` | tooling | +3/-0 |
 | `AGENTS.md` | docs | +75/-11 |
-| `bridge.md` | docs | +23/-23 |
+| `bridge.md` | docs | +4/-4 |
 | `dev/active/MASTER_PLAN.md` | tooling | +181/-7 |
 | `dev/active/ai_governance_platform.md` | tooling | +231/-1 |
 | `dev/active/platform_authority_loop.md` | tooling | +236/-2 |
@@ -151,7 +151,7 @@ Range: last 25 commits ending at `838b762c609b`
 | `dev/active/review_channel.md` | tooling | +9/-0 |
 | `dev/active/review_probes.md` | tooling | +40/-1 |
 | `dev/audits/AUTOMATION_DEBT_REGISTER.md` | tooling | +1/-0 |
-| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1543/-1512 |
+| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1531/-1510 |
 | `dev/config/devctl_repo_policy.json` | tooling | +3/-0 |
 | `dev/config/git_hooks/pre-push-governed-push.sh` | tooling | +32/-0 |
 | `dev/config/quality_presets/portable_python.json` | tooling | +1/-0 |
@@ -171,14 +171,14 @@ Range: last 25 commits ending at `838b762c609b`
 | `dev/scripts/devctl/bundles/registry.py` | tooling | +1/-0 |
 | `dev/scripts/devctl/commands/check/__init__.py` | tooling | +30/-2 |
 | `dev/scripts/devctl/commands/check/process_sweep.py` | tooling | +50/-2 |
-| `dev/scripts/devctl/commands/dashboard.py` | tooling | +74/-56 |
+| `dev/scripts/devctl/commands/dashboard.py` | tooling | +85/-59 |
 | `dev/scripts/devctl/commands/dashboard_builders.py` | tooling | +56/-153 |
 | `dev/scripts/devctl/commands/dashboard_people.py` | tooling | +113/-0 |
 | `dev/scripts/devctl/commands/dashboard_render/__init__.py` | tooling | +9/-3 |
 | `dev/scripts/devctl/commands/dashboard_render/control_plane.py` | tooling | +103/-0 |
 | `dev/scripts/devctl/commands/dashboard_typed_state.py` | tooling | +5/-7 |
 | `dev/scripts/devctl/commands/discover/__init__.py` | tooling | +5/-2 |
-| _134 more files trimmed_ | | |
+| _135 more files trimmed_ | | |
 
 ## 4. Quality signals
 
@@ -293,62 +293,60 @@ Recent findings:
 
 ### Per-commit rationale
 
+- **`a5ad7fc0` | markers: F1** — fix(runtime): F1 coordination parity via review_state_override
+  - Closes the F1 non-determinism finding from dev/active/remote_control_runtime.md:
+  - `TestCoordinationParityF1::test_three_surfaces_report_identical_coordination`
+  - was flaky because `build_startup_context()` reused one typed `review_state`
+  - evolution: Fact: the phone-steered Claude remote-control wrapper was still too prompt- local. It printed typed health but did not consume typed next-step / recovery truth, and the tracked remote prompt still taught raw `git commit…
 - **`838b762c`** — Refresh external review snapshot for d7e7e597
-  - evolution: Fact: the governed push lane exposed a second publication-honesty gap after remote publication was already recorded. Preflight correctly resolved a branch-aware `since_ref`, but the post-push bundle still fell back to t…
+  - evolution: Fact: the phone-steered Claude remote-control wrapper was still too prompt- local. It printed typed health but did not consume typed next-step / recovery truth, and the tracked remote prompt still taught raw `git commit…
 - **`d7e7e597`** — policy: declare operator_interaction_mode=remote_control
   - Adds repo_governance.bridge_config.operator_interaction_mode="remote_control"
   - to dev/config/devctl_repo_policy.json so the F4 fail-closed launcher
   - discipline permits headless bridge launches (--terminal none) from the
-  - evolution: Fact: the governed push lane exposed a second publication-honesty gap after remote publication was already recorded. Preflight correctly resolved a branch-aware `since_ref`, but the post-push bundle still fell back to t…
+  - evolution: Fact: the phone-steered Claude remote-control wrapper was still too prompt- local. It printed typed health but did not consume typed next-step / recovery truth, and the tracked remote prompt still taught raw `git commit…
 - **`08770a66`** — Refresh external review snapshot for 675ca93d
-  - evolution: Fact: the governed push lane exposed a second publication-honesty gap after remote publication was already recorded. Preflight correctly resolved a branch-aware `since_ref`, but the post-push bundle still fell back to t…
+  - evolution: Fact: the phone-steered Claude remote-control wrapper was still too prompt- local. It printed typed health but did not consume typed next-step / recovery truth, and the tracked remote prompt still taught raw `git commit…
 - **`675ca93d`** — fix: scope post-push validation to published diff
-  - evolution: Fact: the governed push lane exposed a second publication-honesty gap after remote publication was already recorded. Preflight correctly resolved a branch-aware `since_ref`, but the post-push bundle still fell back to t…
+  - evolution: Fact: the phone-steered Claude remote-control wrapper was still too prompt- local. It printed typed health but did not consume typed next-step / recovery truth, and the tracked remote prompt still taught raw `git commit…
 - **`a60f1470`** — Refresh external review snapshot for 69317302
-  - evolution: Fact: the governed push lane exposed a second publication-honesty gap after remote publication was already recorded. Preflight correctly resolved a branch-aware `since_ref`, but the post-push bundle still fell back to t…
+  - evolution: Fact: the phone-steered Claude remote-control wrapper was still too prompt- local. It printed typed health but did not consume typed next-step / recovery truth, and the tracked remote prompt still taught raw `git commit…
 - **`69317302`** — fix: support coderabbit gate script imports
-  - evolution: Fact: the governed push lane exposed a second publication-honesty gap after remote publication was already recorded. Preflight correctly resolved a branch-aware `since_ref`, but the post-push bundle still fell back to t…
+  - evolution: Fact: the phone-steered Claude remote-control wrapper was still too prompt- local. It printed typed health but did not consume typed next-step / recovery truth, and the tracked remote prompt still taught raw `git commit…
 - **`bc1a40ec`** — Refresh external review snapshot for 013e15f6
-  - evolution: Fact: the governed push lane exposed a second publication-honesty gap after remote publication was already recorded. Preflight correctly resolved a branch-aware `since_ref`, but the post-push bundle still fell back to t…
+  - evolution: Fact: the phone-steered Claude remote-control wrapper was still too prompt- local. It printed typed health but did not consume typed next-step / recovery truth, and the tracked remote prompt still taught raw `git commit…
 - **`013e15f6`** — fix: defer coderabbit gates until publish
-  - evolution: Fact: the governed push lane exposed a second publication-honesty gap after remote publication was already recorded. Preflight correctly resolved a branch-aware `since_ref`, but the post-push bundle still fell back to t…
+  - evolution: Fact: the phone-steered Claude remote-control wrapper was still too prompt- local. It printed typed health but did not consume typed next-step / recovery truth, and the tracked remote prompt still taught raw `git commit…
 - **`46de6f81`** — Refresh external review snapshot for 4c8aeb5b
-  - evolution: Fact: the governed push lane exposed a second publication-honesty gap after remote publication was already recorded. Preflight correctly resolved a branch-aware `since_ref`, but the post-push bundle still fell back to t…
+  - evolution: Fact: the phone-steered Claude remote-control wrapper was still too prompt- local. It printed typed health but did not consume typed next-step / recovery truth, and the tracked remote prompt still taught raw `git commit…
 - **`4c8aeb5b`** — chore: route release checks and review commands
-  - evolution: Fact: the governed push lane exposed a second publication-honesty gap after remote publication was already recorded. Preflight correctly resolved a branch-aware `since_ref`, but the post-push bundle still fell back to t…
+  - evolution: Fact: the phone-steered Claude remote-control wrapper was still too prompt- local. It printed typed health but did not consume typed next-step / recovery truth, and the tracked remote prompt still taught raw `git commit…
 - **`a3fd3393`** — Refresh external review snapshot for 38535f77
-  - evolution: Fact: the governed push lane exposed a second publication-honesty gap after remote publication was already recorded. Preflight correctly resolved a branch-aware `since_ref`, but the post-push bundle still fell back to t…
+  - evolution: Fact: the phone-steered Claude remote-control wrapper was still too prompt- local. It printed typed health but did not consume typed next-step / recovery truth, and the tracked remote prompt still taught raw `git commit…
 - **`38535f77`** — chore: wire mutation bypass guard into shared lanes
-  - evolution: Fact: the governed push lane exposed a second publication-honesty gap after remote publication was already recorded. Preflight correctly resolved a branch-aware `since_ref`, but the post-push bundle still fell back to t…
+  - evolution: Fact: the phone-steered Claude remote-control wrapper was still too prompt- local. It printed typed health but did not consume typed next-step / recovery truth, and the tracked remote prompt still taught raw `git commit…
 - **`0a194dfe`** — Refresh external review snapshot for a547a2be
-  - evolution: Fact: the governed push lane exposed a second publication-honesty gap after remote publication was already recorded. Preflight correctly resolved a branch-aware `since_ref`, but the post-push bundle still fell back to t…
+  - evolution: Fact: the phone-steered Claude remote-control wrapper was still too prompt- local. It printed typed health but did not consume typed next-step / recovery truth, and the tracked remote prompt still taught raw `git commit…
 - **`a547a2be`** — refactor: move path audit behind compatibility shim
-  - evolution: Fact: the governed push lane exposed a second publication-honesty gap after remote publication was already recorded. Preflight correctly resolved a branch-aware `since_ref`, but the post-push bundle still fell back to t…
+  - evolution: Fact: the phone-steered Claude remote-control wrapper was still too prompt- local. It printed typed health but did not consume typed next-step / recovery truth, and the tracked remote prompt still taught raw `git commit…
 - **`d094550c`** — chore: register mutation guard and unify bootstrap catalog
-  - evolution: Fact: the governed push lane exposed a second publication-honesty gap after remote publication was already recorded. Preflight correctly resolved a branch-aware `since_ref`, but the post-push bundle still fell back to t…
+  - evolution: Fact: the phone-steered Claude remote-control wrapper was still too prompt- local. It printed typed health but did not consume typed next-step / recovery truth, and the tracked remote prompt still taught raw `git commit…
 - **`dacb1a26`** — Refresh external review snapshot for 67ec68f7
-  - evolution: Fact: the governed push lane exposed a second publication-honesty gap after remote publication was already recorded. Preflight correctly resolved a branch-aware `since_ref`, but the post-push bundle still fell back to t…
+  - evolution: Fact: the phone-steered Claude remote-control wrapper was still too prompt- local. It printed typed health but did not consume typed next-step / recovery truth, and the tracked remote prompt still taught raw `git commit…
 - **`67ec68f7`** — test: pin single-agent interaction mode resolution
-  - evolution: Fact: the governed push lane exposed a second publication-honesty gap after remote publication was already recorded. Preflight correctly resolved a branch-aware `since_ref`, but the post-push bundle still fell back to t…
+  - evolution: Fact: the phone-steered Claude remote-control wrapper was still too prompt- local. It printed typed health but did not consume typed next-step / recovery truth, and the tracked remote prompt still taught raw `git commit…
 - **`1c70b2c5`** — checkpoint: capture governance and review-channel batch
-  - evolution: Fact: the governed push lane exposed a second publication-honesty gap after remote publication was already recorded. Preflight correctly resolved a branch-aware `since_ref`, but the post-push bundle still fell back to t…
+  - evolution: Fact: the phone-steered Claude remote-control wrapper was still too prompt- local. It printed typed health but did not consume typed next-step / recovery truth, and the tracked remote prompt still taught raw `git commit…
 - **`47d483b4`** — Harden governed push and typed review-state reads
-  - evolution: Fact: the governed push lane exposed a second publication-honesty gap after remote publication was already recorded. Preflight correctly resolved a branch-aware `since_ref`, but the post-push bundle still fell back to t…
+  - evolution: Fact: the phone-steered Claude remote-control wrapper was still too prompt- local. It printed typed health but did not consume typed next-step / recovery truth, and the tracked remote prompt still taught raw `git commit…
 - **`6eb4945b`** — Refresh external review snapshot for 73908286
-  - evolution: Fact: the governed push lane exposed a second publication-honesty gap after remote publication was already recorded. Preflight correctly resolved a branch-aware `since_ref`, but the post-push bundle still fell back to t…
+  - evolution: Fact: the phone-steered Claude remote-control wrapper was still too prompt- local. It printed typed health but did not consume typed next-step / recovery truth, and the tracked remote prompt still taught raw `git commit…
 - **`73908286`** — docs: align graph-backed convergence plan
-  - evolution: Fact: the governed push lane exposed a second publication-honesty gap after remote publication was already recorded. Preflight correctly resolved a branch-aware `since_ref`, but the post-push bundle still fell back to t…
+  - evolution: Fact: the phone-steered Claude remote-control wrapper was still too prompt- local. It printed typed health but did not consume typed next-step / recovery truth, and the tracked remote prompt still taught raw `git commit…
 - **`516e839c`** — Refresh external review snapshot for c1a1ee28
-  - evolution: Fact: the governed push lane exposed a second publication-honesty gap after remote publication was already recorded. Preflight correctly resolved a branch-aware `since_ref`, but the post-push bundle still fell back to t…
+  - evolution: Fact: the phone-steered Claude remote-control wrapper was still too prompt- local. It printed typed health but did not consume typed next-step / recovery truth, and the tracked remote prompt still taught raw `git commit…
 - **`c1a1ee28`** — Advance typed authority convergence across mutation and control-plane
-  - evolution: Fact: the governed push lane exposed a second publication-honesty gap after remote publication was already recorded. Preflight correctly resolved a branch-aware `since_ref`, but the post-push bundle still fell back to t…
-- **`1c74c07f`** — Refresh external review snapshot for f294de63
-  - evolution: The next remote-control/platform hardening slice was not a new architecture layer. It was closure on the typed paths that already existed but still left practical escape hatches. On the write side, `devctl commit` no lo…
-- **`f294de63` | markers: F1** — Operator-directed commit+push: F1 parity flake fix + bridge state + 4hr session unblock
-  - Claude-CLI (session 9, PID 89248) authored F1 parity flake fix on
-  - instruction revision 7f94c6cae1a6 from Codex:
-  - - dev/scripts/devctl/runtime/startup_context.py
-  - evolution: The next remote-control/platform hardening slice was not a new architecture layer. It was closure on the typed paths that already existed but still left practical escape hatches. On the write side, `devctl commit` no lo…
+  - evolution: Fact: the phone-steered Claude remote-control wrapper was still too prompt- local. It printed typed health but did not consume typed next-step / recovery truth, and the tracked remote prompt still taught raw `git commit…
 ### Active MP scope (from MASTER_PLAN.md)
 
 - `dev/active/devctl_reporting_upgrade.md` is the phased `devctl` reporting/CIHub specification, but not a separate execution tracker; implementation tasks stay in this file under `MP-297..MP-300`, `MP-303`, `MP-306`, `MP…
@@ -367,10 +365,11 @@ Recent findings:
 - open governance findings: 39
 
 ### Startup advisories
-- checkpoint_before_continue: concurrent_writer_activity
+- checkpoint_before_continue: staged_index_budget_exceeded
 
 ### Stale warnings
 - Keep editing the current slice.
+- Move straight to the governed push path.
 
 ### Open gap rows
 - **governance_open** (`dev/scripts/devctl/review_channel/bridge_sanitize.py`): agent_checkpoint_contract_ignorance: 
@@ -384,4 +383,4 @@ Recent findings:
 
 ---
 
-Projection produced by `devctl review-snapshot`. Generation stamp `snap-ea850cd2870c` binds this file to HEAD `838b762c609b`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
+Projection produced by `devctl review-snapshot`. Generation stamp `snap-bfd1e6bc6d54` binds this file to HEAD `a5ad7fc0889c`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.

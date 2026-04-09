@@ -64,6 +64,7 @@ REVIEW_ACTION_CHOICES = (
     "history",
     "bridge-poll",
     "render-bridge",
+    "attach-remote-control",
 )
 
 
@@ -213,6 +214,44 @@ LAUNCH_ARGUMENTS: list[ArgumentDef] = [
         ),
     ),
     _arg("--script-dir", help="Optional directory for generated conductor launch scripts"),
+    _arg(
+        "--session-name",
+        default="",
+        help="Optional external remote-control session label for typed attachment state.",
+    ),
+    _arg(
+        "--remote-provider",
+        choices=["claude", "codex", "cursor"],
+        default="claude",
+        help="Provider for an external remote-control session attachment.",
+    ),
+    _arg(
+        "--remote-role",
+        choices=["implementer", "reviewer", "operator"],
+        default="implementer",
+        help="Role the external remote-control session currently owns.",
+    ),
+    _arg(
+        "--attachment-status",
+        choices=["attached", "unknown", "detached", "stale"],
+        default="attached",
+        help="Typed lifecycle state for the external remote-control attachment.",
+    ),
+    _arg(
+        "--session-url",
+        default="",
+        help="External remote-control session URL, when known.",
+    ),
+    _arg(
+        "--remote-session-id",
+        default="",
+        help="External remote-control session id, when known.",
+    ),
+    _arg(
+        "--metadata-path",
+        default="",
+        help="Optional metadata path echoed into the typed remote-control attachment.",
+    ),
     _arg(
         "--dry-run",
         action="store_true",

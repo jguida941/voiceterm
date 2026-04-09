@@ -39,6 +39,34 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 
 ### 2026-04-07 - ReviewSnapshot hook hardening routed through owner plans
 
+### 2026-04-09 - Remote Claude wrapper now follows typed runtime and governed mutation
+
+Fact: the phone-steered Claude remote-control wrapper was still too prompt-
+local. It printed typed health but did not consume typed next-step /
+recovery truth, and the tracked remote prompt still taught raw `git commit`
+instead of the governed `devctl commit` path.
+
+This matters because external Claude remote-control is supposed to sit on top
+of the same repo-owned control plane as local Codex/Claude sessions. If the
+wrapper/prompt path invents its own relaunch logic or raw mutation flow, the
+remote session becomes a second authority surface instead of a thin adapter.
+
+The closure is bounded but real: `dev/scripts/remote-bridge-loop.sh` now
+surfaces top-level typed `recommended_command`, typed runtime
+`doctor.decision_command`, and managed git-hook health; it prefers an
+executable repo-owned `review-channel` recovery command when bootstrap is
+requested and only falls back to the full `launch` pair when no typed
+recovery command exists. The paired `dev/scripts/remote_bridge_prompt.md`
+bootstrap now starts from `session-resume --role implementer --format
+bootstrap`, treats non-command ids such as `resume_live_review_loop` as
+decision state rather than shell, and routes commit/push through governed
+`devctl commit` / `devctl push` instead of raw git. The same slice now closes
+the remote-control commit stall itself: a live
+`reviewer_runtime.remote_control_attachment` promotes fallback interaction
+mode to `remote_control`, and governed `devctl commit` treats that phone-
+steered mode as promptless typed approval instead of parking on
+`operator_approval_pending`.
+
 ### 2026-04-09 - Governed push now reuses one typed diff base through post-push follow-up
 
 Fact: the governed push lane exposed a second publication-honesty gap after

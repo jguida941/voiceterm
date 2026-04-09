@@ -57,6 +57,7 @@ class ControlPlaneReadModelDataclassTests(unittest.TestCase):
         self.assertEqual(d["branch"], "unknown")
         self.assertEqual(d["resolved_phase"], "idle")
         self.assertEqual(d["check_details"], ())
+        self.assertIsNone(d["remote_control_attachment"])
         self.assertIsNone(d["coordination"])
 
     def test_all_fields_present(self) -> None:
@@ -69,6 +70,7 @@ class ControlPlaneReadModelDataclassTests(unittest.TestCase):
             "reviewer_freshness", "review_accepted", "last_reviewed_sha",
             "attention_status",
             "attention_summary", "reviewer_observation",
+            "remote_control_attachment",
             "publisher_running", "supervisor_running",
             "codex_conductor_alive", "claude_conductor_alive",
             "pending_action_requests", "last_guard_ok",
@@ -263,6 +265,55 @@ class BuildWithReviewStateTests(unittest.TestCase):
         )
         self.assertEqual(model.attention_status, "needs_recovery")
         self.assertEqual(model.attention_summary, "conductor down")
+
+    def test_remote_control_attachment_from_review_state(self) -> None:
+        sources = _empty_sources()
+        sources["review_state"] = {
+            "reviewer_runtime": {
+                "remote_control_attachment": {
+                    "provider": "claude",
+                    "role": "implementer",
+                    "attachment_id": "remote-attach-1",
+                    "session_name": "VoiceTerm Bridge Loop",
+                    "remote_session_id": "session_abc123",
+                    "session_url": "https://claude.ai/code/session_abc123",
+                    "status": "attached",
+                }
+            }
+        }
+        model = build_control_plane_read_model(
+            Path("/tmp/nonexistent"),
+            sources_override=sources,
+            git_override=_base_git(),
+        )
+        self.assertIsNotNone(model.remote_control_attachment)
+        assert model.remote_control_attachment is not None
+        self.assertEqual(model.remote_control_attachment.provider, "claude")
+        self.assertEqual(model.remote_control_attachment.status, "attached")
+
+    def test_remote_control_attachment_promotes_operator_interaction_mode(self) -> None:
+        sources = _empty_sources()
+        sources["review_state"] = {
+            "bridge": {"reviewer_mode": "single_agent"},
+            "reviewer_runtime": {
+                "remote_control_attachment": {
+                    "provider": "claude",
+                    "session_name": "VoiceTerm Bridge Loop",
+                    "remote_session_id": "session_abc123",
+                    "status": "attached",
+                }
+            },
+        }
+        with patch(
+            "dev.scripts.devctl.runtime.control_plane_read_model._extract_coordination",
+            return_value=None,
+        ):
+            model = build_control_plane_read_model(
+                Path("/tmp/nonexistent"),
+                sources_override=sources,
+                git_override=_base_git(),
+            )
+        self.assertEqual(model.operator_interaction_mode, "remote_control")
 
     def test_typed_review_state_overrides_stale_loaded_payload(self) -> None:
         sources = _empty_sources()

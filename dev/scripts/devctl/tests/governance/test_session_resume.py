@@ -25,6 +25,9 @@ from dev.scripts.devctl.commands.governance.session_resume_support import (
     try_cache_hit,
     write_cache,
 )
+from dev.scripts.devctl.runtime.reviewer_runtime_models import (
+    RemoteControlAttachmentState,
+)
 
 
 class TestSessionCachePacket(unittest.TestCase):
@@ -32,7 +35,7 @@ class TestSessionCachePacket(unittest.TestCase):
 
     def test_defaults(self) -> None:
         pkt = SessionCachePacket()
-        self.assertEqual(pkt.schema_version, 2)
+        self.assertEqual(pkt.schema_version, 3)
         self.assertEqual(pkt.contract_id, "SessionCachePacket")
         self.assertEqual(pkt.role, "implementer")
         self.assertEqual(pkt.blockers, "none")
@@ -43,6 +46,7 @@ class TestSessionCachePacket(unittest.TestCase):
         self.assertEqual(pkt.resolved_phase, "idle")
         self.assertEqual(pkt.next_guard_bundle, "")
         self.assertEqual(pkt.next_recommended_command, "")
+        self.assertIsNone(pkt.remote_control_attachment)
 
     def test_to_dict_converts_tuple(self) -> None:
         pkt = SessionCachePacket(key_rules=("a=1", "b=2"))
@@ -61,6 +65,21 @@ class TestSessionCachePacket(unittest.TestCase):
         self.assertEqual(restored.head_sha, original.head_sha)
         self.assertEqual(restored.blockers, original.blockers)
         self.assertEqual(restored.key_rules, original.key_rules)
+
+    def test_roundtrip_with_remote_control_attachment(self) -> None:
+        original = SessionCachePacket(
+            remote_control_attachment=RemoteControlAttachmentState(
+                provider="claude",
+                role="implementer",
+                attachment_id="remote-attach-1",
+                remote_session_id="session_abc123",
+                status="attached",
+            )
+        )
+        restored = packet_from_mapping(original.to_dict())
+        self.assertIsNotNone(restored.remote_control_attachment)
+        assert restored.remote_control_attachment is not None
+        self.assertEqual(restored.remote_control_attachment.provider, "claude")
 
 
 class TestFieldDerivation(unittest.TestCase):
@@ -103,6 +122,23 @@ class TestFieldDerivation(unittest.TestCase):
         self.assertEqual(
             derive_interaction_mode({"collaboration": {"reviewer_mode": "single_agent"}}),
             "single_agent",
+        )
+
+    def test_interaction_mode_remote_control_attachment(self) -> None:
+        self.assertEqual(
+            derive_interaction_mode(
+                {
+                    "reviewer_runtime": {
+                        "remote_control_attachment": {
+                            "provider": "claude",
+                            "session_name": "phone session",
+                            "remote_session_id": "session_abc123",
+                            "status": "attached",
+                        }
+                    }
+                }
+            ),
+            "remote_control",
         )
 
     def test_next_action_no_receipt(self) -> None:
@@ -1589,8 +1625,8 @@ class TestV2Fields(unittest.TestCase):
         self.assertIn("guard_bundle=bundle.tooling", summary)
         self.assertIn("mode=active_dual_agent", summary)
 
-    def test_to_dict_includes_v2_fields(self) -> None:
-        """to_dict() includes all v2 fields in the output."""
+    def test_to_dict_includes_v3_fields(self) -> None:
+        """to_dict() includes the extended session packet fields in the output."""
         pkt = SessionCachePacket(
             head_at_push_time="push_sha",
             operator_interaction_mode="active_dual_agent",
@@ -1604,7 +1640,7 @@ class TestV2Fields(unittest.TestCase):
         self.assertEqual(d["resolved_phase"], "committing")
         self.assertEqual(d["next_guard_bundle"], "bundle.runtime")
         self.assertEqual(d["next_recommended_command"], "push --execute")
-        self.assertEqual(d["schema_version"], 2)
+        self.assertEqual(d["schema_version"], 3)
 
 
 class TestGuardBundleFromReviewScope(unittest.TestCase):

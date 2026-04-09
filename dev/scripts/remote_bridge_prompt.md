@@ -8,13 +8,18 @@ phone — relay everything they need to know without them having to ask.
 
 1. Run: python3 dev/scripts/devctl.py startup-context --role implementer --format summary
    - If it exits non-zero, STOP and report the blocker.
-2. Run: python3 dev/scripts/devctl.py context-graph --mode bootstrap --format md
-3. Run: python3 dev/scripts/devctl.py review-channel --action status --terminal none --format json
+2. Run: python3 dev/scripts/devctl.py session-resume --role implementer --format bootstrap
+   - Treat this as the role-bound bootstrap packet for current goal, review candidate, and next recommended command.
+3. Run: python3 dev/scripts/devctl.py context-graph --mode bootstrap --format md
+4. Run: python3 dev/scripts/devctl.py review-channel --action status --terminal none --format json
    - Treat this typed status as canonical for reviewer mode, conductor liveness, attention, and stale-peer health.
-4. Read bridge.md — parse the metadata and all sections.
-5. Read AGENTS.md, dev/active/INDEX.md, and dev/active/MASTER_PLAN.md for authority context.
-6. Check Codex/loop health (see "Codex Health Check" below).
-7. Report a concise status to the user: review-loop health, bridge state, Codex health, current instruction.
+   - When `reviewer_runtime.remote_control_attachment` is present, treat it as the canonical typed record for the external Claude remote-control session instead of relying on chat memory about which phone session is active.
+   - Capture `recommended_command`, `recommended_command_source`, and `doctor.decision_command` when present. Those are the repo-owned next-step fields.
+   - If one of those fields is only a typed decision id such as `resume_live_review_loop` instead of a shell command, report it as decision state and fall back to the sanctioned command path below instead of trying to run the id.
+5. Read bridge.md — parse the metadata and all sections.
+6. Read AGENTS.md, dev/active/INDEX.md, and dev/active/MASTER_PLAN.md for authority context.
+7. Check Codex/loop health (see "Codex Health Check" below).
+8. Report a concise status to the user: review-loop health, bridge state, Codex health, current instruction, typed next command.
 
 ## Step 1: Read current state and relay it to the user
 
@@ -25,6 +30,11 @@ Start with typed `review-channel status` and summarize:
 - `bridge_liveness.last_codex_poll_age_seconds`
 - `attention.status`
 - `attention.recommended_action`
+- `reviewer_runtime.remote_control_attachment.status`
+- `reviewer_runtime.remote_control_attachment.session_url`
+- `recommended_command`
+- `recommended_command_source`
+- `doctor.decision_command` when present
 
 Then read bridge.md and summarize these sections for the user:
 - Reviewer mode (if not active_dual_agent or single_agent, report and wait)
@@ -37,12 +47,16 @@ Then read bridge.md and summarize these sections for the user:
 Always tell the user both:
 - what the typed runtime says about loop health
 - what Codex last wrote in `bridge.md`
+- what the repo-owned typed next command is
 
 ## Step 2: Act on instruction
 
 If typed status says the review loop is inactive or Codex is not live:
 - Tell the user exactly that.
-- Offer the sanctioned relaunch path from "Codex Health Check" below.
+- If `doctor.decision_command` or top-level `recommended_command` is an actual
+  repo-owned `review-channel` shell command, use that exact command.
+- Otherwise offer the sanctioned relaunch path from "Codex Health Check" below.
+- Do not invent a different launch/recover sequence.
 - Do not claim Codex is actively reviewing until typed status confirms it.
 
 If Current Instruction says "hold steady" or contains a wait state:
@@ -64,10 +78,15 @@ If Current Instruction has active work:
 
 After completing the slice:
 1. git add the specific files you changed (not -A).
-2. git commit with a descriptive message.
+2. Run: python3 dev/scripts/devctl.py commit -m "<descriptive message>"
+   - Never use raw `git commit`.
+   - In typed `remote_control` mode, governed commit should self-record the approval packet and commit without parking on a manual approval prompt.
+   - If governed commit still fails closed on checkpoint/review state, relay the typed reason to the user and wait.
 3. Run: python3 dev/scripts/devctl.py startup-context --format summary
-   - Check push_decision. If run_devctl_push: python3 dev/scripts/devctl.py push --execute
-   - If await_checkpoint or await_review: report and wait.
+   - Check `push_decision` and any top-level typed `recommended_command`.
+   - If the sanctioned next step is `python3 dev/scripts/devctl.py push --execute`, run it.
+   - If the typed next step is an actual `review-channel` recovery shell command instead, repair the loop first.
+   - If `push_decision` says `await_checkpoint` or `await_review`, report and wait.
 4. Update Claude Status in bridge.md with what you committed.
 5. Tell the user: "Pushed [files]. Waiting for Codex to review."
 
@@ -94,17 +113,24 @@ When the user asks about Codex, or on bootstrap, or when Codex seems stale:
    - `bridge_liveness.last_codex_poll_age_seconds`
    - `attention.status`
    - `attention.recommended_action`
+   - `recommended_command`
+   - `recommended_command_source`
+   - `doctor.decision_action_id`
+   - `doctor.decision_command`
 3. Then read `bridge.md` and relay the Codex-owned sections to the user.
-4. If Codex is missing, stale, or the loop is inactive:
+4. If `doctor.decision_command` or top-level `recommended_command` is an actual
+   repo-owned `review-channel` recovery shell command, use that exact command first.
+5. If Codex is missing, stale, or the loop is inactive and no typed recovery
+   command is available:
    - Launch the full review channel (opens Codex + Claude in new Terminal.app windows):
      python3 dev/scripts/devctl.py review-channel --action launch --terminal terminal-app --format json --execution-mode markdown-bridge --refresh-bridge-heartbeat-if-stale
-5. If Codex is live and only the implementer lane is stale:
+6. If Codex is live and only the implementer lane is stale:
    - Recover only the Claude conductor:
      python3 dev/scripts/devctl.py review-channel --action recover --recover-provider claude --terminal terminal-app --format json --execution-mode markdown-bridge
-6. If conductors are live but the publisher/supervisor need restarting:
+7. If conductors are live but the publisher/supervisor need restarting:
    - Refresh the repo-owned follow surfaces:
      python3 dev/scripts/devctl.py review-channel --action ensure --terminal none --format json --execution-mode markdown-bridge --start-publisher-if-missing
-7. After any relaunch or recovery, rerun `review-channel --action status`.
+8. After any relaunch or recovery, rerun `review-channel --action status`.
    - Do not claim success until `codex_conductor_active=true` and `effective_reviewer_mode=active_dual_agent`.
 
 ## User Commands (respond to these from phone)
@@ -122,6 +148,8 @@ The user may type short commands from their phone. Handle these:
 ## Rules (never violate)
 
 - `bridge.md` is a compatibility projection. Typed `review-channel status` is canonical for live health.
+- Prefer repo-owned typed `recommended_command` / `doctor.decision_command` over hand-built shell recovery paths when they resolve to actual repo-owned shell commands.
+- If those fields only resolve to a decision id instead of a shell command, treat them as typed decision state and use the sanctioned repo-owned command path for that state.
 - NEVER modify Codex-owned sections: Poll Status, Current Verdict, Open Findings, Current Instruction For Claude, Last Reviewed Scope.
 - ONLY modify Claude-owned sections: Claude Status, Claude Questions, Claude Ack.
 - Run guards after EVERY file edit. Done means guards passed.
@@ -132,4 +160,5 @@ The user may type short commands from their phone. Handle these:
 - Every Claude Status update must name concrete files, subsystems, or findings.
 - Never claim Codex was relaunched or is actively reviewing unless typed status confirms it.
 - Never use `review-channel --action recover --recover-provider codex`; that path does not exist.
+- Never use raw `git commit` or raw `git push`; use governed `devctl commit` / `devctl push`.
 - Always proactively tell the user what Codex is doing — don't make them ask.

@@ -246,6 +246,18 @@ def _validate_args(
         _validate_required_args(args, POST_REQUIRED_ARGS)
         if bool(getattr(args, "body", None)) == bool(getattr(args, "body_file", None)):
             raise ValueError("Review-channel post requires exactly one of --body or --body-file.")
+    elif normalized_action is ReviewChannelAction.ATTACH_REMOTE_CONTROL:
+        attachment_status = str(
+            getattr(args, "attachment_status", "attached") or "attached"
+        ).strip()
+        if attachment_status == "attached" and not (
+            getattr(args, "session_url", None)
+            or getattr(args, "remote_session_id", None)
+        ):
+            raise ValueError(
+                "review-channel attach-remote-control requires --session-url "
+                "or --remote-session-id when --attachment-status=attached."
+            )
     elif normalized_action in PACKET_TRANSITION_ACTIONS:
         _require_present(
             args,

@@ -30,6 +30,9 @@ from dev.scripts.devctl.runtime.startup_context import (
     _load_startup_review_state,
     build_startup_context,
 )
+from dev.scripts.devctl.runtime.reviewer_runtime_models import (
+    RemoteControlAttachmentState,
+)
 from dev.scripts.devctl.runtime.project_governance import (
     ProjectGovernance,
     PushEnforcement,
@@ -141,6 +144,26 @@ class TestStartupContextBuild(unittest.TestCase):
         self.assertIn("rejected_rule_traces", d)
         self.assertIn("contract_ownership_map", d)
         self.assertIn("snapshot_id", d)
+
+    def test_to_dict_serializes_remote_control_attachment(self) -> None:
+        ctx = StartupContext(
+            remote_control_attachment=RemoteControlAttachmentState(
+                provider="claude",
+                role="implementer",
+                attachment_id="remote-attach-1",
+                session_name="VoiceTerm Bridge Loop",
+                remote_session_id="session_abc123",
+                session_url="https://claude.ai/code/session_abc123",
+                status="attached",
+                metadata_path="dev/review_status/sessions/claude-remote-control.json",
+            )
+        )
+        payload = ctx.to_dict()
+        self.assertIn("remote_control_attachment", payload)
+        self.assertEqual(
+            payload["remote_control_attachment"]["remote_session_id"],
+            "session_abc123",
+        )
 
     def test_slim_token_budget(self) -> None:
         ctx = build_startup_context()
@@ -2299,6 +2322,19 @@ class TestInteractionModeFromReviewerMode(unittest.TestCase):
             "single_agent", governance_mode="",
         )
         self.assertEqual(result, "single_agent")
+
+    def test_remote_control_attachment_promotes_remote_control_mode(self) -> None:
+        result = _interaction_mode_from_reviewer_mode(
+            "single_agent",
+            governance_mode="",
+            remote_control_attachment=RemoteControlAttachmentState(
+                provider="claude",
+                session_name="VoiceTerm Bridge Loop",
+                remote_session_id="session_abc123",
+                status="attached",
+            ),
+        )
+        self.assertEqual(result, "remote_control")
 
 
 class TestReviewerGateOperatorInteractionMode(unittest.TestCase):

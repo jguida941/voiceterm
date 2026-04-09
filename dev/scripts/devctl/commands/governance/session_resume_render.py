@@ -35,6 +35,13 @@ def render_bootstrap(packet: "SessionCachePacket") -> str:
     ]
     if packet.next_guard_bundle:
         lines.append(f"- **guard_bundle**: {packet.next_guard_bundle}")
+    if packet.remote_control_attachment is not None:
+        attachment = packet.remote_control_attachment
+        target = attachment.session_url or attachment.remote_session_id or attachment.session_name
+        if target:
+            lines.append(
+                f"- **remote_control**: {attachment.status} via `{target}`"
+            )
     if packet.next_recommended_command:
         lines.append(f"- **next_command**: `{packet.next_recommended_command}`")
     elif packet.next_action:
@@ -121,6 +128,13 @@ def render_markdown(packet: "SessionCachePacket") -> str:
         f"- **ack**: {packet.ack_state}",
         f"- **guard_ok**: {packet.last_guard_ok}",
     ]
+    if packet.remote_control_attachment is not None:
+        attachment = packet.remote_control_attachment
+        target = attachment.session_url or attachment.remote_session_id or attachment.session_name
+        lines.append(
+            f"- **remote_control**: {attachment.status}"
+            + (f" / `{target}`" if target else "")
+        )
     if packet.next_guard_bundle:
         lines.append(f"- **guard_bundle**: {packet.next_guard_bundle}")
     lines.append("")
@@ -184,6 +198,13 @@ def render_summary(packet: "SessionCachePacket") -> str:
             f"safe_to_fanout={packet.coordination.safe_to_fanout}"
             if packet.coordination is not None
             else "safe_to_fanout=unknown"
+        ),
+        (
+            "remote_control="
+            f"{packet.remote_control_attachment.status}:"
+            f"{packet.remote_control_attachment.remote_session_id or packet.remote_control_attachment.session_name or 'present'}"
+            if packet.remote_control_attachment is not None
+            else "remote_control=none"
         ),
         (
             f"resync_required={packet.coordination.resync_required}"

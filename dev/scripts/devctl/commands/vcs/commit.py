@@ -108,10 +108,11 @@ def _resolve_interaction_mode(repo_root: Path) -> str:
 
 
 def _should_auto_approve(interaction_mode: str) -> bool:
-    """Local terminal and plain local runs may self-approve via typed packets."""
+    """Promptless local/phone modes may self-approve via typed packets."""
     mode = resolve_operator_interaction_mode(str(interaction_mode or "").strip()).value
     return mode in {
         OperatorInteractionMode.LOCAL_TERMINAL.value,
+        OperatorInteractionMode.REMOTE_CONTROL.value,
         OperatorInteractionMode.SINGLE_AGENT.value,
     }
 

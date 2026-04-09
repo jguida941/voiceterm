@@ -523,6 +523,16 @@ Out of scope until the local proof gate is green:
   prove one live remote-control loop end-to-end and decide whether this stays
   a repo-local compatibility wrapper or graduates into a repo-owned `devctl`
   surface.
+- 2026-04-09: Tightened the same phone-steered wrapper so it consumes repo-
+  owned typed next-step truth instead of generic launch hints. The wrapper now
+  surfaces `review-channel status` top-level `recommended_command` plus
+  `doctor.decision_command`, prefers a typed review-channel recovery command
+  when `--bootstrap-review-channel` is requested, and only falls back to the
+  full `launch` pair when no typed recovery path exists. The paired remote
+  Claude prompt also now starts from `session-resume --role implementer
+  --format bootstrap` and uses governed `devctl commit` / `devctl push`
+  rather than raw git so the external phone session stays on the same typed
+  repo-owned control path as local sessions.
 - 2026-03-28: Re-audited the W1 bridge-truth-sync item against the actual
   reviewer write paths after Claude flagged a likely overstatement in the
   checklist text. Confirmed the repo-owned tooling side is already in place:

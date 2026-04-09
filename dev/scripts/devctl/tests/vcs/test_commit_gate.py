@@ -251,7 +251,7 @@ class TestGovernedCommitPipeline(unittest.TestCase):
                 "feat: governed local commit",
             )
 
-    def test_commit_remote_mode_posts_request_and_blocks_until_approved(self) -> None:
+    def test_commit_remote_mode_auto_approves_and_records_commit(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             repo_root = _init_repo(Path(tmpdir) / "repo")
             (repo_root / "tracked.txt").write_text("updated\n", encoding="utf-8")
@@ -268,9 +268,10 @@ class TestGovernedCommitPipeline(unittest.TestCase):
             )
 
             pipeline = _executor(repo_root).load_pipeline()
-            self.assertEqual(rc, 1)
-            self.assertEqual(pipeline.state, "operator_approval_pending")
-            self.assertEqual(pipeline.approval_state, "pending")
+            self.assertEqual(rc, 0)
+            self.assertEqual(pipeline.state, "commit_recorded")
+            self.assertEqual(pipeline.approval_state, "approved")
+            self.assertTrue(pipeline.decision_packet_id)
 
     def test_commit_unresolved_mode_does_not_auto_approve(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -306,7 +307,7 @@ class TestGovernedCommitPipeline(unittest.TestCase):
                 repo_root=repo_root,
                 policy=_push_policy(),
                 executor=executor,
-                interaction_mode="remote_control",
+                interaction_mode="unresolved",
                 guard_runner=first_guard,
             )
             self.assertEqual(first_rc, 1)
@@ -338,7 +339,7 @@ class TestGovernedCommitPipeline(unittest.TestCase):
                 repo_root=repo_root,
                 policy=_push_policy(),
                 executor=executor,
-                interaction_mode="remote_control",
+                interaction_mode="unresolved",
                 guard_runner=second_guard,
             )
 
@@ -379,7 +380,7 @@ class TestGovernedCommitPipeline(unittest.TestCase):
                     repo_root=repo_root,
                     policy=_push_policy(),
                     executor=executor,
-                    interaction_mode="remote_control",
+                    interaction_mode="unresolved",
                     guard_runner=first_guard,
                 )
 
@@ -415,7 +416,7 @@ class TestGovernedCommitPipeline(unittest.TestCase):
                 repo_root=repo_root,
                 policy=_push_policy(),
                 executor=executor,
-                interaction_mode="remote_control",
+                interaction_mode="unresolved",
                 guard_runner=MagicMock(return_value=_mock_subprocess_result(0)),
             )
 

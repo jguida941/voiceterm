@@ -1349,6 +1349,17 @@
   `push_decision.next_step_command` so repo-owned hooks and remote-control
   launchers can consume one deterministic next step instead of spelunking
   nested projections.
+- 2026-04-09 remote-control prompt/wrapper closure inside the same lane:
+  the repo-local Claude phone wrapper now surfaces typed
+  `recommended_command` plus `doctor.decision_command` from
+  `review-channel status`, prefers that repo-owned review-channel recovery
+  path when bootstrap is requested, and only falls back to the full
+  `review-channel --action launch` pair when no typed recovery command exists.
+  The paired remote-control prompt now starts from the role-bound
+  `session-resume --role implementer --format bootstrap` packet and routes
+  commit/push through governed `devctl commit` / `devctl push` instead of raw
+  git, so the phone-steered Claude session stays on the same typed mutation
+  authority path as local repo-owned flows.
 - 2026-03-29 package-layout baseline-debt enforcement closure: the
   `check_package_layout` guard now supports `--fail-on-baseline-debt` with
   optional `--baseline-debt-root` filtering, promoting detected baseline debt
