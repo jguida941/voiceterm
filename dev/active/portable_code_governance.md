@@ -1,6 +1,6 @@
 # Portable Code Governance Plan
 
-**Status**: active  |  **Last updated**: 2026-04-08 | **Owner:** Tooling/code governance
+**Status**: active  |  **Last updated**: 2026-04-09 | **Owner:** Tooling/code governance
 Execution plan contract: required
 This spec remains execution mirrored in `dev/active/MASTER_PLAN.md` under
 `MP-376`. It is the narrower engine/adoption companion to
@@ -302,11 +302,38 @@ Use one deterministic triage on every failing repo before widening again:
       layout authority discovery, canonical review-state path resolution,
       generated bootstrap surfaces, and governed push/read-only control
       behavior without VoiceTerm defaults or bridge-required fallbacks.
+- [ ] Add the portability fence as a graph/query proof, not a naming
+      convention: no governance/runtime/platform module may take a direct
+      import on `dev/scripts/devctl/repo_packs/voiceterm.py` unless it lives
+      inside repo-pack adapters or explicit compatibility tests. Fail the
+      adopter proof when VoiceTerm-shaped defaults leak past that boundary.
 - [ ] Keep that second-repo proof sequenced after the `MP-377` owner blockers
       close: if the fixture run bottoms out into startup, review-state,
       generated-surface, or governed-push drift, route it back to
       `platform_authority_loop.md`, `remote_commit_pipeline.md`, or
       `remote_control_runtime.md` before widening the corpus.
+- [ ] Add portable-defaults discovery via config diff: compare the adopter's
+      `ProjectGovernance`, repo-pack state, and coordination/runtime snapshots
+      against the baseline portable contract, emit the minimal override set,
+      and use that diff to pressure-test repo-pack codegen instead of
+      hand-tuning a second repo.
+- [ ] Keep the second-repo graph ambition honest. Narrow deterministic
+      portability questions such as import-fence closure, repo-pack defaults
+      diffing, and bootstrap/guard/surface routing parity belong here once
+      the owner blockers close, but strong graph-isomorphism claims remain
+      deferred until both repos share a mature schema/type substrate. Do not
+      widen this lane into embeddings-driven dedup, AI-synthesized repair
+      hints, or other speculative graph features before the smaller portable
+      proofs are stable.
+- [ ] Add a second-repo graph/isomorphism proof on top of the controlled
+      fixture matrix only after the graph/schema substrate matures: at least
+      one non-VoiceTerm repo should eventually answer the same deterministic
+      questions about plan scope, guard lane, surface resolution, and
+      bootstrap command routing without core-engine edits, but this is a
+      later-phase proof rather than part of the immediate graph-query slice.
+- [ ] Version the graph/probe schema explicitly across adopter artifacts and
+      fail cross-repo proofs on schema mismatch instead of comparing unlike
+      graphs or silently reusing stale reducer output.
 - [x] Promote compatibility shims into a portable governance primitive with
       structural validation and policy-owned metadata requirements instead of
       leaving wrapper exceptions as repo-specific layout hacks.
@@ -737,6 +764,12 @@ Use one deterministic triage on every failing repo before widening again:
       `dev/scripts/devctl`, `dev/scripts/devctl/commands`, and the mirrored
       test roots, not only freeze further flat growth while existing crowded
       trees remain mostly intact.
+- [ ] Keep package-layout honest but scoped: it remains the coarse structural
+      self-hosting guard for crowded roots and compatibility shims, not the
+      semantic architecture proof for Typed Authority Convergence. Portable
+      closure should come from authority/parity guards and graph-backed probes
+      that catch duplicate authority, stale fallbacks, guard-coverage gaps,
+      and false-confidence cases across adopter runs.
 - [ ] Turn the documented `devctl/commands` taxonomy into tree reality instead
       of policy-only intent: converge the still-flat command families on the
       target subpackages (`check/`, `autonomy/`, `review_channel/`,
@@ -753,6 +786,11 @@ Use one deterministic triage on every failing repo before widening again:
 - [ ] Mine the next repeated pattern families from live evidence before
       promoting any more hard guards; prefer probe-first rollout unless the
       signal is low-noise and clearly portable.
+- [ ] Treat `context-graph` / `ConceptIndex` / ZGraph-style signals the same
+      way in this lane: start with measured graph-backed probes or routing
+      reducers over canonical contracts, validate them across the adopter
+      corpus, and only then promote proven low-noise signals into blocking
+      guards.
 
 ## Progress Log
 
@@ -762,6 +800,18 @@ Use one deterministic triage on every failing repo before widening again:
   it proves that repo-pack-selected startup, review-state pathing, generated
   bootstrap surfaces, and governed push/read-only control behavior stay
   portable once the `MP-377` owner docs land the contracts.
+- 2026-04-09: Routed the repo-specific portability proofs into this owner doc
+  instead of leaving them as audit notes. The adopter lane now explicitly
+  owns the non-VoiceTerm import fence, config-diff repo-pack defaults proof,
+  graph-schema-version compatibility, and the second-repo isomorphism query
+  over plan scope, guard lane, surface resolution, and bootstrap routing.
+- 2026-04-09: Accepted the smarter-guard layering for the adopter lane.
+  Package-layout stays in scope, but only as the coarse self-hosting pressure
+  that keeps crowded roots honest. The portable engine proof should now also
+  measure authority/parity guards and graph-backed probes against external
+  repos so duplicate-authority detection, fallback drift, and guard-dispatch
+  coverage graduate from theory into replayed corpus evidence before they
+  become blocking semantics.
 - 2026-04-07: Re-reviewed the portability phasing against the current
   validation-contract concern. The lane is still ordered correctly: multi-repo
   matrix proof is a primary pressure test for VoiceTerm leakage, but it must
@@ -1643,6 +1693,17 @@ Use one deterministic triage on every failing repo before widening again:
   AI/bootstrap surfaces, and governed push/read-only control behavior without
   VoiceTerm defaults; if any failure reduces to `MP-377` startup/review-state/
   push drift, route it back immediately instead of widening the corpus.
+- 2026-04-09 guard/probe validation rule:
+  keep `package_layout` and shim governance as the structural backstop, but
+  treat portable semantic closure as a measured guard/probe problem too. The
+  next honest adopter pressure should tell us whether graph-backed probes over
+  duplicate authority, stale fallbacks, and guard-coverage gaps are actually
+  precise enough to promote, not just whether crowded roots still exist.
+- 2026-04-09 second-repo graph-proof intake:
+  once the `MP-377` owner blockers close, prove portability with the direct
+  import fence, config-diff defaults, graph-schema-version compatibility, and
+  the isomorphism queries instead of another ad hoc walkthrough or one-off
+  adopter memo.
 - 2026-04-07 portability-by-default review: keep this lane focused on proof,
   not new platform architecture. `MP-377` owns removing hidden VoiceTerm
   defaults and adding typed capability/repo-pack contracts; this `MP-376`

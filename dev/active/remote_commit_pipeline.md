@@ -1,6 +1,6 @@
 # Remote Commit Pipeline Plan
 
-**Status**: active  |  **Last updated**: 2026-04-08 | **Owner:** Tooling/control plane/review runtime
+**Status**: active  |  **Last updated**: 2026-04-09 | **Owner:** Tooling/control plane/review runtime
 Execution plan contract: required
 This spec remains execution mirrored in `dev/active/MASTER_PLAN.md` under
 `MP-377`. It freezes the Phase-0 design for the typed remote-session
@@ -485,6 +485,30 @@ surface for remote sessions. It should project:
       any remote-control or governed local commit is created, require a fresh
       matching validation receipt for the staged tree, record current proof
       freshness in typed state, and block raw unguarded commit attempts.
+- [ ] Treat governed-mutation anti-bypass as the primary architecture guard
+      for this lane: `devctl commit`, `devctl push`, managed hooks, and repo
+      test helpers must all route through the governed executor plus typed
+      receipts. `package_layout` remains only a coarse self-hosting backstop
+      and does not count as mutation closure.
+- [ ] Keep this graph-backed slice narrowly scoped: the accepted work here is
+      one query over the existing graph substrate plus a small codeshape
+      ingestion pass, not a new graph backend or a generic semantic-engine
+      buildout. The first deliverable is the raw-git bypass proof for this
+      lane; richer schema-diff or lineage work belongs to the downstream
+      owner docs after this substrate is proven.
+- [ ] Land the first graph-backed mutation-bypass proof for this lane:
+      compose `dev/scripts/devctl/context_graph/models.py` with a codeshape
+      ingestor over `dev/scripts/devctl/commands/vcs/`,
+      `dev/scripts/devctl/commands/governance/install_git_hooks.py`, the
+      managed git hooks, and repo test helpers; index every raw git
+      subprocess/env-override mutation callsite, walk caller hops back to
+      entrypoints, and emit `dev/reports/governance/mutation_bypass_proof.json`.
+- [ ] Promote that proof into the permanent anti-bypass guard only after it is
+      replay-stable on this repo: `check_mutation_bypass_graph_closure`
+      should fail when a raw-git mutation callsite can be reached without
+      `GovernedVcsExecutor.execute` in the ancestor chain, and it should keep
+      the still-untyped git backlog visible as explicit debt instead of
+      hidden helper behavior.
 - [ ] Surface commit-gate freshness / last-guard truth through doctor, status,
       and auto-mode so approval-ready state cannot be inferred from stale or
       bypassed guard runs.
@@ -525,6 +549,11 @@ surface for remote sessions. It should project:
       responsibilities divide, and which exception cases are allowed when raw
       `git commit` / `git push` are forced back through typed `devctl`
       actions.
+- [ ] Keep remote-control approval and retry promptless by contract: phone-
+      steered or `remote_control` flows may emit typed approval or
+      `action_request` packets, but they may not depend on hidden terminal
+      prompts or raw shell retry rituals once the governed lane owns the
+      branch.
 - [ ] Record the mutation backlog boundary for still-untyped git operations
       (`revert`, `rebase`, `reset`, `tag push`, `stash`, `worktree add`, and
       `submodule` flows) so they cannot silently sit outside typed action
@@ -538,9 +567,11 @@ surface for remote sessions. It should project:
       code state instead of requiring an impossible self-referential commit SHA.
 - [x] Add the raw-git receipt fast path: `review-snapshot --receipt-commit`
       stages and commits only the generated snapshot, while
-      `install-git-hooks` installs both the pre-commit projection hook and the
+      `install-git-hooks` installs the pre-commit projection hook, the
       post-commit receipt hook that invokes that typed command with recursion
-      disabled.
+      disabled, and the managed blocking pre-push hook that forces raw
+      publication back through `devctl push --execute` while allowing the
+      governed executor's own nested `git push`.
 - [x] Keep snapshot receipts and single-agent push receipts aligned:
       `devctl push` accepts a snapshot-only HEAD when its parent matches the
       active `PushAuthorizationRecord`, and it ignores stale detached pipeline
@@ -550,6 +581,32 @@ surface for remote sessions. It should project:
 
 ## Progress Log
 
+- 2026-04-09: Absorbed the repo-specific graph-backed convergence slice into
+  this owner doc instead of leaving it as free prose. The first concrete
+  proof here is now explicit: build a codeshape-hop mutation-bypass graph
+  over `context_graph` plus the governed VCS surfaces, emit
+  `mutation_bypass_proof.json`, and only then promote the no-bypass
+  invariant into a permanent guard.
+- 2026-04-09: Closed the post-approval staged-tree drift uncovered while
+  dogfooding the governed lane locally. `devctl commit` now refreshes and
+  stages `REVIEW_SNAPSHOT.md` before the pipeline mints the staged tree hash
+  and before `commit_approval` is requested, instead of mutating the index
+  inside `vcs.commit` after approval. That keeps the approved target stable:
+  remote approval now binds the exact staged tree that will be committed, and
+  `staged_snapshot_changed` remains reserved for real out-of-band drift rather
+  than self-inflicted snapshot refresh.
+- 2026-04-09: Closed the missing raw-push trigger-layer seam in the managed
+  hook path. `install-git-hooks` now installs a real blocking `pre-push`
+  hook instead of leaving `raw_git_push_guarded` dependent on a hook family
+  the installer never wrote. The hook refuses raw `git push` and points the
+  caller at `python3 dev/scripts/devctl.py push --execute`, while the
+  governed push executor now sets a narrow internal bypass env for its own
+  nested `git push` subprocess so the managed hook does not deadlock the
+  canonical path. The same tranche also fixes the governed checkpoint
+  contradiction: `devctl commit` now allows `vcs.stage` to proceed when
+  startup authority is blocking continued editing specifically because a
+  checkpoint is required, so the system no longer blocks the governed commit
+  that it is telling the operator to cut.
 - 2026-04-08: Absorbed the typed-authority convergence Phase-0 map into this
   owner doc instead of leaving it in standalone prose. The governed CLI path
   is now treated as partially landed: `devctl commit` and active-pipeline
@@ -705,6 +762,20 @@ surface for remote sessions. It should project:
   the phase is not done until the default-push cutover matrix, blocking hook
   / enforcement model, bypass removal, untyped-git backlog boundary, and the
   post-approval publish smoke harness all land here.
+- 2026-04-09 governed-mutation-first review:
+  treat this lane as the primary blocking architecture guard for the current
+  convergence program. Approval issuance or refresh still requires live
+  reviewer-runtime / publish-clear readiness, but once an exact approved
+  target is recorded, publication must complete through typed `vcs.push` or
+  fail as typed `push_blocked` / `recover`, never by normalizing a raw-git
+  fallback. Raw-git patterns in tests or helper scripts are architecture debt,
+  not an acceptable convenience path.
+- 2026-04-09 codeshape-hop intake:
+  the next smallest proof in this lane is not broader hook work; it is one
+  graph-backed bypass-discovery slice over `dev/scripts/devctl/context_graph/`
+  plus the governed VCS, hook, and helper callsites. Land the proof artifact
+  first, then promote the no-bypass invariant into the permanent guard once
+  the query is stable on this repo.
 - Current status: Phases 0 through 4 for the remote commit pipeline are
   implemented locally for this lane, including the governed stage/commit/push
   path, shared surface `snapshot_id`, bounded startup ownership map, the

@@ -1,6 +1,6 @@
 # Remote Control Runtime Closure Plan
 
-**Status**: active  |  **Last updated**: 2026-04-08 | **Owner:** Tooling/control plane/review runtime/dashboard
+**Status**: active  |  **Last updated**: 2026-04-09 | **Owner:** Tooling/control plane/review runtime/dashboard
 Execution plan contract: required
 This spec is mirrored in `dev/active/MASTER_PLAN.md` under `MP-380..MP-387`.
 It closes the remote-control/operator-surface gaps found in the 2026-04-04
@@ -70,6 +70,62 @@ contract exists.
       families through an adapter plus public-surface parity for
       `discover`, `view`, and `context-graph` before deleting either schema
       family.
+- [ ] Add graph-backed duplicate-authority probes over `context-graph`,
+      `SystemCatalog`, and `AgentDispatchPacket`: detect stale bridge/fallback
+      readers, missing guard-dispatch coverage, dead topology, and
+      plan/prompt drift first as measured probes, then only promote proven
+      low-noise cases into blocking guards.
+- [ ] Keep the read-side graph tranche dependency-ordered. This lane consumes
+      the graph/query substrate; it does not invent a second backend. Do not
+      widen into read-side schema diff, `SystemCatalog` union-diff, or other
+      heavier graph claims until the smaller codeshape/query substrate and the
+      declared consumer schemas exist in the upstream owner docs.
+- [ ] Add graph-backed guard-coverage closure over the same policy surface:
+      label each active `check_*.py` / hard-guard node with its routed quality
+      lane from repo policy, then fail when a declared hard guard has no live
+      incoming lane binding. Missing enforcement coverage should become a
+      query result instead of a manual audit.
+- [ ] Keep those graph-backed read-side proofs bounded: current-tick parity or
+      mutation-adjacent guards may fail closed only when they use the current
+      snapshot plus a matching graph-schema version. Historical trend queries,
+      corpus comparisons, and retrospective topology scans stay advisory until
+      precision is proven.
+- [ ] Add one read-side schema-diff proof over
+      `dev/scripts/devctl/commands/dashboard.py`,
+      `dev/scripts/devctl/commands/mobile_status.py`,
+      `dev/scripts/devctl/runtime/control_state.py`,
+      `dev/scripts/devctl/commands/governance/session_resume_support.py`, and
+      `dev/scripts/devctl/runtime/startup_context.py`: each consumer must
+      derive the same bounded control fields from `ControlPlaneReadModel` /
+      typed `ReviewState`, or emit a typed mismatch instead of silently
+      restacking fallbacks.
+- [ ] Converge `dev/scripts/devctl/governance/system_catalog.py` and
+      `dev/scripts/devctl/platform/system_catalog.py` through one union-diff
+      adapter that records `{origin, compatibility_mode, data_loss}` per
+      field and uses that diff to choose the canonical public schema before
+      broader `discover` / `view` rollout.
+- [ ] Add a raw-bridge-reader anti-regression guard for this lane: new
+      read-side consumers must not parse `bridge.md` or dashboard bridge
+      sections directly when typed `review_state` / `ControlPlaneReadModel`
+      already exist. Track the remaining sanctioned compatibility parsers
+      explicitly and block fresh ones from landing outside that path.
+- [ ] Replace heuristic stale-topology cleanup with graph-backed packet/session
+      evidence where possible: track session, decision-packet, approval, and
+      review-candidate edges across recent generations so queue expiry and
+      dead-topology cleanup can distinguish abandoned state from merely
+      delayed operators.
+- [ ] Build two graph-backed runtime proofs on top of the same contracts:
+      cluster recurring findings from `dev/scripts/devctl/runtime/finding_contracts.py`
+      plus `dev/scripts/devctl/governance/guard_findings.py` so repeated
+      patterns escalate deterministically, and emit one cross-surface parity
+      artifact proving startup, session-resume, dashboard, mobile, and bridge
+      compatibility surfaces agree on `{snapshot_id, generation_id, head_sha,
+      worktree_hash}` for the same proof tick.
+- [ ] Once those read-side schemas stabilize, derive parity tests from the
+      contract graph instead of hand-maintaining one-off assertions. Invariants
+      such as `ControlPlaneReadModel` / `StartupContext` push-readiness and
+      reviewer-bootstrap field parity should generate focused regression tests
+      from the same schema graph.
 - [ ] MP-387 Make `session-resume` / `SessionCachePacket` the first-hop
       reviewer bootstrap with `last_reviewed_sha`, `head_at_push_time`, one
       frozen `ReviewCandidateRecord` for dirty-tree or commit-range review
@@ -400,31 +456,39 @@ The MP scopes remain valid but are now cross-cut by enforcement-first priority.
 
 ## Progress Log
 
-- 2026-04-09: Closed one bounded helper/command seam in the MP-384 read-side
-  convergence lane. `mobile-status` now builds the shared
-  `ControlPlaneReadModel` before loading review projections, and the thin
-  repo-pack review loaders (`repo_packs/review_helpers.py` plus the
-  VoiceTerm-specific helper in `repo_packs/voiceterm.py`) now prefer an
-  already-written `full.json` projection bundle over forcing another
-  `refresh_status_snapshot()` pass. This keeps the mobile/operator thin-client
-  path on the same typed tick when another governance surface already refreshed
-  the review bundle, while preserving bridge-backed fallback when no projection
-  exists yet. Focused `mobile-status` regressions are green, and the new test
-  coverage proves the command can reuse an existing projection without calling
-  bridge refresh again. The remaining read-side closure still includes
-  helper/repo-pack seams beyond mobile plus the broader startup/session-resume
-  parity work already tracked below.
-- 2026-04-09: Extended that same thin-client seam so existing typed
-  `review_state.json` can satisfy `mobile-status` without a forced bridge-backed
-  `full.json` refresh. `repo_packs/review_helpers.py` now checks
-  `review_status_dir/review_state.json` before calling
-  `refresh_status_snapshot()`, `runtime/control_state.py` now accepts typed
-  bridge-state fields plus registry-agent fallbacks from raw `ReviewState`
-  payloads, and focused regressions prove the command can render from an
-  existing typed review-state projection while still preserving the old bridge
-  fallback path for temp and legacy command fixtures. This narrows the
-  remaining authority debt to the producer cutover itself instead of leaving
-  another thin-client command dependent on bridge refresh.
+- 2026-04-09: Absorbed the repo-specific graph-backed read-side tranche into
+  this owner doc. The next concrete proofs are now explicit: schema diff
+  across startup/session/dashboard/mobile, raw-bridge-reader regression
+  closure, `SystemCatalog` union-diff, recurring-finding clustering, dead
+  topology evidence, and one cross-surface snapshot-parity artifact for the
+  live proof tick.
+- 2026-04-09: Closed one bounded MP-384/MP-387 command-boundary freeze
+  follow-up for the reopened F1 parity rerun. `session-resume` cache misses
+  now force one live `load_current_review_state(... prefer_cached_projection=
+  False)` read instead of reusing a cached projection, and dashboard now
+  resolves governance plus current review state once per snapshot before
+  threading that same typed payload through both `load_sources()` and
+  `ControlPlaneReadModel`. The focused dashboard/session-resume/startup/read-
+  model parity bundle is green on consecutive runs. The remaining read-side
+  follow-up is now explicit and smaller: keep mobile/helper/repo-pack
+  fallbacks on the same frozen review-state tick and then rerun the live
+  remote-control proof instead of reopening another reducer-only slice.
+- 2026-04-09: Closed one bounded helper/read-model authority seam in the
+  MP-384 read-side convergence lane. `mobile-status` now loads the caller's
+  selected review bundle first and then builds `ControlPlaneReadModel` against
+  that same `--review-status-dir` instead of silently falling back to the
+  default repo-pack bundle. The shared loader path now accepts that override in
+  `runtime/control_plane_sources.py`,
+  `runtime/control_plane_read_model.py`, and
+  `runtime/review_state_locator.py`, while the thin-client repo-pack helpers
+  only reuse cached `full.json` / `review_state.json` when those files are at
+  least as fresh as the current `bridge.md` plus `review_channel.md`.
+  `repo_packs/voiceterm.py` now routes through the same shared
+  `load_mobile_review_state()` path instead of bypassing it. Focused
+  `mobile-status`, read-model, review-state-locator, surface-wiring, and
+  repo-pack regressions are green. The remaining read-side closure still
+  includes broader startup/session-resume/dashboard parity plus the producer
+  cutover tracked in the owner chain below.
 - 2026-04-09: Closed one bounded MP-384/MP-387 session-resume/read-model freeze
   follow-up without widening into a full dashboard rewrite. The shared
   `ControlPlaneReadModel` now honors a caller-threaded typed `ReviewState`
@@ -449,6 +513,14 @@ The MP scopes remain valid but are now cross-cut by enforcement-first priority.
   blocked-fanout review, and fresh-AI bootstrap). Mutation/publish closure
   stays in `remote_commit_pipeline.md`; producer/identity authority stays in
   `platform_authority_loop.md`.
+- 2026-04-09 smarter-guard layering review:
+  this lane is not blocked by package layout; it is blocked by mixed and
+  duplicate readers. Resume from that diagnosis: blocking closure here is
+  read-model-first consumers, legacy fallback removal, truthful
+  `safe_to_fanout` semantics, schema-first `SystemCatalog` migration,
+  AI-teaching parity, and graph-backed duplicate-authority probes that expose
+  stale bridge paths or missing dispatch coverage before another live proof
+  widens the lane.
 - 2026-04-08: Closed one bounded MP-384/MP-385 packet/dashboard convergence
   slice on top of the governed commit path repair. The live queue contract now
   distinguishes actionable pending packets from stale history in one shared
@@ -912,6 +984,12 @@ No `ControlPlaneReadModel` exists. Each surface independently reads raw artifact
 
 ## Session Resume
 
+- 2026-04-09 command-boundary freeze closure: the reopened MP-384/MP-387 F1
+  parity rerun is now repaired at the CLI edge too, not only in reducer-only
+  tests. Resume from the next bounded follow-up only: keep the remaining
+  mobile/helper/repo-pack readers on the same frozen review-state tick, then
+  rerun the live remote-control proof. Do not reopen another broad dashboard
+  rewrite or a second coordination-model plan.
 - 2026-04-08 typed-authority convergence absorption: resume from the combined
   phases 2 through 4 closure order, not from isolated dashboard polish. After
   coordination lands in the shared read model, immediately include helper /
@@ -919,6 +997,11 @@ No `ControlPlaneReadModel` exists. Each surface independently reads raw artifact
   migrate duplicate SystemCatalog/bootstrap/prompt surfaces through parity-
   backed adapters, and then prove the result in one live remote-control run,
   one blocked-fanout read-only review, and one fresh-AI bootstrap run.
+- 2026-04-09 graph-backed read-side intake:
+  resume the next slice with the concrete probes, not more theory: schema diff
+  across startup/session/dashboard/mobile, raw bridge-reader closure,
+  `SystemCatalog` union-diff, recurring-finding clustering, dead-topology
+  evidence, and a single snapshot-parity artifact.
 - Current status update: the coordination packet now exists on the live
   runtime, but the launch-critical read side is still split. Resume from the
   concrete closure order: add coordination to `ControlPlaneReadModel`, expose
@@ -957,6 +1040,14 @@ No `ControlPlaneReadModel` exists. Each surface independently reads raw artifact
 
 ## Audit Evidence
 
+- 2026-04-09 caller-selected review-bundle authority validation:
+  `python3 -m pytest dev/scripts/devctl/tests/test_mobile_status.py dev/scripts/devctl/tests/test_control_plane_surface_wiring.py dev/scripts/devctl/tests/runtime/test_control_plane_read_model.py dev/scripts/devctl/tests/runtime/test_review_state_locator.py dev/scripts/devctl/tests/test_repo_packs.py -q --tb=short`
+  passed (`75 passed`).
+  `python3 dev/scripts/devctl.py docs-check --strict-tooling`,
+  `python3 dev/scripts/checks/check_active_plan_sync.py`,
+  `python3 dev/scripts/checks/check_multi_agent_sync.py`, and
+  `python3 dev/scripts/checks/check_platform_contract_closure.py`
+  all passed after the owner-doc updates for this slice.
 - 2026-04-07 action-request projection/binding validation:
   `python3 -m pytest dev/scripts/devctl/tests/review_channel/test_action_request.py dev/scripts/devctl/tests/review_channel/test_plan_packets.py dev/scripts/devctl/tests/review_channel/test_bridge_render.py -q --tb=short`
   passed (`56 passed`), and

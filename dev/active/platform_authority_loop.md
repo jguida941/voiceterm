@@ -1,6 +1,6 @@
 # Platform Authority Loop Plan
 
-**Status**: active  |  **Last updated**: 2026-04-08 | **Owner:** Tooling/control plane/product architecture
+**Status**: active  |  **Last updated**: 2026-04-09 | **Owner:** Tooling/control plane/product architecture
 Execution plan contract: required
 This spec remains execution mirrored in `dev/active/MASTER_PLAN.md` under
 `MP-377`. It is the current subordinate execution spec for the `P0`
@@ -194,6 +194,11 @@ intended execution order is:
 - [ ] Freeze one repo-pack-owned canonical `review_state` artifact path and
       demote candidate-search lists to compatibility-only readers so review
       authority no longer depends on fallback path guessing.
+- [ ] Freeze one canonical reviewer-turn/range owner across
+      `session_resume_support.py`, `review_candidate.py`, and
+      `reviewer_head_tracking.py` so reviewer bootstrap, review candidates,
+      and `last_reviewed_scope` all derive from one typed record instead of
+      recomputing divergent turn/range truth from adjacent projections.
 - [ ] Define one operator-approved governed push override path on top of that
       same push policy so a blocked publish may retry only under a
       generation-bound `override_push` decision tied to exact approved target
@@ -719,6 +724,89 @@ intended execution order is:
       plus collision-free id generation must be frozen before
       `PlanRegistry` / `PlanTargetRef` implementation can count as closed.
 
+### Phase 1.5 - Graph Lookup And Authority Lineage
+
+- [ ] Treat this tranche as query work over the existing
+      `ContextGraphSnapshot`, not as a new "semantic graph engine" product:
+      the accepted implementation shape is one small codeshape ingestion pass
+      that emits function/type/call-edge nodes into the existing graph
+      substrate, then a bounded set of graph-backed queries, guards, and
+      metadata projections on top of that snapshot. Do not introduce a second
+      backend, a second authority store, or a parallel graph product surface
+      just to land these proofs.
+- [ ] Keep the strategic reason explicit in-plan: typed-authority convergence
+      is about collapsing duplicated typed surfaces onto one minted identity
+      tuple and one canonical read model. The graph layer helps only because
+      it turns that duplication into machine-answerable questions
+      (`which writers emit the tuple?`, `which callers still reach bridge
+      parsers?`, `which SystemCatalog fields alias the same physical thing?`);
+      it does not replace the typed contracts that answer those questions.
+- [ ] Sequence the graph intake honestly. Immediate wins are the small
+      query/guard items that close already-accepted gaps across the existing
+      owner chain: `remote_commit_pipeline.md` owns codeshape-hop
+      mutation-bypass discovery, this doc owns minted identity-tuple parity
+      plus `zref_*` / tuple validation / lineage constraints, and
+      `remote_control_runtime.md` owns raw bridge-reader regression closure.
+      Foundation-dependent leverage comes later: read-side schema-diff parity
+      after consumer schemas are explicit, authority-lineage persistence after
+      durable append-only lineage storage exists, and `SystemCatalog`
+      union-diff only after the schema/type substrate is mature. Explicitly
+      defer speculative stretch work such as embeddings-based dedup,
+      AI-synthesized repair hints, and strong second-repo graph-isomorphism
+      claims until the smaller substrate proves out.
+- [ ] Preserve the dependency ladder in the owner plan so future sessions do
+      not widen the slice incorrectly: `Step 1` add the codeshape ingestion
+      pass; `Step 2` index artifact-writer identity metadata; `Step 3`
+      formalize declared schemas for read surfaces; `Step 4` add durable
+      append-only lineage capture; `Step 5` add schema/type union-diff
+      tooling. Only claim the later graph wins after the prerequisite step is
+      complete.
+- [ ] Keep the graph layer subordinate to typed authority: compose
+      `dev/scripts/devctl/context_graph/models.py`,
+      `dev/scripts/devctl/governance/guard_findings.py`,
+      `dev/scripts/devctl/runtime/finding_contracts.py`, a new codeshape
+      ingestion pass, and a repo-owned adapter/query-policy seam inspired by
+      the sibling-repo integration pattern under `dev/repo_example_temp/`
+      (specifically the adapter injection shape from
+      `astarihope-main/arela_integration.py` and the query-policy loader shape
+      from `astarihope-main/smartpath/dispatch/dispatcher.py`). Do not port
+      `ZGraph-Notation` as a standalone engine: use it only as a compact
+      notation/output idea, keep `ContextGraphSnapshot` as the graph
+      substrate, and land the composed query surface as `governance_graph` (or
+      an equivalently named repo-owned module) so convergence becomes
+      query-driven instead of grep-driven. It does not replace
+      `ProjectGovernance`, `ReviewState`, `ControlPlaneReadModel`, or the
+      canonical typed contracts themselves.
+- [ ] Mint a human-readable `zref_<snapshot_id_prefix8>_<head_sha_prefix8>`
+      handle alongside the typed identity tuple. Emit it from
+      `dev/scripts/devctl/runtime/startup_context.py`, then project it
+      unchanged through `review_state.json`, `compact.json`,
+      `commit_pipeline.json`, `SessionCachePacket`,
+      `ControlPlaneReadModel`, dashboard, and bridge compatibility surfaces as
+      a display/filename handle only; the full
+      `{snapshot_id, generation_id, head_sha, worktree_hash}` tuple remains
+      canonical inside the typed artifact bodies.
+- [ ] Keep graph execution policy repo-owned: route graph queries through a
+      bounded policy/config loader keyed by snapshot identity, and treat the
+      ZGraph-style notation only as compact edge serialization for logs,
+      bridge compatibility text, and dashboard cells. Neither the notation nor
+      the query cache becomes a second authority store.
+- [ ] Add `validate_identity_tuple()` in
+      `dev/scripts/checks/check_support.py` and wire it into the startup /
+      control-plane / governed-mutation path so any artifact writer that
+      omits `{snapshot_id, generation_id, head_sha, worktree_hash}` fails
+      typed instead of silently defaulting or patching fields later.
+- [ ] Treat authority-lineage persistence as append-only typed evidence from
+      day one: no global state in capture hooks, no string-concatenated trace
+      text, no in-memory single-process lineage cache, and ISO 8601 timestamps
+      only. Keep the storage contract JSONL-first (or an equally explicit
+      durable store) so concurrent worktrees and later second-repo proof do
+      not inherit single-process assumptions.
+- [ ] If write volume warrants batching, keep the batching discipline
+      repo-owned and bounded: buffered lineage/audit writes may flush on a
+      short timer or bounded batch size, but they must preserve append-only
+      ordering, stable schema validation, and crash-safe persistence semantics.
+
 ### Phase 2 - RepoPack Runtime Activation
 
 - [ ] Replace VoiceTerm fallback globals with one explicit runtime-loaded
@@ -971,9 +1059,23 @@ intended execution order is:
       projected unchanged through `review_state`, `commit_pipeline`,
       `compact/full`, `SessionCachePacket`, `ControlPlaneReadModel`,
       dashboard, and bridge projection.
+- [ ] Materialize that identity-tuple proof as metadata, not prose: index the
+      current artifact writers in `dev/scripts/devctl/runtime/startup_context.py`,
+      `dev/scripts/devctl/runtime/review_state_models.py`,
+      `dev/scripts/devctl/runtime/control_plane_read_model.py`,
+      `dev/scripts/devctl/commands/vcs/commit.py`, and
+      `dev/scripts/devctl/commands/vcs/push.py`, and fail parity whenever a
+      current writer omits or rewrites `{snapshot_id, generation_id,
+      head_sha, worktree_hash}`.
 - [ ] Define one-writer rules plus same-tick, monotonic-generation, partial-
       refresh, and rollback semantics for that identity tuple so parity guards
       can treat "same snapshot" as a real proof instead of a renderer label.
+- [ ] Keep graph-backed architecture review subordinate to typed authority:
+      use `context-graph` / `ConceptIndex` / ZGraph-compatible reducers first
+      as probes for duplicate readers/writers, stale bridge fallback edges,
+      plan/doc drift, and repeated startup-repair churn, then only promote a
+      graph-derived invariant into a blocking guard after replay/corpus
+      validation proves the signal is low-noise enough for merge-time use.
 
 ### Phase 4 - First Runtime Slice
 
@@ -1091,6 +1193,13 @@ blocker or exception in plan state before skipping the declared order.
       surfaces before widening `DecisionTrace`: task-router contract,
       push-policy contract, startup-context output shape, and the first
       validation/failure adapter path must each have focused contract tests.
+- [ ] Add an authority-lineage evidence graph on top of those same canonical
+      authority artifacts: plan edits, guard activations, surface
+      registrations, and review/control state transitions should record
+      `author`, `timestamp`, `snapshot_id`, `prior_state_hash`,
+      `new_state_hash`, and a bounded change summary so fresh sessions can
+      query "what changed between proof ticks?" without spelunking raw git
+      history or bridge prose.
 - [ ] Close the validation and runtime-contract backlog cluster from
       `issues.md` in this phase: `ISS-003`, `ISS-005`, `ISS-010`,
       `ISS-017`, `ISS-018`, `ISS-025`, `ISS-052`, `ISS-053`, `ISS-054`,
@@ -1791,6 +1900,20 @@ blocker or exception in plan state before skipping the declared order.
   identity tuple / writer rule, and 3) replace bridge freshness as the last
   reviewer-liveness dependency before broader remote-control or second-repo
   proof claims widen again.
+- 2026-04-09 convergence-guard layering review:
+  package-layout remains the coarse self-hosting backstop, but the owner work
+  here is authoritative producer closure: canonical review-state path,
+  singular reviewer-turn/range ownership, minted identity tuple, and
+  one-writer semantics. Graph-backed probes should now mine duplicate
+  authority and fallback drift around those contracts, but they must not
+  replace the typed producer contracts themselves.
+- 2026-04-09 minted-identity and lineage intake:
+  treat the next proof here as writer parity, not another docs pass. Freeze
+  `{snapshot_id, generation_id, head_sha, worktree_hash}` across
+  `startup_context`, `review_state_models`, `ControlPlaneReadModel`, and the
+  governed commit/push artifacts, project the human-readable `zref_*` handle
+  through the same surfaces, then add lineage receipts so authority changes
+  are queryable between snapshots.
 - 2026-04-08 coordination read-model follow-up: resume from the remaining
   load-bearing gap, not from reducer design. `CoordinationSnapshot` exists and
   is already visible on markdown/bootstrap paths, but the shared
@@ -2430,6 +2553,21 @@ blocker or exception in plan state before skipping the declared order.
 
 ## Progress Log
 
+- 2026-04-09: Absorbed the repo-specific identity/lineage slice from the
+  graph-backed convergence intake into this owner doc. The current
+  implementation pressure is now explicit: freeze the minted tuple across
+  `startup_context`, `review_state_models`, `ControlPlaneReadModel`, and the
+  governed commit/push surfaces, add a human-readable `zref_*` handle, then
+  add authority-lineage evidence so producer drift is queryable between
+  snapshots instead of only visible in raw git history.
+- 2026-04-09: Accepted the stricter audit framing for this lane instead of
+  the looser "semantic graph engine" wording. The agreed plan is now
+  explicit: build queries over the existing `ContextGraphSnapshot` plus one
+  small codeshape ingestion pass, treat the immediate graph wins as
+  mutation-bypass discovery / identity parity / bridge-reader closure /
+  `zref_*` / tuple validation, and defer schema-union, lineage-graph, and
+  second-repo graph-isomorphism ambitions until the smaller substrate proves
+  itself here first.
 - 2026-04-09: Closed one bounded producer/consumer freeze follow-up in the
   Phase-1 review-state cutover lane. `build_control_plane_read_model()` now
   replaces its raw `sources["review_state"]` payload with the caller-threaded

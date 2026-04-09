@@ -94,6 +94,66 @@
   `portable_code_governance.md` owns the second-repo/custom-layout proof
   pressure. `MASTER_PLAN.md` plus those owner docs remain the only execution
   trackers; audit/evidence docs stay intake-only unless promoted.
+- Current 2026-04-09 convergence-guard layering rule inside that same lane:
+  the live defect is duplicated and partially-connected typed architecture,
+  not missing typed models. Keep `check_package_layout.py` plus
+  compatibility-shim governance as the coarse self-hosting backstop for
+  crowded roots, but do not treat layout pressure as the primary architecture
+  proof. Blocking closure must move toward governed-mutation anti-bypass,
+  authoritative `review_state` production, minted identity-tuple parity,
+  read-model-first consumers, schema-first `SystemCatalog` /
+  `AgentDispatchPacket` convergence, and prompt/bootstrap field-route parity.
+- Current 2026-04-09 graph-backed review rule inside that same lane:
+  `context-graph` / `ConceptIndex` / ZGraph-style reducers remain generated
+  search and review helpers, not new authority stores. Use them first as
+  graph-backed probes for duplicate producers/readers, stale bridge fallback
+  edges, guard-coverage gaps, dead topology, and plan/prompt drift; only
+  promote those signals into blocking guards after replay or corpus evidence
+  proves the false-positive rate is low enough for merge-time enforcement.
+- Current 2026-04-09 graph-backed convergence routing note inside that same
+  lane: the concrete intake is now routed through the existing owner docs
+  instead of floating as audit prose. `remote_commit_pipeline.md` owns the
+  first codeshape-hop mutation-bypass proof and its permanent guard;
+  `platform_authority_loop.md` owns minted identity-tuple parity, ZRef
+  projection, and authority-lineage evidence; `remote_control_runtime.md`
+  owns read-side schema diff, raw-bridge-reader regression closure,
+  duplicate-authority probes, recurring-finding clustering, and cross-surface
+  snapshot parity; `portable_code_governance.md` owns the non-VoiceTerm
+  import fence, config-diff repo-pack defaults proof, and the second-repo
+  isomorphism pressure.
+- Current 2026-04-09 graph-backed convergence triage note inside that same
+  lane: the accepted framing is query work over the existing
+  `ContextGraphSnapshot` plus a small codeshape ingestion pass, not a new
+  semantic-graph backend. Immediate/high-value intake is the small
+  query/guard tranche already aligned to active gaps (mutation-bypass proof,
+  identity-tuple parity, bridge-reader closure, `zref_*`, tuple validation);
+  schema-diff, lineage, and schema-union work stay sequenced behind their
+  substrate prerequisites; speculative graph features stay deferred until the
+  smaller proofs are stable.
+- Current 2026-04-09 graph-proof guardrail note inside that same lane: a
+  graph-backed signal may fail closed only when it is bound to the current
+  snapshot, compatible graph-schema version, and a cached or replay-stable
+  reducer. Historical trend queries, corpus comparisons, and retrospective
+  topology scans stay advisory until their precision is proven.
+- Current 2026-04-09 producer-order cutover inside that same lane: the shared
+  live review-state loader no longer defaults to bridge refresh when typed
+  authority already exists. `load_current_review_state*` now prefers
+  canonical event-backed state first, then an already-written typed
+  projection, and only then falls back to bridge-backed status refresh. The
+  remaining owner work stays where the chain already says it belongs:
+  `platform_authority_loop.md` owns the canonical review-state path + minted
+  identity closure, while `remote_control_runtime.md` keeps the downstream
+  read-side/bootstrap parity proof.
+- Current 2026-04-09 command-boundary freeze closure inside that same lane:
+  the reopened MP-384/MP-387 F1 parity flake is now narrowed at the CLI edge
+  instead of only in helper tests. `session-resume` cache misses now force one
+  live `load_current_review_state(... prefer_cached_projection=False)` read,
+  and dashboard resolves governance plus current review state once per
+  snapshot before reusing that same typed payload for both `load_sources()` and
+  `ControlPlaneReadModel`. The focused parity bundle is green on consecutive
+  runs; the remaining read-side consumer inventory is now mobile/helper/repo-
+  pack fallbacks plus the live remote-control proof, not another abstract
+  coordination-model pass.
 - Current 2026-04-01 architecture-absorption follow-up inside that same lane:
   fold the accepted external integration review into canonical owner plans
   instead of carrying `dev/intrgrate_analysis.md` as shadow authority. The
@@ -442,11 +502,12 @@
   ahead of stale bridge prose when those sources disagree. `review-snapshot
   --write --receipt-commit` refuses non-snapshot dirty state and creates a
   snapshot-only receipt commit bound to the current code HEAD, while
-  `install-git-hooks` installs the pre-commit projection hook plus a
+  `install-git-hooks` installs the pre-commit projection hook, the
   post-commit receipt hook that invokes that typed path with hook recursion
-  disabled. Next follow-ups are fresh open-finding recomputation from the
-  renewed snapshot inputs and a distinct external-agent authority-drift
-  detector.
+  disabled, and a blocking pre-push hook that forces raw publication back
+  through `devctl push --execute`. Next follow-ups are fresh open-finding
+  recomputation from the renewed snapshot inputs and a distinct
+  external-agent authority-drift detector.
 - Current 2026-04-05 provider-neutral bootstrap follow-up inside that same
   lane: reviewer/implementer ownership is now tracked as role-first launch
   state instead of fixed Codex/Claude identity. Planned lane parsing,
