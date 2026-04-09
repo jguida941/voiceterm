@@ -3991,6 +3991,18 @@ blocker or exception in plan state before skipping the declared order.
   `test_check_agents_bundle_render.py`, and
   `test_check_bundle_workflow_parity.py`) plus direct
   `check_bundle_workflow_parity.py` proof are green after the slice.
+- Hookable next-command + release-lane branch routing follow-up
+  (2026-04-09): the live governed-push receipt exposed one more false block:
+  feature-branch preflight still reused the release-lane CodeRabbit commands
+  with `--branch master`, so `devctl push` could fail even when the current
+  branch and SHA were otherwise publishable. The follow-up resolves the active
+  branch for `check --profile release`, enables branch fallback only when the
+  current branch is not the configured release branch, and keeps release-line
+  checks strict. In the same lane, `review-channel status` / `doctor` now
+  hoist a single top-level `recommended_command`, preferring typed doctor or
+  attention recovery commands and otherwise reusing
+  `push_decision.next_step_command`, which gives hooks and remote-control
+  launchers one deterministic field to consume.
 - Docs-authority slice verification (2026-03-20): `python3 -m pytest
   dev/scripts/devctl/tests/governance/test_doc_authority.py -q --tb=short`
   passed (`30/30`). `python3 dev/scripts/devctl.py doc-authority --format md`

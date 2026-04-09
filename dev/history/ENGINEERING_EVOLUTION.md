@@ -9034,6 +9034,34 @@ Evidence: `dev/scripts/devctl/review_channel/ack_contract.py`,
 `dev/active/MASTER_PLAN.md`,
 `dev/active/ai_governance_platform.md`.
 
+### 2026-04-09 - Feature-branch release-lane preflight is branch-aware and review status hoists one next command
+
+Fact: the governed push path exposed a real self-hosting mismatch. A
+feature-branch diff that legitimately routed through `bundle.release` still
+reused CodeRabbit release-gate commands hardcoded to `master`, so
+`devctl push` could fail even when the current branch and SHA were otherwise
+the right preflight target. The release-lane `check --profile release` path
+now resolves the active branch, keeps the configured release branch strict,
+and enables commit fallback only off that branch. The same slice also closed
+an operator/automation discoverability gap: `review-channel --action status`
+and `review-channel --action doctor` now hoist one top-level typed
+`recommended_command`, preferring typed doctor/attention recovery commands and
+otherwise reusing `push_decision.next_step_command`, so hooks and
+remote-control launchers can consume one deterministic next step instead of
+spelunking nested projections.
+
+Evidence: `dev/scripts/devctl/commands/check/__init__.py`,
+`dev/scripts/devctl/commands/review_channel/doctor_support.py`,
+`dev/scripts/devctl/commands/review_channel/status.py`,
+`dev/scripts/devctl/tests/commands/check/test_check.py`,
+`dev/scripts/devctl/tests/review_channel/test_reviewer_runtime_doctor.py`,
+`dev/scripts/devctl/tests/review_channel/test_review_channel.py`,
+`AGENTS.md`,
+`dev/guides/DEVELOPMENT.md`,
+`dev/scripts/README.md`,
+`dev/active/MASTER_PLAN.md`,
+`dev/active/platform_authority_loop.md`.
+
 ### 2026-04-04 - Governed push receipts now project one current-target truth across startup and review surfaces
 
 Fact: the repo already had the right publication contract in spirit, but not

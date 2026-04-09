@@ -1334,6 +1334,17 @@
   immediate refactor regression where bridge-backed status/ensure repair
   crashed on missing runtime-path context before it could classify
   `runtime_missing` or surface the real relaunch boundary.
+- 2026-04-09 hookable next-command + feature-branch release-lane follow-up:
+  release-lane validation no longer hardcodes CodeRabbit gate lookups to
+  `master` when a feature-branch diff routes through `bundle.release`; the
+  `check --profile release` gate now resolves the active branch and enables
+  commit fallback only off the configured release branch, while keeping the
+  release branch strict. The same slice hoists one top-level typed
+  `recommended_command` out of `review-channel status` / `doctor`, preferring
+  typed doctor or attention recovery commands and otherwise reusing
+  `push_decision.next_step_command` so repo-owned hooks and remote-control
+  launchers can consume one deterministic next step instead of spelunking
+  nested projections.
 - 2026-03-29 package-layout baseline-debt enforcement closure: the
   `check_package_layout` guard now supports `--fail-on-baseline-debt` with
   optional `--baseline-debt-root` filtering, promoting detected baseline debt

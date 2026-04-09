@@ -6756,6 +6756,10 @@ class ReviewChannelCommandTests(unittest.TestCase):
             errors=[],
             projection_paths=projection_paths,
             reviewer_worker=reviewer_worker,
+            push_decision={
+                "action": "run_devctl_push",
+                "next_step_command": "python3 dev/scripts/devctl.py push --execute",
+            },
         )
 
         with (
@@ -6806,6 +6810,10 @@ class ReviewChannelCommandTests(unittest.TestCase):
             errors=[],
             projection_paths=projection_paths,
             reviewer_worker=reviewer_worker,
+            push_decision={
+                "action": "run_devctl_push",
+                "next_step_command": "python3 dev/scripts/devctl.py push --execute",
+            },
         )
 
         with (
@@ -6854,6 +6862,11 @@ class ReviewChannelCommandTests(unittest.TestCase):
         )
         self.assertEqual(report["publisher"], {"running": False})
         self.assertEqual(report["reviewer_supervisor"], {"running": False})
+        self.assertEqual(
+            report["recommended_command"],
+            "python3 dev/scripts/devctl.py push --execute",
+        )
+        self.assertEqual(report["recommended_command_source"], "push_decision")
 
     def test_ensure_requires_reviewer_supervisor_when_review_is_pending(self) -> None:
         args = SimpleNamespace(follow=False)

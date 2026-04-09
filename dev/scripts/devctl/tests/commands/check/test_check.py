@@ -162,6 +162,40 @@ class CheckProfileTests(TestCase):
         args = parser.parse_args(["check", "--no-host-process-cleanup"])
         self.assertTrue(args.no_host_process_cleanup)
 
+    @patch("dev.scripts.devctl.commands.check.load_push_policy")
+    @patch("dev.scripts.devctl.commands.check.collect_git_status")
+    def test_release_gate_commands_use_current_branch_off_release_branch(
+        self,
+        collect_git_status_mock,
+        load_push_policy_mock,
+    ) -> None:
+        collect_git_status_mock.return_value = {"branch": "feature/release-audit"}
+        load_push_policy_mock.return_value = SimpleNamespace(release_branch="master")
+
+        commands = check.build_release_gate_commands()
+
+        self.assertIn("feature/release-audit", commands[1])
+        self.assertIn("--allow-branch-fallback", commands[1])
+        self.assertIn("feature/release-audit", commands[2])
+        self.assertIn("--allow-branch-fallback", commands[2])
+
+    @patch("dev.scripts.devctl.commands.check.load_push_policy")
+    @patch("dev.scripts.devctl.commands.check.collect_git_status")
+    def test_release_gate_commands_keep_release_branch_strict(
+        self,
+        collect_git_status_mock,
+        load_push_policy_mock,
+    ) -> None:
+        collect_git_status_mock.return_value = {"branch": "master"}
+        load_push_policy_mock.return_value = SimpleNamespace(release_branch="master")
+
+        commands = check.build_release_gate_commands()
+
+        self.assertIn("master", commands[1])
+        self.assertNotIn("--allow-branch-fallback", commands[1])
+        self.assertIn("master", commands[2])
+        self.assertNotIn("--allow-branch-fallback", commands[2])
+
     def test_cli_accepts_parallel_flags(self) -> None:
         parser = build_parser()
         args = parser.parse_args(["check", "--no-parallel", "--parallel-workers", "2"])

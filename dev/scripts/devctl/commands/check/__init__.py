@@ -12,8 +12,10 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
+from ...collect import collect_git_status
 from ...common import build_env
 from ...config import get_repo_root, set_repo_root
+from ...governance.push_policy import load_push_policy
 from ...process_sweep.core import (
     kill_processes,
     scan_repo_hygiene_process_tree,
@@ -78,8 +80,34 @@ def _parse_etime_seconds(raw: str) -> int | None:
     return parse_etime_seconds_for_compat(raw)
 
 
+def _resolve_release_gate_branch() -> tuple[str, bool]:
+    """Return the active branch and whether commit fallback should be allowed."""
+    release_branch = "master"
+    try:
+        policy = load_push_policy()
+        release_branch = str(policy.release_branch or "").strip() or release_branch
+    except ValueError:
+        pass
+
+    git_info = collect_git_status()
+    branch = ""
+    if isinstance(git_info, dict):
+        branch = str(git_info.get("branch") or "").strip()
+    if not branch or branch == "HEAD":
+        branch = release_branch
+    return branch, branch != release_branch
+
+
 def build_release_gate_commands() -> list[list[str]]:
     """Return release-gate commands required by `check --profile release`."""
+    branch, allow_branch_fallback = _resolve_release_gate_branch()
+    coderabbit_gate_cmd = check_script_cmd("coderabbit_gate", "--branch", branch)
+    coderabbit_ralph_gate_cmd = check_script_cmd(
+        "coderabbit_ralph_gate", "--branch", branch
+    )
+    if allow_branch_fallback:
+        coderabbit_gate_cmd.append("--allow-branch-fallback")
+        coderabbit_ralph_gate_cmd.append("--allow-branch-fallback")
     return [
         [
             "python3",
@@ -90,8 +118,8 @@ def build_release_gate_commands() -> list[list[str]]:
             "--format",
             "md",
         ],
-        check_script_cmd("coderabbit_gate", "--branch", "master"),
-        check_script_cmd("coderabbit_ralph_gate", "--branch", "master"),
+        coderabbit_gate_cmd,
+        coderabbit_ralph_gate_cmd,
     ]
 
 

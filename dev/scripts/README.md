@@ -523,7 +523,11 @@ Portability note:
   phone/dashboard clients can see truthful blocked or ready pipeline state
   without scraping bridge prose. The reduced `doctor` payload also carries the
   projected publisher/supervisor running state plus the last heartbeat and
-  stop-reason fields for both daemons. Startup push truth still comes from
+  stop-reason fields for both daemons. Status/doctor now also hoist one
+  top-level `recommended_command`, preferring typed recovery commands and
+  otherwise reusing `push_decision.next_step_command`, so hooks and launcher
+  wrappers can consume one field instead of unpacking multiple nested
+  compatibility projections. Startup push truth still comes from
   `reviewer_runtime.publish_clear` and the shared `push_decision` path, not a
   second doctor-only evaluator. The same status refresh now stamps one shared
   `snapshot_id` across `review_state.json`, `compact.json`, `commit_pipeline`,
@@ -799,7 +803,9 @@ python3 dev/scripts/checks/check_architecture_surface_sync.py --since-ref origin
 python3 dev/scripts/checks/check_package_layout.py --since-ref origin/develop --head-ref HEAD
 python3 dev/scripts/checks/check_multi_agent_sync.py
 python3 dev/scripts/checks/check_release_version_parity.py
-# CodeRabbit release gates (strict local verification mode).
+# CodeRabbit release gates (strict local verification mode on the release
+# branch; off the release branch, `check --profile release` resolves the
+# current branch and enables commit fallback).
 CI=1 python3 dev/scripts/devctl.py release-gates --branch master --sha "$(git rev-parse HEAD)" --wait-seconds 1800 --poll-seconds 20 --format md
 python3 dev/scripts/checks/run_coderabbit_ralph_loop.py --repo owner/repo --branch develop --max-attempts 3 --format md
 python3 dev/scripts/checks/check_cli_flags_parity.py
@@ -1575,7 +1581,7 @@ Machine-first output note:
 | `process-audit --strict --format md` | when you need read-only host diagnosis or cleanup was intentionally skipped | audits the real host process table for repo leftovers, including descendant PTY children and repo-cwd runtime/tooling helpers that would otherwise look generic in Activity Monitor; attached interactive helper sessions are no longer promoted into stale failures unless they detach/background |
 | `data-science --format md` | you want a fresh productivity/agent-sizing snapshot from current telemetry | builds `summary.{md,json}` + charts from devctl events, swarm/benchmark history, watchdog episodes, and governance-review adjudication metrics |
 | `governance-review --format md` | you want the current false-positive / cleanup scoreboard for reviewed guard and probe findings | reads the governance review JSONL ledger, keeps the latest verdict per finding id, and writes refreshed `review_summary.{md,json}` artifacts |
-| `check --profile release` | before release/tag verification on `master` | adds strict remote CI-status + CodeRabbit/Ralph release gates plus non-blocking mutation-score reminders on top of local release checks |
+| `check --profile release` | before release/tag verification on `master`, or when feature-branch work touches release-owned surfaces | adds strict remote CI-status + CodeRabbit/Ralph release gates plus non-blocking mutation-score reminders on top of local release checks; off the configured release branch it resolves the active branch and enables commit fallback instead of hardcoding `master` |
 | `mcp --tool release_contract_snapshot --format json` | an MCP client needs a read-only control-plane contract view | exposes allowlisted, read-only snapshots without changing `devctl` as enforcement authority |
 | `check --profile ai-guard` | after touching larger Rust/Python files or guard-owned governance files | runs the full AI guard pack without full test/build cycle for focused cleanup |
 | `launcher-check` | you want the launcher/package Python guard lane without remembering a policy path or broader repo checks | delegates to a focused AI-guard-only run against `scripts/` + `pypi/src` using `dev/config/devctl_policies/launcher.json` |

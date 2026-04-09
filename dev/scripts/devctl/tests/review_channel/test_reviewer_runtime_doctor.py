@@ -7,6 +7,9 @@ from types import SimpleNamespace
 from dev.scripts.devctl.commands.review_channel.reviewer_runtime_snapshot import (
     attach_reviewer_runtime_snapshot,
 )
+from dev.scripts.devctl.commands.review_channel.doctor_support import (
+    build_doctor_report,
+)
 from dev.scripts.devctl.review_channel.reviewer_runtime_doctor import (
     build_reviewer_doctor_surface,
 )
@@ -289,3 +292,46 @@ def test_build_reviewer_doctor_surface_includes_runtime_counts() -> None:
     assert counts["delegated_receipt_total"] == 2
     assert counts["delegated_work_total"] == 2
     assert counts["running_daemon_count"] == 1
+
+
+def test_build_doctor_report_hoists_push_decision_command_when_doctor_is_blank() -> None:
+    report, _ = build_doctor_report(
+        status_report={
+            "timestamp": "2026-04-09T12:00:00Z",
+            "ok": True,
+            "doctor": {"recommended_command": ""},
+            "attention": {"recommended_command": ""},
+            "push_decision": {
+                "action": "run_devctl_push",
+                "next_step_command": "python3 dev/scripts/devctl.py push --execute",
+            },
+        },
+        exit_code=0,
+    )
+
+    assert report["recommended_command"] == "python3 dev/scripts/devctl.py push --execute"
+    assert report["recommended_command_source"] == "push_decision"
+
+
+def test_build_doctor_report_prefers_doctor_command_over_push_decision() -> None:
+    report, _ = build_doctor_report(
+        status_report={
+            "timestamp": "2026-04-09T12:00:00Z",
+            "ok": True,
+            "doctor": {
+                "recommended_command": (
+                    "python3 dev/scripts/devctl.py review-channel --action ensure "
+                    "--terminal none --format json"
+                )
+            },
+            "attention": {"recommended_command": ""},
+            "push_decision": {
+                "action": "run_devctl_push",
+                "next_step_command": "python3 dev/scripts/devctl.py push --execute",
+            },
+        },
+        exit_code=0,
+    )
+
+    assert "review-channel --action ensure" in report["recommended_command"]
+    assert report["recommended_command_source"] == "doctor"

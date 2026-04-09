@@ -458,6 +458,10 @@ checklist plus chat memory.
     slice but the typed state has no valid candidate, fail closed and repair
     the handoff before review instead of inferring from bridge prose or HEAD
     alone.
+    That same status/doctor family now hoists one top-level
+    `recommended_command`, preferring typed recovery commands and otherwise
+    reusing `push_decision.next_step_command`, so hooks/launchers should read
+    that field before spelunking nested compatibility projections.
     Before any launch/recover choice, read that bootstrap packet's
     `interaction_mode` plus typed reviewer visibility. In `local_terminal`,
     prefer visible `review-channel --action launch|rollover --terminal terminal-app`;
@@ -2132,7 +2136,7 @@ Core commands:
 | `python3 dev/scripts/devctl.py process-cleanup --verify --format md` | after PTY/runtime tests, manual tooling bundles, or before handoff when host access is available | safely kills orphaned/stale repo-related host process trees, including descendant PTY children, repo-cwd background helpers, and orphaned tooling descendants, then reruns strict host audit |
 | `python3 dev/scripts/devctl.py process-audit --strict --format md` | when you need read-only host diagnosis or cleanup was intentionally skipped | audits the real host process table for repo leftovers visible in Activity Monitor, including descendant PTY children and repo-cwd runtime/tooling helpers that would otherwise look generic |
 | `python3 dev/scripts/devctl.py process-watch --cleanup --strict --stop-on-clean --iterations 6 --interval-seconds 15 --format md` | you are reproducing a host leak or running long-lived local work and want periodic checks instead of one final sweep | reruns the host audit/cleanup loop on a cadence and stops only after the host process table is clean |
-| `python3 dev/scripts/devctl.py check --profile release` | before release/tag validation on `master` | adds strict remote CI-status + CodeRabbit/Ralph release gates on top of local checks, with mutation-score surfaced as non-blocking reminder output |
+| `python3 dev/scripts/devctl.py check --profile release` | before release/tag validation on `master`, or when a feature-branch diff routes through `bundle.release` | adds strict remote CI-status + CodeRabbit/Ralph release gates on top of local checks, with mutation-score surfaced as non-blocking reminder output; off the configured release branch it resolves the active branch and allows commit fallback instead of hardcoding `master` |
 | `python3 dev/scripts/devctl.py docs-check --user-facing` | user behavior/docs changed | keeps user docs aligned with behavior |
 | `python3 dev/scripts/devctl.py docs-check --strict-tooling` | tooling/process/CI changed | enforces governance and active-plan sync |
 | `python3 dev/scripts/devctl.py tandem-validate --format md` | a Codex/Claude tandem slice needs one canonical validator instead of a hand-written checklist | resolves the real lane through `check-router`, runs the routed bundle plus risk add-ons, then rechecks review-channel and tandem consistency |

@@ -34,6 +34,7 @@ from .bridge_handler import _run_bridge_action
 from .doctor_support import (
     attach_status_runtime_snapshot,
     build_doctor_report,
+    resolve_status_recommended_command,
 )
 from ..review_channel_command import (
     RuntimePaths,
@@ -232,6 +233,9 @@ def _refresh_bridge_status_report(
     report["push_decision"] = snapshot.push_decision
     report["projection_paths"] = projection_paths_to_dict(snapshot.projection_paths)
     attach_status_runtime_snapshot(report)
+    recommended_command, command_source = resolve_status_recommended_command(report)
+    report["recommended_command"] = recommended_command
+    report["recommended_command_source"] = command_source
     report["warnings"] = merge_status_messages(
         report.get("warnings"),
         snapshot.warnings,

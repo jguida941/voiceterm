@@ -519,7 +519,10 @@ Three quality layers matter in practice:
     push-readiness evaluator. The reduced `doctor` payload now also carries
     publisher/supervisor running state plus the last projected heartbeat and
     stop-reason fields so remote-control dashboards do not need a second
-    daemon-only status call.
+    daemon-only status call. Status/doctor now also hoist one top-level
+    `recommended_command`, preferring typed recovery commands and otherwise
+    reusing `push_decision.next_step_command`, so hooks or launcher shims can
+    consume one field instead of re-deriving the next step from nested state.
   - `startup-context` is the typed startup packet for those same sessions.
     It should read reviewer/publish gating from typed
     `reviewer_runtime.review_acceptance.review_accepted` and
@@ -1345,7 +1348,7 @@ python3 dev/scripts/devctl.py triage --pedantic --no-cihub --emit-bundle --forma
 # AI guard lane (shape/isolation/matrix/naming + Rust quality/security guards)
 python3 dev/scripts/devctl.py check --profile ai-guard
 
-# Release verification lane (wake guard + non-blocking mutation-score reminders + strict remote CI/CodeRabbit gates)
+# Release verification lane (wake guard + non-blocking mutation-score reminders + strict remote CI/CodeRabbit gates; off the configured release branch it resolves the active branch and enables commit fallback instead of hardcoding `master`)
 python3 dev/scripts/devctl.py check --profile release
 
 # Fast local iteration lane (alias of quick; local-only and never a pre-push/release replacement)

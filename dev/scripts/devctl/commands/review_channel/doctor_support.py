@@ -31,6 +31,37 @@ def attach_status_runtime_snapshot(report: dict[str, object]) -> None:
     )
 
 
+def resolve_status_recommended_command(
+    status_report: dict[str, object],
+) -> tuple[str, str]:
+    """Return the single best next-step command from the typed status surface."""
+    doctor = status_report.get("doctor")
+    if isinstance(doctor, dict):
+        command = str(doctor.get("recommended_command") or "").strip()
+        if command:
+            return command, "doctor"
+
+    attention = status_report.get("attention")
+    if isinstance(attention, dict):
+        command = str(attention.get("recommended_command") or "").strip()
+        if command:
+            return command, "attention"
+
+    push_decision = status_report.get("push_decision")
+    if isinstance(push_decision, dict):
+        command = str(push_decision.get("next_step_command") or "").strip()
+        if command:
+            return command, "push_decision"
+
+    reviewer_runtime = status_report.get("reviewer_runtime")
+    if isinstance(reviewer_runtime, dict):
+        command = str(reviewer_runtime.get("recovery_action_allowed") or "").strip()
+        if command:
+            return command, "reviewer_runtime"
+
+    return "", ""
+
+
 def build_doctor_report(
     *,
     status_report: dict[str, object],
@@ -59,6 +90,11 @@ def build_doctor_report(
     doctor_report["service_identity"] = status_report.get("service_identity")
     doctor_report["attach_auth_policy"] = status_report.get("attach_auth_policy")
     doctor_report["push_decision"] = status_report.get("push_decision")
+    recommended_command, command_source = resolve_status_recommended_command(
+        status_report
+    )
+    doctor_report["recommended_command"] = recommended_command
+    doctor_report["recommended_command_source"] = command_source
 
     for key in (
         "bridge_liveness",
