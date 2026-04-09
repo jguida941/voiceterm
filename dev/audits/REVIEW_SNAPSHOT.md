@@ -5,14 +5,14 @@
 ## Quick status
 
 - Branch: `feature/governance-quality-sweep`
-- HEAD: `8c800411b62e` — Refresh external review snapshot for a12b6593
-- Tree hash: `ea045b86ac46`
-- Generation stamp: `snap-b68f97ddeaeb`
-- Generated at (UTC): 2026-04-09T18:00:38Z
+- HEAD: `696f4772e2e0` — fix(hygiene): trust supervisor heartbeat for reparented conductor detection
+- Tree hash: `7a67306ff9c1`
+- Generation stamp: `snap-320af4429cce`
+- Generated at (UTC): 2026-04-09T18:03:18Z
 - Push decision: `await_checkpoint` — staged_index_present
 - Reviewer mode: `active_dual_agent` (interaction: `remote_control`)
 - Pipeline state: `n/a` (approval: `n/a`)
-- Delta since last snapshot: 24 commits, 163 files, +10615/-3597
+- Delta since last snapshot: 24 commits, 163 files, +10167/-3565
 - Governance findings: 39 open / 68 fixed / 121 total
 - Probe hints: 0 total across 0 files scanned
 
@@ -54,9 +54,9 @@ adopters arrive.
 - Remote: `https://github.com/jguida941/voiceterm.git`
 - Default branch: `master`
 - Current branch: `feature/governance-quality-sweep`
-- HEAD SHA: `8c800411b62ec0ba9360c0ead3a91b84800dc155`
+- HEAD SHA: `696f4772e2e04d7e4f0b890de9fe3193bb1e6c96`
 - HEAD author: Justin Guida
-- HEAD timestamp (UTC): 2026-04-09T11:51:34-04:00
+- HEAD timestamp (UTC): 2026-04-09T14:00:30-04:00
 
 ## 2. Governance state
 
@@ -74,7 +74,7 @@ adopters arrive.
 - authorized_head_commit: `08770a66080c0f4cb096bf642ebd2686fc3a1ec9`
 - approved_target_identity: `tree-receipt-20260409T132557373695Z:f94740d60423a9e197ed696a6de7e89983b7b90e`
 - publication_backlog: urgent
-- publication_guidance: 7 local commit(s) waiting for governed push once the current slice is checkpoint-clean.
+- publication_guidance: 8 local commit(s) waiting for governed push once the current slice is checkpoint-clean.
 
 ### Reviewer runtime
 - reviewer_mode: `active_dual_agent`
@@ -90,16 +90,16 @@ adopters arrive.
 - active plan: **Master Plan (Active, Unified)**
 - plan path: `dev/active/MASTER_PLAN.md`
 - active MP scope: all active MP execution state
-- advisory: `continue_editing` — review_pending
+- advisory: `checkpoint_before_continue` — concurrent_writer_activity
 
 ## 3. Delta — what changed since the previous snapshot
 
-Range: last 24 commits ending at `8c800411b62e`
+Range: last 24 commits ending at `696f4772e2e0`
 
 - commits: 24
 - files changed: 163
-- insertions: +10615
-- deletions: -3597
+- insertions: +10167
+- deletions: -3565
 - bundle classes touched: tooling, docs
 - risk add-ons triggered: Parser / ANSI boundary
 - authority surfaces touched: 27 file(s)
@@ -108,30 +108,30 @@ Range: last 24 commits ending at `8c800411b62e`
 
 | # | SHA | Subject | Files | +/- | Bundle | Risk |
 |---|---|---|---|---|---|---|
-| 1 | `8c800411` | Refresh external review snapshot for a12b6593 | 1 | +82/-77 | tooling |  |
-| 2 | `a12b6593` | feat(review-channel): attach-remote-control action + typed… | 37 | +1188/-131 | tooling | Parser / ANSI boundary |
-| 3 | `a5ad7fc0` | fix(runtime): F1 coordination parity via review_state_overr… | 7 | +253/-103 | tooling |  |
-| 4 | `838b762c` | Refresh external review snapshot for d7e7e597 | 1 | +57/-51 | tooling |  |
-| 5 | `d7e7e597` | policy: declare operator_interaction_mode=remote_control | 2 | +63/-63 | tooling |  |
-| 6 | `08770a66` | Refresh external review snapshot for 675ca93d | 1 | +65/-69 | tooling |  |
-| 7 | `675ca93d` | fix: scope post-push validation to published diff | 13 | +359/-91 | tooling |  |
-| 8 | `a60f1470` | Refresh external review snapshot for 69317302 | 1 | +52/-49 | tooling |  |
-| 9 | `69317302` | fix: support coderabbit gate script imports | 3 | +82/-65 | tooling |  |
-| 10 | `bc1a40ec` | Refresh external review snapshot for 013e15f6 | 1 | +63/-66 | tooling |  |
-| 11 | `013e15f6` | fix: defer coderabbit gates until publish | 11 | +380/-178 | tooling |  |
-| 12 | `46de6f81` | Refresh external review snapshot for 4c8aeb5b | 1 | +63/-70 | tooling |  |
-| 13 | `4c8aeb5b` | chore: route release checks and review commands | 13 | +285/-61 | tooling |  |
-| 14 | `a3fd3393` | Refresh external review snapshot for 38535f77 | 1 | +63/-62 | tooling |  |
-| 15 | `38535f77` | chore: wire mutation bypass guard into shared lanes | 14 | +146/-63 | tooling |  |
-| 16 | `0a194dfe` | Refresh external review snapshot for a547a2be | 1 | +59/-65 | tooling |  |
-| 17 | `a547a2be` | refactor: move path audit behind compatibility shim | 9 | +528/-417 | tooling |  |
-| 18 | `d094550c` | chore: register mutation guard and unify bootstrap catalog | 27 | +1108/-432 | tooling |  |
-| 19 | `dacb1a26` | Refresh external review snapshot for 67ec68f7 | 1 | +52/-51 | tooling |  |
-| 20 | `67ec68f7` | test: pin single-agent interaction mode resolution | 3 | +83/-65 | tooling |  |
-| 21 | `1c70b2c5` | checkpoint: capture governance and review-channel batch | 27 | +976/-194 | tooling |  |
-| 22 | `47d483b4` | Harden governed push and typed review-state reads | 89 | +4035/-993 | tooling |  |
-| 23 | `6eb4945b` | Refresh external review snapshot for 73908286 | 1 | +63/-95 | tooling |  |
-| 24 | `73908286` | docs: align graph-backed convergence plan | 6 | +510/-86 | tooling |  |
+| 1 | `696f4772` | fix(hygiene): trust supervisor heartbeat for reparented con… | 2 | +62/-54 | tooling |  |
+| 2 | `8c800411` | Refresh external review snapshot for a12b6593 | 1 | +82/-77 | tooling |  |
+| 3 | `a12b6593` | feat(review-channel): attach-remote-control action + typed… | 37 | +1188/-131 | tooling | Parser / ANSI boundary |
+| 4 | `a5ad7fc0` | fix(runtime): F1 coordination parity via review_state_overr… | 7 | +253/-103 | tooling |  |
+| 5 | `838b762c` | Refresh external review snapshot for d7e7e597 | 1 | +57/-51 | tooling |  |
+| 6 | `d7e7e597` | policy: declare operator_interaction_mode=remote_control | 2 | +63/-63 | tooling |  |
+| 7 | `08770a66` | Refresh external review snapshot for 675ca93d | 1 | +65/-69 | tooling |  |
+| 8 | `675ca93d` | fix: scope post-push validation to published diff | 13 | +359/-91 | tooling |  |
+| 9 | `a60f1470` | Refresh external review snapshot for 69317302 | 1 | +52/-49 | tooling |  |
+| 10 | `69317302` | fix: support coderabbit gate script imports | 3 | +82/-65 | tooling |  |
+| 11 | `bc1a40ec` | Refresh external review snapshot for 013e15f6 | 1 | +63/-66 | tooling |  |
+| 12 | `013e15f6` | fix: defer coderabbit gates until publish | 11 | +380/-178 | tooling |  |
+| 13 | `46de6f81` | Refresh external review snapshot for 4c8aeb5b | 1 | +63/-70 | tooling |  |
+| 14 | `4c8aeb5b` | chore: route release checks and review commands | 13 | +285/-61 | tooling |  |
+| 15 | `a3fd3393` | Refresh external review snapshot for 38535f77 | 1 | +63/-62 | tooling |  |
+| 16 | `38535f77` | chore: wire mutation bypass guard into shared lanes | 14 | +146/-63 | tooling |  |
+| 17 | `0a194dfe` | Refresh external review snapshot for a547a2be | 1 | +59/-65 | tooling |  |
+| 18 | `a547a2be` | refactor: move path audit behind compatibility shim | 9 | +528/-417 | tooling |  |
+| 19 | `d094550c` | chore: register mutation guard and unify bootstrap catalog | 27 | +1108/-432 | tooling |  |
+| 20 | `dacb1a26` | Refresh external review snapshot for 67ec68f7 | 1 | +52/-51 | tooling |  |
+| 21 | `67ec68f7` | test: pin single-agent interaction mode resolution | 3 | +83/-65 | tooling |  |
+| 22 | `1c70b2c5` | checkpoint: capture governance and review-channel batch | 27 | +976/-194 | tooling |  |
+| 23 | `47d483b4` | Harden governed push and typed review-state reads | 89 | +4035/-993 | tooling |  |
+| 24 | `6eb4945b` | Refresh external review snapshot for 73908286 | 1 | +63/-95 | tooling |  |
 
 ### Files
 
@@ -141,16 +141,15 @@ Range: last 24 commits ending at `8c800411b62e`
 | `.github/workflows/tooling_control_plane.yml` | tooling | +3/-0 |
 | `AGENTS.md` | docs | +68/-12 |
 | `bridge.md` | docs | +8/-8 |
-| `dev/active/MASTER_PLAN.md` | tooling | +161/-7 |
+| `dev/active/MASTER_PLAN.md` | tooling | +96/-3 |
 | `dev/active/ai_governance_platform.md` | tooling | +210/-1 |
 | `dev/active/continuous_swarm.md` | tooling | +10/-0 |
-| `dev/active/platform_authority_loop.md` | tooling | +166/-2 |
-| `dev/active/portable_code_governance.md` | tooling | +62/-1 |
-| `dev/active/remote_commit_pipeline.md` | tooling | +118/-5 |
-| `dev/active/remote_control_runtime.md` | tooling | +160/-26 |
+| `dev/active/platform_authority_loop.md` | tooling | +27/-1 |
+| `dev/active/remote_commit_pipeline.md` | tooling | +44/-2 |
+| `dev/active/remote_control_runtime.md` | tooling | +43/-0 |
 | `dev/active/review_channel.md` | tooling | +9/-0 |
 | `dev/active/review_probes.md` | tooling | +40/-1 |
-| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1521/-1524 |
+| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1517/-1526 |
 | `dev/config/devctl_repo_policy.json` | tooling | +3/-0 |
 | `dev/config/git_hooks/pre-push-governed-push.sh` | tooling | +44/-1 |
 | `dev/config/quality_presets/portable_python.json` | tooling | +1/-0 |
@@ -174,6 +173,7 @@ Range: last 24 commits ending at `8c800411b62e`
 | `dev/scripts/devctl/commands/dashboard_render/__init__.py` | tooling | +9/-3 |
 | `dev/scripts/devctl/commands/dashboard_render/control_plane.py` | tooling | +103/-0 |
 | `dev/scripts/devctl/commands/discover/__init__.py` | tooling | +5/-2 |
+| `dev/scripts/devctl/commands/governance/hygiene_support.py` | tooling | +13/-1 |
 | `dev/scripts/devctl/commands/governance/install_git_hooks.py` | tooling | +9/-5 |
 | `dev/scripts/devctl/commands/governance/session_resume.py` | tooling | +5/-1 |
 | `dev/scripts/devctl/commands/governance/session_resume_render.py` | tooling | +21/-0 |
@@ -295,6 +295,11 @@ Recent findings:
 
 ### Per-commit rationale
 
+- **`696f4772`** — fix(hygiene): trust supervisor heartbeat for reparented conductor detection
+  - The hygiene runtime-process audit previously excluded supervised conductor
+  - scripts from the supervised_conductors list whenever their ppid had become
+  - 1 (init). Unix reparents children to init when their original parent shell
+  - evolution: Fact: the phone-steered Claude remote-control wrapper was still too prompt- local. It printed typed health but did not consume typed next-step / recovery truth, and the tracked remote prompt still taught raw `git commit…
 - **`8c800411`** — Refresh external review snapshot for a12b6593
   - evolution: Fact: the phone-steered Claude remote-control wrapper was still too prompt- local. It printed typed health but did not consume typed next-step / recovery truth, and the tracked remote prompt still taught raw `git commit…
 - **`a12b6593`** — feat(review-channel): attach-remote-control action + typed attachment state
@@ -350,8 +355,6 @@ Recent findings:
   - evolution: Fact: the phone-steered Claude remote-control wrapper was still too prompt- local. It printed typed health but did not consume typed next-step / recovery truth, and the tracked remote prompt still taught raw `git commit…
 - **`6eb4945b`** — Refresh external review snapshot for 73908286
   - evolution: Fact: the phone-steered Claude remote-control wrapper was still too prompt- local. It printed typed health but did not consume typed next-step / recovery truth, and the tracked remote prompt still taught raw `git commit…
-- **`73908286`** — docs: align graph-backed convergence plan
-  - evolution: Fact: the phone-steered Claude remote-control wrapper was still too prompt- local. It printed typed health but did not consume typed next-step / recovery truth, and the tracked remote prompt still taught raw `git commit…
 ### Active MP scope (from MASTER_PLAN.md)
 
 - `dev/active/devctl_reporting_upgrade.md` is the phased `devctl` reporting/CIHub specification, but not a separate execution tracker; implementation tasks stay in this file under `MP-297..MP-300`, `MP-303`, `MP-306`, `MP…
@@ -369,8 +372,11 @@ Recent findings:
 
 - open governance findings: 39
 
+### Startup advisories
+- checkpoint_before_continue: concurrent_writer_activity
+
 ### Stale warnings
-- Pause and wait for reviewer-owned state.
+- Keep editing the current slice.
 
 ### Open gap rows
 - **governance_open** (`dev/scripts/devctl/review_channel/bridge_sanitize.py`): agent_checkpoint_contract_ignorance: 
@@ -384,4 +390,4 @@ Recent findings:
 
 ---
 
-Projection produced by `devctl review-snapshot`. Generation stamp `snap-b68f97ddeaeb` binds this file to HEAD `8c800411b62e`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
+Projection produced by `devctl review-snapshot`. Generation stamp `snap-320af4429cce` binds this file to HEAD `696f4772e2e0`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
