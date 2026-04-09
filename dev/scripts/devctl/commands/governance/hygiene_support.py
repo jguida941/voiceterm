@@ -18,6 +18,7 @@ from ...process_sweep.core import (
     split_orphaned_processes,
     split_stale_processes,
 )
+from ...review_channel.lifecycle_state import read_reviewer_supervisor_state
 
 ORPHAN_TEST_MIN_AGE_SECONDS = DEFAULT_ORPHAN_MIN_AGE_SECONDS
 STALE_ACTIVE_TEST_MIN_AGE_SECONDS = DEFAULT_STALE_MIN_AGE_SECONDS
@@ -78,11 +79,22 @@ def _audit_runtime_processes(
         test_processes,
         min_age_seconds=ORPHAN_TEST_MIN_AGE_SECONDS,
     )
+    # A live reviewer_supervisor daemon owns conductor scripts even when the
+    # kernel has reparented them to init (ppid=1) after the original launcher
+    # shell exited. Trust the typed supervisor heartbeat as the authoritative
+    # "this scope is supervised" signal rather than relying on ppid alone,
+    # which would permanently flag reparented conductors as orphans any time a
+    # launcher shell exits and the session continues under a background
+    # supervisor.
+    supervisor_state = read_reviewer_supervisor_state(
+        REPO_ROOT / "dev" / "reports" / "review_channel" / "latest"
+    )
+    supervisor_live = bool(supervisor_state.get("running"))
     supervised_conductors = [
         row
         for row in active
         if row.get("match_scope") == SUPERVISED_CONDUCTOR_SCOPE
-        and row.get("ppid") != 1
+        and (row.get("ppid") != 1 or supervisor_live)
     ]
     supervised_conductor_pids = {row["pid"] for row in supervised_conductors}
     active = [row for row in active if row.get("pid") not in supervised_conductor_pids]
