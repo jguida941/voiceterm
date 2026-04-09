@@ -346,9 +346,17 @@ def build_snapshot(
         governance=governance,
         prefer_cached_projection=False,
     )
-    sources = load_sources(repo_root, governance=governance)
-    if typed_review_state is not None:
-        sources["review_state"] = typed_review_state.to_dict()
+    # Pass the typed review-state through ``review_state_override`` so the
+    # F1 / MP-384 parity contract holds: ``load_sources`` consumes the exact
+    # same frozen snapshot rather than re-running
+    # ``load_current_review_state_payload`` and triggering a second
+    # bridge-projection refresh that could rewrite ``review_state.json``
+    # mid-tick and desync the dashboard from startup-context / session-resume.
+    sources = load_sources(
+        repo_root,
+        governance=governance,
+        review_state_override=typed_review_state,
+    )
 
     review_state_payload = sources.get("review_state") if load_all or needs else None
     typed_review_state = typed_review_state or (

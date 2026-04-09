@@ -10,6 +10,7 @@ from .control_plane_daemons import load_conductor_sources
 
 if TYPE_CHECKING:
     from .project_governance import ProjectGovernance
+    from .review_state_models import ReviewState
 
 
 def read_json_artifact(path: Path) -> dict[str, Any] | None:
@@ -63,40 +64,54 @@ def load_sources(
     *,
     governance: "ProjectGovernance | None" = None,
     review_status_dir: Path | None = None,
+    review_state_override: "ReviewState | None" = None,
 ) -> dict[str, Any]:
     """Load every artifact the read model needs, exactly once.
 
-    Review-state is loaded through ``load_current_review_state_payload`` so
-    every governance surface (dashboard, session-resume, startup-context)
-    observes the same bridge-refreshed projection instead of diverging
-    across multiple persisted review-state files on disk.
+    When ``review_state_override`` is supplied, the typed projection is
+    consumed directly via ``review_state_override.to_dict()`` and the
+    bridge-refreshing ``load_current_review_state_payload`` call is skipped
+    entirely. This is the F1 / MP-384 parity contract: if a caller already
+    resolved one frozen ``ReviewState`` for a proof tick, every governance
+    surface (startup-context, dashboard, session-resume) must observe that
+    exact snapshot instead of triggering an independent
+    ``refresh_bridge_backed_review_state_payload`` reproject that could
+    rewrite ``review_state.json`` mid-tick and desync the three surfaces.
+
+    Without an override, review-state is still loaded through
+    ``load_current_review_state_payload`` so every governance surface that
+    has not pre-resolved its own typed snapshot still observes one
+    bridge-refreshed projection per call.
     """
     paths = artifact_paths(repo_root, review_status_dir=review_status_dir)
     conductor_sources = load_conductor_sources(paths)
-    # Imported lazily to avoid a control_plane_sources <-> review_state_locator
-    # initialization cycle at module load time.
-    from .review_state_locator import (
-        live_review_state_freshness_paths,
-        load_current_review_state_payload,
-    )
+    if review_state_override is not None:
+        review_state_payload: dict[str, Any] | None = review_state_override.to_dict()
+    else:
+        # Imported lazily to avoid a control_plane_sources <-> review_state_locator
+        # initialization cycle at module load time.
+        from .review_state_locator import (
+            live_review_state_freshness_paths,
+            load_current_review_state_payload,
+        )
 
-    review_state_payload = load_current_review_state_payload(
-        repo_root,
-        governance=governance,
-        review_status_dir=review_status_dir,
-    )
-    # Legacy fallback: environments without an overridden repo-pack config
-    # and without a governance-backed review_root cannot produce a payload
-    # through the typed locator. Drop back to ``paths["review_state"]`` so
-    # older fixtures and bare repos keep working. Do NOT fall back when live
-    # bridge-backed freshness paths exist; that would silently reintroduce a
-    # stale typed projection after the freshness-aware loader already refused
-    # it.
-    if review_state_payload is None and not live_review_state_freshness_paths(
-        repo_root,
-        governance=governance,
-    ):
-        review_state_payload = read_json_artifact(paths["review_state"])
+        review_state_payload = load_current_review_state_payload(
+            repo_root,
+            governance=governance,
+            review_status_dir=review_status_dir,
+        )
+        # Legacy fallback: environments without an overridden repo-pack config
+        # and without a governance-backed review_root cannot produce a payload
+        # through the typed locator. Drop back to ``paths["review_state"]`` so
+        # older fixtures and bare repos keep working. Do NOT fall back when live
+        # bridge-backed freshness paths exist; that would silently reintroduce a
+        # stale typed projection after the freshness-aware loader already refused
+        # it.
+        if review_state_payload is None and not live_review_state_freshness_paths(
+            repo_root,
+            governance=governance,
+        ):
+            review_state_payload = read_json_artifact(paths["review_state"])
     sources: dict[str, Any] = {
         "receipt": read_json_artifact(paths["receipt"]),
         "review_state": review_state_payload,

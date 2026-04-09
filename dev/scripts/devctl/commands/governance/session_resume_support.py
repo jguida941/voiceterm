@@ -584,19 +584,24 @@ def _load_governed_sources(
 ) -> dict[str, Any]:
     """Load sources using governance-aware path resolution.
 
-    ``load_sources`` routes review_state through
-    ``load_current_review_state_payload`` when governance is supplied, so
-    dashboard, session-resume, and startup-context all see the same
-    bridge-refreshed projection. The compact projection still honors the
-    governance ``review_root`` explicitly because ``load_sources`` reads
-    it from the repo-pack ``review_status_dir_rel``, which may point at a
-    different directory than the governance review root.
+    When ``review_state`` is supplied, it is forwarded to ``load_sources``
+    via ``review_state_override`` so the bridge-refreshing
+    ``load_current_review_state_payload`` reload is skipped entirely. This is
+    the F1 / MP-384 parity contract: session-resume must observe the exact
+    same frozen typed snapshot as ``build_startup_context`` and the dashboard
+    rather than triggering an independent
+    ``refresh_bridge_backed_review_state_payload`` reproject between calls.
+
+    The compact projection still honors the governance ``review_root``
+    explicitly because ``load_sources`` reads it from the repo-pack
+    ``review_status_dir_rel``, which may point at a different directory
+    than the governance review root.
     """
-    base = load_sources(repo_root, governance=governance)
-    if review_state is not None:
-        # Keep session-resume's raw source packet aligned with the same frozen
-        # typed ReviewState object the caller wants the read model to consume.
-        base["review_state"] = review_state.to_dict()
+    base = load_sources(
+        repo_root,
+        governance=governance,
+        review_state_override=review_state,
+    )
     gov_paths = resolve_source_paths(repo_root, governance=governance)
     compact_path = repo_root / gov_paths["compact"]
     base["compact_json"] = read_json_artifact(compact_path)

@@ -121,6 +121,32 @@ class TestCoordinationLoaderThreeSurfaceParity(unittest.TestCase):
                 f"field {field!r} diverged: startup_context vs read_model",
             )
 
+    def test_typed_review_state_skips_bridge_refresh_in_read_model(self) -> None:
+        """F1 / MP-384 structural contract: passing a typed ``review_state``
+        into ``build_control_plane_read_model`` must short-circuit
+        ``load_current_review_state_payload`` so the read model never re-runs
+        bridge reprojection mid-tick. Without this contract, three sequential
+        parity calls (startup-context, dashboard, session-resume) can drift
+        because each one rewrites ``review_state.json`` as a side effect.
+        """
+        from dev.scripts.devctl.governance.draft import scan_repo_governance
+
+        governance = scan_repo_governance(REPO_ROOT)
+        review_state = load_current_review_state(
+            REPO_ROOT, governance=governance,
+        )
+        self.assertIsNotNone(review_state, "test requires a real review state")
+        with patch(
+            "dev.scripts.devctl.runtime.review_state_locator.load_current_review_state_payload",
+        ) as mock_loader:
+            model = build_control_plane_read_model(
+                REPO_ROOT,
+                governance=governance,
+                review_state=review_state,
+            )
+        self.assertIsNotNone(model.coordination)
+        mock_loader.assert_not_called()
+
     def test_startup_context_matches_direct_loader_call(self) -> None:
         """A direct loader call with the same inputs must match ctx.coordination."""
         from dev.scripts.devctl.governance.draft import scan_repo_governance

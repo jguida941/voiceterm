@@ -5,14 +5,14 @@
 ## Quick status
 
 - Branch: `feature/governance-quality-sweep`
-- HEAD: `d7e7e5979ead` — policy: declare operator_interaction_mode=remote_control
-- Tree hash: `478328851af5`
-- Generation stamp: `snap-fc9c294c828a`
-- Generated at (UTC): 2026-04-09T15:13:57Z
-- Push decision: `run_devctl_push` — push_preconditions_satisfied
-- Reviewer mode: `single_agent` (interaction: `remote_control`)
+- HEAD: `838b762c609b` — Refresh external review snapshot for d7e7e597
+- Tree hash: `5f6a139a4a7f`
+- Generation stamp: `snap-ea850cd2870c`
+- Generated at (UTC): 2026-04-09T15:49:57Z
+- Push decision: `await_checkpoint` — staged_index_present
+- Reviewer mode: `tools_only` (interaction: `remote_control`)
 - Pipeline state: `n/a` (approval: `n/a`)
-- Delta since last snapshot: 25 commits, 175 files, +12747/-4414
+- Delta since last snapshot: 25 commits, 174 files, +12657/-4411
 - Governance findings: 39 open / 68 fixed / 121 total
 - Probe hints: 0 total across 0 files scanned
 
@@ -54,33 +54,34 @@ adopters arrive.
 - Remote: `https://github.com/jguida941/voiceterm.git`
 - Default branch: `master`
 - Current branch: `feature/governance-quality-sweep`
-- HEAD SHA: `d7e7e5979eadd19403eaf04d584dcfa923d4aede`
+- HEAD SHA: `838b762c609bc46f40ee1c16e26773df30731073`
 - HEAD author: Justin Guida
 - HEAD timestamp (UTC): 2026-04-09T11:13:39-04:00
 
 ## 2. Governance state
 
 ### Push decision
-- action: `run_devctl_push`
-- reason: push_preconditions_satisfied
-- push_eligible_now: True
-- worktree_clean: True
-- staged_path_count: 0
+- action: `await_checkpoint`
+- reason: staged_index_present
+- push_eligible_now: False
+- worktree_clean: False
+- staged_path_count: 6
 - unstaged_path_count: 0
-- next_step_command: `python3 dev/scripts/devctl.py push --execute`
+- next_step_command: `n/a`
 - latest_push_report: `dev/reports/push/latest.json`
 - latest_push_report_state: `blocked` (validation_failed)
 - current_push_authorization: `push-auth-20260409T132557373695Z` (valid=False)
 - authorized_head_commit: `08770a66080c0f4cb096bf642ebd2686fc3a1ec9`
 - approved_target_identity: `tree-receipt-20260409T132557373695Z:f94740d60423a9e197ed696a6de7e89983b7b90e`
 - publication_backlog: recommended
-- publication_guidance: 3 local commit(s) waiting for governed push. Run `python3 dev/scripts/devctl.py push --execute` now.
+- publication_guidance: 4 local commit(s) waiting for governed push once the current slice is checkpoint-clean.
 
 ### Reviewer runtime
-- reviewer_mode: `single_agent`
+- reviewer_mode: `tools_only`
 - reviewer_freshness: unknown
-- reviewer_publish_clear: True
+- reviewer_publish_clear: False
 - interaction_mode: `remote_control`
+- implementation_blocked: yes — reviewer_overdue
 
 ### Remote commit pipeline
 - state: `n/a`
@@ -90,16 +91,16 @@ adopters arrive.
 - active plan: **Master Plan (Active, Unified)**
 - plan path: `dev/active/MASTER_PLAN.md`
 - active MP scope: all active MP execution state
-- advisory: `push_allowed` — worktree_clean_and_review_accepted
+- advisory: `checkpoint_before_continue` — concurrent_writer_activity
 
 ## 3. Delta — what changed since the previous snapshot
 
-Range: last 25 commits ending at `d7e7e5979ead`
+Range: last 25 commits ending at `838b762c609b`
 
 - commits: 25
-- files changed: 175
-- insertions: +12747
-- deletions: -4414
+- files changed: 174
+- insertions: +12657
+- deletions: -4411
 - bundle classes touched: tooling, docs
 - authority surfaces touched: 27 file(s)
 
@@ -107,31 +108,31 @@ Range: last 25 commits ending at `d7e7e5979ead`
 
 | # | SHA | Subject | Files | +/- | Bundle | Risk |
 |---|---|---|---|---|---|---|
-| 1 | `d7e7e597` | policy: declare operator_interaction_mode=remote_control | 2 | +63/-63 | tooling |  |
-| 2 | `08770a66` | Refresh external review snapshot for 675ca93d | 1 | +65/-69 | tooling |  |
-| 3 | `675ca93d` | fix: scope post-push validation to published diff | 13 | +359/-91 | tooling |  |
-| 4 | `a60f1470` | Refresh external review snapshot for 69317302 | 1 | +52/-49 | tooling |  |
-| 5 | `69317302` | fix: support coderabbit gate script imports | 3 | +82/-65 | tooling |  |
-| 6 | `bc1a40ec` | Refresh external review snapshot for 013e15f6 | 1 | +63/-66 | tooling |  |
-| 7 | `013e15f6` | fix: defer coderabbit gates until publish | 11 | +380/-178 | tooling |  |
-| 8 | `46de6f81` | Refresh external review snapshot for 4c8aeb5b | 1 | +63/-70 | tooling |  |
-| 9 | `4c8aeb5b` | chore: route release checks and review commands | 13 | +285/-61 | tooling |  |
-| 10 | `a3fd3393` | Refresh external review snapshot for 38535f77 | 1 | +63/-62 | tooling |  |
-| 11 | `38535f77` | chore: wire mutation bypass guard into shared lanes | 14 | +146/-63 | tooling |  |
-| 12 | `0a194dfe` | Refresh external review snapshot for a547a2be | 1 | +59/-65 | tooling |  |
-| 13 | `a547a2be` | refactor: move path audit behind compatibility shim | 9 | +528/-417 | tooling |  |
-| 14 | `d094550c` | chore: register mutation guard and unify bootstrap catalog | 27 | +1108/-432 | tooling |  |
-| 15 | `dacb1a26` | Refresh external review snapshot for 67ec68f7 | 1 | +52/-51 | tooling |  |
-| 16 | `67ec68f7` | test: pin single-agent interaction mode resolution | 3 | +83/-65 | tooling |  |
-| 17 | `1c70b2c5` | checkpoint: capture governance and review-channel batch | 27 | +976/-194 | tooling |  |
-| 18 | `47d483b4` | Harden governed push and typed review-state reads | 89 | +4035/-993 | tooling |  |
-| 19 | `6eb4945b` | Refresh external review snapshot for 73908286 | 1 | +63/-95 | tooling |  |
-| 20 | `73908286` | docs: align graph-backed convergence plan | 6 | +510/-86 | tooling |  |
-| 21 | `516e839c` | Refresh external review snapshot for c1a1ee28 | 1 | +96/-69 | tooling |  |
-| 22 | `c1a1ee28` | Advance typed authority convergence across mutation and con… | 59 | +3285/-956 | tooling |  |
-| 23 | `1c74c07f` | Refresh external review snapshot for f294de63 | 1 | +68/-59 | tooling |  |
-| 24 | `f294de63` | Operator-directed commit+push: F1 parity flake fix + bridge… | 5 | +116/-41 | tooling |  |
-| 25 | `ed23ac62` | LIVE_RUN: Q61 typed state lies about PID liveness + Q62 err… | 2 | +147/-54 | tooling |  |
+| 1 | `838b762c` | Refresh external review snapshot for d7e7e597 | 1 | +57/-51 | tooling |  |
+| 2 | `d7e7e597` | policy: declare operator_interaction_mode=remote_control | 2 | +63/-63 | tooling |  |
+| 3 | `08770a66` | Refresh external review snapshot for 675ca93d | 1 | +65/-69 | tooling |  |
+| 4 | `675ca93d` | fix: scope post-push validation to published diff | 13 | +359/-91 | tooling |  |
+| 5 | `a60f1470` | Refresh external review snapshot for 69317302 | 1 | +52/-49 | tooling |  |
+| 6 | `69317302` | fix: support coderabbit gate script imports | 3 | +82/-65 | tooling |  |
+| 7 | `bc1a40ec` | Refresh external review snapshot for 013e15f6 | 1 | +63/-66 | tooling |  |
+| 8 | `013e15f6` | fix: defer coderabbit gates until publish | 11 | +380/-178 | tooling |  |
+| 9 | `46de6f81` | Refresh external review snapshot for 4c8aeb5b | 1 | +63/-70 | tooling |  |
+| 10 | `4c8aeb5b` | chore: route release checks and review commands | 13 | +285/-61 | tooling |  |
+| 11 | `a3fd3393` | Refresh external review snapshot for 38535f77 | 1 | +63/-62 | tooling |  |
+| 12 | `38535f77` | chore: wire mutation bypass guard into shared lanes | 14 | +146/-63 | tooling |  |
+| 13 | `0a194dfe` | Refresh external review snapshot for a547a2be | 1 | +59/-65 | tooling |  |
+| 14 | `a547a2be` | refactor: move path audit behind compatibility shim | 9 | +528/-417 | tooling |  |
+| 15 | `d094550c` | chore: register mutation guard and unify bootstrap catalog | 27 | +1108/-432 | tooling |  |
+| 16 | `dacb1a26` | Refresh external review snapshot for 67ec68f7 | 1 | +52/-51 | tooling |  |
+| 17 | `67ec68f7` | test: pin single-agent interaction mode resolution | 3 | +83/-65 | tooling |  |
+| 18 | `1c70b2c5` | checkpoint: capture governance and review-channel batch | 27 | +976/-194 | tooling |  |
+| 19 | `47d483b4` | Harden governed push and typed review-state reads | 89 | +4035/-993 | tooling |  |
+| 20 | `6eb4945b` | Refresh external review snapshot for 73908286 | 1 | +63/-95 | tooling |  |
+| 21 | `73908286` | docs: align graph-backed convergence plan | 6 | +510/-86 | tooling |  |
+| 22 | `516e839c` | Refresh external review snapshot for c1a1ee28 | 1 | +96/-69 | tooling |  |
+| 23 | `c1a1ee28` | Advance typed authority convergence across mutation and con… | 59 | +3285/-956 | tooling |  |
+| 24 | `1c74c07f` | Refresh external review snapshot for f294de63 | 1 | +68/-59 | tooling |  |
+| 25 | `f294de63` | Operator-directed commit+push: F1 parity flake fix + bridge… | 5 | +116/-41 | tooling |  |
 
 ### Files
 
@@ -150,8 +151,7 @@ Range: last 25 commits ending at `d7e7e5979ead`
 | `dev/active/review_channel.md` | tooling | +9/-0 |
 | `dev/active/review_probes.md` | tooling | +40/-1 |
 | `dev/audits/AUTOMATION_DEBT_REGISTER.md` | tooling | +1/-0 |
-| `dev/audits/LIVE_RUN.md` | tooling | +97/-0 |
-| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1536/-1515 |
+| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1543/-1512 |
 | `dev/config/devctl_repo_policy.json` | tooling | +3/-0 |
 | `dev/config/git_hooks/pre-push-governed-push.sh` | tooling | +32/-0 |
 | `dev/config/quality_presets/portable_python.json` | tooling | +1/-0 |
@@ -177,7 +177,8 @@ Range: last 25 commits ending at `d7e7e5979ead`
 | `dev/scripts/devctl/commands/dashboard_render/__init__.py` | tooling | +9/-3 |
 | `dev/scripts/devctl/commands/dashboard_render/control_plane.py` | tooling | +103/-0 |
 | `dev/scripts/devctl/commands/dashboard_typed_state.py` | tooling | +5/-7 |
-| _135 more files trimmed_ | | |
+| `dev/scripts/devctl/commands/discover/__init__.py` | tooling | +5/-2 |
+| _134 more files trimmed_ | | |
 
 ## 4. Quality signals
 
@@ -292,6 +293,8 @@ Recent findings:
 
 ### Per-commit rationale
 
+- **`838b762c`** — Refresh external review snapshot for d7e7e597
+  - evolution: Fact: the governed push lane exposed a second publication-honesty gap after remote publication was already recorded. Preflight correctly resolved a branch-aware `since_ref`, but the post-push bundle still fell back to t…
 - **`d7e7e597`** — policy: declare operator_interaction_mode=remote_control
   - Adds repo_governance.bridge_config.operator_interaction_mode="remote_control"
   - to dev/config/devctl_repo_policy.json so the F4 fail-closed launcher
@@ -346,10 +349,6 @@ Recent findings:
   - instruction revision 7f94c6cae1a6 from Codex:
   - - dev/scripts/devctl/runtime/startup_context.py
   - evolution: The next remote-control/platform hardening slice was not a new architecture layer. It was closure on the typed paths that already existed but still left practical escape hatches. On the write side, `devctl commit` no lo…
-- **`ed23ac62`** — LIVE_RUN: Q61 typed state lies about PID liveness + Q62 error system too coarse
-  - Operator directly caught two compound findings while reviewing the
-  - dashboard data:
-  - evolution: The next remote-control/platform hardening slice was not a new architecture layer. It was closure on the typed paths that already existed but still left practical escape hatches. On the write side, `devctl commit` no lo…
 ### Active MP scope (from MASTER_PLAN.md)
 
 - `dev/active/devctl_reporting_upgrade.md` is the phased `devctl` reporting/CIHub specification, but not a separate execution tracker; implementation tasks stay in this file under `MP-297..MP-300`, `MP-303`, `MP-306`, `MP…
@@ -368,10 +367,10 @@ Recent findings:
 - open governance findings: 39
 
 ### Startup advisories
-- push_allowed: worktree_clean_and_review_accepted
+- checkpoint_before_continue: concurrent_writer_activity
 
 ### Stale warnings
-- Stop because nothing remains to push.
+- Keep editing the current slice.
 
 ### Open gap rows
 - **governance_open** (`dev/scripts/devctl/review_channel/bridge_sanitize.py`): agent_checkpoint_contract_ignorance: 
@@ -385,4 +384,4 @@ Recent findings:
 
 ---
 
-Projection produced by `devctl review-snapshot`. Generation stamp `snap-fc9c294c828a` binds this file to HEAD `d7e7e5979ead`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
+Projection produced by `devctl review-snapshot`. Generation stamp `snap-ea850cd2870c` binds this file to HEAD `838b762c609b`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.

@@ -266,13 +266,17 @@ def build_control_plane_read_model(
             repo_root,
             governance=governance,
             review_status_dir=review_status_dir,
+            review_state_override=review_state,
         )
     )
     if review_state is not None:
-        # Freeze read-model consumers on the caller's typed snapshot for this
-        # proof tick instead of letting a separately refreshed payload drift in
-        # via load_sources(). Coordination already consumes the typed object; the
-        # reviewer/attention side must read the same snapshot too.
+        # Belt-and-suspenders: when ``sources_override`` is in play (typically
+        # from session-resume preloading the dict via ``_load_governed_sources``),
+        # the override path inside ``load_sources`` is bypassed. Re-overlay the
+        # typed snapshot so the read model still observes the caller's frozen
+        # review state instead of whatever the override dict was constructed
+        # with. When ``load_sources`` was called above, the override was already
+        # applied there and this assignment is a no-op.
         sources["review_state"] = review_state.to_dict()
     git = git_override if git_override is not None else load_git_state(repo_root)
 
