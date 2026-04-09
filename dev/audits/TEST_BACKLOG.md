@@ -287,3 +287,115 @@
 - **Outcome**: agents coordinate on REASONING, not just on written state. Decision latency drops from minutes to seconds. Race conditions get resolved at the thought level, not the file-collision level.
 - **MP candidate**: `cross-agent-mind-stream-projection`
 - **Depends on**: rollout-tail MVP (landed commit `971647ec` ✅)
+
+---
+
+## BL-032  SYSTEM_FLOWCHART.md + SYSTEM_ARCHITECTURE_SPEC.md are 2.5 weeks stale
+
+- **Severity**: MEDIUM
+- **Status**: `open`
+- **Surface**: documentation, AI bootstrap
+- **Source**: session 2026-04-09 rich-detail audit
+- **Location**: `dev/guides/SYSTEM_FLOWCHART.md` (last touched Mar 20, 87776 bytes), `dev/guides/SYSTEM_ARCHITECTURE_SPEC.md` (Mar 20, 36935 bytes)
+- **Evidence**: Flowchart documents "64 hard guards, 27 review probes, 65 devctl commands" — actual measured counts today are **69 guards, 28 probes, 67+ commands**. The flowchart also predates the rollout-tail MVP, pipeline recovery command, agent-mind (BL-031 in progress), attach-remote-control scaffold, and F1/F2/F3 fixes. Any AI agent bootstrapping from this flowchart gets an incorrect mental model of the repo.
+- **Fix**: Implement `devctl.py system-flowchart --format md --write` that auto-renders the flowchart from the live context-graph + command registry + guard/probe inventories. Add a freshness guard `check_system_flowchart_freshness.py` that fails CI if the doc is more than 48 hours stale relative to HEAD. The hand-edited MD files become auto-generated projections, not source of truth.
+- **MP candidate**: `auto-generated-system-flowchart`
+
+## BL-033  43 open probe findings (27 HIGH, 16 MEDIUM) across 8 files
+
+- **Severity**: HIGH (27 of the 43 are HIGH)
+- **Status**: `open`
+- **Surface**: code quality, readability, AI maintainability
+- **Source**: `devctl probe-report --format md` run 2026-04-09T21:20Z
+- **Evidence**: 25 probes scanned 145 files, flagged 43 findings in 8 files concentrated in `dev/scripts/devctl/`. Full report: `python3 dev/scripts/devctl.py probe-report --format md`.
+- **Fix**: Pick the top-5 HIGH findings by blast radius, fix each with a code-reviewer agent + test, commit, push, repeat. Do NOT try to fix all 27 at once — batched slices with review between each batch.
+- **Depends on**: rollout-tail MVP + BL-031 landing first so agents can coordinate on fix order via cross-mind polling
+
+## BL-034  Codex PID 90168 exited ~15:50 UTC; no live reviewer on this session
+
+- **Severity**: MEDIUM (operator decision needed)
+- **Status**: `open` (operator directive pending)
+- **Surface**: review loop
+- **Source**: process audit 2026-04-09T21:20Z
+- **Evidence**: `ps -p 90168` returns no row. Rollout file frozen at 15:50 UTC (final size 1.9 MB). Codex completed its F1/F2/F3 review + doc writes then exited — possibly reaped by the process-sweep before BL-006 landed, or cleanly exited on `task_complete`. No fresh Codex is running. `rev_pkt_0174` (re-review of 6 commits) is still in pending state with no reader.
+- **Fix**: Operator decides: (a) relaunch fresh Codex via `review-channel --action launch` now that BL-006 + hygiene fix should make launches cleaner, OR (b) continue without a reviewer and accept the review backlog grows. Recommend (a) only after BL-031 lands so the new Codex can use cross-mind polling to see Claude's recent work at bootstrap.
+
+---
+
+## Session state as of 2026-04-09T21:20Z
+
+- **19 commits pushed** to origin (`675ca93d → 4129af6c`)
+- **Stray sessions**: cleaned (PIDs 44085, 6711 killed; Codex 90168 exited on its own)
+- **Running processes**: only PID 88455 (me) + Cursor extension 1759 (unrelated)
+- **BL-031 agent**: in progress, JSONL 450 KB+ and growing, cli.py modification visible in probe-report diff
+- **Pipeline recovery command**: dogfooded against live wedged pipeline successfully
+- **Codex**: DEAD, needs relaunch decision from operator
+
+---
+
+## BL-035  Typed process registry — close the "ad-hoc ps grep" gap
+
+- **Severity**: HIGH (architectural multiplier, closes the "I can't prove no strays" blind spot)
+- **Status**: `open`
+- **Surface**: process tracking, hygiene, cleanup, stray detection
+- **Source**: operator question 2026-04-09T21:25Z — "Why do random sessions not be logged/typed? Where is the smart system?"
+- **Evidence**: Every session 2026-04-09 claim of "no stray sessions" was based on `ps auxwww | grep -iE 'claude|codex|devctl'`. That's a negative proof: it can only report what the grep pattern finds. A Rust binary with a different name, a stale `script` wrapper, a `screen` session, a detached `nohup` debugger child, a cursor-spawned subprocess — none of those match the pattern and could survive undetected. Even the existing `devctl hygiene` and `devctl process-cleanup` commands are ps-based; they scan process lists with regex matchers and match_scope rules. The session-2026-04-09 hygiene ppid=1 bug was insidious precisely because it was trusting regex to distinguish orphans from supervised children. There is NO typed authoritative source of truth for "which processes are currently registered against this repo."
+- **Fix**: implement typed process registry with mandatory register/deregister lifecycle.
+
+  ### Contract
+
+  `dev/scripts/devctl/runtime/process_registration.py::ProcessRegistration`
+  ```
+  @dataclass(frozen=True, slots=True)
+  class ProcessRegistration:
+      schema_version: int
+      contract_id: str  # "ProcessRegistration"
+      pid: int
+      role: str          # "claude_remote_relay", "codex_reviewer", "publisher_daemon", "reviewer_supervisor", "bridge_watcher", "agent_coder", etc.
+      owner_session_id: str  # parent conductor / session this process belongs to
+      repo_root: str
+      started_at_utc: str
+      last_heartbeat_at_utc: str
+      parent_pid: int
+      scope: str         # "review_channel_conductor", "daemon", "agent_worker", etc.
+      command_line: str  # truncated to 200 chars
+      tty: str           # if attached to a terminal
+  ```
+
+  ### Storage
+
+  `dev/reports/process_registry/latest.json` — atomic writes via tmp+rename. Every repo-related process appends (or updates) its entry on startup and updates `last_heartbeat_at_utc` every 30s. On graceful shutdown, the process removes its own entry.
+
+  ### CLI
+
+  `devctl processes --action list` — render registry + live ps diff
+  `devctl processes --action register --role <role> --scope <scope>` — manual register (for shell-launched things)
+  `devctl processes --action heartbeat --pid <pid>` — manual heartbeat refresh
+  `devctl processes --action deregister --pid <pid>` — manual deregister
+  `devctl processes --action sweep` — clean stale registry entries + kill true orphans (with --dry-run)
+  `devctl processes --action audit` — report: (a) PIDs in ps but not in registry (unregistered strays), (b) PIDs in registry but not in ps (dead but not deregistered), (c) entries with stale heartbeats
+
+  ### Guards
+
+  - `check_process_registry_hygiene.py` — fails if unregistered strays exist OR stale-heartbeat entries exist older than N minutes
+  - Extend `hygiene_support._audit_runtime_processes` to check the typed registry BEFORE the ppid/scope heuristics — if a process is in the registry, it's supervised regardless of ppid. This closes BP-006 (the supervisor-heartbeat `rm` bypass) as a side effect.
+
+  ### Dashboard
+
+  - `devctl dashboard --view processes` — live registry table
+  - Extend existing `--view overview` health block to show "N registered processes, M stale, K unregistered strays"
+
+  ### Integration points
+
+  - `review-channel --action launch` — auto-registers spawned conductor processes
+  - `review-channel --action ensure` — auto-registers daemons
+  - `Agent tool` subagent spawns — should auto-register if Claude Code supports a pre-spawn hook
+  - Graceful shutdown paths already in `follow_lifecycle.py` — add deregister call
+
+- **Outcome**: the question "is there a stray session running" becomes a typed query, not a grep. The operator can ask `devctl processes --action audit` and get a definitive answer from typed state. The "no random sessions" directive becomes enforceable, not aspirational.
+
+- **Depends on**: none (standalone MVP, similar shape to BL-031 and BL-006)
+
+- **MP candidate**: `typed-process-registry`
+
+- **Closes transitively**: BP-006 (supervisor heartbeat rm bypass), parts of BL-023 (Q41 process-sweep reaping), and adds a deterministic answer to "what is running against this repo right now".
