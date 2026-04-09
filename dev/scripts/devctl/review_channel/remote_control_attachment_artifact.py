@@ -8,24 +8,42 @@ from pathlib import Path
 
 from ..runtime.reviewer_runtime_models import (
     RemoteControlAttachmentState,
+    has_active_remote_control_attachment,
     remote_control_attachment_from_mapping,
 )
 
 
-REMOTE_CONTROL_ATTACHMENT_FILENAME = "claude-remote-control.json"
+# Default provider preserves the legacy "claude-remote-control.json" filename so
+# existing artifacts continue to load without migration.
+DEFAULT_REMOTE_CONTROL_PROVIDER = "claude"
+REMOTE_CONTROL_ATTACHMENT_FILENAME_SUFFIX = "-remote-control.json"
+# Retained for backwards-compat consumers that reference the legacy filename.
+REMOTE_CONTROL_ATTACHMENT_FILENAME = (
+    f"{DEFAULT_REMOTE_CONTROL_PROVIDER}{REMOTE_CONTROL_ATTACHMENT_FILENAME_SUFFIX}"
+)
 
 
-def remote_control_attachment_path(*, output_root: Path) -> Path:
-    """Return the canonical sidecar path for the external remote session."""
-    return output_root / "sessions" / REMOTE_CONTROL_ATTACHMENT_FILENAME
+def _normalize_provider(provider: str | None) -> str:
+    """Return a non-empty provider slug, falling back to the default."""
+    value = str(provider or "").strip().lower()
+    return value or DEFAULT_REMOTE_CONTROL_PROVIDER
 
 
-def load_remote_control_attachment(
+def remote_control_attachment_filename(provider: str | None) -> str:
+    """Return the provider-scoped artifact filename."""
+    return f"{_normalize_provider(provider)}{REMOTE_CONTROL_ATTACHMENT_FILENAME_SUFFIX}"
+
+
+def remote_control_attachment_path(
     *,
     output_root: Path,
-) -> RemoteControlAttachmentState | None:
-    """Load the canonical remote-control attachment artifact when present."""
-    artifact_path = remote_control_attachment_path(output_root=output_root)
+    provider: str | None = DEFAULT_REMOTE_CONTROL_PROVIDER,
+) -> Path:
+    """Return the canonical sidecar path for a provider's remote session."""
+    return output_root / "sessions" / remote_control_attachment_filename(provider)
+
+
+def _read_attachment_file(artifact_path: Path) -> RemoteControlAttachmentState | None:
     if not artifact_path.exists():
         return None
     try:
@@ -38,13 +56,66 @@ def load_remote_control_attachment(
     return replace(attachment, metadata_path=str(artifact_path))
 
 
+def _scan_provider_attachments(
+    sessions_dir: Path,
+) -> list[RemoteControlAttachmentState]:
+    if not sessions_dir.is_dir():
+        return []
+    attachments: list[RemoteControlAttachmentState] = []
+    for path in sorted(sessions_dir.glob(f"*{REMOTE_CONTROL_ATTACHMENT_FILENAME_SUFFIX}")):
+        loaded = _read_attachment_file(path)
+        if loaded is not None:
+            attachments.append(loaded)
+    return attachments
+
+
+def _select_preferred_attachment(
+    attachments: list[RemoteControlAttachmentState],
+) -> RemoteControlAttachmentState | None:
+    if not attachments:
+        return None
+    active = [a for a in attachments if has_active_remote_control_attachment(a)]
+    pool = active or attachments
+    # Prefer the most recently seen record so the newest live session wins when
+    # multiple providers share the same status_dir.
+    pool_sorted = sorted(
+        pool,
+        key=lambda a: (a.last_seen_utc or "", a.attached_at_utc or ""),
+        reverse=True,
+    )
+    return pool_sorted[0]
+
+
+def load_remote_control_attachment(
+    *,
+    output_root: Path,
+    provider: str | None = None,
+) -> RemoteControlAttachmentState | None:
+    """Load a remote-control attachment artifact when present.
+
+    When ``provider`` is supplied, only that provider's file is considered.
+    Otherwise the sessions directory is scanned for any provider file and the
+    most recently active attachment wins so legacy single-provider callers
+    keep working and multi-provider callers see every attachment.
+    """
+    if provider is not None:
+        return _read_attachment_file(
+            remote_control_attachment_path(output_root=output_root, provider=provider)
+        )
+    return _select_preferred_attachment(
+        _scan_provider_attachments(output_root / "sessions")
+    )
+
+
 def persist_remote_control_attachment(
     attachment: RemoteControlAttachmentState,
     *,
     output_root: Path,
 ) -> Path:
-    """Write the canonical remote-control attachment artifact and return its path."""
-    artifact_path = remote_control_attachment_path(output_root=output_root)
+    """Write the provider-scoped remote-control attachment artifact."""
+    artifact_path = remote_control_attachment_path(
+        output_root=output_root, provider=attachment.provider
+    )
     artifact_path.parent.mkdir(parents=True, exist_ok=True)
     payload = replace(attachment, metadata_path=str(artifact_path))
     artifact_path.write_text(

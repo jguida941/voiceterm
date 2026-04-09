@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from dataclasses import replace
 from pathlib import Path
+from urllib.parse import urlparse
 
 from ...review_channel.remote_control_attachment_artifact import (
     load_remote_control_attachment,
@@ -98,13 +98,12 @@ def _build_attachment(
     attached_at_utc = now
     attachment_id = f"remote-attach-{_slugify_timestamp(now)}"
     if existing is not None:
-        same_attachment = (
-            existing.provider == provider
-            and (
-                (remote_session_id and existing.remote_session_id == remote_session_id)
-                or (session_url and existing.session_url == session_url)
-                or (session_name and existing.session_name == session_name)
-            )
+        # Identity matches on remote_session_id or session_url only. session_name
+        # is a human display label and must never conflate distinct sessions
+        # that happen to share the same bridge loop label.
+        same_attachment = existing.provider == provider and (
+            (remote_session_id and existing.remote_session_id == remote_session_id)
+            or (session_url and existing.session_url == session_url)
         )
         if same_attachment:
             attachment_id = existing.attachment_id or attachment_id
@@ -126,21 +125,33 @@ def _build_attachment(
 
 
 def _session_id_from_url(session_url: str) -> str:
-    trimmed = str(session_url or "").strip().rstrip("/")
+    """Extract the trailing session_<id> segment from a remote session URL.
+
+    Query strings and fragments are stripped before tail extraction so URLs
+    like ``https://claude.ai/code/session_abc?foo=1`` resolve correctly.
+    """
+    trimmed = str(session_url or "").strip()
     if not trimmed:
         return ""
-    tail = trimmed.rsplit("/", 1)[-1]
+    path = urlparse(trimmed).path.rstrip("/")
+    if not path:
+        return ""
+    tail = path.rsplit("/", 1)[-1]
     return tail if tail.startswith("session_") else ""
 
 
 def _slugify_timestamp(value: str) -> str:
+    """Collapse an ISO-8601 timestamp into a filesystem-safe slug.
+
+    Keeps the ``T`` and ``Z`` anchors so the resulting id is still readable
+    (e.g. ``20260409T131415Z``) while stripping separators that are awkward
+    in filenames and attachment ids.
+    """
     return (
         str(value or "")
         .replace("-", "")
         .replace(":", "")
         .replace(".", "")
-        .replace("T", "T")
-        .replace("Z", "Z")
     )
 
 

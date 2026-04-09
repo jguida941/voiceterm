@@ -2,11 +2,44 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from types import SimpleNamespace
+
+import pytest
 
 from dev.scripts.devctl.cli import build_parser
 from dev.scripts.devctl.commands.review_channel._attach_remote_control import (
+    _build_attachment,
+    _session_id_from_url,
     run_attach_remote_control_action,
 )
+from dev.scripts.devctl.commands.review_channel_command.constants import (
+    ReviewChannelAction,
+)
+from dev.scripts.devctl.commands.review_channel_command.helpers import _validate_args
+from dev.scripts.devctl.review_channel.remote_control_attachment_artifact import (
+    has_active_remote_control_attachment,
+    load_remote_control_attachment,
+    persist_remote_control_attachment,
+    remote_control_attachment_path,
+)
+from dev.scripts.devctl.runtime.reviewer_runtime_models import (
+    RemoteControlAttachmentState,
+)
+
+
+def _make_attach_args(**overrides: object) -> SimpleNamespace:
+    """Build a minimal args namespace matching the attach-remote-control surface."""
+    defaults: dict[str, object] = {
+        "remote_provider": "claude",
+        "remote_role": "implementer",
+        "attachment_status": "attached",
+        "session_name": "",
+        "remote_session_id": "",
+        "session_url": "",
+        "metadata_path": "",
+    }
+    defaults.update(overrides)
+    return SimpleNamespace(**defaults)
 
 
 def test_cli_accepts_attach_remote_control_action() -> None:
@@ -95,3 +128,151 @@ def test_attach_remote_control_action_allows_unknown_status_without_url(
 
     assert exit_code == 0
     assert report["attachment"]["status"] == "unknown"
+
+
+def test_build_attachment_is_idempotent_for_same_session_url() -> None:
+    """Re-attaching with the same session URL must reuse the existing id + timestamp."""
+    args = _make_attach_args(
+        session_name="VoiceTerm Bridge Loop",
+        session_url="https://claude.ai/code/session_abc123",
+    )
+
+    first = _build_attachment(args=args, existing=None)
+    second = _build_attachment(args=args, existing=first)
+
+    assert second.attachment_id == first.attachment_id
+    assert second.attached_at_utc == first.attached_at_utc
+    # last_seen_utc should still refresh on every call even when identity matches.
+    assert second.last_seen_utc >= first.last_seen_utc
+
+
+def test_build_attachment_does_not_conflate_sessions_sharing_a_label() -> None:
+    """Matching on session_name alone must NOT reuse a prior attachment id."""
+    first_args = _make_attach_args(
+        session_name="VoiceTerm Bridge Loop",
+        session_url="https://claude.ai/code/session_first",
+    )
+    second_args = _make_attach_args(
+        session_name="VoiceTerm Bridge Loop",
+        session_url="https://claude.ai/code/session_second",
+    )
+
+    first = _build_attachment(args=first_args, existing=None)
+    second = _build_attachment(args=second_args, existing=first)
+
+    assert first.remote_session_id == "session_first"
+    assert second.remote_session_id == "session_second"
+    assert second.attachment_id != first.attachment_id
+
+
+def test_has_active_predicate_is_false_for_detached_attachment(tmp_path: Path) -> None:
+    """A persisted detached attachment must not register as active."""
+    status_dir = tmp_path / "status"
+    status_dir.mkdir()
+    detached = RemoteControlAttachmentState(
+        provider="claude",
+        role="implementer",
+        attachment_id="remote-attach-detached",
+        session_name="VoiceTerm Bridge Loop",
+        remote_session_id="session_gone",
+        session_url="https://claude.ai/code/session_gone",
+        status="detached",
+        attached_at_utc="2026-04-09T00:00:00Z",
+        last_seen_utc="2026-04-09T00:00:01Z",
+    )
+    persist_remote_control_attachment(detached, output_root=status_dir)
+
+    loaded = load_remote_control_attachment(
+        output_root=status_dir, provider="claude"
+    )
+    assert loaded is not None
+    assert loaded.status == "detached"
+    assert has_active_remote_control_attachment(loaded) is False
+
+
+def test_validate_args_requires_session_identity_when_attached() -> None:
+    """Attached status without url or session id must raise a typed ValueError."""
+    args = _make_attach_args(attachment_status="attached")
+    with pytest.raises(ValueError, match="requires --session-url"):
+        _validate_args(args, ReviewChannelAction.ATTACH_REMOTE_CONTROL)
+
+
+def test_provider_parameterized_artifacts_do_not_clobber_each_other(
+    tmp_path: Path,
+) -> None:
+    """Claude and codex attachments must coexist in the same sessions dir."""
+    status_dir = tmp_path / "status"
+    status_dir.mkdir()
+    claude_state = RemoteControlAttachmentState(
+        provider="claude",
+        role="implementer",
+        attachment_id="remote-attach-claude",
+        session_name="Claude bridge",
+        remote_session_id="session_claude",
+        session_url="https://claude.ai/code/session_claude",
+        status="attached",
+        attached_at_utc="2026-04-09T00:00:00Z",
+        last_seen_utc="2026-04-09T00:00:01Z",
+    )
+    codex_state = RemoteControlAttachmentState(
+        provider="codex",
+        role="reviewer",
+        attachment_id="remote-attach-codex",
+        session_name="Codex bridge",
+        remote_session_id="session_codex",
+        session_url="https://chatgpt.com/codex/session_codex",
+        status="attached",
+        attached_at_utc="2026-04-09T00:00:02Z",
+        last_seen_utc="2026-04-09T00:00:03Z",
+    )
+
+    claude_path = persist_remote_control_attachment(
+        claude_state, output_root=status_dir
+    )
+    codex_path = persist_remote_control_attachment(
+        codex_state, output_root=status_dir
+    )
+
+    assert claude_path == remote_control_attachment_path(
+        output_root=status_dir, provider="claude"
+    )
+    assert codex_path == remote_control_attachment_path(
+        output_root=status_dir, provider="codex"
+    )
+    assert claude_path != codex_path
+    assert claude_path.is_file()
+    assert codex_path.is_file()
+
+    loaded_claude = load_remote_control_attachment(
+        output_root=status_dir, provider="claude"
+    )
+    loaded_codex = load_remote_control_attachment(
+        output_root=status_dir, provider="codex"
+    )
+    assert loaded_claude is not None and loaded_claude.provider == "claude"
+    assert loaded_codex is not None and loaded_codex.provider == "codex"
+    assert loaded_claude.remote_session_id == "session_claude"
+    assert loaded_codex.remote_session_id == "session_codex"
+
+    # Provider-agnostic scan should pick the most recently seen active record.
+    scanned = load_remote_control_attachment(output_root=status_dir)
+    assert scanned is not None
+    assert scanned.provider == "codex"
+
+
+def test_session_id_from_url_strips_query_and_fragment() -> None:
+    """Session ids must survive query strings and fragments after the tail."""
+    assert (
+        _session_id_from_url("https://claude.ai/code/session_abc?foo=1")
+        == "session_abc"
+    )
+    assert (
+        _session_id_from_url("https://claude.ai/code/session_xyz#top")
+        == "session_xyz"
+    )
+    assert (
+        _session_id_from_url("https://claude.ai/code/session_trailing/")
+        == "session_trailing"
+    )
+    assert _session_id_from_url("https://example.com/other/path") == ""
+    assert _session_id_from_url("") == ""
