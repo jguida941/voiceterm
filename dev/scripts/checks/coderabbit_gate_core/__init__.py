@@ -6,7 +6,10 @@ import importlib.util
 from pathlib import Path
 from types import ModuleType
 
-from ..coderabbit_gate_support import render_report_md
+try:
+    from ..coderabbit_gate_support import render_report_md
+except ImportError:  # pragma: no cover - direct script fallback
+    from coderabbit_gate_support import render_report_md
 
 _LEGACY_MODULE_NAME = "dev.scripts.checks._coderabbit_gate_core_legacy"
 

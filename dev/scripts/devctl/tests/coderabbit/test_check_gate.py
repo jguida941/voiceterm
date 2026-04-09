@@ -317,3 +317,23 @@ class CheckCodeRabbitGateTests(TestCase):
 
         self.assertFalse(report["ok"])
         self.assertIn("gh_run_list_failed", report["reason"])
+
+    def test_top_level_coderabbit_gate_core_import_supports_script_mode(self) -> None:
+        checks_dir = SCRIPT_PATH.parent
+        original_sys_path = list(sys.path)
+        previous_core = sys.modules.pop("coderabbit_gate_core", None)
+        previous_support = sys.modules.pop("coderabbit_gate_support", None)
+        try:
+            sys.path.insert(0, str(checks_dir))
+            module = __import__("coderabbit_gate_core")
+        finally:
+            sys.path[:] = original_sys_path
+            sys.modules.pop("coderabbit_gate_core", None)
+            sys.modules.pop("coderabbit_gate_support", None)
+            if previous_core is not None:
+                sys.modules["coderabbit_gate_core"] = previous_core
+            if previous_support is not None:
+                sys.modules["coderabbit_gate_support"] = previous_support
+
+        self.assertTrue(hasattr(module, "build_report"))
+        self.assertTrue(hasattr(module, "render_report_md"))
