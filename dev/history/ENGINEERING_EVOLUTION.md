@@ -868,6 +868,29 @@ Evidence: `dev/scripts/devctl/runtime/probe_report_violations.py`,
 `dev/active/MASTER_PLAN.md`,
 `dev/active/ai_governance_platform.md`.
 
+### 2026-04-09 - Path-audit now keeps a stable root seam while support logic moves under `path_audit_support`
+
+Fact: `docs-check --strict-tooling`, `path-audit`, and `path-rewrite` still
+need one stable public import/command seam at
+`dev/scripts/devctl/path_audit.py`, but continuing to grow that crowded root
+module started tripping the same package-layout guard the path-audit tooling is
+meant to protect. The fix keeps the public seam stable and auditable while
+moving the implementation under `dev/scripts/devctl/path_audit_support/`:
+`path_audit.py` is now a compatibility shim, `path_audit_support/core.py`
+holds the legacy-path scan/rewrite logic, and
+`path_audit_support/workspace.py` owns the workspace-contract scan. The stale
+path contract is unchanged for callers, while strict-tooling stays honest about
+the implementation split.
+
+Evidence: `dev/scripts/devctl/path_audit.py`,
+`dev/scripts/devctl/path_audit_support/core.py`,
+`dev/scripts/devctl/path_audit_support/workspace.py`,
+`dev/scripts/devctl/tests/test_path_audit.py`,
+`AGENTS.md`,
+`dev/guides/DEVELOPMENT.md`,
+`dev/scripts/README.md`,
+`dev/active/MASTER_PLAN.md`.
+
 ### 2026-04-06 - Reviewer follow auto-promotion now fails closed on explicit state markers instead of prose substrings
 
 Review-channel promotion still had one hidden prose-authority seam. The

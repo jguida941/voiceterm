@@ -2130,8 +2130,10 @@
   the remaining live `probe_single_use_helpers` debt in the current runtime /
   governance extraction seam is burned down. `controller_action.py`,
   `docs_check.py`, `path_audit.py`, and `runtime/control_state.py` now keep
-  only named seams instead of one-use private wrappers, and the probe backlog
-  now narrows to the real portability issue: the large
+  only named seams instead of one-use private wrappers. `path_audit.py`
+  remains the stable public seam, with the legacy-scan/workspace-scan
+  implementation now split under `path_audit_support/` so crowded-root cleanup
+  does not break strict-tooling authority. The probe backlog now narrows to the real portability issue: the large
   `dev/scripts/devctl` root compatibility-shim population that still needs
   package/repo-pack extraction work rather than more local cleanup.
 - MP-377 repo-pack surface-generation update (2026-03-13):

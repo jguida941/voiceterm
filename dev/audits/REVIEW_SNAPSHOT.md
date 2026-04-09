@@ -5,14 +5,14 @@
 ## Quick status
 
 - Branch: `feature/governance-quality-sweep`
-- HEAD: `dacb1a2641dc` — Refresh external review snapshot for 67ec68f7
-- Tree hash: `c3d743621dc2`
-- Generation stamp: `snap-3a52cca04dcf`
-- Generated at (UTC): 2026-04-09T11:15:15Z
-- Push decision: `await_checkpoint` — staged_index_budget_exceeded
+- HEAD: `d094550c921b` — chore: register mutation guard and unify bootstrap catalog
+- Tree hash: `58408f96a0f2`
+- Generation stamp: `snap-392935437bc2`
+- Generated at (UTC): 2026-04-09T11:32:42Z
+- Push decision: `await_checkpoint` — staged_index_present
 - Reviewer mode: `single_agent` (interaction: `single_agent`)
 - Pipeline state: `n/a` (approval: `n/a`)
-- Delta since last snapshot: 25 commits, 140 files, +11950/-3518
+- Delta since last snapshot: 25 commits, 158 files, +12841/-3901
 - Governance findings: 39 open / 68 fixed / 121 total
 - Probe hints: 0 total across 0 files scanned
 
@@ -54,24 +54,24 @@ adopters arrive.
 - Remote: `https://github.com/jguida941/voiceterm.git`
 - Default branch: `master`
 - Current branch: `feature/governance-quality-sweep`
-- HEAD SHA: `dacb1a2641dc2cf6976f4b7208f6efee35ccb186`
+- HEAD SHA: `d094550c921b38e6233472964a44801a6abf31eb`
 - HEAD author: Justin Guida
-- HEAD timestamp (UTC): 2026-04-09T06:05:41-04:00
+- HEAD timestamp (UTC): 2026-04-09T07:15:06-04:00
 
 ## 2. Governance state
 
 ### Push decision
 - action: `await_checkpoint`
-- reason: staged_index_budget_exceeded
+- reason: staged_index_present
 - push_eligible_now: False
 - worktree_clean: False
-- staged_path_count: 27
-- unstaged_path_count: 1
+- staged_path_count: 9
+- unstaged_path_count: 0
 - next_step_command: `n/a`
 - latest_push_report: `dev/reports/push/latest.json`
 - latest_push_report_state: `blocked` (validation_failed)
 - publication_backlog: recommended
-- publication_guidance: 2 local commit(s) waiting for governed push once the current slice is checkpoint-clean.
+- publication_guidance: 3 local commit(s) waiting for governed push once the current slice is checkpoint-clean.
 
 ### Reviewer runtime
 - reviewer_mode: `single_agent`
@@ -87,58 +87,57 @@ adopters arrive.
 - active plan: **Master Plan (Active, Unified)**
 - plan path: `dev/active/MASTER_PLAN.md`
 - active MP scope: all active MP execution state
-- advisory: `checkpoint_before_continue` — staged_index_budget_exceeded
-- checkpoint_required: **yes**
+- advisory: `checkpoint_allowed` — worktree_dirty_within_budget
 
 ## 3. Delta — what changed since the previous snapshot
 
-Range: last 25 commits ending at `dacb1a2641dc`
+Range: last 25 commits ending at `d094550c921b`
 
 - commits: 25
-- files changed: 140
-- insertions: +11950
-- deletions: -3518
-- bundle classes touched: tooling, docs
+- files changed: 158
+- insertions: +12841
+- deletions: -3901
+- bundle classes touched: docs, tooling
 - authority surfaces touched: 26 file(s)
 
 ### Commits
 
 | # | SHA | Subject | Files | +/- | Bundle | Risk |
 |---|---|---|---|---|---|---|
-| 1 | `dacb1a26` | Refresh external review snapshot for 67ec68f7 | 1 | +52/-51 | tooling |  |
-| 2 | `67ec68f7` | test: pin single-agent interaction mode resolution | 3 | +83/-65 | tooling |  |
-| 3 | `1c70b2c5` | checkpoint: capture governance and review-channel batch | 27 | +976/-194 | tooling |  |
-| 4 | `47d483b4` | Harden governed push and typed review-state reads | 89 | +4035/-993 | tooling |  |
-| 5 | `6eb4945b` | Refresh external review snapshot for 73908286 | 1 | +63/-95 | tooling |  |
-| 6 | `73908286` | docs: align graph-backed convergence plan | 6 | +510/-86 | tooling |  |
-| 7 | `516e839c` | Refresh external review snapshot for c1a1ee28 | 1 | +96/-69 | tooling |  |
-| 8 | `c1a1ee28` | Advance typed authority convergence across mutation and con… | 59 | +3285/-956 | tooling |  |
-| 9 | `1c74c07f` | Refresh external review snapshot for f294de63 | 1 | +68/-59 | tooling |  |
-| 10 | `f294de63` | Operator-directed commit+push: F1 parity flake fix + bridge… | 5 | +116/-41 | tooling |  |
-| 11 | `ed23ac62` | LIVE_RUN: Q61 typed state lies about PID liveness + Q62 err… | 2 | +147/-54 | tooling |  |
-| 12 | `839ee400` | Refresh external review snapshot for 9109ae4e | 1 | +57/-53 | tooling |  |
-| 13 | `9109ae4e` | Preserve Claude-CLI session 7 WIP before solo-Codex test | 4 | +179/-69 | tooling |  |
-| 14 | `8330b1d9` | LIVE_RUN: Q58 autonomy-swarm discoverability + full system… | 2 | +254/-42 | tooling |  |
-| 15 | `06d591c0` | LIVE_RUN: Q55 THE DISEASE (authority-lane split) + Q56 smok… | 2 | +281/-51 | tooling |  |
-| 16 | `c6743678` | Refresh external review snapshot for ffc7f954 | 1 | +58/-50 | tooling |  |
-| 17 | `ffc7f954` | Preserve Claude-CLI session 6 WIP batch 2 (plan docs + new… | 8 | +325/-56 | tooling |  |
-| 18 | `7ac4d4f1` | Preserve Claude-CLI session 6 WIP (F1 + F4 + test + README)… | 6 | +220/-82 | tooling |  |
-| 19 | `527eb1b2` | LIVE_RUN: Q54 role separation unclear — publisher vs superv… | 2 | +166/-40 | tooling |  |
-| 20 | `22b06b22` | LIVE_RUN: Q53 bootstrap guidance missing — AI agents learn… | 2 | +182/-63 | tooling |  |
-| 21 | `c5890296` | LIVE_RUN: Q52 TOP-LEVEL ARCHITECTURAL FAILURE — AI agents f… | 2 | +170/-42 | tooling |  |
-| 22 | `e9a37347` | LIVE_RUN: Q50 lazy dashboard + Q51 update cadence drift (AI… | 2 | +200/-53 | tooling |  |
-| 23 | `81cff0d8` | Refresh external review snapshot for 079d7f3f | 1 | +55/-50 | tooling |  |
-| 24 | `079d7f3f` | Preserve Claude-CLI WIP (F1 consumer wiring) from session 5… | 4 | +155/-155 | tooling |  |
-| 25 | `dde77865` | LIVE_RUN: add AI Research Lane architecture proposal (Codex… | 2 | +217/-49 | tooling |  |
+| 1 | `d094550c` | chore: register mutation guard and unify bootstrap catalog | 27 | +1108/-432 | tooling |  |
+| 2 | `dacb1a26` | Refresh external review snapshot for 67ec68f7 | 1 | +52/-51 | tooling |  |
+| 3 | `67ec68f7` | test: pin single-agent interaction mode resolution | 3 | +83/-65 | tooling |  |
+| 4 | `1c70b2c5` | checkpoint: capture governance and review-channel batch | 27 | +976/-194 | tooling |  |
+| 5 | `47d483b4` | Harden governed push and typed review-state reads | 89 | +4035/-993 | tooling |  |
+| 6 | `6eb4945b` | Refresh external review snapshot for 73908286 | 1 | +63/-95 | tooling |  |
+| 7 | `73908286` | docs: align graph-backed convergence plan | 6 | +510/-86 | tooling |  |
+| 8 | `516e839c` | Refresh external review snapshot for c1a1ee28 | 1 | +96/-69 | tooling |  |
+| 9 | `c1a1ee28` | Advance typed authority convergence across mutation and con… | 59 | +3285/-956 | tooling |  |
+| 10 | `1c74c07f` | Refresh external review snapshot for f294de63 | 1 | +68/-59 | tooling |  |
+| 11 | `f294de63` | Operator-directed commit+push: F1 parity flake fix + bridge… | 5 | +116/-41 | tooling |  |
+| 12 | `ed23ac62` | LIVE_RUN: Q61 typed state lies about PID liveness + Q62 err… | 2 | +147/-54 | tooling |  |
+| 13 | `839ee400` | Refresh external review snapshot for 9109ae4e | 1 | +57/-53 | tooling |  |
+| 14 | `9109ae4e` | Preserve Claude-CLI session 7 WIP before solo-Codex test | 4 | +179/-69 | tooling |  |
+| 15 | `8330b1d9` | LIVE_RUN: Q58 autonomy-swarm discoverability + full system… | 2 | +254/-42 | tooling |  |
+| 16 | `06d591c0` | LIVE_RUN: Q55 THE DISEASE (authority-lane split) + Q56 smok… | 2 | +281/-51 | tooling |  |
+| 17 | `c6743678` | Refresh external review snapshot for ffc7f954 | 1 | +58/-50 | tooling |  |
+| 18 | `ffc7f954` | Preserve Claude-CLI session 6 WIP batch 2 (plan docs + new… | 8 | +325/-56 | tooling |  |
+| 19 | `7ac4d4f1` | Preserve Claude-CLI session 6 WIP (F1 + F4 + test + README)… | 6 | +220/-82 | tooling |  |
+| 20 | `527eb1b2` | LIVE_RUN: Q54 role separation unclear — publisher vs superv… | 2 | +166/-40 | tooling |  |
+| 21 | `22b06b22` | LIVE_RUN: Q53 bootstrap guidance missing — AI agents learn… | 2 | +182/-63 | tooling |  |
+| 22 | `c5890296` | LIVE_RUN: Q52 TOP-LEVEL ARCHITECTURAL FAILURE — AI agents f… | 2 | +170/-42 | tooling |  |
+| 23 | `e9a37347` | LIVE_RUN: Q50 lazy dashboard + Q51 update cadence drift (AI… | 2 | +200/-53 | tooling |  |
+| 24 | `81cff0d8` | Refresh external review snapshot for 079d7f3f | 1 | +55/-50 | tooling |  |
+| 25 | `079d7f3f` | Preserve Claude-CLI WIP (F1 consumer wiring) from session 5… | 4 | +155/-155 | tooling |  |
 
 ### Files
 
 | Path | Bundle | +/- |
 |---|---|---|
-| `AGENTS.md` | docs | +31/-7 |
+| `AGENTS.md` | docs | +36/-7 |
 | `bridge.md` | docs | +93/-101 |
-| `dev/active/MASTER_PLAN.md` | tooling | +158/-4 |
-| `dev/active/ai_governance_platform.md` | tooling | +203/-1 |
+| `dev/active/MASTER_PLAN.md` | tooling | +166/-4 |
+| `dev/active/ai_governance_platform.md` | tooling | +235/-1 |
 | `dev/active/platform_authority_loop.md` | tooling | +219/-1 |
 | `dev/active/portable_code_governance.md` | tooling | +86/-2 |
 | `dev/active/remote_commit_pipeline.md` | tooling | +175/-22 |
@@ -146,12 +145,13 @@ Range: last 25 commits ending at `dacb1a2641dc`
 | `dev/active/review_channel.md` | tooling | +9/-0 |
 | `dev/active/review_probes.md` | tooling | +40/-1 |
 | `dev/audits/AUTOMATION_DEBT_REGISTER.md` | tooling | +1/-0 |
-| `dev/audits/LIVE_RUN.md` | tooling | +1226/-0 |
-| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1428/-1368 |
+| `dev/audits/LIVE_RUN.md` | tooling | +1054/-0 |
+| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1444/-1375 |
 | `dev/config/git_hooks/pre-push-governed-push.sh` | tooling | +32/-0 |
-| `dev/guides/DEVELOPMENT.md` | docs | +27/-4 |
-| `dev/history/ENGINEERING_EVOLUTION.md` | tooling | +140/-1 |
-| `dev/scripts/README.md` | tooling | +34/-7 |
+| `dev/guides/DEVELOPMENT.md` | docs | +28/-4 |
+| `dev/history/ENGINEERING_EVOLUTION.md` | tooling | +165/-1 |
+| `dev/scripts/README.md` | tooling | +35/-7 |
+| `dev/scripts/checks/check_architecture_surface_sync.py` | tooling | +19/-1 |
 | `dev/scripts/checks/check_mutation_bypass_graph_closure.py` | tooling | +12/-0 |
 | `dev/scripts/checks/mutation_bypass_graph_closure/__init__.py` | tooling | +2/-0 |
 | `dev/scripts/checks/mutation_bypass_graph_closure/command.py` | tooling | +105/-0 |
@@ -165,6 +165,7 @@ Range: last 25 commits ending at `dacb1a2641dc`
 | `dev/scripts/devctl/commands/dashboard_render/__init__.py` | tooling | +9/-3 |
 | `dev/scripts/devctl/commands/dashboard_render/control_plane.py` | tooling | +103/-0 |
 | `dev/scripts/devctl/commands/dashboard_typed_state.py` | tooling | +5/-7 |
+| `dev/scripts/devctl/commands/discover/__init__.py` | tooling | +5/-2 |
 | `dev/scripts/devctl/commands/governance/install_git_hooks.py` | tooling | +9/-5 |
 | `dev/scripts/devctl/commands/governance/session_resume.py` | tooling | +14/-2 |
 | `dev/scripts/devctl/commands/governance/session_resume_support.py` | tooling | +77/-60 |
@@ -173,9 +174,7 @@ Range: last 25 commits ending at `dacb1a2641dc`
 | `dev/scripts/devctl/commands/review_channel/_recover.py` | tooling | +10/-0 |
 | `dev/scripts/devctl/commands/review_channel/_stop.py` | tooling | +97/-29 |
 | `dev/scripts/devctl/commands/review_channel/bridge_handler.py` | tooling | +21/-19 |
-| `dev/scripts/devctl/commands/review_channel/bridge_launch_control.py` | tooling | +39/-47 |
-| `dev/scripts/devctl/commands/review_channel/launcher_discipline.py` | tooling | +97/-0 |
-| _100 more files trimmed_ | | |
+| _118 more files trimmed_ | | |
 
 ## 4. Quality signals
 
@@ -271,6 +270,7 @@ Recent findings:
 - **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/commands/vcs/governed_executor_support.py`) — Review contract-level invariants for this file
 - **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/review_channel/bridge_projection_state.py`) — Review contract-level invariants for this file
 - **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/tests/vcs/test_governed_executor.py`) — Review contract-level invariants for this file
+- **contract_mutation**: Contract / typed model mutated (`dev/scripts/devctl/governance/system_catalog_models.py`) — Commit d094550c changed dev/scripts/devctl/governance/system_catalog_models.py
 - **contract_mutation**: Contract / typed model mutated (`dev/scripts/devctl/context_graph/_codeshape_models.py`) — Commit 47d483b4 changed dev/scripts/devctl/context_graph/_codeshape_models.py
 - **contract_mutation**: Contract / typed model mutated (`dev/scripts/devctl/governance/push_state_models.py`) — Commit 47d483b4 changed dev/scripts/devctl/governance/push_state_models.py
 - **contract_mutation**: Contract / typed model mutated (`dev/scripts/devctl/tests/checks/test_startup_authority_contract.py`) — Commit 47d483b4 changed dev/scripts/devctl/tests/checks/test_startup_authority_contract.py
@@ -288,6 +288,8 @@ Recent findings:
 
 ### Per-commit rationale
 
+- **`d094550c`** — chore: register mutation guard and unify bootstrap catalog
+  - evolution: Fact: the governed push lane surfaced a self-hosting gap in the new graph-backed mutation-bypass guard. The public entrypoint shim `dev/scripts/checks/check_mutation_bypass_graph_closure.py` existed on disk, but it had …
 - **`dacb1a26`** — Refresh external review snapshot for 67ec68f7
   - evolution: Fact: the governed push lane surfaced a self-hosting gap in the new graph-backed mutation-bypass guard. The public entrypoint shim `dev/scripts/checks/check_mutation_bypass_graph_closure.py` existed on disk, but it had …
 - **`67ec68f7`** — test: pin single-agent interaction mode resolution
@@ -365,11 +367,6 @@ Recent findings:
   - elapsed, just past the Q41-protected ~7min death window (proving Q41
   - fixed the process-sweep cause) but still short of task completion.
   - evolution: The next remote-control/platform hardening slice was not a new architecture layer. It was closure on the typed paths that already existed but still left practical escape hatches. On the write side, `devctl commit` no lo…
-- **`dde77865` | MPs: MP-388** — LIVE_RUN: add AI Research Lane architecture proposal (Codex review lane)
-  - Operator requested formalizing the beta-test flow this session has
-  - been running ad-hoc ('research → LIVE_RUN → Codex review → Claude
-  - implement') as a first-class governed architecture. Proposal is
-  - evolution: The next remote-control/platform hardening slice was not a new architecture layer. It was closure on the typed paths that already existed but still left practical escape hatches. On the write side, `devctl commit` no lo…
 ### Active MP scope (from MASTER_PLAN.md)
 
 - `dev/active/devctl_reporting_upgrade.md` is the phased `devctl` reporting/CIHub specification, but not a separate execution tracker; implementation tasks stay in this file under `MP-297..MP-300`, `MP-303`, `MP-306`, `MP…
@@ -388,10 +385,9 @@ Recent findings:
 - open governance findings: 39
 
 ### Startup advisories
-- checkpoint_before_continue: staged_index_budget_exceeded
+- checkpoint_allowed: worktree_dirty_within_budget
 
 ### Stale warnings
-- Keep editing the current slice.
 - Move straight to the governed push path.
 
 ### Open gap rows
@@ -406,4 +402,4 @@ Recent findings:
 
 ---
 
-Projection produced by `devctl review-snapshot`. Generation stamp `snap-3a52cca04dcf` binds this file to HEAD `dacb1a2641dc`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
+Projection produced by `devctl review-snapshot`. Generation stamp `snap-392935437bc2` binds this file to HEAD `d094550c921b`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.

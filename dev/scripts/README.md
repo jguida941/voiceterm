@@ -842,7 +842,7 @@ rg -n "^\\s*-?\\s*uses:\\s*[^@\\s]+@" .github/workflows/*.yml | rg -v "@[0-9a-fA
 for f in .github/workflows/*.yml; do rg -q '^permissions:' \"$f\" || echo \"missing permissions: $f\"; rg -q '^concurrency:' \"$f\" || echo \"missing concurrency: $f\"; done
 markdownlint -c dev/config/markdownlint.yaml -p dev/config/markdownlint.ignore README.md QUICK_START.md guides/*.md dev/README.md scripts/README.md pypi/README.md app/README.md
 find . -maxdepth 1 -type f -name '--*'
-# `docs-check --strict-tooling` enforces ENGINEERING_EVOLUTION updates for tooling/process/CI shifts and runs active-plan + multi-agent sync gates, markdown metadata-header style checks, workflow-shell hygiene checks, bundle/workflow parity checks, plus stale-path audit (using `dev/scripts/devctl/script_catalog.py` as canonical check-script path registry). Use `path-rewrite` to auto-fix stale path references.
+# `docs-check --strict-tooling` enforces ENGINEERING_EVOLUTION updates for tooling/process/CI shifts and runs active-plan + multi-agent sync gates, markdown metadata-header style checks, workflow-shell hygiene checks, bundle/workflow parity checks, plus stale-path audit (using `dev/scripts/devctl/script_catalog.py` as canonical check-script path registry and the stable `dev/scripts/devctl/path_audit.py` seam for stale-path scanning). Use `path-rewrite` to auto-fix stale path references.
 # For UI behavior changes, refresh screenshot coverage in the same pass:
 # see dev/guides/DEVELOPMENT.md -> "Screenshot refresh capture matrix".
 
@@ -1783,6 +1783,9 @@ consistent:
   of adding more top-level `review_channel_*.py` files in `dev/scripts/devctl/`.
 - `dev/scripts/devctl/path_audit.py`: shared stale-path scanner and rewrite
   engine used by `path-audit`, `path-rewrite`, and `docs-check --strict-tooling`.
+  The public module now stays as a stable shim while implementation helpers live
+  under `dev/scripts/devctl/path_audit_support/core.py` and
+  `dev/scripts/devctl/path_audit_support/workspace.py`.
 - `dev/scripts/devctl/triage/parser.py`: shared CLI parser wiring for the
   `triage` command so `cli.py` remains under shape limits.
 - `dev/scripts/devctl/triage/loop_parser.py`: shared CLI parser wiring for the

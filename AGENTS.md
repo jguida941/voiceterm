@@ -2012,7 +2012,7 @@ Core commands:
 - `mcp` (optional read-only MCP adapter for allowlisted `devctl` tools/resources plus stdio transport; additive transport only, not a second enforcement authority)
 - `docs-check`
   - `--strict-tooling` also runs active-plan + multi-agent sync gates, markdown metadata-header checks, workflow-shell hygiene checks, bundle/workflow parity checks, plus stale-path audit so tooling/process changes cannot bypass active-doc/lane governance.
-  - Check-script moves must be reflected in `dev/scripts/devctl/script_catalog.py` so strict-tooling path audits stay canonical.
+  - Check-script moves must be reflected in `dev/scripts/devctl/script_catalog.py` so strict-tooling path audits stay canonical. Stable public seams such as `script_catalog.py` and `path_audit.py` may stay as thin compatibility shims when the implementation moves under support packages, but the root import/command paths remain the authority surfaces.
 - `hygiene` (archive/ADR/scripts governance plus orphaned/stale repo-related host-process sweep, including VoiceTerm PTY/test trees, repo-runtime cargo/target trees, repo-tooling wrappers, and repo-cwd background helpers such as `python3 -m unittest`, direct `bash dev/scripts/...` wrappers, or `qemu/node/make` descendants that outlive their repo-owned parent; report-retention drift warnings for stale managed `dev/reports/**` run artifacts, and tracked external-publication drift warnings when watched repo paths outpace synced papers/sites; optional `--fix` removes detected `dev/scripts/**/__pycache__` directories)
 - `process-cleanup` (host-side cleanup for orphaned/stale repo-related process trees; expands cleanup roots to full descendant trees so leaked PTY children, repo-cwd background helpers, and orphaned tooling descendants are reaped with their parent wrappers when possible, skips recent active processes by default, and `--verify` reruns strict host audit after cleanup)
 - `process-audit` (host-side Activity Monitor equivalent for repo-related runtime/tooling process trees; reports matched roots plus descendants, includes repo-cwd runtime/tooling helpers that would otherwise look generic in Activity Monitor, fails fast if `ps` is unavailable, and `--strict` turns leftover runtime/test trees or stale/orphaned repo-related helpers into a blocking failure before handoff)
@@ -2178,7 +2178,9 @@ Implementation note for maintainers:
   `dev/scripts/devctl/orchestrate_parser.py` (orchestrator CLI parser wiring),
   `dev/scripts/devctl/script_catalog.py` (canonical check-script path registry),
   `dev/scripts/devctl/path_audit_parser.py` (path-audit/path-rewrite parser wiring),
-  `dev/scripts/devctl/path_audit.py` (shared stale-path scanner + rewrite engine),
+  `dev/scripts/devctl/path_audit.py` (shared stale-path scanner + rewrite engine via stable shim),
+  `dev/scripts/devctl/path_audit_support/core.py` (path-audit legacy-scan + rewrite helpers),
+  `dev/scripts/devctl/path_audit_support/workspace.py` (workspace-contract path-audit helpers),
   `dev/scripts/devctl/triage/parser.py` (triage parser wiring),
   `dev/scripts/devctl/triage/loop_parser.py` (triage-loop parser wiring),
   `dev/scripts/devctl/loop_fix_policy.py` (shared fix-policy engine used by both triage-loop and mutation-loop policy wrappers),
