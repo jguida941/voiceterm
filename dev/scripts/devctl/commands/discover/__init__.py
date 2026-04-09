@@ -29,7 +29,7 @@ def add_parser(sub) -> None:
         "--filter",
         default="all",
         help=(
-            "Filter category: all, commands, guards, probes, surfaces, "
+            "Filter category: all, commands, guards, probes, surfaces, bootstrap_commands, "
             "or guards-for-file:<path> for file-specific guard list"
         ),
     )
@@ -208,7 +208,7 @@ def _build_payload(catalog, category: str) -> dict:
     if category == "all":
         return raw
     kept_keys = {"command", "timestamp", "schema_version"}
-    if category in ("commands", "guards", "probes", "surfaces"):
+    if category in ("commands", "guards", "probes", "surfaces", "bootstrap_commands"):
         kept_keys.add(category)
         kept_keys.add(f"total_{category}")
     return {key: value for key, value in raw.items() if key in kept_keys}
@@ -229,6 +229,7 @@ def _render_markdown(payload: dict, category: str) -> str:
     _render_category(lines, payload, "guards", category)
     _render_category(lines, payload, "probes", category)
     _render_category(lines, payload, "surfaces", category)
+    _render_category(lines, payload, "bootstrap_commands", category)
     return "\n".join(lines)
 
 
@@ -254,6 +255,8 @@ def _render_category(
             lines.append(f"- `{item['id']}`")
         elif key == "probes":
             lines.append(f"- `{item['id']}`")
+        elif key == "bootstrap_commands":
+            lines.append(f"- **{item['label']}**: `{item['command']}`")
         else:
             lines.append(f"- `{item['name']}`")
     lines.append("")

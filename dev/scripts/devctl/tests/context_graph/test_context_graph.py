@@ -246,6 +246,7 @@ class TestBootstrapContext(unittest.TestCase):
         self.assertIsInstance(ctx.bridge_active, bool)
         self.assertIsNotNone(ctx.graph_size)
         self.assertIsNotNone(ctx.key_commands)
+        self.assertIsNotNone(ctx.bootstrap_commands)
         self.assertIsNotNone(ctx.bootstrap_links)
         self.assertIsNotNone(ctx.quality_signals)
         self.assertTrue(ctx.usage)
@@ -429,7 +430,26 @@ class TestCapabilityNodes(unittest.TestCase):
     def test_capability_provenance(self) -> None:
         caps = [n for n in self.nodes if n.node_kind == NODE_KIND_CAPABILITY]
         for c in caps:
-            self.assertEqual(c.provenance_ref, "system_catalog.surfaces")
+            self.assertTrue(c.provenance_ref.startswith("system_catalog."))
+
+    def test_bootstrap_capability_nodes_exist(self) -> None:
+        bootstrap_nodes = [
+            n
+            for n in self.nodes
+            if n.node_kind == NODE_KIND_CAPABILITY
+            and n.metadata.get("capability_kind") == "bootstrap_command"
+        ]
+        self.assertGreater(len(bootstrap_nodes), 0)
+
+    def test_bootstrap_capability_routes_to_real_command(self) -> None:
+        target_edges = [
+            e
+            for e in self.edges
+            if e.source_id == "capability:startup_context_summary"
+            and e.edge_kind == EDGE_KIND_ROUTES_TO
+            and e.target_id == "cmd:startup-context"
+        ]
+        self.assertGreater(len(target_edges), 0)
 
 
 class TestConceptRenderers(unittest.TestCase):
@@ -470,9 +490,10 @@ class TestGraphHonesty(unittest.TestCase):
     def setUpClass(cls) -> None:
         cls.nodes, cls.edges = build_context_graph()
 
-    def test_bootstrap_commands_from_policy(self) -> None:
+    def test_bootstrap_commands_from_system_catalog(self) -> None:
         ctx = build_bootstrap_context(self.nodes, self.edges)
-        self.assertGreater(len(ctx.key_commands), 0, "commands should load from governance policy")
+        self.assertGreater(len(ctx.key_commands), 0, "commands should load from SystemCatalog")
+        self.assertGreater(len(ctx.bootstrap_commands), 0)
 
     def test_bootstrap_links_from_policy(self) -> None:
         ctx = build_bootstrap_context(self.nodes, self.edges)
@@ -488,7 +509,7 @@ class TestGraphHonesty(unittest.TestCase):
             }
         )
         with patch(
-            "dev.scripts.devctl.context_graph.query.load_surface_policy",
+            "dev.scripts.devctl.context_graph.bootstrap_catalog.load_surface_policy",
             return_value=policy,
         ):
             ctx = build_bootstrap_context(self.nodes, self.edges)

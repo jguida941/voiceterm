@@ -19,6 +19,7 @@ import sys
 from collections import defaultdict
 from datetime import datetime, timezone
 from pathlib import Path
+import re
 from typing import Final
 
 try:
@@ -50,6 +51,10 @@ CLI_REL: Final[str] = "dev/scripts/devctl/cli.py"
 LISTING_REL: Final[str] = "dev/scripts/devctl/commands/listing.py"
 COMMAND_DOCS_REL: Final[str] = "dev/scripts/README.md"
 WORKFLOW_README_REL: Final[str] = ".github/workflows/README.md"
+_SHIM_TARGET_RE: Final[re.Pattern[str]] = re.compile(
+    r"^\s*#\s*shim-target:\s*(?P<target>\S.*?)\s*$",
+    re.MULTILINE,
+)
 
 DISCOVERY_DOCS: Final[tuple[str, ...]] = (
     "AGENTS.md",
@@ -126,6 +131,19 @@ def _read_text(repo_root: Path, relative_path: str, cache: dict[str, str]) -> st
     except OSError:
         cache[relative_path] = ""
     return cache[relative_path]
+
+
+def _script_catalog_text(repo_root: Path, cache: dict[str, str]) -> str:
+    """Return script-catalog text, following one compatibility shim target."""
+    catalog_text = _read_text(repo_root, SCRIPT_CATALOG_REL, cache)
+    match = _SHIM_TARGET_RE.search(catalog_text)
+    if match is None:
+        return catalog_text
+    target = match.group("target").strip()
+    target_path = repo_root / target
+    if not target_path.is_file():
+        return catalog_text
+    return catalog_text + "\n" + _read_text(repo_root, target, cache)
 
 def _violation(
     *,
@@ -209,7 +227,7 @@ def _validate_check_script(
     path_text = path.as_posix()
     violations: list[dict[str, str]] = []
 
-    catalog_text = _read_text(repo_root, SCRIPT_CATALOG_REL, cache)
+    catalog_text = _script_catalog_text(repo_root, cache)
     if path.name not in catalog_text:
         violations.append(
             _violation(

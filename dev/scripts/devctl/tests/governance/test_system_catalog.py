@@ -15,6 +15,7 @@ from dev.scripts.devctl.governance.system_catalog import (
 )
 from dev.scripts.devctl.governance.system_catalog_models import (
     AgentDispatchPacket,
+    CatalogBootstrapCommand,
     CatalogCommand,
     CatalogGuard,
     CatalogProbe,
@@ -60,6 +61,15 @@ class TestSystemCatalogModels(unittest.TestCase):
         )
         with self.assertRaises(AttributeError):
             setattr(catalog, "schema_version", 2)
+
+    def test_catalog_bootstrap_command_frozen(self) -> None:
+        entry = CatalogBootstrapCommand(
+            command_id="startup_context_summary",
+            label="Typed startup packet",
+            command="python3 dev/scripts/devctl.py startup-context --format summary",
+        )
+        with self.assertRaises(AttributeError):
+            setattr(entry, "label", "changed")
 
     def test_agent_dispatch_packet_frozen(self) -> None:
         packet = AgentDispatchPacket(
@@ -120,6 +130,13 @@ class TestBuildSystemCatalog(unittest.TestCase):
         self.assertGreater(self.catalog.total_surfaces, 0)
         self.assertEqual(self.catalog.total_surfaces, len(self.catalog.surfaces))
 
+    def test_has_bootstrap_commands(self) -> None:
+        self.assertGreater(self.catalog.total_bootstrap_commands, 0)
+        self.assertEqual(
+            self.catalog.total_bootstrap_commands,
+            len(self.catalog.bootstrap_commands),
+        )
+
     def test_schema_version_is_one(self) -> None:
         self.assertEqual(self.catalog.schema_version, 1)
 
@@ -155,6 +172,28 @@ class TestBuildSystemCatalog(unittest.TestCase):
         ro_cmds = {c.name for c in self.catalog.commands if c.read_only}
         self.assertIn("discover", ro_cmds)
         self.assertIn("view", ro_cmds)
+
+    def test_bootstrap_commands_include_typed_startup_packet(self) -> None:
+        commands = {entry.command_id: entry for entry in self.catalog.bootstrap_commands}
+        self.assertIn("startup_context_summary", commands)
+        self.assertEqual(
+            commands["startup_context_summary"].command,
+            "python3 dev/scripts/devctl.py startup-context --format summary",
+        )
+        self.assertEqual(
+            commands["startup_context_summary"].command_names,
+            ("startup-context",),
+        )
+        self.assertIn(
+            "StartupContext",
+            commands["startup_context_summary"].contract_ids,
+        )
+
+    def test_bootstrap_inventory_links_are_populated(self) -> None:
+        commands = {entry.command_id: entry for entry in self.catalog.bootstrap_commands}
+        self.assertGreater(len(commands["quality_policy"].guard_ids), 0)
+        self.assertGreater(len(commands["quality_policy"].probe_ids), 0)
+        self.assertGreater(len(commands["render_surfaces_write"].surface_ids), 0)
 
 
 class TestResolveAgentDispatch(unittest.TestCase):
@@ -246,6 +285,7 @@ class TestDiscoverCommand(unittest.TestCase):
         payload = _build_payload(catalog, "all")
         self.assertIn("commands", payload)
         self.assertIn("guards", payload)
+        self.assertIn("bootstrap_commands", payload)
 
     def test_discover_filter_guards(self) -> None:
         from dev.scripts.devctl.commands.discover import _build_payload
@@ -254,6 +294,15 @@ class TestDiscoverCommand(unittest.TestCase):
         catalog = build_system_catalog()
         payload = _build_payload(catalog, "guards")
         self.assertIn("guards", payload)
+        self.assertNotIn("commands", payload)
+
+    def test_discover_filter_bootstrap_commands(self) -> None:
+        from dev.scripts.devctl.commands.discover import _build_payload
+        from dev.scripts.devctl.governance.system_catalog import build_system_catalog
+
+        catalog = build_system_catalog()
+        payload = _build_payload(catalog, "bootstrap_commands")
+        self.assertIn("bootstrap_commands", payload)
         self.assertNotIn("commands", payload)
 
 

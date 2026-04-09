@@ -1142,6 +1142,7 @@ summary over the selected snapshot window.
 | `dev/scripts/workflow_bridge/shell.py` | Workflow shell bridge | Canonical helper for commit-range, coverage, and failure-artifact workflow plumbing; the top-level `workflow_shell_bridge.py` shim remains available for caller compatibility. |
 | `dev/scripts/artifacts/sha256.py` | Checksum writer | Canonical helper for release/archive checksum generation. |
 | `dev/scripts/checks/check_mutation_score.py` | Mutation score gate | Used in CI and local validation; prints outcomes source freshness and supports `--max-age-hours` stale-data gating. |
+| `dev/scripts/checks/check_mutation_bypass_graph_closure.py` | Governed-mutation bypass graph guard | Stable shim entrypoint for the graph-backed mutation-bypass closure check while the packaged implementation lives under `dev/scripts/checks/mutation_bypass_graph_closure/`; proves raw-git mutation callsites still route through the governed executor surface. |
 | `dev/scripts/checks/check_agents_contract.py` | AGENTS contract gate | Verifies required AGENTS SOP sections, bundles, and routing rows are present. |
 | `dev/scripts/checks/check_agents_bundle_render.py` | AGENTS bundle render gate | Verifies AGENTS rendered command-bundle section matches canonical output from `dev/scripts/devctl/bundle_registry.py`; supports `--write` to regenerate the section. |
 | `dev/scripts/checks/check_bootstrap.py` | Check bootstrap helper | Shared import-resolution and UTC runtime-error/timestamp helpers used by standalone guard scripts; not invoked directly by bundles. |

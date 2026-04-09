@@ -51,6 +51,34 @@ class CatalogSurface:
 
 
 @dataclass(frozen=True, slots=True)
+class CatalogBootstrapCommand:
+    """One generated AI/operator bootstrap command entry."""
+
+    command_id: str
+    label: str
+    command: str
+    description: str = ""
+    command_names: tuple[str, ...] = ()
+    guard_ids: tuple[str, ...] = ()
+    probe_ids: tuple[str, ...] = ()
+    surface_ids: tuple[str, ...] = ()
+    contract_ids: tuple[str, ...] = ()
+    plan_paths: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
+class CatalogBootstrapLinks:
+    """Typed relation set carried by one bootstrap command entry."""
+
+    command_names: tuple[str, ...] = ()
+    guard_ids: tuple[str, ...] = ()
+    probe_ids: tuple[str, ...] = ()
+    surface_ids: tuple[str, ...] = ()
+    contract_ids: tuple[str, ...] = ()
+    plan_paths: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
 class SystemCatalog:
     """Static capability inventory built from existing registries.
 
@@ -63,10 +91,12 @@ class SystemCatalog:
     guards: tuple[CatalogGuard, ...]
     probes: tuple[CatalogProbe, ...]
     surfaces: tuple[CatalogSurface, ...]
+    bootstrap_commands: tuple[CatalogBootstrapCommand, ...] = ()
     total_commands: int = 0
     total_guards: int = 0
     total_probes: int = 0
     total_surfaces: int = 0
+    total_bootstrap_commands: int = 0
 
 
 @dataclass(frozen=True, slots=True)

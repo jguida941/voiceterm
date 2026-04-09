@@ -75,6 +75,7 @@ class BootstrapContext:
     bootstrap_links: dict[str, str | None]
     push_enforcement: dict[str, object]
     usage: str
+    bootstrap_commands: list[dict[str, object]] = field(default_factory=list)
     quality_signals: dict[str, object] = field(default_factory=dict)
 
 

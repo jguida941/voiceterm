@@ -6,7 +6,6 @@ import subprocess
 from typing import Any
 
 from ..config import get_repo_root
-from ..governance.surfaces import load_surface_policy
 from ..governance.push_policy import detect_push_enforcement_state, load_push_policy
 from ..probe_topology_packet import (
     enrich_query_node,
@@ -29,6 +28,7 @@ from .models import (
     HotIndexSummary,
     QueryResult,
 )
+from .bootstrap_catalog import load_bootstrap_catalog_context
 from .startup_signals import load_bootstrap_quality_signals
 
 _USAGE = (
@@ -217,39 +217,6 @@ def _detect_bridge_liveness(repo_root) -> bool:
         return False
 
 
-def _load_policy_context(repo_root) -> tuple[dict[str, str], dict[str, str | None]]:
-    """Load key commands and bootstrap links from governance repo policy."""
-    try:
-        surface_ctx = load_surface_policy(repo_root=repo_root).context
-    except (OSError, ValueError):
-        surface_ctx = {}
-
-    key_block = str(surface_ctx.get("key_commands_block", ""))
-    commands: dict[str, str] = {}
-    label = ""
-    for line in key_block.splitlines():
-        stripped = line.strip()
-        if stripped.startswith("#"):
-            label = stripped.lstrip("# ").strip().lower().replace(" ", "_")
-        elif stripped and label:
-            commands[label] = stripped
-            label = ""
-
-    process_doc = str(surface_ctx.get("process_doc", "AGENTS.md"))
-    execution_tracker = str(
-        surface_ctx.get("execution_tracker_doc", "dev/active/MASTER_PLAN.md")
-    )
-    active_registry = str(
-        surface_ctx.get("active_registry_doc", "dev/active/INDEX.md")
-    )
-    links: dict[str, str | None] = {
-        "sdlc_policy": process_doc,
-        "execution_state": execution_tracker,
-        "plan_registry": active_registry,
-    }
-    return commands, links
-
-
 def build_bootstrap_context(
     nodes: list[GraphNode],
     edges: list[GraphEdge],
@@ -272,7 +239,9 @@ def build_bootstrap_context(
         key=lambda n: -n.temperature,
     )[:10]
 
-    policy_commands, policy_links = _load_policy_context(repo_root)
+    policy_commands, bootstrap_commands, policy_links = load_bootstrap_catalog_context(
+        repo_root
+    )
     policy_links["bridge"] = "bridge.md" if bridge_active else None
     push_enforcement = detect_push_enforcement_state(
         load_push_policy(repo_root=repo_root),
@@ -297,6 +266,7 @@ def build_bootstrap_context(
         bootstrap_links=policy_links,
         push_enforcement=push_enforcement,
         usage=_USAGE,
+        bootstrap_commands=bootstrap_commands,
         quality_signals=quality_signals,
     )
 

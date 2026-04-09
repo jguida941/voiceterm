@@ -254,6 +254,24 @@ class RenderSurfacesPolicyTests(unittest.TestCase):
             rendered_text,
         )
 
+    def test_claude_surface_key_commands_come_from_system_catalog(self) -> None:
+        from dev.scripts.devctl.governance.system_catalog import build_system_catalog
+
+        policy = surfaces.load_surface_policy()
+        claude_surface = next(
+            entry for entry in policy.surfaces if entry.surface_id == "claude_instructions"
+        )
+        template_text = Path(claude_surface.template_path).read_text(encoding="utf-8")
+        rendered_text, missing_context = surface_runtime._render_template_text(
+            template_text,
+            policy.context,
+        )
+
+        self.assertEqual(missing_context, [])
+        for entry in build_system_catalog().bootstrap_commands:
+            self.assertIn(f"# {entry.label}", rendered_text)
+            self.assertIn(entry.command, rendered_text)
+
 
 class RenderSurfacesCliIntegrationTests(unittest.TestCase):
     @patch("dev.scripts.devctl.cli.maybe_auto_refresh_data_science")

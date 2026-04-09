@@ -145,6 +145,14 @@
   codeshape-helper unification, schema-union work, and other graph
   generalization until the current writer/producer closure gates stop failing
   closed on missing or placeholder pipeline truth.
+- Current 2026-04-09 guard-registration self-hosting note inside that same
+  lane: public `dev/scripts/checks/check_*.py` entrypoints are part of the
+  governed authority surface, not stray utilities. Any new guard or
+  compatibility shim must land with same-change registration in
+  `dev/scripts/devctl/script_catalog.py` plus maintainer-facing documentation
+  in `dev/scripts/README.md`, or hygiene / governed push preflight should fail
+  before publication instead of letting an undiscoverable guard drift into the
+  tree.
 - Current 2026-04-09 producer-order cutover inside that same lane: the shared
   live review-state loader no longer defaults to bridge refresh when typed
   authority already exists. `load_current_review_state*` now prefers

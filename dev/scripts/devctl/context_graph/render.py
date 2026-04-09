@@ -135,12 +135,25 @@ def render_bootstrap_markdown(ctx: dict[str, Any]) -> str:
             )
         lines.append("")
 
+    bootstrap_commands = ctx.get("bootstrap_commands", [])
     cmds = ctx.get("key_commands", {})
-    if cmds:
+    if bootstrap_commands or cmds:
         lines.append("## Key Commands")
         lines.append("")
-        for label, cmd in cmds.items():
-            lines.append(f"- **{label}**: `{cmd}`")
+        if bootstrap_commands:
+            for entry in bootstrap_commands:
+                command_id = str(entry.get("command_id", "")).strip()
+                command_text = str(
+                    entry.get("command")
+                    or cmds.get(command_id, "")
+                ).strip()
+                lines.append(
+                    f"- **{entry.get('label', entry.get('command_id', 'command'))}**: "
+                    f"`{command_text}`"
+                )
+        else:
+            for label, cmd in cmds.items():
+                lines.append(f"- **{label}**: `{cmd}`")
         lines.append("")
 
     push_state = ctx.get("push_enforcement", {})

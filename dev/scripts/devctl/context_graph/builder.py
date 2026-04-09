@@ -329,7 +329,9 @@ def build_context_graph(
     nodes.extend(command_nodes)
     edges.extend(command_edges)
 
-    capability_nodes, capability_edges = collect_capability_nodes(node_ids)
+    capability_nodes, capability_edges = collect_capability_nodes(
+        {node.node_id for node in nodes}
+    )
     nodes.extend(capability_nodes)
     edges.extend(capability_edges)
 

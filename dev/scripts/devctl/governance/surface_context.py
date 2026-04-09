@@ -103,83 +103,11 @@ def render_bootstrap_steps(
 
 def render_key_commands_block() -> str:
     """Render the curated AI-facing command block."""
-    sections = (
-        (
-            "Slim bootstrap packet",
-            "python3 dev/scripts/devctl.py context-graph --mode bootstrap --format md",
-        ),
-        (
-            "Typed startup packet",
-            "python3 dev/scripts/devctl.py startup-context --format summary",
-        ),
-        (
-            "Reviewer bootstrap packet",
-            session_resume_command_for_role("reviewer"),
-        ),
-        (
-            "Implementer bootstrap packet",
-            session_resume_command_for_role("implementer"),
-        ),
-        (
-            "Governed push execute",
-            "python3 dev/scripts/devctl.py push --execute",
-        ),
-        (
-            "Saved graph diff",
-            "python3 dev/scripts/devctl.py context-graph --mode diff --from previous --to latest --format md",
-        ),
-        (
-            "Quality policy catalog",
-            "python3 dev/scripts/devctl.py quality-policy --format md",
-        ),
-        (
-            "Routed CI guard bundle",
-            "python3 dev/scripts/devctl.py check --profile ci",
-        ),
-        (
-            "Probe hotspot packet",
-            "python3 dev/scripts/devctl.py probe-report --format md",
-        ),
-        (
-            "Governance review summary",
-            "python3 dev/scripts/devctl.py governance-review --format md",
-        ),
-        (
-            "Governance review record",
-            "python3 dev/scripts/devctl.py governance-review --record --signal-type probe --check-id probe_exception_quality --verdict fixed --path dev/scripts/devctl/example.py --line 41 --finding-class rule_quality --recurrence-risk recurring --prevention-surface probe --guidance-id probe_exception_quality@dev/scripts/devctl/example.py:41 --guidance-followed true --format md",
-        ),
-        (
-            "Review status",
-            "python3 dev/scripts/devctl.py review-channel --action status --terminal none --format json",
-        ),
-        (
-            "Review ensure follow",
-            "python3 dev/scripts/devctl.py review-channel --action ensure --follow --terminal none --format json",
-        ),
-        (
-            "Reviewer checkpoint",
-            "python3 dev/scripts/devctl.py review-channel --action reviewer-checkpoint --reviewer-mode active_dual_agent --reason review-pass --checkpoint-payload-file /tmp/reviewer-checkpoint.json --expected-instruction-revision <live-revision> --expected-implementer-state-hash <live-implementer-state-hash> --terminal none --format md",
-        ),
-        (
-            "Implementer wait",
-            "python3 dev/scripts/devctl.py review-channel --action implementer-wait --reason awaiting-reviewer --terminal none --format json",
-        ),
-        (
-            "Reviewer wait",
-            "python3 dev/scripts/devctl.py review-channel --action reviewer-wait --reason awaiting-implementer --terminal none --format json",
-        ),
-        (
-            "Reviewer packet watch",
-            "python3 dev/scripts/devctl.py review-channel --action watch --target claude --status pending --follow --terminal none --format json",
-        ),
-        (
-            "Docs governance",
-            "python3 dev/scripts/devctl.py docs-check --strict-tooling",
-        ),
-        (
-            "Surface refresh",
-            "python3 dev/scripts/devctl.py render-surfaces --write --format md",
-        ),
+    from .system_catalog import build_system_catalog
+
+    sections = tuple(
+        (entry.label, entry.command)
+        for entry in build_system_catalog().bootstrap_commands
     )
     lines: list[str] = []
     for label, command in sections:

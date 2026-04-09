@@ -2358,6 +2358,11 @@ weak-crypto, permissive-mode, PID-cast, and syscall-cast checks.
 drifting out of real bundle/workflow enforcement lanes unless they are
 explicitly marked helper-only, manual-only, or temporary advisory backlog
 exemptions.
+Public `dev/scripts/checks/check_*.py` entrypoints are also self-hosting
+authority surfaces: every new guard or compatibility shim must be registered
+in `dev/scripts/devctl/script_catalog.py` and documented in
+`dev/scripts/README.md` in the same change, or hygiene/governed-push
+preflight should fail closed before publication.
 `check_clippy_high_signal.py` enforces baseline ceilings for selected
 high-signal Clippy lints using lint-code histogram JSON from
 `collect_clippy_warnings.py`.

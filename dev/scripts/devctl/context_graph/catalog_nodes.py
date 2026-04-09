@@ -7,6 +7,7 @@ from pathlib import Path
 
 from ..governance.doc_authority_rules import parse_index_registry
 from .models import (
+    EDGE_KIND_RELATED_TO,
     EDGE_KIND_ROUTES_TO,
     NODE_KIND_CAPABILITY,
     NODE_KIND_COMMAND,
@@ -46,6 +47,21 @@ def _plan_metadata(
     metadata["scope"] = scope_raw.replace("`", "").strip().strip(",").strip()
     metadata["when"] = when_text.strip()
     metadata["is_active_plan"] = is_active_plan
+    return metadata
+
+
+def _bootstrap_command_metadata(entry: object) -> dict[str, object]:
+    """Build bootstrap-command metadata without a large inline dict literal."""
+    metadata: dict[str, object] = {}
+    metadata["capability_kind"] = "bootstrap_command"
+    metadata["command"] = entry.command
+    metadata["description"] = entry.description
+    metadata["command_names"] = list(entry.command_names)
+    metadata["guard_ids"] = list(entry.guard_ids)
+    metadata["probe_ids"] = list(entry.probe_ids)
+    metadata["surface_ids"] = list(entry.surface_ids)
+    metadata["contract_ids"] = list(entry.contract_ids)
+    metadata["plan_paths"] = list(entry.plan_paths)
     return metadata
 
 
@@ -167,9 +183,10 @@ def collect_capability_nodes(
 ) -> tuple[list[GraphNode], list[GraphEdge]]:
     """Build capability nodes from the SystemCatalog for discoverability.
 
-    Each surface becomes a capability node. Guard/probe/command nodes are
-    already in the graph from their own collectors, so this only adds
-    surface-level capability nodes and links them to related commands.
+    Surface and bootstrap-command entries become capability nodes. Guard,
+    probe, plan, and command nodes are already in the graph from their own
+    collectors, so this adds the catalog-backed discoverability layer and
+    related typed edges.
     """
     try:
         from ..governance.system_catalog import build_system_catalog
@@ -191,9 +208,75 @@ def collect_capability_nodes(
                 provenance_ref="system_catalog.surfaces",
                 temperature=0.05,
                 metadata={
+                    "capability_kind": "surface",
                     "authority": surface.authority,
                     "consumes_contracts": list(surface.consumes_contracts),
                 },
             )
         )
+    surface_node_ids = {f"capability:{surface.surface_id}" for surface in catalog.surfaces}
+    all_node_ids = set(node_ids) | surface_node_ids
+    for entry in catalog.bootstrap_commands:
+        nid = f"capability:{entry.command_id}"
+        nodes.append(
+            GraphNode(
+                node_id=nid,
+                node_kind=NODE_KIND_CAPABILITY,
+                label=entry.label,
+                canonical_pointer_ref=f"bootstrap_command:{entry.command_id}",
+                provenance_ref="system_catalog.bootstrap_commands",
+                temperature=0.05,
+                metadata=_bootstrap_command_metadata(entry),
+            )
+        )
+        for command_name in entry.command_names:
+            target_id = f"cmd:{command_name}"
+            if target_id in all_node_ids:
+                edges.append(
+                    GraphEdge(
+                        source_id=nid,
+                        target_id=target_id,
+                        edge_kind=EDGE_KIND_ROUTES_TO,
+                    )
+                )
+        for guard_id in entry.guard_ids:
+            target_id = f"guard:{guard_id}"
+            if target_id in all_node_ids:
+                edges.append(
+                    GraphEdge(
+                        source_id=nid,
+                        target_id=target_id,
+                        edge_kind=EDGE_KIND_RELATED_TO,
+                    )
+                )
+        for probe_id in entry.probe_ids:
+            target_id = f"probe:{probe_id}"
+            if target_id in all_node_ids:
+                edges.append(
+                    GraphEdge(
+                        source_id=nid,
+                        target_id=target_id,
+                        edge_kind=EDGE_KIND_RELATED_TO,
+                    )
+                )
+        for surface_id in entry.surface_ids:
+            target_id = f"capability:{surface_id}"
+            if target_id in all_node_ids:
+                edges.append(
+                    GraphEdge(
+                        source_id=nid,
+                        target_id=target_id,
+                        edge_kind=EDGE_KIND_RELATED_TO,
+                    )
+                )
+        for plan_path in entry.plan_paths:
+            target_id = f"plan:{plan_path}"
+            if target_id in all_node_ids:
+                edges.append(
+                    GraphEdge(
+                        source_id=nid,
+                        target_id=target_id,
+                        edge_kind=EDGE_KIND_RELATED_TO,
+                    )
+                )
     return nodes, edges

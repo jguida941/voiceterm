@@ -109,6 +109,66 @@ class CheckArchitectureSurfaceSyncTests(unittest.TestCase):
         self.assertTrue(report["ok"], report["violations"])
         self.assertEqual(report["violations"], [])
 
+    def test_check_script_passes_when_catalog_root_is_a_shim(self) -> None:
+        script_path = "dev/scripts/checks/check_new_guard.py"
+        self._write(script_path, "def main():\n    return 0\n")
+        self._write(
+            "dev/scripts/devctl/script_catalog.py",
+            '"""Backward-compat shim -- use devctl.governance.script_catalog_registry instead."""\n'
+            "# shim-owner: tooling/governance\n"
+            "# shim-reason: preserve the stable script-catalog import\n"
+            "# shim-expiry: 2026-06-30\n"
+            "# shim-target: dev/scripts/devctl/governance/script_catalog_registry.py\n"
+            "from .governance.script_catalog_registry import *\n",
+        )
+        self._write(
+            "dev/scripts/devctl/governance/script_catalog_registry.py",
+            'CHECK_SCRIPT_FILES = {"new_guard": "check_new_guard.py"}\n',
+        )
+        self._write(
+            "dev/scripts/devctl/bundle_registry.py",
+            f'BUNDLE_REGISTRY = {{"bundle.tooling": ("python3 {script_path}",)}}\n',
+        )
+        self._write(
+            ".github/workflows/tooling_control_plane.yml",
+            f"steps:\n  - run: python3 {script_path}\n",
+        )
+
+        report = SCRIPT.build_report(repo_root=self.root, explicit_paths=[script_path])
+
+        self.assertTrue(report["ok"], report["violations"])
+        self.assertEqual(report["violations"], [])
+
+    def test_check_script_follows_script_catalog_shim_target(self) -> None:
+        script_path = "dev/scripts/checks/check_new_guard.py"
+        self._write(script_path, "def main():\n    return 0\n")
+        self._write(
+            "dev/scripts/devctl/script_catalog.py",
+            '"""Backward-compat shim -- use devctl.governance.script_catalog_registry instead."""\n'
+            "# shim-owner: tooling/governance\n"
+            "# shim-reason: preserve stable imports\n"
+            "# shim-expiry: 2026-06-30\n"
+            "# shim-target: dev/scripts/devctl/governance/script_catalog_registry.py\n\n"
+            "from .governance.script_catalog_registry import *\n",
+        )
+        self._write(
+            "dev/scripts/devctl/governance/script_catalog_registry.py",
+            'CHECK_SCRIPT_FILES = {"new_guard": "check_new_guard.py"}\n',
+        )
+        self._write(
+            "dev/scripts/devctl/bundle_registry.py",
+            f'BUNDLE_REGISTRY = {{"bundle.tooling": ("python3 {script_path}",)}}\n',
+        )
+        self._write(
+            ".github/workflows/tooling_control_plane.yml",
+            f"steps:\n  - run: python3 {script_path}\n",
+        )
+
+        report = SCRIPT.build_report(repo_root=self.root, explicit_paths=[script_path])
+
+        self.assertTrue(report["ok"], report["violations"])
+        self.assertEqual(report["violations"], [])
+
     def test_devctl_command_requires_cli_listing_and_docs(self) -> None:
         command_path = "dev/scripts/devctl/commands/new_command.py"
         self._write(

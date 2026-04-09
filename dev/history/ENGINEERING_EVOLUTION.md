@@ -39,6 +39,31 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 
 ### 2026-04-07 - ReviewSnapshot hook hardening routed through owner plans
 
+### 2026-04-09 - Guard entrypoints now fail closed when catalog or README wiring is missing
+
+Fact: the governed push lane surfaced a self-hosting gap in the new
+graph-backed mutation-bypass guard. The public entrypoint shim
+`dev/scripts/checks/check_mutation_bypass_graph_closure.py` existed on disk,
+but it had not been registered in `dev/scripts/devctl/script_catalog.py` or
+documented in `dev/scripts/README.md`, so `devctl hygiene` correctly blocked
+publication.
+
+This matters because public check entrypoints are part of the maintainer
+control surface, not private helpers. If the repo lets a check land without
+catalog and README wiring, later AI/human sessions can miss the guard
+entirely even though CI/self-hosting expects it to exist. The owner docs now
+state the stricter invariant explicitly: add or shim a public `check_*.py`
+entrypoint only together with script-catalog registration and maintainer-doc
+inventory updates in the same change.
+
+Files changed:
+- `AGENTS.md`
+- `dev/guides/DEVELOPMENT.md`
+- `dev/active/MASTER_PLAN.md`
+- `dev/scripts/README.md`
+- `dev/scripts/devctl/script_catalog.py`
+- `dev/scripts/devctl/tests/test_script_catalog.py`
+
 ### 2026-04-09 - Shared live review-state loads stopped defaulting to bridge refresh
 
 Fact: the next typed-authority convergence slice moved the shared live

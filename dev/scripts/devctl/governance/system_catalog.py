@@ -17,6 +17,7 @@ from ..script_catalog import (
     CHECK_SCRIPT_RELATIVE_PATHS,
     PROBE_SCRIPT_RELATIVE_PATHS,
 )
+from .system_catalog_bootstrap import collect_bootstrap_commands
 from .system_catalog_models import (
     AgentDispatchPacket,
     CatalogCommand,
@@ -107,16 +108,23 @@ def build_system_catalog(
     guards = _collect_guards(repo_root=repo_root)
     probes = _collect_probes(repo_root=repo_root)
     surfaces = _collect_surfaces()
+    bootstrap_commands = collect_bootstrap_commands(
+        guard_ids=tuple(guard.script_id for guard in guards),
+        probe_ids=tuple(probe.script_id for probe in probes),
+        surface_ids=tuple(surface.surface_id for surface in surfaces),
+    )
     return SystemCatalog(
         schema_version=SYSTEM_CATALOG_SCHEMA_VERSION,
         commands=commands,
         guards=guards,
         probes=probes,
         surfaces=surfaces,
+        bootstrap_commands=bootstrap_commands,
         total_commands=len(commands),
         total_guards=len(guards),
         total_probes=len(probes),
         total_surfaces=len(surfaces),
+        total_bootstrap_commands=len(bootstrap_commands),
     )
 
 

@@ -4867,6 +4867,16 @@ alone. Use these proof gates:
 Use this section as the single "left off here" surface for fresh AI sessions
 working on `MP-377`.
 
+- 2026-04-09 bootstrap-catalog / graph convergence slice:
+  `SystemCatalog` now owns the generated bootstrap command inventory as typed
+  authority rather than leaving `CLAUDE.md` / startup helpers to drift from a
+  hand-maintained command block. The bounded follow-up is explicit: keep rich
+  relations in `SystemCatalog` / `discover`, keep startup packets token-bounded,
+  and let `context-graph` consume a summarized typed bootstrap view plus graph
+  edges to commands/guards/probes/surfaces/plans. The next step after this
+  green slice is one generated convergence-audit packet that both Codex and
+  Claude can read from the same repo-owned artifact instead of reconciling
+  separate chat-local summaries.
 - 2026-04-09 command-boundary freeze closure:
   the reopened MP-384/MP-387 F1 rerun is now repaired. `session-resume` cache
   misses resolve one live `load_current_review_state(... prefer_cached_projection=False)`
@@ -6292,6 +6302,28 @@ Execution order for this section:
 
 ## Progress Log
 
+- 2026-04-09: Closed the next generated-bootstrap convergence seam under
+  `MP-377` without creating a second graph or bootstrap authority. The
+  generated bootstrap command inventory now lives in
+  `dev/scripts/devctl/governance/system_catalog_bootstrap.py` as typed
+  `SystemCatalog` entries with command/contract/plan links and bounded
+  inventory relations; `context-graph` consumes those entries directly
+  instead of reparsing rendered markdown; and bootstrap capability nodes now
+  link into the graph so commands, guards, probes, surfaces, and plan docs
+  can be queried from one repo-owned discoverability layer. The startup-token
+  budget guard also forced the right boundary into code: rich relations stay
+  in `SystemCatalog` / `discover`, while `BootstrapContext` now carries only a
+  summarized typed view plus stable handles. Focused proof is green:
+  `pytest dev/scripts/devctl/tests/governance/test_system_catalog.py
+  dev/scripts/devctl/tests/governance/test_render_surfaces.py
+  dev/scripts/devctl/tests/context_graph/test_context_graph.py
+  dev/scripts/devctl/tests/context_graph/test_snapshot.py -q --tb=short`
+  (`137 passed`), plus `check_parameter_count.py`,
+  `check_code_shape.py`, `render-surfaces --write --format md`,
+  `check_active_plan_sync.py`, and `check_agents_contract.py`. The next
+  follow-up is not "stuff more graph data into startup"; it is a generated
+  convergence-audit artifact that both Codex and Claude can consume from the
+  same repo-owned path while deeper graph/state detail stays cached on disk.
 - 2026-04-09: Closed the reopened MP-384/MP-387 F1 command-boundary parity
   flake. The runtime fix is intentionally narrow: `session-resume` cache
   misses now force a live `load_current_review_state(... prefer_cached_projection=False)`

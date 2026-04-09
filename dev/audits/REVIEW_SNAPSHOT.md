@@ -5,14 +5,14 @@
 ## Quick status
 
 - Branch: `feature/governance-quality-sweep`
-- HEAD: `67ec68f7eccb` — test: pin single-agent interaction mode resolution
-- Tree hash: `dccc5c1b49b1`
-- Generation stamp: `snap-0c73dfa516af`
-- Generated at (UTC): 2026-04-09T10:06:01Z
-- Push decision: `run_devctl_push` — push_preconditions_satisfied
+- HEAD: `dacb1a2641dc` — Refresh external review snapshot for 67ec68f7
+- Tree hash: `c3d743621dc2`
+- Generation stamp: `snap-3a52cca04dcf`
+- Generated at (UTC): 2026-04-09T11:15:15Z
+- Push decision: `await_checkpoint` — staged_index_budget_exceeded
 - Reviewer mode: `single_agent` (interaction: `single_agent`)
 - Pipeline state: `n/a` (approval: `n/a`)
-- Delta since last snapshot: 24 commits, 140 files, +11898/-3467
+- Delta since last snapshot: 25 commits, 140 files, +11950/-3518
 - Governance findings: 39 open / 68 fixed / 121 total
 - Probe hints: 0 total across 0 files scanned
 
@@ -54,24 +54,24 @@ adopters arrive.
 - Remote: `https://github.com/jguida941/voiceterm.git`
 - Default branch: `master`
 - Current branch: `feature/governance-quality-sweep`
-- HEAD SHA: `67ec68f7eccbdcc2826fc6542797b7e406e32475`
+- HEAD SHA: `dacb1a2641dc2cf6976f4b7208f6efee35ccb186`
 - HEAD author: Justin Guida
 - HEAD timestamp (UTC): 2026-04-09T06:05:41-04:00
 
 ## 2. Governance state
 
 ### Push decision
-- action: `run_devctl_push`
-- reason: push_preconditions_satisfied
-- push_eligible_now: True
-- worktree_clean: True
-- staged_path_count: 0
-- unstaged_path_count: 0
-- next_step_command: `python3 dev/scripts/devctl.py push --execute`
+- action: `await_checkpoint`
+- reason: staged_index_budget_exceeded
+- push_eligible_now: False
+- worktree_clean: False
+- staged_path_count: 27
+- unstaged_path_count: 1
+- next_step_command: `n/a`
 - latest_push_report: `dev/reports/push/latest.json`
 - latest_push_report_state: `blocked` (validation_failed)
-- publication_backlog: queued
-- publication_guidance: 1 local commit(s) waiting for governed push. Run `python3 dev/scripts/devctl.py push --execute` now.
+- publication_backlog: recommended
+- publication_guidance: 2 local commit(s) waiting for governed push once the current slice is checkpoint-clean.
 
 ### Reviewer runtime
 - reviewer_mode: `single_agent`
@@ -87,16 +87,17 @@ adopters arrive.
 - active plan: **Master Plan (Active, Unified)**
 - plan path: `dev/active/MASTER_PLAN.md`
 - active MP scope: all active MP execution state
-- advisory: `push_allowed` — worktree_clean_and_review_accepted
+- advisory: `checkpoint_before_continue` — staged_index_budget_exceeded
+- checkpoint_required: **yes**
 
 ## 3. Delta — what changed since the previous snapshot
 
-Range: last 24 commits ending at `67ec68f7eccb`
+Range: last 25 commits ending at `dacb1a2641dc`
 
-- commits: 24
+- commits: 25
 - files changed: 140
-- insertions: +11898
-- deletions: -3467
+- insertions: +11950
+- deletions: -3518
 - bundle classes touched: tooling, docs
 - authority surfaces touched: 26 file(s)
 
@@ -104,30 +105,31 @@ Range: last 24 commits ending at `67ec68f7eccb`
 
 | # | SHA | Subject | Files | +/- | Bundle | Risk |
 |---|---|---|---|---|---|---|
-| 1 | `67ec68f7` | test: pin single-agent interaction mode resolution | 3 | +83/-65 | tooling |  |
-| 2 | `1c70b2c5` | checkpoint: capture governance and review-channel batch | 27 | +976/-194 | tooling |  |
-| 3 | `47d483b4` | Harden governed push and typed review-state reads | 89 | +4035/-993 | tooling |  |
-| 4 | `6eb4945b` | Refresh external review snapshot for 73908286 | 1 | +63/-95 | tooling |  |
-| 5 | `73908286` | docs: align graph-backed convergence plan | 6 | +510/-86 | tooling |  |
-| 6 | `516e839c` | Refresh external review snapshot for c1a1ee28 | 1 | +96/-69 | tooling |  |
-| 7 | `c1a1ee28` | Advance typed authority convergence across mutation and con… | 59 | +3285/-956 | tooling |  |
-| 8 | `1c74c07f` | Refresh external review snapshot for f294de63 | 1 | +68/-59 | tooling |  |
-| 9 | `f294de63` | Operator-directed commit+push: F1 parity flake fix + bridge… | 5 | +116/-41 | tooling |  |
-| 10 | `ed23ac62` | LIVE_RUN: Q61 typed state lies about PID liveness + Q62 err… | 2 | +147/-54 | tooling |  |
-| 11 | `839ee400` | Refresh external review snapshot for 9109ae4e | 1 | +57/-53 | tooling |  |
-| 12 | `9109ae4e` | Preserve Claude-CLI session 7 WIP before solo-Codex test | 4 | +179/-69 | tooling |  |
-| 13 | `8330b1d9` | LIVE_RUN: Q58 autonomy-swarm discoverability + full system… | 2 | +254/-42 | tooling |  |
-| 14 | `06d591c0` | LIVE_RUN: Q55 THE DISEASE (authority-lane split) + Q56 smok… | 2 | +281/-51 | tooling |  |
-| 15 | `c6743678` | Refresh external review snapshot for ffc7f954 | 1 | +58/-50 | tooling |  |
-| 16 | `ffc7f954` | Preserve Claude-CLI session 6 WIP batch 2 (plan docs + new… | 8 | +325/-56 | tooling |  |
-| 17 | `7ac4d4f1` | Preserve Claude-CLI session 6 WIP (F1 + F4 + test + README)… | 6 | +220/-82 | tooling |  |
-| 18 | `527eb1b2` | LIVE_RUN: Q54 role separation unclear — publisher vs superv… | 2 | +166/-40 | tooling |  |
-| 19 | `22b06b22` | LIVE_RUN: Q53 bootstrap guidance missing — AI agents learn… | 2 | +182/-63 | tooling |  |
-| 20 | `c5890296` | LIVE_RUN: Q52 TOP-LEVEL ARCHITECTURAL FAILURE — AI agents f… | 2 | +170/-42 | tooling |  |
-| 21 | `e9a37347` | LIVE_RUN: Q50 lazy dashboard + Q51 update cadence drift (AI… | 2 | +200/-53 | tooling |  |
-| 22 | `81cff0d8` | Refresh external review snapshot for 079d7f3f | 1 | +55/-50 | tooling |  |
-| 23 | `079d7f3f` | Preserve Claude-CLI WIP (F1 consumer wiring) from session 5… | 4 | +155/-155 | tooling |  |
-| 24 | `dde77865` | LIVE_RUN: add AI Research Lane architecture proposal (Codex… | 2 | +217/-49 | tooling |  |
+| 1 | `dacb1a26` | Refresh external review snapshot for 67ec68f7 | 1 | +52/-51 | tooling |  |
+| 2 | `67ec68f7` | test: pin single-agent interaction mode resolution | 3 | +83/-65 | tooling |  |
+| 3 | `1c70b2c5` | checkpoint: capture governance and review-channel batch | 27 | +976/-194 | tooling |  |
+| 4 | `47d483b4` | Harden governed push and typed review-state reads | 89 | +4035/-993 | tooling |  |
+| 5 | `6eb4945b` | Refresh external review snapshot for 73908286 | 1 | +63/-95 | tooling |  |
+| 6 | `73908286` | docs: align graph-backed convergence plan | 6 | +510/-86 | tooling |  |
+| 7 | `516e839c` | Refresh external review snapshot for c1a1ee28 | 1 | +96/-69 | tooling |  |
+| 8 | `c1a1ee28` | Advance typed authority convergence across mutation and con… | 59 | +3285/-956 | tooling |  |
+| 9 | `1c74c07f` | Refresh external review snapshot for f294de63 | 1 | +68/-59 | tooling |  |
+| 10 | `f294de63` | Operator-directed commit+push: F1 parity flake fix + bridge… | 5 | +116/-41 | tooling |  |
+| 11 | `ed23ac62` | LIVE_RUN: Q61 typed state lies about PID liveness + Q62 err… | 2 | +147/-54 | tooling |  |
+| 12 | `839ee400` | Refresh external review snapshot for 9109ae4e | 1 | +57/-53 | tooling |  |
+| 13 | `9109ae4e` | Preserve Claude-CLI session 7 WIP before solo-Codex test | 4 | +179/-69 | tooling |  |
+| 14 | `8330b1d9` | LIVE_RUN: Q58 autonomy-swarm discoverability + full system… | 2 | +254/-42 | tooling |  |
+| 15 | `06d591c0` | LIVE_RUN: Q55 THE DISEASE (authority-lane split) + Q56 smok… | 2 | +281/-51 | tooling |  |
+| 16 | `c6743678` | Refresh external review snapshot for ffc7f954 | 1 | +58/-50 | tooling |  |
+| 17 | `ffc7f954` | Preserve Claude-CLI session 6 WIP batch 2 (plan docs + new… | 8 | +325/-56 | tooling |  |
+| 18 | `7ac4d4f1` | Preserve Claude-CLI session 6 WIP (F1 + F4 + test + README)… | 6 | +220/-82 | tooling |  |
+| 19 | `527eb1b2` | LIVE_RUN: Q54 role separation unclear — publisher vs superv… | 2 | +166/-40 | tooling |  |
+| 20 | `22b06b22` | LIVE_RUN: Q53 bootstrap guidance missing — AI agents learn… | 2 | +182/-63 | tooling |  |
+| 21 | `c5890296` | LIVE_RUN: Q52 TOP-LEVEL ARCHITECTURAL FAILURE — AI agents f… | 2 | +170/-42 | tooling |  |
+| 22 | `e9a37347` | LIVE_RUN: Q50 lazy dashboard + Q51 update cadence drift (AI… | 2 | +200/-53 | tooling |  |
+| 23 | `81cff0d8` | Refresh external review snapshot for 079d7f3f | 1 | +55/-50 | tooling |  |
+| 24 | `079d7f3f` | Preserve Claude-CLI WIP (F1 consumer wiring) from session 5… | 4 | +155/-155 | tooling |  |
+| 25 | `dde77865` | LIVE_RUN: add AI Research Lane architecture proposal (Codex… | 2 | +217/-49 | tooling |  |
 
 ### Files
 
@@ -145,7 +147,7 @@ Range: last 24 commits ending at `67ec68f7eccb`
 | `dev/active/review_probes.md` | tooling | +40/-1 |
 | `dev/audits/AUTOMATION_DEBT_REGISTER.md` | tooling | +1/-0 |
 | `dev/audits/LIVE_RUN.md` | tooling | +1226/-0 |
-| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1376/-1317 |
+| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1428/-1368 |
 | `dev/config/git_hooks/pre-push-governed-push.sh` | tooling | +32/-0 |
 | `dev/guides/DEVELOPMENT.md` | docs | +27/-4 |
 | `dev/history/ENGINEERING_EVOLUTION.md` | tooling | +140/-1 |
@@ -286,20 +288,22 @@ Recent findings:
 
 ### Per-commit rationale
 
+- **`dacb1a26`** — Refresh external review snapshot for 67ec68f7
+  - evolution: Fact: the governed push lane surfaced a self-hosting gap in the new graph-backed mutation-bypass guard. The public entrypoint shim `dev/scripts/checks/check_mutation_bypass_graph_closure.py` existed on disk, but it had …
 - **`67ec68f7`** — test: pin single-agent interaction mode resolution
-  - evolution: Fact: the next typed-authority convergence slice moved the shared live review-state loader off bridge refresh as its default freshness strategy. `load_current_review_state*` now prefers canonical event-backed review sta…
+  - evolution: Fact: the governed push lane surfaced a self-hosting gap in the new graph-backed mutation-bypass guard. The public entrypoint shim `dev/scripts/checks/check_mutation_bypass_graph_closure.py` existed on disk, but it had …
 - **`1c70b2c5`** — checkpoint: capture governance and review-channel batch
-  - evolution: Fact: the next typed-authority convergence slice moved the shared live review-state loader off bridge refresh as its default freshness strategy. `load_current_review_state*` now prefers canonical event-backed review sta…
+  - evolution: Fact: the governed push lane surfaced a self-hosting gap in the new graph-backed mutation-bypass guard. The public entrypoint shim `dev/scripts/checks/check_mutation_bypass_graph_closure.py` existed on disk, but it had …
 - **`47d483b4`** — Harden governed push and typed review-state reads
-  - evolution: Fact: the next typed-authority convergence slice moved the shared live review-state loader off bridge refresh as its default freshness strategy. `load_current_review_state*` now prefers canonical event-backed review sta…
+  - evolution: Fact: the governed push lane surfaced a self-hosting gap in the new graph-backed mutation-bypass guard. The public entrypoint shim `dev/scripts/checks/check_mutation_bypass_graph_closure.py` existed on disk, but it had …
 - **`6eb4945b`** — Refresh external review snapshot for 73908286
-  - evolution: Fact: the next typed-authority convergence slice moved the shared live review-state loader off bridge refresh as its default freshness strategy. `load_current_review_state*` now prefers canonical event-backed review sta…
+  - evolution: Fact: the governed push lane surfaced a self-hosting gap in the new graph-backed mutation-bypass guard. The public entrypoint shim `dev/scripts/checks/check_mutation_bypass_graph_closure.py` existed on disk, but it had …
 - **`73908286`** — docs: align graph-backed convergence plan
-  - evolution: Fact: the next typed-authority convergence slice moved the shared live review-state loader off bridge refresh as its default freshness strategy. `load_current_review_state*` now prefers canonical event-backed review sta…
+  - evolution: Fact: the governed push lane surfaced a self-hosting gap in the new graph-backed mutation-bypass guard. The public entrypoint shim `dev/scripts/checks/check_mutation_bypass_graph_closure.py` existed on disk, but it had …
 - **`516e839c`** — Refresh external review snapshot for c1a1ee28
-  - evolution: Fact: the next typed-authority convergence slice moved the shared live review-state loader off bridge refresh as its default freshness strategy. `load_current_review_state*` now prefers canonical event-backed review sta…
+  - evolution: Fact: the governed push lane surfaced a self-hosting gap in the new graph-backed mutation-bypass guard. The public entrypoint shim `dev/scripts/checks/check_mutation_bypass_graph_closure.py` existed on disk, but it had …
 - **`c1a1ee28`** — Advance typed authority convergence across mutation and control-plane
-  - evolution: Fact: the next typed-authority convergence slice moved the shared live review-state loader off bridge refresh as its default freshness strategy. `load_current_review_state*` now prefers canonical event-backed review sta…
+  - evolution: Fact: the governed push lane surfaced a self-hosting gap in the new graph-backed mutation-bypass guard. The public entrypoint shim `dev/scripts/checks/check_mutation_bypass_graph_closure.py` existed on disk, but it had …
 - **`1c74c07f`** — Refresh external review snapshot for f294de63
   - evolution: The next remote-control/platform hardening slice was not a new architecture layer. It was closure on the typed paths that already existed but still left practical escape hatches. On the write side, `devctl commit` no lo…
 - **`f294de63` | markers: F1** — Operator-directed commit+push: F1 parity flake fix + bridge state + 4hr session unblock
@@ -384,10 +388,11 @@ Recent findings:
 - open governance findings: 39
 
 ### Startup advisories
-- push_allowed: worktree_clean_and_review_accepted
+- checkpoint_before_continue: staged_index_budget_exceeded
 
 ### Stale warnings
-- Stop because nothing remains to push.
+- Keep editing the current slice.
+- Move straight to the governed push path.
 
 ### Open gap rows
 - **governance_open** (`dev/scripts/devctl/review_channel/bridge_sanitize.py`): agent_checkpoint_contract_ignorance: 
@@ -401,4 +406,4 @@ Recent findings:
 
 ---
 
-Projection produced by `devctl review-snapshot`. Generation stamp `snap-0c73dfa516af` binds this file to HEAD `67ec68f7eccb`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
+Projection produced by `devctl review-snapshot`. Generation stamp `snap-3a52cca04dcf` binds this file to HEAD `dacb1a2641dc`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
