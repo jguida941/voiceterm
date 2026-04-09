@@ -4983,6 +4983,13 @@ become the main product surface.
     and the worktree is dirty again, and the VoiceTerm quality-policy preset
     now enables that guard in the default `check --profile ci` lane so the
     branch-local dirty-after-checkpoint state goes red before governed push.
+    Latest follow-up (2026-04-09): the same self-hosting lane now fails closed
+    on guard-registration drift too. `check_mutation_bypass_graph_closure.py`
+    is now wired through the portable Python quality-policy preset plus the
+    shared tooling/release bundle/workflow lanes, and
+    `check_guard_enforcement_inventory.py` + `check_bundle_workflow_parity.py`
+    are treated as required closure whenever a new public guard graduates into
+    shared hard-guard status.
     Latest follow-up (2026-04-03): startup receipt freshness is now intent-
     aware too. `review-channel --action launch|rollover` keep the hard
     checkpoint/branch/non-reviewer-authority blockers, but plain HEAD drift

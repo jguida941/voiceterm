@@ -45,6 +45,7 @@ class BundleRegistryContractTests(TestCase):
             "python3 dev/scripts/checks/check_instruction_surface_sync.py",
             "python3 dev/scripts/checks/check_bundle_workflow_parity.py",
             "python3 dev/scripts/checks/check_guard_enforcement_inventory.py",
+            "python3 dev/scripts/checks/check_mutation_bypass_graph_closure.py",
             "python3 dev/scripts/checks/check_python_subprocess_policy.py",
             "python3 dev/scripts/checks/check_repo_url_parity.py",
             "python3 dev/scripts/checks/check_release_version_parity.py",

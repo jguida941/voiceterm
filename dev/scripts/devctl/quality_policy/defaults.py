@@ -41,15 +41,10 @@ DEFAULT_AI_GUARD_SPECS = (
         "python_broad_except",
         languages=("python",),
     ),
+    QualityStepSpec("python-subprocess-policy-guard", "python_subprocess_policy", languages=("python",)),
+    QualityStepSpec("command-source-validation-guard", "command_source_validation", languages=("python",)),
     QualityStepSpec(
-        "python-subprocess-policy-guard",
-        "python_subprocess_policy",
-        languages=("python",),
-    ),
-    QualityStepSpec(
-        "command-source-validation-guard",
-        "command_source_validation",
-        languages=("python",),
+        "mutation-bypass-graph-closure-guard", "mutation_bypass_graph_closure", languages=("python",), supports_commit_range=False
     ),
     QualityStepSpec("duplicate-types-guard", "duplicate_types", languages=("rust",)),
     QualityStepSpec(

@@ -793,7 +793,11 @@ Three quality layers matter in practice:
   `dev/config/quality_presets/*.json`, `dev/config/devctl_repo_policy.json`,
   or added/retired a `check_*.py` or `probe_*.py` entrypoint, run both
   `quality-policy --format md` and `render-surfaces --format md` before push
-  so the resolved inventory and AI/dev instruction surfaces stay aligned.
+  so the resolved inventory and AI/dev instruction surfaces stay aligned. When
+  the change promotes a new shared guard, also rerun
+  `check_guard_enforcement_inventory.py` and
+  `check_bundle_workflow_parity.py` so typed policy, bundle authority, and CI
+  workflow lanes converge before governed push.
 - Treat moved public `dev/scripts/**` entrypoints and compatibility shims as
   smoke/integration surfaces, not pure unit seams: direct module tests are not
   enough when script mode, package mode, and public CLI/root-entrypoint
@@ -1036,7 +1040,7 @@ Why this model is safe:
 | Rust/Python source-file shape drift | `python3 dev/scripts/checks/check_code_shape.py` | `tooling_control_plane.yml` (`check_code_shape.py` also audits stale loose path overrides via review-window policy, emits advisory override-cap warnings when an untouched path override exceeds 3x the soft cap or 2x the hard cap, and fails touched Python files that still mix 3+ independent function clusters; when a module exceeds the soft limit, split private helpers into a sibling module and re-export public symbols) |
 | Workflow shell anti-pattern drift | `python3 dev/scripts/checks/check_workflow_shell_hygiene.py` | `tooling_control_plane.yml` + `docs-check --strict-tooling` |
 | Workflow action pinning drift | `python3 dev/scripts/checks/check_workflow_action_pinning.py` | `tooling_control_plane.yml` + `workflow_lint.yml` |
-| Check-script enforcement lane drift | `python3 dev/scripts/checks/check_guard_enforcement_inventory.py` | `tooling_control_plane.yml` + `release_preflight.yml` |
+| Check-script enforcement lane drift | `python3 dev/scripts/checks/check_guard_enforcement_inventory.py` | `tooling_control_plane.yml` + `release_preflight.yml` (new shared guards must also land in typed quality-policy + bundle/workflow parity) |
 | AGENTS rendered bundle reference drift | `python3 dev/scripts/checks/check_agents_bundle_render.py` (`--write` to regenerate) | `tooling_control_plane.yml` + `docs-check --strict-tooling` |
 | Durable guide/playbook coverage drift | `python3 dev/scripts/checks/check_guide_contract_sync.py` | `tooling_control_plane.yml` + `release_preflight.yml` + `docs-check --strict-tooling` |
 | Instruction/starter surface drift | `python3 dev/scripts/checks/package_layout/check_instruction_surface_sync.py` (`python3 dev/scripts/devctl.py render-surfaces --write --format md` to regenerate) | `tooling_control_plane.yml` + `docs-check --strict-tooling` |
@@ -1734,7 +1738,7 @@ Docs governance guardrails:
 - `.github/workflows/rust_ci.yml` enforces a high-signal Clippy lint baseline by emitting lint-code histogram JSON (`collect_clippy_warnings.py --output-lints-json`) and running `check_clippy_high_signal.py`.
 - `python3 dev/scripts/devctl.py docs-check --strict-tooling` now also requires `dev/history/ENGINEERING_EVOLUTION.md` when tooling/process/CI surfaces change and enforces markdown metadata-header normalization (`Status`/`Last updated`/`Owner`), workflow-shell hygiene (`check_workflow_shell_hygiene.py`), and repo-policy-owned durable guide coverage through `check_guide_contract_sync.py`. The stale-path portion of that gate still resolves through the stable `dev/scripts/devctl/path_audit.py` public seam even when the implementation is split under `dev/scripts/devctl/path_audit_support/`.
 - `python3 dev/scripts/checks/check_workflow_action_pinning.py` blocks non-SHA and dynamic `uses:` refs in workflow files.
-- `python3 dev/scripts/checks/check_guard_enforcement_inventory.py` blocks registered check scripts from drifting out of bundle/workflow enforcement lanes unless they are explicitly marked helper-only, manual-only, or temporary advisory backlog exceptions.
+- `python3 dev/scripts/checks/check_guard_enforcement_inventory.py` blocks registered check scripts from drifting out of bundle/workflow enforcement lanes unless they are explicitly marked helper-only, manual-only, or temporary advisory backlog exceptions. Shared hard guards should also appear in the resolved `quality-policy` inventory so `devctl check`, generated surfaces, and workflow/bundle enforcement all describe the same lane.
 - `python3 dev/scripts/devctl.py hygiene --strict-warnings --ignore-warning-source mutation_badge` also treats public `dev/scripts/checks/check_*.py` entrypoints as self-hosting maintainer surfaces: if you add or shim a guard, register it in `dev/scripts/devctl/script_catalog.py` and document it in `dev/scripts/README.md` in the same change or governed push preflight will fail later on catalog/README drift.
 - `python3 dev/scripts/checks/check_agents_bundle_render.py` blocks AGENTS rendered bundle-reference drift against `dev/scripts/devctl/bundle_registry.py` and can regenerate the section with `--write`.
 - `python3 dev/scripts/checks/check_review_surface_consistency.py` blocks startup/review/compact/commit-pipeline snapshot drift by requiring one shared `snapshot_id` plus one shared remote-pipeline `generation_id` across those projections; both `tooling_control_plane.yml` and `release_preflight.yml` now run it to keep bundle/workflow parity closed.

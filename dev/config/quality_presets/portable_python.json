@@ -6,6 +6,7 @@
     "package_layout",
     "python_broad_except",
     "python_subprocess_policy",
+    "mutation_bypass_graph_closure",
     "function_duplication",
     "god_class",
     "nesting_depth",

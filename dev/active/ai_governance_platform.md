@@ -6302,6 +6302,19 @@ Execution order for this section:
 
 ## Progress Log
 
+- 2026-04-09: Closed the next hook-registration self-hosting gap instead of
+  treating it as "just config drift." The graph-backed
+  `mutation_bypass_graph_closure` guard is now promoted through the same
+  portable typed surfaces the rest of `MP-377` is trying to standardize:
+  `portable_python.json` enables it in the resolved AI-guard inventory,
+  `bundle.tooling` / `bundle.release` plus their owning workflows run the
+  public entrypoint directly, and maintainer docs now state the closure rule
+  explicitly: a new shared guard is not done until script catalog, typed
+  quality policy, bundle/workflow parity, and docs-governance all agree on the
+  same lane. This is the practical hook-driven pattern the user keeps pushing
+  for: move repeated "remember to wire this up" work into deterministic
+  registry + workflow + docs checks so startup/commit/push can trust receipts
+  earlier.
 - 2026-04-09: Closed the next generated-bootstrap convergence seam under
   `MP-377` without creating a second graph or bootstrap authority. The
   generated bootstrap command inventory now lives in

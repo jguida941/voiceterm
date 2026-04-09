@@ -43,6 +43,7 @@ _GUARD_CHECKS: Final[tuple[str, ...]] = (
     "python3 dev/scripts/checks/check_code_shape.py",
     "python3 dev/scripts/checks/check_package_layout.py",
     "python3 dev/scripts/checks/check_python_subprocess_policy.py",
+    "python3 dev/scripts/checks/check_mutation_bypass_graph_closure.py",
     "python3 dev/scripts/checks/check_workflow_shell_hygiene.py",
     "python3 dev/scripts/checks/check_workflow_action_pinning.py",
     "python3 dev/scripts/checks/check_ide_provider_isolation.py --fail-on-violations",

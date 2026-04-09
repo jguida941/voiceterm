@@ -479,6 +479,7 @@ class QualityPolicyTests(unittest.TestCase):
         script_ids = {spec.script_id for spec in resolved.ai_guard_checks}
 
         self.assertIn("command_source_validation", script_ids)
+        self.assertIn("mutation_bypass_graph_closure", script_ids)
         self.assertIn("startup_authority_contract", script_ids)
 
     def test_resolve_quality_policy_uses_runtime_repo_root_override(self) -> None:

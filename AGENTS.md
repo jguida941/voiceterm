@@ -84,6 +84,12 @@ Package-layout truth rule:
   imports. That same contract includes repo-package imports such as
   `dev.scripts.checks.<shim>` too; a shim that only works when
   `dev/scripts/checks` happens to be on `sys.path` is still broken.
+- When adding or promoting a public `dev/scripts/checks/check_*.py`,
+  `probe_*.py`, or `run_*.py` entrypoint, land the self-hosting closure in the
+  same change: register the script catalog row, wire a typed quality-policy or
+  direct bundle/workflow enforcement lane (or explicit exemption), update the
+  maintainer docs, and keep `check_guard_enforcement_inventory.py` plus
+  `check_bundle_workflow_parity.py` green.
 
 Top-level enforcement rule: every time an agent creates a file or edits an
 existing file, it must run the relevant repo guard/check scripts before
@@ -346,6 +352,11 @@ Use a repeat-to-automate loop so the toolchain gets stronger after every run.
     low-noise modular enforcement path. Prefer fixing the detection gap over
     landing a one-off patch without a corresponding enforcement follow-up, and
     keep that decision in repo-visible plan state before closure.
+2.2.1 Missing enforcement-lane wiring counts as the same class of escaped
+    defect. If a new public guard/probe exists in script catalog or docs but
+    is absent from typed quality policy, bundle/workflow parity, or hook-owned
+    launch surfaces, close that registration gap before calling the slice done;
+    do not waive it as "just config drift."
 2.3 No important issue is complete until it has been evaluated for
     architectural absorption. For any non-trivial bug, review finding,
     runtime failure, audit issue, or docs/process miss, classify whether it is
@@ -1444,6 +1455,7 @@ python3 dev/scripts/checks/check_screenshot_integrity.py --stale-days 120
 python3 dev/scripts/checks/check_code_shape.py
 python3 dev/scripts/checks/check_package_layout.py
 python3 dev/scripts/checks/check_python_subprocess_policy.py
+python3 dev/scripts/checks/check_mutation_bypass_graph_closure.py
 python3 dev/scripts/checks/check_workflow_shell_hygiene.py
 python3 dev/scripts/checks/check_workflow_action_pinning.py
 python3 dev/scripts/checks/check_ide_provider_isolation.py --fail-on-violations
@@ -1485,6 +1497,7 @@ python3 dev/scripts/checks/check_screenshot_integrity.py --stale-days 120
 python3 dev/scripts/checks/check_code_shape.py
 python3 dev/scripts/checks/check_package_layout.py
 python3 dev/scripts/checks/check_python_subprocess_policy.py
+python3 dev/scripts/checks/check_mutation_bypass_graph_closure.py
 python3 dev/scripts/checks/check_workflow_shell_hygiene.py
 python3 dev/scripts/checks/check_workflow_action_pinning.py
 python3 dev/scripts/checks/check_ide_provider_isolation.py --fail-on-violations
@@ -1547,6 +1560,7 @@ python3 dev/scripts/checks/check_screenshot_integrity.py --stale-days 120
 python3 dev/scripts/checks/check_code_shape.py
 python3 dev/scripts/checks/check_package_layout.py
 python3 dev/scripts/checks/check_python_subprocess_policy.py
+python3 dev/scripts/checks/check_mutation_bypass_graph_closure.py
 python3 dev/scripts/checks/check_workflow_shell_hygiene.py
 python3 dev/scripts/checks/check_workflow_action_pinning.py
 python3 dev/scripts/checks/check_ide_provider_isolation.py --fail-on-violations
@@ -1616,6 +1630,7 @@ python3 dev/scripts/checks/check_screenshot_integrity.py --stale-days 120
 python3 dev/scripts/checks/check_code_shape.py
 python3 dev/scripts/checks/check_package_layout.py
 python3 dev/scripts/checks/check_python_subprocess_policy.py
+python3 dev/scripts/checks/check_mutation_bypass_graph_closure.py
 python3 dev/scripts/checks/check_workflow_shell_hygiene.py
 python3 dev/scripts/checks/check_workflow_action_pinning.py
 python3 dev/scripts/checks/check_ide_provider_isolation.py --fail-on-violations
@@ -1664,6 +1679,7 @@ python3 dev/scripts/checks/check_screenshot_integrity.py --stale-days 120
 python3 dev/scripts/checks/check_code_shape.py --since-ref origin/develop
 python3 dev/scripts/checks/check_package_layout.py --since-ref origin/develop
 python3 dev/scripts/checks/check_python_subprocess_policy.py --since-ref origin/develop
+python3 dev/scripts/checks/check_mutation_bypass_graph_closure.py
 python3 dev/scripts/checks/check_workflow_shell_hygiene.py
 python3 dev/scripts/checks/check_workflow_action_pinning.py
 python3 dev/scripts/checks/check_ide_provider_isolation.py --fail-on-violations

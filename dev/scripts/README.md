@@ -1169,7 +1169,7 @@ summary over the selected snapshot window.
 | `dev/scripts/checks/check_structural_complexity.py` | Structural-complexity guard | Flags Rust functions whose structural complexity score (branch points + nesting) exceeds policy limits, with expiry-bound exceptions for active MP-346 transition hotspots. |
 | `dev/scripts/checks/check_workflow_shell_hygiene.py` | Workflow-shell anti-pattern guard | Blocks fragile inline shell patterns in workflow run blocks (single-match find/head chains, inline Python snippets) across `.yml`/`.yaml` workflows; supports auditable line-level suppressions via `workflow-shell-hygiene: allow=inline-python-c` (or `allow=all`) when a justified exception is required. |
 | `dev/scripts/checks/check_workflow_action_pinning.py` | Workflow action pinning guard | Fails when third-party `uses:` refs are not pinned to full 40-character SHAs (with optional auditable suppressions for justified exceptions). |
-| `dev/scripts/checks/check_guard_enforcement_inventory.py` | Guard enforcement inventory gate | Verifies cataloged quality scripts still have a real enforcement lane through bundle/workflow invocation or an explicit helper/manual/advisory exemption. The guard recognizes the current `docs-check --strict-tooling` family, the AI-guard family owned by `devctl check`, and the review-probe family owned by `devctl check` / `devctl probe-report`, and keeps manual-only/report-only surfaces explicit instead of letting catalog drift silently. |
+| `dev/scripts/checks/check_guard_enforcement_inventory.py` | Guard enforcement inventory gate | Verifies cataloged quality scripts still have a real enforcement lane through bundle/workflow invocation or an explicit helper/manual/advisory exemption. The guard recognizes the current `docs-check --strict-tooling` family, the AI-guard family owned by `devctl check`, and the review-probe family owned by `devctl check` / `devctl probe-report`, and keeps manual-only/report-only surfaces explicit instead of letting catalog drift silently. When a guard graduates into the shared hard-guard family, wire the same script into typed quality-policy plus bundle/workflow parity in the same change. |
 | `dev/scripts/checks/check_governance_closure.py` | Governance self-closure guard | Verifies the governance stack proves itself by requiring registered guards/probes to have tests, requiring default guards to appear in CI workflows, and checking CI workflows for timeout coverage. Supports `--format` and `--output`. |
 | `dev/scripts/checks/check_bundle_workflow_parity.py` | Bundle/workflow parity guard | Verifies registry commands for `bundle.tooling` and `bundle.release` remain present in the owning CI workflows so policy bundles and workflow execution do not silently drift. |
 | `dev/scripts/checks/check_bundle_registry_dry.py` | Bundle-registry DRY guard | Verifies canonical bundle definitions in `bundle_registry.py` use explicit composition layers instead of repeated command lists, validates shim-target authority for the registry entrypoint, and enforces the budget for widely shared commands before composition becomes mandatory. |
@@ -1269,6 +1269,10 @@ Machine-first output note:
     `repo_governance.docs_check` in the active repo policy; use
     `--quality-policy <path>` to point the same command at another repo's
     governance contract.
+  - If you add or promote a shared guard, treat `quality-policy --format md`,
+    `check_guard_enforcement_inventory.py`, and
+    `check_bundle_workflow_parity.py` as one closure set before push so AI
+    surfaces, bundle authority, and CI workflows do not drift.
   - When `repo_governance.docs_check` is empty or partial, tooling-doc
     requirements now derive from typed governance authority (`DocRegistry`,
     tracker/docs-authority paths, and repo-owned surface docs) instead of

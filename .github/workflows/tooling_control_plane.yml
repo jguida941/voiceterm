@@ -465,6 +465,9 @@ jobs:
             --since-ref "${{ steps.range.outputs.since }}" \
             --head-ref "${{ steps.range.outputs.head }}"
 
+      - name: Run mutation-bypass graph closure guard
+        run: python3 dev/scripts/checks/check_mutation_bypass_graph_closure.py
+
       - name: Run workflow shell hygiene guard
         run: python3 dev/scripts/checks/check_workflow_shell_hygiene.py
 

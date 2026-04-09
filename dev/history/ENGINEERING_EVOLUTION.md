@@ -64,6 +64,40 @@ Files changed:
 - `dev/scripts/devctl/script_catalog.py`
 - `dev/scripts/devctl/tests/test_script_catalog.py`
 
+### 2026-04-09 - Shared guard registration now has to converge across policy, bundles, and workflows
+
+Fact: the next governed-push failure exposed a second self-hosting gap in the
+same graph-backed mutation-bypass guard. The public entrypoint existed and was
+already cataloged, but the resolved quality policy and bundle/workflow lanes
+did not all agree on it, so push preflight correctly failed on
+`check_guard_enforcement_inventory.py` / `check_bundle_workflow_parity.py`.
+
+This matters because the portable governance system is supposed to be
+deterministic for AI and humans alike. A guard that only exists in one of
+script catalog, quality policy, bundle authority, or CI workflows is not
+really part of the shared system; it is just latent drift waiting to block the
+next checkpoint or push.
+
+The closure is now explicit in code and docs: shared guards must register in
+typed quality policy, shared bundle authority, and owning workflows in the
+same change, and maintainer docs must call that out as a self-hosting rule.
+`mutation_bypass_graph_closure` is the first concrete proof of that stricter
+hook-driven contract.
+
+Files changed:
+- `.github/workflows/tooling_control_plane.yml`
+- `.github/workflows/release_preflight.yml`
+- `AGENTS.md`
+- `dev/active/MASTER_PLAN.md`
+- `dev/active/ai_governance_platform.md`
+- `dev/config/quality_presets/portable_python.json`
+- `dev/guides/DEVELOPMENT.md`
+- `dev/scripts/README.md`
+- `dev/scripts/devctl/bundles/registry.py`
+- `dev/scripts/devctl/quality_policy/defaults.py`
+- `dev/scripts/devctl/tests/governance/test_bundle_registry.py`
+- `dev/scripts/devctl/tests/quality_policy/test_quality_policy.py`
+
 ### 2026-04-09 - Shared live review-state loads stopped defaulting to bridge refresh
 
 Fact: the next typed-authority convergence slice moved the shared live
