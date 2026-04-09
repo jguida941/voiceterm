@@ -13,6 +13,7 @@ from unittest.mock import patch
 
 from dev.scripts.devctl.commands.vcs.commit import (
     _build_git_commit_cmd,
+    _resolve_interaction_mode,
     _run_guard_bundle,
     run_commit,
 )
@@ -162,6 +163,23 @@ class TestGuardBundleRunner(unittest.TestCase):
         self.assertIn("quick", cmd_str)
         env = call_args[1]["env"]
         self.assertEqual(env["DEVCTL_COMMIT_GATE_BYPASS_STARTUP_AUTHORITY"], "1")
+
+
+class TestInteractionModeResolution(unittest.TestCase):
+    def test_resolve_interaction_mode_threads_governance_into_read_model(self) -> None:
+        repo_root = Path("/tmp/repo")
+        governance = SimpleNamespace(bridge_config=SimpleNamespace())
+        with patch(
+            "dev.scripts.devctl.commands.vcs.commit.scan_repo_governance_safely",
+            return_value=governance,
+        ) as scan_mock, patch(
+            "dev.scripts.devctl.commands.vcs.commit.build_control_plane_read_model",
+            return_value=SimpleNamespace(operator_interaction_mode="single_agent"),
+        ) as build_model_mock:
+            self.assertEqual(_resolve_interaction_mode(repo_root), "single_agent")
+
+        scan_mock.assert_called_once_with(repo_root)
+        build_model_mock.assert_called_once_with(repo_root, governance=governance)
 
 
 class TestGovernedCommitPipeline(unittest.TestCase):

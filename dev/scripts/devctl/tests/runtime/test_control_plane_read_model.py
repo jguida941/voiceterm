@@ -224,12 +224,16 @@ class BuildWithReviewStateTests(unittest.TestCase):
         governance = SimpleNamespace(
             bridge_config=SimpleNamespace(operator_interaction_mode="remote_control")
         )
-        model = build_control_plane_read_model(
-            Path("/tmp/nonexistent"),
-            sources_override=sources,
-            git_override=_base_git(),
-            governance=governance,
-        )
+        with patch(
+            "dev.scripts.devctl.runtime.control_plane_read_model._extract_coordination",
+            return_value=None,
+        ):
+            model = build_control_plane_read_model(
+                Path("/tmp/nonexistent"),
+                sources_override=sources,
+                git_override=_base_git(),
+                governance=governance,
+            )
         self.assertEqual(model.operator_interaction_mode, "remote_control")
 
     def test_review_accepted_from_verdict(self) -> None:
