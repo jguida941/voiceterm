@@ -5,8 +5,11 @@ from __future__ import annotations
 import subprocess
 import tempfile
 from pathlib import Path
+from types import SimpleNamespace
 from unittest import TestCase
 from unittest.mock import patch
+
+import pytest
 
 from dev.scripts.devctl.commands.check import process_sweep as check_process_sweep
 from dev.scripts.devctl.process_sweep import core as process_sweep
@@ -889,3 +892,136 @@ class ProcessSweepTests(TestCase):
 
         self.assertEqual(warnings, [])
         self.assertEqual(rows, [])
+
+
+def test_protected_pids_fall_back_to_supervisor_when_session_pid_missing() -> None:
+    """F2 regression: supervisor-backed liveness fallback.
+
+    When the typed session registry produces a live conductor session with
+    no recoverable `session_pid` (script probe failed, metadata stale, or
+    registry not yet populated after a recent spawn),
+    `_protected_registered_conductor_pids` must still protect conductor
+    rows whose `match_scope` is `review_channel_conductor` as long as the
+    reviewer_supervisor heartbeat is running. This mirrors
+    `hygiene_support._audit_runtime_processes` so both guards agree on
+    what counts as a supervised conductor. Voiceterm-scoped rows stay
+    reapable — the fallback is scoped strictly to supervised conductors.
+    """
+    with tempfile.TemporaryDirectory() as tmpdir:
+        repo_root = Path(tmpdir)
+        status_dir = repo_root / "dev" / "reports" / "review_channel" / "latest"
+        status_dir.mkdir(parents=True)
+
+        live_session_without_pid = SimpleNamespace(live=True, session_pid=None)
+        rows = [
+            {
+                "pid": 555,
+                "ppid": 1,
+                "match_scope": "review_channel_conductor",
+                "elapsed_seconds": 900,
+                "lineage_depth": 0,
+            },
+            {
+                "pid": 600,
+                "ppid": 555,
+                "match_scope": "review_channel_conductor",
+                "elapsed_seconds": 880,
+                "lineage_depth": 1,
+            },
+            {
+                "pid": 700,
+                "ppid": 1,
+                "match_scope": "voiceterm",
+                "elapsed_seconds": 900,
+                "lineage_depth": 0,
+            },
+        ]
+
+        with patch(
+            "dev.scripts.devctl.review_channel.session_probe.load_conductor_sessions",
+            return_value=(live_session_without_pid,),
+        ), patch(
+            "dev.scripts.devctl.review_channel.lifecycle_state.read_reviewer_supervisor_state",
+            return_value={"running": True},
+        ):
+            protected = check_process_sweep._protected_registered_conductor_pids(
+                rows=rows,
+                repo_root=repo_root,
+            )
+
+    assert 555 in protected, (
+        "conductor-scoped row 555 should be protected via supervisor-backed "
+        "fallback when the live session has no session_pid"
+    )
+    assert 600 in protected, "descendant 600 should inherit parent's protection"
+    assert 700 not in protected, (
+        "voiceterm-scoped row 700 is not a supervised conductor and must "
+        "remain reapable"
+    )
+
+
+def test_protected_pids_uses_registry_when_session_pid_is_live() -> None:
+    """Normal path: a live registry session with a recoverable session_pid
+    protects that pid and its descendants regardless of supervisor state.
+    The registry is authoritative when it carries a usable pid.
+    """
+    with tempfile.TemporaryDirectory() as tmpdir:
+        repo_root = Path(tmpdir)
+        status_dir = repo_root / "dev" / "reports" / "review_channel" / "latest"
+        status_dir.mkdir(parents=True)
+
+        live_session = SimpleNamespace(live=True, session_pid=1234)
+        rows = [
+            {"pid": 1234, "ppid": 1, "match_scope": "review_channel_conductor"},
+            {"pid": 5678, "ppid": 1234, "match_scope": "review_channel_conductor"},
+            {"pid": 9999, "ppid": 1, "match_scope": "voiceterm"},
+        ]
+
+        with patch(
+            "dev.scripts.devctl.review_channel.session_probe.load_conductor_sessions",
+            return_value=(live_session,),
+        ), patch(
+            "dev.scripts.devctl.review_channel.lifecycle_state.read_reviewer_supervisor_state",
+            return_value={"running": False},
+        ):
+            protected = check_process_sweep._protected_registered_conductor_pids(
+                rows=rows,
+                repo_root=repo_root,
+            )
+
+    assert 1234 in protected, "registry-backed session pid must be protected"
+    assert 5678 in protected, "descendants of a protected pid inherit protection"
+    assert 9999 not in protected, "unrelated voiceterm row stays reapable"
+
+
+def test_protected_pids_empty_when_no_registry_and_dead_supervisor() -> None:
+    """No protection path: empty registry plus a dead reviewer_supervisor
+    heartbeat must yield an empty protected set, preserving the original
+    kill behavior for orphaned processes when no supervision is live.
+    """
+    with tempfile.TemporaryDirectory() as tmpdir:
+        repo_root = Path(tmpdir)
+        status_dir = repo_root / "dev" / "reports" / "review_channel" / "latest"
+        status_dir.mkdir(parents=True)
+
+        rows = [
+            {"pid": 555, "ppid": 1, "match_scope": "review_channel_conductor"},
+            {"pid": 600, "ppid": 555, "match_scope": "review_channel_conductor"},
+        ]
+
+        with patch(
+            "dev.scripts.devctl.review_channel.session_probe.load_conductor_sessions",
+            return_value=(),
+        ), patch(
+            "dev.scripts.devctl.review_channel.lifecycle_state.read_reviewer_supervisor_state",
+            return_value={"running": False},
+        ):
+            protected = check_process_sweep._protected_registered_conductor_pids(
+                rows=rows,
+                repo_root=repo_root,
+            )
+
+    assert protected == set(), (
+        "with no live session registry and a dead reviewer_supervisor "
+        "heartbeat, the guard must not protect conductor-scoped rows"
+    )
