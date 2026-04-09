@@ -16,6 +16,7 @@ from .context_graph.command import run as context_graph_run
 from .context_graph.parser import add_context_graph_parser
 from .cli_parser.builders import add_standard_parsers
 from .commands import (
+    agent_mind,
     audit_scaffold,
     auto_mode_status,
     autonomy_benchmark,
@@ -127,6 +128,7 @@ from .reports_cleanup_parser import add_reports_cleanup_parser
 from .review_channel.parser import add_review_channel_parser
 from .pipeline_parser import add_pipeline_parser
 from .rollout_tail_parser import add_rollout_tail_parser
+from .agent_mind_parser import add_agent_mind_parser
 from .security.parser import add_security_parser
 from .sync_parser import add_commit_parser, add_push_parser, add_sync_parser
 from .runtime.machine_output import clear_machine_output_metrics, consume_machine_output_metrics
@@ -194,6 +196,7 @@ def build_parser() -> argparse.ArgumentParser:
     add_review_channel_parser(sub)
     add_pipeline_parser(sub)
     add_rollout_tail_parser(sub)
+    add_agent_mind_parser(sub)
     add_path_audit_parser(sub)
     add_path_rewrite_parser(sub)
     add_cihub_setup_parser(sub)
@@ -274,6 +277,7 @@ COMMAND_HANDLERS = {
     "review-channel": review_channel.run,
     "pipeline": pipeline_command.run,
     "rollout-tail": rollout_tail.run,
+    "agent-mind": agent_mind.run,
     "homebrew": homebrew.run,
     "pypi": pypi.run,
     "status": status.run,
