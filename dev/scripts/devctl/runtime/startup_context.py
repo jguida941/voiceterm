@@ -5,10 +5,13 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass, field, replace
 from pathlib import Path
 from types import SimpleNamespace
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from ..platform.coordination_snapshot_models import CoordinationSnapshot
 from .finding_contracts import RejectedRuleTraceRecord, RuleMatchEvidenceRecord
+
+if TYPE_CHECKING:
+    from .review_state_models import ReviewState
 from .conductor_capability import normalize_reviewer_mode
 from .governance_scan import scan_repo_governance_safely
 from .operator_context import is_resolved, resolve_operator_interaction_mode
@@ -284,16 +287,31 @@ def _derive_advisory_action(
 def build_startup_context(
     *,
     repo_root: Path | None = None,
+    governance: ProjectGovernance | None = None,
+    review_state: "ReviewState | None" = None,
 ) -> StartupContext:
-    """Build the typed startup-context packet for the current repo state."""
+    """Build the typed startup-context packet for the current repo state.
+
+    ``governance`` and ``review_state`` are optional frozen inputs that let
+    callers (in particular the F1 coordination-parity proof in
+    ``test_startup_context`` and any composite renderer that wants a single
+    tick to cover all three governance surfaces) lock one typed review-state
+    snapshot across ``build_startup_context``, ``build_control_plane_read_
+    model``, and ``session_resume_support.build_from_sources``. When both are
+    omitted, the function still performs a fresh governance scan and
+    bridge-refreshed review-state load so the standalone command behavior is
+    unchanged.
+    """
     if repo_root is None:
         from ..config import get_repo_root
         repo_root = get_repo_root()
 
-    from ..governance.draft import scan_repo_governance
+    if governance is None:
+        from ..governance.draft import scan_repo_governance
 
-    governance = scan_repo_governance(repo_root)
-    review_state = load_current_review_state(repo_root, governance=governance)
+        governance = scan_repo_governance(repo_root)
+    if review_state is None:
+        review_state = load_current_review_state(repo_root, governance=governance)
     gate = _detect_reviewer_gate(
         repo_root,
         governance=governance,

@@ -37,6 +37,7 @@ from .session_resume_paths import (
 
 if TYPE_CHECKING:
     from ...runtime.project_governance import ProjectGovernance
+    from ...runtime.review_state_models import ReviewState
 
 _BUNDLE_BY_LANE = {
     "docs": "bundle.docs",
@@ -160,6 +161,7 @@ def build_from_sources(
     read_model_override: "ControlPlaneReadModel | None" = None,
     sources_override: dict[str, Any] | None = None,
     changed_paths: list[str] | None = None,
+    review_state: "ReviewState | None" = None,
 ) -> SessionCachePacket:
     """Build a fresh packet as a pure projection of ControlPlaneReadModel.
 
@@ -169,7 +171,12 @@ def build_from_sources(
     same sources the read model consumed.
 
     ``read_model_override`` and ``sources_override`` let tests inject
-    pre-built data without touching the filesystem.
+    pre-built data without touching the filesystem. ``review_state`` is
+    the optional frozen typed review state the caller already resolved
+    for this proof tick; it is forwarded to
+    ``build_control_plane_read_model`` so every governance surface
+    computes coordination against the same typed review-state snapshot
+    instead of triggering an independent bridge-refreshed reload.
     """
     sources = sources_override if sources_override is not None else _load_governed_sources(
         repo_root, governance=governance,
@@ -178,18 +185,23 @@ def build_from_sources(
         "branch": "unknown", "head": head_sha, "clean": True, "ahead": 0,
     }
 
-    # Thread governance so the read model resolves coordination via the
-    # same governed loader path session-resume used to pick ``sources``.
-    # Without this, ``build_control_plane_read_model`` reconstructed
-    # coordination without governance and would only ever see the persisted
-    # ``coordination`` mapping, while session-resume's own ``_extract_
-    # coordination`` call did a fresh gate-aware build — the two-snapshot
-    # divergence at the heart of F1.
+    # Thread governance AND review_state so the read model resolves
+    # coordination via the same governed loader path session-resume used
+    # to pick ``sources``. Without the governance thread, the read model
+    # would reconstruct coordination without it and only ever see the
+    # persisted ``coordination`` mapping; without the review_state thread,
+    # the read model would trigger an independent
+    # ``load_current_review_state_payload`` refresh that can reproject
+    # ``bridge.md`` between the three parity calls and desync
+    # ``observed_topology`` / ``resync_reasons`` across surfaces. That
+    # independent refresh is the residual F1 flake the parity proof tick
+    # must close.
     model = read_model_override or build_control_plane_read_model(
         repo_root,
         sources_override=sources,
         git_override=git,
         governance=governance,
+        review_state=review_state,
     )
 
     session = _extract_current_session(sources)

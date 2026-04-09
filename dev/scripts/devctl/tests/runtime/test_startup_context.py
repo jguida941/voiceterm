@@ -174,18 +174,41 @@ class TestCoordinationParityF1(unittest.TestCase):
         from dev.scripts.devctl.runtime.control_plane_read_model import (
             build_control_plane_read_model,
         )
+        from dev.scripts.devctl.runtime.review_state_locator import (
+            load_current_review_state,
+        )
 
         repo = get_repo_root()
         governance = scan_repo_governance(repo)
         head_sha = current_head(repo)
 
-        startup = build_startup_context(repo_root=repo)
-        dashboard = build_control_plane_read_model(repo, governance=governance)
+        # One frozen (governance, review_state) per proof tick: resolve the
+        # typed review state ONCE and thread it through all three surfaces so
+        # the parity check exercises reducer behaviour under identical inputs
+        # instead of racing independent bridge-refreshed reloads of
+        # review_state.json that can desync observed_topology and
+        # resync_reasons between calls. Before this thread, each surface
+        # triggered its own ``load_current_review_state_payload`` and the
+        # three could silently diverge whenever ``bridge.md`` was reprojected
+        # mid-test.
+        review_state = load_current_review_state(repo, governance=governance)
+
+        startup = build_startup_context(
+            repo_root=repo,
+            governance=governance,
+            review_state=review_state,
+        )
+        dashboard = build_control_plane_read_model(
+            repo,
+            governance=governance,
+            review_state=review_state,
+        )
         session = build_from_sources(
             repo,
             role="reviewer",
             head_sha=head_sha,
             governance=governance,
+            review_state=review_state,
         )
 
         startup_c = startup.coordination

@@ -36,6 +36,7 @@ from .value_coercion import coerce_bool, coerce_int, coerce_string
 
 if TYPE_CHECKING:
     from .project_governance import ProjectGovernance
+    from .review_state_models import ReviewState
 
 
 CONTROL_PLANE_READ_MODEL_CONTRACT_ID = "ControlPlaneReadModel"
@@ -141,6 +142,7 @@ def _extract_coordination(
     sources: dict[str, Any],
     governance: "ProjectGovernance | None",
     allow_startup_fallback: bool,
+    review_state: "ReviewState | None" = None,
 ) -> CoordinationSnapshot | None:
     """Return shared coordination truth via the governed loader.
 
@@ -153,6 +155,14 @@ def _extract_coordination(
     gate-corrected answer — the exact F1 divergence MP-384/MP-387 must
     close.
 
+    ``review_state`` is the optional frozen typed review state the caller
+    already resolved for this proof tick. When supplied, it is threaded into
+    ``load_coordination_snapshot`` so the shared reducer uses the exact same
+    typed state as ``build_startup_context``; without this, each surface
+    triggered an independent ``load_current_review_state_payload`` refresh
+    that could silently reproject ``bridge.md`` between calls and desync
+    ``observed_topology`` / ``resync_reasons`` across surfaces.
+
     ``allow_startup_fallback`` preserves the legacy fixture path: tests
     that inject a synthetic ``sources_override`` without governance still
     fall through to an on-disk ``build_startup_context`` only when
@@ -164,6 +174,7 @@ def _extract_coordination(
         repo_root=repo_root,
         sources=sources,
         governance=governance,
+        review_state=review_state,
     )
     if fresh is not None:
         return fresh
@@ -187,6 +198,7 @@ def build_control_plane_read_model(
     sources_override: dict[str, Any] | None = None,
     git_override: dict[str, Any] | None = None,
     governance: "ProjectGovernance | None" = None,
+    review_state: "ReviewState | None" = None,
 ) -> ControlPlaneReadModel:
     """Load all artifacts ONCE, resolve ALL gates, return frozen model.
 
@@ -195,6 +207,11 @@ def build_control_plane_read_model(
     ``governance`` is supplied, ``load_sources`` uses it so every
     surface that resolves governance up front (for example
     session-resume) shares the same bridge-refreshed review-state.
+    ``review_state`` is the optional frozen typed review state the caller
+    already resolved for this proof tick; it is forwarded unchanged to
+    ``_extract_coordination`` so the coordination reducer uses the exact
+    same typed state as ``build_startup_context`` instead of triggering an
+    independent bridge-refreshed reload.
     """
     sources = sources_override if sources_override is not None else load_sources(
         repo_root, governance=governance,
@@ -202,22 +219,26 @@ def build_control_plane_read_model(
     git = git_override if git_override is not None else load_git_state(repo_root)
 
     receipt = sources.get("receipt")
-    review_state = sources.get("review_state")
+    # ``review_state_payload`` is the dict-shaped projection of review_state
+    # that every legacy helper below consumes. It is intentionally kept
+    # separate from the typed ``review_state`` parameter so the F1
+    # coordination parity thread is not shadowed by the sources dict.
+    review_state_payload = sources.get("review_state")
     push_report = sources.get("push_report")
     compact = sources.get("compact_json")
     full_json = sources.get("full_json")
 
-    reviewer = resolve_reviewer_state(review_state, compact, full_json)
+    reviewer = resolve_reviewer_state(review_state_payload, compact, full_json)
     daemons = resolve_daemon_state(sources)
     quality = resolve_quality(push_report)
-    blocker = resolve_blocker_and_action(receipt, review_state, quality)
-    pending = resolve_pending_packets(review_state)
+    blocker = resolve_blocker_and_action(receipt, review_state_payload, quality)
+    pending = resolve_pending_packets(review_state_payload)
 
     impl_blocked = coerce_bool((receipt or {}).get("implementation_blocked", False))
     # Governance-first: review_state > receipt > fail closed to unresolved
     op_mode = (
-        coerce_string(_nested_get(review_state, "collaboration", "operator_interaction_mode"))
-        or coerce_string(_nested_get(review_state, "reviewer_runtime", "operator_interaction_mode"))
+        coerce_string(_nested_get(review_state_payload, "collaboration", "operator_interaction_mode"))
+        or coerce_string(_nested_get(review_state_payload, "reviewer_runtime", "operator_interaction_mode"))
         or coerce_string((receipt or {}).get("operator_interaction_mode"))
         or "unresolved"
     )
@@ -240,13 +261,14 @@ def build_control_plane_read_model(
     observation = _build_reviewer_observation(
         head_sha=git.get("head", "unknown"),
         reviewer=reviewer,
-        review_state=review_state,
+        review_state=review_state_payload,
     )
     coordination = _extract_coordination(
         repo_root=repo_root,
         sources=sources,
         governance=governance,
         allow_startup_fallback=sources_override is None,
+        review_state=review_state,
     )
 
     return ControlPlaneReadModel(

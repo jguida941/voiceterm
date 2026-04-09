@@ -77,11 +77,11 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-04-08T21:34:59Z`
-- Last Codex poll (Local America/New_York): `2026-04-08 17:34:59 EDT`
+- Last Codex poll: `2026-04-09T00:14:59Z`
+- Last Codex poll (Local America/New_York): `2026-04-08 20:14:59 EDT`
 - Reviewer mode: `active_dual_agent`
-- Last non-audit worktree hash: `0ff08577b656f51e9e665e5510263621c0dd92e8c531628b069c3d0cb0923e74`
-- Current instruction revision: `64b45d5fd553`
+- Last non-audit worktree hash: `d3d7ea32de53a78f9e3e146d4f60d3a9a0645aff7e6cc2c6575b204efb28e0ca`
+- Current instruction revision: `7f94c6cae1a6`
 - Last checkpoint action: `reviewer-checkpoint`
 - Head at push time: `81cff0d87d8d20b871a71d69dd69a7eb2116b0fe`
 ## Protocol
@@ -205,26 +205,27 @@ Codex: design this as part of the existing `ProjectGovernance` / `ReviewerGateSt
 
 ## Poll Status
 
-- Reviewer checkpoint updated through repo-owned tooling (mode: active_dual_agent; reason: review-pass; observed-tree: 0ff08577b656; reviewed-tree: 0ff08577b656; instruction-rev: 64b45d5fd553).
+- Reviewer heartbeat refreshed through repo-owned tooling (mode: active_dual_agent; reason: ensure-follow; reviewed-tree: d3d7ea32de53).
 
 ## Current Verdict
 
 - changes requested
-- Change Summary: F1 and F4 are now closed on the live code path. `startup-context`, `session-resume`, and `dashboard` report the same coordination snapshot on this tree, and the scan-based governance path now fails closed to `operator_interaction_mode=unresolved` on empty policy. The slice is still not handoff-ready because F5 remains open: the required focused suite is red on the startup packet token-budget gate, and a docs-only follow-up commit landed during review without changing the code paths under test.
+- Change Summary: F5's structural startup-packet trim is present and the budget guard passes; F4 still looks correct. The slice is still not handoff-ready because the new F1 parity proof is unstable: the required focused suite failed once on `coordination.resync_reasons`, then passed on rerun, so one frozen typed coordination answer per review tick is not proven yet.
 
 ## Open Findings
 
-- F5: The exact required focused suite is still red on the startup packet budget gate. `python3 -m pytest dev/scripts/devctl/tests/runtime/test_operator_mode_fail_closed.py dev/scripts/devctl/tests/runtime/test_control_plane_read_model.py dev/scripts/devctl/tests/runtime/test_startup_context.py dev/scripts/devctl/tests/governance/test_session_resume.py dev/scripts/devctl/tests/test_dashboard.py -q --tb=short` now finishes `1 failed, 456 passed`; the failing test is `dev/scripts/devctl/tests/runtime/test_startup_context.py::TestStartupContextBuild::test_slim_token_budget`, which reports `10521` tokens against the `<10000` budget. Local size breakdown shows `build_startup_context().to_dict()` is dominated by the `governance` payload (~5661 tokens), with `work_intake`, `coordination`, and `quality_signals` as the next largest fields. Do not claim this slice verified until the startup packet is reduced below budget or a scoped blocker is recorded.
+- F1: The required focused suite is still non-deterministic on the live tree. The first full run failed `dev/scripts/devctl/tests/runtime/test_startup_context.py::TestCoordinationParityF1::test_three_surfaces_report_identical_coordination`; `startup-context` surfaced `attention:reviewer_supervisor_required` while dashboard/session surfaced `attention:reviewer_poll_due` plus `reviewer_freshness:poll_due`. The same parity test passed in isolation, and the full focused suite passed on rerun, so F1 is flaky rather than closed.
+- Likely cause: `build_startup_context()` reuses one typed `review_state`, but `build_control_plane_read_model()` still reloads bridge-refreshed sources through `load_sources()` / `load_current_review_state_payload()` before building coordination. Sequential parity proof can still cross a freshness boundary unless all three surfaces share one frozen review-state snapshot.
 
 ## Claude Status
 
 - F5 structural fix landed in `dev/scripts/devctl/runtime/startup_governance_projection.py`: `_startup_plan_entry_dict` now projects 6 fields per entry (`path`, `title`, `artifact_role`, `consumer_scope`, `when_agents_read`, `scope`) plus the optional `session_resume_summary`; dropped `role`, `authority_kind`, `system_scope`, `authority`, `lifecycle`, `has_execution_plan_contract` from the bootstrap projection only.
-- Live size: `build_startup_context().to_dict()` is now `38653` bytes (`~9663` tokens), `337` tokens of headroom under the `<10000` budget. `governance.to_dict()` and the markdown renderer still see the full `ProjectGovernance.plan_registry.entries` dataclass, so the trim is scoped to the single startup projection.
+- Live size: `build_startup_context().to_dict()` is now `36483` bytes (`~9120` tokens), `880` tokens of headroom under the `<10000` budget. `governance.to_dict()` and the markdown renderer still see the full `ProjectGovernance.plan_registry.entries` dataclass, so the trim is scoped to the single startup projection.
 - Assignments use the incremental-assignment idiom already used by `bounded_contract_ownership_map` so `python-dict-schema-guard` stays clean; budget constraint is explained in the helper docstring.
 - F1 regression added: `TestCoordinationParityF1.test_three_surfaces_report_identical_coordination` in `dev/scripts/devctl/tests/runtime/test_startup_context.py` builds `build_startup_context`, `build_control_plane_read_model`, and `build_from_sources` against one `scan_repo_governance` result and asserts parity on `declared_topology`, `observed_topology`, `recommended_topology`, `ownership_status`, `current_slice`, `fanout_posture`, `safe_to_fanout`, `resync_required`, and `resync_reasons`.
 - F4 regression already covered in `dev/scripts/devctl/tests/runtime/test_operator_mode_fail_closed.py::TestScanRepoGovernanceFailClosed` (empty-policy, explicit `remote_control`, explicit `dual_agent`, garbage-value cases); live proof on this head: `scan_repo_governance(policy={}).bridge_config.operator_interaction_mode` and `bridge_config_from_mapping({}).operator_interaction_mode` both return `unresolved`.
 - Focused suite: `python3 -m pytest dev/scripts/devctl/tests/runtime/test_operator_mode_fail_closed.py dev/scripts/devctl/tests/runtime/test_control_plane_read_model.py dev/scripts/devctl/tests/runtime/test_startup_context.py dev/scripts/devctl/tests/governance/test_session_resume.py dev/scripts/devctl/tests/test_dashboard.py -q --tb=short` → `458 passed` (was `1 failed, 456 passed`).
-- Tooling verification: `check --profile ci` → `python-dict-schema-guard` clean after the incremental-assignment fix. The 2 remaining failures (`startup-authority-contract-guard` with `reason=review` and `tandem-consistency-guard` `launch_truth: No live repo-owned Codex or Claude conductor sessions`) are pre-existing live-review-loop state, not caused by this diff.
+- Tooling verification on head `ed23ac62`: `check --profile ci` → `39/40 passed`. Only failure: `startup-authority-contract-guard` (`review_accepted=False, reason=runtime_missing`) — the guard correctly refusing a new slice during live review, not a defect in this diff. `tandem-consistency-guard` now passes on this head. Code-carrying range ready for Codex re-review: `81cff0d87d8d..ed23ac62`.
 
 ## Claude Questions
 
@@ -232,25 +233,24 @@ Codex: design this as part of the existing `ProjectGovernance` / `ReviewerGateSt
 
 ## Claude Ack
 
-- acknowledged current instruction revision: `64b45d5fd553`
+- acknowledged current instruction revision: `7f94c6cae1a6`
+- Reopening F1: working on coordination-read-model parity so `build_startup_context`, `build_control_plane_read_model`, and `session-resume` consume one frozen `(governance, review_state, reviewer_gate)` per proof tick. Reproducing `TestCoordinationParityF1` flake next.
 
 ## Current Instruction For Claude
 
 Scoped from `dev/active/remote_control_runtime.md` via `--scope`.
 
-- F1 and F4 are verified closed on the live code path. Do not reopen the coordination-loader or scan-governance work unless a new parity proof fails.
-- Finish F5 by shrinking `build_startup_context().to_dict()` below the `<10000` token budget without weakening the guard. The exact suite currently reports `10521` tokens, and the largest contributors are `governance`, `work_intake`, `coordination`, and `quality_signals`.
-- Keep the fix structural, not test-only: reduce the governed startup packet shape or project a slimmer startup payload. Do not raise the budget and do not delete the regression.
-- Re-run `python3 -m pytest dev/scripts/devctl/tests/runtime/test_operator_mode_fail_closed.py dev/scripts/devctl/tests/runtime/test_control_plane_read_model.py dev/scripts/devctl/tests/runtime/test_startup_context.py dev/scripts/devctl/tests/governance/test_session_resume.py dev/scripts/devctl/tests/test_dashboard.py -q --tb=short` and keep working until it is green. If the budget still cannot be met without reopening contract scope, record a scoped blocker with the exact oversized fields before handoff.
-- Then run the required tooling verification bundle before handoff.
+- F4 is verified closed on the live code path. Keep the F5 startup-packet trim in place; do not reopen the token-budget fix unless a deterministic rerun regresses `dev/scripts/devctl/tests/runtime/test_startup_context.py::TestStartupContextBuild::test_slim_token_budget`.
+- Reopen F1 now that the new parity proof failed on this tree. Fix the remaining coordination-read-model gap structurally so `build_startup_context`, `build_control_plane_read_model`, and `session-resume` consume one frozen review-state / coordination snapshot per proof tick instead of refreshing live review state separately.
+- Reproduce and eliminate the non-determinism behind `dev/scripts/devctl/tests/runtime/test_startup_context.py::TestCoordinationParityF1::test_three_surfaces_report_identical_coordination`. The observed divergence on this head was `attention:reviewer_supervisor_required` vs `attention:reviewer_poll_due` plus `reviewer_freshness:poll_due` inside `coordination.resync_reasons`.
+- Re-run `python3 -m pytest dev/scripts/devctl/tests/runtime/test_operator_mode_fail_closed.py dev/scripts/devctl/tests/runtime/test_control_plane_read_model.py dev/scripts/devctl/tests/runtime/test_startup_context.py dev/scripts/devctl/tests/governance/test_session_resume.py dev/scripts/devctl/tests/test_dashboard.py -q --tb=short` until it is green on consecutive runs, then run the required tooling verification bundle before handoff.
 
 ## Last Reviewed Scope
 
-- Reviewed code-carrying range `81cff0d87d8d20b871a71d69dd69a7eb2116b0fe..c674367819cc8c41f9da6ae8c3a7cb72a0d7638a`, plus docs-only follow-up `06d591c0fc1f444215d8bed37d08ccf620ac3f06` that landed during review. `06d591c0` changes `dev/audits/LIVE_RUN.md` and `dev/audits/REVIEW_SNAPSHOT.md` only; it does not add new F1/F4 code.
+- Reviewed code-carrying range `81cff0d87d8d20b871a71d69dd69a7eb2116b0fe..ed23ac62ef902c03f817877277f8e18aa7f554c6`.
 - Code paths reviewed: `dev/scripts/devctl/runtime/startup_context.py`, `dev/scripts/devctl/governance/draft_policy_scan.py`, `dev/scripts/devctl/runtime/coordination_loader.py`, `dev/scripts/devctl/tests/runtime/test_coordination_loader_wiring.py`, `dev/scripts/devctl/tests/runtime/test_operator_mode_fail_closed.py`, `dev/scripts/devctl/tests/runtime/test_startup_context.py`, `dev/scripts/devctl/tests/governance/test_session_resume.py`, `dev/scripts/devctl/tests/test_dashboard.py`.
-- Live F1 proof on this tree: `startup-context --role reviewer --format json`, `session-resume --role reviewer --format json`, and `dashboard --format json` all report `declared_topology=multi_agent_orchestrated`, `observed_topology=dual_agent`, `recommended_topology=single_agent`, `ownership_status=clear`, and the same `resync_reasons` tuple.
-- Live F4 proof on this tree: `scan_repo_governance(repo, policy={}).bridge_config.operator_interaction_mode` and `bridge_config_from_mapping({}).operator_interaction_mode` both return `unresolved`.
-- Focused validation: `python3 -m pytest dev/scripts/devctl/tests/runtime/test_operator_mode_fail_closed.py dev/scripts/devctl/tests/runtime/test_control_plane_read_model.py dev/scripts/devctl/tests/runtime/test_startup_context.py dev/scripts/devctl/tests/governance/test_session_resume.py dev/scripts/devctl/tests/test_dashboard.py -q --tb=short` -> `1 failed, 456 passed`; failing test: `dev/scripts/devctl/tests/runtime/test_startup_context.py::TestStartupContextBuild::test_slim_token_budget` (`10521` tokens).
+- Focused validation on this review pass: first full run -> `1 failed, 457 passed` on `TestCoordinationParityF1::test_three_surfaces_report_identical_coordination`; isolated parity + token-budget reruns each passed; second full-suite rerun -> `458 passed`.
+- Live F4 proof on this tree still holds: `scan_repo_governance(repo, policy={}).bridge_config.operator_interaction_mode` and `bridge_config_from_mapping({}).operator_interaction_mode` both return `unresolved`.
 
 ## Action Requests
 
