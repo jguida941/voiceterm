@@ -17,6 +17,9 @@ from dev.scripts.devctl.platform.system_picture import build_system_picture_snap
 from dev.scripts.devctl.platform.coordination_snapshot_models import (
     CoordinationSnapshot,
 )
+from dev.scripts.devctl.runtime.control_plane_read_model import (
+    ControlPlaneReadModel,
+)
 from dev.scripts.devctl.platform.system_picture_models import (
     SystemPictureSection,
     SystemPictureSnapshot,
@@ -218,6 +221,33 @@ def test_build_system_picture_snapshot_reads_typed_sources() -> None:
             warnings=("warning-one",),
             errors=(),
         )
+        control_plane = ControlPlaneReadModel(
+            timestamp="2026-04-03T12:01:40Z",
+            branch="feature/system-picture",
+            head_sha="abc123",
+            worktree_clean=False,
+            ahead_of_upstream=4,
+            resolved_phase="review_pending",
+            push_eligible=False,
+            implementation_blocked=True,
+            top_blocker="review_pending_before_push",
+            next_action="await_review",
+            next_command="python3 dev/scripts/devctl.py review-channel --action status --terminal none --format json",
+            reviewer_mode="active_dual_agent",
+            operator_interaction_mode="remote_control",
+            reviewer_freshness="fresh",
+            review_accepted=False,
+            last_reviewed_sha="abc122",
+            attention_status="review_follow_up_required",
+            attention_summary="review follow-up required",
+            publisher_running=False,
+            supervisor_running=False,
+            codex_conductor_alive=True,
+            claude_conductor_alive=False,
+            pending_action_requests=2,
+            last_guard_ok=True,
+            check_details=({"check": "code_shape", "status": "FAIL"},),
+        )
 
         with (
             patch(
@@ -269,6 +299,10 @@ def test_build_system_picture_snapshot_reads_typed_sources() -> None:
                 return_value={"probe_report_status": "current"},
             ),
             patch(
+                "dev.scripts.devctl.platform.system_picture.build_control_plane_read_model",
+                return_value=control_plane,
+            ) as mock_build_control_plane,
+            patch(
                 "dev.scripts.devctl.platform.system_picture.build_coordination_snapshot",
                 return_value=CoordinationSnapshot(
                     generated_at_utc="2026-04-03T12:01:45Z",
@@ -302,18 +336,26 @@ def test_build_system_picture_snapshot_reads_typed_sources() -> None:
             governance=startup_context.governance,
             review_state=review_state,
         )
+        mock_build_control_plane.assert_called_once_with(
+            resolved_root,
+            governance=startup_context.governance,
+            review_state=review_state,
+        )
 
     sections = {section.section_id: section for section in snapshot.sections}
     assert snapshot.contract_id == "SystemPicture"
     assert snapshot.current_branch == "feature/system-picture"
     assert snapshot.head_commit_sha == "abc123"
-    assert snapshot.current_section_count == 8
+    assert snapshot.current_section_count == 9
     assert snapshot.stale_section_count == 0
     assert snapshot.missing_section_count == 0
     assert sections["startup"].summary["startup_receipt_fresh"] is True
     assert sections["graph"].summary["node_count"] == 2411
     assert sections["review_runtime"].summary["review_needed"] is True
     assert sections["coordination"].summary["recommended_topology"] == "single_agent"
+    assert sections["control_plane"].summary["next_command"].startswith("python3 dev/scripts/devctl.py review-channel")
+    assert sections["control_plane"].summary["operator_interaction_mode"] == "remote_control"
+    assert sections["control_plane"].summary["attention_status"] == "review_follow_up_required"
     assert sections["governance_review"].summary["total_findings"] == 8
     assert sections["external_findings"].summary["unique_repo_count"] == 2
     assert sections["data_science"].summary["total_events"] == 25

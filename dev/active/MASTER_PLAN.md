@@ -700,6 +700,15 @@
   headless state from raw `terminal_window_id` nulls. Remaining honest
   `MP-382` closure is lifecycle cleanup/orphan refusal/startup preflight
   cleanup, not another round of terminal-mode wording.
+- Latest same-lane closure on 2026-04-09: visible local launch now also
+  refuses transient temp clones/worktrees before any Terminal.app window or
+  repo-owned runtime daemon starts. The shared launcher-discipline gate now
+  treats temp-root trust prompts as an authority problem rather than an
+  operator surprise: visible `launch` / `recover` require a stable
+  repo-managed root, while governed `remote_control` remains the explicit
+  headless lane. The focused proof also re-locked the attention split for
+  automation-only polls so loop relaunch only wins over implementer reset when
+  Claude still advertises a current ACK under a resettable live session hint.
 - Latest same-lane closure on 2026-04-05: the bootstrap/authority surfaces now
   make launch and push interpretation explicit instead of leaving it to fresh
   AI inference. The owner docs and rendered AI bootstrap surface now direct

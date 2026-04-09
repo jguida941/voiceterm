@@ -1811,6 +1811,7 @@ Complete this table only after all active swarm lanes are merged.
 
 | UTC | Actor | Action | Result | Next step |
 |---|---|---|---|---|
+| `2026-04-09T08:51:22Z` | `CODEX` | Closed the next local-launch automation stall in the MP-355 launcher path. Visible `review-channel launch` / `recover` now fail closed before any repo-owned runtime daemons or Terminal windows start when the requested repo root lives under a transient temp directory, so provider directory-trust prompts in fresh `/tmp` clones cannot silently wedge the visible local loop. The launch dispatcher, bridge-backed live launcher, and stale-implementer recovery path all share the same typed denial reason (`untrusted_visible_launch_root`), and focused launcher-discipline regressions now lock the pure validator plus the pre-daemon bridge/recover wiring. | `partial-pass` | Re-run the focused review-channel launch bundle on the current tree, then decide whether the next follow-up is a broader repo-governed trusted-root registry or simply teaching more launcher surfaces to surface the same denial reason in status/doctor output. |
 | `2026-04-08T00:42:46Z` | `CODEX` | Refined the tracker slice so typed `current_session` / `reviewer_runtime` remain preferred over stale bridge prose, fresh sessions checkpoint before continue, and the ReviewSnapshot evidence set now expands to probe-run plus push-receipt records alongside the existing receipt-hook closure. | `planned` | Keep the current truth-source slice bounded: land the authority-preference and evidence-expansion proof, then wire the fresh open-finding recomputation and external-agent drift detector into the next pass. |
 | `2026-04-08T00:25:00Z` | `CODEX` | Closed the stale-reviewer-revision mismatch that let live bridge text and typed ACK authority drift apart. Bridge-backed `current_session` now compares the live instruction body against the prior typed snapshot, re-derives the effective instruction revision when reviewer text changed under a reused revision, threads that corrected revision/ACK state through `status` and `bridge-poll`, surfaces a reviewer-facing warning instead of silently calling Claude ACK current, and lets repo-owned reviewer writes accept either the raw bridge revision or the effective typed revision during repair. Focused current-session, bridge-poll, reviewer-checkpoint, and refresh-status regressions are green on the current tree. | `partial-pass` | Re-run the MP-355 tooling/docs bundle, then perform one live reviewer/implementer launch where Codex rewrites an instruction and Claude repolls through the repo-owned path to confirm the warning/corrected revision stay aligned in practice. |
 | `2026-04-05T23:45:00Z` | `CODEX` | Closed the next operator-facing launch-policy mismatch that was steering local sessions into hidden relaunches after a stale loop. Typed recovery/doctor surfaces now build launch and implementer-recover commands from governed operator interaction mode so `local_terminal` defaults back to visible `terminal-app` recovery while `remote_control` remains headless, and the Terminal.app profile path now launches the conductor command directly instead of opening a blank shell and injecting a second `do script` into the live tab. Focused launch/recovery/runtime regressions are green, including full `test_review_channel.py` coverage on the current tree. | `partial-pass` | Run the repo-owned tooling/docs guard bundle, then perform one operator-visible relaunch to confirm the stale hidden Claude loop is reclaimed before the fresh visible pair takes over. |
@@ -1930,6 +1931,14 @@ Complete this table only after all active swarm lanes are merged.
 
 ## Session Resume
 
+- Next action: keep local visible review-channel launch rooted in stable
+  repo-managed worktrees. `review-channel --action launch|recover --terminal
+  terminal-app` now fails closed with `untrusted_visible_launch_root` when the
+  target repo root lives under `/tmp`, `/private/tmp`, or the active system
+  temp root, because provider directory-trust prompts there are not safe to
+  treat as automation. Use stable local roots for ordinary visible sessions and
+  keep `--terminal none` reserved for explicit headless/script-only or governed
+  `remote_control` work.
 - Next action: treat live recovery terminal choice as governed operator policy,
   not ad hoc CLI taste. In `local_terminal`, prefer
   `review-channel --action launch --terminal terminal-app` for visible relaunch

@@ -452,8 +452,12 @@ checklist plus chat memory.
     prefer visible `review-channel --action launch|rollover --terminal terminal-app`;
     use `--terminal none` only for explicit headless starts, dry-run/script
     generation, governed `remote_control`, or recovery of an already-headless
-    parent session. Treat `--terminal none` as a real headless background
-    conductor, not a report-only preview.
+    parent session. Visible local launch/recover must also originate from a
+    stable repo-managed root: repo-owned `terminal-app` launch now fails
+    closed for transient temp clones/worktrees so provider directory-trust
+    prompts cannot stall local automation before the conductor starts. Treat
+    `--terminal none` as a real headless background conductor, not a
+    report-only preview.
     A non-zero startup receipt with `action=continue_editing` /
     `reason=review_pending` or `action=await_review` /
     `reason=review_pending_before_push` is still a normal reviewer-owned

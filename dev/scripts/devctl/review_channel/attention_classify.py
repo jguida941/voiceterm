@@ -285,6 +285,15 @@ def _classify_review_attention(ctx: BridgeAttentionContext) -> str | None:
     }:
         return AttentionStatus.REVIEW_LOOP_RELAUNCH_REQUIRED
     if (
+        ctx.launch_truth == LaunchTruthState.AUTOMATION_ONLY.value
+        and not ctx.implementer_state_pending
+        and ctx.claude_status_present
+        and ctx.claude_ack_present
+        and ctx.claude_ack_current
+        and ctx.session_hint_state in RESETTABLE_IMPLEMENTER_SESSION_STATES
+    ):
+        return AttentionStatus.REVIEW_LOOP_RELAUNCH_REQUIRED
+    if (
         relaunch_required_contract_error(ctx.active_contract_errors)
         and not ctx.implementer_state_pending
     ):

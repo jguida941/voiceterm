@@ -2568,6 +2568,16 @@ blocker or exception in plan state before skipping the declared order.
   `zref_*` / tuple validation, and defer schema-union, lineage-graph, and
   second-repo graph-isomorphism ambitions until the smaller substrate proves
   itself here first.
+- 2026-04-09: Revalidated that ordering after the bounded A1 proof landed in
+  `remote_commit_pipeline.md`. The graph work should continue, but still in
+  owner order: next use the same substrate to freeze
+  `{snapshot_id, generation_id, head_sha, worktree_hash}` across
+  `startup_context`, `review_state_models`, `ControlPlaneReadModel`, and the
+  governed commit/push surfaces, then add `zref_*` plus
+  `validate_identity_tuple()`. Do not widen first into dispatcher-policy
+  routing, broad AST-helper unification, or schema-union work while the live
+  pipeline still defaults missing producer state to blocked placeholders and
+  while writer authority remains the current closure gap.
 - 2026-04-09: Closed one bounded producer/consumer freeze follow-up in the
   Phase-1 review-state cutover lane. `build_control_plane_read_model()` now
   replaces its raw `sources["review_state"]` payload with the caller-threaded

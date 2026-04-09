@@ -10,10 +10,12 @@ on the verdict shape.
 
 from __future__ import annotations
 
+import tempfile
 import pytest
 
 from dev.scripts.devctl.commands.review_channel.launcher_discipline import (
     LauncherDisciplineVerdict,
+    validate_trusted_visible_launch_root,
     validate_visible_launch_in_local_mode,
 )
 
@@ -218,6 +220,39 @@ def test_verdict_is_frozen_dataclass() -> None:
         verdict.allowed = False  # type: ignore[misc]
 
 
+# ---------- Visible-launch root trust gate ----------
+
+
+def test_visible_launch_from_transient_root_is_denied() -> None:
+    with tempfile.TemporaryDirectory() as tmpdir:
+        repo_root = Path(tmpdir)
+        (repo_root / ".git").mkdir()
+        verdict = validate_trusted_visible_launch_root(
+            repo_root=repo_root,
+            terminal_arg="terminal-app",
+        )
+        assert verdict.allowed is False
+        assert verdict.denial_reason == "untrusted_visible_launch_root"
+        assert "transient temp clone" in verdict.operator_message
+
+
+def test_visible_launch_from_stable_root_is_allowed() -> None:
+    verdict = validate_trusted_visible_launch_root(
+        repo_root=Path("/Users/example/codex-voice"),
+        terminal_arg="terminal-app",
+    )
+    assert verdict.allowed is True
+    assert verdict.denial_reason == ""
+
+
+def test_non_visible_launch_skips_root_trust_gate() -> None:
+    verdict = validate_trusted_visible_launch_root(
+        repo_root=Path(tempfile.gettempdir()) / "codex-voice-headless-root",
+        terminal_arg="none",
+    )
+    assert verdict.allowed is True
+
+
 # ---------- F21 dispatcher integration tests ----------
 #
 # These exercise the actual ``launch_sessions_if_requested`` dispatcher in
@@ -230,6 +265,7 @@ def test_verdict_is_frozen_dataclass() -> None:
 
 from types import SimpleNamespace
 from pathlib import Path
+from unittest.mock import patch
 
 from dev.scripts.devctl.commands.review_channel.bridge_launch_control import (
     LaunchSessionRequest,
@@ -258,6 +294,7 @@ def _dispatcher_request(
     args: SimpleNamespace,
     interaction_mode: str = "local_terminal",
     bridge_path: Path | None = None,
+    repo_root: Path | None = None,
 ) -> LaunchSessionRequest:
     """Build a minimal ``LaunchSessionRequest`` for the dispatcher tests."""
     return LaunchSessionRequest(
@@ -266,6 +303,7 @@ def _dispatcher_request(
         bridge_path=bridge_path or Path("/tmp/never-read-because-validation-fails-first"),
         handoff_bundle=None,
         terminal_profile_applied=None,
+        repo_root=repo_root,
         interaction_mode=interaction_mode,
     )
 
@@ -383,6 +421,23 @@ def test_dispatcher_refuses_rollover_with_headless_in_local_mode() -> None:
     assert "headless_launch_in_local_mode" in str(exc_info.value)
 
 
+def test_dispatcher_refuses_visible_launch_from_transient_root() -> None:
+    args = _dispatcher_args(action="launch", terminal="terminal-app")
+    with tempfile.TemporaryDirectory() as tmpdir:
+        repo_root = Path(tmpdir)
+        (repo_root / ".git").mkdir()
+        request = _dispatcher_request(
+            args=args,
+            interaction_mode="local_terminal",
+            repo_root=repo_root,
+        )
+
+        with pytest.raises(ValueError) as exc_info:
+            launch_sessions_if_requested(request)
+
+        assert "untrusted_visible_launch_root" in str(exc_info.value)
+
+
 def test_bridge_handler_launch_uses_resolved_governance_mode_not_bridge_liveness(
     tmp_path: Path,
 ) -> None:
@@ -456,3 +511,77 @@ def test_bridge_handler_launch_uses_resolved_governance_mode_not_bridge_liveness
         )
 
     assert launched is True
+
+
+def test_bridge_handler_refuses_transient_visible_launch_before_starting_daemons(
+    tmp_path: Path,
+) -> None:
+    from dev.scripts.devctl.commands.review_channel.bridge_contexts import (
+        LaunchExecutionContext,
+        LaunchRefreshContext,
+    )
+    from dev.scripts.devctl.commands.review_channel.bridge_handler import (
+        _launch_and_refresh,
+    )
+
+    status_snapshot = SimpleNamespace(
+        warnings=[],
+        bridge_liveness={"reviewer_mode": "active_dual_agent"},
+    )
+    transient_root = tmp_path / "transient-repo"
+    transient_root.mkdir()
+    (transient_root / ".git").mkdir()
+
+    with patch(
+        "dev.scripts.devctl.commands.review_channel.bridge_handler.ensure_launch_runtime_daemons",
+        side_effect=AssertionError("runtime daemons should not start"),
+    ):
+        with pytest.raises(ValueError) as exc_info:
+            _launch_and_refresh(
+                args=_dispatcher_args(action="launch", terminal="terminal-app"),
+                context=LaunchRefreshContext(
+                    repo_root=transient_root,
+                    review_channel_path=tmp_path / "review_channel.md",
+                    bridge_path=tmp_path / "bridge.md",
+                    status_dir=tmp_path,
+                    promotion_plan_path=None,
+                    artifact_paths=None,
+                ),
+                execution=LaunchExecutionContext(
+                    sessions=[{"launch_command": "/bin/zsh /tmp/codex.sh"}],
+                    handoff_bundle=None,
+                    terminal_profile_applied=None,
+                    status_snapshot=status_snapshot,
+                    interaction_mode="local_terminal",
+                ),
+            )
+
+    assert "untrusted_visible_launch_root" in str(exc_info.value)
+
+
+def test_recover_visible_launch_refuses_transient_root() -> None:
+    from dev.scripts.devctl.commands.review_channel._recover import (
+        _maybe_launch_recover_sessions,
+    )
+
+    args = SimpleNamespace(
+        terminal="terminal-app",
+        dry_run=False,
+        await_ack_seconds=0,
+        operator_interaction_mode="local_terminal",
+    )
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        repo_root = Path(tmpdir)
+        (repo_root / ".git").mkdir()
+        with pytest.raises(ValueError) as exc_info:
+            _maybe_launch_recover_sessions(
+                args=args,
+                repo_root=repo_root,
+                bridge_path=Path("/tmp/bridge.md"),
+                current_instruction_revision="rev-1",
+                sessions=[],
+                terminal_profile_applied=None,
+            )
+
+        assert "untrusted_visible_launch_root" in str(exc_info.value)

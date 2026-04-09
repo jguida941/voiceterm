@@ -17,6 +17,7 @@ from ...runtime import ActionResult
 from ...runtime.action_contracts import ActionOutcome
 from ...runtime.action_contracts import ACTION_RESULT_CONTRACT_ID, ACTION_RESULT_SCHEMA_VERSION
 from ...runtime.control_plane_read_model import build_control_plane_read_model
+from ...runtime.governance_scan import scan_repo_governance_safely
 from ...runtime.operator_context import OperatorInteractionMode, resolve_operator_interaction_mode
 from .governed_executor import GovernedVcsExecutor
 from .governed_executor_actions import APPROVAL_PACKET_KIND, _build_report, _emit_report, build_commit_action, build_stage_action
@@ -96,7 +97,11 @@ def _guard_result(exit_code: int) -> ActionResult:
 def _resolve_interaction_mode(repo_root: Path) -> str:
     """Return the current operator interaction mode for commit approval."""
     try:
-        model = build_control_plane_read_model(repo_root)
+        governance = scan_repo_governance_safely(repo_root)
+        model = build_control_plane_read_model(
+            repo_root,
+            governance=governance,
+        )
     except (OSError, ValueError):
         return "unresolved"
     return str(model.operator_interaction_mode or "").strip() or "unresolved"

@@ -1,6 +1,6 @@
 # AI Governance Platform Plan
 
-**Status**: active  |  **Last updated**: 2026-04-08 | **Owner:** Tooling/control plane/product architecture
+**Status**: active  |  **Last updated**: 2026-04-09 | **Owner:** Tooling/control plane/product architecture
 Execution plan contract: required
 This spec remains execution mirrored in `dev/active/MASTER_PLAN.md` under
 `MP-377`, and it is the canonical active architecture plan for the standalone
@@ -3128,6 +3128,18 @@ alone. Use these proof gates:
       stays in `remote_control_runtime.md`, and second-repo proof stays in
       `portable_code_governance.md`. `MASTER_PLAN.md` remains the tracker and
       subordinate plans must stay in landed/open/priority parity.
+- [ ] Keep the architecture guard stack layered instead of overloading
+      `package_layout`: crowded-root and compatibility-shim governance remain
+      the coarse self-hosting backstop, while product closure must come from
+      targeted authority/parity guards for governed mutation anti-bypass,
+      authoritative review-state production, identity-tuple parity,
+      read-model-first consumers, `SystemCatalog` / `AgentDispatchPacket`
+      schema parity, and prompt/bootstrap field-route coverage.
+- [ ] Keep `context-graph` / `ConceptIndex` / ZGraph-style intelligence
+      subordinate to typed authority and measured proof: graph-backed routing
+      or duplicate-authority detection should start as probes or bounded
+      reducers over canonical contracts, then only graduate into blocking
+      guards after replay/corpus validation proves low-noise behavior.
 - [ ] Keep repo entrance surfaces split by audience until extraction is real:
       the root `README.md` in this repo remains the VoiceTerm product/user
       entrypoint while the portable governance platform gets its own
@@ -4417,6 +4429,57 @@ alone. Use these proof gates:
       distinguish "good outcomes on a small sample" from broad signal quality.
       Make `false_positive_rate_pct` read alongside coverage and disposition
       mix so the ledger cannot flatter a small or biased sample.
+- [ ] Close the guard-intelligence feedback loop through the existing typed
+      evidence stack instead of rewriting individual hard guards: the
+      projection layer in `governance/guard_findings.py` and
+      `runtime/guard_finding_contracts.py` should become the canonical
+      upgrade seam that decorates legacy guard violations with richer
+      `Finding`-family metadata derived from signals already in scope rather
+      than asking every `check_*.py` script to grow bespoke policy logic.
+- [ ] Land a bounded "decoration first" tranche for those guard findings:
+      emit or derive `finding_class`, scoped severity, repair guidance,
+      `decision_mode`, and `research_instruction` where deterministic policy
+      already exists, but keep this first tranche zero-behavior-change for
+      merge blocking. The goal is richer typed emission and downstream review
+      routing before any adaptive enforcement claims.
+- [ ] Add one repo-owned `GuardFeedbackLens` over existing
+      `governance-review` history plus quality-feedback snapshots: given a
+      bounded key such as `(check_id, file_path, risk_type)`, return recent
+      verdicts, false-positive rate, fixed/confirmed counts, recurrence
+      posture, and available precedent refs so the next guard/projection run
+      can react to adjudicated history without inventing a second evidence
+      store.
+- [ ] Feed runtime context into that same guard-projection seam before
+      widening trust: consume active-slice ownership
+      (`WorkIntakeOwnershipState.scope_paths`), task-router risk tier,
+      `ContextGraphSnapshot` or `ContextGraphDelta` churn/stability signals,
+      and relevant reviewer/runtime visibility so guards can suppress
+      obviously outside-scope noise, stay milder on high-churn in-flight
+      regions, and become stricter on stable high-risk surfaces.
+- [ ] Make the rollout ladder explicit and enforced by policy: decoration-only
+      emission first, then advisory/adaptive severity or routing, then
+      approval-bound learning behavior, and only then merge-blocking
+      promotions after replay/corpus evidence proves low false-positive
+      behavior. Adaptive guard intelligence must never silently become
+      blocking because one branch looked good locally.
+- [ ] Add one typed recommender path for rule promotion and escalation instead
+      of hand-maintained folklore: probe-to-guard promotion, repeated-issue
+      severity escalation, and similar "this should probably harden" signals
+      should be generated from adjudication history and quality-feedback
+      evidence, written as typed recommendations/manifests, and require
+      operator approval before they affect the blocking guard set.
+- [ ] Finish the AI-guidance side of guard intelligence after the feedback
+      lens exists: allow render-time or packet-time `ai_instruction`
+      synthesis for under-specified guard families using canonical finding
+      evidence, nearby adjudication history, and cached fallback behavior,
+      but keep that guidance portable, deterministic-by-default, and feature-
+      flagged so provider availability never becomes a hard dependency of
+      `check --profile ci`.
+- [ ] Keep embeddings retrieval, interactive editor/provider hooks, and MCP
+      surfaces as later optional layers on top of the same evidence spine, not
+      prerequisites for the first closed loop. If those surfaces land, they
+      must live behind feature flags in the portable platform layer and read
+      canonical finding / review / graph contracts rather than sidecar stores.
 - [ ] Define the repo-map storage/cache contract before DB sprawl: canonical
       JSON snapshot, append-only refresh ledger, optional SQLite query index,
       repo-pack-owned retention rules, and explicit attach-by-ref flow into
@@ -4804,6 +4867,41 @@ alone. Use these proof gates:
 Use this section as the single "left off here" surface for fresh AI sessions
 working on `MP-377`.
 
+- 2026-04-09 command-boundary freeze closure:
+  the reopened MP-384/MP-387 F1 rerun is now repaired. `session-resume` cache
+  misses resolve one live `load_current_review_state(... prefer_cached_projection=False)`
+  snapshot, dashboard resolves governance plus current review state once per
+  snapshot and threads that same typed object through both raw sources and
+  `ControlPlaneReadModel`, and the focused parity pytest bundle is green on
+  consecutive runs. Resume from the next bounded follow-up only:
+  mobile/helper/repo-pack read-side consumers plus the live remote-control
+  proof. Do not reopen the broader typed-authority convergence synthesis.
+- 2026-04-09 live parity rerun:
+  treat MP-384/MP-387 F1 as reopened on the current tree. The bounded defect
+  is no longer missing coordination models; it is proof-tick
+  non-determinism. `startup-context`, `session-resume`, and
+  `ControlPlaneReadModel` can still observe different review-state freshness
+  on one rerun and diverge between
+  `attention:reviewer_supervisor_required` and
+  `attention:reviewer_poll_due` (`reviewer_freshness:poll_due`) inside
+  `coordination.resync_reasons`. Resume with the repo-owned startup packet as
+  authority: freeze one review-state / coordination read per proof tick
+  across those surfaces, rerun the focused pytest bundle named there until it
+  is green on consecutive runs, then widen again.
+- 2026-04-09 guard-intelligence audit absorption:
+  do not create a second "guard intelligence" plan. The accepted next slice
+  after the reopened F1 runtime parity closure is feedback-loop convergence
+  over the existing `Finding`/`DecisionPacket`/`governance-review` stack:
+  1) enrich guard-to-`Finding` projection instead of leaving hard guards as
+  fixed-severity family-local dicts, 2) add one repo-owned feedback lens over
+  `governance-review`, quality-feedback metrics, scope ownership, and graph
+  churn so repeated false positives narrow while repeatedly confirmed issues
+  harden, and 3) keep any adaptive severity/decision routing advisory or
+  `recommend_only` until replay/corpus evidence is strong enough for a
+  blocking promotion. Prompt-time failure-rule ledger / bad-pattern recall /
+  trust-weighting follow-ons remain under `review_probes.md`; runtime-owned
+  guard translation and trust inputs stay here in the main `MP-377` owner
+  chain.
 - 2026-04-08 typed-authority convergence synthesis absorption:
   do not create or revive a separate umbrella plan. Resume from the declared
   owner-chain order only: Phase 0 mutation/push closure in
@@ -4815,6 +4913,16 @@ working on `MP-377`.
   remote-control live proof, post-approval publish smoke harness, read-only
   blocked-fanout review proof, fresh-AI bootstrap proof, and second-repo
   proof.
+- 2026-04-09 guard-stack layering review:
+  the main diagnosis is now "duplicated and partially-connected typed
+  architecture," not "typed architecture missing." Resume from one layering
+  rule: package-layout and shim governance stay as structural self-hosting
+  pressure, while real architecture closure is measured through mutation
+  anti-bypass, authoritative producer cutover, identity parity, read-model
+  convergence, schema-first discoverability, and prompt/bootstrap field-route
+  parity. `context-graph` / `ConceptIndex` / ZGraph-style logic should start
+  as graph-backed probes or ranking reducers over those typed contracts, not
+  as a second truth owner or a noisy merge blocker.
 - 2026-04-08 coordination projection-divergence review:
   the repo now has enough typed coordination truth to answer who is active,
   what slice is owned, whether fanout is safe, and whether resync is
@@ -6184,6 +6292,29 @@ Execution order for this section:
 
 ## Progress Log
 
+- 2026-04-09: Closed the reopened MP-384/MP-387 F1 command-boundary parity
+  flake. The runtime fix is intentionally narrow: `session-resume` cache
+  misses now force a live `load_current_review_state(... prefer_cached_projection=False)`
+  snapshot, dashboard resolves governance plus current review state once per
+  snapshot before reusing that same typed payload for `load_sources()` and
+  `ControlPlaneReadModel`, and the focused parity pytest bundle is green on
+  consecutive runs. The remaining follow-up stays inside the same owner chain:
+  keep the rest of the read-side consumer inventory on one frozen review-state
+  tick, then rerun the live remote-control proof before widening again.
+- 2026-04-09: Absorbed the latest typed-authority + guard-intelligence review
+  without creating a shadow tracker. Two live outcomes are now explicit in
+  the main product plan: first, the repo-owned startup packet reopened
+  MP-384/MP-387 F1 on this tree, so the immediate runtime slice is freezing a
+  single review-state / coordination proof tick across startup,
+  `session-resume`, and `ControlPlaneReadModel` rather than widening new
+  architecture work. Second, the guard-intelligence audit was accepted as a
+  follow-on inside the existing owner chain, not as a new plan: hard-guard
+  improvement should route through canonical guard-to-`Finding` translation
+  plus one bounded feedback lens over `governance-review`, quality-feedback,
+  scope, and graph churn; prompt-time failure-rule ledger / bad-pattern
+  recall / trust-weighting stays with `review_probes.md`; and any adaptive
+  routing must remain advisory until replay/corpus proof justifies stronger
+  enforcement.
 - 2026-04-08: Closed MP-384/MP-387 F1 and F4 (governance-quality-sweep
   lane) by making the three coordination proof surfaces structurally
   unified and the scan-based governance path fail closed on missing

@@ -62,6 +62,38 @@ Files changed:
 - `dev/scripts/devctl/tests/runtime/test_review_state_locator.py`
 - `dev/scripts/devctl/tests/runtime/test_startup_context.py`
 
+### 2026-04-09 - Visible review-channel launch now fails closed on transient temp clones
+
+Fact: local visible review-channel launch had one remaining non-repo-owned
+stall point. Even when startup/review-channel authority was correct, launching
+Codex or Claude from a fresh clone under `/tmp` or the system temp root could
+still block on provider directory-trust prompts before the conductor started.
+
+The fix keeps the existing local-vs-headless terminal policy, but adds one
+more repo-owned gate in front of the live launch path. Visible
+`review-channel --action launch|recover --terminal terminal-app` now refuses
+transient temp clones/worktrees that look like real repo checkouts, and it
+does so before starting any repo-owned runtime daemons or opening Terminal.app
+windows. The same slice also tightened the review-attention split for
+automation-only polls: that condition only escalates to
+`review_loop_relaunch_required` when Claude still advertises a current ACK in
+a resettable live session, while ordinary status surfaces keep the raw
+bridge-contract error honest.
+
+Files changed:
+- `dev/scripts/devctl/commands/review_channel/launcher_discipline.py`
+- `dev/scripts/devctl/commands/review_channel/bridge_launch_control.py`
+- `dev/scripts/devctl/commands/review_channel/bridge_handler.py`
+- `dev/scripts/devctl/commands/review_channel/_recover.py`
+- `dev/scripts/devctl/review_channel/attention_classify.py`
+- `dev/scripts/devctl/tests/review_channel/test_launcher_discipline.py`
+- `dev/scripts/devctl/tests/review_channel/test_review_channel.py`
+- `AGENTS.md`
+- `dev/guides/DEVELOPMENT.md`
+- `dev/scripts/README.md`
+- `dev/active/MASTER_PLAN.md`
+- `dev/active/review_channel.md`
+
 ### 2026-04-08 - Governed mutation, queue truth, and dashboard review-state reads were tightened to fail closed
 
 The next remote-control/platform hardening slice was not a new architecture

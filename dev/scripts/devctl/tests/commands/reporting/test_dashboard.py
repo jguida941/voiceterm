@@ -319,6 +319,26 @@ def _full_snapshot() -> dict:
             "attention_summary": "loop in inactive mode",
             "active_daemons": 0,
         },
+        "control_plane": {
+            "contract_id": "ControlPlaneReadModel",
+            "resolved_phase": "review_pending",
+            "top_blocker": "code-shape debt in common_io.py",
+            "next_action": "review worker results and checkpoint",
+            "next_command": "python3 dev/scripts/devctl.py review-channel --action status --terminal none --format json",
+            "reviewer_mode": "active_dual_agent",
+            "reviewer_freshness": "fresh",
+            "review_accepted": False,
+            "operator_interaction_mode": "remote_control",
+            "push_eligible": False,
+            "implementation_blocked": True,
+            "attention_status": "inactive",
+            "attention_summary": "loop in inactive mode",
+            "pending_action_requests": 2,
+            "last_guard_ok": False,
+            "check_details": [
+                {"check": "code_shape", "status": "FAIL", "violation": "dev/scripts/devctl/common_io.py exceeded 350-line soft limit (412 lines)"},
+            ],
+        },
         "reviewer_activity": {
             "provider": "codex",
             "last_poll_age": "12m ago",
@@ -575,6 +595,7 @@ class TestDashboardTerminalOutput(unittest.TestCase):
         self.assertIn("PUBLICATION", output)
         self.assertIn("QUALITY", output)
         self.assertIn("COORDINATION", output)
+        self.assertIn("CONTROL PLANE", output)
         self.assertIn("FLOW", output)
         self.assertIn("test-repo", output)
 
@@ -683,6 +704,7 @@ class TestDashboardMarkdownOutput(unittest.TestCase):
         self.assertIn("## Audit", output)
         self.assertIn("## Analytics", output)
         self.assertIn("## Coordination", output)
+        self.assertIn("## Control Plane", output)
         self.assertIn("## Flow", output)
 
     def test_markdown_quality_check_details_table(self) -> None:
@@ -721,7 +743,7 @@ class TestDashboardMissingArtifacts(unittest.TestCase):
             required = {
                 "repo", "now", "health", "review", "workers", "plan",
                 "publication", "quality", "audit", "analytics",
-                "coordination", "reviewer_activity", "flow", "timeline",
+                "coordination", "control_plane", "reviewer_activity", "flow", "timeline",
                 "summary",
             }
             self.assertTrue(required.issubset(snapshot.keys()))

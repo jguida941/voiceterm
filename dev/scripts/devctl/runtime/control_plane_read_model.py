@@ -21,6 +21,7 @@ from ..platform.coordination_snapshot_models import (
     coordination_snapshot_from_mapping,
 )
 from .auto_mode import AutoModeInputs, AutoModePhase, resolve_auto_mode_phase
+from .conductor_capability import normalize_reviewer_mode
 from .control_plane_sources import load_sources
 from .control_plane_resolve import (
     load_git_state,
@@ -31,6 +32,7 @@ from .control_plane_resolve import (
     resolve_reviewer_state,
     utc_now_iso,
 )
+from .operator_context import is_resolved, resolve_operator_interaction_mode
 from .reviewer_observation import ReviewerObservation, resolve_reviewer_observation
 from .value_coercion import coerce_bool, coerce_int, coerce_string
 
@@ -134,6 +136,49 @@ def _build_reviewer_observation(
         head_at_push_time=head_at_push_time,
         review_accepted=reviewer["review_accepted"],
     )
+
+
+def _governance_operator_interaction_mode(
+    governance: "ProjectGovernance | None",
+) -> str:
+    if governance is None:
+        return ""
+    return coerce_string(getattr(governance.bridge_config, "operator_interaction_mode", ""))
+
+
+def _derive_operator_interaction_mode(
+    *,
+    governance: "ProjectGovernance | None",
+    review_state_payload: dict[str, Any] | None,
+    receipt: dict[str, Any] | None,
+    reviewer_mode: str,
+) -> str:
+    """Match startup/session-resume interaction-mode derivation.
+
+    Prefer explicit typed operator modes when available. When those are absent,
+    fall back to reviewer-mode-derived `dual_agent` / `single_agent` so the
+    read model does not diverge from startup/session-resume on the same tree.
+    """
+    explicit_mode = (
+        _governance_operator_interaction_mode(governance)
+        or coerce_string(
+            _nested_get(review_state_payload, "collaboration", "operator_interaction_mode")
+        )
+        or coerce_string(
+            _nested_get(review_state_payload, "reviewer_runtime", "operator_interaction_mode")
+        )
+        or coerce_string((receipt or {}).get("operator_interaction_mode"))
+    )
+    resolved_mode = resolve_operator_interaction_mode(explicit_mode)
+    if is_resolved(resolved_mode.value):
+        return resolved_mode.value
+
+    normalized_mode = normalize_reviewer_mode(reviewer_mode)
+    if normalized_mode == "active_dual_agent":
+        return "dual_agent"
+    if normalized_mode == "single_agent":
+        return "single_agent"
+    return "unresolved"
 
 
 def _extract_coordination(
@@ -248,12 +293,11 @@ def build_control_plane_read_model(
     pending = resolve_pending_packets(review_state_payload)
 
     impl_blocked = coerce_bool((receipt or {}).get("implementation_blocked", False))
-    # Governance-first: review_state > receipt > fail closed to unresolved
-    op_mode = (
-        coerce_string(_nested_get(review_state_payload, "collaboration", "operator_interaction_mode"))
-        or coerce_string(_nested_get(review_state_payload, "reviewer_runtime", "operator_interaction_mode"))
-        or coerce_string((receipt or {}).get("operator_interaction_mode"))
-        or "unresolved"
+    op_mode = _derive_operator_interaction_mode(
+        governance=governance,
+        review_state_payload=review_state_payload,
+        receipt=receipt,
+        reviewer_mode=reviewer["reviewer_mode"],
     )
     push_action = coerce_string((receipt or {}).get("push_action"))
 

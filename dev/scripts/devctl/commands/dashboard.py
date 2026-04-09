@@ -300,7 +300,7 @@ _VIEW_SECTIONS: dict[str, frozenset[str]] = {
     "dev": frozenset({
         "repo", "now", "review", "workers", "plan", "findings",
         "reviewer_activity", "quality", "flow", "timeline", "summary",
-        "coordination",
+        "coordination", "control_plane",
     }),
     "analytics": frozenset({
         "repo", "analytics", "timeline", "summary",
@@ -312,10 +312,11 @@ _VIEW_SECTIONS: dict[str, frozenset[str]] = {
         "repo", "audit", "summary",
     }),
     "publication": frozenset({
-        "repo", "publication", "flow", "coordination", "summary",
+        "repo", "publication", "flow", "coordination", "control_plane", "summary",
     }),
     "health": frozenset({
-        "repo", "health", "review", "coordination", "reviewer_activity", "summary",
+        "repo", "health", "review", "coordination", "control_plane",
+        "reviewer_activity", "summary",
     }),
 }
 

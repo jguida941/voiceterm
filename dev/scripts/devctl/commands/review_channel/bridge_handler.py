@@ -41,6 +41,7 @@ from .bridge_launch_control import (
     launch_sessions_if_requested,
     observe_launch_state,
     prepare_rollover_bundle,
+    validate_launch_request_discipline,
 )
 from ..review_channel_bridge_render import build_bridge_success_report, render_bridge_md
 from .bridge_support import (
@@ -92,11 +93,30 @@ def _launch_and_refresh(
 ) -> tuple[bool, bool, dict[str, bool] | None, "ReviewChannelStatusSnapshot"]:
     """Launch sessions when requested and refresh the status snapshot afterward."""
     runtime_warnings: list[str] = []
+    launch_request = LaunchSessionRequest(
+        args=args,
+        sessions=execution.sessions,
+        bridge_path=context.bridge_path,
+        handoff_bundle=execution.handoff_bundle,
+        terminal_profile_applied=execution.terminal_profile_applied,
+        repo_root=context.repo_root,
+        interaction_mode=execution.interaction_mode,
+        launch_terminal_sessions_fn=launch_terminal_sessions,
+        retired_sessions=tuple(execution.retired_sessions),
+        observe_launch_state_fn=partial(
+            observe_launch_state,
+            args=args,
+            context=context,
+            warnings=execution.status_snapshot.warnings,
+            refresh_snapshot_fn=_refresh_snapshot,
+        ),
+    )
     if (
         args.action in {"launch", "rollover"}
         and args.terminal in {"terminal-app", "none"}
         and not args.dry_run
     ):
+        validate_launch_request_discipline(launch_request)
         runtime_ok, runtime_warnings = ensure_launch_runtime_daemons(
             args=args,
             repo_root=context.repo_root,
@@ -119,25 +139,7 @@ def _launch_and_refresh(
         handoff_ack_required,
         handoff_ack_observed,
         cleanup_warnings,
-    ) = launch_sessions_if_requested(
-        LaunchSessionRequest(
-            args=args,
-            sessions=execution.sessions,
-            bridge_path=context.bridge_path,
-            handoff_bundle=execution.handoff_bundle,
-            terminal_profile_applied=execution.terminal_profile_applied,
-            interaction_mode=execution.interaction_mode,
-            launch_terminal_sessions_fn=launch_terminal_sessions,
-            retired_sessions=tuple(execution.retired_sessions),
-            observe_launch_state_fn=partial(
-                observe_launch_state,
-                args=args,
-                context=context,
-                warnings=execution.status_snapshot.warnings,
-                refresh_snapshot_fn=_refresh_snapshot,
-            ),
-        )
-    )
+    ) = launch_sessions_if_requested(launch_request)
     if not launched:
         return (
             launched,

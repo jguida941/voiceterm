@@ -382,7 +382,10 @@ Three quality layers matter in practice:
     `reviewer_runtime.conductor_visibility`, and reviewer
     `session_owner.session_visibility`. In `local_terminal`, visible is the
     default unless the session is intentionally headless; in `remote_control`,
-    headless remains the governed default.
+    headless remains the governed default. For visible local launch/recover,
+    use a stable repo-managed root rather than a transient temp clone/worktree;
+    the repo-owned `terminal-app` path now fails closed on temp roots so
+    provider directory-trust prompts cannot wedge the local automation lane.
   - Prefer the repo-owned wait primitives over ad hoc shell sleep loops:
     `review-channel --action implementer-wait` is the implementer-side bounded
     wait path, and `review-channel --action reviewer-wait` is the symmetric

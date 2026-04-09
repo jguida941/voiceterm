@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 
 from dev.scripts.devctl.runtime.control_plane_read_model import (
@@ -202,6 +203,34 @@ class BuildWithReviewStateTests(unittest.TestCase):
             git_override=_base_git(),
         )
         self.assertEqual(model.reviewer_mode, "active_dual_agent")
+
+    def test_operator_mode_falls_back_to_single_agent_reviewer_mode(self) -> None:
+        sources = _empty_sources()
+        sources["review_state"] = {
+            "bridge": {"reviewer_mode": "single_agent"},
+        }
+        model = build_control_plane_read_model(
+            Path("/tmp/nonexistent"),
+            sources_override=sources,
+            git_override=_base_git(),
+        )
+        self.assertEqual(model.operator_interaction_mode, "single_agent")
+
+    def test_governance_mode_wins_when_present(self) -> None:
+        sources = _empty_sources()
+        sources["review_state"] = {
+            "bridge": {"reviewer_mode": "single_agent"},
+        }
+        governance = SimpleNamespace(
+            bridge_config=SimpleNamespace(operator_interaction_mode="remote_control")
+        )
+        model = build_control_plane_read_model(
+            Path("/tmp/nonexistent"),
+            sources_override=sources,
+            git_override=_base_git(),
+            governance=governance,
+        )
+        self.assertEqual(model.operator_interaction_mode, "remote_control")
 
     def test_review_accepted_from_verdict(self) -> None:
         sources = _empty_sources()

@@ -9571,8 +9571,9 @@ class ReviewChannelCommandTests(unittest.TestCase):
                 stable_revision,
             )
             self.assertFalse(payload["bridge_liveness"]["claude_ack_current"])
-            # When bridge has contract errors AND stale ACK, contract error
-            # takes priority. Both statuses are valid checkpoint outcomes.
+            # When reviewer-checkpoint rewrites bridge state without a live
+            # conductor pair, the runtime truth can honestly resolve to either
+            # stale-ACK/reset attention or detached-loop relaunch_required.
             self.assertIn(
                 payload["attention"]["status"],
                 {
@@ -9580,6 +9581,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
                     "bridge_contract_error",
                     "claude_status_missing",
                     "implementer_state_reset_required",
+                    "review_loop_relaunch_required",
                 },
             )
             updated_bridge = bridge_path.read_text(encoding="utf-8")
@@ -9659,6 +9661,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
                     "bridge_contract_error",
                     "claude_status_missing",
                     "implementer_state_reset_required",
+                    "review_loop_relaunch_required",
                 },
             )
             self.assertIn(
