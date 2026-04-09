@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 from dev.scripts.devctl.governance.draft import scan_repo_governance
 from dev.scripts.devctl.runtime.review_state_locator import (
     load_current_review_state_payload,
 )
+
+_COMMIT_GATE_BYPASS_ENV = "DEVCTL_COMMIT_GATE_BYPASS_STARTUP_AUTHORITY"
 
 try:
     from .checks import (
@@ -62,6 +65,22 @@ def build_report(
             "bridge_present": False,
             "checks": [],
             "detail": "No bridge file — tandem checks are not applicable.",
+        }
+    if os.environ.get(_COMMIT_GATE_BYPASS_ENV, "").strip() == "1":
+        return {
+            "command": "check_tandem_consistency",
+            "ok": True,
+            "bridge_present": True,
+            "typed_review_state_available": False,
+            "total_checks": 0,
+            "passed": 0,
+            "failed": 0,
+            "checks": [],
+            "role_summary": {},
+            "detail": (
+                "Bypassed during governed commit gate; live tandem freshness "
+                "does not veto a local checkpoint commit."
+            ),
         }
 
     typed_state = _load_typed_review_state(repo_root)

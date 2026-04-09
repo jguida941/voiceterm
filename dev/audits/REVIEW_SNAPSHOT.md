@@ -7,6 +7,7 @@
 - Branch: `feature/governance-quality-sweep`
 - HEAD: `73908286a147` — docs: align graph-backed convergence plan
 - Tree hash: `2c9e80b166d2`
+<<<<<<< HEAD
 - Generation stamp: `snap-1d2b5886c33b`
 - Generated at (UTC): 2026-04-09T07:09:21Z
 - Push decision: `await_review` — typed_review_state_required
@@ -14,6 +15,15 @@
 - Pipeline state: `n/a` (approval: `n/a`)
 - Delta since last snapshot: 25 commits, 69 files, +7421/-2365
 - Governance findings: 0 open / 0 fixed / 0 total
+=======
+- Generation stamp: `snap-a4aa06f0db56`
+- Generated at (UTC): 2026-04-09T09:25:26Z
+- Push decision: `await_checkpoint` — staged_index_budget_exceeded
+- Reviewer mode: `single_agent` (interaction: `single_agent`)
+- Pipeline state: `n/a` (approval: `n/a`)
+- Delta since last snapshot: 25 commits, 69 files, +7421/-2365
+- Governance findings: 39 open / 68 fixed / 121 total
+>>>>>>> 55d83cfa (Harden governed push and typed review-state reads)
 - Probe hints: 0 total across 0 files scanned
 
 ## 1. Identity
@@ -61,6 +71,7 @@ adopters arrive.
 ## 2. Governance state
 
 ### Push decision
+<<<<<<< HEAD
 - action: `await_review`
 - reason: typed_review_state_required
 - push_eligible_now: False
@@ -77,13 +88,40 @@ adopters arrive.
 - reviewer_publish_clear: False
 - interaction_mode: `unresolved`
 - implementation_blocked: yes — typed_review_state_required
+=======
+- action: `await_checkpoint`
+- reason: staged_index_budget_exceeded
+- push_eligible_now: False
+- worktree_clean: False
+- staged_path_count: 89
+- unstaged_path_count: 11
+- next_step_command: `n/a`
+- latest_push_report: `dev/reports/push/latest.json`
+- latest_push_report_state: `blocked` (validation_failed)
+- publication_backlog: queued
+- publication_guidance: 1 local commit(s) waiting for governed push once the current slice is checkpoint-clean.
+
+### Reviewer runtime
+- reviewer_mode: `single_agent`
+- reviewer_freshness: unknown
+- reviewer_publish_clear: True
+- interaction_mode: `single_agent`
+>>>>>>> 55d83cfa (Harden governed push and typed review-state reads)
 
 ### Remote commit pipeline
 - state: `n/a`
 - approval_state: `n/a`
 
 ### Work intake
+<<<<<<< HEAD
 - advisory: `repair_reviewer_loop` — typed_review_state_required
+=======
+- active plan: **Master Plan (Active, Unified)**
+- plan path: `dev/active/MASTER_PLAN.md`
+- active MP scope: all active MP execution state
+- advisory: `checkpoint_before_continue` — staged_index_budget_exceeded
+- checkpoint_required: **yes**
+>>>>>>> 55d83cfa (Harden governed push and typed review-state reads)
 
 ## 3. Delta — what changed since the previous snapshot
 
@@ -252,6 +290,10 @@ Range: last 25 commits ending at `73908286a147`
 ### Per-commit rationale
 
 - **`73908286`** — docs: align graph-backed convergence plan
+<<<<<<< HEAD
+=======
+  - evolution: Fact: the next typed-authority convergence slice moved the shared live review-state loader off bridge refresh as its default freshness strategy. `load_current_review_state*` now prefers canonical event-backed review sta…
+>>>>>>> 55d83cfa (Harden governed push and typed review-state reads)
 - **`516e839c`** — Refresh external review snapshot for c1a1ee28
 - **`c1a1ee28`** — Advance typed authority convergence across mutation and control-plane
 - **`1c74c07f`** — Refresh external review snapshot for f294de63
@@ -354,11 +396,19 @@ Range: last 25 commits ending at `73908286a147`
 - open governance findings: 0
 
 ### Startup advisories
+<<<<<<< HEAD
 - repair_reviewer_loop: typed_review_state_required
+=======
+- checkpoint_before_continue: staged_index_budget_exceeded
+>>>>>>> 55d83cfa (Harden governed push and typed review-state reads)
 
 ### Stale warnings
 - Cut a checkpoint before doing anything else.
 
 ---
 
+<<<<<<< HEAD
 Projection produced by `devctl review-snapshot`. Generation stamp `snap-1d2b5886c33b` binds this file to HEAD `73908286a147`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
+=======
+Projection produced by `devctl review-snapshot`. Generation stamp `snap-a4aa06f0db56` binds this file to HEAD `73908286a147`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
+>>>>>>> 55d83cfa (Harden governed push and typed review-state reads)

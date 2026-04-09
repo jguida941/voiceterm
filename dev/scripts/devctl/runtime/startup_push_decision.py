@@ -204,15 +204,30 @@ def _local_readiness_decision(
         )
     if inputs.worktree_clean:
         return None
+    staged_path_count = int(getattr(push_enforcement, "staged_path_count", 0) or 0)
+    unstaged_path_count = int(getattr(push_enforcement, "unstaged_path_count", 0) or 0)
+    if staged_path_count > 0 and unstaged_path_count > 0:
+        reason = "staged_and_unstaged_worktree_present"
+        next_step_summary = (
+            "The repo has both a staged index and unstaged edits. Review the staged set, "
+            "checkpoint or commit it intentionally, then rerun `startup-context` before "
+            "any push attempt."
+        )
+    elif staged_path_count > 0:
+        reason = "staged_index_present"
+        next_step_summary = (
+            "The repo already has staged work waiting in the index. Review and checkpoint "
+            "or commit that staged set before deciding whether push is allowed."
+        )
+    else:
+        reason = "worktree_dirty"
+        next_step_summary = "Commit or checkpoint the current bounded slice, then rerun `startup-context` before deciding whether push is allowed."
     return _project_push_decision(
         inputs,
         PushDecisionSpec(
             action="await_checkpoint",
-            reason="worktree_dirty",
-            next_step_summary=(
-                "Commit or checkpoint the current bounded slice, then rerun "
-                "`startup-context` before deciding whether push is allowed."
-            ),
+            reason=reason,
+            next_step_summary=next_step_summary,
             rule_summary=(
                 "Push is blocked until the current slice is checkpoint-clean "
                 "because governed push only runs from a clean worktree."
@@ -222,7 +237,8 @@ def _local_readiness_decision(
                     "startup_push.worktree_must_be_clean",
                     "The worktree is still dirty, so startup cannot choose a push path yet.",
                     "worktree_clean=False",
-                    "current slice still has local edits",
+                    f"staged_path_count={staged_path_count}",
+                    f"unstaged_path_count={unstaged_path_count}",
                 ),
             ),
             rejected_rule_traces=(

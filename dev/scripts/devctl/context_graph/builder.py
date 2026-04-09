@@ -26,15 +26,16 @@ from ..script_catalog import (
     PROBE_SCRIPT_RELATIVE_PATHS,
 )
 from .artifact_inputs import resolve_graph_inputs
+from ._deferred_edges import materialize_documented_by_edges
 from .catalog_nodes import (
     collect_capability_nodes,
     collect_command_nodes,
     collect_guide_nodes,
     collect_plan_nodes,
 )
+from .codeshape import build_codeshape_subgraph
 from .concepts import build_concept_nodes
 from .models import (
-    EDGE_KIND_DOCUMENTED_BY,
     EDGE_KIND_GUARDS,
     EDGE_KIND_IMPORTS,
     EDGE_KIND_ROUTES_TO,
@@ -332,18 +333,14 @@ def build_context_graph(
     nodes.extend(capability_nodes)
     edges.extend(capability_edges)
 
+    codeshape_graph = build_codeshape_subgraph(repo_root=repo_root)
+    nodes.extend(codeshape_graph.nodes)
+    edges.extend(codeshape_graph.edges)
+
     concept_nodes, concept_edges = build_concept_nodes(nodes, edges)
     nodes.extend(concept_nodes)
     edges.extend(concept_edges)
 
-    # Validate deferred documented_by edges — suppress orphans
-    materialized_ids = {n.node_id for n in nodes}
-    for source_id, target_id in _deferred_doc_edges:
-        if target_id in materialized_ids:
-            edges.append(GraphEdge(
-                source_id=source_id,
-                target_id=target_id,
-                edge_kind=EDGE_KIND_DOCUMENTED_BY,
-            ))
+    edges.extend(materialize_documented_by_edges(nodes, _deferred_doc_edges))
 
     return nodes, edges

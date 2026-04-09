@@ -334,9 +334,14 @@ def run_push_action(
         if build_post_push_commands_fn is None
         else build_post_push_commands_fn
     )
-    def repo_bound_runner(name: str, cmd: list[str], cwd=None) -> dict[str, object]:
+    def repo_bound_runner(
+        name: str,
+        cmd: list[str],
+        cwd=None,
+        env: dict[str, str] | None = None,
+    ) -> dict[str, object]:
         del cwd
-        return command_runner(name, cmd, cwd=repo_root)
+        return command_runner(name, cmd, cwd=repo_root, env=env)
     outcome = execute_push_flow_with_dependencies(
         state,
         resolved_policy,

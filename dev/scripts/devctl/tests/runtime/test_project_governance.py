@@ -164,6 +164,8 @@ def test_project_governance_from_mapping_normalizes_full_payload() -> None:
             "ahead_of_upstream_commits": 2,
             "dirty_path_count": 3,
             "untracked_path_count": 1,
+            "staged_path_count": 2,
+            "unstaged_path_count": 1,
             "max_dirty_paths_before_checkpoint": 12,
             "max_untracked_paths_before_checkpoint": 6,
             "checkpoint_required": False,
@@ -203,6 +205,8 @@ def test_project_governance_from_mapping_normalizes_full_payload() -> None:
     assert gov.path_roots.active_docs == "dev/active"
     assert gov.path_roots.checks == "dev/scripts/checks"
     assert gov.path_roots.workflows == ".github/workflows"
+    assert gov.push_enforcement.staged_path_count == 2
+    assert gov.push_enforcement.unstaged_path_count == 1
 
     assert gov.plan_registry.registry_path == "dev/active/INDEX.md"
     assert gov.plan_registry.tracker_path == "dev/active/MASTER_PLAN.md"

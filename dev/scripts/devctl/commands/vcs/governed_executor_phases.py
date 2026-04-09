@@ -50,6 +50,14 @@ PipelinePersister = Callable[[RemoteCommitPipelineContract], list[str]]
 EventPacketsLoader = Callable[[], tuple]
 
 
+def _refresh_snapshot_staging(*, repo_root: Path) -> tuple[list[str], list[str]]:
+    """Return refresh warnings plus the staged-path view after refresh."""
+    return (
+        refresh_and_stage_review_snapshot(repo_root=repo_root),
+        staged_paths(repo_root),
+    )
+
+
 def execute_stage(
     action: TypedAction,
     *,
@@ -61,17 +69,25 @@ def execute_stage(
     result_builder: ResultBuilder,
 ) -> ActionResult:
     """Run the stage phase of the governed commit pipeline."""
+    refresh_warnings: list[str] = []
     startup_context = startup_context_fn(repo_root=repo_root)
-    if bool_field(field(startup_context, "reviewer_gate"), "implementation_blocked"):
-        reason = string_field(
-            field(startup_context, "reviewer_gate"),
-            "implementation_block_reason",
-        ) or "reviewer_gate_blocked"
+    reviewer_gate = field(startup_context, "reviewer_gate")
+    checkpoint_stage_allowed = (
+        string_field(field(startup_context, "push_decision"), "action")
+        == "await_checkpoint"
+        and bool_field(reviewer_gate, "checkpoint_permitted", default=True)
+    )
+    # `vcs.stage` is the governed checkpoint path, so allow it on `await_checkpoint`.
+    if (
+        bool_field(reviewer_gate, "implementation_blocked")
+        and not checkpoint_stage_allowed
+    ):
         return result_builder(
             action_id=action.action_id,
             ok=False,
             status=ActionOutcome.FAIL,
-            reason=reason,
+            reason=string_field(reviewer_gate, "implementation_block_reason")
+            or "reviewer_gate_blocked",
             operator_guidance=(
                 "Repair the review/startup state before staging a remote "
                 "commit pipeline."
@@ -98,7 +114,7 @@ def execute_stage(
     worktree_dirty = dirty_paths(repo_root)
     selected_paths = normalize_paths(action.parameters.get("paths"))
     if reuse_staged_index:
-        staged = staged_paths(repo_root)
+        refresh_warnings, staged = _refresh_snapshot_staging(repo_root=repo_root)
         if not staged and not allow_empty:
             return result_builder(
                 action_id=action.action_id,
@@ -117,7 +133,6 @@ def execute_stage(
             reason="no_changes_to_stage",
             operator_guidance="Create or modify repo files before running `vcs.stage`.",
         )
-
     if not reuse_staged_index and selected_paths:
         outside_scope = sorted(set(worktree_dirty) - set(selected_paths))
         if outside_scope:
@@ -150,7 +165,7 @@ def execute_stage(
                 warnings=((stage_error,) if stage_error else ()),
             )
 
-        staged = staged_paths(repo_root)
+        refresh_warnings, staged = _refresh_snapshot_staging(repo_root=repo_root)
         if not staged and not allow_empty:
             return result_builder(
                 action_id=action.action_id,
@@ -161,6 +176,7 @@ def execute_stage(
                     "The selected scope did not produce a staged snapshot. "
                     "Adjust the path list or make a real change first."
                 ),
+                warnings=tuple(refresh_warnings),
             )
 
     tree_hash = index_tree_hash(repo_root)
@@ -180,7 +196,6 @@ def execute_stage(
         diff_summary=staged_diff_summary(repo_root),
         branch=current_branch(repo_root),
     )
-    warnings = persist_pipeline(new_pipeline)
     return result_builder(
         action_id=action.action_id,
         ok=True,
@@ -190,7 +205,7 @@ def execute_stage(
             "Run the routed guard bundle, then post the operator approval "
             "packet before `vcs.commit`."
         ),
-        warnings=tuple(warnings),
+        warnings=tuple([*refresh_warnings, *persist_pipeline(new_pipeline)]),
         artifact_paths=(pipeline_artifact_relpath,),
     )
 
@@ -224,21 +239,6 @@ def execute_commit(
         event_packets_loader(),
         approval_packet_kind=APPROVAL_PACKET_KIND,
     )
-    snapshot_refresh_warnings: list[str] = []
-    if (
-        pipeline.guard_result is not None
-        and pipeline.guard_result.status == ActionOutcome.PASS
-        and pipeline.approval_state == "approved"
-        and pipeline.state == "approved"
-        and pipeline.approval_packet_id
-        and pipeline.decision_packet_id
-    ):
-        # Refresh before the final tree-hash check so a changed
-        # ReviewSnapshot cannot silently piggyback on an approval that
-        # targeted an older staged tree.
-        snapshot_refresh_warnings = refresh_and_stage_review_snapshot(
-            repo_root=repo_root
-        )
     readiness = evaluate_commit_readiness(
         pipeline=pipeline,
         current_tree_hash=index_tree_hash(repo_root),
@@ -257,7 +257,7 @@ def execute_commit(
             status=ActionOutcome.FAIL,
             reason=readiness.reason,
             operator_guidance=readiness.guidance,
-            warnings=tuple(blocked_warnings + snapshot_refresh_warnings),
+            warnings=tuple(blocked_warnings),
             artifact_paths=(pipeline_artifact_relpath,),
         )
     pipeline = readiness.pipeline
@@ -316,7 +316,6 @@ def execute_commit(
         result_builder=result_builder,
     )
     warnings = persist_pipeline(completed)
-    warnings = warnings + list(snapshot_refresh_warnings)
     return result_builder(
         action_id=action.action_id,
         ok=True,

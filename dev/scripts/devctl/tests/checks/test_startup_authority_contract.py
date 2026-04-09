@@ -16,6 +16,7 @@ from dev.scripts.checks.startup_authority_contract.runtime_checks import (
     collect_concurrent_writer_errors,
     collect_import_index_atomicity_findings,
     collect_post_checkpoint_dirty_worktree_errors,
+    collect_reviewer_loop_block_errors,
 )
 from dev.scripts.devctl.runtime.review_state_parser import review_state_from_payload
 
@@ -933,6 +934,30 @@ def test_startup_authority_fails_when_reviewer_loop_blocks_implementation(
     assert report["ok"] is False
     assert report["reviewer_loop_blocked"] is True
     assert any("Reviewer loop blocks" in error for error in report["errors"])
+
+
+def test_collect_reviewer_loop_block_errors_respects_commit_gate_bypass() -> None:
+    governance = _fake_governance(Path("."))
+    reviewer_gate = SimpleNamespace(
+        implementation_blocked=True,
+        review_gate_allows_push=False,
+        implementation_block_reason="checkpoint_required",
+        reviewer_mode="active_dual_agent",
+        review_accepted=False,
+    )
+
+    with patch.dict(
+        os.environ,
+        {"DEVCTL_COMMIT_GATE_BYPASS_STARTUP_AUTHORITY": "1"},
+        clear=False,
+    ):
+        errors = collect_reviewer_loop_block_errors(
+            Path("."),
+            governance,
+            reviewer_gate=reviewer_gate,
+        )
+
+    assert errors == []
 
 
 @patch("dev.scripts.devctl.governance.draft.subprocess.run", _mock_subprocess_run)

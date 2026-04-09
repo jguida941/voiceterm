@@ -281,9 +281,13 @@ def _classify_startup_attention(ctx: BridgeAttentionContext) -> str | None:
 def _classify_review_attention(ctx: BridgeAttentionContext) -> str | None:
     if ctx.launch_truth in {
         LaunchTruthState.DETACHED_RUNTIME_ONLY.value,
-        LaunchTruthState.AUTOMATION_ONLY.value,
         LaunchTruthState.HYBRID_CLAUDE_ONLY.value,
-    } or relaunch_required_contract_error(ctx.active_contract_errors):
+    }:
+        return AttentionStatus.REVIEW_LOOP_RELAUNCH_REQUIRED
+    if (
+        relaunch_required_contract_error(ctx.active_contract_errors)
+        and not ctx.implementer_state_pending
+    ):
         return AttentionStatus.REVIEW_LOOP_RELAUNCH_REQUIRED
     if blocking_contract_errors(
         ctx.active_contract_errors,

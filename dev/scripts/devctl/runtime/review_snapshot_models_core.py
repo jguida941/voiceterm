@@ -62,6 +62,8 @@ class SnapshotGovernanceState:
     active_plan_title: str = ""
     active_plan_path: str = ""
     worktree_clean: bool = False
+    staged_path_count: int = 0
+    unstaged_path_count: int = 0
     checkpoint_required: bool = False
 
 

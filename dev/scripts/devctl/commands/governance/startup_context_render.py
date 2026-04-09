@@ -171,6 +171,10 @@ def _append_push_state(lines: list[str], ctx_dict: dict) -> None:
     _append_latest_push_receipt(lines, push_enforcement)
     lines.append(f"- worktree_dirty: {push_enforcement.get('worktree_dirty', False)}")
     lines.append(f"- worktree_clean: {push_enforcement.get('worktree_clean', True)}")
+    lines.append(f"- staged_path_count: {push_enforcement.get('staged_path_count', 0)}")
+    lines.append(
+        f"- unstaged_path_count: {push_enforcement.get('unstaged_path_count', 0)}"
+    )
     ahead = publication_backlog_count(ctx_dict)
     if ahead is not None:
         lines.append(f"- ahead_of_upstream_commits: {ahead}")

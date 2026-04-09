@@ -1188,11 +1188,13 @@ false positives, and fixes real issues — then re-runs CodeRabbit to verify.
    freshness guard intentionally accepts a trailing snapshot-only commit when
    the snapshot binds to that commit's parent code state; non-snapshot HEAD
    drift still fails closed. The managed `install-git-hooks` surface now
-   installs both the pre-commit projection hook and a post-commit receipt hook
-   that delegates to `devctl review-snapshot --write --receipt-commit`, so raw
-   commits can produce the same two-phase publication shape without a manual
-   snapshot-only follow-up. The governed push path accepts that receipt shape
-   when the snapshot-only HEAD's parent matches the active
+   installs the pre-commit projection hook, the post-commit receipt hook that
+   delegates to `devctl review-snapshot --write --receipt-commit`, and a
+   blocking pre-push hook that refuses raw `git push` unless the nested push
+   came from `devctl push --execute`, so raw commits still produce the same
+   receipt shape while raw publication stays on the governed path. The
+   governed push path accepts that receipt shape when the snapshot-only HEAD's
+   parent matches the active
    `PushAuthorizationRecord`; stale detached pipeline records are ignored in
    `single_agent` mode, while active dual-agent and current pipeline targets
    still require exact typed authorization. The typed ReviewSnapshot surface
@@ -2066,6 +2068,11 @@ Core commands:
   - Event-backed packet actor/target validation is runtime-owned now: parser arguments stay unbounded text, while `post` / `ack` / `dismiss` / `apply` validate against typed collaboration/runtime state or repo-owned session metadata instead of a parser-hardcoded `codex|claude|operator|system` roster.
   - Bridge `## Action Requests` are projection-only over event-backed `PacketPostRequest(kind="action_request")` packets. Bridge-executable runtime actions (`commit`, `run_check`, `push`, `kill_process`) must carry typed runtime target metadata before projection: `run_check` / `kill_process` require target ref and revision, while `commit` / `push` also require remote-commit pipeline generation, staged snapshot hash, and guard summary. Do not rely on free-form packet body prose as executable authority.
   - Semantic `Claude Ack` phrasing is now part of that same typed contract: validators, bridge-backed `current_session`, and `bridge-poll` accept both legacy `instruction-rev:` bullets and semantic acknowledgements such as `Acknowledged instruction revision <rev>`, while `bridge-poll` refreshes the typed `review_state` projection before deciding live ACK freshness.
+  - Shared runtime consumers must use the repo-owned typed review-state loader
+    order too: prefer canonical event-backed state first, then an already-
+    written typed projection, and only then fall back to bridge-backed status
+    refresh. Do not reintroduce bridge refresh as the default live read path
+    once typed authority already exists on disk.
   - Reviewer/implementer startup role commands plus explicit reviewer takeover are runtime-owned `ConductorCapabilityState` facts now. Prompt/bootstrap/bridge projection surfaces must consume that typed owner contract instead of inventing fallback policy text locally, and `check_platform_layer_boundaries.py` now fails closed if startup-authority/runtime capability modules import `dev.scripts.devctl.review_channel` orchestration directly.
   - Repo-owned reviewer heartbeat refresh must preserve a real reviewer checkpoint `Poll Status` instead of overwriting it with automation-only heartbeat text, and reviewer-owned hold-steady / checkpoint / governed-push-pending state counts as a valid Claude-side wait reason. In those states, conductors should keep polling repo-owned status/wait paths rather than asking the operator to choose between polling, pushing, or side work.
   - `--action reset-implementer-state` is the repo-owned repair path when live attention says implementer-owned sections must return to canonical pending state; it rewrites `Claude Status`, `Claude Questions`, and `Claude Ack`, then refreshes the typed review-channel projection.

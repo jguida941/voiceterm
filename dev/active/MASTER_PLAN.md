@@ -135,6 +135,16 @@
   snapshot, compatible graph-schema version, and a cached or replay-stable
   reducer. Historical trend queries, corpus comparisons, and retrospective
   topology scans stay advisory until their precision is proven.
+- Current 2026-04-09 post-A1 graph ordering note inside that same lane: the
+  first bounded proof is now real and already found one escaped governed-
+  mutation path on this repo, so the graph direction is validated. The next
+  approved graph work stays narrow and authority-adjacent: freeze the minted
+  identity tuple plus `zref_*`/tuple validation in
+  `platform_authority_loop.md`, then close raw bridge-reader regression in
+  `remote_control_runtime.md`. Defer dispatcher-policy ports, broad
+  codeshape-helper unification, schema-union work, and other graph
+  generalization until the current writer/producer closure gates stop failing
+  closed on missing or placeholder pipeline truth.
 - Current 2026-04-09 producer-order cutover inside that same lane: the shared
   live review-state loader no longer defaults to bridge refresh when typed
   authority already exists. `load_current_review_state*` now prefers
@@ -144,6 +154,18 @@
   `platform_authority_loop.md` owns the canonical review-state path + minted
   identity closure, while `remote_control_runtime.md` keeps the downstream
   read-side/bootstrap parity proof.
+- Current 2026-04-09 staged-index and bundle-selection closure inside that
+  same lane: startup/push authority now treats the index as first-class state
+  instead of collapsing everything into anonymous dirty-path counts.
+  `push_enforcement`/startup receipts now carry staged-vs-unstaged counts,
+  the managed git-hook install path includes a blocking `pre-push` hook that
+  forces raw publication back through governed `devctl push`, and the
+  snapshot/approval path refreshes `REVIEW_SNAPSHOT.md` before the staged
+  tree hash is bound. The same closure also threads caller-selected
+  `review_status_dir` authority through mobile/dashboard/startup/session-
+  resume reads and only reuses cached `full.json` / `review_state.json`
+  projections when they are at least as fresh as live `bridge.md` +
+  `review_channel.md` sources.
 - Current 2026-04-09 command-boundary freeze closure inside that same lane:
   the reopened MP-384/MP-387 F1 parity flake is now narrowed at the CLI edge
   instead of only in helper tests. `session-resume` cache misses now force one
@@ -154,6 +176,16 @@
   runs; the remaining read-side consumer inventory is now mobile/helper/repo-
   pack fallbacks plus the live remote-control proof, not another abstract
   coordination-model pass.
+- Current 2026-04-09 checkpoint-gate recovery note inside that same lane:
+  stale `active_dual_agent` runtime must fail closed instead of quietly
+  widening the slice. The sanctioned local repair path is now explicit too:
+  when the reviewer loop is overdue or missing, downgrade through the
+  repo-owned `review-channel --action reviewer-heartbeat --reviewer-mode
+  single_agent` takeover path, cut the bounded checkpoint the startup packet is
+  already requiring, then resume the live reviewer loop before starting any new
+  mutating fanout. That recovery does not change the owner order: the next
+  write slice remains the mobile/helper/repo-pack read-side closure already
+  tracked above, followed by the live remote-control proof.
 - Current 2026-04-01 architecture-absorption follow-up inside that same lane:
   fold the accepted external integration review into canonical owner plans
   instead of carrying `dev/intrgrate_analysis.md` as shadow authority. The

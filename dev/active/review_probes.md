@@ -1,6 +1,6 @@
 # Review Probes Plan
 
-**Status**: active  |  **Last updated**: 2026-03-26 | **Owner:** Tooling/quality intelligence
+**Status**: active  |  **Last updated**: 2026-04-09 | **Owner:** Tooling/quality intelligence
 Execution plan contract: required
 This spec remains execution mirrored in `dev/active/MASTER_PLAN.md` under `MP-368..MP-375`.
 
@@ -354,6 +354,24 @@ context-free translation = MEDIUM.
       down-rank, or ignore each other, and chronic waiver/false-positive
       families automatically lose automation trust before they reach
       auto-apply-capable remediation paths.
+- [ ] Mirror the guard-intelligence ownership split explicitly in this lane so
+      future AI sessions do not rebuild a shadow plan: prompt-time failure
+      rules, bad-pattern recall, allowed transforms, trust weighting, and
+      carried `DecisionPacket` semantics stay owned here, while hard-guard
+      projection upgrades, `GuardFeedbackLens`, scope/risk/churn-aware guard
+      suppression, and guard-side severity modulation stay in the main
+      `MP-377` owner chain under `ai_governance_platform.md`.
+- [ ] Tighten the carried decision-semantics roadmap so probes can be the
+      proving ground for later guard intelligence without skipping evidence:
+      low-severity deterministic repair bands may graduate to
+      `decision_mode=auto_apply`, medium stays `recommend_only`, and any new
+      adaptive routing or AI-synthesized guidance remains advisory or
+      `approval_required` until replay/corpus metrics prove it is trustworthy.
+- [ ] Auto-inject `research_instruction` from canonical guidance or rule docs
+      where the probe already knows the bounded follow-up question, so probe
+      packets stop carrying that field only as an optional authoring luxury
+      and start teaching AI when to widen investigation versus when to apply a
+      known repair.
 - [ ] Add one shared cross-file reference prepass for context-blind probes
       before widening automation trust: `probe_single_use_helpers` and
       similar file-local scanners should be able to query repo-level
@@ -607,6 +625,17 @@ Acceptance:
 
 ## Progress Log
 
+- 2026-04-09: Absorbed the guard-intelligence synthesis into the existing
+  owner chain instead of letting it live as chat-only architecture intent.
+  The ownership split is now explicit in plan state: prompt-time failure-rule
+  ledger, bad-pattern recall, transform menus, trust weighting, and carried
+  `DecisionPacket` semantics remain in `MP-375`; hard-guard projection
+  enrichment, `GuardFeedbackLens`, and scope/risk/churn-aware guard feedback
+  route through the main `MP-377` plan. Accepted sequencing rule: let probes
+  continue as the proving ground for `decision_mode`, `research_instruction`,
+  and adaptive guidance behavior first, then reuse the same typed evidence in
+  the later hard-guard feedback loop rather than inventing a second learning
+  path.
 - 2026-04-05: Reconciled the live remote-control contract-shape audit with the
   probe architecture. Existing probes already cover part of the Python audit
   (`probe_stringly_typed`, `probe_dict_as_struct`, and the typed-seam guard
@@ -1505,6 +1534,16 @@ Template README at `dev/scripts/checks/PROBE_TEMPLATE_README.md`.
 
 ## Session Resume
 
+- 2026-04-09 guard-intelligence follow-up:
+  keep the split precise when this lane resumes. `MP-375` owns the prompt- and
+  packet-facing half of the loop: failure-rule ledger, bad-pattern recall,
+  deterministic guidance assembly, allowed transforms, trust weighting,
+  `decision_mode` calibration for deterministic repair bands, and
+  `research_instruction` injection from canonical guidance. The runtime-owned
+  hard-guard feedback loop (`GuardFeedbackLens`, guard-to-`Finding`
+  enrichment, scope/risk/churn-aware suppression) now lives in
+  `ai_governance_platform.md`; do not re-specify it here except where probe
+  packets explicitly consume the resulting typed evidence.
 - Portability follow-up: the next `MP-375` review should verify that false-
   positive classification, recommendation thresholds, and composite scoring
   no longer assume VoiceTerm check ids, governance density, or one repo's

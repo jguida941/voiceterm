@@ -16,6 +16,9 @@ from ..runtime.control_plane_read_model import (
     build_control_plane_read_model,
 )
 from ..runtime.control_plane_sources import load_sources
+from ..runtime.governance_scan import scan_repo_governance_safely
+from ..runtime.review_state_locator import load_current_review_state
+from ..runtime.review_state_parser import review_state_from_payload
 from ..review_channel.session_probe import load_conductor_sessions
 from ..review_channel.runtime_counts import build_runtime_counts
 from ..time_utils import utc_timestamp
@@ -336,9 +339,22 @@ def build_snapshot(
     needs = _VIEW_SECTIONS.get(view, frozenset())
     load_all = not needs  # overview
     p = _paths()
-    sources = load_sources(repo_root)
+    governance = scan_repo_governance_safely(repo_root)
+    typed_review_state = load_current_review_state(
+        repo_root,
+        governance=governance,
+        prefer_cached_projection=False,
+    )
+    sources = load_sources(repo_root, governance=governance)
+    if typed_review_state is not None:
+        sources["review_state"] = typed_review_state.to_dict()
 
-    review_state = sources.get("review_state") if load_all or needs else None
+    review_state_payload = sources.get("review_state") if load_all or needs else None
+    typed_review_state = typed_review_state or (
+        review_state_from_payload(review_state_payload)
+        if isinstance(review_state_payload, dict)
+        else None
+    )
 
     compact = (
         sources.get("compact_json")
@@ -362,8 +378,8 @@ def build_snapshot(
     _need_br = load_all or bool(needs & {"review", "now", "coordination", "reviewer_activity", "findings"})
     _need_fi = load_all or bool(needs & {"findings", "plan"})
     _bridge_path = repo_root / p["bridge_md"]
-    bridge = _extract_typed_bridge_fields(review_state) if review_state and _need_br else (_parse_bridge(_bridge_path) if _need_br else _empty_bridge())
-    bridge_findings = _extract_typed_bridge_findings(review_state) if review_state and _need_fi else (_parse_bridge_findings(_bridge_path) if _need_fi else [])
+    bridge = _extract_typed_bridge_fields(review_state_payload) if review_state_payload and _need_br else (_parse_bridge(_bridge_path) if _need_br else _empty_bridge())
+    bridge_findings = _extract_typed_bridge_findings(review_state_payload) if review_state_payload and _need_fi else (_parse_bridge_findings(_bridge_path) if _need_fi else [])
     gov_data = _read_json(repo_root / p["governance_review_json"]) if load_all or (needs & {"audit"}) else None
     probe_data = _read_json(repo_root / p["probe_summary_json"]) if load_all or (needs & {"quality"}) else None
     ds_data = _read_json(repo_root / p["data_science_json"]) if load_all or (needs & {"analytics"}) else None
@@ -375,6 +391,8 @@ def build_snapshot(
     cp_model = build_control_plane_read_model(
         repo_root,
         sources_override=sources,
+        governance=governance,
+        review_state=typed_review_state,
     )
 
     snapshot = _assemble(
@@ -384,11 +402,10 @@ def build_snapshot(
         session_info=session_info,
         repo_root=repo_root,
         view=view,
-        review_state=review_state,
+        review_state=review_state_payload,
         control_plane=cp_model,
     )
     return snapshot
-
 
 def _empty_bridge() -> dict[str, str]:
     """Return the default bridge fields when bridge parsing is skipped."""

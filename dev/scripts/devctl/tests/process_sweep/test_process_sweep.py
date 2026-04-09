@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 import subprocess
+import tempfile
+from pathlib import Path
 from unittest import TestCase
 from unittest.mock import patch
 
+from dev.scripts.devctl.commands.check import process_sweep as check_process_sweep
 from dev.scripts.devctl.process_sweep import core as process_sweep
 from dev.scripts.devctl.process_sweep.config import REPO_ROOT_RESOLVED
 
@@ -14,6 +17,43 @@ TEST_RUST_ROOT = f"{TEST_REPO_ROOT}/rust"
 
 
 class ProcessSweepTests(TestCase):
+    def test_cleanup_orphaned_voiceterm_test_binaries_skips_registered_conductor_tree(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            repo_root = Path(tmpdir)
+            rows = [
+                {"pid": 200, "ppid": 1, "elapsed_seconds": 500, "lineage_depth": 0},
+                {"pid": 201, "ppid": 200, "elapsed_seconds": 20, "lineage_depth": 1},
+                {"pid": 300, "ppid": 1, "elapsed_seconds": 800, "lineage_depth": 0},
+            ]
+            killed_rows: list[dict] = []
+
+            with patch.object(
+                check_process_sweep,
+                "_protected_registered_conductor_pids",
+                return_value={200, 201},
+            ):
+                report = check_process_sweep.cleanup_orphaned_voiceterm_test_binaries(
+                    "process-sweep-post",
+                    dry_run=False,
+                    repo_root=repo_root,
+                    scanner=lambda: (rows, []),
+                    split_orphans=lambda current_rows: (
+                        [row for row in current_rows if row["ppid"] == 1],
+                        [row for row in current_rows if row["ppid"] != 1],
+                    ),
+                    split_stale=lambda active_rows: (active_rows, []),
+                    killer=lambda cleanup_rows: (
+                        [row["pid"] for row in cleanup_rows],
+                        killed_rows.extend(cleanup_rows) or [],
+                    ),
+                )
+
+        self.assertEqual(report["detected_orphans"], 1)
+        self.assertEqual(report["killed_pids"], [300])
+        self.assertEqual([row["pid"] for row in killed_rows], [300])
+
     def test_extend_process_row_markdown_uses_requested_overflow_label(self) -> None:
         rows = [
             {

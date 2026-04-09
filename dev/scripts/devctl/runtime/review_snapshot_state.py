@@ -126,6 +126,8 @@ def build_governance_state(*, startup: Mapping[str, object]) -> SnapshotGovernan
         active_plan_title=str(continuity.get("source_plan_title") or ""),
         active_plan_path=str(continuity.get("source_plan_path") or ""),
         worktree_clean=bool(push.get("worktree_clean")),
+        staged_path_count=int(push_enforcement.get("staged_path_count") or 0),
+        unstaged_path_count=int(push_enforcement.get("unstaged_path_count") or 0),
         checkpoint_required=bool(push_enforcement.get("checkpoint_required")),
     )
 

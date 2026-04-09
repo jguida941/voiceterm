@@ -24,6 +24,7 @@ from .startup_context_projections import (
     startup_coordination_dict,
 )
 from .startup_governance_projection import startup_governance_dict
+from .startup_review_state import load_startup_review_state as _load_startup_review_state
 from .startup_push_decision import (
     PushDecisionState,
     derive_push_decision as _derive_push_decision,
@@ -116,6 +117,7 @@ def _detect_reviewer_gate(
     repo_root: Path,
     governance: ProjectGovernance | None = None,
     review_state=None,
+    review_status_dir: Path | None = None,
 ) -> ReviewerGateState:
     """Detect reviewer gate state from typed review-state only."""
     resolved_governance = governance or scan_repo_governance_safely(repo_root)
@@ -127,6 +129,7 @@ def _detect_reviewer_gate(
         typed_gate = _detect_reviewer_gate_from_typed_state(
             repo_root,
             governance=resolved_governance,
+            review_status_dir=review_status_dir,
         )
     if typed_gate is not None:
         return typed_gate
@@ -146,9 +149,15 @@ def _detect_reviewer_gate_from_typed_state(
     repo_root: Path,
     *,
     governance: ProjectGovernance | None = None,
+    review_status_dir: Path | None = None,
 ) -> ReviewerGateState | None:
     """Read reviewer gate from typed review_state.json when available."""
-    state = load_current_review_state(repo_root, governance=governance)
+    state = load_current_review_state(
+        repo_root,
+        governance=governance,
+        review_status_dir=review_status_dir,
+        prefer_cached_projection=False,
+    )
     gov_mode = _governance_interaction_mode(governance)
     return _detect_reviewer_gate_from_review_state(state, governance_mode=gov_mode)
 
@@ -289,6 +298,7 @@ def build_startup_context(
     repo_root: Path | None = None,
     governance: ProjectGovernance | None = None,
     review_state: "ReviewState | None" = None,
+    review_status_dir: Path | None = None,
 ) -> StartupContext:
     """Build the typed startup-context packet for the current repo state.
 
@@ -300,7 +310,10 @@ def build_startup_context(
     model``, and ``session_resume_support.build_from_sources``. When both are
     omitted, the function still performs a fresh governance scan and
     bridge-refreshed review-state load so the standalone command behavior is
-    unchanged.
+    unchanged. ``review_status_dir`` threads the caller-selected review bundle
+    through that single review-state load so startup-context stays on the same
+    frozen bundle as the dashboard and session-resume surfaces when a custom
+    status root is in play.
     """
     if repo_root is None:
         from ..config import get_repo_root
@@ -310,12 +323,17 @@ def build_startup_context(
         from ..governance.draft import scan_repo_governance
 
         governance = scan_repo_governance(repo_root)
-    if review_state is None:
-        review_state = load_current_review_state(repo_root, governance=governance)
+    review_state = _load_startup_review_state(
+        repo_root,
+        governance=governance,
+        review_state=review_state,
+        review_status_dir=review_status_dir,
+    )
     gate = _detect_reviewer_gate(
         repo_root,
         governance=governance,
         review_state=review_state,
+        review_status_dir=review_status_dir,
     )
     push_decision = _derive_push_decision(
         governance.push_enforcement,
@@ -413,8 +431,6 @@ def build_startup_context(
         contract_ownership_map=build_contract_ownership_map(),
         snapshot_id=snapshot_id,
     )
-
-
 def blocks_new_implementation(ctx: StartupContext) -> bool:
     """Return whether the typed startup receipt blocks another edit slice.
 
@@ -428,5 +444,3 @@ def blocks_new_implementation(ctx: StartupContext) -> bool:
         return False
     push = governance.push_enforcement
     return bool(push.checkpoint_required or not push.safe_to_continue_editing)
-
-

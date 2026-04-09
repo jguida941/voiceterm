@@ -135,12 +135,12 @@ class GovernedVcsExecutor:
         )
 
     def _execute_commit(self, action: TypedAction) -> ActionResult:
-        # The ReviewSnapshot refresh is wired pre-commit inside
-        # execute_commit() so the code commit contains a projection. The
-        # raw-git hook installer also ships a post-commit receipt hook that
-        # delegates to `review-snapshot --receipt-commit`; keep that as the
-        # explicit trailing snapshot-only publication path instead of adding
-        # an uncommitted post-commit write here.
+        # The ReviewSnapshot refresh is wired before approval/staging in
+        # `devctl commit` so the approved tree already contains the latest
+        # projection. The raw-git hook installer still ships a post-commit
+        # receipt hook that delegates to `review-snapshot --receipt-commit`;
+        # keep that as the explicit trailing snapshot-only publication path
+        # instead of adding an uncommitted post-commit write here.
         return execute_commit(
             action,
             repo_root=self.repo_root,

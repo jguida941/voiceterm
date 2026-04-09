@@ -41,9 +41,19 @@ def cleanup_orphaned_voiceterm_test_binaries(
         }
 
     rows, warnings = scanner()
-    orphaned, active = split_orphans(rows)
+    protected_pids = _protected_registered_conductor_pids(
+        rows=rows,
+        repo_root=repo_root,
+    )
+    filtered_rows = [
+        row for row in rows if int(row.get("pid", 0) or 0) not in protected_pids
+    ]
+    orphaned, active = split_orphans(filtered_rows)
     stale_active, _recent_active = split_stale(active)
-    cleanup_targets = expand_cleanup_target_rows(rows, [*orphaned, *stale_active])
+    cleanup_targets = expand_cleanup_target_rows(
+        filtered_rows,
+        [*orphaned, *stale_active],
+    )
     killed_pids, kill_warnings = killer(cleanup_targets)
 
     for warning in warnings:
@@ -73,6 +83,44 @@ def cleanup_orphaned_voiceterm_test_binaries(
         "detected_orphans": len(orphaned),
         "detected_stale_active": len(stale_active),
     }
+
+
+def _protected_registered_conductor_pids(
+    *,
+    rows: list[dict],
+    repo_root: Path,
+) -> set[int]:
+    """Return live registered conductor pids plus descendants to exclude."""
+    from ...repo_packs import active_path_config
+    from ...review_channel.session_probe import load_conductor_sessions
+
+    status_dir = repo_root / active_path_config().review_status_dir_rel
+    if not status_dir.exists():
+        return set()
+    session_pids = {
+        int(session.session_pid)
+        for session in load_conductor_sessions(session_output_root=status_dir)
+        if session.live and session.session_pid
+    }
+    if not session_pids:
+        return set()
+    descendants_by_parent: dict[int, list[int]] = {}
+    for row in rows:
+        pid = int(row.get("pid", 0) or 0)
+        ppid = int(row.get("ppid", 0) or 0)
+        if pid <= 0:
+            continue
+        descendants_by_parent.setdefault(ppid, []).append(pid)
+    protected = set(session_pids)
+    frontier = list(session_pids)
+    while frontier:
+        parent_pid = frontier.pop()
+        for child_pid in descendants_by_parent.get(parent_pid, ()):
+            if child_pid in protected:
+                continue
+            protected.add(child_pid)
+            frontier.append(child_pid)
+    return protected
 
 
 def cleanup_host_processes(

@@ -285,18 +285,17 @@ def build_from_sources(
 
 
 def _extract_current_session(sources: dict[str, Any]) -> dict[str, Any] | None:
-    """Pull current_session from compact or review_state, preferring compact."""
-    compact = sources.get("compact_json")
     review_state = sources.get("review_state")
-    session = _nested_dict(compact, "current_session")
-    if not session:
-        session = _nested_dict(review_state, "current_session")
-    return session
+    session = _nested_dict(review_state, "current_session")
+    if session:
+        return session
+    compact = sources.get("compact_json")
+    return _nested_dict(compact, "current_session")
 
 
 def _extract_head_at_push_time(sources: dict[str, Any]) -> str:
-    """Return head_at_push_time from bridge metadata in compact or review_state."""
-    for key in ("compact_json", "review_state"):
+    """Return head_at_push_time from the typed review_state before compact."""
+    for key in ("review_state", "compact_json"):
         bridge = _nested_dict(sources.get(key), "bridge")
         sha = _str_field(bridge, "head_at_push_time")
         if sha:

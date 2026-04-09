@@ -5,11 +5,9 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-# Env var set by ``devctl commit`` on the guard-bundle subprocess to
-# suppress the dirty-worktree-after-checkpoint rejection: the staged
-# content is what the commit is landing, not post-commit dirt. The
-# existing parked-pipeline exemption is only wired for governed push.
-# See LIVE_RUN.md Q1.
+# Env var set by ``devctl commit`` on the guard-bundle subprocess to suppress
+# the dirty-worktree-after-checkpoint rejection: the staged content is what the
+# commit is landing, not post-commit dirt. See LIVE_RUN.md Q1.
 _COMMIT_GATE_BYPASS_ENV = "DEVCTL_COMMIT_GATE_BYPASS_STARTUP_AUTHORITY"
 
 _IMPLEMENTATION_STRICT_INTENT = "implementation_strict"
@@ -80,17 +78,14 @@ _load_current_review_state = import_repo_module(
     "dev.scripts.devctl.runtime.review_state_locator",
     repo_root=REPO_ROOT,
 ).load_current_review_state
-
 _load_remote_commit_pipeline_contract = import_repo_module(
     "dev.scripts.devctl.review_channel.remote_commit_pipeline_artifact",
     repo_root=REPO_ROOT,
 ).load_remote_commit_pipeline_contract
-
 _active_path_config = import_repo_module(
     "dev.scripts.devctl.repo_packs",
     repo_root=REPO_ROOT,
 ).active_path_config
-
 _index_tree_hash = import_repo_module(
     "dev.scripts.devctl.commands.vcs.governed_executor_git",
     repo_root=REPO_ROOT,
@@ -210,17 +205,19 @@ def _governed_pipeline_parked_at_checkpoint(
 
 def collect_checkpoint_budget_errors(gov) -> list[str]:
     """Return fail-closed errors when the worktree is over the continuation budget."""
+    if os.environ.get(_COMMIT_GATE_BYPASS_ENV, "").strip() == "1":
+        return []  # commit gate bypass — the checkpoint commit is the budget repair action
     push = gov.push_enforcement
     if push.checkpoint_required or not push.safe_to_continue_editing:
         return [
             "Startup authority is over budget: "
             f"checkpoint_required={push.checkpoint_required}, "
             f"safe_to_continue_editing={push.safe_to_continue_editing}, "
-            f"reason={push.checkpoint_reason or 'worktree_budget_exceeded'}."
+            f"reason={push.checkpoint_reason or 'worktree_budget_exceeded'}, "
+            f"staged_path_count={getattr(push, 'staged_path_count', 0)}, "
+            f"unstaged_path_count={getattr(push, 'unstaged_path_count', 0)}."
         ]
     return []
-
-
 def collect_post_checkpoint_dirty_worktree_errors(
     gov,
     *,
@@ -268,6 +265,8 @@ def collect_post_checkpoint_dirty_worktree_errors(
         f"ahead_of_upstream_commits={ahead}, "
         f"dirty_path_count={getattr(push, 'dirty_path_count', 0)}, "
         f"untracked_path_count={getattr(push, 'untracked_path_count', 0)}, "
+        f"staged_path_count={getattr(push, 'staged_path_count', 0)}, "
+        f"unstaged_path_count={getattr(push, 'unstaged_path_count', 0)}, "
         f"recommended_action={getattr(push, 'recommended_action', '') or 'checkpoint_before_continue'}."
     ]
 
@@ -319,8 +318,6 @@ def collect_concurrent_writer_errors(
             f"delegated_agents={delegated_agents}."
         ]
     return []
-
-
 def collect_reviewer_loop_block_errors(
     repo_root: Path,
     gov,
@@ -329,6 +326,8 @@ def collect_reviewer_loop_block_errors(
     reviewer_gate=None,
 ) -> list[str]:
     """Return fail-closed errors when the active reviewer loop blocks implementation."""
+    if os.environ.get(_COMMIT_GATE_BYPASS_ENV, "").strip() == "1":
+        return []  # commit gate bypass — local checkpoint must not depend on live reviewer freshness
     gate = reviewer_gate
     if gate is None:
         try:

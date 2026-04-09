@@ -243,6 +243,44 @@ class MobileStatusControlPlaneTests(unittest.TestCase):
             self.assertFalse(report["ok"])
             self.assertEqual(report["control_plane"], {})
 
+    def test_mobile_status_threads_review_status_dir_to_shared_loader(self) -> None:
+        from dev.scripts.devctl.commands import mobile_status
+
+        model = _build_model(receipt={"push_action": "await_checkpoint"})
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            (root / "phone.json").write_text(json.dumps({
+                "command": "autonomy-phone-status",
+                "phase": "idle",
+                "controller": {"plan_id": "MP-1"},
+            }), encoding="utf-8")
+            (root / "review_channel.md").write_text(_REVIEW_CHANNEL_TEXT, encoding="utf-8")
+            (root / "bridge.md").write_text(_BRIDGE_TEXT, encoding="utf-8")
+            args = _mobile_args(root)
+            fake_review_result = SimpleNamespace(
+                review_payload={},
+                review_projection_files={},
+                warnings=[],
+                errors=[],
+            )
+            with (
+                patch(
+                    "dev.scripts.devctl.commands.mobile_status.load_mobile_review_state",
+                    return_value=fake_review_result,
+                ),
+                patch(
+                    "dev.scripts.devctl.commands.mobile_status.build_control_plane_read_model",
+                    return_value=model,
+                ) as build_control_plane_read_model_mock,
+            ):
+                rc = mobile_status.run(args)
+
+            self.assertEqual(rc, 0)
+            self.assertEqual(
+                build_control_plane_read_model_mock.call_args.kwargs["review_status_dir"],
+                root / "review-status",
+            )
+
 
 class AutoModeImplementerLivenessWiringTests(unittest.TestCase):
     """Verify implementer liveness propagates from read model to auto-mode."""
@@ -305,3 +343,4 @@ class AutoModeImplementerLivenessWiringTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+

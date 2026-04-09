@@ -12,6 +12,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from .review_cache import cache_is_fresh, projection_dependency_paths
+
 
 @dataclass
 class MobileReviewStateResult:
@@ -54,9 +56,13 @@ def _load_payload_from_path(
 
 def _existing_projection_payload(
     review_status_dir: Path,
+    *,
+    freshness_paths: tuple[Path, ...],
 ) -> tuple[dict[str, Any], dict[str, str] | None, Path | None, list[str]]:
     """Return the existing full projection bundle when it is already present."""
     full_path = review_status_dir / "full.json"
+    if not cache_is_fresh(full_path, freshness_paths=freshness_paths):
+        return {}, None, None, ["review status projection is stale"]
     payload, errors = _load_payload_from_path(
         full_path,
         label="review status projection",
@@ -79,9 +85,13 @@ def _existing_projection_payload(
 
 def _existing_review_state_payload(
     review_status_dir: Path,
+    *,
+    freshness_paths: tuple[Path, ...],
 ) -> tuple[dict[str, Any], dict[str, str] | None, Path | None, list[str]]:
     """Return the existing typed review-state payload when it is already present."""
     review_state_path = review_status_dir / "review_state.json"
+    if not cache_is_fresh(review_state_path, freshness_paths=freshness_paths):
+        return {}, None, None, ["typed review_state projection is stale"]
     payload, errors = _load_payload_from_path(
         review_state_path,
         label="typed review_state projection",
@@ -138,6 +148,10 @@ def load_mobile_review_state(
     result = MobileReviewStateResult()
     artifact_paths = resolve_artifact_paths(repo_root=repo_root)
     bridge_active = bridge_path.exists()
+    freshness_paths = projection_dependency_paths(
+        bridge_path=bridge_path,
+        review_channel_path=review_channel_path,
+    )
 
     use_event_path = (
         execution_mode != "markdown-bridge"
@@ -189,7 +203,10 @@ def load_mobile_review_state(
             existing_projection_files,
             existing_full_path,
             existing_errors,
-        ) = _existing_projection_payload(review_status_dir)
+        ) = _existing_projection_payload(
+            review_status_dir,
+            freshness_paths=freshness_paths,
+        )
         if not existing_errors:
             if fallback_warning is not None:
                 result.warnings.append(fallback_warning)
@@ -204,7 +221,10 @@ def load_mobile_review_state(
             existing_review_state_projection_files,
             existing_review_state_path,
             existing_review_state_errors,
-        ) = _existing_review_state_payload(review_status_dir)
+        ) = _existing_review_state_payload(
+            review_status_dir,
+            freshness_paths=freshness_paths,
+        )
         if not existing_review_state_errors:
             if fallback_warning is not None:
                 result.warnings.append(fallback_warning)

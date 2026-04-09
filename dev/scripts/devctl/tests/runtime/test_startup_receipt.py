@@ -78,6 +78,8 @@ class StartupReceiptProblemTests(unittest.TestCase):
                     "2 local commit(s) waiting for governed push."
                 ),
                 "publication_backlog_recommended": True,
+                "staged_path_count": 4,
+                "unstaged_path_count": 1,
                 "publication_guidance": (
                     "2 local commit(s) waiting for governed push. Run `python3 dev/scripts/devctl.py push --execute` now."
                 ),
@@ -93,6 +95,8 @@ class StartupReceiptProblemTests(unittest.TestCase):
         )
         self.assertEqual(receipt.publication_backlog_state, "recommended")
         self.assertTrue(receipt.publication_backlog_recommended)
+        self.assertEqual(receipt.staged_path_count, 4)
+        self.assertEqual(receipt.unstaged_path_count, 1)
 
     def test_problem_list_flags_checkpoint_required_receipts(self) -> None:
         receipt = StartupReceipt(

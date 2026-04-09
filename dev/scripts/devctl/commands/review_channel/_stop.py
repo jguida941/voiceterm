@@ -75,6 +75,7 @@ STOP_TARGETS = {
         read_state_fn=read_reviewer_supervisor_state,
     ),
 }
+_SIGTERM_ESCALATION_SECONDS = 2.0
 
 
 def run_stop_action(
@@ -163,8 +164,96 @@ def _stop_target(
             detail=f"{target.daemon_kind} is not running",
         )
 
+    initial_signal_error = _send_stop_signal(
+        target=target,
+        pid=pid,
+        stop_signal=signal.SIGINT,
+        signal_name="SIGINT",
+        status_dir=runtime_paths.status_dir,
+        deps=deps,
+    )
+    if initial_signal_error is not None:
+        return initial_signal_error
+
+    signal_name = "SIGINT"
+    refreshed_state = _wait_for_stop(
+        target=target,
+        status_dir=runtime_paths.status_dir,
+        grace_seconds=min(grace_seconds, _SIGTERM_ESCALATION_SECONDS),
+        deps=deps,
+    )
+    if bool(refreshed_state.get("running")) and grace_seconds > _SIGTERM_ESCALATION_SECONDS:
+        term_signal_error = _send_stop_signal(
+            target=target,
+            pid=pid,
+            stop_signal=signal.SIGTERM,
+            signal_name="SIGTERM",
+            status_dir=runtime_paths.status_dir,
+            deps=deps,
+        )
+        if term_signal_error is not None:
+            return term_signal_error
+        signal_name = "SIGTERM"
+        refreshed_state = _wait_for_stop(
+            target=target,
+            status_dir=runtime_paths.status_dir,
+            grace_seconds=max(grace_seconds - _SIGTERM_ESCALATION_SECONDS, 0.0),
+            deps=deps,
+        )
+    if bool(refreshed_state.get("running")) and grace_seconds > 0:
+        kill_signal_error = _send_stop_signal(
+            target=target,
+            pid=pid,
+            stop_signal=signal.SIGKILL,
+            signal_name="SIGKILL",
+            status_dir=runtime_paths.status_dir,
+            deps=deps,
+        )
+        if kill_signal_error is not None:
+            return kill_signal_error
+        signal_name = "SIGKILL"
+        refreshed_state = target.read_state_fn(runtime_paths.status_dir)
+
+    stopped = not bool(refreshed_state.get("running"))
+    stop_reason = str(refreshed_state.get("stop_reason") or "")
+    forced_stop = signal_name == "SIGKILL" and stopped and not stop_reason
+    reason = stop_reason or (
+        "forced_stop" if forced_stop else ("stopped" if stopped else "timeout")
+    )
+    detail = (
+        f"Stopped {target.daemon_kind} pid {pid}"
+        if stopped and signal_name != "SIGKILL"
+        else (
+            f"Force-stopped {target.daemon_kind} pid {pid}"
+            if stopped
+            else f"Timed out waiting for {target.daemon_kind} pid {pid} to stop"
+        )
+    )
+    return DaemonStopResult(
+        daemon_kind=target.daemon_kind,
+        attempted=True,
+        stopped=stopped,
+        ok=stopped,
+        reason=reason,
+        pid=pid,
+        signal=signal_name,
+        state=refreshed_state,
+        detail=detail,
+    )
+
+
+def _send_stop_signal(
+    *,
+    target: StopTarget,
+    pid: int,
+    stop_signal: int,
+    signal_name: str,
+    status_dir,
+    deps: StopActionDeps,
+) -> DaemonStopResult | None:
+    current_state = target.read_state_fn(status_dir)
     try:
-        deps.kill_fn(pid, signal.SIGINT)
+        deps.kill_fn(pid, stop_signal)
     except PermissionError:
         return DaemonStopResult(
             daemon_kind=target.daemon_kind,
@@ -173,11 +262,12 @@ def _stop_target(
             ok=False,
             reason="permission_denied",
             pid=pid,
-            state=initial_state,
+            signal=signal_name,
+            state=current_state,
             detail=f"Permission denied while stopping {target.daemon_kind} pid {pid}",
         )
     except ProcessLookupError:
-        refreshed_state = target.read_state_fn(runtime_paths.status_dir)
+        refreshed_state = target.read_state_fn(status_dir)
         stopped = not bool(refreshed_state.get("running"))
         return DaemonStopResult(
             daemon_kind=target.daemon_kind,
@@ -186,6 +276,7 @@ def _stop_target(
             ok=stopped,
             reason="already_exited",
             pid=pid,
+            signal=signal_name,
             state=refreshed_state,
             detail=f"{target.daemon_kind} pid {pid} was already gone",
         )
@@ -197,34 +288,11 @@ def _stop_target(
             ok=False,
             reason="signal_failed",
             pid=pid,
-            state=initial_state,
+            signal=signal_name,
+            state=current_state,
             detail=f"Failed to stop {target.daemon_kind} pid {pid}: {exc}",
         )
-
-    refreshed_state = _wait_for_stop(
-        target=target,
-        status_dir=runtime_paths.status_dir,
-        grace_seconds=grace_seconds,
-        deps=deps,
-    )
-    stopped = not bool(refreshed_state.get("running"))
-    stop_reason = str(refreshed_state.get("stop_reason") or "")
-    reason = stop_reason or ("stopped" if stopped else "timeout")
-    return DaemonStopResult(
-        daemon_kind=target.daemon_kind,
-        attempted=True,
-        stopped=stopped,
-        ok=stopped,
-        reason=reason,
-        pid=pid,
-        signal="SIGINT",
-        state=refreshed_state,
-        detail=(
-            f"Stopped {target.daemon_kind} pid {pid}"
-            if stopped
-            else f"Timed out waiting for {target.daemon_kind} pid {pid} to stop"
-        ),
-    )
+    return None
 
 
 def _wait_for_stop(

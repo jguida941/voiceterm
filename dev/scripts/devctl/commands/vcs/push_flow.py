@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
@@ -13,6 +14,9 @@ from .push_report import PushStageTruth
 
 if TYPE_CHECKING:
     from .push import PushRunState
+
+
+_GOVERNED_GIT_PUSH_BYPASS_ENV = "DEVCTL_ALLOW_GOVERNED_GIT_PUSH"
 
 
 @dataclass(frozen=True, slots=True)
@@ -96,7 +100,12 @@ def execute_push_flow_with_dependencies(
     push_cmd = ["git", "push", state.remote, state.branch]
     if not state.branch_has_remote:
         push_cmd = ["git", "push", "--set-upstream", state.remote, state.branch]
-    state.push_step = dependencies.run_cmd_fn("git-push", push_cmd, cwd=REPO_ROOT)
+    state.push_step = dependencies.run_cmd_fn(
+        "git-push",
+        push_cmd,
+        cwd=REPO_ROOT,
+        env=_governed_git_push_env(),
+    )
     if state.push_step["returncode"] != 0:
         return PushFlowOutcome(
             ok=False,
@@ -196,3 +205,9 @@ def run_post_push_bundle(
                 )
             return False
     return True
+
+
+def _governed_git_push_env() -> dict[str, str]:
+    env = dict(os.environ)
+    env[_GOVERNED_GIT_PUSH_BYPASS_ENV] = "1"
+    return env

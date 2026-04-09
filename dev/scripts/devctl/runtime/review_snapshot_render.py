@@ -124,6 +124,8 @@ def _render_governance_state(lines: list[str], snapshot: ReviewSnapshot) -> None
     lines.append(f"- reason: {state.push_reason or 'n/a'}")
     lines.append(f"- push_eligible_now: {state.push_eligible_now}")
     lines.append(f"- worktree_clean: {state.worktree_clean}")
+    lines.append(f"- staged_path_count: {state.staged_path_count}")
+    lines.append(f"- unstaged_path_count: {state.unstaged_path_count}")
     lines.append(f"- next_step_command: `{state.next_step_command or 'n/a'}`")
     if state.latest_push_report_path:
         lines.append(f"- latest_push_report: `{state.latest_push_report_path}`")

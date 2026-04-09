@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from dev.scripts.devctl.runtime.control_plane_read_model import (
     CONTROL_PLANE_READ_MODEL_CONTRACT_ID,
@@ -116,6 +117,29 @@ class BuildFromEmptySourcesTests(unittest.TestCase):
         )
         self.assertFalse(model.worktree_clean)
         self.assertEqual(model.resolved_phase, "implementing")
+
+
+class ReviewStatusDirThreadingTests(unittest.TestCase):
+    """Verify caller-selected review bundles reach the shared source loader."""
+
+    def test_builder_threads_review_status_dir_to_load_sources(self) -> None:
+        repo_root = Path("/tmp/repo")
+        review_status_dir = Path("/tmp/review-status")
+        with patch(
+            "dev.scripts.devctl.runtime.control_plane_read_model.load_sources",
+            return_value=_empty_sources(),
+        ) as load_sources_mock:
+            build_control_plane_read_model(
+                repo_root,
+                git_override=_base_git(),
+                review_status_dir=review_status_dir,
+            )
+
+        load_sources_mock.assert_called_once_with(
+            repo_root,
+            governance=None,
+            review_status_dir=review_status_dir,
+        )
 
 
 class BuildWithReceiptTests(unittest.TestCase):

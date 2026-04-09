@@ -51,6 +51,7 @@ def _write_hook_templates(repo_root: Path) -> None:
     for filename in (
         "pre-commit-review-snapshot.sh",
         "post-commit-review-snapshot.sh",
+        "pre-push-governed-push.sh",
     ):
         (hook_root / filename).write_text(_MANAGED_HOOK_BODY, encoding="utf-8")
 
@@ -124,7 +125,7 @@ def test_run_install_copies_template_into_hooks_dir(
     )
     exit_code = run(args)
     assert exit_code == 0
-    for hook_name in ("pre-commit", "post-commit"):
+    for hook_name in ("pre-commit", "post-commit", "pre-push"):
         installed = repo_root / ".git" / "hooks" / hook_name
         assert installed.is_file()
         assert "devctl-install-git-hooks: managed hook" in installed.read_text(

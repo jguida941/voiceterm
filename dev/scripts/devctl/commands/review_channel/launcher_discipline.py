@@ -34,7 +34,9 @@ governance/startup-owned interaction mode, not compatibility bridge prose.
 
 from __future__ import annotations
 
+import tempfile
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Final
 
 # Typed ``interaction_mode`` values that REQUIRE a visible Terminal.app
@@ -165,7 +167,102 @@ def validate_visible_launch_in_local_mode(
     )
 
 
+def validate_trusted_visible_launch_root(
+    *,
+    repo_root: Path | None,
+    terminal_arg: str,
+) -> LauncherDisciplineVerdict:
+    """Refuse visible local launches from transient temp roots.
+
+    Provider CLIs can prompt for one-time trust/approval when a brand-new
+    directory opens in a visible terminal. Local review-channel automation
+    should not rely on an operator clicking through those prompts from an
+    ephemeral clone under ``/tmp``. The stable fix is to keep normal local
+    launches on repo-managed trusted roots and fail closed before any Terminal
+    window or daemon starts when the requested visible launch target is a
+    transient temp directory.
+    """
+    normalized_terminal = (terminal_arg or "").strip()
+    if normalized_terminal != "terminal-app":
+        return LauncherDisciplineVerdict(allowed=True)
+    if repo_root is None:
+        return LauncherDisciplineVerdict(allowed=True)
+    resolved_repo_root = repo_root.expanduser().resolve(strict=False)
+    if (
+        _looks_like_repo_checkout(resolved_repo_root)
+        and any(
+            _path_within_root(resolved_repo_root, transient_root)
+            for transient_root in _transient_launch_roots()
+        )
+    ):
+        return LauncherDisciplineVerdict(
+            allowed=False,
+            denial_reason="untrusted_visible_launch_root",
+            operator_message=(
+                "Refusing visible Terminal.app launch from transient temp clone "
+                f"`{resolved_repo_root}` because provider directory-trust prompts "
+                "can stall local automation there. Re-run from a stable repo-managed "
+                "root or reserve headless launches for governed `remote_control`."
+            ),
+        )
+    return LauncherDisciplineVerdict(allowed=True)
+
+
+def _transient_launch_roots() -> tuple[Path, ...]:
+    temp_root = Path(tempfile.gettempdir()).expanduser().resolve(strict=False)
+    candidates = (
+        temp_root,
+        Path("/tmp").resolve(strict=False),
+        Path("/private/tmp").resolve(strict=False),
+    )
+    ordered_unique: list[Path] = []
+    for candidate in candidates:
+        if candidate not in ordered_unique:
+            ordered_unique.append(candidate)
+    return tuple(ordered_unique)
+
+
+def _path_within_root(path: Path, root: Path) -> bool:
+    return path == root or root in path.parents
+
+
+def _looks_like_repo_checkout(repo_root: Path) -> bool:
+    return (repo_root / ".git").exists()
+
+
 __all__ = [
     "LauncherDisciplineVerdict",
+    "enforce_launch_request_discipline",
+    "validate_trusted_visible_launch_root",
     "validate_visible_launch_in_local_mode",
 ]
+
+
+def enforce_launch_request_discipline(
+    *,
+    repo_root: Path | None,
+    interaction_mode: str,
+    terminal_arg: str,
+) -> None:
+    """Raise when a launch request violates visible/headless discipline."""
+    trusted_root_verdict = validate_trusted_visible_launch_root(
+        repo_root=repo_root,
+        terminal_arg=terminal_arg,
+    )
+    if not trusted_root_verdict.allowed:
+        raise ValueError(
+            "Launcher discipline refused this launch: "
+            f"reason={trusted_root_verdict.denial_reason}. "
+            f"{trusted_root_verdict.operator_message}"
+        )
+
+    discipline_verdict = validate_visible_launch_in_local_mode(
+        interaction_mode=interaction_mode,
+        terminal_arg=terminal_arg,
+    )
+    if not discipline_verdict.allowed:
+        raise ValueError(
+            "Launcher discipline refused this launch: "
+            f"reason={discipline_verdict.denial_reason}. "
+            f"{discipline_verdict.operator_message}"
+        )

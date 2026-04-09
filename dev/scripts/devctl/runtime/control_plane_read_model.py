@@ -199,6 +199,7 @@ def build_control_plane_read_model(
     git_override: dict[str, Any] | None = None,
     governance: "ProjectGovernance | None" = None,
     review_state: "ReviewState | None" = None,
+    review_status_dir: Path | None = None,
 ) -> ControlPlaneReadModel:
     """Load all artifacts ONCE, resolve ALL gates, return frozen model.
 
@@ -216,7 +217,11 @@ def build_control_plane_read_model(
     sources = (
         dict(sources_override)
         if sources_override is not None
-        else load_sources(repo_root, governance=governance)
+        else load_sources(
+            repo_root,
+            governance=governance,
+            review_status_dir=review_status_dir,
+        )
     )
     if review_state is not None:
         # Freeze read-model consumers on the caller's typed snapshot for this

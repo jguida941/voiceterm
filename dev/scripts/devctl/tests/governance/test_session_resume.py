@@ -646,6 +646,14 @@ class TestRunCommand(unittest.TestCase):
             )
 
             self.assertEqual(run(args), 0)
+            mock_load_current_review_state.assert_called_once()
+            self.assertEqual(
+                mock_load_current_review_state.call_args.args[0],
+                root,
+            )
+            self.assertFalse(
+                mock_load_current_review_state.call_args.kwargs["prefer_cached_projection"],
+            )
             mock_build_from_sources.assert_called_once()
             self.assertIs(
                 mock_build_from_sources.call_args.kwargs["review_state"],
@@ -742,6 +750,105 @@ class TestBuildGovernedReviewRoot(unittest.TestCase):
                 root, role="implementer", head_sha="sha1", governance=gov,
             )
             self.assertEqual(packet.current_instruction, "from governed path")
+
+
+class TestFrozenReviewStatePrecedence(unittest.TestCase):
+    """Typed review_state should outrank stale compact data when both exist."""
+
+    @patch("dev.scripts.devctl.commands.governance.session_resume_support.build_control_plane_read_model")
+    @patch("dev.scripts.devctl.commands.governance.session_resume_support.read_json_artifact")
+    @patch("dev.scripts.devctl.commands.governance.session_resume_support.resolve_source_paths")
+    @patch("dev.scripts.devctl.commands.governance.session_resume_support.load_sources")
+    @patch("dev.scripts.devctl.commands.governance.session_resume_support.load_git_state")
+    def test_frozen_review_state_overrides_loaded_compact(
+        self,
+        mock_load_git_state,
+        mock_load_sources,
+        mock_resolve_source_paths,
+        mock_read_json_artifact,
+        mock_build_model,
+    ) -> None:
+        class FrozenReviewState:
+            def to_dict(self) -> dict[str, object]:
+                return {
+                    "current_session": {
+                        "current_instruction": "typed instruction",
+                    },
+                    "bridge": {
+                        "head_at_push_time": "typed-sha",
+                    },
+                }
+
+        frozen = FrozenReviewState()
+        mock_load_git_state.return_value = {
+            "branch": "main",
+            "head": "abc123",
+            "clean": True,
+            "ahead": 0,
+        }
+        mock_load_sources.return_value = {
+            "receipt": {"advisory_action": "continue", "advisory_reason": "ok"},
+            "review_state": {
+                "current_session": {
+                    "current_instruction": "stale instruction",
+                },
+                "bridge": {"head_at_push_time": "stale-sha"},
+            },
+            "push_report": None,
+            "publisher_hb": None,
+            "supervisor_hb": None,
+            "codex_conductor": None,
+            "claude_conductor": None,
+            "full_json": None,
+            "compact_json": {
+                "current_session": {
+                    "current_instruction": "stale compact instruction",
+                },
+                "bridge": {"head_at_push_time": "stale-compact-sha"},
+            },
+        }
+        mock_resolve_source_paths.return_value = {
+            "compact": Path("custom/status/compact.json"),
+        }
+        mock_read_json_artifact.return_value = {
+            "current_session": {
+                "current_instruction": "stale compact instruction",
+            },
+            "bridge": {"head_at_push_time": "stale-compact-sha"},
+        }
+        mock_build_model.return_value = SimpleNamespace(
+            top_blocker="none",
+            next_action="n/a",
+            next_command="",
+            resolved_phase="idle",
+            last_guard_ok=True,
+            reviewer_observation=None,
+            coordination=None,
+            branch="main",
+            reviewer_mode="single_agent",
+            operator_interaction_mode="unresolved",
+            reviewer_freshness="--",
+            review_accepted=False,
+            attention_status="n/a",
+            attention_summary="n/a",
+            publisher_running=False,
+            supervisor_running=False,
+            codex_conductor_alive=False,
+            claude_conductor_alive=False,
+            pending_action_requests=0,
+            check_details=(),
+        )
+
+        with tempfile.TemporaryDirectory() as td:
+            packet = build_from_sources(
+                Path(td),
+                role="reviewer",
+                head_sha="abc123",
+                review_state=frozen,
+            )
+
+        self.assertEqual(packet.current_instruction, "typed instruction")
+        self.assertEqual(packet.last_reviewed_sha, "typed-sha")
 
 
 class TestNoArtifactFailClosed(unittest.TestCase):

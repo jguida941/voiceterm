@@ -118,7 +118,44 @@ def test_resolve_review_state_path_uses_explicit_repo_pack_override(
 
 
 @patch("dev.scripts.devctl.review_channel.state.refresh_status_snapshot")
-def test_load_current_review_state_payload_refreshes_bridge_backed_projection(
+def test_load_current_review_state_payload_prefers_fresh_existing_typed_projection(
+    refresh_status_snapshot_mock,
+    tmp_path: Path,
+) -> None:
+    bridge_path = tmp_path / "bridge.md"
+    bridge_path.write_text("# Review Bridge\n", encoding="utf-8")
+    review_channel_path = tmp_path / "dev" / "active" / "review_channel.md"
+    review_channel_path.parent.mkdir(parents=True, exist_ok=True)
+    review_channel_path.write_text("# Review Channel\n", encoding="utf-8")
+    review_state_path = (
+        tmp_path / "dev" / "reports" / "review_channel" / "latest" / "review_state.json"
+    )
+    _write_review_state(
+        review_state_path,
+        payload={
+            "bridge": {"review_accepted": True},
+            "current_session": {"implementer_ack_state": "current"},
+        },
+    )
+
+    payload = load_current_review_state_payload(
+        tmp_path,
+        governance=_governance(
+            review_root="dev/reports/review_channel/latest",
+            bridge_path="bridge.md",
+            review_channel_path="dev/active/review_channel.md",
+            bridge_active=True,
+        ),
+    )
+
+    assert payload is not None
+    assert payload["bridge"]["review_accepted"] is True
+    assert payload["current_session"]["implementer_ack_state"] == "current"
+    refresh_status_snapshot_mock.assert_not_called()
+
+
+@patch("dev.scripts.devctl.review_channel.state.refresh_status_snapshot")
+def test_load_current_review_state_payload_refreshes_stale_typed_projection(
     refresh_status_snapshot_mock,
     tmp_path: Path,
 ) -> None:
@@ -138,9 +175,11 @@ def test_load_current_review_state_payload_refreshes_bridge_backed_projection(
     review_channel_path.parent.mkdir(parents=True, exist_ok=True)
     review_channel_path.write_text("# Review Channel\n", encoding="utf-8")
 
+    refreshed_review_state_path = review_state_path
+
     def _refresh(*, repo_root, bridge_path, review_channel_path, output_root):
         _write_review_state(
-            review_state_path,
+            refreshed_review_state_path,
             payload={
                 "bridge": {"review_accepted": False},
                 "current_session": {"implementer_ack_state": "stale"},
@@ -148,7 +187,7 @@ def test_load_current_review_state_payload_refreshes_bridge_backed_projection(
         )
         return SimpleNamespace(
             projection_paths=SimpleNamespace(
-                review_state_path=str(review_state_path),
+                review_state_path=str(refreshed_review_state_path),
             )
         )
 
@@ -162,6 +201,53 @@ def test_load_current_review_state_payload_refreshes_bridge_backed_projection(
             review_channel_path="dev/active/review_channel.md",
             bridge_active=True,
         ),
+    )
+
+    assert payload is not None
+    assert payload["bridge"]["review_accepted"] is False
+    assert payload["current_session"]["implementer_ack_state"] == "stale"
+    refresh_status_snapshot_mock.assert_called_once()
+
+
+@patch("dev.scripts.devctl.review_channel.state.refresh_status_snapshot")
+def test_load_current_review_state_payload_threads_explicit_review_status_dir(
+    refresh_status_snapshot_mock,
+    tmp_path: Path,
+) -> None:
+    review_status_dir = tmp_path / "custom-review-status"
+    bridge_path = tmp_path / "bridge.md"
+    bridge_path.write_text("# Review Bridge\n", encoding="utf-8")
+    review_channel_path = tmp_path / "dev" / "active" / "review_channel.md"
+    review_channel_path.parent.mkdir(parents=True, exist_ok=True)
+    review_channel_path.write_text("# Review Channel\n", encoding="utf-8")
+
+    refreshed_review_state_path = review_status_dir / "review_state.json"
+
+    def _refresh(*, repo_root, bridge_path, review_channel_path, output_root):
+        assert output_root == review_status_dir
+        _write_review_state(
+            refreshed_review_state_path,
+            payload={
+                "bridge": {"review_accepted": False},
+                "current_session": {"implementer_ack_state": "stale"},
+            },
+        )
+        return SimpleNamespace(
+            projection_paths=SimpleNamespace(
+                review_state_path=str(refreshed_review_state_path),
+            )
+        )
+
+    refresh_status_snapshot_mock.side_effect = _refresh
+
+    payload = load_current_review_state_payload(
+        tmp_path,
+        governance=_governance(
+            bridge_path="bridge.md",
+            review_channel_path="dev/active/review_channel.md",
+            bridge_active=True,
+        ),
+        review_status_dir=review_status_dir,
     )
 
     assert payload is not None

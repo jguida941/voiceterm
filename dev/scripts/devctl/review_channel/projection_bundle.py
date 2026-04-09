@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Mapping
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
@@ -28,11 +29,13 @@ class ReviewChannelProjectionPaths:
 
 
 def projection_paths_to_dict(
-    paths: ReviewChannelProjectionPaths | None,
+    paths: ReviewChannelProjectionPaths | Mapping[str, object] | None,
 ) -> dict[str, str] | None:
     """Convert projection paths into a report-friendly dict."""
     if paths is None:
         return None
+    if isinstance(paths, Mapping):
+        return {str(key): str(value) for key, value in paths.items()}
     return asdict(paths)
 
 def write_projection_bundle(

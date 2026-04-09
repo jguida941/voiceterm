@@ -177,3 +177,76 @@ def test_run_stop_action_is_idempotent_when_daemon_is_not_running(tmp_path: Path
     result = report["results"][0]
     assert result["reason"] == "not_running"
     assert result["attempted"] is False
+
+
+def test_run_stop_action_escalates_to_sigkill_after_grace_timeout(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    status_dir = tmp_path / "status"
+    status_dir.mkdir()
+    pid_alive = {"value": True}
+    monkeypatch.setattr(
+        "dev.scripts.devctl.review_channel.lifecycle_state._pid_is_alive",
+        lambda _pid: pid_alive["value"],
+    )
+    monkeypatch.setattr(
+        "dev.scripts.devctl.review_channel.lifecycle_state._heartbeat_age_seconds",
+        lambda _timestamp: 0.0,
+    )
+    write_publisher_heartbeat(
+        status_dir,
+        PublisherHeartbeat(
+            pid=5151,
+            started_at_utc="2026-03-25T12:00:00Z",
+            last_heartbeat_utc="2026-03-25T12:00:05Z",
+            snapshots_emitted=2,
+            reviewer_mode="active_dual_agent",
+        ),
+    )
+
+    clock = {"now": 0.0}
+    signals: list[int] = []
+
+    def monotonic_fn() -> float:
+        return clock["now"]
+
+    def sleep_fn(seconds: float) -> None:
+        clock["now"] += seconds
+
+    def kill_fn(pid: int, sig: int) -> None:
+        assert pid == 5151
+        signals.append(sig)
+        if sig == signal.SIGKILL:
+            pid_alive["value"] = False
+            write_publisher_heartbeat(
+                status_dir,
+                PublisherHeartbeat(
+                    pid=pid,
+                    started_at_utc="2026-03-25T12:00:00Z",
+                    last_heartbeat_utc="2026-03-25T12:00:08Z",
+                    snapshots_emitted=2,
+                    reviewer_mode="active_dual_agent",
+                    stop_reason="forced_stop",
+                    stopped_at_utc="2026-03-25T12:00:08Z",
+                ),
+            )
+
+    report, exit_code = run_stop_action(
+        args=SimpleNamespace(daemon_kind="publisher", stop_grace_seconds=3.0),
+        repo_root=tmp_path,
+        paths={"status_dir": status_dir},
+        deps=StopActionDeps(
+            kill_fn=kill_fn,
+            monotonic_fn=monotonic_fn,
+            sleep_fn=sleep_fn,
+        ),
+    )
+
+    assert exit_code == 0
+    assert report["ok"] is True
+    assert signals == [signal.SIGINT, signal.SIGTERM, signal.SIGKILL]
+    result = report["results"][0]
+    assert result["signal"] == "SIGKILL"
+    assert result["reason"] == "forced_stop"
+    assert result["stopped"] is True

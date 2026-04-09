@@ -21,24 +21,40 @@ def read_json_artifact(path: Path) -> dict[str, Any] | None:
         return None
 
 
-def artifact_paths(repo_root: Path) -> dict[str, Path]:
+def artifact_paths(
+    repo_root: Path,
+    *,
+    review_status_dir: Path | None = None,
+) -> dict[str, Path]:
     """Resolve all artifact paths needed for the read model."""
+    if review_status_dir is not None:
+        status_root = (
+            review_status_dir
+            if review_status_dir.is_absolute()
+            else (repo_root / review_status_dir)
+        )
+        return _artifact_path_mapping(
+            repo_root=repo_root,
+            status_root=status_root,
+            review_state_path=status_root / "review_state.json",
+            push_report_path=_push_report_path(repo_root),
+        )
     try:
         from ..repo_packs import active_path_config
 
         cfg = active_path_config()
         return _artifact_path_mapping(
             repo_root=repo_root,
-            status_dir=cfg.review_status_dir_rel,
-            review_state_rel=cfg.review_state_json_rel,
-            push_report_rel=cfg.push_report_rel,
+            status_root=repo_root / cfg.review_status_dir_rel,
+            review_state_path=repo_root / cfg.review_state_json_rel,
+            push_report_path=repo_root / cfg.push_report_rel,
         )
     except Exception:  # broad-except: allow reason=repo-pack bootstrap can fail before path config is activated fallback=legacy review-status layout
         return _artifact_path_mapping(
             repo_root=repo_root,
-            status_dir="dev/review_status",
-            review_state_rel="dev/review_status/review_state.json",
-            push_report_rel="dev/reports/push/latest/push_report.json",
+            status_root=repo_root / "dev/review_status",
+            review_state_path=repo_root / "dev/review_status/review_state.json",
+            push_report_path=repo_root / "dev/reports/push/latest/push_report.json",
         )
 
 
@@ -46,6 +62,7 @@ def load_sources(
     repo_root: Path,
     *,
     governance: "ProjectGovernance | None" = None,
+    review_status_dir: Path | None = None,
 ) -> dict[str, Any]:
     """Load every artifact the read model needs, exactly once.
 
@@ -54,21 +71,31 @@ def load_sources(
     observes the same bridge-refreshed projection instead of diverging
     across multiple persisted review-state files on disk.
     """
-    paths = artifact_paths(repo_root)
+    paths = artifact_paths(repo_root, review_status_dir=review_status_dir)
     conductor_sources = load_conductor_sources(paths)
     # Imported lazily to avoid a control_plane_sources <-> review_state_locator
     # initialization cycle at module load time.
-    from .review_state_locator import load_current_review_state_payload
+    from .review_state_locator import (
+        live_review_state_freshness_paths,
+        load_current_review_state_payload,
+    )
 
     review_state_payload = load_current_review_state_payload(
-        repo_root, governance=governance,
+        repo_root,
+        governance=governance,
+        review_status_dir=review_status_dir,
     )
     # Legacy fallback: environments without an overridden repo-pack config
     # and without a governance-backed review_root cannot produce a payload
     # through the typed locator. Drop back to ``paths["review_state"]`` so
-    # older fixtures and bare repos keep working; the primary fresh-read
-    # path above still satisfies the F1 parity contract in production.
-    if review_state_payload is None:
+    # older fixtures and bare repos keep working. Do NOT fall back when live
+    # bridge-backed freshness paths exist; that would silently reintroduce a
+    # stale typed projection after the freshness-aware loader already refused
+    # it.
+    if review_state_payload is None and not live_review_state_freshness_paths(
+        repo_root,
+        governance=governance,
+    ):
         review_state_payload = read_json_artifact(paths["review_state"])
     sources: dict[str, Any] = {
         "receipt": read_json_artifact(paths["receipt"]),
@@ -91,20 +118,28 @@ def load_sources(
 def _artifact_path_mapping(
     *,
     repo_root: Path,
-    status_dir: str,
-    review_state_rel: str,
-    push_report_rel: str,
+    status_root: Path,
+    review_state_path: Path,
+    push_report_path: Path,
 ) -> dict[str, Path]:
     paths: dict[str, Path] = {
         "receipt": repo_root / "dev/reports/startup/latest/receipt.json",
-        "review_state": repo_root / review_state_rel,
-        "push_report": repo_root / push_report_rel,
-        "publisher_hb": repo_root / f"{status_dir}/publisher_heartbeat.json",
-        "supervisor_hb": repo_root
-        / f"{status_dir}/reviewer_supervisor_heartbeat.json",
+        "review_state": review_state_path,
+        "push_report": push_report_path,
+        "publisher_hb": status_root / "publisher_heartbeat.json",
+        "supervisor_hb": status_root / "reviewer_supervisor_heartbeat.json",
     }
-    paths["codex_conductor"] = repo_root / f"{status_dir}/sessions/codex-conductor.json"
-    paths["claude_conductor"] = repo_root / f"{status_dir}/sessions/claude-conductor.json"
-    paths["full_json"] = repo_root / f"{status_dir}/full.json"
-    paths["compact_json"] = repo_root / f"{status_dir}/compact.json"
+    paths["codex_conductor"] = status_root / "sessions" / "codex-conductor.json"
+    paths["claude_conductor"] = status_root / "sessions" / "claude-conductor.json"
+    paths["full_json"] = status_root / "full.json"
+    paths["compact_json"] = status_root / "compact.json"
     return paths
+
+
+def _push_report_path(repo_root: Path) -> Path:
+    try:
+        from ..repo_packs import active_path_config
+
+        return repo_root / active_path_config().push_report_rel
+    except Exception:  # broad-except: allow reason=repo-pack bootstrap can fail before path config is activated fallback=legacy push-report layout
+        return repo_root / "dev/reports/push/latest/push_report.json"

@@ -93,7 +93,6 @@ def run(args) -> int:
         warnings.extend(load_errors)
         controller_payload = {}
 
-    cp_model = build_control_plane_read_model(repo_root)
     execution_mode = getattr(args, "execution_mode", "auto")
     review_result = load_mobile_review_state(
         repo_root,
@@ -115,6 +114,10 @@ def run(args) -> int:
     merged_payload: dict[str, Any] = {}
     cp_section: dict[str, Any] = {}
     if not errors:
+        cp_model = build_control_plane_read_model(
+            repo_root,
+            review_status_dir=review_status_dir,
+        )
         approval_mode = normalize_approval_mode(getattr(args, "approval_mode", None))
         approval_policy = build_approval_policy_payload(approval_mode)
         source_paths = {

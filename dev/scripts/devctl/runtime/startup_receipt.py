@@ -54,6 +54,8 @@ class StartupReceipt:
     publication_backlog_recommended: bool = False
     publication_backlog_urgent: bool = False
     publication_guidance: str = ""
+    staged_path_count: int = 0
+    unstaged_path_count: int = 0
     checkpoint_required: bool = False
     safe_to_continue_editing: bool = True
     startup_authority_ok: bool = False
@@ -160,6 +162,8 @@ def build_startup_receipt(
             ctx.push_decision.publication_backlog.backlog_urgent
         ),
         publication_guidance=str(ctx.push_decision.publication_guidance or "").strip(),
+        staged_path_count=int(getattr(push, "staged_path_count", 0) or 0),
+        unstaged_path_count=int(getattr(push, "unstaged_path_count", 0) or 0),
         checkpoint_required=bool(push.checkpoint_required) if push is not None else False,
         safe_to_continue_editing=(
             bool(push.safe_to_continue_editing) if push is not None else True
@@ -249,6 +253,8 @@ def startup_receipt_from_mapping(payload: dict[str, object]) -> StartupReceipt:
             payload.get("publication_backlog_urgent", False)
         ),
         publication_guidance=str(payload.get("publication_guidance") or "").strip(),
+        staged_path_count=int(payload.get("staged_path_count") or 0),
+        unstaged_path_count=int(payload.get("unstaged_path_count") or 0),
         checkpoint_required=bool(payload.get("checkpoint_required", False)),
         safe_to_continue_editing=bool(payload.get("safe_to_continue_editing", True)),
         startup_authority_ok=bool(payload.get("startup_authority_ok", False)),

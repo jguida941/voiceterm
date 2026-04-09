@@ -1131,6 +1131,61 @@ class ReviewChannelHelperTests(unittest.TestCase):
         )
         self.assertIn("typed launch truth stayed `detached_runtime_only`", cleanup_warnings[0])
 
+    def test_launch_sessions_if_requested_live_terminal_rechecks_once_for_late_poll(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            bridge_path = Path(tmpdir) / "bridge.md"
+            initial_poll = _fresh_utc_z(seconds_offset=-30)
+            bridge_path.write_text(
+                _build_bridge_text(last_codex_poll=initial_poll),
+                encoding="utf-8",
+            )
+            first_launch_poll = {
+                "observed": False,
+                "poll_advanced": False,
+                "poll_status_changed": False,
+                "poll_status_automation_only": False,
+                "poll_status_reason": "",
+                "launch_truth": "live",
+                "codex_conductor_active": True,
+                "claude_conductor_active": True,
+                "last_codex_poll_utc": initial_poll,
+            }
+            second_launch_poll = {
+                **first_launch_poll,
+                "observed": True,
+                "poll_advanced": True,
+                "poll_status_changed": True,
+                "last_codex_poll_utc": _fresh_utc_z(seconds_offset=-5),
+            }
+
+            with patch(
+                "dev.scripts.devctl.commands.review_channel.bridge_launch_control.wait_for_codex_poll_refresh",
+                side_effect=[first_launch_poll, second_launch_poll],
+            ) as wait_mock:
+                launched, ack_required, ack_observed, cleanup_warnings = launch_sessions_if_requested(
+                    BridgeLaunchSessionRequest(
+                        args=SimpleNamespace(
+                            action="launch",
+                            terminal="terminal-app",
+                            dry_run=False,
+                            await_ack_seconds=1,
+                        ),
+                        sessions=[{"launch_command": "/bin/zsh /tmp/new-codex.sh"}],
+                        bridge_path=bridge_path,
+                        handoff_bundle=None,
+                        terminal_profile_applied="Pro",
+                        launch_terminal_sessions_fn=lambda *args, **kwargs: None,
+                    )
+                )
+
+        self.assertTrue(launched)
+        self.assertFalse(ack_required)
+        self.assertIsNone(ack_observed)
+        self.assertEqual(cleanup_warnings, [])
+        self.assertEqual(wait_mock.call_count, 2)
+
     def test_ensure_launch_runtime_daemons_starts_missing_publisher(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             repo_root = Path(tmpdir)

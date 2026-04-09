@@ -27,6 +27,7 @@ from dev.scripts.devctl.runtime.startup_context import (
     _derive_push_decision,
     _detect_reviewer_gate,
     _interaction_mode_from_reviewer_mode,
+    _load_startup_review_state,
     build_startup_context,
 )
 from dev.scripts.devctl.runtime.project_governance import (
@@ -146,6 +147,47 @@ class TestStartupContextBuild(unittest.TestCase):
         size = len(json.dumps(ctx.to_dict()))
         tokens = size // 4
         self.assertLess(tokens, 10000, f"startup context too large: {tokens} tokens")
+
+    @patch("dev.scripts.devctl.runtime.startup_review_state.load_current_review_state")
+    def test_load_startup_review_state_threads_review_status_dir(
+        self,
+        load_current_review_state,
+    ) -> None:
+        sentinel = object()
+        load_current_review_state.return_value = sentinel
+
+        repo_root = Path("/tmp/repo")
+        review_status_dir = Path("dev/reports/custom-review")
+        result = _load_startup_review_state(
+            repo_root,
+            governance=None,
+            review_state=None,
+            review_status_dir=review_status_dir,
+        )
+
+        load_current_review_state.assert_called_once_with(
+            repo_root,
+            governance=None,
+            review_status_dir=review_status_dir,
+            prefer_cached_projection=False,
+        )
+        self.assertIs(result, sentinel)
+
+    @patch("dev.scripts.devctl.runtime.startup_review_state.load_current_review_state")
+    def test_load_startup_review_state_prefers_frozen_review_state(
+        self,
+        load_current_review_state,
+    ) -> None:
+        frozen = object()
+        result = _load_startup_review_state(
+            Path("/tmp/repo"),
+            governance=None,
+            review_state=frozen,
+            review_status_dir=Path("ignored"),
+        )
+
+        load_current_review_state.assert_not_called()
+        self.assertIs(result, frozen)
 
 
 class TestCoordinationParityF1(unittest.TestCase):
@@ -1415,6 +1457,46 @@ class TestAdvisoryAction(unittest.TestCase):
         self.assertEqual(decision.action, "await_checkpoint")
         self.assertFalse(decision.push_eligible_now)
         self.assertIn("checkpoint", decision.next_step_summary.lower())
+
+    def test_push_decision_names_staged_index_when_index_is_nonempty(self) -> None:
+        gov = _minimal_governance(
+            worktree_clean=False,
+            worktree_dirty=True,
+            staged_path_count=4,
+            unstaged_path_count=0,
+        )
+        gate = ReviewerGateState(review_gate_allows_push=False)
+
+        decision = _derive_push_decision(
+            gov.push_enforcement,
+            review_gate_allows_push=gate.review_gate_allows_push,
+            implementation_blocked=gate.implementation_blocked,
+            implementation_block_reason=gate.implementation_block_reason,
+        )
+
+        self.assertEqual(decision.action, "await_checkpoint")
+        self.assertEqual(decision.reason, "staged_index_present")
+        self.assertIn("staged work waiting in the index", decision.next_step_summary)
+
+    def test_push_decision_names_mixed_staged_and_unstaged_worktree(self) -> None:
+        gov = _minimal_governance(
+            worktree_clean=False,
+            worktree_dirty=True,
+            staged_path_count=2,
+            unstaged_path_count=3,
+        )
+        gate = ReviewerGateState(review_gate_allows_push=False)
+
+        decision = _derive_push_decision(
+            gov.push_enforcement,
+            review_gate_allows_push=gate.review_gate_allows_push,
+            implementation_blocked=gate.implementation_blocked,
+            implementation_block_reason=gate.implementation_block_reason,
+        )
+
+        self.assertEqual(decision.action, "await_checkpoint")
+        self.assertEqual(decision.reason, "staged_and_unstaged_worktree_present")
+        self.assertIn("both a staged index and unstaged edits", decision.next_step_summary)
 
     def test_push_decision_waits_for_review_when_clean_but_unaccepted(self) -> None:
         gov = _minimal_governance(worktree_clean=True, worktree_dirty=False)

@@ -8,9 +8,10 @@ Section-specific renderers live in focused submodules:
   (renders ``top_blocker`` and other ControlPlaneReadModel fields)
 - ``dashboard_render_attention``: attention, doctor, and flow renderers
 
-The ``top_blocker`` field from ``ControlPlaneReadModel`` is surfaced
-through the terminal and markdown submodules. This module routes both
-render paths through the dispatcher below.
+The dashboard now exposes a dedicated ``control_plane`` section sourced from
+``ControlPlaneReadModel`` so operator/AI readers can see one organized answer
+for workflow phase, blockers, next command, and execution mode. This module
+routes both render paths through the dispatcher below.
 """
 
 from __future__ import annotations
@@ -22,6 +23,7 @@ from typing import Any
 
 from ..dashboard import _VIEW_SECTIONS
 from . import attention as _attn
+from . import control_plane as _control
 from . import terminal as _term
 from . import markdown as _md
 from .helpers import (
@@ -113,6 +115,8 @@ def render_terminal(snapshot: dict[str, Any], *, no_color: bool = False) -> str:
         _term._render_analytics_terminal(snapshot, lines)
     if _view_includes(snapshot, "coordination"):
         _term._render_coordination_terminal(snapshot, lines)
+    if _view_includes(snapshot, "control_plane"):
+        _control.render_control_plane_terminal(snapshot, lines)
     if _view_includes(snapshot, "flow"):
         _attn.render_flow_terminal(snapshot, lines)
     if _view_includes(snapshot, "timeline"):
@@ -151,6 +155,8 @@ def render_markdown(snapshot: dict[str, Any]) -> str:
         _md._render_analytics_markdown(snapshot, lines)
     if _view_includes(snapshot, "coordination"):
         _md._render_coordination_markdown(snapshot, lines)
+    if _view_includes(snapshot, "control_plane"):
+        _control.render_control_plane_markdown(snapshot, lines)
     if _view_includes(snapshot, "flow"):
         _attn.render_flow_markdown(snapshot, lines)
     if _view_includes(snapshot, "timeline"):

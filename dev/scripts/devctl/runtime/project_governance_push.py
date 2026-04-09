@@ -24,6 +24,8 @@ class PushEnforcement:
     ahead_of_upstream_commits: int | None = None
     dirty_path_count: int = 0
     untracked_path_count: int = 0
+    staged_path_count: int = 0
+    unstaged_path_count: int = 0
     max_dirty_paths_before_checkpoint: int = 12
     max_untracked_paths_before_checkpoint: int = 6
     checkpoint_required: bool = False
@@ -92,6 +94,8 @@ def push_enforcement_from_mapping(
         ahead_of_upstream_commits=ahead,
         dirty_path_count=coerce_int(payload.get("dirty_path_count")),
         untracked_path_count=coerce_int(payload.get("untracked_path_count")),
+        staged_path_count=coerce_int(payload.get("staged_path_count")),
+        unstaged_path_count=coerce_int(payload.get("unstaged_path_count")),
         max_dirty_paths_before_checkpoint=(
             coerce_int(payload.get("max_dirty_paths_before_checkpoint")) or 12
         ),

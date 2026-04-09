@@ -490,13 +490,13 @@ surface for remote sessions. It should project:
       test helpers must all route through the governed executor plus typed
       receipts. `package_layout` remains only a coarse self-hosting backstop
       and does not count as mutation closure.
-- [ ] Keep this graph-backed slice narrowly scoped: the accepted work here is
+- [x] Keep this graph-backed slice narrowly scoped: the accepted work here is
       one query over the existing graph substrate plus a small codeshape
       ingestion pass, not a new graph backend or a generic semantic-engine
       buildout. The first deliverable is the raw-git bypass proof for this
       lane; richer schema-diff or lineage work belongs to the downstream
       owner docs after this substrate is proven.
-- [ ] Land the first graph-backed mutation-bypass proof for this lane:
+- [x] Land the first graph-backed mutation-bypass proof for this lane:
       compose `dev/scripts/devctl/context_graph/models.py` with a codeshape
       ingestor over `dev/scripts/devctl/commands/vcs/`,
       `dev/scripts/devctl/commands/governance/install_git_hooks.py`, the
@@ -512,6 +512,13 @@ surface for remote sessions. It should project:
 - [ ] Surface commit-gate freshness / last-guard truth through doctor, status,
       and auto-mode so approval-ready state cannot be inferred from stale or
       bypassed guard runs.
+- [ ] Make staged-index state first-class in the same startup/push authority
+      path: `PushEnforcement`, startup receipts, review-channel status/doctor,
+      and review snapshots must distinguish staged vs unstaged paths instead of
+      collapsing everything into one dirty-path count. Large staged sets must
+      be visible as explicit checkpoint/publish blockers and, when no governed
+      pipeline owns them, they must fail closed as unowned staged work rather
+      than reading as a generic dirty worktree.
 - [ ] Surface validation-plan reasons through doctor/status/dashboard: selected
       bundle, triggering paths, required add-ons, why the tier escalated or did
       not escalate, and whether the proof is enough for checkpoint or push.
@@ -587,6 +594,19 @@ surface for remote sessions. It should project:
   over `context_graph` plus the governed VCS surfaces, emit
   `mutation_bypass_proof.json`, and only then promote the no-bypass
   invariant into a permanent guard.
+- 2026-04-09: Landed the bounded A1 mutation-bypass proof in repo code. The
+  new `context_graph.codeshape` ingestion plus
+  `governance_graph.mutation_bypass` report/guard surface now emits
+  `dev/reports/governance/mutation_bypass_proof.json`, and the first replay on
+  this repo found a real ungoverned path:
+  `dev/scripts/devctl/commands/vcs/commit.py::run_commit` could still reach
+  `dev/scripts/devctl/runtime/review_snapshot_refresh.py::refresh_and_stage_review_snapshot`
+  outside `GovernedVcsExecutor.execute`. The fix removed that direct pre-stage
+  refresh from `vcs.commit` so staging now stays owned by the governed phase
+  hook. Keep the next graph step ordered behind the current live blocker set:
+  after this lane is checkpoint-clean, the next graph-backed work is
+  identity-tuple parity in `platform_authority_loop.md`, not a wider graph
+  backend or dispatcher port from this doc.
 - 2026-04-09: Closed the post-approval staged-tree drift uncovered while
   dogfooding the governed lane locally. `devctl commit` now refreshes and
   stages `REVIEW_SNAPSHOT.md` before the pipeline mints the staged tree hash

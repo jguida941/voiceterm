@@ -325,18 +325,27 @@ def collect_devctl_quality_backlog(
 def load_review_payload_from_bridge(
     repo_root: Path, *, path_config: RepoPathConfig | None = None
 ) -> tuple[dict[str, object] | None, tuple[str, ...]]:
-    """Refresh and load the repo-pack owned review payload for thin clients."""
+    """Refresh and load the repo-pack owned full review payload for thin clients."""
     config = path_config or VOICETERM_PATH_CONFIG
     review_channel_path = repo_root / config.review_channel_rel
     bridge_path = repo_root / config.bridge_rel
     status_root = repo_root / config.review_status_dir_rel
     if not review_channel_path.exists() or not bridge_path.exists():
         return None, ()
+    from .review_helpers import load_mobile_review_state
 
-    full_path = status_root / "full.json"
-    if full_path.exists():
-        payload = json.loads(full_path.read_text(encoding="utf-8"))
-        return (payload if isinstance(payload, dict) else {}, ())
+    result = load_mobile_review_state(
+        repo_root,
+        bridge_path=bridge_path,
+        review_channel_path=review_channel_path,
+        review_status_dir=status_root,
+        execution_mode="auto",
+    )
+    if result.errors:
+        return None, tuple(result.errors)
+    payload = result.review_payload if isinstance(result.review_payload, dict) else {}
+    if "review_state" in payload or "bridge_liveness" in payload:
+        return payload, tuple(result.warnings)
 
     from ..review_channel.state import refresh_status_snapshot
 
@@ -351,5 +360,5 @@ def load_review_payload_from_bridge(
     )
     return (
         payload if isinstance(payload, dict) else {},
-        tuple(status_snapshot.warnings),
+        tuple([*result.warnings, *status_snapshot.warnings]),
     )

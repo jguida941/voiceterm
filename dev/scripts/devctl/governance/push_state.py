@@ -18,13 +18,16 @@ from ..review_channel.remote_commit_pipeline_artifact import (
 )
 from .push_publication import build_publication_backlog_state
 from .push_policy import PushCheckpointPolicy, PushPolicy
+from .push_state_models import PushDecisionInputs, PushEnforcementSnapshot
 from .push_state_authorization import (
     approved_target_identity_from_pipeline as _approved_target_identity_from_pipeline,
     checkpoint_reason as _checkpoint_reason,
     push_authorization_state_from_pipeline as _push_authorization_state_from_pipeline,
 )
 from .push_state_git import (
+    WorktreeChangeCounts,
     git_stdout as _git_stdout,
+    parse_worktree_change_summary,
     worktree_change_counts as _worktree_change_counts,
 )
 from .push_state_report import (
@@ -34,58 +37,43 @@ from .push_state_report import (
 )
 
 
-@dataclass(frozen=True, slots=True)
-class PushEnforcementSnapshot:
-    """Typed snapshot of the repo-owned push/checkpoint state."""
+def _worktree_change_summary(
+    repo_root: Path,
+    *,
+    exclude_paths: tuple[str, ...] = (),
+) -> WorktreeChangeCounts:
+    """Return staged/unstaged/untracked counts using the local git seam.
 
-    current_branch: str
-    current_head_commit: str
-    default_remote: str
-    development_branch: str
-    release_branch: str
-    pre_push_hook_path: str
-    pre_push_hook_installed: bool
-    raw_git_push_guarded: bool
-    upstream_ref: str
-    ahead_of_upstream_commits: int | None
-    dirty_path_count: int
-    untracked_path_count: int
-    max_dirty_paths_before_checkpoint: int
-    max_untracked_paths_before_checkpoint: int
-    checkpoint_required: bool
-    safe_to_continue_editing: bool
-    checkpoint_reason: str
-    worktree_dirty: bool
-    worktree_clean: bool
-    recommended_action: str
-    pending_publication_commits: int | None = None
-    publication_backlog_state: str = "none"
-    publication_backlog_summary: str = ""
-    publication_backlog_recommended: bool = False
-    publication_backlog_urgent: bool = False
-    recommend_after_ahead_commits: int = 2
-    urgent_after_ahead_commits: int = 5
-    latest_push_report_path: str = ""
-    latest_push_report_branch: str = ""
-    latest_push_report_remote: str = ""
-    latest_push_report_head_commit: str = ""
-    latest_push_report_status: str = ""
-    latest_push_report_reason: str = ""
-    latest_push_report_published_remote: bool = False
-    latest_push_report_post_push_green: bool = False
-    current_approved_target_identity: str = ""
-    latest_push_report_approved_target_identity: str = ""
-    latest_push_report_matches_current_approved_target: bool = False
-    latest_push_report_matches_current_branch: bool = False
-    latest_push_report_matches_current_head: bool = False
-    current_push_authorization_id: str = ""
-    current_push_authorization_mode: str = ""
-    current_push_authorization_head_commit: str = ""
-    current_push_authorization_expires_at_utc: str = ""
-    current_push_authorization_approved_target_identity: str = ""
-    current_push_authorization_matches_current_head: bool = False
-    current_push_authorization_matches_current_approved_target: bool = False
-    current_push_authorization_valid: bool = False
+    ``detect_push_enforcement_state`` has long been tested by patching this
+    module's ``_git_stdout`` helper. Keep the staged-index summary on the same
+    seam so runtime logic and tests read one consistent synthetic worktree.
+    """
+    status_raw = _git_stdout(
+        repo_root,
+        "status",
+        "--porcelain",
+        "--untracked-files=all",
+    )
+    return parse_worktree_change_summary(
+        status_raw,
+        exclude_paths=exclude_paths,
+    )
+
+
+def _worktree_change_counts(
+    repo_root: Path,
+    *,
+    exclude_paths: tuple[str, ...] = (),
+) -> tuple[int, int]:
+    """Backward-compatible helper for tests and legacy callers.
+
+    Returns the historical ``(dirty_path_count, untracked_path_count)`` tuple
+    while the runtime internally uses ``worktree_change_summary`` for the
+    expanded staged/unstaged contract.
+    """
+
+    summary = _worktree_change_summary(repo_root, exclude_paths=exclude_paths)
+    return summary.dirty_path_count, summary.untracked_path_count
 
 
 def detect_push_enforcement_state(
@@ -99,10 +87,14 @@ def detect_push_enforcement_state(
         *policy.checkpoint.compatibility_projection_paths,
         *policy.checkpoint.advisory_context_paths,
     )
-    dirty_path_count, untracked_path_count = _worktree_change_counts(
+    change_counts = _worktree_change_summary(
         repo_root,
         exclude_paths=excluded_paths,
     )
+    dirty_path_count = change_counts.dirty_path_count
+    untracked_path_count = change_counts.untracked_path_count
+    staged_path_count = change_counts.staged_path_count
+    unstaged_path_count = change_counts.unstaged_path_count
     worktree_dirty = dirty_path_count > 0
     worktree_clean = not worktree_dirty
     checkpoint_required = (
@@ -110,7 +102,6 @@ def detect_push_enforcement_state(
         or untracked_path_count >= policy.checkpoint.max_untracked_paths_before_checkpoint
     )
     safe_to_continue_editing = not checkpoint_required
-    checkpoint_reason = "clean_worktree"
     receipt = lookup_push_receipt(
         branch=runtime.current_branch,
         head_commit=runtime.current_head_commit,
@@ -149,22 +140,27 @@ def detect_push_enforcement_state(
         recorded_remote_publication_for_current_target
         or (runtime.ahead_of_upstream_commits == 0 and runtime.upstream_ref)
     )
-    if checkpoint_required:
-        recommended_action = "checkpoint_before_continue"
-        checkpoint_reason = _checkpoint_reason(
+    recommended_action, checkpoint_reason = _recommended_action_and_checkpoint_reason(
+        PushDecisionInputs(
+            checkpoint_required=checkpoint_required,
+            worktree_dirty=worktree_dirty,
+            max_dirty_paths_before_checkpoint=(
+                policy.checkpoint.max_dirty_paths_before_checkpoint
+            ),
+            max_untracked_paths_before_checkpoint=(
+                policy.checkpoint.max_untracked_paths_before_checkpoint
+            ),
             dirty_path_count=dirty_path_count,
             untracked_path_count=untracked_path_count,
-            policy=policy.checkpoint,
+            staged_path_count=staged_path_count,
+            unstaged_path_count=unstaged_path_count,
+            recorded_remote_publication_for_current_target=(
+                recorded_remote_publication_for_current_target
+            ),
+            ahead_of_upstream_commits=runtime.ahead_of_upstream_commits,
+            upstream_ref=runtime.upstream_ref,
         )
-    elif worktree_dirty:
-        recommended_action = "commit_before_push"
-        checkpoint_reason = "within_dirty_budget"
-    elif recorded_remote_publication_for_current_target or (
-        runtime.ahead_of_upstream_commits == 0 and runtime.upstream_ref
-    ):
-        recommended_action = "no_push_needed"
-    else:
-        recommended_action = "use_devctl_push"
+    )
     publication_backlog = build_publication_backlog_state(
         ahead_of_upstream_commits=runtime.ahead_of_upstream_commits,
         has_remote_work_to_push=has_remote_work_to_push,
@@ -184,6 +180,8 @@ def detect_push_enforcement_state(
         ahead_of_upstream_commits=runtime.ahead_of_upstream_commits,
         dirty_path_count=dirty_path_count,
         untracked_path_count=untracked_path_count,
+        staged_path_count=staged_path_count,
+        unstaged_path_count=unstaged_path_count,
         max_dirty_paths_before_checkpoint=policy.checkpoint.max_dirty_paths_before_checkpoint,
         max_untracked_paths_before_checkpoint=policy.checkpoint.max_untracked_paths_before_checkpoint,
         checkpoint_required=checkpoint_required,
@@ -248,6 +246,40 @@ class _PushRuntimeInputs:
     current_push_authorization_valid: bool
     upstream_ref: str
     ahead_of_upstream_commits: int | None
+
+
+def _recommended_action_and_checkpoint_reason(
+    inputs: PushDecisionInputs,
+) -> tuple[str, str]:
+    if inputs.checkpoint_required:
+        if (
+            inputs.staged_path_count
+            >= inputs.max_dirty_paths_before_checkpoint
+        ):
+            return "checkpoint_before_continue", "staged_index_budget_exceeded"
+        return "checkpoint_before_continue", _checkpoint_reason(
+            dirty_path_count=inputs.dirty_path_count,
+            untracked_path_count=inputs.untracked_path_count,
+            policy=PushCheckpointPolicy(
+                max_dirty_paths_before_checkpoint=(
+                    inputs.max_dirty_paths_before_checkpoint
+                ),
+                max_untracked_paths_before_checkpoint=(
+                    inputs.max_untracked_paths_before_checkpoint
+                ),
+            ),
+        )
+    if inputs.worktree_dirty:
+        if inputs.staged_path_count > 0 and inputs.unstaged_path_count > 0:
+            return "commit_before_push", "staged_and_unstaged_worktree_present"
+        if inputs.staged_path_count > 0:
+            return "commit_before_push", "staged_index_present"
+        return "commit_before_push", "within_dirty_budget"
+    if inputs.recorded_remote_publication_for_current_target or (
+        inputs.ahead_of_upstream_commits == 0 and inputs.upstream_ref
+    ):
+        return "no_push_needed", "clean_worktree"
+    return "use_devctl_push", "clean_worktree"
 
 
 def _detect_runtime_inputs(

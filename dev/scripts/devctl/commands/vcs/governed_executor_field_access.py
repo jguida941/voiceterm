@@ -27,11 +27,18 @@ def string_field(value: object, key: str) -> str:
     return string_value(field(value, key, ""))
 
 
-def bool_field(value: object, key: str) -> bool:
-    """Return one boolean field from a mapping or attribute object."""
-    raw = field(value, key, False)
+def bool_value(value: object, *, default: bool = False) -> bool:
+    """Return one parsed boolean value with a configurable default."""
+    if value is None:
+        return default
+    raw = value
     if isinstance(raw, bool):
         return raw
     if isinstance(raw, str):
         return raw.strip().lower() in {"1", "true", "yes", "on"}
     return bool(raw)
+
+
+def bool_field(value: object, key: str, *, default: bool = False) -> bool:
+    """Return one boolean field from a mapping or attribute object."""
+    return bool_value(field(value, key, default), default=default)

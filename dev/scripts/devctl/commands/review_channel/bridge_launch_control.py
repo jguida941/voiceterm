@@ -10,13 +10,9 @@ from typing import TYPE_CHECKING
 
 from .bridge_launch_headless import launch_sessions_headless as _launch_sessions_headless
 from .launcher_discipline import (
-    LauncherDisciplineVerdict,
-    validate_visible_launch_in_local_mode,
+    enforce_launch_request_discipline,
 )
-from ...review_channel.core import (
-    AUTO_DARK_TERMINAL_PROFILES,
-    DEFAULT_TERMINAL_PROFILE,
-)
+from ...review_channel.core import AUTO_DARK_TERMINAL_PROFILES, DEFAULT_TERMINAL_PROFILE
 from ...review_channel.handoff import (
     extract_bridge_snapshot,
     summarize_bridge_liveness,
@@ -26,10 +22,7 @@ from ...review_channel.handoff import (
 )
 from ...review_channel.heartbeat import compute_non_audit_worktree_hash
 from ...review_channel.launch_truth import build_launch_probe_state, classify_launch_truth
-from ...review_channel.lifecycle_state import (
-    read_publisher_state,
-    read_reviewer_supervisor_state,
-)
+from ...review_channel.lifecycle_state import read_publisher_state, read_reviewer_supervisor_state
 from ...review_channel.launch import launch_terminal_sessions
 from ...review_channel.session_probe import active_conductor_providers
 from ...review_channel.terminal_app import cleanup_terminal_session
@@ -39,25 +32,19 @@ if TYPE_CHECKING:
 
 _PUBLISHER_START_WAIT_POLLS = 10
 _PUBLISHER_START_WAIT_SECONDS = 0.1
+_LIVE_LAUNCH_POST_TIMEOUT_RECHECK_SECONDS = 60
 
 
 @dataclass(frozen=True)
 class LaunchSessionRequest:
-    """Typed launch inputs for the bridge-backed conductor start path.
-
-    F21 (launcher discipline): ``interaction_mode`` is the typed operator
-    interaction mode read by the caller from governance/startup authority.
-    The dispatcher uses it together with ``args.terminal`` to decide whether
-    a headless launch is allowed in the current operator context. Empty
-    string means "unresolved" and is treated fail-closed by the launcher
-    discipline validator (see ``launcher_discipline.py``).
-    """
+    """Typed launch inputs for the bridge-backed conductor start path."""
 
     args: object
     sessions: list[dict[str, object]]
     bridge_path: Path
     handoff_bundle: object
     terminal_profile_applied: str | None
+    repo_root: Path | None = None
     interaction_mode: str = ""
     launch_terminal_sessions_fn: Callable[..., None] = launch_terminal_sessions
     retired_sessions: tuple["ConductorSessionRecord", ...] = ()
@@ -106,17 +93,7 @@ def prepare_rollover_bundle(
 def launch_sessions_if_requested(
     request: LaunchSessionRequest,
 ) -> tuple[bool, bool, dict[str, bool] | None, list[str]]:
-    """Launch conductor sessions via Terminal.app or headless subprocess.
-
-    F21 launcher-discipline gate: before any spawn happens, the dispatcher
-    calls ``validate_visible_launch_in_local_mode`` with the typed
-    ``interaction_mode`` carried on the request, the caller-provided
-    ``args.terminal`` value, and the explicit
-    A denial fails closed by raising ``ValueError`` with the typed operator-
-    visible reason from the verdict so the caller can surface the typed
-    denial to the operator instead of silently spawning a headless conductor
-    that cannot answer auth/permission prompts (the F4 trap).
-    """
+    """Launch conductor sessions via Terminal.app or headless subprocess."""
     args = request.args
     launched = False
     handoff_ack_required = False
@@ -124,23 +101,7 @@ def launch_sessions_if_requested(
     cleanup_warnings: list[str] = []
     if args.action not in {"launch", "rollover"} or args.dry_run:
         return launched, handoff_ack_required, handoff_ack_observed, cleanup_warnings
-    # F21: launcher-discipline pre-flight gate. Fails closed when a
-    # headless launch is requested in local_terminal/unresolved mode
-    # without an explicit operator override. The pure helper lives in
-    # ``launcher_discipline.py``; this is the integration point Codex
-    # specifically called out as the gap in the prior pure-helper slice.
-    discipline_verdict: LauncherDisciplineVerdict = (
-        validate_visible_launch_in_local_mode(
-            interaction_mode=request.interaction_mode,
-            terminal_arg=str(getattr(args, "terminal", "")),
-        )
-    )
-    if not discipline_verdict.allowed:
-        raise ValueError(
-            "Launcher discipline refused this launch: "
-            f"reason={discipline_verdict.denial_reason}. "
-            f"{discipline_verdict.operator_message}"
-        )
+    validate_launch_request_discipline(request)
     prelaunch_snapshot = extract_bridge_snapshot(
         request.bridge_path.read_text(encoding="utf-8")
     )
@@ -166,6 +127,18 @@ def launch_sessions_if_requested(
             timeout_seconds=args.await_ack_seconds,
             observe_launch_state_fn=request.observe_launch_state_fn,
         )
+        if (
+            args.terminal == "terminal-app"
+            and not bool(launch_poll.get("observed"))
+            and _should_recheck_live_launch_timeout(launch_poll)
+        ):
+            launch_poll = wait_for_codex_poll_refresh(
+                bridge_path=request.bridge_path,
+                previous_poll_utc=prelaunch_poll_utc,
+                previous_poll_status=prelaunch_poll_status,
+                timeout_seconds=_LIVE_LAUNCH_POST_TIMEOUT_RECHECK_SECONDS,
+                observe_launch_state_fn=request.observe_launch_state_fn,
+            )
         if not bool(launch_poll.get("observed")):
             detail = _render_launch_timeout_detail(
                 launch_poll=launch_poll,
@@ -214,6 +187,15 @@ def launch_sessions_if_requested(
     return launched, handoff_ack_required, handoff_ack_observed, cleanup_warnings
 
 
+def validate_launch_request_discipline(request: LaunchSessionRequest) -> None:
+    """Backward-compatible wrapper for the shared launch-discipline gate."""
+    enforce_launch_request_discipline(
+        repo_root=request.repo_root,
+        interaction_mode=request.interaction_mode,
+        terminal_arg=str(getattr(request.args, "terminal", "")),
+    )
+
+
 def _lane_assignment_dict(lane) -> dict[str, object]:
     return dict(
         agent_id=lane.agent_id,
@@ -259,6 +241,16 @@ def _render_launch_timeout_detail(
             "typed status did not show a live Claude conductor session"
         )
     return "; ".join(poll_status_detail) + f" (pre-launch poll {previous_poll_display})."
+
+
+def _should_recheck_live_launch_timeout(launch_poll: dict[str, object]) -> bool:
+    """Retry once when launch-time typed state suggests the sessions are alive."""
+    launch_truth = str(launch_poll.get("launch_truth") or "").strip()
+    return (
+        launch_truth in {"live", "detached_runtime_only"}
+        or bool(launch_poll.get("codex_conductor_active"))
+        or bool(launch_poll.get("claude_conductor_active"))
+    )
 
 
 def ensure_launch_runtime_daemons(

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import subprocess
+from dataclasses import dataclass
 from pathlib import Path
 
 
@@ -22,21 +23,34 @@ def git_stdout(repo_root: Path, *cmd: str) -> str:
     return result.stdout.rstrip() if result.returncode == 0 else ""
 
 
-def worktree_change_counts(
-    repo_root: Path,
+@dataclass(frozen=True, slots=True)
+class WorktreeChangeCounts:
+    """Structured git-status counts for startup/push enforcement."""
+
+    dirty_path_count: int = 0
+    untracked_path_count: int = 0
+    staged_path_count: int = 0
+    unstaged_path_count: int = 0
+
+
+def parse_worktree_change_summary(
+    status_raw: str,
     *,
     exclude_paths: tuple[str, ...] = (),
-) -> tuple[int, int]:
-    """Return dirty and untracked path counts, excluding advisory paths."""
-    status_raw = git_stdout(repo_root, "status", "--porcelain", "--untracked-files=all")
+) -> WorktreeChangeCounts:
+    """Parse ``git status --porcelain`` output into structured counts."""
     if not status_raw:
-        return 0, 0
+        return WorktreeChangeCounts()
     exclude_set = set(exclude_paths)
     dirty_paths: set[str] = set()
     untracked_paths: set[str] = set()
+    staged_paths: set[str] = set()
+    unstaged_paths: set[str] = set()
     for line in status_raw.splitlines():
         if not line:
             continue
+        index_status = line[0]
+        worktree_status = line[1]
         status = line[:2].strip()
         path = line[3:]
         if "->" in path:
@@ -47,4 +61,37 @@ def worktree_change_counts(
         dirty_paths.add(path)
         if status == "??":
             untracked_paths.add(path)
-    return len(dirty_paths), len(untracked_paths)
+            continue
+        if index_status not in {" ", "?"}:
+            staged_paths.add(path)
+        if worktree_status not in {" ", "?"}:
+            unstaged_paths.add(path)
+    return WorktreeChangeCounts(
+        dirty_path_count=len(dirty_paths),
+        untracked_path_count=len(untracked_paths),
+        staged_path_count=len(staged_paths),
+        unstaged_path_count=len(unstaged_paths),
+    )
+
+
+def worktree_change_summary(
+    repo_root: Path,
+    *,
+    exclude_paths: tuple[str, ...] = (),
+) -> WorktreeChangeCounts:
+    """Return structured staged/unstaged/untracked counts for the worktree."""
+    status_raw = git_stdout(repo_root, "status", "--porcelain", "--untracked-files=all")
+    return parse_worktree_change_summary(
+        status_raw,
+        exclude_paths=exclude_paths,
+    )
+
+
+def worktree_change_counts(
+    repo_root: Path,
+    *,
+    exclude_paths: tuple[str, ...] = (),
+) -> tuple[int, int]:
+    """Return dirty and untracked path counts, excluding advisory paths."""
+    summary = worktree_change_summary(repo_root, exclude_paths=exclude_paths)
+    return summary.dirty_path_count, summary.untracked_path_count

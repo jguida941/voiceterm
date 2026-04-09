@@ -47,6 +47,8 @@ NODE_KIND_PROBE = "probe"
 NODE_KIND_GUIDE = "guide"
 NODE_KIND_CONCEPT = "concept"
 NODE_KIND_CAPABILITY = "capability"
+NODE_KIND_FUNCTION = "python_function"
+NODE_KIND_MUTATION_CALLSITE = "mutation_callsite"
 
 @dataclass(frozen=True)
 class GraphSize:
@@ -93,3 +95,4 @@ EDGE_KIND_ROUTES_TO = "routes_to"
 EDGE_KIND_SCOPED_BY = "scoped_by"
 EDGE_KIND_CONTAINS = "contains"
 EDGE_KIND_RELATED_TO = "related_to"
+EDGE_KIND_CALLS = "calls"

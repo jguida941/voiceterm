@@ -1,9 +1,9 @@
 """devctl install-git-hooks command.
 
 Installs the repo-owned git hooks that make raw ``git commit`` auto-refresh
-the ReviewSnapshot projection and create a trailing snapshot-only receipt
-commit, so GitHub/external-review consumers can plan from a snapshot bound
-to the code commit that was just sealed.
+the ReviewSnapshot projection, create a trailing snapshot-only receipt
+commit, and block raw ``git push`` so publication stays on the governed
+``devctl push`` path.
 
 Portability:
 
@@ -44,6 +44,7 @@ _MANAGED_MARKER = (
 _HOOK_TEMPLATE_RELPATHS = {
     "pre-commit": "dev/config/git_hooks/pre-commit-review-snapshot.sh",
     "post-commit": "dev/config/git_hooks/post-commit-review-snapshot.sh",
+    "pre-push": "dev/config/git_hooks/pre-push-governed-push.sh",
 }
 
 
@@ -53,7 +54,8 @@ def add_parser(subparsers) -> None:
         "install-git-hooks",
         help=(
             "Install repo-owned git hooks so raw `git commit` auto-refreshes "
-            "the ReviewSnapshot file and creates a trailing snapshot receipt."
+            "the ReviewSnapshot file, receipt commits stay automated, and "
+            "raw `git push` is forced back through `devctl push`."
         ),
     )
     cmd.add_argument(
@@ -256,7 +258,9 @@ def _run_install(
             "of whether the commit is made via the CLI, an IDE plugin, an "
             "editor git tool, or an AI assistant. The CI freshness guard "
             "(`check_review_snapshot_freshness.py`) remains the CI-side "
-            "backstop.\n\n"
+            "backstop. Raw `git push` is now blocked by the managed "
+            "`pre-push` hook unless the push originated from the governed "
+            "`python3 dev/scripts/devctl.py push --execute` path.\n\n"
             "To opt out temporarily: set `DEVCTL_NO_REVIEW_SNAPSHOT_REFRESH=1` "
             "in the environment for a single commit.\n"
         ),

@@ -74,6 +74,12 @@ def append_push_markdown(
             f"- checkpoint_required: {bool(push_enforcement.get('checkpoint_required'))}"
         )
         lines.append(
+            f"- staged_path_count: {int(push_enforcement.get('staged_path_count') or 0)}"
+        )
+        lines.append(
+            f"- unstaged_path_count: {int(push_enforcement.get('unstaged_path_count') or 0)}"
+        )
+        lines.append(
             "- publication_backlog_state: "
             f"{push_enforcement.get('publication_backlog_state') or 'none'}"
         )

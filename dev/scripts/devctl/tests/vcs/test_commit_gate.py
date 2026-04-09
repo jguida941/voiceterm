@@ -160,9 +160,54 @@ class TestGuardBundleRunner(unittest.TestCase):
         self.assertIn("check", cmd_str)
         self.assertIn("--profile", cmd_str)
         self.assertIn("quick", cmd_str)
+        env = call_args[1]["env"]
+        self.assertEqual(env["DEVCTL_COMMIT_GATE_BYPASS_STARTUP_AUTHORITY"], "1")
 
 
 class TestGovernedCommitPipeline(unittest.TestCase):
+    def test_commit_allows_checkpoint_required_stage_gate(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            repo_root = _init_repo(Path(tmpdir) / "repo")
+            (repo_root / "tracked.txt").write_text("updated\n", encoding="utf-8")
+            _run_git(repo_root, "add", "tracked.txt")
+            guard_runner = MagicMock(return_value=_mock_subprocess_result(0))
+
+            def _startup_context_fn(*, repo_root: Path):
+                del repo_root
+                return SimpleNamespace(
+                    reviewer_gate=SimpleNamespace(
+                        implementation_blocked=True,
+                        implementation_block_reason="checkpoint_required",
+                        checkpoint_permitted=True,
+                    ),
+                    push_decision=SimpleNamespace(
+                        action="await_checkpoint",
+                        reason="checkpoint_required",
+                    ),
+                )
+
+            executor = GovernedVcsExecutor(
+                repo_root=repo_root,
+                review_channel_path=repo_root / "dev/active/review_channel.md",
+                push_policy=_push_policy(),
+                startup_context_fn=_startup_context_fn,
+                refresh_projections=True,
+            )
+
+            rc = run_commit(
+                _make_args(message="feat: governed checkpoint commit"),
+                repo_root=repo_root,
+                policy=_push_policy(),
+                executor=executor,
+                interaction_mode="local_terminal",
+                guard_runner=guard_runner,
+            )
+
+            pipeline = executor.load_pipeline()
+            self.assertEqual(rc, 0)
+            self.assertEqual(pipeline.state, "commit_recorded")
+            self.assertTrue(pipeline.commit_sha)
+
     def test_commit_auto_approves_and_records_commit_in_local_mode(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             repo_root = _init_repo(Path(tmpdir) / "repo")
@@ -284,7 +329,7 @@ class TestGovernedCommitPipeline(unittest.TestCase):
             self.assertEqual(committed_pipeline.state, "commit_recorded")
             second_guard.assert_not_called()
 
-    def test_commit_blocks_when_refresh_changes_approved_tree(self) -> None:
+    def test_commit_refreshes_snapshot_before_remote_approval(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             repo_root = _init_repo(Path(tmpdir) / "repo")
             executor = _executor(repo_root)
@@ -292,16 +337,40 @@ class TestGovernedCommitPipeline(unittest.TestCase):
             _run_git(repo_root, "add", "tracked.txt")
             first_guard = MagicMock(return_value=_mock_subprocess_result(0))
 
-            first_rc = run_commit(
-                _make_args(message="feat: request remote approval"),
-                repo_root=repo_root,
-                policy=_push_policy(),
-                executor=executor,
-                interaction_mode="remote_control",
-                guard_runner=first_guard,
-            )
+            def _refresh_before_stage(
+                *,
+                repo_root: Path,
+                previous_head_sha: str = "",
+            ) -> list[str]:
+                del previous_head_sha
+                snapshot_path = repo_root / "dev/audits/REVIEW_SNAPSHOT.md"
+                snapshot_path.parent.mkdir(parents=True, exist_ok=True)
+                snapshot_path.write_text(
+                    "refreshed before approval\n",
+                    encoding="utf-8",
+                )
+                _run_git(repo_root, "add", str(snapshot_path.relative_to(repo_root)))
+                return []
+
+            with patch(
+                "dev.scripts.devctl.commands.vcs.governed_executor_phases.refresh_and_stage_review_snapshot",
+                side_effect=_refresh_before_stage,
+            ):
+                first_rc = run_commit(
+                    _make_args(message="feat: request remote approval"),
+                    repo_root=repo_root,
+                    policy=_push_policy(),
+                    executor=executor,
+                    interaction_mode="remote_control",
+                    guard_runner=first_guard,
+                )
+
             self.assertEqual(first_rc, 1)
             pipeline = executor.load_pipeline()
+            self.assertEqual(
+                pipeline.intent.staged_tree_hash,
+                _run_git(repo_root, "write-tree"),
+            )
             artifact_paths = resolve_artifact_paths(repo_root=repo_root)
             _, decision_event = post_packet(
                 repo_root=repo_root,
@@ -323,29 +392,19 @@ class TestGovernedCommitPipeline(unittest.TestCase):
                 ),
             )
 
-            def _mutate_tree(*, repo_root: Path, previous_head_sha: str = "") -> list[str]:
-                del previous_head_sha
-                (repo_root / "tracked.txt").write_text("mutated after approval\n", encoding="utf-8")
-                _run_git(repo_root, "add", "tracked.txt")
-                return []
+            second_rc = run_commit(
+                _make_args(message="feat: request remote approval"),
+                repo_root=repo_root,
+                policy=_push_policy(),
+                executor=executor,
+                interaction_mode="remote_control",
+                guard_runner=MagicMock(return_value=_mock_subprocess_result(0)),
+            )
 
-            with patch(
-                "dev.scripts.devctl.commands.vcs.governed_executor_phases.refresh_and_stage_review_snapshot",
-                side_effect=_mutate_tree,
-            ):
-                second_rc = run_commit(
-                    _make_args(message="feat: request remote approval"),
-                    repo_root=repo_root,
-                    policy=_push_policy(),
-                    executor=executor,
-                    interaction_mode="remote_control",
-                    guard_runner=MagicMock(return_value=_mock_subprocess_result(0)),
-                )
-
-            blocked_pipeline = executor.load_pipeline()
-            self.assertEqual(second_rc, 1)
-            self.assertEqual(blocked_pipeline.state, "push_blocked")
-            self.assertEqual(blocked_pipeline.blocked_reason, "staged_snapshot_changed")
+            committed_pipeline = executor.load_pipeline()
+            self.assertEqual(second_rc, 0)
+            self.assertEqual(committed_pipeline.state, "commit_recorded")
+            self.assertTrue(committed_pipeline.commit_sha)
 
 
 class TestCommitParserEndToEnd(unittest.TestCase):

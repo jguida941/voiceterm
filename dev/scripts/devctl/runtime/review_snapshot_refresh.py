@@ -1,12 +1,12 @@
 """Shared helper for governed-executor snapshot refresh hooks.
 
-Publish contract: the refresh runs *before* the governed ``git commit``
-inside ``governed_executor_phases.execute_commit``. The helper regenerates
-``dev/audits/REVIEW_SNAPSHOT.md`` and auto-stages it via ``git add`` so the
-committed tree contains a refreshed projection. A post-commit *write* would
-only dirty the worktree without publishing the file, so the post-commit
-publication path lives in ``devctl review-snapshot --receipt-commit`` and
-creates a snapshot-only receipt commit instead.
+Publish contract: the refresh runs *before* approval-bound staging in
+``devctl commit``. The helper regenerates ``dev/audits/REVIEW_SNAPSHOT.md``
+and auto-stages it via ``git add`` so the approved tree hash already includes
+the refreshed projection. A post-commit *write* would only dirty the worktree
+without publishing the file, so the post-commit publication path lives in
+``devctl review-snapshot --receipt-commit`` and creates a snapshot-only
+receipt commit instead.
 
 Initialization contract: the refresh is a no-op when the configured
 snapshot file does not yet exist. Fresh adopter repos opt in by running
@@ -24,8 +24,12 @@ Callers fold the warnings into their existing ``ActionResult.warnings``.
 from __future__ import annotations
 
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from ..config import REPO_ROOT
+
+if TYPE_CHECKING:
+    from .project_governance import ProjectGovernance
 
 
 def refresh_review_snapshot_file(
@@ -99,13 +103,13 @@ def refresh_and_stage_review_snapshot(
     repo_root: Path = REPO_ROOT,
     previous_head_sha: str = "",
 ) -> list[str]:
-    """Refresh the snapshot and ``git add`` it so it lands in the next commit.
+    """Refresh the snapshot and ``git add`` it before approval-bound staging.
 
-    This is the canonical governed-commit hook: call it *before* the
-    governed executor runs ``git commit``, so the committed tree contains
-    the refreshed snapshot. Use ``review-snapshot --receipt-commit`` for the
-    separate post-commit receipt path; a plain post-commit write is still
-    invalid because the commit object is already sealed.
+    This is the canonical governed-commit pre-stage hook: call it before the
+    pipeline mints the staged tree hash and before remote/local approval binds
+    that tree. Use ``review-snapshot --receipt-commit`` for the separate
+    post-commit receipt path; a plain post-commit write is still invalid
+    because the commit object is already sealed.
 
     Returns any warning strings from refresh or staging — callers fold them
     into their existing warnings surface. Never raises.
@@ -150,15 +154,12 @@ def refresh_and_stage_review_snapshot(
     return []
 
 
-def _resolve_target(governance: object) -> str:
+def _resolve_target(governance: "ProjectGovernance | None") -> str:
     """Return the repo-relative snapshot write path, with safe default."""
     default = "dev/audits/REVIEW_SNAPSHOT.md"
     if governance is None:
         return default
-    artifact_roots = getattr(governance, "artifact_roots", None)
-    if artifact_roots is None:
-        return default
-    value = str(getattr(artifact_roots, "review_snapshot_path", "") or "").strip()
+    value = str(governance.artifact_roots.review_snapshot_path or "").strip()
     return value or default
 
 

@@ -331,6 +331,9 @@ Portability note:
   `post|ack|apply`, `actions.json`, and typed review-state parsing. Discovery
   and workflow policy for that lane stay mirrored in `AGENTS.md`,
   `dev/guides/DEVELOPMENT.md`, and `dev/active/remote_commit_pipeline.md`.
+  The staged snapshot hash is now minted only after any managed
+  `REVIEW_SNAPSHOT.md` refresh has already been staged, so approval binds the
+  exact tree `vcs.commit` will record instead of a pre-refresh approximation.
 - `review-channel --action post --kind action_request` is the event-backed
   source for bridge `## Action Requests`, but executable requests are
   fail-closed on typed runtime binding. Use `--requested-action run_check` or
@@ -476,7 +479,10 @@ Portability note:
   candidate or the candidate omits the instructed scope. `review-channel --action
   bridge-poll` now follows the same rule by refreshing and preferring that
   typed `review_state` projection before deciding live ACK freshness. The same
-  typed `bridge` block now also carries `effective_reviewer_mode`; use that
+  shared live loader order is now stricter too: canonical event-backed review
+  state wins first, then an already-written typed projection, and only then
+  does the repo fall back to bridge-backed status refresh for runtime reads.
+  The typed `bridge` block now also carries `effective_reviewer_mode`; use that
   field for live-authority decisions when declared bridge `reviewer_mode`
   still says `active_dual_agent` but typed `launch_truth` has already demoted
   the loop. The current handoff/recovery seam now stays shape-bounded through
@@ -600,12 +606,14 @@ Portability note:
   caller to rerun
   `python3 dev/scripts/devctl.py review-snapshot --write`. Both
   `tooling_control_plane.yml` and `release_preflight.yml` enforce it. The
-  managed raw-git hook path is now explicit two-phase automation:
-  `devctl install-git-hooks` installs both the pre-commit projection hook and
-  the post-commit receipt hook, and the latter delegates to
-  `python3 dev/scripts/devctl.py review-snapshot --write --receipt-commit`
+  managed raw-git hook path is now explicit three-hook automation:
+  `devctl install-git-hooks` installs the pre-commit projection hook, the
+  post-commit receipt hook, and a blocking pre-push hook. The receipt hook
+  delegates to `python3 dev/scripts/devctl.py review-snapshot --write --receipt-commit`
   so the final pushed branch can end with a snapshot-only planning receipt
-  instead of a manually refreshed dirty worktree. `devctl push` consumes that
+  instead of a manually refreshed dirty worktree, while the pre-push hook
+  refuses raw `git push` unless the nested push came from
+  `python3 dev/scripts/devctl.py push --execute`. `devctl push` consumes that
   shape directly: a snapshot-only HEAD may satisfy a current
   `PushAuthorizationRecord` through its parent commit, while stale detached
   pipeline records are ignored in `single_agent` mode so an older override

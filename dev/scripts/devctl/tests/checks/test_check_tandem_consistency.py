@@ -360,6 +360,18 @@ class TestBuildReport:
         assert report["ok"] is True
         assert report["bridge_present"] is False
 
+    def test_commit_gate_bypass_skips_live_tandem_checks(self):
+        text = _bridge(poll_utc=_utc_stamp(-900))
+        with mock.patch.dict(
+            "os.environ",
+            {"DEVCTL_COMMIT_GATE_BYPASS_STARTUP_AUTHORITY": "1"},
+            clear=False,
+        ):
+            report = build_report(bridge_text=text)
+        assert report["ok"] is True
+        assert report["total_checks"] == 0
+        assert report["checks"] == []
+
     def test_stale_reviewer_degrades(self):
         text = _bridge(poll_utc=_utc_stamp(-900))
         with _mock_hash_matching():
@@ -369,9 +381,15 @@ class TestBuildReport:
 
     def test_hash_mismatch_degrades(self):
         text = _bridge()
-        with mock.patch(
-            "dev.scripts.checks.tandem_consistency.reviewer_checks.compute_non_audit_worktree_hash",
-            return_value="b" * 64,
+        with (
+            mock.patch(
+                "dev.scripts.checks.tandem_consistency.report._load_typed_review_state",
+                return_value=None,
+            ),
+            mock.patch(
+                "dev.scripts.checks.tandem_consistency.reviewer_checks.compute_non_audit_worktree_hash",
+                return_value="b" * 64,
+            ),
         ):
             report = build_report(bridge_text=text, repo_root=Path("."))
         # Hash mismatch fails in local tandem review
@@ -381,7 +399,7 @@ class TestBuildReport:
         assert hash_check["ok"] is False
 
     @mock.patch("dev.scripts.devctl.review_channel.state.refresh_status_snapshot")
-    def test_build_report_uses_refreshed_typed_review_state(
+    def test_build_report_prefers_existing_authoritative_typed_review_state(
         self,
         refresh_status_snapshot_mock,
         tmp_path: Path,
@@ -428,14 +446,13 @@ class TestBuildReport:
 
         report = build_report(bridge_text=bridge_text, repo_root=tmp_path)
 
-        assert report["ok"] is False
         ack_check = next(
             check
             for check in report["checks"]
             if check["check"] == "implementer_ack_freshness"
         )
-        assert ack_check["ok"] is False
-        assert ack_check["tranche_aligned"] is False
+        assert ack_check["ok"] is True
+        refresh_status_snapshot_mock.assert_not_called()
 
 
 class TestRenderMd:
@@ -662,6 +679,8 @@ class TestTypedPathBuildReport:
             mock.patch(
                 "dev.scripts.devctl.runtime.review_state_locator.active_path_config",
                 return_value=mock.Mock(
+                    review_channel_rel="dev/active/review_channel.md",
+                    bridge_rel="bridge.md",
                     review_status_dir_rel="dev/reports/review_channel/latest",
                     review_state_candidates=(
                         "dev/reports/review_channel/projections/latest/review_state.json",

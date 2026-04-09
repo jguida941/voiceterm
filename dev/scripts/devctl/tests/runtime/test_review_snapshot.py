@@ -24,6 +24,20 @@ from devctl.runtime.review_snapshot_models import (
     REVIEW_SNAPSHOT_CONTRACT_ID,
     ReviewSnapshot,
 )
+from devctl.runtime.project_governance import (
+    PROJECT_GOVERNANCE_CONTRACT_ID,
+    PROJECT_GOVERNANCE_SCHEMA_VERSION,
+    ArtifactRoots,
+    BridgeConfig,
+    BundleOverrides,
+    EnabledChecks,
+    MemoryRoots,
+    PathRoots,
+    PlanRegistry,
+    ProjectGovernance,
+    RepoIdentity,
+    RepoPackRef,
+)
 
 
 def test_build_review_snapshot_returns_typed_contract() -> None:
@@ -550,6 +564,28 @@ def test_refresh_skips_when_content_already_matches(tmp_path, monkeypatch) -> No
     # Same content → no write → mtime preserved.
     assert target.stat().st_mtime_ns == mtime_before
     assert target.read_text(encoding="utf-8") == "fixture-content\n"
+
+
+def test_refresh_resolve_target_prefers_typed_governance_path() -> None:
+    from devctl.runtime.review_snapshot_refresh import _resolve_target
+
+    governance = ProjectGovernance(
+        schema_version=PROJECT_GOVERNANCE_SCHEMA_VERSION,
+        contract_id=PROJECT_GOVERNANCE_CONTRACT_ID,
+        repo_identity=RepoIdentity(repo_name="portable-repo"),
+        repo_pack=RepoPackRef(pack_id="portable-pack"),
+        path_roots=PathRoots(),
+        plan_registry=PlanRegistry(),
+        artifact_roots=ArtifactRoots(
+            review_snapshot_path="custom/review_snapshot.md",
+        ),
+        memory_roots=MemoryRoots(),
+        bridge_config=BridgeConfig(),
+        enabled_checks=EnabledChecks(),
+        bundle_overrides=BundleOverrides(overrides={}),
+    )
+
+    assert _resolve_target(governance) == "custom/review_snapshot.md"
 
 
 def _init_receipt_repo(repo_root: Path) -> Path:

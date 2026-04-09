@@ -4,7 +4,7 @@
 
 **Status:** Draft v4 (historical design and process record)
 **Audience:** users and developers
-**Last Updated:** 2026-04-08
+**Last Updated:** 2026-04-09
 
 ## At a Glance
 
@@ -38,6 +38,29 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 - [Developer Path (15 min)](#developer-path-15-min)
 
 ### 2026-04-07 - ReviewSnapshot hook hardening routed through owner plans
+
+### 2026-04-09 - Shared live review-state loads stopped defaulting to bridge refresh
+
+Fact: the next typed-authority convergence slice moved the shared live
+review-state loader off bridge refresh as its default freshness strategy.
+`load_current_review_state*` now prefers canonical event-backed review state
+first, then an already-written typed `review_state.json` projection, and only
+then falls back to bridge-backed status refresh.
+
+This matters because earlier read-side convergence still let live runtime
+consumers re-trigger compatibility projection work even when typed authority
+was already present on disk. The new order narrows the remaining producer
+cutover to the true authority seam: canonical path/identity freeze and the
+last bridge-freshness liveness dependencies, rather than more thin-client
+refresh loops.
+
+Files changed:
+- `dev/scripts/devctl/review_channel/review_state_authority.py`
+- `dev/scripts/devctl/review_channel/state.py`
+- `dev/scripts/devctl/runtime/review_state_locator.py`
+- `dev/scripts/devctl/runtime/control_plane_sources.py`
+- `dev/scripts/devctl/tests/runtime/test_review_state_locator.py`
+- `dev/scripts/devctl/tests/runtime/test_startup_context.py`
 
 ### 2026-04-08 - Governed mutation, queue truth, and dashboard review-state reads were tightened to fail closed
 

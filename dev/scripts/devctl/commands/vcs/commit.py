@@ -242,6 +242,7 @@ def run_commit(
         repo_root=repo_root,
         push_policy=resolved_policy,
     )
+    stage_warnings: list[str] = []
 
     pipeline = vcs_executor.load_pipeline()
     if pipeline.pipeline_id and pipeline.state in _PIPELINE_BLOCKING_STATES:
@@ -272,6 +273,7 @@ def run_commit(
             )
         )
         pipeline = vcs_executor.load_pipeline()
+        stage_warnings = list(stage_result.warnings)
         if not stage_result.ok:
             report = _build_report(
                 status="blocked",
@@ -294,6 +296,7 @@ def run_commit(
                 guard_exit_code=guard_rc,
                 pipeline_id=pipeline.pipeline_id,
                 pipeline_state=pipeline.state,
+                warnings=stage_warnings,
             )
             _emit_report(args, report)
             return 1
@@ -326,7 +329,7 @@ def run_commit(
         commit_sha=pipeline.commit_sha,
         operator_guidance=commit_result.operator_guidance,
         interaction_mode=resolved_mode,
-        warnings=list(commit_result.warnings),
+        warnings=[*stage_warnings, *commit_result.warnings],
     )
     _emit_report(args, report)
     return 0 if commit_result.ok else 1

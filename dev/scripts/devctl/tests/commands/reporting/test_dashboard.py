@@ -2509,6 +2509,10 @@ class TestTypedReviewState(unittest.TestCase):
             self.assertEqual(coord["doctor_blocked"], "stale_state")
 
     def test_typed_coordination_fields_flow_into_dashboard_snapshot(self) -> None:
+        from dev.scripts.devctl.runtime.review_state_parser import (
+            review_state_from_payload,
+        )
+
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             rs = _minimal_review_state()
@@ -2547,7 +2551,30 @@ class TestTypedReviewState(unittest.TestCase):
             bridge = root / "bridge.md"
             bridge.write_text(_minimal_bridge_text(), encoding="utf-8")
 
-            with patch.object(dashboard, "_git_short", return_value={
+            sources = {
+                "review_state": rs,
+                "compact_json": None,
+                "push_report": None,
+                "receipt": None,
+                "publisher_hb": None,
+                "supervisor_hb": None,
+                "codex_conductor": None,
+                "claude_conductor": None,
+                "full_json": None,
+            }
+            with patch.object(
+                dashboard,
+                "load_sources",
+                return_value=sources,
+            ), patch.object(
+                dashboard,
+                "scan_repo_governance_safely",
+                return_value=None,
+            ), patch.object(
+                dashboard,
+                "load_current_review_state",
+                return_value=review_state_from_payload(rs),
+            ), patch.object(dashboard, "_git_short", return_value={
                 "branch": "main", "head": "abc", "dirty": "CLEAN",
             }), patch.object(dashboard, "_repo_name", return_value="test"):
                 snapshot = dashboard.build_snapshot(repo_root=root)
@@ -2565,6 +2592,106 @@ class TestTypedReviewState(unittest.TestCase):
             self.assertEqual(coord["recommended_topology"], "single_agent")
             self.assertTrue(coord["resync_required"])
             self.assertEqual(coord["actors"][0]["actor_id"], "codex")
+
+    def test_threads_frozen_review_state_into_control_plane(self) -> None:
+        """build_snapshot should feed one frozen review_state into the read model."""
+        class DummyControlPlane:
+            def __init__(self) -> None:
+                self.top_blocker = "none"
+                self.next_action = "n/a"
+                self.reviewer_mode = "active_dual_agent"
+                self.attention_status = "n/a"
+                self.attention_summary = "n/a"
+                self.publisher_running = False
+                self.supervisor_running = False
+                self.coordination = None
+
+            def to_dict(self) -> dict[str, str]:
+                return {"contract_id": "ControlPlaneReadModel"}
+
+        class FrozenReviewState:
+            def __init__(self, payload: dict[str, object]) -> None:
+                self._payload = payload
+
+            def to_dict(self) -> dict[str, object]:
+                return dict(self._payload)
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            fresh_review_state = _minimal_review_state()
+            typed_review_state = FrozenReviewState(fresh_review_state)
+            governance = object()
+            _write_artifact(
+                root,
+                "dev/reports/review_channel/state/latest.json",
+                fresh_review_state,
+            )
+            _write_artifact(
+                root,
+                "dev/reports/review_channel/latest/compact.json",
+                {
+                    "current_session": {
+                        "current_instruction_revision": "stale_compact_rev",
+                    },
+                },
+            )
+
+            dummy_control_plane = DummyControlPlane()
+            sources = {
+                "review_state": fresh_review_state,
+                "compact_json": {"current_session": {"current_instruction_revision": "stale_compact_rev"}},
+                "push_report": None,
+                "receipt": None,
+                "publisher_hb": None,
+                "supervisor_hb": None,
+                "codex_conductor": None,
+                "claude_conductor": None,
+                "full_json": None,
+            }
+
+            with patch.object(
+                dashboard,
+                "scan_repo_governance_safely",
+                return_value=governance,
+            ), patch.object(
+                dashboard,
+                "load_current_review_state",
+                return_value=typed_review_state,
+            ) as mock_load_current_review_state, patch.object(
+                dashboard,
+                "load_sources",
+                return_value=sources,
+            ) as mock_load_sources, patch.object(
+                dashboard,
+                "build_control_plane_read_model",
+                return_value=dummy_control_plane,
+            ) as mock_build, patch.object(dashboard, "_git_short", return_value={
+                "branch": "main", "head": "abc", "dirty": "CLEAN",
+            }), patch.object(dashboard, "_repo_name", return_value="test"):
+                snapshot = dashboard.build_snapshot(repo_root=root)
+
+            mock_load_current_review_state.assert_called_once_with(
+                root,
+                governance=governance,
+                prefer_cached_projection=False,
+            )
+            mock_load_sources.assert_called_once_with(root, governance=governance)
+            self.assertIs(
+                mock_build.call_args.kwargs["review_state"],
+                typed_review_state,
+            )
+            self.assertIs(
+                mock_build.call_args.kwargs["governance"],
+                governance,
+            )
+            self.assertEqual(
+                mock_build.call_args.kwargs["sources_override"]["review_state"],
+                fresh_review_state,
+            )
+            self.assertEqual(
+                snapshot["control_plane"]["contract_id"],
+                "ControlPlaneReadModel",
+            )
 
     def test_fallback_to_compact_when_no_review_state(self) -> None:
         """Without review_state.json, session comes from compact.json."""

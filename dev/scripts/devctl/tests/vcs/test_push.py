@@ -265,10 +265,6 @@ class PushCommandTests(unittest.TestCase):
         return_value=None,
     )
     @patch(
-        "dev.scripts.devctl.governance.push_state._worktree_change_counts",
-        return_value=(3, 1),
-    )
-    @patch(
         "dev.scripts.devctl.governance.push_state._git_stdout",
         side_effect=[
             "",
@@ -282,7 +278,6 @@ class PushCommandTests(unittest.TestCase):
     def test_detect_push_enforcement_requires_checkpoint_when_budget_exceeded(
         self,
         _git_stdout_mock,
-        _worktree_change_counts_mock,
         _lookup_receipt_mock,
     ) -> None:
         policy = make_policy(
@@ -305,10 +300,6 @@ class PushCommandTests(unittest.TestCase):
         return_value=None,
     )
     @patch(
-        "dev.scripts.devctl.governance.push_state._worktree_change_counts",
-        return_value=(1, 1),
-    )
-    @patch(
         "dev.scripts.devctl.governance.push_state._git_stdout",
         side_effect=[
             "",
@@ -322,7 +313,6 @@ class PushCommandTests(unittest.TestCase):
     def test_detect_push_enforcement_allows_editing_within_budget(
         self,
         _git_stdout_mock,
-        _worktree_change_counts_mock,
         _lookup_receipt_mock,
     ) -> None:
         policy = make_policy(
@@ -345,8 +335,76 @@ class PushCommandTests(unittest.TestCase):
         return_value=None,
     )
     @patch(
-        "dev.scripts.devctl.governance.push_state._worktree_change_counts",
-        return_value=(0, 0),
+        "dev.scripts.devctl.governance.push_state._git_stdout",
+        side_effect=[
+            "",
+            "feature/demo",
+            "abc123",
+            "origin/feature/demo",
+            "0",
+            "M  alpha.py\n M beta.py\n?? delta.py\n",
+        ],
+    )
+    def test_detect_push_enforcement_tracks_staged_and_unstaged_paths(
+        self,
+        _git_stdout_mock,
+        _lookup_receipt_mock,
+    ) -> None:
+        policy = make_policy(
+            checkpoint=PushCheckpointPolicy(
+                max_dirty_paths_before_checkpoint=5,
+                max_untracked_paths_before_checkpoint=3,
+            )
+        )
+
+        state = detect_push_enforcement_state(policy)
+
+        self.assertEqual(state["dirty_path_count"], 3)
+        self.assertEqual(state["untracked_path_count"], 1)
+        self.assertEqual(state["staged_path_count"], 1)
+        self.assertEqual(state["unstaged_path_count"], 1)
+        self.assertEqual(
+            state["checkpoint_reason"], "staged_and_unstaged_worktree_present"
+        )
+        self.assertEqual(state["recommended_action"], "commit_before_push")
+
+    @patch(
+        "dev.scripts.devctl.governance.push_state.lookup_push_receipt",
+        return_value=None,
+    )
+    @patch(
+        "dev.scripts.devctl.governance.push_state._git_stdout",
+        side_effect=[
+            "",
+            "feature/demo",
+            "abc123",
+            "origin/feature/demo",
+            "0",
+            "M  alpha.py\nM  beta.py\n",
+        ],
+    )
+    def test_detect_push_enforcement_prefers_staged_budget_reason(
+        self,
+        _git_stdout_mock,
+        _lookup_receipt_mock,
+    ) -> None:
+        policy = make_policy(
+            checkpoint=PushCheckpointPolicy(
+                max_dirty_paths_before_checkpoint=2,
+                max_untracked_paths_before_checkpoint=3,
+            )
+        )
+
+        state = detect_push_enforcement_state(policy)
+
+        self.assertTrue(state["checkpoint_required"])
+        self.assertEqual(state["staged_path_count"], 2)
+        self.assertEqual(state["unstaged_path_count"], 0)
+        self.assertEqual(state["checkpoint_reason"], "staged_index_budget_exceeded")
+
+    @patch(
+        "dev.scripts.devctl.governance.push_state.lookup_push_receipt",
+        return_value=None,
     )
     @patch(
         "dev.scripts.devctl.governance.push_state._git_stdout",
@@ -362,7 +420,6 @@ class PushCommandTests(unittest.TestCase):
     def test_detect_push_enforcement_ignores_advisory_context_paths(
         self,
         _git_stdout_mock,
-        _worktree_change_counts_mock,
         _lookup_receipt_mock,
     ) -> None:
         policy = make_policy(
@@ -384,10 +441,6 @@ class PushCommandTests(unittest.TestCase):
     @patch(
         "dev.scripts.devctl.governance.push_state.lookup_push_receipt",
         return_value=None,
-    )
-    @patch(
-        "dev.scripts.devctl.governance.push_state._worktree_change_counts",
-        return_value=(0, 0),
     )
     @patch(
         "dev.scripts.devctl.governance.push_state.latest_push_report_relpath",
@@ -420,7 +473,6 @@ class PushCommandTests(unittest.TestCase):
         _load_latest_push_report_mock,
         _load_remote_commit_pipeline_contract_mock,
         _latest_push_report_relpath_mock,
-        _worktree_change_counts_mock,
         _lookup_receipt_mock,
     ) -> None:
         def _fake_git_stdout(_repo_root, *cmd):
@@ -454,10 +506,6 @@ class PushCommandTests(unittest.TestCase):
         return_value=None,
     )
     @patch(
-        "dev.scripts.devctl.governance.push_state._worktree_change_counts",
-        return_value=(0, 0),
-    )
-    @patch(
         "dev.scripts.devctl.governance.push_state.latest_push_report_relpath",
         return_value="dev/reports/push/latest.json",
     )
@@ -488,7 +536,6 @@ class PushCommandTests(unittest.TestCase):
         _load_latest_push_report_mock,
         _load_remote_commit_pipeline_contract_mock,
         _latest_push_report_relpath_mock,
-        _worktree_change_counts_mock,
         _lookup_receipt_mock,
     ) -> None:
         def _fake_git_stdout(_repo_root, *cmd):
@@ -522,10 +569,6 @@ class PushCommandTests(unittest.TestCase):
         return_value=None,
     )
     @patch(
-        "dev.scripts.devctl.governance.push_state._worktree_change_counts",
-        return_value=(0, 0),
-    )
-    @patch(
         "dev.scripts.devctl.governance.push_state.latest_push_report_relpath",
         return_value="dev/reports/push/latest.json",
     )
@@ -556,7 +599,6 @@ class PushCommandTests(unittest.TestCase):
         _load_latest_push_report_mock,
         _load_remote_commit_pipeline_contract_mock,
         _latest_push_report_relpath_mock,
-        _worktree_change_counts_mock,
         _lookup_receipt_mock,
     ) -> None:
         def _fake_git_stdout(_repo_root, *cmd):
@@ -590,10 +632,6 @@ class PushCommandTests(unittest.TestCase):
         return_value=None,
     )
     @patch(
-        "dev.scripts.devctl.governance.push_state._worktree_change_counts",
-        return_value=(0, 0),
-    )
-    @patch(
         "dev.scripts.devctl.governance.push_state.latest_push_report_relpath",
         return_value="dev/reports/push/latest.json",
     )
@@ -624,7 +662,6 @@ class PushCommandTests(unittest.TestCase):
         _load_latest_push_report_mock,
         _load_remote_commit_pipeline_contract_mock,
         _latest_push_report_relpath_mock,
-        _worktree_change_counts_mock,
         _lookup_receipt_mock,
     ) -> None:
         def _fake_git_stdout(_repo_root, *cmd):
@@ -1008,6 +1045,42 @@ class PushCommandTests(unittest.TestCase):
                 "published_remote": True,
                 "post_push_green": True,
             },
+        )
+
+    def test_execute_push_flow_sets_internal_hook_bypass_env_for_git_push(self) -> None:
+        state = push.PushRunState(branch="feature/demo", remote="origin")
+        policy = make_policy()
+        args = make_args(execute=True, skip_post_push=True)
+        git_push_envs: list[dict[str, str] | None] = []
+
+        def _runner(name, cmd, cwd=None, env=None):
+            if name == "git-push":
+                git_push_envs.append(env)
+            return {
+                "name": name,
+                "cmd": cmd,
+                "cwd": str(cwd or "."),
+                "returncode": 0,
+                "duration_s": 0.1,
+                "skipped": False,
+            }
+
+        outcome = push.execute_push_flow_with_dependencies(
+            state,
+            policy,
+            args,
+            push.PushFlowDependencies(
+                run_cmd_fn=_runner,
+                build_post_push_commands_fn=lambda _policy, quality_policy_path=None: [],
+            ),
+        )
+
+        self.assertTrue(outcome.ok)
+        self.assertEqual(len(git_push_envs), 1)
+        self.assertIsNotNone(git_push_envs[0])
+        self.assertEqual(
+            git_push_envs[0]["DEVCTL_ALLOW_GOVERNED_GIT_PUSH"],
+            "1",
         )
 
     @patch("dev.scripts.devctl.commands.vcs.push.write_output")
@@ -1444,7 +1517,7 @@ class PushCommandTests(unittest.TestCase):
             policy,
             args,
             push.PushFlowDependencies(
-                run_cmd_fn=lambda name, cmd, cwd=None: {
+                run_cmd_fn=lambda name, cmd, cwd=None, env=None: {
                     "name": name,
                     "cmd": cmd,
                     "cwd": str(cwd or "."),
@@ -1483,7 +1556,7 @@ class PushCommandTests(unittest.TestCase):
             policy,
             args,
             push.PushFlowDependencies(
-                run_cmd_fn=lambda name, cmd, cwd=None: {
+                run_cmd_fn=lambda name, cmd, cwd=None, env=None: {
                     "name": name,
                     "cmd": cmd,
                     "cwd": str(cwd or "."),
@@ -1675,10 +1748,6 @@ class PushReceiptTests(unittest.TestCase):
         return_value="dev/reports/push/latest.json",
     )
     @patch(
-        "dev.scripts.devctl.governance.push_state._worktree_change_counts",
-        return_value=(0, 0),
-    )
-    @patch(
         "dev.scripts.devctl.governance.push_state.load_remote_commit_pipeline_contract",
         return_value=SimpleNamespace(approved_target_identity=""),
     )
@@ -1715,7 +1784,6 @@ class PushReceiptTests(unittest.TestCase):
         _lookup_receipt_mock,
         _load_latest_mock,
         _load_pipeline_mock,
-        _worktree_change_counts_mock,
         _relpath_mock,
     ) -> None:
         def _fake_git_stdout(_repo_root, *cmd):

@@ -6219,6 +6219,18 @@ Execution order for this section:
   `startup-context` summary/machine-summary and dashboard authority surfaces,
   and evaluate whether review-channel retarget + remote-control launch can be
   automated from typed plan/runtime state instead of a manual bridge rewrite.
+- 2026-04-09: Closed one bounded repo-pack/read-model authority seam under that
+  same truth/projection closure. `mobile-status` now builds
+  `ControlPlaneReadModel` against the caller-selected `review_status_dir`
+  bundle instead of silently reading the default repo-pack bundle, shared
+  control-plane sources/review-state refresh now accept that override, and the
+  thin-client review cache only reuses `full.json` / `review_state.json` when
+  those projections are at least as fresh as the current `bridge.md` plus
+  `review_channel.md`. The VoiceTerm thin-client wrapper now routes through the
+  shared repo-pack helper instead of bypassing it. This keeps the remaining
+  `MP-377` read-side closure focused on startup/dashboard/session-resume
+  parity, minted identity, and live remote-proof orchestration rather than on
+  another bundle-selection split.
 - 2026-04-08: Closed the first multi-surface consumer loop on top of the new
   bounded coordination reducer. `CoordinationSnapshot` is now projected into
   startup, typed review-state/status, session-resume remote-control bootstrap,

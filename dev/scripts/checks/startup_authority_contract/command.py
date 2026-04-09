@@ -244,6 +244,12 @@ def _build_report(
         "checkpoint_required": gov.push_enforcement.checkpoint_required,
         "safe_to_continue_editing": gov.push_enforcement.safe_to_continue_editing,
         "checkpoint_reason": gov.push_enforcement.checkpoint_reason,
+        "staged_path_count": int(
+            getattr(gov.push_enforcement, "staged_path_count", 0) or 0
+        ),
+        "unstaged_path_count": int(
+            getattr(gov.push_enforcement, "unstaged_path_count", 0) or 0
+        ),
         "reviewer_loop_blocked": reviewer_loop_blocked,
         "reviewer_loop_bootstrap_allowed": reviewer_loop_bootstrap_allowed,
         "import_index_atomicity_violations": import_index_atomicity_violations,
@@ -262,6 +268,8 @@ def _render_md(report: dict) -> str:
         f"- safe_to_continue_editing: {report['safe_to_continue_editing']}"
     )
     lines.append(f"- checkpoint_reason: {report['checkpoint_reason']}")
+    lines.append(f"- staged_path_count: {report['staged_path_count']}")
+    lines.append(f"- unstaged_path_count: {report['unstaged_path_count']}")
     lines.append(
         "- reviewer_loop_bootstrap_allowed: "
         f"{report['reviewer_loop_bootstrap_allowed']}"

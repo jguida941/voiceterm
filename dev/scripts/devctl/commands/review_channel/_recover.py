@@ -36,6 +36,9 @@ from ...review_channel.recover_support import (
 )
 from ...runtime.role_profile import TandemRole, default_provider_for_role
 from ..review_channel_command import RuntimePaths, _coerce_runtime_paths
+from .launcher_discipline import (
+    enforce_launch_request_discipline,
+)
 
 
 def run_recover_action(
@@ -127,6 +130,7 @@ def run_recover_action(
     )
     launched, recover_ack_observed, exit_code = _maybe_launch_recover_sessions(
         args=args,
+        repo_root=repo_root,
         bridge_path=bridge_path,
         current_instruction_revision=current_instruction_revision,
         sessions=sessions,
@@ -249,6 +253,7 @@ def _build_recover_sessions(
 def _maybe_launch_recover_sessions(
     *,
     args,
+    repo_root: Path,
     bridge_path: Path,
     current_instruction_revision: str,
     sessions: list[dict[str, object]],
@@ -261,6 +266,11 @@ def _maybe_launch_recover_sessions(
         getattr(args, "terminal", "none") == "terminal-app"
         and not bool(getattr(args, "dry_run", False))
     ):
+        enforce_launch_request_discipline(
+            repo_root=repo_root,
+            interaction_mode=str(getattr(args, "operator_interaction_mode", "")),
+            terminal_arg=str(getattr(args, "terminal", "")),
+        )
         launch_terminal_sessions(
             sessions,
             terminal_profile=terminal_profile_applied,
