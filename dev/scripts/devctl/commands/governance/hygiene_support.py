@@ -18,6 +18,7 @@ from ...process_sweep.core import (
     split_orphaned_processes,
     split_stale_processes,
 )
+from ...repo_packs import active_path_config
 from ...review_channel.lifecycle_state import read_reviewer_supervisor_state
 
 ORPHAN_TEST_MIN_AGE_SECONDS = DEFAULT_ORPHAN_MIN_AGE_SECONDS
@@ -56,6 +57,25 @@ def _runtime_process_label(rows: list[dict]) -> str:
     )
 
 
+def _resolve_supervisor_liveness() -> tuple[bool, str]:
+    """Return ``(supervisor_live, detail)`` from the governed heartbeat state.
+
+    Resolves the review-state directory through ``active_path_config`` so
+    portable repo packs (and tests that stage a fake ``REPO_ROOT``) can
+    redirect the supervisor heartbeat location without editing this module.
+    The ``detail`` field is non-empty when the heartbeat file exists but the
+    supervisor is not reporting ``running`` — typically a corrupt or stale
+    heartbeat — and is consumed by ``_audit_runtime_processes`` to surface a
+    diagnostic warning instead of silently over/under-flagging conductors.
+    """
+    status_dir = REPO_ROOT / active_path_config().review_status_dir_rel
+    supervisor_state = read_reviewer_supervisor_state(status_dir)
+    running = bool(supervisor_state.get("running"))
+    detail_raw = supervisor_state.get("detail") if not running else ""
+    detail = str(detail_raw).strip() if detail_raw else ""
+    return running, detail
+
+
 def _audit_runtime_processes(
     *,
     process_scanner: Callable[[], tuple[list[dict], list[str]]],
@@ -86,10 +106,7 @@ def _audit_runtime_processes(
     # which would permanently flag reparented conductors as orphans any time a
     # launcher shell exits and the session continues under a background
     # supervisor.
-    supervisor_state = read_reviewer_supervisor_state(
-        REPO_ROOT / "dev" / "reports" / "review_channel" / "latest"
-    )
-    supervisor_live = bool(supervisor_state.get("running"))
+    supervisor_live, supervisor_detail = _resolve_supervisor_liveness()
     supervised_conductors = [
         row
         for row in active
@@ -98,6 +115,21 @@ def _audit_runtime_processes(
     ]
     supervised_conductor_pids = {row["pid"] for row in supervised_conductors}
     active = [row for row in active if row.get("pid") not in supervised_conductor_pids]
+    # If the supervisor heartbeat exists but is unreadable/corrupt and there
+    # are conductor-scope rows visible, surface that to the operator so a
+    # stale heartbeat doesn't silently promote reparented conductors into
+    # false orphans (or vice versa) without any diagnostic trail.
+    if not supervisor_live and supervisor_detail:
+        conductor_rows_present = any(
+            row.get("match_scope") == SUPERVISED_CONDUCTOR_SCOPE
+            for row in test_processes
+        )
+        if conductor_rows_present:
+            warnings.append(
+                "supervisor heartbeat unreadable "
+                f"({supervisor_detail}); conductor rows may be wrongly "
+                "flagged as orphans"
+            )
     stale_active, fresh_active = split_stale_processes(
         active,
         min_age_seconds=STALE_ACTIVE_TEST_MIN_AGE_SECONDS,

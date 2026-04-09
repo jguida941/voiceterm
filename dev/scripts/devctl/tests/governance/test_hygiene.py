@@ -8,7 +8,7 @@ from types import SimpleNamespace
 from unittest import mock
 
 from dev.scripts.devctl.cli import build_parser
-from dev.scripts.devctl.commands.governance import hygiene
+from dev.scripts.devctl.commands.governance import hygiene, hygiene_support
 
 
 class HygieneAuditTests(unittest.TestCase):
@@ -571,6 +571,147 @@ class HygieneAuditTests(unittest.TestCase):
 
         self.assertEqual(report["total_detected"], 2)
         self.assertEqual(len(report["active_supervised_conductors"]), 2)
+        self.assertFalse(report["errors"])
+        self.assertFalse(report["warnings"])
+
+    def test_reparented_conductor_with_live_supervisor_is_not_flagged_as_orphan(
+        self,
+    ) -> None:
+        """Live supervisor heartbeat overrides ppid=1 reparenting for conductors.
+
+        Recreates the commit 696f4772 symptom row: a reviewer-channel
+        conductor whose launcher shell exited (ppid reparented to init=1) but
+        whose reviewer_supervisor daemon is actively supervising it through
+        the typed heartbeat. The ``-conductor.log`` command token keeps the
+        row inside the ``_is_registered_conductor_process`` process_sweep
+        carve-out so the decision cleanly reaches the hygiene_support
+        supervisor-liveness path under test.
+        """
+        reparented_row = {
+            "pid": 99999,
+            "ppid": 1,
+            "etime": "30:00",
+            "elapsed_seconds": 1800,
+            "command": "script -q -F -t 0 codex-conductor.log",
+            "match_scope": "review_channel_conductor",
+        }
+        fake_scanner = mock.Mock(return_value=([reparented_row], []))
+        with mock.patch.object(
+            hygiene_support,
+            "read_reviewer_supervisor_state",
+            return_value={
+                "running": True,
+                "pid": 12345,
+                "started_at_utc": "2026-04-09T12:00:00Z",
+                "detail": "",
+            },
+        ):
+            report = hygiene_support._audit_runtime_processes(
+                process_scanner=fake_scanner
+            )
+
+        self.assertEqual(report["total_detected"], 1)
+        self.assertEqual(report["orphaned"], [])
+        self.assertEqual(report["stale_active"], [])
+        self.assertEqual(report["active"], [])
+        self.assertFalse(report["errors"])
+        self.assertFalse(report["warnings"])
+        self.assertEqual(report["active_supervised_conductors"], [reparented_row])
+
+    def test_reparented_conductor_without_supervisor_is_still_flagged(
+        self,
+    ) -> None:
+        """With no live supervisor, ppid=1 conductors remain flagged for operator attention.
+
+        Preserves the pre-696f4772 safety invariant: when nothing is owning
+        the reparented conductor, the hygiene guard must still surface it.
+        Conductor shells get carved out of orphan/stale splits by
+        ``_is_registered_conductor_process`` at the process_sweep layer, so
+        the visible signal when the supervisor is absent comes through
+        ``report["warnings"]`` (active-conductor section + the new
+        "heartbeat unreadable" diagnostic), not ``report["orphaned"]``.
+        """
+        reparented_row = {
+            "pid": 99999,
+            "ppid": 1,
+            "etime": "30:00",
+            "elapsed_seconds": 1800,
+            "command": "script -q -F -t 0 codex-conductor.log",
+            "match_scope": "review_channel_conductor",
+        }
+        fake_scanner = mock.Mock(return_value=([reparented_row], []))
+        with mock.patch.object(
+            hygiene_support,
+            "read_reviewer_supervisor_state",
+            return_value={
+                "running": False,
+                "detail": "Reviewer supervisor heartbeat file is corrupt",
+            },
+        ):
+            report = hygiene_support._audit_runtime_processes(
+                process_scanner=fake_scanner
+            )
+
+        self.assertEqual(report["total_detected"], 1)
+        # Without a live supervisor, the ppid=1 conductor is NOT promoted
+        # into active_supervised_conductors — that preserves the original
+        # "no silent owner" invariant.
+        self.assertEqual(report["active_supervised_conductors"], [])
+        self.assertEqual(report["orphaned"], [])
+        self.assertEqual(report["stale_active"], [])
+        # Row lands in the fresh_active bucket, which produces a warning.
+        self.assertEqual(report["active"], [reparented_row])
+        self.assertTrue(report["warnings"])
+        self.assertTrue(
+            any(
+                "Active" in warning and "host processes" in warning
+                for warning in report["warnings"]
+            ),
+            report["warnings"],
+        )
+        # H3: corrupt/unreadable heartbeat must surface a diagnostic warning
+        # so operators realize the heartbeat is the reason the conductor is
+        # no longer being trusted as supervised.
+        self.assertTrue(
+            any(
+                "heartbeat unreadable" in warning
+                for warning in report["warnings"]
+            ),
+            report["warnings"],
+        )
+
+    def test_non_reparented_conductor_is_never_flagged(self) -> None:
+        """ppid != 1 conductors stay supervised regardless of heartbeat state.
+
+        Documents that a non-reparented (ppid != 1) conductor is trusted
+        purely from the ppid signal and is never routed through the
+        supervisor-liveness override path. Heartbeat is intentionally
+        ``running=False`` with empty ``detail`` so neither the live-override
+        branch nor the H3 corrupt-heartbeat diagnostic fires.
+        """
+        attached_row = {
+            "pid": 88888,
+            "ppid": 12345,
+            "etime": "05:00",
+            "elapsed_seconds": 300,
+            "command": "script -q -F -t 0 codex-conductor.log",
+            "match_scope": "review_channel_conductor",
+        }
+        fake_scanner = mock.Mock(return_value=([attached_row], []))
+        with mock.patch.object(
+            hygiene_support,
+            "read_reviewer_supervisor_state",
+            return_value={"running": False, "detail": ""},
+        ):
+            report = hygiene_support._audit_runtime_processes(
+                process_scanner=fake_scanner
+            )
+
+        self.assertEqual(report["total_detected"], 1)
+        self.assertEqual(report["active_supervised_conductors"], [attached_row])
+        self.assertEqual(report["orphaned"], [])
+        self.assertEqual(report["stale_active"], [])
+        self.assertEqual(report["active"], [])
         self.assertFalse(report["errors"])
         self.assertFalse(report["warnings"])
 
