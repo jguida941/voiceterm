@@ -208,7 +208,14 @@ def _first_nonempty(raw: dict[str, Any]) -> str:
 
 
 def _tail_lines(path: Path, *, limit: int) -> list[str]:
-    """Read ``limit`` tail lines from a file without buffering the whole file."""
+    """Read ``limit`` tail lines from a file without buffering the whole file.
+
+    The reverse-read loop grows ``data`` in 64 KiB blocks until either the
+    entire file has been consumed or at least ``limit + 1`` newlines are
+    buffered. The extra newline guarantees the first line in ``data`` is
+    complete, so the possibly-partial leading line can be dropped whenever
+    the byte budget stopped short of the file start.
+    """
     if limit <= 0:
         return []
     try:
@@ -218,7 +225,7 @@ def _tail_lines(path: Path, *, limit: int) -> list[str]:
             block_size = 64 * 1024
             data = b""
             position = file_size
-            while position > 0 and data.count(b"\n") <= limit:
+            while position > 0 and data.count(b"\n") < limit + 1:
                 read_size = min(block_size, position)
                 position -= read_size
                 handle.seek(position)
@@ -226,4 +233,8 @@ def _tail_lines(path: Path, *, limit: int) -> list[str]:
     except OSError:
         return []
     lines = data.splitlines()
+    if position > 0 and lines:
+        # We hit the byte budget before the file start, so the first line
+        # in ``data`` may be a fragment of a larger line still on disk.
+        lines = lines[1:]
     return [line.decode("utf-8", errors="replace") for line in lines[-limit:]]

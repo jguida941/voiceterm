@@ -8,13 +8,22 @@ stay provider-agnostic.
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
+from typing import Iterable
 
 from .constants import (
     CLAUDE_PROJECTS_ROOT,
     CODEX_SESSIONS_ROOT,
     PROVIDER_CLAUDE,
     PROVIDER_CODEX,
+)
+
+# Claude session files live at ``<projects>/<project>/<uuid>.jsonl`` (depth 2).
+# Subagent traces under ``<project>/<uuid>/subagents/*.jsonl`` must be ignored
+# so the newest real session is picked even when a subagent writes later.
+_CLAUDE_UUID_RE = re.compile(
+    r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
 )
 
 
@@ -29,8 +38,7 @@ def discover_latest_session(provider: str, *, root: Path | None = None) -> Path 
     search_root = root if root is not None else _default_sessions_root(provider)
     if search_root is None or not search_root.exists():
         return None
-    pattern = _session_glob(provider)
-    candidates = [p for p in search_root.rglob(pattern) if p.is_file()]
+    candidates = [p for p in _iter_session_files(provider, search_root) if p.is_file()]
     if not candidates:
         return None
     return max(candidates, key=lambda p: p.stat().st_mtime)
@@ -49,13 +57,33 @@ def resolve_session_file(
             return None
         matches = [
             p
-            for p in search_root.rglob(_session_glob(provider))
+            for p in _iter_session_files(provider, search_root)
             if session_id in p.name and p.is_file()
         ]
         if matches:
             return max(matches, key=lambda p: p.stat().st_mtime)
         return None
     return discover_latest_session(provider, root=root)
+
+
+def _iter_session_files(provider: str, search_root: Path) -> Iterable[Path]:
+    """Yield candidate session JSONL files for ``provider`` under ``search_root``.
+
+    Codex writes to ``sessions/YYYY/MM/DD/rollout-*.jsonl``, so a full
+    recursive walk for ``rollout-*.jsonl`` is correct. Claude instead
+    writes ``<project>/<uuid>.jsonl`` at exactly depth 2 and may also
+    write subagent traces several levels deeper; a narrow glob plus a
+    UUID-shape filter keeps the picker on real session files.
+    """
+    if provider == PROVIDER_CODEX:
+        yield from search_root.rglob("rollout-*.jsonl")
+        return
+    if provider == PROVIDER_CLAUDE:
+        for candidate in search_root.glob("*/*.jsonl"):
+            if _CLAUDE_UUID_RE.fullmatch(candidate.stem):
+                yield candidate
+        return
+    yield from search_root.rglob("*.jsonl")
 
 
 def session_id_from_path(path: Path, *, provider: str) -> str:
@@ -76,11 +104,3 @@ def _default_sessions_root(provider: str) -> Path | None:
     if provider == PROVIDER_CLAUDE:
         return CLAUDE_PROJECTS_ROOT
     return None
-
-
-def _session_glob(provider: str) -> str:
-    if provider == PROVIDER_CODEX:
-        return "rollout-*.jsonl"
-    if provider == PROVIDER_CLAUDE:
-        return "*.jsonl"
-    return "*.jsonl"

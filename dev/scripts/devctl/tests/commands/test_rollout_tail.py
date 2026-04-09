@@ -24,6 +24,7 @@ from dev.scripts.devctl.commands.rollout_tail import (
     render_terminal,
     resolve_session_file,
 )
+from dev.scripts.devctl.commands.rollout_tail.parser import _tail_lines
 from dev.scripts.devctl.runtime.rollout_event import RolloutEvent
 
 
@@ -390,6 +391,263 @@ class RolloutTailCommandTests(unittest.TestCase):
             exit_code = rollout_tail.run(args)
         self.assertEqual(exit_code, 2)
         self.assertIn("--provider must be one of", stderr.getvalue())
+
+
+# ---------------------------------------------------------------------------
+# Claude discovery layout quirks (subagents, non-UUID filenames)
+# ---------------------------------------------------------------------------
+
+
+_VALID_CLAUDE_UUID = "abcdef01-2345-6789-abcd-ef0123456789"
+_OTHER_CLAUDE_UUID = "11111111-2222-3333-4444-555555555555"
+
+
+def _write_claude_uuid_session(
+    root: Path, project: str, session_uuid: str, *, mtime: float | None = None
+) -> Path:
+    project_dir = root / project
+    project_dir.mkdir(parents=True, exist_ok=True)
+    path = project_dir / f"{session_uuid}.jsonl"
+    path.write_text(
+        json.dumps({"type": "user", "message": {"content": "hi"}}) + "\n",
+        encoding="utf-8",
+    )
+    if mtime is not None:
+        import os
+
+        os.utime(path, (mtime, mtime))
+    return path
+
+
+def _write_claude_subagent(
+    root: Path, project: str, session_uuid: str, *, mtime: float | None = None
+) -> Path:
+    subagent_dir = root / project / session_uuid / "subagents"
+    subagent_dir.mkdir(parents=True, exist_ok=True)
+    path = subagent_dir / "agent-x.jsonl"
+    path.write_text(
+        json.dumps({"type": "assistant", "message": {"content": "sub"}}) + "\n",
+        encoding="utf-8",
+    )
+    if mtime is not None:
+        import os
+
+        os.utime(path, (mtime, mtime))
+    return path
+
+
+def _write_claude_memory_artifact(
+    root: Path, project: str, filename: str, *, mtime: float | None = None
+) -> Path:
+    """Write a non-session JSONL artifact under ``<project>/memory/``.
+
+    Claude Code's project directories can hold arbitrary nested JSONL
+    artifacts (memory projections, tool-results, notebook data) that are
+    not real chat sessions. The discovery picker must leave those alone
+    even when their mtime is newer than the real session file. Mirrors
+    the F3 Codex finding on ``memory/**`` exclusion.
+    """
+    memory_dir = root / project / "memory"
+    memory_dir.mkdir(parents=True, exist_ok=True)
+    path = memory_dir / filename
+    path.write_text(
+        json.dumps({"type": "memory", "payload": "not-a-session"}) + "\n",
+        encoding="utf-8",
+    )
+    if mtime is not None:
+        import os
+
+        os.utime(path, (mtime, mtime))
+    return path
+
+
+class ClaudeDiscoveryLayoutTests(unittest.TestCase):
+    def test_discover_excludes_newer_subagent_files(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            now = time.time()
+            real_session = _write_claude_uuid_session(
+                root, "-proj", _VALID_CLAUDE_UUID, mtime=now - 60
+            )
+            # Subagent is newer, but must not be picked as the active session.
+            _write_claude_subagent(
+                root, "-proj", _VALID_CLAUDE_UUID, mtime=now + 60
+            )
+            picked = discover_latest_session(PROVIDER_CLAUDE, root=root)
+            self.assertEqual(picked, real_session)
+
+    def test_discover_skips_non_uuid_session_files(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            project_dir = root / "-proj"
+            project_dir.mkdir(parents=True, exist_ok=True)
+            # Non-UUID stray file at depth 2 must be ignored even though
+            # the narrow glob would otherwise match it.
+            stray = project_dir / "not-a-uuid.jsonl"
+            stray.write_text("{}\n", encoding="utf-8")
+            self.assertIsNone(
+                discover_latest_session(PROVIDER_CLAUDE, root=root)
+            )
+
+    def test_discover_picks_newest_uuid_session_across_projects(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            now = time.time()
+            _write_claude_uuid_session(
+                root, "-proj-a", _VALID_CLAUDE_UUID, mtime=now - 3600
+            )
+            newer = _write_claude_uuid_session(
+                root, "-proj-b", _OTHER_CLAUDE_UUID, mtime=now
+            )
+            picked = discover_latest_session(PROVIDER_CLAUDE, root=root)
+            self.assertEqual(picked, newer)
+
+    def test_resolve_session_file_filters_claude_subagents(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            now = time.time()
+            real = _write_claude_uuid_session(
+                root, "-proj", _VALID_CLAUDE_UUID, mtime=now
+            )
+            _write_claude_subagent(
+                root, "-proj", _VALID_CLAUDE_UUID, mtime=now + 60
+            )
+            resolved = resolve_session_file(
+                PROVIDER_CLAUDE, session_id=_VALID_CLAUDE_UUID, root=root
+            )
+            self.assertEqual(resolved, real)
+
+    def test_discover_excludes_memory_artifacts_even_when_uuid_named(
+        self,
+    ) -> None:
+        """F3 regression: ``memory/**`` stays excluded from Claude auto-discovery.
+
+        A UUID-named JSONL artifact under a project's ``memory/`` subdir
+        must not be picked as a real session even when its mtime is
+        newer than the real session file at depth 2. This pins down
+        Codex's specific ``memory/**`` example so the narrow
+        ``glob('*/*.jsonl')`` + UUID-stem filter cannot regress into
+        the old recursive ``rglob('*.jsonl')`` shape.
+        """
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            now = time.time()
+            real_session = _write_claude_uuid_session(
+                root, "-proj", _VALID_CLAUDE_UUID, mtime=now - 60
+            )
+            # UUID-named artifact under memory/ — identical stem shape to
+            # a real session, and a newer mtime, so a regression back to
+            # recursive rglob would pick this instead of the real one.
+            _write_claude_memory_artifact(
+                root,
+                "-proj",
+                f"{_OTHER_CLAUDE_UUID}.jsonl",
+                mtime=now + 600,
+            )
+            picked = discover_latest_session(PROVIDER_CLAUDE, root=root)
+            self.assertEqual(picked, real_session)
+
+    def test_resolve_by_id_skips_memory_artifacts(self) -> None:
+        """F3 regression: id-based resolve also ignores ``memory/**`` hits."""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            now = time.time()
+            _write_claude_memory_artifact(
+                root,
+                "-proj",
+                f"{_OTHER_CLAUDE_UUID}.jsonl",
+                mtime=now + 600,
+            )
+            # No real session exists under the project; id-based resolve
+            # must return None rather than falling through to the memory
+            # artifact with a UUID-shaped name.
+            resolved = resolve_session_file(
+                PROVIDER_CLAUDE, session_id=_OTHER_CLAUDE_UUID, root=root
+            )
+            self.assertIsNone(resolved)
+
+
+# ---------------------------------------------------------------------------
+# Tail reader: off-by-one across reverse-seek block boundary
+# ---------------------------------------------------------------------------
+
+
+def _build_large_rollout_lines(count: int, filler_bytes: int) -> list[str]:
+    """Build ``count`` distinct JSONL events each padded to ``filler_bytes``."""
+    lines: list[str] = []
+    for index in range(count):
+        payload = {
+            "timestamp": f"2026-04-09T15:00:{index:02d}.000Z",
+            "type": "response_item",
+            "payload": {
+                "type": "message",
+                "role": "assistant",
+                "content": [
+                    {
+                        "type": "output_text",
+                        # Filler keeps each line well above 1 byte so the
+                        # cumulative size crosses the 64 KiB tail window.
+                        "text": f"evt-{index:04d}-" + ("x" * filler_bytes),
+                    }
+                ],
+            },
+        }
+        lines.append(json.dumps(payload))
+    return lines
+
+
+class TailReaderBoundaryTests(unittest.TestCase):
+    def test_tail_lines_returns_full_complete_lines_across_block_boundary(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "big.jsonl"
+            # 30 lines * ~5 KiB filler => ~150 KiB, well past the 64 KiB
+            # reverse-seek block boundary inside ``_tail_lines``.
+            lines = _build_large_rollout_lines(count=30, filler_bytes=5_000)
+            path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+            self.assertGreater(path.stat().st_size, 128 * 1024)
+
+            tailed = _tail_lines(path, limit=5)
+            self.assertEqual(len(tailed), 5)
+            # Every returned line must be a complete, parseable JSON event
+            # with the expected trailing marker, not a truncated prefix.
+            for text in tailed:
+                decoded = json.loads(text)
+                self.assertEqual(decoded["type"], "response_item")
+                self.assertTrue(
+                    decoded["payload"]["content"][0]["text"].startswith("evt-")
+                )
+            # Last five events must line up with the last five we wrote.
+            expected_tail = [json.loads(line) for line in lines[-5:]]
+            actual_tail = [json.loads(text) for text in tailed]
+            self.assertEqual(actual_tail, expected_tail)
+
+    def test_rollout_tail_command_returns_exact_limit_on_large_file(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            year_dir = root / "2026" / "04" / "09"
+            year_dir.mkdir(parents=True, exist_ok=True)
+            rollout_path = (
+                year_dir / "rollout-2026-04-09T11-15-01-cccc-0003.jsonl"
+            )
+            lines = _build_large_rollout_lines(count=40, filler_bytes=4_000)
+            rollout_path.write_text(
+                "\n".join(lines) + "\n", encoding="utf-8"
+            )
+            self.assertGreater(rollout_path.stat().st_size, 128 * 1024)
+
+            events = parse_rollout_file(
+                rollout_path, provider=PROVIDER_CODEX, limit=5
+            )
+            self.assertEqual(len(events), 5)
+            # All five must classify as normal assistant messages — a
+            # truncated leading line would have been dropped by the JSON
+            # decoder and shrunk the result below 5.
+            for event in events:
+                self.assertFalse(event.is_error)
+                self.assertFalse(event.is_escalation_request)
+                self.assertIn("message[assistant]", event.summary)
 
 
 if __name__ == "__main__":
