@@ -76,6 +76,19 @@
   `MP-340` shared control-plane/mobile contract, `MP-355` review-channel,
   `MP-356` host-process hygiene, `MP-358` continuous swarm, and `MP-359`
   Operator Console.
+- 2026-04-09 branch reviewer-follow-up cycle on
+  `feature/governance-quality-sweep`: Codex's full-range review pass
+  promoted verdict from "accepted: hygiene fix landed" (`696f4772`) to
+  "follow-up required before acceptance" with three findings. F1
+  (`devctl commit` auto-approving in `remote_control`), F2
+  (`process_sweep` protection gap when `session_pid` is missing), and
+  F3 (`rollout-tail` Claude auto-discovery too broad) now close in six
+  files scoped to `commands/vcs/commit.py`,
+  `commands/check/process_sweep.py`,
+  `commands/rollout_tail/discovery.py`, and the three paired test
+  files. Full closure trace lives in the 2026-04-09
+  "Remote-control commit now waits for typed approval" entry of
+  `dev/history/ENGINEERING_EVOLUTION.md`.
 - Current highest-priority subordinate `MP-377` lane:
   `dev/active/platform_authority_loop.md`. This is the execution spec for
   closing the portable authority loop:

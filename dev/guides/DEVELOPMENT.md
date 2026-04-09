@@ -831,6 +831,17 @@ Any time you create a file or edit an existing file, run the task-class bundle
 first, then add any extra guards required by the paths you touched. Use this as
 the concrete minimum inventory after edits:
 
+For regression-critical fixes (especially in governance/runtime tooling),
+prefer the strict-xfail-first pattern so the bug's existence becomes a
+hard trace: add the test marked `@pytest.mark.xfail(strict=True, ...)`,
+run it to confirm it XFAILs (bug reproduced), land the fix, run again to
+confirm strict mode reports unexpected pass, then remove the xfail
+marker and run once more for the clean pass. See the 2026-04-09 F1/F2/F3
+closure entry in `dev/history/ENGINEERING_EVOLUTION.md` (F2 used this
+exact sequence to trace the `process_sweep` supervisor-backed liveness
+fallback bug into its fix).
+
+
 1. Run one bundle from `AGENTS.md` / `dev/scripts/devctl/bundle_registry.py`:
    `bundle.runtime`, `bundle.docs`, `bundle.tooling`, or `bundle.release`.
 2. Run any required risk-matrix add-ons from `AGENTS.md` if you touched

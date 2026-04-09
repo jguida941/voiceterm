@@ -123,6 +123,24 @@ unexpected-pass after fix → marker removed); F3 added
 specific `memory/**` exclusion example. 76 focused tests pass across
 process-sweep (30), commit-gate (16), and rollout-tail (30).
 
+Follow-up committed on the same branch during the same loop: a parallel
+`code-reviewer` agent audited the F1/F2/F3 diff, caught a reverse-seek
+tail-reader off-by-one in `rollout_tail` (landed with the F3 fix in
+`971647ec`), and then added two extra process-sweep regression tests in
+`d35abef0` — `test_protected_pids_uses_registry_when_session_pid_is_live`
+and `test_protected_pids_empty_when_no_registry_and_dead_supervisor` —
+that prove the supervisor-backed fallback keeps the reap path safe when
+supervision is genuinely down. The parallel worker also flagged an open
+architectural concern for the next Codex review pass: both
+`hygiene_support._audit_runtime_processes` and
+`process_sweep._protected_registered_conductor_pids` now trust the
+reviewer_supervisor heartbeat for conductor protection, but neither
+guard enforces a freshness/TTL on that heartbeat, so a stale heartbeat
+with `running=True` after a crashed supervisor could let both guards
+over-protect a dead tree indefinitely. A matching freshness check
+should land in both call sites simultaneously to keep the trust models
+aligned.
+
 ### 2026-04-09 - Governed push now reuses one typed diff base through post-push follow-up
 
 Fact: the governed push lane exposed a second publication-honesty gap after

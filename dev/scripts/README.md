@@ -65,7 +65,11 @@ recovery keys approval identity to the reviewer-owned
 Current governed-mutation rule: `devctl commit` only self-applies typed
 approval in resolved `local_terminal` or `single_agent` mode. Remote,
 dual-agent, and unresolved sessions must keep the approval request live until
-an applied operator decision exists. `devctl push` now reuses the repo-policy
+an applied operator decision exists. The 2026-04-09 F1 closure entry in
+`dev/history/ENGINEERING_EVOLUTION.md` ("Remote-control commit now waits
+for typed approval") restored code compliance with this rule after an
+earlier slice drifted `_should_auto_approve` to include
+`OperatorInteractionMode.REMOTE_CONTROL.value`. `devctl push` now reuses the repo-policy
 remote/current approved target when an active pipeline owns the branch, and
 packet-queue truth only clears commit-approval requests on applied decisions,
 not on `acked` rows or unrelated packet history. The same governed push path
