@@ -3998,7 +3998,11 @@ blocker or exception in plan state before skipping the declared order.
   branch and SHA were otherwise publishable. The follow-up resolves the active
   branch for `check --profile release`, enables branch fallback only when the
   current branch is not the configured release branch, and keeps release-line
-  checks strict. In the same lane, `review-channel status` / `doctor` now
+  checks strict. The next publish-path fix in that same lane teaches the
+  CodeRabbit gate that an unpublished local feature-branch SHA cannot have a
+  matching GitHub workflow run yet; local governed push now treats that state
+  as non-blocking until publish, while published SHAs and the configured
+  release branch remain strict. In the same lane, `review-channel status` / `doctor` now
   hoist a single top-level `recommended_command`, preferring typed doctor or
   attention recovery commands and otherwise reusing
   `push_decision.next_step_command`, which gives hooks and remote-control

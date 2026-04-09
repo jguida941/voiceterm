@@ -523,6 +523,10 @@ Three quality layers matter in practice:
     `recommended_command`, preferring typed recovery commands and otherwise
     reusing `push_decision.next_step_command`, so hooks or launcher shims can
     consume one field instead of re-deriving the next step from nested state.
+    Feature-branch release-lane preflight follows the same principle: the
+    shared CodeRabbit gate now treats an unpublished local SHA as
+    non-blocking until publish when no local remote-tracking ref contains it
+    yet, instead of hard-failing an impossible pre-push workflow-run check.
   - `startup-context` is the typed startup packet for those same sessions.
     It should read reviewer/publish gating from typed
     `reviewer_runtime.review_acceptance.review_accepted` and

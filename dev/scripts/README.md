@@ -534,6 +534,11 @@ Portability note:
   compact/compat doctor projections, and `_compat.bridge_projection.metadata`
   so startup, phone, and review-channel surfaces can prove they were generated
   from the same typed reviewer/pipeline snapshot.
+  For feature-branch release-lane preflight, the shared CodeRabbit gate is
+  also publication-aware: when the current local SHA is not present in any
+  local remote-tracking ref yet, the gate reports that state as non-blocking
+  until publish instead of failing on an impossible "no workflow runs for this
+  SHA yet" condition.
 - For reviewer-owned automation, treat the `status` report shape honestly:
   live read APIs expose `bridge_liveness` plus projection paths, and typed
   `current_session` comes from the generated `review_state.json` projection

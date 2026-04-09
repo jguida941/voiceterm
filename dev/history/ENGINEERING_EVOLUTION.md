@@ -9050,9 +9050,20 @@ otherwise reusing `push_decision.next_step_command`, so hooks and
 remote-control launchers can consume one deterministic next step instead of
 spelunking nested projections.
 
+The same release-lane follow-up needed one more publish-path correction once
+the branch-aware gate hit a real local push attempt: an unpublished
+feature-branch SHA cannot possibly have a matching GitHub workflow run yet, so
+the shared CodeRabbit gate now treats "no matching runs for the current local
+SHA and no local remote-tracking ref contains it yet" as non-blocking until
+publish. That keeps local governed push honest without forcing operators to
+babysit an impossible preflight state, while published SHAs and release-branch
+checks still fail closed.
+
 Evidence: `dev/scripts/devctl/commands/check/__init__.py`,
+`dev/scripts/checks/coderabbit_gate_core.py`,
 `dev/scripts/devctl/commands/review_channel/doctor_support.py`,
 `dev/scripts/devctl/commands/review_channel/status.py`,
+`dev/scripts/devctl/tests/coderabbit/test_check_gate.py`,
 `dev/scripts/devctl/tests/commands/check/test_check.py`,
 `dev/scripts/devctl/tests/review_channel/test_reviewer_runtime_doctor.py`,
 `dev/scripts/devctl/tests/review_channel/test_review_channel.py`,

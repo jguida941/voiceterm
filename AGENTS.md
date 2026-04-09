@@ -462,6 +462,11 @@ checklist plus chat memory.
     `recommended_command`, preferring typed recovery commands and otherwise
     reusing `push_decision.next_step_command`, so hooks/launchers should read
     that field before spelunking nested compatibility projections.
+    The same release-lane bootstrap truth is now publication-aware on
+    feature branches: local governed pre-push CodeRabbit gates may treat
+    "current SHA not present in any local remote-tracking ref yet" as a
+    non-blocking unpublished-commit state, but once the SHA is published or
+    the configured release branch is in play the gate remains strict.
     Before any launch/recover choice, read that bootstrap packet's
     `interaction_mode` plus typed reviewer visibility. In `local_terminal`,
     prefer visible `review-channel --action launch|rollover --terminal terminal-app`;

@@ -8,6 +8,22 @@ import time
 from datetime import datetime
 from typing import Any, Callable
 
+try:
+    from dev.scripts.checks.coderabbit_gate_support import (
+        classify_matching_runs,
+        non_blocking_missing_run_reason,
+        remote_refs_containing_sha,
+        resolve_requested_branch,
+        render_report_md,
+    )
+except ModuleNotFoundError:  # pragma: no cover - direct script fallback
+    from coderabbit_gate_support import (
+        classify_matching_runs,
+        non_blocking_missing_run_reason,
+        remote_refs_containing_sha,
+        resolve_requested_branch,
+        render_report_md,
+    )
 
 def looks_like_sha(value: str) -> bool:
     return bool(re.fullmatch(r"[0-9a-fA-F]{7,40}", value.strip()))
@@ -22,7 +38,6 @@ def parse_iso(value: Any) -> tuple[bool, datetime]:
         return True, datetime.fromisoformat(normalized)
     except ValueError:
         return False, datetime.min
-
 
 def resolve_sha(
     raw: str | None,
@@ -125,7 +140,6 @@ def gh_run_list(
         return [], "unexpected_gh_run_list_payload"
     return [row for row in payload if isinstance(row, dict)], None
 
-
 def build_report(
     args: Any,
     *,
@@ -167,26 +181,19 @@ def build_report(
 
     requested_branch = str(args.branch or "").strip()
     report["branch_requested"] = requested_branch
-    branch_filter = requested_branch
-    if requested_branch and looks_like_sha(requested_branch):
-        report["warnings"].append(
-            "branch argument resembles a commit SHA; ignored branch filter and used commit filter only."
-        )
-        branch_filter = ""
-    elif not requested_branch:
-        resolved_branch, branch_error = resolve_branch(
-            None,
-            sha=sha,
-            run_capture=run_capture,
-        )
-        if resolved_branch:
-            branch_filter = resolved_branch
-        elif branch_error:
-            report["warnings"].append(f"branch auto-detect skipped: {branch_error}")
+    branch_filter, initial_branch_filter, branch_warnings = resolve_requested_branch(
+        requested_branch,
+        sha=sha,
+        run_capture=run_capture,
+        looks_like_sha_fn=looks_like_sha,
+        resolve_branch_fn=resolve_branch,
+    )
+    report["warnings"].extend(branch_warnings)
 
     report["branch"] = branch_filter
     if args.repo:
         report["repo"] = args.repo
+    current_branch = current_branch_name(run_capture=run_capture)
 
     wait_seconds = report["wait_seconds"]
     poll_seconds = report["poll_seconds"]
@@ -233,6 +240,18 @@ def build_report(
             return report
 
         if not runs and branch_filter:
+            missing_run_status = non_blocking_missing_run_reason(
+                effective_branch=branch_filter,
+                current_branch=current_branch,
+                remote_refs=[],
+                allow_branch_fallback=allow_branch_fallback,
+            )
+            if missing_run_status is not None and branch_filter != current_branch:
+                reason, warning = missing_run_status
+                report["ok"] = True
+                report["reason"] = reason
+                report["warnings"].append(warning)
+                return report
             if not allow_branch_fallback:
                 report["reason"] = "no_workflow_runs_for_requested_branch"
                 report["warnings"].append(
@@ -258,81 +277,43 @@ def build_report(
             runs = fallback_runs
 
         report["checked_runs"] = len(runs)
-        matching = [
-            run
-            for run in runs
-            if isinstance(run, dict) and str(run.get("headSha") or "").strip() == sha
-        ]
-        report["matching_runs"] = len(matching)
-
-        if matching:
-
-            def _sort_key(row: dict[str, Any]) -> tuple[int, datetime]:
-                parsed_ok, parsed_value = parse_iso(row.get("createdAt"))
-                return (1 if parsed_ok else 0, parsed_value)
-
-            matching.sort(key=_sort_key, reverse=True)
-            latest = matching[0]
-            status = str(latest.get("status") or "").strip().lower()
-            conclusion = str(latest.get("conclusion") or "").strip().lower()
-            report["latest_match"] = {
-                "status": status,
-                "conclusion": conclusion,
-                "url": latest.get("url"),
-                "created_at": latest.get("createdAt"),
-            }
-
-            if status == "completed" and conclusion == args.require_conclusion:
-                report["ok"] = True
-                report["reason"] = "coderabbit_gate_passed"
-                return report
-
-            if status != "completed":
-                report["reason"] = f"latest_matching_run_not_completed: status={status}"
-            else:
-                report["reason"] = (
-                    f"latest_matching_run_conclusion_{conclusion or 'unknown'}"
-                    f"_does_not_match_required_{args.require_conclusion}"
-                )
+        matching_count, matched_success, matched_reason, latest_match = classify_matching_runs(
+            runs,
+            sha=sha,
+            require_conclusion=args.require_conclusion,
+        )
+        report["matching_runs"] = matching_count
+        report["latest_match"] = latest_match
+        if matched_success is True:
+            report["ok"] = True
+            report["reason"] = matched_reason
+            return report
+        if matched_success is False:
+            report["reason"] = matched_reason
         else:
-            report["latest_match"] = {}
-            report["reason"] = "no_matching_workflow_runs_for_sha"
+            remote_refs, remote_refs_error = remote_refs_containing_sha(
+                sha,
+                run_capture=run_capture,
+            )
+            if remote_refs_error:
+                report["warnings"].append(
+                    f"remote publication detection skipped: {remote_refs_error}"
+                )
+            effective_branch = initial_branch_filter or current_branch
+            missing_run_status = non_blocking_missing_run_reason(
+                effective_branch=effective_branch,
+                current_branch=current_branch,
+                remote_refs=remote_refs,
+                allow_branch_fallback=allow_branch_fallback,
+            )
+            if missing_run_status is not None:
+                reason, warning = missing_run_status
+                report["ok"] = True
+                report["reason"] = reason
+                report["warnings"].append(warning)
+                return report
+            report["reason"] = matched_reason
 
         if time.monotonic() >= deadline:
             return report
         time.sleep(poll_seconds)
-
-
-def render_report_md(report: dict[str, Any], *, title: str) -> str:
-    """Render a standard gate report in markdown format."""
-    lines = [f"# {title}", ""]
-    lines.append(f"- ok: {report.get('ok')}")
-    lines.append(f"- workflow: {report.get('workflow')}")
-    if report.get("repo"):
-        lines.append(f"- repo: {report.get('repo')}")
-    lines.append(f"- branch_requested: {report.get('branch_requested') or '(none)'}")
-    lines.append(f"- branch: {report.get('branch')}")
-    lines.append(f"- allow_branch_fallback: {report.get('allow_branch_fallback')}")
-    lines.append(f"- fallback_without_branch: {report.get('fallback_without_branch')}")
-    lines.append(f"- sha: {report.get('sha')}")
-    lines.append(f"- checked_runs: {report.get('checked_runs')}")
-    lines.append(f"- matching_runs: {report.get('matching_runs')}")
-    lines.append(f"- reason: {report.get('reason')}")
-    warnings = report.get("warnings")
-    if isinstance(warnings, list):
-        for warning in warnings:
-            lines.append(f"- warning: {warning}")
-    latest = report.get("latest_match")
-    if isinstance(latest, dict) and latest:
-        lines.append(
-            "- latest_match: "
-            + ", ".join(
-                [
-                    f"status={latest.get('status')}",
-                    f"conclusion={latest.get('conclusion')}",
-                    f"url={latest.get('url')}",
-                    f"created_at={latest.get('created_at')}",
-                ]
-            )
-        )
-    return "\n".join(lines)

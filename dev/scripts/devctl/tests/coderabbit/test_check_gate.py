@@ -125,8 +125,9 @@ class CheckCodeRabbitGateTests(TestCase):
             report = self.script._build_report(self._args(branch=self.sha))
 
         self.assertTrue(report["ok"])
-        self.assertEqual(len(calls), 1)
-        self.assertNotIn("--branch", calls[0])
+        gh_calls = [cmd for cmd in calls if cmd[:3] == ["gh", "run", "list"]]
+        self.assertEqual(len(gh_calls), 1)
+        self.assertNotIn("--branch", gh_calls[0])
         warnings = report.get("warnings") or []
         self.assertTrue(
             any(
@@ -225,6 +226,8 @@ class CheckCodeRabbitGateTests(TestCase):
                 return 0, "[]", ""
             if cmd[:4] == ["git", "rev-parse", "--abbrev-ref", "HEAD"]:
                 return 0, "feature/governance-quality-sweep\n", ""
+            if cmd[:4] == ["git", "branch", "-r", "--contains"]:
+                return 0, "", ""
             raise AssertionError(f"unexpected command: {cmd}")
 
         with (
@@ -243,6 +246,41 @@ class CheckCodeRabbitGateTests(TestCase):
         self.assertTrue(
             any("does not yet contain this commit" in warning for warning in warnings)
         )
+
+    def test_missing_runs_for_current_feature_branch_sha_is_non_blocking_until_publish(
+        self,
+    ) -> None:
+        calls: list[list[str]] = []
+
+        def fake_run_capture(cmd: list[str]):
+            calls.append(cmd)
+            if cmd[:4] == ["git", "rev-parse", "--abbrev-ref", "HEAD"]:
+                return 0, "feature/governance-quality-sweep\n", ""
+            if cmd[:4] == ["git", "branch", "-r", "--contains"]:
+                return 0, "", ""
+            if cmd[:3] == ["gh", "run", "list"]:
+                return 0, "[]", ""
+            raise AssertionError(f"unexpected command: {cmd}")
+
+        with patch.object(self.script, "_run_capture", side_effect=fake_run_capture):
+            report = self.script._build_report(
+                self._args(
+                    branch="feature/governance-quality-sweep",
+                    allow_branch_fallback=True,
+                )
+            )
+
+        self.assertTrue(report["ok"])
+        self.assertEqual(
+            report["reason"], "workflow_runs_not_present_for_unpublished_sha_yet"
+        )
+        self.assertTrue(report["fallback_without_branch"])
+        warnings = report.get("warnings") or []
+        self.assertTrue(any("not present in local remote-tracking refs" in warning for warning in warnings))
+        gh_calls = [cmd for cmd in calls if cmd[:3] == ["gh", "run", "list"]]
+        self.assertEqual(len(gh_calls), 2)
+        self.assertIn("--branch", gh_calls[0])
+        self.assertNotIn("--branch", gh_calls[1])
 
     def test_connectivity_error_is_non_blocking_outside_ci(self) -> None:
         def fake_run_capture(cmd: list[str]):

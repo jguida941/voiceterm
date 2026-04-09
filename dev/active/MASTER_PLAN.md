@@ -1339,7 +1339,11 @@
   `master` when a feature-branch diff routes through `bundle.release`; the
   `check --profile release` gate now resolves the active branch and enables
   commit fallback only off the configured release branch, while keeping the
-  release branch strict. The same slice hoists one top-level typed
+  release branch strict. The follow-on publish proof also treats unpublished
+  local feature-branch SHAs as non-blocking for CodeRabbit pre-push checks:
+  if the current SHA is not present in any local remote-tracking ref yet,
+  local governed push may proceed and the gate becomes authoritative only
+  after publish. The same slice hoists one top-level typed
   `recommended_command` out of `review-channel status` / `doctor`, preferring
   typed doctor or attention recovery commands and otherwise reusing
   `push_decision.next_step_command` so repo-owned hooks and remote-control

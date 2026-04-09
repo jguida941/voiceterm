@@ -5,7 +5,8 @@ from __future__ import annotations
 import importlib.util
 from pathlib import Path
 from types import ModuleType
-from typing import Any
+
+from ..coderabbit_gate_support import render_report_md
 
 _LEGACY_MODULE_NAME = "dev.scripts.checks._coderabbit_gate_core_legacy"
 
@@ -29,38 +30,3 @@ resolve_branch = _LEGACY.resolve_branch
 current_branch_name = _LEGACY.current_branch_name
 gh_run_list = _LEGACY.gh_run_list
 build_report = _LEGACY.build_report
-
-
-def render_report_md(report: dict[str, Any], *, title: str) -> str:
-    """Render a standard gate report in markdown format."""
-    lines = [f"# {title}", ""]
-    lines.append(f"- ok: {report.get('ok')}")
-    lines.append(f"- workflow: {report.get('workflow')}")
-    if report.get("repo"):
-        lines.append(f"- repo: {report.get('repo')}")
-    lines.append(f"- branch_requested: {report.get('branch_requested') or '(none)'}")
-    lines.append(f"- branch: {report.get('branch')}")
-    lines.append(f"- allow_branch_fallback: {report.get('allow_branch_fallback')}")
-    lines.append(f"- fallback_without_branch: {report.get('fallback_without_branch')}")
-    lines.append(f"- sha: {report.get('sha')}")
-    lines.append(f"- checked_runs: {report.get('checked_runs')}")
-    lines.append(f"- matching_runs: {report.get('matching_runs')}")
-    lines.append(f"- reason: {report.get('reason')}")
-    warnings = report.get("warnings")
-    if isinstance(warnings, list):
-        for warning in warnings:
-            lines.append(f"- warning: {warning}")
-    latest = report.get("latest_match")
-    if isinstance(latest, dict) and latest:
-        lines.append(
-            "- latest_match: "
-            + ", ".join(
-                [
-                    f"status={latest.get('status')}",
-                    f"conclusion={latest.get('conclusion')}",
-                    f"url={latest.get('url')}",
-                    f"created_at={latest.get('created_at')}",
-                ]
-            )
-        )
-    return "\n".join(lines)
