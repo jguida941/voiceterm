@@ -33,7 +33,13 @@ class PublisherHeartbeat:
 
 @dataclass(frozen=True)
 class ReviewerSupervisorHeartbeat:
-    """One heartbeat tick from the reviewer-heartbeat --follow supervisor."""
+    """One heartbeat tick from the reviewer-heartbeat --follow supervisor.
+
+    `recoverable` lets the operator annotate an intentional stop as
+    resumable. Ensure/auto-start policy treats `manual_stop + recoverable`
+    as restartable so an operator-directed pause never becomes a
+    stuck-forever state.
+    """
 
     pid: int
     started_at_utc: str
@@ -42,6 +48,7 @@ class ReviewerSupervisorHeartbeat:
     reviewer_mode: str
     stop_reason: str = ""
     stopped_at_utc: str = ""
+    recoverable: bool = False
 
 
 @dataclass(frozen=True)
