@@ -115,6 +115,7 @@ def test_system_picture_parser_and_listing_include_command() -> None:
 def test_build_system_picture_snapshot_reads_typed_sources() -> None:
     with tempfile.TemporaryDirectory() as tmp_dir:
         repo_root = Path(tmp_dir)
+        resolved_root = repo_root.resolve()
         _write_json(
             repo_root / "dev/reports/governance/latest/review_summary.json",
             {
@@ -220,9 +221,13 @@ def test_build_system_picture_snapshot_reads_typed_sources() -> None:
 
         with (
             patch(
+                "dev.scripts.devctl.platform.system_picture.scan_repo_governance_safely",
+                return_value=startup_context.governance,
+            ),
+            patch(
                 "dev.scripts.devctl.platform.system_picture.build_startup_context",
                 return_value=startup_context,
-            ),
+            ) as mock_build_startup_context,
             patch(
                 "dev.scripts.devctl.platform.system_picture.build_startup_authority_report",
                 return_value={"ok": True, "errors": (), "warnings": ("warn",)},
@@ -258,7 +263,7 @@ def test_build_system_picture_snapshot_reads_typed_sources() -> None:
             patch(
                 "dev.scripts.devctl.platform.system_picture.load_current_review_state",
                 return_value=review_state,
-            ),
+            ) as mock_load_current_review_state,
             patch(
                 "dev.scripts.devctl.platform.system_picture.load_startup_quality_signals",
                 return_value={"probe_report_status": "current"},
@@ -287,6 +292,16 @@ def test_build_system_picture_snapshot_reads_typed_sources() -> None:
             ),
         ):
             snapshot = build_system_picture_snapshot(repo_root=repo_root)
+
+        mock_load_current_review_state.assert_called_once_with(
+            resolved_root,
+            governance=startup_context.governance,
+        )
+        mock_build_startup_context.assert_called_once_with(
+            repo_root=resolved_root,
+            governance=startup_context.governance,
+            review_state=review_state,
+        )
 
     sections = {section.section_id: section for section in snapshot.sections}
     assert snapshot.contract_id == "SystemPicture"

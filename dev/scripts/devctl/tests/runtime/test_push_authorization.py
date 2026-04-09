@@ -38,6 +38,17 @@ def _single_agent_review_state() -> SimpleNamespace:
     )
 
 
+def _tools_only_review_state() -> SimpleNamespace:
+    return SimpleNamespace(
+        reviewer_runtime=SimpleNamespace(
+            reviewer_mode="active_dual_agent",
+            effective_reviewer_mode="tools_only",
+            reviewer_freshness="overdue",
+            stale_reason="inactive",
+        )
+    )
+
+
 def _pipeline(*, authorized_head_sha: str) -> RemoteCommitPipelineContract:
     return RemoteCommitPipelineContract(
         pipeline_id="pipeline-123",
@@ -151,3 +162,45 @@ def test_publication_authorization_ignores_stale_pipeline_in_single_agent_mode(
     assert decision.authorized is True
     assert decision.authorization_required is False
     assert decision.reason == "authorization_not_required"
+
+
+@patch("dev.scripts.devctl.runtime.push_authorization.scan_repo_governance")
+@patch("dev.scripts.devctl.runtime.push_authorization.load_review_state")
+@patch("dev.scripts.devctl.runtime.push_authorization.current_head_commit_sha")
+@patch("dev.scripts.devctl.runtime.push_authorization._load_pipeline")
+def test_publication_authorization_ignores_declared_dual_agent_when_effective_mode_is_tools_only(
+    load_pipeline_mock,
+    current_head_mock,
+    load_review_state_mock,
+    _scan_governance_mock,
+) -> None:
+    load_review_state_mock.return_value = _tools_only_review_state()
+    current_head_mock.return_value = "head-new"
+    load_pipeline_mock.return_value = RemoteCommitPipelineContract()
+
+    decision = publication_authorization_decision(repo_root=Path("/tmp/repo"))
+
+    assert decision.authorized is False
+    assert decision.authorization_required is True
+    assert decision.reason == "push_authorization_missing"
+
+
+@patch("dev.scripts.devctl.runtime.push_authorization.scan_repo_governance")
+@patch("dev.scripts.devctl.runtime.push_authorization.load_review_state")
+@patch("dev.scripts.devctl.runtime.push_authorization.current_head_commit_sha")
+@patch("dev.scripts.devctl.runtime.push_authorization._load_pipeline")
+def test_publication_authorization_allows_tools_only_runtime_when_exact_head_is_already_authorized(
+    load_pipeline_mock,
+    current_head_mock,
+    load_review_state_mock,
+    _scan_governance_mock,
+) -> None:
+    load_review_state_mock.return_value = _tools_only_review_state()
+    current_head_mock.return_value = "head-123"
+    load_pipeline_mock.return_value = _pipeline(authorized_head_sha="head-123")
+
+    decision = publication_authorization_decision(repo_root=Path("/tmp/repo"))
+
+    assert decision.authorized is True
+    assert decision.authorization_required is True
+    assert decision.reason == "push_authorization_current"

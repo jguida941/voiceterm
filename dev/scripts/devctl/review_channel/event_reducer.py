@@ -33,6 +33,7 @@ from .event_packet_rows import (
     packet_from_event,
     summarize_packets,
 )
+from .pending_packets import live_pending_packets
 from .event_projection import (
     build_event_queue_state,
     build_event_queue_summary,
@@ -364,26 +365,18 @@ def filter_inbox_packets(
     When filtering by status=pending, expired packets are excluded so the
     inbox matches pending_total, per-agent counts, and derived_next_instruction.
     """
-    from datetime import datetime, timezone
-    from .event_store import parse_utc
-
     packets = review_state.get("packets")
     if not isinstance(packets, list):
         return []
-    now_utc = datetime.now(timezone.utc)
     filtered = []
-    for packet in packets:
-        if not isinstance(packet, dict):
-            continue
+    packet_iter = live_pending_packets(packets) if status == "pending" else (
+        packet for packet in packets if isinstance(packet, dict)
+    )
+    for packet in packet_iter:
         if target and packet.get("to_agent") != target:
             continue
         if status and packet.get("status") != status:
             continue
-        # Exclude expired packets from pending results
-        if status == "pending":
-            expires_at = parse_utc(packet.get("expires_at_utc"))
-            if expires_at is not None and expires_at <= now_utc:
-                continue
         filtered.append(packet)
     if limit is not None and limit >= 0:
         return filtered[:limit]

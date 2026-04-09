@@ -1272,9 +1272,21 @@ Routine helper:
   that `push_decision` exactly: wait if it says `await_review`, run
   `python3 dev/scripts/devctl.py push --execute` only when it says
   `run_devctl_push`, and stop when it says `no_push_needed`.
+- Governed mutation stays fail-closed on typed operator mode. `devctl commit`
+  may auto-apply typed approval only in resolved `local_terminal` or
+  `single_agent` modes; `unresolved`, `remote_control`, and `dual_agent`
+  must post or reuse approval packets and block until an applied decision
+  exists. `devctl push` must reuse the repo-policy/default remote for any
+  active governed pipeline and must not treat a degraded `tools_only`
+  reviewer runtime as license to skip exact-head publication authorization.
 - If the governed push path blocks, stop at that typed decision surface. Do
   not treat a push block as a cue to substitute raw `git push`; any later
   human exception should remain a repo-owned typed override path.
+- Pending packet cleanup is apply-bound, not ack-bound. Only an applied
+  `commit_approval` decision may clear the live approval request queue;
+  `acked` decisions and unrelated stale/history packets remain non-
+  authoritative and must not collapse live packet counts on dashboard,
+  status, doctor, or startup surfaces.
 - The default repo quality lane now mirrors that same checkpoint discipline:
   VoiceTerm's resolved `python3 dev/scripts/devctl.py check --profile ci`
   policy includes `check_startup_authority_contract.py`, so once a local

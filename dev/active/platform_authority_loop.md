@@ -180,6 +180,20 @@ intended execution order is:
       `DecisionPacket.validation_plan` work generalizes the same pattern for
       repair/apply/evidence flows and must not be used as a reason to leave
       the current commit gate on `guard_profile` strings.
+- [ ] Freeze the typed `review_state` producer cutover contract before bridge
+      de-authorization: define the canonical producer tick, compatibility
+      rollout order, repo-pack-owned authority path, and the exact conditions
+      where `load_current_review_state()` /
+      `load_current_review_state_payload()` stop regenerating live state
+      through bridge-backed status for startup/planning readers.
+- [ ] Include every live startup/planning consumer in that cutover proof:
+      `startup_context.py`, `planning_ir_sources.py`,
+      `coordination_snapshot.py`, and `system_picture.py` must move together
+      or fail closed to the same typed authority path instead of mixing saved
+      projections with bridge refresh.
+- [ ] Freeze one repo-pack-owned canonical `review_state` artifact path and
+      demote candidate-search lists to compatibility-only readers so review
+      authority no longer depends on fallback path guessing.
 - [ ] Define one operator-approved governed push override path on top of that
       same push policy so a blocked publish may retry only under a
       generation-bound `override_push` decision tied to exact approved target
@@ -951,6 +965,15 @@ intended execution order is:
       versioning from zero.
 - [ ] Define the compatibility window, rollback path, and cutover rule for
       legacy evidence readers before Phase 4 freezes portable review identity.
+- [ ] Freeze one minted runtime identity tuple across startup/review/control
+      projections: `snapshot_id`, `generation_id` where applicable,
+      `head_sha`, and `worktree_hash` must come from one minting owner and be
+      projected unchanged through `review_state`, `commit_pipeline`,
+      `compact/full`, `SessionCachePacket`, `ControlPlaneReadModel`,
+      dashboard, and bridge projection.
+- [ ] Define one-writer rules plus same-tick, monotonic-generation, partial-
+      refresh, and rollback semantics for that identity tuple so parity guards
+      can treat "same snapshot" as a real proof instead of a renderer label.
 
 ### Phase 4 - First Runtime Slice
 
@@ -976,6 +999,10 @@ intended execution order is:
       implementation, but do not leave the contract shape implicit.
 - [ ] Remove `_compat` from that slice's primary runtime path so the first
       end-to-end contract is truly canonical rather than compatibility-first.
+- [ ] Replace bridge freshness as the last reviewer-liveness dependency before
+      producer cutover closes: emit a typed reviewer heartbeat/liveness owner
+      that startup/review/runtime consumers can read directly so `bridge.md`
+      stays projection-only even when the live reviewer runtime degrades.
 - [ ] Freeze and document the review/control state machine that slice needs:
       valid states, transitions, degraded modes, recovery, and receipts.
 - [ ] Reuse the same runtime transport for planning review when the target is a
@@ -1755,6 +1782,15 @@ blocker or exception in plan state before skipping the declared order.
 
 ## Session Resume
 
+- 2026-04-08 typed-authority convergence absorption: keep this plan on the
+  producer/identity/authority spine, not on dashboard polish. Resume in this
+  order: 1) freeze the `load_current_review_state*` producer cutover contract
+  with the live startup/planning consumers (`startup_context`,
+  `planning_ir_sources`, `coordination_snapshot`, `system_picture`) in the
+  proof set, 2) freeze one repo-pack-owned review-state path plus one minted
+  identity tuple / writer rule, and 3) replace bridge freshness as the last
+  reviewer-liveness dependency before broader remote-control or second-repo
+  proof claims widen again.
 - 2026-04-08 coordination read-model follow-up: resume from the remaining
   load-bearing gap, not from reducer design. `CoordinationSnapshot` exists and
   is already visible on markdown/bootstrap paths, but the shared
@@ -2394,6 +2430,40 @@ blocker or exception in plan state before skipping the declared order.
 
 ## Progress Log
 
+- 2026-04-09: Closed one bounded producer/consumer freeze follow-up in the
+  Phase-1 review-state cutover lane. `build_control_plane_read_model()` now
+  replaces its raw `sources["review_state"]` payload with the caller-threaded
+  typed `ReviewState` snapshot when one is already resolved for the proof tick,
+  so reviewer/attention derivation no longer drifts from coordination on the
+  same call. `session-resume` now resolves `load_current_review_state()` once on
+  cache misses and threads that same typed object through both
+  `_load_governed_sources()` and `build_from_sources()`, and `system-picture`
+  now pre-resolves governance + current review state once before building
+  `StartupContext` and the downstream coordination/runtime sections. Focused
+  regressions for control-plane read model, session-resume, system-picture, and
+  the targeted F1 parity test are green. The remaining producer-cutover
+  inventory is now explicit: `planning_ir_sources.py` and direct
+  `coordination_snapshot.py` callers still need the same frozen review-state
+  threading or an explicit compatibility/degraded-mode contract before Phase 1
+  can claim the consumer rollout is complete.
+- 2026-04-09: Added anti-regression proof for the remaining Phase-1 consumer
+  inventory even where the current call sites are still mostly staged. The
+  bounded `CoordinationSnapshot` reducer and `PlanningIRSnapshot` source
+  resolver now document that caller-supplied typed review state must freeze the
+  proof tick, and focused platform tests prove that both paths do not call
+  `load_current_review_state()` when a `review_state` object is already
+  provided. This does not yet migrate every live caller onto one shared
+  snapshot, but it makes the no-second-refresh contract explicit and guarded
+  before the remaining consumer rollout lands.
+- 2026-04-08: Absorbed the typed-authority convergence synthesis into the
+  existing owner chain instead of creating another tracker. This plan now
+  explicitly owns the review-state producer cutover, canonical artifact-path
+  freeze, startup/planning consumer migration, minted identity tuple /
+  one-writer rules, and the plan/doc authority spine that the other owner
+  docs depend on. `remote_commit_pipeline.md` keeps governed mutation/publish
+  cutover, `remote_control_runtime.md` keeps read-side/bootstrap/prompt
+  convergence, and `portable_code_governance.md` keeps second-repo proof
+  pressure.
 - 2026-04-08: Accepted the next coordination convergence tranche as
   read-model/launcher closure work, not another reducer expansion. The
   remaining gap is that `CoordinationSnapshot` still threads through several

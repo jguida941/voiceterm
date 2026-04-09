@@ -52,6 +52,60 @@ def _load_payload_from_path(
     return loaded, []
 
 
+def _existing_projection_payload(
+    review_status_dir: Path,
+) -> tuple[dict[str, Any], dict[str, str] | None, Path | None, list[str]]:
+    """Return the existing full projection bundle when it is already present."""
+    full_path = review_status_dir / "full.json"
+    payload, errors = _load_payload_from_path(
+        full_path,
+        label="review status projection",
+    )
+    if errors:
+        return {}, None, None, errors
+    projection_files = {
+        "root_dir": str(review_status_dir),
+        "review_state_path": str(review_status_dir / "review_state.json"),
+        "compact_path": str(review_status_dir / "compact.json"),
+        "full_path": str(full_path),
+        "actions_path": str(review_status_dir / "actions.json"),
+        "trace_path": str(review_status_dir / "trace.ndjson"),
+        "latest_markdown_path": str(review_status_dir / "latest.md"),
+        "agent_registry_path": str(review_status_dir / "registry" / "agents.json"),
+        "commit_pipeline_path": str(review_status_dir / "commit_pipeline.json"),
+    }
+    return payload, projection_files, full_path, []
+
+
+def _existing_review_state_payload(
+    review_status_dir: Path,
+) -> tuple[dict[str, Any], dict[str, str] | None, Path | None, list[str]]:
+    """Return the existing typed review-state payload when it is already present."""
+    review_state_path = review_status_dir / "review_state.json"
+    payload, errors = _load_payload_from_path(
+        review_state_path,
+        label="typed review_state projection",
+    )
+    if errors:
+        return {}, None, None, ["typed review_state projection unavailable"]
+    projection_files = {
+        "root_dir": str(review_status_dir),
+        "review_state_path": str(review_state_path),
+        "compact_path": "",
+        "full_path": str(review_state_path),
+        "actions_path": "",
+        "trace_path": "",
+        "latest_markdown_path": "",
+        "agent_registry_path": "",
+        "commit_pipeline_path": "",
+    }
+    review_payload = {
+        "review_state": payload,
+        "bridge_liveness": payload.get("bridge", {}),
+    }
+    return review_payload, projection_files, review_state_path, []
+
+
 def load_mobile_review_state(
     repo_root: Path,
     *,
@@ -125,6 +179,39 @@ def load_mobile_review_state(
                     result.review_payload = review_payload
             else:
                 fallback_warning = build_bridge_status_fallback_warning(state_errors)
+
+    # Prefer an already-written projection bundle over triggering another
+    # bridge-backed refresh path. This keeps thin clients aligned with a shared
+    # status tick when another surface already refreshed the review bundle.
+    if result.review_full_path is None:
+        (
+            existing_payload,
+            existing_projection_files,
+            existing_full_path,
+            existing_errors,
+        ) = _existing_projection_payload(review_status_dir)
+        if not existing_errors:
+            if fallback_warning is not None:
+                result.warnings.append(fallback_warning)
+            result.review_payload = existing_payload
+            result.review_projection_files = existing_projection_files
+            result.review_full_path = existing_full_path
+            return result
+
+    if result.review_full_path is None:
+        (
+            existing_review_state_payload,
+            existing_review_state_projection_files,
+            existing_review_state_path,
+            existing_review_state_errors,
+        ) = _existing_review_state_payload(review_status_dir)
+        if not existing_review_state_errors:
+            if fallback_warning is not None:
+                result.warnings.append(fallback_warning)
+            result.review_payload = existing_review_state_payload
+            result.review_projection_files = existing_review_state_projection_files
+            result.review_full_path = existing_review_state_path
+            return result
 
     # Bridge-backed fallback when the event path was skipped or failed
     if result.review_full_path is None:

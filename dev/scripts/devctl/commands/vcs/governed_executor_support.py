@@ -79,7 +79,7 @@ class CommitReadiness:
     """Validated commit inputs ready for governed git commit execution."""
 
     pipeline: RemoteCommitPipelineContract
-    commit_message: str
+    git_commit_args: tuple[str, ...]
 
 
 def evaluate_commit_readiness(
@@ -87,6 +87,9 @@ def evaluate_commit_readiness(
     pipeline: RemoteCommitPipelineContract,
     current_tree_hash: str,
     requested_commit_message: str,
+    amend: bool,
+    allow_empty: bool,
+    no_edit: bool,
 ) -> CommitReadiness | CommitBlock:
     """Validate commit preconditions after approval sync and runtime checks."""
     if pipeline.guard_result is None or pipeline.guard_result.status != ActionOutcome.PASS:
@@ -130,13 +133,32 @@ def evaluate_commit_readiness(
             ),
         )
     commit_message = requested_commit_message or pipeline.intent.commit_message_draft
-    if not commit_message:
+    if no_edit and not amend:
+        return CommitBlock(
+            pipeline=pipeline,
+            reason="no_edit_requires_amend",
+            guidance="`--no-edit` is only supported together with `--amend`.",
+        )
+    if not commit_message and not (amend and no_edit):
         return CommitBlock(
             pipeline=pipeline,
             reason="commit_message_missing",
             guidance="Set `commit_message_draft` during `vcs.stage` before committing.",
         )
-    return CommitReadiness(pipeline=pipeline, commit_message=commit_message)
+
+    git_commit_args: list[str] = ["commit"]
+    if amend:
+        git_commit_args.append("--amend")
+    if allow_empty:
+        git_commit_args.append("--allow-empty")
+    if no_edit:
+        git_commit_args.append("--no-edit")
+    if commit_message:
+        git_commit_args.extend(["-m", commit_message])
+    return CommitReadiness(
+        pipeline=pipeline,
+        git_commit_args=tuple(git_commit_args),
+    )
 
 
 def _commit_failure_guidance() -> str:

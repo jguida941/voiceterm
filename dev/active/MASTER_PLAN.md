@@ -82,6 +82,18 @@
   `ProjectGovernance -> RepoPack -> PlanRegistry -> PlanTargetRef ->
   WorkIntakePacket -> TypedAction -> ActionResult / RunRecord / Finding ->
   ContextPack`.
+- Current 2026-04-08 typed-authority convergence absorption rule inside that
+  same `MP-377` owner chain: do not promote a separate "Typed Authority
+  Convergence" tracker. Treat that synthesis as an execution-order map only
+  and absorb it into the existing plans: `remote_commit_pipeline.md` owns
+  Phase 0 governed mutation / push cutover plus hook and approval semantics;
+  `platform_authority_loop.md` owns review-state producer cutover, canonical
+  artifact-path and identity minting rules, and the plan/doc authority spine;
+  `remote_control_runtime.md` owns queue/read-side/bootstrap/prompt
+  convergence plus remote-control proof; and
+  `portable_code_governance.md` owns the second-repo/custom-layout proof
+  pressure. `MASTER_PLAN.md` plus those owner docs remain the only execution
+  trackers; audit/evidence docs stay intake-only unless promoted.
 - Current 2026-04-01 architecture-absorption follow-up inside that same lane:
   fold the accepted external integration review into canonical owner plans
   instead of carrying `dev/intrgrate_analysis.md` as shadow authority. The
@@ -173,6 +185,25 @@
   dataclass `local_terminal` default. Parity coverage landed in
   `dev/scripts/devctl/tests/runtime/test_coordination_loader_wiring.py`
   and `dev/scripts/devctl/tests/runtime/test_operator_mode_fail_closed.py`.
+- Current 2026-04-08 governed mutation / dashboard queue closure inside that
+  same lane: the remaining drift is now specific, not abstract. `devctl commit`
+  must fail closed on unresolved operator mode instead of silently
+  self-approving, active-pipeline `devctl push` must reuse the policy remote
+  plus exact approved target instead of defaulting to `origin`, declared
+  dual-agent review must keep publication authorization required even when the
+  live reviewer runtime degrades to `tools_only`, and review-channel queue
+  cleanup must only clear `commit_approval` requests on applied decisions
+  instead of collapsing `acked` rows or unrelated packet history. Dashboard
+  now also has to load review-state through the shared fresh source path so
+  instruction/findings parity matches startup/session-resume instead of
+  replaying stale `state/latest.json`.
+- Current 2026-04-08 layered-proof rule inside that same lane: do not call
+  the authority convergence closed from docs or partial parity alone. The
+  required proof set is explicit and shared across the owner docs:
+  snapshot-identified remote-control live proof, post-approval publish smoke
+  harness, read-only blocked-fanout review proof, fresh-AI bootstrap proof,
+  and second-repo proof. Those proofs must route through the existing owner
+  chain rather than into a new shadow "acceptance plan."
 - Current 2026-04-05 portable typed-structure correction inside that same
   lane: keep this as governed-boundary doctrine, not a repo-wide style rule.
   For platform-owned governance/control paths that any adopter repo may use,

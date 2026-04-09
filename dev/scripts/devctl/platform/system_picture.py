@@ -15,6 +15,7 @@ from ..context_graph.snapshot_store import (
 from ..governance.push_state import current_head_commit_sha
 from ..repo_packs import active_path_config
 from ..review_channel.heartbeat import compute_non_audit_worktree_hash
+from ..runtime.governance_scan import scan_repo_governance_safely
 from ..runtime.review_state_locator import (
     load_current_review_state,
     resolve_review_state_path,
@@ -93,7 +94,16 @@ def build_system_picture_snapshot(
     resolved_root = _resolve_repo_root(repo_root)
     generated_at = utc_timestamp()
 
-    startup_context = build_startup_context(repo_root=resolved_root)
+    resolved_governance = scan_repo_governance_safely(resolved_root)
+    review_state = load_current_review_state(
+        resolved_root,
+        governance=resolved_governance,
+    )
+    startup_context = build_startup_context(
+        repo_root=resolved_root,
+        governance=resolved_governance,
+        review_state=review_state,
+    )
     startup_authority = build_startup_authority_report(repo_root=resolved_root)
     startup_receipt = load_startup_receipt(
         governance=startup_context.governance,
@@ -120,7 +130,6 @@ def build_system_picture_snapshot(
     )
 
     snapshot_paths = list_context_graph_snapshots(repo_root=resolved_root)
-    review_state = load_current_review_state(resolved_root, governance=startup_context.governance)
     review_state_path_val = resolve_review_state_path(resolved_root, governance=startup_context.governance)
     quality_signals = load_startup_quality_signals(resolved_root)
     coordination_snapshot = build_coordination_snapshot(

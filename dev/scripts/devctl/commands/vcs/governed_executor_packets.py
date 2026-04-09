@@ -49,6 +49,39 @@ def build_commit_approval_request(
     )
 
 
+def build_commit_approval_decision(
+    pipeline: RemoteCommitPipelineContract,
+    *,
+    approval_packet_kind: str = "commit_approval",
+    approved_by: str = "operator",
+    requested_action: str = "approve_commit_pipeline",
+    summary: str = "",
+    body: str = "",
+) -> PacketPostRequest:
+    """Build the canonical operator decision packet for one pipeline."""
+    return PacketPostRequest(
+        from_agent=approved_by,
+        to_agent="system",
+        kind=approval_packet_kind,
+        summary=summary or f"Approve governed commit pipeline `{pipeline.pipeline_id}`",
+        body=body or "Operator approved the guarded staged snapshot.",
+        requested_action=requested_action,
+        policy_hint="operator_approval_required",
+        approval_required=False,
+        trace_id=pipeline.pipeline_id,
+        target=PacketTargetFields.from_values(
+            target_kind="runtime",
+            target_ref=pipeline_target_ref(pipeline),
+            target_revision=pipeline.generation_id,
+        ),
+        runtime_approval=PacketRuntimeApprovalFields.from_values(
+            pipeline_generation=pipeline.generation_id,
+            staged_snapshot_hash=pipeline.intent.staged_tree_hash,
+            guard_results_summary=guard_results_summary(pipeline.guard_result),
+        ),
+    )
+
+
 def latest_matching_packet(
     packets: Sequence[ReviewPacketState],
     pipeline: RemoteCommitPipelineContract,

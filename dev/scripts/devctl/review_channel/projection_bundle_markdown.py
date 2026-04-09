@@ -10,6 +10,7 @@ from .current_session_projection import (
 )
 from .doctor_markdown import append_doctor_markdown
 from .projection_markdown import append_push_markdown
+from .pending_packets import partition_live_packet_queue
 
 
 def render_latest_markdown(
@@ -199,17 +200,35 @@ def _append_agents(lines: list[str], agents: object) -> None:
 def _append_packets(lines: list[str], packets: object) -> None:
     if not isinstance(packets, list) or not packets:
         return
-    lines.append("")
-    lines.append("## Packets")
-    for packet in packets[:5]:
-        if not isinstance(packet, dict):
-            continue
-        summary = (
-            f"- {packet.get('packet_id')}: {packet.get('status')} | "
-            f"{packet.get('from_agent')} -> {packet.get('to_agent')} | "
-            f"{packet.get('summary')}"
-        )
-        pack_kinds = context_pack_ref_summary(packet.get("context_pack_refs"))
-        if pack_kinds:
-            summary += f" | packs: {pack_kinds}"
-        lines.append(summary)
+    live_packets, history_packets, _ = partition_live_packet_queue(packets)
+    if live_packets:
+        lines.append("")
+        lines.append("## Live Packets")
+        for packet in live_packets[:5]:
+            summary = _format_packet_line(packet)
+            pack_kinds = context_pack_ref_summary(packet.get("context_pack_refs"))
+            if pack_kinds:
+                summary += f" | packs: {pack_kinds}"
+            lines.append(summary)
+    if history_packets:
+        lines.append("")
+        lines.append("## Packet History")
+        for packet in history_packets[:5]:
+            summary = _format_packet_line(packet, stale_pending=True)
+            pack_kinds = context_pack_ref_summary(packet.get("context_pack_refs"))
+            if pack_kinds:
+                summary += f" | packs: {pack_kinds}"
+            lines.append(summary)
+
+
+def _format_packet_line(packet: object, *, stale_pending: bool = False) -> str:
+    if not isinstance(packet, dict):
+        return "- packet: (unavailable)"
+    status = str(packet.get("status") or "unknown").strip()
+    if stale_pending and status == "pending":
+        status = "pending (stale)"
+    return (
+        f"- {packet.get('packet_id')}: {status} | "
+        f"{packet.get('from_agent')} -> {packet.get('to_agent')} | "
+        f"{packet.get('summary')}"
+    )

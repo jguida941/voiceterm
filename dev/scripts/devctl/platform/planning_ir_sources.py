@@ -74,7 +74,12 @@ class PlanningIRResolvedInputs:
 def resolve_planning_inputs(
     request: PlanningIRBuildRequest | None,
 ) -> PlanningIRResolvedInputs:
-    """Resolve repo/runtime/graph/evidence sources for the planning reducer."""
+    """Resolve repo/runtime/graph/evidence sources for the planning reducer.
+
+    Callers that already resolved a typed ``review_state`` for the current proof
+    tick should provide it on ``PlanningIRBuildRequest`` so this resolver does
+    not refresh live review state independently.
+    """
     request = request or PlanningIRBuildRequest()
     resolved_root = (request.repo_root or get_repo_root()).resolve()
     resolved_governance = request.governance or scan_repo_governance_safely(resolved_root)

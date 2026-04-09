@@ -147,6 +147,21 @@ Current 2026-04-08 collaboration-topology / ownership note:
   need to reconstruct the inactive-loop / planned-fanout mismatch from raw
   status JSON or bridge prose.
 
+Current 2026-04-08 typed mutation / queue / dashboard convergence note:
+- The next same-lane closure is no longer "typed architecture missing"; it is
+  fail-closed reuse of the typed seams already landed. Governed mutation must
+  keep `devctl commit` auto-approval limited to resolved
+  `local_terminal` / `single_agent` modes, require exact-head publication
+  authorization whenever review is declared/effective dual-agent even if the
+  live runtime temporarily degrades to `tools_only`, and preserve the policy
+  remote/current approved target when `devctl push` routes through an active
+  pipeline. Queue truth must also stay exact: only applied
+  `commit_approval` decisions clear the live approval request, not `acked`
+  packets or unrelated history rows. Dashboard/control-plane convergence is
+  the matching read-side requirement: dashboard must consume the same fresh
+  review-state source as startup/session-resume instead of replaying stale
+  `state/latest.json` for instruction/findings truth.
+
 ## Scope
 
 Turn the current VoiceTerm-local automation stack into a reusable AI governance
@@ -3105,6 +3120,14 @@ alone. Use these proof gates:
       arbitrary repos. Another repo's generated surfaces must carry the same
       platform thesis with that repo's own product summary instead of
       inheriting VoiceTerm-specific identity or hidden path assumptions.
+- [ ] Absorb the typed-authority convergence synthesis into the existing owner
+      chain instead of promoting a new architecture tracker: Phase 0 governed
+      mutation / publish cutover stays in `remote_commit_pipeline.md`,
+      producer/identity/authority-path closure stays in
+      `platform_authority_loop.md`, read-side/bootstrap/prompt convergence
+      stays in `remote_control_runtime.md`, and second-repo proof stays in
+      `portable_code_governance.md`. `MASTER_PLAN.md` remains the tracker and
+      subordinate plans must stay in landed/open/priority parity.
 - [ ] Keep repo entrance surfaces split by audience until extraction is real:
       the root `README.md` in this repo remains the VoiceTerm product/user
       entrypoint while the portable governance platform gets its own
@@ -4781,6 +4804,17 @@ alone. Use these proof gates:
 Use this section as the single "left off here" surface for fresh AI sessions
 working on `MP-377`.
 
+- 2026-04-08 typed-authority convergence synthesis absorption:
+  do not create or revive a separate umbrella plan. Resume from the declared
+  owner-chain order only: Phase 0 mutation/push closure in
+  `remote_commit_pipeline.md`; review-state producer, identity, and
+  authority-path closure in `platform_authority_loop.md`; read-side /
+  bootstrap / prompt convergence in `remote_control_runtime.md`; and
+  second-repo proof in `portable_code_governance.md`. Do not call Gate 1 or
+  Gate 2 closed until the layered proofs are green: snapshot-identified
+  remote-control live proof, post-approval publish smoke harness, read-only
+  blocked-fanout review proof, fresh-AI bootstrap proof, and second-repo
+  proof.
 - 2026-04-08 coordination projection-divergence review:
   the repo now has enough typed coordination truth to answer who is active,
   what slice is owned, whether fanout is safe, and whether resync is

@@ -93,9 +93,23 @@ def execute_stage(
             artifact_paths=(pipeline_artifact_relpath,),
         )
 
+    reuse_staged_index = bool_field(action.parameters, "reuse_staged_index")
+    allow_empty = bool_field(action.parameters, "allow_empty")
     worktree_dirty = dirty_paths(repo_root)
     selected_paths = normalize_paths(action.parameters.get("paths"))
-    if not worktree_dirty:
+    if reuse_staged_index:
+        staged = staged_paths(repo_root)
+        if not staged and not allow_empty:
+            return result_builder(
+                action_id=action.action_id,
+                ok=False,
+                status=ActionOutcome.FAIL,
+                reason="no_staged_changes",
+                operator_guidance=(
+                    "Stage changes first or rerun with `--allow-empty`."
+                ),
+            )
+    elif not worktree_dirty:
         return result_builder(
             action_id=action.action_id,
             ok=False,
@@ -104,7 +118,7 @@ def execute_stage(
             operator_guidance="Create or modify repo files before running `vcs.stage`.",
         )
 
-    if selected_paths:
+    if not reuse_staged_index and selected_paths:
         outside_scope = sorted(set(worktree_dirty) - set(selected_paths))
         if outside_scope:
             return result_builder(
@@ -118,35 +132,36 @@ def execute_stage(
                 ),
                 warnings=tuple(outside_scope),
             )
-    else:
+    elif not reuse_staged_index:
         selected_paths = worktree_dirty
 
-    stage_code, _, stage_error = run_git_capture(
-        ["add", "-A", "--", *selected_paths],
-        repo_root=repo_root,
-    )
-    if stage_code != 0:
-        return result_builder(
-            action_id=action.action_id,
-            ok=False,
-            status=ActionOutcome.FAIL,
-            reason="git_add_failed",
-            operator_guidance="Repair the git index error and rerun `vcs.stage`.",
-            warnings=((stage_error,) if stage_error else ()),
+    if not reuse_staged_index:
+        stage_code, _, stage_error = run_git_capture(
+            ["add", "-A", "--", *selected_paths],
+            repo_root=repo_root,
         )
+        if stage_code != 0:
+            return result_builder(
+                action_id=action.action_id,
+                ok=False,
+                status=ActionOutcome.FAIL,
+                reason="git_add_failed",
+                operator_guidance="Repair the git index error and rerun `vcs.stage`.",
+                warnings=((stage_error,) if stage_error else ()),
+            )
 
-    staged = staged_paths(repo_root)
-    if not staged:
-        return result_builder(
-            action_id=action.action_id,
-            ok=False,
-            status=ActionOutcome.FAIL,
-            reason="no_staged_changes",
-            operator_guidance=(
-                "The selected scope did not produce a staged snapshot. "
-                "Adjust the path list or make a real change first."
-            ),
-        )
+        staged = staged_paths(repo_root)
+        if not staged and not allow_empty:
+            return result_builder(
+                action_id=action.action_id,
+                ok=False,
+                status=ActionOutcome.FAIL,
+                reason="no_staged_changes",
+                operator_guidance=(
+                    "The selected scope did not produce a staged snapshot. "
+                    "Adjust the path list or make a real change first."
+                ),
+            )
 
     tree_hash = index_tree_hash(repo_root)
     if not tree_hash:
@@ -209,12 +224,30 @@ def execute_commit(
         event_packets_loader(),
         approval_packet_kind=APPROVAL_PACKET_KIND,
     )
+    snapshot_refresh_warnings: list[str] = []
+    if (
+        pipeline.guard_result is not None
+        and pipeline.guard_result.status == ActionOutcome.PASS
+        and pipeline.approval_state == "approved"
+        and pipeline.state == "approved"
+        and pipeline.approval_packet_id
+        and pipeline.decision_packet_id
+    ):
+        # Refresh before the final tree-hash check so a changed
+        # ReviewSnapshot cannot silently piggyback on an approval that
+        # targeted an older staged tree.
+        snapshot_refresh_warnings = refresh_and_stage_review_snapshot(
+            repo_root=repo_root
+        )
     readiness = evaluate_commit_readiness(
         pipeline=pipeline,
         current_tree_hash=index_tree_hash(repo_root),
         requested_commit_message=string_value(
             action.parameters.get("commit_message_draft")
         ),
+        amend=bool_field(action.parameters, "amend"),
+        allow_empty=bool_field(action.parameters, "allow_empty"),
+        no_edit=bool_field(action.parameters, "no_edit"),
     )
     if isinstance(readiness, CommitBlock):
         blocked_warnings = persist_pipeline(readiness.pipeline)
@@ -224,12 +257,10 @@ def execute_commit(
             status=ActionOutcome.FAIL,
             reason=readiness.reason,
             operator_guidance=readiness.guidance,
-            warnings=tuple(blocked_warnings),
+            warnings=tuple(blocked_warnings + snapshot_refresh_warnings),
             artifact_paths=(pipeline_artifact_relpath,),
         )
     pipeline = readiness.pipeline
-    commit_message = readiness.commit_message
-
     commit_pending = replace(
         pipeline,
         state="commit_pending",
@@ -238,18 +269,8 @@ def execute_commit(
     )
     persist_pipeline(commit_pending)
 
-    # Pre-commit refresh: regenerate dev/audits/REVIEW_SNAPSHOT.md and stage it
-    # so the committed tree (and therefore the pushed commit on GitHub) carries
-    # the refreshed projection. The snapshot inside commit C describes the
-    # state C was committed against — the only internally consistent frame,
-    # since a file inside a commit cannot describe its own SHA. A no-op on
-    # fresh repos where the file has not been initialized yet.
-    snapshot_refresh_warnings = refresh_and_stage_review_snapshot(
-        repo_root=repo_root
-    )
-
     commit_code, _, commit_error = run_git_capture(
-        ["commit", "-m", commit_message],
+        list(readiness.git_commit_args),
         repo_root=repo_root,
     )
     if commit_code != 0:

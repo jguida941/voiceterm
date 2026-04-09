@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from types import SimpleNamespace
+from unittest.mock import patch
 
 from dev.scripts.devctl.context_graph.models import (
     EDGE_KIND_SCOPED_BY,
@@ -306,3 +307,38 @@ def test_build_planning_ir_snapshot_flags_unowned_hot_paths_and_plan_mismatches(
     mismatch_kinds = {item.mismatch_kind for item in snapshot.plan_finding_mismatches}
     assert "unowned_finding" in mismatch_kinds
     assert "active_target_not_owner" in mismatch_kinds
+
+
+def test_build_planning_ir_snapshot_uses_request_review_state_without_refresh(
+    tmp_path,
+) -> None:
+    request = PlanningIRBuildRequest(
+        repo_root=tmp_path,
+        governance=_governance(),
+        review_state=_review_state(scope="MP-377"),
+        ownership=WorkIntakeOwnershipState(status="clear"),
+        coordination=WorkIntakeCoordinationState(
+            collaboration_topology="single_agent",
+            authority_mode="self_directed",
+            work_ownership_mode="exclusive_slice",
+            sync_cadence_mode="checkpointed",
+        ),
+        graph_nodes=(
+            _plan_node("dev/active/MASTER_PLAN.md", scope="all active MP execution state"),
+            _plan_node("dev/active/ai_governance_platform.md", scope="MP-377"),
+            _source_node("dev/scripts/devctl/platform/planning_ir.py", temperature=0.61),
+        ),
+        graph_edges=(
+            _scoped_by("dev/active/ai_governance_platform.md", "dev/scripts/devctl/platform/planning_ir.py"),
+        ),
+        governance_report=_report(),
+    )
+
+    with patch(
+        "dev.scripts.devctl.platform.planning_ir_sources.load_current_review_state",
+        side_effect=AssertionError("should not refresh review state"),
+    ):
+        snapshot = build_planning_ir_snapshot(request)
+
+    assert snapshot.active_target is not None
+    assert snapshot.active_target.plan_scope == "MP-377"

@@ -7,6 +7,7 @@ from ..review_channel.context_refs import (
     context_pack_ref_summary,
     normalize_context_pack_refs,
 )
+from ..review_channel.pending_packets import partition_live_packet_queue
 
 from ..commands.review_channel_bridge_render import append_common_report_sections
 
@@ -30,52 +31,10 @@ def render_event_md(report: dict) -> str:
     append_doctor_markdown(lines, report.get("doctor"))
     packet = report.get("packet")
     if isinstance(packet, dict):
-        lines.append("")
-        lines.append("## Packet")
-        lines.append(f"- packet_id: {packet.get('packet_id')}")
-        lines.append(f"- trace_id: {packet.get('trace_id')}")
-        lines.append(f"- route: {packet.get('from_agent')} -> {packet.get('to_agent')}")
-        lines.append(f"- status: {packet.get('status')}")
-        lines.append(f"- summary: {packet.get('summary')}")
-        if packet.get("target_kind"):
-            lines.append(
-                "- target: "
-                f"{packet.get('target_kind')} | "
-                f"{packet.get('target_ref') or 'n/a'} | "
-                f"{packet.get('target_revision') or 'n/a'}"
-            )
-        if packet.get("pipeline_generation"):
-            lines.append(
-                f"- pipeline_generation: {packet.get('pipeline_generation')}"
-            )
-        if packet.get("staged_snapshot_hash"):
-            lines.append(
-                f"- staged_snapshot_hash: {packet.get('staged_snapshot_hash')}"
-            )
-        if packet.get("guard_results_summary"):
-            lines.append(
-                f"- guard_results_summary: {packet.get('guard_results_summary')}"
-            )
-        append_context_pack_ref_lines(
-            lines,
-            packet.get("context_pack_refs"),
-            heading="- context_pack_refs:",
-            indent="  ",
-        )
+        _append_packet_section(lines, packet)
     packets = report.get("packets")
     if isinstance(packets, list) and packets:
-        pending = [p for p in packets if isinstance(p, dict) and p.get("status") == "pending"]
-        non_pending = [p for p in packets if isinstance(p, dict) and p.get("status") != "pending"]
-        if pending:
-            lines.append("")
-            lines.append("## Pending Packets")
-            for packet_row in pending:
-                lines.append(_format_packet_line(packet_row))
-        if non_pending:
-            lines.append("")
-            lines.append("## Resolved Packets")
-            for packet_row in non_pending:
-                lines.append(_format_packet_line(packet_row))
+        _append_packet_queue_sections(lines, packets)
     history = report.get("history")
     if isinstance(history, list) and history:
         lines.append("")
@@ -90,10 +49,19 @@ def render_event_md(report: dict) -> str:
     return "\n".join(lines)
 
 
-def _format_packet_line(packet_row: dict) -> str:
+def _format_packet_line(
+    packet_row: dict,
+    *,
+    stale_pending: bool = False,
+) -> str:
     """Format one packet as a markdown list item."""
+    if not isinstance(packet_row, dict):
+        return "- packet: (unavailable)"
+    status = str(packet_row.get("status") or "unknown").strip()
+    if stale_pending and status == "pending":
+        status = "pending (stale)"
     summary = (
-        f"- {packet_row.get('packet_id')}: {packet_row.get('status')} | "
+        f"- {packet_row.get('packet_id')}: {status} | "
         f"{packet_row.get('from_agent')} -> {packet_row.get('to_agent')} | "
         f"{packet_row.get('summary')}"
     )
@@ -103,6 +71,64 @@ def _format_packet_line(packet_row: dict) -> str:
     if packet_row.get("pipeline_generation"):
         summary += f" | gen: {packet_row.get('pipeline_generation')}"
     return summary
+
+
+def _append_packet_section(lines: list[str], packet: dict) -> None:
+    lines.append("")
+    lines.append("## Packet")
+    lines.append(f"- packet_id: {packet.get('packet_id')}")
+    lines.append(f"- trace_id: {packet.get('trace_id')}")
+    lines.append(f"- route: {packet.get('from_agent')} -> {packet.get('to_agent')}")
+    lines.append(f"- status: {packet.get('status')}")
+    lines.append(f"- summary: {packet.get('summary')}")
+    if packet.get("target_kind"):
+        lines.append(
+            "- target: "
+            f"{packet.get('target_kind')} | "
+            f"{packet.get('target_ref') or 'n/a'} | "
+            f"{packet.get('target_revision') or 'n/a'}"
+        )
+    if packet.get("pipeline_generation"):
+        lines.append(f"- pipeline_generation: {packet.get('pipeline_generation')}")
+    if packet.get("staged_snapshot_hash"):
+        lines.append(f"- staged_snapshot_hash: {packet.get('staged_snapshot_hash')}")
+    if packet.get("guard_results_summary"):
+        lines.append(f"- guard_results_summary: {packet.get('guard_results_summary')}")
+    append_context_pack_ref_lines(
+        lines,
+        packet.get("context_pack_refs"),
+        heading="- context_pack_refs:",
+        indent="  ",
+    )
+
+
+def _append_packet_queue_sections(
+    lines: list[str],
+    packets: list[dict],
+) -> None:
+    pending, history, stale_packets = partition_live_packet_queue(packets)
+    stale_packet_ids = {_packet_id_text(packet_row) for packet_row in stale_packets}
+    if pending:
+        lines.append("")
+        lines.append("## Live Packets")
+        for packet_row in pending:
+            lines.append(_format_packet_line(packet_row))
+    if history:
+        lines.append("")
+        lines.append("## Packet History")
+        for packet_row in history:
+            lines.append(
+                _format_packet_line(
+                    packet_row,
+                    stale_pending=_packet_id_text(packet_row) in stale_packet_ids,
+                )
+            )
+
+
+def _packet_id_text(packet_row: object) -> str:
+    if not isinstance(packet_row, dict):
+        return ""
+    return str(packet_row.get("packet_id") or "").strip()
 
 
 def append_context_pack_ref_lines(

@@ -1,25 +1,50 @@
-"""Governed commit command — wraps git commit with mandatory guard checks.
-
-Runs ``devctl check --profile quick`` before every commit. If guards fail,
-the commit is blocked and violations are reported. This is the programmatic
-counterpart to the pre-commit hook in
-``dev/config/templates/portable_governance_pre_commit_hook.sh``.
-"""
+"""Governed commit command backed by the typed remote/local pipeline."""
 
 from __future__ import annotations
 
 import os
 import subprocess
 import sys
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from ...common import emit_output, write_output
 from ...config import REPO_ROOT
-from ...time_utils import utc_timestamp
+from ...governance.push_policy import load_push_policy
+from ...review_channel.events import post_packet, resolve_artifact_paths, transition_packet
+from ...review_channel.packet_contract import PacketTransitionRequest
+from ...runtime import ActionResult
+from ...runtime.action_contracts import ActionOutcome
+from ...runtime.action_contracts import ACTION_RESULT_CONTRACT_ID, ACTION_RESULT_SCHEMA_VERSION
+from ...runtime.control_plane_read_model import build_control_plane_read_model
+from ...runtime.operator_context import OperatorInteractionMode, resolve_operator_interaction_mode
+from .governed_executor import GovernedVcsExecutor
+from .governed_executor_actions import APPROVAL_PACKET_KIND, _build_report, _emit_report, build_commit_action, build_stage_action
+from .governed_executor_packets import build_commit_approval_decision, build_commit_approval_request
+from .governed_executor_sync import sync_pipeline_approval
 
 GUARD_PROFILE = "quick"
 DEVCTL_SCRIPT = "dev/scripts/devctl.py"
+_REUSABLE_PIPELINE_STATES = frozenset(
+    {
+        "staged",
+        "guards_running",
+        "guards_passed",
+        "operator_approval_pending",
+        "approved",
+        "commit_pending",
+    }
+)
+_PIPELINE_BLOCKING_STATES = frozenset({"commit_recorded", "push_pending"})
+
+
+@dataclass(frozen=True, slots=True)
+class CommitPassthrough:
+    """Supported passthrough flags for the governed commit path."""
+
+    allow_empty: bool = False
+    no_edit: bool = False
+    unsupported: tuple[str, ...] = ()
 
 
 def _run_guard_bundle(
@@ -27,20 +52,7 @@ def _run_guard_bundle(
     repo_root: Path = REPO_ROOT,
     runner: Any = None,
 ) -> int:
-    """Run the quick guard profile and return the exit code.
-
-    Narrow bypass for the Q1 self-block: devctl commit's own guard run
-    would otherwise fail `startup-authority-contract-guard` because the
-    guard counts the staged-for-commit content as "dirty after local
-    checkpoint" — the exact content this invocation is about to commit.
-    Setting ``DEVCTL_COMMIT_GATE_BYPASS_STARTUP_AUTHORITY=1`` on the
-    child environment signals to the guard that the caller is the
-    commit path itself, not a post-commit push gate. The guard reads
-    the env var and returns no violations for the dirty-worktree rule
-    when the flag is set. See LIVE_RUN.md Q1 for the full incident
-    trace. The env var is scoped to the child subprocess only so
-    other devctl invocations see normal enforcement.
-    """
+    """Run the quick guard profile and return the exit code."""
     cmd = [
         sys.executable,
         str(repo_root / DEVCTL_SCRIPT),
@@ -61,7 +73,6 @@ def _run_guard_bundle(
         env=child_env,
     )
     if result.returncode != 0:
-        # Show guard output on stderr so the operator sees what failed
         if result.stdout:
             print(result.stdout, file=sys.stderr)
         if result.stderr:
@@ -69,8 +80,128 @@ def _run_guard_bundle(
     return result.returncode
 
 
+def _guard_result(exit_code: int) -> ActionResult:
+    """Convert the guard exit code into the shared pipeline contract."""
+    passed = exit_code == 0
+    return ActionResult(
+        schema_version=ACTION_RESULT_SCHEMA_VERSION,
+        contract_id=ACTION_RESULT_CONTRACT_ID,
+        action_id="quality.guard_bundle",
+        ok=passed,
+        status=ActionOutcome.PASS if passed else ActionOutcome.FAIL,
+        reason="" if passed else "guard_bundle_failed",
+    )
+
+
+def _resolve_interaction_mode(repo_root: Path) -> str:
+    """Return the current operator interaction mode for commit approval."""
+    try:
+        model = build_control_plane_read_model(repo_root)
+    except (OSError, ValueError):
+        return "unresolved"
+    return str(model.operator_interaction_mode or "").strip() or "unresolved"
+
+
+def _should_auto_approve(interaction_mode: str) -> bool:
+    """Local terminal and plain local runs may self-approve via typed packets."""
+    mode = resolve_operator_interaction_mode(str(interaction_mode or "").strip()).value
+    return mode in {
+        OperatorInteractionMode.LOCAL_TERMINAL.value,
+        OperatorInteractionMode.SINGLE_AGENT.value,
+    }
+
+
+def _ensure_approval_request(
+    executor: GovernedVcsExecutor,
+    pipeline,
+) -> str:
+    """Post the typed approval request once per governed pipeline."""
+    synced = sync_pipeline_approval(
+        pipeline,
+        executor._event_packets(),
+        approval_packet_kind=APPROVAL_PACKET_KIND,
+    )
+    if synced.approval_packet_id or synced.approval_state == "approved":
+        executor._persist_pipeline(synced)
+        return synced.approval_packet_id
+    artifact_paths = resolve_artifact_paths(repo_root=executor.repo_root)
+    _, event = post_packet(
+        repo_root=executor.repo_root,
+        review_channel_path=executor.review_channel_path,
+        artifact_paths=artifact_paths,
+        request=build_commit_approval_request(pipeline),
+    )
+    return str(event.get("packet_id") or "").strip()
+
+
+def _apply_local_approval(executor: GovernedVcsExecutor, pipeline) -> None:
+    """Record request + applied operator decision for local terminal commits."""
+    artifact_paths = resolve_artifact_paths(repo_root=executor.repo_root)
+    request_packet_id = _ensure_approval_request(executor, pipeline)
+    if request_packet_id:
+        try:
+            transition_packet(
+                repo_root=executor.repo_root,
+                review_channel_path=executor.review_channel_path,
+                artifact_paths=artifact_paths,
+                request=PacketTransitionRequest(
+                    action="apply",
+                    packet_id=request_packet_id,
+                    actor="operator",
+                ),
+            )
+        except ValueError:
+            pass
+    _, decision_event = post_packet(
+        repo_root=executor.repo_root,
+        review_channel_path=executor.review_channel_path,
+        artifact_paths=artifact_paths,
+        request=build_commit_approval_decision(
+            pipeline,
+            summary=f"Local terminal approval for `{pipeline.pipeline_id}`",
+            body=(
+                "The local terminal operator approved the guarded staged "
+                "snapshot for governed commit execution."
+            ),
+        ),
+    )
+    transition_packet(
+        repo_root=executor.repo_root,
+        review_channel_path=executor.review_channel_path,
+        artifact_paths=artifact_paths,
+        request=PacketTransitionRequest(
+            action="apply",
+            packet_id=str(decision_event.get("packet_id") or ""),
+            actor="operator",
+        ),
+    )
+
+
+def _parse_passthrough(args) -> CommitPassthrough:
+    """Normalize supported passthrough flags and reject the rest."""
+    allow_empty = False
+    no_edit = False
+    unsupported: list[str] = []
+    for value in getattr(args, "passthrough", None) or ():
+        flag = str(value or "").strip()
+        if not flag:
+            continue
+        if flag == "--allow-empty":
+            allow_empty = True
+            continue
+        if flag == "--no-edit":
+            no_edit = True
+            continue
+        unsupported.append(flag)
+    return CommitPassthrough(
+        allow_empty=allow_empty,
+        no_edit=no_edit,
+        unsupported=tuple(unsupported),
+    )
+
+
 def _build_git_commit_cmd(args) -> list[str]:
-    """Build the git commit command from parsed arguments."""
+    """Compatibility helper used by parser tests and docs."""
     cmd = ["git", "commit"]
     if getattr(args, "message", None):
         cmd.extend(["-m", args.message])
@@ -81,102 +212,124 @@ def _build_git_commit_cmd(args) -> list[str]:
     return cmd
 
 
-def _run_git_commit(
-    args,
-    *,
-    repo_root: Path = REPO_ROOT,
-    runner: Any = None,
-) -> int:
-    """Execute git commit and return the exit code."""
-    cmd = _build_git_commit_cmd(args)
-    run_fn = runner or subprocess.run
-    result = run_fn(cmd, cwd=str(repo_root))
-    return result.returncode
-
-
 def run_commit(
     args,
     *,
     repo_root: Path = REPO_ROOT,
-    guard_runner: Any = None,
-    git_runner: Any = None,
+    guard_runner=None,
+    policy=None,
+    executor: GovernedVcsExecutor | None = None,
+    interaction_mode: str | None = None,
 ) -> int:
-    """Run governed commit: guards first, then git commit on success.
-
-    Parameters
-    ----------
-    args:
-        Parsed CLI arguments (must have ``message``, ``amend``,
-        ``passthrough``, ``format``, ``output``).
-    repo_root:
-        Repository root path.
-    guard_runner:
-        Optional subprocess.run replacement for the guard check (testing).
-    git_runner:
-        Optional subprocess.run replacement for git commit (testing).
-
-    Returns
-    -------
-    int
-        0 on success, non-zero on guard failure or commit failure.
-    """
-    # Step 1: Run guard bundle
-    guard_rc = _run_guard_bundle(repo_root=repo_root, runner=guard_runner)
-    if guard_rc != 0:
+    """Run governed commit through the typed remote/local pipeline."""
+    passthrough = _parse_passthrough(args)
+    if passthrough.unsupported:
         report = _build_report(
             status="blocked",
-            reason="guard_bundle_failed",
-            guard_exit_code=guard_rc,
+            reason="unsupported_passthrough",
+            unsupported_passthrough=list(passthrough.unsupported),
+            guidance=(
+                "Stage the exact paths first, then rerun `devctl commit`. "
+                "The governed commit path only supports `--allow-empty` and "
+                "`--no-edit`."
+            ),
         )
         _emit_report(args, report)
         return 1
 
-    # Step 2: Run git commit
-    commit_rc = _run_git_commit(
-        args,
+    resolved_policy = policy or load_push_policy(repo_root=repo_root)
+    vcs_executor = executor or GovernedVcsExecutor(
         repo_root=repo_root,
-        runner=git_runner,
+        push_policy=resolved_policy,
     )
-    if commit_rc != 0:
-        report = _build_report(status="failed", reason="git_commit_failed", git_exit_code=commit_rc)
+
+    pipeline = vcs_executor.load_pipeline()
+    if pipeline.pipeline_id and pipeline.state in _PIPELINE_BLOCKING_STATES:
+        report = _build_report(
+            status="blocked",
+            reason="active_pipeline_requires_publish_or_recovery",
+            pipeline_id=pipeline.pipeline_id,
+            pipeline_state=pipeline.state,
+            guidance=(
+                "Finish the current governed publish flow or recover the "
+                "existing pipeline before creating another commit."
+            ),
+        )
         _emit_report(args, report)
-        return commit_rc
+        return 1
 
-    report = _build_report(status="committed")
-    _emit_report(args, report)
-    return 0
+    if not pipeline.pipeline_id or pipeline.state not in _REUSABLE_PIPELINE_STATES:
+        stage_result = vcs_executor.execute(
+            build_stage_action(
+                repo_pack_id=resolved_policy.repo_pack_id,
+                commit_message_draft=str(getattr(args, "message", "") or ""),
+                push_requested=False,
+                guard_profile=GUARD_PROFILE,
+                work_intake_ref="devctl.commit",
+                reuse_staged_index=True,
+                allow_empty=passthrough.allow_empty,
+                requested_by="devctl.commit",
+            )
+        )
+        pipeline = vcs_executor.load_pipeline()
+        if not stage_result.ok:
+            report = _build_report(
+                status="blocked",
+                reason=stage_result.reason,
+                pipeline_id=pipeline.pipeline_id,
+                pipeline_state=pipeline.state,
+                operator_guidance=stage_result.operator_guidance,
+                warnings=list(stage_result.warnings),
+            )
+            _emit_report(args, report)
+            return 1
 
+    if pipeline.guard_result is None or pipeline.guard_result.status != ActionOutcome.PASS:
+        guard_rc = _run_guard_bundle(repo_root=repo_root, runner=guard_runner)
+        pipeline = vcs_executor.record_guard_result(_guard_result(guard_rc))
+        if guard_rc != 0:
+            report = _build_report(
+                status="blocked",
+                reason="guard_bundle_failed",
+                guard_exit_code=guard_rc,
+                pipeline_id=pipeline.pipeline_id,
+                pipeline_state=pipeline.state,
+            )
+            _emit_report(args, report)
+            return 1
 
-def _build_report(*, status: str, reason: str = "", **extra: object) -> dict[str, object]:
-    """Build a commit-gate report dict."""
-    r: dict[str, object] = {"command": "commit", "timestamp": utc_timestamp(), "status": status}
-    if reason:
-        r["reason"] = reason
-    r.update(extra)
-    return r
+    resolved_mode = interaction_mode or _resolve_interaction_mode(repo_root)
+    if pipeline.approval_state != "approved":
+        if _should_auto_approve(resolved_mode):
+            _apply_local_approval(vcs_executor, pipeline)
+        else:
+            _ensure_approval_request(vcs_executor, pipeline)
 
-
-def _emit_report(args, report: dict[str, Any]) -> None:
-    """Emit the commit report in the requested format."""
-    import json
-
-    fmt = getattr(args, "format", "md")
-    if fmt == "json":
-        output = json.dumps(report, indent=2)
-    else:
-        lines = [f"# devctl commit — {report['status']}"]
-        for key, value in report.items():
-            if key in {"command", "status"}:
-                continue
-            lines.append(f"- **{key}**: {value}")
-        output = "\n".join(lines)
-    emit_output(
-        output,
-        output_path=getattr(args, "output", None),
-        pipe_command=getattr(args, "pipe_command", None),
-        pipe_args=getattr(args, "pipe_args", None),
-        writer=write_output,
+    commit_result = vcs_executor.execute(
+        build_commit_action(
+            repo_pack_id=resolved_policy.repo_pack_id,
+            pipeline_id=vcs_executor.load_pipeline().pipeline_id,
+            commit_message_draft=str(getattr(args, "message", "") or ""),
+            amend=bool(getattr(args, "amend", False)),
+            allow_empty=passthrough.allow_empty,
+            no_edit=passthrough.no_edit,
+            requested_by="devctl.commit",
+        )
     )
+    pipeline = vcs_executor.load_pipeline()
+    report = _build_report(
+        status="committed" if commit_result.ok else "blocked",
+        reason=commit_result.reason,
+        pipeline_id=pipeline.pipeline_id,
+        pipeline_state=pipeline.state,
+        approval_state=pipeline.approval_state,
+        commit_sha=pipeline.commit_sha,
+        operator_guidance=commit_result.operator_guidance,
+        interaction_mode=resolved_mode,
+        warnings=list(commit_result.warnings),
+    )
+    _emit_report(args, report)
+    return 0 if commit_result.ok else 1
 
 
 def run(args) -> int:

@@ -19,6 +19,97 @@ class PendingPacketQueueSnapshot:
     stale_packet_count: int = 0
 
 
+def partition_live_pending_packets(
+    packets: Iterable[object],
+) -> tuple[list[object], list[object]]:
+    """Split packets into live pending work and stale/history rows.
+
+    Only packets with ``status == "pending"`` and a future expiry remain in the
+    live actionable queue. Everything else stays in the history bucket so
+    operator-facing projections can render it separately instead of mixing it
+    back into the current work queue.
+    """
+    packet_list = list(packets)
+    live_packets: list[object] = []
+    stale_packets: list[object] = []
+    resolved_approval_keys = {
+        _approval_resolution_key(packet)
+        for packet in packet_list
+        if _is_applied_approval_decision(packet)
+        and any(_approval_resolution_key(packet))
+    }
+    now = datetime.now(timezone.utc)
+    for packet in packet_list:
+        status = _packet_value(packet, "status")
+        if str(status or "").strip() != "pending":
+            continue
+        if (
+            _is_pending_approval_request(packet)
+            and _approval_resolution_key(packet) in resolved_approval_keys
+        ):
+            continue
+        expires_at = _parse_utc(
+            str(_packet_value(packet, "expires_at_utc") or "").strip()
+        )
+        if expires_at is not None and expires_at <= now:
+            stale_packets.append(packet)
+            continue
+        live_packets.append(packet)
+    return live_packets, stale_packets
+
+
+def _is_pending_approval_request(packet: object) -> bool:
+    status = str(_packet_value(packet, "status") or "").strip()
+    if status != "pending":
+        return False
+    if not bool(_packet_value(packet, "approval_required")):
+        return False
+    return _is_commit_approval_kind(packet)
+
+
+def _is_applied_approval_decision(packet: object) -> bool:
+    status = str(_packet_value(packet, "status") or "").strip()
+    if status != "applied":
+        return False
+    if bool(_packet_value(packet, "approval_required")):
+        return False
+    return _is_commit_approval_kind(packet)
+
+
+def _is_commit_approval_kind(packet: object) -> bool:
+    return str(_packet_value(packet, "kind") or "").strip() == "commit_approval"
+
+
+def _approval_resolution_key(packet: object) -> tuple[str, str, str, str]:
+    return (
+        str(_packet_value(packet, "trace_id") or "").strip(),
+        str(_packet_value(packet, "kind") or "").strip(),
+        str(_packet_value(packet, "target_ref") or "").strip(),
+        str(_packet_value(packet, "pipeline_generation") or "").strip(),
+    )
+
+
+def live_pending_packets(
+    packets: Iterable[object],
+) -> tuple[object, ...]:
+    """Return only the live actionable pending packets."""
+    return tuple(partition_live_pending_packets(packets)[0])
+
+
+def partition_live_packet_queue(
+    packets: Iterable[object],
+) -> tuple[list[object], list[object], list[object]]:
+    """Split packets into live actionable rows, packet history, and stale pendings."""
+    packet_list = list(packets)
+    live_packets, stale_packets = partition_live_pending_packets(packet_list)
+    history_packets = [
+        packet
+        for packet in packet_list
+        if packet not in live_packets
+    ]
+    return live_packets, history_packets, stale_packets
+
+
 def load_pending_packets(
     repo_root: Path,
     *,
@@ -74,18 +165,10 @@ def load_pending_packet_queue(
             updated["status"] = event_type.replace("packet_", "")
             packets[packet_id] = updated
 
-    pending_packets: list[dict[str, object]] = []
-    stale_packet_count = 0
-    for packet in packets.values():
-        if str(packet.get("status") or "pending") != "pending":
-            continue
-        if _is_packet_expired(packet):
-            stale_packet_count += 1
-            continue
-        pending_packets.append(packet)
+    pending_packets, stale_packets = partition_live_pending_packets(packets.values())
     return PendingPacketQueueSnapshot(
         pending_packets=tuple(pending_packets),
-        stale_packet_count=stale_packet_count,
+        stale_packet_count=len(stale_packets),
     )
 
 
@@ -170,13 +253,6 @@ def _packet_target(packet: Mapping[str, object]) -> str:
     return str(packet.get("to_agent") or "").strip()
 
 
-def _is_packet_expired(packet: Mapping[str, object]) -> bool:
-    expires_at = _parse_utc(str(packet.get("expires_at_utc") or "").strip())
-    if expires_at is None:
-        return False
-    return expires_at <= datetime.now(timezone.utc)
-
-
 def _parse_utc(raw_value: str) -> datetime | None:
     if not raw_value:
         return None
@@ -184,6 +260,12 @@ def _parse_utc(raw_value: str) -> datetime | None:
         return datetime.fromisoformat(raw_value.replace("Z", "+00:00"))
     except ValueError:
         return None
+
+
+def _packet_value(packet: object, field_name: str) -> object:
+    if isinstance(packet, Mapping):
+        return packet.get(field_name)
+    return getattr(packet, field_name, None)
 
 
 def _load_events(events_path: Path) -> list[dict[str, object]]:

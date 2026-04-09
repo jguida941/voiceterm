@@ -62,6 +62,13 @@ contracts too: `reviewer_runtime` owns `implementer_ack_current`,
 acceptance is typed-only instead of prose-regex fallback, and governed push
 recovery keys approval identity to the reviewer-owned
 `approved_target_identity` tree receipt instead of raw HEAD equality.
+Current governed-mutation rule: `devctl commit` only self-applies typed
+approval in resolved `local_terminal` or `single_agent` mode. Remote,
+dual-agent, and unresolved sessions must keep the approval request live until
+an applied operator decision exists. `devctl push` now reuses the repo-policy
+remote/current approved target when an active pipeline owns the branch, and
+packet-queue truth only clears commit-approval requests on applied decisions,
+not on `acked` rows or unrelated packet history.
 Generated bootstrap surfaces such as `CLAUDE.md` are part of that same
 architecture boundary: keep them synced with `render-surfaces`, and make sure
 they explain the compiler-style control model plus the

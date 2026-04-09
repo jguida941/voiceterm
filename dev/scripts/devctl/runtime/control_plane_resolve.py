@@ -21,24 +21,6 @@ def utc_now_iso() -> str:
     return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 
 
-def age_seconds(utc_stamp: str) -> int | None:
-    if not utc_stamp or utc_stamp == "n/a":
-        return None
-    try:
-        ts = datetime.fromisoformat(utc_stamp.replace("Z", "+00:00"))
-        return max(0, int((datetime.now(timezone.utc) - ts).total_seconds()))
-    except (ValueError, TypeError):
-        return None
-
-
-def format_age(seconds: int | None) -> str:
-    if seconds is None:
-        return "--"
-    if seconds < 60:
-        return f"{seconds}s ago"
-    if seconds < 3600:
-        return f"{seconds // 60}m ago"
-    return f"{seconds // 3600}h ago"
 def load_git_state(repo_root: Path) -> dict[str, Any]:
     """Load branch, HEAD, dirty state, and ahead count from git."""
     result: dict[str, Any] = {
@@ -85,6 +67,24 @@ def resolve_reviewer_state(
     full_json: dict[str, Any] | None,
 ) -> dict[str, Any]:
     """Derive reviewer-related fields from the best available source."""
+    def _age_seconds(utc_stamp: str) -> int | None:
+        if not utc_stamp or utc_stamp == "n/a":
+            return None
+        try:
+            ts = datetime.fromisoformat(utc_stamp.replace("Z", "+00:00"))
+            return max(0, int((datetime.now(timezone.utc) - ts).total_seconds()))
+        except (ValueError, TypeError):
+            return None
+
+    def _format_age(seconds: int | None) -> str:
+        if seconds is None:
+            return "--"
+        if seconds < 60:
+            return f"{seconds}s ago"
+        if seconds < 3600:
+            return f"{seconds // 60}m ago"
+        return f"{seconds // 3600}h ago"
+
     bridge: dict[str, Any] = {}
     if review_state:
         bridge = review_state.get("bridge", {}) or {}
@@ -97,7 +97,7 @@ def resolve_reviewer_state(
     if review_state:
         rt_for_freshness = review_state.get("reviewer_runtime", {}) or {}
         typed_freshness = coerce_string(rt_for_freshness.get("reviewer_freshness"))
-    freshness = typed_freshness or (format_age(age_seconds(poll_utc)) if poll_utc else "--")
+    freshness = typed_freshness or (_format_age(_age_seconds(poll_utc)) if poll_utc else "--")
 
     attention: dict[str, Any] = {}
     if review_state and isinstance(review_state.get("attention"), dict):
@@ -160,6 +160,37 @@ def resolve_blocker_and_action(
     quality: dict[str, Any],
 ) -> dict[str, Any]:
     """Derive top blocker, next action, and next command."""
+    def _derive_top_blocker(
+        quality: dict[str, Any],
+        doctor: dict[str, Any],
+        session: dict[str, Any],
+    ) -> str:
+        if not quality.get("last_guard_ok", True):
+            details = quality.get("check_details", ())
+            if details:
+                return f"guard fail: {details[0].get('check', 'unknown')}"
+            return "code-shape debt"
+        blocked = doctor.get("blocked_reason", "")
+        if blocked and blocked != "pipeline_unavailable":
+            return blocked
+        findings = coerce_string(session.get("open_findings"))
+        if findings and findings.strip().lower() not in ("none", ""):
+            first_line = findings.strip().splitlines()[0].lstrip("- ").strip()
+            return first_line[:60] + ("..." if len(first_line) > 60 else "")
+        return "none"
+
+    def _command_for_action(action: str) -> str:
+        if action == "run_devctl_push":
+            return "python3 dev/scripts/devctl.py push --execute"
+        if action == "await_checkpoint":
+            return "commit current work, then rerun startup-context"
+        if action == "await_review":
+            return (
+                "python3 dev/scripts/devctl.py review-channel "
+                "--action status --terminal none --format json"
+            )
+        return ""
+
     session: dict[str, Any] = {}
     doctor: dict[str, Any] = {}
     if review_state:
@@ -177,47 +208,75 @@ def resolve_blocker_and_action(
     }
 
 
-def _derive_top_blocker(
-    quality: dict[str, Any],
-    doctor: dict[str, Any],
-    session: dict[str, Any],
-) -> str:
-    if not quality.get("last_guard_ok", True):
-        details = quality.get("check_details", ())
-        if details:
-            return f"guard fail: {details[0].get('check', 'unknown')}"
-        return "code-shape debt"
-    blocked = doctor.get("blocked_reason", "")
-    if blocked and blocked != "pipeline_unavailable":
-        return blocked
-    findings = coerce_string(session.get("open_findings"))
-    if findings and findings.strip().lower() not in ("none", ""):
-        first_line = findings.strip().splitlines()[0].lstrip("- ").strip()
-        return first_line[:60] + ("..." if len(first_line) > 60 else "")
-    return "none"
-
-
-def _command_for_action(action: str) -> str:
-    if action == "run_devctl_push":
-        return "python3 dev/scripts/devctl.py push --execute"
-    if action == "await_checkpoint":
-        return "commit current work, then rerun startup-context"
-    if action == "await_review":
-        return (
-            "python3 dev/scripts/devctl.py review-channel "
-            "--action status --terminal none --format json"
-        )
-    return ""
-
-
 def resolve_pending_packets(review_state: dict[str, Any] | None) -> int:
     """Count pending action packets from review state."""
     if review_state is None:
         return 0
+    queue = review_state.get("queue")
+    if isinstance(queue, dict):
+        pending_total = queue.get("pending_total")
+        if isinstance(pending_total, int):
+            return pending_total
     packets = review_state.get("packets", [])
     if not isinstance(packets, list):
         return 0
-    return sum(
-        1 for p in packets
-        if isinstance(p, dict) and p.get("status") == "pending"
+    return sum(1 for packet in packets if _is_live_pending_packet(packet, packets))
+
+
+def _is_live_pending_packet(
+    packet: object,
+    packets: list[dict[str, Any]],
+) -> bool:
+    def _parse_utc_stamp(value: str) -> datetime | None:
+        if not value:
+            return None
+        try:
+            return datetime.fromisoformat(value.replace("Z", "+00:00"))
+        except ValueError:
+            return None
+
+    if not isinstance(packet, dict):
+        return False
+    status = str(packet.get("status") or "").strip()
+    if status != "pending":
+        return False
+    if _is_resolved_commit_approval_request(packet, packets):
+        return False
+    expires_at = _parse_utc_stamp(str(packet.get("expires_at_utc") or "").strip())
+    if expires_at is not None and expires_at <= datetime.now(timezone.utc):
+        return False
+    return True
+
+
+def _is_resolved_commit_approval_request(
+    packet: dict[str, Any],
+    packets: list[dict[str, Any]],
+) -> bool:
+    if str(packet.get("kind") or "").strip() != "commit_approval":
+        return False
+    if not bool(packet.get("approval_required")):
+        return False
+    key = _packet_resolution_key(packet)
+    if not any(key):
+        return False
+    for other in packets:
+        if not isinstance(other, dict):
+            continue
+        if str(other.get("status") or "").strip() != "applied":
+            continue
+        if bool(other.get("approval_required")):
+            continue
+        if str(other.get("kind") or "").strip() != "commit_approval":
+            continue
+        if _packet_resolution_key(other) == key:
+            return True
+    return False
+
+
+def _packet_resolution_key(packet: dict[str, Any]) -> tuple[str, str, str, str]:
+    return (
+        str(packet.get("trace_id") or "").strip(),
+        str(packet.get("kind") or "").strip(),
+        str(packet.get("target_ref") or "").strip(),
+        str(packet.get("pipeline_generation") or "").strip(),
     )

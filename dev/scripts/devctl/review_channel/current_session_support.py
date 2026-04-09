@@ -8,6 +8,7 @@ from hashlib import sha256
 from .ack_contract import extract_implementer_ack_revision
 from .handoff import BridgeSnapshot
 from .handoff_constants import _is_substantive_text
+from .pending_packets import live_pending_packets
 from .reviewer_state_normalize import (
     instruction_revision as _normalized_instruction_revision,
     normalize_instruction_body as _normalize_instruction_body,
@@ -229,9 +230,7 @@ def event_current_instruction(review_state: Mapping[str, object]) -> str:
         return derived
     packets = review_state.get("packets")
     if isinstance(packets, list):
-        for packet in packets:
-            if not isinstance(packet, dict) or packet.get("status") != "pending":
-                continue
+        for packet in live_pending_packets(packets):
             summary = str(packet.get("summary") or "").strip()
             if summary:
                 return summary

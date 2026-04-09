@@ -21,6 +21,8 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from enum import Enum
 
+from .pending_packets import live_pending_packets
+
 ACTION_REQUEST_LINE_RE = re.compile(
     r"^-\s*\[(?P<id>[^\]]+)\]\s+(?P<action>\S+):\s+(?P<payload>.+?)"
     r"\s+\(status:\s*(?P<status>pending|completed|failed)\)\s*$"
@@ -141,18 +143,13 @@ def action_requests_from_packets(
     """Project ``ActionRequest`` rows from pending ``kind="action_request"`` packets.
 
     Each qualifying packet carries a supported ``requested_action`` plus typed
-    runtime target metadata.  Only packets whose ``status`` equals
-    ``"pending"`` are included, so the projection always represents the live
-    executable work queue and never turns prose-only requests into bridge
-    commands.
+    runtime target metadata.  Only live pending packets are included, so the
+    projection always represents the actionable work queue and never turns
+    prose-only requests or expired history into bridge commands.
     """
     results: list[ActionRequest] = []
-    for packet in packets:
-        if not isinstance(packet, dict):
-            continue
+    for packet in live_pending_packets(packets):
         if str(packet.get("kind") or "") != "action_request":
-            continue
-        if str(packet.get("status") or "") != ActionStatus.PENDING.value:
             continue
         requested_action = str(packet.get("requested_action") or "").strip()
         if requested_action not in VALID_ACTION_KINDS:

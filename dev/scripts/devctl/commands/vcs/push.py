@@ -24,6 +24,7 @@ from ...runtime.vcs import (
 )
 from .push_artifact import (
     append_push_receipt,
+    load_latest_push_report,
     latest_push_report_relpath,
     persist_latest_push_report,
     serialize_push_report,
@@ -35,6 +36,7 @@ from .push_snapshot import (
     build_push_report_payload,
     persist_published_remote_snapshot,
 )
+from .governed_executor_actions import build_push_action
 
 REQUESTED_BY = "devctl.push"
 
@@ -57,56 +59,6 @@ class PushRunState:
     approved_target_identity: str = ""
     push_authorization_id: str = ""
     push_authorization_mode: str = ""
-
-
-def _build_push_parameters(
-    *,
-    branch: str,
-    remote: str,
-    execute: bool,
-    skip_preflight: bool,
-    skip_post_push: bool,
-    approved_target_identity: str = "",
-) -> dict[str, object]:
-    parameters: dict[str, object] = {}
-    parameters["branch"] = branch
-    parameters["remote"] = remote
-    parameters["execute"] = execute
-    parameters["skip_preflight"] = skip_preflight
-    parameters["skip_post_push"] = skip_post_push
-    if approved_target_identity:
-        parameters["approved_target_identity"] = approved_target_identity
-    return parameters
-
-
-def build_push_action(
-    *,
-    repo_pack_id: str,
-    branch: str,
-    remote: str,
-    execute: bool,
-    skip_preflight: bool = False,
-    skip_post_push: bool = False,
-    approved_target_identity: str = "",
-    requested_by: str = REQUESTED_BY,
-) -> TypedAction:
-    """Build the canonical typed action for one governed push request."""
-    return TypedAction(
-        schema_version=1,
-        contract_id="TypedAction",
-        action_id="vcs.push",
-        repo_pack_id=repo_pack_id,
-        parameters=_build_push_parameters(
-            branch=branch,
-            remote=remote,
-            execute=bool(execute),
-            skip_preflight=bool(skip_preflight),
-            skip_post_push=bool(skip_post_push),
-            approved_target_identity=str(approved_target_identity or "").strip(),
-        ),
-        requested_by=requested_by,
-        dry_run=not bool(execute),
-    )
 
 
 def _load_run_state(
@@ -428,7 +380,66 @@ def run_push_action(
 
 def run(args) -> int:
     """Validate and optionally execute a guarded push for the current branch."""
-    exit_code, _ = run_push_action(args)
+    from .governed_executor import GovernedVcsExecutor
+    from .governed_executor_actions import _PUSHABLE_PIPELINE_STATES
+
+    resolved_policy = load_push_policy(
+        repo_root=REPO_ROOT,
+        policy_path=getattr(args, "quality_policy", None),
+    )
+    state = _load_run_state(
+        resolved_policy,
+        args,
+        repo_root=REPO_ROOT,
+    )
+    executor = GovernedVcsExecutor(
+        repo_root=REPO_ROOT,
+        push_policy=resolved_policy,
+    )
+    pipeline = executor.load_pipeline()
+    active_pipeline_matches_branch = bool(pipeline.pipeline_id) and bool(state.branch) and (
+        pipeline.branch == state.branch
+    )
+    if active_pipeline_matches_branch and (
+        pipeline.state in _PUSHABLE_PIPELINE_STATES or bool(pipeline.commit_sha)
+    ):
+        result = executor.execute(
+            build_push_action(
+                repo_pack_id=resolved_policy.repo_pack_id,
+                branch=str(pipeline.branch or getattr(args, "branch", "") or ""),
+                remote=str(
+                    getattr(args, "remote", "")
+                    or state.remote
+                    or resolved_policy.default_remote
+                ),
+                execute=bool(args.execute),
+                skip_preflight=bool(args.skip_preflight),
+                skip_post_push=bool(args.skip_post_push),
+                approved_target_identity=str(
+                    getattr(args, "approved_target_identity", "")
+                    or getattr(pipeline, "approved_target_identity", "")
+                    or state.approved_target_identity
+                ),
+                requested_by=REQUESTED_BY,
+            )
+        )
+        report = load_latest_push_report(repo_root=REPO_ROOT)
+        if report is not None:
+            report_json = serialize_push_report(report)
+            output = report_json if args.format == "json" else render_push_report(report)
+            pipe_rc = emit_output(
+                output,
+                output_path=args.output,
+                pipe_command=args.pipe_command,
+                pipe_args=args.pipe_args,
+                additional_outputs=((report_json, latest_push_report_relpath(repo_root=REPO_ROOT)),),
+                writer=write_output,
+                piper=pipe_output,
+            )
+            if pipe_rc != 0:
+                return pipe_rc
+        return 0 if result.ok else 1
+    exit_code, _ = run_push_action(args, policy=resolved_policy)
     return exit_code
 
 

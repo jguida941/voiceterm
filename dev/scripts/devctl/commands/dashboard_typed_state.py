@@ -10,6 +10,7 @@ from __future__ import annotations
 import re
 from typing import Any, TypedDict
 
+from ..review_channel.pending_packets import live_pending_packets
 from ..review_channel.runtime_counts import build_runtime_counts
 
 
@@ -123,8 +124,9 @@ def _extract_typed_packets(
 ) -> list[PendingPacketFields]:
     """Extract pending review packets from a typed ReviewState dict.
 
-    Returns only packets with status=pending so the dashboard surfaces
-    actionable items that need operator or agent attention.
+    Returns only live pending packets so the dashboard surfaces actionable
+    items that need operator or agent attention and leaves stale history in
+    the underlying packet log.
     """
     if review_state is None:
         return []
@@ -132,11 +134,7 @@ def _extract_typed_packets(
     if not isinstance(packets, list):
         return []
     pending: list[PendingPacketFields] = []
-    for pkt in packets:
-        if not isinstance(pkt, dict):
-            continue
-        if pkt.get("status") != "pending":
-            continue
+    for pkt in live_pending_packets(packets):
         pending.append(PendingPacketFields(
             packet_id=pkt.get("packet_id", ""),
             kind=pkt.get("kind", ""),

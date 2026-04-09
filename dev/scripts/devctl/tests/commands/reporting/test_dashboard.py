@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import json
+import sys
 import tempfile
 import unittest
+import types
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -132,6 +134,27 @@ def _minimal_agents() -> dict:
 
 def _minimal_pipeline() -> dict:
     return {"state": "push_blocked", "blocked_reason": "pipeline_unavailable"}
+
+
+def _build_dashboard_parser() -> object:
+    """Import the CLI parser with VCS modules stubbed out for this test file."""
+    stub_commit = types.ModuleType("dev.scripts.devctl.commands.vcs.commit")
+    def _noop_run(*args: object, **kwargs: object) -> int:
+        return 0
+
+    stub_commit.run = _noop_run
+    stub_push = types.ModuleType("dev.scripts.devctl.commands.vcs.push")
+    stub_push.run = _noop_run
+    with patch.dict(
+        sys.modules,
+        {
+            "dev.scripts.devctl.commands.vcs.commit": stub_commit,
+            "dev.scripts.devctl.commands.vcs.push": stub_push,
+        },
+    ):
+        from dev.scripts.devctl.cli import build_parser
+
+        return build_parser()
 
 
 def _minimal_bridge_text() -> str:
@@ -401,6 +424,37 @@ class TestDashboardSnapshotSections(unittest.TestCase):
             self.assertIn("progress", plan)
             self.assertIn("open_findings", plan)
             self.assertEqual(plan["open_findings"], 2)
+
+    def test_assemble_accepts_plan_override(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            plan = {
+                "slice": "override slice",
+                "progress": "override progress",
+                "open_findings": 0,
+                "findings_detail": [],
+                "pending": 0,
+            }
+
+            with patch.object(dashboard, "_repo_name", return_value="test-repo"):
+                snapshot = dashboard._assemble(
+                    git={"branch": "feature/test", "head": "deadbee", "dirty": "CLEAN"},
+                    compact=None,
+                    push_data=None,
+                    receipt=None,
+                    agents=None,
+                    pipeline=None,
+                    bridge={
+                        "last_poll_utc": "",
+                        "instruction_full": "n/a",
+                        "reviewer_mode": "n/a",
+                    },
+                    repo_root=root,
+                    view="overview",
+                    plan=plan,
+                )
+
+            self.assertEqual(snapshot["plan"], plan)
 
     def test_workers_have_enriched_fields(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -975,24 +1029,18 @@ class TestCliParserWiring(unittest.TestCase):
     """Verify the dashboard subparser is registered correctly."""
 
     def test_dashboard_parser_exists(self) -> None:
-        from dev.scripts.devctl.cli import build_parser
-
-        parser = build_parser()
+        parser = _build_dashboard_parser()
         args = parser.parse_args(["dashboard", "--format", "json"])
         self.assertEqual(args.command, "dashboard")
         self.assertEqual(args.format, "json")
 
     def test_dashboard_follow_flag(self) -> None:
-        from dev.scripts.devctl.cli import build_parser
-
-        parser = build_parser()
+        parser = _build_dashboard_parser()
         args = parser.parse_args(["dashboard", "--follow"])
         self.assertTrue(args.follow)
 
     def test_dashboard_default_format_is_terminal(self) -> None:
-        from dev.scripts.devctl.cli import build_parser
-
-        parser = build_parser()
+        parser = _build_dashboard_parser()
         args = parser.parse_args(["dashboard"])
         self.assertEqual(args.format, "terminal")
 
@@ -1526,16 +1574,12 @@ class TestNoColorFlag(unittest.TestCase):
         self.assertIn("\033[", output)
 
     def test_cli_parser_has_no_color_flag(self) -> None:
-        from dev.scripts.devctl.cli import build_parser
-
-        parser = build_parser()
+        parser = _build_dashboard_parser()
         args = parser.parse_args(["dashboard", "--no-color"])
         self.assertTrue(args.no_color)
 
     def test_cli_parser_no_color_default_false(self) -> None:
-        from dev.scripts.devctl.cli import build_parser
-
-        parser = build_parser()
+        parser = _build_dashboard_parser()
         args = parser.parse_args(["dashboard"])
         self.assertFalse(args.no_color)
 
@@ -1783,7 +1827,7 @@ class TestFindingsInSnapshot(unittest.TestCase):
 
             now = snapshot["now"]
             self.assertIn("instruction_text", now)
-            self.assertIn("Tighten", now["instruction_text"])
+            self.assertIn("fix code shape", now["instruction_text"])
             self.assertLessEqual(len(now["instruction_text"]), 104)
 
     def test_terminal_renders_findings_section(self) -> None:
@@ -2141,17 +2185,13 @@ class TestViewFlag(unittest.TestCase):
 
     def test_view_flag_accepted(self) -> None:
         """Parser accepts all seven view choices without error."""
-        from dev.scripts.devctl.cli import build_parser
-
-        parser = build_parser()
+        parser = _build_dashboard_parser()
         for view in ("overview", "dev", "analytics", "quality", "audit", "publication", "health"):
             args = parser.parse_args(["dashboard", "--view", view])
             self.assertEqual(args.view, view)
 
     def test_view_default_is_overview(self) -> None:
-        from dev.scripts.devctl.cli import build_parser
-
-        parser = build_parser()
+        parser = _build_dashboard_parser()
         args = parser.parse_args(["dashboard"])
         self.assertEqual(args.view, "overview")
 
@@ -2492,6 +2532,13 @@ class TestTypedReviewState(unittest.TestCase):
                     }
                 ],
             }
+            master_plan_path = root / "dev/active/MASTER_PLAN.md"
+            master_plan_path.parent.mkdir(parents=True, exist_ok=True)
+            master_plan_path.write_text(
+                "# Master Plan\n\n"
+                "- ACTIVE: MP-999 conflicting plan authority\n",
+                encoding="utf-8",
+            )
             _write_artifact(
                 root,
                 "dev/reports/review_channel/state/latest.json",
@@ -2510,6 +2557,11 @@ class TestTypedReviewState(unittest.TestCase):
                 coord["current_slice"],
                 "Surface single-agent implementer work in dashboard.",
             )
+            self.assertEqual(
+                snapshot["plan"]["slice"],
+                "Surface single-agent implementer work in dashboard.",
+            )
+            self.assertNotIn("MP-999", snapshot["plan"]["slice"])
             self.assertEqual(coord["recommended_topology"], "single_agent")
             self.assertTrue(coord["resync_required"])
             self.assertEqual(coord["actors"][0]["actor_id"], "codex")
@@ -2768,9 +2820,15 @@ class TestTypedBridgePath(unittest.TestCase):
                 snapshot = dashboard.build_snapshot(repo_root=root)
 
             # Bridge fields should come from typed state, not stale markdown
+            now = snapshot["now"]
+            self.assertIn("Tighten", now["instruction_text"])
+            self.assertNotIn("STALE", now["instruction_text"])
+
             review = snapshot["review"]
             self.assertEqual(review["mode"], "active_dual_agent")
             self.assertNotEqual(review["mode"], "paused")
+            self.assertIn("Tighten", review["instruction"])
+            self.assertNotIn("STALE", review["instruction"])
 
             findings = snapshot["findings"]
             self.assertEqual(len(findings), 2)
@@ -2825,6 +2883,48 @@ class TestTypedBridgePath(unittest.TestCase):
             findings = snapshot["findings"]
             self.assertEqual(len(findings), 2)
             self.assertEqual(findings[0]["id"], "F1")
+
+    def test_build_snapshot_prefers_fresh_loaded_review_state_over_stale_file(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            stale = _minimal_review_state()
+            stale["bridge"] = {
+                "current_instruction": "",
+                "open_findings": "",
+                "reviewer_mode": "paused",
+                "last_codex_poll_utc": "",
+            }
+            _write_artifact(
+                root,
+                "dev/reports/review_channel/state/latest.json",
+                stale,
+            )
+
+            fresh_sources = {
+                "review_state": _review_state_with_bridge(),
+                "compact_json": None,
+                "push_report": None,
+                "receipt": None,
+                "publisher_hb": None,
+                "supervisor_hb": None,
+                "codex_conductor": None,
+                "claude_conductor": None,
+                "full_json": None,
+            }
+
+            with patch.object(
+                dashboard, "load_sources", return_value=fresh_sources
+            ), patch.object(
+                dashboard, "_git_short", return_value={
+                    "branch": "main", "head": "abc", "dirty": "CLEAN",
+                }
+            ), patch.object(dashboard, "_repo_name", return_value="test"):
+                snapshot = dashboard.build_snapshot(repo_root=root)
+
+            self.assertIn("Tighten", snapshot["now"]["instruction_text"])
+            self.assertIn("Tighten", snapshot["review"]["instruction"])
+            self.assertEqual(snapshot["review"]["mode"], "active_dual_agent")
+            self.assertEqual(len(snapshot["findings"]), 2)
 
     def test_verdict_stays_na_from_typed_state(self) -> None:
         """Verdict is bridge-markdown-only; typed path returns 'n/a'."""

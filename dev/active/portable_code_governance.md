@@ -1,6 +1,6 @@
 # Portable Code Governance Plan
 
-**Status**: active  |  **Last updated**: 2026-04-07 | **Owner:** Tooling/code governance
+**Status**: active  |  **Last updated**: 2026-04-08 | **Owner:** Tooling/code governance
 Execution plan contract: required
 This spec remains execution mirrored in `dev/active/MASTER_PLAN.md` under
 `MP-376`. It is the narrower engine/adoption companion to
@@ -297,6 +297,16 @@ Use one deterministic triage on every failing repo before widening again:
       bottoms out into only Step-0/startup or governed-push failures, stop
       adding repos and close those `MP-377` blockers before resuming corpus
       expansion.
+- [ ] Treat typed-authority convergence as an explicit second-repo exit gate:
+      at least one repo-pack-enabled non-VoiceTerm repo must prove custom-
+      layout authority discovery, canonical review-state path resolution,
+      generated bootstrap surfaces, and governed push/read-only control
+      behavior without VoiceTerm defaults or bridge-required fallbacks.
+- [ ] Keep that second-repo proof sequenced after the `MP-377` owner blockers
+      close: if the fixture run bottoms out into startup, review-state,
+      generated-surface, or governed-push drift, route it back to
+      `platform_authority_loop.md`, `remote_commit_pipeline.md`, or
+      `remote_control_runtime.md` before widening the corpus.
 - [x] Promote compatibility shims into a portable governance primitive with
       structural validation and policy-owned metadata requirements instead of
       leaving wrapper exceptions as repo-specific layout hacks.
@@ -746,6 +756,12 @@ Use one deterministic triage on every failing repo before widening again:
 
 ## Progress Log
 
+- 2026-04-08: Integrated the typed-authority convergence synthesis into the
+  adopter lane. This plan is now the explicit second-repo/custom-layout proof
+  pressure for the owner-chain closure, not a parallel architecture source:
+  it proves that repo-pack-selected startup, review-state pathing, generated
+  bootstrap surfaces, and governed push/read-only control behavior stay
+  portable once the `MP-377` owner docs land the contracts.
 - 2026-04-07: Re-reviewed the portability phasing against the current
   validation-contract concern. The lane is still ordered correctly: multi-repo
   matrix proof is a primary pressure test for VoiceTerm leakage, but it must
@@ -1620,6 +1636,13 @@ Use one deterministic triage on every failing repo before widening again:
 
 ## Session Resume
 
+- 2026-04-08 typed-authority convergence proof rule: resume this lane only as
+  the second-repo/custom-layout acceptance pressure after the owner-chain
+  blockers close. The next honest proof is one repo-pack-enabled adopter that
+  exercises `startup-context`, canonical review-state resolution, generated
+  AI/bootstrap surfaces, and governed push/read-only control behavior without
+  VoiceTerm defaults; if any failure reduces to `MP-377` startup/review-state/
+  push drift, route it back immediately instead of widening the corpus.
 - 2026-04-07 portability-by-default review: keep this lane focused on proof,
   not new platform architecture. `MP-377` owns removing hidden VoiceTerm
   defaults and adding typed capability/repo-pack contracts; this `MP-376`

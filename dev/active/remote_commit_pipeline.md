@@ -1,6 +1,6 @@
 # Remote Commit Pipeline Plan
 
-**Status**: active  |  **Last updated**: 2026-04-07 | **Owner:** Tooling/control plane/review runtime
+**Status**: active  |  **Last updated**: 2026-04-08 | **Owner:** Tooling/control plane/review runtime
 Execution plan contract: required
 This spec remains execution mirrored in `dev/active/MASTER_PLAN.md` under
 `MP-377`. It freezes the Phase-0 design for the typed remote-session
@@ -466,6 +466,11 @@ surface for remote sessions. It should project:
       governed executor path.
 - [x] Reuse the existing guarded push flow from the new pipeline and prove end-
       to-end remote approval -> commit -> push without local keyboard input.
+- [ ] Freeze the default-push cutover matrix for `devctl push`: governed
+      executor path when the active pipeline owns the branch, bounded
+      compatibility path while callers migrate, single report-persistence /
+      preflight ownership, and explicit retirement conditions for
+      `run_push_action()`.
 - [ ] Fix missing quality evidence to fail closed as `unknown` / `stale`
       before using automated validation-tier routing as a push or checkpoint
       proof; a missing push/guard report must not project `last_guard_ok=true`.
@@ -486,6 +491,9 @@ surface for remote sessions. It should project:
 - [ ] Surface validation-plan reasons through doctor/status/dashboard: selected
       bundle, triggering paths, required add-ons, why the tier escalated or did
       not escalate, and whether the proof is enough for checkpoint or push.
+- [ ] Policy-gate the remaining mutation bypasses: startup-authority bypass
+      env overrides, hook self-mutation, override-push escape semantics, and
+      retry paths that remain authorized without a fresh typed decision.
 - [ ] Split publication authority from startup/edit gating by emitting one
       typed `PushAuthorizationRecord` after the governed commit is recorded and
       making direct `devctl push` consume that exact-head authorization instead
@@ -512,6 +520,18 @@ surface for remote sessions. It should project:
       resolution must remain in `ValidationPlan`, `ValidationReceipt`,
       `PushAuthorizationRecord`, `override_push`, repo-pack policy, and
       guards.
+- [ ] Define the managed git-hook / enforcement model explicitly: which hooks
+      are blocking vs receipt-only, how pre-commit vs pre-push
+      responsibilities divide, and which exception cases are allowed when raw
+      `git commit` / `git push` are forced back through typed `devctl`
+      actions.
+- [ ] Record the mutation backlog boundary for still-untyped git operations
+      (`revert`, `rebase`, `reset`, `tag push`, `stash`, `worktree add`, and
+      `submodule` flows) so they cannot silently sit outside typed action
+      space.
+- [ ] Add the layered publish proof program for this lane: post-approval
+      publish smoke harness, runtime-death recovery proof, and typed recover
+      path evidence must pass before the mutation lane is marked closed.
 - [x] Accept snapshot-only trailing commits as a first-class freshness state:
       when the latest commit changes only `dev/audits/REVIEW_SNAPSHOT.md`, the
       freshness guard may bind the generated snapshot to that commit's parent
@@ -530,6 +550,31 @@ surface for remote sessions. It should project:
 
 ## Progress Log
 
+- 2026-04-08: Absorbed the typed-authority convergence Phase-0 map into this
+  owner doc instead of leaving it in standalone prose. The governed CLI path
+  is now treated as partially landed: `devctl commit` and active-pipeline
+  `devctl push` route through the typed executor, but the lane remains open
+  until the default-push cutover matrix, blocking hook model, bypass removal,
+  validation-plan/receipt, untyped-git backlog boundary, and the post-
+  approval publish smoke harness are all closed here.
+- 2026-04-08: Closed the bounded Phase-1 enforcement/convergence slice for
+  this lane. `devctl commit` no longer uses a raw `git commit` happy path
+  once the governed pipeline exists: it now stages from the existing index,
+  records the routed guard result on `RemoteCommitPipelineContract`, posts or
+  auto-applies typed approval packets depending on operator mode, and executes
+  the final commit through `GovernedVcsExecutor`. `devctl push` now routes
+  through the same typed executor whenever the active pipeline owns the
+  current branch, while direct push stays available for branches with no
+  matching pipeline instead of letting unrelated stale pipeline artifacts
+  hijack the command. Publication authorization now fails closed on declared
+  or effective dual-agent review until an exact typed authorization exists,
+  while already-approved exact-head publication can still complete through the
+  governed executor after runtime degradation. This closes
+  the governed `devctl commit` / `devctl push` path, but it does not yet close
+  raw `git commit` / hook bypasses; that trigger-layer closure remains in the
+  open hook-expansion work above. Focused and bundled pytest coverage for
+  governed commit/push, push authorization, dashboard, review-state, and
+  packet queue surfaces passed in this session.
 - 2026-04-07: Closed the immediate ReviewSnapshot publication-freshness bug
   exposed by the packet/action-request checkpoint. The pre-commit hook cannot
   embed the final commit SHA because the SHA changes when the file content
@@ -654,25 +699,31 @@ surface for remote sessions. It should project:
 
 ## Session Resume
 
+- 2026-04-08 typed-authority convergence absorption: resume this lane as the
+  explicit Phase-0 mutation/publish closure, not as generic VCS cleanup.
+  Governed `devctl commit` plus active-pipeline `devctl push` are landed, but
+  the phase is not done until the default-push cutover matrix, blocking hook
+  / enforcement model, bypass removal, untyped-git backlog boundary, and the
+  post-approval publish smoke harness all land here.
 - Current status: Phases 0 through 4 for the remote commit pipeline are
   implemented locally for this lane, including the governed stage/commit/push
   path, shared surface `snapshot_id`, bounded startup ownership map, the
-  focused Phase-4 proof tests, and an explicit remaining gap: raw local
-  `git commit` is still not structurally forced through the same guarded path.
-  The same lane now also owns the next publish-exception closure: operator
-  `override_push` must stay inside typed pipeline state instead of becoming a
-  normalized raw-shell fallback. It now also owns validation-tier closure:
-  fast/checkpoint/push/release proof selection must be a typed repo-owned
-  contract bound to tree identity, not a human/AI memory choice.
-- Next action: land the repo-owned commit gate as a validation-contract slice:
-  first fix fail-open missing quality evidence to `unknown` / `stale`, then
-  add `ValidationPlan` / `ValidationReceipt`, then bind stage/commit/push to a
-  fresh matching receipt and project the selected bundle/add-ons/reasons in
-  doctor, status, and dashboard. Immediately after that, add the generation-
-  bound `override_push` receipt/approval path so governed publish exceptions
-  still execute through canonical `vcs.push`. Do not rely on agent discipline,
-  chat reminders, or raw git recovery steps as a substitute for enforced
-  commit gating, validation receipts, or typed override control.
+  focused Phase-4 proof tests, and the remote/local `devctl commit` path now
+  lowers through the typed executor by default when the active pipeline owns
+  the branch. Raw `git commit` trigger-layer closure is still open, so the
+  remaining gaps in this lane are hook/bypass closure plus
+  proof/exception closure around the governed path itself:
+  `ValidationPlan` / `ValidationReceipt`, typed override publication, and a
+  repo-owned remote-lane smoke harness that proves stage -> guard -> approve
+  -> commit -> push survives reviewer death or fails closed with typed
+  recovery.
+- Next action: land the validation-contract slice first. Fix fail-open missing
+  quality evidence to `unknown` / `stale`, add `ValidationPlan` /
+  `ValidationReceipt`, and bind stage/commit/push to a fresh matching receipt
+  projected in doctor/status/dashboard. Immediately after that, add the
+  generation-bound `override_push` receipt/approval path and the phone-steered
+  remote-lane smoke harness so governed publish exceptions and runtime-death
+  recovery still execute through canonical `vcs.push`.
 - Context rule: read `dev/active/platform_authority_loop.md`,
   `dev/active/review_channel.md`, and `dev/active/continuous_swarm.md` with
   this plan before changing remote commit/push behavior.
@@ -705,6 +756,17 @@ surface for remote sessions. It should project:
     `startup-authority-contract-guard` and `tandem-consistency-guard` because
     the live review runtime is missing and the newly added files are not in the
     git index yet. No stage/commit was performed in this session.
+- 2026-04-08 executor-routing and typed-surface validation:
+  - `python3 -m pytest dev/scripts/devctl/tests/vcs/test_commit_gate.py dev/scripts/devctl/tests/vcs/test_governed_executor.py dev/scripts/devctl/tests/runtime/test_push_authorization.py dev/scripts/devctl/tests/vcs/test_push.py dev/scripts/devctl/tests/review_channel/test_packet_queue_cleanup.py dev/scripts/devctl/tests/runtime/test_review_state.py dev/scripts/devctl/tests/review_channel/test_pending_packet_guards.py dev/scripts/devctl/tests/test_dashboard.py -q --tb=short`
+    passed (`289 passed`).
+  - `python3 -m pytest dev/scripts/devctl/tests/runtime/test_operator_mode_fail_closed.py dev/scripts/devctl/tests/runtime/test_control_plane_read_model.py dev/scripts/devctl/tests/runtime/test_startup_context.py dev/scripts/devctl/tests/governance/test_session_resume.py dev/scripts/devctl/tests/test_dashboard.py -q --tb=short`
+    passed (`459 passed`).
+  - `python3 dev/scripts/checks/check_active_plan_sync.py`
+    passed.
+  - `python3 dev/scripts/checks/check_review_channel_bridge.py`
+    still fails on live repo metadata with
+    ``bridge_metadata_errors: `Last Codex poll` is stale``; this remains an
+    operator/runtime cadence issue outside the governed VCS executor slice.
 - 2026-04-07 reviewer architecture intake for validation cadence:
   - `python3 dev/scripts/devctl.py startup-context --format summary`
     failed closed with `action=checkpoint_before_continue`,

@@ -333,6 +333,11 @@ def load_review_payload_from_bridge(
     if not review_channel_path.exists() or not bridge_path.exists():
         return None, ()
 
+    full_path = status_root / "full.json"
+    if full_path.exists():
+        payload = json.loads(full_path.read_text(encoding="utf-8"))
+        return (payload if isinstance(payload, dict) else {}, ())
+
     from ..review_channel.state import refresh_status_snapshot
 
     status_snapshot = refresh_status_snapshot(

@@ -15,6 +15,7 @@ from ..runtime.control_plane_read_model import (
     ControlPlaneReadModel,
     build_control_plane_read_model,
 )
+from ..runtime.control_plane_sources import load_sources
 from ..review_channel.session_probe import load_conductor_sessions
 from ..review_channel.runtime_counts import build_runtime_counts
 from ..time_utils import utc_timestamp
@@ -36,6 +37,7 @@ from .dashboard_utils import (
 # _assemble can call them, and re-exported for backward-compatible test access.
 from .dashboard_builders import (  # noqa: E402
     CoordinationContext,
+    NowSectionContext,
     _build_analytics_section,
     _build_audit_section,
     _build_coordination_section,
@@ -72,7 +74,6 @@ from .dashboard_typed_state import (
     _extract_typed_runtime_counts,
     _extract_typed_session,
 )
-
 
 def _git_short() -> dict[str, Any]:
     """Return branch, HEAD short sha, dirty state, ahead/behind, dirty count, and recent commits."""
@@ -152,25 +153,6 @@ def _session_age(repo_root: Path) -> dict[str, Any]:
         "started_at_utc": started,
         "started_time": started_time,
     }
-
-
-def _parse_plan_progress(repo_root: Path) -> dict[str, str]:
-    """Extract active slice and progress hints from MASTER_PLAN.md."""
-    result = {"slice": "n/a", "progress": "n/a", "open_findings": "0", "pending": "0"}
-    path = repo_root / _paths()["master_plan"]
-    try:
-        text = path.read_text(encoding="utf-8")
-    except OSError:
-        return result
-    # Find the first in-progress MP slice
-    for line in text.splitlines():
-        stripped = line.strip()
-        if "IN-PROGRESS" in stripped.upper() or "ACTIVE" in stripped.upper():
-            mp_match = re.match(r".*?(MP-\d+\S*)\s*(.*)", stripped)
-            if mp_match:
-                result["slice"] = f"{mp_match.group(1)} {mp_match.group(2)[:40].strip()}"
-                break
-    return result
 
 
 def _repo_name() -> str:
@@ -354,12 +336,25 @@ def build_snapshot(
     needs = _VIEW_SECTIONS.get(view, frozenset())
     load_all = not needs  # overview
     p = _paths()
+    sources = load_sources(repo_root)
 
-    review_state = _read_json(repo_root / p["review_state_json"]) if load_all or needs else None
+    review_state = sources.get("review_state") if load_all or needs else None
 
-    compact = _read_json(repo_root / p["compact_json"]) if load_all or (needs & {"review", "now", "coordination", "health", "workers"}) else None
-    push_data = _read_json(repo_root / p["push_json"]) if load_all or (needs & {"publication", "quality", "flow"}) else None
-    receipt = _read_json(repo_root / p["receipt_json"]) if load_all or (needs & {"publication", "flow", "coordination"}) else None
+    compact = (
+        sources.get("compact_json")
+        if load_all or (needs & {"review", "now", "coordination", "health", "workers"})
+        else None
+    )
+    push_data = (
+        sources.get("push_report")
+        if load_all or (needs & {"publication", "quality", "flow"})
+        else None
+    )
+    receipt = (
+        sources.get("receipt")
+        if load_all or (needs & {"publication", "flow", "coordination"})
+        else None
+    )
     agents = _read_json(repo_root / p["agents_json"]) if load_all or (needs & {"review", "workers", "now"}) else None
     pipeline = _read_json(repo_root / p["pipeline_json"]) if load_all or (needs & {"flow"}) else None
 
@@ -369,7 +364,6 @@ def build_snapshot(
     _bridge_path = repo_root / p["bridge_md"]
     bridge = _extract_typed_bridge_fields(review_state) if review_state and _need_br else (_parse_bridge(_bridge_path) if _need_br else _empty_bridge())
     bridge_findings = _extract_typed_bridge_findings(review_state) if review_state and _need_fi else (_parse_bridge_findings(_bridge_path) if _need_fi else [])
-    plan = _parse_plan_progress(repo_root) if load_all or (needs & {"plan"}) else None
     gov_data = _read_json(repo_root / p["governance_review_json"]) if load_all or (needs & {"audit"}) else None
     probe_data = _read_json(repo_root / p["probe_summary_json"]) if load_all or (needs & {"quality"}) else None
     ds_data = _read_json(repo_root / p["data_science_json"]) if load_all or (needs & {"analytics"}) else None
@@ -378,10 +372,13 @@ def build_snapshot(
 
     # Build the single resolved control-plane read model so downstream
     # sections can read from it instead of recomputing state independently.
-    cp_model = build_control_plane_read_model(repo_root)
+    cp_model = build_control_plane_read_model(
+        repo_root,
+        sources_override=sources,
+    )
 
     snapshot = _assemble(
-        git, compact, push_data, receipt, agents, pipeline, bridge, plan,
+        git, compact, push_data, receipt, agents, pipeline, bridge,
         gov_data=gov_data, probe_data=probe_data, ds_data=ds_data,
         bridge_findings=bridge_findings,
         session_info=session_info,
@@ -410,7 +407,6 @@ def _assemble(
     agents: dict[str, Any] | None,
     pipeline: dict[str, Any] | None,
     bridge: dict[str, str],
-    plan: dict[str, str] | None = None,
     *,
     gov_data: dict[str, Any] | None = None,
     probe_data: dict[str, Any] | None = None,
@@ -421,6 +417,7 @@ def _assemble(
     view: str = "overview",
     review_state: dict[str, Any] | None = None,
     control_plane: ControlPlaneReadModel | None = None,
+    plan: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Assemble the typed DashboardSnapshot from raw sources.
 
@@ -435,6 +432,9 @@ def _assemble(
         session = (compact or {}).get("current_session", {})
         doctor = (compact or {}).get("doctor", {})
     instruction_rev = session.get("current_instruction_revision", "n/a")
+    session_instruction = str(session.get("current_instruction") or "").strip()
+    bridge_instruction = str(bridge.get("instruction_full") or bridge.get("instruction") or "").strip()
+    instruction_text = bridge_instruction if review_state and bridge_instruction and bridge_instruction != "n/a" else (session_instruction or bridge_instruction or "n/a")
     reviewer_agent = _find_agent_by_role(agents, "reviewer")
     implementer_agent = _find_agent_by_role(agents, "implementer")
     receipt_push = (receipt or {}).get("push_action", "n/a")
@@ -447,11 +447,7 @@ def _assemble(
     last_change_age = _age_seconds(bridge.get("last_poll_utc", ""))
     timeline_count = 100 if view == "analytics" else 10
     typed_attention = _extract_typed_attention(review_state)
-    typed_coordination = (
-        control_plane.coordination.to_dict()
-        if control_plane and control_plane.coordination is not None
-        else _extract_typed_coordination(review_state)
-    )
+    typed_coordination = control_plane.coordination.to_dict() if control_plane and control_plane.coordination is not None else _extract_typed_coordination(review_state)
     typed_packets = _extract_typed_packets(review_state)
     typed_runtime_counts = _extract_typed_runtime_counts(review_state)
     if not typed_coordination or not str(typed_coordination.get("current_slice") or "").strip():
@@ -461,12 +457,7 @@ def _assemble(
         if startup_context.coordination is not None:
             typed_coordination = startup_context.coordination.to_dict()
 
-    # Build the health section, injecting read-model truth for daemon/conductor liveness
-    health = _build_health_section(
-        repo_root,
-        compact,
-        runtime_counts=typed_runtime_counts,
-    )
+    health = _build_health_section(repo_root, compact, runtime_counts=typed_runtime_counts)
     if control_plane:
         health["publisher"]["running"] = control_plane.publisher_running
         health["supervisor"]["running"] = control_plane.supervisor_running
@@ -474,7 +465,9 @@ def _assemble(
         health["attention_summary"] = control_plane.attention_summary
 
     coordination = _build_coordination_section(
-        session, bridge, doctor,
+        session,
+        bridge,
+        doctor,
         CoordinationContext(
             instruction_rev=instruction_rev,
             receipt_push=control_plane.next_action if control_plane else receipt_push,
@@ -501,6 +494,8 @@ def _assemble(
             "actors": typed_coordination.get("actors", []),
         })
 
+    plan_section = plan if plan is not None else _build_plan_section(typed_coordination, session, bridge_findings or [])
+
     snapshot: dict[str, Any] = {
         "schema_version": 2,
         "contract_id": "DashboardSnapshot",
@@ -517,14 +512,19 @@ def _assemble(
             "dirty_files": git.get("dirty_files", 0),
             "recent_commits": git.get("recent_commits", []),
         },
-        "now": _build_now_section(
-            bridge, reviewer_agent, implementer_agent, session,
-            top_blocker, last_change_age,
-        ),
+        "now": _build_now_section(NowSectionContext(
+            bridge=bridge,
+            reviewer=reviewer_agent,
+            implementer=implementer_agent,
+            session=session,
+            instruction_text=instruction_text,
+            top_blocker=top_blocker,
+            last_change_age=last_change_age,
+        )),
         "health": health,
-        "review": _build_review_section(bridge, reviewer_agent, implementer_agent, session),
+        "review": _build_review_section(bridge, reviewer_agent, implementer_agent, session, instruction_text, control_plane.reviewer_mode if control_plane and review_state else ""),
         "workers": _build_workers_section(agents),
-        "plan": _build_plan_section(plan or {}, session, bridge_findings or []),
+        "plan": plan_section,
         "findings": bridge_findings or [],
         "publication": publication_effective,
         "quality": quality,

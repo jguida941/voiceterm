@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from ...common import add_standard_output_arguments
 from ...config import get_repo_root
+from ...runtime.review_state_locator import load_current_review_state
 from ...runtime.work_intake_continuity import build_continuity
 from ...runtime.work_intake_models import SessionContinuityState
 from ...runtime.work_intake_selection import (
@@ -61,7 +62,14 @@ def run(args) -> int:
     if cached is not None:
         return _emit_packet(args, cached)
 
-    packet = build_from_sources(repo_root, role=role, head_sha=head_sha, governance=governance)
+    review_state = load_current_review_state(repo_root, governance=governance)
+    packet = build_from_sources(
+        repo_root,
+        role=role,
+        head_sha=head_sha,
+        governance=governance,
+        review_state=review_state,
+    )
     write_cache(repo_root, packet)
     return _emit_packet(args, packet)
 

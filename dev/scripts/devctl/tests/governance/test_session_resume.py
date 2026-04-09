@@ -616,6 +616,42 @@ class TestRunCommand(unittest.TestCase):
             )
             self.assertEqual(run(args), 0)
 
+    @patch("dev.scripts.devctl.commands.governance.session_resume.build_from_sources")
+    @patch("dev.scripts.devctl.commands.governance.session_resume.load_current_review_state")
+    @patch(_PATCH_CONTINUITY, return_value=None)
+    @patch(_PATCH_HEAD, return_value="abc123")
+    @patch(_PATCH_ROOT)
+    def test_run_threads_frozen_review_state_into_build(
+        self,
+        mock_root,
+        mock_head,
+        mock_cont,
+        mock_load_current_review_state,
+        mock_build_from_sources,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            mock_root.return_value = root
+            mock_load_current_review_state.return_value = object()
+            mock_build_from_sources.return_value = SessionCachePacket(
+                head_sha="abc123",
+                role="implementer",
+            )
+            args = SimpleNamespace(
+                format="json",
+                output=None,
+                pipe_command=None,
+                pipe_args=None,
+                role="implementer",
+            )
+
+            self.assertEqual(run(args), 0)
+            mock_build_from_sources.assert_called_once()
+            self.assertIs(
+                mock_build_from_sources.call_args.kwargs["review_state"],
+                mock_load_current_review_state.return_value,
+            )
+
 
 class TestBuildGovernedReviewRoot(unittest.TestCase):
     """build_from_sources respects governance review_root for artifact loading."""

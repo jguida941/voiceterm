@@ -93,6 +93,7 @@ def run(args) -> int:
         warnings.extend(load_errors)
         controller_payload = {}
 
+    cp_model = build_control_plane_read_model(repo_root)
     execution_mode = getattr(args, "execution_mode", "auto")
     review_result = load_mobile_review_state(
         repo_root,
@@ -133,7 +134,6 @@ def run(args) -> int:
                 errors=tuple(errors),
             ),
         )
-        cp_model = build_control_plane_read_model(repo_root)
         cp_section = _control_plane_section(cp_model)
         merged_payload = {
             "schema_version": 1,

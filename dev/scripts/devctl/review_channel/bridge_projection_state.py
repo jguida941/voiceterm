@@ -17,6 +17,7 @@ from .bridge_sanitize import (
     sanitize_bridge_sections,
 )
 from .handoff import extract_bridge_snapshot
+from .pending_packets import live_pending_packets
 
 BRIDGE_SECTION_ORDER = (
     "Operator Direction",
@@ -126,7 +127,9 @@ def bridge_projection_state_from_review_state(
     # derived from the event store, not from stale bridge markdown.
     packets = review_state.get("packets")
     if isinstance(packets, list):
-        packet_body = render_action_requests_from_packets(packets)
+        packet_body = render_action_requests_from_packets(
+            list(live_pending_packets(packets))
+        )
         sections["Action Requests"] = packet_body
     sections, sanitized_sections = sanitize_bridge_sections(
         sections,

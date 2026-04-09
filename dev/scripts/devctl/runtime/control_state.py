@@ -171,6 +171,7 @@ def build_control_state(
     review_liveness = (
         _mapping(review_payload.get("bridge_liveness"))
         or _mapping(review_state.get("bridge_liveness"))
+        or review_bridge
     )
     approval = _mapping(resolved_context.approval_policy)
     resolved_sources = _mapping(resolved_context.sources)
@@ -221,6 +222,7 @@ def build_control_state(
         agents=_parse_agents(
             (review_state.get("_compat") or {}).get("agents")
             or review_state.get("agents")
+            or _mapping(review_state.get("registry")).get("agents")
         ),
         sources=ControlStateSources(
             phone_input_path=_string(resolved_sources.get("phone_input_path")),
@@ -341,8 +343,17 @@ def _parse_agents(value: object) -> tuple[ReviewAgentState, ...]:
         agents.append(
             ReviewAgentState(
                 agent_id=agent_id,
-                status=_string(mapping.get("status")) or "unknown",
-                role=_string(mapping.get("role")) or "unknown",
+                status=(
+                    _string(mapping.get("status"))
+                    or _string(mapping.get("job_state"))
+                    or "unknown"
+                ),
+                role=(
+                    _string(mapping.get("role"))
+                    or _string(mapping.get("current_job"))
+                    or _string(mapping.get("lane"))
+                    or "unknown"
+                ),
             )
         )
     return tuple(agents)

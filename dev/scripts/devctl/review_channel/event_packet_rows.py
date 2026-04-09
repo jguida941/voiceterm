@@ -2,38 +2,39 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
-
 from .context_refs import normalize_context_pack_refs
 from .event_models import ReviewPacketRow
-from .event_store import parse_utc
+from .pending_packets import partition_live_pending_packets
 
 
 def summarize_packets(
     packets_by_id: dict[str, ReviewPacketRow],
 ) -> tuple[list[dict[str, object]], dict[str, int], int]:
-    now_utc = datetime.now(timezone.utc)
-    stale_packet_count = 0
     packet_rows: list[dict[str, object]] = []
     pending_counts = {"codex": 0, "claude": 0, "cursor": 0, "operator": 0}
-    for packet in sorted(
-        packets_by_id.values(),
-        key=lambda item: str(item.get("_sort_timestamp") or ""),
-        reverse=True,
-    ):
-        expires_at = parse_utc(packet.get("expires_at_utc"))
-        is_expired = expires_at is not None and expires_at <= now_utc
-        if packet.get("status") == "pending":
-            if is_expired:
-                stale_packet_count += 1
-            else:
-                target = str(packet.get("to_agent") or "").strip()
-                if target in pending_counts:
-                    pending_counts[target] += 1
+    ordered_packets = [
+        dict(packet)
+        for packet in sorted(
+            packets_by_id.values(),
+            key=lambda item: str(item.get("_sort_timestamp") or ""),
+            reverse=True,
+        )
+    ]
+    live_packets, stale_packets = partition_live_pending_packets(ordered_packets)
+    live_packet_ids = {
+        str(packet.get("packet_id") or "").strip()
+        for packet in live_packets
+        if isinstance(packet, dict)
+    }
+    for packet in ordered_packets:
+        if str(packet.get("packet_id") or "").strip() in live_packet_ids:
+            target = str(packet.get("to_agent") or "").strip()
+            if target in pending_counts:
+                pending_counts[target] += 1
         clean_packet = dict(packet)
         clean_packet.pop("_sort_timestamp", None)
         packet_rows.append(clean_packet)
-    return packet_rows, pending_counts, stale_packet_count
+    return packet_rows, pending_counts, len(stale_packets)
 
 
 def packet_from_event(event: dict[str, object]) -> ReviewPacketRow:

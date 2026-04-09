@@ -179,7 +179,9 @@ def build_from_sources(
     instead of triggering an independent bridge-refreshed reload.
     """
     sources = sources_override if sources_override is not None else _load_governed_sources(
-        repo_root, governance=governance,
+        repo_root,
+        governance=governance,
+        review_state=review_state,
     )
     git = load_git_state(repo_root) if sources_override is None else {
         "branch": "unknown", "head": head_sha, "clean": True, "ahead": 0,
@@ -579,6 +581,7 @@ def _load_governed_sources(
     repo_root: Path,
     *,
     governance: "ProjectGovernance | None" = None,
+    review_state: "ReviewState | None" = None,
 ) -> dict[str, Any]:
     """Load sources using governance-aware path resolution.
 
@@ -591,6 +594,10 @@ def _load_governed_sources(
     different directory than the governance review root.
     """
     base = load_sources(repo_root, governance=governance)
+    if review_state is not None:
+        # Keep session-resume's raw source packet aligned with the same frozen
+        # typed ReviewState object the caller wants the read model to consume.
+        base["review_state"] = review_state.to_dict()
     gov_paths = resolve_source_paths(repo_root, governance=governance)
     compact_path = repo_root / gov_paths["compact"]
     base["compact_json"] = read_json_artifact(compact_path)

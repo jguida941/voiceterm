@@ -213,9 +213,17 @@ def build_control_plane_read_model(
     same typed state as ``build_startup_context`` instead of triggering an
     independent bridge-refreshed reload.
     """
-    sources = sources_override if sources_override is not None else load_sources(
-        repo_root, governance=governance,
+    sources = (
+        dict(sources_override)
+        if sources_override is not None
+        else load_sources(repo_root, governance=governance)
     )
+    if review_state is not None:
+        # Freeze read-model consumers on the caller's typed snapshot for this
+        # proof tick instead of letting a separately refreshed payload drift in
+        # via load_sources(). Coordination already consumes the typed object; the
+        # reviewer/attention side must read the same snapshot too.
+        sources["review_state"] = review_state.to_dict()
     git = git_override if git_override is not None else load_git_state(repo_root)
 
     receipt = sources.get("receipt")

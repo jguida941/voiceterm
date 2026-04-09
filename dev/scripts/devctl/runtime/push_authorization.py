@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Protocol
 
 from ..governance.draft import scan_repo_governance
 from ..governance.push_state import current_head_commit_sha
@@ -20,6 +21,14 @@ from .remote_commit_pipeline_models import (
 )
 from .review_state_locator import load_review_state
 from .vcs import run_git_capture
+
+
+class _ReviewSnapshotArtifactRoots(Protocol):
+    review_snapshot_path: str
+
+
+class _GovernanceWithArtifactRoots(Protocol):
+    artifact_roots: _ReviewSnapshotArtifactRoots | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -195,13 +204,17 @@ def _authorization_required(
 def _active_dual_agent_review(review_state) -> bool:
     if review_state is None:
         return False
+    runtime = getattr(review_state, "reviewer_runtime", None)
+    declared_mode = normalize_reviewer_mode(
+        getattr(runtime, "reviewer_mode", "")
+    )
     effective_mode = normalize_reviewer_mode(
-        getattr(review_state.reviewer_runtime, "effective_reviewer_mode", "")
+        getattr(runtime, "effective_reviewer_mode", "")
     )
-    reviewer_mode = normalize_reviewer_mode(
-        getattr(review_state.reviewer_runtime, "reviewer_mode", "")
+    return (
+        declared_mode == "active_dual_agent"
+        or effective_mode == "active_dual_agent"
     )
-    return "active_dual_agent" in {effective_mode, reviewer_mode}
 
 
 def _pipeline_targets_current_publication(
@@ -256,13 +269,13 @@ def _snapshot_only_receipt_parent_sha(
     return parent_sha.strip()
 
 
-def _review_snapshot_relpath(governance: object) -> str:
+def _review_snapshot_relpath(
+    governance: _GovernanceWithArtifactRoots | None,
+) -> str:
     if governance is not None:
-        artifact_roots = getattr(governance, "artifact_roots", None)
+        artifact_roots = governance.artifact_roots
         if artifact_roots is not None:
-            value = str(
-                getattr(artifact_roots, "review_snapshot_path", "") or ""
-            ).strip()
+            value = str(artifact_roots.review_snapshot_path or "").strip()
             if value:
                 return value
     return "dev/audits/REVIEW_SNAPSHOT.md"

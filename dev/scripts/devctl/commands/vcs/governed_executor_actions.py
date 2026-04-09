@@ -1,19 +1,21 @@
-"""Typed action builders and constants for the remote commit/push pipeline."""
+"""Typed action builders and support helpers for the VCS pipeline."""
 
 from __future__ import annotations
 
+import json
 import secrets
-from collections.abc import Sequence
+from dataclasses import dataclass
+from typing import Any
 
+from ...common import emit_output, write_output
 from ...runtime import TypedAction
-from ...runtime.remote_commit_pipeline_models import (
-    CommitIntentState,
-    RemoteCommitPipelineContract,
-)
+from ...runtime.remote_commit_pipeline_models import CommitIntentState, RemoteCommitPipelineContract
+from ...time_utils import utc_timestamp
 from .governed_executor_field_access import string_value
 
 STAGE_ACTION_ID = "vcs.stage"
 COMMIT_ACTION_ID = "vcs.commit"
+PUSH_ACTION_ID = "vcs.push"
 RECOVER_ACTION_ID = "vcs.pipeline.recover"
 APPROVAL_PACKET_KIND = "commit_approval"
 
@@ -48,51 +50,196 @@ _PUSHABLE_PIPELINE_STATES = frozenset(
 )
 
 
+@dataclass(frozen=True, slots=True)
+class StageActionInputs:
+    """Structured inputs for `vcs.stage`."""
+
+    repo_pack_id: str
+    paths: tuple[str, ...] = ()
+    commit_message_draft: str = ""
+    push_requested: bool = False
+    guard_profile: str = ""
+    work_intake_ref: str = ""
+    remote: str = "origin"
+    reuse_staged_index: bool = False
+    allow_empty: bool = False
+    requested_by: str = "remote_commit_pipeline"
+
+
+@dataclass(frozen=True, slots=True)
+class CommitActionInputs:
+    """Structured inputs for `vcs.commit`."""
+
+    repo_pack_id: str
+    pipeline_id: str
+    commit_message_draft: str = ""
+    amend: bool = False
+    allow_empty: bool = False
+    no_edit: bool = False
+    requested_by: str = "remote_commit_pipeline"
+
+
+@dataclass(frozen=True, slots=True)
+class PushActionInputs:
+    """Structured inputs for `vcs.push`."""
+
+    repo_pack_id: str
+    branch: str
+    remote: str
+    execute: bool
+    skip_preflight: bool = False
+    skip_post_push: bool = False
+    approved_target_identity: str = ""
+    requested_by: str = "devctl.push"
+
+
 def build_stage_action(
     *,
-    repo_pack_id: str,
-    paths: Sequence[str] = (),
-    commit_message_draft: str,
-    push_requested: bool,
-    guard_profile: str,
-    work_intake_ref: str,
-    remote: str = "origin",
-    requested_by: str = "remote_commit_pipeline",
+    inputs: StageActionInputs | None = None,
+    **kwargs: object,
 ) -> TypedAction:
     """Build the canonical typed action for governed staging."""
+    if inputs is None:
+        unexpected = sorted(kwargs.keys() - {
+            "repo_pack_id",
+            "paths",
+            "commit_message_draft",
+            "push_requested",
+            "guard_profile",
+            "work_intake_ref",
+            "remote",
+            "reuse_staged_index",
+            "allow_empty",
+            "requested_by",
+        })
+        if unexpected:
+            raise TypeError(f"Unexpected stage action inputs: {', '.join(unexpected)}")
+        resolved = StageActionInputs(
+            repo_pack_id=str(kwargs["repo_pack_id"]),
+            paths=tuple(str(path) for path in kwargs.get("paths", ()) or ()),
+            commit_message_draft=str(kwargs.get("commit_message_draft", "")),
+            push_requested=bool(kwargs.get("push_requested", False)),
+            guard_profile=str(kwargs.get("guard_profile", "")),
+            work_intake_ref=str(kwargs.get("work_intake_ref", "")),
+            remote=str(kwargs.get("remote", "origin")),
+            reuse_staged_index=bool(kwargs.get("reuse_staged_index", False)),
+            allow_empty=bool(kwargs.get("allow_empty", False)),
+            requested_by=str(kwargs.get("requested_by", "remote_commit_pipeline")),
+        )
+    else:
+        resolved = inputs
     parameters: dict[str, object] = {}
-    parameters["paths"] = [str(path) for path in paths if str(path).strip()]
-    parameters["commit_message_draft"] = commit_message_draft
-    parameters["push_requested"] = bool(push_requested)
-    parameters["guard_profile"] = guard_profile
-    parameters["work_intake_ref"] = work_intake_ref
-    parameters["remote"] = remote
+    parameters["paths"] = [str(path) for path in resolved.paths if str(path).strip()]
+    parameters["commit_message_draft"] = resolved.commit_message_draft
+    parameters["push_requested"] = bool(resolved.push_requested)
+    parameters["guard_profile"] = resolved.guard_profile
+    parameters["work_intake_ref"] = resolved.work_intake_ref
+    parameters["remote"] = resolved.remote
+    parameters["reuse_staged_index"] = bool(resolved.reuse_staged_index)
+    parameters["allow_empty"] = bool(resolved.allow_empty)
     return TypedAction(
         schema_version=1,
         contract_id="TypedAction",
         action_id=STAGE_ACTION_ID,
-        repo_pack_id=repo_pack_id,
+        repo_pack_id=resolved.repo_pack_id,
         parameters=parameters,
-        requested_by=requested_by,
+        requested_by=resolved.requested_by,
         dry_run=False,
     )
 
 
 def build_commit_action(
     *,
-    repo_pack_id: str,
-    pipeline_id: str,
-    requested_by: str = "remote_commit_pipeline",
+    inputs: CommitActionInputs | None = None,
+    **kwargs: object,
 ) -> TypedAction:
     """Build the canonical typed action for governed commit execution."""
+    if inputs is None:
+        unexpected = sorted(kwargs.keys() - {
+            "repo_pack_id",
+            "pipeline_id",
+            "commit_message_draft",
+            "amend",
+            "allow_empty",
+            "no_edit",
+            "requested_by",
+        })
+        if unexpected:
+            raise TypeError(f"Unexpected commit action inputs: {', '.join(unexpected)}")
+        resolved = CommitActionInputs(
+            repo_pack_id=str(kwargs["repo_pack_id"]),
+            pipeline_id=str(kwargs["pipeline_id"]),
+            commit_message_draft=str(kwargs.get("commit_message_draft", "")),
+            amend=bool(kwargs.get("amend", False)),
+            allow_empty=bool(kwargs.get("allow_empty", False)),
+            no_edit=bool(kwargs.get("no_edit", False)),
+            requested_by=str(kwargs.get("requested_by", "remote_commit_pipeline")),
+        )
+    else:
+        resolved = inputs
+    parameters: dict[str, object] = {"pipeline_id": resolved.pipeline_id}
+    parameters["commit_message_draft"] = resolved.commit_message_draft
+    parameters["amend"] = bool(resolved.amend)
+    parameters["allow_empty"] = bool(resolved.allow_empty)
+    parameters["no_edit"] = bool(resolved.no_edit)
     return TypedAction(
         schema_version=1,
         contract_id="TypedAction",
         action_id=COMMIT_ACTION_ID,
-        repo_pack_id=repo_pack_id,
-        parameters={"pipeline_id": pipeline_id},
-        requested_by=requested_by,
+        repo_pack_id=resolved.repo_pack_id,
+        parameters=parameters,
+        requested_by=resolved.requested_by,
         dry_run=False,
+    )
+
+
+def build_push_action(
+    *,
+    inputs: PushActionInputs | None = None,
+    **kwargs: object,
+) -> TypedAction:
+    """Build the canonical typed action for one governed push request."""
+    if inputs is None:
+        unexpected = sorted(kwargs.keys() - {
+            "repo_pack_id",
+            "branch",
+            "remote",
+            "execute",
+            "skip_preflight",
+            "skip_post_push",
+            "approved_target_identity",
+            "requested_by",
+        })
+        if unexpected:
+            raise TypeError(f"Unexpected push action inputs: {', '.join(unexpected)}")
+        resolved = PushActionInputs(
+            repo_pack_id=str(kwargs["repo_pack_id"]),
+            branch=str(kwargs["branch"]),
+            remote=str(kwargs["remote"]),
+            execute=bool(kwargs["execute"]),
+            skip_preflight=bool(kwargs.get("skip_preflight", False)),
+            skip_post_push=bool(kwargs.get("skip_post_push", False)),
+            approved_target_identity=str(kwargs.get("approved_target_identity", "")),
+            requested_by=str(kwargs.get("requested_by", "devctl.push")),
+        )
+    else:
+        resolved = inputs
+    parameters: dict[str, object] = {}
+    parameters["branch"] = resolved.branch
+    parameters["remote"] = resolved.remote
+    parameters["execute"] = resolved.execute
+    parameters["skip_preflight"] = resolved.skip_preflight
+    parameters["skip_post_push"] = resolved.skip_post_push
+    if resolved.approved_target_identity:
+        parameters["approved_target_identity"] = resolved.approved_target_identity
+    return TypedAction(
+        schema_version=1,
+        contract_id="TypedAction",
+        action_id=PUSH_ACTION_ID,
+        repo_pack_id=resolved.repo_pack_id,
+        parameters=parameters,
+        requested_by=resolved.requested_by,
+        dry_run=not bool(resolved.execute),
     )
 
 
@@ -111,6 +258,40 @@ def build_recover_action(
         parameters={"strategy": strategy},
         requested_by=requested_by,
         dry_run=False,
+    )
+
+
+def _build_report(*, status: str, reason: str = "", **extra: object) -> dict[str, object]:
+    """Build a commit report dict."""
+    report: dict[str, object] = {
+        "command": "commit",
+        "timestamp": utc_timestamp(),
+        "status": status,
+    }
+    if reason:
+        report["reason"] = reason
+    report.update(extra)
+    return report
+
+
+def _emit_report(args, report: dict[str, Any]) -> None:
+    """Emit the commit report in the requested format."""
+    fmt = getattr(args, "format", "md")
+    if fmt == "json":
+        output = json.dumps(report, indent=2)
+    else:
+        lines = [f"# devctl commit — {report['status']}"]
+        for key, value in report.items():
+            if key in {"command", "status"}:
+                continue
+            lines.append(f"- **{key}**: {value}")
+        output = "\n".join(lines)
+    emit_output(
+        output,
+        output_path=getattr(args, "output", None),
+        pipe_command=getattr(args, "pipe_command", None),
+        pipe_args=getattr(args, "pipe_args", None),
+        writer=write_output,
     )
 
 

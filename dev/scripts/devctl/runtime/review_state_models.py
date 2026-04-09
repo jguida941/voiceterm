@@ -313,10 +313,11 @@ def _packet_requires_operator_approval(packet: object) -> bool:
     status/doctor/dashboard operator surfaces projecting even when packet
     hydration drops typing on the way through.
     """
+    if isinstance(packet, ReviewPacketState):
+        return packet.requires_operator_approval()
     if isinstance(packet, dict):
         return bool(packet.get("approval_required")) and packet.get("status") == "pending"
-    check = getattr(packet, "requires_operator_approval", None)
-    return bool(check()) if callable(check) else False
+    return False
 
 
 @dataclass(frozen=True, slots=True)
@@ -350,9 +351,11 @@ class ReviewState:
     snapshot_id: str = ""
 
     def pending_approvals(self) -> tuple[ReviewPacketState, ...]:
+        from ..review_channel.pending_packets import live_pending_packets
+
         return tuple(
             packet
-            for packet in self.packets
+            for packet in live_pending_packets(self.packets)
             if _packet_requires_operator_approval(packet)
         )
 

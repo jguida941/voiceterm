@@ -38,7 +38,12 @@ def build_coordination_snapshot(
     governance: object | None = None,
     work_intake: object | None = None,
 ) -> CoordinationSnapshot:
-    """Build one bounded answer for topology, ownership, fanout, and resync."""
+    """Build one bounded answer for topology, ownership, fanout, and resync.
+
+    Callers that already resolved a typed ``review_state`` for the current proof
+    tick should pass it explicitly so this reducer does not refresh live review
+    state a second time through ``load_current_review_state``.
+    """
     resolved_root = (repo_root or get_repo_root()).resolve()
     resolved_startup = startup_context
     resolved_governance = (

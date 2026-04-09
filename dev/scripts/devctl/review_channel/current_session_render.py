@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from .pending_packets import live_pending_packets
+
 
 def append_current_session_markdown(
     lines: list[str],
@@ -59,21 +61,9 @@ def current_focus_line(review_state: dict[str, object]) -> str:
     packets = review_state.get("packets")
     if not isinstance(packets, list):
         return "(missing)"
-    pending_packet = next(
-        (
-            packet
-            for packet in packets
-            if isinstance(packet, dict) and packet.get("status") == "pending"
-        ),
-        None,
-    )
+    pending_packet = next(iter(live_pending_packets(packets)), None)
     if isinstance(pending_packet, dict):
         summary = str(pending_packet.get("summary") or "").strip()
-        if summary:
-            return summary
-    latest_packet = packets[0] if packets else None
-    if isinstance(latest_packet, dict):
-        summary = str(latest_packet.get("summary") or "").strip()
         if summary:
             return summary
     return "(missing)"

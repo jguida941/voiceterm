@@ -230,6 +230,198 @@ class PendingPacketInstructionRewriteGuardTests(unittest.TestCase):
                 action_label="reviewer checkpoint",
             )
 
+    def test_resolved_approval_request_does_not_stay_in_live_or_stale_queue(self) -> None:
+        now = datetime.now(timezone.utc)
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            _write_packet_events(
+                root,
+                packets=[
+                    {
+                        "schema_version": 1,
+                        "event_id": "rev_evt_0001",
+                        "packet_id": "rev_pkt_request",
+                        "trace_id": "trace_commit_approval",
+                        "event_type": "packet_posted",
+                        "status": "pending",
+                        "from_agent": "system",
+                        "to_agent": "operator",
+                        "kind": "commit_approval",
+                        "summary": "Approve governed commit",
+                        "approval_required": True,
+                        "target_ref": "remote_commit_pipeline:pipeline-123",
+                        "pipeline_generation": "gen-123",
+                        "expires_at_utc": (
+                            now + timedelta(minutes=30)
+                        ).isoformat().replace("+00:00", "Z"),
+                    },
+                    {
+                        "schema_version": 1,
+                        "event_id": "rev_evt_0002",
+                        "packet_id": "rev_pkt_decision",
+                        "trace_id": "trace_commit_approval",
+                        "event_type": "packet_posted",
+                        "status": "pending",
+                        "from_agent": "operator",
+                        "to_agent": "system",
+                        "kind": "commit_approval",
+                        "summary": "Approved",
+                        "approval_required": False,
+                        "target_ref": "remote_commit_pipeline:pipeline-123",
+                        "pipeline_generation": "gen-123",
+                        "expires_at_utc": (
+                            now + timedelta(minutes=30)
+                        ).isoformat().replace("+00:00", "Z"),
+                    },
+                    {
+                        "schema_version": 1,
+                        "event_id": "rev_evt_0003",
+                        "packet_id": "rev_pkt_decision",
+                        "trace_id": "trace_commit_approval",
+                        "event_type": "packet_applied",
+                        "status": "applied",
+                        "from_agent": "operator",
+                        "to_agent": "system",
+                        "kind": "commit_approval",
+                        "summary": "Approved",
+                        "approval_required": False,
+                        "target_ref": "remote_commit_pipeline:pipeline-123",
+                        "pipeline_generation": "gen-123",
+                    },
+                ],
+            )
+
+            queue = load_pending_packet_queue(root)
+
+        self.assertEqual(queue.pending_packets, ())
+        self.assertEqual(queue.stale_packet_count, 0)
+
+    def test_acked_approval_decision_does_not_clear_live_request(self) -> None:
+        now = datetime.now(timezone.utc)
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            _write_packet_events(
+                root,
+                packets=[
+                    {
+                        "schema_version": 1,
+                        "event_id": "rev_evt_0001",
+                        "packet_id": "rev_pkt_request",
+                        "trace_id": "trace_commit_approval",
+                        "event_type": "packet_posted",
+                        "status": "pending",
+                        "from_agent": "system",
+                        "to_agent": "operator",
+                        "kind": "commit_approval",
+                        "summary": "Approve governed commit",
+                        "approval_required": True,
+                        "target_ref": "remote_commit_pipeline:pipeline-123",
+                        "pipeline_generation": "gen-123",
+                        "expires_at_utc": (
+                            now + timedelta(minutes=30)
+                        ).isoformat().replace("+00:00", "Z"),
+                    },
+                    {
+                        "schema_version": 1,
+                        "event_id": "rev_evt_0002",
+                        "packet_id": "rev_pkt_decision",
+                        "trace_id": "trace_commit_approval",
+                        "event_type": "packet_posted",
+                        "status": "pending",
+                        "from_agent": "operator",
+                        "to_agent": "system",
+                        "kind": "commit_approval",
+                        "summary": "Acked only",
+                        "approval_required": False,
+                        "target_ref": "remote_commit_pipeline:pipeline-123",
+                        "pipeline_generation": "gen-123",
+                    },
+                    {
+                        "schema_version": 1,
+                        "event_id": "rev_evt_0003",
+                        "packet_id": "rev_pkt_decision",
+                        "trace_id": "trace_commit_approval",
+                        "event_type": "packet_acked",
+                        "status": "acked",
+                        "from_agent": "operator",
+                        "to_agent": "system",
+                        "kind": "commit_approval",
+                        "summary": "Acked only",
+                        "approval_required": False,
+                        "target_ref": "remote_commit_pipeline:pipeline-123",
+                        "pipeline_generation": "gen-123",
+                    },
+                ],
+            )
+
+            queue = load_pending_packet_queue(root)
+
+        self.assertEqual(len(queue.pending_packets), 1)
+        self.assertEqual(queue.pending_packets[0]["packet_id"], "rev_pkt_request")
+
+    def test_non_approval_history_rows_do_not_clear_matching_live_packets(self) -> None:
+        now = datetime.now(timezone.utc)
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            _write_packet_events(
+                root,
+                packets=[
+                    {
+                        "schema_version": 1,
+                        "event_id": "rev_evt_0001",
+                        "packet_id": "rev_pkt_live",
+                        "trace_id": "trace_finding",
+                        "event_type": "packet_posted",
+                        "status": "pending",
+                        "from_agent": "claude",
+                        "to_agent": "codex",
+                        "kind": "finding",
+                        "summary": "Live finding packet",
+                        "approval_required": False,
+                        "target_ref": "dashboard.py",
+                        "pipeline_generation": "gen-123",
+                        "expires_at_utc": (
+                            now + timedelta(minutes=30)
+                        ).isoformat().replace("+00:00", "Z"),
+                    },
+                    {
+                        "schema_version": 1,
+                        "event_id": "rev_evt_0002",
+                        "packet_id": "rev_pkt_history",
+                        "trace_id": "trace_finding",
+                        "event_type": "packet_posted",
+                        "status": "pending",
+                        "from_agent": "claude",
+                        "to_agent": "codex",
+                        "kind": "finding",
+                        "summary": "Applied finding packet",
+                        "approval_required": False,
+                        "target_ref": "dashboard.py",
+                        "pipeline_generation": "gen-123",
+                    },
+                    {
+                        "schema_version": 1,
+                        "event_id": "rev_evt_0003",
+                        "packet_id": "rev_pkt_history",
+                        "trace_id": "trace_finding",
+                        "event_type": "packet_applied",
+                        "status": "applied",
+                        "from_agent": "claude",
+                        "to_agent": "codex",
+                        "kind": "finding",
+                        "summary": "Applied finding packet",
+                        "approval_required": False,
+                        "target_ref": "dashboard.py",
+                        "pipeline_generation": "gen-123",
+                    },
+                ],
+            )
+
+            queue = load_pending_packet_queue(root)
+
+        self.assertEqual(len(queue.pending_packets), 1)
+        self.assertEqual(queue.pending_packets[0]["packet_id"], "rev_pkt_live")
+
     def test_scope_bridge_instruction_refuses_pending_packets(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)

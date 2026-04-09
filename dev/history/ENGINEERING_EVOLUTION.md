@@ -39,6 +39,48 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 
 ### 2026-04-07 - ReviewSnapshot hook hardening routed through owner plans
 
+### 2026-04-08 - Governed mutation, queue truth, and dashboard review-state reads were tightened to fail closed
+
+The next remote-control/platform hardening slice was not a new architecture
+layer. It was closure on the typed paths that already existed but still left
+practical escape hatches.
+
+On the write side, `devctl commit` no longer treats an unreadable control
+plane as locally auto-approvable: only resolved `local_terminal` and
+`single_agent` modes may self-apply the typed approval packet. The governed
+commit phase also refreshes any ReviewSnapshot projection before the final
+tree-hash check, so a changed staged tree now blocks with
+`staged_snapshot_changed` instead of silently reusing approval that targeted
+an older tree. On the push side, executor-routed `devctl push` now reuses the
+policy/default remote and current approved target for the active pipeline,
+returns output-pipe failures instead of reporting false success, and keeps
+publication authorization required when review is still declared/effective
+dual-agent even if the live runtime has degraded to `tools_only`.
+
+On the queue/read side, review-channel pending-packet cleanup now treats queue
+resolution as apply-bound. Only applied `commit_approval` decisions clear the
+live approval request queue; `acked` rows and unrelated packet history no
+longer collapse live queue truth. Dashboard now loads review-state through the
+shared fresh source path used by the control-plane read model instead of
+reading stale `state/latest.json` directly, so instruction/findings truth no
+longer drifts from startup/session-resume for the same tick.
+
+Evidence: `dev/scripts/devctl/commands/vcs/commit.py`,
+`dev/scripts/devctl/commands/vcs/push.py`,
+`dev/scripts/devctl/commands/vcs/governed_executor_phases.py`,
+`dev/scripts/devctl/runtime/push_authorization.py`,
+`dev/scripts/devctl/review_channel/pending_packets.py`,
+`dev/scripts/devctl/review_channel/event_render.py`,
+`dev/scripts/devctl/runtime/control_plane_resolve.py`,
+`dev/scripts/devctl/commands/dashboard.py`,
+`dev/scripts/devctl/tests/review_channel/test_pending_packet_guards.py`,
+`dev/scripts/devctl/tests/review_channel/test_packet_queue_cleanup.py`,
+`dev/scripts/devctl/tests/runtime/test_control_plane_read_model.py`,
+`dev/scripts/devctl/tests/runtime/test_push_authorization.py`,
+`dev/scripts/devctl/tests/test_dashboard.py`,
+`dev/scripts/devctl/tests/vcs/test_commit_gate.py`,
+`dev/scripts/devctl/tests/vcs/test_push.py`.
+
 ### 2026-04-08 - Startup-context coordination snapshot now routes through the shared governed loader
 
 The previous coordination slice landed `CoordinationSnapshot` on

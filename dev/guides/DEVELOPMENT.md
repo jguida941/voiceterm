@@ -1107,6 +1107,12 @@ Workflow permissions note:
    The shared `devctl` command runner now follows the parent push/post-push
    command lifetime instead of waiting forever on inherited descendant stdout
    pipes after the governed push has already completed.
+   `devctl commit` follows the same fail-closed rule: only resolved
+   `local_terminal` or `single_agent` modes may self-apply the typed approval
+   packet; `remote_control`, `dual_agent`, and `unresolved` must stop at the
+   approval request until an applied operator decision exists. Queue truth is
+   apply-bound too: only applied `commit_approval` decisions clear the live
+   approval request, not `acked` packets or stale packet history.
 6. If you are not using `devctl push`, run `python3 dev/scripts/devctl.py check-router --since-ref origin/develop --execute` or the matching bundle manually (`bundle.runtime`, `bundle.docs`, or `bundle.tooling`) before `git push`, then run `bundle.post-push`.
 7. If you add or rename a `devctl` command, update the CLI inventory (`devctl list`) and the maintainer command docs in the same change so discovery stays truthful.
 8. Merge to `develop` only after review and green checks.

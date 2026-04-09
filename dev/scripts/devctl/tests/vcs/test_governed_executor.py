@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import subprocess
 from dataclasses import replace
 from pathlib import Path
 from types import SimpleNamespace
@@ -41,6 +40,7 @@ from dev.scripts.devctl.runtime.action_contracts import (
     ActionOutcome,
 )
 from dev.scripts.devctl.runtime import ActionResult
+from dev.scripts.devctl.tests.vcs._git_helpers import _run_git
 from dev.scripts.devctl.tests.test_review_channel_context_refs import (
     _review_channel_text,
 )
@@ -547,14 +547,3 @@ def _passing_guard_result() -> ActionResult:
         status=ActionOutcome.PASS,
         reason="",
     )
-
-
-def _run_git(repo_root: Path, *args: str) -> str:
-    completed = subprocess.run(
-        ["git", *args],
-        cwd=repo_root,
-        check=True,
-        capture_output=True,
-        text=True,
-    )
-    return (completed.stdout or "").strip()

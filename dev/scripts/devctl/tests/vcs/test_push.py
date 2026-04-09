@@ -6,7 +6,7 @@ import json
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from dev.scripts.devctl.cli import build_parser
 from dev.scripts.devctl.commands.vcs import push
@@ -125,6 +125,141 @@ class PushParserTests(unittest.TestCase):
 
 
 class PushCommandTests(unittest.TestCase):
+    @patch("dev.scripts.devctl.commands.vcs.push.emit_output")
+    @patch("dev.scripts.devctl.commands.vcs.push.load_latest_push_report")
+    @patch("dev.scripts.devctl.commands.vcs.push.remote_exists", return_value=True)
+    @patch("dev.scripts.devctl.commands.vcs.push.collect_git_status")
+    @patch("dev.scripts.devctl.commands.vcs.push.load_push_policy")
+    @patch("dev.scripts.devctl.commands.vcs.governed_executor.GovernedVcsExecutor")
+    def test_run_routes_pushable_pipeline_through_governed_executor(
+        self,
+        executor_cls_mock,
+        load_push_policy_mock,
+        collect_git_status_mock,
+        _remote_exists_mock,
+        load_latest_report_mock,
+        emit_output_mock,
+    ) -> None:
+        fake_executor = MagicMock()
+        fake_executor.load_pipeline.return_value = SimpleNamespace(
+            pipeline_id="pipeline-123",
+            state="commit_recorded",
+            commit_sha="abc123",
+            branch="feature/demo",
+        )
+        fake_executor.execute.return_value = SimpleNamespace(ok=True)
+        executor_cls_mock.return_value = fake_executor
+        load_push_policy_mock.return_value = make_policy()
+        collect_git_status_mock.return_value = {"branch": "feature/demo", "changes": []}
+        load_latest_report_mock.return_value = {
+            "ok": True,
+            "branch": "feature/demo",
+            "head_commit": "abc123",
+            "push_stages": {
+                "published_remote": True,
+                "post_push_green": True,
+                "validation_ready": True,
+            },
+        }
+        emit_output_mock.return_value = 0
+
+        rc = push.run(make_args(execute=True, format="json"))
+
+        self.assertEqual(rc, 0)
+        fake_executor.execute.assert_called_once()
+        emit_output_mock.assert_called_once()
+
+    @patch("dev.scripts.devctl.commands.vcs.push.emit_output", return_value=7)
+    @patch("dev.scripts.devctl.commands.vcs.push.load_latest_push_report")
+    @patch("dev.scripts.devctl.commands.vcs.push.remote_exists", return_value=True)
+    @patch("dev.scripts.devctl.commands.vcs.push.collect_git_status")
+    @patch("dev.scripts.devctl.commands.vcs.push.load_push_policy")
+    @patch("dev.scripts.devctl.commands.vcs.governed_executor.GovernedVcsExecutor")
+    def test_run_returns_emit_output_failure_for_executor_routed_push(
+        self,
+        executor_cls_mock,
+        load_push_policy_mock,
+        collect_git_status_mock,
+        _remote_exists_mock,
+        load_latest_report_mock,
+        _emit_output_mock,
+    ) -> None:
+        fake_executor = MagicMock()
+        fake_executor.load_pipeline.return_value = SimpleNamespace(
+            pipeline_id="pipeline-123",
+            state="commit_recorded",
+            commit_sha="abc123",
+            branch="feature/demo",
+            approved_target_identity="tree-receipt-20260403T010000Z:tree-123",
+        )
+        fake_executor.execute.return_value = SimpleNamespace(ok=True)
+        executor_cls_mock.return_value = fake_executor
+        load_push_policy_mock.return_value = make_policy()
+        collect_git_status_mock.return_value = {"branch": "feature/demo", "changes": []}
+        load_latest_report_mock.return_value = {
+            "ok": True,
+            "branch": "feature/demo",
+            "head_commit": "abc123",
+            "push_stages": {
+                "published_remote": True,
+                "post_push_green": True,
+                "validation_ready": True,
+            },
+        }
+
+        rc = push.run(make_args(execute=True, format="json"))
+
+        self.assertEqual(rc, 7)
+
+    @patch("dev.scripts.devctl.commands.vcs.push.emit_output")
+    @patch("dev.scripts.devctl.commands.vcs.push.load_latest_push_report")
+    @patch("dev.scripts.devctl.commands.vcs.push.remote_exists", return_value=True)
+    @patch("dev.scripts.devctl.commands.vcs.push.collect_git_status")
+    @patch("dev.scripts.devctl.commands.vcs.push.load_push_policy")
+    @patch("dev.scripts.devctl.commands.vcs.governed_executor.GovernedVcsExecutor")
+    def test_run_uses_policy_remote_for_executor_routed_push(
+        self,
+        executor_cls_mock,
+        load_push_policy_mock,
+        collect_git_status_mock,
+        _remote_exists_mock,
+        load_latest_report_mock,
+        _emit_output_mock,
+    ) -> None:
+        fake_executor = MagicMock()
+        fake_executor.load_pipeline.return_value = SimpleNamespace(
+            pipeline_id="pipeline-123",
+            state="commit_recorded",
+            commit_sha="abc123",
+            branch="feature/demo",
+            approved_target_identity="tree-receipt-20260403T010000Z:tree-123",
+        )
+        fake_executor.execute.return_value = SimpleNamespace(ok=True)
+        executor_cls_mock.return_value = fake_executor
+        load_push_policy_mock.return_value = make_policy(default_remote="upstream")
+        collect_git_status_mock.return_value = {"branch": "feature/demo", "changes": []}
+        load_latest_report_mock.return_value = {
+            "ok": True,
+            "branch": "feature/demo",
+            "head_commit": "abc123",
+            "push_stages": {
+                "published_remote": True,
+                "post_push_green": True,
+                "validation_ready": True,
+            },
+        }
+        _emit_output_mock.return_value = 0
+
+        rc = push.run(make_args(execute=True, format="json"))
+
+        self.assertEqual(rc, 0)
+        action = fake_executor.execute.call_args.args[0]
+        self.assertEqual(action.parameters["remote"], "upstream")
+        self.assertEqual(
+            action.parameters["approved_target_identity"],
+            "tree-receipt-20260403T010000Z:tree-123",
+        )
+
     @patch(
         "dev.scripts.devctl.governance.push_state.lookup_push_receipt",
         return_value=None,

@@ -160,6 +160,13 @@ class BuildWithReceiptTests(unittest.TestCase):
 class BuildWithReviewStateTests(unittest.TestCase):
     """Build from review_state.json data."""
 
+    class _FrozenReviewState:
+        def __init__(self, payload: dict[str, object]) -> None:
+            self._payload = payload
+
+        def to_dict(self) -> dict[str, object]:
+            return dict(self._payload)
+
     def test_reviewer_mode_from_review_state(self) -> None:
         sources = _empty_sources()
         sources["review_state"] = {
@@ -199,6 +206,25 @@ class BuildWithReviewStateTests(unittest.TestCase):
         )
         self.assertEqual(model.attention_status, "needs_recovery")
         self.assertEqual(model.attention_summary, "conductor down")
+
+    def test_typed_review_state_overrides_stale_loaded_payload(self) -> None:
+        sources = _empty_sources()
+        sources["review_state"] = {
+            "attention": {"status": "stale_attention", "summary": "old"},
+        }
+        frozen = self._FrozenReviewState(
+            {
+                "attention": {"status": "fresh_attention", "summary": "new"},
+            }
+        )
+        model = build_control_plane_read_model(
+            Path("/tmp/nonexistent"),
+            sources_override=sources,
+            git_override=_base_git(),
+            review_state=frozen,
+        )
+        self.assertEqual(model.attention_status, "fresh_attention")
+        self.assertEqual(model.attention_summary, "new")
 
     def test_pending_packets_counted(self) -> None:
         sources = _empty_sources()
@@ -354,6 +380,30 @@ class ResolverUnitTests(unittest.TestCase):
             {"status": "pending"}, {"status": "acked"}, {"status": "pending"},
         ]}
         self.assertEqual(resolve_pending_packets(rs), 2)
+
+    def test_resolve_pending_packets_prefers_typed_queue_total(self) -> None:
+        rs = {
+            "queue": {"pending_total": 1},
+            "packets": [{"status": "pending"}, {"status": "pending"}],
+        }
+        self.assertEqual(resolve_pending_packets(rs), 1)
+
+    def test_resolve_pending_packets_fallback_ignores_stale_history(self) -> None:
+        rs = {
+            "packets": [
+                {
+                    "packet_id": "live",
+                    "status": "pending",
+                    "expires_at_utc": "2999-01-01T00:00:00Z",
+                },
+                {
+                    "packet_id": "stale",
+                    "status": "pending",
+                    "expires_at_utc": "2000-01-01T00:00:00Z",
+                },
+            ],
+        }
+        self.assertEqual(resolve_pending_packets(rs), 1)
 
     def test_resolve_blocker_guard_fail(self) -> None:
         quality = {

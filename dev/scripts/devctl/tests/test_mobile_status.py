@@ -257,17 +257,196 @@ class MobileStatusCommandTests(unittest.TestCase):
             compact_payload = json.loads(
                 (projection_dir / "compact.json").read_text(encoding="utf-8")
             )
-            self.assertEqual(compact_payload["review_bridge_state"], "stale")
+            self.assertEqual(compact_payload["review_bridge_state"], "runtime_missing")
             self.assertTrue(
                 any(
                     "phone status artifact not found" in row
                     for row in payload.get("warnings", [])
                 )
             )
-            self.assertNotEqual(payload["view_payload"]["codex_status"], "unknown")
+            self.assertEqual(payload["view_payload"]["codex_status"], "inactive")
             self.assertTrue(Path(payload["projection_files"]["full_json"]).exists())
 
-    def test_command_prefers_bridge_snapshot_over_event_artifacts_in_auto_mode(self) -> None:
+    def test_command_reuses_existing_review_projection_without_refresh(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            review_channel_path = root / "review_channel.md"
+            bridge_path = root / "bridge.md"
+            review_status_dir = root / "review-status"
+            output_json = root / "report.json"
+            review_channel_path.write_text(
+                _build_review_channel_text(),
+                encoding="utf-8",
+            )
+            bridge_path.write_text(_build_bridge_text(), encoding="utf-8")
+            review_status_dir.mkdir(parents=True)
+            (review_status_dir / "full.json").write_text(
+                json.dumps(
+                    {
+                        "review_state": {
+                            "review": {"plan_id": "MP-355"},
+                            "queue": {"pending_total": 1},
+                            "bridge": {
+                                "last_codex_poll_utc": "2026-03-09T04:12:49Z",
+                                "last_worktree_hash": "abc123",
+                                "current_instruction": "keep the next slice bounded",
+                                "open_findings": "- bridge needs rollover-safe handoff",
+                                "claude_status": "- implementing the next fix slice",
+                                "claude_ack": "- acknowledged",
+                            },
+                            "agents": [
+                                {"agent_id": "codex", "status": "stale", "role": "reviewer"},
+                                {"agent_id": "claude", "status": "active", "role": "implementer"},
+                            ],
+                        },
+                        "bridge_liveness": {
+                            "overall_state": "stale",
+                            "codex_poll_state": "stale",
+                            "reviewer_freshness": "overdue",
+                        },
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            args = make_args(
+                phone_json=str(root / "missing.json"),
+                review_channel_path=str(review_channel_path),
+                bridge_path=str(bridge_path),
+                review_status_dir=str(review_status_dir),
+                output=str(output_json),
+            )
+            fake_model = SimpleNamespace(
+                resolved_phase="reviewing",
+                top_blocker="await_review",
+                next_action="review_follow_up_required",
+                next_command="python3 dev/scripts/devctl.py review-channel --action status --terminal none --format json",
+                push_eligible=False,
+                review_accepted=False,
+                reviewer_mode="active_dual_agent",
+                operator_interaction_mode="remote_control",
+                last_guard_ok=True,
+                pending_action_requests=1,
+            )
+
+            with (
+                patch(
+                    "dev.scripts.devctl.commands.mobile_status.build_control_plane_read_model",
+                    return_value=fake_model,
+                ),
+                patch(
+                    "dev.scripts.devctl.review_channel.state.refresh_status_snapshot",
+                    side_effect=AssertionError("should not refresh review-channel state"),
+                ),
+            ):
+                rc = mobile_status.run(args)
+
+            self.assertEqual(rc, 0)
+            payload = json.loads(output_json.read_text(encoding="utf-8"))
+            self.assertTrue(payload["ok"])
+            self.assertEqual(payload["view_payload"]["codex_status"], "stale")
+            self.assertTrue(
+                payload["review_projection_files"]["full_path"].endswith("full.json")
+            )
+
+    def test_command_uses_existing_typed_review_state_without_refresh(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            review_channel_path = root / "review_channel.md"
+            bridge_path = root / "bridge.md"
+            review_status_dir = root / "review-status"
+            output_json = root / "report.json"
+
+            review_channel_path.write_text(
+                _build_review_channel_text(),
+                encoding="utf-8",
+            )
+            bridge_path.write_text(_build_bridge_text(), encoding="utf-8")
+            review_status_dir.mkdir(parents=True)
+            (review_status_dir / "review_state.json").write_text(
+                json.dumps(
+                    {
+                        "schema_version": 1,
+                        "contract_id": "ReviewState",
+                        "command": "review-channel",
+                        "action": "status",
+                        "timestamp": "2026-03-09T04:12:49Z",
+                        "ok": False,
+                        "review": {"plan_id": "MP-355"},
+                        "queue": {"pending_total": 1},
+                        "bridge": {
+                            "overall_state": "stale",
+                            "codex_poll_state": "stale",
+                            "reviewer_freshness": "overdue",
+                            "last_codex_poll_utc": "2026-03-09T04:12:49Z",
+                            "last_worktree_hash": "abc123",
+                            "current_instruction": "keep the next slice bounded",
+                            "open_findings": "- bridge needs rollover-safe handoff",
+                            "claude_status": "- implementing the next fix slice",
+                            "claude_ack": "- acknowledged",
+                        },
+                        "registry": {
+                            "timestamp": "2026-03-09T04:12:49Z",
+                            "agents": [
+                                {
+                                    "agent_id": "codex",
+                                    "job_state": "stale",
+                                    "current_job": "reviewer",
+                                },
+                                {
+                                    "agent_id": "claude",
+                                    "job_state": "active",
+                                    "current_job": "implementer",
+                                },
+                            ],
+                        },
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            args = make_args(
+                phone_json=str(root / "missing.json"),
+                review_channel_path=str(review_channel_path),
+                bridge_path=str(bridge_path),
+                review_status_dir=str(review_status_dir),
+                output=str(output_json),
+                repo_root=str(root),
+            )
+            fake_model = SimpleNamespace(
+                resolved_phase="reviewing",
+                top_blocker="await_review",
+                next_action="review_follow_up_required",
+                next_command="python3 dev/scripts/devctl.py review-channel --action status --terminal none --format json",
+                push_eligible=False,
+                review_accepted=False,
+                reviewer_mode="active_dual_agent",
+                operator_interaction_mode="remote_control",
+                last_guard_ok=True,
+                pending_action_requests=1,
+            )
+
+            with (
+                patch(
+                    "dev.scripts.devctl.commands.mobile_status.build_control_plane_read_model",
+                    return_value=fake_model,
+                ),
+                patch(
+                    "dev.scripts.devctl.review_channel.state.refresh_status_snapshot",
+                    side_effect=AssertionError("should not refresh review-channel state"),
+                ),
+            ):
+                rc = mobile_status.run(args)
+
+            self.assertEqual(rc, 0)
+            payload = json.loads(output_json.read_text(encoding="utf-8"))
+            self.assertTrue(payload["ok"])
+            self.assertEqual(payload["view_payload"]["codex_status"], "stale")
+            self.assertTrue(
+                payload["review_projection_files"]["review_state_path"].endswith("review_state.json")
+            )
+
+    def test_command_prefers_existing_projection_over_event_artifacts_in_auto_mode(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)
             review_channel_path = root / "review_channel.md"
@@ -297,7 +476,7 @@ class MobileStatusCommandTests(unittest.TestCase):
             self.assertEqual(rc, 0)
             payload = json.loads(output_json.read_text(encoding="utf-8"))
             self.assertTrue(payload["ok"])
-            self.assertEqual(payload["view_payload"]["codex_status"], "stale")
+            self.assertEqual(payload["view_payload"]["codex_status"], "inactive")
             self.assertTrue(
                 payload["review_projection_files"]["full_path"].endswith("full.json")
             )
