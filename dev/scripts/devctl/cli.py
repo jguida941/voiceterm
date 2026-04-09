@@ -47,6 +47,7 @@ from .commands import (
     mutation_score,
     orchestrate_status,
     orchestrate_watch,
+    pipeline as pipeline_command,
     platform_contracts,
     path_audit,
     path_rewrite,
@@ -124,6 +125,7 @@ from .platform.parser import add_platform_contracts_parser, add_system_picture_p
 from .publication_sync.parser import add_publication_sync_parser
 from .reports_cleanup_parser import add_reports_cleanup_parser
 from .review_channel.parser import add_review_channel_parser
+from .pipeline_parser import add_pipeline_parser
 from .rollout_tail_parser import add_rollout_tail_parser
 from .security.parser import add_security_parser
 from .sync_parser import add_commit_parser, add_push_parser, add_sync_parser
@@ -190,6 +192,7 @@ def build_parser() -> argparse.ArgumentParser:
     add_launcher_policy_parser(sub)
     add_tandem_validate_parser(sub)
     add_review_channel_parser(sub)
+    add_pipeline_parser(sub)
     add_rollout_tail_parser(sub)
     add_path_audit_parser(sub)
     add_path_rewrite_parser(sub)
@@ -269,6 +272,7 @@ COMMAND_HANDLERS = {
     "ship": ship.run,
     "release-notes": release_notes.run,
     "review-channel": review_channel.run,
+    "pipeline": pipeline_command.run,
     "rollout-tail": rollout_tail.run,
     "homebrew": homebrew.run,
     "pypi": pypi.run,
