@@ -251,7 +251,16 @@ class TestGovernedCommitPipeline(unittest.TestCase):
                 "feat: governed local commit",
             )
 
-    def test_commit_remote_mode_auto_approves_and_records_commit(self) -> None:
+    def test_commit_remote_mode_waits_for_typed_approval(self) -> None:
+        """F1 regression: remote_control must not self-approve.
+
+        When the operator is on remote control the local terminal cannot
+        authoritatively speak for them, so the governed commit path must
+        leave the pipeline in ``operator_approval_pending`` until a typed
+        approval or action-request packet is applied by the off-box
+        operator. Only ``local_terminal`` and ``single_agent`` self-
+        approve. Collapsing this boundary was F1 in the Codex review.
+        """
         with tempfile.TemporaryDirectory() as tmpdir:
             repo_root = _init_repo(Path(tmpdir) / "repo")
             (repo_root / "tracked.txt").write_text("updated\n", encoding="utf-8")
@@ -268,10 +277,9 @@ class TestGovernedCommitPipeline(unittest.TestCase):
             )
 
             pipeline = _executor(repo_root).load_pipeline()
-            self.assertEqual(rc, 0)
-            self.assertEqual(pipeline.state, "commit_recorded")
-            self.assertEqual(pipeline.approval_state, "approved")
-            self.assertTrue(pipeline.decision_packet_id)
+            self.assertEqual(rc, 1)
+            self.assertEqual(pipeline.state, "operator_approval_pending")
+            self.assertEqual(pipeline.approval_state, "pending")
 
     def test_commit_unresolved_mode_does_not_auto_approve(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

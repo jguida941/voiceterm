@@ -85,23 +85,52 @@ def cleanup_orphaned_voiceterm_test_binaries(
     }
 
 
+SUPERVISED_CONDUCTOR_SCOPE = "review_channel_conductor"
+
+
 def _protected_registered_conductor_pids(
     *,
     rows: list[dict],
     repo_root: Path,
 ) -> set[int]:
-    """Return live registered conductor pids plus descendants to exclude."""
+    """Return live registered conductor pids plus descendants to exclude.
+
+    Two complementary signals feed the protected set:
+
+    1. Typed session registry via ``load_conductor_sessions`` — authoritative
+       when each live session carries a ``session_pid`` that the probe was
+       able to recover from the launch script path.
+    2. Supervisor-backed liveness — the reviewer_supervisor heartbeat is the
+       fallback "this scope is supervised" signal when the typed registry
+       could not recover a pid (script probe failed, metadata stale, or
+       registry not yet populated after a recent spawn). Mirrors the shape
+       used by ``hygiene_support._audit_runtime_processes`` so both guards
+       agree on what counts as a supervised conductor.
+    """
     from ...repo_packs import active_path_config
+    from ...review_channel.lifecycle_state import read_reviewer_supervisor_state
     from ...review_channel.session_probe import load_conductor_sessions
 
     status_dir = repo_root / active_path_config().review_status_dir_rel
     if not status_dir.exists():
         return set()
+
+    sessions = load_conductor_sessions(session_output_root=status_dir)
     session_pids = {
         int(session.session_pid)
-        for session in load_conductor_sessions(session_output_root=status_dir)
+        for session in sessions
         if session.live and session.session_pid
     }
+
+    supervisor_state = read_reviewer_supervisor_state(status_dir)
+    if supervisor_state.get("running"):
+        session_pids.update(
+            int(row.get("pid", 0) or 0)
+            for row in rows
+            if row.get("match_scope") == SUPERVISED_CONDUCTOR_SCOPE
+            and int(row.get("pid", 0) or 0) > 0
+        )
+
     if not session_pids:
         return set()
     descendants_by_parent: dict[int, list[int]] = {}

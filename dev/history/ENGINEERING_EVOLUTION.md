@@ -67,6 +67,62 @@ mode to `remote_control`, and governed `devctl commit` treats that phone-
 steered mode as promptless typed approval instead of parking on
 `operator_approval_pending`.
 
+### 2026-04-09 - Remote-control commit now waits for typed approval; process_sweep and rollout-tail narrow their trust boundaries
+
+Fact: three follow-up findings from the Codex reviewer pass on the
+governance-quality-sweep branch landed as F1, F2, and F3. F1 caught
+`devctl commit` auto-approving in `remote_control` via
+`_should_auto_approve`, which treated the promptless phone-steered mode
+as sufficient signal on its own and collapsed the operator approval
+boundary — the exact gap the earlier remote-Claude-wrapper slice opened
+when it promoted remote_control to promptless typed approval without
+also requiring an applied typed approval packet. F2 caught
+`process_sweep._protected_registered_conductor_pids` returning an empty
+protected set whenever the typed session registry reported a live
+conductor without a resolved `session_pid` (script probe failed,
+metadata stale, or registry not yet populated after a recent spawn),
+leaving the live reviewer-supervised conductor open to reaping. F3
+caught the dead `rollout_tail/discovery._session_glob` helper that still
+documented a broad `"*.jsonl"` pattern for Claude, which a reader could
+mistake for the active discovery path even though `_iter_session_files`
+already carried the narrow `glob("*/*.jsonl")` + UUID-stem filter.
+
+This matters because all three findings collapse trust boundaries that
+the typed governance pipeline is supposed to hold. Auto-approving in
+`remote_control` lets a local terminal authoritatively speak for an
+absent operator. Reaping a live conductor because its pid could not be
+recovered regresses exactly the symptom the 696f4772 hygiene fix just
+corrected. Leaving broad-glob dead code next to the real narrow-glob
+helper invites future edits to "simplify" back toward the unsafe shape.
+
+The closure is scoped to six files. `commands/vcs/commit.py` drops
+`OperatorInteractionMode.REMOTE_CONTROL.value` from
+`_should_auto_approve` so only `local_terminal` and `single_agent` self-
+approve; `remote_control` now falls through to `_ensure_approval_request`
+and waits for a typed approval or action-request to be applied by the
+remote operator.
+`commands/check/process_sweep.py::_protected_registered_conductor_pids`
+adds a supervisor-backed fallback that reads
+`read_reviewer_supervisor_state(status_dir)` and, when the supervisor
+heartbeat is running, protects any row with `match_scope ==
+"review_channel_conductor"` even if `load_conductor_sessions` could not
+recover a pid. That mirrors `hygiene_support._audit_runtime_processes`
+so both guards agree on "what counts as a supervised conductor."
+`commands/rollout_tail/discovery.py` removes the dead `_session_glob`
+function so the narrow glob + UUID-stem filter in `_iter_session_files`
+is the only visible Claude discovery path. Tests cover each finding
+directly: F1 flipped
+`test_commit_remote_mode_auto_approves_and_records_commit` into
+`test_commit_remote_mode_waits_for_typed_approval` (asserts `rc=1`,
+`operator_approval_pending`, `approval_state=pending`); F2 added
+`test_protected_pids_fall_back_to_supervisor_when_session_pid_missing`
+via strict xfail first so the bug existence is a hard trace (xfail →
+unexpected-pass after fix → marker removed); F3 added
+`test_discover_excludes_memory_artifacts_even_when_uuid_named` plus
+`test_resolve_by_id_skips_memory_artifacts`, pinning down Codex's
+specific `memory/**` exclusion example. 76 focused tests pass across
+process-sweep (30), commit-gate (16), and rollout-tail (30).
+
 ### 2026-04-09 - Governed push now reuses one typed diff base through post-push follow-up
 
 Fact: the governed push lane exposed a second publication-honesty gap after

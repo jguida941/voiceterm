@@ -108,11 +108,21 @@ def _resolve_interaction_mode(repo_root: Path) -> str:
 
 
 def _should_auto_approve(interaction_mode: str) -> bool:
-    """Promptless local/phone modes may self-approve via typed packets."""
+    """Only promptless on-box modes self-approve via typed packets.
+
+    ``local_terminal`` (operator is physically at the repo machine and can
+    confirm the commit inline) and ``single_agent`` (no human-in-the-loop
+    by design) are the two modes that may synthesize an applied operator
+    decision locally. ``remote_control`` intentionally does NOT self-
+    approve: the operator is off-box and cannot confirm in person, so
+    the governed commit must wait for a typed approval packet or
+    action-request path to be applied by the remote operator. Collapsing
+    that approval boundary was F1 in the Codex review and is the reason
+    we no longer include ``remote_control`` in this set.
+    """
     mode = resolve_operator_interaction_mode(str(interaction_mode or "").strip()).value
     return mode in {
         OperatorInteractionMode.LOCAL_TERMINAL.value,
-        OperatorInteractionMode.REMOTE_CONTROL.value,
         OperatorInteractionMode.SINGLE_AGENT.value,
     }
 
