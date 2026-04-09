@@ -185,7 +185,11 @@ def run_post_push_bundle(
     build_post_push_commands_fn: Callable[..., list[str]],
     progress_notice_fn: Callable[[str], None] | None = None,
 ) -> bool:
-    commands = build_post_push_commands_fn(policy, quality_policy_path=quality_policy_path)
+    commands = build_post_push_commands_fn(
+        policy,
+        quality_policy_path=quality_policy_path,
+        since_ref=state.post_push_since_ref,
+    )
     total_commands = len(commands)
     for index, command in enumerate(commands, start=1):
         if progress_notice_fn is not None:

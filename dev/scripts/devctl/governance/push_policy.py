@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import shlex
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -237,13 +238,38 @@ def build_post_push_commands(
     policy: PushPolicy,
     *,
     quality_policy_path: str | None = None,
+    since_ref: str | None = None,
 ) -> list[str]:
-    """Return normalized post-push bundle commands for the active policy."""
+    """Return normalized post-push bundle commands for the active policy.
+
+    When the governed push flow already resolved a branch-aware diff base
+    during preflight, reuse that same `since_ref` for diff-sensitive
+    post-push commands so publication follow-up stays scoped to the exact
+    proof target that was just published.
+    """
     commands = get_bundle_commands(policy.post_push.bundle)
     return [
         normalize_repo_python_shell_command(
-            inject_quality_policy_command(command, quality_policy_path)
+            inject_quality_policy_command(
+                _rewrite_post_push_since_ref(command, since_ref),
+                quality_policy_path,
+            )
         )
         for command in commands
     ]
 
+
+def _rewrite_post_push_since_ref(command: str, since_ref: str | None) -> str:
+    """Replace any post-push `--since-ref` value with the resolved runtime base."""
+    resolved_since_ref = str(since_ref or "").strip()
+    if not resolved_since_ref:
+        return command
+    tokens = shlex.split(command)
+    try:
+        since_ref_index = tokens.index("--since-ref")
+    except ValueError:
+        return command
+    if since_ref_index >= len(tokens) - 1:
+        return command
+    tokens[since_ref_index + 1] = resolved_since_ref
+    return shlex.join(tokens)

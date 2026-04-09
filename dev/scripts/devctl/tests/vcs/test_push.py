@@ -17,6 +17,7 @@ from dev.scripts.devctl.governance.push_policy import (
     PushPostPushPolicy,
     PushPreflightPolicy,
     PushPublicationPolicy,
+    build_post_push_commands,
     detect_push_enforcement_state,
     load_push_policy,
 )
@@ -1027,6 +1028,11 @@ class PushCommandTests(unittest.TestCase):
         self.assertEqual(rc, 0)
         executed = [call.args[1] for call in run_cmd_mock.call_args_list]
         self.assertIn(["git", "push", "--set-upstream", "origin", "feature/demo"], executed)
+        _post_push_commands_mock.assert_called_once_with(
+            load_policy_mock.return_value,
+            quality_policy_path=None,
+            since_ref="origin/develop",
+        )
         payload = json.loads(write_output_mock.call_args.args[0])
         self.assertEqual(payload["status"], "post_push_green")
         self.assertEqual(payload["artifacts"]["latest_json"], "dev/reports/push/latest.json")
@@ -1071,7 +1077,7 @@ class PushCommandTests(unittest.TestCase):
             args,
             push.PushFlowDependencies(
                 run_cmd_fn=_runner,
-                build_post_push_commands_fn=lambda _policy, quality_policy_path=None: [],
+                build_post_push_commands_fn=lambda _policy, quality_policy_path=None, since_ref=None: [],
             ),
         )
 
@@ -1502,11 +1508,102 @@ class PushCommandTests(unittest.TestCase):
         payload = json.loads(write_output_mock.call_args.args[0])
         self.assertEqual(payload["status"], "published_remote")
 
+    @patch("dev.scripts.devctl.commands.vcs.push.write_output")
+    @patch(
+        "dev.scripts.devctl.commands.vcs.push.build_post_push_commands",
+        return_value=["git status"],
+    )
+    @patch(
+        "dev.scripts.devctl.commands.vcs.push.current_upstream_ref",
+        return_value="origin/feature/demo",
+    )
+    @patch(
+        "dev.scripts.devctl.commands.vcs.push.build_preflight_shell_command",
+        return_value="python3 dev/scripts/devctl.py check-router --since-ref origin/feature/demo --execute",
+    )
+    @patch(
+        "dev.scripts.devctl.commands.vcs.push.branch_divergence",
+        return_value={"behind": 0, "ahead": 1, "error": None},
+    )
+    @patch("dev.scripts.devctl.commands.vcs.push.remote_branch_exists", return_value=True)
+    @patch("dev.scripts.devctl.commands.vcs.push.remote_exists", return_value=True)
+    @patch("dev.scripts.devctl.commands.vcs.push.load_push_policy")
+    @patch("dev.scripts.devctl.commands.vcs.push.collect_git_status")
+    @patch("dev.scripts.devctl.commands.vcs.push.run_cmd")
+    @patch("dev.scripts.devctl.commands.vcs.push.publication_authorization_decision")
+    def test_push_existing_remote_branch_scopes_post_push_bundle_to_branch_ref(
+        self,
+        publication_authorization_mock,
+        run_cmd_mock,
+        collect_git_status_mock,
+        load_policy_mock,
+        _remote_exists_mock,
+        _remote_branch_exists_mock,
+        _branch_divergence_mock,
+        _preflight_command_mock,
+        _current_upstream_ref_mock,
+        _post_push_commands_mock,
+        write_output_mock,
+    ) -> None:
+        collect_git_status_mock.return_value = {"branch": "feature/demo", "changes": []}
+        load_policy_mock.return_value = make_policy()
+        publication_authorization_mock.return_value = _publication_authorization()
+        run_cmd_mock.side_effect = [
+            {
+                "name": "git-fetch",
+                "cmd": ["git", "fetch", "origin"],
+                "cwd": ".",
+                "returncode": 0,
+                "duration_s": 0.1,
+                "skipped": False,
+            },
+            {
+                "name": "push-preflight",
+                "cmd": [
+                    "bash",
+                    "-lc",
+                    "python3 dev/scripts/devctl.py check-router --since-ref origin/feature/demo --execute",
+                ],
+                "cwd": ".",
+                "returncode": 0,
+                "duration_s": 0.1,
+                "skipped": False,
+            },
+            {
+                "name": "git-push",
+                "cmd": ["git", "push", "origin", "feature/demo"],
+                "cwd": ".",
+                "returncode": 0,
+                "duration_s": 0.1,
+                "skipped": False,
+            },
+            {
+                "name": "push-post-01",
+                "cmd": ["bash", "-lc", "git status"],
+                "cwd": ".",
+                "returncode": 0,
+                "duration_s": 0.1,
+                "skipped": False,
+            },
+        ]
+
+        rc = push.run(make_args(execute=True))
+
+        self.assertEqual(rc, 0)
+        _post_push_commands_mock.assert_called_once_with(
+            load_policy_mock.return_value,
+            quality_policy_path=None,
+            since_ref="origin/feature/demo",
+        )
+        payload = json.loads(write_output_mock.call_args.args[0])
+        self.assertEqual(payload["status"], "post_push_green")
+
     def test_execute_push_flow_emits_publication_and_post_push_progress_notices(self) -> None:
         state = push.PushRunState(
             branch="feature/demo",
             remote="origin",
             branch_has_remote=False,
+            post_push_since_ref="origin/develop",
         )
         policy = make_policy()
         args = make_args(execute=True)
@@ -1525,7 +1622,7 @@ class PushCommandTests(unittest.TestCase):
                     "duration_s": 0.1,
                     "skipped": False,
                 },
-                build_post_push_commands_fn=lambda _policy, quality_policy_path=None: [
+                build_post_push_commands_fn=lambda _policy, quality_policy_path=None, since_ref=None: [
                     "git status",
                     "git log --oneline --decorate -n 10",
                 ],
@@ -1546,7 +1643,11 @@ class PushCommandTests(unittest.TestCase):
         )
 
     def test_execute_push_flow_emits_failure_progress_notice(self) -> None:
-        state = push.PushRunState(branch="feature/demo", remote="origin")
+        state = push.PushRunState(
+            branch="feature/demo",
+            remote="origin",
+            post_push_since_ref="origin/develop",
+        )
         policy = make_policy()
         args = make_args(execute=True)
         progress_messages: list[str] = []
@@ -1564,7 +1665,7 @@ class PushCommandTests(unittest.TestCase):
                     "duration_s": 0.1,
                     "skipped": False,
                 },
-                build_post_push_commands_fn=lambda _policy, quality_policy_path=None: [
+                build_post_push_commands_fn=lambda _policy, quality_policy_path=None, since_ref=None: [
                     "git status",
                     "git log --oneline --decorate -n 10",
                 ],
@@ -1605,6 +1706,37 @@ class PushCommandTests(unittest.TestCase):
         )
 
         self.assertIn("--since-ref origin/feature/demo", command)
+
+    def test_build_post_push_commands_rewrites_since_ref_for_runtime_scope(self) -> None:
+        commands = build_post_push_commands(
+            make_policy(),
+            since_ref="origin/feature/demo",
+        )
+
+        self.assertTrue(
+            any(
+                command.endswith(
+                    "dev/scripts/devctl.py docs-check --user-facing --since-ref origin/feature/demo"
+                )
+                for command in commands
+            )
+        )
+        self.assertTrue(
+            any(
+                command.endswith(
+                    "dev/scripts/checks/check_code_shape.py --since-ref origin/feature/demo"
+                )
+                for command in commands
+            )
+        )
+        self.assertFalse(
+            any(
+                command.endswith(
+                    "dev/scripts/checks/check_code_shape.py --since-ref origin/develop"
+                )
+                for command in commands
+            )
+        )
 
 
 class PushReceiptTests(unittest.TestCase):

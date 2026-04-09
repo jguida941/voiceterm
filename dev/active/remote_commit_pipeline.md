@@ -711,6 +711,17 @@ surface for remote sessions. It should project:
   plus typed guard-freshness projection into doctor, status, and auto-mode so
   the remote-control pipeline can prove whether a commit was created under the
   same guarded authority it claims to use.
+- 2026-04-09: Closed the first post-push-green scoping defect on the live
+  governed path. `devctl push` now resolves one branch-aware diff base during
+  preflight and reuses that exact `since_ref` for diff-sensitive post-push
+  commands instead of resetting follow-up checks to `origin/develop` after
+  remote publication. Existing upstream-backed branches therefore validate the
+  just-published delta instead of reopening unrelated long-lived branch debt,
+  while first-publish branches still fall back to the policy template. Keep
+  the same rule for hook/launcher follow-up: managed hooks, startup packets,
+  and remote-control surfaces should consume typed `next_step_command` /
+  resolved diff-base truth from repo-owned state rather than recomputing
+  branch literals independently.
 - 2026-04-04: Corrected the plan boundary after the governed push/runtime
   slices landed. This file is not design-only anymore: the executor, typed
   push stages, and doctor/status projections already exist, so the remaining
@@ -847,6 +858,17 @@ surface for remote sessions. It should project:
     `startup-authority-contract-guard` and `tandem-consistency-guard` because
     the live review runtime is missing and the newly added files are not in the
     git index yet. No stage/commit was performed in this session.
+- 2026-04-09 post-push diff-base reuse repair:
+  - `python3 -m pytest dev/scripts/devctl/tests/vcs/test_push.py dev/scripts/devctl/tests/vcs/test_governed_executor.py dev/scripts/devctl/tests/governance/test_bundle_registry.py -q --tb=short`
+    passed (`51 passed`).
+  - `python3 dev/scripts/checks/check_active_plan_sync.py`
+    passed.
+  - `python3 dev/scripts/checks/check_code_shape.py --format md`
+    passed.
+  - `python3 dev/scripts/checks/check_parameter_count.py`
+    passed.
+  - `python3 dev/scripts/checks/check_python_dict_schema.py`
+    passed.
 - 2026-04-08 executor-routing and typed-surface validation:
   - `python3 -m pytest dev/scripts/devctl/tests/vcs/test_commit_gate.py dev/scripts/devctl/tests/vcs/test_governed_executor.py dev/scripts/devctl/tests/runtime/test_push_authorization.py dev/scripts/devctl/tests/vcs/test_push.py dev/scripts/devctl/tests/review_channel/test_packet_queue_cleanup.py dev/scripts/devctl/tests/runtime/test_review_state.py dev/scripts/devctl/tests/review_channel/test_pending_packet_guards.py dev/scripts/devctl/tests/test_dashboard.py -q --tb=short`
     passed (`289 passed`).

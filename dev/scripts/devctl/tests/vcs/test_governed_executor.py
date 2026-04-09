@@ -474,7 +474,7 @@ def _executor(
         review_channel_path=repo_root / "dev/active/review_channel.md",
         startup_context_fn=startup_context_fn,
         push_policy=_push_policy(),
-        build_post_push_commands_fn=lambda policy, quality_policy_path=None: [],
+        build_post_push_commands_fn=lambda policy, quality_policy_path=None, since_ref=None: [],
         refresh_projections=True,
     )
 

@@ -1469,6 +1469,15 @@
   topology with `--codex-workers 0 --claude-workers 3` so the branch proves
   planned many-agent execution under conductor-owned state instead of the
   default zero-fanout path.
+- 2026-04-09 post-push diff-base reuse follow-up inside the same lane:
+  governed push now carries the preflight-resolved `since_ref` forward into
+  the post-push bundle instead of hard-resetting follow-up checks to
+  `origin/develop` after publication. Existing upstream-backed branches now
+  validate only the just-published delta, while first-publish branches still
+  use the repo-policy template base. Treat this as the same hookable-truth
+  rule the owner chain already wants: hooks, startup packets, and remote-
+  control launch surfaces should consume typed next-step / diff-base state
+  from repo-owned receipts, not recompute branch literals independently.
 - 2026-03-27 repo-entrance/dev-loop adjudication: accepted two additional
   same-lane follow-ups without widening the product roadmap. First, keep the
   root repo entrance split by audience: `README.md` remains the VoiceTerm

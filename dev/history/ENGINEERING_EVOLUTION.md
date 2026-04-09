@@ -39,6 +39,39 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 
 ### 2026-04-07 - ReviewSnapshot hook hardening routed through owner plans
 
+### 2026-04-09 - Governed push now reuses one typed diff base through post-push follow-up
+
+Fact: the governed push lane exposed a second publication-honesty gap after
+remote publication was already recorded. Preflight correctly resolved a
+branch-aware `since_ref`, but the post-push bundle still fell back to the
+static `origin/develop` template, so existing feature branches could reopen
+unrelated branch debt immediately after a successful publish.
+
+This matters because the portable governance system is supposed to teach one
+deterministic next step to humans, Codex, Claude, hooks, and launcher
+surfaces. If preflight, startup, and push receipts know one diff base but
+post-push follow-up silently recomputes another, the system looks green at
+publication time and red a moment later for the wrong reason.
+
+The closure is now structural: `devctl push` resolves one branch-aware
+preflight base and reuses it for diff-sensitive post-push commands, while
+owner docs now say hook/launcher surfaces must consume repo-owned next-step /
+diff-base truth rather than hardcoding `origin/develop`.
+
+Files changed:
+- `AGENTS.md`
+- `dev/active/MASTER_PLAN.md`
+- `dev/active/ai_governance_platform.md`
+- `dev/active/remote_commit_pipeline.md`
+- `dev/guides/DEVELOPMENT.md`
+- `dev/history/ENGINEERING_EVOLUTION.md`
+- `dev/scripts/README.md`
+- `dev/scripts/devctl/commands/vcs/push.py`
+- `dev/scripts/devctl/commands/vcs/push_flow.py`
+- `dev/scripts/devctl/governance/push_policy.py`
+- `dev/scripts/devctl/tests/vcs/test_governed_executor.py`
+- `dev/scripts/devctl/tests/vcs/test_push.py`
+
 ### 2026-04-09 - Guard entrypoints now fail closed when catalog or README wiring is missing
 
 Fact: the governed push lane surfaced a self-hosting gap in the new

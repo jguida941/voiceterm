@@ -461,7 +461,10 @@ checklist plus chat memory.
     That same status/doctor family now hoists one top-level
     `recommended_command`, preferring typed recovery commands and otherwise
     reusing `push_decision.next_step_command`, so hooks/launchers should read
-    that field before spelunking nested compatibility projections.
+    that field before spelunking nested compatibility projections. Apply the
+    same rule to diff-sensitive follow-up: hook/launcher shims should reuse
+    repo-owned push/startup diff-base truth instead of recomputing branch
+    literals such as `origin/develop`.
     The same release-lane bootstrap truth is now publication-aware on
     feature branches: local governed pre-push CodeRabbit gates may treat
     "current SHA not present in any local remote-tracking ref yet" as a
@@ -1280,6 +1283,12 @@ Routine helper:
   pushing again. Interactive runs now also emit stderr progress when remote
   publication is recorded and before each post-push step so a long post-push
   bundle does not look like "push still unresolved" to humans or AI. If a
+  branch-aware diff base was resolved during preflight, the governed push path
+  must carry that same `since_ref` into diff-sensitive post-push commands
+  instead of resetting follow-up checks to `origin/develop`.
+  Hooks/launchers should consume that typed diff base from repo-owned state,
+  not recompute it independently.
+  If a
   later rerun fetches the tracked branch and proves `ahead == 0`, `devctl
   push` now exits with the existing `branch_already_pushed` /
   `published_remote` receipt before router preflight so a clean already-

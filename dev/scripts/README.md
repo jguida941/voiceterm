@@ -68,7 +68,10 @@ dual-agent, and unresolved sessions must keep the approval request live until
 an applied operator decision exists. `devctl push` now reuses the repo-policy
 remote/current approved target when an active pipeline owns the branch, and
 packet-queue truth only clears commit-approval requests on applied decisions,
-not on `acked` rows or unrelated packet history.
+not on `acked` rows or unrelated packet history. The same governed push path
+now also carries the preflight-resolved branch diff base into diff-sensitive
+post-push commands, so follow-up checks stay scoped to the just-published
+delta instead of resetting to `origin/develop` after publication.
 Generated bootstrap surfaces such as `CLAUDE.md` are part of that same
 architecture boundary: keep them synced with `render-surfaces`, and make sure
 they explain the compiler-style control model plus the
@@ -626,6 +629,9 @@ Portability note:
   shape directly: a snapshot-only HEAD may satisfy a current
   `PushAuthorizationRecord` through its parent commit, while stale detached
   pipeline records are ignored in `single_agent` mode so an older override
+  cannot strand the branch. When preflight resolved a branch-aware diff base,
+  the same runtime truth is reused for diff-sensitive post-push commands; hook
+  wrappers should not re-derive `origin/develop` on their own.
   cannot veto the current branch. The typed snapshot now also carries
   first-class probe run state (`state`, `mode`, warning/error counts, summary
   artifact refs) plus current push receipt/authorization refs so review
@@ -1292,7 +1298,7 @@ Machine-first output note:
 - `process-cleanup`: host-side cleanup for orphaned/stale repo-related process trees; expands cleanup roots to full descendant trees so leaked PTY children, repo-cwd background helpers, and orphaned tooling descendants are reaped with their parent wrappers when possible, skips recent active processes by default, and `--verify` reruns strict host audit after cleanup
 - `process-audit`: read-only host-side Activity Monitor equivalent for repo-related process trees; reports matched roots plus descendants, includes repo-cwd runtime/tooling helpers that would otherwise look generic in Activity Monitor, fails fast when `ps` access is unavailable, preserves attached supervised review-channel conductors as visible non-blocking rows, and `--strict` turns leftover runtime/test trees or stale/orphaned repo-related helpers into a blocking failure before handoff
 - `publication-sync`: tracked external publication report/record surface that compares watched repo paths against the last synced source commit for papers/sites and records a new baseline after external publish
-- `push`: policy-driven guarded push wrapper for the current branch; resolves branch/remote rules from `repo_governance.push`, runs the configured preflight path, defaults to non-mutating validation, and uses the configured post-push bundle after `--execute`
+- `push`: policy-driven guarded push wrapper for the current branch; resolves branch/remote rules from `repo_governance.push`, runs the configured preflight path, defaults to non-mutating validation, and uses the configured post-push bundle after `--execute`. Static bundle authority still advertises the template `--since-ref` values, but the governed runtime rewrites diff-sensitive post-push commands to the exact preflight-resolved base for the current branch.
 - `path-audit`: stale-reference scan for legacy check-script paths (skips `dev/archive/`)
 - `path-rewrite`: auto-rewrite legacy check-script paths to canonical registry targets (use `--dry-run` first)
 - `sync`: guarded branch-sync workflow (clean-tree preflight, remote/local ref checks, `--ff-only` pull, optional `--push` for ahead branches, and start-branch restore)

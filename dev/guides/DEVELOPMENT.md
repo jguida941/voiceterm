@@ -523,6 +523,10 @@ Three quality layers matter in practice:
     `recommended_command`, preferring typed recovery commands and otherwise
     reusing `push_decision.next_step_command`, so hooks or launcher shims can
     consume one field instead of re-deriving the next step from nested state.
+    The same reuse rule now applies to diff-sensitive follow-up: when the
+    governed push path resolved a branch-aware preflight base, hooks/launcher
+    shims should consume that typed diff base instead of hardcoding
+    `origin/develop`.
     Feature-branch release-lane preflight follows the same principle: the
     shared CodeRabbit gate now treats an unpublished local SHA as
     non-blocking until publish when no local remote-tracking ref contains it
@@ -1108,7 +1112,11 @@ Workflow permissions note:
    auditing," not "still waiting to push." If a later rerun fetches the
    tracked branch and proves `ahead == 0`, `devctl push` now returns the
    existing already-published receipt before router preflight instead of
-   defaulting zero changed paths into the docs lane. The same truth must stay
+   defaulting zero changed paths into the docs lane. The same runtime path now
+   also reuses the preflight-resolved `since_ref` for diff-sensitive post-push
+   commands, so existing upstream-backed branches audit the published delta
+   instead of reopening unrelated branch-vs-develop debt.
+   The same truth must stay
    visible in reviewer/readiness projections too: `review-channel --action
    status|doctor` should surface the managed push artifact path plus
    `published_remote` / `post_push_green` state, and when post-push follow-up

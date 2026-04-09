@@ -12,7 +12,11 @@ from ...collect import collect_git_status
 from ...common import emit_output, pipe_output, run_cmd, write_output
 from ...config import REPO_ROOT
 from ...governance.push_policy import build_post_push_commands, load_push_policy
-from ...governance.push_routing import PushRefRoutingState, build_preflight_shell_command
+from ...governance.push_routing import (
+    PushRefRoutingState,
+    build_preflight_shell_command,
+    resolve_preflight_since_ref,
+)
 from ...governance.push_state import current_head_commit_sha, current_upstream_ref
 from ...runtime import TypedAction
 from ...runtime.push_authorization import publication_authorization_decision
@@ -54,6 +58,7 @@ class PushRunState:
     preflight_step: dict[str, Any] | None = None
     push_step: dict[str, Any] | None = None
     post_push_steps: list[dict[str, Any]] = field(default_factory=list)
+    post_push_since_ref: str = ""
     branch_has_remote: bool = False
     ahead: int | None = None
     approved_target_identity: str = ""
@@ -180,6 +185,18 @@ def _run_fetch_and_preflight(
         state.branch,
         repo_root=repo_root,
     )
+    route_state = PushRefRoutingState(
+        current_branch=state.branch,
+        upstream_ref=current_upstream_ref(repo_root=repo_root),
+        branch_has_remote=state.branch_has_remote,
+    )
+    state.post_push_since_ref = resolve_preflight_since_ref(
+        remote=state.remote,
+        development_branch=policy.development_branch,
+        release_branch=policy.release_branch,
+        since_ref_template=policy.preflight.since_ref_template,
+        route_state=route_state,
+    )
     if state.branch_has_remote and not _record_divergence(
         state,
         state.remote,
@@ -195,11 +212,7 @@ def _run_fetch_and_preflight(
     preflight_command = build_preflight_shell_command(
         policy,
         remote=state.remote,
-        route_state=PushRefRoutingState(
-            current_branch=state.branch,
-            upstream_ref=current_upstream_ref(repo_root=repo_root),
-            branch_has_remote=state.branch_has_remote,
-        ),
+        route_state=route_state,
         quality_policy_path=getattr(args, "quality_policy", None),
     )
     state.preflight_step = command_runner(

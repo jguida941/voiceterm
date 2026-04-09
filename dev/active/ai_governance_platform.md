@@ -7003,6 +7003,14 @@ Execution order for this section:
   settled; repair the post-push follow-up" instead of "push unresolved".
   The remaining umbrella closure is still the fuller branch/tree-hash
   `PushPreflightPacket`, not another repo-local push-status heuristic.
+- 2026-04-09: Closed the next post-push scoping defect in that same lane.
+  Governed push now carries the preflight-resolved `since_ref` into
+  diff-sensitive post-push commands instead of resetting follow-up checks to
+  `origin/develop` after publication. That keeps publication follow-up bound
+  to the same typed branch/upstream truth that preflight, startup, and
+  launcher surfaces should already consume; static bundle/docs examples may
+  still show the template base, but repo-owned runtime/hook paths must reuse
+  the resolved value rather than recomputing branch literals.
 - 2026-03-26: Ran a broader portability/architecture audit after the live
   review-channel cutover exposed another "works in VoiceTerm, leaks in
   portable mode" seam. The result is larger than the immediate bug: docs
