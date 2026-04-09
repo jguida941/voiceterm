@@ -252,11 +252,17 @@ def _render_category(
             read_only = " (read-only)" if item.get("read_only") else ""
             lines.append(f"- `{item['name']}`{read_only}")
         elif key == "guards":
-            lines.append(f"- `{item['id']}`")
+            lines.append(f"- `{item.get('script_id', '?')}` — `{item.get('relative_path', '')}`")
         elif key == "probes":
-            lines.append(f"- `{item['id']}`")
+            lines.append(f"- `{item.get('script_id', '?')}` — `{item.get('relative_path', '')}`")
         elif key == "bootstrap_commands":
             lines.append(f"- **{item['label']}**: `{item['command']}`")
+        elif key == "surfaces":
+            authority = item.get("authority", "")
+            lines.append(
+                f"- `{item.get('surface_id', '?')}`"
+                + (f" — {authority}" if authority else "")
+            )
         else:
-            lines.append(f"- `{item['name']}`")
+            lines.append(f"- `{item.get('name', '?')}`")
     lines.append("")
