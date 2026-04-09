@@ -65,6 +65,7 @@ from .commands import (
     report,
     reports_cleanup,
     review_channel,
+    rollout_tail,
     security,
     ship,
     status,
@@ -123,6 +124,7 @@ from .platform.parser import add_platform_contracts_parser, add_system_picture_p
 from .publication_sync.parser import add_publication_sync_parser
 from .reports_cleanup_parser import add_reports_cleanup_parser
 from .review_channel.parser import add_review_channel_parser
+from .rollout_tail_parser import add_rollout_tail_parser
 from .security.parser import add_security_parser
 from .sync_parser import add_commit_parser, add_push_parser, add_sync_parser
 from .runtime.machine_output import clear_machine_output_metrics, consume_machine_output_metrics
@@ -146,6 +148,7 @@ READ_ONLY_COMMANDS: frozenset[str] = frozenset({
     "discover",
     "view",
     "list",
+    "rollout-tail",
 })
 
 # Environment variable checked by command handlers and artifact writers to
@@ -187,6 +190,7 @@ def build_parser() -> argparse.ArgumentParser:
     add_launcher_policy_parser(sub)
     add_tandem_validate_parser(sub)
     add_review_channel_parser(sub)
+    add_rollout_tail_parser(sub)
     add_path_audit_parser(sub)
     add_path_rewrite_parser(sub)
     add_cihub_setup_parser(sub)
@@ -265,6 +269,7 @@ COMMAND_HANDLERS = {
     "ship": ship.run,
     "release-notes": release_notes.run,
     "review-channel": review_channel.run,
+    "rollout-tail": rollout_tail.run,
     "homebrew": homebrew.run,
     "pypi": pypi.run,
     "status": status.run,
