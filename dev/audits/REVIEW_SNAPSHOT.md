@@ -5,14 +5,14 @@
 ## Quick status
 
 - Branch: `feature/governance-quality-sweep`
-- HEAD: `a7477364026f` — feat(topology): Q38 observed_control_topology + implementation_permission
-- Tree hash: `4c6e6dfeeeec`
-- Generation stamp: `snap-ff6256633158`
-- Generated at (UTC): 2026-04-10T16:08:52Z
-- Push decision: `run_devctl_push` — push_preconditions_satisfied
+- HEAD: `2b93d6b4147a` — Refresh external review snapshot for a7477364
+- Tree hash: `2ece190f67ae`
+- Generation stamp: `snap-2564a9473dfa`
+- Generated at (UTC): 2026-04-10T16:56:14Z
+- Push decision: `await_checkpoint` — dirty_path_budget_exceeded
 - Reviewer mode: `single_agent` (interaction: `remote_control`)
 - Pipeline state: `n/a` (approval: `n/a`)
-- Delta since last snapshot: 24 commits, 29 files, +2786/-1500
+- Delta since last snapshot: 25 commits, 29 files, +2862/-1560
 - Governance findings: 86 open / 70 fixed / 170 total
 - Probe hints: 0 total across 0 files scanned
 
@@ -54,24 +54,23 @@ adopters arrive.
 - Remote: `https://github.com/jguida941/voiceterm.git`
 - Default branch: `master`
 - Current branch: `feature/governance-quality-sweep`
-- HEAD SHA: `a7477364026f7b2c883d88bb8647d8fca0d8ac4e`
+- HEAD SHA: `2b93d6b4147aa0a14630288d2e0606216ff55c18`
 - HEAD author: Justin Guida
 - HEAD timestamp (UTC): 2026-04-10T12:08:33-04:00
 
 ## 2. Governance state
 
 ### Push decision
-- action: `run_devctl_push`
-- reason: push_preconditions_satisfied
-- push_eligible_now: True
-- worktree_clean: True
-- staged_path_count: 0
-- unstaged_path_count: 0
-- next_step_command: `python3 dev/scripts/devctl.py push --execute`
+- action: `await_checkpoint`
+- reason: dirty_path_budget_exceeded
+- push_eligible_now: False
+- worktree_clean: False
+- staged_path_count: 1
+- unstaged_path_count: 11
+- next_step_command: `n/a`
 - latest_push_report: `dev/reports/push/latest.json`
-- latest_push_report_state: `blocked` (validation_failed)
-- publication_backlog: urgent
-- publication_guidance: 32 local commit(s) waiting for governed push. Run `python3 dev/scripts/devctl.py push --execute` now.
+- latest_push_report_state: `published_remote` (branch_already_pushed)
+- publication_backlog: none
 
 ### Reviewer runtime
 - reviewer_mode: `single_agent`
@@ -87,47 +86,49 @@ adopters arrive.
 - active plan: **Master Plan (Active, Unified)**
 - plan path: `dev/active/MASTER_PLAN.md`
 - active MP scope: all active MP execution state
-- advisory: `push_allowed` — worktree_clean_and_review_accepted
+- advisory: `checkpoint_before_continue` — dirty_path_budget_exceeded
+- checkpoint_required: **yes**
 
 ## 3. Delta — what changed since the previous snapshot
 
-Range: last 24 commits ending at `a7477364026f`
+Range: last 25 commits ending at `2b93d6b4147a`
 
-- commits: 24
+- commits: 25
 - files changed: 29
-- insertions: +2786
-- deletions: -1500
-- bundle classes touched: docs, tooling
+- insertions: +2862
+- deletions: -1560
+- bundle classes touched: tooling, docs
 - authority surfaces touched: 6 file(s)
 
 ### Commits
 
 | # | SHA | Subject | Files | +/- | Bundle | Risk |
 |---|---|---|---|---|---|---|
-| 1 | `a7477364` | feat(topology): Q38 observed_control_topology + implementat… | 19 | +653/-58 | tooling |  |
-| 2 | `f99de6a3` | docs(audit): Q47 — agent reasons when repo can already comp… | 2 | +84/-42 | tooling |  |
-| 3 | `b426061d` | docs(audit): Q46 — governance only activates for dual-agent… | 2 | +82/-40 | tooling |  |
-| 4 | `83ebf2d6` | docs(audit): Q45 — commit gate missing, evidence ≠ authority | 2 | +88/-56 | tooling |  |
-| 5 | `79aab6c1` | docs(audit): Q44 — governed dashboard contradicts itself, m… | 2 | +75/-39 | tooling |  |
-| 6 | `8a8d9b4f` | docs(audit): Q42-Q43 — destructive action from observer tel… | 2 | +134/-55 | tooling |  |
-| 7 | `7eff1d9b` | docs(audit): Q39-Q41 — state-source drift, role violation,… | 2 | +162/-48 | tooling |  |
-| 8 | `e0ef7aa2` | Refresh external review snapshot for 76f753d7 | 1 | +52/-55 | tooling |  |
-| 9 | `76f753d7` | docs(audit): Q38 — control plane reasons from intended, not… | 3 | +107/-58 | tooling |  |
-| 10 | `652b81d4` | Refresh external review snapshot for efcb2cd9 | 1 | +65/-61 | tooling |  |
-| 11 | `efcb2cd9` | fix(audit): close Q37 supervisor-fallback gap + Codex revie… | 13 | +295/-108 | tooling |  |
-| 12 | `4b36412c` | Refresh external review snapshot for 95b14712 | 1 | +49/-62 | tooling |  |
-| 13 | `95b14712` | Document startup gate authority boundary | 7 | +94/-69 | tooling |  |
-| 14 | `dff9cbb2` | Refresh external review snapshot for 8c2ac807 | 1 | +60/-71 | tooling |  |
-| 15 | `8c2ac807` | chore: commit concurrent agent changes | 2 | +52/-79 | tooling |  |
-| 16 | `8feab0b9` | fix(push): auto-commit runs even after preflight failure to… | 3 | +51/-94 | tooling |  |
-| 17 | `f56664d2` | Refresh external review snapshot for 5b0a2d87 | 1 | +53/-49 | tooling |  |
-| 18 | `5b0a2d87` | chore: surface refresh after push fix | 3 | +62/-64 | docs |  |
-| 19 | `79475b97` | fix(push): auto-commit preflight-generated changes to break… | 3 | +120/-49 | tooling |  |
-| 20 | `bd383199` | Refresh external review snapshot for 161f7ef0 | 1 | +53/-52 | tooling |  |
-| 21 | `161f7ef0` | chore: push-generated code + surface refresh | 4 | +100/-73 | tooling |  |
-| 22 | `bfc8dd3e` | Refresh external review snapshot for 0e2fcf0d | 1 | +51/-52 | tooling |  |
-| 23 | `0e2fcf0d` | chore: push-generated surface refresh | 2 | +153/-86 | tooling |  |
-| 24 | `4a33bd02` | fix(startup-gate): refined repair-launch bypass with checkp… | 2 | +91/-80 | tooling |  |
+| 1 | `2b93d6b4` | Refresh external review snapshot for a7477364 | 1 | +76/-60 | tooling |  |
+| 2 | `a7477364` | feat(topology): Q38 observed_control_topology + implementat… | 19 | +653/-58 | tooling |  |
+| 3 | `f99de6a3` | docs(audit): Q47 — agent reasons when repo can already comp… | 2 | +84/-42 | tooling |  |
+| 4 | `b426061d` | docs(audit): Q46 — governance only activates for dual-agent… | 2 | +82/-40 | tooling |  |
+| 5 | `83ebf2d6` | docs(audit): Q45 — commit gate missing, evidence ≠ authority | 2 | +88/-56 | tooling |  |
+| 6 | `79aab6c1` | docs(audit): Q44 — governed dashboard contradicts itself, m… | 2 | +75/-39 | tooling |  |
+| 7 | `8a8d9b4f` | docs(audit): Q42-Q43 — destructive action from observer tel… | 2 | +134/-55 | tooling |  |
+| 8 | `7eff1d9b` | docs(audit): Q39-Q41 — state-source drift, role violation,… | 2 | +162/-48 | tooling |  |
+| 9 | `e0ef7aa2` | Refresh external review snapshot for 76f753d7 | 1 | +52/-55 | tooling |  |
+| 10 | `76f753d7` | docs(audit): Q38 — control plane reasons from intended, not… | 3 | +107/-58 | tooling |  |
+| 11 | `652b81d4` | Refresh external review snapshot for efcb2cd9 | 1 | +65/-61 | tooling |  |
+| 12 | `efcb2cd9` | fix(audit): close Q37 supervisor-fallback gap + Codex revie… | 13 | +295/-108 | tooling |  |
+| 13 | `4b36412c` | Refresh external review snapshot for 95b14712 | 1 | +49/-62 | tooling |  |
+| 14 | `95b14712` | Document startup gate authority boundary | 7 | +94/-69 | tooling |  |
+| 15 | `dff9cbb2` | Refresh external review snapshot for 8c2ac807 | 1 | +60/-71 | tooling |  |
+| 16 | `8c2ac807` | chore: commit concurrent agent changes | 2 | +52/-79 | tooling |  |
+| 17 | `8feab0b9` | fix(push): auto-commit runs even after preflight failure to… | 3 | +51/-94 | tooling |  |
+| 18 | `f56664d2` | Refresh external review snapshot for 5b0a2d87 | 1 | +53/-49 | tooling |  |
+| 19 | `5b0a2d87` | chore: surface refresh after push fix | 3 | +62/-64 | docs |  |
+| 20 | `79475b97` | fix(push): auto-commit preflight-generated changes to break… | 3 | +120/-49 | tooling |  |
+| 21 | `bd383199` | Refresh external review snapshot for 161f7ef0 | 1 | +53/-52 | tooling |  |
+| 22 | `161f7ef0` | chore: push-generated code + surface refresh | 4 | +100/-73 | tooling |  |
+| 23 | `bfc8dd3e` | Refresh external review snapshot for 0e2fcf0d | 1 | +51/-52 | tooling |  |
+| 24 | `0e2fcf0d` | chore: push-generated surface refresh | 2 | +153/-86 | tooling |  |
+| 25 | `4a33bd02` | fix(startup-gate): refined repair-launch bypass with checkp… | 2 | +91/-80 | tooling |  |
 
 ### Files
 
@@ -140,7 +141,7 @@ Range: last 24 commits ending at `a7477364026f`
 | `dev/active/platform_authority_loop.md` | tooling | +15/-1 |
 | `dev/active/remote_commit_pipeline.md` | tooling | +18/-0 |
 | `dev/audits/LIVE_RUN.md` | tooling | +456/-1 |
-| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1216/-1235 |
+| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1292/-1295 |
 | `dev/guides/DEVELOPMENT.md` | docs | +16/-9 |
 | `dev/history/ENGINEERING_EVOLUTION.md` | tooling | +56/-5 |
 | `dev/scripts/README.md` | tooling | +12/-8 |
@@ -250,86 +251,88 @@ Recent findings:
 
 ### Per-commit rationale
 
+- **`2b93d6b4`** — Refresh external review snapshot for a7477364
+  - evolution: Fact: the Q37-Q47 live audit showed the same control-plane failure repeating: agents reasoned from partial status, inferred the next step, and then revised after the typed state contradicted that inference. The highest-…
 - **`a7477364`** — feat(topology): Q38 observed_control_topology + implementation_permission
   - Codex implementation of Q38 first slice: startup-context now derives
   - and emits observed_control_topology and implementation_permission
   - from live runtime evidence (supervised conductor count, bridge
-  - evolution: Fact: the dogfooded governed-push lane exposed a stale authorization bug after a completed push pipeline. A terminal `push_completed` same-branch `RemoteCommitPipelineContract` could still be selected by `devctl push` w…
+  - evolution: Fact: the Q37-Q47 live audit showed the same control-plane failure repeating: agents reasoned from partial status, inferred the next step, and then revised after the typed state contradicted that inference. The highest-…
 - **`f99de6a3`** — docs(audit): Q47 — agent reasons when repo can already compute next step
   - Synthesizes Q37-Q46: every failure came from the agent reasoning
   - about control flow that typed state already had enough information
   - to decide deterministically. The fix is not smarter agents — it is
-  - evolution: Fact: the dogfooded governed-push lane exposed a stale authorization bug after a completed push pipeline. A terminal `push_completed` same-branch `RemoteCommitPipelineContract` could still be selected by `devctl push` w…
+  - evolution: Fact: the Q37-Q47 live audit showed the same control-plane failure repeating: agents reasoned from partial status, inferred the next step, and then revised after the typed state contradicted that inference. The highest-…
 - **`b426061d`** — docs(audit): Q46 — governance only activates for dual-agent, not all modes
   - The control plane (review authority, commit gates, topology checks)
   - was built from the dual-agent use case outward. Single-agent and
   - human-solo are treated as degraded states rather than first-class
-  - evolution: Fact: the dogfooded governed-push lane exposed a stale authorization bug after a completed push pipeline. A terminal `push_completed` same-branch `RemoteCommitPipelineContract` could still be selected by `devctl push` w…
+  - evolution: Fact: the Q37-Q47 live audit showed the same control-plane failure repeating: agents reasoned from partial status, inferred the next step, and then revised after the typed state contradicted that inference. The highest-…
 - **`83ebf2d6`** — docs(audit): Q45 — commit gate missing, evidence ≠ authority
   - Implementation evidence (tests pass, verdict exists, files changed)
   - was treated as commit permission while governed state said: blocked,
   - checkpoint required, reviewer overdue, no_live_agents. Documents
-  - evolution: Fact: the dogfooded governed-push lane exposed a stale authorization bug after a completed push pipeline. A terminal `push_completed` same-branch `RemoteCommitPipelineContract` could still be selected by `devctl push` w…
+  - evolution: Fact: the Q37-Q47 live audit showed the same control-plane failure repeating: agents reasoned from partial status, inferred the next step, and then revised after the typed state contradicted that inference. The highest-…
 - **`79aab6c1`** — docs(audit): Q44 — governed dashboard contradicts itself, misses live agents
   - Dashboard shows Active agents: 0 and Codex: NO SESSION while codex
   - exec PID 15617 is actively running. codex exec processes don't
   - register with the conductor session system. Also: Mode: Dual-agent
-  - evolution: Fact: the dogfooded governed-push lane exposed a stale authorization bug after a completed push pipeline. A terminal `push_completed` same-branch `RemoteCommitPipelineContract` could still be selected by `devctl push` w…
+  - evolution: Fact: the Q37-Q47 live audit showed the same control-plane failure repeating: agents reasoned from partial status, inferred the next step, and then revised after the typed state contradicted that inference. The highest-…
 - **`8a8d9b4f`** — docs(audit): Q42-Q43 — destructive action from observer telemetry, mode design gap
   - Q42: Agent killed a Codex process from observer heuristics (session
   - file stopped growing) without establishing canonical process topology.
   - Discovered multiple live sessions afterward. Documents the missing
-  - evolution: Fact: the dogfooded governed-push lane exposed a stale authorization bug after a completed push pipeline. A terminal `push_completed` same-branch `RemoteCommitPipelineContract` could still be selected by `devctl push` w…
+  - evolution: Fact: the Q37-Q47 live audit showed the same control-plane failure repeating: agents reasoned from partial status, inferred the next step, and then revised after the typed state contradicted that inference. The highest-…
 - **`7eff1d9b`** — docs(audit): Q39-Q41 — state-source drift, role violation, authority bypass
   - Three architectural findings from live testing of remote-control
   - multi-agent workflow:
-  - evolution: Fact: the dogfooded governed-push lane exposed a stale authorization bug after a completed push pipeline. A terminal `push_completed` same-branch `RemoteCommitPipelineContract` could still be selected by `devctl push` w…
+  - evolution: Fact: the Q37-Q47 live audit showed the same control-plane failure repeating: agents reasoned from partial status, inferred the next step, and then revised after the typed state contradicted that inference. The highest-…
 - **`e0ef7aa2`** — Refresh external review snapshot for 76f753d7
-  - evolution: Fact: the dogfooded governed-push lane exposed a stale authorization bug after a completed push pipeline. A terminal `push_completed` same-branch `RemoteCommitPipelineContract` could still be selected by `devctl push` w…
+  - evolution: Fact: the Q37-Q47 live audit showed the same control-plane failure repeating: agents reasoned from partial status, inferred the next step, and then revised after the typed state contradicted that inference. The highest-…
 - **`76f753d7`** — docs(audit): Q38 — control plane reasons from intended, not observed topology
   - Operator-identified architectural gap: the governance system detects
   - every individual blocker (reviewer overdue, dirty worktree, zero
   - supervised conductors) but fails to compose them into the governing
-  - evolution: Fact: the dogfooded governed-push lane exposed a stale authorization bug after a completed push pipeline. A terminal `push_completed` same-branch `RemoteCommitPipelineContract` could still be selected by `devctl push` w…
+  - evolution: Fact: the Q37-Q47 live audit showed the same control-plane failure repeating: agents reasoned from partial status, inferred the next step, and then revised after the typed state contradicted that inference. The highest-…
 - **`652b81d4`** — Refresh external review snapshot for efcb2cd9
-  - evolution: Fact: the dogfooded governed-push lane exposed a stale authorization bug after a completed push pipeline. A terminal `push_completed` same-branch `RemoteCommitPipelineContract` could still be selected by `devctl push` w…
+  - evolution: Fact: the Q37-Q47 live audit showed the same control-plane failure repeating: agents reasoned from partial status, inferred the next step, and then revised after the typed state contradicted that inference. The highest-…
 - **`efcb2cd9`** — fix(audit): close Q37 supervisor-fallback gap + Codex review pass
   - Remove the blanket supervisor-backed fallback in
   - _protected_registered_conductor_pids that added ALL conductor-scoped
   - PIDs to the protected set when any supervisor heartbeat was running.
-  - evolution: Fact: the dogfooded governed-push lane exposed a stale authorization bug after a completed push pipeline. A terminal `push_completed` same-branch `RemoteCommitPipelineContract` could still be selected by `devctl push` w…
+  - evolution: Fact: the Q37-Q47 live audit showed the same control-plane failure repeating: agents reasoned from partial status, inferred the next step, and then revised after the typed state contradicted that inference. The highest-…
 - **`4b36412c`** — Refresh external review snapshot for 95b14712
-  - evolution: Fact: the dogfooded governed-push lane exposed a stale authorization bug after a completed push pipeline. A terminal `push_completed` same-branch `RemoteCommitPipelineContract` could still be selected by `devctl push` w…
+  - evolution: Fact: the Q37-Q47 live audit showed the same control-plane failure repeating: agents reasoned from partial status, inferred the next step, and then revised after the typed state contradicted that inference. The highest-…
 - **`95b14712`** — Document startup gate authority boundary
-  - evolution: Fact: the dogfooded governed-push lane exposed a stale authorization bug after a completed push pipeline. A terminal `push_completed` same-branch `RemoteCommitPipelineContract` could still be selected by `devctl push` w…
+  - evolution: Fact: the Q37-Q47 live audit showed the same control-plane failure repeating: agents reasoned from partial status, inferred the next step, and then revised after the typed state contradicted that inference. The highest-…
 - **`dff9cbb2`** — Refresh external review snapshot for 8c2ac807
-  - evolution: Fact: the dogfooded governed-push lane exposed a stale authorization bug after a completed push pipeline. A terminal `push_completed` same-branch `RemoteCommitPipelineContract` could still be selected by `devctl push` w…
+  - evolution: Fact: the Q37-Q47 live audit showed the same control-plane failure repeating: agents reasoned from partial status, inferred the next step, and then revised after the typed state contradicted that inference. The highest-…
 - **`8c2ac807`** — chore: commit concurrent agent changes
-  - evolution: Fact: the dogfooded governed-push lane exposed a stale authorization bug after a completed push pipeline. A terminal `push_completed` same-branch `RemoteCommitPipelineContract` could still be selected by `devctl push` w…
+  - evolution: Fact: the Q37-Q47 live audit showed the same control-plane failure repeating: agents reasoned from partial status, inferred the next step, and then revised after the typed state contradicted that inference. The highest-…
 - **`8feab0b9`** — fix(push): auto-commit runs even after preflight failure to break the loop
-  - evolution: Fact: the dogfooded governed-push lane exposed a stale authorization bug after a completed push pipeline. A terminal `push_completed` same-branch `RemoteCommitPipelineContract` could still be selected by `devctl push` w…
+  - evolution: Fact: the Q37-Q47 live audit showed the same control-plane failure repeating: agents reasoned from partial status, inferred the next step, and then revised after the typed state contradicted that inference. The highest-…
 - **`f56664d2`** — Refresh external review snapshot for 5b0a2d87
-  - evolution: Fact: the dogfooded governed-push lane exposed a stale authorization bug after a completed push pipeline. A terminal `push_completed` same-branch `RemoteCommitPipelineContract` could still be selected by `devctl push` w…
+  - evolution: Fact: the Q37-Q47 live audit showed the same control-plane failure repeating: agents reasoned from partial status, inferred the next step, and then revised after the typed state contradicted that inference. The highest-…
 - **`5b0a2d87`** — chore: surface refresh after push fix
-  - evolution: Fact: the dogfooded governed-push lane exposed a stale authorization bug after a completed push pipeline. A terminal `push_completed` same-branch `RemoteCommitPipelineContract` could still be selected by `devctl push` w…
+  - evolution: Fact: the Q37-Q47 live audit showed the same control-plane failure repeating: agents reasoned from partial status, inferred the next step, and then revised after the typed state contradicted that inference. The highest-…
 - **`79475b97`** — fix(push): auto-commit preflight-generated changes to break dirty-tree loop
   - The push pipeline runs check-router during preflight, which can
   - trigger render-surfaces and code generation passes that dirty the
   - worktree. The push then fails its own clean-tree check, creating
-  - evolution: Fact: the dogfooded governed-push lane exposed a stale authorization bug after a completed push pipeline. A terminal `push_completed` same-branch `RemoteCommitPipelineContract` could still be selected by `devctl push` w…
+  - evolution: Fact: the Q37-Q47 live audit showed the same control-plane failure repeating: agents reasoned from partial status, inferred the next step, and then revised after the typed state contradicted that inference. The highest-…
 - **`bd383199`** — Refresh external review snapshot for 161f7ef0
-  - evolution: Fact: the dogfooded governed-push lane exposed a stale authorization bug after a completed push pipeline. A terminal `push_completed` same-branch `RemoteCommitPipelineContract` could still be selected by `devctl push` w…
+  - evolution: Fact: the Q37-Q47 live audit showed the same control-plane failure repeating: agents reasoned from partial status, inferred the next step, and then revised after the typed state contradicted that inference. The highest-…
 - **`161f7ef0`** — chore: push-generated code + surface refresh
-  - evolution: Fact: the dogfooded governed-push lane exposed a stale authorization bug after a completed push pipeline. A terminal `push_completed` same-branch `RemoteCommitPipelineContract` could still be selected by `devctl push` w…
+  - evolution: Fact: the Q37-Q47 live audit showed the same control-plane failure repeating: agents reasoned from partial status, inferred the next step, and then revised after the typed state contradicted that inference. The highest-…
 - **`bfc8dd3e`** — Refresh external review snapshot for 0e2fcf0d
-  - evolution: Fact: the dogfooded governed-push lane exposed a stale authorization bug after a completed push pipeline. A terminal `push_completed` same-branch `RemoteCommitPipelineContract` could still be selected by `devctl push` w…
+  - evolution: Fact: the Q37-Q47 live audit showed the same control-plane failure repeating: agents reasoned from partial status, inferred the next step, and then revised after the typed state contradicted that inference. The highest-…
 - **`0e2fcf0d`** — chore: push-generated surface refresh
-  - evolution: Fact: the dogfooded governed-push lane exposed a stale authorization bug after a completed push pipeline. A terminal `push_completed` same-branch `RemoteCommitPipelineContract` could still be selected by `devctl push` w…
+  - evolution: Fact: the Q37-Q47 live audit showed the same control-plane failure repeating: agents reasoned from partial status, inferred the next step, and then revised after the typed state contradicted that inference. The highest-…
 - **`4a33bd02`** — fix(startup-gate): refined repair-launch bypass with checkpoint guard
   - Auto-generated improvement: _is_repair_allowed() now lives inside
   - enforce_startup_gate() and bypasses receipt-staleness and
   - reviewer-loop authority blocks, but still respects checkpoint
-  - evolution: Fact: the dogfooded governed-push lane exposed a stale authorization bug after a completed push pipeline. A terminal `push_completed` same-branch `RemoteCommitPipelineContract` could still be selected by `devctl push` w…
+  - evolution: Fact: the Q37-Q47 live audit showed the same control-plane failure repeating: agents reasoned from partial status, inferred the next step, and then revised after the typed state contradicted that inference. The highest-…
 ### Active MP scope (from MASTER_PLAN.md)
 
 - `dev/active/devctl_reporting_upgrade.md` is the phased `devctl` reporting/CIHub specification, but not a separate execution tracker; implementation tasks stay in this file under `MP-297..MP-300`, `MP-303`, `MP-306`, `MP…
@@ -348,10 +351,11 @@ Recent findings:
 - open governance findings: 86
 
 ### Startup advisories
-- push_allowed: worktree_clean_and_review_accepted
+- checkpoint_before_continue: dirty_path_budget_exceeded
 
 ### Stale warnings
-- Stop because nothing remains to push.
+- Keep editing the current slice.
+- Move straight to the governed push path.
 
 ### Open gap rows
 - **governance_open** (`dev/scripts/devctl/security/python_scope.py`): subprocess_missing_timeout: 
@@ -365,4 +369,4 @@ Recent findings:
 
 ---
 
-Projection produced by `devctl review-snapshot`. Generation stamp `snap-ff6256633158` binds this file to HEAD `a7477364026f`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
+Projection produced by `devctl review-snapshot`. Generation stamp `snap-2564a9473dfa` binds this file to HEAD `2b93d6b4147a`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.

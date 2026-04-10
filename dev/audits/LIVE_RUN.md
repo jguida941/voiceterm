@@ -2845,6 +2845,48 @@ which Q55 says we don't have yet. Start there.
   emits a warning) on mismatch.
 - **Status**: OPEN
 
+### Q48 — ARCHITECTURE — System has all data but no composed architectural view
+
+- **Discovered**: 2026-04-10T16:40Z
+- **Severity**: critical / architectural
+- **Body**: The system already has: 64K graph edges across 2700 source
+  files, 64 guards, 25 probes, typed state (startup-context,
+  review-channel, topology, push state, runtime counts), process
+  topology, JSONL session traces, LIVE_RUN findings, plan docs,
+  architecture specs. All the information needed to derive a full
+  architectural picture exists. But it is not composed into one view
+  that answers: why was this decision made? Where is the design
+  causing friction? What should be different?
+  The context-graph already maps files, edges, fan-in/fan-out,
+  temperature. The probes already detect design smells, complexity,
+  cognitive load. The guards already enforce shape limits. The typed
+  state already knows topology, permissions, blockers. But these are
+  separate passes that do not compose into: "here is the full
+  architectural picture, here is why it is causing problems, here is
+  what the deterministic design should look like."
+  The AI should be able to use all of this — graphs, typed state,
+  probes, guards, event traces, plan docs — to say "this subsystem
+  has too many indirection points, the control flow has N places
+  where decisions branch, the deterministic path should be X."
+  That is what the context-graph + probes + typed state should
+  compose into: not just health checks, but architectural reasoning
+  grounded in the full evidence set.
+- **Root cause**: Each subsystem (graph, probes, guards, typed state,
+  process audit) produces its own typed output. No composition pass
+  exists that reads all of them together and derives architectural
+  conclusions. The AI is left to do this manually, which is where
+  Q39-Q42 failures come from.
+- **What this enables**: If the system can compose all its evidence
+  into one architectural view, then:
+  1. AI can reason from the full picture, not partial telemetry
+  2. "Too many indirection points" becomes a typed finding, not a
+     human observation
+  3. "Stick with deterministic design" becomes a measurable property:
+     how many decision branches exist, how many could be compiled away
+  4. Integration with external systems (hooks, MCP, IDE) can project
+     the same composed view
+- **Status**: OPEN — critical, architectural, shapes platform direction
+
 ### Q47 — ARCHITECTURE — Agent reasons about next step when repo can already compute it
 
 - **Discovered**: 2026-04-10T16:00Z
