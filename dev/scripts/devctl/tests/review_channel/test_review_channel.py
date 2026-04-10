@@ -1764,6 +1764,48 @@ class ReviewChannelHelperTests(unittest.TestCase):
             f"Gap between note and next section is {gap} lines — blank padding survived."
         )
 
+    def test_poll_status_rewrite_replaces_checkpoint_when_reviewer_mode_changes(self) -> None:
+        from dev.scripts.devctl.review_channel.poll_status import rewrite_poll_status
+
+        bridge = (
+            "## Start\n\nSome content.\n\n"
+            "## Poll Status\n"
+            "- Reviewer checkpoint updated through repo-owned tooling "
+            "(mode: active_dual_agent; reason: review-pass; reviewed-tree: abc123).\n\n"
+            "## Current Verdict\n\n- Accepted.\n"
+        )
+
+        result = rewrite_poll_status(
+            bridge,
+            note="- Reviewer heartbeat refreshed through repo-owned tooling "
+            "(mode: single_agent; reason: manual-review; reviewed-tree: def456).",
+        )
+
+        self.assertIn("mode: single_agent", result)
+        self.assertNotIn("mode: active_dual_agent", result)
+        self.assertNotIn("Reviewer checkpoint updated", result)
+
+    def test_poll_status_rewrite_preserves_checkpoint_when_reviewer_mode_matches(self) -> None:
+        from dev.scripts.devctl.review_channel.poll_status import rewrite_poll_status
+
+        bridge = (
+            "## Start\n\nSome content.\n\n"
+            "## Poll Status\n"
+            "- Reviewer checkpoint updated through repo-owned tooling "
+            "(mode: active_dual_agent; reason: review-pass; reviewed-tree: abc123).\n\n"
+            "## Current Verdict\n\n- Accepted.\n"
+        )
+
+        result = rewrite_poll_status(
+            bridge,
+            note="- Reviewer heartbeat refreshed through repo-owned tooling "
+            "(mode: active_dual_agent; reason: manual-review; reviewed-tree: def456).",
+        )
+
+        self.assertIn("Reviewer checkpoint updated", result)
+        self.assertIn("mode: active_dual_agent", result)
+        self.assertNotIn("Reviewer heartbeat refreshed", result)
+
     def test_bridge_liveness_is_inactive_when_mode_is_tools_only(self) -> None:
         snapshot = extract_bridge_snapshot(
             _build_bridge_text(

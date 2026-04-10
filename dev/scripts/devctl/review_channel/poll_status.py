@@ -14,10 +14,11 @@ _AUTOMATION_POLL_STATUS_PREFIXES = (
     AUTO_REFRESH_PREFIX,
     "- Reviewer heartbeat refreshed through repo-owned tooling",
 )
+_POLL_STATUS_MODE_RE = re.compile(r"\(mode:\s*(?P<mode>[a-z0-9_-]+)\b", re.IGNORECASE)
 
 
 def rewrite_poll_status(text: str, *, note: str) -> str:
-    """Rewrite the live Poll Status section, preserving real checkpoints."""
+    """Rewrite the live Poll Status section, preserving compatible real checkpoints."""
     def replace_section(match: re.Match[str]) -> str:
         body = _effective_poll_status_body(
             existing_body=match.group(2),
@@ -61,6 +62,18 @@ def _should_preserve_reviewer_checkpoint(
         (line.strip() for line in replacement_note.splitlines() if line.strip()),
         "",
     )
-    return first_existing.startswith(
-        _REVIEWER_CHECKPOINT_POLL_STATUS_PREFIX
-    ) and first_replacement.startswith(_AUTOMATION_POLL_STATUS_PREFIXES)
+    if not first_existing.startswith(_REVIEWER_CHECKPOINT_POLL_STATUS_PREFIX):
+        return False
+    if not first_replacement.startswith(_AUTOMATION_POLL_STATUS_PREFIXES):
+        return False
+
+    existing_mode = _poll_status_mode(first_existing)
+    replacement_mode = _poll_status_mode(first_replacement)
+    return not existing_mode or not replacement_mode or existing_mode == replacement_mode
+
+
+def _poll_status_mode(line: str) -> str:
+    match = _POLL_STATUS_MODE_RE.search(line)
+    if match is None:
+        return ""
+    return match.group("mode").lower()

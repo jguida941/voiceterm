@@ -5,14 +5,14 @@
 ## Quick status
 
 - Branch: `feature/governance-quality-sweep`
-- HEAD: `655db93a3c74` — fix(discover): Q22 closure — repair KeyError crashes in --format md renderer
-- Tree hash: `b471b8df50c1`
-- Generation stamp: `snap-9afb6534cfb5`
-- Generated at (UTC): 2026-04-10T01:17:52Z
-- Push decision: `await_checkpoint` — staged_index_budget_exceeded
+- HEAD: `98cc9ab00bd2` — fix: stabilize review-channel recovery
+- Tree hash: `69a72d18acb1`
+- Generation stamp: `snap-1777f11b4aa5`
+- Generated at (UTC): 2026-04-10T01:31:47Z
+- Push decision: `await_checkpoint` — staged_index_present
 - Reviewer mode: `single_agent` (interaction: `remote_control`)
 - Pipeline state: `n/a` (approval: `n/a`)
-- Delta since last snapshot: 24 commits, 83 files, +8572/-1541
+- Delta since last snapshot: 24 commits, 87 files, +9363/-1672
 - Governance findings: 39 open / 68 fixed / 121 total
 - Probe hints: 0 total across 0 files scanned
 
@@ -54,23 +54,24 @@ adopters arrive.
 - Remote: `https://github.com/jguida941/voiceterm.git`
 - Default branch: `master`
 - Current branch: `feature/governance-quality-sweep`
-- HEAD SHA: `655db93a3c7468cae28c949dac1e19565aa16d58`
+- HEAD SHA: `98cc9ab00bd20d7464f3a46db212d5f22d5208c3`
 - HEAD author: Justin Guida
-- HEAD timestamp (UTC): 2026-04-09T18:01:34-04:00
+- HEAD timestamp (UTC): 2026-04-09T21:17:43-04:00
 
 ## 2. Governance state
 
 ### Push decision
 - action: `await_checkpoint`
-- reason: staged_index_budget_exceeded
+- reason: staged_index_present
 - push_eligible_now: False
 - worktree_clean: False
-- staged_path_count: 13
+- staged_path_count: 3
 - unstaged_path_count: 0
 - next_step_command: `n/a`
 - latest_push_report: `dev/reports/push/latest.json`
 - latest_push_report_state: `post_push_green` (push_completed)
-- publication_backlog: none
+- publication_backlog: queued
+- publication_guidance: 1 local commit(s) waiting for governed push once the current slice is checkpoint-clean.
 
 ### Reviewer runtime
 - reviewer_mode: `single_agent`
@@ -86,18 +87,17 @@ adopters arrive.
 - active plan: **Master Plan (Active, Unified)**
 - plan path: `dev/active/MASTER_PLAN.md`
 - active MP scope: all active MP execution state
-- advisory: `checkpoint_before_continue` — staged_index_budget_exceeded
-- checkpoint_required: **yes**
+- advisory: `checkpoint_allowed` — worktree_dirty_within_budget
 
 ## 3. Delta — what changed since the previous snapshot
 
-Range: last 24 commits ending at `655db93a3c74`
+Range: last 24 commits ending at `98cc9ab00bd2`
 
 - commits: 24
-- files changed: 83
-- insertions: +8572
-- deletions: -1541
-- bundle classes touched: tooling, docs
+- files changed: 87
+- insertions: +9363
+- deletions: -1672
+- bundle classes touched: docs, tooling
 - risk add-ons triggered: Parser / ANSI boundary
 - authority surfaces touched: 8 file(s)
 
@@ -105,49 +105,49 @@ Range: last 24 commits ending at `655db93a3c74`
 
 | # | SHA | Subject | Files | +/- | Bundle | Risk |
 |---|---|---|---|---|---|---|
-| 1 | `655db93a` | fix(discover): Q22 closure — repair KeyError crashes in --f… | 2 | +50/-42 | tooling |  |
-| 2 | `8f4bf379` | docs(audits): log BL-032 through BL-035 from session 2026-0… | 2 | +173/-58 | tooling |  |
-| 3 | `1864fc2c` | feat(devctl): BL-031 cross-mind polling — agent-mind command | 10 | +1513/-55 | tooling |  |
-| 4 | `4129af6c` | docs(governance): Codex's doc updates for 2026-04-09 F1/F2/… | 7 | +403/-66 | tooling |  |
-| 5 | `5985e70c` | feat(devctl): pipeline recovery command (BL-006) — typed re… | 12 | +1652/-46 | tooling |  |
-| 6 | `49d1db53` | Refresh external review snapshot for 363fe42c | 1 | +57/-54 | tooling |  |
-| 7 | `363fe42c` | fix(hygiene): Platform Boundary fix + regression tests + co… | 3 | +223/-47 | tooling |  |
-| 8 | `e4870754` | fix(review-channel): attach-remote-control cleanup (F2.1 th… | 4 | +336/-70 | tooling |  |
-| 9 | `d35abef0` | test(process-sweep): positive + negative regression tests f… | 2 | +195/-60 | tooling |  |
-| 10 | `971647ec` | fix(rollout-tail): F3 narrow Claude session discovery + tai… | 4 | +351/-58 | tooling | Parser / ANSI boundary |
-| 11 | `a65fc7c4` | fix(review): land F1+F2 from Codex reviewer pass | 5 | +161/-58 | tooling |  |
-| 12 | `adb266b5` | Refresh external review snapshot for d84b27fa | 1 | +60/-58 | tooling |  |
-| 13 | `d84b27fa` | feat(lifecycle): add recoverable flag to ReviewerSupervisor… | 2 | +77/-86 | tooling |  |
-| 14 | `8f42ea3f` | feat(devctl): rollout-tail MVP for Codex/Claude session JSO… | 11 | +1088/-49 | tooling | Parser / ANSI boundary |
-| 15 | `2ca00812` | Refresh external review snapshot for 696f4772 | 1 | +52/-46 | tooling |  |
-| 16 | `696f4772` | fix(hygiene): trust supervisor heartbeat for reparented con… | 2 | +62/-54 | tooling |  |
-| 17 | `8c800411` | Refresh external review snapshot for a12b6593 | 1 | +82/-77 | tooling |  |
-| 18 | `a12b6593` | feat(review-channel): attach-remote-control action + typed… | 37 | +1188/-131 | tooling | Parser / ANSI boundary |
-| 19 | `a5ad7fc0` | fix(runtime): F1 coordination parity via review_state_overr… | 7 | +253/-103 | tooling |  |
-| 20 | `838b762c` | Refresh external review snapshot for d7e7e597 | 1 | +57/-51 | tooling |  |
-| 21 | `d7e7e597` | policy: declare operator_interaction_mode=remote_control | 2 | +63/-63 | tooling |  |
-| 22 | `08770a66` | Refresh external review snapshot for 675ca93d | 1 | +65/-69 | tooling |  |
-| 23 | `675ca93d` | fix: scope post-push validation to published diff | 13 | +359/-91 | tooling |  |
-| 24 | `a60f1470` | Refresh external review snapshot for 69317302 | 1 | +52/-49 | tooling |  |
+| 1 | `98cc9ab0` | fix: stabilize review-channel recovery | 13 | +843/-180 | tooling |  |
+| 2 | `655db93a` | fix(discover): Q22 closure — repair KeyError crashes in --f… | 2 | +50/-42 | tooling |  |
+| 3 | `8f4bf379` | docs(audits): log BL-032 through BL-035 from session 2026-0… | 2 | +173/-58 | tooling |  |
+| 4 | `1864fc2c` | feat(devctl): BL-031 cross-mind polling — agent-mind command | 10 | +1513/-55 | tooling |  |
+| 5 | `4129af6c` | docs(governance): Codex's doc updates for 2026-04-09 F1/F2/… | 7 | +403/-66 | tooling |  |
+| 6 | `5985e70c` | feat(devctl): pipeline recovery command (BL-006) — typed re… | 12 | +1652/-46 | tooling |  |
+| 7 | `49d1db53` | Refresh external review snapshot for 363fe42c | 1 | +57/-54 | tooling |  |
+| 8 | `363fe42c` | fix(hygiene): Platform Boundary fix + regression tests + co… | 3 | +223/-47 | tooling |  |
+| 9 | `e4870754` | fix(review-channel): attach-remote-control cleanup (F2.1 th… | 4 | +336/-70 | tooling |  |
+| 10 | `d35abef0` | test(process-sweep): positive + negative regression tests f… | 2 | +195/-60 | tooling |  |
+| 11 | `971647ec` | fix(rollout-tail): F3 narrow Claude session discovery + tai… | 4 | +351/-58 | tooling | Parser / ANSI boundary |
+| 12 | `a65fc7c4` | fix(review): land F1+F2 from Codex reviewer pass | 5 | +161/-58 | tooling |  |
+| 13 | `adb266b5` | Refresh external review snapshot for d84b27fa | 1 | +60/-58 | tooling |  |
+| 14 | `d84b27fa` | feat(lifecycle): add recoverable flag to ReviewerSupervisor… | 2 | +77/-86 | tooling |  |
+| 15 | `8f42ea3f` | feat(devctl): rollout-tail MVP for Codex/Claude session JSO… | 11 | +1088/-49 | tooling | Parser / ANSI boundary |
+| 16 | `2ca00812` | Refresh external review snapshot for 696f4772 | 1 | +52/-46 | tooling |  |
+| 17 | `696f4772` | fix(hygiene): trust supervisor heartbeat for reparented con… | 2 | +62/-54 | tooling |  |
+| 18 | `8c800411` | Refresh external review snapshot for a12b6593 | 1 | +82/-77 | tooling |  |
+| 19 | `a12b6593` | feat(review-channel): attach-remote-control action + typed… | 37 | +1188/-131 | tooling | Parser / ANSI boundary |
+| 20 | `a5ad7fc0` | fix(runtime): F1 coordination parity via review_state_overr… | 7 | +253/-103 | tooling |  |
+| 21 | `838b762c` | Refresh external review snapshot for d7e7e597 | 1 | +57/-51 | tooling |  |
+| 22 | `d7e7e597` | policy: declare operator_interaction_mode=remote_control | 2 | +63/-63 | tooling |  |
+| 23 | `08770a66` | Refresh external review snapshot for 675ca93d | 1 | +65/-69 | tooling |  |
+| 24 | `675ca93d` | fix: scope post-push validation to published diff | 13 | +359/-91 | tooling |  |
 
 ### Files
 
 | Path | Bundle | +/- |
 |---|---|---|
-| `AGENTS.md` | docs | +16/-2 |
+| `AGENTS.md` | docs | +28/-3 |
 | `bridge.md` | docs | +4/-4 |
-| `dev/active/MASTER_PLAN.md` | tooling | +33/-0 |
+| `dev/active/MASTER_PLAN.md` | tooling | +48/-0 |
 | `dev/active/ai_governance_platform.md` | tooling | +21/-0 |
 | `dev/active/continuous_swarm.md` | tooling | +10/-0 |
 | `dev/active/remote_commit_pipeline.md` | tooling | +22/-0 |
-| `dev/active/remote_control_runtime.md` | tooling | +43/-0 |
-| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1383/-1370 |
-| `dev/audits/TEST_BACKLOG.md` | tooling | +401/-0 |
+| `dev/active/remote_control_runtime.md` | tooling | +59/-0 |
+| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1408/-1397 |
+| `dev/audits/TEST_BACKLOG.md` | tooling | +733/-0 |
 | `dev/config/devctl_repo_policy.json` | tooling | +3/-0 |
 | `dev/config/git_hooks/pre-push-governed-push.sh` | tooling | +12/-1 |
-| `dev/guides/DEVELOPMENT.md` | docs | +26/-3 |
-| `dev/history/ENGINEERING_EVOLUTION.md` | tooling | +135/-0 |
-| `dev/scripts/README.md` | tooling | +33/-8 |
+| `dev/guides/DEVELOPMENT.md` | docs | +39/-4 |
+| `dev/history/ENGINEERING_EVOLUTION.md` | tooling | +187/-0 |
+| `dev/scripts/README.md` | tooling | +35/-9 |
 | `dev/scripts/devctl/agent_mind_parser.py` | tooling | +75/-0 |
 | `dev/scripts/devctl/cli.py` | tooling | +13/-0 |
 | `dev/scripts/devctl/commands/agent_mind/__init__.py` | tooling | +27/-0 |
@@ -160,7 +160,7 @@ Range: last 24 commits ending at `655db93a3c74`
 | `dev/scripts/devctl/commands/discover/__init__.py` | tooling | +9/-3 |
 | `dev/scripts/devctl/commands/governance/hygiene_support.py` | tooling | +49/-5 |
 | `dev/scripts/devctl/commands/governance/session_resume_render.py` | tooling | +21/-0 |
-| `dev/scripts/devctl/commands/governance/session_resume_support.py` | tooling | +38/-14 |
+| `dev/scripts/devctl/commands/governance/session_resume_support.py` | tooling | +40/-14 |
 | `dev/scripts/devctl/commands/pipeline/__init__.py` | tooling | +28/-0 |
 | `dev/scripts/devctl/commands/pipeline/abandon_action.py` | tooling | +165/-0 |
 | `dev/scripts/devctl/commands/pipeline/command.py` | tooling | +39/-0 |
@@ -170,11 +170,11 @@ Range: last 24 commits ending at `655db93a3c74`
 | `dev/scripts/devctl/commands/pipeline/support.py` | tooling | +268/-0 |
 | `dev/scripts/devctl/commands/review_channel/__init__.py` | tooling | +9/-0 |
 | `dev/scripts/devctl/commands/review_channel/_attach_remote_control.py` | tooling | +203/-12 |
+| `dev/scripts/devctl/commands/review_channel/_recover.py` | tooling | +69/-100 |
+| `dev/scripts/devctl/commands/review_channel/_reviewer.py` | tooling | +49/-0 |
 | `dev/scripts/devctl/commands/review_channel_command/constants.py` | tooling | +1/-0 |
 | `dev/scripts/devctl/commands/review_channel_command/helpers.py` | tooling | +12/-0 |
-| `dev/scripts/devctl/commands/rollout_tail/__init__.py` | tooling | +37/-0 |
-| `dev/scripts/devctl/commands/rollout_tail/command.py` | tooling | +70/-0 |
-| _43 more files trimmed_ | | |
+| _47 more files trimmed_ | | |
 
 ## 4. Quality signals
 
@@ -269,6 +269,8 @@ Recent findings:
 
 ### Per-commit rationale
 
+- **`98cc9ab0`** — fix: stabilize review-channel recovery
+  - evolution: Fact: the narrow repo-owned `review-channel --action recover` path had one real remote-control gap left. In governed `--terminal none` mode it prepared fresh Claude implementer scripts and metadata, but `_maybe_launch_r…
 - **`655db93a`** — fix(discover): Q22 closure — repair KeyError crashes in --format md renderer
   - Closes Q22 from dev/audits/LIVE_RUN.md: `devctl discover --format md`
   - crashed with KeyError when rendering guards, probes, and surfaces.
@@ -361,8 +363,6 @@ Recent findings:
   - evolution: Fact: the narrow repo-owned `review-channel --action recover` path had one real remote-control gap left. In governed `--terminal none` mode it prepared fresh Claude implementer scripts and metadata, but `_maybe_launch_r…
 - **`675ca93d`** — fix: scope post-push validation to published diff
   - evolution: Fact: the narrow repo-owned `review-channel --action recover` path had one real remote-control gap left. In governed `--terminal none` mode it prepared fresh Claude implementer scripts and metadata, but `_maybe_launch_r…
-- **`a60f1470`** — Refresh external review snapshot for 69317302
-  - evolution: Fact: the narrow repo-owned `review-channel --action recover` path had one real remote-control gap left. In governed `--terminal none` mode it prepared fresh Claude implementer scripts and metadata, but `_maybe_launch_r…
 ### Active MP scope (from MASTER_PLAN.md)
 
 - `dev/active/devctl_reporting_upgrade.md` is the phased `devctl` reporting/CIHub specification, but not a separate execution tracker; implementation tasks stay in this file under `MP-297..MP-300`, `MP-303`, `MP-306`, `MP…
@@ -381,10 +381,9 @@ Recent findings:
 - open governance findings: 39
 
 ### Startup advisories
-- checkpoint_before_continue: staged_index_budget_exceeded
+- checkpoint_allowed: worktree_dirty_within_budget
 
 ### Stale warnings
-- Keep editing the current slice.
 - Move straight to the governed push path.
 
 ### Open gap rows
@@ -399,4 +398,4 @@ Recent findings:
 
 ---
 
-Projection produced by `devctl review-snapshot`. Generation stamp `snap-9afb6534cfb5` binds this file to HEAD `655db93a3c74`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
+Projection produced by `devctl review-snapshot`. Generation stamp `snap-1777f11b4aa5` binds this file to HEAD `98cc9ab00bd2`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
