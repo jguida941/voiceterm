@@ -25,8 +25,6 @@ def auto_commit_preflight_generated_changes(
     This function detects preflight-generated changes and auto-commits
     them with a machine-generated message so the push can proceed.
     """
-    if state.errors:
-        return
     try:
         git = collect_git_status()
     except (OSError, FileNotFoundError):

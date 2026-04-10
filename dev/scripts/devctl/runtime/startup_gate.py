@@ -11,7 +11,6 @@ from .startup_authority import build_startup_authority_report
 from .startup_receipt import (
     IMPLEMENTATION_STRICT_STARTUP_INTENT,
     REVIEWER_BOOTSTRAP_STARTUP_INTENT,
-    StartupReceipt,
     load_startup_receipt,
     startup_receipt_problems_for_intent,
 )
@@ -57,7 +56,6 @@ def enforce_startup_gate(
         intent=intent,
     )
 
-    receipt: StartupReceipt | None = None
     if not _ci_environment():
         receipt = load_startup_receipt(repo_root=repo_root)
         receipt_failures = startup_receipt_problems_for_intent(
@@ -76,9 +74,6 @@ def enforce_startup_gate(
     if bool(authority_report.get("ok", False)):
         return None
 
-    if _is_repair_allowed(args, receipt, authority_report):
-        return None
-
     return _format_gate_failure(
         args,
         heading="Startup gate blocked this command because the live startup-authority check is red.",
@@ -92,34 +87,6 @@ def enforce_startup_gate(
             "If it exits non-zero, checkpoint or repair the state before continuing."
         ),
     )
-
-
-def _is_repair_allowed(
-    args: SimpleNamespace,
-    receipt: StartupReceipt | None,
-    authority_report: dict[str, object],
-) -> bool:
-    """Allow repair launch/rollover through the authority gate only.
-
-    When startup-context returns action=repair_reviewer_loop, the gate must
-    not block the command that IS the repair on the authority check alone.
-    Receipt freshness is still enforced (a stale/missing receipt blocks even
-    repair launches). Checkpoint and budget constraints also still apply.
-    Only the reviewer-loop authority block is bypassed.
-    """
-    command = str(getattr(args, "command", "") or "").strip()
-    action = str(getattr(args, "action", "") or "").strip()
-    if command != "review-channel" or action not in _REVIEW_CHANNEL_GATED_ACTIONS:
-        return False
-    if receipt is None:
-        return False
-    if str(receipt.advisory_action or "").strip() != "repair_reviewer_loop":
-        return False
-    if bool(getattr(receipt, "checkpoint_required", False)):
-        return False
-    if bool(authority_report.get("checkpoint_required", False)):
-        return False
-    return True
 
 
 def _startup_gate_intent(args: SimpleNamespace) -> str:
