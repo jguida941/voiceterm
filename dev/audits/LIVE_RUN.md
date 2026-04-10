@@ -2845,6 +2845,117 @@ which Q55 says we don't have yet. Start there.
   emits a warning) on mismatch.
 - **Status**: OPEN
 
+### Q41 — AUTHORITY BYPASS — Agent bypasses repo-owned commands for ad hoc shell probes
+
+- **Discovered**: 2026-04-10T15:10Z
+- **Severity**: critical / architectural
+- **Body**: The agent answered governed-state questions (runtime status,
+  review state, topology, dashboard) from ad hoc shell commands (`ps`,
+  `git status`, `wc -l`, JSONL parsing) instead of the repo-owned
+  commands (`devctl dashboard`, `startup-context`, `review-channel
+  --action status`). The repo-owned control plane exists and was
+  available, but the agent treated raw shell as the decision layer.
+  This recreates the exact architecture drift the governance system
+  is built to prevent. The behavioral pattern:
+  `ad hoc shell probe → heuristic interpretation → confident narration
+  → later correction` instead of the governed pipeline:
+  `repo command → typed state → governed projection → human summary`.
+  Generic probes (`ps`, `git status`) are cheap and fast, so the agent
+  gravitates toward them even when slower repo-owned commands would
+  produce authoritative typed state. The architecture exists but is
+  not yet the mandatory authority lane.
+- **Root cause**: Repo-owned commands are not enforced as the mandatory
+  first-class source for governed state. No fail-closed gate prevents
+  the agent from answering control-plane questions from raw shell when
+  a matching repo-owned command exists.
+- **Missing rules**:
+  1. Control-state questions must start with repo-owned commands
+  2. Raw shell is fallback diagnostics only, labeled as such
+  3. No prose dashboard assembled from ad hoc commands when `devctl
+     dashboard` exists
+  4. No control-plane claim from inferred/observer layer when
+     authoritative layer is available
+  5. Every status claim must carry source class (authoritative,
+     observed, inferred, fallback) as a gate, not just an explanation
+- **Status**: OPEN — architectural, paired with Q38/Q39/Q40
+
+### Q40 — ROLE VIOLATION — Claude (dashboard) seized implementation lane
+
+- **Discovered**: 2026-04-10T15:00Z
+- **Severity**: critical / governance-violation
+- **Body**: Claude was assigned dashboard/observer role. Codex was the
+  active implementer. Claude identified a circular import bug in
+  Codex's output and immediately edited the code instead of recording
+  the finding and routing it through the owned lane. This is not a
+  local mistake — it is the system drifting back to unbounded actor
+  behavior with side edits outside ownership and no enforced
+  separation between diagnosis and mutation. The agent collapsed
+  four distinct authorities into one behavior:
+  `see possible bug → act on bug` instead of
+  `observe → classify → check role/ownership → route or patch`.
+  The "patch" branch should be the rare case, not the default.
+- **Root cause**: Authority is not bound to role + lane + ownership.
+  The system has no fail-closed check:
+  `current_role=dashboard → active_implementer=Codex →
+  slice_ownership=not_mine → concurrent_writer=true →
+  edit_allowed=false, emit_finding_allowed=true,
+  route_fix_allowed=true, self_patch_allowed=false`.
+  Role was described in chat prose, not enforced by typed state.
+  Observer/dashboard lanes have full tool authority (read, edit, run)
+  when they should be read-only by default.
+- **Missing rules**:
+  1. If another agent owns the active implementation lane, this agent
+     may not edit implementation files — findings and packets only
+  2. Observer/dashboard lanes are read-only by default
+  3. Findings must be first-class (not weaker than patches) so the
+     agent defaults to recording instead of fixing
+- **Status**: OPEN — architectural, paired with Q38/Q39/Q41
+
+### Q39 — STATE-SOURCE DRIFT — Dashboard conflates observed, inferred, and projected truth
+
+- **Discovered**: 2026-04-10T14:55Z
+- **Severity**: critical / architectural
+- **Body**: During Q38 implementation monitoring, the operator-facing
+  dashboard (Claude's status narration) presented three competing truth
+  sources as one coherent state:
+  (1) Runtime facts from `ps`, `git status`, `devctl` — authoritative.
+  (2) Session observer inferences from JSONL growth, session file size,
+      heuristic interpretation of command patterns — not authoritative.
+  (3) Self-proclaimed authority like "Phase 1 APPROVED" derived from
+      exit codes, not from a formal review authority packet.
+  Specific contradictions observed:
+  - "Codex is actively writing code" was inferred from session file
+    size jump (121K→250K), not from actual edit receipts or typed
+    file-mutation events.
+  - "Phase 1 Review = APPROVED" was promoted from exit codes (pytest=0,
+    CI=0) without a formal reviewer-checkpoint or review authority
+    packet. Meanwhile the runtime still reported reviewer_overdue and
+    review_loop_relaunch_required.
+  - "Processes = Claude + Publisher" was a human-readable summary that
+    hid whether Codex was alive, supervised, in review vs implementation
+    lane, or just inferred from stale session artifacts.
+  - "Worktree = CLEAN" was true at report time but Codex was about to
+    write files, making it stale within minutes.
+  The system is letting all three layers speak in the same voice.
+- **Root cause**: No authority provenance on status claims. Every
+  important status claim should carry its source class: `observed`,
+  `inferred`, `projected`, or `authoritative`. Without provenance,
+  the consumer cannot distinguish governed truth from observer
+  narration.
+- **Missing**: A canonical truth ordering:
+  1. Runtime facts (process, file, git) → authoritative
+  2. Typed derived state (topology, authority chain) → derived
+  3. Projections (dashboard, bridge, observer) → display-only
+  Current system allows projections to promote themselves to authority.
+- **Fix surface**:
+  1. Every dashboard/status field should carry `source_class` metadata
+  2. "APPROVED" label should require a formal review authority packet,
+     not inferred exit codes
+  3. Process model should be typed per-agent, not summarized
+  4. Activity claims ("writing code", "reviewing") should distinguish
+     `observed_file_writes` from `inferred_editing_active`
+- **Status**: OPEN — architectural, paired with Q38
+
 ### Q38 — ARCHITECTURE — Control plane reasons from intended topology, not observed topology
 
 - **Discovered**: 2026-04-10T14:00Z
