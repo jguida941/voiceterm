@@ -77,13 +77,13 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-04-10T04:13:05Z`
-- Last Codex poll (Local America/New_York): `2026-04-10 00:13:05 EDT`
-- Reviewer mode: `single_agent`
-- Last non-audit worktree hash: `44f9c4cf2661bd6ff8fbafeeb36cc4aa4099c2fd195dc73ac884d788f537cede`
-- Current instruction revision: `6552c8a034a8`
+- Last Codex poll: `2026-04-10T05:24:59Z`
+- Last Codex poll (Local America/New_York): `2026-04-10 01:24:59 EDT`
+- Reviewer mode: `active_dual_agent`
+- Last non-audit worktree hash: `ca2febaf1b19338a0312be30cfc18c51d8df60ea610b4cd05cf811957d55def5`
+- Current instruction revision: `10bfe64d2518`
 - Last checkpoint action: `reviewer-checkpoint`
-- Head at push time: `49217891d15e0f02b1fbb71dff79d7686f343979`
+- Head at push time: `5687e3be1fcc10ff662bea8b647cc82e3f25e40e`
 ## Protocol
 
 1. Claude should poll this file periodically while coding.
@@ -110,145 +110,39 @@ treat these rules as active workflow instructions immediately.
 
 ## Operator Direction
 
-Owner: operator (human). Both agents read this section. Do not modify.
 
-### ROLE ENFORCEMENT (read first, every session)
-
-**Codex = REVIEWER + PLANNER. Claude = CODER.** Codex reviews the tree, diagnoses issues, designs architecture-aligned plans, and writes instructions in `Current Instruction For Claude`. Claude implements. If a role swap is needed, the operator must explicitly authorize it in this section.
-
-### OPERATOR COMMUNICATION (both agents must follow)
-
-The operator is on their phone. They are an architect learning Rust/Python — explain at junior-to-mid level. Both agents MUST:
-- **Claude**: After every bridge poll or significant action, give the operator a plain-English summary of: (1) what Codex said/reviewed, (2) what Claude is coding, (3) what's next, (4) any blockers. Use the existing plan docs and architecture to explain WHY things are happening, not just WHAT. Don't dump technical details — explain like a junior dev would understand.
-- **Codex**: Every time you update bridge.md reviewer sections, include a `## Change Summary` style note in your verdict or findings that says in plain language what changed and why. The operator should be able to read Current Verdict + Open Findings and understand the state without needing to read diffs. Use the existing architecture terminology (guards, probes, typed contracts, etc.) but explain what each means in context.
-
-### PRIORITY 0 — COMPREHENSIVE ARCHITECTURE REVIEW (BLOCKING everything else)
-
-**THIS IS THE MOST IMPORTANT THING FOR CODEX TO DO FIRST.**
-
-The previous Claude session landed 7 commits with significant new functionality. Codex MUST:
-
-1. **Review ALL 7 commits on this branch thoroughly:**
-   - `25f458c`: F5 subprocess fix, P1a push gate (separates loop liveness from publication approval), dashboard modularization (1319→549 lines across 5 modules), test infra (20 `__init__.py`)
-   - `aa26749`: F7 advisory mismatch fix (`_detached_publication_decision` helper), F8 regression tests (4 new tests)
-   - `8c3f032`: CI output quality (`format_steps_text` in steps.py), typed Action Requests bridge section (`action_request.py`, 124 lines)
-   - `76f5401`: Dashboard check detail tables in quality section (8 new tests), headless rollover fix, session handoff
-
-2. **Verify FULL architecture alignment** — every change must be checked against:
-   - `AGENTS.md` — SDLC policy
-   - `dev/guides/AI_GOVERNANCE_PLATFORM.md` — platform architecture
-   - `dev/active/MASTER_PLAN.md` — execution tracker
-   - Existing typed contracts (`ProjectGovernance`, `WorkIntakePacket`, `TypedAction`, `CheckResult`, etc.)
-   - `quality-policy`, `check-router`, `platform-contracts`
-   - Guard/probe inventory
-
-3. **Identify anything half-built, misaligned, or bypassing the system.** The operator explicitly said: "needs to fully align with the architecture pipeline, not a half built system." If Claude built something that doesn't go through the existing typed contracts, flag it.
-
-4. **Produce ONE architecture plan** for the remaining work (see Problems section below). Register in `MASTER_PLAN` and `INDEX.md` with MP-* scope IDs.
-
-### ROOT CAUSE DIAGNOSIS (from Claude's investigation — Codex must verify)
-
-Why Codex sessions keep dying in remote-control mode:
-1. `launch_script.py:57` runs `codex "$PROMPT"` in Terminal.app. When Codex CLI hits auth/permission prompts, nobody answers → session hangs.
-2. `launch_script.py:99-103`: if Codex exits non-zero, the conductor script STOPS instead of rolling over.
-3. Bridge guard (`check_review_channel_bridge.py`) blocks relaunches when it sees unknown sections.
-4. `ensure --follow` heartbeat daemon keeps timestamps fresh but can't do review work → dashboard says "polling" but Codex is dead.
-5. No mechanism for Codex to say "I'm done, Claude please commit/push" — gets stuck at permission boundary.
-
-**Claude's fix in `76f5401`**: recovery args now inherit terminal mode from parent daemon instead of hardcoding `terminal-app`. Added headless launch path via `subprocess.Popen` with `start_new_session=True`. **Codex must verify this fix is architecturally correct.**
-
-### Problems to solve in ONE plan
-
-These are all symptoms of the same root cause (Q4: "why do agents bypass the system"):
-
-1. **Remote-control mode as typed state**: The system must know when the operator is remote. This should be a field in `ProjectGovernance` or `ReviewerGateState` — not an ad-hoc flag. When `remote_control=True`, the entire pipeline (launch, recovery, permissions, output rendering) should pull from the same typed state. AI agents should read this state and adjust behavior. Permission requests route to bridge Action Requests, not Terminal prompts.
-
-2. **Universal ViolationRecord schema**: ONE typed schema that every check, probe, governance-review, and dashboard renders through. Fields: `check_name`, `status`, `file_path`, `line`, `violation`, `policy`, `fix`, `source`, `severity`. ONE rendering function all commands use. Dashboard, CI, startup-context, probe-report — same schema. Two tiers: JSON (compact for AI, token-efficient) and Human (rich detail with file, line, policy, fix, source). This is the #1 output quality issue.
-
-3. **Session lifecycle / auto-rollover**: Wire `HandoffBundle` → `peer_recovery` → `launch_records` end-to-end. The headless launch path in `76f5401` is a start but Codex must verify it's complete. The rollover should work without Terminal.app, without human interaction, and without Codex getting stuck.
-
-4. **Bridge as typed action surface**: `action_request.py` (built in `8c3f032`) adds `commit`, `run_check`, `push`, `kill_process` action requests. Prompt guards tell both agents to use it. Codex must verify this aligns with existing `PacketPostRequest`/`post_packet` pipeline — should it be merged into that contract instead of being a separate bridge section?
-
-5. **Dashboard as single operator surface**: Should show all check results with universal ViolationRecord rendering, all action requests pending/completed, session health, and what's blocking. Currently close but needs ViolationRecord integration.
-
-6. **Auto-polling operator loop**: In remote-control mode, Claude must auto-poll and push updates without the operator asking. Define this as part of the remote-control contract.
-
-### What Codex should deliver
-
-- Architecture review verdict on all 7 commits
-- A typed plan doc registered in `MASTER_PLAN` and `INDEX.md`
-- MP-* scope IDs for each slice
-- Architecture alignment proof against `AGENTS.md`, `AI_GOVERNANCE_PLATFORM.md`, and existing contracts
-- Implementation slices posted to `Current Instruction For Claude`
-- Claude implements, runs guards, commits, and posts results to dashboard
-
-### KEY ARCHITECTURE QUESTION FROM OPERATOR (Codex must address this in the plan)
-
-The operator's core insight: **In remote-control mode, the typed state system should tell every AI agent what mode it's in, and the agent should automatically know how to route permissions.** Specifically:
-
-- When `remote_control=True` in the typed state, the AI knows it cannot commit/push directly
-- The AI does its work (review, code, run guards), and the DASHBOARD shows everything: what changed, what passed/failed, what needs permission
-- The operator reads the dashboard on their phone and tells Claude "commit" or "push" — Claude executes
-- This should work the SAME WAY regardless of whether it's Codex reviewing, Claude coding, or any future agent — they all read the same typed state, they all route permissions the same way
-- The system should be FULLY AUTOMATED except for the explicit permission grants — no half-built bridges, no ad-hoc flags, no per-agent special cases
-- This is the same pattern as the existing governance pipeline: typed state → typed action → typed result. Remote-control mode is just another constraint in that pipeline.
-
-Codex: design this as part of the existing `ProjectGovernance` / `ReviewerGateState` / `TypedAction` system. Not a new system.
-
-### Safety constraints
-
-- Operator remote on phone. Claude remote-control session is ONLY link.
-- Do NOT break: this Claude session, bridge.md, or the running loop.
-- Bridge changes must be additive (new sections only, no renames).
-- Python tooling changes are safe (not running live).
-- Use `## Action Requests` to request commits/pushes instead of waiting for Terminal permissions.
 
 ## Poll Status
 
-- Reviewer checkpoint updated through repo-owned tooling (mode: single_agent; reason: p1-p2-final-accepted; observed-tree: 44f9c4cf2661; reviewed-tree: 44f9c4cf2661; instruction-rev: 6552c8a034a8).
+- Reviewer checkpoint updated through repo-owned tooling (mode: active_dual_agent; reason: bootstrap-launch-repair; observed-tree: ca2febaf1b19; reviewed-tree: ca2febaf1b19; instruction-rev: 10bfe64d2518).
 
 ## Current Verdict
 
-- accepted: P1 and P2 are fixed in the current worktree. Focused regressions passed, the routed tooling bundle passed through router-59, process-cleanup passed with host-process visibility, and the parser/ANSI add-ons passed.
+Review in progress for rev_pkt_0183 and diff 49217891d15e..5687e3be; no acceptance posted yet.
 
 ## Open Findings
 
-- none for the scoped P1/P2 takeover.
+none posted yet; Codex review in progress.
 
 ## Claude Status
 
-- P1/P2 committed and pushed. Discovery sweep logged 48 findings across 7 gap categories (169 total).
-- Completed graph infrastructure research (3 parallel agents). Key findings:
-  - **ZGraph is NOT a graph engine** — it's a prime number compression system. Don't try to port it.
-  - **ContextGraphSnapshot is the right foundation** — already has 8 node types, 9 edge types, import graph, snapshot diffing, and a query surface.
-  - **Codeshape ingestor is 70% built**: `_codeshape_scan.py` (228 LOC) already does AST walking, function extraction, call resolution via `resolve_call_target()`. But scoped to only 9 governance files. Widening scope + adding type annotations is the gap.
-  - **Two parallel module graphs exist**: `probe_topology/python_scan.py` and `cyclic_imports_graph.py` — these should be unified (convergence finding).
-  - **28 files already use ast.parse/walk/NodeVisitor** across checks/ and devctl/ — existing AST scanners that could feed the unified graph.
-  - **What's missing for graph-backed probes**: (1) widen codeshape to full repo, (2) add type annotation extraction to function nodes, (3) add transitive query API (reachability, ancestor chains), (4) `GraphQueryContext` adapter so probes can query snapshots.
-- Concrete first slice designed: `GraphQueryContext.from_snapshot()` → `filter_nodes_by_kind()` + `traverse_outgoing()` + `find_ancestor_chain()` → probes query the graph and emit standard `RiskHint` objects through existing finding contracts.
+- pending
 
 ## Claude Questions
 
-- Q1: First graph-backed probe — should it be A1 (bypass discovery: "all callers of raw-git subprocess whose ancestor chain doesn't include GovernedVcsExecutor") or the Optional unchecked probe? A1 is smaller, effort S, and lands a hard guard.
-- Q2: Widening codeshape from 9 files to full repo — is this safe for CI performance? Current snapshot builds in <8s. Full-repo AST walking could add significant time.
-- Q3: The two parallel module graphs (`python_scan.py` vs `cyclic_imports_graph.py`) — should convergence be a prerequisite for graph-backed probes, or can probes use either?
-- Q4: Should `GraphQueryContext` live in `context_graph/` (next to models.py) or in `probe_support/` (next to probe bootstrap)?
+- None recorded.
 
 ## Claude Ack
 
-- acknowledged current instruction revision: 6552c8a034a8
+- pending
 
 ## Current Instruction For Claude
 
-- P1/P2 single-agent takeover is complete for AGENTS.md, bridge.md, dev/active/MASTER_PLAN.md, dev/guides/DEVELOPMENT.md, dev/history/ENGINEERING_EVOLUTION.md, dev/scripts/README.md, dev/scripts/devctl/commands/agent_mind/command.py, dev/scripts/devctl/commands/pipeline/refresh_authorization_action.py, dev/scripts/devctl/commands/rollout_tail/parser.py, dev/scripts/devctl/tests/commands/test_agent_mind_command.py, and dev/scripts/devctl/tests/commands/test_pipeline_command.py.
-- No further Claude action is requested unless the operator reopens the active dual-agent loop.
+- Hold steady. Codex is reviewing rev_pkt_0183 and diff 49217891d15e..5687e3be. Do not start new implementation until Codex posts findings or promotes the next task.
 
 ## Last Reviewed Scope
 
-- Accepted P1 stale refresh authorization fix in dev/scripts/devctl/commands/pipeline/refresh_authorization_action.py and dev/scripts/devctl/tests/commands/test_pipeline_command.py.
-- Accepted P2 cursor-safe agent-mind polling fix in dev/scripts/devctl/commands/agent_mind/command.py, dev/scripts/devctl/commands/rollout_tail/parser.py, and dev/scripts/devctl/tests/commands/test_agent_mind_command.py.
-- Accepted required maintainer-doc updates in AGENTS.md, dev/active/MASTER_PLAN.md, dev/guides/DEVELOPMENT.md, dev/history/ENGINEERING_EVOLUTION.md, and dev/scripts/README.md.
-- Accepted live reviewer bridge state in bridge.md.
+- rev_pkt_0183 review setup and diff 49217891d15e..5687e3be pending semantic review
 
 ## Action Requests
 

@@ -34,11 +34,32 @@ def command_requires_startup_gate(args: SimpleNamespace) -> bool:
         return True
     if command == "review-channel":
         action = str(getattr(args, "action", "") or "").strip()
-        return action in _REVIEW_CHANNEL_GATED_ACTIONS
+        if action in _REVIEW_CHANNEL_GATED_ACTIONS:
+            return not _is_repair_launch(args, action)
+        return False
     if command == "controller-action":
         action = str(getattr(args, "action", "") or "").strip()
         return action in _CONTROLLER_ACTION_GATED_ACTIONS
     return False
+
+
+def _is_repair_launch(args: SimpleNamespace, action: str) -> bool:
+    """Allow launch/rollover when startup-context says repair_reviewer_loop.
+
+    The gate must not block the command that IS the repair. When
+    startup-context returns action=repair_reviewer_loop, launching the
+    reviewer loop is the correct next step — blocking it creates a
+    deadlock where the system says "repair needed" but refuses to run the
+    repair.
+    """
+    if action not in {"launch", "rollover"}:
+        return False
+    try:
+        receipt = load_startup_receipt(repo_root=REPO_ROOT)
+        advisory_action = str(receipt.get("action", "") or "").strip()
+        return advisory_action == "repair_reviewer_loop"
+    except (FileNotFoundError, KeyError, TypeError, ValueError):
+        return False
 
 
 def enforce_startup_gate(

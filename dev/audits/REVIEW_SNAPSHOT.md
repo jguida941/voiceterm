@@ -5,15 +5,15 @@
 ## Quick status
 
 - Branch: `feature/governance-quality-sweep`
-- HEAD: `4d3cf6ac9a04` — docs(bridge): graph infrastructure research — codeshape 70% built, first probe slice designed
-- Tree hash: `96bbb2469cb0`
-- Generation stamp: `snap-d77586c76117`
-- Generated at (UTC): 2026-04-10T04:50:34Z
-- Push decision: `run_devctl_push` — push_preconditions_satisfied
-- Reviewer mode: `single_agent` (interaction: `remote_control`)
+- HEAD: `5687e3be1fcc` — Refresh external review snapshot for 4d3cf6ac
+- Tree hash: `051759203482`
+- Generation stamp: `snap-1affa5ef2dde`
+- Generated at (UTC): 2026-04-10T05:25:11Z
+- Push decision: `await_checkpoint` — staged_index_present
+- Reviewer mode: `active_dual_agent` (interaction: `remote_control`)
 - Pipeline state: `n/a` (approval: `n/a`)
-- Delta since last snapshot: 25 commits, 55 files, +7629/-1700
-- Governance findings: 85 open / 70 fixed / 169 total
+- Delta since last snapshot: 25 commits, 53 files, +7337/-1700
+- Governance findings: 86 open / 70 fixed / 170 total
 - Probe hints: 0 total across 0 files scanned
 
 ## 1. Identity
@@ -54,29 +54,28 @@ adopters arrive.
 - Remote: `https://github.com/jguida941/voiceterm.git`
 - Default branch: `master`
 - Current branch: `feature/governance-quality-sweep`
-- HEAD SHA: `4d3cf6ac9a04396b5958634d7b6d2d8a8ee5f534`
+- HEAD SHA: `5687e3be1fcc10ff662bea8b647cc82e3f25e40e`
 - HEAD author: Justin Guida
 - HEAD timestamp (UTC): 2026-04-10T00:50:14-04:00
 
 ## 2. Governance state
 
 ### Push decision
-- action: `run_devctl_push`
-- reason: push_preconditions_satisfied
-- push_eligible_now: True
-- worktree_clean: True
-- staged_path_count: 0
+- action: `await_checkpoint`
+- reason: staged_index_present
+- push_eligible_now: False
+- worktree_clean: False
+- staged_path_count: 1
 - unstaged_path_count: 0
-- next_step_command: `python3 dev/scripts/devctl.py push --execute`
+- next_step_command: `n/a`
 - latest_push_report: `dev/reports/push/latest.json`
 - latest_push_report_state: `post_push_green` (push_completed)
-- publication_backlog: queued
-- publication_guidance: 1 local commit(s) waiting for governed push. Run `python3 dev/scripts/devctl.py push --execute` now.
+- publication_backlog: none
 
 ### Reviewer runtime
-- reviewer_mode: `single_agent`
+- reviewer_mode: `active_dual_agent`
 - reviewer_freshness: unknown
-- reviewer_publish_clear: True
+- reviewer_publish_clear: False
 - interaction_mode: `remote_control`
 
 ### Remote commit pipeline
@@ -87,17 +86,17 @@ adopters arrive.
 - active plan: **Master Plan (Active, Unified)**
 - plan path: `dev/active/MASTER_PLAN.md`
 - active MP scope: all active MP execution state
-- advisory: `push_allowed` — worktree_clean_and_review_accepted
+- advisory: `continue_editing` — review_pending
 
 ## 3. Delta — what changed since the previous snapshot
 
-Range: last 25 commits ending at `4d3cf6ac9a04`
+Range: last 25 commits ending at `5687e3be1fcc`
 
 - commits: 25
-- files changed: 55
-- insertions: +7629
+- files changed: 53
+- insertions: +7337
 - deletions: -1700
-- bundle classes touched: docs, tooling
+- bundle classes touched: tooling, docs
 - risk add-ons triggered: Parser / ANSI boundary
 - authority surfaces touched: 1 file(s)
 
@@ -105,31 +104,31 @@ Range: last 25 commits ending at `4d3cf6ac9a04`
 
 | # | SHA | Subject | Files | +/- | Bundle | Risk |
 |---|---|---|---|---|---|---|
-| 1 | `4d3cf6ac` | docs(bridge): graph infrastructure research — codeshape 70%… | 2 | +62/-65 | docs |  |
-| 2 | `5e6879d2` | Refresh external review snapshot for d9774b64 | 1 | +56/-58 | tooling |  |
-| 3 | `d9774b64` | docs(bridge): post-discovery sweep status — 48 new findings… | 2 | +97/-85 | docs |  |
-| 4 | `fd30e634` | Refresh external review snapshot for 5375193c | 1 | +64/-57 | tooling |  |
-| 5 | `5375193c` | fix(devctl): P1 stale refresh-authorization + P2 cursor-saf… | 12 | +328/-116 | tooling | Parser / ANSI boundary |
-| 6 | `49217891` | Refresh external review snapshot for 24460777 | 1 | +68/-63 | tooling |  |
-| 7 | `24460777` | feat(governance): guard promotion queue + pipeline auto-res… | 15 | +507/-93 | tooling |  |
-| 8 | `ed2134b8` | Refresh external review snapshot for c3be08ff | 1 | +60/-59 | tooling |  |
-| 9 | `c3be08ff` | docs(audits): guard promotion pipeline — issue-to-guard lea… | 3 | +216/-52 | tooling |  |
-| 10 | `a325bdae` | Refresh external review snapshot for 304708c2 | 1 | +55/-58 | tooling |  |
-| 11 | `304708c2` | fix(tests): prevent Qt offscreen segfault from accumulated… | 2 | +75/-56 | tooling |  |
-| 12 | `c2685e4c` | Refresh external review snapshot for 54cf3225 | 1 | +52/-52 | tooling |  |
-| 13 | `54cf3225` | Refresh external review snapshot for b5d609ce | 2 | +76/-87 | docs |  |
-| 14 | `b5d609ce` | fix: keep poll status mode coherent | 3 | +117/-63 | tooling |  |
-| 15 | `98cc9ab0` | fix: stabilize review-channel recovery | 13 | +843/-180 | tooling |  |
-| 16 | `655db93a` | fix(discover): Q22 closure — repair KeyError crashes in --f… | 2 | +50/-42 | tooling |  |
-| 17 | `8f4bf379` | docs(audits): log BL-032 through BL-035 from session 2026-0… | 2 | +173/-58 | tooling |  |
-| 18 | `1864fc2c` | feat(devctl): BL-031 cross-mind polling — agent-mind command | 10 | +1513/-55 | tooling |  |
-| 19 | `4129af6c` | docs(governance): Codex's doc updates for 2026-04-09 F1/F2/… | 7 | +403/-66 | tooling |  |
-| 20 | `5985e70c` | feat(devctl): pipeline recovery command (BL-006) — typed re… | 12 | +1652/-46 | tooling |  |
-| 21 | `49d1db53` | Refresh external review snapshot for 363fe42c | 1 | +57/-54 | tooling |  |
-| 22 | `363fe42c` | fix(hygiene): Platform Boundary fix + regression tests + co… | 3 | +223/-47 | tooling |  |
-| 23 | `e4870754` | fix(review-channel): attach-remote-control cleanup (F2.1 th… | 4 | +336/-70 | tooling |  |
-| 24 | `d35abef0` | test(process-sweep): positive + negative regression tests f… | 2 | +195/-60 | tooling |  |
-| 25 | `971647ec` | fix(rollout-tail): F3 narrow Claude session discovery + tai… | 4 | +351/-58 | tooling | Parser / ANSI boundary |
+| 1 | `5687e3be` | Refresh external review snapshot for 4d3cf6ac | 1 | +59/-58 | tooling |  |
+| 2 | `4d3cf6ac` | docs(bridge): graph infrastructure research — codeshape 70%… | 2 | +62/-65 | docs |  |
+| 3 | `5e6879d2` | Refresh external review snapshot for d9774b64 | 1 | +56/-58 | tooling |  |
+| 4 | `d9774b64` | docs(bridge): post-discovery sweep status — 48 new findings… | 2 | +97/-85 | docs |  |
+| 5 | `fd30e634` | Refresh external review snapshot for 5375193c | 1 | +64/-57 | tooling |  |
+| 6 | `5375193c` | fix(devctl): P1 stale refresh-authorization + P2 cursor-saf… | 12 | +328/-116 | tooling | Parser / ANSI boundary |
+| 7 | `49217891` | Refresh external review snapshot for 24460777 | 1 | +68/-63 | tooling |  |
+| 8 | `24460777` | feat(governance): guard promotion queue + pipeline auto-res… | 15 | +507/-93 | tooling |  |
+| 9 | `ed2134b8` | Refresh external review snapshot for c3be08ff | 1 | +60/-59 | tooling |  |
+| 10 | `c3be08ff` | docs(audits): guard promotion pipeline — issue-to-guard lea… | 3 | +216/-52 | tooling |  |
+| 11 | `a325bdae` | Refresh external review snapshot for 304708c2 | 1 | +55/-58 | tooling |  |
+| 12 | `304708c2` | fix(tests): prevent Qt offscreen segfault from accumulated… | 2 | +75/-56 | tooling |  |
+| 13 | `c2685e4c` | Refresh external review snapshot for 54cf3225 | 1 | +52/-52 | tooling |  |
+| 14 | `54cf3225` | Refresh external review snapshot for b5d609ce | 2 | +76/-87 | docs |  |
+| 15 | `b5d609ce` | fix: keep poll status mode coherent | 3 | +117/-63 | tooling |  |
+| 16 | `98cc9ab0` | fix: stabilize review-channel recovery | 13 | +843/-180 | tooling |  |
+| 17 | `655db93a` | fix(discover): Q22 closure — repair KeyError crashes in --f… | 2 | +50/-42 | tooling |  |
+| 18 | `8f4bf379` | docs(audits): log BL-032 through BL-035 from session 2026-0… | 2 | +173/-58 | tooling |  |
+| 19 | `1864fc2c` | feat(devctl): BL-031 cross-mind polling — agent-mind command | 10 | +1513/-55 | tooling |  |
+| 20 | `4129af6c` | docs(governance): Codex's doc updates for 2026-04-09 F1/F2/… | 7 | +403/-66 | tooling |  |
+| 21 | `5985e70c` | feat(devctl): pipeline recovery command (BL-006) — typed re… | 12 | +1652/-46 | tooling |  |
+| 22 | `49d1db53` | Refresh external review snapshot for 363fe42c | 1 | +57/-54 | tooling |  |
+| 23 | `363fe42c` | fix(hygiene): Platform Boundary fix + regression tests + co… | 3 | +223/-47 | tooling |  |
+| 24 | `e4870754` | fix(review-channel): attach-remote-control cleanup (F2.1 th… | 4 | +336/-70 | tooling |  |
+| 25 | `d35abef0` | test(process-sweep): positive + negative regression tests f… | 2 | +195/-60 | tooling |  |
 
 ### Files
 
@@ -144,7 +143,7 @@ Range: last 25 commits ending at `4d3cf6ac9a04`
 | `dev/active/remote_commit_pipeline.md` | tooling | +19/-0 |
 | `dev/active/remote_control_runtime.md` | tooling | +16/-0 |
 | `dev/audits/2026-04-10-guard-promotion-pipeline.md` | tooling | +154/-0 |
-| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1452/-1443 |
+| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1462/-1456 |
 | `dev/audits/TEST_BACKLOG.md` | tooling | +733/-0 |
 | `dev/guides/DEVELOPMENT.md` | docs | +41/-1 |
 | `dev/history/ENGINEERING_EVOLUTION.md` | tooling | +127/-1 |
@@ -170,23 +169,22 @@ Range: last 25 commits ending at `4d3cf6ac9a04`
 | `dev/scripts/devctl/commands/review_channel/_attach_remote_control.py` | tooling | +23/-12 |
 | `dev/scripts/devctl/commands/review_channel/_recover.py` | tooling | +69/-100 |
 | `dev/scripts/devctl/commands/review_channel/_reviewer.py` | tooling | +49/-0 |
-| `dev/scripts/devctl/commands/rollout_tail/discovery.py` | tooling | +31/-11 |
-| `dev/scripts/devctl/commands/rollout_tail/parser.py` | tooling | +31/-6 |
+| `dev/scripts/devctl/commands/rollout_tail/parser.py` | tooling | +18/-4 |
 | `dev/scripts/devctl/commands/vcs/push.py` | tooling | +4/-2 |
 | `dev/scripts/devctl/governance/guard_promotion_queue.py` | tooling | +189/-0 |
 | `dev/scripts/devctl/pipeline_parser.py` | tooling | +80/-0 |
-| _15 more files trimmed_ | | |
+| `dev/scripts/devctl/repo_packs/voiceterm.py` | tooling | +5/-0 |
+| _13 more files trimmed_ | | |
 
 ## 4. Quality signals
 
 ### Governance review
-- total findings: 169
-- open: 85
+- total findings: 170
+- open: 86
 - fixed: 70
 - false positives: 0
 
 Recent findings:
-- `subprocess_missing_timeout` — `dev/scripts/devctl/quality_backlog/collect.py` (n/a, verdict=`confirmed_issue`)
 - `subprocess_missing_timeout` — `dev/scripts/devctl/security/python_scope.py` (n/a, verdict=`confirmed_issue`)
 - `subprocess_missing_timeout` — `dev/scripts/devctl/security/codeql.py` (n/a, verdict=`confirmed_issue`)
 - `subprocess_missing_timeout` — `dev/scripts/devctl/integrations/import_core.py` (n/a, verdict=`confirmed_issue`)
@@ -196,6 +194,7 @@ Recent findings:
 - `none_safety_chained_get_crash` — `app/operator_console/state/review/operator_decisions.py` (n/a, verdict=`confirmed_issue`)
 - `none_safety_chained_get_crash` — `dev/scripts/devctl/autonomy/run_render.py` (n/a, verdict=`confirmed_issue`)
 - `none_safety_chained_get_crash` — `dev/scripts/devctl/autonomy/report_helpers.py` (n/a, verdict=`confirmed_issue`)
+- `none_safety_chained_get_crash` — `dev/scripts/devctl/quality_backlog/priorities.py` (n/a, verdict=`confirmed_issue`)
 
 ### Probe report
 - run_state: `missing`
@@ -260,6 +259,8 @@ Recent findings:
 
 ### Per-commit rationale
 
+- **`5687e3be`** — Refresh external review snapshot for 4d3cf6ac
+  - evolution: Fact: the dogfooded governed-push lane exposed a stale authorization bug after a completed push pipeline. A terminal `push_completed` same-branch `RemoteCommitPipelineContract` could still be selected by `devctl push` w…
 - **`4d3cf6ac`** — docs(bridge): graph infrastructure research — codeshape 70% built, first probe slice designed
   - 3-agent research sweep: ZGraph is not a graph engine (prime
   - compression), ContextGraphSnapshot is the right foundation,
@@ -347,10 +348,6 @@ Recent findings:
   - fallback in `_protected_registered_conductor_pids` (landed alongside
   - Codex's F2 fix in commit a65fc7c4).
   - evolution: Fact: the narrow repo-owned `review-channel --action recover` path had one real remote-control gap left. In governed `--terminal none` mode it prepared fresh Claude implementer scripts and metadata, but `_maybe_launch_r…
-- **`971647ec` | markers: F3** — fix(rollout-tail): F3 narrow Claude session discovery + tail reader off-by-one
-  - Closes F3 from Codex's review pass on HEAD adb266b5, plus a tail-reader
-  - bug caught by code-reviewer agent audit on the same commit set.
-  - evolution: Fact: the narrow repo-owned `review-channel --action recover` path had one real remote-control gap left. In governed `--terminal none` mode it prepared fresh Claude implementer scripts and metadata, but `_maybe_launch_r…
 ### Active MP scope (from MASTER_PLAN.md)
 
 - `dev/active/devctl_reporting_upgrade.md` is the phased `devctl` reporting/CIHub specification, but not a separate execution tracker; implementation tasks stay in this file under `MP-297..MP-300`, `MP-303`, `MP-306`, `MP…
@@ -366,16 +363,12 @@ Recent findings:
 
 ## 8. Known gaps and open items
 
-- open governance findings: 85
-
-### Startup advisories
-- push_allowed: worktree_clean_and_review_accepted
+- open governance findings: 86
 
 ### Stale warnings
-- Stop because nothing remains to push.
+- Pause and wait for reviewer-owned state.
 
 ### Open gap rows
-- **governance_open** (`dev/scripts/devctl/quality_backlog/collect.py`): subprocess_missing_timeout: 
 - **governance_open** (`dev/scripts/devctl/security/python_scope.py`): subprocess_missing_timeout: 
 - **governance_open** (`dev/scripts/devctl/security/codeql.py`): subprocess_missing_timeout: 
 - **governance_open** (`dev/scripts/devctl/integrations/import_core.py`): subprocess_missing_timeout: 
@@ -383,7 +376,8 @@ Recent findings:
 - **governance_open** (`dev/scripts/devctl/common.py`): threading_shared_state_no_lock: 
 - **governance_open** (`dev/scripts/devctl/review_channel/bridge_projection_state.py`): none_safety_chained_get_crash: 
 - **governance_open** (`app/operator_console/state/review/operator_decisions.py`): none_safety_chained_get_crash: 
+- **governance_open** (`dev/scripts/devctl/autonomy/run_render.py`): none_safety_chained_get_crash: 
 
 ---
 
-Projection produced by `devctl review-snapshot`. Generation stamp `snap-d77586c76117` binds this file to HEAD `4d3cf6ac9a04`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
+Projection produced by `devctl review-snapshot`. Generation stamp `snap-1affa5ef2dde` binds this file to HEAD `5687e3be1fcc`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
