@@ -17,15 +17,15 @@ from ...review_channel.launch import (
     resolve_terminal_profile_name,
 )
 from ...review_channel.launch_records import LaunchSessionRequest
-from ...review_channel.projection_bundle import projection_paths_to_dict
 from ...review_channel.recover_support import (
+    RecoverLaunchInput,
     RecoverReportInput,
     RecoverSessionBuildInput,
-    base_recover_report,
     has_role_lanes,
+    invalid_recover_state_report,
     planned_provider_for_role,
+    recover_report,
     recover_error,
-    recover_projection_errors,
     recover_worker_budget,
     refresh_recover_snapshot,
     resolve_recover_provider,
@@ -38,6 +38,12 @@ from ...runtime.role_profile import TandemRole, default_provider_for_role
 from ..review_channel_command import RuntimePaths, _coerce_runtime_paths
 from .launcher_discipline import (
     enforce_launch_request_discipline,
+)
+from .bridge_launch_headless import (
+    launch_sessions_headless as _launch_sessions_headless,
+)
+from .bridge_action_support import (
+    resolve_launch_interaction_mode,
 )
 
 
@@ -93,7 +99,7 @@ def run_recover_action(
         recover_provider=provider,
     )
     if peer_session_error is not None:
-        return _invalid_recover_state_report(
+        return invalid_recover_state_report(
             args=args,
             status_snapshot=status_snapshot,
             validation_error=peer_session_error,
@@ -104,14 +110,19 @@ def run_recover_action(
         attention=status_snapshot.attention,
     )
     if validation_error is not None:
-        return _invalid_recover_state_report(
+        return invalid_recover_state_report(
             args=args,
             status_snapshot=status_snapshot,
             validation_error=validation_error,
             provider=provider,
         )
 
-    terminal_profile_applied, current_instruction_revision, sessions = _build_recover_sessions(
+    (
+        terminal_profile_applied,
+        current_instruction_revision,
+        sessions,
+        interaction_mode,
+    ) = _build_recover_sessions(
         RecoverSessionBuildInput(
             args=args,
             repo_root=repo_root,
@@ -128,20 +139,23 @@ def run_recover_action(
             },
         )
     )
-    launched, recover_ack_observed, exit_code = _maybe_launch_recover_sessions(
-        args=args,
-        repo_root=repo_root,
-        bridge_path=bridge_path,
-        current_instruction_revision=current_instruction_revision,
-        sessions=sessions,
-        terminal_profile_applied=terminal_profile_applied,
+    launched, recover_ack_observed, exit_code, launch_warnings = _maybe_launch_recover_sessions(
+        RecoverLaunchInput(
+            args=args,
+            repo_root=repo_root,
+            bridge_path=bridge_path,
+            current_instruction_revision=current_instruction_revision,
+            sessions=sessions,
+            terminal_profile_applied=terminal_profile_applied,
+            interaction_mode=interaction_mode,
+        )
     )
     refreshed_snapshot = refresh_recover_snapshot(
         args=args,
         repo_root=repo_root,
         runtime_paths=runtime_paths,
     )
-    report = _recover_report(
+    report = recover_report(
         RecoverReportInput(
             args=args,
             refreshed_snapshot=refreshed_snapshot,
@@ -152,32 +166,15 @@ def run_recover_action(
             terminal_profile_applied=terminal_profile_applied,
             launched=launched,
             recover_ack_observed=recover_ack_observed,
+            launch_warnings=launch_warnings,
     )
     )
     return report, exit_code
 
 
-def _invalid_recover_state_report(
-    *,
-    args,
-    status_snapshot,
-    validation_error: str,
-    provider: str,
-) -> tuple[dict[str, object], int]:
-    report = base_recover_report(args)
-    report["bridge_active"] = True
-    report["bridge_liveness"] = status_snapshot.bridge_liveness
-    report["attention"] = status_snapshot.attention
-    report["warnings"] = status_snapshot.warnings
-    report["errors"] = [validation_error]
-    report["recover_provider"] = provider
-    report["sessions"] = []
-    return report, 1
-
-
 def _build_recover_sessions(
     build_input: RecoverSessionBuildInput,
-) -> tuple[str | None, str, list[dict[str, object]]]:
+) -> tuple[str | None, str, list[dict[str, object]], str]:
     args = build_input.args
     repo_root = build_input.repo_root
     runtime_paths = build_input.runtime_paths
@@ -202,6 +199,10 @@ def _build_recover_sessions(
     )
     current_instruction_revision = str(
         status_snapshot.bridge_liveness.get("current_instruction_revision") or ""
+    )
+    interaction_mode = resolve_launch_interaction_mode(
+        repo_root=repo_root,
+        args_fallback=str(getattr(args, "operator_interaction_mode", "") or ""),
     )
     sessions = build_launch_sessions(
         request=LaunchSessionRequest(
@@ -245,85 +246,53 @@ def _build_recover_sessions(
             script_dir=runtime_paths.script_dir,
             session_output_root=status_dir,
             providers_to_launch=(recover_provider,),
+            interaction_mode=interaction_mode,
         ),
     )
-    return terminal_profile_applied, current_instruction_revision, sessions
+    return (
+        terminal_profile_applied,
+        current_instruction_revision,
+        sessions,
+        interaction_mode,
+    )
 
 
 def _maybe_launch_recover_sessions(
-    *,
-    args,
-    repo_root: Path,
-    bridge_path: Path,
-    current_instruction_revision: str,
-    sessions: list[dict[str, object]],
-    terminal_profile_applied: str | None,
-) -> tuple[bool, dict[str, object] | None, int]:
+    launch_input: RecoverLaunchInput,
+) -> tuple[bool, dict[str, object] | None, int, list[str]]:
     launched = False
     recover_ack_observed: dict[str, object] | None = None
     exit_code = 0
-    if (
-        getattr(args, "terminal", "none") == "terminal-app"
-        and not bool(getattr(args, "dry_run", False))
-    ):
+    launch_warnings: list[str] = []
+    args = launch_input.args
+    terminal = str(getattr(args, "terminal", "none"))
+    if not bool(getattr(args, "dry_run", False)) and terminal in {
+        "terminal-app",
+        "none",
+    }:
         enforce_launch_request_discipline(
-            repo_root=repo_root,
-            interaction_mode=str(getattr(args, "operator_interaction_mode", "")),
-            terminal_arg=str(getattr(args, "terminal", "")),
+            repo_root=launch_input.repo_root,
+            interaction_mode=launch_input.interaction_mode,
+            terminal_arg=terminal,
         )
-        launch_terminal_sessions(
-            sessions,
-            terminal_profile=terminal_profile_applied,
-            default_terminal_profile=DEFAULT_TERMINAL_PROFILE,
-            auto_dark_terminal_profiles=AUTO_DARK_TERMINAL_PROFILES,
-        )
-        launched = True
-        if int(getattr(args, "await_ack_seconds", 0) or 0) > 0:
+        if terminal == "terminal-app":
+            launch_terminal_sessions(
+                launch_input.sessions,
+                terminal_profile=launch_input.terminal_profile_applied,
+                default_terminal_profile=DEFAULT_TERMINAL_PROFILE,
+                auto_dark_terminal_profiles=AUTO_DARK_TERMINAL_PROFILES,
+            )
+            launched = True
+        else:
+            launched = _launch_sessions_headless(
+                launch_input.sessions, launch_warnings
+            )
+        if launched and int(getattr(args, "await_ack_seconds", 0) or 0) > 0:
             recover_ack_observed = wait_for_claude_ack_refresh(
-                bridge_path=bridge_path,
-                expected_instruction_revision=current_instruction_revision,
+                bridge_path=launch_input.bridge_path,
+                expected_instruction_revision=launch_input.current_instruction_revision,
                 timeout_seconds=int(getattr(args, "await_ack_seconds", 180)),
             )
             if not bool(recover_ack_observed.get("observed")):
                 exit_code = 1
-    return launched, recover_ack_observed, exit_code
-
-
-def _recover_report(
-    report_input: RecoverReportInput,
-) -> dict[str, object]:
-    args = report_input.args
-    refreshed_snapshot = report_input.refreshed_snapshot
-    exit_code = report_input.exit_code
-    provider = report_input.provider
-    current_instruction_revision = report_input.current_instruction_revision
-    sessions = report_input.sessions
-    terminal_profile_applied = report_input.terminal_profile_applied
-    launched = report_input.launched
-    recover_ack_observed = report_input.recover_ack_observed
-    report = base_recover_report(args)
-    report["ok"] = exit_code == 0
-    report["exit_ok"] = exit_code == 0
-    report["exit_code"] = exit_code
-    report["bridge_active"] = True
-    report["bridge_liveness"] = refreshed_snapshot.bridge_liveness
-    report["attention"] = refreshed_snapshot.attention
-    report["warnings"] = list(refreshed_snapshot.warnings)
-    report["errors"] = recover_projection_errors(refreshed_snapshot.errors)
-    report["projection_paths"] = projection_paths_to_dict(
-        refreshed_snapshot.projection_paths
-    )
-    report["reviewer_worker"] = refreshed_snapshot.reviewer_worker
-    report["service_identity"] = refreshed_snapshot.service_identity
-    report["attach_auth_policy"] = refreshed_snapshot.attach_auth_policy
-    report["recover_provider"] = provider
-    report["recover_target_revision"] = current_instruction_revision
-    report["sessions"] = sessions
-    report["terminal_profile_applied"] = terminal_profile_applied
-    report["launched"] = launched
-    report["recover_ack_observed"] = recover_ack_observed
-    if exit_code != 0 and recover_ack_observed is not None:
-        report["errors"].append(
-            f"Fresh {provider.title()} conductor did not write a current ACK before the recovery timeout expired."
-        )
-    return report
+    return launched, recover_ack_observed, exit_code, launch_warnings

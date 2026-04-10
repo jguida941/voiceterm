@@ -13,6 +13,7 @@ from .ack_contract import ACK_REVISION_REQUIREMENT_PREFIX
 from .core import active_conductor_providers
 from .handoff import extract_bridge_snapshot, summarize_bridge_liveness
 from .peer_liveness import AttentionStatus, reviewer_mode_is_active
+from .projection_bundle import projection_paths_to_dict
 from .state import refresh_status_snapshot
 
 _RECOVERABLE_ATTENTION_STATUSES = frozenset(
@@ -53,6 +54,20 @@ class RecoverReportInput:
     terminal_profile_applied: str | None
     launched: bool
     recover_ack_observed: dict[str, object] | None
+    launch_warnings: list[str]
+
+
+@dataclass(frozen=True)
+class RecoverLaunchInput:
+    """Inputs required to launch one recover-session attempt."""
+
+    args: object
+    repo_root: Path
+    bridge_path: Path
+    current_instruction_revision: str
+    sessions: list[dict[str, object]]
+    terminal_profile_applied: str | None
+    interaction_mode: str
 
 
 def wait_for_claude_ack_refresh(
@@ -189,6 +204,67 @@ def recover_projection_errors(errors: list[str]) -> list[str]:
         for error in errors
         if not error.startswith(_RECOVERABLE_ERROR_PREFIXES)
     ]
+
+
+def invalid_recover_state_report(
+    *,
+    args,
+    status_snapshot,
+    validation_error: str,
+    provider: str,
+) -> tuple[dict[str, object], int]:
+    """Render one invalid recover-state report."""
+    report = base_recover_report(args)
+    report["bridge_active"] = True
+    report["bridge_liveness"] = status_snapshot.bridge_liveness
+    report["attention"] = status_snapshot.attention
+    report["warnings"] = status_snapshot.warnings
+    report["errors"] = [validation_error]
+    report["recover_provider"] = provider
+    report["sessions"] = []
+    return report, 1
+
+
+def recover_report(
+    report_input: RecoverReportInput,
+) -> dict[str, object]:
+    """Render the final recover-action status report."""
+    args = report_input.args
+    refreshed_snapshot = report_input.refreshed_snapshot
+    exit_code = report_input.exit_code
+    provider = report_input.provider
+    current_instruction_revision = report_input.current_instruction_revision
+    sessions = report_input.sessions
+    terminal_profile_applied = report_input.terminal_profile_applied
+    launched = report_input.launched
+    recover_ack_observed = report_input.recover_ack_observed
+    launch_warnings = report_input.launch_warnings
+    report = base_recover_report(args)
+    report["ok"] = exit_code == 0
+    report["exit_ok"] = exit_code == 0
+    report["exit_code"] = exit_code
+    report["bridge_active"] = True
+    report["bridge_liveness"] = refreshed_snapshot.bridge_liveness
+    report["attention"] = refreshed_snapshot.attention
+    report["warnings"] = list(refreshed_snapshot.warnings) + list(launch_warnings)
+    report["errors"] = recover_projection_errors(refreshed_snapshot.errors)
+    report["projection_paths"] = projection_paths_to_dict(
+        refreshed_snapshot.projection_paths
+    )
+    report["reviewer_worker"] = refreshed_snapshot.reviewer_worker
+    report["service_identity"] = refreshed_snapshot.service_identity
+    report["attach_auth_policy"] = refreshed_snapshot.attach_auth_policy
+    report["recover_provider"] = provider
+    report["recover_target_revision"] = current_instruction_revision
+    report["sessions"] = sessions
+    report["terminal_profile_applied"] = terminal_profile_applied
+    report["launched"] = launched
+    report["recover_ack_observed"] = recover_ack_observed
+    if exit_code != 0 and recover_ack_observed is not None:
+        report["errors"].append(
+            f"Fresh {provider.title()} conductor did not write a current ACK before the recovery timeout expired."
+        )
+    return report
 
 
 def planned_provider_for_role(

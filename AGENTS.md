@@ -501,6 +501,13 @@ checklist plus chat memory.
     to already be live. If the reviewer side is not already live, fail closed
     and use `launch|rollover` to relaunch the pair instead of drifting into a
     hybrid provider loop.
+    In governed `remote_control`, `recover --terminal none` is a real detached
+    relaunch path, not a report-only preview: it must route through the same
+    headless proof-of-life launch discipline as other headless review-channel
+    starts and wait for the current implementer ACK before claiming success.
+    Session/bootstrap consumers must also keep caller-threaded typed
+    `ReviewState` authoritative over stale compact/current-session artifacts
+    so recover/startup/session-resume do not disagree on the live instruction.
 4.4.1 In that same active review-channel loop, detached publisher/supervisor
     heartbeats are not proof the dual-agent session is still alive. If
     `reviewer_mode=active_dual_agent` but repo-owned conductor sessions are
@@ -597,7 +604,11 @@ checklist plus chat memory.
     state and the repo-owned `reviewer-heartbeat` / `reviewer-checkpoint` path
     remains the authority for review truth; when the typed `current_session`
     ACK state is unknown, fall back to `bridge.claude_ack_current` before
-    reading bridge prose.
+    reading bridge prose. A deliberate
+    `reviewer-heartbeat --reviewer-mode single_agent` takeover must also
+    retire the detached publisher/reviewer-supervisor runtime so stale
+    dual-agent heartbeats cannot silently restore `active_dual_agent`
+    metadata after the reviewer has reclaimed authority.
     If an `active_dual_agent` reviewer session is interrupted, no repo-owned
     Codex conductor remains live, or the loop degrades into a Claude-only /
     hybrid state, stop the detached reviewer daemons through the repo-owned

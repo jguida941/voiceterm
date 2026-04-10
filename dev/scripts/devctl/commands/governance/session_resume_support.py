@@ -621,6 +621,8 @@ def _load_governed_sources(
         governance=governance,
         review_state_override=review_state,
     )
+    if review_state is not None:
+        base["review_state"] = review_state.to_dict()
     gov_paths = resolve_source_paths(repo_root, governance=governance)
     compact_path = repo_root / gov_paths["compact"]
     base["compact_json"] = read_json_artifact(compact_path)

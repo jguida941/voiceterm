@@ -456,6 +456,22 @@ The MP scopes remain valid but are now cross-cut by enforcement-first priority.
 
 ## Progress Log
 
+- 2026-04-10: Closed the local-review takeover drift that kept reanimating a
+  dead dual-agent loop. A deliberate
+  `review-channel --action reviewer-heartbeat --reviewer-mode single_agent`
+  now retires detached publisher/reviewer-supervisor daemons before the
+  reviewer status snapshot is rebuilt, so stale lifecycle heartbeats cannot
+  silently rewrite the bridge back to `active_dual_agent` after Codex has
+  reclaimed local single-agent authority.
+- 2026-04-09: Closed one bounded repo-owned recover-path launch gap that was
+  still making the phone-steered loop look healthier than it was. The live
+  `review-channel --action recover --recover-provider claude --terminal none`
+  path prepared a fresh Claude script and metadata but never actually spawned
+  the implementer because `_maybe_launch_recover_sessions()` only launched for
+  `terminal-app`. Headless recover now routes through the same detached
+  proof-of-life launcher discipline as other headless review-channel starts,
+  preserves launch warnings in the recover report, and waits for the same ACK
+  refresh contract instead of silently reporting a no-op recover as success.
 - 2026-04-09: Closed one bounded external-session identity slice for the
   phone-steered Claude path without creating a second authority channel.
   `review-channel --action attach-remote-control` now writes one canonical

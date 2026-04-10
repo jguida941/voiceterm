@@ -39,6 +39,58 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 
 ### 2026-04-07 - ReviewSnapshot hook hardening routed through owner plans
 
+### 2026-04-09 - Headless recover became a real relaunch path, and session-resume stopped reusing stale review-state text
+
+Fact: the narrow repo-owned `review-channel --action recover` path had one
+real remote-control gap left. In governed `--terminal none` mode it prepared
+fresh Claude implementer scripts and metadata, but `_maybe_launch_recover_
+sessions()` only launched for `terminal-app`, so the command could report a
+clean recover attempt while never actually starting the detached implementer.
+At the same time, `session-resume` still trusted stale loaded
+`review_state.current_session` text even when the caller had already supplied
+a fresher typed `ReviewState`, which let bootstrap/recover reuse old
+instruction prose after the authoritative typed state had moved on.
+
+This matters because phone-steered remote control only works if headless
+recover is a real launch path rather than a script generator, and if
+bootstrap/session-resume honor the same frozen typed review-state snapshot
+that status/startup already resolved. Otherwise the operator sees exactly the
+failure pattern from the field report: daemons and metadata look alive, but
+the implementer never comes back or wakes on stale instruction text.
+
+The closure is bounded. Headless recover now resolves the governed
+interaction mode, enforces the same headless-launch discipline as other
+review-channel starts, routes `--terminal none` through the detached
+proof-of-life launcher, preserves launch warnings in the recover report, and
+waits for the current implementer ACK before claiming success. On the read
+side, `_load_governed_sources()` now explicitly overwrites the loaded
+`review_state` payload with the caller-threaded typed `ReviewState`, so
+`session-resume` no longer lets stale compact/current-session payloads beat
+the frozen typed snapshot supplied by startup/reviewer tooling.
+
+### 2026-04-10 - Local reviewer takeover now retires stale dual-agent daemons
+
+Fact: the review-channel control plane still had one mode-authority split
+after the headless recover fix landed. A local
+`reviewer-heartbeat --reviewer-mode single_agent` takeover rewrote the bridge
+correctly, but the detached ensure/publisher and reviewer-supervisor daemons
+could keep heartbeating their older `active_dual_agent` lifecycle state and
+drag status/startup back into a relaunch deadlock a few seconds later.
+
+This matters because the sanctioned escape hatch from a dead dual-agent loop
+is supposed to be "Codex takes local single-agent authority and stabilizes the
+repo." If the background daemons can silently resurrect the stale loop mode,
+the operator sees exactly the wrong thing: `startup-context` flips green long
+enough to proceed, then `review-channel status` and the startup guard regress
+back to dual-agent relaunch requirements even though no live Claude
+implementer returned.
+
+The closure is small and repo-owned. The reviewer-state action now stops the
+detached publisher/reviewer-supervisor runtime when a reviewer deliberately
+downgrades into non-active mode, then rebuilds status from that retired
+lifecycle state. That keeps local `single_agent` takeover durable instead of
+letting stale daemon heartbeats silently restore `active_dual_agent`.
+
 ### 2026-04-09 - Remote Claude wrapper now follows typed runtime and governed mutation
 
 Fact: the phone-steered Claude remote-control wrapper was still too prompt-

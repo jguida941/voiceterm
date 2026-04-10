@@ -8699,6 +8699,34 @@ class ReviewChannelCommandTests(unittest.TestCase):
             (root / "notes.txt").write_text("tree moved after review\n", encoding="utf-8")
             output_path = root / "report.json"
             status_dir = root / "dev/reports/review_channel/latest"
+            _write_live_runtime(status_dir)
+            stop_report = {
+                "command": "review-channel",
+                "action": "stop",
+                "ok": True,
+                "daemon_kind": "all",
+                "grace_seconds": 5.0,
+                "results": [
+                    {
+                        "daemon_kind": "reviewer_supervisor",
+                        "attempted": True,
+                        "stopped": True,
+                        "ok": True,
+                        "reason": "manual_stop",
+                        "signal": "SIGINT",
+                    },
+                    {
+                        "daemon_kind": "publisher",
+                        "attempted": True,
+                        "stopped": True,
+                        "ok": True,
+                        "reason": "manual_stop",
+                        "signal": "SIGINT",
+                    },
+                ],
+                "stopped_daemons": ["reviewer_supervisor", "publisher"],
+                "errors": [],
+            }
             args = SimpleNamespace(
                 action="reviewer-heartbeat",
                 execution_mode="auto",
@@ -8730,7 +8758,13 @@ class ReviewChannelCommandTests(unittest.TestCase):
                 pipe_args=None,
             )
 
-            with patch.object(review_channel_command, "REPO_ROOT", root):
+            with (
+                patch.object(review_channel_command, "REPO_ROOT", root),
+                patch(
+                    "dev.scripts.devctl.commands.review_channel._reviewer._run_stop_action",
+                    return_value=(stop_report, 0),
+                ) as stop_action,
+            ):
                 rc = review_channel_command.run(args)
 
             self.assertEqual(rc, 0)
@@ -8751,6 +8785,11 @@ class ReviewChannelCommandTests(unittest.TestCase):
                 payload["reviewer_state_write"]["last_worktree_hash"],
                 "a" * 64,
             )
+            self.assertEqual(
+                payload["lifecycle_stop"]["stopped_daemons"],
+                ["reviewer_supervisor", "publisher"],
+            )
+            stop_action.assert_called_once()
             review_state_path = Path(payload["projection_paths"]["review_state_path"])
             full_path = Path(payload["projection_paths"]["full_path"])
             review_state = json.loads(review_state_path.read_text(encoding="utf-8"))
@@ -10538,6 +10577,94 @@ class ReviewChannelCommandTests(unittest.TestCase):
             )
             self.assertFalse(payload["launched"])
             self.assertTrue(payload["sessions"])
+
+    def test_run_recover_headless_launches_and_waits_for_ack(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            review_channel_path = root / "dev/active/review_channel.md"
+            review_channel_path.parent.mkdir(parents=True, exist_ok=True)
+            review_channel_path.write_text(
+                _build_review_channel_text(),
+                encoding="utf-8",
+            )
+            bridge_path = root / "bridge.md"
+            bridge_path.write_text(
+                _build_bridge_text(
+                    current_instruction="- replace the stale implementer conductor",
+                    claude_status="- pending",
+                    claude_ack="- pending",
+                ),
+                encoding="utf-8",
+            )
+            output_path = root / "report.json"
+            status_dir = root / "dev/reports/review_channel/latest"
+            _write_live_runtime(status_dir)
+            _write_active_conductor_session(status_dir, provider="codex")
+            args = SimpleNamespace(
+                action="recover",
+                execution_mode="auto",
+                terminal="none",
+                terminal_profile="auto-dark",
+                review_channel_path=str(review_channel_path.relative_to(root)),
+                bridge_path=str(bridge_path.relative_to(root)),
+                rollover_dir="dev/reports/review_channel/rollovers",
+                status_dir=str(status_dir.relative_to(root)),
+                promotion_plan=None,
+                rollover_threshold_pct=50,
+                rollover_trigger="peer-stale",
+                await_ack_seconds=180,
+                codex_workers=8,
+                claude_workers=8,
+                dangerous=False,
+                approval_mode="balanced",
+                operator_interaction_mode="remote_control",
+                script_dir=None,
+                dry_run=False,
+                recover_provider="claude",
+                refresh_bridge_heartbeat_if_stale=False,
+                format="json",
+                output=str(output_path),
+                json_output=None,
+                pipe_command=None,
+                pipe_args=None,
+            )
+
+            with (
+                patch.object(review_channel_command, "REPO_ROOT", root),
+                patch(
+                    "dev.scripts.devctl.review_channel.state.compute_non_audit_worktree_hash",
+                    return_value="a" * 64,
+                ),
+                patch(
+                    "dev.scripts.devctl.review_channel.reviewer_worker.compute_non_audit_worktree_hash",
+                    return_value="a" * 64,
+                ),
+                patch(
+                    "dev.scripts.devctl.commands.review_channel._recover._launch_sessions_headless",
+                    return_value=True,
+                ) as mocked_headless_launch,
+                patch(
+                    "dev.scripts.devctl.commands.review_channel._recover.resolve_launch_interaction_mode",
+                    return_value="remote_control",
+                ),
+                patch(
+                    "dev.scripts.devctl.commands.review_channel._recover.wait_for_claude_ack_refresh",
+                    return_value={"observed": True, "claude_ack_current": True},
+                ) as mocked_wait_for_ack,
+            ):
+                rc = review_channel_command.run(args)
+
+            self.assertEqual(rc, 0)
+            payload = json.loads(output_path.read_text(encoding="utf-8"))
+            self.assertTrue(payload["ok"])
+            self.assertTrue(payload["launched"])
+            self.assertEqual(payload["recover_provider"], "claude")
+            self.assertEqual(
+                payload["recover_ack_observed"],
+                {"observed": True, "claude_ack_current": True},
+            )
+            mocked_headless_launch.assert_called_once()
+            mocked_wait_for_ack.assert_called_once()
 
     def test_run_recover_uses_planned_reviewer_provider_for_swapped_roles(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

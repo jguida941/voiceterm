@@ -4,8 +4,10 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from pathlib import Path
+from types import SimpleNamespace
 
 from ...review_channel.core import filter_provider_lanes
+from ...review_channel.peer_liveness import reviewer_mode_is_active
 from ...review_channel.plan_resolution import resolve_promotion_plan_path
 from ..review_channel_bridge_render import build_bridge_success_report
 from ...review_channel.reviewer_state import (
@@ -24,6 +26,7 @@ from ..review_channel_command import (
 from ..review_channel_command.reviewer_support import resolve_checkpoint_instruction
 from ..review_channel_command.reviewer_support import resolve_checkpoint_body
 from ..review_channel_command.reviewer_support import resolve_checkpoint_payload_file
+from ._stop import run_stop_action as _run_stop_action
 from .reviewer_runtime_snapshot import attach_reviewer_runtime_snapshot
 from .status import _attach_backend_contract
 
@@ -189,6 +192,12 @@ def run_reviewer_state_action(
             ),
         )
 
+    lifecycle_stop_report, lifecycle_stop_exit_code = _maybe_stop_detached_review_runtime(
+        action=action,
+        args=args,
+        repo_root=repo_root,
+        runtime_paths=runtime_paths,
+    )
     report, exit_code = build_reviewer_state_report(
         args=args,
         repo_root=repo_root,
@@ -199,6 +208,8 @@ def run_reviewer_state_action(
     )
 
     report["reviewer_state_write"] = reviewer_state_write_to_dict(state_write)
+    if lifecycle_stop_report is not None:
+        report["lifecycle_stop"] = lifecycle_stop_report
     if action is ReviewChannelAction.REVIEWER_CHECKPOINT:
         report["instruction_auto_promoted"] = bool(
             auto_instruction_candidate is not None
@@ -208,4 +219,42 @@ def run_reviewer_state_action(
                 "source_path": auto_instruction_candidate.source_path,
                 "checklist_item": auto_instruction_candidate.checklist_item,
             }
+    if lifecycle_stop_exit_code != 0:
+        errors = list(report.get("errors") or [])
+        errors.extend(
+            str(item)
+            for item in (lifecycle_stop_report or {}).get("errors", [])
+            if str(item).strip()
+        )
+        report["errors"] = errors
+        report["ok"] = False
+        report["exit_ok"] = False
+        report["exit_code"] = 1
+        return report, 1
     return report, exit_code
+
+
+def _maybe_stop_detached_review_runtime(
+    *,
+    action: ReviewChannelAction,
+    args,
+    repo_root: Path,
+    runtime_paths: RuntimePaths,
+) -> tuple[dict[str, object] | None, int]:
+    """Retire detached follow daemons when a reviewer takes local single-agent control."""
+    if action not in {
+        ReviewChannelAction.REVIEWER_HEARTBEAT,
+        ReviewChannelAction.REVIEWER_CHECKPOINT,
+    }:
+        return None, 0
+    if reviewer_mode_is_active(getattr(args, "reviewer_mode", None)):
+        return None, 0
+    stop_args = SimpleNamespace(
+        daemon_kind="all",
+        stop_grace_seconds=float(getattr(args, "stop_grace_seconds", 5.0) or 5.0),
+    )
+    return _run_stop_action(
+        args=stop_args,
+        repo_root=repo_root,
+        paths=runtime_paths,
+    )

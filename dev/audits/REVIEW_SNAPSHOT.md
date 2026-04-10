@@ -5,14 +5,14 @@
 ## Quick status
 
 - Branch: `feature/governance-quality-sweep`
-- HEAD: `8f4bf379f248` — docs(audits): log BL-032 through BL-035 from session 2026-04-09 audit pass
-- Tree hash: `2978dff3cf2e`
-- Generation stamp: `snap-738f937433e0`
-- Generated at (UTC): 2026-04-09T22:01:42Z
-- Push decision: `await_checkpoint` — staged_index_present
-- Reviewer mode: `tools_only` (interaction: `remote_control`)
+- HEAD: `655db93a3c74` — fix(discover): Q22 closure — repair KeyError crashes in --format md renderer
+- Tree hash: `b471b8df50c1`
+- Generation stamp: `snap-9afb6534cfb5`
+- Generated at (UTC): 2026-04-10T01:17:52Z
+- Push decision: `await_checkpoint` — staged_index_budget_exceeded
+- Reviewer mode: `single_agent` (interaction: `remote_control`)
 - Pipeline state: `n/a` (approval: `n/a`)
-- Delta since last snapshot: 24 commits, 84 files, +8604/-1564
+- Delta since last snapshot: 24 commits, 83 files, +8572/-1541
 - Governance findings: 39 open / 68 fixed / 121 total
 - Probe hints: 0 total across 0 files scanned
 
@@ -54,33 +54,29 @@ adopters arrive.
 - Remote: `https://github.com/jguida941/voiceterm.git`
 - Default branch: `master`
 - Current branch: `feature/governance-quality-sweep`
-- HEAD SHA: `8f4bf379f2489fc56016b81629c82efe4c87f96b`
+- HEAD SHA: `655db93a3c7468cae28c949dac1e19565aa16d58`
 - HEAD author: Justin Guida
-- HEAD timestamp (UTC): 2026-04-09T17:58:18-04:00
+- HEAD timestamp (UTC): 2026-04-09T18:01:34-04:00
 
 ## 2. Governance state
 
 ### Push decision
 - action: `await_checkpoint`
-- reason: staged_index_present
+- reason: staged_index_budget_exceeded
 - push_eligible_now: False
 - worktree_clean: False
-- staged_path_count: 1
+- staged_path_count: 13
 - unstaged_path_count: 0
 - next_step_command: `n/a`
 - latest_push_report: `dev/reports/push/latest.json`
 - latest_push_report_state: `post_push_green` (push_completed)
-- current_push_authorization: `push-auth-20260409T132557373695Z` (valid=False)
-- authorized_head_commit: `2ca00812b1faf8edc7e08b8d6f2a8c3e8991673e`
-- approved_target_identity: `tree-receipt-20260409T132557373695Z:f94740d60423a9e197ed696a6de7e89983b7b90e`
 - publication_backlog: none
 
 ### Reviewer runtime
-- reviewer_mode: `tools_only`
+- reviewer_mode: `single_agent`
 - reviewer_freshness: unknown
-- reviewer_publish_clear: False
+- reviewer_publish_clear: True
 - interaction_mode: `remote_control`
-- implementation_blocked: yes — runtime_missing
 
 ### Remote commit pipeline
 - state: `n/a`
@@ -90,16 +86,17 @@ adopters arrive.
 - active plan: **Master Plan (Active, Unified)**
 - plan path: `dev/active/MASTER_PLAN.md`
 - active MP scope: all active MP execution state
-- advisory: `checkpoint_before_continue` — concurrent_writer_activity
+- advisory: `checkpoint_before_continue` — staged_index_budget_exceeded
+- checkpoint_required: **yes**
 
 ## 3. Delta — what changed since the previous snapshot
 
-Range: last 24 commits ending at `8f4bf379f248`
+Range: last 24 commits ending at `655db93a3c74`
 
 - commits: 24
-- files changed: 84
-- insertions: +8604
-- deletions: -1564
+- files changed: 83
+- insertions: +8572
+- deletions: -1541
 - bundle classes touched: tooling, docs
 - risk add-ons triggered: Parser / ANSI boundary
 - authority surfaces touched: 8 file(s)
@@ -108,30 +105,30 @@ Range: last 24 commits ending at `8f4bf379f248`
 
 | # | SHA | Subject | Files | +/- | Bundle | Risk |
 |---|---|---|---|---|---|---|
-| 1 | `8f4bf379` | docs(audits): log BL-032 through BL-035 from session 2026-0… | 2 | +173/-58 | tooling |  |
-| 2 | `1864fc2c` | feat(devctl): BL-031 cross-mind polling — agent-mind command | 10 | +1513/-55 | tooling |  |
-| 3 | `4129af6c` | docs(governance): Codex's doc updates for 2026-04-09 F1/F2/… | 7 | +403/-66 | tooling |  |
-| 4 | `5985e70c` | feat(devctl): pipeline recovery command (BL-006) — typed re… | 12 | +1652/-46 | tooling |  |
-| 5 | `49d1db53` | Refresh external review snapshot for 363fe42c | 1 | +57/-54 | tooling |  |
-| 6 | `363fe42c` | fix(hygiene): Platform Boundary fix + regression tests + co… | 3 | +223/-47 | tooling |  |
-| 7 | `e4870754` | fix(review-channel): attach-remote-control cleanup (F2.1 th… | 4 | +336/-70 | tooling |  |
-| 8 | `d35abef0` | test(process-sweep): positive + negative regression tests f… | 2 | +195/-60 | tooling |  |
-| 9 | `971647ec` | fix(rollout-tail): F3 narrow Claude session discovery + tai… | 4 | +351/-58 | tooling | Parser / ANSI boundary |
-| 10 | `a65fc7c4` | fix(review): land F1+F2 from Codex reviewer pass | 5 | +161/-58 | tooling |  |
-| 11 | `adb266b5` | Refresh external review snapshot for d84b27fa | 1 | +60/-58 | tooling |  |
-| 12 | `d84b27fa` | feat(lifecycle): add recoverable flag to ReviewerSupervisor… | 2 | +77/-86 | tooling |  |
-| 13 | `8f42ea3f` | feat(devctl): rollout-tail MVP for Codex/Claude session JSO… | 11 | +1088/-49 | tooling | Parser / ANSI boundary |
-| 14 | `2ca00812` | Refresh external review snapshot for 696f4772 | 1 | +52/-46 | tooling |  |
-| 15 | `696f4772` | fix(hygiene): trust supervisor heartbeat for reparented con… | 2 | +62/-54 | tooling |  |
-| 16 | `8c800411` | Refresh external review snapshot for a12b6593 | 1 | +82/-77 | tooling |  |
-| 17 | `a12b6593` | feat(review-channel): attach-remote-control action + typed… | 37 | +1188/-131 | tooling | Parser / ANSI boundary |
-| 18 | `a5ad7fc0` | fix(runtime): F1 coordination parity via review_state_overr… | 7 | +253/-103 | tooling |  |
-| 19 | `838b762c` | Refresh external review snapshot for d7e7e597 | 1 | +57/-51 | tooling |  |
-| 20 | `d7e7e597` | policy: declare operator_interaction_mode=remote_control | 2 | +63/-63 | tooling |  |
-| 21 | `08770a66` | Refresh external review snapshot for 675ca93d | 1 | +65/-69 | tooling |  |
-| 22 | `675ca93d` | fix: scope post-push validation to published diff | 13 | +359/-91 | tooling |  |
-| 23 | `a60f1470` | Refresh external review snapshot for 69317302 | 1 | +52/-49 | tooling |  |
-| 24 | `69317302` | fix: support coderabbit gate script imports | 3 | +82/-65 | tooling |  |
+| 1 | `655db93a` | fix(discover): Q22 closure — repair KeyError crashes in --f… | 2 | +50/-42 | tooling |  |
+| 2 | `8f4bf379` | docs(audits): log BL-032 through BL-035 from session 2026-0… | 2 | +173/-58 | tooling |  |
+| 3 | `1864fc2c` | feat(devctl): BL-031 cross-mind polling — agent-mind command | 10 | +1513/-55 | tooling |  |
+| 4 | `4129af6c` | docs(governance): Codex's doc updates for 2026-04-09 F1/F2/… | 7 | +403/-66 | tooling |  |
+| 5 | `5985e70c` | feat(devctl): pipeline recovery command (BL-006) — typed re… | 12 | +1652/-46 | tooling |  |
+| 6 | `49d1db53` | Refresh external review snapshot for 363fe42c | 1 | +57/-54 | tooling |  |
+| 7 | `363fe42c` | fix(hygiene): Platform Boundary fix + regression tests + co… | 3 | +223/-47 | tooling |  |
+| 8 | `e4870754` | fix(review-channel): attach-remote-control cleanup (F2.1 th… | 4 | +336/-70 | tooling |  |
+| 9 | `d35abef0` | test(process-sweep): positive + negative regression tests f… | 2 | +195/-60 | tooling |  |
+| 10 | `971647ec` | fix(rollout-tail): F3 narrow Claude session discovery + tai… | 4 | +351/-58 | tooling | Parser / ANSI boundary |
+| 11 | `a65fc7c4` | fix(review): land F1+F2 from Codex reviewer pass | 5 | +161/-58 | tooling |  |
+| 12 | `adb266b5` | Refresh external review snapshot for d84b27fa | 1 | +60/-58 | tooling |  |
+| 13 | `d84b27fa` | feat(lifecycle): add recoverable flag to ReviewerSupervisor… | 2 | +77/-86 | tooling |  |
+| 14 | `8f42ea3f` | feat(devctl): rollout-tail MVP for Codex/Claude session JSO… | 11 | +1088/-49 | tooling | Parser / ANSI boundary |
+| 15 | `2ca00812` | Refresh external review snapshot for 696f4772 | 1 | +52/-46 | tooling |  |
+| 16 | `696f4772` | fix(hygiene): trust supervisor heartbeat for reparented con… | 2 | +62/-54 | tooling |  |
+| 17 | `8c800411` | Refresh external review snapshot for a12b6593 | 1 | +82/-77 | tooling |  |
+| 18 | `a12b6593` | feat(review-channel): attach-remote-control action + typed… | 37 | +1188/-131 | tooling | Parser / ANSI boundary |
+| 19 | `a5ad7fc0` | fix(runtime): F1 coordination parity via review_state_overr… | 7 | +253/-103 | tooling |  |
+| 20 | `838b762c` | Refresh external review snapshot for d7e7e597 | 1 | +57/-51 | tooling |  |
+| 21 | `d7e7e597` | policy: declare operator_interaction_mode=remote_control | 2 | +63/-63 | tooling |  |
+| 22 | `08770a66` | Refresh external review snapshot for 675ca93d | 1 | +65/-69 | tooling |  |
+| 23 | `675ca93d` | fix: scope post-push validation to published diff | 13 | +359/-91 | tooling |  |
+| 24 | `a60f1470` | Refresh external review snapshot for 69317302 | 1 | +52/-49 | tooling |  |
 
 ### Files
 
@@ -144,14 +141,13 @@ Range: last 24 commits ending at `8f4bf379f248`
 | `dev/active/continuous_swarm.md` | tooling | +10/-0 |
 | `dev/active/remote_commit_pipeline.md` | tooling | +22/-0 |
 | `dev/active/remote_control_runtime.md` | tooling | +43/-0 |
-| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1400/-1395 |
+| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1383/-1370 |
 | `dev/audits/TEST_BACKLOG.md` | tooling | +401/-0 |
 | `dev/config/devctl_repo_policy.json` | tooling | +3/-0 |
 | `dev/config/git_hooks/pre-push-governed-push.sh` | tooling | +12/-1 |
 | `dev/guides/DEVELOPMENT.md` | docs | +26/-3 |
 | `dev/history/ENGINEERING_EVOLUTION.md` | tooling | +135/-0 |
 | `dev/scripts/README.md` | tooling | +33/-8 |
-| `dev/scripts/checks/coderabbit_gate_core/__init__.py` | tooling | +4/-1 |
 | `dev/scripts/devctl/agent_mind_parser.py` | tooling | +75/-0 |
 | `dev/scripts/devctl/cli.py` | tooling | +13/-0 |
 | `dev/scripts/devctl/commands/agent_mind/__init__.py` | tooling | +27/-0 |
@@ -161,6 +157,7 @@ Range: last 24 commits ending at `8f4bf379f248`
 | `dev/scripts/devctl/commands/agent_mind/slice_builder.py` | tooling | +297/-0 |
 | `dev/scripts/devctl/commands/check/process_sweep.py` | tooling | +31/-2 |
 | `dev/scripts/devctl/commands/dashboard.py` | tooling | +11/-3 |
+| `dev/scripts/devctl/commands/discover/__init__.py` | tooling | +9/-3 |
 | `dev/scripts/devctl/commands/governance/hygiene_support.py` | tooling | +49/-5 |
 | `dev/scripts/devctl/commands/governance/session_resume_render.py` | tooling | +21/-0 |
 | `dev/scripts/devctl/commands/governance/session_resume_support.py` | tooling | +38/-14 |
@@ -177,7 +174,7 @@ Range: last 24 commits ending at `8f4bf379f248`
 | `dev/scripts/devctl/commands/review_channel_command/helpers.py` | tooling | +12/-0 |
 | `dev/scripts/devctl/commands/rollout_tail/__init__.py` | tooling | +37/-0 |
 | `dev/scripts/devctl/commands/rollout_tail/command.py` | tooling | +70/-0 |
-| _44 more files trimmed_ | | |
+| _43 more files trimmed_ | | |
 
 ## 4. Quality signals
 
@@ -272,97 +269,100 @@ Recent findings:
 
 ### Per-commit rationale
 
+- **`655db93a`** — fix(discover): Q22 closure — repair KeyError crashes in --format md renderer
+  - Closes Q22 from dev/audits/LIVE_RUN.md: `devctl discover --format md`
+  - crashed with KeyError when rendering guards, probes, and surfaces.
+  - This was the top-level AI-callable capability inventory — every AI
+  - evolution: Fact: the narrow repo-owned `review-channel --action recover` path had one real remote-control gap left. In governed `--terminal none` mode it prepared fresh Claude implementer scripts and metadata, but `_maybe_launch_r…
 - **`8f4bf379`** — docs(audits): log BL-032 through BL-035 from session 2026-04-09 audit pass
   - Extends TEST_BACKLOG.md with four new findings surfaced during the
   - rich-detail audit pass + cross-mind polling landing:
-  - evolution: Fact: the phone-steered Claude remote-control wrapper was still too prompt- local. It printed typed health but did not consume typed next-step / recovery truth, and the tracked remote prompt still taught raw `git commit…
+  - evolution: Fact: the narrow repo-owned `review-channel --action recover` path had one real remote-control gap left. In governed `--terminal none` mode it prepared fresh Claude implementer scripts and metadata, but `_maybe_launch_r…
 - **`1864fc2c`** — feat(devctl): BL-031 cross-mind polling — agent-mind command
   - Implements the cross-mind polling MVP from TEST_BACKLOG BL-031. This is
   - the architectural multiplier the operator asked for in session 2026-04-09:
   - agents can now read each other's live JSONL reasoning streams as typed
-  - evolution: Fact: the phone-steered Claude remote-control wrapper was still too prompt- local. It printed typed health but did not consume typed next-step / recovery truth, and the tracked remote prompt still taught raw `git commit…
+  - evolution: Fact: the narrow repo-owned `review-channel --action recover` path had one real remote-control gap left. In governed `--terminal none` mode it prepared fresh Claude implementer scripts and metadata, but `_maybe_launch_r…
 - **`4129af6c` | markers: F1, F2, F3** — docs(governance): Codex's doc updates for 2026-04-09 F1/F2/F3 closure
   - Authored by Codex (reviewer conductor PID 90168) during the session
   - 2026-04-09 review pass. Codex wrote the canonical documentation for
   - the F1/F2/F3 reviewer closure into the governance doc surfaces while
-  - evolution: Fact: the phone-steered Claude remote-control wrapper was still too prompt- local. It printed typed health but did not consume typed next-step / recovery truth, and the tracked remote prompt still taught raw `git commit…
+  - evolution: Fact: the narrow repo-owned `review-channel --action recover` path had one real remote-control gap left. In governed `--terminal none` mode it prepared fresh Claude implementer scripts and metadata, but `_maybe_launch_r…
 - **`5985e70c`** — feat(devctl): pipeline recovery command (BL-006) — typed recovery for wedged commit pipelines
   - Implements `devctl.py pipeline --action {status,recover,abandon,refresh-authorization}`,
   - the typed recovery surface that eliminates the single biggest bypass driver
   - of session 2026-04-09.
-  - evolution: Fact: the phone-steered Claude remote-control wrapper was still too prompt- local. It printed typed health but did not consume typed next-step / recovery truth, and the tracked remote prompt still taught raw `git commit…
+  - evolution: Fact: the narrow repo-owned `review-channel --action recover` path had one real remote-control gap left. In governed `--terminal none` mode it prepared fresh Claude implementer scripts and metadata, but `_maybe_launch_r…
 - **`49d1db53`** — Refresh external review snapshot for 363fe42c
-  - evolution: Fact: the phone-steered Claude remote-control wrapper was still too prompt- local. It printed typed health but did not consume typed next-step / recovery truth, and the tracked remote prompt still taught raw `git commit…
+  - evolution: Fact: the narrow repo-owned `review-channel --action recover` path had one real remote-control gap left. In governed `--terminal none` mode it prepared fresh Claude implementer scripts and metadata, but `_maybe_launch_r…
 - **`363fe42c`** — fix(hygiene): Platform Boundary fix + regression tests + corrupt heartbeat diagnostic
   - Closes H1, H2, H3 from code-reviewer agent audit on commit 696f4772
   - (`fix(hygiene): trust supervisor heartbeat for reparented conductor
   - detection`).
-  - evolution: Fact: the phone-steered Claude remote-control wrapper was still too prompt- local. It printed typed health but did not consume typed next-step / recovery truth, and the tracked remote prompt still taught raw `git commit…
+  - evolution: Fact: the narrow repo-owned `review-channel --action recover` path had one real remote-control gap left. In governed `--terminal none` mode it prepared fresh Claude implementer scripts and metadata, but `_maybe_launch_r…
 - **`e4870754` | markers: F2** — fix(review-channel): attach-remote-control cleanup (F2.1 through F2.7)
   - Closes 6 code-review findings on commit a12b6593 (`feat(review-channel):
   - attach-remote-control action + typed attachment state`). All findings
   - surfaced by the parallel code-reviewer agent pass.
-  - evolution: Fact: the phone-steered Claude remote-control wrapper was still too prompt- local. It printed typed health but did not consume typed next-step / recovery truth, and the tracked remote prompt still taught raw `git commit…
+  - evolution: Fact: the narrow repo-owned `review-channel --action recover` path had one real remote-control gap left. In governed `--terminal none` mode it prepared fresh Claude implementer scripts and metadata, but `_maybe_launch_r…
 - **`d35abef0` | markers: F2** — test(process-sweep): positive + negative regression tests for F2 fallback
   - Adds two regression tests for the supervisor-backed conductor-protection
   - fallback in `_protected_registered_conductor_pids` (landed alongside
   - Codex's F2 fix in commit a65fc7c4).
-  - evolution: Fact: the phone-steered Claude remote-control wrapper was still too prompt- local. It printed typed health but did not consume typed next-step / recovery truth, and the tracked remote prompt still taught raw `git commit…
+  - evolution: Fact: the narrow repo-owned `review-channel --action recover` path had one real remote-control gap left. In governed `--terminal none` mode it prepared fresh Claude implementer scripts and metadata, but `_maybe_launch_r…
 - **`971647ec` | markers: F3** — fix(rollout-tail): F3 narrow Claude session discovery + tail reader off-by-one
   - Closes F3 from Codex's review pass on HEAD adb266b5, plus a tail-reader
   - bug caught by code-reviewer agent audit on the same commit set.
-  - evolution: Fact: the phone-steered Claude remote-control wrapper was still too prompt- local. It printed typed health but did not consume typed next-step / recovery truth, and the tracked remote prompt still taught raw `git commit…
+  - evolution: Fact: the narrow repo-owned `review-channel --action recover` path had one real remote-control gap left. In governed `--terminal none` mode it prepared fresh Claude implementer scripts and metadata, but `_maybe_launch_r…
 - **`a65fc7c4` | markers: F1, F2** — fix(review): land F1+F2 from Codex reviewer pass
   - Codex (reviewer, PID 90168) posted F1/F2/F3 findings during the live
   - review channel pass for HEAD adb266b5 and authored the F1 + F2 fixes
   - through its conductor session. Claude-88455 is committing them so the
-  - evolution: Fact: the phone-steered Claude remote-control wrapper was still too prompt- local. It printed typed health but did not consume typed next-step / recovery truth, and the tracked remote prompt still taught raw `git commit…
+  - evolution: Fact: the narrow repo-owned `review-channel --action recover` path had one real remote-control gap left. In governed `--terminal none` mode it prepared fresh Claude implementer scripts and metadata, but `_maybe_launch_r…
 - **`adb266b5`** — Refresh external review snapshot for d84b27fa
-  - evolution: Fact: the phone-steered Claude remote-control wrapper was still too prompt- local. It printed typed health but did not consume typed next-step / recovery truth, and the tracked remote prompt still taught raw `git commit…
+  - evolution: Fact: the narrow repo-owned `review-channel --action recover` path had one real remote-control gap left. In governed `--terminal none` mode it prepared fresh Claude implementer scripts and metadata, but `_maybe_launch_r…
 - **`d84b27fa`** — feat(lifecycle): add recoverable flag to ReviewerSupervisorHeartbeat (Q8 groundwork)
   - Partial Q8 fix: extends the typed ReviewerSupervisorHeartbeat contract
   - with a `recoverable: bool = False` field so an intentional
   - operator-directed stop can be distinguished from a permanent manual
-  - evolution: Fact: the phone-steered Claude remote-control wrapper was still too prompt- local. It printed typed health but did not consume typed next-step / recovery truth, and the tracked remote prompt still taught raw `git commit…
+  - evolution: Fact: the narrow repo-owned `review-channel --action recover` path had one real remote-control gap left. In governed `--terminal none` mode it prepared fresh Claude implementer scripts and metadata, but `_maybe_launch_r…
 - **`8f42ea3f`** — feat(devctl): rollout-tail MVP for Codex/Claude session JSONL projection
   - Closes the single biggest typed-state gap identified in session 2026-04-09:
   - remote operators had no visibility into agent CLI internals (thoughts,
   - tool calls, sandbox-escalation requests). Codex's own rollout JSONL
-  - evolution: Fact: the phone-steered Claude remote-control wrapper was still too prompt- local. It printed typed health but did not consume typed next-step / recovery truth, and the tracked remote prompt still taught raw `git commit…
+  - evolution: Fact: the narrow repo-owned `review-channel --action recover` path had one real remote-control gap left. In governed `--terminal none` mode it prepared fresh Claude implementer scripts and metadata, but `_maybe_launch_r…
 - **`2ca00812`** — Refresh external review snapshot for 696f4772
-  - evolution: Fact: the phone-steered Claude remote-control wrapper was still too prompt- local. It printed typed health but did not consume typed next-step / recovery truth, and the tracked remote prompt still taught raw `git commit…
+  - evolution: Fact: the narrow repo-owned `review-channel --action recover` path had one real remote-control gap left. In governed `--terminal none` mode it prepared fresh Claude implementer scripts and metadata, but `_maybe_launch_r…
 - **`696f4772`** — fix(hygiene): trust supervisor heartbeat for reparented conductor detection
   - The hygiene runtime-process audit previously excluded supervised conductor
   - scripts from the supervised_conductors list whenever their ppid had become
   - 1 (init). Unix reparents children to init when their original parent shell
-  - evolution: Fact: the phone-steered Claude remote-control wrapper was still too prompt- local. It printed typed health but did not consume typed next-step / recovery truth, and the tracked remote prompt still taught raw `git commit…
+  - evolution: Fact: the narrow repo-owned `review-channel --action recover` path had one real remote-control gap left. In governed `--terminal none` mode it prepared fresh Claude implementer scripts and metadata, but `_maybe_launch_r…
 - **`8c800411`** — Refresh external review snapshot for a12b6593
-  - evolution: Fact: the phone-steered Claude remote-control wrapper was still too prompt- local. It printed typed health but did not consume typed next-step / recovery truth, and the tracked remote prompt still taught raw `git commit…
+  - evolution: Fact: the narrow repo-owned `review-channel --action recover` path had one real remote-control gap left. In governed `--terminal none` mode it prepared fresh Claude implementer scripts and metadata, but `_maybe_launch_r…
 - **`a12b6593`** — feat(review-channel): attach-remote-control action + typed attachment state
   - Adds the `review-channel --action attach-remote-control` action with a typed
   - RemoteControlAttachmentArtifact model and regression tests. Wires the typed
   - attachment registration through remote-bridge-loop.sh and
-  - evolution: Fact: the phone-steered Claude remote-control wrapper was still too prompt- local. It printed typed health but did not consume typed next-step / recovery truth, and the tracked remote prompt still taught raw `git commit…
+  - evolution: Fact: the narrow repo-owned `review-channel --action recover` path had one real remote-control gap left. In governed `--terminal none` mode it prepared fresh Claude implementer scripts and metadata, but `_maybe_launch_r…
 - **`a5ad7fc0` | markers: F1** — fix(runtime): F1 coordination parity via review_state_override
   - Closes the F1 non-determinism finding from dev/active/remote_control_runtime.md:
   - `TestCoordinationParityF1::test_three_surfaces_report_identical_coordination`
   - was flaky because `build_startup_context()` reused one typed `review_state`
-  - evolution: Fact: the phone-steered Claude remote-control wrapper was still too prompt- local. It printed typed health but did not consume typed next-step / recovery truth, and the tracked remote prompt still taught raw `git commit…
+  - evolution: Fact: the narrow repo-owned `review-channel --action recover` path had one real remote-control gap left. In governed `--terminal none` mode it prepared fresh Claude implementer scripts and metadata, but `_maybe_launch_r…
 - **`838b762c`** — Refresh external review snapshot for d7e7e597
-  - evolution: Fact: the phone-steered Claude remote-control wrapper was still too prompt- local. It printed typed health but did not consume typed next-step / recovery truth, and the tracked remote prompt still taught raw `git commit…
+  - evolution: Fact: the narrow repo-owned `review-channel --action recover` path had one real remote-control gap left. In governed `--terminal none` mode it prepared fresh Claude implementer scripts and metadata, but `_maybe_launch_r…
 - **`d7e7e597`** — policy: declare operator_interaction_mode=remote_control
   - Adds repo_governance.bridge_config.operator_interaction_mode="remote_control"
   - to dev/config/devctl_repo_policy.json so the F4 fail-closed launcher
   - discipline permits headless bridge launches (--terminal none) from the
-  - evolution: Fact: the phone-steered Claude remote-control wrapper was still too prompt- local. It printed typed health but did not consume typed next-step / recovery truth, and the tracked remote prompt still taught raw `git commit…
+  - evolution: Fact: the narrow repo-owned `review-channel --action recover` path had one real remote-control gap left. In governed `--terminal none` mode it prepared fresh Claude implementer scripts and metadata, but `_maybe_launch_r…
 - **`08770a66`** — Refresh external review snapshot for 675ca93d
-  - evolution: Fact: the phone-steered Claude remote-control wrapper was still too prompt- local. It printed typed health but did not consume typed next-step / recovery truth, and the tracked remote prompt still taught raw `git commit…
+  - evolution: Fact: the narrow repo-owned `review-channel --action recover` path had one real remote-control gap left. In governed `--terminal none` mode it prepared fresh Claude implementer scripts and metadata, but `_maybe_launch_r…
 - **`675ca93d`** — fix: scope post-push validation to published diff
-  - evolution: Fact: the phone-steered Claude remote-control wrapper was still too prompt- local. It printed typed health but did not consume typed next-step / recovery truth, and the tracked remote prompt still taught raw `git commit…
+  - evolution: Fact: the narrow repo-owned `review-channel --action recover` path had one real remote-control gap left. In governed `--terminal none` mode it prepared fresh Claude implementer scripts and metadata, but `_maybe_launch_r…
 - **`a60f1470`** — Refresh external review snapshot for 69317302
-  - evolution: Fact: the phone-steered Claude remote-control wrapper was still too prompt- local. It printed typed health but did not consume typed next-step / recovery truth, and the tracked remote prompt still taught raw `git commit…
-- **`69317302`** — fix: support coderabbit gate script imports
-  - evolution: Fact: the phone-steered Claude remote-control wrapper was still too prompt- local. It printed typed health but did not consume typed next-step / recovery truth, and the tracked remote prompt still taught raw `git commit…
+  - evolution: Fact: the narrow repo-owned `review-channel --action recover` path had one real remote-control gap left. In governed `--terminal none` mode it prepared fresh Claude implementer scripts and metadata, but `_maybe_launch_r…
 ### Active MP scope (from MASTER_PLAN.md)
 
 - `dev/active/devctl_reporting_upgrade.md` is the phased `devctl` reporting/CIHub specification, but not a separate execution tracker; implementation tasks stay in this file under `MP-297..MP-300`, `MP-303`, `MP-306`, `MP…
@@ -381,10 +381,11 @@ Recent findings:
 - open governance findings: 39
 
 ### Startup advisories
-- checkpoint_before_continue: concurrent_writer_activity
+- checkpoint_before_continue: staged_index_budget_exceeded
 
 ### Stale warnings
 - Keep editing the current slice.
+- Move straight to the governed push path.
 
 ### Open gap rows
 - **governance_open** (`dev/scripts/devctl/review_channel/bridge_sanitize.py`): agent_checkpoint_contract_ignorance: 
@@ -398,4 +399,4 @@ Recent findings:
 
 ---
 
-Projection produced by `devctl review-snapshot`. Generation stamp `snap-738f937433e0` binds this file to HEAD `8f4bf379f248`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
+Projection produced by `devctl review-snapshot`. Generation stamp `snap-9afb6534cfb5` binds this file to HEAD `655db93a3c74`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.

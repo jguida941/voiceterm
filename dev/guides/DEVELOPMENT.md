@@ -274,7 +274,10 @@ Three quality layers matter in practice:
     so the system stays current without pretending a second live agent exists.
     In Codex-only local-review mode, `single_agent` is the sanctioned
     reviewer state and the repo-owned `reviewer-heartbeat` / `reviewer-checkpoint`
-    path is the authority for review truth, not a parallel bridge edit.
+    path is the authority for review truth, not a parallel bridge edit. That
+    local takeover now also retires the detached publisher/reviewer-supervisor
+    runtime so stale dual-agent heartbeats cannot silently restore
+    `active_dual_agent` after the reviewer has intentionally downgraded modes.
     Human-facing shorthand is allowed on the CLI: `agents` normalizes to
     `active_dual_agent`, and `developer` normalizes to `single_agent`.
   - After a real review pass, advance review truth with
@@ -366,6 +369,15 @@ Three quality layers matter in practice:
     stays fail-closed and falls back to the queued reviewer-turn packet path
     instead of silently degrading to peer-stale `rollover`. Full `rollover`
     remains the bounded round/context-rotation restart path. Live Terminal.app
+    and governed headless recover now share the same launcher discipline:
+    `remote_control` may use `--terminal none`, local visible recovery stays on
+    `terminal-app`, and a successful headless recover must actually spawn the
+    implementer plus wait for a current ACK instead of only preparing scripts.
+    The paired bootstrap/session-resume surfaces must keep a caller-threaded
+    typed `ReviewState` authoritative over stale compact/current-session text
+    so a recovered implementer sees the same instruction the reviewer/status
+    surfaces already resolved.
+    Live Terminal.app
     launch now
     records the returned `terminal_window_id` in conductor session metadata,
     and rollover cleanup uses the retiring session snapshot to kill the old

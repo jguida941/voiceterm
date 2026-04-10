@@ -1373,6 +1373,21 @@
   commit/push through governed `devctl commit` / `devctl push` instead of raw
   git, so the phone-steered Claude session stays on the same typed mutation
   authority path as local repo-owned flows.
+- 2026-04-09 recover/bootstrap follow-up inside the same lane: the narrower
+  repo-owned `review-channel --action recover --recover-provider claude
+  --terminal none` path no longer stops at script generation in governed
+  `remote_control`; it now routes through the same detached proof-of-life
+  launcher discipline as other headless review-channel starts and waits for
+  the current implementer ACK before claiming success. The paired
+  `session-resume` source loader now also overwrites stale loaded
+  `review_state` payloads with the caller-threaded typed `ReviewState` so
+  recover/startup/session-resume reuse one frozen instruction/session truth
+  instead of mixing stale compact/current-session text back in.
+- 2026-04-10 reviewer-mode takeover follow-up in the same lane: a local
+  `reviewer-heartbeat --reviewer-mode single_agent` downgrade now retires the
+  detached publisher/reviewer-supervisor runtime before rebuilding status, so
+  stale daemon heartbeats cannot reassert `active_dual_agent` metadata and
+  push startup-authority / review-status back into relaunch deadlock.
 - 2026-03-29 package-layout baseline-debt enforcement closure: the
   `check_package_layout` guard now supports `--fail-on-baseline-debt` with
   optional `--baseline-debt-root` filtering, promoting detected baseline debt
