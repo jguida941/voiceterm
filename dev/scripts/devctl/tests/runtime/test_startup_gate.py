@@ -18,7 +18,11 @@ def _args(command: str, *, action: str = "") -> SimpleNamespace:
 
 
 class StartupGateRoutingTests(unittest.TestCase):
-    def test_gate_targets_only_scoped_commands(self) -> None:
+    @patch(
+        "dev.scripts.devctl.runtime.startup_gate.load_startup_receipt",
+        return_value=StartupReceipt(advisory_action="continue_editing"),
+    )
+    def test_gate_targets_only_scoped_commands(self, _load_receipt) -> None:
         self.assertFalse(command_requires_startup_gate(_args("push")))
         self.assertTrue(command_requires_startup_gate(_args("guard-run")))
         self.assertTrue(command_requires_startup_gate(_args("autonomy-loop")))
@@ -217,6 +221,43 @@ class StartupGateEnforcementTests(unittest.TestCase):
 
     def test_gate_ignores_read_only_commands(self) -> None:
         self.assertIsNone(enforce_startup_gate(_args("check-router")))
+
+    @patch(
+        "dev.scripts.devctl.runtime.startup_gate.load_startup_receipt",
+        return_value=StartupReceipt(advisory_action="repair_reviewer_loop"),
+    )
+    def test_repair_launch_bypasses_gate_for_review_channel(
+        self,
+        _load_receipt,
+    ) -> None:
+        """repair_reviewer_loop allows launch/rollover without bypassing checkpoint blockers."""
+        self.assertFalse(
+            command_requires_startup_gate(
+                _args("review-channel", action="launch")
+            )
+        )
+        self.assertFalse(
+            command_requires_startup_gate(
+                _args("review-channel", action="rollover")
+            )
+        )
+        # Non-review-channel gated commands stay gated even during repair
+        self.assertTrue(command_requires_startup_gate(_args("guard-run")))
+
+    @patch(
+        "dev.scripts.devctl.runtime.startup_gate.load_startup_receipt",
+        return_value=None,
+    )
+    def test_missing_receipt_still_gates_review_channel_launch(
+        self,
+        _load_receipt,
+    ) -> None:
+        """A missing startup receipt must not crash — it gates normally."""
+        self.assertTrue(
+            command_requires_startup_gate(
+                _args("review-channel", action="launch")
+            )
+        )
 
 
 if __name__ == "__main__":

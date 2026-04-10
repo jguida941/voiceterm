@@ -56,10 +56,11 @@ def _is_repair_launch(args: SimpleNamespace, action: str) -> bool:
         return False
     try:
         receipt = load_startup_receipt(repo_root=REPO_ROOT)
-        advisory_action = str(receipt.get("action", "") or "").strip()
-        return advisory_action == "repair_reviewer_loop"
-    except (FileNotFoundError, KeyError, TypeError, ValueError):
+    except (FileNotFoundError, ValueError):
         return False
+    if receipt is None:
+        return False
+    return str(receipt.advisory_action or "").strip() == "repair_reviewer_loop"
 
 
 def enforce_startup_gate(

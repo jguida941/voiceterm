@@ -77,13 +77,13 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-04-10T05:24:59Z`
-- Last Codex poll (Local America/New_York): `2026-04-10 01:24:59 EDT`
+- Last Codex poll: `2026-04-10T05:32:12Z`
+- Last Codex poll (Local America/New_York): `2026-04-10 01:32:12 EDT`
 - Reviewer mode: `active_dual_agent`
-- Last non-audit worktree hash: `ca2febaf1b19338a0312be30cfc18c51d8df60ea610b4cd05cf811957d55def5`
-- Current instruction revision: `10bfe64d2518`
+- Last non-audit worktree hash: `9018f891a90a3801fd687ed9a9cfd0ce829eaaa0ccf0f5044f80e4a2e4e38874`
+- Current instruction revision: `bfacef5140b9`
 - Last checkpoint action: `reviewer-checkpoint`
-- Head at push time: `5687e3be1fcc10ff662bea8b647cc82e3f25e40e`
+- Head at push time: `e3c56a531e2f6f63b88d8a72a0cf0c31901bcb5c`
 ## Protocol
 
 1. Claude should poll this file periodically while coding.
@@ -114,15 +114,15 @@ treat these rules as active workflow instructions immediately.
 
 ## Poll Status
 
-- Reviewer checkpoint updated through repo-owned tooling (mode: active_dual_agent; reason: bootstrap-launch-repair; observed-tree: ca2febaf1b19; reviewed-tree: ca2febaf1b19; instruction-rev: 10bfe64d2518).
+- Reviewer checkpoint updated through repo-owned tooling (mode: active_dual_agent; reason: review-finding-startup-gate-docs; observed-tree: 9018f891a90a; reviewed-tree: 9018f891a90a; instruction-rev: bfacef5140b9).
 
 ## Current Verdict
 
-Review in progress for rev_pkt_0183 and diff 49217891d15e..5687e3be; no acceptance posted yet.
+Follow-up required before acceptance: F1 startup-gate crash and F2 strict-tooling docs failure are blocking.
 
 ## Open Findings
 
-none posted yet; Codex review in progress.
+F1 blocking: dev/scripts/devctl/runtime/startup_gate.py line 59 treats StartupReceipt as a mapping and crashes review-channel launch or rollover. Repro: review-channel launch raises AttributeError and python3 -m unittest dev.scripts.devctl.tests.runtime.test_startup_gate has 5 errors. F2 blocking: python3 dev/scripts/devctl.py docs-check --strict-tooling fails because startup_gate.py and test_startup_gate.py tooling changes require maintainer docs, ai_governance_platform plan coverage, and ENGINEERING_EVOLUTION updates.
 
 ## Claude Status
 
@@ -138,11 +138,11 @@ none posted yet; Codex review in progress.
 
 ## Current Instruction For Claude
 
-- Hold steady. Codex is reviewing rev_pkt_0183 and diff 49217891d15e..5687e3be. Do not start new implementation until Codex posts findings or promotes the next task.
+- Fix F1 and F2. For F1, update dev/scripts/devctl/runtime/startup_gate.py to read StartupReceipt.advisory_action, handle a missing receipt without crashing, and add regression coverage in dev/scripts/devctl/tests/runtime/test_startup_gate.py for repair_reviewer_loop launch or rollover. For F2, update the maintainer/plan/evolution docs required by docs-check --strict-tooling. Rerun python3 -m unittest dev.scripts.devctl.tests.runtime.test_startup_gate and python3 dev/scripts/devctl.py docs-check --strict-tooling, then report results.
 
 ## Last Reviewed Scope
 
-- rev_pkt_0183 review setup and diff 49217891d15e..5687e3be pending semantic review
+- 5687e3be..e3c56a53 startup-gate repair launch review; F1 and F2 blocking
 
 ## Action Requests
 
