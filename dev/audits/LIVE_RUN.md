@@ -2860,6 +2860,30 @@ which Q55 says we don't have yet. Start there.
   the system tracks `stop_reason` and `expected_restart_at`.
 - **Status**: OPEN — paired with Q42
 
+### Q51 — DASHBOARD — Renderer not device-aware, blocker projection stale
+
+- **Discovered**: 2026-04-10T17:10Z
+- **Severity**: high / rendering + state-alignment
+- **Body**: Dashboard renders a wide desktop terminal layout on mobile
+  remote-control. ANSI columns wrap badly, truncated lines, side-by-
+  side fields collapse. The system knows `interaction_mode=remote_
+  control` but the renderer does not branch on device/viewport.
+  Additionally, dashboard shows "Top blocker: Q37 Phase 2" and
+  "Next action: Q37 Phase 1 committed" while recent commits include
+  Q47+Q45+Q43 authority spine and Q49-Q50 findings. The blocker/
+  next-action projection is reading from a stale plan surface that
+  was never advanced after later work landed. This means the dashboard
+  is mixing current git facts with stale blocker state — the combined
+  output is misleading even though individual inputs may be real.
+- **Missing**:
+  1. Device-aware rendering: `terminal-mobile` format with narrow
+     stacked layout (one item per line, no columns, no ANSI junk)
+  2. Blocker/next-action freshness: projection should verify against
+     current canonical state before rendering
+  3. Source provenance per section: git=current, runtime=current,
+     plan_blocker=stale/current, review_state=stale/current
+- **Status**: OPEN — paired with Q39/Q44
+
 ### Q50 — QUALITY — 100 unfixed governance findings across 9 check categories
 
 - **Discovered**: 2026-04-10T16:55Z
