@@ -24,12 +24,28 @@ from app.operator_console.views.layout.ui_layouts import (
 )
 
 try:
-    from PyQt6.QtWidgets import QApplication
+    from PyQt6.QtWidgets import QApplication, QMainWindow
 
     _PYQT_AVAILABLE = True
 except ImportError:
     _PYQT_AVAILABLE = False
     QApplication = None
+    QMainWindow = None
+
+
+class _WindowCleanupMixin:
+    """Close top-level test windows after each test to prevent Qt offscreen
+    platform state corruption from accumulated widget garbage."""
+
+    def tearDown(self) -> None:
+        if QApplication is None:
+            return
+        app = QApplication.instance()
+        if app is None:
+            return
+        for widget in app.topLevelWidgets():
+            if isinstance(widget, QMainWindow):
+                widget.close()
 
 
 def _make_window(
@@ -122,7 +138,7 @@ class LayoutRegistryTests(unittest.TestCase):
 
 
 @unittest.skipIf(not _PYQT_AVAILABLE, "PyQt6 is not installed")
-class TabbedLayoutTests(unittest.TestCase):
+class TabbedLayoutTests(_WindowCleanupMixin, unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
         cls.app = QApplication.instance() or QApplication([])
@@ -151,7 +167,7 @@ class TabbedLayoutTests(unittest.TestCase):
 
 
 @unittest.skipIf(not _PYQT_AVAILABLE, "PyQt6 is not installed")
-class SidebarLayoutTests(unittest.TestCase):
+class SidebarLayoutTests(_WindowCleanupMixin, unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
         cls.app = QApplication.instance() or QApplication([])
@@ -192,7 +208,7 @@ class SidebarLayoutTests(unittest.TestCase):
 
 
 @unittest.skipIf(not _PYQT_AVAILABLE, "PyQt6 is not installed")
-class GridLayoutTests(unittest.TestCase):
+class GridLayoutTests(_WindowCleanupMixin, unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
         cls.app = QApplication.instance() or QApplication([])
@@ -222,7 +238,7 @@ class GridLayoutTests(unittest.TestCase):
 
 
 @unittest.skipIf(not _PYQT_AVAILABLE, "PyQt6 is not installed")
-class AnalyticsLayoutTests(unittest.TestCase):
+class AnalyticsLayoutTests(_WindowCleanupMixin, unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
         cls.app = QApplication.instance() or QApplication([])
@@ -262,7 +278,7 @@ class AnalyticsLayoutTests(unittest.TestCase):
 
 
 @unittest.skipIf(not _PYQT_AVAILABLE, "PyQt6 is not installed")
-class WorkbenchLayoutTests(unittest.TestCase):
+class WorkbenchLayoutTests(_WindowCleanupMixin, unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
         cls.app = QApplication.instance() or QApplication([])
@@ -388,7 +404,7 @@ class WorkbenchLayoutTests(unittest.TestCase):
 
 
 @unittest.skipIf(not _PYQT_AVAILABLE, "PyQt6 is not installed")
-class LayoutSwitchingTests(unittest.TestCase):
+class LayoutSwitchingTests(_WindowCleanupMixin, unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
         cls.app = QApplication.instance() or QApplication([])
@@ -584,7 +600,7 @@ class SidebarStylesheetTests(unittest.TestCase):
 
 
 @unittest.skipIf(not _PYQT_AVAILABLE, "PyQt6 is not installed")
-class ThemeSyncTests(unittest.TestCase):
+class ThemeSyncTests(_WindowCleanupMixin, unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
         cls.app = QApplication.instance() or QApplication([])
