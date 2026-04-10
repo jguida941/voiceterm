@@ -471,6 +471,15 @@ def render_markdown(ctx_dict: dict) -> str:
     ).strip()
     if implementation_permission:
         lines.append(f"- implementation_permission: `{implementation_permission}`")
+    recovery_action = str(ctx_dict.get("recovery_action") or "").strip()
+    if recovery_action:
+        lines.append(f"- recovery_action: `{recovery_action}`")
+    recovery_basis = str(ctx_dict.get("recovery_basis") or "").strip()
+    if recovery_basis:
+        lines.append(f"- recovery_basis: `{recovery_basis}`")
+    recovery_scope = str(ctx_dict.get("recovery_scope") or "").strip()
+    if recovery_scope:
+        lines.append(f"- recovery_scope: `{recovery_scope}`")
     lines.append("")
     _append_push_state(lines, ctx_dict)
     push_decision = ctx_dict.get("push_decision", {})

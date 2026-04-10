@@ -39,6 +39,26 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 
 ### 2026-04-07 - ReviewSnapshot hook hardening routed through owner plans
 
+### 2026-04-10 - Lane edit gates and destructive recovery now require typed startup authority
+
+Fact: the Q40/Q42 live-run findings showed two separate authority leaks. A
+dashboard/observer lane could still slide into implementation edits while
+another agent owned the active lane, and recovery code could escalate from
+incomplete runtime suspicion to relaunch or termination without a typed
+precondition.
+
+The closure splits those decisions. `startup-context` now emits
+`lane_edit_gate` so dashboard and observer callers are constrained to findings
+and action-request packets when another live implementer owns the lane. It also
+emits destructive recovery authority as `recovery_action`,
+`recovery_basis`, and `recovery_scope`; relaunch and termination stay
+observe-only unless the packet proves an allowed basis such as a dead process,
+stalled runtime, singleton violation, or operator approval. The older
+non-destructive routing hint remains available as `control_recovery_action` so
+refresh/report guidance cannot be mistaken for permission to kill or relaunch
+a process. The remote-control dashboard now has a narrow, plain-text terminal
+rendering path for phone-sized reads.
+
 ### 2026-04-10 - Startup action routing and commit permission now make blocked implementation authority explicit
 
 Fact: the Q37-Q47 live audit showed the same control-plane failure repeating:
@@ -53,15 +73,14 @@ exists, but they cannot overrule `implementation_permission=blocked` when the
 observed control topology says the implementation lane is not authorized.
 
 The closure is bounded. `startup-context` now projects typed action routing:
-`next_command`, `allowed_actions`, `blocked_actions`, `recovery_action`,
+`next_command`, `allowed_actions`, `blocked_actions`, `control_recovery_action`,
 `escalation_action`, and `agent_lane` permission state for dashboard,
 implementer, observer, and reviewer callers. `devctl commit` now evaluates a
 typed `CommitPermissionDecision` before staging or running guards; explicit
 `implementation_permission=blocked|suspended` blocks `vcs.stage`,
 `vcs.commit`, and raw `git commit` until the routed startup/review recovery
 path is followed. The remaining same-lane work is to widen the packet through
-dashboard/status/doctor, raw-git hooks, pre-edit/pre-launch gates, and
-destructive recovery.
+dashboard/status/doctor, raw-git hooks, and pre-edit/pre-launch gates.
 
 ### 2026-04-10 - Governed push stopped replaying terminal pipelines, and finding reviews now seed guard/probe promotion candidates
 

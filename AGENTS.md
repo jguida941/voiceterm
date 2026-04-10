@@ -137,6 +137,7 @@ Release-governance note:
 | Where is the 2026-04-09 F1/F2/F3 reviewer-follow-up closure documented (`devctl commit` remote-control approval boundary restored, `process_sweep` supervisor-backed liveness fallback, and `rollout-tail` Claude auto-discovery narrowed)? | `dev/history/ENGINEERING_EVOLUTION.md` 2026-04-09 entry "Remote-control commit now waits for typed approval; process_sweep and rollout-tail narrow their trust boundaries" |
 | Where is the 2026-04-10 P1/P2 reviewer-follow-up closure documented (`pipeline refresh-authorization` stale-HEAD refusal and `agent-mind --since-cursor` non-lossy rollout polling)? | `dev/history/ENGINEERING_EVOLUTION.md` 2026-04-10 entry "Pipeline refresh and agent-mind cursor polling now fail closed on stale authority" |
 | Where is the 2026-04-10 Q47/Q45/Q43 deterministic action-routing closure documented (`startup-context` action routing, typed `agent_lane`, and `devctl commit` `CommitPermissionDecision` hard block on `implementation_permission`)? | `dev/history/ENGINEERING_EVOLUTION.md` 2026-04-10 entry "Startup action routing and commit permission now make blocked implementation authority explicit" |
+| Where is the 2026-04-10 Q40/Q42 lane-edit and destructive-recovery authority closure documented (`lane_edit_gate`, `recovery_action`, `recovery_basis`, and `recovery_scope`)? | `dev/history/ENGINEERING_EVOLUTION.md` 2026-04-10 entry "Lane edit gates and destructive recovery now require typed startup authority" |
 | Where is the Ralph guardrail remediation/control-plane plan? | `dev/active/ralph_guardrail_control_plane.md` |
 | Where is the heuristic review-probe execution plan? | `dev/active/review_probes.md` |
 | Where is the code-shape expansion research companion (readability, coupling, AI-specific, information-theoretic probes/guards)? | `dev/active/code_shape_expansion.md` (subordinate evidence/calibration companion feeding `dev/active/review_probes.md` Phase 5b+, not a second execution authority) |
@@ -679,6 +680,14 @@ checklist plus chat memory.
     coordination resync as a real startup/launch blocker instead of leaving
     that truth only in markdown/bootstrap renderers.
     through one startup-family surface instead of staying report-only.
+    That same startup family now separates non-destructive routing recovery
+    from destructive runtime recovery: use `control_recovery_action` for
+    refresh/report/escalation guidance, and only treat `recovery_action` as
+    relaunch or termination authority when paired with a proven
+    `recovery_basis` and bounded `recovery_scope`. Dashboard/observer lanes
+    must also honor `lane_edit_gate`: when another live agent owns the
+    implementation lane, they may write findings or packets only, not
+    implementation files.
     Current limitation: when another agent edits the repo outside the
     repo-owned checkpoint/review flow, startup/status still surface the result
     as a generic dirty-tree / checkpoint-budget blocker instead of a distinct

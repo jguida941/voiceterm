@@ -102,6 +102,11 @@
   permissions, and `devctl commit` evaluates `CommitPermissionDecision`
   before staging or guards so blocked/suspended implementation authority
   blocks governed commit attempts.
+- 2026-04-10 Q40/Q42 follow-up in `MP-377` scope:
+  the next slice splits destructive runtime recovery authority from
+  non-destructive control-flow hints and projects a lane edit gate so
+  dashboard/observer callers stay on findings/packets when a live implementer
+  owns the active implementation lane.
 - Current highest-priority subordinate `MP-377` lane:
   `dev/active/platform_authority_loop.md`. This is the execution spec for
   closing the portable authority loop:

@@ -127,7 +127,12 @@ def startup_coordination_dict(coordination: CoordinationSnapshot) -> dict[str, o
         payload["duplicate_worktrees"] = list(coordination.duplicate_worktrees)
     if coordination.actors:
         payload["actors"] = [
-            {"actor_id": actor.actor_id, "presence": actor.presence}
+            {
+                "actor_id": actor.actor_id,
+                "provider": actor.provider,
+                "role": actor.role,
+                "presence": actor.presence,
+            }
             for actor in coordination.actors[:4]
         ]
     return payload

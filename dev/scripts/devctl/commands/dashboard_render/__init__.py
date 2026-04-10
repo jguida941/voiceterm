@@ -26,6 +26,7 @@ from . import attention as _attn
 from . import control_plane as _control
 from . import terminal as _term
 from . import markdown as _md
+from . import mobile as _mobile
 from .helpers import (
     _BOLD,
     _CYAN,
@@ -89,6 +90,9 @@ def render_terminal(snapshot: dict[str, Any], *, no_color: bool = False) -> str:
     all ANSI escape sequences are stripped from the result so the output
     is safe for environments that do not interpret them.
     """
+    if _mobile.is_remote_control_terminal(snapshot):
+        return _mobile.render_mobile_narrow_terminal(snapshot)
+
     lines: list[str] = []
     _term._render_summary_terminal(snapshot, lines)
     _term._render_header_terminal(snapshot, lines)
@@ -125,7 +129,6 @@ def render_terminal(snapshot: dict[str, Any], *, no_color: bool = False) -> str:
     if _should_strip_color(no_color):
         result = strip_ansi(result)
     return result
-
 
 def render_markdown(snapshot: dict[str, Any]) -> str:
     """Markdown-formatted dashboard output."""

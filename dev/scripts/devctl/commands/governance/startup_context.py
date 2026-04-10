@@ -13,6 +13,10 @@ from .startup_context_render import (
     publication_backlog_guidance,
     render_markdown as _render_markdown,
 )
+from .startup_context_recovery import (
+    append_recovery_authority_summary_lines,
+    apply_recovery_authority_summary,
+)
 from ...runtime.machine_output import (
     ArtifactOutputOptions,
     emit_machine_artifact_output,
@@ -196,6 +200,7 @@ def _render_summary(ctx_dict: dict) -> str:
     ).strip()
     if implementation_permission:
         lines.append(f"implementation_permission={implementation_permission}")
+    append_recovery_authority_summary_lines(ctx_dict, lines)
     lines.extend(_summary_coordination_lines(ctx_dict))
     ahead = publication_backlog_count(ctx_dict)
     if ahead is not None and ahead > 0:
@@ -293,6 +298,7 @@ def _machine_summary(
         "implementation_permission",
         "blocked",
     )
+    apply_recovery_authority_summary(summary, ctx)
     summary["bridge_active"] = ctx.reviewer_gate.bridge_active
     summary["checkpoint_required"] = (
         bool(push.checkpoint_required) if push is not None else False

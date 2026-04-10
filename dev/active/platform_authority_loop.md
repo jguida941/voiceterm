@@ -2559,6 +2559,14 @@ blocker or exception in plan state before skipping the declared order.
 
 ## Progress Log
 
+- 2026-04-10: Started the Q40/Q42 lane-edit and destructive-recovery
+  precondition closure under `MP-377`. The current slice should emit one
+  startup-context recovery-authority projection with closed
+  `recovery_action` / `recovery_basis` / `recovery_scope` fields, while moving
+  non-destructive action-routing hints to a separate control-flow field. The
+  same slice should project a lane edit gate so observer/dashboard callers
+  remain on findings/packet outputs when another live implementer owns the
+  active implementation lane.
 - 2026-04-10: Started the Q38 observed-control-topology closure under `MP-377`.
   The first slice derives `observed_control_topology` from supervised conductor
   evidence, bridge liveness, and runtime counts, derives

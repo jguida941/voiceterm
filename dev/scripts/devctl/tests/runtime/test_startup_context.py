@@ -30,6 +30,10 @@ from dev.scripts.devctl.runtime.startup_context import (
     _load_startup_review_state,
     build_startup_context,
 )
+from dev.scripts.devctl.runtime.recovery_authority import (
+    RecoveryAuthorityState,
+    derive_recovery_authority,
+)
 from dev.scripts.devctl.runtime.reviewer_runtime_models import (
     RemoteControlAttachmentState,
 )
@@ -90,6 +94,73 @@ class TestStartupContextBuild(unittest.TestCase):
     def test_has_reviewer_gate(self) -> None:
         ctx = build_startup_context()
         self.assertIsInstance(ctx.reviewer_gate, ReviewerGateState)
+
+    def test_to_dict_emits_recovery_authority_fields(self) -> None:
+        ctx = StartupContext(
+            recovery_authority=RecoveryAuthorityState(
+                recovery_action="relaunch_allowed",
+                recovery_basis="process_dead",
+                recovery_scope="entire_lane",
+                decision_action_id="relaunch_review_loop",
+                diagnosis_status="review_loop_relaunch_required",
+            ),
+        )
+
+        payload = ctx.to_dict()
+
+        self.assertEqual(payload["recovery_action"], "relaunch_allowed")
+        self.assertEqual(payload["recovery_basis"], "process_dead")
+        self.assertEqual(payload["recovery_scope"], "entire_lane")
+        self.assertEqual(
+            payload["recovery_authority"]["decision_action_id"],
+            "relaunch_review_loop",
+        )
+
+    def test_recovery_authority_allows_relaunch_only_with_dead_process_basis(self) -> None:
+        review_state = SimpleNamespace(
+            recovery_assessment=SimpleNamespace(
+                diagnosis=SimpleNamespace(
+                    status="review_loop_relaunch_required",
+                    root_cause="review loop process is gone",
+                    supporting_causes=("reviewer_conductor_inactive",),
+                    evidence=(),
+                ),
+                decision=SimpleNamespace(
+                    action_id="relaunch_review_loop",
+                    command="python3 dev/scripts/devctl.py review-channel --action launch",
+                    rationale="relaunch reviewer loop",
+                ),
+            )
+        )
+
+        authority = derive_recovery_authority(review_state)
+
+        self.assertEqual(authority.recovery_action, "relaunch_allowed")
+        self.assertEqual(authority.recovery_basis, "process_dead")
+        self.assertEqual(authority.recovery_scope, "entire_lane")
+
+    def test_recovery_authority_keeps_relaunch_observe_only_without_proof(self) -> None:
+        review_state = SimpleNamespace(
+            recovery_assessment=SimpleNamespace(
+                diagnosis=SimpleNamespace(
+                    status="review_loop_relaunch_required",
+                    root_cause="output stream quiet",
+                    supporting_causes=("output_silence",),
+                    evidence=(),
+                ),
+                decision=SimpleNamespace(
+                    action_id="relaunch_review_loop",
+                    command="python3 dev/scripts/devctl.py review-channel --action launch",
+                    rationale="relaunch reviewer loop",
+                ),
+            )
+        )
+
+        authority = derive_recovery_authority(review_state)
+
+        self.assertEqual(authority.recovery_action, "observe_only")
+        self.assertEqual(authority.recovery_basis, "none")
+        self.assertEqual(authority.recovery_scope, "entire_lane")
 
     def test_has_push_decision(self) -> None:
         ctx = build_startup_context()

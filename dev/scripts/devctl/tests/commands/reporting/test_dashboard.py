@@ -328,7 +328,7 @@ def _full_snapshot() -> dict:
             "reviewer_mode": "active_dual_agent",
             "reviewer_freshness": "fresh",
             "review_accepted": False,
-            "operator_interaction_mode": "remote_control",
+            "operator_interaction_mode": "local_terminal",
             "push_eligible": False,
             "implementation_blocked": True,
             "attention_status": "inactive",
@@ -617,6 +617,18 @@ class TestDashboardTerminalOutput(unittest.TestCase):
         self.assertIn("W2", output)
         self.assertIn("Scope", output)
         self.assertIn("State", output)
+
+    def test_remote_control_terminal_uses_mobile_narrow_layout(self) -> None:
+        snapshot = _full_snapshot()
+        snapshot["control_plane"]["operator_interaction_mode"] = "remote_control"
+
+        output = dashboard_render.render_terminal(snapshot)
+
+        self.assertNotIn("\033[", output)
+        self.assertIn("Mode: remote_control", output)
+        self.assertIn("Blocker: code-shape debt in common_io.py", output)
+        self.assertIn("Pending actions: 2", output)
+        self.assertNotIn("CONTROL PLANE", output)
 
     def test_terminal_plan_section(self) -> None:
         snapshot = _full_snapshot()
@@ -2697,7 +2709,11 @@ class TestTypedReviewState(unittest.TestCase):
                 governance=governance,
                 prefer_cached_projection=False,
             )
-            mock_load_sources.assert_called_once_with(root, governance=governance)
+            mock_load_sources.assert_called_once_with(
+                root,
+                governance=governance,
+                review_state_override=typed_review_state,
+            )
             self.assertIs(
                 mock_build.call_args.kwargs["review_state"],
                 typed_review_state,

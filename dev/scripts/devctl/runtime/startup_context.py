@@ -13,6 +13,10 @@ from .reviewer_runtime_models import (
     RemoteControlAttachmentState,
     has_active_remote_control_attachment,
 )
+from .recovery_authority import (
+    RecoveryAuthorityState,
+    derive_recovery_authority,
+)
 
 if TYPE_CHECKING:
     from .review_state_models import ReviewState
@@ -79,6 +83,9 @@ class StartupContext:
     advisory_reason: str = ""
     observed_control_topology: str = "no_live_agents"
     implementation_permission: str = "blocked"
+    recovery_authority: RecoveryAuthorityState = field(
+        default_factory=RecoveryAuthorityState
+    )
     rule_summary: str = ""
     match_evidence: tuple[RuleMatchEvidenceRecord, ...] = ()
     rejected_rule_traces: tuple[RejectedRuleTraceRecord, ...] = ()
@@ -98,6 +105,10 @@ class StartupContext:
         d["advisory_reason"] = self.advisory_reason
         d["observed_control_topology"] = self.observed_control_topology
         d["implementation_permission"] = self.implementation_permission
+        d["recovery_action"] = self.recovery_authority.recovery_action
+        d["recovery_basis"] = self.recovery_authority.recovery_basis
+        d["recovery_scope"] = self.recovery_authority.recovery_scope
+        d["recovery_authority"] = self.recovery_authority.to_dict()
         d["rule_summary"] = self.rule_summary
         d["match_evidence"] = [
             evidence.to_dict() for evidence in self.match_evidence
@@ -435,6 +446,7 @@ def build_startup_context(
     observed_control_topology, implementation_permission = derive_startup_control_truth(
         review_state
     )
+    recovery_authority = derive_recovery_authority(review_state)
 
     return StartupContext(
         governance=governance,
@@ -444,6 +456,7 @@ def build_startup_context(
         advisory_reason=advisory.reason,
         observed_control_topology=observed_control_topology,
         implementation_permission=implementation_permission,
+        recovery_authority=recovery_authority,
         rule_summary=advisory.rule_summary,
         match_evidence=advisory.match_evidence,
         rejected_rule_traces=advisory.rejected_rule_traces,

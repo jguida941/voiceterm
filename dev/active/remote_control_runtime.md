@@ -1,6 +1,6 @@
 # Remote Control Runtime Closure Plan
 
-**Status**: active  |  **Last updated**: 2026-04-09 | **Owner:** Tooling/control plane/review runtime/dashboard
+**Status**: active  |  **Last updated**: 2026-04-10 | **Owner:** Tooling/control plane/review runtime/dashboard
 Execution plan contract: required
 This spec is mirrored in `dev/active/MASTER_PLAN.md` under `MP-380..MP-387`.
 It closes the remote-control/operator-surface gaps found in the 2026-04-04
@@ -456,6 +456,15 @@ The MP scopes remain valid but are now cross-cut by enforcement-first priority.
 
 ## Progress Log
 
+- 2026-04-10: Started the Q40/Q42 remote-control safety slice from the live
+  audit. Startup-context should now distinguish observe-only recovery from
+  relaunch/terminate authority before any destructive runtime action, and
+  dashboard/observer lanes should route implementation defects through
+  findings or packets when a live implementer owns the lane. Q51's quick
+  follow-up is scoped to a narrow mobile terminal renderer for
+  `remote_control` dashboard mode; stale blocker provenance remains a
+  separate read-model freshness follow-up unless the same typed path already
+  exposes it.
 - 2026-04-10: Closed the local-review takeover drift that kept reanimating a
   dead dual-agent loop. A deliberate
   `review-channel --action reviewer-heartbeat --reviewer-mode single_agent`

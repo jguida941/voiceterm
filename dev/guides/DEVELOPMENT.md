@@ -134,10 +134,13 @@ instead of inferring remote readiness from raw dirty-tree booleans alone.
 Repo policy may exclude non-authoritative scratch context such as `convo.md`
 from push cleanliness so advisory files do not strand reviewed commits.
 The same startup packet now carries deterministic action routing
-(`next_command`, `allowed_actions`, `blocked_actions`, `recovery_action`,
-`escalation_action`) plus typed `agent_lane` permissions; follow those fields
-before falling back to shell probes or chat-local role assumptions. The
-governed commit path consumes the same authority family through
+(`next_command`, `allowed_actions`, `blocked_actions`,
+`control_recovery_action`, `escalation_action`) plus typed `agent_lane`
+permissions and `lane_edit_gate`; follow those fields before falling back to
+shell probes or chat-local role assumptions. Destructive runtime recovery is a
+separate startup authority surface: `recovery_action`, `recovery_basis`, and
+`recovery_scope` must prove the precondition before a relaunch or termination
+is allowed. The governed commit path consumes the same authority family through
 `CommitPermissionDecision`, so `implementation_permission=blocked|suspended`
 hard-blocks `devctl commit` before staging or guard execution.
 
@@ -409,6 +412,11 @@ Three quality layers matter in practice:
     use a stable repo-managed root rather than a transient temp clone/worktree;
     the repo-owned `terminal-app` path now fails closed on temp roots so
     provider directory-trust prompts cannot wedge the local automation lane.
+    For destructive recovery, do not infer permission from stale terminal
+    output or a dashboard suspicion: `startup-context` must emit
+    `recovery_action=relaunch_allowed|terminate_allowed` with a proven
+    `recovery_basis` and bounded `recovery_scope`; otherwise the lane remains
+    observe/report only.
   - Prefer the repo-owned wait primitives over ad hoc shell sleep loops:
     `review-channel --action implementer-wait` is the implementer-side bounded
     wait path, and `review-channel --action reviewer-wait` is the symmetric

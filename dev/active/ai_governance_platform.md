@@ -6331,6 +6331,12 @@ Execution order for this section:
 
 ## Progress Log
 
+- 2026-04-10: Started Q40/Q42 as the next deterministic action-boundary
+  slice after the Q47/Q45/Q43 authority spine. Startup-context now needs to
+  split non-destructive `control_recovery_action` hints from destructive
+  `recovery_action` authority, prove `recovery_basis` before relaunch or
+  termination, and expose a lane edit gate so dashboard/observer callers route
+  defects through findings or packets when a live implementer owns the lane.
 - 2026-04-10: Started Q47/Q45/Q43 deterministic action-routing closure as a
   bounded authority-loop slice. `startup-context` now projects a typed
   action-routing packet and `agent_lane` permissions for dashboard,

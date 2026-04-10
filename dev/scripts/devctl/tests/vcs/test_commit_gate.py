@@ -39,6 +39,10 @@ from dev.scripts.devctl.review_channel.events import (
     transition_packet,
 )
 from dev.scripts.devctl.review_channel.packet_contract import PacketTransitionRequest
+from dev.scripts.devctl.platform.coordination_snapshot_models import (
+    CoordinationActorRecord,
+    CoordinationSnapshot,
+)
 from dev.scripts.devctl.runtime.startup_context import ReviewerGateState, StartupContext
 
 
@@ -184,9 +188,46 @@ class TestStartupActionRouting(unittest.TestCase):
         self.assertIn("implementation.edit", captured["blocked_actions"])
         self.assertIn("vcs.commit", captured["blocked_actions"])
         self.assertIn("review-channel.status", captured["allowed_actions"])
+        self.assertFalse(captured["lane_edit_gate"]["edit_allowed"])
+        self.assertEqual(captured["lane_edit_gate"]["status"], "findings_only")
         self.assertEqual(
             captured["next_command"],
             "python3 dev/scripts/devctl.py context-graph --mode bootstrap --format md",
+        )
+
+    def test_dashboard_role_names_live_implementation_owner_in_edit_gate(self) -> None:
+        rc, captured = _capture_startup_context_payload(
+            StartupContext(
+                reviewer_gate=ReviewerGateState(),
+                advisory_action="continue_editing",
+                advisory_reason="clean_worktree",
+                implementation_permission="active",
+                coordination=CoordinationSnapshot(
+                    actors=(
+                        CoordinationActorRecord(
+                            actor_id="codex",
+                            provider="codex",
+                            role="implementer",
+                            presence="live",
+                        ),
+                    ),
+                ),
+            ),
+            ["startup-context", "--role", "dashboard", "--format", "json"],
+        )
+
+        self.assertEqual(rc, 0)
+        self.assertEqual(
+            captured["lane_edit_gate"]["active_implementation_owner"],
+            "codex",
+        )
+        self.assertEqual(
+            captured["lane_edit_gate"]["reason"],
+            "active_implementation_lane_owned_by_other_agent",
+        )
+        self.assertEqual(
+            captured["agent_lane"]["edit_gate"]["allowed_outputs"],
+            ["finding_packet", "action_request_packet"],
         )
 
     def test_blocked_permission_projects_action_routing(self) -> None:
@@ -204,7 +245,11 @@ class TestStartupActionRouting(unittest.TestCase):
         self.assertEqual(rc, 0)
         self.assertIn("vcs.stage", captured["blocked_actions"])
         self.assertIn("vcs.commit", captured["blocked_actions"])
-        self.assertEqual(captured["recovery_action"], "refresh_startup_or_review_status")
+        self.assertEqual(captured["recovery_action"], "none")
+        self.assertEqual(
+            captured["control_recovery_action"],
+            "refresh_startup_or_review_status",
+        )
         self.assertEqual(captured["escalation_action"], "operator_resync_required")
         self.assertEqual(
             captured["next_command"],
