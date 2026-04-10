@@ -4,7 +4,7 @@
 
 **Status:** Draft v4 (historical design and process record)
 **Audience:** users and developers
-**Last Updated:** 2026-04-09
+**Last Updated:** 2026-04-10
 
 ## At a Glance
 
@@ -38,6 +38,37 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 - [Developer Path (15 min)](#developer-path-15-min)
 
 ### 2026-04-07 - ReviewSnapshot hook hardening routed through owner plans
+
+### 2026-04-10 - Governed push stopped replaying terminal pipelines, and finding reviews now seed guard/probe promotion candidates
+
+Fact: the dogfooded governed-push lane exposed a stale authorization bug after
+a completed push pipeline. A terminal `push_completed` same-branch
+`RemoteCommitPipelineContract` could still be selected by `devctl push` when
+it carried any `commit_sha`, so new commits after publication reused the old
+pipeline executor path instead of falling back to current-branch publication
+checks. The same session also exposed the larger closed-loop learning gap:
+adjudicated findings with a guard/probe prevention surface were recorded in
+`governance-review`, but no deterministic queue existed for turning those
+decisions into reusable guard/probe follow-up work.
+
+This matters because `push_completed` is evidence that one publication already
+happened, not reusable permission for a later HEAD. It also matters because
+the governance platform should not depend on chat memory or audit prose to
+remember "this issue should become a guard." The durable transition is
+`FindingReview -> GuardPromotionCandidate`, with active plans owning broader
+guard validation/scaffolding later.
+
+The closure is intentionally small. `devctl push` now re-enters
+`GovernedVcsExecutor` only for same-branch pipelines in the pushable states
+`commit_recorded`, `push_pending`, or `push_blocked` that also carry a
+`commit_sha`; terminal pipelines now stay terminal evidence. Separately,
+`governance-review --record` appends a repo-pack-resolved
+`GuardPromotionCandidate` JSONL row whenever the prevention surface is
+`guard` or `probe`, and the governance-review JSON summary includes the
+candidate id/path for that recorded row. The active owner placement is split deliberately:
+`remote_commit_pipeline.md` owns stale terminal-pipeline behavior,
+`ai_governance_platform.md` owns the finding-review-to-promotion contract, and
+`portable_code_governance.md` owns the repo-pack path portability seam.
 
 ### 2026-04-09 - Headless recover became a real relaunch path, and session-resume stopped reusing stale review-state text
 

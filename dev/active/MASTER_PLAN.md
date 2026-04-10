@@ -187,6 +187,14 @@
   resume reads and only reuses cached `full.json` / `review_state.json`
   projections when they are at least as fresh as live `bridge.md` +
   `review_channel.md` sources.
+- Current 2026-04-10 closed-loop guard-promotion intake inside that same lane:
+  the PyQt/resource-lifecycle escape routes through existing owners instead of
+  a new tracker. `remote_commit_pipeline.md` owns the stale
+  `push_completed` pipeline reuse fix, `ai_governance_platform.md` owns the
+  `FindingReview -> GuardPromotionCandidate` closeout seam, and
+  `portable_code_governance.md` owns the repo-pack-resolved promotion queue
+  path so later guard/probe validation and registration can work outside
+  VoiceTerm.
 - Current 2026-04-09 command-boundary freeze closure inside that same lane:
   the reopened MP-384/MP-387 F1 parity flake is now narrowed at the CLI edge
   instead of only in helper tests. `session-resume` cache misses now force one

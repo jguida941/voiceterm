@@ -109,6 +109,11 @@ class RepoPathConfig:
     # Governance review summary output directory
     governance_review_summary_root_rel: str = "dev/reports/governance/latest"
 
+    # Guard/probe promotion candidate queue
+    guard_promotion_queue_rel: str = (
+        "dev/reports/governance/guard_promotion_candidates.jsonl"
+    )
+
     # External (imported) finding JSONL log
     external_finding_log_rel: str = (
         "dev/reports/governance/external_pilot_findings.jsonl"

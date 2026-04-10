@@ -418,8 +418,10 @@ def run(args) -> int:
     active_pipeline_matches_branch = bool(pipeline.pipeline_id) and bool(state.branch) and (
         pipeline.branch == state.branch
     )
-    if active_pipeline_matches_branch and (
-        pipeline.state in _PUSHABLE_PIPELINE_STATES or bool(pipeline.commit_sha)
+    if (
+        active_pipeline_matches_branch
+        and pipeline.state in _PUSHABLE_PIPELINE_STATES
+        and bool(pipeline.commit_sha)
     ):
         result = executor.execute(
             build_push_action(

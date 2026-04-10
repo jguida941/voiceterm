@@ -258,6 +258,9 @@ Use one deterministic triage on every failing repo before widening again:
 - [x] Add a durable adjudication ledger for guard/probe findings so the repo
       tracks false-positive rate, fixed-vs-deferred cleanup, and real signal
       quality over time instead of relying only on ephemeral chat notes.
+- [x] Add a repo-pack-resolved guard/probe promotion queue so adjudicated
+      `governance-review` rows can create portable follow-up candidates
+      without hardcoding VoiceTerm-only artifact paths.
 - [x] Seed the first broad pilot corpus source from the maintainer GitHub repo
       inventory so external-repo testing does not depend on this machine's
       local checkout layout.
@@ -794,6 +797,11 @@ Use one deterministic triage on every failing repo before widening again:
 
 ## Progress Log
 
+- 2026-04-10: Routed the guard-promotion pipeline's portable slice here: the
+  queue path now lives in repo-pack configuration and the initial command reads
+  it through the same governance ledger helpers as other portable review
+  artifacts. The queue is not yet a guard generator; it is the durable intake
+  seam needed before validation and auto-registration can be made portable.
 - 2026-04-08: Integrated the typed-authority convergence synthesis into the
   adopter lane. This plan is now the explicit second-repo/custom-layout proof
   pressure for the owner-chain closure, not a parallel architecture source:
@@ -1686,6 +1694,11 @@ Use one deterministic triage on every failing repo before widening again:
 
 ## Session Resume
 
+- 2026-04-10 guard-promotion portability seam:
+  resume with promotion-candidate storage treated as a repo-pack path, not a
+  VoiceTerm literal. Future `validate-guard-proposal` / `promote-guard`
+  work should run against adopter repos through their policy and queue paths,
+  while this first slice only proves durable candidate intake and listing.
 - 2026-04-08 typed-authority convergence proof rule: resume this lane only as
   the second-repo/custom-layout acceptance pressure after the owner-chain
   blockers close. The next honest proof is one repo-pack-enabled adopter that

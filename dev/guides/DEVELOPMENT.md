@@ -1687,6 +1687,11 @@ Structured audit/event ledgers are separate from that handoff surface:
   command telemetry automatically.
 - `dev/reports/governance/finding_reviews.jsonl` records adjudicated
   guard/probe outcomes through `python3 dev/scripts/devctl.py governance-review`.
+- `dev/reports/governance/guard_promotion_candidates.jsonl` records durable
+  guard/probe follow-up candidates when `governance-review --record` uses
+  `--prevention-surface guard` or `--prevention-surface probe`; inspect that
+  queue file directly, or use the `--record` JSON summary's candidate id/path
+  metadata for the row just recorded.
 - Use those ledgers for metrics, runtime evidence, later database indexing,
   and ML/ranking inputs, not for narrative "left off here" session state.
 - For external-adopter pilots, keep the ledgers split by role:
@@ -1720,6 +1725,10 @@ Structured audit/event ledgers are separate from that handoff surface:
   - use `devctl` commands whenever the work should land in command telemetry;
   - before handoff, append `governance-review --record` rows for any findings
     you confirmed, fixed, deferred, waived, or judged false-positive;
+  - after recording a guard/probe prevention surface, check the promotion
+    queue file or the `governance-review` JSON summary metadata so the
+    follow-up candidate is visible in repo-owned state before the session
+    closes;
   - before closing any non-trivial issue, decide whether it should be absorbed
     into a guard, probe, contract, authority rule, parity check, regression
     test, docs update, or explicit waiver; record that systemic disposition in

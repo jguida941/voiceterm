@@ -10,6 +10,10 @@ from ...governance_review_log import (
     resolve_governance_review_summary_root,
 )
 from ...governance_review_models import GovernanceReviewInput
+from ...governance.guard_promotion_queue import (
+    append_guard_promotion_candidate_from_review,
+    resolve_guard_promotion_queue_path,
+)
 from ...governance_review_render import (
     render_governance_review_markdown,
     write_governance_review_summary,
@@ -29,6 +33,10 @@ def run(args) -> int:
             None
             if guidance_followed_raw is None
             else guidance_followed_raw == "true"
+        )
+        promotion_candidate = None
+        promotion_queue_path = resolve_guard_promotion_queue_path(
+            getattr(args, "promotion_queue", None)
         )
         if bool(getattr(args, "record", False)):
             row = build_governance_review_row(
@@ -56,10 +64,24 @@ def run(args) -> int:
                 ),
             )
             append_governance_review_row(row, log_path=log_path)
+            promotion_candidate = append_guard_promotion_candidate_from_review(
+                row,
+                queue_path=promotion_queue_path,
+            )
         report = build_governance_review_report(
             log_path=log_path,
             max_rows=int(getattr(args, "max_rows", 5000)),
         )
+        if bool(getattr(args, "record", False)):
+            report["promotion_queue"] = {
+                "path": str(promotion_queue_path),
+                "candidate_created": promotion_candidate is not None,
+                "candidate_id": (
+                    ""
+                    if promotion_candidate is None
+                    else str(promotion_candidate.get("candidate_id") or "")
+                ),
+            }
         report["paths"] = write_governance_review_summary(
             report,
             summary_root=summary_root,

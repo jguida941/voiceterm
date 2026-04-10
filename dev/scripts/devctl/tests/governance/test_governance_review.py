@@ -6,6 +6,7 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from dev.scripts.devctl import cli
 from dev.scripts.devctl.commands.governance import review as governance_review
@@ -114,6 +115,7 @@ class GovernanceReviewCommandTests(unittest.TestCase):
             root = Path(tmp_dir)
             log_path = root / "finding_reviews.jsonl"
             summary_root = root / "summary"
+            promotion_queue = root / "promotion.jsonl"
 
             first_args = cli.build_parser().parse_args(
                 [
@@ -176,8 +178,12 @@ class GovernanceReviewCommandTests(unittest.TestCase):
                 ]
             )
 
-            self.assertEqual(governance_review.run(first_args), 0)
-            self.assertEqual(governance_review.run(second_args), 0)
+            with patch(
+                "dev.scripts.devctl.commands.governance.review.resolve_guard_promotion_queue_path",
+                return_value=promotion_queue,
+            ):
+                self.assertEqual(governance_review.run(first_args), 0)
+                self.assertEqual(governance_review.run(second_args), 0)
 
             summary_json = summary_root / "review_summary.json"
             payload = json.loads(summary_json.read_text(encoding="utf-8"))
@@ -191,6 +197,67 @@ class GovernanceReviewCommandTests(unittest.TestCase):
             self.assertEqual(
                 (payload.get("recent_findings") or [{}])[-1].get("verdict"),
                 "fixed",
+            )
+            promotion_rows = [
+                json.loads(line)
+                for line in promotion_queue.read_text(encoding="utf-8").splitlines()
+            ]
+            self.assertEqual(len(promotion_rows), 2)
+            self.assertEqual(promotion_rows[-1]["candidate_kind"], "probe")
+            self.assertEqual(promotion_rows[-1]["candidate_id"], "probe:finding-1")
+            self.assertEqual(promotion_rows[-1]["recommended_action"], "draft_probe")
+
+    def test_record_with_guard_surface_writes_promotion_candidate(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            log_path = root / "finding_reviews.jsonl"
+            summary_root = root / "summary"
+            promotion_queue = root / "promotion.jsonl"
+
+            args = cli.build_parser().parse_args(
+                [
+                    "governance-review",
+                    "--record",
+                    "--log-path",
+                    str(log_path),
+                    "--summary-root",
+                    str(summary_root),
+                    "--finding-id",
+                    "missing-test-lifecycle-guard",
+                    "--signal-type",
+                    "audit",
+                    "--check-id",
+                    "pyqt_test_lifecycle",
+                    "--verdict",
+                    "confirmed_issue",
+                    "--path",
+                    "tests/test_ui_layouts.py",
+                    "--finding-class",
+                    "missing_guard",
+                    "--recurrence-risk",
+                    "systemic",
+                    "--prevention-surface",
+                    "guard",
+                    "--format",
+                    "json",
+                ]
+            )
+
+            with patch(
+                "dev.scripts.devctl.commands.governance.review.resolve_guard_promotion_queue_path",
+                return_value=promotion_queue,
+            ):
+                self.assertEqual(governance_review.run(args), 0)
+            rows = [
+                json.loads(line)
+                for line in promotion_queue.read_text(encoding="utf-8").splitlines()
+            ]
+            self.assertEqual(len(rows), 1)
+            self.assertEqual(rows[0]["candidate_kind"], "guard")
+            self.assertEqual(rows[0]["recommended_action"], "draft_guard")
+            self.assertEqual(
+                rows[0]["candidate_id"],
+                "guard:missing-test-lifecycle-guard",
             )
 
     def test_record_requires_mandatory_fields(self) -> None:

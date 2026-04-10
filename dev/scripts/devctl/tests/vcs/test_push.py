@@ -261,6 +261,39 @@ class PushCommandTests(unittest.TestCase):
             "tree-receipt-20260403T010000Z:tree-123",
         )
 
+    @patch("dev.scripts.devctl.commands.vcs.push.run_push_action")
+    @patch("dev.scripts.devctl.commands.vcs.push.remote_exists", return_value=True)
+    @patch("dev.scripts.devctl.commands.vcs.push.collect_git_status")
+    @patch("dev.scripts.devctl.commands.vcs.push.load_push_policy")
+    @patch("dev.scripts.devctl.commands.vcs.governed_executor.GovernedVcsExecutor")
+    def test_run_does_not_reuse_completed_pipeline_for_new_push(
+        self,
+        executor_cls_mock,
+        load_push_policy_mock,
+        collect_git_status_mock,
+        _remote_exists_mock,
+        run_push_action_mock,
+    ) -> None:
+        fake_executor = MagicMock()
+        fake_executor.load_pipeline.return_value = SimpleNamespace(
+            pipeline_id="pipeline-123",
+            state="push_completed",
+            commit_sha="old-head",
+            branch="feature/demo",
+            approved_target_identity="tree-receipt-20260403T010000Z:tree-123",
+        )
+        fake_executor.execute.return_value = SimpleNamespace(ok=True)
+        executor_cls_mock.return_value = fake_executor
+        load_push_policy_mock.return_value = make_policy()
+        collect_git_status_mock.return_value = {"branch": "feature/demo", "changes": []}
+        run_push_action_mock.return_value = (0, {"ok": True})
+
+        rc = push.run(make_args(execute=True, format="json"))
+
+        self.assertEqual(rc, 0)
+        fake_executor.execute.assert_not_called()
+        run_push_action_mock.assert_called_once()
+
     @patch(
         "dev.scripts.devctl.governance.push_state.lookup_push_receipt",
         return_value=None,

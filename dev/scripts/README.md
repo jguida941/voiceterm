@@ -103,7 +103,7 @@ external Claude session record, elevate fallback interaction-mode reads to
 `remote_control`, and route commit-class mutations through governed
 `devctl commit` so the phone-steered session does not stall on a separate
 approval prompt.
-reviewer/coder launch.
+reviewer/implementer launch.
 For plain-language CI lane docs, see `.github/workflows/README.md`.
 
 For workflow routing (what to run for a normal push vs tooling/process changes vs tagged release), follow `AGENTS.md` first.
@@ -1336,7 +1336,7 @@ Machine-first output note:
   - `--quality-policy <path>` lets the probe-backed status/report views resolve
     another repo policy without changing shared orchestration code.
 - `data-science`: rolling telemetry snapshot builder that summarizes devctl event metrics plus swarm/benchmark agent-size productivity history, watchdog guarded-coding episodes, and governance-review false-positive/cleanup metrics; writes `summary.{md,json}` + SVG charts under `dev/reports/data_science/latest/` and supports local source/output overrides for experiments
-- `governance-review`: adjudicated finding ledger for hard-guard/probe outcomes; records reviewed findings plus their systemic disposition into `dev/reports/governance/finding_reviews.jsonl`, writes refreshed `review_summary.{md,json}` artifacts under `dev/reports/governance/latest/`, and gives the repo a durable scoreboard for false-positive rate, fixed findings, deferred debt, architectural absorption choices, and optional probe-guidance adoption (`guidance_id` / `guidance_followed`)
+- `governance-review`: adjudicated finding ledger for hard-guard/probe outcomes; records reviewed findings plus their systemic disposition into `dev/reports/governance/finding_reviews.jsonl`, writes refreshed `review_summary.{md,json}` artifacts under `dev/reports/governance/latest/`, and gives the repo a durable scoreboard for false-positive rate, fixed findings, deferred debt, architectural absorption choices, and optional probe-guidance adoption (`guidance_id` / `guidance_followed`). When `--record` uses `--prevention-surface guard` or `--prevention-surface probe`, it also appends a `GuardPromotionCandidate` row to the repo-pack-resolved promotion queue (default `dev/reports/governance/guard_promotion_candidates.jsonl`) and includes the candidate id/path in the refreshed JSON summary for that recorded row.
 - Shared context-escalation packets now also consume bounded recent
   `review_summary.json` history plus the latest quality-feedback
   recommendations so Ralph/autonomy/review-channel prompt families can read

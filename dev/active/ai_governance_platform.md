@@ -4713,6 +4713,12 @@ alone. Use these proof gates:
       owning MP, or waiver), and runtime/governance paths must share one
       stable `finding_id` contract so closure checks compare like-for-like
       identities instead of similar-looking rows.
+- [x] Add the first guard/probe promotion queue behind that closeout path:
+      `governance-review --record` rows with `prevention_surface=guard|probe`
+      now create repo-pack-resolved `GuardPromotionCandidate` JSONL rows and
+      include candidate id/path metadata in the refreshed JSON summary for the
+      recorded row, so follow-up guard/probe design does not rely on chat
+      memory or audit prose.
 - [ ] Add one self-improvement guard tranche over platform completeness, not
       just code shape: fail when `missing_guard` / `missing_probe` findings
       have no follow-up, when authoritative/live contract rows have no
@@ -4867,6 +4873,14 @@ alone. Use these proof gates:
 Use this section as the single "left off here" surface for fresh AI sessions
 working on `MP-377`.
 
+- 2026-04-10 guard-promotion intake:
+  resume with the guard-promotion audit absorbed into the existing
+  governance-closeout chain. `governance-review --record` now creates the
+  first durable `GuardPromotionCandidate` queue entry when the prevention
+  surface is `guard` or `probe`, with the JSONL queue as the durable read
+  surface for now. The next slice should add validation/scaffolding only after
+  this queue proves useful; do not bypass `FindingReview` or create a parallel
+  audit-only backlog.
 - 2026-04-09 bootstrap-catalog / graph convergence slice:
   `SystemCatalog` now owns the generated bootstrap command inventory as typed
   authority rather than leaving `CLAUDE.md` / startup helpers to drift from a
@@ -6302,6 +6316,13 @@ Execution order for this section:
 
 ## Progress Log
 
+- 2026-04-10: Promoted the issue-to-guard learning-loop audit into the
+  existing `MP-377` governance closeout path rather than creating a new plan.
+  The first implementation is intentionally small: `FindingReview` remains the
+  canonical adjudication row, while `prevention_surface=guard|probe` now emits
+  a `GuardPromotionCandidate` queue entry that the governance-review JSON
+  summary exposes. Full guard scaffolding, validation, and auto-registration
+  remain future work behind that queue.
 - 2026-04-09: Closed the next remote-control convergence seam without
   creating a second runtime registry. External Claude phone sessions can now
   be written into typed repo-owned state through

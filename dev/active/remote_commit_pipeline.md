@@ -585,9 +585,21 @@ surface for remote sessions. It should project:
       records in `single_agent` mode instead of letting an old override block a
       newer checkpoint-clean governed push. Active dual-agent and current
       pipeline targets still require exact typed authorization.
+- [x] Stop reusing terminal same-branch pipelines during `devctl push`: a
+      `push_completed` `RemoteCommitPipelineContract` is publication evidence,
+      not a fresh push executor, so new commits after a completed pipeline must
+      fall back to current branch publication checks instead of replaying a
+      stale push report.
 
 ## Progress Log
 
+- 2026-04-10: Routed the dogfooded stale-pipeline push failure into this owner
+  doc and closed the narrow executor selection bug. `devctl push` no longer
+  treats any same-branch pipeline with `commit_sha` as pushable; only
+  `commit_recorded`, `push_pending`, and `push_blocked` pipelines re-enter
+  `GovernedVcsExecutor`. A completed pipeline now stays terminal evidence, so
+  new commits after `push_completed` use the normal current-branch push path
+  instead of silently rendering the previous push report.
 - 2026-04-09: Absorbed the repo-specific graph-backed convergence slice into
   this owner doc instead of leaving it as free prose. The first concrete
   proof here is now explicit: build a codeshape-hop mutation-bypass graph
@@ -787,6 +799,13 @@ surface for remote sessions. It should project:
 
 ## Session Resume
 
+- 2026-04-10 stale-pipeline push closure:
+  resume with `push_completed` treated as terminal evidence only. New commits
+  after a completed pipeline must not re-enter `GovernedVcsExecutor` through a
+  stale same-branch `commit_sha`; they should flow through the current branch
+  push path and exact authorization checks. Next work in this lane is still
+  the broader validation-plan/receipt and publish smoke harness, not another
+  manual pipeline-file workaround.
 - 2026-04-08 typed-authority convergence absorption: resume this lane as the
   explicit Phase-0 mutation/publish closure, not as generic VCS cleanup.
   Governed `devctl commit` plus active-pipeline `devctl push` are landed, but

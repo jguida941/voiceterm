@@ -140,6 +140,7 @@ Release-governance note:
 | Where is the code-shape expansion research companion (readability, coupling, AI-specific, information-theoretic probes/guards)? | `dev/active/code_shape_expansion.md` (subordinate evidence/calibration companion feeding `dev/active/review_probes.md` Phase 5b+, not a second execution authority) |
 | Where is the portable code-governance engine / multi-repo portability and measurement plan? | `dev/active/portable_code_governance.md` (engine/adoption companion plan) |
 | Where is the full reusable AI governance platform / package-extraction architecture plan? | `dev/active/ai_governance_platform.md` (the only main active architecture plan for this product scope) |
+| Where is the issue-to-guard/probe promotion queue owned? | `dev/active/ai_governance_platform.md` for the `FindingReview -> GuardPromotionCandidate` contract, `dev/active/portable_code_governance.md` for repo-pack path portability, and `dev/scripts/README.md` for `governance-review` queue behavior |
 | Where is the current `MP-377` startup-authority / repo-pack / typed-plan-registry / runtime-evidence-context closure plan? | `dev/active/platform_authority_loop.md` (subordinate `MP-377` execution spec; read after `dev/active/ai_governance_platform.md`) |
 | Where is the scheduler-facing planning reducer for multi-agent slice routing documented? | `dev/active/ai_governance_platform.md` for execution authority, plus `dev/scripts/README.md` for the maintainer-facing `PlanningIRSnapshot` module surface |
 | Where is the bounded coordination/topology reducer for live roster, ownership posture, fanout safety, worktree isolation, and resync state documented? | `dev/active/ai_governance_platform.md` for execution authority, plus `dev/scripts/README.md` for the maintainer-facing `CoordinationSnapshot` / `CoordinationTopologySnapshot` module surfaces |
@@ -1125,6 +1126,12 @@ Portable policy note:
 - Use `python3 dev/scripts/devctl.py governance-review --format md` to inspect
   the current adjudicated finding ledger, and `--record` to append one reviewed
   guard/probe outcome before the summary is regenerated.
+- When `governance-review --record` uses `--prevention-surface guard` or
+  `--prevention-surface probe`, the command also appends a
+  `GuardPromotionCandidate` row to the repo-pack-resolved promotion queue.
+  Inspect the queue file directly, and use the `--record` JSON summary's
+  candidate id/path metadata for the row just recorded instead of carrying
+  those follow-up candidates only in audit prose or chat notes.
 - `devctl` command telemetry is auto-emitted to
   `dev/reports/audits/devctl_events.jsonl`; do not hand-edit that ledger.
   The operator rule is:
@@ -2100,7 +2107,10 @@ Core commands:
   `dev/reports/governance/latest/review_summary.{md,json}`, and gives the repo
   a durable false-positive / cleanup-rate ledger; `--record` also accepts
   optional `guidance_id` / `guidance_followed` fields so probe-guidance
-  adoption can be measured in the same ledger as verdict/fix outcomes)
+  adoption can be measured in the same ledger as verdict/fix outcomes; rows
+  with `prevention_surface=guard|probe` also queue `GuardPromotionCandidate`
+  follow-up records and include the candidate id/path in the refreshed JSON
+  summary for that recorded row)
 - `triage` (human/AI triage output with optional CIHub artifact ingestion/bundle emission for owner/risk routing; report timestamps are UTC)
 - `triage-loop` (bounded CodeRabbit medium/high loop with mode controls: `report-only`, `plan-then-fix`, `fix-only`; fix execution is policy-gated via `AUTONOMY_MODE`, branch allowlist, and command-prefix allowlist; emits md/json bundles plus a bounded structured backlog slice for downstream autonomy consumers, optional MASTER_PLAN proposal artifacts, and review-escalation comment upserts when attempts exhaust unresolved backlog)
 - `loop-packet` (builds a guarded terminal feedback packet from triage/loop JSON sources for dev-mode draft injection with freshness/risk/auto-send-eligibility gates; `triage-loop` sources now also carry a bounded structured backlog slice so autonomy drafts can inject canonical `review_targets.json` probe guidance, mark when guidance adoption is required, and keep that contract in packet JSON instead of hidden prompt-only text)
