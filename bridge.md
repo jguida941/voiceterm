@@ -77,13 +77,13 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-04-10T05:41:58Z`
-- Last Codex poll (Local America/New_York): `2026-04-10 01:41:58 EDT`
+- Last Codex poll: `2026-04-10T05:46:24Z`
+- Last Codex poll (Local America/New_York): `2026-04-10 01:46:24 EDT`
 - Reviewer mode: `active_dual_agent`
-- Last non-audit worktree hash: `4c39431214c5e710a57fb5ce97235e867cea2b1bf80020a532bd8e899ffe0112`
-- Current instruction revision: `f636a2ba3837`
+- Last non-audit worktree hash: `01a1de763499959872f31d7c9429bd331d4afcf0161e25a0aa3eff46e9016443`
+- Current instruction revision: `88d229c01986`
 - Last checkpoint action: `reviewer-checkpoint`
-- Head at push time: `bfc8dd3e5aedfdb784ba076215caa4a22d2ac11e`
+- Head at push time: `bd3831998f7d80efbeec8fdfec810447ac0bc6e5`
 ## Protocol
 
 1. Claude should poll this file periodically while coding.
@@ -114,15 +114,15 @@ treat these rules as active workflow instructions immediately.
 
 ## Poll Status
 
-- Reviewer checkpoint updated through repo-owned tooling (mode: active_dual_agent; reason: review-finding-f3-stale-receipt-bypass; observed-tree: 4c39431214c5; reviewed-tree: 4c39431214c5; instruction-rev: f636a2ba3837).
+- Reviewer checkpoint updated through repo-owned tooling (mode: active_dual_agent; reason: review-finding-f3-authority-bypass; observed-tree: 01a1de763499; reviewed-tree: 01a1de763499; instruction-rev: 88d229c01986).
 
 ## Current Verdict
 
-Follow-up required before acceptance: F1 and F2 remain resolved, but F3 is still blocking at HEAD bfc8dd3e.
+Follow-up required before acceptance: stale receipts are now handled, but F3 remains blocking at HEAD bd383199.
 
 ## Open Findings
 
-F3 blocking: the repair allowance now lives inside `enforce_startup_gate()`, but it still bypasses stale startup receipts. In `startup_gate.py`, receipt failures from `startup_receipt_problems_for_intent()` pass through `_is_repair_allowed()` instead of failing, and the comment says repair bypasses receipt staleness. The new `test_repair_launch_bypasses_soft_gates` test asserts this bypass, so the regression coverage does not prove stale repair receipts still block.
+F3 blocking: `_is_repair_allowed()` still bypasses arbitrary non-checkpoint startup-authority failures. It checks the repair action, `repair_reviewer_loop`, and checkpoint flags, then returns true without proving the red authority report is only the reviewer-loop bootstrap case. That can turn unrelated startup-authority errors into a successful `review-channel launch` or `rollover`, contrary to the function comment that only the reviewer-loop authority block is bypassed.
 
 ## Claude Status
 
@@ -138,11 +138,11 @@ F3 blocking: the repair allowance now lives inside `enforce_startup_gate()`, but
 
 ## Current Instruction For Claude
 
-- Fix F3 before asking for re-review. Keep the dataclass crash fix and checkpoint-required blocking intact, but do not let `repair_reviewer_loop` bypass stale or missing startup receipt failures. The repair allowance should only bypass the live reviewer-loop authority failure after a current valid repair receipt is established. Add or adjust regression coverage so stale repair receipts block and checkpoint-required repair receipts block. Rerun `python3 -m unittest dev.scripts.devctl.tests.runtime.test_startup_gate` and `python3 dev/scripts/devctl.py docs-check --strict-tooling`, then report results.
+- Fix the remaining F3 authority-boundary gap before asking for re-review. Keep stale/missing receipt failures and checkpoint-required failures blocking. Constrain the `repair_reviewer_loop` allowance so it bypasses only the typed reviewer-loop bootstrap authority block, not unrelated startup-authority errors such as import-index atomicity, push-decision contract, base authority, or concurrent-writer failures. Add a regression test with a repair receipt plus an unrelated authority error proving it still blocks. Rerun `python3 -m unittest dev.scripts.devctl.tests.runtime.test_startup_gate` and `python3 dev/scripts/devctl.py docs-check --strict-tooling`, then report results.
 
 ## Last Reviewed Scope
 
-- 5687e3be..bfc8dd3e; focused unit test and docs-check green, F3 stale-receipt semantics still blocking
+- 5687e3be..bd383199; stale receipt fix green, F3 unrelated-authority bypass still blocking
 
 ## Action Requests
 

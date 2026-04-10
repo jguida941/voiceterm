@@ -456,8 +456,9 @@ Three quality layers matter in practice:
     already live.
     The startup gate repair-launch bypass reads
     `StartupReceipt.advisory_action` (typed attribute access, not dict `.get()`)
-    and handles `None` receipts without crashing; this keeps the
-    `repair_reviewer_loop` path alive when the receipt file is missing or stale.
+    and handles `None` receipts without crashing. The repair bypass only
+    applies to the authority check — receipt freshness, checkpoint budget,
+    and live authority checks still run before repair launch/rollover is allowed.
     Canonical reviewer-reset implementer placeholders (`Claude Status: - pending`,
     `Claude Ack: - pending`) are valid fresh-launch state for a new instruction
     revision, and the same reset now clears stale `Claude Questions` too.
