@@ -107,6 +107,12 @@
   non-destructive control-flow hints and projects a lane edit gate so
   dashboard/observer callers stay on findings/packets when a live implementer
   owns the active implementation lane.
+- 2026-04-10 Q64/Q54 intake-governance follow-up in `MP-377` scope:
+  `WorkIntakePacket` now computes a bounded `session_pacing` projection from
+  planning IR plus current graph adjacency so startup can emit a typed
+  research-to-first-patch budget, and `governance-review` now accepts
+  `signal_type=observer` plus optional `finding_type` so observer/self-audit
+  findings reuse the canonical ledger instead of living only in audit prose.
 - Current highest-priority subordinate `MP-377` lane:
   `dev/active/platform_authority_loop.md`. This is the execution spec for
   closing the portable authority loop:

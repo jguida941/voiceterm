@@ -9481,6 +9481,40 @@ receipt.
 Evidence: `dev/scripts/devctl/runtime/startup_gate.py`,
 `dev/scripts/devctl/tests/runtime/test_startup_gate.py`.
 
+### 2026-04-10 — Startup work intake now emits pacing guidance; governance-review accepts observer self-audits
+
+Q64 and Q54 both closed by extending existing typed surfaces instead of
+adding a second controller or a parallel audit ledger. `WorkIntakePacket`
+now carries bounded `session_pacing` state derived from the selected
+planning slice plus current context-graph dependency adjacency, so
+`startup-context` can emit authority refs, implementation refs, a
+research-to-first-patch budget, and a deterministic
+`patch_after_bounded_refs_or_raise_blocker` trigger before an agent widens
+into whole-repo reads. In the same pass, `governance-review` accepted
+`signal_type=observer` plus optional `finding_type`, letting observer/self-
+audit outcomes reuse the canonical adjudication JSONL and summary surfaces
+instead of living only in audit markdown.
+
+Evidence: `dev/scripts/devctl/runtime/work_intake_models.py`,
+`dev/scripts/devctl/runtime/work_intake.py`,
+`dev/scripts/devctl/runtime/work_intake_pacing.py`,
+`dev/scripts/devctl/commands/governance/startup_context.py`,
+`dev/scripts/devctl/commands/governance/startup_context_render.py`,
+`dev/scripts/devctl/governance_review_models.py`,
+`dev/scripts/devctl/governance_review_log.py`,
+`dev/scripts/devctl/governance_review_parser.py`,
+`dev/scripts/devctl/commands/governance/review.py`,
+`dev/config/templates/portable_governance_finding_review.schema.json`,
+`dev/scripts/devctl/tests/runtime/test_work_intake.py`,
+`dev/scripts/devctl/tests/runtime/test_startup_context.py`,
+`dev/scripts/devctl/tests/governance/test_governance_review.py`,
+`AGENTS.md`,
+`dev/guides/DEVELOPMENT.md`,
+`dev/scripts/README.md`,
+`dev/active/MASTER_PLAN.md`,
+`dev/active/ai_governance_platform.md`,
+`dev/active/platform_authority_loop.md`.
+
 ### 2026-04-10 — Startup context now exposes observed control topology
 
 Q38's first slice promoted observed reviewer/implementer topology into typed

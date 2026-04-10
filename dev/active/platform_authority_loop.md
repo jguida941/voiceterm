@@ -1891,6 +1891,24 @@ blocker or exception in plan state before skipping the declared order.
 
 ## Session Resume
 
+- 2026-04-10 Q64 research-scope contract slice: resume by keeping the fix in
+  the existing startup/work-intake spine instead of inventing a second
+  controller. Compute one typed pacing packet from repo evidence: use the
+  bounded `PlanningIRSnapshot` active slice plus current `ContextGraphSnapshot`
+  adjacency to derive focus paths, dependency-neighbor refs, complexity, and a
+  deterministic first-patch research budget. Project it through
+  `WorkIntakePacket` and `startup-context` summary/markdown so agents get a
+  repo-owned "read this bounded set, then patch or escalate" contract instead
+  of operator prose or whole-repo exploration.
+- 2026-04-10 Q52/Q54/Q55/Q60/Q61 authority-loop follow-up: resume by
+  keeping the slice thin and repo-owned. Wire raw `git commit` back through
+  the existing typed `commit_permission` boundary via the managed pre-commit
+  hook, reuse the triage severity order plus context-graph dependency edges
+  to rank accumulated findings, add a bounded `plan-from-findings` command
+  that routes `dev/audits/LIVE_RUN.md` findings into plan ownership instead
+  of leaving them flat audit prose, and keep incremental guard feedback on
+  the same repo-owned command path so future Claude/Codex/tool hooks can call
+  one surface instead of forking governance logic.
 - 2026-04-10 Q38 control-topology slice: resume by making the new
   `observed_control_topology` / `implementation_permission` fields load
   reviewer authority from live runtime evidence rather than widening into
@@ -2559,6 +2577,23 @@ blocker or exception in plan state before skipping the declared order.
 
 ## Progress Log
 
+- 2026-04-10: Started the Q64 research-scope closure under `MP-377`. The
+  bounded implementation is to keep pacing inside the existing startup/work-
+  intake authority chain: derive one typed pacing packet from
+  `PlanningIRSnapshot` next-slice evidence plus current context-graph
+  dependency adjacency, use that packet to emit a bounded cited read set and
+  first-patch budget, and project it through `WorkIntakePacket` and
+  `startup-context` instead of relying on chat-level "stop reading, start
+  coding" instructions.
+- 2026-04-10: Started the remaining quality-audit follow-up slice under
+  `MP-377` without opening a parallel tracker. The bounded closure is:
+  1) extend `governance-review` so observer/self-audit findings reuse the
+  existing ledger, 2) reuse planning IR + context-graph dependency evidence
+  to rank open findings instead of treating them as a flat set, 3) move the
+  existing `commit_permission` gate into the managed pre-commit path, 4) run
+  the quick guard bundle through the same thin repo-owned hook command for
+  incremental feedback, and 5) add a `plan-from-findings` surface that reads
+  `LIVE_RUN.md` and routes findings into plan ownership/priority output.
 - 2026-04-10: Started the Q40/Q42 lane-edit and destructive-recovery
   precondition closure under `MP-377`. The current slice should emit one
   startup-context recovery-authority projection with closed

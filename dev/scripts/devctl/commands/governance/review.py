@@ -55,6 +55,7 @@ def run(args) -> int:
                     repo_name=getattr(args, "repo_name", None),
                     repo_path=getattr(args, "repo_path", None),
                     notes=getattr(args, "notes", None),
+                    finding_type=getattr(args, "finding_type", None),
                     finding_class=getattr(args, "finding_class", None),
                     recurrence_risk=getattr(args, "recurrence_risk", None),
                     prevention_surface=getattr(args, "prevention_surface", None),

@@ -57,6 +57,7 @@ class GovernanceReviewInput:
     repo_name: str | None = None
     repo_path: str | None = None
     notes: str | None = None
+    finding_type: str | None = None
     finding_id: str | None = None
     finding_class: str | None = None
     recurrence_risk: str | None = None

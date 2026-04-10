@@ -540,6 +540,22 @@ class TestCLIRegistration(unittest.TestCase):
                             }
                         ],
                     },
+                    "session_pacing": {
+                        "complexity_band": "high",
+                        "source": "saved_context_graph_snapshot",
+                        "research_ref_budget": 7,
+                        "dependency_edge_count": 5,
+                        "implementation_trigger": "patch_after_bounded_refs_or_raise_blocker",
+                        "summary": "Review 4 authority refs and 3 implementation refs, then patch or escalate.",
+                        "authority_refs": [
+                            "dev/active/platform_authority_loop.md",
+                            "AGENTS.md",
+                        ],
+                        "implementation_refs": [
+                            "dev/scripts/devctl/runtime/work_intake.py",
+                            "dev/scripts/devctl/runtime/startup_context.py",
+                        ],
+                    },
                     "warm_refs": [
                         "AGENTS.md",
                         "dev/active/INDEX.md",
@@ -577,6 +593,17 @@ class TestCLIRegistration(unittest.TestCase):
         self.assertIn("delegated_worktrees: `../codex-voice-wt-a1`", rendered)
         self.assertIn(
             "duplicate_delegated_worktrees: `../codex-voice-wt-a1`",
+            rendered,
+        )
+        self.assertIn("session_pacing: `high` via `saved_context_graph_snapshot`", rendered)
+        self.assertIn("research_ref_budget: 7", rendered)
+        self.assertIn("dependency_edge_count: 5", rendered)
+        self.assertIn(
+            "implementation_trigger: `patch_after_bounded_refs_or_raise_blocker`",
+            rendered,
+        )
+        self.assertIn(
+            "implementation_refs: `dev/scripts/devctl/runtime/work_intake.py`, `dev/scripts/devctl/runtime/startup_context.py`",
             rendered,
         )
         self.assertIn("selected_workflow_profile: `bundle.tooling`", rendered)
@@ -2486,6 +2513,38 @@ class TestReviewerGateOperatorInteractionMode(unittest.TestCase):
             "push_decision": {"action": "no_push_needed", "next_step_command": ""},
         })
         self.assertIn("interaction_mode=unresolved", rendered)
+
+    def test_summary_includes_session_pacing_projection(self) -> None:
+        rendered = _render_summary({
+            "advisory_action": "continue_editing",
+            "advisory_reason": "bounded_slice_ready",
+            "reviewer_gate": {
+                "implementation_blocked": False,
+                "operator_interaction_mode": "single_agent",
+            },
+            "startup_authority": {"ok": True},
+            "governance": {
+                "push_enforcement": {
+                    "checkpoint_required": False,
+                    "safe_to_continue_editing": True,
+                },
+            },
+            "push_decision": {"action": "no_push_needed", "next_step_command": ""},
+            "work_intake": {
+                "session_pacing": {
+                    "complexity_band": "high",
+                    "research_ref_budget": 7,
+                    "focus_file_count": 2,
+                    "dependency_edge_count": 5,
+                    "implementation_trigger": "patch_after_bounded_refs_or_raise_blocker",
+                },
+            },
+        })
+        self.assertIn("session_pacing=high/7refs/2files/5deps", rendered)
+        self.assertIn(
+            "pacing_trigger=patch_after_bounded_refs_or_raise_blocker",
+            rendered,
+        )
 
     def test_machine_summary_includes_coordination_block(self) -> None:
         coordination = CoordinationSnapshot(

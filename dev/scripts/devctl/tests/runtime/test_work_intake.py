@@ -5,9 +5,18 @@ from __future__ import annotations
 import json
 import subprocess
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
+from dev.scripts.devctl.context_graph.snapshot_payload import (
+    ContextGraphSnapshot,
+    TemperatureDistributionSummary,
+)
+from dev.scripts.devctl.platform.planning_ir_models import (
+    NextBestSliceRecord,
+    PlanningIRSnapshot,
+)
 from dev.scripts.devctl.runtime.project_governance import (
     PROJECT_GOVERNANCE_CONTRACT_ID,
     PROJECT_GOVERNANCE_SCHEMA_VERSION,
@@ -29,7 +38,15 @@ from dev.scripts.devctl.runtime.project_governance import (
     SessionResumeEntry,
     SessionResumeState,
 )
-from dev.scripts.devctl.runtime.work_intake import build_work_intake_packet
+from dev.scripts.devctl.runtime.work_intake import (
+    WorkIntakeStateInputs,
+    build_work_intake_packet,
+)
+from dev.scripts.devctl.runtime.work_intake_models import (
+    PlanTargetRef,
+    WorkIntakeCoordinationState,
+    WorkIntakeOwnershipState,
+)
 
 
 def _write(path: Path, text: str) -> None:
@@ -564,6 +581,155 @@ def test_build_work_intake_packet_surfaces_shared_backlog_refs_and_sink(
         "dev/active/platform_authority_loop.md",
         "dev/active/MASTER_PLAN.md",
         "backlog.md",
+    )
+
+
+def test_build_work_intake_packet_emits_session_pacing_from_planning_and_graph_evidence(
+    tmp_path: Path,
+) -> None:
+    _seed_minimal_repo(tmp_path)
+    governance = _governance()
+    review_state = SimpleNamespace(
+        current_session=SimpleNamespace(
+            last_reviewed_scope="MP-377",
+            current_instruction="Land the pacing packet.",
+            open_findings="Q64",
+            implementer_status="working",
+        ),
+        review=SimpleNamespace(plan_id=""),
+        review_candidate=SimpleNamespace(
+            scope_paths=("dev/scripts/devctl/runtime/work_intake.py",),
+            changed_paths=("dev/scripts/devctl/runtime/work_intake.py",),
+        ),
+    )
+    planning_snapshot = PlanningIRSnapshot(
+        repo_name="codex-voice",
+        repo_root=str(tmp_path),
+        current_branch="feature/demo",
+        active_target=PlanTargetRef(
+            target_id="plan_target:test",
+            plan_path="dev/active/platform_authority_loop.md",
+            plan_title="Platform Authority Loop",
+            plan_scope="MP-377",
+            target_kind="plan_doc",
+            anchor_ref="section:root",
+            expected_revision="abc12345",
+        ),
+        next_best_slices=(
+            NextBestSliceRecord(
+                slice_id="slice:pacing",
+                plan_path="dev/active/platform_authority_loop.md",
+                plan_title="Platform Authority Loop",
+                plan_scope="MP-377",
+                file_paths=(
+                    "dev/scripts/devctl/runtime/work_intake.py",
+                    "dev/scripts/devctl/runtime/startup_context.py",
+                ),
+                hot_path_count=1,
+                live_finding_count=2,
+                summary="2 live findings and 1 hot path across the intake slice.",
+            ),
+        ),
+    )
+    graph_snapshot = ContextGraphSnapshot(
+        schema_version=1,
+        contract_id="ContextGraphSnapshot",
+        repo="codex-voice",
+        branch="feature/demo",
+        commit_hash="head",
+        generated_at_utc="2026-04-10T20:00:00Z",
+        source_mode="bootstrap",
+        node_count=3,
+        edge_count=2,
+        nodes_by_kind={"source_file": 3},
+        edges_by_kind={"imports": 1, "calls": 1},
+        temperature_distribution=TemperatureDistributionSummary(
+            minimum=0.2,
+            maximum=0.7,
+            average=0.5,
+            buckets={
+                "0.00-0.24": 1,
+                "0.25-0.49": 0,
+                "0.50-0.74": 2,
+                "0.75-1.00": 0,
+            },
+        ),
+        nodes=[
+            {
+                "node_id": "src:work_intake",
+                "node_kind": "source_file",
+                "label": "work_intake.py",
+                "canonical_pointer_ref": "dev/scripts/devctl/runtime/work_intake.py",
+                "provenance_ref": "snapshot",
+                "temperature": 0.7,
+                "metadata": {},
+            },
+            {
+                "node_id": "src:startup_context",
+                "node_kind": "source_file",
+                "label": "startup_context.py",
+                "canonical_pointer_ref": "dev/scripts/devctl/runtime/startup_context.py",
+                "provenance_ref": "snapshot",
+                "temperature": 0.6,
+                "metadata": {},
+            },
+            {
+                "node_id": "src:planning_ir",
+                "node_kind": "source_file",
+                "label": "planning_ir.py",
+                "canonical_pointer_ref": "dev/scripts/devctl/platform/planning_ir.py",
+                "provenance_ref": "snapshot",
+                "temperature": 0.55,
+                "metadata": {},
+            },
+        ],
+        edges=[
+            {
+                "source_id": "src:work_intake",
+                "target_id": "src:planning_ir",
+                "edge_kind": "imports",
+            },
+            {
+                "source_id": "src:startup_context",
+                "target_id": "src:planning_ir",
+                "edge_kind": "calls",
+            },
+        ],
+    )
+
+    packet = build_work_intake_packet(
+        repo_root=tmp_path,
+        governance=governance,
+        advisory_action="continue_editing",
+        advisory_reason="research_scope_ready",
+        state_inputs=WorkIntakeStateInputs(
+            review_state=review_state,
+            ownership=WorkIntakeOwnershipState(status="clear"),
+            coordination=WorkIntakeCoordinationState(
+                collaboration_topology="single_agent",
+                authority_mode="self_directed",
+                work_ownership_mode="exclusive_slice",
+                sync_cadence_mode="checkpointed",
+            ),
+            planning_snapshot=planning_snapshot,
+            graph_snapshot=graph_snapshot,
+        ),
+    )
+
+    assert packet.session_pacing.source == "state_inputs.current_graph_snapshot"
+    assert packet.session_pacing.complexity_band == "high"
+    assert packet.session_pacing.dependency_edge_count == 2
+    assert packet.session_pacing.research_ref_budget == 7
+    assert packet.session_pacing.authority_refs == (
+        "dev/active/platform_authority_loop.md",
+        "AGENTS.md",
+        "dev/active/INDEX.md",
+        "dev/active/MASTER_PLAN.md",
+    )
+    assert packet.session_pacing.implementation_refs == (
+        "dev/scripts/devctl/runtime/work_intake.py",
+        "dev/scripts/devctl/runtime/startup_context.py",
+        "dev/scripts/devctl/platform/planning_ir.py",
     )
 
 

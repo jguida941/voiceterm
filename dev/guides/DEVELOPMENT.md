@@ -591,13 +591,15 @@ Three quality layers matter in practice:
     `PlanRegistry` entries built from governed docs plus `INDEX.md`, and
     `startup-context` now emits a bounded `WorkIntakePacket` carrying the
     selected `PlanTargetRef`, typed continuity reconciliation, startup-order
-    warm refs, and live routing defaults. When repo policy advertises a shared
-    backlog doc, the same packet may surface that backlog in warm refs and
-    writeback sinks so humans and AI can share one repo-visible intake
-    surface without mistaking it for execution authority. The reviewed markdown
-    `## Session Resume` section still remains the canonical restart surface;
-    the typed continuity state is a startup projection over that markdown, not
-    a second authority store. Generated bootstrap surfaces now make
+    warm refs, live routing defaults, and `session_pacing` guidance that
+    derives a bounded research-to-first-patch read set from planning IR plus
+    current graph adjacency. When repo policy advertises a shared backlog doc,
+    the same packet may surface that backlog in warm refs and writeback sinks
+    so humans and AI can share one repo-visible intake surface without
+    mistaking it for execution authority. The reviewed markdown `## Session
+    Resume` section still remains the canonical restart surface; the typed
+    continuity state is a startup projection over that markdown, not a second
+    authority store. Generated bootstrap surfaces now make
     `startup-context --format summary` the mandatory Step 0 gate before edits,
     validation, or repo-owned launcher work; user summaries, stale chat
     continuity, or remembered prior state are not substitutes for that

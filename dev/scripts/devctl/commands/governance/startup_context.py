@@ -208,6 +208,23 @@ def _render_summary(ctx_dict: dict) -> str:
     backlog_guidance = publication_backlog_guidance(ctx_dict)
     if backlog_guidance:
         lines.append(f"push_guidance={backlog_guidance.replace('`', '')}")
+    pacing = {}
+    work_intake = ctx_dict.get("work_intake")
+    if isinstance(work_intake, dict):
+        pacing = work_intake.get("session_pacing")
+        if not isinstance(pacing, dict):
+            pacing = {}
+    if pacing:
+        lines.append(
+            "session_pacing="
+            f"{pacing.get('complexity_band', 'unknown')}/"
+            f"{pacing.get('research_ref_budget', 0)}refs/"
+            f"{pacing.get('focus_file_count', 0)}files/"
+            f"{pacing.get('dependency_edge_count', 0)}deps"
+        )
+        trigger = str(pacing.get("implementation_trigger") or "").strip()
+        if trigger:
+            lines.append(f"pacing_trigger={trigger}")
     return "\n".join(lines)
 
 

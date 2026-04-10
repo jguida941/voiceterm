@@ -171,6 +171,64 @@ class WorkIntakeCoordinationState:
 
 
 @dataclass(frozen=True, slots=True)
+class SessionPacingState:
+    """Bounded research-to-implementation pacing guidance from repo evidence."""
+
+    strategy: str = "bounded_research_then_patch"
+    source: str = "unavailable"
+    confidence: str = "low"
+    complexity_band: str = "unknown"
+    complexity_score: int = 0
+    research_ref_budget: int = 0
+    authority_ref_count: int = 0
+    focus_file_count: int = 0
+    dependency_edge_count: int = 0
+    hot_path_count: int = 0
+    live_finding_count: int = 0
+    implementation_trigger: str = "patch_after_bounded_refs_or_raise_blocker"
+    focus_slice_id: str = ""
+    focus_summary: str = ""
+    authority_refs: tuple[str, ...] = ()
+    implementation_refs: tuple[str, ...] = ()
+    summary: str = ""
+
+    def to_dict(self) -> dict[str, object]:
+        payload = asdict(self)
+        payload["authority_refs"] = list(self.authority_refs)
+        payload["implementation_refs"] = list(self.implementation_refs)
+        if not self.focus_slice_id:
+            payload.pop("focus_slice_id", None)
+        if not self.focus_summary:
+            payload.pop("focus_summary", None)
+        if not self.summary:
+            payload.pop("summary", None)
+        return payload
+
+
+def session_pacing_markdown_lines(pacing: object) -> tuple[str, ...]:
+    """Render the bounded pacing payload for startup-context markdown."""
+    if not isinstance(pacing, dict) or not pacing:
+        return ()
+
+    lines = [
+        f"- session_pacing: `{pacing.get('complexity_band', 'unknown')}` via `{pacing.get('source', 'unavailable')}`",
+        f"- research_ref_budget: {pacing.get('research_ref_budget', 0)}",
+        f"- dependency_edge_count: {pacing.get('dependency_edge_count', 0)}",
+        f"- implementation_trigger: `{pacing.get('implementation_trigger', '')}`",
+    ]
+    summary = str(pacing.get("summary") or "").strip()
+    if summary:
+        lines.append(f"- pacing_summary: {summary}")
+    implementation_refs = pacing.get("implementation_refs")
+    if isinstance(implementation_refs, list) and implementation_refs:
+        joined = ", ".join(f"`{path}`" for path in implementation_refs[:4])
+        if len(implementation_refs) > 4:
+            joined = f"{joined}, +{len(implementation_refs) - 4} more"
+        lines.append(f"- implementation_refs: {joined}")
+    return tuple(lines)
+
+
+@dataclass(frozen=True, slots=True)
 class WorkIntakePacket:
     """First bounded startup/work-routing packet for AI sessions."""
 
@@ -186,6 +244,7 @@ class WorkIntakePacket:
     coordination: WorkIntakeCoordinationState = field(
         default_factory=WorkIntakeCoordinationState
     )
+    session_pacing: SessionPacingState = field(default_factory=SessionPacingState)
     scope_hints: tuple[str, ...] = ()
     warm_refs: tuple[str, ...] = ()
     writeback_sinks: tuple[str, ...] = ()
@@ -204,6 +263,7 @@ class WorkIntakePacket:
         payload["routing"] = self.routing.to_dict()
         payload["ownership"] = self.ownership.to_dict()
         payload["coordination"] = self.coordination.to_dict()
+        payload["session_pacing"] = self.session_pacing.to_dict()
         if self.fallback_reason:
             payload["fallback_reason"] = self.fallback_reason
         return payload
@@ -212,8 +272,10 @@ class WorkIntakePacket:
 __all__ = [
     "IntakeRoutingState",
     "PlanTargetRef",
+    "SessionPacingState",
     "SessionContinuityState",
     "WorkIntakeCoordinationState",
     "WorkIntakeOwnershipState",
     "WorkIntakePacket",
+    "session_pacing_markdown_lines",
 ]

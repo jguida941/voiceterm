@@ -242,10 +242,11 @@ Run this sequence for every task. Do not skip steps.
    "when do we push?" without manual `git` inspection or spelunking through
    typed JSON fields.
    That typed startup receipt now emits a bounded `WorkIntakePacket`
-   (selected `PlanTargetRef`, typed continuity, and routing hints), writes a
-   managed startup receipt under the repo-owned reports root, and exits
-   non-zero when checkpoint budget or startup-authority truth says another
-   implementation slice is not allowed yet. The scoped startup gate
+   (selected `PlanTargetRef`, typed continuity, routing hints, and bounded
+   `session_pacing` research guidance derived from planning/graph evidence),
+   writes a managed startup receipt under the repo-owned reports root, and
+   exits non-zero when checkpoint budget or startup-authority truth says
+   another implementation slice is not allowed yet. The scoped startup gate
    (`startup_gate.py`) reads `StartupReceipt.advisory_action` as a typed
    attribute and handles a missing receipt without crashing. The
    reviewer-loop relaxation for `launch`/`rollover` is handled by the
@@ -2132,7 +2133,8 @@ Core commands:
 - `governance-review` (records adjudicated guard/probe findings to
   `dev/reports/governance/finding_reviews.jsonl`, writes
   `dev/reports/governance/latest/review_summary.{md,json}`, and gives the repo
-  a durable false-positive / cleanup-rate ledger; `--record` also accepts
+  a durable false-positive / cleanup-rate ledger; `--record` now also accepts
+  `signal_type=observer` plus optional `finding_type`, and still accepts
   optional `guidance_id` / `guidance_followed` fields so probe-guidance
   adoption can be measured in the same ledger as verdict/fix outcomes; rows
   with `prevention_surface=guard|probe` also queue `GuardPromotionCandidate`

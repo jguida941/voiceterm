@@ -2990,6 +2990,109 @@ which Q55 says we don't have yet. Start there.
   output, not mix them as equal-weight claims.
 - **Status**: OPEN — high, directly enables Q54 self-audit loop
 
+### Q65 — ARCHITECTURE — Systems not properly connected: duplication, orphaned contracts, parallel hierarchies
+
+- **Discovered**: 2026-04-10T21:12Z
+- **Severity**: critical / architecture
+- **Body**: 4-agent architecture audit found the systems are not fully
+  connected despite each being individually correct. Three problems:
+  1. **action_routing stranded from work_intake**: Both compute "who is
+     the active implementer" independently. action_routing reads raw
+     dicts instead of consuming WorkIntakeCoordinationState. They can
+     disagree on ownership, meaning the system could allow an action
+     that should be blocked.
+  2. **Dual SystemCatalog**: governance/ and platform/ each define their
+     own catalog models (CatalogCommand vs CommandEntry, CatalogGuard
+     vs GuardEntry, etc). Same purpose, different names, zero imports
+     between them. Two parallel hierarchies maintained independently.
+  3. **230 dataclasses across 3 layers with zero cross-layer imports**:
+     runtime (138), governance (53), platform (39). PushEnforcement
+     (runtime) vs PushPolicy (governance) both govern push rules but
+     share no contract. Quality feedback models (11 dataclasses) appear
+     write-only. Review state passes through 3-4 transformations.
+  Dashboard and startup-context are clean — they read from one shared
+  ControlPlaneReadModel. The problem is in the supporting layers.
+  Fix direction: consolidate dual SystemCatalog, make action_routing
+  consume work_intake output, audit 230 dataclasses for orphans.
+  This is a consolidation task, not a new feature.
+- **Evidence**: 4 parallel research agents auditing actual imports and
+  function calls, not docs. All 4 converged on the same findings.
+- **Status**: OPEN — critical, architectural debt that compounds with
+  every new Q-finding that adds contracts to the wrong layer
+
+### Q64 — ARCHITECTURE — Agent exhausts context on research before writing code
+
+- **Discovered**: 2026-04-10T20:05Z
+- **Severity**: critical / architecture
+- **Body**: Codex Round 4 consumed 9.6M tokens (7.7M+ on codebase reads)
+  and wrote zero code files after 15 minutes. The agent read 50+ files
+  across governance, planning, triage, hooks, context-graph, and review
+  systems — all before writing a single `apply_patch`. At this rate it
+  will exhaust context or compute budget before implementing any of the
+  5 assigned Q-findings (Q52, Q54, Q55, Q60, Q61).
+  This is the same pattern that Q60 describes from the guard side, but
+  from the agent-behavior side: no budget or checkpoint discipline for
+  the research-vs-implementation ratio. The system needs a scoped
+  research gate — not a hard limit that makes agents dumber, but a
+  checkpoint that forces the agent to produce code after a bounded
+  research phase. Design options:
+  1. **Context budget checkpoint**: after N tokens of pure read (no
+     patches), the system inserts a "you must write code now or explain
+     why you need more research" prompt.
+  2. **Scoped task decomposition**: instead of 5 Q-findings per session,
+     assign 1-2 with explicit research scope (e.g. "read at most 10
+     files for Q54, then implement").
+  3. **Research-then-code two-phase protocol**: agent declares research
+     complete, system takes a snapshot, then agent enters code-only mode
+     where further reads are bounded.
+  The design must NOT make the agent do less work or skip necessary
+  reads — it should make it smarter about when to transition from
+  research to implementation. This needs testing to validate it doesn't
+  degrade quality.
+  **Key constraint**: the solution must be a typed system contract, not
+  prose instructions from an operator. The governance platform already
+  computes `WorkIntakePacket`, `startup-context`, and `action_routing` —
+  the research scope should be emitted as typed fields in those same
+  contracts. The system determines scope, not the operator guessing in
+  markdown. Candidate surfaces: `WorkIntakePacket.research_budget`,
+  `StartupContext.task_decomposition`, or a new `SessionPacingContract`
+  that the action router reads. Whatever it is, it must be computed from
+  evidence (task complexity, file count, dependency edges) not hardcoded.
+- **Observed data**: Round 4 session `019d78f2-a3ec-7c11-b2d6-4fb8011969e0`,
+  464 events, 9.6M tokens, 1 apply_patch (plan doc only), 0 code files.
+  Previous rounds (1-3) successfully wrote code — those had 2-4 scoped
+  tasks, not 5.
+- **Status**: OPEN — critical, directly impacts all future Codex sessions.
+  Codex should research this and propose a system-level implementation
+  (typed contracts, not prose) in its verdict.
+
+### Q63 — PROCESS — Dashboard operator committed without running full guard stack
+
+- **Discovered**: 2026-04-10T19:42Z
+- **Severity**: high / process-discipline
+- **Body**: Claude (dashboard operator) checkpointed Codex Round 3 work
+  (20 dirty files) after running only targeted tests (336 pass) and
+  code_shape_policy.py — skipped `check --profile ci`, `probe-report`,
+  `docs-check --strict-tooling`, and the full `bundle.tooling` preflight.
+  The governed push correctly caught the gap: hygiene check failed on
+  stale background processes. After killing processes and retrying, push
+  succeeded (all 44 post-push steps pass, CI profile clean, 25 probes
+  clean). The commit content was sound, but the process violation is
+  real: CLAUDE.md says "Done means the required guards/tests passed"
+  and "Do not report completion after only writing code or running a
+  partial subset of checks." This is the exact scenario Q60 addresses —
+  guards need to be enforced automatically, not rely on operator memory.
+  A pre-commit hook or Claude Code hook wiring the existing
+  commit_permission check would prevent this class of error.
+- **Root cause**: No automated enforcement of full guard stack before
+  commit. The commit_permission contract exists in devctl but only runs
+  during governed push preflight, not at commit time.
+- **Mitigation**: Push preflight caught it. CI profile passes. No bad
+  code landed.
+- **Status**: OPEN — directly validates Q52 (hook enforcement) and
+  Q60 (incremental guards). When those are implemented, this class of
+  error becomes impossible.
+
 ### Q61 — PROCESS — Findings stay in LIVE_RUN as flat list, not routed to plan system
 
 - **Discovered**: 2026-04-10T18:40Z
@@ -4210,9 +4313,18 @@ prose in verdict text.
    hash and brief summary. Do not delete the entry — this is append-only
    trial data.
 3. If you discover additional findings while fixing these, append new
-   Q-entries (next ID: **Q16**) in the same format.
+   Q-entries (next ID: **Q65**) in the same format.
 4. Respect the existing F1/F2/F3 Open Findings (Codex-authored) — they are
    still open and are not duplicates of Q1–Q15.
 5. When all Q-entries plus F1/F2/F3 are FIXED, write a final `## Session
    conclusion` section summarizing what landed and what's still open, then
    request operator review.
+
+### Q64 implementation direction
+
+Q64 is a system-level problem. The governance platform must compute and
+emit research scope as typed state — not prose instructions from an
+operator. See Q64 finding above for the full problem statement. Codex
+should research how to build this into the existing WorkIntakePacket /
+startup-context / action-routing contracts and propose an implementation
+in its verdict.

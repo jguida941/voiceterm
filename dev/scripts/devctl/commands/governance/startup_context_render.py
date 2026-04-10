@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from ...context_graph.render import append_quality_signal_lines
 from ...runtime.project_governance_push import push_enforcement_from_mapping
+from ...runtime.work_intake_models import session_pacing_markdown_lines
 from ...runtime.startup_push_recovery import (
     artifact_publication_truth,
     effective_publication_summary,
@@ -350,6 +351,7 @@ def _append_work_intake(lines: list[str], ctx_dict: dict) -> None:
             routing,
             summary_label="workflow_profile_rule_summary",
         )
+    lines.extend(session_pacing_markdown_lines(intake.get("session_pacing")))
     warm_refs = intake.get("warm_refs")
     if isinstance(warm_refs, list) and warm_refs:
         lines.append(f"- warm_refs: {_join_paths(warm_refs)}")

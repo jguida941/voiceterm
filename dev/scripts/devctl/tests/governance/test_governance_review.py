@@ -51,8 +51,10 @@ class GovernanceReviewCommandTests(unittest.TestCase):
         self.assertIn("finding_class", payload["required"])
         self.assertIn("recurrence_risk", payload["required"])
         self.assertIn("prevention_surface", payload["required"])
+        self.assertIn("observer", properties["signal_type"]["enum"])
         self.assertIn("audit", properties["signal_type"]["enum"])
         self.assertIn("external", properties["scan_mode"]["enum"])
+        self.assertIn("finding_type", properties)
         self.assertIn("guidance_id", properties)
         self.assertIn("guidance_followed", properties)
 
@@ -69,13 +71,15 @@ class GovernanceReviewCommandTests(unittest.TestCase):
                 "--finding-id",
                 "finding-1",
                 "--signal-type",
-                "probe",
+                "observer",
                 "--check-id",
                 "probe_single_use_helpers",
                 "--verdict",
                 "false_positive",
                 "--path",
                 "demo.py",
+                "--finding-type",
+                "observer_mutation_attempt",
                 "--line",
                 "14",
                 "--finding-class",
@@ -98,10 +102,11 @@ class GovernanceReviewCommandTests(unittest.TestCase):
         self.assertEqual(args.log_path, "/tmp/reviews.jsonl")
         self.assertEqual(args.summary_root, "/tmp/review-summary")
         self.assertEqual(args.finding_id, "finding-1")
-        self.assertEqual(args.signal_type, "probe")
+        self.assertEqual(args.signal_type, "observer")
         self.assertEqual(args.check_id, "probe_single_use_helpers")
         self.assertEqual(args.verdict, "false_positive")
         self.assertEqual(args.path, "demo.py")
+        self.assertEqual(args.finding_type, "observer_mutation_attempt")
         self.assertEqual(args.line, 14)
         self.assertEqual(args.finding_class, "rule_quality")
         self.assertEqual(args.recurrence_risk, "recurring")
@@ -419,6 +424,23 @@ class GovernanceReviewCommandTests(unittest.TestCase):
 
         self.assertEqual(row["guidance_id"], "probe_exception_quality@demo.py:7")
         self.assertTrue(row["guidance_followed"])
+
+    def test_review_row_accepts_observer_signal_type_and_optional_finding_type(self) -> None:
+        row = build_governance_review_row(
+            review_input=GovernanceReviewInput(
+                signal_type="observer",
+                check_id="observer_self_audit",
+                verdict="confirmed_issue",
+                file_path="dev/audits/LIVE_RUN.md",
+                finding_type="observer_mutation_attempt",
+                finding_class="workflow_gap",
+                recurrence_risk="recurring",
+                prevention_surface="contract",
+            )
+        )
+
+        self.assertEqual(row["signal_type"], "observer")
+        self.assertEqual(row["finding_type"], "observer_mutation_attempt")
 
     def test_review_row_rejects_partial_guidance_measurement(self) -> None:
         with self.assertRaisesRegex(ValueError, "guidance_id is required"):

@@ -6331,6 +6331,14 @@ Execution order for this section:
 
 ## Progress Log
 
+- 2026-04-10: Started the Q64/Q54 bounded intake-governance closure under
+  `MP-377`. The first slice keeps both fixes in existing repo-owned surfaces:
+  `WorkIntakePacket` now needs one typed `session_pacing` projection derived
+  from planning IR plus current graph adjacency so startup can emit a bounded
+  research-to-first-patch read set, and `governance-review` needs to accept
+  `signal_type=observer` plus optional `finding_type` so observer/self-audit
+  evidence reuses the canonical adjudication ledger instead of staying in
+  audit prose.
 - 2026-04-10: Started Q40/Q42 as the next deterministic action-boundary
   slice after the Q47/Q45/Q43 authority spine. Startup-context now needs to
   split non-destructive `control_recovery_action` hints from destructive

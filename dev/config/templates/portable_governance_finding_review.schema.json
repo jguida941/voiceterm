@@ -55,7 +55,7 @@
     "repo_path": { "type": "string", "minLength": 1 },
     "signal_type": {
       "type": "string",
-      "enum": ["guard", "probe", "audit"]
+      "enum": ["guard", "probe", "audit", "observer"]
     },
     "check_id": { "type": "string", "minLength": 1 },
     "verdict": {
@@ -123,6 +123,7 @@
         "external"
       ]
     },
-    "notes": { "type": "string" }
+    "notes": { "type": "string" },
+    "finding_type": { "type": "string" }
   }
 }

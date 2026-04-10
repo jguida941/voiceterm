@@ -44,7 +44,7 @@ from .time_utils import utc_timestamp
 DEFAULT_GOVERNANCE_REVIEW_LOG = Path(active_path_config().governance_review_log_rel)
 DEFAULT_GOVERNANCE_REVIEW_SUMMARY_ROOT = Path(active_path_config().governance_review_summary_root_rel)
 DEFAULT_MAX_GOVERNANCE_REVIEW_ROWS = 5_000
-VALID_SIGNAL_TYPES = frozenset({"guard", "probe", "audit"})
+VALID_SIGNAL_TYPES = frozenset({"guard", "probe", "audit", "observer"})
 VALID_VERDICTS = frozenset(
     {
         "confirmed_issue",
@@ -173,6 +173,8 @@ def build_governance_review_row(
         row["scan_mode"] = mode_text
     if notes_text := optional_text(review_input.notes):
         row["notes"] = notes_text
+    if finding_type := optional_text(review_input.finding_type):
+        row["finding_type"] = finding_type
     if waiver_reason := optional_text(review_input.waiver_reason):
         row["waiver_reason"] = waiver_reason
     guidance_id = optional_text(review_input.guidance_id)

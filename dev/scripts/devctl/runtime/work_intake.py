@@ -12,11 +12,13 @@ from .work_intake_coordination import build_work_intake_coordination_state
 from .work_intake_models import (
     IntakeRoutingState,
     PlanTargetRef,
+    SessionPacingState,
     SessionContinuityState,
     WorkIntakeCoordinationState,
     WorkIntakeOwnershipState,
     WorkIntakePacket,
 )
+from .work_intake_pacing import _PacingFocus, _PacingInputs, build_session_pacing_state
 from .work_intake_ownership import build_work_intake_ownership_state
 from .work_intake_routing import build_routing, scope_hints, warm_refs, writeback_sinks
 from .work_intake_selection import build_target_ref, load_review_state, select_active_plan_entry
@@ -31,6 +33,8 @@ class WorkIntakeStateInputs:
     ownership: WorkIntakeOwnershipState | None = None
     coordination: WorkIntakeCoordinationState | None = None
     reviewer_gate: "ReviewerGateState | None" = None
+    planning_snapshot: object | None = None
+    graph_snapshot: object | None = None
 
 
 def build_work_intake_packet(
@@ -69,21 +73,39 @@ def build_work_intake_packet(
         review_state=resolved_review_state,
         continuity=continuity,
     )
+    target_ref = build_target_ref(repo_root, active_entry)
+    resolved_warm_refs = warm_refs(
+        repo_root,
+        governance=governance,
+        active_entry=active_entry,
+        routing=routing,
+    )
+    session_pacing = build_session_pacing_state(
+        repo_root=repo_root,
+        governance=governance,
+        ownership=resolved_ownership,
+        coordination=resolved_coordination,
+        focus=_PacingFocus(
+            active_target=target_ref,
+            warm_refs=resolved_warm_refs,
+        ),
+        inputs=_PacingInputs(
+            review_state=resolved_review_state,
+            planning_snapshot=inputs.planning_snapshot,
+            graph_snapshot=inputs.graph_snapshot,
+        ),
+    )
     return WorkIntakePacket(
         advisory_action=advisory_action,
         advisory_reason=advisory_reason,
-        active_target=build_target_ref(repo_root, active_entry),
+        active_target=target_ref,
         continuity=continuity,
         routing=routing,
         ownership=resolved_ownership,
         coordination=resolved_coordination,
+        session_pacing=session_pacing,
         scope_hints=scope_hints(active_entry, resolved_review_state),
-        warm_refs=warm_refs(
-            repo_root,
-            governance=governance,
-            active_entry=active_entry,
-            routing=routing,
-        ),
+        warm_refs=resolved_warm_refs,
         writeback_sinks=writeback_sinks(governance, active_entry),
         confidence=packet_confidence,
         fallback_reason=fallback_reason,
@@ -93,6 +115,7 @@ def build_work_intake_packet(
 __all__ = [
     "IntakeRoutingState",
     "PlanTargetRef",
+    "SessionPacingState",
     "SessionContinuityState",
     "WorkIntakeCoordinationState",
     "WorkIntakeStateInputs",
