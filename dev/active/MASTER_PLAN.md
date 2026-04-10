@@ -92,8 +92,11 @@
 - 2026-04-10 startup-gate repair-launch fix in `MP-355` scope:
   `startup_gate.py:_is_repair_launch` was treating `StartupReceipt` as a
   dict (`.get("action", "")`), crashing review-channel `launch`/`rollover`
-  with `AttributeError`. Fix reads `receipt.advisory_action` typed attribute
-  and handles `None` receipts. Regression tests added (10/10 pass).
+  with `AttributeError`. Final fix: removed the `_is_repair_allowed` bypass
+  entirely — the `reviewer_bootstrap` intent in the authority system already
+  relaxes the reviewer-loop check (line 341 of `runtime_checks.py`), so no
+  separate repair bypass is needed. Receipt freshness, checkpoint, and all
+  non-reviewer-loop authority checks always apply. 12 regression tests pass.
 - Current highest-priority subordinate `MP-377` lane:
   `dev/active/platform_authority_loop.md`. This is the execution spec for
   closing the portable authority loop:

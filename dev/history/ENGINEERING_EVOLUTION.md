@@ -9385,7 +9385,7 @@ Evidence: `dev/scripts/devctl/review_channel/launch_truth.py`,
 `dev/active/ai_governance_platform.md`,
 `dev/active/platform_authority_loop.md`.
 
-### 2026-04-10 — Startup gate repair-launch receipt type fix
+### 2026-04-10 — Startup gate receipt type fix and repair bypass removal
 
 **What changed:** `_is_repair_launch` in `startup_gate.py` treated
 `StartupReceipt` as a dict (`.get("action", "")`), crashing every
@@ -9397,10 +9397,18 @@ returned by `startup-context` summary output, not the typed `StartupReceipt`
 dataclass that `load_startup_receipt` returns. The function shipped without
 test coverage for the `StartupReceipt` path.
 
-**Fix:** Read `receipt.advisory_action` as a typed attribute, guard against
-`None` receipts, and add two regression tests: one proving `repair_reviewer_loop`
-bypasses the gate for `launch`/`rollover`, one proving a missing receipt still
-gates normally. All 10 tests pass.
+**Fix (final):** Removed `_is_repair_launch` and `_is_repair_allowed`
+entirely from `startup_gate.py`. The reviewer-loop relaxation for
+`launch`/`rollover` is already handled by the `reviewer_bootstrap` intent
+in the authority system (`collect_reviewer_loop_block_errors` returns `[]`
+when `intent == _REVIEWER_BOOTSTRAP_INTENT`). No separate repair bypass
+is needed — receipt freshness, checkpoint, and all non-reviewer-loop
+authority checks always apply. Intermediate iterations that added
+narrower repair bypasses were superseded after tracing through the
+intent-based relaxation in `runtime_checks.py:341`. 12 regression tests
+pass including proof that unrelated authority errors, stale receipts,
+and checkpoint constraints all block even with a `repair_reviewer_loop`
+receipt.
 
 Evidence: `dev/scripts/devctl/runtime/startup_gate.py`,
 `dev/scripts/devctl/tests/runtime/test_startup_gate.py`.

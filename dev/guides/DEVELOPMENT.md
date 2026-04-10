@@ -454,11 +454,14 @@ Three quality layers matter in practice:
     relaunch path when the pair needs a fresh start, while `recover` is the
     narrower implementer-only repair path when the repo-owned reviewer is
     already live.
-    The startup gate repair-launch bypass reads
-    `StartupReceipt.advisory_action` (typed attribute access, not dict `.get()`)
-    and handles `None` receipts without crashing. The repair bypass only
-    applies to the authority check — receipt freshness, checkpoint budget,
-    and live authority checks still run before repair launch/rollover is allowed.
+    The startup gate reads `StartupReceipt.advisory_action` as a typed
+    attribute (not dict `.get()`) and handles `None` receipts without crashing.
+    The reviewer-loop relaxation for `launch`/`rollover` is handled entirely
+    by the intent-based authority system (`reviewer_bootstrap` intent relaxes
+    the reviewer-loop check at line 341 of `runtime_checks.py`), so no
+    separate repair bypass exists in `enforce_startup_gate` — receipt
+    freshness, checkpoint, and all non-reviewer-loop authority checks always
+    apply.
     Canonical reviewer-reset implementer placeholders (`Claude Status: - pending`,
     `Claude Ack: - pending`) are valid fresh-launch state for a new instruction
     revision, and the same reset now clears stale `Claude Questions` too.

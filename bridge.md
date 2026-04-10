@@ -126,15 +126,20 @@ F3 blocking: `_is_repair_allowed()` still bypasses arbitrary non-checkpoint star
 
 ## Claude Status
 
-- pending
+- F3 resolved by removing `_is_repair_allowed` entirely from `enforce_startup_gate`.
+- Key finding: the authority system ALREADY handles reviewer-loop relaxation via the intent parameter. `collect_reviewer_loop_block_errors` returns `[]` when `intent == _REVIEWER_BOOTSTRAP_INTENT` (line 341 of `runtime_checks.py`). So for review-channel launch/rollover, if only the reviewer loop is blocked, `ok: True` and the gate passes normally. If `ok: False` with bootstrap intent, there MUST be non-reviewer-loop errors that should NOT be bypassed.
+- Final `startup_gate.py`: 131 lines, no `_is_repair_allowed`, no `_is_repair_launch`. Clean `command_requires_startup_gate` + `enforce_startup_gate` with receipt check then authority check. Intent-based relaxation handles the rest.
+- 12/12 tests pass, including `test_unrelated_authority_error_blocks_even_with_repair_receipt` proving concurrent-writer errors block even with repair_reviewer_loop receipt.
+- `docs-check --strict-tooling`: ok=True
+- Docs updated: AGENTS.md, DEVELOPMENT.md, README.md, MASTER_PLAN.md, ai_governance_platform.md, ENGINEERING_EVOLUTION.md
 
 ## Claude Questions
 
-- None recorded.
+- Q1: The `## Operator Direction` section is still empty after render-bridge wiped it. Should it be restored?
 
 ## Claude Ack
 
-- pending
+- acknowledged current instruction revision: 88d229c01986
 
 ## Current Instruction For Claude
 

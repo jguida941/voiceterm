@@ -5,14 +5,14 @@
 ## Quick status
 
 - Branch: `feature/governance-quality-sweep`
-- HEAD: `8c2ac807e20e` — chore: commit concurrent agent changes
-- Tree hash: `45448310c293`
-- Generation stamp: `snap-a2cc05ea6979`
-- Generated at (UTC): 2026-04-10T05:54:14Z
-- Push decision: `await_review` — review_pending_before_push
+- HEAD: `dff9cbb2ba85` — Refresh external review snapshot for 8c2ac807
+- Tree hash: `508fbe0fd91b`
+- Generation stamp: `snap-89047c2c04d2`
+- Generated at (UTC): 2026-04-10T12:46:10Z
+- Push decision: `await_checkpoint` — staged_index_present
 - Reviewer mode: `active_dual_agent` (interaction: `remote_control`)
 - Pipeline state: `n/a` (approval: `n/a`)
-- Delta since last snapshot: 24 commits, 17 files, +2059/-1743
+- Delta since last snapshot: 25 commits, 17 files, +2119/-1814
 - Governance findings: 86 open / 70 fixed / 170 total
 - Probe hints: 0 total across 0 files scanned
 
@@ -54,24 +54,24 @@ adopters arrive.
 - Remote: `https://github.com/jguida941/voiceterm.git`
 - Default branch: `master`
 - Current branch: `feature/governance-quality-sweep`
-- HEAD SHA: `8c2ac807e20e2bb4bfecd5f25316957564d8e142`
+- HEAD SHA: `dff9cbb2ba85eafc8c36ed425f47213a3c567ada`
 - HEAD author: Justin Guida
 - HEAD timestamp (UTC): 2026-04-10T01:53:54-04:00
 
 ## 2. Governance state
 
 ### Push decision
-- action: `await_review`
-- reason: review_pending_before_push
+- action: `await_checkpoint`
+- reason: staged_index_present
 - push_eligible_now: False
-- worktree_clean: True
-- staged_path_count: 0
+- worktree_clean: False
+- staged_path_count: 5
 - unstaged_path_count: 0
-- next_step_command: `python3 dev/scripts/devctl.py review-channel --action status --terminal none --format json`
+- next_step_command: `n/a`
 - latest_push_report: `dev/reports/push/latest.json`
 - latest_push_report_state: `blocked` (validation_failed)
 - publication_backlog: urgent
-- publication_guidance: 18 local commit(s) waiting for governed push once review is accepted.
+- publication_guidance: 19 local commit(s) waiting for governed push once the current slice is checkpoint-clean.
 
 ### Reviewer runtime
 - reviewer_mode: `active_dual_agent`
@@ -87,16 +87,16 @@ adopters arrive.
 - active plan: **Master Plan (Active, Unified)**
 - plan path: `dev/active/MASTER_PLAN.md`
 - active MP scope: all active MP execution state
-- advisory: `await_review` — review_pending_before_push
+- advisory: `checkpoint_before_continue` — concurrent_writer_activity
 
 ## 3. Delta — what changed since the previous snapshot
 
-Range: last 24 commits ending at `8c2ac807e20e`
+Range: last 25 commits ending at `dff9cbb2ba85`
 
-- commits: 24
+- commits: 25
 - files changed: 17
-- insertions: +2059
-- deletions: -1743
+- insertions: +2119
+- deletions: -1814
 - bundle classes touched: tooling, docs
 - risk add-ons triggered: Parser / ANSI boundary
 - authority surfaces touched: 2 file(s)
@@ -105,30 +105,31 @@ Range: last 24 commits ending at `8c2ac807e20e`
 
 | # | SHA | Subject | Files | +/- | Bundle | Risk |
 |---|---|---|---|---|---|---|
-| 1 | `8c2ac807` | chore: commit concurrent agent changes | 2 | +52/-79 | tooling |  |
-| 2 | `8feab0b9` | fix(push): auto-commit runs even after preflight failure to… | 3 | +51/-94 | tooling |  |
-| 3 | `f56664d2` | Refresh external review snapshot for 5b0a2d87 | 1 | +53/-49 | tooling |  |
-| 4 | `5b0a2d87` | chore: surface refresh after push fix | 3 | +62/-64 | docs |  |
-| 5 | `79475b97` | fix(push): auto-commit preflight-generated changes to break… | 3 | +120/-49 | tooling |  |
-| 6 | `bd383199` | Refresh external review snapshot for 161f7ef0 | 1 | +53/-52 | tooling |  |
-| 7 | `161f7ef0` | chore: push-generated code + surface refresh | 4 | +100/-73 | tooling |  |
-| 8 | `bfc8dd3e` | Refresh external review snapshot for 0e2fcf0d | 1 | +51/-52 | tooling |  |
-| 9 | `0e2fcf0d` | chore: push-generated surface refresh | 2 | +153/-86 | tooling |  |
-| 10 | `4a33bd02` | fix(startup-gate): refined repair-launch bypass with checkp… | 2 | +91/-80 | tooling |  |
-| 11 | `7fb42f8e` | Refresh external review snapshot for c3866e56 | 1 | +45/-55 | tooling |  |
-| 12 | `c3866e56` | chore: bridge projection refresh | 2 | +62/-61 | docs |  |
-| 13 | `28af7d69` | chore: post-push surface refresh | 3 | +90/-77 | tooling |  |
-| 14 | `c06cf533` | Refresh external review snapshot for 2c1315eb | 1 | +56/-52 | tooling |  |
-| 15 | `2c1315eb` | chore: render-surfaces refresh after startup-gate fix | 7 | +89/-66 | tooling |  |
-| 16 | `f096b141` | fix(startup-gate): use receipt attribute access + regressio… | 4 | +108/-73 | tooling |  |
-| 17 | `e3c56a53` | Refresh external review snapshot for 1696f8ee | 1 | +60/-54 | tooling |  |
-| 18 | `1696f8ee` | fix(startup-gate): allow launch when action=repair_reviewer… | 3 | +97/-188 | tooling |  |
-| 19 | `5687e3be` | Refresh external review snapshot for 4d3cf6ac | 1 | +59/-58 | tooling |  |
-| 20 | `4d3cf6ac` | docs(bridge): graph infrastructure research — codeshape 70%… | 2 | +62/-65 | docs |  |
-| 21 | `5e6879d2` | Refresh external review snapshot for d9774b64 | 1 | +56/-58 | tooling |  |
-| 22 | `d9774b64` | docs(bridge): post-discovery sweep status — 48 new findings… | 2 | +97/-85 | docs |  |
-| 23 | `fd30e634` | Refresh external review snapshot for 5375193c | 1 | +64/-57 | tooling |  |
-| 24 | `5375193c` | fix(devctl): P1 stale refresh-authorization + P2 cursor-saf… | 12 | +328/-116 | tooling | Parser / ANSI boundary |
+| 1 | `dff9cbb2` | Refresh external review snapshot for 8c2ac807 | 1 | +60/-71 | tooling |  |
+| 2 | `8c2ac807` | chore: commit concurrent agent changes | 2 | +52/-79 | tooling |  |
+| 3 | `8feab0b9` | fix(push): auto-commit runs even after preflight failure to… | 3 | +51/-94 | tooling |  |
+| 4 | `f56664d2` | Refresh external review snapshot for 5b0a2d87 | 1 | +53/-49 | tooling |  |
+| 5 | `5b0a2d87` | chore: surface refresh after push fix | 3 | +62/-64 | docs |  |
+| 6 | `79475b97` | fix(push): auto-commit preflight-generated changes to break… | 3 | +120/-49 | tooling |  |
+| 7 | `bd383199` | Refresh external review snapshot for 161f7ef0 | 1 | +53/-52 | tooling |  |
+| 8 | `161f7ef0` | chore: push-generated code + surface refresh | 4 | +100/-73 | tooling |  |
+| 9 | `bfc8dd3e` | Refresh external review snapshot for 0e2fcf0d | 1 | +51/-52 | tooling |  |
+| 10 | `0e2fcf0d` | chore: push-generated surface refresh | 2 | +153/-86 | tooling |  |
+| 11 | `4a33bd02` | fix(startup-gate): refined repair-launch bypass with checkp… | 2 | +91/-80 | tooling |  |
+| 12 | `7fb42f8e` | Refresh external review snapshot for c3866e56 | 1 | +45/-55 | tooling |  |
+| 13 | `c3866e56` | chore: bridge projection refresh | 2 | +62/-61 | docs |  |
+| 14 | `28af7d69` | chore: post-push surface refresh | 3 | +90/-77 | tooling |  |
+| 15 | `c06cf533` | Refresh external review snapshot for 2c1315eb | 1 | +56/-52 | tooling |  |
+| 16 | `2c1315eb` | chore: render-surfaces refresh after startup-gate fix | 7 | +89/-66 | tooling |  |
+| 17 | `f096b141` | fix(startup-gate): use receipt attribute access + regressio… | 4 | +108/-73 | tooling |  |
+| 18 | `e3c56a53` | Refresh external review snapshot for 1696f8ee | 1 | +60/-54 | tooling |  |
+| 19 | `1696f8ee` | fix(startup-gate): allow launch when action=repair_reviewer… | 3 | +97/-188 | tooling |  |
+| 20 | `5687e3be` | Refresh external review snapshot for 4d3cf6ac | 1 | +59/-58 | tooling |  |
+| 21 | `4d3cf6ac` | docs(bridge): graph infrastructure research — codeshape 70%… | 2 | +62/-65 | docs |  |
+| 22 | `5e6879d2` | Refresh external review snapshot for d9774b64 | 1 | +56/-58 | tooling |  |
+| 23 | `d9774b64` | docs(bridge): post-discovery sweep status — 48 new findings… | 2 | +97/-85 | docs |  |
+| 24 | `fd30e634` | Refresh external review snapshot for 5375193c | 1 | +64/-57 | tooling |  |
+| 25 | `5375193c` | fix(devctl): P1 stale refresh-authorization + P2 cursor-saf… | 12 | +328/-116 | tooling | Parser / ANSI boundary |
 
 ### Files
 
@@ -138,7 +139,7 @@ Range: last 24 commits ending at `8c2ac807e20e`
 | `bridge.md` | docs | +114/-219 |
 | `dev/active/MASTER_PLAN.md` | tooling | +12/-0 |
 | `dev/active/ai_governance_platform.md` | tooling | +4/-0 |
-| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1329/-1369 |
+| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1389/-1440 |
 | `dev/guides/DEVELOPMENT.md` | docs | +15/-2 |
 | `dev/history/ENGINEERING_EVOLUTION.md` | tooling | +45/-0 |
 | `dev/scripts/README.md` | tooling | +16/-0 |
@@ -236,6 +237,8 @@ Recent findings:
 
 ### Per-commit rationale
 
+- **`dff9cbb2`** — Refresh external review snapshot for 8c2ac807
+  - evolution: Fact: the dogfooded governed-push lane exposed a stale authorization bug after a completed push pipeline. A terminal `push_completed` same-branch `RemoteCommitPipelineContract` could still be selected by `devctl push` w…
 - **`8c2ac807`** — chore: commit concurrent agent changes
   - evolution: Fact: the dogfooded governed-push lane exposed a stale authorization bug after a completed push pipeline. A terminal `push_completed` same-branch `RemoteCommitPipelineContract` could still be selected by `devctl push` w…
 - **`8feab0b9`** — fix(push): auto-commit runs even after preflight failure to break the loop
@@ -323,11 +326,10 @@ Recent findings:
 - open governance findings: 86
 
 ### Startup advisories
-- await_review: review_pending_before_push
+- checkpoint_before_continue: concurrent_writer_activity
 
 ### Stale warnings
 - Keep editing the current slice.
-- Move straight to the governed push path.
 
 ### Open gap rows
 - **governance_open** (`dev/scripts/devctl/security/python_scope.py`): subprocess_missing_timeout: 
@@ -341,4 +343,4 @@ Recent findings:
 
 ---
 
-Projection produced by `devctl review-snapshot`. Generation stamp `snap-a2cc05ea6979` binds this file to HEAD `8c2ac807e20e`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
+Projection produced by `devctl review-snapshot`. Generation stamp `snap-89047c2c04d2` binds this file to HEAD `dff9cbb2ba85`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
