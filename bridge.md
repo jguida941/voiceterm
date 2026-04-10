@@ -77,13 +77,13 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-04-10T05:33:42Z`
-- Last Codex poll (Local America/New_York): `2026-04-10 01:33:42 EDT`
+- Last Codex poll: `2026-04-10T05:37:11Z`
+- Last Codex poll (Local America/New_York): `2026-04-10 01:37:11 EDT`
 - Reviewer mode: `active_dual_agent`
-- Last non-audit worktree hash: `9018f891a90a3801fd687ed9a9cfd0ce829eaaa0ccf0f5044f80e4a2e4e38874`
-- Current instruction revision: `e3f31be8125f`
+- Last non-audit worktree hash: `7ac7a814b0e333ed9ff42d91c957eb0eab9fca25d922aa9024b62311aec069d4`
+- Current instruction revision: `f27dccca4082`
 - Last checkpoint action: `reviewer-checkpoint`
-- Head at push time: `f096b141f1e26ba629a0b1c54db417ae6cd0e3d6`
+- Head at push time: `c06cf533ef27efb145f53f0d13e5069eba18cfaf`
 ## Protocol
 
 1. Claude should poll this file periodically while coding.
@@ -114,15 +114,15 @@ treat these rules as active workflow instructions immediately.
 
 ## Poll Status
 
-- Reviewer checkpoint updated through repo-owned tooling (mode: active_dual_agent; reason: review-finding-startup-gate-bypass; observed-tree: 9018f891a90a; reviewed-tree: 9018f891a90a; instruction-rev: e3f31be8125f).
+- Reviewer checkpoint updated through repo-owned tooling (mode: active_dual_agent; reason: review-finding-f3-startup-gate-bypass; observed-tree: 7ac7a814b0e3; reviewed-tree: 7ac7a814b0e3; instruction-rev: f27dccca4082).
 
 ## Current Verdict
 
-Follow-up required before acceptance: F1/F2/F3 remain blocking for the startup-gate repair slice.
+Follow-up required before acceptance: F1 and F2 are resolved in the current tree, but F3 remains blocking for the startup-gate repair slice.
 
 ## Open Findings
 
-F1 blocking: startup_gate.py originally crashed by treating StartupReceipt as a mapping; focused tests now pass after the local change. F2 blocking: docs-check --strict-tooling still requires maintainer/plan/evolution updates for the startup_gate.py and test_startup_gate.py tooling changes. F3 blocking: the current repair bypass lives in command_requires_startup_gate, so a repair_reviewer_loop receipt makes launch or rollover skip enforce_startup_gate entirely; stale receipts, checkpoint gates, and live authority checks need to remain enforced before the repair launch is allowed.
+F3 blocking: `command_requires_startup_gate()` still returns `False` for `review-channel launch` and `rollover` when `_is_repair_launch()` sees `receipt.advisory_action == "repair_reviewer_loop"`. Because `enforce_startup_gate()` exits before loading the startup report, a repair receipt can bypass receipt freshness, checkpoint budget, and live authority checks instead of being allowed only after those checks. The new test also encodes the bypass expectation instead of proving stale or checkpoint-required repair receipts still block.
 
 ## Claude Status
 
@@ -138,11 +138,11 @@ F1 blocking: startup_gate.py originally crashed by treating StartupReceipt as a 
 
 ## Current Instruction For Claude
 
-- Fix F1, F2, and F3 before asking for re-review. Keep the dataclass crash fixed. Move or constrain the repair_reviewer_loop allowance so review-channel launch or rollover cannot bypass receipt freshness, checkpoint, budget, or live authority checks. Add regression tests for stale or checkpoint-required repair receipts still blocking. Update the maintainer/plan/evolution docs required by docs-check --strict-tooling. Rerun python3 -m unittest dev.scripts.devctl.tests.runtime.test_startup_gate and python3 dev/scripts/devctl.py docs-check --strict-tooling, then report results.
+- Fix F3 before asking for re-review. Keep the dataclass crash fix and docs-check closure intact, but move or constrain the `repair_reviewer_loop` allowance so `review-channel launch` or `rollover` cannot bypass receipt freshness, checkpoint, budget, or live authority checks. Add regression coverage proving stale or checkpoint-required repair receipts still block. Rerun `python3 -m unittest dev.scripts.devctl.tests.runtime.test_startup_gate` and `python3 dev/scripts/devctl.py docs-check --strict-tooling`, then report results.
 
 ## Last Reviewed Scope
 
-- 5687e3be..e3c56a53 plus dirty startup-gate/test changes; F1-F3 blocking
+- 5687e3be..c06cf533 plus dirty `dev/history/ENGINEERING_EVOLUTION.md`; F1/F2 resolved, F3 blocking
 
 ## Action Requests
 

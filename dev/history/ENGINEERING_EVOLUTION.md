@@ -9384,3 +9384,23 @@ Evidence: `dev/scripts/devctl/review_channel/launch_truth.py`,
 `dev/active/MASTER_PLAN.md`,
 `dev/active/ai_governance_platform.md`,
 `dev/active/platform_authority_loop.md`.
+
+### 2026-04-10 — Startup gate repair-launch receipt type fix
+
+**What changed:** `_is_repair_launch` in `startup_gate.py` treated
+`StartupReceipt` as a dict (`.get("action", "")`), crashing every
+review-channel `launch` or `rollover` with `AttributeError`. The function
+also did not handle the `None` case from `load_startup_receipt`.
+
+**Root cause:** `_is_repair_launch` was written against the raw JSON mapping
+returned by `startup-context` summary output, not the typed `StartupReceipt`
+dataclass that `load_startup_receipt` returns. The function shipped without
+test coverage for the `StartupReceipt` path.
+
+**Fix:** Read `receipt.advisory_action` as a typed attribute, guard against
+`None` receipts, and add two regression tests: one proving `repair_reviewer_loop`
+bypasses the gate for `launch`/`rollover`, one proving a missing receipt still
+gates normally. All 10 tests pass.
+
+Evidence: `dev/scripts/devctl/runtime/startup_gate.py`,
+`dev/scripts/devctl/tests/runtime/test_startup_gate.py`.
