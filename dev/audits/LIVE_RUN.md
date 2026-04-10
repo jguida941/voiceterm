@@ -2845,6 +2845,45 @@ which Q55 says we don't have yet. Start there.
   emits a warning) on mismatch.
 - **Status**: OPEN
 
+### Q47 — ARCHITECTURE — Agent reasons about next step when repo can already compute it
+
+- **Discovered**: 2026-04-10T16:00Z
+- **Severity**: critical / architectural
+- **Body**: Every failure in Q37-Q46 shares one root cause: the agent
+  was allowed to reason about control flow that the repo already had
+  enough typed state to decide deterministically. The pattern:
+  `inspect partial state → invent story → choose action → revise
+  later`. The fix: `repo computes state → repo emits next legal
+  command → agent executes → repo recomputes → repeat`. The agent
+  should be a controlled executor, not a planner, for any decision
+  the typed state already covers.
+  The system already emits `action=` and `next=` fields from
+  startup-context. But these are advisory — the agent can ignore
+  them and improvise. They need to become the mandatory action path.
+  Each major control surface should expose:
+  - `next_command`: the one command to run next
+  - `allowed_actions`: what the agent may do
+  - `blocked_actions`: what the agent may not do (hard, not advisory)
+  - `recovery_action`: if blocked, the prescribed recovery
+  - `escalation_action`: if recovery fails, the operator path
+  This turns hooks from convenience into the mechanism that makes
+  governance actual control instead of advisory governance.
+  Hooks are not shell scripts with hidden logic — they are
+  renderers/executors of typed policy. The source of truth stays
+  in the typed governance layer; hooks just enforce it at action
+  boundaries (pre-commit, pre-push, pre-launch, pre-edit).
+- **Existing plans**: The repo has prior architecture for hooks and
+  deterministic command routing (see AGENTS.md, platform_authority_
+  loop.md, AI_GOVERNANCE_PLATFORM.md). This finding confirms those
+  plans are the right direction and elevates them to critical
+  priority based on 10 live failures (Q37-Q46) that would have
+  been prevented by deterministic action routing.
+- **The key design principle**: The AI should not decide the next
+  step when the next step is already derivable from typed state.
+  Remove agent judgment from places where the repo can already
+  know the answer.
+- **Status**: OPEN — critical, synthesizes Q37-Q46
+
 ### Q46 — ARCHITECTURE — Governance only activates for dual-agent mode, not all modes of use
 
 - **Discovered**: 2026-04-10T15:55Z
