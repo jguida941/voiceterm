@@ -2927,6 +2927,69 @@ which Q55 says we don't have yet. Start there.
   logic stays in the repo, not fragmented across tool configs.
 - **Status**: OPEN — high priority, directly enables Q47
 
+### Q59 — UX — Human-facing output dumps raw internal fields, conflicting terms
+
+- **Discovered**: 2026-04-10T18:15Z
+- **Severity**: high / UX-trust
+- **Body**: The system renders raw internal fields to the operator:
+  `stale`, `inactive`, `overdue`, `blocked`, `no_live_agents`,
+  `single_agent`, `active_dual_agent`, `no_push_needed` alongside
+  `push blocked`. These blur together and sometimes contradict.
+  `no_push_needed` + `push blocked` on the same screen reads as
+  incoherent. `active_dual_agent` + `live_participants: 0` looks
+  like a lie unless you know one is config and one is runtime.
+  The system needs a translation layer: compact typed state for the
+  machine, plain stacked explanation for the human. Phone mode should
+  default to: State, Main problem, Can work continue?, Can code be
+  pushed?, Who needs to act?, What should happen next?, Confidence.
+  Not raw field dumps.
+  This is not UI polish — it affects trust. If the system says things
+  that feel contradictory, the operator stops believing it even when
+  the underlying typed state is correct. The renderer is part of
+  governance.
+- **Status**: OPEN — high, UX-trust
+
+### Q58 — ARCHITECTURE — Registry exists but is not the sovereign dispatcher
+
+- **Discovered**: 2026-04-10T18:10Z
+- **Severity**: critical / architectural
+- **Body**: The top-level command registry (162 commands, script catalog,
+  plan index, active doc registry) exists but is not the mandatory
+  entry point for agent action. The agent still discovers commands by
+  memory, narrates the command surface in prose, manually composes
+  monitoring workflows, and prioritizes from local symptoms instead
+  of registry-backed structural priority. The registry is documentation,
+  not control.
+  The fix: make registry resolution mandatory before any meaningful
+  action. A pre-action hook should force the agent to: read the
+  registry, emit what registry item it is acting under, emit what
+  top-level priority/plan/blocker it is serving, emit why this
+  command is legal from that registry state. If it cannot do that,
+  it should not act.
+  The pipeline should be: registry → typed current state → ranked
+  priority → next legal command → execution → receipt → state refresh.
+  Until the registry is the sovereign dispatcher, the agent will keep
+  bypassing it, prioritizing from local symptoms, and treating the
+  registry like reference material instead of execution authority.
+- **Status**: OPEN — critical, highest-leverage architectural fix
+
+### Q57 — MONITORING — No canonical single-pass monitor for remote phone mode
+
+- **Discovered**: 2026-04-10T18:10Z
+- **Severity**: high / monitoring-gap
+- **Body**: The agent manually stitches monitoring from multiple commands
+  (dashboard, startup-context, rollout-tail, agent-mind, process-audit,
+  git status). No single canonical command exists for remote phone
+  monitoring that returns: canonical runtime state, observational
+  telemetry, verdict presence, worktree state, source labels, next
+  command, and whether a self-audit finding should be emitted.
+  The system needs `devctl monitor --mode remote_phone --agent codex`
+  or equivalent that collapses the manual cycling into one typed pass
+  with mobile-safe narrow output. This should also classify each data
+  source (authority vs telemetry vs projection vs diagnostics) in the
+  output, not mix them as equal-weight claims.
+- **Status**: OPEN — high, directly enables Q54 self-audit loop
+
 ### Q56 — INTEGRATION — Q54+Q55 compose from existing systems, minimal changes needed
 
 - **Discovered**: 2026-04-10T18:05Z
