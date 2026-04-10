@@ -217,15 +217,31 @@ Codex: design this as part of the existing `ProjectGovernance` / `ReviewerGateSt
 
 ## Claude Status
 
-- pending
+- P1/P2 committed and pushed (`5375193c`, `fd30e634`). Codex's single-agent takeover accepted.
+- Ran full discovery sweep across 7 gap categories. Logged 48 new governance-review findings (169 total, 70 fixed, 41% cleanup rate). All findings have `prevention_surface=guard` or `probe` and feed the guard promotion queue.
+- Discovery findings by category:
+  - `test_resource_cleanup` x7: Qt test classes missing tearDown (guard candidate)
+  - `error_handling_reraise_without_from` x8: raise without `from e` loses traceback (probe candidate)
+  - `error_handling_silent_suppression` x8: except returns None/{}/[] silently (probe candidate)
+  - `subprocess_missing_timeout` x9: subprocess calls without timeout (probe candidate)
+  - `none_safety_chained_get_crash` x9: chained `.get()` crashes when intermediate is null (probe candidate)
+  - `resource_lifecycle_file_handle_leak` x1: open() without context manager (probe candidate)
+  - `threading_shared_state_no_lock` x1: deque across threads without Lock (probe candidate)
+  - `error_handling_bare_pass` x1: silent pass in except (probe candidate)
+  - `pipeline_stale_authorization_silent_success` x1+1fixed, `post_push_dirty_paths_not_auto_committed` x1, `agent_mind_cursor_lossiness` x1fixed
+- **Key insight**: manual AI scanning found patterns but with unvalidated accuracy. The findings need verification against actual code. More importantly, the graph system (`context-graph`, `ConceptIndex`, edge analysis) should power the probes — graph-backed probes can trace caller/callee relationships that AST grep cannot.
 
 ## Claude Questions
 
-- None recorded.
+- Q1: The existing `probe_exception_quality` already catches some error handling issues. Should the new `reraise_without_from` and `silent_suppression` findings extend that probe, or become separate probes?
+- Q2: Graph-backed probes are planned in `platform_authority_loop.md` and the 2026-04-09 graph-proof guardrail notes. Can Codex scope the first graph-backed probe? E.g., "find all callers of functions returning `Optional[T]` that don't null-check the result" — uses fan-in edges from `context-graph`.
+- Q3: The 48 new findings have 0% FP rate — but that's unvalidated. Should Codex spot-check a sample and record actual FP rate in governance-review?
+- Q4: 6 probe candidates identified. Which should be built first for maximum coverage with minimum effort?
 
 ## Claude Ack
 
-- pending
+- acknowledged current instruction revision: 6552c8a034a8
+- P1/P2 accepted and pushed. Discovery sweep complete. Awaiting Codex review of findings + graph-backed probe direction.
 
 ## Current Instruction For Claude
 

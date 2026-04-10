@@ -5,15 +5,15 @@
 ## Quick status
 
 - Branch: `feature/governance-quality-sweep`
-- HEAD: `5375193c8d23` — fix(devctl): P1 stale refresh-authorization + P2 cursor-safe agent-mind polling
-- Tree hash: `11b634f647af`
-- Generation stamp: `snap-21fbef399e5e`
-- Generated at (UTC): 2026-04-10T04:15:12Z
-- Push decision: `run_devctl_push` — push_preconditions_satisfied
+- HEAD: `fd30e63457c6` — Refresh external review snapshot for 5375193c
+- Tree hash: `c2264388b14a`
+- Generation stamp: `snap-8d9f734629bc`
+- Generated at (UTC): 2026-04-10T04:35:32Z
+- Push decision: `no_push_needed` — remote_publish_recorded_current_head
 - Reviewer mode: `single_agent` (interaction: `remote_control`)
 - Pipeline state: `n/a` (approval: `n/a`)
-- Delta since last snapshot: 25 commits, 65 files, +8736/-1686
-- Governance findings: 48 open / 68 fixed / 130 total
+- Delta since last snapshot: 25 commits, 59 files, +7712/-1694
+- Governance findings: 85 open / 70 fixed / 169 total
 - Probe hints: 0 total across 0 files scanned
 
 ## 1. Identity
@@ -54,24 +54,23 @@ adopters arrive.
 - Remote: `https://github.com/jguida941/voiceterm.git`
 - Default branch: `master`
 - Current branch: `feature/governance-quality-sweep`
-- HEAD SHA: `5375193c8d2372ecb3fd00fbdc3fb52e3ed8778b`
+- HEAD SHA: `fd30e63457c66df2cc61f46ffb364f9d91c11be6`
 - HEAD author: Justin Guida
 - HEAD timestamp (UTC): 2026-04-10T00:14:52-04:00
 
 ## 2. Governance state
 
 ### Push decision
-- action: `run_devctl_push`
-- reason: push_preconditions_satisfied
-- push_eligible_now: True
+- action: `no_push_needed`
+- reason: remote_publish_recorded_current_head
+- push_eligible_now: False
 - worktree_clean: True
 - staged_path_count: 0
 - unstaged_path_count: 0
-- next_step_command: `python3 dev/scripts/devctl.py push --execute`
+- next_step_command: `n/a`
 - latest_push_report: `dev/reports/push/latest.json`
 - latest_push_report_state: `post_push_green` (push_completed)
-- publication_backlog: queued
-- publication_guidance: 1 local commit(s) waiting for governed push. Run `python3 dev/scripts/devctl.py push --execute` now.
+- publication_backlog: none
 
 ### Reviewer runtime
 - reviewer_mode: `single_agent`
@@ -87,17 +86,17 @@ adopters arrive.
 - active plan: **Master Plan (Active, Unified)**
 - plan path: `dev/active/MASTER_PLAN.md`
 - active MP scope: all active MP execution state
-- advisory: `push_allowed` — worktree_clean_and_review_accepted
+- advisory: `no_push_needed` — clean_worktree
 
 ## 3. Delta — what changed since the previous snapshot
 
-Range: last 25 commits ending at `5375193c8d23`
+Range: last 25 commits ending at `fd30e63457c6`
 
 - commits: 25
-- files changed: 65
-- insertions: +8736
-- deletions: -1686
-- bundle classes touched: docs, tooling
+- files changed: 59
+- insertions: +7712
+- deletions: -1694
+- bundle classes touched: tooling, docs
 - risk add-ons triggered: Parser / ANSI boundary
 - authority surfaces touched: 1 file(s)
 
@@ -105,31 +104,31 @@ Range: last 25 commits ending at `5375193c8d23`
 
 | # | SHA | Subject | Files | +/- | Bundle | Risk |
 |---|---|---|---|---|---|---|
-| 1 | `5375193c` | fix(devctl): P1 stale refresh-authorization + P2 cursor-saf… | 12 | +328/-116 | tooling | Parser / ANSI boundary |
-| 2 | `49217891` | Refresh external review snapshot for 24460777 | 1 | +68/-63 | tooling |  |
-| 3 | `24460777` | feat(governance): guard promotion queue + pipeline auto-res… | 15 | +507/-93 | tooling |  |
-| 4 | `ed2134b8` | Refresh external review snapshot for c3be08ff | 1 | +60/-59 | tooling |  |
-| 5 | `c3be08ff` | docs(audits): guard promotion pipeline — issue-to-guard lea… | 3 | +216/-52 | tooling |  |
-| 6 | `a325bdae` | Refresh external review snapshot for 304708c2 | 1 | +55/-58 | tooling |  |
-| 7 | `304708c2` | fix(tests): prevent Qt offscreen segfault from accumulated… | 2 | +75/-56 | tooling |  |
-| 8 | `c2685e4c` | Refresh external review snapshot for 54cf3225 | 1 | +52/-52 | tooling |  |
-| 9 | `54cf3225` | Refresh external review snapshot for b5d609ce | 2 | +76/-87 | docs |  |
-| 10 | `b5d609ce` | fix: keep poll status mode coherent | 3 | +117/-63 | tooling |  |
-| 11 | `98cc9ab0` | fix: stabilize review-channel recovery | 13 | +843/-180 | tooling |  |
-| 12 | `655db93a` | fix(discover): Q22 closure — repair KeyError crashes in --f… | 2 | +50/-42 | tooling |  |
-| 13 | `8f4bf379` | docs(audits): log BL-032 through BL-035 from session 2026-0… | 2 | +173/-58 | tooling |  |
-| 14 | `1864fc2c` | feat(devctl): BL-031 cross-mind polling — agent-mind command | 10 | +1513/-55 | tooling |  |
-| 15 | `4129af6c` | docs(governance): Codex's doc updates for 2026-04-09 F1/F2/… | 7 | +403/-66 | tooling |  |
-| 16 | `5985e70c` | feat(devctl): pipeline recovery command (BL-006) — typed re… | 12 | +1652/-46 | tooling |  |
-| 17 | `49d1db53` | Refresh external review snapshot for 363fe42c | 1 | +57/-54 | tooling |  |
-| 18 | `363fe42c` | fix(hygiene): Platform Boundary fix + regression tests + co… | 3 | +223/-47 | tooling |  |
-| 19 | `e4870754` | fix(review-channel): attach-remote-control cleanup (F2.1 th… | 4 | +336/-70 | tooling |  |
-| 20 | `d35abef0` | test(process-sweep): positive + negative regression tests f… | 2 | +195/-60 | tooling |  |
-| 21 | `971647ec` | fix(rollout-tail): F3 narrow Claude session discovery + tai… | 4 | +351/-58 | tooling | Parser / ANSI boundary |
-| 22 | `a65fc7c4` | fix(review): land F1+F2 from Codex reviewer pass | 5 | +161/-58 | tooling |  |
-| 23 | `adb266b5` | Refresh external review snapshot for d84b27fa | 1 | +60/-58 | tooling |  |
-| 24 | `d84b27fa` | feat(lifecycle): add recoverable flag to ReviewerSupervisor… | 2 | +77/-86 | tooling |  |
-| 25 | `8f42ea3f` | feat(devctl): rollout-tail MVP for Codex/Claude session JSO… | 11 | +1088/-49 | tooling | Parser / ANSI boundary |
+| 1 | `fd30e634` | Refresh external review snapshot for 5375193c | 1 | +64/-57 | tooling |  |
+| 2 | `5375193c` | fix(devctl): P1 stale refresh-authorization + P2 cursor-saf… | 12 | +328/-116 | tooling | Parser / ANSI boundary |
+| 3 | `49217891` | Refresh external review snapshot for 24460777 | 1 | +68/-63 | tooling |  |
+| 4 | `24460777` | feat(governance): guard promotion queue + pipeline auto-res… | 15 | +507/-93 | tooling |  |
+| 5 | `ed2134b8` | Refresh external review snapshot for c3be08ff | 1 | +60/-59 | tooling |  |
+| 6 | `c3be08ff` | docs(audits): guard promotion pipeline — issue-to-guard lea… | 3 | +216/-52 | tooling |  |
+| 7 | `a325bdae` | Refresh external review snapshot for 304708c2 | 1 | +55/-58 | tooling |  |
+| 8 | `304708c2` | fix(tests): prevent Qt offscreen segfault from accumulated… | 2 | +75/-56 | tooling |  |
+| 9 | `c2685e4c` | Refresh external review snapshot for 54cf3225 | 1 | +52/-52 | tooling |  |
+| 10 | `54cf3225` | Refresh external review snapshot for b5d609ce | 2 | +76/-87 | docs |  |
+| 11 | `b5d609ce` | fix: keep poll status mode coherent | 3 | +117/-63 | tooling |  |
+| 12 | `98cc9ab0` | fix: stabilize review-channel recovery | 13 | +843/-180 | tooling |  |
+| 13 | `655db93a` | fix(discover): Q22 closure — repair KeyError crashes in --f… | 2 | +50/-42 | tooling |  |
+| 14 | `8f4bf379` | docs(audits): log BL-032 through BL-035 from session 2026-0… | 2 | +173/-58 | tooling |  |
+| 15 | `1864fc2c` | feat(devctl): BL-031 cross-mind polling — agent-mind command | 10 | +1513/-55 | tooling |  |
+| 16 | `4129af6c` | docs(governance): Codex's doc updates for 2026-04-09 F1/F2/… | 7 | +403/-66 | tooling |  |
+| 17 | `5985e70c` | feat(devctl): pipeline recovery command (BL-006) — typed re… | 12 | +1652/-46 | tooling |  |
+| 18 | `49d1db53` | Refresh external review snapshot for 363fe42c | 1 | +57/-54 | tooling |  |
+| 19 | `363fe42c` | fix(hygiene): Platform Boundary fix + regression tests + co… | 3 | +223/-47 | tooling |  |
+| 20 | `e4870754` | fix(review-channel): attach-remote-control cleanup (F2.1 th… | 4 | +336/-70 | tooling |  |
+| 21 | `d35abef0` | test(process-sweep): positive + negative regression tests f… | 2 | +195/-60 | tooling |  |
+| 22 | `971647ec` | fix(rollout-tail): F3 narrow Claude session discovery + tai… | 4 | +351/-58 | tooling | Parser / ANSI boundary |
+| 23 | `a65fc7c4` | fix(review): land F1+F2 from Codex reviewer pass | 5 | +161/-58 | tooling |  |
+| 24 | `adb266b5` | Refresh external review snapshot for d84b27fa | 1 | +60/-58 | tooling |  |
+| 25 | `d84b27fa` | feat(lifecycle): add recoverable flag to ReviewerSupervisor… | 2 | +77/-86 | tooling |  |
 
 ### Files
 
@@ -144,13 +143,13 @@ Range: last 25 commits ending at `5375193c8d23`
 | `dev/active/remote_commit_pipeline.md` | tooling | +19/-0 |
 | `dev/active/remote_control_runtime.md` | tooling | +16/-0 |
 | `dev/audits/2026-04-10-guard-promotion-pipeline.md` | tooling | +154/-0 |
-| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1432/-1440 |
+| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1447/-1448 |
 | `dev/audits/TEST_BACKLOG.md` | tooling | +733/-0 |
 | `dev/guides/DEVELOPMENT.md` | docs | +41/-1 |
 | `dev/history/ENGINEERING_EVOLUTION.md` | tooling | +183/-1 |
 | `dev/scripts/README.md` | tooling | +20/-4 |
 | `dev/scripts/devctl/agent_mind_parser.py` | tooling | +75/-0 |
-| `dev/scripts/devctl/cli.py` | tooling | +13/-0 |
+| `dev/scripts/devctl/cli.py` | tooling | +8/-0 |
 | `dev/scripts/devctl/commands/agent_mind/__init__.py` | tooling | +27/-0 |
 | `dev/scripts/devctl/commands/agent_mind/command.py` | tooling | +147/-1 |
 | `dev/scripts/devctl/commands/agent_mind/projection.py` | tooling | +65/-0 |
@@ -171,31 +170,31 @@ Range: last 25 commits ending at `5375193c8d23`
 | `dev/scripts/devctl/commands/review_channel/_attach_remote_control.py` | tooling | +23/-12 |
 | `dev/scripts/devctl/commands/review_channel/_recover.py` | tooling | +69/-100 |
 | `dev/scripts/devctl/commands/review_channel/_reviewer.py` | tooling | +49/-0 |
-| `dev/scripts/devctl/commands/rollout_tail/__init__.py` | tooling | +37/-0 |
-| `dev/scripts/devctl/commands/rollout_tail/command.py` | tooling | +70/-0 |
-| `dev/scripts/devctl/commands/rollout_tail/constants.py` | tooling | +19/-0 |
-| `dev/scripts/devctl/commands/rollout_tail/discovery.py` | tooling | +117/-11 |
-| _25 more files trimmed_ | | |
+| `dev/scripts/devctl/commands/rollout_tail/discovery.py` | tooling | +31/-11 |
+| `dev/scripts/devctl/commands/rollout_tail/parser.py` | tooling | +31/-6 |
+| `dev/scripts/devctl/commands/vcs/commit.py` | tooling | +12/-2 |
+| `dev/scripts/devctl/commands/vcs/push.py` | tooling | +4/-2 |
+| _19 more files trimmed_ | | |
 
 ## 4. Quality signals
 
 ### Governance review
-- total findings: 130
-- open: 48
-- fixed: 68
+- total findings: 169
+- open: 85
+- fixed: 70
 - false positives: 0
 
 Recent findings:
-- `reviewer_runtime_contract_needed` — `dev/scripts/devctl/platform/runtime_state_contract_rows.py` (n/a, verdict=`confirmed_issue`)
-- `bridge_acceptance_should_be_projection` — `dev/scripts/devctl/review_channel/bridge_validation_acceptance.py` (n/a, verdict=`confirmed_issue`)
-- `doctor_must_project_from_contract` — `dev/scripts/devctl/review_channel/state.py` (n/a, verdict=`confirmed_issue`)
-- `launch_gate_stale_head_loop` — `dev/scripts/devctl/runtime/startup_receipt.py` (n/a, verdict=`confirmed_issue`)
-- `launch_gate_exception_too_narrow` — `dev/scripts/devctl/runtime/startup_gate.py` (n/a, verdict=`confirmed_issue`)
-- `launch_reviewer_states_should_permit_repair` — `dev/scripts/devctl/review_channel/peer_recovery.py` (n/a, verdict=`confirmed_issue`)
-- `test_resource_cleanup` — `app/operator_console/tests/views/test_ui_layout.py` (n/a, verdict=`confirmed_issue`)
-- `test_resource_cleanup` — `app/operator_console/tests/views/test_approval_panel.py` (n/a, verdict=`confirmed_issue`)
-- `test_resource_cleanup` — `app/operator_console/tests/views/test_ui_scroll_behavior.py` (n/a, verdict=`confirmed_issue`)
-- `test_resource_cleanup` — `app/operator_console/tests/views/test_widgets.py` (n/a, verdict=`confirmed_issue`)
+- `subprocess_missing_timeout` — `dev/scripts/devctl/quality_backlog/collect.py` (n/a, verdict=`confirmed_issue`)
+- `subprocess_missing_timeout` — `dev/scripts/devctl/security/python_scope.py` (n/a, verdict=`confirmed_issue`)
+- `subprocess_missing_timeout` — `dev/scripts/devctl/security/codeql.py` (n/a, verdict=`confirmed_issue`)
+- `subprocess_missing_timeout` — `dev/scripts/devctl/integrations/import_core.py` (n/a, verdict=`confirmed_issue`)
+- `subprocess_missing_timeout` — `app/operator_console/launch_support.py` (n/a, verdict=`confirmed_issue`)
+- `threading_shared_state_no_lock` — `dev/scripts/devctl/common.py` (n/a, verdict=`confirmed_issue`)
+- `none_safety_chained_get_crash` — `dev/scripts/devctl/review_channel/bridge_projection_state.py` (n/a, verdict=`confirmed_issue`)
+- `none_safety_chained_get_crash` — `app/operator_console/state/review/operator_decisions.py` (n/a, verdict=`confirmed_issue`)
+- `none_safety_chained_get_crash` — `dev/scripts/devctl/autonomy/run_render.py` (n/a, verdict=`confirmed_issue`)
+- `none_safety_chained_get_crash` — `dev/scripts/devctl/autonomy/report_helpers.py` (n/a, verdict=`confirmed_issue`)
 
 ### Probe report
 - run_state: `missing`
@@ -260,6 +259,8 @@ Recent findings:
 
 ### Per-commit rationale
 
+- **`fd30e634`** — Refresh external review snapshot for 5375193c
+  - evolution: Fact: the dogfooded governed-push lane exposed a stale authorization bug after a completed push pipeline. A terminal `push_completed` same-branch `RemoteCommitPipelineContract` could still be selected by `devctl push` w…
 - **`5375193c`** — fix(devctl): P1 stale refresh-authorization + P2 cursor-safe agent-mind polling
   - P1: refresh_authorization_action.py now refuses refresh when
   - authorized_head_sha no longer matches current HEAD, directing
@@ -349,11 +350,6 @@ Recent findings:
   - with a `recoverable: bool = False` field so an intentional
   - operator-directed stop can be distinguished from a permanent manual
   - evolution: Fact: the narrow repo-owned `review-channel --action recover` path had one real remote-control gap left. In governed `--terminal none` mode it prepared fresh Claude implementer scripts and metadata, but `_maybe_launch_r…
-- **`8f42ea3f`** — feat(devctl): rollout-tail MVP for Codex/Claude session JSONL projection
-  - Closes the single biggest typed-state gap identified in session 2026-04-09:
-  - remote operators had no visibility into agent CLI internals (thoughts,
-  - tool calls, sandbox-escalation requests). Codex's own rollout JSONL
-  - evolution: Fact: the narrow repo-owned `review-channel --action recover` path had one real remote-control gap left. In governed `--terminal none` mode it prepared fresh Claude implementer scripts and metadata, but `_maybe_launch_r…
 ### Active MP scope (from MASTER_PLAN.md)
 
 - `dev/active/devctl_reporting_upgrade.md` is the phased `devctl` reporting/CIHub specification, but not a separate execution tracker; implementation tasks stay in this file under `MP-297..MP-300`, `MP-303`, `MP-306`, `MP…
@@ -369,24 +365,24 @@ Recent findings:
 
 ## 8. Known gaps and open items
 
-- open governance findings: 48
+- open governance findings: 85
 
 ### Startup advisories
-- push_allowed: worktree_clean_and_review_accepted
+- no_push_needed: clean_worktree
 
 ### Stale warnings
-- Stop because nothing remains to push.
+- Move straight to the governed push path.
 
 ### Open gap rows
-- **governance_open** (`dev/scripts/devctl/platform/runtime_state_contract_rows.py`): reviewer_runtime_contract_needed: 
-- **governance_open** (`dev/scripts/devctl/review_channel/bridge_validation_acceptance.py`): bridge_acceptance_should_be_projection: 
-- **governance_open** (`dev/scripts/devctl/review_channel/state.py`): doctor_must_project_from_contract: 
-- **governance_open** (`dev/scripts/devctl/runtime/startup_receipt.py`): launch_gate_stale_head_loop: 
-- **governance_open** (`dev/scripts/devctl/runtime/startup_gate.py`): launch_gate_exception_too_narrow: 
-- **governance_open** (`dev/scripts/devctl/review_channel/peer_recovery.py`): launch_reviewer_states_should_permit_repair: 
-- **governance_open** (`app/operator_console/tests/views/test_ui_layout.py`): test_resource_cleanup: 
-- **governance_open** (`app/operator_console/tests/views/test_approval_panel.py`): test_resource_cleanup: 
+- **governance_open** (`dev/scripts/devctl/quality_backlog/collect.py`): subprocess_missing_timeout: 
+- **governance_open** (`dev/scripts/devctl/security/python_scope.py`): subprocess_missing_timeout: 
+- **governance_open** (`dev/scripts/devctl/security/codeql.py`): subprocess_missing_timeout: 
+- **governance_open** (`dev/scripts/devctl/integrations/import_core.py`): subprocess_missing_timeout: 
+- **governance_open** (`app/operator_console/launch_support.py`): subprocess_missing_timeout: 
+- **governance_open** (`dev/scripts/devctl/common.py`): threading_shared_state_no_lock: 
+- **governance_open** (`dev/scripts/devctl/review_channel/bridge_projection_state.py`): none_safety_chained_get_crash: 
+- **governance_open** (`app/operator_console/state/review/operator_decisions.py`): none_safety_chained_get_crash: 
 
 ---
 
-Projection produced by `devctl review-snapshot`. Generation stamp `snap-21fbef399e5e` binds this file to HEAD `5375193c8d23`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
+Projection produced by `devctl review-snapshot`. Generation stamp `snap-8d9f734629bc` binds this file to HEAD `fd30e63457c6`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
