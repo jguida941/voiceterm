@@ -2927,6 +2927,39 @@ which Q55 says we don't have yet. Start there.
   logic stays in the repo, not fragmented across tool configs.
 - **Status**: OPEN — high priority, directly enables Q47
 
+### Q54 — ARCHITECTURE — Observer layer is ungoverned, no self-audit loop
+
+- **Discovered**: 2026-04-10T17:45Z
+- **Severity**: critical / architectural
+- **Body**: The system governs state, review, commit, push, and lane
+  ownership. But it does not govern HOW the observer gathers evidence
+  or WHETHER the observer followed the canonical authority path. The
+  observation phase is still ungoverned. The agent can inspect raw
+  JSONL, infer from session file growth, narrate from shell probes,
+  and promote inferences to authority — all without the system
+  detecting or logging the bypass.
+  What is missing is a meta-governance loop: the observer must be
+  governed, and it must log findings about its own governance failures
+  while the system is live. This is not a new system — it should
+  integrate with existing typed finding types, the LIVE_RUN stream,
+  review-channel packets, and the probe/guard infrastructure.
+  Required self-audit finding types (integrate into existing
+  `finding_reviews.jsonl` / governance-review system):
+  - `non_canonical_source_used` — raw shell before repo-owned command
+  - `observer_inference_presented_as_fact` — inferred claim not reconciled
+  - `repo_command_bypassed` — governed command existed but wasn't used
+  - `stale_projection_rendered` — dashboard showed outdated state
+  - `observer_mutation_attempt` — observer lane tried to edit code
+  - `finding_not_routed` — issue identified but not logged to governed stream
+  These should feed into the same `governance-review --record` path
+  so they appear in the 170-finding tracking system, get cleanup
+  rates, and route to Codex for implementation. Not a separate tool.
+- **Root cause**: The existing guard/probe system audits code and
+  runtime state. Nothing audits the agent's observation process. The
+  governance architecture assumes the observer is trustworthy. It is
+  not — Q39-Q42 proved that.
+- **Status**: OPEN — critical, integrates with existing governance-review
+
 ### Q53 — METRICS — Dashboard 77% "success rate" is command ok=True, not quality
 
 - **Discovered**: 2026-04-10T17:30Z
