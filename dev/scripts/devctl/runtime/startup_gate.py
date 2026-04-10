@@ -67,14 +67,11 @@ def enforce_startup_gate(
             authority_report=authority_report,
         )
         if receipt_failures:
-            if _is_repair_allowed(args, receipt, authority_report):
-                pass  # repair bypasses receipt staleness, not checkpoint
-            else:
-                return _format_gate_failure(
-                    args,
-                    heading="Startup gate blocked this command because the startup receipt is missing or stale.",
-                    failures=receipt_failures,
-                )
+            return _format_gate_failure(
+                args,
+                heading="Startup gate blocked this command because the startup receipt is missing or stale.",
+                failures=receipt_failures,
+            )
 
     if bool(authority_report.get("ok", False)):
         return None
@@ -102,12 +99,13 @@ def _is_repair_allowed(
     receipt: StartupReceipt | None,
     authority_report: dict[str, object],
 ) -> bool:
-    """Allow repair launch/rollover through soft gates, not checkpoint gates.
+    """Allow repair launch/rollover through the authority gate only.
 
     When startup-context returns action=repair_reviewer_loop, the gate must
-    not block the command that IS the repair. But checkpoint and budget
-    constraints still apply — only receipt-staleness and reviewer-loop
-    authority blocks are bypassed.
+    not block the command that IS the repair on the authority check alone.
+    Receipt freshness is still enforced (a stale/missing receipt blocks even
+    repair launches). Checkpoint and budget constraints also still apply.
+    Only the reviewer-loop authority block is bypassed.
     """
     command = str(getattr(args, "command", "") or "").strip()
     action = str(getattr(args, "action", "") or "").strip()

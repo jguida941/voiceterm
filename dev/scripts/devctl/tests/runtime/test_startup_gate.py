@@ -220,7 +220,7 @@ class StartupGateEnforcementTests(unittest.TestCase):
 
     @patch(
         "dev.scripts.devctl.runtime.startup_gate.startup_receipt_problems_for_intent",
-        return_value=["Startup receipt is stale."],
+        return_value=[],
     )
     @patch(
         "dev.scripts.devctl.runtime.startup_gate.build_startup_authority_report",
@@ -237,19 +237,49 @@ class StartupGateEnforcementTests(unittest.TestCase):
             checkpoint_required=False,
         ),
     )
-    def test_repair_launch_bypasses_soft_gates(
+    def test_repair_launch_bypasses_authority_block(
         self,
         _load_receipt,
         _authority_report,
         _receipt_problems,
     ) -> None:
-        """repair_reviewer_loop bypasses receipt staleness and authority blocks."""
+        """repair_reviewer_loop bypasses authority block when receipt is fresh."""
         self.assertIsNone(
             enforce_startup_gate(_args("review-channel", action="launch"))
         )
         self.assertIsNone(
             enforce_startup_gate(_args("review-channel", action="rollover"))
         )
+
+    @patch(
+        "dev.scripts.devctl.runtime.startup_gate.startup_receipt_problems_for_intent",
+        return_value=["Startup receipt is stale for HEAD drift."],
+    )
+    @patch(
+        "dev.scripts.devctl.runtime.startup_gate.build_startup_authority_report",
+        return_value={
+            "ok": False,
+            "errors": ["Reviewer loop is stale."],
+            "checkpoint_required": False,
+        },
+    )
+    @patch(
+        "dev.scripts.devctl.runtime.startup_gate.load_startup_receipt",
+        return_value=StartupReceipt(
+            advisory_action="repair_reviewer_loop",
+            checkpoint_required=False,
+        ),
+    )
+    def test_stale_receipt_still_blocks_repair_launch(
+        self,
+        _load_receipt,
+        _authority_report,
+        _receipt_problems,
+    ) -> None:
+        """A stale receipt blocks even repair_reviewer_loop launches."""
+        message = enforce_startup_gate(_args("review-channel", action="launch"))
+        self.assertIsNotNone(message)
+        self.assertIn("stale", message or "")
 
     @patch(
         "dev.scripts.devctl.runtime.startup_gate.startup_receipt_problems_for_intent",

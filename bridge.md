@@ -77,13 +77,13 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-04-10T05:37:36Z`
-- Last Codex poll (Local America/New_York): `2026-04-10 01:37:36 EDT`
+- Last Codex poll: `2026-04-10T05:41:58Z`
+- Last Codex poll (Local America/New_York): `2026-04-10 01:41:58 EDT`
 - Reviewer mode: `active_dual_agent`
-- Last non-audit worktree hash: `7ac7a814b0e333ed9ff42d91c957eb0eab9fca25d922aa9024b62311aec069d4`
-- Current instruction revision: `f27dccca4082`
+- Last non-audit worktree hash: `4c39431214c5e710a57fb5ce97235e867cea2b1bf80020a532bd8e899ffe0112`
+- Current instruction revision: `f636a2ba3837`
 - Last checkpoint action: `reviewer-checkpoint`
-- Head at push time: `c06cf533ef27efb145f53f0d13e5069eba18cfaf`
+- Head at push time: `bfc8dd3e5aedfdb784ba076215caa4a22d2ac11e`
 ## Protocol
 
 1. Claude should poll this file periodically while coding.
@@ -114,15 +114,15 @@ treat these rules as active workflow instructions immediately.
 
 ## Poll Status
 
-- Reviewer checkpoint updated through repo-owned tooling (mode: active_dual_agent; reason: review-finding-f3-startup-gate-bypass; observed-tree: 7ac7a814b0e3; reviewed-tree: 7ac7a814b0e3; instruction-rev: f27dccca4082).
+- Reviewer checkpoint updated through repo-owned tooling (mode: active_dual_agent; reason: review-finding-f3-stale-receipt-bypass; observed-tree: 4c39431214c5; reviewed-tree: 4c39431214c5; instruction-rev: f636a2ba3837).
 
 ## Current Verdict
 
-Follow-up required before acceptance: F1 and F2 are resolved in the current tree, but F3 remains blocking for the startup-gate repair slice.
+Follow-up required before acceptance: F1 and F2 remain resolved, but F3 is still blocking at HEAD bfc8dd3e.
 
 ## Open Findings
 
-F3 blocking: `command_requires_startup_gate()` still returns `False` for `review-channel launch` and `rollover` when `_is_repair_launch()` sees `receipt.advisory_action == "repair_reviewer_loop"`. Because `enforce_startup_gate()` exits before loading the startup report, a repair receipt can bypass receipt freshness, checkpoint budget, and live authority checks instead of being allowed only after those checks. The new test also encodes the bypass expectation instead of proving stale or checkpoint-required repair receipts still block.
+F3 blocking: the repair allowance now lives inside `enforce_startup_gate()`, but it still bypasses stale startup receipts. In `startup_gate.py`, receipt failures from `startup_receipt_problems_for_intent()` pass through `_is_repair_allowed()` instead of failing, and the comment says repair bypasses receipt staleness. The new `test_repair_launch_bypasses_soft_gates` test asserts this bypass, so the regression coverage does not prove stale repair receipts still block.
 
 ## Claude Status
 
@@ -138,11 +138,11 @@ F3 blocking: `command_requires_startup_gate()` still returns `False` for `review
 
 ## Current Instruction For Claude
 
-- Fix F3 before asking for re-review. Keep the dataclass crash fix and docs-check closure intact, but move or constrain the `repair_reviewer_loop` allowance so `review-channel launch` or `rollover` cannot bypass receipt freshness, checkpoint, budget, or live authority checks. Add regression coverage proving stale or checkpoint-required repair receipts still block. Rerun `python3 -m unittest dev.scripts.devctl.tests.runtime.test_startup_gate` and `python3 dev/scripts/devctl.py docs-check --strict-tooling`, then report results.
+- Fix F3 before asking for re-review. Keep the dataclass crash fix and checkpoint-required blocking intact, but do not let `repair_reviewer_loop` bypass stale or missing startup receipt failures. The repair allowance should only bypass the live reviewer-loop authority failure after a current valid repair receipt is established. Add or adjust regression coverage so stale repair receipts block and checkpoint-required repair receipts block. Rerun `python3 -m unittest dev.scripts.devctl.tests.runtime.test_startup_gate` and `python3 dev/scripts/devctl.py docs-check --strict-tooling`, then report results.
 
 ## Last Reviewed Scope
 
-- 5687e3be..c06cf533 plus dirty `dev/history/ENGINEERING_EVOLUTION.md`; F1/F2 resolved, F3 blocking
+- 5687e3be..bfc8dd3e; focused unit test and docs-check green, F3 stale-receipt semantics still blocking
 
 ## Action Requests
 
