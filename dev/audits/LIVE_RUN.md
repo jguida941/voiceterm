@@ -2845,6 +2845,42 @@ which Q55 says we don't have yet. Start there.
   emits a warning) on mismatch.
 - **Status**: OPEN
 
+### Q45 — COMMIT GATE — Implementation evidence treated as commit permission
+
+- **Discovered**: 2026-04-10T15:40Z
+- **Severity**: critical / governance-violation
+- **Body**: The agent recommended commit while the governed state said:
+  `implementation_permission=blocked`, `checkpoint_required=true`,
+  `reviewer_overdue=true`, `observed_control_topology=no_live_agents`,
+  `dirty_and_untracked_budget_exceeded`. Local evidence (Codex verdict
+  exists, tests passed, files changed) was treated as equivalent to
+  commit authority. It is not. Commit is a governed state transition
+  that requires: owned lane valid, reviewer lane valid, topology
+  valid, checkpoint satisfied, implementation permission granted,
+  push path potentially legal. The system has no hard final commit
+  gate that dominates everything else. Local evidence ("Codex
+  finished, tests pass") is still allowed to overrule the governed
+  blockers.
+- **Root cause**: No single authoritative `commit_permission` decision
+  object exists at the commit boundary. Evidence and authority are
+  not separated. The system lets implementation artifacts (changed
+  files, test results, verdict files) masquerade as commit authority.
+- **Missing commit gate contract**:
+  - `commit_permission`: `allowed` | `blocked`
+  - `blockers`: list of typed blocker IDs
+  - `authorship_attribution`: `clean` | `mixed` | `unknown`
+  - `review_authority`: `valid` | `stale` | `missing`
+  - `topology_state`: `valid` | `drifted` | `absent`
+  - `checkpoint_state`: `satisfied` | `required`
+  - Rule: if ANY of `implementation_permission=blocked`,
+    `review_authority!=valid`, or `checkpoint_state=required`,
+    the agent MAY NOT recommend commit. Not "should not." May not.
+- **Additional finding**: "All from Codex's Q38 implementation" was
+  stated about a worktree with 17 dirty files from mixed authorship
+  (Codex implementation + Claude LIVE_RUN commits). Authorship
+  attribution was too strong for the actual mixed state.
+- **Status**: OPEN — critical, paired with Q38-Q44
+
 ### Q44 — DASHBOARD — Governed dashboard contradicts itself and misses live agents
 
 - **Discovered**: 2026-04-10T15:30Z
