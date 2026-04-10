@@ -2927,6 +2927,31 @@ which Q55 says we don't have yet. Start there.
   logic stays in the repo, not fragmented across tool configs.
 - **Status**: OPEN — high priority, directly enables Q47
 
+### Q53 — METRICS — Dashboard 77% "success rate" is command ok=True, not quality
+
+- **Discovered**: 2026-04-10T17:30Z
+- **Severity**: medium / metrics-integrity
+- **Body**: The dashboard `Success 77.13%` metric is computed in
+  `data_science/aggregates.py:82-107` as `(events with ok=True) /
+  (total events)`. This is command return-code success — did the
+  devctl command finish without error. It is NOT finding precision,
+  review correctness, decision correctness, or architectural quality.
+  The dashboard renders it without a label explaining what it measures,
+  making it easy to misread as "system correctness." The 23% failures
+  include legitimate guard failures (expected to fail when code is
+  bad), stale-state checks, and sandbox permission denials — not all
+  are system bugs.
+  The system needs separate metrics for:
+  1. Runtime reliability: command success, daemon uptime, recovery rate
+  2. Finding precision: % of findings later confirmed true, FP rate
+  3. Decision correctness: % of next-step recommendations matching
+     canonical state, blocked actions correctly suppressed
+  4. Control correctness: commit gate prevented invalid commit, push
+     gate prevented invalid push, singleton caught before spawn
+  The dashboard currently only has layer 1. Layers 2-4 do not exist
+  as tracked metrics.
+- **Status**: OPEN — metrics-integrity, informs product quality claims
+
 ### Q50 — QUALITY — 100 unfixed governance findings across 9 check categories
 
 - **Discovered**: 2026-04-10T16:55Z
