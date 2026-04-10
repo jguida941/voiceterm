@@ -5,14 +5,14 @@
 ## Quick status
 
 - Branch: `feature/governance-quality-sweep`
-- HEAD: `ed2134b8e034` — Refresh external review snapshot for c3be08ff
-- Tree hash: `504d950f5551`
-- Generation stamp: `snap-314d76d6051c`
-- Generated at (UTC): 2026-04-10T03:38:56Z
-- Push decision: `await_checkpoint` — staged_index_budget_exceeded
+- HEAD: `24460777c20d` — feat(governance): guard promotion queue + pipeline auto-reset
+- Tree hash: `3e0a1e3323e4`
+- Generation stamp: `snap-680f426dd6c1`
+- Generated at (UTC): 2026-04-10T03:39:05Z
+- Push decision: `run_devctl_push` — push_preconditions_satisfied
 - Reviewer mode: `single_agent` (interaction: `remote_control`)
 - Pipeline state: `n/a` (approval: `n/a`)
-- Delta since last snapshot: 24 commits, 56 files, +7947/-1514
+- Delta since last snapshot: 25 commits, 65 files, +8454/-1607
 - Governance findings: 39 open / 68 fixed / 121 total
 - Probe hints: 0 total across 0 files scanned
 
@@ -54,26 +54,27 @@ adopters arrive.
 - Remote: `https://github.com/jguida941/voiceterm.git`
 - Default branch: `master`
 - Current branch: `feature/governance-quality-sweep`
-- HEAD SHA: `ed2134b8e034d54116ce69ce584a91adfffd9446`
+- HEAD SHA: `24460777c20d48fc87b6392a2e35b3345f170ead`
 - HEAD author: Justin Guida
-- HEAD timestamp (UTC): 2026-04-09T22:31:49-04:00
+- HEAD timestamp (UTC): 2026-04-09T23:38:47-04:00
 
 ## 2. Governance state
 
 ### Push decision
-- action: `await_checkpoint`
-- reason: staged_index_budget_exceeded
-- push_eligible_now: False
-- worktree_clean: False
-- staged_path_count: 14
+- action: `run_devctl_push`
+- reason: push_preconditions_satisfied
+- push_eligible_now: True
+- worktree_clean: True
+- staged_path_count: 0
 - unstaged_path_count: 0
-- next_step_command: `n/a`
+- next_step_command: `python3 dev/scripts/devctl.py push --execute`
 - latest_push_report: `dev/reports/push/latest.json`
-- latest_push_report_state: `post_push_green` (push_completed)
+- latest_push_report_state: `published_remote` (post_push_bundle_pending)
 - current_push_authorization: `push-auth-20260410T013026997488Z` (valid=False)
 - authorized_head_commit: `b5d609ce5e212babe502a142472941a5e14b8105`
 - approved_target_identity: `tree-receipt-20260410T013026997488Z:f06cd7445bc99ebd96c363dcd2e920a4c1d5ab6f`
-- publication_backlog: none
+- publication_backlog: queued
+- publication_guidance: 1 local commit(s) waiting for governed push. Run `python3 dev/scripts/devctl.py push --execute` now.
 
 ### Reviewer runtime
 - reviewer_mode: `single_agent`
@@ -89,64 +90,68 @@ adopters arrive.
 - active plan: **Master Plan (Active, Unified)**
 - plan path: `dev/active/MASTER_PLAN.md`
 - active MP scope: all active MP execution state
-- advisory: `checkpoint_before_continue` — staged_index_budget_exceeded
-- checkpoint_required: **yes**
+- advisory: `push_allowed` — worktree_clean_and_review_accepted
 
 ## 3. Delta — what changed since the previous snapshot
 
-Range: last 24 commits ending at `ed2134b8e034`
+Range: last 25 commits ending at `24460777c20d`
 
-- commits: 24
-- files changed: 56
-- insertions: +7947
-- deletions: -1514
-- bundle classes touched: tooling, docs
+- commits: 25
+- files changed: 65
+- insertions: +8454
+- deletions: -1607
+- bundle classes touched: docs, tooling
 - risk add-ons triggered: Parser / ANSI boundary
+- authority surfaces touched: 1 file(s)
 
 ### Commits
 
 | # | SHA | Subject | Files | +/- | Bundle | Risk |
 |---|---|---|---|---|---|---|
-| 1 | `ed2134b8` | Refresh external review snapshot for c3be08ff | 1 | +60/-59 | tooling |  |
-| 2 | `c3be08ff` | docs(audits): guard promotion pipeline — issue-to-guard lea… | 3 | +216/-52 | tooling |  |
-| 3 | `a325bdae` | Refresh external review snapshot for 304708c2 | 1 | +55/-58 | tooling |  |
-| 4 | `304708c2` | fix(tests): prevent Qt offscreen segfault from accumulated… | 2 | +75/-56 | tooling |  |
-| 5 | `c2685e4c` | Refresh external review snapshot for 54cf3225 | 1 | +52/-52 | tooling |  |
-| 6 | `54cf3225` | Refresh external review snapshot for b5d609ce | 2 | +76/-87 | docs |  |
-| 7 | `b5d609ce` | fix: keep poll status mode coherent | 3 | +117/-63 | tooling |  |
-| 8 | `98cc9ab0` | fix: stabilize review-channel recovery | 13 | +843/-180 | tooling |  |
-| 9 | `655db93a` | fix(discover): Q22 closure — repair KeyError crashes in --f… | 2 | +50/-42 | tooling |  |
-| 10 | `8f4bf379` | docs(audits): log BL-032 through BL-035 from session 2026-0… | 2 | +173/-58 | tooling |  |
-| 11 | `1864fc2c` | feat(devctl): BL-031 cross-mind polling — agent-mind command | 10 | +1513/-55 | tooling |  |
-| 12 | `4129af6c` | docs(governance): Codex's doc updates for 2026-04-09 F1/F2/… | 7 | +403/-66 | tooling |  |
-| 13 | `5985e70c` | feat(devctl): pipeline recovery command (BL-006) — typed re… | 12 | +1652/-46 | tooling |  |
-| 14 | `49d1db53` | Refresh external review snapshot for 363fe42c | 1 | +57/-54 | tooling |  |
-| 15 | `363fe42c` | fix(hygiene): Platform Boundary fix + regression tests + co… | 3 | +223/-47 | tooling |  |
-| 16 | `e4870754` | fix(review-channel): attach-remote-control cleanup (F2.1 th… | 4 | +336/-70 | tooling |  |
-| 17 | `d35abef0` | test(process-sweep): positive + negative regression tests f… | 2 | +195/-60 | tooling |  |
-| 18 | `971647ec` | fix(rollout-tail): F3 narrow Claude session discovery + tai… | 4 | +351/-58 | tooling | Parser / ANSI boundary |
-| 19 | `a65fc7c4` | fix(review): land F1+F2 from Codex reviewer pass | 5 | +161/-58 | tooling |  |
-| 20 | `adb266b5` | Refresh external review snapshot for d84b27fa | 1 | +60/-58 | tooling |  |
-| 21 | `d84b27fa` | feat(lifecycle): add recoverable flag to ReviewerSupervisor… | 2 | +77/-86 | tooling |  |
-| 22 | `8f42ea3f` | feat(devctl): rollout-tail MVP for Codex/Claude session JSO… | 11 | +1088/-49 | tooling | Parser / ANSI boundary |
-| 23 | `2ca00812` | Refresh external review snapshot for 696f4772 | 1 | +52/-46 | tooling |  |
-| 24 | `696f4772` | fix(hygiene): trust supervisor heartbeat for reparented con… | 2 | +62/-54 | tooling |  |
+| 1 | `24460777` | feat(governance): guard promotion queue + pipeline auto-res… | 15 | +507/-93 | tooling |  |
+| 2 | `ed2134b8` | Refresh external review snapshot for c3be08ff | 1 | +60/-59 | tooling |  |
+| 3 | `c3be08ff` | docs(audits): guard promotion pipeline — issue-to-guard lea… | 3 | +216/-52 | tooling |  |
+| 4 | `a325bdae` | Refresh external review snapshot for 304708c2 | 1 | +55/-58 | tooling |  |
+| 5 | `304708c2` | fix(tests): prevent Qt offscreen segfault from accumulated… | 2 | +75/-56 | tooling |  |
+| 6 | `c2685e4c` | Refresh external review snapshot for 54cf3225 | 1 | +52/-52 | tooling |  |
+| 7 | `54cf3225` | Refresh external review snapshot for b5d609ce | 2 | +76/-87 | docs |  |
+| 8 | `b5d609ce` | fix: keep poll status mode coherent | 3 | +117/-63 | tooling |  |
+| 9 | `98cc9ab0` | fix: stabilize review-channel recovery | 13 | +843/-180 | tooling |  |
+| 10 | `655db93a` | fix(discover): Q22 closure — repair KeyError crashes in --f… | 2 | +50/-42 | tooling |  |
+| 11 | `8f4bf379` | docs(audits): log BL-032 through BL-035 from session 2026-0… | 2 | +173/-58 | tooling |  |
+| 12 | `1864fc2c` | feat(devctl): BL-031 cross-mind polling — agent-mind command | 10 | +1513/-55 | tooling |  |
+| 13 | `4129af6c` | docs(governance): Codex's doc updates for 2026-04-09 F1/F2/… | 7 | +403/-66 | tooling |  |
+| 14 | `5985e70c` | feat(devctl): pipeline recovery command (BL-006) — typed re… | 12 | +1652/-46 | tooling |  |
+| 15 | `49d1db53` | Refresh external review snapshot for 363fe42c | 1 | +57/-54 | tooling |  |
+| 16 | `363fe42c` | fix(hygiene): Platform Boundary fix + regression tests + co… | 3 | +223/-47 | tooling |  |
+| 17 | `e4870754` | fix(review-channel): attach-remote-control cleanup (F2.1 th… | 4 | +336/-70 | tooling |  |
+| 18 | `d35abef0` | test(process-sweep): positive + negative regression tests f… | 2 | +195/-60 | tooling |  |
+| 19 | `971647ec` | fix(rollout-tail): F3 narrow Claude session discovery + tai… | 4 | +351/-58 | tooling | Parser / ANSI boundary |
+| 20 | `a65fc7c4` | fix(review): land F1+F2 from Codex reviewer pass | 5 | +161/-58 | tooling |  |
+| 21 | `adb266b5` | Refresh external review snapshot for d84b27fa | 1 | +60/-58 | tooling |  |
+| 22 | `d84b27fa` | feat(lifecycle): add recoverable flag to ReviewerSupervisor… | 2 | +77/-86 | tooling |  |
+| 23 | `8f42ea3f` | feat(devctl): rollout-tail MVP for Codex/Claude session JSO… | 11 | +1088/-49 | tooling | Parser / ANSI boundary |
+| 24 | `2ca00812` | Refresh external review snapshot for 696f4772 | 1 | +52/-46 | tooling |  |
+| 25 | `696f4772` | fix(hygiene): trust supervisor heartbeat for reparented con… | 2 | +62/-54 | tooling |  |
 
 ### Files
 
 | Path | Bundle | +/- |
 |---|---|---|
-| `AGENTS.md` | docs | +13/-1 |
+| `AGENTS.md` | docs | +24/-2 |
 | `app/operator_console/tests/views/test_ui_layouts.py` | tooling | +24/-8 |
 | `bridge.md` | docs | +31/-35 |
-| `dev/active/MASTER_PLAN.md` | tooling | +28/-0 |
+| `dev/active/MASTER_PLAN.md` | tooling | +36/-0 |
+| `dev/active/ai_governance_platform.md` | tooling | +21/-0 |
+| `dev/active/portable_code_governance.md` | tooling | +13/-0 |
+| `dev/active/remote_commit_pipeline.md` | tooling | +19/-0 |
 | `dev/active/remote_control_runtime.md` | tooling | +16/-0 |
 | `dev/audits/2026-04-10-guard-promotion-pipeline.md` | tooling | +154/-0 |
-| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1322/-1308 |
+| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1392/-1393 |
 | `dev/audits/TEST_BACKLOG.md` | tooling | +733/-0 |
-| `dev/guides/DEVELOPMENT.md` | docs | +24/-1 |
-| `dev/history/ENGINEERING_EVOLUTION.md` | tooling | +126/-0 |
-| `dev/scripts/README.md` | tooling | +7/-2 |
+| `dev/guides/DEVELOPMENT.md` | docs | +33/-1 |
+| `dev/history/ENGINEERING_EVOLUTION.md` | tooling | +158/-1 |
+| `dev/scripts/README.md` | tooling | +9/-4 |
 | `dev/scripts/devctl/agent_mind_parser.py` | tooling | +75/-0 |
 | `dev/scripts/devctl/cli.py` | tooling | +13/-0 |
 | `dev/scripts/devctl/commands/agent_mind/__init__.py` | tooling | +27/-0 |
@@ -157,6 +162,7 @@ Range: last 24 commits ending at `ed2134b8e034`
 | `dev/scripts/devctl/commands/check/process_sweep.py` | tooling | +31/-2 |
 | `dev/scripts/devctl/commands/discover/__init__.py` | tooling | +9/-3 |
 | `dev/scripts/devctl/commands/governance/hygiene_support.py` | tooling | +49/-5 |
+| `dev/scripts/devctl/commands/governance/review.py` | tooling | +22/-0 |
 | `dev/scripts/devctl/commands/governance/session_resume_support.py` | tooling | +2/-0 |
 | `dev/scripts/devctl/commands/pipeline/__init__.py` | tooling | +28/-0 |
 | `dev/scripts/devctl/commands/pipeline/abandon_action.py` | tooling | +165/-0 |
@@ -172,11 +178,7 @@ Range: last 24 commits ending at `ed2134b8e034`
 | `dev/scripts/devctl/commands/rollout_tail/command.py` | tooling | +70/-0 |
 | `dev/scripts/devctl/commands/rollout_tail/constants.py` | tooling | +19/-0 |
 | `dev/scripts/devctl/commands/rollout_tail/discovery.py` | tooling | +117/-11 |
-| `dev/scripts/devctl/commands/rollout_tail/parser.py` | tooling | +242/-2 |
-| `dev/scripts/devctl/commands/rollout_tail/renderers.py` | tooling | +94/-0 |
-| `dev/scripts/devctl/commands/vcs/commit.py` | tooling | +12/-2 |
-| `dev/scripts/devctl/pipeline_parser.py` | tooling | +80/-0 |
-| _16 more files trimmed_ | | |
+| _25 more files trimmed_ | | |
 
 ## 4. Quality signals
 
@@ -247,6 +249,7 @@ Recent findings:
 ### Targeted hints
 
 - **risk**: Parser / ANSI boundary — Delta touches a risk-sensitive surface; verify the routed bundle
+- **authority_surface**: Typed authority surface touched (`dev/active/remote_commit_pipeline.md`) — Review contract-level invariants for this file
 
 ### Suggested verification commands
 
@@ -260,6 +263,9 @@ Recent findings:
 
 ### Per-commit rationale
 
+- **`24460777`** — feat(governance): guard promotion queue + pipeline auto-reset
+  - Auto-generated from push post-flight after audit doc landed:
+  - evolution: Fact: the narrow repo-owned `review-channel --action recover` path had one real remote-control gap left. In governed `--terminal none` mode it prepared fresh Claude implementer scripts and metadata, but `_maybe_launch_r…
 - **`ed2134b8`** — Refresh external review snapshot for c3be08ff
   - evolution: Fact: the narrow repo-owned `review-channel --action recover` path had one real remote-control gap left. In governed `--terminal none` mode it prepared fresh Claude implementer scripts and metadata, but `_maybe_launch_r…
 - **`c3be08ff`** — docs(audits): guard promotion pipeline — issue-to-guard learning loop design
@@ -369,11 +375,10 @@ Recent findings:
 - open governance findings: 39
 
 ### Startup advisories
-- checkpoint_before_continue: staged_index_budget_exceeded
+- push_allowed: worktree_clean_and_review_accepted
 
 ### Stale warnings
-- Keep editing the current slice.
-- Move straight to the governed push path.
+- Stop because nothing remains to push.
 
 ### Open gap rows
 - **governance_open** (`dev/scripts/devctl/review_channel/bridge_sanitize.py`): agent_checkpoint_contract_ignorance: 
@@ -387,4 +392,4 @@ Recent findings:
 
 ---
 
-Projection produced by `devctl review-snapshot`. Generation stamp `snap-314d76d6051c` binds this file to HEAD `ed2134b8e034`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
+Projection produced by `devctl review-snapshot`. Generation stamp `snap-680f426dd6c1` binds this file to HEAD `24460777c20d`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
