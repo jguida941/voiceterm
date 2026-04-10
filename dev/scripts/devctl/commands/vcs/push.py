@@ -308,6 +308,9 @@ def run_push_action(
         repo_root=repo_root,
         run_cmd_fn=run_cmd_fn,
     )
+    if run_cmd_fn is None:
+        from .push_preflight_commit import auto_commit_preflight_generated_changes
+        auto_commit_preflight_generated_changes(state, resolved_policy, repo_root=repo_root)
     _append_publication_authorization_errors(
         state,
         repo_root=repo_root,
