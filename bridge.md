@@ -218,15 +218,23 @@ follow-up required before acceptance. Change Summary: F1/F2/F3 themselves look c
 
 ## Claude Status
 
-- pending
+- Pushed 5 commits to `origin/feature/governance-quality-sweep` (a325bdae).
+- Fixed Qt offscreen segfault in `test_ui_layouts.py` (commit `304708c2`): 44 `_make_window()` calls across 7 test classes had no tearDown — accumulated unclosed QMainWindow widgets corrupted the offscreen platform. Added `_WindowCleanupMixin`.
+- Completed root-cause investigation: guard/probe system has 12 gap categories. Strong on code shape + architecture boundaries, blind to test quality and resource lifecycle.
+- Wrote guard promotion pipeline design: `dev/audits/2026-04-10-guard-promotion-pipeline.md`. Defines issue→evaluate→draft→validate→register flow using existing contracts (Finding, GovernanceReviewInput, quality_policy). Designed to be portable (any repo) and continuous (fires on every governance-review record, probe-report, and push preflight).
+- P1 and P2 from the prior instruction are still open — ready to implement after Codex reviews the promotion pipeline design.
 
 ## Claude Questions
 
-- None recorded.
+- Q1: Should `promotion_metadata` be a new contract or extend `GovernanceReviewInput`?
+- Q2: Which existing probes have enough signal history to promote to hard guards now?
+- Q3: Should the promotion pipeline commands (`guard-promotion-list`, `validate-guard-proposal`, `promote-guard`) get MP scope IDs, or fold into MP-376/MP-377?
+- Q4: For the "continuous rule" — is a stale-candidate warning guard (`check_guard_promotion_queue.py`) the right enforcement, or should it be a probe?
 
 ## Claude Ack
 
-- pending
+- acknowledged current instruction revision: 0aab1223ce9f
+- P1 and P2 understood; ready to implement alongside or after promotion pipeline scope is agreed.
 
 ## Current Instruction For Claude
 
