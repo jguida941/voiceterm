@@ -5,14 +5,14 @@
 ## Quick status
 
 - Branch: `feature/governance-quality-sweep`
-- HEAD: `bfc8dd3e5aed` — Refresh external review snapshot for 0e2fcf0d
-- Tree hash: `b8f86213d126`
-- Generation stamp: `snap-fd9fff5a9306`
-- Generated at (UTC): 2026-04-10T05:43:31Z
-- Push decision: `await_checkpoint` — staged_index_present
+- HEAD: `161f7ef0741d` — chore: push-generated code + surface refresh
+- Tree hash: `b4af0494c00d`
+- Generation stamp: `snap-1f8dff253f2b`
+- Generated at (UTC): 2026-04-10T05:43:42Z
+- Push decision: `await_review` — review_pending_before_push
 - Reviewer mode: `active_dual_agent` (interaction: `remote_control`)
 - Pipeline state: `n/a` (approval: `n/a`)
-- Delta since last snapshot: 24 commits, 25 files, +2601/-1716
+- Delta since last snapshot: 24 commits, 25 files, +2649/-1737
 - Governance findings: 86 open / 70 fixed / 170 total
 - Probe hints: 0 total across 0 files scanned
 
@@ -54,24 +54,24 @@ adopters arrive.
 - Remote: `https://github.com/jguida941/voiceterm.git`
 - Default branch: `master`
 - Current branch: `feature/governance-quality-sweep`
-- HEAD SHA: `bfc8dd3e5aedfdb784ba076215caa4a22d2ac11e`
+- HEAD SHA: `161f7ef0741d685816423d545829439896182282`
 - HEAD author: Justin Guida
-- HEAD timestamp (UTC): 2026-04-10T01:39:50-04:00
+- HEAD timestamp (UTC): 2026-04-10T01:43:21-04:00
 
 ## 2. Governance state
 
 ### Push decision
-- action: `await_checkpoint`
-- reason: staged_index_present
+- action: `await_review`
+- reason: review_pending_before_push
 - push_eligible_now: False
-- worktree_clean: False
-- staged_path_count: 2
+- worktree_clean: True
+- staged_path_count: 0
 - unstaged_path_count: 0
-- next_step_command: `n/a`
+- next_step_command: `python3 dev/scripts/devctl.py review-channel --action status --terminal none --format json`
 - latest_push_report: `dev/reports/push/latest.json`
 - latest_push_report_state: `blocked` (validation_failed)
 - publication_backlog: urgent
-- publication_guidance: 11 local commit(s) waiting for governed push once the current slice is checkpoint-clean.
+- publication_guidance: 12 local commit(s) waiting for governed push once review is accepted.
 
 ### Reviewer runtime
 - reviewer_mode: `active_dual_agent`
@@ -87,17 +87,17 @@ adopters arrive.
 - active plan: **Master Plan (Active, Unified)**
 - plan path: `dev/active/MASTER_PLAN.md`
 - active MP scope: all active MP execution state
-- advisory: `checkpoint_before_continue` — concurrent_writer_activity
+- advisory: `await_review` — review_pending_before_push
 
 ## 3. Delta — what changed since the previous snapshot
 
-Range: last 24 commits ending at `bfc8dd3e5aed`
+Range: last 24 commits ending at `161f7ef0741d`
 
 - commits: 24
 - files changed: 25
-- insertions: +2601
-- deletions: -1716
-- bundle classes touched: tooling, docs
+- insertions: +2649
+- deletions: -1737
+- bundle classes touched: docs, tooling
 - risk add-ons triggered: Parser / ANSI boundary
 - authority surfaces touched: 3 file(s)
 
@@ -105,30 +105,30 @@ Range: last 24 commits ending at `bfc8dd3e5aed`
 
 | # | SHA | Subject | Files | +/- | Bundle | Risk |
 |---|---|---|---|---|---|---|
-| 1 | `bfc8dd3e` | Refresh external review snapshot for 0e2fcf0d | 1 | +51/-52 | tooling |  |
-| 2 | `0e2fcf0d` | chore: push-generated surface refresh | 2 | +153/-86 | tooling |  |
-| 3 | `4a33bd02` | fix(startup-gate): refined repair-launch bypass with checkp… | 2 | +91/-80 | tooling |  |
-| 4 | `7fb42f8e` | Refresh external review snapshot for c3866e56 | 1 | +45/-55 | tooling |  |
-| 5 | `c3866e56` | chore: bridge projection refresh | 2 | +62/-61 | docs |  |
-| 6 | `28af7d69` | chore: post-push surface refresh | 3 | +90/-77 | tooling |  |
-| 7 | `c06cf533` | Refresh external review snapshot for 2c1315eb | 1 | +56/-52 | tooling |  |
-| 8 | `2c1315eb` | chore: render-surfaces refresh after startup-gate fix | 7 | +89/-66 | tooling |  |
-| 9 | `f096b141` | fix(startup-gate): use receipt attribute access + regressio… | 4 | +108/-73 | tooling |  |
-| 10 | `e3c56a53` | Refresh external review snapshot for 1696f8ee | 1 | +60/-54 | tooling |  |
-| 11 | `1696f8ee` | fix(startup-gate): allow launch when action=repair_reviewer… | 3 | +97/-188 | tooling |  |
-| 12 | `5687e3be` | Refresh external review snapshot for 4d3cf6ac | 1 | +59/-58 | tooling |  |
-| 13 | `4d3cf6ac` | docs(bridge): graph infrastructure research — codeshape 70%… | 2 | +62/-65 | docs |  |
-| 14 | `5e6879d2` | Refresh external review snapshot for d9774b64 | 1 | +56/-58 | tooling |  |
-| 15 | `d9774b64` | docs(bridge): post-discovery sweep status — 48 new findings… | 2 | +97/-85 | docs |  |
-| 16 | `fd30e634` | Refresh external review snapshot for 5375193c | 1 | +64/-57 | tooling |  |
-| 17 | `5375193c` | fix(devctl): P1 stale refresh-authorization + P2 cursor-saf… | 12 | +328/-116 | tooling | Parser / ANSI boundary |
-| 18 | `49217891` | Refresh external review snapshot for 24460777 | 1 | +68/-63 | tooling |  |
-| 19 | `24460777` | feat(governance): guard promotion queue + pipeline auto-res… | 15 | +507/-93 | tooling |  |
-| 20 | `ed2134b8` | Refresh external review snapshot for c3be08ff | 1 | +60/-59 | tooling |  |
-| 21 | `c3be08ff` | docs(audits): guard promotion pipeline — issue-to-guard lea… | 3 | +216/-52 | tooling |  |
-| 22 | `a325bdae` | Refresh external review snapshot for 304708c2 | 1 | +55/-58 | tooling |  |
-| 23 | `304708c2` | fix(tests): prevent Qt offscreen segfault from accumulated… | 2 | +75/-56 | tooling |  |
-| 24 | `c2685e4c` | Refresh external review snapshot for 54cf3225 | 1 | +52/-52 | tooling |  |
+| 1 | `161f7ef0` | chore: push-generated code + surface refresh | 4 | +100/-73 | tooling |  |
+| 2 | `bfc8dd3e` | Refresh external review snapshot for 0e2fcf0d | 1 | +51/-52 | tooling |  |
+| 3 | `0e2fcf0d` | chore: push-generated surface refresh | 2 | +153/-86 | tooling |  |
+| 4 | `4a33bd02` | fix(startup-gate): refined repair-launch bypass with checkp… | 2 | +91/-80 | tooling |  |
+| 5 | `7fb42f8e` | Refresh external review snapshot for c3866e56 | 1 | +45/-55 | tooling |  |
+| 6 | `c3866e56` | chore: bridge projection refresh | 2 | +62/-61 | docs |  |
+| 7 | `28af7d69` | chore: post-push surface refresh | 3 | +90/-77 | tooling |  |
+| 8 | `c06cf533` | Refresh external review snapshot for 2c1315eb | 1 | +56/-52 | tooling |  |
+| 9 | `2c1315eb` | chore: render-surfaces refresh after startup-gate fix | 7 | +89/-66 | tooling |  |
+| 10 | `f096b141` | fix(startup-gate): use receipt attribute access + regressio… | 4 | +108/-73 | tooling |  |
+| 11 | `e3c56a53` | Refresh external review snapshot for 1696f8ee | 1 | +60/-54 | tooling |  |
+| 12 | `1696f8ee` | fix(startup-gate): allow launch when action=repair_reviewer… | 3 | +97/-188 | tooling |  |
+| 13 | `5687e3be` | Refresh external review snapshot for 4d3cf6ac | 1 | +59/-58 | tooling |  |
+| 14 | `4d3cf6ac` | docs(bridge): graph infrastructure research — codeshape 70%… | 2 | +62/-65 | docs |  |
+| 15 | `5e6879d2` | Refresh external review snapshot for d9774b64 | 1 | +56/-58 | tooling |  |
+| 16 | `d9774b64` | docs(bridge): post-discovery sweep status — 48 new findings… | 2 | +97/-85 | docs |  |
+| 17 | `fd30e634` | Refresh external review snapshot for 5375193c | 1 | +64/-57 | tooling |  |
+| 18 | `5375193c` | fix(devctl): P1 stale refresh-authorization + P2 cursor-saf… | 12 | +328/-116 | tooling | Parser / ANSI boundary |
+| 19 | `49217891` | Refresh external review snapshot for 24460777 | 1 | +68/-63 | tooling |  |
+| 20 | `24460777` | feat(governance): guard promotion queue + pipeline auto-res… | 15 | +507/-93 | tooling |  |
+| 21 | `ed2134b8` | Refresh external review snapshot for c3be08ff | 1 | +60/-59 | tooling |  |
+| 22 | `c3be08ff` | docs(audits): guard promotion pipeline — issue-to-guard lea… | 3 | +216/-52 | tooling |  |
+| 23 | `a325bdae` | Refresh external review snapshot for 304708c2 | 1 | +55/-58 | tooling |  |
+| 24 | `304708c2` | fix(tests): prevent Qt offscreen segfault from accumulated… | 2 | +75/-56 | tooling |  |
 
 ### Files
 
@@ -136,13 +136,13 @@ Range: last 24 commits ending at `bfc8dd3e5aed`
 |---|---|---|
 | `AGENTS.md` | docs | +17/-2 |
 | `app/operator_console/tests/views/test_ui_layouts.py` | tooling | +24/-8 |
-| `bridge.md` | docs | +105/-202 |
+| `bridge.md` | docs | +115/-212 |
 | `dev/active/MASTER_PLAN.md` | tooling | +20/-0 |
 | `dev/active/ai_governance_platform.md` | tooling | +25/-0 |
 | `dev/active/portable_code_governance.md` | tooling | +13/-0 |
 | `dev/active/remote_commit_pipeline.md` | tooling | +19/-0 |
 | `dev/audits/2026-04-10-guard-promotion-pipeline.md` | tooling | +154/-0 |
-| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1388/-1433 |
+| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1383/-1429 |
 | `dev/guides/DEVELOPMENT.md` | docs | +21/-0 |
 | `dev/history/ENGINEERING_EVOLUTION.md` | tooling | +77/-1 |
 | `dev/scripts/README.md` | tooling | +18/-2 |
@@ -153,11 +153,11 @@ Range: last 24 commits ending at `bfc8dd3e5aed`
 | `dev/scripts/devctl/commands/vcs/push.py` | tooling | +4/-2 |
 | `dev/scripts/devctl/governance/guard_promotion_queue.py` | tooling | +189/-0 |
 | `dev/scripts/devctl/repo_packs/voiceterm.py` | tooling | +5/-0 |
-| `dev/scripts/devctl/runtime/startup_gate.py` | tooling | +68/-32 |
+| `dev/scripts/devctl/runtime/startup_gate.py` | tooling | +78/-44 |
 | `dev/scripts/devctl/tests/commands/test_agent_mind_command.py` | tooling | +82/-0 |
 | `dev/scripts/devctl/tests/commands/test_pipeline_command.py` | tooling | +54/-0 |
 | `dev/scripts/devctl/tests/governance/test_governance_review.py` | tooling | +69/-2 |
-| `dev/scripts/devctl/tests/runtime/test_startup_gate.py` | tooling | +144/-26 |
+| `dev/scripts/devctl/tests/runtime/test_startup_gate.py` | tooling | +177/-29 |
 | `dev/scripts/devctl/tests/vcs/test_push.py` | tooling | +33/-0 |
 
 ## 4. Quality signals
@@ -229,8 +229,8 @@ Recent findings:
 ### Targeted hints
 
 - **risk**: Parser / ANSI boundary — Delta touches a risk-sensitive surface; verify the routed bundle
-- **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/tests/runtime/test_startup_gate.py`) — Review contract-level invariants for this file
 - **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/runtime/startup_gate.py`) — Review contract-level invariants for this file
+- **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/tests/runtime/test_startup_gate.py`) — Review contract-level invariants for this file
 - **authority_surface**: Typed authority surface touched (`dev/active/remote_commit_pipeline.md`) — Review contract-level invariants for this file
 
 ### Suggested verification commands
@@ -245,6 +245,8 @@ Recent findings:
 
 ### Per-commit rationale
 
+- **`161f7ef0`** — chore: push-generated code + surface refresh
+  - evolution: Fact: the dogfooded governed-push lane exposed a stale authorization bug after a completed push pipeline. A terminal `push_completed` same-branch `RemoteCommitPipelineContract` could still be selected by `devctl push` w…
 - **`bfc8dd3e`** — Refresh external review snapshot for 0e2fcf0d
   - evolution: Fact: the dogfooded governed-push lane exposed a stale authorization bug after a completed push pipeline. A terminal `push_completed` same-branch `RemoteCommitPipelineContract` could still be selected by `devctl push` w…
 - **`0e2fcf0d`** — chore: push-generated surface refresh
@@ -316,8 +318,6 @@ Recent findings:
   - test_ui_layouts.py. Each test now closes top-level QMainWindow
   - instances after execution, preventing Qt platform state corruption
   - evolution: Fact: the narrow repo-owned `review-channel --action recover` path had one real remote-control gap left. In governed `--terminal none` mode it prepared fresh Claude implementer scripts and metadata, but `_maybe_launch_r…
-- **`c2685e4c`** — Refresh external review snapshot for 54cf3225
-  - evolution: Fact: the narrow repo-owned `review-channel --action recover` path had one real remote-control gap left. In governed `--terminal none` mode it prepared fresh Claude implementer scripts and metadata, but `_maybe_launch_r…
 ### Active MP scope (from MASTER_PLAN.md)
 
 - `dev/active/devctl_reporting_upgrade.md` is the phased `devctl` reporting/CIHub specification, but not a separate execution tracker; implementation tasks stay in this file under `MP-297..MP-300`, `MP-303`, `MP-306`, `MP…
@@ -336,10 +336,11 @@ Recent findings:
 - open governance findings: 86
 
 ### Startup advisories
-- checkpoint_before_continue: concurrent_writer_activity
+- await_review: review_pending_before_push
 
 ### Stale warnings
 - Keep editing the current slice.
+- Move straight to the governed push path.
 
 ### Open gap rows
 - **governance_open** (`dev/scripts/devctl/security/python_scope.py`): subprocess_missing_timeout: 
@@ -353,4 +354,4 @@ Recent findings:
 
 ---
 
-Projection produced by `devctl review-snapshot`. Generation stamp `snap-fd9fff5a9306` binds this file to HEAD `bfc8dd3e5aed`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
+Projection produced by `devctl review-snapshot`. Generation stamp `snap-1f8dff253f2b` binds this file to HEAD `161f7ef0741d`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
