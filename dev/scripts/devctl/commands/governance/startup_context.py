@@ -338,6 +338,10 @@ def _machine_summary(
     summary["publication_guidance"] = ctx.push_decision.publication_guidance
     summary["startup_authority_ok"] = bool(authority_report.get("ok", False))
     summary["startup_receipt_path"] = startup_receipt_path
+    if ctx.work_intake is not None:
+        summary["work_intake"] = {
+            "coordination": ctx.work_intake.coordination.to_dict(),
+        }
     if ctx.coordination is not None:
         summary["coordination"] = {
             "declared_topology": ctx.coordination.declared_topology,

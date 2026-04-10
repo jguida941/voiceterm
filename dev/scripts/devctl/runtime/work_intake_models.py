@@ -130,6 +130,7 @@ class WorkIntakeCoordinationState:
     effective_reviewer_mode: str = ""
     interaction_mode: str = "unresolved"
     summary: str = ""
+    active_implementation_owner: str = ""
     active_participant_count: int = 0
     live_delegated_worker_count: int = 0
     active_roles: tuple[str, ...] = ()
@@ -137,6 +138,7 @@ class WorkIntakeCoordinationState:
     delegated_agents: tuple[str, ...] = ()
     delegated_worktrees: tuple[str, ...] = ()
     duplicate_delegated_worktrees: tuple[str, ...] = ()
+    resync_required: bool = False
     concurrent_writer_conflict_detected: bool = False
 
     def to_dict(self) -> dict[str, object]:
@@ -149,6 +151,8 @@ class WorkIntakeCoordinationState:
             payload["collaboration_topology"] = self.collaboration_topology
         if self.interaction_mode and self.interaction_mode != "unresolved":
             payload["interaction_mode"] = self.interaction_mode
+        if self.active_implementation_owner:
+            payload["active_implementation_owner"] = self.active_implementation_owner
         if self.active_participant_count:
             payload["active_participant_count"] = self.active_participant_count
         if self.live_delegated_worker_count:
@@ -165,9 +169,73 @@ class WorkIntakeCoordinationState:
             payload["duplicate_delegated_worktrees"] = list(
                 self.duplicate_delegated_worktrees
             )
+        if self.resync_required:
+            payload["resync_required"] = True
         if self.concurrent_writer_conflict_detected:
             payload["concurrent_writer_conflict_detected"] = True
         return payload
+
+
+def work_intake_coordination_from_mapping(
+    value: object,
+) -> WorkIntakeCoordinationState | None:
+    """Deserialize one coordination-state payload from a JSON-like mapping."""
+    if not isinstance(value, dict):
+        return None
+    return WorkIntakeCoordinationState(
+        collaboration_topology=str(
+            value.get("collaboration_topology") or "single_agent"
+        ).strip(),
+        authority_mode=str(value.get("authority_mode") or "self_directed").strip(),
+        work_ownership_mode=str(
+            value.get("work_ownership_mode") or "exclusive_slice"
+        ).strip(),
+        sync_cadence_mode=str(
+            value.get("sync_cadence_mode") or "continuous"
+        ).strip(),
+        reviewer_mode=str(value.get("reviewer_mode") or "").strip(),
+        effective_reviewer_mode=str(
+            value.get("effective_reviewer_mode") or ""
+        ).strip(),
+        interaction_mode=str(value.get("interaction_mode") or "unresolved").strip(),
+        summary=str(value.get("summary") or "").strip(),
+        active_implementation_owner=str(
+            value.get("active_implementation_owner") or ""
+        ).strip(),
+        active_participant_count=int(value.get("active_participant_count") or 0),
+        live_delegated_worker_count=int(
+            value.get("live_delegated_worker_count") or 0
+        ),
+        active_roles=tuple(
+            str(item).strip()
+            for item in value.get("active_roles", ())
+            if str(item).strip()
+        ),
+        active_participants=tuple(
+            str(item).strip()
+            for item in value.get("active_participants", ())
+            if str(item).strip()
+        ),
+        delegated_agents=tuple(
+            str(item).strip()
+            for item in value.get("delegated_agents", ())
+            if str(item).strip()
+        ),
+        delegated_worktrees=tuple(
+            str(item).strip()
+            for item in value.get("delegated_worktrees", ())
+            if str(item).strip()
+        ),
+        duplicate_delegated_worktrees=tuple(
+            str(item).strip()
+            for item in value.get("duplicate_delegated_worktrees", ())
+            if str(item).strip()
+        ),
+        resync_required=bool(value.get("resync_required", False)),
+        concurrent_writer_conflict_detected=bool(
+            value.get("concurrent_writer_conflict_detected", False)
+        ),
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -277,5 +345,6 @@ __all__ = [
     "WorkIntakeCoordinationState",
     "WorkIntakeOwnershipState",
     "WorkIntakePacket",
+    "work_intake_coordination_from_mapping",
     "session_pacing_markdown_lines",
 ]

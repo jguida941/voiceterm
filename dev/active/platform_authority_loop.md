@@ -1891,6 +1891,16 @@ blocker or exception in plan state before skipping the declared order.
 
 ## Session Resume
 
+- 2026-04-10 Q65 contract-connectivity slice: resume inside the existing
+  `MP-377` authority loop, not a new tracker. Land one guarded
+  `check_contract_connectivity.py` surface that scans `runtime/`,
+  `governance/`, and `platform/` dataclasses, records importer reachability,
+  duplicate-field overlap, and raw-dict stranded consumers as one typed
+  report, and ratchets only new findings against the chosen baseline. The
+  first urgent runtime fix in the same slice is to stop
+  `runtime/action_routing.py` from reconstructing implementer ownership out of
+  raw coordination dicts when `WorkIntakeCoordinationState` already owns that
+  answer.
 - 2026-04-10 Q64 research-scope contract slice: resume by keeping the fix in
   the existing startup/work-intake spine instead of inventing a second
   controller. Compute one typed pacing packet from repo evidence: use the
@@ -2577,6 +2587,16 @@ blocker or exception in plan state before skipping the declared order.
 
 ## Progress Log
 
+- 2026-04-10: Started the Q65 contract-connectivity closure under `MP-377`.
+  The bounded scope is: 1) add a new `check_contract_connectivity.py` guard
+  with one typed report over cross-layer dataclass reachability, duplicate
+  field overlap, and stranded raw-dict consumers, 2) keep the guard
+  non-regressive by diffing current findings against a baseline ref instead of
+  failing on all existing debt, and 3) fix the highest-risk live disconnect by
+  making `runtime/action_routing.py` consume
+  `WorkIntakeCoordinationState.active_implementation_owner` /
+  `resync_required` rather than rebuilding ownership from raw coordination
+  payloads.
 - 2026-04-10: Started the Q64 research-scope closure under `MP-377`. The
   bounded implementation is to keep pacing inside the existing startup/work-
   intake authority chain: derive one typed pacing packet from

@@ -5,6 +5,10 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import asdict, dataclass, field
 
+from .action_routing_coordination import (
+    active_implementation_owner,
+    coordination_state,
+)
 from .commit_permission import (
     CommitPermissionDecision,
     build_commit_permission_decision,
@@ -152,10 +156,14 @@ def build_startup_action_routing(
     reviewer_override: bool = False,
 ) -> ActionRoutingDecision:
     """Build the startup control decision consumed by hooks and agents."""
+    resolved_coordination = coordination_state(ctx_payload)
     lane = build_agent_lane_decision(
         caller_role=caller_role,
         reviewer_override=reviewer_override,
-        active_implementation_owner=_active_implementation_owner(ctx_payload),
+        active_implementation_owner=active_implementation_owner(
+            resolved_coordination,
+            ctx_payload,
+        ),
     )
     allowed = list(lane.permissions)
     blocked = list(lane.blocked_permissions)
@@ -169,8 +177,7 @@ def build_startup_action_routing(
         recovery_action = "refresh_startup_or_review_status"
         escalation_action = "operator_resync_required"
 
-    coordination = _mapping(ctx_payload.get("coordination"))
-    if bool(coordination.get("resync_required", False)):
+    if resolved_coordination is not None and resolved_coordination.resync_required:
         _append_unique(blocked, ("implementation.edit", "vcs.stage", "vcs.commit"))
         _append_unique(allowed, ("review-channel.status",))
         recovery_action = "coordination_resync"
@@ -220,32 +227,6 @@ def _append_unique(target: list[str], values: tuple[str, ...]) -> None:
 
 def _mapping(value: object) -> Mapping[str, object]:
     return value if isinstance(value, Mapping) else {}
-
-
-def _active_implementation_owner(ctx_payload: Mapping[str, object]) -> str:
-    coordination = _mapping(ctx_payload.get("coordination"))
-    actors = coordination.get("actors", ())
-    if isinstance(actors, (list, tuple)):
-        for actor in actors:
-            if not isinstance(actor, Mapping):
-                continue
-            role = str(actor.get("role") or "").strip().lower()
-            presence = str(actor.get("presence") or "").strip().lower()
-            if role != "implementer" or presence not in {"live", "active"}:
-                continue
-            actor_id = str(
-                actor.get("actor_id") or actor.get("provider") or ""
-            ).strip()
-            if actor_id:
-                return actor_id
-    active_participants = coordination.get("active_participants", ())
-    if isinstance(active_participants, (list, tuple)):
-        for participant in active_participants:
-            value = str(participant or "").strip()
-            actor, _, role = value.partition(":")
-            if role == "implementer" and actor:
-                return actor
-    return ""
 
 
 __all__ = [

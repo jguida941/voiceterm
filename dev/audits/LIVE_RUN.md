@@ -2990,6 +2990,63 @@ which Q55 says we don't have yet. Start there.
   output, not mix them as equal-weight claims.
 - **Status**: OPEN — high, directly enables Q54 self-audit loop
 
+### Q67 — GUARD — check_contract_connectivity guard too weak: misses known problems
+
+- **Discovered**: 2026-04-10T23:56Z
+- **Severity**: high / guard-quality
+- **Body**: 4-agent verification of the new contract connectivity guard
+  found 3 gaps where the guard silently passes known architecture issues:
+  1. **Dual SystemCatalog not detected**: The "generic field" filter in
+     findings.py strips field names like `name`, `path`, `description`,
+     `status` before comparing contracts. CatalogCommand vs CommandEntry
+     (governance/ vs platform/) have fields with those names, so the
+     guard filters them and sees no overlap. The contracts are
+     semantically identical but the guard reports no duplication.
+     Fix: compare by purpose/docstring + field semantic overlap, not
+     just field name intersection after aggressive filtering. Or reduce
+     the filter list — `name` is generic but `script_id` vs `name`
+     serving the same role should still match.
+  2. **Orphan definition too narrow**: "zero importers" misses contracts
+     imported only within their own package (internal-only consumers).
+     governance/quality_feedback/ models (11 dataclasses) import each
+     other internally but nobody outside quality_feedback reads them.
+     The guard sees internal imports and says "not orphaned."
+     Fix: distinguish "internal-only importers" (same package) from
+     "external consumers" (different package). A contract with only
+     same-package importers should be flagged as "internally consumed
+     only" — a softer orphan signal.
+  3. **Missing layer**: app/operator_console/ has 54 @dataclass contracts
+     not scanned (19% gap). Add to LAYER_ROOTS.
+  Evidence: 4 verification agents ran independently, all converged.
+  The action_routing fix IS complete (verified). The guard
+  infrastructure IS solid (AST scanning, catalog registration,
+  growth-based baseline). The detection logic is too weak.
+- **Status**: OPEN — high, guard exists but doesn't catch known problems
+
+### Q66 — GUARD — Hygiene guard blocks push on intentional Codex sessions
+
+- **Discovered**: 2026-04-10T21:25Z
+- **Severity**: high / process-friction
+- **Body**: The hygiene guard (`devctl hygiene`) detects Codex CLI
+  processes as "orphaned repo-related host processes" and blocks
+  governed push. It cannot distinguish between:
+  a) Intentionally running Codex sessions (operator-launched via
+     `codex exec` or interactive `codex` in a terminal)
+  b) Actually leaked/orphaned processes from dead sessions
+  The guard sees PPID=1 (process was backgrounded) and flags it. This
+  blocks every governed push while any Codex session is active, which
+  is always during multi-agent operation.
+  Fix: The hygiene guard should cross-reference detected processes
+  against the review-channel's known active sessions, the Codex
+  rollout session registry (`~/.codex/sessions/`), or a typed
+  "active agent allowlist" in review state. If a process matches a
+  known active session, it's not orphaned.
+  Currently observed: PID 9676 (codex exec Q65), PID 96718
+  (interactive codex in terminal s082), PID 91070 (stale tail -f
+  from earlier). The first two are intentional, the third is actually
+  stale.
+- **Status**: OPEN — high, blocks every push during multi-agent work
+
 ### Q65 — ARCHITECTURE — Systems not properly connected: duplication, orphaned contracts, parallel hierarchies
 
 - **Discovered**: 2026-04-10T21:12Z

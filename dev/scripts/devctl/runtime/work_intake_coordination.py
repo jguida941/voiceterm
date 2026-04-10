@@ -7,6 +7,10 @@ from typing import TYPE_CHECKING
 from .conductor_capability import normalize_reviewer_mode
 from .project_governance import ProjectGovernance
 from .review_state_models import ReviewState
+from .work_intake_coordination_status import (
+    active_implementation_owner,
+    resync_required,
+)
 from .work_intake_models import (
     WorkIntakeCoordinationState,
     WorkIntakeOwnershipState,
@@ -36,6 +40,7 @@ def build_work_intake_coordination_state(
     duplicate_delegated_worktrees = _duplicate_worktrees(delegated_work)
     active_roles = _active_roles(participants)
     active_participants = _active_participants(participants)
+    resolved_implementation_owner = active_implementation_owner(participants)
     resolved_reviewer_mode = _reviewer_mode(review_state, reviewer_gate=reviewer_gate)
     resolved_effective_mode = _effective_reviewer_mode(
         review_state,
@@ -55,6 +60,12 @@ def build_work_intake_coordination_state(
         reviewer_mode=resolved_reviewer_mode,
         effective_reviewer_mode=resolved_effective_mode,
         bridge_active=_bridge_active(reviewer_gate),
+    )
+    requires_resync = resync_required(
+        review_state=review_state,
+        duplicate_delegated_worktrees=duplicate_delegated_worktrees,
+        ownership=ownership,
+        collaboration_topology=collaboration_topology,
     )
     work_ownership_mode = _work_ownership_mode(ownership.status)
     if duplicate_delegated_worktrees:
@@ -83,6 +94,7 @@ def build_work_intake_coordination_state(
             sync_cadence_mode=sync_cadence_mode,
             review_gate_allows_push=_review_gate_allows_push(reviewer_gate),
         ),
+        active_implementation_owner=resolved_implementation_owner,
         active_participant_count=len(participants),
         live_delegated_worker_count=len(delegated_agents),
         active_roles=active_roles[:_MAX_ACTIVE_ROLES],
@@ -92,6 +104,7 @@ def build_work_intake_coordination_state(
         duplicate_delegated_worktrees=duplicate_delegated_worktrees[
             :_MAX_DELEGATED_WORKTREES
         ],
+        resync_required=requires_resync,
         concurrent_writer_conflict_detected=bool(duplicate_delegated_worktrees)
         or ownership.concurrent_writer_detected,
     )

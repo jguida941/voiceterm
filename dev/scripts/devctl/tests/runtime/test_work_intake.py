@@ -1098,11 +1098,13 @@ def test_build_work_intake_packet_marks_concurrent_writer_activity_for_outside_s
     assert packet.coordination.authority_mode == "reviewer_gated"
     assert packet.coordination.work_ownership_mode == "concurrent_writer_conflict"
     assert packet.coordination.sync_cadence_mode == "before_scope_change"
+    assert packet.coordination.active_implementation_owner == "claude"
     assert packet.coordination.active_roles == ("reviewer", "implementer")
     assert packet.coordination.active_participants == (
         "codex:reviewer",
         "claude:implementer",
     )
+    assert packet.coordination.resync_required is True
 
 
 def test_build_work_intake_packet_marks_multi_agent_orchestrated_when_live_workers_exist(
@@ -1171,8 +1173,10 @@ def test_build_work_intake_packet_marks_multi_agent_orchestrated_when_live_worke
     assert packet.coordination.collaboration_topology == "multi_agent_orchestrated"
     assert packet.coordination.live_delegated_worker_count == 1
     assert packet.coordination.work_ownership_mode == "shared_slice"
+    assert packet.coordination.active_implementation_owner == "claude"
     assert packet.coordination.delegated_agents == ("codex-worker-1",)
     assert packet.coordination.delegated_worktrees == ("../codex-voice-wt-a1",)
+    assert packet.coordination.resync_required is False
 
 
 def test_build_work_intake_packet_flags_duplicate_delegated_worktrees_before_dirty_overlap(
