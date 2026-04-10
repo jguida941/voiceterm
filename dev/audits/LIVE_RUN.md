@@ -2927,6 +2927,36 @@ which Q55 says we don't have yet. Start there.
   logic stays in the repo, not fragmented across tool configs.
 - **Status**: OPEN — high priority, directly enables Q47
 
+### Q55 — ARCHITECTURE — No priority/planning pass over accumulated evidence
+
+- **Discovered**: 2026-04-10T18:00Z
+- **Severity**: critical / architectural
+- **Body**: The system can say "this check failed" and "this state is
+  stale" but cannot say "across all open plans, findings, and runtime
+  evidence, THIS is the highest-leverage fix and it must happen before
+  those other five." Findings are flat — no dependency edges, no
+  authority-impact scoring, no upstream/downstream ranking. The system
+  treats all issues equally when some are trunk problems and others
+  are symptoms.
+  What is needed: a scheduler/optimizer pass over the governance
+  compiler's accumulated state. Inputs: findings, plans, blockers,
+  stale state, runtime failures, severity, dependency relations,
+  recency. Output: ranked work queue with priority, why, what it
+  blocks, what depends on it, next legal owner/lane, and whether to
+  implement/audit/defer.
+  Priority scoring should combine: (1) authority impact — does this
+  let the system speak falsely, (2) control impact — does this let
+  the agent act wrongly, (3) upstream dependency — does fixing this
+  unlock several others, (4) runtime frequency — does this happen
+  every session, (5) confidence — is this definitely real,
+  (6) cost/effort — small upstream fix vs huge refactor.
+  This integrates with existing infrastructure: findings already have
+  check IDs, verdicts, paths. Plans already have MP-numbers and scope.
+  The context-graph already has dependency edges. The missing piece is
+  the composition pass that reads all of these and emits ranked
+  priorities as typed records, not prose.
+- **Status**: OPEN — critical, shapes execution ordering for all Q-findings
+
 ### Q54 — ARCHITECTURE — Observer layer is ungoverned, no self-audit loop
 
 - **Discovered**: 2026-04-10T17:45Z
