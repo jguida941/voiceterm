@@ -17,6 +17,7 @@ from ...runtime.machine_output import (
     ArtifactOutputOptions,
     emit_machine_artifact_output,
 )
+from ...runtime.action_routing import project_startup_action_routing
 from ...runtime.startup_receipt import (
     build_startup_receipt,
     startup_receipt_path,
@@ -69,11 +70,16 @@ def _summary_blockers(ctx_dict: dict) -> str:
     if bool(coordination.get("resync_required", False)):
         blockers.append("coordination_resync_required")
 
+    permission = str(ctx_dict.get("implementation_permission") or "").strip()
+    if permission in {"blocked", "suspended"}:
+        blockers.append(f"implementation_permission_{permission}")
+
     return ",".join(blockers) if blockers else "none"
 
 
 def _summary_next_command(ctx_dict: dict) -> str:
-    if _summary_blockers(ctx_dict) == "none":
+    blockers = _summary_blockers(ctx_dict)
+    if blockers == "none":
         return _CONTEXT_GRAPH_BOOTSTRAP_COMMAND
 
     reviewer_command = _reviewer_recovery_command(ctx_dict)
@@ -82,6 +88,8 @@ def _summary_next_command(ctx_dict: dict) -> str:
 
     coordination = _coordination_dict(ctx_dict)
     if bool(coordination.get("resync_required", False)):
+        return _REVIEW_STATUS_COMMAND
+    if "implementation_permission_" in blockers:
         return _REVIEW_STATUS_COMMAND
 
     push_decision = ctx_dict.get("push_decision")
@@ -213,11 +221,12 @@ def add_parser(subparsers) -> None:
     )
     sc_cmd.add_argument(
         "--role",
-        choices=("implementer", "reviewer"),
+        choices=("dashboard", "implementer", "observer", "reviewer"),
         default=None,
         help=(
-            "Declare caller role. In active_dual_agent mode, --role reviewer "
-            "blocks implementation work unless --reviewer-override is passed."
+            "Declare caller lane. Dashboard/observer lanes are read/findings "
+            "only. In active_dual_agent mode, --role reviewer blocks "
+            "implementation work unless --reviewer-override is passed."
         ),
     )
     sc_cmd.add_argument(
@@ -322,6 +331,7 @@ def _machine_summary(
                 else None
             ),
         }
+    project_startup_action_routing(summary, next_command=_summary_next_command(summary))
     return summary
 
 
@@ -369,6 +379,12 @@ def run(args) -> int:
     payload["startup_receipt"] = _startup_receipt_payload(
         receipt_display_path,
         receipt.head_commit_sha,
+    )
+    project_startup_action_routing(
+        payload,
+        next_command=_summary_next_command(payload),
+        caller_role=caller_role,
+        reviewer_override=reviewer_override,
     )
     blocked = blocks_new_implementation(ctx) or not bool(authority_report.get("ok", False))
     # Role-aware reviewer gate: in active_dual_agent, reviewer must not

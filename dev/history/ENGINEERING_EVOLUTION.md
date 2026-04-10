@@ -39,6 +39,30 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 
 ### 2026-04-07 - ReviewSnapshot hook hardening routed through owner plans
 
+### 2026-04-10 - Startup action routing and commit permission now make blocked implementation authority explicit
+
+Fact: the Q37-Q47 live audit showed the same control-plane failure repeating:
+agents reasoned from partial status, inferred the next step, and then revised
+after the typed state contradicted that inference. The highest-signal fix was
+not another prompt reminder; it was to make startup and commit boundaries emit
+deterministic legal actions and block illegal ones from repo-owned state.
+
+This matters because implementation evidence is not commit authority. Passing
+tests, a local review note, or a dirty/staged worktree can prove useful work
+exists, but they cannot overrule `implementation_permission=blocked` when the
+observed control topology says the implementation lane is not authorized.
+
+The closure is bounded. `startup-context` now projects typed action routing:
+`next_command`, `allowed_actions`, `blocked_actions`, `recovery_action`,
+`escalation_action`, and `agent_lane` permission state for dashboard,
+implementer, observer, and reviewer callers. `devctl commit` now evaluates a
+typed `CommitPermissionDecision` before staging or running guards; explicit
+`implementation_permission=blocked|suspended` blocks `vcs.stage`,
+`vcs.commit`, and raw `git commit` until the routed startup/review recovery
+path is followed. The remaining same-lane work is to widen the packet through
+dashboard/status/doctor, raw-git hooks, pre-edit/pre-launch gates, and
+destructive recovery.
+
 ### 2026-04-10 - Governed push stopped replaying terminal pipelines, and finding reviews now seed guard/probe promotion candidates
 
 Fact: the dogfooded governed-push lane exposed a stale authorization bug after

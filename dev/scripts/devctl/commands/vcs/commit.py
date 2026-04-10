@@ -16,6 +16,7 @@ from ...review_channel.packet_contract import PacketTransitionRequest
 from ...runtime import ActionResult
 from ...runtime.action_contracts import ActionOutcome
 from ...runtime.action_contracts import ACTION_RESULT_CONTRACT_ID, ACTION_RESULT_SCHEMA_VERSION
+from ...runtime.commit_permission import build_commit_permission_decision_for_executor
 from ...runtime.control_plane_read_model import build_control_plane_read_model
 from ...runtime.governance_scan import scan_repo_governance_safely
 from ...runtime.operator_context import OperatorInteractionMode, resolve_operator_interaction_mode
@@ -228,6 +229,25 @@ def _build_git_commit_cmd(args) -> list[str]:
     return cmd
 
 
+def _commit_permission_report(vcs_executor: GovernedVcsExecutor) -> dict[str, object] | None:
+    """Return a blocking report if startup authority denies governed commit."""
+    decision, load_error = build_commit_permission_decision_for_executor(vcs_executor)
+    if decision.commit_permission != "blocked":
+        return None
+    guidance = "Run the reported next_command before staging or committing."
+    if load_error:
+        guidance = (
+            f"Startup authority could not be loaded for the commit gate: {load_error}. "
+            "Rerun startup-context and repair blockers before requesting a commit."
+        )
+    return _build_report(
+        status="blocked",
+        reason="commit_permission_blocked",
+        commit_permission=decision.to_dict(),
+        operator_guidance=guidance,
+    )
+
+
 def run_commit(
     args,
     *,
@@ -258,6 +278,10 @@ def run_commit(
         repo_root=repo_root,
         push_policy=resolved_policy,
     )
+    permission_report = _commit_permission_report(vcs_executor)
+    if permission_report is not None:
+        _emit_report(args, permission_report)
+        return 1
     stage_warnings: list[str] = []
 
     pipeline = vcs_executor.load_pipeline()

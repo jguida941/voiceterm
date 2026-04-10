@@ -136,6 +136,7 @@ Release-governance note:
 | Where is the remote-control reviewer/runtime closure plan for typed operator mode, packet-backed action requests, dashboard convergence, and auto-polling? | `dev/active/remote_control_runtime.md` (subordinate `MP-377` execution spec; read after `dev/active/remote_commit_pipeline.md`) |
 | Where is the 2026-04-09 F1/F2/F3 reviewer-follow-up closure documented (`devctl commit` remote-control approval boundary restored, `process_sweep` supervisor-backed liveness fallback, and `rollout-tail` Claude auto-discovery narrowed)? | `dev/history/ENGINEERING_EVOLUTION.md` 2026-04-09 entry "Remote-control commit now waits for typed approval; process_sweep and rollout-tail narrow their trust boundaries" |
 | Where is the 2026-04-10 P1/P2 reviewer-follow-up closure documented (`pipeline refresh-authorization` stale-HEAD refusal and `agent-mind --since-cursor` non-lossy rollout polling)? | `dev/history/ENGINEERING_EVOLUTION.md` 2026-04-10 entry "Pipeline refresh and agent-mind cursor polling now fail closed on stale authority" |
+| Where is the 2026-04-10 Q47/Q45/Q43 deterministic action-routing closure documented (`startup-context` action routing, typed `agent_lane`, and `devctl commit` `CommitPermissionDecision` hard block on `implementation_permission`)? | `dev/history/ENGINEERING_EVOLUTION.md` 2026-04-10 entry "Startup action routing and commit permission now make blocked implementation authority explicit" |
 | Where is the Ralph guardrail remediation/control-plane plan? | `dev/active/ralph_guardrail_control_plane.md` |
 | Where is the heuristic review-probe execution plan? | `dev/active/review_probes.md` |
 | Where is the code-shape expansion research companion (readability, coupling, AI-specific, information-theoretic probes/guards)? | `dev/active/code_shape_expansion.md` (subordinate evidence/calibration companion feeding `dev/active/review_probes.md` Phase 5b+, not a second execution authority) |
@@ -1347,7 +1348,11 @@ Routine helper:
   may auto-apply typed approval only in resolved `local_terminal` or
   `single_agent` modes; `unresolved`, `remote_control`, and `dual_agent`
   must post or reuse approval packets and block until an applied decision
-  exists. `devctl push` must reuse the repo-policy/default remote for any
+  exists. Before staging or running guards, `devctl commit` must also honor
+  the typed `CommitPermissionDecision`: explicit
+  `implementation_permission=blocked|suspended` blocks `vcs.stage`,
+  `vcs.commit`, and raw `git commit` until the routed startup/review recovery
+  command is run. `devctl push` must reuse the repo-policy/default remote for any
   active governed pipeline and must not treat a degraded `tools_only`
   reviewer runtime as license to skip exact-head publication authorization.
 - If the governed push path blocks, stop at that typed decision surface. Do

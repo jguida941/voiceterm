@@ -97,6 +97,11 @@
   relaxes the reviewer-loop check (line 341 of `runtime_checks.py`), so no
   separate repair bypass is needed. Receipt freshness, checkpoint, and all
   non-reviewer-loop authority checks always apply. 12 regression tests pass.
+- 2026-04-10 Q47/Q45/Q43 action-routing closure in `MP-377` scope:
+  `startup-context` now projects typed action routing and `agent_lane`
+  permissions, and `devctl commit` evaluates `CommitPermissionDecision`
+  before staging or guards so blocked/suspended implementation authority
+  blocks governed commit attempts.
 - Current highest-priority subordinate `MP-377` lane:
   `dev/active/platform_authority_loop.md`. This is the execution spec for
   closing the portable authority loop:

@@ -1,6 +1,6 @@
 # AI Governance Platform Plan
 
-**Status**: active  |  **Last updated**: 2026-04-09 | **Owner:** Tooling/control plane/product architecture
+**Status**: active  |  **Last updated**: 2026-04-10 | **Owner:** Tooling/control plane/product architecture
 Execution plan contract: required
 This spec remains execution mirrored in `dev/active/MASTER_PLAN.md` under
 `MP-377`, and it is the canonical active architecture plan for the standalone
@@ -161,6 +161,17 @@ Current 2026-04-08 typed mutation / queue / dashboard convergence note:
   the matching read-side requirement: dashboard must consume the same fresh
   review-state source as startup/session-resume instead of replaying stale
   `state/latest.json` for instruction/findings truth.
+
+Current 2026-04-10 deterministic action-routing / commit-permission note:
+- The Q37-Q47 live audit tightened the same `MP-377` principle: agents should
+  not reason about the next control-plane step when repo-owned typed state can
+  compute it. The first closure adds startup-facing action routing
+  (`next_command`, `allowed_actions`, `blocked_actions`, `recovery_action`,
+  `escalation_action`) plus typed `agent_lane` permissions, and makes
+  `devctl commit` consume a `CommitPermissionDecision` before staging or
+  running guards. Remaining product work is to widen that packet into
+  dashboard/status/doctor, raw-git hooks, pre-edit/pre-launch boundaries, and
+  destructive recovery.
 
 ## Scope
 
@@ -6320,6 +6331,15 @@ Execution order for this section:
 
 ## Progress Log
 
+- 2026-04-10: Started Q47/Q45/Q43 deterministic action-routing closure as a
+  bounded authority-loop slice. `startup-context` now projects a typed
+  action-routing packet and `agent_lane` permissions for dashboard,
+  implementer, observer, and reviewer callers; `devctl commit` now evaluates
+  `CommitPermissionDecision` before staging or running guards so
+  `implementation_permission=blocked|suspended` cannot be mistaken for commit
+  authority. Remaining work is to widen the same packet through status,
+  doctor, dashboard, hooks, pre-edit/pre-launch gates, and destructive
+  recovery.
 - 2026-04-10: Started Q38's observed control-topology closure as a bounded
   startup-authority slice, not a full pack/worktree routing rewrite. The new
   `dev/scripts/devctl/runtime/control_topology.py` reducer derives

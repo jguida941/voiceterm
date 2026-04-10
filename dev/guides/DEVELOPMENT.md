@@ -133,6 +133,13 @@ Use the typed `push_decision` answer from `startup-context` / review status
 instead of inferring remote readiness from raw dirty-tree booleans alone.
 Repo policy may exclude non-authoritative scratch context such as `convo.md`
 from push cleanliness so advisory files do not strand reviewed commits.
+The same startup packet now carries deterministic action routing
+(`next_command`, `allowed_actions`, `blocked_actions`, `recovery_action`,
+`escalation_action`) plus typed `agent_lane` permissions; follow those fields
+before falling back to shell probes or chat-local role assumptions. The
+governed commit path consumes the same authority family through
+`CommitPermissionDecision`, so `implementation_permission=blocked|suspended`
+hard-blocks `devctl commit` before staging or guard execution.
 
 | `push_decision` | Meaning | Next governed step |
 |---|---|---|

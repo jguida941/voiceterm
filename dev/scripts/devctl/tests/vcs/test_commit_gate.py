@@ -11,6 +11,8 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock
 from unittest.mock import patch
 
+from dev.scripts.devctl.cli import build_parser
+from dev.scripts.devctl.commands.governance import startup_context as startup_context_command
 from dev.scripts.devctl.commands.vcs.commit import (
     _build_git_commit_cmd,
     _resolve_interaction_mode,
@@ -37,6 +39,7 @@ from dev.scripts.devctl.review_channel.events import (
     transition_packet,
 )
 from dev.scripts.devctl.review_channel.packet_contract import PacketTransitionRequest
+from dev.scripts.devctl.runtime.startup_context import ReviewerGateState, StartupContext
 
 
 def _make_args(**overrides) -> SimpleNamespace:
@@ -101,10 +104,19 @@ def _executor(repo_root: Path) -> GovernedVcsExecutor:
     def _startup_context_fn(*, repo_root: Path):
         del repo_root
         return SimpleNamespace(
+            implementation_permission="active",
+            observed_control_topology="single_implementer_single_reviewer",
             reviewer_gate=SimpleNamespace(
                 implementation_blocked=False,
                 implementation_block_reason="",
-            )
+                review_gate_allows_push=True,
+            ),
+            governance=SimpleNamespace(
+                push_enforcement=SimpleNamespace(
+                    checkpoint_required=False,
+                    safe_to_continue_editing=True,
+                )
+            ),
         )
 
     return GovernedVcsExecutor(
@@ -114,6 +126,91 @@ def _executor(repo_root: Path) -> GovernedVcsExecutor:
         startup_context_fn=_startup_context_fn,
         refresh_projections=True,
     )
+
+
+def _capture_startup_context_payload(
+    ctx: StartupContext,
+    argv: list[str],
+) -> tuple[int, dict[str, object]]:
+    args = build_parser().parse_args(argv)
+    captured: dict[str, object] = {}
+
+    def _fake_emit(*_args, **kwargs):
+        captured.update(kwargs["json_payload"])
+        return 0
+
+    with patch.object(
+        startup_context_command,
+        "build_startup_context",
+        return_value=ctx,
+    ), patch.object(
+        startup_context_command,
+        "build_startup_authority_report",
+        return_value={
+            "ok": True,
+            "checks_run": 10,
+            "checks_passed": 10,
+            "errors": [],
+            "warnings": [],
+        },
+    ), patch.object(
+        startup_context_command,
+        "write_startup_receipt",
+        return_value=Path("/tmp/startup-receipt.json"),
+    ), patch.object(
+        startup_context_command,
+        "emit_machine_artifact_output",
+        side_effect=_fake_emit,
+    ):
+        rc = startup_context_command.run(args)
+
+    return rc, captured
+
+
+class TestStartupActionRouting(unittest.TestCase):
+    def test_dashboard_role_projects_read_only_agent_lane(self) -> None:
+        rc, captured = _capture_startup_context_payload(
+            StartupContext(
+                reviewer_gate=ReviewerGateState(),
+                advisory_action="continue_editing",
+                advisory_reason="clean_worktree",
+                implementation_permission="active",
+            ),
+            ["startup-context", "--role", "dashboard", "--format", "json"],
+        )
+
+        self.assertEqual(rc, 0)
+        self.assertEqual(captured["agent_lane"]["lane"], "dashboard")
+        self.assertIn("implementation.edit", captured["blocked_actions"])
+        self.assertIn("vcs.commit", captured["blocked_actions"])
+        self.assertIn("review-channel.status", captured["allowed_actions"])
+        self.assertEqual(
+            captured["next_command"],
+            "python3 dev/scripts/devctl.py context-graph --mode bootstrap --format md",
+        )
+
+    def test_blocked_permission_projects_action_routing(self) -> None:
+        rc, captured = _capture_startup_context_payload(
+            StartupContext(
+                reviewer_gate=ReviewerGateState(),
+                advisory_action="continue_editing",
+                advisory_reason="collapsed_topology",
+                observed_control_topology="no_live_agents",
+                implementation_permission="blocked",
+            ),
+            ["startup-context", "--format", "json"],
+        )
+
+        self.assertEqual(rc, 0)
+        self.assertIn("vcs.stage", captured["blocked_actions"])
+        self.assertIn("vcs.commit", captured["blocked_actions"])
+        self.assertEqual(captured["recovery_action"], "refresh_startup_or_review_status")
+        self.assertEqual(captured["escalation_action"], "operator_resync_required")
+        self.assertEqual(
+            captured["next_command"],
+            "python3 dev/scripts/devctl.py review-channel --action status "
+            "--terminal none --format json",
+        )
 
 
 class TestPreCommitHookTemplate(unittest.TestCase):
@@ -193,10 +290,19 @@ class TestGovernedCommitPipeline(unittest.TestCase):
             def _startup_context_fn(*, repo_root: Path):
                 del repo_root
                 return SimpleNamespace(
+                    implementation_permission="active",
+                    observed_control_topology="single_implementer_single_reviewer",
                     reviewer_gate=SimpleNamespace(
                         implementation_blocked=True,
                         implementation_block_reason="checkpoint_required",
                         checkpoint_permitted=True,
+                        review_gate_allows_push=False,
+                    ),
+                    governance=SimpleNamespace(
+                        push_enforcement=SimpleNamespace(
+                            checkpoint_required=True,
+                            safe_to_continue_editing=True,
+                        )
                     ),
                     push_decision=SimpleNamespace(
                         action="await_checkpoint",
@@ -225,6 +331,53 @@ class TestGovernedCommitPipeline(unittest.TestCase):
             self.assertEqual(rc, 0)
             self.assertEqual(pipeline.state, "commit_recorded")
             self.assertTrue(pipeline.commit_sha)
+
+    def test_commit_blocks_when_implementation_permission_is_blocked(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            repo_root = _init_repo(Path(tmpdir) / "repo")
+            (repo_root / "tracked.txt").write_text("updated\n", encoding="utf-8")
+            _run_git(repo_root, "add", "tracked.txt")
+            guard_runner = MagicMock(return_value=_mock_subprocess_result(0))
+
+            def _startup_context_fn(*, repo_root: Path):
+                del repo_root
+                return SimpleNamespace(
+                    implementation_permission="blocked",
+                    observed_control_topology="no_live_agents",
+                    reviewer_gate=SimpleNamespace(
+                        implementation_blocked=False,
+                        implementation_block_reason="",
+                        review_gate_allows_push=True,
+                    ),
+                    governance=SimpleNamespace(
+                        push_enforcement=SimpleNamespace(
+                            checkpoint_required=False,
+                            safe_to_continue_editing=True,
+                        )
+                    ),
+                )
+
+            executor = GovernedVcsExecutor(
+                repo_root=repo_root,
+                review_channel_path=repo_root / "dev/active/review_channel.md",
+                push_policy=_push_policy(),
+                startup_context_fn=_startup_context_fn,
+                refresh_projections=True,
+            )
+
+            rc = run_commit(
+                _make_args(message="feat: blocked commit"),
+                repo_root=repo_root,
+                policy=_push_policy(),
+                executor=executor,
+                interaction_mode="local_terminal",
+                guard_runner=guard_runner,
+            )
+
+            pipeline = executor.load_pipeline()
+            self.assertEqual(rc, 1)
+            self.assertFalse(pipeline.pipeline_id)
+            guard_runner.assert_not_called()
 
     def test_commit_auto_approves_and_records_commit_in_local_mode(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
