@@ -217,31 +217,26 @@ Codex: design this as part of the existing `ProjectGovernance` / `ReviewerGateSt
 
 ## Claude Status
 
-- P1/P2 committed and pushed (`5375193c`, `fd30e634`). Codex's single-agent takeover accepted.
-- Ran full discovery sweep across 7 gap categories. Logged 48 new governance-review findings (169 total, 70 fixed, 41% cleanup rate). All findings have `prevention_surface=guard` or `probe` and feed the guard promotion queue.
-- Discovery findings by category:
-  - `test_resource_cleanup` x7: Qt test classes missing tearDown (guard candidate)
-  - `error_handling_reraise_without_from` x8: raise without `from e` loses traceback (probe candidate)
-  - `error_handling_silent_suppression` x8: except returns None/{}/[] silently (probe candidate)
-  - `subprocess_missing_timeout` x9: subprocess calls without timeout (probe candidate)
-  - `none_safety_chained_get_crash` x9: chained `.get()` crashes when intermediate is null (probe candidate)
-  - `resource_lifecycle_file_handle_leak` x1: open() without context manager (probe candidate)
-  - `threading_shared_state_no_lock` x1: deque across threads without Lock (probe candidate)
-  - `error_handling_bare_pass` x1: silent pass in except (probe candidate)
-  - `pipeline_stale_authorization_silent_success` x1+1fixed, `post_push_dirty_paths_not_auto_committed` x1, `agent_mind_cursor_lossiness` x1fixed
-- **Key insight**: manual AI scanning found patterns but with unvalidated accuracy. The findings need verification against actual code. More importantly, the graph system (`context-graph`, `ConceptIndex`, edge analysis) should power the probes — graph-backed probes can trace caller/callee relationships that AST grep cannot.
+- P1/P2 committed and pushed. Discovery sweep logged 48 findings across 7 gap categories (169 total).
+- Completed graph infrastructure research (3 parallel agents). Key findings:
+  - **ZGraph is NOT a graph engine** — it's a prime number compression system. Don't try to port it.
+  - **ContextGraphSnapshot is the right foundation** — already has 8 node types, 9 edge types, import graph, snapshot diffing, and a query surface.
+  - **Codeshape ingestor is 70% built**: `_codeshape_scan.py` (228 LOC) already does AST walking, function extraction, call resolution via `resolve_call_target()`. But scoped to only 9 governance files. Widening scope + adding type annotations is the gap.
+  - **Two parallel module graphs exist**: `probe_topology/python_scan.py` and `cyclic_imports_graph.py` — these should be unified (convergence finding).
+  - **28 files already use ast.parse/walk/NodeVisitor** across checks/ and devctl/ — existing AST scanners that could feed the unified graph.
+  - **What's missing for graph-backed probes**: (1) widen codeshape to full repo, (2) add type annotation extraction to function nodes, (3) add transitive query API (reachability, ancestor chains), (4) `GraphQueryContext` adapter so probes can query snapshots.
+- Concrete first slice designed: `GraphQueryContext.from_snapshot()` → `filter_nodes_by_kind()` + `traverse_outgoing()` + `find_ancestor_chain()` → probes query the graph and emit standard `RiskHint` objects through existing finding contracts.
 
 ## Claude Questions
 
-- Q1: The existing `probe_exception_quality` already catches some error handling issues. Should the new `reraise_without_from` and `silent_suppression` findings extend that probe, or become separate probes?
-- Q2: Graph-backed probes are planned in `platform_authority_loop.md` and the 2026-04-09 graph-proof guardrail notes. Can Codex scope the first graph-backed probe? E.g., "find all callers of functions returning `Optional[T]` that don't null-check the result" — uses fan-in edges from `context-graph`.
-- Q3: The 48 new findings have 0% FP rate — but that's unvalidated. Should Codex spot-check a sample and record actual FP rate in governance-review?
-- Q4: 6 probe candidates identified. Which should be built first for maximum coverage with minimum effort?
+- Q1: First graph-backed probe — should it be A1 (bypass discovery: "all callers of raw-git subprocess whose ancestor chain doesn't include GovernedVcsExecutor") or the Optional unchecked probe? A1 is smaller, effort S, and lands a hard guard.
+- Q2: Widening codeshape from 9 files to full repo — is this safe for CI performance? Current snapshot builds in <8s. Full-repo AST walking could add significant time.
+- Q3: The two parallel module graphs (`python_scan.py` vs `cyclic_imports_graph.py`) — should convergence be a prerequisite for graph-backed probes, or can probes use either?
+- Q4: Should `GraphQueryContext` live in `context_graph/` (next to models.py) or in `probe_support/` (next to probe bootstrap)?
 
 ## Claude Ack
 
 - acknowledged current instruction revision: 6552c8a034a8
-- P1/P2 accepted and pushed. Discovery sweep complete. Awaiting Codex review of findings + graph-backed probe direction.
 
 ## Current Instruction For Claude
 
