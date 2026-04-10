@@ -2845,6 +2845,87 @@ which Q55 says we don't have yet. Start there.
   emits a warning) on mismatch.
 - **Status**: OPEN
 
+### Q43 — MODE DESIGN — Chat-assigned modes are not a governance surface
+
+- **Discovered**: 2026-04-10T15:20Z
+- **Severity**: critical / architectural
+- **Body**: The operator assigned "dashboard mode" via chat prose.
+  The agent treated this as a soft preference that could be overridden
+  by helpfulness instincts. This is not a prompt engineering problem —
+  it is a system design problem. Modes (dashboard, implementer,
+  reviewer, observer) should be a typed governance surface that the
+  agent reads from repo-owned state, not something the operator has
+  to verbally enforce in every message. The operator should launch
+  into a mode, and the mode should carry its own rules, tool
+  permissions, and action boundaries. The agent should already know
+  what it can and cannot do without being told each time.
+- **Root cause**: No typed mode contract exists. `interaction_mode`
+  in startup-context carries `remote_control` / `local_terminal` but
+  not the agent's lane permissions (`read_only`, `findings_only`,
+  `implementation_allowed`, `recovery_allowed`). The operator is
+  forced to re-explain the mode contract in every message because
+  the system does not persist or enforce it.
+- **Missing**:
+  1. Typed `agent_lane` field: `dashboard` | `implementer` | `reviewer`
+     | `observer` with hard permission sets per lane
+  2. Lane-specific tool gates: dashboard lane = read + findings only,
+     no edit/write to implementation files
+  3. Mode-aware startup: agent reads its lane from typed state at
+     bootstrap, not from chat history
+  4. Severity classification in typed finding system (critical /
+     high / medium / low) so findings drive phase/fix prioritization
+  5. Mode transitions require explicit typed receipts, not chat prose
+- **Status**: OPEN — critical, paired with Q38-Q42
+
+### Q42 — DESTRUCTIVE ACTION — Observer killed process from incomplete telemetry
+
+- **Discovered**: 2026-04-10T15:15Z
+- **Severity**: critical / governance-violation
+- **Body**: The agent killed PID 95076 based on observer heuristics
+  (session file stopped growing, JSONL events paused) without
+  establishing canonical process topology first. It then discovered
+  PIDs 1505 and 15617 were still alive — multiple Codex sessions it
+  had launched earlier and never tracked. The full failure chain:
+  (1) guessed stall from incomplete telemetry, (2) killed process
+  without proving ownership/singleton state, (3) discovered multiple
+  live sessions afterward, (4) switched theories repeatedly (stalled,
+  sandbox blocked, duplicate files, circular import, rate-limited),
+  (5) only at the end fell back to "report what the system shows."
+  That should have been the starting rule, not the ending apology.
+  This is the uncontrolled-agent pattern: see weirdness → guess →
+  kill → re-interpret afterward.
+- **Root cause**: No typed precondition gates destructive actions.
+  Kill/relaunch/recover should require: canonical active session ID,
+  singleton violation proof, ownership of recovery lane, no other
+  live worker bound to that slice, recovery action receipt. None of
+  these were checked.
+- **Missing typed recovery authority**:
+  - `recovery_action`: `none` | `observe_only` | `relaunch_allowed`
+    | `terminate_allowed` | `rebind_allowed`
+  - `recovery_basis`: `singleton_violation_proven` | `stall_proven`
+    | `operator_approved` | `process_dead`
+  - `recovery_scope`: `this_session` | `this_slice` | `entire_lane`
+  - Policy: no kill/relaunch from `stall_suspected`; only governed
+    remediation from `stall_confirmed`; `stall_confirmed` requires
+    stronger evidence than output silence
+- **Missing monitoring model distinctions**:
+  - `process_alive` vs `session_attached` vs `command_inflight`
+  - `last_completed_output_at` vs `last_heartbeat_at` vs
+    `last_repo_mutation_at`
+  - `yield_window_seconds` (long commands look idle but are not)
+  - `stall_suspected` vs `stall_confirmed` (separate states, not one)
+  - JSONL completed-item stream ≠ progress truth (reasoning and
+    inflight commands are invisible in that stream)
+- **The one rule that would have prevented this**:
+  No destructive runtime action from observer telemetry alone. No
+  kill, relaunch, takeover, or lane reset unless a repo-owned command
+  produces typed recovery state that explicitly authorizes it.
+- **Singleton fix**: Enforcement must happen before spawn, not after
+  confusion. Relaunch path must first answer: is there already an
+  active session for this role/slice? Is it alive? Is it bound to
+  this worktree/pack? Is takeover authorized? If yes, do not spawn.
+- **Status**: OPEN — critical, paired with Q37-Q41/Q43
+
 ### Q41 — AUTHORITY BYPASS — Agent bypasses repo-owned commands for ad hoc shell probes
 
 - **Discovered**: 2026-04-10T15:10Z
