@@ -9532,3 +9532,27 @@ Evidence: `dev/scripts/devctl/runtime/control_topology.py`,
 `dev/scripts/devctl/commands/governance/startup_context_render.py`,
 `dev/scripts/devctl/tests/review_channel/test_observed_topology.py`,
 `dev/scripts/devctl/tests/runtime/test_startup_context.py`.
+
+### 2026-04-10 — Contract-connectivity guard now catches semantic duplicates and internal-only contracts
+
+Q67 closed as a detector-strengthening follow-up on the existing
+contract-connectivity guard. The scanner now includes
+`app/operator_console/`, duplicate detection combines semantic field aliases
+with purpose/docstring tokens so parallel `SystemCatalog` contracts still
+match when their overlapping fields use generic names, and orphan reporting
+now surfaces contracts whose only consumers live inside the same package as a
+softer `internal_only` connectivity signal instead of treating any local
+import as healthy external adoption.
+
+Evidence: `dev/scripts/checks/contract_connectivity/inventory.py`,
+`dev/scripts/checks/contract_connectivity/findings.py`,
+`dev/scripts/checks/contract_connectivity/models.py`,
+`dev/scripts/checks/contract_connectivity/report.py`,
+`dev/scripts/devctl/tests/checks/contract_connectivity/test_check_contract_connectivity.py`,
+`AGENTS.md`,
+`dev/guides/DEVELOPMENT.md`,
+`dev/scripts/README.md`,
+`dev/active/MASTER_PLAN.md`,
+`dev/active/platform_authority_loop.md`,
+`.github/workflows/tooling_control_plane.yml`,
+`.github/workflows/release_preflight.yml`.

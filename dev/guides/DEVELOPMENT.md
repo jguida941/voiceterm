@@ -253,10 +253,11 @@ Three quality layers matter in practice:
   built-in guards/probes are active by default; keep enablement there instead
   of hard-coding repo behavior into `check` or `probe-report`.
 - `python3 dev/scripts/checks/check_contract_connectivity.py` is the
-  contract-connectivity guard for `runtime/`, `governance/`, and `platform/`.
-  It records orphaned dataclass contracts, high-overlap duplicates, and
-  raw-dict stranded consumers, and defaults to growth-based non-regression
-  so existing debt stays visible without blocking unrelated slices.
+  contract-connectivity guard for `runtime/`, `governance/`, `platform/`, and
+  `app/operator_console/`. It records unreferenced or internal-only dataclass
+  contracts, purpose-guided high-overlap duplicates, and raw-dict stranded
+  consumers, and defaults to growth-based non-regression so existing debt
+  stays visible without blocking unrelated slices.
 - Treat docs/governance path predicates as bounded-runtime code too: commands
   such as `docs-check --since-ref ...` should resolve the governing
   docs/policy contract once per repo/policy context and reuse it inside

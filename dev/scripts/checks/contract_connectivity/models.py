@@ -19,13 +19,14 @@ class LayerContractCount:
 
 @dataclass(frozen=True, slots=True)
 class OrphanedContractFinding:
-    """A dataclass contract with no importers outside its own module."""
+    """A dataclass contract with no consumers outside its own package."""
 
     contract_name: str
     layer: str
     module_name: str
     module_path: str
     field_names: tuple[str, ...]
+    consumer_scope: str = "unreferenced"
     importer_modules: tuple[str, ...] = ()
     importer_paths: tuple[str, ...] = ()
     cross_layer_importer_count: int = 0

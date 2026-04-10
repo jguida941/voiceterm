@@ -246,3 +246,111 @@ def read_modes(payload: dict[str, object]) -> tuple[str, str]:
         for item in report.stranded_consumers
         if item.consumer_path.endswith("runtime/partial_consumer.py")
     ] == []
+
+
+def test_semantic_duplicate_detection_catches_parallel_system_catalog_contracts(
+    tmp_path: Path,
+) -> None:
+    _init_repo(tmp_path)
+    _write(
+        tmp_path / "dev/scripts/devctl/governance/system_catalog_models.py",
+        '''
+from dataclasses import dataclass
+
+@dataclass(frozen=True)
+class CatalogCommand:
+    """One devctl command in the static catalog."""
+
+    name: str
+    handler_module: str
+    read_only: bool = False
+'''.strip()
+        + "\n",
+    )
+    _write(
+        tmp_path / "dev/scripts/devctl/platform/system_catalog_models.py",
+        '''
+from dataclasses import dataclass
+
+@dataclass(frozen=True)
+class CommandEntry:
+    """One registered devctl command."""
+
+    name: str
+    path: str
+    category: str
+    description: str = ""
+'''.strip()
+        + "\n",
+    )
+    _commit(tmp_path, "baseline")
+
+    report = build_report(repo_root=tmp_path, absolute=True)
+
+    duplicate_pairs = {
+        frozenset((item.left_contract_name, item.right_contract_name))
+        for item in report.duplicate_contracts
+    }
+    assert frozenset(("CatalogCommand", "CommandEntry")) in duplicate_pairs
+
+
+def test_internal_only_consumers_are_flagged_as_soft_orphans(tmp_path: Path) -> None:
+    _init_repo(tmp_path)
+    _write(
+        tmp_path / "dev/scripts/devctl/governance/quality_feedback/models.py",
+        """
+from dataclasses import dataclass
+
+@dataclass(frozen=True)
+class QualityFeedbackSnapshot:
+    score: float
+    generated_at_utc: str
+""".strip()
+        + "\n",
+    )
+    _write(
+        tmp_path / "dev/scripts/devctl/governance/quality_feedback/report_builder.py",
+        """
+from .models import QualityFeedbackSnapshot
+
+def build_snapshot() -> QualityFeedbackSnapshot:
+    return QualityFeedbackSnapshot(score=98.0, generated_at_utc="2026-04-10T00:00:00Z")
+""".strip()
+        + "\n",
+    )
+    _commit(tmp_path, "baseline")
+
+    report = build_report(repo_root=tmp_path, absolute=True)
+
+    findings = {
+        item.contract_name: item
+        for item in report.orphaned_contracts
+    }
+    assert "QualityFeedbackSnapshot" in findings
+    assert findings["QualityFeedbackSnapshot"].importer_paths == (
+        "dev/scripts/devctl/governance/quality_feedback/report_builder.py",
+    )
+
+
+def test_operator_console_contracts_are_scanned(tmp_path: Path) -> None:
+    _init_repo(tmp_path)
+    _write(
+        tmp_path / "app/operator_console/state/review_state.py",
+        """
+from dataclasses import dataclass
+
+@dataclass(frozen=True)
+class ReviewState:
+    session_id: str
+    status: str
+""".strip()
+        + "\n",
+    )
+    _commit(tmp_path, "baseline")
+
+    report = build_report(repo_root=tmp_path, absolute=True)
+
+    layer_counts = {row.layer: row.contract_count for row in report.layer_counts}
+    assert layer_counts["operator_console"] == 1
+    assert report.contracts_scanned == 1
+    assert report.orphaned_contracts[0].layer == "operator_console"

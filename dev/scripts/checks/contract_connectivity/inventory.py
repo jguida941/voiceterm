@@ -7,36 +7,40 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from dev.scripts.checks.rust_guard_common import GuardContext
+from .inventory_helpers import (
+    GENERIC_FIELDS,
+    LAYER_ROOTS,
+    class_field_names,
+    has_dataclass_decorator,
+    interesting_fields,
+    is_test_path,
+    layer_for_path,
+    literal_string,
+    module_name_for_path,
+    package_module_name,
+    purpose_tokens,
+    resolve_import_module,
+    semantic_fields,
+)
 
-LAYER_ROOTS = {
-    "runtime": Path("dev/scripts/devctl/runtime"),
-    "governance": Path("dev/scripts/devctl/governance"),
-    "platform": Path("dev/scripts/devctl/platform"),
-}
-META_FIELDS = {"schema_version", "contract_id"}
-GENERIC_FIELDS = {
-    "authority",
-    "category",
-    "command",
-    "description",
-    "label",
-    "name",
-    "path",
-    "status",
-    "summary",
-}
+
 @dataclass(frozen=True, slots=True)
 class ContractDefinition:
     contract_name: str
     layer: str
     module_name: str
     module_path: str
+    docstring: str
     field_names: tuple[str, ...]
     interesting_fields: tuple[str, ...]
+    semantic_fields: tuple[str, ...]
+    purpose_tokens: tuple[str, ...]
 
     @property
     def key(self) -> tuple[str, str]:
         return (self.module_name, self.contract_name)
+
+
 @dataclass(frozen=True, slots=True)
 class ParsedModule:
     module_name: str
@@ -54,6 +58,8 @@ class SourceIndex:
     contracts: tuple[ContractDefinition, ...]
     importers_by_contract: dict[tuple[str, str], tuple[ParsedModule, ...]]
     importer_paths_by_contract: dict[tuple[str, str], tuple[str, ...]]
+
+
 def analyze_source(
     *,
     repo_root: Path,
@@ -63,13 +69,13 @@ def analyze_source(
     """Build the parsed module and contract index for one git/tree state."""
     module_paths = _python_module_paths(repo_root=repo_root, guard=guard, ref=ref)
     module_registry = {
-        _module_name_for_path(path): path
+        module_name_for_path(path): path
         for path in module_paths
-        if not _is_test_path(path)
+        if not is_test_path(path)
     }
     parsed_modules: list[ParsedModule] = []
     for path in module_paths:
-        if _is_test_path(path):
+        if is_test_path(path):
             continue
         text = _read_text(guard=guard, path=path, ref=ref)
         if text is None:
@@ -99,6 +105,8 @@ def analyze_source(
         importers_by_contract=importers_by_contract,
         importer_paths_by_contract=importer_paths_by_contract,
     )
+
+
 def contract_references(
     module: ParsedModule,
     contract_lookup: dict[tuple[str, str], ContractDefinition],
@@ -117,6 +125,8 @@ def contract_references(
             if key in contract_lookup:
                 references.add(key)
     return references
+
+
 def _python_module_paths(
     *,
     repo_root: Path,
@@ -140,19 +150,23 @@ def _python_module_paths(
         if line.strip().endswith(".py"):
             paths.add(Path(line.strip()))
     return tuple(sorted(paths))
+
+
 def _read_text(*, guard: GuardContext, path: Path, ref: str | None) -> str | None:
     if ref is None:
         return guard.read_text_from_worktree(path)
     return guard.read_text_from_ref(path, ref)
+
+
 def _parse_module(
     *,
     path: Path,
     text: str,
     module_registry: dict[str, Path],
 ) -> ParsedModule:
-    module_name = _module_name_for_path(path)
+    module_name = module_name_for_path(path)
     tree = ast.parse(text, filename=path.as_posix())
-    package_module = _package_module_name(module_name, path)
+    package_module = package_module_name(module_name, path)
     symbol_imports: list[tuple[str, str, str]] = []
     module_imports: list[tuple[str, str]] = []
     used_names: set[str] = set()
@@ -167,7 +181,7 @@ def _parse_module(
                 module_imports.append((local_name, alias.name))
             continue
         if isinstance(node, ast.ImportFrom):
-            resolved_module = _resolve_import_module(
+            resolved_module = resolve_import_module(
                 package_module=package_module,
                 module=node.module,
                 level=node.level,
@@ -192,33 +206,37 @@ def _parse_module(
             continue
         if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
             if node.func.attr == "get" and node.args:
-                key = _literal_string(node.args[0])
+                key = literal_string(node.args[0])
                 if key:
                     raw_mapping_keys.add(key)
             continue
         if isinstance(node, ast.Subscript) and isinstance(node.ctx, ast.Load):
-            key = _literal_string(node.slice)
+            key = literal_string(node.slice)
             if key:
                 raw_mapping_keys.add(key)
             continue
-        if isinstance(node, ast.ClassDef) and _has_dataclass_decorator(node):
-            fields = tuple(_class_field_names(node))
-            layer = _layer_for_path(path)
+        if isinstance(node, ast.ClassDef) and has_dataclass_decorator(node):
+            fields = tuple(class_field_names(node))
+            layer = layer_for_path(path)
+            docstring = ast.get_docstring(node) or ""
             contracts.append(
                 ContractDefinition(
                     contract_name=node.name,
                     layer=layer,
                     module_name=module_name,
                     module_path=path.as_posix(),
+                    docstring=docstring,
                     field_names=fields,
-                    interesting_fields=_interesting_fields(fields),
+                    interesting_fields=interesting_fields(fields),
+                    semantic_fields=semantic_fields(fields),
+                    purpose_tokens=purpose_tokens(node.name, docstring),
                 )
             )
 
     return ParsedModule(
         module_name=module_name,
         module_path=path.as_posix(),
-        layer=_layer_for_path(path),
+        layer=layer_for_path(path),
         symbol_imports=tuple(symbol_imports),
         module_imports=tuple(module_imports),
         used_names=frozenset(used_names),
@@ -226,6 +244,8 @@ def _parse_module(
         raw_mapping_keys=frozenset(raw_mapping_keys),
         contracts=tuple(contracts),
     )
+
+
 def _importer_maps(
     *,
     parsed_modules: tuple[ParsedModule, ...],
@@ -245,80 +265,3 @@ def _importer_maps(
         {key: tuple(rows) for key, rows in importers.items()},
         {key: tuple(rows) for key, rows in importer_paths.items()},
     )
-def _module_name_for_path(path: Path) -> str:
-    parts = list(path.with_suffix("").parts)
-    if parts and parts[-1] == "__init__":
-        parts = parts[:-1]
-    return ".".join(parts)
-def _package_module_name(module_name: str, path: Path) -> str:
-    if path.name == "__init__.py":
-        return module_name
-    return module_name.rpartition(".")[0]
-def _resolve_import_module(
-    *,
-    package_module: str,
-    module: str | None,
-    level: int,
-) -> str:
-    if level <= 0:
-        return str(module or "").strip()
-    package_parts = [part for part in package_module.split(".") if part]
-    trim = max(level - 1, 0)
-    if trim > len(package_parts):
-        return ""
-    base_parts = package_parts[: len(package_parts) - trim]
-    if module:
-        return ".".join((*base_parts, *module.split(".")))
-    return ".".join(base_parts)
-def _has_dataclass_decorator(node: ast.ClassDef) -> bool:
-    for decorator in node.decorator_list:
-        target = decorator.func if isinstance(decorator, ast.Call) else decorator
-        if isinstance(target, ast.Name) and target.id == "dataclass":
-            return True
-        if isinstance(target, ast.Attribute) and target.attr == "dataclass":
-            return True
-    return False
-def _class_field_names(node: ast.ClassDef) -> list[str]:
-    fields: list[str] = []
-    for statement in node.body:
-        if not isinstance(statement, ast.AnnAssign):
-            continue
-        if not isinstance(statement.target, ast.Name):
-            continue
-        if _is_classvar_annotation(statement.annotation):
-            continue
-        fields.append(statement.target.id)
-    return fields
-def _is_classvar_annotation(annotation: ast.AST) -> bool:
-    if isinstance(annotation, ast.Name):
-        return annotation.id == "ClassVar"
-    if isinstance(annotation, ast.Subscript):
-        return _is_classvar_annotation(annotation.value)
-    if isinstance(annotation, ast.Attribute):
-        return annotation.attr == "ClassVar"
-    return False
-def _interesting_fields(field_names: tuple[str, ...]) -> tuple[str, ...]:
-    filtered = tuple(
-        field
-        for field in field_names
-        if field not in META_FIELDS and field not in GENERIC_FIELDS
-    )
-    if filtered:
-        return filtered
-    return tuple(field for field in field_names if field not in META_FIELDS)
-def _literal_string(node: ast.AST) -> str:
-    if isinstance(node, ast.Constant) and isinstance(node.value, str):
-        return node.value
-    return ""
-def _is_test_path(path: Path) -> bool:
-    normalized = f"/{path.as_posix()}/"
-    name = path.name
-    return "/tests/" in normalized or name.startswith("test_") or name.endswith(
-        "_test.py"
-    )
-def _layer_for_path(path: Path) -> str:
-    normalized = path.as_posix()
-    for layer, root in LAYER_ROOTS.items():
-        if normalized.startswith(f"{root.as_posix()}/") or normalized == root.as_posix():
-            return layer
-    return ""

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import PurePosixPath
+
 from .inventory import (
     GENERIC_FIELDS,
     LAYER_ROOTS,
@@ -17,6 +19,8 @@ from .models import (
 )
 
 STRANDED_OVERLAP_THRESHOLD = 0.8
+SEMANTIC_DUPLICATE_THRESHOLD = 0.8
+PURPOSE_GUIDED_DUPLICATE_THRESHOLD = 0.6
 
 
 def orphaned_contracts(
@@ -30,9 +34,20 @@ def orphaned_contracts(
     for contract in sorted(index.contracts, key=lambda row: row.module_path):
         if contract.key in duplicate_keys:
             continue
-        importer_modules = index.importers_by_contract.get(contract.key, ())
-        if importer_modules:
+        importer_modules = tuple(
+            sorted(
+                index.importers_by_contract.get(contract.key, ()),
+                key=lambda row: row.module_path,
+            )
+        )
+        external_importers = tuple(
+            importer
+            for importer in importer_modules
+            if not _same_package(contract.module_path, importer.module_path)
+        )
+        if external_importers:
             continue
+        consumer_scope = "unreferenced" if not importer_modules else "internal_only"
         findings.append(
             OrphanedContractFinding(
                 contract_name=contract.contract_name,
@@ -40,6 +55,18 @@ def orphaned_contracts(
                 module_name=contract.module_name,
                 module_path=contract.module_path,
                 field_names=contract.field_names,
+                consumer_scope=consumer_scope,
+                importer_modules=tuple(
+                    importer.module_name for importer in importer_modules
+                ),
+                importer_paths=tuple(
+                    importer.module_path for importer in importer_modules
+                ),
+                cross_layer_importer_count=sum(
+                    1
+                    for importer in importer_modules
+                    if importer.layer and importer.layer != contract.layer
+                ),
             )
         )
     return tuple(findings)
@@ -57,18 +84,48 @@ def duplicate_contracts(
     for index, left in enumerate(ordered):
         left_fields = set(left.interesting_fields or left.field_names)
         if len(left_fields) < 2:
-            continue
+            left_fields = set(left.field_names)
         for right in ordered[index + 1 :]:
             if left.module_path == right.module_path:
                 continue
             right_fields = set(right.interesting_fields or right.field_names)
             if len(right_fields) < 2:
+                right_fields = set(right.field_names)
+            exact_shared = tuple(sorted(left_fields & right_fields))
+            exact_overlap_ratio = len(exact_shared) / max(
+                1, min(len(left_fields), len(right_fields))
+            )
+            if len(exact_shared) >= 2 and exact_overlap_ratio >= 0.8:
+                findings.append(
+                    DuplicateContractFinding(
+                        left_contract_name=left.contract_name,
+                        left_layer=left.layer,
+                        left_module_name=left.module_name,
+                        left_module_path=left.module_path,
+                        right_contract_name=right.contract_name,
+                        right_layer=right.layer,
+                        right_module_name=right.module_name,
+                        right_module_path=right.module_path,
+                        overlap_ratio=exact_overlap_ratio,
+                        shared_fields=exact_shared,
+                    )
+                )
                 continue
-            shared = tuple(sorted(left_fields & right_fields))
-            if len(shared) < 2:
+
+            shared_semantics = tuple(
+                sorted(set(left.semantic_fields) & set(right.semantic_fields))
+            )
+            if len(shared_semantics) < 2:
                 continue
-            overlap_ratio = len(shared) / max(1, min(len(left_fields), len(right_fields)))
-            if overlap_ratio < 0.8:
+            semantic_overlap_ratio = len(shared_semantics) / max(
+                1,
+                min(len(set(left.semantic_fields)), len(set(right.semantic_fields))),
+            )
+            if not _purpose_guided_semantic_match(
+                left,
+                right,
+                semantic_overlap_ratio=semantic_overlap_ratio,
+            ):
                 continue
             findings.append(
                 DuplicateContractFinding(
@@ -80,8 +137,8 @@ def duplicate_contracts(
                     right_layer=right.layer,
                     right_module_name=right.module_name,
                     right_module_path=right.module_path,
-                    overlap_ratio=overlap_ratio,
-                    shared_fields=shared,
+                    overlap_ratio=semantic_overlap_ratio,
+                    shared_fields=shared_semantics,
                 )
             )
     return tuple(findings)
@@ -181,6 +238,27 @@ def _duplicate_contract_keys(
         keys.add((item.left_module_name, item.left_contract_name))
         keys.add((item.right_module_name, item.right_contract_name))
     return keys
+
+
+def _purpose_guided_semantic_match(
+    left: ContractDefinition,
+    right: ContractDefinition,
+    *,
+    semantic_overlap_ratio: float,
+) -> bool:
+    shared_purpose = set(left.purpose_tokens) & set(right.purpose_tokens)
+    if not shared_purpose:
+        return False
+    if semantic_overlap_ratio >= SEMANTIC_DUPLICATE_THRESHOLD:
+        return True
+    return (
+        semantic_overlap_ratio >= PURPOSE_GUIDED_DUPLICATE_THRESHOLD
+        and len(shared_purpose) >= 2
+    )
+
+
+def _same_package(left_path: str, right_path: str) -> bool:
+    return PurePosixPath(left_path).parent == PurePosixPath(right_path).parent
 
 
 __all__ = [

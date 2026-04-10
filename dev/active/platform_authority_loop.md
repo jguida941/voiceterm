@@ -2597,6 +2597,13 @@ blocker or exception in plan state before skipping the declared order.
   `WorkIntakeCoordinationState.active_implementation_owner` /
   `resync_required` rather than rebuilding ownership from raw coordination
   payloads.
+- 2026-04-10: Closed the Q67 detector follow-up under the same `MP-377`
+  contract-connectivity slice. The guard now scans `app/operator_console/`,
+  duplicate detection uses semantic field aliases plus purpose/docstring
+  overlap so parallel `SystemCatalog` families are caught even when the raw
+  field names are generic, and orphan reporting now keeps contracts with
+  internal-only package consumers visible as a softer `consumer_scope` instead
+  of treating any same-package import as proof of healthy connectivity.
 - 2026-04-10: Started the Q64 research-scope closure under `MP-377`. The
   bounded implementation is to keep pacing inside the existing startup/work-
   intake authority chain: derive one typed pacing packet from

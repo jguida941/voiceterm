@@ -113,6 +113,13 @@
   research-to-first-patch budget, and `governance-review` now accepts
   `signal_type=observer` plus optional `finding_type` so observer/self-audit
   findings reuse the canonical ledger instead of living only in audit prose.
+- 2026-04-10 Q67 contract-connectivity follow-up in `MP-377` scope:
+  `check_contract_connectivity.py` now scans `app/operator_console/` in
+  addition to the governance/runtime/platform layers, duplicate detection now
+  combines semantic field aliases with purpose/docstring tokens so parallel
+  `SystemCatalog` contracts do not hide behind generic field names, and
+  orphaned-contract findings now surface `internal_only` consumers when a
+  contract is only imported inside its own package.
 - Current highest-priority subordinate `MP-377` lane:
   `dev/active/platform_authority_loop.md`. This is the execution spec for
   closing the portable authority loop:

@@ -1615,6 +1615,7 @@ python3 dev/scripts/checks/check_bundle_registry_dry.py
 python3 dev/scripts/checks/check_bundle_workflow_parity.py
 python3 dev/scripts/checks/check_platform_layer_boundaries.py
 python3 dev/scripts/checks/check_platform_contract_closure.py
+python3 dev/scripts/checks/check_contract_connectivity.py
 python3 dev/scripts/checks/check_platform_contract_sync.py
 python3 dev/scripts/checks/check_review_channel_bridge.py
 python3 dev/scripts/checks/check_startup_authority_contract.py
@@ -1682,6 +1683,7 @@ python3 dev/scripts/checks/check_bundle_registry_dry.py
 python3 dev/scripts/checks/check_bundle_workflow_parity.py
 python3 dev/scripts/checks/check_platform_layer_boundaries.py
 python3 dev/scripts/checks/check_platform_contract_closure.py
+python3 dev/scripts/checks/check_contract_connectivity.py
 python3 dev/scripts/checks/check_platform_contract_sync.py
 python3 dev/scripts/checks/check_review_channel_bridge.py
 python3 dev/scripts/checks/check_startup_authority_contract.py

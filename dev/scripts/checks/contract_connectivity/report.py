@@ -70,10 +70,14 @@ def _append_orphans(lines: list[str], *, title: str, items) -> None:
         return
     lines.extend(("", f"## {title}", ""))
     for item in items:
-        lines.append(
+        detail = (
             f"- `{item.contract_name}` in `{item.module_path}` "
-            f"(layer `{item.layer}`; fields: {', '.join(item.field_names) or 'none'})"
+            f"(layer `{item.layer}`; scope `{item.consumer_scope}`; "
+            f"fields: {', '.join(item.field_names) or 'none'})"
         )
+        if item.importer_paths:
+            detail += f"; internal importers: {', '.join(item.importer_paths)}"
+        lines.append(detail)
 
 
 def _append_duplicates(lines: list[str], *, title: str, items) -> None:
