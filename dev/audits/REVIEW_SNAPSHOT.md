@@ -5,14 +5,14 @@
 ## Quick status
 
 - Branch: `feature/governance-quality-sweep`
-- HEAD: `368c3b8de41e` — docs(audit): Q61 — findings stay flat in LIVE_RUN, not routed to plan system
-- Tree hash: `b1cd2408e881`
-- Generation stamp: `snap-07d1942ca876`
-- Generated at (UTC): 2026-04-10T19:41:50Z
-- Push decision: `await_checkpoint` — staged_index_budget_exceeded
+- HEAD: `10242d1a6413` — feat(governance): Q40+Q42+Q51 — lane edit gate, typed recovery authority, mobile dashboard
+- Tree hash: `4af015d46065`
+- Generation stamp: `snap-2cdae85dfe51`
+- Generated at (UTC): 2026-04-10T19:42:00Z
+- Push decision: `run_devctl_push` — push_preconditions_satisfied
 - Reviewer mode: `single_agent` (interaction: `remote_control`)
 - Pipeline state: `n/a` (approval: `n/a`)
-- Delta since last snapshot: 25 commits, 24 files, +3090/-1316
+- Delta since last snapshot: 25 commits, 31 files, +3712/-1344
 - Governance findings: 86 open / 70 fixed / 170 total
 - Probe hints: 0 total across 0 files scanned
 
@@ -54,24 +54,24 @@ adopters arrive.
 - Remote: `https://github.com/jguida941/voiceterm.git`
 - Default branch: `master`
 - Current branch: `feature/governance-quality-sweep`
-- HEAD SHA: `368c3b8de41ef280c87b234485a7ce24cbbf5006`
+- HEAD SHA: `10242d1a6413835a19e46ddd38b9b10db4ccda1c`
 - HEAD author: Justin Guida
-- HEAD timestamp (UTC): 2026-04-10T14:39:54-04:00
+- HEAD timestamp (UTC): 2026-04-10T15:41:41-04:00
 
 ## 2. Governance state
 
 ### Push decision
-- action: `await_checkpoint`
-- reason: staged_index_budget_exceeded
-- push_eligible_now: False
-- worktree_clean: False
-- staged_path_count: 20
+- action: `run_devctl_push`
+- reason: push_preconditions_satisfied
+- push_eligible_now: True
+- worktree_clean: True
+- staged_path_count: 0
 - unstaged_path_count: 0
-- next_step_command: `n/a`
+- next_step_command: `python3 dev/scripts/devctl.py push --execute`
 - latest_push_report: `dev/reports/push/latest.json`
 - latest_push_report_state: `post_push_green` (push_completed)
 - publication_backlog: urgent
-- publication_guidance: 15 local commit(s) waiting for governed push once the current slice is checkpoint-clean.
+- publication_guidance: 16 local commit(s) waiting for governed push. Run `python3 dev/scripts/devctl.py push --execute` now.
 
 ### Reviewer runtime
 - reviewer_mode: `single_agent`
@@ -87,78 +87,84 @@ adopters arrive.
 - active plan: **Master Plan (Active, Unified)**
 - plan path: `dev/active/MASTER_PLAN.md`
 - active MP scope: all active MP execution state
-- advisory: `checkpoint_before_continue` — staged_index_budget_exceeded
-- checkpoint_required: **yes**
+- advisory: `push_allowed` — worktree_clean_and_review_accepted
 
 ## 3. Delta — what changed since the previous snapshot
 
-Range: last 25 commits ending at `368c3b8de41e`
+Range: last 25 commits ending at `10242d1a6413`
 
 - commits: 25
-- files changed: 24
-- insertions: +3090
-- deletions: -1316
-- bundle classes touched: tooling, docs
+- files changed: 31
+- insertions: +3712
+- deletions: -1344
+- bundle classes touched: docs, tooling
 - authority surfaces touched: 3 file(s)
 
 ### Commits
 
 | # | SHA | Subject | Files | +/- | Bundle | Risk |
 |---|---|---|---|---|---|---|
-| 1 | `368c3b8d` | docs(audit): Q61 — findings stay flat in LIVE_RUN, not rout… | 2 | +65/-44 | tooling |  |
-| 2 | `51e01936` | docs(audit): Q60 — guards run after coding, not during | 2 | +102/-64 | tooling |  |
-| 3 | `53e06b4b` | docs(audit): Q57-Q59 — monitor pass, registry dispatcher, h… | 2 | +109/-49 | tooling |  |
-| 4 | `862ebd16` | docs(audit): Q56 — Q54+Q55 compose from existing systems, m… | 2 | +77/-44 | tooling |  |
-| 5 | `d285d33f` | docs(audit): Q55 — no priority/planning pass over accumulat… | 2 | +83/-62 | tooling |  |
-| 6 | `306116c6` | docs(audit): Q54 — observer layer ungoverned, no self-audit… | 2 | +81/-42 | tooling |  |
-| 7 | `5e9022a7` | docs(audit): Q53 — dashboard 77% success is command ok=True… | 2 | +73/-48 | tooling |  |
-| 8 | `151b28d9` | Refresh external review snapshot for 1e193595 | 1 | +59/-56 | tooling |  |
-| 9 | `1e193595` | docs(audit): Q52 update — cross-tool hook enforcement must… | 2 | +56/-48 | tooling |  |
-| 10 | `9091689e` | Refresh external review snapshot for 04b1174e | 1 | +56/-55 | tooling |  |
-| 11 | `04b1174e` | docs(audit): Q52 — commit gate in devctl but not git hook o… | 2 | +76/-53 | tooling |  |
-| 12 | `04f98995` | Refresh external review snapshot for 473c0c9a | 1 | +53/-50 | tooling |  |
-| 13 | `473c0c9a` | docs(audit): Q51 update — phone-status command exists but s… | 2 | +63/-61 | tooling |  |
-| 14 | `fca5d059` | Refresh external review snapshot for 2f5e715d | 1 | +56/-49 | tooling |  |
-| 15 | `2f5e715d` | docs(audit): Q51 — dashboard not device-aware, blocker proj… | 2 | +74/-51 | tooling |  |
-| 16 | `f3f9fb10` | Refresh external review snapshot for c39f93e2 | 1 | +66/-61 | tooling |  |
-| 17 | `c39f93e2` | feat(governance): Q47+Q45+Q43 authority spine — action rout… | 12 | +680/-59 | tooling |  |
-| 18 | `bc6363a6` | docs(audit): Q49-Q50 — publisher died silently, 100 unfixed… | 2 | +82/-50 | tooling |  |
-| 19 | `20f7085f` | docs(audit): Q48 — system has all data but no composed arch… | 2 | +121/-75 | tooling |  |
-| 20 | `2b93d6b4` | Refresh external review snapshot for a7477364 | 1 | +76/-60 | tooling |  |
-| 21 | `a7477364` | feat(topology): Q38 observed_control_topology + implementat… | 19 | +653/-58 | tooling |  |
-| 22 | `f99de6a3` | docs(audit): Q47 — agent reasons when repo can already comp… | 2 | +84/-42 | tooling |  |
-| 23 | `b426061d` | docs(audit): Q46 — governance only activates for dual-agent… | 2 | +82/-40 | tooling |  |
-| 24 | `83ebf2d6` | docs(audit): Q45 — commit gate missing, evidence ≠ authority | 2 | +88/-56 | tooling |  |
-| 25 | `79aab6c1` | docs(audit): Q44 — governed dashboard contradicts itself, m… | 2 | +75/-39 | tooling |  |
+| 1 | `10242d1a` | feat(governance): Q40+Q42+Q51 — lane edit gate, typed recov… | 21 | +697/-67 | tooling |  |
+| 2 | `368c3b8d` | docs(audit): Q61 — findings stay flat in LIVE_RUN, not rout… | 2 | +65/-44 | tooling |  |
+| 3 | `51e01936` | docs(audit): Q60 — guards run after coding, not during | 2 | +102/-64 | tooling |  |
+| 4 | `53e06b4b` | docs(audit): Q57-Q59 — monitor pass, registry dispatcher, h… | 2 | +109/-49 | tooling |  |
+| 5 | `862ebd16` | docs(audit): Q56 — Q54+Q55 compose from existing systems, m… | 2 | +77/-44 | tooling |  |
+| 6 | `d285d33f` | docs(audit): Q55 — no priority/planning pass over accumulat… | 2 | +83/-62 | tooling |  |
+| 7 | `306116c6` | docs(audit): Q54 — observer layer ungoverned, no self-audit… | 2 | +81/-42 | tooling |  |
+| 8 | `5e9022a7` | docs(audit): Q53 — dashboard 77% success is command ok=True… | 2 | +73/-48 | tooling |  |
+| 9 | `151b28d9` | Refresh external review snapshot for 1e193595 | 1 | +59/-56 | tooling |  |
+| 10 | `1e193595` | docs(audit): Q52 update — cross-tool hook enforcement must… | 2 | +56/-48 | tooling |  |
+| 11 | `9091689e` | Refresh external review snapshot for 04b1174e | 1 | +56/-55 | tooling |  |
+| 12 | `04b1174e` | docs(audit): Q52 — commit gate in devctl but not git hook o… | 2 | +76/-53 | tooling |  |
+| 13 | `04f98995` | Refresh external review snapshot for 473c0c9a | 1 | +53/-50 | tooling |  |
+| 14 | `473c0c9a` | docs(audit): Q51 update — phone-status command exists but s… | 2 | +63/-61 | tooling |  |
+| 15 | `fca5d059` | Refresh external review snapshot for 2f5e715d | 1 | +56/-49 | tooling |  |
+| 16 | `2f5e715d` | docs(audit): Q51 — dashboard not device-aware, blocker proj… | 2 | +74/-51 | tooling |  |
+| 17 | `f3f9fb10` | Refresh external review snapshot for c39f93e2 | 1 | +66/-61 | tooling |  |
+| 18 | `c39f93e2` | feat(governance): Q47+Q45+Q43 authority spine — action rout… | 12 | +680/-59 | tooling |  |
+| 19 | `bc6363a6` | docs(audit): Q49-Q50 — publisher died silently, 100 unfixed… | 2 | +82/-50 | tooling |  |
+| 20 | `20f7085f` | docs(audit): Q48 — system has all data but no composed arch… | 2 | +121/-75 | tooling |  |
+| 21 | `2b93d6b4` | Refresh external review snapshot for a7477364 | 1 | +76/-60 | tooling |  |
+| 22 | `a7477364` | feat(topology): Q38 observed_control_topology + implementat… | 19 | +653/-58 | tooling |  |
+| 23 | `f99de6a3` | docs(audit): Q47 — agent reasons when repo can already comp… | 2 | +84/-42 | tooling |  |
+| 24 | `b426061d` | docs(audit): Q46 — governance only activates for dual-agent… | 2 | +82/-40 | tooling |  |
+| 25 | `83ebf2d6` | docs(audit): Q45 — commit gate missing, evidence ≠ authority | 2 | +88/-56 | tooling |  |
 
 ### Files
 
 | Path | Bundle | +/- |
 |---|---|---|
-| `AGENTS.md` | docs | +7/-1 |
+| `AGENTS.md` | docs | +16/-1 |
 | `bridge.md` | docs | +4/-4 |
-| `dev/active/MASTER_PLAN.md` | tooling | +14/-0 |
-| `dev/active/ai_governance_platform.md` | tooling | +29/-1 |
-| `dev/active/platform_authority_loop.md` | tooling | +15/-1 |
-| `dev/audits/LIVE_RUN.md` | tooling | +515/-0 |
-| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1345/-1299 |
-| `dev/guides/DEVELOPMENT.md` | docs | +11/-1 |
-| `dev/history/ENGINEERING_EVOLUTION.md` | tooling | +42/-0 |
-| `dev/scripts/README.md` | tooling | +16/-4 |
-| `dev/scripts/devctl/commands/governance/startup_context.py` | tooling | +40/-4 |
-| `dev/scripts/devctl/commands/governance/startup_context_render.py` | tooling | +10/-0 |
+| `dev/active/MASTER_PLAN.md` | tooling | +19/-0 |
+| `dev/active/ai_governance_platform.md` | tooling | +35/-1 |
+| `dev/active/platform_authority_loop.md` | tooling | +23/-1 |
+| `dev/active/remote_control_runtime.md` | tooling | +10/-1 |
+| `dev/audits/LIVE_RUN.md` | tooling | +485/-0 |
+| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1350/-1310 |
+| `dev/guides/DEVELOPMENT.md` | docs | +23/-5 |
+| `dev/history/ENGINEERING_EVOLUTION.md` | tooling | +64/-3 |
+| `dev/scripts/README.md` | tooling | +23/-7 |
+| `dev/scripts/devctl/commands/dashboard_render/__init__.py` | tooling | +4/-1 |
+| `dev/scripts/devctl/commands/dashboard_render/mobile.py` | tooling | +51/-0 |
+| `dev/scripts/devctl/commands/governance/startup_context.py` | tooling | +46/-4 |
+| `dev/scripts/devctl/commands/governance/startup_context_recovery.py` | tooling | +38/-0 |
+| `dev/scripts/devctl/commands/governance/startup_context_render.py` | tooling | +19/-0 |
 | `dev/scripts/devctl/commands/vcs/commit.py` | tooling | +24/-0 |
 | `dev/scripts/devctl/review_channel/observed_topology.py` | tooling | +20/-0 |
-| `dev/scripts/devctl/runtime/action_routing.py` | tooling | +189/-0 |
+| `dev/scripts/devctl/runtime/action_routing.py` | tooling | +263/-1 |
 | `dev/scripts/devctl/runtime/commit_permission.py` | tooling | +168/-0 |
 | `dev/scripts/devctl/runtime/control_topology.py` | tooling | +143/-0 |
 | `dev/scripts/devctl/runtime/control_topology_bridge_counts.py` | tooling | +87/-0 |
 | `dev/scripts/devctl/runtime/control_topology_numeric.py` | tooling | +29/-0 |
 | `dev/scripts/devctl/runtime/control_topology_runtime_counts.py` | tooling | +78/-0 |
-| `dev/scripts/devctl/runtime/startup_context.py` | tooling | +12/-0 |
+| `dev/scripts/devctl/runtime/recovery_authority.py` | tooling | +232/-0 |
+| `dev/scripts/devctl/runtime/startup_context.py` | tooling | +25/-0 |
+| `dev/scripts/devctl/runtime/startup_context_projections.py` | tooling | +6/-1 |
+| `dev/scripts/devctl/tests/commands/reporting/test_dashboard.py` | tooling | +18/-2 |
 | `dev/scripts/devctl/tests/review_channel/test_observed_topology.py` | tooling | +104/-0 |
-| `dev/scripts/devctl/tests/runtime/test_startup_context.py` | tooling | +34/-0 |
-| `dev/scripts/devctl/tests/vcs/test_commit_gate.py` | tooling | +154/-1 |
+| `dev/scripts/devctl/tests/runtime/test_startup_context.py` | tooling | +105/-0 |
+| `dev/scripts/devctl/tests/vcs/test_commit_gate.py` | tooling | +200/-2 |
 
 ## 4. Quality signals
 
@@ -244,6 +250,11 @@ Recent findings:
 
 ### Per-commit rationale
 
+- **`10242d1a`** — feat(governance): Q40+Q42+Q51 — lane edit gate, typed recovery authority, mobile dashboard
+  - Codex Round 3 implementation:
+  - - Q40: Dashboard/observer lanes are findings-only, cannot edit code
+  - - Q42: Typed destructive-recovery authority (RecoveryAuthorityState)
+  - evolution: Fact: the Q40/Q42 live-run findings showed two separate authority leaks. A dashboard/observer lane could still slide into implementation edits while another agent owned the active lane, and recovery code could escalate …
 - **`368c3b8d`** — docs(audit): Q61 — findings stay flat in LIVE_RUN, not routed to plan system
   - 24 findings (Q37-Q60) logged but not converted to phased MP-items
   - with dependency ordering and graph-derived priority. Context-graph
@@ -344,11 +355,6 @@ Recent findings:
   - was treated as commit permission while governed state said: blocked,
   - checkpoint required, reviewer overdue, no_live_agents. Documents
   - evolution: Fact: the Q40/Q42 live-run findings showed two separate authority leaks. A dashboard/observer lane could still slide into implementation edits while another agent owned the active lane, and recovery code could escalate …
-- **`79aab6c1`** — docs(audit): Q44 — governed dashboard contradicts itself, misses live agents
-  - Dashboard shows Active agents: 0 and Codex: NO SESSION while codex
-  - exec PID 15617 is actively running. codex exec processes don't
-  - register with the conductor session system. Also: Mode: Dual-agent
-  - evolution: Fact: the Q40/Q42 live-run findings showed two separate authority leaks. A dashboard/observer lane could still slide into implementation edits while another agent owned the active lane, and recovery code could escalate …
 ### Active MP scope (from MASTER_PLAN.md)
 
 - `dev/active/devctl_reporting_upgrade.md` is the phased `devctl` reporting/CIHub specification, but not a separate execution tracker; implementation tasks stay in this file under `MP-297..MP-300`, `MP-303`, `MP-306`, `MP…
@@ -367,11 +373,10 @@ Recent findings:
 - open governance findings: 86
 
 ### Startup advisories
-- checkpoint_before_continue: staged_index_budget_exceeded
+- push_allowed: worktree_clean_and_review_accepted
 
 ### Stale warnings
-- Keep editing the current slice.
-- Move straight to the governed push path.
+- Stop because nothing remains to push.
 
 ### Open gap rows
 - **governance_open** (`dev/scripts/devctl/security/python_scope.py`): subprocess_missing_timeout: 
@@ -385,4 +390,4 @@ Recent findings:
 
 ---
 
-Projection produced by `devctl review-snapshot`. Generation stamp `snap-07d1942ca876` binds this file to HEAD `368c3b8de41e`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
+Projection produced by `devctl review-snapshot`. Generation stamp `snap-2cdae85dfe51` binds this file to HEAD `10242d1a6413`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
