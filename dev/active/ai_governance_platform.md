@@ -5645,6 +5645,10 @@ working on `MP-377`.
   provider sessions can still skip Step 0 until a supported hook/wrapper
   entry path exists, and raw git/pre-commit plus wider repo-pack activation
   still remain open, not the old repo-owned-launcher loophole.
+- 2026-04-10 startup-gate receipt-type fix: `_is_repair_launch` in
+  `startup_gate.py` was treating `StartupReceipt` as a dict via `.get()`,
+  crashing the `repair_reviewer_loop` → `launch`/`rollover` path. Fixed to
+  read `receipt.advisory_action` typed attribute and handle `None` receipts.
 - 2026-03-27 startup-summary follow-up: the same startup-authority lane now
   compresses the human Step 0 projection without weakening authority. The
   default AI-facing bootstrap command is `startup-context --format summary`,

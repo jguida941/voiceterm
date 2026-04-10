@@ -1570,6 +1570,11 @@ Machine-first output note:
     `review-channel --action launch|rollover` command. That shape is not an
     `reset-implementer-state` case because the live reviewer loop itself is no
     longer present enough to trust an implementer-only repair.
+  - The startup gate repair-launch bypass (`_is_repair_launch`) reads
+    `StartupReceipt.advisory_action` as a typed attribute and handles a
+    missing (`None`) receipt without crashing. This keeps the
+    `repair_reviewer_loop` → `launch`/`rollover` path alive when the receipt
+    is missing or the receipt file fails to load.
   - Reviewer-owned `scope`, `promote`, `reviewer-checkpoint`, and
     `render-bridge` writes now fail closed when pending reviewer-targeted
     packets still exist in the event-backed inbox, so later bridge/projection

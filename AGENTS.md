@@ -242,7 +242,11 @@ Run this sequence for every task. Do not skip steps.
    (selected `PlanTargetRef`, typed continuity, and routing hints), writes a
    managed startup receipt under the repo-owned reports root, and exits
    non-zero when checkpoint budget or startup-authority truth says another
-   implementation slice is not allowed yet. The same startup/tandem path now
+   implementation slice is not allowed yet. The scoped startup gate
+   (`startup_gate.py`) reads `StartupReceipt.advisory_action` to bypass the
+   gate for `launch`/`rollover` when `repair_reviewer_loop` is the advisory
+   action, and handles a missing receipt without crashing.
+   The same startup/tandem path now
    resolves typed `review_state.json` through repo-pack/governance candidate
    authority instead of assuming one fixed `dev/reports/.../latest` path.
    Startup quality signals follow the same rule and load emitted probe

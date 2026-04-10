@@ -89,6 +89,11 @@
   files. Full closure trace lives in the 2026-04-09
   "Remote-control commit now waits for typed approval" entry of
   `dev/history/ENGINEERING_EVOLUTION.md`.
+- 2026-04-10 startup-gate repair-launch fix in `MP-355` scope:
+  `startup_gate.py:_is_repair_launch` was treating `StartupReceipt` as a
+  dict (`.get("action", "")`), crashing review-channel `launch`/`rollover`
+  with `AttributeError`. Fix reads `receipt.advisory_action` typed attribute
+  and handles `None` receipts. Regression tests added (10/10 pass).
 - Current highest-priority subordinate `MP-377` lane:
   `dev/active/platform_authority_loop.md`. This is the execution spec for
   closing the portable authority loop:

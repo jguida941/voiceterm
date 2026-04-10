@@ -454,6 +454,10 @@ Three quality layers matter in practice:
     relaunch path when the pair needs a fresh start, while `recover` is the
     narrower implementer-only repair path when the repo-owned reviewer is
     already live.
+    The startup gate repair-launch bypass reads
+    `StartupReceipt.advisory_action` (typed attribute access, not dict `.get()`)
+    and handles `None` receipts without crashing; this keeps the
+    `repair_reviewer_loop` path alive when the receipt file is missing or stale.
     Canonical reviewer-reset implementer placeholders (`Claude Status: - pending`,
     `Claude Ack: - pending`) are valid fresh-launch state for a new instruction
     revision, and the same reset now clears stale `Claude Questions` too.

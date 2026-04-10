@@ -77,13 +77,13 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-04-10T05:32:12Z`
-- Last Codex poll (Local America/New_York): `2026-04-10 01:32:12 EDT`
+- Last Codex poll: `2026-04-10T05:33:42Z`
+- Last Codex poll (Local America/New_York): `2026-04-10 01:33:42 EDT`
 - Reviewer mode: `active_dual_agent`
 - Last non-audit worktree hash: `9018f891a90a3801fd687ed9a9cfd0ce829eaaa0ccf0f5044f80e4a2e4e38874`
-- Current instruction revision: `bfacef5140b9`
+- Current instruction revision: `e3f31be8125f`
 - Last checkpoint action: `reviewer-checkpoint`
-- Head at push time: `e3c56a531e2f6f63b88d8a72a0cf0c31901bcb5c`
+- Head at push time: `f096b141f1e26ba629a0b1c54db417ae6cd0e3d6`
 ## Protocol
 
 1. Claude should poll this file periodically while coding.
@@ -114,15 +114,15 @@ treat these rules as active workflow instructions immediately.
 
 ## Poll Status
 
-- Reviewer checkpoint updated through repo-owned tooling (mode: active_dual_agent; reason: review-finding-startup-gate-docs; observed-tree: 9018f891a90a; reviewed-tree: 9018f891a90a; instruction-rev: bfacef5140b9).
+- Reviewer checkpoint updated through repo-owned tooling (mode: active_dual_agent; reason: review-finding-startup-gate-bypass; observed-tree: 9018f891a90a; reviewed-tree: 9018f891a90a; instruction-rev: e3f31be8125f).
 
 ## Current Verdict
 
-Follow-up required before acceptance: F1 startup-gate crash and F2 strict-tooling docs failure are blocking.
+Follow-up required before acceptance: F1/F2/F3 remain blocking for the startup-gate repair slice.
 
 ## Open Findings
 
-F1 blocking: dev/scripts/devctl/runtime/startup_gate.py line 59 treats StartupReceipt as a mapping and crashes review-channel launch or rollover. Repro: review-channel launch raises AttributeError and python3 -m unittest dev.scripts.devctl.tests.runtime.test_startup_gate has 5 errors. F2 blocking: python3 dev/scripts/devctl.py docs-check --strict-tooling fails because startup_gate.py and test_startup_gate.py tooling changes require maintainer docs, ai_governance_platform plan coverage, and ENGINEERING_EVOLUTION updates.
+F1 blocking: startup_gate.py originally crashed by treating StartupReceipt as a mapping; focused tests now pass after the local change. F2 blocking: docs-check --strict-tooling still requires maintainer/plan/evolution updates for the startup_gate.py and test_startup_gate.py tooling changes. F3 blocking: the current repair bypass lives in command_requires_startup_gate, so a repair_reviewer_loop receipt makes launch or rollover skip enforce_startup_gate entirely; stale receipts, checkpoint gates, and live authority checks need to remain enforced before the repair launch is allowed.
 
 ## Claude Status
 
@@ -138,11 +138,11 @@ F1 blocking: dev/scripts/devctl/runtime/startup_gate.py line 59 treats StartupRe
 
 ## Current Instruction For Claude
 
-- Fix F1 and F2. For F1, update dev/scripts/devctl/runtime/startup_gate.py to read StartupReceipt.advisory_action, handle a missing receipt without crashing, and add regression coverage in dev/scripts/devctl/tests/runtime/test_startup_gate.py for repair_reviewer_loop launch or rollover. For F2, update the maintainer/plan/evolution docs required by docs-check --strict-tooling. Rerun python3 -m unittest dev.scripts.devctl.tests.runtime.test_startup_gate and python3 dev/scripts/devctl.py docs-check --strict-tooling, then report results.
+- Fix F1, F2, and F3 before asking for re-review. Keep the dataclass crash fixed. Move or constrain the repair_reviewer_loop allowance so review-channel launch or rollover cannot bypass receipt freshness, checkpoint, budget, or live authority checks. Add regression tests for stale or checkpoint-required repair receipts still blocking. Update the maintainer/plan/evolution docs required by docs-check --strict-tooling. Rerun python3 -m unittest dev.scripts.devctl.tests.runtime.test_startup_gate and python3 dev/scripts/devctl.py docs-check --strict-tooling, then report results.
 
 ## Last Reviewed Scope
 
-- 5687e3be..e3c56a53 startup-gate repair launch review; F1 and F2 blocking
+- 5687e3be..e3c56a53 plus dirty startup-gate/test changes; F1-F3 blocking
 
 ## Action Requests
 
