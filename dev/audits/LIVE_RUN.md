@@ -2893,6 +2893,32 @@ which Q55 says we don't have yet. Start there.
   just reads from the wrong artifact.
 - **Status**: OPEN — paired with Q39/Q44
 
+### Q52 — ENFORCEMENT — Commit gate exists in devctl but not in git pre-commit hook
+
+- **Discovered**: 2026-04-10T17:20Z
+- **Severity**: high / enforcement-gap
+- **Body**: The Q45 commit gate (`commit_permission`, `implementation_
+  permission`) was implemented in `devctl commit` path. But the git
+  pre-commit hook (`.git/hooks/pre-commit`) only refreshes review
+  snapshots — it does not check typed state. Raw `git commit` (from
+  CLI, IDE, or any AI tool) bypasses the commit gate entirely. The
+  hook's own documentation says "every error is a warning, never a
+  blocker" — so even if the check were added, the current hook policy
+  would not enforce it.
+  Similarly: no Claude Code hooks are configured (`~/.claude/hooks`
+  is empty, `settings.json` has no hooks). The deterministic action
+  routing from Q47 (`action_routing.py`) is not wired into Claude
+  Code's pre-tool hook system. The agent-level enforcement boundary
+  is completely open.
+  Three enforcement layers exist but are disconnected:
+  1. `devctl commit` — has commit gate (Q45)
+  2. `.git/hooks/pre-commit` — snapshot refresh only, no gate
+  3. Claude Code hooks — not configured at all
+- **Missing**: Wire `commit_permission` check into git pre-commit
+  hook as a blocker (not warning). Configure Claude Code hooks to
+  enforce `action_routing` before tool execution.
+- **Status**: OPEN — high priority, directly enables Q47
+
 ### Q50 — QUALITY — 100 unfixed governance findings across 9 check categories
 
 - **Discovered**: 2026-04-10T16:55Z
