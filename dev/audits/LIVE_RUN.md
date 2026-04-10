@@ -2845,6 +2845,45 @@ which Q55 says we don't have yet. Start there.
   emits a warning) on mismatch.
 - **Status**: OPEN
 
+### Q46 — ARCHITECTURE — Governance only activates for dual-agent mode, not all modes of use
+
+- **Discovered**: 2026-04-10T15:55Z
+- **Severity**: critical / architectural
+- **Body**: The governance system (review authority, topology detection,
+  commit gates, push gates, checkpoint enforcement) is currently
+  designed around the dual-agent Codex+Claude workflow. When the
+  system degrades to single-agent, tools-only, or human-solo use,
+  most of the control surface goes stale or stops being checked.
+  The `reviewer_mode=active_dual_agent` declaration persists even
+  when zero live participants exist, because no mode demotion is
+  automatic. This means:
+  (1) A solo developer using the software has no governed commit
+  gate, no topology check, no review authority validation — the
+  control plane only activates when two AI agents are present.
+  (2) When dual-agent mode degrades (reviewer dies, conductor stalls),
+  the system reports the degradation but does not automatically
+  transition to a valid single-agent governance model. It just stays
+  in a broken dual-agent declaration with zero participants.
+  (3) The governance surface should work for ALL modes: human-solo,
+  single AI agent, dual-agent, swarm. Each mode should have its own
+  valid control contract — not "dual-agent or nothing."
+- **Root cause**: The governance system was built from the dual-agent
+  use case outward. Single-agent and human-solo are treated as
+  degraded states rather than first-class governed modes with their
+  own commit gates, review contracts, and topology requirements.
+- **Missing**:
+  1. Mode-specific governance contracts: what does valid review
+     authority look like in single-agent mode? In human-solo mode?
+  2. Automatic mode demotion: when dual-agent topology collapses,
+     the system should transition to single-agent governance (with
+     its own rules), not stay in a dead dual-agent declaration
+  3. Portable governance for end users: when someone uses this
+     software to build their project, the commit/review/push gates
+     should work for them too — not just for AI-to-AI coordination
+  4. The control plane should be the product's value proposition
+     for any user, not an internal AI coordination mechanism
+- **Status**: OPEN — critical, architectural, shapes product direction
+
 ### Q45 — COMMIT GATE — Implementation evidence treated as commit permission
 
 - **Discovered**: 2026-04-10T15:40Z
