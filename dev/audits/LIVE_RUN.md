@@ -2927,6 +2927,31 @@ which Q55 says we don't have yet. Start there.
   logic stays in the repo, not fragmented across tool configs.
 - **Status**: OPEN — high priority, directly enables Q47
 
+### Q56 — INTEGRATION — Q54+Q55 compose from existing systems, minimal changes needed
+
+- **Discovered**: 2026-04-10T18:05Z
+- **Severity**: high / integration-opportunity
+- **Body**: Research audit confirmed both Q54 and Q55 integrate into
+  existing infrastructure without new tools:
+  Q54 (self-audit): Add `"observer"` to `VALID_SIGNAL_TYPES` in
+  `governance_review_log.py` (1 line). Add optional `finding_type`
+  field to `GovernanceReviewInput` dataclass. Observer findings flow
+  into existing `finding_reviews.jsonl` via `governance-review --record
+  --signal-type observer`. No schema bump needed.
+  Q55 (priority engine): Triage system already has `SEVERITY_ORDER`
+  and `_sort_failures()`. Context graph already has typed edges (add
+  `depends_on` edge kind). Add `depends_on_finding_ids` and
+  `blocks_plan_ids` optional fields to findings. Wire scoring into
+  autonomy loop round selection. No new tables/ledgers.
+  Also discovered: `system-picture` command already provides a
+  composed multi-section view (startup, graph, review, coordination,
+  quality, governance, data science) — this is the Q48 foundation.
+  `rollout-tail` and `agent-mind` are governed monitoring commands
+  that should be the canonical way to observe agent sessions (Q41).
+  Three mobile status commands exist (`phone-status`, `mobile-status`,
+  `mobile-app`) but are disconnected from the main dashboard (Q51).
+- **Status**: OPEN — high priority integration, low effort
+
 ### Q55 — ARCHITECTURE — No priority/planning pass over accumulated evidence
 
 - **Discovered**: 2026-04-10T18:00Z
