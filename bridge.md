@@ -77,9 +77,9 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-04-10T14:25:17Z`
-- Last Codex poll (Local America/New_York): `2026-04-10 10:25:17 EDT`
-- Reviewer mode: `active_dual_agent`
+- Last Codex poll: `2026-04-10T16:07:24Z`
+- Last Codex poll (Local America/New_York): `2026-04-10 12:07:24 EDT`
+- Reviewer mode: `single_agent`
 - Last non-audit worktree hash: `0a9e30fa2a141d1aa2242c083c3baf00916101c33d784275c2b6c952dbfdecb7`
 - Current instruction revision: `a5e7f631bfba`
 - Last checkpoint action: `reviewer-checkpoint`
@@ -145,7 +145,7 @@ After implementation, run `devctl check --profile ci` and `devctl probe-report -
 
 ## Poll Status
 
-- Reviewer checkpoint updated through repo-owned tooling (mode: active_dual_agent; reason: startup-authority-dirty-worktree-blocks-relaunch; observed-tree: 0a9e30fa2a14; reviewed-tree: 0a9e30fa2a14; instruction-rev: a5e7f631bfba).
+- Reviewer heartbeat refreshed through repo-owned tooling (mode: single_agent; reason: explicit-downgrade-no-live-reviewer-q46; reviewed-tree: 0a9e30fa2a14).
 
 ## Current Verdict
 

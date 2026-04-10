@@ -9437,3 +9437,21 @@ receipt.
 
 Evidence: `dev/scripts/devctl/runtime/startup_gate.py`,
 `dev/scripts/devctl/tests/runtime/test_startup_gate.py`.
+
+### 2026-04-10 — Startup context now exposes observed control topology
+
+Q38's first slice promoted observed reviewer/implementer topology into typed
+startup truth instead of relying on planned bridge topology. Startup now derives
+`observed_control_topology` from supervised conductor count, bridge liveness,
+and runtime counts, maps it to `implementation_permission`, and projects both
+through summary, markdown, and machine-summary output. This is intentionally
+bounded to projection and derivation proof; the remaining Q38 work is to make
+launch/edit gates and pack/worktree lane binding consume these fields.
+
+Evidence: `dev/scripts/devctl/runtime/control_topology.py`,
+`dev/scripts/devctl/review_channel/observed_topology.py`,
+`dev/scripts/devctl/runtime/startup_context.py`,
+`dev/scripts/devctl/commands/governance/startup_context.py`,
+`dev/scripts/devctl/commands/governance/startup_context_render.py`,
+`dev/scripts/devctl/tests/review_channel/test_observed_topology.py`,
+`dev/scripts/devctl/tests/runtime/test_startup_context.py`.

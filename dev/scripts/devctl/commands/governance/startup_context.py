@@ -178,6 +178,16 @@ def _render_summary(ctx_dict: dict) -> str:
         f"blockers={_summary_blockers(ctx_dict)}",
         f"next={_summary_next_command(ctx_dict)}",
     ]
+    observed_control_topology = str(
+        ctx_dict.get("observed_control_topology") or ""
+    ).strip()
+    if observed_control_topology:
+        lines.append(f"observed_control_topology={observed_control_topology}")
+    implementation_permission = str(
+        ctx_dict.get("implementation_permission") or ""
+    ).strip()
+    if implementation_permission:
+        lines.append(f"implementation_permission={implementation_permission}")
     lines.extend(_summary_coordination_lines(ctx_dict))
     ahead = publication_backlog_count(ctx_dict)
     if ahead is not None and ahead > 0:
@@ -264,6 +274,16 @@ def _machine_summary(
     summary: dict[str, object] = {}
     summary["advisory_action"] = ctx.advisory_action
     summary["advisory_reason"] = ctx.advisory_reason
+    summary["observed_control_topology"] = getattr(
+        ctx,
+        "observed_control_topology",
+        "no_live_agents",
+    )
+    summary["implementation_permission"] = getattr(
+        ctx,
+        "implementation_permission",
+        "blocked",
+    )
     summary["bridge_active"] = ctx.reviewer_gate.bridge_active
     summary["checkpoint_required"] = (
         bool(push.checkpoint_required) if push is not None else False

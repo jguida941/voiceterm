@@ -461,6 +461,16 @@ def render_markdown(ctx_dict: dict) -> str:
         "- review_gate_allows_push: "
         f"{gate.get('review_gate_allows_push', False)}"
     )
+    observed_control_topology = str(
+        ctx_dict.get("observed_control_topology") or ""
+    ).strip()
+    if observed_control_topology:
+        lines.append(f"- observed_control_topology: `{observed_control_topology}`")
+    implementation_permission = str(
+        ctx_dict.get("implementation_permission") or ""
+    ).strip()
+    if implementation_permission:
+        lines.append(f"- implementation_permission: `{implementation_permission}`")
     lines.append("")
     _append_push_state(lines, ctx_dict)
     push_decision = ctx_dict.get("push_decision", {})

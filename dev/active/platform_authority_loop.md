@@ -1,6 +1,6 @@
 # Platform Authority Loop Plan
 
-**Status**: active  |  **Last updated**: 2026-04-09 | **Owner:** Tooling/control plane/product architecture
+**Status**: active  |  **Last updated**: 2026-04-10 | **Owner:** Tooling/control plane/product architecture
 Execution plan contract: required
 This spec remains execution mirrored in `dev/active/MASTER_PLAN.md` under
 `MP-377`. It is the current subordinate execution spec for the `P0`
@@ -1891,6 +1891,12 @@ blocker or exception in plan state before skipping the declared order.
 
 ## Session Resume
 
+- 2026-04-10 Q38 control-topology slice: resume by making the new
+  `observed_control_topology` / `implementation_permission` fields load
+  reviewer authority from live runtime evidence rather than widening into
+  pack/worktree routing yet. The first slice is intentionally bounded to the
+  startup-context projection plus derivation tests; later Q38 work should make
+  lane binding and pack/worktree routing mandatory after this field is stable.
 - 2026-04-08 typed-authority convergence absorption: keep this plan on the
   producer/identity/authority spine, not on dashboard polish. Resume in this
   order: 1) freeze the `load_current_review_state*` producer cutover contract
@@ -2553,6 +2559,14 @@ blocker or exception in plan state before skipping the declared order.
 
 ## Progress Log
 
+- 2026-04-10: Started the Q38 observed-control-topology closure under `MP-377`.
+  The first slice derives `observed_control_topology` from supervised conductor
+  evidence, bridge liveness, and runtime counts, derives
+  `implementation_permission`, and projects both fields through
+  `startup-context` summary/markdown/machine-summary output. This absorbs the
+  live Q37 follow-up without treating planned review-channel topology as
+  authority. Remaining work is to wire these fields into hard launch/edit gates
+  plus mandatory pack/worktree lane binding.
 - 2026-04-09: Absorbed the repo-specific identity/lineage slice from the
   graph-backed convergence intake into this owner doc. The current
   implementation pressure is now explicit: freeze the minted tuple across

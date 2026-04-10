@@ -144,6 +144,8 @@ class TestStartupContextBuild(unittest.TestCase):
         self.assertIn("rejected_rule_traces", d)
         self.assertIn("contract_ownership_map", d)
         self.assertIn("snapshot_id", d)
+        self.assertIn("observed_control_topology", d)
+        self.assertIn("implementation_permission", d)
 
     def test_to_dict_serializes_remote_control_attachment(self) -> None:
         ctx = StartupContext(
@@ -973,6 +975,38 @@ class TestCLIRegistration(unittest.TestCase):
                 )
             ),
         )
+
+    def test_summary_surfaces_observed_control_topology(self) -> None:
+        rendered = _render_summary(
+            {
+                "advisory_action": "repair_reviewer_loop",
+                "advisory_reason": "reviewer_absent",
+                "observed_control_topology": "implementer_without_reviewer",
+                "implementation_permission": "suspended",
+                "reviewer_gate": {
+                    "implementation_blocked": True,
+                    "implementation_block_reason": "reviewer_absent",
+                    "review_gate_allows_push": False,
+                },
+                "startup_authority": {"ok": False},
+                "governance": {
+                    "push_enforcement": {
+                        "checkpoint_required": False,
+                        "safe_to_continue_editing": True,
+                    }
+                },
+                "push_decision": {
+                    "action": "await_review",
+                    "next_step_command": "",
+                },
+            }
+        )
+
+        self.assertIn(
+            "observed_control_topology=implementer_without_reviewer",
+            rendered,
+        )
+        self.assertIn("implementation_permission=suspended", rendered)
 
     def test_summary_reports_blockers_and_rerun_when_checkpoint_is_required(self) -> None:
         rendered = _render_summary(

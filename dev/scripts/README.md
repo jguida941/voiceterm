@@ -583,7 +583,10 @@ Portability note:
   `startup-context.action`, `interaction_mode`,
   `reviewer_runtime.conductor_visibility`, and
   `reviewer_runtime.session_owner.session_visibility` together before picking
-  `--terminal terminal-app` vs `--terminal none`. Startup now also carries a bounded
+  `--terminal terminal-app` vs `--terminal none`. Startup also projects
+  `observed_control_topology` and `implementation_permission` from supervised
+  conductor counts, bridge liveness, and runtime counts instead of relying on
+  planned bridge topology as live implementation authority. Startup now also carries a bounded
   `contract_ownership_map` derived from the shared `ContractSpec` registry plus
   the same shared `snapshot_id` stamped onto its `push_decision`, so bootstrap
   consumers can see both startup-surface ownership and cross-surface snapshot

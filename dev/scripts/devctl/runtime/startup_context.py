@@ -17,6 +17,7 @@ from .reviewer_runtime_models import (
 if TYPE_CHECKING:
     from .review_state_models import ReviewState
 from .conductor_capability import normalize_reviewer_mode
+from .control_topology import derive_startup_control_truth
 from .governance_scan import scan_repo_governance_safely
 from .operator_context import is_resolved, resolve_operator_interaction_mode
 from .project_governance import ProjectGovernance
@@ -76,6 +77,8 @@ class StartupContext:
     push_decision: PushDecisionState = field(default_factory=PushDecisionState)
     advisory_action: str = "continue_editing"
     advisory_reason: str = ""
+    observed_control_topology: str = "no_live_agents"
+    implementation_permission: str = "blocked"
     rule_summary: str = ""
     match_evidence: tuple[RuleMatchEvidenceRecord, ...] = ()
     rejected_rule_traces: tuple[RejectedRuleTraceRecord, ...] = ()
@@ -93,6 +96,8 @@ class StartupContext:
         d["contract_id"] = self.contract_id
         d["advisory_action"] = self.advisory_action
         d["advisory_reason"] = self.advisory_reason
+        d["observed_control_topology"] = self.observed_control_topology
+        d["implementation_permission"] = self.implementation_permission
         d["rule_summary"] = self.rule_summary
         d["match_evidence"] = [
             evidence.to_dict() for evidence in self.match_evidence
@@ -427,6 +432,9 @@ def build_startup_context(
         )
     )
     push_decision = replace(push_decision, snapshot_id=snapshot_id)
+    observed_control_topology, implementation_permission = derive_startup_control_truth(
+        review_state
+    )
 
     return StartupContext(
         governance=governance,
@@ -434,6 +442,8 @@ def build_startup_context(
         push_decision=push_decision,
         advisory_action=advisory.action,
         advisory_reason=advisory.reason,
+        observed_control_topology=observed_control_topology,
+        implementation_permission=implementation_permission,
         rule_summary=advisory.rule_summary,
         match_evidence=advisory.match_evidence,
         rejected_rule_traces=advisory.rejected_rule_traces,
@@ -449,6 +459,8 @@ def build_startup_context(
         contract_ownership_map=build_contract_ownership_map(),
         snapshot_id=snapshot_id,
     )
+
+
 def blocks_new_implementation(ctx: StartupContext) -> bool:
     """Return whether the typed startup receipt blocks another edit slice.
 

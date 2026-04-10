@@ -591,7 +591,10 @@ Three quality layers matter in practice:
     repo-owned artifacts or terminal output. That same compact summary now
     also surfaces unpublished stack depth (`ahead_of_upstream_commits`) plus
     governed-push timing guidance when local commits are waiting on review or
-    checkpoint clearance. The slim
+    checkpoint clearance. It also projects `observed_control_topology` and
+    `implementation_permission` from supervised conductor counts, bridge
+    liveness, and runtime counts, so startup can report when the intended
+    reviewer/implementer topology has collapsed before push-time checks. The slim
     `context-graph --mode bootstrap` helper following as the bounded graph
     companion. That same graph now emits first-pass `guards` / `scoped_by`
     relation families, so targeted

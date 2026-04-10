@@ -314,6 +314,15 @@
   dataclass `local_terminal` default. Parity coverage landed in
   `dev/scripts/devctl/tests/runtime/test_coordination_loader_wiring.py`
   and `dev/scripts/devctl/tests/runtime/test_operator_mode_fail_closed.py`.
+- Current 2026-04-10 observed control-topology slice inside that same lane
+  (Q38 first closure): startup now projects live `observed_control_topology`
+  and `implementation_permission` from supervised conductor counts, bridge
+  liveness, and runtime counts via
+  `dev/scripts/devctl/runtime/control_topology.py`. This deliberately
+  treats planned review-channel topology as insufficient for implementation
+  authority when the live reviewer/implementer topology has collapsed. Remaining
+  Q38 work is to wire these fields into hard launch/edit gates plus mandatory
+  pack/worktree lane binding.
 - Current 2026-04-08 governed mutation / dashboard queue closure inside that
   same lane: the remaining drift is now specific, not abstract. `devctl commit`
   must fail closed on unresolved operator mode instead of silently

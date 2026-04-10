@@ -6320,6 +6320,14 @@ Execution order for this section:
 
 ## Progress Log
 
+- 2026-04-10: Started Q38's observed control-topology closure as a bounded
+  startup-authority slice, not a full pack/worktree routing rewrite. The new
+  `dev/scripts/devctl/runtime/control_topology.py` reducer derives
+  `observed_control_topology` from supervised conductor counts, bridge
+  liveness, and runtime counts, maps it to `implementation_permission`, and
+  projects both through `startup-context` summary, markdown, and machine-summary
+  output. The remaining Q38 closure is the hard gate: bind launch/edit
+  permission to these fields plus mandatory pack/worktree lane assignment.
 - 2026-04-10: Promoted the issue-to-guard learning-loop audit into the
   existing `MP-377` governance closeout path rather than creating a new plan.
   The first implementation is intentionally small: `FindingReview` remains the
