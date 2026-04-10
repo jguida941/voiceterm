@@ -354,6 +354,49 @@ class SliceBuilderFilterTests(unittest.TestCase):
                 slice_.latest_escalation_at, "2026-04-09T20:00:10.000Z"
             )
 
+    def test_since_cursor_survives_over_400_noise_lines(self) -> None:
+        """Regression: decision events must not be lost behind >400 noise lines.
+
+        The old parser hard-capped the tail window at 400 raw lines
+        *before* the cursor filter ran, silently dropping decision events
+        beyond that window when using --since-cursor.
+        """
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            cursor_ts = "2026-04-09T19:59:59.000Z"
+            first_decision = _reasoning_line(
+                "2026-04-09T20:00:00.000Z", "first decision"
+            )
+            noise_lines = [
+                _token_count_line(
+                    f"2026-04-09T20:00:{i // 60:02d}.{i % 60:03d}Z"
+                )
+                for i in range(1, 420)
+            ]
+            second_decision = _reasoning_line(
+                "2026-04-09T20:10:00.000Z", "second decision"
+            )
+            all_lines = [first_decision] + noise_lines + [second_decision]
+            session_path = _write_codex_session(root, lines=all_lines)
+
+            from dev.scripts.devctl.commands.agent_mind.command import (
+                _build_slice_from_session,
+            )
+            slice_ = _build_slice_from_session(
+                session_path,
+                provider="codex",
+                limit=20,
+                since_cursor=cursor_ts,
+            )
+            self.assertGreaterEqual(
+                slice_.event_count,
+                2,
+                f"Expected >=2 decision events, got {slice_.event_count}",
+            )
+            timestamps = [e.timestamp for e in slice_.events]
+            self.assertIn("2026-04-09T20:00:00.000Z", timestamps)
+            self.assertIn("2026-04-09T20:10:00.000Z", timestamps)
+
     def test_slice_deterministic_for_frozen_fixture(self) -> None:
         event = RolloutEvent(
             timestamp="2026-04-09T20:00:00.000Z",
@@ -504,6 +547,45 @@ class AgentMindCommandTests(unittest.TestCase):
                 exit_code = agent_mind.run(args)
             self.assertEqual(exit_code, 1)
             self.assertIn("no codex session", stderr.getvalue())
+
+    def test_since_cursor_keeps_decision_before_more_than_400_noise_lines(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            noise_lines = [
+                _token_count_line(
+                    f"2026-04-09T20:{1 + index // 60:02d}:{index % 60:02d}.000Z"
+                )
+                for index in range(401)
+            ]
+            _write_codex_session(
+                root,
+                lines=[
+                    _reasoning_line("2026-04-09T20:00:00.000Z", "old"),
+                    _reasoning_line(
+                        "2026-04-09T20:00:01.000Z",
+                        "decision survives",
+                    ),
+                    *noise_lines,
+                ],
+            )
+            args = _make_args(
+                sessions_root=str(root),
+                format="json",
+                limit=10,
+                since_cursor="2026-04-09T20:00:00.000Z",
+            )
+            captured = StringIO()
+            with patch("sys.stdout", captured):
+                exit_code = agent_mind.run(args)
+            self.assertEqual(exit_code, 0)
+            payload = json.loads(captured.getvalue())
+            self.assertEqual(payload["event_count"], 1)
+            self.assertEqual(
+                payload["events"][0]["summary"],
+                "decision survives",
+            )
 
     def test_cli_parser_accepts_agent_mind_flags(self) -> None:
         parser = build_parser()

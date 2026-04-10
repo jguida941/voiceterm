@@ -1396,6 +1396,13 @@
   detached publisher/reviewer-supervisor runtime before rebuilding status, so
   stale daemon heartbeats cannot reassert `active_dual_agent` metadata and
   push startup-authority / review-status back into relaunch deadlock.
+- 2026-04-10 P1/P2 reviewer follow-up in the same lane: `pipeline
+  refresh-authorization` now verifies current HEAD before refreshing and
+  refuses stale or unavailable HEAD cases, recommending `recover` for stale
+  authorizations instead of minting a fresh window for the wrong commit.
+  `agent-mind --since-cursor` now avoids the fixed 400 raw-line tail when a
+  cursor is present, so decision events survive hundreds of intervening
+  low-signal rollout lines before the next poll.
 - 2026-03-29 package-layout baseline-debt enforcement closure: the
   `check_package_layout` guard now supports `--fail-on-baseline-debt` with
   optional `--baseline-debt-root` filtering, promoting detected baseline debt

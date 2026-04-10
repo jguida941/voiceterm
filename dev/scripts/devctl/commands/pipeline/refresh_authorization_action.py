@@ -22,14 +22,18 @@ from .support import (
     REFRESHABLE_STATES,
     REFRESH_RECEIPT_FILENAME,
     authorization_of,
+    head_has_moved,
     load_pipeline_payload,
     make_refreshed_authorization,
     pipeline_id_of,
     pipeline_state_of,
+    resolve_current_head,
     resolve_pipeline_paths,
     write_pipeline_payload,
     write_receipt,
 )
+
+_RECOVER_RECOMMENDATION = "recover"
 
 
 def run_refresh_authorization(args) -> int:
@@ -87,6 +91,22 @@ def _apply_refresh(
             pipeline_id=pipeline_id,
         )
 
+    current_head = resolve_current_head(repo_root=paths.repo_root)
+    if not current_head:
+        return _refused(
+            paths,
+            "current_head_unavailable",
+            pipeline_id=pipeline_id,
+            recommended_next_action="none",
+        )
+    if head_has_moved(payload, current_head=current_head):
+        return _refused(
+            paths,
+            "head_moved_since_authorization",
+            pipeline_id=pipeline_id,
+            recommended_next_action=_RECOVER_RECOMMENDATION,
+        )
+
     previous_auth_id = str(existing_auth.get("authorization_id") or "")
     previous_expires = str(existing_auth.get("expires_at_utc") or "")
 
@@ -132,14 +152,18 @@ def _refused(
     reason_refused: str,
     *,
     pipeline_id: str,
+    recommended_next_action: str = "",
 ) -> dict[str, Any]:
-    return {
+    result = {
         "ok": False,
         "action": "refresh-authorization",
         "reason_refused": reason_refused,
         "pipeline_id": pipeline_id,
         "pipeline_artifact_path": str(paths.pipeline_path),
     }
+    if recommended_next_action:
+        result["recommended_next_action"] = recommended_next_action
+    return result
 
 
 def _render_markdown(result: dict[str, Any]) -> str:
@@ -148,6 +172,7 @@ def _render_markdown(result: dict[str, Any]) -> str:
         lines.extend([
             "- ok: `false`",
             f"- refused: `{result.get('reason_refused','unknown')}`",
+            f"- recommended: `{result.get('recommended_next_action','')}`",
             f"- artifact: `{result.get('pipeline_artifact_path','')}`",
         ])
         if result.get("pipeline_id"):

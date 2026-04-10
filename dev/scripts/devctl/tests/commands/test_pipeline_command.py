@@ -20,6 +20,7 @@ from dev.scripts.devctl.commands.pipeline.abandon_action import run_abandon
 from dev.scripts.devctl.commands.pipeline.command import run as pipeline_run
 from dev.scripts.devctl.commands.pipeline.recover_action import run_recover
 from dev.scripts.devctl.commands.pipeline.refresh_authorization_action import (
+    _apply_refresh as apply_refresh_authorization,
     run_refresh_authorization,
 )
 from dev.scripts.devctl.commands.pipeline.status_action import (
@@ -325,6 +326,59 @@ class PipelineRefreshAuthorizationTests(unittest.TestCase):
             self.assertGreater(parsed, datetime.now(timezone.utc))
             receipt_path = fixture.receipts_root / REFRESH_RECEIPT_FILENAME
             self.assertTrue(receipt_path.exists())
+        finally:
+            fixture.close()
+
+    def test_refresh_refuses_when_head_has_moved(self) -> None:
+        moved_head = "cafebabe00000000000000000000000000000000"
+        fixture = _PipelineFixture(fake_head=moved_head)
+        try:
+            expired = "2000-01-01T00:00:00.000000Z"
+            fixture.write_payload(
+                _sample_pipeline_payload(expires_at_utc=expired)
+            )
+            args = fixture.namespace(action="refresh-authorization")
+            rc = run_refresh_authorization(args)
+            self.assertEqual(rc, 1)
+            result = apply_refresh_authorization(
+                paths=fixture.paths(),
+                reason="test",
+                operator_actor="operator",
+            )
+            self.assertEqual(result["recommended_next_action"], "recover")
+            # Pipeline artifact must be untouched — no fresh auth minted.
+            updated = fixture.read_payload()
+            self.assertEqual(
+                updated["push_authorization"]["authorization_id"],
+                "push-auth-test-001",
+            )
+            self.assertEqual(
+                updated["push_authorization"]["expires_at_utc"],
+                expired,
+            )
+        finally:
+            fixture.close()
+
+    def test_refresh_refuses_when_head_unavailable(self) -> None:
+        fixture = _PipelineFixture(fake_head="")
+        try:
+            expired = "2000-01-01T00:00:00.000000Z"
+            fixture.write_payload(
+                _sample_pipeline_payload(expires_at_utc=expired)
+            )
+            result = apply_refresh_authorization(
+                paths=fixture.paths(),
+                reason="test",
+                operator_actor="operator",
+            )
+            self.assertFalse(result["ok"])
+            self.assertEqual(result["reason_refused"], "current_head_unavailable")
+            self.assertEqual(result["recommended_next_action"], "none")
+            updated = fixture.read_payload()
+            self.assertEqual(
+                updated["push_authorization"]["expires_at_utc"],
+                expired,
+            )
         finally:
             fixture.close()
 

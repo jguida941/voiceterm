@@ -547,6 +547,14 @@ Three quality layers matter in practice:
     shared CodeRabbit gate now treats an unpublished local SHA as
     non-blocking until publish when no local remote-tracking ref contains it
     yet, instead of hard-failing an impossible pre-push workflow-run check.
+  - `devctl pipeline --action refresh-authorization` is only the same-HEAD
+    expiry-window recovery path. It must resolve current HEAD first, refuse
+    when the recorded `authorized_head_sha` no longer matches, and direct the
+    operator to `recover` rather than minting a fresh-looking authorization for
+    the wrong commit. Cursor-based `devctl agent-mind --since-cursor` polling
+    has the matching fail-closed rule on the read side: it must not apply a
+    fixed raw-line rollout tail before the cursor filter, because a busy
+    session can emit hundreds of noise lines after an unseen decision event.
   - `startup-context` is the typed startup packet for those same sessions.
     It should read reviewer/publish gating from typed
     `reviewer_runtime.review_acceptance.review_accepted` and

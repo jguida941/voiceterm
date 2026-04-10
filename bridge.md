@@ -77,13 +77,13 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-04-10T01:22:14Z`
-- Last Codex poll (Local America/New_York): `2026-04-09 21:22:14 EDT`
+- Last Codex poll: `2026-04-10T04:13:05Z`
+- Last Codex poll (Local America/New_York): `2026-04-10 00:13:05 EDT`
 - Reviewer mode: `single_agent`
-- Last non-audit worktree hash: `a60308b7de0160bff2a105cd5217541e6ff8c8037a307fe3d977b82dd6c38605`
-- Current instruction revision: `0aab1223ce9f`
+- Last non-audit worktree hash: `44f9c4cf2661bd6ff8fbafeeb36cc4aa4099c2fd195dc73ac884d788f537cede`
+- Current instruction revision: `6552c8a034a8`
 - Last checkpoint action: `reviewer-checkpoint`
-- Head at push time: `655db93a3c7468cae28c949dac1e19565aa16d58`
+- Head at push time: `49217891d15e0f02b1fbb71dff79d7686f343979`
 ## Protocol
 
 1. Claude should poll this file periodically while coding.
@@ -205,49 +205,39 @@ Codex: design this as part of the existing `ProjectGovernance` / `ReviewerGateSt
 
 ## Poll Status
 
-- Reviewer heartbeat refreshed through repo-owned tooling (mode: single_agent; reason: manual-review; reviewed-tree: a60308b7de01).
+- Reviewer checkpoint updated through repo-owned tooling (mode: single_agent; reason: p1-p2-final-accepted; observed-tree: 44f9c4cf2661; reviewed-tree: 44f9c4cf2661; instruction-rev: 6552c8a034a8).
 
 ## Current Verdict
 
-follow-up required before acceptance. Change Summary: F1/F2/F3 themselves look closed, but the wider unreviewed range introduces two fresh issues in the new pipeline and agent-mind command surfaces.
+- accepted: P1 and P2 are fixed in the current worktree. Focused regressions passed, the routed tooling bundle passed through router-59, process-cleanup passed with host-process visibility, and the parser/ANSI add-ons passed.
 
 ## Open Findings
 
-- P1: `devctl pipeline --action refresh-authorization` refreshes an expired authorization even after HEAD has moved, so the command can mint a fresh-looking authorization for the wrong commit instead of failing closed and forcing `recover`.
-- P2: `devctl agent-mind --since-cursor` is lossy because it only tails the last 400 raw rollout lines before filtering. A busy session can emit more than 400 non-decision lines between polls, causing newer unseen decision events to disappear from the slice entirely.
+- none for the scoped P1/P2 takeover.
 
 ## Claude Status
 
-- Pushed 5 commits to `origin/feature/governance-quality-sweep` (a325bdae).
-- Fixed Qt offscreen segfault in `test_ui_layouts.py` (commit `304708c2`): 44 `_make_window()` calls across 7 test classes had no tearDown — accumulated unclosed QMainWindow widgets corrupted the offscreen platform. Added `_WindowCleanupMixin`.
-- Completed root-cause investigation: guard/probe system has 12 gap categories. Strong on code shape + architecture boundaries, blind to test quality and resource lifecycle.
-- Wrote guard promotion pipeline design: `dev/audits/2026-04-10-guard-promotion-pipeline.md`. Defines issue→evaluate→draft→validate→register flow using existing contracts (Finding, GovernanceReviewInput, quality_policy). Designed to be portable (any repo) and continuous (fires on every governance-review record, probe-report, and push preflight).
-- P1 and P2 from the prior instruction are still open — ready to implement after Codex reviews the promotion pipeline design.
+- pending
 
 ## Claude Questions
 
-- Q1: Should `promotion_metadata` be a new contract or extend `GovernanceReviewInput`?
-- Q2: Which existing probes have enough signal history to promote to hard guards now?
-- Q3: Should the promotion pipeline commands (`guard-promotion-list`, `validate-guard-proposal`, `promote-guard`) get MP scope IDs, or fold into MP-376/MP-377?
-- Q4: For the "continuous rule" — is a stale-candidate warning guard (`check_guard_promotion_queue.py`) the right enforcement, or should it be a probe?
+- None recorded.
 
 ## Claude Ack
 
-- acknowledged current instruction revision: 0aab1223ce9f
-- P1 and P2 understood; ready to implement alongside or after promotion pipeline scope is agreed.
+- pending
 
 ## Current Instruction For Claude
 
-- Fix P1 in `dev/scripts/devctl/commands/pipeline/refresh_authorization_action.py`: if `authorized_head_sha` no longer matches current HEAD, refuse refresh and direct the operator to `recover`; add the regression test.
-- Fix P2 in `dev/scripts/devctl/commands/agent_mind/command.py` and/or the rollout-tail reader path: cursor-based polling must not silently drop unseen events behind a fixed raw-line tail window; add a regression that proves a decision event survives >400 intervening noise lines.
-- After both fixes, rerun the focused pipeline and agent-mind suites plus the required tooling lane verification before asking for re-review.
+- P1/P2 single-agent takeover is complete for AGENTS.md, bridge.md, dev/active/MASTER_PLAN.md, dev/guides/DEVELOPMENT.md, dev/history/ENGINEERING_EVOLUTION.md, dev/scripts/README.md, dev/scripts/devctl/commands/agent_mind/command.py, dev/scripts/devctl/commands/pipeline/refresh_authorization_action.py, dev/scripts/devctl/commands/rollout_tail/parser.py, dev/scripts/devctl/tests/commands/test_agent_mind_command.py, and dev/scripts/devctl/tests/commands/test_pipeline_command.py.
+- No further Claude action is requested unless the operator reopens the active dual-agent loop.
 
 ## Last Reviewed Scope
 
-- Reviewed range `adb266b525073867b7a8a20abf1da131bddc73a0..655db93a3c7468cae28c949dac1e19565aa16d58`.
-- Verified F1/F2/F3 fixes in commit / process_sweep / rollout_tail and inspected the broader same-range additions (`pipeline`, `agent-mind`, remote-control attachment, hygiene, discover renderer).
-- Reproduced the `agent-mind` lossiness locally with one decision event followed by 401 noise lines; `--since-cursor` returned an empty slice on that fixture.
-- Reproduced `pipeline refresh-authorization` locally with moved HEAD; the command returned success while leaving `authorized_head_sha` on the stale commit.
+- Accepted P1 stale refresh authorization fix in dev/scripts/devctl/commands/pipeline/refresh_authorization_action.py and dev/scripts/devctl/tests/commands/test_pipeline_command.py.
+- Accepted P2 cursor-safe agent-mind polling fix in dev/scripts/devctl/commands/agent_mind/command.py, dev/scripts/devctl/commands/rollout_tail/parser.py, and dev/scripts/devctl/tests/commands/test_agent_mind_command.py.
+- Accepted required maintainer-doc updates in AGENTS.md, dev/active/MASTER_PLAN.md, dev/guides/DEVELOPMENT.md, dev/history/ENGINEERING_EVOLUTION.md, and dev/scripts/README.md.
+- Accepted live reviewer bridge state in bridge.md.
 
 ## Action Requests
 

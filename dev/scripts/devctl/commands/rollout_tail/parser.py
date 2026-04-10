@@ -15,9 +15,14 @@ def parse_rollout_file(
     path: Path,
     *,
     provider: str,
-    limit: int,
+    limit: int | None,
 ) -> list[RolloutEvent]:
-    """Parse ``limit`` most recent lines from a provider JSONL trace."""
+    """Parse recent lines from a provider JSONL trace.
+
+    When *limit* is ``None`` the entire file is read — required for
+    cursor-based polling where the caller cannot know how many raw lines
+    separate the cursor from the newest events.
+    """
     session_id = session_id_from_path(path, provider=provider)
     lines = _tail_lines(path, limit=limit)
     events: list[RolloutEvent] = []
@@ -207,8 +212,12 @@ def _first_nonempty(raw: dict[str, Any]) -> str:
     return str(raw.get("type", "unknown"))
 
 
-def _tail_lines(path: Path, *, limit: int) -> list[str]:
+def _tail_lines(path: Path, *, limit: int | None) -> list[str]:
     """Read ``limit`` tail lines from a file without buffering the whole file.
+
+    When *limit* is ``None`` the entire file is read — this is the correct
+    mode for cursor-based polling where the caller must see every line
+    regardless of how many noise lines precede the decision events.
 
     The reverse-read loop grows ``data`` in 64 KiB blocks until either the
     entire file has been consumed or at least ``limit + 1`` newlines are
@@ -216,8 +225,13 @@ def _tail_lines(path: Path, *, limit: int) -> list[str]:
     complete, so the possibly-partial leading line can be dropped whenever
     the byte budget stopped short of the file start.
     """
-    if limit <= 0:
+    if limit is not None and limit <= 0:
         return []
+    if limit is None:
+        try:
+            return path.read_text(encoding="utf-8", errors="replace").splitlines()
+        except OSError:
+            return []
     try:
         with path.open("rb") as handle:
             handle.seek(0, 2)

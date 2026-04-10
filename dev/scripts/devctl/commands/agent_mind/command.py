@@ -93,10 +93,15 @@ def _build_slice_from_session(
     limit: int,
     since_cursor: str | None,
 ):
+    # When cursor-based polling is active, read the entire file so the
+    # cursor filter sees every event regardless of how many noise lines
+    # intervene.  Without a cursor the fixed tail window keeps the
+    # common-case fast and memory-bounded.
+    parser_limit: int | None = None if since_cursor else _PARSER_TAIL_LIMIT
     events = parse_rollout_file(
         session_path,
         provider=provider,
-        limit=_PARSER_TAIL_LIMIT,
+        limit=parser_limit,
     )
     request = SliceRequest(
         agent_provider=provider,

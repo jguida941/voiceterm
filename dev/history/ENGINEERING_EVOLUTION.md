@@ -122,6 +122,31 @@ downgrades into non-active mode, then rebuilds status from that retired
 lifecycle state. That keeps local `single_agent` takeover durable instead of
 letting stale daemon heartbeats silently restore `active_dual_agent`.
 
+### 2026-04-10 - Pipeline refresh and agent-mind cursor polling now fail closed on stale authority
+
+Fact: the follow-up reviewer slice found two authority gaps after the earlier
+remote-control fixes. `devctl pipeline --action refresh-authorization` could
+refresh an expired authorization even after HEAD moved away from the
+authorization's `authorized_head_sha`, making a stale approval look fresh.
+`devctl agent-mind --since-cursor` also parsed only the last 400 raw rollout
+lines before filtering by cursor, so one unseen decision followed by hundreds
+of token/noise events could disappear from the next cross-agent mind slice.
+
+This matters because both paths are supposed to preserve typed authority, not
+paper over it. Refreshing is only safe when it extends the approval window for
+the same commit; once HEAD moves, the operator must go through `recover`.
+Cursor polling is the read-side equivalent: a busy session should not lose a
+decision just because low-signal rollout noise exceeded a local tail window.
+
+The closure is narrow. The refresh action now resolves current HEAD before
+mutation, refuses unavailable HEAD, refuses stale `authorized_head_sha`, and
+returns `recommended_next_action=recover` for the stale-head case without
+writing a receipt. `agent-mind` now reads the full rollout file only when a
+cursor is supplied, preserving the existing bounded tail for cursorless
+snapshots while making cursor-based polling lossless across more than 400
+intervening noise lines. Focused regressions cover stale-head refresh refusal,
+HEAD-unavailable refusal, and decision survival behind the noisy cursor gap.
+
 ### 2026-04-09 - Remote Claude wrapper now follows typed runtime and governed mutation
 
 Fact: the phone-steered Claude remote-control wrapper was still too prompt-
