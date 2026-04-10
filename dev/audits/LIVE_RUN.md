@@ -2917,6 +2917,14 @@ which Q55 says we don't have yet. Start there.
 - **Missing**: Wire `commit_permission` check into git pre-commit
   hook as a blocker (not warning). Configure Claude Code hooks to
   enforce `action_routing` before tool execution.
+- **Cross-tool enforcement gap**: Claude Code hooks, Codex hooks,
+  and git hooks are three separate enforcement systems. Each tool
+  has its own hook config format. If governance is configured in one
+  but not the others, agents bypass it by using a different tool.
+  The fix: one repo-owned governance command that ALL tools call.
+  Hook stubs for each tool (Claude Code, Codex, git, IDE) should
+  be thin wrappers around the same `devctl` check. The governance
+  logic stays in the repo, not fragmented across tool configs.
 - **Status**: OPEN — high priority, directly enables Q47
 
 ### Q50 — QUALITY — 100 unfixed governance findings across 9 check categories
