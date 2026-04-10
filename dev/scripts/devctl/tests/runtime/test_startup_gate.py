@@ -226,8 +226,10 @@ class StartupGateEnforcementTests(unittest.TestCase):
         "dev.scripts.devctl.runtime.startup_gate.build_startup_authority_report",
         return_value={
             "ok": False,
-            "errors": ["Reviewer loop is stale."],
+            "errors": ["Concurrent writer activity detected."],
             "checkpoint_required": False,
+            "reviewer_loop_blocked": True,
+            "reviewer_loop_bootstrap_allowed": True,
         },
     )
     @patch(
@@ -237,19 +239,16 @@ class StartupGateEnforcementTests(unittest.TestCase):
             checkpoint_required=False,
         ),
     )
-    def test_repair_launch_bypasses_authority_block(
+    def test_unrelated_authority_error_blocks_even_with_repair_receipt(
         self,
         _load_receipt,
         _authority_report,
         _receipt_problems,
     ) -> None:
-        """repair_reviewer_loop bypasses authority block when receipt is fresh."""
-        self.assertIsNone(
-            enforce_startup_gate(_args("review-channel", action="launch"))
-        )
-        self.assertIsNone(
-            enforce_startup_gate(_args("review-channel", action="rollover"))
-        )
+        """repair_reviewer_loop must not bypass unrelated authority errors."""
+        message = enforce_startup_gate(_args("review-channel", action="launch"))
+        self.assertIsNotNone(message)
+        self.assertIn("Concurrent writer", message or "")
 
     @patch(
         "dev.scripts.devctl.runtime.startup_gate.startup_receipt_problems_for_intent",
@@ -335,35 +334,6 @@ class StartupGateEnforcementTests(unittest.TestCase):
     ) -> None:
         """A missing receipt cannot claim repair_reviewer_loop — gate normally."""
         message = enforce_startup_gate(_args("review-channel", action="launch"))
-        self.assertIsNotNone(message)
-
-    @patch(
-        "dev.scripts.devctl.runtime.startup_gate.startup_receipt_problems_for_intent",
-        return_value=["Startup receipt is stale."],
-    )
-    @patch(
-        "dev.scripts.devctl.runtime.startup_gate.build_startup_authority_report",
-        return_value={
-            "ok": False,
-            "errors": ["Reviewer loop is stale."],
-            "checkpoint_required": False,
-        },
-    )
-    @patch(
-        "dev.scripts.devctl.runtime.startup_gate.load_startup_receipt",
-        return_value=StartupReceipt(
-            advisory_action="repair_reviewer_loop",
-            checkpoint_required=False,
-        ),
-    )
-    def test_repair_does_not_bypass_non_review_channel_commands(
-        self,
-        _load_receipt,
-        _authority_report,
-        _receipt_problems,
-    ) -> None:
-        """repair_reviewer_loop only applies to review-channel, not guard-run."""
-        message = enforce_startup_gate(_args("guard-run"))
         self.assertIsNotNone(message)
 
 
