@@ -2845,6 +2845,36 @@ which Q55 says we don't have yet. Start there.
   emits a warning) on mismatch.
 - **Status**: OPEN
 
+### Q44 — DASHBOARD — Governed dashboard contradicts itself and misses live agents
+
+- **Discovered**: 2026-04-10T15:30Z
+- **Severity**: high / state-drift
+- **Body**: Running `devctl dashboard --format terminal` (the governed
+  command) exposed several internal contradictions and blind spots:
+  (1) `Active agents: 0 live` and `Codex: NO SESSION` while PID 15617
+  (`codex exec --full-auto`) is actively running and writing files.
+  The dashboard only counts governed conductor sessions, not standalone
+  `codex exec` processes. Any agent running outside the conductor
+  launch path is invisible to the dashboard.
+  (2) `Mode: Dual-agent` vs `Topology: single_agent -> single_agent`
+  on the same screen. Declared mode contradicts effective topology.
+  (3) `Owner: reviewer, next: fix code-shape debt` but `reviewer:
+  overdue` and `Active agents: 0 live`. Owner is assigned to a role
+  that has no live agent.
+  (4) `process-cleanup FAIL` at 15:22 — process detection failed,
+  possibly from multiple untracked Codex sessions.
+  (5) `Dirty: 17 files` from Codex writing implementation code while
+  Claude committed findings — no coordination, no collision detection.
+  (6) The dashboard shows one coherent-looking screen, but the data
+  comes from multiple subsystems that disagree. This is Q39
+  (state-source drift) manifesting inside the governed dashboard
+  itself, not just in ad hoc narration.
+- **Root cause**: `codex exec` processes do not register with the
+  conductor session system. The dashboard's "active agents" count is
+  only as good as its session registry. Declared `reviewer_mode` is
+  not reconciled with effective topology before rendering.
+- **Status**: OPEN — paired with Q38/Q39
+
 ### Q43 — MODE DESIGN — Chat-assigned modes are not a governance surface
 
 - **Discovered**: 2026-04-10T15:20Z
