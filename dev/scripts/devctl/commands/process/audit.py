@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 
 from ...common import emit_output, pipe_output, write_output
+from ...config import REPO_ROOT
 from ...process_sweep.core import (
     DEFAULT_ORPHAN_MIN_AGE_SECONDS,
     DEFAULT_STALE_MIN_AGE_SECONDS,
@@ -15,6 +16,7 @@ from ...process_sweep.core import (
     split_stale_processes,
 )
 from ...time_utils import utc_timestamp
+from ..check.process_sweep import _protected_registered_conductor_pids
 
 PROCESS_LINE_MAX_LEN = 180
 PROCESS_REPORT_LIMIT = 12
@@ -25,10 +27,19 @@ SUPERVISED_CONDUCTOR_SCOPE = "review_channel_conductor"
 def collect_process_audit_state() -> dict:
     """Collect one host process snapshot and categorize repo-related rows."""
     rows, scan_warnings = scan_repo_hygiene_process_tree()
+    protected_conductor_pids = _protected_registered_conductor_pids(
+        rows=rows,
+        repo_root=REPO_ROOT,
+    )
+    # Registry-known PIDs are treated as supervised even when ppid=1
+    # (headless script daemons intentionally reparent).  Q37 Phase 2
+    # will tighten this further by requiring operator_last_interaction_utc
+    # so registered-but-unattended sessions get surfaced as warnings.
     supervised_conductor_rows = [
         row
         for row in rows
-        if row.get("match_scope") == SUPERVISED_CONDUCTOR_SCOPE and row.get("ppid") != 1
+        if row.get("match_scope") == SUPERVISED_CONDUCTOR_SCOPE
+        and (row.get("ppid") != 1 or row.get("pid") in protected_conductor_pids)
     ]
     supervised_conductor_pids = {row["pid"] for row in supervised_conductor_rows}
     orphaned, active = split_orphaned_processes(

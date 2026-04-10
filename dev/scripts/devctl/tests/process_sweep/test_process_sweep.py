@@ -895,17 +895,13 @@ class ProcessSweepTests(TestCase):
 
 
 def test_protected_pids_fall_back_to_supervisor_when_session_pid_missing() -> None:
-    """F2 regression: supervisor-backed liveness fallback.
+    """Q37 fix: unregistered conductors must NOT be silently protected.
 
     When the typed session registry produces a live conductor session with
-    no recoverable `session_pid` (script probe failed, metadata stale, or
-    registry not yet populated after a recent spawn),
-    `_protected_registered_conductor_pids` must still protect conductor
-    rows whose `match_scope` is `review_channel_conductor` as long as the
-    reviewer_supervisor heartbeat is running. This mirrors
-    `hygiene_support._audit_runtime_processes` so both guards agree on
-    what counts as a supervised conductor. Voiceterm-scoped rows stay
-    reapable — the fallback is scoped strictly to supervised conductors.
+    no recoverable ``session_pid``, the protected set must remain empty
+    for that session.  A running supervisor heartbeat alone is not
+    sufficient — the previous fallback added every conductor-scoped PID,
+    hiding invisible headless agents from strict audit (Q37 in LIVE_RUN).
     """
     with tempfile.TemporaryDirectory() as tmpdir:
         repo_root = Path(tmpdir)
@@ -940,20 +936,19 @@ def test_protected_pids_fall_back_to_supervisor_when_session_pid_missing() -> No
         with patch(
             "dev.scripts.devctl.review_channel.session_probe.load_conductor_sessions",
             return_value=(live_session_without_pid,),
-        ), patch(
-            "dev.scripts.devctl.review_channel.lifecycle_state.read_reviewer_supervisor_state",
-            return_value={"running": True},
         ):
             protected = check_process_sweep._protected_registered_conductor_pids(
                 rows=rows,
                 repo_root=repo_root,
             )
 
-    assert 555 in protected, (
-        "conductor-scoped row 555 should be protected via supervisor-backed "
-        "fallback when the live session has no session_pid"
+    assert 555 not in protected, (
+        "conductor-scoped row 555 must NOT be protected when the session "
+        "registry has no recoverable session_pid (Q37 fix)"
     )
-    assert 600 in protected, "descendant 600 should inherit parent's protection"
+    assert 600 not in protected, (
+        "descendant 600 must NOT inherit protection from an unregistered parent"
+    )
     assert 700 not in protected, (
         "voiceterm-scoped row 700 is not a supervised conductor and must "
         "remain reapable"

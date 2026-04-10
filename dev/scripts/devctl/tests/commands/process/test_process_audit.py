@@ -358,3 +358,44 @@ class ProcessAuditCommandTests(TestCase):
             "Recently detached repo-related host processes detected",
             payload["errors"][0],
         )
+
+    @mock.patch(
+        "dev.scripts.devctl.commands.process_audit._protected_registered_conductor_pids",
+        return_value={610},
+    )
+    @mock.patch("dev.scripts.devctl.commands.process_audit.write_output")
+    @mock.patch(
+        "dev.scripts.devctl.commands.process_audit.scan_repo_hygiene_process_tree"
+    )
+    def test_run_strict_allows_registered_detached_review_channel_conductor(
+        self,
+        scan_mock,
+        write_output_mock,
+        _protected_pids_mock,
+    ) -> None:
+        scan_mock.return_value = (
+            [
+                {
+                    "pid": 610,
+                    "ppid": 1,
+                    "etime": "00:10",
+                    "elapsed_seconds": 10,
+                    "command": "script -q -F -t 0 /tmp/review-channel-launch-abc/claude-conductor.sh __review_channel_inner",
+                    "match_source": "direct",
+                    "match_scope": "review_channel_conductor",
+                }
+            ],
+            [],
+        )
+        args = build_parser().parse_args(
+            ["process-audit", "--strict", "--format", "json"]
+        )
+
+        rc = process_audit.run(args)
+
+        self.assertEqual(rc, 0)
+        payload = json.loads(write_output_mock.call_args.args[0])
+        self.assertTrue(payload["ok"])
+        self.assertEqual(payload["active_supervised_conductor_count"], 1)
+        self.assertEqual(payload["recent_detached_count"], 0)
+        self.assertFalse(payload["errors"])

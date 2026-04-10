@@ -3737,7 +3737,11 @@ become the main product surface.
   deadlock on nested env-lock acquisition, attached interactive helpers are no
   longer reported as stale repo-tooling failures, and AI-operated raw Rust
   tests now have a first-class `devctl guard-run` path that always executes
-  the required post-run hygiene follow-up. Execution spec:
+  the required post-run hygiene follow-up. A 2026-04-10 live headless
+  review-channel proof closed the next Q41 gap: registered conductor wrappers
+  that intentionally reparent to PID 1 now stay in supervised-conductor state
+  for strict `process-audit` / `process-cleanup --verify`, while unregistered
+  detached helpers remain blocking. Execution spec:
   `dev/active/host_process_hygiene.md`. 2026-03-09 Codex re-review reopened
   follow-up hardening: orphaned non-allowlisted repo-cwd descendants can
   still slip once the matched parent exits, tty-attached repo helpers

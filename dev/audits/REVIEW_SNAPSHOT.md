@@ -5,14 +5,14 @@
 ## Quick status
 
 - Branch: `feature/governance-quality-sweep`
-- HEAD: `95b14712ab3c` — Document startup gate authority boundary
-- Tree hash: `6de3924b6a01`
-- Generation stamp: `snap-adfa96516ef8`
-- Generated at (UTC): 2026-04-10T12:51:09Z
+- HEAD: `4b36412cfc7d` — Refresh external review snapshot for 95b14712
+- Tree hash: `aff8bba319c1`
+- Generation stamp: `snap-7e4bf261ae30`
+- Generated at (UTC): 2026-04-10T14:23:55Z
 - Push decision: `await_checkpoint` — staged_index_present
-- Reviewer mode: `active_dual_agent` (interaction: `remote_control`)
+- Reviewer mode: `tools_only` (interaction: `remote_control`)
 - Pipeline state: `n/a` (approval: `n/a`)
-- Delta since last snapshot: 24 commits, 12 files, +1821/-1710
+- Delta since last snapshot: 25 commits, 12 files, +1870/-1772
 - Governance findings: 86 open / 70 fixed / 170 total
 - Probe hints: 0 total across 0 files scanned
 
@@ -54,9 +54,9 @@ adopters arrive.
 - Remote: `https://github.com/jguida941/voiceterm.git`
 - Default branch: `master`
 - Current branch: `feature/governance-quality-sweep`
-- HEAD SHA: `95b14712ab3c04f67e64be7bfbeb16326d73d4a5`
+- HEAD SHA: `4b36412cfc7d2e76f6ff543c246a7bc09c8cd661`
 - HEAD author: Justin Guida
-- HEAD timestamp (UTC): 2026-04-10T08:45:59-04:00
+- HEAD timestamp (UTC): 2026-04-10T08:50:59-04:00
 
 ## 2. Governance state
 
@@ -65,19 +65,20 @@ adopters arrive.
 - reason: staged_index_present
 - push_eligible_now: False
 - worktree_clean: False
-- staged_path_count: 1
+- staged_path_count: 11
 - unstaged_path_count: 0
 - next_step_command: `n/a`
 - latest_push_report: `dev/reports/push/latest.json`
-- latest_push_report_state: `blocked` (validation_failed)
+- latest_push_report_state: `published_remote` (post_push_bundle_pending)
 - publication_backlog: urgent
-- publication_guidance: 20 local commit(s) waiting for governed push once the current slice is checkpoint-clean.
+- publication_guidance: 21 local commit(s) waiting for governed push once the current slice is checkpoint-clean.
 
 ### Reviewer runtime
-- reviewer_mode: `active_dual_agent`
+- reviewer_mode: `tools_only`
 - reviewer_freshness: unknown
 - reviewer_publish_clear: False
 - interaction_mode: `remote_control`
+- implementation_blocked: yes — reviewer_overdue
 
 ### Remote commit pipeline
 - state: `n/a`
@@ -87,47 +88,48 @@ adopters arrive.
 - active plan: **Master Plan (Active, Unified)**
 - plan path: `dev/active/MASTER_PLAN.md`
 - active MP scope: all active MP execution state
-- advisory: `checkpoint_before_continue` — concurrent_writer_activity
+- advisory: `repair_reviewer_loop` — reviewer_overdue
 
 ## 3. Delta — what changed since the previous snapshot
 
-Range: last 24 commits ending at `95b14712ab3c`
+Range: last 25 commits ending at `4b36412cfc7d`
 
-- commits: 24
+- commits: 25
 - files changed: 12
-- insertions: +1821
-- deletions: -1710
-- bundle classes touched: docs, tooling
+- insertions: +1870
+- deletions: -1772
+- bundle classes touched: tooling, docs
 - authority surfaces touched: 2 file(s)
 
 ### Commits
 
 | # | SHA | Subject | Files | +/- | Bundle | Risk |
 |---|---|---|---|---|---|---|
-| 1 | `95b14712` | Document startup gate authority boundary | 7 | +94/-69 | tooling |  |
-| 2 | `dff9cbb2` | Refresh external review snapshot for 8c2ac807 | 1 | +60/-71 | tooling |  |
-| 3 | `8c2ac807` | chore: commit concurrent agent changes | 2 | +52/-79 | tooling |  |
-| 4 | `8feab0b9` | fix(push): auto-commit runs even after preflight failure to… | 3 | +51/-94 | tooling |  |
-| 5 | `f56664d2` | Refresh external review snapshot for 5b0a2d87 | 1 | +53/-49 | tooling |  |
-| 6 | `5b0a2d87` | chore: surface refresh after push fix | 3 | +62/-64 | docs |  |
-| 7 | `79475b97` | fix(push): auto-commit preflight-generated changes to break… | 3 | +120/-49 | tooling |  |
-| 8 | `bd383199` | Refresh external review snapshot for 161f7ef0 | 1 | +53/-52 | tooling |  |
-| 9 | `161f7ef0` | chore: push-generated code + surface refresh | 4 | +100/-73 | tooling |  |
-| 10 | `bfc8dd3e` | Refresh external review snapshot for 0e2fcf0d | 1 | +51/-52 | tooling |  |
-| 11 | `0e2fcf0d` | chore: push-generated surface refresh | 2 | +153/-86 | tooling |  |
-| 12 | `4a33bd02` | fix(startup-gate): refined repair-launch bypass with checkp… | 2 | +91/-80 | tooling |  |
-| 13 | `7fb42f8e` | Refresh external review snapshot for c3866e56 | 1 | +45/-55 | tooling |  |
-| 14 | `c3866e56` | chore: bridge projection refresh | 2 | +62/-61 | docs |  |
-| 15 | `28af7d69` | chore: post-push surface refresh | 3 | +90/-77 | tooling |  |
-| 16 | `c06cf533` | Refresh external review snapshot for 2c1315eb | 1 | +56/-52 | tooling |  |
-| 17 | `2c1315eb` | chore: render-surfaces refresh after startup-gate fix | 7 | +89/-66 | tooling |  |
-| 18 | `f096b141` | fix(startup-gate): use receipt attribute access + regressio… | 4 | +108/-73 | tooling |  |
-| 19 | `e3c56a53` | Refresh external review snapshot for 1696f8ee | 1 | +60/-54 | tooling |  |
-| 20 | `1696f8ee` | fix(startup-gate): allow launch when action=repair_reviewer… | 3 | +97/-188 | tooling |  |
-| 21 | `5687e3be` | Refresh external review snapshot for 4d3cf6ac | 1 | +59/-58 | tooling |  |
-| 22 | `4d3cf6ac` | docs(bridge): graph infrastructure research — codeshape 70%… | 2 | +62/-65 | docs |  |
-| 23 | `5e6879d2` | Refresh external review snapshot for d9774b64 | 1 | +56/-58 | tooling |  |
-| 24 | `d9774b64` | docs(bridge): post-discovery sweep status — 48 new findings… | 2 | +97/-85 | docs |  |
+| 1 | `4b36412c` | Refresh external review snapshot for 95b14712 | 1 | +49/-62 | tooling |  |
+| 2 | `95b14712` | Document startup gate authority boundary | 7 | +94/-69 | tooling |  |
+| 3 | `dff9cbb2` | Refresh external review snapshot for 8c2ac807 | 1 | +60/-71 | tooling |  |
+| 4 | `8c2ac807` | chore: commit concurrent agent changes | 2 | +52/-79 | tooling |  |
+| 5 | `8feab0b9` | fix(push): auto-commit runs even after preflight failure to… | 3 | +51/-94 | tooling |  |
+| 6 | `f56664d2` | Refresh external review snapshot for 5b0a2d87 | 1 | +53/-49 | tooling |  |
+| 7 | `5b0a2d87` | chore: surface refresh after push fix | 3 | +62/-64 | docs |  |
+| 8 | `79475b97` | fix(push): auto-commit preflight-generated changes to break… | 3 | +120/-49 | tooling |  |
+| 9 | `bd383199` | Refresh external review snapshot for 161f7ef0 | 1 | +53/-52 | tooling |  |
+| 10 | `161f7ef0` | chore: push-generated code + surface refresh | 4 | +100/-73 | tooling |  |
+| 11 | `bfc8dd3e` | Refresh external review snapshot for 0e2fcf0d | 1 | +51/-52 | tooling |  |
+| 12 | `0e2fcf0d` | chore: push-generated surface refresh | 2 | +153/-86 | tooling |  |
+| 13 | `4a33bd02` | fix(startup-gate): refined repair-launch bypass with checkp… | 2 | +91/-80 | tooling |  |
+| 14 | `7fb42f8e` | Refresh external review snapshot for c3866e56 | 1 | +45/-55 | tooling |  |
+| 15 | `c3866e56` | chore: bridge projection refresh | 2 | +62/-61 | docs |  |
+| 16 | `28af7d69` | chore: post-push surface refresh | 3 | +90/-77 | tooling |  |
+| 17 | `c06cf533` | Refresh external review snapshot for 2c1315eb | 1 | +56/-52 | tooling |  |
+| 18 | `2c1315eb` | chore: render-surfaces refresh after startup-gate fix | 7 | +89/-66 | tooling |  |
+| 19 | `f096b141` | fix(startup-gate): use receipt attribute access + regressio… | 4 | +108/-73 | tooling |  |
+| 20 | `e3c56a53` | Refresh external review snapshot for 1696f8ee | 1 | +60/-54 | tooling |  |
+| 21 | `1696f8ee` | fix(startup-gate): allow launch when action=repair_reviewer… | 3 | +97/-188 | tooling |  |
+| 22 | `5687e3be` | Refresh external review snapshot for 4d3cf6ac | 1 | +59/-58 | tooling |  |
+| 23 | `4d3cf6ac` | docs(bridge): graph infrastructure research — codeshape 70%… | 2 | +62/-65 | docs |  |
+| 24 | `5e6879d2` | Refresh external review snapshot for d9774b64 | 1 | +56/-58 | tooling |  |
+| 25 | `d9774b64` | docs(bridge): post-discovery sweep status — 48 new findings… | 2 | +97/-85 | docs |  |
 
 ### Files
 
@@ -137,7 +139,7 @@ Range: last 24 commits ending at `95b14712ab3c`
 | `bridge.md` | docs | +105/-195 |
 | `dev/active/MASTER_PLAN.md` | tooling | +10/-2 |
 | `dev/active/ai_governance_platform.md` | tooling | +4/-0 |
-| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1300/-1346 |
+| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1349/-1408 |
 | `dev/guides/DEVELOPMENT.md` | docs | +15/-7 |
 | `dev/history/ENGINEERING_EVOLUTION.md` | tooling | +33/-5 |
 | `dev/scripts/README.md` | tooling | +11/-5 |
@@ -229,6 +231,8 @@ Recent findings:
 
 ### Per-commit rationale
 
+- **`4b36412c`** — Refresh external review snapshot for 95b14712
+  - evolution: Fact: the dogfooded governed-push lane exposed a stale authorization bug after a completed push pipeline. A terminal `push_completed` same-branch `RemoteCommitPipelineContract` could still be selected by `devctl push` w…
 - **`95b14712`** — Document startup gate authority boundary
   - evolution: Fact: the dogfooded governed-push lane exposed a stale authorization bug after a completed push pipeline. A terminal `push_completed` same-branch `RemoteCommitPipelineContract` could still be selected by `devctl push` w…
 - **`dff9cbb2`** — Refresh external review snapshot for 8c2ac807
@@ -313,10 +317,10 @@ Recent findings:
 - open governance findings: 86
 
 ### Startup advisories
-- checkpoint_before_continue: concurrent_writer_activity
+- repair_reviewer_loop: reviewer_overdue
 
 ### Stale warnings
-- Keep editing the current slice.
+- Cut a checkpoint before doing anything else.
 
 ### Open gap rows
 - **governance_open** (`dev/scripts/devctl/security/python_scope.py`): subprocess_missing_timeout: 
@@ -330,4 +334,4 @@ Recent findings:
 
 ---
 
-Projection produced by `devctl review-snapshot`. Generation stamp `snap-adfa96516ef8` binds this file to HEAD `95b14712ab3c`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
+Projection produced by `devctl review-snapshot`. Generation stamp `snap-7e4bf261ae30` binds this file to HEAD `4b36412cfc7d`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.

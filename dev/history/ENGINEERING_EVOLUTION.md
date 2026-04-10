@@ -122,6 +122,31 @@ downgrades into non-active mode, then rebuilds status from that retired
 lifecycle state. That keeps local `single_agent` takeover durable instead of
 letting stale daemon heartbeats silently restore `active_dual_agent`.
 
+### 2026-04-10 - Headless conductors now stay supervised in strict process audit
+
+Fact: live dogfooding of `review-channel --action launch --terminal none`
+proved the earlier Q41 process-sweep protection was incomplete. The kill path
+already protected registered conductor PIDs, but `process-cleanup --dry-run
+--verify` still failed immediately after launch because `process-audit` only
+classified `review_channel_conductor` rows as supervised when `ppid != 1`.
+Headless launch intentionally reparents the outer `script ... conductor.sh`
+wrappers to PID 1, so the strict verify path saw the live Codex/Claude
+conductor wrappers as `recent_detached` even though the typed session registry
+identified them as the active review-channel pair.
+
+This matters because Q41 is not only "do not kill the conductors." The full
+guard loop also has to keep cleanup verification green while those registered
+conductors are alive, otherwise governed commit/push remains blocked by the
+same process-hygiene system that is supposed to protect the loop.
+
+The closure reuses the existing registered-conductor protected PID set inside
+`process-audit`: registered headless conductor wrappers and descendants are
+now counted as `active_supervised_conductors` even when their parent is PID 1,
+while unregistered detached conductor-looking helpers still fail strict audit.
+Live proof after the patch: `process-cleanup --dry-run --verify --format md`
+returned `ok: True`, and strict `process-audit` reported six supervised
+conductors with zero `recent_detached` rows.
+
 ### 2026-04-10 - Pipeline refresh and agent-mind cursor polling now fail closed on stale authority
 
 Fact: the follow-up reviewer slice found two authority gaps after the earlier

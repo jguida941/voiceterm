@@ -77,13 +77,13 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-04-10T05:46:24Z`
-- Last Codex poll (Local America/New_York): `2026-04-10 01:46:24 EDT`
+- Last Codex poll: `2026-04-10T13:44:23Z`
+- Last Codex poll (Local America/New_York): `2026-04-10 09:44:23 EDT`
 - Reviewer mode: `active_dual_agent`
-- Last non-audit worktree hash: `01a1de763499959872f31d7c9429bd331d4afcf0161e25a0aa3eff46e9016443`
-- Current instruction revision: `88d229c01986`
+- Last non-audit worktree hash: `0a9e30fa2a141d1aa2242c083c3baf00916101c33d784275c2b6c952dbfdecb7`
+- Current instruction revision: `a5e7f631bfba`
 - Last checkpoint action: `reviewer-checkpoint`
-- Head at push time: `bd3831998f7d80efbeec8fdfec810447ac0bc6e5`
+- Head at push time: `4b36412cfc7d2e76f6ff543c246a7bc09c8cd661`
 ## Protocol
 
 1. Claude should poll this file periodically while coding.
@@ -110,44 +110,74 @@ treat these rules as active workflow instructions immediately.
 
 ## Operator Direction
 
+Codex: You are the reviewer AND implementer for Q37. Claude (in a privileged terminal) handles commits and pushes — you are sandboxed. Communicate through typed review-channel packets.
 
+### Phase 1 — Review existing staged diff (10 files, 151+/25-)
+1. Bootstrap: `startup-context --role reviewer --format summary` then `session-resume --role reviewer --format bootstrap`.
+2. Review staged diff: `git diff --cached`. Includes Q37 finding in LIVE_RUN.md and prior headless-conductor audit fix.
+3. Run guards: `devctl check-router --execute --keep-going --format md` and `devctl probe-report --format md`.
+4. If green, signal via: `devctl review-channel --action reviewer-checkpoint --reviewer-mode active_dual_agent --reason phase1-guards-green --terminal none --format md`.
+5. **Do NOT `git commit` or `git push`** — Claude commits from privileged terminal.
+
+### Phase 2 — Implement Q37 first slice (agent supervision gap)
+After Phase 1 green signal and Claude's commit, implement these 5 changes:
+
+1. **`audit.py:38`** — Fix `_protected_registered_conductor_pids`: require `operator_last_interaction_utc` within threshold (e.g. 10 min), not just `supervisor_state.get("running")`. Downgrade to "unattended" when stale.
+2. **`startup-context` bootstrap** — Call `detect_active_session_conflicts()` (already in `session_probe.py`) and hard-block if headless sessions exist without operator heartbeat. This is ~20 lines.
+3. **`lifecycle_state.py`** — Add `operator_last_interaction_utc` field to `ReviewerSupervisorHeartbeat`. Set it when operator sends a review-channel command or bridge interaction.
+4. **`agents.json` schema** — Add runtime fields: `session_pid: int|null`, `heartbeat_utc: str`, `operator_attached: bool`, `launch_mode: str` ("terminal"|"headless"|"remote_control"), `session_state: str` ("active"|"unattended"|"stale"|"dead").
+5. **`session_liveness.py`** — Add `headless_without_operator` as distinct liveness state. Terminal-window liveness probe returns null for headless daemons — don't fall through to log-freshness alone.
+
+Key files:
+- `dev/scripts/devctl/commands/process/audit.py`
+- `dev/scripts/devctl/review_channel/lifecycle_state.py`
+- `dev/scripts/devctl/review_channel/session_liveness.py`
+- `dev/scripts/devctl/review_channel/collaboration_registry.py`
+- `dev/scripts/devctl/commands/review_channel/launch_conflicts.py`
+- `dev/scripts/devctl/commands/check/process_sweep.py`
+
+After implementation, run `devctl check --profile ci` and `devctl probe-report --format md`. Signal green via reviewer-checkpoint. Claude commits and does governed push.
+
+### Constraints
+- Do NOT commit, push, or stash. Claude does all git operations.
+- Communicate findings/blockers through `review-channel --action post` typed packets.
+- All 5 changes need tests in `dev/scripts/devctl/tests/`.
 
 ## Poll Status
 
-- Reviewer checkpoint updated through repo-owned tooling (mode: active_dual_agent; reason: review-finding-f3-authority-bypass; observed-tree: 01a1de763499; reviewed-tree: 01a1de763499; instruction-rev: 88d229c01986).
+- Reviewer checkpoint updated through repo-owned tooling (mode: active_dual_agent; reason: startup-authority-dirty-worktree-blocks-relaunch; observed-tree: 0a9e30fa2a14; reviewed-tree: 0a9e30fa2a14; instruction-rev: a5e7f631bfba).
 
 ## Current Verdict
 
-Follow-up required before acceptance: stale receipts are now handled, but F3 remains blocking at HEAD bd383199.
+Review acceptance is blocked. The repo-owned status classifies the loop as hybrid_claude_only/tools_only with no live Codex conductor, and the approved relaunch attempt was blocked by startup authority because the worktree is dirty after the local checkpoint.
 
 ## Open Findings
 
-F3 blocking: `_is_repair_allowed()` still bypasses arbitrary non-checkpoint startup-authority failures. It checks the repair action, `repair_reviewer_loop`, and checkpoint flags, then returns true without proving the red authority report is only the reviewer-loop bootstrap case. That can turn unrelated startup-authority errors into a successful `review-channel launch` or `rollover`, contrary to the function comment that only the reviewer-loop authority block is bypassed.
+Runtime boundary: review-channel status reports review_loop_relaunch_required, and startup-context now reports startup_authority/scope_unknown_dirty_paths with eight dirty paths. Relaunch or rollover cannot proceed until the slice is checkpoint-clean. Code review of 4b36412c remains pending after relaunch.
 
 ## Claude Status
 
-- F3 resolved by removing `_is_repair_allowed` entirely from `enforce_startup_gate`.
-- Key finding: the authority system ALREADY handles reviewer-loop relaxation via the intent parameter. `collect_reviewer_loop_block_errors` returns `[]` when `intent == _REVIEWER_BOOTSTRAP_INTENT` (line 341 of `runtime_checks.py`). So for review-channel launch/rollover, if only the reviewer loop is blocked, `ok: True` and the gate passes normally. If `ok: False` with bootstrap intent, there MUST be non-reviewer-loop errors that should NOT be bypassed.
-- Final `startup_gate.py`: 131 lines, no `_is_repair_allowed`, no `_is_repair_launch`. Clean `command_requires_startup_gate` + `enforce_startup_gate` with receipt check then authority check. Intent-based relaxation handles the rest.
-- 12/12 tests pass, including `test_unrelated_authority_error_blocks_even_with_repair_receipt` proving concurrent-writer errors block even with repair_reviewer_loop receipt.
-- `docs-check --strict-tooling`: ok=True
-- Docs updated: AGENTS.md, DEVELOPMENT.md, README.md, MASTER_PLAN.md, ai_governance_platform.md, ENGINEERING_EVOLUTION.md
+- Claude (privileged terminal) is monitoring review-channel typed state for Codex green signal.
+- 10 files staged in index, ready to commit once reviewer accepts.
+- Will commit with `"Fix headless conductor audit classification"` once Codex posts reviewer-checkpoint with guards-green verdict.
+- Watching for Open Findings to fix if Codex flags issues.
 
 ## Claude Questions
 
-- Q1: The `## Operator Direction` section is still empty after render-bridge wiped it. Should it be restored?
+- Codex: please confirm staged diff is acceptable and guards pass. Signal through typed reviewer-checkpoint.
 
 ## Claude Ack
 
-- acknowledged current instruction revision: 88d229c01986
+- acknowledged current instruction revision: a5e7f631bfba
+- Instruction understood: hold steady until worktree is checkpoint-clean. Operator has directed Codex to review, Claude to commit.
 
 ## Current Instruction For Claude
 
-- Fix the remaining F3 authority-boundary gap before asking for re-review. Keep stale/missing receipt failures and checkpoint-required failures blocking. Constrain the `repair_reviewer_loop` allowance so it bypasses only the typed reviewer-loop bootstrap authority block, not unrelated startup-authority errors such as import-index atomicity, push-decision contract, base authority, or concurrent-writer failures. Add a regression test with a repair receipt plus an unrelated authority error proving it still blocks. Rerun `python3 -m unittest dev.scripts.devctl.tests.runtime.test_startup_gate` and `python3 dev/scripts/devctl.py docs-check --strict-tooling`, then report results.
+- Hold steady. Do not make further code changes for this slice until the dirty checkpoint state is resolved, the repo-owned review loop is relaunched, and Codex re-reviews the current diff. Claude's reported F3 fix and guard results are recorded, but acceptance is blocked by review_loop_relaunch_required plus startup_authority dirty-worktree state.
 
 ## Last Reviewed Scope
 
-- 5687e3be..bd383199; stale receipt fix green, F3 unrelated-authority bypass still blocking
+- bd383199..4b36412c not accepted yet; relaunch attempted and blocked by startup_authority dirty-worktree state after the bridge checkpoint.
 
 ## Action Requests
 

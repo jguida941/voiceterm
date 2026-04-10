@@ -422,6 +422,22 @@ the entry — the log is append-only trial data.
        `devctl push --execute` automatically when `push_decision=run_devctl_push`.
     3. Surface both as typed receipts so the operator can see what was
        committed / pushed when and why.
+- **2026-04-10 dogfood follow-up**: Codex operator proxy nearly used raw
+  `git commit` as a local checkpoint after Q41 verification, then the operator
+  correctly rejected that as a governance bypass. Live typed status already
+  exposed the problem: `push_decision.action=await_checkpoint`,
+  `push_decision.reason=worktree_dirty`,
+  `commit_pipeline.state=push_blocked`, and
+  `commit_pipeline.blocked_reason=pipeline_unavailable`; meanwhile the
+  external Codex sandbox permission prompt was not represented as a
+  repo-owned approval packet or dashboard action. The right behavior is for
+  agents to route checkpoint/publication through `devctl commit` /
+  `devctl push` and for remote/dashboard approval to mint typed
+  `commit_approval` / `decision` packets. If the external execution sandbox
+  still requires an out-of-band click, that is an adapter gap, not permission
+  to fall back to raw git. This is also a fresh Q52 instance: the AI knew
+  enough repo state to see 21 unpublished commits, but did not initially bind
+  the next action to the top-level typed VCS system.
 - **Status**: OPEN
 
 ### Q14 — BUG — Publisher daemon ignores `SIGINT`/`SIGTERM` through 30s grace
@@ -2715,7 +2731,23 @@ which Q55 says we don't have yet. Start there.
   test, the operator should use raw `git commit` for documentation
   updates and avoid `devctl commit` until Q41 lands. Every
   `devctl commit` risks killing the live conductor pair.
-- **Status**: OPEN — **highest priority fix of the session**
+- **2026-04-10 dogfood follow-up**: full-loop proof with
+  `review-channel --action launch --terminal none` showed Q41 was only
+  partially closed. The conductor kill path already protected registered PIDs,
+  but `process-cleanup --dry-run --verify` still failed immediately after the
+  headless Codex/Claude relaunch because `process-audit` treated the registered
+  `script ... *-conductor.sh` wrappers as `recent_detached` once they reparented
+  to PID 1. Fix landed in `commands/process/audit.py`: strict audit now reuses
+  the registered-conductor protected PID set, so live headless conductors count
+  as `active_supervised_conductors` while unregistered detached helpers remain
+  blocking. Proof: 51 focused process tests passed; live
+  `process-cleanup --dry-run --verify --format md` returned `ok: True`; strict
+  `process-audit --strict --format md` reported six supervised conductors and
+  zero `recent_detached` rows.
+- **Status**: PARTIALLY FIXED — kill/verify protection is green for registered
+  headless conductors; remaining architecture work is automatic reviewer
+  supervisor follow, bounded push publication, and cross-repo session/topology
+  authority so this does not depend on VoiceTerm-local paths.
 
 ### Q40 — TANDEM CONSISTENCY — `check_tandem_consistency` blocks ALL commits when conductors die (including documentation)
 
@@ -2812,6 +2844,45 @@ which Q55 says we don't have yet. Start there.
   `runtime_counts.active_conductor_count` and fails closed (or
   emits a warning) on mismatch.
 - **Status**: OPEN
+
+### Q37 — CRITICAL — Headless conductor pair runs unsupervised; `process-cleanup` reports "0 orphans"
+
+- **Discovered**: 2026-04-10T13:30Z
+- **Severity**: critical / governance-violation
+- **Body**: `review-channel --action launch` spawned a headless Codex+Claude
+  conductor pair at 08:56 EDT using `script` daemons (ppid=1, fully
+  detached). These 6 processes (3 per conductor: script→zsh→CLI) ran
+  for 38+ minutes invisible to the operator. Meanwhile, the operator
+  also had a manual Codex session (PID 41185) and a manual Claude
+  session (PID 32401) — resulting in 2 Codex reviewers + 2 Claude
+  implementers on the same repo, completely uncoordinated.
+  `process-cleanup --verify` reported all 6 as "supervised" with
+  0 orphans. This is technically correct (they match
+  `review_channel_conductor` scope and the supervisor heartbeat
+  existed) but operationally wrong: no human was watching them.
+  The root cause is `audit.py:38` — protected-PID logic treats
+  ALL conductor-scoped processes as supervised if
+  `supervisor_state.get("running")` is truthy, without checking
+  whether an operator is attached.
+  Additionally, `startup-context` does not call
+  `detect_active_session_conflicts()` (which already exists in
+  `session_probe.py`) during bootstrap, so new sessions launch
+  without knowing about existing ones.
+  Stash pollution (21 entries) confirms headless agents repeatedly
+  stashed/unstashed in the main worktree instead of isolated worktrees.
+- **Affected surfaces**:
+  - `dev/scripts/devctl/commands/process/audit.py:38` — protected-PID logic
+  - `startup-context` bootstrap path — no conflict detection
+  - `dev/scripts/devctl/review_channel/lifecycle_state.py` — no operator heartbeat
+  - `dev/reports/review_channel/latest/registry/agents.json` — static snapshot, no runtime fields
+  - `dev/scripts/devctl/review_channel/session_liveness.py` — no headless-without-operator state
+- **Fix (first slice — 5 changes)**:
+  1. `audit.py:38`: require operator heartbeat recency, not just supervisor existence
+  2. `startup-context`: call `detect_active_session_conflicts()` as hard-block
+  3. `lifecycle_state.py`: add `operator_last_interaction_utc` to heartbeat
+  4. `agents.json` schema: add `session_pid`, `heartbeat_utc`, `operator_attached`, `launch_mode`, `session_state`
+  5. `session_liveness.py`: add `headless_without_operator` as distinct liveness category
+- **Status**: OPEN — assigned to Codex reviewer for implementation
 
 ### Q36 — NEW STATE — `launch_truth: detached_runtime_only` exposed for the first time
 

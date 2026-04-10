@@ -561,6 +561,12 @@ surface for remote sessions. It should project:
       `action_request` packets, but they may not depend on hidden terminal
       prompts or raw shell retry rituals once the governed lane owns the
       branch.
+- [ ] Add an execution-sandbox approval adapter contract: Codex/Claude provider
+      permission prompts for governed VCS actions must be projected as typed
+      remote approval packets or dashboard actions, with exact pipeline /
+      staged-tree / head identity, so headless operators can approve through
+      repo-owned state and agents never treat a missing local click as
+      permission to use raw git.
 - [ ] Record the mutation backlog boundary for still-untyped git operations
       (`revert`, `rebase`, `reset`, `tag push`, `stash`, `worktree add`, and
       `submodule` flows) so they cannot silently sit outside typed action
@@ -593,6 +599,18 @@ surface for remote sessions. It should project:
 
 ## Progress Log
 
+- 2026-04-10: Dogfooding exposed the remaining execution-sandbox approval
+  adapter gap. Codex nearly used raw `git commit` to checkpoint the Q41
+  headless-conductor audit fix after status reported a dirty worktree and 21
+  unpublished commits; the operator stopped it because that bypasses this
+  lane. The typed status was already specific enough to diagnose the right
+  path (`push_decision.action=await_checkpoint`,
+  `commit_pipeline.blocked_reason=pipeline_unavailable`, no current
+  `push_authorization`). The missing piece is not more chat instruction: an
+  external Codex/Claude permission prompt must be representable as a
+  repo-owned approval packet/dashboard action bound to the pipeline and
+  staged-tree/head identity, otherwise headless `remote_control` still depends
+  on an out-of-band click and agents will keep reaching for raw git.
 - 2026-04-10: Routed the dogfooded stale-pipeline push failure into this owner
   doc and closed the narrow executor selection bug. `devctl push` no longer
   treats any same-branch pipeline with `commit_sha` as pushable; only
