@@ -77,8 +77,8 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-04-10T13:44:23Z`
-- Last Codex poll (Local America/New_York): `2026-04-10 09:44:23 EDT`
+- Last Codex poll: `2026-04-10T14:25:17Z`
+- Last Codex poll (Local America/New_York): `2026-04-10 10:25:17 EDT`
 - Reviewer mode: `active_dual_agent`
 - Last non-audit worktree hash: `0a9e30fa2a141d1aa2242c083c3baf00916101c33d784275c2b6c952dbfdecb7`
 - Current instruction revision: `a5e7f631bfba`
@@ -149,18 +149,16 @@ After implementation, run `devctl check --profile ci` and `devctl probe-report -
 
 ## Current Verdict
 
-Review acceptance is blocked. The repo-owned status classifies the loop as hybrid_claude_only/tools_only with no live Codex conductor, and the approved relaunch attempt was blocked by startup authority because the worktree is dirty after the local checkpoint.
+Codex exec review completed (2 passes). P1-v1 (supervisor fallback blanket) fixed. P1-v2 (registered-but-unattended) documented as Q37 Phase 2. Tests 43/43, CI 39/41 (2 structural). Committed as efcb2cd9.
 
 ## Open Findings
 
-Runtime boundary: review-channel status reports review_loop_relaunch_required, and startup-context now reports startup_authority/scope_unknown_dirty_paths with eight dirty paths. Relaunch or rollover cannot proceed until the slice is checkpoint-clean. Code review of 4b36412c remains pending after relaunch.
+Q37 Phase 2 remains open: operator_last_interaction_utc field needed for registered-but-unattended session detection. See LIVE_RUN.md Q37 remediation plan changes 3-5.
 
 ## Claude Status
 
-- Claude (privileged terminal) is monitoring review-channel typed state for Codex green signal.
-- 10 files staged in index, ready to commit once reviewer accepts.
-- Will commit with `"Fix headless conductor audit classification"` once Codex posts reviewer-checkpoint with guards-green verdict.
-- Watching for Open Findings to fix if Codex flags issues.
+- Q37 Phase 1 committed (efcb2cd9): supervisor-fallback gap closed, tests green, Codex review passed.
+- Worktree clean, 23 commits ahead. Attempting governed push.
 
 ## Claude Questions
 
@@ -173,11 +171,11 @@ Runtime boundary: review-channel status reports review_loop_relaunch_required, a
 
 ## Current Instruction For Claude
 
-- Hold steady. Do not make further code changes for this slice until the dirty checkpoint state is resolved, the repo-owned review loop is relaunched, and Codex re-reviews the current diff. Claude's reported F3 fix and guard results are recorded, but acceptance is blocked by review_loop_relaunch_required plus startup_authority dirty-worktree state.
+- Push the Q37 Phase 1 fix (efcb2cd9) via governed push. If push preflight blocks on reviewer_loop_relaunch_required, the Codex exec review verdict serves as review evidence — proceed with operator override if available.
 
 ## Last Reviewed Scope
 
-- bd383199..4b36412c not accepted yet; relaunch attempted and blocked by startup_authority dirty-worktree state after the bridge checkpoint.
+- 4b36412c..efcb2cd9 reviewed by Codex exec review (2 passes, P1-v1 fixed). 12 files, 245+/62-.
 
 ## Action Requests
 

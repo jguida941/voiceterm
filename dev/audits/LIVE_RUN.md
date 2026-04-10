@@ -2845,6 +2845,54 @@ which Q55 says we don't have yet. Start there.
   emits a warning) on mismatch.
 - **Status**: OPEN
 
+### Q38 — ARCHITECTURE — Control plane reasons from intended topology, not observed topology
+
+- **Discovered**: 2026-04-10T14:00Z
+- **Severity**: critical / architectural
+- **Body**: During Q37 investigation, the system correctly detected every
+  individual blocker (reviewer overdue, dirty worktree, coordination resync,
+  push blocked, supervised conductors: 0) but failed to compose these into
+  the governing control fact: the intended review topology had collapsed.
+  Claude was actively coding, Codex was absent, and the system treated this
+  as a collection of stale workflow markers instead of a live control failure.
+  The system currently reasons from *declared architecture* (planned reviewer
+  exists, intended mode is active_dual_agent) rather than *observed
+  architecture* (actual agent-role behavior from runtime evidence). Detection
+  is stronger than control: it blocks acceptance/push at the back end but
+  does not suspend implementation at the front end when the reviewer lane
+  is absent. The pack/worktree system describes the right structure but is
+  not mandatory — agents can operate outside it because pack/role/worktree
+  binding is advice, not a hard launch contract.
+- **Root cause**: Three concepts are conflated as if identical:
+  1. **Planned reviewer** — a reviewer is supposed to exist (config/intent)
+  2. **Recorded reviewer state** — stale receipts and launch expectations
+  3. **Live reviewer runtime** — an actual supervised conductor producing
+     current review authority. When (3) is false, the system still partly
+     reasons from (1) and (2).
+- **Missing typed fields** (the "control truth" gap):
+  - `observed_control_topology`: `single_implementer_single_reviewer` |
+    `dual_implementer` | `reviewer_only` | `no_live_agents`
+  - `live_reviewer_supervision_state`: derived from process + heartbeat + role
+  - `observed_agent_write_activity`: who is actively producing diffs
+  - `observed_agent_review_activity`: who is producing review artifacts
+  - `authority_chain_state`: healthy | degraded | collapsed
+  - `lane_mode` per agent: `research` | `implementation` | `review`
+  - `new_code_generation_allowed`: derived from topology, not from stale mode
+  - `implementation_permission`: `active` | `suspended` | `blocked`
+- **The missing brutal rule**: If implementation activity exists and
+  supervised reviewer count is zero, the implementation lane is suspended
+  immediately. Not warned. Not noted. Not blocked at push time. Suspended.
+- **Fix surface** (3 layers):
+  1. **Promote observed topology to typed truth** — derive `observed_control_topology`
+     from live process + heartbeat + role evidence. Make it load-bearing.
+  2. **Make pack/worktree routing mandatory** — no launch without assigned pack,
+     no implementation without worktree binding, no review agent without explicit
+     review lane assignment, fail closed.
+  3. **Separate research/implementation/review lanes** — typed distinction so
+     research cannot emit accepted code deltas, implementation requires active
+     reviewer topology, review cannot mutate slice-owned files.
+- **Status**: OPEN — assigned to Codex for review + implementation
+
 ### Q37 — CRITICAL — Headless conductor pair runs unsupervised; `process-cleanup` reports "0 orphans"
 
 - **Discovered**: 2026-04-10T13:30Z
