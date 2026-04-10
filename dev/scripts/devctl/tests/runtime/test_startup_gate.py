@@ -18,11 +18,7 @@ def _args(command: str, *, action: str = "") -> SimpleNamespace:
 
 
 class StartupGateRoutingTests(unittest.TestCase):
-    @patch(
-        "dev.scripts.devctl.runtime.startup_gate.load_startup_receipt",
-        return_value=StartupReceipt(advisory_action="continue_editing"),
-    )
-    def test_gate_targets_only_scoped_commands(self, _load_receipt) -> None:
+    def test_gate_targets_only_scoped_commands(self) -> None:
         self.assertFalse(command_requires_startup_gate(_args("push")))
         self.assertTrue(command_requires_startup_gate(_args("guard-run")))
         self.assertTrue(command_requires_startup_gate(_args("autonomy-loop")))
@@ -223,41 +219,122 @@ class StartupGateEnforcementTests(unittest.TestCase):
         self.assertIsNone(enforce_startup_gate(_args("check-router")))
 
     @patch(
-        "dev.scripts.devctl.runtime.startup_gate.load_startup_receipt",
-        return_value=StartupReceipt(advisory_action="repair_reviewer_loop"),
+        "dev.scripts.devctl.runtime.startup_gate.startup_receipt_problems_for_intent",
+        return_value=["Startup receipt is stale."],
     )
-    def test_repair_launch_bypasses_gate_for_review_channel(
+    @patch(
+        "dev.scripts.devctl.runtime.startup_gate.build_startup_authority_report",
+        return_value={
+            "ok": False,
+            "errors": ["Reviewer loop is stale."],
+            "checkpoint_required": False,
+        },
+    )
+    @patch(
+        "dev.scripts.devctl.runtime.startup_gate.load_startup_receipt",
+        return_value=StartupReceipt(
+            advisory_action="repair_reviewer_loop",
+            checkpoint_required=False,
+        ),
+    )
+    def test_repair_launch_bypasses_soft_gates(
         self,
         _load_receipt,
+        _authority_report,
+        _receipt_problems,
     ) -> None:
-        """repair_reviewer_loop allows launch/rollover without bypassing checkpoint blockers."""
-        self.assertFalse(
-            command_requires_startup_gate(
-                _args("review-channel", action="launch")
-            )
+        """repair_reviewer_loop bypasses receipt staleness and authority blocks."""
+        self.assertIsNone(
+            enforce_startup_gate(_args("review-channel", action="launch"))
         )
-        self.assertFalse(
-            command_requires_startup_gate(
-                _args("review-channel", action="rollover")
-            )
+        self.assertIsNone(
+            enforce_startup_gate(_args("review-channel", action="rollover"))
         )
-        # Non-review-channel gated commands stay gated even during repair
-        self.assertTrue(command_requires_startup_gate(_args("guard-run")))
 
+    @patch(
+        "dev.scripts.devctl.runtime.startup_gate.startup_receipt_problems_for_intent",
+        return_value=["Startup receipt still requires a checkpoint."],
+    )
+    @patch(
+        "dev.scripts.devctl.runtime.startup_gate.build_startup_authority_report",
+        return_value={
+            "ok": False,
+            "errors": ["Reviewer loop is stale."],
+            "checkpoint_required": True,
+        },
+    )
+    @patch(
+        "dev.scripts.devctl.runtime.startup_gate.load_startup_receipt",
+        return_value=StartupReceipt(
+            advisory_action="repair_reviewer_loop",
+            checkpoint_required=True,
+        ),
+    )
+    def test_repair_still_blocks_on_checkpoint(
+        self,
+        _load_receipt,
+        _authority_report,
+        _receipt_problems,
+    ) -> None:
+        """repair_reviewer_loop must not bypass checkpoint constraints."""
+        message = enforce_startup_gate(_args("review-channel", action="launch"))
+        self.assertIsNotNone(message)
+        self.assertIn("requires a checkpoint", message or "")
+
+    @patch(
+        "dev.scripts.devctl.runtime.startup_gate.startup_receipt_problems_for_intent",
+        return_value=["Startup receipt is stale."],
+    )
+    @patch(
+        "dev.scripts.devctl.runtime.startup_gate.build_startup_authority_report",
+        return_value={
+            "ok": False,
+            "errors": ["Reviewer loop is stale."],
+            "checkpoint_required": False,
+        },
+    )
     @patch(
         "dev.scripts.devctl.runtime.startup_gate.load_startup_receipt",
         return_value=None,
     )
-    def test_missing_receipt_still_gates_review_channel_launch(
+    def test_missing_receipt_still_gates_repair_launch(
         self,
         _load_receipt,
+        _authority_report,
+        _receipt_problems,
     ) -> None:
-        """A missing startup receipt must not crash — it gates normally."""
-        self.assertTrue(
-            command_requires_startup_gate(
-                _args("review-channel", action="launch")
-            )
-        )
+        """A missing receipt cannot claim repair_reviewer_loop — gate normally."""
+        message = enforce_startup_gate(_args("review-channel", action="launch"))
+        self.assertIsNotNone(message)
+
+    @patch(
+        "dev.scripts.devctl.runtime.startup_gate.startup_receipt_problems_for_intent",
+        return_value=["Startup receipt is stale."],
+    )
+    @patch(
+        "dev.scripts.devctl.runtime.startup_gate.build_startup_authority_report",
+        return_value={
+            "ok": False,
+            "errors": ["Reviewer loop is stale."],
+            "checkpoint_required": False,
+        },
+    )
+    @patch(
+        "dev.scripts.devctl.runtime.startup_gate.load_startup_receipt",
+        return_value=StartupReceipt(
+            advisory_action="repair_reviewer_loop",
+            checkpoint_required=False,
+        ),
+    )
+    def test_repair_does_not_bypass_non_review_channel_commands(
+        self,
+        _load_receipt,
+        _authority_report,
+        _receipt_problems,
+    ) -> None:
+        """repair_reviewer_loop only applies to review-channel, not guard-run."""
+        message = enforce_startup_gate(_args("guard-run"))
+        self.assertIsNotNone(message)
 
 
 if __name__ == "__main__":
