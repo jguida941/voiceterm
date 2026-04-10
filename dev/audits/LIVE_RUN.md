@@ -2882,6 +2882,15 @@ which Q55 says we don't have yet. Start there.
      current canonical state before rendering
   3. Source provenance per section: git=current, runtime=current,
      plan_blocker=stale/current, review_state=stale/current
+- **Additional finding**: `devctl phone-status` command exists with
+  compact/full/trace/actions views, but reads from autonomy queue
+  artifact only (`dev/reports/autonomy/queue/phone/latest.json`).
+  Not connected to general dashboard/startup-context state. Mobile
+  rendering is siloed in the autonomy subsystem instead of being the
+  default output for `dashboard` in remote_control mode. Platform
+  contract check confirms `ControlPlaneReadModel.top_blocker` routes
+  to `phone_status` surface — the field wiring exists, the command
+  just reads from the wrong artifact.
 - **Status**: OPEN — paired with Q39/Q44
 
 ### Q50 — QUALITY — 100 unfixed governance findings across 9 check categories
