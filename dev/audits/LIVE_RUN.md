@@ -2990,6 +2990,38 @@ which Q55 says we don't have yet. Start there.
   output, not mix them as equal-weight claims.
 - **Status**: OPEN — high, directly enables Q54 self-audit loop
 
+### Q60 — ARCHITECTURE — Guards run after coding, not during — missed live feedback opportunity
+
+- **Discovered**: 2026-04-10T18:20Z
+- **Severity**: high / architectural
+- **Body**: Current design: Codex writes all code → runs guards after →
+  discovers shape debt / import issues / test failures → tries to fix
+  → runs guards again → may exhaust context before fixing everything.
+  This wastes context and time. Some guards COULD run incrementally
+  during coding:
+  - `code_shape` (function length, file size): checkable after each
+    file write, before moving to the next file
+  - `py_compile`: checkable per-file immediately
+  - `import cycle detection`: checkable after adding new imports
+  - `formatter`: runnable per-file during coding
+  These are fast, local, and deterministic — no reason to batch them.
+  Other guards genuinely need the full tree:
+  - `check-router` (cross-file dependency routing)
+  - `startup-authority-contract` (live runtime state)
+  - `tandem-consistency` (multi-agent coordination)
+  - `probe-report` (design smell analysis across files)
+  These must run post-coding.
+  The system should split guards into two tiers:
+  1. **Incremental guards**: run per-file or per-edit, fail fast,
+     prevent the agent from writing oversized functions or bad imports
+  2. **Full-tree guards**: run after coding, validate cross-cutting
+     concerns
+  A parallel agent or hook could run incremental guards while Codex
+  codes, feeding violations back before context is exhausted. The
+  existing `code_shape_policy.py` already has per-file budgets —
+  it just doesn't run until after everything is written.
+- **Status**: OPEN — high, directly reduces wasted context/time
+
 ### Q56 — INTEGRATION — Q54+Q55 compose from existing systems, minimal changes needed
 
 - **Discovered**: 2026-04-10T18:05Z
