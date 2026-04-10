@@ -2845,6 +2845,40 @@ which Q55 says we don't have yet. Start there.
   emits a warning) on mismatch.
 - **Status**: OPEN
 
+### Q49 — RUNTIME — Publisher daemon died silently during session
+
+- **Discovered**: 2026-04-10T16:55Z
+- **Severity**: medium / runtime
+- **Body**: Publisher daemon (PID 15883, running since 12:58AM, 207
+  snapshots emitted) stopped without a visible event or typed reason.
+  Dashboard shows `Publisher: STOPPED, last heartbeat 50m ago`. The
+  publisher was the only running daemon. Its death means review
+  snapshots, bridge state projections, and status refreshes stopped
+  silently. No alert, no typed stop_reason, no recovery action was
+  triggered. This is the Q42 monitoring gap in action — a daemon
+  death looks the same as a daemon that is between heartbeats unless
+  the system tracks `stop_reason` and `expected_restart_at`.
+- **Status**: OPEN — paired with Q42
+
+### Q50 — QUALITY — 100 unfixed governance findings across 9 check categories
+
+- **Discovered**: 2026-04-10T16:55Z
+- **Severity**: high / quality-debt
+- **Body**: `devctl governance-review` shows 170 total findings, only
+  70 fixed (41% cleanup). Top unfixed: none_safety_chained_get_crash
+  (9), subprocess_missing_timeout (9), error_handling_reraise_without_
+  from (8), error_handling_silent_suppression (8), test_resource_
+  cleanup (7). These are real code quality issues in the codebase.
+  The probe report also shows startup_context.py at score 1640 with
+  18 hints — the #1 hotspot. This is the same file Codex is currently
+  modifying. Probes detected the design problems, but no automated
+  path exists to route them into the implementation queue with
+  severity-based prioritization.
+- **Missing**: Severity-based finding queue that routes probe/guard
+  findings into the plan system with typed priority, so Codex gets
+  them as phased work items instead of a flat list.
+- **Status**: OPEN — quality-debt, paired with Q48
+
 ### Q48 — ARCHITECTURE — System has all data but no composed architectural view
 
 - **Discovered**: 2026-04-10T16:40Z
