@@ -2990,6 +2990,26 @@ which Q55 says we don't have yet. Start there.
   output, not mix them as equal-weight claims.
 - **Status**: OPEN — high, directly enables Q54 self-audit loop
 
+### Q61 — PROCESS — Findings stay in LIVE_RUN as flat list, not routed to plan system
+
+- **Discovered**: 2026-04-10T18:40Z
+- **Severity**: high / process-gap
+- **Body**: 24 findings (Q37-Q60) are logged in LIVE_RUN but not
+  routed into MASTER_PLAN as phased work items with dependency
+  ordering and severity. The graph has 64K edges showing which
+  files are hotspots and how they connect — but that intelligence
+  is not composed into "fix X before Y because it has 49 dependents."
+  Findings should become typed MP-items with: severity, dependency
+  edges to other findings, graph-derived priority (fan-in/fan-out
+  of affected files), and phased execution order. The context-graph
+  can inform this: startup_context.py has 49 edges so changes there
+  ripple widely — it should be addressed before less-connected files.
+  The system needs a `devctl plan-from-findings` or equivalent that
+  reads LIVE_RUN Q-findings + context-graph topology and produces
+  a phased plan with MP-items, dependency order, and estimated
+  scope. Not a flat list. A compiled execution order.
+- **Status**: OPEN — high, directly enables Q55 priority engine
+
 ### Q60 — ARCHITECTURE — Guards run after coding, not during — missed live feedback opportunity
 
 - **Discovered**: 2026-04-10T18:20Z
