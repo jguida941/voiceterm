@@ -1102,22 +1102,50 @@ class TestAgeHelpers(unittest.TestCase):
 
 
 class TestTopBlockerDerivation(unittest.TestCase):
-    """Verify top blocker is derived from quality failures and findings."""
+    """Verify top blocker is derived from the canonical reducer.
+
+    These cases used to test a dashboard-local ``_derive_top_blocker``.
+    Q99 collapses every producer onto ``runtime.startup_blocker_decision
+    .derive_blocker_decision`` so the dashboard, startup-context, and
+    control-plane read model all share one trace.
+    """
 
     def test_blocker_from_quality_failing(self) -> None:
-        quality = {"failing": ["dev/scripts/devctl/common_io.py"]}
-        result = dashboard._derive_top_blocker(quality, {}, {})
-        self.assertIn("common_io.py", result)
+        from dev.scripts.devctl.runtime.startup_blocker_decision import (
+            derive_blocker_decision,
+        )
+
+        snapshot = derive_blocker_decision(
+            quality={"failing": ["dev/scripts/devctl/common_io.py"]},
+            doctor={},
+            session={},
+        )
+        self.assertIn("common_io.py", snapshot.top_blocker)
+        self.assertEqual(snapshot.blocker_source, "quality")
 
     def test_blocker_from_findings(self) -> None:
-        quality = {"failing": []}
-        session = {"open_findings": "- F1: stale docs gate\n- F2: shape debt"}
-        result = dashboard._derive_top_blocker(quality, session, {})
-        self.assertIn("stale docs gate", result)
+        from dev.scripts.devctl.runtime.startup_blocker_decision import (
+            derive_blocker_decision,
+        )
+
+        snapshot = derive_blocker_decision(
+            quality={"failing": []},
+            doctor={},
+            session={"open_findings": "- F1: stale docs gate\n- F2: shape debt"},
+        )
+        self.assertIn("stale docs gate", snapshot.top_blocker)
+        self.assertEqual(snapshot.blocker_source, "session")
 
     def test_blocker_none_when_clean(self) -> None:
-        result = dashboard._derive_top_blocker({"failing": []}, {}, {})
-        self.assertEqual(result, "none")
+        from dev.scripts.devctl.runtime.startup_blocker_decision import (
+            derive_blocker_decision,
+        )
+
+        snapshot = derive_blocker_decision(
+            quality={"failing": []}, doctor={}, session={},
+        )
+        self.assertEqual(snapshot.top_blocker, "none")
+        self.assertEqual(snapshot.blocker_source, "none")
 
 
 class TestHealthSection(unittest.TestCase):

@@ -17,6 +17,7 @@ from ..runtime.control_plane_read_model import (
 )
 from ..runtime.control_plane_sources import load_sources
 from ..runtime.governance_scan import scan_repo_governance_safely
+from ..runtime.startup_blocker_decision import derive_blocker_decision
 from ..runtime.review_state_locator import load_current_review_state
 from ..runtime.review_state_parser import review_state_from_payload
 from ..review_channel.session_probe import load_conductor_sessions
@@ -54,7 +55,6 @@ from .dashboard_builders import (  # noqa: E402
     _build_reviewer_activity_section,
     _build_workers_section,
     _compile_summary,
-    _derive_top_blocker,
     _extract_check_details,
     _extract_cleanup_rate,
     _extract_failing_files,
@@ -469,7 +469,12 @@ def _assemble(
     publication_effective["timers"] = _extract_push_timers(push_data)
     quality = _build_quality_section(push_data)
     quality["probes"] = _build_probes_section(probe_data)
-    top_blocker = control_plane.top_blocker if control_plane else _derive_top_blocker(quality, session, doctor)
+    if control_plane:
+        top_blocker = control_plane.top_blocker
+    else:
+        top_blocker = derive_blocker_decision(
+            quality=quality, doctor=doctor, session=session,
+        ).top_blocker
     last_change_age = _age_seconds(bridge.get("last_poll_utc", ""))
     timeline_count = 100 if view == "analytics" else 10
     typed_attention = _extract_typed_attention(review_state)
@@ -546,6 +551,7 @@ def _assemble(
             instruction_text=instruction_text,
             top_blocker=top_blocker,
             last_change_age=last_change_age,
+            next_action_override=control_plane.next_action if control_plane else "",
         )),
         "health": health,
         "review": _build_review_section(bridge, reviewer_agent, implementer_agent, session, instruction_text, control_plane.reviewer_mode if control_plane and review_state else ""),

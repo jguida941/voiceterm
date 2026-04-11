@@ -4,11 +4,11 @@
 
 ## Quick status
 
-- Branch: `worktree-agent-a41aa33f`
+- Branch: `worktree-agent-a189c06e`
 - HEAD: `3c294f0d4437` — Refresh external review snapshot for 0247df7c
 - Tree hash: `ff28c8c0a7c4`
 - Generation stamp: `snap-5270f3300a56`
-- Generated at (UTC): 2026-04-11T07:30:25Z
+- Generated at (UTC): 2026-04-11T07:36:10Z
 - Push decision: `await_checkpoint` — staged_index_present
 - Reviewer mode: `unknown` (interaction: `unresolved`)
 - Pipeline state: `n/a` (approval: `n/a`)
@@ -53,7 +53,7 @@ and guard gaps so the platform proves its own thesis before external
 adopters arrive.
 - Remote: `https://github.com/jguida941/voiceterm.git`
 - Default branch: `master`
-- Current branch: `worktree-agent-a41aa33f`
+- Current branch: `worktree-agent-a189c06e`
 - HEAD SHA: `3c294f0d44379460274ed4b85675d2bd9a0161df`
 - HEAD author: Justin Guida
 - HEAD timestamp (UTC): 2026-04-11T02:49:55-04:00
@@ -65,10 +65,11 @@ adopters arrive.
 - reason: staged_index_present
 - push_eligible_now: False
 - worktree_clean: False
-- staged_path_count: 5
+- staged_path_count: 7
 - unstaged_path_count: 0
 - next_step_command: `n/a`
 - latest_push_report: `dev/reports/push/latest.json`
+- latest_push_report_state: `published_remote` (post_push_bundle_pending)
 - publication_backlog: queued
 - publication_guidance: Local branch still has unpublished work waiting for governed push once the current slice is checkpoint-clean.
 

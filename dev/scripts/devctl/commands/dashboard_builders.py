@@ -23,6 +23,16 @@ class CoordinationContext:
 
 @dataclass(frozen=True, slots=True)
 class NowSectionContext:
+    """Inputs for the dashboard NOW section.
+
+    ``top_blocker`` and ``next_action`` are passed in from the canonical
+    ``BlockerSnapshot`` (via ``ControlPlaneReadModel`` or
+    ``StartupContext.blocker``) so the NOW section never re-derives
+    authority strings locally. The legacy implementer-status text stays
+    available via ``session`` for display-only fallback when the typed
+    producer did not supply a decision.
+    """
+
     bridge: dict[str, str]
     reviewer: dict[str, Any]
     implementer: dict[str, Any]
@@ -30,6 +40,7 @@ class NowSectionContext:
     instruction_text: str
     top_blocker: str
     last_change_age: int | None
+    next_action_override: str = ""
 
 
 from .dashboard_summary import (
@@ -59,23 +70,6 @@ from .dashboard_people import (
 )
 
 
-def _derive_top_blocker(
-    quality: dict[str, Any], session: dict[str, Any], doctor: dict[str, Any],
-) -> str:
-    """Identify the single most important blocker."""
-    failing = quality.get("failing", [])
-    if failing:
-        return f"code-shape debt in {failing[0]}"
-    blocked = doctor.get("blocked_reason", "")
-    if blocked and blocked != "pipeline_unavailable":
-        return blocked
-    findings = session.get("open_findings", "")
-    if findings and findings.strip().lower() not in ("none", ""):
-        first_line = findings.strip().splitlines()[0].lstrip("- ").strip()
-        return first_line[:60] + ("..." if len(first_line) > 60 else "")
-    return "none"
-
-
 def _build_now_section(ctx: NowSectionContext) -> dict[str, Any]:
     """Build the NOW section: who owns the loop right now and what they should do."""
     impl_state = ctx.implementer.get("job_state", "n/a")
@@ -84,12 +78,23 @@ def _build_now_section(ctx: NowSectionContext) -> dict[str, Any]:
     impl_provider = ctx.implementer.get("provider", "n/a")
     owner_provider = impl_provider if owner == "Implementer" else reviewer_provider
 
-    next_action = ctx.session.get("implementer_status", "")
-    if not next_action or next_action == "n/a":
-        next_action = "review worker results and checkpoint"
-    else:
-        first_line = next_action.strip().splitlines()[0].lstrip("- ").strip()
+    override = (ctx.next_action_override or "").strip()
+    if override and override != "n/a":
+        first_line = override.splitlines()[0].lstrip("- ").strip()
         next_action = first_line[:60] + ("..." if len(first_line) > 60 else "")
+    else:
+        # Legacy display-only fallback: the NOW section shows the
+        # implementer's free-form status string when no typed push
+        # decision was routed in. The canonical blocker/next_action
+        # authority still lives in BlockerSnapshot; this branch only
+        # exists so dashboards rendered without a control-plane model
+        # still get a human-readable hint.
+        next_action = ctx.session.get("implementer_status", "")
+        if not next_action or next_action == "n/a":
+            next_action = "review worker results and checkpoint"
+        else:
+            first_line = next_action.strip().splitlines()[0].lstrip("- ").strip()
+            next_action = first_line[:60] + ("..." if len(first_line) > 60 else "")
 
     instr_text = (ctx.instruction_text or "").strip()
     if instr_text and instr_text != "n/a":

@@ -14,6 +14,7 @@ from typing import Any
 
 from .control_plane_daemons import resolve_daemon_state
 from .control_plane_sources import artifact_paths, load_sources, read_json_artifact
+from .startup_blocker_decision import BlockerSnapshot, derive_blocker_decision
 from .value_coercion import coerce_bool, coerce_string
 
 
@@ -159,38 +160,15 @@ def resolve_blocker_and_action(
     review_state: dict[str, Any] | None,
     quality: dict[str, Any],
 ) -> dict[str, Any]:
-    """Derive top blocker, next action, and next command."""
-    def _derive_top_blocker(
-        quality: dict[str, Any],
-        doctor: dict[str, Any],
-        session: dict[str, Any],
-    ) -> str:
-        if not quality.get("last_guard_ok", True):
-            details = quality.get("check_details", ())
-            if details:
-                return f"guard fail: {details[0].get('check', 'unknown')}"
-            return "code-shape debt"
-        blocked = doctor.get("blocked_reason", "")
-        if blocked and blocked != "pipeline_unavailable":
-            return blocked
-        findings = coerce_string(session.get("open_findings"))
-        if findings and findings.strip().lower() not in ("none", ""):
-            first_line = findings.strip().splitlines()[0].lstrip("- ").strip()
-            return first_line[:60] + ("..." if len(first_line) > 60 else "")
-        return "none"
+    """Derive top blocker, next action, and next command.
 
-    def _command_for_action(action: str) -> str:
-        if action == "run_devctl_push":
-            return "python3 dev/scripts/devctl.py push --execute"
-        if action == "await_checkpoint":
-            return "commit current work, then rerun startup-context"
-        if action == "await_review":
-            return (
-                "python3 dev/scripts/devctl.py review-channel "
-                "--action status --terminal none --format json"
-            )
-        return ""
-
+    Delegates blocker derivation to the canonical
+    ``startup_blocker_decision`` reducer so every surface shares one
+    producer. ``next_action`` and ``next_command`` still project from
+    the governed push receipt because they encode the push state
+    machine (``run_devctl_push`` / ``await_checkpoint`` / ``await_
+    review``), which is a separate authority from the blocker reason.
+    """
     session: dict[str, Any] = {}
     doctor: dict[str, Any] = {}
     if review_state:
@@ -198,14 +176,34 @@ def resolve_blocker_and_action(
         rt = review_state.get("reviewer_runtime", {}) or {}
         doctor = rt.get("doctor", {}) if isinstance(rt, dict) else {}
 
-    top_blocker = _derive_top_blocker(quality, doctor, session)
     next_action = coerce_string((receipt or {}).get("push_action")) or "n/a"
-    next_command = _command_for_action(next_action)
+    snapshot = derive_blocker_decision(
+        quality=quality,
+        doctor=doctor,
+        session=session,
+        push_action=next_action,
+    )
+    next_command = _command_for_push_action(next_action)
     return {
-        "top_blocker": top_blocker,
+        "top_blocker": snapshot.top_blocker,
         "next_action": next_action,
         "next_command": next_command,
+        "blocker_snapshot": snapshot,
     }
+
+
+def _command_for_push_action(action: str) -> str:
+    """Map a push-decision action token to its governed devctl command."""
+    if action == "run_devctl_push":
+        return "python3 dev/scripts/devctl.py push --execute"
+    if action == "await_checkpoint":
+        return "commit current work, then rerun startup-context"
+    if action == "await_review":
+        return (
+            "python3 dev/scripts/devctl.py review-channel "
+            "--action status --terminal none --format json"
+        )
+    return ""
 
 
 def resolve_pending_packets(review_state: dict[str, Any] | None) -> int:

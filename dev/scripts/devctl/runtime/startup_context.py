@@ -27,6 +27,7 @@ from .operator_context import is_resolved, resolve_operator_interaction_mode
 from .project_governance import ProjectGovernance
 from .review_state_locator import load_current_review_state
 from .startup_advisory_decision import derive_advisory_decision as _derive_advisory_decision
+from .startup_blocker_decision import BlockerSnapshot, derive_startup_blocker
 from .startup_context_projections import (
     bounded_contract_ownership_map,
     build_contract_ownership_map,
@@ -94,6 +95,7 @@ class StartupContext:
     coordination: CoordinationSnapshot | None = None
     remote_control_attachment: RemoteControlAttachmentState | None = None
     quality_signals: dict[str, object] = field(default_factory=dict)
+    blocker: BlockerSnapshot = field(default_factory=BlockerSnapshot)
     contract_ownership_map: dict[str, dict[str, object]] = field(default_factory=dict)
     snapshot_id: str = ""
 
@@ -119,6 +121,7 @@ class StartupContext:
         d["reviewer_gate"] = asdict(self.reviewer_gate)
         d["push_decision"] = self.push_decision.to_dict()
         d["quality_signals"] = dict(self.quality_signals)
+        d["blocker"] = self.blocker.to_dict()
         d["contract_ownership_map"] = bounded_contract_ownership_map(
             self.contract_ownership_map
         )
@@ -322,6 +325,40 @@ def _derive_advisory_action(
     return decision.action, decision.reason
 
 
+def _load_startup_coordination_snapshot(
+    *,
+    repo_root: Path,
+    governance: ProjectGovernance,
+    review_state: "ReviewState | None",
+    gate: ReviewerGateState,
+    work_intake: WorkIntakePacket,
+) -> CoordinationSnapshot | None:
+    """Resolve coordination via the shared F1 loader; fall back for bare repos.
+
+    Funnels startup-context, session-resume, and the control-plane read
+    model through ``coordination_loader`` so every surface observes the
+    same reducer output. The legacy fallback keeps this function non-
+    None when no typed review state is available.
+    """
+    from .coordination_loader import load_coordination_snapshot
+
+    snapshot = load_coordination_snapshot(
+        repo_root=repo_root, sources={}, governance=governance,
+        review_state=review_state, reviewer_gate=gate, work_intake=work_intake,
+    )
+    if snapshot is not None:
+        return snapshot
+    from ..platform.coordination_snapshot import build_coordination_snapshot
+
+    return build_coordination_snapshot(
+        repo_root=repo_root,
+        startup_context=SimpleNamespace(
+            governance=governance, work_intake=work_intake,
+        ),
+        review_state=review_state,
+    )
+
+
 def build_startup_context(
     *,
     repo_root: Path | None = None,
@@ -398,39 +435,18 @@ def build_startup_context(
             reviewer_gate=gate,
         ),
     )
-    # F1: route the coordination snapshot through the shared governed
-    # loader so startup-context, session-resume, and dashboard/
-    # ControlPlaneReadModel all observe the exact same reducer output.
-    # Before this wiring, each surface built its own snapshot via a
-    # distinct call path and the three could silently diverge on
-    # declared/observed/recommended topology even with matching inputs.
-    # See dev/scripts/devctl/runtime/coordination_loader.py for the
-    # canonical resolution order.
-    from .coordination_loader import load_coordination_snapshot
-
-    coordination_snapshot = load_coordination_snapshot(
+    coordination_snapshot = _load_startup_coordination_snapshot(
         repo_root=repo_root,
-        sources={},
         governance=governance,
         review_state=review_state,
-        reviewer_gate=gate,
+        gate=gate,
         work_intake=work_intake,
     )
-    if coordination_snapshot is None:
-        # Fallback path for bare-repo / legacy fixtures that lack a typed
-        # review state. Keeps build_startup_context returning a snapshot
-        # so callers that assume a non-None coordination field still work.
-        from ..platform.coordination_snapshot import build_coordination_snapshot
-
-        coordination_snapshot = build_coordination_snapshot(
-            repo_root=repo_root,
-            startup_context=SimpleNamespace(
-                governance=governance,
-                work_intake=work_intake,
-            ),
-            review_state=review_state,
-        )
     quality_signals = load_startup_quality_signals(repo_root)
+    blocker = derive_startup_blocker(
+        review_state=review_state,
+        push_decision=push_decision,
+    )
     snapshot_id = (
         str(getattr(review_state, "snapshot_id", "") or "").strip()
         or build_surface_snapshot_id(
@@ -474,6 +490,7 @@ def build_startup_context(
             else None
         ),
         quality_signals=quality_signals,
+        blocker=blocker,
         contract_ownership_map=build_contract_ownership_map(),
         snapshot_id=snapshot_id,
     )
