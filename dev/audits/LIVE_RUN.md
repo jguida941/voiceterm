@@ -6495,6 +6495,495 @@ will re-read `startup-context`, `agent-mind --agent codex`, and
 `review-channel --action status` before checking file mtimes. File
 mtimes remain a proxy signal, not a primary one (Q90 rule).
 
+## Q92 — Architectural finding: ~14 load-bearing fields are prose-as-authority across the governance stack (2026-04-11)
+
+- **Author**: Claude (dashboard role)
+- **Source**: 3-agent parallel audit (Explore agents, very thorough) over
+  `commands/governance/`, `runtime/`, `platform/`, `review_channel/`,
+  `commands/dashboard*`, and `commands/dashboard_render/`.
+- **Trigger**: Q91a ("stale `current_slice` field") promoted to
+  architectural severity after operator flagged the root thesis: the
+  whole governance platform is built on typed contracts
+  (`ProjectGovernance`, `WorkIntakePacket`, `SessionPacingState`,
+  `AutoModeState`, `ControlPlaneReadModel`, `PlanningIRSnapshot`,
+  `Finding`, `DecisionPacket`, `TypedAction`, `ActionResult`,
+  `RunRecord`) whose thesis is "turn repo state into typed signals."
+  `current_slice` is not the exception. It is one case of a
+  recurring pattern where reviewer-owned markdown or untyped dict
+  fields are threaded through typed-looking APIs, stripped of
+  freshness markers, and rendered alongside live-derived values
+  with identical visual weight. That is a direct violation of
+  `feedback_modeling_vs_load_bearing.md`: the typed state exists,
+  parses, threads, renders, and tests — but the production
+  decisions do not actually *read* it. They read the prose
+  alongside it and cannot tell the difference.
+
+### Q92 meta-pattern (3-line summary)
+
+1. Reviewer-owned markdown sections are parsed into bare `str`
+   fields on dataclasses that carry NO timestamp, NO SHA binding,
+   and NO staleness check. The dataclasses look typed; the strings
+   they hold are not.
+2. Those bare strings flow through every downstream surface
+   (`startup-context`, `session-resume`, dashboard, bridge
+   projection) and get rendered identically to live-derived fields
+   like `ahead_of_upstream_commits`, with no visual or typed marker
+   telling the reader which sentence was written once 20+ hours ago
+   and which was computed 5 seconds ago from live git state.
+3. The existing `current_instruction_revision` field is the only
+   freshness signal, and it is a *content hash* of the markdown —
+   not a timestamp — so stale content written 20+ hours ago still
+   carries a valid revision hash and reads as authoritative to any
+   naive consumer.
+
+### Q92-A — Startup / coordination / control-plane read model (6 HIGH findings)
+
+HIGH severity = load-bearing for AI decisions, can be stale, renders
+alongside live-derived fields with no distinguishing marker.
+
+**Q92-A1 — `doctor_status / doctor_blocked / doctor_summary`**
+- Rendered: `dev/scripts/devctl/commands/dashboard_render/terminal.py:97-98, 111-112`;
+  `dev/scripts/devctl/commands/dashboard_render/markdown.py:313-320`
+- Source: untyped dict from `review_state.reviewer_runtime.doctor`
+  (no dataclass wrapper;
+  `dev/scripts/devctl/commands/dashboard_typed_state.py:74-87`).
+  `doctor.get("status")`, `doctor.get("blocked_reason")` as bare
+  strings.
+- Typed wrapper: none. No enum, no timestamp, no freshness marker.
+- Load-bearing: AI agents make repair decisions based on
+  `doctor_status`. Renders with identical visual weight as
+  typed fields like `observed_topology`.
+
+**Q92-A2 — `recommended_action / recommended_command`**
+- Rendered: threads through `StartupContext` and
+  `ControlPlaneReadModel` for advisories.
+- Source: `dev/scripts/devctl/runtime/review_state_parse_support.py:138-139`
+  pulls from untyped attention mapping as bare strings with no
+  enum or schema: `_string(mapping.get("recommended_action"))`.
+- Typed wrapper: none. No enum, no status validation, no
+  invalidation rule.
+- Load-bearing: drives recovery actions and recovery commands for
+  both AI and operator.
+
+**Q92-A3 — `top_blocker / next_action` on `ControlPlaneReadModel`**
+- Rendered: `dev/scripts/devctl/runtime/control_plane_read_model.py:71-72`
+- Source: `dev/scripts/devctl/runtime/control_plane_resolve.py:173-180`
+  derives from `doctor.get("blocked_reason")` and
+  `session.get("open_findings")` as fallback chains without
+  freshness binding. `top_blocker` can be stale prose from the
+  last checkpoint.
+- Typed wrapper: none. No timestamp, no SHA binding.
+- Load-bearing: determines the operator's next action in every
+  surface. Sits next to computed fields like `ahead_of_upstream`
+  with no way to distinguish stale from fresh.
+
+**Q92-A4 — `advisory_action / advisory_reason` on `StartupContext`**
+- Rendered: `dev/scripts/devctl/runtime/startup_context.py:82-83`
+  (StartupContext dataclass); rendered in startup-summary.
+- Source: `dev/scripts/devctl/runtime/startup_advisory_decision.py`
+  derives from `reviewer_gate` and `push_decision` state as prose
+  summary with no structured enum.
+- Typed wrapper: partial. Dataclass field, but value is free-form
+  prose, no enum, no version.
+- Load-bearing: directly governs operator decisions like
+  `await_review`, `repair_reviewer_loop`,
+  `checkpoint_before_continue`. Startup surfaces list these
+  alongside typed gate fields; operator cannot distinguish
+  derived from manual override.
+
+**Q92-A5 — `current_slice`** (already Q91a, counted here for the
+total). Bridge markdown → coordination dict → render verbatim.
+No invalidation when the referenced SHA becomes an ancestor of
+HEAD or lands on origin.
+- Rendered: `dev/scripts/devctl/runtime/startup_context_projections.py:165-167`
+- Source: bridge.md line 174 (`## Current Instruction For Claude`).
+
+**Q92-A6 — `active_target` on `CoordinationSnapshot`**
+- Rendered: `dev/scripts/devctl/commands/dashboard.py:507`;
+  `dev/scripts/devctl/commands/governance/session_resume_render.py:396`
+- Source: typed `PlanTargetRef`
+  (`work_intake_models.py:14-23`) — THIS ONE IS ACTUALLY TYPED.
+  But `CoordinationSnapshot.generated_at_utc` (line 41) exists
+  and is not threaded to the render layer, so stale snapshots
+  render as fresh.
+- Typed wrapper: yes (typed ref), but freshness not rendered.
+- Load-bearing: implementer must know if the active plan target
+  is stale. No visual warning.
+
+**Q92-A MEDIUM findings:**
+
+- `CoordinationSnapshot.summary` (`coordination_snapshot_models.py:69`):
+  derived from typed enums but stored as bare string with no
+  round-trip validation.
+- `launch_truth` (`review_state_models.py:175`): bare string
+  fallback, documented as diagnostic, but still a load-bearing
+  hint for launch decisions.
+
+### Q92-B — Bridge parser layer (10 findings)
+
+The `bridge.md` file has 13 sections (`## Start-Of-Conversation
+Rules`, `## Protocol`, `## Swarm Mode`, `## Operator Direction`,
+`## Poll Status`, `## Current Verdict`, `## Open Findings`,
+`## Claude Status`, `## Claude Questions`, `## Claude Ack`,
+`## Current Instruction For Claude`, `## Last Reviewed Scope`,
+`## Action Requests`). Of these, 8 are load-bearing for AI
+decisions and are parsed into bare strings with no freshness
+marker:
+
+**Q92-B1 — `Current Instruction For Claude` (bridge.md line 172)**
+- Parser: `dev/scripts/devctl/review_channel/bridge_projection_state.py:164, 256, 325`
+- Becomes: `str` in `ReviewCurrentSessionState.current_instruction`
+  (`review_state_models.py:49`)
+- Flow: `extract_bridge_snapshot()` → `bridge_projection_state_from_review_state()`
+  → `_with_fallback_sections()` → `ReviewCurrentSessionState` →
+  `current_session_projection.py:49` → coordinator → AI decision
+  prompt.
+- Freshness: NONE. Only a `current_instruction_revision` content
+  hash, NO timestamp, NO bridge.md SHA, NO staleness check.
+- Severity: HIGH — this bare markdown string threads into
+  reviewer/implementer conductor prompts as authority
+  (`prompt_session_resume.py:108`).
+- Suggested promotion: typed `InstructionRef` with
+  `text: str`, `revision: str`, `written_utc: str`,
+  `source_section_sha: str`, invalidate on drift.
+
+**Q92-B2 — `Open Findings` (bridge.md line 155)**
+- Parser: `dev/scripts/devctl/review_channel/bridge_projection_state.py:240, 302, 333`
+- Becomes: `str` in `ReviewCurrentSessionState.open_findings`
+  (`review_state_models.py:58`)
+- Flow: extracted → typed state → startup-context packet →
+  dashboard → session-resume.
+- Freshness: NONE. String is carried verbatim with no timestamp,
+  SHA, or expiry.
+- Severity: HIGH — reviewers read this section to understand
+  pending issues; if stale by 20 hours, AI decision-making is
+  corrupted.
+- Suggested promotion: typed `FindingsRef` with
+  `items: list[Finding]`, invalidate on repo state change.
+
+**Q92-B3 — `Current Verdict` (bridge.md line 150)**
+- Parser: `bridge_projection_state.py:236, 293`
+- Becomes: `str` in bridge projection; exposed in
+  `ReviewBridgeState.current_instruction` fallback.
+- Freshness: NONE. No timestamp; optional SHA stored in metadata.
+- Severity: MEDIUM — verdict influences push/promotion
+  acceptance. A stale verdict can block or unblock work
+  incorrectly. No gate prevents a 20+ hour stale verdict from
+  affecting decisions.
+- Suggested promotion: typed `VerdictRef` with `status: str`,
+  `recorded_utc: str`, `reviewer_sha: str`, explicit revalidation
+  gate.
+
+**Q92-B4 — `Last Reviewed Scope` (bridge.md line 177)**
+- Parser: `bridge_projection_state.py:259, 334`;
+  `current_session_projection.py:85-86`
+- Becomes: `str` in `ReviewCurrentSessionState.last_reviewed_scope`.
+- Content example: `4b36412c..d8c71114` — a git commit range as
+  prose text, not a validated git ref.
+- Freshness: NONE. Markdown prose with no timestamp; SHAs not
+  validated against git for existence or ancestry.
+- Severity: MEDIUM — if the reviewer mistypes a SHA or the
+  snapshot drifts, the implementer reviews the wrong range with
+  no validation catching it.
+- Suggested promotion: typed `ReviewScopeRef` with `base_sha: str`,
+  `head_sha: str`, `recorded_utc: str`, validated against
+  `git rev-list` before conductor prompt exposure.
+
+**Q92-B5 — `Claude Questions` (bridge.md line 164)**
+- Parser: `bridge_projection_state.py:316`
+- Becomes: `str` carried to projections.
+- Freshness: NONE. Bare markdown list, no timestamp, no
+  "acknowledged" gate.
+- Severity: MEDIUM — questions can become stale, and the
+  implementer may re-answer resolved questions because the
+  reviewer never cleared the section.
+- Suggested promotion: typed `QuestionRef` list with
+  `text: str`, `asked_utc: str`, `acknowledged: bool`,
+  `answered_by: str`, only show unacknowledged in prompts.
+
+**Q92-B6 — `last_codex_poll_utc` metadata parse**
+- Parser: `dev/scripts/devctl/review_channel/handoff_constants.py:14`
+  (regex); `dev/scripts/devctl/review_channel/handoff.py:126-131`
+  (extraction).
+- Becomes: `str` in `BridgeSnapshot.metadata` → `BridgeLiveness.last_codex_poll_utc`
+  → classified as FRESH / POLL_DUE / STALE.
+- Freshness: PARTIAL. Timestamp is recorded but there is no
+  validation that the timestamp was written by a real reviewer
+  heartbeat. A manually edited bridge.md can trivially fake the
+  field and make the system believe the reviewer polled when it
+  did not.
+- Severity: HIGH — if a reviewer manually edits bridge.md and
+  bumps only the timestamp without doing real review, the system
+  reports FRESH and implementations may proceed.
+- Suggested promotion: `last_codex_poll_utc` should be immutable
+  outside of `write_reviewer_heartbeat()` /
+  `write_reviewer_checkpoint()`, validated by comparing a
+  stored reviewer PID or process heartbeat against the existing
+  typed `ReviewerSupervisorHeartbeat` in `lifecycle_state.py:53-58`
+  (which is already defined but not used for this validation).
+
+**Q92-B7 — `Poll Status` (bridge.md line 146)**
+- Parser: `dev/scripts/devctl/review_channel/bridge_validation.py`
+  (regex-based `extract_poll_status_write_context`); used in
+  `handoff.py:155`.
+- Becomes: `poll_status_action`, `poll_status_reason` from
+  prose splitting — parsed from lines like
+  "Reviewer checkpoint updated through repo-owned tooling
+  (mode: ...; reason: ...; reviewed-tree: ...)".
+- Freshness: NONE. No SHA binding to the checkpoint that wrote
+  the line.
+- Severity: MEDIUM — a mis-edited prose line could cause the
+  wrong action to be inferred.
+- Suggested promotion: typed `PollStatusRef` with `action: str`,
+  `reason: str`, `timestamp: str`, `reviewer_pid: int`,
+  validated atomically alongside the `last_codex_poll_utc` update.
+
+**Q92-B8 — `Operator Direction` (bridge.md lines 111-144)**
+- Parser: `bridge_projection_state.py:22-33` (`BRIDGE_SECTION_ORDER`
+  includes it).
+- Becomes: markdown string in bridge projection; rendered verbatim.
+- Freshness: NONE. No version, no last-updated-by, no SHA of
+  instructions applied.
+- Severity: MEDIUM — if the operator changes direction mid-loop
+  and forgets to update bridge.md, the old direction stays live
+  with no version binding to executed state.
+- Suggested promotion: typed `OperatorDirectionRef` with
+  `phase: int`, `instruction_text: str`, `issued_by: str`,
+  `issued_utc: str`, `acked_by_agents: dict[str, bool]`.
+
+**Q92-B9 — `Claude Status / Claude Ack` race condition on
+instruction revision**
+- Parser: `current_session_projection.py:49-52` and
+  `instruction_reset.py` (called from `reviewer_state.py:211`).
+- Becomes: `str` fields in `ReviewCurrentSessionState`.
+- Freshness: PARTIAL. `instruction_reset.py` resets the
+  status/ack sections when `current_instruction` changes, but
+  the reset is not atomic with the bridge write, so a read race
+  can load stale status before the reset completes.
+- Severity: MEDIUM — implementer may see
+  `Claude Status: "done with first part"` under an old
+  instruction, the new instruction gets issued, and implementer
+  has not reloaded so it acts on stale status.
+- Suggested promotion: make `current_instruction_revision`
+  required on every projection read; reject reads of
+  `implementer_status`/`implementer_ack` where the revision
+  doesn't match the live bridge version hash.
+
+**Q92-B10 — `last_reviewed_scope` git-commit validation gap**
+  — see Q92-B4. Same underlying finding surfaced from two
+  different files; keeping both to show the flow through both
+  `bridge_projection_state.py:259` and `current_session_projection.py:86`.
+
+### Q92-C — Dashboard / control-plane render layer (6 HIGH + 2 MEDIUM)
+
+**Q92-C1 — `current_slice` rendered without generation timestamp**
+- Rendered: `dev/scripts/devctl/commands/dashboard.py:508` →
+  `dashboard_builders.py:152` →
+  `dashboard_render/terminal.py:450` (displayed as `Slice` with
+  `_CYAN` color, no age indicator).
+- Source: typed `CoordinationSnapshot.current_slice`
+  (`coordination_snapshot_models.py:47`).
+- Freshness: `generated_at_utc` exists on CoordinationSnapshot
+  (line 41) but is NOT checked before rendering.
+- Severity: HIGH — governance depends on knowing if the
+  coordination snapshot is stale; field carries bounded topology
+  and sync recommendations that could be 20+ hours old.
+- Suggested fix: thread `generated_at_utc` through the coordination
+  dict and compute age in the render layer; only color-code as
+  authoritative if freshness < threshold.
+
+**Q92-C2 — `active_target` rendered without staleness check**
+- Rendered: `dashboard.py:507` → `session_resume_render.py:396`
+- Source: typed `PlanTargetRef`.
+- Freshness: parent `CoordinationSnapshot.generated_at_utc` exists
+  but not threaded to render.
+- Severity: HIGH — implementer must know if the active plan target
+  is stale.
+
+**Q92-C3 — `instruction_full` from bridge.md parsed without poll
+freshness marker**
+- Rendered: `dev/scripts/devctl/commands/dashboard_utils.py:166`
+  → `dashboard.py:462` → `dashboard_builders.py:98-99` →
+  `dashboard_render/terminal.py:161-163` (rendered as
+  `instruction_summary` with no age indicator).
+- Source: bare markdown string (bridge.md line 174) parsed at
+  dashboard build time.
+- Freshness: NONE. `last_poll_utc` is available in the bridge dict
+  but NOT checked or rendered alongside the instruction.
+- Severity: HIGH — instruction is the core decision artifact. If
+  the poll is stale, the instruction is stale, but the reader has
+  no visual warning.
+
+**Q92-C4 — `verdict` from bridge.md rendered without staleness
+marker**
+- Rendered: `dashboard_utils.py:168` → `dashboard_people.py:96` →
+  `dashboard_render/terminal.py:157-159` (colored `_CYAN` if not
+  "n/a", no age indicator).
+- Source: bare markdown prose from `## Current Verdict`.
+- Freshness: NONE.
+- Severity: HIGH — verdict is a decision gate; stale verdict
+  blocks or unblocks push incorrectly.
+- Suggested fix: extract verdict from typed `ReviewerRuntimeContract`
+  (`review_state`) instead of markdown; add freshness check from
+  reviewer observation timestamp.
+
+**Q92-C5 — `plan_count=0` when graph snapshot is stale**
+- Rendered: `dev/scripts/devctl/platform/system_picture_sections.py:165`
+  → `system_picture_render_ledger.py:106` (rendered as
+  backtick-quoted metric with no staleness indicator).
+- Source: `ContextGraphSnapshot` loaded from disk; status field
+  set to "stale" at line 150 if commit doesn't match HEAD, but
+  the summary dict (lines 158-167) does NOT propagate this
+  staleness marker to the render layer.
+- Severity: HIGH — known bug referenced in Q90. `plan_count=0`
+  suggests no plans exist when actually the graph is stale and
+  was not regenerated after HEAD moved.
+- Suggested fix: add staleness flag to summary dict or qualify
+  `plan_count` with `(stale)` marker when `status == "stale"`.
+
+**Q92-C6 — `instruction_text` source shadowing in dashboard.py**
+- Rendered: `dashboard.py:461-463`; `dashboard_builders.py:98-99`;
+  `dashboard_people.py:98-99`; `dashboard_render/terminal.py:161-163`.
+- Source: MIXES typed `session.current_instruction` (from
+  `review_state`) with bare-string `bridge.instruction_full`
+  (from markdown). Preference logic at line 463 picks bridge if
+  `review_state` exists.
+- Problem: reader sees instruction text without knowing which
+  source it came from or when it was last polled. Silent shadowing
+  between typed state and markdown projection.
+- Severity: MEDIUM — visible but not decision-driving.
+- Suggested fix: add inline source marker
+  (`[from bridge, polled 2h ago]` vs `[from review_state, live]`)
+  or use distinct visual styling so typed and prose sources
+  cannot be conflated.
+
+**Q92-C MEDIUM findings:**
+
+- `reviewed_scope_raw` (`dashboard_utils.py:157` →
+  `dashboard_people.py:82-86` → `dashboard_render/markdown.py:122`):
+  bare markdown prose with no poll age rendered.
+- `coordination` fields in `session_resume_render.py:400`: typed
+  `CoordinationSnapshot` embedded in `SessionCachePacket`, but
+  `generated_at_utc` not rendered or checked.
+
+### Q92-META — Recurring pattern and promotion path
+
+**Pattern 1**: Bridge.md markdown sections are parsed as bare
+strings and threaded directly to AI decision points and
+coordinator prompts via `ReviewCurrentSessionState` and
+`ReviewBridgeState` dataclasses. These dataclasses hold NO
+timestamp, SHA binding, or staleness check. The bridge.md file
+is treated as the source of truth; the typed dataclasses are
+thin transport over that prose.
+
+**Pattern 2**: Untyped intermediate dicts (`doctor`, `attention`,
+`session`, `bridge`) are parsed and filtered into typed containers
+(`ReviewBridgeState`, `ReviewCurrentSessionState`,
+`ControlPlaneReadModel`) but retain string fields with no enum or
+schema validation. Impossible for a reader to tell whether a field
+was deliberately set by a recent operation or is stale markdown
+from a prior checkpoint.
+
+**Pattern 3**: Decision fields that flow into AI recommendations
+(`top_blocker`, `next_action`, `advisory_action`,
+`recommended_action`) all derive from or fall back to bare prose
+strings with no decision-state enum or formal condition codes.
+Stale markdown influences operator commands while typed gates
+(`reviewer_mode`, `implementation_permission`) sit beside them.
+
+**Pattern 4 (dashboard-specific)**: The dashboard layer conflates
+three data sources (bridge.md parsed strings, typed `ReviewState`,
+typed `CoordinationSnapshot`) without consistent freshness
+tracking. Bridge.md parsing is inherently stale-able;
+`ReviewState` and `CoordinationSnapshot` carry timestamps but these
+are not rendered. The render path sees bare dicts, not typed
+objects, so freshness context is lost by the time the
+terminal/markdown renderers execute.
+
+**Why the one exception, `current_instruction_revision`, does not
+save the design**: it is a *content hash* of the markdown, not a
+timestamp. A section written 20 hours ago still has a valid
+revision hash and reads as authoritative to any naive consumer.
+Content hashing answers "did the content change?", not "is the
+content still correct given current git state?".
+
+### Q92 promotion path (integrate, do not create)
+
+Per `feedback_integrate_before_creating.md`, the repo already has
+typed containers that should own each of these fields. The task is
+to WIRE them, not to build new adjacent ones.
+
+1. **`WorkIntakePacket.active_slice: ActiveSliceRef`** — promote
+   `current_slice` (Q91a / Q92-A5) from bridge prose to a typed
+   field. Derive status at read time from git ancestry:
+   `status = "landed_upstream"` when
+   `target_closure_sha is ancestor of origin/<branch>`.
+2. **`SessionPacingState.current_slice_ref`** — if
+   `WorkIntakePacket` is not the right owner, `SessionPacingState`
+   already exists and already carries pacing fields like
+   `research_ref_budget`, `patch_after_bounded_refs_or_raise_blocker`.
+   Either owner works; pick the one closer to the planning IR.
+3. **`InstructionRef / FindingsRef / VerdictRef / ReviewScopeRef /
+   QuestionRef / PollStatusRef / OperatorDirectionRef`** — one
+   typed dataclass per load-bearing bridge section (Q92-B1–B8,
+   B10). Each carries `text`, `written_utc`, `source_section_sha`,
+   `revision`, and a `status` enum computed at read time from
+   git / repo state.
+4. **`ControlPlaneReadModel.top_blocker / next_action`** — replace
+   bare strings with typed enums backed by the decision state
+   machine. Fallback chains to `doctor.get(...)` or
+   `session.get(...)` are a data-flow smell; they should be
+   explicit typed transitions.
+5. **`StartupContext.advisory_action / advisory_reason`** — enum
+   + reason code, not free-form prose. The enum values are
+   already listed in `startup_advisory_decision.py` as string
+   literals; promote them to `Literal[...]`.
+6. **Dashboard render freshness**: every rendered field must
+   carry a freshness marker computed from its source's
+   `generated_at_utc` or an analogous field. Color-code by age
+   threshold. Reader must be able to tell at a glance whether a
+   line is live or frozen.
+7. **Guard + test**: `check_prose_as_authority.py` guard that
+   fails CI when a `str`-typed field on `ReviewBridgeState`,
+   `ReviewCurrentSessionState`, `ControlPlaneReadModel`, or
+   `StartupContext` is read by `startup_context_projections.py` or
+   `dashboard*.py` render code without a companion timestamp or
+   status field. xfail-strict test that asserts
+   `current_instruction_revision` alone is not a freshness signal.
+   Per `feedback_modeling_vs_load_bearing.md`: hard traces, not
+   prose follow-up bullets.
+
+### Q92 dependency on Q93
+
+Q92 cannot be landed cleanly before Q93 (role model typing). The
+Q92 promotion path assumes "the implementer fixes these" — but
+with Claude currently in dashboard posture per the operator and
+Codex in reviewer posture per the typed topology, there is no
+single agent authorized to do the work. Q93 must resolve the role
+contradiction first (either by typing a third role, or by
+explicitly collapsing the three-role model back to the two-role
+model), THEN Q92 proceeds with a clear authorized implementer.
+
+### Q92 action items for Codex
+
+1. Incorporate Q92-A1 through Q92-C6 into the next review verdict.
+2. Acknowledge the architectural severity (this is thesis-level,
+   not patch-level).
+3. Resolve Q93 first so the promotion path has a typed implementer
+   to assign the work to.
+4. Agree or reject the guard + xfail-strict test proposal in step 7
+   of the promotion path. If agreed, it becomes the Q92 closure
+   contract.
+
+### Q92 audit source
+
+Full verbatim agent output from the 3-agent parallel audit is
+available in this session's Claude-side rollout
+(session `db4d882a`) at the tool results for the three Explore
+agent invocations. Findings above are consolidated and
+deduplicated across the three audits. Any remaining detail can
+be re-pulled from the agent rollout JSONL.
+
 
 
 
