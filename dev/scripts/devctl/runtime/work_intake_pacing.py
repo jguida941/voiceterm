@@ -158,6 +158,17 @@ def _resolve_pacing_evidence(
 def _resolve_graph_inputs(
     repo_root: Path,
 ) -> tuple[tuple[GraphNode, ...], tuple[GraphEdge, ...], str, str]:
+    """Prefer the newest saved context-graph snapshot on the Step 0 hot path.
+
+    Startup-context is the first command every session runs, and repo policy
+    runs it *before* `context-graph --mode bootstrap`. A live graph rebuild
+    from that hot path makes fresh commits look like a hung bootstrap, so
+    the saved snapshot is accepted regardless of HEAD match and tagged with
+    a typed freshness marker (`saved_graph_snapshot_current` vs
+    `saved_graph_snapshot_stale_head`). Only when no snapshot exists at all
+    does the live builder run, and callers can observe that via the
+    `no_snapshot`-to-`live_context_graph_build` fall-through source value.
+    """
     from ..context_graph.builder import build_context_graph
     from ..governance.push_state import current_head_commit_sha
 
@@ -166,12 +177,17 @@ def _resolve_graph_inputs(
     if snapshot_paths:
         snapshot = load_context_graph_snapshot(snapshot_paths[-1])
         if not head_commit or snapshot.commit_hash == head_commit:
-            return (
-                _snapshot_nodes(snapshot),
-                _snapshot_edges(snapshot),
-                "saved_context_graph_snapshot",
-                "high",
-            )
+            source = "saved_graph_snapshot_current"
+            confidence = "high"
+        else:
+            source = "saved_graph_snapshot_stale_head"
+            confidence = "medium"
+        return (
+            _snapshot_nodes(snapshot),
+            _snapshot_edges(snapshot),
+            source,
+            confidence,
+        )
     nodes, edges = build_context_graph()
     return tuple(nodes), tuple(edges), "live_context_graph_build", "medium"
 

@@ -3,11 +3,16 @@
 from __future__ import annotations
 
 import os
+from dataclasses import replace
 
 from . import startup_repair as startup_repair_flow
 from ...common_io import display_path
 from ...common import add_standard_output_arguments
 from .common import render_governance_value_error
+from .startup_context_advisory_coherence import (
+    build_blocker_probe_payload,
+    coerce_advisory_for_blockers,
+)
 from .startup_context_render import (
     publication_backlog_count,
     publication_backlog_guidance,
@@ -383,6 +388,24 @@ def run(args) -> int:
         governance=governance,
         reviewer_gate=ctx.reviewer_gate,
     )
+    # Codex P1 finding: advisory_action must not stay on `push_allowed`
+    # when the typed summary blocker list is non-empty. The coercion has
+    # to land before `build_startup_receipt` so the persisted receipt,
+    # the human summary, and the machine summary all observe the same
+    # consistent (advisory_action, advisory_reason) pair.
+    authority_payload = _startup_authority_payload(authority_report)
+    blocker_probe_payload = build_blocker_probe_payload(ctx, authority_payload)
+    coerced_action, coerced_reason = coerce_advisory_for_blockers(
+        ctx.advisory_action,
+        ctx.advisory_reason,
+        _summary_blockers(blocker_probe_payload),
+    )
+    if coerced_action != ctx.advisory_action or coerced_reason != ctx.advisory_reason:
+        ctx = replace(
+            ctx,
+            advisory_action=coerced_action,
+            advisory_reason=coerced_reason,
+        )
     receipt = build_startup_receipt(
         ctx,
         authority_report=authority_report,
