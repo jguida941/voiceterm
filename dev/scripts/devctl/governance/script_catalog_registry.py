@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import shlex
+from collections.abc import Mapping
 from pathlib import Path
 
 from ..config import REPO_ROOT
@@ -134,13 +136,25 @@ PROBE_SCRIPT_PATHS = {
 }
 
 
-def probe_script_cmd(name: str, *args: str) -> list[str]:
-    """Return a python command list for one probe script."""
+def probe_script_relative_path(name: str) -> str:
+    """Return a probe script's repository-relative path."""
     try:
-        relative = PROBE_SCRIPT_RELATIVE_PATHS[name]
+        return PROBE_SCRIPT_RELATIVE_PATHS[name]
     except KeyError as exc:
         raise KeyError(f"unknown probe script id: {name}") from exc
-    return ["python3", relative, *args]
+
+
+def probe_script_path(name: str) -> Path:
+    """Return a probe script's absolute filesystem path."""
+    try:
+        return PROBE_SCRIPT_PATHS[name]
+    except KeyError as exc:
+        raise KeyError(f"unknown probe script id: {name}") from exc
+
+
+def probe_script_cmd(name: str, *args: str) -> list[str]:
+    """Return a python command list for one probe script."""
+    return ["python3", probe_script_relative_path(name), *args]
 
 
 LEGACY_CHECK_SCRIPT_REWRITES = {
@@ -189,3 +203,35 @@ def check_script_path(name: str) -> Path:
 def check_script_cmd(name: str, *args: str) -> list[str]:
     """Return a python command list for one check script."""
     return ["python3", check_script_relative_path(name), *args]
+
+
+def check_script_shell_command(
+    name: str,
+    *args: str,
+    env: Mapping[str, str] | None = None,
+) -> str:
+    """Return a shell command string for one check script."""
+    return _script_shell_command(check_script_relative_path(name), *args, env=env)
+
+
+def probe_script_shell_command(
+    name: str,
+    *args: str,
+    env: Mapping[str, str] | None = None,
+) -> str:
+    """Return a shell command string for one probe script."""
+    return _script_shell_command(probe_script_relative_path(name), *args, env=env)
+
+
+def _script_shell_command(
+    relative_path: str,
+    *args: str,
+    env: Mapping[str, str] | None = None,
+) -> str:
+    command = shlex.join(["python3", relative_path, *args])
+    if not env:
+        return command
+    prefix = " ".join(
+        f"{key}={shlex.quote(str(value))}" for key, value in env.items()
+    )
+    return f"{prefix} {command}"

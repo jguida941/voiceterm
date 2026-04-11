@@ -39,6 +39,7 @@ from ..commands import (
     listing,
     loop_packet,
     mcp,
+    monitor,
     mobile_app,
     mobile_status,
     mutants,
@@ -225,6 +226,7 @@ def build_parser() -> argparse.ArgumentParser:
     governance_review_snapshot.add_parser(sub)
     governance_install_git_hooks.add_parser(sub)
     _add_dashboard_parser(sub)
+    monitor.add_parser(sub)
     auto_mode_status.add_parser(sub)
     discover.add_parser(sub)
     view.add_parser(sub)
@@ -269,6 +271,7 @@ COMMAND_HANDLERS = {
     "check": check.run,
     "check-router": check_router.run,
     "dashboard": dashboard.run,
+    "monitor": monitor.run,
     "mutants": mutants.run,
     "mutation-score": mutation_score.run,
     "docs-check": docs_check.run,

@@ -7,6 +7,7 @@ from dataclasses import dataclass
 
 from ...collect import collect_git_status
 from ...common import inject_quality_policy_command, normalize_repo_python_shell_command
+from ...governance.script_catalog_registry import check_script_shell_command
 from ..check_router import _extract_bundle_commands
 from ..check_router_constants import resolve_check_router_config
 from ..check_router_support import (
@@ -233,14 +234,14 @@ def _build_postflight_rows() -> list[dict[str, object]]:
         _make_command_row(
             source="tandem-postflight",
             command=normalize_repo_python_shell_command(
-                "python3 dev/scripts/checks/check_review_channel_bridge.py --format md"
+                check_script_shell_command("review_channel_bridge", "--format", "md")
             ),
             force_rerun=True,
         ),
         _make_command_row(
             source="tandem-postflight",
             command=normalize_repo_python_shell_command(
-                "python3 dev/scripts/checks/check_tandem_consistency.py --format md"
+                check_script_shell_command("tandem_consistency", "--format", "md")
             ),
             force_rerun=True,
         ),

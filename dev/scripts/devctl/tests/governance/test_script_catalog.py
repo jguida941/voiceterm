@@ -50,6 +50,25 @@ class ScriptCatalogTests(unittest.TestCase):
             "dev/scripts/checks/probe_term_consistency.py",
         )
 
+    def test_shell_command_helpers_preserve_expected_strings(self) -> None:
+        self.assertEqual(
+            script_catalog.check_script_shell_command("active_plan_sync"),
+            "python3 dev/scripts/checks/check_active_plan_sync.py",
+        )
+        self.assertEqual(
+            script_catalog.check_script_shell_command(
+                "coderabbit_gate",
+                "--branch",
+                "master",
+                env={"CI": "1"},
+            ),
+            "CI=1 python3 dev/scripts/checks/check_coderabbit_gate.py --branch master",
+        )
+        self.assertEqual(
+            script_catalog.probe_script_shell_command("probe_design_smells", "--format", "json"),
+            "python3 dev/scripts/checks/probe_design_smells.py --format json",
+        )
+
     def test_mutation_bypass_graph_closure_is_registered(self) -> None:
         self.assertIn(
             "mutation_bypass_graph_closure",
@@ -62,6 +81,15 @@ class ScriptCatalogTests(unittest.TestCase):
         self.assertEqual(
             script_catalog.check_script_cmd("mutation_bypass_graph_closure")[-1],
             "dev/scripts/checks/check_mutation_bypass_graph_closure.py",
+        )
+
+    def test_probe_path_helpers_match_registered_paths(self) -> None:
+        self.assertEqual(
+            script_catalog.probe_script_relative_path("probe_design_smells"),
+            "dev/scripts/checks/probe_design_smells.py",
+        )
+        self.assertTrue(
+            script_catalog.probe_script_path("probe_design_smells").is_file()
         )
 
     def test_legacy_check_rewrite_targets_match_relative_paths(self) -> None:

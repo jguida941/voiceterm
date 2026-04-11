@@ -20,6 +20,7 @@ from ...review_channel.reviewer_state import (
     reviewer_state_write_to_dict,
 )
 from ...time_utils import utc_timestamp
+from ...runtime.monitor_snapshot import write_latest_monitor_snapshot
 from .bridge_handler import _run_bridge_action
 from . import ensure as _ensure_mod
 from ._ensure_follow_runtime import run_ensure_follow_action

@@ -2587,6 +2587,14 @@ blocker or exception in plan state before skipping the declared order.
 
 ## Progress Log
 
+- 2026-04-10: Closed the Q58 script-dispatcher follow-up under
+  `MP-377`. `script_catalog_registry` now exports canonical shell-command
+  builders alongside the existing argv/path helpers, and the bundle
+  registry, tandem postflight rows, and autonomy governance preflight now
+  resolve guard script paths through that registry instead of hardcoded
+  `dev/scripts/checks/...` literals. The rendered bundle strings stay
+  byte-for-byte stable, but the dispatcher authority now lives in one
+  typed registry surface instead of parallel ad hoc path assembly.
 - 2026-04-10: Closed Q52 under the same `MP-377` quality-audit follow-up.
   Raw `git commit` now hits the existing typed `commit_permission`
   boundary through both pre-commit hook entrypoints: the portable

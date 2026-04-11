@@ -456,6 +456,14 @@ The MP scopes remain valid but are now cross-cut by enforcement-first priority.
 
 ## Progress Log
 
+- 2026-04-10: Closed Q57 under the same `MP-384` / `MP-385` remote-control
+  monitoring slice. The repo now has one canonical `devctl monitor`
+  single-pass surface over typed startup/control-plane authority, plus the
+  detached `review-channel --action ensure --follow` publisher writes the
+  same `monitor_snapshot.{json,md}` bundle into the governed review-status
+  root on each cadence. Remote phone mode no longer needs manual dashboard +
+  startup-context stitching just to answer current state, next command,
+  source authority classes, or whether observer self-audit should fire.
 - 2026-04-10: Started the Q40/Q42 remote-control safety slice from the live
   audit. Startup-context should now distinguish observe-only recovery from
   relaunch/terminate authority before any destructive runtime action, and

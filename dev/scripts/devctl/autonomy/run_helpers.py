@@ -12,6 +12,7 @@ from ..context_graph.escalation import (
     build_context_escalation_packet,
     collect_query_terms,
 )
+from ..governance.script_catalog_registry import check_script_cmd
 from .swarm_helpers import fallback_repo_from_origin
 from ..common import display_path
 from ..config import REPO_ROOT
@@ -223,11 +224,11 @@ def governance_commands(args, *, run_dir: Path) -> list[tuple[str, list[str]]]:
     return [
         (
             "check_active_plan_sync",
-            ["python3", "dev/scripts/checks/check_active_plan_sync.py"],
+            check_script_cmd("active_plan_sync"),
         ),
         (
             "check_multi_agent_sync",
-            ["python3", "dev/scripts/checks/check_multi_agent_sync.py"],
+            check_script_cmd("multi_agent_sync"),
         ),
         (
             "docs_check_strict_tooling",

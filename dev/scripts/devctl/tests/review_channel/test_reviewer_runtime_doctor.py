@@ -171,6 +171,7 @@ def test_follow_publisher_carries_operator_interaction_mode() -> None:
         build_follow_output_error_report_fn=lambda **_kw: {},
         write_publisher_heartbeat_fn=lambda _r, _h: None,
         read_publisher_state_fn=lambda _s: {},
+        write_monitor_snapshot_fn=None,
         utc_timestamp_fn=lambda: "2026-04-04T00:00:00Z",
         sleep_fn=lambda _s: None,
         operator_interaction_mode="remote_control",

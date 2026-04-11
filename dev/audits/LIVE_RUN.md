@@ -2990,6 +2990,71 @@ which Q55 says we don't have yet. Start there.
   output, not mix them as equal-weight claims.
 - **Status**: OPEN — high, directly enables Q54 self-audit loop
 
+### Q69 — ARCHITECTURE — Autonomous governance loop exists manually, not in system
+
+- **Discovered**: 2026-04-11T01:23Z
+- **Severity**: critical / architecture
+- **Body**: The human operator (Claude-Code dashboard) has been running
+  a closed-loop controller manually for 10+ hours this session:
+  launch Codex → monitor verdict → CI check → commit → governed push
+  → read LIVE_RUN → launch next Codex with next 1-2 Q-findings (Q64
+  pacing rule) → repeat. This pattern works — 8 Codex rounds, 6
+  commits landed, Q52/Q54/Q55/Q64/Q65/Q67 implemented.
+  Audit by exploration agent confirmed the gap:
+  - `autonomy-loop` runs triage+packet+checkpoint, no commit/push
+  - `autonomy-swarm` runs parallel workers, no commit/push
+  - `autonomy-run` has a cycle state machine, still no commit/push
+  - `guard-run` wraps one command with hygiene, no commit/push
+  - `governed_executor`, `push.py`, `commit.py` exist but are NOT
+    called from any autonomy command
+  The existing autonomy infrastructure assesses and reports. The
+  governed push infrastructure can push. Nothing connects them into
+  a closed loop that only advances when green.
+  Needed: new `devctl autonomous-governance-loop` command (or extend
+  autonomy-run) that:
+  1. Launches `codex exec --full-auto --json -o /tmp/codex-verdict-*.md`
+     with scoped tasks (max 2 Q-findings per session per Q64 pacing)
+  2. Monitors the rollout JSONL for verdict file appearance + process exit
+  3. On verdict: runs `check --profile ci`; if green, commits with
+     verdict-derived message
+  4. Runs `devctl push --execute`; if blocked on hygiene/docs sync,
+     diagnoses and auto-fixes known patterns (Q66 Codex allowlist,
+     Q68 self-orphan, AGENTS.md inventory sync)
+  5. After post_push_green, reads LIVE_RUN for next open Q-findings
+     and launches next Codex session
+  6. Gates: only advances when CI is clean, pre-commit hook passes
+     (Q52), findings-priority (Q55) drives task selection
+  7. Operator-visible state through existing dashboard/bridge/phone
+     surfaces — same surfaces the manual loop exposes now
+  This IS the autonomous governance platform the project is building
+  toward. The loop exists as a tested pattern in operator memory;
+  move it into the governed system.
+- **Evidence**: 8 Codex rounds this session, autonomy audit report,
+  dev/active/autonomous_control_plane.md (MP-325..340),
+  dev/active/continuous_swarm.md (MP-358) — both plan related work
+  but neither closes the commit/push loop
+- **Status**: OPEN — critical, unlocks true remote operation.
+  Operator cannot commit/push from phone; the loop must be in the
+  repo, not in the human's head.
+
+### Q68 — GUARD — devctl push detects itself as orphaned when backgrounded
+
+- **Discovered**: 2026-04-11T00:40Z
+- **Severity**: high / tooling-friction
+- **Body**: When `python3 dev/scripts/devctl.py push --execute` is
+  launched in background (`&`), its own process becomes PPID=1 after
+  the shell detaches. The push's own hygiene check then detects itself
+  as an "Orphaned repo-related host processes detected (detached
+  PPID=1)" and fails preflight. This is a self-blocking race where the
+  tool breaks because it can't distinguish its own process from a
+  leaked one.
+  Fix: hygiene's orphan detection should allowlist the currently
+  running devctl process (via `os.getpid()` or a session ID file
+  written at push start). Similar to Q66 (Codex session allowlist)
+  but for devctl's own processes.
+- **Workaround**: Run `devctl push --execute` in foreground only.
+- **Status**: OPEN — high, blocks every backgrounded push
+
 ### Q67 — GUARD — check_contract_connectivity guard too weak: misses known problems
 
 - **Discovered**: 2026-04-10T23:56Z

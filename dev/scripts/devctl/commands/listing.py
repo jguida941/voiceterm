@@ -10,6 +10,7 @@ COMMANDS = [
     "commit",
     "check-router",
     "dashboard",
+    "monitor",
     "mutants",
     "mutation-score",
     "docs-check",

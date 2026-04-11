@@ -63,6 +63,7 @@ def _build_ensure_follow_deps(
         ),
         write_publisher_heartbeat_fn=compat_runtime.write_publisher_heartbeat,
         read_publisher_state_fn=compat_runtime.read_publisher_state,
+        write_monitor_snapshot_fn=compat_runtime.write_latest_monitor_snapshot,
         utc_timestamp_fn=compat_runtime.utc_timestamp,
         sleep_fn=time.sleep,
         operator_interaction_mode=operator_interaction_mode,

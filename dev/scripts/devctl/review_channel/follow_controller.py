@@ -32,6 +32,7 @@ class EnsureFollowDeps:
     build_follow_output_error_report_fn: Callable[..., dict[str, object]]
     write_publisher_heartbeat_fn: Callable[..., Path]
     read_publisher_state_fn: Callable[..., dict[str, object]]
+    write_monitor_snapshot_fn: Callable[..., object] | None
     utc_timestamp_fn: Callable[[], str]
     sleep_fn: Callable[[float], None]
     operator_interaction_mode: str = ""
@@ -116,6 +117,17 @@ def _build_ensure_follow_tick(
         )
     if isinstance(status_dir, Path):
         report["publisher"] = deps.read_publisher_state_fn(status_dir)
+        write_monitor_snapshot_fn = deps.write_monitor_snapshot_fn
+        if write_monitor_snapshot_fn is not None:
+            try:
+                report["monitor_snapshot"] = write_monitor_snapshot_fn(
+                    repo_root=repo_root,
+                    review_status_dir=status_dir,
+                    mode="remote_phone",
+                    agent="operator",
+                )
+            except (OSError, ValueError) as exc:
+                report["monitor_snapshot_error"] = str(exc)
     report["reviewer_heartbeat_suppressed"] = ensure_result.suppressed
     if deps.operator_interaction_mode:
         report["operator_interaction_mode"] = deps.operator_interaction_mode

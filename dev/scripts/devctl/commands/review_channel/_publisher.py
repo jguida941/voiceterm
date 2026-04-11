@@ -108,6 +108,34 @@ def spawn_follow_publisher(
         "--status-dir",
         os.path.relpath(runtime_paths.status_dir, repo_root),
     ]
+    cadence = resolve_auto_poll_cadence(
+        operator_interaction_mode=str(
+            getattr(args, "operator_interaction_mode", "") or ""
+        ),
+        explicit_interval_seconds=(
+            int(getattr(args, "follow_interval_seconds", 0) or 0) or None
+        ),
+        explicit_inactivity_timeout_seconds=(
+            int(getattr(args, "follow_inactivity_timeout_seconds", 0) or 0)
+        ),
+    )
+    try:
+        interval_idx = command.index("--follow-interval-seconds")
+        command[interval_idx + 1] = str(cadence.interval_seconds)
+    except (ValueError, IndexError):
+        command.extend(
+            ["--follow-interval-seconds", str(cadence.interval_seconds)]
+        )
+    try:
+        inactivity_idx = command.index("--follow-inactivity-timeout-seconds")
+        command[inactivity_idx + 1] = str(cadence.inactivity_timeout_seconds)
+    except (ValueError, IndexError):
+        command.extend(
+            [
+                "--follow-inactivity-timeout-seconds",
+                str(cadence.inactivity_timeout_seconds),
+            ]
+        )
 
     with log_path.open("a", encoding="utf-8") as handle:
         process = subprocess.Popen(
