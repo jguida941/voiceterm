@@ -5,14 +5,14 @@
 ## Quick status
 
 - Branch: `feature/governance-quality-sweep`
-- HEAD: `ae265ed61ee8` — Refresh external review snapshot for f240bfe3
-- Tree hash: `847f64cc4953`
-- Generation stamp: `snap-f83188139071`
-- Generated at (UTC): 2026-04-11T01:32:06Z
-- Push decision: `await_checkpoint` — staged_index_budget_exceeded
+- HEAD: `3f1d9950ffc3` — feat(governance): Q57 + Q58 — devctl monitor + registry-as-sovereign-dispatcher
+- Tree hash: `979e603ece97`
+- Generation stamp: `snap-dc0f6a908737`
+- Generated at (UTC): 2026-04-11T01:32:32Z
+- Push decision: `run_devctl_push` — push_preconditions_satisfied
 - Reviewer mode: `single_agent` (interaction: `remote_control`)
 - Pipeline state: `n/a` (approval: `n/a`)
-- Delta since last snapshot: 25 commits, 67 files, +6893/-2018
+- Delta since last snapshot: 24 commits, 84 files, +8352/-2044
 - Governance findings: 86 open / 70 fixed / 170 total
 - Probe hints: 0 total across 0 files scanned
 
@@ -54,23 +54,24 @@ adopters arrive.
 - Remote: `https://github.com/jguida941/voiceterm.git`
 - Default branch: `master`
 - Current branch: `feature/governance-quality-sweep`
-- HEAD SHA: `ae265ed61ee890966619913ac641849dd82cca87`
+- HEAD SHA: `3f1d9950ffc36d9e544a739ff3d8f343b2c4b2eb`
 - HEAD author: Justin Guida
-- HEAD timestamp (UTC): 2026-04-10T20:35:58-04:00
+- HEAD timestamp (UTC): 2026-04-10T21:31:42-04:00
 
 ## 2. Governance state
 
 ### Push decision
-- action: `await_checkpoint`
-- reason: staged_index_budget_exceeded
-- push_eligible_now: False
-- worktree_clean: False
-- staged_path_count: 26
+- action: `run_devctl_push`
+- reason: push_preconditions_satisfied
+- push_eligible_now: True
+- worktree_clean: True
+- staged_path_count: 0
 - unstaged_path_count: 0
-- next_step_command: `n/a`
+- next_step_command: `python3 dev/scripts/devctl.py push --execute`
 - latest_push_report: `dev/reports/push/latest.json`
 - latest_push_report_state: `post_push_green` (push_completed)
-- publication_backlog: none
+- publication_backlog: queued
+- publication_guidance: 1 local commit(s) waiting for governed push. Run `python3 dev/scripts/devctl.py push --execute` now.
 
 ### Reviewer runtime
 - reviewer_mode: `single_agent`
@@ -86,50 +87,48 @@ adopters arrive.
 - active plan: **Master Plan (Active, Unified)**
 - plan path: `dev/active/MASTER_PLAN.md`
 - active MP scope: all active MP execution state
-- advisory: `checkpoint_before_continue` — staged_index_budget_exceeded
-- checkpoint_required: **yes**
+- advisory: `push_allowed` — worktree_clean_and_review_accepted
 
 ## 3. Delta — what changed since the previous snapshot
 
-Range: last 25 commits ending at `ae265ed61ee8`
+Range: last 24 commits ending at `3f1d9950ffc3`
 
-- commits: 25
-- files changed: 67
-- insertions: +6893
-- deletions: -2018
-- bundle classes touched: tooling, docs
+- commits: 24
+- files changed: 84
+- insertions: +8352
+- deletions: -2044
+- bundle classes touched: docs, tooling
 - risk add-ons triggered: Parser / ANSI boundary
-- authority surfaces touched: 3 file(s)
+- authority surfaces touched: 4 file(s)
 
 ### Commits
 
 | # | SHA | Subject | Files | +/- | Bundle | Risk |
 |---|---|---|---|---|---|---|
-| 1 | `ae265ed6` | Refresh external review snapshot for f240bfe3 | 1 | +53/-59 | tooling |  |
-| 2 | `f240bfe3` | docs: register findings-priority in AGENTS.md tooling inven… | 2 | +42/-38 | docs |  |
-| 3 | `eac80fb7` | chore: refresh REVIEW_SNAPSHOT after Round 8 | 1 | +61/-65 | tooling |  |
-| 4 | `ab7569ab` | Refresh external review snapshot for 7eca4d0c | 1 | +70/-68 | tooling |  |
-| 5 | `7eca4d0c` | feat(governance): Q52 + Q55 — commit gate hook + findings p… | 21 | +1529/-486 | tooling | Parser / ANSI boundary |
-| 6 | `4cee9ac1` | Refresh external review snapshot for 1840993a | 1 | +45/-42 | tooling |  |
-| 7 | `1840993a` | chore: sync bridge.md after Codex Q67 session | 2 | +77/-82 | docs |  |
-| 8 | `51da1e71` | fix(governance): Q67 — strengthen contract connectivity gua… | 15 | +679/-190 | tooling |  |
-| 9 | `b42dd589` | feat(governance): Q65 — contract connectivity guard + actio… | 24 | +1649/-89 | tooling |  |
-| 10 | `5d02040f` | feat(governance): Q54+Q64 — observer signal type, session p… | 22 | +962/-85 | tooling |  |
-| 11 | `2813a913` | Refresh external review snapshot for 10242d1a | 1 | +76/-71 | tooling |  |
-| 12 | `10242d1a` | feat(governance): Q40+Q42+Q51 — lane edit gate, typed recov… | 21 | +697/-67 | tooling |  |
-| 13 | `368c3b8d` | docs(audit): Q61 — findings stay flat in LIVE_RUN, not rout… | 2 | +65/-44 | tooling |  |
-| 14 | `51e01936` | docs(audit): Q60 — guards run after coding, not during | 2 | +102/-64 | tooling |  |
-| 15 | `53e06b4b` | docs(audit): Q57-Q59 — monitor pass, registry dispatcher, h… | 2 | +109/-49 | tooling |  |
-| 16 | `862ebd16` | docs(audit): Q56 — Q54+Q55 compose from existing systems, m… | 2 | +77/-44 | tooling |  |
-| 17 | `d285d33f` | docs(audit): Q55 — no priority/planning pass over accumulat… | 2 | +83/-62 | tooling |  |
-| 18 | `306116c6` | docs(audit): Q54 — observer layer ungoverned, no self-audit… | 2 | +81/-42 | tooling |  |
-| 19 | `5e9022a7` | docs(audit): Q53 — dashboard 77% success is command ok=True… | 2 | +73/-48 | tooling |  |
-| 20 | `151b28d9` | Refresh external review snapshot for 1e193595 | 1 | +59/-56 | tooling |  |
-| 21 | `1e193595` | docs(audit): Q52 update — cross-tool hook enforcement must… | 2 | +56/-48 | tooling |  |
-| 22 | `9091689e` | Refresh external review snapshot for 04b1174e | 1 | +56/-55 | tooling |  |
-| 23 | `04b1174e` | docs(audit): Q52 — commit gate in devctl but not git hook o… | 2 | +76/-53 | tooling |  |
-| 24 | `04f98995` | Refresh external review snapshot for 473c0c9a | 1 | +53/-50 | tooling |  |
-| 25 | `473c0c9a` | docs(audit): Q51 update — phone-status command exists but s… | 2 | +63/-61 | tooling |  |
+| 1 | `3f1d9950` | feat(governance): Q57 + Q58 — devctl monitor + registry-as-… | 27 | +1575/-137 | tooling |  |
+| 2 | `ae265ed6` | Refresh external review snapshot for f240bfe3 | 1 | +53/-59 | tooling |  |
+| 3 | `f240bfe3` | docs: register findings-priority in AGENTS.md tooling inven… | 2 | +42/-38 | docs |  |
+| 4 | `eac80fb7` | chore: refresh REVIEW_SNAPSHOT after Round 8 | 1 | +61/-65 | tooling |  |
+| 5 | `ab7569ab` | Refresh external review snapshot for 7eca4d0c | 1 | +70/-68 | tooling |  |
+| 6 | `7eca4d0c` | feat(governance): Q52 + Q55 — commit gate hook + findings p… | 21 | +1529/-486 | tooling | Parser / ANSI boundary |
+| 7 | `4cee9ac1` | Refresh external review snapshot for 1840993a | 1 | +45/-42 | tooling |  |
+| 8 | `1840993a` | chore: sync bridge.md after Codex Q67 session | 2 | +77/-82 | docs |  |
+| 9 | `51da1e71` | fix(governance): Q67 — strengthen contract connectivity gua… | 15 | +679/-190 | tooling |  |
+| 10 | `b42dd589` | feat(governance): Q65 — contract connectivity guard + actio… | 24 | +1649/-89 | tooling |  |
+| 11 | `5d02040f` | feat(governance): Q54+Q64 — observer signal type, session p… | 22 | +962/-85 | tooling |  |
+| 12 | `2813a913` | Refresh external review snapshot for 10242d1a | 1 | +76/-71 | tooling |  |
+| 13 | `10242d1a` | feat(governance): Q40+Q42+Q51 — lane edit gate, typed recov… | 21 | +697/-67 | tooling |  |
+| 14 | `368c3b8d` | docs(audit): Q61 — findings stay flat in LIVE_RUN, not rout… | 2 | +65/-44 | tooling |  |
+| 15 | `51e01936` | docs(audit): Q60 — guards run after coding, not during | 2 | +102/-64 | tooling |  |
+| 16 | `53e06b4b` | docs(audit): Q57-Q59 — monitor pass, registry dispatcher, h… | 2 | +109/-49 | tooling |  |
+| 17 | `862ebd16` | docs(audit): Q56 — Q54+Q55 compose from existing systems, m… | 2 | +77/-44 | tooling |  |
+| 18 | `d285d33f` | docs(audit): Q55 — no priority/planning pass over accumulat… | 2 | +83/-62 | tooling |  |
+| 19 | `306116c6` | docs(audit): Q54 — observer layer ungoverned, no self-audit… | 2 | +81/-42 | tooling |  |
+| 20 | `5e9022a7` | docs(audit): Q53 — dashboard 77% success is command ok=True… | 2 | +73/-48 | tooling |  |
+| 21 | `151b28d9` | Refresh external review snapshot for 1e193595 | 1 | +59/-56 | tooling |  |
+| 22 | `1e193595` | docs(audit): Q52 update — cross-tool hook enforcement must… | 2 | +56/-48 | tooling |  |
+| 23 | `9091689e` | Refresh external review snapshot for 04b1174e | 1 | +56/-55 | tooling |  |
+| 24 | `04b1174e` | docs(audit): Q52 — commit gate in devctl but not git hook o… | 2 | +76/-53 | tooling |  |
 
 ### Files
 
@@ -137,20 +136,20 @@ Range: last 25 commits ending at `ae265ed61ee8`
 |---|---|---|
 | `.github/workflows/release_preflight.yml` | tooling | +1/-0 |
 | `.github/workflows/tooling_control_plane.yml` | tooling | +3/-0 |
-| `AGENTS.md` | docs | +19/-5 |
+| `AGENTS.md` | docs | +20/-5 |
 | `bridge.md` | docs | +3/-3 |
 | `dev/active/MASTER_PLAN.md` | tooling | +18/-0 |
 | `dev/active/ai_governance_platform.md` | tooling | +14/-0 |
-| `dev/active/platform_authority_loop.md` | tooling | +93/-7 |
-| `dev/active/remote_control_runtime.md` | tooling | +10/-1 |
-| `dev/audits/LIVE_RUN.md` | tooling | +441/-1 |
-| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1398/-1385 |
+| `dev/active/platform_authority_loop.md` | tooling | +101/-7 |
+| `dev/active/remote_control_runtime.md` | tooling | +18/-1 |
+| `dev/audits/LIVE_RUN.md` | tooling | +497/-1 |
+| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1345/-1324 |
 | `dev/config/git_hooks/pre-commit-review-snapshot.sh` | tooling | +41/-18 |
 | `dev/config/templates/portable_governance_finding_review.schema.json` | tooling | +3/-2 |
 | `dev/config/templates/portable_governance_pre_commit_hook.sh` | tooling | +13/-1 |
 | `dev/guides/DEVELOPMENT.md` | docs | +33/-17 |
 | `dev/history/ENGINEERING_EVOLUTION.md` | tooling | +80/-3 |
-| `dev/scripts/README.md` | tooling | +25/-10 |
+| `dev/scripts/README.md` | tooling | +27/-10 |
 | `dev/scripts/checks/check_contract_connectivity.py` | tooling | +12/-0 |
 | `dev/scripts/checks/contract_connectivity/__init__.py` | tooling | +1/-0 |
 | `dev/scripts/checks/contract_connectivity/command.py` | tooling | +61/-0 |
@@ -160,22 +159,22 @@ Range: last 25 commits ending at `ae265ed61ee8`
 | `dev/scripts/checks/contract_connectivity/models.py` | tooling | +128/-1 |
 | `dev/scripts/checks/contract_connectivity/report.py` | tooling | +104/-2 |
 | `dev/scripts/checks/contract_connectivity/support.py` | tooling | +102/-0 |
-| `dev/scripts/devctl/bundles/registry.py` | tooling | +1/-0 |
+| `dev/scripts/devctl/autonomy/run_helpers.py` | tooling | +3/-2 |
+| `dev/scripts/devctl/bundles/registry.py` | tooling | +97/-79 |
 | `dev/scripts/devctl/cli.py` | tooling | +7/-388 |
-| `dev/scripts/devctl/cli_parser/entrypoint.py` | tooling | +404/-0 |
+| `dev/scripts/devctl/cli_parser/entrypoint.py` | tooling | +407/-0 |
 | `dev/scripts/devctl/commands/dashboard_render/__init__.py` | tooling | +4/-1 |
 | `dev/scripts/devctl/commands/dashboard_render/mobile.py` | tooling | +51/-0 |
 | `dev/scripts/devctl/commands/governance/install_git_hooks.py` | tooling | +11/-8 |
 | `dev/scripts/devctl/commands/governance/review.py` | tooling | +1/-0 |
+| `dev/scripts/devctl/commands/governance/simple_lanes_support.py` | tooling | +3/-2 |
 | `dev/scripts/devctl/commands/governance/startup_context.py` | tooling | +27/-0 |
 | `dev/scripts/devctl/commands/governance/startup_context_recovery.py` | tooling | +38/-0 |
 | `dev/scripts/devctl/commands/governance/startup_context_render.py` | tooling | +11/-0 |
-| `dev/scripts/devctl/commands/listing.py` | tooling | +1/-0 |
+| `dev/scripts/devctl/commands/listing.py` | tooling | +2/-0 |
+| `dev/scripts/devctl/commands/monitor.py` | tooling | +13/-0 |
 | `dev/scripts/devctl/commands/reporting/findings_priority.py` | tooling | +58/-0 |
-| `dev/scripts/devctl/governance/script_catalog_registry.py` | tooling | +1/-0 |
-| `dev/scripts/devctl/governance_review_log.py` | tooling | +3/-1 |
-| `dev/scripts/devctl/governance_review_models.py` | tooling | +1/-0 |
-| _27 more files trimmed_ | | |
+| _44 more files trimmed_ | | |
 
 ## 4. Quality signals
 
@@ -246,9 +245,11 @@ Recent findings:
 ### Targeted hints
 
 - **risk**: Parser / ANSI boundary — Delta touches a risk-sensitive surface; verify the routed bundle
+- **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/tests/review_channel/test_reviewer_runtime_doctor.py`) — Review contract-level invariants for this file
 - **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/commands/governance/startup_context.py`) — Review contract-level invariants for this file
 - **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/tests/runtime/test_startup_context.py`) — Review contract-level invariants for this file
 - **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/runtime/startup_context.py`) — Review contract-level invariants for this file
+- **contract_mutation**: Contract / typed model mutated (`dev/scripts/devctl/runtime/monitor_snapshot_contracts.py`) — Commit 3f1d9950 changed dev/scripts/devctl/runtime/monitor_snapshot_contracts.py
 - **contract_mutation**: Contract / typed model mutated (`dev/scripts/devctl/triage/findings_priority_models.py`) — Commit 7eca4d0c changed dev/scripts/devctl/triage/findings_priority_models.py
 - **contract_mutation**: Contract / typed model mutated (`dev/scripts/devctl/runtime/work_intake_models.py`) — Commit b42dd589 changed dev/scripts/devctl/runtime/work_intake_models.py
 - **contract_mutation**: Contract / typed model mutated (`dev/scripts/devctl/governance_review_models.py`) — Commit 5d02040f changed dev/scripts/devctl/governance_review_models.py
@@ -265,6 +266,11 @@ Recent findings:
 
 ### Per-commit rationale
 
+- **`3f1d9950`** — feat(governance): Q57 + Q58 — devctl monitor + registry-as-sovereign-dispatcher
+  - Codex Round 9 implementation:
+  - - Q57: devctl monitor command for remote phone mode with typed
+  -   MonitorSnapshot, --follow --interval NDJSON streaming, and
+  - evolution: Fact: the Q40/Q42 live-run findings showed two separate authority leaks. A dashboard/observer lane could still slide into implementation edits while another agent owned the active lane, and recovery code could escalate …
 - **`ae265ed6`** — Refresh external review snapshot for f240bfe3
   - evolution: Fact: the Q40/Q42 live-run findings showed two separate authority leaks. A dashboard/observer lane could still slide into implementation edits while another agent owned the active lane, and recovery code could escalate …
 - **`f240bfe3`** — docs: register findings-priority in AGENTS.md tooling inventory
@@ -353,13 +359,6 @@ Recent findings:
   - git pre-commit only refreshes snapshots (policy: never block), and
   - Claude Code hooks are unconfigured. Raw git commit bypasses the
   - evolution: Fact: the Q40/Q42 live-run findings showed two separate authority leaks. A dashboard/observer lane could still slide into implementation edits while another agent owned the active lane, and recovery code could escalate …
-- **`04f98995`** — Refresh external review snapshot for 473c0c9a
-  - evolution: Fact: the Q40/Q42 live-run findings showed two separate authority leaks. A dashboard/observer lane could still slide into implementation edits while another agent owned the active lane, and recovery code could escalate …
-- **`473c0c9a`** — docs(audit): Q51 update — phone-status command exists but siloed in autonomy
-  - devctl phone-status has compact/full/trace/actions views and the
-  - platform contract wires ControlPlaneReadModel.top_blocker to it.
-  - But it reads from autonomy queue artifact only, not general
-  - evolution: Fact: the Q40/Q42 live-run findings showed two separate authority leaks. A dashboard/observer lane could still slide into implementation edits while another agent owned the active lane, and recovery code could escalate …
 ### Active MP scope (from MASTER_PLAN.md)
 
 - `dev/active/devctl_reporting_upgrade.md` is the phased `devctl` reporting/CIHub specification, but not a separate execution tracker; implementation tasks stay in this file under `MP-297..MP-300`, `MP-303`, `MP-306`, `MP…
@@ -378,11 +377,10 @@ Recent findings:
 - open governance findings: 86
 
 ### Startup advisories
-- checkpoint_before_continue: staged_index_budget_exceeded
+- push_allowed: worktree_clean_and_review_accepted
 
 ### Stale warnings
-- Keep editing the current slice.
-- Move straight to the governed push path.
+- Stop because nothing remains to push.
 
 ### Open gap rows
 - **governance_open** (`dev/scripts/devctl/security/python_scope.py`): subprocess_missing_timeout: 
@@ -396,4 +394,4 @@ Recent findings:
 
 ---
 
-Projection produced by `devctl review-snapshot`. Generation stamp `snap-f83188139071` binds this file to HEAD `ae265ed61ee8`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
+Projection produced by `devctl review-snapshot`. Generation stamp `snap-dc0f6a908737` binds this file to HEAD `3f1d9950ffc3`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
