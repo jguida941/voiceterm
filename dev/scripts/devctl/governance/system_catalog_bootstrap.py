@@ -54,8 +54,8 @@ def _startup_bootstrap_commands(
         _entry(
             command_id="startup_context_summary",
             label="Typed startup packet",
-            command="python3 dev/scripts/devctl.py startup-context --format summary",
-            description="Canonical Step-0 repo receipt before edits or launches.",
+            command="python3 dev/scripts/devctl.py startup-context --format json",
+            description="Canonical Step-0 typed repo receipt (JSON StartupContext dataclass) before edits or launches. Use --format summary only for a human-readable fallback.",
             links=CatalogBootstrapLinks(
                 command_names=("startup-context",),
                 contract_ids=("StartupContext", "WorkIntakePacket"),

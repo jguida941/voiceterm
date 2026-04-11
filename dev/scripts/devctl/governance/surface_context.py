@@ -79,7 +79,7 @@ def render_bootstrap_steps(
 ) -> str:
     """Render the AI session-start bootstrap checklist."""
     steps = (
-        "Step 0 for any edit, validation, or repo-owned launcher session: run `python3 dev/scripts/devctl.py startup-context --format summary`. If it exits non-zero, checkpoint or repair the state before editing or launching more work. Do not treat a user summary, stale chat continuity, or memory as a substitute for this receipt.",
+        "Step 0 for any edit, validation, or repo-owned launcher session: run `python3 dev/scripts/devctl.py startup-context --format json` and consume the typed `StartupContext` dataclass fields directly (machine-readable primary surface). `--format summary` remains as a human-readable fallback only. If it exits non-zero, checkpoint or repair the state before editing or launching more work. Do not treat a user summary, stale chat continuity, or memory as a substitute for this receipt.",
         (
             "For a role-bound starter packet, run "
             f"`{session_resume_command_for_role('reviewer')}` or "

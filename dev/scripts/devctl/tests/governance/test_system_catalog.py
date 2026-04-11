@@ -66,7 +66,7 @@ class TestSystemCatalogModels(unittest.TestCase):
         entry = CatalogBootstrapCommand(
             command_id="startup_context_summary",
             label="Typed startup packet",
-            command="python3 dev/scripts/devctl.py startup-context --format summary",
+            command="python3 dev/scripts/devctl.py startup-context --format json",
         )
         with self.assertRaises(AttributeError):
             setattr(entry, "label", "changed")
@@ -178,7 +178,7 @@ class TestBuildSystemCatalog(unittest.TestCase):
         self.assertIn("startup_context_summary", commands)
         self.assertEqual(
             commands["startup_context_summary"].command,
-            "python3 dev/scripts/devctl.py startup-context --format summary",
+            "python3 dev/scripts/devctl.py startup-context --format json",
         )
         self.assertEqual(
             commands["startup_context_summary"].command_names,

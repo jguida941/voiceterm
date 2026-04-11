@@ -161,7 +161,7 @@ class RenderSurfacesPolicyTests(unittest.TestCase):
             rendered_text,
         )
         self.assertIn(
-            "python3 dev/scripts/devctl.py startup-context --format summary",
+            "python3 dev/scripts/devctl.py startup-context --format json",
             rendered_text,
         )
         self.assertIn(
