@@ -124,6 +124,20 @@ def enrich_event_review_state(
             packets=packets,
             artifact_root=artifact_root,
         )
+        queue = _mapping(review_state.get("queue"))
+        pending_counts = {
+            "codex": int(queue.get("pending_codex") or 0),
+            "claude": int(queue.get("pending_claude") or 0),
+            "cursor": int(queue.get("pending_cursor") or 0),
+            "operator": int(queue.get("pending_operator") or 0),
+        }
+        review_state["queue"] = asdict(
+            build_event_queue_state(
+                pending_counts,
+                int(queue.get("stale_packet_count") or 0),
+                review_state["packets"],
+            )
+        )
     raw_service_identity = build_service_identity(
         repo_root=repo_root,
         bridge_path=repo_root / DEFAULT_BRIDGE_REL,
@@ -222,6 +236,43 @@ def enrich_event_review_state(
     )
     if coordination is not None:
         review_state["coordination"] = coordination.to_dict()
+    merged_compat = _apply_compat_projections(
+        merged_compat=merged_compat,
+        raw_service_identity=raw_service_identity,
+        raw_attach_auth_policy=raw_attach_auth_policy,
+        bridge_liveness=bridge_liveness,
+        reviewer_runtime=reviewer_runtime,
+        collaboration=collaboration,
+        recovery_assessment=recovery_assessment,
+        attention=attention,
+        commit_pipeline=commit_pipeline,
+        push_decision=push_decision,
+        snapshot_id=snapshot_id,
+    )
+    review_state["_compat"] = merged_compat
+    return review_state, {
+        "bridge_liveness": bridge_liveness,
+        "attention": attention,
+        "service_identity": raw_service_identity,
+        "attach_auth_policy": raw_attach_auth_policy,
+    }
+
+
+def _apply_compat_projections(
+    *,
+    merged_compat: dict[str, object],
+    raw_service_identity: object,
+    raw_attach_auth_policy: object,
+    bridge_liveness: dict[str, object],
+    reviewer_runtime: object,
+    collaboration: object,
+    recovery_assessment: object,
+    attention: object,
+    commit_pipeline: object,
+    push_decision: object,
+    snapshot_id: object,
+) -> dict[str, object]:
+    """Populate the compat mapping with typed doctor / push / bridge fields."""
     runtime_daemons = _mapping(_mapping(merged_compat.get("runtime")).get("daemons"))
     merged_compat["service_identity"] = build_service_identity_state(raw_service_identity)
     merged_compat["attach_auth_policy"] = build_attach_auth_policy_state(
@@ -258,13 +309,7 @@ def enrich_event_review_state(
             updated_metadata["snapshot_id"] = snapshot_id
             updated_bridge_projection["metadata"] = updated_metadata
             merged_compat["bridge_projection"] = updated_bridge_projection
-    review_state["_compat"] = merged_compat
-    return review_state, {
-        "bridge_liveness": bridge_liveness,
-        "attention": attention,
-        "service_identity": raw_service_identity,
-        "attach_auth_policy": raw_attach_auth_policy,
-    }
+    return merged_compat
 
 
 def _mapping(value: object) -> Mapping[str, object]:
