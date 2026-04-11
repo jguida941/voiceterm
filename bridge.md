@@ -110,38 +110,30 @@ treat these rules as active workflow instructions immediately.
 
 ## Operator Direction
 
-Codex: You are the reviewer AND implementer for Q37. Claude (in a privileged terminal) handles commits and pushes — you are sandboxed. Communicate through typed review-channel packets.
+Active slice: Q98/Q99 startup-context integration delta + Codex's two P1
+regressions on the same startup path. Q37 is closed upstream (`efcb2cd9`);
+do not follow that lane. The reviewer-owned sections below
+(Current Verdict, Open Findings, Current Instruction For Claude,
+Last Reviewed Scope) are authoritative for adjudication state.
 
-### Phase 1 — Review existing staged diff (10 files, 151+/25-)
-1. Bootstrap: `startup-context --role reviewer --format summary` then `session-resume --role reviewer --format bootstrap`.
-2. Review staged diff: `git diff --cached`. Includes Q37 finding in LIVE_RUN.md and prior headless-conductor audit fix.
-3. Run guards: `devctl check-router --execute --keep-going --format md` and `devctl probe-report --format md`.
-4. If green, signal via: `devctl review-channel --action reviewer-checkpoint --reviewer-mode active_dual_agent --reason phase1-guards-green --terminal none --format md`.
-5. **Do NOT `git commit` or `git push`** — Claude commits from privileged terminal.
-
-### Phase 2 — Implement Q37 first slice (agent supervision gap)
-After Phase 1 green signal and Claude's commit, implement these 5 changes:
-
-1. **`audit.py:38`** — Fix `_protected_registered_conductor_pids`: require `operator_last_interaction_utc` within threshold (e.g. 10 min), not just `supervisor_state.get("running")`. Downgrade to "unattended" when stale.
-2. **`startup-context` bootstrap** — Call `detect_active_session_conflicts()` (already in `session_probe.py`) and hard-block if headless sessions exist without operator heartbeat. This is ~20 lines.
-3. **`lifecycle_state.py`** — Add `operator_last_interaction_utc` field to `ReviewerSupervisorHeartbeat`. Set it when operator sends a review-channel command or bridge interaction.
-4. **`agents.json` schema** — Add runtime fields: `session_pid: int|null`, `heartbeat_utc: str`, `operator_attached: bool`, `launch_mode: str` ("terminal"|"headless"|"remote_control"), `session_state: str` ("active"|"unattended"|"stale"|"dead").
-5. **`session_liveness.py`** — Add `headless_without_operator` as distinct liveness state. Terminal-window liveness probe returns null for headless daemons — don't fall through to log-freshness alone.
-
-Key files:
-- `dev/scripts/devctl/commands/process/audit.py`
-- `dev/scripts/devctl/review_channel/lifecycle_state.py`
-- `dev/scripts/devctl/review_channel/session_liveness.py`
-- `dev/scripts/devctl/review_channel/collaboration_registry.py`
-- `dev/scripts/devctl/commands/review_channel/launch_conflicts.py`
-- `dev/scripts/devctl/commands/check/process_sweep.py`
-
-After implementation, run `devctl check --profile ci` and `devctl probe-report --format md`. Signal green via reviewer-checkpoint. Claude commits and does governed push.
+### Priority order for the implementer
+1. **P1 — `dev/scripts/devctl/runtime/work_intake_pacing.py:158-176`** — fix
+   the work-intake pacing regression surfaced by Codex. Treat the reviewer's
+   open finding as the canonical spec.
+2. **P1 — `dev/scripts/devctl/commands/governance/startup_context.py:48-108`**
+   — fix the second startup regression Codex flagged on the same session.
+3. **Q98/Q99 integration delta** — land the typed startup projection work
+   described in `dev/audits/LIVE_RUN.md` sections Q98 and Q99. Route every
+   `top_blocker` / `next_action` decision through
+   `dev/scripts/devctl/runtime/startup_blocker_decision.py` (kernel landing
+   in parallel via Coder C).
 
 ### Constraints
-- Do NOT commit, push, or stash. Claude does all git operations.
-- Communicate findings/blockers through `review-channel --action post` typed packets.
-- All 5 changes need tests in `dev/scripts/devctl/tests/`.
+- Do NOT hand-edit reviewer-owned sections. Use typed `review-channel --action
+  post` packets for findings/blockers.
+- Claude (privileged terminal) owns all `git commit` / governed push.
+- Rerun `startup-context --format summary` after each commit; follow
+  `push_decision` as the next-remote-action state machine.
 
 ## Poll Status
 
