@@ -382,7 +382,10 @@ Portability note:
   also carries `selection_policy`, `control_state`, and `wake_required` /
   `delivery_required` hints, so remote-control/dashboard beta loops can tell
   the difference between "packet not seen yet" and "packet was seen but still
-  has not started" from repo-owned typed state.
+  has not started" from repo-owned typed state. The same priority selection
+  also drives `current_session.current_instruction`, so read-only dashboard and
+  status clients do not fall back to a later commentary packet while a live
+  action request is still pending.
 - The same lane no longer trusts bridge prose or raw HEAD equality for
   publish authority. `reviewer_runtime` owns implementer ACK/block truth,
   `bridge_review_accepted` is typed-only, and push recovery matches

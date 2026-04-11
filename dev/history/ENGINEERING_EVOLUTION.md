@@ -70,6 +70,11 @@ Evidence: `dev/scripts/devctl/review_channel/event_projection.py`,
 `dev/active/MASTER_PLAN.md`, `dev/active/remote_control_runtime.md`,
 `dev/scripts/README.md`.
 
+The same priority selector also drives `current_session.current_instruction`
+so read-only dashboard and status clients follow the action-request-first
+control path during remote beta polls instead of falling back to a later
+commentary packet while a live action request is still pending.
+
 ### 2026-04-07 - ReviewSnapshot hook hardening routed through owner plans
 
 ### 2026-04-11 - Local single-agent takeover now stays local in startup and coordination truth

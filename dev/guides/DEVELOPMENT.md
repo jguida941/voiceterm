@@ -127,7 +127,11 @@ Use docs like this:
   `selection_policy`, `control_state`, `wake_required`, and
   `delivery_required` after receipt hydration so a single inbox poll can move
   a packet from `delivery_pending` to `execution_pending` without a second
-  refresh cycle.
+  refresh cycle. The same priority selector also drives
+  `current_session.current_instruction` so dashboard and status clients stay
+  on the action-request-first control path during read-only polls instead of
+  falling back to a later commentary packet while a live action request is
+  still pending.
 - The same Phase-2 authority cleanup now keeps review/push truth on typed
   runtime contracts too: `reviewer_runtime` owns
   `implementer_ack_current`, `implementation_blocked`, and

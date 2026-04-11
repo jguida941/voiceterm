@@ -207,7 +207,9 @@
   `delivery_required` hints from the typed packet receipt state. Queue
   derivation is recomputed after receipt hydration too, so a fresh inbox poll
   can immediately advance the same packet from `delivery_pending` to
-  `execution_pending` in repo-owned status truth.
+  `execution_pending` in repo-owned status truth. The same selection now feeds
+  `current_session.current_instruction`, keeping dashboard/status clients on
+  the action-request-first control path during remote beta polls.
 - Current highest-priority subordinate `MP-377` lane:
   `dev/active/platform_authority_loop.md`. This is the execution spec for
   closing the portable authority loop:
