@@ -6984,6 +6984,427 @@ agent invocations. Findings above are consolidated and
 deduplicated across the three audits. Any remaining detail can
 be re-pulled from the agent rollout JSONL.
 
+## Q94 — Liveness has no death signal (standalone ~10-line fix) (2026-04-11)
+
+- **Author**: Claude (dashboard role)
+- **Trigger**: Operator reported a concrete bug: "when I end my Claude
+  remote-control session, the system still says I'm in it."
+- **Severity**: HIGH — every remote-control session leak, every
+  SIGKILL'd Codex or Claude subprocess, and the 146 stale review
+  packets in the inbox are all the same root cause.
+
+### The gap
+
+The repo has comprehensive liveness **detection** — PID probes,
+heartbeat TTL constants (`PUBLISHER_STALE_AFTER_SECONDS=300`,
+`REVIEWER_SUPERVISOR_STALE_AFTER_SECONDS=300`,
+`CODEX_POLL_STALE_AFTER_SECONDS=300`), `_pid_is_alive()`,
+`SessionLivenessEvidence.live`, `detached_exit` auto-set on
+post-mortem heartbeat read — but it has zero automatic
+liveness **action** on TTL expiry. The infrastructure is
+half-wired.
+
+Evidence (from heartbeat/liveness audit agent):
+
+- `dev/scripts/devctl/runtime/lifecycle_state.py:16,18` — TTL constants exist.
+- `dev/scripts/devctl/runtime/lifecycle_state.py:244-246` — auto-sets `detached_exit` reason when a heartbeat is read post-mortem.
+- `dev/scripts/devctl/runtime/lifecycle_state.py:289-298` — `_pid_is_alive(pid)` uses `os.kill(pid, 0)`; works correctly.
+- `dev/scripts/devctl/runtime/session_probe.py:167-174` — `build_session_liveness_evidence()` computes `live: bool` from PID + terminal-window + log-age. Works.
+- `dev/scripts/devctl/review_channel/status_projection_helpers.py:142-158` — `attach_conductor_session_state()` calls `active_conductor_providers()`. **This is the consumer that needs the fix.**
+- `dev/scripts/devctl/review_channel/runtime_counts.py:20-41` — `active_conductor_providers()` computes counts at poll time. Dead PIDs only disappear if something actively emits a liveness-expired event.
+- **Missing**: any daemon, `atexit`, `SIGTERM`, or `SIGINT` handler that decrements `live_participants_total` / `live_reviewer_total` / `live_implementer_total` when a subprocess dies.
+
+### The fix (single smallest code change)
+
+**File**: `dev/scripts/devctl/review_channel/status_projection_helpers.py`
+**Function**: `attach_conductor_session_state()` (lines 142-158)
+
+Add a call after line 148 that, for each session loaded in the current
+poll, compares `live: bool` + `age_seconds > ttl`, and emits a
+`participant_liveness_expired` event to the event log. The existing
+event-reducer pipeline automatically picks up the dead participant on
+the next read, and `runtime_counts.py` will decrement `live_*_total`
+accordingly. Estimated delta: **~10 lines plus a new synthetic event
+type**.
+
+### Why this also fixes the stale packet backlog
+
+Packets with `expires_at_utc <= now` are classified as stale by
+`dev/scripts/devctl/review_channel/pending_packets.py:22-58`, but
+nothing sweeps them. The 146 stale packets in the current inbox are
+the same shape as the stuck liveness counts: passive TTL classification
+with no active cleanup. A single sweep step in the same polling loop
+that handles Q94 can also retire expired packets. The two fixes can
+land together or separately.
+
+### Q94 is a standalone quick-win
+
+Q94 does NOT depend on Q95, Q96, or Q97. It is the smallest real fix
+in the backlog and can be the first item an implementer picks up
+without waiting for the Q93 role-model decision or the Q97 integration
+plan.
+
+## Q95 — AI consumers cannot discriminate typed vs prose at consumption (2026-04-11)
+
+- **Author**: Claude (dashboard role)
+- **Trigger**: Operator observed: "even when the AI runs the commands,
+  it didn't look at the actual typed state. There has to be a
+  disconnect in what it's understanding about the importance of types
+  and what to look at."
+- **Severity**: HIGH — this is the reason Q91a, Q91d, and my two
+  aborted `devctl push --execute` attempts happened. I proved the
+  finding by failing it twice this session.
+
+### The gap
+
+Q92 is "typed state has prose holes." Q95 is the sibling finding:
+**even the typed parts are consumed wrong because the rendering
+fuses them with prose.** An AI reader of `devctl startup-context
+--format summary` sees:
+
+```
+action=push_allowed                       ← live, derived from git state
+reason=worktree_clean_and_review_accepted ← live, derived
+ahead_of_upstream_commits=5               ← live, derived
+push_guidance=5 local commit(s)...        ← live, derived
+current_slice=- Push the Q37 Phase 1...   ← reviewer prose, 20h stale
+active_target=dev/active/MASTER_PLAN.md   ← static config
+session_pacing=deep/10refs/3files/72deps  ← live, derived
+blockers=coordination_resync_required     ← live, derived
+```
+
+All eight lines render in the same visual frame with identical
+authority weight. No color, no prefix, no freshness badge, no
+typed-vs-prose marker, no staleness TTL. Claude read this frame
+twice this session and each time collapsed `action=push_allowed`
+with `current_slice=Push the Q37 Phase 1 fix` into one mental
+"we should push" model — ignoring that `current_slice` was stale
+markdown prose from 20 hours ago.
+
+The same gap exists in every consumer:
+
+- `dashboard` command — Audit #3 found `instruction_text` source
+  shadowing at `dev/scripts/devctl/commands/dashboard.py:461-463`:
+  the dashboard mixes typed `session.current_instruction`
+  (`review_state`-sourced) with bare-string `bridge.instruction_full`
+  (markdown-sourced) and renders them identically.
+- `session-resume --role <r> --format bootstrap` — same pattern;
+  `SessionCachePacket` holds both derived fields and markdown-sourced
+  strings without marking which is which.
+- `review-channel --action status` — `bridge_liveness` renders typed
+  freshness states (`reviewer_freshness`, `codex_poll_state`)
+  alongside bare prose fields like `current_instruction` and
+  `open_findings` with no visual separation.
+
+### Why Q95 is downstream of Q97 (integration plan)
+
+Q95 cannot be fixed cleanly until `ContractField` carries the
+`authority_class` + `source` + `freshness_ttl_seconds` metadata that
+Q97 proposes. Once ContractField is annotated:
+
+1. `startup_context_projections.py` can render each field with its
+   authority-class label inline: `action=push_allowed [gating,fresh]`
+   vs `current_slice=... [advisory,prose,stale:last_write+6h]`.
+2. Dashboard terminal render can color-code by class: green for
+   blocking+fresh, yellow for gating+fresh, red for stale or prose.
+3. The AI consumer has an enforceable read-order: blocking class
+   first, then gating, then advisory. Prose fields are never read
+   as authority unless the consumer explicitly opts in.
+
+Without ContractField annotations, Q95 has nothing to render with.
+The two findings must land together: Q97 provides the metadata,
+Q95 provides the render discrimination.
+
+## Q96 — No single spine: two independent typed roots (2026-04-11)
+
+- **Author**: Claude (dashboard role)
+- **Trigger**: Operator observed: "Prose and guards and things not
+  being fully connected into one fluid system. It goes from the top
+  all the way down. It probably branches in way too many directions."
+- **Severity**: HIGH — this is architecturally proven, not speculative.
+
+### Evidence (from audit #3 — aggregation read-model audit)
+
+The governance system has **two independent typed roots** that share
+exactly ONE field between them.
+
+```
+build_startup_context()                  build_control_plane_read_model()
+  └─ StartupContext                        └─ ControlPlaneReadModel
+      ├─ ReviewerGateState                    ├─ ReviewerObservation
+      ├─ PushDecisionState                    ├─ RemoteControlAttachmentState
+      ├─ WorkIntakePacket                     └─ CoordinationSnapshot ←── SHARED
+      │   ├─ SessionContinuityState                 (via coordination_loader)
+      │   ├─ IntakeRoutingState           ↑
+      │   ├─ WorkIntakeOwnershipState     │
+      │   ├─ WorkIntakeCoordinationState  │
+      │   └─ SessionPacingState           │
+      ├─ CoordinationSnapshot ────────────┘
+      ├─ RecoveryAuthorityState
+      └─ RemoteControlAttachmentState
+```
+
+### What each root knows that the other does NOT
+
+`ControlPlaneReadModel` has but `StartupContext` lacks:
+- `push_eligible` (resolved gate)
+- `implementation_blocked` (resolved gate)
+- `top_blocker`, `next_action`, `next_command` (derived recommendations)
+- 4 daemon booleans (publisher, supervisor, Codex conductor, Claude conductor)
+- `last_guard_ok`, `check_details` (quality signals)
+- `attention_status`, `attention_summary` (reviewer attention)
+
+`StartupContext + WorkIntakePacket` has but `ControlPlaneReadModel` lacks:
+- `advisory_action`, `advisory_reason` (startup advisories)
+- `recovery_action`, `recovery_basis`, `recovery_scope` (RecoveryAuthorityState)
+- `session_pacing.*` (SessionPacingState: depth, refs, files, deps budgets)
+- `ownership_status`, `coordination.authority_mode`,
+  `coordination.work_ownership_mode`, `coordination.sync_cadence_mode`
+- `active_target` (PlanTargetRef into the planning IR)
+- `continuity.*` (SessionContinuityState)
+- `routing.*` (IntakeRoutingState)
+
+An AI reading `ControlPlaneReadModel` alone cannot infer pacing,
+recovery authority, or active plan target. An AI reading
+`StartupContext` alone cannot infer daemon health, push eligibility,
+or quality signals. Every consumer surface has to build BOTH trees or
+read multiple commands to get the full picture. That is the
+"branching in too many directions" at the dataclass level.
+
+### The operator was right: the branching is structurally real
+
+This is not a command-surface rendering problem. It is a typed-model
+decomposition problem. Two independent `build_*()` functions produce
+two independent frozen dataclasses with only `CoordinationSnapshot`
+threaded through a shared `coordination_loader`.
+
+### Q96 fix direction (see Q97 integration plan, step 4)
+
+Unify the two roots. Three options:
+
+1. **Embed `ControlPlaneReadModel` inside `StartupContext`** as a
+   nested field. Startup becomes the canonical root (deeper tree; 5
+   nesting levels already in WorkIntakePacket). ControlPlaneReadModel
+   daemon/quality signals become `StartupContext.control_plane: ControlPlaneReadModel`.
+2. **Embed `StartupContext` inside `ControlPlaneReadModel`**. CPRM
+   becomes the canonical root (current dashboard/phone root). Startup
+   work-intake becomes `ControlPlaneReadModel.startup_context: StartupContext`.
+3. **Introduce a thin `UnifiedSpineRef` that holds both** and is built
+   once by a `build_unified_spine()` entry-point that calls both
+   existing builders. Keeps both roots independently buildable but
+   adds one canonical consumer-facing container.
+
+Audit #3 recommends option 1 or a variant: StartupContext already has
+deeper composition and WorkIntakePacket already owns the pacing and
+routing authority fields. Embedding ControlPlaneReadModel into
+StartupContext means work-intake + daemon state + quality signals
+live in one tree, and `startup-context --format summary` becomes the
+canonical AI entry-point. Consumers read ONE command, not two.
+
+The estimated delta: ~30 lines of new fields on StartupContext plus
+~50 lines of builder logic in `startup_context.py` to thread
+`ControlPlaneReadModel` through, avoiding the `ProjectGovernance`
+dependency cycle.
+
+## Q97 — Consolidated integration plan: 5-audit verdict replaces MasterAuthorityPacket (2026-04-11)
+
+- **Author**: Claude (dashboard role)
+- **Trigger**: Operator asked Claude to audit the proposed
+  `MasterAuthorityPacket` against existing architecture with multiple
+  agents, with the explicit rule: "I don't wanna duplicate logic and
+  stuff if we already have stuff that's doing that."
+- **Result**: **MasterAuthorityPacket is rejected as a new root
+  dataclass.** The 5-agent parallel audit shows ~80-85% of the
+  proposed functionality already exists across ControlPlaneReadModel,
+  StartupContext, WorkIntakePacket, CoordinationSnapshot, ContractSpec,
+  canonical_pointer_ref, context-graph nodes/edges, lifecycle TTL
+  detection, and the four contract guards. Building a new root would
+  duplicate logic.
+
+### The 5 audits
+
+1. **Semantic pointer / canonical ref system** — verdict: repo already has `GraphNode.canonical_pointer_ref`, ContractSpec, ContractField, surface_state_contract_rows.py, and ReviewerObservation with freshness typing. MAP would be an ANNOTATION layer over `ContractField`, not a new root.
+2. **Context-graph node/edge authority coverage** — verdict: graph has typed contract + dataclass_field nodes (Q78), temperature ranking, artifact TTL, and plan/capability authority metadata. Missing: `EDGE_KIND_READS_BEFORE`, `EDGE_KIND_GATES_DECISION`, `EDGE_KIND_FRESHNESS_SOURCE`. The graph SHOULD be extended, not duplicated.
+3. **Aggregation read-model audit** — verdict: two independent typed roots (StartupContext + ControlPlaneReadModel) share only CoordinationSnapshot. The branching is real. Unification needed. See Q96.
+4. **Contract catalog audit** — verdict: 23 shared contracts registered via `ContractSpec` with `startup_surface_tokens` priority hints. Four guards (closure, sync, connectivity, coverage) enforce field cardinality and orphan detection. Missing: (a) per-field `authority_class` + `freshness_ttl_seconds` + `source_command` metadata on ContractField, (b) a guard asserting "every emitted field must come from the catalog."
+5. **Heartbeat/TTL/liveness audit** — verdict: TTL detection exists everywhere, TTL action exists nowhere. See Q94.
+
+### What the repo already has (consolidated across 5 audits)
+
+| Existing container | File | Coverage of MAP proposal |
+|---|---|---|
+| **ControlPlaneReadModel** | `runtime/control_plane_read_model.py:58` | ~85% field enumeration; has `timestamp` + `reviewer_freshness` |
+| **StartupContext + WorkIntakePacket** | `runtime/startup_context.py:74`, `runtime/work_intake_models.py:305` | Other half (advisory, recovery, pacing, session continuity) |
+| **CoordinationSnapshot** | `platform/coordination_snapshot_models.py:36` | Only shared field between the two roots; `generated_at_utc` |
+| **ContractSpec / ContractField** | `platform/contracts.py:17-35` | Catalog with `startup_surface_tokens` priority |
+| **surface_state_contract_rows.py** | lines 14-231 | 4 ContractSpecs declaring surface projections |
+| **canonical_pointer_ref** | `context_graph/models.py:8-27` | Semantic addressing on every GraphNode |
+| **Q78 typed_contract / dataclass_field nodes** | `context_graph/contract_nodes.py` | Graph discoverability of typed contracts |
+| **Temperature ranking** | `context_graph/builder.py:58-74` | Implicit read priority |
+| **Lifecycle TTL detection** | `lifecycle_state.py:16-18,244-246,289-298` | Detection works; decrement does not (Q94) |
+| **Contract closure/sync/connectivity guards** | `checks/platform_contract_closure/`, `platform_contract_sync/`, `contract_connectivity/` | Cardinality parity, orphan detection, 2-surface sync |
+
+### What is genuinely missing (the 7-item integration delta — NO new root dataclass)
+
+1. **5 optional fields on `ContractField`** (`dev/scripts/devctl/platform/contracts.py:17-35`):
+   - `authority_class: Literal["blocking","gating","advisory","derived"] = "derived"`
+   - `freshness_ttl_seconds: int = 0` (0 = no TTL)
+   - `staleness_rule: str = ""` (free-form rule name)
+   - `source_command: str = ""` (which devctl command emits this field)
+   - `consumer_surfaces: tuple[str, ...] = ()` (which commands/renders consume it)
+
+   All 23 registered contracts get annotated once via
+   `contract_definitions.py`, `surface_state_contract_rows.py`, and
+   `runtime_state_contract_rows.py`.
+
+2. **3 new edge kinds on the context graph**
+   (`dev/scripts/devctl/context_graph/models.py:94-102`):
+   - `EDGE_KIND_READS_BEFORE = "reads_before"` — field X must be read
+     before decision Y
+   - `EDGE_KIND_GATES_DECISION = "gates_decision"` — field X gates
+     decision Y (blocking class)
+   - `EDGE_KIND_FRESHNESS_SOURCE = "freshness_source"` — field X's
+     freshness is derived from source Z
+
+   Edges are populated from the annotated ContractField metadata at
+   `build_context_graph()` time. The graph — which Q78 just made
+   contract-aware — becomes the authority spine.
+
+3. **1 new query on `context_graph/query.py`**:
+   `query_authority_chain(decision_node) → ordered list of
+   (field_node, authority_class, freshness_status)`. Uses existing
+   temperature + new `EDGE_KIND_READS_BEFORE` edges. The single
+   spine an AI consumer reads for decision X.
+
+4. **1 unification of the two typed roots** (see Q96): embed
+   `ControlPlaneReadModel` inside `StartupContext` as a nested field
+   so `build_startup_context()` is the canonical single entry-point.
+   ~30 lines of new fields + ~50 lines of builder logic.
+
+5. **1 new guard**:
+   `dev/scripts/checks/check_required_contract_coverage.py`. Any
+   top-level key emitted by `startup-context --format summary`,
+   `dashboard`, or `review-channel --action status` that is NOT in a
+   registered `ContractField` fails CI. Wires into the existing
+   `quality-policy` bundle. Converts "catalog exists" into "catalog
+   is enforced."
+
+6. **Q94 liveness-decrement wire-up** (~10 lines in
+   `status_projection_helpers.py:142-158`). Standalone quick-win.
+   See Q94 section above.
+
+7. **Q92 remediation layer**: annotate every bridge.md-sourced field
+   on `ReviewCurrentSessionState` / `ReviewBridgeState` with the new
+   `ContractField` metadata so the Q95 render discriminator (see
+   below) can visually separate typed from prose without collapsing
+   them. This is the layer that actually closes Q91a + Q91d + every
+   HIGH severity finding in Q92-A / Q92-B / Q92-C.
+
+**Total net-new code**: roughly 5 dataclass field additions, 3 enum
+values, 1 query function, 1 guard script, 1 unification pass, and
+the ~10-line Q94 fix. **No new root dataclass. No parallel catalog.
+No duplicate aggregation pipeline.** Seven bounded extensions to
+existing infrastructure, each of which wires/consumes/extends
+something that already exists.
+
+### Codex-found reinforcement: Q92-C7 — REVIEW_SNAPSHOT.md is a third divergent source
+
+Codex's review pass at `2026-04-11T06:09:21Z` (session `019d7b1d`)
+independently landed a NEW finding in the same class as Q92 that
+Claude's 3-agent audit missed:
+
+> `dev/audits/REVIEW_SNAPSHOT.md:63-74,90` still marks the branch
+> `push_eligible_now: True` and recommends
+> `python3 dev/scripts/devctl.py push --execute`, even though the
+> live reviewer verdict blocks push pending follow-up. Any tooling
+> or operator flow that trusts the refreshed snapshot instead of the
+> bridge can still publish the blocked head.
+
+This is the THIRD divergent source (after bridge.md and
+startup-context) contradicting the live reviewer verdict. It is the
+same shape as every other Q92 finding: a generated artifact that
+looks authoritative but is not gated on the live verdict. Folding
+this into Q92 as **Q92-C7 — REVIEW_SNAPSHOT.md push-eligibility
+divergence**. Fix is identical to the Q95 render discriminator:
+the snapshot renderer must check the live reviewer verdict before
+emitting `push_eligible_now: True`.
+
+### Operator-stated role model (reaffirmed by the operator 2026-04-11)
+
+- **Codex is both coder AND reviewer** for this slice.
+- **Claude is the dashboard**: observes typed state, writes to
+  LIVE_RUN.md, posts typed review-channel packets, polls the operator.
+  Claude does NOT edit production code (Rust, Python devctl code,
+  guards, contracts) and does NOT run `devctl push --execute` or
+  `git push`.
+- The prior Codex instruction ("Claude fix the two startup
+  regressions") is **overridden by operator correction**. Codex
+  should revise the next review verdict to address Codex itself as
+  the implementer for:
+  (a) the two Codex-filed P1 regressions on `work_intake_pacing.py:158-176`
+      and `startup_context.py:48-108`,
+  (b) the Q94 quick-win,
+  (c) the Q97 integration plan (7 items),
+  (d) the Q91 / Q92 / Q92-C7 remediation layer on top of Q97.
+
+This is Q93 resolved in favor of branch (a): Codex-as-coder fixes
+its own findings AND Claude's dashboard findings.
+
+### Codex action items (revised)
+
+1. **Acknowledge the role correction from Q93** in the next review
+   verdict. Update `## Current Instruction For Claude` to
+   `## Current Instruction For Codex (coder role)` or equivalent.
+   The canonical instruction should name Codex as the implementer.
+2. **Land Q94 as a standalone quick-win** before the larger Q97
+   integration pass. ~10-line patch in
+   `status_projection_helpers.py:142-158`. Independent of everything
+   else. Closes the liveness-count rot + the 146-stale-packet backlog
+   simultaneously.
+3. **Land the Q97 7-item integration plan** as a bounded MP-377 slice
+   (consume/wire/extend, per `feedback_integrate_before_creating.md`).
+   Order: (i) annotate ContractField, (ii) annotate the 23 registered
+   contracts, (iii) add the 3 new context-graph edge kinds, (iv) add
+   `query_authority_chain`, (v) add `check_required_contract_coverage`
+   guard, (vi) unify StartupContext + ControlPlaneReadModel into one
+   canonical root, (vii) apply the Q92 render-layer annotations +
+   Q95 render discriminator.
+4. **Fold Q92-C7 into the Q92 remediation layer.** The
+   `review_snapshot` renderer must consult the live reviewer verdict
+   (`ReviewerObservation.stale`, `push_decision.next_step_command`)
+   before emitting `push_eligible_now: True`.
+5. **Explicitly reject the `MasterAuthorityPacket` proposal** in the
+   verdict. Document that the Q97 integration plan replaces it. Cite
+   the 5-audit source in `dev/audits/LIVE_RUN.md` Q97 section.
+
+### Meta-rule (for the next dashboard session)
+
+Per `feedback_integrate_before_creating.md`:
+
+> "repo already has one source of truth. Every round built adjacent
+> things instead of wiring existing ones. Prompts must say
+> 'consume/wire/extend' not 'build/add/create.' Loop v2 must derive
+> next-session prompts from findings-priority + typed state, not
+> operator prose."
+
+The operator's pushback on MasterAuthorityPacket is this rule in
+action. Every future "let's add a new typed container" proposal in
+this repo should be gated by an audit that asks:
+(a) does ControlPlaneReadModel already have it?
+(b) does StartupContext + WorkIntakePacket already have it?
+(c) does ContractSpec + ContractField already have it?
+(d) does the context graph already have it as a node or edge?
+If the answer to any of (a)-(d) is "partial", the right move is
+extend/annotate, not create a new root.
+
+### Q94-Q97 audit source
+
+Full verbatim agent output from the 5-agent parallel audit is
+available in this session's Claude-side rollout (session
+`db4d882a`) at the tool results for the 5 Explore agent invocations
+that ran just before this LIVE_RUN append. Findings above are
+consolidated across all five.
+
 
 
 

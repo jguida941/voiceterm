@@ -5,14 +5,14 @@
 ## Quick status
 
 - Branch: `feature/governance-quality-sweep`
-- HEAD: `b505d809bcaf` — docs(bridge): capture Codex reviewer verdict state (Q91b workaround)
-- Tree hash: `10afc8a3aea4`
-- Generation stamp: `snap-d2552b8bcbb2`
-- Generated at (UTC): 2026-04-11T05:56:18Z
-- Push decision: `run_devctl_push` — push_preconditions_satisfied
+- HEAD: `6e8d96c272e2` — Refresh external review snapshot for b505d809
+- Tree hash: `c585dba150ad`
+- Generation stamp: `snap-69aba6310adb`
+- Generated at (UTC): 2026-04-11T06:28:23Z
+- Push decision: `await_checkpoint` — staged_index_present
 - Reviewer mode: `single_agent` (interaction: `remote_control`)
 - Pipeline state: `n/a` (approval: `n/a`)
-- Delta since last snapshot: 25 commits, 77 files, +8894/-2226
+- Delta since last snapshot: 24 commits, 69 files, +8199/-2017
 - Governance findings: 86 open / 71 fixed / 171 total
 - Probe hints: 0 total across 0 files scanned
 
@@ -54,24 +54,24 @@ adopters arrive.
 - Remote: `https://github.com/jguida941/voiceterm.git`
 - Default branch: `master`
 - Current branch: `feature/governance-quality-sweep`
-- HEAD SHA: `b505d809bcaf2020dc760edb95bebe478f45dddb`
+- HEAD SHA: `6e8d96c272e2c35da522b179b0a3de3993e2f7dd`
 - HEAD author: Justin Guida
 - HEAD timestamp (UTC): 2026-04-11T01:55:27-04:00
 
 ## 2. Governance state
 
 ### Push decision
-- action: `run_devctl_push`
-- reason: push_preconditions_satisfied
-- push_eligible_now: True
-- worktree_clean: True
-- staged_path_count: 0
+- action: `await_checkpoint`
+- reason: staged_index_present
+- push_eligible_now: False
+- worktree_clean: False
+- staged_path_count: 1
 - unstaged_path_count: 0
-- next_step_command: `python3 dev/scripts/devctl.py push --execute`
+- next_step_command: `n/a`
 - latest_push_report: `dev/reports/push/latest.json`
 - latest_push_report_state: `published_remote` (post_push_bundle_pending)
 - publication_backlog: urgent
-- publication_guidance: 7 local commit(s) waiting for governed push. Run `python3 dev/scripts/devctl.py push --execute` now.
+- publication_guidance: 8 local commit(s) waiting for governed push once the current slice is checkpoint-clean.
 
 ### Reviewer runtime
 - reviewer_mode: `single_agent`
@@ -87,17 +87,17 @@ adopters arrive.
 - active plan: **Master Plan (Active, Unified)**
 - plan path: `dev/active/MASTER_PLAN.md`
 - active MP scope: all active MP execution state
-- advisory: `push_allowed` — worktree_clean_and_review_accepted
+- advisory: `checkpoint_allowed` — worktree_dirty_within_budget
 
 ## 3. Delta — what changed since the previous snapshot
 
-Range: last 25 commits ending at `b505d809bcaf`
+Range: last 24 commits ending at `6e8d96c272e2`
 
-- commits: 25
-- files changed: 77
-- insertions: +8894
-- deletions: -2226
-- bundle classes touched: docs, tooling
+- commits: 24
+- files changed: 69
+- insertions: +8199
+- deletions: -2017
+- bundle classes touched: tooling, docs
 - risk add-ons triggered: Parser / ANSI boundary
 - authority surfaces touched: 3 file(s)
 
@@ -105,61 +105,53 @@ Range: last 25 commits ending at `b505d809bcaf`
 
 | # | SHA | Subject | Files | +/- | Bundle | Risk |
 |---|---|---|---|---|---|---|
-| 1 | `b505d809` | docs(bridge): capture Codex reviewer verdict state (Q91b wo… | 2 | +84/-83 | docs |  |
-| 2 | `a662deb5` | docs(audit): Q92 — 14+ prose-as-authority fields across gov… | 2 | +539/-48 | tooling |  |
-| 3 | `d8c71114` | Refresh external review snapshot for 8243c5ab | 1 | +64/-70 | tooling |  |
-| 4 | `8243c5ab` | docs(audit): Q91 — dashboard checkpoint, role correction, 4… | 2 | +435/-54 | tooling |  |
-| 5 | `ef3f08ae` | Refresh external review snapshot for dfcd171a | 1 | +71/-67 | tooling |  |
-| 6 | `dfcd171a` | docs(governance): Q78-Q90 — loop v1 retrospective and loop… | 11 | +2160/-59 | tooling |  |
-| 7 | `5a92fa03` | feat(context-graph): Q78 Phase 0 — expose typed contracts a… | 9 | +557/-74 | tooling |  |
-| 8 | `3566b16b` | Refresh external review snapshot for 9be23299 | 1 | +59/-59 | tooling |  |
-| 9 | `9be23299` | fix(governance): Q70 — collapse action_routing onto single… | 10 | +191/-137 | tooling |  |
-| 10 | `4db52ae8` | Refresh external review snapshot for a77c3b3f | 1 | +58/-57 | tooling |  |
-| 11 | `a77c3b3f` | docs(audit): Q70-Q75 — Codex architectural review of Q40-Q6… | 3 | +243/-49 | tooling |  |
-| 12 | `48c7b5e9` | Refresh external review snapshot for b078731a | 1 | +58/-61 | tooling |  |
-| 13 | `b078731a` | chore(code_shape): remove stale path overrides for files un… | 2 | +50/-59 | tooling |  |
-| 14 | `e914ad33` | Refresh external review snapshot for 95140873 | 1 | +55/-58 | tooling |  |
-| 15 | `95140873` | fix(bundles): dual import support for registry.py — works a… | 2 | +68/-51 | tooling |  |
-| 16 | `6b51ebe9` | Refresh external review snapshot for 3f1d9950 | 1 | +71/-73 | tooling |  |
-| 17 | `3f1d9950` | feat(governance): Q57 + Q58 — devctl monitor + registry-as-… | 27 | +1575/-137 | tooling |  |
-| 18 | `ae265ed6` | Refresh external review snapshot for f240bfe3 | 1 | +53/-59 | tooling |  |
-| 19 | `f240bfe3` | docs: register findings-priority in AGENTS.md tooling inven… | 2 | +42/-38 | docs |  |
-| 20 | `eac80fb7` | chore: refresh REVIEW_SNAPSHOT after Round 8 | 1 | +61/-65 | tooling |  |
-| 21 | `ab7569ab` | Refresh external review snapshot for 7eca4d0c | 1 | +70/-68 | tooling |  |
-| 22 | `7eca4d0c` | feat(governance): Q52 + Q55 — commit gate hook + findings p… | 21 | +1529/-486 | tooling | Parser / ANSI boundary |
-| 23 | `4cee9ac1` | Refresh external review snapshot for 1840993a | 1 | +45/-42 | tooling |  |
-| 24 | `1840993a` | chore: sync bridge.md after Codex Q67 session | 2 | +77/-82 | docs |  |
-| 25 | `51da1e71` | fix(governance): Q67 — strengthen contract connectivity gua… | 15 | +679/-190 | tooling |  |
+| 1 | `6e8d96c2` | Refresh external review snapshot for b505d809 | 1 | +61/-63 | tooling |  |
+| 2 | `b505d809` | docs(bridge): capture Codex reviewer verdict state (Q91b wo… | 2 | +84/-83 | docs |  |
+| 3 | `a662deb5` | docs(audit): Q92 — 14+ prose-as-authority fields across gov… | 2 | +539/-48 | tooling |  |
+| 4 | `d8c71114` | Refresh external review snapshot for 8243c5ab | 1 | +64/-70 | tooling |  |
+| 5 | `8243c5ab` | docs(audit): Q91 — dashboard checkpoint, role correction, 4… | 2 | +435/-54 | tooling |  |
+| 6 | `ef3f08ae` | Refresh external review snapshot for dfcd171a | 1 | +71/-67 | tooling |  |
+| 7 | `dfcd171a` | docs(governance): Q78-Q90 — loop v1 retrospective and loop… | 11 | +2160/-59 | tooling |  |
+| 8 | `5a92fa03` | feat(context-graph): Q78 Phase 0 — expose typed contracts a… | 9 | +557/-74 | tooling |  |
+| 9 | `3566b16b` | Refresh external review snapshot for 9be23299 | 1 | +59/-59 | tooling |  |
+| 10 | `9be23299` | fix(governance): Q70 — collapse action_routing onto single… | 10 | +191/-137 | tooling |  |
+| 11 | `4db52ae8` | Refresh external review snapshot for a77c3b3f | 1 | +58/-57 | tooling |  |
+| 12 | `a77c3b3f` | docs(audit): Q70-Q75 — Codex architectural review of Q40-Q6… | 3 | +243/-49 | tooling |  |
+| 13 | `48c7b5e9` | Refresh external review snapshot for b078731a | 1 | +58/-61 | tooling |  |
+| 14 | `b078731a` | chore(code_shape): remove stale path overrides for files un… | 2 | +50/-59 | tooling |  |
+| 15 | `e914ad33` | Refresh external review snapshot for 95140873 | 1 | +55/-58 | tooling |  |
+| 16 | `95140873` | fix(bundles): dual import support for registry.py — works a… | 2 | +68/-51 | tooling |  |
+| 17 | `6b51ebe9` | Refresh external review snapshot for 3f1d9950 | 1 | +71/-73 | tooling |  |
+| 18 | `3f1d9950` | feat(governance): Q57 + Q58 — devctl monitor + registry-as-… | 27 | +1575/-137 | tooling |  |
+| 19 | `ae265ed6` | Refresh external review snapshot for f240bfe3 | 1 | +53/-59 | tooling |  |
+| 20 | `f240bfe3` | docs: register findings-priority in AGENTS.md tooling inven… | 2 | +42/-38 | docs |  |
+| 21 | `eac80fb7` | chore: refresh REVIEW_SNAPSHOT after Round 8 | 1 | +61/-65 | tooling |  |
+| 22 | `ab7569ab` | Refresh external review snapshot for 7eca4d0c | 1 | +70/-68 | tooling |  |
+| 23 | `7eca4d0c` | feat(governance): Q52 + Q55 — commit gate hook + findings p… | 21 | +1529/-486 | tooling | Parser / ANSI boundary |
+| 24 | `4cee9ac1` | Refresh external review snapshot for 1840993a | 1 | +45/-42 | tooling |  |
 
 ### Files
 
 | Path | Bundle | +/- |
 |---|---|---|
-| `.github/workflows/release_preflight.yml` | tooling | +1/-0 |
-| `.github/workflows/tooling_control_plane.yml` | tooling | +3/-0 |
-| `AGENTS.md` | docs | +5/-0 |
-| `bridge.md` | docs | +21/-18 |
+| `AGENTS.md` | docs | +3/-0 |
+| `bridge.md` | docs | +18/-15 |
 | `dev/README.md` | docs | +2/-0 |
 | `dev/active/INDEX.md` | tooling | +13/-2 |
-| `dev/active/MASTER_PLAN.md` | tooling | +19/-0 |
+| `dev/active/MASTER_PLAN.md` | tooling | +12/-0 |
 | `dev/active/ai_governance_platform.md` | tooling | +11/-0 |
 | `dev/active/autonomous_governance_loop_v2.md` | tooling | +473/-0 |
-| `dev/active/platform_authority_loop.md` | tooling | +38/-7 |
+| `dev/active/platform_authority_loop.md` | tooling | +31/-7 |
 | `dev/active/remote_control_runtime.md` | tooling | +8/-0 |
 | `dev/audits/LIVE_RUN.md` | tooling | +2606/-1 |
-| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1435/-1453 |
+| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1356/-1371 |
 | `dev/audits/reviews/q40_q67_codex_review_2026-04-10.md` | tooling | +71/-0 |
 | `dev/config/git_hooks/pre-commit-review-snapshot.sh` | tooling | +41/-18 |
 | `dev/config/templates/portable_governance_pre_commit_hook.sh` | tooling | +13/-1 |
-| `dev/guides/DEVELOPMENT.md` | docs | +14/-6 |
-| `dev/history/ENGINEERING_EVOLUTION.md` | tooling | +53/-0 |
-| `dev/scripts/README.md` | tooling | +26/-6 |
+| `dev/guides/DEVELOPMENT.md` | docs | +9/-2 |
+| `dev/history/ENGINEERING_EVOLUTION.md` | tooling | +29/-0 |
+| `dev/scripts/README.md` | tooling | +25/-5 |
 | `dev/scripts/checks/code_shape/code_shape_policy.py` | tooling | +0/-12 |
-| `dev/scripts/checks/contract_connectivity/findings.py` | tooling | +87/-9 |
-| `dev/scripts/checks/contract_connectivity/inventory.py` | tooling | +50/-107 |
-| `dev/scripts/checks/contract_connectivity/inventory_helpers.py` | tooling | +310/-0 |
-| `dev/scripts/checks/contract_connectivity/models.py` | tooling | +2/-1 |
-| `dev/scripts/checks/contract_connectivity/report.py` | tooling | +6/-2 |
 | `dev/scripts/devctl/autonomy/run_helpers.py` | tooling | +3/-2 |
 | `dev/scripts/devctl/bundles/registry.py` | tooling | +111/-80 |
 | `dev/scripts/devctl/cli.py` | tooling | +7/-388 |
@@ -175,7 +167,14 @@ Range: last 25 commits ending at `b505d809bcaf`
 | `dev/scripts/devctl/commands/review_channel/_publisher.py` | tooling | +28/-0 |
 | `dev/scripts/devctl/context_graph/builder.py` | tooling | +5/-3 |
 | `dev/scripts/devctl/context_graph/contract_nodes.py` | tooling | +108/-0 |
-| _37 more files trimmed_ | | |
+| `dev/scripts/devctl/context_graph/contract_relations.py` | tooling | +85/-0 |
+| `dev/scripts/devctl/context_graph/contract_scan.py` | tooling | +120/-0 |
+| `dev/scripts/devctl/context_graph/models.py` | tooling | +2/-0 |
+| `dev/scripts/devctl/context_graph/query.py` | tooling | +18/-10 |
+| `dev/scripts/devctl/context_graph/query_matching.py` | tooling | +68/-0 |
+| `dev/scripts/devctl/governance/script_catalog_registry.py` | tooling | +50/-4 |
+| `dev/scripts/devctl/review_channel/follow_controller.py` | tooling | +12/-0 |
+| _29 more files trimmed_ | | |
 
 ## 4. Quality signals
 
@@ -265,6 +264,7 @@ Recent findings:
 
 ### Per-commit rationale
 
+- **`6e8d96c2`** — Refresh external review snapshot for b505d809
 - **`b505d809`** — docs(bridge): capture Codex reviewer verdict state (Q91b workaround)
   - Codex's review pass (session 019d7b02, task_complete 05:39:20Z) wrote
   - the blocking verdict to bridge.md via review-channel --action post,
@@ -339,13 +339,6 @@ Recent findings:
   - evolution: Fact: the Q40/Q42 live-run findings showed two separate authority leaks. A dashboard/observer lane could still slide into implementation edits while another agent owned the active lane, and recovery code could escalate …
 - **`4cee9ac1`** — Refresh external review snapshot for 1840993a
   - evolution: Fact: the Q40/Q42 live-run findings showed two separate authority leaks. A dashboard/observer lane could still slide into implementation edits while another agent owned the active lane, and recovery code could escalate …
-- **`1840993a`** — chore: sync bridge.md after Codex Q67 session
-  - evolution: Fact: the Q40/Q42 live-run findings showed two separate authority leaks. A dashboard/observer lane could still slide into implementation edits while another agent owned the active lane, and recovery code could escalate …
-- **`51da1e71`** — fix(governance): Q67 — strengthen contract connectivity guard detection
-  - Codex Round 7 implementation:
-  - - Semantic duplicate detection now catches contracts with generic field
-  -   names (CatalogCommand vs CommandEntry) by comparing purpose/field
-  - evolution: Fact: the Q40/Q42 live-run findings showed two separate authority leaks. A dashboard/observer lane could still slide into implementation edits while another agent owned the active lane, and recovery code could escalate …
 ### Active MP scope (from MASTER_PLAN.md)
 
 - `dev/active/devctl_reporting_upgrade.md` is the phased `devctl` reporting/CIHub specification, but not a separate execution tracker; implementation tasks stay in this file under `MP-297..MP-300`, `MP-303`, `MP-306`, `MP…
@@ -364,10 +357,10 @@ Recent findings:
 - open governance findings: 86
 
 ### Startup advisories
-- push_allowed: worktree_clean_and_review_accepted
+- checkpoint_allowed: worktree_dirty_within_budget
 
 ### Stale warnings
-- Stop because nothing remains to push.
+- Move straight to the governed push path.
 
 ### Open gap rows
 - **governance_open** (`dev/scripts/devctl/security/codeql.py`): subprocess_missing_timeout: 
@@ -381,4 +374,4 @@ Recent findings:
 
 ---
 
-Projection produced by `devctl review-snapshot`. Generation stamp `snap-d2552b8bcbb2` binds this file to HEAD `b505d809bcaf`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
+Projection produced by `devctl review-snapshot`. Generation stamp `snap-69aba6310adb` binds this file to HEAD `6e8d96c272e2`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
