@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Governance pre-commit hook — blocks commit when guard bundle fails.
+# Governance pre-commit hook — blocks commit when commit_permission or the
+# quick guard bundle fails.
 #
 # Install:
 #   cp dev/config/templates/portable_governance_pre_commit_hook.sh .git/hooks/pre-commit
@@ -14,6 +15,17 @@
 set -uo pipefail
 
 REPO_ROOT="$(git rev-parse --show-toplevel)"
+
+if ! command -v python3 >/dev/null 2>&1; then
+    echo "[pre-commit] python3 is required to evaluate commit_permission; raw git commit is blocked."
+    exit 1
+fi
+
+if ! PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONPATH="$REPO_ROOT/dev/scripts${PYTHONPATH:+:$PYTHONPATH}" \
+    python3 -m devctl.runtime.commit_permission_hook "$REPO_ROOT"; then
+    exit 1
+fi
 
 # Use --profile quick for speed; the full CI profile runs in push preflight
 # and CI pipelines. --format json suppresses interactive decoration.

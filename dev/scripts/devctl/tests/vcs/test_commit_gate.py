@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import importlib
 import os
 import stat
 import tempfile
@@ -66,6 +67,13 @@ def _mock_subprocess_result(returncode: int, stdout: str = "", stderr: str = "")
     result.stdout = stdout
     result.stderr = stderr
     return result
+
+
+def _evaluate_raw_git_commit_permission(repo_root: Path):
+    module = importlib.import_module(
+        "dev.scripts.devctl.runtime.commit_permission_hook"
+    )
+    return module.evaluate_raw_git_commit_permission(repo_root)
 
 
 def _init_repo(repo_root: Path) -> Path:
@@ -272,6 +280,90 @@ class TestPreCommitHookTemplate(unittest.TestCase):
         content = self.HOOK_PATH.read_text()
         self.assertIn("--profile quick", content)
         self.assertNotIn("--profile ci", content)
+
+    def test_hook_template_checks_commit_permission(self):
+        content = self.HOOK_PATH.read_text()
+        self.assertIn("commit_permission_hook", content)
+
+
+class TestManagedPreCommitHookTemplate(unittest.TestCase):
+    HOOK_PATH = REPO_ROOT / "dev/config/git_hooks/pre-commit-review-snapshot.sh"
+
+    def test_managed_hook_checks_commit_permission(self):
+        content = self.HOOK_PATH.read_text()
+        self.assertIn("commit_permission_hook", content)
+        self.assertIn("DEVCTL_REVIEW_SNAPSHOT_RECEIPT_COMMIT", content)
+
+
+class TestRawGitCommitPermissionHook(unittest.TestCase):
+    def test_evaluate_raw_git_commit_permission_allows_valid_authority(self) -> None:
+        ctx = SimpleNamespace(
+            implementation_permission="active",
+            observed_control_topology="single_implementer_single_reviewer",
+            reviewer_gate=SimpleNamespace(
+                review_gate_allows_push=True,
+                implementation_blocked=False,
+                implementation_block_reason="",
+            ),
+            governance=SimpleNamespace(
+                push_enforcement=SimpleNamespace(
+                    checkpoint_required=False,
+                    safe_to_continue_editing=True,
+                )
+            ),
+        )
+        with patch(
+            "dev.scripts.devctl.runtime.startup_context.build_startup_context",
+            return_value=ctx,
+        ):
+            allowed, lines = _evaluate_raw_git_commit_permission(Path("/tmp/repo"))
+
+        self.assertTrue(allowed)
+        self.assertEqual(lines, ())
+
+    def test_evaluate_raw_git_commit_permission_blocks_with_guidance(self) -> None:
+        ctx = SimpleNamespace(
+            implementation_permission="blocked",
+            observed_control_topology="no_live_agents",
+            reviewer_gate=SimpleNamespace(
+                review_gate_allows_push=False,
+                implementation_blocked=True,
+                implementation_block_reason="reviewer_loop_relaunch_required",
+            ),
+            governance=SimpleNamespace(
+                push_enforcement=SimpleNamespace(
+                    checkpoint_required=False,
+                    safe_to_continue_editing=True,
+                )
+            ),
+        )
+        with patch(
+            "dev.scripts.devctl.runtime.startup_context.build_startup_context",
+            return_value=ctx,
+        ):
+            allowed, lines = _evaluate_raw_git_commit_permission(Path("/tmp/repo"))
+
+        rendered = "\n".join(lines)
+        self.assertFalse(allowed)
+        self.assertIn("Raw git commit is blocked", rendered)
+        self.assertIn("implementation_permission_blocked", rendered)
+        self.assertIn("review_authority_stale", rendered)
+        self.assertIn("review-channel --action status", rendered)
+
+    def test_evaluate_raw_git_commit_permission_fails_closed_when_context_load_errors(
+        self,
+    ) -> None:
+        with patch(
+            "dev.scripts.devctl.runtime.startup_context.build_startup_context",
+            side_effect=ValueError("review state unavailable"),
+        ):
+            allowed, lines = _evaluate_raw_git_commit_permission(Path("/tmp/repo"))
+
+        rendered = "\n".join(lines)
+        self.assertFalse(allowed)
+        self.assertIn("failing closed", rendered)
+        self.assertIn("review state unavailable", rendered)
+        self.assertIn("startup-context --format summary", rendered)
 
 
 class TestBuildGitCommitCmd(unittest.TestCase):

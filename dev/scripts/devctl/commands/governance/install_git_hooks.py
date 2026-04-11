@@ -1,8 +1,9 @@
 """devctl install-git-hooks command.
 
-Installs the repo-owned git hooks that make raw ``git commit`` auto-refresh
-the ReviewSnapshot projection, create a trailing snapshot-only receipt
-commit, and block raw ``git push`` so publication stays on the governed
+Installs the repo-owned git hooks that make raw ``git commit`` first honor
+the typed ``commit_permission`` boundary, then auto-refresh the
+ReviewSnapshot projection, create a trailing snapshot-only receipt commit,
+and block raw ``git push`` so publication stays on the governed
 ``devctl push`` path.
 
 Portability:
@@ -53,8 +54,9 @@ def add_parser(subparsers) -> None:
     cmd = subparsers.add_parser(
         "install-git-hooks",
         help=(
-            "Install repo-owned git hooks so raw `git commit` auto-refreshes "
-            "the ReviewSnapshot file, receipt commits stay automated, and "
+            "Install repo-owned git hooks so raw `git commit` first checks "
+            "`commit_permission`, auto-refreshes the ReviewSnapshot file, "
+            "receipt commits stay automated, and "
             "raw `git push` is forced back through `devctl push`."
         ),
     )
@@ -251,9 +253,10 @@ def _run_install(
             f"# install-git-hooks\n\n"
             f"- status: installed\n"
             f"- targets: `{target_display}`\n\n"
-            "Every `git commit` in this clone will now auto-refresh a "
-            "ReviewSnapshot into the commit and then create a trailing "
-            "snapshot-only receipt commit through "
+            "Every `git commit` in this clone will now evaluate the typed "
+            "`commit_permission` boundary before the commit is recorded. "
+            "Allowed commits auto-refresh a ReviewSnapshot into the commit "
+            "and then create a trailing snapshot-only receipt commit through "
             "`devctl review-snapshot --write --receipt-commit`, regardless "
             "of whether the commit is made via the CLI, an IDE plugin, an "
             "editor git tool, or an AI assistant. The CI freshness guard "

@@ -25,13 +25,18 @@ class ReadOnlyCommandSetTests(unittest.TestCase):
     def test_known_read_only_commands_present(self) -> None:
         expected = {
             "startup-context",
+            "session-resume",
             "context-graph",
             "review-channel",
             "quality-policy",
             "platform-contracts",
             "mcp",
             "dashboard",
+            "discover",
+            "findings-priority",
+            "view",
             "list",
+            "rollout-tail",
         }
         self.assertEqual(set(READ_ONLY_COMMANDS), expected)
 

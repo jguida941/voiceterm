@@ -1912,13 +1912,13 @@ blocker or exception in plan state before skipping the declared order.
   of operator prose or whole-repo exploration.
 - 2026-04-10 Q52/Q54/Q55/Q60/Q61 authority-loop follow-up: resume by
   keeping the slice thin and repo-owned. Wire raw `git commit` back through
-  the existing typed `commit_permission` boundary via the managed pre-commit
-  hook, reuse the triage severity order plus context-graph dependency edges
-  to rank accumulated findings, add a bounded `plan-from-findings` command
-  that routes `dev/audits/LIVE_RUN.md` findings into plan ownership instead
-  of leaving them flat audit prose, and keep incremental guard feedback on
-  the same repo-owned command path so future Claude/Codex/tool hooks can call
-  one surface instead of forking governance logic.
+  the portable + managed pre-commit hooks, reuse the triage severity order
+  plus context-graph dependency edges to rank accumulated findings, add a
+  bounded `plan-from-findings` command that routes
+  `dev/audits/LIVE_RUN.md` findings into plan ownership instead of leaving
+  them flat audit prose, and keep incremental guard feedback on the same
+  repo-owned command path so future Claude/Codex/tool hooks can call one
+  surface instead of forking governance logic.
 - 2026-04-10 Q38 control-topology slice: resume by making the new
   `observed_control_topology` / `implementation_permission` fields load
   reviewer authority from live runtime evidence rather than widening into
@@ -2587,6 +2587,22 @@ blocker or exception in plan state before skipping the declared order.
 
 ## Progress Log
 
+- 2026-04-10: Closed Q52 under the same `MP-377` quality-audit follow-up.
+  Raw `git commit` now hits the existing typed `commit_permission`
+  boundary through both pre-commit hook entrypoints: the portable
+  governance template and the managed `install-git-hooks` pre-commit
+  hook. The managed hook still skips receipt-commit recursion and only
+  treats ReviewSnapshot refresh as warning-only after the commit gate
+  passes. Added focused runtime/template coverage for allowed, blocked,
+  and fail-closed startup-authority cases plus install-hook template
+  assertions.
+- 2026-04-10: Closed Q55 under the same `MP-377` quality-audit follow-up.
+  Added a read-only `devctl findings-priority` surface that reads
+  `dev/audits/LIVE_RUN.md`, normalizes mixed prose severities through
+  the shared triage severity order, derives graph blast radius from
+  context-graph dependency fan-out, and emits one bounded ranking for
+  later plan-intake follow-up instead of leaving the findings log as
+  flat markdown prose.
 - 2026-04-10: Started the Q65 contract-connectivity closure under `MP-377`.
   The bounded scope is: 1) add a new `check_contract_connectivity.py` guard
   with one typed report over cross-layer dataclass reachability, duplicate

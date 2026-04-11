@@ -3,6 +3,31 @@
 from ..common import add_standard_output_arguments
 
 
+def add_findings_priority_parser(sub) -> None:
+    """Register the `findings-priority` read-only ranking command."""
+    findings_cmd = sub.add_parser(
+        "findings-priority",
+        help="Rank accumulated LIVE_RUN findings by severity and context-graph fan-out",
+    )
+    findings_cmd.add_argument(
+        "--findings-file",
+        default="dev/audits/LIVE_RUN.md",
+        help="Markdown findings log to rank (default: dev/audits/LIVE_RUN.md)",
+    )
+    findings_cmd.add_argument(
+        "--include-resolved",
+        action="store_true",
+        help="Include resolved or superseded findings in the ranked output",
+    )
+    findings_cmd.add_argument(
+        "--top-n",
+        type=int,
+        default=20,
+        help="Maximum number of ranked findings to emit",
+    )
+    add_standard_output_arguments(findings_cmd, format_choices=("text", "json", "md"))
+
+
 def add_triage_parser(sub, default_ci_limit: int) -> None:
     """Register the `triage` command parser on the given subparser group."""
     triage_cmd = sub.add_parser(

@@ -245,3 +245,17 @@ def test_repo_pre_push_template_uses_typed_runtime_guidance() -> None:
     assert "startup-context --format summary" in content
     assert "Next typed step:" in content
     assert "Governed path: python3 dev/scripts/devctl.py push --execute" in content
+
+
+def test_repo_pre_commit_template_checks_commit_permission_before_refresh() -> None:
+    template_path = (
+        Path(__file__).resolve().parents[6]
+        / "dev"
+        / "config"
+        / "git_hooks"
+        / "pre-commit-review-snapshot.sh"
+    )
+    content = template_path.read_text(encoding="utf-8")
+    assert "commit_permission_hook" in content
+    assert "raw git commits must not bypass" in content
+    assert "DEVCTL_REVIEW_SNAPSHOT_RECEIPT_COMMIT" in content

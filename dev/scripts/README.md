@@ -653,9 +653,13 @@ Portability note:
   `python3 dev/scripts/devctl.py review-snapshot --write`. Both
   `tooling_control_plane.yml` and `release_preflight.yml` enforce it. The
   managed raw-git hook path is now explicit three-hook automation:
-  `devctl install-git-hooks` installs the pre-commit projection hook, the
-  post-commit receipt hook, and a blocking pre-push hook. The receipt hook
-  delegates to `python3 dev/scripts/devctl.py review-snapshot --write --receipt-commit`
+  `devctl install-git-hooks` installs the pre-commit
+  commit-permission-plus-projection hook, the post-commit receipt hook, and
+  a blocking pre-push hook. The pre-commit hook now fails closed when the
+  existing typed `commit_permission` boundary says raw `git commit` is not
+  allowed, then best-effort refreshes the ReviewSnapshot projection for
+  allowed commits. The receipt hook delegates to
+  `python3 dev/scripts/devctl.py review-snapshot --write --receipt-commit`
   so the final pushed branch can end with a snapshot-only planning receipt
   instead of a manually refreshed dirty worktree, while the pre-push hook
   refuses raw `git push` unless the nested push came from
@@ -1523,6 +1527,7 @@ Machine-first output note:
   - when local or downloaded CI artifacts contain pytest JUnit XML, `triage` / `report` / `status` now surface one shared `FailurePacket` section with the primary failing test, assertion/error message, and artifact paths instead of only listing failed workflow names
   - `--quality-policy <path>` lets triage classify probe debt against another
     repo policy/preset without editing the engine.
+- `findings-priority`: read-only ranking surface for accumulated markdown findings; parses `dev/audits/LIVE_RUN.md`, normalizes mixed prose severities through the shared triage severity order, derives graph blast radius from context-graph dependency fan-out, and emits one bounded ranked list for plan intake or operator review
 - `triage-loop`: bounded CodeRabbit medium/high loop with mode controls (`report-only`, `plan-then-fix`, `fix-only`), source-run correlation (`--source-run-id`, `--source-run-sha`, `--source-event`), policy-gated fix execution (`AUTONOMY_MODE=operate`, branch allowlist, command-prefix allowlist), notify/comment targeting (`--notify`, `--comment-target`, `--comment-pr-number`), automatic review-escalation comment upserts when max attempts are exhausted with unresolved backlog, attempt-level reporting, a bounded structured backlog slice for downstream autonomy consumers, structured file/line/symbol identity for probe-guidance matching when the source payload has it, optional bundle emission, and optional MASTER_PLAN proposal output
 - `mutation-loop`: bounded mutation remediation loop with report-only default, threshold controls, hotspot/freshness reporting, optional policy-gated fix execution, optional summary comment updates, and bundle/playbook outputs
 - `autonomy-loop`: bounded autonomy controller wrapper around `triage-loop` + `loop-packet` with hard caps (`--max-rounds`, `--max-hours`, `--max-tasks`), run-scoped packet artifacts, queue inbox outputs, phone-ready status snapshots (`dev/reports/autonomy/queue/phone/latest.{json,md}`), canonical probe-guidance injection from `review_targets.json` into the loop draft when the triage report carries a bounded structured backlog slice, explicit `guidance_adoption_required` packet metadata when that guidance is attached, live `decision_mode` gating that blocks auto-send for approval-required guidance, and strict policy gating for write modes (`AUTONOMY_MODE=operate` required for non-dry-run fix modes; dry-run still downgrades to `report-only`)
@@ -1667,6 +1672,7 @@ Machine-first output note:
 | `reports-cleanup --dry-run` | hygiene warns that report artifacts are stale/heavy | previews what retention cleanup would remove without deleting anything |
 | `security` | you changed dependencies or security-sensitive code | catches advisory/policy issues |
 | `triage --ci` | CI failed and you need an actionable summary | creates a clean failure summary for humans/AI |
+| `findings-priority --format md` | you need one repo-owned ranking over `LIVE_RUN.md` findings before plan intake or reviewer follow-up | parses the markdown log, normalizes prose severities through triage, then sorts findings by severity and source-file dependency fan-out from the context graph |
 | `report --pedantic --pedantic-refresh --format json` | you want one command that refreshes the advisory sweep and emits a structured repo-owned summary | reruns pedantic artifact generation, then reads those artifacts plus `dev/config/clippy/pedantic_policy.json` to emit ranked lint data for review/AI consumption |
 | `report --rust-audits --with-charts --emit-bundle --format md` | you want one readable Rust guard audit pack with graphs and file hotspots instead of separate raw guard outputs | runs the Rust best-practices, lint-debt, and runtime-panic guards, explains why each signal is risky, writes `.md` + `.json` bundle files, and generates matplotlib charts when available |
 | `report --python-guard-backlog --python-guard-backlog-top-n 25 --since-ref origin/develop --head-ref HEAD --format md` | you want one prioritized Python clean-code hotspot view before promoting stricter policy gates | aggregates dict-schema/global-mutable/parameter-count/nesting-depth/god-class plus broad-except/subprocess-policy guard outputs into one ranked backlog so teams can burn down debt in order |
