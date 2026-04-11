@@ -2990,7 +2990,128 @@ which Q55 says we don't have yet. Start there.
   output, not mix them as equal-weight claims.
 - **Status**: OPEN — high, directly enables Q54 self-audit loop
 
+### Q75 — CONTRACT — RecoveryAuthorityState is exported but not authoritative
+
+- **Discovered**: 2026-04-11T02:03Z (Codex review of Q40-Q67 commits)
+- **Severity**: medium / contract-gap
+- **Body**: `RecoveryAuthorityState` is exported by startup and monitor
+  surfaces but runtime mutation control still depends on other recovery
+  fields such as `reviewer_runtime.recovery_action_allowed`. The new
+  contract is not yet the governing executor input. Either make the
+  typed recovery-authority contract the actual runtime mutation gate
+  or explicitly demote it to display-only projection. Don't leave it
+  half-connected.
+- **Source**: Codex architectural review verdict 2026-04-10
+- **Status**: OPEN
+
+### Q74 — ARCHITECTURE — Autonomous governance loop should extend autonomy-run, not add verdict-file controller
+
+- **Discovered**: 2026-04-11T02:03Z (Codex review supersedes Q69 design)
+- **Severity**: critical / architecture
+- **Body**: Q69 was logged proposing a bespoke loop centered on
+  `codex exec --full-auto --json -o /tmp/codex-verdict-*.md` with the
+  controller watching for the verdict file's appearance. Codex review
+  correctly identified this as overfit to one provider and treating
+  file side effects as authority.
+  Correct design: extend the existing `autonomy-loop` / `autonomy-run`
+  machinery or add a sibling controller inside it that composes:
+  - Task selection from LIVE_RUN + `findings-priority` (Q55, needs Q73)
+  - Bounded intake from `WorkIntakePacket`
+  - Monitor/control-plane state from `MonitorSnapshot` + `ControlPlaneReadModel`
+  - Governed commit through the existing commit pipeline
+  - Governed push through `devctl push --execute`
+  - Phase/render state through `AutoModeState` (already models
+    `committing` and `pushing` — no new state machine needed)
+  - Provider launch as an adapter detail, not the core contract
+  The loop advances on repo-owned typed state, not on the existence
+  of `/tmp/codex-verdict-*.md`. Q69 is subsumed by Q74.
+- **Source**: Codex architectural review verdict 2026-04-10
+- **Status**: OPEN — critical, unlocks true remote operation
+
+### Q73 — ARCHITECTURE — findings-priority has no consuming controller
+
+- **Discovered**: 2026-04-11T02:03Z (Codex review)
+- **Severity**: high / contract-gap
+- **Body**: Q55 landed `devctl findings-priority` as a ranking command
+  but nothing in the autonomy stack consumes that ranking to choose
+  the next slice. It's an advisory report, not a control input. Wire
+  at least one autonomous task selector (the Q74 loop controller is
+  the obvious consumer) to use findings-priority output as its next-
+  slice picker instead of operator-written prompts.
+- **Source**: Codex architectural review verdict 2026-04-10
+- **Status**: OPEN
+
+### Q72 — GUARD — contract_connectivity baseline too noisy for architectural decisions
+
+- **Discovered**: 2026-04-11T02:03Z (Codex review)
+- **Severity**: high / guard-quality
+- **Body**: Current absolute baseline is 130 orphans, 69 duplicates,
+  20 stranded consumers (not the earlier "39/40" — that was stale
+  output). The majority of orphans are intentional internal/private
+  helper contracts under `app/operator_console/**` and
+  `governance/quality_feedback/**` — they're not architectural debt.
+  Similarly, many duplicate rows are projection/snapshot/helper pairs,
+  not true cross-layer duplication.
+  Real duplicates that DO matter:
+  - `CatalogCommand` vs `CommandEntry`
+  - dual `SystemCatalog` families
+  - overlapping push-state families
+  - `CoordinationTopologySnapshot` vs `WorkIntakeCoordinationState`
+  Fix: stratify findings into severity classes — real cross-layer
+  duplicate, intentional internal-only contract, projection/parser
+  rebuild, UI-local helper payload. Growth blocking is still useful,
+  but the baseline counts should not be treated as "real debt counts"
+  until stratified.
+- **Source**: Codex architectural review verdict 2026-04-10
+- **Status**: OPEN
+
+### Q71 — CONTRACT — session_pacing is emitted but not enforced
+
+- **Discovered**: 2026-04-11T02:03Z (Codex review)
+- **Severity**: high / contract-gap
+- **Body**: Q64 landed `SessionPacingState` with `research_ref_budget`,
+  `implementation_trigger`, `focus_slice_id`, and `complexity_band`.
+  `runtime/work_intake.py` builds it and startup rendering surfaces
+  print it. But nothing downstream actually enforces these fields —
+  no controller, no launcher, no loop reads them to gate behavior.
+  The pacing contract is advisory text today, not a control input.
+  Fix: wire `SessionPacingState` into at least one launcher or
+  controller so the declared budget/trigger/focus affects behavior.
+  The Q74 autonomous loop is the natural consumer.
+- **Source**: Codex architectural review verdict 2026-04-10
+- **Status**: OPEN
+
+### Q70 — ARCHITECTURE — action_routing still depends on parallel coordination truth
+
+- **Discovered**: 2026-04-11T02:03Z (Codex review revealing Q65 incomplete)
+- **Severity**: critical / architecture
+- **Body**: Q65 intended to make `action_routing` consume typed
+  `WorkIntakeCoordinationState` instead of rebuilding from raw dicts.
+  Codex review found it's only partially fixed:
+  - `runtime/startup_context.py` still builds BOTH `work_intake.coordination`
+    AND a separate top-level `coordination` snapshot
+  - `runtime/action_routing_coordination.py` prefers `work_intake.coordination`
+    but falls back to the top-level snapshot in both `coordination_state()`
+    and `active_implementation_owner()`
+  - `runtime/action_routing.py` still reads top-level `implementation_permission`
+    directly
+  Result: reduced duplication, not single-source truth. They can still
+  disagree because the fallback path exists.
+  Fix: collapse startup action routing onto one canonical typed
+  coordination contract. Demote top-level `coordination` to projection-
+  only (derived from `work_intake.coordination`, not parallel to it).
+  Delete the fallback paths in `action_routing_coordination.py`.
+- **Source**: Codex architectural review verdict 2026-04-10
+- **Status**: OPEN — critical, Q65 is not actually complete
+
 ### Q69 — ARCHITECTURE — Autonomous governance loop exists manually, not in system
+
+**UPDATE 2026-04-11T02:03Z**: Superseded by Q74. Codex review rejected
+the bespoke verdict-file design as provider-specific and treating file
+side effects as authority. See Q74 for the correct design direction
+(extend autonomy-run using AutoModeState + governed commit/push).
+
+### Q69 — ARCHITECTURE — Autonomous governance loop exists manually, not in system (original)
 
 - **Discovered**: 2026-04-11T01:23Z
 - **Severity**: critical / architecture
