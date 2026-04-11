@@ -1,0 +1,130 @@
+"""Typed event emitter for participant liveness TTL expiry.
+
+Wires the existing liveness detection (PID probe + `_pid_is_alive` +
+`SessionLivenessEvidence` + `detached_exit` auto-set) to the append-only
+event log so dead participants become discrete, auditable transitions
+instead of values inferred only at read time. Downstream reducers can
+then track which sessions have crossed the liveness TTL without
+re-running process probes.
+"""
+
+from __future__ import annotations
+
+from dataclasses import asdict, dataclass, field
+from pathlib import Path
+
+from ..time_utils import utc_timestamp
+from .event_store import (
+    ReviewChannelArtifactPaths,
+    append_event,
+    idempotency_key,
+    load_events,
+    next_event_id,
+    resolve_artifact_paths,
+)
+from .session_probe import ConductorSessionRecord, load_conductor_sessions
+
+# Participant liveness events are reducer-visible but not packet-shaped;
+# the reducer short-circuits them the same way it short-circuits daemon
+# events so they do not trip the missing-packet_id contract.
+SESSION_LIVENESS_EVENT_TYPES = frozenset({"participant_liveness_expired"})
+
+
+@dataclass(frozen=True)
+class ParticipantLivenessExpiredEvent:
+    """Typed payload for one participant_liveness_expired event row."""
+
+    event_id: str
+    timestamp_utc: str
+    provider: str
+    role: str
+    session_name: str
+    metadata_path: str
+    age_seconds: int | None
+    live_reason: str
+    script_probe_state: str
+    terminal_window_state: str
+    launch_authority_state: str
+    idempotency_key: str
+    schema_version: int = 1
+    event_type: str = "participant_liveness_expired"
+    source: str = "review_channel"
+    metadata: dict[str, object] = field(default_factory=dict)
+
+    def to_event(self) -> dict[str, object]:
+        """Serialize into the append-only event row contract."""
+        return asdict(self)
+
+
+def emit_participant_liveness_expired(
+    *,
+    repo_root: Path,
+    session_output_root: Path,
+) -> list[dict[str, object]]:
+    """Emit one ``participant_liveness_expired`` event per dead session.
+
+    Returns the list of newly-written events. Idempotency key includes
+    the session name plus the observed age bucket so repeated status
+    polls do not re-emit the same expiry. Sessions that probe as live,
+    or that lack enough metadata to be addressable, are skipped.
+    """
+    artifact_paths = resolve_artifact_paths(repo_root=repo_root)
+    records = load_conductor_sessions(session_output_root=session_output_root)
+    dead = [record for record in records if not record.live and record.session_name]
+    if not dead:
+        return []
+    event_log_path = Path(artifact_paths.event_log_path)
+    existing_events = load_events(event_log_path) if event_log_path.exists() else []
+    written: list[dict[str, object]] = []
+    for record in dead:
+        event = _build_liveness_expired_event(
+            record=record,
+            existing_events=existing_events,
+        )
+        try:
+            new_event = append_event(
+                event_log_path,
+                event,
+                existing_events=existing_events,
+            )
+        except ValueError:
+            # Duplicate idempotency_key: a prior status tick already
+            # recorded this transition. Skip without noise.
+            continue
+        written.append(new_event)
+        existing_events.append(new_event)
+    return written
+
+
+def _build_liveness_expired_event(
+    *,
+    record: ConductorSessionRecord,
+    existing_events: list[dict[str, object]],
+) -> dict[str, object]:
+    payload = ParticipantLivenessExpiredEvent(
+        event_id=next_event_id(existing_events),
+        timestamp_utc=utc_timestamp(),
+        provider=record.provider,
+        role=record.role,
+        session_name=record.session_name,
+        metadata_path=record.metadata_path,
+        age_seconds=record.age_seconds,
+        live_reason=record.live_reason,
+        script_probe_state=record.script_probe_state,
+        terminal_window_state=record.terminal_window_state,
+        launch_authority_state=record.launch_authority_state,
+        idempotency_key=idempotency_key(
+            "participant_liveness_expired",
+            record.provider,
+            record.session_name,
+            record.live_reason,
+            record.age_seconds,
+        ),
+    )
+    return payload.to_event()
+
+
+__all__ = [
+    "SESSION_LIVENESS_EVENT_TYPES",
+    "emit_participant_liveness_expired",
+]

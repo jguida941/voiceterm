@@ -143,6 +143,7 @@ def attach_conductor_session_state(
     *,
     bridge_liveness: dict[str, object],
     output_root: Path,
+    repo_root: Path | None = None,
 ) -> None:
     active_providers = active_conductor_providers(session_output_root=output_root)
     bridge_liveness["active_conductor_providers"] = list(active_providers)
@@ -155,6 +156,31 @@ def attach_conductor_session_state(
     bridge_liveness["effective_reviewer_mode"] = effective_reviewer_mode(
         bridge_liveness
     )
+    # Emit participant_liveness_expired events for any conductor session that
+    # probed dead on this status read. Idempotency_key dedups against prior
+    # expiry events so repeated status polls do not pollute the log. Deferred
+    # import: session_liveness_events -> event_store -> state forms a cycle
+    # when imported at module load.
+    if repo_root is not None:
+        from .session_liveness_events import emit_participant_liveness_expired
+
+        try:
+            emitted = emit_participant_liveness_expired(
+                repo_root=repo_root,
+                session_output_root=output_root,
+            )
+        except (OSError, ValueError):
+            emitted = []
+        if emitted:
+            bridge_liveness["participant_liveness_expired_events"] = [
+                {
+                    "provider": event.get("provider"),
+                    "session_name": event.get("session_name"),
+                    "live_reason": event.get("live_reason"),
+                    "timestamp_utc": event.get("timestamp_utc"),
+                }
+                for event in emitted
+            ]
 
 
 def hybrid_loop_errors(bridge_liveness: dict[str, object]) -> list[str]:

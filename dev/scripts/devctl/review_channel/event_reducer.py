@@ -57,6 +57,7 @@ from .daemon_reducer import (
     build_runtime_state,
     reduce_daemon_event,
 )
+from .session_liveness_events import SESSION_LIVENESS_EVENT_TYPES
 from .topology import build_planned_topology, build_runtime_agent_registry
 from ..time_utils import utc_timestamp
 
@@ -241,12 +242,22 @@ def reduce_events(
     provider_state = initial_provider_state(lanes)
     daemon_snapshots: dict[str, DaemonSnapshot] = {}
     last_daemon_event_utc = ""
+    expired_liveness_sessions: set[tuple[str, str]] = set()
     for event in events:
         event_type = str(event.get("event_type") or "").strip()
         if event_type in DAEMON_EVENT_TYPES:
             reduce_daemon_event(daemon_snapshots, event)
             last_daemon_event_utc = str(
                 event.get("timestamp_utc") or last_daemon_event_utc
+            )
+            latest_timestamp = str(event.get("timestamp_utc") or latest_timestamp)
+            continue
+        if event_type in SESSION_LIVENESS_EVENT_TYPES:
+            expired_liveness_sessions.add(
+                (
+                    str(event.get("provider") or "").strip(),
+                    str(event.get("session_name") or "").strip(),
+                )
             )
             latest_timestamp = str(event.get("timestamp_utc") or latest_timestamp)
             continue
@@ -349,6 +360,13 @@ def reduce_events(
             plan_id=latest_plan_id,
             source_path=display_path(review_channel_path, repo_root=repo_root),
         ).to_dict(),
+        "expired_liveness_sessions": sorted(
+            {
+                f"{provider}:{session_name}"
+                for provider, session_name in expired_liveness_sessions
+                if provider or session_name
+            }
+        ),
     }
     return review_state, review_state.get("registry", {})
 

@@ -113,6 +113,7 @@ def refresh_status_snapshot(
     attach_conductor_session_state(
         bridge_liveness=bridge_liveness,
         output_root=output_root,
+        repo_root=repo_root,
     )
     session_state_hints = detect_session_state_hints(session_output_root=output_root)
     if session_state_hints:
