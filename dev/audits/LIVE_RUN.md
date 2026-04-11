@@ -7405,6 +7405,376 @@ available in this session's Claude-side rollout (session
 that ran just before this LIVE_RUN append. Findings above are
 consolidated across all five.
 
+## Q98 — ChatGPT architecture proposal audit: 70-85% already exists scattered (2026-04-11)
+
+- **Author**: Claude (dashboard role)
+- **Trigger**: Operator pasted a long ChatGPT conversation proposing a
+  `DecisionState` + `DecisionBasis` + `STALE_CONTEXT` rejection architecture,
+  event-driven epoch/watermark invalidation, typed ingestion pipeline,
+  governed chokepoints, and a 6-layer stack separation. Operator asked
+  Claude to audit the proposal against the actual codebase ("tell me what
+  you found about what the actual codebase is saying") before pushing to
+  Codex. Operator's rule from `feedback_integrate_before_creating.md`
+  applies: audit before proposing; do not duplicate existing logic.
+- **Result**: **ChatGPT's proposal is 70-85% already present in the
+  codebase, scattered across 3-4 subsystems instead of unified.** The
+  reframing ("authority drift, not attention drift") is sharper than Q95
+  but the underlying mechanisms already exist.
+
+### ChatGPT's five recommendations vs. existing infrastructure
+
+| ChatGPT rec | % present | Existing location | Net-new delta |
+|---|---|---|---|
+| Canonical `DecisionState` packet | Partial (Q96) | `ControlPlaneReadModel` (`runtime/control_plane_read_model.py:58`) + `StartupContext + WorkIntakePacket` (`runtime/startup_context.py:74`, `runtime/work_intake_models.py:305`) as two independent roots sharing only `CoordinationSnapshot` | Unify into one `GovernanceSnapshot` — embed CPRM inside StartupContext OR extract a new outer container |
+| `DecisionBasis` + `STALE_CONTEXT` rejection on actions | 70% YES | `review_channel/write_preconditions.py:14-64` — `assert_expected_instruction_revision()` + `assert_expected_implementer_state_hash()` raise `ValueError("refused stale bridge write: expected X, but live Y is Z")` on reviewer-checkpoint. `runtime/push_authorization.py:45-183` rejects on `head_changed_after_authorization`, `push_authorization_expired`, `push_authorization_guard_not_passed`. `runtime/commit_permission.py:40-97` is the commit-gate action router. Tests at `tests/review_channel/test_reviewer_checkpoint_inputs.py:217-242, 520-546` enforce the basis flags are required | Unify scattered `expected_*` / `authorized_*` / `guard_status` flags into one `DecisionBasis` dataclass + one `BasisMismatchError` exception class with `{expected_epoch, changed_fields, next_command}` shape |
+| Event-driven epoch/watermark invalidation | 75% YES scattered | `ReviewSessionState.refresh_seq` at `review_state_models.py:30` (event count). `current_instruction_revision` at `handoff.py:257-261` — SHA256 content hash, enforced for ack staleness at lines 196-201. `reviewed_hash_current` at `handoff.py:215-220` — worktree hash, enforced at `bridge_promotion.py:51-54`. `implementer_state_hash` at `current_session_support.py:21-35` — enforced at `bridge_promotion.py:68-71`. `ReviewCandidateRecord.invalidation_reason` at `review_state_models.py:76` — explicit staleness with reason, enforced | Add ONE persistent `epoch: int` on `ProjectGovernance` bumped by a supervisor on the 7 ChatGPT-named events (worktree, HEAD, plan, review state, LIVE_RUN, findings, approval, operator mode); wire existing hashes as content watermarks under that epoch |
+| Typed ingestion (tool output → typed store) | YES end-to-end | Every major AI-facing devctl command has `--format json` output: `startup-context --format json` writes `dev/reports/startup/latest/receipt.json`; `review-channel --action status --format json` writes `dev/reports/review_channel/latest/review_state.json`; `agent-mind --format json` writes `dev/reports/agent_mind/{provider}/latest.json`; `dashboard --format json` emits `DashboardSnapshot`; `session-resume --format json` writes `dev/reports/session_cache/latest/cache.json`; `context-graph --format json` emits typed graph | **ONE-LINE `CLAUDE.md` FIX**: change line 10 from `startup-context --format summary` to `startup-context --format json`. Force the AI consumer through the typed pathway that already exists end-to-end. The AI is literally instructed to consume markdown prose when a typed JSON variant exists for the same command. |
+| Chokepoints that enforce fresh basis | 60% YES | `GovernedVcsExecutor` at `commands/vcs/governed_executor.py:76-94` routes `vcs.stage / vcs.commit / vcs.push / vcs.pipeline.recover`. `push_authorization.py:91-163` validates `authorized_head_sha`, `expires_at_utc`, `guard_status`. Pre-push hook installed at `.git/hooks/pre-push`. `ActionRoutingDecision` at `runtime/action_routing.py:75-93` routes by caller role | Extend `TypedAction` at `runtime/action_contracts.py:18-26` to carry `basis: DecisionBasis \| None = None` field. Make `GovernedVcsExecutor` call a central `validate_basis()` before dispatch. Unify rejection into `BasisMismatchError`. 70% → 100%. |
+
+### Layer separation audit (Audit #4) — the real breakage
+
+Audit #4 ran against ChatGPT's 6-layer stack model (Facts → Typed
+normalized state → Decision kernel → Retrieval/graph → Projections →
+Model reasoning). The repo IS partially architected as this stack,
+but has critical layer crossings:
+
+**Layer-correct ✓:**
+- `ControlPlaneReadModel` (`runtime/control_plane_read_model.py:57-105`)
+  is correctly Layer 2 (typed normalized state). Single frozen
+  dataclass, passed to renderers.
+- Context graph (`dev/scripts/devctl/context_graph/`) is correctly
+  Layer 4 (retrieval only). **Not consulted by any decision kernel.**
+  Used only by `review_snapshot_sources.build_bootstrap_context()`
+  for AI discoverability. This is exactly what ChatGPT asked for:
+  "graph as explanation index, not truth store."
+- Layer 6 (model reasoning) is bounded correctly via
+  `startup-context`, `session-resume --format bootstrap`,
+  `context-graph --mode bootstrap`.
+
+**Layer crossings (the bugs):**
+
+1. **HIGH** — `dashboard.py:339, 81-129` — Dashboard projection calls
+   `_git_short()` and runs its own `subprocess.run(["git", ...])`
+   calls, even though `control_plane_read_model.py:30-56` already
+   called `load_git_state()` once. Two parallel fact-readers with a
+   race window. Layer 5 reads raw Layer 1 facts.
+2. **HIGH** — `dashboard.py:390-391` — Dashboard has a `_parse_bridge()`
+   fallback that reads raw bridge.md markdown when typed `ReviewState`
+   is absent. Projection layer decides when to read raw facts.
+3. **HIGH** — `dashboard_builders.py:62-76` — `_derive_top_blocker()`
+   independently computes `top_blocker` from quality / doctor /
+   session dicts even though `control_plane_resolve.resolve_blocker_and_action()`
+   at line 157-208 already computed it. Projection layer re-derives
+   a decision-kernel output.
+4. **HIGH** — 4 independent decision kernels exist with no arbiter:
+   - `runtime/startup_advisory_decision.py` — decides next_action
+     like "no_push_needed", "push_allowed", "checkpoint_allowed"
+   - `runtime/startup_push_decision.py` — decides push_action and
+     push_eligibility
+   - `runtime/recovery_authority.py` — decides recovery_action
+   - `commands/check/router.py:49-180` — decides which check lane
+     to execute
+   None defer to a single arbiter. This is ChatGPT's "authority
+   drift" at the file level.
+5. **MEDIUM** — `startup_context.py:411-432` — Explicit code comment
+   acknowledges prior F1 divergence where `CoordinationSnapshot` had
+   two builders. Fallback logic still present. Not one spine.
+6. **MEDIUM** — `startup_context.py:450-453` — `implementation_permission`
+   computed in 3 places (work_intake_coordination, startup_context,
+   then re-read by consumers).
+7. **MEDIUM** — `platform/system_picture.py:91-147` —
+   `build_system_picture_snapshot()` independently calls
+   `scan_repo_governance_safely() + load_current_review_state() +
+   build_startup_context() + build_startup_authority_report() +
+   build_control_plane_read_model()`. Rebuilds the entire stack
+   instead of consuming a pre-built snapshot. Can diverge from
+   dashboard microseconds later.
+
+### Q98 net-new delta (6 items — identical to the Q97 integration plan, refined with ChatGPT's reframing)
+
+1. **Extract `GovernanceSnapshot`** as a single outer container (or
+   embed CPRM inside StartupContext). Single
+   `build_governance_snapshot(repo_root)` function is the ONLY
+   fact-reader. Everything else becomes a pure projection. Kills
+   Q98 layer-crossing findings 1, 5, 6, 7 above.
+2. **Add `DecisionBasis` dataclass + `BasisMismatchError`** unifying
+   the scattered `expected_*` / `authorized_*` / `guard_status`
+   patterns. ~30 lines net-new; rest is refactor.
+3. **Add `TypedAction.basis: DecisionBasis | None`** and make
+   `GovernedVcsExecutor` call `validate_basis()` before dispatch.
+   70% → 100%.
+4. **Add `ProjectGovernance.epoch: int`** bumped by a supervisor on
+   the 7 ChatGPT-named events. Wire existing hashes as content
+   watermarks under that epoch. ~20 lines + one supervisor hook.
+5. **Add `check_projection_reads_only_typed_state.py` guard** that
+   scans `commands/dashboard*.py`, `commands/dashboard_render/*.py`,
+   `commands/platform/system_picture*.py` for subprocess calls, raw
+   file reads, and direct parsing. Fails CI when a projection
+   layer reads raw facts. Enforces layer separation at the guard
+   layer. Directly addresses Q98 findings 1, 2, 3.
+6. **`CLAUDE.md` one-line fix**: change
+   `startup-context --format summary` to
+   `startup-context --format json`. Highest-leverage single change.
+   Forces AI through the typed pathway.
+
+### ChatGPT's compiler model framing
+
+ChatGPT gave a clean mental model that matches this repo:
+
+> "Think compiler. You can have many source files. You can have
+> many reports. You can have many views. But semantic truth should
+> come from one pass pipeline. Not five independent mini-compilers."
+
+Mapping onto the codex-voice repo:
+- **Frontend measurements**: guards (`dev/scripts/checks/`),
+  probes (`dev/scripts/checks/probe_*.py`), git state readers,
+  process liveness (`session_probe.py`), bridge poll.
+- **Mid-end reduction**: `build_startup_context()`,
+  `build_control_plane_read_model()`,
+  `build_work_intake_coordination_state()`,
+  `derive_observed_control_topology()`,
+  `derive_advisory_decision()`, `derive_push_decision()`,
+  `derive_recovery_authority()`.
+- **Backend execution**: `GovernedVcsExecutor` (`vcs.stage`,
+  `vcs.commit`, `vcs.push`), `review-channel --action` mutations,
+  `devctl push --execute`, pre-push hook.
+- **Reports / debug views**: `dashboard`, `system-picture`,
+  `session-resume`, `review-channel --action status`, context
+  graph query surface, agent-mind projections.
+
+The bug is: **several "reports" are running semantic reduction on
+raw inputs**, becoming second-compiler passes with their own truth.
+See findings 1-7 above.
+
+## Q99 — 5-field producer trace: concrete evidence of authority drift (2026-04-11)
+
+- **Author**: Claude (dashboard role)
+- **Trigger**: ChatGPT's refined architecture rule:
+  > "Decision logic should only exist in one place. Everywhere
+  > else either supplies facts or renders the result. Pick one
+  > control question at a time... iso can answer that question
+  > without calling the same resolver? If the answer is more than
+  > one, that is probably drift. Start by picking the 5 highest-value
+  > authority fields and finding every producer of each."
+- **Method**: One Explore agent (very thorough) traced every producer
+  (computes from raw facts) and every consumer (reads from typed
+  state) of 5 load-bearing authority fields.
+
+### Field producer rankings (worst → cleanest)
+
+| Rank | Field | Producers | Consumers | Risk | Canonical owner |
+|---|---|---|---|---|---|
+| **1 (WORST)** | `top_blocker` / `next_action` | **5** | 3 | VERY HIGH — **3 in projection layer, no canonical decision kernel owns it** | MISSING — needs new `startup_blocker_decision.py` |
+| 2 | `push_eligible_now` / `push_allowed` | **3** | 4 | HIGH — schema aliasing (`push_eligible` vs `push_eligible_now`), projection re-derives via string match | `runtime/startup_push_decision.py:55-156 derive_push_decision()` |
+| 3 | `implementation_permission` | **2** | 5 | MEDIUM — hidden second producer via fallback chain | `runtime/control_topology.py:84-92 derive_implementation_permission()` |
+| 4 | `review_state` / `reviewer_freshness` / `reviewed_hash_current` | **1 + 3 secondary** | 5 | MEDIUM — canonical producer exists; extraction scattered | `review_channel/state.py:100-189 build_review_state()` |
+| **5 (CLEAN)** | `observed_control_topology` | **1** | 6+ | **LOW — this is the reference** | `runtime/control_topology.py:29-81 derive_observed_control_topology()` |
+
+### Field 1: `top_blocker` / `next_action` — WORST OFFENDER
+
+**Five producers**:
+
+1. `commands/dashboard_builders.py:62-76` — `_derive_top_blocker(quality, session, doctor)` — **PROJECTION-LAYER PRODUCER** with full decision logic. Prioritizes code-shape debt → doctor status → session findings.
+2. `runtime/control_plane_read_model.py:363` — `_load_canonical_blocker()` reads from an intermediate blocker dict which itself was constructed from quality/session/doctor dicts.
+3. `commands/dashboard_builders.py:87-92` — `_build_now_section()` reads `ctx.session.get("implementer_status", "")` as `next_action` with hardcoded fallback "review worker results and checkpoint".
+4. `runtime/session_resume.py:74-77` — `_load_session_resume_from_entries()` extracts `next_action` from markdown bridge entries via `_pick_labeled_entry(entries, "Next action")`. Parsing markdown to produce authority.
+5. `runtime/work_intake_continuity.py:52, 68, 88` — copies from loaded session resume, creating a chain producer-of-producer.
+
+**Canonical producer**: **MISSING.** Neither `top_blocker` nor
+`next_action` has a single decision-kernel owner. The advisory
+decision has `action` and `reason`, but not a `top_blocker` string.
+The field is authoritative for the entire "what should I do next?"
+workflow but has no typed reducer.
+
+**Fix path (smallest PR shape for Q99)**:
+
+1. Create `dev/scripts/devctl/runtime/startup_blocker_decision.py`
+   with:
+   ```python
+   @dataclass(frozen=True, slots=True)
+   class BlockerSnapshot:
+       top_blocker: str
+       next_action: str
+       blocker_source: Literal["quality", "doctor", "session", "recovery", "none"]
+       derivation_evidence: tuple[str, ...]
+
+   def derive_blocker_decision(
+       quality_signals: dict,
+       doctor_status: dict,
+       session_findings: str,
+       recovery_assessment: object | None,
+   ) -> BlockerSnapshot:
+   ```
+2. Call it from `runtime/startup_context.py:build_startup_context()`
+   immediately after `load_startup_quality_signals()`. Store result
+   on `StartupContext.blocker: BlockerSnapshot`.
+3. **Delete** `dashboard_builders._derive_top_blocker()` at lines
+   62-76. Replace every caller with
+   `ctx.control_plane.blocker.top_blocker` read.
+4. **Delete** `dashboard_builders._build_now_section()` fallback at
+   lines 87-92. Replace with a typed read.
+5. **Delete** `session_resume._load_session_resume_from_entries()`'s
+   `next_action` markdown parsing. Replace with a typed read from
+   `BlockerSnapshot`.
+6. Update `control_plane_read_model.py:363` to read from
+   `startup_context.blocker.top_blocker` directly, not from an
+   intermediate dict.
+
+**One new module + deletion of 5 producer sites. Net code: negative.**
+
+### Field 2: `push_eligible_now` — schema aliasing drift
+
+**Three producers**:
+
+1. `runtime/startup_push_decision.py:55-156` — `derive_push_decision()`
+   — source-of-truth. Multi-step decision tree.
+2. `runtime/startup_push_models.py:65-89` — `_project_push_decision()`
+   — wrapper, acceptable.
+3. `runtime/review_snapshot_state.py:76` — reads from a dict
+   (legacy state reconstruction).
+
+**Schema aliasing**: `control_plane_read_model.py:361` re-derives
+via `push_action == "run_devctl_push"` string match and stores
+under the name `push_eligible` (dropping the `_now` suffix). Two
+field names for the same control truth. The dashboard reads
+`now.get("push_eligible", False)`; the startup context exposes
+`push_eligible_now`. A naive consumer reading one may not know the
+other exists.
+
+**Fix path**: rename `push_eligible` → `push_eligible_now` in the
+control plane schema. Replace the line-361 string-match derivation
+with a direct read: `push_eligible_now = bool(startup_context.push_decision.push_eligible_now)`.
+Remove the `review_snapshot_state.py:76` dict reconstruction or
+mark it as legacy-only.
+
+### Field 3: `implementation_permission` — fallback chain producer
+
+**Two producers**:
+
+1. `runtime/control_topology.py:84-92` —
+   `derive_implementation_permission(topology)` — **canonical**.
+   Maps topology enum to permission state:
+   `single_implementer_single_reviewer` → `active`,
+   dual/implementer-only → `suspended`, else → `blocked`.
+2. `runtime/startup_context.py:450-453` — `build_startup_context()`
+   reads `work_intake.coordination.implementation_permission` with
+   fallback to `"blocked"`. **Hidden second derivation**: the
+   `work_intake.coordination` module itself calls
+   `derive_startup_control_truth()` (which calls
+   `derive_implementation_permission()`), stores the result, then
+   `startup_context.py:450-453` reads it back. Fallback-chain pattern.
+
+**Fix path**: remove lines 450-453 in `startup_context.py` and
+replace with a direct call to
+`derive_implementation_permission(observed_control_topology)`.
+Collapses two producers into one.
+
+### Field 4: `review_state` / `reviewer_freshness` / `reviewed_hash_current`
+
+**One canonical producer + 3 secondary projections**:
+
+1. **Canonical**: `review_channel/state.py:100-189` —
+   `build_review_state()`. Reads governance scan, bridge text,
+   lifecycle states, attention, recovery assessment. Builds typed
+   `ReviewState`.
+2. Secondary: `runtime/review_state_locator.py` —
+   `load_current_review_state()` — loads pre-built state from disk.
+   Acceptable consumer-wrapper.
+3. Secondary: `runtime/review_snapshot_render.py` — projects typed
+   state into a flat snapshot dict. Acceptable rendering.
+4. Secondary: `commands/dashboard_typed_state.py:182-195` —
+   `_resolve_typed_verdict()` extracts and normalizes verdict string.
+   Acceptable extraction, but pattern is repeated across sites.
+
+**Risk**: MEDIUM. Single canonical producer, but extraction patterns
+are scattered. Not strictly drift — more like extraction
+duplication. Acceptable if consolidated into one helper.
+
+### Field 5: `observed_control_topology` — CLEAN REFERENCE
+
+**One canonical producer**:
+
+1. `runtime/control_topology.py:29-81` —
+   `derive_observed_control_topology()`. Hierarchy of evidence
+   sources: direct counts → bridge provider detection → runtime
+   counts → role evidence fallback. Maps raw counts to enum:
+   `dual_implementer | single_implementer_single_reviewer |
+   implementer_without_reviewer | reviewer_only | no_live_agents`.
+
+**Six consumers**: `commit_permission.py:71`,
+`monitor_snapshot.py:146`, `startup_context_render.py:469-470`,
+`commands/governance/startup_context.py:196-197`,
+`runtime/startup_context.py:106`, and the control plane read model.
+All read from `StartupContext.observed_control_topology`. None
+re-derive.
+
+**This is the architecture the other 4 fields should follow.** It
+is the local proof-of-concept that the clean pattern already
+exists in the repo. Q98's "decision logic in one place" rule is
+not aspirational — it is implemented here and needs to propagate
+to the other 4 fields.
+
+### Q99 meta-finding: this isn't a missing-architecture problem
+
+The repo HAS the clean pattern. `observed_control_topology` proves
+it. The other 4 fields drifted because the discipline was not
+propagated as the codebase grew. `top_blocker` never had a canonical
+kernel assigned; `push_eligible_now` got aliased during the control
+plane refactor; `implementation_permission` got a fallback chain
+added to handle cross-module flow.
+
+**The Q99 rule for every future field**:
+
+Before adding a new authority field to any typed container, answer:
+1. Which single module derives it?
+2. Which typed container is its canonical home?
+3. Who are the consumers?
+4. Is there any projection-layer code that could compute this from
+   raw facts without calling the canonical producer?
+
+If the answer to (4) is yes, the field is not ready to ship.
+Guard it with the `check_projection_reads_only_typed_state.py`
+rule in Q98 delta item 5.
+
+### Q98 + Q99 action items for Codex (coder role)
+
+1. **Acknowledge the role model** one more time. Your previous
+   verdict (instruction_revision `798446bc35db` → `f26e114a45d7`)
+   still addresses Claude as the implementer for the two P1
+   startup regressions. Per Q93 resolution: Codex is coder AND
+   reviewer for this slice. Claude is dashboard.
+2. **Land `top_blocker` canonical kernel** (Q99 smallest PR shape):
+   create `runtime/startup_blocker_decision.py` with
+   `BlockerSnapshot` + `derive_blocker_decision()`. Wire into
+   `build_startup_context()`. Delete the 5 producer sites above.
+   **This is the single highest-impact PR in the Q98+Q99 plan.**
+3. **Land the Q98 6-item net-new delta** as a bounded MP-377 slice:
+   (a) extract `GovernanceSnapshot`, (b) add `DecisionBasis` +
+   `BasisMismatchError`, (c) add `TypedAction.basis` + router
+   validation, (d) add `ProjectGovernance.epoch` bumped by
+   supervisor, (e) add `check_projection_reads_only_typed_state.py`
+   guard, (f) CLAUDE.md one-line fix to `--format json`.
+4. **Fix `push_eligible_now` schema aliasing** (Q99 field 2): rename
+   `push_eligible` → `push_eligible_now` in control plane; replace
+   line 361 string-match derivation with direct read from
+   `startup_context.push_decision.push_eligible_now`.
+5. **Collapse `implementation_permission` fallback chain** (Q99
+   field 3): remove `startup_context.py:450-453` fallback; call
+   `derive_implementation_permission()` directly.
+6. **Apply the compiler model as CI guard**: no projection-layer
+   file may run semantic reduction on raw inputs. The
+   `check_projection_reads_only_typed_state.py` guard is the
+   enforcement mechanism.
+
+### Q98 + Q99 audit source
+
+Full verbatim agent output from the 4-agent parallel audit
+(epoch/watermark/generation, ActionRequest/DecisionBasis, typed
+ingestion, layer separation) and the 1-agent 5-field producer
+trace is available in this session's Claude-side rollout (session
+`db4d882a`) at the tool results for the 5 Explore agent
+invocations. Findings above are consolidated and deduplicated.
+
 
 
 
