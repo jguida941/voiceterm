@@ -150,6 +150,12 @@ separate startup authority surface: `recovery_action`, `recovery_basis`, and
 is allowed. The governed commit path consumes the same authority family through
 `CommitPermissionDecision`, so `implementation_permission=blocked|suspended`
 hard-blocks `devctl commit` before staging or guard execution.
+Treat `allowed_actions` as the effective post-gate set, not the raw lane
+capability list: `intrinsic_allowed_actions` preserves lane capability when
+checkpoint budget, resync, or implementation authority temporarily blocks
+mutation, and `implementation_admissibility` is the shared
+`allowed|checkpoint_required|blocked` mutability summary consumed by startup
+and monitor surfaces.
 
 | `push_decision` | Meaning | Next governed step |
 |---|---|---|
@@ -1837,6 +1843,11 @@ Docs governance guardrails:
 - `python3 dev/scripts/checks/check_rust_security_footguns.py` blocks non-regressive growth of risky runtime patterns (`todo!/dbg!/unimplemented!`, `unreachable!()` in runtime hot paths, shell-style spawns, permissive modes, weak-crypto references, PID wrap-prone casts like `child.id() as i32` / `libc::getpid() as i32`, and syscall-return casts to unsigned types without a prior sign guard) while excluding `#[cfg(test)]` blocks.
 - `.github/workflows/rust_ci.yml` enforces a high-signal Clippy lint baseline by emitting lint-code histogram JSON (`collect_clippy_warnings.py --output-lints-json`) and running `check_clippy_high_signal.py`.
 - `python3 dev/scripts/devctl.py docs-check --strict-tooling` now also requires `dev/history/ENGINEERING_EVOLUTION.md` when tooling/process/CI surfaces change and enforces markdown metadata-header normalization (`Status`/`Last updated`/`Owner`), workflow-shell hygiene (`check_workflow_shell_hygiene.py`), and repo-policy-owned durable guide coverage through `check_guide_contract_sync.py`. The stale-path portion of that gate still resolves through the stable `dev/scripts/devctl/path_audit.py` public seam even when the implementation is split under `dev/scripts/devctl/path_audit_support/`.
+- The same strict-tooling docs lane also expects the core maintainer authority
+  set to move together when startup/runtime/generated-instruction contracts
+  change: update `AGENTS.md`, this guide, `dev/active/MASTER_PLAN.md`, and
+  `dev/history/ENGINEERING_EVOLUTION.md` in the same slice unless the diff is
+  explicitly documented as an exemption.
 - `python3 dev/scripts/checks/check_workflow_action_pinning.py` blocks non-SHA and dynamic `uses:` refs in workflow files.
 - `python3 dev/scripts/checks/check_guard_enforcement_inventory.py` blocks registered check scripts from drifting out of bundle/workflow enforcement lanes unless they are explicitly marked helper-only, manual-only, or temporary advisory backlog exceptions. Shared hard guards should also appear in the resolved `quality-policy` inventory so `devctl check`, generated surfaces, and workflow/bundle enforcement all describe the same lane.
 - `python3 dev/scripts/devctl.py hygiene --strict-warnings --ignore-warning-source mutation_badge` also treats public `dev/scripts/checks/check_*.py` entrypoints as self-hosting maintainer surfaces: if you add or shim a guard, register it in `dev/scripts/devctl/script_catalog.py` and document it in `dev/scripts/README.md` in the same change or governed push preflight will fail later on catalog/README drift.

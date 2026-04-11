@@ -4,7 +4,7 @@
 
 **Status:** Draft v4 (historical design and process record)
 **Audience:** users and developers
-**Last Updated:** 2026-04-10
+**Last Updated:** 2026-04-11
 
 ## At a Glance
 
@@ -38,6 +38,36 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 - [Developer Path (15 min)](#developer-path-15-min)
 
 ### 2026-04-07 - ReviewSnapshot hook hardening routed through owner plans
+
+### 2026-04-11 - Startup mutability routing and bootstrap surfaces now share one portable-boundary contract
+
+Fact: the next live-run review pass exposed two coupled drift patterns. The
+runtime projected lane capability and mutation permission through overlapping
+fields, so `allowed_actions` could still advertise implementation work while
+checkpoint budget, resync, or blocked implementation authority had already
+made that work illegal. At the same time, generated bootstrap/setup wording
+still described the portable platform boundary too loosely, which let fresh
+sessions keep treating VoiceTerm defaults as if they were backend authority.
+
+This matters because a provider-agnostic role system only stays safe if the
+runtime emits one deterministic answer about whether mutation is currently
+admissible, and a portable platform only stays portable if the first-hop
+instruction surfaces say clearly that the current repo is a client/product
+integration, not the hidden default for arbitrary adopters.
+
+The closure is small and shared. `startup-context` now takes
+`implementation_permission` from observed control-topology truth instead of a
+second work-intake fallback, action routing keeps `allowed_actions` as the
+effective post-gate action set, exposes raw lane capability separately as
+`intrinsic_allowed_actions`, and publishes one
+`implementation_admissibility` summary (`allowed`,
+`checkpoint_required`, or `blocked`) that monitor/status consumers reuse too.
+The same slice also updated the generated instruction/setup templates and the
+bootstrap guide so they state explicitly that VoiceTerm is the first-party
+client/product integration over the portable governance platform while repo
+packs and typed runtime contracts remain backend authority for arbitrary
+repos. Maintainer docs were updated in the same pass so `docs-check
+--strict-tooling` keeps enforcing that closure.
 
 ### 2026-04-10 - Lane edit gates and destructive recovery now require typed startup authority
 

@@ -85,6 +85,8 @@ python3 dev/scripts/devctl.py probe-report --adoption-scan --format md
 The portable quality engine is ready for Python and Rust repos.
 Higher-level control-plane helpers (mutation loops, host-process hygiene,
 operator-console automation) are still repo-local to the originating project
-and not yet part of the portable core. Each adopting repo must configure its
-own product identity through repo-pack metadata instead of inheriting defaults
-from any particular first-party client.
+and not yet part of the portable core. Each adopting repo is a first-party
+client/product integration over the portable governance platform, so it must
+configure its own product identity through repo-pack metadata; repo packs and
+typed runtime contracts remain backend authority for arbitrary repos instead
+of inheriting defaults from any particular first-party client.

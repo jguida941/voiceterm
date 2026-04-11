@@ -13,6 +13,7 @@ from dev.scripts.devctl.runtime.monitor_snapshot import (
     MonitorSelfAudit,
     MonitorSnapshot,
     MonitorSourceLabel,
+    _build_summary,
     build_monitor_snapshot,
     write_latest_monitor_snapshot,
 )
@@ -176,6 +177,8 @@ class MonitorSnapshotRuntimeTests(unittest.TestCase):
 
         self.assertEqual(snapshot.snapshot_id, "snap-321")
         self.assertEqual(snapshot.summary["state"], "blocked")
+        self.assertFalse(snapshot.summary["can_work_continue"])
+        self.assertEqual(snapshot.summary["implementation_admissibility"], "blocked")
         self.assertEqual(snapshot.summary["who_needs_to_act"], "operator")
         self.assertTrue(snapshot.self_audit.should_emit_finding)
         self.assertIn("coordination_resync_required", snapshot.self_audit.reasons)
@@ -186,6 +189,39 @@ class MonitorSnapshotRuntimeTests(unittest.TestCase):
         self.assertEqual(labels["publisher_heartbeat"], "telemetry")
         self.assertEqual(labels["compact_projection"], "projection")
         self.assertEqual(labels["git_status"], "diagnostic")
+
+    def test_checkpoint_gate_projects_checkpoint_required_summary(self) -> None:
+        startup = SimpleNamespace(
+            governance=SimpleNamespace(
+                push_enforcement=SimpleNamespace(
+                    checkpoint_required=True,
+                    safe_to_continue_editing=False,
+                )
+            ),
+            implementation_permission="active",
+            coordination=SimpleNamespace(resync_required=False),
+        )
+        model = SimpleNamespace(
+            push_eligible=False,
+            last_guard_ok=True,
+            resolved_phase="committing",
+            top_blocker="checkpoint required",
+            next_command="python3 dev/scripts/devctl.py startup-context --format summary",
+        )
+
+        summary = _build_summary(
+            startup=startup,
+            model=model,
+            self_audit=MonitorSelfAudit(
+                should_emit_finding=False,
+                finding_type="",
+                reasons=(),
+            ),
+        )
+
+        self.assertEqual(summary["state"], "checkpoint_required")
+        self.assertFalse(summary["can_work_continue"])
+        self.assertEqual(summary["implementation_admissibility"], "checkpoint_required")
 
     def test_write_latest_monitor_snapshot_writes_bundle(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:

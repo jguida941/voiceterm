@@ -1,6 +1,6 @@
 # AI Governance Platform Plan
 
-**Status**: active  |  **Last updated**: 2026-04-10 | **Owner:** Tooling/control plane/product architecture
+**Status**: active  |  **Last updated**: 2026-04-11 | **Owner:** Tooling/control plane/product architecture
 Execution plan contract: required
 This spec remains execution mirrored in `dev/active/MASTER_PLAN.md` under
 `MP-377`, and it is the canonical active architecture plan for the standalone
@@ -4895,6 +4895,13 @@ alone. Use these proof gates:
 Use this section as the single "left off here" surface for fresh AI sessions
 working on `MP-377`.
 
+- 2026-04-11 bootstrap/client-vs-core surface slice:
+  resume with the portable starter/instruction wording pass. Keep the owned
+  edit set to generated instruction surfaces, the bootstrap guide writer,
+  portable setup template, maintainer docs, and this plan note. Do not edit
+  runtime mutability/precedence code; the goal is to make the product/client
+  boundary explicit while preserving the role-first, provider-agnostic
+  framing.
 - 2026-04-10 guard-promotion intake:
   resume with the guard-promotion audit absorbed into the existing
   governance-closeout chain. `governance-review --record` now creates the
@@ -6342,6 +6349,13 @@ Execution order for this section:
 
 ## Progress Log
 
+- 2026-04-11: Started the bootstrap/client-vs-core surface slice under
+  `MP-377`. The owned change set is intentionally narrow: generated
+  instruction surfaces and starter setup docs should now say that the current
+  repo is a first-party client/product integration over the portable
+  governance platform, while repo packs and typed runtime contracts remain
+  backend authority for arbitrary repos. Keep the wording portable so adopter
+  repos inherit the same thesis with their own product identity.
 - 2026-04-10: Started the Q64/Q54 bounded intake-governance closure under
   `MP-377`. The first slice keeps both fixes in existing repo-owned surfaces:
   `WorkIntakePacket` now needs one typed `session_pacing` projection derived

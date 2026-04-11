@@ -65,8 +65,11 @@ def test_build_startup_action_routing_blocks_when_work_intake_requires_resync() 
     assert "vcs.stage" in decision.blocked_actions
     assert "vcs.commit" in decision.blocked_actions
     assert "review-channel.status" in decision.allowed_actions
+    assert "implementation.edit" not in decision.allowed_actions
+    assert "implementation.edit" in decision.intrinsic_allowed_actions
     assert decision.recovery_action == "coordination_resync"
     assert decision.escalation_action == "operator_resume_review_loop"
+    assert decision.implementation_admissibility == "blocked"
 
 
 def test_build_startup_action_routing_uses_work_intake_permission_not_top_level() -> None:
@@ -120,3 +123,26 @@ def test_build_startup_action_routing_ignores_top_level_coordination_fallbacks()
     assert "implementation.edit" not in decision.blocked_actions
     assert decision.recovery_action == ""
     assert decision.escalation_action == ""
+
+
+def test_build_startup_action_routing_blocks_on_checkpoint_gate() -> None:
+    payload = {
+        "governance": {
+            "push_enforcement": {
+                "checkpoint_required": True,
+                "safe_to_continue_editing": False,
+            }
+        }
+    }
+
+    decision = build_startup_action_routing(
+        payload,
+        next_command="python3 dev/scripts/devctl.py startup-context --format summary",
+    )
+
+    assert decision.implementation_admissibility == "checkpoint_required"
+    assert "implementation.edit" in decision.blocked_actions
+    assert "vcs.stage" in decision.blocked_actions
+    assert "vcs.commit" in decision.blocked_actions
+    assert "implementation.edit" not in decision.allowed_actions
+    assert decision.recovery_action == ""

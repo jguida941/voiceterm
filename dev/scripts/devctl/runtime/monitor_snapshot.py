@@ -25,6 +25,7 @@ from .monitor_snapshot_support import (
     load_monitor_review_state,
     monitor_output_root,
 )
+from .implementation_admissibility import derive_implementation_admissibility
 from .startup_context import build_startup_context
 
 if TYPE_CHECKING:
@@ -167,21 +168,31 @@ def _build_telemetry(model) -> dict[str, object]:
 
 
 def _build_summary(*, startup, model, self_audit: MonitorSelfAudit) -> dict[str, object]:
-    can_work_continue = not _field(
-        getattr(startup, "reviewer_gate", None),
-        "implementation_blocked",
-        cast=bool,
+    push = getattr(getattr(startup, "governance", None), "push_enforcement", None)
+    coordination = getattr(startup, "coordination", None)
+    admissibility = derive_implementation_admissibility(
+        implementation_permission=_field(startup, "implementation_permission"),
+        checkpoint_required=_field(push, "checkpoint_required", cast=bool),
+        safe_to_continue_editing=_field(
+            push,
+            "safe_to_continue_editing",
+            cast=bool,
+            default=True,
+        ),
+        resync_required=_field(coordination, "resync_required", cast=bool),
     )
+    can_work_continue = admissibility.status == "allowed"
     can_push = _field(model, "push_eligible", cast=bool) and _field(
         model,
         "last_guard_ok",
         cast=bool,
         default=True,
     )
-    permission = _field(startup, "implementation_permission")
     state = (
         "blocked"
-        if permission == "blocked"
+        if admissibility.status == "blocked"
+        else "checkpoint_required"
+        if admissibility.status == "checkpoint_required"
         else "push_ready"
         if can_push
         else _field(model, "resolved_phase", default="active")
@@ -192,6 +203,7 @@ def _build_summary(*, startup, model, self_audit: MonitorSelfAudit) -> dict[str,
             ("main_problem", _field(model, "top_blocker", default="none")),
             ("can_work_continue", can_work_continue),
             ("can_code_be_pushed", can_push),
+            ("implementation_admissibility", admissibility.status),
             ("who_needs_to_act", _next_actor(startup=startup, model=model)),
             (
                 "what_should_happen_next",

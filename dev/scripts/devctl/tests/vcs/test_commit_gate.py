@@ -45,6 +45,10 @@ from dev.scripts.devctl.platform.coordination_snapshot_models import (
     CoordinationSnapshot,
 )
 from dev.scripts.devctl.runtime.startup_context import ReviewerGateState, StartupContext
+from dev.scripts.devctl.runtime.work_intake_models import (
+    WorkIntakeCoordinationState,
+    WorkIntakePacket,
+)
 
 
 def _make_args(**overrides) -> SimpleNamespace:
@@ -210,6 +214,13 @@ class TestStartupActionRouting(unittest.TestCase):
                 advisory_action="continue_editing",
                 advisory_reason="clean_worktree",
                 implementation_permission="active",
+                work_intake=WorkIntakePacket(
+                    coordination=WorkIntakeCoordinationState(
+                        implementation_permission="active",
+                        active_implementation_owner="codex",
+                        active_participants=("codex:implementer",),
+                    )
+                ),
                 coordination=CoordinationSnapshot(
                     actors=(
                         CoordinationActorRecord(
@@ -246,6 +257,13 @@ class TestStartupActionRouting(unittest.TestCase):
                 advisory_reason="collapsed_topology",
                 observed_control_topology="no_live_agents",
                 implementation_permission="blocked",
+                work_intake=WorkIntakePacket(
+                    coordination=WorkIntakeCoordinationState(
+                        implementation_permission="blocked",
+                        active_implementation_owner="codex",
+                        active_participants=("codex:implementer",),
+                    )
+                ),
             ),
             ["startup-context", "--format", "json"],
         )

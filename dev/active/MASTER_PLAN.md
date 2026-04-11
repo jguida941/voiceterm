@@ -125,6 +125,17 @@
   `SystemCatalog` contracts do not hide behind generic field names, and
   orphaned-contract findings now surface `internal_only` consumers when a
   contract is only imported inside its own package.
+- 2026-04-11 bootstrap/client-boundary + mutation-admissibility follow-up in
+  `MP-377` scope: generated instruction/setup surfaces now say explicitly that
+  VoiceTerm is a first-party client/product integration over the portable
+  governance platform, while repo packs and typed runtime contracts remain the
+  backend authority for arbitrary repos. The same closure also tightened
+  startup mutability truth: `startup-context` now resolves
+  `implementation_permission` from observed control topology, action routing
+  keeps `allowed_actions` as the effective post-gate set, and
+  `implementation_admissibility` is the shared reducer used by startup/monitor
+  consumers when checkpoint budget, resync, or blocked implementation
+  authority temporarily stop mutation.
 - Current highest-priority subordinate `MP-377` lane:
   `dev/active/platform_authority_loop.md`. This is the execution spec for
   closing the portable authority loop:

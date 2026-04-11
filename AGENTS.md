@@ -28,6 +28,10 @@ Portable-platform rule:
   names, fixed `dev/active/*` / `dev/reports/*` paths, `bridge.md`, or
   `VOICETERM_PATH_CONFIG` fallbacks as universal truth; resolve authority
   through `ProjectGovernance` / repo-pack state or fail closed.
+- Generated bootstrap/instruction surfaces must render that same boundary
+  explicitly: the current repo is a first-party client/product integration
+  over the portable governance platform, while repo packs and typed runtime
+  contracts remain backend authority for arbitrary repos.
 - Review-channel launch surfaces must treat the markdown lane table as planned
   topology only. The runtime participant registry is provider/session-backed
   typed state, and the default requested worker fanout is zero unless a launch
@@ -690,6 +694,13 @@ checklist plus chat memory.
     must also honor `lane_edit_gate`: when another live agent owns the
     implementation lane, they may write findings or packets only, not
     implementation files.
+    Read the action-routing packet in two layers: `allowed_actions` is the
+    effective post-gate action set, while `intrinsic_allowed_actions`
+    preserves the lane's underlying capability when checkpoint budget,
+    resync, or implementation authority temporarily blocks mutation.
+    `implementation_admissibility` is the shared mutability reducer for
+    startup/status/monitor consumers; prefer it over inferring editability
+    from scattered booleans.
     Current limitation: when another agent edits the repo outside the
     repo-owned checkpoint/review flow, startup/status still surface the result
     as a generic dirty-tree / checkpoint-budget blocker instead of a distinct

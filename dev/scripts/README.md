@@ -1414,8 +1414,10 @@ Machine-first output note:
   - The local `CLAUDE.md` output is the first-hop AI awareness surface. Keep
     it in sync so it advertises `ai_instruction`, `decision_mode`,
     `governance-review --record`, packet-level operational feedback, saved
-    graph snapshots, and points agents back to `dev/guides/DEVELOPMENT.md`
-    plus this command guide for "which tool should I run now?" routing.
+    graph snapshots, this repo's first-party client/product-integration role
+    over the portable governance platform, and points agents back to
+    `dev/guides/DEVELOPMENT.md` plus this command guide for "which tool
+    should I run now?" routing.
   - The same render pass now derives `CLAUDE.md`'s task-router quick map from
     `governance/task_router_contract.py` and derives the guard-limit block from the
     live code-shape policy modules, so repo policy JSON no longer needs to
@@ -1523,7 +1525,10 @@ Machine-first output note:
   `dev/config/devctl_repo_policy.json` when the target repo does not already
   have one
   - Also writes `dev/guides/PORTABLE_GOVERNANCE_SETUP.md` inside the target
-    repo so an AI or maintainer has one obvious first-read onboarding file.
+    repo so an AI or maintainer has one obvious first-read onboarding file
+    that states the target repo is the first-party client/product integration
+    over the portable governance platform and that repo packs plus typed
+    runtime contracts remain backend authority for arbitrary repos.
   - Exported onboarding templates live under `dev/config/templates/`,
     especially `portable_governance_repo_setup.template.md` and
     `portable_devctl_repo_policy.template.json`.

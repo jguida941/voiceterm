@@ -55,7 +55,10 @@ def render_starter_setup_guide(
     lines = [f"# Portable Governance Setup For `{repo_root.name}`", ""]
     lines.append(
         "This file is the one obvious bootstrap surface for an AI or maintainer "
-        "setting this repo up with the portable devctl guard/probe stack."
+        "setting this repo up with the portable devctl guard/probe stack. "
+        "It should frame this repo as a first-party client/product integration "
+        "over the portable governance platform, while repo packs and typed "
+        "runtime contracts stay backend authority for arbitrary repos."
     )
     lines.extend(
         [
@@ -92,7 +95,7 @@ def render_starter_setup_guide(
             "",
             "- The portable quality engine is ready for Python and Rust repos.",
             "- Higher-level control-plane helpers (mutation loops, host-process hygiene, operator-console automation) are still repo-local to the originating project and not yet part of the portable core.",
-            f"- This repo (`{repo_root.name}`) is one adopter/client of the portable governance platform. Each adopting repo must supply its own product name, project summary, and repo identity through repo-pack metadata instead of inheriting defaults from any other project.",
+            f"- This repo (`{repo_root.name}`) is one first-party client/product integration of the portable governance platform. Each adopting repo must supply its own product name, project summary, and repo identity through repo-pack metadata; repo packs and typed runtime contracts remain backend authority for arbitrary repos instead of inheriting defaults from any other project.",
         ]
     )
     return "\n".join(lines) + "\n"

@@ -14,6 +14,9 @@ from .commit_permission import (
     build_commit_permission_decision,
     build_commit_permission_decision_for_executor,
 )
+from .implementation_admissibility import (
+    derive_implementation_admissibility,
+)
 
 _LANES = frozenset({"dashboard", "implementer", "observer", "reviewer"})
 _READ_ACTIONS = (
@@ -79,18 +82,26 @@ class ActionRoutingDecision:
     contract_id: str = "ActionRoutingDecision"
     source_command: str = "startup-context"
     next_command: str = ""
+    intrinsic_allowed_actions: tuple[str, ...] = ()
     allowed_actions: tuple[str, ...] = ()
     blocked_actions: tuple[str, ...] = ()
-    recovery_action: str = ""
+    control_recovery_action: str = ""
     escalation_action: str = ""
+    implementation_admissibility: str = "allowed"
     agent_lane: AgentLaneDecision = field(default_factory=AgentLaneDecision)
 
     def to_dict(self) -> dict[str, object]:
         payload = asdict(self)
+        payload["intrinsic_allowed_actions"] = list(self.intrinsic_allowed_actions)
         payload["allowed_actions"] = list(self.allowed_actions)
         payload["blocked_actions"] = list(self.blocked_actions)
         payload["agent_lane"] = self.agent_lane.to_dict()
         return payload
+
+    @property
+    def recovery_action(self) -> str:
+        """Compatibility alias for older call sites and tests."""
+        return self.control_recovery_action
 
 
 def normalize_agent_lane(value: object) -> str:
@@ -162,32 +173,46 @@ def build_startup_action_routing(
         reviewer_override=reviewer_override,
         active_implementation_owner=active_implementation_owner(resolved_coordination),
     )
-    allowed = list(lane.permissions)
+    intrinsic_allowed = list(lane.permissions)
     blocked = list(lane.blocked_permissions)
-    recovery_action = ""
+    control_recovery_action = ""
     escalation_action = ""
 
+    governance = _mapping(ctx_payload.get("governance"))
+    push = _mapping(governance.get("push_enforcement"))
     permission = str(
         getattr(resolved_coordination, "implementation_permission", "") or ""
     ).strip()
-    if permission in {"blocked", "suspended"}:
+    resync_required = bool(
+        getattr(resolved_coordination, "resync_required", False)
+    )
+    admissibility = derive_implementation_admissibility(
+        implementation_permission=permission,
+        checkpoint_required=push.get("checkpoint_required", False),
+        safe_to_continue_editing=push.get("safe_to_continue_editing", True),
+        resync_required=resync_required,
+    )
+
+    if admissibility.status != "allowed":
         _append_unique(blocked, _IMPLEMENTATION_ACTIONS)
-        _append_unique(allowed, _READ_ACTIONS)
-        recovery_action = "refresh_startup_or_review_status"
+
+    if permission in {"blocked", "suspended"}:
+        control_recovery_action = "refresh_startup_or_review_status"
         escalation_action = "operator_resync_required"
 
-    if resolved_coordination is not None and resolved_coordination.resync_required:
-        _append_unique(blocked, ("implementation.edit", "vcs.stage", "vcs.commit"))
-        _append_unique(allowed, ("review-channel.status",))
-        recovery_action = "coordination_resync"
+    if resync_required:
+        control_recovery_action = "coordination_resync"
         escalation_action = "operator_resume_review_loop"
 
+    allowed = [action for action in intrinsic_allowed if action not in blocked]
     return ActionRoutingDecision(
         next_command=next_command,
+        intrinsic_allowed_actions=tuple(intrinsic_allowed),
         allowed_actions=tuple(allowed),
         blocked_actions=tuple(blocked),
-        recovery_action=recovery_action,
+        control_recovery_action=control_recovery_action,
         escalation_action=escalation_action,
+        implementation_admissibility=admissibility.status,
         agent_lane=lane,
     )
 
@@ -207,10 +232,11 @@ def project_startup_action_routing(
         reviewer_override=reviewer_override,
     )
     payload["next_command"] = decision.next_command
+    payload["intrinsic_allowed_actions"] = list(decision.intrinsic_allowed_actions)
     payload["allowed_actions"] = list(decision.allowed_actions)
     payload["blocked_actions"] = list(decision.blocked_actions)
-    payload["control_recovery_action"] = decision.recovery_action
-    payload.setdefault("recovery_action", decision.recovery_action)
+    payload["control_recovery_action"] = decision.control_recovery_action
+    payload["implementation_admissibility"] = decision.implementation_admissibility
     payload["escalation_action"] = decision.escalation_action
     payload["agent_lane"] = decision.agent_lane.to_dict()
     payload["lane_edit_gate"] = decision.agent_lane.edit_gate.to_dict()

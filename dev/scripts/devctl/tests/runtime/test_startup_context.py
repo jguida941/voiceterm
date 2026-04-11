@@ -184,14 +184,57 @@ class TestStartupContextBuild(unittest.TestCase):
         self.assertIsNotNone(ctx.work_intake)
         self.assertTrue(ctx.work_intake.contract_id)
 
-    def test_projects_implementation_permission_from_work_intake_coordination(self) -> None:
-        ctx = build_startup_context()
-        self.assertIsNotNone(ctx.work_intake)
-        assert ctx.work_intake is not None
-        self.assertEqual(
-            ctx.implementation_permission,
-            ctx.work_intake.coordination.implementation_permission,
+    def test_projects_implementation_permission_from_control_topology_truth(self) -> None:
+        fake_work_intake = SimpleNamespace(
+            coordination=SimpleNamespace(
+                implementation_permission="active",
+            )
         )
+        with (
+            patch(
+                "dev.scripts.devctl.runtime.startup_context.build_work_intake_packet",
+                return_value=fake_work_intake,
+            ),
+            patch(
+                "dev.scripts.devctl.runtime.startup_context.build_work_intake_ownership_state",
+                return_value=SimpleNamespace(),
+            ),
+            patch(
+                "dev.scripts.devctl.runtime.startup_context.build_work_intake_coordination_state",
+                return_value=SimpleNamespace(
+                    implementation_permission="active",
+                ),
+            ),
+            patch(
+                "dev.scripts.devctl.runtime.startup_context._load_startup_coordination_snapshot",
+                return_value=None,
+            ),
+            patch(
+                "dev.scripts.devctl.runtime.startup_context.load_startup_quality_signals",
+                return_value={},
+            ),
+            patch(
+                "dev.scripts.devctl.runtime.startup_context.derive_startup_blocker",
+                return_value=SimpleNamespace(
+                    top_blocker="none",
+                    next_action="continue editing",
+                    blocker_source="none",
+                    derivation_evidence=(),
+                ),
+            ),
+            patch(
+                "dev.scripts.devctl.runtime.startup_context.build_surface_snapshot_id",
+                return_value="snap-test",
+            ),
+            patch(
+                "dev.scripts.devctl.runtime.startup_context.derive_startup_control_truth",
+                return_value=("no_live_agents", "blocked"),
+            ),
+        ):
+            ctx = build_startup_context()
+
+        self.assertEqual(ctx.observed_control_topology, "no_live_agents")
+        self.assertEqual(ctx.implementation_permission, "blocked")
 
     def test_has_quality_signals_dict(self) -> None:
         ctx = build_startup_context()

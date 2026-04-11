@@ -60,9 +60,11 @@ required.
   governance platform unless the active plan explicitly scopes the work to a
   repo-pack or product-integration surface.
 - The product identity rendered in this file (`{{product_name}}`) comes from
-  repo-pack metadata. Each adopting repo must supply its own product name,
-  project summary, and repo identity; the portable governance platform does
-  not assume or inherit any particular client's defaults.
+  repo-pack metadata. In this repo, `{{product_name}}` is the first-party
+  client/product integration over the portable governance platform; each
+  adopting repo must supply its own product name, project summary, and repo
+  identity through repo-pack metadata, while repo packs and typed runtime
+  contracts remain backend authority for arbitrary repos.
 - In shared governance/runtime/startup/review-channel code, resolve repo-local
   paths, plan docs, and bridge surfaces through `startup-context`,
   `ProjectGovernance`, repo-pack policy, or typed runtime state. Do not
@@ -118,8 +120,8 @@ required.
 ## Platform Boundary
 
 - The long-term product direction is a portable AI-governance platform. In
-  this repo, `{{product_name}}` is one client/integration of that platform,
-  not permission to treat repo-local paths or product defaults as universal.
+  this repo, `{{product_name}}` is the first-party client/product integration
+  over that platform, not the backend authority for arbitrary repos.
 - In portable/runtime/tooling layers, resolve docs, report roots, bridge
   files, startup order, and review-state paths through governed repo state
   (`ProjectGovernance`, repo pack metadata, repo policy, typed runtime
