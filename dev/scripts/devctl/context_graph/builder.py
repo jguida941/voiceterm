@@ -35,6 +35,7 @@ from .catalog_nodes import (
 )
 from .codeshape import build_codeshape_subgraph
 from .concepts import build_concept_nodes
+from .contract_nodes import collect_contract_nodes
 from .models import (
     EDGE_KIND_GUARDS,
     EDGE_KIND_IMPORTS,
@@ -329,11 +330,12 @@ def build_context_graph(
     nodes.extend(command_nodes)
     edges.extend(command_edges)
 
-    capability_nodes, capability_edges = collect_capability_nodes(
-        {node.node_id for node in nodes}
-    )
+    capability_nodes, capability_edges = collect_capability_nodes({node.node_id for node in nodes})
     nodes.extend(capability_nodes)
     edges.extend(capability_edges)
+    contract_nodes, contract_edges = collect_contract_nodes(repo_root, source_node_ids=node_ids, capability_nodes=capability_nodes)
+    nodes.extend(contract_nodes)
+    edges.extend(contract_edges)
 
     codeshape_graph = build_codeshape_subgraph(repo_root=repo_root)
     nodes.extend(codeshape_graph.nodes)

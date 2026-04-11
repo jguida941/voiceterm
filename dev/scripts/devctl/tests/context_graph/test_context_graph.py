@@ -24,10 +24,12 @@ from dev.scripts.devctl.context_graph.models import (
     NODE_KIND_CAPABILITY,
     NODE_KIND_COMMAND,
     NODE_KIND_CONCEPT,
+    NODE_KIND_DATACLASS_FIELD,
     NODE_KIND_GUARD,
     NODE_KIND_PLAN,
     NODE_KIND_PROBE,
     NODE_KIND_SOURCE,
+    NODE_KIND_TYPED_CONTRACT,
     HotIndexSummary,
     GraphEdge,
     GraphNode,
@@ -146,6 +148,28 @@ class TestContextGraphBuild(unittest.TestCase):
             "ai_governance_platform plan should scope at least one source file",
         )
 
+    def test_includes_typed_contract_nodes(self) -> None:
+        nodes, _ = build_context_graph()
+        self.assertTrue(
+            any(
+                node.node_kind == NODE_KIND_TYPED_CONTRACT
+                and node.label == "AutoModeState"
+                for node in nodes
+            ),
+            "graph should expose AutoModeState as a typed contract node",
+        )
+
+    def test_includes_dataclass_field_nodes(self) -> None:
+        nodes, _ = build_context_graph()
+        self.assertTrue(
+            any(
+                node.node_kind == NODE_KIND_DATACLASS_FIELD
+                and node.label == "research_ref_budget"
+                for node in nodes
+            ),
+            "graph should expose session pacing fields as queryable nodes",
+        )
+
 
 class TestContextGraphQuery(unittest.TestCase):
     """Verify query returns targeted subgraphs with evidence."""
@@ -202,6 +226,74 @@ class TestContextGraphQuery(unittest.TestCase):
         result = query_context_graph("check", self.nodes, self.edges)
         temps = [n.temperature for n in result.matched_nodes]
         self.assertEqual(temps, sorted(temps, reverse=True))
+
+    def test_contract_query_returns_typed_contract_node(self) -> None:
+        result = query_context_graph("AutoModeState", self.nodes, self.edges)
+        self.assertEqual(result.confidence, "high")
+        self.assertTrue(
+            any(node.node_kind == NODE_KIND_TYPED_CONTRACT for node in result.matched_nodes),
+            "contract query should resolve the typed contract node",
+        )
+        self.assertTrue(
+            any(
+                edge.edge_kind == EDGE_KIND_ROUTES_TO
+                and edge.source_id.startswith("contract:")
+                for edge in result.edges
+            ),
+            "contract query should connect to the defining source file",
+        )
+
+    def test_contract_query_resolves_loop_v2_seed_symbols(self) -> None:
+        for term in (
+            "AutoModeState",
+            "GuardPromotionCandidate",
+            "PlanningIRSnapshot",
+            "SessionPacingState",
+        ):
+            result = query_context_graph(term, self.nodes, self.edges)
+            self.assertNotEqual(
+                result.confidence,
+                "no_match",
+                f"{term} should no longer be invisible to context-graph",
+            )
+
+    def test_contract_alias_query_resolves_snake_case(self) -> None:
+        result = query_context_graph("session_pacing", self.nodes, self.edges)
+        self.assertNotEqual(result.confidence, "no_match")
+        self.assertTrue(
+            any(node.label == "SessionPacingState" for node in result.matched_nodes),
+            "snake_case alias should resolve the SessionPacingState contract",
+        )
+
+    def test_dataclass_field_query_returns_contract_neighbor(self) -> None:
+        result = query_context_graph("research_ref_budget", self.nodes, self.edges)
+        self.assertNotEqual(result.confidence, "no_match")
+        self.assertTrue(
+            any(node.node_kind == NODE_KIND_DATACLASS_FIELD for node in result.matched_nodes),
+            "field query should return a dataclass-field node",
+        )
+        self.assertTrue(
+            any(node.label == "SessionPacingState" for node in result.matched_nodes),
+            "field query should expand to the owning typed contract",
+        )
+
+    def test_multi_symbol_query_returns_multiple_contracts(self) -> None:
+        result = query_context_graph(
+            "AutoModeState GuardPromotionCandidate SessionPacingState PlanningIRSnapshot",
+            self.nodes,
+            self.edges,
+        )
+        self.assertNotEqual(result.confidence, "no_match")
+        labels = {node.label for node in result.matched_nodes}
+        self.assertTrue(
+            {
+                "AutoModeState",
+                "GuardPromotionCandidate",
+                "SessionPacingState",
+                "PlanningIRSnapshot",
+            }.issubset(labels),
+            "multi-symbol query should resolve each requested contract",
+        )
 
 
 class TestContextGraphRender(unittest.TestCase):

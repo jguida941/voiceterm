@@ -15,6 +15,13 @@ from ..probe_topology_packet import (
     query_ranking_summary,
     record_query_match_reason,
 )
+from .query_matching import (
+    matching_aliases,
+    matching_variants,
+    query_terms,
+    query_variants,
+    ref_matches,
+)
 from .models import (
     EDGE_KIND_GUARDS,
     NODE_KIND_GUARD,
@@ -69,17 +76,20 @@ def query_context_graph(
             evidence=["empty query: returning top-20 hottest nodes"],
         )
 
-    # Normalize separators so "context-graph" matches "context_graph" and vice versa
-    query_variants = {query_lower, query_lower.replace("-", "_"), query_lower.replace("_", "-")}
+    terms = query_terms(query_lower)
+    variants_by_term = {
+        term: query_variants(term)
+        for term in terms
+    }
 
     matched_ids: set[str] = set()
     match_reasons: dict[str, list[str]] = {}
     for node in nodes:
         label_lower = node.label.lower()
         ref_lower = node.canonical_pointer_ref.lower()
-        label_matches = [v for v in query_variants if v in label_lower]
-        ref_matches = [v for v in query_variants if v in ref_lower]
-        if label_matches or ref_matches:
+        label_matches = matching_variants(label_lower, variants_by_term)
+        ref_match_values = ref_matches(node, ref_lower, query_lower, variants_by_term)
+        if label_matches or ref_match_values:
             matched_ids.add(node.node_id)
         if label_matches:
             record_query_match_reason(
@@ -87,14 +97,14 @@ def query_context_graph(
                 node.node_id,
                 f"label matched `{node.label}`",
             )
-        if ref_matches:
+        if ref_match_values:
             record_query_match_reason(
                 match_reasons,
                 node.node_id,
                 f"canonical ref matched `{node.canonical_pointer_ref}`",
             )
         scope = str(node.metadata.get("scope", "")).lower()
-        scope_matches = [v for v in query_variants if scope and v in scope]
+        scope_matches = matching_variants(scope, variants_by_term)
         if scope_matches:
             matched_ids.add(node.node_id)
             record_query_match_reason(
@@ -105,9 +115,7 @@ def query_context_graph(
         aliases = node.metadata.get("aliases", [])
         alias_matches: list[str] = []
         if isinstance(aliases, list):
-            alias_matches = [
-                str(alias) for alias in aliases if query_lower in str(alias).lower()
-            ]
+            alias_matches = matching_aliases(aliases, variants_by_term)
         if alias_matches:
             matched_ids.add(node.node_id)
             record_query_match_reason(

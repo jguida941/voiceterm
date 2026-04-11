@@ -49,6 +49,8 @@ NODE_KIND_CONCEPT = "concept"
 NODE_KIND_CAPABILITY = "capability"
 NODE_KIND_FUNCTION = "python_function"
 NODE_KIND_MUTATION_CALLSITE = "mutation_callsite"
+NODE_KIND_TYPED_CONTRACT = "typed_contract"
+NODE_KIND_DATACLASS_FIELD = "dataclass_field"
 
 @dataclass(frozen=True)
 class GraphSize:
