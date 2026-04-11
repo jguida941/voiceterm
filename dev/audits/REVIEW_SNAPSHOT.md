@@ -5,14 +5,14 @@
 ## Quick status
 
 - Branch: `feature/governance-quality-sweep`
-- HEAD: `936cbc3d3608` — fix(review-snapshot): gate single_agent lane on reviewer verdict, not mode alone
-- Tree hash: `c266af48e9eb`
-- Generation stamp: `snap-3ec90f0db368`
-- Generated at (UTC): 2026-04-11T08:59:31Z
-- Push decision: `await_checkpoint` — staged_index_present
+- HEAD: `8a05ad7fc8dc` — docs(bridge): scribe capture live Codex state + autonomy plan drift (pre-push Q91b workaround)
+- Tree hash: `754230fdfa15`
+- Generation stamp: `snap-7298ef032b75`
+- Generated at (UTC): 2026-04-11T08:59:51Z
+- Push decision: `run_devctl_push` — push_preconditions_satisfied
 - Reviewer mode: `single_agent` (interaction: `remote_control`)
 - Pipeline state: `n/a` (approval: `n/a`)
-- Delta since last snapshot: 24 commits, 33 files, +5103/-1916
+- Delta since last snapshot: 25 commits, 34 files, +5175/-1981
 - Governance findings: 86 open / 71 fixed / 171 total
 - Probe hints: 0 total across 0 files scanned
 
@@ -54,24 +54,24 @@ adopters arrive.
 - Remote: `https://github.com/jguida941/voiceterm.git`
 - Default branch: `master`
 - Current branch: `feature/governance-quality-sweep`
-- HEAD SHA: `936cbc3d36083bdf52911209cf759b0114b4a9c3`
+- HEAD SHA: `8a05ad7fc8dcb2b12de6df118f1e277136344e96`
 - HEAD author: Justin Guida
-- HEAD timestamp (UTC): 2026-04-11T04:58:06-04:00
+- HEAD timestamp (UTC): 2026-04-11T04:59:11-04:00
 
 ## 2. Governance state
 
 ### Push decision
-- action: `await_checkpoint`
-- reason: staged_index_present
-- push_eligible_now: False
-- worktree_clean: False
-- staged_path_count: 1
+- action: `run_devctl_push`
+- reason: push_preconditions_satisfied
+- push_eligible_now: True
+- worktree_clean: True
+- staged_path_count: 0
 - unstaged_path_count: 0
-- next_step_command: `n/a`
+- next_step_command: `python3 dev/scripts/devctl.py push --execute`
 - latest_push_report: `dev/reports/push/latest.json`
 - latest_push_report_state: `post_push_green` (push_completed)
-- publication_backlog: queued
-- publication_guidance: 1 local commit(s) waiting for governed push once the current slice is checkpoint-clean.
+- publication_backlog: recommended
+- publication_guidance: 2 local commit(s) waiting for governed push. Run `python3 dev/scripts/devctl.py push --execute` now.
 
 ### Reviewer runtime
 - reviewer_mode: `single_agent`
@@ -87,17 +87,17 @@ adopters arrive.
 - active plan: **Master Plan (Active, Unified)**
 - plan path: `dev/active/MASTER_PLAN.md`
 - active MP scope: all active MP execution state
-- advisory: `checkpoint_before_continue` — concurrent_writer_activity
+- advisory: `push_allowed` — worktree_clean_and_review_accepted
 
 ## 3. Delta — what changed since the previous snapshot
 
-Range: last 24 commits ending at `936cbc3d3608`
+Range: last 25 commits ending at `8a05ad7fc8dc`
 
-- commits: 24
-- files changed: 33
-- insertions: +5103
-- deletions: -1916
-- bundle classes touched: tooling, docs
+- commits: 25
+- files changed: 34
+- insertions: +5175
+- deletions: -1981
+- bundle classes touched: docs, tooling
 - risk add-ons triggered: Parser / ANSI boundary
 - authority surfaces touched: 5 file(s)
 
@@ -105,38 +105,40 @@ Range: last 24 commits ending at `936cbc3d3608`
 
 | # | SHA | Subject | Files | +/- | Bundle | Risk |
 |---|---|---|---|---|---|---|
-| 1 | `936cbc3d` | fix(review-snapshot): gate single_agent lane on reviewer ve… | 3 | +120/-62 | tooling |  |
-| 2 | `e1dac616` | Refresh external review snapshot for f3bbca18 | 1 | +63/-70 | tooling |  |
-| 3 | `f3bbca18` | fix(review-channel): typed preflight gate — reviewer-checkp… | 8 | +539/-135 | tooling | Parser / ANSI boundary |
-| 4 | `8bb338bc` | feat(runtime): Q99 — canonical startup_blocker_decision ker… | 8 | +495/-100 | tooling |  |
-| 5 | `2a1977cb` | fix(runtime,governance): Codex P1 — pacing live-rebuild + a… | 6 | +615/-141 | tooling |  |
-| 6 | `b0885088` | Refresh external review snapshot for 2730689c | 1 | +104/-80 | tooling |  |
-| 7 | `2730689c` | docs(bridge): neutralize stale Q37 Operator Direction block | 2 | +91/-126 | docs |  |
-| 8 | `31be10ee` | Refresh external review snapshot for ee79f9c3 | 1 | +108/-72 | tooling |  |
-| 9 | `ee79f9c3` | fix(review-snapshot): Q92-C7 — consult live reviewer verdic… | 3 | +325/-100 | tooling |  |
-| 10 | `eb4a15b6` | Refresh external review snapshot for 38cb9e95 | 1 | +120/-100 | tooling |  |
-| 11 | `38cb9e95` | fix(review-channel): Q94 — emit participant_liveness_expire… | 6 | +437/-111 | tooling |  |
-| 12 | `63bd97e1` | Refresh external review snapshot for 7f2f925f | 1 | +111/-93 | tooling |  |
-| 13 | `7f2f925f` | docs(claude): force typed ingestion — --format json over --… | 5 | +69/-96 | tooling |  |
-| 14 | `09565fe7` | Refresh external review snapshot for 4a67140e | 1 | +42/-40 | tooling |  |
-| 15 | `4a67140e` | docs(bridge): scribe capture Codex fdd35a6207cc verdict (Q9… | 2 | +46/-47 | docs |  |
-| 16 | `3c294f0d` | Refresh external review snapshot for 0247df7c | 1 | +41/-42 | tooling |  |
-| 17 | `0247df7c` | docs(bridge): scribe capture for Q98-Q99 post (Q91b workaro… | 2 | +64/-61 | docs |  |
-| 18 | `84006af1` | docs(audit): Q98-Q99 — ChatGPT proposal audit + 5-field pro… | 2 | +431/-71 | tooling |  |
-| 19 | `a805652b` | Refresh external review snapshot for 186f8974 | 1 | +45/-40 | tooling |  |
-| 20 | `186f8974` | docs(bridge): capture Codex fresh verdict (Q91b workaround,… | 2 | +67/-63 | docs |  |
-| 21 | `d0d60a3e` | docs(audit): Q94-Q97 — 5-agent audit verdict, MasterAuthori… | 2 | +486/-72 | tooling |  |
-| 22 | `6e8d96c2` | Refresh external review snapshot for b505d809 | 1 | +61/-63 | tooling |  |
-| 23 | `b505d809` | docs(bridge): capture Codex reviewer verdict state (Q91b wo… | 2 | +84/-83 | docs |  |
-| 24 | `a662deb5` | docs(audit): Q92 — 14+ prose-as-authority fields across gov… | 2 | +539/-48 | tooling |  |
+| 1 | `8a05ad7f` | docs(bridge): scribe capture live Codex state + autonomy pl… | 3 | +72/-65 | tooling |  |
+| 2 | `936cbc3d` | fix(review-snapshot): gate single_agent lane on reviewer ve… | 3 | +120/-62 | tooling |  |
+| 3 | `e1dac616` | Refresh external review snapshot for f3bbca18 | 1 | +63/-70 | tooling |  |
+| 4 | `f3bbca18` | fix(review-channel): typed preflight gate — reviewer-checkp… | 8 | +539/-135 | tooling | Parser / ANSI boundary |
+| 5 | `8bb338bc` | feat(runtime): Q99 — canonical startup_blocker_decision ker… | 8 | +495/-100 | tooling |  |
+| 6 | `2a1977cb` | fix(runtime,governance): Codex P1 — pacing live-rebuild + a… | 6 | +615/-141 | tooling |  |
+| 7 | `b0885088` | Refresh external review snapshot for 2730689c | 1 | +104/-80 | tooling |  |
+| 8 | `2730689c` | docs(bridge): neutralize stale Q37 Operator Direction block | 2 | +91/-126 | docs |  |
+| 9 | `31be10ee` | Refresh external review snapshot for ee79f9c3 | 1 | +108/-72 | tooling |  |
+| 10 | `ee79f9c3` | fix(review-snapshot): Q92-C7 — consult live reviewer verdic… | 3 | +325/-100 | tooling |  |
+| 11 | `eb4a15b6` | Refresh external review snapshot for 38cb9e95 | 1 | +120/-100 | tooling |  |
+| 12 | `38cb9e95` | fix(review-channel): Q94 — emit participant_liveness_expire… | 6 | +437/-111 | tooling |  |
+| 13 | `63bd97e1` | Refresh external review snapshot for 7f2f925f | 1 | +111/-93 | tooling |  |
+| 14 | `7f2f925f` | docs(claude): force typed ingestion — --format json over --… | 5 | +69/-96 | tooling |  |
+| 15 | `09565fe7` | Refresh external review snapshot for 4a67140e | 1 | +42/-40 | tooling |  |
+| 16 | `4a67140e` | docs(bridge): scribe capture Codex fdd35a6207cc verdict (Q9… | 2 | +46/-47 | docs |  |
+| 17 | `3c294f0d` | Refresh external review snapshot for 0247df7c | 1 | +41/-42 | tooling |  |
+| 18 | `0247df7c` | docs(bridge): scribe capture for Q98-Q99 post (Q91b workaro… | 2 | +64/-61 | docs |  |
+| 19 | `84006af1` | docs(audit): Q98-Q99 — ChatGPT proposal audit + 5-field pro… | 2 | +431/-71 | tooling |  |
+| 20 | `a805652b` | Refresh external review snapshot for 186f8974 | 1 | +45/-40 | tooling |  |
+| 21 | `186f8974` | docs(bridge): capture Codex fresh verdict (Q91b workaround,… | 2 | +67/-63 | docs |  |
+| 22 | `d0d60a3e` | docs(audit): Q94-Q97 — 5-agent audit verdict, MasterAuthori… | 2 | +486/-72 | tooling |  |
+| 23 | `6e8d96c2` | Refresh external review snapshot for b505d809 | 1 | +61/-63 | tooling |  |
+| 24 | `b505d809` | docs(bridge): capture Codex reviewer verdict state (Q91b wo… | 2 | +84/-83 | docs |  |
+| 25 | `a662deb5` | docs(audit): Q92 — 14+ prose-as-authority fields across gov… | 2 | +539/-48 | tooling |  |
 
 ### Files
 
 | Path | Bundle | +/- |
 |---|---|---|
-| `bridge.md` | docs | +75/-77 |
+| `bridge.md` | docs | +93/-91 |
+| `dev/active/autonomous_control_plane.md` | tooling | +2/-0 |
 | `dev/audits/LIVE_RUN.md` | tooling | +1280/-0 |
-| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1681/-1712 |
+| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1733/-1763 |
 | `dev/scripts/devctl/commands/dashboard.py` | tooling | +8/-2 |
 | `dev/scripts/devctl/commands/dashboard_builders.py` | tooling | +27/-22 |
 | `dev/scripts/devctl/commands/governance/startup_context.py` | tooling | +23/-0 |
@@ -255,6 +257,7 @@ Recent findings:
 
 ### Per-commit rationale
 
+- **`8a05ad7f`** — docs(bridge): scribe capture live Codex state + autonomy plan drift (pre-push Q91b workaround)
 - **`936cbc3d`** — fix(review-snapshot): gate single_agent lane on reviewer verdict, not mode alone
   - Codex verdict at instruction_revision 214e376fabc0 flagged that
   - review_snapshot_state.py:107-137 only downgraded push_eligible_now and
@@ -336,10 +339,10 @@ Recent findings:
 - open governance findings: 86
 
 ### Startup advisories
-- checkpoint_before_continue: concurrent_writer_activity
+- push_allowed: worktree_clean_and_review_accepted
 
 ### Stale warnings
-- Keep editing the current slice.
+- Stop because nothing remains to push.
 
 ### Open gap rows
 - **governance_open** (`dev/scripts/devctl/security/codeql.py`): subprocess_missing_timeout: 
@@ -353,4 +356,4 @@ Recent findings:
 
 ---
 
-Projection produced by `devctl review-snapshot`. Generation stamp `snap-3ec90f0db368` binds this file to HEAD `936cbc3d3608`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
+Projection produced by `devctl review-snapshot`. Generation stamp `snap-7298ef032b75` binds this file to HEAD `8a05ad7fc8dc`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
