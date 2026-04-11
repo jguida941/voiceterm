@@ -199,6 +199,15 @@
   now project through typed packet rows into `review-channel status`, inbox,
   and dashboard pending-packet surfaces so remote-dashboard beta tests can
   prove packet delivery/start instead of inferring from queue depth alone.
+- 2026-04-11 action-request priority follow-up in `MP-380..MP-387` scope:
+  the event-backed queue no longer lets later commentary hide a still-live
+  `action_request`. `queue.derived_next_instruction` now prefers live action
+  requests first, and `derived_next_instruction_source` carries
+  `selection_policy`, `control_state`, and `wake_required` /
+  `delivery_required` hints from the typed packet receipt state. Queue
+  derivation is recomputed after receipt hydration too, so a fresh inbox poll
+  can immediately advance the same packet from `delivery_pending` to
+  `execution_pending` in repo-owned status truth.
 - Current highest-priority subordinate `MP-377` lane:
   `dev/active/platform_authority_loop.md`. This is the execution spec for
   closing the portable authority loop:

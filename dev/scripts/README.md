@@ -376,6 +376,13 @@ Portability note:
   prove a remote lane actually saw and started the request instead of only
   inferring from queue length. Prose-only runtime requests stay in packet
   history but are not projected into the bridge execution queue.
+- The same event-backed queue now prioritizes live `action_request` packets
+  over later commentary when it derives `queue.derived_next_instruction` for
+  status/current-session projections. `derived_next_instruction_source` now
+  also carries `selection_policy`, `control_state`, and `wake_required` /
+  `delivery_required` hints, so remote-control/dashboard beta loops can tell
+  the difference between "packet not seen yet" and "packet was seen but still
+  has not started" from repo-owned typed state.
 - The same lane no longer trusts bridge prose or raw HEAD equality for
   publish authority. `reviewer_runtime` owns implementer ACK/block truth,
   `bridge_review_accepted` is typed-only, and push recovery matches

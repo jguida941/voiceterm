@@ -444,6 +444,13 @@ class ReviewChannelPlanPacketTests(unittest.TestCase):
         self.assertEqual(packet["packet_id"], "rev_pkt_0001")
         self.assertEqual(packet["delivery_observed_by"], "claude")
         self.assertTrue(packet["delivery_observed_at_utc"])
+        self.assertEqual(
+            report["queue"]["derived_next_instruction_source"]["control_state"],
+            "execution_pending",
+        )
+        self.assertTrue(
+            report["queue"]["derived_next_instruction_source"]["wake_required"]
+        )
 
     def test_action_request_priority_drives_queue_instruction_after_later_instruction_post(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

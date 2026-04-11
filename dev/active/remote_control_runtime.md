@@ -527,6 +527,15 @@ The MP scopes remain valid but are now cross-cut by enforcement-first priority.
   Those fields now flow back into typed packet rows and dashboard pending
   packet JSON, so remote modes can prove they actually saw or started a
   request before the operator treats a pending queue row as ignored.
+- 2026-04-11: Closed the next selective-consumption seam in the same
+  remote-dashboard beta loop. Event-backed queue derivation now prefers live
+  `action_request` packets over later findings/instructions when it projects
+  `derived_next_instruction`, and the source payload now records
+  `selection_policy`, `control_state`, and `wake_required` /
+  `delivery_required` hints. Queue derivation also reruns after receipt
+  hydration, so the same repo-owned inbox poll can move a packet from
+  `delivery_pending` to `execution_pending` immediately instead of leaving the
+  queue metadata one tick behind the packet rows.
 - 2026-04-10: Closed Q57 under the same `MP-384` / `MP-385` remote-control
   monitoring slice. The repo now has one canonical `devctl monitor`
   single-pass surface over typed startup/control-plane authority, plus the
