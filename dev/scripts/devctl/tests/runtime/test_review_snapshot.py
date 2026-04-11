@@ -730,6 +730,61 @@ def test_review_snapshot_blocks_push_when_implementation_blocked() -> None:
     assert "push --execute" not in snap.governance_state.next_step_command
 
 
+def test_review_snapshot_blocks_push_in_single_agent_when_review_not_accepted() -> None:
+    """Regression (Codex instruction_revision 214e376fabc0): the reviewer-gate
+    must also downgrade ``push_eligible_now`` and the governed push
+    ``next_step_command`` in the ``single_agent`` remote-control lane when the
+    live reviewer verdict is follow-up-required.
+
+    Prior implementation only gated when
+    ``effective_reviewer_mode == active_dual_agent``. In the ``single_agent``
+    lane, upstream ``push_decision`` alone cannot observe a follow-up-required
+    verdict, so the snapshot was advertising ``push_eligible_now=True`` against
+    a non-accepted verdict and recommending ``push --execute`` while the live
+    reviewer was still blocking. This test fails without the fix and passes
+    with it.
+    """
+    startup = _build_push_gated_startup_payload(
+        reviewer_gate_overrides={
+            "effective_reviewer_mode": "single_agent",
+            "review_accepted": False,
+            "review_gate_allows_push": False,
+        },
+    )
+    snap = build_review_snapshot(
+        startup_payload=startup,
+        governance_payload={},
+        probe_payload={},
+        context_graph_payload={},
+    )
+    assert snap.governance_state.push_eligible_now is False
+    assert "push --execute" not in snap.governance_state.next_step_command
+    assert snap.governance_state.next_step_command.startswith(
+        "python3 dev/scripts/devctl.py review-channel"
+    )
+
+
+def test_review_snapshot_blocks_push_in_single_agent_when_gate_disallows_publish() -> None:
+    """Regression companion: in ``single_agent`` lane, ``review_gate_allows_push=False``
+    alone (even with ``review_accepted=True``) must still downgrade the snapshot.
+    """
+    startup = _build_push_gated_startup_payload(
+        reviewer_gate_overrides={
+            "effective_reviewer_mode": "single_agent",
+            "review_accepted": True,
+            "review_gate_allows_push": False,
+        },
+    )
+    snap = build_review_snapshot(
+        startup_payload=startup,
+        governance_payload={},
+        probe_payload={},
+        context_graph_payload={},
+    )
+    assert snap.governance_state.push_eligible_now is False
+    assert "push --execute" not in snap.governance_state.next_step_command
+
+
 def test_review_snapshot_renders_blocked_push_fields_in_markdown() -> None:
     """End-to-end: the rendered markdown must reflect the downgraded projection."""
     startup = _build_push_gated_startup_payload(

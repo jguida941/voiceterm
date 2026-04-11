@@ -107,27 +107,29 @@ def _reviewer_gated_push_projection(
 def _reviewer_blocks_push(gate: Mapping[str, object]) -> bool:
     """Return True when the reviewer verdict blocks publication right now.
 
-    The gate blocks push when any of the following hold:
-      - dual-agent mode is active and the reviewer has not accepted the
-        current implementer state (``review_accepted=False``),
+    The gate blocks push when any of the following hold, **regardless of
+    reviewer mode**:
+      - implementation is blocked for a reviewer-state reason,
+      - the reviewer has not accepted the current implementer state
+        (``review_accepted=False``),
       - the reviewer runtime has explicitly disallowed publish
-        (``review_gate_allows_push=False``) while still in dual-agent,
-      - implementation is blocked for a reviewer-state reason.
+        (``review_gate_allows_push=False``).
 
-    Single-agent / single-operator modes are not gated here — the upstream
-    ``push_decision`` already owns that lane.
+    The rule must apply to both ``active_dual_agent`` and ``single_agent``
+    remote-control lanes. In the ``single_agent`` lane, upstream
+    ``push_decision`` alone cannot observe a follow-up-required reviewer
+    verdict, so the snapshot must gate on the reviewer verdict directly.
+    Gating only when ``effective_reviewer_mode == active_dual_agent``
+    leaves the snapshot advertising ``push_eligible_now=True`` against a
+    non-accepted verdict in every other lane — which is the exact
+    regression the upstream review layer caught against this file.
     """
     bridge_active = bool(gate.get("bridge_active"))
-    reviewer_mode_raw = str(gate.get("effective_reviewer_mode") or "").strip()
     implementation_blocked = bool(gate.get("implementation_blocked"))
     review_accepted = bool(gate.get("review_accepted"))
     publish_clear = bool(gate.get("review_gate_allows_push"))
     if not (bridge_active or implementation_blocked):
         return False
-    if reviewer_mode_raw and reviewer_mode_raw != "active_dual_agent":
-        # Not a dual-agent reviewer loop — upstream push_decision owns the
-        # eligibility answer for this mode and we do not override it here.
-        return implementation_blocked and not publish_clear
     if implementation_blocked:
         return True
     if not review_accepted:
