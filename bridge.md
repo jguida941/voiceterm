@@ -77,13 +77,13 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-04-11T06:04:38Z`
-- Last Codex poll (Local America/New_York): `2026-04-11 02:04:38 EDT`
+- Last Codex poll: `2026-04-11T06:39:30Z`
+- Last Codex poll (Local America/New_York): `2026-04-11 02:39:30 EDT`
 - Reviewer mode: `single_agent`
 - Last non-audit worktree hash: `f5cf3458b116d6dffb18a6766f4fd813273b47ca786f0e5e3412152babd857a9`
-- Current instruction revision: `f26e114a45d7`
+- Current instruction revision: `fdd35a6207cc`
 - Last checkpoint action: `reviewer-checkpoint`
-- Head at push time: `6e8d96c272e2c35da522b179b0a3de3993e2f7dd`
+- Head at push time: `a805652bbbdf4dca30c0fdcd30dc139855d8419e`
 ## Protocol
 
 1. Claude should poll this file periodically while coding.
@@ -145,17 +145,17 @@ After implementation, run `devctl check --profile ci` and `devctl probe-report -
 
 ## Poll Status
 
-- Reviewer checkpoint updated through repo-owned tooling (mode: single_agent; reason: codex-review-doc-followup; observed-tree: f5cf3458b116; reviewed-tree: f5cf3458b116; instruction-rev: f26e114a45d7).
+- Reviewer checkpoint updated through repo-owned tooling (mode: single_agent; reason: codex-review-doc-followup-range; observed-tree: f5cf3458b116; reviewed-tree: f5cf3458b116; instruction-rev: fdd35a6207cc).
 
 ## Current Verdict
 
 - Follow-up required before acceptance.
-- The docs-only follow-up range `d8c71114..6e8d96c2` keeps the live coordination artifacts contradictory, so this head is still not safe to push.
+- The review range `6e8d96c2..a805652b` is still not safe to push; the refreshed coordination surfaces keep bootstrap and publish authority contradictory.
 
 ## Open Findings
 
-- `bridge.md:111-145` still carries the stale Q37 operator-direction block, but `bridge.md:150-175` now says the active blocker is the startup-context/work-intake regression pair and routes the next implementation slice there. A fresh implementer poll can therefore boot from the wrong files or wrong owner model unless the stale Q37 block is explicitly overridden.
-- `dev/audits/REVIEW_SNAPSHOT.md:63-74,90` still marks the branch `push_eligible_now: True` and recommends `python3 dev/scripts/devctl.py push --execute`, even though the live reviewer verdict blocks push pending follow-up. Any tooling or operator flow that trusts the refreshed snapshot instead of the bridge can still publish the blocked head.
+- `bridge.md:111-176` still presents two incompatible slices. The stale Q37 `Operator Direction` block remains the only place with concrete file-level implementation steps, while the reviewer-owned `Open Findings` / `Current Instruction For Claude` sections now say the active work is the startup-context/work-intake follow-up without naming those code files. A fresh implementer bootstrap can therefore follow the stale Q37 lane or fail to locate the real startup regressions.
+- `dev/audits/REVIEW_SNAPSHOT.md:63-74,90` still advertises `push_eligible_now: True` and `python3 dev/scripts/devctl.py push --execute` even though the live reviewer verdict remains follow-up required. Refreshing the snapshot without consulting reviewer acceptance leaves a generated surface that can authorize a blocked publish.
 
 ## Claude Status
 
@@ -172,12 +172,13 @@ After implementation, run `devctl check --profile ci` and `devctl probe-report -
 ## Current Instruction For Claude
 
 - Hold steady. Do not run `python3 dev/scripts/devctl.py push --execute`.
-- Ignore the stale Q37 `Operator Direction` block above; the active slice is the startup-context/work-intake follow-up described in `Open Findings`.
-- Fix the two startup regressions already called out on the bridge, rerun the relevant startup/review-channel tests, then request a fresh Codex review on the updated diff.
+- Repair the live coordination surfaces first: remove or neutralize the stale Q37 `Operator Direction` block and restore one bounded startup-context/work-intake slice with explicit file-level references in the reviewer-owned bridge sections.
+- Make `devctl review-snapshot --write` consult the live reviewer verdict/push gate before it emits `push_eligible_now: True` or `next_step_command=python3 dev/scripts/devctl.py push --execute`.
+- Rerun the relevant startup/review-channel/review-snapshot checks, regenerate the affected artifacts, and request a fresh Codex review on the updated diff.
 
 ## Last Reviewed Scope
 
-- d8c711144da45a2368d36d88898089b6d5670c80..6e8d96c272e2c35da522b179b0a3de3993e2f7dd
+- 6e8d96c272e2c35da522b179b0a3de3993e2f7dd..a805652bbbdf4dca30c0fdcd30dc139855d8419e
 - bridge.md
 - dev/audits/LIVE_RUN.md
 - dev/audits/REVIEW_SNAPSHOT.md
