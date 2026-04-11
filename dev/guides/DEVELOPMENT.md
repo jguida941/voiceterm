@@ -115,6 +115,19 @@ Use docs like this:
   `--pipeline-generation`, `--staged-snapshot-hash`, and
   `--guard-results-summary`. Prose-only runtime requests remain packet
   history, not executable bridge authority.
+- The same event-backed packet path now carries typed delivery/execution
+  receipts. `post` seeds `delivery_emitted_at_utc`, targeted `inbox` / `watch`
+  polls stamp `delivery_observed_at_utc` / `delivery_observed_by`, and `ack` /
+  `apply` stamp `execution_started_at_utc` / `execution_started_by`; when you
+  verify remote-control or dashboard behavior, use those fields instead of
+  guessing from packet counts alone.
+- Queue-derived next-step projections are action-request-first now. A live
+  `action_request` must outrank later findings or commentary in
+  `queue.derived_next_instruction`, and the typed source payload should carry
+  `selection_policy`, `control_state`, `wake_required`, and
+  `delivery_required` after receipt hydration so a single inbox poll can move
+  a packet from `delivery_pending` to `execution_pending` without a second
+  refresh cycle.
 - The same Phase-2 authority cleanup now keeps review/push truth on typed
   runtime contracts too: `reviewer_runtime` owns
   `implementer_ack_current`, `implementation_blocked`, and

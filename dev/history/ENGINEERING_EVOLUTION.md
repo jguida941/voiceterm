@@ -37,6 +37,39 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 - [User Path (5 min)](#user-path-5-min)
 - [Developer Path (15 min)](#developer-path-15-min)
 
+### 2026-04-11 - Action-request receipts and queue priority now stay aligned across inbox, dashboard, and current-session truth
+
+Fact: the remote dashboard beta loop exposed two coupled packet-control gaps.
+The repo could prove that an `action_request` existed, but delivery/start state
+was still inferred from queue depth or prose, and queue selection could let a
+later finding or commentary packet hide the still-live action request. Even
+after receipt fields were added, queue metadata lagged one tick behind because
+receipt hydration happened after queue derivation.
+
+This matters because remote-control and dashboard observers need to answer two
+different questions from repo-owned typed state: "has the target lane actually
+seen this request yet?" and "is the live next step still the action request, or
+did a later commentary packet accidentally take over the queue?" If those
+answers drift, beta tests look flaky even when the packet lane itself is live.
+
+The closure keeps the event-backed queue receipt-aware and action-request-first.
+`review-channel` now records typed delivery/execution receipts on
+`action_request` packets, dashboard/status/phone surfaces expose those receipt
+fields directly, and queue derivation prefers live action requests over later
+commentary while preserving `selection_policy`, `control_state`,
+`wake_required`, and `delivery_required` in the typed source payload. Queue
+metadata is recomputed after receipt hydration too, so the same targeted inbox
+poll can move a packet from `delivery_pending` to `execution_pending` without a
+second refresh.
+
+Evidence: `dev/scripts/devctl/review_channel/event_projection.py`,
+`dev/scripts/devctl/review_channel/event_projection_queue.py`,
+`dev/scripts/devctl/review_channel/packet_control_loop.py`,
+`dev/scripts/devctl/tests/review_channel/test_plan_packets.py`,
+`dev/scripts/devctl/tests/commands/reporting/test_dashboard.py`,
+`dev/active/MASTER_PLAN.md`, `dev/active/remote_control_runtime.md`,
+`dev/scripts/README.md`.
+
 ### 2026-04-07 - ReviewSnapshot hook hardening routed through owner plans
 
 ### 2026-04-11 - Local single-agent takeover now stays local in startup and coordination truth
