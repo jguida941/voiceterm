@@ -6111,6 +6111,391 @@ for Q40-Q67.
   complete from Codex's side and is waiting on the operator's
   commit/next-slice decision.
 
+## Q91 — dashboard role correction, checkpoint commits landed, push deferred to Codex (2026-04-11)
+
+- **Author**: Claude (dashboard role)
+- **Tick**: fresh session picking up from loop v1 stop
+- **Short form**: Operator corrected Claude's role mid-session from
+  implementer to **dashboard**. Claude was about to run
+  `devctl push --execute` for the 3 pending local commits; operator
+  interrupted twice, clarifying that in this loop posture Claude is
+  the dashboard and Codex is BOTH coder and reviewer (not just
+  reviewer). The push — and any further git action — belongs to
+  Codex. Claude's job is to observe typed state, dump verbatim
+  command output into LIVE_RUN.md so Codex can read what Claude
+  read, and keep the loop moving by updating the operator and the
+  bridge.
+
+### Role model (this session)
+
+- **Claude** = dashboard. Runs observation commands
+  (`devctl startup-context`, `devctl agent-mind`, `devctl check-router`,
+  `devctl check --profile ci`, `git status`, `git log`),
+  writes findings to LIVE_RUN.md and the bridge, asks the operator
+  questions when typed state is ambiguous, never pushes, never edits
+  production Rust / devctl code directly, never overrides governed
+  push gates on Codex's behalf.
+- **Codex** = coder + reviewer. Owns the commit push, owns further
+  code slices, owns review verdicts and `governance-review` records.
+  Reads LIVE_RUN.md / bridge to pick up dashboard findings.
+- **Operator** = routes work, authorizes mode changes, catches
+  Claude when the dashboard drifts into implementer posture.
+
+### What Claude DID do this tick (checkpoint authorized)
+
+Operator explicitly asked: "checkpoint using our system then push
+codex worker/reviewer etc and we keep looping doing same". Claude
+interpreted "checkpoint using our system" as authorization to land
+two governed commits consolidating Codex's dirty Phase 0 slice plus
+the operator's loop-v1 retrospective and loop-v2 plan draft. Both
+commits passed the routed `bundle.tooling` + `check --profile ci`
+guard set except for the one tautological dirty-budget guard that
+the commit itself clears. Commits:
+
+```
+5a92fa03 feat(context-graph): Q78 Phase 0 — expose typed contracts as graph nodes
+dfcd171a docs(governance): Q78-Q90 — loop v1 retrospective and loop v2 convergence plan
+ef3f08ae Refresh external review snapshot for dfcd171a   (auto post-commit hook)
+```
+
+Working tree after commit 2 is clean. Claude then queried
+`startup-context` again and saw `action=push_allowed`,
+`ahead_of_upstream_commits=3`, `push_guidance=Run python3 dev/scripts/devctl.py push --execute now`,
+and started a `devctl push --execute` tool call. Operator
+interrupted BEFORE the push ran — no push happened, the 3 commits
+are still local-only on `feature/governance-quality-sweep`.
+
+### What Claude should NOT have been about to do
+
+Claude should not run `devctl push --execute` or `git push` in
+dashboard mode. Even when typed state says `action=push_allowed`,
+that is authorization for the system (Codex or operator override)
+to act — not standing authorization for Claude to push on Codex's
+behalf. This has now been saved to memory as
+`feedback_dashboard_not_implementer.md`.
+
+### Verbatim observation dumps (so Codex sees what Claude saw)
+
+#### 1. Pre-checkpoint `devctl startup-context`
+
+```
+action=checkpoint_before_continue
+reason=dirty_path_budget_exceeded
+interaction_mode=remote_control
+blockers=startup_authority,checkpoint_required,coordination_resync_required,implementation_permission_blocked
+next=python3 dev/scripts/devctl.py review-channel --action status --terminal none --format json
+observed_control_topology=no_live_agents
+implementation_permission=blocked
+recovery_action=observe_only
+recovery_basis=none
+recovery_scope=entire_lane
+coordination=multi_agent_orchestrated/single_agent->single_agent
+safe_to_fanout=False
+resync_required=True
+ownership_status=scope_unknown_dirty_paths
+fanout_posture=planned_scaffolding_only
+worktree_strategy=isolated_worker_worktrees
+current_slice=- Push the Q37 Phase 1 fix (efcb2cd9) via governed push. If push preflight blocks on reviewer_loop_relaunch_required, the Codex exec review verdict serves as review evidence — proceed with operator override if available.
+active_target=dev/active/MASTER_PLAN.md
+session_pacing=deep/10refs/3files/72deps
+pacing_trigger=patch_after_bounded_refs_or_raise_blocker
+```
+
+#### 2. `devctl review-channel --action status` (summary, reviewer-owned)
+
+```
+bridge_active            : true
+bridge_liveness.overall_state : inactive
+bridge_liveness.reviewer_mode : single_agent
+bridge_liveness.codex_poll_state : stale
+bridge_liveness.last_codex_poll_utc : 2026-04-10T19:52:35Z  (~9h stale)
+bridge_liveness.reviewer_freshness : overdue
+bridge_liveness.current_instruction_revision : a5e7f631bfba
+bridge_liveness.claude_ack_revision          : a5e7f631bfba    (ack current)
+push_enforcement.current_branch         : feature/governance-quality-sweep
+push_enforcement.current_head_commit    : 3566b16ba0ec793faf334e00e973e804f31a5ea6  (before checkpoint)
+push_enforcement.dirty_path_count       : 18
+push_enforcement.max_dirty_paths_before_checkpoint : 12
+push_enforcement.checkpoint_required    : true
+push_enforcement.safe_to_continue_editing : false
+push_enforcement.recommended_action     : checkpoint_before_continue
+push_enforcement.checkpoint_reason      : dirty_path_budget_exceeded
+push_enforcement.latest_push_report_status : published_remote
+push_enforcement.latest_push_report_post_push_green : false
+push_enforcement.latest_push_report_reason : post_push_bundle_pending
+runtime_counts.live_participants_total  : 0
+runtime_counts.live_reviewer_total      : 0
+runtime_counts.live_implementer_total   : 0
+warnings:
+  - Bridge reviewer mode is inactive; live heartbeat freshness is not enforced until the reviewer resumes active_dual_agent mode.
+  - Bridge review content is stale: the worktree has changed since the last reviewed hash. Current Verdict, Open Findings, and Current Instruction may not reflect the current tree state.
+```
+
+#### 3. `devctl agent-mind --agent codex --limit 30`
+
+```
+source     : ~/.codex/sessions/2026/04/10/rollout-2026-04-10T23-15-24-019d7a89-7e2f-7ab3-b856-9507a91838d6.jsonl
+session_id : 019d7a89-7e2f-7ab3-b856-9507a91838d6
+latest_task_complete : 2026-04-11T03:46:42.839Z
+```
+
+Key decisions from Codex's own rollout chain (verbatim lead lines):
+
+1. `03:44:52Z` — "A later LIVE_RUN entry is reviewing this exact
+   slice. I'm checking that now in case it identifies a small
+   follow-up def..."
+2. `03:45:07Z` — "The follow-up review is real. I'm reading the
+   scanner now to see whether the shadow-schema concerns are a
+   small closure..."
+3. `03:45:15Z` — "The review is specific and fixable: the current
+   scanner really does treat suffixes as authority, and the three
+   seed con..."
+4. `03:45:26Z` — "The canonical catalog does not currently advertise
+   `PlanningIRSnapshot` or `SessionPacingState`, which is why the
+   scann..."  (Codex independently verified Q88's catalog-gap claim)
+5. `03:45:44Z` — "I forced a saved graph snapshot. One more poll on
+   `system-picture` will tell us whether that consumer now picks up
+   the ..."
+6. `03:46:42Z` — **TASK COMPLETE**: "**Slice** Implemented the
+   bounded Phase 0 visibility slice in models.py..."
+
+Codex read Q86/Q87/Q88 feedback, agreed it was fixable,
+independently verified the catalog-gap claim in Q88, and then made
+a deliberate scoping choice: ship Phase 0 visibility, declare the
+follow-ups as next-slice work, and end the session at
+`03:46:42Z`. That is correct `SessionPacingState` /
+`research_ref_budget` discipline under loop v2's own contract.
+
+#### 4. `devctl check-router --format md`
+
+```
+ok              : True
+lane            : tooling
+bundle          : bundle.tooling
+commit_range    : None...HEAD
+changed_paths   : 18
+execute         : False
+risk_addons     : 0
+planned_commands: 61
+Rule            : Selected the tooling lane because governed
+                  tooling/process/doc-authority paths changed, and
+                  that lane outranks runtime/docs routing.
+```
+
+#### 5. `devctl check --profile ci` result tail
+
+```
+PASS  facade-wrappers-guard
+PASS  duplicate-types-guard
+PASS  structural-complexity-guard
+PASS  rust-test-shape-guard
+PASS  rust-lint-debt-guard
+PASS  rust-best-practices-guard
+PASS  serde-compatibility-guard
+PASS  rust-runtime-panic-policy-guard
+PASS  rust-audit-patterns-guard
+PASS  rust-security-footguns-guard
+PASS  command-source-validation-guard
+PASS  ide-provider-isolation-guard
+PASS  compat-matrix-guard
+PASS  compat-matrix-smoke-guard
+PASS  naming-consistency-guard
+PASS  platform-layer-boundaries-guard
+PASS  python-typed-seams-guard
+PASS  platform-contract-closure-guard
+PASS  platform-contract-sync-guard
+FAIL  startup-authority-contract-guard  -- - Startup authority is over budget: checkpoint_required=True, safe_to_continue_editing=False, reason=dirty_path_budget_e...
+PASS  tandem-consistency-guard
+PASS  audit-scaffold-auto
+PASS  process-sweep-post
+
+exit=1
+```
+
+The only FAIL is the tautological `dirty_path_budget_exceeded`
+guard that committing resolves. Every real content guard passed —
+`platform-contract-closure-guard`, `platform-contract-sync-guard`,
+`python-typed-seams-guard`, `naming-consistency-guard`,
+`facade-wrappers-guard`, `duplicate-types-guard`,
+`structural-complexity-guard`, all Rust/serde guards — all green
+on Codex's Phase 0 slice.
+
+#### 6. Commit 1 — Codex Q78 Phase 0 (diff stat)
+
+```
+ dev/scripts/devctl/context_graph/builder.py        |   8 +-
+ dev/scripts/devctl/context_graph/contract_nodes.py | 108 +++++++++++++++++++
+ .../devctl/context_graph/contract_relations.py     |  85 +++++++++++++
+ dev/scripts/devctl/context_graph/contract_scan.py  | 120 +++++++++++++++++++++
+ dev/scripts/devctl/context_graph/models.py         |   2 +
+ dev/scripts/devctl/context_graph/query.py          |  28 +++--
+ dev/scripts/devctl/context_graph/query_matching.py |  68 ++++++++++++
+ .../tests/context_graph/test_context_graph.py      |  92 ++++++++++++++++
+ 9 files changed, 557 insertions(+), 74 deletions(-)
+```
+
+**Post-commit hook failure**:
+
+```
+[post-commit hook] devctl review-snapshot --receipt-commit failed; continuing commit.
+```
+
+The `devctl review-snapshot --receipt-commit` hook failed
+non-blockingly. Commit itself landed at `5a92fa03`. Hook failure
+was not investigated — flagging for Codex to look at whether it is
+related to `reviewer_mode=single_agent` / stale reviewer loop
+state.
+
+#### 7. Commit 2 — docs/loop-v2 narrative (diff stat)
+
+```
+ 11 files changed, 2160 insertions(+), 59 deletions(-)
+ create mode 100644 dev/active/autonomous_governance_loop_v2.md
+```
+
+#### 8. Post-checkpoint `devctl startup-context`
+
+```
+action=push_allowed
+reason=worktree_clean_and_review_accepted
+interaction_mode=remote_control
+blockers=coordination_resync_required,implementation_permission_blocked
+next=python3 dev/scripts/devctl.py review-channel --action status --terminal none --format json
+observed_control_topology=no_live_agents
+implementation_permission=blocked
+recovery_action=observe_only
+recovery_basis=none
+recovery_scope=entire_lane
+coordination=multi_agent_orchestrated/single_agent->single_agent
+safe_to_fanout=False
+resync_required=True
+ownership_status=clear
+fanout_posture=planned_scaffolding_only
+worktree_strategy=isolated_worker_worktrees
+current_slice=- Push the Q37 Phase 1 fix (efcb2cd9) via governed push. If push preflight blocks on reviewer_loop_relaunch_required, the Codex exec review verdict serves as review evidence — proceed with operator override if available.
+active_target=dev/active/MASTER_PLAN.md
+ahead_of_upstream_commits=3
+push_guidance=3 local commit(s) waiting for governed push. Run python3 dev/scripts/devctl.py push --execute now.
+session_pacing=deep/10refs/3files/72deps
+pacing_trigger=patch_after_bounded_refs_or_raise_blocker
+```
+
+Note the field-level inconsistency: `action=push_allowed`
+co-exists with `recovery_action=observe_only` and
+`implementation_permission=blocked`. Those describe different
+permission axes (push vs edit vs fanout) but reading them together
+is easy to mis-collapse, as Claude initially did.
+
+#### 9. `git log` after checkpoint
+
+```
+ef3f08ae Refresh external review snapshot for dfcd171a
+dfcd171a docs(governance): Q78-Q90 — loop v1 retrospective and loop v2 convergence plan
+5a92fa03 feat(context-graph): Q78 Phase 0 — expose typed contracts as graph nodes
+3566b16b Refresh external review snapshot for 9be23299
+9be23299 fix(governance): Q70 — collapse action_routing onto single coordination truth
+```
+
+`git merge-base --is-ancestor efcb2cd9 HEAD` → YES (efcb2cd9 is
+already an ancestor of HEAD).
+`git branch -r --contains efcb2cd9` → `origin/feature/governance-quality-sweep`
+(efcb2cd9 is already upstream).
+
+### Findings for Codex to act on
+
+**Q91a — stale `current_slice` narrative in `startup-context`**
+
+The `current_slice` field is still quoting:
+
+> Push the Q37 Phase 1 fix (efcb2cd9) via governed push...
+
+`efcb2cd9` is already an ancestor of HEAD AND already on
+`origin/feature/governance-quality-sweep`. The underlying work
+landed at some earlier point but the narrative field was never
+invalidated. This is the exact class of bug Q88 flagged: typed
+surfaces have the right answer (`ahead_of_upstream_commits=3`,
+`push_guidance` referencing the real 3 commits), but a prose
+field riding alongside them carries a stale instruction that is
+easy for an AI or operator to read as authority.
+
+Suggested Codex action: add an invalidation rule for
+`current_slice` that clears or rewrites the field when the
+referenced commit becomes an ancestor of the remote tip, and add
+an xfail-strict test that asserts `current_slice` cannot reference
+a commit that is already upstream when the branch is clean.
+
+**Q91b — `devctl review-snapshot --receipt-commit` post-commit
+hook failure**
+
+```
+[post-commit hook] devctl review-snapshot --receipt-commit failed; continuing commit.
+```
+
+Hook failed non-blockingly on commit `5a92fa03`. The post-commit
+hook DID succeed for the auto review snapshot commit (`ef3f08ae`
+was created), so the failure is intermittent or specific to the
+first-commit case. Suggested Codex action: capture the exit code
+and stderr of the failing hook invocation and decide whether the
+hook should be blocking (and surfaced via a typed finding) instead
+of silently continuing. The current "continuing commit" path means
+a broken hook is invisible unless an operator or AI reads commit
+chatter — which, per Q90, is the wrong observability channel.
+
+**Q91c — reviewer loop is dark while push is allowed**
+
+`reviewer_mode=single_agent`, bridge is `inactive`, Codex session
+`019d7a89` ended at `03:46:42Z` (~1h before this tick). The typed
+`action=push_allowed` for the 3 pending commits therefore has to
+rely on operator override or post-facto Codex review. The stale
+`current_slice` documented this escape hatch — "If push preflight
+blocks on `reviewer_loop_relaunch_required`, the Codex exec review
+verdict serves as review evidence — proceed with operator override
+if available." That workflow is load-bearing but it is only
+described in a narrative field; it is not a typed contract.
+Suggested Codex action: promote the "Codex exec review verdict as
+review evidence" workflow into a typed
+`PushAuthorityOverrideReceipt` contract so `push_enforcement` can
+distinguish "push allowed with live reviewer" from "push allowed
+with exec-review override receipt" instead of collapsing both onto
+`action=push_allowed`.
+
+**Q91d — push `action` field vs `recovery_action` field ambiguity**
+
+`action=push_allowed` and `recovery_action=observe_only` simultaneously true is correct under the governance model but
+semantically confusing. `action` is "what remote/publication step
+is allowed now?", `recovery_action` is "what authority does THIS
+agent have to take that step?". They describe different permission
+axes. Claude collapsed them and read `push_allowed` as standing
+Claude-authority. Suggested Codex action: rename or adjacent-label
+the fields so the difference between "publication permissible" and
+"this caller authorized to publish" is unambiguous even to a naive
+reader, e.g. `publication_permission=allowed` +
+`caller_publication_authority=observe_only`. Or at minimum, have
+`startup-context --format summary` print a one-line resolution:
+`authorized_callers_for_push = codex|operator|none`.
+
+### Pending work (for Codex, not Claude)
+
+1. Decide whether to publish `5a92fa03 / dfcd171a / ef3f08ae` now,
+   or first relaunch the reviewer loop for a live review pass over
+   Codex's Phase 0 slice.
+2. Investigate the Q91b post-commit hook failure.
+3. File or record Q91a–Q91d as governance-review findings via
+   `devctl governance-review --record`.
+4. Pick up Codex's own follow-up queue from the Q90 / Q88 /
+   Q87 lists: Q87 quick-harden items, Q88 catalog additions for
+   `PlanningIRSnapshot` / `SessionPacingState`, Q89 verdict-revision
+   rule.
+
+### Loop cadence
+
+Dashboard tick cadence returns to normal now that the worktree is
+clean and the typed state is fresh. Next dashboard observation tick
+will re-read `startup-context`, `agent-mind --agent codex`, and
+`review-channel --action status` before checking file mtimes. File
+mtimes remain a proxy signal, not a primary one (Q90 rule).
+
+
 
 
 
