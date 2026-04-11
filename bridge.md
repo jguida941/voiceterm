@@ -77,13 +77,13 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-04-11T06:39:30Z`
-- Last Codex poll (Local America/New_York): `2026-04-11 02:39:30 EDT`
+- Last Codex poll: `2026-04-11T07:02:29Z`
+- Last Codex poll (Local America/New_York): `2026-04-11 03:02:29 EDT`
 - Reviewer mode: `single_agent`
 - Last non-audit worktree hash: `f5cf3458b116d6dffb18a6766f4fd813273b47ca786f0e5e3412152babd857a9`
 - Current instruction revision: `fdd35a6207cc`
 - Last checkpoint action: `reviewer-checkpoint`
-- Head at push time: `a805652bbbdf4dca30c0fdcd30dc139855d8419e`
+- Head at push time: `3c294f0d44379460274ed4b85675d2bd9a0161df`
 ## Protocol
 
 1. Claude should poll this file periodically while coding.
@@ -145,17 +145,17 @@ After implementation, run `devctl check --profile ci` and `devctl probe-report -
 
 ## Poll Status
 
-- Reviewer checkpoint updated through repo-owned tooling (mode: single_agent; reason: codex-review-doc-followup-range; observed-tree: f5cf3458b116; reviewed-tree: f5cf3458b116; instruction-rev: fdd35a6207cc).
+- Reviewer checkpoint updated through repo-owned tooling (mode: single_agent; reason: codex-review-scribe-snapshot-range; observed-tree: f5cf3458b116; reviewed-tree: f5cf3458b116; instruction-rev: fdd35a6207cc).
 
 ## Current Verdict
 
 - Follow-up required before acceptance.
-- The review range `6e8d96c2..a805652b` is still not safe to push; the refreshed coordination surfaces keep bootstrap and publish authority contradictory.
+- The review range `a805652b..3c294f0d` is still not safe to push; the newly added bridge/snapshot refresh keeps live coordination and publish authority contradictory.
 
 ## Open Findings
 
-- `bridge.md:111-176` still presents two incompatible slices. The stale Q37 `Operator Direction` block remains the only place with concrete file-level implementation steps, while the reviewer-owned `Open Findings` / `Current Instruction For Claude` sections now say the active work is the startup-context/work-intake follow-up without naming those code files. A fresh implementer bootstrap can therefore follow the stale Q37 lane or fail to locate the real startup regressions.
-- `dev/audits/REVIEW_SNAPSHOT.md:63-74,90` still advertises `push_eligible_now: True` and `python3 dev/scripts/devctl.py push --execute` even though the live reviewer verdict remains follow-up required. Refreshing the snapshot without consulting reviewer acceptance leaves a generated surface that can authorize a blocked publish.
+- `bridge.md:111-145,172-177` still presents two incompatible slices. The stale Q37 `Operator Direction` block is still the only place with concrete file-level implementation steps, while the live reviewer-owned instruction has moved to the startup-context/work-intake follow-up without restoring equivalent file references. A fresh implementer bootstrap can therefore follow the stale Q37 lane or fail to locate the real startup regressions.
+- `dev/audits/REVIEW_SNAPSHOT.md:63-90` still advertises `push_eligible_now: True`, `advisory: `push_allowed``, and `python3 dev/scripts/devctl.py push --execute` even though the live reviewer verdict remains follow-up required. That generated surface can still authorize a blocked publish.
 
 ## Claude Status
 
@@ -178,7 +178,7 @@ After implementation, run `devctl check --profile ci` and `devctl probe-report -
 
 ## Last Reviewed Scope
 
-- 6e8d96c272e2c35da522b179b0a3de3993e2f7dd..a805652bbbdf4dca30c0fdcd30dc139855d8419e
+- a805652bbbdf4dca30c0fdcd30dc139855d8419e..3c294f0d44379460274ed4b85675d2bd9a0161df
 - bridge.md
 - dev/audits/LIVE_RUN.md
 - dev/audits/REVIEW_SNAPSHOT.md
