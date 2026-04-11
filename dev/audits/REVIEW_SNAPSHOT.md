@@ -5,14 +5,14 @@
 ## Quick status
 
 - Branch: `feature/governance-quality-sweep`
-- HEAD: `353f3bb619dc` — review_channel: priority selector drives current_session.current_instruction
-- Tree hash: `363490417c8a`
-- Generation stamp: `snap-02f4ae232164`
-- Generated at (UTC): 2026-04-11T23:34:14Z
-- Push decision: `run_devctl_push` — push_preconditions_satisfied
+- HEAD: `49dcf13e9536` — Refresh external review snapshot for 353f3bb6
+- Tree hash: `8272c7000691`
+- Generation stamp: `snap-1284e32ac58d`
+- Generated at (UTC): 2026-04-11T23:38:53Z
+- Push decision: `await_checkpoint` — staged_index_present
 - Reviewer mode: `single_agent` (interaction: `local_terminal`)
 - Pipeline state: `n/a` (approval: `n/a`)
-- Delta since last snapshot: 24 commits, 118 files, +10395/-2120
+- Delta since last snapshot: 25 commits, 118 files, +10454/-2182
 - Governance findings: 86 open / 71 fixed / 171 total
 - Probe hints: 0 total across 0 files scanned
 
@@ -54,27 +54,27 @@ adopters arrive.
 - Remote: `https://github.com/jguida941/voiceterm.git`
 - Default branch: `master`
 - Current branch: `feature/governance-quality-sweep`
-- HEAD SHA: `353f3bb619dcedc4e19d76671dd6ad7b4f17b1c7`
+- HEAD SHA: `49dcf13e95368e2e07b1526cf8f44d9cb84733fc`
 - HEAD author: Justin Guida
 - HEAD timestamp (UTC): 2026-04-11T19:33:19-04:00
 
 ## 2. Governance state
 
 ### Push decision
-- action: `run_devctl_push`
-- reason: push_preconditions_satisfied
-- push_eligible_now: True
-- worktree_clean: True
-- staged_path_count: 0
+- action: `await_checkpoint`
+- reason: staged_index_present
+- push_eligible_now: False
+- worktree_clean: False
+- staged_path_count: 2
 - unstaged_path_count: 0
-- next_step_command: `python3 dev/scripts/devctl.py push --execute`
+- next_step_command: `n/a`
 - latest_push_report: `dev/reports/push/latest.json`
 - latest_push_report_state: `blocked` (validation_failed)
 - current_push_authorization: `push-auth-20260411T184445146140Z` (valid=False)
 - authorized_head_commit: `0936a4e543f5a3c38d0e8a9348718bd50c533a05`
 - approved_target_identity: `tree-receipt-20260411T184445146140Z:b5ba49bb30bbdc75b5f28bba1c287afcec975a34`
 - publication_backlog: urgent
-- publication_guidance: 10 local commit(s) waiting for governed push. Run `python3 dev/scripts/devctl.py push --execute` now.
+- publication_guidance: 11 local commit(s) waiting for governed push once the current slice is checkpoint-clean.
 
 ### Reviewer runtime
 - reviewer_mode: `single_agent`
@@ -90,17 +90,17 @@ adopters arrive.
 - active plan: **Master Plan (Active, Unified)**
 - plan path: `dev/active/MASTER_PLAN.md`
 - active MP scope: all active MP execution state
-- advisory: `push_allowed` — worktree_clean_and_review_accepted
+- advisory: `checkpoint_before_continue` — concurrent_writer_activity
 
 ## 3. Delta — what changed since the previous snapshot
 
-Range: last 24 commits ending at `353f3bb619dc`
+Range: last 25 commits ending at `49dcf13e9536`
 
-- commits: 24
+- commits: 25
 - files changed: 118
-- insertions: +10395
-- deletions: -2120
-- bundle classes touched: docs, tooling
+- insertions: +10454
+- deletions: -2182
+- bundle classes touched: tooling, docs
 - risk add-ons triggered: Parser / ANSI boundary
 - authority surfaces touched: 19 file(s)
 
@@ -108,30 +108,31 @@ Range: last 24 commits ending at `353f3bb619dc`
 
 | # | SHA | Subject | Files | +/- | Bundle | Risk |
 |---|---|---|---|---|---|---|
-| 1 | `353f3bb6` | review_channel: priority selector drives current_session.cu… | 6 | +69/-51 | tooling |  |
-| 2 | `0d2cb8ad` | Refresh external review snapshot for 637a4ad9 | 1 | +59/-62 | tooling |  |
-| 3 | `637a4ad9` | docs: slice-closure updates from Codex for the review_chann… | 4 | +97/-42 | docs |  |
-| 4 | `7a3091c5` | plans: record review_channel trigger primitive slice in act… | 5 | +101/-66 | tooling |  |
-| 5 | `de08f5c9` | review_channel: split enrich_event_review_state to satisfy… | 2 | +103/-58 | tooling |  |
-| 6 | `52878653` | Refresh external review snapshot for 061a1261 | 1 | +54/-51 | tooling |  |
-| 7 | `061a1261` | review_channel: packet_control_loop priority selection + co… | 5 | +350/-62 | tooling |  |
-| 8 | `2cd74a7c` | Refresh external review snapshot for 6db71aca | 1 | +107/-85 | tooling |  |
-| 9 | `6db71aca` | review_channel: typed participant authoritative + action_re… | 78 | +3818/-316 | tooling |  |
-| 10 | `a3e3347c` | docs(audit): dashboard-loop tick 1-32 + typed findings 0200… | 3 | +2200/-99 | tooling |  |
-| 11 | `0936a4e5` | Refresh external review snapshot for 2e46f645 | 1 | +67/-66 | tooling |  |
-| 12 | `2e46f645` | fix(runtime): keep local single-agent takeover local | 18 | +425/-113 | tooling |  |
-| 13 | `47e2b4e1` | Clarify platform boundary and startup mutability routing | 17 | +358/-46 | tooling |  |
-| 14 | `30dcf434` | Refresh external review snapshot for 8a05ad7f | 1 | +55/-52 | tooling |  |
-| 15 | `8a05ad7f` | docs(bridge): scribe capture live Codex state + autonomy pl… | 3 | +72/-65 | tooling |  |
-| 16 | `936cbc3d` | fix(review-snapshot): gate single_agent lane on reviewer ve… | 3 | +120/-62 | tooling |  |
-| 17 | `e1dac616` | Refresh external review snapshot for f3bbca18 | 1 | +63/-70 | tooling |  |
-| 18 | `f3bbca18` | fix(review-channel): typed preflight gate — reviewer-checkp… | 8 | +539/-135 | tooling | Parser / ANSI boundary |
-| 19 | `8bb338bc` | feat(runtime): Q99 — canonical startup_blocker_decision ker… | 8 | +495/-100 | tooling |  |
-| 20 | `2a1977cb` | fix(runtime,governance): Codex P1 — pacing live-rebuild + a… | 6 | +615/-141 | tooling |  |
-| 21 | `b0885088` | Refresh external review snapshot for 2730689c | 1 | +104/-80 | tooling |  |
-| 22 | `2730689c` | docs(bridge): neutralize stale Q37 Operator Direction block | 2 | +91/-126 | docs |  |
-| 23 | `31be10ee` | Refresh external review snapshot for ee79f9c3 | 1 | +108/-72 | tooling |  |
-| 24 | `ee79f9c3` | fix(review-snapshot): Q92-C7 — consult live reviewer verdic… | 3 | +325/-100 | tooling |  |
+| 1 | `49dcf13e` | Refresh external review snapshot for 353f3bb6 | 1 | +59/-62 | tooling |  |
+| 2 | `353f3bb6` | review_channel: priority selector drives current_session.cu… | 6 | +69/-51 | tooling |  |
+| 3 | `0d2cb8ad` | Refresh external review snapshot for 637a4ad9 | 1 | +59/-62 | tooling |  |
+| 4 | `637a4ad9` | docs: slice-closure updates from Codex for the review_chann… | 4 | +97/-42 | docs |  |
+| 5 | `7a3091c5` | plans: record review_channel trigger primitive slice in act… | 5 | +101/-66 | tooling |  |
+| 6 | `de08f5c9` | review_channel: split enrich_event_review_state to satisfy… | 2 | +103/-58 | tooling |  |
+| 7 | `52878653` | Refresh external review snapshot for 061a1261 | 1 | +54/-51 | tooling |  |
+| 8 | `061a1261` | review_channel: packet_control_loop priority selection + co… | 5 | +350/-62 | tooling |  |
+| 9 | `2cd74a7c` | Refresh external review snapshot for 6db71aca | 1 | +107/-85 | tooling |  |
+| 10 | `6db71aca` | review_channel: typed participant authoritative + action_re… | 78 | +3818/-316 | tooling |  |
+| 11 | `a3e3347c` | docs(audit): dashboard-loop tick 1-32 + typed findings 0200… | 3 | +2200/-99 | tooling |  |
+| 12 | `0936a4e5` | Refresh external review snapshot for 2e46f645 | 1 | +67/-66 | tooling |  |
+| 13 | `2e46f645` | fix(runtime): keep local single-agent takeover local | 18 | +425/-113 | tooling |  |
+| 14 | `47e2b4e1` | Clarify platform boundary and startup mutability routing | 17 | +358/-46 | tooling |  |
+| 15 | `30dcf434` | Refresh external review snapshot for 8a05ad7f | 1 | +55/-52 | tooling |  |
+| 16 | `8a05ad7f` | docs(bridge): scribe capture live Codex state + autonomy pl… | 3 | +72/-65 | tooling |  |
+| 17 | `936cbc3d` | fix(review-snapshot): gate single_agent lane on reviewer ve… | 3 | +120/-62 | tooling |  |
+| 18 | `e1dac616` | Refresh external review snapshot for f3bbca18 | 1 | +63/-70 | tooling |  |
+| 19 | `f3bbca18` | fix(review-channel): typed preflight gate — reviewer-checkp… | 8 | +539/-135 | tooling | Parser / ANSI boundary |
+| 20 | `8bb338bc` | feat(runtime): Q99 — canonical startup_blocker_decision ker… | 8 | +495/-100 | tooling |  |
+| 21 | `2a1977cb` | fix(runtime,governance): Codex P1 — pacing live-rebuild + a… | 6 | +615/-141 | tooling |  |
+| 22 | `b0885088` | Refresh external review snapshot for 2730689c | 1 | +104/-80 | tooling |  |
+| 23 | `2730689c` | docs(bridge): neutralize stale Q37 Operator Direction block | 2 | +91/-126 | docs |  |
+| 24 | `31be10ee` | Refresh external review snapshot for ee79f9c3 | 1 | +108/-72 | tooling |  |
+| 25 | `ee79f9c3` | fix(review-snapshot): Q92-C7 — consult live reviewer verdic… | 3 | +325/-100 | tooling |  |
 
 ### Files
 
@@ -145,7 +146,7 @@ Range: last 24 commits ending at `353f3bb619dc`
 | `dev/active/remote_commit_pipeline.md` | tooling | +28/-0 |
 | `dev/active/remote_control_runtime.md` | tooling | +80/-0 |
 | `dev/audits/LIVE_RUN.md` | tooling | +1997/-0 |
-| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1598/-1553 |
+| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1657/-1615 |
 | `dev/config/devctl_repo_policy.json` | tooling | +1/-1 |
 | `dev/config/git_hooks/pre-push-governed-push.sh` | tooling | +1/-1 |
 | `dev/config/templates/claude_instructions.template.md` | tooling | +7/-5 |
@@ -284,6 +285,8 @@ Recent findings:
 
 ### Per-commit rationale
 
+- **`49dcf13e`** — Refresh external review snapshot for 353f3bb6
+  - evolution: Fact: the remote dashboard beta loop exposed two coupled packet-control gaps. The repo could prove that an `action_request` existed, but delivery/start state was still inferred from queue depth or prose, and queue selec…
 - **`353f3bb6`** — review_channel: priority selector drives current_session.current_instruction
   - Wires the action-request-first priority selection from
   - packet_control_loop.select_priority_pending_packet into
@@ -391,10 +394,10 @@ Recent findings:
 - open governance findings: 86
 
 ### Startup advisories
-- push_allowed: worktree_clean_and_review_accepted
+- checkpoint_before_continue: concurrent_writer_activity
 
 ### Stale warnings
-- Stop because nothing remains to push.
+- Keep editing the current slice.
 
 ### Open gap rows
 - **governance_open** (`dev/scripts/devctl/security/codeql.py`): subprocess_missing_timeout: 
@@ -408,4 +411,4 @@ Recent findings:
 
 ---
 
-Projection produced by `devctl review-snapshot`. Generation stamp `snap-02f4ae232164` binds this file to HEAD `353f3bb619dc`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
+Projection produced by `devctl review-snapshot`. Generation stamp `snap-1284e32ac58d` binds this file to HEAD `49dcf13e9536`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.

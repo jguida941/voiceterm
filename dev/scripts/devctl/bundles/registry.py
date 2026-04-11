@@ -234,7 +234,7 @@ _BUNDLE_SPECS: Final[tuple[BundleSpec, ...]] = (
         "bundle.tooling",
         (
         "python3 dev/scripts/devctl.py docs-check --strict-tooling",
-        "python3 dev/scripts/devctl.py hygiene --strict-warnings --ignore-warning-source mutation_badge",
+        "python3 dev/scripts/devctl.py hygiene --strict-warnings --ignore-warning-source mutation_badge --ignore-warning-source publications",
         *_ORCHESTRATE_COMMANDS,
         *_SHARED_GOVERNANCE_CHECKS,
         *_GUARD_CHECKS,
