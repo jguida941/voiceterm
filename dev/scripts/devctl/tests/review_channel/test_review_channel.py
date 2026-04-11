@@ -4423,6 +4423,66 @@ class ReviewChannelWatchFollowTests(unittest.TestCase):
         self.assertEqual(report["publisher_log_path"], "/tmp/publisher.log")
         self.assertNotIn("recommended_command", report)
 
+    def test_ensure_starts_publisher_for_remote_control_single_agent(self) -> None:
+        args = self._build_ensure_args(
+            reviewer_mode="single_agent",
+            start_publisher_if_missing=True,
+        )
+        status_report = {
+            "command": "review-channel",
+            "action": "status",
+            "ok": True,
+            "bridge_liveness": {
+                "overall_state": "fresh",
+                "reviewer_mode": "single_agent",
+                "codex_poll_state": "fresh",
+                "reviewer_freshness": "fresh",
+                "last_codex_poll_age_seconds": 0,
+            },
+            "reviewer_runtime": {
+                "remote_control_attachment": {
+                    "provider": "claude",
+                    "role": "implementer",
+                    "status": "attached",
+                }
+            },
+            "attention": {"status": "healthy"},
+        }
+        publisher_states = [
+            {"running": False, "detail": "No publisher heartbeat file found"},
+            {"running": True, "pid": 4242, "stale": False},
+        ]
+
+        with (
+            patch.object(
+                review_channel_follow_runtime,
+                "_run_status_action",
+                return_value=(status_report, 0),
+            ),
+            patch.object(
+                review_channel_follow_runtime,
+                "_read_publisher_state_safe",
+                side_effect=publisher_states,
+            ),
+            patch.object(
+                review_channel_follow_runtime,
+                "_spawn_follow_publisher",
+                return_value=(True, 4242, "/tmp/publisher.log"),
+            ),
+            patch.object(review_channel_command.time, "sleep", return_value=None),
+        ):
+            report, rc = review_channel_command._run_ensure_action(
+                args=args,
+                repo_root=Path("/tmp/repo"),
+                paths={"status_dir": Path("/tmp/repo/dev/reports/review_channel/latest")},
+            )
+
+        self.assertEqual(rc, 0)
+        self.assertTrue(report["ok"])
+        self.assertEqual(report["publisher_status"], "running")
+        self.assertTrue(report["publisher_required"])
+        self.assertEqual(report["publisher_start_status"], "started")
+
     def test_attention_reports_runtime_missing_when_active_and_no_runtime(self) -> None:
         from dev.scripts.devctl.review_channel.attention import derive_bridge_attention
 
@@ -7292,8 +7352,8 @@ class ReviewChannelCommandTests(unittest.TestCase):
             self.assertEqual(payload["terminal_profile_applied"], "Pro")
             self.assertEqual(payload["bridge_liveness"]["overall_state"], "fresh")
             self.assertTrue(payload["bridge_liveness"]["claude_ack_present"])
-            self.assertEqual(payload["codex_planned_lane_count"], 8)
-            self.assertEqual(payload["claude_planned_lane_count"], 8)
+            self.assertNotIn("codex_planned_lane_count", payload)
+            self.assertNotIn("claude_planned_lane_count", payload)
             self.assertTrue(payload["bridge_liveness"]["claude_status_present"])
             self.assertTrue(payload["bridge_liveness"]["open_findings_present"])
             self.assertEqual(len(payload["sessions"]), 2)

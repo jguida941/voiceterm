@@ -125,6 +125,11 @@ def _check_artifact_packets(
             "pipeline_generation",
             "staged_snapshot_hash",
             "guard_results_summary",
+            "delivery_emitted_at_utc",
+            "delivery_observed_at_utc",
+            "delivery_observed_by",
+            "execution_started_at_utc",
+            "execution_started_by",
         }
     )
     packets = on_disk.get("packets")

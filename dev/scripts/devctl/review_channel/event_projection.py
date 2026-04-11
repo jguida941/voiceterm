@@ -43,6 +43,7 @@ from .recovery_assessment import (
 )
 from .status_projection_helpers import build_bridge_push_enforcement_state
 from .status_push_decision import build_status_push_decision
+from .action_request_delivery import attach_action_request_delivery_receipts
 from .event_projection_queue import (
     derive_event_next_instruction,
     derive_event_next_instruction_bundle,
@@ -112,10 +113,17 @@ def enrich_event_review_state(
     repo_root: Path,
     review_channel_path: Path,
     projections_root: Path,
+    artifact_root: Path | None = None,
     push_enforcement: dict[str, object] | None = None,
 ) -> tuple[dict[str, object], dict[str, object]]:
     """Attach parity fields needed by event-backed review-state projections."""
     review_state = dict(review_state)
+    packets = review_state.get("packets")
+    if isinstance(packets, list):
+        review_state["packets"] = attach_action_request_delivery_receipts(
+            packets=packets,
+            artifact_root=artifact_root,
+        )
     raw_service_identity = build_service_identity(
         repo_root=repo_root,
         bridge_path=repo_root / DEFAULT_BRIDGE_REL,

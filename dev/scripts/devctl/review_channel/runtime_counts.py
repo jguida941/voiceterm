@@ -11,16 +11,16 @@ def build_runtime_counts(
     publisher_running: bool | None = None,
     reviewer_supervisor_running: bool | None = None,
     bridge_liveness: Mapping[str, object] | None = None,
-    planned_lane_counts: Mapping[str, object] | None = None,
     requested_worker_budgets: Mapping[str, object] | None = None,
 ) -> dict[str, int]:
-    """Return explicit live/planned runtime counts for operator surfaces."""
+    """Return explicit live runtime counts for operator surfaces."""
     session = collaboration if isinstance(collaboration, Mapping) else {}
     bridge = bridge_liveness if isinstance(bridge_liveness, Mapping) else {}
     participants = _rows(session.get("participants"))
     delegated_work = _rows(session.get("delegated_work"))
     live_participants = [row for row in participants if _bool(row.get("live"))]
     bridge_live_totals = _bridge_live_role_totals(bridge)
+    live_provider_ids = _live_provider_ids(live_participants)
     live_reviewer_total = sum(
         1
         for row in live_participants
@@ -31,20 +31,17 @@ def build_runtime_counts(
         for row in live_participants
         if _text(row.get("role")) == "implementer"
     )
-    active_conductor_count = _active_conductor_count(
-        bridge=bridge,
-        live_participants=live_participants,
-    )
     if not participants:
         live_participant_total = bridge_live_totals["live_participants_total"]
         live_reviewer_total = bridge_live_totals["live_reviewer_total"]
         live_implementer_total = bridge_live_totals["live_implementer_total"]
+        active_conductor_count = _active_conductor_count(
+            bridge=bridge,
+            live_participants=live_participants,
+        )
     else:
         live_participant_total = len(live_participants)
-    planned_lane_total = _planned_lane_total(
-        participants=participants,
-        planned_lane_counts=planned_lane_counts,
-    )
+        active_conductor_count = len(live_provider_ids)
     requested_worker_budget_total = _requested_worker_budget_total(
         participants=participants,
         requested_worker_budgets=requested_worker_budgets,
@@ -69,7 +66,6 @@ def build_runtime_counts(
     counts["live_delegated_receipt_total"] = sum(
         1 for row in delegated_work if _bool(row.get("live"))
     )
-    counts["planned_lane_total"] = planned_lane_total
     counts["requested_worker_budget_total"] = requested_worker_budget_total
     counts["active_daemon_total"] = active_daemon_total
     counts["active_conductor_count"] = active_conductor_count
@@ -86,6 +82,10 @@ def _active_conductor_count(
     bridge: Mapping[str, object],
     live_participants: list[Mapping[str, object]],
 ) -> int:
+    live_provider_ids = _live_provider_ids(live_participants)
+    if live_provider_ids:
+        return len(live_provider_ids)
+
     providers = bridge.get("active_conductor_providers")
     if isinstance(providers, (list, tuple)):
         normalized = {
@@ -101,7 +101,7 @@ def _active_conductor_count(
     if codex_live is not None or claude_live is not None:
         return int(bool(codex_live)) + int(bool(claude_live))
 
-    return len(live_participants)
+    return 0
 
 
 def _bridge_live_role_totals(bridge: Mapping[str, object]) -> dict[str, int]:
@@ -136,20 +136,6 @@ def _bridge_live_role_totals(bridge: Mapping[str, object]) -> dict[str, int]:
     }
 
 
-def _planned_lane_total(
-    *,
-    participants: list[Mapping[str, object]],
-    planned_lane_counts: Mapping[str, object] | None,
-) -> int:
-    participant_total = sum(
-        max(_int(row.get("planned_lane_count")), 0) for row in participants
-    )
-    if participant_total > 0:
-        return participant_total
-    counts = planned_lane_counts if isinstance(planned_lane_counts, Mapping) else {}
-    return sum(max(_int(value), 0) for value in counts.values())
-
-
 def _requested_worker_budget_total(
     *,
     participants: list[Mapping[str, object]],
@@ -172,6 +158,17 @@ def _rows(value: object) -> list[Mapping[str, object]]:
     if not isinstance(value, (list, tuple)):
         return []
     return [row for row in value if isinstance(row, Mapping)]
+
+
+def _live_provider_ids(
+    live_participants: list[Mapping[str, object]],
+) -> tuple[str, ...]:
+    providers: list[str] = []
+    for row in live_participants:
+        provider = _text(row.get("provider") or row.get("agent_id"))
+        if provider and provider not in providers:
+            providers.append(provider)
+    return tuple(providers)
 
 
 def _bool(value: object) -> bool:

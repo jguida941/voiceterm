@@ -14,14 +14,6 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
 from ..time_utils import utc_timestamp
-from .event_store import (
-    ReviewChannelArtifactPaths,
-    append_event,
-    idempotency_key,
-    load_events,
-    next_event_id,
-    resolve_artifact_paths,
-)
 from .session_probe import ConductorSessionRecord, load_conductor_sessions
 
 # Participant liveness events are reducer-visible but not packet-shaped;
@@ -68,6 +60,12 @@ def emit_participant_liveness_expired(
     polls do not re-emit the same expiry. Sessions that probe as live,
     or that lack enough metadata to be addressable, are skipped.
     """
+    from .event_store import (
+        append_event,
+        load_events,
+        resolve_artifact_paths,
+    )
+
     artifact_paths = resolve_artifact_paths(repo_root=repo_root)
     records = load_conductor_sessions(session_output_root=session_output_root)
     dead = [record for record in records if not record.live and record.session_name]
@@ -96,11 +94,43 @@ def emit_participant_liveness_expired(
     return written
 
 
+def emit_status_tick_participant_liveness_events(
+    *,
+    repo_root: Path,
+    session_output_root: Path,
+) -> list[dict[str, object]]:
+    """Emit liveness-expiry events for one explicit refresh tick."""
+    try:
+        return emit_participant_liveness_expired(
+            repo_root=repo_root,
+            session_output_root=session_output_root,
+        )
+    except (OSError, ValueError):
+        return []
+
+
+def summarize_participant_liveness_events(
+    events: list[dict[str, object]],
+) -> list[dict[str, object]]:
+    """Project newly emitted expiry rows into the bridge-liveness summary."""
+    return [
+        {
+            "provider": event.get("provider"),
+            "session_name": event.get("session_name"),
+            "live_reason": event.get("live_reason"),
+            "timestamp_utc": event.get("timestamp_utc"),
+        }
+        for event in events
+    ]
+
+
 def _build_liveness_expired_event(
     *,
     record: ConductorSessionRecord,
     existing_events: list[dict[str, object]],
 ) -> dict[str, object]:
+    from .event_store import idempotency_key, next_event_id
+
     payload = ParticipantLivenessExpiredEvent(
         event_id=next_event_id(existing_events),
         timestamp_utc=utc_timestamp(),
@@ -127,4 +157,6 @@ def _build_liveness_expired_event(
 __all__ = [
     "SESSION_LIVENESS_EVENT_TYPES",
     "emit_participant_liveness_expired",
+    "emit_status_tick_participant_liveness_events",
+    "summarize_participant_liveness_events",
 ]

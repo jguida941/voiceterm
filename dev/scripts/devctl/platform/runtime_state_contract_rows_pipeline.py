@@ -48,6 +48,11 @@ PIPELINE_STATE_CONTRACTS: tuple[ContractSpec, ...] = (
                 "Guard bundle receipt for the current staged intent.",
             ),
             ContractField(
+                "validation_receipt",
+                "ValidationReceipt | None",
+                "Typed validation proof bound to the staged intent and emitted from the routed guard bundle.",
+            ),
+            ContractField(
                 "reviewer_runtime_generation",
                 "str",
                 "Reviewer-runtime generation bound to the current request.",

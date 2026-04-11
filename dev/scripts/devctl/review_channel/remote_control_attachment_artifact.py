@@ -107,6 +107,22 @@ def load_remote_control_attachment(
     )
 
 
+def load_remote_control_attachments(
+    *,
+    output_root: Path,
+    active_only: bool = False,
+) -> tuple[RemoteControlAttachmentState, ...]:
+    """Return every provider-scoped remote-control attachment under sessions/."""
+    attachments = _scan_provider_attachments(output_root / "sessions")
+    if active_only:
+        attachments = [
+            attachment
+            for attachment in attachments
+            if has_active_remote_control_attachment(attachment)
+        ]
+    return tuple(attachments)
+
+
 def persist_remote_control_attachment(
     attachment: RemoteControlAttachmentState,
     *,

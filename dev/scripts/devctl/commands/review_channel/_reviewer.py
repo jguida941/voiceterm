@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+from dataclasses import asdict
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -72,6 +73,12 @@ def build_reviewer_state_report(
         bridge_liveness=status_snapshot.bridge_liveness,
         attention=status_snapshot.attention,
         reviewer_worker=status_snapshot.reviewer_worker,
+        collaboration=(
+            asdict(status_snapshot.review_state.collaboration)
+            if status_snapshot.review_state is not None
+            and status_snapshot.review_state.collaboration is not None
+            else None
+        ),
         codex_lanes=codex_lanes,
         claude_lanes=claude_lanes,
         warnings=status_snapshot.warnings,

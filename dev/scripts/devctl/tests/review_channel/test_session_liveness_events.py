@@ -1,10 +1,10 @@
 """Coverage for Q94 participant_liveness_expired event emission.
 
-Asserts that when `attach_conductor_session_state` runs against a session
-that probes dead, a typed `participant_liveness_expired` event is
-appended to the event log. A second call must not duplicate the event
-(idempotency_key dedup). The reducer must recognize the new event type
-without raising `Encountered review event without packet_id`.
+Asserts that dead sessions only emit typed `participant_liveness_expired`
+rows from the explicit refresh-time producer, not from projection helpers.
+Repeated producer calls must still deduplicate by idempotency key. The
+reducer must recognize the event type without raising
+`Encountered review event without packet_id`.
 """
 
 from __future__ import annotations
@@ -53,7 +53,7 @@ def _dead_record(provider: str, role: str) -> ConductorSessionRecord:
     )
 
 
-def test_attach_conductor_session_state_emits_liveness_expired(
+def test_status_tick_liveness_producer_emits_liveness_expired(
     monkeypatch,
     tmp_path: Path,
 ) -> None:
@@ -81,10 +81,18 @@ def test_attach_conductor_session_state_emits_liveness_expired(
     status_projection_helpers.attach_conductor_session_state(
         bridge_liveness=bridge_liveness,
         output_root=tmp_path,
+    )
+    artifact_paths = resolve_artifact_paths(repo_root=tmp_path)
+    assert not Path(artifact_paths.event_log_path).exists()
+
+    emitted = session_liveness_events.emit_status_tick_participant_liveness_events(
         repo_root=tmp_path,
+        session_output_root=tmp_path,
+    )
+    bridge_liveness["participant_liveness_expired_events"] = (
+        session_liveness_events.summarize_participant_liveness_events(emitted)
     )
 
-    artifact_paths = resolve_artifact_paths(repo_root=tmp_path)
     events = load_events(Path(artifact_paths.event_log_path))
     expired = [
         event
@@ -99,7 +107,7 @@ def test_attach_conductor_session_state_emits_liveness_expired(
     assert bridge_liveness.get("participant_liveness_expired_events")
 
 
-def test_attach_conductor_session_state_dedups_repeat_polls(
+def test_status_tick_liveness_producer_dedups_repeat_polls(
     monkeypatch,
     tmp_path: Path,
 ) -> None:
@@ -125,7 +133,10 @@ def test_attach_conductor_session_state_dedups_repeat_polls(
         status_projection_helpers.attach_conductor_session_state(
             bridge_liveness={"reviewer_mode": "active_dual_agent"},
             output_root=tmp_path,
+        )
+        session_liveness_events.emit_status_tick_participant_liveness_events(
             repo_root=tmp_path,
+            session_output_root=tmp_path,
         )
 
     artifact_paths = resolve_artifact_paths(repo_root=tmp_path)

@@ -6,9 +6,13 @@ from dataclasses import asdict
 from collections.abc import Mapping
 
 from ...runtime.review_state_models import ReviewState
+from ...review_channel.runtime_counts import build_runtime_counts
 from ...review_channel.reviewer_runtime_contract import (
     build_reviewer_doctor_surface,
     reviewer_runtime_contract_to_dict,
+)
+from ...review_channel.status_projection_bridge_state import (
+    build_typed_bridge_liveness,
 )
 
 
@@ -38,26 +42,59 @@ def attach_reviewer_runtime_snapshot(
         if recovery_assessment is not None
         else None
     )
-    bridge_liveness = (
+    bridge_liveness_report = (
         report.get("bridge_liveness")
         if isinstance(report.get("bridge_liveness"), Mapping)
         else None
     )
+    collaboration_state = getattr(review_state, "collaboration", None)
+    collaboration = (
+        asdict(collaboration_state)
+        if collaboration_state is not None
+        else None
+    )
+    current_session = getattr(review_state, "current_session", None)
+    bridge_liveness = dict(bridge_liveness_report or {})
+    if current_session is not None:
+        bridge_liveness.update(
+            build_typed_bridge_liveness(
+                bridge_liveness=bridge_liveness,
+                current_session=current_session,
+                collaboration=collaboration_state,
+            )
+        )
+    if bridge_liveness:
+        report["bridge_liveness"] = bridge_liveness
+    publisher = report.get("publisher")
+    reviewer_supervisor = report.get("reviewer_supervisor")
     report["doctor"] = build_reviewer_doctor_surface(
         contract=review_state.reviewer_runtime,
-        collaboration=asdict(getattr(review_state, "collaboration", None))
-        if getattr(review_state, "collaboration", None) is not None
-        else None,
+        collaboration=collaboration,
+        bridge_liveness=bridge_liveness,
         recovery_assessment=recovery_assessment,
         attention=effective_attention,
         commit_pipeline=review_state.commit_pipeline,
         push_enforcement=(
             bridge_liveness.get("push_enforcement")
-            if isinstance(bridge_liveness, Mapping)
+            if bridge_liveness
             else None
         ),
         runtime_state={
-            "publisher": report.get("publisher"),
-            "reviewer_supervisor": report.get("reviewer_supervisor"),
+            "publisher": publisher,
+            "reviewer_supervisor": reviewer_supervisor,
         },
+    )
+    report["runtime_counts"] = build_runtime_counts(
+        collaboration=collaboration,
+        bridge_liveness=bridge_liveness,
+        publisher_running=bool(
+            publisher.get("running")
+            if isinstance(publisher, Mapping)
+            else False
+        ),
+        reviewer_supervisor_running=bool(
+            reviewer_supervisor.get("running")
+            if isinstance(reviewer_supervisor, Mapping)
+            else False
+        ),
     )

@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 from dataclasses import asdict
+from collections.abc import Mapping
 from pathlib import Path
 
+from .collaboration_session import _local_reviewer_activity_is_fresh
 from .daemon_reducer import DaemonSnapshot, empty_daemon_state
 from .core import active_conductor_providers
 from .launch_truth import LaunchTruthState, classify_launch_truth, effective_reviewer_mode
@@ -18,6 +20,7 @@ from .reviewer_runtime_session_owner import conductor_visibility
 from .session_state_hints import provider_session_state_hint
 from ..governance.push_policy import load_push_policy
 from ..governance.push_state import PushEnforcementSnapshot, detect_push_enforcement_state
+from ..runtime.role_profile import TandemRole, default_provider_for_role
 
 
 def build_bridge_runtime(
@@ -102,9 +105,27 @@ def bridge_liveness_warnings(bridge_liveness: dict[str, object]) -> list[str]:
     overall_state = str(bridge_liveness.get("overall_state") or "unknown")
     reviewer_mode = str(bridge_liveness.get("reviewer_mode") or "")
     if not reviewer_mode_is_active(reviewer_mode):
-        warnings.append(
-            "Bridge reviewer mode is inactive; live heartbeat freshness is not enforced until the reviewer resumes active_dual_agent mode."
-        )
+        effective_mode = str(
+            bridge_liveness.get("effective_reviewer_mode") or reviewer_mode
+        ).strip()
+        if effective_mode == "single_agent":
+            if _single_agent_lane_has_live_typed_authority(bridge_liveness):
+                warnings.append(
+                    "Bridge reviewer mode is `single_agent`; dual-agent "
+                    "heartbeat freshness is intentionally suspended, but "
+                    "typed status/packet surfaces remain authoritative for "
+                    "this local-review or remote-dashboard lane."
+                )
+            else:
+                warnings.append(
+                    "Bridge reviewer mode is `single_agent`; dual-agent "
+                    "heartbeat freshness is intentionally suspended until the "
+                    "workflow explicitly returns to `active_dual_agent`."
+                )
+        else:
+            warnings.append(
+                "Bridge reviewer mode is inactive; live heartbeat freshness is not enforced until the reviewer resumes active_dual_agent mode."
+            )
     elif overall_state == OverallLivenessState.RUNTIME_MISSING:
         warnings.append(
             "Reviewer runtime is missing while `active_dual_agent` is still declared. The daemon is treated as missing runtime, not as authority to pause the loop."
@@ -139,13 +160,39 @@ def bridge_liveness_warnings(bridge_liveness: dict[str, object]) -> list[str]:
     return warnings
 
 
+def _single_agent_lane_has_live_typed_authority(
+    bridge_liveness: Mapping[str, object],
+) -> bool:
+    providers = bridge_liveness.get("active_conductor_providers")
+    if isinstance(providers, (list, tuple)):
+        normalized = [
+            str(provider).strip().lower()
+            for provider in providers
+            if str(provider).strip()
+        ]
+        if normalized:
+            return True
+    if bool(bridge_liveness.get("codex_conductor_active")):
+        return True
+    if bool(bridge_liveness.get("claude_conductor_active")):
+        return True
+    return bool(bridge_liveness.get("claude_status_present")) and bool(
+        bridge_liveness.get("claude_ack_current")
+    )
+
+
 def attach_conductor_session_state(
     *,
     bridge_liveness: dict[str, object],
     output_root: Path,
-    repo_root: Path | None = None,
 ) -> None:
-    active_providers = active_conductor_providers(session_output_root=output_root)
+    active_providers = list(active_conductor_providers(session_output_root=output_root))
+    reviewer_provider = _single_agent_local_reviewer_provider(
+        bridge_liveness=bridge_liveness,
+        output_root=output_root,
+    )
+    if reviewer_provider and reviewer_provider not in active_providers:
+        active_providers.append(reviewer_provider)
     bridge_liveness["active_conductor_providers"] = list(active_providers)
     bridge_liveness["codex_conductor_active"] = "codex" in active_providers
     bridge_liveness["claude_conductor_active"] = "claude" in active_providers
@@ -156,31 +203,29 @@ def attach_conductor_session_state(
     bridge_liveness["effective_reviewer_mode"] = effective_reviewer_mode(
         bridge_liveness
     )
-    # Emit participant_liveness_expired events for any conductor session that
-    # probed dead on this status read. Idempotency_key dedups against prior
-    # expiry events so repeated status polls do not pollute the log. Deferred
-    # import: session_liveness_events -> event_store -> state forms a cycle
-    # when imported at module load.
-    if repo_root is not None:
-        from .session_liveness_events import emit_participant_liveness_expired
 
-        try:
-            emitted = emit_participant_liveness_expired(
-                repo_root=repo_root,
-                session_output_root=output_root,
-            )
-        except (OSError, ValueError):
-            emitted = []
-        if emitted:
-            bridge_liveness["participant_liveness_expired_events"] = [
-                {
-                    "provider": event.get("provider"),
-                    "session_name": event.get("session_name"),
-                    "live_reason": event.get("live_reason"),
-                    "timestamp_utc": event.get("timestamp_utc"),
-                }
-                for event in emitted
-            ]
+
+def _single_agent_local_reviewer_provider(
+    *,
+    bridge_liveness: Mapping[str, object],
+    output_root: Path,
+) -> str | None:
+    reviewer_mode = str(
+        bridge_liveness.get("effective_reviewer_mode")
+        or bridge_liveness.get("reviewer_mode")
+        or ""
+    ).strip()
+    if reviewer_mode != "single_agent":
+        return None
+    reviewer_provider = default_provider_for_role(TandemRole.REVIEWER)
+    if not reviewer_provider:
+        return None
+    if not _local_reviewer_activity_is_fresh(
+        reviewer_provider=reviewer_provider,
+        session_output_root=output_root,
+    ):
+        return None
+    return reviewer_provider
 
 
 def hybrid_loop_errors(bridge_liveness: dict[str, object]) -> list[str]:

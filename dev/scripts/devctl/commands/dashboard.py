@@ -492,6 +492,16 @@ def _assemble(
     if control_plane:
         health["publisher"]["running"] = control_plane.publisher_running
         health["supervisor"]["running"] = control_plane.supervisor_running
+        health["codex_conductor"]["alive"] = control_plane.codex_conductor_alive
+        health["claude_conductor"]["alive"] = control_plane.claude_conductor_alive
+        health["active_daemons"] = sum(
+            1
+            for running in (
+                control_plane.publisher_running,
+                control_plane.supervisor_running,
+            )
+            if running
+        )
         health["attention_status"] = control_plane.attention_status
         health["attention_summary"] = control_plane.attention_summary
 

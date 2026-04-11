@@ -34,10 +34,11 @@ from .push_artifact import (
     serialize_push_report,
 )
 from .push_flow import PushFlowDependencies, execute_push_flow_with_dependencies
-from .push_report import render_push_report
+from .push_report import PushStageTruth, render_push_report
 from .push_snapshot import (
     PushReportContext,
     build_push_report_payload,
+    persist_push_progress_snapshot,
     persist_published_remote_snapshot,
 )
 from .governed_executor_actions import build_push_action
@@ -278,6 +279,41 @@ def _emit_push_progress_notice(message: str) -> None:
     print(f"[devctl push] {message}", file=sys.stderr, flush=True)
 
 
+def _build_push_report_context(
+    *,
+    repo_root: Path,
+    policy,
+    state: PushRunState,
+    args,
+    head_commit: str,
+    approved_target_identity: str = "",
+) -> PushReportContext:
+    """Build the reusable push-report context for one execution phase."""
+    typed_action = asdict(
+        build_push_action(
+            repo_pack_id=policy.repo_pack_id,
+            branch=state.branch,
+            remote=state.remote,
+            execute=bool(args.execute),
+            skip_preflight=bool(args.skip_preflight),
+            skip_post_push=bool(args.skip_post_push),
+            approved_target_identity=approved_target_identity,
+        )
+    )
+    return PushReportContext(
+        repo_root=repo_root,
+        policy=policy,
+        state=state,
+        args=args,
+        head_commit=head_commit,
+        typed_action=typed_action,
+        artifact_path=latest_push_report_relpath(repo_root=repo_root),
+        approved_target_identity=approved_target_identity,
+        push_authorization_id=state.push_authorization_id,
+        push_authorization_mode=state.push_authorization_mode,
+    )
+
+
 def run_push_action(
     args,
     *,
@@ -301,6 +337,23 @@ def run_push_action(
         repo_root=repo_root,
     )
     head_commit = current_head_commit_sha(repo_root=repo_root)
+    if bool(args.execute) and not state.errors:
+        persist_push_progress_snapshot(
+            _build_push_report_context(
+                repo_root=repo_root,
+                policy=resolved_policy,
+                state=state,
+                args=args,
+                head_commit=head_commit,
+            ),
+            reason="push_preflight_running",
+            operator_guidance=(
+                "Governed push started. Preflight and publication checks are running; "
+                "wait for the managed latest push report or command completion before "
+                "starting another push."
+            ),
+            stages=PushStageTruth(),
+        )
     _run_fetch_and_preflight(
         state,
         resolved_policy,
@@ -320,30 +373,29 @@ def run_push_action(
         str(getattr(args, "approved_target_identity", "") or "").strip()
         or state.approved_target_identity
     )
-    typed_action = asdict(
-        build_push_action(
-            repo_pack_id=resolved_policy.repo_pack_id,
-            branch=state.branch,
-            remote=state.remote,
-            execute=bool(args.execute),
-            skip_preflight=bool(args.skip_preflight),
-            skip_post_push=bool(args.skip_post_push),
-            approved_target_identity=approved_target_identity,
-        )
-    )
-    artifact_path = latest_push_report_relpath(repo_root=repo_root)
-    report_context = PushReportContext(
+    report_context = _build_push_report_context(
         repo_root=repo_root,
         policy=resolved_policy,
         state=state,
         args=args,
         head_commit=head_commit,
-        typed_action=typed_action,
-        artifact_path=artifact_path,
         approved_target_identity=approved_target_identity,
-        push_authorization_id=state.push_authorization_id,
-        push_authorization_mode=state.push_authorization_mode,
     )
+    artifact_path = report_context.artifact_path
+    if (
+        bool(args.execute)
+        and not state.errors
+        and not (state.branch_has_remote and state.ahead == 0)
+    ):
+        persist_push_progress_snapshot(
+            report_context,
+            reason="push_pending",
+            operator_guidance=(
+                "Governed push is running for the current HEAD. Wait for the managed "
+                "latest push report or command completion before retrying."
+            ),
+            stages=PushStageTruth(validation_ready=True),
+        )
     command_runner = run_cmd if run_cmd_fn is None else run_cmd_fn
     post_push_commands = (
         build_post_push_commands

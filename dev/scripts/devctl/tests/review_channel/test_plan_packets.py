@@ -344,6 +344,11 @@ class ReviewChannelPlanPacketTests(unittest.TestCase):
             self.assertEqual(posted_packet["status"], "pending")
             self.assertEqual(posted_packet["requested_action"], "run_check")
             self.assertEqual(
+                posted_packet["delivery_emitted_at_utc"],
+                posted_packet["posted_at"],
+            )
+            self.assertEqual(posted_packet["delivery_observed_at_utc"], "")
+            self.assertEqual(
                 posted_packet["body"],
                 "python3 dev/scripts/checks/check_review_channel_bridge.py",
             )
@@ -369,7 +374,75 @@ class ReviewChannelPlanPacketTests(unittest.TestCase):
                 if p["packet_id"] == event["packet_id"]
             )
             self.assertEqual(applied_packet["status"], "applied")
+            self.assertTrue(applied_packet["execution_started_at_utc"])
+            self.assertEqual(applied_packet["execution_started_by"], "claude")
             self.assertEqual(apply_event["kind"], "action_request")
+
+    def test_inbox_marks_action_request_packet_observed(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            review_channel_path = root / "dev/active/review_channel.md"
+            review_channel_path.parent.mkdir(parents=True, exist_ok=True)
+            review_channel_path.write_text(_review_channel_text(), encoding="utf-8")
+            artifact_paths = resolve_artifact_paths(repo_root=root)
+            post_packet(
+                repo_root=root,
+                review_channel_path=review_channel_path,
+                artifact_paths=artifact_paths,
+                request=PacketPostRequest(
+                    from_agent="codex",
+                    to_agent="claude",
+                    kind="action_request",
+                    summary="Run focused bridge check",
+                    body="python3 dev/scripts/checks/check_review_channel_bridge.py",
+                    evidence_refs=(),
+                    context_pack_refs=(),
+                    confidence=1.0,
+                    requested_action="run_check",
+                    policy_hint="safe_auto_apply",
+                    approval_required=False,
+                    target=PacketTargetFields.from_values(
+                        target_kind="runtime",
+                        target_ref="guard:check_review_channel_bridge",
+                        target_revision="tree-123",
+                    ),
+                ),
+            )
+            parser = build_parser()
+            args = parser.parse_args(
+                [
+                    "review-channel",
+                    "--action",
+                    "inbox",
+                    "--target",
+                    "claude",
+                    "--status",
+                    "pending",
+                    "--terminal",
+                    "none",
+                    "--format",
+                    "json",
+                ]
+            )
+
+            from dev.scripts.devctl.commands.review_channel.event_handler import (
+                _run_event_action,
+            )
+
+            report, exit_code = _run_event_action(
+                args=args,
+                repo_root=root,
+                paths={
+                    "review_channel_path": review_channel_path,
+                    "artifact_paths": artifact_paths,
+                },
+            )
+
+        self.assertEqual(exit_code, 0)
+        packet = report["packets"][0]
+        self.assertEqual(packet["packet_id"], "rev_pkt_0001")
+        self.assertEqual(packet["delivery_observed_by"], "claude")
+        self.assertTrue(packet["delivery_observed_at_utc"])
 
     def test_runtime_action_request_packets_require_typed_runtime_binding(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

@@ -124,6 +124,7 @@ class EnsureBridgeStatus:
     reviewer_supervisor: dict[str, object] | None
     service_identity: dict[str, object] | None
     attach_auth_policy: dict[str, object] | None
+    remote_control_implementer_active: bool = False
 
     @property
     def heartbeat_ok(self) -> bool:

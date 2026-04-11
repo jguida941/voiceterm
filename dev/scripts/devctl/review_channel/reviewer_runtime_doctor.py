@@ -26,6 +26,7 @@ def build_reviewer_doctor_surface(
     *,
     contract: ReviewerRuntimeContract,
     collaboration: Mapping[str, object] | None = None,
+    bridge_liveness: Mapping[str, object] | None = None,
     recovery_assessment: RecoveryAssessmentState | None = None,
     attention: Mapping[str, object] | None = None,
     commit_pipeline: RemoteCommitPipelineContract | None = None,
@@ -118,6 +119,7 @@ def build_reviewer_doctor_surface(
     )
     surface["runtime_counts"] = build_runtime_counts(
         collaboration=collaboration,
+        bridge_liveness=bridge_liveness,
         publisher_running=bool(publisher.get("running")),
         reviewer_supervisor_running=bool(reviewer_supervisor.get("running")),
     )

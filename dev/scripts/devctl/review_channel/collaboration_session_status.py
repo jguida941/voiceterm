@@ -51,7 +51,14 @@ def _build_restart_state(
 ) -> CollaborationRestartState:
     if any(participant.live for participant in participants):
         status = "live"
-        source = "session_metadata"
+        source = (
+            "remote_control_attachment"
+            if any(
+                participant.live and participant.capture_mode == "remote-control"
+                for participant in participants
+            )
+            else "session_metadata"
+        )
     elif participants or delegated_work:
         status = "resumable"
         source = "session_metadata"

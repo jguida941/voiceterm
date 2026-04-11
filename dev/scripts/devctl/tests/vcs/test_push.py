@@ -1060,7 +1060,10 @@ class PushCommandTests(unittest.TestCase):
 
         self.assertEqual(rc, 0)
         executed = [call.args[1] for call in run_cmd_mock.call_args_list]
-        self.assertIn(["git", "push", "--set-upstream", "origin", "feature/demo"], executed)
+        self.assertIn(
+            ["git", "-c", "devctl.governed-push=true", "push", "--set-upstream", "origin", "feature/demo"],
+            executed,
+        )
         _post_push_commands_mock.assert_called_once_with(
             load_policy_mock.return_value,
             quality_policy_path=None,
@@ -1086,15 +1089,15 @@ class PushCommandTests(unittest.TestCase):
             },
         )
 
-    def test_execute_push_flow_sets_internal_hook_bypass_env_for_git_push(self) -> None:
+    def test_execute_push_flow_sets_internal_git_config_for_governed_push(self) -> None:
         state = push.PushRunState(branch="feature/demo", remote="origin")
         policy = make_policy()
         args = make_args(execute=True, skip_post_push=True)
-        git_push_envs: list[dict[str, str] | None] = []
+        git_push_cmds: list[list[str]] = []
 
         def _runner(name, cmd, cwd=None, env=None):
             if name == "git-push":
-                git_push_envs.append(env)
+                git_push_cmds.append(list(cmd))
             return {
                 "name": name,
                 "cmd": cmd,
@@ -1115,11 +1118,10 @@ class PushCommandTests(unittest.TestCase):
         )
 
         self.assertTrue(outcome.ok)
-        self.assertEqual(len(git_push_envs), 1)
-        self.assertIsNotNone(git_push_envs[0])
+        self.assertEqual(len(git_push_cmds), 1)
         self.assertEqual(
-            git_push_envs[0]["DEVCTL_ALLOW_GOVERNED_GIT_PUSH"],
-            "1",
+            git_push_cmds[0][:4],
+            ["git", "-c", "devctl.governed-push=true", "push"],
         )
 
     @patch("dev.scripts.devctl.commands.vcs.push.write_output")
@@ -1447,6 +1449,7 @@ class PushCommandTests(unittest.TestCase):
         )
 
     @patch("dev.scripts.devctl.commands.vcs.push.persist_published_remote_snapshot")
+    @patch("dev.scripts.devctl.commands.vcs.push.persist_push_progress_snapshot")
     @patch("dev.scripts.devctl.commands.vcs.push.current_head_commit_sha", return_value="abc123")
     @patch("dev.scripts.devctl.commands.vcs.push.write_output")
     @patch(
@@ -1480,6 +1483,7 @@ class PushCommandTests(unittest.TestCase):
         _post_push_commands_mock,
         write_output_mock,
         _current_head_commit_mock,
+        persist_push_progress_snapshot_mock,
         persist_published_remote_snapshot_mock,
     ) -> None:
         collect_git_status_mock.return_value = {"branch": "feature/demo", "changes": []}
@@ -1527,6 +1531,21 @@ class PushCommandTests(unittest.TestCase):
         rc = push.run(make_args(execute=True))
 
         self.assertEqual(rc, 1)
+        self.assertEqual(
+            [
+                call.kwargs["reason"]
+                for call in persist_push_progress_snapshot_mock.call_args_list
+            ],
+            ["push_preflight_running", "push_pending"],
+        )
+        first_context = persist_push_progress_snapshot_mock.call_args_list[0].args[0]
+        self.assertEqual(first_context.head_commit, "abc123")
+        self.assertEqual(first_context.state.branch, "feature/demo")
+        second_context = persist_push_progress_snapshot_mock.call_args_list[1].args[0]
+        self.assertEqual(
+            second_context.approved_target_identity,
+            "tree-receipt-20260403T010000Z:tree-123",
+        )
         persist_published_remote_snapshot_mock.assert_called_once()
         persisted_payload = persist_published_remote_snapshot_mock.call_args.args[0]
         self.assertEqual(persisted_payload.head_commit, "abc123")
@@ -1974,6 +1993,77 @@ class PushReceiptTests(unittest.TestCase):
         self.assertEqual(state["recommended_action"], "no_push_needed")
         self.assertTrue(state["latest_push_report_published_remote"])
         self.assertTrue(state["latest_push_report_post_push_green"])
+        self.assertTrue(state["latest_push_report_matches_current_head"])
+
+    @patch(
+        "dev.scripts.devctl.governance.push_state.latest_push_report_relpath",
+        return_value="dev/reports/push/latest.json",
+    )
+    @patch(
+        "dev.scripts.devctl.governance.push_state.load_remote_commit_pipeline_contract",
+        return_value=SimpleNamespace(approved_target_identity="tree-receipt-1"),
+    )
+    @patch(
+        "dev.scripts.devctl.governance.push_state.load_latest_push_report",
+        return_value={
+            "branch": "feature/demo",
+            "remote": "origin",
+            "head_commit": "current-head",
+            "reason": "push_pending",
+            "approved_target_identity": "tree-receipt-1",
+            "push_stages": {
+                "validation_ready": True,
+                "published_remote": False,
+                "post_push_green": False,
+            },
+        },
+    )
+    @patch(
+        "dev.scripts.devctl.governance.push_state.lookup_push_receipt",
+        return_value={
+            "branch": "feature/demo",
+            "remote": "origin",
+            "head_commit": "current-head",
+            "reason": "validation_failed",
+            "approved_target_identity": "tree-receipt-1",
+            "push_stages": {
+                "validation_ready": False,
+                "published_remote": False,
+                "post_push_green": False,
+            },
+        },
+    )
+    @patch("dev.scripts.devctl.governance.push_state._git_stdout")
+    def test_detect_push_enforcement_prefers_current_head_inflight_latest_over_receipt(
+        self,
+        git_stdout_mock,
+        _lookup_receipt_mock,
+        _load_latest_mock,
+        _load_pipeline_mock,
+        _relpath_mock,
+    ) -> None:
+        def _fake_git_stdout(_repo_root, *cmd):
+            values = {
+                ("rev-parse", "--git-path", "hooks/pre-push"): "",
+                ("rev-parse", "--abbrev-ref", "HEAD"): "feature/demo",
+                ("rev-parse", "HEAD"): "current-head",
+                (
+                    "rev-parse",
+                    "--abbrev-ref",
+                    "--symbolic-full-name",
+                    "@{u}",
+                ): "origin/feature/demo",
+                ("rev-list", "--count", "origin/feature/demo..HEAD"): "1",
+                ("status", "--porcelain", "--untracked-files=all"): "",
+            }
+            return values.get(cmd, "")
+
+        git_stdout_mock.side_effect = _fake_git_stdout
+
+        state = detect_push_enforcement_state(make_policy())
+
+        self.assertEqual(state["latest_push_report_reason"], "push_pending")
+        self.assertEqual(state["latest_push_report_head_commit"], "current-head")
         self.assertTrue(state["latest_push_report_matches_current_head"])
 
 

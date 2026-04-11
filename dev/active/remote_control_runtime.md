@@ -456,6 +456,77 @@ The MP scopes remain valid but are now cross-cut by enforcement-first priority.
 
 ## Progress Log
 
+- 2026-04-11: Closed the first remote-participant visibility seam for the
+  live dashboard/remote-control lane. Active `attach-remote-control`
+  artifacts now feed the typed collaboration roster/role assignments instead
+  of stopping at `ReviewerRuntimeContract`, so a live external Claude session
+  can project as a live implementer in `review_state`, runtime counts,
+  registry/actor views, and coordination surfaces even when the old
+  prepared-conductor metadata is stale. This is still provider-scoped
+  attachment truth, not the final multi-worker/session registry for
+  same-provider fanout.
+- 2026-04-11: Closed the bounded liveness-emission cleanup that the typed
+  authority review had flagged. `attach_conductor_session_state()` is now
+  projection-only again, while `review_channel.state.refresh_status_snapshot()`
+  invokes the explicit participant-liveness producer and projects any emitted
+  expiry rows back into `bridge_liveness`. This keeps event emission owned by
+  the refresh boundary instead of a helper-side effect, preserves reducer
+  idempotency, and gives the remote-control read path one named producer seam
+  for future typed heartbeat cutover work.
+- 2026-04-11: Closed the next read/write parity seam for the remote-control
+  dashboard lane. The repo-owned reviewer checkpoint/status path no longer
+  crashes on the remote-role roster helper typo, and top-level
+  `review-channel --action status` now derives runtime counts from the same
+  typed collaboration participant state as `doctor`/`startup-context`, so the
+  attached Claude remote-control session projects consistently as
+  `live_implementer_total=1` / `active_conductor_count=1` across the bridge,
+  status JSON, and startup authority surfaces. Static planned-lane capacity
+  counts remain a separate follow-up; this closure only makes live runtime
+  truth converge on typed participant evidence.
+- 2026-04-11: Tightened the remote dashboard observer contract after the live
+  beta-test premature-kill miss. The repo-owned `agent-mind` rollout surface
+  now summarizes `apply_patch` target files so remote-control/dashboard
+  observers can see edit progress through typed state instead of raw JSONL
+  grep heuristics, and the tracked remote Claude prompt now requires
+  cursor-based `agent-mind` polling plus target-file diff/mtime verification
+  before declaring a no-edit stall or killing/relaunching Codex. The same
+  prompt also promotes "typed finding first, prose second" so `review-channel`
+  packets remain the authority path while `bridge.md` / `LIVE_RUN.md` stay
+  compatibility projections.
+- 2026-04-11: Closed the next local-reviewer visibility seam for the same
+  remote dashboard lane. In `single_agent` mode the collaboration session now
+  treats recent typed `review-channel` activity from `codex`
+  (`packet_posted/acked/applied/dismissed`) as repo-owned local reviewer
+  presence until that evidence becomes truly overdue, so `status`, `doctor`,
+  and startup-facing runtime counts can surface the active local Codex
+  reviewer even when there is no `codex-conductor.json` artifact. This keeps
+  the visibility fix inside typed repo artifacts instead of widening into
+  home-directory rollout watchers or process-table heuristics.
+- 2026-04-11: Closed the next dashboard parity seam in the same remote-control
+  beta loop. `dashboard --view health` and the shared `ControlPlaneReadModel`
+  no longer trust stale publisher/supervisor heartbeats first; they prefer the
+  typed reviewer-runtime/bridge liveness fields and only fall back to raw
+  artifacts when typed authority is absent. The same reducer now also treats
+  fresh single-agent local reviewer packet activity as positive repo-owned
+  reviewer evidence before trusting stale `codex-conductor.json` metadata, so
+  the dashboard, status, and doctor surfaces converge on one daemon/conductor
+  story during remote dashboard re-tests.
+- 2026-04-11: Closed the next remote-dashboard beta miss after Claude caught a
+  long-running Codex turn falling out of single-agent liveness. The shared
+  local-reviewer activity authority now treats recent local rollout JSONL
+  writes as live evidence when packet activity goes quiet, so `status`,
+  `doctor`, collaboration/runtime counts, and dashboard health stay aligned
+  during extended edit/test passes instead of timing out on packet recency
+  alone.
+- 2026-04-11: Closed the queue-plus-hope seam Claude found in the same
+  remote-dashboard beta loop. Event-backed `action_request` packets now keep a
+  repo-owned typed delivery receipt: post seeds
+  `delivery_emitted_at_utc`, targeted `review-channel --action inbox|watch`
+  polls stamp `delivery_observed_at_utc` / `delivery_observed_by`, and
+  `ack|apply` stamp `execution_started_at_utc` / `execution_started_by`.
+  Those fields now flow back into typed packet rows and dashboard pending
+  packet JSON, so remote modes can prove they actually saw or started a
+  request before the operator treats a pending queue row as ignored.
 - 2026-04-10: Closed Q57 under the same `MP-384` / `MP-385` remote-control
   monitoring slice. The repo now has one canonical `devctl monitor`
   single-pass surface over typed startup/control-plane authority, plus the

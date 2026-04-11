@@ -4895,6 +4895,14 @@ alone. Use these proof gates:
 Use this section as the single "left off here" surface for fresh AI sessions
 working on `MP-377`.
 
+- 2026-04-11 governed-push visibility slice:
+  resume with the phase-aware latest-push artifact closure in place.
+  `devctl push --execute` now refreshes `dev/reports/push/latest.json` from
+  `push_preflight_running` through `push_pending` and on into the existing
+  `published_remote` state, and startup already suppresses duplicate push
+  advice when that current-head artifact is live. The next work here is still
+  portable authority/read-model convergence, not another shell-local polling
+  workaround.
 - 2026-04-11 bootstrap/client-vs-core surface slice:
   resume with the portable starter/instruction wording pass. Keep the owned
   edit set to generated instruction surfaces, the bootstrap guide writer,
@@ -6349,6 +6357,14 @@ Execution order for this section:
 
 ## Progress Log
 
+- 2026-04-11: Closed the governed-push latest-artifact visibility gap inside
+  the shared platform owner chain. The canonical `dev/reports/push/latest.json`
+  surface now advances through `push_preflight_running`, `push_pending`, and
+  the existing post-`git push` publication snapshot instead of staying on the
+  last completed report until the next terminal state. Startup also now
+  treats a current-head in-flight push artifact as "wait for the running
+  governed push" so repo-owned surfaces stop guessing from stale prior
+  receipts.
 - 2026-04-11: Started the bootstrap/client-vs-core surface slice under
   `MP-377`. The owned change set is intentionally narrow: generated
   instruction surfaces and starter setup docs should now say that the current

@@ -418,6 +418,51 @@ class ReviewStateTests(unittest.TestCase):
             "bundle.tooling pass; review-channel doctor still reports runtime_missing",
         )
 
+    def test_review_state_parses_action_request_delivery_fields(self) -> None:
+        state = review_state_from_payload(
+            {
+                "schema_version": 1,
+                "command": "review-channel",
+                "action": "status",
+                "timestamp": "2026-04-11T00:00:00Z",
+                "ok": True,
+                "review_state": {
+                    "review": {"session_id": "action-delivery"},
+                    "queue": {"pending_total": 1},
+                    "bridge": {"reviewer_mode": "single_agent"},
+                    "packets": [
+                        {
+                            "packet_id": "pkt-action-1",
+                            "kind": "action_request",
+                            "from_agent": "claude",
+                            "to_agent": "codex",
+                            "summary": "Run the focused proof",
+                            "body": "python3 dev/scripts/checks/check_review_channel_bridge.py",
+                            "status": "acked",
+                            "policy_hint": "safe_auto_apply",
+                            "requested_action": "run_check",
+                            "approval_required": False,
+                            "posted_at": "2026-04-11T00:01:00Z",
+                            "delivery_emitted_at_utc": "2026-04-11T00:01:00Z",
+                            "delivery_observed_at_utc": "2026-04-11T00:01:05Z",
+                            "delivery_observed_by": "codex",
+                            "execution_started_at_utc": "2026-04-11T00:01:08Z",
+                            "execution_started_by": "codex",
+                        }
+                    ],
+                },
+            }
+        )
+
+        self.assertIsNotNone(state)
+        assert state is not None
+        packet = state.packets[0]
+        self.assertEqual(packet.delivery_emitted_at_utc, "2026-04-11T00:01:00Z")
+        self.assertEqual(packet.delivery_observed_at_utc, "2026-04-11T00:01:05Z")
+        self.assertEqual(packet.delivery_observed_by, "codex")
+        self.assertEqual(packet.execution_started_at_utc, "2026-04-11T00:01:08Z")
+        self.assertEqual(packet.execution_started_by, "codex")
+
     def test_review_state_from_legacy_projection_shape_stays_compatible(self) -> None:
         state = review_state_from_payload(
             {
@@ -494,6 +539,18 @@ class ReviewStateTests(unittest.TestCase):
                             "commit_message_draft": "Add remote commit pipeline state projection",
                             "push_requested": True,
                             "guard_profile": "ci",
+                            "validation_plan": {
+                                "plan_id": "validation-plan-123",
+                                "bundle_id": "ci",
+                                "staged_tree_hash": "tree-123",
+                                "selected_paths": [
+                                    "dev/scripts/devctl/runtime/review_state_models.py",
+                                    "dev/scripts/devctl/review_channel/parser.py",
+                                ],
+                                "proof_level": "publish_ready",
+                                "checkpoint_required": True,
+                                "push_requested": True,
+                            },
                             "work_intake_ref": "intake://remote-commit-slice",
                         },
                         "guard_action_id": "quality.guard_bundle",
@@ -506,6 +563,17 @@ class ReviewStateTests(unittest.TestCase):
                             "artifact_paths": [
                                 "dev/reports/review_channel/latest/guard.json"
                             ],
+                        },
+                        "validation_receipt": {
+                            "receipt_id": "validation-receipt-123",
+                            "plan_id": "validation-plan-123",
+                            "bundle_id": "ci",
+                            "staged_tree_hash": "tree-123",
+                            "action_id": "quality.guard_bundle",
+                            "status": "pass",
+                            "checkpoint_sufficient": True,
+                            "push_sufficient": True,
+                            "emitted_at_utc": "2026-04-03T00:30:00Z",
                         },
                         "reviewer_runtime_generation": "runtime-gen-7",
                         "approval_packet_id": "packet-approve",
@@ -555,6 +623,14 @@ class ReviewStateTests(unittest.TestCase):
         self.assertEqual(
             state.commit_pipeline.guard_result.action_id,
             "quality.guard_bundle",
+        )
+        self.assertEqual(
+            state.commit_pipeline.intent.validation_plan.plan_id,
+            "validation-plan-123",
+        )
+        self.assertEqual(
+            state.commit_pipeline.validation_receipt.receipt_id,
+            "validation-receipt-123",
         )
         self.assertEqual(
             state.commit_pipeline.approval_expires_at_utc,

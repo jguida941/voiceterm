@@ -49,10 +49,16 @@ def build_ensure_bridge_status(report: dict[str, object]) -> EnsureBridgeStatus:
     attention = report.get("attention", {})
     reviewer_worker = report.get("reviewer_worker")
     reviewer_supervisor = report.get("reviewer_supervisor")
+    reviewer_runtime = report.get("reviewer_runtime")
 
     review_needed = report.get("review_needed")
     if review_needed is None and isinstance(reviewer_worker, dict):
         review_needed = reviewer_worker.get("review_needed")
+    remote_control_attachment = (
+        reviewer_runtime.get("remote_control_attachment")
+        if isinstance(reviewer_runtime, Mapping)
+        else None
+    )
 
     return EnsureBridgeStatus(
         reviewer_mode=str(bridge_liveness.get("reviewer_mode", "unknown")),
@@ -80,6 +86,9 @@ def build_ensure_bridge_status(report: dict[str, object]) -> EnsureBridgeStatus:
             report.get("attach_auth_policy")
             if isinstance(report.get("attach_auth_policy"), dict)
             else None
+        ),
+        remote_control_implementer_active=_remote_control_implementer_active(
+            remote_control_attachment
         ),
     )
 
@@ -152,14 +161,16 @@ def assess_publisher_lifecycle(
     repo_root: Path,
     paths: RuntimePaths | Mapping[str, object],
     reviewer_mode_active: bool,
+    remote_control_implementer_active: bool,
     deps: EnsureActionDeps,
 ) -> PublisherLifecycleAssessment:
     """Assess publisher lifecycle for ensure."""
     runtime_paths = _coerce_runtime_paths(paths)
     publisher_state = deps.read_publisher_state_safe_fn(runtime_paths)
     publisher_running = bool(publisher_state.get("running"))
+    publisher_required = reviewer_mode_active or remote_control_implementer_active
 
-    if not reviewer_mode_active:
+    if not publisher_required:
         return PublisherLifecycleAssessment(
             publisher_state=publisher_state,
             publisher_running=publisher_running,
@@ -261,6 +272,9 @@ def run_ensure_action(
         repo_root=repo_root,
         paths=runtime_paths,
         reviewer_mode_active=deps.reviewer_mode_is_active_fn(bridge_state.reviewer_mode),
+        remote_control_implementer_active=(
+            bridge_state.remote_control_implementer_active
+        ),
         deps=deps,
     )
     attention_status = pub.attention_override or bridge_state.attention_status
@@ -289,3 +303,11 @@ def run_ensure_action(
         recommended_command=recommended_command,
     )
     return report_dict, 0 if ensure_ok else 1
+
+
+def _remote_control_implementer_active(value: object) -> bool:
+    if not isinstance(value, Mapping):
+        return False
+    status = str(value.get("status") or "").strip().lower()
+    role = str(value.get("role") or "").strip().lower()
+    return role == "implementer" and status in {"attached", "unknown", "stale"}

@@ -12,6 +12,7 @@ from ...runtime import TypedAction
 from ...runtime.remote_commit_pipeline_models import CommitIntentState, RemoteCommitPipelineContract
 from ...time_utils import utc_timestamp
 from .governed_executor_field_access import string_value
+from .governed_executor_validation import build_validation_plan
 
 STAGE_ACTION_ID = "vcs.stage"
 COMMIT_ACTION_ID = "vcs.commit"
@@ -59,6 +60,8 @@ class StageActionInputs:
     commit_message_draft: str = ""
     push_requested: bool = False
     guard_profile: str = ""
+    risk_addons: tuple[str, ...] = ()
+    proof_level: str = ""
     work_intake_ref: str = ""
     remote: str = "origin"
     reuse_staged_index: bool = False
@@ -106,6 +109,8 @@ def build_stage_action(
             "commit_message_draft",
             "push_requested",
             "guard_profile",
+            "risk_addons",
+            "proof_level",
             "work_intake_ref",
             "remote",
             "reuse_staged_index",
@@ -120,6 +125,10 @@ def build_stage_action(
             commit_message_draft=str(kwargs.get("commit_message_draft", "")),
             push_requested=bool(kwargs.get("push_requested", False)),
             guard_profile=str(kwargs.get("guard_profile", "")),
+            risk_addons=tuple(
+                str(item) for item in kwargs.get("risk_addons", ()) or ()
+            ),
+            proof_level=str(kwargs.get("proof_level", "")),
             work_intake_ref=str(kwargs.get("work_intake_ref", "")),
             remote=str(kwargs.get("remote", "origin")),
             reuse_staged_index=bool(kwargs.get("reuse_staged_index", False)),
@@ -133,6 +142,8 @@ def build_stage_action(
     parameters["commit_message_draft"] = resolved.commit_message_draft
     parameters["push_requested"] = bool(resolved.push_requested)
     parameters["guard_profile"] = resolved.guard_profile
+    parameters["risk_addons"] = list(resolved.risk_addons)
+    parameters["proof_level"] = resolved.proof_level
     parameters["work_intake_ref"] = resolved.work_intake_ref
     parameters["remote"] = resolved.remote
     parameters["reuse_staged_index"] = bool(resolved.reuse_staged_index)
@@ -260,7 +271,6 @@ def build_recover_action(
         dry_run=False,
     )
 
-
 def _build_report(*, status: str, reason: str = "", **extra: object) -> dict[str, object]:
     """Build a commit report dict."""
     report: dict[str, object] = {
@@ -294,7 +304,6 @@ def _emit_report(args, report: dict[str, Any]) -> None:
         writer=write_output,
     )
 
-
 def build_staged_pipeline(
     *,
     action: TypedAction,
@@ -307,6 +316,13 @@ def build_staged_pipeline(
     pipeline_id = f"pipeline-{secrets.token_hex(6)}"
     generation_id = f"gen-{secrets.token_hex(6)}"
     remote = string_value(action.parameters.get("remote")) or "origin"
+    push_requested = bool(action.parameters.get("push_requested"))
+    guard_profile = string_value(action.parameters.get("guard_profile"))
+    validation_plan = build_validation_plan(
+        action=action,
+        staged=staged,
+        tree_hash=tree_hash,
+    )
     intent = CommitIntentState(
         staged_tree_hash=tree_hash,
         staged_path_count=len(staged),
@@ -315,8 +331,9 @@ def build_staged_pipeline(
         commit_message_draft=string_value(
             action.parameters.get("commit_message_draft")
         ),
-        push_requested=bool(action.parameters.get("push_requested")),
-        guard_profile=string_value(action.parameters.get("guard_profile")),
+        push_requested=push_requested,
+        guard_profile=guard_profile,
+        validation_plan=validation_plan,
         work_intake_ref=string_value(action.parameters.get("work_intake_ref")),
     )
     return RemoteCommitPipelineContract(

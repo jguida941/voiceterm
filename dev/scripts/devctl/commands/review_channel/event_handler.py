@@ -15,6 +15,9 @@ from ...common import emit_output as compat_emit_output
 from ...review_channel.context_refs import (
     resolve_context_pack_refs,
 )
+from ...review_channel.action_request_delivery import (
+    mark_action_request_packets_observed,
+)
 from ...review_channel.events import (
     artifact_paths_to_dict,
     filter_history_events,
@@ -217,6 +220,22 @@ def _run_event_action(
             status=getattr(args, "status", None),
             limit=args.limit,
         )
+        if _mark_targeted_action_request_observation(
+            args=args,
+            artifact_paths=artifact_paths,
+            packets=packets,
+        ):
+            bundle = refresh_event_bundle(
+                repo_root=repo_root,
+                review_channel_path=review_channel_path,
+                artifact_paths=artifact_paths,
+            )
+            packets = filter_inbox_packets(
+                bundle.review_state,
+                target=getattr(args, "target", None),
+                status=getattr(args, "status", None),
+                limit=args.limit,
+            )
         return _build_event_report(args=args, bundle=bundle, packets=packets)
     if args.action == "watch":
         packets = filter_inbox_packets(
@@ -225,6 +244,22 @@ def _run_event_action(
             status=getattr(args, "status", None) or "pending",
             limit=args.limit,
         )
+        if _mark_targeted_action_request_observation(
+            args=args,
+            artifact_paths=artifact_paths,
+            packets=packets,
+        ):
+            bundle = refresh_event_bundle(
+                repo_root=repo_root,
+                review_channel_path=review_channel_path,
+                artifact_paths=artifact_paths,
+            )
+            packets = filter_inbox_packets(
+                bundle.review_state,
+                target=getattr(args, "target", None),
+                status=getattr(args, "status", None) or "pending",
+                limit=args.limit,
+            )
         if getattr(args, "follow", False):
             return _run_watch_follow(
                 args=args,
@@ -313,6 +348,22 @@ def _run_watch_follow(
                 bundle.review_state, target=target,
                 status=status_filter, limit=args.limit,
             )
+            if _mark_targeted_action_request_observation(
+                args=args,
+                artifact_paths=artifact_paths,
+                packets=packets,
+            ):
+                bundle = refresh_event_bundle(
+                    repo_root=repo_root,
+                    review_channel_path=review_channel_path,
+                    artifact_paths=artifact_paths,
+                )
+                packets = filter_inbox_packets(
+                    bundle.review_state,
+                    target=target,
+                    status=status_filter,
+                    limit=args.limit,
+                )
             cur_ids = {p.get("packet_id") for p in packets if isinstance(p, dict)}
             if cur_ids != prev_ids:
                 report, _ = _build_event_report(
@@ -338,3 +389,19 @@ def _run_watch_follow(
         snapshots_emitted=emitted_count,
         ok=True,
     ), 0
+
+
+def _mark_targeted_action_request_observation(
+    *,
+    args,
+    artifact_paths,
+    packets: list[dict[str, object]],
+) -> bool:
+    target = str(getattr(args, "target", None) or "").strip()
+    if not target:
+        return False
+    return mark_action_request_packets_observed(
+        artifact_root=Path(artifact_paths.artifact_root),
+        packets=packets,
+        observer=target,
+    )

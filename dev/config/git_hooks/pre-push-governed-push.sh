@@ -11,7 +11,7 @@
 
 set -eu
 
-if [ "${DEVCTL_ALLOW_GOVERNED_GIT_PUSH:-}" = "1" ]; then
+if [ "$(git config --bool --get devctl.governed-push 2>/dev/null || true)" = "true" ]; then
     exit 0
 fi
 

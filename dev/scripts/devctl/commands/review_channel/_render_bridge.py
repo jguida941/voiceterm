@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from dataclasses import asdict
 from pathlib import Path
 
 from ...review_channel.bridge_file import rewrite_bridge_markdown
@@ -93,6 +94,12 @@ def run_render_bridge_action(
         bridge_liveness=snapshot.bridge_liveness,
         attention=snapshot.attention,
         reviewer_worker=snapshot.reviewer_worker,
+        collaboration=(
+            asdict(snapshot.review_state.collaboration)
+            if snapshot.review_state is not None
+            and snapshot.review_state.collaboration is not None
+            else None
+        ),
         codex_lanes=filter_provider_lanes(snapshot.lanes, provider="codex"),
         claude_lanes=filter_provider_lanes(snapshot.lanes, provider="claude"),
         terminal_profile_applied=None,

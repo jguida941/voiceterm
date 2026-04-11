@@ -91,6 +91,31 @@ packs and typed runtime contracts remain backend authority for arbitrary
 repos. Maintainer docs were updated in the same pass so `docs-check
 --strict-tooling` keeps enforcing that closure.
 
+### 2026-04-11 - Governed push now writes phase-aware latest receipts instead of leaving startup to guess
+
+Fact: the governed push pipeline already had typed `push_pending` state in the
+remote commit pipeline, but the canonical `dev/reports/push/latest.json`
+artifact still stayed on the last completed morning report until the new push
+either reached `published_remote` or finished entirely. During a live
+`devctl push --execute`, startup and manual polling therefore had to infer
+whether the current push was actually running or whether the old artifact was
+simply stale.
+
+This matters because the latest-push artifact is the repo-owned cross-surface
+read model for startup, recovery, and lightweight operator polling. If that
+file lags behind the active push phases, the system invites duplicate push
+attempts and keeps forcing people back to ad hoc terminal polling even though
+the governed pipeline already knows better.
+
+The closure makes the artifact phase-aware. `devctl push --execute` now writes
+a `push_preflight_running` snapshot as soon as the governed push starts,
+advances the same artifact to `push_pending` once preflight and publication
+authorization are ready, and still writes the existing `published_remote`
+snapshot immediately after `git push` succeeds. Startup now prefers a
+current-head in-flight latest report over stale final receipts and treats
+that state as "wait for the running governed push" instead of telling the
+operator to launch another push from stale artifact state.
+
 ### 2026-04-10 - Lane edit gates and destructive recovery now require typed startup authority
 
 Fact: the Q40/Q42 live-run findings showed two separate authority leaks. A

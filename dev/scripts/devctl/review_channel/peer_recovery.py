@@ -66,7 +66,8 @@ _STALE_PEER_RECOVERY_ROWS: tuple[tuple[str, dict[str, str | None | TandemRole]],
         "guard_behavior": "none",
         "owner": "system",
         "summary": (
-            "Review loop is in an inactive mode; live heartbeat enforcement is suspended."
+            "Reviewer mode is not `active_dual_agent`; dual-agent heartbeat "
+            "enforcement is suspended."
         ),
         "recovery": (
             "Resume with `reviewer_mode=active_dual_agent` before expecting live reviewer freshness."

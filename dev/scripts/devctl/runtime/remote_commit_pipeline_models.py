@@ -6,6 +6,12 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 
 from .action_contracts import ActionResult, action_result_from_mapping
+from .validation_contracts import (
+    ValidationPlan,
+    ValidationReceipt,
+    validation_plan_from_mapping,
+    validation_receipt_from_mapping,
+)
 from .value_coercion import (
     coerce_bool,
     coerce_int,
@@ -32,6 +38,7 @@ class CommitIntentState:
     commit_message_draft: str = ""
     push_requested: bool = False
     guard_profile: str = ""
+    validation_plan: ValidationPlan | None = None
     work_intake_ref: str = ""
 
     def to_dict(self) -> dict[str, object]:
@@ -43,6 +50,9 @@ class CommitIntentState:
         payload["commit_message_draft"] = self.commit_message_draft
         payload["push_requested"] = self.push_requested
         payload["guard_profile"] = self.guard_profile
+        payload["validation_plan"] = (
+            self.validation_plan.to_dict() if self.validation_plan is not None else None
+        )
         payload["work_intake_ref"] = self.work_intake_ref
         return payload
 
@@ -107,6 +117,7 @@ class RemoteCommitPipelineContract:
     intent: CommitIntentState = field(default_factory=CommitIntentState)
     guard_action_id: str = ""
     guard_result: ActionResult | None = None
+    validation_receipt: ValidationReceipt | None = None
     reviewer_runtime_generation: str = ""
     approval_packet_id: str = ""
     decision_packet_id: str = ""
@@ -138,6 +149,11 @@ class RemoteCommitPipelineContract:
         payload["guard_action_id"] = self.guard_action_id
         payload["guard_result"] = (
             self.guard_result.to_dict() if self.guard_result is not None else None
+        )
+        payload["validation_receipt"] = (
+            self.validation_receipt.to_dict()
+            if self.validation_receipt is not None
+            else None
         )
         payload["reviewer_runtime_generation"] = self.reviewer_runtime_generation
         payload["approval_packet_id"] = self.approval_packet_id
@@ -214,6 +230,9 @@ def commit_intent_state_from_mapping(payload: Mapping[str, object]) -> CommitInt
         commit_message_draft=coerce_string(mapping.get("commit_message_draft")),
         push_requested=coerce_bool(mapping.get("push_requested")),
         guard_profile=coerce_string(mapping.get("guard_profile")),
+        validation_plan=validation_plan_from_mapping(
+            coerce_mapping(mapping.get("validation_plan"))
+        ),
         work_intake_ref=coerce_string(mapping.get("work_intake_ref")),
     )
 
@@ -239,6 +258,9 @@ def remote_commit_pipeline_contract_from_mapping(
         intent=commit_intent_state_from_mapping(coerce_mapping(mapping.get("intent"))),
         guard_action_id=coerce_string(mapping.get("guard_action_id")),
         guard_result=_action_result_from_object(mapping.get("guard_result")),
+        validation_receipt=validation_receipt_from_mapping(
+            coerce_mapping(mapping.get("validation_receipt"))
+        ),
         reviewer_runtime_generation=coerce_string(
             mapping.get("reviewer_runtime_generation")
         ),

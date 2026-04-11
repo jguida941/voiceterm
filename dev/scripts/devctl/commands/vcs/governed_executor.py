@@ -37,6 +37,7 @@ from .governed_executor_git import repo_relpath
 from .governed_executor_packets import build_commit_approval_request
 from .governed_executor_phases import execute_commit, execute_stage
 from .governed_executor_push_result import project_push_report
+from .governed_executor_validation import build_validation_receipt
 from .governed_executor_sync import (
     load_event_packets,
     persist_pipeline,
@@ -117,6 +118,11 @@ class GovernedVcsExecutor:
             state=next_state,
             guard_action_id=guard_action_id,
             guard_result=guard_result,
+            validation_receipt=build_validation_receipt(
+                pipeline=pipeline,
+                guard_result=guard_result,
+                guard_action_id=guard_action_id,
+            ),
             approval_state=approval_state,
             blocked_reason=blocked_reason,
         )
@@ -254,6 +260,16 @@ class GovernedVcsExecutor:
                 commit_message_draft=pipeline.intent.commit_message_draft,
                 push_requested=pipeline.intent.push_requested,
                 guard_profile=pipeline.intent.guard_profile,
+                risk_addons=(
+                    ()
+                    if pipeline.intent.validation_plan is None
+                    else pipeline.intent.validation_plan.risk_addons
+                ),
+                proof_level=(
+                    ""
+                    if pipeline.intent.validation_plan is None
+                    else pipeline.intent.validation_plan.proof_level
+                ),
                 work_intake_ref=pipeline.intent.work_intake_ref,
                 remote=pipeline.remote or "origin",
                 requested_by=action.requested_by,

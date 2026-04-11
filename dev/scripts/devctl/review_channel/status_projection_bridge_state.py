@@ -33,17 +33,18 @@ def build_typed_bridge_liveness(
             str(snapshot.metadata.get("head_at_push_time") or "").strip(),
         )
     reviewer_mode = str(typed.get("reviewer_mode") or "active_dual_agent")
+    live_provider_ids = _live_participant_providers(collaboration)
+    if collaboration is not None:
+        typed["active_conductor_providers"] = list(live_provider_ids)
+        typed["codex_conductor_active"] = "codex" in live_provider_ids
+        typed["claude_conductor_active"] = "claude" in live_provider_ids
     typed["current_instruction_revision"] = current_session.current_instruction_revision
     typed["claude_ack_revision"] = current_session.implementer_ack_revision
     typed["claude_ack_current"] = current_session.implementer_ack_state == "current"
     typed["implementer_ack_state"] = current_session.implementer_ack_state
     typed["implementer_state_hash"] = current_session.implementer_state_hash
-    typed["launch_truth"] = str(
-        typed.get("launch_truth") or classify_launch_truth(typed).value
-    )
-    typed["effective_reviewer_mode"] = str(
-        typed.get("effective_reviewer_mode") or effective_reviewer_mode(typed)
-    )
+    typed["launch_truth"] = classify_launch_truth(typed).value
+    typed["effective_reviewer_mode"] = effective_reviewer_mode(typed)
     effective_mode = str(typed.get("effective_reviewer_mode") or reviewer_mode)
     reviewer_provider = collaboration_provider(
         collaboration,
@@ -73,6 +74,21 @@ def build_typed_bridge_liveness(
         implementer_ack_state=current_session.implementer_ack_state,
     )
     return typed
+
+
+def _live_participant_providers(
+    collaboration: CollaborationSessionState | None,
+) -> tuple[str, ...]:
+    if collaboration is None:
+        return ()
+    providers: list[str] = []
+    for participant in collaboration.participants:
+        if not participant.live:
+            continue
+        provider = str(participant.provider or participant.agent_id).strip().lower()
+        if provider and provider not in providers:
+            providers.append(provider)
+    return tuple(providers)
 
 
 def build_review_bridge_state(

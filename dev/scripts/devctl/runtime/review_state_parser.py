@@ -287,6 +287,17 @@ def _packet_states_from_value(value: object) -> tuple[ReviewPacketState, ...]:
                 acked_by=_string(mapping.get("acked_by")),
                 acked_at_utc=_string(mapping.get("acked_at_utc")),
                 applied_at_utc=_string(mapping.get("applied_at_utc")),
+                delivery_emitted_at_utc=_string(
+                    mapping.get("delivery_emitted_at_utc")
+                ),
+                delivery_observed_at_utc=_string(
+                    mapping.get("delivery_observed_at_utc")
+                ),
+                delivery_observed_by=_string(mapping.get("delivery_observed_by")),
+                execution_started_at_utc=_string(
+                    mapping.get("execution_started_at_utc")
+                ),
+                execution_started_by=_string(mapping.get("execution_started_by")),
                 expires_at_utc=_string(mapping.get("expires_at_utc")),
             )
         )

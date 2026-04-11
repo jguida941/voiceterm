@@ -16,6 +16,7 @@ from dev.scripts.devctl.cli import build_parser
 from dev.scripts.devctl.commands.governance import startup_context as startup_context_command
 from dev.scripts.devctl.commands.vcs.commit import (
     _build_git_commit_cmd,
+    _pipeline_has_validation_plan,
     _resolve_interaction_mode,
     _run_guard_bundle,
     run_commit,
@@ -45,6 +46,7 @@ from dev.scripts.devctl.platform.coordination_snapshot_models import (
     CoordinationSnapshot,
 )
 from dev.scripts.devctl.runtime.startup_context import ReviewerGateState, StartupContext
+from dev.scripts.devctl.runtime.validation_contracts import ValidationPlan
 from dev.scripts.devctl.runtime.work_intake_models import (
     WorkIntakeCoordinationState,
     WorkIntakePacket,
@@ -402,9 +404,18 @@ class TestBuildGitCommitCmd(unittest.TestCase):
 
 
 class TestGuardBundleRunner(unittest.TestCase):
-    def test_guard_bundle_calls_check_quick(self):
+    def test_guard_bundle_calls_check_quick_with_validation_plan_bypass(self):
         mock_runner = MagicMock(return_value=_mock_subprocess_result(0))
-        rc = _run_guard_bundle(runner=mock_runner)
+        pipeline = SimpleNamespace(
+            intent=SimpleNamespace(
+                validation_plan=ValidationPlan(
+                    plan_id="validation-plan-1",
+                    bundle_id="quick",
+                    staged_tree_hash="tree-123",
+                )
+            )
+        )
+        rc = _run_guard_bundle(runner=mock_runner, pipeline=pipeline)
 
         self.assertEqual(rc, 0)
         call_args = mock_runner.call_args
@@ -415,6 +426,31 @@ class TestGuardBundleRunner(unittest.TestCase):
         self.assertIn("quick", cmd_str)
         env = call_args[1]["env"]
         self.assertEqual(env["DEVCTL_COMMIT_GATE_BYPASS_STARTUP_AUTHORITY"], "1")
+
+    def test_guard_bundle_does_not_bypass_without_validation_plan(self):
+        mock_runner = MagicMock(return_value=_mock_subprocess_result(0))
+
+        rc = _run_guard_bundle(runner=mock_runner)
+
+        self.assertEqual(rc, 0)
+        env = mock_runner.call_args[1]["env"]
+        self.assertNotIn("DEVCTL_COMMIT_GATE_BYPASS_STARTUP_AUTHORITY", env)
+
+
+class TestValidationPlanDetection(unittest.TestCase):
+    def test_pipeline_has_validation_plan_requires_typed_fields(self) -> None:
+        pipeline = SimpleNamespace(
+            intent=SimpleNamespace(
+                validation_plan=ValidationPlan(
+                    plan_id="validation-plan-1",
+                    bundle_id="quick",
+                    staged_tree_hash="tree-123",
+                )
+            )
+        )
+
+        self.assertTrue(_pipeline_has_validation_plan(pipeline))
+        self.assertFalse(_pipeline_has_validation_plan(SimpleNamespace(intent=SimpleNamespace(validation_plan=None))))
 
 
 class TestInteractionModeResolution(unittest.TestCase):

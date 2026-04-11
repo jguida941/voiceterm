@@ -205,6 +205,8 @@ def _tool_fields(event: RolloutEvent, *, payload: dict[str, Any]) -> tuple[str, 
     command = ""
     if isinstance(decoded, dict):
         command = str(decoded.get("cmd") or decoded.get("command") or "").strip()
+    elif name == "apply_patch":
+        command = _patch_target_summary(arguments)
     return name, command[:_SUMMARY_CHAR_LIMIT]
 
 
@@ -217,6 +219,62 @@ def _decode_arguments(arguments: Any) -> Any:
         except json.JSONDecodeError:
             return None
     return None
+
+
+def _patch_target_summary(arguments: Any) -> str:
+    """Extract a compact target summary from an ``apply_patch`` payload."""
+    if not isinstance(arguments, str) or not arguments.strip():
+        return ""
+    operations: list[str] = []
+    for raw_line in arguments.splitlines():
+        line = raw_line.strip()
+        if line.startswith("*** Add File: "):
+            operations.append(
+                f"add {_compact_patch_path(line.removeprefix('*** Add File: ').strip())}"
+            )
+            continue
+        if line.startswith("*** Delete File: "):
+            operations.append(
+                "delete "
+                f"{_compact_patch_path(line.removeprefix('*** Delete File: ').strip())}"
+            )
+            continue
+        if line.startswith("*** Update File: "):
+            operations.append(
+                "update "
+                f"{_compact_patch_path(line.removeprefix('*** Update File: ').strip())}"
+            )
+            continue
+        if line.startswith("*** Move to: ") and operations:
+            destination = _compact_patch_path(
+                line.removeprefix("*** Move to: ").strip()
+            )
+            current = operations[-1]
+            if current.startswith("update "):
+                source = current.removeprefix("update ").strip()
+                operations[-1] = f"move {source} -> {destination}"
+    if not operations:
+        return ""
+    return "; ".join(_dedupe_preserving_order(operations[:4]))
+
+
+def _dedupe_preserving_order(values: list[str]) -> list[str]:
+    seen: set[str] = set()
+    ordered: list[str] = []
+    for value in values:
+        if value in seen:
+            continue
+        seen.add(value)
+        ordered.append(value)
+    return ordered
+
+
+def _compact_patch_path(path: str) -> str:
+    stripped = path.strip()
+    parts = [segment for segment in stripped.split("/") if segment]
+    if len(parts) <= 4:
+        return stripped
+    return "/".join(parts[-4:])
 
 
 def _compose_summary(event: RolloutEvent, *, payload: dict[str, Any]) -> str:

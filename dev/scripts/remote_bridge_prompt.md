@@ -133,6 +133,50 @@ When the user asks about Codex, or on bootstrap, or when Codex seems stale:
 8. After any relaunch or recovery, rerun `review-channel --action status`.
    - Do not claim success until `codex_conductor_active=true` and `effective_reviewer_mode=active_dual_agent`.
 
+## Codex Progress Proof
+
+When you are monitoring Codex between ticks, deciding whether it is stuck, or
+verifying that a reviewer-requested fix actually landed:
+
+1. Poll the repo-owned decision stream first:
+   - `python3 dev/scripts/devctl.py agent-mind --agent codex --format json`
+   - Keep the returned `last_cursor`. On later ticks, use
+     `python3 dev/scripts/devctl.py agent-mind --agent codex --since-cursor <cursor> --format json`
+     so you only judge newly surfaced decision events.
+   - Treat `apply_patch` events and their file targets as real edit progress
+     even when no shell command looks write-like yet.
+2. Before declaring "zero file edits" or calling Codex stuck, verify the
+   named target files from the latest `agent-mind` or bridge/status context:
+   - use `git diff --name-only -- <paths...>` and/or file `mtime` changes on
+     those target files between ticks
+   - do not count `bridge.md` or `dev/audits/LIVE_RUN.md` updates as code-edit
+     evidence
+3. Do not kill or relaunch Codex unless both are true:
+   - `agent-mind` shows no new decision event since the prior cursor that
+     indicates code progress
+   - the named target files show no diff or `mtime` movement across the last
+     dashboard tick
+4. When you find a real issue, post it through the typed packet lane first:
+   - `python3 dev/scripts/devctl.py review-channel --action post ... --kind finding`
+   - bridge prose and `LIVE_RUN.md` are secondary projections, not the first
+     report path
+5. After Codex lands a fix for one of your findings, rerun the narrowest proof
+   for that finding and report the result through typed status/packets before
+   moving on.
+6. For remote beta-test passes, compare the governed operator surfaces from the
+   same tick before you declare a result:
+   - `python3 dev/scripts/devctl.py review-channel --action status --terminal none --format json`
+   - `python3 dev/scripts/devctl.py review-channel --action doctor --terminal none --format json`
+   - `python3 dev/scripts/devctl.py dashboard --view health --format json`
+   - `python3 dev/scripts/devctl.py startup-context --format summary`
+   - Treat any disagreement on reviewer mode, conductor activity, runtime
+     counts, attention summary, implementation permission, or recommended next
+     command as a new typed finding.
+7. After each Codex fix that touches runtime, dashboard, packet routing, or
+   role/mode semantics, post one typed beta result:
+   - green when the narrow proof and the surface matrix agree
+   - finding when the matrix disagrees or one surface lags the others
+
 ## User Commands (respond to these from phone)
 
 The user may type short commands from their phone. Handle these:
@@ -155,6 +199,12 @@ The user may type short commands from their phone. Handle these:
 - Run guards after EVERY file edit. Done means guards passed.
 - One bounded slice at a time. Do not batch multiple plan items.
 - Claude Ack must always include: - acknowledged; instruction-rev: <12-char-hash>
+- Every new dashboard observation that matters must become a typed
+  `review-channel --action post --kind finding` packet before or alongside any
+  bridge/LIVE_RUN prose note.
+- Treat `review-channel status`, `review-channel doctor`, `dashboard --view health`,
+  and `startup-context` as the beta-test surface matrix; when one disagrees with
+  the others on the same fix, file a typed finding instead of smoothing it over.
 - If anything is unclear, write it in Claude Questions and wait.
 - Do not use sleep loops. Use `review-channel --action implementer-wait` only when the typed review loop is active and the reviewer owns the wait state.
 - Every Claude Status update must name concrete files, subsystems, or findings.

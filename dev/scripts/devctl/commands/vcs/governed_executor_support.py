@@ -92,6 +92,9 @@ def evaluate_commit_readiness(
     no_edit: bool,
 ) -> CommitReadiness | CommitBlock:
     """Validate commit preconditions after approval sync and runtime checks."""
+    validation_block = _validation_contract_block(pipeline)
+    if validation_block is not None:
+        return validation_block
     if pipeline.guard_result is None or pipeline.guard_result.status != ActionOutcome.PASS:
         return CommitBlock(
             pipeline=pipeline,
@@ -158,6 +161,62 @@ def evaluate_commit_readiness(
     return CommitReadiness(
         pipeline=pipeline,
         git_commit_args=tuple(git_commit_args),
+    )
+
+
+def _validation_contract_block(
+    pipeline: RemoteCommitPipelineContract,
+) -> CommitBlock | None:
+    if pipeline.intent.validation_plan is None:
+        return _blocked_pipeline(
+            pipeline,
+            reason="validation_plan_missing",
+            guidance=(
+                "Restage the governed pipeline so the validation plan is bound "
+                "to the staged snapshot before committing."
+            ),
+        )
+    if pipeline.validation_receipt is None:
+        return _blocked_pipeline(
+            pipeline,
+            reason="validation_receipt_missing",
+            guidance="Run and record the routed guard bundle before `vcs.commit`.",
+        )
+    if pipeline.validation_receipt.staged_tree_hash != pipeline.intent.staged_tree_hash:
+        return _blocked_pipeline(
+            pipeline,
+            reason="validation_receipt_stale",
+            guidance=(
+                "The current validation receipt does not match the staged tree. "
+                "Restage and rerun the guard bundle."
+            ),
+        )
+    if not pipeline.validation_receipt.checkpoint_sufficient:
+        return _blocked_pipeline(
+            pipeline,
+            reason="validation_receipt_insufficient",
+            guidance=(
+                "The recorded validation receipt is not sufficient for a "
+                "governed commit."
+            ),
+        )
+    return None
+
+
+def _blocked_pipeline(
+    pipeline: RemoteCommitPipelineContract,
+    *,
+    reason: str,
+    guidance: str,
+) -> CommitBlock:
+    return CommitBlock(
+        pipeline=replace(
+            pipeline,
+            state="push_blocked",
+            blocked_reason=reason,
+        ),
+        reason=reason,
+        guidance=guidance,
     )
 
 

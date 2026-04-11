@@ -17,6 +17,7 @@ from .startup_push_models import (
     project_push_decision as _project_push_decision,
 )
 from .startup_push_recovery import (
+    artifact_push_in_progress_for_current_head,
     artifact_publication_recovery_decision,
     artifact_records_current_head_publish,
 )
@@ -77,6 +78,50 @@ def derive_push_decision(
     local_readiness = _local_readiness_decision(inputs, pe)
     if local_readiness is not None:
         return local_readiness
+    if artifact_push_in_progress_for_current_head(pe):
+        current_reason = str(getattr(pe, "latest_push_report_reason", "") or "").strip()
+        artifact_path = str(getattr(pe, "latest_push_report_path", "") or "").strip()
+        artifact_hint = (
+            f" Follow `{artifact_path}` or the live command output until the push finishes."
+            if artifact_path
+            else " Follow the live command output until the push finishes."
+        )
+        return _project_push_decision(
+            inputs,
+            PushDecisionSpec(
+                action="no_push_needed",
+                reason="governed_push_in_progress",
+                next_step_summary=(
+                    "A governed push for the current HEAD is already running."
+                    f"{artifact_hint}"
+                ),
+                rule_summary=(
+                    "No second governed push should start while the latest push "
+                    "artifact for the current publication target is already in an "
+                    "active execution phase."
+                ),
+                match_evidence=(
+                    rule_match_evidence(
+                        "startup_push.governed_push_in_progress",
+                        "Startup detected an in-flight governed push receipt for the "
+                        "current publication target.",
+                        "worktree_clean=True",
+                        f"review_gate_allows_push={inputs.review_gate_allows_push}",
+                        f"latest_push_report_reason={current_reason or '(missing)'}",
+                        "latest_push_report_matches_current_branch=True",
+                        "latest_push_report_matches_current_head=True",
+                        "latest_push_report_matches_current_approved_target=True",
+                    ),
+                ),
+                rejected_rule_traces=(
+                    rejected_rule_trace(
+                        "startup_push.run_devctl_push",
+                        "Run the governed push path immediately.",
+                        "A governed push for the current HEAD is already running.",
+                    ),
+                ),
+            ),
+        )
     review_decision = _review_state_decision(
         inputs,
         publication_authorized=publication_authorized,

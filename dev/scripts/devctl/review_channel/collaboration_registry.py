@@ -51,10 +51,9 @@ def build_runtime_agent_registry_from_collaboration(
                 ),
                 last_packet_seen="",
                 last_packet_applied="",
-                script_profile=(
-                    "markdown-bridge-conductor"
-                    if participant is not None
-                    else _default_script_profile(role)
+                script_profile=_script_profile(
+                    participant=participant,
+                    role=role,
                 ),
                 mp_scope=plan_id,
                 worktree="",
@@ -171,4 +170,16 @@ def _default_job_state(role: str) -> str:
 def _default_script_profile(role: str) -> str:
     if role == TandemRole.OPERATOR.value:
         return ""
+    return "markdown-bridge-conductor"
+
+
+def _script_profile(
+    *,
+    participant: CollaborationParticipantState | None,
+    role: str,
+) -> str:
+    if participant is None:
+        return _default_script_profile(role)
+    if participant.capture_mode == "remote-control":
+        return "remote-control"
     return "markdown-bridge-conductor"

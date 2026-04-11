@@ -5,12 +5,16 @@ from __future__ import annotations
 import json
 from datetime import datetime, timezone
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 
 import pytest
 
 from dev.scripts.devctl.cli import build_parser
 from dev.scripts.devctl.commands import review_channel as review_channel_command
+from dev.scripts.devctl.commands.review_channel.bridge_render import (
+    build_bridge_success_report,
+)
 from dev.scripts.devctl.review_channel.bridge_section_validation import (
     find_embedded_markdown_headings,
 )
@@ -32,6 +36,22 @@ from dev.scripts.devctl.review_channel.promotion_support import (
     InstructionRewriteContext,
     rewrite_instruction_and_metadata,
 )
+
+
+def _bridge_report_args() -> SimpleNamespace:
+    return SimpleNamespace(
+        action="status",
+        execution_mode="markdown-bridge",
+        terminal="none",
+        terminal_profile="auto-dark",
+        approval_mode="balanced",
+        dangerous=False,
+        rollover_threshold_pct=20,
+        rollover_trigger="manual",
+        await_ack_seconds=180,
+        codex_workers=0,
+        claude_workers=0,
+    )
 
 
 def _review_channel_text() -> str:
@@ -573,3 +593,64 @@ def test_review_channel_render_bridge_fails_closed_with_pending_reviewer_packets
     assert rc == 1
     assert "pending review packet" in payload["errors"][0]
     assert bridge_path.read_text(encoding="utf-8") == original
+
+
+def test_build_bridge_success_report_uses_typed_collaboration_runtime_counts() -> None:
+    report, exit_code = build_bridge_success_report(
+        args=_bridge_report_args(),
+        bridge_liveness={
+            "overall_state": "inactive",
+            "active_conductor_providers": [],
+            "publisher_running": False,
+            "reviewer_supervisor_running": False,
+        },
+        attention={
+            "status": "inactive",
+            "owner": "system",
+            "summary": "",
+            "recommended_action": "",
+            "recommended_command": "",
+        },
+        reviewer_worker=None,
+        collaboration={
+            "participants": [
+                {
+                    "agent_id": "claude",
+                    "provider": "claude",
+                    "role": "implementer",
+                    "live": True,
+                    "planned_lane_count": 8,
+                    "requested_worker_budget": 0,
+                },
+                {
+                    "agent_id": "codex",
+                    "provider": "codex",
+                    "role": "reviewer",
+                    "live": False,
+                    "planned_lane_count": 8,
+                    "requested_worker_budget": 0,
+                },
+            ],
+            "delegated_work": [],
+        },
+        codex_lanes=[object()] * 8,
+        claude_lanes=[object()] * 8,
+        terminal_profile_applied="Pro",
+        warnings=[],
+        sessions=[],
+        handoff_bundle=None,
+        projection_paths={},
+        launched=False,
+        handoff_ack_required=False,
+        handoff_ack_observed=None,
+    )
+
+    assert exit_code == 0
+    counts = report["runtime_counts"]
+    assert counts["participants_total"] == 2
+    assert counts["live_participants_total"] == 1
+    assert counts["live_implementer_total"] == 1
+    assert counts["active_conductor_count"] == 1
+    assert "planned_lane_total" not in counts
+    assert "codex_planned_lane_count" not in report
+    assert "claude_planned_lane_count" not in report

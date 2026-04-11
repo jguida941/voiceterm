@@ -1188,9 +1188,11 @@ Workflow permissions note:
    short-lived exception rather than a standing local convenience. The
    managed latest-push artifact at
    `dev/reports/push/latest.json` preserves that stage truth for later
-   startup/recovery, writes a `published_remote` snapshot immediately after
-   `git push` succeeds, and matches that artifact against the current HEAD so
-   stale local `ahead 1` tracking refs do not trigger a second push.
+   startup/recovery, now writes phase-aware in-flight snapshots from
+   `push_preflight_running` through `push_pending`, writes a
+   `published_remote` snapshot immediately after `git push` succeeds, and
+   matches that artifact against the current HEAD so stale local `ahead 1`
+   tracking refs do not trigger a second push.
    `published_remote=true` plus `post_push_green=false` means "repair the
    post-push follow-up" rather than "push again." Interactive runs also emit
    progress notices when publication is recorded and before each post-push

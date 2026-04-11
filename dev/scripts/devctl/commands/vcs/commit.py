@@ -53,6 +53,7 @@ def _run_guard_bundle(
     *,
     repo_root: Path = REPO_ROOT,
     runner: Any = None,
+    pipeline: object | None = None,
 ) -> int:
     """Run the quick guard profile and return the exit code."""
     cmd = [
@@ -65,7 +66,8 @@ def _run_guard_bundle(
         "json",
     ]
     child_env = os.environ.copy()
-    child_env["DEVCTL_COMMIT_GATE_BYPASS_STARTUP_AUTHORITY"] = "1"
+    if _pipeline_has_validation_plan(pipeline):
+        child_env["DEVCTL_COMMIT_GATE_BYPASS_STARTUP_AUTHORITY"] = "1"
     run_fn = runner or subprocess.run
     result = run_fn(
         cmd,
@@ -80,6 +82,23 @@ def _run_guard_bundle(
         if result.stderr:
             print(result.stderr, file=sys.stderr)
     return result.returncode
+
+
+def _pipeline_has_validation_plan(pipeline: object | None) -> bool:
+    """Return true only when the staged pipeline carries typed validation state."""
+    if pipeline is None:
+        return False
+    intent = getattr(pipeline, "intent", None)
+    if intent is None:
+        return False
+    plan = getattr(intent, "validation_plan", None)
+    if plan is None:
+        return False
+    return bool(
+        getattr(plan, "plan_id", "")
+        and getattr(plan, "bundle_id", "")
+        and getattr(plan, "staged_tree_hash", "")
+    )
 
 
 def _guard_result(exit_code: int) -> ActionResult:
@@ -327,7 +346,11 @@ def run_commit(
             return 1
 
     if pipeline.guard_result is None or pipeline.guard_result.status != ActionOutcome.PASS:
-        guard_rc = _run_guard_bundle(repo_root=repo_root, runner=guard_runner)
+        guard_rc = _run_guard_bundle(
+            repo_root=repo_root,
+            runner=guard_runner,
+            pipeline=pipeline,
+        )
         pipeline = vcs_executor.record_guard_result(_guard_result(guard_rc))
         if guard_rc != 0:
             report = _build_report(

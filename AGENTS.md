@@ -711,11 +711,14 @@ checklist plus chat memory.
     concurrent-writer authority condition. Treat that as authority drift and
     reconcile the worktree before widening the slice.
     Startup recovery now also reads the managed latest-push artifact at
-    `dev/reports/push/latest.json`: `devctl push --execute` writes a
-    `published_remote` snapshot as soon as `git push` succeeds, keyed to the
-    current branch and HEAD commit, and startup treats that persisted
-    current-HEAD publication record as canonical even if local upstream
-    divergence still looks stale until the next fetch. When a governed remote
+    `dev/reports/push/latest.json`: `devctl push --execute` now writes
+    phase-aware snapshots from `push_preflight_running` through
+    `push_pending`, then writes a `published_remote` snapshot as soon as
+    `git push` succeeds, all keyed to the current branch and HEAD commit.
+    Startup treats a current-head in-flight push receipt as "wait for the
+    running governed push" and treats a persisted current-HEAD publication
+    record as canonical even if local upstream divergence still looks stale
+    until the next fetch. When a governed remote
     commit pipeline is active, the same recovery path now keys approval
     identity to the reviewer-owned tree receipt
     (`current_approved_target_identity` /

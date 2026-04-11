@@ -11,7 +11,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from dev.scripts.devctl.commands import dashboard, dashboard_render
+from dev.scripts.devctl.commands import dashboard, dashboard_render, dashboard_typed_state
 
 
 def _make_args(**overrides) -> SimpleNamespace:
@@ -2523,9 +2523,18 @@ class TestTypedReviewState(unittest.TestCase):
             self.assertEqual(packets[0]["packet_id"], "pkt_001")
             self.assertEqual(packets[1]["packet_id"], "pkt_002")
             self.assertTrue(packets[1]["approval_required"])
+            self.assertEqual(packets[1]["delivery_emitted_at_utc"], "")
+            self.assertEqual(packets[1]["delivery_observed_at_utc"], "")
             # Applied packet (pkt_003) should not appear
             ids = [p["packet_id"] for p in packets]
             self.assertNotIn("pkt_003", ids)
+
+    def test_pending_packets_accept_typed_tuple_payloads(self) -> None:
+        packets = tuple(_minimal_review_state()["packets"])
+
+        extracted = dashboard_typed_state._extract_typed_packets({"packets": packets})
+
+        self.assertEqual([packet["packet_id"] for packet in extracted], ["pkt_001", "pkt_002"])
 
     def test_coordination_pending_from_typed_packets(self) -> None:
         """coordination.pending_packets reflects typed packet count."""
@@ -2569,6 +2578,238 @@ class TestTypedReviewState(unittest.TestCase):
             coord = snapshot["coordination"]
             self.assertEqual(coord["doctor_status"], "blocked")
             self.assertEqual(coord["doctor_blocked"], "stale_state")
+
+    def test_health_prefers_typed_liveness_over_stale_runtime_artifacts(self) -> None:
+        class FrozenReviewState:
+            def __init__(self, payload: dict[str, object]) -> None:
+                self._payload = payload
+
+            def to_dict(self) -> dict[str, object]:
+                return dict(self._payload)
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            rs = _minimal_review_state()
+            rs["reviewer_runtime"]["doctor"].update({
+                "publisher_running": False,
+                "reviewer_supervisor_running": False,
+            })
+            rs["bridge"] = {
+                "reviewer_mode": "single_agent",
+                "publisher_running": False,
+                "codex_conductor_active": True,
+                "claude_conductor_active": True,
+                "last_codex_poll_utc": "2026-04-04T03:00:00Z",
+            }
+            bridge = root / "bridge.md"
+            bridge.write_text(_minimal_bridge_text(), encoding="utf-8")
+            sources = {
+                "review_state": rs,
+                "compact_json": None,
+                "push_report": None,
+                "receipt": None,
+                "publisher_hb": {"pid": 123},
+                "supervisor_hb": {"pid": 456},
+                "codex_conductor": None,
+                "claude_conductor": None,
+                "full_json": None,
+            }
+
+            with patch.object(
+                dashboard,
+                "load_sources",
+                return_value=sources,
+            ), patch.object(
+                dashboard,
+                "scan_repo_governance_safely",
+                return_value=None,
+            ), patch.object(
+                dashboard,
+                "load_current_review_state",
+                return_value=FrozenReviewState(rs),
+            ), patch.object(dashboard, "_git_short", return_value={
+                "branch": "main", "head": "abc", "dirty": "CLEAN",
+            }), patch.object(dashboard, "_repo_name", return_value="test"):
+                snapshot = dashboard.build_snapshot(repo_root=root, view="health")
+
+            health = snapshot["health"]
+            self.assertFalse(health["publisher"]["running"])
+            self.assertFalse(health["supervisor"]["running"])
+            self.assertEqual(health["active_daemons"], 0)
+            self.assertTrue(health["codex_conductor"]["alive"])
+            self.assertTrue(health["claude_conductor"]["alive"])
+            control_plane = snapshot["control_plane"]
+            self.assertFalse(control_plane["publisher_running"])
+            self.assertFalse(control_plane["supervisor_running"])
+            self.assertTrue(control_plane["codex_conductor_alive"])
+            self.assertTrue(control_plane["claude_conductor_alive"])
+
+    def test_health_promotes_single_agent_local_reviewer_activity(self) -> None:
+        import json
+        import tempfile
+        from datetime import datetime, timezone
+
+        class FrozenReviewState:
+            def __init__(self, payload: dict[str, object]) -> None:
+                self._payload = payload
+
+            def to_dict(self) -> dict[str, object]:
+                return dict(self._payload)
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            status_root = root / "dev/reports/review_channel/latest"
+            event_log = root / "dev/reports/review_channel/events/trace.ndjson"
+            event_log.parent.mkdir(parents=True, exist_ok=True)
+            event_log.write_text(
+                json.dumps(
+                    {
+                        "event_type": "packet_posted",
+                        "from_agent": "codex",
+                        "timestamp_utc": (
+                            datetime.now(timezone.utc)
+                            .isoformat()
+                            .replace("+00:00", "Z")
+                        ),
+                    }
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            rs = _minimal_review_state()
+            rs["reviewer_runtime"]["doctor"].update({
+                "publisher_running": False,
+                "reviewer_supervisor_running": False,
+            })
+            rs["bridge"] = {
+                "reviewer_mode": "single_agent",
+                "publisher_running": False,
+                "codex_conductor_active": False,
+                "claude_conductor_active": True,
+                "last_codex_poll_utc": "2026-04-04T03:00:00Z",
+            }
+            rs["collaboration"] = {"review_agent": "codex"}
+            bridge = root / "bridge.md"
+            bridge.write_text(_minimal_bridge_text(), encoding="utf-8")
+            sources = {
+                "review_state": rs,
+                "compact_json": None,
+                "push_report": None,
+                "receipt": None,
+                "publisher_hb": {"pid": 123},
+                "supervisor_hb": {"pid": 456},
+                "codex_conductor": None,
+                "claude_conductor": None,
+                "full_json": None,
+                "session_output_root": status_root,
+            }
+
+            with patch.object(
+                dashboard,
+                "load_sources",
+                return_value=sources,
+            ), patch.object(
+                dashboard,
+                "scan_repo_governance_safely",
+                return_value=None,
+            ), patch.object(
+                dashboard,
+                "load_current_review_state",
+                return_value=FrozenReviewState(rs),
+            ), patch.object(dashboard, "_git_short", return_value={
+                "branch": "main", "head": "abc", "dirty": "CLEAN",
+            }), patch.object(dashboard, "_repo_name", return_value="test"):
+                snapshot = dashboard.build_snapshot(repo_root=root, view="health")
+
+            self.assertTrue(snapshot["health"]["codex_conductor"]["alive"])
+            self.assertTrue(snapshot["control_plane"]["codex_conductor_alive"])
+
+    def test_health_promotes_single_agent_rollout_activity(self) -> None:
+        import os
+        import tempfile
+        from datetime import datetime, timezone
+
+        from dev.scripts.devctl.review_channel import collaboration_session as collaboration_mod
+
+        class FrozenReviewState:
+            def __init__(self, payload: dict[str, object]) -> None:
+                self._payload = payload
+
+            def to_dict(self) -> dict[str, object]:
+                return dict(self._payload)
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            status_root = root / "dev/reports/review_channel/latest"
+            rollout_path = (
+                root
+                / "sessions"
+                / "2026"
+                / "04"
+                / "11"
+                / "rollout-2026-04-11T21-52-00-codex-live.jsonl"
+            )
+            rollout_path.parent.mkdir(parents=True, exist_ok=True)
+            rollout_path.write_text("{}\n", encoding="utf-8")
+            rollout_mtime = datetime(
+                2026, 4, 11, 21, 52, 0, tzinfo=timezone.utc
+            ).timestamp()
+            os.utime(rollout_path, (rollout_mtime, rollout_mtime))
+            rs = _minimal_review_state()
+            rs["reviewer_runtime"]["doctor"].update({
+                "publisher_running": False,
+                "reviewer_supervisor_running": False,
+            })
+            rs["bridge"] = {
+                "reviewer_mode": "single_agent",
+                "publisher_running": False,
+                "codex_conductor_active": False,
+                "claude_conductor_active": True,
+                "last_codex_poll_utc": "2026-04-04T03:00:00Z",
+            }
+            rs["collaboration"] = {"review_agent": "codex"}
+            bridge = root / "bridge.md"
+            bridge.write_text(_minimal_bridge_text(), encoding="utf-8")
+            sources = {
+                "review_state": rs,
+                "compact_json": None,
+                "push_report": None,
+                "receipt": None,
+                "publisher_hb": {"pid": 123},
+                "supervisor_hb": {"pid": 456},
+                "codex_conductor": None,
+                "claude_conductor": None,
+                "full_json": None,
+                "session_output_root": status_root,
+            }
+
+            with patch.object(
+                collaboration_mod,
+                "discover_latest_session",
+                return_value=rollout_path,
+            ), patch.object(
+                collaboration_mod,
+                "_utcnow",
+                return_value=datetime(2026, 4, 11, 21, 54, 0, tzinfo=timezone.utc),
+            ), patch.object(
+                dashboard,
+                "load_sources",
+                return_value=sources,
+            ), patch.object(
+                dashboard,
+                "scan_repo_governance_safely",
+                return_value=None,
+            ), patch.object(
+                dashboard,
+                "load_current_review_state",
+                return_value=FrozenReviewState(rs),
+            ), patch.object(dashboard, "_git_short", return_value={
+                "branch": "main", "head": "abc", "dirty": "CLEAN",
+            }), patch.object(dashboard, "_repo_name", return_value="test"):
+                snapshot = dashboard.build_snapshot(repo_root=root, view="health")
+
+            self.assertTrue(snapshot["health"]["codex_conductor"]["alive"])
+            self.assertTrue(snapshot["control_plane"]["codex_conductor_alive"])
 
     def test_typed_coordination_fields_flow_into_dashboard_snapshot(self) -> None:
         from dev.scripts.devctl.runtime.review_state_parser import (
@@ -2666,6 +2907,8 @@ class TestTypedReviewState(unittest.TestCase):
                 self.attention_summary = "n/a"
                 self.publisher_running = False
                 self.supervisor_running = False
+                self.codex_conductor_alive = False
+                self.claude_conductor_alive = False
                 self.coordination = None
 
             def to_dict(self) -> dict[str, str]:

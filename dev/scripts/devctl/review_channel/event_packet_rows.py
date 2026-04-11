@@ -38,6 +38,7 @@ def summarize_packets(
 
 
 def packet_from_event(event: dict[str, object]) -> ReviewPacketRow:
+    is_action_request = str(event.get("kind") or "").strip() == "action_request"
     return ReviewPacketRow(
         packet_id=event.get("packet_id"),
         trace_id=event.get("trace_id"),
@@ -70,6 +71,11 @@ def packet_from_event(event: dict[str, object]) -> ReviewPacketRow:
         acked_by=None,
         acked_at_utc=None,
         applied_at_utc=None,
+        delivery_emitted_at_utc=event.get("timestamp_utc") if is_action_request else None,
+        delivery_observed_at_utc="",
+        delivery_observed_by="",
+        execution_started_at_utc="",
+        execution_started_by="",
         expires_at_utc=event.get("expires_at_utc"),
         _sort_timestamp=event.get("timestamp_utc"),
     )
@@ -112,4 +118,19 @@ def apply_packet_transition(
         next_packet["acked_at_utc"] = event.get("timestamp_utc")
     if event_type == "packet_applied":
         next_packet["applied_at_utc"] = event.get("timestamp_utc")
+    if str(packet.get("kind") or "").strip() == "action_request":
+        if not str(next_packet.get("delivery_emitted_at_utc") or "").strip():
+            next_packet["delivery_emitted_at_utc"] = (
+                packet.get("delivery_emitted_at_utc")
+                or packet.get("posted_at")
+            )
+        if event_type == "packet_acked":
+            next_packet["execution_started_at_utc"] = event.get("timestamp_utc")
+            next_packet["execution_started_by"] = actor or packet.get("to_agent")
+        if (
+            event_type == "packet_applied"
+            and not str(next_packet.get("execution_started_at_utc") or "").strip()
+        ):
+            next_packet["execution_started_at_utc"] = event.get("timestamp_utc")
+            next_packet["execution_started_by"] = actor or packet.get("to_agent")
     return next_packet

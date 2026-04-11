@@ -14,6 +14,10 @@ from .event_reducer import (
     reduce_events,
     refresh_event_bundle,
 )
+from .action_request_delivery import (
+    record_action_request_execution_start,
+    seed_action_request_delivery_receipt,
+)
 from .context_refs import normalize_context_pack_refs
 from .event_store import (
     DEFAULT_PACKET_TTL_MINUTES,
@@ -141,6 +145,10 @@ def post_packet(
         event,
         existing_events=existing_events,
     )
+    seed_action_request_delivery_receipt(
+        artifact_root=Path(artifact_paths.artifact_root),
+        packet=written_event,
+    )
     bundle = refresh_event_bundle(
         repo_root=repo_root,
         review_channel_path=review_channel_path,
@@ -239,6 +247,13 @@ def transition_packet(
         event,
         existing_events=bundle.events,
     )
+    if request.action in {"ack", "apply"}:
+        record_action_request_execution_start(
+            artifact_root=Path(artifact_paths.artifact_root),
+            packet=packet,
+            actor=request.actor,
+            started_at_utc=str(written_event.get("timestamp_utc") or ""),
+        )
     refreshed = refresh_event_bundle(
         repo_root=repo_root,
         review_channel_path=review_channel_path,

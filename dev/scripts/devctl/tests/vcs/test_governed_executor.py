@@ -68,6 +68,9 @@ def test_stage_action_persists_staged_snapshot_hash(tmp_path: Path) -> None:
     assert pipeline.state == "staged"
     assert pipeline.intent.staged_tree_hash
     assert pipeline.intent.staged_paths == ("tracked.txt",)
+    assert pipeline.intent.validation_plan is not None
+    assert pipeline.intent.validation_plan.bundle_id == "bundle.tooling"
+    assert pipeline.intent.validation_plan.staged_tree_hash == pipeline.intent.staged_tree_hash
     assert (repo_root / "dev/reports/review_channel/latest/commit_pipeline.json").exists()
 
 
@@ -159,6 +162,10 @@ def test_full_pipeline_commits_and_pushes_to_local_remote(tmp_path: Path) -> Non
 
     executor.record_guard_result(_passing_guard_result())
     pipeline = executor.load_pipeline()
+    assert pipeline.validation_receipt is not None
+    assert pipeline.validation_receipt.plan_id == pipeline.intent.validation_plan.plan_id
+    assert pipeline.validation_receipt.checkpoint_sufficient is True
+    assert pipeline.validation_receipt.push_sufficient is True
     artifact_paths = resolve_artifact_paths(repo_root=repo_root)
 
     post_packet(

@@ -157,6 +157,7 @@ def load_or_refresh_event_bundle(
         repo_root=repo_root,
         review_channel_path=review_channel_path,
         projections_root=Path(artifact_paths.projections_root),
+        artifact_root=Path(artifact_paths.artifact_root),
     )
     agent_registry = load_agent_registry(Path(artifact_paths.projections_root))
     projection_paths = write_projection_bundle(
@@ -196,6 +197,7 @@ def refresh_event_bundle(
         repo_root=repo_root,
         review_channel_path=review_channel_path,
         projections_root=Path(artifact_paths.projections_root),
+        artifact_root=Path(artifact_paths.artifact_root),
     )
     state_path = Path(artifact_paths.state_path)
     state_path.parent.mkdir(parents=True, exist_ok=True)

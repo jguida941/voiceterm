@@ -83,17 +83,53 @@ def persist_published_remote_snapshot(
     partial_progress: bool,
 ) -> str:
     """Persist a recovery snapshot once remote publication is known to be real."""
+    return _persist_snapshot(
+        context,
+        reason=reason,
+        operator_guidance=operator_guidance,
+        partial_progress=partial_progress,
+        stages=PushStageTruth(
+            validation_ready=True,
+            published_remote=True,
+        ),
+    )
+
+
+def persist_push_progress_snapshot(
+    context: PushReportContext,
+    *,
+    reason: str,
+    operator_guidance: str,
+    stages: PushStageTruth,
+    partial_progress: bool = True,
+) -> str:
+    """Persist one in-flight push snapshot for startup/runtime consumers."""
+    return _persist_snapshot(
+        context,
+        reason=reason,
+        operator_guidance=operator_guidance,
+        partial_progress=partial_progress,
+        stages=stages,
+    )
+
+
+def _persist_snapshot(
+    context: PushReportContext,
+    *,
+    reason: str,
+    operator_guidance: str,
+    partial_progress: bool,
+    stages: PushStageTruth,
+) -> str:
+    """Persist one non-terminal push snapshot to the managed latest artifact."""
     return persist_latest_push_report(
         build_push_report_payload(
             context,
             outcome=PushFlowOutcome(
-                ok=True,
+                ok=False,
                 reason=reason,
                 operator_guidance=operator_guidance,
-                stages=PushStageTruth(
-                    validation_ready=True,
-                    published_remote=True,
-                ),
+                stages=stages,
                 partial_progress=partial_progress,
             ),
         ),

@@ -141,6 +141,64 @@
   / coordination reducers no longer treat sanctioned `single_agent` local
   takeover as `remote_control` or as blocked implementation authority merely
   because no live dual-agent pair is running.
+- 2026-04-11 governed-push visibility follow-up in `MP-377` scope:
+  `devctl push --execute` now writes phase-aware latest-push snapshots from
+  push start (`push_preflight_running`) through validated execution
+  (`push_pending`) and remote publication, while startup treats a current-head
+  in-flight push receipt as "wait for the running governed push" instead of
+  telling the operator to launch a second push from stale artifact state.
+- 2026-04-11 remote-participant visibility follow-up in `MP-380..MP-387`
+  scope: active `attach-remote-control` artifacts now feed the typed
+  collaboration roster/role-assignment path, so dashboard/status/coordination
+  surfaces can treat a live external Claude remote-control session as a live
+  implementer instead of dead prepared-session metadata. The bounded closure
+  is still provider-scoped attachment truth, not yet the final same-provider
+  multi-worker registry/fanout model.
+- 2026-04-11 remote-control parity follow-up in `MP-380..MP-387` scope:
+  repo-owned reviewer checkpoint/status writes no longer fail on the
+  remote-role roster helper seam, and top-level `review-channel status`
+  runtime counts now use the typed collaboration participant roster instead of
+  stale bridge-only conductor booleans when that typed state exists. The
+  attached Claude remote-control session now shows up consistently as one live
+  implementer / one active conductor across `status`, `doctor`, and
+  `startup-context`; removing static planned-lane capacity scaffolding remains
+  a later follow-up.
+- 2026-04-11 remote dashboard observer follow-up in `MP-380..MP-387` scope:
+  `agent-mind` now surfaces `apply_patch` target files from rollout traces,
+  and the tracked remote Claude dashboard prompt requires cursor-based
+  `agent-mind` polling plus target-file diff/mtime verification before it can
+  declare a no-edit stall or kill/relaunch Codex. New dashboard discoveries
+  must be posted as typed findings first, with bridge/LIVE_RUN prose treated
+  as secondary compatibility projections.
+- 2026-04-11 single-agent reviewer visibility follow-up in `MP-380..MP-387`
+  scope: recent typed `review-channel` activity from `codex`
+  (`packet_posted/acked/applied/dismissed`) now promotes local reviewer
+  presence in the collaboration-session/runtime-count path until that evidence
+  is actually overdue, so `review-channel status` can show the active local
+  Codex reviewer as live without requiring a repo-owned conductor artifact or
+  process/home-dir watcher fallback.
+- 2026-04-11 dashboard/control-plane parity follow-up in `MP-380..MP-387`
+  scope: dashboard health now prefers typed daemon/conductor authority over
+  stale heartbeat/session artifacts, and the shared control-plane liveness
+  reducer also treats fresh single-agent local reviewer packet activity as
+  positive repo-owned reviewer evidence before falling back to raw
+  `*-conductor.json` metadata. `review-channel status`, `doctor`, and
+  `dashboard --view health` now converge again on the same daemon/conductor
+  truth during the remote-dashboard beta loop.
+- 2026-04-11 remote-dashboard beta follow-up in `MP-380..MP-387` scope:
+  single-agent local reviewer liveness now also falls back to fresh local
+  rollout JSONL mtime when typed packet activity goes quiet, so long-running
+  Codex edit/test turns stay visible through `status`, `doctor`, runtime
+  counts, and dashboard health instead of dropping out after the old
+  packet-only freshness window.
+- 2026-04-11 action-request delivery follow-up in `MP-380..MP-387` scope:
+  event-backed `action_request` packets now carry typed delivery receipts too:
+  post seeds `delivery_emitted_at_utc`, targeted `inbox|watch` polls stamp
+  `delivery_observed_at_utc` / `delivery_observed_by`, and `ack|apply` stamp
+  `execution_started_at_utc` / `execution_started_by`. The same receipt fields
+  now project through typed packet rows into `review-channel status`, inbox,
+  and dashboard pending-packet surfaces so remote-dashboard beta tests can
+  prove packet delivery/start instead of inferring from queue depth alone.
 - Current highest-priority subordinate `MP-377` lane:
   `dev/active/platform_authority_loop.md`. This is the execution spec for
   closing the portable authority loop:
@@ -832,6 +890,14 @@
   escalation reasons plus checkpoint/push sufficiency in doctor/status/
   dashboard. Keep strict full proof at push/release boundaries, but let the
   repo select targeted checkpoint proof deterministically.
+- Latest same-lane closure on 2026-04-11: the first bounded slice of that
+  validation/liveness order is now in repo code. The governed commit pipeline
+  carries typed `ValidationPlan` / `ValidationReceipt` state bound to the
+  staged tree, `vcs.commit` fails closed when that receipt is absent or stale,
+  the nested governed push bypass moved off the exported env seam and onto an
+  internal git config flag, and `refresh_status_snapshot()` now owns
+  participant-liveness event emission instead of delegating it to a projection
+  helper side effect.
 - Current 2026-04-07 phase-order review inside that same lane: keep the next
   coding order architecture-first. The narrow VCS `ValidationPlan` /
   `ValidationReceipt` is a Phase-1/P0 mutation-proof prerequisite for the

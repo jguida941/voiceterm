@@ -599,6 +599,27 @@ surface for remote sessions. It should project:
 
 ## Progress Log
 
+- 2026-04-11: Closed the stale latest-push artifact gap that showed up while
+  dogfooding the governed publish lane. `devctl push --execute` now writes
+  phase-aware snapshots to `dev/reports/push/latest.json` as soon as the run
+  starts (`push_preflight_running`), advances that same artifact to
+  `push_pending` once preflight/authorization are ready, and still writes the
+  existing `published_remote` snapshot immediately after `git push` succeeds.
+  Startup now treats a current-head in-flight push receipt as "wait for the
+  running governed push" instead of telling the operator to rerun push from a
+  stale older receipt.
+- 2026-04-11: Landed the first bounded `ValidationPlan` /
+  `ValidationReceipt` substrate inside the governed mutation lane without
+  reopening the rejected umbrella-root debate. `CommitIntentState` now carries
+  a tree-bound typed validation plan (bundle id, selected paths, risk add-ons,
+  proof level, invalidation rules), `record_guard_result()` now emits a typed
+  validation receipt, `vcs.commit` now fails closed when the receipt is
+  missing/stale/insufficient, and `devctl commit` only sets the historical
+  startup-authority bypass env when the staged pipeline already carries a real
+  typed validation plan. The managed pre-push bypass also narrowed from the
+  broad `DEVCTL_ALLOW_GOVERNED_GIT_PUSH` env seam to an internal git config
+  flag on the nested governed push command, keeping raw `git push` blocked
+  while removing the exported env dependency from the canonical path.
 - 2026-04-10: Dogfooding exposed the remaining execution-sandbox approval
   adapter gap. Codex nearly used raw `git commit` to checkpoint the Q41
   headless-conductor audit fix after status reported a dirty worktree and 21
@@ -817,6 +838,13 @@ surface for remote sessions. It should project:
 
 ## Session Resume
 
+- 2026-04-11 governed-push visibility closure:
+  resume with the phase-aware latest-push artifact in place. The managed push
+  lane now exposes `push_preflight_running`, `push_pending`, and
+  `published_remote` on the canonical `latest.json` path, and startup already
+  suppresses duplicate push advice when that artifact is current-head/live.
+  The next work in this owner doc is still validation-plan/receipt and smoke
+  harness closure, not another ad hoc publish-status side channel.
 - 2026-04-10 stale-pipeline push closure:
   resume with `push_completed` treated as terminal evidence only. New commits
   after a completed pipeline must not re-enter `GovernedVcsExecutor` through a

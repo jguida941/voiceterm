@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Mapping
 
 from ...approval_mode import normalize_approval_mode
 from ...review_channel.attach_auth_render import append_attach_auth_policy_markdown
@@ -56,12 +57,6 @@ def render_bridge_md(
     lines.append(f"- launched: {report.get('launched', False)}")
     lines.append(f"- handoff_ack_required: {report.get('handoff_ack_required', False)}")
     lines.append(
-        f"- codex_planned_lane_count: {report.get('codex_planned_lane_count', 0)}"
-    )
-    lines.append(
-        f"- claude_planned_lane_count: {report.get('claude_planned_lane_count', 0)}"
-    )
-    lines.append(
         "- codex_requested_worker_budget: "
         f"{report.get('codex_requested_worker_budget', 0)}"
     )
@@ -82,9 +77,6 @@ def render_bridge_md(
         )
         lines.append(
             f"- delegated_work_total: {runtime_counts.get('delegated_work_total', 0)}"
-        )
-        lines.append(
-            f"- planned_lane_total: {runtime_counts.get('planned_lane_total', 0)}"
         )
         lines.append(
             "- requested_worker_budget_total: "
@@ -129,6 +121,7 @@ def build_bridge_success_report(
     bridge_liveness: dict[str, object],
     attention: dict[str, object],
     reviewer_worker: dict[str, object] | None,
+    collaboration: Mapping[str, object] | None = None,
     codex_lanes: list,
     claude_lanes: list,
     terminal_profile_applied: str | None,
@@ -179,17 +172,12 @@ def build_bridge_success_report(
         "launched": launched,
         "handoff_ack_required": handoff_ack_required,
         "handoff_ack_observed": handoff_ack_observed,
-        "codex_planned_lane_count": len(codex_lanes),
-        "claude_planned_lane_count": len(claude_lanes),
         "codex_requested_worker_budget": args.codex_workers,
         "claude_requested_worker_budget": args.claude_workers,
         "retirement_note": REVIEW_CHANNEL_LAUNCH_RETIREMENT_NOTE,
         "runtime_counts": build_runtime_counts(
+            collaboration=collaboration,
             bridge_liveness=bridge_liveness,
-            planned_lane_counts={
-                "codex": len(codex_lanes),
-                "claude": len(claude_lanes),
-            },
             requested_worker_budgets={
                 "codex": args.codex_workers,
                 "claude": args.claude_workers,

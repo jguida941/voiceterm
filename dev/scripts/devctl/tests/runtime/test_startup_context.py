@@ -1018,6 +1018,43 @@ class TestCLIRegistration(unittest.TestCase):
         self.assertIn("Remote publication already succeeded", decision.next_step_summary)
         self.assertIn("dev/reports/push/latest.json", decision.next_step_summary)
 
+    def test_push_decision_waits_for_current_head_governed_push_in_progress(self) -> None:
+        approved_target_identity = "tree-receipt-20260403T010000Z:tree-123"
+        governance = _minimal_governance(
+            current_branch="feature/x",
+            current_head_commit="abc123",
+            upstream_ref="origin/feature/x",
+            ahead_of_upstream_commits=1,
+            worktree_clean=True,
+            worktree_dirty=False,
+            checkpoint_required=False,
+            safe_to_continue_editing=True,
+            latest_push_report_path="dev/reports/push/latest.json",
+            latest_push_report_branch="feature/x",
+            latest_push_report_remote="origin",
+            latest_push_report_head_commit="abc123",
+            latest_push_report_status="validation_ready",
+            latest_push_report_reason="push_pending",
+            latest_push_report_published_remote=False,
+            latest_push_report_post_push_green=False,
+            current_approved_target_identity=approved_target_identity,
+            latest_push_report_approved_target_identity=approved_target_identity,
+            latest_push_report_matches_current_approved_target=True,
+            latest_push_report_matches_current_branch=True,
+            latest_push_report_matches_current_head=True,
+        )
+
+        decision = _derive_push_decision(
+            governance.push_enforcement,
+            review_gate_allows_push=True,
+            implementation_blocked=False,
+        )
+
+        self.assertEqual(decision.action, "no_push_needed")
+        self.assertEqual(decision.reason, "governed_push_in_progress")
+        self.assertIn("already running", decision.next_step_summary)
+        self.assertIn("dev/reports/push/latest.json", decision.next_step_summary)
+
     def test_push_decision_rejects_stale_head_publish_receipt(self) -> None:
         approved_target_identity = "tree-receipt-20260403T010000Z:tree-123"
         governance = _minimal_governance(

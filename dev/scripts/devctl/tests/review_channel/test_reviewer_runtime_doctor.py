@@ -252,6 +252,7 @@ def test_build_reviewer_doctor_surface_prefers_inactive_diagnosis_over_publish_c
     )
 
     assert doctor["status"] == "inactive"
+    assert "dual-agent heartbeat enforcement is suspended" in doctor["summary"]
 
 
 def test_build_reviewer_doctor_surface_includes_runtime_counts() -> None:

@@ -2,7 +2,11 @@
 
 from __future__ import annotations
 
+import json
+import os
+from datetime import datetime, timezone
 from pathlib import Path
+from types import SimpleNamespace
 
 from dev.scripts.devctl.review_channel import collaboration_session as collaboration_mod
 from dev.scripts.devctl.review_channel import (
@@ -10,6 +14,9 @@ from dev.scripts.devctl.review_channel import (
 )
 from dev.scripts.devctl.review_channel.session_probe import ConductorSessionRecord
 from dev.scripts.devctl.runtime.review_state_models import ReviewCurrentSessionState
+from dev.scripts.devctl.runtime.reviewer_runtime_models import (
+    RemoteControlAttachmentState,
+)
 
 
 def _session_record(
@@ -154,3 +161,308 @@ def test_build_collaboration_session_marks_dual_agent_exclusive_slice(
     assert session.ownership.in_scope_dirty_paths == (
         "dev/scripts/devctl/runtime/startup_context.py",
     )
+
+
+def test_build_collaboration_session_promotes_active_remote_control_attachment(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    session_records = (
+        _session_record("codex", "reviewer", live=False),
+        _session_record("claude", "implementer", live=False),
+    )
+    monkeypatch.setattr(
+        collaboration_mod,
+        "load_conductor_sessions",
+        lambda *, session_output_root: session_records,
+    )
+    monkeypatch.setattr(
+        collaboration_mod,
+        "load_remote_control_attachments",
+        lambda *, output_root, active_only=False: (
+            RemoteControlAttachmentState(
+                provider="claude",
+                role="implementer",
+                attachment_id="remote-attach-1",
+                session_name="claude-remote-control",
+                remote_session_id="session_abc123",
+                session_url="https://claude.ai/code/session_abc123",
+                status="attached",
+                attached_at_utc="2026-04-11T00:00:00Z",
+                last_seen_utc="2026-04-11T00:00:01Z",
+                metadata_path=str(tmp_path / "sessions" / "claude-remote-control.json"),
+            ),
+        ),
+    )
+    monkeypatch.setattr(
+        coordination_mod,
+        "dirty_paths_for_repo",
+        lambda repo_root: ("dev/scripts/devctl/runtime/startup_context.py",),
+    )
+
+    session = collaboration_mod.build_collaboration_session(
+        timestamp="2026-04-11T00:00:00Z",
+        plan_id="MP-380",
+        session_id="session-1",
+        bridge_liveness={
+            "reviewer_mode": "single_agent",
+            "effective_reviewer_mode": "single_agent",
+        },
+        current_session=_current_session(
+            instruction="Tighten `dev/scripts/devctl/runtime/startup_context.py`.",
+            last_reviewed_scope="dev/scripts/devctl/runtime/startup_context.py",
+        ),
+        repo_root=tmp_path,
+        session_output_root=tmp_path,
+    )
+
+    claude_rows = [row for row in session.participants if row.provider == "claude"]
+    assert len(claude_rows) == 1
+    assert claude_rows[0].live is True
+    assert claude_rows[0].capture_mode == "remote-control"
+    assert claude_rows[0].session_name == "claude-remote-control"
+    coding_assignment = next(
+        row for row in session.role_assignments if row.role_id == "coding_agent"
+    )
+    assert coding_assignment.live is True
+    assert coding_assignment.source == "remote_control_attachment"
+    assert session.restart.status == "live"
+    assert session.restart.source == "remote_control_attachment"
+
+
+def test_build_collaboration_session_promotes_fresh_local_single_agent_reviewer(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    session_records = (
+        _session_record("codex", "reviewer", live=False),
+        _session_record("claude", "implementer", live=False),
+    )
+    monkeypatch.setattr(
+        collaboration_mod,
+        "load_conductor_sessions",
+        lambda *, session_output_root: session_records,
+    )
+    monkeypatch.setattr(
+        collaboration_mod,
+        "load_remote_control_attachments",
+        lambda *, output_root, active_only=False: (
+            RemoteControlAttachmentState(
+                provider="claude",
+                role="implementer",
+                attachment_id="remote-attach-1",
+                session_name="claude-remote-control",
+                remote_session_id="session_abc123",
+                session_url="https://claude.ai/code/session_abc123",
+                status="attached",
+                attached_at_utc="2026-04-11T00:00:00Z",
+                last_seen_utc="2026-04-11T00:00:01Z",
+                metadata_path=str(tmp_path / "sessions" / "claude-remote-control.json"),
+            ),
+        ),
+    )
+    monkeypatch.setattr(
+        coordination_mod,
+        "dirty_paths_for_repo",
+        lambda repo_root: ("dev/scripts/devctl/runtime/startup_context.py",),
+    )
+
+    session = collaboration_mod.build_collaboration_session(
+        timestamp="2026-04-11T00:00:00Z",
+        plan_id="MP-380",
+        session_id="session-1",
+        bridge_liveness={
+            "reviewer_mode": "single_agent",
+            "effective_reviewer_mode": "single_agent",
+            "codex_poll_state": "fresh",
+            "last_codex_poll_utc": "2026-04-11T00:00:01Z",
+        },
+        current_session=_current_session(
+            instruction="Tighten `dev/scripts/devctl/runtime/startup_context.py`.",
+            last_reviewed_scope="dev/scripts/devctl/runtime/startup_context.py",
+        ),
+        repo_root=tmp_path,
+        session_output_root=tmp_path,
+    )
+
+    live_providers = {
+        row.provider for row in session.participants if row.live
+    }
+    assert live_providers == {"claude", "codex"}
+    review_assignment = next(
+        row for row in session.role_assignments if row.role_id == "review_agent"
+    )
+    assert review_assignment.live is True
+    assert review_assignment.source == "reviewer_turn"
+
+
+def test_build_collaboration_session_promotes_recent_local_reviewer_packet_activity(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    session_records = (
+        _session_record("codex", "reviewer", live=False),
+        _session_record("claude", "implementer", live=False),
+    )
+    projections_root = tmp_path / "projections" / "latest"
+    projections_root.mkdir(parents=True)
+    events_dir = tmp_path / "events"
+    events_dir.mkdir()
+    (events_dir / "trace.ndjson").write_text(
+        json.dumps(
+            {
+                "event_type": "packet_acked",
+                "timestamp_utc": "2026-04-11T21:17:45Z",
+                "metadata": {"actor": "codex"},
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(
+        collaboration_mod,
+        "load_conductor_sessions",
+        lambda *, session_output_root: session_records,
+    )
+    monkeypatch.setattr(
+        collaboration_mod,
+        "load_remote_control_attachments",
+        lambda *, output_root, active_only=False: (
+            RemoteControlAttachmentState(
+                provider="claude",
+                role="implementer",
+                attachment_id="remote-attach-1",
+                session_name="claude-remote-control",
+                remote_session_id="session_abc123",
+                session_url="https://claude.ai/code/session_abc123",
+                status="attached",
+                attached_at_utc="2026-04-11T00:00:00Z",
+                last_seen_utc="2026-04-11T00:00:01Z",
+                metadata_path=str(tmp_path / "sessions" / "claude-remote-control.json"),
+            ),
+        ),
+    )
+    monkeypatch.setattr(
+        collaboration_mod,
+        "_utcnow",
+        lambda: datetime(2026, 4, 11, 21, 24, 30, tzinfo=timezone.utc),
+    )
+    monkeypatch.setattr(
+        coordination_mod,
+        "dirty_paths_for_repo",
+        lambda repo_root: ("dev/scripts/devctl/runtime/startup_context.py",),
+    )
+
+    session = collaboration_mod.build_collaboration_session(
+        timestamp="2026-04-11T21:24:30Z",
+        plan_id="MP-380",
+        session_id="session-1",
+        bridge_liveness={
+            "reviewer_mode": "single_agent",
+            "effective_reviewer_mode": "single_agent",
+            "reviewer_freshness": "overdue",
+            "codex_poll_state": "stale",
+        },
+        current_session=_current_session(
+            instruction="Tighten `dev/scripts/devctl/runtime/startup_context.py`.",
+            last_reviewed_scope="dev/scripts/devctl/runtime/startup_context.py",
+        ),
+        repo_root=tmp_path,
+        session_output_root=projections_root,
+    )
+
+    live_providers = {row.provider for row in session.participants if row.live}
+    assert live_providers == {"claude", "codex"}
+    review_assignment = next(
+        row for row in session.role_assignments if row.role_id == "review_agent"
+    )
+    assert review_assignment.live is True
+    assert review_assignment.source == "reviewer_turn"
+
+
+def test_build_collaboration_session_promotes_recent_local_reviewer_rollout_activity(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    session_records = (
+        _session_record("codex", "reviewer", live=False),
+        _session_record("claude", "implementer", live=False),
+    )
+    projections_root = tmp_path / "projections" / "latest"
+    projections_root.mkdir(parents=True)
+    rollout_path = (
+        tmp_path
+        / "sessions"
+        / "2026"
+        / "04"
+        / "11"
+        / "rollout-2026-04-11T21-22-00-codex-live.jsonl"
+    )
+    rollout_path.parent.mkdir(parents=True, exist_ok=True)
+    rollout_path.write_text("{}\n", encoding="utf-8")
+    rollout_mtime = datetime(2026, 4, 11, 21, 22, 0, tzinfo=timezone.utc).timestamp()
+    os.utime(rollout_path, (rollout_mtime, rollout_mtime))
+    monkeypatch.setattr(
+        collaboration_mod,
+        "discover_latest_session",
+        lambda provider: rollout_path if provider == "codex" else None,
+    )
+    monkeypatch.setattr(
+        collaboration_mod,
+        "load_conductor_sessions",
+        lambda *, session_output_root: session_records,
+    )
+    monkeypatch.setattr(
+        collaboration_mod,
+        "load_remote_control_attachments",
+        lambda *, output_root, active_only=False: (
+            RemoteControlAttachmentState(
+                provider="claude",
+                role="implementer",
+                attachment_id="remote-attach-1",
+                session_name="claude-remote-control",
+                remote_session_id="session_abc123",
+                session_url="https://claude.ai/code/session_abc123",
+                status="attached",
+                attached_at_utc="2026-04-11T00:00:00Z",
+                last_seen_utc="2026-04-11T00:00:01Z",
+                metadata_path=str(tmp_path / "sessions" / "claude-remote-control.json"),
+            ),
+        ),
+    )
+    monkeypatch.setattr(
+        collaboration_mod,
+        "_utcnow",
+        lambda: datetime(2026, 4, 11, 21, 24, 30, tzinfo=timezone.utc),
+    )
+    monkeypatch.setattr(
+        coordination_mod,
+        "dirty_paths_for_repo",
+        lambda repo_root: ("dev/scripts/devctl/runtime/startup_context.py",),
+    )
+
+    session = collaboration_mod.build_collaboration_session(
+        timestamp="2026-04-11T21:24:30Z",
+        plan_id="MP-380",
+        session_id="session-1",
+        bridge_liveness={
+            "reviewer_mode": "single_agent",
+            "effective_reviewer_mode": "single_agent",
+            "reviewer_freshness": "overdue",
+            "codex_poll_state": "stale",
+        },
+        current_session=_current_session(
+            instruction="Tighten `dev/scripts/devctl/runtime/startup_context.py`.",
+            last_reviewed_scope="dev/scripts/devctl/runtime/startup_context.py",
+        ),
+        repo_root=tmp_path,
+        session_output_root=projections_root,
+    )
+
+    live_providers = {row.provider for row in session.participants if row.live}
+    assert live_providers == {"claude", "codex"}
+    review_assignment = next(
+        row for row in session.role_assignments if row.role_id == "review_agent"
+    )
+    assert review_assignment.live is True
+    assert review_assignment.source == "reviewer_turn"

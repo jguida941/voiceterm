@@ -66,6 +66,21 @@ def _function_call_line(timestamp: str, cmd: str) -> str:
     )
 
 
+def _apply_patch_line(timestamp: str, patch: str) -> str:
+    return json.dumps(
+        {
+            "timestamp": timestamp,
+            "type": "response_item",
+            "payload": {
+                "type": "function_call",
+                "name": "apply_patch",
+                "arguments": patch,
+                "call_id": f"patch_{timestamp}",
+            },
+        }
+    )
+
+
 def _assistant_message_line(timestamp: str, text: str) -> str:
     return json.dumps(
         {
@@ -212,6 +227,42 @@ class SliceBuilderFilterTests(unittest.TestCase):
             )
             self.assertEqual(tool_event.tool_name, "exec_command")
             self.assertIn("claude-remote-control", tool_event.tool_command)
+
+    def test_slice_surfaces_apply_patch_target_files(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            patch = """*** Begin Patch
+*** Update File: dev/scripts/devctl/review_channel/runtime_counts.py
+@@
+-old
++new
+*** Add File: dev/scripts/devctl/tests/review_channel/test_runtime_counts.py
++content
+*** End Patch
+"""
+            lines = [
+                _reasoning_line("2026-04-09T20:01:30.123Z", "patching now"),
+                _apply_patch_line("2026-04-09T20:01:34.456Z", patch),
+            ]
+            session_path, events = self._parse_codex_events(root, lines)
+            slice_ = build_slice(
+                events,
+                agent_provider="codex",
+                session_id="sess-1",
+                session_path=session_path,
+                since_cursor=None,
+                limit=20,
+            )
+            patch_event = next(
+                event
+                for event in slice_.events
+                if event.event_type == "response_item:function_call"
+            )
+            self.assertEqual(patch_event.tool_name, "apply_patch")
+            self.assertIn("update ", patch_event.tool_command)
+            self.assertIn("runtime_counts.py", patch_event.tool_command)
+            self.assertIn("add ", patch_event.tool_command)
+            self.assertIn("test_runtime_counts.py", patch_event.tool_command)
 
     def test_slice_includes_escalation_events_marked_is_escalation(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

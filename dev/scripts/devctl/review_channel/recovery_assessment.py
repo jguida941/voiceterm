@@ -51,7 +51,7 @@ def build_recovery_assessment(
     return RecoveryAssessmentState(
         diagnosis=RecoveryDiagnosisState(
             status=status,
-            root_cause=_root_cause(status),
+            root_cause=_root_cause(status, bridge_liveness=liveness),
             supporting_causes=build_supporting_causes(
                 status=status,
                 ctx=ctx,
@@ -111,8 +111,51 @@ def recovery_assessment_to_attention_state(
     )
 
 
-def _root_cause(status: str) -> str:
-    return str(_recovery_entry(status).get("summary") or "").strip()
+def _root_cause(
+    status: str,
+    *,
+    bridge_liveness: Mapping[str, object] | None = None,
+) -> str:
+    if status != AttentionStatus.INACTIVE.value:
+        return str(_recovery_entry(status).get("summary") or "").strip()
+    bridge = bridge_liveness if isinstance(bridge_liveness, Mapping) else {}
+    reviewer_mode = str(
+        bridge.get("effective_reviewer_mode") or bridge.get("reviewer_mode") or ""
+    ).strip()
+    if reviewer_mode != "single_agent":
+        return str(_recovery_entry(status).get("summary") or "").strip()
+    if _single_agent_lane_has_live_typed_authority(bridge):
+        return (
+            "Reviewer mode is `single_agent`; dual-agent heartbeat enforcement "
+            "is suspended, but typed packets/status remain authoritative for "
+            "this local-review or remote-dashboard lane."
+        )
+    return (
+        "Reviewer mode is `single_agent`; dual-agent heartbeat enforcement is "
+        "suspended until the workflow explicitly returns to "
+        "`active_dual_agent`."
+    )
+
+
+def _single_agent_lane_has_live_typed_authority(
+    bridge_liveness: Mapping[str, object],
+) -> bool:
+    providers = bridge_liveness.get("active_conductor_providers")
+    if isinstance(providers, (list, tuple)):
+        normalized = [
+            str(provider).strip().lower()
+            for provider in providers
+            if str(provider).strip()
+        ]
+        if normalized:
+            return True
+    if bool(bridge_liveness.get("codex_conductor_active")):
+        return True
+    if bool(bridge_liveness.get("claude_conductor_active")):
+        return True
+    return bool(bridge_liveness.get("claude_status_present")) and bool(
+        bridge_liveness.get("claude_ack_current")
+    )
 
 
 def _fallback_current_session(

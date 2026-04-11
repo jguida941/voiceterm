@@ -118,6 +118,7 @@ def load_sources(
         "push_report": read_json_artifact(paths["push_report"]),
         "publisher_hb": read_json_artifact(paths["publisher_hb"]),
         "supervisor_hb": read_json_artifact(paths["supervisor_hb"]),
+        "session_output_root": paths["publisher_hb"].parent,
     }
     sources["codex_conductor"] = conductor_sources.get("codex") or read_json_artifact(
         paths["codex_conductor"]

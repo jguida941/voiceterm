@@ -32,9 +32,14 @@ from .push_state_git import (
 )
 from .push_state_report import (
     current_target_remote as _current_target_remote,
-    latest_push_report_approved_target_identity as _latest_push_report_approved_target_identity,
     latest_push_report_state as _latest_push_report_state,
 )
+
+_CURRENT_HEAD_LATEST_REPORT_REASONS = frozenset({
+    "push_preflight_running",
+    "push_pending",
+    "post_push_bundle_pending",
+})
 
 
 def _worktree_change_summary(
@@ -107,7 +112,14 @@ def detect_push_enforcement_state(
         head_commit=runtime.current_head_commit,
         repo_root=repo_root,
     )
-    latest_push_report = receipt or load_latest_push_report(repo_root=repo_root) or {}
+    latest_report_artifact = load_latest_push_report(repo_root=repo_root) or {}
+    latest_push_report = _resolve_current_push_report(
+        receipt=receipt,
+        latest=latest_report_artifact,
+        current_branch=runtime.current_branch,
+        current_head_commit=runtime.current_head_commit,
+        current_approved_target_identity=runtime.current_approved_target_identity,
+    )
     push_stages = latest_push_report.get("push_stages")
     if not isinstance(push_stages, dict):
         push_stages = {}
@@ -347,3 +359,51 @@ def current_upstream_ref(*, repo_root: Path = REPO_ROOT) -> str:
 def current_head_commit_sha(*, repo_root: Path = REPO_ROOT) -> str:
     """Return the current HEAD commit SHA, or empty when unavailable."""
     return _git_stdout(repo_root, "rev-parse", "HEAD")
+
+
+def _resolve_current_push_report(
+    *,
+    receipt: dict[str, object] | None,
+    latest: dict[str, object],
+    current_branch: str,
+    current_head_commit: str,
+    current_approved_target_identity: str,
+) -> dict[str, object]:
+    """Prefer a current-head in-flight latest report over stale final receipts."""
+    if _latest_report_is_current_head_inflight(
+        latest,
+        current_branch=current_branch,
+        current_head_commit=current_head_commit,
+        current_approved_target_identity=current_approved_target_identity,
+    ):
+        return latest
+    return receipt or latest
+
+
+def _latest_report_is_current_head_inflight(
+    report: dict[str, object],
+    *,
+    current_branch: str,
+    current_head_commit: str,
+    current_approved_target_identity: str,
+) -> bool:
+    if not report:
+        return False
+    reason = str(report.get("reason") or "").strip()
+    if reason not in _CURRENT_HEAD_LATEST_REPORT_REASONS:
+        return False
+    (
+        _branch,
+        _remote,
+        _head_commit,
+        _approved_target_identity,
+        matches_branch,
+        matches_head,
+        matches_target,
+    ) = _latest_push_report_state(
+        report=report,
+        current_branch=current_branch,
+        current_head_commit=current_head_commit,
+        current_approved_target_identity=current_approved_target_identity,
+    )
+    return bool(matches_branch and matches_head and matches_target)

@@ -166,10 +166,10 @@ class DashboardRuntimeCountTests(unittest.TestCase):
         self.assertEqual(coord["live_implementers"], 1)
         self.assertEqual(coord["running_daemons"], 1)
         self.assertEqual(coord["delegated_agents"], 1)
-        self.assertEqual(coord["planned_lanes"], 16)
+        self.assertEqual(coord["planned_lanes"], 0)
         self.assertEqual(coord["requested_worker_budget"], 0)
         self.assertEqual(health_counts["live_participants_total"], 2)
-        self.assertEqual(health_counts["planned_lane_total"], 16)
+        self.assertNotIn("planned_lane_total", health_counts)
 
         terminal = dashboard_render.render_terminal(snapshot, no_color=True)
         self.assertIn("Active agents", terminal)

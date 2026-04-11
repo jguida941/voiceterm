@@ -6,6 +6,7 @@ from ...context_graph.render import append_quality_signal_lines
 from ...runtime.project_governance_push import push_enforcement_from_mapping
 from ...runtime.work_intake_models import session_pacing_markdown_lines
 from ...runtime.startup_push_recovery import (
+    artifact_push_in_progress_for_current_head,
     artifact_publication_truth,
     effective_publication_summary,
 )
@@ -105,12 +106,17 @@ def _append_latest_push_receipt(lines: list[str], push_enforcement: dict) -> Non
     latest_push_reason = str(push_enforcement.get("latest_push_report_reason") or "").strip()
     if not (latest_push_path or latest_push_status or latest_push_reason):
         return
-    published_remote, post_push_green = artifact_publication_truth(
-        push_enforcement_from_mapping(push_enforcement)
-    )
+    push_record = push_enforcement_from_mapping(push_enforcement)
+    published_remote, post_push_green = artifact_publication_truth(push_record)
+    if artifact_push_in_progress_for_current_head(push_record):
+        effective_state = "Governed push in progress for current HEAD"
+    else:
+        effective_state = effective_publication_summary(
+            published_remote,
+            post_push_green,
+        )
     lines.append(
-        f"- effective_publication_state: "
-        f"{effective_publication_summary(published_remote, post_push_green)}"
+        f"- effective_publication_state: {effective_state}"
     )
     lines.append(f"- published_remote: {published_remote}")
     lines.append(f"- post_push_green: {post_push_green}")

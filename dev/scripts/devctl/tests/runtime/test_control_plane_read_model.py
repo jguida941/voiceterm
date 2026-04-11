@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import unittest
+from datetime import datetime, timezone
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -142,6 +143,7 @@ class ReviewStatusDirThreadingTests(unittest.TestCase):
             repo_root,
             governance=None,
             review_status_dir=review_status_dir,
+            review_state_override=None,
         )
 
 
@@ -479,6 +481,114 @@ class ResolverUnitTests(unittest.TestCase):
         self.assertFalse(d["supervisor_running"])
         self.assertFalse(d["codex_conductor_alive"])
         self.assertFalse(d["claude_conductor_alive"])
+
+    def test_resolve_daemon_prefers_typed_review_state_liveness(self) -> None:
+        sources = _empty_sources()
+        sources["review_state"] = {
+            "reviewer_runtime": {
+                "doctor": {
+                    "publisher_running": False,
+                    "reviewer_supervisor_running": False,
+                },
+            },
+            "bridge": {
+                "publisher_running": False,
+                "codex_conductor_active": True,
+                "claude_conductor_active": True,
+            },
+        }
+        sources["publisher_hb"] = {"pid": 123}
+        sources["supervisor_hb"] = {"pid": 456}
+        d = resolve_daemon_state(sources)
+        self.assertFalse(d["publisher_running"])
+        self.assertFalse(d["supervisor_running"])
+        self.assertTrue(d["codex_conductor_alive"])
+        self.assertTrue(d["claude_conductor_alive"])
+
+    def test_resolve_daemon_promotes_fresh_single_agent_reviewer_activity(self) -> None:
+        with self.subTest("fresh packet activity counts as live reviewer"):
+            import json
+            import tempfile
+
+            with tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp)
+                session_output_root = root / "latest"
+                event_log = root / "events" / "trace.ndjson"
+                event_log.parent.mkdir(parents=True, exist_ok=True)
+                event_log.write_text(
+                    json.dumps(
+                        {
+                            "event_type": "packet_posted",
+                            "from_agent": "codex",
+                            "timestamp_utc": (
+                                datetime.now(timezone.utc)
+                                .isoformat()
+                                .replace("+00:00", "Z")
+                            ),
+                        }
+                    )
+                    + "\n",
+                    encoding="utf-8",
+                )
+                sources = _empty_sources()
+                sources["session_output_root"] = session_output_root
+                sources["review_state"] = {
+                    "bridge": {
+                        "reviewer_mode": "single_agent",
+                        "codex_conductor_active": False,
+                        "claude_conductor_active": False,
+                    },
+                    "collaboration": {"review_agent": "codex"},
+                }
+                d = resolve_daemon_state(sources)
+                self.assertTrue(d["codex_conductor_alive"])
+                self.assertFalse(d["claude_conductor_alive"])
+
+        with self.subTest("recent rollout writes count as live reviewer"):
+            import os
+            import tempfile
+
+            from dev.scripts.devctl.review_channel import collaboration_session as collaboration_mod
+
+            with tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp)
+                session_output_root = root / "latest"
+                rollout_path = (
+                    root
+                    / "sessions"
+                    / "2026"
+                    / "04"
+                    / "11"
+                    / "rollout-2026-04-11T21-52-00-codex-live.jsonl"
+                )
+                rollout_path.parent.mkdir(parents=True, exist_ok=True)
+                rollout_path.write_text("{}\n", encoding="utf-8")
+                rollout_mtime = datetime(
+                    2026, 4, 11, 21, 52, 0, tzinfo=timezone.utc
+                ).timestamp()
+                os.utime(rollout_path, (rollout_mtime, rollout_mtime))
+                sources = _empty_sources()
+                sources["session_output_root"] = session_output_root
+                sources["review_state"] = {
+                    "bridge": {
+                        "reviewer_mode": "single_agent",
+                        "codex_conductor_active": False,
+                        "claude_conductor_active": False,
+                    },
+                    "collaboration": {"review_agent": "codex"},
+                }
+                with patch.object(
+                    collaboration_mod,
+                    "discover_latest_session",
+                    return_value=rollout_path,
+                ), patch.object(
+                    collaboration_mod,
+                    "_utcnow",
+                    return_value=datetime(2026, 4, 11, 21, 54, 0, tzinfo=timezone.utc),
+                ):
+                    d = resolve_daemon_state(sources)
+                self.assertTrue(d["codex_conductor_alive"])
+                self.assertFalse(d["claude_conductor_alive"])
 
     def test_resolve_pending_packets_none(self) -> None:
         self.assertEqual(resolve_pending_packets(None), 0)

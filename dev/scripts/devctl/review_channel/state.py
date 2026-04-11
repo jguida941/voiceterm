@@ -45,6 +45,10 @@ from .status_projection_helpers import (
     build_bridge_push_enforcement_state,
     hybrid_loop_errors,
 )
+from .session_liveness_events import (
+    emit_status_tick_participant_liveness_events,
+    summarize_participant_liveness_events,
+)
 from .session_state_hints import detect_session_state_hints, session_state_hints_to_dict
 from .lifecycle_state import (
     DEFAULT_REVIEW_STATUS_DIR_REL,
@@ -113,8 +117,15 @@ def refresh_status_snapshot(
     attach_conductor_session_state(
         bridge_liveness=bridge_liveness,
         output_root=output_root,
-        repo_root=repo_root,
     )
+    emitted_liveness_events = emit_status_tick_participant_liveness_events(
+        repo_root=repo_root,
+        session_output_root=output_root,
+    )
+    if emitted_liveness_events:
+        bridge_liveness["participant_liveness_expired_events"] = (
+            summarize_participant_liveness_events(emitted_liveness_events)
+        )
     session_state_hints = detect_session_state_hints(session_output_root=output_root)
     if session_state_hints:
         bridge_liveness["session_state_hints"] = session_state_hints_to_dict(

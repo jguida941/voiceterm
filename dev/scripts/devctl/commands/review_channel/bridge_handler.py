@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import asdict
 from functools import partial
 from pathlib import Path
 
@@ -180,6 +181,12 @@ def _build_bridge_report(
         bridge_liveness=context.status_snapshot.bridge_liveness,
         attention=context.status_snapshot.attention,
         reviewer_worker=context.status_snapshot.reviewer_worker,
+        collaboration=(
+            asdict(context.status_snapshot.review_state.collaboration)
+            if context.status_snapshot.review_state is not None
+            and context.status_snapshot.review_state.collaboration is not None
+            else None
+        ),
         codex_lanes=context.codex_lanes,
         claude_lanes=context.claude_lanes,
         terminal_profile_applied=context.terminal_profile_applied,

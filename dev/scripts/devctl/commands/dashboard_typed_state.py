@@ -7,6 +7,7 @@ regardless of whether the source is compact.json or review_state.json.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 import re
 from typing import Any, TypedDict
 
@@ -37,6 +38,11 @@ class PendingPacketFields(TypedDict):
     status: str
     requested_action: str
     approval_required: bool
+    delivery_emitted_at_utc: str
+    delivery_observed_at_utc: str
+    delivery_observed_by: str
+    execution_started_at_utc: str
+    execution_started_by: str
 
 
 class BridgeFields(TypedDict):
@@ -131,7 +137,7 @@ def _extract_typed_packets(
     if review_state is None:
         return []
     packets = review_state.get("packets", [])
-    if not isinstance(packets, list):
+    if not isinstance(packets, Sequence) or isinstance(packets, (str, bytes)):
         return []
     pending: list[PendingPacketFields] = []
     for pkt in live_pending_packets(packets):
@@ -144,6 +150,11 @@ def _extract_typed_packets(
             status="pending",
             requested_action=pkt.get("requested_action", ""),
             approval_required=pkt.get("approval_required", False),
+            delivery_emitted_at_utc=pkt.get("delivery_emitted_at_utc", ""),
+            delivery_observed_at_utc=pkt.get("delivery_observed_at_utc", ""),
+            delivery_observed_by=pkt.get("delivery_observed_by", ""),
+            execution_started_at_utc=pkt.get("execution_started_at_utc", ""),
+            execution_started_by=pkt.get("execution_started_by", ""),
         ))
     return pending
 

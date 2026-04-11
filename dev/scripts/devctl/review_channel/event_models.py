@@ -40,6 +40,11 @@ class ReviewPacketRow(TypedDict):
     acked_by: object
     acked_at_utc: object
     applied_at_utc: object
+    delivery_emitted_at_utc: object
+    delivery_observed_at_utc: object
+    delivery_observed_by: object
+    execution_started_at_utc: object
+    execution_started_by: object
     posted_at: object
     expires_at_utc: object
     _sort_timestamp: object

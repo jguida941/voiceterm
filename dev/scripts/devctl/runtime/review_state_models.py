@@ -274,6 +274,11 @@ class ReviewPacketState:
     acked_by: str = ""
     acked_at_utc: str = ""
     applied_at_utc: str = ""
+    delivery_emitted_at_utc: str = ""
+    delivery_observed_at_utc: str = ""
+    delivery_observed_by: str = ""
+    execution_started_at_utc: str = ""
+    execution_started_by: str = ""
     expires_at_utc: str = ""
 
     def requires_operator_approval(self) -> bool:
