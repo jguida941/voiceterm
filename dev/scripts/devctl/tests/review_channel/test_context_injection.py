@@ -138,3 +138,67 @@ class ReviewChannelEventProjectionContextTests(unittest.TestCase):
             summary["derived_next_instruction_source"]["guidance_refs"],
             ["probe_design_smells@dev/active/review_channel.md:12"],
         )
+
+    def test_action_request_priority_beats_newer_commentary(self) -> None:
+        from dev.scripts.devctl.review_channel.event_projection import (
+            build_event_queue_summary,
+        )
+
+        summary = build_event_queue_summary(
+            {"codex": 2},
+            0,
+            packets=[
+                {
+                    "packet_id": "rev_pkt_instruction",
+                    "status": "pending",
+                    "summary": "Later commentary packet",
+                    "body": "narrative update",
+                    "plan_id": "MP-380",
+                    "kind": "instruction",
+                    "from_agent": "claude",
+                    "to_agent": "codex",
+                    "posted_at": "2026-04-11T22:40:00Z",
+                    "expires_at_utc": "2999-01-01T00:00:00Z",
+                },
+                {
+                    "packet_id": "rev_pkt_action",
+                    "status": "pending",
+                    "summary": "Execute the governed push",
+                    "body": "push the reviewed slice",
+                    "plan_id": "MP-380",
+                    "kind": "action_request",
+                    "from_agent": "claude",
+                    "to_agent": "codex",
+                    "requested_action": "push",
+                    "posted_at": "2026-04-11T22:20:00Z",
+                    "expires_at_utc": "2999-01-01T00:00:00Z",
+                    "delivery_observed_at_utc": "2026-04-11T22:21:00Z",
+                    "delivery_observed_by": "codex",
+                    "execution_started_at_utc": "",
+                    "execution_started_by": "",
+                },
+            ],
+        )
+
+        self.assertTrue(
+            summary["derived_next_instruction"].startswith(
+                "Priority action_request: Execute the governed push"
+            )
+        )
+        self.assertEqual(
+            summary["derived_next_instruction_source"]["packet_id"],
+            "rev_pkt_action",
+        )
+        self.assertEqual(
+            summary["derived_next_instruction_source"]["selection_policy"],
+            "action_request_priority",
+        )
+        self.assertEqual(
+            summary["derived_next_instruction_source"]["control_state"],
+            "execution_pending",
+        )
+        self.assertTrue(summary["derived_next_instruction_source"]["wake_required"])
+        self.assertEqual(
+            summary["derived_next_instruction_source"]["requested_action"],
+            "push",
+        )

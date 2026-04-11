@@ -13,6 +13,7 @@ from dev.scripts.devctl.tests.test_review_channel_context_refs import (
 )
 from dev.scripts.devctl.review_channel.events import (
     post_packet,
+    refresh_event_bundle,
     resolve_artifact_paths,
     transition_packet,
 )
@@ -443,6 +444,110 @@ class ReviewChannelPlanPacketTests(unittest.TestCase):
         self.assertEqual(packet["packet_id"], "rev_pkt_0001")
         self.assertEqual(packet["delivery_observed_by"], "claude")
         self.assertTrue(packet["delivery_observed_at_utc"])
+
+    def test_action_request_priority_drives_queue_instruction_after_later_instruction_post(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            review_channel_path = root / "dev/active/review_channel.md"
+            review_channel_path.parent.mkdir(parents=True, exist_ok=True)
+            review_channel_path.write_text(_review_channel_text(), encoding="utf-8")
+            artifact_paths = resolve_artifact_paths(repo_root=root)
+
+            bundle, action_event = post_packet(
+                repo_root=root,
+                review_channel_path=review_channel_path,
+                artifact_paths=artifact_paths,
+                request=PacketPostRequest(
+                    from_agent="claude",
+                    to_agent="codex",
+                    kind="action_request",
+                    summary="Execute the governed push",
+                    body="push the reviewed slice",
+                    evidence_refs=(),
+                    context_pack_refs=(),
+                    confidence=1.0,
+                    requested_action="push",
+                    policy_hint="review_only",
+                    approval_required=False,
+                    target=PacketTargetFields.from_values(
+                        target_kind="runtime",
+                        target_ref="remote_commit_pipeline:pipeline-123",
+                        target_revision="gen-9",
+                    ),
+                    runtime_approval=PacketRuntimeApprovalFields.from_values(
+                        pipeline_generation="gen-9",
+                        staged_snapshot_hash="tree-123",
+                        guard_results_summary="bundle.tooling pass",
+                    ),
+                ),
+            )
+            parser = build_parser()
+            inbox_args = parser.parse_args(
+                [
+                    "review-channel",
+                    "--action",
+                    "inbox",
+                    "--target",
+                    "codex",
+                    "--status",
+                    "pending",
+                    "--terminal",
+                    "none",
+                    "--format",
+                    "json",
+                ]
+            )
+
+            from dev.scripts.devctl.commands.review_channel.event_handler import (
+                _run_event_action,
+            )
+
+            _run_event_action(
+                args=inbox_args,
+                repo_root=root,
+                paths={
+                    "review_channel_path": review_channel_path,
+                    "artifact_paths": artifact_paths,
+                },
+            )
+            post_packet(
+                repo_root=root,
+                review_channel_path=review_channel_path,
+                artifact_paths=artifact_paths,
+                request=PacketPostRequest(
+                    from_agent="claude",
+                    to_agent="codex",
+                    kind="instruction",
+                    summary="Later commentary packet",
+                    body="narrative update",
+                    evidence_refs=(),
+                    context_pack_refs=(),
+                    confidence=1.0,
+                    requested_action="review_only",
+                    policy_hint="review_only",
+                    approval_required=False,
+                ),
+            )
+
+            bundle = refresh_event_bundle(
+                repo_root=root,
+                review_channel_path=review_channel_path,
+                artifact_paths=artifact_paths,
+            )
+
+        self.assertEqual(
+            bundle.review_state["queue"]["derived_next_instruction_source"]["packet_id"],
+            action_event["packet_id"],
+        )
+        self.assertEqual(
+            bundle.review_state["queue"]["derived_next_instruction_source"]["selection_policy"],
+            "action_request_priority",
+        )
+        self.assertTrue(
+            bundle.review_state["queue"]["derived_next_instruction"].startswith(
+                "Priority action_request: Execute the governed push"
+            )
+        )
 
     def test_runtime_action_request_packets_require_typed_runtime_binding(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
