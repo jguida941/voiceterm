@@ -2142,6 +2142,7 @@ Core commands:
   with `prevention_surface=guard|probe` also queue `GuardPromotionCandidate`
   follow-up records and include the candidate id/path in the refreshed JSON
   summary for that recorded row)
+- `findings-priority` (ranks accumulated findings by existing triage severity ordering plus context-graph import fan-out; composes existing systems without creating new authority. Use `--format md --top-n <n>` for a bounded priority list)
 - `triage` (human/AI triage output with optional CIHub artifact ingestion/bundle emission for owner/risk routing; report timestamps are UTC)
 - `triage-loop` (bounded CodeRabbit medium/high loop with mode controls: `report-only`, `plan-then-fix`, `fix-only`; fix execution is policy-gated via `AUTONOMY_MODE`, branch allowlist, and command-prefix allowlist; emits md/json bundles plus a bounded structured backlog slice for downstream autonomy consumers, optional MASTER_PLAN proposal artifacts, and review-escalation comment upserts when attempts exhaust unresolved backlog)
 - `loop-packet` (builds a guarded terminal feedback packet from triage/loop JSON sources for dev-mode draft injection with freshness/risk/auto-send-eligibility gates; `triage-loop` sources now also carry a bounded structured backlog slice so autonomy drafts can inject canonical `review_targets.json` probe guidance, mark when guidance adoption is required, and keep that contract in packet JSON instead of hidden prompt-only text)
