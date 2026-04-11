@@ -5,14 +5,14 @@
 ## Quick status
 
 - Branch: `feature/governance-quality-sweep`
-- HEAD: `2e46f645b32e` — fix(runtime): keep local single-agent takeover local
-- Tree hash: `c6d8432a9b12`
-- Generation stamp: `snap-ef0ca0da70ab`
-- Generated at (UTC): 2026-04-11T18:45:29Z
-- Push decision: `run_devctl_push` — push_preconditions_satisfied
+- HEAD: `0936a4e543f5` — Refresh external review snapshot for 2e46f645
+- Tree hash: `d3873c9fe6fc`
+- Generation stamp: `snap-2dbeea8ed87c`
+- Generated at (UTC): 2026-04-11T23:08:44Z
+- Push decision: `await_checkpoint` — dirty_path_budget_exceeded
 - Reviewer mode: `single_agent` (interaction: `local_terminal`)
 - Pipeline state: `n/a` (approval: `n/a`)
-- Delta since last snapshot: 25 commits, 59 files, +5329/-1998
+- Delta since last snapshot: 25 commits, 59 files, +4910/-1992
 - Governance findings: 86 open / 71 fixed / 171 total
 - Probe hints: 0 total across 0 files scanned
 
@@ -54,24 +54,26 @@ adopters arrive.
 - Remote: `https://github.com/jguida941/voiceterm.git`
 - Default branch: `master`
 - Current branch: `feature/governance-quality-sweep`
-- HEAD SHA: `2e46f645b32e8aeaf0d415de9b46e1522a473bfc`
+- HEAD SHA: `0936a4e543f5a3c38d0e8a9348718bd50c533a05`
 - HEAD author: Justin Guida
 - HEAD timestamp (UTC): 2026-04-11T14:44:47-04:00
 
 ## 2. Governance state
 
 ### Push decision
-- action: `run_devctl_push`
-- reason: push_preconditions_satisfied
-- push_eligible_now: True
-- worktree_clean: True
-- staged_path_count: 0
-- unstaged_path_count: 0
-- next_step_command: `python3 dev/scripts/devctl.py push --execute`
+- action: `await_checkpoint`
+- reason: dirty_path_budget_exceeded
+- push_eligible_now: False
+- worktree_clean: False
+- staged_path_count: 1
+- unstaged_path_count: 72
+- next_step_command: `n/a`
 - latest_push_report: `dev/reports/push/latest.json`
 - latest_push_report_state: `post_push_green` (push_completed)
-- publication_backlog: recommended
-- publication_guidance: 2 local commit(s) waiting for governed push. Run `python3 dev/scripts/devctl.py push --execute` now.
+- current_push_authorization: `push-auth-20260411T184445146140Z` (valid=False)
+- authorized_head_commit: `0936a4e543f5a3c38d0e8a9348718bd50c533a05`
+- approved_target_identity: `tree-receipt-20260411T184445146140Z:b5ba49bb30bbdc75b5f28bba1c287afcec975a34`
+- publication_backlog: none
 
 ### Reviewer runtime
 - reviewer_mode: `single_agent`
@@ -87,17 +89,18 @@ adopters arrive.
 - active plan: **Master Plan (Active, Unified)**
 - plan path: `dev/active/MASTER_PLAN.md`
 - active MP scope: all active MP execution state
-- advisory: `push_allowed` — worktree_clean_and_review_accepted
+- advisory: `checkpoint_before_continue` — dirty_path_budget_exceeded
+- checkpoint_required: **yes**
 
 ## 3. Delta — what changed since the previous snapshot
 
-Range: last 25 commits ending at `2e46f645b32e`
+Range: last 25 commits ending at `0936a4e543f5`
 
 - commits: 25
 - files changed: 59
-- insertions: +5329
-- deletions: -1998
-- bundle classes touched: docs, tooling
+- insertions: +4910
+- deletions: -1992
+- bundle classes touched: tooling, docs
 - risk add-ons triggered: Parser / ANSI boundary
 - authority surfaces touched: 6 file(s)
 
@@ -105,31 +108,31 @@ Range: last 25 commits ending at `2e46f645b32e`
 
 | # | SHA | Subject | Files | +/- | Bundle | Risk |
 |---|---|---|---|---|---|---|
-| 1 | `2e46f645` | fix(runtime): keep local single-agent takeover local | 18 | +425/-113 | tooling |  |
-| 2 | `47e2b4e1` | Clarify platform boundary and startup mutability routing | 17 | +358/-46 | tooling |  |
-| 3 | `30dcf434` | Refresh external review snapshot for 8a05ad7f | 1 | +55/-52 | tooling |  |
-| 4 | `8a05ad7f` | docs(bridge): scribe capture live Codex state + autonomy pl… | 3 | +72/-65 | tooling |  |
-| 5 | `936cbc3d` | fix(review-snapshot): gate single_agent lane on reviewer ve… | 3 | +120/-62 | tooling |  |
-| 6 | `e1dac616` | Refresh external review snapshot for f3bbca18 | 1 | +63/-70 | tooling |  |
-| 7 | `f3bbca18` | fix(review-channel): typed preflight gate — reviewer-checkp… | 8 | +539/-135 | tooling | Parser / ANSI boundary |
-| 8 | `8bb338bc` | feat(runtime): Q99 — canonical startup_blocker_decision ker… | 8 | +495/-100 | tooling |  |
-| 9 | `2a1977cb` | fix(runtime,governance): Codex P1 — pacing live-rebuild + a… | 6 | +615/-141 | tooling |  |
-| 10 | `b0885088` | Refresh external review snapshot for 2730689c | 1 | +104/-80 | tooling |  |
-| 11 | `2730689c` | docs(bridge): neutralize stale Q37 Operator Direction block | 2 | +91/-126 | docs |  |
-| 12 | `31be10ee` | Refresh external review snapshot for ee79f9c3 | 1 | +108/-72 | tooling |  |
-| 13 | `ee79f9c3` | fix(review-snapshot): Q92-C7 — consult live reviewer verdic… | 3 | +325/-100 | tooling |  |
-| 14 | `eb4a15b6` | Refresh external review snapshot for 38cb9e95 | 1 | +120/-100 | tooling |  |
-| 15 | `38cb9e95` | fix(review-channel): Q94 — emit participant_liveness_expire… | 6 | +437/-111 | tooling |  |
-| 16 | `63bd97e1` | Refresh external review snapshot for 7f2f925f | 1 | +111/-93 | tooling |  |
-| 17 | `7f2f925f` | docs(claude): force typed ingestion — --format json over --… | 5 | +69/-96 | tooling |  |
-| 18 | `09565fe7` | Refresh external review snapshot for 4a67140e | 1 | +42/-40 | tooling |  |
-| 19 | `4a67140e` | docs(bridge): scribe capture Codex fdd35a6207cc verdict (Q9… | 2 | +46/-47 | docs |  |
-| 20 | `3c294f0d` | Refresh external review snapshot for 0247df7c | 1 | +41/-42 | tooling |  |
-| 21 | `0247df7c` | docs(bridge): scribe capture for Q98-Q99 post (Q91b workaro… | 2 | +64/-61 | docs |  |
-| 22 | `84006af1` | docs(audit): Q98-Q99 — ChatGPT proposal audit + 5-field pro… | 2 | +431/-71 | tooling |  |
-| 23 | `a805652b` | Refresh external review snapshot for 186f8974 | 1 | +45/-40 | tooling |  |
-| 24 | `186f8974` | docs(bridge): capture Codex fresh verdict (Q91b workaround,… | 2 | +67/-63 | docs |  |
-| 25 | `d0d60a3e` | docs(audit): Q94-Q97 — 5-agent audit verdict, MasterAuthori… | 2 | +486/-72 | tooling |  |
+| 1 | `0936a4e5` | Refresh external review snapshot for 2e46f645 | 1 | +67/-66 | tooling |  |
+| 2 | `2e46f645` | fix(runtime): keep local single-agent takeover local | 18 | +425/-113 | tooling |  |
+| 3 | `47e2b4e1` | Clarify platform boundary and startup mutability routing | 17 | +358/-46 | tooling |  |
+| 4 | `30dcf434` | Refresh external review snapshot for 8a05ad7f | 1 | +55/-52 | tooling |  |
+| 5 | `8a05ad7f` | docs(bridge): scribe capture live Codex state + autonomy pl… | 3 | +72/-65 | tooling |  |
+| 6 | `936cbc3d` | fix(review-snapshot): gate single_agent lane on reviewer ve… | 3 | +120/-62 | tooling |  |
+| 7 | `e1dac616` | Refresh external review snapshot for f3bbca18 | 1 | +63/-70 | tooling |  |
+| 8 | `f3bbca18` | fix(review-channel): typed preflight gate — reviewer-checkp… | 8 | +539/-135 | tooling | Parser / ANSI boundary |
+| 9 | `8bb338bc` | feat(runtime): Q99 — canonical startup_blocker_decision ker… | 8 | +495/-100 | tooling |  |
+| 10 | `2a1977cb` | fix(runtime,governance): Codex P1 — pacing live-rebuild + a… | 6 | +615/-141 | tooling |  |
+| 11 | `b0885088` | Refresh external review snapshot for 2730689c | 1 | +104/-80 | tooling |  |
+| 12 | `2730689c` | docs(bridge): neutralize stale Q37 Operator Direction block | 2 | +91/-126 | docs |  |
+| 13 | `31be10ee` | Refresh external review snapshot for ee79f9c3 | 1 | +108/-72 | tooling |  |
+| 14 | `ee79f9c3` | fix(review-snapshot): Q92-C7 — consult live reviewer verdic… | 3 | +325/-100 | tooling |  |
+| 15 | `eb4a15b6` | Refresh external review snapshot for 38cb9e95 | 1 | +120/-100 | tooling |  |
+| 16 | `38cb9e95` | fix(review-channel): Q94 — emit participant_liveness_expire… | 6 | +437/-111 | tooling |  |
+| 17 | `63bd97e1` | Refresh external review snapshot for 7f2f925f | 1 | +111/-93 | tooling |  |
+| 18 | `7f2f925f` | docs(claude): force typed ingestion — --format json over --… | 5 | +69/-96 | tooling |  |
+| 19 | `09565fe7` | Refresh external review snapshot for 4a67140e | 1 | +42/-40 | tooling |  |
+| 20 | `4a67140e` | docs(bridge): scribe capture Codex fdd35a6207cc verdict (Q9… | 2 | +46/-47 | docs |  |
+| 21 | `3c294f0d` | Refresh external review snapshot for 0247df7c | 1 | +41/-42 | tooling |  |
+| 22 | `0247df7c` | docs(bridge): scribe capture for Q98-Q99 post (Q91b workaro… | 2 | +64/-61 | docs |  |
+| 23 | `84006af1` | docs(audit): Q98-Q99 — ChatGPT proposal audit + 5-field pro… | 2 | +431/-71 | tooling |  |
+| 24 | `a805652b` | Refresh external review snapshot for 186f8974 | 1 | +45/-40 | tooling |  |
+| 25 | `186f8974` | docs(bridge): capture Codex fresh verdict (Q91b workaround,… | 2 | +67/-63 | docs |  |
 
 ### Files
 
@@ -140,8 +143,8 @@ Range: last 25 commits ending at `2e46f645b32e`
 | `dev/active/MASTER_PLAN.md` | tooling | +16/-0 |
 | `dev/active/ai_governance_platform.md` | tooling | +21/-1 |
 | `dev/active/autonomous_control_plane.md` | tooling | +2/-0 |
-| `dev/audits/LIVE_RUN.md` | tooling | +791/-0 |
-| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1710/-1709 |
+| `dev/audits/LIVE_RUN.md` | tooling | +370/-0 |
+| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1712/-1703 |
 | `dev/config/devctl_repo_policy.json` | tooling | +1/-1 |
 | `dev/config/templates/claude_instructions.template.md` | tooling | +7/-5 |
 | `dev/config/templates/portable_governance_repo_setup.template.md` | tooling | +5/-3 |
@@ -265,6 +268,8 @@ Recent findings:
 
 ### Per-commit rationale
 
+- **`0936a4e5`** — Refresh external review snapshot for 2e46f645
+  - evolution: Fact: the sanctioned local reviewer-takeover surface already existed, but the repo still drifted back toward `remote_control` semantics in one important place. The current policy had been left on `remote_control`, and s…
 - **`2e46f645`** — fix(runtime): keep local single-agent takeover local
   - evolution: Fact: the sanctioned local reviewer-takeover surface already existed, but the repo still drifted back toward `remote_control` semantics in one important place. The current policy had been left on `remote_control`, and s…
 - **`47e2b4e1`** — Clarify platform boundary and startup mutability routing
@@ -343,11 +348,6 @@ Recent findings:
   - to bridge.md via review-channel, rotating current_instruction_revision
   - from 798446bc35db to f26e114a45d7 and landing a new finding list
   - evolution: Fact: the sanctioned local reviewer-takeover surface already existed, but the repo still drifted back toward `remote_control` semantics in one important place. The current policy had been left on `remote_control`, and s…
-- **`d0d60a3e`** — docs(audit): Q94-Q97 — 5-agent audit verdict, MasterAuthorityPacket rejected
-  - Dashboard append from the 5-agent parallel audit Claude ran on
-  - operator instruction ("audit the MasterAuthorityPacket idea against
-  - existing architecture, I don't want to duplicate logic").
-  - evolution: Fact: the sanctioned local reviewer-takeover surface already existed, but the repo still drifted back toward `remote_control` semantics in one important place. The current policy had been left on `remote_control`, and s…
 ### Active MP scope (from MASTER_PLAN.md)
 
 - `dev/active/devctl_reporting_upgrade.md` is the phased `devctl` reporting/CIHub specification, but not a separate execution tracker; implementation tasks stay in this file under `MP-297..MP-300`, `MP-303`, `MP-306`, `MP…
@@ -366,10 +366,11 @@ Recent findings:
 - open governance findings: 86
 
 ### Startup advisories
-- push_allowed: worktree_clean_and_review_accepted
+- checkpoint_before_continue: dirty_path_budget_exceeded
 
 ### Stale warnings
-- Stop because nothing remains to push.
+- Keep editing the current slice.
+- Move straight to the governed push path.
 
 ### Open gap rows
 - **governance_open** (`dev/scripts/devctl/security/codeql.py`): subprocess_missing_timeout: 
@@ -383,4 +384,4 @@ Recent findings:
 
 ---
 
-Projection produced by `devctl review-snapshot`. Generation stamp `snap-ef0ca0da70ab` binds this file to HEAD `2e46f645b32e`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
+Projection produced by `devctl review-snapshot`. Generation stamp `snap-2dbeea8ed87c` binds this file to HEAD `0936a4e543f5`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
