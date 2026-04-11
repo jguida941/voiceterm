@@ -213,6 +213,7 @@
 - Current highest-priority subordinate `MP-377` lane:
   `dev/active/platform_authority_loop.md`. This is the execution spec for
   closing the portable authority loop:
+- The bundle.tooling hygiene step in check-router now ignores the long-standing publications drift warning alongside mutation_badge so unrelated slices are not blocked by external-site drift on terminal-as-interface.
   `ProjectGovernance -> RepoPack -> PlanRegistry -> PlanTargetRef ->
   WorkIntakePacket -> TypedAction -> ActionResult / RunRecord / Finding ->
   ContextPack`.

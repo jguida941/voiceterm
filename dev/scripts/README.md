@@ -846,6 +846,8 @@ python3 dev/scripts/devctl.py hygiene --strict-warnings
 python3 dev/scripts/devctl.py hygiene --strict-release-warnings
 # Optional: keep mutation-badge freshness visible without failing strict hygiene
 python3 dev/scripts/devctl.py hygiene --strict-warnings --ignore-warning-source mutation_badge
+# Optional: also ignore long-standing publications drift (bundle.tooling default)
+python3 dev/scripts/devctl.py hygiene --strict-warnings --ignore-warning-source mutation_badge --ignore-warning-source publications
 # Host-side cleanup + strict verify for repo-related leftovers
 python3 dev/scripts/devctl.py process-cleanup --verify --format md
 # Read-only host-side Activity Monitor equivalent

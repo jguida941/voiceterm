@@ -132,6 +132,7 @@ Use docs like this:
   on the action-request-first control path during read-only polls instead of
   falling back to a later commentary packet while a live action request is
   still pending.
+- The bundle.tooling hygiene gate ignores the long-standing publications drift warning via --ignore-warning-source publications alongside the existing mutation_badge exclusion, so unrelated pushes are no longer blocked by external-site drift.
 - The same Phase-2 authority cleanup now keeps review/push truth on typed
   runtime contracts too: `reviewer_runtime` owns
   `implementer_ack_current`, `implementation_blocked`, and

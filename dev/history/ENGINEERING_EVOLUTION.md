@@ -9700,3 +9700,19 @@ Evidence: `dev/active/autonomous_governance_loop_v2.md`,
 `dev/README.md`,
 `dev/guides/DEVELOPMENT.md`,
 `dev/scripts/README.md`.
+
+### 2026-04-11 - `bundle.tooling` hygiene gate now ignores long-standing `publications` drift alongside `mutation_badge`
+
+Fact: the `bundle.tooling` hygiene step was blocking unrelated pushes on a
+long-standing external-publication drift warning for `terminal-as-interface`
+(tracked at `369cb67b3c85`, ~380 impacted paths since). The `mutation_badge`
+warning was already excluded via `--ignore-warning-source mutation_badge`;
+extend the same pattern to `publications` so both known-stale warning
+families stay visible in the hygiene report but do not count against
+`--strict-warnings` failure budgets.
+
+Evidence: `dev/scripts/devctl/bundles/registry.py`,
+`dev/scripts/devctl/tests/governance/test_bundle_registry.py`,
+`.github/workflows/tooling_control_plane.yml`, `AGENTS.md` (rendered
+bundle block), `dev/guides/DEVELOPMENT.md`, `dev/scripts/README.md`,
+`dev/active/MASTER_PLAN.md`.
