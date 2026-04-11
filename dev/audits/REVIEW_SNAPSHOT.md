@@ -5,14 +5,14 @@
 ## Quick status
 
 - Branch: `feature/governance-quality-sweep`
-- HEAD: `e1dac6168b6d` — Refresh external review snapshot for f3bbca18
-- Tree hash: `acf50a9376e1`
-- Generation stamp: `snap-75eca17fe39e`
-- Generated at (UTC): 2026-04-11T08:58:25Z
-- Push decision: `await_checkpoint` — staged_and_unstaged_worktree_present
+- HEAD: `936cbc3d3608` — fix(review-snapshot): gate single_agent lane on reviewer verdict, not mode alone
+- Tree hash: `c266af48e9eb`
+- Generation stamp: `snap-3ec90f0db368`
+- Generated at (UTC): 2026-04-11T08:59:31Z
+- Push decision: `await_checkpoint` — staged_index_present
 - Reviewer mode: `single_agent` (interaction: `remote_control`)
 - Pipeline state: `n/a` (approval: `n/a`)
-- Delta since last snapshot: 25 commits, 33 files, +5482/-1978
+- Delta since last snapshot: 24 commits, 33 files, +5103/-1916
 - Governance findings: 86 open / 71 fixed / 171 total
 - Probe hints: 0 total across 0 files scanned
 
@@ -54,23 +54,24 @@ adopters arrive.
 - Remote: `https://github.com/jguida941/voiceterm.git`
 - Default branch: `master`
 - Current branch: `feature/governance-quality-sweep`
-- HEAD SHA: `e1dac6168b6da235267c902e5c19ce690dff8322`
+- HEAD SHA: `936cbc3d36083bdf52911209cf759b0114b4a9c3`
 - HEAD author: Justin Guida
-- HEAD timestamp (UTC): 2026-04-11T03:52:01-04:00
+- HEAD timestamp (UTC): 2026-04-11T04:58:06-04:00
 
 ## 2. Governance state
 
 ### Push decision
 - action: `await_checkpoint`
-- reason: staged_and_unstaged_worktree_present
+- reason: staged_index_present
 - push_eligible_now: False
 - worktree_clean: False
-- staged_path_count: 2
-- unstaged_path_count: 2
+- staged_path_count: 1
+- unstaged_path_count: 0
 - next_step_command: `n/a`
 - latest_push_report: `dev/reports/push/latest.json`
 - latest_push_report_state: `post_push_green` (push_completed)
-- publication_backlog: none
+- publication_backlog: queued
+- publication_guidance: 1 local commit(s) waiting for governed push once the current slice is checkpoint-clean.
 
 ### Reviewer runtime
 - reviewer_mode: `single_agent`
@@ -90,12 +91,12 @@ adopters arrive.
 
 ## 3. Delta — what changed since the previous snapshot
 
-Range: last 25 commits ending at `e1dac6168b6d`
+Range: last 24 commits ending at `936cbc3d3608`
 
-- commits: 25
+- commits: 24
 - files changed: 33
-- insertions: +5482
-- deletions: -1978
+- insertions: +5103
+- deletions: -1916
 - bundle classes touched: tooling, docs
 - risk add-ons triggered: Parser / ANSI boundary
 - authority surfaces touched: 5 file(s)
@@ -104,39 +105,38 @@ Range: last 25 commits ending at `e1dac6168b6d`
 
 | # | SHA | Subject | Files | +/- | Bundle | Risk |
 |---|---|---|---|---|---|---|
-| 1 | `e1dac616` | Refresh external review snapshot for f3bbca18 | 1 | +63/-70 | tooling |  |
-| 2 | `f3bbca18` | fix(review-channel): typed preflight gate — reviewer-checkp… | 8 | +539/-135 | tooling | Parser / ANSI boundary |
-| 3 | `8bb338bc` | feat(runtime): Q99 — canonical startup_blocker_decision ker… | 8 | +495/-100 | tooling |  |
-| 4 | `2a1977cb` | fix(runtime,governance): Codex P1 — pacing live-rebuild + a… | 6 | +615/-141 | tooling |  |
-| 5 | `b0885088` | Refresh external review snapshot for 2730689c | 1 | +104/-80 | tooling |  |
-| 6 | `2730689c` | docs(bridge): neutralize stale Q37 Operator Direction block | 2 | +91/-126 | docs |  |
-| 7 | `31be10ee` | Refresh external review snapshot for ee79f9c3 | 1 | +108/-72 | tooling |  |
-| 8 | `ee79f9c3` | fix(review-snapshot): Q92-C7 — consult live reviewer verdic… | 3 | +325/-100 | tooling |  |
-| 9 | `eb4a15b6` | Refresh external review snapshot for 38cb9e95 | 1 | +120/-100 | tooling |  |
-| 10 | `38cb9e95` | fix(review-channel): Q94 — emit participant_liveness_expire… | 6 | +437/-111 | tooling |  |
-| 11 | `63bd97e1` | Refresh external review snapshot for 7f2f925f | 1 | +111/-93 | tooling |  |
-| 12 | `7f2f925f` | docs(claude): force typed ingestion — --format json over --… | 5 | +69/-96 | tooling |  |
-| 13 | `09565fe7` | Refresh external review snapshot for 4a67140e | 1 | +42/-40 | tooling |  |
-| 14 | `4a67140e` | docs(bridge): scribe capture Codex fdd35a6207cc verdict (Q9… | 2 | +46/-47 | docs |  |
-| 15 | `3c294f0d` | Refresh external review snapshot for 0247df7c | 1 | +41/-42 | tooling |  |
-| 16 | `0247df7c` | docs(bridge): scribe capture for Q98-Q99 post (Q91b workaro… | 2 | +64/-61 | docs |  |
-| 17 | `84006af1` | docs(audit): Q98-Q99 — ChatGPT proposal audit + 5-field pro… | 2 | +431/-71 | tooling |  |
-| 18 | `a805652b` | Refresh external review snapshot for 186f8974 | 1 | +45/-40 | tooling |  |
-| 19 | `186f8974` | docs(bridge): capture Codex fresh verdict (Q91b workaround,… | 2 | +67/-63 | docs |  |
-| 20 | `d0d60a3e` | docs(audit): Q94-Q97 — 5-agent audit verdict, MasterAuthori… | 2 | +486/-72 | tooling |  |
-| 21 | `6e8d96c2` | Refresh external review snapshot for b505d809 | 1 | +61/-63 | tooling |  |
-| 22 | `b505d809` | docs(bridge): capture Codex reviewer verdict state (Q91b wo… | 2 | +84/-83 | docs |  |
-| 23 | `a662deb5` | docs(audit): Q92 — 14+ prose-as-authority fields across gov… | 2 | +539/-48 | tooling |  |
-| 24 | `d8c71114` | Refresh external review snapshot for 8243c5ab | 1 | +64/-70 | tooling |  |
-| 25 | `8243c5ab` | docs(audit): Q91 — dashboard checkpoint, role correction, 4… | 2 | +435/-54 | tooling |  |
+| 1 | `936cbc3d` | fix(review-snapshot): gate single_agent lane on reviewer ve… | 3 | +120/-62 | tooling |  |
+| 2 | `e1dac616` | Refresh external review snapshot for f3bbca18 | 1 | +63/-70 | tooling |  |
+| 3 | `f3bbca18` | fix(review-channel): typed preflight gate — reviewer-checkp… | 8 | +539/-135 | tooling | Parser / ANSI boundary |
+| 4 | `8bb338bc` | feat(runtime): Q99 — canonical startup_blocker_decision ker… | 8 | +495/-100 | tooling |  |
+| 5 | `2a1977cb` | fix(runtime,governance): Codex P1 — pacing live-rebuild + a… | 6 | +615/-141 | tooling |  |
+| 6 | `b0885088` | Refresh external review snapshot for 2730689c | 1 | +104/-80 | tooling |  |
+| 7 | `2730689c` | docs(bridge): neutralize stale Q37 Operator Direction block | 2 | +91/-126 | docs |  |
+| 8 | `31be10ee` | Refresh external review snapshot for ee79f9c3 | 1 | +108/-72 | tooling |  |
+| 9 | `ee79f9c3` | fix(review-snapshot): Q92-C7 — consult live reviewer verdic… | 3 | +325/-100 | tooling |  |
+| 10 | `eb4a15b6` | Refresh external review snapshot for 38cb9e95 | 1 | +120/-100 | tooling |  |
+| 11 | `38cb9e95` | fix(review-channel): Q94 — emit participant_liveness_expire… | 6 | +437/-111 | tooling |  |
+| 12 | `63bd97e1` | Refresh external review snapshot for 7f2f925f | 1 | +111/-93 | tooling |  |
+| 13 | `7f2f925f` | docs(claude): force typed ingestion — --format json over --… | 5 | +69/-96 | tooling |  |
+| 14 | `09565fe7` | Refresh external review snapshot for 4a67140e | 1 | +42/-40 | tooling |  |
+| 15 | `4a67140e` | docs(bridge): scribe capture Codex fdd35a6207cc verdict (Q9… | 2 | +46/-47 | docs |  |
+| 16 | `3c294f0d` | Refresh external review snapshot for 0247df7c | 1 | +41/-42 | tooling |  |
+| 17 | `0247df7c` | docs(bridge): scribe capture for Q98-Q99 post (Q91b workaro… | 2 | +64/-61 | docs |  |
+| 18 | `84006af1` | docs(audit): Q98-Q99 — ChatGPT proposal audit + 5-field pro… | 2 | +431/-71 | tooling |  |
+| 19 | `a805652b` | Refresh external review snapshot for 186f8974 | 1 | +45/-40 | tooling |  |
+| 20 | `186f8974` | docs(bridge): capture Codex fresh verdict (Q91b workaround,… | 2 | +67/-63 | docs |  |
+| 21 | `d0d60a3e` | docs(audit): Q94-Q97 — 5-agent audit verdict, MasterAuthori… | 2 | +486/-72 | tooling |  |
+| 22 | `6e8d96c2` | Refresh external review snapshot for b505d809 | 1 | +61/-63 | tooling |  |
+| 23 | `b505d809` | docs(bridge): capture Codex reviewer verdict state (Q91b wo… | 2 | +84/-83 | docs |  |
+| 24 | `a662deb5` | docs(audit): Q92 — 14+ prose-as-authority fields across gov… | 2 | +539/-48 | tooling |  |
 
 ### Files
 
 | Path | Bundle | +/- |
 |---|---|---|
 | `bridge.md` | docs | +75/-77 |
-| `dev/audits/LIVE_RUN.md` | tooling | +1665/-0 |
-| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1744/-1786 |
+| `dev/audits/LIVE_RUN.md` | tooling | +1280/-0 |
+| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1681/-1712 |
 | `dev/scripts/devctl/commands/dashboard.py` | tooling | +8/-2 |
 | `dev/scripts/devctl/commands/dashboard_builders.py` | tooling | +27/-22 |
 | `dev/scripts/devctl/commands/governance/startup_context.py` | tooling | +23/-0 |
@@ -153,7 +153,7 @@ Range: last 25 commits ending at `e1dac6168b6d`
 | `dev/scripts/devctl/review_channel/status_projection_helpers.py` | tooling | +26/-0 |
 | `dev/scripts/devctl/review_channel/write_preconditions.py` | tooling | +84/-0 |
 | `dev/scripts/devctl/runtime/control_plane_resolve.py` | tooling | +33/-35 |
-| `dev/scripts/devctl/runtime/review_snapshot_state.py` | tooling | +95/-3 |
+| `dev/scripts/devctl/runtime/review_snapshot_state.py` | tooling | +109/-15 |
 | `dev/scripts/devctl/runtime/startup_blocker_decision.py` | tooling | +212/-0 |
 | `dev/scripts/devctl/runtime/startup_context.py` | tooling | +44/-27 |
 | `dev/scripts/devctl/runtime/work_intake_pacing.py` | tooling | +22/-6 |
@@ -164,7 +164,7 @@ Range: last 25 commits ending at `e1dac6168b6d`
 | `dev/scripts/devctl/tests/review_channel/test_reviewer_checkpoint_inputs.py` | tooling | +1/-1 |
 | `dev/scripts/devctl/tests/review_channel/test_reviewer_inbox_gate.py` | tooling | +265/-0 |
 | `dev/scripts/devctl/tests/review_channel/test_session_liveness_events.py` | tooling | +169/-0 |
-| `dev/scripts/devctl/tests/runtime/test_review_snapshot.py` | tooling | +168/-0 |
+| `dev/scripts/devctl/tests/runtime/test_review_snapshot.py` | tooling | +223/-0 |
 | `dev/scripts/devctl/tests/runtime/test_startup_blocker_decision.py` | tooling | +128/-0 |
 | `dev/scripts/devctl/tests/runtime/test_work_intake_pacing_snapshot_preference.py` | tooling | +121/-0 |
 
@@ -237,11 +237,11 @@ Recent findings:
 ### Targeted hints
 
 - **risk**: Parser / ANSI boundary — Delta touches a risk-sensitive surface; verify the routed bundle
+- **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/runtime/review_snapshot_state.py`) — Review contract-level invariants for this file
+- **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/tests/runtime/test_review_snapshot.py`) — Review contract-level invariants for this file
 - **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/runtime/startup_context.py`) — Review contract-level invariants for this file
 - **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/commands/governance/startup_context.py`) — Review contract-level invariants for this file
 - **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/tests/commands/governance/test_startup_context.py`) — Review contract-level invariants for this file
-- **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/runtime/review_snapshot_state.py`) — Review contract-level invariants for this file
-- **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/tests/runtime/test_review_snapshot.py`) — Review contract-level invariants for this file
 
 ### Suggested verification commands
 
@@ -255,6 +255,10 @@ Recent findings:
 
 ### Per-commit rationale
 
+- **`936cbc3d`** — fix(review-snapshot): gate single_agent lane on reviewer verdict, not mode alone
+  - Codex verdict at instruction_revision 214e376fabc0 flagged that
+  - review_snapshot_state.py:107-137 only downgraded push_eligible_now and
+  - the governed push next_step_command when effective_reviewer_mode ==
 - **`e1dac616`** — Refresh external review snapshot for f3bbca18
 - **`f3bbca18`** — fix(review-channel): typed preflight gate — reviewer-checkpoint refuses while inbox has unread packets
   - Root cause: across 4 Codex review sessions in a single dashboard session,
@@ -314,9 +318,6 @@ Recent findings:
   - Dashboard append from the 3-agent parallel audit Claude ran on
   - instruction from the operator ("look for anywhere else in the AI
   - system where code should be typed and isn't connected properly").
-- **`d8c71114`** — Refresh external review snapshot for 8243c5ab
-- **`8243c5ab`** — docs(audit): Q91 — dashboard checkpoint, role correction, 4 findings for Codex
-  - Dashboard-mode LIVE_RUN append covering the 2026-04-11 tick:
 ### Active MP scope (from MASTER_PLAN.md)
 
 - `dev/active/devctl_reporting_upgrade.md` is the phased `devctl` reporting/CIHub specification, but not a separate execution tracker; implementation tasks stay in this file under `MP-297..MP-300`, `MP-303`, `MP-306`, `MP…
@@ -352,4 +353,4 @@ Recent findings:
 
 ---
 
-Projection produced by `devctl review-snapshot`. Generation stamp `snap-75eca17fe39e` binds this file to HEAD `e1dac6168b6d`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
+Projection produced by `devctl review-snapshot`. Generation stamp `snap-3ec90f0db368` binds this file to HEAD `936cbc3d3608`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.

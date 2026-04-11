@@ -77,13 +77,13 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-04-11T07:02:29Z`
-- Last Codex poll (Local America/New_York): `2026-04-11 03:02:29 EDT`
+- Last Codex poll: `2026-04-11T08:24:32Z`
+- Last Codex poll (Local America/New_York): `2026-04-11 04:24:32 EDT`
 - Reviewer mode: `single_agent`
-- Last non-audit worktree hash: `f5cf3458b116d6dffb18a6766f4fd813273b47ca786f0e5e3412152babd857a9`
-- Current instruction revision: `fdd35a6207cc`
+- Last non-audit worktree hash: `323ca380bac93223394f94fce0f485536bc1d6c7b1d828bd44fc12a5051d6607`
+- Current instruction revision: `214e376fabc0`
 - Last checkpoint action: `reviewer-checkpoint`
-- Head at push time: `3c294f0d44379460274ed4b85675d2bd9a0161df`
+- Head at push time: `e1dac6168b6da235267c902e5c19ce690dff8322`
 ## Protocol
 
 1. Claude should poll this file periodically while coding.
@@ -137,17 +137,16 @@ Last Reviewed Scope) are authoritative for adjudication state.
 
 ## Poll Status
 
-- Reviewer checkpoint updated through repo-owned tooling (mode: single_agent; reason: codex-review-scribe-snapshot-range; observed-tree: f5cf3458b116; reviewed-tree: f5cf3458b116; instruction-rev: fdd35a6207cc).
+- Reviewer checkpoint updated through repo-owned tooling (mode: single_agent; reason: codex-review-snapshot-gating; observed-tree: 323ca380bac9; reviewed-tree: 323ca380bac9; instruction-rev: 214e376fabc0).
 
 ## Current Verdict
 
 - Follow-up required before acceptance.
-- The review range `a805652b..3c294f0d` is still not safe to push; the newly added bridge/snapshot refresh keeps live coordination and publish authority contradictory.
+- The review range `3c294f0d..e1dac616` still has one blocking issue: the new review-snapshot gate does not actually block governed push guidance in the current `single_agent` reviewer lane when the live reviewer verdict is follow-up required.
 
 ## Open Findings
 
-- `bridge.md:111-145,172-177` still presents two incompatible slices. The stale Q37 `Operator Direction` block is still the only place with concrete file-level implementation steps, while the live reviewer-owned instruction has moved to the startup-context/work-intake follow-up without restoring equivalent file references. A fresh implementer bootstrap can therefore follow the stale Q37 lane or fail to locate the real startup regressions.
-- `dev/audits/REVIEW_SNAPSHOT.md:63-90` still advertises `push_eligible_now: True`, `advisory: `push_allowed``, and `python3 dev/scripts/devctl.py push --execute` even though the live reviewer verdict remains follow-up required. That generated surface can still authorize a blocked publish.
+- `dev/scripts/devctl/runtime/review_snapshot_state.py:107-137` only downgrades `push_eligible_now` and the governed push `next_step_command` when `effective_reviewer_mode == active_dual_agent` or `implementation_blocked=True`. In the current `single_agent` remote-control lane, a follow-up-required verdict (`review_accepted=False` or `review_gate_allows_push=False`) still falls through and preserves the push command, so the Q92 regression can recur as soon as the branch is ahead again. Add a `single_agent` regression test and gate the snapshot on the live reviewer verdict rather than dual-agent mode alone.
 
 ## Claude Status
 
@@ -164,16 +163,21 @@ Last Reviewed Scope) are authoritative for adjudication state.
 ## Current Instruction For Claude
 
 - Hold steady. Do not run `python3 dev/scripts/devctl.py push --execute`.
-- Repair the live coordination surfaces first: remove or neutralize the stale Q37 `Operator Direction` block and restore one bounded startup-context/work-intake slice with explicit file-level references in the reviewer-owned bridge sections.
-- Make `devctl review-snapshot --write` consult the live reviewer verdict/push gate before it emits `push_eligible_now: True` or `next_step_command=python3 dev/scripts/devctl.py push --execute`.
-- Rerun the relevant startup/review-channel/review-snapshot checks, regenerate the affected artifacts, and request a fresh Codex review on the updated diff.
+- Fix `dev/scripts/devctl/runtime/review_snapshot_state.py:107-137` so reviewer-verdict gating also downgrades governed push projections in the current `single_agent` remote-control lane when `review_accepted=False` or `review_gate_allows_push=False`.
+- Add a regression test in `dev/scripts/devctl/tests/runtime/test_review_snapshot.py` covering the `single_agent` follow-up-required case.
+- Rerun `python3 dev/scripts/devctl.py startup-context --role reviewer --format summary`, `python3 dev/scripts/devctl.py review-channel --action status --terminal none --format json`, `python3 dev/scripts/devctl.py review-snapshot --write --format md`, and the required tooling bundle, then request a fresh Codex review on the updated diff.
 
 ## Last Reviewed Scope
 
-- a805652bbbdf4dca30c0fdcd30dc139855d8419e..3c294f0d44379460274ed4b85675d2bd9a0161df
+- 3c294f0d44379460274ed4b85675d2bd9a0161df..e1dac6168b6da235267c902e5c19ce690dff8322
 - bridge.md
-- dev/audits/LIVE_RUN.md
 - dev/audits/REVIEW_SNAPSHOT.md
+- dev/scripts/devctl/commands/governance/startup_context.py
+- dev/scripts/devctl/review_channel/write_preconditions.py
+- dev/scripts/devctl/runtime/review_snapshot_state.py
+- dev/scripts/devctl/runtime/startup_blocker_decision.py
+- dev/scripts/devctl/runtime/work_intake_pacing.py
+- dev/scripts/devctl/tests/runtime/test_review_snapshot.py
 
 ## Action Requests
 

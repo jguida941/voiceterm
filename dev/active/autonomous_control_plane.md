@@ -1882,6 +1882,7 @@ Acceptance:
 - 2026-02-25: Ran `devctl autonomy-run` (`ralph-wiggum-max-swarm-20260225-c08`, `MP-338`); selected_agents=20, worker_agents=19, reviewer_lane=True, governance_ok=True, status=done; artifacts: `dev/reports/autonomy/runs/ralph-wiggum-max-swarm-20260225-c08/summary.md`.
 - 2026-02-25: Ran `devctl autonomy-run` (`ralph-wiggum-max-swarm-20260225-c09`, `MP-338`); selected_agents=20, worker_agents=19, reviewer_lane=True, governance_ok=True, status=done; artifacts: `dev/reports/autonomy/runs/ralph-wiggum-max-swarm-20260225-c09/summary.md`.
 - 2026-02-25: Ran `devctl autonomy-run` (`ralph-wiggum-max-swarm-20260225-c10`, `MP-338`); selected_agents=20, worker_agents=19, reviewer_lane=True, governance_ok=True, status=done; artifacts: `dev/reports/autonomy/runs/ralph-wiggum-max-swarm-20260225-c10/summary.md`.
+- 2026-04-11: Ran `devctl swarm_run` (`20260411-084247Z`, `MP-338`); selected_agents=12, worker_agents=11, reviewer_lane=True, governance_ok=True, status=done; artifacts: `dev/reports/autonomy/runs/20260411-084247Z/summary.md`.
 ## Session Resume
 
 - Current status: this plan remains active; start from the highest-priority
@@ -1980,3 +1981,4 @@ Acceptance:
 | `python3 dev/scripts/devctl.py docs-check --strict-tooling` | `ok: True` on 2026-03-09 local run after the `review-channel` / `mobile-status` / `README` approval-mode docs update | done |
 | `swift test` | pass in `app/ios/VoiceTermMobile` on 2026-03-09 local elevated run (`6` tests) after the approval-policy decoding + operator-console-style control-panel UI update | done |
 | `xcodebuild -project VoiceTermMobileApp.xcodeproj -scheme VoiceTermMobileApp -destination generic/platform=iOS CODE_SIGNING_ALLOWED=NO build` | pass in `app/ios/VoiceTermMobileApp` on 2026-03-09 local elevated run (`** BUILD SUCCEEDED **`) after the mobile shell control-strip/dashboard styling update | done |
+| `python3 dev/scripts/devctl.py swarm_run --plan-doc dev/active/autonomous_control_plane.md --mp-scope MP-338 --run-label 20260411-084247Z` | swarm_ok=True, governance_ok=True, summary=`dev/reports/autonomy/runs/20260411-084247Z/summary.md` (2026-04-11 local run) | done |
