@@ -45,29 +45,43 @@ def load_coordination_snapshot(
     governance: "ProjectGovernance | None",
     review_state: "ReviewState | None" = None,
     reviewer_gate: "ReviewerGateState | None" = None,
+    work_intake: object | None = None,
 ) -> CoordinationSnapshot | None:
     """Return the single governed coordination snapshot for a read surface.
 
     Resolution order:
 
-    1. When ``governance`` and a typed ``review_state`` are available (either
-       passed explicitly or parsed from ``sources``), build fresh via the
-       canonical ``build_coordination_snapshot_for_review_state`` reducer.
-       When ``reviewer_gate`` is not supplied, derive it from the typed
-       review state the same way ``build_startup_context`` does so every
+    1. When ``governance`` and a typed ``review_state`` are available and the
+       caller already computed ``work_intake``, project the coordination
+       snapshot from that packet so startup keeps one canonical coordination
+       truth.
+    2. Otherwise, when ``governance`` and a typed ``review_state`` are
+       available (either passed explicitly or parsed from ``sources``), build
+       fresh via the canonical ``build_coordination_snapshot_for_review_state``
+       reducer. When ``reviewer_gate`` is not supplied, derive it from the
+       typed review state the same way ``build_startup_context`` does so every
        surface sees the gate-corrected observed topology.
-    2. Fall back to deserializing a persisted ``coordination`` mapping that
+    3. Fall back to deserializing a persisted ``coordination`` mapping that
        may be embedded in the governed sources. This is the bare-repo /
        legacy-fixture path: callers without governance cannot take the
        typed reducer route, so the best we can do is echo whatever the
        source payload already carried.
-    3. Return ``None`` when neither path yields a snapshot. Callers are
+    4. Return ``None`` when neither path yields a snapshot. Callers are
        responsible for their own graceful degradation; the read model
        surfaces it as ``coordination=None``.
     """
     typed_review_state = _resolve_typed_review_state(review_state, sources)
 
     if governance is not None and typed_review_state is not None:
+        if work_intake is not None:
+            projected = _build_snapshot_from_work_intake(
+                repo_root=repo_root,
+                governance=governance,
+                review_state=typed_review_state,
+                work_intake=work_intake,
+            )
+            if projected is not None:
+                return projected
         gate = reviewer_gate or _derive_reviewer_gate(
             typed_review_state, governance,
         )
@@ -124,6 +138,24 @@ def _derive_reviewer_gate(
     ).strip()
     return _detect_reviewer_gate_from_review_state(
         review_state, governance_mode=governance_mode,
+    )
+
+
+def _build_snapshot_from_work_intake(
+    *,
+    repo_root: Path,
+    governance: "ProjectGovernance",
+    review_state: "ReviewState",
+    work_intake: object,
+) -> CoordinationSnapshot | None:
+    """Project one coordination snapshot from the caller's work-intake packet."""
+    from ..platform.coordination_snapshot import build_coordination_snapshot
+
+    return build_coordination_snapshot(
+        repo_root=repo_root,
+        governance=governance,
+        review_state=review_state,
+        work_intake=work_intake,
     )
 
 

@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from .conductor_capability import normalize_reviewer_mode
+from .control_topology import derive_startup_control_truth
 from .project_governance import ProjectGovernance
 from .review_state_models import ReviewState
 from .work_intake_coordination_status import (
@@ -45,6 +46,9 @@ def build_work_intake_coordination_state(
     resolved_effective_mode = _effective_reviewer_mode(
         review_state,
         reviewer_gate=reviewer_gate,
+    )
+    _observed_control_topology, implementation_permission = (
+        derive_startup_control_truth(review_state)
     )
 
     collaboration_topology = _collaboration_topology(
@@ -87,6 +91,7 @@ def build_work_intake_coordination_state(
         reviewer_mode=resolved_reviewer_mode,
         effective_reviewer_mode=resolved_effective_mode,
         interaction_mode=_interaction_mode(_interaction_mode_value(reviewer_gate)),
+        implementation_permission=implementation_permission,
         summary=_summary(
             collaboration_topology=collaboration_topology,
             authority_mode=authority_mode,

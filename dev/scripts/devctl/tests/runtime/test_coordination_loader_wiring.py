@@ -69,9 +69,15 @@ class TestStartupContextRoutesThroughLoader(unittest.TestCase):
             resync_reasons=("sentinel:loader_was_called",),
             current_slice="SENTINEL_CURRENT_SLICE",
         )
+        captured_work_intake = {}
+
+        def loader_side_effect(**kwargs):
+            captured_work_intake["value"] = kwargs.get("work_intake")
+            return sentinel
+
         with patch(
             "dev.scripts.devctl.runtime.coordination_loader.load_coordination_snapshot",
-            return_value=sentinel,
+            side_effect=loader_side_effect,
         ) as mock_loader:
             ctx = build_startup_context(repo_root=REPO_ROOT)
 
@@ -81,6 +87,11 @@ class TestStartupContextRoutesThroughLoader(unittest.TestCase):
             "build_startup_context must call load_coordination_snapshot",
         )
         self.assertIs(ctx.coordination, sentinel)
+        self.assertIs(
+            captured_work_intake.get("value"),
+            ctx.work_intake,
+            "startup_context must project top-level coordination from work_intake",
+        )
 
 
 class TestCoordinationLoaderThreeSurfaceParity(unittest.TestCase):

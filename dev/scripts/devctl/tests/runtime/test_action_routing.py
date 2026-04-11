@@ -12,6 +12,7 @@ def test_build_startup_action_routing_prefers_work_intake_coordination_owner() -
                 "authority_mode": "reviewer_gated",
                 "work_ownership_mode": "shared_slice",
                 "sync_cadence_mode": "before_scope_change",
+                "implementation_permission": "active",
                 "active_implementation_owner": "codex",
                 "active_participants": ["codex:implementer"],
             }
@@ -47,6 +48,7 @@ def test_build_startup_action_routing_blocks_when_work_intake_requires_resync() 
                 "authority_mode": "reviewer_gated",
                 "work_ownership_mode": "shared_slice",
                 "sync_cadence_mode": "before_scope_change",
+                "implementation_permission": "active",
                 "active_participants": ["codex:implementer"],
                 "active_implementation_owner": "codex",
                 "resync_required": True,
@@ -65,3 +67,56 @@ def test_build_startup_action_routing_blocks_when_work_intake_requires_resync() 
     assert "review-channel.status" in decision.allowed_actions
     assert decision.recovery_action == "coordination_resync"
     assert decision.escalation_action == "operator_resume_review_loop"
+
+
+def test_build_startup_action_routing_uses_work_intake_permission_not_top_level() -> None:
+    payload = {
+        "implementation_permission": "active",
+        "work_intake": {
+            "coordination": {
+                "authority_mode": "reviewer_gated",
+                "work_ownership_mode": "exclusive_slice",
+                "sync_cadence_mode": "continuous",
+                "implementation_permission": "blocked",
+                "active_participants": ["codex:implementer"],
+                "active_implementation_owner": "codex",
+            }
+        },
+    }
+
+    decision = build_startup_action_routing(
+        payload,
+        next_command="python3 dev/scripts/devctl.py startup-context --format summary",
+    )
+
+    assert "implementation.edit" in decision.blocked_actions
+    assert "vcs.stage" in decision.blocked_actions
+    assert "vcs.commit" in decision.blocked_actions
+    assert decision.agent_lane.edit_gate.active_implementation_owner == "codex"
+
+
+def test_build_startup_action_routing_ignores_top_level_coordination_fallbacks() -> None:
+    payload = {
+        "implementation_permission": "blocked",
+        "coordination": {
+            "actors": [
+                {
+                    "actor_id": "claude",
+                    "provider": "claude",
+                    "role": "implementer",
+                    "presence": "live",
+                }
+            ],
+            "resync_required": True,
+        },
+    }
+
+    decision = build_startup_action_routing(
+        payload,
+        next_command="python3 dev/scripts/devctl.py startup-context --format summary",
+    )
+
+    assert decision.agent_lane.edit_gate.active_implementation_owner == ""
+    assert "implementation.edit" not in decision.blocked_actions
+    assert decision.recovery_action == ""
+    assert decision.escalation_action == ""

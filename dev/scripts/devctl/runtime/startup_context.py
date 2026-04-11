@@ -414,6 +414,7 @@ def build_startup_context(
         governance=governance,
         review_state=review_state,
         reviewer_gate=gate,
+        work_intake=work_intake,
     )
     if coordination_snapshot is None:
         # Fallback path for bare-repo / legacy fixtures that lack a typed
@@ -443,8 +444,12 @@ def build_startup_context(
         )
     )
     push_decision = replace(push_decision, snapshot_id=snapshot_id)
-    observed_control_topology, implementation_permission = derive_startup_control_truth(
+    observed_control_topology, _implementation_permission = derive_startup_control_truth(
         review_state
+    )
+    implementation_permission = (
+        str(work_intake.coordination.implementation_permission or "").strip()
+        or "blocked"
     )
     recovery_authority = derive_recovery_authority(review_state)
 

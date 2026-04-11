@@ -129,6 +129,7 @@ class WorkIntakeCoordinationState:
     reviewer_mode: str = ""
     effective_reviewer_mode: str = ""
     interaction_mode: str = "unresolved"
+    implementation_permission: str = ""
     summary: str = ""
     active_implementation_owner: str = ""
     active_participant_count: int = 0
@@ -151,6 +152,8 @@ class WorkIntakeCoordinationState:
             payload["collaboration_topology"] = self.collaboration_topology
         if self.interaction_mode and self.interaction_mode != "unresolved":
             payload["interaction_mode"] = self.interaction_mode
+        if self.implementation_permission:
+            payload["implementation_permission"] = self.implementation_permission
         if self.active_implementation_owner:
             payload["active_implementation_owner"] = self.active_implementation_owner
         if self.active_participant_count:
@@ -198,6 +201,9 @@ def work_intake_coordination_from_mapping(
             value.get("effective_reviewer_mode") or ""
         ).strip(),
         interaction_mode=str(value.get("interaction_mode") or "unresolved").strip(),
+        implementation_permission=str(
+            value.get("implementation_permission") or ""
+        ).strip(),
         summary=str(value.get("summary") or "").strip(),
         active_implementation_owner=str(
             value.get("active_implementation_owner") or ""

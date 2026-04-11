@@ -184,6 +184,15 @@ class TestStartupContextBuild(unittest.TestCase):
         self.assertIsNotNone(ctx.work_intake)
         self.assertTrue(ctx.work_intake.contract_id)
 
+    def test_projects_implementation_permission_from_work_intake_coordination(self) -> None:
+        ctx = build_startup_context()
+        self.assertIsNotNone(ctx.work_intake)
+        assert ctx.work_intake is not None
+        self.assertEqual(
+            ctx.implementation_permission,
+            ctx.work_intake.coordination.implementation_permission,
+        )
+
     def test_has_quality_signals_dict(self) -> None:
         ctx = build_startup_context()
         self.assertIsInstance(ctx.quality_signals, dict)
@@ -2582,6 +2591,7 @@ class TestReviewerGateOperatorInteractionMode(unittest.TestCase):
                 publication_guidance="",
             ),
             coordination=coordination,
+            work_intake=None,
         )
 
         summary = _machine_summary(

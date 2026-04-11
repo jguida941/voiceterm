@@ -160,17 +160,16 @@ def build_startup_action_routing(
     lane = build_agent_lane_decision(
         caller_role=caller_role,
         reviewer_override=reviewer_override,
-        active_implementation_owner=active_implementation_owner(
-            resolved_coordination,
-            ctx_payload,
-        ),
+        active_implementation_owner=active_implementation_owner(resolved_coordination),
     )
     allowed = list(lane.permissions)
     blocked = list(lane.blocked_permissions)
     recovery_action = ""
     escalation_action = ""
 
-    permission = str(ctx_payload.get("implementation_permission") or "").strip()
+    permission = str(
+        getattr(resolved_coordination, "implementation_permission", "") or ""
+    ).strip()
     if permission in {"blocked", "suspended"}:
         _append_unique(blocked, _IMPLEMENTATION_ACTIONS)
         _append_unique(allowed, _READ_ACTIONS)
