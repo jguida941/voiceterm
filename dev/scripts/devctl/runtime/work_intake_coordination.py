@@ -48,7 +48,10 @@ def build_work_intake_coordination_state(
         reviewer_gate=reviewer_gate,
     )
     _observed_control_topology, implementation_permission = (
-        derive_startup_control_truth(review_state)
+        derive_startup_control_truth(
+            review_state,
+            reviewer_gate=reviewer_gate,
+        )
     )
 
     collaboration_topology = _collaboration_topology(

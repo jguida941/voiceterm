@@ -622,7 +622,11 @@ checklist plus chat memory.
     state and the repo-owned `reviewer-heartbeat` / `reviewer-checkpoint` path
     remains the authority for review truth; when the typed `current_session`
     ACK state is unknown, fall back to `bridge.claude_ack_current` before
-    reading bridge prose. A deliberate
+    reading bridge prose. Startup/coordination consumers must also treat that
+    sanctioned local `single_agent` takeover as active local implementation
+    authority when no typed remote-control attachment is live, rather than
+    misclassifying the repo as governed `remote_control` just because no live
+    dual-agent pair is running. A deliberate
     `reviewer-heartbeat --reviewer-mode single_agent` takeover must also
     retire the detached publisher/reviewer-supervisor runtime so stale
     dual-agent heartbeats cannot silently restore `active_dual_agent`

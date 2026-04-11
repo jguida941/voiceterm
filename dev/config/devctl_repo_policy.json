@@ -188,7 +188,7 @@
       ]
     },
     "bridge_config": {
-      "operator_interaction_mode": "remote_control"
+      "operator_interaction_mode": "local_terminal"
     },
     "push": {
       "default_remote": "origin",

@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from .coordination_snapshot_models import CoordinationActorRecord
+from ..runtime.control_topology import is_sanctioned_local_single_agent
 
 _MAX_ACTORS = 8
 _MAX_REASONS = 4
@@ -83,6 +84,10 @@ def resync_reasons(
 ) -> tuple[str, ...]:
     """Collect the bounded reasons that force resync before safe fanout."""
     reasons: list[str] = []
+    sanctioned_single_agent = (
+        observed_topology == "single_agent"
+        and is_sanctioned_local_single_agent(review_state)
+    )
     for conflict in conflicts:
         summary = text(getattr(conflict, "summary", ""))
         if summary:
@@ -90,19 +95,28 @@ def resync_reasons(
     attention = getattr(review_state, "attention", None)
     attention_status = text(getattr(attention, "status", ""))
     if attention_status and attention_status not in {"clear", "ready"}:
-        reasons.append(f"attention:{attention_status}")
+        if not (sanctioned_single_agent and attention_status == "inactive"):
+            reasons.append(f"attention:{attention_status}")
     collaboration = getattr(review_state, "collaboration", None)
     for gate in tuple(getattr(collaboration, "ready_gates", ()) or ()):
         gate_id = text(getattr(gate, "gate_id", "gate"))
         gate_status = text(getattr(gate, "status", ""))
+        if (
+            sanctioned_single_agent
+            and gate_id in {"runtime_truth", "review_truth", "implementer_state"}
+            and gate_status in {"blocked", "pending"}
+        ):
+            continue
         if gate_status in {"blocked", "pending", "planned"}:
             reasons.append(f"{gate_id}:{gate_status}")
     reviewer_runtime = getattr(review_state, "reviewer_runtime", None)
     freshness = text(getattr(reviewer_runtime, "reviewer_freshness", ""))
     if freshness and freshness not in {"fresh", "current"}:
-        reasons.append(f"reviewer_freshness:{freshness}")
+        if not sanctioned_single_agent:
+            reasons.append(f"reviewer_freshness:{freshness}")
     if declared_topology != observed_topology and declared_topology != "single_agent":
-        reasons.append(f"declared_topology:{declared_topology}")
+        if not sanctioned_single_agent:
+            reasons.append(f"declared_topology:{declared_topology}")
     return dedupe(reasons)[:_MAX_REASONS]
 
 
@@ -293,4 +307,3 @@ def dedupe(values: list[str]) -> tuple[str, ...]:
 def text(value: object) -> str:
     """Normalize an arbitrary value into a stripped string."""
     return str(value or "").strip()
-

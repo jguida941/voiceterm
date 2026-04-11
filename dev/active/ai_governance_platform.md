@@ -6356,6 +6356,12 @@ Execution order for this section:
   governance platform, while repo packs and typed runtime contracts remain
   backend authority for arbitrary repos. Keep the wording portable so adopter
   repos inherit the same thesis with their own product identity.
+- 2026-04-11: Followed that slice with a local-takeover authority correction.
+  The current repo policy for this session now resolves back to
+  `local_terminal`, and the startup/coordination reducers treat sanctioned
+  `single_agent` local takeover as active local implementation authority
+  instead of misclassifying it as `remote_control` plus blocked dual-agent
+  runtime.
 - 2026-04-10: Started the Q64/Q54 bounded intake-governance closure under
   `MP-377`. The first slice keeps both fixes in existing repo-owned surfaces:
   `WorkIntakePacket` now needs one typed `session_pacing` projection derived

@@ -275,6 +275,59 @@ def test_build_coordination_snapshot_allows_safe_live_fanout(
     assert snapshot.live_delegated_worker_count == 1
 
 
+def test_build_coordination_snapshot_allows_sanctioned_local_single_agent_takeover(
+    tmp_path: Path,
+) -> None:
+    startup = _startup_context(
+        repo_root=tmp_path,
+        ownership=WorkIntakeOwnershipState(status="clear"),
+        coordination=WorkIntakeCoordinationState(
+            collaboration_topology="single_agent",
+            authority_mode="self_directed",
+            work_ownership_mode="exclusive_slice",
+            sync_cadence_mode="checkpointed",
+            active_participant_count=1,
+            active_participants=("codex:reviewer",),
+        ),
+    )
+    review_state = SimpleNamespace(
+        collaboration=SimpleNamespace(
+            topology_mode="multi_agent_orchestrated",
+            current_slice="Local takeover",
+            participants=(),
+            delegated_work=(),
+            ready_gates=(
+                SimpleNamespace(gate_id="runtime_truth", status="not_required"),
+                SimpleNamespace(gate_id="review_truth", status="blocked"),
+                SimpleNamespace(gate_id="implementer_state", status="pending"),
+            ),
+        ),
+        attention=SimpleNamespace(status="inactive"),
+        reviewer_runtime=SimpleNamespace(
+            reviewer_freshness="poll_due",
+            reviewer_mode="single_agent",
+            effective_reviewer_mode="single_agent",
+            remote_control_attachment=SimpleNamespace(status="detached"),
+        ),
+        registry=SimpleNamespace(agents=()),
+        current_session=SimpleNamespace(current_instruction="Local takeover"),
+    )
+
+    snapshot = build_coordination_snapshot(
+        repo_root=tmp_path,
+        startup_context=startup,
+        review_state=review_state,
+    )
+
+    assert snapshot.observed_topology == "single_agent"
+    assert snapshot.recommended_topology == "single_agent"
+    assert snapshot.resync_required is False
+    assert "attention:inactive" not in snapshot.resync_reasons
+    assert "review_truth:blocked" not in snapshot.resync_reasons
+    assert "reviewer_freshness:poll_due" not in snapshot.resync_reasons
+    assert "declared_topology:multi_agent_orchestrated" not in snapshot.resync_reasons
+
+
 def test_build_coordination_snapshot_flags_duplicate_worktrees(
     tmp_path: Path,
 ) -> None:

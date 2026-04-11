@@ -461,7 +461,8 @@ def build_startup_context(
     )
     push_decision = replace(push_decision, snapshot_id=snapshot_id)
     observed_control_topology, implementation_permission = derive_startup_control_truth(
-        review_state
+        review_state,
+        reviewer_gate=gate,
     )
     recovery_authority = derive_recovery_authority(review_state)
 

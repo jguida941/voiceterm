@@ -77,13 +77,12 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-04-11T08:24:32Z`
-- Last Codex poll (Local America/New_York): `2026-04-11 04:24:32 EDT`
+- Last Codex poll: `2026-04-11T18:17:19Z`
+- Last Codex poll (Local America/New_York): `2026-04-11 14:17:19 EDT`
 - Reviewer mode: `single_agent`
-- Last non-audit worktree hash: `323ca380bac93223394f94fce0f485536bc1d6c7b1d828bd44fc12a5051d6607`
-- Current instruction revision: `214e376fabc0`
-- Last checkpoint action: `reviewer-checkpoint`
-- Head at push time: `e1dac6168b6da235267c902e5c19ce690dff8322`
+- Last non-audit worktree hash: `b4fcae95fc424270268d2829c184e0e276a902db9422567b7b4b210358d04efa`
+- Current instruction revision: `07e565e65981`
+
 ## Protocol
 
 1. Claude should poll this file periodically while coding.
@@ -137,16 +136,16 @@ Last Reviewed Scope) are authoritative for adjudication state.
 
 ## Poll Status
 
-- Reviewer checkpoint updated through repo-owned tooling (mode: single_agent; reason: codex-review-snapshot-gating; observed-tree: 323ca380bac9; reviewed-tree: 323ca380bac9; instruction-rev: 214e376fabc0).
+- Reviewer checkpoint updated through repo-owned tooling (mode: single_agent; reason: review-pass; observed-tree: 9793ff4c3a83; reviewed-tree: 9793ff4c3a83; instruction-rev: 07e565e65981).
 
 ## Current Verdict
 
-- Follow-up required before acceptance.
-- The review range `3c294f0d..e1dac616` still has one blocking issue: the new review-snapshot gate does not actually block governed push guidance in the current `single_agent` reviewer lane when the live reviewer verdict is follow-up required.
+- Accepted.
+- Verified commit `936cbc3d` gates single-agent reviewer verdicts correctly and the refreshed review snapshot no longer preserves a governed push next step under a follow-up-required reviewer verdict.
 
 ## Open Findings
 
-- `dev/scripts/devctl/runtime/review_snapshot_state.py:107-137` only downgrades `push_eligible_now` and the governed push `next_step_command` when `effective_reviewer_mode == active_dual_agent` or `implementation_blocked=True`. In the current `single_agent` remote-control lane, a follow-up-required verdict (`review_accepted=False` or `review_gate_allows_push=False`) still falls through and preserves the push command, so the Q92 regression can recur as soon as the branch is ahead again. Add a `single_agent` regression test and gate the snapshot on the live reviewer verdict rather than dual-agent mode alone.
+none
 
 ## Claude Status
 
@@ -162,21 +161,18 @@ Last Reviewed Scope) are authoritative for adjudication state.
 
 ## Current Instruction For Claude
 
-- Hold steady. Do not run `python3 dev/scripts/devctl.py push --execute`.
-- Fix `dev/scripts/devctl/runtime/review_snapshot_state.py:107-137` so reviewer-verdict gating also downgrades governed push projections in the current `single_agent` remote-control lane when `review_accepted=False` or `review_gate_allows_push=False`.
-- Add a regression test in `dev/scripts/devctl/tests/runtime/test_review_snapshot.py` covering the `single_agent` follow-up-required case.
-- Rerun `python3 dev/scripts/devctl.py startup-context --role reviewer --format summary`, `python3 dev/scripts/devctl.py review-channel --action status --terminal none --format json`, `python3 dev/scripts/devctl.py review-snapshot --write --format md`, and the required tooling bundle, then request a fresh Codex review on the updated diff.
+- Next scoped plan item (dev/active/ai_governance_platform.md): Make that same bootstrap/instruction layer enforce the client-vs-core boundary explicitly: generated `CLAUDE.md`, starter setup docs, and future wrapper surfaces must tell agents that VoiceTerm is a first-party client/product integration over the portable governance platform, while repo packs and typed runtime contracts remain the backend authority for arbitrary repos. Another repo's generated surfaces must carry the same platform thesis with that repo's own product summary instead of inheriting VoiceTerm-specific identity or hidden path assumptions.
+- Context packet: trigger `review-channel-promotion`; query terms: `dev/active/ai_governance_platform.md`, `CLAUDE.md`
+- Canonical refs:
+- `dev/scripts/devctl/governance/draft.py`
 
 ## Last Reviewed Scope
 
-- 3c294f0d44379460274ed4b85675d2bd9a0161df..e1dac6168b6da235267c902e5c19ce690dff8322
+- e1dac6168b6da235267c902e5c19ce690dff8322..30dcf434ef885246d500db884ec1cd23204dcf57
 - bridge.md
+- dev/active/autonomous_control_plane.md
 - dev/audits/REVIEW_SNAPSHOT.md
-- dev/scripts/devctl/commands/governance/startup_context.py
-- dev/scripts/devctl/review_channel/write_preconditions.py
 - dev/scripts/devctl/runtime/review_snapshot_state.py
-- dev/scripts/devctl/runtime/startup_blocker_decision.py
-- dev/scripts/devctl/runtime/work_intake_pacing.py
 - dev/scripts/devctl/tests/runtime/test_review_snapshot.py
 
 ## Action Requests

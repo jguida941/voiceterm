@@ -136,6 +136,11 @@
   `implementation_admissibility` is the shared reducer used by startup/monitor
   consumers when checkpoint budget, resync, or blocked implementation
   authority temporarily stop mutation.
+- 2026-04-11 local-takeover authority follow-up in `MP-377` scope: the repo
+  policy for the current session is back on `local_terminal`, and the startup
+  / coordination reducers no longer treat sanctioned `single_agent` local
+  takeover as `remote_control` or as blocked implementation authority merely
+  because no live dual-agent pair is running.
 - Current highest-priority subordinate `MP-377` lane:
   `dev/active/platform_authority_loop.md`. This is the execution spec for
   closing the portable authority loop:

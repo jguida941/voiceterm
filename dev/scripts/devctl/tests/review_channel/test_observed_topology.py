@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 import pytest
 
 from dev.scripts.devctl.commands.governance.startup_context import _render_summary
 from dev.scripts.devctl.runtime.control_topology import (
     derive_implementation_permission,
     derive_observed_control_topology,
+    derive_startup_control_truth,
 )
 
 
@@ -64,6 +67,7 @@ def test_derive_observed_control_topology_uses_bridge_runtime_evidence() -> None
     ("topology", "expected"),
     (
         ("single_implementer_single_reviewer", "active"),
+        ("single_agent", "active"),
         ("dual_implementer", "suspended"),
         ("implementer_without_reviewer", "suspended"),
         ("reviewer_only", "blocked"),
@@ -72,6 +76,66 @@ def test_derive_observed_control_topology_uses_bridge_runtime_evidence() -> None
 )
 def test_derive_implementation_permission(topology: str, expected: str) -> None:
     assert derive_implementation_permission(topology) == expected
+
+
+def test_derive_startup_control_truth_promotes_local_single_agent_takeover() -> None:
+    review_state = SimpleNamespace(
+        bridge={
+            "reviewer_mode": "single_agent",
+            "effective_reviewer_mode": "single_agent",
+            "codex_conductor_active": False,
+            "claude_conductor_active": False,
+        },
+        collaboration={"participants": ()},
+        reviewer_runtime=SimpleNamespace(
+            reviewer_mode="single_agent",
+            effective_reviewer_mode="single_agent",
+            remote_control_attachment=SimpleNamespace(status="detached"),
+        ),
+    )
+    reviewer_gate = SimpleNamespace(
+        reviewer_mode="single_agent",
+        effective_reviewer_mode="single_agent",
+        operator_interaction_mode="local_terminal",
+    )
+
+    topology, permission = derive_startup_control_truth(
+        review_state,
+        reviewer_gate=reviewer_gate,
+    )
+
+    assert topology == "single_agent"
+    assert permission == "active"
+
+
+def test_derive_startup_control_truth_prefers_single_agent_over_stale_pair_evidence() -> None:
+    review_state = SimpleNamespace(
+        bridge={
+            "reviewer_mode": "single_agent",
+            "effective_reviewer_mode": "single_agent",
+            "codex_conductor_active": True,
+            "claude_conductor_active": True,
+        },
+        collaboration={"participants": ()},
+        reviewer_runtime=SimpleNamespace(
+            reviewer_mode="single_agent",
+            effective_reviewer_mode="single_agent",
+            remote_control_attachment=SimpleNamespace(status="detached"),
+        ),
+    )
+    reviewer_gate = SimpleNamespace(
+        reviewer_mode="single_agent",
+        effective_reviewer_mode="single_agent",
+        operator_interaction_mode="local_terminal",
+    )
+
+    topology, permission = derive_startup_control_truth(
+        review_state,
+        reviewer_gate=reviewer_gate,
+    )
+
+    assert topology == "single_agent"
+    assert permission == "active"
 
 
 def test_startup_summary_includes_observed_control_topology() -> None:

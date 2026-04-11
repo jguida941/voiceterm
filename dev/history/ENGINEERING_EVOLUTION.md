@@ -39,6 +39,28 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 
 ### 2026-04-07 - ReviewSnapshot hook hardening routed through owner plans
 
+### 2026-04-11 - Local single-agent takeover now stays local in startup and coordination truth
+
+Fact: the sanctioned local reviewer-takeover surface already existed, but the
+repo still drifted back toward `remote_control` semantics in one important
+place. The current policy had been left on `remote_control`, and startup /
+coordination consumers still treated "no live pair" as blocked implementation
+authority even when the reviewer had deliberately downgraded into local
+`single_agent` mode and no typed remote-control attachment was active.
+
+This matters because those two signals mean different things. "There is no
+live dual-agent pair" should require relaunch only when the operator is trying
+to restore `active_dual_agent`; it must not tell a local Codex reviewer that
+the repo is still remote-controlled or that implementation is blocked when the
+sanctioned local-takeover path has already reclaimed authority.
+
+The closure makes that distinction explicit and shared. The repo policy now
+resolves back to `local_terminal`, startup control-topology promotion treats a
+sanctioned local `single_agent` takeover as active implementation authority,
+coordination/resync reducers ignore dual-agent-only blockers in that state,
+and maintainer docs now state clearly that a pair relaunch is for restoring
+live dual-agent review, not for making local implementation legal again.
+
 ### 2026-04-11 - Startup mutability routing and bootstrap surfaces now share one portable-boundary contract
 
 Fact: the next live-run review pass exposed two coupled drift patterns. The

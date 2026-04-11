@@ -382,7 +382,9 @@ Portability note:
   preserving older reviewer revision/ACK bullets.
   In Codex-only local-review mode, `single_agent` is the sanctioned reviewer
   state and this same repo-owned heartbeat/checkpoint path is the review-truth
-  authority.
+  authority. When no typed remote-control attachment is active, startup and
+  coordination consumers must read that state as local authority, not as an
+  implicit request to relaunch headless review-channel conductors.
 - `review-channel --action reviewer-checkpoint` is the repo-owned review-truth
   write. Use it only after a real review pass to advance the reviewed hash,
   verdict, findings, instruction, and reviewed scope together. Prefer one
@@ -724,7 +726,11 @@ Portability note:
 - Keep the mode model simple: `active_dual_agent` means live reviewer/implementer
   freshness is enforced; `single_agent`, `tools_only`, `paused`, and `offline`
   keep the same backend and checks but suspend stale dual-agent warnings until
-  the reviewer resumes active mode.
+  the reviewer resumes active mode. In sanctioned local-review takeover,
+  `single_agent` remains local implementation authority when no typed
+  `remote_control_attachment` is live; relaunch is only required when you
+  intend to restore the live dual-agent pair, not when Codex is intentionally
+  continuing locally.
 - Human-facing shorthand is accepted on the CLI without changing the stored
   contract: `agents` normalizes to `active_dual_agent`, and `developer`
   normalizes to `single_agent`.

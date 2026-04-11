@@ -5,14 +5,14 @@
 ## Quick status
 
 - Branch: `feature/governance-quality-sweep`
-- HEAD: `8a05ad7fc8dc` — docs(bridge): scribe capture live Codex state + autonomy plan drift (pre-push Q91b workaround)
-- Tree hash: `754230fdfa15`
-- Generation stamp: `snap-7298ef032b75`
-- Generated at (UTC): 2026-04-11T08:59:51Z
-- Push decision: `run_devctl_push` — push_preconditions_satisfied
-- Reviewer mode: `single_agent` (interaction: `remote_control`)
+- HEAD: `47e2b4e16db7` — Clarify platform boundary and startup mutability routing
+- Tree hash: `40e5789aa271`
+- Generation stamp: `snap-a37244e71432`
+- Generated at (UTC): 2026-04-11T18:45:07Z
+- Push decision: `await_checkpoint` — staged_index_budget_exceeded
+- Reviewer mode: `single_agent` (interaction: `local_terminal`)
 - Pipeline state: `n/a` (approval: `n/a`)
-- Delta since last snapshot: 25 commits, 34 files, +5175/-1981
+- Delta since last snapshot: 24 commits, 50 files, +4904/-1885
 - Governance findings: 86 open / 71 fixed / 171 total
 - Probe hints: 0 total across 0 files scanned
 
@@ -54,30 +54,30 @@ adopters arrive.
 - Remote: `https://github.com/jguida941/voiceterm.git`
 - Default branch: `master`
 - Current branch: `feature/governance-quality-sweep`
-- HEAD SHA: `8a05ad7fc8dcb2b12de6df118f1e277136344e96`
+- HEAD SHA: `47e2b4e16db7f2def28e3dae5d5c70144e1fea45`
 - HEAD author: Justin Guida
-- HEAD timestamp (UTC): 2026-04-11T04:59:11-04:00
+- HEAD timestamp (UTC): 2026-04-11T13:32:52-04:00
 
 ## 2. Governance state
 
 ### Push decision
-- action: `run_devctl_push`
-- reason: push_preconditions_satisfied
-- push_eligible_now: True
-- worktree_clean: True
-- staged_path_count: 0
+- action: `await_checkpoint`
+- reason: staged_index_budget_exceeded
+- push_eligible_now: False
+- worktree_clean: False
+- staged_path_count: 17
 - unstaged_path_count: 0
-- next_step_command: `python3 dev/scripts/devctl.py push --execute`
+- next_step_command: `n/a`
 - latest_push_report: `dev/reports/push/latest.json`
 - latest_push_report_state: `post_push_green` (push_completed)
-- publication_backlog: recommended
-- publication_guidance: 2 local commit(s) waiting for governed push. Run `python3 dev/scripts/devctl.py push --execute` now.
+- publication_backlog: queued
+- publication_guidance: 1 local commit(s) waiting for governed push once the current slice is checkpoint-clean.
 
 ### Reviewer runtime
 - reviewer_mode: `single_agent`
 - reviewer_freshness: unknown
 - reviewer_publish_clear: True
-- interaction_mode: `remote_control`
+- interaction_mode: `local_terminal`
 
 ### Remote commit pipeline
 - state: `n/a`
@@ -87,63 +87,72 @@ adopters arrive.
 - active plan: **Master Plan (Active, Unified)**
 - plan path: `dev/active/MASTER_PLAN.md`
 - active MP scope: all active MP execution state
-- advisory: `push_allowed` — worktree_clean_and_review_accepted
+- advisory: `checkpoint_before_continue` — staged_index_budget_exceeded
+- checkpoint_required: **yes**
 
 ## 3. Delta — what changed since the previous snapshot
 
-Range: last 25 commits ending at `8a05ad7fc8dc`
+Range: last 24 commits ending at `47e2b4e16db7`
 
-- commits: 25
-- files changed: 34
-- insertions: +5175
-- deletions: -1981
+- commits: 24
+- files changed: 50
+- insertions: +4904
+- deletions: -1885
 - bundle classes touched: docs, tooling
 - risk add-ons triggered: Parser / ANSI boundary
-- authority surfaces touched: 5 file(s)
+- authority surfaces touched: 6 file(s)
 
 ### Commits
 
 | # | SHA | Subject | Files | +/- | Bundle | Risk |
 |---|---|---|---|---|---|---|
-| 1 | `8a05ad7f` | docs(bridge): scribe capture live Codex state + autonomy pl… | 3 | +72/-65 | tooling |  |
-| 2 | `936cbc3d` | fix(review-snapshot): gate single_agent lane on reviewer ve… | 3 | +120/-62 | tooling |  |
-| 3 | `e1dac616` | Refresh external review snapshot for f3bbca18 | 1 | +63/-70 | tooling |  |
-| 4 | `f3bbca18` | fix(review-channel): typed preflight gate — reviewer-checkp… | 8 | +539/-135 | tooling | Parser / ANSI boundary |
-| 5 | `8bb338bc` | feat(runtime): Q99 — canonical startup_blocker_decision ker… | 8 | +495/-100 | tooling |  |
-| 6 | `2a1977cb` | fix(runtime,governance): Codex P1 — pacing live-rebuild + a… | 6 | +615/-141 | tooling |  |
-| 7 | `b0885088` | Refresh external review snapshot for 2730689c | 1 | +104/-80 | tooling |  |
-| 8 | `2730689c` | docs(bridge): neutralize stale Q37 Operator Direction block | 2 | +91/-126 | docs |  |
-| 9 | `31be10ee` | Refresh external review snapshot for ee79f9c3 | 1 | +108/-72 | tooling |  |
-| 10 | `ee79f9c3` | fix(review-snapshot): Q92-C7 — consult live reviewer verdic… | 3 | +325/-100 | tooling |  |
-| 11 | `eb4a15b6` | Refresh external review snapshot for 38cb9e95 | 1 | +120/-100 | tooling |  |
-| 12 | `38cb9e95` | fix(review-channel): Q94 — emit participant_liveness_expire… | 6 | +437/-111 | tooling |  |
-| 13 | `63bd97e1` | Refresh external review snapshot for 7f2f925f | 1 | +111/-93 | tooling |  |
-| 14 | `7f2f925f` | docs(claude): force typed ingestion — --format json over --… | 5 | +69/-96 | tooling |  |
-| 15 | `09565fe7` | Refresh external review snapshot for 4a67140e | 1 | +42/-40 | tooling |  |
-| 16 | `4a67140e` | docs(bridge): scribe capture Codex fdd35a6207cc verdict (Q9… | 2 | +46/-47 | docs |  |
-| 17 | `3c294f0d` | Refresh external review snapshot for 0247df7c | 1 | +41/-42 | tooling |  |
-| 18 | `0247df7c` | docs(bridge): scribe capture for Q98-Q99 post (Q91b workaro… | 2 | +64/-61 | docs |  |
-| 19 | `84006af1` | docs(audit): Q98-Q99 — ChatGPT proposal audit + 5-field pro… | 2 | +431/-71 | tooling |  |
-| 20 | `a805652b` | Refresh external review snapshot for 186f8974 | 1 | +45/-40 | tooling |  |
-| 21 | `186f8974` | docs(bridge): capture Codex fresh verdict (Q91b workaround,… | 2 | +67/-63 | docs |  |
-| 22 | `d0d60a3e` | docs(audit): Q94-Q97 — 5-agent audit verdict, MasterAuthori… | 2 | +486/-72 | tooling |  |
-| 23 | `6e8d96c2` | Refresh external review snapshot for b505d809 | 1 | +61/-63 | tooling |  |
-| 24 | `b505d809` | docs(bridge): capture Codex reviewer verdict state (Q91b wo… | 2 | +84/-83 | docs |  |
-| 25 | `a662deb5` | docs(audit): Q92 — 14+ prose-as-authority fields across gov… | 2 | +539/-48 | tooling |  |
+| 1 | `47e2b4e1` | Clarify platform boundary and startup mutability routing | 17 | +358/-46 | tooling |  |
+| 2 | `30dcf434` | Refresh external review snapshot for 8a05ad7f | 1 | +55/-52 | tooling |  |
+| 3 | `8a05ad7f` | docs(bridge): scribe capture live Codex state + autonomy pl… | 3 | +72/-65 | tooling |  |
+| 4 | `936cbc3d` | fix(review-snapshot): gate single_agent lane on reviewer ve… | 3 | +120/-62 | tooling |  |
+| 5 | `e1dac616` | Refresh external review snapshot for f3bbca18 | 1 | +63/-70 | tooling |  |
+| 6 | `f3bbca18` | fix(review-channel): typed preflight gate — reviewer-checkp… | 8 | +539/-135 | tooling | Parser / ANSI boundary |
+| 7 | `8bb338bc` | feat(runtime): Q99 — canonical startup_blocker_decision ker… | 8 | +495/-100 | tooling |  |
+| 8 | `2a1977cb` | fix(runtime,governance): Codex P1 — pacing live-rebuild + a… | 6 | +615/-141 | tooling |  |
+| 9 | `b0885088` | Refresh external review snapshot for 2730689c | 1 | +104/-80 | tooling |  |
+| 10 | `2730689c` | docs(bridge): neutralize stale Q37 Operator Direction block | 2 | +91/-126 | docs |  |
+| 11 | `31be10ee` | Refresh external review snapshot for ee79f9c3 | 1 | +108/-72 | tooling |  |
+| 12 | `ee79f9c3` | fix(review-snapshot): Q92-C7 — consult live reviewer verdic… | 3 | +325/-100 | tooling |  |
+| 13 | `eb4a15b6` | Refresh external review snapshot for 38cb9e95 | 1 | +120/-100 | tooling |  |
+| 14 | `38cb9e95` | fix(review-channel): Q94 — emit participant_liveness_expire… | 6 | +437/-111 | tooling |  |
+| 15 | `63bd97e1` | Refresh external review snapshot for 7f2f925f | 1 | +111/-93 | tooling |  |
+| 16 | `7f2f925f` | docs(claude): force typed ingestion — --format json over --… | 5 | +69/-96 | tooling |  |
+| 17 | `09565fe7` | Refresh external review snapshot for 4a67140e | 1 | +42/-40 | tooling |  |
+| 18 | `4a67140e` | docs(bridge): scribe capture Codex fdd35a6207cc verdict (Q9… | 2 | +46/-47 | docs |  |
+| 19 | `3c294f0d` | Refresh external review snapshot for 0247df7c | 1 | +41/-42 | tooling |  |
+| 20 | `0247df7c` | docs(bridge): scribe capture for Q98-Q99 post (Q91b workaro… | 2 | +64/-61 | docs |  |
+| 21 | `84006af1` | docs(audit): Q98-Q99 — ChatGPT proposal audit + 5-field pro… | 2 | +431/-71 | tooling |  |
+| 22 | `a805652b` | Refresh external review snapshot for 186f8974 | 1 | +45/-40 | tooling |  |
+| 23 | `186f8974` | docs(bridge): capture Codex fresh verdict (Q91b workaround,… | 2 | +67/-63 | docs |  |
+| 24 | `d0d60a3e` | docs(audit): Q94-Q97 — 5-agent audit verdict, MasterAuthori… | 2 | +486/-72 | tooling |  |
 
 ### Files
 
 | Path | Bundle | +/- |
 |---|---|---|
-| `bridge.md` | docs | +93/-91 |
+| `AGENTS.md` | docs | +11/-0 |
+| `bridge.md` | docs | +75/-76 |
+| `dev/active/MASTER_PLAN.md` | tooling | +11/-0 |
+| `dev/active/ai_governance_platform.md` | tooling | +15/-1 |
 | `dev/active/autonomous_control_plane.md` | tooling | +2/-0 |
-| `dev/audits/LIVE_RUN.md` | tooling | +1280/-0 |
-| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1733/-1763 |
+| `dev/audits/LIVE_RUN.md` | tooling | +791/-0 |
+| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1611/-1636 |
+| `dev/config/templates/claude_instructions.template.md` | tooling | +7/-5 |
+| `dev/config/templates/portable_governance_repo_setup.template.md` | tooling | +5/-3 |
+| `dev/guides/DEVELOPMENT.md` | docs | +11/-0 |
+| `dev/history/ENGINEERING_EVOLUTION.md` | tooling | +31/-1 |
+| `dev/scripts/README.md` | tooling | +8/-3 |
 | `dev/scripts/devctl/commands/dashboard.py` | tooling | +8/-2 |
 | `dev/scripts/devctl/commands/dashboard_builders.py` | tooling | +27/-22 |
 | `dev/scripts/devctl/commands/governance/startup_context.py` | tooling | +23/-0 |
 | `dev/scripts/devctl/commands/governance/startup_context_advisory_coherence.py` | tooling | +132/-0 |
 | `dev/scripts/devctl/commands/review_channel/_reviewer.py` | tooling | +9/-0 |
+| `dev/scripts/devctl/governance/bootstrap_guide.py` | tooling | +5/-2 |
 | `dev/scripts/devctl/governance/surface_context.py` | tooling | +1/-1 |
 | `dev/scripts/devctl/governance/system_catalog_bootstrap.py` | tooling | +2/-2 |
 | `dev/scripts/devctl/review_channel/event_reducer.py` | tooling | +18/-0 |
@@ -154,21 +163,19 @@ Range: last 25 commits ending at `8a05ad7fc8dc`
 | `dev/scripts/devctl/review_channel/state.py` | tooling | +1/-0 |
 | `dev/scripts/devctl/review_channel/status_projection_helpers.py` | tooling | +26/-0 |
 | `dev/scripts/devctl/review_channel/write_preconditions.py` | tooling | +84/-0 |
+| `dev/scripts/devctl/runtime/action_routing.py` | tooling | +39/-13 |
 | `dev/scripts/devctl/runtime/control_plane_resolve.py` | tooling | +33/-35 |
+| `dev/scripts/devctl/runtime/implementation_admissibility.py` | tooling | +66/-0 |
+| `dev/scripts/devctl/runtime/monitor_snapshot.py` | tooling | +18/-6 |
 | `dev/scripts/devctl/runtime/review_snapshot_state.py` | tooling | +109/-15 |
 | `dev/scripts/devctl/runtime/startup_blocker_decision.py` | tooling | +212/-0 |
-| `dev/scripts/devctl/runtime/startup_context.py` | tooling | +44/-27 |
+| `dev/scripts/devctl/runtime/startup_context.py` | tooling | +45/-32 |
 | `dev/scripts/devctl/runtime/work_intake_pacing.py` | tooling | +22/-6 |
 | `dev/scripts/devctl/tests/commands/governance/test_startup_context.py` | tooling | +200/-0 |
 | `dev/scripts/devctl/tests/commands/reporting/test_dashboard.py` | tooling | +38/-10 |
 | `dev/scripts/devctl/tests/governance/test_render_surfaces.py` | tooling | +1/-1 |
 | `dev/scripts/devctl/tests/governance/test_system_catalog.py` | tooling | +2/-2 |
-| `dev/scripts/devctl/tests/review_channel/test_reviewer_checkpoint_inputs.py` | tooling | +1/-1 |
-| `dev/scripts/devctl/tests/review_channel/test_reviewer_inbox_gate.py` | tooling | +265/-0 |
-| `dev/scripts/devctl/tests/review_channel/test_session_liveness_events.py` | tooling | +169/-0 |
-| `dev/scripts/devctl/tests/runtime/test_review_snapshot.py` | tooling | +223/-0 |
-| `dev/scripts/devctl/tests/runtime/test_startup_blocker_decision.py` | tooling | +128/-0 |
-| `dev/scripts/devctl/tests/runtime/test_work_intake_pacing_snapshot_preference.py` | tooling | +121/-0 |
+| _10 more files trimmed_ | | |
 
 ## 4. Quality signals
 
@@ -239,9 +246,10 @@ Recent findings:
 ### Targeted hints
 
 - **risk**: Parser / ANSI boundary — Delta touches a risk-sensitive surface; verify the routed bundle
+- **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/runtime/startup_context.py`) — Review contract-level invariants for this file
+- **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/tests/runtime/test_startup_context.py`) — Review contract-level invariants for this file
 - **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/runtime/review_snapshot_state.py`) — Review contract-level invariants for this file
 - **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/tests/runtime/test_review_snapshot.py`) — Review contract-level invariants for this file
-- **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/runtime/startup_context.py`) — Review contract-level invariants for this file
 - **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/commands/governance/startup_context.py`) — Review contract-level invariants for this file
 - **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/tests/commands/governance/test_startup_context.py`) — Review contract-level invariants for this file
 
@@ -257,70 +265,87 @@ Recent findings:
 
 ### Per-commit rationale
 
+- **`47e2b4e1`** — Clarify platform boundary and startup mutability routing
+  - evolution: Fact: the sanctioned local reviewer-takeover surface already existed, but the repo still drifted back toward `remote_control` semantics in one important place. The current policy had been left on `remote_control`, and s…
+- **`30dcf434`** — Refresh external review snapshot for 8a05ad7f
+  - evolution: Fact: the sanctioned local reviewer-takeover surface already existed, but the repo still drifted back toward `remote_control` semantics in one important place. The current policy had been left on `remote_control`, and s…
 - **`8a05ad7f`** — docs(bridge): scribe capture live Codex state + autonomy plan drift (pre-push Q91b workaround)
+  - evolution: Fact: the sanctioned local reviewer-takeover surface already existed, but the repo still drifted back toward `remote_control` semantics in one important place. The current policy had been left on `remote_control`, and s…
 - **`936cbc3d`** — fix(review-snapshot): gate single_agent lane on reviewer verdict, not mode alone
   - Codex verdict at instruction_revision 214e376fabc0 flagged that
   - review_snapshot_state.py:107-137 only downgraded push_eligible_now and
   - the governed push next_step_command when effective_reviewer_mode ==
+  - evolution: Fact: the sanctioned local reviewer-takeover surface already existed, but the repo still drifted back toward `remote_control` semantics in one important place. The current policy had been left on `remote_control`, and s…
 - **`e1dac616`** — Refresh external review snapshot for f3bbca18
+  - evolution: Fact: the sanctioned local reviewer-takeover surface already existed, but the repo still drifted back toward `remote_control` semantics in one important place. The current policy had been left on `remote_control`, and s…
 - **`f3bbca18`** — fix(review-channel): typed preflight gate — reviewer-checkpoint refuses while inbox has unread packets
   - Root cause: across 4 Codex review sessions in a single dashboard session,
   - Codex never ran `review-channel --action inbox --target codex --status
   - pending` before writing a reviewer-checkpoint verdict. Two typed finding
+  - evolution: Fact: the sanctioned local reviewer-takeover surface already existed, but the repo still drifted back toward `remote_control` semantics in one important place. The current policy had been left on `remote_control`, and s…
 - **`8bb338bc`** — feat(runtime): Q99 — canonical startup_blocker_decision kernel (top_blocker/next_action)
   - Create runtime/startup_blocker_decision.py with BlockerSnapshot dataclass
   - and derive_blocker_decision() canonical reducer. Wire into
   - build_startup_context() so top_blocker and next_action are computed once
+  - evolution: Fact: the sanctioned local reviewer-takeover surface already existed, but the repo still drifted back toward `remote_control` semantics in one important place. The current policy had been left on `remote_control`, and s…
 - **`2a1977cb`** — fix(runtime,governance): Codex P1 — pacing live-rebuild + advisory_action contradiction
   - Finding 1: work_intake_pacing.py:158-176 forced a full context graph
   - live rebuild whenever the saved snapshot's HEAD did not match the
   - current HEAD, making startup-context hang on every fresh commit (repo
+  - evolution: Fact: the sanctioned local reviewer-takeover surface already existed, but the repo still drifted back toward `remote_control` semantics in one important place. The current policy had been left on `remote_control`, and s…
 - **`b0885088`** — Refresh external review snapshot for 2730689c
+  - evolution: Fact: the sanctioned local reviewer-takeover surface already existed, but the repo still drifted back toward `remote_control` semantics in one important place. The current policy had been left on `remote_control`, and s…
 - **`2730689c`** — docs(bridge): neutralize stale Q37 Operator Direction block
   - Replaces the stale Q37 Phase 1 operator-direction content (which
   - referenced efcb2cd9, already upstream) with fresh operator guidance
   - pointing at the real active slice: Q98/Q99 integration delta + Codex's
+  - evolution: Fact: the sanctioned local reviewer-takeover surface already existed, but the repo still drifted back toward `remote_control` semantics in one important place. The current policy had been left on `remote_control`, and s…
 - **`31be10ee`** — Refresh external review snapshot for ee79f9c3
+  - evolution: Fact: the sanctioned local reviewer-takeover surface already existed, but the repo still drifted back toward `remote_control` semantics in one important place. The current policy had been left on `remote_control`, and s…
 - **`ee79f9c3`** — fix(review-snapshot): Q92-C7 — consult live reviewer verdict before emitting push_eligible_now
   - devctl review-snapshot --write now checks the live ReviewerObservation
   - verdict before emitting push_eligible_now: True or next_step_command=
   - python3 dev/scripts/devctl.py push --execute. When the live verdict is
+  - evolution: Fact: the sanctioned local reviewer-takeover surface already existed, but the repo still drifted back toward `remote_control` semantics in one important place. The current policy had been left on `remote_control`, and s…
 - **`eb4a15b6`** — Refresh external review snapshot for 38cb9e95
+  - evolution: Fact: the sanctioned local reviewer-takeover surface already existed, but the repo still drifted back toward `remote_control` semantics in one important place. The current policy had been left on `remote_control`, and s…
 - **`38cb9e95`** — fix(review-channel): Q94 — emit participant_liveness_expired on heartbeat TTL expiry
   - Wire the existing liveness detection (PID probe + _pid_is_alive +
   - SessionLivenessEvidence + detached_exit auto-set) to the existing event
   - reducer so dead participants auto-decrement live_*_total counters.
+  - evolution: Fact: the sanctioned local reviewer-takeover surface already existed, but the repo still drifted back toward `remote_control` semantics in one important place. The current policy had been left on `remote_control`, and s…
 - **`63bd97e1`** — Refresh external review snapshot for 7f2f925f
+  - evolution: Fact: the sanctioned local reviewer-takeover surface already existed, but the repo still drifted back toward `remote_control` semantics in one important place. The current policy had been left on `remote_control`, and s…
 - **`7f2f925f`** — docs(claude): force typed ingestion — --format json over --format summary (Q98 one-line fix)
   - CLAUDE.md now instructs the AI consumer to read startup-context via
   - --format json (typed JSON StartupContext dataclass) instead of
   - --format summary (markdown prose). Generator change, not direct
+  - evolution: Fact: the sanctioned local reviewer-takeover surface already existed, but the repo still drifted back toward `remote_control` semantics in one important place. The current policy had been left on `remote_control`, and s…
 - **`09565fe7`** — Refresh external review snapshot for 4a67140e
+  - evolution: Fact: the sanctioned local reviewer-takeover surface already existed, but the repo still drifted back toward `remote_control` semantics in one important place. The current policy had been left on `remote_control`, and s…
 - **`4a67140e`** — docs(bridge): scribe capture Codex fdd35a6207cc verdict (Q91b, pre-merge)
+  - evolution: Fact: the sanctioned local reviewer-takeover surface already existed, but the repo still drifted back toward `remote_control` semantics in one important place. The current policy had been left on `remote_control`, and s…
 - **`3c294f0d`** — Refresh external review snapshot for 0247df7c
+  - evolution: Fact: the sanctioned local reviewer-takeover surface already existed, but the repo still drifted back toward `remote_control` semantics in one important place. The current policy had been left on `remote_control`, and s…
 - **`0247df7c`** — docs(bridge): scribe capture for Q98-Q99 post (Q91b workaround)
+  - evolution: Fact: the sanctioned local reviewer-takeover surface already existed, but the repo still drifted back toward `remote_control` semantics in one important place. The current policy had been left on `remote_control`, and s…
 - **`84006af1`** — docs(audit): Q98-Q99 — ChatGPT proposal audit + 5-field producer trace
   - Dashboard append from the 4-audit verification of ChatGPT's DecisionState
   - proposal against the actual codebase, plus a 5-authority-field producer
   - trace per ChatGPT's refined rule ("decision logic in one place").
+  - evolution: Fact: the sanctioned local reviewer-takeover surface already existed, but the repo still drifted back toward `remote_control` semantics in one important place. The current policy had been left on `remote_control`, and s…
 - **`a805652b`** — Refresh external review snapshot for 186f8974
+  - evolution: Fact: the sanctioned local reviewer-takeover surface already existed, but the repo still drifted back toward `remote_control` semantics in one important place. The current policy had been left on `remote_control`, and s…
 - **`186f8974`** — docs(bridge): capture Codex fresh verdict (Q91b workaround, Q97 pre-post)
   - Codex session 019d7b1d task_complete at 06:09:21Z wrote a new verdict
   - to bridge.md via review-channel, rotating current_instruction_revision
   - from 798446bc35db to f26e114a45d7 and landing a new finding list
+  - evolution: Fact: the sanctioned local reviewer-takeover surface already existed, but the repo still drifted back toward `remote_control` semantics in one important place. The current policy had been left on `remote_control`, and s…
 - **`d0d60a3e`** — docs(audit): Q94-Q97 — 5-agent audit verdict, MasterAuthorityPacket rejected
   - Dashboard append from the 5-agent parallel audit Claude ran on
   - operator instruction ("audit the MasterAuthorityPacket idea against
   - existing architecture, I don't want to duplicate logic").
-- **`6e8d96c2`** — Refresh external review snapshot for b505d809
-- **`b505d809`** — docs(bridge): capture Codex reviewer verdict state (Q91b workaround)
-  - Codex's review pass (session 019d7b02, task_complete 05:39:20Z) wrote
-  - the blocking verdict to bridge.md via review-channel --action post,
-  - rotating current_instruction_revision from a5e7f631bfba to 798446bc35db
-- **`a662deb5`** — docs(audit): Q92 — 14+ prose-as-authority fields across governance stack
-  - Dashboard append from the 3-agent parallel audit Claude ran on
-  - instruction from the operator ("look for anywhere else in the AI
-  - system where code should be typed and isn't connected properly").
+  - evolution: Fact: the sanctioned local reviewer-takeover surface already existed, but the repo still drifted back toward `remote_control` semantics in one important place. The current policy had been left on `remote_control`, and s…
 ### Active MP scope (from MASTER_PLAN.md)
 
 - `dev/active/devctl_reporting_upgrade.md` is the phased `devctl` reporting/CIHub specification, but not a separate execution tracker; implementation tasks stay in this file under `MP-297..MP-300`, `MP-303`, `MP-306`, `MP…
@@ -339,10 +364,11 @@ Recent findings:
 - open governance findings: 86
 
 ### Startup advisories
-- push_allowed: worktree_clean_and_review_accepted
+- checkpoint_before_continue: staged_index_budget_exceeded
 
 ### Stale warnings
-- Stop because nothing remains to push.
+- Keep editing the current slice.
+- Move straight to the governed push path.
 
 ### Open gap rows
 - **governance_open** (`dev/scripts/devctl/security/codeql.py`): subprocess_missing_timeout: 
@@ -356,4 +382,4 @@ Recent findings:
 
 ---
 
-Projection produced by `devctl review-snapshot`. Generation stamp `snap-7298ef032b75` binds this file to HEAD `8a05ad7fc8dc`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
+Projection produced by `devctl review-snapshot`. Generation stamp `snap-a37244e71432` binds this file to HEAD `47e2b4e16db7`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.

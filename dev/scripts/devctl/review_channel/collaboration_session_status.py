@@ -90,13 +90,25 @@ def _build_ready_gates(
         ),
         CollaborationReadyGateState(
             gate_id="review_truth",
-            status=_review_gate_status(bridge_liveness),
-            summary=_review_gate_summary(bridge_liveness),
+            status=_review_gate_status(
+                bridge_liveness,
+                reviewer_mode=reviewer_mode,
+            ),
+            summary=_review_gate_summary(
+                bridge_liveness,
+                reviewer_mode=reviewer_mode,
+            ),
         ),
         CollaborationReadyGateState(
             gate_id="implementer_state",
-            status=_implementer_gate_status(current_session),
-            summary=_implementer_gate_summary(current_session),
+            status=_implementer_gate_status(
+                current_session,
+                reviewer_mode=reviewer_mode,
+            ),
+            summary=_implementer_gate_summary(
+                current_session,
+                reviewer_mode=reviewer_mode,
+            ),
         ),
         CollaborationReadyGateState(
             gate_id="delegated_work",
@@ -141,7 +153,13 @@ def _runtime_gate_summary(
     return "Active dual-agent mode still requires live reviewer and implementer conductor sessions."
 
 
-def _review_gate_status(bridge_liveness: Mapping[str, object]) -> str:
+def _review_gate_status(
+    bridge_liveness: Mapping[str, object],
+    *,
+    reviewer_mode: str,
+) -> str:
+    if reviewer_mode != "active_dual_agent":
+        return "not_required"
     if (
         bridge_liveness.get("review_needed")
         or bridge_liveness.get("reviewed_hash_current") is False
@@ -150,7 +168,13 @@ def _review_gate_status(bridge_liveness: Mapping[str, object]) -> str:
     return "ready"
 
 
-def _review_gate_summary(bridge_liveness: Mapping[str, object]) -> str:
+def _review_gate_summary(
+    bridge_liveness: Mapping[str, object],
+    *,
+    reviewer_mode: str,
+) -> str:
+    if reviewer_mode != "active_dual_agent":
+        return "Single-agent reviewer mode does not require dual-agent review truth."
     if bridge_liveness.get("review_needed"):
         return "Reviewer follow-up is still required for the current worktree."
     if bridge_liveness.get("reviewed_hash_current") is False:
@@ -158,7 +182,13 @@ def _review_gate_summary(bridge_liveness: Mapping[str, object]) -> str:
     return "Reviewer truth is current for the visible worktree."
 
 
-def _implementer_gate_status(current_session: ReviewCurrentSessionState) -> str:
+def _implementer_gate_status(
+    current_session: ReviewCurrentSessionState,
+    *,
+    reviewer_mode: str,
+) -> str:
+    if reviewer_mode != "active_dual_agent":
+        return "not_required"
     if not current_session.current_instruction:
         return "not_required"
     if current_session.implementer_ack_state == "current":
@@ -168,7 +198,15 @@ def _implementer_gate_status(current_session: ReviewCurrentSessionState) -> str:
     return "pending"
 
 
-def _implementer_gate_summary(current_session: ReviewCurrentSessionState) -> str:
+def _implementer_gate_summary(
+    current_session: ReviewCurrentSessionState,
+    *,
+    reviewer_mode: str,
+) -> str:
+    if reviewer_mode != "active_dual_agent":
+        return (
+            "Single-agent reviewer mode does not require a separate implementer ACK."
+        )
     if not current_session.current_instruction:
         return "No active implementer instruction is present."
     if current_session.implementer_ack_state == "current":

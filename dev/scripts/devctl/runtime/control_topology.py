@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Literal
 
+from .conductor_capability import normalize_reviewer_mode
 from .control_topology_bridge_counts import bridge_provider_count, boolish
 from .control_topology_numeric import (
     count,
@@ -18,6 +19,7 @@ from .control_topology_runtime_counts import (
 
 ObservedControlTopology = Literal[
     "single_implementer_single_reviewer",
+    "single_agent",
     "dual_implementer",
     "implementer_without_reviewer",
     "reviewer_only",
@@ -85,7 +87,7 @@ def derive_implementation_permission(
     topology: ObservedControlTopology | str,
 ) -> ImplementationPermission:
     """Return the implementation permission implied by observed topology."""
-    if topology == "single_implementer_single_reviewer":
+    if topology in {"single_implementer_single_reviewer", "single_agent"}:
         return "active"
     if topology in {"dual_implementer", "implementer_without_reviewer"}:
         return "suspended"
@@ -94,6 +96,8 @@ def derive_implementation_permission(
 
 def derive_startup_control_truth(
     review_state: object | None,
+    *,
+    reviewer_gate: object | None = None,
 ) -> tuple[ObservedControlTopology, ImplementationPermission]:
     """Return startup-facing topology and permission from typed review state."""
     bridge = startup_bridge_liveness(review_state)
@@ -103,7 +107,45 @@ def derive_startup_control_truth(
         bridge_liveness=bridge,
         runtime_counts=runtime_counts,
     )
+    sanctioned_single_agent = is_sanctioned_local_single_agent(
+        review_state,
+        reviewer_gate=reviewer_gate,
+    )
+    if sanctioned_single_agent and topology in {
+        "no_live_agents",
+        "reviewer_only",
+        "single_implementer_single_reviewer",
+    }:
+        return "single_agent", "active"
     return topology, derive_implementation_permission(topology)
+
+
+def is_sanctioned_local_single_agent(
+    review_state: object | None,
+    *,
+    reviewer_gate: object | None = None,
+) -> bool:
+    """Return whether runtime truth represents sanctioned local solo authority."""
+    reviewer_runtime = _field(review_state, "reviewer_runtime")
+    bridge = _field(review_state, "bridge")
+    effective_mode = (
+        _text(_field(reviewer_gate, "effective_reviewer_mode"))
+        or _text(_field(reviewer_gate, "reviewer_mode"))
+        or _text(_field(reviewer_runtime, "effective_reviewer_mode"))
+        or _text(_field(reviewer_runtime, "reviewer_mode"))
+        or _text(_field(bridge, "effective_reviewer_mode"))
+        or _text(_field(bridge, "reviewer_mode"))
+    )
+    if normalize_reviewer_mode(effective_mode) != "single_agent":
+        return False
+
+    interaction_mode = _text(_field(reviewer_gate, "operator_interaction_mode"))
+    if interaction_mode and interaction_mode not in {"local_terminal", "single_agent"}:
+        return False
+
+    return not _remote_control_attachment_active(
+        _field(reviewer_runtime, "remote_control_attachment")
+    )
 
 
 def _has_role_evidence(
@@ -134,9 +176,25 @@ def _has_role_evidence(
         )
     )
 
+
+def _field(value: object, key: str) -> object:
+    if isinstance(value, Mapping):
+        return value.get(key)
+    return getattr(value, key, None)
+
+
+def _remote_control_attachment_active(value: object) -> bool:
+    status = _text(_field(value, "status"))
+    return status in {"attached", "unknown", "stale"}
+
+
+def _text(value: object) -> str:
+    return str(value or "").strip().lower()
+
 __all__ = [
     "ImplementationPermission",
     "ObservedControlTopology",
+    "is_sanctioned_local_single_agent",
     "derive_implementation_permission",
     "derive_observed_control_topology",
     "derive_startup_control_truth",

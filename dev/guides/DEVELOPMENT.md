@@ -304,6 +304,10 @@ Three quality layers matter in practice:
     In Codex-only local-review mode, `single_agent` is the sanctioned
     reviewer state and the repo-owned `reviewer-heartbeat` / `reviewer-checkpoint`
     path is the authority for review truth, not a parallel bridge edit. That
+    same sanctioned local takeover is active local implementation authority
+    when no remote-control attachment is live, so startup/coordination should
+    not force a dual-agent relaunch merely because the repo has no live pair.
+    That
     local takeover now also retires the detached publisher/reviewer-supervisor
     runtime so stale dual-agent heartbeats cannot silently restore
     `active_dual_agent` after the reviewer has intentionally downgraded modes.
