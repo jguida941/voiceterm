@@ -59,6 +59,90 @@ def build_identity(
     )
 
 
+# Any next-step command string starting with one of these prefixes is a
+# governed publication action. If the reviewer verdict does not authorize push,
+# the snapshot must downgrade these to a recovery command instead of letting a
+# stale refreshed snapshot route an operator/tool into publishing a blocked
+# head. The canonical recovery command is `review-channel --action status`,
+# which re-reads typed reviewer state before any further decision.
+_GATED_NEXT_STEP_PREFIXES: tuple[str, ...] = (
+    "python3 dev/scripts/devctl.py push",
+    "devctl push",
+    "devctl.py push",
+)
+
+_REVIEWER_RECOVERY_NEXT_STEP = (
+    "python3 dev/scripts/devctl.py review-channel "
+    "--action status --terminal none --format json"
+)
+
+
+def _reviewer_gated_push_projection(
+    *,
+    push: Mapping[str, object],
+    gate: Mapping[str, object],
+) -> tuple[bool, str]:
+    """Project reviewer-gated push eligibility for the external review snapshot.
+
+    Rule: the snapshot must never advertise ``push_eligible_now=True`` or a
+    governed push next-step command when the live reviewer verdict has not
+    accepted the current HEAD. This protects any tool or operator flow that
+    trusts the refreshed snapshot instead of re-reading typed reviewer state
+    directly. Fails closed: if the reviewer gate is dual-agent-active and
+    acceptance/publish_clear is missing, the snapshot downgrades both fields
+    even when upstream ``push_decision`` still reports eligible.
+    """
+    raw_eligible = bool(push.get("push_eligible_now"))
+    raw_next_step = str(push.get("next_step_command") or "")
+    if not _reviewer_blocks_push(gate):
+        return raw_eligible, raw_next_step
+    downgraded_next = (
+        raw_next_step
+        if raw_next_step and not _is_gated_push_command(raw_next_step)
+        else _REVIEWER_RECOVERY_NEXT_STEP
+    )
+    return False, downgraded_next
+
+
+def _reviewer_blocks_push(gate: Mapping[str, object]) -> bool:
+    """Return True when the reviewer verdict blocks publication right now.
+
+    The gate blocks push when any of the following hold:
+      - dual-agent mode is active and the reviewer has not accepted the
+        current implementer state (``review_accepted=False``),
+      - the reviewer runtime has explicitly disallowed publish
+        (``review_gate_allows_push=False``) while still in dual-agent,
+      - implementation is blocked for a reviewer-state reason.
+
+    Single-agent / single-operator modes are not gated here — the upstream
+    ``push_decision`` already owns that lane.
+    """
+    bridge_active = bool(gate.get("bridge_active"))
+    reviewer_mode_raw = str(gate.get("effective_reviewer_mode") or "").strip()
+    implementation_blocked = bool(gate.get("implementation_blocked"))
+    review_accepted = bool(gate.get("review_accepted"))
+    publish_clear = bool(gate.get("review_gate_allows_push"))
+    if not (bridge_active or implementation_blocked):
+        return False
+    if reviewer_mode_raw and reviewer_mode_raw != "active_dual_agent":
+        # Not a dual-agent reviewer loop — upstream push_decision owns the
+        # eligibility answer for this mode and we do not override it here.
+        return implementation_blocked and not publish_clear
+    if implementation_blocked:
+        return True
+    if not review_accepted:
+        return True
+    if not publish_clear:
+        return True
+    return False
+
+
+def _is_gated_push_command(next_step_command: str) -> bool:
+    """Return True when the given next-step command is a governed push action."""
+    lowered = next_step_command.strip().lower()
+    return any(lowered.startswith(prefix) for prefix in _GATED_NEXT_STEP_PREFIXES)
+
+
 def build_governance_state(*, startup: Mapping[str, object]) -> SnapshotGovernanceState:
     push = as_mapping(startup.get("push_decision"))
     gate = as_mapping(startup.get("reviewer_gate"))
@@ -70,11 +154,15 @@ def build_governance_state(*, startup: Mapping[str, object]) -> SnapshotGovernan
         as_mapping(startup.get("governance")).get("push_enforcement")
     )
     push_authorization = as_mapping(pipeline.get("push_authorization"))
+    push_eligible_now, next_step_command = _reviewer_gated_push_projection(
+        push=push,
+        gate=gate,
+    )
     return SnapshotGovernanceState(
         push_action=str(push.get("action") or ""),
         push_reason=str(push.get("reason") or ""),
-        push_eligible_now=bool(push.get("push_eligible_now")),
-        next_step_command=str(push.get("next_step_command") or ""),
+        push_eligible_now=push_eligible_now,
+        next_step_command=next_step_command,
         publication_backlog_state=str(backlog.get("backlog_state") or ""),
         publication_guidance=str(push.get("publication_guidance") or ""),
         latest_push_report_path=str(
@@ -171,4 +259,8 @@ def attach_generation_stamp(
     )
 
 
-__all__ = ["attach_generation_stamp", "build_governance_state", "build_identity"]
+__all__ = [
+    "attach_generation_stamp",
+    "build_governance_state",
+    "build_identity",
+]

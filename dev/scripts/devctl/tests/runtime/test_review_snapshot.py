@@ -610,3 +610,171 @@ def _init_receipt_repo(repo_root: Path) -> Path:
         capture_output=True,
     )
     return repo_root
+
+
+# ---------------------------------------------------------------------------
+# Q92: reviewer-gated push projection in the external review snapshot
+# ---------------------------------------------------------------------------
+
+
+def _build_push_gated_startup_payload(
+    *,
+    reviewer_gate_overrides: dict[str, object],
+    push_decision_overrides: dict[str, object] | None = None,
+) -> dict[str, object]:
+    """Build a minimal startup payload for reviewer-gated push projection tests."""
+    push_decision = {
+        "action": "run_devctl_push",
+        "reason": "push_preconditions_satisfied",
+        "push_eligible_now": True,
+        "next_step_command": "python3 dev/scripts/devctl.py push --execute",
+        "worktree_clean": True,
+        "publication_backlog": {"backlog_state": "none"},
+    }
+    if push_decision_overrides:
+        push_decision.update(push_decision_overrides)
+    reviewer_gate: dict[str, object] = {
+        "bridge_active": True,
+        "effective_reviewer_mode": "active_dual_agent",
+        "operator_interaction_mode": "local_terminal",
+        "required_checks_status": "fresh",
+        "review_accepted": True,
+        "review_gate_allows_push": True,
+        "implementation_blocked": False,
+        "implementation_block_reason": "",
+    }
+    reviewer_gate.update(reviewer_gate_overrides)
+    return {
+        "advisory_action": "continue_editing",
+        "advisory_reason": "",
+        "push_decision": push_decision,
+        "reviewer_gate": reviewer_gate,
+        "governance": {"push_enforcement": {}},
+        "remote_commit_pipeline": {},
+        "work_intake": {"continuity": {}},
+    }
+
+
+def test_review_snapshot_push_eligible_when_reviewer_accepted() -> None:
+    """Baseline: reviewer accepted + publish clear -> upstream eligibility stands."""
+    startup = _build_push_gated_startup_payload(reviewer_gate_overrides={})
+    snap = build_review_snapshot(
+        startup_payload=startup,
+        governance_payload={},
+        probe_payload={},
+        context_graph_payload={},
+    )
+    assert snap.governance_state.push_eligible_now is True
+    assert (
+        snap.governance_state.next_step_command
+        == "python3 dev/scripts/devctl.py push --execute"
+    )
+
+
+def test_review_snapshot_blocks_push_when_review_not_accepted() -> None:
+    """Core Q92 fix: reviewer acceptance missing -> snapshot must downgrade."""
+    startup = _build_push_gated_startup_payload(
+        reviewer_gate_overrides={
+            "review_accepted": False,
+            "review_gate_allows_push": False,
+        },
+    )
+    snap = build_review_snapshot(
+        startup_payload=startup,
+        governance_payload={},
+        probe_payload={},
+        context_graph_payload={},
+    )
+    assert snap.governance_state.push_eligible_now is False
+    # The publish-execute command must NOT survive the reviewer-gated projection.
+    assert "push --execute" not in snap.governance_state.next_step_command
+    assert snap.governance_state.next_step_command.startswith(
+        "python3 dev/scripts/devctl.py review-channel"
+    )
+
+
+def test_review_snapshot_blocks_push_when_review_gate_disallows_publish() -> None:
+    """`review_gate_allows_push=False` alone is sufficient to downgrade."""
+    startup = _build_push_gated_startup_payload(
+        reviewer_gate_overrides={
+            "review_accepted": True,
+            "review_gate_allows_push": False,
+        },
+    )
+    snap = build_review_snapshot(
+        startup_payload=startup,
+        governance_payload={},
+        probe_payload={},
+        context_graph_payload={},
+    )
+    assert snap.governance_state.push_eligible_now is False
+    assert "push --execute" not in snap.governance_state.next_step_command
+
+
+def test_review_snapshot_blocks_push_when_implementation_blocked() -> None:
+    """`implementation_blocked=True` (e.g. typed_review_state_required) downgrades."""
+    startup = _build_push_gated_startup_payload(
+        reviewer_gate_overrides={
+            "implementation_blocked": True,
+            "implementation_block_reason": "typed_review_state_required",
+            "review_gate_allows_push": False,
+        },
+    )
+    snap = build_review_snapshot(
+        startup_payload=startup,
+        governance_payload={},
+        probe_payload={},
+        context_graph_payload={},
+    )
+    assert snap.governance_state.push_eligible_now is False
+    assert "push --execute" not in snap.governance_state.next_step_command
+
+
+def test_review_snapshot_renders_blocked_push_fields_in_markdown() -> None:
+    """End-to-end: the rendered markdown must reflect the downgraded projection."""
+    startup = _build_push_gated_startup_payload(
+        reviewer_gate_overrides={
+            "review_accepted": False,
+            "review_gate_allows_push": False,
+        },
+    )
+    snap = build_review_snapshot(
+        startup_payload=startup,
+        governance_payload={},
+        probe_payload={},
+        context_graph_payload={},
+    )
+    rendered = render_review_snapshot_markdown(snap)
+    assert "- push_eligible_now: False" in rendered
+    # The canonical governed-push command must not appear as next-step when
+    # the reviewer verdict has blocked it — that is the exact Q92 regression.
+    assert (
+        "next_step_command: `python3 dev/scripts/devctl.py push --execute`"
+        not in rendered
+    )
+    assert "review-channel" in rendered
+
+
+def test_review_snapshot_preserves_non_push_next_step_when_blocked() -> None:
+    """If upstream already downgraded next_step_command, leave it alone."""
+    startup = _build_push_gated_startup_payload(
+        reviewer_gate_overrides={
+            "review_accepted": False,
+            "review_gate_allows_push": False,
+        },
+        push_decision_overrides={
+            "next_step_command": (
+                "python3 dev/scripts/devctl.py review-channel "
+                "--action status --terminal none --format json"
+            ),
+        },
+    )
+    snap = build_review_snapshot(
+        startup_payload=startup,
+        governance_payload={},
+        probe_payload={},
+        context_graph_payload={},
+    )
+    assert snap.governance_state.push_eligible_now is False
+    assert "review-channel" in snap.governance_state.next_step_command
+    assert "push --execute" not in snap.governance_state.next_step_command
