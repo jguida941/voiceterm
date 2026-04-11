@@ -319,12 +319,6 @@ PATH_POLICY_OVERRIDES: dict[str, ShapePolicy] = {
         oversize_growth_limit=20,
         hard_lock_growth_limit=0,
     ),
-    "app/operator_console/state/presentation/presentation_state.py": ShapePolicy(
-        soft_limit=550,
-        hard_limit=650,
-        oversize_growth_limit=25,
-        hard_lock_growth_limit=0,
-    ),
     "app/operator_console/theme/colors.py": ShapePolicy(
         soft_limit=425,
         hard_limit=500,
@@ -383,12 +377,6 @@ PATH_POLICY_OVERRIDES: dict[str, ShapePolicy] = {
         soft_limit=425,
         hard_limit=500,
         oversize_growth_limit=30,
-        hard_lock_growth_limit=0,
-    ),
-    "dev/scripts/devctl/mobile_status_views.py": ShapePolicy(
-        soft_limit=375,
-        hard_limit=450,
-        oversize_growth_limit=25,
         hard_lock_growth_limit=0,
     ),
     "app/operator_console/views/workspaces/home_workspace.py": ShapePolicy(
