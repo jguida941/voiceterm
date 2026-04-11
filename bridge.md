@@ -77,13 +77,13 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-04-11T05:37:22Z`
-- Last Codex poll (Local America/New_York): `2026-04-11 01:37:22 EDT`
+- Last Codex poll: `2026-04-11T06:04:38Z`
+- Last Codex poll (Local America/New_York): `2026-04-11 02:04:38 EDT`
 - Reviewer mode: `single_agent`
 - Last non-audit worktree hash: `f5cf3458b116d6dffb18a6766f4fd813273b47ca786f0e5e3412152babd857a9`
-- Current instruction revision: `798446bc35db`
+- Current instruction revision: `f26e114a45d7`
 - Last checkpoint action: `reviewer-checkpoint`
-- Head at push time: `d8c711144da45a2368d36d88898089b6d5670c80`
+- Head at push time: `6e8d96c272e2c35da522b179b0a3de3993e2f7dd`
 ## Protocol
 
 1. Claude should poll this file periodically while coding.
@@ -145,17 +145,17 @@ After implementation, run `devctl check --profile ci` and `devctl probe-report -
 
 ## Poll Status
 
-- Reviewer checkpoint updated through repo-owned tooling (mode: single_agent; reason: codex-review-findings; observed-tree: f5cf3458b116; reviewed-tree: f5cf3458b116; instruction-rev: 798446bc35db).
+- Reviewer checkpoint updated through repo-owned tooling (mode: single_agent; reason: codex-review-doc-followup; observed-tree: f5cf3458b116; reviewed-tree: f5cf3458b116; instruction-rev: f26e114a45d7).
 
 ## Current Verdict
 
 - Follow-up required before acceptance.
-- Do not push `feature/governance-quality-sweep` from `d8c71114` yet; the current review scope `4b36412c..d8c71114` still has blocking issues in startup bootstrap/routing.
+- The docs-only follow-up range `d8c71114..6e8d96c2` keeps the live coordination artifacts contradictory, so this head is still not safe to push.
 
 ## Open Findings
 
-- `dev/scripts/devctl/runtime/work_intake_pacing.py:158-176` forces `startup-context` to rebuild the full context graph whenever the newest saved snapshot does not match `HEAD`. Because repo policy runs `startup-context` before `context-graph --mode bootstrap`, every fresh commit misses the cache and pays the live graph-build cost on the mandatory Step 0 path. On this tree the reviewer bootstrap took long enough to look hung and the emitted packet confirms `session_pacing.source=live_context_graph_build`.
-- `dev/scripts/devctl/commands/governance/startup_context.py:48-108` now treats `implementation_permission=blocked|suspended` and `coordination.resync_required` as summary blockers before consulting `push_decision`. The same startup receipt therefore reports `advisory_action=push_allowed` / `push_decision.next_step_command=python3 dev/scripts/devctl.py push --execute`, but its canonical `next_command` is downgraded to `review-channel --action status`. That contradiction makes the summary receipt unreliable for the publish slice it is supposed to authorize.
+- `bridge.md:111-145` still carries the stale Q37 operator-direction block, but `bridge.md:150-175` now says the active blocker is the startup-context/work-intake regression pair and routes the next implementation slice there. A fresh implementer poll can therefore boot from the wrong files or wrong owner model unless the stale Q37 block is explicitly overridden.
+- `dev/audits/REVIEW_SNAPSHOT.md:63-74,90` still marks the branch `push_eligible_now: True` and recommends `python3 dev/scripts/devctl.py push --execute`, even though the live reviewer verdict blocks push pending follow-up. Any tooling or operator flow that trusts the refreshed snapshot instead of the bridge can still publish the blocked head.
 
 ## Claude Status
 
@@ -171,14 +171,16 @@ After implementation, run `devctl check --profile ci` and `devctl probe-report -
 
 ## Current Instruction For Claude
 
-- Hold steady. Do not run `python3 dev/scripts/devctl.py push --execute` from `d8c71114` yet.
-- Fix the two startup regressions above, rerun the relevant startup/review-channel tests, then request a fresh Codex review on the updated diff.
+- Hold steady. Do not run `python3 dev/scripts/devctl.py push --execute`.
+- Ignore the stale Q37 `Operator Direction` block above; the active slice is the startup-context/work-intake follow-up described in `Open Findings`.
+- Fix the two startup regressions already called out on the bridge, rerun the relevant startup/review-channel tests, then request a fresh Codex review on the updated diff.
 
 ## Last Reviewed Scope
 
-- 4b36412cfc7d2e76f6ff543c246a7bc09c8cd661..d8c711144da45a2368d36d88898089b6d5670c80
-- dev/scripts/devctl/runtime/work_intake_pacing.py
-- dev/scripts/devctl/commands/governance/startup_context.py
+- d8c711144da45a2368d36d88898089b6d5670c80..6e8d96c272e2c35da522b179b0a3de3993e2f7dd
+- bridge.md
+- dev/audits/LIVE_RUN.md
+- dev/audits/REVIEW_SNAPSHOT.md
 
 ## Action Requests
 
