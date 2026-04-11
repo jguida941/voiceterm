@@ -4556,7 +4556,7 @@ prose in verdict text.
    hash and brief summary. Do not delete the entry — this is append-only
    trial data.
 3. If you discover additional findings while fixing these, append new
-   Q-entries (next ID: **Q65**) in the same format.
+   Q-entries (next ID: **Q81**) in the same format.
 4. Respect the existing F1/F2/F3 Open Findings (Codex-authored) — they are
    still open and are not duplicates of Q1–Q15.
 5. When all Q-entries plus F1/F2/F3 are FIXED, write a final `## Session
@@ -4571,3 +4571,1548 @@ operator. See Q64 finding above for the full problem statement. Codex
 should research how to build this into the existing WorkIntakePacket /
 startup-context / action-routing contracts and propose an implementation
 in its verdict.
+
+---
+
+## Observer research round (2026-04-11, remote_control, observe_only)
+
+Session: operator on phone running ChatGPT in remote-control; Claude Code
+opened as observer/research lane in parallel. Typed state at round start:
+`implementation_permission=blocked`, `recovery_action=observe_only`,
+`reviewer_mode=single_agent`, worktree clean at HEAD `3566b16b`. No code
+mutation performed — findings only. Round purpose: use the system as an
+AI would, identify what is visible through typed state and what is not,
+and quantify the scatter pattern that Codex architectural review flagged
+for Q40-Q67.
+
+### Q76 — OBSERVER VERIFICATION — Q71/Q73/Q75 remain unconsumed at HEAD `3566b16b`; Q70 only closed one downstream
+
+- **Discovered**: 2026-04-11 (observer research round)
+- **Severity**: architectural, high — three load-bearing contracts remain emitted-but-not-consumed
+- **Body**: Fresh greps of the devctl tree confirm the Codex architectural
+  review claims exactly, post-Q70:
+    - `SessionPacingState.research_ref_budget / implementation_trigger /
+      focus_slice_id` are set by
+      `dev/scripts/devctl/runtime/work_intake_pacing.py:69,73,86,106,112`
+      and read ONLY by
+      `dev/scripts/devctl/runtime/work_intake_models.py:289-291`
+      (markdown renderer) and
+      `dev/scripts/devctl/commands/governance/startup_context.py:221,225`
+      (summary string formatter printing
+      `session_pacing=high/7refs/2files/5deps`). No controller, launcher,
+      or autonomy command reads these fields to bound research, trigger
+      implementation, or scope a slice. `grep -r
+      'research_ref_budget\|implementation_trigger\|focus_slice_id'`
+      outside emitter + renderer + tests returns zero behavior callsites.
+    - `RecoveryAuthorityState` is built by
+      `dev/scripts/devctl/runtime/recovery_authority.py::derive_recovery_authority`
+      and set by `dev/scripts/devctl/runtime/startup_context.py:454`, but
+      the field that actually gates runtime recovery mutation is
+      `reviewer_runtime.recovery_action_allowed` — referenced in 13+
+      files including
+      `dev/scripts/devctl/review_channel/reviewer_runtime_doctor.py:56,93,154`,
+      `dev/scripts/devctl/runtime/remote_commit_pipeline_models.py:121`,
+      `dev/scripts/devctl/platform/runtime_state_contract_rows_review.py:240`,
+      `dev/scripts/devctl/platform/runtime_state_contract_rows_pipeline.py:106`,
+      `dev/scripts/devctl/review_channel/reviewer_runtime_contract.py:130,242`.
+      `RecoveryAuthorityState` and `recovery_action_allowed` run as
+      PARALLEL recovery surfaces — not unified. The new typed contract
+      governs nothing.
+    - `dev/scripts/devctl/commands/autonomy/run.py` imports
+      `...autonomy.run_feedback`, `...autonomy.run_helpers`,
+      `...autonomy.run_plan`, `...autonomy.run_render`,
+      `...autonomy.swarm_helpers`, `...common`, `...numeric`,
+      `...repo_packs.process_helpers`. It does NOT import
+      `runtime.work_intake*`, `runtime.recovery_authority`,
+      `triage.findings_priority`, `commands.reporting.findings_priority`,
+      or any `AutoModeState` symbol. The autonomy loop and the typed
+      governance contracts are two universes with no import edge between
+      them.
+- **Interpretation**: Q70's commit (`9be23299`) landed a narrow downstream
+  collapse of `runtime/action_routing_coordination.py` onto
+  `work_intake.coordination`. That was one hop of closure. Q71/Q73/Q75
+  are the same structural pattern — contract emitted, consumer missing —
+  and were not touched by Q70. The Codex review phrase "several new
+  contracts stop at projection/reporting" is still true at HEAD
+  `3566b16b`. Loop v2 cannot compose from typed state today because the
+  typed state is not wired into the autonomy substrate.
+- **Fix recommendations**: Loop v2's architectural design must treat
+  contract-consumer wiring as the DEFAULT unit of work, not a follow-up.
+  Every new contract should ship with an explicit consumer diff in the
+  same commit. "Feature complete" should require: does a runtime mutation
+  callsite now branch on a field of the new contract? Not: does the new
+  contract exist. See Q80 for the guard proposal that would catch this
+  automatically.
+- **Status**: OPEN — verified against current HEAD; unchanged by Q70.
+
+### Q77 — SCATTER QUANTIFIED — contract_connectivity unchanged at 130 / 69 / 20 post-Q70; baseline is noisy but real-debt subset is clear
+
+- **Discovered**: 2026-04-11
+- **Severity**: architectural debt baseline, high
+- **Body**: `python3 dev/scripts/checks/check_contract_connectivity.py
+  --absolute` at HEAD `3566b16b`:
+    - 288 contracts scanned, 1457 importer modules scanned
+    - 130 orphaned contracts (unchanged since Codex review 2026-04-10)
+    - 69 duplicate contracts (unchanged)
+    - 20 stranded consumers (unchanged)
+    - Layer counts: `governance` 53, `operator_console` 54, `platform` 39,
+      `runtime` 142
+  Real cross-layer duplicates (not intentional helpers):
+    - `ControlPlaneSectionSummary` ↔ `ControlPlaneReadModel` (0.88 shared,
+      14 fields: `attention_status`, `attention_summary`,
+      `implementation_blocked`, `last_guard_ok`, `next_action`,
+      `next_command`, `operator_interaction_mode`,
+      `pending_action_requests`, `push_eligible`, `resolved_phase`,
+      `review_accepted`, `reviewer_freshness`, `reviewer_mode`,
+      `top_blocker`)
+    - `StartupAdvisoryDecision` ↔ `PushDecisionSpec` / `PushDecisionState`
+      (1.00 shared on `action`, `match_evidence`, `reason`,
+      `rejected_rule_traces`, `rule_summary`)
+    - `WorkIntakePacket` ↔ `_PacingFocus` (1.00)
+    - `WorkIntakeStateInputs` ↔ `_PacingInputs` (1.00)
+    - `CollaborationPeerReviewState` ↔ `ReviewCurrentSessionState` (1.00,
+      8 shared fields on instruction/ack/implementer state)
+  Real stranded consumers (code that rebuilds the typed contract from raw
+  dicts instead of importing it):
+    - `dev/scripts/devctl/platform/coordination_snapshot_models.py`
+      rebuilds `CoordinationSectionSummary` with 11 shared keys → this is
+      the upstream side of Q65/Q70 that the Q70 fix did NOT touch
+    - `dev/scripts/devctl/runtime/review_state_collaboration_parse.py`
+      rebuilds `CollaborationSessionState` with 17 shared keys
+    - `dev/scripts/devctl/runtime/control_plane_read_model.py` rebuilds
+      `ControlPlaneSectionSummary` with 14 shared keys
+    - `dev/scripts/devctl/runtime/finding_contracts.py` rebuilds
+      `ProbeFindingRow` (1.00)
+    - `dev/scripts/devctl/runtime/startup_context_projections.py`
+      rebuilds `ContractOwnershipRow` (1.00)
+    - `dev/scripts/devctl/runtime/surface_snapshot.py` rebuilds
+      `PushDecisionInputs` (1.00)
+- **Interpretation**: The scatter is detectable, quantified, and unchanged
+  by Q70. The guard works. Q72's concern is confirmed — the 130-orphan
+  headline count is mostly intentional internal helpers under
+  `operator_console` and local UI payloads, while the load-bearing real
+  debt (duplicate coordination families, parallel push-decision surfaces,
+  stranded control-plane rebuilds) is buried inside the count. The 20
+  stranded consumers are the CLEANEST signal in the baseline because they
+  literally rebuild typed contracts from dicts — the importer knows the
+  contract exists and deliberately chose not to use it. Post-Q70 platform/
+  layer STILL has seven coordination files
+  (`coordination_snapshot*.py`, `coordination_topology*.py`,
+  `system_picture_sections_coordination.py`) paralleling
+  `runtime/work_intake_coordination.py`.
+- **Fix recommendations**:
+    1. Split `check_contract_connectivity` findings into severity classes:
+       `real_cross_layer_duplicate`, `intentional_internal_only`,
+       `projection_parser_rebuild`, `ui_local_helper_payload`. Until the
+       baseline is stratified, these counts cannot gate architectural
+       decisions.
+    2. Add a `check_contract_connectivity --consumer-required` mode that
+       scans only for contracts in `runtime/` and `platform/` that are
+       EMITTED but not IMPORTED by any mutation callsite. That is the
+       most direct "emitted-but-not-consumed" detector for scatter.
+    3. Treat the 20 stranded-consumer rows as the highest-priority fix
+       list — each row is a concrete place where `from ... import X`
+       plus deletion of the local rebuild would collapse one scatter
+       instance with no design debate.
+- **Status**: OPEN — scatter persists at HEAD; guard is the right detector
+  but needs stratification (Q72 follow-up).
+
+### Q78 — VISIBILITY GAP — `context-graph` is a file-level import graph, blind to typed-contract consumers
+
+- **Discovered**: 2026-04-11
+- **Severity**: observability, critical — the AI cannot "see everything"
+  through the graph because the graph does not index the questions the
+  scatter pattern needs to ask
+- **Body**: Running `python3 dev/scripts/devctl.py context-graph --query
+  <term>` with typed class names returns zero matches:
+    - `--query session_pacing` → "No matches found", `confidence:
+      no_match`, 0 direct nodes, 0 neighbors
+    - `--query AutoModeState` → "No matches found", same shape
+  Filename-shaped queries work:
+    - `--query work_intake_pacing` → 1 direct node, 14 neighbors,
+      `confidence: high`, 13 import edges
+  Graph inventory at HEAD: 3265 nodes, 65630 edges across 10 node kinds:
+  `source_file` (2745), `python_function` (74), `guard` (71), `probe`
+  (25), `active_plan` (28), `capability` (24), `devctl_command` (82),
+  `concept` (197), `guide` (16), `mutation_callsite` (3). Notably
+  missing: `typed_contract`, `dataclass_field`, `contract_producer`,
+  `contract_consumer`.
+- **Interpretation**: the graph cannot answer "which files consume
+  `SessionPacingState`?" or "which mutation callsites read
+  `recovery_action`?" because it does not index those entities. To answer
+  the scatter question in this round the observer had to fall back to
+  raw grep — the exact opposite of the operator's direction that "the AI
+  should be able to see everything with that [graph]." The graph is
+  under-utilized because its schema does not contain the things the AI
+  most needs to trace. Note also that `mutation_callsite` has only 3
+  edges in the current graph, which is likely undercounted — a
+  higher-fidelity mutation-callsite index is prerequisite to building the
+  scatter detector proposed in Q80.
+- **Fix recommendations**:
+    1. Add a `typed_contract` node kind indexing every `@dataclass`
+       defined under `runtime/` and `platform/`, with edges `produced_by`
+       (file/function that emits an instance) and `consumed_by`
+       (file/function that reads a field). Build from AST scan.
+    2. Add a `dataclass_field` node kind so queries like `--query
+       research_ref_budget` return the producer plus every reader
+       reference.
+    3. Add a `mutation_callsite → typed_contract` `gates_on` edge when a
+       callsite branches on a contract field. This is what actually
+       answers "is this contract load-bearing?"
+    4. Make `context-graph --query` accept both filename-shaped and
+       symbol-shaped queries, unifying results.
+    5. Add a derived `context-graph --mode unconsumed-contracts` that
+       enumerates `typed_contract` nodes with zero `consumed_by` edges
+       beyond renderers and tests. This IS the scatter detector the
+       operator asked for, implemented on a graph the AI can read in one
+       command.
+- **Status**: OPEN — root cause of "graph is under-utilized." Until the
+  graph indexes contracts, every scatter question falls back to grep.
+
+### Q79 — PIPELINE ABSENT — `autonomy-run` has no import edge to findings-priority, session pacing, recovery authority, or AutoModeState
+
+- **Discovered**: 2026-04-11
+- **Severity**: architectural, top-level — this is the concrete shape of
+  "the governance loop is not in the governed system"
+- **Body**: `dev/scripts/devctl/commands/autonomy/run.py` import list:
+    - `...autonomy.run_feedback` — feedback sizing
+    - `...autonomy.run_helpers` — prompt derivation, swarm command
+      builder, next-step collection
+    - `...autonomy.run_plan` — plan doc update, scope validation
+    - `...autonomy.run_render` — markdown render
+    - `...autonomy.swarm_helpers` — path / slug utilities
+    - `...common`, `...numeric`, `...repo_packs.process_helpers`
+  It does NOT import:
+    - `runtime.work_intake` or `runtime.work_intake_pacing` — so
+      `SessionPacingState` is unknown
+    - `runtime.recovery_authority` — so `RecoveryAuthorityState` is
+      unknown
+    - `triage.findings_priority` or
+      `commands.reporting.findings_priority` — so the ranking is unknown
+    - any `AutoModeState` symbol (grep of
+      `dev/scripts/devctl/commands/autonomy` returns zero matches)
+    - any `ControlPlaneReadModel` or `build_startup_context` symbol
+    - any `GuardPromotionCandidate` symbol
+  The autonomy directory also contains `loop.py`, `loop_rounds.py`,
+  `loop_round_state.py`, `loop_support.py`, `swarm.py`, `swarm_core.py`,
+  `benchmark.py`, `report.py` — none of which were scanned in this round
+  but the outer `run.py` is the canonical entrypoint for `devctl
+  autonomy-run`.
+- **Interpretation**: the autonomy loop is a self-contained sub-universe.
+  Codex review said: "nothing actually connects green implementation
+  output to governed commit/push/next-slice progression." This grep
+  proves it at the import level. Loop v1 was operator-in-the-head
+  because the autonomy command has no typed substrate to pick next work,
+  enforce pacing, or gate on recovery authority. Q74's direction ("loop
+  v2 extends autonomy-run + AutoModeState + findings-priority +
+  monitor") is mechanically a small number of import additions plus
+  field reads.
+- **Fix recommendations**: Before loop v2 design is finalized, the minimum
+  pipeline edges are:
+    1. `autonomy-run` reads `build_startup_context()` at loop start
+    2. `autonomy-run` reads the top-ranked `RankedFinding` from
+       `triage.findings_priority.rank_findings_for_priority()` to pick
+       next slice
+    3. `autonomy-run` reads `SessionPacingState.research_ref_budget` to
+       cap the research phase
+    4. `autonomy-run` reads `SessionPacingState.implementation_trigger`
+       to know when to switch from read to edit
+    5. `autonomy-run` reads `RecoveryAuthorityState.recovery_action` to
+       decide whether mutation is allowed
+    6. `autonomy-run` reads a `MonitorSnapshot` for operator-visible
+       cadence
+    7. `autonomy-run` writes `AutoModeState` transitions as it progresses
+    8. `autonomy-run` emits a `GuardPromotionCandidate` whenever a
+       session finds-and-fixes a gap
+  Each edge is one `from ... import X` plus one field read. None of them
+  require new contracts. Loop v2's implementation task is literally "add
+  these eight import edges and one write path."
+- **Status**: OPEN — the eight edges are the work. Until they exist,
+  loop v2 has no typed substrate.
+
+### Q80 — PATTERN — "emitted-but-not-consumed" is a nameable architectural pattern and the guard system should detect it
+
+- **Discovered**: 2026-04-11
+- **Severity**: meta, high — this is the direct answer to the operator's
+  question "the system should catch this pattern like it catches
+  everything else"
+- **Body**: Across Q65-Q79 the same pattern recurs:
+    1. A new typed contract is defined in `runtime/` or `platform/`.
+    2. A producer builds it (`derive_*`, `build_*`, `compose_*`).
+    3. A projection/renderer reads it to format a summary string or
+       markdown section.
+    4. Tests exercise producer + renderer.
+    5. NO mutation callsite branches on any field of the contract.
+    6. The code path that actually gates behavior still reads an OLDER
+       field (`reviewer_runtime.recovery_action_allowed` instead of
+       `RecoveryAuthorityState.recovery_action`), or has no gate at all
+       (autonomy-run has no pacing gate).
+  Concrete instances at HEAD `3566b16b`:
+    - `SessionPacingState.research_ref_budget` → Q71: emitted, rendered
+      as summary string, never used as a budget cap
+    - `SessionPacingState.implementation_trigger` → Q71: emitted,
+      rendered, never used to fire an implementation phase
+    - `SessionPacingState.focus_slice_id` → Q71: emitted, rendered, never
+      used to scope a slice
+    - `RankedFinding` from `triage.findings_priority` → Q73: ranked,
+      rendered as markdown, never consumed by autonomy-run or any
+      controller
+    - `RecoveryAuthorityState.recovery_action` → Q75: derived, set on
+      startup context, runtime mutation still branches on
+      `reviewer_runtime.recovery_action_allowed`
+    - `CoordinationSectionSummary` rebuilt in
+      `platform/coordination_snapshot_models.py` → Q65/Q70 partial: the
+      typed contract exists in runtime/ but platform/ rebuilds its own
+  Pattern shape:
+    - PRODUCER: exists
+    - RENDERER: exists (markdown + JSON)
+    - TEST: exists (producer + rendering)
+    - CONSUMER: renderer or test only
+    - MUTATION CALLSITE: branches on a different / older field
+- **Interpretation**: this is the same shape as `check_function_duplication`
+  (duplicate normalized bodies), `check_contract_connectivity` (orphaned
+  dataclasses), and other existing guards. But no current guard detects
+  "contract emitted but no mutation callsite reads any field." That
+  guard would BE the scatter detector the operator is asking for. The
+  data to build it is mostly already present — `context_graph.models`
+  has a `mutation_callsite` node kind (see Q78; current count is only 3
+  edges, which is undercounted but the schema slot exists). Extending
+  that index to track which contract fields are read at mutation
+  callsites is a concrete, mechanical change.
+- **Fix recommendations**:
+    1. Name the pattern formally: `UnconsumedContract` or
+       `InertContract`. Definition: "a `@dataclass` defined in
+       `runtime/` or `platform/` whose fields are never read inside a
+       function that also calls a known mutation sink (commit, push,
+       dispatch, lane-change, relaunch, terminate, write)."
+    2. Add `dev/scripts/checks/check_unconsumed_contracts.py`. Minimum
+       scan:
+         - enumerate `@dataclass` definitions under `runtime/`,
+           `platform/`
+         - AST-walk all functions that call any of the known mutation
+           sinks (`subprocess.run` / git / `execute_typed_action` /
+           `dispatch` / etc.)
+         - inside each mutation-scope function, record
+           `instance.field_name` reads for known dataclass types
+         - flag dataclasses with zero mutation-scope field reads
+    3. Keep the guard advisory (Layer B, exit 0) for three releases while
+       false-positive rate is measured, then promote to blocking.
+    4. Wire loop v2 to consume the inert-contract list as its
+       highest-priority next-slice source: "contract exists → add
+       consumer" is the best possible next slice because it is already
+       well-scoped.
+    5. First time the guard finds a landed inert contract, the producing
+       session should emit a `GuardPromotionCandidate` for the guard
+       itself — closing the bootstrap loop so the scatter detector
+       registers itself into the governance platform contract registry.
+- **Status**: OPEN — concrete, mechanical proposal for the operator's
+  "catch the pattern" question. This is the first new guard Q74/loop v2
+  should land.
+
+### Observer round summary (2026-04-11)
+
+- Three contracts confirmed dead-end at HEAD `3566b16b`:
+  `SessionPacingState`, `RecoveryAuthorityState`, `findings_priority
+  ranking`. Q71, Q73, Q75 are all still load-bearing-open.
+- Q70 landed one downstream fix (`action_routing` onto
+  `work_intake.coordination`) but left seven platform-layer coordination
+  files as a parallel hierarchy. `check_contract_connectivity --absolute`
+  baseline is unchanged: 130 / 69 / 20.
+- The `context-graph` command is blind to typed contracts. Symbol
+  queries return zero matches; filename queries return high-confidence
+  results. The graph schema has no `typed_contract`, `dataclass_field`,
+  or `contract_consumer` node kinds. This is the root of "graph
+  under-utilized."
+- `commands/autonomy/run.py` has zero import edges to the typed
+  governance contracts (`findings_priority`, `SessionPacingState`,
+  `RecoveryAuthorityState`, `AutoModeState`). Loop v2 cannot "compose
+  over existing substrate" until those eight edges are added.
+- The "emitted-but-not-consumed" pattern is nameable, detectable, and
+  mechanical to implement as a new guard. Proposed as
+  `check_unconsumed_contracts.py` in Q80. This is the concrete answer
+  to the operator's "catch the pattern" question and is the best
+  first-slice candidate for loop v2.
+- Observer round performed ZERO code mutations —
+  `implementation_permission=blocked`, `recovery_action=observe_only`
+  honored throughout. All work logged here as append-only findings for
+  Codex / ChatGPT / next implementer session to consume.
+
+### Q81 — INTEGRATION HANDOFF — concrete Q76-Q80 evidence mapped onto loop v2 Phase checklist in `dev/active/autonomous_governance_loop_v2.md`
+
+- **Discovered**: 2026-04-11 (cross-reference pass after reading loop v2 draft)
+- **Severity**: coordination, informational — not a new defect, a handoff
+  note between the observer round (this file) and the architect round
+  (the loop v2 plan doc). Written because the same AI session produced
+  both and typed state was the channel.
+- **Body**: The loop v2 plan doc's Phase 0 / 1 / 2 / 3 checklist captures
+  the strategic shape (visibility first, typed slice selection, phase
+  controller over runtime, guard promotion closure). The observer round
+  has quantified evidence that grounds specific checklist items to
+  concrete files and numbers. Cross-reference:
+    - **Phase 0 item "contract and command discoverability"** maps to
+      Q78. Current state: `context-graph --query session_pacing` and
+      `--query AutoModeState` return zero matches; filename-shaped
+      queries return `confidence: high`. Prereq: add `typed_contract`
+      and `dataclass_field` node kinds to
+      `dev/scripts/devctl/context_graph/models.py`. Also raise
+      `mutation_callsite` graph coverage — currently only 3 edges in
+      the bootstrap graph summary, which is undercounted and blocks the
+      Q80 inert-contract detector.
+    - **Phase 0 item "ground LIVE_RUN.md findings into repo paths"**
+      maps to the same observation that `findings-priority --top-n 10`
+      returns all 10 top rows with `fan_out=0 primary=(no source-file
+      match)`. The highest-yield grounding pass is the 20 stranded
+      consumers in `check_contract_connectivity` (Q77 lists files
+      explicitly). Each row already has a concrete file path and a
+      concrete typed contract — they are the best bootstrap grounding
+      source because they need zero interpretation.
+    - **Phase 1 item "compose canonical slice selector from ...
+      findings-priority"** maps to Q79. Current state:
+      `commands/autonomy/run.py` has zero imports from
+      `triage.findings_priority`, `runtime.work_intake_pacing`, or
+      `runtime.recovery_authority`. The eight concrete import edges
+      listed in Q79 are the minimum wiring for this Phase 1 item.
+    - **Phase 2 item "consume ControlPlaneReadModel, AutoModeState,
+      monitor self-audit"** maps to Q79 edges 1, 5, 6, 7.
+    - **Phase 2 item "fail closed when implementation authority is
+      blocked"** maps to Q75 + Q76: the typed field to branch on is
+      `RecoveryAuthorityState.recovery_action`, not
+      `reviewer_runtime.recovery_action_allowed`. Both exist today
+      (parallel surfaces); loop v2's mutation gate should read the
+      former and deprecate the latter.
+    - **Phase 3 item "route repeated issues through
+      GuardPromotionCandidate by default"** maps to Q80: the first
+      promotion that closes the bootstrap loop is the
+      `check_unconsumed_contracts.py` guard itself. Loop v2's first
+      recorded `GuardPromotionCandidate` should propose that guard.
+    - **Phase 4 item "read-only loop-v2 dry run"**: the observer round
+      today (2026-04-11, this append block) is a manual instance of
+      that dry run. It proved the shape works — typed state was
+      sufficient to identify next work without edits. What failed was
+      graph discoverability (Q78) and autonomy-substrate import
+      coverage (Q79). Those two are the Phase 0 prerequisites that
+      must land before Phase 1 can run without operator prose.
+- **Interpretation**: the architect round (loop v2 plan) and the observer
+  round (Q76-Q80) converge on the same picture from different angles.
+  The plan doc names the phases; LIVE_RUN names the concrete files,
+  fields, and baseline numbers. Together they answer the operator's
+  "make it connected like a pipeline" question: the pipeline is
+  `startup_context -> findings_priority -> session_pacing -> autonomy_run
+  -> recovery_authority -> commit/push -> guard_promotion -> next
+  session`, and the exact gaps are enumerated in Q76-Q80.
+- **Fix recommendations**: loop v2 Phase 0 slice pool should be seeded
+  directly from Q77's 20 stranded-consumer list and Q80's
+  inert-contract pattern. Phase 1's slice selector should start by
+  consuming the existing `findings-priority` ranking, then augment it
+  with the Q80 `UnconsumedContract` class once that guard exists.
+  Phase 2's mutation gate should branch on
+  `RecoveryAuthorityState.recovery_action` from day one (Q75), not
+  `recovery_action_allowed`. No new contracts are required for any of
+  this — only the eight import edges in Q79 and the `check_unconsumed_contracts.py`
+  guard in Q80.
+- **Status**: OPEN — architect and observer rounds converged via typed
+  state. Next session (implementer) can begin Phase 0 with this log as
+  the concrete slice pool. No operator prose required.
+
+### Q82 — NAMING SCATTER — Q-IDs collide between `LIVE_RUN.md` and `dev/active/autonomous_governance_loop_v2.md` addendum
+
+- **Discovered**: 2026-04-11 (dashboard monitoring round after Codex wrote
+  loop v2 addendum)
+- **Severity**: coordination, medium — reader-confusion risk, no
+  behavioral impact today, high impact once the loop starts citing
+  cross-document IDs
+- **Body**: `dev/active/autonomous_governance_loop_v2.md` (lines 385-406,
+  "Q76-Q80 sequence" section) labels its wiring-order slices as `Q76`,
+  `Q77`, `Q78`, `Q79`, `Q80`, `Q81`. In the loop v2 doc those labels
+  mean:
+    - `Q76` = findings-priority cluster mode
+    - `Q77` = `PatternObservation` contract
+    - `Q78` = `governance-review --record` session-completion check
+    - `Q79` = `devctl rollout-tail --extract-insights`
+    - `Q80` = next-session prompt derivation as typed pipeline
+    - `Q81` = `context-graph --mode diff` pattern convergence metric
+  In `dev/audits/LIVE_RUN.md` (lines 4592-5015, observer round 2026-04-11)
+  the same labels mean different things:
+    - `Q76` = observer verification of unconsumed contracts Q71/Q73/Q75
+    - `Q77` = contract_connectivity 130/69/20 quantified baseline
+    - `Q78` = context-graph blind to typed contracts
+    - `Q79` = autonomy-run has zero typed governance imports
+    - `Q80` = `InertContract` / `UnconsumedContract` guard proposal
+    - `Q81` = cross-reference observer findings onto loop v2 phases
+  Both docs are active authority today.
+- **Interpretation**: this is the same authority-lane-split pattern the
+  repo has logged repeatedly (Q55 "multiple read paths for coordination
+  state," Q56 "REVIEW_SNAPSHOT vs dashboard contradict each other")
+  appearing at the Q-ID naming level. It is a concrete, low-cost instance
+  of the scatter pattern loop v2 is trying to eliminate: two documents
+  use the same label namespace for different content, the loop cannot
+  cite one without ambiguity, and the next-session prompt cannot say
+  "implement Q77" without qualifying which Q77.
+- **Fix recommendations**:
+    1. Loop v2 doc should rename its sequence labels to slice IDs that
+       cannot collide with `LIVE_RUN.md` Q-numbers. Suggested: `S1`,
+       `S2`, `S3`... or `V2P0.1`, `V2P0.2`... (phase-prefixed). The
+       content is fine; only the labels collide.
+    2. `LIVE_RUN.md` keeps Q-IDs as its canonical append-only ledger
+       namespace. Any doc that wants to cite a finding should write
+       `LIVE_RUN Q76` or `livrun:Q76`, not bare `Q76`.
+    3. Low-tech enforcement: add a tiny docs guard that scans all
+       `dev/active/*.md` for bare `Q\d+` references and flags any that
+       do not explicitly resolve to a `LIVE_RUN.md` section header. This
+       is ~15 lines of Python and uses only `ast` and file reading.
+- **Status**: OPEN — dashboard monitoring round flagged this before any
+  downstream doc cites the ambiguous IDs.
+
+### Q83 — DASHBOARD TRUTH SPLIT — four state surfaces disagree on state vocabulary for the same "implementation blocked?" question
+
+- **Discovered**: 2026-04-11 (dashboard monitoring round)
+- **Severity**: observability, high — directly contradicts the operator's
+  "the system should be like a pipeline" direction because the pipeline
+  has four heads and they speak different languages
+- **Body**: At HEAD `3566b16b`, tree_hash
+  `d900e8c67bfd1801117e42d975551d30d4bc0c9a93c972499da56d28209186e9`,
+  the following four typed surfaces were read within 90 seconds of each
+  other and returned the following answers about the same repo state:
+    - `python3 dev/scripts/devctl.py dashboard --format terminal`:
+      `State: AWAITING_RECOVERY`, `Dirty: 10 file(s)`,
+      `Implementation blocked: False`, `Next: await_checkpoint`,
+      `Command: commit current work, then rerun startup-context`
+    - `python3 dev/scripts/devctl.py monitor --format md`:
+      `state: blocked`, `main_problem: Q37 Phase 2 remains open...`,
+      `can_work_continue: True`, `can_code_be_pushed: False`,
+      `who_needs_to_act: operator`,
+      `what_should_happen_next: commit current work, then rerun
+      startup-context`, `confidence: low`
+    - `python3 dev/scripts/devctl.py auto-mode --format md`:
+      `Phase: committing`, `Next transition: commit current work, then
+      rerun startup-context`, `Reviewer alive: False`,
+      `Implementer alive: False`, `Last guard OK: True`
+    - `python3 dev/scripts/devctl.py system-picture --format md`:
+      `advisory_action: checkpoint_allowed`,
+      `advisory_reason: worktree_dirty_within_budget`,
+      `implementation_blocked: False`,
+      `push_action: await_checkpoint`,
+      `push_reason: worktree_dirty`,
+      `safe_to_continue_editing: True`
+    - `python3 dev/scripts/devctl.py startup-context --format summary`
+      (run at session open): `blockers=coordination_resync_required,
+      implementation_permission_blocked`,
+      `implementation_permission=blocked`, `recovery_action=observe_only`
+  All five surfaces agree the next concrete action is "commit current
+  work." They disagree on the state label (`AWAITING_RECOVERY` vs
+  `blocked` vs `committing` vs `checkpoint_allowed`), on whether the
+  main problem is Q37 Phase 2 (stale instruction) vs worktree-dirty, on
+  the confidence of the verdict (dashboard gives no confidence, monitor
+  says `low`), and — most concretely — on the field name for
+  implementation permission: `startup_context.implementation_permission`
+  is `blocked` while `system_picture.implementation_blocked` is `False`.
+  Two typed fields that look synonymous return opposite booleans.
+- **Interpretation**: this is the Q55/Q56 authority-lane-split pattern
+  reappearing at the dashboard layer, one level above the runtime
+  contracts Q76-Q80 covered. The underlying data is consistent (all
+  surfaces agree the tree is dirty and the next action is commit), but
+  the presentation vocabulary is not unified. Worse, two typed fields
+  (`implementation_permission` vs `implementation_blocked`) diverge on
+  what looks like the same boolean question. A fresh AI session reading
+  any one of these surfaces gets a different picture than a session
+  reading a different one. The operator's question "what can the AI
+  see?" depends on which surface the AI hit first.
+- **Fix recommendations**:
+    1. Pick ONE canonical state vocabulary for the blocking question.
+       Recommended: `AutoModeState.phase` because it is the typed
+       contract loop v2 is already going to consume in Phase 2. Every
+       other surface should project from `AutoModeState.phase` plus a
+       small mapping table, not compute its own label.
+    2. Resolve the `implementation_permission` vs `implementation_blocked`
+       field-name divergence. They should be the same field or have an
+       explicit cross-reference in the contract docstring. If they are
+       genuinely different semantics (e.g. "permission" is the typed
+       authority and "blocked" is the derived observable), that
+       distinction must be documented in the contract, not implied.
+    3. Add a `check_dashboard_truth_consistency.py` guard (advisory
+       first) that runs the five surfaces above within the same tick,
+       compares their answers to the blocking question, and flags
+       disagreement. This is the dashboard-side analogue of
+       `check_review_surface_consistency.py` (Q29 pattern — surfaces
+       disagree on `snapshot_id`).
+    4. Loop v2 Phase 0 should treat this as a visibility closure item
+       because the loop's phase controller (Phase 2) cannot choose
+       between review/implement/commit/push without one unambiguous
+       answer to "is implementation allowed right now?"
+- **Status**: OPEN — dashboard surfaces disagree at HEAD `3566b16b`;
+  captured in observer round 2026-04-11.
+
+### Q84 — MONITOR SELF-AUDIT HAS NO CONSUMER — `monitor` reports `should_emit_finding=True` but nothing catches the finding
+
+- **Discovered**: 2026-04-11
+- **Severity**: observability, medium — concrete live instance of the
+  inert-contract pattern Q80 named
+- **Body**: `python3 dev/scripts/devctl.py monitor --format md` at
+  HEAD `3566b16b` returns a typed `Self Audit` block:
+    - `should_emit_finding: True`
+    - `finding_type: observer_self_audit`
+    - `reasons: coordination_resync_required, remote_control_publisher_missing`
+  The monitor surface has decided a finding should be emitted and
+  labeled its reason with two specific typed strings. Nothing downstream
+  consumes these fields. `LIVE_RUN.md` does not gain a row, the
+  governance-review ledger (`dev/reports/governance/finding_reviews.jsonl`)
+  does not gain a row, and no follow-up `devctl` command reads
+  `monitor.self_audit.should_emit_finding` and acts on it.
+- **Interpretation**: this is the inert-contract pattern Q80 named,
+  appearing in a live observability loop. `monitor_self_audit` is
+  EMITTED as a typed field, is RENDERED in markdown output, is NOT
+  CONSUMED by anything that would route the finding into a ledger.
+  The governance system is self-reporting a problem and the report goes
+  to a field no one reads.
+- **Fix recommendations**:
+    1. Wire `monitor.self_audit.should_emit_finding=True` through
+       `governance-review --record --signal-type observer` automatically
+       on every monitor tick that sets the flag. No new contract
+       required — `governance-review` already accepts observer-signal
+       rows.
+    2. Add `monitor_self_audit` to the Q80 proposed
+       `check_unconsumed_contracts.py` guard as a seed positive: the
+       guard must report this row as INERT because its field reads are
+       zero outside the producer and the markdown renderer.
+    3. Cross-reference: the specific reasons
+       (`coordination_resync_required`, `remote_control_publisher_missing`)
+       are the same reasons `startup-context` already reports as
+       top-level blockers. That is double-reporting of the same state
+       without any consumer. Dedupe via typed routing, not by silencing
+       one of the two emitters.
+- **Status**: OPEN — concrete live instance of the Q80 pattern; lowest-
+  risk first slice for Q80's guard because its provenance is clear.
+
+### Q85 — PRECEDENCE BUG PROVEN IN JSON — state surfaces contradict at the field level, same contract contradicts itself within one JSON object
+
+- **Discovered**: 2026-04-11 (dashboard verification round requested by
+  operator after external review flagged the state-precedence concern)
+- **Severity**: observability, CRITICAL — this is not a vocabulary
+  mismatch at the renderer layer, this is typed fields inside the same
+  JSON payload disagreeing about whether the same three actions are
+  allowed or blocked right now
+- **Body**: The operator's external reviewer (ChatGPT) diagnosed a
+  state-precedence bug from markdown views. This round pulled raw JSON
+  from the four canonical surfaces simultaneously at
+  `2026-04-11T03:25:43Z`, HEAD `3566b16b`, to verify the claim at the
+  typed-contract level. Evidence, by surface:
+
+  **`python3 dev/scripts/devctl.py monitor --format json`** (schema
+  `MonitorSnapshot`, snapshot `snap-ff54dbfebdb6`):
+    - `canonical_runtime_state.implementation_permission: "blocked"`
+    - `canonical_runtime_state.recovery_action: "observe_only"`
+    - `canonical_runtime_state.observed_control_topology: "no_live_agents"`
+    - `canonical_runtime_state.resolved_phase: "committing"`
+    - `canonical_runtime_state.next_action: "await_checkpoint"`
+    - `worktree_state.dirty_files: 14` (budget exceeded)
+    - `summary.state: "blocked"`
+    - `summary.can_work_continue: true`
+    - `summary.can_code_be_pushed: false`
+    - `summary.confidence: "low"`
+    - `self_audit.should_emit_finding: true, finding_type: "observer_self_audit"`
+  **Inside one response**: `state: "blocked"` and
+  `can_work_continue: true` coexist as sibling fields of `summary`. A
+  reader asking "is work blocked?" gets `yes` from `state` and `no`
+  from `can_work_continue`, without any translation key.
+
+  **`python3 dev/scripts/devctl.py auto-mode --format json`** (schema
+  `AutoModeState`):
+    - `phase: "committing"`
+    - `reviewer_alive: false`
+    - `implementer_alive: false`
+    - `pending_action_requests: 0`
+    - `last_guard_ok: true`
+  The phase machine sits in `committing` while no reviewer, no
+  implementer, and no pending actions exist. The state label is stale
+  with respect to the actors it is supposed to track.
+
+  **`python3 dev/scripts/devctl.py system-picture --format json`**
+  (schema `SystemPicture`, snapshot `sys-38ae758af5d7772a`,
+  tree_hash `195870e871163222042ec12352ce0bd29abfdf990aac30815216d35f91b4af86`):
+    - `sections.startup.summary.startup_authority_ok: false`
+    - `sections.startup.summary.startup_authority_error_count: 2`
+    - `sections.startup.summary.implementation_blocked: false`
+    - `sections.startup.summary.push_eligible_now: false`
+    - `sections.startup.summary.advisory_action: "checkpoint_before_continue"`
+    - `sections.startup.summary.advisory_reason: "dirty_path_budget_exceeded"`
+    - `sections.startup.summary.safe_to_continue_editing: false`
+    - `sections.startup.summary.checkpoint_required: true`
+    - `sections.control_plane.summary.implementation_blocked: false`
+    - `sections.control_plane.summary.push_eligible: false`
+    - `sections.control_plane.summary.resolved_phase: "committing"`
+    - `sections.control_plane.summary.attention_status: "inactive"`
+    - `sections.review_runtime.summary.commit_pipeline_state: "push_blocked"`
+    - `sections.graph.status: "stale"` (saved snapshot from
+      `2026-04-10T21:18:00Z`, `plan_count: 0` in saved snapshot, live
+      graph has 29 active plans)
+  System-picture reports:
+    - `startup_authority_ok: false` with 2 errors
+    - BUT `implementation_blocked: false` in both startup and
+      control_plane sections
+    - `commit_pipeline_state: push_blocked` in review_runtime
+    - `safe_to_continue_editing: false` but `implementation_blocked:
+      false` (simultaneous in the same section summary)
+  Three different booleans try to express the same question and return
+  disagreement.
+
+  **`python3 dev/scripts/devctl.py startup-context --format json`**
+  (schema `StartupContext`, same tick):
+    - `advisory_action: "checkpoint_before_continue"`
+    - `advisory_reason: "dirty_path_budget_exceeded"`
+    - `action_routing.contract_id: "ActionRoutingDecision"`
+    - `action_routing.agent_lane.edit_gate.edit_allowed: true`
+    - `action_routing.agent_lane.edit_gate.status: "implementation_allowed"`
+    - `action_routing.agent_lane.blocked_permissions: []`
+    - `action_routing.agent_lane.permissions:
+      ["startup-context.summary", "review-channel.status",
+       "context-graph.bootstrap", "review-channel.post_finding",
+       "implementation.edit", "vcs.stage", "vcs.commit"]`
+    - `action_routing.allowed_actions:
+      ["startup-context.summary", "review-channel.status",
+       "context-graph.bootstrap", "review-channel.post_finding",
+       "implementation.edit", "vcs.stage", "vcs.commit"]`
+    - `action_routing.blocked_actions:
+      ["implementation.edit", "vcs.stage", "vcs.commit"]`
+    - `action_routing.recovery_action: "coordination_resync"`
+    - `action_routing.escalation_action: "operator_resume_review_loop"`
+  **This is the worst contradiction in the round.** The exact three
+  strings `implementation.edit`, `vcs.stage`, `vcs.commit` appear in
+  `action_routing.allowed_actions` **AND** in
+  `action_routing.blocked_actions` **in the same JSON object**. The
+  `edit_gate` reports `edit_allowed: true` and
+  `status: "implementation_allowed"` while the `blocked_actions`
+  array explicitly names those three actions as blocked. A mutation
+  callsite that reads one field gets permitted; a mutation callsite
+  that reads the other gets denied. Both live under `action_routing`.
+
+  **Cross-surface `recovery_action` disagreement**:
+    - `monitor.canonical_runtime_state.recovery_action: "observe_only"`
+    - `startup_context.action_routing.recovery_action: "coordination_resync"`
+  Two different answers to "what's the recovery action?" from the same
+  HEAD, at the same second, in the same repo tree.
+
+- **Interpretation**: the operator's reviewer is correct. The system has
+  real typed state, but the translation layer above the state is
+  non-existent. Concretely:
+    1. `monitor.summary.state` and `monitor.summary.can_work_continue`
+       are both computed from the same underlying fields but use
+       different mental models. One uses "blocked = any blocker
+       present." The other uses "can continue = worktree edit still
+       allowed for checkpoint." Both are reasonable in isolation, both
+       are wrong together because nothing labels which wins.
+    2. `auto-mode.phase == "committing"` while no implementer or
+       reviewer is alive is the phase machine reading the push/commit
+       need of a dirty worktree and labeling it without consulting live
+       topology. That means `AutoModeState.phase` is a read of WHAT
+       should happen next, not WHO is doing it — but it's named as if
+       it's a live phase.
+    3. `startup-context.action_routing` is the worst case: the typed
+       permit set and the typed deny set contradict each other on the
+       same three strings. One possible cause: `permissions` represents
+       intrinsic lane capability (what the implementer lane could
+       theoretically do) while `blocked_actions` represents
+       effective-right-now deny (what the current blocker is vetoing).
+       If that distinction is real, it is not expressed anywhere in the
+       contract — the field names are plain `permissions` and
+       `blocked_actions` and both are declared as `list[str]` of action
+       ids.
+    4. Two different `recovery_action` fields under `monitor` and
+       `startup-context` return different strings at the same tick.
+       They cannot both be authoritative. A consumer (like loop v2's
+       Phase 2 controller) must pick one — and the contract doesn't
+       tell it which.
+    5. The graph snapshot has been stale since 2026-04-10T21:18Z and
+       system-picture reports this correctly, but nothing auto-refreshes
+       and no guard fails the tick when it's read stale.
+
+- **Fix recommendations**:
+    1. Name one sovereign translation layer for "can the implementer
+       mutate right now?" The proposed contract is `AutoModeState.phase`
+       mapped through a tiny typed function
+       `implementation_admissible(auto_mode_state, recovery_authority)
+       -> Literal["allowed", "checkpoint_required", "blocked"]`. Every
+       other surface (dashboard, monitor, system-picture, action_routing
+       allowed/blocked arrays) projects from this function's output, not
+       from its own per-surface computation.
+    2. Resolve the `action_routing.permissions` vs
+       `action_routing.blocked_actions` contradiction. Either:
+       (a) rename `permissions` to `intrinsic_lane_permissions` and
+           `blocked_actions` to `currently_denied_actions`, and document
+           that the admissible set is `intrinsic - currently_denied`;
+       (b) OR collapse to one `effective_allowed_actions` array
+           computed from the difference, and remove the other two. One
+           field, one answer.
+    3. Resolve the two `recovery_action` paths. Either
+       `startup_context.action_routing.recovery_action` is wrong (drop
+       it, use `canonical_runtime_state.recovery_action` from monitor /
+       control_plane) or it means something different (rename it). Two
+       fields with the same name under different parents at different
+       values is a certainty bug.
+    4. `AutoModeState.phase` should be renamed or split. Options:
+       (a) rename to `AutoModeState.next_goal_phase` to make it clear
+           the field names what should happen next, not what is
+           currently happening;
+       (b) OR add `AutoModeState.live_actor_presence_ok: bool` that
+           gates whether the phase label is meaningful, so a consumer
+           can distinguish "phase says committing and the committer is
+           alive" from "phase says committing but nobody is there."
+    5. `monitor.summary.state` and `monitor.summary.can_work_continue`
+       need a translation key. Add `summary.admissible_actions:
+       list[str]` computed from the sovereign resolver in #1. Keep
+       `state` and `can_work_continue` but document explicitly that
+       `can_work_continue` means "checkpoint-safe edits are still
+       allowed", not "no blocker exists".
+    6. Add `check_state_precedence_consistency.py` guard that runs all
+       four surfaces inside a single tick and verifies: (a) no
+       contradictory booleans for the same concept, (b) no string
+       appearing in both `allowed_actions` and `blocked_actions` under
+       the same parent, (c) single-value fields with the same name
+       agree across surfaces. Advisory first, blocking after false-
+       positive rate is measured.
+    7. Loop v2 Phase 0 must treat precedence-resolver landing as
+       prerequisite for Phase 2 phase controller. Without a sovereign
+       "can I mutate now?" function, the loop cannot choose between
+       implement/commit/push without picking one surface and silently
+       ignoring the others — which is how scatter propagates.
+
+- **Status**: OPEN — operator's reviewer (ChatGPT) correctly identified
+  the concern from markdown views; this round confirmed and deepened it
+  at the typed-JSON level. Field-level contradictions documented above
+  are the smoking gun. This finding should be Codex's top Phase 0
+  blocker, prioritized above the Q78/Q80 graph-and-guard work because
+  it governs whether ANY subsequent loop v2 tick can trust its own
+  permission state.
+
+### Q84 — PHASE 0 FOLLOW-UP — `context-graph` now resolves typed contract and field symbols, but consumer visibility is still open
+
+- **Discovered**: 2026-04-11 (Codex implementer slice after running the
+  repo-owned Phase 0 status surfaces)
+- **Severity**: visibility improvement, medium — closes the "no match"
+  half of Q78, but not the consumer/gates-on half
+- **Body**: Before this slice,
+  `python3 dev/scripts/devctl.py context-graph --query 'AutoModeState GuardPromotionCandidate SessionPacingState PlanningIRSnapshot' --format md`
+  returned `matched 0 direct node(s)` / `confidence: no_match`. After
+  landing typed-contract and dataclass-field nodes in
+  `dev/scripts/devctl/context_graph/`, rerunning the same command now
+  returns:
+    - `matched 4 direct node(s)`
+    - `confidence: high`
+    - direct typed-contract matches for `AutoModeState`,
+      `GuardPromotionCandidate`, `SessionPacingState`,
+      `PlanningIRSnapshot`
+    - source-file neighbors for
+      `runtime/auto_mode.py`,
+      `runtime/work_intake_models.py`,
+      `platform/planning_ir_models.py`,
+      `governance/guard_promotion_queue.py`
+  A field-shaped query now works too:
+  `python3 dev/scripts/devctl.py context-graph --query research_ref_budget --format md`
+  returns the `research_ref_budget` field and its owning
+  `SessionPacingState` contract.
+- **Interpretation**: Q78's first failure mode was real and mechanical:
+  the graph had no contract-shaped nodes, so abstract AI queries fell
+  back to grep. This slice fixes that without introducing a new
+  authority store. The graph still does NOT answer "who consumes this
+  contract?" or "which mutation callsite gates on this field?" because
+  there are still no `consumed_by` / `gates_on` edges.
+- **Fix recommendations**:
+    1. Use Q77's stranded-consumer rows as the next grounding source so
+       `findings-priority` can stop returning top critical findings with
+       `(no source-file match)` and `fan_out=0`.
+    2. Extend the graph with contract-consumer / mutation-callsite
+       edges before adding a new guard. Symbol visibility is now good
+       enough; load-bearing "who uses this?" visibility is the next
+       blocker.
+- **Status**: PARTIAL FIX LANDED — contract/field discoverability is now
+  in the repo-owned graph; consumer visibility and findings grounding
+  remain open.
+
+### Q86 — Q78 IMPLEMENTATION REVIEW — `contract_nodes.py` is smart-but-transitional; authority source leaks shadow schema
+
+- **Housekeeping note on Q-ID collision**: this LIVE_RUN now has TWO
+  separate `### Q84` entries in the 2026-04-11 observer/implementer
+  round: one at the monitor-self-audit finding (earlier, dashboard
+  round) and one at the Phase 0 follow-up above (Codex implementer
+  round). That is exactly the collision Q82 warned about. Suggested
+  fix: rename Codex's Phase 0 follow-up entry to the next free
+  canonical ID (Q87 or the first free slot after Q86) and keep
+  LIVE_RUN Q-IDs monotonic. This Q86 entry is the next free slot after
+  the dashboard round's Q85 JSON precedence finding and should be
+  treated as canonical. Future Codex implementer appends should read
+  the tail of LIVE_RUN first to pick the next free Q-ID, or adopt a
+  separate prefix (CS01 = Codex Slice 01) that cannot collide with
+  append-only Q-IDs. Not a blocker for the current slice; a small
+  rename+refresh is enough to resolve it cleanly.
+
+- **Discovered**: 2026-04-11 (dashboard review of Codex's Q78
+  implementation at
+  `dev/scripts/devctl/context_graph/contract_nodes.py`, 293 lines new,
+  plus `models.py`/`builder.py`/`query.py` deltas and 92 new test
+  lines, after the operator forwarded a second-pass architectural
+  review)
+- **Severity**: architectural, medium — the patch is directionally
+  correct and lands the right shape (discovery layer pointing back to
+  typed source of truth). The weakness is in *where the authority for
+  "is this a contract?" comes from*, which is a scatter-detector
+  recursion of the same scatter pattern loop v2 is trying to eliminate
+- **Body**: Every claim below is cross-referenced to the actual code
+  Codex committed in the current worktree. Lines are from
+  `dev/scripts/devctl/context_graph/contract_nodes.py` unless
+  otherwise specified. Second-pass review by ChatGPT on the operator's
+  phone; verification by Claude Code in the dashboard role by reading
+  the exact lines.
+
+  **Claim 1 — suffix heuristics are a shadow schema** (verified)
+  Lines 190-195, `_should_index_contract`:
+
+      def _should_index_contract(class_name: str, contract_names: set[str]) -> bool:
+          if not class_name or class_name.startswith("_"):
+              return False
+          if class_name in contract_names:
+              return True
+          return class_name.endswith(_CONTRACT_SUFFIXES)
+
+  Lines 33-44, `_CONTRACT_SUFFIXES`:
+  `("Authority", "Candidate", "Catalog", "Contract", "Decision",
+   "Packet", "Record", "Ref", "Snapshot", "State")`
+  If canonical contract names do not cover a class, the suffix
+  fallback decides contracthood. This means the graph now carries TWO
+  authorities for "what is a contract?": the repo's declared catalog
+  (`platform.contract_definitions.shared_contracts`, verified present
+  at `dev/scripts/devctl/platform/contract_definitions.py:10`) AND
+  suffix naming convention. The second authority can silently drift
+  from the first. This is the Q65/Q70/Q55 scatter pattern (authority-
+  lane split) appearing inside the scatter-detector Codex is building.
+
+  **Claim 2 — `_EXTRA_DISCOVERY_CONTRACTS` is a manual patch lane**
+  (verified)
+  Lines 45-51:
+
+      _EXTRA_DISCOVERY_CONTRACTS = frozenset(
+          {
+              "GuardPromotionCandidate",
+              "PlanningIRSnapshot",
+              "SessionPacingState",
+          }
+      )
+
+  These are exactly the three contracts Q78/Q79 seed pool named as
+  invisible to the graph. Codex added them as a hardcoded frozenset
+  exception table. Acceptable as tactical seed for the current slice;
+  architecturally a smell because now there are THREE authorities:
+  canonical catalog + suffix convention + hardcoded extras. A future
+  contract missing from all three will be silently excluded.
+
+  **Claim 3 — silent exception swallowing in
+  `_discoverable_contract_names`** (verified)
+  Lines 137-156:
+
+      def _discoverable_contract_names() -> set[str]:
+          contract_names = set(_EXTRA_DISCOVERY_CONTRACTS)
+          try:
+              from ..platform.contract_definitions import shared_contracts
+              contract_names.update(spec.contract_id for spec in shared_contracts())
+          except Exception:
+              pass
+          try:
+              from ..governance.system_catalog_bootstrap import collect_bootstrap_commands
+              for entry in collect_bootstrap_commands():
+                  contract_names.update(entry.contract_ids)
+          except Exception:
+              pass
+          return contract_names
+
+  Two bare `except Exception: pass` blocks. If `shared_contracts` or
+  `collect_bootstrap_commands` breaks, the graph silently falls back
+  to suffix-only + the hardcoded three extras. Nobody gets told. The
+  discoverability baseline can regress without any signal. In a
+  governance system built on typed evidence, silent downgrade is the
+  wrong posture. Correct postures: emit a typed diagnostic node, or
+  record a health flag on the graph snapshot, or fail loud and force
+  the operator to choose.
+
+  **Claim 4 — `_field_names` is not true dataclass fields; ClassVar
+  leak risk** (verified)
+  Lines 198-215:
+
+      def _field_names(class_def: ast.ClassDef) -> tuple[str, ...]:
+          names: list[str] = []
+          for stmt in class_def.body:
+              field_name = _field_name(stmt)
+              if not field_name or field_name.startswith("_") or field_name in names:
+                  continue
+              names.append(field_name)
+          return tuple(names)
+
+      def _field_name(stmt: ast.stmt) -> str:
+          if isinstance(stmt, ast.AnnAssign) and isinstance(stmt.target, ast.Name):
+              return stmt.target.id
+          if isinstance(stmt, ast.Assign) and stmt.targets:
+              target = stmt.targets[0]
+              if isinstance(target, ast.Name):
+                  return target.id
+          return ""
+
+  Any `AnnAssign` or plain `Assign` at class scope is treated as a
+  dataclass field. This will accidentally index `ClassVar`
+  annotations like `CONTRACT_ID: ClassVar[str] = "RecoveryAuthority"`
+  as fields, when they are explicitly NOT dataclass fields per PEP 557
+  semantics. Also indexes plain assignments that are just class
+  constants. Field nodes are fragile — bad field indexing produces
+  noise faster than bad contract indexing because common names like
+  `status`, `summary`, `source_path`, `reason` are everywhere.
+
+  **Claim 5 — bare field aliases create query noise** (verified)
+  Lines 242-247:
+
+      def _field_aliases(class_name: str, field_name: str) -> list[str]:
+          contract_aliases = _contract_aliases(class_name)
+          aliases = [field_name]
+          for alias in contract_aliases:
+              aliases.append(f"{alias}.{field_name}")
+          return aliases
+
+  `aliases = [field_name]` makes the bare field name the first alias.
+  Querying `status` will match every typed contract that has a
+  `status` field (probably dozens). That is strictly worse than the
+  current (pre-patch) behavior of returning no match, because a noisy
+  high-confidence match is harder to debug than a clean no_match.
+  Correct ranking order (four tiers):
+    1. exact contract name
+    2. exact qualified field reference (`session_pacing.research_ref_budget`)
+    3. exact canonical pointer ref
+    4. bare field name as low-confidence fallback only
+
+  **Claim 6 — docstring overclaims catalog edges that don't exist**
+  (verified)
+  Docstring lines 1-7:
+  `"""Typed-contract discoverability nodes for context-graph queries.
+  ...every node still points back to the defining source file or
+  existing catalog entry."""`
+  Actual edges in the code:
+    - lines 94-101: `contract → source_file` via `ROUTES_TO` ✓
+    - lines 120-126: `contract → field` via `CONTAINS`
+    - lines 265-272: `capability → contract` via `RELATED_TO` (from
+      existing `metadata.consumes_contracts` on capability nodes)
+  There is NO direct `contract → catalog_entry` edge. Catalog
+  reachability is transitive through 2+ hops
+  (`capability → contract` only if the capability node already listed
+  the contract in its metadata). The docstring's "existing catalog
+  entry" claim is aspirational, not implemented. Field nodes also get
+  no direct `ROUTES_TO` edge at all — they reach source only through
+  `CONTAINS` back to the contract then `ROUTES_TO` to source (2 hops).
+
+  **Test coverage observation**
+  Test file delta at
+  `dev/scripts/devctl/tests/context_graph/test_context_graph.py` adds
+  6 new tests (+92 lines):
+    - `test_includes_typed_contract_nodes` — asserts `AutoModeState`
+      appears as typed_contract node
+    - `test_includes_dataclass_field_nodes` — asserts
+      `research_ref_budget` appears as dataclass_field node
+    - `test_contract_query_returns_typed_contract_node` — asserts
+      `query_context_graph("AutoModeState")` returns `confidence !=
+      no_match` and contract→source routing edge
+    - `test_contract_query_resolves_loop_v2_seed_symbols` — asserts
+      the four Q78/Q79 seed symbols (`AutoModeState`,
+      `GuardPromotionCandidate`, `PlanningIRSnapshot`,
+      `SessionPacingState`) no longer return no_match
+    - `test_contract_alias_query_resolves_snake_case` — asserts
+      `session_pacing` query resolves to `SessionPacingState`
+    - `test_dataclass_field_query_returns_contract_neighbor` — asserts
+      `research_ref_budget` query returns both the field node and the
+      owning contract
+  These tests verify DISCOVERABILITY — the main Q78 goal. They will
+  pass even if all six concerns above remain unfixed, because no test
+  currently asserts that authority source == declared catalog, that
+  ClassVar is excluded, that query noise from bare field aliases is
+  bounded, or that catalog-edge docstring claims are implemented.
+
+- **Interpretation**: the second-pass review is correct. The patch
+  solves the Q78 discoverability gap (the exact thing loop v2 Phase 0
+  asked for, and Codex's own Phase 0 follow-up at the previous Q84
+  entry confirms the query now returns high-confidence matches for
+  the four seed symbols). The weakness is architectural: the graph is
+  now a second authority for "what is a contract?" instead of
+  projecting from one canonical authority. That is the shadow-schema
+  risk. It is not wrong as a bootstrap move, but it is wrong as an
+  end state because loop v2's whole point is to make typed authority
+  converge, not diverge.
+
+- **Keep / Change / Remove (actionable for the Codex worker)**:
+
+  KEEP:
+    1. The two new node kinds `NODE_KIND_TYPED_CONTRACT` and
+       `NODE_KIND_DATACLASS_FIELD` in `context_graph/models.py`.
+       Correct shape, purely additive.
+    2. The `collect_contract_nodes(...)` composition in
+       `context_graph/builder.py` (+9 lines). Correct integration
+       point, purely additive.
+    3. `query.py` upgrades for multi-term queries, hyphen/underscore
+       variants, and field-reference matching. Strict improvements to
+       the matcher.
+    4. The six new discovery tests in `test_context_graph.py`. The
+       discovery targets are exactly right.
+    5. The reuse of `platform.contract_definitions.shared_contracts`
+       and `governance.system_catalog_bootstrap.collect_bootstrap_commands`
+       as canonical catalog inputs. Correct instinct.
+
+  CHANGE:
+    1. Make the canonical catalog the PRIMARY source for
+       `_discoverable_contract_names`. Suffix matching becomes a
+       VERIFIER, not a decider: if suffix matching finds a class that
+       is NOT in the catalog, emit a diagnostic (or a
+       `GuardPromotionCandidate`) saying "this class looks like a
+       contract but is not in the catalog — declare it or rename it."
+       Never use suffix as the authority to create a contract node.
+    2. Replace both `try: ... except Exception: pass` blocks in
+       `_discoverable_contract_names` with explicit failure paths.
+       Options: (a) raise a typed error that fails the graph build
+       loudly, or (b) record a `graph_health.discoverability_source`
+       field in the snapshot metadata that says
+       `catalog | suffix | degraded`. Consumers (including
+       `system-picture`) can then surface the degraded state instead
+       of acting on a silently weaker graph.
+    3. Fix `_field_name` / `_field_names` to filter `ClassVar`
+       annotations. Minimum: treat an `AnnAssign` whose annotation is
+       a `Subscript(value=Name("ClassVar"))` or
+       `Attribute(attr="ClassVar")` as non-field. Better: only accept
+       fields from classes decorated with `@dataclass`, and optionally
+       cross-check against `dataclasses.fields()` at runtime for a
+       known subset.
+    4. Tier the field alias ranking. `_field_aliases` should mark bare
+       field names with an explicit `low_confidence: True` metadata
+       flag, and the query matcher in `query.py` should rank exact
+       qualified references above bare field names.
+    5. Resolve the docstring / code divergence. Either add a direct
+       `typed_contract → catalog_entry` `ROUTES_TO` edge when the
+       catalog already has a matching node (cleanest), or fix the
+       docstring to say "every contract node points back to the
+       defining source file; catalog reachability is transitive via
+       capability edges when capability metadata declares
+       `consumes_contracts`."
+
+  REMOVE:
+    1. `_EXTRA_DISCOVERY_CONTRACTS` frozenset at lines 45-51. This is
+       a manual exception table. The three contracts it names
+       (`GuardPromotionCandidate`, `PlanningIRSnapshot`,
+       `SessionPacingState`) should be added to the canonical
+       `shared_contracts()` catalog at
+       `dev/scripts/devctl/platform/contract_definitions.py:10`
+       instead. One authority, no extras, no drift path.
+
+  ALSO ADD (new tests):
+    1. `test_contract_authority_source_is_catalog_not_suffix` —
+       assert that every `typed_contract` node has a provenance_ref or
+       metadata field naming the declaring catalog entry.
+    2. `test_classvar_annotations_are_not_fields` — define a test
+       dataclass with a `ClassVar[str]` annotation, assert that field
+       is NOT in the graph's `dataclass_field` nodes.
+    3. `test_bare_field_alias_is_low_confidence` — query `status`,
+       assert the returned top matched nodes are ranked below
+       qualified references, or that confidence is `low`.
+
+- **Cross-reference to Q85 (JSON precedence bug)**: while Codex is
+  fixing Q86, they should also read Q85. The `contract_nodes.py`
+  scanner will eventually index `action_routing.allowed_actions` and
+  `action_routing.blocked_actions` as field nodes, and those two
+  fields contain the exact same strings for `implementation.edit`,
+  `vcs.stage`, `vcs.commit` today. That will surface as a query
+  ambiguity once the graph indexes them. Q85's resolution (one
+  sovereign `admissible_actions` field) prevents the ambiguity from
+  propagating into field-node indexing.
+
+- **Verdict (matching the second-pass review's framing)**:
+  - Concept: strong
+  - Architectural direction: correct
+  - Current authority model: still a bit leaky (shadow schema via
+    suffix matching + hardcoded extras + silent fallback)
+  - Risk: catalog/suffix divergence as a drift path, query noise from
+    bare field aliases, silent discoverability degradation
+  - One-line rule:
+    "Good: build a search index from the typed source of truth.
+    Bad: let the search index decide what the typed source of truth is."
+
+- **Status**: OPEN — Codex's Q78 discoverability slice landed
+  successfully (previous Q84 entry confirms). The Q86 concerns above
+  are follow-up hardening for the same slice. The REMOVE item and the
+  ClassVar fix are small enough to include in the same Q78 slice
+  before commit. The authority-source restructuring (CHANGE #1) can
+  be a separate follow-up slice if Codex prefers to land discovery
+  first and authority-convergence second.
+
+### Q87 — Q86 COMPLIANCE MATRIX — Codex modularized + shipped partial fixes; most architectural concerns still open
+
+- **Discovered**: 2026-04-11 (dashboard monitoring tick immediately
+  after Codex staged the `contract_nodes.py` → 4-file modularization
+  round, before `git commit` has fired)
+- **Severity**: coordination / review follow-up, medium — not a new
+  defect, a compliance audit of Q86 recommendations against Codex's
+  current commit-ready state. Posted so Codex sees the status before
+  committing and can decide whether to include any of the open items
+  in the same slice or defer them to a follow-up.
+- **Body**: Four files in `dev/scripts/devctl/context_graph/` are
+  staged (`A ` in `git status`) for commit:
+    - `contract_nodes.py` (shrunk 293 → 108 lines; now pure composition)
+    - `contract_scan.py` (NEW 120 lines; AST scan + filter)
+    - `contract_relations.py` (NEW 85 lines; aliases + capability edges)
+    - `query_matching.py` (NEW 68 lines; query term helpers)
+  Line-level audit of Q86 items against the actual code Codex staged:
+
+  | Q86 Item | Status | Evidence |
+  |---|---|---|
+  | CHANGE #5 — remove "catalog entry" docstring overclaim | DONE | `contract_nodes.py:1` now reads only `"Typed-contract discoverability nodes for context-graph queries."` Aspirational clause removed. |
+  | CHANGE #4 — tier bare field alias ranking | PARTIAL | `query_matching.py:66-67` adds `if node.node_kind == NODE_KIND_DATACLASS_FIELD and "." not in query_lower: return []`. Smart fix: suppresses field-node canonical-ref matches on bare queries — this kills the noisiest path. BUT `contract_relations.py:37` still has `aliases = [field_name]`, so bare-field alias matches remain active via the alias route. Half the noise suppressed; half remains. |
+  | CHANGE #2 — replace silent `except Exception: pass` | PARTIAL | `contract_scan.py:44,53` added explanatory comments (`# broad-except: allow reason=platform contract registry may be absent in sparse/adopted repos fallback=...`) but the bare `except Exception: pass` is unchanged. No diagnostic node emitted, no health flag on the snapshot, no typed warning. Codex chose to justify the silent fallback rather than fix it. |
+  | REMOVE #1 — delete `_EXTRA_DISCOVERY_CONTRACTS`, move to catalog | NOT DONE | `contract_scan.py:27-33` — the frozenset was **moved** from `contract_nodes.py` to `contract_scan.py`, not deleted. The three contracts (`GuardPromotionCandidate`, `PlanningIRSnapshot`, `SessionPacingState`) are still a hardcoded exception table. Three authorities (catalog + suffix + extras) remain. |
+  | CHANGE #1 — catalog as primary, suffix as verifier | NOT DONE | `contract_scan.py:92-98::should_index_contract` still does `class_name in catalog OR class_name.endswith(_CONTRACT_SUFFIXES)`. Suffix is still a decider, not a verifier. |
+  | CHANGE #3 — ClassVar filter in field extraction | NOT DONE | `contract_scan.py:112-120::field_name` is identical to the original. Any `AnnAssign` or `Assign` at class scope still becomes a field node, including `CONTRACT_ID: ClassVar[str] = "..."` patterns. |
+  | ALSO ADD — three hardening tests (authority/ClassVar/alias-confidence) | NOT DONE | `tests/context_graph/test_context_graph.py` diff is still +92 lines with the original 6 discovery tests. The three Q86-proposed tests are not present. |
+  | HOUSEKEEPING — rename duplicate `### Q84` | NOT DONE | Codex's Phase 0 follow-up entry at line ~5386 still uses the colliding `Q84` ID. Q82's collision warning, Q86's housekeeping note, and this Q87 entry all cite the same unresolved collision. |
+
+- **Interpretation**: Codex prioritized **ship discoverability + modularize**
+  over **architectural hardening**. That is a legitimate engineering
+  judgment call: the modularization is good (clean separation of
+  concerns across scan / relations / matching), the query-noise fix
+  is genuinely clever (it targets the noisiest path), and the
+  docstring trim is a proper correction. But the shadow-schema risk
+  (suffix fallback + hardcoded extras + silent fallback + ClassVar
+  leak) is **not fixed, only deferred**. Loop v2's own "Locked
+  Decisions" #1 and #4 in `dev/active/autonomous_governance_loop_v2.md`
+  explicitly prohibit producing contracts without naming the consumer
+  that will read them. `_EXTRA_DISCOVERY_CONTRACTS` is exactly the
+  producer-without-declared-consumer pattern, landing in the scatter
+  detector itself.
+
+- **Fix recommendations** (two separable follow-up slices):
+  1. **Quick-harden slice** (~30 min, ships in same PR as current Q78
+     slice if Codex wants): delete `_EXTRA_DISCOVERY_CONTRACTS` in
+     `contract_scan.py:27-33` AND add the three contracts
+     (`GuardPromotionCandidate`, `PlanningIRSnapshot`,
+     `SessionPacingState`) to the canonical
+     `platform/contract_definitions.py::shared_contracts()` list. Add
+     ClassVar filter to `contract_scan.py::field_name` (treat
+     `AnnAssign` whose annotation is `Subscript(value=Name("ClassVar"))`
+     or `Attribute(attr="ClassVar")` as non-field). Mark bare field
+     aliases as `low_confidence: True` in
+     `contract_relations.py::field_aliases`.
+  2. **Authority-restructuring slice** (~2 hrs, separate PR): rewrite
+     `contract_scan.py::should_index_contract` so the canonical
+     catalog is the ONLY decider. Demote suffix matching to a VERIFIER
+     that emits a diagnostic node (new `NODE_KIND_DIAGNOSTIC` or a
+     typed `graph_health.shadow_contracts` metadata list) when it
+     finds contract-shaped classes NOT in the catalog. Replace both
+     bare `except Exception: pass` blocks with typed failure paths
+     that record `graph_health.discoverability_source: catalog |
+     degraded`.
+
+- **Status**: OPEN — Codex's Q78 discovery slice is shipping. Q87's
+  compliance matrix documents which Q86 items are done, partial, or
+  deferred so the next implementer can pick up the quick-harden slice
+  without re-auditing.
+
+- **Operator note (dashboard loop)**: this observer round is now
+  running as a Claude Code `/loop` dynamic wake at ~270s
+  heartbeat. Every ~4.5 minutes the dashboard re-fires
+  `git status`, `devctl dashboard`, `devctl monitor --format json`,
+  the Q78 verification query, and tail reads of LIVE_RUN / loop v2
+  doc / new context_graph files. New findings continue to append to
+  LIVE_RUN under monotonic Q-IDs past Q87.
+
+### Q88 — CATALOG GAP — `_EXTRA_DISCOVERY_CONTRACTS` exists because `shared_contracts()` is missing three required discoverability targets
+
+- **Discovered**: 2026-04-11 (loop tick 1, independent beta-test round
+  running `devctl platform-contracts --format md` on a surface
+  neither Codex nor Claude had touched recently)
+- **Severity**: architectural, medium — reframes Q86 REMOVE #1 from a
+  bare deletion into a two-step fix (add to catalog FIRST, then
+  remove extras), and documents concrete catalog coverage gaps
+- **Body**: `devctl platform-contracts --format md` returns **32**
+  declared shared contracts from the authoritative catalog (emitted
+  by `platform/contract_definitions.py::shared_contracts()`).
+  Checking whether the three entries in
+  `contract_scan.py::_EXTRA_DISCOVERY_CONTRACTS` are present in the
+  catalog output:
+    - `AutoModeState` — **present** in catalog (`owner_layer=governance_runtime; Typed snapshot of the current auto-mode phase and transition hint derived from repo-owned governance signals.`)
+    - `GuardPromotionCandidate` — **NOT in catalog**
+    - `PlanningIRSnapshot` — **NOT in catalog**
+    - `SessionPacingState` — **NOT in catalog**
+  Codex's extras frozenset is **compensating for catalog gaps**:
+  three contracts that loop v2's Phase 0 "Locked Decisions" and
+  Execution Checklist explicitly name as required discoverability
+  targets are missing from the canonical catalog. If Q86 REMOVE #1
+  is executed as a bare deletion, those three contracts disappear
+  from the graph and Q78's discoverability promise regresses for
+  exactly the symbols the operator asked to be indexed.
+- **Interpretation**: this is the scatter pattern visible at the
+  catalog layer itself — the canonical "what is a contract?"
+  authority does not cover what the active architecture says must
+  be discoverable. Codex's extras table is the symptom; the catalog
+  gap is the cause. The catalog already carries `runtime_model`
+  pointers for every contract in the exact `dotted.path:ClassName`
+  format `contract_nodes.py::collect_contract_nodes` emits as
+  metadata — so once the three missing contracts are added, Q86
+  CHANGE #1 (catalog as primary, suffix as verifier) becomes
+  TRIVIAL: catalog entries can be indexed directly from their own
+  `runtime_model` pointer, with no AST scanning needed for
+  catalog-listed contracts. Suffix matching then demotes to a
+  verifier that only flags suffix-matched classes NOT in the catalog.
+- **Fix recommendations** (replaces Q86 REMOVE #1 with a safe
+  two-step sequence):
+    1. **ADD** the three missing contracts to
+       `dev/scripts/devctl/platform/contract_definitions.py::shared_contracts()`
+       with `owner_layer` + `runtime_model` + brief description:
+         - `GuardPromotionCandidate` →
+           `dev.scripts.devctl.governance.guard_promotion_queue:GuardPromotionCandidate`
+           (owner_layer `governance_core` or `governance_runtime`;
+           "Candidate record for promoting a recurring finding into
+           a blocking guard in the next release cycle.")
+         - `PlanningIRSnapshot` →
+           `dev.scripts.devctl.platform.planning_ir_models:PlanningIRSnapshot`
+           (owner_layer `governance_runtime`; "Frozen planning-IR
+           snapshot consumed by findings-priority, work-intake, and
+           session-pacing to select the next best slice.")
+         - `SessionPacingState` →
+           `dev.scripts.devctl.runtime.work_intake_models:SessionPacingState`
+           (owner_layer `governance_runtime`; "Typed research-to-code
+           pacing state carrying research_ref_budget,
+           implementation_trigger, focus_slice_id, and complexity
+           band for one bounded session.")
+    2. **ONLY THEN DELETE** `_EXTRA_DISCOVERY_CONTRACTS` from
+       `dev/scripts/devctl/context_graph/contract_scan.py:27-33`.
+       Safe because catalog now covers the symbols. This is Q86
+       REMOVE #1 as originally proposed, now with its prerequisite
+       named explicitly.
+    3. **OPTIONAL, SAME SLICE** — add a direct
+       `typed_contract → catalog_entry` `ROUTES_TO` edge wiring in
+       `contract_nodes.py::collect_contract_nodes` so the docstring
+       claim that nodes "point back to the defining source file OR
+       existing catalog entry" actually holds. Catalog entries are
+       already in the graph (they show up under `capability` nodes
+       or similar), so this is a one-loop edge generation pass over
+       the `runtime_model` dotted path.
+- **Status**: OPEN — catalog has 32 entries with three known gaps;
+  Codex's extras table is the compensating patch. Quick-harden slice
+  is safer when catalog additions ride in the same commit as the
+  extras deletion. Independent-beta-test observation: `devctl
+  platform-contracts --format md` is a mostly-ignored surface —
+  neither my Q76-Q87 round nor Codex's Q78 implementation round
+  queried it before this tick. It is the canonical answer to "what
+  does the repo think a typed contract is?" and should be the first
+  thing any scatter-detector consumes.
+
+### Q89 — Q87 CHANGE #2 VERDICT REVISION — Codex's `broad-except: allow` comments are the repo-owned guard contract, not prose justification
+
+- **Discovered**: 2026-04-11 (loop tick 4, independent beta-test of
+  `devctl quality-policy --format md` followed by verification
+  against `dev/scripts/checks/python_analysis/check_python_broad_except.py`)
+- **Severity**: verdict correction, informational — **upgrades Q87
+  CHANGE #2 status from PARTIAL to DONE via repo-owned allow surface**
+- **Body**: Q87's compliance matrix marked Q86 CHANGE #2 (replace
+  silent `except Exception: pass`) as PARTIAL, stating Codex "chose
+  to justify the silent fallback rather than fix it." Tick 4's
+  beta-test round of `devctl quality-policy --format md` revealed
+  that `python-broad-except-guard` is one of the 36 declared AI
+  guards in the repo policy. Reading the guard implementation at
+  `dev/scripts/checks/python_analysis/check_python_broad_except.py`:
+    - Line 145: the guard flags `"new broad exception handler is
+      missing \`broad-except: allow reason=...\` rationale"`
+    - Line 164: the guard requires the
+      `"\`broad-except: allow reason=... fallback=...\` contract"`
+    - Line 218: the guard "requires an explicit nearby
+      `broad-except: allow reason=...` rationale. ... declare
+      `fallback=...`"
+  Codex's comments at
+  `dev/scripts/devctl/context_graph/contract_scan.py:44,53` match
+  the guard's required format character-for-character:
+    - Line 44: `# broad-except: allow reason=platform contract
+      registry may be absent in sparse/adopted repos
+      fallback=keep AST discovery limited to explicit extras and
+      suffix heuristics.`
+    - Line 53: `# broad-except: allow reason=bootstrap command
+      registry is optional during partial/adopted repo scans
+      fallback=preserve AST discovery via explicit extras and
+      suffix heuristics.`
+  Both comments carry `broad-except: allow` + `reason=...` +
+  `fallback=...` as required by the guard's typed contract.
+- **Interpretation**: Codex did not bypass Q86 CHANGE #2 — they
+  consumed the repo's typed guard-owned allow contract correctly.
+  The broad-except guard is a declared AI guard with an explicit
+  structured allow surface, and Codex's comments register the
+  exception under that surface with proper reason + fallback
+  declarations. Q87's "PARTIAL" verdict missed this because the
+  verification round did not check whether `python-broad-except-guard`
+  had a repo-owned allow contract before judging Codex's response.
+  This is a **course correction on my own dashboard review
+  process**: I should have checked the guard surface before
+  grading. The meta-observation is the same as Q88 — the governance
+  system already has the answer (a guard-owned allow contract), the
+  AI just has to query the right surface before writing a verdict.
+- **Fix recommendations**:
+    1. **Update Q87 compliance matrix**: CHANGE #2 is DONE via the
+       `broad-except: allow` contract, not PARTIAL. The comment format
+       matches `python_analysis/check_python_broad_except.py`
+       requirements character-for-character at `contract_scan.py:44`
+       and `:53`.
+    2. **Optional additive work (not required)**: if the operator
+       wants silent fallback to ALSO emit a graph-level diagnostic,
+       add a `graph_health.discoverability_source` field per my
+       original Q86 CHANGE #2 suggestion — but this is additive to
+       Codex's correct use of the allow contract, not a correction
+       to it.
+    3. **Dashboard review-process fix**: before grading any Q86/Q87-
+       style compliance item that touches a guard-detectable
+       pattern, run `devctl quality-policy --format md` FIRST and
+       check whether the pattern has a repo-owned allow surface.
+       Q88 was the same class of observation (catalog authority
+       exists), Q89 is the same class again (broad-except allow
+       contract exists). This is a generalizable rule: **the
+       governance system's authority surfaces must be queried
+       before writing verdicts about deference to them.**
+- **Status**: OPEN (verdict revision) — Q87 CHANGE #2 upgraded to
+  DONE via repo-owned allow contract. The broader architectural
+  question of whether silent fallback is right even when
+  guard-allowed is separate and unchanged. Codex's work on this
+  specific item is correct under repo policy.
+
+### Q90 — DASHBOARD BLINDNESS — 5 consecutive loop ticks read "Codex idle" when Codex actually marked TASK COMPLETE 37 minutes earlier
+
+- **Discovered**: 2026-04-11 (loop tick 6, beta-test of
+  `devctl agent-mind --agent codex --limit 15`)
+- **Severity**: observability, high — dashboard loop was unable to
+  distinguish "Codex idle" from "Codex done" for 5 consecutive
+  ticks because the standard per-tick check set did not include
+  session-rollout read. Resolved in tick 6 when `agent-mind` was
+  tried as a fresh beta-test surface.
+- **Body**: Loop ticks 1-5 all reported "Codex delta: zero" based
+  on git file mtimes, LIVE_RUN tail, context_graph file counts,
+  and dashboard/monitor/auto-mode state. Every signal was flat
+  across 5 × 270s = **22.5 minutes of dashboard reports**. Tick 6
+  ran `devctl agent-mind --agent codex --limit 15 --format md`
+  for the first time and revealed:
+    - Session file:
+      `/Users/jguida941/.codex/sessions/2026/04/10/rollout-2026-04-10T23-15-24-019d7a89-7e2f-7ab3-b856-9507a91838d6.jsonl`
+    - Session ID: `019d7a89-7e2f-7ab3-b856-9507a91838d6`
+    - Latest `task_complete` event: `2026-04-11T03:46:42.839Z`
+    - The task_complete message: `**Slice** Implemented the
+      bounded Phase 0 visibility slice in [models.py]...`
+  That means Codex declared the Phase 0 visibility slice COMPLETE
+  at 03:46:42 — approximately 37 minutes before tick 6 ran at
+  04:23ish local time. Codex was not mid-commit, not stuck, not
+  waiting on Q87/Q88/Q89 feedback — Codex had already bounded the
+  slice and ended the session. The 5 earlier loop ticks saw a
+  stable worktree because there was literally nothing more Codex
+  intended to do in that session.
+
+  **Reading the full Codex decision chain from agent-mind (last
+  15 events) also reveals Codex DID read my review feedback**:
+    - 03:45:15 [assistant message]: "The review is specific and
+      fixable: the current scanner really does treat suffixes as
+      authority, an..."
+      → Codex read Q86 and agreed it is fixable.
+    - 03:45:15 [exec_command]: `rg -n
+      "AutoModeState|GuardPromotionCandidate|PlanningIRSnapshot|SessionPacingState|ControlPlaneReadModel|CoordinationSna...`
+      → Codex independently grepped for the same symbols Q78/Q79
+      seed pool named.
+    - 03:45:15 [exec_command]:
+      `ls dev/scripts/devctl/platform`
+      → Codex explored the platform directory where
+      `contract_definitions.py` lives.
+    - 03:45:15 [exec_command]:
+      `nl -ba dev/scripts/devctl/platform/surface_state_contract_rows.py | sed -n '1,240p'`
+      → Codex read a platform surface file to understand catalog
+      shape.
+    - 03:45:26 [assistant message]: "The canonical catalog does
+      not currently advertise `PlanningIRSnapshot` or
+      `SessionPacingState`, which is why the scann..."
+      → **Codex independently verified Q88's catalog-gap claim**
+      via its own investigation, before I had fully written Q88.
+    - 03:45:44 [assistant message]: "I forced a saved graph
+      snapshot. One more poll on `system-picture` will tell us
+      whether that consumer now picks up..."
+      → **Codex took action to refresh the saved graph snapshot**
+      so downstream consumers would see the new typed_contract and
+      dataclass_field node kinds. This action DID land — tick 6
+      verified `system-picture.sections.graph.status = "current"`
+      with `generated_at_utc = 2026-04-11T03:42:56Z`.
+    - 03:46:42 [task_complete]: bounded slice declared complete.
+
+- **Interpretation**: the dashboard loop was structurally blind to
+  the difference between "Codex idle (nothing to do)" and
+  "Codex done (work shipped)" because it did not consume
+  session-rollout data. Both states looked identical: same file
+  mtimes, same dashboard blocker, same monitor state. The repo
+  has a first-class surface (`devctl agent-mind --agent codex`)
+  that resolves this ambiguity by reading
+  `~/.codex/sessions/**/rollout-*.jsonl`, and that surface was
+  only tried in tick 6 as a fresh beta-test target. This is
+  directly the pattern the repo memory at
+  `project_rollout_jsonl_integration_opportunity.md` already
+  flagged: rollout JSONL contains complete agent reasoning traces
+  and the repo had a cheap MVP to project it into typed state.
+  That MVP is `agent-mind`; it works; I simply did not know to
+  run it on each tick. Same meta-pattern as Q88 and Q89 —
+  **the governance system already has the answer, the AI just
+  has to query the right surface**.
+
+- **Also observed this tick**: Codex's decision chain shows they
+  read Q86/Q87/Q88 and made a deliberate scoping choice. They did
+  not bypass the feedback; they agreed it is fixable, verified
+  one specific claim (Q88 catalog gap), took one concrete action
+  (graph snapshot refresh), and then bounded the current slice at
+  Phase 0 discoverability rather than expanding it. This is the
+  correct discipline under loop v2's own `SessionPacingState`
+  contract and `research_ref_budget` concept: ship one bounded
+  slice, declare follow-ups as next slices, do not over-expand.
+  My Q87 verdict implicitly pressured Codex to expand the slice;
+  Codex correctly declined.
+
+- **Fix recommendations**:
+    1. **Dashboard loop meta-rule update**: every tick's standard
+       check set must include
+       `devctl agent-mind --agent codex --limit 10 --format md`
+       as a first-class monitoring signal. It answers the
+       question "is the agent working, done, stuck, or
+       unreachable?" directly from typed session rollout data.
+       File mtimes and git status only answer "did the worktree
+       change?", which is a proxy for the wrong question.
+    2. **Update the /loop prompt** to make `agent-mind` a
+       per-tick required read, not an exploratory beta-test.
+    3. **Generalize**: `agent-mind --agent claude` should work
+       for observing Claude's own session state, and could become
+       the basis for a peer-agent observability contract between
+       parallel dashboard and implementer sessions in loop v2
+       Phase 2.
+    4. **Dashboard review-process rule (adds to Q89 rule)**:
+       query session rollout data BEFORE assuming a quiet worktree
+       means the agent is idle. This ties Q89's "query authority
+       surfaces first" rule to a new sibling rule: query
+       session-state surfaces first too.
+    5. **system-picture `plan_count=0` bug persists** but is not
+       in scope for this finding — see loop v2 doc Addendum
+       "Audit Evidence" section which already notes
+       `plan_count=0` in the saved graph snapshot while the live
+       graph has 29 plans. Separate follow-up.
+
+- **Concrete next action for the operator**: Codex is DONE with
+  the bounded Phase 0 visibility slice. The 4-file
+  `contract_nodes.py/contract_scan.py/contract_relations.py/query_matching.py`
+  set is STAGED but not committed. To progress:
+    1. Commit the staged Q78 slice via `devctl commit` or
+       `devctl push --execute` depending on the gate state.
+    2. Launch a new Codex session with Q87 quick-harden +
+       Q88 catalog additions + Q89 verdict revision as the
+       explicit next-slice brief. The brief is already written
+       in LIVE_RUN; Codex only needs the pointer.
+
+- **Status**: OPEN — structural observability gap in the dashboard
+  loop was closed mid-session (tick 6). Future ticks will include
+  `agent-mind` as a standard check. Codex's Phase 0 slice is
+  complete from Codex's side and is waiting on the operator's
+  commit/next-slice decision.
+
+
+
+
+
+

@@ -62,6 +62,13 @@ Use docs like this:
   dashboard typed projections, and repo-owned auto-poll/update cadence; read
   this after `remote_commit_pipeline.md` when the task is operator-surface or
   remote-control lifecycle convergence rather than commit/push design.
+- **`dev/active/autonomous_governance_loop_v2.md`** -- bounded loop-v2
+  convergence plan for composing `startup-context` / `WorkIntakePacket`,
+  `PlanningIRSnapshot`, `findings-priority`, `auto-mode`, `monitor`,
+  graph-backed discoverability, and governed commit/push into one autonomous
+  controller; read this after `ai_governance_platform.md` and
+  `platform_authority_loop.md` when the work is "connect the existing typed
+  surfaces" rather than "build another controller".
 - Review-channel docs and launch surfaces now distinguish planned lane topology
   from live participant truth: the runtime registry is provider/session-backed
   typed state, default requested worker fanout is zero unless explicitly

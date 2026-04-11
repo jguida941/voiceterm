@@ -30,6 +30,7 @@ Agents must read this file first before loading active planning docs.
 | `dev/active/portable_code_governance.md` | `spec` | `mirrored in MASTER_PLAN` | `MP-376` | when extending the portable guard/probe engine, defining repo-policy vs engine boundaries, building measurement/eval corpora, exporting the governance stack for off-repo review, or piloting the system on other repositories; this is a subordinate companion spec, not a second main product plan, so defer full-product architecture authority to `dev/active/ai_governance_platform.md` |
 | `dev/active/ai_governance_platform.md` | `spec` | `mirrored in MASTER_PLAN` | `MP-377` | read first for any standalone governance-product architecture, packaging, repo-pack, runtime-contract, or extraction work; this is the only main active plan for the transition from VoiceTerm-embedded tooling to an installable product |
 | `dev/active/platform_authority_loop.md` | `spec` | `mirrored in MASTER_PLAN` | `MP-377` | after reading `ai_governance_platform.md`, read this when working on startup authority, repo-pack activation, typed plan registry, runtime/evidence/context closure, or the cross-repo proof slice for the current `MP-377` priority lane |
+| `dev/active/autonomous_governance_loop_v2.md` | `spec` | `mirrored in MASTER_PLAN` | `MP-377` | after reading `ai_governance_platform.md` and `platform_authority_loop.md`, read this when designing or implementing loop-v2 convergence over startup/work-intake, planning IR, findings priority, auto-mode, monitor, graph-backed discoverability, or guard-promotion default routing; then load `continuous_swarm.md`, `autonomous_control_plane.md`, `review_channel.md`, and `remote_commit_pipeline.md` only for transport/harness/execution context |
 | `dev/active/remote_commit_pipeline.md` | `spec` | `mirrored in MASTER_PLAN` | `MP-377` | after `ai_governance_platform.md` and `platform_authority_loop.md`, read this when designing or implementing the typed remote-session commit/push pipeline, phone/operator approval packets for commit/push, governed remote commit execution, or doctor/status readiness surfaces for remote-control sessions |
 | `dev/active/remote_control_runtime.md` | `spec` | `mirrored in MASTER_PLAN` | `MP-380..MP-387` | after `ai_governance_platform.md`, `platform_authority_loop.md`, and `remote_commit_pipeline.md`, read this when closing remote-control reviewer/runtime state, operator action transport, dashboard typed projections, auto-poll/update cadence, discoverability/system-map surfaces, or slim reviewer bootstrap/session-resume truth for phone-steered sessions |
 | `dev/active/PLAN_FORMAT.md` | `reference` | `reference-only` | `MP-377` | when editing governed active-plan markdown, extending active-plan/docs-governance enforcement, or aligning `PlanRegistry` / `PlanTargetRef` design with the repo's own plan-doc contract |
@@ -50,13 +51,23 @@ Agents must read this file first before loading active planning docs.
     closure, or the first cross-repo proof, read
     `dev/active/platform_authority_loop.md` immediately after
     `dev/active/ai_governance_platform.md`.
-3.1.1 If that same `MP-377` work is specifically about the typed remote-
+3.1.1 If that same `MP-377` work is specifically about composing
+      startup/work-intake, planning IR, findings-priority, auto-mode,
+      monitor, graph-backed discoverability, and governed commit/push into
+      one autonomous controller, read
+      `dev/active/autonomous_governance_loop_v2.md` immediately after
+      `dev/active/platform_authority_loop.md`, then load
+      `dev/active/continuous_swarm.md`,
+      `dev/active/autonomous_control_plane.md`,
+      `dev/active/review_channel.md`, and
+      `dev/active/remote_commit_pipeline.md` only for harness/runtime context.
+3.1.2 If that same `MP-377` work is specifically about the typed remote-
       session commit/push pipeline for phone-steered or remote-control
       sessions, read `dev/active/remote_commit_pipeline.md` immediately after
       `dev/active/platform_authority_loop.md`, then load
       `dev/active/review_channel.md` and `dev/active/continuous_swarm.md`
       only for transport/runtime proof context.
-3.1.2 If that same `MP-377` work is specifically about typed remote-control
+3.1.3 If that same `MP-377` work is specifically about typed remote-control
       reviewer/runtime state, operator action transport, dashboard
       convergence, auto-poll/update cadence, or reviewer bootstrap/session-
       resume truth, read

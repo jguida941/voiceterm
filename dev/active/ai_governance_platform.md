@@ -173,6 +173,17 @@ Current 2026-04-10 deterministic action-routing / commit-permission note:
   dashboard/status/doctor, raw-git hooks, pre-edit/pre-launch boundaries, and
   destructive recovery.
 
+Current 2026-04-10 loop-v2 convergence note:
+- The next bounded `MP-377` planning slice now routes through
+  `dev/active/autonomous_governance_loop_v2.md`. That lane does not own a new
+  backend; it owns the composition rule that the autonomous governance loop
+  must consume existing `StartupContext` / `WorkIntakePacket`,
+  `PlanningIRSnapshot`, `findings-priority`, `ControlPlaneReadModel`,
+  `AutoModeState`, `MonitorSnapshot`, `governance-review`,
+  `GuardPromotionCandidate`, and governed commit/push surfaces instead of
+  inventing a provider-specific verdict-file controller or operator-prose
+  authority.
+
 ## Scope
 
 Turn the current VoiceTerm-local automation stack into a reusable AI governance

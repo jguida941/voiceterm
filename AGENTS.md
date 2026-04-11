@@ -128,6 +128,7 @@ Release-governance note:
 | Where is the shared review-channel + dual-agent shared-screen execution plan? | `dev/active/review_channel.md` |
 | Where is the host-process hygiene + Activity Monitor automation plan? | `dev/active/host_process_hygiene.md` |
 | Where is the continuous local Codex-reviewer / Claude-coder loop hardening and later template-extraction plan? | `dev/active/continuous_swarm.md` |
+| Where is the bounded loop-v2 convergence plan that composes startup/work-intake, planning, auto-mode, monitor, graph discovery, and guard-promotion into one autonomous controller? | `dev/active/autonomous_governance_loop_v2.md` (subordinate `MP-377` execution spec; read after `dev/active/ai_governance_platform.md` and `dev/active/platform_authority_loop.md`) |
 | Where is the optional VoiceTerm Operator Console plan? | `dev/active/operator_console.md` |
 | Where is the typed remote-session commit/push pipeline design for phone-steered sessions? | `dev/active/remote_commit_pipeline.md` |
 | Where is the primary read-only review-channel readiness surface for that remote commit/push lane documented? | `dev/scripts/README.md` (`review-channel --action doctor`) for command semantics, plus `dev/active/remote_commit_pipeline.md` for lifecycle authority |

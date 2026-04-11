@@ -56,6 +56,15 @@ typed operator mode, packet-backed action requests, dashboard projections, and
 repo-owned auto-poll/update cadence, see
 `dev/active/remote_control_runtime.md` after
 `dev/active/remote_commit_pipeline.md`.
+For the bounded loop-v2 convergence work that must turn
+`startup-context` / `WorkIntakePacket`, `PlanningIRSnapshot`,
+`findings-priority`, `ControlPlaneReadModel`, `AutoModeState`, `monitor`,
+graph-backed discoverability, and governed commit/push into one autonomous
+controller, see `dev/active/autonomous_governance_loop_v2.md` after
+`dev/active/ai_governance_platform.md` and
+`dev/active/platform_authority_loop.md`. That lane is composition-first: it
+must consume existing typed surfaces instead of inventing a provider-specific
+verdict-file controller or operator-prose authority.
 That Phase-2 authority follow-up now keeps review/push truth on typed runtime
 contracts too: `reviewer_runtime` owns `implementer_ack_current`,
 `implementation_blocked`, and `implementation_block_reason`, bridge review
@@ -765,7 +774,7 @@ python3 dev/scripts/devctl.py platform-contracts --format md
 python3 dev/scripts/devctl.py system-picture --format md
 python3 dev/scripts/devctl.py system-picture --write-ledger --format md
 python3 dev/scripts/devctl.py context-graph --mode bootstrap --format md
-python3 dev/scripts/devctl.py context-graph --query '<term>' --format md  # suppresses Hot Index on no_match
+python3 dev/scripts/devctl.py context-graph --query '<term>' --format md  # file paths, typed contracts, and dataclass fields; suppresses Hot Index on no_match
 python3 dev/scripts/devctl.py context-graph --query '<term>' --save-snapshot --format md
 python3 dev/scripts/devctl.py context-graph --mode diff --from previous --to latest --format md
 python3 dev/scripts/devctl.py context-graph --format mermaid
@@ -1141,7 +1150,10 @@ python3 dev/scripts/devctl.py homebrew --version X.Y.Z
 
 `context-graph --mode bootstrap` is the slim warm-start packet. Keep it
 bounded by default and use `context-graph --query '<term>'` when the task
-needs more repo context. Before edits, validation, or repo-owned launcher
+needs more repo context. Query mode now resolves file-path terms plus typed
+contract and dataclass-field symbols such as `AutoModeState`,
+`PlanningIRSnapshot`, or `research_ref_budget` without already knowing the
+owning file path. Before edits, validation, or repo-owned launcher
 work, run `python3 dev/scripts/devctl.py startup-context --format summary` first
 and treat a non-zero exit as a hard stop to checkpoint or repair the repo
 state. After that Step 0 receipt is fresh, use the slim bootstrap packet for

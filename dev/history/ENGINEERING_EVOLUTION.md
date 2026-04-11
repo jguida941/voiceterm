@@ -9556,3 +9556,32 @@ Evidence: `dev/scripts/checks/contract_connectivity/inventory.py`,
 `dev/active/platform_authority_loop.md`,
 `.github/workflows/tooling_control_plane.yml`,
 `.github/workflows/release_preflight.yml`.
+
+### 2026-04-10 — Loop v2 planning now routes through one composition-first execution spec
+
+The next autonomous-governance-loop slice stopped at design on purpose after
+the Q64-Q75 review: the repo already had most of the typed surfaces the loop
+needed, but they were still disconnected or advisory-only. Instead of adding a
+provider-specific verdict-file controller, the new bounded execution spec at
+`dev/active/autonomous_governance_loop_v2.md` now freezes the composition rule
+for loop v2: use `startup-context` / `WorkIntakePacket`,
+`PlanningIRSnapshot`, `findings-priority`, `ControlPlaneReadModel`,
+`AutoModeState`, `MonitorSnapshot`, `governance-review`,
+`GuardPromotionCandidate`, and governed commit/push as one pipeline.
+
+This matters because the failure mode was scatter, not missing raw signals.
+The live repo could already emit startup authority, pacing, review/runtime
+health, graph snapshots, and ranked findings, but the AI still had to know the
+right filenames and commands by hand. The new plan makes visibility closure
+the first implementation priority: stale graph truth, contract-name discovery,
+and finding-to-path grounding must close before the loop is allowed to widen
+into autonomous editing.
+
+Evidence: `dev/active/autonomous_governance_loop_v2.md`,
+`dev/active/INDEX.md`,
+`dev/active/MASTER_PLAN.md`,
+`dev/active/ai_governance_platform.md`,
+`AGENTS.md`,
+`dev/README.md`,
+`dev/guides/DEVELOPMENT.md`,
+`dev/scripts/README.md`.

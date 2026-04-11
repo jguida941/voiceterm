@@ -36,6 +36,11 @@
   registry, runtime/evidence/context spine closure, and the first cross-repo
   proof of the portable authority loop. Top-level product authority remains in
   `dev/active/ai_governance_platform.md`.
+- `dev/active/autonomous_governance_loop_v2.md` is the bounded `MP-377`
+  convergence spec for turning existing startup/work-intake, planning,
+  review/runtime, graph, and governed commit/push contracts into one closed
+  autonomous controller. It sequences composition over the current owner docs;
+  it does not introduce a second backend or a second top-level plan.
 - `dev/active/remote_commit_pipeline.md` is the bounded `MP-377` design and
   execution spec for the typed remote-session commit/push pipeline that moves
   phone-steered work from staged changes to governed commit/push through
@@ -126,6 +131,13 @@
   `ProjectGovernance -> RepoPack -> PlanRegistry -> PlanTargetRef ->
   WorkIntakePacket -> TypedAction -> ActionResult / RunRecord / Finding ->
   ContextPack`.
+- Current 2026-04-10 loop-v2 convergence intake inside that same `MP-377`
+  owner chain: `dev/active/autonomous_governance_loop_v2.md` now owns the
+  bounded design for composing existing typed startup/planning/runtime/evidence
+  surfaces into one autonomous controller. Priority order is visibility and
+  discoverability closure first, slice selection second, phase/controller
+  routing third, then guard-promotion default writeback and governed mutation
+  proof. Dashboard work remains a separate consumer session.
 - Current 2026-04-08 typed-authority convergence absorption rule inside that
   same `MP-377` owner chain: do not promote a separate "Typed Authority
   Convergence" tracker. Treat that synthesis as an execution-order map only
