@@ -13,7 +13,21 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Final
 
-from ..governance.script_catalog_registry import check_script_shell_command
+try:
+    from ..governance.script_catalog_registry import check_script_shell_command
+except ImportError:
+    # Loaded as standalone file via importlib.util.spec_from_file_location
+    # (e.g. check_bundle_registry_dry loader). Fall back to absolute import
+    # with repo-root sys.path adjustment.
+    import sys as _sys
+    from pathlib import Path as _Path
+
+    _REPO_ROOT = _Path(__file__).resolve().parents[3]
+    if str(_REPO_ROOT) not in _sys.path:
+        _sys.path.insert(0, str(_REPO_ROOT))
+    from dev.scripts.devctl.governance.script_catalog_registry import (  # type: ignore[no-redef]
+        check_script_shell_command,
+    )
 
 BUNDLE_AUTHORITY_PATH: Final[str] = "dev/scripts/devctl/bundle_registry.py"
 AGENTS_BUNDLE_SECTION_HEADING: Final[str] = "## Command bundles (rendered reference)"
