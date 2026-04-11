@@ -124,4 +124,15 @@ def build_bridge_control_arguments(
             default=[],
             help="Repeatable markdown bullet body for the reviewer checkpoint `Last Reviewed Scope` section.",
         ),
+        arg_builder(
+            "--allow-unread-inbox",
+            action="store_true",
+            help=(
+                "Emergency-only bypass for the reviewer-inbox preflight gate. "
+                "Only honored when `--reason` matches the emergency-recovery "
+                "whitelist (`codex-recovery-override`, `operator-manual-override`). "
+                "Normal review passes cannot bypass the inbox gate; consume "
+                "pending packets via `--action inbox`/`--action ack` first."
+            ),
+        ),
     ]

@@ -166,6 +166,11 @@ def run_reviewer_state_action(
                 instruction=instruction_body,
             )
         )
+        # Reviewer actor defaults to Codex (the canonical reviewer in this
+        # repo-pack). Explicit `--actor claude` selects the symmetric Claude
+        # reviewer path so the inbox gate checks the correct inbox.
+        raw_actor = getattr(args, "actor", None)
+        actor_value = (raw_actor or "").strip() or "codex"
         state_write = write_reviewer_checkpoint(
             repo_root=repo_root,
             bridge_path=runtime_paths.bridge_path,
@@ -188,6 +193,10 @@ def run_reviewer_state_action(
                     args,
                     "expected_implementer_state_hash",
                     None,
+                ),
+                actor=actor_value,
+                allow_unread_inbox=bool(
+                    getattr(args, "allow_unread_inbox", False)
                 ),
             ),
         )

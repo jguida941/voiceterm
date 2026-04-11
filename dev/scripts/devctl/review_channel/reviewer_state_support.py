@@ -57,6 +57,15 @@ class ReviewerStateWrite:
     current_instruction_revision: str = ""
     reviewer_accepted_implementer_state_hash: str = ""
     head_at_push_time: str = ""
+    # Reviewer actor that wrote this checkpoint ("codex"/"claude"/empty for
+    # legacy). Surfaced on audit payloads so operators can trace which
+    # reviewer advanced the typed state.
+    reviewer_actor: str = ""
+    # Inbox override audit trail. Populated only when an emergency
+    # `--allow-unread-inbox` bypass was used to write this checkpoint; the
+    # tuple carries the unread packet ids that were present at write time.
+    inbox_override_applied: bool = False
+    inbox_override_unread_packet_ids: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)

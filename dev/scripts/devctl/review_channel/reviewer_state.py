@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import dataclasses
 import re
 from dataclasses import dataclass
 from pathlib import Path
@@ -30,10 +31,10 @@ from .reviewer_state_support import (
 from .write_preconditions import (
     assert_expected_implementer_state_hash,
     assert_expected_instruction_revision,
+    assert_reviewer_inbox_empty,
 )
 from .current_session_projection import bridge_implementer_state_hash
 from .handoff import extract_bridge_snapshot
-from .pending_packets import assert_no_pending_reviewer_packets
 from .peer_liveness import ReviewerMode, normalize_reviewer_mode
 from .reviewer_head_tracking import (
     compute_review_range as compute_review_range,
@@ -41,6 +42,9 @@ from .reviewer_head_tracking import (
 )
 
 REVIEWER_MODE_RE = re.compile(r"(?m)^- Reviewer mode:\s*`.*?`\s*$")
+
+
+DEFAULT_REVIEWER_ACTOR = "codex"
 
 
 @dataclass(frozen=True)
@@ -54,6 +58,8 @@ class ReviewerCheckpointUpdate:
     rotate_instruction_revision: bool = False
     expected_instruction_revision: str | None = None
     expected_implementer_state_hash: str | None = None
+    actor: str = DEFAULT_REVIEWER_ACTOR
+    allow_unread_inbox: bool = False
 
 def write_reviewer_heartbeat(
     *,
@@ -123,9 +129,12 @@ def write_reviewer_checkpoint(
         current_instruction=checkpoint.current_instruction.strip(),
         reviewed_scope_body=reviewed_scope_body,
     )
-    assert_no_pending_reviewer_packets(
+    normalized_actor = (checkpoint.actor or DEFAULT_REVIEWER_ACTOR).strip()
+    override_unread_ids = assert_reviewer_inbox_empty(
         repo_root=repo_root,
-        action_label="reviewer checkpoint",
+        reviewer_actor=normalized_actor,
+        allow_unread_inbox=checkpoint.allow_unread_inbox,
+        reason=reason,
     )
     write: ReviewerStateWrite | None = None
 
@@ -216,6 +225,12 @@ def write_reviewer_checkpoint(
 
     rewrite_bridge_markdown(bridge_path, transform=transform)
     assert write is not None
+    write = dataclasses.replace(
+        write,
+        reviewer_actor=normalized_actor,
+        inbox_override_applied=bool(override_unread_ids),
+        inbox_override_unread_packet_ids=override_unread_ids,
+    )
     _refresh_projections_after_checkpoint(
         repo_root=repo_root,
         bridge_path=bridge_path,

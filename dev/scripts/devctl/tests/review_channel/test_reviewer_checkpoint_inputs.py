@@ -641,7 +641,7 @@ def test_write_reviewer_checkpoint_refuses_pending_reviewer_packets(
 
     with (
         patch("dev.scripts.devctl.review_channel.state.refresh_status_snapshot"),
-        pytest.raises(ValueError, match="pending review packet"),
+        pytest.raises(ValueError, match=r"unread packets in inbox"),
     ):
         write_reviewer_checkpoint(
             repo_root=root,
