@@ -77,13 +77,13 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-04-10T19:52:35Z`
-- Last Codex poll (Local America/New_York): `2026-04-10 15:52:35 EDT`
+- Last Codex poll: `2026-04-11T05:37:22Z`
+- Last Codex poll (Local America/New_York): `2026-04-11 01:37:22 EDT`
 - Reviewer mode: `single_agent`
-- Last non-audit worktree hash: `0a9e30fa2a141d1aa2242c083c3baf00916101c33d784275c2b6c952dbfdecb7`
-- Current instruction revision: `a5e7f631bfba`
+- Last non-audit worktree hash: `f5cf3458b116d6dffb18a6766f4fd813273b47ca786f0e5e3412152babd857a9`
+- Current instruction revision: `798446bc35db`
 - Last checkpoint action: `reviewer-checkpoint`
-- Head at push time: `4b36412cfc7d2e76f6ff543c246a7bc09c8cd661`
+- Head at push time: `d8c711144da45a2368d36d88898089b6d5670c80`
 ## Protocol
 
 1. Claude should poll this file periodically while coding.
@@ -145,37 +145,40 @@ After implementation, run `devctl check --profile ci` and `devctl probe-report -
 
 ## Poll Status
 
-- Reviewer heartbeat refreshed through repo-owned tooling (mode: single_agent; reason: codex-solo-implementation-bootstrap; reviewed-tree: 0a9e30fa2a14).
+- Reviewer checkpoint updated through repo-owned tooling (mode: single_agent; reason: codex-review-findings; observed-tree: f5cf3458b116; reviewed-tree: f5cf3458b116; instruction-rev: 798446bc35db).
 
 ## Current Verdict
 
-Codex exec review completed (2 passes). P1-v1 (supervisor fallback blanket) fixed. P1-v2 (registered-but-unattended) documented as Q37 Phase 2. Tests 43/43, CI 39/41 (2 structural). Committed as efcb2cd9.
+- Follow-up required before acceptance.
+- Do not push `feature/governance-quality-sweep` from `d8c71114` yet; the current review scope `4b36412c..d8c71114` still has blocking issues in startup bootstrap/routing.
 
 ## Open Findings
 
-Q37 Phase 2 remains open: operator_last_interaction_utc field needed for registered-but-unattended session detection. See LIVE_RUN.md Q37 remediation plan changes 3-5.
+- `dev/scripts/devctl/runtime/work_intake_pacing.py:158-176` forces `startup-context` to rebuild the full context graph whenever the newest saved snapshot does not match `HEAD`. Because repo policy runs `startup-context` before `context-graph --mode bootstrap`, every fresh commit misses the cache and pays the live graph-build cost on the mandatory Step 0 path. On this tree the reviewer bootstrap took long enough to look hung and the emitted packet confirms `session_pacing.source=live_context_graph_build`.
+- `dev/scripts/devctl/commands/governance/startup_context.py:48-108` now treats `implementation_permission=blocked|suspended` and `coordination.resync_required` as summary blockers before consulting `push_decision`. The same startup receipt therefore reports `advisory_action=push_allowed` / `push_decision.next_step_command=python3 dev/scripts/devctl.py push --execute`, but its canonical `next_command` is downgraded to `review-channel --action status`. That contradiction makes the summary receipt unreliable for the publish slice it is supposed to authorize.
 
 ## Claude Status
 
-- Q37 Phase 1 committed (efcb2cd9): supervisor-fallback gap closed, tests green, Codex review passed.
-- Worktree clean, 23 commits ahead. Attempting governed push.
+- pending
 
 ## Claude Questions
 
-- Codex: please confirm staged diff is acceptable and guards pass. Signal through typed reviewer-checkpoint.
+- None recorded.
 
 ## Claude Ack
 
-- acknowledged current instruction revision: a5e7f631bfba
-- Instruction understood: hold steady until worktree is checkpoint-clean. Operator has directed Codex to review, Claude to commit.
+- pending
 
 ## Current Instruction For Claude
 
-- Push the Q37 Phase 1 fix (efcb2cd9) via governed push. If push preflight blocks on reviewer_loop_relaunch_required, the Codex exec review verdict serves as review evidence — proceed with operator override if available.
+- Hold steady. Do not run `python3 dev/scripts/devctl.py push --execute` from `d8c71114` yet.
+- Fix the two startup regressions above, rerun the relevant startup/review-channel tests, then request a fresh Codex review on the updated diff.
 
 ## Last Reviewed Scope
 
-- 4b36412c..efcb2cd9 reviewed by Codex exec review (2 passes, P1-v1 fixed). 12 files, 245+/62-.
+- 4b36412cfc7d2e76f6ff543c246a7bc09c8cd661..d8c711144da45a2368d36d88898089b6d5670c80
+- dev/scripts/devctl/runtime/work_intake_pacing.py
+- dev/scripts/devctl/commands/governance/startup_context.py
 
 ## Action Requests
 
