@@ -32,7 +32,9 @@ class CompactMobileStatusProjection:
     controller_run_id: str
     review_bridge_state: str
     codex_poll_state: str
+    reviewer_poll_state: str
     codex_last_poll_utc: str
+    last_reviewer_poll_utc: str
     last_worktree_hash: str
     pending_total: int
     unresolved_count: int
@@ -40,6 +42,8 @@ class CompactMobileStatusProjection:
     open_findings: str
     claude_status: str
     claude_ack: str
+    implementer_status: str
+    implementer_ack: str
     codex_status: str
     claude_lane_status: str
     operator_status: str

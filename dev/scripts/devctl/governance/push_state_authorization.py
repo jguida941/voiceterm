@@ -27,12 +27,20 @@ def approved_target_identity_from_pipeline(pipeline: object) -> str:
     return str(getattr(pipeline, "approved_target_identity", "") or "").strip()
 
 
+def approved_worktree_identity_from_pipeline(pipeline: object) -> str:
+    """Return the approved worktree identity carried by one pipeline object."""
+    if pipeline is None:
+        return ""
+    return str(getattr(pipeline, "worktree_identity", "") or "").strip()
+
+
 def current_push_authorization_state(
     *,
     repo_root: Path,
     current_head_commit: str,
     current_approved_target_identity: str,
-) -> tuple[str, str, str, str, str, bool, bool, bool]:
+    current_worktree_identity: str,
+) -> tuple[str, str, str, str, str, str, bool, bool, bool, bool]:
     """Return the current push-authorization receipt summary."""
     pipeline = load_remote_commit_pipeline_contract(
         output_root=repo_root / active_path_config().review_status_dir_rel
@@ -41,6 +49,7 @@ def current_push_authorization_state(
         pipeline=pipeline,
         current_head_commit=current_head_commit,
         current_approved_target_identity=current_approved_target_identity,
+        current_worktree_identity=current_worktree_identity,
     )
 
 
@@ -49,16 +58,20 @@ def push_authorization_state_from_pipeline(
     pipeline: object,
     current_head_commit: str,
     current_approved_target_identity: str,
-) -> tuple[str, str, str, str, str, bool, bool, bool]:
+    current_worktree_identity: str,
+) -> tuple[str, str, str, str, str, str, bool, bool, bool, bool]:
     """Return the current push-authorization summary for one pipeline object."""
     authorization = (
         None if pipeline is None else getattr(pipeline, "push_authorization", None)
     )
     if authorization is None:
-        return ("", "", "", "", "", False, False, False)
+        return ("", "", "", "", "", "", False, False, False, False)
     authorized_head_commit = str(authorization.authorized_head_sha or "").strip()
     approved_target_identity = str(
         authorization.approved_target_identity or ""
+    ).strip()
+    approved_worktree_identity = str(
+        authorization.worktree_identity or ""
     ).strip()
     matches_current_head = bool(
         current_head_commit
@@ -76,10 +89,19 @@ def push_authorization_state_from_pipeline(
             and current_approved_target_identity == approved_target_identity
         )
     )
+    matches_current_worktree = bool(
+        not approved_worktree_identity
+        or (
+            current_worktree_identity
+            and approved_worktree_identity
+            and current_worktree_identity == approved_worktree_identity
+        )
+    )
     valid = bool(
         authorization.guard_status == "pass"
         and matches_current_head
         and matches_current_approved_target
+        and matches_current_worktree
         and not is_expired(authorization.expires_at_utc)
     )
     return (
@@ -88,8 +110,10 @@ def push_authorization_state_from_pipeline(
         authorized_head_commit,
         str(authorization.expires_at_utc or "").strip(),
         approved_target_identity,
+        approved_worktree_identity,
         matches_current_head,
         matches_current_approved_target,
+        matches_current_worktree,
         valid,
     )
 

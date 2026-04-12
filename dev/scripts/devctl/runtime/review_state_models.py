@@ -172,6 +172,13 @@ class ReviewBridgeState:
     current_instruction_revision: str
     claude_ack_revision: str
     last_reviewed_scope: str
+    reviewer_poll_state: str = ""
+    last_reviewer_poll_utc: str = ""
+    last_reviewer_poll_age_seconds: int = 0
+    implementer_status: str = ""
+    implementer_ack: str = ""
+    implementer_ack_current: bool = False
+    implementer_ack_revision: str = ""
     launch_truth: str = ""
     effective_reviewer_mode: str = ""
     implementer_state_hash: str = ""

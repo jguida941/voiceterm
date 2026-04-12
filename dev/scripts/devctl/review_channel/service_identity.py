@@ -105,6 +105,13 @@ def project_id_for_repo(repo_root: Path) -> str:
     return f"sha256:{digest}"
 
 
+def worktree_identity_for_repo(repo_root: Path) -> str:
+    """Return a stable identity for the current worktree checkout path."""
+    resolved_root = str(repo_root.resolve())
+    digest = hashlib.sha256(resolved_root.encode("utf-8")).hexdigest()
+    return f"worktree:sha256:{digest}"
+
+
 def repo_identity_for_repo(repo_root: Path) -> str:
     """Return a portable repo identity seed for one checkout.
 

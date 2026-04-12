@@ -51,6 +51,10 @@ class ReviewBridgeState:
     open_findings: str
     claude_status: str
     claude_ack: str
+    reviewer_poll_state: str = ""
+    last_reviewer_poll_utc: str = ""
+    implementer_status: str = ""
+    implementer_ack: str = ""
 
 
 @dataclass(frozen=True, slots=True)
@@ -187,6 +191,16 @@ def build_control_state(
         open_findings=_string(review_bridge.get("open_findings")),
         claude_status=_string(review_bridge.get("claude_status")),
         claude_ack=_string(review_bridge.get("claude_ack")),
+        reviewer_poll_state=_string(review_bridge.get("reviewer_poll_state"))
+        or _string(review_liveness.get("reviewer_poll_state"))
+        or _string(review_liveness.get("codex_poll_state"))
+        or "unknown",
+        last_reviewer_poll_utc=_string(review_bridge.get("last_reviewer_poll_utc"))
+        or _string(review_bridge.get("last_codex_poll_utc")),
+        implementer_status=_string(review_bridge.get("implementer_status"))
+        or _string(review_bridge.get("claude_status")),
+        implementer_ack=_string(review_bridge.get("implementer_ack"))
+        or _string(review_bridge.get("claude_ack")),
     )
     active_run = ActiveRunState(
         plan_id=(
@@ -328,6 +342,15 @@ def review_bridge_from_mapping(value: object) -> ReviewBridgeState:
         open_findings=_string(mapping.get("open_findings")),
         claude_status=_string(mapping.get("claude_status")),
         claude_ack=_string(mapping.get("claude_ack")),
+        reviewer_poll_state=_string(mapping.get("reviewer_poll_state"))
+        or _string(mapping.get("codex_poll_state"))
+        or "unknown",
+        last_reviewer_poll_utc=_string(mapping.get("last_reviewer_poll_utc"))
+        or _string(mapping.get("last_codex_poll_utc")),
+        implementer_status=_string(mapping.get("implementer_status"))
+        or _string(mapping.get("claude_status")),
+        implementer_ack=_string(mapping.get("implementer_ack"))
+        or _string(mapping.get("claude_ack")),
     )
 
 

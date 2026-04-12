@@ -20,6 +20,7 @@ from ...governance.push_routing import (
 from ...governance.push_state import current_head_commit_sha, current_upstream_ref
 from ...runtime import TypedAction
 from ...runtime.push_authorization import publication_authorization_decision
+from ...review_channel.service_identity import worktree_identity_for_repo
 from ...runtime.vcs import (
     branch_divergence,
     remote_branch_exists,
@@ -62,7 +63,9 @@ class PushRunState:
     post_push_since_ref: str = ""
     branch_has_remote: bool = False
     ahead: int | None = None
+    current_worktree_identity: str = ""
     approved_target_identity: str = ""
+    approved_worktree_identity: str = ""
     push_authorization_id: str = ""
     push_authorization_mode: str = ""
 
@@ -75,6 +78,7 @@ def _load_run_state(
 ) -> PushRunState:
     state = PushRunState()
     state.remote = str(args.remote or policy.default_remote).strip() or policy.default_remote
+    state.current_worktree_identity = worktree_identity_for_repo(repo_root)
     state.warnings.extend(policy.warnings)
     _append_bypass_policy_errors(state, policy, args)
     git = _collect_git_status_for_repo(repo_root)
@@ -142,6 +146,9 @@ def _append_publication_authorization_errors(
         authorization = decision.push_authorization
         if authorization is not None:
             state.approved_target_identity = authorization.approved_target_identity
+            state.approved_worktree_identity = str(
+                getattr(authorization, "worktree_identity", "") or ""
+            ).strip()
             state.push_authorization_id = authorization.authorization_id
             state.push_authorization_mode = authorization.approval_mode
         return
@@ -298,6 +305,7 @@ def _build_push_report_context(
             skip_preflight=bool(args.skip_preflight),
             skip_post_push=bool(args.skip_post_push),
             approved_target_identity=approved_target_identity,
+            approved_worktree_identity=state.approved_worktree_identity,
         )
     )
     return PushReportContext(
@@ -308,7 +316,9 @@ def _build_push_report_context(
         head_commit=head_commit,
         typed_action=typed_action,
         artifact_path=latest_push_report_relpath(repo_root=repo_root),
+        current_worktree_identity=state.current_worktree_identity,
         approved_target_identity=approved_target_identity,
+        approved_worktree_identity=state.approved_worktree_identity,
         push_authorization_id=state.push_authorization_id,
         push_authorization_mode=state.push_authorization_mode,
     )
@@ -494,6 +504,10 @@ def run(args) -> int:
                     getattr(args, "approved_target_identity", "")
                     or getattr(pipeline, "approved_target_identity", "")
                     or state.approved_target_identity
+                ),
+                approved_worktree_identity=str(
+                    getattr(pipeline, "worktree_identity", "")
+                    or state.approved_worktree_identity
                 ),
                 requested_by=REQUESTED_BY,
             )

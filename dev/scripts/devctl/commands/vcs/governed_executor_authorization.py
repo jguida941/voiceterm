@@ -65,6 +65,7 @@ def build_push_authorization(
             decision_packet.expires_at_utc or pipeline.approval_expires_at_utc
         ),
         override_reason=override_reason,
+        worktree_identity=pipeline.worktree_identity,
     )
 
 

@@ -46,18 +46,23 @@ class PushEnforcementSnapshot:
     latest_push_report_reason: str = ""
     latest_push_report_published_remote: bool = False
     latest_push_report_post_push_green: bool = False
+    current_worktree_identity: str = ""
     current_approved_target_identity: str = ""
+    latest_push_report_approved_worktree_identity: str = ""
     latest_push_report_approved_target_identity: str = ""
     latest_push_report_matches_current_approved_target: bool = False
+    latest_push_report_matches_current_worktree: bool = False
     latest_push_report_matches_current_branch: bool = False
     latest_push_report_matches_current_head: bool = False
     current_push_authorization_id: str = ""
     current_push_authorization_mode: str = ""
     current_push_authorization_head_commit: str = ""
     current_push_authorization_expires_at_utc: str = ""
+    current_push_authorization_approved_worktree_identity: str = ""
     current_push_authorization_approved_target_identity: str = ""
     current_push_authorization_matches_current_head: bool = False
     current_push_authorization_matches_current_approved_target: bool = False
+    current_push_authorization_matches_current_worktree: bool = False
     current_push_authorization_valid: bool = False
 
 

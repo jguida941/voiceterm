@@ -125,6 +125,18 @@ def _typed_reviewer_runtime_state(
             last_codex_poll_age_seconds=_int(last_poll.get("last_codex_poll_age_seconds"))
             or _int(bridge.get("last_codex_poll_age_seconds"))
             or _int(bridge_liveness.get("last_codex_poll_age_seconds")),
+            last_reviewer_poll_utc=_string(last_poll.get("last_reviewer_poll_utc"))
+            or _string(last_poll.get("last_codex_poll_utc"))
+            or _string(bridge.get("last_reviewer_poll_utc"))
+            or _string(bridge.get("last_codex_poll_utc")),
+            last_reviewer_poll_age_seconds=_int(
+                last_poll.get("last_reviewer_poll_age_seconds")
+            )
+            or _int(last_poll.get("last_codex_poll_age_seconds"))
+            or _int(bridge.get("last_reviewer_poll_age_seconds"))
+            or _int(bridge.get("last_codex_poll_age_seconds"))
+            or _int(bridge_liveness.get("last_reviewer_poll_age_seconds"))
+            or _int(bridge_liveness.get("last_codex_poll_age_seconds")),
         ),
         rollover=ReviewerRolloverState(
             rollover_id=_string(rollover.get("rollover_id")),
@@ -201,6 +213,14 @@ def _bridge_reviewer_runtime_state(
         last_poll=ReviewerLastPollState(
             last_codex_poll_utc=_string(bridge.get("last_codex_poll_utc")),
             last_codex_poll_age_seconds=_int(bridge.get("last_codex_poll_age_seconds"))
+            or _int(bridge_liveness.get("last_codex_poll_age_seconds")),
+            last_reviewer_poll_utc=_string(bridge.get("last_reviewer_poll_utc"))
+            or _string(bridge.get("last_codex_poll_utc")),
+            last_reviewer_poll_age_seconds=_int(
+                bridge.get("last_reviewer_poll_age_seconds")
+            )
+            or _int(bridge.get("last_codex_poll_age_seconds"))
+            or _int(bridge_liveness.get("last_reviewer_poll_age_seconds"))
             or _int(bridge_liveness.get("last_codex_poll_age_seconds")),
         ),
         recovery_action_allowed=recovery_command

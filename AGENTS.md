@@ -134,7 +134,7 @@ Release-governance note:
 | Where is the continuous local Codex-reviewer / Claude-coder loop hardening and later template-extraction plan? | `dev/active/continuous_swarm.md` |
 | Where is the bounded loop-v2 convergence plan that composes startup/work-intake, planning, auto-mode, monitor, graph discovery, and guard-promotion into one autonomous controller? | `dev/active/autonomous_governance_loop_v2.md` (subordinate `MP-377` execution spec; read after `dev/active/ai_governance_platform.md` and `dev/active/platform_authority_loop.md`) |
 | Where is the optional VoiceTerm Operator Console plan? | `dev/active/operator_console.md` |
-| Where is the typed remote-session commit/push pipeline design for phone-steered sessions? | `dev/active/remote_commit_pipeline.md` |
+| Where is the typed remote-session commit/push pipeline design for phone-steered sessions, including worktree-bound approval for worker vs control lanes? | `dev/active/remote_commit_pipeline.md` |
 | Where is the primary read-only review-channel readiness surface for that remote commit/push lane documented? | `dev/scripts/README.md` (`review-channel --action doctor`) for command semantics, plus `dev/active/remote_commit_pipeline.md` for lifecycle authority |
 | Where is the typed review-channel approval-packet vocabulary for that remote commit/push lane documented? | `dev/active/remote_commit_pipeline.md` for contract semantics, plus `dev/scripts/README.md` for `review-channel --action post --kind commit_approval` flag usage |
 | Where is the packet-backed bridge Action Requests contract documented? | `dev/active/remote_control_runtime.md` for lifecycle authority, plus `dev/scripts/README.md` for `review-channel --action post --kind action_request` runtime-binding flag usage |
@@ -623,7 +623,11 @@ checklist plus chat memory.
     state and the repo-owned `reviewer-heartbeat` / `reviewer-checkpoint` path
     remains the authority for review truth; when the typed `current_session`
     ACK state is unknown, fall back to `bridge.claude_ack_current` before
-    reading bridge prose. Startup/coordination consumers must also treat that
+    reading bridge prose. Prefer provider-neutral bridge aliases
+    (`implementer_ack*`, `implementer_status`, `reviewer_poll_state`,
+    `last_reviewer_poll_*`) when present; the legacy `claude_*` /
+    `codex_*` fields remain compatibility projections for bridge/render
+    parity only. Startup/coordination consumers must also treat that
     sanctioned local `single_agent` takeover as active local implementation
     authority when no typed remote-control attachment is live, rather than
     misclassifying the repo as governed `remote_control` just because no live
@@ -1394,6 +1398,11 @@ Routine helper:
   command is run. `devctl push` must reuse the repo-policy/default remote for any
   active governed pipeline and must not treat a degraded `tools_only`
   reviewer runtime as license to skip exact-head publication authorization.
+  Governed commit/push approval is also worktree-bound now: the staged
+  pipeline contract, persisted push authorization, latest-push artifact, and
+  current checkout must agree on `worktree_identity`. If startup or
+  `devctl push` reports a worktree mismatch, resume the owning worker lane or
+  recover/restage there before asking for a fresh approval.
 - If the governed push path blocks, stop at that typed decision surface. Do
   not treat a push block as a cue to substitute raw `git push`; any later
   human exception should remain a repo-owned typed override path.

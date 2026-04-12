@@ -50,7 +50,9 @@ class PushReportInputs:
     warnings: list[str]
     errors: list[str]
     artifact_path: str = ""
+    current_worktree_identity: str = ""
     approved_target_identity: str = ""
+    approved_worktree_identity: str = ""
     push_authorization_id: str = ""
     push_authorization_mode: str = ""
 
@@ -84,8 +86,12 @@ def build_push_report(inputs: PushReportInputs) -> dict[str, Any]:
     )
     report["warnings"] = inputs.warnings
     report["errors"] = inputs.errors
+    if inputs.current_worktree_identity:
+        report["current_worktree_identity"] = inputs.current_worktree_identity
     if inputs.approved_target_identity:
         report["approved_target_identity"] = inputs.approved_target_identity
+    if inputs.approved_worktree_identity:
+        report["approved_worktree_identity"] = inputs.approved_worktree_identity
     if inputs.push_authorization_id:
         report["push_authorization_id"] = inputs.push_authorization_id
     if inputs.push_authorization_mode:
@@ -104,9 +110,17 @@ def render_push_report(report: dict[str, Any]) -> str:
     lines.append(f"- branch: {report.get('branch')}")
     lines.append(f"- remote: {report.get('remote')}")
     lines.append(f"- head_commit: {report.get('head_commit')}")
+    if report.get("current_worktree_identity"):
+        lines.append(
+            f"- current_worktree_identity: {report.get('current_worktree_identity')}"
+        )
     if report.get("approved_target_identity"):
         lines.append(
             f"- approved_target_identity: {report.get('approved_target_identity')}"
+        )
+    if report.get("approved_worktree_identity"):
+        lines.append(
+            f"- approved_worktree_identity: {report.get('approved_worktree_identity')}"
         )
     if report.get("push_authorization_id"):
         lines.append(

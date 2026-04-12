@@ -48,6 +48,7 @@ REVIEW_STATE_CONTRACTS: tuple[ContractSpec, ...] = (
             ContractField("generation_id", "str", "Generation token bound to the approval and publish target."),
             ContractField("authorized_head_sha", "str", "Exact commit SHA authorized for publication."),
             ContractField("approved_target_identity", "str", "Exact approved publish identity carried into push."),
+            ContractField("worktree_identity", "str", "Exact worktree identity authorized to publish the reviewed commit."),
             ContractField("review_verdict", "str", "Approval verdict that authorized publication."),
             ContractField("approval_mode", "str", "Authorization mode: commit_pipeline_approval or override_push."),
             ContractField("guard_action_id", "str", "Guard action id that covered the authorized commit."),

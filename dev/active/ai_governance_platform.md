@@ -4896,12 +4896,15 @@ Use this section as the single "left off here" surface for fresh AI sessions
 working on `MP-377`.
 
 - 2026-04-12 provider-role portability slice:
-  resume from the role-first/runtime-first closure order. The docs already
-  forbid provider-first authority, so the next work is to remove the remaining
-  provider-coded seams from role registry, turn authority, bridge/handoff
-  projection, and remote-control read models, then prove the same backend with
-  `Codex reviewer + Codex worker implementer + Claude phone dashboard` before
-  widening to swapped-role and external-repo proofs.
+  resume from the role-first/runtime-first closure order with the first
+  provider-neutral/runtime-identity closure already landed. Typed
+  review/status reads now prefer reviewer/implementer aliases over legacy
+  `codex_*` / `claude_*` bridge names, and governed commit/push approval is
+  bound to the exact worker `worktree_identity` that staged it. The next work
+  is to rerun the same backend proof as
+  `Codex reviewer + Codex worker implementer + Claude phone dashboard`, then
+  widen to swapped-role and external-repo proofs without reintroducing
+  provider-first defaults.
 - 2026-04-11 governed-push visibility slice:
   resume with the phase-aware latest-push artifact closure in place.
   `devctl push --execute` now refreshes `dev/reports/push/latest.json` from
@@ -6364,6 +6367,21 @@ Execution order for this section:
 
 ## Progress Log
 
+- 2026-04-12: Closed the next role-portability/runtime-identity slice in the
+  main `MP-377` owner chain. Typed review/status consumers now prefer
+  provider-neutral reviewer/implementer aliases
+  (`reviewer_poll_state`, `last_reviewer_poll_*`, `implementer_ack*`) while
+  preserving the legacy `codex_*` / `claude_*` bridge fields as compatibility
+  projection only, so role-first launch/bootstrap rules finally line up with
+  read-side status truth. The same slice also made governed mutation/publish
+  approval worktree-bound: the staged remote-commit pipeline, persisted push
+  authorization, latest-push artifact, and current checkout now compare one
+  typed `worktree_identity`, fail closed on worker-vs-control-lane drift, and
+  project the current/approved worktree identity through startup/push status
+  instead of leaving that boundary implicit in shell lore. The next proof is
+  the live beta matrix rerun on
+  `Codex reviewer + Codex worker implementer + Claude dashboard`, not another
+  provider-specific fallback.
 - 2026-04-12: Started the explicit provider-role portability closure under the
   main `MP-377` owner chain. The architecture docs already say launch,
   bootstrap, collaboration, and remote-control authority are role-first, but

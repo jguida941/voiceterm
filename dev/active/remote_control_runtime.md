@@ -465,6 +465,18 @@ The MP scopes remain valid but are now cross-cut by enforcement-first priority.
 
 ## Progress Log
 
+- 2026-04-12: Closed the next role-first read-model / governed-push identity
+  follow-up from the worker-lane beta loop. `review-channel status`,
+  dashboard/mobile projections, and shared review-state/runtime readers now
+  prefer provider-neutral reviewer/implementer aliases
+  (`reviewer_poll_state`, `last_reviewer_poll_*`, `implementer_ack*`) while
+  preserving `codex_*` / `claude_*` bridge fields as compatibility-only
+  outputs. The same pass made commit/push approval explicitly worktree-bound:
+  the staged pipeline, persisted push authorization, and latest-push status
+  now carry `worktree_identity`, and publish readiness fails closed when the
+  current checkout is not the worker lane that staged the approved pipeline.
+  This keeps the phone-attached primary worktree on dashboard/control duty
+  while the mutating coding lane owns its own publication authority.
 - 2026-04-12: Closed the next worker-lane portability slice from the same
   role-first beta loop. The launcher no longer treats `LaneAssignment.worktree`
   as read-only plan prose: each launched provider session now resolves one
@@ -1167,12 +1179,14 @@ No `ControlPlaneReadModel` exists. Each surface independently reads raw artifact
 ## Session Resume
 
 - 2026-04-12 role-first beta-matrix slice:
-  resume with the control-lane/worker-lane split explicit. The phone-attached
-  primary worktree stays dashboard/control-only, implementation happens in
-  reusable worker worktrees, and the first closure target is not another
-  launch tweak but role-first read-model parity: remove provider-biased role
-  defaults, turn-authority fallbacks, and handoff/liveness field names before
-  rerunning `Codex reviewer + Codex worker implementer + Claude dashboard`.
+  resume with the control-lane/worker-lane split and the first read-side
+  identity closure already landed. The phone-attached primary worktree stays
+  dashboard/control-only, implementation happens in reusable worker
+  worktrees, typed read models now prefer reviewer/implementer aliases over
+  provider-coded bridge names, and commit/push approval is bound to the worker
+  `worktree_identity` that staged it. The next proof step is the live rerun of
+  `Codex reviewer + Codex worker implementer + Claude dashboard`, then swapped
+  reviewer/implementer permutations once that matrix stays green.
 - 2026-04-09 external-session attachment closure: resume from the next
   consumer/UI pass, not another write-path invention. The typed
   `remote_control_attachment` record now exists in reviewer runtime,

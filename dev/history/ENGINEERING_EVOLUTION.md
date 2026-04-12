@@ -138,6 +138,51 @@ Evidence: `dev/scripts/devctl/review_channel/launch_records.py`,
 `dev/scripts/devctl/tests/review_channel/test_recovery_assessment.py`, and
 `dev/scripts/devctl/tests/runtime/test_startup_context.py`.
 
+### 2026-04-12 - Review-state aliases are role-neutral and governed push approval is now bound to the worker worktree
+
+Fact: the role-first worker-lane proof still had two hidden provider/checkout
+assumptions after the launch/worktree slice landed. Typed read models still
+surfaced liveness and ACK truth through `last_codex_*`, `codex_poll_state`,
+and `claude_ack_*` names even when the runtime already knew the reviewer and
+implementer as roles, and the remote commit/push pipeline could still be read
+from a second checkout without any explicit worker-vs-control-lane binding in
+the persisted approval records.
+
+This matters because a portable role model is not credible if operator-facing
+status still encodes one provider as the canonical reviewer, and a worker-lane
+publication model is not safe if the primary dashboard/control worktree can
+silently reuse a push authorization minted for a different checkout.
+
+The closure keeps compatibility while moving authority. `review_state`,
+control-plane, dashboard/mobile, and review-channel status/doctor consumers now
+prefer provider-neutral aliases such as `reviewer_poll_state`,
+`last_reviewer_poll_*`, and `implementer_ack_current`, while the legacy
+`codex_*` / `claude_*` fields remain compatibility projection only for bridge
+parity and older consumers. The same pass also added `worktree_identity` to
+the staged pipeline contract, persisted push authorization, latest-push status,
+and push/startup recovery logic, so governed commit/push now fails closed when
+the current checkout does not match the worker lane that staged the approved
+publication.
+
+Evidence: `dev/scripts/devctl/runtime/review_state_models.py`,
+`dev/scripts/devctl/runtime/reviewer_runtime_models.py`,
+`dev/scripts/devctl/review_channel/status_projection_bridge_state.py`,
+`dev/scripts/devctl/review_channel/status_projection_helpers.py`,
+`dev/scripts/devctl/review_channel/collaboration_session.py`,
+`dev/scripts/devctl/mobile_status_projection.py`,
+`dev/scripts/devctl/mobile_status_views.py`,
+`dev/scripts/devctl/runtime/remote_commit_pipeline_models.py`,
+`dev/scripts/devctl/runtime/push_authorization.py`,
+`dev/scripts/devctl/governance/push_state.py`,
+`dev/scripts/devctl/commands/vcs/push.py`,
+`dev/scripts/devctl/tests/runtime/test_push_authorization.py`,
+`AGENTS.md`,
+`dev/guides/DEVELOPMENT.md`,
+`dev/scripts/README.md`,
+`dev/active/MASTER_PLAN.md`,
+`dev/active/ai_governance_platform.md`,
+`dev/active/remote_control_runtime.md`.
+
 ### 2026-04-11 - Single-agent remote-control attachment truth now stays aligned across status, doctor, and control-plane reads
 
 Fact: the same remote-dashboard beta loop found a second single-agent liveness

@@ -49,18 +49,23 @@ class PushEnforcement:
     latest_push_report_reason: str = ""
     latest_push_report_published_remote: bool = False
     latest_push_report_post_push_green: bool = False
+    current_worktree_identity: str = ""
     current_approved_target_identity: str = ""
+    latest_push_report_approved_worktree_identity: str = ""
     latest_push_report_approved_target_identity: str = ""
     latest_push_report_matches_current_approved_target: bool = False
+    latest_push_report_matches_current_worktree: bool = True
     latest_push_report_matches_current_branch: bool = False
     latest_push_report_matches_current_head: bool = False
     current_push_authorization_id: str = ""
     current_push_authorization_mode: str = ""
     current_push_authorization_head_commit: str = ""
     current_push_authorization_expires_at_utc: str = ""
+    current_push_authorization_approved_worktree_identity: str = ""
     current_push_authorization_approved_target_identity: str = ""
     current_push_authorization_matches_current_head: bool = False
     current_push_authorization_matches_current_approved_target: bool = False
+    current_push_authorization_matches_current_worktree: bool = True
     current_push_authorization_valid: bool = False
 
 
@@ -80,6 +85,13 @@ def push_enforcement_from_mapping(
             worktree_clean = not worktree_dirty
     else:
         worktree_clean = coerce_bool(worktree_clean_raw)
+    current_worktree_identity = coerce_string(payload.get("current_worktree_identity"))
+    latest_push_report_approved_worktree_identity = coerce_string(
+        payload.get("latest_push_report_approved_worktree_identity")
+    )
+    current_push_authorization_approved_worktree_identity = coerce_string(
+        payload.get("current_push_authorization_approved_worktree_identity")
+    )
     return PushEnforcement(
         current_branch=coerce_string(payload.get("current_branch")),
         current_head_commit=coerce_string(payload.get("current_head_commit")),
@@ -150,14 +162,21 @@ def push_enforcement_from_mapping(
         latest_push_report_post_push_green=coerce_bool(
             payload.get("latest_push_report_post_push_green")
         ),
+        current_worktree_identity=current_worktree_identity,
         current_approved_target_identity=coerce_string(
             payload.get("current_approved_target_identity")
         ),
+        latest_push_report_approved_worktree_identity=latest_push_report_approved_worktree_identity,
         latest_push_report_approved_target_identity=coerce_string(
             payload.get("latest_push_report_approved_target_identity")
         ),
         latest_push_report_matches_current_approved_target=coerce_bool(
             payload.get("latest_push_report_matches_current_approved_target")
+        ),
+        latest_push_report_matches_current_worktree=_coerce_worktree_match(
+            payload.get("latest_push_report_matches_current_worktree"),
+            approved_worktree_identity=latest_push_report_approved_worktree_identity,
+            current_worktree_identity=current_worktree_identity,
         ),
         latest_push_report_matches_current_branch=coerce_bool(
             payload.get("latest_push_report_matches_current_branch")
@@ -177,6 +196,7 @@ def push_enforcement_from_mapping(
         current_push_authorization_expires_at_utc=coerce_string(
             payload.get("current_push_authorization_expires_at_utc")
         ),
+        current_push_authorization_approved_worktree_identity=current_push_authorization_approved_worktree_identity,
         current_push_authorization_approved_target_identity=coerce_string(
             payload.get("current_push_authorization_approved_target_identity")
         ),
@@ -186,7 +206,30 @@ def push_enforcement_from_mapping(
         current_push_authorization_matches_current_approved_target=coerce_bool(
             payload.get("current_push_authorization_matches_current_approved_target")
         ),
+        current_push_authorization_matches_current_worktree=_coerce_worktree_match(
+            payload.get("current_push_authorization_matches_current_worktree"),
+            approved_worktree_identity=current_push_authorization_approved_worktree_identity,
+            current_worktree_identity=current_worktree_identity,
+        ),
         current_push_authorization_valid=coerce_bool(
             payload.get("current_push_authorization_valid")
         ),
+    )
+
+
+def _coerce_worktree_match(
+    value: object,
+    *,
+    approved_worktree_identity: str,
+    current_worktree_identity: str,
+) -> bool:
+    """Treat legacy blank worktree identity records as compatible with the current lane."""
+    if value is not None:
+        return coerce_bool(value)
+    if not approved_worktree_identity:
+        return True
+    return bool(
+        current_worktree_identity
+        and approved_worktree_identity
+        and current_worktree_identity == approved_worktree_identity
     )

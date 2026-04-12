@@ -79,6 +79,7 @@ class PushAuthorizationRecord:
     approved_at_utc: str = ""
     expires_at_utc: str = ""
     override_reason: str = ""
+    worktree_identity: str = ""
 
     def to_dict(self) -> dict[str, object]:
         payload: dict[str, object] = {}
@@ -100,6 +101,7 @@ class PushAuthorizationRecord:
         payload["approved_at_utc"] = self.approved_at_utc
         payload["expires_at_utc"] = self.expires_at_utc
         payload["override_reason"] = self.override_reason
+        payload["worktree_identity"] = self.worktree_identity
         return payload
 
 
@@ -135,6 +137,7 @@ class RemoteCommitPipelineContract:
     approved_target_identity: str = ""
     push_authorization: PushAuthorizationRecord | None = None
     snapshot_id: str = ""
+    worktree_identity: str = ""
 
     def to_dict(self) -> dict[str, object]:
         payload: dict[str, object] = {}
@@ -180,6 +183,7 @@ class RemoteCommitPipelineContract:
             else None
         )
         payload["snapshot_id"] = self.snapshot_id
+        payload["worktree_identity"] = self.worktree_identity
         return payload
 
 
@@ -216,6 +220,7 @@ def push_authorization_from_mapping(
         approved_at_utc=coerce_string(mapping.get("approved_at_utc")),
         expires_at_utc=coerce_string(mapping.get("expires_at_utc")),
         override_reason=coerce_string(mapping.get("override_reason")),
+        worktree_identity=coerce_string(mapping.get("worktree_identity")),
     )
 
 
@@ -285,6 +290,7 @@ def remote_commit_pipeline_contract_from_mapping(
             coerce_mapping(mapping.get("push_authorization"))
         ),
         snapshot_id=coerce_string(mapping.get("snapshot_id")),
+        worktree_identity=coerce_string(mapping.get("worktree_identity")),
     )
 
 

@@ -121,6 +121,16 @@ def build_reviewer_runtime_contract(
             last_codex_poll_age_seconds=int(
                 bridge_liveness.get("last_codex_poll_age_seconds") or 0
             ),
+            last_reviewer_poll_utc=str(
+                bridge_liveness.get("last_reviewer_poll_utc")
+                or bridge_liveness.get("last_codex_poll_utc")
+                or ""
+            ),
+            last_reviewer_poll_age_seconds=int(
+                bridge_liveness.get("last_reviewer_poll_age_seconds")
+                or bridge_liveness.get("last_codex_poll_age_seconds")
+                or 0
+            ),
         ),
         rollover=rollover,
         session_owner=resolve_reviewer_session_owner(

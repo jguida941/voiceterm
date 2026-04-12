@@ -32,17 +32,46 @@ def build_typed_bridge_liveness(
             "head_at_push_time",
             str(snapshot.metadata.get("head_at_push_time") or "").strip(),
         )
+    reviewer_poll_state = str(
+        typed.get("reviewer_poll_state") or typed.get("codex_poll_state") or "unknown"
+    )
+    reviewer_poll_utc = str(
+        typed.get("last_reviewer_poll_utc") or typed.get("last_codex_poll_utc") or ""
+    )
+    reviewer_poll_age = int(
+        typed.get("last_reviewer_poll_age_seconds")
+        or typed.get("last_codex_poll_age_seconds")
+        or 0
+    )
+    implementer_status = str(
+        typed.get("implementer_status") or typed.get("claude_status") or ""
+    )
+    implementer_ack = str(
+        typed.get("implementer_ack") or typed.get("claude_ack") or ""
+    )
     reviewer_mode = str(typed.get("reviewer_mode") or "active_dual_agent")
     live_provider_ids = _live_participant_providers(collaboration)
     if collaboration is not None:
         typed["active_conductor_providers"] = list(live_provider_ids)
         typed["codex_conductor_active"] = "codex" in live_provider_ids
         typed["claude_conductor_active"] = "claude" in live_provider_ids
+    typed["reviewer_poll_state"] = reviewer_poll_state
+    typed["codex_poll_state"] = reviewer_poll_state
+    typed["last_reviewer_poll_utc"] = reviewer_poll_utc
+    typed["last_codex_poll_utc"] = reviewer_poll_utc
+    typed["last_reviewer_poll_age_seconds"] = reviewer_poll_age
+    typed["last_codex_poll_age_seconds"] = reviewer_poll_age
     typed["current_instruction_revision"] = current_session.current_instruction_revision
     typed["claude_ack_revision"] = current_session.implementer_ack_revision
     typed["claude_ack_current"] = current_session.implementer_ack_state == "current"
+    typed["implementer_status"] = implementer_status or current_session.implementer_status
+    typed["claude_status"] = typed["implementer_status"]
+    typed["implementer_ack"] = implementer_ack or current_session.implementer_ack
+    typed["claude_ack"] = typed["implementer_ack"]
     typed["implementer_ack_state"] = current_session.implementer_ack_state
     typed["implementer_state_hash"] = current_session.implementer_state_hash
+    typed["implementer_ack_revision"] = current_session.implementer_ack_revision
+    typed["implementer_ack_current"] = current_session.implementer_ack_state == "current"
     typed["launch_truth"] = classify_launch_truth(typed).value
     typed["effective_reviewer_mode"] = effective_reviewer_mode(typed)
     effective_mode = str(typed.get("effective_reviewer_mode") or reviewer_mode)
@@ -140,6 +169,28 @@ def build_review_bridge_state(
         current_instruction_revision=current_session.current_instruction_revision,
         claude_ack_revision=current_session.implementer_ack_revision,
         last_reviewed_scope=current_session.last_reviewed_scope,
+        reviewer_poll_state=str(
+            bridge_liveness.get("reviewer_poll_state")
+            or bridge_liveness.get("codex_poll_state")
+            or "unknown"
+        ),
+        last_reviewer_poll_utc=str(
+            bridge_liveness.get("last_reviewer_poll_utc")
+            or snapshot.metadata.get("last_codex_poll_utc")
+            or ""
+        ),
+        last_reviewer_poll_age_seconds=int(
+            bridge_liveness.get("last_reviewer_poll_age_seconds")
+            or bridge_liveness.get("last_codex_poll_age_seconds")
+            or 0
+        ),
+        implementer_status=current_session.implementer_status,
+        implementer_ack=current_session.implementer_ack,
+        implementer_ack_current=bool(
+            bridge_liveness.get("implementer_ack_current")
+            or bridge_liveness.get("claude_ack_current")
+        ),
+        implementer_ack_revision=current_session.implementer_ack_revision,
         launch_truth=str(bridge_liveness.get("launch_truth") or ""),
         effective_reviewer_mode=effective_mode,
         implementer_state_hash=current_session.implementer_state_hash,

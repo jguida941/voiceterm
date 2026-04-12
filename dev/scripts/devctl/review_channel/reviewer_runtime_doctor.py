@@ -84,6 +84,14 @@ def build_reviewer_doctor_surface(
     surface["implementation_block_reason"] = contract.implementation_block_reason
     surface["last_codex_poll_utc"] = contract.last_poll.last_codex_poll_utc
     surface["last_codex_poll_age_seconds"] = contract.last_poll.last_codex_poll_age_seconds
+    surface["last_reviewer_poll_utc"] = (
+        contract.last_poll.last_reviewer_poll_utc
+        or contract.last_poll.last_codex_poll_utc
+    )
+    surface["last_reviewer_poll_age_seconds"] = (
+        contract.last_poll.last_reviewer_poll_age_seconds
+        or contract.last_poll.last_codex_poll_age_seconds
+    )
     surface["rollover_id"] = contract.rollover.rollover_id
     surface["rollover_ack_pending"] = contract.rollover.ack_pending
     surface["rollover_trigger"] = contract.rollover.trigger

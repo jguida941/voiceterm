@@ -23,7 +23,9 @@ class PushReportContext:
     head_commit: str
     typed_action: dict[str, Any]
     artifact_path: str
+    current_worktree_identity: str = ""
     approved_target_identity: str = ""
+    approved_worktree_identity: str = ""
     push_authorization_id: str = ""
     push_authorization_mode: str = ""
 
@@ -68,7 +70,9 @@ def build_push_report_payload(
             warnings=state.warnings,
             errors=state.errors,
             artifact_path=context.artifact_path,
+            current_worktree_identity=context.current_worktree_identity,
             approved_target_identity=context.approved_target_identity,
+            approved_worktree_identity=context.approved_worktree_identity,
             push_authorization_id=context.push_authorization_id,
             push_authorization_mode=context.push_authorization_mode,
         )

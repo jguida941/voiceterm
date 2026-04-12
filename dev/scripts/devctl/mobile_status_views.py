@@ -52,7 +52,9 @@ def _fallback_compact(payload: dict[str, Any]) -> CompactMobileStatusProjection:
         controller_run_id=str(controller_compact.get("controller_run_id") or ""),
         review_bridge_state="unknown",
         codex_poll_state="unknown",
+        reviewer_poll_state="unknown",
         codex_last_poll_utc="",
+        last_reviewer_poll_utc="",
         last_worktree_hash="",
         pending_total=0,
         unresolved_count=unresolved_count,
@@ -60,6 +62,8 @@ def _fallback_compact(payload: dict[str, Any]) -> CompactMobileStatusProjection:
         open_findings="",
         claude_status="",
         claude_ack="",
+        implementer_status="",
+        implementer_ack="",
         codex_status="unknown",
         claude_lane_status="unknown",
         operator_status="unknown",
@@ -92,7 +96,9 @@ def compact_view(payload: dict[str, Any] | ControlState) -> dict[str, Any]:
         controller_run_id=active_run.controller_run_id,
         review_bridge_state=bridge.overall_state,
         codex_poll_state=bridge.codex_poll_state,
+        reviewer_poll_state=bridge.reviewer_poll_state or bridge.codex_poll_state,
         codex_last_poll_utc=bridge.last_codex_poll_utc,
+        last_reviewer_poll_utc=bridge.last_reviewer_poll_utc or bridge.last_codex_poll_utc,
         last_worktree_hash=bridge.last_worktree_hash,
         pending_total=bridge.pending_total,
         unresolved_count=active_run.unresolved_count,
@@ -100,6 +106,14 @@ def compact_view(payload: dict[str, Any] | ControlState) -> dict[str, Any]:
         open_findings=truncate_status_text(active_run.open_findings, 280),
         claude_status=truncate_status_text(bridge.claude_status, 220),
         claude_ack=truncate_status_text(bridge.claude_ack, 220),
+        implementer_status=truncate_status_text(
+            bridge.implementer_status or bridge.claude_status,
+            220,
+        ),
+        implementer_ack=truncate_status_text(
+            bridge.implementer_ack or bridge.claude_ack,
+            220,
+        ),
         codex_status=state.agent_status("codex"),
         claude_lane_status=state.agent_status("claude"),
         operator_status=state.agent_status("operator"),
@@ -246,8 +260,12 @@ def _render_view_markdown(
     lines.append(f"- controller_reason: {compact.get('controller_reason')}")
     lines.append(f"- controller_risk: {compact.get('controller_risk')}")
     lines.append(f"- review_bridge_state: {compact.get('review_bridge_state')}")
-    lines.append(f"- codex_poll_state: {compact.get('codex_poll_state')}")
-    lines.append(f"- codex_last_poll_utc: {compact.get('codex_last_poll_utc') or 'n/a'}")
+    lines.append(
+        f"- reviewer_poll_state: {compact.get('reviewer_poll_state') or compact.get('codex_poll_state')}"
+    )
+    lines.append(
+        f"- last_reviewer_poll_utc: {compact.get('last_reviewer_poll_utc') or compact.get('codex_last_poll_utc') or 'n/a'}"
+    )
     lines.append(f"- last_worktree_hash: {compact.get('last_worktree_hash') or 'n/a'}")
     lines.append(f"- pending_total: {compact.get('pending_total')}")
     lines.append(f"- unresolved_count: {compact.get('unresolved_count')}")
@@ -265,6 +283,11 @@ def _render_view_markdown(
     lines.append("### Open Findings")
     lines.append("")
     lines.append(str(compact.get("open_findings") or "(none)"))
+    lines.append("")
+    lines.append("### Implementer")
+    lines.append("")
+    lines.append(str(compact.get("implementer_status") or "(none)"))
+    lines.append(str(compact.get("implementer_ack") or "(no ack)"))
     lines.append("")
     lines.append("### Next Actions")
     lines.append("")

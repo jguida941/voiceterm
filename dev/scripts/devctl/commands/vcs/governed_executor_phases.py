@@ -195,6 +195,7 @@ def execute_stage(
         tree_hash=tree_hash,
         diff_summary=staged_diff_summary(repo_root),
         branch=current_branch(repo_root),
+        repo_root=repo_root,
     )
     return result_builder(
         action_id=action.action_id,
@@ -241,6 +242,7 @@ def execute_commit(
     )
     readiness = evaluate_commit_readiness(
         pipeline=pipeline,
+        repo_root=repo_root,
         current_tree_hash=index_tree_hash(repo_root),
         requested_commit_message=string_value(
             action.parameters.get("commit_message_draft")

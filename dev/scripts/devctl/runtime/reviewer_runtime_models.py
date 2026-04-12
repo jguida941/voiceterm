@@ -10,6 +10,8 @@ from dataclasses import dataclass, field
 class ReviewerLastPollState:
     last_codex_poll_utc: str = ""
     last_codex_poll_age_seconds: int = 0
+    last_reviewer_poll_utc: str = ""
+    last_reviewer_poll_age_seconds: int = 0
 
 
 @dataclass(frozen=True, slots=True)

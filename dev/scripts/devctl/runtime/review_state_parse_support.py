@@ -42,13 +42,16 @@ def bridge_ack_state(
 ) -> str:
     """Classify implementer ACK state from bridge-backed projections."""
     if is_pending_implementer_state(
-        implementer_status=_string(bridge.get("claude_status")),
+        implementer_status=_string(bridge.get("implementer_status"))
+        or _string(bridge.get("claude_status")),
         implementer_ack=implementer_ack,
     ):
         return "pending"
     if not implementer_ack:
         return "missing"
-    if _bool(bridge.get("claude_ack_current")):
+    if _bool(bridge.get("implementer_ack_current")) or _bool(
+        bridge.get("claude_ack_current")
+    ):
         return "current"
     return "stale"
 
@@ -102,6 +105,27 @@ def review_bridge_state_from_payload(
         current_instruction_revision=_string(bridge.get("current_instruction_revision")),
         claude_ack_revision=_string(bridge.get("claude_ack_revision")),
         last_reviewed_scope=_string(bridge.get("last_reviewed_scope")),
+        reviewer_poll_state=(
+            _string(bridge.get("reviewer_poll_state"))
+            or _string(bridge_liveness.get("reviewer_poll_state"))
+            or _string(bridge_liveness.get("codex_poll_state"))
+            or "unknown"
+        ),
+        last_reviewer_poll_utc=_string(bridge.get("last_reviewer_poll_utc"))
+        or _string(bridge.get("last_codex_poll_utc")),
+        last_reviewer_poll_age_seconds=_int(
+            bridge.get("last_reviewer_poll_age_seconds")
+        )
+        or _int(bridge_liveness.get("last_reviewer_poll_age_seconds"))
+        or _int(bridge_liveness.get("last_codex_poll_age_seconds")),
+        implementer_status=_string(bridge.get("implementer_status"))
+        or _string(bridge.get("claude_status")),
+        implementer_ack=_string(bridge.get("implementer_ack"))
+        or _string(bridge.get("claude_ack")),
+        implementer_ack_current=_bool(bridge.get("implementer_ack_current"))
+        or _bool(bridge.get("claude_ack_current")),
+        implementer_ack_revision=_string(bridge.get("implementer_ack_revision"))
+        or _string(bridge.get("claude_ack_revision")),
         launch_truth=_string(bridge.get("launch_truth")),
         effective_reviewer_mode=_string(bridge.get("effective_reviewer_mode")),
         implementer_state_hash=_string(bridge.get("implementer_state_hash")),

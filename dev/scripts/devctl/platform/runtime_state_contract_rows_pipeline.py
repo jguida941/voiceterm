@@ -128,6 +128,11 @@ PIPELINE_STATE_CONTRACTS: tuple[ContractSpec, ...] = (
                 "Exact approved staged target identity bound to the approval generation.",
             ),
             ContractField(
+                "worktree_identity",
+                "str",
+                "Exact worktree identity that staged and owns the current pipeline.",
+            ),
+            ContractField(
                 "push_authorization",
                 "PushAuthorizationRecord | None",
                 "Frozen publication proof for the current governed commit, when one exists.",

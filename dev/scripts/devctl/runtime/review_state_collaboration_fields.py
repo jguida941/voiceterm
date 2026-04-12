@@ -74,6 +74,7 @@ def _restart_state_from_mapping(
             reviewer_mode=bridge.reviewer_mode,
             effective_reviewer_mode=bridge.effective_reviewer_mode,
             last_codex_poll_utc=bridge.last_codex_poll_utc,
+            last_reviewer_poll_utc=bridge.last_reviewer_poll_utc or bridge.last_codex_poll_utc,
             last_worktree_hash=bridge.last_worktree_hash,
         )
     return CollaborationRestartState(
@@ -85,6 +86,9 @@ def _restart_state_from_mapping(
         effective_reviewer_mode=_string(mapping.get("effective_reviewer_mode"))
         or bridge.effective_reviewer_mode,
         last_codex_poll_utc=_string(mapping.get("last_codex_poll_utc"))
+        or bridge.last_codex_poll_utc,
+        last_reviewer_poll_utc=_string(mapping.get("last_reviewer_poll_utc"))
+        or bridge.last_reviewer_poll_utc
         or bridge.last_codex_poll_utc,
         last_worktree_hash=_string(mapping.get("last_worktree_hash"))
         or bridge.last_worktree_hash,

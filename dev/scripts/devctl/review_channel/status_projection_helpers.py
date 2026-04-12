@@ -133,23 +133,23 @@ def bridge_liveness_warnings(bridge_liveness: dict[str, object]) -> list[str]:
         )
     elif reviewer_freshness == ReviewerFreshness.MISSING or codex_poll_state == CodexPollState.MISSING:
         warnings.append(
-            "Bridge liveness is missing: the bridge header does not expose a usable `Last Codex poll` timestamp yet."
+            "Bridge liveness is missing: the reviewer heartbeat compatibility field does not expose a usable poll timestamp yet."
         )
     elif reviewer_freshness == ReviewerFreshness.OVERDUE:
         warnings.append(
-            "Bridge liveness is overdue: the latest Codex poll timestamp has exceeded the controller escalation threshold."
+            "Bridge liveness is overdue: the latest reviewer poll timestamp has exceeded the controller escalation threshold."
         )
     elif reviewer_freshness == ReviewerFreshness.STALE or codex_poll_state == CodexPollState.STALE:
         warnings.append(
-            "Bridge liveness is stale: the latest Codex poll timestamp is older than the five-minute heartbeat contract."
+            "Bridge liveness is stale: the latest reviewer poll timestamp is older than the five-minute heartbeat contract."
         )
     elif reviewer_freshness == ReviewerFreshness.POLL_DUE or codex_poll_state == CodexPollState.POLL_DUE:
         warnings.append(
-            "Bridge liveness is due for refresh: the latest Codex poll timestamp is older than the 2-3 minute reviewer cadence but still within the five-minute heartbeat window."
+            "Bridge liveness is due for refresh: the latest reviewer poll timestamp is older than the 2-3 minute reviewer cadence but still within the five-minute heartbeat window."
         )
     elif overall_state == OverallLivenessState.WAITING_ON_PEER:
         warnings.append(
-            "Bridge liveness is waiting_on_peer: the current bridge state still needs a fresh reviewer poll or complete Claude status/ACK state before the next cycle."
+            "Bridge liveness is waiting_on_peer: the current bridge state still needs a fresh reviewer poll or complete implementer status/ACK state before the next cycle."
         )
     if bridge_liveness.get("reviewed_hash_current") is False:
         warnings.append(
@@ -157,7 +157,9 @@ def bridge_liveness_warnings(bridge_liveness: dict[str, object]) -> list[str]:
         )
     claude_hint = provider_session_state_hint(bridge_liveness, provider="claude")
     if claude_hint:
-        warnings.append(str(claude_hint.get("summary") or "Claude session hint detected."))
+        warnings.append(
+            str(claude_hint.get("summary") or "Implementer session hint detected.")
+        )
     return warnings
 
 

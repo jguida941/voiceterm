@@ -128,7 +128,9 @@ def _build_reviewer_observation(
     bridge: dict[str, Any] = {}
     if review_state:
         bridge = review_state.get("bridge", {}) or {}
-    poll_utc = coerce_string(bridge.get("last_codex_poll_utc"))
+    poll_utc = coerce_string(
+        bridge.get("last_reviewer_poll_utc") or bridge.get("last_codex_poll_utc")
+    )
     review_needed = bool(bridge.get("review_needed", True))
     reviewed_hash_current = bool(bridge.get("reviewed_hash_current", False))
     head_at_push_time = coerce_string(bridge.get("head_at_push_time"))

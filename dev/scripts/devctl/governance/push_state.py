@@ -16,6 +16,7 @@ from ..repo_packs import active_path_config
 from ..review_channel.remote_commit_pipeline_artifact import (
     load_remote_commit_pipeline_contract,
 )
+from ..review_channel.service_identity import worktree_identity_for_repo
 from .push_publication import build_publication_backlog_state
 from .push_policy import PushCheckpointPolicy, PushPolicy
 from .push_state_models import PushDecisionInputs, PushEnforcementSnapshot
@@ -119,6 +120,7 @@ def detect_push_enforcement_state(
         current_branch=runtime.current_branch,
         current_head_commit=runtime.current_head_commit,
         current_approved_target_identity=runtime.current_approved_target_identity,
+        current_worktree_identity=runtime.current_worktree_identity,
     )
     push_stages = latest_push_report.get("push_stages")
     if not isinstance(push_stages, dict):
@@ -128,14 +130,17 @@ def detect_push_enforcement_state(
         latest_push_report_remote,
         latest_push_report_head_commit,
         latest_push_report_approved_target_identity,
+        latest_push_report_approved_worktree_identity,
         latest_push_report_matches_current_branch,
         latest_push_report_matches_current_head,
         latest_push_report_matches_current_approved_target,
+        latest_push_report_matches_current_worktree,
     ) = _latest_push_report_state(
         report=latest_push_report,
         current_branch=runtime.current_branch,
         current_head_commit=runtime.current_head_commit,
         current_approved_target_identity=runtime.current_approved_target_identity,
+        current_worktree_identity=runtime.current_worktree_identity,
     )
     current_target_remote = _current_target_remote(
         upstream_ref=runtime.upstream_ref,
@@ -146,6 +151,7 @@ def detect_push_enforcement_state(
         and latest_push_report_matches_current_branch
         and latest_push_report_matches_current_head
         and latest_push_report_matches_current_approved_target
+        and latest_push_report_matches_current_worktree
         and (not latest_push_report_remote or latest_push_report_remote == current_target_remote)
     )
     has_remote_work_to_push = not (
@@ -217,15 +223,21 @@ def detect_push_enforcement_state(
         latest_push_report_reason=str(latest_push_report.get("reason") or "").strip(),
         latest_push_report_published_remote=bool(push_stages.get("published_remote")),
         latest_push_report_post_push_green=bool(push_stages.get("post_push_green")),
+        current_worktree_identity=runtime.current_worktree_identity,
         current_approved_target_identity=runtime.current_approved_target_identity,
+        latest_push_report_approved_worktree_identity=latest_push_report_approved_worktree_identity,
         latest_push_report_approved_target_identity=latest_push_report_approved_target_identity,
         latest_push_report_matches_current_approved_target=latest_push_report_matches_current_approved_target,
+        latest_push_report_matches_current_worktree=latest_push_report_matches_current_worktree,
         latest_push_report_matches_current_branch=latest_push_report_matches_current_branch,
         latest_push_report_matches_current_head=latest_push_report_matches_current_head,
         current_push_authorization_id=runtime.current_push_authorization_id,
         current_push_authorization_mode=runtime.current_push_authorization_mode,
         current_push_authorization_head_commit=runtime.current_push_authorization_head_commit,
         current_push_authorization_expires_at_utc=runtime.current_push_authorization_expires_at_utc,
+        current_push_authorization_approved_worktree_identity=(
+            runtime.current_push_authorization_approved_worktree_identity
+        ),
         current_push_authorization_approved_target_identity=(
             runtime.current_push_authorization_approved_target_identity
         ),
@@ -234,6 +246,9 @@ def detect_push_enforcement_state(
         ),
         current_push_authorization_matches_current_approved_target=(
             runtime.current_push_authorization_matches_current_approved_target
+        ),
+        current_push_authorization_matches_current_worktree=(
+            runtime.current_push_authorization_matches_current_worktree
         ),
         current_push_authorization_valid=runtime.current_push_authorization_valid,
     )
@@ -247,14 +262,17 @@ class _PushRuntimeInputs:
     raw_git_push_guarded: bool
     current_branch: str
     current_head_commit: str
+    current_worktree_identity: str
     current_approved_target_identity: str
     current_push_authorization_id: str
     current_push_authorization_mode: str
     current_push_authorization_head_commit: str
     current_push_authorization_expires_at_utc: str
+    current_push_authorization_approved_worktree_identity: str
     current_push_authorization_approved_target_identity: str
     current_push_authorization_matches_current_head: bool
     current_push_authorization_matches_current_approved_target: bool
+    current_push_authorization_matches_current_worktree: bool
     current_push_authorization_valid: bool
     upstream_ref: str
     ahead_of_upstream_commits: int | None
@@ -308,6 +326,7 @@ def _detect_runtime_inputs(
     )
     current_branch = _git_stdout(repo_root, "rev-parse", "--abbrev-ref", "HEAD")
     current_head_commit = current_head_commit_sha(repo_root=repo_root)
+    current_worktree_identity = worktree_identity_for_repo(repo_root)
     pipeline = load_remote_commit_pipeline_contract(
         output_root=repo_root / active_path_config().review_status_dir_rel
     )
@@ -318,6 +337,7 @@ def _detect_runtime_inputs(
         pipeline=pipeline,
         current_head_commit=current_head_commit,
         current_approved_target_identity=current_approved_target_identity,
+        current_worktree_identity=current_worktree_identity,
     )
     upstream_ref = current_upstream_ref(repo_root=repo_root)
     ahead: int | None = None
@@ -331,15 +351,18 @@ def _detect_runtime_inputs(
         raw_git_push_guarded=hook_installed and os.access(hook_path, os.X_OK),
         current_branch=current_branch,
         current_head_commit=current_head_commit,
+        current_worktree_identity=current_worktree_identity,
         current_approved_target_identity=current_approved_target_identity,
         current_push_authorization_id=authorization_state[0],
         current_push_authorization_mode=authorization_state[1],
         current_push_authorization_head_commit=authorization_state[2],
         current_push_authorization_expires_at_utc=authorization_state[3],
         current_push_authorization_approved_target_identity=authorization_state[4],
-        current_push_authorization_matches_current_head=authorization_state[5],
-        current_push_authorization_matches_current_approved_target=authorization_state[6],
-        current_push_authorization_valid=authorization_state[7],
+        current_push_authorization_approved_worktree_identity=authorization_state[5],
+        current_push_authorization_matches_current_head=authorization_state[6],
+        current_push_authorization_matches_current_approved_target=authorization_state[7],
+        current_push_authorization_matches_current_worktree=authorization_state[8],
+        current_push_authorization_valid=authorization_state[9],
         upstream_ref=upstream_ref,
         ahead_of_upstream_commits=ahead,
     )
@@ -368,6 +391,7 @@ def _resolve_current_push_report(
     current_branch: str,
     current_head_commit: str,
     current_approved_target_identity: str,
+    current_worktree_identity: str,
 ) -> dict[str, object]:
     """Prefer a current-head in-flight latest report over stale final receipts."""
     if _latest_report_is_current_head_inflight(
@@ -375,6 +399,7 @@ def _resolve_current_push_report(
         current_branch=current_branch,
         current_head_commit=current_head_commit,
         current_approved_target_identity=current_approved_target_identity,
+        current_worktree_identity=current_worktree_identity,
     ):
         return latest
     return receipt or latest
@@ -386,6 +411,7 @@ def _latest_report_is_current_head_inflight(
     current_branch: str,
     current_head_commit: str,
     current_approved_target_identity: str,
+    current_worktree_identity: str,
 ) -> bool:
     if not report:
         return False
@@ -397,13 +423,16 @@ def _latest_report_is_current_head_inflight(
         _remote,
         _head_commit,
         _approved_target_identity,
+        _approved_worktree_identity,
         matches_branch,
         matches_head,
         matches_target,
+        matches_worktree,
     ) = _latest_push_report_state(
         report=report,
         current_branch=current_branch,
         current_head_commit=current_head_commit,
         current_approved_target_identity=current_approved_target_identity,
+        current_worktree_identity=current_worktree_identity,
     )
-    return bool(matches_branch and matches_head and matches_target)
+    return bool(matches_branch and matches_head and matches_target and matches_worktree)

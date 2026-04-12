@@ -183,6 +183,13 @@ def _artifact_matches_current_publication_target(
             False,
         )
     )
+    latest_push_report_matches_current_worktree = bool(
+        getattr(
+            push_enforcement,
+            "latest_push_report_matches_current_worktree",
+            False,
+        )
+    )
     current_branch = str(getattr(push_enforcement, "current_branch", "") or "")
     latest_push_report_branch = str(
         getattr(push_enforcement, "latest_push_report_branch", "") or ""
@@ -213,6 +220,7 @@ def _artifact_matches_current_publication_target(
     )
     return bool(
         latest_push_report_matches_current_approved_target
+        and latest_push_report_matches_current_worktree
         and artifact_branch_matches
         and artifact_head_matches
         and artifact_remote_matches

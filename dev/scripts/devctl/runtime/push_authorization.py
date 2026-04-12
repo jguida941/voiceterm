@@ -10,6 +10,7 @@ from ..governance.draft import scan_repo_governance
 from ..governance.push_state import current_head_commit_sha
 from ..governance.push_state_support import is_expired
 from ..repo_packs import active_path_config
+from ..review_channel.service_identity import worktree_identity_for_repo
 from ..review_channel.remote_commit_pipeline_artifact import (
     load_remote_commit_pipeline_contract,
 )
@@ -55,6 +56,7 @@ def publication_authorization_decision(
     pipeline = _load_pipeline(repo_root)
     authorization = pipeline.push_authorization
     current_head = current_head_commit_sha(repo_root=repo_root)
+    current_worktree_identity = worktree_identity_for_repo(repo_root)
     snapshot_receipt_parent = _snapshot_only_receipt_parent_sha(
         repo_root=repo_root,
         current_head=current_head,
@@ -158,6 +160,53 @@ def publication_authorization_decision(
             summary=(
                 "The approved publish identity drifted after authorization. "
                 "Recover the pipeline and request a fresh approval."
+            ),
+                push_authorization=authorization,
+            )
+    if (
+        pipeline.worktree_identity
+        and authorization.worktree_identity
+        and pipeline.worktree_identity != authorization.worktree_identity
+    ):
+        return PublicationAuthorizationDecision(
+            authorization_required=True,
+            authorized=False,
+            reason="push_authorization_worktree_record_drift",
+            summary=(
+                "The approved worktree identity drifted after authorization. "
+                "Recover the pipeline and request a fresh approval."
+            ),
+            push_authorization=authorization,
+        )
+    if (
+        pipeline.worktree_identity
+        and current_worktree_identity
+        and pipeline.worktree_identity != current_worktree_identity
+    ):
+        return PublicationAuthorizationDecision(
+            authorization_required=True,
+            authorized=False,
+            reason="push_authorization_worktree_drift",
+            summary=(
+                "The current worktree does not match the worktree that staged the "
+                "approved publication pipeline. Resume the owning worker lane or "
+                "recover and restage the pipeline here before pushing."
+            ),
+            push_authorization=authorization,
+        )
+    if (
+        authorization.worktree_identity
+        and current_worktree_identity
+        and authorization.worktree_identity != current_worktree_identity
+    ):
+        return PublicationAuthorizationDecision(
+            authorization_required=True,
+            authorized=False,
+            reason="push_authorization_worktree_mismatch",
+            summary=(
+                "The persisted publication authorization belongs to a different "
+                "worktree. Request a fresh approval from the worker lane that "
+                "owns this checkout before pushing."
             ),
             push_authorization=authorization,
         )

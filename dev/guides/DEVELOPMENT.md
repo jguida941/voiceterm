@@ -361,7 +361,10 @@ Three quality layers matter in practice:
     not invent a repo-local third phrasing rule.
     When `current_session` ACK state is unknown, consumers should fall back to
     typed `bridge.claude_ack_current` before trying to infer anything from
-    bridge prose.
+    bridge prose. Prefer provider-neutral bridge aliases
+    (`implementer_ack*`, `implementer_status`, `reviewer_poll_state`,
+    `last_reviewer_poll_*`) when present; the legacy `claude_*` /
+    `codex_*` fields remain compatibility outputs for bridge/render parity.
   - In VoiceTerm today the live compatibility bridge file is repo-root
     `bridge.md`, but review-channel roots should be understood as governed
     repo-pack/project-governance state and typed `review_state` remains the
@@ -1228,7 +1231,13 @@ Workflow permissions note:
    defaulting zero changed paths into the docs lane. The same runtime path now
    also reuses the preflight-resolved `since_ref` for diff-sensitive post-push
    commands, so existing upstream-backed branches audit the published delta
-   instead of reopening unrelated branch-vs-develop debt.
+   instead of reopening unrelated branch-vs-develop debt. The governed
+   commit/push pipeline now also binds approval to the exact
+   `worktree_identity` that staged it, so worker-lane publication approval
+   cannot be replayed from the primary control lane or another checkout. If
+   `startup-context` or `devctl push` reports a worktree mismatch, return to
+   the owning worker worktree and recover/restage there before requesting a
+   fresh approval.
    The same truth must stay
    visible in reviewer/readiness projections too: `review-channel --action
    status|doctor` should surface the managed push artifact path plus

@@ -186,9 +186,11 @@ def _promote_local_reviewer_presence(
         return participants, role_assignments
 
     session_name = _text(bridge_liveness.get("reviewer_session_name")) or (
-        f"{reviewer_provider}-local-reviewer"
+        f"reviewer-local-{reviewer_provider}"
     )
-    prepared_at = _text(bridge_liveness.get("last_codex_poll_utc"))
+    prepared_at = _text(bridge_liveness.get("last_reviewer_poll_utc")) or _text(
+        bridge_liveness.get("last_codex_poll_utc")
+    )
     updated_participants = list(participants)
     participant_live = False
     for index, participant in enumerate(updated_participants):
@@ -255,6 +257,8 @@ def _local_reviewer_turn_is_live(
         return False
     freshness = _text(bridge_liveness.get("reviewer_freshness"))
     if freshness in {"fresh", "poll_due"}:
+        return True
+    if _text(bridge_liveness.get("reviewer_poll_state")) in {"fresh", "poll_due"}:
         return True
     if _text(bridge_liveness.get("codex_poll_state")) in {"fresh", "poll_due"}:
         return True

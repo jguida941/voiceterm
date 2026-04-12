@@ -49,11 +49,16 @@ def _tools_only_review_state() -> SimpleNamespace:
     )
 
 
-def _pipeline(*, authorized_head_sha: str) -> RemoteCommitPipelineContract:
+def _pipeline(
+    *,
+    authorized_head_sha: str,
+    worktree_identity: str = "",
+) -> RemoteCommitPipelineContract:
     return RemoteCommitPipelineContract(
         pipeline_id="pipeline-123",
         state="commit_recorded",
         commit_sha=authorized_head_sha,
+        worktree_identity=worktree_identity,
         approved_target_identity="tree-receipt-20260403T010000Z:tree-123",
         push_authorization=PushAuthorizationRecord(
             authorization_id="push-auth-20260403T010000Z",
@@ -66,6 +71,7 @@ def _pipeline(*, authorized_head_sha: str) -> RemoteCommitPipelineContract:
             guard_status=ActionOutcome.PASS,
             approved_by="operator",
             approved_at_utc="2026-04-05T12:00:00Z",
+            worktree_identity=worktree_identity,
         ),
     )
 
@@ -204,3 +210,29 @@ def test_publication_authorization_allows_tools_only_runtime_when_exact_head_is_
     assert decision.authorized is True
     assert decision.authorization_required is True
     assert decision.reason == "push_authorization_current"
+
+
+@patch("dev.scripts.devctl.runtime.push_authorization.worktree_identity_for_repo")
+@patch("dev.scripts.devctl.runtime.push_authorization.scan_repo_governance")
+@patch("dev.scripts.devctl.runtime.push_authorization.load_review_state")
+@patch("dev.scripts.devctl.runtime.push_authorization.current_head_commit_sha")
+@patch("dev.scripts.devctl.runtime.push_authorization._load_pipeline")
+def test_publication_authorization_blocks_when_worktree_identity_mismatches(
+    load_pipeline_mock,
+    current_head_mock,
+    load_review_state_mock,
+    _scan_governance_mock,
+    worktree_identity_mock,
+) -> None:
+    load_review_state_mock.return_value = _review_state()
+    current_head_mock.return_value = "head-123"
+    worktree_identity_mock.return_value = "worktree:sha256:primary-lane"
+    load_pipeline_mock.return_value = _pipeline(
+        authorized_head_sha="head-123",
+        worktree_identity="worktree:sha256:worker-lane",
+    )
+
+    decision = publication_authorization_decision(repo_root=Path("/tmp/repo"))
+
+    assert decision.authorized is False
+    assert decision.reason == "push_authorization_worktree_drift"

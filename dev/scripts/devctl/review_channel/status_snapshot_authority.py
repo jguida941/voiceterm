@@ -112,9 +112,15 @@ def _apply_current_session_fields(
     bridge_liveness["current_instruction_revision"] = (
         current_session.current_instruction_revision
     )
+    bridge_liveness["implementer_status"] = current_session.implementer_status
     bridge_liveness["claude_status"] = current_session.implementer_status
+    bridge_liveness["implementer_ack"] = current_session.implementer_ack
     bridge_liveness["claude_ack"] = current_session.implementer_ack
+    bridge_liveness["implementer_ack_revision"] = current_session.implementer_ack_revision
     bridge_liveness["claude_ack_revision"] = current_session.implementer_ack_revision
+    bridge_liveness["implementer_ack_current"] = (
+        current_session.implementer_ack_state == "current"
+    )
     bridge_liveness["claude_ack_current"] = (
         current_session.implementer_ack_state == "current"
     )

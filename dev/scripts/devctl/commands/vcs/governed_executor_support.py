@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass, replace
 
+from ...review_channel.service_identity import worktree_identity_for_repo
 from ...runtime import ActionResult
 from ...runtime.action_contracts import ActionOutcome
 from ...runtime.remote_commit_pipeline_models import (
@@ -85,6 +86,7 @@ class CommitReadiness:
 def evaluate_commit_readiness(
     *,
     pipeline: RemoteCommitPipelineContract,
+    repo_root,
     current_tree_hash: str,
     requested_commit_message: str,
     amend: bool,
@@ -111,6 +113,25 @@ def evaluate_commit_readiness(
             guidance=(
                 "Post and apply the matching `commit_approval` decision packet "
                 "before `vcs.commit`."
+            ),
+        )
+    current_worktree_identity = worktree_identity_for_repo(repo_root)
+    if (
+        pipeline.worktree_identity
+        and current_worktree_identity
+        and pipeline.worktree_identity != current_worktree_identity
+    ):
+        return CommitBlock(
+            pipeline=replace(
+                pipeline,
+                state="push_blocked",
+                blocked_reason="worktree_identity_mismatch",
+            ),
+            reason="worktree_identity_mismatch",
+            guidance=(
+                "The approved pipeline belongs to a different worktree. Resume the "
+                "worker-lane checkout that staged the snapshot or recover and restage "
+                "the pipeline in this worktree before committing."
             ),
         )
     if not pipeline.approval_packet_id or not pipeline.decision_packet_id:

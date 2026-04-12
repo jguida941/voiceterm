@@ -209,6 +209,16 @@
   fake `inactive`. The same status receipt now reports the real blocker
   (`checkpoint_required` in the current dirty-tree proof) instead of telling
   the operator to relaunch a healthy single-agent dashboard lane.
+- 2026-04-12 role-portability + governed-push identity follow-up in
+  `MP-380..MP-387` / `MP-377` scope: review/runtime read models now prefer
+  provider-neutral reviewer/implementer aliases
+  (`reviewer_poll_state`, `last_reviewer_poll_*`, `implementer_ack*`) while
+  keeping `codex_*` / `claude_*` bridge fields as compatibility projection
+  only. The governed commit/push path now also records `worktree_identity` in
+  the remote commit pipeline, blocks commit/push approval drift onto a
+  different checkout, and projects current/approved worktree identity through
+  latest-push status so the primary control lane cannot accidentally reuse a
+  worker-lane publication approval.
 - 2026-04-11 action-request delivery follow-up in `MP-380..MP-387` scope:
   event-backed `action_request` packets now carry typed delivery receipts too:
   post seeds `delivery_emitted_at_utc`, targeted `inbox|watch` polls stamp
@@ -725,13 +735,16 @@
   through `devctl push --execute`. Next follow-ups are fresh open-finding
   recomputation from the renewed snapshot inputs and a distinct
   external-agent authority-drift detector.
-- Current 2026-04-05 provider-neutral bootstrap follow-up inside that same
-  lane: reviewer/implementer ownership is now tracked as role-first launch
-  state instead of fixed Codex/Claude identity. Planned lane parsing,
-  conductor launch specs, prompts, bridge start rules, and narrow recover
-  flows must resolve the active reviewer/implementer provider from typed lane
-  role data and repo-owned collaboration/runtime state, while the canonical
-  bootstrap commands remain `startup-context --role <role>` and
+- Current 2026-04-12 provider-neutral bootstrap/read-model follow-up inside
+  that same lane: reviewer/implementer ownership is tracked as role-first
+  launch state instead of fixed Codex/Claude identity, and typed review/status
+  reads now prefer provider-neutral reviewer/implementer aliases while legacy
+  `codex_*` / `claude_*` bridge fields remain compatibility projections only.
+  Planned lane parsing, conductor launch specs, prompts, status/doctor
+  surfaces, bridge start rules, and narrow recover flows must resolve the
+  active reviewer/implementer provider from typed lane role data and
+  repo-owned collaboration/runtime state, while the canonical bootstrap
+  commands remain `startup-context --role <role>` and
   `session-resume --role <role> --format bootstrap`.
 - Current clean-tree operational blocker inside that same lane: the repo is not
   blocked on plan/doc drift, it is blocked on live reviewer cadence.
@@ -4015,14 +4028,17 @@ become the main product surface.
   self-promoting scope or rewriting reviewer-owned bridge state, and every
   non-trivial slice must keep a separate Codex-side architecture-fit reviewer
   before acceptance so worker fan-out does not turn into a second control
-  plane. Latest 2026-04-12 follow-up: the owner docs already require one
-  shared backend where any supported provider can fill reviewer,
-  implementer, or dashboard/operator roles, but the live proof still carries
-  `codex reviewer` / `claude implementer` assumptions in role defaults,
-  turn-authority helpers, and bridge/handoff fields. The next closure slice is
-  explicit: keep the phone-attached primary worktree as the control/dashboard
-  lane, move implementation into reusable isolated worker worktrees, and prove
-  the first beta matrix as `Codex reviewer + Codex worker implementer + Claude
+  plane. Latest 2026-04-12 follow-up: the owner docs still require one shared
+  backend where any supported provider can fill reviewer, implementer, or
+  dashboard/operator roles, and the runtime now matches that boundary more
+  honestly: status/read-model surfaces prefer provider-neutral
+  reviewer/implementer aliases while bridge-shaped `codex_*` / `claude_*`
+  fields stay compatibility-only, and governed commit/push approval now binds
+  to the exact worker worktree identity so the phone-attached control lane
+  cannot publish from the wrong checkout. The next proof remains explicit:
+  keep the phone-attached primary worktree as the control/dashboard lane, move
+  implementation into reusable isolated worker worktrees, and prove the first
+  beta matrix as `Codex reviewer + Codex worker implementer + Claude
   dashboard` before widening to swapped reviewer/implementer assignments.
   Execution spec:
   `dev/active/continuous_swarm.md`.

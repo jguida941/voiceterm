@@ -223,7 +223,7 @@ def _render_start_rules_body(
         ),
         (
             "   - `Last Codex poll` remains the reviewer-heartbeat compatibility field "
-            "and `Claude Status` / `Claude Ack` remain the implementer-owned compatibility "
+            "and `Claude Status` / `Claude Ack` remain implementer-owned compatibility "
             "sections until native role-labeled bridge headings land."
         ),
         "   - `Claude Ack` must acknowledge the current instruction revision with a machine-readable line such as `- acknowledged current instruction revision: <rev>` or `- acknowledged; instruction-rev: <rev>`.",

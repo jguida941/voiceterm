@@ -88,6 +88,7 @@ class CollaborationRestartState:
     reviewer_mode: str = ""
     effective_reviewer_mode: str = ""
     last_codex_poll_utc: str = ""
+    last_reviewer_poll_utc: str = ""
     last_worktree_hash: str = ""
 
 

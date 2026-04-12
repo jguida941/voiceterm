@@ -5,9 +5,11 @@ from __future__ import annotations
 import json
 import secrets
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 from ...common import emit_output, write_output
+from ...review_channel.service_identity import worktree_identity_for_repo
 from ...runtime import TypedAction
 from ...runtime.remote_commit_pipeline_models import CommitIntentState, RemoteCommitPipelineContract
 from ...time_utils import utc_timestamp
@@ -93,6 +95,7 @@ class PushActionInputs:
     skip_preflight: bool = False
     skip_post_push: bool = False
     approved_target_identity: str = ""
+    approved_worktree_identity: str = ""
     requested_by: str = "devctl.push"
 
 
@@ -219,6 +222,7 @@ def build_push_action(
             "skip_preflight",
             "skip_post_push",
             "approved_target_identity",
+            "approved_worktree_identity",
             "requested_by",
         })
         if unexpected:
@@ -231,6 +235,9 @@ def build_push_action(
             skip_preflight=bool(kwargs.get("skip_preflight", False)),
             skip_post_push=bool(kwargs.get("skip_post_push", False)),
             approved_target_identity=str(kwargs.get("approved_target_identity", "")),
+            approved_worktree_identity=str(
+                kwargs.get("approved_worktree_identity", "")
+            ),
             requested_by=str(kwargs.get("requested_by", "devctl.push")),
         )
     else:
@@ -243,6 +250,10 @@ def build_push_action(
     parameters["skip_post_push"] = resolved.skip_post_push
     if resolved.approved_target_identity:
         parameters["approved_target_identity"] = resolved.approved_target_identity
+    if resolved.approved_worktree_identity:
+        parameters["approved_worktree_identity"] = (
+            resolved.approved_worktree_identity
+        )
     return TypedAction(
         schema_version=1,
         contract_id="TypedAction",
@@ -311,6 +322,7 @@ def build_staged_pipeline(
     tree_hash: str,
     diff_summary: str,
     branch: str,
+    repo_root: Path,
 ) -> RemoteCommitPipelineContract:
     """Construct a fresh pipeline contract from a staged snapshot."""
     pipeline_id = f"pipeline-{secrets.token_hex(6)}"
@@ -346,4 +358,5 @@ def build_staged_pipeline(
         blocked_reason="",
         recovery_action_allowed=RECOVER_ACTION_ID,
         generation_id=generation_id,
+        worktree_identity=worktree_identity_for_repo(repo_root),
     )
