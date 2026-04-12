@@ -427,6 +427,48 @@ def test_build_coordination_snapshot_falls_back_to_current_instruction(
     assert snapshot.current_slice == "Drive the shared coordination read model first."
 
 
+def test_build_coordination_snapshot_prefers_typed_coordination_current_slice(
+    tmp_path: Path,
+) -> None:
+    startup = _startup_context(
+        repo_root=tmp_path,
+        ownership=WorkIntakeOwnershipState(status="clear"),
+        coordination=WorkIntakeCoordinationState(
+            collaboration_topology="single_agent",
+            authority_mode="self_directed",
+            work_ownership_mode="exclusive_slice",
+            sync_cadence_mode="before_publish",
+            active_participant_count=1,
+            active_participants=("codex:reviewer",),
+        ),
+        continuity=SimpleNamespace(current_goal="", next_action="", summary=""),
+    )
+    review_state = _review_state(
+        topology_mode="single_agent",
+        participants=(),
+        delegated_work=(),
+        ready_gates=(),
+        attention_status="inactive",
+        reviewer_freshness="overdue",
+        registry_agents=(),
+    )
+    review_state.collaboration.current_slice = "MP-355"
+    review_state.current_session.current_instruction = ""
+    review_state.coordination = SimpleNamespace(
+        current_slice="Use the latest typed packet summary as the live slice."
+    )
+
+    snapshot = build_coordination_snapshot(
+        repo_root=tmp_path,
+        startup_context=startup,
+        review_state=review_state,
+    )
+
+    assert snapshot.current_slice == (
+        "Use the latest typed packet summary as the live slice."
+    )
+
+
 def test_build_coordination_snapshot_uses_provided_review_state_without_refresh(
     tmp_path: Path,
 ) -> None:

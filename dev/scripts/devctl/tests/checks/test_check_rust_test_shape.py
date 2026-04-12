@@ -37,8 +37,8 @@ class CheckRustTestShapeTests(TestCase):
             Path("rust/src/bin/voiceterm/event_loop/tests.rs")
         )
         self.assertTrue(source.startswith("path_override:"))
-        self.assertEqual(policy.soft_limit, 6200)
-        self.assertEqual(policy.hard_limit, 7000)
+        self.assertEqual(policy.soft_limit, 1300)
+        self.assertEqual(policy.hard_limit, 1500)
 
     def test_evaluate_crosses_soft_limit(self) -> None:
         policy = self.script.TestShapePolicy(

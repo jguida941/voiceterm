@@ -76,6 +76,11 @@ def _resolve_supervisor_liveness() -> tuple[bool, str]:
     return running, detail
 
 
+def _missing_supervisor_heartbeat(detail: str) -> bool:
+    """True when the supervisor detail only reports an absent heartbeat file."""
+    return detail.strip().lower() == "no reviewer supervisor heartbeat file found"
+
+
 def _audit_runtime_processes(
     *,
     process_scanner: Callable[[], tuple[list[dict], list[str]]],
@@ -119,7 +124,11 @@ def _audit_runtime_processes(
     # are conductor-scope rows visible, surface that to the operator so a
     # stale heartbeat doesn't silently promote reparented conductors into
     # false orphans (or vice versa) without any diagnostic trail.
-    if not supervisor_live and supervisor_detail:
+    if (
+        not supervisor_live
+        and supervisor_detail
+        and not _missing_supervisor_heartbeat(supervisor_detail)
+    ):
         conductor_rows_present = any(
             row.get("match_scope") == SUPERVISED_CONDUCTOR_SCOPE
             for row in test_processes

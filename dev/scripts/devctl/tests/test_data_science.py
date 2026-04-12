@@ -301,7 +301,7 @@ class DataScienceSnapshotTests(unittest.TestCase):
 
 
 class DataScienceCliIntegrationTests(unittest.TestCase):
-    def test_cli_list_auto_refresh_writes_snapshot(self) -> None:
+    def test_cli_list_read_only_skips_snapshot_refresh(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)
             output_root = root / "data-science"
@@ -346,18 +346,7 @@ class DataScienceCliIntegrationTests(unittest.TestCase):
 
             self.assertEqual(rc, 0)
             snapshot = output_root / "latest" / "summary.json"
-            self.assertTrue(snapshot.exists())
-            payload = json.loads(snapshot.read_text(encoding="utf-8"))
-            self.assertEqual(payload.get("trigger_command"), "devctl:list")
-            self.assertGreaterEqual(int((payload.get("event_stats") or {}).get("total_events") or 0), 1)
-            self.assertEqual(
-                payload.get("governance_review_log"),
-                str(governance_review_log.resolve()),
-            )
-            self.assertEqual(
-                payload.get("external_finding_log"),
-                str(external_finding_log.resolve()),
-            )
+            self.assertFalse(snapshot.exists())
 
 
 class DataScienceParserTests(unittest.TestCase):

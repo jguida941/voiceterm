@@ -561,6 +561,8 @@ def _assemble(
             instruction_text=instruction_text,
             top_blocker=top_blocker,
             last_change_age=last_change_age,
+            coordination=typed_coordination,
+            runtime_counts=typed_runtime_counts,
             next_action_override=control_plane.next_action if control_plane else "",
         )),
         "health": health,

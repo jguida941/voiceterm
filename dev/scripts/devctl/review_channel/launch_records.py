@@ -255,6 +255,8 @@ def resolve_session_workspace_root(
         )
     unique_roots = tuple(dict.fromkeys(path for _agent_id, path in explicit_rows))
     if len(unique_roots) > 1:
+        if default_worktree_path is not None:
+            return _resolve_worktree_path(resolved_repo_root, default_worktree_path)
         detail = ", ".join(f"{agent_id}={path}" for agent_id, path in explicit_rows)
         raise ValueError(
             "Planned lanes for one launched session span multiple worktrees; "

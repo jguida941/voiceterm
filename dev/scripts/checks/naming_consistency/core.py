@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 if __package__:
-    from .matrix import _extract_ids, _load_matrix_ids
+    from .matrix import _extract_ids, _load_matrix_ids, yaml
     from .provider import (
         _extract_provider_label_tokens,
         _parse_isolation_provider_tokens,
@@ -21,7 +21,7 @@ if __package__:
     )
     from .shared import _load_module, _path_for_report
 else:  # pragma: no cover - standalone script fallback
-    from matrix import _extract_ids, _load_matrix_ids
+    from matrix import _extract_ids, _load_matrix_ids, yaml
     from provider import (
         _extract_provider_label_tokens,
         _parse_isolation_provider_tokens,

@@ -462,7 +462,7 @@ class AutoModeFromControlPlaneReadModelTests(unittest.TestCase):
         inputs = inputs_from_read_model(model)
         state = resolve_auto_mode_phase(inputs)
         self.assertEqual(state.phase, "idle")
-        self.assertEqual(inputs.operator_interaction_mode, "unresolved")
+        self.assertEqual(inputs.operator_interaction_mode, "single_agent")
         self.assertTrue(inputs.last_guard_ok)
 
     def test_pushing_from_read_model_with_push_receipt(self) -> None:

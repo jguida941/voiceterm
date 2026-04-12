@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import json
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
+from copy import deepcopy
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
@@ -11,6 +12,32 @@ from .context_refs import normalize_context_pack_refs
 from .current_session_projection import current_focus_line
 from .projection_bundle_markdown import render_latest_markdown
 from .projection_observation import build_observation_projection
+
+_TYPED_REVIEW_STATE_KEYS = (
+    "schema_version",
+    "contract_id",
+    "command",
+    "action",
+    "timestamp",
+    "ok",
+    "review",
+    "queue",
+    "current_session",
+    "collaboration",
+    "bridge",
+    "attention",
+    "packets",
+    "registry",
+    "review_candidate",
+    "push_authorization",
+    "recovery_assessment",
+    "reviewer_runtime",
+    "commit_pipeline",
+    "coordination",
+    "warnings",
+    "errors",
+    "snapshot_id",
+)
 
 
 @dataclass(frozen=True)
@@ -48,25 +75,29 @@ def write_projection_bundle(
     full_extras: dict[str, object] | None = None,
 ) -> ReviewChannelProjectionPaths:
     """Write a projection bundle from one reduced review-state snapshot."""
-    obs_proj = build_observation_projection(review_state)
-    if obs_proj is not None and "reviewer_observation" not in review_state:
-        review_state["reviewer_observation"] = obs_proj
-    compact = _build_compact_projection(review_state)
-    actions = _build_actions_projection(review_state)
+    review_state_payload = _normalize_review_state_payload(review_state)
+    obs_proj = build_observation_projection(review_state_payload)
+    if (
+        obs_proj is not None
+        and "reviewer_observation" not in review_state_payload
+    ):
+        review_state_payload["reviewer_observation"] = obs_proj
+    compact = _build_compact_projection(review_state_payload)
+    actions = _build_actions_projection(review_state_payload)
     full = {
         "schema_version": 1,
         "command": "review-channel",
         "action": action,
-        "timestamp": review_state.get("timestamp"),
-        "ok": review_state.get("ok"),
-        "review_state": review_state,
+        "timestamp": review_state_payload.get("timestamp"),
+        "ok": review_state_payload.get("ok"),
+        "review_state": review_state_payload,
         "agent_registry": agent_registry,
-        "warnings": review_state.get("warnings", []),
-        "errors": review_state.get("errors", []),
+        "warnings": review_state_payload.get("warnings", []),
+        "errors": review_state_payload.get("errors", []),
     }
     if isinstance(full_extras, dict):
         full.update(full_extras)
-    latest_markdown = render_latest_markdown(review_state, agent_registry)
+    latest_markdown = render_latest_markdown(review_state_payload, agent_registry)
 
     registry_dir = output_root / "registry"
     registry_dir.mkdir(parents=True, exist_ok=True)
@@ -80,7 +111,10 @@ def write_projection_bundle(
     agent_registry_path = registry_dir / "agents.json"
     commit_pipeline_path = output_root / "commit_pipeline.json"
 
-    review_state_path.write_text(json.dumps(review_state, indent=2), encoding="utf-8")
+    review_state_path.write_text(
+        json.dumps(review_state_payload, indent=2),
+        encoding="utf-8",
+    )
     compact_path.write_text(json.dumps(compact, indent=2), encoding="utf-8")
     full_path.write_text(json.dumps(full, indent=2), encoding="utf-8")
     actions_path.write_text(json.dumps(actions, indent=2), encoding="utf-8")
@@ -91,7 +125,7 @@ def write_projection_bundle(
         encoding="utf-8",
     )
     commit_pipeline_path.write_text(
-        json.dumps(review_state.get("commit_pipeline", {}), indent=2),
+        json.dumps(review_state_payload.get("commit_pipeline", {}), indent=2),
         encoding="utf-8",
     )
 
@@ -155,7 +189,7 @@ def _build_compact_projection(review_state: dict[str, object]) -> dict[str, obje
 def _build_actions_projection(review_state: dict[str, object]) -> dict[str, object]:
     packets = review_state.get("packets")
     action_rows: list[dict[str, object]] = []
-    if isinstance(packets, list):
+    if isinstance(packets, Sequence) and not isinstance(packets, (str, bytes)):
         for packet in packets:
             if not isinstance(packet, dict):
                 continue
@@ -199,3 +233,25 @@ def _render_trace_projection(trace_events: list[dict[str, object]]) -> str:
     for event in trace_events:
         lines.append(json.dumps(event, sort_keys=True))
     return "\n".join(lines) + ("\n" if lines else "")
+
+
+def _normalize_review_state_payload(
+    review_state: Mapping[str, object],
+) -> dict[str, object]:
+    """Project review_state artifacts through the typed contract before writing.
+
+    This keeps on-disk `review_state.json` aligned with the runtime dataclass
+    schema even when minimal/synthetic callers omit additive fields, while
+    preserving compatibility-only extras such as `_compat`.
+    """
+    from ..runtime.review_state_parser import review_state_from_payload
+
+    normalized = deepcopy(dict(review_state))
+    typed_state = review_state_from_payload(normalized)
+    if typed_state is None:
+        return normalized
+
+    typed_payload = typed_state.to_dict()
+    for key in _TYPED_REVIEW_STATE_KEYS:
+        normalized[key] = typed_payload.get(key)
+    return normalized

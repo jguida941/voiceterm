@@ -563,6 +563,7 @@ def test_recover_visible_launch_refuses_transient_root() -> None:
     from dev.scripts.devctl.commands.review_channel._recover import (
         _maybe_launch_recover_sessions,
     )
+    from dev.scripts.devctl.review_channel.recover_support import RecoverLaunchInput
 
     args = SimpleNamespace(
         terminal="terminal-app",
@@ -576,12 +577,15 @@ def test_recover_visible_launch_refuses_transient_root() -> None:
         (repo_root / ".git").mkdir()
         with pytest.raises(ValueError) as exc_info:
             _maybe_launch_recover_sessions(
-                args=args,
-                repo_root=repo_root,
-                bridge_path=Path("/tmp/bridge.md"),
-                current_instruction_revision="rev-1",
-                sessions=[],
-                terminal_profile_applied=None,
+                RecoverLaunchInput(
+                    args=args,
+                    repo_root=repo_root,
+                    bridge_path=Path("/tmp/bridge.md"),
+                    current_instruction_revision="rev-1",
+                    sessions=[],
+                    terminal_profile_applied=None,
+                    interaction_mode="local_terminal",
+                )
             )
 
         assert "untrusted_visible_launch_root" in str(exc_info.value)

@@ -190,7 +190,15 @@ def test_phase4_surface_convergence_across_startup_push_doctor_and_bridge_projec
             return_value=review_state,
         ),
         patch(
+            "dev.scripts.devctl.runtime.startup_context._load_startup_review_state",
+            return_value=review_state,
+        ),
+        patch(
             "dev.scripts.devctl.runtime.startup_context.build_work_intake_packet",
+            return_value=None,
+        ),
+        patch(
+            "dev.scripts.devctl.runtime.startup_context._load_startup_coordination_snapshot",
             return_value=None,
         ),
         patch(

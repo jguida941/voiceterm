@@ -2896,6 +2896,79 @@ class TestTypedReviewState(unittest.TestCase):
             self.assertTrue(coord["resync_required"])
             self.assertEqual(coord["actors"][0]["actor_id"], "codex")
 
+    def test_now_section_prefers_live_reviewer_truth_over_stale_agent_registry(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            rs = _minimal_review_state()
+            rs["coordination"] = {
+                "contract_id": "CoordinationSnapshot",
+                "current_slice": "Codex is verifying and staging the checkpoint slice.",
+                "declared_topology": "single_agent",
+                "observed_topology": "single_agent",
+                "recommended_topology": "single_agent",
+                "fanout_posture": "single_agent_only",
+                "safe_to_fanout": False,
+                "worktree_strategy": "shared_primary_worktree",
+                "resync_required": True,
+                "resync_reasons": ["attention:checkpoint_required"],
+                "actors": [
+                    {
+                        "actor_id": "codex",
+                        "provider": "codex",
+                        "role": "reviewer",
+                        "presence": "live",
+                    }
+                ],
+            }
+            rs["reviewer_runtime"]["doctor"]["runtime_counts"] = {
+                "live_participant_count": 1,
+                "live_reviewer_count": 1,
+                "live_implementer_count": 0,
+                "active_conductor_count": 1,
+                "running_daemon_count": 0,
+            }
+            sources = {
+                "review_state": rs,
+                "compact_json": None,
+                "push_report": None,
+                "receipt": None,
+                "publisher_hb": None,
+                "supervisor_hb": None,
+                "codex_conductor": None,
+                "claude_conductor": None,
+                "full_json": None,
+            }
+            bridge = root / "bridge.md"
+            bridge.write_text(_minimal_bridge_text(), encoding="utf-8")
+
+            with patch.object(
+                dashboard,
+                "load_sources",
+                return_value=sources,
+            ), patch.object(
+                dashboard,
+                "scan_repo_governance_safely",
+                return_value=None,
+            ), patch.object(
+                dashboard,
+                "load_current_review_state",
+                return_value=FrozenReviewState(rs),
+            ), patch.object(dashboard, "_git_short", return_value={
+                "branch": "main", "head": "abc", "dirty": "DIRTY",
+            }), patch.object(dashboard, "_repo_name", return_value="test"), patch.object(
+                dashboard,
+                "_read_json",
+                return_value=_minimal_agents(),
+            ):
+                snapshot = dashboard.build_snapshot(repo_root=root)
+
+            self.assertEqual(snapshot["now"]["owner"], "Reviewer")
+            self.assertEqual(snapshot["now"]["owner_provider"], "codex")
+            self.assertEqual(
+                snapshot["now"]["instruction_text"],
+                "Codex is verifying and staging the checkpoint slice.",
+            )
+
     def test_threads_frozen_review_state_into_control_plane(self) -> None:
         """build_snapshot should feed one frozen review_state into the read model."""
         class DummyControlPlane:

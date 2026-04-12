@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from pathlib import Path
 
 from ..common import display_path, read_json_object, resolve_repo_path
@@ -13,7 +14,9 @@ VALID_CONTEXT_PACK_ADAPTER_PROFILES = {"canonical", "codex", "claude", "gemini"}
 
 def normalize_context_pack_refs(context_pack_refs: object) -> list[dict[str, str]]:
     """Return a compact list of valid context-pack attachment objects."""
-    if not isinstance(context_pack_refs, list):
+    if not isinstance(context_pack_refs, Sequence) or isinstance(
+        context_pack_refs, (str, bytes)
+    ):
         return []
     rows: list[dict[str, str]] = []
     for row in context_pack_refs:

@@ -245,6 +245,7 @@ def _build_recover_sessions(
             handoff_bundle=None,
             script_dir=runtime_paths.script_dir,
             session_output_root=status_dir,
+            worktree_path=repo_root,
             providers_to_launch=(recover_provider,),
             interaction_mode=interaction_mode,
         ),

@@ -272,6 +272,7 @@ def build_bridge_sessions(
             if isinstance(context.script_dir, Path)
             else None,
             session_output_root=context.status_dir,
+            worktree_path=context.repo_root,
             rollover_provider=rollover_provider,
             interaction_mode=context.interaction_mode,
         ),

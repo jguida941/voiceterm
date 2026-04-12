@@ -241,6 +241,10 @@ def test_scan_repo_governance_policy_fields(tmp_path: Path) -> None:
                 "max_dirty_paths_before_checkpoint": 8,
                 "max_untracked_paths_before_checkpoint": 4,
             },
+            "publication": {
+                "recommend_after_ahead_commits": 2,
+                "urgent_after_ahead_commits": 5,
+            },
         }
     }
     assert gov.push_enforcement.default_remote == "upstream"

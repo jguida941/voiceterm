@@ -59,14 +59,16 @@ def _doc_class_from_layout(
         return "generated_report"
     if relative == layout.docs_authority_path:
         return "guide"
-    if path.parent == layout.repo_root and "INDEX" in name_upper:
-        return "guide"
-    if path_in_root(relative, layout.guides_root):
-        return "guide"
     if relative == layout.tracker_path:
         return "tracker"
     if relative == layout.index_path:
         return "reference"
+    if path.parent == layout.repo_root and "INDEX" in name_upper:
+        return "guide"
+    if path_in_root(relative, layout.guides_root):
+        return "guide"
+    if path.parent == layout.repo_root and relative in layout.root_files:
+        return "guide"
     return ""
 
 

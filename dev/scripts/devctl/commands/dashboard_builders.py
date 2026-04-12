@@ -40,6 +40,8 @@ class NowSectionContext:
     instruction_text: str
     top_blocker: str
     last_change_age: int | None
+    coordination: dict[str, Any] | None = None
+    runtime_counts: dict[str, int] | None = None
     next_action_override: str = ""
 
 
@@ -72,11 +74,35 @@ from .dashboard_people import (
 
 def _build_now_section(ctx: NowSectionContext) -> dict[str, Any]:
     """Build the NOW section: who owns the loop right now and what they should do."""
-    impl_state = ctx.implementer.get("job_state", "n/a")
-    owner = "Implementer" if impl_state == "implementing" else "Reviewer"
-    reviewer_provider = ctx.reviewer.get("provider", "n/a")
-    impl_provider = ctx.implementer.get("provider", "n/a")
-    owner_provider = impl_provider if owner == "Implementer" else reviewer_provider
+    coordination = ctx.coordination if isinstance(ctx.coordination, dict) else {}
+    runtime_counts = ctx.runtime_counts if isinstance(ctx.runtime_counts, dict) else {}
+    reviewer_provider = _live_actor_provider(coordination, "reviewer") or ctx.reviewer.get(
+        "provider", "n/a"
+    )
+    impl_provider = _live_actor_provider(coordination, "implementer") or ctx.implementer.get(
+        "provider", "n/a"
+    )
+
+    live_reviewers = _live_role_count(
+        runtime_counts,
+        "live_reviewer_count",
+        "live_reviewer_total",
+    )
+    live_implementers = _live_role_count(
+        runtime_counts,
+        "live_implementer_count",
+        "live_implementer_total",
+    )
+    if live_reviewers > 0 and live_implementers == 0:
+        owner = "Reviewer"
+        owner_provider = reviewer_provider
+    elif live_implementers > 0 and live_reviewers == 0:
+        owner = "Implementer"
+        owner_provider = impl_provider
+    else:
+        impl_state = ctx.implementer.get("job_state", "n/a")
+        owner = "Implementer" if impl_state == "implementing" else "Reviewer"
+        owner_provider = impl_provider if owner == "Implementer" else reviewer_provider
 
     override = (ctx.next_action_override or "").strip()
     if override and override != "n/a":
@@ -96,7 +122,9 @@ def _build_now_section(ctx: NowSectionContext) -> dict[str, Any]:
             first_line = next_action.strip().splitlines()[0].lstrip("- ").strip()
             next_action = first_line[:60] + ("..." if len(first_line) > 60 else "")
 
-    instr_text = (ctx.instruction_text or "").strip()
+    instr_text = str(coordination.get("current_slice") or "").strip() or (
+        ctx.instruction_text or ""
+    ).strip()
     if instr_text and instr_text != "n/a":
         first_line = instr_text.splitlines()[0].lstrip("- ").strip()
         instr_text = first_line[:100] + ("..." if len(first_line) > 100 else "")
@@ -127,12 +155,46 @@ def _find_agent_by_role(
         job = (agent.get("current_job") or "").lower()
         if lane == role_lower or job == role_lower:
             return agent
-    _NAME_FALLBACK = {"reviewer": "codex", "implementer": "claude"}
-    fallback_name = _NAME_FALLBACK.get(role_lower, role_lower)
     for agent in agents:
-        if agent.get("provider") == fallback_name:
+        provider = str(agent.get("provider") or "").lower()
+        agent_id = str(agent.get("agent_id") or "").lower()
+        display_name = str(agent.get("display_name") or "").lower()
+        if role_lower in {provider, agent_id, display_name}:
             return agent
     return {}
+
+
+def _live_role_count(
+    runtime_counts: dict[str, int],
+    primary_key: str,
+    fallback_key: str,
+) -> int:
+    """Return a live-role count from either read-model field spelling."""
+    for key in (primary_key, fallback_key):
+        try:
+            return int(runtime_counts.get(key, 0) or 0)
+        except (TypeError, ValueError):
+            continue
+    return 0
+
+
+def _live_actor_provider(
+    coordination: dict[str, Any],
+    role: str,
+) -> str:
+    """Return the provider for the first live actor with the requested role."""
+    actors = coordination.get("actors", [])
+    if not isinstance(actors, list):
+        return ""
+    for actor in actors:
+        if not isinstance(actor, dict):
+            continue
+        actor_role = str(actor.get("role") or "").strip().lower()
+        presence = str(actor.get("presence") or "").strip().lower()
+        if actor_role != role or presence != "live":
+            continue
+        return str(actor.get("provider") or actor.get("actor_id") or "").strip()
+    return ""
 
 
 def _build_plan_section(

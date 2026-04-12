@@ -24,6 +24,7 @@ class ReadOnlyCommandSetTests(unittest.TestCase):
 
     def test_known_read_only_commands_present(self) -> None:
         expected = {
+            "auto-mode",
             "startup-context",
             "session-resume",
             "context-graph",

@@ -8914,7 +8914,10 @@ class ReviewChannelCommandTests(unittest.TestCase):
             self.assertFalse(attach_auth_policy["off_lan_allowed"])
             self.assertEqual(full_payload["attach_auth_policy"], attach_auth_policy)
             self.assertEqual(review_state["bridge"]["reviewer_mode"], "single_agent")
-            self.assertEqual(payload["bridge_liveness"]["overall_state"], "inactive")
+            self.assertEqual(
+                payload["bridge_liveness"]["overall_state"],
+                "single_agent_active",
+            )
 
     def test_run_reviewer_checkpoint_updates_sections_atomically(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

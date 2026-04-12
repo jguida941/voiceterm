@@ -119,7 +119,10 @@ def build_coordination_snapshot(
         resync_reasons=resync_reason_rows,
     )
     repo_identity = getattr(resolved_governance, "repo_identity", None)
-    current_slice = text(getattr(collaboration, "current_slice", "")) or text(
+    persisted_coordination = getattr(resolved_review_state, "coordination", None)
+    current_slice = text(getattr(persisted_coordination, "current_slice", "")) or text(
+        getattr(collaboration, "current_slice", "")
+    ) or text(
         getattr(getattr(resolved_review_state, "current_session", None), "current_instruction", "")
     ) or text(getattr(continuity, "current_goal", "")) or text(
         getattr(continuity, "next_action", "")

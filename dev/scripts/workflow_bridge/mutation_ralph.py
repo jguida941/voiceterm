@@ -4,6 +4,10 @@
 from __future__ import annotations
 
 import argparse
+import subprocess
+import sys
+from pathlib import Path
+
 if __package__:
     from .mutation_ralph_cli import build_parser
     from .mutation_ralph_config import resolve_config_command, resolve_config_from_env, write_config_outputs
@@ -14,6 +18,9 @@ if __package__:
         run_loop_command,
     )
 else:  # pragma: no cover - standalone script fallback
+    script_dir = Path(__file__).resolve().parent
+    if str(script_dir) not in sys.path:
+        sys.path.insert(0, str(script_dir))
     from mutation_ralph_cli import build_parser
     from mutation_ralph_config import resolve_config_command, resolve_config_from_env, write_config_outputs
     from mutation_ralph_loop import (
@@ -22,6 +29,8 @@ else:  # pragma: no cover - standalone script fallback
         extract_failure_reason_command,
         run_loop_command,
     )
+
+_run_loop_command = run_loop_command
 
 
 def main() -> int:

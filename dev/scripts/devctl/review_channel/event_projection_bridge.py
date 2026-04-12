@@ -29,6 +29,7 @@ def build_event_bridge_liveness_projection(
     publisher = _mapping(daemons.get("publisher"))
     reviewer_supervisor = _mapping(daemons.get("reviewer_supervisor"))
     queue = _mapping(review_state.get("queue"))
+    current_session = current_session_mapping(review_state)
     claude_status = event_agent_status(review_state, "claude")
     claude_ack = event_claude_ack(queue)
     reviewer_mode = _event_reviewer_mode(runtime)
@@ -73,6 +74,23 @@ def build_event_bridge_liveness_projection(
     bridge_liveness["current_instruction_revision"] = instruction_rev
     bridge_liveness["claude_ack_revision"] = ""
     bridge_liveness["claude_ack_current"] = False
+    bridge_liveness["reviewer_poll_state"] = bridge_liveness["codex_poll_state"]
+    bridge_liveness["last_reviewer_poll_utc"] = bridge_liveness["last_codex_poll_utc"]
+    bridge_liveness["last_reviewer_poll_age_seconds"] = bridge_liveness[
+        "last_codex_poll_age_seconds"
+    ]
+    bridge_liveness["implementer_status"] = str(
+        current_session.get("implementer_status") or claude_status or ""
+    )
+    bridge_liveness["implementer_ack"] = str(
+        current_session.get("implementer_ack") or claude_ack or ""
+    )
+    bridge_liveness["implementer_ack_revision"] = str(
+        current_session.get("implementer_ack_revision") or ""
+    )
+    bridge_liveness["implementer_ack_current"] = (
+        str(current_session.get("implementer_ack_state") or "").strip() == "current"
+    )
     bridge_liveness["launch_truth"] = classify_launch_truth(bridge_liveness).value
     bridge_liveness["effective_reviewer_mode"] = effective_reviewer_mode(
         bridge_liveness
@@ -92,6 +110,41 @@ def build_event_bridge_state_projection(
     reviewer_mode = str(bridge_liveness.get("reviewer_mode") or "tools_only")
     effective_mode = str(
         bridge_liveness.get("effective_reviewer_mode") or reviewer_mode
+    )
+    reviewer_poll_state = str(
+        bridge_liveness.get("reviewer_poll_state")
+        or bridge_liveness.get("codex_poll_state")
+        or "missing"
+    )
+    reviewer_poll_utc = str(
+        bridge_liveness.get("last_reviewer_poll_utc")
+        or review_state.get("timestamp")
+        or ""
+    )
+    reviewer_poll_age = int(
+        bridge_liveness.get("last_reviewer_poll_age_seconds")
+        or bridge_liveness.get("last_codex_poll_age_seconds")
+        or 0
+    )
+    implementer_status = str(
+        current_session.get("implementer_status")
+        or bridge_liveness.get("implementer_status")
+        or ""
+    )
+    implementer_ack = str(
+        current_session.get("implementer_ack")
+        or bridge_liveness.get("implementer_ack")
+        or ""
+    )
+    implementer_ack_revision = str(
+        current_session.get("implementer_ack_revision")
+        or bridge_liveness.get("implementer_ack_revision")
+        or ""
+    )
+    implementer_ack_current = (
+        str(current_session.get("implementer_ack_state") or "").strip() == "current"
+        or bool(bridge_liveness.get("implementer_ack_current"))
+        or bool(bridge_liveness.get("claude_ack_current"))
     )
     reviewer_provider = _collaboration_provider(
         collaboration,
@@ -128,22 +181,23 @@ def build_event_bridge_state_projection(
     bridge_state["current_instruction"] = str(
         current_session.get("current_instruction") or ""
     )
-    bridge_state["claude_status"] = str(
-        current_session.get("implementer_status") or ""
-    )
-    bridge_state["claude_ack"] = str(current_session.get("implementer_ack") or "")
-    bridge_state["claude_ack_current"] = bool(
-        bridge_liveness.get("claude_ack_current")
-    )
+    bridge_state["claude_status"] = implementer_status
+    bridge_state["claude_ack"] = implementer_ack
+    bridge_state["claude_ack_current"] = implementer_ack_current
     bridge_state["current_instruction_revision"] = str(
         current_session.get("current_instruction_revision") or ""
     )
-    bridge_state["claude_ack_revision"] = str(
-        current_session.get("implementer_ack_revision") or ""
-    )
+    bridge_state["claude_ack_revision"] = implementer_ack_revision
     bridge_state["last_reviewed_scope"] = str(
         current_session.get("last_reviewed_scope") or ""
     )
+    bridge_state["reviewer_poll_state"] = reviewer_poll_state
+    bridge_state["last_reviewer_poll_utc"] = reviewer_poll_utc
+    bridge_state["last_reviewer_poll_age_seconds"] = reviewer_poll_age
+    bridge_state["implementer_status"] = implementer_status
+    bridge_state["implementer_ack"] = implementer_ack
+    bridge_state["implementer_ack_current"] = implementer_ack_current
+    bridge_state["implementer_ack_revision"] = implementer_ack_revision
     bridge_state["launch_truth"] = str(bridge_liveness.get("launch_truth") or "")
     bridge_state["effective_reviewer_mode"] = effective_mode
     bridge_state["implementer_state_hash"] = str(
