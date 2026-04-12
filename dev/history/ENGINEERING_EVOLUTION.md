@@ -75,6 +75,37 @@ so read-only dashboard and status clients follow the action-request-first
 control path during remote beta polls instead of falling back to a later
 commentary packet while a live action request is still pending.
 
+### 2026-04-11 - Single-agent remote-control attachment truth now stays aligned across status, doctor, and control-plane reads
+
+Fact: the same remote-dashboard beta loop found a second single-agent liveness
+gap after the local reviewer fallback landed. Codex could stay live when fresh
+packet or rollout evidence proved the sanctioned reviewer takeover, but Claude
+could still drop out of `bridge_liveness` / `ControlPlaneReadModel` once its
+last typed packet aged past the session-probe freshness window even though the
+typed `remote_control_attachment` still said the external session was attached.
+
+This matters because remote-control sessions answer a different question from
+reviewer packet freshness: "is the attached remote implementer still the live
+repo-owned authority for this single-agent lane?" If status, doctor, or the
+dashboard demote Claude just because packet recency is old, the operator sees
+false stale-state churn even while the attached phone session is still the
+current implementer.
+
+The closure makes the attachment authoritative on that path. Bridge-backed
+status now merges active typed `remote_control_attachment` providers into
+single-agent conductor truth, and the shared daemon/read-model reducer treats
+an attached remote-control provider as live implementer authority before it
+falls back to stale `*-conductor.json` metadata. That keeps `review-channel
+status`, doctor, and `ControlPlaneReadModel` aligned during remote-control
+sessions even when Claude has not posted a fresh typed packet recently.
+
+Evidence: `dev/scripts/devctl/review_channel/status_projection_helpers.py`,
+`dev/scripts/devctl/runtime/control_plane_daemons.py`,
+`dev/scripts/devctl/tests/review_channel/test_recovery_assessment.py`,
+`dev/scripts/devctl/tests/runtime/test_control_plane_read_model.py`,
+`dev/active/MASTER_PLAN.md`, `dev/active/ai_governance_platform.md`,
+`dev/scripts/README.md`.
+
 ### 2026-04-07 - ReviewSnapshot hook hardening routed through owner plans
 
 ### 2026-04-11 - Local single-agent takeover now stays local in startup and coordination truth

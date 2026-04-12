@@ -325,7 +325,10 @@ Three quality layers matter in practice:
     same sanctioned local takeover is active local implementation authority
     when no remote-control attachment is live, so startup/coordination should
     not force a dual-agent relaunch merely because the repo has no live pair.
-    That
+    In governed remote-control `single_agent` lanes, status/doctor/dashboard
+    must also keep the attached remote provider live from typed
+    `remote_control_attachment` authority rather than letting Claude fall out
+    of conductor truth just because the last typed packet is old. That
     local takeover now also retires the detached publisher/reviewer-supervisor
     runtime so stale dual-agent heartbeats cannot silently restore
     `active_dual_agent` after the reviewer has intentionally downgraded modes.

@@ -627,7 +627,11 @@ checklist plus chat memory.
     sanctioned local `single_agent` takeover as active local implementation
     authority when no typed remote-control attachment is live, rather than
     misclassifying the repo as governed `remote_control` just because no live
-    dual-agent pair is running. A deliberate
+    dual-agent pair is running. In governed remote-control `single_agent`
+    lanes, bridge-backed status and `ControlPlaneReadModel` must also keep the
+    attached remote provider live from typed `remote_control_attachment`
+    authority instead of dropping Claude solely because recent typed packet
+    activity aged past the reviewer-session freshness window. A deliberate
     `reviewer-heartbeat --reviewer-mode single_agent` takeover must also
     retire the detached publisher/reviewer-supervisor runtime so stale
     dual-agent heartbeats cannot silently restore `active_dual_agent`

@@ -8,6 +8,9 @@ from pathlib import Path
 from unittest.mock import patch
 
 from dev.scripts.devctl.review_channel import collaboration_session as collaboration_mod
+from dev.scripts.devctl.review_channel.remote_control_attachment_artifact import (
+    persist_remote_control_attachment,
+)
 from dev.scripts.devctl.review_channel.recovery_assessment import (
     build_recovery_assessment,
 )
@@ -16,6 +19,9 @@ from dev.scripts.devctl.review_channel.status_projection_helpers import (
     bridge_liveness_warnings,
 )
 from dev.scripts.devctl.runtime.review_state_models import ReviewCurrentSessionState
+from dev.scripts.devctl.runtime.reviewer_runtime_models import (
+    RemoteControlAttachmentState,
+)
 
 
 def _current_session() -> ReviewCurrentSessionState:
@@ -116,6 +122,46 @@ def test_single_agent_warning_mentions_typed_authority_for_recent_rollout_activi
     warnings = bridge_liveness_warnings(bridge_liveness)
 
     assert bridge_liveness["codex_conductor_active"] is True
+    assert any(
+        "typed status/packet surfaces remain authoritative" in warning
+        for warning in warnings
+    )
+
+
+def test_single_agent_remote_control_attachment_keeps_claude_typed_authority(
+    tmp_path: Path,
+) -> None:
+    output_root = tmp_path / "dev/reports/review_channel/latest"
+    output_root.mkdir(parents=True)
+    persist_remote_control_attachment(
+        RemoteControlAttachmentState(
+            provider="claude",
+            role="implementer",
+            attachment_id="remote-attach-1",
+            session_name="Claude remote control",
+            remote_session_id="session_abc123",
+            session_url="https://claude.ai/code/session_abc123",
+            status="attached",
+            attached_at_utc="2026-04-11T23:00:00Z",
+            last_seen_utc="2026-04-11T23:00:01Z",
+        ),
+        output_root=output_root,
+    )
+    bridge_liveness = {
+        "reviewer_mode": "single_agent",
+        "effective_reviewer_mode": "single_agent",
+        "claude_status_present": True,
+        "claude_ack_current": True,
+    }
+
+    attach_conductor_session_state(
+        bridge_liveness=bridge_liveness,
+        output_root=output_root,
+    )
+    warnings = bridge_liveness_warnings(bridge_liveness)
+
+    assert bridge_liveness["claude_conductor_active"] is True
+    assert "claude" in bridge_liveness["active_conductor_providers"]
     assert any(
         "typed status/packet surfaces remain authoritative" in warning
         for warning in warnings

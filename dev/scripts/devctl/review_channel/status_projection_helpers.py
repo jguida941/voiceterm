@@ -16,6 +16,7 @@ from .peer_liveness import (
     ReviewerFreshness,
     reviewer_mode_is_active,
 )
+from .remote_control_attachment_artifact import load_remote_control_attachments
 from .reviewer_runtime_session_owner import conductor_visibility
 from .session_state_hints import provider_session_state_hint
 from ..governance.push_policy import load_push_policy
@@ -187,6 +188,12 @@ def attach_conductor_session_state(
     output_root: Path,
 ) -> None:
     active_providers = list(active_conductor_providers(session_output_root=output_root))
+    for provider in _single_agent_remote_control_providers(
+        bridge_liveness=bridge_liveness,
+        output_root=output_root,
+    ):
+        if provider not in active_providers:
+            active_providers.append(provider)
     reviewer_provider = _single_agent_local_reviewer_provider(
         bridge_liveness=bridge_liveness,
         output_root=output_root,
@@ -226,6 +233,29 @@ def _single_agent_local_reviewer_provider(
     ):
         return None
     return reviewer_provider
+
+
+def _single_agent_remote_control_providers(
+    *,
+    bridge_liveness: Mapping[str, object],
+    output_root: Path,
+) -> tuple[str, ...]:
+    reviewer_mode = str(
+        bridge_liveness.get("effective_reviewer_mode")
+        or bridge_liveness.get("reviewer_mode")
+        or ""
+    ).strip()
+    if reviewer_mode != "single_agent":
+        return ()
+    providers: list[str] = []
+    for attachment in load_remote_control_attachments(
+        output_root=output_root,
+        active_only=True,
+    ):
+        provider = str(attachment.provider or "").strip().lower()
+        if provider and provider not in providers:
+            providers.append(provider)
+    return tuple(providers)
 
 
 def hybrid_loop_errors(bridge_liveness: dict[str, object]) -> list[str]:

@@ -6,6 +6,11 @@ import os
 from pathlib import Path
 from typing import Any
 
+from .reviewer_runtime_models import (
+    has_active_remote_control_attachment,
+    remote_control_attachment_from_mapping,
+)
+
 
 def resolve_daemon_state(sources: dict[str, Any]) -> dict[str, Any]:
     """Derive publisher/supervisor/conductor liveness from typed authority."""
@@ -23,6 +28,10 @@ def resolve_daemon_state(sources: dict[str, Any]) -> dict[str, Any]:
         _is_daemon_running(sources.get("supervisor_hb")),
     )
     codex_alive = _coalesce_bool(
+        _single_agent_remote_attachment_activity(
+            authority=authority,
+            target_provider="codex",
+        ),
         _single_agent_local_reviewer_activity(
             authority=authority,
             sources=sources,
@@ -32,6 +41,10 @@ def resolve_daemon_state(sources: dict[str, Any]) -> dict[str, Any]:
         _is_conductor_alive(sources.get("codex_conductor")),
     )
     claude_alive = _coalesce_bool(
+        _single_agent_remote_attachment_activity(
+            authority=authority,
+            target_provider="claude",
+        ),
         _single_agent_local_reviewer_activity(
             authority=authority,
             sources=sources,
@@ -131,6 +144,30 @@ def _single_agent_local_reviewer_activity(
     ):
         return True
     return None
+
+
+def _single_agent_remote_attachment_activity(
+    *,
+    authority: dict[str, Any],
+    target_provider: str,
+) -> bool | None:
+    """Treat an attached remote-control provider as live single-agent truth."""
+    bridge = _typed_bridge(authority)
+    reviewer_mode = str(bridge.get("reviewer_mode") or "").strip()
+    if reviewer_mode != "single_agent":
+        return None
+    reviewer_runtime = authority.get("reviewer_runtime")
+    if not isinstance(reviewer_runtime, dict):
+        return None
+    attachment = remote_control_attachment_from_mapping(
+        reviewer_runtime.get("remote_control_attachment")
+    )
+    if not has_active_remote_control_attachment(attachment):
+        return None
+    provider = str(attachment.provider or "").strip().lower()
+    if provider != target_provider:
+        return None
+    return True
 
 
 def _reviewer_provider(authority: dict[str, Any]) -> str:

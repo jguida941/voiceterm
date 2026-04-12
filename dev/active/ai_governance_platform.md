@@ -6585,6 +6585,14 @@ Execution order for this section:
   and the startup-authority guard fails closed on
   `concurrent_writer_activity` instead of reporting concurrent uncontrolled
   writers as a generic dirty-budget block.
+- 2026-04-11: Closed the next remote-control read-side parity gap in the
+  `MP-377` owner chain. Single-agent bridge-backed status now merges active
+  typed `remote_control_attachment` providers into conductor truth, and the
+  shared daemon/read-model reducer treats an attached remote-control provider
+  as live implementer authority before it falls back to stale
+  `*-conductor.json` metadata. That keeps `review-channel status`, doctor, and
+  `ControlPlaneReadModel` aligned during remote-control sessions even when the
+  last Claude packet ages past the session-probe freshness window.
 - 2026-04-07: Absorbed the ReviewSnapshot hardening audit as routed intake
   rather than a shadow plan. The accepted product-level work is cross-surface
   consistency for the snapshot, contract registration/schema coverage,

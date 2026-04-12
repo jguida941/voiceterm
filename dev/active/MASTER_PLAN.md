@@ -191,6 +191,14 @@
   Codex edit/test turns stay visible through `status`, `doctor`, runtime
   counts, and dashboard health instead of dropping out after the old
   packet-only freshness window.
+- 2026-04-11 remote-control attachment parity follow-up in `MP-380..MP-387`
+  scope: bridge-backed `review-channel status` now merges active typed
+  `remote_control_attachment` providers into single-agent conductor truth, and
+  `ControlPlaneReadModel` treats an attached remote-control provider as live
+  single-agent implementer authority before falling back to stale
+  `*-conductor.json` metadata. That keeps Claude visible across status,
+  doctor, and dashboard health even when its last typed packet is older than
+  the session-probe freshness window.
 - 2026-04-11 action-request delivery follow-up in `MP-380..MP-387` scope:
   event-backed `action_request` packets now carry typed delivery receipts too:
   post seeds `delivery_emitted_at_utc`, targeted `inbox|watch` polls stamp

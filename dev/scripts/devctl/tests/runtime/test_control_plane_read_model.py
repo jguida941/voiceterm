@@ -590,6 +590,34 @@ class ResolverUnitTests(unittest.TestCase):
                 self.assertTrue(d["codex_conductor_alive"])
                 self.assertFalse(d["claude_conductor_alive"])
 
+    def test_resolve_daemon_promotes_single_agent_remote_control_attachment(
+        self,
+    ) -> None:
+        sources = _empty_sources()
+        sources["review_state"] = {
+            "bridge": {
+                "reviewer_mode": "single_agent",
+                "codex_conductor_active": False,
+                "claude_conductor_active": False,
+            },
+            "reviewer_runtime": {
+                "remote_control_attachment": {
+                    "provider": "claude",
+                    "role": "implementer",
+                    "attachment_id": "remote-attach-1",
+                    "session_name": "VoiceTerm Bridge Loop",
+                    "remote_session_id": "session_abc123",
+                    "session_url": "https://claude.ai/code/session_abc123",
+                    "status": "attached",
+                }
+            },
+        }
+
+        d = resolve_daemon_state(sources)
+
+        self.assertFalse(d["codex_conductor_alive"])
+        self.assertTrue(d["claude_conductor_alive"])
+
     def test_resolve_pending_packets_none(self) -> None:
         self.assertEqual(resolve_pending_packets(None), 0)
 
