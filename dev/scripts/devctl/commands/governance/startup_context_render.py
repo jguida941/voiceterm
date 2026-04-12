@@ -404,11 +404,33 @@ def _append_coordination_snapshot(lines: list[str], ctx_dict: dict) -> None:
         lines.append(f"- duplicate_worktrees: {_join_paths(duplicate_worktrees)}")
     actors = coordination.get("actors")
     if isinstance(actors, list) and actors:
-        actor_labels = [
-            f"{str(row.get('actor_id') or '').strip()}:{str(row.get('presence') or '').strip()}"
-            for row in actors
-            if isinstance(row, dict) and str(row.get("actor_id") or "").strip()
-        ]
+        actor_labels = []
+        for row in actors:
+            if not isinstance(row, dict):
+                continue
+            actor_id = str(row.get("actor_id") or "").strip()
+            if not actor_id:
+                continue
+            detail = f"{actor_id}:{str(row.get('presence') or '').strip()}"
+            provider = str(row.get("provider") or "").strip()
+            role = str(row.get("role") or "").strip()
+            lane = str(row.get("lane") or "").strip()
+            worktree = str(row.get("worktree") or "").strip()
+            branch = str(row.get("branch") or "").strip()
+            mp_scope = str(row.get("mp_scope") or "").strip()
+            if provider:
+                detail += f"|provider={provider}"
+            if role:
+                detail += f"|role={role}"
+            if lane:
+                detail += f"|lane={lane}"
+            if worktree:
+                detail += f"|worktree={worktree}"
+            if branch:
+                detail += f"|branch={branch}"
+            if mp_scope:
+                detail += f"|scope={mp_scope}"
+            actor_labels.append(detail)
         if actor_labels:
             lines.append(f"- actors: {_join_paths(actor_labels)}")
     lines.append("")

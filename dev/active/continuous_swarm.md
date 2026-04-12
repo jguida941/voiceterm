@@ -6,8 +6,12 @@ Owner lane: Review-control/continuous automation
 
 ## Scope
 
-Build a local-first, self-sustaining Codex-reviewer / Claude-coder loop in this
-repo before attempting any reusable template extraction.
+Build a local-first, self-sustaining reviewer/coder loop in this repo before
+attempting any reusable template extraction. The current live proof harness is
+still Codex-reviewer / Claude-coder, but closure for this plan requires the
+same backend to support any supported provider in reviewer, implementer, or
+dashboard/operator roles without reopening a second control plane or making the
+phone operator manage git/worktree mechanics directly.
 
 This plan covers:
 
@@ -79,12 +83,15 @@ Out of scope until the local proof gate is green:
     inside the modular/callable platform tracked under `MP-377`, so loop work
     is only valid when it preserves or improves the shared backend/runtime/
     repo-pack boundary instead of deepening VoiceTerm-specific coupling.
-13. Codex is the sole conductor and final reviewer for the live loop. It owns
-    reviewer truth, next-slice promotion, and accept/rework decisions on
-    Claude output.
-14. Claude may fan out many bounded coding workers, but only behind one Claude
-    conductor. Claude workers do not self-promote scope, rewrite
-    reviewer-owned bridge/backend state, or bypass the active plan chain.
+13. The current local proof harness still uses Codex as the sole conductor and
+    final reviewer, but that is provisional execution state, not backend law.
+    Closure for this plan requires any supported provider assigned the typed
+    reviewer role to own reviewer truth, next-slice promotion, and
+    accept/rework decisions over the same backend contracts.
+14. The current local proof harness still lets Claude fan out many bounded
+    coding workers, but only behind one Claude conductor. Closure for this
+    plan requires the same worker-fanout and scope guardrails to hold when the
+    implementer role is assigned to another supported provider.
 14.1 Worker fan-out must be plan-derived and deterministic. Conductors assign
     lanes from the active `WorkIntakePacket` / selected `PlanTargetRef` /
     `PlanExpectationPacket`, and each worker receives one bounded scope:
@@ -404,6 +411,17 @@ Out of scope until the local proof gate is green:
       boundary rather than the current repo-hardcoded path.
 
 ## Progress Log
+
+- 2026-04-12: Started the role-portability + phone-operator execution slice.
+  The active docs already require one shared backend for developers, agents,
+  and remote-control clients, but the live local proof still speaks in
+  `Codex reviewer` / `Claude coder` terms and still exposes provider-shaped
+  authority seams. The new closure order is explicit: keep the phone-attached
+  primary worktree as the control/dashboard lane, move mutating implementation
+  work into reusable isolated worker worktrees, replace provider-coded role
+  defaults and turn-authority assumptions with typed role assignment, and then
+  rerun the beta matrix as `Codex reviewer + Codex worker implementer + Claude
+  dashboard` before widening to swapped reviewer/implementer assignments.
 
 - 2026-04-05: Closed two operator-facing review-loop safety gaps on the same
   `MP-358` slice. The live recovery-command authority now recommends visible
@@ -888,6 +906,12 @@ Out of scope until the local proof gate is green:
 
 ## Session Resume
 
+- Current status: resume from the new role-portability closure slice, not from
+  another Codex/Claude-only loop hardening pass.
+- Next action: patch the typed role registry and turn-authority/read-model
+  seams first, then prove the hidden primary-control plus worker-worktree
+  operating model with `Codex reviewer + Codex worker implementer + Claude
+  phone dashboard` before widening to swapped-role tests.
 - Current status: this plan remains active; the highest-priority open slice is
   reviewer-turn authority convergence for the live Codex/Claude loop.
 - Next action: resume at Slice 2 of the 2026-04-03 repair order. Persist the

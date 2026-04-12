@@ -19,6 +19,7 @@ from .launch_authority import NON_RESTARTABLE_LAUNCH_AUTHORITY_EXIT_CODE
 @dataclass(frozen=True)
 class _SessionScriptHeader:
     repo_root: Path
+    workspace_root: Path
     prompt: str
     headless: bool
     prepared_head_sha: str
@@ -31,6 +32,7 @@ def build_session_script(
     *,
     provider: str,
     repo_root: Path,
+    workspace_root: Path | None = None,
     prompt: str,
     script_path: Path,
     log_path: Path | None = None,
@@ -47,6 +49,9 @@ def build_session_script(
     """Write one launch script for a conductor session."""
     if interaction_mode == "remote_control":
         headless = True
+    effective_workspace_root = (
+        workspace_root.resolve() if workspace_root is not None else repo_root.resolve()
+    )
     cli_path = resolve_cli_path_fn(provider)
     provider_args = _provider_args(
         provider=provider,
@@ -59,6 +64,7 @@ def build_session_script(
     lines = _header_lines(
         _SessionScriptHeader(
             repo_root=repo_root,
+            workspace_root=effective_workspace_root,
             prompt=prompt,
             headless=headless,
             prepared_head_sha=prepared_head_sha,
@@ -68,7 +74,7 @@ def build_session_script(
         )
     )
     lines.extend(_launch_authority_check_lines())
-    lines.extend(_run_once_opening(repo_root=repo_root))
+    lines.extend(_run_once_opening(workspace_root=effective_workspace_root))
     lines.extend(f"  {line}" for line in _provider_shell_prelude(provider))
     lines.extend([f"  {execution_command} \"$REVIEW_CHANNEL_PROMPT\"", "}", ""])
     if log_path is not None:
@@ -85,7 +91,9 @@ def _header_lines(header: _SessionScriptHeader) -> list[str]:
         "#!/bin/zsh",
         "set -euo pipefail",
         "",
-        f"cd {shlex.quote(str(header.repo_root))}",
+        f"REVIEW_CHANNEL_CONTROL_ROOT={shlex.quote(str(header.repo_root.resolve()))}",
+        f"REVIEW_CHANNEL_WORKSPACE_ROOT={shlex.quote(str(header.workspace_root))}",
+        f"cd {shlex.quote(str(header.workspace_root))}",
         "PROMPT=$(cat <<'EOF_PROMPT'",
         header.prompt,
         "EOF_PROMPT",
@@ -195,10 +203,10 @@ def _launch_authority_check_lines() -> list[str]:
     ]
 
 
-def _run_once_opening(*, repo_root: Path) -> list[str]:
+def _run_once_opening(*, workspace_root: Path) -> list[str]:
     return [
         "run_review_channel_once() {",
-        f"  cd {shlex.quote(str(repo_root))}",
+        f"  cd {shlex.quote(str(workspace_root))}",
         "  review_channel_launch_authority_check || return $?",
     ]
 

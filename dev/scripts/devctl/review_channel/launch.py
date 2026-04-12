@@ -16,6 +16,7 @@ from .launch_records import (
     LaunchSessionRequest,
     PreparedSessionRecord,
     legacy_provider_lane_map,
+    resolve_session_workspace_root,
     session_output_paths,
 )
 from .launch_authority import build_prepared_launch_authority
@@ -133,12 +134,6 @@ def build_launch_sessions(
             else None
         )
     )
-    launch_authority = build_prepared_launch_authority(
-        repo_root=request.repo_root,
-        bridge_path=request.bridge_path,
-        bridge_liveness=request.bridge_liveness,
-        review_state_path=review_state_path,
-    )
     prepared_at = utc_timestamp()
     launch_specs = build_conductor_launch_specs(
         provider_lane_map=request.provider_lane_map
@@ -162,6 +157,17 @@ def build_launch_sessions(
         lanes = list(spec.lanes)
         requested_worker_budget = spec.requested_worker_budget
         session_name = f"{provider}-conductor"
+        workspace_root = resolve_session_workspace_root(
+            repo_root=request.repo_root,
+            lanes=lanes,
+            default_worktree_path=request.worktree_path,
+        )
+        launch_authority = build_prepared_launch_authority(
+            workspace_root=workspace_root,
+            bridge_path=request.bridge_path,
+            bridge_liveness=request.bridge_liveness,
+            review_state_path=review_state_path,
+        )
         log_path, metadata_path = session_output_paths(
             session_dir=session_dir,
             session_name=session_name,
@@ -176,6 +182,7 @@ def build_launch_sessions(
             review_channel_path=request.review_channel_path,
             bridge_path=request.bridge_path,
             lanes=lanes,
+            workspace_root=workspace_root,
             codex_workers=request.codex_workers,
             claude_workers=request.claude_workers,
             requested_worker_budget=requested_worker_budget,
@@ -212,11 +219,13 @@ def build_launch_sessions(
             prepared_instruction_revision=launch_authority.instruction_revision,
             prepared_session_token=launch_authority.session_token,
             review_state_path=launch_authority.review_state_path,
+            workspace_root=workspace_root,
         )
         session_record.write_metadata()
         script_path = build_session_script(
             provider=provider,
             repo_root=request.repo_root,
+            workspace_root=workspace_root,
             prompt=prompt,
             approval_mode=resolved_approval_mode,
             dangerous=request.dangerous,

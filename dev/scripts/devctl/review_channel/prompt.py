@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 
 from ..approval_mode import DEFAULT_APPROVAL_MODE
 from ..runtime.role_profile import normalize_tandem_role, role_for_provider
+from .launch_records import resolve_lane_worktree_path
 from .prompt_sections import (
     OperatingContractInput,
     operating_contract_lines,
@@ -40,6 +41,7 @@ def build_conductor_prompt(
     review_channel_path: Path,
     bridge_path: Path,
     lanes: list["LaneAssignment"],
+    workspace_root: Path | None = None,
     codex_workers: int,
     claude_workers: int,
     requested_worker_budget: int | None = None,
@@ -56,6 +58,9 @@ def build_conductor_prompt(
 ) -> str:
     """Render the initial conductor prompt for Codex or Claude."""
     resolved_role = (normalize_tandem_role(role) or role_for_provider(provider)).value
+    resolved_workspace_root = (
+        workspace_root.resolve() if workspace_root is not None else repo_root.resolve()
+    )
     capability = resolve_conductor_capability(
         provider=provider,
         role=resolved_role,
@@ -73,7 +78,8 @@ def build_conductor_prompt(
     )
     lane_lines = [
         (
-            f"- {lane.agent_id}: {lane.lane} | worktree {lane.worktree} | "
+            f"- {lane.agent_id}: {lane.lane} | worktree {lane.worktree or '.'} | "
+            f"workspace {resolve_lane_worktree_path(repo_root=repo_root, lane=lane)} | "
             f"branch {lane.branch} | scope {lane.mp_scope}"
         )
         for lane in lanes
@@ -122,6 +128,7 @@ def build_conductor_prompt(
                 "handoff bundle, exit the old session cleanly so it does not linger "
                 "in memory or on the host."
             ),
+            f"- Session workspace root: `{resolved_workspace_root}`",
             *bridge_liveness_lines(bridge_liveness),
             *rollover_ack_lines(
                 rollover_ack_line=rollover_ack_line,

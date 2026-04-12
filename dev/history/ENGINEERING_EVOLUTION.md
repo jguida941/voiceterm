@@ -4,7 +4,7 @@
 
 **Status:** Draft v4 (historical design and process record)
 **Audience:** users and developers
-**Last Updated:** 2026-04-11
+**Last Updated:** 2026-04-12
 
 ## At a Glance
 
@@ -38,6 +38,35 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 - [Developer Path (15 min)](#developer-path-15-min)
 
 ### 2026-04-11 - Action-request receipts and queue priority now stay aligned across inbox, dashboard, and current-session truth
+
+### 2026-04-12 - Role-first portability and phone-operator worker-lane planning are now explicit owner-plan state
+
+Fact: the architecture docs already said reviewer, implementer, and operator
+are role-first contracts over one shared backend, but the active execution
+plans still mixed that with live-proof language that read as `Codex reviewer`
+/ `Claude coder`. The phone beta loop exposed the operational side of the same
+gap too: the repo needed an explicit control-lane plus worker-lane model so a
+phone-attached dashboard session does not have to share one mutating worktree
+with active coding.
+
+This matters because the system cannot credibly claim "any provider, any role"
+until the tracked execution state says exactly how the repo will prove it. If
+the owner docs still read like the provider assignment is architecture truth,
+runtime fixes drift back toward the old assumption and external proof stays
+underspecified.
+
+The closure promoted that work into the existing owner chain instead of
+starting a new plan. `MASTER_PLAN`, `continuous_swarm`, `remote_control_runtime`,
+and `ai_governance_platform` now all say the same thing: keep the phone-
+attached primary worktree as the control/dashboard lane, run mutating
+implementation in reusable worker worktrees, remove provider-coded role and
+liveness assumptions from the runtime, prove the first local beta matrix as
+`Codex reviewer + Codex worker implementer + Claude dashboard`, and only then
+widen to swapped-role and external-repo proofs.
+
+Evidence: `dev/active/MASTER_PLAN.md`, `dev/active/continuous_swarm.md`,
+`dev/active/remote_control_runtime.md`,
+`dev/active/ai_governance_platform.md`.
 
 Fact: the remote dashboard beta loop exposed two coupled packet-control gaps.
 The repo could prove that an `action_request` existed, but delivery/start state
@@ -74,6 +103,40 @@ The same priority selector also drives `current_session.current_instruction`
 so read-only dashboard and status clients follow the action-request-first
 control path during remote beta polls instead of falling back to a later
 commentary packet while a live action request is still pending.
+
+Fact: the next beta gap was lane portability truth rather than packet control.
+The launcher parsed worker-worktree assignments but still prepared conductor
+sessions from the shared repo root, and even after the single-agent liveness
+fix landed, the attention classifier could still tell the phone operator that
+a healthy typed dashboard lane was `inactive`.
+
+This matters because the phone/dashboard model only becomes credible once the
+repo can prove two things simultaneously: the coding session is actually
+running inside its assigned worker worktree, and the read-only control lane is
+diagnosed by its real blocker instead of a stale dual-agent assumption.
+
+The closure made the worker-lane model load-bearing. Launch/session metadata
+now record one resolved workspace root per provider session, the generated
+conductor scripts start from that worker worktree, prompts and typed
+collaboration/coordination state carry the same lane/worktree identity into
+startup-context and dashboard surfaces, and `single_agent_active` no longer
+falls back to `inactive` in recovery diagnosis. In the live worker-lane proof,
+`review-channel status` still blocks because the tree is over checkpoint
+budget, but it now says `checkpoint_required` instead of falsely telling the
+operator to relaunch a live dashboard lane.
+
+Evidence: `dev/scripts/devctl/review_channel/launch_records.py`,
+`dev/scripts/devctl/review_channel/launch.py`,
+`dev/scripts/devctl/review_channel/launch_script.py`,
+`dev/scripts/devctl/review_channel/session_probe.py`,
+`dev/scripts/devctl/review_channel/collaboration_session_roster.py`,
+`dev/scripts/devctl/platform/coordination_snapshot_support.py`,
+`dev/scripts/devctl/review_channel/attention_classify.py`,
+`dev/scripts/devctl/tests/review_channel/test_launch_topology.py`,
+`dev/scripts/devctl/tests/review_channel/test_launch_script.py`,
+`dev/scripts/devctl/tests/review_channel/test_collaboration_session.py`,
+`dev/scripts/devctl/tests/review_channel/test_recovery_assessment.py`, and
+`dev/scripts/devctl/tests/runtime/test_startup_context.py`.
 
 ### 2026-04-11 - Single-agent remote-control attachment truth now stays aligned across status, doctor, and control-plane reads
 

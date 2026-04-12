@@ -199,6 +199,16 @@
   `*-conductor.json` metadata. That keeps Claude visible across status,
   doctor, and dashboard health even when its last typed packet is older than
   the session-probe freshness window.
+- 2026-04-12 worker-lane portability follow-up in `MP-380..MP-387` scope:
+  launch/session metadata now carry one resolved workspace root per launched
+  provider session, the generated conductor scripts `cd` into that worker
+  worktree instead of silently mutating the shared control lane, prompts and
+  collaboration/session metadata now project lane/worktree identity forward
+  into coordination/dashboard surfaces, and the single-agent attention
+  classifier no longer downgrades a live typed `single_agent_active` lane to
+  fake `inactive`. The same status receipt now reports the real blocker
+  (`checkpoint_required` in the current dirty-tree proof) instead of telling
+  the operator to relaunch a healthy single-agent dashboard lane.
 - 2026-04-11 action-request delivery follow-up in `MP-380..MP-387` scope:
   event-backed `action_request` packets now carry typed delivery receipts too:
   post seeds `delivery_emitted_at_utc`, targeted `inbox|watch` polls stamp
@@ -4005,7 +4015,16 @@ become the main product surface.
   self-promoting scope or rewriting reviewer-owned bridge state, and every
   non-trivial slice must keep a separate Codex-side architecture-fit reviewer
   before acceptance so worker fan-out does not turn into a second control
-  plane. Execution spec:
+  plane. Latest 2026-04-12 follow-up: the owner docs already require one
+  shared backend where any supported provider can fill reviewer,
+  implementer, or dashboard/operator roles, but the live proof still carries
+  `codex reviewer` / `claude implementer` assumptions in role defaults,
+  turn-authority helpers, and bridge/handoff fields. The next closure slice is
+  explicit: keep the phone-attached primary worktree as the control/dashboard
+  lane, move implementation into reusable isolated worker worktrees, and prove
+  the first beta matrix as `Codex reviewer + Codex worker implementer + Claude
+  dashboard` before widening to swapped reviewer/implementer assignments.
+  Execution spec:
   `dev/active/continuous_swarm.md`.
 - [ ] MP-359 Deliver a bounded optional PyQt6 VoiceTerm Operator Console for
   the current review-channel workflow: keep Rust as the PTY/runtime owner,
@@ -4781,6 +4800,12 @@ become the main product surface.
   This same slice must finish the repo-agnostic docs policy so product docs,
   self-hosting/development docs, portable adopter docs, and generated
   operator/bootstrap surfaces stop bleeding into one another.
+  Latest 2026-04-12 role-portability follow-up: the architecture already says
+  launch/bootstrap/runtime authority is role-first, not provider-first, so the
+  next bounded `MP-377` slice must remove the remaining provider-coded seams
+  from `runtime/role_profile.py`, turn-authority/read-model helpers, and
+  bridge/handoff projections, then prove the resulting same-backend role/mode
+  matrix locally before widening to the external repo ladder in `MP-376`.
   This scope
   also keeps the existing `package_layout` engine as the self-hosting
   organization seam rather than inventing a second crowding guard: the next

@@ -342,11 +342,29 @@ def _render_coordination_markdown(snapshot: dict[str, Any], lines: list[str]) ->
         lines.append("- **Resync reasons**: " + ", ".join(f"`{row}`" for row in resync_reasons))
     actors = coord.get("actors", [])
     if isinstance(actors, list) and actors:
-        actor_labels = [
-            f"`{row.get('actor_id', '?')}:{row.get('presence', '?')}`"
-            for row in actors[:4]
-            if isinstance(row, dict)
-        ]
+        actor_labels = []
+        for row in actors[:4]:
+            if not isinstance(row, dict):
+                continue
+            actor_id = row.get("actor_id", "?")
+            presence = row.get("presence", "?")
+            detail = f"`{actor_id}:{presence}`"
+            provider = str(row.get("provider") or "").strip()
+            role = str(row.get("role") or "").strip()
+            lane = str(row.get("lane") or "").strip()
+            worktree = str(row.get("worktree") or "").strip()
+            branch = str(row.get("branch") or "").strip()
+            if provider:
+                detail += f" {provider}"
+            if role:
+                detail += f" ({role})"
+            if lane:
+                detail += f" lane={lane}"
+            if worktree:
+                detail += f" worktree={worktree}"
+            if branch:
+                detail += f" branch={branch}"
+            actor_labels.append(detail)
         if actor_labels:
             lines.append("- **Actors**: " + ", ".join(actor_labels))
     _attn.render_doctor_markdown(coord, lines)

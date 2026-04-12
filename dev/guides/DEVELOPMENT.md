@@ -332,6 +332,10 @@ Three quality layers matter in practice:
     local takeover now also retires the detached publisher/reviewer-supervisor
     runtime so stale dual-agent heartbeats cannot silently restore
     `active_dual_agent` after the reviewer has intentionally downgraded modes.
+    When the phone/dashboard stays attached in that mode, keep the primary
+    worktree control-only and do mutating implementation work in reusable
+    isolated worker worktrees so the operator surface does not have to share a
+    dirty coding lane.
     Human-facing shorthand is allowed on the CLI: `agents` normalizes to
     `active_dual_agent`, and `developer` normalizes to `single_agent`.
   - After a real review pass, advance review truth with

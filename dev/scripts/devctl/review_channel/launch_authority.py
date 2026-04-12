@@ -34,12 +34,14 @@ class PreparedLaunchAuthorityState:
 
 def build_prepared_launch_authority(
     *,
-    repo_root: Path,
+    repo_root: Path | None = None,
+    workspace_root: Path | None = None,
     bridge_path: Path,
     bridge_liveness: Mapping[str, object] | None = None,
     review_state_path: Path | None = None,
 ) -> PreparedLaunchAuthority:
     """Build the typed authority snapshot a launch script must re-check."""
+    head_root = workspace_root or repo_root
     review_state = _load_review_state(review_state_path)
     bridge = _mapping(review_state.get("bridge")) if review_state else {}
     review = _mapping(review_state.get("review")) if review_state else {}
@@ -63,7 +65,7 @@ def build_prepared_launch_authority(
     session_id = _first_text(review.get("session_id"), "markdown-bridge")
 
     return PreparedLaunchAuthority(
-        head_sha=current_head_sha(repo_root),
+        head_sha=current_head_sha(head_root) if head_root is not None else "",
         instruction_revision=instruction_revision,
         session_token=launch_session_token(
             session_id=session_id,
@@ -77,6 +79,7 @@ def build_prepared_launch_authority(
 def assess_prepared_launch_authority(
     *,
     repo_root: Path | None,
+    workspace_root: Path | None = None,
     review_state_path: Path | None,
     prepared_head_sha: str = "",
     prepared_instruction_revision: str = "",
@@ -95,10 +98,11 @@ def assess_prepared_launch_authority(
             reason="session metadata did not record prepared launch authority",
         )
 
-    if repo_root is None:
+    head_root = workspace_root or repo_root
+    if head_root is None:
         return PreparedLaunchAuthorityState(
             state="unknown",
-            reason="repo_root missing from session metadata",
+            reason="workspace_root missing from session metadata",
         )
 
     if review_state_path is None or not review_state_path.exists():
@@ -108,7 +112,7 @@ def assess_prepared_launch_authority(
         )
 
     current_authority = _current_launch_authority(
-        repo_root=repo_root,
+        repo_root=head_root,
         review_state_path=review_state_path,
     )
 

@@ -22,6 +22,7 @@ def render_mobile_narrow_terminal(snapshot: dict[str, Any]) -> str:
     control_plane = snapshot.get("control_plane") or {}
     health = snapshot.get("health", {})
     publication = snapshot.get("publication", {})
+    coordination = snapshot.get("coordination") or {}
 
     lines = [
         "GOVERNANCE DASHBOARD",
@@ -48,4 +49,23 @@ def render_mobile_narrow_terminal(snapshot: dict[str, Any]) -> str:
         f"{control_plane.get('attention_summary', health.get('attention_summary', 'n/a'))}",
         f"Pending actions: {control_plane.get('pending_action_requests', 0)}",
     ]
+    actors = coordination.get("actors", [])
+    if isinstance(actors, list) and actors:
+        lane_labels: list[str] = []
+        for row in actors[:2]:
+            if not isinstance(row, dict):
+                continue
+            actor_id = str(row.get("actor_id") or "").strip()
+            if not actor_id:
+                continue
+            detail = f"{actor_id}:{str(row.get('presence') or '').strip()}"
+            worktree = str(row.get("worktree") or "").strip()
+            lane = str(row.get("lane") or "").strip()
+            if lane:
+                detail += f" {lane}"
+            if worktree:
+                detail += f" @{worktree}"
+            lane_labels.append(detail)
+        if lane_labels:
+            lines.append("Lanes: " + " | ".join(lane_labels))
     return "\n".join(lines)

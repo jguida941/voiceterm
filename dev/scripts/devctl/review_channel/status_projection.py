@@ -242,6 +242,7 @@ def _projection_ok(overall_state: str, errors: tuple[str, ...]) -> bool:
     return overall_state in (
         OverallLivenessState.FRESH,
         OverallLivenessState.INACTIVE,
+        OverallLivenessState.SINGLE_AGENT_ACTIVE,
     )
 def _legacy_agents(registry: object) -> list[dict[str, object]]:
     registry_dict = registry if isinstance(registry, dict) else {}

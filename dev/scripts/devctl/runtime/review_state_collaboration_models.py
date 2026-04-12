@@ -37,6 +37,11 @@ class CollaborationParticipantState:
     launch_command: str = ""
     requested_worker_budget: int | None = None
     planned_lane_count: int = 0
+    lane: str = ""
+    mp_scope: str = ""
+    worktree: str = ""
+    branch: str = ""
+    workspace_root: str = ""
 
 
 @dataclass(frozen=True, slots=True)

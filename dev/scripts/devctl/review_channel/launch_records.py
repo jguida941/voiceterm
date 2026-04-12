@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 import json
 from dataclasses import asdict, dataclass
 from pathlib import Path
@@ -41,6 +42,7 @@ class LaunchSessionRequest:
     interaction_mode: str = ""
     rollover_provider: str = ""
     review_state_path: Path | None = None
+    worktree_path: Path | None = None
 
 
 @dataclass(slots=True)
@@ -65,6 +67,7 @@ class PreparedSessionRecord:
     prepared_instruction_revision: str = ""
     prepared_session_token: str = ""
     review_state_path: Path | None = None
+    workspace_root: Path | None = None
 
     def write_metadata(self) -> None:
         if self.metadata_path is None or self.log_path is None:
@@ -105,6 +108,9 @@ class PreparedSessionRecord:
                     if self.review_state_path is not None
                     else ""
                 ),
+                workspace_root=(
+                    str(self.workspace_root) if self.workspace_root is not None else ""
+                ),
             )
         )
 
@@ -137,6 +143,11 @@ class PreparedSessionRecord:
                     if self.review_state_path is not None
                     else None
                 ),
+                workspace_root=(
+                    str(self.workspace_root)
+                    if self.workspace_root is not None
+                    else None
+                ),
             )
         )
 
@@ -165,6 +176,7 @@ class SessionMetadataPayload:
     prepared_instruction_revision: str = ""
     prepared_session_token: str = ""
     review_state_path: str = ""
+    workspace_root: str = ""
 
 
 @dataclass(frozen=True, slots=True)
@@ -189,6 +201,7 @@ class SessionReportPayload:
     prepared_instruction_revision: str = ""
     prepared_session_token: str = ""
     review_state_path: str | None = None
+    workspace_root: str | None = None
 
 
 def legacy_provider_lane_map(
@@ -204,6 +217,60 @@ def legacy_provider_lane_map(
     if cursor_lanes:
         provider_lane_map["cursor"] = cursor_lanes
     return provider_lane_map
+
+
+def resolve_lane_worktree_path(
+    *,
+    repo_root: Path,
+    lane: "LaneAssignment",
+) -> Path:
+    """Resolve one planned lane worktree to an absolute workspace path."""
+    return _resolve_worktree_path(repo_root, getattr(lane, "worktree", ""))
+
+
+def resolve_session_workspace_root(
+    *,
+    repo_root: Path,
+    lanes: Sequence["LaneAssignment"],
+    default_worktree_path: Path | None = None,
+) -> Path:
+    """Resolve the single workspace root a launched provider session may own."""
+    resolved_repo_root = repo_root.resolve()
+    explicit_rows: list[tuple[str, Path]] = []
+    for lane in lanes:
+        raw_worktree = str(getattr(lane, "worktree", "") or "").strip()
+        if not raw_worktree:
+            continue
+        explicit_rows.append(
+            (
+                str(getattr(lane, "agent_id", "") or "").strip() or "lane",
+                _resolve_worktree_path(resolved_repo_root, raw_worktree),
+            )
+        )
+    if not explicit_rows:
+        return (
+            _resolve_worktree_path(resolved_repo_root, default_worktree_path)
+            if default_worktree_path is not None
+            else resolved_repo_root
+        )
+    unique_roots = tuple(dict.fromkeys(path for _agent_id, path in explicit_rows))
+    if len(unique_roots) > 1:
+        detail = ", ".join(f"{agent_id}={path}" for agent_id, path in explicit_rows)
+        raise ValueError(
+            "Planned lanes for one launched session span multiple worktrees; "
+            f"bind one provider session to one workspace root. Saw: {detail}"
+        )
+    return unique_roots[0]
+
+
+def _resolve_worktree_path(repo_root: Path, worktree: object) -> Path:
+    text = str(worktree or "").strip()
+    if not text:
+        return repo_root.resolve()
+    candidate = Path(text)
+    if candidate.is_absolute():
+        return candidate.resolve()
+    return (repo_root / candidate).resolve()
 
 
 def session_output_paths(

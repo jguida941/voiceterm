@@ -28,6 +28,15 @@ contract exists.
       governed remote-control launch where the operator sees the same topology,
       fanout, ownership, and resync answer across dashboard, bootstrap, and
       phone-facing views.
+- [ ] MP-384 / MP-387 role-first participant/turn-authority closure: replace
+      provider-biased defaults and projections (`runtime/role_profile.py`,
+      turn-authority helpers, bridge/handoff poll fields, same-provider
+      rollover assumptions) with typed role + actor assignment so Codex,
+      Claude, or another supported provider can fill reviewer, implementer, or
+      dashboard/operator roles over the same backend. Prove the first live
+      matrix as `Codex reviewer + Codex worker implementer + Claude phone
+      dashboard`, then widen to swapped reviewer/implementer assignments
+      without changing the backend authority path.
 - [ ] MP-383 / MP-385 remote participant communication slice: project one
       typed actor/work-claim view for reviewer, coder, and delegated agents,
       then route repo-owned packet/action-request communication from
@@ -456,6 +465,30 @@ The MP scopes remain valid but are now cross-cut by enforcement-first priority.
 
 ## Progress Log
 
+- 2026-04-12: Closed the next worker-lane portability slice from the same
+  role-first beta loop. The launcher no longer treats `LaneAssignment.worktree`
+  as read-only plan prose: each launched provider session now resolves one
+  workspace root, records it in session metadata, runs the generated
+  conductor script from that worktree, and threads the same workspace/lane
+  identity into prompt text, collaboration participants, coordination actor
+  rows, startup-context rendering, and dashboard/mobile coordination views.
+  The same slice also tightened the stale single-agent diagnosis path: when
+  typed liveness projects `overall_state=single_agent_active`, recovery
+  classification now reports the real blocker (for example
+  `checkpoint_required`) instead of forcing a misleading `inactive`/resume
+  decision.
+- 2026-04-12: Started the role-first remote-control beta-matrix closure in the
+  worker lane. The live owner docs already require role-first authority, but
+  the current beta state still exposes provider-shaped seams: `single_agent`
+  plus a live local reviewer still projects `overall_state=inactive`, stale
+  `last_codex_poll_*` fields still leak provider identity into liveness, and
+  bridge/handoff/turn-authority helpers still assume `codex reviewer` /
+  `claude implementer`. The next closure order is now explicit: converge
+  `ControlPlaneReadModel` and typed participant registry first, replace
+  provider-coded role defaults and handoff fields second, keep the phone lane
+  on the primary dashboard/control worktree while implementation happens in
+  reusable worker worktrees third, then rerun the live remote-control beta
+  matrix before widening to external-repo proof.
 - 2026-04-11: Closed the first remote-participant visibility seam for the
   live dashboard/remote-control lane. Active `attach-remote-control`
   artifacts now feed the typed collaboration roster/role assignments instead
@@ -1133,6 +1166,13 @@ No `ControlPlaneReadModel` exists. Each surface independently reads raw artifact
 
 ## Session Resume
 
+- 2026-04-12 role-first beta-matrix slice:
+  resume with the control-lane/worker-lane split explicit. The phone-attached
+  primary worktree stays dashboard/control-only, implementation happens in
+  reusable worker worktrees, and the first closure target is not another
+  launch tweak but role-first read-model parity: remove provider-biased role
+  defaults, turn-authority fallbacks, and handoff/liveness field names before
+  rerunning `Codex reviewer + Codex worker implementer + Claude dashboard`.
 - 2026-04-09 external-session attachment closure: resume from the next
   consumer/UI pass, not another write-path invention. The typed
   `remote_control_attachment` record now exists in reviewer runtime,

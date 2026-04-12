@@ -27,6 +27,7 @@ class OverallLivenessState(StrEnum):
     """Aggregate loop health derived from both peer signals."""
 
     INACTIVE = "inactive"
+    SINGLE_AGENT_ACTIVE = "single_agent_active"
     RUNTIME_MISSING = "runtime_missing"
     STALE = "stale"
     WAITING_ON_PEER = "waiting_on_peer"

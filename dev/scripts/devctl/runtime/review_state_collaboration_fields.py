@@ -154,6 +154,11 @@ def _participants_from_value(
                 mapping.get("requested_worker_budget")
             ),
             planned_lane_count=_int(mapping.get("planned_lane_count")),
+            lane=_string(mapping.get("lane")),
+            mp_scope=_string(mapping.get("mp_scope")),
+            worktree=_string(mapping.get("worktree")),
+            branch=_string(mapping.get("branch")),
+            workspace_root=_string(mapping.get("workspace_root")),
         )
         for row in value
         if (mapping := _mapping(row)) and _string(mapping.get("agent_id"))

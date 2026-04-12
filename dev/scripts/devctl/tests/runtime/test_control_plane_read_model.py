@@ -618,6 +618,53 @@ class ResolverUnitTests(unittest.TestCase):
         self.assertFalse(d["codex_conductor_alive"])
         self.assertTrue(d["claude_conductor_alive"])
 
+    def test_resolve_daemon_uses_typed_reviewer_capability_provider(self) -> None:
+        import os
+        import tempfile
+
+        from dev.scripts.devctl.review_channel import collaboration_session as collaboration_mod
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            session_output_root = root / "latest"
+            rollout_path = (
+                root
+                / "sessions"
+                / "2026"
+                / "04"
+                / "12"
+                / "rollout-2026-04-12T13-00-00-claude-live.jsonl"
+            )
+            rollout_path.parent.mkdir(parents=True, exist_ok=True)
+            rollout_path.write_text("{}\n", encoding="utf-8")
+            rollout_mtime = datetime(
+                2026, 4, 12, 13, 0, 0, tzinfo=timezone.utc
+            ).timestamp()
+            os.utime(rollout_path, (rollout_mtime, rollout_mtime))
+            sources = _empty_sources()
+            sources["session_output_root"] = session_output_root
+            sources["review_state"] = {
+                "bridge": {
+                    "reviewer_mode": "single_agent",
+                    "codex_conductor_active": False,
+                    "claude_conductor_active": False,
+                    "reviewer_capability": {"provider": "claude"},
+                },
+            }
+            with patch.object(
+                collaboration_mod,
+                "discover_latest_session",
+                return_value=rollout_path,
+            ), patch.object(
+                collaboration_mod,
+                "_utcnow",
+                return_value=datetime(2026, 4, 12, 13, 2, 0, tzinfo=timezone.utc),
+            ):
+                d = resolve_daemon_state(sources)
+
+        self.assertFalse(d["codex_conductor_alive"])
+        self.assertTrue(d["claude_conductor_alive"])
+
     def test_resolve_pending_packets_none(self) -> None:
         self.assertEqual(resolve_pending_packets(None), 0)
 

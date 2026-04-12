@@ -688,7 +688,18 @@ class TestCLIRegistration(unittest.TestCase):
                     "worktree_strategy": "isolated_worker_worktrees",
                     "resync_required": True,
                     "resync_reasons": ["declared_topology:multi_agent_orchestrated"],
-                    "actors": [{"actor_id": "codex", "presence": "live"}],
+                    "actors": [
+                        {
+                            "actor_id": "codex",
+                            "presence": "live",
+                            "provider": "codex",
+                            "role": "reviewer",
+                            "lane": "Codex review lane",
+                            "worktree": "../wt-review",
+                            "branch": "feature/review",
+                            "mp_scope": "MP-377",
+                        }
+                    ],
                 },
             }
         )
@@ -705,7 +716,10 @@ class TestCLIRegistration(unittest.TestCase):
         self.assertIn("fanout_posture: `planned_scaffolding_only`", rendered)
         self.assertIn("safe_to_fanout: False", rendered)
         self.assertIn("resync_required: True", rendered)
-        self.assertIn("actors: `codex:live`", rendered)
+        self.assertIn(
+            "actors: `codex:live|provider=codex|role=reviewer|lane=Codex review lane|worktree=../wt-review|branch=feature/review|scope=MP-377`",
+            rendered,
+        )
 
     def test_markdown_renders_latest_push_receipt_fields(self) -> None:
         rendered = _render_markdown(

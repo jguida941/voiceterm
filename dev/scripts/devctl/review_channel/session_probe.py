@@ -54,6 +54,7 @@ class ConductorSessionRecord:
     prepared_instruction_revision: str = ""
     prepared_session_token: str = ""
     review_state_path: str = ""
+    workspace_root: str = ""
     live_reason: str = ""
     script_probe_state: str = ""
     terminal_window_state: str = ""
@@ -138,6 +139,7 @@ def load_conductor_sessions(
             continue
         planned_lanes = tuple(_planned_lane_rows(metadata.get("planned_lanes")))
         repo_root_text = _session_metadata_text(metadata, "repo_root") or ""
+        workspace_root_text = _session_metadata_text(metadata, "workspace_root") or ""
         script_path_text = _session_metadata_text(metadata, "script_path")
         log_path_text = _session_metadata_text(metadata, "log_path")
         review_state_path_text = _session_metadata_text(metadata, "review_state_path") or ""
@@ -150,6 +152,7 @@ def load_conductor_sessions(
         age_seconds = _log_age_seconds(log_path_text)
         launch_authority = assess_prepared_launch_authority(
             repo_root=Path(repo_root_text) if repo_root_text else None,
+            workspace_root=Path(workspace_root_text) if workspace_root_text else None,
             review_state_path=Path(review_state_path_text)
             if review_state_path_text
             else None,
@@ -212,6 +215,7 @@ def load_conductor_sessions(
                 )
                 or "",
                 review_state_path=review_state_path_text,
+                workspace_root=workspace_root_text,
                 live_reason=liveness.reason,
                 script_probe_state=liveness.script_probe_state,
                 terminal_window_state=liveness.terminal_window_state,

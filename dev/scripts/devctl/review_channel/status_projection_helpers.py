@@ -210,6 +210,12 @@ def attach_conductor_session_state(
     bridge_liveness["effective_reviewer_mode"] = effective_reviewer_mode(
         bridge_liveness
     )
+    if (
+        str(bridge_liveness.get("effective_reviewer_mode") or "").strip()
+        == "single_agent"
+        and _single_agent_lane_has_live_typed_authority(bridge_liveness)
+    ):
+        bridge_liveness["overall_state"] = OverallLivenessState.SINGLE_AGENT_ACTIVE
 
 
 def _single_agent_local_reviewer_provider(
@@ -224,7 +230,11 @@ def _single_agent_local_reviewer_provider(
     ).strip()
     if reviewer_mode != "single_agent":
         return None
-    reviewer_provider = default_provider_for_role(TandemRole.REVIEWER)
+    reviewer_provider = (
+        _capability_provider(bridge_liveness, "reviewer_capability")
+        or str(bridge_liveness.get("review_agent") or "").strip().lower()
+        or default_provider_for_role(TandemRole.REVIEWER)
+    )
     if not reviewer_provider:
         return None
     if not _local_reviewer_activity_is_fresh(
@@ -233,6 +243,16 @@ def _single_agent_local_reviewer_provider(
     ):
         return None
     return reviewer_provider
+
+
+def _capability_provider(
+    payload: Mapping[str, object],
+    field_name: str,
+) -> str:
+    capability = payload.get(field_name)
+    if not isinstance(capability, Mapping):
+        return ""
+    return str(capability.get("provider") or "").strip().lower()
 
 
 def _single_agent_remote_control_providers(

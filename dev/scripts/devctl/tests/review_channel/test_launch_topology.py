@@ -121,6 +121,57 @@ class LaunchTopologyTests(unittest.TestCase):
             self.assertIsNone(metadata["terminal_window_id"])
             self.assertIsNone(sessions[0]["terminal_window_id"])
 
+    def test_build_launch_sessions_records_workspace_root_and_passes_it_to_prompt(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            review_channel_path = root / "dev/active/review_channel.md"
+            review_channel_path.parent.mkdir(parents=True, exist_ok=True)
+            review_channel_path.write_text("# Review Channel\n", encoding="utf-8")
+            bridge_path = root / "bridge.md"
+            bridge_path.write_text("# Bridge\n", encoding="utf-8")
+            status_dir = root / "dev/reports/review_channel/latest"
+            worker_root = (root / "../wt-agent-1").resolve()
+            prompt_calls: list[dict[str, object]] = []
+
+            def _prompt(**kwargs) -> str:
+                prompt_calls.append(kwargs)
+                return "prompt"
+
+            sessions = build_launch_sessions(
+                request=LaunchSessionRequest(
+                    repo_root=root,
+                    review_channel_path=review_channel_path,
+                    bridge_path=bridge_path,
+                    codex_lanes=[],
+                    claude_lanes=[],
+                    codex_workers=0,
+                    claude_workers=0,
+                    provider_lane_map={
+                        "codex": [_lane("AGENT-1", "codex", "Codex review")],
+                    },
+                    requested_worker_budgets={"codex": 0},
+                    rollover_threshold_pct=20,
+                    await_ack_seconds=180,
+                    retirement_note="bridge-gated",
+                    promotion_plan_rel="dev/active/review_channel.md",
+                    session_output_root=status_dir,
+                ),
+                build_conductor_prompt_fn=_prompt,
+                resolve_cli_path_fn=lambda provider: provider,
+            )
+
+            self.assertEqual(prompt_calls[0]["workspace_root"], worker_root)
+            metadata = json.loads(
+                Path(str(sessions[0]["metadata_path"])).read_text(encoding="utf-8")
+            )
+            self.assertEqual(metadata["workspace_root"], str(worker_root))
+            self.assertEqual(sessions[0]["workspace_root"], str(worker_root))
+            script_text = Path(str(sessions[0]["script_path"])).read_text(encoding="utf-8")
+            self.assertIn(
+                f"REVIEW_CHANNEL_WORKSPACE_ROOT={worker_root}",
+                script_text,
+            )
+
     def test_build_launch_sessions_preserves_swapped_role_metadata(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
@@ -216,6 +267,39 @@ class LaunchTopologyTests(unittest.TestCase):
             self.assertIn("--full-auto", scripts_by_provider["codex"])
             self.assertIn("--permission-mode default", scripts_by_provider["claude"])
             self.assertNotIn("--permission-mode auto", scripts_by_provider["claude"])
+
+    def test_build_launch_sessions_fails_closed_on_provider_worktree_conflict(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            review_channel_path = root / "dev/active/review_channel.md"
+            review_channel_path.parent.mkdir(parents=True, exist_ok=True)
+            review_channel_path.write_text("# Review Channel\n", encoding="utf-8")
+            bridge_path = root / "bridge.md"
+            bridge_path.write_text("# Bridge\n", encoding="utf-8")
+
+            lane_a = _lane("AGENT-1", "codex", "Codex review")
+            lane_b = _lane("AGENT-2", "codex", "Codex review")
+
+            with self.assertRaisesRegex(ValueError, "multiple worktrees"):
+                build_launch_sessions(
+                    request=LaunchSessionRequest(
+                        repo_root=root,
+                        review_channel_path=review_channel_path,
+                        bridge_path=bridge_path,
+                        codex_lanes=[],
+                        claude_lanes=[],
+                        codex_workers=0,
+                        claude_workers=0,
+                        provider_lane_map={"codex": [lane_a, lane_b]},
+                        requested_worker_budgets={"codex": 0},
+                        rollover_threshold_pct=20,
+                        await_ack_seconds=180,
+                        retirement_note="bridge-gated",
+                        promotion_plan_rel="dev/active/review_channel.md",
+                    ),
+                    build_conductor_prompt_fn=lambda **_: "prompt",
+                    resolve_cli_path_fn=lambda provider: provider,
+                )
 
 
 if __name__ == "__main__":

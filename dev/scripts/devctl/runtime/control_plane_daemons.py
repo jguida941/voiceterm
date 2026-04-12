@@ -6,6 +6,7 @@ import os
 from pathlib import Path
 from typing import Any
 
+from .role_profile import TandemRole, default_provider_for_role
 from .reviewer_runtime_models import (
     has_active_remote_control_attachment,
     remote_control_attachment_from_mapping,
@@ -184,7 +185,13 @@ def _reviewer_provider(authority: dict[str, Any]) -> str:
             provider = str(session_owner.get("provider") or "").strip().lower()
             if provider:
                 return provider
-    return "codex"
+    bridge = _typed_bridge(authority)
+    capability = bridge.get("reviewer_capability")
+    if isinstance(capability, dict):
+        provider = str(capability.get("provider") or "").strip().lower()
+        if provider:
+            return provider
+    return default_provider_for_role(TandemRole.REVIEWER)
 
 
 def _bool_or_none(value: Any) -> bool | None:

@@ -1,6 +1,6 @@
 # AI Governance Platform Plan
 
-**Status**: active  |  **Last updated**: 2026-04-11 | **Owner:** Tooling/control plane/product architecture
+**Status**: active  |  **Last updated**: 2026-04-12 | **Owner:** Tooling/control plane/product architecture
 Execution plan contract: required
 This spec remains execution mirrored in `dev/active/MASTER_PLAN.md` under
 `MP-377`, and it is the canonical active architecture plan for the standalone
@@ -4895,6 +4895,13 @@ alone. Use these proof gates:
 Use this section as the single "left off here" surface for fresh AI sessions
 working on `MP-377`.
 
+- 2026-04-12 provider-role portability slice:
+  resume from the role-first/runtime-first closure order. The docs already
+  forbid provider-first authority, so the next work is to remove the remaining
+  provider-coded seams from role registry, turn authority, bridge/handoff
+  projection, and remote-control read models, then prove the same backend with
+  `Codex reviewer + Codex worker implementer + Claude phone dashboard` before
+  widening to swapped-role and external-repo proofs.
 - 2026-04-11 governed-push visibility slice:
   resume with the phase-aware latest-push artifact closure in place.
   `devctl push --execute` now refreshes `dev/reports/push/latest.json` from
@@ -6357,6 +6364,18 @@ Execution order for this section:
 
 ## Progress Log
 
+- 2026-04-12: Started the explicit provider-role portability closure under the
+  main `MP-377` owner chain. The architecture docs already say launch,
+  bootstrap, collaboration, and remote-control authority are role-first, but
+  the live runtime still carries provider-shaped seams in the default role
+  registry, turn-authority helpers, bridge projection names, handoff poll
+  fields, and same-provider rollover assumptions. The closure order is now
+  explicit and bounded: keep the primary worktree as the shared control lane
+  for phone/dashboard use, move implementation into reusable worker worktrees,
+  converge those provider-coded surfaces onto typed role/actor assignment over
+  the same backend, prove the resulting beta matrix in VoiceTerm, and only
+  then widen the same role/mode proof to the external-repo ladder in
+  `portable_code_governance.md`.
 - 2026-04-11: Closed the governed-push latest-artifact visibility gap inside
   the shared platform owner chain. The canonical `dev/reports/push/latest.json`
   surface now advances through `push_preflight_running`, `push_pending`, and

@@ -4,16 +4,16 @@
 
 ## Quick status
 
-- Branch: `feature/governance-quality-sweep`
-- HEAD: `e8ccc7e74488` — review_channel: remote-control attachment counts as live conductor in single_agent mode
-- Tree hash: `131d88bfa676`
-- Generation stamp: `snap-40a303d7c06e`
-- Generated at (UTC): 2026-04-12T12:24:55Z
-- Push decision: `run_devctl_push` — push_preconditions_satisfied
+- Branch: `codex-role-portability`
+- HEAD: `763be95da41f` — Refresh external review snapshot for e8ccc7e7
+- Tree hash: `ff64a6cec366`
+- Generation stamp: `snap-381ae7ad5d99`
+- Generated at (UTC): 2026-04-12T14:41:21Z
+- Push decision: `await_checkpoint` — staged_index_budget_exceeded
 - Reviewer mode: `single_agent` (interaction: `local_terminal`)
 - Pipeline state: `n/a` (approval: `n/a`)
-- Delta since last snapshot: 25 commits, 112 files, +9507/-1898
-- Governance findings: 86 open / 71 fixed / 171 total
+- Delta since last snapshot: 24 commits, 106 files, +8968/-1757
+- Governance findings: 0 open / 0 fixed / 0 total
 - Probe hints: 0 total across 0 files scanned
 
 ## 1. Identity
@@ -53,28 +53,24 @@ and guard gaps so the platform proves its own thesis before external
 adopters arrive.
 - Remote: `https://github.com/jguida941/voiceterm.git`
 - Default branch: `master`
-- Current branch: `feature/governance-quality-sweep`
-- HEAD SHA: `e8ccc7e74488133603c2126a43f6f09f55eeb2b3`
+- Current branch: `codex-role-portability`
+- HEAD SHA: `763be95da41f3f2424ca1a7b3023f4f1fb6d8406`
 - HEAD author: Justin Guida
 - HEAD timestamp (UTC): 2026-04-12T08:24:00-04:00
 
 ## 2. Governance state
 
 ### Push decision
-- action: `run_devctl_push`
-- reason: push_preconditions_satisfied
-- push_eligible_now: True
-- worktree_clean: True
-- staged_path_count: 0
+- action: `await_checkpoint`
+- reason: staged_index_budget_exceeded
+- push_eligible_now: False
+- worktree_clean: False
+- staged_path_count: 32
 - unstaged_path_count: 0
-- next_step_command: `python3 dev/scripts/devctl.py push --execute`
+- next_step_command: `n/a`
 - latest_push_report: `dev/reports/push/latest.json`
-- latest_push_report_state: `blocked` (validation_failed)
-- current_push_authorization: `push-auth-20260411T184445146140Z` (valid=False)
-- authorized_head_commit: `0936a4e543f5a3c38d0e8a9348718bd50c533a05`
-- approved_target_identity: `tree-receipt-20260411T184445146140Z:b5ba49bb30bbdc75b5f28bba1c287afcec975a34`
-- publication_backlog: recommended
-- publication_guidance: 2 local commit(s) waiting for governed push. Run `python3 dev/scripts/devctl.py push --execute` now.
+- publication_backlog: queued
+- publication_guidance: Local branch still has unpublished work waiting for governed push once the current slice is checkpoint-clean.
 
 ### Reviewer runtime
 - reviewer_mode: `single_agent`
@@ -90,49 +86,48 @@ adopters arrive.
 - active plan: **Master Plan (Active, Unified)**
 - plan path: `dev/active/MASTER_PLAN.md`
 - active MP scope: all active MP execution state
-- advisory: `push_allowed` — worktree_clean_and_review_accepted
+- advisory: `checkpoint_before_continue` — staged_index_budget_exceeded
+- checkpoint_required: **yes**
 
 ## 3. Delta — what changed since the previous snapshot
 
-Range: last 25 commits ending at `e8ccc7e74488`
+Range: last 24 commits ending at `763be95da41f`
 
-- commits: 25
-- files changed: 112
-- insertions: +9507
-- deletions: -1898
-- bundle classes touched: docs, tooling
-- risk add-ons triggered: Parser / ANSI boundary
+- commits: 24
+- files changed: 106
+- insertions: +8968
+- deletions: -1757
+- bundle classes touched: tooling, docs
 - authority surfaces touched: 17 file(s)
 
 ### Commits
 
 | # | SHA | Subject | Files | +/- | Bundle | Risk |
 |---|---|---|---|---|---|---|
-| 1 | `e8ccc7e7` | review_channel: remote-control attachment counts as live co… | 11 | +258/-61 | tooling |  |
-| 2 | `70e2544f` | docs(audit): dashboard-loop ticks 33-48 + liveness symmetry… | 3 | +285/-51 | tooling |  |
-| 3 | `5cc9e8d9` | Refresh external review snapshot for 01e436d0 | 1 | +67/-65 | tooling |  |
-| 4 | `01e436d0` | docs+workflow: propagate bundle.tooling publications-ignore… | 7 | +72/-49 | tooling |  |
-| 5 | `bb6bbef4` | Refresh external review snapshot for 0db1267c | 1 | +56/-59 | tooling |  |
-| 6 | `0db1267c` | bundles(tooling): ignore publications warning source in str… | 3 | +53/-50 | tooling |  |
-| 7 | `49dcf13e` | Refresh external review snapshot for 353f3bb6 | 1 | +59/-62 | tooling |  |
-| 8 | `353f3bb6` | review_channel: priority selector drives current_session.cu… | 6 | +69/-51 | tooling |  |
-| 9 | `0d2cb8ad` | Refresh external review snapshot for 637a4ad9 | 1 | +59/-62 | tooling |  |
-| 10 | `637a4ad9` | docs: slice-closure updates from Codex for the review_chann… | 4 | +97/-42 | docs |  |
-| 11 | `7a3091c5` | plans: record review_channel trigger primitive slice in act… | 5 | +101/-66 | tooling |  |
-| 12 | `de08f5c9` | review_channel: split enrich_event_review_state to satisfy… | 2 | +103/-58 | tooling |  |
-| 13 | `52878653` | Refresh external review snapshot for 061a1261 | 1 | +54/-51 | tooling |  |
-| 14 | `061a1261` | review_channel: packet_control_loop priority selection + co… | 5 | +350/-62 | tooling |  |
-| 15 | `2cd74a7c` | Refresh external review snapshot for 6db71aca | 1 | +107/-85 | tooling |  |
-| 16 | `6db71aca` | review_channel: typed participant authoritative + action_re… | 78 | +3818/-316 | tooling |  |
-| 17 | `a3e3347c` | docs(audit): dashboard-loop tick 1-32 + typed findings 0200… | 3 | +2200/-99 | tooling |  |
-| 18 | `0936a4e5` | Refresh external review snapshot for 2e46f645 | 1 | +67/-66 | tooling |  |
-| 19 | `2e46f645` | fix(runtime): keep local single-agent takeover local | 18 | +425/-113 | tooling |  |
-| 20 | `47e2b4e1` | Clarify platform boundary and startup mutability routing | 17 | +358/-46 | tooling |  |
-| 21 | `30dcf434` | Refresh external review snapshot for 8a05ad7f | 1 | +55/-52 | tooling |  |
-| 22 | `8a05ad7f` | docs(bridge): scribe capture live Codex state + autonomy pl… | 3 | +72/-65 | tooling |  |
-| 23 | `936cbc3d` | fix(review-snapshot): gate single_agent lane on reviewer ve… | 3 | +120/-62 | tooling |  |
-| 24 | `e1dac616` | Refresh external review snapshot for f3bbca18 | 1 | +63/-70 | tooling |  |
-| 25 | `f3bbca18` | fix(review-channel): typed preflight gate — reviewer-checkp… | 8 | +539/-135 | tooling | Parser / ANSI boundary |
+| 1 | `763be95d` | Refresh external review snapshot for e8ccc7e7 | 1 | +63/-64 | tooling |  |
+| 2 | `e8ccc7e7` | review_channel: remote-control attachment counts as live co… | 11 | +258/-61 | tooling |  |
+| 3 | `70e2544f` | docs(audit): dashboard-loop ticks 33-48 + liveness symmetry… | 3 | +285/-51 | tooling |  |
+| 4 | `5cc9e8d9` | Refresh external review snapshot for 01e436d0 | 1 | +67/-65 | tooling |  |
+| 5 | `01e436d0` | docs+workflow: propagate bundle.tooling publications-ignore… | 7 | +72/-49 | tooling |  |
+| 6 | `bb6bbef4` | Refresh external review snapshot for 0db1267c | 1 | +56/-59 | tooling |  |
+| 7 | `0db1267c` | bundles(tooling): ignore publications warning source in str… | 3 | +53/-50 | tooling |  |
+| 8 | `49dcf13e` | Refresh external review snapshot for 353f3bb6 | 1 | +59/-62 | tooling |  |
+| 9 | `353f3bb6` | review_channel: priority selector drives current_session.cu… | 6 | +69/-51 | tooling |  |
+| 10 | `0d2cb8ad` | Refresh external review snapshot for 637a4ad9 | 1 | +59/-62 | tooling |  |
+| 11 | `637a4ad9` | docs: slice-closure updates from Codex for the review_chann… | 4 | +97/-42 | docs |  |
+| 12 | `7a3091c5` | plans: record review_channel trigger primitive slice in act… | 5 | +101/-66 | tooling |  |
+| 13 | `de08f5c9` | review_channel: split enrich_event_review_state to satisfy… | 2 | +103/-58 | tooling |  |
+| 14 | `52878653` | Refresh external review snapshot for 061a1261 | 1 | +54/-51 | tooling |  |
+| 15 | `061a1261` | review_channel: packet_control_loop priority selection + co… | 5 | +350/-62 | tooling |  |
+| 16 | `2cd74a7c` | Refresh external review snapshot for 6db71aca | 1 | +107/-85 | tooling |  |
+| 17 | `6db71aca` | review_channel: typed participant authoritative + action_re… | 78 | +3818/-316 | tooling |  |
+| 18 | `a3e3347c` | docs(audit): dashboard-loop tick 1-32 + typed findings 0200… | 3 | +2200/-99 | tooling |  |
+| 19 | `0936a4e5` | Refresh external review snapshot for 2e46f645 | 1 | +67/-66 | tooling |  |
+| 20 | `2e46f645` | fix(runtime): keep local single-agent takeover local | 18 | +425/-113 | tooling |  |
+| 21 | `47e2b4e1` | Clarify platform boundary and startup mutability routing | 17 | +358/-46 | tooling |  |
+| 22 | `30dcf434` | Refresh external review snapshot for 8a05ad7f | 1 | +55/-52 | tooling |  |
+| 23 | `8a05ad7f` | docs(bridge): scribe capture live Codex state + autonomy pl… | 3 | +72/-65 | tooling |  |
+| 24 | `936cbc3d` | fix(review-snapshot): gate single_agent lane on reviewer ve… | 3 | +120/-62 | tooling |  |
 
 ### Files
 
@@ -147,7 +142,7 @@ Range: last 25 commits ending at `e8ccc7e74488`
 | `dev/active/remote_commit_pipeline.md` | tooling | +28/-0 |
 | `dev/active/remote_control_runtime.md` | tooling | +80/-0 |
 | `dev/audits/LIVE_RUN.md` | tooling | +2229/-0 |
-| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1522/-1456 |
+| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1380/-1319 |
 | `dev/config/devctl_repo_policy.json` | tooling | +1/-1 |
 | `dev/config/git_hooks/pre-push-governed-push.sh` | tooling | +1/-1 |
 | `dev/config/templates/claude_instructions.template.md` | tooling | +7/-5 |
@@ -162,7 +157,7 @@ Range: last 25 commits ending at `e8ccc7e74488`
 | `dev/scripts/devctl/commands/dashboard_typed_state.py` | tooling | +12/-1 |
 | `dev/scripts/devctl/commands/governance/startup_context_render.py` | tooling | +11/-5 |
 | `dev/scripts/devctl/commands/review_channel/_render_bridge.py` | tooling | +7/-0 |
-| `dev/scripts/devctl/commands/review_channel/_reviewer.py` | tooling | +16/-0 |
+| `dev/scripts/devctl/commands/review_channel/_reviewer.py` | tooling | +7/-0 |
 | `dev/scripts/devctl/commands/review_channel/bridge_handler.py` | tooling | +7/-0 |
 | `dev/scripts/devctl/commands/review_channel/bridge_render.py` | tooling | +3/-15 |
 | `dev/scripts/devctl/commands/review_channel/ensure.py` | tooling | +23/-1 |
@@ -178,27 +173,15 @@ Range: last 25 commits ending at `e8ccc7e74488`
 | `dev/scripts/devctl/commands/vcs/push_flow.py` | tooling | +17/-11 |
 | `dev/scripts/devctl/commands/vcs/push_snapshot.py` | tooling | +41/-5 |
 | `dev/scripts/devctl/governance/bootstrap_guide.py` | tooling | +5/-2 |
-| _72 more files trimmed_ | | |
+| _66 more files trimmed_ | | |
 
 ## 4. Quality signals
 
 ### Governance review
-- total findings: 171
-- open: 86
-- fixed: 71
+- total findings: 0
+- open: 0
+- fixed: 0
 - false positives: 0
-
-Recent findings:
-- `subprocess_missing_timeout` — `dev/scripts/devctl/security/codeql.py` (n/a, verdict=`confirmed_issue`)
-- `subprocess_missing_timeout` — `dev/scripts/devctl/integrations/import_core.py` (n/a, verdict=`confirmed_issue`)
-- `subprocess_missing_timeout` — `app/operator_console/launch_support.py` (n/a, verdict=`confirmed_issue`)
-- `threading_shared_state_no_lock` — `dev/scripts/devctl/common.py` (n/a, verdict=`confirmed_issue`)
-- `none_safety_chained_get_crash` — `dev/scripts/devctl/review_channel/bridge_projection_state.py` (n/a, verdict=`confirmed_issue`)
-- `none_safety_chained_get_crash` — `app/operator_console/state/review/operator_decisions.py` (n/a, verdict=`confirmed_issue`)
-- `none_safety_chained_get_crash` — `dev/scripts/devctl/autonomy/run_render.py` (n/a, verdict=`confirmed_issue`)
-- `none_safety_chained_get_crash` — `dev/scripts/devctl/autonomy/report_helpers.py` (n/a, verdict=`confirmed_issue`)
-- `none_safety_chained_get_crash` — `dev/scripts/devctl/quality_backlog/priorities.py` (n/a, verdict=`confirmed_issue`)
-- `none_safety_chained_get_crash` — `dev/scripts/devctl/commands/loop_packet.py` (n/a, verdict=`confirmed_issue`)
 
 ### Probe report
 - run_state: `missing`
@@ -248,7 +231,6 @@ Recent findings:
 
 ### Targeted hints
 
-- **risk**: Parser / ANSI boundary — Delta touches a risk-sensitive surface; verify the routed bundle
 - **authority_surface**: Typed authority surface touched (`dev/active/remote_commit_pipeline.md`) — Review contract-level invariants for this file
 - **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/commands/review_channel/bridge_handler.py`) — Review contract-level invariants for this file
 - **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/commands/review_channel/bridge_render.py`) — Review contract-level invariants for this file
@@ -283,16 +265,19 @@ Recent findings:
 
 ### Per-commit rationale
 
+- **`763be95d`** — Refresh external review snapshot for e8ccc7e7
+  - evolution: Fact: the architecture docs already said reviewer, implementer, and operator are role-first contracts over one shared backend, but the active execution plans still mixed that with live-proof language that read as `Codex…
 - **`e8ccc7e7`** — review_channel: remote-control attachment counts as live conductor in single_agent mode
   - In single_agent reviewer mode, attach_conductor_session_state() now reads
   - active remote-control attachments via load_remote_control_attachments() and
   - adds their providers to active_providers alongside conductor-session-file
+  - evolution: Fact: the architecture docs already said reviewer, implementer, and operator are role-first contracts over one shared backend, but the active execution plans still mixed that with live-proof language that read as `Codex…
 - **`70e2544f`** — docs(audit): dashboard-loop ticks 33-48 + liveness symmetry fix verification
   - Post-push dashboard observations from the Claude remote-control lane:
   - - Ticks 33-35: post-push steady-state verification (HEAD synced, worktree clean)
   - - Tick 36: detected new Codex session PID 90192 on ttys014
+  - evolution: Fact: the architecture docs already said reviewer, implementer, and operator are role-first contracts over one shared backend, but the active execution plans still mixed that with live-proof language that read as `Codex…
 - **`5cc9e8d9`** — Refresh external review snapshot for 01e436d0
-  - evolution: Fact: the remote dashboard beta loop exposed two coupled packet-control gaps. The repo could prove that an `action_request` existed, but delivery/start state was still inferred from queue depth or prose, and queue selec…
 - **`01e436d0` | MPs: MP-377** — docs+workflow: propagate bundle.tooling publications-ignore to CI + maintainer docs
   - Co-modification required by docs-check --strict-tooling after
   - dev/scripts/devctl/bundles/registry.py extended the bundle.tooling
@@ -302,81 +287,54 @@ Recent findings:
   - plan: `dev/active/autonomous_governance_loop_v2.md`
   - plan: `dev/active/remote_commit_pipeline.md`
   - plan: `dev/active/PLAN_FORMAT.md`
-  - evolution: Fact: the remote dashboard beta loop exposed two coupled packet-control gaps. The repo could prove that an `action_request` existed, but delivery/start state was still inferred from queue depth or prose, and queue selec…
 - **`bb6bbef4`** — Refresh external review snapshot for 0db1267c
-  - evolution: Fact: the remote dashboard beta loop exposed two coupled packet-control gaps. The repo could prove that an `action_request` existed, but delivery/start state was still inferred from queue depth or prose, and queue selec…
 - **`0db1267c`** — bundles(tooling): ignore publications warning source in strict hygiene
   - The bundle.tooling hygiene gate fails on long-standing external-publication
   - drift for terminal-as-interface (tracked at 369cb67b3c85 vs 380+ impacted
   - paths across HEAD). That drift is unrelated to review-channel / runtime
-  - evolution: Fact: the remote dashboard beta loop exposed two coupled packet-control gaps. The repo could prove that an `action_request` existed, but delivery/start state was still inferred from queue depth or prose, and queue selec…
 - **`49dcf13e`** — Refresh external review snapshot for 353f3bb6
-  - evolution: Fact: the remote dashboard beta loop exposed two coupled packet-control gaps. The repo could prove that an `action_request` existed, but delivery/start state was still inferred from queue depth or prose, and queue selec…
 - **`353f3bb6`** — review_channel: priority selector drives current_session.current_instruction
   - Wires the action-request-first priority selection from
   - packet_control_loop.select_priority_pending_packet into
   - current_session.current_instruction so read-only dashboard and status
-  - evolution: Fact: the remote dashboard beta loop exposed two coupled packet-control gaps. The repo could prove that an `action_request` existed, but delivery/start state was still inferred from queue depth or prose, and queue selec…
 - **`0d2cb8ad`** — Refresh external review snapshot for 637a4ad9
-  - evolution: Fact: the remote dashboard beta loop exposed two coupled packet-control gaps. The repo could prove that an `action_request` existed, but delivery/start state was still inferred from queue depth or prose, and queue selec…
 - **`637a4ad9`** — docs: slice-closure updates from Codex for the review_channel trigger primitive
   - Concurrent with Claude's sequential push attempts, Codex finished its slice
   - documentation pass:
   - - AGENTS.md: note the new action_request_delivery + packet_control_loop
-  - evolution: Fact: the remote dashboard beta loop exposed two coupled packet-control gaps. The repo could prove that an `action_request` existed, but delivery/start state was still inferred from queue depth or prose, and queue selec…
 - **`7a3091c5` | MPs: MP-380, MP-387** — plans: record review_channel trigger primitive slice in active docs
   - Codex continuing its slice with plan-doc updates landing in the working
   - tree concurrently with Claude's governed push attempts:
   - - dev/active/MASTER_PLAN.md: mark the packet_control_loop + action_request
   - plan: `dev/active/remote_control_runtime.md`
-  - evolution: Fact: the remote dashboard beta loop exposed two coupled packet-control gaps. The repo could prove that an `action_request` existed, but delivery/start state was still inferred from queue depth or prose, and queue selec…
 - **`de08f5c9`** — review_channel: split enrich_event_review_state to satisfy function-length gate
   - check_code_shape flagged enrich_event_review_state at 172 lines (110-281),
   - over the 150-line Python function default. Extract the _compat-merging
   - block (service_identity, attach_auth_policy, push_enforcement, doctor,
-  - evolution: Fact: the remote dashboard beta loop exposed two coupled packet-control gaps. The repo could prove that an `action_request` existed, but delivery/start state was still inferred from queue depth or prose, and queue selec…
 - **`52878653`** — Refresh external review snapshot for 061a1261
-  - evolution: Fact: the remote dashboard beta loop exposed two coupled packet-control gaps. The repo could prove that an `action_request` existed, but delivery/start state was still inferred from queue depth or prose, and queue selec…
 - **`061a1261`** — review_channel: packet_control_loop priority selection + control hints
   - Adds packet_control_loop.py with select_priority_pending_packet(), which
   - picks the highest-priority live pending packet (action_request class first,
   - then findings/questions/instructions) and returns control-state metadata
-  - evolution: Fact: the remote dashboard beta loop exposed two coupled packet-control gaps. The repo could prove that an `action_request` existed, but delivery/start state was still inferred from queue depth or prose, and queue selec…
 - **`2cd74a7c`** — Refresh external review snapshot for 6db71aca
-  - evolution: Fact: the remote dashboard beta loop exposed two coupled packet-control gaps. The repo could prove that an `action_request` existed, but delivery/start state was still inferred from queue depth or prose, and queue selec…
 - **`6db71aca` | MPs: MP-355** — review_channel: typed participant authoritative + action_request delivery primitive + dashboard/control-plane parity
   - Closes six of the eight scaffolding layers named in the architectural meta-
   - finding this session. Introduces the action_request_delivery primitive that
   - stamps delivery_emitted_at_utc / delivery_observed_at_utc / delivery_observed_by
   - plan: `dev/active/review_channel.md`
-  - evolution: Fact: the remote dashboard beta loop exposed two coupled packet-control gaps. The repo could prove that an `action_request` existed, but delivery/start state was still inferred from queue depth or prose, and queue selec…
 - **`a3e3347c`** — docs(audit): dashboard-loop tick 1-32 + typed findings 0200-0237
   - Durable audit trail from this remote-dashboard session covering:
   - - 32 dashboard-loop ticks with verbatim typed state, parity matrix,
   -   agent-mind cursor polls, and target-file mtime deltas
-  - evolution: Fact: the remote dashboard beta loop exposed two coupled packet-control gaps. The repo could prove that an `action_request` existed, but delivery/start state was still inferred from queue depth or prose, and queue selec…
 - **`0936a4e5`** — Refresh external review snapshot for 2e46f645
-  - evolution: Fact: the remote dashboard beta loop exposed two coupled packet-control gaps. The repo could prove that an `action_request` existed, but delivery/start state was still inferred from queue depth or prose, and queue selec…
 - **`2e46f645`** — fix(runtime): keep local single-agent takeover local
-  - evolution: Fact: the remote dashboard beta loop exposed two coupled packet-control gaps. The repo could prove that an `action_request` existed, but delivery/start state was still inferred from queue depth or prose, and queue selec…
 - **`47e2b4e1`** — Clarify platform boundary and startup mutability routing
-  - evolution: Fact: the remote dashboard beta loop exposed two coupled packet-control gaps. The repo could prove that an `action_request` existed, but delivery/start state was still inferred from queue depth or prose, and queue selec…
 - **`30dcf434`** — Refresh external review snapshot for 8a05ad7f
-  - evolution: Fact: the remote dashboard beta loop exposed two coupled packet-control gaps. The repo could prove that an `action_request` existed, but delivery/start state was still inferred from queue depth or prose, and queue selec…
 - **`8a05ad7f`** — docs(bridge): scribe capture live Codex state + autonomy plan drift (pre-push Q91b workaround)
-  - evolution: Fact: the remote dashboard beta loop exposed two coupled packet-control gaps. The repo could prove that an `action_request` existed, but delivery/start state was still inferred from queue depth or prose, and queue selec…
 - **`936cbc3d`** — fix(review-snapshot): gate single_agent lane on reviewer verdict, not mode alone
   - Codex verdict at instruction_revision 214e376fabc0 flagged that
   - review_snapshot_state.py:107-137 only downgraded push_eligible_now and
   - the governed push next_step_command when effective_reviewer_mode ==
-  - evolution: Fact: the remote dashboard beta loop exposed two coupled packet-control gaps. The repo could prove that an `action_request` existed, but delivery/start state was still inferred from queue depth or prose, and queue selec…
-- **`e1dac616`** — Refresh external review snapshot for f3bbca18
-  - evolution: Fact: the remote dashboard beta loop exposed two coupled packet-control gaps. The repo could prove that an `action_request` existed, but delivery/start state was still inferred from queue depth or prose, and queue selec…
-- **`f3bbca18`** — fix(review-channel): typed preflight gate — reviewer-checkpoint refuses while inbox has unread packets
-  - Root cause: across 4 Codex review sessions in a single dashboard session,
-  - Codex never ran `review-channel --action inbox --target codex --status
-  - pending` before writing a reviewer-checkpoint verdict. Two typed finding
-  - evolution: Fact: the remote dashboard beta loop exposed two coupled packet-control gaps. The repo could prove that an `action_request` existed, but delivery/start state was still inferred from queue depth or prose, and queue selec…
 ### Active MP scope (from MASTER_PLAN.md)
 
 - `dev/active/devctl_reporting_upgrade.md` is the phased `devctl` reporting/CIHub specification, but not a separate execution tracker; implementation tasks stay in this file under `MP-297..MP-300`, `MP-303`, `MP-306`, `MP…
@@ -392,24 +350,15 @@ Recent findings:
 
 ## 8. Known gaps and open items
 
-- open governance findings: 86
+- open governance findings: 0
 
 ### Startup advisories
-- push_allowed: worktree_clean_and_review_accepted
+- checkpoint_before_continue: staged_index_budget_exceeded
 
 ### Stale warnings
-- Stop because nothing remains to push.
-
-### Open gap rows
-- **governance_open** (`dev/scripts/devctl/security/codeql.py`): subprocess_missing_timeout: 
-- **governance_open** (`dev/scripts/devctl/integrations/import_core.py`): subprocess_missing_timeout: 
-- **governance_open** (`app/operator_console/launch_support.py`): subprocess_missing_timeout: 
-- **governance_open** (`dev/scripts/devctl/common.py`): threading_shared_state_no_lock: 
-- **governance_open** (`dev/scripts/devctl/review_channel/bridge_projection_state.py`): none_safety_chained_get_crash: 
-- **governance_open** (`app/operator_console/state/review/operator_decisions.py`): none_safety_chained_get_crash: 
-- **governance_open** (`dev/scripts/devctl/autonomy/run_render.py`): none_safety_chained_get_crash: 
-- **governance_open** (`dev/scripts/devctl/autonomy/report_helpers.py`): none_safety_chained_get_crash: 
+- Keep editing the current slice.
+- Move straight to the governed push path.
 
 ---
 
-Projection produced by `devctl review-snapshot`. Generation stamp `snap-40a303d7c06e` binds this file to HEAD `e8ccc7e74488`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
+Projection produced by `devctl review-snapshot`. Generation stamp `snap-381ae7ad5d99` binds this file to HEAD `763be95da41f`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.

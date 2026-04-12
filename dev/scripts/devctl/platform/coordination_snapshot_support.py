@@ -239,6 +239,11 @@ def append_participant_records(*, records: list[CoordinationActorRecord], review
                 role=text(getattr(participant, "role", "")),
                 presence="live" if bool(getattr(participant, "live", False)) else "configured",
                 session_name=text(getattr(participant, "session_name", "")),
+                lane=text(getattr(participant, "lane", "")),
+                mp_scope=text(getattr(participant, "mp_scope", "")),
+                worktree=text(getattr(participant, "worktree", ""))
+                or text(getattr(participant, "workspace_root", "")),
+                branch=text(getattr(participant, "branch", "")),
                 summary=text(getattr(participant, "status", "")),
             )
         )

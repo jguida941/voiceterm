@@ -267,6 +267,8 @@ def _classify_publisher_state(ctx: BridgeAttentionContext) -> str | None:
 
 def _classify_startup_attention(ctx: BridgeAttentionContext) -> str | None:
     if not ctx.reviewer_mode_active:
+        if ctx.overall_state == OverallLivenessState.SINGLE_AGENT_ACTIVE:
+            return None
         return AttentionStatus.INACTIVE
     if _requires_implementer_state_reset(ctx):
         return AttentionStatus.IMPLEMENTER_STATE_RESET_REQUIRED

@@ -635,7 +635,12 @@ checklist plus chat memory.
     `reviewer-heartbeat --reviewer-mode single_agent` takeover must also
     retire the detached publisher/reviewer-supervisor runtime so stale
     dual-agent heartbeats cannot silently restore `active_dual_agent`
-    metadata after the reviewer has reclaimed authority.
+    metadata after the reviewer has reclaimed authority. When that
+    `single_agent` or remote-control lane stays attached to a phone/dashboard
+    session, keep the primary worktree as the control/dashboard lane and route
+    mutating implementation into reusable isolated worker worktrees; the
+    operator should see typed lane state, not manage git worktree details by
+    hand.
     If an `active_dual_agent` reviewer session is interrupted, no repo-owned
     Codex conductor remains live, or the loop degrades into a Claude-only /
     hybrid state, stop the detached reviewer daemons through the repo-owned

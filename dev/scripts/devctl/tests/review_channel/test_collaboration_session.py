@@ -26,6 +26,7 @@ def _session_record(
     live: bool = True,
     requested_worker_budget: int | None = None,
     planned_lanes: tuple[dict[str, str], ...] = (),
+    workspace_root: str = "",
 ) -> ConductorSessionRecord:
     return ConductorSessionRecord(
         provider=provider,
@@ -48,6 +49,7 @@ def _session_record(
         metadata_path="",
         live=live,
         age_seconds=5,
+        workspace_root=workspace_root,
     )
 
 
@@ -228,6 +230,62 @@ def test_build_collaboration_session_promotes_active_remote_control_attachment(
     assert coding_assignment.source == "remote_control_attachment"
     assert session.restart.status == "live"
     assert session.restart.source == "remote_control_attachment"
+
+
+def test_build_collaboration_session_carries_lane_identity_from_session_metadata(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    session_records = (
+        _session_record(
+            "codex",
+            "reviewer",
+            planned_lanes=(
+                {
+                    "agent_id": "AGENT-1",
+                    "provider": "codex",
+                    "lane": "Codex review lane",
+                    "mp_scope": "MP-377",
+                    "worktree": "../wt-review",
+                    "branch": "feature/review",
+                },
+            ),
+            workspace_root=str((tmp_path / "../wt-review").resolve()),
+        ),
+    )
+    monkeypatch.setattr(
+        collaboration_mod,
+        "load_conductor_sessions",
+        lambda *, session_output_root: session_records,
+    )
+    monkeypatch.setattr(
+        coordination_mod,
+        "dirty_paths_for_repo",
+        lambda repo_root: (),
+    )
+
+    session = collaboration_mod.build_collaboration_session(
+        timestamp="2026-04-11T00:00:00Z",
+        plan_id="MP-377",
+        session_id="session-1",
+        bridge_liveness={
+            "reviewer_mode": "single_agent",
+            "effective_reviewer_mode": "single_agent",
+        },
+        current_session=_current_session(
+            instruction="Drive lane identity through typed coordination.",
+            last_reviewed_scope="dev/scripts/devctl/review_channel/launch.py",
+        ),
+        repo_root=tmp_path,
+        session_output_root=tmp_path,
+    )
+
+    participant = next(row for row in session.participants if row.provider == "codex")
+    assert participant.lane == "Codex review lane"
+    assert participant.mp_scope == "MP-377"
+    assert participant.worktree == "../wt-review"
+    assert participant.branch == "feature/review"
+    assert participant.workspace_root == str((tmp_path / "../wt-review").resolve())
 
 
 def test_build_collaboration_session_promotes_fresh_local_single_agent_reviewer(

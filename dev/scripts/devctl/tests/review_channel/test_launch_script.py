@@ -39,6 +39,7 @@ def _build_script(
     headless: bool = False,
     log_path: Path | None = None,
     interaction_mode: str = "",
+    workspace_root: Path | None = None,
 ) -> str:
     """Build a session script in a temp dir and return its text."""
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -47,6 +48,7 @@ def _build_script(
         build_session_script(
             provider="claude",
             repo_root=root,
+            workspace_root=workspace_root,
             prompt="test prompt",
             script_path=script_path,
             log_path=log_path,
@@ -98,6 +100,17 @@ class TestLaunchScriptBaseline(unittest.TestCase):
     def test_script_contains_exit_on_success_guard(self) -> None:
         script = _build_script()
         self.assertIn("REVIEW_CHANNEL_EXIT_ON_SUCCESS", script)
+
+    def test_script_uses_workspace_root_when_present(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            workspace_root = (root / "../worker-lane").resolve()
+            script = _build_script(workspace_root=workspace_root)
+            self.assertIn(
+                f"REVIEW_CHANNEL_WORKSPACE_ROOT={workspace_root}",
+                script,
+            )
+            self.assertIn(f"cd {workspace_root}", script)
 
     def test_script_is_executable(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

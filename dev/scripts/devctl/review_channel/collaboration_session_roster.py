@@ -216,11 +216,24 @@ def _planned_lane_role(lane: dict[str, object], *, provider: str) -> TandemRole:
     return normalize_tandem_role(_text(lane.get("role"))) or role_for_provider(provider)
 
 
+def _primary_lane_fields(record: ConductorSessionRecord) -> tuple[str, str, str, str]:
+    if not record.planned_lanes:
+        return "", "", "", ""
+    lane = record.planned_lanes[0]
+    return (
+        _text(lane.get("lane")),
+        _text(lane.get("mp_scope")),
+        _text(lane.get("worktree")),
+        _text(lane.get("branch")),
+    )
+
+
 def _participant_from_record(
     record: ConductorSessionRecord,
     *,
     attachment: RemoteControlAttachmentState | None,
 ) -> CollaborationParticipantState:
+    lane_title, mp_scope, worktree, branch = _primary_lane_fields(record)
     if attachment is None:
         return CollaborationParticipantState(
             agent_id=record.provider,
@@ -239,6 +252,11 @@ def _participant_from_record(
             launch_command=record.launch_command,
             requested_worker_budget=record.requested_worker_budget,
             planned_lane_count=record.planned_lane_count,
+            lane=lane_title,
+            mp_scope=mp_scope,
+            worktree=worktree,
+            branch=branch,
+            workspace_root=record.workspace_root,
         )
     return CollaborationParticipantState(
         agent_id=record.provider,
@@ -257,6 +275,11 @@ def _participant_from_record(
         launch_command=attachment.session_url or record.launch_command,
         requested_worker_budget=record.requested_worker_budget,
         planned_lane_count=record.planned_lane_count,
+        lane=lane_title,
+        mp_scope=mp_scope,
+        worktree=worktree,
+        branch=branch,
+        workspace_root=record.workspace_root,
     )
 
 
@@ -281,6 +304,7 @@ def _participant_from_attachment(
         launch_command=attachment.session_url,
         requested_worker_budget=0,
         planned_lane_count=0,
+        workspace_root="",
     )
 
 
