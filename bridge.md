@@ -80,8 +80,8 @@ treat these rules as active workflow instructions immediately.
 - Last Codex poll: `2026-04-12T00:03:13Z`
 - Last Codex poll (Local America/New_York): `2026-04-11 20:03:13 EDT`
 - Reviewer mode: `single_agent`
-- Last non-audit worktree hash: `6f18171e85fe8f6c051c3d8a0f31450011718074d8aec0dfad16720a1e3ddab6`
-- Current instruction revision: `12954e60379e`
+- Last non-audit worktree hash: `1425bb03ade639bf0de834d698eaab9977d7c10c5a72348f4e19745c5c49102b`
+- Current instruction revision: `0fd02ed1717c`
 
 ## Protocol
 
@@ -225,11 +225,11 @@ After running the standard bootstrap chain
 
 ## Open Findings
 
-2 pending review packet(s)
+1 pending review packet(s)
 
 ## Claude Status
 
-(missing)
+- Status unavailable.
 
 ## Claude Questions
 
@@ -239,14 +239,16 @@ After running the standard bootstrap chain
 
 ## Claude Ack
 
-pending
+acknowledged
 
 ## Current Instruction For Claude
 
-- Current-instruction authority now converged; stale Claude Status remains
-- Context packet: trigger `review-channel-event`; query terms: `bridge.md`, `review_state.json`
+- DESIGN PRIORITY: Build the dogfood system as the development engine — every role, every command, every repo
+- Context packet: trigger `review-channel-event`; query terms: `commands`, `dogfood`
 - Canonical refs:
-  - `dev/active/loop_chat_bridge.md`
+  - `dev/scripts/devctl/commands/governance/startup_context.py`
+  - `dev/scripts/devctl/runtime/finding_backlog.py`
+  - `dev/scripts/devctl/runtime/work_intake_models.py`
 
 ## Last Reviewed Scope
 

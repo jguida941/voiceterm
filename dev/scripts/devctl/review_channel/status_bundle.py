@@ -94,6 +94,20 @@ def write_status_projection_bundle(
             snapshot_id=snapshot_id,
         ),
     )
+    mirror_root = _projection_mirror_root(context.output_root)
+    if mirror_root is not None:
+        write_projection_bundle(
+            output_root=mirror_root,
+            review_state=review_state,
+            agent_registry=agent_registry,
+            action="status",
+            trace_events=[],
+            full_extras=_status_full_extras(
+                context=context,
+                payload=payload,
+                snapshot_id=snapshot_id,
+            ),
+        )
     return StatusProjectionBundleResult(
         projection_paths=projection_paths,
         review_state=review_state,
@@ -167,6 +181,15 @@ def _build_status_review_state(
                 snapshot_id,
             )
     return review_state
+
+
+def _projection_mirror_root(output_root: Path) -> Path | None:
+    """Mirror bridge-backed status bundles into the sibling projections root."""
+    if output_root.name != "latest":
+        return None
+    if output_root.parent.name == "projections":
+        return None
+    return output_root.parent / "projections" / output_root.name
 
 
 def _status_agent_registry(review_state: dict[str, object]) -> dict[str, object]:

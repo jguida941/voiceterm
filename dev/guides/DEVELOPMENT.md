@@ -676,6 +676,12 @@ Three quality layers matter in practice:
     relation families, so targeted
     `context-graph --query '<term>'` calls can answer file-level protection
     and scope questions before the workflow widens into deeper startup reads.
+    The same startup/work-intake path now promotes `active_target` from live
+    planning/finding state instead of stale continuity alone, and
+    `quality_signals` carries the canonical `finding_backlog` summary beside
+    `probe_report` and `governance_review`, so fresh sessions, dashboard, and
+    session-resume do not need separate backlog readers or a second target-
+    selection rule.
     Non-guard queries now suppress generic guard-edge fan-out, and current
     scoped ownership comes from docs-policy rules rather than raw substring
     adjacency alone.
@@ -835,6 +841,11 @@ Three quality layers matter in practice:
   policy-owned instruction/starter surfaces defined in
   `repo_governance.surface_generation`; use `--write` after updating those
   templates, context values, or generated starter outputs.
+- Status-driven compatibility refresh stays narrower than explicit rewrite:
+  `review-channel --action status` may now reproject `bridge.md` from typed
+  `_compat.bridge_projection` state even while pending reviewer-targeted
+  packets exist, but `review-channel --action render-bridge` remains the
+  fail-closed manual rewrite path when those packets are pending.
 - Treat those generated bootstrap surfaces as architecture surfaces too: they
   should explain the compiler-style control model and the
   `TypedAction -> ActionResult -> RunRecord` path so AI launchers start from
@@ -867,6 +878,11 @@ Three quality layers matter in practice:
   divergence instead of a silent green pass. When a critical field starts flowing into a live
   consumer, add a deterministic field-route proof there so "produced but never
   consumed" regressions fail as contract drift instead of surviving as prose.
+  Apply the same rule to new plan/finding contracts and discovery aliases:
+  when `PlanPhase`, `PlanTask`, `PlanDependency`, `FindingBacklog`, or a new
+  task-id query shape becomes live in startup/context-graph/dashboard,
+  add deterministic contract/query proof so the producer and consumer stay
+  wired together.
   Keep `startup_surface_tokens` current on every implemented platform
   contract row so startup/bootstrap surfaces project the same inventory the
   closure guard validates. As of 2026-04-06 the field-route proof helper is

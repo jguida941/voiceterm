@@ -34,11 +34,16 @@ from ..runtime.work_intake_models import (
     WorkIntakeOwnershipState,
 )
 from ..runtime.work_intake_ownership import build_work_intake_ownership_state
-from ..runtime.work_intake_selection import build_target_ref, select_active_plan_entry
+from ..runtime.work_intake_selection import (
+    build_target_ref,
+    promote_active_plan_entry,
+    select_active_plan_entry,
+)
 from ..triage.findings_priority import (
     accumulated_findings_from_governance_rows,
     rank_accumulated_findings,
 )
+from .planning_ir_priority import ranked_finding_paths
 from ..triage.findings_priority_models import RankedFinding
 
 _HOT_PATH_THRESHOLD = 0.30
@@ -127,6 +132,13 @@ def resolve_planning_inputs(
             include_resolved=False,
             top_n=max(20, len(backlog.open_rows)),
         )
+    )
+    active_target = _promote_active_target_from_ranked_findings(
+        repo_root=resolved_root,
+        governance=resolved_governance,
+        active_target=active_target,
+        ranked_findings=ranked_findings,
+        file_to_plan_paths=file_to_plan_paths,
     )
     return PlanningIRResolvedInputs(
         repo_root=resolved_root,
@@ -230,6 +242,66 @@ def _resolve_active_target(
         return None
     entry = select_active_plan_entry(governance, review_state)
     return build_target_ref(repo_root, entry)
+
+
+def _promote_active_target_from_ranked_findings(
+    *,
+    repo_root: Path,
+    governance: ProjectGovernance | None,
+    active_target: PlanTargetRef | None,
+    ranked_findings: Sequence[RankedFinding],
+    file_to_plan_paths: Mapping[str, tuple[str, ...]],
+) -> PlanTargetRef | None:
+    if governance is None or not ranked_findings:
+        return active_target
+    current_entry = None
+    current_path = str(active_target.plan_path or "").strip() if active_target else ""
+    if current_path:
+        current_entry = next(
+            (
+                entry
+                for entry in governance.plan_registry.entries
+                if entry.path == current_path
+            ),
+            None,
+        )
+    focus_plan_path = _ranked_finding_focus_plan_path(
+        ranked_findings=ranked_findings,
+        file_to_plan_paths=file_to_plan_paths,
+        active_target_path=current_path,
+    )
+    promoted_entry = promote_active_plan_entry(
+        governance,
+        current_entry,
+        focus_plan_path=focus_plan_path,
+        live_finding_count=1 if focus_plan_path else 0,
+    )
+    if promoted_entry is None:
+        return active_target
+    if current_entry is not None and promoted_entry.path == current_entry.path:
+        return active_target
+    return build_target_ref(repo_root, promoted_entry)
+
+
+def _ranked_finding_focus_plan_path(
+    *,
+    ranked_findings: Sequence[RankedFinding],
+    file_to_plan_paths: Mapping[str, tuple[str, ...]],
+    active_target_path: str,
+) -> str:
+    for finding in ranked_findings:
+        owner_paths: list[str] = []
+        for file_path in ranked_finding_paths(finding):
+            for owner_path in file_to_plan_paths.get(file_path, ()):
+                if owner_path not in owner_paths:
+                    owner_paths.append(owner_path)
+        if not owner_paths:
+            continue
+        if active_target_path and active_target_path in owner_paths:
+            return active_target_path
+        if len(owner_paths) == 1:
+            return owner_paths[0]
+    return ""
 
 
 def _resolve_finding_backlog(

@@ -11,7 +11,12 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from dev.scripts.devctl.commands import dashboard, dashboard_render, dashboard_typed_state
+from dev.scripts.devctl.commands import (
+    dashboard,
+    dashboard_builders,
+    dashboard_render,
+    dashboard_typed_state,
+)
 
 
 def _make_args(**overrides) -> SimpleNamespace:
@@ -444,6 +449,73 @@ class TestDashboardSnapshotSections(unittest.TestCase):
             self.assertIn("progress", plan)
             self.assertIn("open_findings", plan)
             self.assertEqual(plan["open_findings"], 2)
+
+    def test_plan_section_prefers_typed_startup_routing_and_backlog_counts(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _write_artifact(root, "dev/reports/review_channel/latest/compact.json", _minimal_compact())
+            bridge = root / "bridge.md"
+            bridge.write_text(_minimal_bridge_text(), encoding="utf-8")
+            startup_context = {
+                "work_intake": {
+                    "active_target": {
+                        "plan_path": "dev/active/ai_governance_platform.md",
+                    },
+                    "plan_routing": {
+                        "phase_id": "MP377-P0",
+                        "task_id": "MP377-P0-T01",
+                        "task_summary": "Implement the canonical backlog reader/writer.",
+                        "phase_status": "in_progress",
+                        "task_status": "pending",
+                    },
+                },
+                "quality_signals": {
+                    "governance_review": {
+                        "open_finding_count": 101,
+                    }
+                },
+                "packet_inbox": {
+                    "agents": [
+                        {
+                            "agent": "codex",
+                            "pending_actionable_total": 5,
+                        }
+                    ]
+                },
+            }
+
+            with patch(
+                "dev.scripts.devctl.runtime.startup_context.build_startup_context",
+                return_value=SimpleNamespace(
+                    coordination=None,
+                    to_dict=lambda: startup_context,
+                ),
+            ), patch.object(dashboard, "_git_short", return_value={
+                "branch": "feature/test", "head": "deadbee", "dirty": "CLEAN",
+            }), patch.object(dashboard, "_repo_name", return_value="test-repo"):
+                snapshot = dashboard.build_snapshot(repo_root=root)
+
+            plan = snapshot["plan"]
+            self.assertIn("MP377-P0 / MP377-P0-T01", plan["slice"])
+            self.assertEqual(plan["open_findings"], 101)
+            self.assertIn("phase=in_progress", plan["progress"])
+            self.assertIn("task=pending", plan["progress"])
+            self.assertEqual(plan["pending"], 5)
+
+    def test_plan_section_pending_falls_back_to_session_packet_blocker(self) -> None:
+        plan = dashboard_builders._build_plan_section(
+            coordination={},
+            session={
+                "current_instruction": "dogfood the system",
+                "implementer_status": "working",
+                "open_findings": "5 pending review packet(s)",
+            },
+            bridge_findings=[],
+            startup_context=None,
+            pending_packets_count=1,
+        )
+
+        self.assertEqual(plan["pending"], 5)
 
     def test_assemble_accepts_plan_override(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

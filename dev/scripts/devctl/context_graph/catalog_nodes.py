@@ -6,6 +6,7 @@ import importlib
 from pathlib import Path
 
 from ..governance.doc_authority_rules import parse_index_registry
+from ..platform.planning_ir_plan_content import parse_execution_plan_phases
 from .models import (
     EDGE_KIND_RELATED_TO,
     EDGE_KIND_ROUTES_TO,
@@ -47,6 +48,7 @@ def _plan_metadata(
     metadata["scope"] = scope_raw.replace("`", "").strip().strip(",").strip()
     metadata["when"] = when_text.strip()
     metadata["is_active_plan"] = is_active_plan
+    metadata["aliases"] = []
     return metadata
 
 
@@ -99,7 +101,8 @@ def collect_plan_nodes(repo_root: Path) -> tuple[list[GraphNode], list[tuple[str
                     scope_raw=scope_raw,
                     when_text=when,
                     is_active_plan=is_active_plan,
-                ),
+                )
+                | {"aliases": _plan_aliases(repo_root, path, scope_raw)},
             )
         )
         for keyword, concept_dir in _PLAN_CONCEPT_KEYWORDS:
@@ -107,6 +110,33 @@ def collect_plan_nodes(repo_root: Path) -> tuple[list[GraphNode], list[tuple[str
                 deferred_edges.append((plan_id, f"concept:{concept_dir}"))
                 break
     return nodes, deferred_edges
+
+
+def _plan_aliases(repo_root: Path, plan_path: str, scope_raw: str) -> list[str]:
+    aliases: list[str] = []
+    normalized_scope = scope_raw.replace("`", " ").replace(",", " ")
+    for token in normalized_scope.split():
+        token = token.strip()
+        if token and token not in aliases:
+            aliases.append(token)
+    absolute_path = repo_root / plan_path
+    if not absolute_path.is_file():
+        return aliases
+    try:
+        phases = parse_execution_plan_phases(
+            absolute_path.read_text(encoding="utf-8")
+        )
+    except OSError:
+        return aliases
+    for phase in phases:
+        phase_id = str(phase.phase_id or "").strip()
+        if phase_id and phase_id not in aliases:
+            aliases.append(phase_id)
+        for task in phase.tasks:
+            task_id = str(task.task_id or "").strip()
+            if task_id and task_id not in aliases:
+                aliases.append(task_id)
+    return aliases
 
 
 def collect_guide_nodes(repo_root: Path) -> list[GraphNode]:

@@ -184,6 +184,19 @@ Current 2026-04-10 loop-v2 convergence note:
   inventing a provider-specific verdict-file controller or operator-prose
   authority.
 
+Current 2026-04-13 dogfood walkthrough parity note:
+- The live system test is now part of the platform proof. Startup, session-
+  resume, dashboard, review-channel status, bridge projection, and
+  context-graph query surfaces must agree on the same promoted
+  `active_target`, typed findings backlog, and plan/task discoverability.
+  The current closure keeps continuity subordinate to live planning/finding
+  state, projects `quality_signals.finding_backlog` in startup, allows
+  status-driven `bridge.md` reprojection from typed `_compat.bridge_projection`
+  while leaving explicit `render-bridge` fail-closed on pending reviewer
+  packets, and treats task-id / contract query discoverability
+  (`PlanPhase`, `PlanTask`, `FindingBacklog`, `MP377-P0-T01`) as a required
+  consumer-route proof rather than optional search sugar.
+
 ## Scope
 
 Turn the current VoiceTerm-local automation stack into a reusable AI governance
@@ -4989,14 +5002,22 @@ Use this section as the single "left off here" surface for fresh AI sessions
 working on `MP-377`.
 
 - Current status: the umbrella plan now owns the reduced execution-owner set
-  and the typed phase/task contract. `MP377-P1` is landed; `MP377-P0-T01`
-  (`FindingBacklog`) is still the highest-priority open architecture slice.
-- Next action: implement `MP377-P0-T01` by landing the canonical
-  `FindingBacklog` reader/writer, then route `findings-priority` and startup/
-  monitor/dashboard consumers through it before widening controller work.
+  and the typed phase/task contract. `MP377-P1` is landed, and the live
+  dogfood walkthrough just closed the stale `active_target` / projection
+  parity gaps across startup, session-resume, dashboard, review-channel
+  status, and context-graph.
+- Next action: keep the same typed-consumer rule while continuing the next
+  `MP-377` proof slices: doc-authority migration, route-proof generation from
+  registry data, typed-contract property testing, and clean-adopter proof.
 - Context rule: start from `startup-context`, `governance-review`, and the
   review-channel inbox, then read this file and only the owner docs named by
   the active typed phase/task route.
+- 2026-04-13 dogfood follow-up:
+  `quality_signals.finding_backlog`, promoted `active_target`, bridge status
+  reprojection, and task-id/context-graph aliases are now part of the
+  required cross-surface parity set. If one surface still disagrees with the
+  typed source, treat that as a platform bug and record it through
+  `governance-review --record` before widening functionality.
 - 2026-04-12 architecture-synthesis / phase-order update:
   the 15-command audit plus dashboard packet review confirmed that five
   directions are already platform law (deterministic runtime, role
@@ -6491,6 +6512,20 @@ Execution order for this section:
 
 ## Progress Log
 
+- 2026-04-13: Closed the live dogfood walkthrough parity regressions in the
+  main `MP-377` owner chain instead of leaving them as dashboard/operator
+  folklore. `startup-context` now promotes `active_target` from live
+  planning/finding state, `session-resume` reuses that same coordination path
+  instead of re-deriving stale continuity targets, startup
+  `quality_signals` now carries a bounded `finding_backlog` summary,
+  `review-channel --action status` can refresh `bridge.md` from typed
+  `_compat.bridge_projection` state even when pending reviewer packets still
+  exist, dashboard plan counts now prefer typed actionable packet truth, and
+  context-graph now exposes `PlanPhase` / `PlanTask` / `FindingBacklog`
+  contract nodes plus task-id aliases such as `MP377-P0-T01`. The next proof
+  slices should keep following the same rule: every new typed contract or
+  route must land with both a producer and a consumer proof, not just a data
+  model plus prose.
 - 2026-04-12: Absorbed the latest dashboard architecture review into the main
   `MP-377` owner chain instead of leaving it as packet/chat-local guidance.
   The repo already encodes most of the desired architecture, but it is still

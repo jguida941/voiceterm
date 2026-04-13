@@ -38,6 +38,9 @@ def load_startup_quality_signals(repo_root: Path) -> dict[str, object]:
     governance_review = _load_governance_review_summary(repo_root)
     if governance_review:
         signals["governance_review"] = governance_review
+    finding_backlog = _load_finding_backlog_summary(repo_root)
+    if finding_backlog:
+        signals["finding_backlog"] = finding_backlog
     guidance_hotspots = load_guidance_hotspots(repo_root)
     if guidance_hotspots:
         signals["guidance_hotspots"] = guidance_hotspots
@@ -48,6 +51,8 @@ def load_startup_quality_signals(repo_root: Path) -> dict[str, object]:
     if command_reliability:
         signals["command_reliability"] = command_reliability
     return signals
+
+
 def _load_governance_review_summary(repo_root: Path) -> dict[str, object] | None:
     backlog = load_finding_backlog(
         repo_root=repo_root,
@@ -75,6 +80,31 @@ def _load_governance_review_summary(repo_root: Path) -> dict[str, object] | None
     )
     response["open_by_severity"] = backlog.severity_counts_dict()
     return response
+
+
+def _load_finding_backlog_summary(repo_root: Path) -> dict[str, object] | None:
+    backlog = load_finding_backlog(
+        repo_root=repo_root,
+        governance=scan_repo_governance_safely(repo_root),
+    )
+    if not backlog.total_findings:
+        return None
+    top_open_findings = [
+        {
+            "finding_id": finding.finding_id,
+            "check_id": finding.check_id,
+            "severity": finding.severity,
+            "file_path": finding.file_path,
+        }
+        for finding in backlog.open_findings[:5]
+    ]
+    return {
+        "log_path": backlog.log_path,
+        "total_findings": backlog.total_findings,
+        "open_finding_count": len(backlog.open_rows),
+        "open_by_severity": backlog.severity_counts_dict(),
+        "top_open_findings": top_open_findings,
+    }
 
 
 def _load_watchdog_summary(repo_root: Path) -> dict[str, object] | None:

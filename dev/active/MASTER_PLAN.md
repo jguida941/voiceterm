@@ -128,6 +128,17 @@
   `FindingBacklog` now carry AST-backed consumer-route proofs, and
   `check_governance_closure.py` now fails on newly orphaned typed contracts
   surfaced by `check_contract_connectivity.py`.
+- 2026-04-13 dogfood walkthrough parity follow-up in `MP-377` scope:
+  startup-context, session-resume, dashboard, review-channel status, and
+  context-graph now converge on the same promoted `active_target` and typed
+  findings spine. `WorkIntakePacket` / coordination reducers now let live
+  plan routing plus finding pressure outrank stale continuity targets,
+  startup `quality_signals` now exposes `finding_backlog` beside
+  `probe_report` and `governance_review`, status refresh may reproject
+  `bridge.md` from typed `_compat.bridge_projection` state even while pending
+  reviewer packets still exist, and context-graph plan nodes now answer
+  `PlanPhase` / `PlanTask` contract queries plus direct task-id aliases such
+  as `MP377-P0-T01`.
 - 2026-04-11 bootstrap/client-boundary + mutation-admissibility follow-up in
   `MP-377` scope: generated instruction/setup surfaces now say explicitly that
   VoiceTerm is a first-party client/product integration over the portable

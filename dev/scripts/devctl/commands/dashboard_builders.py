@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import re
 from typing import Any
 
 from .dashboard_utils import (
@@ -212,18 +213,41 @@ def _build_plan_section(
     coordination: dict[str, Any] | None,
     session: dict[str, Any],
     bridge_findings: list[dict[str, str]] | None = None,
+    *,
+    startup_context: dict[str, Any] | None = None,
+    pending_packets_count: int = 0,
 ) -> dict[str, Any]:
     """Build the PLAN section from typed coordination, session, and findings."""
     findings_text = (session.get("open_findings") or "").strip()
-    finding_count = 0
-    if findings_text and findings_text.lower() != "none":
-        finding_count = len([
-            ln for ln in findings_text.splitlines()
-            if ln.strip().startswith("- F") or ln.strip().startswith("-")
-        ])
+    finding_count = _count_open_findings(findings_text)
     detail = bridge_findings or []
     if detail:
         finding_count = len(detail)
+    intake = (
+        startup_context.get("work_intake", {})
+        if isinstance(startup_context, dict)
+        else {}
+    )
+    quality_signals = (
+        startup_context.get("quality_signals", {})
+        if isinstance(startup_context, dict)
+        else {}
+    )
+    packet_inbox = (
+        startup_context.get("packet_inbox", {})
+        if isinstance(startup_context, dict)
+        else {}
+    )
+    plan_routing = intake.get("plan_routing", {}) if isinstance(intake, dict) else {}
+    governance_review = (
+        quality_signals.get("governance_review", {})
+        if isinstance(quality_signals, dict)
+        else {}
+    )
+    backlog_open_count = _coerce_int(governance_review.get("open_finding_count"))
+    actionable_pending_count = _startup_pending_packets_count(packet_inbox)
+    session_pending_count = _pending_packets_from_session(findings_text)
+    active_target = intake.get("active_target", {}) if isinstance(intake, dict) else {}
     slice_text = ""
     progress_text = ""
     if coordination:
@@ -233,6 +257,29 @@ def _build_plan_section(
             or coordination.get("resolved_phase")
             or ""
         ).strip()
+    phase_id = str(plan_routing.get("phase_id") or "").strip()
+    task_id = str(plan_routing.get("task_id") or "").strip()
+    task_summary = str(plan_routing.get("task_summary") or "").strip()
+    if phase_id or task_id:
+        route = " / ".join(part for part in (phase_id, task_id) if part)
+        if task_summary:
+            route = f"{route} — {task_summary}" if route else task_summary
+        if route:
+            slice_text = route
+        phase_status = str(plan_routing.get("phase_status") or "").strip()
+        task_status = str(plan_routing.get("task_status") or "").strip()
+        target_path = str(active_target.get("plan_path") or "").strip()
+        progress_parts = [
+            part
+            for part in (
+                f"phase={phase_status}" if phase_status else "",
+                f"task={task_status}" if task_status else "",
+                f"target={target_path}" if target_path else "",
+            )
+            if part
+        ]
+        if progress_parts:
+            progress_text = "; ".join(progress_parts)
     if not slice_text:
         slice_text = str(session.get("current_instruction") or "n/a").strip() or "n/a"
     if not progress_text:
@@ -240,9 +287,13 @@ def _build_plan_section(
     return {
         "slice": slice_text,
         "progress": progress_text,
-        "open_findings": finding_count,
+        "open_findings": backlog_open_count or finding_count,
         "findings_detail": detail,
-        "pending": 0,
+        "pending": max(
+            pending_packets_count,
+            actionable_pending_count,
+            session_pending_count,
+        ),
     }
 
 
@@ -287,6 +338,55 @@ def _build_coordination_section(
             "requested_worker_budget_total", 0
         ),
     }
+
+
+def _count_open_findings(value: object) -> int:
+    """Count structured findings or numeric packet/finding summaries."""
+    text = str(value or "").strip()
+    if not text or text.lower() == "none":
+        return 0
+    bullets = [
+        line
+        for line in text.splitlines()
+        if line.strip().startswith("- F") or line.strip().startswith("-")
+    ]
+    if bullets:
+        return len(bullets)
+    match = re.match(r"(?P<count>\d+)\s+", text)
+    if match is not None:
+        return _coerce_int(match.group("count"))
+    return 0
+
+
+def _coerce_int(value: object) -> int:
+    try:
+        return int(value or 0)
+    except (TypeError, ValueError):
+        return 0
+
+
+def _startup_pending_packets_count(packet_inbox: object) -> int:
+    if not isinstance(packet_inbox, dict):
+        return 0
+    agents = packet_inbox.get("agents")
+    if not isinstance(agents, list):
+        return 0
+    highest = 0
+    for record in agents:
+        if not isinstance(record, dict):
+            continue
+        highest = max(
+            highest,
+            _coerce_int(record.get("pending_actionable_total")),
+        )
+    return highest
+
+
+def _pending_packets_from_session(findings_text: object) -> int:
+    text = str(findings_text or "").strip().lower()
+    if "pending review packet" not in text:
+        return 0
+    return _count_open_findings(findings_text)
 
 
 def _build_flow_section(

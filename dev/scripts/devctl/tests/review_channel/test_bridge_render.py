@@ -15,6 +15,9 @@ from dev.scripts.devctl.commands import review_channel as review_channel_command
 from dev.scripts.devctl.commands.review_channel.bridge_render import (
     build_bridge_success_report,
 )
+from dev.scripts.devctl.commands.review_channel.status_bridge_sync import (
+    sync_bridge_from_typed_projection_if_needed,
+)
 from dev.scripts.devctl.review_channel.bridge_section_validation import (
     find_embedded_markdown_headings,
 )
@@ -675,6 +678,38 @@ def test_review_channel_render_bridge_fails_closed_with_pending_reviewer_packets
     assert rc == 1
     assert "pending review packet" in payload["errors"][0]
     assert bridge_path.read_text(encoding="utf-8") == original
+
+
+def test_status_bridge_sync_reprojects_bridge_even_with_pending_packets(
+    tmp_path: Path,
+) -> None:
+    root = tmp_path
+    bridge_path = root / "bridge.md"
+    original = _bridge_text()
+    bridge_path.write_text(original, encoding="utf-8")
+    status_dir = root / "dev/reports/review_channel/latest"
+    status_dir.mkdir(parents=True, exist_ok=True)
+    review_state_path = status_dir / "review_state.json"
+    review_state_path.write_text(
+        json.dumps(_typed_review_state(original), indent=2),
+        encoding="utf-8",
+    )
+    _write_pending_packet(root)
+
+    synced, warning = sync_bridge_from_typed_projection_if_needed(
+        repo_root=root,
+        bridge_path=bridge_path,
+        snapshot=SimpleNamespace(
+            projection_paths=SimpleNamespace(review_state_path=str(review_state_path))
+        ),
+    )
+
+    rewritten = bridge_path.read_text(encoding="utf-8")
+    assert synced is True
+    assert warning == ""
+    assert rewritten != original
+    assert "Historical ack that should be dropped." not in rewritten
+    assert "## Coverage" not in rewritten
 
 
 def test_build_bridge_success_report_uses_typed_collaboration_runtime_counts() -> None:

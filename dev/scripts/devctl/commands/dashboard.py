@@ -364,6 +364,8 @@ def build_snapshot(
         if isinstance(review_state_payload, dict)
         else None
     )
+    if typed_review_state is not None and hasattr(typed_review_state, "to_dict"):
+        review_state_payload = typed_review_state.to_dict()
 
     compact = (
         sources.get("compact_json")
@@ -403,6 +405,18 @@ def build_snapshot(
         governance=governance,
         review_state=typed_review_state,
     )
+    startup_context_payload: dict[str, Any] | None = None
+    try:
+        from ..runtime.startup_context import build_startup_context
+
+        startup_context = build_startup_context(
+            repo_root=repo_root,
+            governance=governance,
+            review_state=typed_review_state,
+        )
+        startup_context_payload = startup_context.to_dict()
+    except Exception:
+        startup_context_payload = None
 
     snapshot = _assemble(
         git, compact, push_data, receipt, agents, pipeline, bridge,
@@ -413,6 +427,7 @@ def build_snapshot(
         view=view,
         review_state=review_state_payload,
         control_plane=cp_model,
+        startup_context=startup_context_payload,
     )
     return snapshot
 
@@ -444,6 +459,7 @@ def _assemble(
     review_state: dict[str, Any] | None = None,
     control_plane: ControlPlaneReadModel | None = None,
     plan: dict[str, Any] | None = None,
+    startup_context: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Assemble the typed DashboardSnapshot from raw sources.
 
@@ -484,9 +500,9 @@ def _assemble(
     if not typed_coordination or not str(typed_coordination.get("current_slice") or "").strip():
         from ..runtime.startup_context import build_startup_context
 
-        startup_context = build_startup_context(repo_root=repo_root)
-        if startup_context.coordination is not None:
-            typed_coordination = startup_context.coordination.to_dict()
+        fallback_startup_context = build_startup_context(repo_root=repo_root)
+        if fallback_startup_context.coordination is not None:
+            typed_coordination = fallback_startup_context.coordination.to_dict()
 
     health = _build_health_section(repo_root, compact, runtime_counts=typed_runtime_counts)
     if control_plane:
@@ -535,7 +551,13 @@ def _assemble(
             "actors": typed_coordination.get("actors", []),
         })
 
-    plan_section = plan if plan is not None else _build_plan_section(typed_coordination, session, bridge_findings or [])
+    plan_section = plan if plan is not None else _build_plan_section(
+        typed_coordination,
+        session,
+        bridge_findings or [],
+        startup_context=startup_context,
+        pending_packets_count=len(typed_packets),
+    )
 
     snapshot: dict[str, Any] = {
         "schema_version": 2,

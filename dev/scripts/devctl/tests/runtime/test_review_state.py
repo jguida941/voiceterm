@@ -146,6 +146,90 @@ class ReviewStateTests(unittest.TestCase):
         self.assertEqual(state.pending_approvals()[0].packet_id, "pkt-1")
         self.assertEqual(state.lane_agents("codex")[0].current_job, "Reviewing slice")
 
+    def test_review_state_from_canonical_registry_preserves_registry_rows(self) -> None:
+        state = review_state_from_payload(
+            {
+                "schema_version": 1,
+                "contract_id": "ReviewState",
+                "command": "review-channel",
+                "action": "status",
+                "timestamp": "2026-04-13T00:00:00Z",
+                "ok": True,
+                "review": {
+                    "session_id": "session-2",
+                    "surface_mode": "markdown-bridge",
+                    "active_lane": "review",
+                },
+                "queue": {"pending_total": 0},
+                "current_session": {
+                    "current_instruction": "- keep registry truth",
+                    "current_instruction_revision": "rev-1",
+                    "implementer_status": "assigned",
+                    "implementer_ack_state": "current",
+                },
+                "bridge": {
+                    "reviewer_mode": "single_agent",
+                    "current_instruction": "- keep registry truth",
+                },
+                "collaboration": {
+                    "schema_version": 1,
+                    "contract_id": "CollaborationSession",
+                    "session_id": "session-2",
+                    "status": "live",
+                    "reviewer_mode": "single_agent",
+                    "operator_mode": "manual",
+                    "lead_agent": "codex",
+                    "review_agent": "codex",
+                    "coding_agent": "claude",
+                    "current_slice": "- keep registry truth",
+                    "peer_review": {
+                        "current_instruction": "- keep registry truth",
+                        "current_instruction_revision": "rev-1",
+                        "open_findings": "",
+                        "implementer_status": "assigned",
+                        "implementer_ack": "",
+                        "implementer_ack_state": "current",
+                    },
+                    "arbitration": {"status": "clear", "summary": "", "owner": ""},
+                    "restart": {"status": "live", "resumable": True, "source": "status"},
+                    "ready_gates": [],
+                    "role_assignments": [],
+                    "participants": [],
+                    "delegated_work": [],
+                },
+                "packets": [],
+                "registry": {
+                    "timestamp": "2026-04-13T00:00:00Z",
+                    "agents": [
+                        {
+                            "agent_id": "codex",
+                            "provider": "codex",
+                            "display_name": "Codex",
+                            "lane": "codex",
+                            "lane_title": "Reviewer",
+                            "current_job": "reviewer",
+                            "job_state": "reviewing",
+                        },
+                        {
+                            "agent_id": "claude",
+                            "provider": "claude",
+                            "display_name": "Claude",
+                            "lane": "claude",
+                            "lane_title": "Implementer",
+                            "current_job": "implementer",
+                            "job_state": "assigned",
+                        },
+                    ],
+                },
+            }
+        )
+
+        self.assertIsNotNone(state)
+        assert state is not None
+        self.assertEqual(len(state.registry.agents), 2)
+        self.assertEqual(state.registry.agents[0].agent_id, "codex")
+        self.assertEqual(state.registry.agents[1].current_job, "implementer")
+
     def test_review_state_parses_review_candidate_record(self) -> None:
         state = review_state_from_payload(
             {

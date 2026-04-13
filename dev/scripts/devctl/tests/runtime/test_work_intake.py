@@ -979,7 +979,8 @@ def test_build_work_intake_packet_routes_plan_phase_from_pacing_focus_slice(
     )
 
     assert packet.active_target is not None
-    assert packet.active_target.plan_path == "dev/active/review_channel.md"
+    assert packet.active_target.plan_path == "dev/active/ai_governance_platform.md"
+    assert packet.continuity.source_plan_path == "dev/active/ai_governance_platform.md"
     assert packet.session_pacing.focus_plan_path == "dev/active/ai_governance_platform.md"
     assert packet.plan_routing.phase_id == "MP377-P0"
     assert packet.plan_routing.task_id == "MP377-P0-T01"

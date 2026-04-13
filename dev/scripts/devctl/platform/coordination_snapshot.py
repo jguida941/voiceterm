@@ -4,15 +4,14 @@ from __future__ import annotations
 
 from pathlib import Path
 import re
-from types import SimpleNamespace
 
 from ..config import get_repo_root
 from ..governance.push_state import current_head_commit_sha
 from ..runtime.review_state_locator import load_current_review_state
 from ..runtime.startup_context import build_startup_context
+from ..runtime.work_intake import WorkIntakeStateInputs, build_work_intake_packet
 from ..runtime.work_intake_coordination import build_work_intake_coordination_state
 from ..runtime.work_intake_ownership import build_work_intake_ownership_state
-from ..runtime.work_intake_selection import build_target_ref, select_active_plan_entry
 from ..time_utils import utc_timestamp
 from .coordination_snapshot_models import CoordinationSnapshot
 from .coordination_snapshot_support import (
@@ -213,19 +212,23 @@ def build_coordination_snapshot_for_review_state(
         ownership=ownership,
         reviewer_gate=reviewer_gate,
     )
-    active_target = build_target_ref(
-        resolved_root,
-        select_active_plan_entry(governance, review_state),
+    work_intake = build_work_intake_packet(
+        repo_root=resolved_root,
+        governance=governance,
+        advisory_action="coordination_snapshot",
+        advisory_reason="review_state_projection",
+        state_inputs=WorkIntakeStateInputs(
+            review_state=review_state,
+            ownership=ownership,
+            coordination=coordination,
+            reviewer_gate=reviewer_gate,
+        ),
     )
     return build_coordination_snapshot(
         repo_root=resolved_root,
         review_state=review_state,
         governance=governance,
-        work_intake=SimpleNamespace(
-            active_target=active_target,
-            ownership=ownership,
-            coordination=coordination,
-        ),
+        work_intake=work_intake,
     )
 
 

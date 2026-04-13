@@ -12,7 +12,6 @@ from ...review_channel.current_session_projection import (
 )
 from ...review_channel.handoff import extract_bridge_snapshot
 from ...review_channel.heartbeat import compute_non_audit_worktree_hash
-from ...review_channel.pending_packets import assert_no_pending_reviewer_packets
 
 
 def bridge_current_session_drifted(
@@ -68,13 +67,6 @@ def sync_bridge_from_typed_projection_if_needed(
             "Skipped `bridge.md` sync during status refresh because the typed "
             "review-state projection is missing.",
         )
-    try:
-        assert_no_pending_reviewer_packets(
-            repo_root=repo_root,
-            action_label="bridge sync during status refresh",
-        )
-    except ValueError as exc:
-        return (False, str(exc))
     try:
         review_state_payload = json.loads(review_state_path.read_text(encoding="utf-8"))
         if not isinstance(review_state_payload, dict):

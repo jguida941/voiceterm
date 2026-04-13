@@ -205,8 +205,11 @@ def _review_state_envelope(
         review_payload = payload
     if not review_payload:
         return None
-    registry_payload = _mapping(payload.get("agent_registry")) or _mapping(
-        review_payload.get("agent_registry")
+    registry_payload = (
+        _mapping(payload.get("agent_registry"))
+        or _mapping(payload.get("registry"))
+        or _mapping(review_payload.get("agent_registry"))
+        or _mapping(review_payload.get("registry"))
     )
     attention = _mapping(payload.get("attention")) or _mapping(
         review_payload.get("attention")

@@ -37,6 +37,54 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 - [User Path (5 min)](#user-path-5-min)
 - [Developer Path (15 min)](#developer-path-15-min)
 
+### 2026-04-13 - Dogfood walkthrough parity now closes stale target selection and projection drift across startup, session-resume, bridge, dashboard, and context-graph
+
+Fact: the live dogfood walkthrough proved the typed findings spine existed but
+the consuming surfaces still disagreed on what work was active. Startup could
+emit `plan_routing=MP377-P0/MP377-P0-T01` while `active_target` stayed pinned
+to `dev/active/review_channel.md`, session-resume rebuilt that same stale
+target from a separate path, dashboard mixed fresh typed state with older
+review-state payloads, and context-graph/query surfaces did not yet expose the
+new plan/finding contract vocabulary or task-id aliases that the rest of the
+system was starting to rely on.
+
+This matters because the product claim is no longer "typed state exists
+somewhere in the repo." The claim is that startup, resume, dashboard, status,
+bridge, and discovery surfaces are all compatibility projections over the same
+runtime truth. If one surface still follows stale continuity while another
+follows live plan/finding pressure, the system forces operators back into chat
+lore and manual reconciliation exactly where the platform says it should be
+eliminating that drift.
+
+The closure made the parity rule explicit in code and maintainer docs.
+`WorkIntakePacket` / planning reducers now promote `active_target` from live
+plan routing plus finding pressure instead of stale continuity alone,
+`session-resume` reuses that same coordination path, startup now exposes a
+bounded `quality_signals.finding_backlog` summary beside `probe_report` and
+`governance_review`, `review-channel --action status` may refresh `bridge.md`
+from typed `_compat.bridge_projection` state even while pending reviewer
+packets still exist, and dashboard now prefers typed actionable packet counts
+plus the shared startup routing payload. The same slice also turned discovery
+into proof instead of best-effort search: context-graph now exposes
+`PlanPhase`, `PlanTask`, and `FindingBacklog` contract nodes plus plan-task
+aliases such as `MP377-P0-T01`, so new typed contracts are only considered
+landed when both the producer and a live consumer/query path agree on them.
+
+Evidence: `dev/scripts/devctl/runtime/work_intake.py`,
+`dev/scripts/devctl/runtime/work_intake_selection.py`,
+`dev/scripts/devctl/platform/coordination_snapshot.py`,
+`dev/scripts/devctl/runtime/startup_signals.py`,
+`dev/scripts/devctl/commands/dashboard.py`,
+`dev/scripts/devctl/commands/dashboard_builders.py`,
+`dev/scripts/devctl/commands/review_channel/status_bridge_sync.py`,
+`dev/scripts/devctl/context_graph/catalog_nodes.py`,
+`dev/scripts/devctl/context_graph/contract_scan.py`,
+`dev/scripts/devctl/tests/runtime/test_startup_context.py`,
+`dev/scripts/devctl/tests/runtime/test_startup_signals.py`,
+`dev/scripts/devctl/tests/commands/reporting/test_dashboard.py`,
+`dev/scripts/devctl/tests/review_channel/test_bridge_render.py`, and
+`dev/scripts/devctl/tests/context_graph/test_context_graph.py`.
+
 ### 2026-04-11 - Action-request receipts and queue priority now stay aligned across inbox, dashboard, and current-session truth
 
 ### 2026-04-12 - Role-first portability and phone-operator worker-lane planning are now explicit owner-plan state

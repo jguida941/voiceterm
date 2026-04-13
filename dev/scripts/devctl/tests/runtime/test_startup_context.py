@@ -423,6 +423,18 @@ class TestCoordinationParityF1(unittest.TestCase):
         self.assertIsNotNone(
             session_c, "session-resume must carry a coordination snapshot",
         )
+        self.assertIsNotNone(
+            startup_c.active_target,
+            "startup-context must carry an active target in the coordination snapshot",
+        )
+        self.assertIsNotNone(
+            dashboard_c.active_target,
+            "dashboard must carry an active target in the coordination snapshot",
+        )
+        self.assertIsNotNone(
+            session_c.active_target,
+            "session-resume must carry an active target in the coordination snapshot",
+        )
 
         parity_fields = (
             "declared_topology",
@@ -458,6 +470,16 @@ class TestCoordinationParityF1(unittest.TestCase):
             tuple(startup_c.resync_reasons),
             tuple(session_c.resync_reasons),
             "F1 parity: startup-context vs session-resume disagree on resync_reasons",
+        )
+        self.assertEqual(
+            startup_c.active_target.plan_path,
+            dashboard_c.active_target.plan_path,
+            "F1 parity: startup-context vs dashboard disagree on active_target.plan_path",
+        )
+        self.assertEqual(
+            startup_c.active_target.plan_path,
+            session_c.active_target.plan_path,
+            "F1 parity: startup-context vs session-resume disagree on active_target.plan_path",
         )
 
 

@@ -8142,6 +8142,10 @@ class ReviewChannelCommandTests(unittest.TestCase):
             planned_topology = rs_compat.get("planned_topology", {})
             self.assertEqual(len(agent_registry["agents"]), 3)
             self.assertEqual(agent_registry["agents"][0]["agent_id"], "codex")
+            self.assertEqual(
+                review_state["registry"]["agents"],
+                agent_registry["agents"],
+            )
             self.assertEqual(planned_topology.get("contract_id"), "ReviewPlannedTopology")
             self.assertEqual(len(planned_topology.get("providers", [])), 2)
             self.assertEqual(

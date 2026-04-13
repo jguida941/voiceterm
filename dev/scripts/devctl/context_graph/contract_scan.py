@@ -26,7 +26,11 @@ _CONTRACT_SUFFIXES = (
 )
 _EXTRA_DISCOVERY_CONTRACTS = frozenset(
     {
+        "FindingBacklog",
         "GuardPromotionCandidate",
+        "PlanDependency",
+        "PlanPhase",
+        "PlanTask",
         "PlanningIRSnapshot",
         "SessionPacingState",
     }

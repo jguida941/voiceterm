@@ -157,6 +157,31 @@ def test_load_startup_quality_signals_includes_governance_severity_mix_and_clust
         "medium": 1,
         "low": 0,
     }
+    assert signals["finding_backlog"] == {
+        "log_path": str(log_path),
+        "total_findings": 3,
+        "open_finding_count": 2,
+        "open_by_severity": {
+            "critical": 0,
+            "high": 1,
+            "medium": 1,
+            "low": 0,
+        },
+        "top_open_findings": [
+            {
+                "finding_id": "f-high",
+                "check_id": "probe_high",
+                "severity": "high",
+                "file_path": "pkg/high.py",
+            },
+            {
+                "finding_id": "f-medium",
+                "check_id": "probe_medium",
+                "severity": "medium",
+                "file_path": "pkg/medium.py",
+            },
+        ],
+    }
     assert signals["code_shape_clusters"] == [
         {
             "file": "dev/scripts/devctl/runtime/startup_signals.py",

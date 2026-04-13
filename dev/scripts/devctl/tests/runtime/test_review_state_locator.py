@@ -233,6 +233,61 @@ def test_load_current_review_state_payload_prefers_event_backed_projection_over_
 
 
 @patch("dev.scripts.devctl.review_channel.state.refresh_status_snapshot")
+def test_load_current_review_state_payload_prefers_newer_legacy_snapshot_when_event_bundle_is_older(
+    refresh_status_snapshot_mock,
+    tmp_path: Path,
+) -> None:
+    projection_path = (
+        tmp_path
+        / "dev"
+        / "reports"
+        / "review_channel"
+        / "projections"
+        / "latest"
+        / "review_state.json"
+    )
+    legacy_path = (
+        tmp_path / "dev" / "reports" / "review_channel" / "latest" / "review_state.json"
+    )
+    _write_review_state(
+        projection_path,
+        payload={
+            "timestamp": "2026-04-13T20:00:00Z",
+            "bridge": {"review_accepted": True},
+            "current_session": {"current_instruction": "older event-backed slice"},
+        },
+    )
+    _write_review_state(
+        legacy_path,
+        payload={
+            "timestamp": "2026-04-13T20:05:00Z",
+            "bridge": {"review_accepted": False},
+            "current_session": {"current_instruction": "newer bridge refresh"},
+        },
+    )
+    bridge_path = tmp_path / "bridge.md"
+    bridge_path.write_text("# Review Bridge\n", encoding="utf-8")
+    review_channel_path = tmp_path / "dev" / "active" / "review_channel.md"
+    review_channel_path.parent.mkdir(parents=True, exist_ok=True)
+    review_channel_path.write_text("# Review Channel\n", encoding="utf-8")
+    legacy_path.touch()
+
+    payload = load_current_review_state_payload(
+        tmp_path,
+        governance=_governance(
+            review_root="dev/reports/review_channel/latest",
+            bridge_path="bridge.md",
+            review_channel_path="dev/active/review_channel.md",
+            bridge_active=True,
+        ),
+    )
+
+    assert payload is not None
+    assert payload["current_session"]["current_instruction"] == "newer bridge refresh"
+    refresh_status_snapshot_mock.assert_not_called()
+
+
+@patch("dev.scripts.devctl.review_channel.state.refresh_status_snapshot")
 def test_load_current_review_state_payload_keeps_event_backed_projection_for_live_refresh_callers(
     refresh_status_snapshot_mock,
     tmp_path: Path,

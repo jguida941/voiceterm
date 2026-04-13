@@ -102,11 +102,18 @@ def load_current_review_state_payload(
     dashboard, and session-resume surfaces.
     """
     resolved_governance = _resolve_governance(repo_root, governance=governance)
-    typed_path = resolve_review_state_path(
+    candidate_paths = _existing_candidate_paths(
         repo_root,
         governance=resolved_governance,
     )
+    typed_path = candidate_paths[0] if candidate_paths else None
     typed_payload = _load_payload_from_path(typed_path)
+    typed_path, typed_payload = _prefer_newer_typed_candidate(
+        candidate_paths,
+        preferred_path=typed_path,
+        preferred_payload=typed_payload,
+        repo_root=repo_root,
+    )
     freshness_paths = projection_freshness_paths(
         repo_root,
         governance=resolved_governance,
@@ -219,6 +226,58 @@ def _load_payload_from_path(path: Path | None) -> dict[str, object] | None:
     except (OSError, ValueError):
         return None
     return dict(payload) if isinstance(payload, dict) else None
+
+
+def _existing_candidate_paths(
+    repo_root: Path,
+    *,
+    governance: "ProjectGovernance | None" = None,
+) -> tuple[Path, ...]:
+    paths: list[Path] = []
+    for candidate in review_state_relative_candidates(governance=governance):
+        path = repo_root / candidate
+        if path.is_file():
+            paths.append(path)
+    return tuple(paths)
+
+
+def _prefer_newer_typed_candidate(
+    candidate_paths: tuple[Path, ...],
+    *,
+    preferred_path: Path | None,
+    preferred_payload: dict[str, object] | None,
+    repo_root: Path,
+) -> tuple[Path | None, dict[str, object] | None]:
+    """Keep event-backed preference unless a later governed snapshot is newer.
+
+    The `projections/latest` bundle remains the preferred authority path, but
+    a bridge-refreshed compatibility mirror may legitimately become newer
+    during dogfood/status refreshes before the next event-backed write. In
+    that case, live startup/dashboard/session-resume consumers should follow
+    the newer typed snapshot instead of pinning themselves to an older event
+    bundle solely because it comes first in the candidate list.
+    """
+    if preferred_path is None or preferred_payload is None:
+        return preferred_path, preferred_payload
+    if not _is_event_backed_projection_path(preferred_path, repo_root=repo_root):
+        return preferred_path, preferred_payload
+    preferred_timestamp = _payload_timestamp(preferred_payload)
+    if not preferred_timestamp:
+        return preferred_path, preferred_payload
+    for candidate_path in candidate_paths[1:]:
+        candidate_payload = _load_payload_from_path(candidate_path)
+        candidate_timestamp = _payload_timestamp(candidate_payload)
+        if candidate_payload is None or not candidate_timestamp:
+            continue
+        if candidate_timestamp > preferred_timestamp:
+            return candidate_path, candidate_payload
+    return preferred_path, preferred_payload
+
+
+def _payload_timestamp(payload: dict[str, object] | None) -> str:
+    if not isinstance(payload, dict):
+        return ""
+    return str(payload.get("timestamp") or "").strip()
 
 
 def _is_event_backed_projection_path(path: Path | None, *, repo_root: Path) -> bool:

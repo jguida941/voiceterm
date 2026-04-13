@@ -6,7 +6,7 @@ from hashlib import sha256
 from pathlib import Path
 
 from .project_governance import PlanRegistryEntry, ProjectGovernance
-from .review_state_locator import load_review_state as load_typed_review_state
+from .review_state_locator import load_current_review_state as load_fresh_review_state
 from .review_state_models import ReviewState
 from .work_intake_models import PlanTargetRef
 
@@ -20,8 +20,12 @@ def load_review_state(
     repo_root: Path,
     governance: ProjectGovernance | None = None,
 ) -> ReviewState | None:
-    """Load the typed review-state projection when it exists."""
-    return load_typed_review_state(repo_root, governance=governance)
+    """Load the freshest typed review-state projection when it exists."""
+    return load_fresh_review_state(
+        repo_root,
+        governance=governance,
+        prefer_cached_projection=False,
+    )
 
 
 def select_active_plan_entry(
@@ -72,6 +76,32 @@ def build_target_ref(
         anchor_ref=anchor_ref,
         expected_revision=expected_revision,
     )
+
+
+def promote_active_plan_entry(
+    governance: ProjectGovernance,
+    current_entry: PlanRegistryEntry | None,
+    *,
+    focus_plan_path: str = "",
+    live_finding_count: int = 0,
+) -> PlanRegistryEntry | None:
+    """Promote startup targeting when live planning evidence outranks continuity.
+
+    Session-resume continuity remains the default selector, but it should not
+    pin startup to a stale plan once the planning/finding spine has already
+    produced a different bounded slice with live findings.
+    """
+    if live_finding_count <= 0:
+        return current_entry
+    resolved_path = str(focus_plan_path or "").strip()
+    if not resolved_path:
+        return current_entry
+    if current_entry is not None and current_entry.path == resolved_path:
+        return current_entry
+    promoted = _entry_by_path(governance.plan_registry.entries, resolved_path)
+    if promoted is None or promoted.role == "tracker":
+        return current_entry
+    return promoted
 
 
 def _best_scoped_entry(
@@ -157,4 +187,9 @@ def _file_revision(repo_root: Path, relative_path: str) -> str:
     return sha256(text.encode("utf-8")).hexdigest()[:16]
 
 
-__all__ = ["build_target_ref", "load_review_state", "select_active_plan_entry"]
+__all__ = [
+    "build_target_ref",
+    "load_review_state",
+    "promote_active_plan_entry",
+    "select_active_plan_entry",
+]

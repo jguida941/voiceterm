@@ -218,6 +218,22 @@ class TestContextGraphQuery(unittest.TestCase):
             "plan query should return scoped_by edges once plan->file coverage exists",
         )
 
+    def test_plan_task_query_resolves_owner_plan_and_scoped_edges(self) -> None:
+        result = query_context_graph("MP377-P0-T01", self.nodes, self.edges)
+        self.assertNotEqual(result.confidence, "no_match")
+        self.assertTrue(
+            any(
+                node.node_kind == NODE_KIND_PLAN
+                and node.canonical_pointer_ref == "dev/active/ai_governance_platform.md"
+                for node in result.matched_nodes
+            ),
+            "task-id query should resolve the owning active plan node",
+        )
+        self.assertTrue(
+            any(edge.edge_kind == EDGE_KIND_SCOPED_BY for edge in result.edges),
+            "task-id query should expand to the owning plan's scoped_by edges",
+        )
+
     def test_result_evidence_is_populated(self) -> None:
         result = query_context_graph("topology", self.nodes, self.edges)
         self.assertGreater(len(result.evidence), 0)
@@ -246,7 +262,9 @@ class TestContextGraphQuery(unittest.TestCase):
     def test_contract_query_resolves_loop_v2_seed_symbols(self) -> None:
         for term in (
             "AutoModeState",
+            "FindingBacklog",
             "GuardPromotionCandidate",
+            "PlanPhase",
             "PlanningIRSnapshot",
             "SessionPacingState",
         ):
@@ -255,6 +273,17 @@ class TestContextGraphQuery(unittest.TestCase):
                 result.confidence,
                 "no_match",
                 f"{term} should no longer be invisible to context-graph",
+            )
+
+    def test_contract_query_resolves_plan_and_backlog_contract_nodes(self) -> None:
+        for term in ("PlanPhase", "FindingBacklog"):
+            result = query_context_graph(term, self.nodes, self.edges)
+            self.assertTrue(
+                any(
+                    node.node_kind == NODE_KIND_TYPED_CONTRACT and node.label == term
+                    for node in result.matched_nodes
+                ),
+                f"{term} should be indexed as a typed contract node",
             )
 
     def test_contract_alias_query_resolves_snake_case(self) -> None:
