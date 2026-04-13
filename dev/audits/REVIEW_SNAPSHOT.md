@@ -5,14 +5,14 @@
 ## Quick status
 
 - Branch: `codex-role-portability`
-- HEAD: `c06a989a8275` — Refresh external review snapshot for 1e24f79f
-- Tree hash: `e5a0f719ec38`
-- Generation stamp: `snap-9b3c7f89e0ad`
-- Generated at (UTC): 2026-04-13T17:49:50Z
-- Push decision: `await_checkpoint` — staged_index_budget_exceeded
+- HEAD: `d0e5ac476e2b` — Consolidate plan system: typed phases, plan ingestion, guard wiring, registry reduction
+- Tree hash: `e46efe08f38f`
+- Generation stamp: `snap-28439398ea6f`
+- Generated at (UTC): 2026-04-13T17:50:09Z
+- Push decision: `run_devctl_push` — push_preconditions_satisfied
 - Reviewer mode: `single_agent` (interaction: `local_terminal`)
 - Pipeline state: `n/a` (approval: `n/a`)
-- Delta since last snapshot: 25 commits, 262 files, +21265/-6332
+- Delta since last snapshot: 24 commits, 253 files, +18559/-6160
 - Governance findings: 96 open / 71 fixed / 181 total
 - Probe hints: 0 total across 0 files scanned
 
@@ -54,24 +54,24 @@ adopters arrive.
 - Remote: `https://github.com/jguida941/voiceterm.git`
 - Default branch: `master`
 - Current branch: `codex-role-portability`
-- HEAD SHA: `c06a989a827559335a0eed01183c384a6df9d34d`
+- HEAD SHA: `d0e5ac476e2bb878d24697791c064215dc74489a`
 - HEAD author: Justin Guida
-- HEAD timestamp (UTC): 2026-04-13T13:00:02-04:00
+- HEAD timestamp (UTC): 2026-04-13T13:49:20-04:00
 
 ## 2. Governance state
 
 ### Push decision
-- action: `await_checkpoint`
-- reason: staged_index_budget_exceeded
-- push_eligible_now: False
-- worktree_clean: False
-- staged_path_count: 28
+- action: `run_devctl_push`
+- reason: push_preconditions_satisfied
+- push_eligible_now: True
+- worktree_clean: True
+- staged_path_count: 0
 - unstaged_path_count: 0
-- next_step_command: `n/a`
+- next_step_command: `python3 dev/scripts/devctl.py push --execute`
 - latest_push_report: `dev/reports/push/latest.json`
 - latest_push_report_state: `blocked` (validation_failed)
 - publication_backlog: queued
-- publication_guidance: Local branch still has unpublished work waiting for governed push once the current slice is checkpoint-clean.
+- publication_guidance: Local branch still has unpublished work waiting for governed push. Run `python3 dev/scripts/devctl.py push --execute` now.
 
 ### Reviewer runtime
 - reviewer_mode: `single_agent`
@@ -87,81 +87,83 @@ adopters arrive.
 - active plan: **Review Channel + Shared Screen Plan**
 - plan path: `dev/active/review_channel.md`
 - active MP scope: `MP-355`
-- advisory: `checkpoint_before_continue` — staged_index_budget_exceeded
-- checkpoint_required: **yes**
+- advisory: `no_push_needed` — clean_worktree
 
 ## 3. Delta — what changed since the previous snapshot
 
-Range: last 25 commits ending at `c06a989a8275`
+Range: last 24 commits ending at `d0e5ac476e2b`
 
-- commits: 25
-- files changed: 262
-- insertions: +21265
-- deletions: -6332
-- bundle classes touched: tooling, docs
+- commits: 24
+- files changed: 253
+- insertions: +18559
+- deletions: -6160
+- bundle classes touched: docs, tooling
 - risk add-ons triggered: Parser / ANSI boundary
-- authority surfaces touched: 41 file(s)
+- authority surfaces touched: 36 file(s)
 
 ### Commits
 
 | # | SHA | Subject | Files | +/- | Bundle | Risk |
 |---|---|---|---|---|---|---|
-| 1 | `c06a989a` | Refresh external review snapshot for 1e24f79f | 1 | +110/-83 | tooling |  |
-| 2 | `1e24f79f` | Fix remote-control review-channel guard regressions and ext… | 158 | +12763/-4359 | tooling | Parser / ANSI boundary |
-| 3 | `687c0478` | Refresh external review snapshot for 4372e2cd | 1 | +86/-83 | tooling |  |
-| 4 | `4372e2cd` | Fix probe shims, event projection, and launch/rollover test… | 44 | +943/-142 | tooling |  |
-| 5 | `f88de94b` | Refresh external review snapshot for 5ed6e2fb | 1 | +80/-71 | tooling |  |
-| 6 | `5ed6e2fb` | Make review state role-neutral and bind push approval to wo… | 45 | +730/-117 | tooling |  |
-| 7 | `a1c7ffe3` | Refresh external review snapshot for 00e45380 | 1 | +67/-64 | tooling |  |
-| 8 | `00e45380` | Checkpoint single-agent liveness and worker-lane portability | 33 | +815/-159 | tooling |  |
-| 9 | `763be95d` | Refresh external review snapshot for e8ccc7e7 | 1 | +63/-64 | tooling |  |
-| 10 | `e8ccc7e7` | review_channel: remote-control attachment counts as live co… | 11 | +258/-61 | tooling |  |
-| 11 | `70e2544f` | docs(audit): dashboard-loop ticks 33-48 + liveness symmetry… | 3 | +285/-51 | tooling |  |
-| 12 | `5cc9e8d9` | Refresh external review snapshot for 01e436d0 | 1 | +67/-65 | tooling |  |
-| 13 | `01e436d0` | docs+workflow: propagate bundle.tooling publications-ignore… | 7 | +72/-49 | tooling |  |
-| 14 | `bb6bbef4` | Refresh external review snapshot for 0db1267c | 1 | +56/-59 | tooling |  |
-| 15 | `0db1267c` | bundles(tooling): ignore publications warning source in str… | 3 | +53/-50 | tooling |  |
-| 16 | `49dcf13e` | Refresh external review snapshot for 353f3bb6 | 1 | +59/-62 | tooling |  |
-| 17 | `353f3bb6` | review_channel: priority selector drives current_session.cu… | 6 | +69/-51 | tooling |  |
-| 18 | `0d2cb8ad` | Refresh external review snapshot for 637a4ad9 | 1 | +59/-62 | tooling |  |
-| 19 | `637a4ad9` | docs: slice-closure updates from Codex for the review_chann… | 4 | +97/-42 | docs |  |
-| 20 | `7a3091c5` | plans: record review_channel trigger primitive slice in act… | 5 | +101/-66 | tooling |  |
-| 21 | `de08f5c9` | review_channel: split enrich_event_review_state to satisfy… | 2 | +103/-58 | tooling |  |
-| 22 | `52878653` | Refresh external review snapshot for 061a1261 | 1 | +54/-51 | tooling |  |
-| 23 | `061a1261` | review_channel: packet_control_loop priority selection + co… | 5 | +350/-62 | tooling |  |
-| 24 | `2cd74a7c` | Refresh external review snapshot for 6db71aca | 1 | +107/-85 | tooling |  |
-| 25 | `6db71aca` | review_channel: typed participant authoritative + action_re… | 78 | +3818/-316 | tooling |  |
+| 1 | `d0e5ac47` | Consolidate plan system: typed phases, plan ingestion, guar… | 29 | +1219/-229 | tooling |  |
+| 2 | `c06a989a` | Refresh external review snapshot for 1e24f79f | 1 | +110/-83 | tooling |  |
+| 3 | `1e24f79f` | Fix remote-control review-channel guard regressions and ext… | 158 | +12763/-4359 | tooling | Parser / ANSI boundary |
+| 4 | `687c0478` | Refresh external review snapshot for 4372e2cd | 1 | +86/-83 | tooling |  |
+| 5 | `4372e2cd` | Fix probe shims, event projection, and launch/rollover test… | 44 | +943/-142 | tooling |  |
+| 6 | `f88de94b` | Refresh external review snapshot for 5ed6e2fb | 1 | +80/-71 | tooling |  |
+| 7 | `5ed6e2fb` | Make review state role-neutral and bind push approval to wo… | 45 | +730/-117 | tooling |  |
+| 8 | `a1c7ffe3` | Refresh external review snapshot for 00e45380 | 1 | +67/-64 | tooling |  |
+| 9 | `00e45380` | Checkpoint single-agent liveness and worker-lane portability | 33 | +815/-159 | tooling |  |
+| 10 | `763be95d` | Refresh external review snapshot for e8ccc7e7 | 1 | +63/-64 | tooling |  |
+| 11 | `e8ccc7e7` | review_channel: remote-control attachment counts as live co… | 11 | +258/-61 | tooling |  |
+| 12 | `70e2544f` | docs(audit): dashboard-loop ticks 33-48 + liveness symmetry… | 3 | +285/-51 | tooling |  |
+| 13 | `5cc9e8d9` | Refresh external review snapshot for 01e436d0 | 1 | +67/-65 | tooling |  |
+| 14 | `01e436d0` | docs+workflow: propagate bundle.tooling publications-ignore… | 7 | +72/-49 | tooling |  |
+| 15 | `bb6bbef4` | Refresh external review snapshot for 0db1267c | 1 | +56/-59 | tooling |  |
+| 16 | `0db1267c` | bundles(tooling): ignore publications warning source in str… | 3 | +53/-50 | tooling |  |
+| 17 | `49dcf13e` | Refresh external review snapshot for 353f3bb6 | 1 | +59/-62 | tooling |  |
+| 18 | `353f3bb6` | review_channel: priority selector drives current_session.cu… | 6 | +69/-51 | tooling |  |
+| 19 | `0d2cb8ad` | Refresh external review snapshot for 637a4ad9 | 1 | +59/-62 | tooling |  |
+| 20 | `637a4ad9` | docs: slice-closure updates from Codex for the review_chann… | 4 | +97/-42 | docs |  |
+| 21 | `7a3091c5` | plans: record review_channel trigger primitive slice in act… | 5 | +101/-66 | tooling |  |
+| 22 | `de08f5c9` | review_channel: split enrich_event_review_state to satisfy… | 2 | +103/-58 | tooling |  |
+| 23 | `52878653` | Refresh external review snapshot for 061a1261 | 1 | +54/-51 | tooling |  |
+| 24 | `061a1261` | review_channel: packet_control_loop priority selection + co… | 5 | +350/-62 | tooling |  |
 
 ### Files
 
 | Path | Bundle | +/- |
 |---|---|---|
 | `.github/workflows/tooling_control_plane.yml` | tooling | +1/-1 |
-| `AGENTS.md` | docs | +40/-11 |
+| `AGENTS.md` | docs | +35/-9 |
 | `bridge.md` | docs | +27/-53 |
-| `dev/active/MASTER_PLAN.md` | tooling | +191/-17 |
-| `dev/active/ai_governance_platform.md` | tooling | +176/-16 |
+| `dev/active/INDEX.md` | tooling | +35/-49 |
+| `dev/active/MASTER_PLAN.md` | tooling | +153/-52 |
+| `dev/active/ai_governance_platform.md` | tooling | +238/-17 |
 | `dev/active/autonomous_governance_loop_v2.md` | tooling | +59/-19 |
 | `dev/active/continuous_swarm.md` | tooling | +354/-8 |
 | `dev/active/platform_authority_loop.md` | tooling | +17/-0 |
-| `dev/active/remote_commit_pipeline.md` | tooling | +141/-1 |
-| `dev/active/remote_control_runtime.md` | tooling | +364/-21 |
+| `dev/active/remote_commit_pipeline.md` | tooling | +113/-1 |
+| `dev/active/remote_control_runtime.md` | tooling | +293/-21 |
 | `dev/active/review_channel.md` | tooling | +7/-0 |
 | `dev/audits/LIVE_RUN.md` | tooling | +645/-0 |
-| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1603/-1560 |
+| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1506/-1484 |
 | `dev/config/devctl_policies/launcher.json` | tooling | +25/-0 |
 | `dev/config/git_hooks/pre-commit-review-snapshot.sh` | tooling | +13/-8 |
-| `dev/config/git_hooks/pre-push-governed-push.sh` | tooling | +1/-1 |
-| `dev/guides/DEVELOPMENT.md` | docs | +49/-8 |
-| `dev/history/ENGINEERING_EVOLUTION.md` | tooling | +269/-1 |
-| `dev/scripts/README.md` | tooling | +84/-23 |
+| `dev/config/quality_presets/portable_python.json` | tooling | +1/-0 |
+| `dev/config/quality_presets/portable_rust.json` | tooling | +1/-0 |
+| `dev/guides/DEVELOPMENT.md` | docs | +48/-6 |
+| `dev/history/ENGINEERING_EVOLUTION.md` | tooling | +284/-1 |
+| `dev/scripts/README.md` | tooling | +65/-21 |
+| `dev/scripts/checks/active_plan/contract.py` | tooling | +0/-16 |
+| `dev/scripts/checks/active_plan/typed_phase_contract.py` | tooling | +104/-0 |
+| `dev/scripts/checks/check_active_plan_sync.py` | tooling | +25/-54 |
 | `dev/scripts/checks/check_bundle_workflow_parity.py` | tooling | +66/-1 |
 | `dev/scripts/checks/check_duplication_audit.py` | tooling | +69/-1 |
 | `dev/scripts/checks/check_naming_consistency.py` | tooling | +60/-1 |
 | `dev/scripts/checks/check_rustsec_policy.py` | tooling | +17/-1 |
 | `dev/scripts/checks/code_shape/code_shape_policy.py` | tooling | +0/-54 |
 | `dev/scripts/checks/naming_consistency/core.py` | tooling | +2/-2 |
-| `dev/scripts/checks/platform_contract_closure/emitter_parity.py` | tooling | +5/-0 |
 | `dev/scripts/checks/platform_contract_closure/emitter_parity_contract_checks.py` | tooling | +8/-3 |
 | `dev/scripts/checks/probe_boolean_params.py` | tooling | +17/-1 |
 | `dev/scripts/checks/probe_clone_density.py` | tooling | +17/-1 |
@@ -172,11 +174,7 @@ Range: last 25 commits ending at `c06a989a8275`
 | `dev/scripts/checks/probe_exception_quality.py` | tooling | +17/-1 |
 | `dev/scripts/checks/probe_magic_numbers.py` | tooling | +17/-1 |
 | `dev/scripts/checks/probe_path_filters.py` | tooling | +17/-1 |
-| `dev/scripts/checks/probe_stringly_typed.py` | tooling | +17/-1 |
-| `dev/scripts/checks/probe_type_conversions.py` | tooling | +17/-1 |
-| `dev/scripts/checks/probe_unnecessary_intermediates.py` | tooling | +17/-1 |
-| `dev/scripts/checks/probe_unwrap_chains.py` | tooling | +17/-1 |
-| _222 more files trimmed_ | | |
+| _213 more files trimmed_ | | |
 
 ## 4. Quality signals
 
@@ -247,8 +245,9 @@ Recent findings:
 ### Targeted hints
 
 - **risk**: Parser / ANSI boundary — Delta touches a risk-sensitive surface; verify the routed bundle
-- **authority_surface**: Typed authority surface touched (`dev/active/remote_commit_pipeline.md`) — Review contract-level invariants for this file
 - **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/commands/governance/startup_context.py`) — Review contract-level invariants for this file
+- **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/tests/runtime/test_startup_context.py`) — Review contract-level invariants for this file
+- **authority_surface**: Typed authority surface touched (`dev/active/remote_commit_pipeline.md`) — Review contract-level invariants for this file
 - **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/commands/vcs/governed_executor.py`) — Review contract-level invariants for this file
 - **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/commands/vcs/governed_executor_commit_phase.py`) — Review contract-level invariants for this file
 - **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/commands/vcs/governed_executor_commit_runtime.py`) — Review contract-level invariants for this file
@@ -273,7 +272,6 @@ Recent findings:
 - **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/runtime/startup_context.py`) — Review contract-level invariants for this file
 - **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/runtime/startup_receipt.py`) — Review contract-level invariants for this file
 - **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/tests/review_channel/test_reviewer_runtime_doctor.py`) — Review contract-level invariants for this file
-- **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/tests/runtime/test_startup_context.py`) — Review contract-level invariants for this file
 - **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/tests/vcs/test_governed_executor.py`) — Review contract-level invariants for this file
 - **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/commands/review_channel/bridge_action_support.py`) — Review contract-level invariants for this file
 - **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/tests/runtime/test_remote_commit_pipeline_phases34.py`) — Review contract-level invariants for this file
@@ -283,11 +281,10 @@ Recent findings:
 - **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/runtime/project_governance_push.py`) — Review contract-level invariants for this file
 - **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/runtime/remote_commit_pipeline_models.py`) — Review contract-level invariants for this file
 - **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/runtime/reviewer_runtime_parser.py`) — Review contract-level invariants for this file
-- **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/commands/review_channel/bridge_handler.py`) — Review contract-level invariants for this file
-- **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/commands/review_channel/bridge_render.py`) — Review contract-level invariants for this file
-- **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/commands/review_channel/reviewer_runtime_snapshot.py`) — Review contract-level invariants for this file
-- **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/commands/vcs/governed_executor_validation.py`) — Review contract-level invariants for this file
-- **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/runtime/startup_push_decision.py`) — Review contract-level invariants for this file
+- **contract_mutation**: Contract / typed model mutated (`dev/scripts/checks/active_plan/typed_phase_contract.py`) — Commit d0e5ac47 changed dev/scripts/checks/active_plan/typed_phase_contract.py
+- **contract_mutation**: Contract / typed model mutated (`dev/scripts/devctl/platform/planning_ir_models.py`) — Commit d0e5ac47 changed dev/scripts/devctl/platform/planning_ir_models.py
+- **contract_mutation**: Contract / typed model mutated (`dev/scripts/devctl/runtime/work_intake_models.py`) — Commit d0e5ac47 changed dev/scripts/devctl/runtime/work_intake_models.py
+- **contract_mutation**: Contract / typed model mutated (`dev/scripts/devctl/tests/test_active_plan_contract.py`) — Commit d0e5ac47 changed dev/scripts/devctl/tests/test_active_plan_contract.py
 - **contract_mutation**: Contract / typed model mutated (`dev/scripts/devctl/platform/surface_state_contract_rows.py`) — Commit 1e24f79f changed dev/scripts/devctl/platform/surface_state_contract_rows.py
 - **contract_mutation**: Contract / typed model mutated (`dev/scripts/devctl/review_channel/bridge_projection_contract.py`) — Commit 1e24f79f changed dev/scripts/devctl/review_channel/bridge_projection_contract.py
 - **contract_mutation**: Contract / typed model mutated (`dev/scripts/devctl/review_channel/pending_packet_models.py`) — Commit 1e24f79f changed dev/scripts/devctl/review_channel/pending_packet_models.py
@@ -298,8 +295,6 @@ Recent findings:
 - **contract_mutation**: Contract / typed model mutated (`dev/scripts/devctl/governance/push_state_models.py`) — Commit 5ed6e2fb changed dev/scripts/devctl/governance/push_state_models.py
 - **contract_mutation**: Contract / typed model mutated (`dev/scripts/devctl/runtime/remote_commit_pipeline_models.py`) — Commit 5ed6e2fb changed dev/scripts/devctl/runtime/remote_commit_pipeline_models.py
 - **contract_mutation**: Contract / typed model mutated (`dev/scripts/devctl/runtime/review_state_collaboration_models.py`) — Commit 5ed6e2fb changed dev/scripts/devctl/runtime/review_state_collaboration_models.py
-- **contract_mutation**: Contract / typed model mutated (`dev/scripts/devctl/review_channel/event_models.py`) — Commit 6db71aca changed dev/scripts/devctl/review_channel/event_models.py
-- **contract_mutation**: Contract / typed model mutated (`dev/scripts/devctl/runtime/validation_contracts.py`) — Commit 6db71aca changed dev/scripts/devctl/runtime/validation_contracts.py
 
 ### Suggested verification commands
 
@@ -313,6 +308,15 @@ Recent findings:
 
 ### Per-commit rationale
 
+- **`d0e5ac47` | MPs: MP-377** — Consolidate plan system: typed phases, plan ingestion, guard wiring, registry reduction
+  - Architecture session deliverables:
+  - - Consolidated MP-377 execution authority under ai_governance_platform.md
+  -   with typed phases/tasks, reduced active owner docs to 3-5 live entries
+  - plan: `dev/active/ai_governance_platform.md`
+  - plan: `dev/active/platform_authority_loop.md`
+  - plan: `dev/active/autonomous_governance_loop_v2.md`
+  - plan: `dev/active/remote_commit_pipeline.md`
+  - plan: `dev/active/PLAN_FORMAT.md`
 - **`c06a989a`** — Refresh external review snapshot for 1e24f79f
 - **`1e24f79f`** — Fix remote-control review-channel guard regressions and extract oversized modules
   - Codex session 2 guard-fix work:
@@ -385,12 +389,6 @@ Recent findings:
   - Adds packet_control_loop.py with select_priority_pending_packet(), which
   - picks the highest-priority live pending packet (action_request class first,
   - then findings/questions/instructions) and returns control-state metadata
-- **`2cd74a7c`** — Refresh external review snapshot for 6db71aca
-- **`6db71aca` | MPs: MP-355** — review_channel: typed participant authoritative + action_request delivery primitive + dashboard/control-plane parity
-  - Closes six of the eight scaffolding layers named in the architectural meta-
-  - finding this session. Introduces the action_request_delivery primitive that
-  - stamps delivery_emitted_at_utc / delivery_observed_at_utc / delivery_observed_by
-  - plan: `dev/active/review_channel.md`
 ### Active MP scope (from MASTER_PLAN.md)
 
 - contract slice for MP-355 plus the temporary markdown-swarm operating mode
@@ -409,10 +407,9 @@ Recent findings:
 - open governance findings: 96
 
 ### Startup advisories
-- checkpoint_before_continue: staged_index_budget_exceeded
+- no_push_needed: clean_worktree
 
 ### Stale warnings
-- Keep editing the current slice.
 - Move straight to the governed push path.
 
 ### Open gap rows
@@ -426,4 +423,4 @@ Recent findings:
 
 ---
 
-Projection produced by `devctl review-snapshot`. Generation stamp `snap-9b3c7f89e0ad` binds this file to HEAD `c06a989a8275`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
+Projection produced by `devctl review-snapshot`. Generation stamp `snap-28439398ea6f` binds this file to HEAD `d0e5ac476e2b`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
