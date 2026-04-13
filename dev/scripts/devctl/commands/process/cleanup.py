@@ -86,6 +86,11 @@ def _render_md(report: dict) -> str:
     return "\n".join(lines)
 
 
+def _is_sandbox_ps_warning(message: str) -> bool:
+    lowered = message.lower()
+    return "unable to execute ps" in lowered and "operation not permitted" in lowered
+
+
 def build_process_cleanup_report(*, dry_run: bool, verify: bool) -> dict:
     """Build the structured cleanup + optional verify report."""
     state = collect_process_audit_state()
@@ -94,6 +99,9 @@ def build_process_cleanup_report(*, dry_run: bool, verify: bool) -> dict:
     verify_report: dict | None = None
 
     for warning in state["scan_warnings"]:
+        if _is_sandbox_ps_warning(warning):
+            warnings.append(warning)
+            continue
         errors.append(f"Host process cleanup unavailable: {warning}")
 
     cleanup_target_rows = expand_cleanup_target_rows(

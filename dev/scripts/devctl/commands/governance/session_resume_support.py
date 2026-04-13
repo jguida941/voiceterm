@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import subprocess
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -18,9 +17,12 @@ from ...runtime.control_plane_read_model import (
 )
 from ...runtime.review_state_parser import review_state_from_payload
 from ...runtime.review_state_models import (
+    packet_inbox_from_mapping,
+    PacketInboxState,
     ReviewCandidateRecord,
     review_candidate_from_mapping,
 )
+from ...runtime.review_packet_inbox import build_packet_inbox_payload
 from ...runtime.reviewer_runtime_models import (
     RemoteControlAttachmentState,
     has_active_remote_control_attachment,
@@ -34,22 +36,15 @@ from ...runtime.control_plane_resolve import (
 from ...runtime.value_coercion import coerce_string
 from ...runtime.work_intake_models import SessionContinuityState
 from ...time_utils import utc_timestamp
+from . import session_resume_git as _session_resume_git
 from .session_resume_paths import (
     get_review_state_mtime,
     governance_interaction_mode,
     resolve_source_paths,
 )
-
 if TYPE_CHECKING:
     from ...runtime.project_governance import ProjectGovernance
     from ...runtime.review_state_models import ReviewState
-
-_BUNDLE_BY_LANE = {
-    "docs": "bundle.docs",
-    "runtime": "bundle.runtime",
-    "tooling": "bundle.tooling",
-    "release": "bundle.release",
-}
 
 
 SESSION_CACHE_RELATIVE_DIR = Path("dev/reports/session_cache/latest")
@@ -63,6 +58,28 @@ SESSION_CACHE_FILENAME = "cache.json"
 _STALE_CONTINUITY_STATUSES: frozenset[str] = frozenset(
     {"needs_review", "plan_only", "review_only", "missing"}
 )
+
+current_head = _session_resume_git.current_head
+_git_changed_paths = _session_resume_git._git_changed_paths
+_git_commit_range_paths = _session_resume_git._git_commit_range_paths
+
+
+def resolve_guard_bundle(
+    repo_root: Path,
+    changed_paths: list[str] | None,
+    *,
+    head_sha: str = "",
+    last_reviewed_sha: str = "",
+) -> str:
+    _session_resume_git._git_changed_paths = _git_changed_paths
+    _session_resume_git._git_commit_range_paths = _git_commit_range_paths
+    return _session_resume_git.resolve_guard_bundle(
+        repo_root,
+        changed_paths,
+        head_sha=head_sha,
+        last_reviewed_sha=last_reviewed_sha,
+    )
+
 
 @dataclass(frozen=True, slots=True)  # noqa: too-many-instance-attributes
 class SessionCachePacket:
@@ -98,6 +115,10 @@ class SessionCachePacket:
     review_candidate: ReviewCandidateRecord | None = None
     remote_control_attachment: RemoteControlAttachmentState | None = None
     coordination: CoordinationSnapshot | None = None
+    attention_status: str = "n/a"
+    attention_summary: str = "n/a"
+    attention_revision: str = ""
+    packet_inbox: PacketInboxState | None = None
 
     def to_dict(self) -> dict[str, object]:
         payload = asdict(self)
@@ -238,7 +259,7 @@ def build_from_sources(
     last_reviewed_sha = _extract_last_reviewed_sha(sources)
     head_at_push_time = _extract_head_at_push_time(sources)
     review_candidate = _extract_review_candidate(sources)
-    guard_bundle = _resolve_guard_bundle(
+    guard_bundle = resolve_guard_bundle(
         repo_root, changed_paths,
         head_sha=head_sha, last_reviewed_sha=last_reviewed_sha,
     )
@@ -259,6 +280,17 @@ def build_from_sources(
             repo_root=repo_root,
             governance=governance,
         )
+    review_state_payload = (
+        sources.get("review_state") if isinstance(sources.get("review_state"), dict) else {}
+    )
+    packet_inbox = packet_inbox_from_mapping(
+        review_state_payload.get("packet_inbox")
+    ) or packet_inbox_from_mapping(
+        build_packet_inbox_payload(
+            review_state_payload.get("packets", ()),
+            attention=review_state_payload.get("attention", {}),
+        )
+    )
 
     return SessionCachePacket(
         generated_at_utc=utc_timestamp(),
@@ -288,6 +320,12 @@ def build_from_sources(
         review_candidate=review_candidate,
         remote_control_attachment=getattr(model, "remote_control_attachment", None),
         coordination=coordination,
+        attention_status=model.attention_status,
+        attention_summary=model.attention_summary,
+        attention_revision=(
+            packet_inbox.attention_revision if packet_inbox is not None else ""
+        ),
+        packet_inbox=packet_inbox,
     )
 
 
@@ -363,80 +401,7 @@ def _extract_coordination(
     return startup_context.coordination
 
 
-# Alias kept for backward compatibility with existing callers
 _extract_last_reviewed_sha = _extract_head_at_push_time
-
-
-def _resolve_guard_bundle(
-    repo_root: Path,
-    changed_paths: list[str] | None,
-    *,
-    head_sha: str = "",
-    last_reviewed_sha: str = "",
-) -> str:
-    """Classify changed paths into the appropriate guard bundle name.
-
-    Source precedence: (1) explicit ``changed_paths``, (2) live local
-    worktree diffs, (3) commit-range fallback only when local diffs are
-    empty and ``last_reviewed_sha != head_sha``.  This ensures dirty
-    local changes always take priority over older commit-range diffs.
-
-    Returns empty string when classification is unavailable (import fails
-    or no paths provided).
-    """
-    if changed_paths is not None:
-        paths = changed_paths
-    else:
-        paths = _git_changed_paths(repo_root)
-        if not paths and last_reviewed_sha and head_sha and last_reviewed_sha != head_sha:
-            paths = _git_commit_range_paths(repo_root, last_reviewed_sha, head_sha)
-    if not paths:
-        return ""
-    try:
-        from ..check.router_support import classify_lane
-        result = classify_lane(paths, repo_root=repo_root)
-        lane = str(result.get("lane", "")).strip()
-        return _BUNDLE_BY_LANE.get(lane, "")
-    except Exception:  # broad-except: allow reason=graceful degradation when router is unavailable fallback=return empty
-        return ""
-
-
-def _git_changed_paths(repo_root: Path) -> list[str]:
-    """Return changed file paths from unstaged and staged diffs."""
-    try:
-        for cmd in (["git", "diff", "--name-only", "HEAD"],
-                    ["git", "diff", "--name-only", "--cached"]):
-            out = subprocess.run(
-                cmd, cwd=str(repo_root), capture_output=True,
-                text=True, timeout=5, check=False,
-            ).stdout.strip()
-            paths = [p for p in out.splitlines() if p.strip()]
-            if paths:
-                return paths
-        return []
-    except (OSError, subprocess.TimeoutExpired):
-        return []
-
-
-def _git_commit_range_paths(repo_root: Path, from_sha: str, to_sha: str) -> list[str]:
-    """Return file paths changed between two commits.
-
-    Used when a reviewer bootstraps on a clean worktree where HEAD has
-    moved past the last reviewed SHA, so local diffs are empty but the
-    commit range contains real changes that need a guard bundle.
-    """
-    try:
-        result = subprocess.run(
-            ["git", "diff", "--name-only", f"{from_sha}..{to_sha}"],
-            cwd=str(repo_root),
-            capture_output=True,
-            text=True,
-            timeout=5,
-            check=True,
-        )
-        return [p for p in result.stdout.strip().splitlines() if p.strip()]
-    except Exception:  # broad-except: allow reason=git may fail on shallow clones or missing refs fallback=return empty
-        return []
 
 
 def compute_blockers(
@@ -522,23 +487,7 @@ def distill_key_rules(
     return tuple(rules)
 
 
-# Rendering moved to session_resume_render.py (file-size modularization)
 from .session_resume_render import render_bootstrap, render_markdown, render_summary  # noqa: F401
-
-
-def current_head(repo_root: Path) -> str:
-    try:
-        result = subprocess.run(
-            ["git", "rev-parse", "HEAD"],
-            cwd=str(repo_root),
-            capture_output=True,
-            text=True,
-            timeout=5,
-            check=False,
-        )
-        return result.stdout.strip() if result.returncode == 0 else ""
-    except (OSError, subprocess.TimeoutExpired):
-        return ""
 
 
 def packet_from_mapping(payload: dict[str, Any]) -> SessionCachePacket:
@@ -578,6 +527,10 @@ def packet_from_mapping(payload: dict[str, Any]) -> SessionCachePacket:
             payload.get("remote_control_attachment")
         ),
         coordination=coordination_snapshot_from_mapping(payload.get("coordination")),
+        attention_status=str(payload.get("attention_status") or "n/a").strip() or "n/a",
+        attention_summary=str(payload.get("attention_summary") or "n/a").strip() or "n/a",
+        attention_revision=str(payload.get("attention_revision") or "").strip(),
+        packet_inbox=packet_inbox_from_mapping(payload.get("packet_inbox")),
     )
 
 

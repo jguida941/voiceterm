@@ -77,6 +77,32 @@ def test_resolve_review_state_path_uses_governed_review_root(tmp_path: Path) -> 
     assert resolved == path
 
 
+def test_resolve_review_state_path_prefers_projection_sibling_for_latest_root(
+    tmp_path: Path,
+) -> None:
+    legacy_path = (
+        tmp_path / "dev" / "reports" / "review_channel" / "latest" / "review_state.json"
+    )
+    projection_path = (
+        tmp_path
+        / "dev"
+        / "reports"
+        / "review_channel"
+        / "projections"
+        / "latest"
+        / "review_state.json"
+    )
+    _write_review_state(legacy_path, payload={"source": "legacy"})
+    _write_review_state(projection_path, payload={"source": "projection"})
+
+    resolved = resolve_review_state_path(
+        tmp_path,
+        governance=_governance(review_root="dev/reports/review_channel/latest"),
+    )
+
+    assert resolved == projection_path
+
+
 def test_resolve_review_state_path_fails_closed_without_governed_root_or_override(
     tmp_path: Path,
 ) -> None:
@@ -151,6 +177,114 @@ def test_load_current_review_state_payload_prefers_fresh_existing_typed_projecti
     assert payload is not None
     assert payload["bridge"]["review_accepted"] is True
     assert payload["current_session"]["implementer_ack_state"] == "current"
+    refresh_status_snapshot_mock.assert_not_called()
+
+
+@patch("dev.scripts.devctl.review_channel.state.refresh_status_snapshot")
+def test_load_current_review_state_payload_prefers_event_backed_projection_over_bridge_refresh(
+    refresh_status_snapshot_mock,
+    tmp_path: Path,
+) -> None:
+    projection_path = (
+        tmp_path
+        / "dev"
+        / "reports"
+        / "review_channel"
+        / "projections"
+        / "latest"
+        / "review_state.json"
+    )
+    legacy_path = (
+        tmp_path / "dev" / "reports" / "review_channel" / "latest" / "review_state.json"
+    )
+    _write_review_state(
+        projection_path,
+        payload={
+            "bridge": {"review_accepted": True},
+            "current_session": {"current_instruction": "event-backed slice"},
+        },
+    )
+    _write_review_state(
+        legacy_path,
+        payload={
+            "bridge": {"review_accepted": False},
+            "current_session": {"current_instruction": "bridge refresh fallback"},
+        },
+    )
+    bridge_path = tmp_path / "bridge.md"
+    bridge_path.write_text("# Review Bridge\n", encoding="utf-8")
+    review_channel_path = tmp_path / "dev" / "active" / "review_channel.md"
+    review_channel_path.parent.mkdir(parents=True, exist_ok=True)
+    review_channel_path.write_text("# Review Channel\n", encoding="utf-8")
+
+    payload = load_current_review_state_payload(
+        tmp_path,
+        governance=_governance(
+            review_root="dev/reports/review_channel/latest",
+            bridge_path="bridge.md",
+            review_channel_path="dev/active/review_channel.md",
+            bridge_active=True,
+        ),
+    )
+
+    assert payload is not None
+    assert payload["current_session"]["current_instruction"] == "event-backed slice"
+    refresh_status_snapshot_mock.assert_not_called()
+
+
+@patch("dev.scripts.devctl.review_channel.state.refresh_status_snapshot")
+def test_load_current_review_state_payload_keeps_event_backed_projection_for_live_refresh_callers(
+    refresh_status_snapshot_mock,
+    tmp_path: Path,
+) -> None:
+    projection_path = (
+        tmp_path
+        / "dev"
+        / "reports"
+        / "review_channel"
+        / "projections"
+        / "latest"
+        / "review_state.json"
+    )
+    legacy_path = (
+        tmp_path / "dev" / "reports" / "review_channel" / "latest" / "review_state.json"
+    )
+    _write_review_state(
+        projection_path,
+        payload={
+            "bridge": {"review_accepted": True},
+            "current_session": {"current_instruction": "event-backed slice"},
+            "coordination": {"current_slice": "MP-355"},
+        },
+    )
+    _write_review_state(
+        legacy_path,
+        payload={
+            "bridge": {"review_accepted": False},
+            "current_session": {"current_instruction": "stale compatibility slice"},
+            "coordination": {"current_slice": "stale compatibility slice"},
+        },
+    )
+    bridge_path = tmp_path / "bridge.md"
+    bridge_path.write_text("# Review Bridge\n", encoding="utf-8")
+    review_channel_path = tmp_path / "dev" / "active" / "review_channel.md"
+    review_channel_path.parent.mkdir(parents=True, exist_ok=True)
+    review_channel_path.write_text("# Review Channel\n", encoding="utf-8")
+
+    payload = load_current_review_state_payload(
+        tmp_path,
+        governance=_governance(
+            review_root="dev/reports/review_channel/latest",
+            bridge_path="bridge.md",
+            review_channel_path="dev/active/review_channel.md",
+            bridge_active=True,
+        ),
+        prefer_cached_projection=False,
+    )
+
+    assert payload is not None
+    assert payload["current_session"]["current_instruction"] == "event-backed slice"
+    assert payload["coordination"]["current_slice"] == "MP-355"
     refresh_status_snapshot_mock.assert_not_called()
 
 

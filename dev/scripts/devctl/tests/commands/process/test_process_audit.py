@@ -106,6 +106,31 @@ class ProcessAuditCommandTests(TestCase):
     @mock.patch(
         "dev.scripts.devctl.commands.process_audit.scan_repo_hygiene_process_tree"
     )
+    def test_run_warns_but_does_not_fail_when_sandbox_blocks_ps(
+        self,
+        scan_mock,
+        write_output_mock,
+    ) -> None:
+        scan_mock.return_value = (
+            [],
+            [
+                "Process sweep skipped: unable to execute ps ([Errno 1] Operation not permitted: 'ps')"
+            ],
+        )
+        args = build_parser().parse_args(["process-audit", "--format", "json"])
+
+        rc = process_audit.run(args)
+
+        self.assertEqual(rc, 0)
+        payload = json.loads(write_output_mock.call_args.args[0])
+        self.assertTrue(payload["ok"])
+        self.assertFalse(payload["errors"])
+        self.assertIn("Process sweep skipped", payload["warnings"][0])
+
+    @mock.patch("dev.scripts.devctl.commands.process_audit.write_output")
+    @mock.patch(
+        "dev.scripts.devctl.commands.process_audit.scan_repo_hygiene_process_tree"
+    )
     def test_run_strict_warns_but_does_not_fail_for_recent_repo_tooling_processes(
         self,
         scan_mock,

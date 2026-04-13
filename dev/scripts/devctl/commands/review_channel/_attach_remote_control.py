@@ -76,7 +76,7 @@ def _build_attachment(
 ) -> RemoteControlAttachmentState:
     now = utc_timestamp()
     provider = str(getattr(args, "remote_provider", "claude") or "claude").strip()
-    role = str(getattr(args, "remote_role", "implementer") or "implementer").strip()
+    role = str(getattr(args, "remote_role", "operator") or "operator").strip()
     status = str(getattr(args, "attachment_status", "attached") or "attached").strip()
     session_name = str(getattr(args, "session_name", "") or "").strip()
     remote_session_id = str(getattr(args, "remote_session_id", "") or "").strip()

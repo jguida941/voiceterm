@@ -42,7 +42,7 @@ class ReviewerAcceptanceState:
 @dataclass(frozen=True, slots=True)
 class RemoteControlAttachmentState:
     provider: str = ""
-    role: str = "implementer"
+    role: str = "operator"
     attachment_id: str = ""
     session_name: str = ""
     remote_session_id: str = ""
@@ -73,7 +73,7 @@ def remote_control_attachment_from_mapping(
         return None
     return RemoteControlAttachmentState(
         provider=str(value.get("provider") or "").strip(),
-        role=str(value.get("role") or "implementer").strip() or "implementer",
+        role=str(value.get("role") or "operator").strip() or "operator",
         attachment_id=attachment_id,
         session_name=session_name,
         remote_session_id=remote_session_id,

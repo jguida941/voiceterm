@@ -167,7 +167,12 @@ separate startup authority surface: `recovery_action`, `recovery_basis`, and
 `recovery_scope` must prove the precondition before a relaunch or termination
 is allowed. The governed commit path consumes the same authority family through
 `CommitPermissionDecision`, so `implementation_permission=blocked|suspended`
-hard-blocks `devctl commit` before staging or guard execution.
+hard-blocks `devctl commit` before staging or guard execution. The bounded
+exception is checkpoint-only authority: when startup explicitly says
+`advisory_action=checkpoint_allowed`, `push_decision=await_checkpoint`, and
+`reviewer_gate.checkpoint_permitted=true`, `devctl commit` may still cut the
+governed checkpoint for already-staged work, while raw `git commit` stays
+blocked until the broader implementation-authority issue is repaired.
 Treat `allowed_actions` as the effective post-gate set, not the raw lane
 capability list: `intrinsic_allowed_actions` preserves lane capability when
 checkpoint budget, resync, or implementation authority temporarily blocks

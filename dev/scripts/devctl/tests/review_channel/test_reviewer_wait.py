@@ -42,6 +42,10 @@ def _snapshot(
     attention_recommended_action: str = "",
     reviewer_mode: str = "active_dual_agent",
     report: dict | None = None,
+    latest_pending_packet_id: str = "",
+    latest_finding_packet_id: str = "",
+    packet_inbox_available: bool = True,
+    packet_attention_revision: str = "attn_rev_1",
     implementer_state_hash: str = "",
     reviewer_accepted_implementer_state_hash: str = "",
 ) -> ReviewerWaitSnapshot:
@@ -57,6 +61,10 @@ def _snapshot(
         attention_summary=attention_summary,
         attention_recommended_action=attention_recommended_action,
         reviewer_mode=reviewer_mode,
+        latest_pending_packet_id=latest_pending_packet_id,
+        latest_finding_packet_id=latest_finding_packet_id,
+        packet_inbox_available=packet_inbox_available,
+        packet_attention_revision=packet_attention_revision,
         implementer_state_hash=implementer_state_hash,
         reviewer_accepted_implementer_state_hash=reviewer_accepted_implementer_state_hash,
     )
@@ -66,6 +74,7 @@ def _write_review_state(
     root: Path,
     *,
     current_session: dict[str, object] | None = None,
+    packet_inbox: dict[str, object] | None = None,
 ) -> Path:
     payload = {
         "current_session": current_session
@@ -73,7 +82,25 @@ def _write_review_state(
             "implementer_ack_revision": "rev1",
             "implementer_ack_state": "current",
             "implementer_status": "Working.",
-        }
+        },
+        "packet_inbox": packet_inbox
+        or {
+            "attention_revision": "attn_rev_1",
+            "agents": [
+                {
+                    "agent": "codex",
+                    "current_instruction_packet_id": "",
+                    "latest_finding_packet_id": "",
+                    "pending_actionable_packet_ids": [],
+                    "expired_unresolved_packet_ids": [],
+                    "attention_status": "none",
+                    "wake_reason": "",
+                    "required_command": "",
+                    "attention_revision": "codex_attn_rev_1",
+                    "delivery_state": "idle",
+                }
+            ],
+        },
     }
     path = root / "review_state.json"
     path.write_text(json.dumps(payload), encoding="utf-8")
@@ -88,11 +115,16 @@ def _status_report(
     reviewer_mode: str = "active_dual_agent",
     attention_status: str = "healthy",
     current_session: dict[str, object] | None = None,
+    packet_inbox: dict[str, object] | None = None,
     claude_ack_revision: str = "rev1",
     claude_ack_current: bool = True,
     reviewer_accepted_implementer_state_hash: str = "",
 ) -> dict[str, object]:
-    review_state_path = _write_review_state(root, current_session=current_session)
+    review_state_path = _write_review_state(
+        root,
+        current_session=current_session,
+        packet_inbox=packet_inbox,
+    )
     return {
         "reviewer_worker": {
             "current_hash": current_hash,
@@ -116,6 +148,7 @@ def _status_report(
             },
         },
         "attention": {"status": attention_status},
+        "packet_inbox": json.loads(review_state_path.read_text(encoding="utf-8"))["packet_inbox"],
         "warnings": [],
         "errors": [],
     }
@@ -135,6 +168,10 @@ class TestImplementerUpdateReady(unittest.TestCase):
     def test_empty_hash_not_ready(self):
         snap = _snapshot(worktree_hash="", reviewed_hash="")
         self.assertFalse(_implementer_update_ready(snap))
+
+    def test_pending_packet_is_ready(self):
+        snap = _snapshot(latest_pending_packet_id="rev_pkt_123")
+        self.assertTrue(_implementer_update_ready(snap))
 
 
 class TestImplementerChanged(unittest.TestCase):
@@ -158,6 +195,11 @@ class TestImplementerChanged(unittest.TestCase):
     def test_status_excerpt_changed(self):
         baseline = _snapshot(implementer_status_excerpt="Working.")
         current = _snapshot(implementer_status_excerpt="Done.")
+        self.assertTrue(_implementer_changed(baseline, current))
+
+    def test_pending_packet_changed(self):
+        baseline = _snapshot(latest_pending_packet_id="")
+        current = _snapshot(latest_pending_packet_id="rev_pkt_456")
         self.assertTrue(_implementer_changed(baseline, current))
 
     def test_no_change(self):
@@ -425,10 +467,12 @@ class TestReviewerWaitLoop(unittest.TestCase):
         defaults.update(overrides)
         return SimpleNamespace(**defaults)
 
-    def _make_deps(self, reports):
+    def _make_deps(self, reports, *, pending_packets=None):
         """Build deps that cycle through a list of (report, exit_code) tuples."""
         call_count = [0]
+        packet_call_count = [0]
         mono_time = [0.0]
+        packet_rows = pending_packets or [[]]
 
         def run_status(*, args, repo_root, paths):
             idx = min(call_count[0], len(reports) - 1)
@@ -444,11 +488,17 @@ class TestReviewerWaitLoop(unittest.TestCase):
         def sleep(seconds):
             mono_time[0] += seconds
 
+        def load_pending_packets(repo_root, paths):
+            idx = min(packet_call_count[0], len(packet_rows) - 1)
+            packet_call_count[0] += 1
+            return packet_rows[idx]
+
         return WaitDeps(
             run_status_action_fn=run_status,
             read_bridge_text_fn=read_bridge,
             monotonic_fn=monotonic,
             sleep_fn=sleep,
+            pending_packets_fn=load_pending_packets,
         )
 
     def _make_paths(self, tmp_path):
@@ -484,6 +534,53 @@ class TestReviewerWaitLoop(unittest.TestCase):
             self.assertTrue(result["wait_state"]["implementer_update_observed"])
             self.assertEqual(result["wait_attention_status"], "reviewed_hash_stale")
             self.assertIn("Review the current diff", result["warnings"][0])
+
+    def test_exits_immediately_when_codex_packet_already_pending(self):
+        with TemporaryDirectory() as tmp:
+            args = self._make_args()
+            paths = self._make_paths(Path(tmp))
+            report = _status_report(
+                Path(tmp),
+                current_hash="same_hash",
+                reviewed_hash="same_hash",
+                attention_status="healthy",
+                packet_inbox={
+                    "attention_revision": "attn_rev_1",
+                    "agents": [
+                        {
+                            "agent": "codex",
+                            "current_instruction_packet_id": "rev_pkt_9000",
+                            "latest_finding_packet_id": "",
+                            "pending_actionable_packet_ids": ["rev_pkt_9000"],
+                            "expired_unresolved_packet_ids": [],
+                            "attention_status": "wake_required",
+                            "wake_reason": "instruction_pending",
+                            "required_command": "python3 dev/scripts/devctl.py review-channel --action inbox --target codex --terminal none --format md",
+                            "attention_revision": "codex_attn_rev_1",
+                            "delivery_state": "unseen",
+                        }
+                    ],
+                },
+            )
+            deps = self._make_deps([(report, 0)])
+
+            result, exit_code = run_reviewer_wait_action(
+                args=args,
+                repo_root=Path(tmp),
+                paths=paths,
+                deps=deps,
+            )
+
+            self.assertEqual(exit_code, 0)
+            self.assertEqual(
+                result["wait_state"]["stop_reason"],
+                "implementer_update_ready",
+            )
+            self.assertEqual(
+                result["wait_state"]["current_pending_packet_id"],
+                "rev_pkt_9000",
+            )
+            self.assertIn("typed packet", result["warnings"][0])
 
     def test_exits_on_unhealthy_reviewer(self):
         """If reviewer mode is inactive, exit with error."""
@@ -558,6 +655,132 @@ class TestReviewerWaitLoop(unittest.TestCase):
             )
             self.assertEqual(result["wait_attention_status"], "healthy")
             self.assertIn("Re-read the worktree diff", result["warnings"][0])
+
+    def test_exits_when_new_codex_packet_arrives_mid_poll(self):
+        with TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            args = self._make_args()
+            paths = self._make_paths(tmp_path)
+            baseline = _status_report(
+                tmp_path,
+                current_hash="same_hash",
+                reviewed_hash="same_hash",
+                attention_status="healthy",
+            )
+            current = _status_report(
+                tmp_path,
+                current_hash="same_hash",
+                reviewed_hash="same_hash",
+                attention_status="healthy",
+                packet_inbox={
+                    "attention_revision": "attn_rev_2",
+                    "agents": [
+                        {
+                            "agent": "codex",
+                            "current_instruction_packet_id": "rev_pkt_9001",
+                            "latest_finding_packet_id": "",
+                            "pending_actionable_packet_ids": ["rev_pkt_9001"],
+                            "expired_unresolved_packet_ids": [],
+                            "attention_status": "wake_required",
+                            "wake_reason": "instruction_pending",
+                            "required_command": "python3 dev/scripts/devctl.py review-channel --action inbox --target codex --terminal none --format md",
+                            "attention_revision": "codex_attn_rev_2",
+                            "delivery_state": "unseen",
+                        }
+                    ],
+                },
+            )
+            deps = self._make_deps([(baseline, 0), (current, 0)])
+
+            result, exit_code = run_reviewer_wait_action(
+                args=args,
+                repo_root=tmp_path,
+                paths=paths,
+                deps=deps,
+            )
+
+            self.assertEqual(exit_code, 0)
+            self.assertEqual(
+                result["wait_state"]["stop_reason"],
+                "implementer_update_observed",
+            )
+            self.assertEqual(
+                result["wait_state"]["current_pending_packet_id"],
+                "rev_pkt_9001",
+            )
+            self.assertIn("pending packet arrived", result["warnings"][0])
+
+    def test_exits_immediately_when_codex_finding_already_pending(self):
+        with TemporaryDirectory() as tmp:
+            args = self._make_args()
+            paths = self._make_paths(Path(tmp))
+            report = _status_report(
+                Path(tmp),
+                current_hash="same_hash",
+                reviewed_hash="same_hash",
+                attention_status="healthy",
+                packet_inbox={
+                    "attention_revision": "attn_rev_3",
+                    "agents": [
+                        {
+                            "agent": "codex",
+                            "current_instruction_packet_id": "",
+                            "latest_finding_packet_id": "rev_pkt_find_1",
+                            "pending_actionable_packet_ids": [],
+                            "expired_unresolved_packet_ids": [],
+                            "attention_status": "review_needed",
+                            "wake_reason": "finding_pending",
+                            "required_command": "python3 dev/scripts/devctl.py review-channel --action inbox --target codex --terminal none --format md",
+                            "attention_revision": "codex_attn_rev_3",
+                            "delivery_state": "unseen",
+                        }
+                    ],
+                },
+            )
+            deps = self._make_deps([(report, 0)])
+
+            result, exit_code = run_reviewer_wait_action(
+                args=args,
+                repo_root=Path(tmp),
+                paths=paths,
+                deps=deps,
+            )
+
+            self.assertEqual(exit_code, 0)
+            self.assertEqual(
+                result["wait_state"]["stop_reason"],
+                "implementer_update_ready",
+            )
+            self.assertEqual(
+                result["wait_state"]["current_finding_packet_id"],
+                "rev_pkt_find_1",
+            )
+            self.assertIn("finding is already queued", result["warnings"][0])
+
+    def test_missing_packet_inbox_fails_closed(self):
+        with TemporaryDirectory() as tmp:
+            args = self._make_args()
+            paths = self._make_paths(Path(tmp))
+            report = _status_report(
+                Path(tmp),
+                attention_status="healthy",
+                packet_inbox={"attention_revision": "", "agents": []},
+            )
+            deps = self._make_deps([(report, 0)])
+
+            result, exit_code = run_reviewer_wait_action(
+                args=args,
+                repo_root=Path(tmp),
+                paths=paths,
+                deps=deps,
+            )
+
+            self.assertEqual(exit_code, 1)
+            self.assertEqual(
+                result["wait_state"]["stop_reason"],
+                "reviewer_loop_unhealthy",
+            )
+            self.assertIn("typed packet-inbox state is missing", result["errors"][0])
 
     def test_times_out_when_no_change(self):
         """If nothing changes, should time out."""

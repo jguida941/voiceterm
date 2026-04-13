@@ -7,6 +7,7 @@ from pathlib import Path
 
 from .event_models import ReviewChannelEventBundle
 from .event_reducer import (
+    filter_history_packets,
     filter_history_events,
     filter_inbox_packets,
     load_or_refresh_event_bundle,
@@ -277,10 +278,11 @@ def _validate_transition(
             raise ValueError(
                 f"Packet {packet['packet_id']} cannot be acked from status {status}."
             )
-        if actor not in {to_agent, "operator"}:
+        allowed_actors = _allowed_ack_or_apply_actors(to_agent)
+        if actor not in allowed_actors:
             raise ValueError(
-                f"Packet {packet['packet_id']} can only be acked by {to_agent} "
-                "or operator."
+                f"Packet {packet['packet_id']} can only be acked by "
+                f"{_format_allowed_actors(allowed_actors)}."
             )
         return
 
@@ -292,10 +294,29 @@ def _validate_transition(
         )
 
     # Apply additionally requires matching recipient
-    if action == "apply" and actor not in {to_agent, "operator"}:
+    if action == "apply" and actor not in _allowed_ack_or_apply_actors(to_agent):
         raise ValueError(
-            f"Packet {packet['packet_id']} can only be applied by {to_agent} or operator."
+            f"Packet {packet['packet_id']} can only be applied by "
+            f"{_format_allowed_actors(_allowed_ack_or_apply_actors(to_agent))}."
         )
+
+
+def _allowed_ack_or_apply_actors(to_agent: str) -> frozenset[str]:
+    normalized = str(to_agent or "").strip()
+    if not normalized:
+        return frozenset()
+    if normalized in {"system", "operator"}:
+        return frozenset({"operator"})
+    return frozenset({normalized})
+
+
+def _format_allowed_actors(actors: frozenset[str]) -> str:
+    ordered = sorted(actor for actor in actors if actor)
+    if not ordered:
+        return "the addressed actor"
+    if len(ordered) == 1:
+        return ordered[0]
+    return ", ".join(ordered[:-1]) + f", or {ordered[-1]}"
 
 
 def _load_existing_bundle(

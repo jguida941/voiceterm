@@ -54,6 +54,9 @@ REVIEW_CHANNEL_RENDER_BRIDGE_COMMAND = f"{_DEVCTL_INTERPRETER} dev/scripts/devct
 REVIEW_CHANNEL_ENSURE_START_PUBLISHER_COMMAND = f"{_DEVCTL_INTERPRETER} dev/scripts/devctl.py review-channel --action ensure --start-publisher-if-missing --terminal none --format json --execution-mode markdown-bridge"
 REVIEW_CHANNEL_ENSURE_FOLLOW_COMMAND = f"{_DEVCTL_INTERPRETER} dev/scripts/devctl.py review-channel --action ensure --follow --terminal none --format json --execution-mode markdown-bridge --follow-inactivity-timeout-seconds 0"
 REVIEW_CHANNEL_REVIEWER_FOLLOW_COMMAND = f"{_DEVCTL_INTERPRETER} dev/scripts/devctl.py review-channel --action reviewer-heartbeat --follow --terminal none --format json --execution-mode markdown-bridge --auto-promote --follow-interval-seconds 150 --follow-inactivity-timeout-seconds 0"
+REVIEW_CHANNEL_GOVERNED_CHECKPOINT_COMMAND = (
+    f'{_DEVCTL_INTERPRETER} dev/scripts/devctl.py commit -m "<descriptive message>"'
+)
 
 ATTENTION_OWNER_ROLE: dict[str, TandemRole] = {
     "codex": TandemRole.REVIEWER,
@@ -238,7 +241,7 @@ _STALE_PEER_RECOVERY_ROWS: tuple[tuple[str, dict[str, str | None | TandemRole]],
         "recovery": (
             "Cut a checkpoint before continuing to edit. Re-check the repo-governance push budget after the checkpoint lands."
         ),
-        "recommended_command": REVIEW_CHANNEL_STATUS_INSPECT_COMMAND,
+        "recommended_command": REVIEW_CHANNEL_GOVERNED_CHECKPOINT_COMMAND,
     }),
     ("review_follow_up_required", {
         "guard_behavior": "warn",

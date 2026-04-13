@@ -3,6 +3,7 @@
 from .review_state_models import (
     AgentRegistryEntryState,
     AgentRegistryState,
+    AgentAttentionRecord,
     CollaborationArbitrationState,
     CollaborationParticipantState,
     CollaborationPeerReviewState,
@@ -12,6 +13,7 @@ from .review_state_models import (
     CollaborationSessionState,
     ContextPackRefState,
     DelegatedWorkReceiptState,
+    PacketInboxState,
     RecoveryAssessmentState,
     RecoveryDecisionState,
     RecoveryDiagnosisState,
@@ -34,6 +36,7 @@ from .remote_commit_pipeline_models import (
 __all__ = [
     "AgentRegistryEntryState",
     "AgentRegistryState",
+    "AgentAttentionRecord",
     "CollaborationArbitrationState",
     "CollaborationParticipantState",
     "CollaborationPeerReviewState",
@@ -44,6 +47,7 @@ __all__ = [
     "ContextPackRefState",
     "CommitIntentState",
     "DelegatedWorkReceiptState",
+    "PacketInboxState",
     "PushAuthorizationRecord",
     "RemoteCommitPipelineContract",
     "RecoveryAssessmentState",

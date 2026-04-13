@@ -10010,3 +10010,416 @@ more periodic polling.
 - LIVE_RUN.md: ~9975 lines
 - Session wall clock: ~5.5 hours
 
+
+## Beta-Test Surface Matrix — 4 Bugs Filed (2026-04-12T01:10:00Z)
+
+### 4-surface agreement (all surfaces match on counts)
+
+| field | status | doctor | dashboard health | startup-context |
+|---|---|---|---|---|
+| live_participants_total | 2 | 2 | 2 | single_implementer_single_reviewer |
+| active_conductor_count | 2 | 2 | 2 | — |
+| codex_conductor_active | True | — | alive=True | — |
+| claude_conductor_active | True | — | alive=True | — |
+| publisher_running | False | — | False | — |
+| attention_status | inactive | inactive | inactive | — |
+| planned_lane_total | (absent) | (absent) | (absent) | — |
+
+**Parity: all surfaces agree. No cross-surface mismatch.**
+
+### 4 bugs found and filed as typed findings
+
+**rev_pkt_0244** — `overall_state=inactive` when both participants are live. The warning text says "typed surfaces remain authoritative" but the enum value is still `inactive`. Downstream consumers may misinterpret live single_agent as truly dead. Fix: add `single_agent_active` overall_state value.
+
+**rev_pkt_0245** — `current_instruction_revision=3b3fad692219` is 17 commits stale (5+ hours). Reviewer-owned bridge sections describe a completely different repo state. reviewer_freshness=overdue confirms the system knows. No auto-rotation mechanism exists. Fix: rotate reviewer-checkpoint or add auto-rotation on post-push.
+
+**rev_pkt_0246** — `delegated_receipt_total=16` and `delegated_work_total=16` survive from the same planned-lane scaffolding era as the deleted `planned_lane_total=16`. Source is probably `collaboration.delegated_work` not the deleted `planned_lane_counts`. Fix: trace source, remove if scaffolding, verify if real.
+
+**rev_pkt_0247** — `resync_required=True` + `coordination_resync_required` blocker present after clean push with worktree_clean=True. Root cause: same stale reviewer checkpoint from F2. Fix: rotate checkpoint to clear the blocker.
+
+
+## Beta-Test Continuation — 2 More Bugs Filed (2026-04-12T01:12:00Z)
+
+**rev_pkt_0248** — check_startup_authority_contract false positive: treats Claude's LIVE_RUN.md audit append as outside-scope implementation write. Fix: add audit-trail-exempt path list (dev/audits/**, bridge.md, .claude/memory/**).
+
+**rev_pkt_0249** — 100 open governance findings at 41.52% cleanup rate. Top unfixed relevant to this session's work: 9 none_safety_chained_get_crash (0 fixed, in review_channel/runtime paths), 9 subprocess_missing_timeout (0 fixed, affects push pipeline), 8 error_handling_silent_suppression (0 fixed, hides projection bugs), plus 3 agent-specific contract findings (architecture bypass, checkpoint ignorance, tooling ignorance — all directly relevant to the control-plane gaps this session documented).
+
+### Total typed findings this session: rev_pkt_0200 through rev_pkt_0249 (50 packets)
+
+LIVE_RUN at 10039+ lines. Continuing active dashboard observation.
+
+
+## Home-Desk Continuation — monitor/wait failure logged (2026-04-12T23:03:00Z)
+
+The operator called out a real miss: the system acted like Codex was simply
+"idle after task_complete" and needed manual prompting, even though a newer
+visible Codex terminal was already in use and Claude had posted fresh typed
+findings into the Codex inbox.
+
+### Evidence
+
+- `agent-mind --agent codex` reported the last completed rollout at
+  `2026-04-12T22:52:50.532Z` from rollout
+  `019d83ab-e57d-75b1-95d2-02d8edff9863`.
+- Host `ps` still showed two local Codex terminals alive at the same time:
+  `ttys018` and `ttys019`.
+- `review-channel --action inbox --target codex --status pending --format json`
+  still showed **5 unread Claude->Codex packets**:
+  `rev_pkt_0269`, `rev_pkt_0266`, `rev_pkt_0265`, `rev_pkt_0264`,
+  `rev_pkt_0263`.
+- Latest actionable packet was `rev_pkt_0269`:
+  "devctl commit blocked: code-shape on install_git_hooks.py (+37) and
+  startup_context.py (+50) — split both".
+- `review-channel --action status --format json` still reported stale bridge
+  liveness and stale conductor activity:
+  `active_conductor_count=2`, `codex_conductor_active=True`,
+  `claude_conductor_active=True`, while `sessions=[]` and the latest Codex
+  rollout had already completed.
+
+### Finding
+
+This is not just operator confusion. The runtime currently misses a combined
+state transition:
+
+1. `task_complete` is not treated as a hard liveness boundary for the wait /
+   monitor loop.
+2. New typed inbox backlog is not treated as a mandatory post-completion wake
+   condition.
+3. Bridge/session projection can keep stale conductor-active flags alive after
+   completion and feed those flags back into runtime counts.
+
+### Required fix direction
+
+- Teach session liveness to treat completion as a non-live boundary unless a
+  new active turn supersedes it.
+- Make monitor/wait consume unread targeted packets before treating a lane as
+  "done waiting".
+- Stop stale bridge booleans from rehydrating `active_conductor_count` after
+  the probe path has already gone empty.
+
+
+## Home-Desk Continuation — governed commit sandbox boundary exposed (2026-04-12T23:27:00Z)
+
+The next real proof step was a governed `devctl commit` from the Codex lane.
+That surfaced another live defect: the pipeline only discovered the authority
+boundary after entering the stage path, when git tried to create
+`.git/index.lock` and hit `Operation not permitted`.
+
+### Evidence
+
+- `python3 dev/scripts/devctl.py commit -m "Dogfood: runtime authority, liveness, and packet follow fixes"`
+  returned `reason=staged_tree_hash_unavailable`, `pipeline_state=guards_failed`,
+  and warning: `fatal: Unable to create '.../.git/index.lock': Operation not permitted`.
+- Focused repair work before that commit already landed:
+  `install_git_hooks_support` parameter bundling, `reviewer_runtime_doctor`
+  function split, stale launch-authority liveness fail-closed, and watch-follow
+  interval honoring.
+- Focused regression suites were green before the commit attempt:
+  `29 passed` across install-git-hooks + reviewer_runtime_doctor + watch/stale
+  session tests.
+
+### Fix landed
+
+- Governed stage now classifies this as `git_index_write_blocked` when the
+  error matches `.git/index.lock` + `Operation not permitted`.
+- Operator guidance now explicitly says the sandbox cannot create the git
+  index lock and that the governed command must be rerun with repo-approved
+  filesystem authority or from the implementer-owned local terminal lane.
+
+### Remaining open work
+
+- The approval/sandbox boundary still appears as a mid-flight prompt instead
+  of a first-hop startup/commit authority receipt.
+- Role enforcement is still incomplete: Claude's dashboard lane can still try
+  `devctl commit` unless the commit path learns caller-lane authority instead
+  of relying on prompts and operator correction.
+
+## Home-Desk Continuation — caller-role commit gate and stale-queue watch proof (2026-04-12T23:49:00Z)
+
+The next slice closed two more live dogfood defects from the home-desk run:
+the wrong lane could still enter `devctl commit`, and packet watchers could
+look stuck after a pending packet expired into stale history.
+
+### Evidence
+
+- `startup-context --role dashboard --format json` already projected
+  `vcs.commit` as blocked, but `devctl commit` itself still ignored caller
+  lane and could advance toward staging.
+- Review-channel launch scripts already knew each conductor role in prepared
+  session metadata, but that lane identity was not exported into governed
+  child commands.
+- `watch --follow` only re-emitted on live packet-id set changes; a
+  `pending -> stale` transition changed `stale_packet_count` without waking
+  the listener.
+
+### Fix landed
+
+- Review-channel conductors now export `DEVCTL_CALLER_ROLE`, and
+  `devctl commit --role <lane>` is available for wrappers/tests.
+- Governed `devctl commit` now blocks `dashboard`, `observer`, and default
+  `reviewer` lanes before staging with `reason=caller_role_blocked`.
+- `watch --follow` now re-emits when `stale_packet_count` changes even if the
+  live packet-id set is unchanged.
+
+### Verification
+
+- `python3 -m pytest dev/scripts/devctl/tests/vcs/test_commit_gate.py -q -k "caller_role or parser_accepts_role or remote_mode_waits_for_typed_approval or blocks_when_implementation_permission_is_blocked or governed_checkpoint"`
+  - `4 passed`
+- `python3 -m pytest dev/scripts/devctl/tests/review_channel/test_launch_script.py -q -k "caller_role or headless or authority or interaction_mode"`
+  - `16 passed`
+- `python3 -m pytest dev/scripts/devctl/tests/review_channel/test_review_channel.py -q -k "watch_follow"`
+  - `5 passed`
+
+### Remaining open work
+
+- The real governed commit/push proof still needs one rerun from the
+  implementer-owned lane with filesystem authority to create `.git/index.lock`.
+- Remote-control operator approval from Claude dashboard still needs to be
+  exercised end to end after that commit lane proof.
+
+---
+
+## Remote-Control Dogfood Session — 2026-04-13
+
+**Operator**: Justin (remote)  
+**Claude**: Dashboard / observer / commit executor  
+**Codex**: Implementer (gpt-5.4, workspace-write sandbox)  
+**Branch**: `codex-role-portability` @ `687c0478`  
+**Session start**: ~09:30 EDT  
+
+### Tick 1 — Bootstrap + stale session discovery (09:30–09:40)
+
+- Ran `startup-context`, `review-channel --action status`, `dashboard`
+- Found 125 dirty files, `checkpoint_required=true`, `staged_index_budget_exceeded`
+- Previous Codex session (09:03) dead — rollout stopped at 09:04, file writes drained by 09:33
+- Acked 2 stale packets from dead session: `rev_pkt_0318`, `rev_pkt_0319`
+- Posted `rev_pkt_0320` (Claude dashboard active)
+
+### Tick 2 — Codex session 1 launched (09:55–10:34)
+
+- Launched `codex exec --full-auto` with guard-fix prompt
+- Session `019d8720`: gpt-5.4, workspace-write sandbox, xhigh reasoning
+- Codex bootstrapped, read plan docs in parallel, identified 4 guard blockers:
+  - `parameter-count-guard`: event_projection.py +1 high_param
+  - `facade-wrappers-guard`: governed_executor_commit_phase.py 4 wrappers
+  - `python-dict-schema-guard`: startup_context.py large dict
+  - `code-shape-guard`: check_python_broad_except.py stale override
+- Fixed all 4 targeted guards — 140 tests green, 52 executor tests green
+- **Discovered real bug**: `attention_revision_stale` false positive — commit gate was including 198 expired unresolved packets in attention hash, blocking every commit attempt
+- **Fixed the bug**: narrowed commit gate to only check actionable pending packets
+- Hit sandbox wall: `git_index_write_blocked` — Codex cannot create `.git/index.lock` from `workspace-write` sandbox
+
+### Finding F1 — Remote-control commit protocol
+
+**Sandbox limitation**: Codex exec with `workspace-write` cannot write `.git/index.lock`.
+**Protocol established**: Codex codes+stages, Claude executes `devctl commit` from unsandboxed lane.
+**Operator directive**: This must become a first-class platform feature, not a workaround.
+Posted as `rev_pkt_0327` (instruction).
+
+### Tick 3 — Claude commit attempt (10:34)
+
+- Claude ran `devctl commit` — blocked by full-tree guard gate
+- 4 targeted guards green, but pre-existing debt in other files:
+  - `python-dict-schema-guard`: pending_packets.py, reviewer_follow.py (+1 large dict each)
+  - `code-shape-guard`: 7 files over budget, session_resume_support.py HARD LIMIT exceeded (670 > 650)
+
+### Tick 4 — Codex session 2 launched (10:54–ongoing)
+
+- Full scope prompt: fix 2 dict-schema + 7 code-shape violations
+- Session `019d8755`: gpt-5.4, workspace-write, xhigh reasoning
+- Codex audited full guard surface (wider than packet scope)
+- Extraction progress: 4368 deletions, 131 files changed
+- Import chain broke mid-refactor (`_attach_backend_contract` moved but cross-ref not updated) — fixed by Codex
+- devctl temporarily unavailable for ~15 minutes during import chain break
+
+### Finding F2 — Mechanical extraction vs architectural extraction
+
+**Operator review of Codex's extraction work:**
+
+10 new companion modules created. Assessment:
+- **5 architecturally correct** (commit_caller_role, commit_guard_bundle, governed_executor_commit_runtime, review_packet_inbox, startup_packet_inbox) — genuine concern boundaries
+- **5 mechanical** (startup_context_summary, event_projection_enrichment, reviewer_runtime_doctor_surface, runtime_count_roles, session_resume_render_sections) — metric-driven, not domain-driven
+- Cascading splits (companion modules needing their own splits) confirm the first cut wasn't at principled boundaries
+
+**Root cause**: Guards measure SIZE, not COHESION. The code-shape guard says "too big" but never says "here's where to split based on dependency analysis."
+
+### Finding F3 — Guard system must be compositional (ARCHITECTURAL)
+
+**Three research agents audited the full guard/probe/governance system.**
+
+Key discovery: **80% of the infrastructure already exists but isn't composed.**
+
+What exists (individually):
+- `cyclic_imports_graph.py`: full directed import dependency graph via `build_import_graph()`
+- `mixed_concerns.py`: `find_function_clusters()` groups functions by call-graph relationships
+- `check_code_shape.py` line 266: ALREADY calls `find_function_clusters()` but only exposes cluster COUNT, discards membership
+- `probe_design_smells.py`, `probe_mixed_concerns.py`: already provide `ai_instruction` with specific fix guidance
+- Context graph: dependency edges, hotspot scoring, plan scoping
+- Planning IR: reduces plans+findings+ownership into ranked `next_best_slices`
+- Findings priority: ranks by graph-derived fan-out
+
+What's NOT connected:
+- Guards don't read the context graph
+- Findings priority has `fan_out=0` for most findings (can't ground to files)
+- Planning IR rebuilt every tick (no cached snapshot)
+- Four different "what's open" authorities disagree
+- No feedback loop from fix→governance-review→findings-priority
+
+**Minimal viable path** (~100 lines): `probe_split_advisor.py` composing clusters + import graph + context-graph hotspots into specific split recommendations.
+
+**This is MP-377 Phase 0 closure work** — the `autonomous_governance_loop_v2.md` plan already describes this. Needs execution, not more planning.
+
+### Finding F4 — Six systems exist but aren't integrated
+
+Full audit of architectural intelligence systems:
+
+| System | Status | Gap |
+|--------|--------|-----|
+| Context Graph | Complete | Guards don't read it |
+| Planning IR | Complete | Rebuilt every tick, no cache |
+| Findings Priority | Complete | Most findings have fan_out=0 |
+| Startup Context | Complete | Doesn't carry PlanningIRSnapshot |
+| Quality Policy | Complete | Scopes guards but guards don't read back |
+| System Picture | Complete | Observational only, no decisions |
+
+**Verdict**: Systems are individually solid but operate as one-way flows with duplicated truth and no feedback loop. The "guards as a system" vision requires composing these into a closed loop.
+
+### Packets posted this session
+
+| Packet | Kind | Summary |
+|--------|------|---------|
+| rev_pkt_0320 | system_notice | Claude dashboard active |
+| rev_pkt_0327 | instruction | Remote-control commit protocol |
+| rev_pkt_0328 | instruction | Full guard-fix scope for session 2 |
+| rev_pkt_0329 | instruction | System integration directive + research findings |
+
+### Status at time of writing
+
+- Codex session 2 still active, fixing remaining code-shape violations
+- devctl import chain restored
+- Checkpoint commit not yet landed
+- 131 files changed, 9152 insertions, 4368 deletions
+
+### Finding F5 — Guard-to-probe data sharing is ZERO (Research Agent)
+
+**Guards and probes run in complete isolation.** In `check/phases.py`:
+- Guards run in `run_setup_phase()` (lines 215-235)
+- Probes run in `run_probe_phase()` (lines 283-291)
+- **No context or data flows between them** — no env var, temp file, or shared object
+- Code-shape guard finds function clusters → probes recalculate the same clusters independently
+
+**Probe results generated but NOT consumed by any decision system:**
+- `startup-context` → NEVER reads probe data (path bug — see F6)
+- `session-resume` → no probe imports
+- `context-graph` → no probe imports
+- `planning-ir` → no probe imports
+- `quality-feedback` → skips probes, scores maintainability without structural analysis
+- **Only consumer**: dashboard (display only, not decisions)
+
+**Generated data with no consumer:**
+
+| Data | Generated By | Never Consumed By |
+|------|-------------|-------------------|
+| Guard violations/CheckResult | `check` command | planning-ir, quality-feedback, startup-context |
+| Probe risk_hints + ai_instruction | `probe-report` | quality-feedback, planning-ir, session-resume, work-intake |
+| Code-shape function clusters | code-shape guard | code-shape probes (re-scan independently) |
+| Probe files_scanned=0 warning | probe summary | session diagnostics (nobody warns on blind probes) |
+
+### Finding F6 — BUG: startup_signals.py reads wrong probe path
+
+**File**: `dev/scripts/devctl/runtime/startup_signals.py:40`
+**Bug**: Reads `dev/reports/probes/summary.json` (DOES NOT EXIST)
+**Correct path**: `dev/reports/probes/latest/summary.json` (EXISTS, 1.1 MB)
+**Impact**: Bootstrap `quality_signals` NEVER includes probe data. Every startup-context packet is missing probe report information.
+
+### Finding F7 — Probes go blind after commits
+
+**Problem**: Probes run in `working-tree` mode with `--adoption-scan` by default. When worktree is clean post-commit: 0 files scanned → 0 findings.
+**Evidence**: Live test showed default mode = 0 findings; `--since-ref origin/master` = 4,185 findings on same tree.
+**Fix needed**: Fallback to `--since-ref origin/develop` or `--full-scan` when working-tree scan returns 0 files.
+
+### Finding F8 — Plan ownership gap blocks Phase 0 closure (Research Agent)
+
+Plans are hierarchically aligned but **5 critical Phase 0 items have no single owner:**
+
+| Blocked Item | Claimed By | Recommended Owner |
+|---|---|---|
+| `FindingBacklog` unified reader | loop-v2 + governance-platform | `platform_authority_loop.md` Phase 1 |
+| Four-surface visibility convergence | loop-v2 + governance-platform + MASTER_PLAN | `remote_control_runtime.md` |
+| Packet lifecycle/event wake | loop-v2 + multiple MASTER_PLAN entries | `remote_control_runtime.md` |
+| Guard promotion → governance-review | loop-v2 Phase 3 + review_probes Phase 5 | `ai_governance_platform.md` |
+| Probe guidance → AI remediation | review_probes Phase 5 + ralph (implied) | `ralph_guardrail_control_plane.md` |
+
+**Root cause**: Multiple plans describe the same work differently. Codex reads 3 different descriptions and doesn't know which one to execute from.
+**Fix**: Assign each Phase 0 blocker to exactly ONE plan's checklist. Loop-v2 becomes pure choreography (sequencing), not implementation language.
+
+### Finding F9 — The feedback loop is OPEN: 6 breaks identified (Research Agent)
+
+**Expectation**: Session 1 finds issues → governance-review records → Session 2 loads records → planning uses them → work informed by findings → repeated issues become guards.
+
+**Reality**: 6 breaks in the chain:
+
+1. **SessionPacingState is advisory-only** — carries `live_finding_count` but NO code path consumes it for work selection. Rendered as text, never drives decisions.
+2. **Governance-review sliced to recent 50 rows** — `planning_ir_sources.py:219` hardcodes `recent_limit=50`. Full finding history discarded. Cannot detect cross-session patterns.
+3. **findings-priority never reads governance-review** — reads ONLY `LIVE_RUN.md` (markdown regex parsing). Two parallel finding systems, no convergence.
+4. **quality_signals are summaries, not actionable** — startup carries `open_finding_count=12` but can't say WHICH 12 or prioritize them. No decision consumer exists.
+5. **FindingBacklog not implemented** — documented as Phase 0 blocker in loop-v2 plan. No `FindingBacklog` class found in codebase. Zero lines of implementation.
+6. **GuardPromotionCandidate has no consumer** — contract exists in specs, no code reads it. Repeated issues (Q65, Q64, Q55, Q42) recur without automatic guard creation.
+
+**Dead-end data flows:**
+- `findings-priority` → ranked findings → rendered for humans → **nobody reads rankings for decisions**
+- `quality_signals` → aggregate stats → serialized to JSON → **no consumer**
+- `SessionPacingState` → complexity scoring → summary text → **no consumer**
+
+### Consolidated Priority Order for MASTER_PLAN (from all 6 research agents)
+
+**Phase 0 blockers (must close before anything else):**
+1. Implement `FindingBacklog` canonical reader/writer — ONE source of truth for all surfaces
+2. Fix `startup_signals.py:40` path bug — probe data missing from every startup packet
+3. Fix probe blind-on-clean default — 0 findings post-commit when 4,185 exist
+4. Assign each Phase 0 item to exactly ONE plan owner (see F8 table)
+
+**Phase 0+ composition (after FindingBacklog exists):**
+5. Wire `SessionPacingState.live_finding_count` to drive next-slice selection
+6. Converge findings-priority to read FindingBacklog (not LIVE_RUN.md regex)
+7. Remove `recent_limit=50` from planning-ir governance-review loader
+8. Create `probe_split_advisor.py` composing clusters + import graph + hotspots (~100 lines)
+9. Wire guard CheckResult into planning-ir finding calculations
+
+**Phase 1+ (after composition proves closed loop):**
+10. Wire GuardPromotionCandidate consumer (repeated findings → automatic guard creation)
+11. Wire probe `ai_instruction` into Ralph/autonomy remediation prompts
+12. Cache PlanningIRSnapshot between sessions for delta comparison
+
+### Finding F10 — 22 active plans is a product problem, not just process debt
+
+The plan registry has 22 entries. For a portable governance platform that any repo adopts, this is a non-starter. An adopter won't read 22 docs to understand what the system does. Codex has to read 4-5 plans to understand ONE task.
+
+**Root cause**: Every feature got its own plan doc instead of being a phase in a master plan. The registry became a filing cabinet, not a decision tree.
+
+**Fix**: Hierarchical consolidation.
+- ONE product plan (`ai_governance_platform.md`) as the umbrella with phases
+- Subordinate execution specs only while actively implementing a phase
+- Close/archive plans whose scope is done (ide_provider_modularization is already formally closed but still in registry)
+- Target: 3-5 active plan entries, not 22
+- This must happen BEFORE any external repo adoption — adopters need a clean onboarding surface
+
+### Finding F11 — Plan system is 60-70% typed, one layer short of full ingestion
+
+**8 research agents total** audited the plan system. The typed infrastructure is much further along than expected:
+- PlanRegistryEntry, SessionResumeState, PlanTargetRef, WorkIntakePacket — all typed
+- Context graph indexes plans with scoped_by edges to source files
+- PlanningIRSnapshot reduces plans + findings + ownership into ranked slices
+- Execution checklist parsing exists (reads `- [ ]` items with phase headings)
+
+**Missing layer**: typed plan CONTENT (phases, tasks, dependencies, owners). The system parses plan metadata and continuity points but stops before building a task DAG.
+
+Needed to close:
+1. `PlanPhase`, `PlanTask`, `PlanDependency` typed models in planning_ir_models.py
+2. Extend checklist parser to yield typed tasks with owners and deps
+3. Add task → task dependency edges to context graph
+4. Phase-aware routing in WorkIntakePacket
+5. `governance-bootstrap` creates default plan templates (not just policy config)
+6. Plan-content guards (unique task IDs, required owner per task)
+
+This is the last 30% — the infrastructure to CONSUME typed plan content already exists in work-intake routing, context-graph indexing, and planning-IR reduction.

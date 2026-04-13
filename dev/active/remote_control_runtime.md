@@ -1,6 +1,6 @@
 # Remote Control Runtime Closure Plan
 
-**Status**: active  |  **Last updated**: 2026-04-10 | **Owner:** Tooling/control plane/review runtime/dashboard
+**Status**: active  |  **Last updated**: 2026-04-13 | **Owner:** Tooling/control plane/review runtime/dashboard
 Execution plan contract: required
 This spec is mirrored in `dev/active/MASTER_PLAN.md` under `MP-380..MP-387`.
 It closes the remote-control/operator-surface gaps found in the 2026-04-04
@@ -319,6 +319,23 @@ Not "no CI" and not "the model is dumb." The repo lacks a hard closure mechanism
 These supersede the original MP-380..MP-386 order for implementation sequencing.
 The MP scopes remain valid but are now cross-cut by enforcement-first priority.
 
+### 2026-04-12 Phase-0 visibility override
+
+Before widening into more autonomy or dashboard polish, keep this bounded
+remote/runtime order explicit:
+
+1. Collapse dashboard, monitor, mobile-status, and phone-status onto one
+   reducer-backed blocker/next-action vocabulary.
+2. Make `FindingBacklog` the single open-findings reader for runtime,
+   dashboard, startup, monitor, bridge, and ranked backlog tooling.
+3. Freeze one shared packet lifecycle plus bidirectional event wake path for
+   all lanes, not separate timer pollers and inbox heuristics.
+4. Surface live tool-call / mutation progress through typed `agent-mind` /
+   current-session state so the dashboard stops guessing from historical
+   messages.
+5. Only after those visibility surfaces converge, rerun the role-first remote
+   commit/push proof and widen loop-v2 / `devctl develop` consumers.
+
 ### Priority 1: Close enforcement — `devctl commit` + repo hook (AUD-27)
 - **What**: Raw `git commit` without a green guard bundle must be structurally impossible
 - **Scope**: Git pre-commit hook + `devctl commit` wrapper + CI guard verifying governed pipeline
@@ -465,6 +482,125 @@ The MP scopes remain valid but are now cross-cut by enforcement-first priority.
 
 ## Progress Log
 
+- 2026-04-13: Closed the guard-driven modularization and compatibility-seam
+  cleanup that the live remote-control dogfood loop surfaced in the typed
+  review-channel/runtime lane. The pending-packet, reviewer-follow,
+  session-resume, startup-context, bridge-projection, collaboration-session,
+  review-state parser/model, and status projection/state surfaces now route
+  through smaller companion modules without tripping dict-schema, code-shape,
+  duplication, or parameter-count guards. The same pass restored the old
+  monkeypatch/import compatibility seams that the refactors briefly broke
+  (`review_channel.state`, `commands.review_channel.status`,
+  `session_resume_support`, `collaboration_session`, `reviewer_follow`,
+  current-session support), and the full affected Python test surface is green
+  again. The remaining non-code blocker is external to this slice: the
+  startup-authority checkpoint gate still requires the governed commit that
+  the writable lane must execute on Codex's behalf.
+- 2026-04-13: Closed the first load-bearing typed attention/revocation slice
+  from the live Codex/Claude dogfood loop. `ReviewState` now carries one
+  canonical `packet_inbox` reducer over packet lifecycle/attention state, and
+  the event-backed projection, bridge-backed status projection,
+  `startup-context`, `session-resume`, and reviewer-follow all read that same
+  typed record instead of recomputing wake/focus independently. Governed stage
+  and commit now fail closed with `attention_revision_stale` when the live
+  typed inbox carries actionable attention newer than the startup receipt the
+  write lane last acknowledged, so stale attention now revokes repo-write
+  authority instead of depending on polling folklore or chat-local reminders.
+  The same slice also closed the live startup command regressions Claude found
+  while dogfooding: `startup-context --format summary` no longer crashes on a
+  missing `asdict` import, and the JSON payload now promotes
+  `checkpoint_required` / `safe_to_continue_editing` to top-level booleans so
+  the explicit block is not buried only inside nested action-routing output.
+- 2026-04-13: Closed the next current-instruction detour in the typed review
+  path. The queue reducer remains the only place that is allowed to select a
+  packet-derived next instruction; `event_current_instruction()` and
+  `current_focus_line()` now read the typed queue/current-session authority
+  instead of independently falling back to bridge text or raw packet summaries.
+  Focused queue/current-session/dashboard regressions are green. The remaining
+  live seam is now narrower and explicit: bridge-backed `review-channel
+  status` still warns that compatibility markdown drifted from typed
+  `current_session`, so the next slice is to collapse that bridge status view
+  onto the same typed selector path instead of letting compatibility state lag.
+- 2026-04-13: Closed the next startup-slice teaching gap in the live
+  remote-control lane. The coordination snapshot reducer no longer lets bare
+  scope tokens like `MP-355` outrank a real live typed instruction or
+  continuity action, so `startup-context --format summary` now surfaces the
+  active typed work item instead of a dead plan token when the session already
+  knows what the current slice is.
+- 2026-04-13: Closed the live same-agent runtime-count contradiction that
+  Claude surfaced during the remote-control dogfood loop. In `single_agent`
+  mode the typed collaboration session can already assign both
+  `review_agent=codex` and `coding_agent=codex`, but the operator-facing
+  runtime counters were still reading only participant rows and therefore
+  reported `live_implementer_total=0` whenever Codex was actively coding
+  while Claude stayed attached as the dashboard/operator lane. The shared
+  runtime-count reducers for `review-channel status` and startup topology now
+  consume live typed `role_assignments` first and fall back to participant
+  rows only when typed role evidence is absent, so the live lane now projects
+  the expected `participants_total=2`, `live_reviewer_total=1`,
+  `live_implementer_total=1`, and `active_conductor_count=1`. The remaining
+  follow-up is narrower: `startup-context` still carries the stale old
+  `current_slice` prose from the pre-fix finding, so current-session/current-
+  slice projection still needs its own refresh/convergence pass.
+- 2026-04-12: Closed the next stale-compatibility bridge seam in the live
+  remote/dashboard lane. `review-channel --action status` already rebuilt the
+  typed `review_state` bundle, but the operator-visible `bridge.md`
+  compatibility file could still lag behind that truth and leave the real
+  state stranded in `dev/reports/review_channel/latest/latest.md`. The status
+  path now reuses the existing typed bridge renderer when it detects typed
+  `current_session` drift, so a stale `bridge.md` is rewritten from the same
+  typed projection during status refresh instead of requiring a separate
+  repair command just to make the compatibility bridge match the repo-owned
+  state.
+- 2026-04-12: Closed one bounded packet-wake gap in the running follow loops.
+  `ensure --follow` / reviewer-follow already had a repo-owned cadence runner,
+  but their progress token only watched bridge text plus worktree hash, so a
+  fresh Claude->Codex pending packet still did not count as live progress
+  unless someone separately started `review-channel --action watch --follow`.
+  The shared follow-loop progress token now includes the live reviewer packet
+  queue, so an arriving reviewer-targeted packet becomes a repo-owned wake
+  signal for running follow sessions instead of operator folklore.
+- 2026-04-12: Absorbed the latest dashboard architecture review into the
+  runtime owner doc. The repo already has most of the required pieces, but
+  four status surfaces still describe one blocker differently, findings still
+  split across packet/markdown/runtime paths, dashboard wake still depends
+  partly on timers, and observer lanes still need separate `agent-mind` reads
+  to see live tool calls. The bounded order here is now explicit in plan
+  state: surface consolidation, `FindingBacklog`, packet lifecycle/event
+  wake, then live tool-call projection.
+- 2026-04-12: Rejected the linked-worktree/shadow-gitdir detour after the
+  remote-control dogfood session. The active startup receipt on the primary
+  lane already projects `worktree_strategy=shared_primary_worktree` with
+  `safe_to_fanout=False`, which means the default remote-control
+  reviewer/implementer/dashboard stack shares the governed primary checkout
+  until an explicit delegated worker is launched. Worker worktrees remain
+  optional fanout only, with their own typed `worktree_identity`; treating
+  them as the default remote-control topology was an off-spec workaround that
+  created stale topology stories and commit-pipeline hacks instead of closing
+  the real role/authority/read-model gaps.
+- 2026-04-12: Planned the next Q55/Q84 findings-consumer closure from live
+  dogfood evidence in the worker lane. `findings-priority` still ranks
+  markdown from `LIVE_RUN.md`, `event_open_findings()` currently projects only
+  `pending review packet(s)`, dashboard still renders `Open findings: 0`, and
+  `monitor` can emit `should_emit_finding=True` without a durable sink. The
+  bounded runtime design is now explicit: add one canonical
+  `FindingBacklog` snapshot/loader over typed finding rows, make
+  `review-channel --action post --kind finding` append backlog rows with
+  stable `finding_id` / human `Q-ID` / packet lineage, route
+  dashboard/startup/monitor/bridge/findings-priority through that reader, and
+  leave `LIVE_RUN.md` as compatibility import/projection only while
+  `governance-review` stays the shared disposition sink.
+- 2026-04-12: Closed the next bounded stale-projection seam in the remote
+  dashboard lane. When governance still points at the legacy
+  `.../review_channel/latest` compatibility root, `review_state_locator` now
+  prefers the sibling event-backed `projections/latest/review_state.json`
+  bundle and preserves that path even for live-refresh callers. That keeps
+  dashboard/startup/session-resume on the same event-backed current-slice and
+  coordination text instead of silently rehydrating stale bridge-era
+  compatibility payloads. The remaining read-side closure is still the larger
+  one called out by Q55/Q83: a single canonical `ControlPlaneReadModel` and a
+  single typed finding surface shared by packets, dashboard, and ranked
+  LIVE_RUN intake.
 - 2026-04-12: Closed the next role-first read-model / governed-push identity
   follow-up from the worker-lane beta loop. `review-channel status`,
   dashboard/mobile projections, and shared review-state/runtime readers now
@@ -474,9 +610,9 @@ The MP scopes remain valid but are now cross-cut by enforcement-first priority.
   outputs. The same pass made commit/push approval explicitly worktree-bound:
   the staged pipeline, persisted push authorization, and latest-push status
   now carry `worktree_identity`, and publish readiness fails closed when the
-  current checkout is not the worker lane that staged the approved pipeline.
-  This keeps the phone-attached primary worktree on dashboard/control duty
-  while the mutating coding lane owns its own publication authority.
+  current checkout is not the checkout that staged the approved pipeline. When
+  requested worker fanout is zero that checkout is the shared primary lane;
+  when an explicit delegated worker exists it is the delegated worker lane.
 - 2026-04-12: Closed the next worker-lane portability slice from the same
   role-first beta loop. The launcher no longer treats `LaneAssignment.worktree`
   as read-only plan prose: each launched provider session now resolves one
@@ -497,10 +633,11 @@ The MP scopes remain valid but are now cross-cut by enforcement-first priority.
   bridge/handoff/turn-authority helpers still assume `codex reviewer` /
   `claude implementer`. The next closure order is now explicit: converge
   `ControlPlaneReadModel` and typed participant registry first, replace
-  provider-coded role defaults and handoff fields second, keep the phone lane
-  on the primary dashboard/control worktree while implementation happens in
-  reusable worker worktrees third, then rerun the live remote-control beta
-  matrix before widening to external-repo proof.
+  provider-coded role defaults and handoff fields second, keep the default
+  remote-control lane on the shared primary checkout while requested worker
+  fanout is zero and reserve isolated worktrees for explicit delegated-worker
+  fanout third, then rerun the live remote-control beta matrix before
+  widening to external-repo proof.
 - 2026-04-11: Closed the first remote-participant visibility seam for the
   live dashboard/remote-control lane. Active `attach-remote-control`
   artifacts now feed the typed collaboration roster/role assignments instead
@@ -1178,15 +1315,87 @@ No `ControlPlaneReadModel` exists. Each surface independently reads raw artifact
 
 ## Session Resume
 
+- 2026-04-13 packet-inbox + stale-attention write barrier:
+  resume from current-instruction convergence, not from packet attention
+  modeling again. `ReviewState.packet_inbox` is now the canonical typed wake /
+  focus reducer for startup-context, session-resume, reviewer-follow, and the
+  governed stage/commit path. The remaining bounded closure is to collapse
+  dashboard/status/current-session onto one current-instruction selector so a
+  finding packet can never become the operator-visible instruction in one
+  surface while another surface still shows the old bridge instruction.
+- 2026-04-13 typed selector closure / bridge-status follow-up:
+  resume from the bridge-backed compatibility drift, not from raw packet
+  fallbacks again. The typed queue is now the only packet-derived instruction
+  selector, but `review-channel status` in markdown-bridge mode still reports
+  stale bridge drift for `current_session`. The next bounded step is to make
+  that bridge-mode status report consume the same typed current-session/current
+  focus path directly or otherwise rewrite the compatibility bridge before it
+  renders operator-visible instruction text.
+- 2026-04-13 actionable current-slice closure:
+  resume from the next operator-language/authority slice, not from startup
+  current-slice drift again. Startup now prefers a live typed instruction over
+  bare plan-scope placeholders, so the next bounded work is clarifying
+  participant/conductor/reviewer/implementer semantics in operator-facing
+  surfaces while keeping the same typed authority model.
+- 2026-04-13 single-agent dual-role count closure:
+  resume from the narrower `current_slice` projection mismatch, not from
+  reviewer/implementer count truth again. `review-channel status` and
+  startup-facing runtime counts now agree that the live remote-control lane is
+  one active Codex conductor filling both reviewer and implementer roles while
+  Claude remains the dashboard/operator participant. The next bounded step is
+  to make `startup-context` / `current_session` refresh that same live slice
+  text instead of keeping the stale "0 implementers" prose after the count
+  fix.
+- 2026-04-12 bridge-sync + packet-wake closure:
+  resume from the next event-wake/read-model tranche, not from another
+  compatibility artifact split. `review-channel status` now owns
+  `bridge.md` re-projection when typed `current_session` drift is detected,
+  and the running follow loops now treat reviewer-targeted pending packets as
+  progress. The next bounded proof step is to attach that packet wake to the
+  live dashboard/operator lane more explicitly, then rerun the Claude
+  dashboard / Codex local-implementer commit proof on the same typed packet
+  path.
+- 2026-04-12 surface-consolidation + event-stream closure:
+  resume from one typed read model and one packet lifecycle, not four status
+  surfaces plus timer pollers. The next bounded order is explicit: collapse
+  dashboard/monitor/mobile/phone onto one reducer-backed blocker vocabulary,
+  make `FindingBacklog` the single open-findings reader, freeze the shared
+  packet lifecycle and bidirectional wake path for all lanes, and surface live
+  tool-call progress through `agent-mind` / typed current-session state. This
+  is Phase 0 visibility closure for the remote/dashboard lane and must land
+  before loop-v2 / `devctl develop` autonomy claims widen.
+- 2026-04-12 shared-primary topology correction:
+  resume from the governed default, not the workaround path. When
+  startup/runtime project `worktree_strategy=shared_primary_worktree` and
+  requested worker fanout is zero, Codex coding/review activity plus the
+  attached dashboard/operator share the primary checkout and use the same
+  governed commit/push path. Only explicit delegated workers get isolated
+  worktrees and separate `worktree_identity` publication authority. The next
+  proof step is to teach this default through bootstrap/dashboard/status so
+  agents stop inventing linked-worktree/shadow-gitdir recoveries.
+- 2026-04-12 findings-convergence slice:
+  resume from one canonical findings reader, not more packet counting and not
+  more bridge parsing. The next bounded runtime step is a shared
+  `FindingBacklog` loader/snapshot that owns live open findings for
+  dashboard/operator views, startup bootstrap, monitor self-audit, bridge
+  projection, and ranked backlog tooling. `review-channel --action post
+  --kind finding` must become an intake writer into that backlog, existing
+  `LIVE_RUN.md` findings must enter through import/projection compatibility,
+  and `governance-review` must stay the close-out sink over the same
+  `finding_id` / `Q-ID` identity. The current dogfood proof to retire is
+  concrete: dashboard says `Open findings: 0`, monitor says
+  `should_emit_finding=True` with no consumer, and `findings-priority` still
+  scrapes 134 markdown findings.
 - 2026-04-12 role-first beta-matrix slice:
   resume with the control-lane/worker-lane split and the first read-side
-  identity closure already landed. The phone-attached primary worktree stays
-  dashboard/control-only, implementation happens in reusable worker
-  worktrees, typed read models now prefer reviewer/implementer aliases over
-  provider-coded bridge names, and commit/push approval is bound to the worker
-  `worktree_identity` that staged it. The next proof step is the live rerun of
-  `Codex reviewer + Codex worker implementer + Claude dashboard`, then swapped
-  reviewer/implementer permutations once that matrix stays green.
+  identity closure already landed. The default remote-control lane shares the
+  primary checkout while worker fanout is zero; isolated worker worktrees are
+  reserved for explicit delegated fanout. Typed read models now prefer
+  reviewer/implementer aliases over provider-coded bridge names, and
+  commit/push approval is bound to the `worktree_identity` that staged it.
+  The next proof step is the live rerun of Codex coding on the primary lane
+  with Claude attached as dashboard/operator, then delegated-worker and
+  swapped reviewer/implementer permutations once that matrix stays green.
 - 2026-04-09 external-session attachment closure: resume from the next
   consumer/UI pass, not another write-path invention. The typed
   `remote_control_attachment` record now exists in reviewer runtime,

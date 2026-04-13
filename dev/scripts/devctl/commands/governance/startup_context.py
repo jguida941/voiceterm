@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import os
-from dataclasses import replace
+from dataclasses import asdict, replace
 
 from . import startup_repair as startup_repair_flow
 from ...common_io import display_path
@@ -18,8 +18,12 @@ from .startup_context_render import (
     publication_backlog_guidance,
     render_markdown as _render_markdown,
 )
+from .startup_context_summary import (
+    render_summary as _render_summary,
+    summary_blockers as _summary_blockers,
+    summary_next_command as _summary_next_command,
+)
 from .startup_context_recovery import (
-    append_recovery_authority_summary_lines,
     apply_recovery_authority_summary,
 )
 from ...runtime.machine_output import (
@@ -27,210 +31,20 @@ from ...runtime.machine_output import (
     emit_machine_artifact_output,
 )
 from ...runtime.action_routing import project_startup_action_routing
+from ...runtime.conductor_capability import (
+    reviewer_local_implementation_allowed,
+    session_resume_command_for_role,
+)
 from ...runtime.startup_receipt import (
     build_startup_receipt,
     startup_receipt_path,
     write_startup_receipt,
 )
-from ...runtime.conductor_capability import reviewer_local_implementation_allowed
 from ...runtime.startup_authority import build_startup_authority_report
 from ...runtime.startup_context import build_startup_context, blocks_new_implementation
 
-_CONTEXT_GRAPH_BOOTSTRAP_COMMAND = (
-    "python3 dev/scripts/devctl.py context-graph --mode bootstrap --format md"
-)
-_SUMMARY_RERUN_COMMAND = (
-    "python3 dev/scripts/devctl.py startup-context --format summary"
-)
-_REVIEW_STATUS_COMMAND = (
-    "python3 dev/scripts/devctl.py review-channel --action status "
-    "--terminal none --format json"
-)
 _IMPLEMENTATION_STRICT_INTENT = "implementation_strict"
 _REVIEWER_BOOTSTRAP_INTENT = "reviewer_bootstrap"
-
-
-def _summary_blockers(ctx_dict: dict) -> str:
-    blockers: list[str] = []
-
-    authority = ctx_dict.get("startup_authority")
-    if isinstance(authority, dict) and authority and not bool(authority.get("ok", False)):
-        blockers.append("startup_authority")
-
-    governance = ctx_dict.get("governance")
-    if isinstance(governance, dict):
-        push_enforcement = governance.get("push_enforcement")
-        if isinstance(push_enforcement, dict):
-            if bool(push_enforcement.get("checkpoint_required", False)):
-                blockers.append("checkpoint_required")
-            elif not bool(push_enforcement.get("safe_to_continue_editing", True)):
-                blockers.append("continuation_blocked")
-
-    reviewer_gate = ctx_dict.get("reviewer_gate")
-    if isinstance(reviewer_gate, dict) and bool(
-        reviewer_gate.get("implementation_blocked", False)
-    ) and not bool(reviewer_gate.get("review_gate_allows_push", False)):
-        block_reason = str(
-            reviewer_gate.get("implementation_block_reason") or ""
-        ).strip()
-        blockers.append(block_reason or "reviewer_gate")
-
-    coordination = _coordination_dict(ctx_dict)
-    if bool(coordination.get("resync_required", False)):
-        blockers.append("coordination_resync_required")
-
-    permission = str(ctx_dict.get("implementation_permission") or "").strip()
-    if permission in {"blocked", "suspended"}:
-        blockers.append(f"implementation_permission_{permission}")
-
-    return ",".join(blockers) if blockers else "none"
-
-
-def _summary_next_command(ctx_dict: dict) -> str:
-    blockers = _summary_blockers(ctx_dict)
-    if blockers == "none":
-        return _CONTEXT_GRAPH_BOOTSTRAP_COMMAND
-
-    reviewer_command = _reviewer_recovery_command(ctx_dict)
-    if reviewer_command:
-        return reviewer_command
-
-    coordination = _coordination_dict(ctx_dict)
-    if bool(coordination.get("resync_required", False)):
-        return _REVIEW_STATUS_COMMAND
-    if "implementation_permission_" in blockers:
-        return _REVIEW_STATUS_COMMAND
-
-    push_decision = ctx_dict.get("push_decision")
-    if isinstance(push_decision, dict):
-        next_step_command = str(push_decision.get("next_step_command") or "").strip()
-        if next_step_command:
-            return next_step_command
-
-        if str(push_decision.get("action") or "").strip() == "await_checkpoint":
-            return f"checkpoint current slice, then rerun {_SUMMARY_RERUN_COMMAND}"
-
-    return f"resolve blockers, then rerun {_SUMMARY_RERUN_COMMAND}"
-
-
-def _reviewer_recovery_command(ctx_dict: dict) -> str:
-    action = str(ctx_dict.get("advisory_action") or "").strip()
-    if action != "repair_reviewer_loop":
-        return ""
-    reviewer_gate = ctx_dict.get("reviewer_gate")
-    if not isinstance(reviewer_gate, dict):
-        return _REVIEW_STATUS_COMMAND
-    recovery_command = str(reviewer_gate.get("recovery_command") or "").strip()
-    if recovery_command:
-        return recovery_command
-    if not bool(reviewer_gate.get("implementation_blocked", False)):
-        return ""
-    if bool(reviewer_gate.get("review_gate_allows_push", False)):
-        return ""
-    block_reason = str(
-        reviewer_gate.get("implementation_block_reason") or ""
-    ).strip()
-    try:
-        from ...review_channel.peer_recovery import STALE_PEER_RECOVERY
-    except ImportError:
-        return _REVIEW_STATUS_COMMAND
-    entry = STALE_PEER_RECOVERY.get(block_reason, {})
-    command = str(entry.get("recommended_command") or "").strip()
-    return command or _REVIEW_STATUS_COMMAND
-
-
-def _coordination_dict(ctx_dict: dict) -> dict[str, object]:
-    coordination = ctx_dict.get("coordination")
-    return coordination if isinstance(coordination, dict) else {}
-
-
-def _summary_coordination_lines(ctx_dict: dict) -> list[str]:
-    coordination = _coordination_dict(ctx_dict)
-    if not coordination:
-        return []
-    declared = str(coordination.get("declared_topology") or "single_agent").strip()
-    observed = str(coordination.get("observed_topology") or "single_agent").strip()
-    recommended = str(
-        coordination.get("recommended_topology") or observed or "single_agent"
-    ).strip()
-    lines = [
-        f"coordination={declared}/{observed}->{recommended}",
-        f"safe_to_fanout={bool(coordination.get('safe_to_fanout', False))}",
-        f"resync_required={bool(coordination.get('resync_required', False))}",
-    ]
-    ownership_status = str(coordination.get("ownership_status") or "").strip()
-    if ownership_status:
-        lines.append(f"ownership_status={ownership_status}")
-    fanout_posture = str(coordination.get("fanout_posture") or "").strip()
-    if fanout_posture:
-        lines.append(f"fanout_posture={fanout_posture}")
-    worktree_strategy = str(coordination.get("worktree_strategy") or "").strip()
-    if worktree_strategy:
-        lines.append(f"worktree_strategy={worktree_strategy}")
-    current_slice = str(coordination.get("current_slice") or "").strip()
-    if current_slice:
-        lines.append(f"current_slice={current_slice}")
-    active_target = coordination.get("active_target")
-    if isinstance(active_target, dict):
-        plan_path = str(active_target.get("plan_path") or "").strip()
-        if plan_path:
-            lines.append(f"active_target={plan_path}")
-    return lines
-
-
-def _render_summary(ctx_dict: dict) -> str:
-    action = str(ctx_dict.get("advisory_action") or "").strip() or "unknown"
-    reason = str(ctx_dict.get("advisory_reason") or "").strip() or "unknown"
-    reviewer_gate = ctx_dict.get("reviewer_gate")
-    interaction_mode = "unresolved"
-    if isinstance(reviewer_gate, dict):
-        interaction_mode = (
-            str(reviewer_gate.get("operator_interaction_mode") or "").strip()
-            or "unresolved"
-        )
-    lines = [
-        f"action={action}",
-        f"reason={reason}",
-        f"interaction_mode={interaction_mode}",
-        f"blockers={_summary_blockers(ctx_dict)}",
-        f"next={_summary_next_command(ctx_dict)}",
-    ]
-    observed_control_topology = str(
-        ctx_dict.get("observed_control_topology") or ""
-    ).strip()
-    if observed_control_topology:
-        lines.append(f"observed_control_topology={observed_control_topology}")
-    implementation_permission = str(
-        ctx_dict.get("implementation_permission") or ""
-    ).strip()
-    if implementation_permission:
-        lines.append(f"implementation_permission={implementation_permission}")
-    append_recovery_authority_summary_lines(ctx_dict, lines)
-    lines.extend(_summary_coordination_lines(ctx_dict))
-    ahead = publication_backlog_count(ctx_dict)
-    if ahead is not None and ahead > 0:
-        lines.append(f"ahead_of_upstream_commits={ahead}")
-    backlog_guidance = publication_backlog_guidance(ctx_dict)
-    if backlog_guidance:
-        lines.append(f"push_guidance={backlog_guidance.replace('`', '')}")
-    pacing = {}
-    work_intake = ctx_dict.get("work_intake")
-    if isinstance(work_intake, dict):
-        pacing = work_intake.get("session_pacing")
-        if not isinstance(pacing, dict):
-            pacing = {}
-    if pacing:
-        lines.append(
-            "session_pacing="
-            f"{pacing.get('complexity_band', 'unknown')}/"
-            f"{pacing.get('research_ref_budget', 0)}refs/"
-            f"{pacing.get('focus_file_count', 0)}files/"
-            f"{pacing.get('dependency_edge_count', 0)}deps"
-        )
-        trigger = str(pacing.get("implementation_trigger") or "").strip()
-        if trigger:
-            lines.append(f"pacing_trigger={trigger}")
-    return "\n".join(lines)
 
 
 def _startup_authority_intent(*, caller_role: str | None, reviewer_override: bool) -> str:
@@ -238,6 +52,50 @@ def _startup_authority_intent(*, caller_role: str | None, reviewer_override: boo
     if caller_role == "reviewer" and not reviewer_override:
         return _REVIEWER_BOOTSTRAP_INTENT
     return _IMPLEMENTATION_STRICT_INTENT
+
+
+def _role_bootstrap_command(caller_role: str | None) -> str:
+    normalized = str(caller_role or "").strip().lower()
+    if normalized not in {"reviewer", "implementer"}:
+        return ""
+    return session_resume_command_for_role(normalized)
+
+
+def _role_bootstrap_summary(caller_role: str | None) -> str:
+    normalized = str(caller_role or "").strip().lower()
+    if normalized == "reviewer":
+        return (
+            "Refresh the reviewer bootstrap packet first, then follow the typed "
+            "checkpoint and packet-handshake instructions it emits."
+        )
+    if normalized == "implementer":
+        return (
+            "Refresh the implementer bootstrap packet first, then follow the typed "
+            "checkpoint and instruction-ack path it emits."
+        )
+    return ""
+
+
+def _role_bound_checkpoint_receipt(ctx, *, caller_role: str | None):
+    """Project role-specific bootstrap guidance into checkpoint-blocked receipts."""
+    role_command = _role_bootstrap_command(caller_role)
+    if not role_command:
+        return ctx
+    if str(ctx.push_decision.next_step_command or "").strip():
+        return ctx
+    if str(ctx.push_decision.action or "").strip() != "await_checkpoint":
+        return ctx
+    if str(ctx.advisory_action or "").strip() == "repair_reviewer_loop":
+        return ctx
+    coordination = ctx.coordination
+    if coordination is not None and bool(coordination.resync_required):
+        return ctx
+    push_decision = replace(
+        ctx.push_decision,
+        next_step_summary=_role_bootstrap_summary(caller_role),
+        next_step_command=role_command,
+    )
+    return replace(ctx, push_decision=push_decision)
 
 
 def add_parser(subparsers) -> None:
@@ -300,6 +158,57 @@ def _startup_receipt_payload(receipt_path: str, head_commit_sha: str) -> dict[st
     }
 
 
+def _packet_inbox_agent_summary(record) -> dict[str, object]:
+    payload: dict[str, object] = {}
+    payload["agent"] = str(record.agent or "")
+    payload["attention_status"] = str(record.attention_status or "")
+    payload["wake_reason"] = str(record.wake_reason or "")
+    payload["required_command"] = str(record.required_command or "")
+    payload["delivery_state"] = str(record.delivery_state or "")
+    payload["current_instruction_packet_id"] = str(
+        record.current_instruction_packet_id or ""
+    )
+    payload["latest_finding_packet_id"] = str(record.latest_finding_packet_id or "")
+    payload["pending_actionable_total"] = len(record.pending_actionable_packet_ids)
+    payload["expired_unresolved_total"] = len(record.expired_unresolved_packet_ids)
+    return payload
+
+
+def _machine_summary_packet_inbox(packet_inbox) -> dict[str, object]:
+    payload: dict[str, object] = {}
+    payload["attention_revision"] = str(packet_inbox.attention_revision or "")
+    payload["agents"] = [
+        _packet_inbox_agent_summary(record)
+        for record in packet_inbox.agents
+        if (
+            record.current_instruction_packet_id
+            or record.latest_finding_packet_id
+            or record.pending_actionable_packet_ids
+            or record.expired_unresolved_packet_ids
+            or str(record.attention_status or "").strip() not in {"", "none"}
+        )
+    ]
+    return payload
+
+
+def _machine_summary_coordination(coordination) -> dict[str, object]:
+    payload: dict[str, object] = {}
+    payload["declared_topology"] = coordination.declared_topology
+    payload["observed_topology"] = coordination.observed_topology
+    payload["recommended_topology"] = coordination.recommended_topology
+    payload["fanout_posture"] = coordination.fanout_posture
+    payload["safe_to_fanout"] = bool(coordination.safe_to_fanout)
+    payload["worktree_strategy"] = coordination.worktree_strategy
+    payload["resync_required"] = bool(coordination.resync_required)
+    payload["current_slice"] = coordination.current_slice
+    payload["active_target"] = (
+        coordination.active_target.to_dict()
+        if coordination.active_target is not None
+        else None
+    )
+    return payload
+
+
 def _machine_summary(
     *,
     ctx,
@@ -343,26 +252,16 @@ def _machine_summary(
     summary["publication_guidance"] = ctx.push_decision.publication_guidance
     summary["startup_authority_ok"] = bool(authority_report.get("ok", False))
     summary["startup_receipt_path"] = startup_receipt_path
+    if getattr(ctx, "attention", None) is not None:
+        summary["attention"] = asdict(ctx.attention)
+    if getattr(ctx, "packet_inbox", None) is not None:
+        summary["packet_inbox"] = _machine_summary_packet_inbox(ctx.packet_inbox)
     if ctx.work_intake is not None:
         summary["work_intake"] = {
             "coordination": ctx.work_intake.coordination.to_dict(),
         }
     if ctx.coordination is not None:
-        summary["coordination"] = {
-            "declared_topology": ctx.coordination.declared_topology,
-            "observed_topology": ctx.coordination.observed_topology,
-            "recommended_topology": ctx.coordination.recommended_topology,
-            "fanout_posture": ctx.coordination.fanout_posture,
-            "safe_to_fanout": bool(ctx.coordination.safe_to_fanout),
-            "worktree_strategy": ctx.coordination.worktree_strategy,
-            "resync_required": bool(ctx.coordination.resync_required),
-            "current_slice": ctx.coordination.current_slice,
-            "active_target": (
-                ctx.coordination.active_target.to_dict()
-                if ctx.coordination.active_target is not None
-                else None
-            ),
-        }
+        summary["coordination"] = _machine_summary_coordination(ctx.coordination)
     project_startup_action_routing(summary, next_command=_summary_next_command(summary))
     return summary
 
@@ -380,11 +279,12 @@ def run(args) -> int:
     governance = ctx.governance
     caller_role = getattr(args, "role", None)
     reviewer_override = getattr(args, "reviewer_override", False)
+    authority_intent = _startup_authority_intent(
+        caller_role=caller_role,
+        reviewer_override=reviewer_override,
+    )
     authority_report = build_startup_authority_report(
-        intent=_startup_authority_intent(
-            caller_role=caller_role,
-            reviewer_override=reviewer_override,
-        ),
+        intent=authority_intent,
         governance=governance,
         reviewer_gate=ctx.reviewer_gate,
     )
@@ -406,9 +306,11 @@ def run(args) -> int:
             advisory_action=coerced_action,
             advisory_reason=coerced_reason,
         )
+    ctx = _role_bound_checkpoint_receipt(ctx, caller_role=caller_role)
     receipt = build_startup_receipt(
         ctx,
         authority_report=authority_report,
+        intent_scope=authority_intent,
     )
     # The startup receipt is the command's primary output — the launcher
     # validates it to gate subsequent actions.  On intentional read-only
@@ -424,7 +326,14 @@ def run(args) -> int:
     else:
         receipt_path = write_startup_receipt(receipt, governance=governance)
     receipt_display_path = display_path(receipt_path)
+    push = governance.push_enforcement if governance is not None else None
     payload = ctx.to_dict()
+    payload["checkpoint_required"] = (
+        bool(push.checkpoint_required) if push is not None else False
+    )
+    payload["safe_to_continue_editing"] = (
+        bool(push.safe_to_continue_editing) if push is not None else True
+    )
     payload["startup_authority"] = _startup_authority_payload(authority_report)
     payload["startup_receipt"] = _startup_receipt_payload(
         receipt_display_path,
@@ -446,7 +355,6 @@ def run(args) -> int:
     ):
         reviewer_blocked = True
         blocked = True
-    push = governance.push_enforcement if governance is not None else None
     human_output = _render_summary(payload)
     if getattr(args, "format", "") == "md":
         human_output = _render_markdown(payload)

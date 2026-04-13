@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import re
 from types import SimpleNamespace
 
 from ..config import get_repo_root
@@ -28,6 +29,8 @@ from .coordination_snapshot_support import (
     worktree_strategy,
 )
 from .planning_ir_reduction import build_conflicts
+
+_MP_SCOPE_TOKEN_RE = re.compile(r"MP-\d+(?:\.\.MP-\d+)?", re.IGNORECASE)
 
 
 def build_coordination_snapshot(
@@ -120,15 +123,16 @@ def build_coordination_snapshot(
     )
     repo_identity = getattr(resolved_governance, "repo_identity", None)
     persisted_coordination = getattr(resolved_review_state, "coordination", None)
-    current_slice = text(getattr(persisted_coordination, "current_slice", "")) or text(
-        getattr(collaboration, "current_slice", "")
-    ) or text(
-        getattr(getattr(resolved_review_state, "current_session", None), "current_instruction", "")
-    ) or text(getattr(continuity, "current_goal", "")) or text(
-        getattr(continuity, "next_action", "")
-    ) or text(getattr(continuity, "summary", "")) or text(
-        getattr(active_target, "plan_title", "")
-    ) or text(getattr(active_target, "plan_path", ""))
+    current_slice = _select_current_slice(
+        text(getattr(persisted_coordination, "current_slice", "")),
+        text(getattr(collaboration, "current_slice", "")),
+        text(getattr(getattr(resolved_review_state, "current_session", None), "current_instruction", "")),
+        text(getattr(continuity, "current_goal", "")),
+        text(getattr(continuity, "next_action", "")),
+        text(getattr(continuity, "summary", "")),
+        text(getattr(active_target, "plan_title", "")),
+        text(getattr(active_target, "plan_path", "")),
+    )
     return CoordinationSnapshot(
         generated_at_utc=utc_timestamp(),
         repo_name=repo_name(resolved_governance, resolved_root),
@@ -229,3 +233,28 @@ __all__ = [
     "build_coordination_snapshot",
     "build_coordination_snapshot_for_review_state",
 ]
+
+
+def _select_current_slice(*candidates: str) -> str:
+    fallback = ""
+    for candidate in candidates:
+        value = text(candidate)
+        if not value:
+            continue
+        if _is_scope_only_slice(value):
+            if not fallback:
+                fallback = value
+            continue
+        return value
+    return fallback
+
+
+def _is_scope_only_slice(value: str) -> bool:
+    if not value:
+        return False
+    matches = list(_MP_SCOPE_TOKEN_RE.finditer(value))
+    if not matches:
+        return False
+    stripped = _MP_SCOPE_TOKEN_RE.sub("", value)
+    stripped = re.sub(r"[\s,;:/()._-]+", "", stripped)
+    return not stripped

@@ -292,12 +292,20 @@ def _split_markdown_items(text: str) -> list[str]:
 
     items: list[list[str]] = []
     current: list[str] = []
+    top_level_indent: int | None = None
     for line in lines:
-        if line.lstrip().startswith("- "):
-            if current:
+        stripped = line.lstrip()
+        if stripped.startswith("- "):
+            indent = len(line) - len(stripped)
+            if top_level_indent is None:
+                top_level_indent = indent
+            if current and indent <= top_level_indent:
                 items.append(current)
-            current = [line.rstrip()]
-            continue
+                current = [line.rstrip()]
+                continue
+            if not current:
+                current = [line.rstrip()]
+                continue
         if current:
             current.append(line.rstrip())
     if current:

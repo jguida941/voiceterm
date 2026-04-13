@@ -219,6 +219,42 @@
   different checkout, and projects current/approved worktree identity through
   latest-push status so the primary control lane cannot accidentally reuse a
   worker-lane publication approval.
+- 2026-04-12 remote-control topology correction follow-up in
+  `MP-377` / `MP-380..MP-387` scope: the six-hour dogfood session confirmed
+  the governed default is still `worktree_strategy=shared_primary_worktree`
+  when requested worker fanout is zero. Concurrent Claude dashboard/operator
+  plus Codex coding/review activity should share the primary checkout and the
+  same governed commit/push path until an explicit delegated worker is
+  launched. Isolated worker worktrees remain opt-in fanout with their own
+  typed `worktree_identity`; the linked-worktree/shadow-gitdir detour was a
+  workaround caused by checkpoint/authority confusion, not part of the
+  intended architecture. The next closure is to teach this shared-primary
+  default through bootstrap, dashboard, and runtime read models so agents do
+  not improvise extra checkouts.
+- 2026-04-12 checkpoint-commit + event-backed review-state follow-up in
+  `MP-377` / `MP-380..MP-387` scope: `review_state_locator` now prefers the
+  sibling `projections/latest/review_state.json` bundle when governance still
+  points at the legacy `.../latest` compatibility root, and live-refresh
+  callers keep that event-backed path authoritative instead of silently
+  falling back to stale bridge-era projections. The governed commit boundary
+  also now distinguishes checkpoint authority from new implementation
+  authority: when startup explicitly routes the lane to
+  `advisory_action=checkpoint_allowed` / `push_decision=await_checkpoint`
+  with `reviewer_gate.checkpoint_permitted=true`, `devctl commit` may still
+  advance the governed checkpoint path while raw `git commit` stays blocked.
+  The next closure stays on shared status/doctor wording plus Q55 findings
+  convergence, not another commit-on-behalf exception.
+- 2026-04-12 Q55/Q84 findings-convergence planning follow-up in
+  `MP-377` / `MP-380..MP-387` scope: dogfood across `dashboard`, `monitor`,
+  `review-channel`, and `findings-priority` confirmed that live findings
+  still split across packet queues, bridge/session markdown, `LIVE_RUN.md`,
+  and an empty governance-review ledger. The next closure is one canonical
+  typed findings-backlog reader/writer: `review-channel --action post --kind
+  finding` and historical `LIVE_RUN.md` import feed the same ledger with
+  stable `finding_id` plus human `Q-ID` projection, dashboard/startup/
+  monitor/bridge/findings-priority render from that snapshot,
+  `governance-review` stays the disposition sink, and `LIVE_RUN.md` becomes a
+  compatibility projection instead of the source of truth.
 - 2026-04-11 action-request delivery follow-up in `MP-380..MP-387` scope:
   event-backed `action_request` packets now carry typed delivery receipts too:
   post seeds `delivery_emitted_at_utc`, targeted `inbox|watch` polls stamp
@@ -252,6 +288,17 @@
   discoverability closure first, slice selection second, phase/controller
   routing third, then guard-promotion default writeback and governed mutation
   proof. Dashboard work remains a separate consumer session.
+- Current 2026-04-12 architecture-synthesis priority inside that same
+  `MP-377` owner chain: Phase 0 visibility closure must finish before Phase 1
+  autonomy. The concrete owner order is now explicit:
+  `platform_authority_loop.md` closes the single governed snapshot / blocker /
+  decision-basis spine (`Q96-Q99`), `remote_control_runtime.md` closes
+  four-surface status convergence plus one `FindingBacklog`, packet
+  lifecycle/event wake, and live tool-call visibility (`Q83-Q85`, `Q90`),
+  `continuous_swarm.md` owns the standing dogfood rerun plus inbox-first
+  wait/role proof, and `autonomous_governance_loop_v2.md` may only widen into
+  `devctl develop` after those consumers are live and `findings-priority`
+  stops returning ungrounded Phase-0 rows.
 - Current 2026-04-08 typed-authority convergence absorption rule inside that
   same `MP-377` owner chain: do not promote a separate "Typed Authority
   Convergence" tracker. Treat that synthesis as an execution-order map only

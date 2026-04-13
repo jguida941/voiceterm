@@ -33,11 +33,13 @@ def validate_wait_bridge_content(bridge_text: str) -> list[str]:
     return _bridge_poll_errors(extract_bridge_snapshot(bridge_text))
 
 
-def load_pending_claude_packets(
+def load_pending_target_packets(
     repo_root: Path,
     paths: RuntimePaths,
+    *,
+    target: str,
 ) -> list[dict[str, object]]:
-    """Return the newest pending packets targeted at Claude, if available."""
+    """Return the newest pending packets targeted at one agent, if available."""
     if paths.review_channel_path is None or paths.artifact_paths is None:
         return []
     try:
@@ -50,10 +52,26 @@ def load_pending_claude_packets(
         return []
     return filter_inbox_packets(
         bundle.review_state,
-        target="claude",
+        target=target,
         status="pending",
         limit=1,
     )
+
+
+def load_pending_claude_packets(
+    repo_root: Path,
+    paths: RuntimePaths,
+) -> list[dict[str, object]]:
+    """Return the newest pending packets targeted at Claude, if available."""
+    return load_pending_target_packets(repo_root, paths, target="claude")
+
+
+def load_pending_codex_packets(
+    repo_root: Path,
+    paths: RuntimePaths,
+) -> list[dict[str, object]]:
+    """Return the newest pending packets targeted at Codex, if available."""
+    return load_pending_target_packets(repo_root, paths, target="codex")
 
 
 def latest_pending_packet_id(packets: list[dict[str, object]]) -> str:

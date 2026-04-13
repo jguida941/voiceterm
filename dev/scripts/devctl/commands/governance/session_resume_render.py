@@ -14,6 +14,14 @@ from ...runtime.conductor_capability import (
     session_resume_command_for_role,
     startup_context_command_for_role,
 )
+from .session_resume_render_sections import (
+    coordination_lines as _coordination_lines,
+    packet_inbox_lines as _packet_inbox_lines,
+    review_candidate_lines as _review_candidate_lines,
+    review_range_line as _review_range_line,
+    sha_line as _sha_line,
+    short_sha as _short_sha,
+)
 
 if TYPE_CHECKING:
     from .session_resume_support import SessionCachePacket
@@ -32,7 +40,11 @@ def render_bootstrap(packet: "SessionCachePacket") -> str:
         f"- **mode**: {packet.operator_interaction_mode}",
         f"- **phase**: {packet.resolved_phase}",
         f"- **blockers**: {packet.blockers}",
+        f"- **attention**: {packet.attention_status}",
     ]
+    if packet.attention_revision:
+        lines.append(f"- **attention_revision**: `{packet.attention_revision}`")
+    lines.extend(_packet_inbox_lines(packet))
     if packet.next_guard_bundle:
         lines.append(f"- **guard_bundle**: {packet.next_guard_bundle}")
     if packet.remote_control_attachment is not None:
@@ -125,9 +137,13 @@ def render_markdown(packet: "SessionCachePacket") -> str:
         f"- **blockers**: {packet.blockers}",
         f"- **mode**: {packet.operator_interaction_mode}",
         f"- **phase**: {packet.resolved_phase}",
+        f"- **attention**: {packet.attention_status}",
         f"- **ack**: {packet.ack_state}",
         f"- **guard_ok**: {packet.last_guard_ok}",
     ]
+    if packet.attention_revision:
+        lines.append(f"- **attention_revision**: `{packet.attention_revision}`")
+    lines.extend(_packet_inbox_lines(packet))
     if packet.remote_control_attachment is not None:
         attachment = packet.remote_control_attachment
         target = attachment.session_url or attachment.remote_session_id or attachment.session_name
@@ -178,6 +194,7 @@ def render_summary(packet: "SessionCachePacket") -> str:
         f"blockers={packet.blockers}",
         f"mode={packet.operator_interaction_mode}",
         f"phase={packet.resolved_phase}",
+        f"attention={packet.attention_status}",
         f"ack={packet.ack_state}",
         f"guard_ok={packet.last_guard_ok}",
         f"guard_bundle={packet.next_guard_bundle}" if packet.next_guard_bundle else "guard_bundle=none",
@@ -207,6 +224,16 @@ def render_summary(packet: "SessionCachePacket") -> str:
             else "remote_control=none"
         ),
         (
+            f"attention_revision={packet.attention_revision}"
+            if packet.attention_revision
+            else "attention_revision=none"
+        ),
+        (
+            f"pending_inbox={len(packet.packet_inbox.agents)}"
+            if packet.packet_inbox is not None
+            else "pending_inbox=0"
+        ),
+        (
             f"resync_required={packet.coordination.resync_required}"
             if packet.coordination is not None
             else "resync_required=unknown"
@@ -223,32 +250,6 @@ def _normalized_role(packet: "SessionCachePacket") -> str:
 
 def _role_label(role: str) -> str:
     return "Reviewer" if role == "reviewer" else "Implementer"
-
-
-def _sha_line(label: str, value: str, *, default: str) -> str:
-    if value:
-        return f"- **{label}**: `{_short_sha(value)}`"
-    return f"- **{label}**: {default}"
-
-
-def _short_sha(value: str) -> str:
-    return str(value or "")[:12]
-
-
-def _review_range_line(packet: "SessionCachePacket") -> str:
-    candidate = packet.review_candidate
-    if candidate is not None and candidate.valid and candidate.ready_for_review:
-        return (
-            f"- **review_target**: candidate `{candidate.candidate_id}` "
-            f"({candidate.artifact_kind or 'unknown'})"
-        )
-    head = packet.head_sha.strip()
-    last_reviewed = packet.last_reviewed_sha.strip()
-    if head and last_reviewed and head != last_reviewed:
-        return f"- **review_range**: `{last_reviewed}..{head}`"
-    if head and not last_reviewed:
-        return "- **review_range**: full pending range (no prior review SHA recorded)"
-    return "- **review_range**: already_current"
 
 
 def _role_bootstrap_section(packet: "SessionCachePacket", *, role: str) -> list[str]:
@@ -339,83 +340,3 @@ def _implementer_bootstrap_section(packet: "SessionCachePacket") -> list[str]:
     )
     return lines
 
-
-def _review_candidate_lines(packet: "SessionCachePacket") -> list[str]:
-    candidate = packet.review_candidate
-    if candidate is None:
-        return []
-    lines = [
-        "",
-        "### Review Candidate",
-        f"- **candidate_id**: `{candidate.candidate_id}`",
-        f"- **artifact_kind**: {candidate.artifact_kind or 'n/a'}",
-        f"- **valid**: {candidate.valid}",
-        f"- **ready_for_review**: {candidate.ready_for_review}",
-    ]
-    if candidate.worktree_hash:
-        lines.append(f"- **worktree_hash**: `{candidate.worktree_hash[:12]}`")
-    if candidate.changed_paths:
-        lines.append(
-            "- **changed_paths**: "
-            + ", ".join(f"`{path}`" for path in candidate.changed_paths[:6])
-            + ("." if len(candidate.changed_paths) <= 6 else ", ...")
-        )
-    if candidate.missing_scope_paths:
-        lines.append(
-            "- **missing_scope_paths**: "
-            + ", ".join(f"`{path}`" for path in candidate.missing_scope_paths[:6])
-            + ("." if len(candidate.missing_scope_paths) <= 6 else ", ...")
-        )
-    if candidate.invalidation_reason:
-        lines.append(f"- **invalidation_reason**: `{candidate.invalidation_reason}`")
-    return lines
-
-
-def _coordination_lines(packet: "SessionCachePacket") -> list[str]:
-    coordination = packet.coordination
-    if coordination is None:
-        return []
-    lines = [
-        "",
-        "### Coordination",
-        (
-            "- **topology**: "
-            f"`{coordination.declared_topology}` / "
-            f"`{coordination.observed_topology}` -> "
-            f"`{coordination.recommended_topology}`"
-        ),
-        (
-            "- **fanout**: "
-            f"`{coordination.fanout_posture}` | safe_to_fanout={coordination.safe_to_fanout}"
-        ),
-        f"- **worktree_strategy**: `{coordination.worktree_strategy}`",
-        f"- **resync_required**: {coordination.resync_required}",
-    ]
-    if coordination.active_target is not None:
-        lines.append(
-            f"- **active_target**: `{coordination.active_target.plan_path}` "
-            f"[{coordination.active_target.target_kind}]"
-        )
-    if coordination.current_slice:
-        lines.append(f"- **current_slice**: {coordination.current_slice}")
-    if coordination.scope_paths:
-        lines.append(
-            "- **scope_paths**: "
-            + ", ".join(f"`{path}`" for path in coordination.scope_paths[:4])
-            + ("." if len(coordination.scope_paths) <= 4 else ", ...")
-        )
-    if coordination.resync_reasons:
-        lines.append(
-            "- **resync_reasons**: "
-            + ", ".join(f"`{reason}`" for reason in coordination.resync_reasons)
-        )
-    if coordination.actors:
-        lines.append(
-            "- **actors**: "
-            + ", ".join(
-                f"`{actor.actor_id}:{actor.presence}`"
-                for actor in coordination.actors[:4]
-            )
-            + ("." if len(coordination.actors) <= 4 else ", ...")
-        )
-    return lines

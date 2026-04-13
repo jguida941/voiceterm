@@ -13,6 +13,7 @@ from ..runtime.review_state_models import (
     CollaborationPeerReviewState,
     CollaborationRestartState,
     CollaborationSessionState,
+    PacketInboxState,
     ReviewBridgeState,
     ReviewCurrentSessionState,
     ReviewSessionState,
@@ -33,8 +34,9 @@ from .event_packet_rows import (
     packet_from_event,
     summarize_packets,
 )
-from .pending_packets import live_pending_packets
+from .pending_packets import live_pending_packets, partition_live_packet_queue
 from .event_projection import (
+    EventProjectionContext,
     build_event_queue_state,
     build_event_queue_summary,
     enrich_event_review_state,
@@ -124,6 +126,8 @@ _PLACEHOLDER_COLLABORATION = CollaborationSessionState(
     delegated_work=(),
 )
 
+_PLACEHOLDER_PACKET_INBOX = PacketInboxState()
+
 def load_or_refresh_event_bundle(
     *,
     repo_root: Path,
@@ -131,11 +135,15 @@ def load_or_refresh_event_bundle(
     artifact_paths: ReviewChannelArtifactPaths,
 ) -> ReviewChannelEventBundle:
     """Load the canonical event-backed state, rebuilding it when needed."""
+    prior_review_state = _load_prior_projection_review_state(
+        Path(artifact_paths.projections_root)
+    )
     if Path(artifact_paths.event_log_path).exists():
         return refresh_event_bundle(
             repo_root=repo_root,
             review_channel_path=review_channel_path,
             artifact_paths=artifact_paths,
+            prior_review_state=prior_review_state,
         )
     state_path = Path(artifact_paths.state_path)
     if not state_path.exists():
@@ -154,10 +162,13 @@ def load_or_refresh_event_bundle(
         raise ValueError("Invalid review-channel state JSON: expected top-level object")
     review_state, full_extras = enrich_event_review_state(
         review_state=review_state,
-        repo_root=repo_root,
-        review_channel_path=review_channel_path,
-        projections_root=Path(artifact_paths.projections_root),
-        artifact_root=Path(artifact_paths.artifact_root),
+        context=EventProjectionContext(
+            repo_root=repo_root,
+            review_channel_path=review_channel_path,
+            projections_root=Path(artifact_paths.projections_root),
+            artifact_root=Path(artifact_paths.artifact_root),
+            prior_review_state=prior_review_state,
+        ),
     )
     agent_registry = load_agent_registry(Path(artifact_paths.projections_root))
     projection_paths = write_projection_bundle(
@@ -182,6 +193,7 @@ def refresh_event_bundle(
     repo_root: Path,
     review_channel_path: Path,
     artifact_paths: ReviewChannelArtifactPaths,
+    prior_review_state: dict[str, object] | None = None,
 ) -> ReviewChannelEventBundle:
     """Reduce the append-only event log into the current canonical state."""
     events = load_events(Path(artifact_paths.event_log_path))
@@ -194,10 +206,13 @@ def refresh_event_bundle(
     )
     review_state, full_extras = enrich_event_review_state(
         review_state=review_state,
-        repo_root=repo_root,
-        review_channel_path=review_channel_path,
-        projections_root=Path(artifact_paths.projections_root),
-        artifact_root=Path(artifact_paths.artifact_root),
+        context=EventProjectionContext(
+            repo_root=repo_root,
+            review_channel_path=review_channel_path,
+            projections_root=Path(artifact_paths.projections_root),
+            artifact_root=Path(artifact_paths.artifact_root),
+            prior_review_state=prior_review_state,
+        ),
     )
     state_path = Path(artifact_paths.state_path)
     state_path.parent.mkdir(parents=True, exist_ok=True)
@@ -340,6 +355,7 @@ def reduce_events(
         attention=None,
         packets=(),
         registry=registry_state,
+        packet_inbox=_PLACEHOLDER_PACKET_INBOX,
         warnings=tuple(warnings),
         errors=tuple(errors),
     )
@@ -403,6 +419,31 @@ def filter_inbox_packets(
     return filtered
 
 
+def filter_history_packets(
+    review_state: dict[str, object],
+    *,
+    target: str | None = None,
+    limit: int | None = None,
+) -> list[dict[str, object]]:
+    """Filter the reduced packet list into one packet-history view."""
+    packets = review_state.get("packets")
+    if not isinstance(packets, list):
+        return []
+    _, history_packets, _ = partition_live_packet_queue(
+        packet for packet in packets if isinstance(packet, dict)
+    )
+    filtered = []
+    for packet in history_packets:
+        if not isinstance(packet, dict):
+            continue
+        if target and packet.get("to_agent") != target:
+            continue
+        filtered.append(packet)
+    if limit is not None and limit >= 0:
+        return filtered[:limit]
+    return filtered
+
+
 def filter_history_events(
     events: list[dict[str, object]],
     *,
@@ -442,3 +483,14 @@ def load_lane_assignments(review_channel_path: Path) -> list:
 
 def _load_lane_assignments(review_channel_path: Path) -> list:
     return load_lane_assignments(review_channel_path)
+
+
+def _load_prior_projection_review_state(
+    projections_root: Path,
+) -> dict[str, object] | None:
+    review_state_path = projections_root / "review_state.json"
+    try:
+        payload = json.loads(review_state_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    return payload if isinstance(payload, dict) else None

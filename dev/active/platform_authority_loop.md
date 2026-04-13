@@ -1891,6 +1891,14 @@ blocker or exception in plan state before skipping the declared order.
 
 ## Session Resume
 
+- 2026-04-12 single-root authority synthesis:
+  resume from one governed snapshot, not two partially overlapping typed
+  roots plus projection-local fallback. The bounded order is explicit: unify
+  `StartupContext` and `ControlPlaneReadModel` under one builder or outer
+  `GovernanceSnapshot`, land one canonical `top_blocker` / `next_action`
+  reducer plus a shared `DecisionBasis` carrier for mutating actions, then
+  migrate startup/system-picture/dashboard consumers onto that state before
+  widening into broader `DecisionTrace` or loop-v2 controller work.
 - 2026-04-10 Q65 contract-connectivity slice: resume inside the existing
   `MP-377` authority loop, not a new tracker. Land one guarded
   `check_contract_connectivity.py` surface that scans `runtime/`,
@@ -2587,6 +2595,15 @@ blocker or exception in plan state before skipping the declared order.
 
 ## Progress Log
 
+- 2026-04-12: Absorbed the Q97/Q98/Q99 architecture synthesis into the
+  authority-loop owner doc. The repo already has most of the proposed
+  decision-kernel machinery, but it remains split across `StartupContext`,
+  `ControlPlaneReadModel`, projection-local blocker logic, and scattered
+  `expected_*` / `authorized_*` freshness checks. The next owner-ordered
+  closure is now explicit here: one governed snapshot root, one
+  blocker/next-action reducer, one `DecisionBasis` / staleness validator,
+  then projection consumers. Keep this as consume/wire/extend work, not a new
+  root tracker.
 - 2026-04-10: Closed the Q58 script-dispatcher follow-up under
   `MP-377`. `script_catalog_registry` now exports canonical shell-command
   builders alongside the existing argv/path helpers, and the bundle

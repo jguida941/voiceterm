@@ -57,15 +57,20 @@ if [ "${DEVCTL_REVIEW_SNAPSHOT_RECEIPT_COMMIT:-}" = "1" ]; then
     exit 0
 fi
 
-if ! command -v python3 >/dev/null 2>&1; then
-    echo "[pre-commit hook] python3 is required to evaluate commit_permission; raw git commit is blocked." >&2
-    exit 1
-fi
+# Governed `devctl commit` marks the underlying `git commit` invocation with a
+# transient config flag so the raw-commit gate can distinguish the repo-owned
+# pipeline from an ungoverned shell/editor commit.
+if [ "${DEVCTL_GOVERNED_COMMIT:-}" != "1" ] && [ "$(git config --bool --get devctl.governed-commit 2>/dev/null || true)" != "true" ]; then
+    if ! command -v python3 >/dev/null 2>&1; then
+        echo "[pre-commit hook] python3 is required to evaluate commit_permission; raw git commit is blocked." >&2
+        exit 1
+    fi
 
-if ! PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONPATH="$REPO_ROOT/dev/scripts${PYTHONPATH:+:$PYTHONPATH}" \
-    python3 -m devctl.runtime.commit_permission_hook "$REPO_ROOT"; then
-    exit 1
+    if ! PYTHONDONTWRITEBYTECODE=1 \
+        PYTHONPATH="$REPO_ROOT/dev/scripts${PYTHONPATH:+:$PYTHONPATH}" \
+        python3 -m devctl.runtime.commit_permission_hook "$REPO_ROOT"; then
+        exit 1
+    fi
 fi
 
 if [ "${DEVCTL_NO_REVIEW_SNAPSHOT_REFRESH:-}" = "1" ]; then

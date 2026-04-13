@@ -183,6 +183,56 @@ Evidence: `dev/scripts/devctl/runtime/review_state_models.py`,
 `dev/active/ai_governance_platform.md`,
 `dev/active/remote_control_runtime.md`.
 
+### 2026-04-12 - Governed checkpoint commits now survive blocked implementation authority, and event-backed review-state stays authoritative
+
+Fact: the remote-dashboard dogfood loop exposed a governed commit deadlock.
+Startup could say
+`advisory_action=checkpoint_allowed` and `push_decision=await_checkpoint`
+while `devctl commit` still hard-blocked on
+`implementation_permission=blocked` before the governed executor even tried to
+stage or commit.
+
+This matters because checkpoint authority is narrower than implementation
+authority. When startup is explicitly telling the operator to cut a bounded
+checkpoint, the governed `devctl commit` path should stay available even if
+new implementation is temporarily blocked. At the same time, raw `git commit`
+must remain blocked so the fix does not reopen the exact bypass the repo is
+trying to eliminate.
+
+The closure kept that boundary explicit. `CommitPermissionDecision` still
+blocks raw `git commit` when implementation authority is blocked, but the
+executor-facing variant now allows `devctl commit` to proceed when startup
+explicitly says `checkpoint_allowed` / `await_checkpoint` and the reviewer
+gate marks the lane checkpoint-permitted. The governed commit path also now
+marks its nested git invocation explicitly so the raw-git hook gate can keep
+blocking shell/editor commits while allowing the repo-owned executor path.
+
+The same pass tightened read-side authority for the dashboard/startup/session-
+resume lane too: when governance still points at the legacy
+`.../review_channel/latest` compatibility root, the resolver now prefers the
+sibling event-backed `projections/latest/review_state.json` bundle and keeps
+that path authoritative even for live-refresh callers. That prevents the
+dashboard/status/startup stack from silently downgrading back to stale bridge-
+era compatibility state after the event-backed projection already exists.
+
+Evidence: `dev/scripts/devctl/runtime/commit_permission.py`,
+`dev/scripts/devctl/commands/vcs/governed_executor_git.py`,
+`dev/scripts/devctl/commands/vcs/governed_executor_phases.py`,
+`dev/scripts/devctl/commands/vcs/governed_executor_commit_phase.py`,
+`dev/scripts/devctl/runtime/review_state_locator.py`,
+`dev/scripts/devctl/tests/vcs/test_commit_gate.py`,
+`dev/scripts/devctl/tests/vcs/test_governed_executor.py`,
+`dev/scripts/devctl/tests/runtime/test_review_state_locator.py`,
+`dev/scripts/devctl/tests/commands/reporting/test_dashboard.py`,
+`dev/scripts/devctl/tests/runtime/test_startup_context.py`,
+`AGENTS.md`,
+`dev/guides/DEVELOPMENT.md`,
+`dev/scripts/README.md`,
+`dev/active/MASTER_PLAN.md`,
+`dev/active/ai_governance_platform.md`,
+`dev/active/remote_commit_pipeline.md`,
+`dev/active/remote_control_runtime.md`.
+
 ### 2026-04-11 - Single-agent remote-control attachment truth now stays aligned across status, doctor, and control-plane reads
 
 Fact: the same remote-dashboard beta loop found a second single-agent liveness

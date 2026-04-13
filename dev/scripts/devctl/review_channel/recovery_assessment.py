@@ -15,6 +15,7 @@ from .peer_liveness import AttentionStatus
 from .peer_recovery import STALE_PEER_RECOVERY
 from .recovery_decision import build_decision_state
 from .recovery_evidence import build_evidence_rows, build_supporting_causes
+from .single_agent_authority import single_agent_lane_has_live_typed_authority
 
 _AFFECTED_SURFACES = (
     "review-channel status",
@@ -124,7 +125,7 @@ def _root_cause(
     ).strip()
     if reviewer_mode != "single_agent":
         return str(_recovery_entry(status).get("summary") or "").strip()
-    if _single_agent_lane_has_live_typed_authority(bridge):
+    if single_agent_lane_has_live_typed_authority(bridge):
         return (
             "Reviewer mode is `single_agent`; dual-agent heartbeat enforcement "
             "is suspended, but typed packets/status remain authoritative for "
@@ -134,27 +135,6 @@ def _root_cause(
         "Reviewer mode is `single_agent`; dual-agent heartbeat enforcement is "
         "suspended until the workflow explicitly returns to "
         "`active_dual_agent`."
-    )
-
-
-def _single_agent_lane_has_live_typed_authority(
-    bridge_liveness: Mapping[str, object],
-) -> bool:
-    providers = bridge_liveness.get("active_conductor_providers")
-    if isinstance(providers, (list, tuple)):
-        normalized = [
-            str(provider).strip().lower()
-            for provider in providers
-            if str(provider).strip()
-        ]
-        if normalized:
-            return True
-    if bool(bridge_liveness.get("codex_conductor_active")):
-        return True
-    if bool(bridge_liveness.get("claude_conductor_active")):
-        return True
-    return bool(bridge_liveness.get("claude_status_present")) and bool(
-        bridge_liveness.get("claude_ack_current")
     )
 
 

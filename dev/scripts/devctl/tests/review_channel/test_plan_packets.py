@@ -235,6 +235,111 @@ class ReviewChannelPlanPacketTests(unittest.TestCase):
             "bundle.tooling pass; review-channel doctor still reports runtime_missing",
         )
 
+    def test_operator_cannot_ack_or_apply_packet_targeted_to_another_agent(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            review_channel_path = root / "dev/active/review_channel.md"
+            review_channel_path.parent.mkdir(parents=True, exist_ok=True)
+            review_channel_path.write_text(_review_channel_text(), encoding="utf-8")
+            artifact_paths = resolve_artifact_paths(repo_root=root)
+
+            _, event = post_packet(
+                repo_root=root,
+                review_channel_path=review_channel_path,
+                artifact_paths=artifact_paths,
+                request=PacketPostRequest(
+                    from_agent="codex",
+                    to_agent="claude",
+                    kind="finding",
+                    summary="Reviewer finding",
+                    body="Claude should read this in its own lane.",
+                ),
+            )
+
+            for action in ("ack", "apply"):
+                with self.subTest(action=action):
+                    verb = "acked" if action == "ack" else "applied"
+                    with self.assertRaisesRegex(
+                        ValueError,
+                        f"Packet {event['packet_id']} can only be {verb} by claude.",
+                    ):
+                        transition_packet(
+                            repo_root=root,
+                            review_channel_path=review_channel_path,
+                            artifact_paths=artifact_paths,
+                            request=PacketTransitionRequest(
+                                action=action,
+                                packet_id=str(event["packet_id"]),
+                                actor="operator",
+                            ),
+                        )
+
+    def test_system_targeted_runtime_approval_remains_operator_owned(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            review_channel_path = root / "dev/active/review_channel.md"
+            review_channel_path.parent.mkdir(parents=True, exist_ok=True)
+            review_channel_path.write_text(_review_channel_text(), encoding="utf-8")
+            artifact_paths = resolve_artifact_paths(repo_root=root)
+
+            _, event = post_packet(
+                repo_root=root,
+                review_channel_path=review_channel_path,
+                artifact_paths=artifact_paths,
+                request=PacketPostRequest(
+                    from_agent="operator",
+                    to_agent="system",
+                    kind="commit_approval",
+                    summary="Approve governed commit pipeline",
+                    body="Operator approved the guarded staged snapshot.",
+                    requested_action="approve_commit_pipeline",
+                    policy_hint="operator_approval_required",
+                    target=PacketTargetFields.from_values(
+                        target_kind="runtime",
+                        target_ref="remote_commit_pipeline:pipeline-123",
+                        target_revision="gen-9",
+                    ),
+                    runtime_approval=PacketRuntimeApprovalFields.from_values(
+                        pipeline_generation="gen-9",
+                        staged_snapshot_hash="tree-123",
+                        guard_results_summary="bundle.tooling pass",
+                    ),
+                ),
+            )
+
+            with self.assertRaisesRegex(
+                ValueError,
+                f"Packet {event['packet_id']} can only be applied by operator.",
+            ):
+                transition_packet(
+                    repo_root=root,
+                    review_channel_path=review_channel_path,
+                    artifact_paths=artifact_paths,
+                    request=PacketTransitionRequest(
+                        action="apply",
+                        packet_id=str(event["packet_id"]),
+                        actor="system",
+                    ),
+                )
+
+            refreshed, _ = transition_packet(
+                repo_root=root,
+                review_channel_path=review_channel_path,
+                artifact_paths=artifact_paths,
+                request=PacketTransitionRequest(
+                    action="apply",
+                    packet_id=str(event["packet_id"]),
+                    actor="operator",
+                ),
+            )
+
+            packet = next(
+                row
+                for row in refreshed.review_state["packets"]
+                if row["packet_id"] == event["packet_id"]
+            )
+            self.assertEqual(packet["status"], "applied")
+
     def test_plan_patch_review_packets_require_mutation_op(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)

@@ -104,6 +104,14 @@ Out of scope until the local proof gate is green:
 15.1 Lane-count capacity is not scope authority. An 8+8 swarm means the repo
      can host up to that many bounded lanes under the shared bridge, not that
      workers may widen into repo-wide scanning or self-assigned side quests.
+16. Automated checks are necessary but not sufficient. Non-trivial runtime,
+    tooling, governance, or AI-workflow changes are not closed until the
+    same slice also survives the standing typed-system dogfood loop: Codex
+    and Claude must discover their role and next step from typed repo-owned
+    surfaces, communicate through packets/inbox/watch/ack instead of chat
+    relay, and rerun the same slice after fixes until operator narration is
+    no longer required beyond product intent, approval boundaries, or manual
+    physical validation.
 
 ## Cross-Plan Dependencies
 
@@ -410,8 +418,143 @@ Out of scope until the local proof gate is green:
       extraction tranche and carve it from the proven modular core/profile
       boundary rather than the current repo-hardcoded path.
 
+### Phase 5 - Standing Typed-System Dogfood Protocol
+
+- [ ] Make live role-rotation proof a standing development rule instead of a
+      one-off milestone. Every non-trivial slice must be re-proven by actual
+      agents over the shared typed backend before it is called done.
+- [ ] Run a bounded role matrix on each qualifying slice:
+      `Codex reviewer`, `Codex dashboard`, `Codex implementer`, `Claude
+      reviewer`, `Claude dashboard`, and `Claude implementer` must each be
+      exercised through the same typed surfaces when the architecture claims
+      that role is supported.
+- [ ] Require the same typed bootstrap stack for every lane in that matrix:
+      `startup-context --role ...`, `session-resume --role ...`,
+      `review-channel --action status|doctor|inbox|watch|ack`, and the
+      governed `devctl commit` / `devctl push` path when mutation is in
+      scope. If an agent still needs chat-local explanation to know what to
+      run next, log that as a live failure instead of treating it as normal
+      operator help.
+- [ ] Keep one live dashboard/operator lane active during each dogfood run
+      and require the other agent lanes to communicate what they see through
+      typed packets. Status reports, role confusion, unexpected blockers, and
+      read-model drift should be visible in packet history, not just bridge
+      prose or chat narration.
+- [ ] Treat event-driven packet wake as the default transport for the standing
+      loop. Reviewer, dashboard, and implementer lanes should share one
+      event-backed packet stream, with timer polling kept only as degraded
+      fallback or watchdog evidence.
+- [ ] Treat every mismatch between typed surfaces and agent behavior as a
+      first-class defect. If an agent cannot find the right role, misses the
+      inbox, misreads startup authority, chooses the wrong recovery command,
+      or fails to recognize the governed mutation path, record that failure in
+      `dev/audits/LIVE_RUN.md`, tie it to the owning plan, fix it, and rerun
+      the same matrix slice until the agents self-orient correctly.
+- [ ] Keep a standing priority queue for this protocol sourced from live
+      findings and architecture owner docs. The current queue is:
+      `LIVE_RUN Q76-Q80 consumer wiring`, `Q83/Q85 single-surface truth`,
+      `Q20 packet lifecycle/history convergence`, `Q13 remote-control
+      commit/push proof`, then `Q46/Q48/Q65 role/system-picture/authority
+      convergence`.
+- [ ] Use sidecar research agents continuously during the live loop, not just
+      after it stalls. One agent should mine `LIVE_RUN.md`, one should map
+      active-plan promises versus reality, and one should audit code/test
+      coverage so the reviewer/implementer/dashboard conductors can stay in
+      role while the sidecars surface the next bounded architectural miss.
+
 ## Progress Log
 
+- 2026-04-13: Made the reviewer-side wake path obey typed inbox authority
+  instead of reconstructing it from raw pending-packet scans. Reviewer wait
+  now loads `packet_inbox` from the governed status/report projection, fails
+  closed when that typed inbox is missing, and wakes separately on actionable
+  packets versus Codex-targeted findings instead of collapsing both into one
+  loose pending bucket. Reviewer follow now surfaces reviewer packet state
+  from the same typed `packet_inbox` contract and reports the source
+  explicitly as `typed_packet_inbox` rather than falling back to raw event
+  scans. Focused proof is green: `python3 -m pytest
+  dev/scripts/devctl/tests/review_channel/test_reviewer_wait.py -q` (`43
+  passed`) and `python3 -m pytest
+  dev/scripts/devctl/tests/review_channel/test_review_channel.py -q -k
+  "test_reviewer_follow_frame_surfaces_latest_claude_packet"` (`1 passed`).
+  The next gap is no longer packet discovery; it is the governed checkpoint
+  path still stopping at `checkpoint_required` / `pipeline_state=guards_failed`
+  instead of completing the real commit proof from the writable implementer
+  lane.
+- 2026-04-13: Closed the current-instruction split between live
+  `review-channel status`, the persisted typed `review_state.json`, and the
+  synchronized `bridge.md` metadata. The bridge compatibility sanitizer now
+  preserves nested reviewer instruction bullets instead of flattening them
+  into lossy top-level items, the bridge projection metadata path now
+  recomputes `current_instruction_revision` from typed `current_session`
+  authority instead of replaying stale compat metadata, and the status bundle
+  writer now serializes the already-computed authoritative `current_session`
+  instead of recomputing it from stale prior cache on the write path. Focused
+  `test_bridge_render.py`, `test_current_session_projection.py`, and
+  `test_review_channel.py` regressions are green, and the live status surface
+  now agrees with both `bridge.md` and `review_state.json` on canonical
+  instruction revision `489ded7b0f43`. The remaining bridge/status warning is
+  now narrower and real: stale `Claude Status` compatibility content is still
+  drifting from typed `current_session`, so the next slice should either
+  project implementer status from typed runtime/packet state or clear stale
+  bridge-only status instead of preserving it as faux authority.
+- 2026-04-13: Closed the first manual packet-watch seam in the live Codex
+  reviewer loop. `review-channel --action reviewer-wait` now treats the
+  newest Codex-targeted pending packet id as part of its wake contract, so a
+  reviewer-side bounded wait exits when fresh typed work arrives instead of
+  relying on a separately started `watch --follow` process or chat relay.
+  Focused `test_reviewer_wait.py` regressions and the swapped-role reviewer
+  prompt contract are green. The remaining packet-watch gap is now narrower
+  and explicit: bootstrap/runtime still need to auto-start long-lived packet
+  follow for live sessions, and `status|doctor` still need to prefer the
+  event-backed typed loader so queue truth and dashboard truth converge.
+- 2026-04-12: Logged a fresh live-monitoring defect from the home-desk dogfood
+  continuation. The monitoring lane treated an older Codex `TASK COMPLETE`
+  boundary as if the review lane were still the active wait target, even
+  though the operator was using a newer visible Codex terminal and Claude had
+  already posted new pending findings into the Codex inbox. Live evidence:
+  `agent-mind` reported the last completed Codex rollout at 2026-04-12
+  22:52:50Z, host `ps` still showed two local Codex terminals (`ttys018`,
+  `ttys019`), and `review-channel --action inbox --target codex --status
+  pending --format json` still contained five unread Claude packets
+  (`rev_pkt_0269` through `rev_pkt_0263`). The runtime issue is now explicit:
+  completion is not treated as a hard liveness boundary, and the dogfood loop
+  still lacks built-in inbox-first waiting after a slice closes. Keep this in
+  the standing queue until the monitor/wait path reads task completion plus
+  packet backlog together and fails closed on unread targeted packets.
+- 2026-04-12: Closed the universal operator ACK/apply bypass on typed review
+  packets. `review-channel` packet transitions now require the addressed lane
+  to ack/apply its own packets, while `system`-targeted runtime approvals stay
+  operator-owned for the governed commit/push path. Focused plan-packet
+  regressions plus the governed commit/approval tests that rely on
+  operator-applied `commit_approval` packets are green, and the live queue
+  proved the cross-agent handshake again when Claude acked `rev_pkt_0267`
+  after the startup-receipt role fix landed. The next live blocker is no
+  longer packet impersonation; it is dashboard-centered approval flow and
+  queue convergence for the real remote-control commit/push proof.
+- 2026-04-12: Closed one of the live self-orientation seams in the standing
+  typed-system dogfood loop. `session-resume` was already role-aware, but
+  `startup-context` still flattened reviewer and implementer lanes back into
+  the same generic checkpoint rerun text even when the live blocker was only
+  `checkpoint_required`. The startup receipt path now carries the caller lane
+  into the first-hop `next=` command and persisted receipt intent, so live
+  reviewer startup says to run reviewer bootstrap and live implementer startup
+  says to run implementer bootstrap before the checkpoint/approval sequence.
+  Focused `startup_context`, `startup_receipt`, and `startup_gate`
+  regressions are green, and the next live blocker exposed by typed state is
+  narrower: packet ACK/application authority still needs role validation and
+  inbox-first handling before the remote-control commit/push proof can close.
+- 2026-04-12: Promoted the local-proof loop into a standing typed-system
+  dogfood protocol instead of treating live AI runs as an occasional sanity
+  check. The repo already has the typed backend pieces (`startup-context`,
+  `session-resume`, review-channel packets, status/doctor, governed
+  commit/push, dashboard/monitor), but the live failure mode is now explicit:
+  a slice is not done if Codex or Claude still needs operator narration to
+  know its role, the next command, or the packet lane. The standing closure
+  rule is now frozen in this owner doc: run the role matrix, keep a live
+  dashboard lane watching the other agents through typed state, log every
+  agent-confusion miss to `LIVE_RUN.md`, fix it in the owning runtime/plan
+  surface, and rerun the same slice until the agents self-orient.
 - 2026-04-12: Started the role-portability + phone-operator execution slice.
   The active docs already require one shared backend for developers, agents,
   and remote-control clients, but the live local proof still speaks in
@@ -904,8 +1047,187 @@ Out of scope until the local proof gate is green:
   conductors receive exact ACK lines they must write into `bridge.md`, and
   the command can wait for those visible ACKs before the retiring session exits.
 
+- 2026-04-12: Home-desk dogfood closed the immediate code-shape and packet
+  liveness blockers from Claude's live findings, but the governed commit proof
+  still surfaced a sandbox authority gap. `devctl commit` now reports the
+  stage failure truthfully as `git_index_write_blocked` when `.git/index.lock`
+  cannot be created, instead of collapsing the failure into a generic staged
+  tree hash error. Remaining work is to keep that approval/sandbox boundary
+  repo-visible and finish the role-enforced remote-control commit proof
+  without relying on chat-local explanation.
+- 2026-04-13: Converted packet attention from an observer convention into a
+  typed execution prerequisite. The live review-state now carries one
+  canonical `packet_inbox` reducer, startup/session-resume/reviewer-follow
+  project that same wake/focus state, and governed stage/commit now fail
+  closed with `attention_revision_stale` when the write lane tries to proceed
+  on an out-of-date startup receipt. This is the first standing proof that
+  "system knows" and "system governs" are being merged in the live loop rather
+  than left as independent dashboard prose.
+- 2026-04-13: Tightened that same stale-attention gate after the next dogfood
+  checkpoint proof exposed a false positive. The write lane no longer treats
+  expired unresolved packet history as actionable attention for
+  `attention_revision_stale`; stage/commit now reserve the hard block for live
+  findings or pending actionable packet rows, which restores parity with the
+  implementer bootstrap packet saying `attention: inactive` and
+  `commit current work, then rerun startup-context` while old packet debt
+  remains visible in the typed inbox/report surfaces.
+- 2026-04-13: Removed the next helper detour from the live control path. The
+  queue reducer is now the only packet selector allowed to derive a typed next
+  instruction; `event_current_instruction()` and `current_focus_line()` no
+  longer recompute instruction/focus from bridge text or raw packet summaries.
+  This narrows the remaining live mismatch to one compatibility seam:
+  markdown-bridge `review-channel status` still renders with typed-current-
+  session drift warnings, so the next closure is to make that bridge-mode
+  status path consume typed current-session truth directly.
+- 2026-04-13: Narrowed the markdown-bridge status corruption bug to the
+  bridge/status authority chooser. `refresh_status_snapshot()` now seeds
+  prior typed authority from the canonical review-state resolver instead of
+  blindly trusting `dev/reports/review_channel/latest/review_state.json`,
+  stale/overdue bridge state no longer overwrites a substantive typed
+  `current_session`, and a placeholder typed session can recover from live
+  bridge instruction instead of collapsing to blank. Live proof: top-level
+  `review-channel status` again reports `current_instruction_revision=
+  3b3fad692219` after sync instead of zeroing the instruction on readback.
+  Remaining gap: the written compatibility projection still lags the
+  in-memory status surface, so bridge/status write convergence is not fully
+  closed yet and the governed checkpoint proof is still blocked on
+  `checkpoint_required` plus `pipeline_state=guards_failed`.
+
 ## Session Resume
 
+- Current status: the markdown-bridge status lane no longer invents current-
+  instruction or `Claude Status` drift. The live operator surface,
+  `bridge.md`, and typed `review_state.json` now converge on canonical
+  current-session instruction revision `25989d87c56c`, and stale bridge-only
+  implementer status is cleared during status sync instead of surviving as
+  faux authority.
+- Current status: the remaining live bridge warning is real compatibility
+  drift, not selector corruption. `review-channel status` still reports
+  `checkpoint_required`, `pipeline_state=guards_failed`, and
+  `recommended_command=python3 dev/scripts/devctl.py commit -m \"<descriptive message>\"`
+  because the worktree is over checkpoint budget.
+- Current status: Claude/Codex typed packet traffic is still the required
+  control path. The next session should keep packet visibility live and treat
+  `dev/reports/review_channel/latest/latest.md` as compatibility output only
+  until its remaining consumers are audited and demoted.
+- Current status: the stale `attention_revision_stale` false positive is now
+  gone for the local implementer lane. After refreshing `startup-context`, the
+  governed checkpoint proof reaches the real sandbox boundary again and stops
+  at `git_index_write_blocked` because this Codex session still cannot create
+  `.git/index.lock`; the remaining closure is execution-environment authority,
+  not packet-attention drift.
+- Current status: reviewer-side wake handling now reads the typed
+  `packet_inbox` contract instead of raw pending-packet scans. Reviewer wait
+  fails closed when typed inbox state is missing, and reviewer follow reports
+  packet attention from `typed_packet_inbox` rather than inventing wake state
+  from fallback event scans.
+- Next action: keep Claude/Codex packet traffic live, audit `latest.md` /
+  bridge compatibility consumers, then take the next real blocker: the
+  governed checkpoint proof from the correct writable implementer lane with
+  Claude driving the typed dashboard/operator packets.
+- Current status: bridge/status no longer split current-instruction authority.
+  The live operator surface, `bridge.md`, and typed `review_state.json` now
+  all agree on canonical instruction revision `489ded7b0f43`; the false
+  instruction-revision drift warning is gone.
+- Next action: keep Claude/Codex packet traffic live, then take the remaining
+  real bridge drift seam: either source `Claude Status` from typed runtime /
+  packet state or fail closed by clearing stale bridge-only implementer status
+  during status sync, then rerun the live dashboard proof.
+- Current status: packet attention is no longer just something the dashboard
+  or operator is supposed to notice. The typed loop now stores one canonical
+  `packet_inbox`, and stale inbox attention can revoke stage/commit authority
+  until the lane reloads startup/session state.
+- Next action: keep Claude/Codex packet traffic live, but take the next
+  convergence slice at `current_instruction`: dashboard/status/current-session
+  must share one selector chain so findings never masquerade as instructions
+  in one surface while another surface keeps the old bridge instruction.
+- Current status: the typed selector chain is narrower now. Queue/current-
+  session/dashboard tests are green, and the only live instruction split still
+  visible is the markdown-bridge status lane warning that its compatibility
+  sections drift from typed `current_session`.
+- Next action: collapse markdown-bridge `review-channel status` onto the same
+  typed current-session/current-focus selector or force bridge rewrite before
+  operator-visible render, then rerun the live Claude/Codex proof from the
+  typed packet lane.
+- Current status: markdown-bridge status no longer blanks the live instruction
+  revision during refresh, and Claude has the typed update as `rev_pkt_0315`.
+  The remaining split is narrower: the operator-facing status output holds the
+  recovered instruction revision, but the written `latest/review_state.json`
+  current-session payload still lags that in-memory report.
+- Next action: finish the bridge/status write-side convergence so the written
+  typed projection matches the rendered status surface, expose `packet_inbox`
+  in startup/session-resume bootstrap output, then rerun the governed
+  checkpoint proof from the correct local implementer lane with Claude driving
+  dashboard packets.
+- Current status: the home-desk loop plus the latest dashboard packets pushed
+  the standing dogfood protocol past simple packet-watch bugs. The remaining
+  blockers are now Phase-0 visibility gaps: ungrounded findings, split status
+  surfaces, incomplete packet lifecycle/wake, and dashboard blindness to live
+  tool-call progress.
+- Next action: keep the live loop on typed surfaces, but do not widen into
+  more autonomy until those visibility seams close in the owner docs.
+- Current status: reviewer-side bounded waits no longer require a separately
+  started packet watcher. `review-channel --action reviewer-wait` now wakes
+  on the newest Codex-targeted pending packet id as well as worktree / ACK /
+  implementer-state changes, and the reviewer prompt contract now treats the
+  standalone watch surface as optional observer tooling instead of required
+  operator setup.
+- Next action: keep the repo-owned Codex packet watch live for observer proof,
+  but treat the remaining packet-watch gap as a launcher/runtime issue: move
+  packet-follow startup into `review-channel launch|ensure` and collapse
+  `status|doctor` onto the event-backed typed loader so packet truth and
+  dashboard truth stop diverging.
+- Current status: the latest home-desk continuation proved another monitor gap
+  rather than user error. Codex had already hit `TASK COMPLETE`, Claude had
+  pending findings queued for Codex, and the loop still behaved as if waiting
+  state were clean.
+- Next action: fix the stale completion/session-count trust chain and add
+  inbox-first wait handling so a completed Codex slice cannot silently ignore
+  new Claude-targeted packets.
+- Current status: packet transitions no longer allow the universal operator
+  bypass across another agent's lane; Claude also acked the latest Codex
+  system notice through the typed queue.
+- Next action: keep the dashboard packet watch/inbox active, prove the
+  `commit_approval` request -> ack/apply -> governed commit path from the
+  actual remote-control lane, and fix any remaining queue selection drift if
+  Claude's dashboard surfaces still center Codex-targeted work instead of its
+  own runtime approvals.
+- Current status: the first startup receipt now self-orients reviewer and
+  implementer lanes instead of flattening both to one generic checkpoint
+  rerun step.
+- Next action: keep the live Claude packet watch running, fix the typed
+  ACK/apply authority seam (`Ack command has no role validation — any agent
+  can ack any packet regardless of target`), then rerun the commit-approval ->
+  apply -> governed commit/push proof from the actual remote-control lane.
+- Current status: resume from the standing typed-system dogfood protocol, not
+  from a test-only or human-orchestrated view of the loop.
+- Next action: keep Codex and Claude in real roles over the typed backend,
+  require packet-visible communication plus role-specific bootstrap receipts,
+  and treat every place where an agent still needs chat-local explanation as a
+  live defect that must be logged, fixed, and rerun.
+- Current standing priority queue:
+  `LIVE_RUN Q76-Q80 consumer wiring`, `Q83/Q85 single-surface truth`,
+  `Q20 packet lifecycle/history convergence`, `Q13 remote-control
+  commit/push proof`, `Q46/Q48/Q65 role/system-picture/authority seams`.
+- Current status: the latest governed commit attempt from the Codex lane
+  cleared the local code-shape blockers but failed at the git-index write
+  boundary because the sandbox could not create `.git/index.lock`.
+- Next action: keep Claude packet watch/inbox live, land caller-role commit
+  enforcement so the dashboard lane cannot seize the commit path, then rerun
+  the governed commit with the required filesystem authority and continue to
+  governed push proof.
+- Current status: caller-role commit enforcement is now live in the governed
+  `devctl commit` path. Review-channel conductors export `DEVCTL_CALLER_ROLE`,
+  `devctl commit --role <lane>` exists for wrappers/tests, and dashboard /
+  observer / default reviewer lanes now fail closed before staging instead of
+  reaching the git-index or approval path.
+- Current status: packet watchers also got a live queue fix. `watch --follow`
+  now re-emits when `stale_packet_count` changes, so the typed listener can
+  see pending->stale transitions instead of only packet-id churn.
+- Next action: rerun the governed commit from the implementer-owned lane with
+  escalated filesystem authority, then prove the remote-control operator
+  approval -> governed commit -> governed push cycle from the real Claude
+  dashboard lane.
 - Current status: resume from the new role-portability closure slice, not from
   another Codex/Claude-only loop hardening pass.
 - Next action: patch the typed role registry and turn-authority/read-model

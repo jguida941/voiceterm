@@ -15,22 +15,25 @@ from ...review_channel.event_store import (
     build_bridge_status_fallback_warning,
     summarize_review_state_errors,
 )
-from ...review_channel.lifecycle_state import (
-    read_publisher_state,
-    read_reviewer_supervisor_state,
-)
-from ...review_channel.reviewer_worker import (
-    check_review_needed,
-    reviewer_worker_tick_to_dict,
-)
 from ...repo_packs import active_path_config
 from ...review_channel.state import (
-    build_attach_auth_policy,
     projection_paths_to_dict,
+    read_publisher_state,
+    read_reviewer_supervisor_state,
     refresh_status_snapshot,
-    build_service_identity,
 )
 from .bridge_handler import _run_bridge_action
+from . import status_context as _status_context_mod
+from .status_bridge_sync import (
+    bridge_current_session_drifted as _bridge_current_session_drifted,
+    sync_bridge_from_typed_projection_if_needed as _sync_bridge_from_typed_projection_if_needed,
+    without_bridge_current_session_drift as _without_bridge_current_session_drift,
+)
+from .status_context import (
+    _attach_backend_contract,
+    _attach_reviewer_worker,
+    attach_status_context as _attach_status_context,
+)
 from .doctor_support import (
     attach_status_runtime_snapshot,
     build_doctor_report,
@@ -44,104 +47,25 @@ from ..review_channel_command import (
 from ..review_channel_event_handler import _run_event_action
 from .status_support import merge_status_messages, resolve_bridge_refresh_paths
 
+_attach_backend_contract = _status_context_mod._attach_backend_contract
+_attach_reviewer_worker = _status_context_mod._attach_reviewer_worker
+_ORIG_ATTACH_STATUS_CONTEXT = _status_context_mod.attach_status_context
+_ORIG_READ_PUBLISHER_STATE_SAFE = _status_context_mod._read_publisher_state_safe
+_ORIG_READ_REVIEWER_SUPERVISOR_STATE_SAFE = (
+    _status_context_mod._read_reviewer_supervisor_state_safe
+)
 
-def _read_publisher_state_safe(
-    paths: RuntimePaths | Mapping[str, object],
-) -> dict[str, object]:
-    """Read publisher state without failing status."""
-    runtime_paths = _coerce_runtime_paths(paths)
 
-    if runtime_paths.status_dir is None:
-        return {"running": False, "detail": "status_dir not resolved"}
-
-    try:
-        return read_publisher_state(runtime_paths.status_dir)
-    except (OSError, ValueError):
-        return {"running": False, "detail": "publisher state read failed"}
+def _read_publisher_state_safe(paths: RuntimePaths | Mapping[str, object]) -> dict[str, object]:
+    _status_context_mod.read_publisher_state = read_publisher_state
+    return _ORIG_READ_PUBLISHER_STATE_SAFE(paths)
 
 
 def _read_reviewer_supervisor_state_safe(
     paths: RuntimePaths | Mapping[str, object],
 ) -> dict[str, object]:
-    """Read reviewer supervisor state without failing status."""
-    runtime_paths = _coerce_runtime_paths(paths)
-
-    if runtime_paths.status_dir is None:
-        return {"running": False, "detail": "status_dir not resolved"}
-
-    try:
-        return read_reviewer_supervisor_state(runtime_paths.status_dir)
-    except (OSError, ValueError):
-        return {"running": False, "detail": "reviewer supervisor state read failed"}
-
-
-def _attach_service_identity(
-    report: dict[str, object],
-    *,
-    repo_root: Path,
-    paths: RuntimePaths | Mapping[str, object],
-) -> None:
-    """Attach the repo/worktree service identity."""
-    runtime_paths = _coerce_runtime_paths(paths)
-
-    if runtime_paths.bridge_path is None:
-        report["service_identity"] = None
-        return
-
-    if runtime_paths.review_channel_path is None:
-        report["service_identity"] = None
-        return
-
-    if runtime_paths.status_dir is None:
-        report["service_identity"] = None
-        return
-
-    report["service_identity"] = build_service_identity(
-        repo_root=repo_root,
-        bridge_path=runtime_paths.bridge_path,
-        review_channel_path=runtime_paths.review_channel_path,
-        output_root=runtime_paths.status_dir,
-    )
-
-
-def _attach_attach_auth_policy(report: dict[str, object]) -> None:
-    """Attach the current attach/auth policy."""
-    service_identity = report.get("service_identity")
-
-    if not isinstance(service_identity, dict):
-        report["attach_auth_policy"] = None
-        return
-
-    report["attach_auth_policy"] = build_attach_auth_policy(
-        service_identity=service_identity,
-    )
-
-
-def _attach_backend_contract(
-    report: dict[str, object],
-    *,
-    repo_root: Path,
-    paths: RuntimePaths | Mapping[str, object],
-) -> None:
-    """Attach backend-contract metadata."""
-    _attach_service_identity(report, repo_root=repo_root, paths=paths)
-    _attach_attach_auth_policy(report)
-
-
-def _attach_reviewer_worker(
-    report: dict[str, object],
-    *,
-    repo_root: Path,
-    bridge_path: Path | object,
-) -> None:
-    """Attach reviewer-worker status."""
-    if not isinstance(bridge_path, Path):
-        report["reviewer_worker"] = None
-        return
-
-    tick = check_review_needed(repo_root=repo_root, bridge_path=bridge_path)
-    report["review_needed"] = tick.review_needed
-    report["reviewer_worker"] = reviewer_worker_tick_to_dict(tick)
+    _status_context_mod.read_reviewer_supervisor_state = read_reviewer_supervisor_state
+    return _ORIG_READ_REVIEWER_SUPERVISOR_STATE_SAFE(paths)
 
 
 def _attach_status_context(
@@ -150,20 +74,8 @@ def _attach_status_context(
     repo_root: Path,
     paths: RuntimePaths | Mapping[str, object],
 ) -> None:
-    """Attach status-side lifecycle context."""
-    runtime_paths = _coerce_runtime_paths(paths)
-
-    report["publisher"] = _read_publisher_state_safe(runtime_paths)
-    report["reviewer_supervisor"] = _read_reviewer_supervisor_state_safe(runtime_paths)
-
-    _attach_backend_contract(report, repo_root=repo_root, paths=runtime_paths)
-
-    if report.get("reviewer_worker") is None:
-        _attach_reviewer_worker(
-            report,
-            repo_root=repo_root,
-            bridge_path=runtime_paths.bridge_path,
-        )
+    _sync_status_context_hooks()
+    _ORIG_ATTACH_STATUS_CONTEXT(report, repo_root=repo_root, paths=paths)
 
 
 def _run_bridge_status(
@@ -192,6 +104,17 @@ def _run_bridge_status(
 
     _attach_status_context(report, repo_root=repo_root, paths=runtime_paths)
     return report, exit_code
+
+
+def _sync_status_context_hooks() -> None:
+    _status_context_mod.read_publisher_state = read_publisher_state
+    _status_context_mod.read_reviewer_supervisor_state = read_reviewer_supervisor_state
+    _status_context_mod._attach_backend_contract = _attach_backend_contract
+    _status_context_mod._attach_reviewer_worker = _attach_reviewer_worker
+    _status_context_mod._read_publisher_state_safe = _read_publisher_state_safe
+    _status_context_mod._read_reviewer_supervisor_state_safe = (
+        _read_reviewer_supervisor_state_safe
+    )
 
 
 def _refresh_bridge_status_report(
@@ -227,6 +150,36 @@ def _refresh_bridge_status_report(
             None,
         ),
     )
+    sync_warning = ""
+    bridge_synced = False
+    if _bridge_current_session_drifted(
+        snapshot.warnings,
+        bridge_path=bridge_path,
+        review_state_path=Path(snapshot.projection_paths.review_state_path),
+    ):
+        bridge_synced, sync_warning = _sync_bridge_from_typed_projection_if_needed(
+            repo_root=repo_root,
+            bridge_path=bridge_path,
+            snapshot=snapshot,
+        )
+        if bridge_synced:
+            snapshot = refresh_status_snapshot(
+                repo_root=repo_root,
+                bridge_path=bridge_path,
+                review_channel_path=review_channel_path,
+                output_root=status_dir,
+                promotion_plan_path=paths.promotion_plan_path,
+                execution_mode=getattr(args, "execution_mode", "markdown-bridge"),
+                warnings=[
+                    "Synchronized `bridge.md` from typed review-state during status refresh."
+                ],
+                errors=[],
+                reviewer_overdue_threshold_seconds=getattr(
+                    args,
+                    "reviewer_overdue_seconds",
+                    None,
+                ),
+            )
     report["bridge_liveness"] = snapshot.bridge_liveness
     report["attention"] = snapshot.attention
     report["reviewer_worker"] = snapshot.reviewer_worker
@@ -236,9 +189,15 @@ def _refresh_bridge_status_report(
     recommended_command, command_source = resolve_status_recommended_command(report)
     report["recommended_command"] = recommended_command
     report["recommended_command_source"] = command_source
+    existing_warnings = report.get("warnings")
+    if bridge_synced:
+        existing_warnings = _without_bridge_current_session_drift(existing_warnings)
     report["warnings"] = merge_status_messages(
-        report.get("warnings"),
-        snapshot.warnings,
+        existing_warnings,
+        merge_status_messages(
+            snapshot.warnings,
+            [sync_warning] if sync_warning else [],
+        ),
     )
     report["errors"] = merge_status_messages(
         report.get("errors"),

@@ -2,23 +2,16 @@
 
 from __future__ import annotations
 
-import json
+from collections.abc import Mapping
+from dataclasses import dataclass
 from pathlib import Path
 
+from ..runtime.review_state_models import RecoveryAssessmentState, ReviewState
+from ..runtime.review_state_locator import load_review_state_payload
 from .bridge_validation import validate_live_bridge_contract
-from .core import (
-    LaneAssignment,
-    ensure_launcher_prereqs,
-    project_id_for_repo,
-)
+from .core import LaneAssignment, project_id_for_repo
 from .daemon_reducer import build_lifecycle_runtime_state
-from .handoff import (
-    bridge_liveness_to_dict,
-    extract_bridge_snapshot,
-    summarize_bridge_liveness,
-)
-from .heartbeat import compute_non_audit_worktree_hash
-from .heartbeat import bridge_excluded_rel_paths
+from .handoff import extract_bridge_snapshot
 from .peer_liveness import (
     OverallLivenessState,
     reviewer_mode_is_active,
@@ -27,7 +20,6 @@ from .projection_bundle import (
     projection_paths_to_dict as projection_paths_to_dict,
     write_projection_bundle as write_projection_bundle,
 )
-from .reviewer_worker import check_review_needed, reviewer_worker_tick_to_dict
 from .status_models import ReviewChannelStatusSnapshot
 from .status_snapshot_authority import (
     StatusAuthorityInputs,
@@ -50,6 +42,14 @@ from .session_liveness_events import (
     summarize_participant_liveness_events,
 )
 from .session_state_hints import detect_session_state_hints, session_state_hints_to_dict
+from . import state_status_inputs as _state_status_inputs_mod
+from .state_status_inputs import (
+    build_reviewer_worker_snapshot as _build_reviewer_worker_snapshot,
+    build_status_bridge_liveness as _build_status_bridge_liveness,
+    load_lifecycle_states as _load_lifecycle_states,
+    load_prior_review_state as _load_prior_review_state,
+    load_status_lanes as _load_status_lanes,
+)
 from .lifecycle_state import (
     DEFAULT_REVIEW_STATUS_DIR_REL,
     PublisherHeartbeat,
@@ -62,6 +62,35 @@ from .lifecycle_state import (
 from .attach_auth_policy import build_attach_auth_policy
 from .bridge_validation_acceptance import review_acceptance_projection
 from .service_identity import build_service_identity
+from .status_bundle import StatusProjectionBundleResult
+
+
+@dataclass(frozen=True)
+class SnapshotBundleInputs:
+    """Grouped inputs for writing the status projection bundle."""
+
+    repo_root: Path
+    bridge_path: Path
+    review_channel_path: Path
+    output_root: Path
+    promotion_plan_path: Path | None
+    lanes: list[LaneAssignment]
+    bridge_liveness: dict[str, object]
+    attention: dict[str, object] | None
+    current_session: object
+    recovery_assessment: RecoveryAssessmentState | None
+    prior_review_state: Mapping[str, object] | None
+    reviewer_accepted_implementer_state_hash_override: str | None
+    reviewer_worker: dict[str, object]
+    push_decision: dict[str, object]
+    service_identity: dict[str, object]
+    attach_auth_policy: dict[str, object]
+    warnings: list[str]
+    errors: list[str]
+    reduced_runtime: dict[str, object]
+
+
+compute_non_audit_worktree_hash = _state_status_inputs_mod.compute_non_audit_worktree_hash
 
 
 def refresh_status_snapshot(
@@ -78,6 +107,7 @@ def refresh_status_snapshot(
     reviewer_accepted_implementer_state_hash_override: str | None = None,
 ) -> ReviewChannelStatusSnapshot:
     """Refresh the latest review-channel projections for read-only consumers."""
+    _sync_status_input_hooks()
     lanes = _load_status_lanes(
         review_channel_path=review_channel_path,
         bridge_path=bridge_path,
@@ -107,7 +137,10 @@ def refresh_status_snapshot(
     bridge_liveness["bridge_verdict_accepted"] = bridge_verdict_accepted
     merged_errors.extend(validate_live_bridge_contract(bridge_snapshot))
     publisher_state, reviewer_supervisor_state = _load_lifecycle_states(output_root)
-    prior_review_state = _load_prior_review_state(output_root)
+    prior_review_state = _load_prior_review_state(
+        repo_root=repo_root,
+        output_root=output_root,
+    )
     _apply_lifecycle_bridge_liveness(
         bridge_liveness=bridge_liveness,
         publisher_state=publisher_state,
@@ -169,9 +202,8 @@ def refresh_status_snapshot(
         publisher_state=publisher_state,
         reviewer_supervisor_state=reviewer_supervisor_state,
     )
-
-    bundle_result = write_status_projection_bundle(
-        context=StatusProjectionContext(
+    bundle_result, review_state = _write_snapshot_bundle(
+        SnapshotBundleInputs(
             repo_root=repo_root,
             bridge_path=bridge_path,
             review_channel_path=review_channel_path,
@@ -180,13 +212,12 @@ def refresh_status_snapshot(
             lanes=lanes,
             bridge_liveness=bridge_liveness,
             attention=attention,
+            current_session=current_session,
             recovery_assessment=recovery_assessment,
             prior_review_state=prior_review_state,
             reviewer_accepted_implementer_state_hash_override=(
                 reviewer_accepted_implementer_state_hash_override
             ),
-        ),
-        payload=StatusProjectionPayload(
             reviewer_worker=reviewer_worker,
             push_decision=push_decision,
             service_identity=service_identity,
@@ -194,11 +225,8 @@ def refresh_status_snapshot(
             warnings=merged_warnings,
             errors=merged_errors,
             reduced_runtime=reduced_runtime,
-        ),
+        )
     )
-    from ..runtime.review_state_parser import review_state_from_payload
-
-    review_state = review_state_from_payload(bundle_result.review_state)
 
     return ReviewChannelStatusSnapshot(
         lanes=lanes,
@@ -213,62 +241,41 @@ def refresh_status_snapshot(
         attach_auth_policy=attach_auth_policy,
         review_state=review_state,
     )
-def _load_status_lanes(
-    *,
-    review_channel_path: Path,
-    bridge_path: Path,
-    execution_mode: str,
-) -> list[LaneAssignment]:
-    _, lanes = ensure_launcher_prereqs(
-        review_channel_path=review_channel_path,
-        bridge_path=bridge_path,
-        execution_mode=execution_mode,
-    )
-    return lanes
-def _build_status_bridge_liveness(
-    *,
-    bridge_snapshot,
-    repo_root: Path,
-    bridge_path: Path,
-) -> dict[str, object]:
-    return bridge_liveness_to_dict(
-        summarize_bridge_liveness(
-            bridge_snapshot,
-            current_worktree_hash=_current_worktree_hash(
-                repo_root=repo_root,
-                bridge_path=bridge_path,
+
+
+def _write_snapshot_bundle(
+    inputs: SnapshotBundleInputs,
+) -> tuple[StatusProjectionBundleResult, ReviewState | None]:
+    bundle_result = write_status_projection_bundle(
+        context=StatusProjectionContext(
+            repo_root=inputs.repo_root,
+            bridge_path=inputs.bridge_path,
+            review_channel_path=inputs.review_channel_path,
+            output_root=inputs.output_root,
+            promotion_plan_path=inputs.promotion_plan_path,
+            lanes=inputs.lanes,
+            bridge_liveness=inputs.bridge_liveness,
+            attention=inputs.attention,
+            current_session=inputs.current_session,
+            recovery_assessment=inputs.recovery_assessment,
+            prior_review_state=inputs.prior_review_state,
+            reviewer_accepted_implementer_state_hash_override=(
+                inputs.reviewer_accepted_implementer_state_hash_override
             ),
-        )
+        ),
+        payload=StatusProjectionPayload(
+            reviewer_worker=inputs.reviewer_worker,
+            push_decision=inputs.push_decision,
+            service_identity=inputs.service_identity,
+            attach_auth_policy=inputs.attach_auth_policy,
+            warnings=inputs.warnings,
+            errors=inputs.errors,
+            reduced_runtime=inputs.reduced_runtime,
+        ),
     )
+    from ..runtime.review_state_parser import review_state_from_payload
 
-
-def _current_worktree_hash(*, repo_root: Path, bridge_path: Path) -> str | None:
-    try:
-        return compute_non_audit_worktree_hash(
-            repo_root=repo_root,
-            excluded_rel_paths=bridge_excluded_rel_paths(
-                repo_root=repo_root,
-                bridge_path=bridge_path,
-            ),
-        )
-    except (ValueError, OSError):
-        return None
-
-
-def _load_lifecycle_states(output_root: Path) -> tuple[dict[str, object], dict[str, object]]:
-    return (
-        read_publisher_state(output_root),
-        read_reviewer_supervisor_state(output_root),
-    )
-
-
-def _load_prior_review_state(output_root: Path) -> dict[str, object] | None:
-    review_state_path = output_root / "review_state.json"
-    try:
-        payload = json.loads(review_state_path.read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        return None
-    return payload if isinstance(payload, dict) else None
+    return bundle_result, review_state_from_payload(bundle_result.review_state)
 
 
 def _apply_lifecycle_bridge_liveness(
@@ -299,23 +306,6 @@ def _apply_lifecycle_bridge_liveness(
         bridge_liveness["overall_state"] = OverallLivenessState.RUNTIME_MISSING
 
 
-def _build_reviewer_worker_snapshot(
-    *,
-    repo_root: Path,
-    bridge_path: Path,
-    bridge_text: str,
-) -> dict[str, object]:
-    return reviewer_worker_tick_to_dict(
-        check_review_needed(
-            repo_root=repo_root,
-            bridge_path=bridge_path,
-            bridge_text=bridge_text,
-            current_hash=_current_worktree_hash(
-                repo_root=repo_root,
-                bridge_path=bridge_path,
-            ),
-        )
-    )
 def _build_reduced_runtime(
     *,
     publisher_state: dict[str, object],
@@ -324,4 +314,11 @@ def _build_reduced_runtime(
     return build_lifecycle_runtime_state(
         publisher_state=publisher_state,
         reviewer_supervisor_state=reviewer_supervisor_state,
+    )
+
+
+def _sync_status_input_hooks() -> None:
+    _state_status_inputs_mod.load_review_state_payload = load_review_state_payload
+    _state_status_inputs_mod.compute_non_audit_worktree_hash = (
+        compute_non_audit_worktree_hash
     )

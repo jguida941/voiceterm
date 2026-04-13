@@ -12,13 +12,15 @@ equivalent to a meaningful review-needed state change.
 from __future__ import annotations
 
 from collections.abc import Mapping
-from dataclasses import dataclass
-import json
 from pathlib import Path
 
 from ...review_channel.peer_liveness import AttentionStatus, reviewer_mode_is_active
 from ..review_channel_command import RuntimePaths, _coerce_runtime_paths
 from ._reviewer_wait_report import build_reviewer_wait_report
+from ._reviewer_wait_snapshot import (
+    ReviewerWaitSnapshot,
+    capture_reviewer_snapshot,
+)
 from ._wait_shared import WaitDeps, WaitOutcome, resolve_wait_interval, resolve_wait_timeout
 
 DEFAULT_REVIEWER_WAIT_TIMEOUT_SECONDS = 1800
@@ -35,24 +37,6 @@ _REVIEWER_WAIT_UNHEALTHY_STATUSES = frozenset(
 )
 
 
-@dataclass(frozen=True, slots=True)
-class ReviewerWaitSnapshot:
-    """One status snapshot observed by the reviewer wait loop."""
-
-    report: dict[str, object]
-    exit_code: int
-    worktree_hash: str
-    reviewed_hash: str
-    implementer_ack_revision: str
-    implementer_ack_state: str
-    implementer_status_excerpt: str
-    attention_status: str
-    attention_summary: str
-    attention_recommended_action: str
-    reviewer_mode: str
-    implementer_state_hash: str = ""
-    reviewer_accepted_implementer_state_hash: str = ""
-
 def run_reviewer_wait_action(
     *,
     args,
@@ -60,11 +44,11 @@ def run_reviewer_wait_action(
     paths: RuntimePaths | Mapping[str, object],
     deps: WaitDeps,
 ) -> tuple[dict[str, object], int]:
-    """Wait on bounded cadence until implementer-owned state changes."""
+    """Wait on bounded cadence until implementer-owned or packet-queue state changes."""
     runtime_paths = _coerce_runtime_paths(paths)
     assert runtime_paths.bridge_path is not None
 
-    baseline = _capture_reviewer_snapshot(
+    baseline = capture_reviewer_snapshot(
         args=args,
         repo_root=repo_root,
         paths=runtime_paths,
@@ -110,7 +94,7 @@ def run_reviewer_wait_action(
     while deps.monotonic_fn() < deadline:
         deps.sleep_fn(interval_seconds)
         polls_observed += 1
-        current = _capture_reviewer_snapshot(
+        current = capture_reviewer_snapshot(
             args=args,
             repo_root=repo_root,
             paths=runtime_paths,
@@ -157,99 +141,10 @@ def run_reviewer_wait_action(
     )
 
 
-def _capture_reviewer_snapshot(
-    *,
-    args,
-    repo_root: Path,
-    paths: RuntimePaths,
-    deps: WaitDeps,
-) -> ReviewerWaitSnapshot:
-    report, exit_code = deps.run_status_action_fn(
-        args=args,
-        repo_root=repo_root,
-        paths=paths,
-    )
-    reviewer_worker = _mapping(report.get("reviewer_worker"))
-    bridge_liveness = _mapping(report.get("bridge_liveness"))
-    current_session = _load_current_session(report)
-    attention = _mapping(report.get("attention"))
-
-    reviewer_runtime = _mapping(report.get("reviewer_runtime"))
-    review_acceptance = _mapping(reviewer_runtime.get("review_acceptance"))
-
-    return ReviewerWaitSnapshot(
-        report=dict(report),
-        exit_code=exit_code,
-        worktree_hash=str(reviewer_worker.get("current_hash") or ""),
-        reviewed_hash=str(reviewer_worker.get("reviewed_hash") or ""),
-        implementer_ack_revision=str(
-            current_session.get("implementer_ack_revision")
-            or bridge_liveness.get("claude_ack_revision")
-            or ""
-        ),
-        implementer_ack_state=str(
-            current_session.get("implementer_ack_state")
-            or _bridge_ack_state(bridge_liveness)
-        ),
-        implementer_status_excerpt=str(
-            current_session.get("implementer_status") or ""
-        )[:200],
-        attention_status=str(attention.get("status") or ""),
-        attention_summary=str(attention.get("summary") or ""),
-        attention_recommended_action=str(
-            attention.get("recommended_action") or ""
-        ),
-        reviewer_mode=str(
-            bridge_liveness.get("effective_reviewer_mode")
-            or bridge_liveness.get("reviewer_mode")
-            or reviewer_worker.get("reviewer_mode")
-            or ""
-        ),
-        implementer_state_hash=str(
-            current_session.get("implementer_state_hash") or ""
-        ),
-        reviewer_accepted_implementer_state_hash=str(
-            review_acceptance.get("reviewer_accepted_implementer_state_hash") or ""
-        ),
-    )
-
-
-def _load_current_session(report: Mapping[str, object]) -> Mapping[str, object]:
-    """Load typed current-session state from the generated status projections."""
-    inline_session = _mapping(report.get("current_session"))
-    if inline_session:
-        return inline_session
-    projection_paths = _mapping(report.get("projection_paths"))
-    for key in ("review_state_path", "compact_path"):
-        raw_path = projection_paths.get(key)
-        if not raw_path:
-            continue
-        try:
-            payload = json.loads(Path(str(raw_path)).read_text(encoding="utf-8"))
-        except (OSError, ValueError):
-            continue
-        current_session = payload.get("current_session")
-        if isinstance(current_session, Mapping):
-            return current_session
-    return {}
-
-
-def _bridge_ack_state(bridge_liveness: Mapping[str, object]) -> str:
-    """Derive a coarse ACK state from bridge-liveness when projections are unavailable."""
-    if bool(bridge_liveness.get("claude_ack_current")):
-        return "current"
-    if bridge_liveness.get("claude_ack_present"):
-        return "stale"
-    return "missing"
-
-
-def _mapping(value: object) -> Mapping[str, object]:
-    """Return a mapping view or an empty mapping."""
-    return value if isinstance(value, Mapping) else {}
-
-
 def _reviewer_loop_unhealthy(snapshot: ReviewerWaitSnapshot) -> bool:
     if snapshot.exit_code != 0:
+        return True
+    if not snapshot.packet_inbox_available:
         return True
     if snapshot.attention_status in _REVIEWER_WAIT_UNHEALTHY_STATUSES:
         return True
@@ -259,10 +154,15 @@ def _reviewer_loop_unhealthy(snapshot: ReviewerWaitSnapshot) -> bool:
 def _implementer_update_ready(snapshot: ReviewerWaitSnapshot) -> bool:
     """Check if implementer has made changes since last review.
 
-    Uses two signals: worktree hash divergence (raw tree change) and
-    implementer-state-hash divergence from the reviewer-accepted baseline
-    (semantic content change from Slice 2 typed state).
+    Uses three signals: pending typed packets for Codex, worktree hash
+    divergence (raw tree change), and implementer-state-hash divergence from
+    the reviewer-accepted baseline (semantic content change from Slice 2 typed
+    state).
     """
+    if snapshot.latest_pending_packet_id:
+        return True
+    if snapshot.latest_finding_packet_id:
+        return True
     if snapshot.worktree_hash and snapshot.reviewed_hash:
         if snapshot.worktree_hash != snapshot.reviewed_hash:
             return True
@@ -277,10 +177,14 @@ def _implementer_changed(
 ) -> bool:
     """Detect meaningful implementer-side state change.
 
-    Checks raw worktree hash, ACK revision/state, status excerpt, and
-    the semantic implementer-state-hash vs the reviewer-accepted baseline
-    (Slice 2 typed authority).
+    Checks pending typed packets, raw worktree hash, ACK revision/state,
+    status excerpt, and the semantic implementer-state-hash vs the reviewer-
+    accepted baseline (Slice 2 typed authority).
     """
+    if current.latest_pending_packet_id != baseline.latest_pending_packet_id:
+        return True
+    if current.latest_finding_packet_id != baseline.latest_finding_packet_id:
+        return True
     if current.worktree_hash != baseline.worktree_hash:
         return True
     if (
@@ -310,7 +214,10 @@ def _accepted_hash_diverged(snapshot: ReviewerWaitSnapshot) -> bool:
         return False
     if not snapshot.reviewer_accepted_implementer_state_hash:
         return False
-    return snapshot.implementer_state_hash != snapshot.reviewer_accepted_implementer_state_hash
+    return (
+        snapshot.implementer_state_hash
+        != snapshot.reviewer_accepted_implementer_state_hash
+    )
 
 
 def _finalize_reviewer_report(

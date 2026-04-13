@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from typing import Protocol
 
 STARTUP_STATUS_COMMAND = (
@@ -18,6 +18,7 @@ class _ReviewerGateLike(Protocol):
     review_gate_allows_push: bool
     implementation_blocked: bool
     implementation_block_reason: str
+    checkpoint_permitted: bool
 
 
 class _PushEnforcementLike(Protocol):
@@ -105,7 +106,14 @@ def build_commit_permission_decision_for_executor(
         startup_context = executor.startup_context_fn(repo_root=executor.repo_root)
     except (OSError, ValueError) as exc:
         return _startup_context_unavailable_decision(), str(exc)
-    return build_commit_permission_decision(startup_context), ""
+    decision = build_commit_permission_decision(startup_context)
+    checkpoint_decision = _executor_checkpoint_commit_decision(
+        startup_context,
+        decision=decision,
+    )
+    if checkpoint_decision is not None:
+        return checkpoint_decision, ""
+    return decision, ""
 
 
 def _clean_text(value: object) -> str:
@@ -146,6 +154,82 @@ def _topology_state(topology: str) -> str:
     if topology:
         return "drifted"
     return "unknown"
+
+
+def _executor_checkpoint_commit_decision(
+    ctx: _StartupCommitAuthorityLike,
+    *,
+    decision: CommitPermissionDecision,
+) -> CommitPermissionDecision | None:
+    """Allow governed checkpoint commits without reopening raw-git mutation.
+
+    Startup may legitimately report ``implementation_permission=blocked`` while
+    also telling the operator to cut a bounded checkpoint for already-staged
+    work (`advisory_action=checkpoint_allowed` / `push_decision=await_checkpoint`).
+    In that state, `devctl commit` should remain available as the governed
+    checkpoint path, but raw `git commit` must stay blocked until the broader
+    implementation authority question is repaired.
+    """
+    if "implementation_permission_blocked" not in decision.blockers:
+        return None
+    if not _checkpoint_commit_allowed(ctx, review_authority=decision.review_authority):
+        return None
+
+    remaining_blockers = tuple(
+        blocker
+        for blocker in decision.blockers
+        if blocker != "implementation_permission_blocked"
+    )
+    blocked_actions = tuple(
+        action
+        for action in decision.blocked_actions
+        if action not in {"vcs.stage", "vcs.commit"}
+    )
+    if "git.commit" not in blocked_actions:
+        blocked_actions = (*blocked_actions, "git.commit")
+
+    if remaining_blockers:
+        return replace(
+            decision,
+            blockers=remaining_blockers,
+            blocked_actions=blocked_actions,
+        )
+
+    return replace(
+        decision,
+        commit_permission="allowed",
+        blockers=(),
+        authorship_attribution="governed_checkpoint_only",
+        next_command=STARTUP_STATUS_COMMAND,
+        allowed_actions=(
+            "startup-context.summary",
+            "review-channel.status",
+            "vcs.stage",
+            "vcs.commit",
+        ),
+        blocked_actions=("git.commit",),
+        recovery_action="",
+        escalation_action="",
+    )
+
+
+def _checkpoint_commit_allowed(
+    ctx: _StartupCommitAuthorityLike,
+    *,
+    review_authority: str,
+) -> bool:
+    if review_authority != "valid":
+        return False
+    if _clean_text(ctx.implementation_permission) != "blocked":
+        return False
+
+    gate = ctx.reviewer_gate
+    if gate is None or not bool(getattr(gate, "checkpoint_permitted", False)):
+        return False
+
+    push_action = _clean_text(getattr(getattr(ctx, "push_decision", None), "action", ""))
+    advisory_action = _clean_text(getattr(ctx, "advisory_action", ""))
+    return push_action == "await_checkpoint" or advisory_action == "checkpoint_allowed"
 
 
 def _startup_context_unavailable_decision() -> CommitPermissionDecision:

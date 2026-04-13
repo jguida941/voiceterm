@@ -76,7 +76,7 @@ register_remote_attachment() {
         --terminal none
         --format json
         --remote-provider claude
-        --remote-role implementer
+        --remote-role operator
         --session-name "$SESSION_NAME"
         --attachment-status "$attachment_status"
     )

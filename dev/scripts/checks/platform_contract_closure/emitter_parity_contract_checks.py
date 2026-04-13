@@ -196,6 +196,9 @@ def check_compat_field_coverage(
     repo_root: Path,
 ) -> tuple[dict[str, object], dict[str, object] | None]:
     from dev.scripts.devctl.review_channel.event_projection import enrich_event_review_state
+    from dev.scripts.devctl.review_channel.event_projection_enrichment import (
+        EventProjectionContext,
+    )
 
     review_channel_path = repo_root / "dev" / "active" / "review_channel.md"
     projections_root = (
@@ -204,9 +207,11 @@ def check_compat_field_coverage(
     try:
         enriched, _ = enrich_event_review_state(
             review_state=dict(synthetic),
-            repo_root=repo_root,
-            review_channel_path=review_channel_path,
-            projections_root=projections_root,
+            context=EventProjectionContext(
+                repo_root=repo_root,
+                review_channel_path=review_channel_path,
+                projections_root=projections_root,
+            ),
         )
     except (OSError, ValueError, KeyError) as exc:
         coverage: dict[str, object] = {

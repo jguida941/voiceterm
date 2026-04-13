@@ -9,27 +9,28 @@ Bridge-specific extras (``runtime``, ``service_identity``,
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, replace
 from collections.abc import Mapping
+from dataclasses import asdict, dataclass, replace
 from pathlib import Path
 
 from ..common import display_path
 from ..runtime.governance_scan import scan_repo_governance_safely
 from ..runtime.review_state_models import (
     AgentRegistryState,
+    packet_inbox_from_mapping,
     RecoveryAssessmentState,
     ReviewAttentionState,
+    ReviewCurrentSessionState,
     ReviewQueueState,
     ReviewSessionState,
     ReviewState,
 )
-from ..runtime.surface_snapshot import build_surface_snapshot_id
+from ..runtime.review_packet_inbox import build_packet_inbox_payload
 from .collaboration_session import build_collaboration_session
 from .current_session_projection import resolve_current_session_authority
 from .handoff import BridgeSnapshot
 from .peer_liveness import OverallLivenessState
 from .promotion import PromotionCandidate, promotion_candidate_to_dict
-from .remote_commit_pipeline_artifact import load_remote_commit_pipeline_contract
 from .review_candidate import build_review_candidate, review_candidate_error
 from .status_projection_bridge_state import (
     build_review_bridge_state,
@@ -42,10 +43,13 @@ from .status_projection_compat import (
 )
 from .reviewer_runtime_contract import (
     ReviewerRuntimeInputs,
-    build_reviewer_doctor_surface,
     build_reviewer_runtime_contract,
 )
 from .recovery_assessment import recovery_assessment_to_attention_state
+from .status_projection_commit_bundle import (
+    CommitProjectionInputs,
+    build_commit_projection_bundle,
+)
 from .topology import build_runtime_agent_registry
 
 
@@ -66,6 +70,7 @@ class ReviewStateContext:
     warnings: tuple[str, ...] = ()
     errors: tuple[str, ...] = ()
     prior_review_state: Mapping[str, object] | None = None
+    current_session: ReviewCurrentSessionState | None = None
     reviewer_accepted_implementer_state_hash_override: str | None = None
     recovery_assessment: RecoveryAssessmentState | None = None
     pending_packets: tuple[dict[str, object], ...] = ()
@@ -85,7 +90,7 @@ def build_bridge_review_state(
 ) -> dict[str, object]:
     """Build a canonical ReviewState dict from bridge markdown state."""
     overall_state = str(bridge_liveness.get("overall_state") or "unknown")
-    current_session = resolve_current_session_authority(
+    current_session = context.current_session or resolve_current_session_authority(
         snapshot=snapshot,
         bridge_liveness=bridge_liveness,
         prior_review_state=context.prior_review_state,
@@ -141,30 +146,17 @@ def build_bridge_review_state(
     )
     if candidate_error and candidate_error not in errors:
         errors.append(candidate_error)
-    commit_pipeline = load_remote_commit_pipeline_contract(
-        output_root=context.output_root,
-    )
-    snapshot_id = build_surface_snapshot_id(
-        reviewer_runtime=reviewer_runtime,
-        commit_pipeline=commit_pipeline,
-        push_decision=push_decision,
-    )
-    commit_pipeline = replace(commit_pipeline, snapshot_id=snapshot_id)
-    runtime_daemons = (
-        reduced_runtime.get("daemons", {})
-        if isinstance(reduced_runtime, dict)
-        else {}
-    )
-    doctor = build_reviewer_doctor_surface(
-        contract=reviewer_runtime,
-        collaboration=asdict(collaboration),
-        recovery_assessment=recovery_assessment,
-        attention=typed_attention,
-        commit_pipeline=commit_pipeline,
-        push_authorization=commit_pipeline.push_authorization,
-        push_enforcement=typed_bridge_liveness.get("push_enforcement"),
-        runtime_state=runtime_daemons,
-        snapshot_id=snapshot_id,
+    commit_bundle = build_commit_projection_bundle(
+        CommitProjectionInputs(
+            output_root=context.output_root,
+            reviewer_runtime=reviewer_runtime,
+            collaboration=collaboration,
+            recovery_assessment=recovery_assessment,
+            attention=typed_attention,
+            push_decision=push_decision,
+            bridge_liveness=typed_bridge_liveness,
+            reduced_runtime=reduced_runtime,
+        )
     )
 
     review_state = ReviewState(
@@ -184,9 +176,9 @@ def build_bridge_review_state(
         collaboration=collaboration,
         bridge=bridge_state,
         review_candidate=review_candidate,
-        push_authorization=commit_pipeline.push_authorization,
+        push_authorization=commit_bundle.commit_pipeline.push_authorization,
         reviewer_runtime=reviewer_runtime,
-        commit_pipeline=commit_pipeline,
+        commit_pipeline=commit_bundle.commit_pipeline,
         attention=_build_attention(
             typed_attention,
             recovery_assessment=recovery_assessment,
@@ -197,10 +189,19 @@ def build_bridge_review_state(
             plan_id=context.plan_id,
             collaboration=collaboration,
         ),
+        packet_inbox=(
+            packet_inbox_from_mapping(
+                build_packet_inbox_payload(
+                    context.pending_packets,
+                    attention=typed_attention,
+                )
+            )
+            or packet_inbox_from_mapping({"attention_revision": "", "agents": []})
+        ),
         recovery_assessment=recovery_assessment,
         warnings=tuple(warnings),
         errors=tuple(errors),
-        snapshot_id=snapshot_id,
+        snapshot_id=commit_bundle.snapshot_id,
     )
     governance = scan_repo_governance_safely(context.repo_root)
     from ..platform.coordination_snapshot import (
@@ -215,7 +216,35 @@ def build_bridge_review_state(
             review_state=review_state,
         ),
     )
+    return _attach_review_state_compat(
+        review_state=review_state,
+        context=context,
+        typed_bridge_liveness=typed_bridge_liveness,
+        reduced_runtime=reduced_runtime,
+        doctor=commit_bundle.doctor,
+        snapshot_id=commit_bundle.snapshot_id,
+    )
 
+
+def _projection_ok(overall_state: str, errors: tuple[str, ...]) -> bool:
+    if errors:
+        return False
+    return overall_state in (
+        OverallLivenessState.FRESH,
+        OverallLivenessState.INACTIVE,
+        OverallLivenessState.SINGLE_AGENT_ACTIVE,
+    )
+
+
+def _attach_review_state_compat(
+    *,
+    review_state: ReviewState,
+    context: ReviewStateContext,
+    typed_bridge_liveness: dict[str, object],
+    reduced_runtime: dict[str, object] | None,
+    doctor: dict[str, object],
+    snapshot_id: str,
+) -> dict[str, object]:
     result: dict[str, object] = asdict(review_state)
     return attach_bridge_compat_projection(
         result=result,
@@ -233,16 +262,6 @@ def build_bridge_review_state(
             doctor=doctor,
             snapshot_id=snapshot_id,
         ),
-    )
-
-
-def _projection_ok(overall_state: str, errors: tuple[str, ...]) -> bool:
-    if errors:
-        return False
-    return overall_state in (
-        OverallLivenessState.FRESH,
-        OverallLivenessState.INACTIVE,
-        OverallLivenessState.SINGLE_AGENT_ACTIVE,
     )
 def _legacy_agents(registry: object) -> list[dict[str, object]]:
     registry_dict = registry if isinstance(registry, dict) else {}

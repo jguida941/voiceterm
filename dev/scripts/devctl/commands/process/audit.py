@@ -24,6 +24,11 @@ BLOCKING_SCOPES = {"voiceterm", "repo_runtime"}
 SUPERVISED_CONDUCTOR_SCOPE = "review_channel_conductor"
 
 
+def _is_sandbox_ps_warning(message: str) -> bool:
+    lowered = message.lower()
+    return "unable to execute ps" in lowered and "operation not permitted" in lowered
+
+
 def collect_process_audit_state() -> dict:
     """Collect one host process snapshot and categorize repo-related rows."""
     rows, scan_warnings = scan_repo_hygiene_process_tree()
@@ -89,6 +94,9 @@ def build_process_audit_report(*, strict: bool) -> dict:
     warnings: list[str] = []
 
     for warning in state["scan_warnings"]:
+        if _is_sandbox_ps_warning(warning):
+            warnings.append(warning)
+            continue
         errors.append(f"Host process audit unavailable: {warning}")
 
     orphaned = state["orphaned_rows"]

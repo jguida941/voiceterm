@@ -20,13 +20,17 @@ def render_event_md(report: dict) -> str:
     lines.append(f"- execution_mode: {report.get('execution_mode')}")
     queue = report.get("queue") or {}
     lines.append(f"- pending_total: {queue.get('pending_total', 0)}")
-    lines.append(f"- stale_packet_count: {queue.get('stale_packet_count', 0)}")
+    lines.append(
+        "- stale_packet_count: "
+        f"{queue.get('stale_packet_count', 0)} (expired pending packets)"
+    )
     if report.get("target"):
         lines.append(f"- target: {report.get('target')}")
     if report.get("status_filter"):
         lines.append(f"- status_filter: {report.get('status_filter')}")
     if report.get("limit") is not None:
         lines.append(f"- limit: {report.get('limit')}")
+    _append_queue_reconciliation(lines, report.get("queue_reconciliation"))
     append_common_report_sections(lines, report)
     append_doctor_markdown(lines, report.get("doctor"))
     packet = report.get("packet")
@@ -49,6 +53,46 @@ def render_event_md(report: dict) -> str:
     return "\n".join(lines)
 
 
+def _append_queue_reconciliation(lines: list[str], reconciliation: object) -> None:
+    if not isinstance(reconciliation, dict):
+        return
+    if not bool(reconciliation.get("needs_attention")):
+        return
+    lines.append("")
+    lines.append("## Packet Queue Reconciliation")
+    lines.append(
+        f"- live_pending_total: {reconciliation.get('live_pending_total', 0)}"
+    )
+    lines.append(f"- history_total: {reconciliation.get('history_total', 0)}")
+    lines.append(
+        f"- expired_pending_total: {reconciliation.get('stale_pending_total', 0)}"
+    )
+    lines.append(
+        f"- queue_pending_total: {reconciliation.get('queue_pending_total', 0)}"
+    )
+    lines.append(f"- queue_stale_total: {reconciliation.get('queue_stale_total', 0)}")
+    lines.append(
+        "- expired_pending_hidden_from_inbox_total: "
+        f"{reconciliation.get('stale_pending_hidden_from_inbox_total', 0)}"
+    )
+    lines.append(
+        f"- history_shown_total: {reconciliation.get('history_shown_total', 0)}"
+    )
+    lines.append(
+        f"- history_truncated: {bool(reconciliation.get('history_truncated'))}"
+    )
+    if reconciliation.get("stale_pending_hidden_from_inbox_total"):
+        lines.append(
+            "- note: expired pending packets are unresolved packets whose TTL "
+            "elapsed; they stay in history and are intentionally excluded from "
+            "the live inbox until they are reissued or resolved"
+        )
+    if reconciliation.get("history_truncated"):
+        lines.append(
+            "- note: this surface is only showing the newest packet-history rows"
+        )
+
+
 def _format_packet_line(
     packet_row: dict,
     *,
@@ -59,7 +103,7 @@ def _format_packet_line(
         return "- packet: (unavailable)"
     status = str(packet_row.get("status") or "unknown").strip()
     if stale_pending and status == "pending":
-        status = "pending (stale)"
+        status = "pending (expired)"
     summary = (
         f"- {packet_row.get('packet_id')}: {status} | "
         f"{packet_row.get('from_agent')} -> {packet_row.get('to_agent')} | "

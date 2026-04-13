@@ -68,6 +68,12 @@ class ReviewerWaitState:
     current_attention_status: str
     baseline_attention_summary: str
     current_attention_summary: str
+    baseline_pending_packet_id: str
+    current_pending_packet_id: str
+    baseline_finding_packet_id: str
+    current_finding_packet_id: str
+    packet_inbox_available: bool
+    packet_attention_revision: str
     implementer_update_observed: bool
     current_implementer_state_hash: str = ""
     reviewer_accepted_implementer_state_hash: str = ""
@@ -113,6 +119,12 @@ def build_reviewer_wait_report(
         current_attention_status=current.attention_status,
         baseline_attention_summary=baseline.attention_summary,
         current_attention_summary=current.attention_summary,
+        baseline_pending_packet_id=baseline.latest_pending_packet_id,
+        current_pending_packet_id=current.latest_pending_packet_id,
+        baseline_finding_packet_id=baseline.latest_finding_packet_id,
+        current_finding_packet_id=current.latest_finding_packet_id,
+        packet_inbox_available=current.packet_inbox_available,
+        packet_attention_revision=current.packet_attention_revision,
         implementer_update_observed=outcome.stop_reason in {
             "implementer_update_observed",
             "implementer_update_ready",
@@ -146,14 +158,50 @@ def _message_payload(
     current,
 ) -> dict[str, str] | None:
     if stop_reason == "implementer_update_ready":
+        if current.latest_finding_packet_id and not current.latest_pending_packet_id:
+            return {
+                "field": "warnings",
+                "text": (
+                    "A Codex-targeted finding is already queued in the typed inbox. "
+                    "Exit reviewer-wait and review the finding instead of relying on "
+                    "a side watcher."
+                ),
+            }
+        if _pending_packet_changed(baseline, current) or current.latest_pending_packet_id:
+            return {
+                "field": "warnings",
+                "text": (
+                    "A new Codex-targeted pending packet is already queued. "
+                    "Exit reviewer-wait and consume the typed packet instead of "
+                    "starting a separate watcher."
+                ),
+            }
         return {
             "field": "warnings",
             "text": (
                 "Implementer has already changed the worktree since last review. "
                 "Review the current diff instead of waiting."
             ),
-        }
+            }
     if stop_reason == "implementer_update_observed":
+        if _finding_packet_changed(baseline, current):
+            return {
+                "field": "warnings",
+                "text": (
+                    "A Codex-targeted finding arrived while waiting. "
+                    "Exit reviewer-wait and consume the typed inbox instead of "
+                    "relying on a side watcher."
+                ),
+            }
+        if _pending_packet_changed(baseline, current):
+            return {
+                "field": "warnings",
+                "text": (
+                    "A new Codex-targeted pending packet arrived while waiting. "
+                    "Exit reviewer-wait and consume the typed queue instead of "
+                    "relying on a separate packet watcher."
+                ),
+            }
         typed_status = _attention_status(current.attention_status)
         return {
             "field": "warnings",
@@ -161,12 +209,20 @@ def _message_payload(
                 typed_status,
                 current.attention_summary
                 or (
-                    "Implementer-owned state changed (worktree hash or typed ACK/status state). "
+                    "Implementer-owned state changed (pending packet, worktree hash, or typed ACK/status state). "
                     "Re-read the worktree diff and review the new work."
                 ),
             ),
         }
     if stop_reason == "reviewer_loop_unhealthy":
+        if not current.packet_inbox_available:
+            return {
+                "field": "errors",
+                "text": (
+                    "Reviewer wait stopped because typed packet-inbox state is missing. "
+                    "Refresh the governed status projection instead of scanning raw pending packets."
+                ),
+            }
         typed_status = _attention_status(current.attention_status)
         return {
             "field": "errors",
@@ -196,3 +252,17 @@ def _attention_status(raw_status: str) -> AttentionStatus | None:
         return AttentionStatus(raw_status)
     except ValueError:
         return None
+
+
+def _pending_packet_changed(baseline, current) -> bool:
+    return (
+        bool(current.latest_pending_packet_id)
+        and current.latest_pending_packet_id != baseline.latest_pending_packet_id
+    )
+
+
+def _finding_packet_changed(baseline, current) -> bool:
+    return (
+        bool(current.latest_finding_packet_id)
+        and current.latest_finding_packet_id != baseline.latest_finding_packet_id
+    )

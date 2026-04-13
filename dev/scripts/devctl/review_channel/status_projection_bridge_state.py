@@ -114,6 +114,11 @@ def _live_participant_providers(
     for participant in collaboration.participants:
         if not participant.live:
             continue
+        if participant.role not in {
+            TandemRole.REVIEWER.value,
+            TandemRole.IMPLEMENTER.value,
+        }:
+            continue
         provider = str(participant.provider or participant.agent_id).strip().lower()
         if provider and provider not in providers:
             providers.append(provider)

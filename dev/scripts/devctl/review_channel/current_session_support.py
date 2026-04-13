@@ -8,10 +8,11 @@ from hashlib import sha256
 from .ack_contract import extract_implementer_ack_revision
 from .handoff import BridgeSnapshot
 from .handoff_constants import _is_substantive_text
-from .pending_packets import live_pending_packets
-from .reviewer_state_normalize import (
-    instruction_revision as _normalized_instruction_revision,
-    normalize_instruction_body as _normalize_instruction_body,
+from .current_session_instruction_support import (
+    canonicalize_instruction_state as _canonicalize_instruction_state,
+    instruction_revision_reuse_warning,
+    _normalize_instruction_body,
+    resolve_instruction_revision,
 )
 from .status_projection_helpers import clean_section
 from ..runtime.review_state_models import ReviewCurrentSessionState
@@ -45,12 +46,13 @@ def prior_typed_current_session(
     if not current_session:
         return None
 
-    current_instruction = clean_section(
+    raw_current_instruction = clean_section(
         str(current_session.get("current_instruction") or "")
     )
-    current_instruction_revision = str(
-        current_session.get("current_instruction_revision") or ""
-    ).strip()
+    current_instruction, current_instruction_revision = _canonicalize_instruction_state(
+        raw_current_instruction,
+        str(current_session.get("current_instruction_revision") or "").strip(),
+    )
     implementer_status = clean_section(
         str(current_session.get("implementer_status") or "")
     )
@@ -117,38 +119,6 @@ def prior_typed_current_session(
         open_findings=open_findings,
         last_reviewed_scope=last_reviewed_scope,
     )
-
-
-def resolve_instruction_revision(
-    *,
-    snapshot: BridgeSnapshot,
-    bridge_liveness: Mapping[str, object],
-    current_instruction: str,
-    prior_review_state: Mapping[str, object] | None,
-) -> str:
-    """Return the current instruction revision for bridge-backed status."""
-    revision = str(bridge_liveness.get("current_instruction_revision") or "").strip()
-    if revision and _instruction_revision_reused_for_changed_instruction(
-        revision=revision,
-        current_instruction=current_instruction,
-        prior_review_state=prior_review_state,
-    ):
-        return _derived_instruction_revision(current_instruction)
-    if revision:
-        return revision
-
-    revision = str(snapshot.metadata.get("current_instruction_revision") or "").strip()
-    if revision and _instruction_revision_reused_for_changed_instruction(
-        revision=revision,
-        current_instruction=current_instruction,
-        prior_review_state=prior_review_state,
-    ):
-        return _derived_instruction_revision(current_instruction)
-    if revision:
-        return revision
-    return _derived_instruction_revision(current_instruction)
-
-
 def current_session_authority_drift_warning(
     *,
     snapshot: BridgeSnapshot,
@@ -188,53 +158,11 @@ def current_session_authority_drift_warning(
         "state so the next typed snapshot converges on the reviewer-owned "
         "checkpoint."
     )
-
-
-def instruction_revision_reuse_warning(
-    *,
-    snapshot: BridgeSnapshot,
-    bridge_liveness: Mapping[str, object],
-    prior_review_state: Mapping[str, object] | None,
-) -> str:
-    """Return a warning when reviewer instruction text changed under one revision."""
-    current_instruction = _section_text(snapshot, "Current Instruction For Claude")
-    explicit_revision = str(
-        snapshot.metadata.get("current_instruction_revision")
-        or bridge_liveness.get("current_instruction_revision")
-        or ""
-    ).strip()
-    if not explicit_revision:
-        return ""
-    if not _instruction_revision_reused_for_changed_instruction(
-        revision=explicit_revision,
-        current_instruction=current_instruction,
-        prior_review_state=prior_review_state,
-    ):
-        return ""
-    derived_revision = _derived_instruction_revision(current_instruction)
-    if not derived_revision:
-        return ""
-    return (
-        "Current reviewer instruction text changed while `Current instruction "
-        f"revision` stayed at `{explicit_revision}`. Typed state re-derived the "
-        f"live revision as `{derived_revision}`; refresh reviewer-owned bridge "
-        "metadata so the markdown header matches the current instruction body."
-    )
-
-
 def event_current_instruction(review_state: Mapping[str, object]) -> str:
-    """Derive the event-backed current instruction from queue or packets."""
+    """Derive the event-backed current instruction from the typed queue only."""
     queue = _mapping(review_state.get("queue"))
     derived = str(queue.get("derived_next_instruction") or "").strip()
-    if derived:
-        return derived
-    packets = review_state.get("packets")
-    if isinstance(packets, list):
-        for packet in live_pending_packets(packets):
-            summary = str(packet.get("summary") or "").strip()
-            if summary:
-                return summary
-    return ""
+    return derived
 
 
 def event_open_findings(queue: Mapping[str, object]) -> str:
@@ -273,38 +201,6 @@ def event_agent_status(
             or ""
         )
     return ""
-
-
-def _instruction_revision_reused_for_changed_instruction(
-    *,
-    revision: str,
-    current_instruction: str,
-    prior_review_state: Mapping[str, object] | None,
-) -> bool:
-    if not revision:
-        return False
-    prior_session = _mapping(_mapping(prior_review_state).get("current_session"))
-    prior_revision = str(prior_session.get("current_instruction_revision") or "").strip()
-    if prior_revision != revision:
-        return False
-    prior_instruction = _normalize_instruction_body(
-        str(prior_session.get("current_instruction") or "")
-    )
-    current_normalized = _normalize_instruction_body(current_instruction)
-    if not prior_instruction or not current_normalized:
-        return False
-    return prior_instruction != current_normalized
-
-
-def _derived_instruction_revision(current_instruction: str) -> str:
-    normalized_instruction = _normalize_instruction_body(current_instruction)
-    if normalized_instruction == "(missing)":
-        return ""
-    if not normalized_instruction:
-        return ""
-    return _normalized_instruction_revision(normalized_instruction)
-
-
 def _section_text(snapshot: BridgeSnapshot, section: str) -> str:
     return clean_section(snapshot.sections.get(section, ""))
 def _mapping(value: object) -> Mapping[str, object]:

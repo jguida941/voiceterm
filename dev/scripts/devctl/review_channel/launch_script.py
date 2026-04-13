@@ -21,6 +21,7 @@ class _SessionScriptHeader:
     repo_root: Path
     workspace_root: Path
     prompt: str
+    role: str
     headless: bool
     prepared_head_sha: str
     prepared_instruction_revision: str
@@ -34,6 +35,7 @@ def build_session_script(
     repo_root: Path,
     workspace_root: Path | None = None,
     prompt: str,
+    role: str = "",
     script_path: Path,
     log_path: Path | None = None,
     resolve_cli_path_fn: Callable[[str], str],
@@ -66,6 +68,7 @@ def build_session_script(
             repo_root=repo_root,
             workspace_root=effective_workspace_root,
             prompt=prompt,
+            role=str(role or "").strip().lower(),
             headless=headless,
             prepared_head_sha=prepared_head_sha,
             prepared_instruction_revision=prepared_instruction_revision,
@@ -99,6 +102,9 @@ def _header_lines(header: _SessionScriptHeader) -> list[str]:
         "EOF_PROMPT",
         ")",
         'export REVIEW_CHANNEL_PROMPT="$PROMPT"',
+        f"REVIEW_CHANNEL_CALLER_ROLE={shlex.quote(header.role)}",
+        'export REVIEW_CHANNEL_CALLER_ROLE',
+        'export DEVCTL_CALLER_ROLE="${DEVCTL_CALLER_ROLE:-$REVIEW_CHANNEL_CALLER_ROLE}"',
         'REVIEW_CHANNEL_RESTART_DELAY_SECONDS="${REVIEW_CHANNEL_RESTART_DELAY_SECONDS:-2}"',
         'REVIEW_CHANNEL_EXIT_ON_SUCCESS="${REVIEW_CHANNEL_EXIT_ON_SUCCESS:-0}"',
         f'REVIEW_CHANNEL_HEADLESS_MODE="${{REVIEW_CHANNEL_HEADLESS_MODE:-{"1" if header.headless else "0"}}}"',

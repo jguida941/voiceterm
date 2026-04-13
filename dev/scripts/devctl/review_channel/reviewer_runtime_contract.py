@@ -238,6 +238,9 @@ def _accepted_implementer_state_hash(
     if override:
         return override
     review_state = prior_review_state if isinstance(prior_review_state, Mapping) else {}
+    nested_review_state = review_state.get("review_state")
+    if isinstance(nested_review_state, Mapping):
+        review_state = nested_review_state
     reviewer_runtime = review_state.get("reviewer_runtime")
     if not isinstance(reviewer_runtime, Mapping):
         return ""

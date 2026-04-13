@@ -232,6 +232,81 @@ def test_build_collaboration_session_promotes_active_remote_control_attachment(
     assert session.restart.source == "remote_control_attachment"
 
 
+def test_build_collaboration_session_collapses_single_agent_remote_dashboard_to_local_writer(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    session_records = (
+        _session_record("codex", "reviewer", live=False),
+        _session_record("claude", "implementer", live=False),
+    )
+    monkeypatch.setattr(
+        collaboration_mod,
+        "load_conductor_sessions",
+        lambda *, session_output_root: session_records,
+    )
+    monkeypatch.setattr(
+        collaboration_mod,
+        "load_remote_control_attachments",
+        lambda *, output_root, active_only=False: (
+            RemoteControlAttachmentState(
+                provider="claude",
+                role="operator",
+                attachment_id="remote-attach-1",
+                session_name="claude-dashboard",
+                remote_session_id="session_dash",
+                session_url="https://claude.ai/code/session_dash",
+                status="attached",
+                attached_at_utc="2026-04-11T00:00:00Z",
+                last_seen_utc="2026-04-11T00:00:01Z",
+                metadata_path=str(tmp_path / "sessions" / "claude-remote-control.json"),
+            ),
+        ),
+    )
+    monkeypatch.setattr(
+        coordination_mod,
+        "dirty_paths_for_repo",
+        lambda repo_root: ("dev/scripts/devctl/runtime/startup_context.py",),
+    )
+
+    session = collaboration_mod.build_collaboration_session(
+        timestamp="2026-04-11T00:00:00Z",
+        plan_id="MP-380",
+        session_id="session-1",
+        bridge_liveness={
+            "reviewer_mode": "single_agent",
+            "effective_reviewer_mode": "single_agent",
+            "codex_poll_state": "fresh",
+        },
+        current_session=_current_session(
+            instruction="Tighten `dev/scripts/devctl/runtime/startup_context.py`.",
+            last_reviewed_scope="dev/scripts/devctl/runtime/startup_context.py",
+        ),
+        repo_root=tmp_path,
+        session_output_root=tmp_path,
+    )
+
+    review_assignment = next(
+        row for row in session.role_assignments if row.role_id == "review_agent"
+    )
+    coding_assignment = next(
+        row for row in session.role_assignments if row.role_id == "coding_agent"
+    )
+    operator_assignment = next(
+        row for row in session.role_assignments if row.role_id == "operator_agent"
+    )
+
+    assert review_assignment.provider == "codex"
+    assert review_assignment.live is True
+    assert review_assignment.source == "reviewer_turn"
+    assert coding_assignment.provider == "codex"
+    assert coding_assignment.live is True
+    assert coding_assignment.source == "reviewer_turn"
+    assert operator_assignment.provider == "claude"
+    assert operator_assignment.live is True
+    assert operator_assignment.source == "remote_control_attachment"
+
+
 def test_build_collaboration_session_carries_lane_identity_from_session_metadata(
     monkeypatch,
     tmp_path: Path,

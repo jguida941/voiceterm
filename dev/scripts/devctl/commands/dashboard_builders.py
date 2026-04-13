@@ -122,9 +122,20 @@ def _build_now_section(ctx: NowSectionContext) -> dict[str, Any]:
             first_line = next_action.strip().splitlines()[0].lstrip("- ").strip()
             next_action = first_line[:60] + ("..." if len(first_line) > 60 else "")
 
-    instr_text = str(coordination.get("current_slice") or "").strip() or (
-        ctx.instruction_text or ""
-    ).strip()
+    prefer_live_slice = (
+        bool(coordination.get("current_slice"))
+        and (
+            (live_reviewers > 0 and live_implementers == 0)
+            or (live_implementers > 0 and live_reviewers == 0)
+        )
+    )
+    instr_text = (
+        str(coordination.get("current_slice") or "").strip()
+        if prefer_live_slice
+        else (ctx.instruction_text or "").strip()
+    )
+    if not instr_text:
+        instr_text = str(coordination.get("current_slice") or "").strip()
     if instr_text and instr_text != "n/a":
         first_line = instr_text.splitlines()[0].lstrip("- ").strip()
         instr_text = first_line[:100] + ("..." if len(first_line) > 100 else "")

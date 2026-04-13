@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from hashlib import sha256
 import unittest
 
 from dev.scripts.devctl.runtime import review_state_from_payload
@@ -1017,6 +1018,62 @@ class ReviewStateTests(unittest.TestCase):
             event_state.registry.agents[0].agent_id,
         )
         self.assertEqual(event_state.attention.status, "inactive")
+
+    def test_review_state_parser_canonicalizes_current_instruction_markdown_revision(
+        self,
+    ) -> None:
+        raw_instruction = "\n".join(
+            [
+                "Current-instruction authority now converged; stale Claude Status remains",
+                "- Context packet: trigger `review-channel-event`; query terms: `bridge.md`, `review_state.json`",
+                "- Canonical refs:",
+                "  - `dev/active/loop_chat_bridge.md`",
+            ]
+        )
+        raw_revision = sha256(raw_instruction.encode("utf-8")).hexdigest()[:12]
+
+        state = review_state_from_payload(
+            {
+                "schema_version": 1,
+                "command": "review-channel",
+                "action": "status",
+                "timestamp": "2026-04-13T00:00:00Z",
+                "ok": True,
+                "review_state": {
+                    "review": {
+                        "plan_id": "MP-358",
+                        "session_id": "markdown-bridge",
+                        "surface_mode": "markdown-bridge",
+                        "active_lane": "review",
+                    },
+                    "queue": {"pending_total": 0},
+                    "current_session": {
+                        "current_instruction": raw_instruction,
+                        "current_instruction_revision": raw_revision,
+                    },
+                    "bridge": {},
+                    "packets": [],
+                },
+                "agent_registry": {
+                    "timestamp": "2026-04-13T00:00:00Z",
+                    "agents": [],
+                },
+            }
+        )
+
+        self.assertIsNotNone(state)
+        assert state is not None
+        self.assertTrue(
+            state.current_session.current_instruction.startswith(
+                "- Current-instruction authority"
+            )
+        )
+        self.assertEqual(
+            state.current_session.current_instruction_revision,
+            sha256(
+                state.current_session.current_instruction.encode("utf-8")
+            ).hexdigest()[:12],
+        )
 
 
     def test_action_request_packets_project_into_review_state(self) -> None:

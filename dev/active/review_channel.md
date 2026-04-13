@@ -1811,6 +1811,7 @@ Complete this table only after all active swarm lanes are merged.
 
 | UTC | Actor | Action | Result | Next step |
 |---|---|---|---|---|
+| `2026-04-13T02:35:00Z` | `CODEX` | Closed one bounded Q20 packet-history seam from the live Claude/Codex dogfood loop. `review-channel --action history` now reads packet history from the same reduced packet queue as inbox/status instead of only tailing raw event rows, while trace-scoped history still exposes the underlying raw events. The compatibility `latest.md` packet-history section also now admits when it is only showing the latest 5 history rows. | `partial-pass` | Keep the next Q20 slice bounded to stale-semantic reconciliation and queue/history mismatch detection so operators no longer have to compare packet counts by hand. |
 | `2026-04-09T08:51:22Z` | `CODEX` | Closed the next local-launch automation stall in the MP-355 launcher path. Visible `review-channel launch` / `recover` now fail closed before any repo-owned runtime daemons or Terminal windows start when the requested repo root lives under a transient temp directory, so provider directory-trust prompts in fresh `/tmp` clones cannot silently wedge the visible local loop. The launch dispatcher, bridge-backed live launcher, and stale-implementer recovery path all share the same typed denial reason (`untrusted_visible_launch_root`), and focused launcher-discipline regressions now lock the pure validator plus the pre-daemon bridge/recover wiring. | `partial-pass` | Re-run the focused review-channel launch bundle on the current tree, then decide whether the next follow-up is a broader repo-governed trusted-root registry or simply teaching more launcher surfaces to surface the same denial reason in status/doctor output. |
 | `2026-04-08T00:42:46Z` | `CODEX` | Refined the tracker slice so typed `current_session` / `reviewer_runtime` remain preferred over stale bridge prose, fresh sessions checkpoint before continue, and the ReviewSnapshot evidence set now expands to probe-run plus push-receipt records alongside the existing receipt-hook closure. | `planned` | Keep the current truth-source slice bounded: land the authority-preference and evidence-expansion proof, then wire the fresh open-finding recomputation and external-agent drift detector into the next pass. |
 | `2026-04-08T00:25:00Z` | `CODEX` | Closed the stale-reviewer-revision mismatch that let live bridge text and typed ACK authority drift apart. Bridge-backed `current_session` now compares the live instruction body against the prior typed snapshot, re-derives the effective instruction revision when reviewer text changed under a reused revision, threads that corrected revision/ACK state through `status` and `bridge-poll`, surfaces a reviewer-facing warning instead of silently calling Claude ACK current, and lets repo-owned reviewer writes accept either the raw bridge revision or the effective typed revision during repair. Focused current-session, bridge-poll, reviewer-checkpoint, and refresh-status regressions are green on the current tree. | `partial-pass` | Re-run the MP-355 tooling/docs bundle, then perform one live reviewer/implementer launch where Codex rewrites an instruction and Claude repolls through the repo-owned path to confirm the warning/corrected revision stay aligned in practice. |
@@ -1931,6 +1932,12 @@ Complete this table only after all active swarm lanes are merged.
 
 ## Session Resume
 
+- Next action: keep the Q20 repair bounded to one packet lifecycle and one
+  packet-history view. `review-channel --action history` now reads the reduced
+  packet queue and trace-scoped history can still show raw events, while the
+  compatibility markdown projection now states when it is truncating history.
+  The next closure is stale-pending semantics plus a queue/history mismatch
+  detector.
 - Next action: keep local visible review-channel launch rooted in stable
   repo-managed worktrees. `review-channel --action launch|recover --terminal
   terminal-app` now fails closed with `untrusted_visible_launch_root` when the

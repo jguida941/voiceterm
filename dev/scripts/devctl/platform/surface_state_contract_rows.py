@@ -201,6 +201,9 @@ SURFACE_STATE_CONTRACTS: tuple[ContractSpec, ...] = (
             ContractField("resolved_phase", "str", "Auto-mode phase from ControlPlaneReadModel."),
             ContractField("next_guard_bundle", "str", "Recommended guard bundle for current changed paths."),
             ContractField("next_recommended_command", "str", "Exact devctl command to run next."),
+            ContractField("attention_status", "str", "Current typed review attention status."),
+            ContractField("attention_summary", "str", "Current typed review attention summary."),
+            ContractField("attention_revision", "str", "Revision that invalidates stale session authority."),
             ContractField(
                 "reviewer_observation_status",
                 "str",
@@ -220,6 +223,11 @@ SURFACE_STATE_CONTRACTS: tuple[ContractSpec, ...] = (
                 "coordination",
                 "CoordinationSnapshot | None",
                 "Shared bounded coordination authority for remote-control bootstrap and dashboard parity.",
+            ),
+            ContractField(
+                "packet_inbox",
+                "PacketInboxState | None",
+                "Canonical packet-attention contract for session bootstrap.",
             ),
         ),
         runtime_model=(

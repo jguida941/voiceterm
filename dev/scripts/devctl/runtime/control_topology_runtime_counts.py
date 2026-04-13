@@ -10,6 +10,7 @@ from .control_topology_bridge_counts import (
     boolish,
     bridge_role_counts,
 )
+from .runtime_count_roles import participant_role_provider_ids
 
 
 def startup_runtime_counts(
@@ -22,19 +23,23 @@ def startup_runtime_counts(
         return {}
     collaboration = _object_mapping(getattr(review_state, "collaboration", None))
     participants = _rows(collaboration.get("participants"))
+    role_assignments = _rows(collaboration.get("role_assignments"))
     live_participants = [row for row in participants if boolish(row.get("live"))]
     role_counts = bridge_role_counts(bridge_liveness)
+    typed_role_totals = _live_role_totals(
+        role_assignments=role_assignments,
+        live_participants=live_participants,
+    )
     if participants:
-        live_reviewer_total = sum(
-            1 for row in live_participants if _text(row.get("role")) == "reviewer"
-        )
-        live_implementer_total = sum(
-            1 for row in live_participants if _text(row.get("role")) == "implementer"
-        )
+        live_reviewer_total = typed_role_totals["live_reviewer_total"]
+        live_implementer_total = typed_role_totals["live_implementer_total"]
         live_participant_total = len(live_participants)
     else:
-        live_reviewer_total = role_counts["live_reviewer_total"]
-        live_implementer_total = role_counts["live_implementer_total"]
+        live_reviewer_total = typed_role_totals["live_reviewer_total"]
+        live_implementer_total = typed_role_totals["live_implementer_total"]
+        if not typed_role_totals["derived_from_typed_roles"]:
+            live_reviewer_total = role_counts["live_reviewer_total"]
+            live_implementer_total = role_counts["live_implementer_total"]
         live_participant_total = role_counts["live_participants_total"]
     counts: dict[str, int] = {}
     counts["participants_total"] = len(participants)
@@ -74,5 +79,44 @@ def _rows(value: object) -> list[Mapping[str, object]]:
     return [row for row in value if isinstance(row, Mapping)]
 
 
+def _live_role_totals(
+    *,
+    role_assignments: list[Mapping[str, object]],
+    live_participants: list[Mapping[str, object]],
+) -> dict[str, int | bool]:
+    reviewer_ids: list[str] = []
+    implementer_ids: list[str] = []
+    for row in role_assignments:
+        if not boolish(row.get("live")):
+            continue
+        provider = _text(row.get("provider") or row.get("agent_id"))
+        if not provider:
+            continue
+        role_id = _text(row.get("role_id"))
+        if role_id == "review_agent" and provider not in reviewer_ids:
+            reviewer_ids.append(provider)
+        elif role_id == "coding_agent" and provider not in implementer_ids:
+            implementer_ids.append(provider)
+    if not reviewer_ids:
+        reviewer_ids.extend(
+            participant_role_provider_ids(
+                live_participants,
+                "reviewer",
+                text_fn=_text,
+            )
+        )
+    if not implementer_ids:
+        implementer_ids.extend(
+            participant_role_provider_ids(
+                live_participants,
+                "implementer",
+                text_fn=_text,
+            )
+        )
+    return {
+        "live_reviewer_total": len(reviewer_ids),
+        "live_implementer_total": len(implementer_ids),
+        "derived_from_typed_roles": bool(role_assignments),
+    }
 def _text(value: object) -> str:
     return str(value or "").strip().lower()

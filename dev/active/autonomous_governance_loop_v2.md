@@ -129,6 +129,22 @@ closure. The correct order is:
 - [ ] Ground `LIVE_RUN.md` findings into repo paths, plan targets, or typed
       issue clusters so `findings-priority` stops returning mostly zero-fanout
       rankings.
+- [ ] Add one canonical `FindingBacklog` reader/writer and route
+      `review-channel` finding intake plus `LIVE_RUN.md` compatibility import
+      through it so `findings-priority`, dashboard, startup, monitor, and
+      bridge projections stop ranking different open-finding sets.
+- [ ] Converge the launch-critical visibility stack before controller work:
+      `StartupContext`, `ControlPlaneReadModel`, dashboard/status/monitor/
+      mobile/phone, and packet queue surfaces must agree on `top_blocker`,
+      `next_action`, `implementation_permission`, and open findings from one
+      reducer-backed snapshot rather than four vocabularies.
+- [ ] Freeze one shared packet lifecycle and wake contract for loop ticks:
+      posted -> delivered -> observed/acked/applied -> execution receipt ->
+      resolved/expired, with all agent/dashboard lanes waking on event-backed
+      state change instead of timer polling.
+- [ ] Surface live tool-call and mutation progress through typed
+      `agent-mind` / current-session state so observer lanes do not infer
+      "idle" from message silence.
 - [ ] Make graph freshness and coverage visible in the same startup-facing
       packet the loop consumes, not only in a sidecar report.
 
@@ -145,6 +161,10 @@ closure. The correct order is:
       cleanup/promotions.
 - [ ] Derive the loop's next-session prompt from typed slice-selection output
       instead of operator prose or bridge-local instruction text.
+- [ ] Treat Phase 1 as blocked until the highest-ranked Phase 0 findings have
+      file/plan owners and non-zero fanout. No prompt derivation, controller
+      widening, or `devctl develop` rollout while the top `findings-priority`
+      rows remain ungrounded visibility debt.
 - [ ] Keep worker fanout gated by the selected plan target, ownership state,
       and coordination posture. No loop tick may infer "parallelize" from
       stale planned topology alone.
@@ -154,6 +174,14 @@ closure. The correct order is:
 - [ ] Make loop v2 consume `ControlPlaneReadModel`, `AutoModeState`, monitor
       self-audit, and review/runtime state to choose between review, implement,
       test, commit, push, resync, or observe-only phases.
+- [ ] Define `devctl develop` as the single self-driving entrypoint that
+      composes startup authority, plan selection, `FindingBacklog` /
+      `findings-priority`, packet lifecycle, and governed commit/push over the
+      existing deterministic runtime layer rather than creating a new
+      controller root.
+- [ ] Make the controller state-driven and event-woken: valid next actions
+      come from typed state plus ownership posture, and polling survives only
+      as a degraded fallback when the event stream is unavailable.
 - [ ] Reuse existing autonomy harnesses (`autonomy-loop`, `swarm_run`,
       review-channel runtime, governed commit/push) instead of inventing a
       provider-specific verdict-file controller.
@@ -231,6 +259,13 @@ closure. The correct order is:
   with `(no source-file match)` and `fan_out=0`, so the next Phase 0 slice is
   still grounding, not controller logic: use Q77 stranded consumers and/or
   contract-consumer edges so typed priority can point at concrete files.
+- 2026-04-12: Reprioritized loop-v2 after the dashboard architecture review
+  and packet synthesis. Discoverability improved, but the real Phase 0 gate is
+  now broader and explicit: one `FindingBacklog`, one reducer-backed
+  visibility stack across startup/status/dashboard/monitor/mobile/phone, one
+  shared packet lifecycle/event wake contract, and one live tool-call
+  projection for observer lanes. `devctl develop` stays Phase 2 work and
+  remains blocked until those inputs are consumed.
 
 ## Session Resume
 
@@ -238,11 +273,13 @@ closure. The correct order is:
   an active `MP-377` execution spec. The first Phase 0 discoverability slice
   is now landed: abstract contract and field queries resolve through the
   existing `context-graph` surface instead of returning `no_match`.
-- Next action: stay in Phase 0 and do grounding next. `findings-priority`
-  still returns the top LIVE_RUN rows with `(no source-file match)` and
-  `fan_out=0`, so the next bounded slice should map Q77 stranded consumers
-  and related contract-consumer evidence into file-backed findings rather
-  than widening into controller/autonomy work yet.
+- Next action: stay in Phase 0 and finish consumer wiring before any
+  controller widening. `findings-priority` still returns ungrounded top rows,
+  the status surfaces still split blocker vocabulary, and packet wake is still
+  partially timer-driven, so the next bounded order is:
+  `FindingBacklog -> four-surface convergence -> packet lifecycle/event wake -> stranded-consumer grounding`.
+  Do not widen into `devctl develop`, rollout-tail prompt derivation, or
+  broader autonomy work yet.
 - Context rule: on the next session, load `dev/active/ai_governance_platform.md`,
   `dev/active/platform_authority_loop.md`, this file, and the 2026-04-10
   Codex review, then rerun `startup-context`, `review-channel status`,
@@ -404,28 +441,31 @@ derivation consumes them. `GuardPromotionCandidate` activation is only
 allowed after `governance-review --record` gains the session-completion
 check that enforces it.
 
-### Q76-Q80 sequence — which order, which consumer first
+### Loop-V2 Proof Sequence (renamed to avoid LIVE_RUN Q-ID collisions)
 
-Q76: `findings-priority` cluster mode — the first consumer. Before this
+Use `LIVE_RUN Q76-Q80` as the evidence namespace and the `LV2-*` labels below
+as the implementation sequence inside this plan.
+
+LV2-1: `findings-priority` cluster mode — the first consumer. Before this
 lands, there is no downstream slot for `PatternObservation`.
 
-Q77: `PatternObservation` contract (extension of `signal_type` enum and
-`FindingReview` schema) — lands only after Q76 gives it a reader.
+LV2-2: `PatternObservation` contract (extension of `signal_type` enum and
+`FindingReview` schema) — lands only after `LV2-1` gives it a reader.
 
-Q78: `governance-review --record` session-completion check for
-`GuardPromotionCandidate` — the forcing function that makes guard
-promotion mandatory on every implementer session.
+LV2-3: `governance-review --record` session-completion check for
+`GuardPromotionCandidate` — the forcing function that makes guard promotion
+mandatory on every implementer session.
 
-Q79: `devctl rollout-tail --extract-insights` — projects Codex thinking
-messages into typed records. Lands after Q77 gives them a home.
+LV2-4: `devctl rollout-tail --extract-insights` — projects Codex thinking
+messages into typed records. Lands after `LV2-2` gives them a home.
 
-Q80: Next-session prompt derivation as a typed pipeline — composes Q76
-+ Q77 + Q78 + Q79 into the loop-v2 `next_session_prompt` typed field
-that the provider-adapter layer consumes.
+LV2-5: next-session prompt derivation as a typed pipeline — composes
+`LV2-1` + `LV2-2` + `LV2-3` + `LV2-4` into the loop-v2
+`next_session_prompt` typed field that the provider-adapter layer consumes.
 
-Q81 (optional): `context-graph --mode diff` extension for pattern
+LV2-6 (optional): `context-graph --mode diff` extension for pattern
 convergence metric. Validates the claim that the loop is improving.
-Gated behind Q76-Q80 so there's real data to measure.
+Gated behind `LV2-1` through `LV2-5` so there's real data to measure.
 
 ### Honest risks
 

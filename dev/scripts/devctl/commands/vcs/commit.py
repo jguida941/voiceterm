@@ -2,31 +2,31 @@
 
 from __future__ import annotations
 
-import os
-import subprocess
-import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
 
 from ...config import REPO_ROOT
 from ...governance.push_policy import load_push_policy
 from ...review_channel.events import post_packet, resolve_artifact_paths, transition_packet
 from ...review_channel.packet_contract import PacketTransitionRequest
-from ...runtime import ActionResult
 from ...runtime.action_contracts import ActionOutcome
-from ...runtime.action_contracts import ACTION_RESULT_CONTRACT_ID, ACTION_RESULT_SCHEMA_VERSION
 from ...runtime.commit_permission import build_commit_permission_decision_for_executor
 from ...runtime.control_plane_read_model import build_control_plane_read_model
 from ...runtime.governance_scan import scan_repo_governance_safely
 from ...runtime.operator_context import OperatorInteractionMode, resolve_operator_interaction_mode
+from .commit_caller_role import caller_role_report
+from .commit_guard_bundle import (
+    GUARD_PROFILE,
+    _pipeline_has_validation_plan,
+    guard_result,
+    pipeline_has_checkpoint_snapshot as _pipeline_has_checkpoint_snapshot,
+    run_guard_bundle,
+)
 from .governed_executor import GovernedVcsExecutor
 from .governed_executor_actions import APPROVAL_PACKET_KIND, _build_report, _emit_report, build_commit_action, build_stage_action
 from .governed_executor_packets import build_commit_approval_decision, build_commit_approval_request
 from .governed_executor_sync import sync_pipeline_approval
 
-GUARD_PROFILE = "quick"
-DEVCTL_SCRIPT = "dev/scripts/devctl.py"
 _REUSABLE_PIPELINE_STATES = frozenset(
     {
         "staged",
@@ -39,6 +39,9 @@ _REUSABLE_PIPELINE_STATES = frozenset(
 )
 _PIPELINE_BLOCKING_STATES = frozenset({"commit_recorded", "push_pending"})
 
+# Compatibility re-export while commit guard helpers live in their own module.
+_run_guard_bundle = run_guard_bundle
+
 
 @dataclass(frozen=True, slots=True)
 class CommitPassthrough:
@@ -47,72 +50,6 @@ class CommitPassthrough:
     allow_empty: bool = False
     no_edit: bool = False
     unsupported: tuple[str, ...] = ()
-
-
-def _run_guard_bundle(
-    *,
-    repo_root: Path = REPO_ROOT,
-    runner: Any = None,
-    pipeline: object | None = None,
-) -> int:
-    """Run the quick guard profile and return the exit code."""
-    cmd = [
-        sys.executable,
-        str(repo_root / DEVCTL_SCRIPT),
-        "check",
-        "--profile",
-        GUARD_PROFILE,
-        "--format",
-        "json",
-    ]
-    child_env = os.environ.copy()
-    if _pipeline_has_validation_plan(pipeline):
-        child_env["DEVCTL_COMMIT_GATE_BYPASS_STARTUP_AUTHORITY"] = "1"
-    run_fn = runner or subprocess.run
-    result = run_fn(
-        cmd,
-        cwd=str(repo_root),
-        capture_output=True,
-        text=True,
-        env=child_env,
-    )
-    if result.returncode != 0:
-        if result.stdout:
-            print(result.stdout, file=sys.stderr)
-        if result.stderr:
-            print(result.stderr, file=sys.stderr)
-    return result.returncode
-
-
-def _pipeline_has_validation_plan(pipeline: object | None) -> bool:
-    """Return true only when the staged pipeline carries typed validation state."""
-    if pipeline is None:
-        return False
-    intent = getattr(pipeline, "intent", None)
-    if intent is None:
-        return False
-    plan = getattr(intent, "validation_plan", None)
-    if plan is None:
-        return False
-    return bool(
-        getattr(plan, "plan_id", "")
-        and getattr(plan, "bundle_id", "")
-        and getattr(plan, "staged_tree_hash", "")
-    )
-
-
-def _guard_result(exit_code: int) -> ActionResult:
-    """Convert the guard exit code into the shared pipeline contract."""
-    passed = exit_code == 0
-    return ActionResult(
-        schema_version=ACTION_RESULT_SCHEMA_VERSION,
-        contract_id=ACTION_RESULT_CONTRACT_ID,
-        action_id="quality.guard_bundle",
-        ok=passed,
-        status=ActionOutcome.PASS if passed else ActionOutcome.FAIL,
-        reason="" if passed else "guard_bundle_failed",
-    )
-
 
 def _resolve_interaction_mode(repo_root: Path) -> str:
     """Return the current operator interaction mode for commit approval."""
@@ -297,6 +234,10 @@ def run_commit(
         repo_root=repo_root,
         push_policy=resolved_policy,
     )
+    role_report = caller_role_report(args)
+    if role_report is not None:
+        _emit_report(args, role_report)
+        return 1
     permission_report = _commit_permission_report(vcs_executor)
     if permission_report is not None:
         _emit_report(args, permission_report)
@@ -346,12 +287,12 @@ def run_commit(
             return 1
 
     if pipeline.guard_result is None or pipeline.guard_result.status != ActionOutcome.PASS:
-        guard_rc = _run_guard_bundle(
+        guard_rc = run_guard_bundle(
             repo_root=repo_root,
             runner=guard_runner,
             pipeline=pipeline,
         )
-        pipeline = vcs_executor.record_guard_result(_guard_result(guard_rc))
+        pipeline = vcs_executor.record_guard_result(guard_result(guard_rc))
         if guard_rc != 0:
             report = _build_report(
                 status="blocked",

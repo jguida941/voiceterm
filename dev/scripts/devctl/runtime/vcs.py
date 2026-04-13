@@ -2,17 +2,33 @@
 
 from __future__ import annotations
 
+import os
 import subprocess
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 
 from ..config import REPO_ROOT
+
+def git_command_env(
+    repo_root: Path,
+    *,
+    extra_env: Mapping[str, str] | None = None,
+) -> dict[str, str] | None:
+    """Return git env overrides for repo-owned nested git commands."""
+    del repo_root
+    if not extra_env:
+        return None
+
+    env = os.environ.copy()
+    env.update(extra_env)
+    return env
 
 
 def run_git_capture(
     args: Sequence[str],
     *,
     repo_root: Path = REPO_ROOT,
+    extra_env: Mapping[str, str] | None = None,
 ) -> tuple[int, str, str]:
     """Run a git command and return ``(returncode, stdout, stderr)``."""
     try:
@@ -22,6 +38,7 @@ def run_git_capture(
             text=True,
             capture_output=True,
             check=False,
+            env=git_command_env(repo_root, extra_env=extra_env),
         )
     except OSError as exc:
         return 127, "", str(exc)

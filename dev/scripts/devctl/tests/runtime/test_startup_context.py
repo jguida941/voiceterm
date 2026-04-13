@@ -37,6 +37,14 @@ from dev.scripts.devctl.runtime.recovery_authority import (
 from dev.scripts.devctl.runtime.reviewer_runtime_models import (
     RemoteControlAttachmentState,
 )
+from dev.scripts.devctl.runtime.review_state_models import (
+    AgentAttentionRecord,
+    PacketInboxState,
+    ReviewAttentionState,
+)
+from dev.scripts.devctl.runtime.conductor_capability import (
+    session_resume_command_for_role,
+)
 from dev.scripts.devctl.runtime.project_governance import (
     ProjectGovernance,
     PushEnforcement,
@@ -197,12 +205,13 @@ class TestStartupContextBuild(unittest.TestCase):
             ),
             patch(
                 "dev.scripts.devctl.runtime.startup_context.build_work_intake_ownership_state",
-                return_value=SimpleNamespace(),
+                return_value=SimpleNamespace(concurrent_writer_detected=False),
             ),
             patch(
                 "dev.scripts.devctl.runtime.startup_context.build_work_intake_coordination_state",
                 return_value=SimpleNamespace(
                     implementation_permission="active",
+                    concurrent_writer_conflict_detected=False,
                 ),
             ),
             patch(
@@ -1584,6 +1593,169 @@ class TestCLIRegistration(unittest.TestCase):
             intent="implementation_strict",
             governance=ctx.governance,
             reviewer_gate=ctx.reviewer_gate,
+        )
+
+    def test_role_bound_checkpoint_receipt_uses_session_resume_command(self) -> None:
+        for role, expected_intent in (
+            ("reviewer", "reviewer_bootstrap"),
+            ("implementer", "implementation_strict"),
+        ):
+            with self.subTest(role=role):
+                ctx = StartupContext(
+                    governance=_minimal_governance(
+                        checkpoint_required=True,
+                        safe_to_continue_editing=False,
+                        checkpoint_reason="budget",
+                    ),
+                    reviewer_gate=ReviewerGateState(),
+                    advisory_action="checkpoint_before_continue",
+                    advisory_reason="budget",
+                    observed_control_topology="single_agent",
+                    implementation_permission="active",
+                )
+                args = build_parser().parse_args(
+                    ["startup-context", "--role", role, "--format", "json"]
+                )
+                captured: dict[str, object] = {}
+
+                def _fake_write(receipt, **_kwargs):
+                    captured["receipt"] = receipt
+                    return Path("/tmp/startup-receipt.json")
+
+                def _fake_emit(*_args, **kwargs):
+                    captured["payload"] = kwargs["json_payload"]
+                    captured["human_output"] = kwargs["human_output"]
+                    captured["summary"] = kwargs["options"].summary
+                    self.assertFalse(kwargs["options"].ok)
+                    return 1
+
+                with patch.object(
+                    startup_context_command,
+                    "build_startup_context",
+                    return_value=ctx,
+                ), patch.object(
+                    startup_context_command,
+                    "build_startup_authority_report",
+                    return_value={
+                        "ok": True,
+                        "checks_run": 10,
+                        "checks_passed": 10,
+                        "errors": [],
+                        "warnings": [],
+                    },
+                ), patch.object(
+                    startup_context_command,
+                    "write_startup_receipt",
+                    side_effect=_fake_write,
+                ), patch.object(
+                    startup_context_command,
+                    "emit_machine_artifact_output",
+                    side_effect=_fake_emit,
+                ):
+                    rc = startup_context_command.run(args)
+
+                self.assertEqual(rc, 1)
+                expected_command = session_resume_command_for_role(role)
+                payload = captured["payload"]
+                self.assertEqual(
+                    payload["push_decision"]["next_step_command"],
+                    expected_command,
+                )
+                self.assertIn(
+                    f"next={expected_command}",
+                    captured["human_output"],
+                )
+                self.assertEqual(
+                    captured["summary"]["push_next_step_command"],
+                    expected_command,
+                )
+                receipt = captured["receipt"]
+                self.assertEqual(receipt.push_next_step_command, expected_command)
+                self.assertEqual(receipt.receipt_intent_scope, expected_intent)
+
+    def test_command_json_payload_promotes_checkpoint_booleans_and_summary_inbox(self) -> None:
+        ctx = StartupContext(
+            governance=_minimal_governance(
+                checkpoint_required=True,
+                safe_to_continue_editing=False,
+                checkpoint_reason="budget",
+            ),
+            reviewer_gate=ReviewerGateState(),
+            advisory_action="checkpoint_before_continue",
+            advisory_reason="budget",
+            attention=ReviewAttentionState(
+                status="checkpoint_required",
+                owner="operator",
+                summary="Checkpoint required before more edits.",
+                recommended_action="checkpoint",
+                recommended_command=(
+                    "python3 dev/scripts/devctl.py commit -m \"checkpoint\""
+                ),
+            ),
+            packet_inbox=PacketInboxState(
+                attention_revision="attn-rev-1",
+                agents=(
+                    AgentAttentionRecord(
+                        agent="codex",
+                        current_instruction_packet_id="rev_pkt_0312",
+                        latest_finding_packet_id="rev_pkt_0311",
+                        pending_actionable_packet_ids=("rev_pkt_0312",),
+                        expired_unresolved_packet_ids=(),
+                        attention_status="wake_required",
+                        wake_reason="instruction_pending",
+                        required_command=(
+                            "python3 dev/scripts/devctl.py review-channel "
+                            "--action inbox --target codex --terminal none --format md"
+                        ),
+                        delivery_state="unseen",
+                        attention_revision="attn-agent-rev-1",
+                    ),
+                ),
+            ),
+        )
+        args = build_parser().parse_args(["startup-context", "--format", "json"])
+        captured: dict[str, object] = {}
+
+        def _fake_emit(*_args, **kwargs):
+            captured["payload"] = kwargs["json_payload"]
+            captured["summary"] = kwargs["options"].summary
+            self.assertFalse(kwargs["options"].ok)
+            return 1
+
+        with patch.object(
+            startup_context_command,
+            "build_startup_context",
+            return_value=ctx,
+        ), patch.object(
+            startup_context_command,
+            "build_startup_authority_report",
+            return_value={
+                "ok": True,
+                "checks_run": 10,
+                "checks_passed": 10,
+                "errors": [],
+                "warnings": [],
+            },
+        ), patch.object(
+            startup_context_command,
+            "write_startup_receipt",
+            return_value=Path("/tmp/startup-receipt.json"),
+        ), patch.object(
+            startup_context_command,
+            "emit_machine_artifact_output",
+            side_effect=_fake_emit,
+        ):
+            rc = startup_context_command.run(args)
+
+        self.assertEqual(rc, 1)
+        payload = captured["payload"]
+        summary = captured["summary"]
+        self.assertTrue(payload["checkpoint_required"])
+        self.assertFalse(payload["safe_to_continue_editing"])
+        self.assertEqual(summary["packet_inbox"]["attention_revision"], "attn-rev-1")
+        self.assertEqual(
+            summary["packet_inbox"]["agents"][0]["current_instruction_packet_id"],
+            "rev_pkt_0312",
         )
 
 

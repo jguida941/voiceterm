@@ -23,6 +23,7 @@ _TYPED_REVIEW_STATE_KEYS = (
     "review",
     "queue",
     "current_session",
+    "packet_inbox",
     "collaboration",
     "bridge",
     "attention",

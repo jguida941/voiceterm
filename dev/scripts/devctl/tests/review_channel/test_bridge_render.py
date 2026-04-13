@@ -32,6 +32,9 @@ from dev.scripts.devctl.review_channel.bridge_projection import (
     build_bridge_projection_state,
     render_bridge_projection,
 )
+from dev.scripts.devctl.review_channel.reviewer_state_normalize import (
+    instruction_revision,
+)
 from dev.scripts.devctl.review_channel.promotion_support import (
     InstructionRewriteContext,
     rewrite_instruction_and_metadata,
@@ -333,6 +336,85 @@ def test_render_bridge_projection_falls_back_when_fixed_sections_missing() -> No
     assert "## Open Findings" in rendered
     assert "- Keep the review-channel bridge live." in rendered
     assert bridge_hygiene_errors(rendered) == []
+
+
+def test_render_bridge_projection_overrides_stale_compat_sections_with_typed_authority() -> None:
+    review_state = _typed_review_state(_bridge_text())
+    review_state["current_session"] = {
+        "current_instruction": "- typed authority instruction",
+        "current_instruction_revision": "typedrev123456",
+        "implementer_status": "- typed status",
+        "implementer_ack": "- typed ack",
+        "last_reviewed_scope": "- typed/scope.py",
+    }
+    review_state["reviewer_runtime"] = {
+        "review_acceptance": {
+            "current_verdict": "- typed verdict",
+            "open_findings": "- typed finding",
+        }
+    }
+    compat_sections = review_state["_compat"]["bridge_projection"]["sections"]
+    compat_sections["Current Instruction For Claude"] = "- stale compat instruction"
+    compat_sections["Claude Status"] = "- stale compat status"
+    compat_sections["Claude Ack"] = "- stale compat ack"
+    compat_sections["Open Findings"] = "- stale compat finding"
+
+    rendered, _ = render_bridge_projection(
+        review_state=review_state,
+        last_worktree_hash="b" * 64,
+    )
+    snapshot = extract_bridge_snapshot(rendered)
+
+    assert snapshot.sections["Current Instruction For Claude"] == "- typed authority instruction"
+    assert snapshot.sections["Claude Status"] == "- typed status"
+    assert snapshot.sections["Claude Ack"] == "- typed ack"
+    assert snapshot.sections["Open Findings"] == "- typed finding"
+    assert snapshot.sections["Last Reviewed Scope"] == "- typed/scope.py"
+
+
+def test_render_bridge_projection_preserves_nested_instruction_bullets() -> None:
+    instruction = "\n".join(
+        [
+            "- Landed: status keeps current instruction revision; commit still blocked on checkpoint/guard lane",
+            "- Context packet: trigger `review-channel-event`; query terms: `dev/scripts/devctl.py`, `commit`",
+            "- Canonical refs:",
+            "  - `dev/scripts/devctl/collect.py`",
+            "  - `dev/scripts/devctl/commands/governance/startup_context.py`",
+            "  - `dev/scripts/devctl/commands/vcs/governed_executor.py`",
+        ]
+    )
+    revision = instruction_revision(instruction)
+    review_state = _typed_review_state(_bridge_text())
+    review_state["current_session"] = {
+        "current_instruction": instruction,
+        "current_instruction_revision": revision,
+    }
+
+    rendered, _ = render_bridge_projection(
+        review_state=review_state,
+        last_worktree_hash="b" * 64,
+    )
+    snapshot = extract_bridge_snapshot(rendered)
+
+    assert snapshot.sections["Current Instruction For Claude"] == instruction
+    assert f"- Current instruction revision: `{revision}`" in rendered
+
+
+def test_render_bridge_projection_clears_stale_claude_status_when_typed_status_missing() -> None:
+    review_state = _typed_review_state(_bridge_text())
+    review_state["current_session"] = {
+        "current_instruction": "- typed authority instruction",
+        "current_instruction_revision": "typedrev123456",
+        "implementer_status": "",
+    }
+
+    rendered, _ = render_bridge_projection(
+        review_state=review_state,
+        last_worktree_hash="b" * 64,
+    )
+    snapshot = extract_bridge_snapshot(rendered)
+
+    assert snapshot.sections["Claude Status"] == "- Status unavailable."
 
 
 def test_render_bridge_projection_tracks_swapped_reviewer_and_implementer() -> None:

@@ -1,4 +1,4 @@
-"""Approval-packet helpers for the governed VCS executor."""
+"""Typed packet helpers for the governed VCS executor."""
 
 from __future__ import annotations
 
@@ -39,6 +39,51 @@ def build_commit_approval_request(
         target=PacketTargetFields.from_values(
             target_kind="runtime",
             target_ref=pipeline_target_ref(pipeline),
+            target_revision=pipeline.generation_id,
+        ),
+        runtime_approval=PacketRuntimeApprovalFields.from_values(
+            pipeline_generation=pipeline.generation_id,
+            staged_snapshot_hash=pipeline.intent.staged_tree_hash,
+            guard_results_summary=guard_results_summary(pipeline.guard_result),
+        ),
+    )
+
+
+def build_commit_execution_request(
+    pipeline: RemoteCommitPipelineContract,
+    *,
+    to_agent: str,
+    summary: str = "",
+    body: str = "",
+    expires_in_minutes: int = 30,
+) -> PacketPostRequest:
+    """Build the canonical typed handoff packet for commit execution.
+
+    This packet is used after the governed pipeline is already approved, but
+    the current executor cannot write the git index locally. The runtime
+    binding keeps the request scoped to the exact staged snapshot so the
+    writable lane can resume the same governed pipeline instead of restaging.
+    """
+    pipeline_ref = pipeline_target_ref(pipeline)
+    return PacketPostRequest(
+        from_agent="system",
+        to_agent=to_agent,
+        kind="action_request",
+        summary=summary
+        or f"Execute governed commit pipeline `{pipeline.pipeline_id}`",
+        body=body
+        or (
+            "Run the existing approved governed commit from the writable "
+            "implementer terminal lane."
+        ),
+        requested_action="commit",
+        policy_hint="safe_auto_apply",
+        approval_required=False,
+        trace_id=pipeline.pipeline_id,
+        expires_in_minutes=expires_in_minutes,
+        target=PacketTargetFields.from_values(
+            target_kind="runtime",
+            target_ref=pipeline_ref,
             target_revision=pipeline.generation_id,
         ),
         runtime_approval=PacketRuntimeApprovalFields.from_values(

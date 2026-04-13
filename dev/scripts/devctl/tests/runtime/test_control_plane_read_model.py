@@ -618,6 +618,34 @@ class ResolverUnitTests(unittest.TestCase):
         self.assertFalse(d["codex_conductor_alive"])
         self.assertTrue(d["claude_conductor_alive"])
 
+    def test_resolve_daemon_ignores_operator_remote_control_attachment_for_conductor_liveness(
+        self,
+    ) -> None:
+        sources = _empty_sources()
+        sources["review_state"] = {
+            "bridge": {
+                "reviewer_mode": "single_agent",
+                "codex_conductor_active": False,
+                "claude_conductor_active": False,
+            },
+            "reviewer_runtime": {
+                "remote_control_attachment": {
+                    "provider": "claude",
+                    "role": "operator",
+                    "attachment_id": "remote-attach-1",
+                    "session_name": "Claude dashboard",
+                    "remote_session_id": "session_abc123",
+                    "session_url": "https://claude.ai/code/session_abc123",
+                    "status": "attached",
+                }
+            },
+        }
+
+        d = resolve_daemon_state(sources)
+
+        self.assertFalse(d["codex_conductor_alive"])
+        self.assertFalse(d["claude_conductor_alive"])
+
     def test_resolve_daemon_uses_typed_reviewer_capability_provider(self) -> None:
         import os
         import tempfile

@@ -13,6 +13,7 @@ from .daemon_events import DaemonEventContext
 from .follow_lifecycle import FollowLifecycleContext
 from .handoff import extract_bridge_snapshot
 from .heartbeat import bridge_excluded_rel_paths, compute_non_audit_worktree_hash
+from .pending_packets import load_pending_reviewer_packets
 
 
 @dataclass(frozen=True)
@@ -117,12 +118,20 @@ def build_claude_progress_token(
         )
     except (OSError, ValueError):
         current_worktree_hash = ""
+    pending_packet_ids = "\n".join(
+        sorted(
+            str(packet.get("packet_id") or "").strip()
+            for packet in load_pending_reviewer_packets(repo_root)
+            if isinstance(packet, dict) and str(packet.get("packet_id") or "").strip()
+        )
+    )
 
     payload = "\0".join(
         (
             claude_status,
             claude_ack,
             current_worktree_hash,
+            pending_packet_ids,
         )
     ).strip("\0")
     if not payload:

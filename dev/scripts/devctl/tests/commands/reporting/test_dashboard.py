@@ -2940,6 +2940,12 @@ class TestTypedReviewState(unittest.TestCase):
             }
             bridge = root / "bridge.md"
             bridge.write_text(_minimal_bridge_text(), encoding="utf-8")
+            class FrozenReviewState:
+                def __init__(self, payload: dict) -> None:
+                    self._payload = payload
+
+                def to_dict(self) -> dict:
+                    return json.loads(json.dumps(self._payload))
 
             with patch.object(
                 dashboard,

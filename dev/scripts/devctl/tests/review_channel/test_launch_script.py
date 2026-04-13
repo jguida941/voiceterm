@@ -39,6 +39,7 @@ def _build_script(
     headless: bool = False,
     log_path: Path | None = None,
     interaction_mode: str = "",
+    role: str = "",
     workspace_root: Path | None = None,
 ) -> str:
     """Build a session script in a temp dir and return its text."""
@@ -50,6 +51,7 @@ def _build_script(
             repo_root=root,
             workspace_root=workspace_root,
             prompt="test prompt",
+            role=role,
             script_path=script_path,
             log_path=log_path,
             resolve_cli_path_fn=lambda p: f"/usr/bin/{p}",
@@ -100,6 +102,11 @@ class TestLaunchScriptBaseline(unittest.TestCase):
     def test_script_contains_exit_on_success_guard(self) -> None:
         script = _build_script()
         self.assertIn("REVIEW_CHANNEL_EXIT_ON_SUCCESS", script)
+
+    def test_script_exports_caller_role_for_devctl_children(self) -> None:
+        script = _build_script(role="reviewer")
+        self.assertIn("REVIEW_CHANNEL_CALLER_ROLE=reviewer", script)
+        self.assertIn('export DEVCTL_CALLER_ROLE="${DEVCTL_CALLER_ROLE:-$REVIEW_CHANNEL_CALLER_ROLE}"', script)
 
     def test_script_uses_workspace_root_when_present(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

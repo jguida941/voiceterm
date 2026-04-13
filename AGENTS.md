@@ -1395,7 +1395,12 @@ Routine helper:
   the typed `CommitPermissionDecision`: explicit
   `implementation_permission=blocked|suspended` blocks `vcs.stage`,
   `vcs.commit`, and raw `git commit` until the routed startup/review recovery
-  command is run. `devctl push` must reuse the repo-policy/default remote for any
+  command is run. The one allowed exception is executor-scoped checkpoint
+  authority: when startup explicitly says `advisory_action=checkpoint_allowed`
+  and `push_decision=await_checkpoint` with `reviewer_gate.checkpoint_permitted=true`,
+  `devctl commit` may still advance the governed checkpoint path, but raw
+  `git commit` remains blocked until broader implementation authority is
+  repaired. `devctl push` must reuse the repo-policy/default remote for any
   active governed pipeline and must not treat a degraded `tools_only`
   reviewer runtime as license to skip exact-head publication authorization.
   Governed commit/push approval is also worktree-bound now: the staged

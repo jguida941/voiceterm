@@ -27,6 +27,7 @@ def review_state_relative_candidates(
     if governance is not None:
         review_root = str(governance.artifact_roots.review_root or "").strip()
         if review_root:
+            _append_projection_sibling_candidate(candidates, review_root)
             _append_candidate(candidates, f"{review_root.rstrip('/')}/review_state.json")
         elif active_path_config_is_overridden():
             for candidate in active_path_config().review_state_candidates:
@@ -92,6 +93,13 @@ def load_current_review_state_payload(
     Callers that need a live bridge-backed refresh may set
     ``prefer_cached_projection=False``; frozen-call-site parity should instead
     pass an already-loaded typed ``ReviewState`` object directly.
+
+    Event-backed ``.../projections/latest/review_state.json`` bundles are an
+    exception: when the governed resolver already selected that path, keep it
+    authoritative regardless of ``prefer_cached_projection``. Downgrading those
+    callers onto the legacy bridge-refresh compatibility root reintroduces
+    stale current-slice / coordination text and breaks parity across startup,
+    dashboard, and session-resume surfaces.
     """
     resolved_governance = _resolve_governance(repo_root, governance=governance)
     typed_path = resolve_review_state_path(
@@ -103,6 +111,11 @@ def load_current_review_state_payload(
         repo_root,
         governance=resolved_governance,
     )
+    if typed_payload is not None and _is_event_backed_projection_path(
+        typed_path,
+        repo_root=repo_root,
+    ):
+        return typed_payload
     if prefer_cached_projection and typed_payload is not None and (
         not freshness_paths
         or cache_is_fresh(typed_path, freshness_paths=freshness_paths)
@@ -179,6 +192,25 @@ def _append_candidate(candidates: list[str], candidate: Any) -> None:
         candidates.append(text)
 
 
+def _append_projection_sibling_candidate(
+    candidates: list[str],
+    review_root: str,
+) -> None:
+    """Prefer the event-backed projections root when governance points at `latest`.
+
+    Portable repo packs still expose legacy `.../latest` compatibility roots in
+    some trees, while the freshest typed ReviewState now lives under the sibling
+    `.../projections/latest` bundle. Add that sibling first so live consumers
+    read the event-backed projection when both paths exist, but keep the
+    governed `review_root/review_state.json` path as a fallback for older repos.
+    """
+    root_path = Path(str(review_root).strip())
+    if root_path.name != "latest" or root_path.parent.name == "projections":
+        return
+    projection_root = root_path.parent / "projections" / root_path.name
+    _append_candidate(candidates, projection_root.as_posix() + "/review_state.json")
+
+
 def _load_payload_from_path(path: Path | None) -> dict[str, object] | None:
     if path is None:
         return None
@@ -187,6 +219,16 @@ def _load_payload_from_path(path: Path | None) -> dict[str, object] | None:
     except (OSError, ValueError):
         return None
     return dict(payload) if isinstance(payload, dict) else None
+
+
+def _is_event_backed_projection_path(path: Path | None, *, repo_root: Path) -> bool:
+    if path is None:
+        return False
+    try:
+        relative = path.relative_to(repo_root).as_posix()
+    except ValueError:
+        return False
+    return relative.endswith("/projections/latest/review_state.json")
 
 
 def _resolve_governance(

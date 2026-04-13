@@ -62,10 +62,18 @@ def staged_diff_summary(repo_root: Path) -> str:
     return output
 
 
+def index_tree_hash_result(repo_root: Path) -> tuple[str, str]:
+    """Return the staged-tree hash plus the git error when write-tree fails."""
+    code, output, error = run_git_capture(["write-tree"], repo_root=repo_root)
+    if code == 0:
+        return output, ""
+    return "", error or "git write-tree failed"
+
+
 def index_tree_hash(repo_root: Path) -> str:
     """Return the SHA for the current staged tree, or empty on failure."""
-    code, output, _ = run_git_capture(["write-tree"], repo_root=repo_root)
-    return output if code == 0 else ""
+    output, _ = index_tree_hash_result(repo_root)
+    return output
 
 
 def current_branch(repo_root: Path) -> str:

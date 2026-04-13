@@ -86,3 +86,74 @@ def test_build_runtime_counts_falls_back_to_bridge_liveness_without_participants
     assert counts["live_participants_total"] == 2
     assert counts["active_conductor_count"] == 2
     assert counts["running_daemon_count"] == 1
+
+
+def test_build_runtime_counts_excludes_operator_from_active_conductor_count() -> None:
+    counts = build_runtime_counts(
+        collaboration={
+            "participants": [
+                {
+                    "agent_id": "codex",
+                    "provider": "codex",
+                    "role": "reviewer",
+                    "live": True,
+                },
+                {
+                    "agent_id": "claude",
+                    "provider": "claude",
+                    "role": "operator",
+                    "live": True,
+                },
+            ],
+            "delegated_work": [],
+        }
+    )
+
+    assert counts["live_participants_total"] == 2
+    assert counts["live_reviewer_total"] == 1
+    assert counts["live_implementer_total"] == 0
+    assert counts["active_conductor_count"] == 1
+
+
+def test_build_runtime_counts_counts_live_single_agent_writer_from_role_assignments() -> None:
+    counts = build_runtime_counts(
+        collaboration={
+            "participants": [
+                {
+                    "agent_id": "codex",
+                    "provider": "codex",
+                    "role": "reviewer",
+                    "live": True,
+                },
+                {
+                    "agent_id": "claude",
+                    "provider": "claude",
+                    "role": "operator",
+                    "live": True,
+                },
+            ],
+            "role_assignments": [
+                {
+                    "role_id": "review_agent",
+                    "provider": "codex",
+                    "live": True,
+                },
+                {
+                    "role_id": "coding_agent",
+                    "provider": "codex",
+                    "live": True,
+                },
+                {
+                    "role_id": "operator_agent",
+                    "provider": "claude",
+                    "live": True,
+                },
+            ],
+            "delegated_work": [],
+        }
+    )
+
+    assert counts["live_participants_total"] == 2
+    assert counts["live_reviewer_total"] == 1
+    assert counts["live_implementer_total"] == 1
+    assert counts["active_conductor_count"] == 1

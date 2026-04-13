@@ -124,10 +124,11 @@ def _reviewer_guard_lines(
             "resume the review pass as soon as implementer-owned state changes."
         ),
         (
-            f"- Keep the {counterpart_provider_name}-targeted packet stream live too: use "
-            f"`review-channel --action watch --target {counterpart_provider_id} --status pending "
-            "--follow` (or the equivalent inbox surface) while reviewing so "
-            "new findings/instructions do not depend on manual repolling."
+            f"- `review-channel --action reviewer-wait` now includes the "
+            f"{counterpart_provider_name}-targeted pending-packet wake path, so "
+            "reviewer-side wait does not depend on a separately started packet "
+            "watcher. Use the standalone watch/inbox surface only for observer "
+            "dashboards or explicit queue inspection."
         ),
         (
             "- In `active_dual_agent`, reviewer mode is review-only by default. "

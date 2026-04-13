@@ -169,52 +169,10 @@ PATH_POLICY_OVERRIDES: dict[str, ShapePolicy] = {
         hard_lock_growth_limit=0,
     ),
     "rust/src/bin/voiceterm/dev_command/command_state.rs": ShapePolicy(soft_limit=500, hard_limit=550, oversize_growth_limit=0, hard_lock_growth_limit=0),
-    "dev/scripts/checks/check_code_shape.py": ShapePolicy(
-        soft_limit=675,
-        hard_limit=725,
-        oversize_growth_limit=30,
-        hard_lock_growth_limit=0,
-    ),
     "dev/scripts/checks/check_active_plan_sync.py": ShapePolicy(
         soft_limit=650,
         hard_limit=700,
         oversize_growth_limit=35,
-        hard_lock_growth_limit=0,
-    ),
-    "dev/scripts/checks/check_multi_agent_sync.py": ShapePolicy(
-        soft_limit=520,
-        hard_limit=700,
-        oversize_growth_limit=35,
-        hard_lock_growth_limit=0,
-    ),
-    "dev/scripts/checks/compat_matrix_smoke.py": ShapePolicy(
-        soft_limit=450,
-        hard_limit=650,
-        oversize_growth_limit=25,
-        hard_lock_growth_limit=0,
-    ),
-    "dev/scripts/checks/check_rust_lint_debt.py": ShapePolicy(
-        soft_limit=450,
-        hard_limit=650,
-        oversize_growth_limit=25,
-        hard_lock_growth_limit=0,
-    ),
-    "dev/scripts/checks/check_rust_best_practices.py": ShapePolicy(
-        soft_limit=525,
-        hard_limit=650,
-        oversize_growth_limit=35,
-        hard_lock_growth_limit=0,
-    ),
-    "dev/scripts/checks/check_bundle_workflow_parity.py": ShapePolicy(
-        soft_limit=675,
-        hard_limit=750,
-        oversize_growth_limit=40,
-        hard_lock_growth_limit=0,
-    ),
-    "dev/scripts/checks/check_duplication_audit.py": ShapePolicy(
-        soft_limit=450,
-        hard_limit=550,
-        oversize_growth_limit=30,
         hard_lock_growth_limit=0,
     ),
     "dev/scripts/checks/check_duplication_audit_support.py": ShapePolicy(
@@ -239,12 +197,6 @@ PATH_POLICY_OVERRIDES: dict[str, ShapePolicy] = {
         soft_limit=875,
         hard_limit=950,
         oversize_growth_limit=80,
-        hard_lock_growth_limit=0,
-    ),
-    "dev/scripts/checks/coderabbit_ralph_loop_core.py": ShapePolicy(
-        soft_limit=360,
-        hard_limit=500,
-        oversize_growth_limit=20,
         hard_lock_growth_limit=0,
     ),
     "dev/scripts/checks/naming_consistency_core.py": ShapePolicy(
@@ -371,12 +323,6 @@ PATH_POLICY_OVERRIDES: dict[str, ShapePolicy] = {
         soft_limit=650,
         hard_limit=725,
         oversize_growth_limit=35,
-        hard_lock_growth_limit=0,
-    ),
-    "dev/scripts/checks/check_python_broad_except.py": ShapePolicy(
-        soft_limit=425,
-        hard_limit=500,
-        oversize_growth_limit=30,
         hard_lock_growth_limit=0,
     ),
     "app/operator_console/views/workspaces/home_workspace.py": ShapePolicy(

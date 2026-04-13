@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from collections.abc import Sequence
 from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
@@ -34,8 +33,9 @@ from .governed_executor_actions import (
 )
 from .governed_executor_field_access import string_value
 from .governed_executor_git import repo_relpath
+from .governed_executor_commit_phase import CommitPipelineContext, execute_commit
 from .governed_executor_packets import build_commit_approval_request
-from .governed_executor_phases import execute_commit, execute_stage
+from .governed_executor_phases import execute_stage
 from .governed_executor_push_result import project_push_report
 from .governed_executor_validation import build_validation_receipt
 from .governed_executor_sync import (
@@ -149,12 +149,15 @@ class GovernedVcsExecutor:
         # instead of adding an uncommitted post-commit write here.
         return execute_commit(
             action,
-            repo_root=self.repo_root,
-            load_pipeline=self.load_pipeline,
-            persist_pipeline=self._persist_pipeline,
-            event_packets_loader=self._event_packets,
-            pipeline_artifact_relpath=self._pipeline_artifact_relpath(),
-            result_builder=self._result,
+            context=CommitPipelineContext(
+                repo_root=self.repo_root,
+                review_channel_path=self.review_channel_path,
+                load_pipeline=self.load_pipeline,
+                persist_pipeline=self._persist_pipeline,
+                event_packets_loader=self._event_packets,
+                pipeline_artifact_relpath=self._pipeline_artifact_relpath(),
+                result_builder=self._result,
+            ),
         )
 
     def _execute_push(self, action: TypedAction) -> ActionResult:

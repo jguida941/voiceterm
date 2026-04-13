@@ -153,6 +153,11 @@ REVIEW_STATE_CONTRACTS: tuple[ContractSpec, ...] = (
                 "Typed review-channel packets, including approval state.",
             ),
             ContractField(
+                "packet_inbox",
+                "PacketInboxState",
+                "Canonical per-agent attention/wake contract derived from typed review packets.",
+            ),
+            ContractField(
                 "registry",
                 "AgentRegistryState",
                 "Current agent-registry snapshot for the review surface.",

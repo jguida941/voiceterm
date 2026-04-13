@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import replace
 from pathlib import Path
 from types import SimpleNamespace
+from unittest.mock import patch
 
 from dev.scripts.devctl.commands.vcs.governed_executor import (
     APPROVAL_PACKET_KIND,
@@ -14,7 +15,15 @@ from dev.scripts.devctl.commands.vcs.governed_executor import (
     build_recover_action,
     build_stage_action,
 )
+from dev.scripts.devctl.commands.vcs.governed_executor_commit_runtime import (
+    attention_revision_stale,
+    resolve_commit_execution_target as _resolve_commit_execution_target,
+)
+from dev.scripts.devctl.commands.vcs.governed_executor_phases import (
+    _attention_revision_block,
+)
 from dev.scripts.devctl.commands.vcs.push import build_push_action
+from dev.scripts.devctl.review_channel.event_reducer import load_or_refresh_event_bundle
 from dev.scripts.devctl.governance.push_policy import (
     PushBypassPolicy,
     PushCheckpointPolicy,
@@ -74,6 +83,71 @@ def test_stage_action_persists_staged_snapshot_hash(tmp_path: Path) -> None:
     assert (repo_root / "dev/reports/review_channel/latest/commit_pipeline.json").exists()
 
 
+def test_stage_surfaces_write_tree_error_when_git_index_is_blocked(tmp_path: Path) -> None:
+    repo_root = _init_repo(tmp_path / "repo")
+    (repo_root / "tracked.txt").write_text("updated\n", encoding="utf-8")
+    executor = _executor(repo_root)
+
+    with patch(
+        "dev.scripts.devctl.commands.vcs.governed_executor_phases.index_tree_hash_result",
+        return_value=(
+            "",
+            "fatal: Unable to create '/tmp/repo/.git/index.lock': Operation not permitted",
+        ),
+    ):
+        result = executor.execute(
+            build_stage_action(
+                repo_pack_id="test-pack",
+                paths=("tracked.txt",),
+                commit_message_draft="feat: update tracked file",
+                push_requested=True,
+                guard_profile="bundle.tooling",
+                work_intake_ref="MP-377",
+            )
+        )
+
+    assert result.ok is False
+    assert result.reason == "git_index_write_blocked"
+    assert ".git/index.lock" in result.operator_guidance
+    assert result.warnings == (
+        "fatal: Unable to create '/tmp/repo/.git/index.lock': Operation not permitted",
+    )
+
+
+def test_stage_surfaces_git_add_sandbox_block_as_index_write_blocked(
+    tmp_path: Path,
+) -> None:
+    repo_root = _init_repo(tmp_path / "repo")
+    (repo_root / "tracked.txt").write_text("updated\n", encoding="utf-8")
+    executor = _executor(repo_root)
+
+    with patch(
+        "dev.scripts.devctl.commands.vcs.governed_executor_phases.run_git_capture",
+        return_value=(
+            128,
+            "",
+            "fatal: Unable to create '/tmp/repo/.git/index.lock': Operation not permitted",
+        ),
+    ):
+        result = executor.execute(
+            build_stage_action(
+                repo_pack_id="test-pack",
+                paths=("tracked.txt",),
+                commit_message_draft="feat: update tracked file",
+                push_requested=True,
+                guard_profile="bundle.tooling",
+                work_intake_ref="MP-377",
+            )
+        )
+
+    assert result.ok is False
+    assert result.reason == "git_index_write_blocked"
+    assert ".git/index.lock" in result.operator_guidance
+    assert result.warnings == (
+        "fatal: Unable to create '/tmp/repo/.git/index.lock': Operation not permitted",
+    )
+
+
 def test_commit_requires_applied_operator_approval(tmp_path: Path) -> None:
     repo_root = _init_repo(tmp_path / "repo")
     (repo_root / "tracked.txt").write_text("updated\n", encoding="utf-8")
@@ -101,6 +175,353 @@ def test_commit_requires_applied_operator_approval(tmp_path: Path) -> None:
 
     assert result.ok is False
     assert result.reason == "operator_approval_missing"
+
+
+def test_commit_attention_revision_ignores_expired_unresolved_only() -> None:
+    review_state = SimpleNamespace(
+        packet_inbox=SimpleNamespace(
+            attention_revision="live-rev",
+            agents=(
+                SimpleNamespace(
+                    agent="codex",
+                    attention_status="review_needed",
+                    wake_reason="expired_unresolved_packet",
+                    pending_actionable_packet_ids=(),
+                ),
+            ),
+        )
+    )
+
+    with (
+        patch(
+            "dev.scripts.devctl.commands.vcs.governed_executor_commit_runtime.load_live_review_state",
+            return_value=review_state,
+        ),
+        patch(
+            "dev.scripts.devctl.commands.vcs.governed_executor_commit_runtime.resolve_commit_execution_target",
+            return_value="codex",
+        ),
+        patch(
+            "dev.scripts.devctl.commands.vcs.governed_executor_commit_runtime.load_startup_receipt",
+            return_value=SimpleNamespace(attention_revision="receipt-rev"),
+        ),
+    ):
+        assert (
+            attention_revision_stale(
+                repo_root=Path("."),
+                review_channel_path=Path("dev/active/review_channel.md"),
+            )
+            is False
+        )
+
+
+def test_commit_attention_revision_blocks_on_live_finding_attention() -> None:
+    review_state = SimpleNamespace(
+        packet_inbox=SimpleNamespace(
+            attention_revision="live-rev",
+            agents=(
+                SimpleNamespace(
+                    agent="codex",
+                    attention_status="review_needed",
+                    wake_reason="finding_pending",
+                    pending_actionable_packet_ids=(),
+                ),
+            ),
+        )
+    )
+
+    with (
+        patch(
+            "dev.scripts.devctl.commands.vcs.governed_executor_commit_runtime.load_live_review_state",
+            return_value=review_state,
+        ),
+        patch(
+            "dev.scripts.devctl.commands.vcs.governed_executor_commit_runtime.resolve_commit_execution_target",
+            return_value="codex",
+        ),
+        patch(
+            "dev.scripts.devctl.commands.vcs.governed_executor_commit_runtime.load_startup_receipt",
+            return_value=SimpleNamespace(attention_revision="receipt-rev"),
+        ),
+    ):
+        assert (
+            attention_revision_stale(
+                repo_root=Path("."),
+                review_channel_path=Path("dev/active/review_channel.md"),
+            )
+            is True
+        )
+
+
+def test_commit_attention_revision_ignores_other_agents_actionable_packets() -> None:
+    review_state = SimpleNamespace(
+        packet_inbox=SimpleNamespace(
+            attention_revision="live-rev",
+            agents=(
+                SimpleNamespace(
+                    agent="claude",
+                    attention_status="review_needed",
+                    wake_reason="finding_pending",
+                    pending_actionable_packet_ids=(),
+                ),
+            ),
+        )
+    )
+
+    with (
+        patch(
+            "dev.scripts.devctl.commands.vcs.governed_executor_commit_runtime.load_live_review_state",
+            return_value=review_state,
+        ),
+        patch(
+            "dev.scripts.devctl.commands.vcs.governed_executor_commit_runtime.resolve_commit_execution_target",
+            return_value="codex",
+        ),
+        patch(
+            "dev.scripts.devctl.commands.vcs.governed_executor_commit_runtime.load_startup_receipt",
+            return_value=SimpleNamespace(attention_revision="receipt-rev"),
+        ),
+    ):
+        assert (
+            attention_revision_stale(
+                repo_root=Path("."),
+                review_channel_path=Path("dev/active/review_channel.md"),
+            )
+            is False
+        )
+
+
+def test_stage_attention_revision_ignores_expired_unresolved_only() -> None:
+    action = SimpleNamespace(action_id="vcs.stage")
+    startup_context = {
+        "work_intake": {"coordination": {"active_implementation_owner": "codex"}},
+        "packet_inbox": {
+            "attention_revision": "live-rev",
+            "agents": [
+                {
+                    "agent": "codex",
+                    "attention_status": "review_needed",
+                    "wake_reason": "expired_unresolved_packet",
+                    "pending_actionable_total": 0,
+                }
+            ],
+        }
+    }
+
+    with patch(
+        "dev.scripts.devctl.commands.vcs.governed_executor_phases.load_startup_receipt",
+        return_value=SimpleNamespace(attention_revision="receipt-rev"),
+    ):
+        result = _attention_revision_block(
+            action=action,
+            repo_root=Path("."),
+            startup_context=startup_context,
+            result_builder=lambda **kwargs: kwargs,
+        )
+
+    assert result is None
+
+
+def test_stage_attention_revision_blocks_on_live_finding_attention() -> None:
+    action = SimpleNamespace(action_id="vcs.stage")
+    startup_context = {
+        "work_intake": {"coordination": {"active_implementation_owner": "codex"}},
+        "packet_inbox": {
+            "attention_revision": "live-rev",
+            "agents": [
+                {
+                    "agent": "codex",
+                    "attention_status": "review_needed",
+                    "wake_reason": "finding_pending",
+                    "pending_actionable_total": 0,
+                }
+            ],
+        }
+    }
+
+    with patch(
+        "dev.scripts.devctl.commands.vcs.governed_executor_phases.load_startup_receipt",
+        return_value=SimpleNamespace(attention_revision="receipt-rev"),
+    ):
+        result = _attention_revision_block(
+            action=action,
+            repo_root=Path("."),
+            startup_context=startup_context,
+            result_builder=lambda **kwargs: kwargs,
+        )
+
+    assert result is not None
+    assert result["reason"] == "attention_revision_stale"
+
+
+def test_stage_attention_revision_ignores_other_agents_actionable_packets() -> None:
+    action = SimpleNamespace(action_id="vcs.stage")
+    startup_context = {
+        "work_intake": {"coordination": {"active_implementation_owner": "codex"}},
+        "packet_inbox": {
+            "attention_revision": "live-rev",
+            "agents": [
+                {
+                    "agent": "claude",
+                    "attention_status": "review_needed",
+                    "wake_reason": "finding_pending",
+                    "pending_actionable_total": 0,
+                }
+            ],
+        },
+    }
+
+    with patch(
+        "dev.scripts.devctl.commands.vcs.governed_executor_phases.load_startup_receipt",
+        return_value=SimpleNamespace(attention_revision="receipt-rev"),
+    ):
+        result = _attention_revision_block(
+            action=action,
+            repo_root=Path("."),
+            startup_context=startup_context,
+            result_builder=lambda **kwargs: kwargs,
+        )
+
+    assert result is None
+
+
+def test_commit_posts_runtime_action_request_when_git_index_write_is_blocked(
+    tmp_path: Path,
+) -> None:
+    repo_root = _init_repo(tmp_path / "repo")
+    (repo_root / "tracked.txt").write_text("updated\n", encoding="utf-8")
+    executor = _executor(repo_root)
+
+    executor.execute(
+        build_stage_action(
+            repo_pack_id="test-pack",
+            paths=("tracked.txt",),
+            commit_message_draft="feat: governed remote pipeline",
+            push_requested=True,
+            guard_profile="bundle.tooling",
+            work_intake_ref="MP-377",
+        )
+    )
+    executor.record_guard_result(_passing_guard_result())
+    pipeline = executor.load_pipeline()
+    artifact_paths = resolve_artifact_paths(repo_root=repo_root)
+    _approve_pipeline(repo_root=repo_root, pipeline=pipeline)
+
+    live_writable_lane = SimpleNamespace(
+        collaboration=SimpleNamespace(
+            reviewer_mode="active_dual_agent",
+            coding_agent="claude",
+            review_agent="codex",
+            role_assignments=(),
+        ),
+        bridge=SimpleNamespace(
+            implementer_capability=SimpleNamespace(
+                provider="claude",
+                may_edit_repo=True,
+            ),
+            reviewer_capability=SimpleNamespace(
+                provider="codex",
+                may_edit_repo=False,
+            ),
+            effective_reviewer_mode="active_dual_agent",
+            reviewer_mode="active_dual_agent",
+        ),
+    )
+
+    with patch(
+        "dev.scripts.devctl.commands.vcs.governed_executor_commit_phase.run_git_capture",
+        return_value=(
+            128,
+            "",
+            "fatal: Unable to create '/tmp/repo/.git/index.lock': Operation not permitted",
+        ),
+    ), patch(
+        "dev.scripts.devctl.commands.vcs.governed_executor_commit_phase.runtime_load_live_review_state",
+        return_value=live_writable_lane,
+    ):
+        result = executor.execute(
+            build_commit_action(repo_pack_id="test-pack", pipeline_id=pipeline.pipeline_id)
+        )
+
+    bundle = load_or_refresh_event_bundle(
+        repo_root=repo_root,
+        review_channel_path=repo_root / "dev/active/review_channel.md",
+        artifact_paths=artifact_paths,
+    )
+    action_requests = [
+        packet
+        for packet in bundle.review_state["packets"]
+        if packet.get("kind") == "action_request"
+        and packet.get("requested_action") == "commit"
+    ]
+    current_pipeline = executor.load_pipeline()
+
+    assert result.ok is False
+    assert result.reason == "git_index_write_blocked"
+    assert current_pipeline.blocked_reason == "git_index_write_blocked"
+    assert current_pipeline.commit_result is not None
+    assert current_pipeline.commit_result.reason == "git_index_write_blocked"
+    assert len(action_requests) == 1
+    assert action_requests[0]["to_agent"] == "claude"
+    assert action_requests[0]["target_kind"] == "runtime"
+    assert action_requests[0]["target_ref"] == f"remote_commit_pipeline:{pipeline.pipeline_id}"
+    assert action_requests[0]["pipeline_generation"] == pipeline.generation_id
+    assert action_requests[0]["staged_snapshot_hash"] == pipeline.intent.staged_tree_hash
+    assert action_requests[0]["approval_required"] is False
+    assert any(
+        warning.startswith("commit_execution_request_packet=rev_pkt_")
+        for warning in result.warnings
+    )
+
+
+def test_commit_execution_target_falls_back_to_writable_reviewer_lane() -> None:
+    review_state = SimpleNamespace(
+        collaboration=SimpleNamespace(
+            reviewer_mode="single_agent",
+            coding_agent="claude",
+            review_agent="codex",
+            role_assignments=(),
+        ),
+        bridge=SimpleNamespace(
+            implementer_capability=SimpleNamespace(
+                provider="claude",
+                may_edit_repo=False,
+            ),
+            reviewer_capability=SimpleNamespace(
+                provider="codex",
+                may_edit_repo=True,
+            ),
+            effective_reviewer_mode="single_agent",
+            reviewer_mode="single_agent",
+        ),
+    )
+
+    assert _resolve_commit_execution_target(review_state) == "codex"
+
+
+def test_commit_execution_target_fails_closed_without_writable_lane() -> None:
+    review_state = SimpleNamespace(
+        collaboration=SimpleNamespace(
+            reviewer_mode="active_dual_agent",
+            coding_agent="claude",
+            review_agent="codex",
+            role_assignments=(),
+        ),
+        bridge=SimpleNamespace(
+            implementer_capability=SimpleNamespace(
+                provider="claude",
+                may_edit_repo=False,
+            ),
+            reviewer_capability=SimpleNamespace(
+                provider="codex",
+                may_edit_repo=False,
+            ),
+            effective_reviewer_mode="active_dual_agent",
+            reviewer_mode="active_dual_agent",
+        ),
+    )
+
+    assert _resolve_commit_execution_target(review_state) == ""
 
 
 def test_recover_clear_resets_blocked_pipeline(tmp_path: Path) -> None:
@@ -469,6 +890,96 @@ def test_commit_does_not_reread_startup_publish_gate_after_approval(tmp_path: Pa
     assert startup_calls == 1
 
 
+def test_commit_marks_git_invocation_as_governed(tmp_path: Path) -> None:
+    repo_root = _init_repo(tmp_path / "repo")
+    (repo_root / "tracked.txt").write_text("updated\n", encoding="utf-8")
+    executor = _executor(repo_root)
+
+    stage_result = executor.execute(
+        build_stage_action(
+            repo_pack_id="test-pack",
+            paths=("tracked.txt",),
+            commit_message_draft="feat: governed marker",
+            push_requested=True,
+            guard_profile="bundle.tooling",
+            work_intake_ref="MP-377",
+        )
+    )
+    assert stage_result.ok is True
+
+    executor.record_guard_result(_passing_guard_result())
+    pipeline = executor.load_pipeline()
+    artifact_paths = resolve_artifact_paths(repo_root=repo_root)
+    post_packet(
+        repo_root=repo_root,
+        review_channel_path=repo_root / "dev/active/review_channel.md",
+        artifact_paths=artifact_paths,
+        request=build_commit_approval_request(pipeline),
+    )
+    _, decision_event = post_packet(
+        repo_root=repo_root,
+        review_channel_path=repo_root / "dev/active/review_channel.md",
+        artifact_paths=artifact_paths,
+        request=PacketPostRequest(
+            from_agent="operator",
+            to_agent="system",
+            kind=APPROVAL_PACKET_KIND,
+            summary="Approve governed commit pipeline",
+            body="Operator approved the guarded staged snapshot.",
+            requested_action="approve_commit_pipeline",
+            policy_hint="operator_approval_required",
+            approval_required=False,
+            trace_id=pipeline.pipeline_id,
+            target=PacketTargetFields.from_values(
+                target_kind="runtime",
+                target_ref=f"remote_commit_pipeline:{pipeline.pipeline_id}",
+                target_revision=pipeline.generation_id,
+            ),
+            runtime_approval=PacketRuntimeApprovalFields.from_values(
+                pipeline_generation=pipeline.generation_id,
+                staged_snapshot_hash=pipeline.intent.staged_tree_hash,
+                guard_results_summary='{"action_id": "quality.guard_bundle", "reason": "", "status": "pass"}',
+            ),
+        ),
+    )
+    transition_packet(
+        repo_root=repo_root,
+        review_channel_path=repo_root / "dev/active/review_channel.md",
+        artifact_paths=artifact_paths,
+        request=PacketTransitionRequest(
+            action="apply",
+            packet_id=str(decision_event["packet_id"]),
+            actor="operator",
+        ),
+    )
+
+    original_run_git_capture = __import__(
+        "dev.scripts.devctl.commands.vcs.governed_executor_commit_phase",
+        fromlist=["run_git_capture"],
+    ).run_git_capture
+    captured_calls: list[tuple[tuple[str, ...], dict[str, str] | None]] = []
+
+    def _capture_commit_args(args, *, repo_root: Path, extra_env=None):
+        captured_calls.append((tuple(args), extra_env))
+        return original_run_git_capture(args, repo_root=repo_root, extra_env=extra_env)
+
+    with patch(
+        "dev.scripts.devctl.commands.vcs.governed_executor_commit_phase.run_git_capture",
+        side_effect=_capture_commit_args,
+    ):
+        commit_result = executor.execute(
+            build_commit_action(repo_pack_id="test-pack", pipeline_id=pipeline.pipeline_id)
+        )
+
+    assert commit_result.ok is True
+    assert any(
+        args[:3] == ("-c", "devctl.governed-commit=true", "commit")
+        and "--no-verify" in args
+        and extra_env == {"DEVCTL_GOVERNED_COMMIT": "1"}
+        for args, extra_env in captured_calls
+    )
+
+
 def _executor(
     repo_root: Path,
     *,
@@ -553,4 +1064,54 @@ def _passing_guard_result() -> ActionResult:
         ok=True,
         status=ActionOutcome.PASS,
         reason="",
+    )
+
+
+def _approve_pipeline(
+    *,
+    repo_root: Path,
+    pipeline,
+) -> None:
+    artifact_paths = resolve_artifact_paths(repo_root=repo_root)
+    post_packet(
+        repo_root=repo_root,
+        review_channel_path=repo_root / "dev/active/review_channel.md",
+        artifact_paths=artifact_paths,
+        request=build_commit_approval_request(pipeline),
+    )
+    _, decision_event = post_packet(
+        repo_root=repo_root,
+        review_channel_path=repo_root / "dev/active/review_channel.md",
+        artifact_paths=artifact_paths,
+        request=PacketPostRequest(
+            from_agent="operator",
+            to_agent="system",
+            kind=APPROVAL_PACKET_KIND,
+            summary="Approve governed commit pipeline",
+            body="Operator approved the guarded staged snapshot.",
+            requested_action="approve_commit_pipeline",
+            policy_hint="operator_approval_required",
+            approval_required=False,
+            trace_id=pipeline.pipeline_id,
+            target=PacketTargetFields.from_values(
+                target_kind="runtime",
+                target_ref=f"remote_commit_pipeline:{pipeline.pipeline_id}",
+                target_revision=pipeline.generation_id,
+            ),
+            runtime_approval=PacketRuntimeApprovalFields.from_values(
+                pipeline_generation=pipeline.generation_id,
+                staged_snapshot_hash=pipeline.intent.staged_tree_hash,
+                guard_results_summary='{"action_id": "quality.guard_bundle", "reason": "", "status": "pass"}',
+            ),
+        ),
+    )
+    transition_packet(
+        repo_root=repo_root,
+        review_channel_path=repo_root / "dev/active/review_channel.md",
+        artifact_paths=artifact_paths,
+        request=PacketTransitionRequest(
+            action="apply",
+            packet_id=str(decision_event["packet_id"]),
+            actor="operator",
+        ),
     )

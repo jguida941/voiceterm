@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
-from dataclasses import asdict, replace
 from collections.abc import Mapping
+from dataclasses import asdict, replace
 from pathlib import Path
 
 from ..runtime.governance_scan import scan_repo_governance_safely
 from ..runtime.review_state_parser import review_state_from_payload
 from ..runtime.review_state_models import ReviewQueueState
+from ..runtime.review_packet_inbox import build_packet_inbox_payload
 from ..runtime.surface_snapshot import build_surface_snapshot_id
 from .attach_auth_policy import build_attach_auth_policy
 from .attach_auth_projection import (
@@ -16,14 +17,15 @@ from .attach_auth_projection import (
     build_service_identity_state,
 )
 from .core import DEFAULT_BRIDGE_REL
-from .current_session_projection import (
-    build_event_current_session,
-    current_session_payload,
-)
+from .current_session_projection import current_session_payload
 from .event_projection_context import (
     append_event_instruction_context,
     build_event_context_packet,
     build_instruction_source,
+)
+from .event_projection_enrichment import (
+    EventProjectionContext,
+    resolve_current_session as _resolve_current_session,
 )
 from .collaboration_session import build_collaboration_session
 from .event_projection_bridge import (
@@ -44,11 +46,7 @@ from .recovery_assessment import (
 from .status_projection_helpers import build_bridge_push_enforcement_state
 from .status_push_decision import build_status_push_decision
 from .action_request_delivery import attach_action_request_delivery_receipts
-from .event_projection_queue import (
-    derive_event_next_instruction,
-    derive_event_next_instruction_bundle,
-    derive_event_next_instruction_source,
-)
+from .event_projection_queue import derive_event_next_instruction_bundle
 from .service_identity import build_service_identity
 
 
@@ -107,37 +105,45 @@ def build_event_queue_state(
     )
 
 
+def _attach_event_queue_state(
+    review_state: dict[str, object],
+    *,
+    artifact_root: Path | None,
+) -> None:
+    packets = review_state.get("packets")
+    if not isinstance(packets, list):
+        return
+    review_state["packets"] = attach_action_request_delivery_receipts(
+        packets=packets,
+        artifact_root=artifact_root,
+    )
+    queue = _mapping(review_state.get("queue"))
+    pending_counts = {
+        "codex": int(queue.get("pending_codex") or 0),
+        "claude": int(queue.get("pending_claude") or 0),
+        "cursor": int(queue.get("pending_cursor") or 0),
+        "operator": int(queue.get("pending_operator") or 0),
+    }
+    review_state["queue"] = asdict(
+        build_event_queue_state(
+            pending_counts,
+            int(queue.get("stale_packet_count") or 0),
+            review_state["packets"],
+        )
+    )
+
 def enrich_event_review_state(
     *,
     review_state: dict[str, object],
-    repo_root: Path,
-    review_channel_path: Path,
-    projections_root: Path,
-    artifact_root: Path | None = None,
-    push_enforcement: dict[str, object] | None = None,
+    context: EventProjectionContext,
 ) -> tuple[dict[str, object], dict[str, object]]:
     """Attach parity fields needed by event-backed review-state projections."""
     review_state = dict(review_state)
-    packets = review_state.get("packets")
-    if isinstance(packets, list):
-        review_state["packets"] = attach_action_request_delivery_receipts(
-            packets=packets,
-            artifact_root=artifact_root,
-        )
-        queue = _mapping(review_state.get("queue"))
-        pending_counts = {
-            "codex": int(queue.get("pending_codex") or 0),
-            "claude": int(queue.get("pending_claude") or 0),
-            "cursor": int(queue.get("pending_cursor") or 0),
-            "operator": int(queue.get("pending_operator") or 0),
-        }
-        review_state["queue"] = asdict(
-            build_event_queue_state(
-                pending_counts,
-                int(queue.get("stale_packet_count") or 0),
-                review_state["packets"],
-            )
-        )
+    _attach_event_queue_state(review_state, artifact_root=context.artifact_root)
+    repo_root = context.repo_root
+    projections_root = context.projections_root
+    review_channel_path = context.review_channel_path
+    prior_review_state = context.prior_review_state
     raw_service_identity = build_service_identity(
         repo_root=repo_root,
         bridge_path=repo_root / DEFAULT_BRIDGE_REL,
@@ -149,12 +155,13 @@ def enrich_event_review_state(
     )
     bridge_liveness = build_event_bridge_liveness_projection(review_state)
     bridge_liveness["push_enforcement"] = (
-        push_enforcement
-        if push_enforcement is not None
+        context.push_enforcement
+        if context.push_enforcement is not None
         else build_bridge_push_enforcement_state(repo_root)
     )
-    current_session = build_event_current_session(
-        review_state=review_state,
+    current_session = _resolve_current_session(
+        review_state,
+        context=context,
         bridge_liveness=bridge_liveness,
     )
     governance = scan_repo_governance_safely(repo_root)
@@ -224,6 +231,10 @@ def enrich_event_review_state(
         reviewer_runtime=reviewer_runtime,
     )
     review_state["attention"] = attention
+    review_state["packet_inbox"] = build_packet_inbox_payload(
+        review_state.get("packets", ()),
+        attention=attention,
+    )
     typed_review_state = review_state_from_payload(review_state)
     from ..platform.coordination_snapshot import (
         build_coordination_snapshot_for_review_state,

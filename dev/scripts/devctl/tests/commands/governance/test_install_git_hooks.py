@@ -99,6 +99,21 @@ def test_current_install_status_reports_managed_when_marker_present(
     assert current_install_status(hook) == "managed"
 
 
+def test_current_install_status_reports_managed_drifted_when_template_differs(
+    tmp_path: Path,
+) -> None:
+    hook = tmp_path / "pre-commit"
+    template = tmp_path / "template.sh"
+    template.write_text(_MANAGED_HOOK_BODY, encoding="utf-8")
+    hook.write_text(
+        _MANAGED_HOOK_BODY + "\n# drifted managed copy\n",
+        encoding="utf-8",
+    )
+    assert (
+        current_install_status(hook, template_path=template) == "managed_drifted"
+    )
+
+
 def test_current_install_status_reports_non_managed_when_marker_absent(
     tmp_path: Path,
 ) -> None:
@@ -178,6 +193,27 @@ def test_run_install_force_replaces_non_managed_hook(
     assert "devctl-install-git-hooks: managed hook" in hook.read_text(encoding="utf-8")
 
 
+def test_run_install_refreshes_drifted_managed_hook_without_force(
+    tmp_path: Path, monkeypatch
+) -> None:
+    repo_root = _make_main_worktree(tmp_path)
+    hook = repo_root / ".git" / "hooks" / "pre-commit"
+    hook.write_text(
+        _MANAGED_HOOK_BODY + "\n# drifted managed copy\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(
+        "devctl.commands.governance.install_git_hooks.REPO_ROOT", repo_root
+    )
+    args = Namespace(
+        check=False, uninstall=False, force=False, format="json", output=None,
+        pipe_command=None, pipe_args=None,
+    )
+    exit_code = run(args)
+    assert exit_code == 0
+    assert hook.read_text(encoding="utf-8") == _MANAGED_HOOK_BODY
+
+
 def test_run_uninstall_removes_managed_hook(tmp_path: Path, monkeypatch) -> None:
     repo_root = _make_main_worktree(tmp_path)
     hook = repo_root / ".git" / "hooks" / "pre-commit"
@@ -231,6 +267,49 @@ def test_run_check_mode_reports_status_without_writing(
     assert exit_code != 0
     # And nothing was written.
     assert not (repo_root / ".git" / "hooks" / "pre-commit").exists()
+
+
+def test_run_check_mode_flags_drifted_managed_hook(
+    tmp_path: Path, monkeypatch
+) -> None:
+    repo_root = _make_main_worktree(tmp_path)
+    hook = repo_root / ".git" / "hooks" / "pre-commit"
+    hook.write_text(
+        _MANAGED_HOOK_BODY + "\n# drifted managed copy\n",
+        encoding="utf-8",
+    )
+    captured: dict[str, object] = {}
+
+    def _capture_emit(
+        args,
+        *,
+        command: str,
+        json_payload,
+        markdown_output: str,
+        ok: bool = True,
+        summary=None,
+    ) -> int:
+        del args, command, markdown_output, summary
+        captured.update(json_payload)
+        return 0 if ok else 1
+
+    monkeypatch.setattr(
+        "devctl.commands.governance.install_git_hooks.REPO_ROOT", repo_root
+    )
+    monkeypatch.setattr(
+        "devctl.commands.governance.install_git_hooks.emit_governance_command_output",
+        _capture_emit,
+    )
+    args = Namespace(
+        check=True, uninstall=False, force=False, format="json", output=None,
+        pipe_command=None, pipe_args=None,
+    )
+    exit_code = run(args)
+    assert exit_code != 0
+    assert captured["hook_status"] == "drifted"
+    hook_statuses = captured["hook_statuses"]
+    assert isinstance(hook_statuses, dict)
+    assert hook_statuses["pre-commit"] == "managed_drifted"
 
 
 def test_repo_pre_push_template_uses_typed_runtime_guidance() -> None:

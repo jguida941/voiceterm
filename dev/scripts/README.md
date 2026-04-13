@@ -88,7 +88,16 @@ delta instead of resetting to `origin/develop` after publication. Commit
 authority is separate from implementation evidence now too: before staging or
 running guards, `devctl commit` reads the typed `CommitPermissionDecision` and
 blocks when startup authority reports `implementation_permission=blocked` or
-`implementation_permission=suspended`.
+`implementation_permission=suspended`. The bounded checkpoint exception is
+executor-only: if startup explicitly says
+`advisory_action=checkpoint_allowed` and `push_decision=await_checkpoint`
+with `reviewer_gate.checkpoint_permitted=true`, `devctl commit` may still cut
+the governed checkpoint for the staged tree, but raw `git commit` remains
+blocked until the wider implementation-authority issue is repaired. Repo-owned
+review-channel conductors now also export their typed lane as
+`DEVCTL_CALLER_ROLE`, and `devctl commit --role <lane>` remains available for
+wrappers/tests, so dashboard, observer, and default reviewer lanes fail closed
+before staging instead of reaching a mid-flight approval or git-index prompt.
 Generated bootstrap surfaces such as `CLAUDE.md` are part of that same
 architecture boundary: keep them synced with `render-surfaces`, and make sure
 they explain the compiler-style control model plus the
@@ -461,16 +470,18 @@ Portability note:
   path. It sleeps on cadence too, but wakes on meaningful implementer-side
   changes (`reviewer_worker` hash drift plus typed current-session / ACK
   updates) instead of treating passive supervisor freshness as equivalent to
-  new review work. It reads the real `status` report shape (`reviewer_worker`
-  + `bridge_liveness`) and loads typed `current_session` state from the
-  generated `review_state.json` / `compact.json` projections rather than from
-  an invented top-level status payload block. Pair it with the repo-owned
-  Claude packet watcher (`review-channel --action watch --target claude
-  --status pending --follow --terminal none --format json`) so reviewer-side
-  follow-up and packet delivery do not rely on manual polling or chat memory;
-  the targeted watcher now also marks observed `action_request` packets in the
-  typed receipt path, so remote-dashboard beta loops can prove packet delivery
-  without bridge prose or queue-only heuristics.
+  new review work. The same wait path now also wakes on the newest
+  Codex-targeted pending packet id, so reviewer-side packet delivery no longer
+  depends on a separately started watcher during bounded waits. It reads the
+  real `status` report shape (`reviewer_worker` + `bridge_liveness`) and loads
+  typed `current_session` state from the generated `review_state.json` /
+  `compact.json` projections rather than from an invented top-level status
+  payload block. The standalone packet watcher
+  (`review-channel --action watch --target claude --status pending --follow
+  --terminal none --format json`) remains useful for observer dashboards and
+  queue inspection, and it still marks observed `action_request` packets in
+  the typed receipt path so remote-dashboard beta loops can prove packet
+  delivery without bridge prose or queue-only heuristics.
 - `review-channel --action status|ensure|reviewer-heartbeat|reviewer-checkpoint`
   now emit machine-readable `reviewer_worker` state, and
   `review-channel --action ensure --follow` cadence frames also surface a
@@ -537,6 +548,11 @@ Portability note:
   shared live loader order is now stricter too: canonical event-backed review
   state wins first, then an already-written typed projection, and only then
   does the repo fall back to bridge-backed status refresh for runtime reads.
+  When governance still points at the legacy `.../review_channel/latest`
+  compatibility root, the resolver now prefers the sibling
+  `.../review_channel/projections/latest/review_state.json` bundle and keeps
+  that event-backed path authoritative even for live-refresh callers instead
+  of silently downgrading back to the stale bridge-era compatibility file.
   The typed `bridge` block now also carries `effective_reviewer_mode`; use that
   field for live-authority decisions when declared bridge `reviewer_mode`
   still says `active_dual_agent` but typed `launch_truth` has already demoted
@@ -1672,7 +1688,10 @@ Machine-first output note:
     `current_session` preserves `implementer_session_state` /
     `implementer_session_hint`, and bridge-backed status/doctor/render guards
     count only unexpired pending packets while surfacing `stale_packet_count`
-    so inbox/status/dashboard numbers stay aligned.
+    so inbox/status/dashboard numbers stay aligned. `watch --follow` now
+    re-emits when stale-count transitions change too, not only when the live
+    packet-id set changes, so typed packet listeners do not look frozen after
+    a pending packet ages into stale history.
   - Single-agent local-review visibility now has one more bounded proof path:
     when repo-owned packet activity goes quiet, fresh local rollout JSONL
     writes still count as live reviewer evidence for status/doctor/runtime

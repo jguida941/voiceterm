@@ -31,7 +31,7 @@ def _make_attach_args(**overrides: object) -> SimpleNamespace:
     """Build a minimal args namespace matching the attach-remote-control surface."""
     defaults: dict[str, object] = {
         "remote_provider": "claude",
-        "remote_role": "implementer",
+        "remote_role": "operator",
         "attachment_status": "attached",
         "session_name": "",
         "remote_session_id": "",
@@ -128,6 +128,12 @@ def test_attach_remote_control_action_allows_unknown_status_without_url(
 
     assert exit_code == 0
     assert report["attachment"]["status"] == "unknown"
+
+
+def test_build_attachment_defaults_remote_role_to_operator() -> None:
+    attachment = _build_attachment(args=_make_attach_args(), existing=None)
+
+    assert attachment.role == "operator"
 
 
 def test_build_attachment_is_idempotent_for_same_session_url() -> None:

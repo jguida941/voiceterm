@@ -45,9 +45,14 @@ def select_priority_pending_packet(
                 selected.get("execution_started_by") or ""
             ).strip(),
         }
-    selected = live_packets[0]
+    instruction_packets = [
+        packet for packet in live_packets if _is_instruction_like_packet(packet)
+    ]
+    if not instruction_packets:
+        return None, {}
+    selected = instruction_packets[0]
     return selected, {
-        "selection_policy": "fifo_live_pending",
+        "selection_policy": "instruction_like_fifo",
         "packet_class": str(selected.get("kind") or "packet").strip() or "packet",
         "control_state": "",
         "wake_required": False,
@@ -100,6 +105,12 @@ def _action_request_priority_key(packet: Mapping[str, object]) -> tuple[object, 
 
 def _is_action_request(packet: Mapping[str, object]) -> bool:
     return str(packet.get("kind") or "").strip() == "action_request"
+
+
+def _is_instruction_like_packet(packet: Mapping[str, object]) -> bool:
+    if _is_action_request(packet):
+        return True
+    return str(packet.get("kind") or "").strip() == "instruction"
 
 
 def _parse_utc(value: object) -> datetime:

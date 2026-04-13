@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
 from dataclasses import asdict, dataclass, field
 from typing import Any
 
@@ -17,6 +16,19 @@ from .reviewer_runtime_models import (
 from .remote_commit_pipeline_models import (
     PushAuthorizationRecord,
     RemoteCommitPipelineContract,
+)
+from .review_state_packet_models import (
+    AgentAttentionRecord,
+    AgentRegistryEntryState,
+    AgentRegistryState,
+    ContextPackRefState,
+    PacketInboxState,
+    ReviewCandidateRecord,
+    ReviewPacketState,
+    agent_attention_record_from_mapping,
+    packet_inbox_from_mapping,
+    packet_requires_operator_approval as _packet_requires_operator_approval,
+    review_candidate_from_mapping,
 )
 
 
@@ -57,77 +69,6 @@ class ReviewCurrentSessionState:
     implementer_session_hint: str = ""
     open_findings: str = ""
     last_reviewed_scope: str = ""
-
-
-@dataclass(frozen=True, slots=True)
-class ReviewCandidateRecord:
-    candidate_id: str
-    instruction_revision: str
-    artifact_kind: str
-    base_sha: str
-    head_sha: str
-    worktree_hash: str
-    changed_paths: tuple[str, ...] = ()
-    tests_run: tuple[str, ...] = ()
-    guards_run: tuple[str, ...] = ()
-    implementer_status_written: bool = False
-    ready_for_review: bool = False
-    valid: bool = False
-    invalidation_reason: str = ""
-    implementer_state_hash: str = ""
-    emitted_at_utc: str = ""
-    scope_paths: tuple[str, ...] = ()
-    missing_scope_paths: tuple[str, ...] = ()
-
-
-def review_candidate_from_mapping(value: object) -> ReviewCandidateRecord | None:
-    """Deserialize one ReviewCandidateRecord from a JSON-like mapping."""
-    if not isinstance(value, Mapping):
-        return None
-    candidate_id = str(value.get("candidate_id") or "").strip()
-    if not candidate_id:
-        return None
-    return ReviewCandidateRecord(
-        candidate_id=candidate_id,
-        instruction_revision=str(value.get("instruction_revision") or "").strip(),
-        artifact_kind=str(value.get("artifact_kind") or "").strip(),
-        base_sha=str(value.get("base_sha") or "").strip(),
-        head_sha=str(value.get("head_sha") or "").strip(),
-        worktree_hash=str(value.get("worktree_hash") or "").strip(),
-        changed_paths=tuple(
-            str(item).strip()
-            for item in value.get("changed_paths", ())
-            if str(item).strip()
-        ),
-        tests_run=tuple(
-            str(item).strip()
-            for item in value.get("tests_run", ())
-            if str(item).strip()
-        ),
-        guards_run=tuple(
-            str(item).strip()
-            for item in value.get("guards_run", ())
-            if str(item).strip()
-        ),
-        implementer_status_written=bool(
-            value.get("implementer_status_written", False)
-        ),
-        ready_for_review=bool(value.get("ready_for_review", False)),
-        valid=bool(value.get("valid", False)),
-        invalidation_reason=str(value.get("invalidation_reason") or "").strip(),
-        implementer_state_hash=str(value.get("implementer_state_hash") or "").strip(),
-        emitted_at_utc=str(value.get("emitted_at_utc") or "").strip(),
-        scope_paths=tuple(
-            str(item).strip()
-            for item in value.get("scope_paths", ())
-            if str(item).strip()
-        ),
-        missing_scope_paths=tuple(
-            str(item).strip()
-            for item in value.get("missing_scope_paths", ())
-            if str(item).strip()
-        ),
-    )
 
 
 from .review_state_collaboration_models import (  # noqa: E402,F401
@@ -243,96 +184,6 @@ class RecoveryAssessmentState:
 
 
 @dataclass(frozen=True, slots=True)
-class ContextPackRefState:
-    pack_kind: str
-    pack_ref: str
-    adapter_profile: str = ""
-    generated_at_utc: str = ""
-
-
-@dataclass(frozen=True, slots=True)
-class ReviewPacketState:
-    packet_id: str
-    kind: str
-    from_agent: str
-    to_agent: str
-    summary: str
-    body: str
-    status: str
-    policy_hint: str
-    requested_action: str
-    approval_required: bool
-    posted_at: str
-    evidence_refs: tuple[str, ...] = ()
-    context_pack_refs: tuple[ContextPackRefState, ...] = ()
-    trace_id: str = ""
-    latest_event_id: str = ""
-    confidence: float = 0.0
-    guidance_refs: tuple[str, ...] = ()
-    target_kind: str = ""
-    target_ref: str = ""
-    target_revision: str = ""
-    anchor_refs: tuple[str, ...] = ()
-    intake_ref: str = ""
-    mutation_op: str = ""
-    pipeline_generation: str = ""
-    staged_snapshot_hash: str = ""
-    guard_results_summary: str = ""
-    acked_by: str = ""
-    acked_at_utc: str = ""
-    applied_at_utc: str = ""
-    delivery_emitted_at_utc: str = ""
-    delivery_observed_at_utc: str = ""
-    delivery_observed_by: str = ""
-    execution_started_at_utc: str = ""
-    execution_started_by: str = ""
-    expires_at_utc: str = ""
-
-    def requires_operator_approval(self) -> bool:
-        return self.approval_required and self.status == "pending"
-
-
-@dataclass(frozen=True, slots=True)
-class AgentRegistryEntryState:
-    agent_id: str
-    provider: str
-    display_name: str
-    lane: str
-    lane_title: str
-    current_job: str
-    job_state: str
-    waiting_on: str
-    last_packet_seen: str
-    last_packet_applied: str
-    script_profile: str
-    mp_scope: str
-    worktree: str
-    branch: str
-    updated_at: str
-
-
-@dataclass(frozen=True, slots=True)
-class AgentRegistryState:
-    timestamp: str
-    agents: tuple[AgentRegistryEntryState, ...]
-
-
-def _packet_requires_operator_approval(packet: object) -> bool:
-    """Defensive check that matches `ReviewPacketState.requires_operator_approval`
-    when ``packet`` is a typed model, and mirrors the same logic when a
-    deserializer upstream left the packet as a raw dict. The typed path is the
-    intended shape; the dict branch is a load-bearing safety net that keeps
-    status/doctor/dashboard operator surfaces projecting even when packet
-    hydration drops typing on the way through.
-    """
-    if isinstance(packet, ReviewPacketState):
-        return packet.requires_operator_approval()
-    if isinstance(packet, dict):
-        return bool(packet.get("approval_required")) and packet.get("status") == "pending"
-    return False
-
-
-@dataclass(frozen=True, slots=True)
 class ReviewState:
     schema_version: int
     contract_id: str
@@ -348,6 +199,7 @@ class ReviewState:
     attention: ReviewAttentionState | None
     packets: tuple[ReviewPacketState, ...]
     registry: AgentRegistryState
+    packet_inbox: PacketInboxState = field(default_factory=PacketInboxState)
     review_candidate: ReviewCandidateRecord | None = None
     push_authorization: PushAuthorizationRecord | None = None
     recovery_assessment: RecoveryAssessmentState | None = None

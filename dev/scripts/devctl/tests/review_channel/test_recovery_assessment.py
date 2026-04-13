@@ -88,6 +88,33 @@ def test_single_agent_active_runtime_reports_real_blocker_instead_of_inactive() 
     assert assessment.diagnosis.status == "checkpoint_required"
 
 
+def test_checkpoint_required_recovery_recommends_governed_commit() -> None:
+    assessment = build_recovery_assessment(
+        bridge_liveness={
+            "reviewer_mode": "single_agent",
+            "effective_reviewer_mode": "single_agent",
+            "overall_state": "single_agent_active",
+            "active_conductor_providers": ["codex", "claude"],
+            "codex_conductor_active": True,
+            "claude_conductor_active": True,
+            "claude_status_present": True,
+            "claude_ack_present": True,
+            "claude_ack_current": True,
+            "current_instruction_revision": "rev-123",
+            "last_reviewed_scope_present": True,
+            "next_action_present": True,
+            "push_enforcement": {
+                "checkpoint_required": True,
+                "safe_to_continue_editing": False,
+            },
+        },
+        current_session=_current_session(),
+    )
+
+    assert assessment.decision.action_id == "cut_checkpoint"
+    assert "dev/scripts/devctl.py commit -m" in assessment.decision.command
+
+
 def test_single_agent_warning_mentions_typed_authority_when_lane_is_live() -> None:
     warnings = bridge_liveness_warnings(
         {

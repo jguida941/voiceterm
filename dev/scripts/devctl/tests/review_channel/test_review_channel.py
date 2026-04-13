@@ -105,6 +105,9 @@ from dev.scripts.devctl.review_channel.bridge_validation import (
     validate_launch_bridge_state,
     validate_live_bridge_contract,
 )
+from dev.scripts.devctl.review_channel.reviewer_state_normalize import (
+    instruction_revision,
+)
 from dev.scripts.devctl.review_channel.handoff import (
     expected_rollover_ack_line,
     extract_bridge_snapshot,
@@ -383,7 +386,11 @@ def _conductor_session_record(
     )
 
 
-def _build_event_bundle_for_test(packet_ids: list[str]) -> ReviewChannelEventBundle:
+def _build_event_bundle_for_test(
+    packet_ids: list[str],
+    *,
+    stale_packet_count: int = 0,
+) -> ReviewChannelEventBundle:
     packets = [
         {
             "packet_id": packet_id,
@@ -413,7 +420,10 @@ def _build_event_bundle_for_test(packet_ids: list[str]) -> ReviewChannelEventBun
         ),
         review_state={
             "ok": True,
-            "queue": {"pending_total": len(packet_ids), "stale_packet_count": 0},
+            "queue": {
+                "pending_total": len(packet_ids),
+                "stale_packet_count": stale_packet_count,
+            },
             "packets": packets,
             "warnings": [],
             "errors": [],
@@ -980,6 +990,66 @@ class ReviewChannelHelperTests(unittest.TestCase):
         self.assertFalse(sessions[0].live)
         self.assertEqual(sessions[0].launch_authority_state, "stale")
         self.assertEqual(sessions[0].script_probe_state, "not_found")
+        self.assertEqual(sessions[0].terminal_window_state, "open")
+        self.assertIn("no longer matches", sessions[0].live_reason)
+
+    def test_load_conductor_sessions_stale_authority_beats_running_process(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            status_dir = Path(tmpdir)
+            sessions_dir = status_dir / "sessions"
+            sessions_dir.mkdir(parents=True, exist_ok=True)
+            review_state_path = status_dir / "review_state.json"
+            review_state_path.write_text(
+                json.dumps(
+                    {
+                        "review": {"session_id": "markdown-bridge"},
+                        "bridge": {
+                            "current_instruction_revision": "rev-current",
+                            "last_codex_poll_utc": _fresh_utc_z(seconds_offset=-30),
+                        },
+                        "current_session": {
+                            "current_instruction_revision": "rev-current",
+                        },
+                    }
+                ),
+                encoding="utf-8",
+            )
+            metadata_path = sessions_dir / "codex-conductor.json"
+            log_path = sessions_dir / "codex-conductor.log"
+            metadata_path.write_text(
+                json.dumps(
+                    {
+                        "provider": "codex",
+                        "session_name": "codex-conductor",
+                        "repo_root": tmpdir,
+                        "script_path": str(sessions_dir / "codex-conductor.sh"),
+                        "log_path": str(log_path),
+                        "terminal_window_id": 777,
+                        "review_state_path": str(review_state_path),
+                        "prepared_instruction_revision": "rev-current",
+                        "prepared_session_token": "stale-token",
+                    }
+                ),
+                encoding="utf-8",
+            )
+            log_path.write_text("stale authority exit\n", encoding="utf-8")
+
+            with (
+                patch(
+                    "dev.scripts.devctl.review_channel.session_probe._probe_script_running",
+                    return_value=True,
+                ),
+                patch(
+                    "dev.scripts.devctl.review_channel.session_liveness._probe_terminal_window_open",
+                    return_value=True,
+                ),
+            ):
+                sessions = load_conductor_sessions(session_output_root=status_dir)
+
+        self.assertEqual(len(sessions), 1)
+        self.assertFalse(sessions[0].live)
+        self.assertEqual(sessions[0].launch_authority_state, "stale")
+        self.assertEqual(sessions[0].script_probe_state, "running")
         self.assertEqual(sessions[0].terminal_window_state, "open")
         self.assertIn("no longer matches", sessions[0].live_reason)
 
@@ -2237,8 +2307,7 @@ class ReviewChannelHelperTests(unittest.TestCase):
             reviewer_prompt,
         )
         self.assertIn(
-            "Keep the Codex-targeted packet stream live too: use "
-            "`review-channel --action watch --target codex --status pending --follow`",
+            "`review-channel --action reviewer-wait` now includes the Codex-targeted pending-packet wake path",
             reviewer_prompt,
         )
         self.assertIn(
@@ -2552,6 +2621,7 @@ class ReviewChannelWatchFollowTests(unittest.TestCase):
             "limit": 1,
             "follow": True,
             "max_follow_snapshots": 2,
+            "follow_interval_seconds": 150,
             "stale_minutes": 1,
             "format": "json",
             "output": None,
@@ -2750,6 +2820,79 @@ class ReviewChannelWatchFollowTests(unittest.TestCase):
         first = json.loads(emitted[0])
         self.assertEqual(first["snapshot_seq"], 0)
         self.assertEqual(first["packets"][0]["packet_id"], "pkt-1")
+
+    def test_watch_follow_honors_explicit_follow_interval_seconds(self) -> None:
+        args = self._build_follow_args(
+            follow_interval_seconds=7,
+            stale_minutes=30,
+            max_follow_snapshots=0,
+        )
+        bundle = _build_event_bundle_for_test(["pkt-1"])
+        slept: list[int] = []
+
+        with (
+            patch.object(
+                review_channel_event_handler.time,
+                "sleep",
+                side_effect=lambda seconds: slept.append(seconds) or (_ for _ in ()).throw(KeyboardInterrupt()),
+            ),
+            patch.object(review_channel_event_handler, "refresh_event_bundle", return_value=bundle),
+        ):
+            report, rc = review_channel_event_handler._run_watch_follow(
+                args=args,
+                repo_root=Path("/tmp/repo"),
+                review_channel_path=Path("/tmp/repo/dev/active/review_channel.md"),
+                artifact_paths=bundle.artifact_paths,
+                initial_bundle=bundle,
+                initial_packets=bundle.review_state["packets"],
+            )
+
+        self.assertEqual(rc, 0)
+        self.assertEqual(report["snapshots_emitted"], 1)
+        self.assertEqual(slept, [7])
+
+    def test_watch_follow_reemits_when_stale_packet_count_changes(self) -> None:
+        args = self._build_follow_args(limit=1, max_follow_snapshots=2)
+        initial_bundle = _build_event_bundle_for_test(["pkt-1"], stale_packet_count=0)
+        changed_bundle = _build_event_bundle_for_test(["pkt-1"], stale_packet_count=1)
+        emitted: list[str] = []
+
+        def fake_emit_output(
+            content: str,
+            *,
+            output_path: str | None,
+            pipe_command: str | None,
+            pipe_args: list[str] | None,
+            announce_output_path: bool = True,
+            writer=None,
+            stdout_content: str | None = None,
+            piper=None,
+            additional_outputs=None,
+        ) -> int:
+            emitted.append(content)
+            return 0
+
+        with (
+            patch.object(review_channel_follow_stream, "emit_output", side_effect=fake_emit_output),
+            patch.object(review_channel_event_handler.time, "sleep", return_value=None),
+            patch.object(review_channel_event_handler, "refresh_event_bundle", return_value=changed_bundle),
+        ):
+            report, rc = review_channel_event_handler._run_watch_follow(
+                args=args,
+                repo_root=Path("/tmp/repo"),
+                review_channel_path=Path("/tmp/repo/dev/active/review_channel.md"),
+                artifact_paths=initial_bundle.artifact_paths,
+                initial_bundle=initial_bundle,
+                initial_packets=initial_bundle.review_state["packets"],
+            )
+
+        self.assertEqual(rc, 0)
+        self.assertEqual(report["snapshots_emitted"], 2)
+        self.assertEqual(len(emitted), 2)
+        first = json.loads(emitted[0])
+        second = json.loads(emitted[1])
+        self.assertEqual(first["queue"]["stale_packet_count"], 0)
+        self.assertEqual(second["queue"]["stale_packet_count"], 1)
 
     def test_watch_follow_appends_ndjson_snapshots_to_output_file(self) -> None:
         args = self._build_follow_args(max_follow_snapshots=2)
@@ -3110,6 +3253,33 @@ class ReviewChannelWatchFollowTests(unittest.TestCase):
             "ok": True,
             "errors": [],
             "review_needed": True,
+            "packet_inbox": {
+                "attention_revision": "attn_rev_1",
+                "agents": [
+                    {
+                        "agent": "codex",
+                        "current_instruction_packet_id": "",
+                        "latest_finding_packet_id": "rev_pkt_0001",
+                        "pending_actionable_packet_ids": [],
+                        "expired_unresolved_packet_ids": [],
+                        "attention_status": "review_needed",
+                        "wake_reason": "finding_pending",
+                        "required_command": "python3 dev/scripts/devctl.py review-channel --action inbox --target codex --terminal none --format md",
+                        "attention_revision": "codex_attn_rev_1",
+                        "delivery_state": "unseen",
+                    }
+                ],
+            },
+            "packets": [
+                {
+                    "packet_id": "rev_pkt_0001",
+                    "from_agent": "claude",
+                    "to_agent": "codex",
+                    "kind": "finding",
+                    "summary": "Dashboard dogfood finding",
+                    "posted_at": "2026-04-13T02:44:54Z",
+                }
+            ],
             "reviewer_worker": {
                 "state": "review_needed",
                 "review_needed": True,
@@ -3153,6 +3323,129 @@ class ReviewChannelWatchFollowTests(unittest.TestCase):
         self.assertTrue(frames[0]["review_needed"])
         self.assertFalse(frames[0]["reviewer_worker"]["semantic_review_claimed"])
         self.assertFalse(frames[0]["reviewer_heartbeat_suppressed"])
+
+    def test_reviewer_follow_frame_surfaces_latest_claude_packet(self) -> None:
+        args = self._build_reviewer_follow_args(max_follow_snapshots=1)
+        frames: list[dict[str, object]] = []
+        write = ReviewerStateWrite(
+            bridge_path="bridge.md",
+            action="reviewer-heartbeat",
+            reviewer_mode="active_dual_agent",
+            reason="reviewer-follow",
+            last_codex_poll_utc="2026-03-16T07:00:00Z",
+            last_codex_poll_local="2026-03-16 03:00:00 EDT",
+            last_worktree_hash="a" * 64,
+        )
+        ensure_result = EnsureHeartbeatResult(
+            refreshed=True,
+            reviewer_mode="active_dual_agent",
+            reason="reviewer-follow",
+            state_write=write,
+            error=None,
+        )
+        status_report = {
+            "command": "review-channel",
+            "action": "reviewer-heartbeat",
+            "ok": True,
+            "errors": [],
+            "review_needed": True,
+            "packet_inbox": {
+                "attention_revision": "attn_rev_1",
+                "agents": [
+                    {
+                        "agent": "codex",
+                        "current_instruction_packet_id": "",
+                        "latest_finding_packet_id": "rev_pkt_0001",
+                        "pending_actionable_packet_ids": [],
+                        "expired_unresolved_packet_ids": [],
+                        "attention_status": "review_needed",
+                        "wake_reason": "finding_pending",
+                        "required_command": "python3 dev/scripts/devctl.py review-channel --action inbox --target codex --terminal none --format md",
+                        "attention_revision": "codex_attn_rev_1",
+                        "delivery_state": "unseen",
+                    }
+                ],
+            },
+            "packets": [
+                {
+                    "packet_id": "rev_pkt_0001",
+                    "from_agent": "claude",
+                    "to_agent": "codex",
+                    "kind": "finding",
+                    "summary": "Dashboard dogfood finding",
+                    "posted_at": "2026-04-13T02:44:54Z",
+                }
+            ],
+            "reviewer_worker": {
+                "state": "review_needed",
+                "review_needed": True,
+                "semantic_review_claimed": False,
+            },
+        }
+
+        def fake_emit(payload: dict[str, object], *, args) -> int:
+            frames.append(payload)
+            return 0
+
+        def fake_build_report(*, args, repo_root, paths) -> tuple[dict[str, object], int]:
+            return json.loads(json.dumps(status_report)), 0
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            bridge_path = root / "bridge.md"
+            bridge_path.write_text(_build_bridge_text(), encoding="utf-8")
+            events_path = root / "dev/reports/review_channel/events/trace.ndjson"
+            events_path.parent.mkdir(parents=True, exist_ok=True)
+            events_path.write_text(
+                json.dumps(
+                    {
+                        "schema_version": 1,
+                        "event_id": "rev_evt_0001",
+                        "packet_id": "rev_pkt_0001",
+                        "trace_id": "trace_0001",
+                        "event_type": "packet_posted",
+                        "status": "pending",
+                        "posted_at": "2026-04-13T02:44:54Z",
+                        "from_agent": "claude",
+                        "to_agent": "codex",
+                        "kind": "finding",
+                        "summary": "Dashboard dogfood finding",
+                    }
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            with (
+                patch.object(review_channel_follow_runtime, "ensure_reviewer_heartbeat", return_value=ensure_result),
+                patch.object(review_channel_follow_runtime, "_build_reviewer_state_report", side_effect=fake_build_report),
+                patch.object(review_channel_follow_runtime, "emit_follow_ndjson_frame", side_effect=fake_emit),
+                patch.object(review_channel_follow_runtime, "reset_follow_output", return_value=None),
+                patch.object(review_channel_command.time, "sleep", return_value=None),
+            ):
+                report, rc = review_channel_command._run_reviewer_follow_action(
+                    args=args,
+                    repo_root=root,
+                    paths={"bridge_path": bridge_path},
+                )
+
+        self.assertEqual(rc, 0)
+        self.assertEqual(len(frames), 1)
+        self.assertEqual(frames[0]["reviewer_packets"]["pending_total"], 0)
+        self.assertEqual(frames[0]["reviewer_packets"]["latest_packet_id"], "rev_pkt_0001")
+        self.assertEqual(frames[0]["reviewer_packets"]["latest_kind"], "finding")
+        self.assertEqual(
+            frames[0]["reviewer_packets"]["latest_summary"],
+            "Dashboard dogfood finding",
+        )
+        self.assertEqual(
+            frames[0]["reviewer_packets"]["attention_source"],
+            "typed_packet_inbox",
+        )
+        self.assertEqual(
+            frames[0]["reviewer_packets"]["attention_status"],
+            "review_needed",
+        )
+        self.assertEqual(frames[0]["reviewer_packets"]["latest_packet_id"], "rev_pkt_0001")
 
     def test_reviewer_follow_suppresses_automation_heartbeat_while_review_pending(self) -> None:
         args = self._build_reviewer_follow_args(max_follow_snapshots=1)
@@ -5999,6 +6292,47 @@ class ReviewChannelFollowLoopTests(unittest.TestCase):
         self.assertNotEqual(token_a, token_c)
         self.assertNotEqual(token_a, token_d)
 
+    def test_build_claude_progress_token_changes_when_reviewer_packet_arrives(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            bridge_path = root / "bridge.md"
+            bridge_path.write_text(
+                _build_bridge_text(last_codex_poll="2026-03-08T19:08:45Z"),
+                encoding="utf-8",
+            )
+            token_a = build_claude_progress_token(
+                repo_root=root,
+                bridge_path=bridge_path,
+            )
+            events_path = root / "dev/reports/review_channel/events/trace.ndjson"
+            events_path.parent.mkdir(parents=True, exist_ok=True)
+            events_path.write_text(
+                json.dumps(
+                    {
+                        "schema_version": 1,
+                        "event_id": "rev_evt_0001",
+                        "packet_id": "rev_pkt_0001",
+                        "trace_id": "trace_0001",
+                        "event_type": "packet_posted",
+                        "status": "pending",
+                        "from_agent": "claude",
+                        "to_agent": "codex",
+                        "kind": "finding",
+                        "summary": "A fresh reviewer packet should count as follow progress.",
+                    }
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            token_b = build_claude_progress_token(
+                repo_root=root,
+                bridge_path=bridge_path,
+            )
+
+        self.assertNotEqual(token_a, token_b)
+
     def test_run_follow_loop_stops_after_claude_inactivity(self) -> None:
         frames: list[dict[str, object]] = []
         progress_tokens = ["stable"]
@@ -8102,6 +8436,166 @@ class ReviewChannelCommandTests(unittest.TestCase):
             )
             status_dir = root / "dev/reports/review_channel/latest"
             status_dir.mkdir(parents=True, exist_ok=True)
+            canonical_review_state = {
+                "review_state": {
+                    "review": {"session_id": "markdown-bridge"},
+                    "queue": {"pending_total": 0},
+                    "current_session": {
+                        "current_instruction": "- canonical typed authority instruction",
+                        "current_instruction_revision": "typedrev123456",
+                        "implementer_status": "- canonical typed status",
+                        "implementer_ack": "- acknowledged; instruction-rev: `typedrev123456`",
+                        "implementer_ack_revision": "typedrev123456",
+                        "implementer_ack_state": "current",
+                        "implementer_state_hash": "typed-state-hash",
+                        "open_findings": "- canonical typed findings",
+                        "last_reviewed_scope": "- canonical/scope.py",
+                    },
+                    "bridge": {
+                        "reviewer_mode": "active_dual_agent",
+                        "effective_reviewer_mode": "active_dual_agent",
+                        "reviewer_freshness": "fresh",
+                        "current_instruction_revision": "typedrev123456",
+                        "claude_ack_revision": "typedrev123456",
+                        "claude_ack_current": True,
+                        "review_accepted": False,
+                    },
+                    "reviewer_runtime": {
+                        "reviewer_mode": "active_dual_agent",
+                        "effective_reviewer_mode": "active_dual_agent",
+                        "reviewer_freshness": "fresh",
+                        "stale_reason": "",
+                        "implementer_ack_current": True,
+                        "implementation_blocked": False,
+                        "implementation_block_reason": "",
+                        "last_poll": {
+                            "last_codex_poll_utc": "2026-04-08T00:00:00Z",
+                            "last_codex_poll_age_seconds": 5,
+                        },
+                        "rollover": {
+                            "rollover_id": "",
+                            "ack_pending": False,
+                            "trigger": "",
+                        },
+                        "session_owner": {
+                            "provider": "codex",
+                            "session_name": "codex-conductor",
+                            "session_pid": 1,
+                            "terminal_window_id": 1,
+                            "script_path": "/tmp/codex.sh",
+                            "session_visibility": "visible",
+                        },
+                        "review_acceptance": {
+                            "current_verdict": "- canonical typed verdict",
+                            "open_findings": "- canonical typed findings",
+                            "review_accepted": False,
+                            "reviewer_accepted_implementer_state_hash": "typed-state-hash",
+                        },
+                        "publish_clear": False,
+                    },
+                }
+            }
+            stale_status_cache = {
+                "review_state": {
+                    "review": {"session_id": "markdown-bridge"},
+                    "queue": {"pending_total": 0},
+                    "current_session": {
+                        "current_instruction": "- stale status-cache instruction",
+                        "current_instruction_revision": "stalerev123456",
+                        "implementer_status": "- stale status-cache status",
+                        "implementer_ack": "- acknowledged; instruction-rev: `stalerev123456`",
+                        "implementer_ack_revision": "stalerev123456",
+                        "implementer_ack_state": "current",
+                        "implementer_state_hash": "stale-state-hash",
+                        "open_findings": "- stale status-cache findings",
+                        "last_reviewed_scope": "- stale/scope.py",
+                    },
+                }
+            }
+            (status_dir / "review_state.json").write_text(
+                json.dumps(stale_status_cache),
+                encoding="utf-8",
+            )
+
+            with patch(
+                "dev.scripts.devctl.review_channel.state.load_review_state_payload",
+                return_value=canonical_review_state,
+            ), patch(
+                "dev.scripts.devctl.review_channel.state.build_bridge_push_enforcement_state",
+                return_value={
+                    "checkpoint_required": False,
+                    "safe_to_continue_editing": True,
+                },
+            ), patch(
+                "dev.scripts.devctl.review_channel.state._load_lifecycle_states",
+                return_value=(
+                    {"running": True, "stop_reason": "", "pid": 10101},
+                    {"running": True, "stop_reason": "", "pid": 20202},
+                ),
+            ):
+                status_snapshot = refresh_status_snapshot(
+                    repo_root=root,
+                    bridge_path=bridge_path,
+                    review_channel_path=review_channel_path,
+                    output_root=status_dir,
+                    promotion_plan_path=root / "dev/active/continuous_swarm.md",
+                    execution_mode="markdown-bridge",
+                    warnings=[],
+                    errors=[],
+                )
+
+            review_state = json.loads(
+                Path(status_snapshot.projection_paths.review_state_path).read_text(
+                    encoding="utf-8"
+                )
+            )
+
+        self.assertEqual(
+            review_state["current_session"]["current_instruction"],
+            "- canonical typed authority instruction",
+        )
+        self.assertEqual(
+            review_state["current_session"]["implementer_status"],
+            "- canonical typed status",
+        )
+        self.assertEqual(
+            review_state["reviewer_runtime"]["review_acceptance"]["current_verdict"],
+            "- canonical typed verdict",
+        )
+        self.assertFalse(
+            review_state["reviewer_runtime"]["review_acceptance"]["review_accepted"]
+        )
+        self.assertTrue(
+            any(
+                "typed `current_session` authority" in warning
+                for warning in status_snapshot.warnings
+            )
+        )
+
+    def test_run_status_rewrites_bridge_from_typed_current_session_authority(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            review_channel_path = root / "dev/active/review_channel.md"
+            review_channel_path.parent.mkdir(parents=True, exist_ok=True)
+            review_channel_path.write_text(
+                _build_review_channel_text(),
+                encoding="utf-8",
+            )
+            bridge_path = root / "bridge.md"
+            bridge_path.write_text(
+                _build_bridge_text().replace(
+                    "- Implement the bounded bridge cleanup slice.",
+                    "- stale bridge instruction",
+                ).replace(
+                    "- **Current slice — DONE, needs-review**",
+                    "- stale bridge status",
+                ),
+                encoding="utf-8",
+            )
+            status_dir = root / "dev/reports/review_channel/latest"
+            status_dir.mkdir(parents=True, exist_ok=True)
             prior_review_state = {
                 "review_state": {
                     "review": {"session_id": "markdown-bridge"},
@@ -8165,8 +8659,130 @@ class ReviewChannelCommandTests(unittest.TestCase):
                 json.dumps(prior_review_state),
                 encoding="utf-8",
             )
+            output_path = root / "report.json"
+            args = SimpleNamespace(
+                action="status",
+                execution_mode="auto",
+                terminal="none",
+                terminal_profile="auto-dark",
+                review_channel_path=str(review_channel_path.relative_to(root)),
+                bridge_path=str(bridge_path.relative_to(root)),
+                rollover_dir="dev/reports/review_channel/rollovers",
+                status_dir=str(status_dir.relative_to(root)),
+                rollover_threshold_pct=50,
+                rollover_trigger="context-threshold",
+                await_ack_seconds=180,
+                promotion_plan="dev/active/continuous_swarm.md",
+                codex_workers=8,
+                claude_workers=8,
+                dangerous=False,
+                script_dir=None,
+                dry_run=False,
+                format="json",
+                output=str(output_path),
+                pipe_command=None,
+                pipe_args=None,
+            )
+
+            with (
+                patch.object(review_channel_command, "REPO_ROOT", root),
+                patch(
+                    "dev.scripts.devctl.review_channel.state.compute_non_audit_worktree_hash",
+                    return_value="a" * 64,
+                ),
+                patch(
+                    "dev.scripts.devctl.review_channel.reviewer_worker.compute_non_audit_worktree_hash",
+                    return_value="a" * 64,
+                ),
+                patch(
+                    "dev.scripts.devctl.review_channel.state.build_bridge_push_enforcement_state",
+                    return_value={
+                        "checkpoint_required": False,
+                        "safe_to_continue_editing": True,
+                    },
+                ),
+                patch(
+                    "dev.scripts.devctl.review_channel.state._load_lifecycle_states",
+                    return_value=(
+                        {"running": True, "stop_reason": "", "pid": 10101},
+                        {"running": True, "stop_reason": "", "pid": 20202},
+                    ),
+                ),
+            ):
+                rc = review_channel_command.run(args)
+
+            payload = json.loads(output_path.read_text(encoding="utf-8"))
+            rewritten_bridge = bridge_path.read_text(encoding="utf-8")
+
+        self.assertEqual(rc, 0)
+        self.assertIn("typed authority instruction", rewritten_bridge)
+        self.assertIn("typed status", rewritten_bridge)
+        self.assertIn("typedrev123456", rewritten_bridge)
+        self.assertIn("typed/scope.py", rewritten_bridge)
+        self.assertTrue(
+            any(
+                "Synchronized `bridge.md` from typed review-state" in warning
+                for warning in payload["warnings"]
+            )
+        )
+
+    def test_refresh_status_snapshot_writes_authoritative_current_session(self) -> None:
+        from dev.scripts.devctl.review_channel.state import refresh_status_snapshot
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            review_channel_path = root / "dev/active/review_channel.md"
+            review_channel_path.parent.mkdir(parents=True, exist_ok=True)
+            review_channel_path.write_text(
+                _build_review_channel_text(),
+                encoding="utf-8",
+            )
+            bridge_path = root / "bridge.md"
+            bridge_path.write_text(_build_bridge_text(), encoding="utf-8")
+            status_dir = root / "dev/reports/review_channel/latest"
+            status_dir.mkdir(parents=True, exist_ok=True)
+            raw_instruction = "\n".join(
+                [
+                    "Landed: status keeps current instruction revision; commit still blocked on checkpoint/guard lane",
+                    "- Context packet: trigger `review-channel-event`; query terms: `dev/scripts/devctl.py`, `commit`",
+                    "- Canonical refs:",
+                    "  - `dev/scripts/devctl/collect.py`",
+                    "  - `dev/scripts/devctl/commands/governance/startup_context.py`",
+                    "  - `dev/scripts/devctl/commands/vcs/governed_executor.py`",
+                ]
+            )
+            raw_revision = instruction_revision(raw_instruction)
+            prior_review_state = {
+                "review_state": {
+                    "review": {"session_id": "markdown-bridge"},
+                    "queue": {"pending_total": 0},
+                    "current_session": {
+                        "current_instruction": raw_instruction,
+                        "current_instruction_revision": raw_revision,
+                        "implementer_status": "",
+                        "implementer_ack": "",
+                        "implementer_ack_revision": "",
+                        "implementer_ack_state": "missing",
+                        "implementer_state_hash": "",
+                        "open_findings": "- none",
+                        "last_reviewed_scope": "- MP-355",
+                    },
+                    "bridge": {
+                        "reviewer_mode": "single_agent",
+                        "effective_reviewer_mode": "single_agent",
+                        "reviewer_freshness": "overdue",
+                        "current_instruction_revision": raw_revision,
+                        "claude_ack_revision": "",
+                        "claude_ack_current": False,
+                        "review_accepted": False,
+                    },
+                }
+            }
 
             with patch(
+                "dev.scripts.devctl.review_channel.state.load_review_state_payload",
+                return_value=prior_review_state,
+            ), patch(
                 "dev.scripts.devctl.review_channel.state.build_bridge_push_enforcement_state",
                 return_value={
                     "checkpoint_required": False,
@@ -8175,8 +8791,8 @@ class ReviewChannelCommandTests(unittest.TestCase):
             ), patch(
                 "dev.scripts.devctl.review_channel.state._load_lifecycle_states",
                 return_value=(
-                    {"running": True, "stop_reason": "", "pid": 10101},
-                    {"running": True, "stop_reason": "", "pid": 20202},
+                    {"running": False, "stop_reason": "", "pid": None},
+                    {"running": False, "stop_reason": "", "pid": None},
                 ),
             ):
                 status_snapshot = refresh_status_snapshot(
@@ -8195,27 +8811,16 @@ class ReviewChannelCommandTests(unittest.TestCase):
                     encoding="utf-8"
                 )
             )
+            current_instruction = review_state["current_session"]["current_instruction"]
+            current_revision = review_state["current_session"][
+                "current_instruction_revision"
+            ]
 
+        self.assertTrue(current_instruction.startswith("- Landed:"))
+        self.assertEqual(current_revision, instruction_revision(current_instruction))
         self.assertEqual(
-            review_state["current_session"]["current_instruction"],
-            "- typed authority instruction",
-        )
-        self.assertEqual(
-            review_state["current_session"]["implementer_status"],
-            "- typed status",
-        )
-        self.assertEqual(
-            review_state["reviewer_runtime"]["review_acceptance"]["current_verdict"],
-            "- typed verdict",
-        )
-        self.assertFalse(
-            review_state["reviewer_runtime"]["review_acceptance"]["review_accepted"]
-        )
-        self.assertTrue(
-            any(
-                "typed `current_session` authority" in warning
-                for warning in status_snapshot.warnings
-            )
+            status_snapshot.bridge_liveness["current_instruction_revision"],
+            current_revision,
         )
 
     def test_run_status_can_refresh_stale_bridge_heartbeat_but_not_claim_live_review(self) -> None:
@@ -13181,7 +13786,7 @@ class TestPlaceholderStatusDetection(unittest.TestCase):
                         "plan_id": "MP-358",
                         "from_agent": "operator",
                         "to_agent": "codex",
-                        "kind": "review",
+                        "kind": "instruction",
                         "summary": "review the live tranche",
                         "body": "bundle summary",
                         "status": "pending",
@@ -13539,7 +14144,7 @@ class TestDaemonEventReducer(unittest.TestCase):
                 "plan_id": "MP-377",
                 "from_agent": "codex",
                 "to_agent": "claude",
-                "kind": "review",
+                "kind": "instruction",
                 "summary": "review finding",
                 "body": "fix this",
                 "status": "pending",
@@ -13645,7 +14250,7 @@ class TestDaemonEventReducer(unittest.TestCase):
                 "plan_id": "MP-377",
                 "from_agent": "operator",
                 "to_agent": "codex",
-                "kind": "review",
+                "kind": "instruction",
                 "summary": "review pass",
                 "body": "body",
                 "status": "pending",

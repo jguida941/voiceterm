@@ -7,6 +7,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from dev.scripts.devctl.review_channel.event_projection import (
+    EventProjectionContext,
     enrich_event_review_state,
 )
 from dev.scripts.devctl.runtime.remote_commit_pipeline_models import (
@@ -138,9 +139,11 @@ def test_enrich_event_review_state_attaches_push_truth(
 
     enriched, extras = enrich_event_review_state(
         review_state=review_state,
-        repo_root=Path("."),
-        review_channel_path=Path("dev/active/review_channel.md"),
-        projections_root=Path("dev/reports/review_channel/latest"),
+        context=EventProjectionContext(
+            repo_root=Path("."),
+            review_channel_path=Path("dev/active/review_channel.md"),
+            projections_root=Path("dev/reports/review_channel/latest"),
+        ),
     )
 
     assert extras["bridge_liveness"]["push_enforcement"]["latest_push_report_path"]
@@ -254,10 +257,12 @@ def test_enrich_uses_snapshot_push_enforcement_when_provided(
 
     enriched, extras = enrich_event_review_state(
         review_state=review_state,
-        repo_root=Path("."),
-        review_channel_path=Path("dev/active/review_channel.md"),
-        projections_root=Path("dev/reports/review_channel/latest"),
-        push_enforcement=_SNAPSHOT_PUSH_ENFORCEMENT,
+        context=EventProjectionContext(
+            repo_root=Path("."),
+            review_channel_path=Path("dev/active/review_channel.md"),
+            projections_root=Path("dev/reports/review_channel/latest"),
+            push_enforcement=_SNAPSHOT_PUSH_ENFORCEMENT,
+        ),
     )
 
     push_enforcement_mock.assert_not_called()

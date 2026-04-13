@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from .pending_packets import live_pending_packets
+from .current_session_support import event_current_instruction
 
 
 def append_current_session_markdown(
@@ -38,7 +38,7 @@ def append_current_session_markdown(
 
 
 def current_focus_line(review_state: dict[str, object]) -> str:
-    """Return the best current instruction from typed state or fallbacks."""
+    """Return the best current instruction from the typed control line."""
     current_session = review_state.get("current_session", {})
     if isinstance(current_session, dict):
         current_instruction = str(
@@ -46,24 +46,7 @@ def current_focus_line(review_state: dict[str, object]) -> str:
         ).strip()
         if current_instruction:
             return current_instruction
-    bridge = review_state.get("bridge", {})
-    if isinstance(bridge, dict):
-        current_instruction = str(bridge.get("current_instruction") or "").strip()
-        if current_instruction:
-            return current_instruction
-    queue = review_state.get("queue", {})
-    if isinstance(queue, dict):
-        derived_next_instruction = str(
-            queue.get("derived_next_instruction") or ""
-        ).strip()
-        if derived_next_instruction:
-            return derived_next_instruction
-    packets = review_state.get("packets")
-    if not isinstance(packets, list):
-        return "(missing)"
-    pending_packet = next(iter(live_pending_packets(packets)), None)
-    if isinstance(pending_packet, dict):
-        summary = str(pending_packet.get("summary") or "").strip()
-        if summary:
-            return summary
+    current_instruction = event_current_instruction(review_state)
+    if current_instruction:
+        return current_instruction
     return "(missing)"

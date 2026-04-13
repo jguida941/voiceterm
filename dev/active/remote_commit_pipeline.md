@@ -1,6 +1,6 @@
 # Remote Commit Pipeline Plan
 
-**Status**: active  |  **Last updated**: 2026-04-09 | **Owner:** Tooling/control plane/review runtime
+**Status**: active  |  **Last updated**: 2026-04-12 | **Owner:** Tooling/control plane/review runtime
 Execution plan contract: required
 This spec remains execution mirrored in `dev/active/MASTER_PLAN.md` under
 `MP-377`. It freezes the Phase-0 design for the typed remote-session
@@ -599,6 +599,72 @@ surface for remote sessions. It should project:
 
 ## Progress Log
 
+- 2026-04-12: Closed the first repo-owned execution-handoff path for the
+  `.git/index.lock` sandbox dead end exposed by the live dogfood loop. When
+  the governed commit phase now fails specifically with
+  `git_index_write_blocked`, it keeps the failure reason explicit and, if the
+  typed collaboration/runtime state still exposes a writable lane, posts a
+  runtime-bound `action_request` packet for `requested_action=commit` tied to
+  the exact `remote_commit_pipeline:<pipeline_id>` generation and staged tree.
+  This does not invent a second approval ceremony: the packet is an execution
+  handoff for the already-approved pipeline, so the writable lane can resume
+  the same governed commit without restaging. If the runtime cannot prove a
+  writable lane, the executor still fails closed and surfaces the git-index
+  guidance instead of guessing.
+- 2026-04-12: Captured the packet-lifecycle follow-up from the live dashboard
+  architecture review in this owner doc. Delivery receipts already exist for
+  action packets, but governed commit/push approval still needs to participate
+  in the same shared lifecycle and event-wake contract the rest of the
+  runtime is converging on. The next bounded step here is not another
+  approval-only prompt path; it is to keep `commit_approval` on the common
+  packet transport so operator authorization stays visible, wakeable, and
+  non-lossy through execution or expiry.
+- 2026-04-12: Closed the read-side half of the remote-control checkpoint
+  deadlock exposed by the live dogfood loop. `review-channel` recovery and
+  doctor status no longer tell the operator to re-run `review-channel
+  --action status` when the actual typed decision is `cut_checkpoint`; the
+  checkpoint recovery command now points at the governed `devctl commit`
+  path. The same slice also fails closed on stale commit-pipeline identity
+  when doctor/status project publication truth: if the cached pipeline no
+  longer matches the current branch, HEAD, approved target, or worktree,
+  doctor drops back to current push-enforcement truth instead of leaking an
+  old branch's `push_completed` / `published_remote` state into the live
+  dashboard.
+- 2026-04-12: Closed the managed-hook drift blind spot exposed by the live
+  remote-control dogfood loop. The repo-owned pre-commit template already
+  carried the governed-commit bypass marker, but this clone's installed
+  `.git/hooks/pre-commit` had drifted to an older managed copy that still
+  re-entered the raw commit gate. `install-git-hooks --check` now compares
+  installed managed hooks against the current template and reports
+  `managed_drifted` instead of falsely calling that state healthy, while a
+  normal reinstall refreshes the stale managed copy without needing `--force`.
+  This keeps hook-trigger closure inside the governed system: drift becomes a
+  typed repairable state instead of another invisible reason for agents to
+  think `devctl commit` is broken.
+- 2026-04-12: Revalidated the commit topology for all modes from the primary
+  remote-control dogfood loop. The governed `stage -> guard -> approve ->
+  commit -> push` pipeline stays the one commit path for `local_terminal`,
+  `single_agent`, `remote_control`, and delegated-worker runs; what changes by
+  mode is the typed permission/approval boundary and approved target identity,
+  not the git plumbing. When the runtime says
+  `worktree_strategy=shared_primary_worktree` and worker fanout is zero, the
+  primary checkout stages and commits directly through that governed path.
+  Isolated worker worktrees remain explicit delegated-worker fanout only, and
+  `worktree_identity` prevents approvals from replaying across checkouts. A
+  shadow gitdir or alternate commit path is not part of the design.
+- 2026-04-12: Dogfood closed the first half of the worktree-lane commit
+  deadlock in repo code. `build_commit_permission_decision_for_executor()`
+  now distinguishes governed checkpoint authority from new implementation
+  authority: when startup explicitly says
+  `advisory_action=checkpoint_allowed` / `push_decision=await_checkpoint`
+  with `reviewer_gate.checkpoint_permitted=true`, `devctl commit` may keep
+  the repo-owned checkpoint path alive while raw `git commit` remains
+  blocked. The same slice also keeps commit-hook authority explicit: the
+  governed commit path marks the nested git invocation so the repo-owned path
+  can skip the raw-git hook gate without weakening that gate for shell/editor
+  commits. The next closure in this owner doc is shared status/doctor wording
+  around checkpoint-only authority, not another raw-git bypass or shell-only
+  commit-on-behalf path.
 - 2026-04-11: Closed the stale latest-push artifact gap that showed up while
   dogfooding the governed publish lane. `devctl push --execute` now writes
   phase-aware snapshots to `dev/reports/push/latest.json` as soon as the run
@@ -838,6 +904,52 @@ surface for remote sessions. It should project:
 
 ## Session Resume
 
+- 2026-04-12 git-index handoff closure:
+  resume with `vcs.commit` treating `.git/index.lock` denial as a typed
+  execution-handoff case, not just an opaque git failure. The governed
+  executor now posts a runtime-bound `action_request` commit packet when the
+  live collaboration state proves a writable lane, and it stays fail-closed
+  when no writable lane can be proven. The next proof step is still live:
+  run the actual Claude-dashboard/Codex-writable-lane checkpoint + push cycle
+  through packets and record whatever remains missing on launch/watch/session
+  ownership.
+- 2026-04-12 commit-approval packet lifecycle alignment:
+  resume with governed commit/push approval participating in the same shared
+  packet lifecycle as other action requests. The next closure is not another
+  special-case prompt: `commit_approval` must ride the common
+  posted -> delivered/observed -> acked/applied -> execution ->
+  resolved/expired receipts and event-backed wake path so operator
+  authorization stays visible to both Codex and Claude and cannot decay into
+  passive queue state.
+- 2026-04-12 doctor/status checkpoint closure:
+  resume with `review-channel --action status|doctor` treating
+  `checkpoint_required` as a governed commit boundary, not another status
+  poll. If the live worktree is over budget, the recovery command should
+  point at `python3 dev/scripts/devctl.py commit -m "<descriptive message>"`
+  while stale commit-pipeline state from another branch/worktree is
+  suppressed from doctor/publication projection.
+- 2026-04-12 managed-hook drift closure:
+  resume with `install-git-hooks --check` treating stale managed hook copies
+  as broken (`managed_drifted`) rather than healthy. If a clone reports hook
+  drift, rerun `python3 dev/scripts/devctl.py install-git-hooks` before
+  blaming the governed commit path; the repo template already carries the
+  governed-commit bypass and the reinstall refreshes the stale managed copy
+  without weakening the raw-git block for shell/editor commits.
+- 2026-04-12 shared-primary commit topology:
+  resume from one governed commit pipeline across all modes. Shared-primary
+  remote-control runs use the primary checkout when worker fanout is zero,
+  while delegated-worker fanout gets isolated worktrees with separate
+  `worktree_identity` approval. The next action in this owner doc is to
+  project that default more clearly through status/doctor/bootstrap, not to
+  add another gitdir or commit-on-behalf path.
+- 2026-04-12 checkpoint-commit authority:
+  resume with the governed checkpoint path closed in repo code. `devctl
+  commit` may proceed when startup says `checkpoint_allowed` /
+  `await_checkpoint`, and the nested governed git invocation now carries an
+  explicit marker so the raw-git hook gate still blocks shell/editor commits
+  while allowing the repo-owned path. The next action in this owner doc is
+  shared status/doctor wording around checkpoint-only authority, not a raw-git
+  exception.
 - 2026-04-11 governed-push visibility closure:
   resume with the phase-aware latest-push artifact in place. The managed push
   lane now exposes `push_preflight_running`, `push_pending`, and

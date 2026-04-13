@@ -16,6 +16,7 @@ from dev.scripts.devctl.cli import build_parser
 from dev.scripts.devctl.commands.governance import startup_context as startup_context_command
 from dev.scripts.devctl.commands.vcs.commit import (
     _build_git_commit_cmd,
+    _pipeline_has_checkpoint_snapshot,
     _pipeline_has_validation_plan,
     _resolve_interaction_mode,
     _run_guard_bundle,
@@ -57,6 +58,7 @@ def _make_args(**overrides) -> SimpleNamespace:
     defaults = {
         "message": "test commit",
         "amend": False,
+        "role": None,
         "passthrough": [],
         "format": "json",
         "output": None,
@@ -313,6 +315,8 @@ class TestManagedPreCommitHookTemplate(unittest.TestCase):
         content = self.HOOK_PATH.read_text()
         self.assertIn("commit_permission_hook", content)
         self.assertIn("DEVCTL_REVIEW_SNAPSHOT_RECEIPT_COMMIT", content)
+        self.assertIn("devctl.governed-commit", content)
+        self.assertIn("DEVCTL_GOVERNED_COMMIT", content)
 
 
 class TestRawGitCommitPermissionHook(unittest.TestCase):
@@ -368,6 +372,38 @@ class TestRawGitCommitPermissionHook(unittest.TestCase):
         self.assertIn("Raw git commit is blocked", rendered)
         self.assertIn("implementation_permission_blocked", rendered)
         self.assertIn("review_authority_stale", rendered)
+        self.assertIn("review-channel --action status", rendered)
+
+    def test_evaluate_raw_git_commit_permission_stays_blocked_for_checkpoint_only_state(
+        self,
+    ) -> None:
+        ctx = SimpleNamespace(
+            implementation_permission="blocked",
+            observed_control_topology="no_live_agents",
+            advisory_action="checkpoint_allowed",
+            push_decision=SimpleNamespace(action="await_checkpoint"),
+            reviewer_gate=SimpleNamespace(
+                review_gate_allows_push=True,
+                implementation_blocked=False,
+                implementation_block_reason="",
+                checkpoint_permitted=True,
+            ),
+            governance=SimpleNamespace(
+                push_enforcement=SimpleNamespace(
+                    checkpoint_required=False,
+                    safe_to_continue_editing=True,
+                )
+            ),
+        )
+        with patch(
+            "dev.scripts.devctl.runtime.startup_context.build_startup_context",
+            return_value=ctx,
+        ):
+            allowed, lines = _evaluate_raw_git_commit_permission(Path("/tmp/repo"))
+
+        rendered = "\n".join(lines)
+        self.assertFalse(allowed)
+        self.assertIn("implementation_permission_blocked", rendered)
         self.assertIn("review-channel --action status", rendered)
 
     def test_evaluate_raw_git_commit_permission_fails_closed_when_context_load_errors(
@@ -436,6 +472,22 @@ class TestGuardBundleRunner(unittest.TestCase):
         env = mock_runner.call_args[1]["env"]
         self.assertNotIn("DEVCTL_COMMIT_GATE_BYPASS_STARTUP_AUTHORITY", env)
 
+    def test_guard_bundle_bypasses_with_staged_checkpoint_snapshot(self):
+        mock_runner = MagicMock(return_value=_mock_subprocess_result(0))
+        pipeline = SimpleNamespace(
+            intent=SimpleNamespace(
+                validation_plan=None,
+                staged_tree_hash="tree-123",
+                staged_path_count=4,
+            )
+        )
+
+        rc = _run_guard_bundle(runner=mock_runner, pipeline=pipeline)
+
+        self.assertEqual(rc, 0)
+        env = mock_runner.call_args[1]["env"]
+        self.assertEqual(env["DEVCTL_COMMIT_GATE_BYPASS_STARTUP_AUTHORITY"], "1")
+
 
 class TestValidationPlanDetection(unittest.TestCase):
     def test_pipeline_has_validation_plan_requires_typed_fields(self) -> None:
@@ -451,6 +503,30 @@ class TestValidationPlanDetection(unittest.TestCase):
 
         self.assertTrue(_pipeline_has_validation_plan(pipeline))
         self.assertFalse(_pipeline_has_validation_plan(SimpleNamespace(intent=SimpleNamespace(validation_plan=None))))
+
+    def test_pipeline_has_checkpoint_snapshot_accepts_staged_tree_without_validation_plan(
+        self,
+    ) -> None:
+        pipeline = SimpleNamespace(
+            intent=SimpleNamespace(
+                validation_plan=None,
+                staged_tree_hash="tree-123",
+                staged_path_count=2,
+            )
+        )
+
+        self.assertTrue(_pipeline_has_checkpoint_snapshot(pipeline))
+        self.assertFalse(
+            _pipeline_has_checkpoint_snapshot(
+                SimpleNamespace(
+                    intent=SimpleNamespace(
+                        validation_plan=None,
+                        staged_tree_hash="",
+                        staged_path_count=0,
+                    )
+                )
+            )
+        )
 
 
 class TestInteractionModeResolution(unittest.TestCase):
@@ -471,6 +547,65 @@ class TestInteractionModeResolution(unittest.TestCase):
 
 
 class TestGovernedCommitPipeline(unittest.TestCase):
+    def test_commit_blocks_dashboard_role_before_staging(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            repo_root = _init_repo(Path(tmpdir) / "repo")
+            (repo_root / "tracked.txt").write_text("updated\n", encoding="utf-8")
+            _run_git(repo_root, "add", "tracked.txt")
+            guard_runner = MagicMock(return_value=_mock_subprocess_result(0))
+            captured: dict[str, object] = {}
+
+            with patch(
+                "dev.scripts.devctl.commands.vcs.commit._emit_report",
+                side_effect=lambda _args, report: captured.update(report),
+            ):
+                rc = run_commit(
+                    _make_args(message="feat: blocked dashboard commit", role="dashboard"),
+                    repo_root=repo_root,
+                    policy=_push_policy(),
+                    executor=_executor(repo_root),
+                    interaction_mode="remote_control",
+                    guard_runner=guard_runner,
+                )
+
+            pipeline = _executor(repo_root).load_pipeline()
+            self.assertEqual(rc, 1)
+            self.assertEqual(captured["reason"], "caller_role_blocked")
+            self.assertEqual(captured["caller_role"], "dashboard")
+            self.assertEqual(captured["caller_role_source"], "arg:role")
+            self.assertFalse(pipeline.pipeline_id)
+            guard_runner.assert_not_called()
+
+    def test_commit_blocks_env_backed_reviewer_lane_before_staging(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            repo_root = _init_repo(Path(tmpdir) / "repo")
+            (repo_root / "tracked.txt").write_text("updated\n", encoding="utf-8")
+            _run_git(repo_root, "add", "tracked.txt")
+            guard_runner = MagicMock(return_value=_mock_subprocess_result(0))
+            captured: dict[str, object] = {}
+
+            with patch.dict(os.environ, {"DEVCTL_CALLER_ROLE": "reviewer"}):
+                with patch(
+                    "dev.scripts.devctl.commands.vcs.commit._emit_report",
+                    side_effect=lambda _args, report: captured.update(report),
+                ):
+                    rc = run_commit(
+                        _make_args(message="feat: blocked reviewer commit"),
+                        repo_root=repo_root,
+                        policy=_push_policy(),
+                        executor=_executor(repo_root),
+                        interaction_mode="dual_agent",
+                        guard_runner=guard_runner,
+                    )
+
+            pipeline = _executor(repo_root).load_pipeline()
+            self.assertEqual(rc, 1)
+            self.assertEqual(captured["reason"], "caller_role_blocked")
+            self.assertEqual(captured["caller_role"], "reviewer")
+            self.assertEqual(captured["caller_role_source"], "env:DEVCTL_CALLER_ROLE")
+            self.assertFalse(pipeline.pipeline_id)
+            guard_runner.assert_not_called()
+
     def test_commit_allows_checkpoint_required_stage_gate(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             repo_root = _init_repo(Path(tmpdir) / "repo")
@@ -522,6 +657,65 @@ class TestGovernedCommitPipeline(unittest.TestCase):
             self.assertEqual(rc, 0)
             self.assertEqual(pipeline.state, "commit_recorded")
             self.assertTrue(pipeline.commit_sha)
+
+    def test_commit_allows_governed_checkpoint_when_new_implementation_is_blocked(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            repo_root = _init_repo(Path(tmpdir) / "repo")
+            (repo_root / "tracked.txt").write_text("updated\n", encoding="utf-8")
+            _run_git(repo_root, "add", "tracked.txt")
+            guard_runner = MagicMock(return_value=_mock_subprocess_result(0))
+
+            def _startup_context_fn(*, repo_root: Path):
+                del repo_root
+                return SimpleNamespace(
+                    implementation_permission="blocked",
+                    observed_control_topology="no_live_agents",
+                    advisory_action="checkpoint_allowed",
+                    reviewer_gate=SimpleNamespace(
+                        implementation_blocked=False,
+                        implementation_block_reason="",
+                        checkpoint_permitted=True,
+                        review_gate_allows_push=True,
+                    ),
+                    governance=SimpleNamespace(
+                        push_enforcement=SimpleNamespace(
+                            checkpoint_required=False,
+                            safe_to_continue_editing=True,
+                        )
+                    ),
+                    push_decision=SimpleNamespace(
+                        action="await_checkpoint",
+                        reason="staged_index_present",
+                    ),
+                )
+
+            executor = GovernedVcsExecutor(
+                repo_root=repo_root,
+                review_channel_path=repo_root / "dev/active/review_channel.md",
+                push_policy=_push_policy(),
+                startup_context_fn=_startup_context_fn,
+                refresh_projections=True,
+            )
+
+            rc = run_commit(
+                _make_args(message="feat: governed checkpoint commit"),
+                repo_root=repo_root,
+                policy=_push_policy(),
+                executor=executor,
+                interaction_mode="local_terminal",
+                guard_runner=guard_runner,
+            )
+
+            pipeline = executor.load_pipeline()
+            self.assertEqual(rc, 0)
+            self.assertEqual(pipeline.state, "commit_recorded")
+            self.assertTrue(pipeline.commit_sha)
+            self.assertEqual(
+                _run_git(repo_root, "log", "-1", "--pretty=%s"),
+                "feat: governed checkpoint commit",
+            )
 
     def test_commit_blocks_when_implementation_permission_is_blocked(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -779,6 +973,16 @@ class TestGovernedCommitPipeline(unittest.TestCase):
 
 
 class TestCommitParserEndToEnd(unittest.TestCase):
+    def test_parser_accepts_role(self) -> None:
+        from dev.scripts.devctl.sync_parser import add_commit_parser
+        import argparse
+
+        parser = argparse.ArgumentParser()
+        sub = parser.add_subparsers()
+        add_commit_parser(sub)
+        args = parser.parse_args(["commit", "--role", "dashboard", "-m", "test"])
+        self.assertEqual(args.role, "dashboard")
+
     def test_parser_accepts_option_passthrough_with_separator(self) -> None:
         from dev.scripts.devctl.sync_parser import add_commit_parser
         import argparse

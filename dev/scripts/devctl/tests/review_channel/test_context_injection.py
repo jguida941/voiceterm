@@ -108,7 +108,7 @@ class ReviewChannelEventProjectionContextTests(unittest.TestCase):
                     "summary": "review the live tranche",
                     "body": "Investigate MP-355 follow-up",
                     "plan_id": "MP-355",
-                    "kind": "review",
+                    "kind": "instruction",
                     "from_agent": "codex",
                     "to_agent": "claude",
                 }
@@ -202,3 +202,31 @@ class ReviewChannelEventProjectionContextTests(unittest.TestCase):
             summary["derived_next_instruction_source"]["requested_action"],
             "push",
         )
+
+    def test_finding_packet_does_not_become_derived_next_instruction(self) -> None:
+        from dev.scripts.devctl.review_channel.event_projection import (
+            build_event_queue_summary,
+        )
+
+        summary = build_event_queue_summary(
+            {"codex": 1},
+            0,
+            packets=[
+                {
+                    "packet_id": "rev_pkt_finding",
+                    "status": "pending",
+                    "summary": "Dashboard dogfood: 6 critical issues",
+                    "body": "This is a finding, not the next instruction.",
+                    "plan_id": "MP-380",
+                    "kind": "finding",
+                    "from_agent": "claude",
+                    "to_agent": "codex",
+                    "requested_action": "review_only",
+                    "posted_at": "2026-04-11T22:40:00Z",
+                    "expires_at_utc": "2999-01-01T00:00:00Z",
+                }
+            ],
+        )
+
+        self.assertEqual(summary["derived_next_instruction"], "")
+        self.assertEqual(summary["derived_next_instruction_source"], {})

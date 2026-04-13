@@ -155,6 +155,48 @@ def test_attach_reviewer_runtime_snapshot_rejects_stale_approved_target_receipt(
     assert doctor["publication_source"] == "none"
 
 
+def test_build_reviewer_doctor_surface_rejects_stale_pipeline_identity() -> None:
+    doctor = build_reviewer_doctor_surface(
+        contract=_runtime_contract(),
+        commit_pipeline=RemoteCommitPipelineContract(
+            pipeline_id="pipeline-old",
+            state="push_completed",
+            branch="feature/governance-quality-sweep",
+            remote="origin",
+            commit_sha="0936a4e543f5a3c38d0e8a9348718bd50c533a05",
+            push_report_path="dev/reports/push/latest.json",
+            approved_target_identity="tree-receipt:old",
+            worktree_identity="worktree:old",
+        ),
+        push_enforcement={
+            "current_branch": "codex-role-portability",
+            "current_head_commit": "687c04784daa99a93258a4570445b334fa4413b3",
+            "default_remote": "origin",
+            "latest_push_report_path": "dev/reports/push/latest.json",
+            "latest_push_report_branch": "feature/governance-quality-sweep",
+            "latest_push_report_remote": "origin",
+            "latest_push_report_head_commit": "0936a4e543f5a3c38d0e8a9348718bd50c533a05",
+            "latest_push_report_status": "blocked",
+            "latest_push_report_reason": "validation_failed",
+            "latest_push_report_published_remote": False,
+            "latest_push_report_post_push_green": False,
+            "current_worktree_identity": "worktree:new",
+            "current_approved_target_identity": "tree-receipt:new",
+            "latest_push_report_matches_current_approved_target": False,
+            "latest_push_report_matches_current_worktree": True,
+            "latest_push_report_matches_current_branch": False,
+            "latest_push_report_matches_current_head": False,
+        },
+    )
+
+    assert doctor["pipeline_id"] == ""
+    assert doctor["pipeline_state"] == "push_blocked"
+    assert doctor["commit_sha"] == ""
+    assert doctor["published_remote"] is False
+    assert doctor["publication_source"] == "none"
+    assert doctor["push_report_path"] == "dev/reports/push/latest.json"
+
+
 def test_follow_publisher_carries_operator_interaction_mode() -> None:
     """Verify the follow controller deps propagate operator mode into report frames."""
     from dev.scripts.devctl.review_channel.follow_controller import EnsureFollowDeps

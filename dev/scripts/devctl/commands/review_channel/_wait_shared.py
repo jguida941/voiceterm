@@ -25,6 +25,7 @@ class WaitDeps:
     read_bridge_text_fn: Callable[..., str]
     monotonic_fn: Callable[[], float]
     sleep_fn: Callable[[float], None]
+    pending_packets_fn: Callable[..., list[dict[str, object]]] | None = None
 
 
 def resolve_wait_timeout(args, *, default_seconds: int) -> int:

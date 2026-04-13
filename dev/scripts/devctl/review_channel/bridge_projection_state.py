@@ -4,49 +4,27 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 import hashlib
-import re
 from dataclasses import asdict, dataclass
-from datetime import datetime, timezone
-from zoneinfo import ZoneInfo
 
-from .action_request import render_action_requests_from_packets
-from .bridge_section_validation import find_embedded_markdown_headings
-from .bridge_sanitize import (
-    BRIDGE_ALLOWED_H2,
-    BRIDGE_SECTION_LINE_LIMITS,
-    sanitize_bridge_sections,
+from .bridge_projection_contract import BRIDGE_SECTION_ORDER
+from .bridge_projection_metadata import (
+    format_local_poll_time as _format_local_poll_time,
+    projection_metadata as _projection_metadata,
 )
-from .handoff import extract_bridge_snapshot
+from .bridge_projection_sections import (
+    int_value as _int_value,
+    mapping as _mapping,
+    string_mapping as _string_mapping,
+    tuple_strings as _tuple_strings,
+    with_fallback_sections as _with_fallback_sections,
+)
+from .bridge_projection_validation import (
+    bridge_projection_drop_headings,
+    bridge_projection_parts,
+    validate_flat_bridge_sections as _validate_flat_bridge_sections,
+)
+from .handoff import BridgeSnapshot, extract_bridge_snapshot
 from .pending_packets import live_pending_packets
-
-BRIDGE_SECTION_ORDER = (
-    "Operator Direction",
-    "Poll Status",
-    "Current Verdict",
-    "Open Findings",
-    "Claude Status",
-    "Claude Questions",
-    "Claude Ack",
-    "Current Instruction For Claude",
-    "Last Reviewed Scope",
-    "Action Requests",
-)
-_OPTIONAL_BRIDGE_SECTIONS = {"Operator Direction", "Action Requests"}
-_FLAT_BRIDGE_SECTION_ORDER = tuple(
-    heading for heading in BRIDGE_SECTION_ORDER
-    if heading not in _OPTIONAL_BRIDGE_SECTIONS
-)
-
-_H2_RE = re.compile(r"^##\s+(.+?)\s*$", re.MULTILINE)
-_LOCAL_TIME_FORMAT = "%Y-%m-%d %H:%M:%S %Z"
-
-
-def _local_tz() -> ZoneInfo:
-    """Return the display timezone from the active repo-pack config."""
-    from ..repo_packs import active_path_config
-
-    return ZoneInfo(active_path_config().display_timezone)
-
 
 @dataclass(frozen=True)
 class BridgeProjectionState:
@@ -79,16 +57,12 @@ def build_bridge_projection_state(
 ) -> BridgeProjectionState:
     """Capture the typed bridge payload needed for a pure compatibility render."""
     snapshot = extract_bridge_snapshot(bridge_text)
-    sections, sanitized_sections = sanitize_bridge_sections(
-        _projection_sections(
-            snapshot.sections,
-            current_session=_mapping(current_session),
-            reviewer_runtime=_mapping(reviewer_runtime),
-            packets=packets,
-        ),
-        section_line_limits=BRIDGE_SECTION_LINE_LIMITS,
+    sections, sanitized_sections = bridge_projection_parts(
+        raw_sections=snapshot.sections,
+        current_session=_mapping(current_session),
+        reviewer_runtime=_mapping(reviewer_runtime),
+        packets=packets,
     )
-    _validate_flat_bridge_sections(sections)
     return BridgeProjectionState(
         metadata=_projection_metadata(
             snapshot=snapshot,
@@ -100,13 +74,7 @@ def build_bridge_projection_state(
         sections=sections,
         lines_before=len(bridge_text.splitlines()),
         bytes_before=len(bridge_text.encode("utf-8")),
-        dropped_headings=tuple(
-            heading
-            for heading in _ordered_unique(
-                match.group(1).strip() for match in _H2_RE.finditer(bridge_text)
-            )
-            if heading not in BRIDGE_ALLOWED_H2
-        ),
+        dropped_headings=bridge_projection_drop_headings(bridge_text),
         sanitized_sections=tuple(sanitized_sections),
     )
 
@@ -119,21 +87,26 @@ def bridge_projection_state_from_review_state(
     projection = _mapping(compat.get("bridge_projection"))
     metadata = _string_mapping(projection.get("metadata"))
     sections = _string_mapping(projection.get("sections"))
+    current_session = _mapping(review_state.get("current_session"))
+    reviewer_runtime = _mapping(review_state.get("reviewer_runtime"))
+    bridge_state = _mapping(review_state.get("bridge"))
+    packets = review_state.get("packets")
+    live_packets = list(live_pending_packets(packets)) if isinstance(packets, list) else None
+    sections, sanitized_sections = bridge_projection_parts(
+        raw_sections=sections,
+        current_session=current_session,
+        reviewer_runtime=reviewer_runtime,
+        packets=live_packets,
+    )
     sections = _with_fallback_sections(review_state, sections)
     for heading in BRIDGE_SECTION_ORDER:
         sections.setdefault(heading, "")
-
-    # Overlay packet-projected action requests so the bridge section is
-    # derived from the event store, not from stale bridge markdown.
-    packets = review_state.get("packets")
-    if isinstance(packets, list):
-        packet_body = render_action_requests_from_packets(
-            list(live_pending_packets(packets))
-        )
-        sections["Action Requests"] = packet_body
-    sections, sanitized_sections = sanitize_bridge_sections(
-        sections,
-        section_line_limits=BRIDGE_SECTION_LINE_LIMITS,
+    metadata = _projection_metadata(
+        snapshot=BridgeSnapshot(metadata=metadata, sections=sections),
+        bridge_liveness=bridge_state,
+        sections=sections,
+        current_session=current_session,
+        bridge_state=bridge_state,
     )
     state = BridgeProjectionState(
         metadata=metadata,
@@ -142,7 +115,7 @@ def bridge_projection_state_from_review_state(
         bytes_before=_int_value(projection.get("bytes_before")),
         dropped_headings=_tuple_strings(projection.get("dropped_headings")),
         sanitized_sections=tuple(
-            _ordered_unique(
+            dict.fromkeys(
                 (
                     *_tuple_strings(projection.get("sanitized_sections")),
                     *sanitized_sections,
@@ -182,259 +155,3 @@ def bridge_projection_metadata_lines(
         f"- Last non-audit worktree hash: `{last_worktree_hash}`",
         f"- Current instruction revision: `{current_revision}`",
     ]
-
-
-def _projection_metadata(
-    *,
-    snapshot,
-    bridge_liveness: Mapping[str, object],
-    sections: Mapping[str, str],
-    current_session: Mapping[str, object],
-    bridge_state: Mapping[str, object],
-) -> dict[str, str]:
-    current_instruction = str(sections.get("Current Instruction For Claude", "")).strip()
-    current_revision = str(
-        current_session.get("current_instruction_revision")
-        or bridge_state.get("current_instruction_revision")
-        or bridge_liveness.get("current_instruction_revision")
-        or snapshot.metadata.get("current_instruction_revision")
-        or ""
-    ).strip()
-    if not current_revision and current_instruction:
-        current_revision = hashlib.sha256(
-            current_instruction.encode("utf-8")
-        ).hexdigest()[:12]
-    last_codex_poll_utc = str(snapshot.metadata.get("last_codex_poll_utc") or "").strip()
-    last_codex_poll_local = str(
-        snapshot.metadata.get("last_codex_poll_local") or ""
-    ).strip()
-    if not last_codex_poll_local and last_codex_poll_utc:
-        last_codex_poll_local = _format_local_poll_time(last_codex_poll_utc)
-    return {
-        "last_codex_poll_utc": last_codex_poll_utc,
-        "last_codex_poll_local": last_codex_poll_local,
-        "reviewer_mode": str(
-            bridge_liveness.get("reviewer_mode")
-            or snapshot.metadata.get("reviewer_mode")
-            or "active_dual_agent"
-        ).strip(),
-        "current_instruction_revision": current_revision,
-    }
-
-
-def _projection_sections(
-    raw_sections: Mapping[str, str],
-    *,
-    current_session: Mapping[str, object],
-    reviewer_runtime: Mapping[str, object],
-    packets: list[dict[str, object]] | None = None,
-) -> dict[str, str]:
-    sections = _tracked_sections(raw_sections)
-    review_acceptance = _mapping(reviewer_runtime.get("review_acceptance"))
-    typed_overrides = (
-        (
-            "Current Verdict",
-            _typed_section_override(review_acceptance.get("current_verdict")),
-        ),
-        (
-            "Open Findings",
-            _typed_section_override(
-                review_acceptance.get("open_findings")
-                or current_session.get("open_findings")
-            ),
-        ),
-        (
-            "Claude Status",
-            _typed_section_override(current_session.get("implementer_status")),
-        ),
-        (
-            "Claude Ack",
-            _typed_section_override(current_session.get("implementer_ack")),
-        ),
-        (
-            "Current Instruction For Claude",
-            _typed_section_override(current_session.get("current_instruction")),
-        ),
-        (
-            "Last Reviewed Scope",
-            _typed_section_override(current_session.get("last_reviewed_scope")),
-        ),
-    )
-    for heading, value in typed_overrides:
-        if value:
-            sections[heading] = value
-    # Overlay action requests from packet transport when available so the
-    # bridge section is a projection of the event store, not a second queue.
-    if packets is not None:
-        sections["Action Requests"] = render_action_requests_from_packets(
-            packets
-        )
-    return sections
-
-
-def _with_fallback_sections(
-    review_state: Mapping[str, object],
-    sections: Mapping[str, str],
-) -> dict[str, str]:
-    result = {heading: str(sections.get(heading, "")) for heading in BRIDGE_SECTION_ORDER}
-    current_session = _mapping(review_state.get("current_session"))
-    reviewer_runtime = _mapping(review_state.get("reviewer_runtime"))
-    review_acceptance = _mapping(reviewer_runtime.get("review_acceptance"))
-    bridge_state = _mapping(review_state.get("bridge"))
-
-    _set_missing(
-        result,
-        "Poll Status",
-        _poll_status_fallback(review_state),
-    )
-    _set_missing(
-        result,
-        "Current Verdict",
-        _section_text(
-            review_acceptance.get("current_verdict"),
-            current_session.get("current_verdict"),
-            default="- reviewer state unavailable",
-        ),
-    )
-    _set_missing(
-        result,
-        "Open Findings",
-        _section_text(
-            review_acceptance.get("open_findings"),
-            current_session.get("open_findings"),
-            default="- none",
-        ),
-    )
-    _set_missing(
-        result,
-        "Claude Status",
-        _section_text(
-            current_session.get("implementer_status"),
-            default="- Status unavailable.",
-        ),
-    )
-    _set_missing(result, "Claude Questions", "- None recorded.")
-    _set_missing(
-        result,
-        "Claude Ack",
-        _section_text(current_session.get("implementer_ack"), default="- missing"),
-    )
-    _set_missing(
-        result,
-        "Current Instruction For Claude",
-        _section_text(
-            current_session.get("current_instruction"),
-            bridge_state.get("current_instruction"),
-            default="- Await reviewer instruction refresh.",
-        ),
-    )
-    _set_missing(
-        result,
-        "Last Reviewed Scope",
-        _section_text(
-            current_session.get("last_reviewed_scope"),
-            bridge_state.get("last_reviewed_scope"),
-            default="- (missing)",
-        ),
-    )
-    return result
-
-
-def _set_missing(sections: dict[str, str], heading: str, value: str) -> None:
-    if not sections.get(heading, "").strip():
-        sections[heading] = value
-
-
-def _poll_status_fallback(review_state: Mapping[str, object]) -> str:
-    timestamp = str(review_state.get("timestamp") or "").strip()
-    suffix = f" at {timestamp}" if timestamp else ""
-    return "- Reviewer state rebuilt from typed review-state projection" + suffix + "."
-
-
-def _section_text(*values: object, default: str) -> str:
-    for value in values:
-        if isinstance(value, (list, tuple)):
-            rows = [str(item).strip() for item in value if str(item).strip()]
-            if rows:
-                return "\n".join(
-                    row if row.startswith("- ") else f"- {row}" for row in rows
-                )
-            continue
-        text = str(value or "").strip()
-        if text:
-            return text
-    return default
-
-
-def _tracked_sections(raw_sections: Mapping[str, str]) -> dict[str, str]:
-    return {
-        heading: str(raw_sections.get(heading, ""))
-        for heading in BRIDGE_SECTION_ORDER
-    }
-
-
-def _typed_section_override(value: object) -> str:
-    text = str(value or "").strip()
-    if text == "(missing)":
-        return ""
-    return text
-
-
-def _validate_flat_bridge_sections(sections: Mapping[str, str]) -> None:
-    errors: list[str] = []
-    for heading in _FLAT_BRIDGE_SECTION_ORDER:
-        heading_hits = find_embedded_markdown_headings(str(sections.get(heading, "")))
-        if not heading_hits:
-            continue
-        quoted = "; ".join(f"`{line}`" for line in heading_hits)
-        errors.append(f"`{heading}`: {quoted}")
-    if errors:
-        raise ValueError(
-            "Typed bridge projection rejected embedded markdown headings in fixed "
-            "sections: " + "; ".join(errors)
-        )
-
-
-def _format_local_poll_time(last_codex_poll_utc: str) -> str:
-    try:
-        parsed = datetime.strptime(
-            last_codex_poll_utc,
-            "%Y-%m-%dT%H:%M:%SZ",
-        ).replace(tzinfo=timezone.utc)
-    except ValueError:
-        return ""
-    return parsed.astimezone(_local_tz()).strftime(_LOCAL_TIME_FORMAT)
-
-
-def _mapping(value: object) -> Mapping[str, object]:
-    return value if isinstance(value, Mapping) else {}
-
-
-def _string_mapping(value: object) -> dict[str, str]:
-    if not isinstance(value, Mapping):
-        return {}
-    return {str(key): str(item or "") for key, item in value.items()}
-
-
-def _tuple_strings(value: object) -> tuple[str, ...]:
-    if isinstance(value, (list, tuple)):
-        return tuple(str(item) for item in value if str(item).strip())
-    return ()
-
-
-def _int_value(value: object) -> int:
-    try:
-        return int(value or 0)
-    except (TypeError, ValueError):
-        return 0
-
-
-def _ordered_unique(values) -> list[str]:
-    seen: set[str] = set()
-    ordered: list[str] = []
-    for value in values:
-        if value in seen:
-            continue
-        seen.add(value)
-        ordered.append(value)
-    return ordered

@@ -7,6 +7,7 @@ from collections.abc import Mapping
 from ..runtime.review_state_models import RecoveryDecisionState
 from .peer_liveness import AttentionStatus
 from .peer_recovery import (
+    REVIEW_CHANNEL_GOVERNED_CHECKPOINT_COMMAND,
     REVIEW_CHANNEL_RENDER_BRIDGE_COMMAND,
     build_implementer_recover_command,
     build_live_relaunch_command,
@@ -121,6 +122,8 @@ def resolve_command(
     operator_interaction_mode: str,
 ) -> str:
     """Return the shell command for the resolved recovery action."""
+    if action_id == "cut_checkpoint":
+        return REVIEW_CHANNEL_GOVERNED_CHECKPOINT_COMMAND
     if action_id == "relaunch_review_loop":
         return build_live_relaunch_command(operator_interaction_mode)
     if action_id == "recover_implementer":

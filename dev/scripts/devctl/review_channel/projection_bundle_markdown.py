@@ -10,7 +10,10 @@ from .current_session_projection import (
 )
 from .doctor_markdown import append_doctor_markdown
 from .projection_markdown import append_push_markdown
-from .pending_packets import partition_live_packet_queue
+from .pending_packets import (
+    partition_live_packet_queue,
+    reconcile_review_state_packet_queue,
+)
 
 
 def render_latest_markdown(
@@ -21,6 +24,7 @@ def render_latest_markdown(
     queue = review_state.get("queue", {})
     bridge = review_state.get("bridge", {})
     current_session = review_state.get("current_session", {})
+    packet_inbox = review_state.get("packet_inbox", {})
     review_candidate = review_state.get("review_candidate", {})
     md_compat = review_state.get("_compat") or {}
     runtime = md_compat.get("runtime", {})
@@ -37,7 +41,10 @@ def render_latest_markdown(
     lines.append(f"- timestamp: {review_state.get('timestamp')}")
     lines.append(f"- ok: {review_state.get('ok')}")
     lines.append(f"- pending_total: {queue.get('pending_total')}")
-    lines.append(f"- stale_packet_count: {queue.get('stale_packet_count')}")
+    lines.append(
+        "- stale_packet_count: "
+        f"{queue.get('stale_packet_count')} (expired pending packets)"
+    )
     lines.append(
         f"- last_codex_poll_utc: {bridge.get('last_codex_poll_utc') or 'n/a'}"
     )
@@ -55,6 +62,7 @@ def render_latest_markdown(
     append_doctor_markdown(lines, doctor)
     append_push_markdown(lines, push_enforcement, push_decision)
     append_current_session_markdown(lines, current_session)
+    _append_packet_inbox(lines, packet_inbox)
     append_review_candidate_markdown(lines, review_candidate)
 
     lines.append("")
@@ -62,6 +70,7 @@ def render_latest_markdown(
     lines.append(current_focus_line(review_state))
 
     _append_derived_instruction(lines, queue)
+    _append_packet_queue_reconciliation(lines, review_state)
     append_planned_topology_markdown(lines, planned_topology)
     _append_agents(lines, agents)
     _append_packets(lines, packets)
@@ -213,6 +222,8 @@ def _append_packets(lines: list[str], packets: object) -> None:
     if history_packets:
         lines.append("")
         lines.append("## Packet History")
+        if len(history_packets) > 5:
+            lines.append(f"- showing latest 5 of {len(history_packets)} history packets")
         for packet in history_packets[:5]:
             summary = _format_packet_line(packet, stale_pending=True)
             pack_kinds = context_pack_ref_summary(packet.get("context_pack_refs"))
@@ -221,12 +232,73 @@ def _append_packets(lines: list[str], packets: object) -> None:
             lines.append(summary)
 
 
+def _append_packet_queue_reconciliation(
+    lines: list[str],
+    review_state: dict[str, object],
+) -> None:
+    reconciliation = reconcile_review_state_packet_queue(
+        review_state,
+        history_limit=5,
+    )
+    if not reconciliation.needs_attention():
+        return
+    lines.append("")
+    lines.append("## Packet Queue Reconciliation")
+    lines.append(f"- live_pending_total: {reconciliation.live_pending_total}")
+    lines.append(f"- history_total: {reconciliation.history_total}")
+    lines.append(f"- expired_pending_total: {reconciliation.stale_pending_total}")
+    lines.append(f"- queue_pending_total: {reconciliation.queue_pending_total}")
+    lines.append(f"- queue_stale_total: {reconciliation.queue_stale_total}")
+    lines.append(
+        "- expired_pending_hidden_from_inbox_total: "
+        f"{reconciliation.stale_pending_hidden_from_inbox_total}"
+    )
+    lines.append(f"- history_shown_total: {reconciliation.history_shown_total}")
+    lines.append(f"- history_truncated: {reconciliation.history_truncated}")
+    if reconciliation.stale_pending_hidden_from_inbox_total:
+        lines.append(
+            "- note: expired pending packets are unresolved packets whose TTL "
+            "elapsed; they stay in history and are intentionally excluded from "
+            "the live inbox until they are reissued or resolved"
+        )
+
+
+def _append_packet_inbox(lines: list[str], packet_inbox: object) -> None:
+    if not isinstance(packet_inbox, dict):
+        return
+    attention_revision = str(packet_inbox.get("attention_revision") or "").strip()
+    agents = packet_inbox.get("agents")
+    if not attention_revision and not isinstance(agents, list):
+        return
+    lines.append("")
+    lines.append("## Packet Inbox")
+    lines.append(f"- attention_revision: {attention_revision or 'n/a'}")
+    if not isinstance(agents, list):
+        return
+    for agent in agents:
+        if not isinstance(agent, dict):
+            continue
+        status = str(agent.get("attention_status") or "none").strip() or "none"
+        if status == "none" and not agent.get("latest_finding_packet_id"):
+            continue
+        lines.append(
+            f"- {agent.get('agent')}: status={status} "
+            f"delivery={agent.get('delivery_state') or 'idle'} "
+            f"current_instruction_packet_id={agent.get('current_instruction_packet_id') or 'none'} "
+            f"latest_finding_packet_id={agent.get('latest_finding_packet_id') or 'none'}"
+        )
+    if reconciliation.history_truncated:
+        lines.append(
+            "- note: this surface is only showing the newest packet-history rows"
+        )
+
+
 def _format_packet_line(packet: object, *, stale_pending: bool = False) -> str:
     if not isinstance(packet, dict):
         return "- packet: (unavailable)"
     status = str(packet.get("status") or "unknown").strip()
     if stale_pending and status == "pending":
-        status = "pending (stale)"
+        status = "pending (expired)"
     return (
         f"- {packet.get('packet_id')}: {status} | "
         f"{packet.get('from_agent')} -> {packet.get('to_agent')} | "

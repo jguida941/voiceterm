@@ -2,65 +2,54 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Mapping
 
 from ..platform.coordination_snapshot_models import coordination_snapshot_from_mapping
 from .control_state import _int, _mapping, _string, _string_rows
 from .remote_commit_pipeline_models import push_authorization_from_mapping
 from .review_state_collaboration_parse import collaboration_state_from_payload
+from .review_state_parser_rows import (
+    canonicalize_current_instruction_state as _canonicalize_current_instruction_state,
+    context_pack_refs_from_value as _context_pack_refs_from_value,
+    current_session_state_from_payload as _current_session_state_from_payload,
+    instruction_revision as _instruction_revision,
+    packet_states_from_value as _packet_states_from_value,
+    registry_agents_from_value as _registry_agents_from_value,
+)
 from .review_state_parse_support import (
     _bool,
     attention_projection_warning,
     attention_state_from_mapping,
-    bridge_ack_state,
     recovery_assessment_from_mapping,
     review_bridge_state_from_payload,
 )
 from .review_state_models import (
-    AgentRegistryEntryState,
     AgentRegistryState,
-    ContextPackRefState,
-    ReviewCurrentSessionState,
-    ReviewPacketState,
+    packet_inbox_from_mapping,
     ReviewQueueState,
     ReviewSessionState,
     ReviewState,
     review_candidate_from_mapping,
 )
-from .remote_commit_pipeline_models import push_authorization_from_mapping
+from .review_packet_inbox import build_packet_inbox_payload
 from .review_state_commit_pipeline_parse import commit_pipeline_from_review_payload
 from .reviewer_runtime_parser import reviewer_runtime_state_from_payload
 
 
 def review_state_from_payload(payload: Mapping[str, object]) -> ReviewState | None:
     """Normalize review-state or full projection payloads into a shared contract."""
-    review_payload = _mapping(payload.get("review_state"))
-    if not review_payload and any(
-        key in payload for key in ("review", "queue", "bridge", "packets", "agents")
-    ):
-        review_payload = payload
-    if not review_payload:
+    envelope = _review_state_envelope(payload)
+    if envelope is None:
         return None
-
-    registry_payload = _mapping(payload.get("agent_registry")) or _mapping(
-        review_payload.get("agent_registry")
-    )
-    attention = _mapping(payload.get("attention")) or _mapping(
-        review_payload.get("attention")
-    )
-    recovery_assessment = _mapping(payload.get("recovery_assessment")) or _mapping(
-        review_payload.get("recovery_assessment")
-    )
-    bridge_liveness = _mapping(payload.get("bridge_liveness")) or _mapping(
-        review_payload.get("bridge_liveness")
-    )
-    warnings = list(
-        _string_rows(payload.get("warnings"))
-        or _string_rows(review_payload.get("warnings"))
-    )
-    errors = _string_rows(payload.get("errors")) or _string_rows(
-        review_payload.get("errors")
-    )
+    (
+        review_payload,
+        registry_payload,
+        attention,
+        recovery_assessment,
+        bridge_liveness,
+        warnings,
+        errors,
+    ) = envelope
 
     review = _mapping(review_payload.get("review"))
     queue = _mapping(review_payload.get("queue"))
@@ -70,6 +59,9 @@ def review_state_from_payload(payload: Mapping[str, object]) -> ReviewState | No
         review_payload=review_payload,
     )
     current_session = _mapping(review_payload.get("current_session"))
+    packet_inbox = _mapping(payload.get("packet_inbox")) or _mapping(
+        review_payload.get("packet_inbox")
+    )
     current_session_state = _current_session_state_from_payload(
         current_session=current_session,
         bridge=bridge,
@@ -166,6 +158,16 @@ def review_state_from_payload(payload: Mapping[str, object]) -> ReviewState | No
             ),
         ),
         current_session=current_session_state,
+        packet_inbox=(
+            packet_inbox_from_mapping(packet_inbox)
+            or packet_inbox_from_mapping(
+                build_packet_inbox_payload(
+                    review_payload.get("packets"),
+                    attention=attention,
+                )
+            )
+        )
+        or packet_inbox_from_mapping({"attention_revision": "", "agents": []}),
         collaboration=collaboration_state,
         bridge=bridge_state,
         attention=attention_state,
@@ -185,173 +187,49 @@ def review_state_from_payload(payload: Mapping[str, object]) -> ReviewState | No
     )
 
 
-def _current_session_state_from_payload(
-    *,
-    current_session: Mapping[str, object],
-    bridge: Mapping[str, object],
-) -> ReviewCurrentSessionState:
-    if current_session:
-        return ReviewCurrentSessionState(
-            current_instruction=_string(current_session.get("current_instruction")),
-            current_instruction_revision=_string(
-                current_session.get("current_instruction_revision")
-            ),
-            implementer_status=_string(current_session.get("implementer_status")),
-            implementer_ack=_string(current_session.get("implementer_ack")),
-            implementer_ack_revision=_string(
-                current_session.get("implementer_ack_revision")
-            ),
-            implementer_ack_state=_string(
-                current_session.get("implementer_ack_state")
-            )
-            or "unknown",
-            implementer_state_hash=_string(
-                current_session.get("implementer_state_hash")
-            ),
-            implementer_session_state=_string(
-                current_session.get("implementer_session_state")
-            ),
-            implementer_session_hint=_string(
-                current_session.get("implementer_session_hint")
-            ),
-            open_findings=_string(current_session.get("open_findings")),
-            last_reviewed_scope=_string(current_session.get("last_reviewed_scope")),
-        )
-
-    implementer_ack = _string(bridge.get("claude_ack"))
-    return ReviewCurrentSessionState(
-        current_instruction=_string(bridge.get("current_instruction")),
-        current_instruction_revision=_string(bridge.get("current_instruction_revision")),
-        implementer_status=_string(bridge.get("claude_status")),
-        implementer_ack=implementer_ack,
-        implementer_ack_revision=_string(bridge.get("claude_ack_revision")),
-        implementer_ack_state=bridge_ack_state(
-            bridge=bridge,
-            implementer_ack=implementer_ack,
-        ),
-        implementer_state_hash=_string(bridge.get("implementer_state_hash")),
-        implementer_session_state="",
-        implementer_session_hint="",
-        open_findings=_string(bridge.get("open_findings")),
-        last_reviewed_scope=_string(bridge.get("last_reviewed_scope")),
+def _review_state_envelope(
+    payload: Mapping[str, object],
+) -> tuple[
+    Mapping[str, object],
+    Mapping[str, object],
+    Mapping[str, object],
+    Mapping[str, object],
+    Mapping[str, object],
+    list[str],
+    tuple[str, ...],
+] | None:
+    review_payload = _mapping(payload.get("review_state"))
+    if not review_payload and any(
+        key in payload for key in ("review", "queue", "bridge", "packets", "agents")
+    ):
+        review_payload = payload
+    if not review_payload:
+        return None
+    registry_payload = _mapping(payload.get("agent_registry")) or _mapping(
+        review_payload.get("agent_registry")
     )
-def _packet_states_from_value(value: object) -> tuple[ReviewPacketState, ...]:
-    if not isinstance(value, Sequence) or isinstance(value, (str, bytes)):
-        return ()
-    packets: list[ReviewPacketState] = []
-    for row in value:
-        mapping = _mapping(row)
-        packet_id = _string(mapping.get("packet_id"))
-        if not packet_id:
-            continue
-        try:
-            confidence = float(mapping.get("confidence"))
-        except (TypeError, ValueError):
-            confidence = 0.0
-        packets.append(
-            ReviewPacketState(
-                packet_id=packet_id,
-                kind=_string(mapping.get("kind")) or "system_notice",
-                from_agent=_string(mapping.get("from_agent")) or "system",
-                to_agent=_string(mapping.get("to_agent")) or "operator",
-                summary=_string(mapping.get("summary")),
-                body=_string(mapping.get("body")),
-                status=_string(mapping.get("status")) or "posted",
-                policy_hint=_string(mapping.get("policy_hint")),
-                requested_action=_string(mapping.get("requested_action")),
-                approval_required=_bool(mapping.get("approval_required")),
-                posted_at=(
-                    _string(mapping.get("posted_at"))
-                    or _string(mapping.get("timestamp_utc"))
-                    or _string(mapping.get("acked_at_utc"))
-                    or _string(mapping.get("applied_at_utc"))
-                    or _string(mapping.get("_sort_timestamp"))
-                ),
-                evidence_refs=_string_rows(mapping.get("evidence_refs")),
-                context_pack_refs=_context_pack_refs_from_value(
-                    mapping.get("context_pack_refs")
-                ),
-                trace_id=_string(mapping.get("trace_id")),
-                latest_event_id=_string(mapping.get("latest_event_id")),
-                confidence=confidence,
-                guidance_refs=_string_rows(mapping.get("guidance_refs")),
-                target_kind=_string(mapping.get("target_kind")),
-                target_ref=_string(mapping.get("target_ref")),
-                target_revision=_string(mapping.get("target_revision")),
-                anchor_refs=_string_rows(mapping.get("anchor_refs")),
-                intake_ref=_string(mapping.get("intake_ref")),
-                mutation_op=_string(mapping.get("mutation_op")),
-                pipeline_generation=_string(mapping.get("pipeline_generation")),
-                staged_snapshot_hash=_string(mapping.get("staged_snapshot_hash")),
-                guard_results_summary=_string(mapping.get("guard_results_summary")),
-                acked_by=_string(mapping.get("acked_by")),
-                acked_at_utc=_string(mapping.get("acked_at_utc")),
-                applied_at_utc=_string(mapping.get("applied_at_utc")),
-                delivery_emitted_at_utc=_string(
-                    mapping.get("delivery_emitted_at_utc")
-                ),
-                delivery_observed_at_utc=_string(
-                    mapping.get("delivery_observed_at_utc")
-                ),
-                delivery_observed_by=_string(mapping.get("delivery_observed_by")),
-                execution_started_at_utc=_string(
-                    mapping.get("execution_started_at_utc")
-                ),
-                execution_started_by=_string(mapping.get("execution_started_by")),
-                expires_at_utc=_string(mapping.get("expires_at_utc")),
-            )
-        )
-    return tuple(packets)
-
-def _context_pack_refs_from_value(value: object) -> tuple[ContextPackRefState, ...]:
-    if not isinstance(value, Sequence) or isinstance(value, (str, bytes)):
-        return ()
-    refs: list[ContextPackRefState] = []
-    for row in value:
-        mapping = _mapping(row)
-        pack_kind = _string(mapping.get("pack_kind"))
-        pack_ref = _string(mapping.get("pack_ref"))
-        if not pack_kind or not pack_ref:
-            continue
-        refs.append(
-            ContextPackRefState(
-                pack_kind=pack_kind,
-                pack_ref=pack_ref,
-                adapter_profile=_string(mapping.get("adapter_profile")),
-                generated_at_utc=_string(mapping.get("generated_at_utc")),
-            )
-        )
-    return tuple(refs)
-
-
-def _registry_agents_from_value(
-    value: object,
-) -> tuple[AgentRegistryEntryState, ...]:
-    if not isinstance(value, Sequence) or isinstance(value, (str, bytes)):
-        return ()
-    agents: list[AgentRegistryEntryState] = []
-    for row in value:
-        mapping = _mapping(row)
-        agent_id = _string(mapping.get("agent_id"))
-        if not agent_id:
-            continue
-        agents.append(
-            AgentRegistryEntryState(
-                agent_id=agent_id,
-                provider=_string(mapping.get("provider")),
-                display_name=_string(mapping.get("display_name")) or agent_id,
-                lane=_string(mapping.get("lane")),
-                lane_title=_string(mapping.get("lane_title")),
-                current_job=_string(mapping.get("current_job")),
-                job_state=_string(mapping.get("job_state")) or "unknown",
-                waiting_on=_string(mapping.get("waiting_on")),
-                last_packet_seen=_string(mapping.get("last_packet_seen")),
-                last_packet_applied=_string(mapping.get("last_packet_applied")),
-                script_profile=_string(mapping.get("script_profile")),
-                mp_scope=_string(mapping.get("mp_scope")),
-                worktree=_string(mapping.get("worktree")),
-                branch=_string(mapping.get("branch")),
-                updated_at=_string(mapping.get("updated_at")),
-            )
-        )
-    return tuple(agents)
+    attention = _mapping(payload.get("attention")) or _mapping(
+        review_payload.get("attention")
+    )
+    recovery_assessment = _mapping(payload.get("recovery_assessment")) or _mapping(
+        review_payload.get("recovery_assessment")
+    )
+    bridge_liveness = _mapping(payload.get("bridge_liveness")) or _mapping(
+        review_payload.get("bridge_liveness")
+    )
+    warnings = list(
+        _string_rows(payload.get("warnings"))
+        or _string_rows(review_payload.get("warnings"))
+    )
+    errors = _string_rows(payload.get("errors")) or _string_rows(
+        review_payload.get("errors")
+    )
+    return (
+        review_payload,
+        registry_payload,
+        attention,
+        recovery_assessment,
+        bridge_liveness,
+        warnings,
+        errors,
+    )

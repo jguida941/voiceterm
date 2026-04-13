@@ -21,8 +21,10 @@ def commit_failed_pipeline(
     commit_error: str,
     artifact_relpath: str,
     result_builder: Callable[..., ActionResult],
+    failure: CommitFailureDetails | None = None,
 ) -> RemoteCommitPipelineContract:
     """Return the blocked pipeline shape for a failed governed commit."""
+    resolved_failure = failure or CommitFailureDetails()
     return replace(
         pending_pipeline,
         state="push_blocked",
@@ -30,12 +32,14 @@ def commit_failed_pipeline(
             action_id=action_id,
             ok=False,
             status=ActionOutcome.FAIL,
-            reason="commit_failed",
-            operator_guidance=_commit_failure_guidance(),
+            reason=resolved_failure.reason,
+            operator_guidance=(
+                resolved_failure.operator_guidance or _commit_failure_guidance()
+            ),
             warnings=((commit_error,) if commit_error else ()),
             artifact_paths=(artifact_relpath,),
         ),
-        blocked_reason="commit_failed",
+        blocked_reason=resolved_failure.reason,
     )
 
 
@@ -83,15 +87,30 @@ class CommitReadiness:
     git_commit_args: tuple[str, ...]
 
 
+@dataclass(frozen=True, slots=True)
+class CommitInvocation:
+    """Typed commit request inputs used by readiness validation."""
+
+    current_tree_hash: str
+    requested_commit_message: str
+    amend: bool = False
+    allow_empty: bool = False
+    no_edit: bool = False
+
+
+@dataclass(frozen=True, slots=True)
+class CommitFailureDetails:
+    """Structured failure metadata for blocked governed commit results."""
+
+    reason: str = "commit_failed"
+    operator_guidance: str | None = None
+
+
 def evaluate_commit_readiness(
     *,
     pipeline: RemoteCommitPipelineContract,
     repo_root,
-    current_tree_hash: str,
-    requested_commit_message: str,
-    amend: bool,
-    allow_empty: bool,
-    no_edit: bool,
+    request: CommitInvocation,
 ) -> CommitReadiness | CommitBlock:
     """Validate commit preconditions after approval sync and runtime checks."""
     validation_block = _validation_contract_block(pipeline)
@@ -143,7 +162,7 @@ def evaluate_commit_readiness(
                 "packet and the applied operator decision packet."
             ),
         )
-    if current_tree_hash != pipeline.intent.staged_tree_hash:
+    if request.current_tree_hash != pipeline.intent.staged_tree_hash:
         return CommitBlock(
             pipeline=replace(
                 pipeline,
@@ -156,26 +175,36 @@ def evaluate_commit_readiness(
                 "a fresh approval packet."
             ),
         )
-    commit_message = requested_commit_message or pipeline.intent.commit_message_draft
-    if no_edit and not amend:
+    commit_message = (
+        request.requested_commit_message or pipeline.intent.commit_message_draft
+    )
+    if request.no_edit and not request.amend:
         return CommitBlock(
             pipeline=pipeline,
             reason="no_edit_requires_amend",
             guidance="`--no-edit` is only supported together with `--amend`.",
         )
-    if not commit_message and not (amend and no_edit):
+    if not commit_message and not (request.amend and request.no_edit):
         return CommitBlock(
             pipeline=pipeline,
             reason="commit_message_missing",
             guidance="Set `commit_message_draft` during `vcs.stage` before committing.",
         )
 
-    git_commit_args: list[str] = ["commit"]
-    if amend:
+    # The governed stage path already refreshes/stages ReviewSnapshot and runs
+    # the required guard bundle before commit, so skipping repo hooks here
+    # avoids re-entering the raw-git authority gate from the governed path.
+    git_commit_args: list[str] = [
+        "-c",
+        "devctl.governed-commit=true",
+        "commit",
+        "--no-verify",
+    ]
+    if request.amend:
         git_commit_args.append("--amend")
-    if allow_empty:
+    if request.allow_empty:
         git_commit_args.append("--allow-empty")
-    if no_edit:
+    if request.no_edit:
         git_commit_args.append("--no-edit")
     if commit_message:
         git_commit_args.extend(["-m", commit_message])

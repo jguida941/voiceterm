@@ -567,3 +567,27 @@ class ProcessCleanupCommandTests(TestCase):
         self.assertEqual(rc, 1)
         payload = json.loads(write_output_mock.call_args.args[0])
         self.assertIn("Host process cleanup unavailable", payload["errors"][0])
+
+    @mock.patch("dev.scripts.devctl.commands.process_cleanup.write_output")
+    @mock.patch(
+        "dev.scripts.devctl.commands.process_cleanup.collect_process_audit_state"
+    )
+    def test_run_warns_but_does_not_fail_when_sandbox_blocks_ps(
+        self,
+        collect_mock,
+        write_output_mock,
+    ) -> None:
+        collect_mock.return_value = _state(
+            scan_warnings=[
+                "Process sweep skipped: unable to execute ps ([Errno 1] Operation not permitted: 'ps')"
+            ]
+        )
+        args = build_parser().parse_args(["process-cleanup", "--format", "json"])
+
+        rc = process_cleanup.run(args)
+
+        self.assertEqual(rc, 0)
+        payload = json.loads(write_output_mock.call_args.args[0])
+        self.assertTrue(payload["ok"])
+        self.assertFalse(payload["errors"])
+        self.assertIn("Process sweep skipped", payload["warnings"][0])

@@ -4575,6 +4575,31 @@ alone. Use these proof gates:
       review/fix/decision packet should emit from raw hints once this closes:
       every packet must carry stable finding identity, rule version, span, and
       evidence/artifact provenance through that shared record.
+- [ ] Close the live Q55 findings split with one canonical backlog reader.
+      Add a repo-owned `FindingBacklog` snapshot/loader over canonical
+      finding rows so `review-channel --action post --kind finding`,
+      `findings-priority`, dashboard/startup/monitor, and `bridge.md` all
+      consume the exact same typed finding list. Preserve `LIVE_RUN.md` only
+      as a compatibility import/projection, and keep `governance-review` as
+      the adjudication/close-out sink over stable `finding_id` / human
+      `Q-ID` identity rather than a parallel intake ledger.
+- [ ] Freeze one deterministic runtime layer before widening autonomy
+      surfaces. `StartupContext`, `ControlPlaneReadModel`, packet backlog,
+      blocker/next-action reducers, and governed mutation gates must converge
+      on one read-side truth or outer `GovernanceSnapshot`, while
+      dashboard/status/startup/system-picture/chat projections render that
+      state instead of recomputing authority from raw files or bridge prose.
+- [ ] Freeze one shared packet/event lifecycle for all AI lanes:
+      posted -> delivered -> observed/acked/applied -> execution receipt ->
+      resolved/expired. Dashboard, monitor, phone/mobile, and agent loops
+      should subscribe to that event-backed wake path instead of keeping
+      independent timer polling or inbox-only heuristics.
+- [ ] Land `devctl develop` only as a composition surface over that runtime
+      layer and only after Phase 0 visibility closure is green. The command
+      should load startup authority, plan state, `FindingBacklog` /
+      `findings-priority`, packet lifecycle, and governed commit/push state,
+      compute the next bounded action from typed state, and wake from state
+      change rather than timer polling or prompt-local mode switches.
 - [ ] Finish the typed-runtime structural-debt tranche before widening `P1`:
       remove duplicate authority-state models such as the parallel
       `ReviewBridgeState`, replace ad hoc `*_from_dict` loaders with one
@@ -4895,15 +4920,28 @@ alone. Use these proof gates:
 Use this section as the single "left off here" surface for fresh AI sessions
 working on `MP-377`.
 
+- 2026-04-12 architecture-synthesis / phase-order update:
+  the 15-command audit plus dashboard packet review confirmed that five
+  directions are already platform law (deterministic runtime, role
+  enforcement in code, bidirectional event transport, state-driven next
+  action, and projection-only status surfaces), but six implementation
+  closures remain open. Keep the order explicit: Phase 0 visibility/consumer
+  wiring first (`FindingBacklog`, one governed snapshot/root,
+  four-surface status convergence, packet lifecycle/event wake, live
+  tool-call visibility), then Phase 1 autonomy with `devctl develop` as the
+  single self-driving entrypoint over those typed surfaces.
 - 2026-04-12 provider-role portability slice:
   resume from the role-first/runtime-first closure order with the first
   provider-neutral/runtime-identity closure already landed. Typed
   review/status reads now prefer reviewer/implementer aliases over legacy
   `codex_*` / `claude_*` bridge names, and governed commit/push approval is
-  bound to the exact worker `worktree_identity` that staged it. The next work
-  is to rerun the same backend proof as
-  `Codex reviewer + Codex worker implementer + Claude phone dashboard`, then
-  widen to swapped-role and external-repo proofs without reintroducing
+  bound to the exact checkout that staged it. Default requested worker fanout
+  stays on the shared primary checkout; isolated worktrees are only for
+  explicit delegated-worker fanout with their own `worktree_identity`. The
+  next work is to teach that default through bootstrap/dashboard/status
+  surfaces, rerun the same backend proof with Codex coding from the primary
+  lane and Claude attached as dashboard/operator, then widen to delegated-
+  worker, swapped-role, and external-repo proofs without reintroducing
   provider-first defaults.
 - 2026-04-11 governed-push visibility slice:
   resume with the phase-aware latest-push artifact closure in place.
@@ -6359,6 +6397,15 @@ Execution order for this section:
     conclusion must be written back into this file, the subordinate
     `platform_authority_loop.md` spec when relevant, and/or `MASTER_PLAN`
     before implementation or review.
+3.2 Keep the current closure order explicit. The governed checkpoint-authority
+    gap is now closed in repo code: `devctl commit` may proceed when startup
+    explicitly says `checkpoint_allowed` / `await_checkpoint` with reviewer
+    checkpoint permission, while raw `git commit` remains blocked. In
+    parallel, Q55 findings convergence still requires one canonical
+    `FindingBacklog` reader/writer: `review-channel --action post --kind
+    finding` and `LIVE_RUN.md` import must write the same ledger, while
+    dashboard/startup/monitor/bridge/findings-priority all read that same
+    snapshot and `governance-review` remains close-out only.
 4. Continue from the listed `Next actions` unless the user explicitly
    reprioritizes.
 5. Before ending the session, update both this `Session Resume` section and the
@@ -6367,6 +6414,57 @@ Execution order for this section:
 
 ## Progress Log
 
+- 2026-04-12: Absorbed the latest dashboard architecture review into the main
+  `MP-377` owner chain instead of leaving it as packet/chat-local guidance.
+  The repo already encodes most of the desired architecture, but it is still
+  scattered: multiple status surfaces describe the same blocker with
+  different vocabularies, findings split across packets/runtime markdown, and
+  some agent/dashboard lanes still poll or infer work from message silence.
+  The prioritized closure is now explicit in plan state: Phase 0 visibility
+  first (`FindingBacklog`, single governed snapshot/root, packet lifecycle
+  plus event wake, live tool-call visibility), Phase 1 autonomy second
+  (`devctl develop` as a composition surface over those inputs).
+- 2026-04-12: Revalidated the default remote-control topology from the
+  six-hour dogfood session. The active startup/runtime authority on the
+  primary lane already says `worktree_strategy=shared_primary_worktree` and
+  default worker fanout zero, so the remote-control reviewer/implementer/
+  dashboard trio must share the governed primary checkout unless an explicit
+  delegated worker is launched. Isolated worker worktrees remain an opt-in
+  fanout capability with their own typed lane/worktree identity and
+  worktree-bound commit/push approval; they are not the default path for
+  everyday concurrent Claude remote-control plus Codex coding. The rejected
+  linked-worktree/shadow-gitdir detour was a workaround caused by checkpoint
+  confusion, not part of the architecture. The next closure is to teach this
+  default through bootstrap/dashboard/status surfaces so agents stop
+  improvising extra checkouts.
+- 2026-04-12: Planned the Q55 findings-convergence closure from live dogfood
+  evidence instead of more bridge-era prose. `findings-priority` still ranks
+  134 `LIVE_RUN.md` findings from markdown parsing, `event_open_findings()`
+  currently collapses live state into generic `N pending review packet(s)`
+  text, dashboard still shows `Open findings: 0`, and `monitor` emits
+  `should_emit_finding=True` with no durable consumer. The next bounded
+  closure is now explicit: introduce one repo-owned `FindingBacklog`
+  loader/snapshot over canonical finding rows, make
+  `review-channel --action post --kind finding` append those rows with stable
+  `finding_id` plus a human `Q-ID` projection and packet lineage,
+  preserve `governance-review` as the disposition sink against the same ids,
+  reroute dashboard/startup/monitor/bridge/findings-priority through that
+  reader, and demote `LIVE_RUN.md` to compatibility import/projection only.
+- 2026-04-12: Closed the live commit deadlock in the main `MP-377` owner
+  chain. The governed commit boundary still treats checkpoint authority as
+  narrower than general implementation authority: when startup explicitly
+  routes the current lane to `advisory_action=checkpoint_allowed` /
+  `push_decision=await_checkpoint` with
+  `reviewer_gate.checkpoint_permitted=true`, `devctl commit` may still
+  advance the repo-owned checkpoint path while raw `git commit` remains
+  blocked. The same dogfood pass also tightened read-side authority for
+  review state: when governance still points at the legacy
+  `.../review_channel/latest` compatibility root, the loader now prefers the
+  sibling event-backed `projections/latest/review_state.json` bundle and
+  keeps that path authoritative even for live-refresh callers. The next
+  architecture step is shared status/doctor wording plus the single typed
+  findings ledger shared by packets, dashboard, and LIVE_RUN-derived triage,
+  not another raw-git exception or bridge-era cache.
 - 2026-04-12: Closed the next role-portability/runtime-identity slice in the
   main `MP-377` owner chain. Typed review/status consumers now prefer
   provider-neutral reviewer/implementer aliases
@@ -6388,11 +6486,12 @@ Execution order for this section:
   the live runtime still carries provider-shaped seams in the default role
   registry, turn-authority helpers, bridge projection names, handoff poll
   fields, and same-provider rollover assumptions. The closure order is now
-  explicit and bounded: keep the primary worktree as the shared control lane
-  for phone/dashboard use, move implementation into reusable worker worktrees,
-  converge those provider-coded surfaces onto typed role/actor assignment over
-  the same backend, prove the resulting beta matrix in VoiceTerm, and only
-  then widen the same role/mode proof to the external-repo ladder in
+  explicit and bounded: keep the default remote-control lane on the governed
+  shared primary checkout while requested worker fanout is zero, treat
+  isolated worker worktrees as explicit delegated-worker fanout only, converge
+  the provider-coded surfaces onto typed role/actor assignment over the same
+  backend, prove the resulting beta matrix in VoiceTerm, and only then widen
+  the same role/mode proof to the external-repo ladder in
   `portable_code_governance.md`.
 - 2026-04-11: Closed the governed-push latest-artifact visibility gap inside
   the shared platform owner chain. The canonical `dev/reports/push/latest.json`

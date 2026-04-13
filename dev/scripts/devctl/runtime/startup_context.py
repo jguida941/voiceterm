@@ -13,6 +13,7 @@ from .reviewer_runtime_models import (
     RemoteControlAttachmentState,
     has_active_remote_control_attachment,
 )
+from .review_state_models import PacketInboxState, ReviewAttentionState
 from .recovery_authority import (
     RecoveryAuthorityState,
     derive_recovery_authority,
@@ -39,6 +40,7 @@ from .startup_push_decision import (
     PushDecisionState,
     derive_push_decision as _derive_push_decision,
 )
+from .startup_packet_inbox import startup_packet_inbox_dict
 from .startup_signals import load_startup_quality_signals
 from .surface_snapshot import build_surface_snapshot_id
 from .work_intake import (
@@ -94,6 +96,8 @@ class StartupContext:
     work_intake: WorkIntakePacket | None = None
     coordination: CoordinationSnapshot | None = None
     remote_control_attachment: RemoteControlAttachmentState | None = None
+    attention: ReviewAttentionState | None = None
+    packet_inbox: PacketInboxState | None = None
     quality_signals: dict[str, object] = field(default_factory=dict)
     blocker: BlockerSnapshot = field(default_factory=BlockerSnapshot)
     contract_ownership_map: dict[str, dict[str, object]] = field(default_factory=dict)
@@ -136,6 +140,10 @@ class StartupContext:
             d["coordination"] = startup_coordination_dict(self.coordination)
         if self.remote_control_attachment is not None:
             d["remote_control_attachment"] = asdict(self.remote_control_attachment)
+        if self.attention is not None:
+            d["attention"] = asdict(self.attention)
+        if self.packet_inbox is not None:
+            d["packet_inbox"] = startup_packet_inbox_dict(self.packet_inbox)
         return d
 
 
@@ -486,6 +494,8 @@ def build_startup_context(
             if review_state is not None
             else None
         ),
+        attention=(review_state.attention if review_state is not None else None),
+        packet_inbox=(review_state.packet_inbox if review_state is not None else None),
         quality_signals=quality_signals,
         blocker=blocker,
         contract_ownership_map=build_contract_ownership_map(),
