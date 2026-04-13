@@ -53,6 +53,7 @@ class GovernanceReviewCommandTests(unittest.TestCase):
         self.assertIn("prevention_surface", payload["required"])
         self.assertIn("observer", properties["signal_type"]["enum"])
         self.assertIn("audit", properties["signal_type"]["enum"])
+        self.assertIn("dogfood", properties["signal_type"]["enum"])
         self.assertIn("external", properties["scan_mode"]["enum"])
         self.assertIn("finding_type", properties)
         self.assertIn("guidance_id", properties)
@@ -384,6 +385,49 @@ class GovernanceReviewCommandTests(unittest.TestCase):
         self.assertEqual(
             (payload.get("recent_findings") or [{}])[0].get("prevention_surface"),
             "parity_check",
+        )
+
+    def test_record_accepts_dogfood_signal_type(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            log_path = root / "finding_reviews.jsonl"
+            summary_root = root / "summary"
+
+            args = cli.build_parser().parse_args(
+                [
+                    "governance-review",
+                    "--record",
+                    "--log-path",
+                    str(log_path),
+                    "--summary-root",
+                    str(summary_root),
+                    "--signal-type",
+                    "dogfood",
+                    "--check-id",
+                    "dogfood.dev_mode_gate",
+                    "--verdict",
+                    "confirmed_issue",
+                    "--path",
+                    "dev/scripts/devctl/commands/reporting/dogfood.py",
+                    "--finding-class",
+                    "workflow_gap",
+                    "--recurrence-risk",
+                    "recurring",
+                    "--prevention-surface",
+                    "contract",
+                    "--format",
+                    "json",
+                ]
+            )
+
+            self.assertEqual(governance_review.run(args), 0)
+            payload = json.loads(
+                (summary_root / "review_summary.json").read_text(encoding="utf-8")
+            )
+        self.assertEqual(payload["stats"]["total_findings"], 1)
+        self.assertEqual(
+            (payload.get("recent_findings") or [{}])[0].get("signal_type"),
+            "dogfood",
         )
 
     def test_review_row_includes_disposition_contract_fields(self) -> None:

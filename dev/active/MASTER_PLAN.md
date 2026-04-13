@@ -139,6 +139,22 @@
   reviewer packets still exist, and context-graph plan nodes now answer
   `PlanPhase` / `PlanTask` contract queries plus direct task-id aliases such
   as `MP377-P0-T01`.
+- 2026-04-13 bridge portability + preflight refresh follow-up in `MP-377`
+  scope: markdown bridge guard/read paths no longer hardcode a fixed
+  Codex-reviewer / Claude-implementer pair for implementer status/ack
+  semantics, legacy `Claude Status` / `Claude Ack` headings remain explicit
+  compatibility aliases, and governed push plus the managed pre-commit hook
+  now refresh typed review-state/status truth before they reproject or stage
+  the compatibility bridge.
+- 2026-04-13 dogfood engine + push preflight follow-up in `MP-377` scope:
+  `devctl dogfood` now persists repo-owned coverage rows for live commands,
+  guards, probes, and roles under `dev/reports/dogfood/`, writes refreshed
+  `summary.{md,json}` projections for later sessions, and
+  `governance-review` now accepts `signal_type=dogfood` so system-test
+  failures can close out in the canonical findings ledger. The same slice
+  hardened publication truth by making governed push preflight reproject the
+  active `bridge.md` compatibility surface from typed review status before
+  the blocking checks run, closing the stale role-marker push blocker.
 - 2026-04-11 bootstrap/client-boundary + mutation-admissibility follow-up in
   `MP-377` scope: generated instruction/setup surfaces now say explicitly that
   VoiceTerm is a first-party client/product integration over the portable

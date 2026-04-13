@@ -34,9 +34,9 @@ def _protocol_body(*, reviewer_name: str, implementer_name: str) -> str:
 5. Freshness and current instruction truth should come from typed projections
    first; this bridge remains a compatibility projection while the migration
    finishes.
-6. Active-work `Claude Status` / `Claude Ack` updates must carry concrete work
-   evidence or one concrete blocker/question; low-information polling notes are
-   not valid bridge authority."""
+6. Active-work implementer status/ack updates in the compatibility sections
+   must carry concrete work evidence or one concrete blocker/question;
+   low-information polling notes are not valid bridge authority."""
 
 def _swarm_mode_body() -> str:
     from ..repo_packs import active_path_config
@@ -168,9 +168,8 @@ def _render_start_rules_body(
         else "the reviewer-owned sections, including the `Last Codex poll` compatibility heartbeat"
     )
     implementer_owned_sections = (
-        "the Claude-owned sections"
-        if implementer_provider == "claude"
-        else "the implementer-owned compatibility sections (`Claude Status`, `Claude Questions`, `Claude Ack`)"
+        "the implementer-owned compatibility sections (`Claude Status`, "
+        "`Claude Questions`, `Claude Ack`)"
     )
     lines = [
         (
@@ -219,14 +218,16 @@ def _render_start_rules_body(
         (
             f"   - {implementer_name} should start from `Poll Status`, `Current Verdict`, "
             "`Open Findings`, `Current Instruction For Claude`, and `Last Reviewed Scope`, "
-            "then acknowledge the active instruction in `Claude Ack` before coding."
+            "then acknowledge the active instruction in the implementer ACK section "
+            "(`Claude Ack` compatibility heading) before coding."
         ),
         (
             "   - `Last Codex poll` remains the reviewer-heartbeat compatibility field "
-            "and `Claude Status` / `Claude Ack` remain implementer-owned compatibility "
-            "sections until native role-labeled bridge headings land."
+            "and the implementer-owned compatibility sections (`Claude Status`, "
+            "`Claude Ack`) remain aliases until native role-labeled bridge headings "
+            "land."
         ),
-        "   - `Claude Ack` must acknowledge the current instruction revision with a machine-readable line such as `- acknowledged current instruction revision: <rev>` or `- acknowledged; instruction-rev: <rev>`.",
+        "   - The implementer ACK section (`Claude Ack` compatibility heading) must acknowledge the current instruction revision with a machine-readable line such as `- acknowledged current instruction revision: <rev>` or `- acknowledged; instruction-rev: <rev>`.",
         f"   - {implementer_name} must read `Last Codex poll` / `Poll Status` first on each repoll.",
         f"6. {reviewer_name} must poll non-`bridge.md` worktree changes every 2-3 minutes while",
         "   code is moving.",
@@ -256,8 +257,8 @@ def _render_start_rules_body(
         "17. If `Current Instruction For Claude` or `Poll Status` says `hold steady`,",
         f"    {implementer_name} must stay in polling mode until the reviewer-owned sections change.",
         "18. If `Current Instruction For Claude` still contains active work and there is",
-        "    no explicit reviewer-owned wait state, Claude status/ack updates must be",
-        "    substantive: name concrete files, subsystems, findings, or one concrete",
+        "    no explicit reviewer-owned wait state, implementer status/ack updates",
+        "    must be substantive: name concrete files, subsystems, findings, or one concrete",
         "    blocker/question. `No change. Continuing.`, `instruction unchanged`, and",
         f"    `{reviewer_name} should review` are contract violations.",
         "19. Do not use raw shell sleep loops such as `sleep 60` or",

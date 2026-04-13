@@ -710,8 +710,9 @@ Portability note:
   commit-permission-plus-projection hook, the post-commit receipt hook, and
   a blocking pre-push hook. The pre-commit hook now fails closed when the
   existing typed `commit_permission` boundary says raw `git commit` is not
-  allowed, then best-effort refreshes the ReviewSnapshot projection for
-  allowed commits. The receipt hook delegates to
+  allowed, then best-effort refreshes/stages both the typed `bridge.md`
+  compatibility projection through `review-channel --action status` and the
+  ReviewSnapshot projection for allowed commits. The receipt hook delegates to
   `python3 dev/scripts/devctl.py review-snapshot --write --receipt-commit`
   so the final pushed branch can end with a snapshot-only planning receipt
   instead of a manually refreshed dirty worktree, while the pre-push hook
@@ -1087,6 +1088,10 @@ python3 dev/scripts/devctl.py data-science --format md --output /tmp/data-scienc
 # systemic disposition + optional probe-guidance adoption measurement)
 python3 dev/scripts/devctl.py governance-review --format md
 python3 dev/scripts/devctl.py governance-review --record --signal-type probe --check-id probe_exception_quality --verdict false_positive --path cihub/example.py --line 41 --finding-class rule_quality --recurrence-risk recurring --prevention-surface probe --guidance-id probe_exception_quality@cihub/example.py:41 --guidance-followed false --format md
+# Dogfood coverage ledger/report (explicit dev-mode recording only)
+python3 dev/scripts/devctl.py dogfood --report --format md --output /tmp/dogfood.md
+python3 dev/scripts/devctl.py dogfood --record --dev-mode --target-kind command --target-id startup-context --status passed --actor codex --source-command "python3 dev/scripts/devctl.py startup-context --format summary" --format md
+python3 dev/scripts/devctl.py governance-review --record --signal-type dogfood --check-id dogfood.review_channel_dashboard --verdict confirmed_issue --path dev/scripts/devctl/review_channel/bridge_projection.py --finding-class workflow_gap --recurrence-risk recurring --prevention-surface contract --format md
 # Aggregated review-probe packet (AI slop report + stable review_targets artifact)
 python3 dev/scripts/devctl.py probe-report --format md --output /tmp/probe-report.md --json-output /tmp/probe-report.json
 # Compatibility matrix governance bundle (schema + runtime smoke parity)
@@ -1403,7 +1408,7 @@ Machine-first output note:
 - `process-cleanup`: host-side cleanup for orphaned/stale repo-related process trees; expands cleanup roots to full descendant trees so leaked PTY children, repo-cwd background helpers, and orphaned tooling descendants are reaped with their parent wrappers when possible, skips recent active processes by default, and `--verify` reruns strict host audit after cleanup
 - `process-audit`: read-only host-side Activity Monitor equivalent for repo-related process trees; reports matched roots plus descendants, includes repo-cwd runtime/tooling helpers that would otherwise look generic in Activity Monitor, fails fast when `ps` access is unavailable, preserves registered supervised review-channel conductors as visible non-blocking rows even when headless wrappers reparent to PID 1, and `--strict` turns leftover runtime/test trees or stale/orphaned repo-related helpers into a blocking failure before handoff
 - `publication-sync`: tracked external publication report/record surface that compares watched repo paths against the last synced source commit for papers/sites and records a new baseline after external publish
-- `push`: policy-driven guarded push wrapper for the current branch; resolves branch/remote rules from `repo_governance.push`, runs the configured preflight path, defaults to non-mutating validation, and uses the configured post-push bundle after `--execute`. Static bundle authority still advertises the template `--since-ref` values, but the governed runtime rewrites diff-sensitive post-push commands to the exact preflight-resolved base for the current branch.
+- `push`: policy-driven guarded push wrapper for the current branch; resolves branch/remote rules from `repo_governance.push`, runs the configured preflight path, defaults to non-mutating validation, and uses the configured post-push bundle after `--execute`. Static bundle authority still advertises the template `--since-ref` values, but the governed runtime rewrites diff-sensitive post-push commands to the exact preflight-resolved base for the current branch. When an active compatibility bridge exists, preflight now refreshes typed review status and reprojects `bridge.md` before the blocking checks run, so stale role-marker bridge text does not strand an otherwise valid push.
 - `path-audit`: stale-reference scan for legacy check-script paths (skips `dev/archive/`)
 - `path-rewrite`: auto-rewrite legacy check-script paths to canonical registry targets (use `--dry-run` first)
 - `sync`: guarded branch-sync workflow (clean-tree preflight, remote/local ref checks, `--ff-only` pull, optional `--push` for ahead branches, and start-branch restore)
@@ -1423,6 +1428,7 @@ Machine-first output note:
   - `--quality-policy <path>` lets the probe-backed status/report views resolve
     another repo policy without changing shared orchestration code.
 - `data-science`: rolling telemetry snapshot builder that summarizes devctl event metrics plus swarm/benchmark agent-size productivity history, watchdog guarded-coding episodes, and governance-review false-positive/cleanup metrics; writes `summary.{md,json}` + SVG charts under `dev/reports/data_science/latest/` and supports local source/output overrides for experiments
+- `dogfood`: explicit dev-mode coverage ledger over live commands, guards, probes, and role lanes; `--record` appends one `DogfoodRun` row to `dev/reports/dogfood/runs.jsonl`, plain `--report` (or no mode flag) refreshes `dev/reports/dogfood/latest/summary.{md,json}`, coverage derives from the live command catalog plus registered `check_*.py` / `probe_*.py` entrypoints instead of fixed counts, and failures should also be closed out through `governance-review --record --signal-type dogfood` so the scoreboard and the coverage ledger stay correlated
 - `governance-review`: adjudicated finding ledger for hard-guard/probe outcomes; records reviewed findings plus their systemic disposition into `dev/reports/governance/finding_reviews.jsonl`, writes refreshed `review_summary.{md,json}` artifacts under `dev/reports/governance/latest/`, and gives the repo a durable scoreboard for false-positive rate, fixed findings, deferred debt, architectural absorption choices, observer/self-audit finding types (`signal_type=observer` plus optional `finding_type`), and optional probe-guidance adoption (`guidance_id` / `guidance_followed`). When `--record` uses `--prevention-surface guard` or `--prevention-surface probe`, it also appends a `GuardPromotionCandidate` row to the repo-pack-resolved promotion queue (default `dev/reports/governance/guard_promotion_candidates.jsonl`) and includes the candidate id/path in the refreshed JSON summary for that recorded row.
 - Shared context-escalation packets now also consume bounded recent
   `review_summary.json` history plus the latest quality-feedback

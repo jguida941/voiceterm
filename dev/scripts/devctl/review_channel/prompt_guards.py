@@ -206,10 +206,10 @@ def _implementer_guard_lines(
         ),
         (
             "- If the live bridge says `hold steady` or the only missing state is "
-            "`Claude Status` / `Claude Ack`, do not ask the operator what to do "
-            "next. Rewrite your owned bridge sections, acknowledge the current "
-            "instruction revision, then use the repo-owned wait path and keep "
-            "polling."
+            "the implementer status/ACK compatibility sections (`Claude Status` / "
+            "`Claude Ack`), do not ask the operator what to do next. Rewrite "
+            "your owned bridge sections, acknowledge the current instruction "
+            "revision, then use the repo-owned wait path and keep polling."
         ),
         (
             "- On each repoll, read `Last Codex poll` / `Poll Status` first, then "
@@ -240,10 +240,11 @@ def _implementer_guard_lines(
             "Questions`."
         ),
         (
-            "- While active work is still assigned, every `Claude Status` / "
-            "`Claude Ack` update must name concrete files, subsystems, findings, "
-            "or one concrete blocker/question. Low-information polling/completion "
-            "notes are contract violations, not acceptable progress reports."
+            "- While active work is still assigned, every implementer status/ACK "
+            "compatibility update (`Claude Status` / `Claude Ack`) must name "
+            "concrete files, subsystems, findings, or one concrete "
+            "blocker/question. Low-information polling/completion notes are "
+            "contract violations, not acceptable progress reports."
         ),
         (
             "- Do not use raw shell idling such as `sleep 60` or "
@@ -252,8 +253,9 @@ def _implementer_guard_lines(
             "reviewer-owned bridge state is explicitly in a wait posture."
         ),
         (
-            "- Posting `Claude Status` or `Claude Ack` is not the end of the loop. "
-            f"After each coding summary, re-read the bridge, poll fresh {provider_name}-"
+            "- Posting implementer status/ACK compatibility updates (`Claude "
+            "Status` / `Claude Ack`) is not the end of the loop. After each "
+            f"coding summary, re-read the bridge, poll fresh {provider_name}-"
             "targeted review packets, look for the next live instruction, and "
             "keep the session alive instead of exiting."
         ),

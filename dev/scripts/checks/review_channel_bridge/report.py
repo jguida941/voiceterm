@@ -23,6 +23,9 @@ if str(REPO_ROOT) not in sys.path:
 _review_channel_handoff = importlib.import_module("dev.scripts.devctl.review_channel.handoff")
 _bridge_validation = importlib.import_module("dev.scripts.devctl.review_channel.bridge_validation")
 _bridge_projection = importlib.import_module("dev.scripts.devctl.review_channel.bridge_projection")
+_bridge_heading_aliases = importlib.import_module(
+    "dev.scripts.devctl.review_channel.bridge_heading_aliases"
+)
 _peer_liveness = importlib.import_module("dev.scripts.devctl.review_channel.peer_liveness")
 
 DEFAULT_CODEX_POLL_STALE_AFTER_SECONDS = _review_channel_handoff.DEFAULT_CODEX_POLL_STALE_AFTER_SECONDS
@@ -30,6 +33,7 @@ extract_bridge_snapshot = _review_channel_handoff.extract_bridge_snapshot
 validate_live_bridge_contract = _bridge_validation.validate_live_bridge_contract
 reviewer_mode_is_active = _peer_liveness.reviewer_mode_is_active
 bridge_hygiene_errors = _bridge_projection.bridge_hygiene_errors
+canonical_bridge_heading = _bridge_heading_aliases.canonical_bridge_heading
 
 BRIDGE_PATH = REPO_ROOT / "bridge.md"
 REVIEW_CHANNEL_PATH = REPO_ROOT / "dev/active/review_channel.md"
@@ -48,7 +52,6 @@ REQUIRED_BRIDGE_H2 = [
 ]
 
 REQUIRED_BRIDGE_MARKERS = [
-    "Codex is the reviewer. Claude is the coder.",
     "`python3 dev/scripts/devctl.py startup-context --role reviewer --format summary`",
     "`python3 dev/scripts/devctl.py startup-context --role implementer --format summary`",
     "`python3 dev/scripts/devctl.py session-resume --role reviewer --format bootstrap`",
@@ -58,23 +61,13 @@ REQUIRED_BRIDGE_MARKERS = [
     "`dev/active/INDEX.md`",
     "`dev/active/MASTER_PLAN.md`",
     "`dev/active/review_channel.md`",
-    "Codex must poll non-`bridge.md` worktree changes every 2-3 minutes",
-    "Codex must exclude `bridge.md` itself when computing the reviewed",
     "operator-visible chat update",
-    "Codex should start from `Poll Status`, `Current Verdict`, `Open Findings`, `Current Instruction For Claude`, and `Last Reviewed Scope`.",
-    "Claude should start from `Poll Status`, `Current Verdict`, `Open Findings`, `Current Instruction For Claude`, and `Last Reviewed Scope`",
-    "Claude must read `Last Codex poll` / `Poll Status` first on each repoll.",
     "When `Reviewer mode` is `active_dual_agent`, this file is the live",
-    "Codex stays reviewer-only by default",
     "When `Reviewer mode` is `single_agent`, `tools_only`, `paused`, or",
-    "When the current slice is accepted and scoped plan work remains, Codex must",
     "If `Current Instruction For Claude` or `Poll Status` says `hold steady`,",
-    "Claude status/ack updates must be substantive",
+    "status/ack updates must be substantive",
     "Do not use raw shell sleep loops such as `sleep 60`",
-    "Only the Codex conductor may update the Codex-owned sections",
-    "Only the Claude conductor may update the Claude-owned sections",
     "Specialist workers should wake on owned-path changes",
-    "Codex must emit an operator-visible heartbeat every 5 minutes",
     "- Last Codex poll:",
     "- Last Codex poll (Local",
     "- Reviewer mode:",
@@ -101,10 +94,17 @@ UTC_TIMESTAMP_PATTERN = re.compile(r"^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{
 LOCAL_POLL_PATTERN = re.compile(r"^[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2} [A-Z]{3,4}$")
 WORKTREE_HASH_PATTERN = re.compile(r"^[0-9a-f]{64}$")
 MAX_POLL_AGE_MINUTES = DEFAULT_CODEX_POLL_STALE_AFTER_SECONDS // 60
+ROLE_ASSIGNMENT_PATTERN = re.compile(
+    r"(?m)^(?:\d+\.\s+)?(?P<reviewer>[A-Za-z0-9_-]+) is the reviewer\. "
+    r"(?P<implementer>[A-Za-z0-9_-]+) is the coder\.$"
+)
 
 
 def _extract_h2(text: str) -> list[str]:
-    return [match.group(1).strip() for match in re.finditer(r"^##\s+(.+?)\s*$", text, re.MULTILINE)]
+    return [
+        canonical_bridge_heading(match.group(1).strip())
+        for match in re.finditer(r"^##\s+(.+?)\s*$", text, re.MULTILINE)
+    ]
 
 
 def _normalize_marker_text(text: str) -> str:
@@ -122,6 +122,77 @@ def _missing_markers(text: str, required_markers: list[str]) -> list[str]:
 
 def _strip_backticks(text: str) -> str:
     return text.strip().strip("`").strip()
+
+
+def _bridge_role_names(text: str) -> tuple[str, str]:
+    match = ROLE_ASSIGNMENT_PATTERN.search(text)
+    if match is None:
+        return ("Codex", "Claude")
+    return (
+        str(match.group("reviewer")).strip() or "Codex",
+        str(match.group("implementer")).strip() or "Claude",
+    )
+
+
+def _reviewer_owned_sections_marker(reviewer_name: str) -> str:
+    if reviewer_name == "Codex":
+        return "Only the Codex conductor may update the Codex-owned sections"
+    return (
+        f"Only the {reviewer_name} conductor may update the reviewer-owned "
+        "sections, including the `Last Codex poll` compatibility heartbeat"
+    )
+
+
+def _implementer_owned_sections_marker(implementer_name: str) -> str:
+    return (
+        f"Only the {implementer_name} conductor may update the implementer-owned "
+        "compatibility sections (`Claude Status`, `Claude Questions`, `Claude Ack`)"
+    )
+
+
+def _required_bridge_markers(text: str) -> list[str]:
+    reviewer_name, implementer_name = _bridge_role_names(text)
+    return list(
+        dict.fromkeys(
+            [
+                *REQUIRED_BRIDGE_MARKERS,
+                f"{reviewer_name} is the reviewer. {implementer_name} is the coder.",
+                (
+                    f"{reviewer_name} should start from `Poll Status`, `Current "
+                    "Verdict`, `Open Findings`, `Current Instruction For Claude`, "
+                    "and `Last Reviewed Scope`."
+                ),
+                (
+                    f"{implementer_name} should start from `Poll Status`, "
+                    "`Current Verdict`, `Open Findings`, `Current Instruction For "
+                    "Claude`, and `Last Reviewed Scope`"
+                ),
+                (
+                    f"{implementer_name} must read `Last Codex poll` / "
+                    "`Poll Status` first on each repoll."
+                ),
+                (
+                    f"{reviewer_name} must poll non-`bridge.md` worktree changes "
+                    "every 2-3 minutes"
+                ),
+                (
+                    f"{reviewer_name} must exclude `bridge.md` itself when "
+                    "computing the reviewed"
+                ),
+                f"{reviewer_name} stays reviewer-only by default",
+                (
+                    "When the current slice is accepted and scoped plan work "
+                    f"remains, {reviewer_name} must"
+                ),
+                (
+                    f"{reviewer_name} must emit an operator-visible heartbeat "
+                    "every 5 minutes"
+                ),
+                _reviewer_owned_sections_marker(reviewer_name),
+                _implementer_owned_sections_marker(implementer_name),
+            ]
+        )
+    )
 
 
 def _extract_bridge_metadata(text: str) -> dict[str, str]:
@@ -257,6 +328,8 @@ def _build_path_report(
     text = path.read_text(encoding="utf-8")
     headings = _extract_h2(text)
     missing_h2 = [heading for heading in required_h2 if heading not in headings] if required_h2 is not None else []
+    if path == BRIDGE_PATH:
+        required_markers = _required_bridge_markers(text)
     missing_markers = _missing_markers(text, required_markers)
     report: dict = {
         "path": relative_path,

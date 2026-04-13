@@ -34,36 +34,49 @@ def _load_script_module():
     return module
 
 
-def _valid_bridge_text(script) -> str:
+def _valid_bridge_text(
+    script,
+    *,
+    reviewer_name: str = "Codex",
+    implementer_name: str = "Claude",
+    reviewer_owned_sections: str = "the Codex-owned sections",
+    implementer_owned_sections: str = (
+        "the implementer-owned compatibility sections "
+        "(`Claude Status`, `Claude Questions`, `Claude Ack`)"
+    ),
+    implementer_status_heading: str = "Claude Status",
+    implementer_questions_heading: str = "Claude Questions",
+    implementer_ack_heading: str = "Claude Ack",
+) -> str:
     lines = [
         "# Review Bridge",
         "",
         "## Start-Of-Conversation Rules",
         "",
-        "Codex is the reviewer. Claude is the coder.",
+        f"{reviewer_name} is the reviewer. {implementer_name} is the coder.",
         "At conversation start, both agents must bootstrap repo authority in this order before acting: `AGENTS.md`, `dev/active/INDEX.md`, `dev/active/MASTER_PLAN.md`, and `dev/active/review_channel.md`.",
-        "Codex uses `python3 dev/scripts/devctl.py startup-context --role reviewer --format summary` and Claude uses `python3 dev/scripts/devctl.py startup-context --role implementer --format summary` first before coding or relaunching conductor work.",
-        "Then Codex uses `python3 dev/scripts/devctl.py session-resume --role reviewer --format bootstrap` and Claude uses `python3 dev/scripts/devctl.py session-resume --role implementer --format bootstrap` as the canonical role bootstrap packet.",
+        f"{reviewer_name} uses `python3 dev/scripts/devctl.py startup-context --role reviewer --format summary` and {implementer_name} uses `python3 dev/scripts/devctl.py startup-context --role implementer --format summary` first before coding or relaunching conductor work.",
+        f"Then {reviewer_name} uses `python3 dev/scripts/devctl.py session-resume --role reviewer --format bootstrap` and {implementer_name} uses `python3 dev/scripts/devctl.py session-resume --role implementer --format bootstrap` as the canonical role bootstrap packet.",
         "Then run `python3 dev/scripts/devctl.py context-graph --mode bootstrap --format md` for slim startup context.",
         "Keep chat bootstrap acknowledgements concise: blocker state plus next step, not a replay of the packet, unless the operator asks for the detail.",
-        "Codex must poll non-`bridge.md` worktree changes every 2-3 minutes while code is moving.",
-        "Codex must exclude `bridge.md` itself when computing the reviewed worktree hash.",
+        f"{reviewer_name} must poll non-`bridge.md` worktree changes every 2-3 minutes while code is moving.",
+        f"{reviewer_name} must exclude `bridge.md` itself when computing the reviewed worktree hash.",
         "Each meaningful review must include an operator-visible chat update.",
-        "Codex should start from `Poll Status`, `Current Verdict`, `Open Findings`, `Current Instruction For Claude`, and `Last Reviewed Scope`.",
-        "Claude should start from `Poll Status`, `Current Verdict`, `Open Findings`, `Current Instruction For Claude`, and `Last Reviewed Scope`, then acknowledge the active instruction in `Claude Ack` before coding.",
-        "When the structured review queue is available, Claude must also poll `review-channel --action inbox --target claude --status pending --format json` or the equivalent watch surface on the same cadence so Codex-targeted packets are not missed.",
-        "Claude must read `Last Codex poll` / `Poll Status` first on each repoll.",
+        f"{reviewer_name} should start from `Poll Status`, `Current Verdict`, `Open Findings`, `Current Instruction For Claude`, and `Last Reviewed Scope`.",
+        f"{implementer_name} should start from `Poll Status`, `Current Verdict`, `Open Findings`, `Current Instruction For Claude`, and `Last Reviewed Scope`, then acknowledge the active instruction in the implementer ACK section (`Claude Ack` compatibility heading) before coding.",
+        f"When the structured review queue is available, {implementer_name} must also poll `review-channel --action inbox --target claude --status pending --format json` or the equivalent watch surface on the same cadence so Codex-targeted packets are not missed.",
+        f"{implementer_name} must read `Last Codex poll` / `Poll Status` first on each repoll.",
         "When `Reviewer mode` is `active_dual_agent`, this file is the live reviewer/coder authority.",
-        "Codex stays reviewer-only by default: missing worker worktrees, absent fanout, or a promising fix are not permission to start local implementation.",
-        "When `Reviewer mode` is `single_agent`, `tools_only`, `paused`, or `offline`, Claude must not assume a live Codex review loop.",
-        'When the current slice is accepted and scoped plan work remains, Codex must derive the next highest-priority unchecked plan item from the active-plan chain and rewrite `Current Instruction For Claude` for the next slice instead of idling at "all green so far."',
-        "If `Current Instruction For Claude` or `Poll Status` says `hold steady`, `waiting for reviewer promotion`, `Codex committing/pushing`, or similar wait-state language, Claude must not mine plan docs for side work or self-promote the next slice. Keep polling until a reviewer-owned section changes.",
-        "If `Current Instruction For Claude` still contains active work and there is no explicit reviewer-owned wait state, Claude status/ack updates must be substantive: name concrete files, subsystems, findings, or one concrete blocker/question. `No change. Continuing.`, `instruction unchanged`, and `Codex should review` are contract violations.",
+        f"{reviewer_name} stays reviewer-only by default: missing worker worktrees, absent fanout, or a promising fix are not permission to start local implementation.",
+        f"When `Reviewer mode` is `single_agent`, `tools_only`, `paused`, or `offline`, {implementer_name} must not assume a live {reviewer_name} review loop.",
+        f'When the current slice is accepted and scoped plan work remains, {reviewer_name} must derive the next highest-priority unchecked plan item from the active-plan chain and rewrite `Current Instruction For Claude` for the next slice instead of idling at "all green so far."',
+        f"If `Current Instruction For Claude` or `Poll Status` says `hold steady`, `waiting for reviewer promotion`, `{reviewer_name} committing/pushing`, or similar wait-state language, {implementer_name} must not mine plan docs for side work or self-promote the next slice. Keep polling until a reviewer-owned section changes.",
+        f"If `Current Instruction For Claude` still contains active work and there is no explicit reviewer-owned wait state, implementer status/ack updates must be substantive: name concrete files, subsystems, findings, or one concrete blocker/question. `No change. Continuing.`, `instruction unchanged`, and `{reviewer_name} should review` are contract violations.",
         "Do not use raw shell sleep loops such as `sleep 60` or `bash -lc 'sleep 60'` to represent waiting. Use the repo-owned `review-channel --action implementer-wait` path only under an explicit reviewer-owned wait state.",
-        "Only the Codex conductor may update the Codex-owned sections in this file.",
-        "Only the Claude conductor may update the Claude-owned sections in this file.",
+        f"Only the {reviewer_name} conductor may update {reviewer_owned_sections} in this file.",
+        f"Only the {implementer_name} conductor may update {implementer_owned_sections} in this file.",
         "Specialist workers should wake on owned-path changes or explicit conductor request instead of every worker polling the full tree blindly on the same cadence.",
-        "Codex must emit an operator-visible heartbeat every 5 minutes while code is moving, even when the blocker set is unchanged.",
+        f"{reviewer_name} must emit an operator-visible heartbeat every 5 minutes while code is moving, even when the blocker set is unchanged.",
         "",
         "- Last Codex poll: `2026-03-08T04:58:19Z`",
         "- Last Codex poll (Local America/New_York): `2026-03-07 23:58:19 EST`",
@@ -79,11 +92,11 @@ def _valid_bridge_text(script) -> str:
             lines.append("- reviewer waiting on Claude progress; live loop healthy.")
         elif heading == "Current Instruction For Claude":
             lines.append("- continue with the next scoped task")
-        elif heading == "Claude Status":
+        elif heading == implementer_status_heading:
             lines.append("- implementing the current bounded slice")
-        elif heading == "Claude Questions":
+        elif heading == implementer_questions_heading:
             lines.append("- (none)")
-        elif heading == "Claude Ack":
+        elif heading == implementer_ack_heading:
             lines.append("- acknowledged; instruction-rev: `56bcd5d01510`")
         elif heading == "Last Reviewed Scope":
             lines.append("- app/operator_console/theme/theme_engine.py")
@@ -297,8 +310,8 @@ class CheckReviewChannelBridgeTests(TestCase):
         bridge = self._temp_path(
             "bridge.md",
             _valid_bridge_text(self.script).replace(
-                "Claude status/ack updates must be substantive: name concrete files, subsystems, findings, or one concrete blocker/question. `No change. Continuing.`, `instruction unchanged`, and `Codex should review` are contract violations.",
-                "Claude status/ack updates must be\n"
+                "implementer status/ack updates must be substantive: name concrete files, subsystems, findings, or one concrete blocker/question. `No change. Continuing.`, `instruction unchanged`, and `Codex should review` are contract violations.",
+                "implementer status/ack updates must be\n"
                 "substantive: name concrete files, subsystems, findings, or one concrete blocker/question. `No change. Continuing.`, `instruction unchanged`, and `Codex should review` are contract violations.",
             ),
         )
@@ -315,6 +328,55 @@ class CheckReviewChannelBridgeTests(TestCase):
             report = self.script.build_report()
         self.assertTrue(report["ok"])
         self.assertEqual(report["bridge"]["missing_markers"], [])
+
+    def test_build_report_accepts_role_portable_single_agent_markers(self) -> None:
+        bridge = self._temp_path(
+            "bridge.md",
+            _valid_bridge_text(
+                self.script,
+                reviewer_name="Codex",
+                implementer_name="Codex",
+                reviewer_owned_sections="the Codex-owned sections",
+            ),
+        )
+        review_channel = self._temp_path(
+            "dev/active/review_channel.md",
+            _valid_review_channel_text(self.script),
+        )
+        with (
+            patch.object(self.script, "BRIDGE_PATH", bridge),
+            patch.object(self.script, "REVIEW_CHANNEL_PATH", review_channel),
+            patch.object(self.script, "_is_tracked_by_git", return_value=True),
+            patch.object(self.script, "_current_utc", return_value=self.fixed_now),
+        ):
+            report = self.script.build_report()
+        self.assertTrue(report["ok"])
+        self.assertEqual(report["bridge"]["missing_markers"], [])
+
+    def test_build_report_accepts_implementer_heading_aliases(self) -> None:
+        bridge_text = _valid_bridge_text(
+            self.script,
+            implementer_status_heading="Implementer Status",
+            implementer_questions_heading="Implementer Questions",
+            implementer_ack_heading="Implementer Ack",
+        )
+        bridge_text = bridge_text.replace("## Claude Status", "## Implementer Status")
+        bridge_text = bridge_text.replace("## Claude Questions", "## Implementer Questions")
+        bridge_text = bridge_text.replace("## Claude Ack", "## Implementer Ack")
+        bridge = self._temp_path("bridge.md", bridge_text)
+        review_channel = self._temp_path(
+            "dev/active/review_channel.md",
+            _valid_review_channel_text(self.script),
+        )
+        with (
+            patch.object(self.script, "BRIDGE_PATH", bridge),
+            patch.object(self.script, "REVIEW_CHANNEL_PATH", review_channel),
+            patch.object(self.script, "_is_tracked_by_git", return_value=True),
+            patch.object(self.script, "_current_utc", return_value=self.fixed_now),
+        ):
+            report = self.script.build_report()
+        self.assertTrue(report["ok"])
+        self.assertEqual(report["bridge"]["missing_h2"], [])
 
     def test_build_report_flags_missing_review_channel_bridge_guard_marker(self) -> None:
         bridge = self._temp_path(

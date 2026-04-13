@@ -3134,9 +3134,9 @@ alone. Use these proof gates:
 
 ## Execution Checklist
 
-### Phase P0 - Findings Spine And Plan Authority
+### Phase P0 - Findings Spine, Dogfood, And Plan Authority
 
-Phase metadata: phase_id=MP377-P0; owner_doc=`dev/active/ai_governance_platform.md`; status=in_progress; depends_on=none; summary=Collapse execution authority to one umbrella plan plus a small owner-doc set, then close the missing findings spine.
+Phase metadata: phase_id=MP377-P0; owner_doc=`dev/active/ai_governance_platform.md`; status=in_progress; depends_on=none; summary=Collapse execution authority to one umbrella plan plus a small owner-doc set, then land the missing findings and dogfood closeout spine.
 
 - [ ] `MP377-P0-T01` Implement one canonical `FindingBacklog` reader/writer and route finding intake plus compatibility import through it.
       owner_doc: `dev/active/platform_authority_loop.md`
@@ -3150,10 +3150,22 @@ Phase metadata: phase_id=MP377-P0; owner_doc=`dev/active/ai_governance_platform.
       owner_doc: `dev/active/ai_governance_platform.md`
       status: `done`
       depends_on: `MP377-P0-T02`
+- [x] `MP377-P0-T04` Land one repo-owned `devctl dogfood` ledger/report over live commands, guards, probes, and roles, and extend `governance-review` to accept `signal_type=dogfood`.
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `done`
+      depends_on: `MP377-P0-T03`
+- [x] `MP377-P0-T05` Refresh the active compatibility bridge from typed review status before governed push/pre-commit blocking checks run so stale role markers cannot strand publication.
+      owner_doc: `dev/active/review_channel.md`
+      status: `done`
+      depends_on: `MP377-P0-T03`
+- [ ] `MP377-P0-T06` Auto-record dogfood-discovered failures into `governance-review` with stable finding ids instead of relying on manual ledger correlation.
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `pending`
+      depends_on: `MP377-P0-T01`, `MP377-P0-T04`
 
-### Phase P1 - Typed Plan Ingestion
+### Phase P1 - Typed Plan Ingestion And Registry Projection
 
-Phase metadata: phase_id=MP377-P1; owner_doc=`dev/active/ai_governance_platform.md`; status=done; depends_on=`MP377-P0`; summary=Close the missing typed plan-content layer so startup/work-intake can route from phase/task state instead of prose-only plan headings.
+Phase metadata: phase_id=MP377-P1; owner_doc=`dev/active/ai_governance_platform.md`; status=in_progress; depends_on=`MP377-P0`; summary=Close the missing typed plan-content layer, then promote persisted plan-registry state over markdown-authority drift.
 
 - [x] `MP377-P1-T01` Land typed `PlanPhase`, `PlanTask`, and `PlanDependency` models plus a parser for structured execution-checklist phase/task metadata.
       owner_doc: `dev/active/ai_governance_platform.md`
@@ -3167,10 +3179,18 @@ Phase metadata: phase_id=MP377-P1; owner_doc=`dev/active/ai_governance_platform.
       owner_doc: `dev/active/platform_authority_loop.md`
       status: `done`
       depends_on: `MP377-P1-T01`
+- [ ] `MP377-P1-T04` Persist a repo-pack-owned `PlanRegistry` / `PlanTargetRef` authority artifact so startup and planning consumers stop reparsing mutable markdown on every read.
+      owner_doc: `dev/active/platform_authority_loop.md`
+      status: `pending`
+      depends_on: `MP377-P1-T03`
+- [ ] `MP377-P1-T05` Render `INDEX.md`, `MASTER_PLAN.md`, and owner-plan markdown as bounded projections over that persisted plan registry instead of treating raw markdown as mutable execution authority.
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `pending`
+      depends_on: `MP377-P1-T04`
 
-### Phase P2 - Closed-Loop Quality Composition
+### Phase P2 - Closed-Loop Quality Composition And Audit Orchestration
 
-Phase metadata: phase_id=MP377-P2; owner_doc=`dev/active/review_probes.md`; status=pending; depends_on=`MP377-P0`, `MP377-P1`; summary=Turn the existing guards, probes, and planning reducers into one closed quality loop with shared inputs and consumable outputs.
+Phase metadata: phase_id=MP377-P2; owner_doc=`dev/active/review_probes.md`; status=pending; depends_on=`MP377-P0`, `MP377-P1`; summary=Turn the existing guards, probes, dogfood ledger, and planning reducers into one closed quality loop with shared inputs and consumable outputs.
 
 - [ ] `MP377-P2-T01` Compose `probe_split_advisor.py` from function clusters, import graph fan-out, and hotspot context.
       owner_doc: `dev/active/review_probes.md`
@@ -3184,15 +3204,19 @@ Phase metadata: phase_id=MP377-P2; owner_doc=`dev/active/review_probes.md`; stat
       owner_doc: `dev/active/platform_authority_loop.md`
       status: `pending`
       depends_on: `MP377-P0-T01`
+- [ ] `MP377-P2-T04` Compose a multi-agent `devctl dogfood` audit runner that exercises command/guard/probe/role coverage, persists cross-session coverage, and records real failures through `governance-review`.
+      owner_doc: `dev/active/autonomous_governance_loop_v2.md`
+      status: `pending`
+      depends_on: `MP377-P0-T04`, `MP377-P0-T06`, `MP377-P1-T05`
 
-### Phase P3 - Portable Proof
+### Phase P3 - Portable Proof And Adopter Audit
 
-Phase metadata: phase_id=MP377-P3; owner_doc=`dev/active/portable_code_governance.md`; status=pending; depends_on=`MP377-P0`, `MP377-P1`, `MP377-P2`; summary=Prove the consolidated owner-doc set and typed intake path on another repository without core-engine patching.
+Phase metadata: phase_id=MP377-P3; owner_doc=`dev/active/portable_code_governance.md`; status=pending; depends_on=`MP377-P0`, `MP377-P1`, `MP377-P2`; summary=Prove the consolidated owner-doc set, typed plan authority, and dogfood audit path on another repository without core-engine patching.
 
-- [ ] `MP377-P3-T01` Validate the reduced execution-owner set plus typed plan routing on a second repo layout.
+- [ ] `MP377-P3-T01` Validate the reduced execution-owner set plus typed plan routing and dogfood audit coverage on a second repo layout.
       owner_doc: `dev/active/portable_code_governance.md`
       status: `pending`
-      depends_on: `MP377-P2-T02`
+      depends_on: `MP377-P2-T02`, `MP377-P2-T04`
 - [ ] `MP377-P3-T02` Close the remaining repo-default assumptions in startup, review transport, and governed mutation proof surfaces.
       owner_doc: `dev/active/portable_code_governance.md`
       status: `pending`
@@ -5002,13 +5026,16 @@ Use this section as the single "left off here" surface for fresh AI sessions
 working on `MP-377`.
 
 - Current status: the umbrella plan now owns the reduced execution-owner set
-  and the typed phase/task contract. `MP377-P1` is landed, and the live
-  dogfood walkthrough just closed the stale `active_target` / projection
-  parity gaps across startup, session-resume, dashboard, review-channel
-  status, and context-graph.
-- Next action: keep the same typed-consumer rule while continuing the next
-  `MP-377` proof slices: doc-authority migration, route-proof generation from
-  registry data, typed-contract property testing, and clean-adopter proof.
+  and the typed phase/task contract. The live dogfood walkthrough already
+  closed the stale `active_target` / projection parity gaps across startup,
+  session-resume, dashboard, review-channel status, and context-graph, and
+  this session added the first repo-owned `devctl dogfood` ledger/report plus
+  push-preflight bridge reprojection from typed status.
+- Next action: close the remaining `P0`/`P1` foundation slices in order:
+  land the canonical `FindingBacklog`, auto-wire dogfood-discovered failures
+  into `governance-review`, then cut over to a persisted `PlanRegistry`
+  authority artifact that renders markdown projections instead of rereading
+  mutable plan files directly.
 - Context rule: start from `startup-context`, `governance-review`, and the
   review-channel inbox, then read this file and only the owner docs named by
   the active typed phase/task route.
@@ -5018,6 +5045,12 @@ working on `MP-377`.
   required cross-surface parity set. If one surface still disagrees with the
   typed source, treat that as a platform bug and record it through
   `governance-review --record` before widening functionality.
+- 2026-04-13 dogfood engine follow-up:
+  `devctl dogfood` now persists explicit coverage rows for commands, guards,
+  probes, and roles under `dev/reports/dogfood/`, but it is still a manual
+  ledger edge. The next closure is to let dogfood failures share stable
+  `finding_id` / closeout truth with `FindingBacklog` and then run the same
+  flow against reviewer, implementer, dashboard, and adopter-repo proofs.
 - 2026-04-12 architecture-synthesis / phase-order update:
   the 15-command audit plus dashboard packet review confirmed that five
   directions are already platform law (deterministic runtime, role
@@ -6512,6 +6545,20 @@ Execution order for this section:
 
 ## Progress Log
 
+- 2026-04-13: Landed the first repo-owned dogfood engine slice instead of
+  keeping system-test coverage in packets and prose. `devctl dogfood` now
+  records explicit `DogfoodRun` rows under `dev/reports/dogfood/runs.jsonl`,
+  refreshes `dev/reports/dogfood/latest/summary.{md,json}`, derives coverage
+  from the live command catalog plus registered guard/probe entrypoints
+  instead of fixed counts, and `governance-review` now accepts
+  `signal_type=dogfood` so dogfood-discovered failures can close out in the
+  canonical findings ledger. The same slice also hardened governed push:
+  active bridge preflight now refreshes typed review status and reprojects
+  `bridge.md` before the blocking checks run, so stale role-specific marker
+  drift no longer strands publication. The next foundation work is to unify
+  dogfood failures with stable `FindingBacklog` ids and then move `MP-377`
+  plan authority from mutable markdown reads to persisted `PlanRegistry`
+  state plus rendered projections.
 - 2026-04-13: Closed the live dogfood walkthrough parity regressions in the
   main `MP-377` owner chain instead of leaving them as dashboard/operator
   folklore. `startup-context` now promotes `active_target` from live
@@ -9102,7 +9149,14 @@ Execution order for this section:
 - `dev/scripts/devctl/repo_packs/voiceterm.py`
 - `dev/scripts/devctl/runtime/control_state.py`
 - `dev/scripts/devctl/runtime/action_contracts.py`
+- `dev/scripts/devctl/runtime/dogfood_models.py`
+- `dev/scripts/devctl/runtime/dogfood_log.py`
+- `dev/scripts/devctl/runtime/dogfood_render.py`
 - `dev/scripts/devctl/runtime/review_state.py`
+- `dev/scripts/devctl/commands/reporting/dogfood.py`
+- `dev/scripts/devctl/commands/vcs/push.py`
+- `dev/scripts/devctl/tests/commands/reporting/test_dogfood.py`
+- `dev/scripts/devctl/tests/vcs/test_push.py`
 - `dev/scripts/checks/check_platform_layer_boundaries.py`
 - `dev/scripts/checks/check_architecture_surface_sync.py`
 - `dev/scripts/checks/architecture_boundary/command.py`

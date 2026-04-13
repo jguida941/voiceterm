@@ -14,9 +14,12 @@
 #
 # Environment overrides:
 #   DEVCTL_NO_REVIEW_SNAPSHOT_REFRESH=1     skip the snapshot refresh only
+#   DEVCTL_NO_REVIEW_CHANNEL_STATUS_REFRESH=1
+#                                           skip the bridge/status refresh only
 #   DEVCTL_REVIEW_SNAPSHOT_RECEIPT_COMMIT=1 skip the gate/refresh on the
 #                                           snapshot-only receipt commit
-#   DEVCTL_NO_ARTIFACT_WRITES=1             skip the snapshot refresh only
+#   DEVCTL_NO_ARTIFACT_WRITES=1             skip the bridge/status + snapshot
+#                                           refreshes
 #
 # Failure policy:
 # - commit_permission failures are blocking. raw git commits must not bypass
@@ -84,6 +87,34 @@ fi
 # checkout, missing virtualenv, etc.).
 if ! python3 dev/scripts/devctl.py --help >/dev/null 2>&1; then
     exit 0
+fi
+
+if [ "${DEVCTL_NO_REVIEW_CHANNEL_STATUS_REFRESH:-}" != "1" ] && [ "${DEVCTL_NO_ARTIFACT_WRITES:-}" != "1" ]; then
+    if python3 dev/scripts/devctl.py review-channel --action status --terminal none --format json >/dev/null 2>&1; then
+        BRIDGE_TARGET=$(python3 - <<'PYEOF' 2>/dev/null || echo ""
+import sys
+from pathlib import Path
+sys.path.insert(0, "dev/scripts")
+try:
+    from devctl.runtime.governance_scan import scan_repo_governance_safely
+    governance = scan_repo_governance_safely(Path("."))
+    relative = ""
+    if governance is not None:
+        bridge_config = getattr(governance, "bridge_config", None)
+        if bridge_config is not None:
+            relative = str(getattr(bridge_config, "bridge_path", "") or "").strip()
+    print(relative)
+except Exception:
+    print("")
+PYEOF
+)
+
+        if [ -n "$BRIDGE_TARGET" ] && [ -f "$BRIDGE_TARGET" ]; then
+            git add "$BRIDGE_TARGET" 2>/dev/null || true
+        fi
+    else
+        echo "[pre-commit hook] devctl review-channel --action status failed; continuing commit." >&2
+    fi
 fi
 
 # Run the refresh through the typed command so the output path comes

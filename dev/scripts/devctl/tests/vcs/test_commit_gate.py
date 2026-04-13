@@ -317,6 +317,7 @@ class TestManagedPreCommitHookTemplate(unittest.TestCase):
         self.assertIn("DEVCTL_REVIEW_SNAPSHOT_RECEIPT_COMMIT", content)
         self.assertIn("devctl.governed-commit", content)
         self.assertIn("DEVCTL_GOVERNED_COMMIT", content)
+        self.assertIn("review-channel --action status", content)
 
 
 class TestRawGitCommitPermissionHook(unittest.TestCase):

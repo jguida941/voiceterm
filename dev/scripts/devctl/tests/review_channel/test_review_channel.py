@@ -2205,8 +2205,8 @@ class ReviewChannelHelperTests(unittest.TestCase):
         )
         self.assertIn(
             "If the live bridge says `hold steady` or the only missing state is "
-            "`Claude Status` / `Claude Ack`, do not ask the operator what to do "
-            "next.",
+            "the implementer status/ACK compatibility sections (`Claude Status` / "
+            "`Claude Ack`), do not ask the operator what to do next.",
             prompt,
         )
         self.assertIn(
@@ -2214,8 +2214,9 @@ class ReviewChannelHelperTests(unittest.TestCase):
             prompt,
         )
         self.assertIn(
-            "every `Claude Status` / `Claude Ack` update must name concrete files, "
-            "subsystems, findings, or one concrete blocker/question.",
+            "every implementer status/ACK compatibility update (`Claude Status` / "
+            "`Claude Ack`) must name concrete files, subsystems, findings, or one "
+            "concrete blocker/question.",
             prompt,
         )
         self.assertIn(
@@ -2224,7 +2225,8 @@ class ReviewChannelHelperTests(unittest.TestCase):
             prompt,
         )
         self.assertIn(
-            "Posting `Claude Status` or `Claude Ack` is not the end of the loop.",
+            "Posting implementer status/ACK compatibility updates (`Claude Status` / "
+            "`Claude Ack`) is not the end of the loop.",
             prompt,
         )
         self.assertIn(
@@ -5019,7 +5021,7 @@ class ReviewChannelWatchFollowTests(unittest.TestCase):
         attention = derive_bridge_attention(
             liveness,
             contract_errors=[
-                "Claude Status/Ack show implementer completion-stall language while `Current Instruction For Claude` still assigns active work."
+                "Implementer status/ack compatibility sections (`Claude Status` / `Claude Ack`) show completion-stall language while `Current Instruction For Claude` still assigns active work."
             ],
         )
         self.assertEqual(attention["status"], "implementer_relaunch_required")

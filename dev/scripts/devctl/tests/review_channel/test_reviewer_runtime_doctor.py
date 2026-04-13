@@ -228,7 +228,7 @@ def test_attach_reviewer_runtime_snapshot_prefers_review_state_attention_project
         attention=ReviewAttentionState(
             status="implementer_state_reset_required",
             owner="reviewer",
-            summary="Claude Ack is stale for the live instruction.",
+            summary="Implementer ACK (`Claude Ack` compatibility heading) is stale for the live instruction.",
             recommended_action="Reset the implementer state before resuming work.",
             recommended_command="python3 dev/scripts/devctl.py review-channel --action reset-implementer-state --terminal none --format md",
         ),
@@ -253,7 +253,10 @@ def test_attach_reviewer_runtime_snapshot_prefers_review_state_attention_project
     )
 
     assert report["attention"]["status"] == "implementer_state_reset_required"
-    assert report["doctor"]["root_cause"] == "Claude Ack is stale for the live instruction."
+    assert (
+        report["doctor"]["root_cause"]
+        == "Implementer ACK (`Claude Ack` compatibility heading) is stale for the live instruction."
+    )
     assert "reset-implementer-state" in report["doctor"]["recommended_command"]
 
 

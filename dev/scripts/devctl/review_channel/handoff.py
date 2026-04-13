@@ -44,6 +44,7 @@ from .handoff_constants import (
     _RESOLVED_ECHO_RE,
     _is_substantive_text,
 )
+from .bridge_heading_aliases import normalize_bridge_sections
 
 # validate_launch_bridge_state and validate_live_bridge_contract moved to
 # bridge_validation.py. Import from there directly.
@@ -130,7 +131,7 @@ def extract_bridge_snapshot(bridge_text: str) -> BridgeSnapshot:
             if match is not None:
                 metadata[key] = match.group("value").strip()
 
-    sections = extract_bridge_sections(bridge_text)
+    sections = normalize_bridge_sections(extract_bridge_sections(bridge_text))
 
     tracked_sections = {
         name: sections[name]

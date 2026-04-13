@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import tempfile
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
@@ -126,6 +127,13 @@ class PushParserTests(unittest.TestCase):
 
 
 class PushCommandTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self._sync_bridge_patcher = patch(
+            "dev.scripts.devctl.commands.vcs.push._sync_bridge_projection_before_preflight"
+        )
+        self.sync_bridge_mock = self._sync_bridge_patcher.start()
+        self.addCleanup(self._sync_bridge_patcher.stop)
+
     @patch("dev.scripts.devctl.commands.vcs.push.emit_output")
     @patch("dev.scripts.devctl.commands.vcs.push.load_latest_push_report")
     @patch("dev.scripts.devctl.commands.vcs.push.remote_exists", return_value=True)
@@ -827,6 +835,7 @@ class PushCommandTests(unittest.TestCase):
         rc = push.run(make_args())
 
         self.assertEqual(rc, 0)
+        self.sync_bridge_mock.assert_called_once()
         executed = [call.args[1] for call in run_cmd_mock.call_args_list]
         self.assertEqual(
             executed,
@@ -911,6 +920,7 @@ class PushCommandTests(unittest.TestCase):
             [call.args[1] for call in run_cmd_mock.call_args_list],
             [["git", "fetch", "origin"]],
         )
+        self.sync_bridge_mock.assert_not_called()
         payload = json.loads(write_output_mock.call_args.args[0])
         self.assertEqual(payload["status"], "published_remote")
         self.assertEqual(payload["reason"], "branch_already_pushed")
@@ -1195,6 +1205,61 @@ class PushCommandTests(unittest.TestCase):
         payload = json.loads(write_output_mock.call_args.args[0])
         self.assertEqual(payload["status"], "blocked")
         self.assertIn("Publication authorization blocks", payload["errors"][0])
+
+
+class PushBridgeSyncTests(unittest.TestCase):
+    def test_sync_bridge_projection_before_preflight_reprojects_active_bridge(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            repo_root = Path(tmp_dir)
+            bridge_path = repo_root / "bridge.md"
+            review_channel_path = repo_root / "dev" / "active" / "review_channel.md"
+            review_state_path = (
+                repo_root / "dev" / "reports" / "review_channel" / "latest" / "review_state.json"
+            )
+            bridge_path.write_text("# Review Bridge\n", encoding="utf-8")
+            review_channel_path.parent.mkdir(parents=True, exist_ok=True)
+            review_channel_path.write_text("# active review channel\n", encoding="utf-8")
+            review_state_path.parent.mkdir(parents=True, exist_ok=True)
+            review_state_path.write_text("{}", encoding="utf-8")
+            state = push.PushRunState()
+
+            with (
+                patch(
+                    "dev.scripts.devctl.commands.vcs.push.active_path_config",
+                    return_value=SimpleNamespace(
+                        bridge_rel="bridge.md",
+                        review_channel_rel="dev/active/review_channel.md",
+                        review_status_dir_rel="dev/reports/review_channel/latest",
+                    ),
+                ),
+                patch(
+                    "dev.scripts.devctl.commands.vcs.push.bridge_is_active",
+                    return_value=True,
+                ),
+                patch(
+                    "dev.scripts.devctl.commands.vcs.push.refresh_status_snapshot",
+                    return_value=SimpleNamespace(
+                        warnings=[],
+                        projection_paths=SimpleNamespace(
+                            review_state_path=str(review_state_path)
+                        ),
+                    ),
+                ),
+                patch(
+                    "dev.scripts.devctl.commands.vcs.push._sync_bridge_from_typed_projection_if_needed",
+                    return_value=(True, ""),
+                ) as sync_mock,
+            ):
+                push._sync_bridge_projection_before_preflight(
+                    state,
+                    repo_root=repo_root,
+                )
+
+        sync_mock.assert_called_once()
+        self.assertIn(
+            "Synchronized `bridge.md` from typed review-state before push preflight.",
+            state.warnings,
+        )
 
     @patch("dev.scripts.devctl.commands.vcs.push.write_output")
     @patch("dev.scripts.devctl.commands.vcs.push.remote_exists", return_value=True)

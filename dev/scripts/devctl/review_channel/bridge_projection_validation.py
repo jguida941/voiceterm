@@ -6,6 +6,7 @@ from collections.abc import Mapping
 import re
 
 from .bridge_projection_contract import FLAT_BRIDGE_SECTION_ORDER
+from .bridge_heading_aliases import canonical_bridge_heading
 from .bridge_projection_sections import projection_sections
 from .bridge_section_validation import find_embedded_markdown_headings
 from .bridge_sanitize import (
@@ -43,7 +44,7 @@ def bridge_projection_drop_headings(bridge_text: str) -> tuple[str, ...]:
         for heading in dict.fromkeys(
             match.group(1).strip() for match in _H2_RE.finditer(bridge_text)
         )
-        if heading not in BRIDGE_ALLOWED_H2
+        if canonical_bridge_heading(heading) not in BRIDGE_ALLOWED_H2
     )
 
 

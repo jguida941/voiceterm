@@ -6,13 +6,13 @@ from .ack_contract import ACK_REVISION_REQUIREMENT_PREFIX
 
 _NON_REVIEWER_CONTRACT_ERROR_PREFIXES = (
     ACK_REVISION_REQUIREMENT_PREFIX,
-    "Live `Claude Ack` revision does not match the current reviewer instruction revision.",
-    "Claude Status/Ack show implementer completion-stall language while ",
+    "Live implementer ACK (`Claude Ack` compatibility heading) revision does not match the current reviewer instruction revision.",
+    "Implementer status/ack compatibility sections (`Claude Status` / ",
 )
 _RESETTABLE_IMPLEMENTER_ERROR_PREFIXES = (
     ACK_REVISION_REQUIREMENT_PREFIX,
-    "Live `Claude Ack` revision does not match the current reviewer instruction revision.",
-    "Claude Status/Ack show implementer completion-stall language while ",
+    "Live implementer ACK (`Claude Ack` compatibility heading) revision does not match the current reviewer instruction revision.",
+    "Implementer status/ack compatibility sections (`Claude Status` / ",
     "Reviewer mode is `active_dual_agent` but no live repo-owned Codex or Claude conductor sessions are present.",
     "Repo-owned Codex conductor sessions are present, but the latest reviewer poll still comes from automation-only heartbeat refresh",
 )

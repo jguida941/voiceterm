@@ -5,15 +5,15 @@
 ## Quick status
 
 - Branch: `feature/governance-quality-sweep`
-- HEAD: `d6e474d55631` — Refresh bridge.md projection from typed state for push
-- Tree hash: `4fbbfcc37f62`
-- Generation stamp: `snap-1402ecf12b53`
-- Generated at (UTC): 2026-04-13T21:42:10Z
-- Push decision: `run_devctl_push` — push_preconditions_satisfied
+- HEAD: `e78905c20f42` — Refresh external review snapshot for d6e474d5
+- Tree hash: `b729ac84109f`
+- Generation stamp: `snap-6e91d011d85e`
+- Generated at (UTC): 2026-04-13T22:50:11Z
+- Push decision: `await_checkpoint` — staged_index_budget_exceeded
 - Reviewer mode: `single_agent` (interaction: `local_terminal`)
 - Pipeline state: `n/a` (approval: `n/a`)
-- Delta since last snapshot: 24 commits, 288 files, +21450/-6581
-- Governance findings: 102 open / 78 fixed / 194 total
+- Delta since last snapshot: 25 commits, 288 files, +21497/-6632
+- Governance findings: 105 open / 78 fixed / 197 total
 - Probe hints: 0 total across 0 files scanned
 
 ## 1. Identity
@@ -54,24 +54,24 @@ adopters arrive.
 - Remote: `https://github.com/jguida941/voiceterm.git`
 - Default branch: `master`
 - Current branch: `feature/governance-quality-sweep`
-- HEAD SHA: `d6e474d55631851362fa6dab1e2cb8dd9530c5ee`
+- HEAD SHA: `e78905c20f42bcbd4069a2c9364c87ca3bb28220`
 - HEAD author: Justin Guida
 - HEAD timestamp (UTC): 2026-04-13T17:40:48-04:00
 
 ## 2. Governance state
 
 ### Push decision
-- action: `run_devctl_push`
-- reason: push_preconditions_satisfied
-- push_eligible_now: True
-- worktree_clean: True
-- staged_path_count: 0
+- action: `await_checkpoint`
+- reason: staged_index_budget_exceeded
+- push_eligible_now: False
+- worktree_clean: False
+- staged_path_count: 45
 - unstaged_path_count: 0
-- next_step_command: `python3 dev/scripts/devctl.py push --execute`
+- next_step_command: `n/a`
 - latest_push_report: `dev/reports/push/latest.json`
 - latest_push_report_state: `blocked` (validation_failed)
 - publication_backlog: urgent
-- publication_guidance: 17 local commit(s) waiting for governed push. Run `python3 dev/scripts/devctl.py push --execute` now.
+- publication_guidance: 18 local commit(s) waiting for governed push once the current slice is checkpoint-clean.
 
 ### Reviewer runtime
 - reviewer_mode: `single_agent`
@@ -87,17 +87,18 @@ adopters arrive.
 - active plan: **AI Governance Platform Plan**
 - plan path: `dev/active/ai_governance_platform.md`
 - active MP scope: `MP-377`
-- advisory: `push_allowed` — worktree_clean_and_review_accepted
+- advisory: `checkpoint_before_continue` — staged_index_budget_exceeded
+- checkpoint_required: **yes**
 
 ## 3. Delta — what changed since the previous snapshot
 
-Range: last 24 commits ending at `d6e474d55631`
+Range: last 25 commits ending at `e78905c20f42`
 
-- commits: 24
+- commits: 25
 - files changed: 288
-- insertions: +21450
-- deletions: -6581
-- bundle classes touched: docs, tooling
+- insertions: +21497
+- deletions: -6632
+- bundle classes touched: tooling, docs
 - risk add-ons triggered: Parser / ANSI boundary
 - authority surfaces touched: 36 file(s)
 
@@ -105,30 +106,31 @@ Range: last 24 commits ending at `d6e474d55631`
 
 | # | SHA | Subject | Files | +/- | Bundle | Risk |
 |---|---|---|---|---|---|---|
-| 1 | `d6e474d5` | Refresh bridge.md projection from typed state for push | 2 | +69/-172 | docs |  |
-| 2 | `871812bb` | Refresh review snapshot for governance-quality-sweep push | 1 | +55/-59 | tooling |  |
-| 3 | `45376a16` | Refresh external review snapshot for a19534a9 | 1 | +63/-65 | tooling |  |
-| 4 | `a19534a9` | Fix active_target routing, projection parity, and dogfood s… | 31 | +1070/-143 | tooling |  |
-| 5 | `ffafe4ff` | Expand contract closure to internal types and wire governan… | 13 | +584/-66 | tooling |  |
-| 6 | `9e75a66d` | Refresh external review snapshot for 5a4236c1 | 1 | +59/-63 | tooling |  |
-| 7 | `5a4236c1` | Wire FindingBacklog, connection pairs, and probe split advi… | 42 | +1803/-224 | tooling | Parser / ANSI boundary |
-| 8 | `67afd4d5` | Refresh external review snapshot for d0e5ac47 | 1 | +80/-83 | tooling |  |
-| 9 | `d0e5ac47` | Consolidate plan system: typed phases, plan ingestion, guar… | 29 | +1219/-229 | tooling |  |
-| 10 | `c06a989a` | Refresh external review snapshot for 1e24f79f | 1 | +110/-83 | tooling |  |
-| 11 | `1e24f79f` | Fix remote-control review-channel guard regressions and ext… | 158 | +12763/-4359 | tooling | Parser / ANSI boundary |
-| 12 | `687c0478` | Refresh external review snapshot for 4372e2cd | 1 | +86/-83 | tooling |  |
-| 13 | `4372e2cd` | Fix probe shims, event projection, and launch/rollover test… | 44 | +943/-142 | tooling |  |
-| 14 | `f88de94b` | Refresh external review snapshot for 5ed6e2fb | 1 | +80/-71 | tooling |  |
-| 15 | `5ed6e2fb` | Make review state role-neutral and bind push approval to wo… | 45 | +730/-117 | tooling |  |
-| 16 | `a1c7ffe3` | Refresh external review snapshot for 00e45380 | 1 | +67/-64 | tooling |  |
-| 17 | `00e45380` | Checkpoint single-agent liveness and worker-lane portability | 33 | +815/-159 | tooling |  |
-| 18 | `763be95d` | Refresh external review snapshot for e8ccc7e7 | 1 | +63/-64 | tooling |  |
-| 19 | `e8ccc7e7` | review_channel: remote-control attachment counts as live co… | 11 | +258/-61 | tooling |  |
-| 20 | `70e2544f` | docs(audit): dashboard-loop ticks 33-48 + liveness symmetry… | 3 | +285/-51 | tooling |  |
-| 21 | `5cc9e8d9` | Refresh external review snapshot for 01e436d0 | 1 | +67/-65 | tooling |  |
-| 22 | `01e436d0` | docs+workflow: propagate bundle.tooling publications-ignore… | 7 | +72/-49 | tooling |  |
-| 23 | `bb6bbef4` | Refresh external review snapshot for 0db1267c | 1 | +56/-59 | tooling |  |
-| 24 | `0db1267c` | bundles(tooling): ignore publications warning source in str… | 3 | +53/-50 | tooling |  |
+| 1 | `e78905c2` | Refresh external review snapshot for d6e474d5 | 1 | +47/-51 | tooling |  |
+| 2 | `d6e474d5` | Refresh bridge.md projection from typed state for push | 2 | +69/-172 | docs |  |
+| 3 | `871812bb` | Refresh review snapshot for governance-quality-sweep push | 1 | +55/-59 | tooling |  |
+| 4 | `45376a16` | Refresh external review snapshot for a19534a9 | 1 | +63/-65 | tooling |  |
+| 5 | `a19534a9` | Fix active_target routing, projection parity, and dogfood s… | 31 | +1070/-143 | tooling |  |
+| 6 | `ffafe4ff` | Expand contract closure to internal types and wire governan… | 13 | +584/-66 | tooling |  |
+| 7 | `9e75a66d` | Refresh external review snapshot for 5a4236c1 | 1 | +59/-63 | tooling |  |
+| 8 | `5a4236c1` | Wire FindingBacklog, connection pairs, and probe split advi… | 42 | +1803/-224 | tooling | Parser / ANSI boundary |
+| 9 | `67afd4d5` | Refresh external review snapshot for d0e5ac47 | 1 | +80/-83 | tooling |  |
+| 10 | `d0e5ac47` | Consolidate plan system: typed phases, plan ingestion, guar… | 29 | +1219/-229 | tooling |  |
+| 11 | `c06a989a` | Refresh external review snapshot for 1e24f79f | 1 | +110/-83 | tooling |  |
+| 12 | `1e24f79f` | Fix remote-control review-channel guard regressions and ext… | 158 | +12763/-4359 | tooling | Parser / ANSI boundary |
+| 13 | `687c0478` | Refresh external review snapshot for 4372e2cd | 1 | +86/-83 | tooling |  |
+| 14 | `4372e2cd` | Fix probe shims, event projection, and launch/rollover test… | 44 | +943/-142 | tooling |  |
+| 15 | `f88de94b` | Refresh external review snapshot for 5ed6e2fb | 1 | +80/-71 | tooling |  |
+| 16 | `5ed6e2fb` | Make review state role-neutral and bind push approval to wo… | 45 | +730/-117 | tooling |  |
+| 17 | `a1c7ffe3` | Refresh external review snapshot for 00e45380 | 1 | +67/-64 | tooling |  |
+| 18 | `00e45380` | Checkpoint single-agent liveness and worker-lane portability | 33 | +815/-159 | tooling |  |
+| 19 | `763be95d` | Refresh external review snapshot for e8ccc7e7 | 1 | +63/-64 | tooling |  |
+| 20 | `e8ccc7e7` | review_channel: remote-control attachment counts as live co… | 11 | +258/-61 | tooling |  |
+| 21 | `70e2544f` | docs(audit): dashboard-loop ticks 33-48 + liveness symmetry… | 3 | +285/-51 | tooling |  |
+| 22 | `5cc9e8d9` | Refresh external review snapshot for 01e436d0 | 1 | +67/-65 | tooling |  |
+| 23 | `01e436d0` | docs+workflow: propagate bundle.tooling publications-ignore… | 7 | +72/-49 | tooling |  |
+| 24 | `bb6bbef4` | Refresh external review snapshot for 0db1267c | 1 | +56/-59 | tooling |  |
+| 25 | `0db1267c` | bundles(tooling): ignore publications warning source in str… | 3 | +53/-50 | tooling |  |
 
 ### Files
 
@@ -147,7 +149,7 @@ Range: last 24 commits ending at `d6e474d55631`
 | `dev/active/remote_control_runtime.md` | tooling | +284/-21 |
 | `dev/active/review_channel.md` | tooling | +7/-0 |
 | `dev/audits/LIVE_RUN.md` | tooling | +645/-0 |
-| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1577/-1552 |
+| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1624/-1603 |
 | `dev/config/devctl_policies/launcher.json` | tooling | +25/-0 |
 | `dev/config/git_hooks/pre-commit-review-snapshot.sh` | tooling | +13/-8 |
 | `dev/config/quality_presets/portable_python.json` | tooling | +3/-1 |
@@ -179,15 +181,12 @@ Range: last 24 commits ending at `d6e474d55631`
 ## 4. Quality signals
 
 ### Governance review
-- total findings: 194
-- open: 102
+- total findings: 197
+- open: 105
 - fixed: 78
 - false positives: 0
 
 Recent findings:
-- `plan_ingestion_pipeline_missing` — `dev/scripts/devctl/runtime/session_resume.py` (critical, verdict=`confirmed_issue`)
-- `index_md_should_be_projection` — `dev/active/INDEX.md` (high, verdict=`confirmed_issue`)
-- `system_connection_pairs_prioritized` — `dev/scripts/devctl/runtime/work_intake_pacing.py` (critical, verdict=`confirmed_issue`)
 - `contract_consumption_enforcement_gap` — `dev/scripts/checks/platform_contract_closure/field_routes.py` (critical, verdict=`confirmed_issue`)
 - `full_devctl_pytest` — `dev/scripts/devctl` (medium, verdict=`confirmed_issue`)
 - `startup_active_target_stale_plan_route` — `dev/scripts/devctl/runtime/work_intake_selection.py` (high, verdict=`fixed`)
@@ -195,6 +194,9 @@ Recent findings:
 - `dogfood_dev_mode_needed` — `dev/scripts/devctl/commands/dashboard.py` (high, verdict=`confirmed_issue`)
 - `session_resume_coordination_active_target_drift` — `dev/scripts/devctl/platform/coordination_snapshot.py` (high, verdict=`fixed`)
 - `startup_finding_backlog_projection_missing` — `dev/scripts/devctl/runtime/startup_signals.py` (high, verdict=`fixed`)
+- `review_channel_status_bridge_sync_blocked_by_pending_packets` — `dev/scripts/devctl/commands/review_channel/status_bridge_sync.py` (high, verdict=`fixed`)
+- `context_graph_plan_task_query_missing` — `dev/scripts/devctl/context_graph/catalog_nodes.py` (medium, verdict=`fixed`)
+- `dashboard_pending_actionable_count_drift` — `dev/scripts/devctl/commands/dashboard_builders.py` (medium, verdict=`fixed`)
 
 ### Probe report
 - run_state: `missing`
@@ -308,6 +310,8 @@ Recent findings:
 
 ### Per-commit rationale
 
+- **`e78905c2`** — Refresh external review snapshot for d6e474d5
+  - evolution: Fact: the live dogfood walkthrough proved the typed findings spine existed but the consuming surfaces still disagreed on what work was active. Startup could emit `plan_routing=MP377-P0/MP377-P0-T01` while `active_target…
 - **`d6e474d5`** — Refresh bridge.md projection from typed state for push
   - evolution: Fact: the live dogfood walkthrough proved the typed findings spine existed but the consuming surfaces still disagreed on what work was active. Startup could emit `plan_routing=MP377-P0/MP377-P0-T01` while `active_target…
 - **`871812bb`** — Refresh review snapshot for governance-quality-sweep push
@@ -408,18 +412,16 @@ Recent findings:
 
 ## 8. Known gaps and open items
 
-- open governance findings: 102
+- open governance findings: 105
 
 ### Startup advisories
-- push_allowed: worktree_clean_and_review_accepted
+- checkpoint_before_continue: staged_index_budget_exceeded
 
 ### Stale warnings
-- Stop because nothing remains to push.
+- Keep editing the current slice.
+- Move straight to the governed push path.
 
 ### Open gap rows
-- **governance_open** (`dev/scripts/devctl/runtime/session_resume.py`): plan_ingestion_pipeline_missing: System parses SessionResumeState from plans but cannot parse plan CONTENT into typed PlanPhase/PlanTask/PlanDependency. Cannot answer what phase is active or what tasks are blocked without reading markdown. Need: typed plan content parser, plan ingestion into context graph as task nodes, phase-aware routing in WorkIntakePacket. 60-70pct of consuming infrastructure already exists.
-- **governance_open** (`dev/active/INDEX.md`): index_md_should_be_projection: INDEX.md is markdown-first authority parsed by regex. Should be typed plan_registry state as authority with INDEX.md as projection. Same pattern as bridge.md to review_state.json migration. MASTER_PLAN.md same issue.
-- **governance_open** (`dev/scripts/devctl/runtime/work_intake_pacing.py`): system_connection_pairs_prioritized: Three connection pairs identified by research: (1) SessionPacingState.live_finding_count always 0 — wire from planning-ir, 45min. (2) findings-priority rankings ignored by planning-ir — wire RankedFinding into NextBestSliceRecord, 2hr. (3) code-shape clusters invisible to startup — wire probe report into quality_signals, 1.5hr. Total: 4.25hr to close 3 feedback loops.
 - **governance_open** (`dev/scripts/checks/platform_contract_closure/field_routes.py`): contract_consumption_enforcement_gap: platform-contract-closure already has field-route verification (producer+consumer AST proof) and contract-connectivity has orphan detection. But: (1) orphan detection not wired into CI closure guard, (2) no producer/consumer metadata on ContractSpec, (3) field-route coverage only for high-value governance fields not internal types like PlanPhase. Expanding scope from declared field routes to ALL typed models closes the dead-type gap.
 - **governance_open** (`dev/scripts/devctl`): full_devctl_pytest: Full suite command: python3 -m pytest dev/scripts/devctl/tests/ -q
 Result: 6 failed, 4379 passed, 10 subtests passed.
@@ -429,4 +431,4 @@ Failures clustered in startup_context mock compatibility, event_projection compa
 
 ---
 
-Projection produced by `devctl review-snapshot`. Generation stamp `snap-1402ecf12b53` binds this file to HEAD `d6e474d55631`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
+Projection produced by `devctl review-snapshot`. Generation stamp `snap-6e91d011d85e` binds this file to HEAD `e78905c20f42`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.

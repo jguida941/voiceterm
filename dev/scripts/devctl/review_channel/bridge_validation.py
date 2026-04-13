@@ -81,8 +81,9 @@ def validate_live_bridge_contract(snapshot) -> list[str]:
     ):
         errors.append(
             "Active `active_dual_agent` bridge requires a substantive `Poll Status` "
-            "reviewer note when `Claude Ack` is stale or missing; blank or "
-            "placeholder `Poll Status` is a hard live-contract error."
+            "reviewer note when the implementer ACK (`Claude Ack` compatibility "
+            "heading) is stale or missing; blank or placeholder `Poll Status` is "
+            "a hard live-contract error."
         )
 
     explicit_revision = (snapshot.metadata.get("current_instruction_revision") or "").strip()
@@ -94,13 +95,13 @@ def validate_live_bridge_contract(snapshot) -> list[str]:
             )
         elif not liveness.claude_ack_revision:
             errors.append(
-                "Live `Claude Ack` must include `instruction-rev: <current revision>` "
-                "in active bridge mode."
+                "Live implementer ACK (`Claude Ack` compatibility heading) must "
+                "include `instruction-rev: <current revision>` in active bridge mode."
             )
         elif not liveness.claude_ack_current:
             errors.append(
-                "Live `Claude Ack` revision does not match the current reviewer "
-                "instruction revision."
+                "Live implementer ACK (`Claude Ack` compatibility heading) revision "
+                "does not match the current reviewer instruction revision."
             )
 
     current_verdict = snapshot.sections.get("Current Verdict", "").strip().lower()
@@ -166,12 +167,12 @@ def validate_launch_bridge_state(
         )
     if not effective_liveness.claude_status_present and not pending_implementer_state:
         errors.append(
-            "Missing live `Claude Status`; fresh launch requires the implementer "
-            "status section before bootstrap."
+            "Missing live implementer status compatibility section (`Claude Status`); "
+            "fresh launch requires implementer status before bootstrap."
         )
     if not effective_liveness.claude_ack_present and not pending_implementer_state:
         errors.append(
-            "Missing live `Claude Ack`; fresh launch requires a current Claude "
-            "ACK before bootstrap."
+            "Missing live implementer ACK compatibility section (`Claude Ack`); "
+            "fresh launch requires a current implementer ACK before bootstrap."
         )
     return errors

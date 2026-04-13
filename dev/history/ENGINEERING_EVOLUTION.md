@@ -85,6 +85,42 @@ Evidence: `dev/scripts/devctl/runtime/work_intake.py`,
 `dev/scripts/devctl/tests/review_channel/test_bridge_render.py`, and
 `dev/scripts/devctl/tests/context_graph/test_context_graph.py`.
 
+### 2026-04-13 - Bridge portability and governed preflights now treat bridge status/ack as role-owned compatibility state
+
+Fact: the bridge portability slice was still incomplete even after typed
+review-state aliases and the dogfood parity closure landed. The bridge guard
+and several preflight paths still acted like `Claude Status` / `Claude Ack`
+were architecture truth instead of compatibility headings, so a role-portable
+review loop could render correct typed `implementer_*` state while bridge
+validation or preflight staging still implicitly assumed one fixed
+Codex-reviewer / Claude-implementer pair.
+
+This matters because the platform claim is role-first, not provider-first. If
+bridge guards, recovery copy, or push/hook preflights still trust stale
+provider-coded bridge prose, the repo can have correct typed authority and
+still fail the last mile where operators actually push, preflight, or relaunch
+the loop.
+
+The closure kept the bridge write path compatible while moving the read-side
+contract toward role ownership. Bridge readers and the bridge guard now accept
+neutral implementer heading aliases alongside the legacy `Claude Status` /
+`Claude Questions` / `Claude Ack` headings, operator-facing prompt/error text
+now calls those sections compatibility aliases instead of provider truth, and
+the governed `push` plus managed pre-commit review-snapshot hook now refresh
+typed review-state/status truth before they reproject or stage the bridge
+compatibility surface.
+
+Evidence: `dev/scripts/devctl/review_channel/bridge_heading_aliases.py`,
+`dev/scripts/devctl/review_channel/handoff.py`,
+`dev/scripts/devctl/review_channel/bridge_sanitize.py`,
+`dev/scripts/checks/review_channel_bridge/report.py`,
+`dev/scripts/devctl/review_channel/bridge_projection.py`,
+`dev/scripts/devctl/commands/vcs/push.py`,
+`dev/config/git_hooks/pre-commit-review-snapshot.sh`,
+`dev/scripts/devctl/tests/checks/test_check_review_channel_bridge.py`,
+`dev/scripts/devctl/tests/review_channel/test_ack_contract.py`, and
+`dev/scripts/devctl/tests/vcs/test_push.py`.
+
 ### 2026-04-11 - Action-request receipts and queue priority now stay aligned across inbox, dashboard, and current-session truth
 
 ### 2026-04-12 - Role-first portability and phone-operator worker-lane planning are now explicit owner-plan state

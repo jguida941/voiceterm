@@ -9,7 +9,8 @@ ACK_CONTRACT_PRIMARY_EXAMPLE = (
 )
 ACK_CONTRACT_LEGACY_EXAMPLE = "- acknowledged; instruction-rev: `<current revision>`"
 ACK_REVISION_REQUIREMENT_PREFIX = (
-    "Live `Claude Ack` must acknowledge the current instruction revision"
+    "Live implementer ACK (`Claude Ack` compatibility heading) must acknowledge "
+    "the current instruction revision"
 )
 
 _LEGACY_ACK_REVISION_RE = re.compile(
@@ -56,9 +57,9 @@ def ack_revision_requirement_message() -> str:
 def ack_contract_prompt_line() -> str:
     """Return the implementer-facing ACK wording shared by prompt surfaces."""
     return (
-        "- In `Claude Ack`, acknowledge the current instruction revision with "
-        "one machine-readable line. Accepted forms include "
+        "- In the implementer ACK section (`Claude Ack` compatibility heading), "
+        "acknowledge the current instruction revision with one machine-readable "
+        "line. Accepted forms include "
         f"`{ACK_CONTRACT_PRIMARY_EXAMPLE}` or "
         f"`{ACK_CONTRACT_LEGACY_EXAMPLE}`."
     )
-

@@ -227,7 +227,7 @@ class CheckReviewSurfaceConsistencyTests(unittest.TestCase):
                 "recovery_assessment": {
                     "diagnosis": {
                         "status": "implementer_state_reset_required",
-                        "root_cause": "Claude Ack is stale for the live instruction.",
+                        "root_cause": "Implementer ACK (`Claude Ack` compatibility heading) is stale for the live instruction.",
                     },
                     "decision": {
                         "action_id": "reset_implementer_state",

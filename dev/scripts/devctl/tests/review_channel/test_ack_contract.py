@@ -93,6 +93,21 @@ def test_validate_live_bridge_contract_accepts_semantic_ack_phrase() -> None:
     assert not any("Claude Ack" in error for error in errors)
 
 
+def test_build_bridge_current_session_accepts_implementer_heading_aliases() -> None:
+    snapshot = extract_bridge_snapshot(
+        _bridge_text(claude_ack="- acknowledged; instruction-rev: `56bcd5d01510`")
+        .replace("## Claude Status", "## Implementer Status")
+        .replace("## Claude Questions", "## Implementer Questions")
+        .replace("## Claude Ack", "## Implementer Ack")
+    )
+
+    current_session = build_bridge_current_session(snapshot, {})
+
+    assert current_session.implementer_status == "- editing review-channel authority helpers"
+    assert current_session.implementer_ack_revision == "56bcd5d01510"
+    assert current_session.implementer_ack_state == "current"
+
+
 def test_build_bridge_projection_state_prefers_typed_current_session_sections() -> None:
     projection_state = build_bridge_projection_state(
         bridge_text=_bridge_text(claude_ack="- acknowledged; instruction-rev: `deadbeef1234`"),

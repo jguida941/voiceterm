@@ -74,6 +74,10 @@ def _scan_artifact_roots(repo_root: Path) -> ArtifactRoots:
             repo_root,
             "dev/reports/governance",
         ),
+        dogfood_root=_existing_dir(
+            repo_root,
+            "dev/reports/dogfood",
+        ),
         probe_report_root=_existing_dir(
             repo_root,
             "dev/reports/probes/latest",

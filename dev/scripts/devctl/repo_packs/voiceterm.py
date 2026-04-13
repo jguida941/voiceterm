@@ -109,6 +109,12 @@ class RepoPathConfig:
     # Governance review summary output directory
     governance_review_summary_root_rel: str = "dev/reports/governance/latest"
 
+    # Dogfood run JSONL log
+    dogfood_log_rel: str = "dev/reports/dogfood/runs.jsonl"
+
+    # Dogfood summary output directory
+    dogfood_summary_root_rel: str = "dev/reports/dogfood/latest"
+
     # Guard/probe promotion candidate queue
     guard_promotion_queue_rel: str = (
         "dev/reports/governance/guard_promotion_candidates.jsonl"

@@ -84,6 +84,7 @@ def artifact_roots_from_mapping(
         audit_root=coerce_string(payload.get("audit_root")),
         review_root=coerce_string(payload.get("review_root")),
         governance_log_root=coerce_string(payload.get("governance_log_root")),
+        dogfood_root=coerce_string(payload.get("dogfood_root")),
         probe_report_root=coerce_string(payload.get("probe_report_root")),
         review_snapshot_path=review_snapshot_path or "dev/audits/REVIEW_SNAPSHOT.md",
     )

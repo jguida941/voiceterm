@@ -15,6 +15,7 @@ from .action_request import (
     render_action_requests_section,
     SECTION_LINE_LIMIT as _ACTION_REQUEST_LINE_LIMIT,
 )
+from .bridge_heading_aliases import canonical_bridge_heading
 from .bridge_section_validation import find_embedded_markdown_headings
 from .bridge_text_cleanup import (
     collapse_blank_lines,
@@ -27,7 +28,7 @@ from .bridge_text_cleanup import (
 )
 from .handoff import extract_bridge_snapshot
 
-BRIDGE_ALLOWED_H2 = (
+BRIDGE_ALLOWED_CANONICAL_H2 = (
     "Start-Of-Conversation Rules",
     "Protocol",
     "Swarm Mode",
@@ -41,6 +42,12 @@ BRIDGE_ALLOWED_H2 = (
     "Current Instruction For Claude",
     "Last Reviewed Scope",
     "Action Requests",
+)
+BRIDGE_ALLOWED_H2 = (
+    *BRIDGE_ALLOWED_CANONICAL_H2,
+    "Implementer Status",
+    "Implementer Questions",
+    "Implementer Ack",
 )
 BRIDGE_REQUIRED_H2 = (
     "Start-Of-Conversation Rules",
@@ -96,10 +103,16 @@ def bridge_hygiene_errors(text: str) -> list[str]:
         )
 
     headings = [match.group(1).strip() for match in _H2_RE.finditer(text)]
-    duplicates = _duplicate_headings(headings)
+    duplicates = _duplicate_headings(
+        canonical_bridge_heading(heading) for heading in headings
+    )
     if duplicates:
         errors.append("Bridge contains duplicate H2 headings: " + ", ".join(duplicates))
-    unknown = [heading for heading in headings if heading not in BRIDGE_ALLOWED_H2]
+    unknown = [
+        heading
+        for heading in headings
+        if canonical_bridge_heading(heading) not in BRIDGE_ALLOWED_CANONICAL_H2
+    ]
     if unknown:
         errors.append(
             "Bridge contains unsupported H2 headings: "

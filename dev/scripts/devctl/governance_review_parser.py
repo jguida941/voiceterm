@@ -41,7 +41,10 @@ def add_governance_review_parser(sub: argparse._SubParsersAction) -> None:
         help="Maximum JSONL rows sampled when rendering the summary",
     )
     review_cmd.add_argument("--finding-id", help="Optional stable finding id override")
-    review_cmd.add_argument("--signal-type", choices=["guard", "probe", "audit", "observer"])
+    review_cmd.add_argument(
+        "--signal-type",
+        choices=["guard", "probe", "audit", "observer", "dogfood"],
+    )
     review_cmd.add_argument("--check-id", help="Guard/probe id being adjudicated")
     review_cmd.add_argument(
         "--verdict",

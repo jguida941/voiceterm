@@ -180,6 +180,7 @@ class ArtifactRoots:
     audit_root: str = "dev/reports/audits"
     review_root: str = ""
     governance_log_root: str = "dev/reports/governance"
+    dogfood_root: str = ""
     probe_report_root: str = "dev/reports/probes/latest"
     review_snapshot_path: str = "dev/audits/REVIEW_SNAPSHOT.md"
 

@@ -92,7 +92,7 @@ from ..commands.governance import (
     simple_lanes,
     startup_context as governance_startup_context,
 )
-from ..commands.reporting import findings_priority
+from ..commands.reporting import dogfood, findings_priority
 from ..commands.vcs import commit as vcs_commit, push
 from ..config import (
     DEFAULT_CI_LIMIT,
@@ -226,6 +226,7 @@ def build_parser() -> argparse.ArgumentParser:
     governance_review_snapshot.add_parser(sub)
     governance_install_git_hooks.add_parser(sub)
     _add_dashboard_parser(sub)
+    dogfood.add_parser(sub)
     monitor.add_parser(sub)
     auto_mode_status.add_parser(sub)
     discover.add_parser(sub)
@@ -271,6 +272,7 @@ COMMAND_HANDLERS = {
     "check": check.run,
     "check-router": check_router.run,
     "dashboard": dashboard.run,
+    "dogfood": dogfood.run,
     "monitor": monitor.run,
     "mutants": mutants.run,
     "mutation-score": mutation_score.run,

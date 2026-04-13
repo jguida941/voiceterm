@@ -23,8 +23,8 @@ _RECOVERABLE_ATTENTION_STATUSES = frozenset(
 )
 _RECOVERABLE_ERROR_PREFIXES = (
     ACK_REVISION_REQUIREMENT_PREFIX,
-    "Live `Claude Ack` revision does not match the current reviewer instruction revision.",
-    "Claude Status/Ack show implementer completion-stall language while ",
+    "Live implementer ACK (`Claude Ack` compatibility heading) revision does not match the current reviewer instruction revision.",
+    "Implementer status/ack compatibility sections (`Claude Status` / ",
 )
 
 
@@ -176,7 +176,10 @@ def validate_recoverable_state(
     if not reviewer_mode_is_active(reviewer_mode):
         return "review-channel recover only runs while reviewer_mode is active_dual_agent."
     if bool(bridge_liveness.get("claude_ack_current")):
-        return "review-channel recover refused because Claude Ack is already current."
+        return (
+            "review-channel recover refused because the implementer ACK "
+            "(`Claude Ack` compatibility heading) is already current."
+        )
     attention_status = str(attention.get("status") or "")
     if attention_status == AttentionStatus.BRIDGE_CONTRACT_ERROR.value:
         return (

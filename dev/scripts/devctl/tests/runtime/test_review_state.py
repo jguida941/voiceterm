@@ -828,7 +828,7 @@ class ReviewStateTests(unittest.TestCase):
                 "recovery_assessment": {
                     "diagnosis": {
                         "status": "implementer_state_reset_required",
-                        "root_cause": "Claude Ack is stale for the live instruction.",
+                        "root_cause": "Implementer ACK (`Claude Ack` compatibility heading) is stale for the live instruction.",
                     },
                     "decision": {
                         "action_id": "reset_implementer_state",
@@ -846,7 +846,7 @@ class ReviewStateTests(unittest.TestCase):
         self.assertEqual(state.attention.owner, "reviewer")
         self.assertEqual(
             state.attention.summary,
-            "Claude Ack is stale for the live instruction.",
+            "Implementer ACK (`Claude Ack` compatibility heading) is stale for the live instruction.",
         )
         self.assertEqual(
             state.attention.recommended_action,

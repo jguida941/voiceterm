@@ -55,7 +55,7 @@
     "repo_path": { "type": "string", "minLength": 1 },
     "signal_type": {
       "type": "string",
-      "enum": ["guard", "probe", "audit", "observer"]
+      "enum": ["guard", "probe", "audit", "observer", "dogfood"]
     },
     "check_id": { "type": "string", "minLength": 1 },
     "verdict": {

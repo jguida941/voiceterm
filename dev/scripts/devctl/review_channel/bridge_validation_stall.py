@@ -50,8 +50,9 @@ def _implementer_completion_stall_error(
     if not _contains_any_marker(combined, IMPLEMENTER_STALL_MARKERS):
         return None
     return (
-        "Claude Status/Ack show implementer completion-stall language while "
-        "`Current Instruction For Claude` still assigns active work. Resume "
-        "the active slice or record one concrete blocker/question instead of "
+        "Implementer status/ack compatibility sections (`Claude Status` / "
+        "`Claude Ack`) show completion-stall language while "
+        "`Current Instruction For Claude` still assigns active work. Resume the "
+        "active slice or record one concrete blocker/question instead of "
         "parking on reviewer polling."
     )

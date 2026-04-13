@@ -44,7 +44,7 @@ from .time_utils import utc_timestamp
 DEFAULT_GOVERNANCE_REVIEW_LOG = Path(active_path_config().governance_review_log_rel)
 DEFAULT_GOVERNANCE_REVIEW_SUMMARY_ROOT = Path(active_path_config().governance_review_summary_root_rel)
 DEFAULT_MAX_GOVERNANCE_REVIEW_ROWS = 5_000
-VALID_SIGNAL_TYPES = frozenset({"guard", "probe", "audit", "observer"})
+VALID_SIGNAL_TYPES = frozenset({"guard", "probe", "audit", "observer", "dogfood"})
 VALID_VERDICTS = frozenset(
     {
         "confirmed_issue",

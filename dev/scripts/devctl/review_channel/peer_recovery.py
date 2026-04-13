@@ -138,10 +138,10 @@ _STALE_PEER_RECOVERY_ROWS: tuple[tuple[str, dict[str, str | None | TandemRole]],
         "guard_behavior": "warn",
         "owner": "claude",
         "summary": (
-            "Claude lane has not published Claude Status; the next loop cycle is waiting on implementer state."
+            "The implementer lane has not published implementer status (`Claude Status` compatibility heading); the next loop cycle is waiting on implementer state."
         ),
         "recovery": (
-            "Claude should rewrite Claude Status and keep polling for the next instruction instead of silently idling."
+            "The implementer should rewrite the implementer status compatibility section (`Claude Status`) and keep polling for the next instruction instead of silently idling."
         ),
         "recommended_command": None,
     }),
@@ -149,19 +149,22 @@ _STALE_PEER_RECOVERY_ROWS: tuple[tuple[str, dict[str, str | None | TandemRole]],
         "guard_behavior": "warn",
         "owner": "claude",
         "summary": (
-            "Claude has not acknowledged the live instruction yet; the loop is waiting on implementer ACK."
+            "The implementer has not acknowledged the live instruction yet; the loop is waiting on implementer ACK."
         ),
         "recovery": (
-            "Claude should write Claude Ack for the current instruction before starting the next coding slice."
+            "The implementer should write the implementer ACK section (`Claude Ack` compatibility heading) for the current instruction before starting the next coding slice."
         ),
         "recommended_command": None,
     }),
     ("claude_ack_stale", {
         "guard_behavior": "block_loop",
         "owner": "claude",
-        "summary": "Claude ACK does not match the current reviewer instruction revision.",
+        "summary": (
+            "Implementer ACK (`Claude Ack` compatibility heading) is stale for "
+            "the live instruction."
+        ),
         "recovery": (
-            "Claude must repoll the bridge, acknowledge the current instruction revision in Claude Ack, and only then continue coding."
+            "The implementer must repoll the bridge, acknowledge the current instruction revision in the implementer ACK section (`Claude Ack` compatibility heading), and only then continue coding."
         ),
         "recommended_command": REVIEW_CHANNEL_STATUS_INSPECT_COMMAND,
     }),
@@ -172,8 +175,9 @@ _STALE_PEER_RECOVERY_ROWS: tuple[tuple[str, dict[str, str | None | TandemRole]],
             "Stale implementer bridge state is blocking a fresh launch/recovery cycle."
         ),
         "recovery": (
-            "Run the repo-owned implementer-state reset path so stale Claude Status/Ack "
-            "sections are rewritten to `- pending` before the next launch or recovery step."
+            "Run the repo-owned implementer-state reset path so stale implementer "
+            "status/ACK compatibility sections (`Claude Status` / `Claude Ack`) "
+            "are rewritten to `- pending` before the next launch or recovery step."
         ),
         "recommended_command": REVIEW_CHANNEL_IMPLEMENTER_RESET_COMMAND,
     }),
@@ -184,7 +188,9 @@ _STALE_PEER_RECOVERY_ROWS: tuple[tuple[str, dict[str, str | None | TandemRole]],
             "Reviewer-owned bridge state is inconsistent; repair reviewer sections before trusting implementer status."
         ),
         "recovery": (
-            "Refresh reviewer-owned bridge/status state first. Do not replace Claude until Poll Status, current instruction revision, and bridge contract sections are coherent again."
+            "Refresh reviewer-owned bridge/status state first. Do not replace the "
+            "implementer conductor until Poll Status, current instruction revision, "
+            "and bridge contract sections are coherent again."
         ),
         "recommended_command": REVIEW_CHANNEL_STATUS_INSPECT_COMMAND,
     }),
@@ -192,10 +198,10 @@ _STALE_PEER_RECOVERY_ROWS: tuple[tuple[str, dict[str, str | None | TandemRole]],
         "guard_behavior": "warn",
         "owner": "claude",
         "summary": (
-            "Claude looks stuck on stale reviewer state; replace the current implementer conductor instead of waiting on it."
+            "The implementer conductor looks stuck on stale reviewer state; replace the current implementer conductor instead of waiting on it."
         ),
         "recovery": (
-            "Run the repo-owned implementer recovery path so a fresh Claude conductor takes over the live instruction and writes a current ACK."
+            "Run the repo-owned implementer recovery path so a fresh implementer conductor takes over the live instruction and writes a current ACK."
         ),
         "recommended_command": REVIEW_CHANNEL_IMPLEMENTER_RECOVER_COMMAND,
     }),
