@@ -9905,3 +9905,43 @@ Evidence: `dev/scripts/devctl/bundles/registry.py`,
 `.github/workflows/tooling_control_plane.yml`, `AGENTS.md` (rendered
 bundle block), `dev/guides/DEVELOPMENT.md`, `dev/scripts/README.md`,
 `dev/active/MASTER_PLAN.md`.
+
+### 2026-04-13 - Umbrella plan now owns typed phase/task routing and default guard enforcement
+
+The dogfood consolidation pass closed the plan-authority scatter instead of
+adding another controller. `dev/active/ai_governance_platform.md` now carries
+the typed `PlanPhase` / `PlanTask` / `PlanDependency` registry for `MP-377`,
+`startup-context` / `WorkIntakePacket` surface the active `plan_routing`
+phase/task projection, and `check_active_plan_sync.py` enforces that typed
+umbrella-plan contract directly. The same guard is now on the default AI
+guard lane by policy, so commit-bundle and `check --profile ci` runs fail on
+plan drift without waiting for docs-only checks. The closure also reduced the
+live owner-doc set: `portable_code_governance.md` remains the portable-proof
+owner reference, but live execution order now stays in the umbrella plan's
+typed phase/task registry.
+
+Evidence: `dev/active/INDEX.md`,
+`dev/active/MASTER_PLAN.md`,
+`dev/active/ai_governance_platform.md`,
+`AGENTS.md`,
+`dev/guides/DEVELOPMENT.md`,
+`dev/scripts/README.md`,
+`dev/config/quality_presets/portable_python.json`,
+`dev/config/quality_presets/portable_rust.json`,
+`dev/scripts/checks/check_active_plan_sync.py`,
+`dev/scripts/checks/active_plan/typed_phase_contract.py`,
+`dev/scripts/devctl/platform/planning_ir_models.py`,
+`dev/scripts/devctl/platform/planning_ir_plan_content.py`,
+`dev/scripts/devctl/runtime/work_intake.py`,
+`dev/scripts/devctl/runtime/work_intake_models.py`,
+`dev/scripts/devctl/runtime/work_intake_phase_routing.py`,
+`dev/scripts/devctl/commands/governance/startup_context.py`,
+`dev/scripts/devctl/commands/governance/startup_context_render.py`,
+`dev/scripts/devctl/commands/governance/startup_context_summary.py`,
+`dev/scripts/devctl/quality_policy/defaults.py`,
+`dev/scripts/devctl/tests/platform/test_planning_ir_plan_content.py`,
+`dev/scripts/devctl/tests/runtime/test_startup_context.py`,
+`dev/scripts/devctl/tests/runtime/test_startup_signals.py`,
+`dev/scripts/devctl/tests/runtime/test_work_intake.py`,
+`dev/scripts/devctl/tests/test_active_plan_contract.py`,
+`dev/scripts/devctl/tests/commands/check/test_check.py`.

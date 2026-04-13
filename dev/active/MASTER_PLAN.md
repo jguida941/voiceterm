@@ -4,13 +4,22 @@
 
 - This file is the single active plan for strategy, execution, and release tracking.
 - `dev/active/INDEX.md` is the canonical active-doc registry and read-order map for agents.
-- `dev/active/theme_upgrade.md` is the consolidated Theme Studio specification + gate catalog + overlay visual research + redesign appendix, but not a separate execution tracker; implementation tasks stay in this file.
-- `dev/active/memory_studio.md` is the Memory + Action Studio specification + gate catalog, but not a separate execution tracker; implementation tasks stay in this file.
-- `dev/active/devctl_reporting_upgrade.md` is the phased `devctl` reporting/CIHub specification, but not a separate execution tracker; implementation tasks stay in this file under `MP-297..MP-300`, `MP-303`, `MP-306`, `MP-379`.
-- `dev/active/autonomous_control_plane.md` is the autonomous loop + mobile control-plane execution spec; implementation tasks stay in this file under `MP-325..MP-338, MP-340`.
-- `dev/active/loop_chat_bridge.md` is the loop artifact-to-chat suggestion coordination runbook; execution evidence and operator handoffs for this path stay there under `MP-338`.
-- `dev/active/naming_api_cohesion.md` is the naming/API cohesion execution spec; implementation tasks stay in this file under `MP-267`.
-- `dev/active/ide_provider_modularization.md` is the IDE/provider adapter modularization execution spec; implementation tasks stay in this file under `MP-346`, `MP-354`.
+- Execution-owner budget: keep repo-wide execution authority at five or fewer
+  active docs total (`MASTER_PLAN.md` plus 3-4 owner specs). Narrower or
+  completed lanes remain as reference-only owner docs until archived.
+- `dev/active/theme_upgrade.md`, `dev/active/memory_studio.md`,
+  `dev/active/devctl_reporting_upgrade.md`,
+  `dev/active/autonomous_control_plane.md`,
+  `dev/active/loop_chat_bridge.md`, `dev/active/naming_api_cohesion.md`,
+  `dev/active/ide_provider_modularization.md`,
+  `dev/active/pre_release_architecture_audit.md`,
+  `dev/active/platform_authority_loop.md`,
+  `dev/active/autonomous_governance_loop_v2.md`,
+  `dev/active/remote_commit_pipeline.md`,
+  `dev/active/remote_control_runtime.md`, and other narrower lane docs remain
+  owner references only unless the typed phase/task registry in
+  `dev/active/ai_governance_platform.md` promotes them back into the active
+  execution-owner set.
 - `dev/active/review_channel.md` now carries the reusable review/runtime
   contract slice for MP-355 plus the temporary markdown-swarm operating mode
   used by the current Codex/Claude cycle; implementation tasks stay in that
@@ -20,7 +29,6 @@
   default requested worker fanout is zero unless explicitly requested, and
   `bridge.md` remains a compatibility projection until native
   `CollaborationSession` topology lands.
-- `dev/active/ralph_guardrail_control_plane.md` is the Ralph guardrail control plane execution spec; implementation tasks stay in this file under `MP-360..MP-367`.
 - `dev/active/review_probes.md` is the review-probe execution spec; implementation tasks stay in this file under `MP-368..MP-375`.
 - `dev/active/portable_code_governance.md` is the narrower engine/adoption
   companion under `MP-376`, not a second main product plan; implementation
@@ -31,28 +39,6 @@
   Repo-wide strategy, extraction, PyQt6, phone/mobile, and shared-backend
   questions must route from this tracker to that document before any narrower
   domain spec.
-- `dev/active/platform_authority_loop.md` is the current subordinate `MP-377`
-  execution spec for startup authority, repo-pack activation, typed plan
-  registry, runtime/evidence/context spine closure, and the first cross-repo
-  proof of the portable authority loop. Top-level product authority remains in
-  `dev/active/ai_governance_platform.md`.
-- `dev/active/autonomous_governance_loop_v2.md` is the bounded `MP-377`
-  convergence spec for turning existing startup/work-intake, planning,
-  review/runtime, graph, and governed commit/push contracts into one closed
-  autonomous controller. It sequences composition over the current owner docs;
-  it does not introduce a second backend or a second top-level plan.
-- `dev/active/remote_commit_pipeline.md` is the bounded `MP-377` design and
-  execution spec for the typed remote-session commit/push pipeline that moves
-  phone-steered work from staged changes to governed commit/push through
-  repo-owned actions and approval packets instead of raw terminal git or
-  bridge prose.
-- `dev/active/remote_control_runtime.md` is the bounded `MP-377` execution
-  spec for closing remote-control reviewer/runtime state, operator action
-  transport, dashboard typed projections, auto-poll cadence, and reviewer
-  bootstrap/session-resume truth for phone-steered sessions; implementation
-  tasks stay in that file under `MP-380..MP-387` and must reuse
-  `ReviewState`, `PacketPostRequest`, and the governed remote-commit path
-  instead of creating bridge-only authority.
 - `dev/active/code_shape_expansion.md` is the research/calibration companion for future code-shape additions under `MP-378`; promotion into implementation still flows through `dev/active/review_probes.md` once Phase 5b evidence gates pass.
 - `dev/audits/architecture_hardening_plan.md` is ReviewSnapshot hardening
   audit intake, not a new active execution plan. Accepted items route into
@@ -66,7 +52,7 @@
   it through `devctl review-snapshot --write` when the projection must move.
 - Deferred work lives in `dev/deferred/` and must be explicitly reactivated here before implementation.
 
-## Status Snapshot (2026-04-05)
+## Status Snapshot (2026-04-13)
 - Last tagged release: `v1.2.3` (2026-04-01)
 - Current release target: `post-v1.2.3 planning`
 - Active development branch: `develop`
@@ -75,12 +61,19 @@
 - Current main product lane: `MP-377` AI governance platform extraction. Treat
   `dev/active/ai_governance_platform.md` as the main scoped plan for the
   system that improves AI coding quality and is being pulled out of VoiceTerm.
+- Active execution-owner set (2026-04-13 consolidation): tracker
+  `dev/active/MASTER_PLAN.md` plus owner specs
+  `dev/active/ai_governance_platform.md`,
+  `dev/active/review_channel.md`,
+  and `dev/active/review_probes.md`. Other `dev/active/*.md` docs, including
+  `dev/active/portable_code_governance.md`, stay reference-only owner/context
+  surfaces until the umbrella plan promotes them.
 - Required companion lane: `MP-376` portable code-governance engine/adoption
   work. It is subordinate to `MP-377`, not a peer product strategy.
-- Current subordinate implementation lanes inside that extraction sequence:
-  `MP-340` shared control-plane/mobile contract, `MP-355` review-channel,
-  `MP-356` host-process hygiene, `MP-358` continuous swarm, and `MP-359`
-  Operator Console.
+- Current `MP-377` execution authority now routes through the typed phase/task
+  registry at the top of `dev/active/ai_governance_platform.md`: each phase
+  declares owner doc, task ids, dependencies, and status, and startup/work-
+  intake may only treat those typed phase tasks as live execution authority.
 - 2026-04-09 branch reviewer-follow-up cycle on
   `feature/governance-quality-sweep`: Codex's full-range review pass
   promoted verdict from "accepted: hygiene fix landed" (`696f4772`) to

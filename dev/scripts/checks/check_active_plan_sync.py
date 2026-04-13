@@ -29,6 +29,9 @@ try:
         read_master_plan_text,
         validate_snapshot_policy,
     )
+    from dev.scripts.checks.active_plan.typed_phase_contract import (
+        validate_typed_phase_plan_contract,
+    )
 except ModuleNotFoundError:
     from active_plan.contract import (
         EXECUTION_PLAN_MARKER,
@@ -50,6 +53,7 @@ except ModuleNotFoundError:
         read_master_plan_text,
         validate_snapshot_policy,
     )
+    from active_plan.typed_phase_contract import validate_typed_phase_plan_contract
 
 try:
     from check_bootstrap import REPO_ROOT
@@ -69,28 +73,7 @@ ALLOWED_AUTHORITIES = {
 
 REQUIRED_REGISTRY_ROWS = {
     "dev/active/MASTER_PLAN.md": {"role": "tracker", "authority": "canonical"},
-    "dev/active/theme_upgrade.md": {
-        "role": "spec",
-        "authority": "mirrored in MASTER_PLAN",
-    },
-    "dev/active/memory_studio.md": {
-        "role": "spec",
-        "authority": "mirrored in MASTER_PLAN",
-    },
-    "dev/active/devctl_reporting_upgrade.md": {
-        "role": "spec",
-        "authority": "mirrored in MASTER_PLAN",
-    },
-    "dev/active/autonomous_control_plane.md": {
-        "role": "spec",
-        "authority": "mirrored in MASTER_PLAN",
-    },
-    "dev/active/loop_chat_bridge.md": {"role": "runbook", "authority": "supporting"},
-    "dev/active/naming_api_cohesion.md": {
-        "role": "spec",
-        "authority": "mirrored in MASTER_PLAN",
-    },
-    "dev/active/ide_provider_modularization.md": {
+    "dev/active/ai_governance_platform.md": {
         "role": "spec",
         "authority": "mirrored in MASTER_PLAN",
     },
@@ -98,27 +81,14 @@ REQUIRED_REGISTRY_ROWS = {
         "role": "spec",
         "authority": "mirrored in MASTER_PLAN",
     },
-    "dev/active/host_process_hygiene.md": {
+    "dev/active/review_probes.md": {
         "role": "spec",
         "authority": "mirrored in MASTER_PLAN",
     },
-    "dev/active/continuous_swarm.md": {
-        "role": "spec",
-        "authority": "mirrored in MASTER_PLAN",
+    "dev/active/PLAN_FORMAT.md": {
+        "role": "reference",
+        "authority": "reference-only",
     },
-    "dev/active/operator_console.md": {
-        "role": "spec",
-        "authority": "mirrored in MASTER_PLAN",
-    },
-    "dev/active/pre_release_architecture_audit.md": {
-        "role": "spec",
-        "authority": "mirrored in MASTER_PLAN",
-    },
-    "dev/active/slash_command_standalone.md": {
-        "role": "spec",
-        "authority": "mirrored in MASTER_PLAN",
-    },
-    "dev/active/phase2.md": {"role": "reference", "authority": "reference-only"},
 }
 
 REQUIRED_DISCOVERY_REFERENCES = [
@@ -131,20 +101,7 @@ REQUIRED_AGENT_MARKERS = [
     "Add an entry in `dev/active/INDEX.md`",
     "Run `python3 dev/scripts/checks/check_active_plan_sync.py`",
 ]
-SPEC_RANGE_PATHS = [
-    "dev/active/theme_upgrade.md",
-    "dev/active/memory_studio.md",
-    "dev/active/devctl_reporting_upgrade.md",
-    "dev/active/autonomous_control_plane.md",
-    "dev/active/host_process_hygiene.md",
-    "dev/active/continuous_swarm.md",
-    "dev/active/operator_console.md",
-    "dev/active/naming_api_cohesion.md",
-    "dev/active/ide_provider_modularization.md",
-    "dev/active/pre_release_architecture_audit.md",
-    "dev/active/review_channel.md",
-    "dev/active/slash_command_standalone.md",
-]
+REQUIRED_TYPED_PHASE_PLAN_PATHS = ("dev/active/ai_governance_platform.md",)
 
 EXPECTED_ACTIVE_DEVELOPMENT_BRANCH = "develop"
 EXPECTED_RELEASE_BRANCH = "master"
@@ -152,6 +109,7 @@ SEMVER_TAG_PATTERN = re.compile(r"^v[0-9]+\.[0-9]+\.[0-9]+$")
 PHASE_HEADING_PATTERN = re.compile(
     r"^##+\s+.*\bPhas(?:e|ed)\b", re.IGNORECASE | re.MULTILINE
 )
+
 
 def _build_report() -> dict:
     errors: list[str] = []
@@ -226,13 +184,20 @@ def _build_report() -> dict:
         errors.extend(snapshot_policy_errors)
         warnings.extend(snapshot_policy_warnings)
 
+    spec_range_paths = sorted(
+        row["path"] for row in registry_rows if row.get("role") == "spec"
+    )
     spec_issues = collect_spec_sync_issues(
         repo_root=REPO_ROOT,
-        spec_range_paths=SPEC_RANGE_PATHS,
+        spec_range_paths=spec_range_paths,
         registry_by_path=registry_by_path,
         master_plan_text=master_plan_text,
         execution_plan_marker=EXECUTION_PLAN_MARKER,
         phase_heading_pattern=PHASE_HEADING_PATTERN,
+    )
+    typed_phase_issues = validate_typed_phase_plan_contract(
+        repo_root=REPO_ROOT,
+        required_plan_paths=REQUIRED_TYPED_PHASE_PLAN_PATHS,
     )
 
     (
@@ -350,6 +315,12 @@ def _build_report() -> dict:
         errors,
         sorted(set(execution_plan_missing_metadata_headers)),
         prefix="Execution-plan metadata headers missing: ",
+    )
+    append_issue_message(
+        errors,
+        typed_phase_issues,
+        prefix="Typed phase-plan contract violations: ",
+        joiner=" | ",
     )
     append_issue_message(
         errors,

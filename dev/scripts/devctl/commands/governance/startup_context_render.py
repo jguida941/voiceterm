@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from ...context_graph.render import append_quality_signal_lines
 from ...runtime.work_intake_models import session_pacing_markdown_lines
+from ...runtime.work_intake_plan_routing import plan_routing_markdown_lines
 from .startup_context_push_render import (
     append_push_decision as _append_push_decision,
     append_push_state as _append_push_state,
@@ -172,6 +173,7 @@ def _append_work_intake(lines: list[str], ctx_dict: dict) -> None:
             routing,
             summary_label="workflow_profile_rule_summary",
         )
+    lines.extend(plan_routing_markdown_lines(intake.get("plan_routing")))
     lines.extend(session_pacing_markdown_lines(intake.get("session_pacing")))
     warm_refs = intake.get("warm_refs")
     if isinstance(warm_refs, list) and warm_refs:

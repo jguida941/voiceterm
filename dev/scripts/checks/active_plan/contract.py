@@ -6,23 +6,7 @@ import re
 from pathlib import Path
 
 REQUIRED_EXECUTION_PLAN_DOCS = [
-    "dev/active/theme_upgrade.md",
     "dev/active/ai_governance_platform.md",
-    "dev/active/autonomous_control_plane.md",
-    "dev/active/code_shape_expansion.md",
-    "dev/active/review_channel.md",
-    "dev/active/host_process_hygiene.md",
-    "dev/active/continuous_swarm.md",
-    "dev/active/operator_console.md",
-    "dev/active/loop_chat_bridge.md",
-    "dev/active/naming_api_cohesion.md",
-    "dev/active/ide_provider_modularization.md",
-    "dev/active/pre_release_architecture_audit.md",
-    "dev/active/platform_authority_loop.md",
-    "dev/active/portable_code_governance.md",
-    "dev/active/ralph_guardrail_control_plane.md",
-    "dev/active/review_probes.md",
-    "dev/active/slash_command_standalone.md",
 ]
 EXECUTION_PLAN_MARKER = "Execution plan contract: required"
 EXECUTION_PLAN_REQUIRED_SECTIONS = [

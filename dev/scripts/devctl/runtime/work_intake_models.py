@@ -8,6 +8,7 @@ from .finding_contracts import (
     RejectedRuleTraceRecord,
     RuleMatchEvidenceRecord,
 )
+from .work_intake_plan_routing import PlanRoutingState
 
 
 @dataclass(frozen=True, slots=True)
@@ -318,6 +319,7 @@ class WorkIntakePacket:
     coordination: WorkIntakeCoordinationState = field(
         default_factory=WorkIntakeCoordinationState
     )
+    plan_routing: PlanRoutingState = field(default_factory=PlanRoutingState)
     session_pacing: SessionPacingState = field(default_factory=SessionPacingState)
     scope_hints: tuple[str, ...] = ()
     warm_refs: tuple[str, ...] = ()
@@ -337,6 +339,8 @@ class WorkIntakePacket:
         payload["routing"] = self.routing.to_dict()
         payload["ownership"] = self.ownership.to_dict()
         payload["coordination"] = self.coordination.to_dict()
+        if self.plan_routing.phase_id or self.plan_routing.task_id:
+            payload["plan_routing"] = self.plan_routing.to_dict()
         payload["session_pacing"] = self.session_pacing.to_dict()
         if self.fallback_reason:
             payload["fallback_reason"] = self.fallback_reason
@@ -346,6 +350,7 @@ class WorkIntakePacket:
 __all__ = [
     "IntakeRoutingState",
     "PlanTargetRef",
+    "PlanRoutingState",
     "SessionPacingState",
     "SessionContinuityState",
     "WorkIntakeCoordinationState",

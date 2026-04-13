@@ -2821,6 +2821,69 @@ class TestReviewerGateOperatorInteractionMode(unittest.TestCase):
             rendered,
         )
 
+    def test_summary_includes_plan_routing_projection(self) -> None:
+        rendered = _render_summary({
+            "advisory_action": "continue_editing",
+            "advisory_reason": "bounded_slice_ready",
+            "reviewer_gate": {
+                "implementation_blocked": False,
+                "operator_interaction_mode": "single_agent",
+            },
+            "startup_authority": {"ok": True},
+            "governance": {
+                "push_enforcement": {
+                    "checkpoint_required": False,
+                    "safe_to_continue_editing": True,
+                },
+            },
+            "push_decision": {"action": "no_push_needed", "next_step_command": ""},
+            "work_intake": {
+                "plan_routing": {
+                    "phase_id": "MP377-P0",
+                    "task_id": "MP377-P0-T01",
+                },
+            },
+        })
+
+        self.assertIn("plan_routing=MP377-P0/MP377-P0-T01", rendered)
+
+    def test_markdown_includes_plan_routing_projection(self) -> None:
+        rendered = _render_markdown({
+            "advisory_action": "continue_editing",
+            "advisory_reason": "bounded_slice_ready",
+            "reviewer_gate": {
+                "implementation_blocked": False,
+                "operator_interaction_mode": "single_agent",
+            },
+            "startup_authority": {"ok": True},
+            "governance": {
+                "push_enforcement": {
+                    "checkpoint_required": False,
+                    "safe_to_continue_editing": True,
+                },
+            },
+            "push_decision": {"action": "no_push_needed", "next_step_command": ""},
+            "work_intake": {
+                "routing": {},
+                "plan_routing": {
+                    "phase_id": "MP377-P0",
+                    "phase_title": "Phase P0 - Findings Spine And Plan Authority",
+                    "phase_status": "in_progress",
+                    "task_id": "MP377-P0-T01",
+                    "task_summary": "Implement the canonical backlog reader/writer.",
+                    "task_status": "in_progress",
+                    "task_owner_doc": "dev/active/platform_authority_loop.md",
+                    "dependencies": ["MP377-P0-T00"],
+                },
+                "session_pacing": {},
+            },
+        })
+
+        self.assertIn("- plan_phase: `MP377-P0` | Phase P0 - Findings Spine And Plan Authority | status=`in_progress`", rendered)
+        self.assertIn("- plan_task: `MP377-P0-T01` | Implement the canonical backlog reader/writer. | status=`in_progress`", rendered)
+        self.assertIn("- plan_task_owner_doc: `dev/active/platform_authority_loop.md`", rendered)
+        self.assertIn("- plan_dependencies: `MP377-P0-T00`", rendered)
+
     def test_machine_summary_includes_coordination_block(self) -> None:
         coordination = CoordinationSnapshot(
             current_slice="Wire startup summary from shared coordination.",

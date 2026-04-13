@@ -12,6 +12,60 @@ PLANNING_IR_CONTRACT_ID = "PlanningIRSnapshot"
 
 
 @dataclass(frozen=True, slots=True)
+class PlanDependency:
+    """One typed dependency edge between plan phases or tasks."""
+
+    dependency_id: str
+    dependency_kind: str = "task"
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass(frozen=True, slots=True)
+class PlanTask:
+    """One typed checklist task parsed from an execution-plan phase."""
+
+    task_id: str
+    summary: str
+    owner_doc: str = ""
+    status: str = "pending"
+    phase_id: str = ""
+    phase_title: str = ""
+    dependencies: tuple[PlanDependency, ...] = ()
+    anchor_ref: str = ""
+
+    def to_dict(self) -> dict[str, Any]:
+        payload = asdict(self)
+        payload["dependencies"] = [
+            dependency.to_dict() for dependency in self.dependencies
+        ]
+        return payload
+
+
+@dataclass(frozen=True, slots=True)
+class PlanPhase:
+    """One typed execution-plan phase plus its bounded checklist tasks."""
+
+    phase_id: str
+    title: str
+    owner_doc: str = ""
+    status: str = "pending"
+    dependencies: tuple[PlanDependency, ...] = ()
+    tasks: tuple[PlanTask, ...] = ()
+    summary: str = ""
+    anchor_ref: str = ""
+
+    def to_dict(self) -> dict[str, Any]:
+        payload = asdict(self)
+        payload["dependencies"] = [
+            dependency.to_dict() for dependency in self.dependencies
+        ]
+        payload["tasks"] = [task.to_dict() for task in self.tasks]
+        return payload
+
+
+@dataclass(frozen=True, slots=True)
 class NextBestSliceRecord:
     """One bounded plan/file cluster recommendation for the next edit slice."""
 
@@ -140,7 +194,10 @@ __all__ = [
     "NextBestSliceRecord",
     "PLANNING_IR_CONTRACT_ID",
     "PLANNING_IR_SCHEMA_VERSION",
+    "PlanDependency",
     "PlanFindingMismatchRecord",
+    "PlanPhase",
+    "PlanTask",
     "PlanningIRSnapshot",
     "UnownedHotPathRecord",
 ]

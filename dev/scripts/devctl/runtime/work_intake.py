@@ -18,6 +18,8 @@ from .work_intake_models import (
     WorkIntakeOwnershipState,
     WorkIntakePacket,
 )
+from .work_intake_plan_routing import PlanRoutingState
+from .work_intake_phase_routing import build_plan_routing_state
 from .work_intake_pacing import _PacingFocus, _PacingInputs, build_session_pacing_state
 from .work_intake_ownership import build_work_intake_ownership_state
 from .work_intake_routing import build_routing, scope_hints, warm_refs, writeback_sinks
@@ -95,6 +97,10 @@ def build_work_intake_packet(
             graph_snapshot=inputs.graph_snapshot,
         ),
     )
+    plan_routing = build_plan_routing_state(
+        repo_root=repo_root,
+        active_target=target_ref,
+    )
     return WorkIntakePacket(
         advisory_action=advisory_action,
         advisory_reason=advisory_reason,
@@ -103,6 +109,7 @@ def build_work_intake_packet(
         routing=routing,
         ownership=resolved_ownership,
         coordination=resolved_coordination,
+        plan_routing=plan_routing,
         session_pacing=session_pacing,
         scope_hints=scope_hints(active_entry, resolved_review_state),
         warm_refs=resolved_warm_refs,
@@ -114,6 +121,7 @@ def build_work_intake_packet(
 
 __all__ = [
     "IntakeRoutingState",
+    "PlanRoutingState",
     "PlanTargetRef",
     "SessionPacingState",
     "SessionContinuityState",

@@ -2,6 +2,9 @@
 
 This file is the canonical registry for `dev/active/*.md`.
 Agents must read this file first before loading active planning docs.
+Keep the execution-owner set small: `MASTER_PLAN.md` plus 3-4 owner specs.
+Narrower or completed lanes stay here as reference-only owner docs until they
+are archived or folded into the umbrella plan.
 
 ## Registry
 
@@ -9,30 +12,30 @@ Agents must read this file first before loading active planning docs.
 |---|---|---|---|---|
 | `dev/active/MASTER_PLAN.md` | `tracker` | `canonical` | all active MP execution state | always |
 | `dev/active/README.md` | `reference` | `reference-only` | active-doc navigation helper (non-tracker) | when scanning `dev/active/` ownership/read-order context |
-| `dev/active/theme_upgrade.md` | `spec` | `mirrored in MASTER_PLAN` | `MP-099`, `MP-148..MP-151`, `MP-161..MP-167`, `MP-172..MP-182` | when Theme Studio, overlay visual research, or visual-surface redesign is in scope |
-| `dev/active/memory_studio.md` | `spec` | `mirrored in MASTER_PLAN` | `MP-230..MP-255` | only when memory/action/context-pack work is in scope |
-| `dev/active/devctl_reporting_upgrade.md` | `spec` | `mirrored in MASTER_PLAN` | `MP-297..MP-300`, `MP-303`, `MP-306`, `MP-379` | when improving `devctl` reporting, dashboard outputs, CIHub integration, triage/status workflows, control-plane collection/verify performance, or shared status/report collector integrity |
-| `dev/active/autonomous_control_plane.md` | `spec` | `mirrored in MASTER_PLAN` | `MP-325..MP-338, MP-340` | when implementing autonomous loop hardening, mutation remediation loop orchestration, mobile-control-plane surfaces, autonomy policy gates, or deterministic learning-loop automation |
+| `dev/active/theme_upgrade.md` | `reference` | `reference-only` | `MP-099`, `MP-148..MP-151`, `MP-161..MP-167`, `MP-172..MP-182` | when Theme Studio, overlay visual research, or visual-surface redesign context is needed; execution state stays in `MASTER_PLAN.md` |
+| `dev/active/memory_studio.md` | `reference` | `reference-only` | `MP-230..MP-255` | only when memory/action/context-pack reference context is needed |
+| `dev/active/devctl_reporting_upgrade.md` | `reference` | `reference-only` | `MP-297..MP-300`, `MP-303`, `MP-306`, `MP-379` | when improving `devctl` reporting, dashboard outputs, CIHub integration, or collector integrity; use as owner reference, not standalone execution authority |
+| `dev/active/autonomous_control_plane.md` | `reference` | `reference-only` | `MP-325..MP-338, MP-340` | when autonomy/mobile-control-plane reference context is needed; the typed phase registry in `ai_governance_platform.md` decides live execution order |
 | `dev/active/review_channel.md` | `spec` | `mirrored in MASTER_PLAN` | `MP-355` | when designing or implementing the shared review channel, dual-agent shared-screen surfaces, reviewer/coder packet flows, overlay-visible Codex/Claude coordination, or the merged markdown-swarm multi-agent cycle |
-| `dev/active/host_process_hygiene.md` | `spec` | `mirrored in MASTER_PLAN` | `MP-356` | when tightening host-side process cleanup/audit flows, descendant PTY leak detection, or AI/operator post-test process-hygiene automation |
-| `dev/active/continuous_swarm.md` | `spec` | `mirrored in MASTER_PLAN` | `MP-358` | when hardening the continuous local Codex-reviewer / Claude-coder loop, launcher modularization, peer-liveness gating, context-rotation handoff, or the later proof-gated template-extraction path |
-| `dev/active/operator_console.md` | `spec` | `mirrored in MASTER_PLAN` | `MP-359` | when implementing or validating the optional VoiceTerm Operator Console thin-wrapper for the review-channel workflow, desktop launch/rollover controls, or operator approval/decision capture over repo-visible artifacts |
-| `dev/active/loop_chat_bridge.md` | `runbook` | `supporting` | `MP-338` | when coordinating loop artifact-to-chat suggestion flow, operator handoff updates, or dry-run/live-run loop validation evidence |
-| `dev/active/naming_api_cohesion.md` | `spec` | `mirrored in MASTER_PLAN` | `MP-267` | when running naming/API cohesion cleanup across theme/event-loop/status/memory and related tooling surfaces |
-| `dev/active/ide_provider_modularization.md` | `spec` | `mirrored in MASTER_PLAN` | `MP-346`, `MP-354` | when modularizing active host IDE adapters (`cursor`, `jetbrains`, `other`), provider adapters (`codex`, `claude`, `gemini`), and God-file prevention/tooling gates (AntiGravity is deferred until runtime fingerprint evidence exists) |
-| `dev/active/pre_release_architecture_audit.md` | `spec` | `mirrored in MASTER_PLAN` | `MP-347`, `MP-349` | when running full-surface pre-release architecture/tooling audits, reviewing consolidated findings, and executing remediation intake |
+| `dev/active/host_process_hygiene.md` | `reference` | `reference-only` | `MP-356` | when host-side process cleanup/audit reference context is needed |
+| `dev/active/continuous_swarm.md` | `reference` | `reference-only` | `MP-358` | when the standing Codex/Claude dogfood loop or launcher proof context is needed |
+| `dev/active/operator_console.md` | `reference` | `reference-only` | `MP-359` | when Operator Console reference context is needed |
+| `dev/active/loop_chat_bridge.md` | `reference` | `reference-only` | `MP-338` | when coordinating loop artifact-to-chat suggestion flow or reviewing legacy handoff evidence |
+| `dev/active/naming_api_cohesion.md` | `reference` | `reference-only` | `MP-267` | when naming/API cohesion reference context is needed |
+| `dev/active/ide_provider_modularization.md` | `reference` | `reference-only` | `MP-346`, `MP-354` | when provider/IDE modularization reference context is needed |
+| `dev/active/pre_release_architecture_audit.md` | `reference` | `reference-only` | `MP-347`, `MP-349` | when reviewing consolidated pre-release audit evidence or follow-up reference context |
 | `dev/active/audit.md` | `reference` | `reference-only` | `MP-347`, `MP-349` | when reviewing consolidated full-surface findings and sequencing remediation work under the pre-release architecture audit plan |
 | `dev/active/move.md` | `reference` | `reference-only` | `MP-347`, `MP-349` | when reviewing raw multi-agent merge transcript evidence that supports `dev/active/audit.md` findings |
 | `dev/active/RUST_AUDIT_FINDINGS.md` | `reference` | `reference-only` | bridge pointer to canonical guard-driven remediation scaffold at `dev/reports/audits/RUST_AUDIT_FINDINGS.md` (supporting context, not execution authority) | when AI guard checks fail or guard findings are referenced; follow the bridge to canonical reports path |
-| `dev/active/slash_command_standalone.md` | `spec` | `mirrored in MASTER_PLAN` | `MP-352`, `MP-353` | when implementing standalone `/voice` slash command for Codex/Claude without overlay, MCP server extraction, or cross-platform plugin packaging |
-| `dev/active/ralph_guardrail_control_plane.md` | `spec` | `mirrored in MASTER_PLAN` | `MP-360..MP-367` | when implementing Ralph AI fix wrapper, cross-architecture guardrail enforcement, guardrail configuration registry, structured guard reports, ralph-status CLI/charts, operator console Ralph dashboard, phone/iOS Ralph metrics, or unified guardrail control surfaces |
+| `dev/active/slash_command_standalone.md` | `reference` | `reference-only` | `MP-352`, `MP-353` | when standalone slash-command reference context is needed |
+| `dev/active/ralph_guardrail_control_plane.md` | `reference` | `reference-only` | `MP-360..MP-367` | when Ralph guardrail/control-plane reference context is needed |
 | `dev/active/review_probes.md` | `spec` | `mirrored in MASTER_PLAN` | `MP-368..MP-375` | when implementing heuristic review probes, non-blocking risk-hint collectors, or probe-fed AI review triage surfaces |
-| `dev/active/portable_code_governance.md` | `spec` | `mirrored in MASTER_PLAN` | `MP-376` | when extending the portable guard/probe engine, defining repo-policy vs engine boundaries, building measurement/eval corpora, exporting the governance stack for off-repo review, or piloting the system on other repositories; this is a subordinate companion spec, not a second main product plan, so defer full-product architecture authority to `dev/active/ai_governance_platform.md` |
+| `dev/active/portable_code_governance.md` | `reference` | `reference-only` | `MP-376` | when extending the portable guard/probe engine, defining repo-policy vs engine boundaries, building measurement/eval corpora, exporting the governance stack for off-repo review, or piloting the system on other repositories; keep the live execution order in `dev/active/ai_governance_platform.md` and treat this as the owner reference for the portable-proof phase instead of a standalone authority surface |
 | `dev/active/ai_governance_platform.md` | `spec` | `mirrored in MASTER_PLAN` | `MP-377` | read first for any standalone governance-product architecture, packaging, repo-pack, runtime-contract, or extraction work; this is the only main active plan for the transition from VoiceTerm-embedded tooling to an installable product |
-| `dev/active/platform_authority_loop.md` | `spec` | `mirrored in MASTER_PLAN` | `MP-377` | after reading `ai_governance_platform.md`, read this when working on startup authority, repo-pack activation, typed plan registry, runtime/evidence/context closure, or the cross-repo proof slice for the current `MP-377` priority lane |
-| `dev/active/autonomous_governance_loop_v2.md` | `spec` | `mirrored in MASTER_PLAN` | `MP-377` | after reading `ai_governance_platform.md` and `platform_authority_loop.md`, read this when designing or implementing loop-v2 convergence over startup/work-intake, planning IR, findings priority, auto-mode, monitor, graph-backed discoverability, or guard-promotion default routing; then load `continuous_swarm.md`, `autonomous_control_plane.md`, `review_channel.md`, and `remote_commit_pipeline.md` only for transport/harness/execution context |
-| `dev/active/remote_commit_pipeline.md` | `spec` | `mirrored in MASTER_PLAN` | `MP-377` | after `ai_governance_platform.md` and `platform_authority_loop.md`, read this when designing or implementing the typed remote-session commit/push pipeline, phone/operator approval packets for commit/push, governed remote commit execution, or doctor/status readiness surfaces for remote-control sessions |
-| `dev/active/remote_control_runtime.md` | `spec` | `mirrored in MASTER_PLAN` | `MP-380..MP-387` | after `ai_governance_platform.md`, `platform_authority_loop.md`, and `remote_commit_pipeline.md`, read this when closing remote-control reviewer/runtime state, operator action transport, dashboard typed projections, auto-poll/update cadence, discoverability/system-map surfaces, or slim reviewer bootstrap/session-resume truth for phone-steered sessions |
+| `dev/active/platform_authority_loop.md` | `reference` | `reference-only` | `MP-377` | after reading `ai_governance_platform.md`, load only when the current typed phase/task route names startup authority, repo-pack activation, plan routing, or runtime/evidence/context closure as the owner doc |
+| `dev/active/autonomous_governance_loop_v2.md` | `reference` | `reference-only` | `MP-377` | after reading `ai_governance_platform.md`, load only when the current typed phase/task route names loop-v2 composition, findings priority, auto-mode, monitor, or graph-backed discoverability as the owner doc |
+| `dev/active/remote_commit_pipeline.md` | `reference` | `reference-only` | `MP-377` | after reading `ai_governance_platform.md`, load only when the current typed phase/task route names the governed remote commit/push lane as the owner doc |
+| `dev/active/remote_control_runtime.md` | `reference` | `reference-only` | `MP-380..MP-387` | after reading `ai_governance_platform.md`, load only when the current typed phase/task route names remote-control reviewer/runtime convergence as the owner doc |
 | `dev/active/PLAN_FORMAT.md` | `reference` | `reference-only` | `MP-377` | when editing governed active-plan markdown, extending active-plan/docs-governance enforcement, or aligning `PlanRegistry` / `PlanTargetRef` design with the repo's own plan-doc contract |
 | `dev/active/code_shape_expansion.md` | `reference` | `supporting` | `MP-378` | when calibrating or sequencing Phase 5b+ probe candidates, thresholds, metadata, and shared infrastructure for future code-shape additions under `dev/active/review_probes.md`; this is a subordinate research/evidence companion, not a second execution authority |
 | `dev/active/phase2.md` | `reference` | `reference-only` | bridge pointer to canonical phase-2 companion-platform research context at `dev/deferred/phase2.md` (not active MP execution state) | only when evaluating long-range terminal companion planning; follow the bridge to deferred research |
@@ -44,37 +47,20 @@ Agents must read this file first before loading active planning docs.
 3. If the task is repo-wide status, current strategy, extraction sequencing,
    PyQt6, phone/mobile, or shared-backend architecture while `MP-377` is
    active, read `dev/active/ai_governance_platform.md` next before narrower
-   domain specs. Theme and Memory docs are scoped lanes, not top-level
-   priority signals in that mode.
-3.1 If that `MP-377` work is specifically about startup/work-intake authority,
-    repo-pack activation, typed plan routing, runtime/evidence/context spine
-    closure, or the first cross-repo proof, read
-    `dev/active/platform_authority_loop.md` immediately after
-    `dev/active/ai_governance_platform.md`.
-3.1.1 If that same `MP-377` work is specifically about composing
-      startup/work-intake, planning IR, findings-priority, auto-mode,
-      monitor, graph-backed discoverability, and governed commit/push into
-      one autonomous controller, read
-      `dev/active/autonomous_governance_loop_v2.md` immediately after
-      `dev/active/platform_authority_loop.md`, then load
-      `dev/active/continuous_swarm.md`,
-      `dev/active/autonomous_control_plane.md`,
-      `dev/active/review_channel.md`, and
-      `dev/active/remote_commit_pipeline.md` only for harness/runtime context.
-3.1.2 If that same `MP-377` work is specifically about the typed remote-
-      session commit/push pipeline for phone-steered or remote-control
-      sessions, read `dev/active/remote_commit_pipeline.md` immediately after
-      `dev/active/platform_authority_loop.md`, then load
-      `dev/active/review_channel.md` and `dev/active/continuous_swarm.md`
-      only for transport/runtime proof context.
-3.1.3 If that same `MP-377` work is specifically about typed remote-control
-      reviewer/runtime state, operator action transport, dashboard
-      convergence, auto-poll/update cadence, or reviewer bootstrap/session-
-      resume truth, read
-      `dev/active/remote_control_runtime.md` immediately after
-      `dev/active/remote_commit_pipeline.md`, then load
-      `dev/active/review_channel.md` and `dev/active/continuous_swarm.md`
-      only for producer/runtime proof context.
+   domain specs. Theme, Memory, and the legacy per-lane docs are supporting
+   context, not top-level priority signals in that mode.
+3.1 Read only the owner docs named by the typed phase/task registry at the top
+    of `dev/active/ai_governance_platform.md`.
+    The default execution-owner set is:
+    `dev/active/review_channel.md`,
+    `dev/active/review_probes.md`,
+    plus reference owner docs such as
+    `dev/active/portable_code_governance.md`,
+    `dev/active/platform_authority_loop.md`,
+    `dev/active/autonomous_governance_loop_v2.md`,
+    `dev/active/remote_commit_pipeline.md`, and
+    `dev/active/remote_control_runtime.md` only when the active phase/task
+    explicitly points there.
 3.2 If that same `MP-377` work changes governed active-plan markdown shape or
     execution-plan schema expectations, read `dev/active/PLAN_FORMAT.md`
     before editing plan docs or active-plan guards.

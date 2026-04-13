@@ -17,6 +17,7 @@ class QualityStepSpec:
 
 
 DEFAULT_AI_GUARD_SPECS = (
+    QualityStepSpec("active-plan-sync-guard", "active_plan_sync", supports_commit_range=False),
     QualityStepSpec("code-shape-guard", "code_shape", languages=("python", "rust")),
     QualityStepSpec("package-layout-guard", "package_layout"),
     QualityStepSpec(
@@ -43,9 +44,7 @@ DEFAULT_AI_GUARD_SPECS = (
     ),
     QualityStepSpec("python-subprocess-policy-guard", "python_subprocess_policy", languages=("python",)),
     QualityStepSpec("command-source-validation-guard", "command_source_validation", languages=("python",)),
-    QualityStepSpec(
-        "mutation-bypass-graph-closure-guard", "mutation_bypass_graph_closure", languages=("python",), supports_commit_range=False
-    ),
+    QualityStepSpec("mutation-bypass-graph-closure-guard", "mutation_bypass_graph_closure", languages=("python",), supports_commit_range=False),
     QualityStepSpec("duplicate-types-guard", "duplicate_types", languages=("rust",)),
     QualityStepSpec(
         "structural-complexity-guard",

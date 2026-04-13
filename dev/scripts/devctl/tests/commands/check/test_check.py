@@ -673,6 +673,9 @@ class CheckProfileTests(TestCase):
         rc = check.run(args)
         self.assertEqual(rc, 0)
 
+        active_plan_sync_cmd = next(
+            call["cmd"] for call in calls if call["name"] == "active-plan-sync-guard"
+        )
         code_shape_cmd = next(call["cmd"] for call in calls if call["name"] == "code-shape-guard")
         python_broad_except_cmd = next(call["cmd"] for call in calls if call["name"] == "python-broad-except-guard")
         python_subprocess_policy_cmd = next(
@@ -696,6 +699,8 @@ class CheckProfileTests(TestCase):
         compat_matrix_smoke_cmd = next(call["cmd"] for call in calls if call["name"] == "compat-matrix-smoke-guard")
         naming_consistency_cmd = next(call["cmd"] for call in calls if call["name"] == "naming-consistency-guard")
 
+        self.assertNotIn("--since-ref", active_plan_sync_cmd)
+        self.assertNotIn("--head-ref", active_plan_sync_cmd)
         self.assertIn("--since-ref", code_shape_cmd)
         self.assertIn("--head-ref", code_shape_cmd)
         self.assertIn("--since-ref", python_broad_except_cmd)

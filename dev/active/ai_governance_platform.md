@@ -1,6 +1,6 @@
 # AI Governance Platform Plan
 
-**Status**: active  |  **Last updated**: 2026-04-12 | **Owner:** Tooling/control plane/product architecture
+**Status**: active  |  **Last updated**: 2026-04-13 | **Owner:** Tooling/control plane/product architecture
 Execution plan contract: required
 This spec remains execution mirrored in `dev/active/MASTER_PLAN.md` under
 `MP-377`, and it is the canonical active architecture plan for the standalone
@@ -3121,6 +3121,74 @@ alone. Use these proof gates:
 
 ## Execution Checklist
 
+### Phase P0 - Findings Spine And Plan Authority
+
+Phase metadata: phase_id=MP377-P0; owner_doc=`dev/active/ai_governance_platform.md`; status=in_progress; depends_on=none; summary=Collapse execution authority to one umbrella plan plus a small owner-doc set, then close the missing findings spine.
+
+- [ ] `MP377-P0-T01` Implement one canonical `FindingBacklog` reader/writer and route finding intake plus compatibility import through it.
+      owner_doc: `dev/active/platform_authority_loop.md`
+      status: `pending`
+      depends_on: none
+- [x] `MP377-P0-T02` Reduce the active execution-doc registry to the umbrella plan plus the small owner-doc set in `INDEX.md`.
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `done`
+      depends_on: `MP377-P0-T01`
+- [x] `MP377-P0-T03` Wire `check_active_plan_sync` into the default AI guard policy and make it enforce the typed umbrella-plan contract.
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `done`
+      depends_on: `MP377-P0-T02`
+
+### Phase P1 - Typed Plan Ingestion
+
+Phase metadata: phase_id=MP377-P1; owner_doc=`dev/active/ai_governance_platform.md`; status=done; depends_on=`MP377-P0`; summary=Close the missing typed plan-content layer so startup/work-intake can route from phase/task state instead of prose-only plan headings.
+
+- [x] `MP377-P1-T01` Land typed `PlanPhase`, `PlanTask`, and `PlanDependency` models plus a parser for structured execution-checklist phase/task metadata.
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `done`
+      depends_on: `MP377-P0-T02`
+- [x] `MP377-P1-T02` Enforce unique task ids, required owner docs, and valid dependencies on the umbrella plan.
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `done`
+      depends_on: `MP377-P1-T01`
+- [x] `MP377-P1-T03` Add phase-aware routing to `WorkIntakePacket` and surface the active phase/task in startup receipts.
+      owner_doc: `dev/active/platform_authority_loop.md`
+      status: `done`
+      depends_on: `MP377-P1-T01`
+
+### Phase P2 - Closed-Loop Quality Composition
+
+Phase metadata: phase_id=MP377-P2; owner_doc=`dev/active/review_probes.md`; status=pending; depends_on=`MP377-P0`, `MP377-P1`; summary=Turn the existing guards, probes, and planning reducers into one closed quality loop with shared inputs and consumable outputs.
+
+- [ ] `MP377-P2-T01` Compose `probe_split_advisor.py` from function clusters, import graph fan-out, and hotspot context.
+      owner_doc: `dev/active/review_probes.md`
+      status: `pending`
+      depends_on: `MP377-P1-T01`
+- [ ] `MP377-P2-T02` Feed canonical backlog findings and guard/probe outputs back into planning and findings-priority instead of parallel markdown-only lanes.
+      owner_doc: `dev/active/autonomous_governance_loop_v2.md`
+      status: `pending`
+      depends_on: `MP377-P0-T01`
+- [ ] `MP377-P2-T03` Remove recent-history blinders from planning so full governed finding history can drive slice selection.
+      owner_doc: `dev/active/platform_authority_loop.md`
+      status: `pending`
+      depends_on: `MP377-P0-T01`
+
+### Phase P3 - Portable Proof
+
+Phase metadata: phase_id=MP377-P3; owner_doc=`dev/active/portable_code_governance.md`; status=pending; depends_on=`MP377-P0`, `MP377-P1`, `MP377-P2`; summary=Prove the consolidated owner-doc set and typed intake path on another repository without core-engine patching.
+
+- [ ] `MP377-P3-T01` Validate the reduced execution-owner set plus typed plan routing on a second repo layout.
+      owner_doc: `dev/active/portable_code_governance.md`
+      status: `pending`
+      depends_on: `MP377-P2-T02`
+- [ ] `MP377-P3-T02` Close the remaining repo-default assumptions in startup, review transport, and governed mutation proof surfaces.
+      owner_doc: `dev/active/portable_code_governance.md`
+      status: `pending`
+      depends_on: `MP377-P3-T01`
+
+Legacy checklist below remains reference backlog until migrated into the typed
+phase/task contract above. Startup/work-intake routing and plan guards must
+prefer the typed phase/task entries before any free-form backlog bullets.
+
 - [x] Consolidate the repo-grounded architecture review, boundary analysis, and
       phased roadmap into this one active plan so the work no longer depends on
       chat history or overlapping architecture docs.
@@ -4920,6 +4988,15 @@ alone. Use these proof gates:
 Use this section as the single "left off here" surface for fresh AI sessions
 working on `MP-377`.
 
+- Current status: the umbrella plan now owns the reduced execution-owner set
+  and the typed phase/task contract. `MP377-P1` is landed; `MP377-P0-T01`
+  (`FindingBacklog`) is still the highest-priority open architecture slice.
+- Next action: implement `MP377-P0-T01` by landing the canonical
+  `FindingBacklog` reader/writer, then route `findings-priority` and startup/
+  monitor/dashboard consumers through it before widening controller work.
+- Context rule: start from `startup-context`, `governance-review`, and the
+  review-channel inbox, then read this file and only the owner docs named by
+  the active typed phase/task route.
 - 2026-04-12 architecture-synthesis / phase-order update:
   the 15-command audit plus dashboard packet review confirmed that five
   directions are already platform law (deterministic runtime, role

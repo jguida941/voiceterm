@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import subprocess
+from dataclasses import replace
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -731,6 +732,101 @@ def test_build_work_intake_packet_emits_session_pacing_from_planning_and_graph_e
         "dev/scripts/devctl/runtime/startup_context.py",
         "dev/scripts/devctl/platform/planning_ir.py",
     )
+
+
+def test_build_work_intake_packet_projects_typed_plan_routing(
+    tmp_path: Path,
+) -> None:
+    _seed_minimal_repo(tmp_path)
+    _write(
+        tmp_path / "dev/active/ai_governance_platform.md",
+        "\n".join(
+            (
+                "# AI Governance Platform",
+                "",
+                "## Execution Checklist",
+                "",
+                "### Phase P0 - Findings Spine And Plan Authority",
+                "Phase metadata: phase_id=MP377-P0; owner_doc=`dev/active/ai_governance_platform.md`; status=in_progress; depends_on=none; summary=Collapse execution authority.",
+                "- [ ] `MP377-P0-T01` Implement the canonical backlog reader/writer.",
+                "      owner_doc: `dev/active/platform_authority_loop.md`",
+                "      status: `in_progress`",
+                "      depends_on: none",
+                "- [ ] `MP377-P0-T02` Reduce the active execution-doc registry.",
+                "      owner_doc: `dev/active/ai_governance_platform.md`",
+                "      status: `pending`",
+                "      depends_on: `MP377-P0-T01`",
+            )
+        ),
+    )
+
+    governance = _governance()
+    umbrella_entry = PlanRegistryEntry(
+        path="dev/active/ai_governance_platform.md",
+        role="spec",
+        authority="mirrored in MASTER_PLAN",
+        scope="MP-377",
+        when_agents_read="platform work",
+        artifact_role="execution_plan",
+        authority_kind="execution_authority",
+        system_scope="platform_core",
+        consumer_scope="startup_default",
+        title="AI Governance Platform",
+    )
+    governance = replace(
+        governance,
+        plan_registry=replace(
+            governance.plan_registry,
+            entries=(
+                governance.plan_registry.entries[0],
+                umbrella_entry,
+                governance.plan_registry.entries[1],
+            ),
+        ),
+    )
+
+    review_state = SimpleNamespace(
+        current_session=SimpleNamespace(
+            last_reviewed_scope="AI Governance Platform",
+            current_instruction="continue AI Governance Platform",
+            open_findings="F1",
+            implementer_status="working",
+        ),
+        review=SimpleNamespace(plan_id="AI Governance Platform"),
+        review_candidate=None,
+    )
+
+    packet = build_work_intake_packet(
+        repo_root=tmp_path,
+        governance=governance,
+        advisory_action="continue_editing",
+        advisory_reason="research_scope_ready",
+        state_inputs=WorkIntakeStateInputs(
+            review_state=review_state,
+            ownership=WorkIntakeOwnershipState(status="clear"),
+            coordination=WorkIntakeCoordinationState(
+                collaboration_topology="single_agent",
+                authority_mode="self_directed",
+                work_ownership_mode="exclusive_slice",
+                sync_cadence_mode="checkpointed",
+            ),
+        ),
+    )
+
+    assert packet.active_target is not None
+    assert packet.active_target.plan_path == "dev/active/ai_governance_platform.md"
+    assert packet.plan_routing.phase_id == "MP377-P0"
+    assert (
+        packet.plan_routing.phase_owner_doc
+        == "dev/active/ai_governance_platform.md"
+    )
+    assert packet.plan_routing.task_id == "MP377-P0-T01"
+    assert (
+        packet.plan_routing.task_owner_doc
+        == "dev/active/platform_authority_loop.md"
+    )
+    assert packet.plan_routing.task_status == "in_progress"
+    assert packet.plan_routing.dependencies == ()
 
 
 def _seed_minimal_repo(tmp_path: Path) -> None:

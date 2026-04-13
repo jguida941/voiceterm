@@ -260,6 +260,8 @@ def _machine_summary(
         summary["work_intake"] = {
             "coordination": ctx.work_intake.coordination.to_dict(),
         }
+        if ctx.work_intake.plan_routing.phase_id or ctx.work_intake.plan_routing.task_id:
+            summary["work_intake"]["plan_routing"] = ctx.work_intake.plan_routing.to_dict()
     if ctx.coordination is not None:
         summary["coordination"] = _machine_summary_coordination(ctx.coordination)
     project_startup_action_routing(summary, next_command=_summary_next_command(summary))

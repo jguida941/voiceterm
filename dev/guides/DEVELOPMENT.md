@@ -1769,6 +1769,9 @@ Treat `dev/active/ai_governance_platform.md` as the only main active plan for
 the standalone governance product scope. Read its `Session Resume` section and
 latest `Progress Log` entries first, then continue the listed next actions
 unless I reprioritize.
+Treat the typed phase/task registry at the top of its `## Execution Checklist`
+as the live execution authority for `MP-377`; load owner-reference docs only
+when that active phase/task route points there.
 
 Before you finish, update `dev/active/ai_governance_platform.md`:
 - `Session Resume`
@@ -1902,7 +1905,7 @@ Docs governance guardrails:
 - `python3 dev/scripts/checks/check_review_snapshot_freshness.py` blocks stale `dev/audits/REVIEW_SNAPSHOT.md` by comparing the HEAD SHA and generation stamp embedded in the file against the live typed projection. The guard also accepts a final snapshot-only commit when the generated snapshot binds to that commit's parent code state, because a file inside a commit cannot contain its own final SHA. If non-snapshot HEAD or stamp drift occurs, the guard fails and instructs the caller to rerun `devctl review-snapshot --write`; both `tooling_control_plane.yml` and `release_preflight.yml` run it. The managed raw-git path is three-hook automation: `install-git-hooks` installs a pre-commit commit-permission-plus-projection hook, a post-commit receipt hook that calls `devctl review-snapshot --write --receipt-commit`, and a blocking pre-push hook that refuses raw `git push` unless the nested push came from `devctl push --execute`. The pre-commit hook now fails closed when the typed `commit_permission` boundary blocks raw `git commit`, then best-effort refreshes/stages the ReviewSnapshot projection for allowed commits. `devctl push` accepts that receipt shape when the snapshot-only HEAD's parent matches the active `PushAuthorizationRecord`, and it ignores stale detached pipeline records in `single_agent` mode; active dual-agent and current pipeline targets still require exact typed authorization. The typed snapshot now also carries first-class probe run-state/artifact refs plus current push receipt/authorization refs so external review surfaces can cite emitted evidence instead of only replaying next-command suggestions.
 - `devctl` structured status reports for `check`/`triage` now emit UTC timestamps for deterministic run-correlation across local + CI artifacts.
 - `python3 dev/scripts/checks/check_agents_contract.py` validates required `AGENTS.md` SOP sections/bundles/router rows.
-- `python3 dev/scripts/checks/check_active_plan_sync.py` validates `dev/active/INDEX.md` registry coverage, tracker authority, active-doc cross-link integrity, execution-plan metadata/marker/section parity, and `MP-*` scope parity between index/spec docs and `MASTER_PLAN`.
+- `python3 dev/scripts/checks/check_active_plan_sync.py` validates `dev/active/INDEX.md` registry coverage, tracker authority, active-doc cross-link integrity, execution-plan metadata/marker/section parity, the typed umbrella-plan phase/task contract, and `MP-*` scope parity between index/spec docs and `MASTER_PLAN`. The same guard now runs in the default AI guard lane, so `devctl check --profile ci` and governed commit bundles no longer rely on docs-only enforcement for plan drift.
 - `python3 dev/scripts/checks/check_release_version_parity.py` validates Cargo/PyPI/macOS release version parity.
 - `find . -maxdepth 1 -type f -name '--*'` catches accidental root-level argument artifact files.
 

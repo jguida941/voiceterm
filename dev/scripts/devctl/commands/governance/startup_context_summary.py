@@ -210,6 +210,19 @@ def render_summary(ctx_dict: dict) -> str:
         trigger = str(pacing.get("implementation_trigger") or "").strip()
         if trigger:
             lines.append(f"pacing_trigger={trigger}")
+    plan_routing = {}
+    if isinstance(work_intake, dict):
+        raw_plan_routing = work_intake.get("plan_routing")
+        if isinstance(raw_plan_routing, dict):
+            plan_routing = raw_plan_routing
+    if plan_routing:
+        phase_id = str(plan_routing.get("phase_id") or "").strip()
+        task_id = str(plan_routing.get("task_id") or "").strip()
+        if phase_id or task_id:
+            lines.append(
+                "plan_routing="
+                + "/".join(value for value in (phase_id, task_id) if value)
+            )
     return "\n".join(lines)
 
 

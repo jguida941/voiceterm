@@ -2,6 +2,7 @@
   "schema_version": 1,
   "repo_name": "portable-rust",
   "enabled_ai_guard_ids": [
+    "active_plan_sync",
     "code_shape",
     "package_layout",
     "duplicate_types",
