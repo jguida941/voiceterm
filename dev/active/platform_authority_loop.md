@@ -1,6 +1,6 @@
 # Platform Authority Loop Plan
 
-**Status**: active  |  **Last updated**: 2026-04-10 | **Owner:** Tooling/control plane/product architecture
+**Status**: active  |  **Last updated**: 2026-04-13 | **Owner:** Tooling/control plane/product architecture
 Execution plan contract: required
 This spec remains execution mirrored in `dev/active/MASTER_PLAN.md` under
 `MP-377`. It is the current subordinate execution spec for the `P0`
@@ -1891,6 +1891,18 @@ blocker or exception in plan state before skipping the declared order.
 
 ## Session Resume
 
+- 2026-04-13 dogfood + dead-type closure: resume from the proved gap, not the
+  old assumption. `governance-review -> startup-context -> findings-priority`
+  is now dogfooded on the live repo: a new observer finding
+  (`8865bf9544ddd82b`) raises startup `quality_signals.governance_review` to
+  `185/100` and ranks in `findings-priority`, but startup still projects
+  `active_target=dev/active/review_channel.md` while `plan_routing` stays on
+  `MP377-P0-T01`. The next owner-ordered slice is therefore explicit: route
+  `active_target` from canonical planning/finding authority instead of stale
+  review-scope token matching, then keep the new closure guard pair green
+  (`check_platform_contract_closure.py` proving `PlanPhase` / `PlanTask` /
+  `FindingBacklog` consumers and `check_governance_closure.py` failing on new
+  orphaned typed contracts from `check_contract_connectivity.py`).
 - 2026-04-12 single-root authority synthesis:
   resume from one governed snapshot, not two partially overlapping typed
   roots plus projection-local fallback. The bounded order is explicit: unify
@@ -2595,6 +2607,27 @@ blocker or exception in plan state before skipping the declared order.
 
 ## Progress Log
 
+- 2026-04-13: Dogfooded the findings spine end-to-end on the live repo before
+  widening the closure guard. Recorded a new observer finding through
+  `governance-review` (`8865bf9544ddd82b` /
+  `startup_active_target_stale_plan_route`), proved that startup now consumes
+  the canonical ledger in `quality_signals.governance_review`
+  (`total_findings=185`, `open_finding_count=100`, `high=18`), and proved
+  that `findings-priority` ranks the governed backlog row directly. The same
+  proof also showed the remaining open loop: `plan_routing` stays on
+  `MP377-P0-T01`, but `active_target` still resolves to
+  `dev/active/review_channel.md` from review-state token matching.
+- 2026-04-13: Closed the next dead-type prevention slice under the same
+  `MP-377` authority loop. `check_platform_contract_closure.py` now carries
+  AST-backed field-route proofs for `PlanPhase.phase_id`,
+  `PlanTask.task_id`, and `FindingBacklog.{latest_rows,open_findings,open_rows}`
+  across the startup plan-routing, findings-priority, planning-IR, and
+  startup-quality-signal consumers, so those typed planning/backlog seams are
+  no longer protected only by prose intent. `check_governance_closure.py`
+  now also consumes `check_contract_connectivity.py` and fails on newly
+  orphaned typed contracts using working-tree mode for dirty local edits and
+  `HEAD^ -> HEAD` commit-range mode for clean CI-style checkouts, so a new
+  dead contract can no longer hide behind the baseline debt inventory.
 - 2026-04-12: Absorbed the Q97/Q98/Q99 architecture synthesis into the
   authority-loop owner doc. The repo already has most of the proposed
   decision-kernel machinery, but it remains split across `StartupContext`,

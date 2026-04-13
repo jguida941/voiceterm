@@ -885,6 +885,12 @@ Three quality layers matter in practice:
   open-governance feed, so surfaces that need the full unresolved set
   must widen the upstream report call instead of calling this adapter
   on the default payload.
+  The same field-route family inventory now covers the typed planning/backlog
+  seams too: `PlanPhase`, `PlanTask`, and `FindingBacklog` must prove
+  executable startup/triage/planning consumers instead of landing as
+  producer-only internal types, and `check_governance_closure.py` now fails
+  on newly orphaned typed contracts surfaced by
+  `check_contract_connectivity.py`.
 - The same platform package now includes the scheduler-facing planning reducer
   at `dev/scripts/devctl/platform/planning_ir.py`. `PlanningIRSnapshot`
   joins `PlanRegistry`, recent governance-review findings, context-graph
@@ -988,6 +994,8 @@ fallback bug into its fix).
    shared runtime contract models, durable probe/report schema constants, or
    startup-surface contract routing), also run:
    - `python3 dev/scripts/checks/check_platform_contract_closure.py`
+   - `python3 dev/scripts/checks/check_contract_connectivity.py`
+   - `python3 dev/scripts/checks/check_governance_closure.py`
    - `python3 dev/scripts/devctl.py platform-contracts --format md`
    - `python3 dev/scripts/devctl.py system-picture --format md`
    - `python3 -m pytest dev/scripts/devctl/tests/platform/test_planning_ir.py dev/scripts/devctl/tests/platform/test_system_picture.py -q --tb=short`

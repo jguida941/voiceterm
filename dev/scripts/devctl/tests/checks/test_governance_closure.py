@@ -9,6 +9,10 @@ import tempfile
 from pathlib import Path
 
 import pytest
+from dev.scripts.checks.contract_connectivity.models import (
+    ContractConnectivityReport,
+    OrphanedContractFinding,
+)
 
 
 def _run_governance_closure(fmt: str = "json") -> tuple[int, dict | str]:
@@ -39,7 +43,7 @@ def test_governance_closure_json_shape() -> None:
     assert "checks_run" in payload
     assert isinstance(payload["violations"], list)
     assert isinstance(payload["checks_run"], list)
-    assert len(payload["checks_run"]) == 5
+    assert len(payload["checks_run"]) == 6
 
 
 def test_governance_closure_md_format() -> None:
@@ -64,6 +68,7 @@ def test_governance_closure_violation_shape() -> None:
             "ci_guard_coverage",
             "workflow_timeout",
             "review_disposition_schema",
+            "contract_connectivity_orphan",
         )
 
 
@@ -130,6 +135,7 @@ def test_governance_closure_clean_summary_forced() -> None:
          patch.object(cmd, "_find_ci_coverage_gaps", return_value=0), \
          patch.object(cmd, "_find_workflow_timeout_gaps", return_value=0), \
          patch.object(cmd, "_find_review_disposition_gaps", return_value=0), \
+         patch.object(cmd, "_find_contract_connectivity_orphan_gaps", return_value=0), \
          patch("sys.argv", ["check_governance_closure", "--format", "json"]), \
          patch("sys.stdout", new_callable=io.StringIO) as mock_stdout:
         rc = cmd.main()
@@ -162,6 +168,7 @@ def test_governance_closure_flags_invalid_review_disposition_rows() -> None:
          patch.object(cmd, "_find_workflow_timeout_gaps", return_value=0), \
          patch.object(cmd, "resolve_governance_review_log_path", return_value=Path("/tmp/reviews.jsonl")), \
          patch.object(cmd, "read_governance_review_rows", return_value=[invalid_row]), \
+         patch.object(cmd, "_find_contract_connectivity_orphan_gaps", return_value=0), \
          patch("sys.argv", ["check_governance_closure", "--format", "json"]), \
          patch("sys.stdout", new_callable=io.StringIO) as mock_stdout:
         rc = cmd.main()
@@ -240,3 +247,60 @@ def test_governance_closure_counts_ci_profile_guard_coverage() -> None:
     cmd._ci_profile_guard_ids.cache_clear()
     assert not any(v.get("guard_id") == "function_duplication" for v in violations)
     assert found >= 0
+
+
+def test_governance_closure_flags_contract_connectivity_orphan() -> None:
+    """A new orphaned typed contract must fail the closure guard."""
+    import importlib
+    import io
+    from unittest.mock import patch
+
+    cmd = importlib.import_module("governance_closure.command")
+    orphan_report = ContractConnectivityReport(
+        ok=False,
+        mode="working-tree",
+        orphaned_contracts=(
+            OrphanedContractFinding(
+                contract_name="DeadType",
+                layer="platform",
+                module_name="dev.scripts.devctl.platform.dead_contract",
+                module_path="dev/scripts/devctl/platform/dead_contract.py",
+                field_names=("field",),
+                consumer_scope="unreferenced",
+            ),
+        ),
+        new_orphaned_contracts=(
+            OrphanedContractFinding(
+                contract_name="DeadType",
+                layer="platform",
+                module_name="dev.scripts.devctl.platform.dead_contract",
+                module_path="dev/scripts/devctl/platform/dead_contract.py",
+                field_names=("field",),
+                consumer_scope="unreferenced",
+            ),
+        ),
+    )
+
+    with patch.object(cmd, "_find_guard_test_gaps", return_value=0), \
+         patch.object(cmd, "_find_probe_test_gaps", return_value=0), \
+         patch.object(cmd, "_find_ci_coverage_gaps", return_value=0), \
+         patch.object(cmd, "_find_workflow_timeout_gaps", return_value=0), \
+         patch.object(cmd, "_find_review_disposition_gaps", return_value=0), \
+         patch.object(
+             cmd._contract_connectivity_helpers,
+             "_build_contract_connectivity_report_for_closure",
+             return_value=orphan_report,
+         ), \
+         patch("sys.argv", ["check_governance_closure", "--format", "json"]), \
+         patch("sys.stdout", new_callable=io.StringIO) as mock_stdout:
+        rc = cmd.main()
+
+    assert rc == 1
+    payload = json.loads(mock_stdout.getvalue())
+    orphan_violations = [
+        violation
+        for violation in payload["violations"]
+        if violation["check"] == "contract_connectivity_orphan"
+    ]
+    assert len(orphan_violations) == 1
+    assert orphan_violations[0]["contract_name"] == "DeadType"

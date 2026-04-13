@@ -43,6 +43,15 @@ read_governance_review_rows = _review_log.read_governance_review_rows
 resolve_governance_review_log_path = _review_log.resolve_governance_review_log_path
 _ledger_helpers = importlib.import_module("dev.scripts.devctl.governance.ledger_helpers")
 latest_rows_by_finding = _ledger_helpers.latest_rows_by_finding
+_contract_connectivity_helpers = importlib.import_module(
+    "dev.scripts.checks.governance_closure.contract_connectivity"
+)
+_build_contract_connectivity_report_for_closure = (
+    _contract_connectivity_helpers._build_contract_connectivity_report_for_closure
+)
+_find_contract_connectivity_orphan_gaps = (
+    _contract_connectivity_helpers._find_contract_connectivity_orphan_gaps
+)
 
 CHECKS_DIR = REPO_ROOT / "dev" / "scripts" / "checks"
 TESTS_DIR = REPO_ROOT / "dev" / "scripts" / "devctl" / "tests"
@@ -259,6 +268,7 @@ def main() -> int:
         _find_ci_coverage_gaps(violations)
         _find_workflow_timeout_gaps(violations)
         _find_review_disposition_gaps(violations)
+        _find_contract_connectivity_orphan_gaps(violations)
 
         ok = len(violations) == 0
 
@@ -277,6 +287,7 @@ def main() -> int:
                 "ci_guard_coverage",
                 "workflow_timeout",
                 "review_disposition_schema",
+                "contract_connectivity_orphan",
             ],
         }
 

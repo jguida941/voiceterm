@@ -118,6 +118,16 @@
   `SystemCatalog` contracts do not hide behind generic field names, and
   orphaned-contract findings now surface `internal_only` consumers when a
   contract is only imported inside its own package.
+- 2026-04-13 dogfood + dead-type closure follow-up in `MP-377` scope:
+  a live observer finding proved the new findings spine works end-to-end
+  (`governance-review -> startup-context quality_signals -> findings-priority`)
+  while also exposing the remaining stale target-selection gap
+  (`active_target=dev/active/review_channel.md` even when
+  `plan_routing=MP377-P0/MP377-P0-T01`). The same slice expanded
+  `check_platform_contract_closure.py` so `PlanPhase`, `PlanTask`, and
+  `FindingBacklog` now carry AST-backed consumer-route proofs, and
+  `check_governance_closure.py` now fails on newly orphaned typed contracts
+  surfaced by `check_contract_connectivity.py`.
 - 2026-04-11 bootstrap/client-boundary + mutation-admissibility follow-up in
   `MP-377` scope: generated instruction/setup surfaces now say explicitly that
   VoiceTerm is a first-party client/product integration over the portable

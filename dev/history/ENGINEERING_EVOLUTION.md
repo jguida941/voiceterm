@@ -4,7 +4,7 @@
 
 **Status:** Draft v4 (historical design and process record)
 **Audience:** users and developers
-**Last Updated:** 2026-04-12
+**Last Updated:** 2026-04-13
 
 ## At a Glance
 
@@ -9945,3 +9945,60 @@ Evidence: `dev/active/INDEX.md`,
 `dev/scripts/devctl/tests/runtime/test_work_intake.py`,
 `dev/scripts/devctl/tests/test_active_plan_contract.py`,
 `dev/scripts/devctl/tests/commands/check/test_check.py`.
+
+### 2026-04-13 - Dogfooded findings now prove startup/triage flow, and closure guards catch dead typed contracts
+
+Fact: the repo had just landed the new findings backbone pieces, but that was
+still mostly a component claim. The live question was whether a real governed
+finding could move through the same typed architecture the agents are supposed
+to trust, and whether the internal planning/backlog dataclasses were now
+protected against "defined but never consumed" drift.
+
+This matters because the product direction under `MP-377` is not "more typed
+objects"; it is executable closed loops. A `FindingBacklog` reader, typed
+phase/task models, or a new internal contract do not count unless they affect
+startup, ranking, or another repo-owned consumer, and the self-governance
+lane must fail when a new dead type slips in.
+
+The dogfood pass used the live repo as the test. A new observer finding
+(`8865bf9544ddd82b` / `startup_active_target_stale_plan_route`) was recorded
+through `governance-review`, `startup-context --format json` immediately
+picked it up in `quality_signals.governance_review`
+(`total_findings=185`, `open_finding_count=100`, `open_by_severity.high=18`),
+and `findings-priority --format json` ranked that same governed row at `#14`,
+proving the canonical backlog path is real. The same proof also exposed the
+remaining loop gap: startup still projects
+`active_target=dev/active/review_channel.md` while `plan_routing` stays on
+`MP377-P0-T01`, so target selection is still following stale review-scope
+matching instead of findings/planning authority.
+
+The closure encoded that lesson into guards instead of leaving it as chat
+memory. `check_platform_contract_closure.py` now carries AST-backed
+field-route proofs for `PlanPhase.phase_id`, `PlanTask.task_id`, and
+`FindingBacklog.{latest_rows,open_findings,open_rows}` across startup
+plan-routing, findings-priority, planning-IR, and startup-quality-signal
+consumers. `check_governance_closure.py` now also consumes
+`check_contract_connectivity.py` and fails on newly orphaned typed contracts,
+using working-tree mode for dirty local slices and `HEAD^ -> HEAD`
+commit-range mode for clean CI-style checkouts so a new dead contract cannot
+hide behind the repo's baseline debt inventory.
+
+Evidence: `dev/scripts/checks/platform_contract_closure/field_routes.py`,
+`dev/scripts/checks/platform_contract_closure/field_routes_planning.py`,
+`dev/scripts/checks/governance_closure/command.py`,
+`dev/scripts/checks/check_platform_contract_closure.py`,
+`dev/scripts/checks/check_contract_connectivity.py`,
+`dev/scripts/checks/check_governance_closure.py`,
+`dev/scripts/devctl/commands/reporting/findings_priority.py`,
+`dev/scripts/devctl/runtime/startup_signals.py`,
+`dev/scripts/devctl/platform/planning_ir_sources.py`,
+`dev/scripts/devctl/runtime/work_intake_phase_routing.py`,
+`dev/scripts/devctl/runtime/work_intake_plan_routing.py`,
+`dev/scripts/devctl/commands/governance/startup_context_summary.py`,
+`dev/scripts/devctl/tests/checks/platform_contract_closure/test_check_platform_contract_closure.py`,
+`dev/scripts/devctl/tests/checks/test_governance_closure.py`,
+`dev/active/platform_authority_loop.md`,
+`dev/active/MASTER_PLAN.md`,
+`AGENTS.md`,
+`dev/guides/DEVELOPMENT.md`,
+`dev/scripts/README.md`.

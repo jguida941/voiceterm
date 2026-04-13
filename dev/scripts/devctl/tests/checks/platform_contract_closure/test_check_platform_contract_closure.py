@@ -5,6 +5,7 @@ from __future__ import annotations
 from unittest.mock import patch
 
 from dev.scripts.checks.platform_contract_closure import field_routes
+from dev.scripts.checks.platform_contract_closure import field_routes_planning
 from dev.scripts.checks.platform_contract_closure.report import build_report, render_md
 from dev.scripts.checks.platform_contract_closure.emitter_parity import (
     check_review_state_emitter_parity as _check_review_state_emitter_parity,
@@ -54,8 +55,8 @@ def _surface_policy_with_tokens(*tokens: str) -> SurfacePolicy:
 def test_platform_contract_closure_passes_on_current_blueprint() -> None:
     report = build_report()
     assert report["ok"] is True
-    assert report["checked_field_routes"] == 13
-    assert report["checked_field_route_families"] == 6
+    assert report["checked_field_routes"] == 18
+    assert report["checked_field_route_families"] == 11
     assert report["violations"] == []
 
 
@@ -265,6 +266,43 @@ def test_platform_contract_closure_flags_incomplete_decision_mode_route_family()
     assert len(family_violations) == 1
     assert family_violations[0]["field_name"] == "decision_mode"
     assert family_violations[0]["missing_route_ids"] == ("guard_run_report",)
+
+
+def test_platform_contract_closure_flags_missing_finding_backlog_findings_priority_route() -> None:
+    blueprint = build_platform_blueprint()
+    original = field_routes_planning._source_contains_any
+
+    def _missing_latest_rows(module_path: str, tokens: tuple[str, ...]) -> bool:
+        if (
+            module_path == "dev.scripts.devctl.commands.reporting.findings_priority"
+            and any(token in {"backlog.latest_rows", "latest_rows"} for token in tokens)
+        ):
+            return False
+        return original(module_path, tokens)
+
+    with patch.object(
+        field_routes_planning,
+        "_source_contains_any",
+        side_effect=_missing_latest_rows,
+    ):
+        _coverage, violations = evaluate_platform_contract_closure(
+            blueprint,
+            _surface_policy_with_tokens(
+                "platform-contracts",
+                "render-surfaces",
+                "check_platform_contract_closure.py",
+            ),
+        )
+
+    route_violations = [
+        v
+        for v in violations
+        if v.get("rule") == "unconsumed-field-route"
+        and v.get("contract_id") == "FindingBacklog"
+        and v.get("field_name") == "latest_rows"
+    ]
+    assert len(route_violations) == 1
+    assert route_violations[0]["route_id"] == "findings_priority"
 
 
 def test_emitter_parity_catches_missing_bridge_state_key() -> None:
@@ -629,5 +667,5 @@ def test_top_blocker_dashboard_route_rejects_docstring_only_package_match(
 def test_platform_contract_closure_markdown_lists_field_route_count() -> None:
     report = build_report()
     output = render_md(report)
-    assert "checked_field_routes: 13" in output
-    assert "checked_field_route_families: 6" in output
+    assert "checked_field_routes: 18" in output
+    assert "checked_field_route_families: 11" in output
