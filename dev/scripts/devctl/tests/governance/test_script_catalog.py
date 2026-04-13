@@ -50,6 +50,17 @@ class ScriptCatalogTests(unittest.TestCase):
             "dev/scripts/checks/probe_term_consistency.py",
         )
 
+    def test_probe_split_advisor_is_registered(self) -> None:
+        self.assertIn("probe_split_advisor", script_catalog.PROBE_SCRIPT_FILES)
+        self.assertEqual(
+            script_catalog.PROBE_SCRIPT_FILES["probe_split_advisor"],
+            "probe_split_advisor.py",
+        )
+        self.assertEqual(
+            script_catalog.probe_script_cmd("probe_split_advisor")[-1],
+            "dev/scripts/checks/probe_split_advisor.py",
+        )
+
     def test_shell_command_helpers_preserve_expected_strings(self) -> None:
         self.assertEqual(
             script_catalog.check_script_shell_command("active_plan_sync"),

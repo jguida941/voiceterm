@@ -8,8 +8,11 @@ from pathlib import Path
 from ...common import emit_output, pipe_output, write_output
 from ...config import REPO_ROOT
 from ...context_graph.builder import build_context_graph
+from ...runtime.finding_backlog import load_finding_backlog_from_log
+from ...runtime.governance_scan import scan_repo_governance_safely
+from ...runtime.review_snapshot_sources import resolve_governance_log_path
 from ...triage.findings_priority import (
-    DEFAULT_FINDINGS_LOG_PATH,
+    accumulated_findings_from_governance_rows,
     build_priority_payload,
     load_accumulated_findings,
     rank_accumulated_findings,
@@ -21,7 +24,7 @@ from ...triage.findings_priority import (
 def run(args) -> int:
     """Rank accumulated findings by triage severity plus graph fan-out."""
     source_path = _resolve_source_path(getattr(args, "findings_file", None))
-    findings = load_accumulated_findings(source_path)
+    findings = _load_findings(source_path)
     graph_nodes, graph_edges = build_context_graph()
     ranked = rank_accumulated_findings(
         findings,
@@ -53,6 +56,20 @@ def run(args) -> int:
 
 
 def _resolve_source_path(raw_path: str | None) -> Path:
-    relative = str(raw_path or DEFAULT_FINDINGS_LOG_PATH).strip() or DEFAULT_FINDINGS_LOG_PATH
-    path = Path(relative).expanduser()
-    return path if path.is_absolute() else REPO_ROOT / path
+    relative = str(raw_path or "").strip()
+    if relative:
+        path = Path(relative).expanduser()
+        return path if path.is_absolute() else REPO_ROOT / path
+    governance = scan_repo_governance_safely(REPO_ROOT)
+    return resolve_governance_log_path(REPO_ROOT, governance)
+
+
+def _load_findings(source_path: Path):
+    if source_path.suffix.lower() == ".jsonl":
+        backlog = load_finding_backlog_from_log(
+            log_path=source_path,
+            repo_name=REPO_ROOT.name,
+            repo_path=str(REPO_ROOT),
+        )
+        return accumulated_findings_from_governance_rows(backlog.latest_rows)
+    return load_accumulated_findings(source_path)

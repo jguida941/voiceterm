@@ -122,6 +122,7 @@ _PROBE_SCRIPT_ENTRIES = (
     ("probe_side_effect_mixing", "probe_side_effect_mixing.py"),
     ("probe_match_arm_complexity", "probe_match_arm_complexity.py"),
     ("probe_mixed_concerns", "probe_mixed_concerns.py"),
+    ("probe_split_advisor", "probe_split_advisor.py"),
     ("probe_tuple_return_complexity", "probe_tuple_return_complexity.py"),
 )
 

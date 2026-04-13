@@ -17,11 +17,15 @@ def build_plan_routing_state(
     *,
     repo_root: Path,
     active_target: PlanTargetRef | None,
+    plan_path: str = "",
 ) -> PlanRoutingState:
     """Project the current phase/task route from the active target plan."""
-    if active_target is None or not active_target.plan_path:
+    resolved_plan_path = str(plan_path or "").strip()
+    if not resolved_plan_path and active_target is not None:
+        resolved_plan_path = str(active_target.plan_path or "").strip()
+    if not resolved_plan_path:
         return PlanRoutingState()
-    plan_path = repo_root / active_target.plan_path
+    plan_path = repo_root / resolved_plan_path
     try:
         plan_text = plan_path.read_text(encoding="utf-8")
     except OSError:

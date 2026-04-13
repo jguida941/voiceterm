@@ -38,6 +38,7 @@ def build_planning_ir_snapshot(
         review_state=inputs.review_state,
         conflicts=conflicts,
         coordination=inputs.coordination,
+        ranked_findings=inputs.ranked_findings,
     )
     return PlanningIRSnapshot(
         generated_at_utc=utc_timestamp(),

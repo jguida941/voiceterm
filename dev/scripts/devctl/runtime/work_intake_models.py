@@ -262,6 +262,7 @@ class SessionPacingState:
     live_finding_count: int = 0
     implementation_trigger: str = "patch_after_bounded_refs_or_raise_blocker"
     focus_slice_id: str = ""
+    focus_plan_path: str = ""
     focus_summary: str = ""
     authority_refs: tuple[str, ...] = ()
     implementation_refs: tuple[str, ...] = ()
@@ -273,6 +274,8 @@ class SessionPacingState:
         payload["implementation_refs"] = list(self.implementation_refs)
         if not self.focus_slice_id:
             payload.pop("focus_slice_id", None)
+        if not self.focus_plan_path:
+            payload.pop("focus_plan_path", None)
         if not self.focus_summary:
             payload.pop("focus_summary", None)
         if not self.summary:

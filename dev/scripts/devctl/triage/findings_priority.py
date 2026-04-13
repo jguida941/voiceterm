@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Iterable, Sequence
 
 from ..context_graph.models import EDGE_KIND_IMPORTS, GraphEdge, GraphNode, NODE_KIND_SOURCE
+from ..governance.ledger_helpers import optional_text
 from .enrich import SEVERITY_ORDER, normalize_severity
 from .findings_priority_models import AccumulatedFinding, RankedFinding
 from .findings_priority_render import (
@@ -43,6 +44,18 @@ def load_accumulated_findings(path: Path) -> tuple[AccumulatedFinding, ...]:
         _with_resolution_state(entry, resolved_qids=resolved_qids)
         for entry in findings
     )
+
+
+def accumulated_findings_from_governance_rows(
+    rows: Sequence[dict[str, object] | object],
+) -> tuple[AccumulatedFinding, ...]:
+    """Normalize latest governance-review rows into triage findings."""
+    findings = [
+        _parse_governance_row(row)
+        for row in rows
+        if isinstance(row, dict)
+    ]
+    return tuple(entry for entry in findings if entry is not None)
 
 
 def rank_accumulated_findings(
@@ -122,6 +135,30 @@ def _parse_section(title: str, body: str) -> AccumulatedFinding | None:
     )
 
 
+def _parse_governance_row(row: dict[str, object]) -> AccumulatedFinding | None:
+    finding_id = optional_text(row.get("finding_id")) or ""
+    check_id = optional_text(row.get("check_id")) or ""
+    file_path = optional_text(row.get("file_path")) or ""
+    if not finding_id or not check_id or not file_path:
+        return None
+    notes = optional_text(row.get("notes")) or ""
+    verdict = (optional_text(row.get("verdict")) or "unknown").lower()
+    severity = normalize_severity(optional_text(row.get("severity")) or notes or check_id)
+    summary = _summary_text(notes or f"{check_id} at {file_path}", check_id)
+    heading = f"{check_id} — {Path(file_path).name}"
+    return AccumulatedFinding(
+        qid=finding_id,
+        heading=heading,
+        severity=severity,
+        severity_rank=SEVERITY_ORDER.get(severity, SEVERITY_ORDER["medium"]),
+        raw_severity=optional_text(row.get("severity")) or "",
+        status=verdict,
+        summary=summary,
+        file_refs=(file_path,),
+        resolution_state=_governance_resolution_state(verdict),
+    )
+
+
 def _field_value(body: str, field: str) -> str:
     pattern = re.compile(
         rf"^- \*\*{re.escape(field)}\*\*:\s*(?P<value>.*?)(?=^\- \*\*[^*]+\*\*:|\Z)",
@@ -195,6 +232,15 @@ def _fixed_notice(entry: AccumulatedFinding) -> bool:
     return "fixed" in text
 
 
+def _governance_resolution_state(verdict: str) -> str:
+    normalized = str(verdict or "").strip().lower()
+    if normalized == "confirmed_issue":
+        return "open"
+    if normalized == "fixed":
+        return "resolved"
+    return "superseded"
+
+
 def _fan_out_by_path(
     *,
     graph_nodes: Sequence[GraphNode],
@@ -263,6 +309,7 @@ __all__ = [
     "AccumulatedFinding",
     "DEFAULT_FINDINGS_LOG_PATH",
     "RankedFinding",
+    "accumulated_findings_from_governance_rows",
     "build_priority_payload",
     "load_accumulated_findings",
     "rank_accumulated_findings",

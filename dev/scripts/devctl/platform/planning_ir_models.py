@@ -77,6 +77,8 @@ class NextBestSliceRecord:
     target_id: str = ""
     hot_path_count: int = 0
     live_finding_count: int = 0
+    prioritized_finding_rank: int = 0
+    finding_severity_band: str = ""
     total_score: float = 0.0
     schedule_state: str = "ready"
     recommended_topology: str = "single_agent"

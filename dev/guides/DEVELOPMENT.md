@@ -246,6 +246,9 @@ Three quality layers matter in practice:
 - `probe_mixed_concerns.py` ranks Python files that contain 3+ independent
   top-level function clusters so mixed-concern modules get split before line
   counts hide the smell.
+- `probe_split_advisor.py` turns those mixed-concern clusters into bounded
+  split recommendations by combining local import coupling with latest
+  context-graph hotspot evidence.
 - `check_code_shape.py` now ratchets path-override debt too: untouched legacy
   over-cap overrides still show up as warnings, but touched files, newly added
   over-cap overrides, worsened over-cap policies, and touched Python files

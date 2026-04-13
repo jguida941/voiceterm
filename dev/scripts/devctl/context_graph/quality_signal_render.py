@@ -15,6 +15,8 @@ def append_quality_signal_lines(
     lines.append("## Quality Signals")
     lines.append("")
     _append_probe_report_summary(lines, quality_signals.get("probe_report"))
+    _append_code_shape_clusters(lines, quality_signals.get("code_shape_clusters"))
+    _append_split_advisor(lines, quality_signals.get("split_advisor"))
     _append_governance_review_summary(
         lines,
         quality_signals.get("governance_review"),
@@ -64,6 +66,44 @@ def _append_governance_review_summary(lines: list[str], payload: Any) -> None:
             cleanup_rate=payload.get("cleanup_rate_pct", 0),
         )
     )
+    severity_counts = payload.get("open_by_severity")
+    if isinstance(severity_counts, dict) and severity_counts:
+        rendered = ", ".join(
+            f"{severity}={severity_counts.get(severity, 0)}"
+            for severity in ("critical", "high", "medium", "low")
+        )
+        lines.append(f"- open severity mix: {rendered}")
+
+
+def _append_code_shape_clusters(lines: list[str], payload: Any) -> None:
+    if not isinstance(payload, list) or not payload:
+        return
+    rendered = ", ".join(
+        "`{file}` ({cluster_count}, {severity})".format(
+            file=row.get("file", "unknown"),
+            cluster_count=row.get("cluster_count", "?"),
+            severity=row.get("severity", "unknown"),
+        )
+        for row in payload[:3]
+        if isinstance(row, dict)
+    )
+    if rendered:
+        lines.append(f"- **code-shape clusters**: {rendered}")
+
+
+def _append_split_advisor(lines: list[str], payload: Any) -> None:
+    if not isinstance(payload, list) or not payload:
+        return
+    for row in payload[:2]:
+        if not isinstance(row, dict):
+            continue
+        lines.append(
+            "- **split advisor**: `{file}` [{severity}] -> {instruction}".format(
+                file=row.get("file", "unknown"),
+                severity=row.get("severity", "unknown"),
+                instruction=row.get("ai_instruction", ""),
+            )
+        )
 
 
 def _append_guidance_hotspots(lines: list[str], payload: Any) -> None:

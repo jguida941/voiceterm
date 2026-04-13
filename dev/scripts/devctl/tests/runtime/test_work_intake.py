@@ -829,6 +829,162 @@ def test_build_work_intake_packet_projects_typed_plan_routing(
     assert packet.plan_routing.dependencies == ()
 
 
+def test_build_work_intake_packet_routes_plan_phase_from_pacing_focus_slice(
+    tmp_path: Path,
+) -> None:
+    _seed_minimal_repo(tmp_path)
+    _write(
+        tmp_path / "dev/active/ai_governance_platform.md",
+        "\n".join(
+            (
+                "# AI Governance Platform",
+                "",
+                "## Execution Checklist",
+                "",
+                "### Phase P0 - Findings Spine And Plan Authority",
+                "Phase metadata: phase_id=MP377-P0; owner_doc=`dev/active/ai_governance_platform.md`; status=in_progress; depends_on=none; summary=Collapse execution authority.",
+                "- [ ] `MP377-P0-T01` Implement the canonical backlog reader/writer.",
+                "      owner_doc: `dev/active/platform_authority_loop.md`",
+                "      status: `in_progress`",
+                "      depends_on: none",
+            )
+        ),
+    )
+    _write(tmp_path / "dev/active/review_channel.md", "# Review Channel\n")
+
+    governance = _governance()
+    umbrella_entry = PlanRegistryEntry(
+        path="dev/active/ai_governance_platform.md",
+        role="spec",
+        authority="mirrored in MASTER_PLAN",
+        scope="MP-377",
+        when_agents_read="platform work",
+        artifact_role="execution_plan",
+        authority_kind="execution_authority",
+        system_scope="platform_core",
+        consumer_scope="startup_default",
+        title="AI Governance Platform",
+    )
+    review_entry = PlanRegistryEntry(
+        path="dev/active/review_channel.md",
+        role="spec",
+        authority="mirrored in MASTER_PLAN",
+        scope="MP-355",
+        when_agents_read="review channel work",
+        artifact_role="execution_plan",
+        authority_kind="execution_authority",
+        system_scope="platform_core",
+        consumer_scope="startup_default",
+        title="Review Channel",
+        session_resume=SessionResumeState(
+            section_hash="review1234",
+            summary="Resume review-channel continuity.",
+            entries=(SessionResumeEntry(text="Resume review-channel continuity."),),
+        ),
+    )
+    governance = replace(
+        governance,
+        plan_registry=replace(
+            governance.plan_registry,
+            entries=(
+                governance.plan_registry.entries[0],
+                governance.plan_registry.entries[1],
+                umbrella_entry,
+                review_entry,
+            ),
+        ),
+    )
+
+    review_state = SimpleNamespace(
+        current_session=SimpleNamespace(
+            last_reviewed_scope="MP-355",
+            current_instruction="Continue the stale review-channel lane.",
+            open_findings="F1",
+            implementer_status="working",
+        ),
+        review=SimpleNamespace(plan_id="MP-355"),
+        review_candidate=None,
+    )
+    planning_snapshot = PlanningIRSnapshot(
+        repo_name="codex-voice",
+        repo_root=str(tmp_path),
+        current_branch="feature/demo",
+        next_best_slices=(
+            NextBestSliceRecord(
+                slice_id="slice:platform",
+                plan_path="dev/active/ai_governance_platform.md",
+                plan_title="AI Governance Platform",
+                plan_scope="MP-377",
+                file_paths=("dev/scripts/devctl/runtime/work_intake.py",),
+                hot_path_count=1,
+                live_finding_count=2,
+                summary="2 live findings and 1 hot path across the platform slice.",
+            ),
+        ),
+    )
+    graph_snapshot = ContextGraphSnapshot(
+        schema_version=1,
+        contract_id="ContextGraphSnapshot",
+        repo="codex-voice",
+        branch="feature/demo",
+        commit_hash="head",
+        generated_at_utc="2026-04-10T20:00:00Z",
+        source_mode="bootstrap",
+        node_count=1,
+        edge_count=0,
+        nodes_by_kind={"source_file": 1},
+        edges_by_kind={},
+        temperature_distribution=TemperatureDistributionSummary(
+            minimum=0.5,
+            maximum=0.5,
+            average=0.5,
+            buckets={
+                "0.00-0.24": 0,
+                "0.25-0.49": 0,
+                "0.50-0.74": 1,
+                "0.75-1.00": 0,
+            },
+        ),
+        nodes=[
+            {
+                "node_id": "src:work_intake",
+                "node_kind": "source_file",
+                "label": "work_intake.py",
+                "canonical_pointer_ref": "dev/scripts/devctl/runtime/work_intake.py",
+                "provenance_ref": "snapshot",
+                "temperature": 0.5,
+                "metadata": {},
+            },
+        ],
+        edges=[],
+    )
+
+    packet = build_work_intake_packet(
+        repo_root=tmp_path,
+        governance=governance,
+        advisory_action="continue_editing",
+        advisory_reason="research_scope_ready",
+        state_inputs=WorkIntakeStateInputs(
+            review_state=review_state,
+            ownership=WorkIntakeOwnershipState(status="clear"),
+            coordination=WorkIntakeCoordinationState(
+                collaboration_topology="single_agent",
+                authority_mode="self_directed",
+                work_ownership_mode="exclusive_slice",
+                sync_cadence_mode="checkpointed",
+            ),
+            planning_snapshot=planning_snapshot,
+            graph_snapshot=graph_snapshot,
+        ),
+    )
+
+    assert packet.active_target is not None
+    assert packet.active_target.plan_path == "dev/active/review_channel.md"
+    assert packet.session_pacing.focus_plan_path == "dev/active/ai_governance_platform.md"
+    assert packet.plan_routing.phase_id == "MP377-P0"
+    assert packet.plan_routing.task_id == "MP377-P0-T01"
+
+
 def _seed_minimal_repo(tmp_path: Path) -> None:
     """Drop the standard plan/doc fixture into ``tmp_path``."""
     _init_git_repo(tmp_path)

@@ -199,6 +199,8 @@ def test_build_planning_ir_snapshot_prioritizes_active_plan_findings_and_hot_pat
     assert snapshot.next_best_slices[0].plan_path == platform_path
     assert platform_file in snapshot.next_best_slices[0].file_paths
     assert snapshot.next_best_slices[0].live_finding_count == 1
+    assert snapshot.next_best_slices[0].prioritized_finding_rank == 1
+    assert snapshot.next_best_slices[0].finding_severity_band == "high"
     assert snapshot.next_best_slices[0].hot_path_count == 2
     assert snapshot.next_best_slices[0].summary.startswith("1 live finding")
 

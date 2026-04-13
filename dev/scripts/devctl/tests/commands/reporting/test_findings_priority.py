@@ -235,3 +235,44 @@ class FindingsPriorityCommandTests(unittest.TestCase):
         self.assertEqual(payload["command"], "findings-priority")
         self.assertEqual(payload["ranked_findings"][0]["qid"], "Q9")
         self.assertEqual(payload["ranked_findings"][0]["max_fan_out"], 3)
+
+    @patch("dev.scripts.devctl.commands.reporting.findings_priority.write_output")
+    @patch("dev.scripts.devctl.commands.reporting.findings_priority.build_context_graph")
+    def test_run_reads_canonical_governance_backlog_jsonl(
+        self,
+        build_context_graph_mock,
+        write_output_mock,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            findings_path = Path(tmp_dir) / "finding_reviews.jsonl"
+            findings_path.write_text(
+                json.dumps(
+                    {
+                        "finding_id": "finding-1",
+                        "check_id": "probe_hot",
+                        "verdict": "confirmed_issue",
+                        "signal_type": "probe",
+                        "file_path": "pkg/high.py",
+                        "severity": "high",
+                        "repo_name": "codex-voice",
+                        "repo_path": tmp_dir,
+                        "finding_class": "workflow_gap",
+                        "prevention_surface": "contract",
+                        "notes": "High priority backlog item.",
+                    }
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            build_context_graph_mock.return_value = _graph(
+                paths=("pkg/high.py",),
+                outgoing_counts={"pkg/high.py": 2},
+            )
+            rc = command.run(_args(findings_file=str(findings_path)))
+
+        self.assertEqual(rc, 0)
+        output = write_output_mock.call_args.args[0]
+        payload = json.loads(output)
+        self.assertEqual(payload["command"], "findings-priority")
+        self.assertEqual(payload["ranked_findings"][0]["qid"], "finding-1")
+        self.assertEqual(payload["ranked_findings"][0]["severity"], "high")

@@ -17,12 +17,15 @@ from ..context_graph.models import (
     GraphEdge,
     GraphNode,
 )
-from ..governance_review_log import build_governance_review_report
+from ..runtime.finding_backlog import (
+    FindingBacklog,
+    build_finding_backlog_from_report,
+    load_finding_backlog,
+)
 from ..runtime.finding_contracts import FindingRecord
 from ..runtime.governance_scan import scan_repo_governance_safely
 from ..runtime.project_governance import PlanRegistryEntry, ProjectGovernance
 from ..runtime.review_state_locator import load_current_review_state
-from ..runtime.review_snapshot_sources import resolve_governance_log_path
 from ..runtime.review_state_models import ReviewState
 from ..runtime.work_intake_coordination import build_work_intake_coordination_state
 from ..runtime.work_intake_models import (
@@ -32,7 +35,11 @@ from ..runtime.work_intake_models import (
 )
 from ..runtime.work_intake_ownership import build_work_intake_ownership_state
 from ..runtime.work_intake_selection import build_target_ref, select_active_plan_entry
-from .planning_ir_findings import live_findings_from_governance_report
+from ..triage.findings_priority import (
+    accumulated_findings_from_governance_rows,
+    rank_accumulated_findings,
+)
+from ..triage.findings_priority_models import RankedFinding
 
 _HOT_PATH_THRESHOLD = 0.30
 
@@ -66,6 +73,7 @@ class PlanningIRResolvedInputs:
     plan_to_file_paths: dict[str, tuple[str, ...]]
     hot_paths: dict[str, float]
     live_findings: tuple[FindingRecord, ...]
+    ranked_findings: tuple[RankedFinding, ...]
     scoped_edge_count: int
     governance_report_path: str
     current_branch: str
@@ -106,9 +114,19 @@ def resolve_planning_inputs(
         governance=resolved_governance,
         review_state=resolved_review_state,
     )
-    report = request.governance_report or _load_governance_report(
+    backlog = _resolve_finding_backlog(
+        request=request,
         repo_root=resolved_root,
         governance=resolved_governance,
+    )
+    ranked_findings = tuple(
+        rank_accumulated_findings(
+            accumulated_findings_from_governance_rows(backlog.latest_rows),
+            graph_nodes=nodes,
+            graph_edges=edges,
+            include_resolved=False,
+            top_n=max(20, len(backlog.open_rows)),
+        )
     )
     return PlanningIRResolvedInputs(
         repo_root=resolved_root,
@@ -121,12 +139,10 @@ def resolve_planning_inputs(
         file_to_plan_paths=file_to_plan_paths,
         plan_to_file_paths=plan_to_file_paths,
         hot_paths=hot_paths(nodes),
-        live_findings=live_findings_from_governance_report(
-            report,
-            repo_name=repo_name(resolved_governance, resolved_root),
-        ),
+        live_findings=backlog.open_findings,
+        ranked_findings=ranked_findings,
         scoped_edge_count=scoped_edge_count,
-        governance_report_path=str(report.get("log_path") or "").strip(),
+        governance_report_path=backlog.log_path,
         current_branch=current_branch(resolved_governance),
     )
 
@@ -216,18 +232,22 @@ def _resolve_active_target(
     return build_target_ref(repo_root, entry)
 
 
-def _load_governance_report(
+def _resolve_finding_backlog(
     *,
+    request: PlanningIRBuildRequest,
     repo_root: Path,
     governance: ProjectGovernance | None,
-) -> Mapping[str, Any]:
-    log_path = resolve_governance_log_path(repo_root, governance)
-    if not log_path.is_file():
-        return {}
-    return build_governance_review_report(
-        log_path=log_path,
+) -> FindingBacklog:
+    if request.governance_report is not None:
+        return build_finding_backlog_from_report(
+            report=request.governance_report,
+            repo_name=repo_name(governance, repo_root),
+            repo_path=str(repo_root),
+        )
+    return load_finding_backlog(
+        repo_root=repo_root,
+        governance=governance,
         max_rows=5000,
-        recent_limit=50,
     )
 
 

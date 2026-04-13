@@ -37,7 +37,8 @@
     "probe_cognitive_complexity",
     "probe_fan_out",
     "probe_side_effect_mixing",
-    "probe_mixed_concerns"
+    "probe_mixed_concerns",
+    "probe_split_advisor"
   ],
   "guard_configs": {
     "python_design_complexity": {

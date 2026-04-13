@@ -15,6 +15,12 @@ from ..runtime.work_intake_models import (
     WorkIntakeCoordinationState,
     WorkIntakeOwnershipState,
 )
+from ..triage.findings_priority_models import RankedFinding
+from .planning_ir_priority import (
+    best_ranked_finding_for_paths,
+    priority_bonus,
+)
+from .planning_ir_summary import SliceSummaryContext, slice_summary
 from .planning_ir_models import (
     ConcurrentWriterConflictRecord,
     NextBestSliceRecord,
@@ -41,17 +47,7 @@ class PlanningReductionContext:
     review_state: ReviewState | None
     conflicts: Sequence[ConcurrentWriterConflictRecord]
     coordination: WorkIntakeCoordinationState
-
-
-@dataclass(frozen=True, slots=True)
-class SliceSummaryContext:
-    """Bounded context needed to render one next-slice summary line."""
-
-    active_target_path: str
-    review_candidate_paths: frozenset[str]
-    finding_count_by_file: Counter[str]
-    blocked: bool
-    hot_paths: Mapping[str, float]
+    ranked_findings: Sequence[RankedFinding] = ()
 
 
 def build_conflicts(
@@ -196,6 +192,10 @@ def build_next_best_slices(
             for _score, file_path in scored_paths[:_MAX_SLICE_FILES]
             if "/" in file_path or file_path.endswith(".md")
         )
+        best_ranked_finding = best_ranked_finding_for_paths(
+            tuple(file_path for _score, file_path in scored_paths),
+            context.ranked_findings,
+        )
         candidate_rows.append(
             NextBestSliceRecord(
                 slice_id=_slice_id(plan_path=plan_path, file_paths=top_files),
@@ -213,18 +213,37 @@ def build_next_best_slices(
                     finding_count_by_file.get(file_path, 0)
                     for _score, file_path in scored_paths
                 ),
-                total_score=round(sum(score for score, _ in scored_paths), 2),
+                prioritized_finding_rank=(
+                    best_ranked_finding.rank if best_ranked_finding is not None else 0
+                ),
+                finding_severity_band=(
+                    best_ranked_finding.severity
+                    if best_ranked_finding is not None
+                    else ""
+                ),
+                total_score=round(
+                    sum(score for score, _ in scored_paths)
+                    + priority_bonus(best_ranked_finding),
+                    2,
+                ),
                 schedule_state="blocked_by_conflict" if summary_context.blocked else "ready",
                 recommended_topology=_recommended_topology(context),
-                summary=_slice_summary(
-                    summary_context=summary_context,
+                summary=slice_summary(
+                    context=summary_context,
                     plan_path=plan_path,
                     top_files=top_files,
                     scored_paths=scored_paths,
+                    best_ranked_finding=best_ranked_finding,
                 ),
             )
         )
-    candidate_rows.sort(key=lambda item: (-item.total_score, item.plan_path))
+    candidate_rows.sort(
+        key=lambda item: (
+            item.prioritized_finding_rank or 10_000,
+            -item.total_score,
+            item.plan_path,
+        )
+    )
     return tuple(candidate_rows[:_MAX_NEXT_BEST_SLICES])
 
 
@@ -281,34 +300,6 @@ def _recommended_topology(context: PlanningReductionContext) -> str:
     if context.conflicts:
         return "single_agent"
     return context.coordination.collaboration_topology or "single_agent"
-
-
-def _slice_summary(
-    *,
-    summary_context: SliceSummaryContext,
-    plan_path: str,
-    top_files: tuple[str, ...],
-    scored_paths: Sequence[tuple[float, str]],
-) -> str:
-    finding_count = sum(
-        summary_context.finding_count_by_file.get(file_path, 0)
-        for _score, file_path in scored_paths
-    )
-    hot_count = sum(
-        1 for _score, file_path in scored_paths if file_path in summary_context.hot_paths
-    )
-    parts: list[str] = []
-    if finding_count:
-        parts.append(f"{finding_count} live finding(s)")
-    if hot_count:
-        parts.append(f"{hot_count} hot path(s)")
-    if summary_context.active_target_path == plan_path:
-        parts.append("matches active target")
-    if summary_context.review_candidate_paths & set(top_files):
-        parts.append("includes review-candidate scope")
-    if summary_context.blocked:
-        parts.append("blocked until single-writer posture returns")
-    return "; ".join(parts) or "owned plan slice"
 
 
 def _review_candidate_paths(review_state: ReviewState | None) -> set[str]:

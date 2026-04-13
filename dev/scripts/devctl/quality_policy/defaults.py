@@ -292,6 +292,11 @@ DEFAULT_REVIEW_PROBE_SPECS = (
         languages=("python",),
     ),
     QualityStepSpec(
+        "probe-split-advisor",
+        "probe_split_advisor",
+        languages=("python",),
+    ),
+    QualityStepSpec(
         "probe-tuple-return-complexity",
         "probe_tuple_return_complexity",
         languages=("rust",),

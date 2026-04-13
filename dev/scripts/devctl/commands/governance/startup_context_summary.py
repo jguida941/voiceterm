@@ -207,6 +207,12 @@ def render_summary(ctx_dict: dict) -> str:
             f"{pacing.get('focus_file_count', 0)}files/"
             f"{pacing.get('dependency_edge_count', 0)}deps"
         )
+        live_finding_count = int(pacing.get("live_finding_count", 0) or 0)
+        if live_finding_count:
+            lines.append(f"pacing_live_findings={live_finding_count}")
+        hot_path_count = int(pacing.get("hot_path_count", 0) or 0)
+        if hot_path_count:
+            lines.append(f"pacing_hot_paths={hot_path_count}")
         trigger = str(pacing.get("implementation_trigger") or "").strip()
         if trigger:
             lines.append(f"pacing_trigger={trigger}")

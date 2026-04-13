@@ -2811,11 +2811,15 @@ class TestReviewerGateOperatorInteractionMode(unittest.TestCase):
                     "research_ref_budget": 7,
                     "focus_file_count": 2,
                     "dependency_edge_count": 5,
+                    "live_finding_count": 3,
+                    "hot_path_count": 4,
                     "implementation_trigger": "patch_after_bounded_refs_or_raise_blocker",
                 },
             },
         })
         self.assertIn("session_pacing=high/7refs/2files/5deps", rendered)
+        self.assertIn("pacing_live_findings=3", rendered)
+        self.assertIn("pacing_hot_paths=4", rendered)
         self.assertIn(
             "pacing_trigger=patch_after_bounded_refs_or_raise_blocker",
             rendered,

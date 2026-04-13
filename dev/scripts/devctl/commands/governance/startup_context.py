@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import os
-from dataclasses import asdict, replace
+from dataclasses import asdict, is_dataclass, replace
 
 from . import startup_repair as startup_repair_flow
 from ...common_io import display_path
@@ -209,6 +209,12 @@ def _machine_summary_coordination(coordination) -> dict[str, object]:
     return payload
 
 
+def _maybe_asdict(value: object) -> dict[str, object] | None:
+    if value is None or not is_dataclass(value):
+        return None
+    return asdict(value)
+
+
 def _machine_summary(
     *,
     ctx,
@@ -252,8 +258,9 @@ def _machine_summary(
     summary["publication_guidance"] = ctx.push_decision.publication_guidance
     summary["startup_authority_ok"] = bool(authority_report.get("ok", False))
     summary["startup_receipt_path"] = startup_receipt_path
-    if getattr(ctx, "attention", None) is not None:
-        summary["attention"] = asdict(ctx.attention)
+    attention_payload = _maybe_asdict(getattr(ctx, "attention", None))
+    if attention_payload is not None:
+        summary["attention"] = attention_payload
     if getattr(ctx, "packet_inbox", None) is not None:
         summary["packet_inbox"] = _machine_summary_packet_inbox(ctx.packet_inbox)
     if ctx.work_intake is not None:

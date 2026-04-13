@@ -2,9 +2,17 @@
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
-from typing import Any
+
+from .finding_backlog import load_finding_backlog
+from .governance_scan import scan_repo_governance_safely
+from .startup_signal_io import load_json_file
+from .startup_signal_probes import (
+    load_code_shape_clusters,
+    load_guidance_hotspots,
+    load_probe_report_summary,
+    load_split_advisor_rows,
+)
 
 _INTERESTING_COMMANDS = (
     "check",
@@ -18,13 +26,19 @@ _INTERESTING_COMMANDS = (
 def load_startup_quality_signals(repo_root: Path) -> dict[str, object]:
     """Load bounded startup summaries from recent governance artifacts."""
     signals: dict[str, object] = {}
-    probe_report = _load_probe_report_summary(repo_root)
+    probe_report = load_probe_report_summary(repo_root)
     if probe_report:
         signals["probe_report"] = probe_report
+    code_shape_clusters = load_code_shape_clusters(repo_root)
+    if code_shape_clusters:
+        signals["code_shape_clusters"] = code_shape_clusters
+    split_advisor = load_split_advisor_rows(repo_root)
+    if split_advisor:
+        signals["split_advisor"] = split_advisor
     governance_review = _load_governance_review_summary(repo_root)
     if governance_review:
         signals["governance_review"] = governance_review
-    guidance_hotspots = _load_guidance_hotspots(repo_root)
+    guidance_hotspots = load_guidance_hotspots(repo_root)
     if guidance_hotspots:
         signals["guidance_hotspots"] = guidance_hotspots
     watchdog = _load_watchdog_summary(repo_root)
@@ -34,79 +48,33 @@ def load_startup_quality_signals(repo_root: Path) -> dict[str, object]:
     if command_reliability:
         signals["command_reliability"] = command_reliability
     return signals
-
-
-def _load_probe_report_summary(repo_root: Path) -> dict[str, object] | None:
-    payload = _load_json(repo_root / "dev" / "reports" / "probes" / "latest" / "summary.json")
-    summary = payload.get("summary") if isinstance(payload, dict) else None
-    if not isinstance(summary, dict):
-        return None
-    top_files = summary.get("top_files")
-    return {
-        "generated_at": payload.get("generated_at"),
-        "files_with_hints": summary.get("files_with_hints"),
-        "risk_hints": summary.get("risk_hints"),
-        "top_files": _top_files(top_files),
-    }
-
-
 def _load_governance_review_summary(repo_root: Path) -> dict[str, object] | None:
+    backlog = load_finding_backlog(
+        repo_root=repo_root,
+        governance=scan_repo_governance_safely(repo_root),
+    )
     payload = _load_json(
         repo_root / "dev" / "reports" / "governance" / "latest" / "review_summary.json"
     )
     stats = payload.get("stats") if isinstance(payload, dict) else None
-    if not isinstance(stats, dict):
+    if not isinstance(stats, dict) and not backlog.total_findings:
         return None
-    return {
-        "generated_at_utc": payload.get("generated_at_utc"),
-        "total_findings": stats.get("total_findings"),
-        "open_finding_count": stats.get("open_finding_count"),
-        "fixed_count": stats.get("fixed_count"),
-        "cleanup_rate_pct": stats.get("cleanup_rate_pct"),
-    }
-
-
-def _load_guidance_hotspots(repo_root: Path) -> list[dict[str, object]]:
-    payload = _load_json(
-        repo_root / "dev" / "reports" / "probes" / "latest" / "review_packet.json"
+    response: dict[str, object] = {}
+    response["generated_at_utc"] = payload.get("generated_at_utc")
+    response["total_findings"] = (
+        stats.get("total_findings") if isinstance(stats, dict) else backlog.total_findings
     )
-    summary = payload.get("summary") if isinstance(payload, dict) else None
-    top_hotspot = summary.get("top_hotspot") if isinstance(summary, dict) else None
-    if not isinstance(top_hotspot, dict):
-        return []
-    hints = top_hotspot.get("representative_hints")
-    guidance = []
-    if isinstance(hints, list):
-        for hint in hints[:2]:
-            entry = _guidance_from_hint(hint)
-            if entry is not None:
-                guidance.append(entry)
-    if not guidance:
-        return []
-    return [
-        {
-            "file": top_hotspot.get("file"),
-            "hint_count": top_hotspot.get("hint_count"),
-            "bounded_next_slice": top_hotspot.get("bounded_next_slice"),
-            "guidance": guidance,
-        }
-    ]
-
-
-def _guidance_from_hint(hint: object) -> dict[str, object] | None:
-    if not isinstance(hint, dict):
-        return None
-    instruction = str(hint.get("ai_instruction") or "").strip()
-    if not instruction:
-        return None
-    entry: dict[str, object] = {}
-    entry["probe"] = str(hint.get("probe") or "unknown").strip()
-    entry["symbol"] = str(hint.get("symbol") or "(file-level)").strip()
-    entry["severity"] = str(hint.get("severity") or "unknown").strip()
-    entry["ai_instruction"] = instruction
-    entry["practice_title"] = str(hint.get("practice_title") or "").strip()
-    entry["practice_explanation"] = str(hint.get("practice_explanation") or "").strip()
-    return entry
+    response["open_finding_count"] = (
+        stats.get("open_finding_count")
+        if isinstance(stats, dict)
+        else len(backlog.open_rows)
+    )
+    response["fixed_count"] = stats.get("fixed_count") if isinstance(stats, dict) else 0
+    response["cleanup_rate_pct"] = (
+        stats.get("cleanup_rate_pct") if isinstance(stats, dict) else 0
+    )
+    response["open_by_severity"] = backlog.severity_counts_dict()
+    return response
 
 
 def _load_watchdog_summary(repo_root: Path) -> dict[str, object] | None:
@@ -164,22 +132,5 @@ def _load_command_reliability_summary(repo_root: Path) -> dict[str, object] | No
     }
 
 
-def _top_files(payload: object) -> list[dict[str, object]]:
-    if not isinstance(payload, list):
-        return []
-    return [
-        {
-            "file": row.get("file"),
-            "hint_count": row.get("hint_count"),
-        }
-        for row in payload[:3]
-        if isinstance(row, dict)
-    ]
-
-
-def _load_json(path: Path) -> dict[str, Any] | None:
-    try:
-        payload = json.loads(path.read_text(encoding="utf-8"))
-    except (FileNotFoundError, OSError, ValueError):
-        return None
-    return payload if isinstance(payload, dict) else None
+def _load_json(path: Path):
+    return load_json_file(path)

@@ -7,12 +7,15 @@ def add_findings_priority_parser(sub) -> None:
     """Register the `findings-priority` read-only ranking command."""
     findings_cmd = sub.add_parser(
         "findings-priority",
-        help="Rank accumulated LIVE_RUN findings by severity and context-graph fan-out",
+        help="Rank canonical backlog findings by severity and context-graph fan-out",
     )
     findings_cmd.add_argument(
         "--findings-file",
-        default="dev/audits/LIVE_RUN.md",
-        help="Markdown findings log to rank (default: dev/audits/LIVE_RUN.md)",
+        default=None,
+        help=(
+            "Optional findings source to rank. Defaults to the governed "
+            "governance-review JSONL backlog; legacy markdown files remain supported."
+        ),
     )
     findings_cmd.add_argument(
         "--include-resolved",

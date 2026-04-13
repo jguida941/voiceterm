@@ -100,6 +100,7 @@ def build_work_intake_packet(
     plan_routing = build_plan_routing_state(
         repo_root=repo_root,
         active_target=target_ref,
+        plan_path=session_pacing.focus_plan_path,
     )
     return WorkIntakePacket(
         advisory_action=advisory_action,

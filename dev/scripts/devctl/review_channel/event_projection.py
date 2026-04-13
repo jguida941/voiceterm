@@ -18,6 +18,10 @@ from .attach_auth_projection import (
 )
 from .core import DEFAULT_BRIDGE_REL
 from .current_session_projection import current_session_payload
+from .current_session_projection import (
+    build_bridge_current_session,
+    build_event_current_session,
+)
 from .event_projection_context import (
     append_event_instruction_context,
     build_event_context_packet,
@@ -25,7 +29,6 @@ from .event_projection_context import (
 )
 from .event_projection_enrichment import (
     EventProjectionContext,
-    resolve_current_session as _resolve_current_session,
 )
 from .collaboration_session import build_collaboration_session
 from .event_projection_bridge import (
@@ -46,6 +49,7 @@ from .recovery_assessment import (
 from .status_projection_helpers import build_bridge_push_enforcement_state
 from .status_push_decision import build_status_push_decision
 from .action_request_delivery import attach_action_request_delivery_receipts
+from .event_projection_current_session import resolve_current_session
 from .event_projection_queue import derive_event_next_instruction_bundle
 from .service_identity import build_service_identity
 
@@ -130,6 +134,23 @@ def _attach_event_queue_state(
             int(queue.get("stale_packet_count") or 0),
             review_state["packets"],
         )
+    )
+
+
+def _resolve_current_session(
+    review_state: dict[str, object],
+    *,
+    context: EventProjectionContext,
+    bridge_liveness: dict[str, object],
+):
+    """Keep compatibility patches against this module's helper names alive."""
+    return resolve_current_session(
+        review_state=review_state,
+        repo_root=context.repo_root,
+        prior_review_state=context.prior_review_state,
+        bridge_liveness=bridge_liveness,
+        build_event_current_session_fn=build_event_current_session,
+        build_bridge_current_session_fn=build_bridge_current_session,
     )
 
 def enrich_event_review_state(

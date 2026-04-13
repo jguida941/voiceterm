@@ -110,6 +110,7 @@ def build_session_pacing_state(
         hot_path_count=focus_slice.hot_path_count,
         live_finding_count=focus_slice.live_finding_count,
         focus_slice_id=focus_slice.slice_id,
+        focus_plan_path=focus_slice.plan_path,
         focus_summary=focus_slice.summary,
         authority_refs=authority_refs,
         implementation_refs=implementation_refs,
