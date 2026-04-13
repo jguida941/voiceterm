@@ -3,9 +3,7 @@
 from __future__ import annotations
 
 from ...governance_review_log import (
-    append_governance_review_row,
     build_governance_review_report,
-    build_governance_review_row,
     resolve_governance_review_log_path,
     resolve_governance_review_summary_root,
 )
@@ -14,10 +12,12 @@ from ...governance.guard_promotion_queue import (
     append_guard_promotion_candidate_from_review,
     resolve_guard_promotion_queue_path,
 )
+from ...config import get_repo_root
 from ...governance_review_render import (
     render_governance_review_markdown,
     write_governance_review_summary,
 )
+from ...runtime.finding_backlog import record_finding_backlog_row
 from .common import emit_governance_command_output, render_governance_value_error
 
 
@@ -39,7 +39,7 @@ def run(args) -> int:
             getattr(args, "promotion_queue", None)
         )
         if bool(getattr(args, "record", False)):
-            row = build_governance_review_row(
+            row = record_finding_backlog_row(
                 review_input=GovernanceReviewInput(
                     finding_id=getattr(args, "finding_id", None),
                     signal_type=getattr(args, "signal_type", None),
@@ -63,8 +63,10 @@ def run(args) -> int:
                     guidance_id=getattr(args, "guidance_id", None),
                     guidance_followed=guidance_followed,
                 ),
+                repo_root=get_repo_root(),
+                governance=None,
+                log_path=log_path,
             )
-            append_governance_review_row(row, log_path=log_path)
             promotion_candidate = append_guard_promotion_candidate_from_review(
                 row,
                 queue_path=promotion_queue_path,

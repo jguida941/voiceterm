@@ -155,6 +155,24 @@
   hardened publication truth by making governed push preflight reproject the
   active `bridge.md` compatibility surface from typed review status before
   the blocking checks run, closing the stale role-marker push blocker.
+- 2026-04-13 findings writer + dogfood closeout follow-up in `MP-377` scope:
+  `governance-review --record` now routes through the canonical
+  `FindingBacklog` writer, `devctl dogfood --record --record-governance` can
+  auto-record linked `signal_type=dogfood` rows with stable ids plus
+  refreshed summary artifacts using live target-path defaults and optional
+  overrides, and the governance/dogfood ledger helpers now resolve against
+  the runtime repo root so portable adopters do not silently write back into
+  the packaged VoiceTerm root.
+- 2026-04-13 typed architecture-review ingest in `MP-377` scope: Claude
+  review packets `rev_pkt_0375` through `rev_pkt_0378` are now mirrored by
+  canonical `governance-review` findings for the remaining architecture gaps
+  (`dogfood_finding_id_instability`, `dogfood_read_only_registration_missing`,
+  `plan_markdown_projection_missing`, `plan_authority_gap`,
+  `bridge_authority_conflict`, `bridge_metadata_parsed_as_authority`,
+  `authority_snapshot_3_fields_missing`, `agents_md_dual_purpose_conflict`).
+  The next closure order stays repo-visible: authority snapshot reduction
+  first, bridge-authority demotion second, persisted `PlanRegistry` +
+  markdown projection third, then multi-agent dogfood/scenario widening.
 - 2026-04-11 bootstrap/client-boundary + mutation-admissibility follow-up in
   `MP-377` scope: generated instruction/setup surfaces now say explicitly that
   VoiceTerm is a first-party client/product integration over the portable

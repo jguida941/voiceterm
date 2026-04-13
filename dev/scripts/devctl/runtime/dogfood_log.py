@@ -6,6 +6,7 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
+from ..config import get_repo_root
 from ..governance.identity import hash_identity_parts
 from ..governance.ledger_helpers import (
     append_ledger_rows,
@@ -16,17 +17,13 @@ from ..governance.ledger_helpers import (
 )
 from ..governance.review_validation import require_choice
 from ..governance.system_catalog import build_system_catalog
-from ..governance.script_catalog_registry import (
-    CHECK_SCRIPT_FILES,
-    PROBE_SCRIPT_FILES,
-)
+from ..governance.script_catalog_registry import CHECK_SCRIPT_FILES, PROBE_SCRIPT_FILES
 from ..governance_review_log import (
     build_governance_review_report,
     resolve_governance_review_log_path,
 )
 from ..jsonl_support import parse_json_line_dict
 from ..repo_packs import active_path_config
-from ..repo_packs.voiceterm import voiceterm_repo_root
 from ..time_utils import utc_timestamp
 from .dogfood_models import (
     DOGFOOD_RECORD_CONTRACT_ID,
@@ -57,7 +54,7 @@ def resolve_dogfood_log_path(
     resolved = resolve_ledger_path(
         raw_path,
         default_rel=DEFAULT_DOGFOOD_LOG,
-        repo_root_fn=voiceterm_repo_root,
+        repo_root_fn=get_repo_root,
         repo_root=repo_root,
     )
     resolved.parent.mkdir(parents=True, exist_ok=True)
@@ -73,7 +70,7 @@ def resolve_dogfood_summary_root(
     resolved = resolve_ledger_path(
         raw_path,
         default_rel=DEFAULT_DOGFOOD_SUMMARY_ROOT,
-        repo_root_fn=voiceterm_repo_root,
+        repo_root_fn=get_repo_root,
         repo_root=repo_root,
     )
     resolved.mkdir(parents=True, exist_ok=True)
@@ -86,7 +83,7 @@ def build_dogfood_record(
     repo_root: Path | None = None,
 ) -> DogfoodRecord:
     """Build one canonical dogfood run record."""
-    effective_root = repo_root or voiceterm_repo_root() or Path(".")
+    effective_root = repo_root or get_repo_root() or Path(".")
     target_kind = require_choice(
         record_input.target_kind,
         frozenset(VALID_DOGFOOD_TARGET_KINDS),
@@ -158,7 +155,7 @@ def dogfood_catalog(
     repo_root: Path | None = None,
 ) -> dict[str, tuple[str, ...]]:
     """Return the live command/guard/probe/role catalog for coverage."""
-    effective_root = repo_root or voiceterm_repo_root() or Path(".")
+    effective_root = repo_root or get_repo_root() or Path(".")
     catalog = build_system_catalog(repo_root=effective_root)
     command_ids = tuple(command.name for command in catalog.commands)
     guard_ids = tuple(CHECK_SCRIPT_FILES)

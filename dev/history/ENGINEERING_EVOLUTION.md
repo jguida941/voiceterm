@@ -121,6 +121,36 @@ Evidence: `dev/scripts/devctl/review_channel/bridge_heading_aliases.py`,
 `dev/scripts/devctl/tests/review_channel/test_ack_contract.py`, and
 `dev/scripts/devctl/tests/vcs/test_push.py`.
 
+### 2026-04-13 - The canonical findings writer now backs governance-review and dogfood closeout
+
+Fact: the first dogfood command landed as a separate coverage ledger, but the
+write side of the findings spine was still split. `FindingBacklog` already
+powered startup/planning readers, while `governance-review --record` still
+appended rows through its own direct path and `devctl dogfood` still required
+manual follow-up to correlate a failed run with a stable governance finding.
+
+This matters because the platform claim is one findings spine, not "one reader
+and several unrelated writers." If dogfood failures and governance-review
+closeout do not share the same writer seam, startup/planning can read one
+canonical backlog while day-to-day development still depends on operator
+memory or ad hoc ledger stitching to keep those rows consistent.
+
+The closure made the write path match the reader path. `governance-review
+--record` now routes through `runtime.finding_backlog.record_finding_backlog_row`,
+`devctl dogfood --record` can auto-record linked `signal_type=dogfood`
+findings with stable ids plus refreshed review-summary artifacts when a run
+includes finding metadata, and the governance/dogfood ledger helpers now
+resolve against the runtime repo root so portable repo-pack runs do not
+silently write back into the packaged VoiceTerm checkout.
+
+Evidence: `dev/scripts/devctl/runtime/finding_backlog.py`,
+`dev/scripts/devctl/commands/governance/review.py`,
+`dev/scripts/devctl/governance_review_log.py`,
+`dev/scripts/devctl/runtime/dogfood_log.py`,
+`dev/scripts/devctl/commands/reporting/dogfood.py`,
+`dev/scripts/devctl/tests/governance/test_governance_review.py`, and
+`dev/scripts/devctl/tests/commands/reporting/test_dogfood.py`.
+
 ### 2026-04-11 - Action-request receipts and queue priority now stay aligned across inbox, dashboard, and current-session truth
 
 ### 2026-04-12 - Role-first portability and phone-operator worker-lane planning are now explicit owner-plan state

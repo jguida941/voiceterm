@@ -10,7 +10,11 @@ from unittest.mock import patch
 
 from dev.scripts.devctl import cli
 from dev.scripts.devctl.commands.governance import review as governance_review
-from dev.scripts.devctl.governance_review_log import build_governance_review_row
+from dev.scripts.devctl.config import REPO_ROOT, get_repo_root, set_repo_root
+from dev.scripts.devctl.governance_review_log import (
+    build_governance_review_row,
+    resolve_governance_review_log_path,
+)
 from dev.scripts.devctl.governance_review_models import (
     FINDING_REVIEW_CONTRACT_ID,
     FINDING_REVIEW_SCHEMA_VERSION,
@@ -429,6 +433,22 @@ class GovernanceReviewCommandTests(unittest.TestCase):
             (payload.get("recent_findings") or [{}])[0].get("signal_type"),
             "dogfood",
         )
+
+    def test_resolve_governance_review_log_path_uses_runtime_repo_root(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            repo_root = Path(tmp_dir)
+            previous_root = get_repo_root()
+            try:
+                set_repo_root(repo_root)
+                resolved = resolve_governance_review_log_path()
+            finally:
+                set_repo_root(previous_root)
+
+        self.assertEqual(
+            resolved,
+            (repo_root / "dev" / "reports" / "governance" / "finding_reviews.jsonl").resolve(),
+        )
+        self.assertEqual(get_repo_root(), REPO_ROOT)
 
     def test_review_row_includes_disposition_contract_fields(self) -> None:
         row = build_governance_review_row(

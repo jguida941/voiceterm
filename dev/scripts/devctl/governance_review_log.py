@@ -37,8 +37,8 @@ from .governance.review_validation import (
     governance_review_row_disposition_errors,
     require_choice,
 )
+from .config import get_repo_root
 from .repo_packs import active_path_config
-from .repo_packs.voiceterm import voiceterm_repo_root
 from .time_utils import utc_timestamp
 
 DEFAULT_GOVERNANCE_REVIEW_LOG = Path(active_path_config().governance_review_log_rel)
@@ -69,7 +69,7 @@ def resolve_governance_review_log_path(
     """
     resolved = resolve_ledger_path(
         raw_path, default_rel=DEFAULT_GOVERNANCE_REVIEW_LOG,
-        repo_root_fn=voiceterm_repo_root, repo_root=repo_root,
+        repo_root_fn=get_repo_root, repo_root=repo_root,
     )
     resolved.parent.mkdir(parents=True, exist_ok=True)
     return resolved
@@ -86,7 +86,7 @@ def resolve_governance_review_summary_root(
     """
     resolved = resolve_ledger_path(
         raw_path, default_rel=DEFAULT_GOVERNANCE_REVIEW_SUMMARY_ROOT,
-        repo_root_fn=voiceterm_repo_root, repo_root=repo_root,
+        repo_root_fn=get_repo_root, repo_root=repo_root,
     )
     resolved.mkdir(parents=True, exist_ok=True)
     return resolved
@@ -98,7 +98,7 @@ def build_governance_review_row(
     repo_root: Path | None = None,
 ) -> dict[str, Any]:
     """Build one canonical review-log row."""
-    effective_root = repo_root or voiceterm_repo_root() or Path(".")
+    effective_root = repo_root or get_repo_root() or Path(".")
     raw_repo_path = optional_text(review_input.repo_path)
     normalized_signal_type = require_choice(
         review_input.signal_type,

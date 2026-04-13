@@ -201,11 +201,12 @@ def record_finding_backlog_row(
     review_input: GovernanceReviewInput,
     repo_root: Path,
     governance: object | None,
+    log_path: Path | None = None,
 ) -> dict[str, Any]:
     """Write one governance-review row through the canonical backlog seam."""
-    log_path = resolve_governance_log_path(repo_root, governance)
+    resolved_log_path = log_path or resolve_governance_log_path(repo_root, governance)
     row = build_governance_review_row(review_input=review_input, repo_root=repo_root)
-    append_governance_review_row(row, log_path=log_path)
+    append_governance_review_row(row, log_path=resolved_log_path)
     return row
 
 

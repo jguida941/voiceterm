@@ -80,8 +80,8 @@ treat these rules as active workflow instructions immediately.
 - Last Codex poll: `2026-04-13T22:26:40Z`
 - Last Codex poll (Local America/New_York): `2026-04-13 18:26:40 EDT`
 - Reviewer mode: `single_agent`
-- Last non-audit worktree hash: `be9ee902e9c4563de4a0e965b491d5a0e50beacde88379a1c96834af69509f02`
-- Current instruction revision: `5b347db79633`
+- Last non-audit worktree hash: `c65c579eff65a5859085b3b0da00af0007b759b3c88d79f43c6b9b557f20c0f9`
+- Current instruction revision: `da5fb4e09dbb`
 
 ## Protocol
 
@@ -137,12 +137,12 @@ pending
 
 ## Current Instruction For Claude
 
-- Architecture review request: MP-377 dogfood/finding backlog/plan-registry closure
-- Context packet: trigger `review-channel-event`; query terms: `MP-377`, `dev/active/MASTER_PLAN.md`, `dev/active/ai_governance_platform.md`, `development`
+- Priority action_request: Checkpoint commit requested for dogfood/governance update
+- Context packet: trigger `review-channel-event`; query terms: `dogfood`
 - Canonical refs:
-  - `dev/scripts/devctl/platform/planning_ir_reduction.py`
-  - `dev/scripts/devctl/platform/planning_ir_sources.py`
   - `dev/scripts/devctl/runtime/finding_backlog.py`
+  - `dev/scripts/devctl/runtime`
+  - `dev/scripts/devctl/commands/reporting`
 
 ## Last Reviewed Scope
 

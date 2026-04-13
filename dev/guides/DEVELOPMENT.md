@@ -1821,9 +1821,15 @@ Structured audit/event ledgers are separate from that handoff surface:
   across commands, guards, probes, and role lanes through
   `python3 dev/scripts/devctl.py dogfood --record`; the same command refreshes
   `dev/reports/dogfood/latest/summary.{md,json}` on `--report` or after each
-  recorded row. When a dogfood run exposes a real engine or workflow failure,
-  record the closeout separately through
-  `python3 dev/scripts/devctl.py governance-review --record --signal-type dogfood`.
+  recorded row. When a dogfood run uses `--record-governance`,
+  `devctl dogfood --record` also refreshes the canonical
+  `governance-review` ledger/summary with a linked `signal_type=dogfood`
+  row and stable finding id, defaulting the file path/classification from the
+  live target catalog unless you override them with `--finding-path`,
+  `--governance-check-id`, `--finding-class`, `--recurrence-risk`, or
+  `--prevention-surface`; plain
+  `python3 dev/scripts/devctl.py governance-review --record --signal-type dogfood`
+  remains the manual fallback for later closeout or reclassification.
 - `dev/reports/governance/guard_promotion_candidates.jsonl` records durable
   guard/probe follow-up candidates when `governance-review --record` uses
   `--prevention-surface guard` or `--prevention-surface probe`; inspect that

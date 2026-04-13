@@ -3138,9 +3138,9 @@ alone. Use these proof gates:
 
 Phase metadata: phase_id=MP377-P0; owner_doc=`dev/active/ai_governance_platform.md`; status=in_progress; depends_on=none; summary=Collapse execution authority to one umbrella plan plus a small owner-doc set, then land the missing findings and dogfood closeout spine.
 
-- [ ] `MP377-P0-T01` Implement one canonical `FindingBacklog` reader/writer and route finding intake plus compatibility import through it.
+- [x] `MP377-P0-T01` Implement one canonical `FindingBacklog` reader/writer and route finding intake plus compatibility import through it.
       owner_doc: `dev/active/platform_authority_loop.md`
-      status: `pending`
+      status: `done`
       depends_on: none
 - [x] `MP377-P0-T02` Reduce the active execution-doc registry to the umbrella plan plus the small owner-doc set in `INDEX.md`.
       owner_doc: `dev/active/ai_governance_platform.md`
@@ -3158,9 +3158,9 @@ Phase metadata: phase_id=MP377-P0; owner_doc=`dev/active/ai_governance_platform.
       owner_doc: `dev/active/review_channel.md`
       status: `done`
       depends_on: `MP377-P0-T03`
-- [ ] `MP377-P0-T06` Auto-record dogfood-discovered failures into `governance-review` with stable finding ids instead of relying on manual ledger correlation.
+- [x] `MP377-P0-T06` Auto-record dogfood-discovered failures into `governance-review` with stable finding ids instead of relying on manual ledger correlation.
       owner_doc: `dev/active/ai_governance_platform.md`
-      status: `pending`
+      status: `done`
       depends_on: `MP377-P0-T01`, `MP377-P0-T04`
 
 ### Phase P1 - Typed Plan Ingestion And Registry Projection
@@ -5029,13 +5029,26 @@ working on `MP-377`.
   and the typed phase/task contract. The live dogfood walkthrough already
   closed the stale `active_target` / projection parity gaps across startup,
   session-resume, dashboard, review-channel status, and context-graph, and
-  this session added the first repo-owned `devctl dogfood` ledger/report plus
-  push-preflight bridge reprojection from typed status.
+  the latest closure finished the P0 findings-write spine:
+  `governance-review --record` now routes through the canonical
+  `FindingBacklog` writer, `devctl dogfood --record --record-governance` can
+  auto-close linked dogfood findings with stable ids plus live target-path
+  defaults, and the governance/dogfood ledgers resolve against the runtime
+  repo root instead of a baked-in VoiceTerm path.
+- 2026-04-13 architecture-review ingest:
+  Claude review packets `rev_pkt_0375` through `rev_pkt_0378` are now backed
+  by typed `governance-review` rows for the still-open architecture gaps
+  around dogfood finding-id stability, dogfood read-only registration,
+  authority snapshot field reduction, bridge-authority demotion, plan
+  markdown projection, and the `AGENTS.md` dual-purpose conflict. Keep the
+  execution order explicit: authority snapshot/object closure first, bridge
+  demotion second, persisted `PlanRegistry` + markdown projection third, and
+  scenario-runner widening after those foundations are real.
 - Next action: close the remaining `P0`/`P1` foundation slices in order:
-  land the canonical `FindingBacklog`, auto-wire dogfood-discovered failures
-  into `governance-review`, then cut over to a persisted `PlanRegistry`
-  authority artifact that renders markdown projections instead of rereading
-  mutable plan files directly.
+  land a persisted `PlanRegistry` / `PlanTargetRef` authority artifact, then
+  render `INDEX.md` / `MASTER_PLAN.md` / owner-plan markdown as projections
+  over that typed state, then widen the dogfood engine into the multi-agent
+  audit runner, and only after that spend time on adopter-repo proof.
 - Context rule: start from `startup-context`, `governance-review`, and the
   review-channel inbox, then read this file and only the owner docs named by
   the active typed phase/task route.
@@ -5046,11 +5059,14 @@ working on `MP-377`.
   typed source, treat that as a platform bug and record it through
   `governance-review --record` before widening functionality.
 - 2026-04-13 dogfood engine follow-up:
-  `devctl dogfood` now persists explicit coverage rows for commands, guards,
-  probes, and roles under `dev/reports/dogfood/`, but it is still a manual
-  ledger edge. The next closure is to let dogfood failures share stable
-  `finding_id` / closeout truth with `FindingBacklog` and then run the same
-  flow against reviewer, implementer, dashboard, and adopter-repo proofs.
+  the dogfood engine now closes through the same findings spine as the rest
+  of the platform: `governance-review --record` writes through the canonical
+  `FindingBacklog` seam, and `devctl dogfood --record --record-governance`
+  can refresh linked `signal_type=dogfood` findings with stable ids using
+  live target-path defaults plus explicit overrides. The next closure is to
+  move plan authority into persisted `PlanRegistry` state and rendered
+  markdown projections before widening the same flow across reviewer,
+  implementer, dashboard, and adopter-repo proofs.
 - 2026-04-12 architecture-synthesis / phase-order update:
   the 15-command audit plus dashboard packet review confirmed that five
   directions are already platform law (deterministic runtime, role
@@ -6545,6 +6561,27 @@ Execution order for this section:
 
 ## Progress Log
 
+- 2026-04-13: Ingested Claude architecture-review packets `rev_pkt_0375`
+  through `rev_pkt_0378` into repo-visible execution state instead of leaving
+  them in the typed inbox only. The corresponding architecture findings are
+  now present in the canonical `governance-review` ledger
+  (`dogfood_finding_id_instability`, `dogfood_read_only_registration_missing`,
+  `plan_markdown_projection_missing`, `plan_authority_gap`,
+  `bridge_authority_conflict`, `bridge_metadata_parsed_as_authority`,
+  `authority_snapshot_3_fields_missing`, `agents_md_dual_purpose_conflict`),
+  and the owner-plan execution order is now explicit: authority snapshot
+  reduction first, bridge-authority demotion second, persisted
+  `PlanRegistry` + markdown projection third, then scenario-runner /
+  multi-agent dogfood widening.
+- 2026-04-13: Closed the remaining `MP377-P0` findings-write gap. The
+  canonical `FindingBacklog` writer now backs `governance-review --record`,
+  `devctl dogfood --record --record-governance` can auto-record linked
+  `signal_type=dogfood` findings with stable ids plus refreshed
+  review-summary artifacts using live target-path defaults and optional
+  overrides, and the governance/dogfood ledger helpers now resolve from the
+  runtime repo root rather than the baked-in VoiceTerm root. That leaves
+  persisted `PlanRegistry` authority plus markdown projection rendering as
+  the next foundation closure before the multi-agent dogfood runner expands.
 - 2026-04-13: Landed the first repo-owned dogfood engine slice instead of
   keeping system-test coverage in packets and prose. `devctl dogfood` now
   records explicit `DogfoodRun` rows under `dev/reports/dogfood/runs.jsonl`,

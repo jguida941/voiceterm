@@ -6,6 +6,7 @@ import argparse
 import json
 from pathlib import Path
 
+from . import dogfood_governance as dogfood_governance_support
 from ...common import (
     add_standard_output_arguments,
     emit_output,
@@ -86,6 +87,67 @@ def add_parser(sub: argparse._SubParsersAction) -> None:
     cmd.add_argument("--source-command", help="Optional command that produced the record")
     cmd.add_argument("--artifact-path", help="Optional artifact path associated with the record")
     cmd.add_argument("--notes", help="Optional free-form note stored with the record")
+    cmd.add_argument(
+        "--record-governance",
+        action="store_true",
+        help=(
+            "Append a matching signal_type=dogfood governance-review row while "
+            "recording dogfood coverage"
+        ),
+    )
+    cmd.add_argument(
+        "--finding-path",
+        help=(
+            "Optional file path for an auto-recorded dogfood governance-review "
+            "row. Defaults to the live target path when --record-governance is used."
+        ),
+    )
+    cmd.add_argument(
+        "--finding-line",
+        type=int,
+        help="Optional line number for the auto-recorded dogfood governance-review row",
+    )
+    cmd.add_argument(
+        "--finding-id",
+        help="Optional stable finding id override for the auto-recorded dogfood review row",
+    )
+    cmd.add_argument(
+        "--governance-check-id",
+        help="Optional check id override for the auto-recorded dogfood governance-review row",
+    )
+    cmd.add_argument(
+        "--governance-verdict",
+        choices=("confirmed_issue", "fixed", "deferred"),
+        help="Optional verdict override for the auto-recorded dogfood governance-review row",
+    )
+    cmd.add_argument(
+        "--finding-class",
+        help="Finding class used when auto-recording a dogfood governance-review row",
+    )
+    cmd.add_argument(
+        "--recurrence-risk",
+        help="Recurrence-risk used when auto-recording a dogfood governance-review row",
+    )
+    cmd.add_argument(
+        "--prevention-surface",
+        help="Prevention surface used when auto-recording a dogfood governance-review row",
+    )
+    cmd.add_argument(
+        "--finding-type",
+        help="Optional finding_type recorded on the auto-recorded dogfood review row",
+    )
+    cmd.add_argument(
+        "--severity",
+        help="Optional severity for the auto-recorded dogfood governance-review row",
+    )
+    cmd.add_argument(
+        "--risk-type",
+        help="Optional risk type for the auto-recorded dogfood governance-review row",
+    )
+    cmd.add_argument(
+        "--waiver-reason",
+        help="Optional waiver reason for the auto-recorded dogfood governance-review row",
+    )
 
 
 def run(args) -> int:
@@ -94,6 +156,9 @@ def run(args) -> int:
         log_path = resolve_dogfood_log_path(getattr(args, "log_path", None))
         summary_root = resolve_dogfood_summary_root(getattr(args, "summary_root", None))
         recorded_row: DogfoodRecord | None = None
+        governance_row: dict[str, object] | None = None
+        governance_paths: dict[str, str] | None = None
+        promotion_candidate: dict[str, object] | None = None
         if bool(getattr(args, "record", False)):
             error = _record_validation_error(args)
             if error is not None:
@@ -112,6 +177,12 @@ def run(args) -> int:
                 )
             )
             append_dogfood_record(recorded_row, log_path=log_path)
+            governance_row, governance_paths, promotion_candidate = (
+                dogfood_governance_support.maybe_record_governance_closeout(
+                    args,
+                    recorded_row,
+                )
+            )
         report = build_dogfood_report(
             log_path=log_path,
             summary_root=summary_root,
@@ -121,6 +192,9 @@ def run(args) -> int:
         payload = _report_payload(
             report,
             recorded_row=recorded_row,
+            governance_row=governance_row,
+            governance_paths=governance_paths,
+            promotion_candidate=promotion_candidate,
             summary_root=summary_root,
         )
     except ValueError as exc:
@@ -143,6 +217,9 @@ def _record_validation_error(args) -> str | None:
     for field_name in ("target_kind", "target_id", "status"):
         if not str(getattr(args, field_name, "") or "").strip():
             return f"`devctl dogfood --record` requires `--{field_name.replace('_', '-')}`."
+    governance_error = dogfood_governance_support.governance_validation_error(args)
+    if governance_error is not None:
+        return governance_error
     return None
 
 
@@ -168,6 +245,9 @@ def _report_payload(
     report: DogfoodReport,
     *,
     recorded_row: DogfoodRecord | None,
+    governance_row: dict[str, object] | None,
+    governance_paths: dict[str, str] | None,
+    promotion_candidate: dict[str, object] | None,
     summary_root: Path,
 ) -> dict[str, object]:
     payload = report.to_dict()
@@ -178,6 +258,17 @@ def _report_payload(
     payload["governance"] = _governance_summary_payload(report.governance_summary)
     if recorded_row is not None:
         payload["recorded"] = recorded_row.to_dict()
+    if governance_row is not None:
+        payload["governance_review"] = {
+            "recorded": governance_row,
+            "paths": governance_paths or {},
+            "promotion_candidate_created": promotion_candidate is not None,
+            "candidate_id": (
+                ""
+                if promotion_candidate is None
+                else str(promotion_candidate.get("candidate_id") or "")
+            ),
+        }
     payload["paths"] = write_dogfood_summary(report, summary_root=summary_root)
     return payload
 
