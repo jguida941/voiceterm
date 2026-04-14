@@ -26,6 +26,49 @@ from dev.scripts.devctl.review_channel.packet_contract import (
 
 
 class ReviewChannelPlanPacketTests(unittest.TestCase):
+    def test_cli_accepts_plan_gap_review_target_fields(self) -> None:
+        parser = build_parser()
+
+        args = parser.parse_args(
+            [
+                "review-channel",
+                "--action",
+                "post",
+                "--from-agent",
+                "codex",
+                "--to-agent",
+                "claude",
+                "--kind",
+                "plan_gap_review",
+                "--summary",
+                "Gap review on checklist closure",
+                "--body",
+                "The current plan still needs explicit closure evidence.",
+                "--target-kind",
+                "plan",
+                "--target-ref",
+                "plan://MP-377/platform_authority_loop",
+                "--target-revision",
+                "sha256:abc123",
+                "--anchor-ref",
+                "checklist:phase_2a",
+                "--anchor-ref",
+                "progress:finding_closure_gate",
+                "--intake-ref",
+                "intake://session-2026-03-19",
+            ]
+        )
+
+        self.assertEqual(args.kind, "plan_gap_review")
+        self.assertEqual(args.target_kind, "plan")
+        self.assertEqual(args.target_ref, "plan://MP-377/platform_authority_loop")
+        self.assertEqual(args.target_revision, "sha256:abc123")
+        self.assertEqual(
+            args.anchor_ref,
+            ["checklist:phase_2a", "progress:finding_closure_gate"],
+        )
+        self.assertEqual(args.intake_ref, "intake://session-2026-03-19")
+
     def test_cli_accepts_runtime_commit_approval_fields(self) -> None:
         parser = build_parser()
 

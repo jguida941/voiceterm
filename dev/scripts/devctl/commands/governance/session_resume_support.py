@@ -19,7 +19,7 @@ from ...runtime.authority_snapshot import (
     AuthoritySnapshot,
     authority_snapshot_from_mapping,
     build_authority_snapshot,
-    summary_blockers,
+    summary_blockers_csv,
     summary_next_command,
 )
 from ...runtime.control_topology import derive_startup_control_truth
@@ -41,7 +41,7 @@ from ...runtime.control_plane_resolve import (
     load_sources,
     read_json_artifact,
 )
-from ...runtime.value_coercion import coerce_string
+from ...runtime.value_coercion import coerce_bool, coerce_string
 from ...runtime.work_intake_models import SessionContinuityState
 from ...time_utils import utc_timestamp
 from . import session_resume_git as _session_resume_git
@@ -54,7 +54,6 @@ from .session_resume_paths import (
 if TYPE_CHECKING:
     from ...runtime.project_governance import ProjectGovernance
     from ...runtime.review_state_models import ReviewState
-
 
 SESSION_CACHE_RELATIVE_DIR = Path("dev/reports/session_cache/latest")
 SESSION_CACHE_FILENAME = "cache.json"
@@ -71,7 +70,6 @@ _STALE_CONTINUITY_STATUSES: frozenset[str] = frozenset(
 current_head = _session_resume_git.current_head
 _git_changed_paths = _session_resume_git._git_changed_paths
 _git_commit_range_paths = _session_resume_git._git_commit_range_paths
-
 
 def resolve_guard_bundle(
     repo_root: Path,
@@ -216,8 +214,10 @@ def build_from_sources(
     open_findings = _str_field(session, "open_findings")
 
     rs_mtime = get_review_state_mtime(repo_root, governance=governance)
-    safe_to_continue = model.top_blocker == "none"
-    checkpoint_required = model.resolved_phase == "committing"
+    push_governance, safe_to_continue, checkpoint_required = _push_gate_state(
+        governance=governance,
+        receipt=receipt,
+    )
 
     key_rules = distill_key_rules(
         safe_to_continue=safe_to_continue,
@@ -227,7 +227,6 @@ def build_from_sources(
         last_guard_ok=model.last_guard_ok,
     )
 
-    blockers = _resolve_blockers(receipt, model.top_blocker)
     last_reviewed_sha = _extract_last_reviewed_sha(sources)
     head_at_push_time = _extract_head_at_push_time(sources)
     review_candidate = _extract_review_candidate(sources)
@@ -235,19 +234,17 @@ def build_from_sources(
         repo_root, changed_paths,
         head_sha=head_sha, last_reviewed_sha=last_reviewed_sha,
     )
-    obs_status = ""
-    if model.reviewer_observation is not None:
-        obs_status = model.reviewer_observation.status
-    coordination = model.coordination
-    if coordination is None:
-        coordination = _extract_coordination(
-            sources,
-            repo_root=repo_root,
-            governance=governance,
-        )
-    review_state_payload = (
-        sources.get("review_state") if isinstance(sources.get("review_state"), dict) else {}
+    obs_status = (
+        model.reviewer_observation.status
+        if model.reviewer_observation is not None
+        else ""
     )
+    coordination = model.coordination or _extract_coordination(
+        sources,
+        repo_root=repo_root,
+        governance=governance,
+    )
+    review_state_payload = sources.get("review_state") if isinstance(sources.get("review_state"), dict) else {}
     typed_review_state = review_state or review_state_from_payload(review_state_payload)
     attention_payload = _extract_attention_payload(
         sources,
@@ -255,12 +252,9 @@ def build_from_sources(
         default_summary=model.attention_summary,
     )
     recovery_payload = _extract_recovery_assessment_payload(sources)
-    next_cmd = (
-        _str_field(_nested_dict(recovery_payload, "decision"), "command")
+    next_cmd = (_str_field(_nested_dict(recovery_payload, "decision"), "command")
         or _str_field(attention_payload, "recommended_command")
-        or model.next_command
-        or model.next_action
-    )
+        or model.next_command or model.next_action)
     packet_inbox = packet_inbox_from_mapping(
         review_state_payload.get("packet_inbox")
     ) or packet_inbox_from_mapping(
@@ -269,12 +263,11 @@ def build_from_sources(
             attention=review_state_payload.get("attention", {}),
         )
     )
-    observed_control_topology = ""
-    implementation_permission = ""
-    if typed_review_state is not None:
-        observed_control_topology, implementation_permission = (
-            derive_startup_control_truth(typed_review_state)
-        )
+    observed_control_topology, implementation_permission = (
+        derive_startup_control_truth(typed_review_state)
+        if typed_review_state is not None
+        else ("", "")
+    )
     authority_payload = SessionResumeAuthorityPayload(
         reviewer_mode=model.reviewer_mode,
         reviewer_freshness=model.reviewer_freshness,
@@ -290,7 +283,11 @@ def build_from_sources(
         packet_inbox=packet_inbox,
         next_command=next_cmd,
     ).to_dict()
-    if summary_blockers(authority_payload):
+    if push_governance:
+        authority_payload["governance"] = push_governance
+    shared_blockers = summary_blockers_csv(authority_payload)
+    blockers = _resolve_blockers(receipt, model.top_blocker, shared_blockers)
+    if shared_blockers != "none":
         authority_payload["next_command"] = summary_next_command(authority_payload)
     authority_snapshot = build_authority_snapshot(authority_payload)
     return SessionCachePacket(
@@ -417,9 +414,37 @@ def _extract_coordination(
     startup_context = build_startup_context(repo_root=repo_root)
     return startup_context.coordination
 
-
 _extract_last_reviewed_sha = _extract_head_at_push_time
 
+def _push_gate_state(
+    *,
+    governance: "ProjectGovernance | None",
+    receipt: dict[str, Any] | None,
+) -> tuple[dict[str, Any], bool, bool]:
+    """Return minimal governance payload plus the shared checkpoint booleans."""
+    push_enforcement = getattr(governance, "push_enforcement", None)
+    if push_enforcement is not None:
+        push_payload = asdict(push_enforcement)
+    elif receipt is not None and (
+        "checkpoint_required" in receipt or "safe_to_continue_editing" in receipt
+    ):
+        push_payload = {
+            "checkpoint_required": coerce_bool(receipt.get("checkpoint_required")),
+            "safe_to_continue_editing": (
+                True if receipt.get("safe_to_continue_editing") is None
+                else coerce_bool(receipt.get("safe_to_continue_editing"))
+            ),
+            "checkpoint_reason": _str_field(receipt, "checkpoint_reason"),
+        }
+    else:
+        return {}, True, False
+    return (
+        {"push_enforcement": push_payload},
+        True
+        if push_payload.get("safe_to_continue_editing") is None
+        else coerce_bool(push_payload.get("safe_to_continue_editing")),
+        coerce_bool(push_payload.get("checkpoint_required")),
+    )
 
 def compute_blockers(
     *,
@@ -435,7 +460,6 @@ def compute_blockers(
     if not safe_to_continue:
         parts.append("continuation_blocked")
     return ",".join(parts) if parts else "none"
-
 
 def derive_interaction_mode(
     compact: dict[str, Any] | None,
@@ -467,7 +491,6 @@ def derive_interaction_mode(
         return "single_agent"
     return "unresolved"
 
-
 def derive_next_action(receipt: dict[str, Any] | None, blockers: str) -> str:
     if receipt is None:
         return "run startup-context to generate receipt"
@@ -480,7 +503,6 @@ def derive_next_action(receipt: dict[str, Any] | None, blockers: str) -> str:
     if push_action == "run_devctl_push":
         return "python3 dev/scripts/devctl.py push --execute"
     return "python3 dev/scripts/devctl.py context-graph --mode bootstrap --format md"
-
 
 def distill_key_rules(
     *,
@@ -499,9 +521,7 @@ def distill_key_rules(
     ]
     return tuple(rules)
 
-
 from .session_resume_render import render_bootstrap, render_markdown, render_summary  # noqa: F401
-
 
 def packet_from_mapping(payload: dict[str, Any]) -> SessionCachePacket:
     return SessionCachePacket(
@@ -549,16 +569,22 @@ def packet_from_mapping(payload: dict[str, Any]) -> SessionCachePacket:
         packet_inbox=packet_inbox_from_mapping(payload.get("packet_inbox")),
     )
 
-
 def _resolve_blockers(
     receipt: dict[str, Any] | None,
     top_blocker: str,
+    shared_blockers: str = "none",
 ) -> str:
     """Return the effective blocker string, failing closed without a receipt."""
     if receipt is None:
         return "bootstrap_required"
-    return top_blocker
-
+    blockers: list[str] = []
+    for raw in (top_blocker, shared_blockers):
+        for token in str(raw or "").split(","):
+            blocker = token.strip()
+            if not blocker or blocker == "none" or blocker in blockers:
+                continue
+            blockers.append(blocker)
+    return ",".join(blockers) if blockers else "none"
 
 def _load_governed_sources(
     repo_root: Path,
@@ -579,13 +605,11 @@ def _load_governed_sources(
     base["compact_json"] = read_json_artifact(compact_path)
     return base
 
-
 def _nested_dict(data: dict[str, Any] | None, key: str) -> dict[str, Any] | None:
     if data is None:
         return None
     value = data.get(key)
     return dict(value) if isinstance(value, dict) else None
-
 
 def _str_field(data: dict[str, Any] | None, key: str) -> str:
     if data is None:

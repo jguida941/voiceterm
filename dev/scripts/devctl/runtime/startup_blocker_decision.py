@@ -96,7 +96,10 @@ def _normalize_pending_review_packet_blocker(
     """
     if pending_count is None or pending_count <= 0:
         return findings
-    first_line = findings.strip().splitlines()[0].lstrip("- ").strip()
+    stripped = findings.strip()
+    if not stripped:
+        return findings
+    first_line = stripped.splitlines()[0].lstrip("- ").strip()
     if "pending review packet" not in first_line.lower():
         return findings
     match = _PENDING_REVIEW_PACKET_RE.match(first_line)

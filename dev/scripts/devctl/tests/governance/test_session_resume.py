@@ -1939,7 +1939,7 @@ class TestGuardBundleFromReviewScope(unittest.TestCase):
 
 
 class TestReadModelPureProjection(unittest.TestCase):
-    """build_from_sources derives gate booleans from read model, not receipt."""
+    """build_from_sources projects checkpoint truth from shared push enforcement."""
 
     def _make_sources(self, *, receipt=None, compact=None, review_state=None):
         return {
@@ -1954,8 +1954,38 @@ class TestReadModelPureProjection(unittest.TestCase):
             "compact_json": compact,
         }
 
-    def test_safe_to_continue_from_top_blocker(self) -> None:
-        """safe_to_continue key rule is derived from top_blocker == 'none'."""
+    def _make_governance(self, **push_overrides):
+        from dev.scripts.devctl.runtime.project_governance_contract import (
+            ArtifactRoots,
+            BridgeConfig,
+            BundleOverrides,
+            EnabledChecks,
+            MemoryRoots,
+            PathRoots,
+            PlanRegistry,
+            ProjectGovernance,
+            RepoIdentity,
+            RepoPackRef,
+        )
+        from dev.scripts.devctl.runtime.project_governance_push import PushEnforcement
+
+        return ProjectGovernance(
+            schema_version=1,
+            contract_id="ProjectGovernance",
+            repo_identity=RepoIdentity(repo_name="test"),
+            repo_pack=RepoPackRef(pack_id="test"),
+            path_roots=PathRoots(),
+            plan_registry=PlanRegistry(),
+            artifact_roots=ArtifactRoots(),
+            memory_roots=MemoryRoots(),
+            bridge_config=BridgeConfig(),
+            enabled_checks=EnabledChecks(),
+            bundle_overrides=BundleOverrides(overrides={}),
+            push_enforcement=PushEnforcement(**push_overrides),
+        )
+
+    def test_safe_to_continue_uses_push_enforcement_truth(self) -> None:
+        """safe_to_continue follows push_enforcement, not the read-model blocker."""
         from dev.scripts.devctl.runtime.control_plane_read_model import (
             ControlPlaneReadModel,
         )
@@ -1965,7 +1995,7 @@ class TestReadModelPureProjection(unittest.TestCase):
             worktree_clean=True, ahead_of_upstream=0,
             resolved_phase="idle",
             push_eligible=False, implementation_blocked=False,
-            top_blocker="guard fail: code_shape",
+            top_blocker="none",
             next_action="fix guards", next_command="",
             reviewer_mode="single_agent",
             operator_interaction_mode="local_terminal",
@@ -1980,15 +2010,22 @@ class TestReadModelPureProjection(unittest.TestCase):
         sources = self._make_sources(
             receipt={"advisory_action": "continue"},
         )
+        governance = self._make_governance(
+            checkpoint_required=False,
+            safe_to_continue_editing=False,
+        )
         with tempfile.TemporaryDirectory() as td:
             packet = build_from_sources(
                 Path(td), role="implementer", head_sha="abc",
-                read_model_override=model, sources_override=sources,
+                governance=governance,
+                read_model_override=model,
+                sources_override=sources,
             )
             self.assertIn("safe_to_continue=False", packet.key_rules)
+            self.assertEqual(packet.blockers, "continuation_blocked")
 
-    def test_checkpoint_required_from_resolved_phase(self) -> None:
-        """checkpoint_required key rule is derived from resolved_phase == 'committing'."""
+    def test_checkpoint_required_uses_push_enforcement_truth(self) -> None:
+        """checkpoint_required follows push_enforcement, not the read-model phase."""
         from dev.scripts.devctl.runtime.control_plane_read_model import (
             ControlPlaneReadModel,
         )
@@ -1996,7 +2033,7 @@ class TestReadModelPureProjection(unittest.TestCase):
         model = ControlPlaneReadModel(
             timestamp="t", branch="b", head_sha="h",
             worktree_clean=False, ahead_of_upstream=0,
-            resolved_phase="committing",
+            resolved_phase="idle",
             push_eligible=False, implementation_blocked=False,
             top_blocker="none", next_action="commit", next_command="",
             reviewer_mode="single_agent",
@@ -2012,12 +2049,23 @@ class TestReadModelPureProjection(unittest.TestCase):
         sources = self._make_sources(
             receipt={"advisory_action": "continue"},
         )
+        governance = self._make_governance(
+            checkpoint_required=True,
+            safe_to_continue_editing=True,
+            checkpoint_reason="staged_index_budget_exceeded",
+        )
         with tempfile.TemporaryDirectory() as td:
             packet = build_from_sources(
                 Path(td), role="implementer", head_sha="abc",
-                read_model_override=model, sources_override=sources,
+                governance=governance,
+                read_model_override=model,
+                sources_override=sources,
             )
             self.assertIn("checkpoint_required=True", packet.key_rules)
+            self.assertEqual(packet.blockers, "checkpoint_required")
+            assert packet.authority_snapshot is not None
+            self.assertFalse(packet.authority_snapshot.safe_to_continue)
+            self.assertIn("implementation.edit", packet.authority_snapshot.blocked_actions)
 
 
 if __name__ == "__main__":

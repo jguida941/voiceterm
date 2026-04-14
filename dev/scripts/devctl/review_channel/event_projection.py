@@ -7,6 +7,7 @@ from dataclasses import asdict, replace
 from pathlib import Path
 
 from ..runtime.governance_scan import scan_repo_governance_safely
+from ..runtime.coordination_loader import load_coordination_snapshot
 from ..runtime.review_state_parser import review_state_from_payload
 from ..runtime.review_state_models import ReviewQueueState
 from ..runtime.review_packet_inbox import build_packet_inbox_payload
@@ -257,12 +258,9 @@ def enrich_event_review_state(
         attention=attention,
     )
     typed_review_state = review_state_from_payload(review_state)
-    from ..platform.coordination_snapshot import (
-        build_coordination_snapshot_for_review_state,
-    )
-
-    coordination = build_coordination_snapshot_for_review_state(
+    coordination = load_coordination_snapshot(
         repo_root=repo_root,
+        sources={"review_state": review_state},
         governance=governance,
         review_state=typed_review_state,
     )

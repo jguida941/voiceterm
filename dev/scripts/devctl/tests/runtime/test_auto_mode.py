@@ -124,17 +124,38 @@ class ResolveAutoModePhaseTests(unittest.TestCase):
     def test_pushing_when_push_eligible(self) -> None:
         state = resolve_auto_mode_phase(self._inputs(
             push_decision_action="run_devctl_push",
+            reviewer_mode="active_dual_agent",
         ))
         self.assertEqual(state.phase, "pushing")
         self.assertIn("push", state.next_transition)
+
+    def test_reviewing_when_push_eligible_but_both_roles_dead(self) -> None:
+        state = resolve_auto_mode_phase(self._inputs(
+            push_decision_action="run_devctl_push",
+            reviewer_mode="single_agent",
+            implementer_status="",
+        ))
+        self.assertEqual(state.phase, "reviewing")
+        self.assertIn("resume a live participant", state.next_transition)
 
     def test_committing_when_dirty_await_checkpoint(self) -> None:
         state = resolve_auto_mode_phase(self._inputs(
             push_decision_action="await_checkpoint",
             worktree_clean=False,
+            reviewer_mode="active_dual_agent",
         ))
         self.assertEqual(state.phase, "committing")
         self.assertIn("commit", state.next_transition)
+
+    def test_reviewing_when_await_checkpoint_and_both_roles_dead(self) -> None:
+        state = resolve_auto_mode_phase(self._inputs(
+            push_decision_action="await_checkpoint",
+            worktree_clean=False,
+            reviewer_mode="single_agent",
+            implementer_status="",
+        ))
+        self.assertEqual(state.phase, "reviewing")
+        self.assertIn("resume a live participant", state.next_transition)
 
     def test_idle_when_clean_await_checkpoint(self) -> None:
         state = resolve_auto_mode_phase(self._inputs(
@@ -226,6 +247,7 @@ class ResolveAutoModePhaseTests(unittest.TestCase):
         state = resolve_auto_mode_phase(self._inputs(
             push_decision_action="run_devctl_push",
             last_guard_ok=False,
+            reviewer_mode="active_dual_agent",
         ))
         self.assertEqual(state.phase, "pushing")
 
@@ -471,12 +493,30 @@ class AutoModeFromControlPlaneReadModelTests(unittest.TestCase):
         )
 
         model = self._build_model(
-            sources={"receipt": {"push_action": "run_devctl_push"}},
+            sources={
+                "receipt": {"push_action": "run_devctl_push"},
+                "review_state": {"bridge": {"reviewer_mode": "active_dual_agent"}},
+            },
         )
         inputs = inputs_from_read_model(model)
         state = resolve_auto_mode_phase(inputs)
         self.assertEqual(state.phase, "pushing")
         self.assertEqual(inputs.push_decision_action, "run_devctl_push")
+
+    def test_reviewing_from_read_model_when_push_receipt_but_both_roles_dead(self) -> None:
+        from dev.scripts.devctl.commands.auto_mode_status import (
+            inputs_from_read_model,
+        )
+
+        model = self._build_model(
+            sources={
+                "receipt": {"push_action": "run_devctl_push"},
+            },
+        )
+        inputs = inputs_from_read_model(model)
+        state = resolve_auto_mode_phase(inputs)
+        self.assertEqual(state.phase, "reviewing")
+        self.assertIn("resume a live participant", state.next_transition)
 
     def test_testing_from_read_model_with_guard_failure(self) -> None:
         from dev.scripts.devctl.commands.auto_mode_status import (

@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from ...review_channel.ack_contract import ACK_REVISION_REQUIREMENT_PREFIX
 from ..review_channel_command import RuntimePaths
 from ._bridge_poll import BridgePollResult, build_bridge_poll_result
 from ._wait_support import (
@@ -17,6 +18,12 @@ from ._wait_support import (
 
 if TYPE_CHECKING:
     from ._wait import ImplementerWaitDeps
+
+
+_WAIT_BRIDGE_NON_FATAL_ERROR_PREFIXES = (
+    ACK_REVISION_REQUIREMENT_PREFIX,
+    "Live implementer ACK (`Claude Ack` compatibility heading) revision does not match the current reviewer instruction revision.",
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -88,9 +95,14 @@ def _latest_pending_packet_id(
 
 
 def _validated_exit_code(*, bridge_text: str, exit_code: int) -> int:
-    # Fail closed: if bridge content is malformed (not just ACK-stale),
-    # force exit_code=1 so _reviewer_unhealthy treats this as broken.
-    if validate_wait_bridge_content(bridge_text):
+    # Fail closed on malformed reviewer-owned bridge state, but let implementer-
+    # side ACK drift wake the wait loop instead of collapsing it as unhealthy.
+    errors = [
+        error
+        for error in validate_wait_bridge_content(bridge_text)
+        if not str(error).startswith(_WAIT_BRIDGE_NON_FATAL_ERROR_PREFIXES)
+    ]
+    if errors:
         return 1
     return exit_code
 

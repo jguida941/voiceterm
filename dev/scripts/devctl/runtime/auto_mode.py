@@ -76,6 +76,9 @@ class AutoModeInputs:
 # so operators and agents know what the system expects to happen.
 _TRANSITION_AWAIT_CHECKPOINT = "commit current work, then rerun startup-context"
 _TRANSITION_AWAIT_REVIEW = "wait for reviewer acceptance before push"
+_TRANSITION_AWAIT_PARTICIPANT = (
+    "resume a live participant before commit/push can continue"
+)
 _TRANSITION_RUN_PUSH = "run governed push via devctl push --execute"
 _TRANSITION_RUN_GUARDS = "run guard bundle to validate current edits"
 _TRANSITION_CONTINUE_IMPLEMENTING = "continue editing toward the current slice"
@@ -87,11 +90,12 @@ def resolve_auto_mode_phase(inputs: AutoModeInputs) -> AutoModeState:
     """Derive the current auto-mode phase from repo-owned typed state.
 
     The resolution order mirrors the governance pipeline priority:
-    1. Push action overrides (committing/pushing phases).
-    2. Guard failure forces testing phase.
-    3. Reviewer-blocked forces reviewing phase.
-    4. Dirty worktree with work in progress forces implementing phase.
-    5. Otherwise idle.
+    1. Commit/push phases require a live participant.
+    2. Push action overrides (committing/pushing phases).
+    3. Guard failure forces testing phase.
+    4. Reviewer-blocked forces reviewing phase.
+    5. Dirty worktree with work in progress forces implementing phase.
+    6. Otherwise idle.
     """
     reviewer_alive = inputs.reviewer_mode in (
         "active_dual_agent",
@@ -103,7 +107,11 @@ def resolve_auto_mode_phase(inputs: AutoModeInputs) -> AutoModeState:
         "coding",
     )
 
-    phase, next_transition = _resolve_phase_and_transition(inputs)
+    phase, next_transition = _resolve_phase_and_transition(
+        inputs,
+        reviewer_alive=reviewer_alive,
+        implementer_alive=implementer_alive,
+    )
 
     return AutoModeState(
         phase=phase,
@@ -118,39 +126,59 @@ def resolve_auto_mode_phase(inputs: AutoModeInputs) -> AutoModeState:
     )
 
 
-def _resolve_phase_and_transition(
+def _resolve_by_push_decision(
     inputs: AutoModeInputs,
-) -> tuple[str, str]:
-    """Return (phase, next_transition) based on governance signal priority."""
+    *,
+    reviewer_alive: bool,
+    implementer_alive: bool,
+) -> tuple[str, str] | None:
     action = inputs.push_decision_action
-
+    if not reviewer_alive and not implementer_alive:
+        if action == "run_devctl_push" or (
+            action == "await_checkpoint" and not inputs.worktree_clean
+        ):
+            return (
+                AutoModePhase.REVIEWING.value,
+                _TRANSITION_AWAIT_PARTICIPANT,
+            )
     if action == "run_devctl_push":
         return AutoModePhase.PUSHING.value, _TRANSITION_RUN_PUSH
-
     if action == "await_checkpoint":
         if inputs.worktree_clean:
             return AutoModePhase.IDLE.value, _TRANSITION_IDLE
         return AutoModePhase.COMMITTING.value, _TRANSITION_AWAIT_CHECKPOINT
+    return None
 
+
+def _resolve_by_runtime_state(inputs: AutoModeInputs) -> tuple[str, str]:
     if not inputs.last_guard_ok:
         return AutoModePhase.TESTING.value, _TRANSITION_RUN_GUARDS
-
-    if action == "await_review":
+    if inputs.push_decision_action == "await_review":
         return AutoModePhase.REVIEWING.value, _TRANSITION_AWAIT_REVIEW
-
     if inputs.implementation_blocked:
         return AutoModePhase.REVIEWING.value, _TRANSITION_AWAIT_REVIEW
-
     if not inputs.worktree_clean:
         return AutoModePhase.IMPLEMENTING.value, _TRANSITION_CONTINUE_IMPLEMENTING
-
     if _head_has_drifted(inputs):
         return AutoModePhase.REVIEWING.value, _TRANSITION_HEAD_DRIFT
-
-    if action == "no_push_needed" and inputs.worktree_clean:
-        return AutoModePhase.IDLE.value, _TRANSITION_IDLE
-
     return AutoModePhase.IDLE.value, _TRANSITION_IDLE
+
+
+def _resolve_phase_and_transition(
+    inputs: AutoModeInputs,
+    *,
+    reviewer_alive: bool,
+    implementer_alive: bool,
+) -> tuple[str, str]:
+    """Return (phase, next_transition) based on governance signal priority."""
+    via_push_decision = _resolve_by_push_decision(
+        inputs,
+        reviewer_alive=reviewer_alive,
+        implementer_alive=implementer_alive,
+    )
+    if via_push_decision is not None:
+        return via_push_decision
+    return _resolve_by_runtime_state(inputs)
 
 
 def _head_has_drifted(inputs: AutoModeInputs) -> bool:

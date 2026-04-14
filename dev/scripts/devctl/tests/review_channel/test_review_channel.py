@@ -6,6 +6,7 @@ Fixtures in this file model the same markdown authorities the launcher reads:
 
 from __future__ import annotations
 
+import io
 import json
 import os
 import signal
@@ -14,6 +15,7 @@ import sys
 import tempfile
 import time
 import unittest
+from contextlib import redirect_stdout
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from types import SimpleNamespace
@@ -236,7 +238,7 @@ def _build_bridge_text(
             "If `Current Instruction For Claude` still contains active work and there is no explicit reviewer-owned wait state, Claude status/ack updates must be substantive: name concrete files, subsystems, findings, or one concrete blocker/question. `No change. Continuing.`, `instruction unchanged`, and `Codex should review` are contract violations.",
             "Do not use raw shell sleep loops such as `sleep 60` or `bash -lc 'sleep 60'` to represent waiting. Use the repo-owned `review-channel --action implementer-wait` path only under an explicit reviewer-owned wait state.",
             "Only the Codex conductor may update the Codex-owned sections in this file.",
-            "Only the Claude conductor may update the Claude-owned sections in this file.",
+            "Only the Claude conductor may update the implementer-owned compatibility sections (`Claude Status`, `Claude Questions`, `Claude Ack`).",
             "Specialist workers should wake on owned-path changes or explicit conductor request instead of every worker polling the full tree blindly on the same cadence.",
             "Codex must emit an operator-visible heartbeat every 5 minutes while code is moving, even when the blocker set is unchanged.",
             "",
@@ -434,6 +436,37 @@ def _build_event_bundle_for_test(
 
 
 class ReviewChannelParserTests(unittest.TestCase):
+    def test_review_channel_help_documents_plan_review_post_requirements(self) -> None:
+        parser = build_parser()
+        stdout = io.StringIO()
+
+        with self.assertRaises(SystemExit) as exit_ctx, redirect_stdout(stdout):
+            parser.parse_args(["review-channel", "--help"])
+
+        self.assertEqual(exit_ctx.exception.code, 0)
+        help_text = " ".join(stdout.getvalue().split()).replace("- ", "-")
+
+        self.assertIn(
+            "`plan_gap_review` and `plan_patch_review` also require `--target-kind plan`, `--target-ref`, `--target-revision`, at least one `--anchor-ref`, and `--intake-ref`",
+            help_text,
+        )
+        self.assertIn(
+            "Format `<anchor-type>:<anchor-token>` where `<anchor-type>` is one of `checklist`, `section`, `session_resume`, `progress`, or `audit`",
+            help_text,
+        )
+        self.assertIn(
+            "Examples: `checklist:phase_2a`, `progress:finding_closure_gate`.",
+            help_text,
+        )
+        self.assertIn(
+            "Required for `plan_gap_review` and `plan_patch_review`, for example `intake://session-2026-03-19`.",
+            help_text,
+        )
+        self.assertIn(
+            "Required on `plan_patch_review` and invalid on `plan_gap_review`.",
+            help_text,
+        )
+
     def test_cli_accepts_review_channel_launch_flags(self) -> None:
         parser = build_parser()
         args = parser.parse_args(
@@ -6745,7 +6778,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
         updated_revision = "bbbbbbbbbbbb"
         bridge_states = [
             _build_bridge_text(
-                current_instruction="- keep waiting",
+                current_instruction="- hold steady",
                 claude_ack=f"- acknowledged; instruction-rev: `{baseline_revision}`",
             ).replace("56bcd5d01510", baseline_revision),
             _build_bridge_text(
@@ -6843,7 +6876,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
         deps = review_channel_wait_mod.ImplementerWaitDeps(
             run_status_action_fn=lambda **_: (dict(report), 0),
             read_bridge_text_fn=lambda path: _build_bridge_text(
-                current_instruction="- keep waiting",
+                current_instruction="- hold steady",
                 claude_ack="- acknowledged; instruction-rev: `aaaaaaaaaaaa`",
             ).replace("56bcd5d01510", "aaaaaaaaaaaa"),
             monotonic_fn=lambda: next(monotonic_values),
@@ -6980,7 +7013,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
         deps = review_channel_wait_mod.ImplementerWaitDeps(
             run_status_action_fn=lambda **_: (dict(report), 0),
             read_bridge_text_fn=lambda path: _build_bridge_text(
-                current_instruction="- keep waiting",
+                current_instruction="- hold steady",
                 claude_ack="- acknowledged; instruction-rev: `aaaaaaaaaaaa`",
             ).replace("56bcd5d01510", "aaaaaaaaaaaa"),
             monotonic_fn=lambda: next(monotonic_values),
@@ -7029,7 +7062,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
             "review_needed": True,
         }
         bridge_text = _build_bridge_text(
-            current_instruction="- keep waiting",
+            current_instruction="- hold steady",
             claude_ack="- acknowledged; instruction-rev: `aaaaaaaaaaaa`",
         ).replace("56bcd5d01510", "aaaaaaaaaaaa")
         packet_sets = [
@@ -7088,7 +7121,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
                 0,
             ),
             read_bridge_text_fn=lambda path: _build_bridge_text(
-                current_instruction="- keep waiting",
+                current_instruction="- hold steady",
                 claude_ack="- acknowledged; instruction-rev: `aaaaaaaaaaaa`",
             ).replace("56bcd5d01510", "aaaaaaaaaaaa"),
             monotonic_fn=lambda: 0.0,
@@ -7138,7 +7171,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
                 0,
             ),
             read_bridge_text_fn=lambda path: _build_bridge_text(
-                current_instruction="- keep waiting",
+                current_instruction="- hold steady",
                 claude_ack="- acknowledged; instruction-rev: `aaaaaaaaaaaa`",
             ).replace("56bcd5d01510", "aaaaaaaaaaaa"),
             monotonic_fn=lambda: 0.0,
@@ -7884,7 +7917,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
                 codex_script.read_text(encoding="utf-8"),
             )
             self.assertIn(
-                "Posting `Claude Status` or `Claude Ack` is not the end of the loop.",
+                "Posting implementer status/ACK compatibility updates (`Claude Status` / `Claude Ack`) is not the end of the loop.",
                 claude_text,
             )
             self.assertIn(
@@ -13427,6 +13460,71 @@ class ReviewChannelCommandTests(unittest.TestCase):
             self.assertTrue(
                 any("waiting_on_peer" in warning for warning in payload["warnings"]),
                 payload["warnings"],
+            )
+
+    def test_status_projection_uses_shared_coordination_loader(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            review_channel_path = root / "dev/active/review_channel.md"
+            review_channel_path.parent.mkdir(parents=True, exist_ok=True)
+            review_channel_path.write_text(
+                _build_review_channel_text(),
+                encoding="utf-8",
+            )
+            bridge_path = root / "bridge.md"
+            bridge_path.write_text(_build_bridge_text(), encoding="utf-8")
+            output_path = root / "report.json"
+            status_dir = root / "dev/reports/review_channel/latest"
+            _write_live_runtime(status_dir)
+            args = SimpleNamespace(
+                action="status",
+                execution_mode="auto",
+                terminal="none",
+                terminal_profile="auto-dark",
+                review_channel_path=str(review_channel_path.relative_to(root)),
+                bridge_path=str(bridge_path.relative_to(root)),
+                rollover_dir="dev/reports/review_channel/rollovers",
+                status_dir=str(status_dir.relative_to(root)),
+                rollover_threshold_pct=50,
+                rollover_trigger="context-threshold",
+                await_ack_seconds=180,
+                codex_workers=8,
+                claude_workers=8,
+                dangerous=False,
+                script_dir=None,
+                dry_run=True,
+                format="json",
+                output=str(output_path),
+                pipe_command=None,
+                pipe_args=None,
+            )
+            sentinel_coordination = SimpleNamespace(
+                to_dict=lambda: {
+                    "current_slice": "Shared coordination loader sentinel.",
+                    "observed_topology": "single_agent",
+                    "recommended_topology": "single_agent",
+                    "resync_required": False,
+                }
+            )
+
+            with (
+                patch.object(review_channel_command, "REPO_ROOT", root),
+                patch(
+                    "dev.scripts.devctl.review_channel.status_projection."
+                    "load_coordination_snapshot",
+                    return_value=sentinel_coordination,
+                ) as loader_mock,
+            ):
+                rc = review_channel_command.run(args)
+
+            self.assertEqual(rc, 0)
+            self.assertGreaterEqual(loader_mock.call_count, 1)
+            loader_kwargs = loader_mock.call_args.kwargs
+            self.assertEqual(loader_kwargs["repo_root"].resolve(), root.resolve())
+            self.assertIn("review_state", loader_kwargs["sources"])
+            self.assertEqual(
+                loader_kwargs["review_state"].review.session_id,
+                "markdown-bridge",
             )
 
     def test_run_fails_launch_when_claude_ack_is_missing(self) -> None:

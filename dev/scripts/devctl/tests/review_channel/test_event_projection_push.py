@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 
 from dev.scripts.devctl.review_channel.event_projection import (
@@ -270,3 +271,92 @@ def test_enrich_uses_snapshot_push_enforcement_when_provided(
     assert pe["current_branch"] == "feature/snapshot"
     assert pe["current_head_commit"] == "snap456"
     assert enriched["_compat"]["push_enforcement"]["current_branch"] == "feature/snapshot"
+
+
+@patch(
+    "dev.scripts.devctl.review_channel.event_projection.load_coordination_snapshot",
+    return_value=SimpleNamespace(
+        to_dict=lambda: {
+            "current_slice": "Fresh coordination from loader.",
+            "observed_topology": "single_agent",
+            "recommended_topology": "single_agent",
+            "resync_required": False,
+        }
+    ),
+)
+@patch(
+    "dev.scripts.devctl.review_channel.event_projection.build_service_identity_state",
+    return_value={},
+)
+@patch(
+    "dev.scripts.devctl.review_channel.event_projection.build_attach_auth_policy_state",
+    return_value={},
+)
+@patch(
+    "dev.scripts.devctl.review_channel.event_projection.build_attach_auth_policy",
+    return_value={},
+)
+@patch(
+    "dev.scripts.devctl.review_channel.event_projection.build_service_identity",
+    return_value={},
+)
+@patch(
+    "dev.scripts.devctl.review_channel.event_projection.build_event_bridge_state_projection",
+    return_value={},
+)
+@patch(
+    "dev.scripts.devctl.review_channel.event_projection.build_surface_snapshot_id",
+    return_value="snap-3",
+)
+@patch(
+    "dev.scripts.devctl.review_channel.event_projection.load_remote_commit_pipeline_contract",
+    return_value=RemoteCommitPipelineContract(),
+)
+@patch(
+    "dev.scripts.devctl.review_channel.event_projection.build_reviewer_runtime_contract",
+    return_value=_REVIEWER_RUNTIME,
+)
+@patch(
+    "dev.scripts.devctl.review_channel.event_projection.build_collaboration_session",
+    return_value=_DummyCollaboration(),
+)
+@patch(
+    "dev.scripts.devctl.review_channel.event_projection.build_event_current_session",
+    return_value=_current_session(),
+)
+@patch(
+    "dev.scripts.devctl.review_channel.event_projection.build_bridge_push_enforcement_state",
+    return_value=_SNAPSHOT_PUSH_ENFORCEMENT,
+)
+def test_enrich_event_review_state_uses_shared_coordination_loader(
+    _push_enforcement_mock,
+    _current_session_mock,
+    _collaboration_mock,
+    _reviewer_runtime_mock,
+    _pipeline_mock,
+    _snapshot_id_mock,
+    _bridge_state_mock,
+    _service_identity_mock,
+    _attach_auth_policy_mock,
+    _attach_auth_policy_state_mock,
+    _service_identity_state_mock,
+    coordination_loader_mock,
+) -> None:
+    review_state = {
+        "timestamp": "2026-04-04T00:00:00Z",
+        "review": {"plan_id": "MP-377", "session_id": "sess-3"},
+        "queue": {},
+        "_compat": {"runtime": {"daemons": {}}},
+    }
+
+    enriched, _ = enrich_event_review_state(
+        review_state=review_state,
+        context=EventProjectionContext(
+            repo_root=Path("."),
+            review_channel_path=Path("dev/active/review_channel.md"),
+            projections_root=Path("dev/reports/review_channel/latest"),
+        ),
+    )
+
+    coordination_loader_mock.assert_called_once()
+    assert enriched["coordination"]["current_slice"] == "Fresh coordination from loader."

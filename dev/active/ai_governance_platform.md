@@ -1,6 +1,6 @@
 # AI Governance Platform Plan
 
-**Status**: active  |  **Last updated**: 2026-04-13 | **Owner:** Tooling/control plane/product architecture
+**Status**: active  |  **Last updated**: 2026-04-14 | **Owner:** Tooling/control plane/product architecture
 Execution plan contract: required
 This spec remains execution mirrored in `dev/active/MASTER_PLAN.md` under
 `MP-377`, and it is the canonical active architecture plan for the standalone
@@ -5069,6 +5069,21 @@ working on `MP-377`.
   required cross-surface parity set. If one surface still disagrees with the
   typed source, treat that as a platform bug and record it through
   `governance-review --record` before widening functionality.
+- 2026-04-14 dogfood follow-up:
+  `rev_pkt_0391` is now closed in repo code: `auto-mode` no longer advertises
+  push/checkpoint-forward phases when both reviewer and implementer are not
+  live, and instead falls back to `phase=reviewing` with a
+  "resume a live participant before commit/push can continue" transition.
+  The sharper `rev_pkt_0413` gate split is also reduced from a dangerous
+  permissive-vs-restrictive mismatch to a label-only drift: startup-context,
+  session-resume, review-channel status, and review-channel doctor now all
+  block edit/stage/commit on the same checkpoint-required state, even though
+  startup/session-resume still phrase the blocker as
+  `single_agent_authoritative` / `resume_live_review_loop` while
+  status/doctor phrase it as `resync_required` / `cut_checkpoint`.
+  `rev_pkt_0414` is the next architecture request on deck after this
+  checkpoint: add a typed WakeSignal / wake-fanout / agent-consumer-registry
+  lane so Codex-to-Claude delivery is not stuck behind Claude-side polling.
 - 2026-04-13 dogfood engine follow-up:
   the dogfood engine now closes through the same findings spine as the rest
   of the platform: `governance-review --record` writes through the canonical
@@ -6619,6 +6634,32 @@ Execution order for this section:
 
 ## Progress Log
 
+- 2026-04-14: Closed dogfood packet `rev_pkt_0391`, the `plan_*_review`
+  CLI contract drift from `rev_pkt_0389` / `rev_pkt_0412`, and the
+  dangerous action-gate portion of `rev_pkt_0413` in repo code. `auto-mode`
+  no longer reports push/checkpoint-forward phases when both reviewer and
+  implementer are dead; it now falls back to `phase=reviewing` with a
+  live-participant-resume transition, and the startup blocker reducer now
+  tolerates empty `open_findings` summaries instead of tripping on a
+  packet-only backlog. `session-resume` now derives
+  `safe_to_continue` / `checkpoint_required` from the shared
+  `push_enforcement` truth, while both review-channel projection paths route
+  coordination through `load_coordination_snapshot`, so startup-context,
+  session-resume, status, and doctor now all block edit/stage/commit against
+  the same dirty-budget state instead of splitting permissive vs restrictive.
+  The same slice also makes `review-channel --action post` document the
+  `plan_gap_review` / `plan_patch_review` requirements in help output
+  (`--target-kind plan`, `--target-ref`, `--target-revision`, at least one
+  `--anchor-ref`, `--intake-ref`, and `--mutation-op` only for
+  `plan_patch_review`). Focused proof is green on
+  `test_auto_mode.py`, `test_startup_blocker_decision.py`,
+  `test_session_resume.py`, `test_event_projection_push.py`, the
+  plan-review/help surface tests in `test_plan_packets.py` and
+  `test_review_channel.py`, and on `check_code_shape.py`,
+  `check_python_dict_schema.py`, `check_python_cyclic_imports.py`, and
+  `check_platform_contract_closure.py`. `rev_pkt_0414` is now acked as the
+  next architecture request for a typed WakeSignal / fanout / consumer-
+  registry lane after this checkpoint.
 - 2026-04-14: Closed dogfood packet `rev_pkt_0393` in repo code. The
   dashboard/status read side now publishes a small top-level JSON header
   contract through `dashboard_header.py`

@@ -23,7 +23,13 @@ def build_packet_arguments(arg_builder: Callable[..., Any]) -> list[Any]:
         arg_builder(
             "--kind",
             choices=sorted(VALID_PACKET_KINDS),
-            help="Review packet kind for `--action post`",
+            help=(
+                "Review packet kind for `--action post`. "
+                "`plan_gap_review` and `plan_patch_review` also require "
+                "`--target-kind plan`, `--target-ref`, `--target-revision`, "
+                "at least one `--anchor-ref`, and `--intake-ref`; "
+                "`plan_patch_review` also requires `--mutation-op`."
+            ),
         ),
         arg_builder("--summary", help="Short packet summary for post/watch/history views"),
         arg_builder("--body", help="Inline packet body for `--action post`"),
@@ -60,27 +66,59 @@ def build_packet_arguments(arg_builder: Callable[..., Any]) -> list[Any]:
         arg_builder(
             "--target-kind",
             choices=sorted(VALID_TARGET_KINDS),
-            help="Optional packet target kind; planning packets must use `plan`.",
+            help=(
+                "Optional packet target kind; planning packets must use `plan`. "
+                "`plan_gap_review` and `plan_patch_review` require "
+                "`--target-kind plan`."
+            ),
         ),
-        arg_builder("--target-ref", help="Canonical target ref for plan/policy/artifact review packets"),
+        arg_builder(
+            "--target-ref",
+            help=(
+                "Canonical target ref for plan/policy/artifact review packets. "
+                "Required for `plan_gap_review` and `plan_patch_review`, for "
+                "example `plan://MP-377/platform_authority_loop`."
+            ),
+        ),
         arg_builder(
             "--target-revision",
-            help="Expected target revision or digest recorded on plan review packets",
+            help=(
+                "Expected target revision or digest recorded on plan review "
+                "packets. Required for `plan_gap_review` and "
+                "`plan_patch_review`, for example `sha256:abc123`."
+            ),
         ),
         arg_builder(
             "--anchor-ref",
             action="append",
             default=[],
-            help="Repeatable typed anchor ref, for example `checklist:phase_2a`",
+            help=(
+                "Repeatable typed plan anchor ref. `plan_gap_review` and "
+                "`plan_patch_review` require at least one. Format "
+                "`<anchor-type>:<anchor-token>` where `<anchor-type>` is one "
+                "of `checklist`, `section`, `session_resume`, `progress`, or "
+                "`audit`; `<anchor-token>` must start alphanumeric and may "
+                "then use letters, digits, `.`, `_`, or `-`. Examples: "
+                "`checklist:phase_2a`, `progress:finding_closure_gate`."
+            ),
         ),
         arg_builder(
             "--intake-ref",
-            help="Canonical intake packet ref that authorized the current plan review or patch",
+            help=(
+                "Canonical intake packet ref that authorized the current plan "
+                "review or patch. Required for `plan_gap_review` and "
+                "`plan_patch_review`, for example "
+                "`intake://session-2026-03-19`."
+            ),
         ),
         arg_builder(
             "--mutation-op",
             choices=sorted(VALID_PLAN_MUTATION_OPS),
-            help="Plan mutation operation for `plan_patch_review` packets",
+            help=(
+                "Plan mutation operation for `plan_patch_review` packets. "
+                "Required on `plan_patch_review` and invalid on "
+                "`plan_gap_review`."
+            ),
         ),
         arg_builder(
             "--pipeline-generation",

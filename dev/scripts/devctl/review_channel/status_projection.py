@@ -14,6 +14,7 @@ from dataclasses import asdict, dataclass, replace
 from pathlib import Path
 
 from ..common import display_path
+from ..runtime.coordination_loader import load_coordination_snapshot
 from ..runtime.governance_scan import scan_repo_governance_safely
 from ..runtime.review_state_models import (
     AgentRegistryState,
@@ -204,14 +205,11 @@ def build_bridge_review_state(
         snapshot_id=commit_bundle.snapshot_id,
     )
     governance = scan_repo_governance_safely(context.repo_root)
-    from ..platform.coordination_snapshot import (
-        build_coordination_snapshot_for_review_state,
-    )
-
     review_state = replace(
         review_state,
-        coordination=build_coordination_snapshot_for_review_state(
+        coordination=load_coordination_snapshot(
             repo_root=context.repo_root,
+            sources={"review_state": review_state.to_dict()},
             governance=governance,
             review_state=review_state,
         ),
