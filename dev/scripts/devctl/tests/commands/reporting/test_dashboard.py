@@ -1366,6 +1366,16 @@ class TestHealthSection(unittest.TestCase):
         md = dashboard_render.render_markdown(snapshot)
         self.assertIn("NO SESSION", md)
 
+    def test_conductor_alive_without_pid_renders_running(self) -> None:
+        snapshot = _full_snapshot()
+        snapshot["health"]["codex_conductor"] = {"pid": None, "alive": True}
+        terminal = dashboard_render.render_terminal(snapshot)
+        self.assertIn("RUNNING", terminal)
+        self.assertIn("pid unavailable", terminal)
+        md = dashboard_render.render_markdown(snapshot)
+        self.assertIn("RUNNING", md)
+        self.assertIn("pid unavailable", md)
+
 
 class TestConductorLiveness(unittest.TestCase):
     """Verify conductor session reading and PID liveness probing."""
@@ -2712,10 +2722,11 @@ class TestTypedReviewState(unittest.TestCase):
             self.assertEqual(snapshot["status"], snapshot["summary"]["overall_state"])
             self.assertEqual(snapshot["owner"], snapshot["now"]["owner"])
             self.assertEqual(snapshot["next_action"], snapshot["now"]["next_action"])
-            self.assertEqual(snapshot["top_blocker"], "4 pending review packet(s)")
+            self.assertEqual(snapshot["top_blocker"], "1 pending review packet(s)")
             self.assertEqual(snapshot["coordination"]["pending_count"], 4)
             self.assertEqual(snapshot["pending_count"], 4)
             self.assertEqual(snapshot["pending_findings_count"], 0)
+            self.assertEqual(snapshot["control_plane"]["pending_action_requests"], 0)
 
     def test_health_prefers_typed_liveness_over_stale_runtime_artifacts(self) -> None:
         class FrozenReviewState:

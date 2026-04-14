@@ -6634,6 +6634,23 @@ Execution order for this section:
 
 ## Progress Log
 
+- 2026-04-14: Closed the current review-channel follow-up slice for
+  `rev_pkt_0424`, `rev_pkt_0426`, and the bounded `rev_pkt_0428` wake path in
+  repo code. Dashboard terminal/markdown renderers now treat repo-owned
+  conductor sessions with `alive=true` and no pid as `RUNNING` instead of
+  `NO SESSION`, `ControlPlaneReadModel.pending_action_requests` now counts
+  only live `kind="action_request"` packets instead of every pending packet
+  kind, and the ensure-follow publisher now has a repo-owned
+  remote-control-only wake helper that relaunches a stuck Codex reviewer
+  session once per unobserved Codex-targeted action request after best-effort
+  cleanup of the parked session. Focused proof is green on the new/updated
+  regression coverage in `test_dashboard.py`,
+  `test_control_plane_read_model.py`,
+  `test_follow_controller.py`, and
+  `test_follow_controller_reviewer_wake.py`; the broader file-level rerun
+  still carries two pre-existing branch-red `test_control_plane_read_model.py`
+  phase expectations (`test_push_eligible_from_receipt`,
+  `test_guard_fail_overrides_push_eligible`) unrelated to this packet slice.
 - 2026-04-14: Closed dogfood packet `rev_pkt_0391`, the `plan_*_review`
   CLI contract drift from `rev_pkt_0389` / `rev_pkt_0412`, and the
   dangerous action-gate portion of `rev_pkt_0413` in repo code. `auto-mode`

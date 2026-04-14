@@ -210,18 +210,28 @@ def _command_for_push_action(action: str) -> str:
 
 
 def resolve_pending_packets(review_state: dict[str, Any] | None) -> int:
-    """Count pending action packets from review state."""
+    """Count live pending action_request packets from review state."""
     if review_state is None:
         return 0
-    queue = review_state.get("queue")
-    if isinstance(queue, dict):
-        pending_total = queue.get("pending_total")
-        if isinstance(pending_total, int):
-            return pending_total
     packets = review_state.get("packets", [])
     if not isinstance(packets, list):
         return 0
-    return sum(1 for packet in packets if _is_live_pending_packet(packet, packets))
+    return sum(
+        1
+        for packet in packets
+        if _is_live_pending_action_request(packet, packets)
+    )
+
+
+def _is_live_pending_action_request(
+    packet: object,
+    packets: list[dict[str, Any]],
+) -> bool:
+    if not isinstance(packet, dict):
+        return False
+    if str(packet.get("kind") or "").strip() != "action_request":
+        return False
+    return _is_live_pending_packet(packet, packets)
 
 
 def _is_live_pending_packet(

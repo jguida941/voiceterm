@@ -4,7 +4,7 @@
 
 **Status:** Draft v4 (historical design and process record)
 **Audience:** users and developers
-**Last Updated:** 2026-04-13
+**Last Updated:** 2026-04-14
 
 ## At a Glance
 
@@ -38,6 +38,45 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 - [Developer Path (15 min)](#developer-path-15-min)
 
 ### 2026-04-13 - Authority snapshot now gives startup, session-resume, and review status one shared recovery contract
+
+### 2026-04-14 - Remote-control reviewer wake and dashboard queue/liveness now follow the same typed action-request truth
+
+Fact: the remote-control review loop still had three small but real projection
+gaps. `ControlPlaneReadModel.pending_action_requests` counted every live
+pending packet even though the field name promised action requests only,
+dashboard terminal/markdown renderers could show a repo-owned conductor as
+`NO SESSION` whenever typed runtime state said `alive=true` but no PID was
+available, and the detached reviewer follow path could queue a bounded
+`restore_reviewer_turn` request without a matching repo-owned wake step when a
+waiting Codex reviewer session needed to resume.
+
+This matters because those are exactly the seams the phone/dashboard beta loop
+uses to decide whether a reviewer turn is still live and whether the next step
+is actionable. If packet counts overstate executable requests, or a live
+session renders as dead because the PID is missing, the system pushes operators
+back toward bridge prose and ad hoc restarts instead of one typed runtime
+story.
+
+The closure aligned all three surfaces on the same contract. Pending-action
+counts now include only live pending `kind="action_request"` packets, dashboard
+terminal/markdown renderers keep repo-owned conductor rows in `RUNNING` when
+typed session state says `alive=true` even if PID capture is unavailable, and
+`ensure --follow` can now relaunch one waiting Codex reviewer conductor for the
+newest unseen action-request packet instead of leaving wake-up dependent on a
+separate watcher. The wake slice was also split across the existing
+`follow_controller.py` orchestration seam and `reviewer_follow_guard.py`
+runtime/launch helper seam so the code-shape and startup-authority guards stay
+green while the loop remains portable.
+
+Evidence: `dev/scripts/devctl/runtime/control_plane_resolve.py`,
+`dev/scripts/devctl/commands/dashboard_render/terminal.py`,
+`dev/scripts/devctl/commands/dashboard_render/markdown.py`,
+`dev/scripts/devctl/review_channel/follow_controller.py`,
+`dev/scripts/devctl/review_channel/reviewer_follow_guard.py`,
+`dev/scripts/devctl/tests/runtime/test_control_plane_read_model.py`,
+`dev/scripts/devctl/tests/commands/reporting/test_dashboard.py`,
+`dev/scripts/devctl/tests/review_channel/test_follow_controller.py`, and
+`dev/scripts/devctl/tests/review_channel/test_follow_controller_reviewer_wake.py`.
 
 Fact: the repo already had the right typed reducers, but the last-mile
 authority read was still fragmented. `startup-context`, `session-resume`, and

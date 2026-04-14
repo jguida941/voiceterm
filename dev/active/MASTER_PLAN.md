@@ -173,6 +173,14 @@
   The next closure order stays repo-visible: authority snapshot reduction
   first, bridge-authority demotion second, persisted `PlanRegistry` +
   markdown projection third, then multi-agent dogfood/scenario widening.
+- 2026-04-14 remote-control wake + dashboard parity follow-up in `MP-377`
+  scope: `pending_action_requests` now counts only live pending
+  `kind="action_request"` packets, dashboard terminal/markdown projections keep
+  repo-owned conductor rows in `RUNNING` when typed session state says
+  `alive=true` even if a PID is unavailable, and `ensure --follow` can
+  relaunch one waiting Codex reviewer conductor for the newest unseen
+  action-request packet instead of leaving that wake-up dependent on a
+  separate watcher.
 - 2026-04-13 authority-snapshot closure follow-up in `MP-377` scope:
   startup-context, session-resume, and review-channel status/doctor now all
   project the same reduced `AuthoritySnapshot` contract from

@@ -114,6 +114,78 @@ class FollowControllerTests(unittest.TestCase):
         self.assertTrue(started)
         self.assertEqual(command[idx + 1], "180")
 
+    def test_ensure_follow_tick_reloads_status_after_reviewer_wake(self) -> None:
+        reports = [
+            (
+                {
+                    "command": "review-channel",
+                    "action": "status",
+                    "bridge_liveness": {"reviewer_mode": "single_agent"},
+                },
+                0,
+            ),
+            (
+                {
+                    "command": "review-channel",
+                    "action": "status",
+                    "bridge_liveness": {"reviewer_mode": "single_agent"},
+                    "packet_inbox": {"agents": []},
+                },
+                0,
+            ),
+        ]
+        deps = EnsureFollowDeps(
+            ensure_reviewer_heartbeat_fn=lambda **_kw: None,
+            reviewer_state_write_to_dict_fn=lambda _sw: None,
+            run_status_action_fn=lambda **_kw: reports.pop(0),
+            attach_reviewer_worker_fn=lambda *_a, **_kw: None,
+            ensure_reviewer_supervisor_running_fn=None,
+            emit_follow_ndjson_frame_fn=lambda *_a, **_kw: 0,
+            reset_follow_output_fn=lambda _o: None,
+            build_follow_completion_report_fn=lambda **_kw: {},
+            build_follow_output_error_report_fn=lambda **_kw: {},
+            write_publisher_heartbeat_fn=lambda *_a, **_kw: Path("/tmp/publisher.json"),
+            read_publisher_state_fn=lambda _status_dir: {"running": True},
+            write_monitor_snapshot_fn=None,
+            utc_timestamp_fn=lambda: "2026-04-10T18:10:00Z",
+            sleep_fn=lambda _s: None,
+            operator_interaction_mode="remote_control",
+        )
+
+        with (
+            patch(
+                "dev.scripts.devctl.review_channel.follow_controller.maybe_refresh_automation_reviewer_heartbeat",
+                return_value=EnsureHeartbeatResult(
+                    refreshed=False,
+                    reviewer_mode="single_agent",
+                    reason="ensure-follow",
+                    state_write=None,
+                    error=None,
+                ),
+            ),
+            patch(
+                "dev.scripts.devctl.review_channel.follow_controller.compute_review_range",
+                return_value=None,
+            ),
+            patch(
+                "dev.scripts.devctl.review_channel.follow_controller.maybe_wake_waiting_reviewer_conductor",
+                return_value={"attempted": True, "woke": True, "packet_id": "pkt-1"},
+            ),
+        ):
+            tick = _build_ensure_follow_tick(
+                args=SimpleNamespace(),
+                repo_root=Path("/tmp/repo"),
+                paths={
+                    "bridge_path": Path("/tmp/repo/bridge.md"),
+                    "status_dir": Path("/tmp/repo/dev/review_status"),
+                },
+                deps=deps,
+            )
+
+        self.assertEqual(tick.exit_code, 0)
+        self.assertEqual(tick.report["reviewer_wake"]["packet_id"], "pkt-1")
+        self.assertIn("packet_inbox", tick.report)
+
 
 def _record_monitor_snapshot(
     kwargs: dict[str, object],

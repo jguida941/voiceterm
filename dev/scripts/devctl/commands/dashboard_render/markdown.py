@@ -148,6 +148,10 @@ def _render_health_markdown(snapshot: dict[str, Any], lines: list[str]) -> None:
             state = "RUNNING" if alive else "DEAD"
             detail = "" if alive else " (process not found)"
             lines.append(f"- **{label}**: {state} | PID {pid}{detail}")
+        elif alive:
+            lines.append(
+                f"- **{label}**: RUNNING (repo-owned session alive; pid unavailable)"
+            )
         else:
             lines.append(f"- **{label}**: NO SESSION (no conductor session file)")
     attn = health.get("attention_status", "n/a")

@@ -202,6 +202,11 @@ def _render_health_terminal(snapshot: dict[str, Any], lines: list[str]) -> None:
                 f"  {label:<15}{state_color}{state_label:<10}{_RESET}"
                 f"PID {pid:<8}{detail}"
             )
+        elif alive:
+            lines.append(
+                f"  {label:<15}{_GREEN}{'RUNNING':<10}{_RESET}"
+                f"{_DIM}(repo-owned session alive; pid unavailable){_RESET}"
+            )
         else:
             lines.append(
                 f"  {label:<15}{_DIM}{'NO SESSION':<10}{_RESET}"

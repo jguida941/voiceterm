@@ -12,11 +12,24 @@ from .follow_loop import (
     build_claude_progress_token,
     run_configured_follow_action,
 )
-from .lifecycle_state import (
-    PublisherHeartbeat,
+from .lifecycle_state import PublisherHeartbeat
+from .reviewer_follow_guard import (
+    ReviewerWakeDeps,
+    ReviewerWakeLaunchContext,
+    ReviewerWakePaths,
+    as_path,
+    cleanup_codex_sessions,
+    has_blocking_cleanup_warning,
+    launch_waiting_reviewer_conductor,
+    live_codex_sessions,
+    maybe_refresh_automation_reviewer_heartbeat,
+    wake_report,
 )
-from .reviewer_follow_guard import maybe_refresh_automation_reviewer_heartbeat
 from .reviewer_head_tracking import compute_review_range
+
+_WAITING_REVIEWER_SESSION_STATES = frozenset(
+    {"interrupt_prompt", "waiting_for_user_input"}
+)
 
 
 @dataclass(frozen=True)
@@ -98,6 +111,24 @@ def _build_ensure_follow_tick(
                 paths=paths,
             )
             report["reviewer_supervisor_auto_start"] = reviewer_supervisor_auto_start
+    reviewer_wake = maybe_wake_waiting_reviewer_conductor(
+        args=args,
+        repo_root=repo_root,
+        paths=paths,
+        report=report,
+        operator_interaction_mode=deps.operator_interaction_mode,
+    )
+    if reviewer_wake is not None:
+        report["reviewer_wake"] = reviewer_wake
+        if bool(reviewer_wake.get("woke")):
+            report, exit_code = deps.run_status_action_fn(
+                args=args,
+                repo_root=repo_root,
+                paths=paths,
+            )
+            if reviewer_supervisor_auto_start is not None:
+                report["reviewer_supervisor_auto_start"] = reviewer_supervisor_auto_start
+            report["reviewer_wake"] = reviewer_wake
     review_range = compute_review_range(
         repo_root=repo_root,
         bridge_path=bridge_path,
@@ -167,3 +198,145 @@ def _maybe_restart_reviewer_supervisor(
         paths=paths,
         allow_follow=True,
     )
+
+
+def maybe_wake_waiting_reviewer_conductor(
+    *,
+    args,
+    repo_root: Path,
+    paths: dict[str, object],
+    report: dict[str, object],
+    operator_interaction_mode: str,
+    deps: ReviewerWakeDeps | None = None,
+) -> dict[str, object] | None:
+    """Relaunch a stuck Codex reviewer session for one pending action request."""
+
+    effective_deps = deps or ReviewerWakeDeps()
+    packet, immediate_report = _resolve_reviewer_wake_target(
+        report=report,
+        operator_interaction_mode=operator_interaction_mode,
+    )
+    if immediate_report is not None or packet is None:
+        return immediate_report
+
+    wake_paths = _resolve_reviewer_wake_paths(paths)
+    if wake_paths is None:
+        return wake_report(
+            packet=packet,
+            attempted=True,
+            woke=False,
+            reason="runtime_paths_missing",
+        )
+
+    live_sessions = live_codex_sessions(
+        session_output_root=wake_paths.status_dir,
+        deps=effective_deps,
+    )
+    if not live_sessions:
+        return None
+
+    cleanup_warnings = cleanup_codex_sessions(
+        live_codex_sessions=live_sessions,
+        deps=effective_deps,
+    )
+    if has_blocking_cleanup_warning(cleanup_warnings):
+        return wake_report(
+            packet=packet,
+            attempted=True,
+            woke=False,
+            reason="cleanup_failed",
+            warnings=cleanup_warnings,
+        )
+
+    return launch_waiting_reviewer_conductor(
+        context=ReviewerWakeLaunchContext(
+            args=args,
+            repo_root=repo_root,
+            paths=paths,
+            report=report,
+            packet=packet,
+            wake_paths=wake_paths,
+            cleanup_warnings=tuple(cleanup_warnings),
+            operator_interaction_mode=operator_interaction_mode,
+        ),
+        deps=effective_deps,
+    )
+
+
+def _resolve_reviewer_wake_target(
+    *,
+    report: dict[str, object],
+    operator_interaction_mode: str,
+) -> tuple[dict[str, object] | None, dict[str, object] | None]:
+    if operator_interaction_mode.strip() != "remote_control":
+        return None, None
+
+    bridge_liveness = report.get("bridge_liveness")
+    if not isinstance(bridge_liveness, dict):
+        return None, None
+    if _codex_session_hint_state(bridge_liveness) not in _WAITING_REVIEWER_SESSION_STATES:
+        return None, None
+
+    packet = _selected_codex_action_request(report)
+    if packet is None:
+        return None, None
+    if str(packet.get("delivery_observed_at_utc") or "").strip():
+        return None, None
+    return packet, None
+
+
+def _resolve_reviewer_wake_paths(
+    paths: dict[str, object],
+) -> ReviewerWakePaths | None:
+    status_dir = as_path(paths.get("status_dir"))
+    review_channel_path = as_path(paths.get("review_channel_path"))
+    bridge_path = as_path(paths.get("bridge_path"))
+    if status_dir is None or review_channel_path is None or bridge_path is None:
+        return None
+    return ReviewerWakePaths(
+        status_dir=status_dir,
+        review_channel_path=review_channel_path,
+        bridge_path=bridge_path,
+    )
+
+
+def _selected_codex_action_request(
+    report: dict[str, object],
+) -> dict[str, object] | None:
+    packet_inbox = report.get("packet_inbox")
+    packets = report.get("packets")
+    if not isinstance(packet_inbox, dict) or not isinstance(packets, list):
+        return None
+
+    current_packet_id = ""
+    for agent in packet_inbox.get("agents", ()):
+        if not isinstance(agent, dict):
+            continue
+        if str(agent.get("agent") or "").strip() != "codex":
+            continue
+        if str(agent.get("attention_status") or "").strip() != "wake_required":
+            return None
+        current_packet_id = str(agent.get("current_instruction_packet_id") or "").strip()
+        break
+    if not current_packet_id:
+        return None
+
+    for packet in packets:
+        if not isinstance(packet, dict):
+            continue
+        if str(packet.get("packet_id") or "").strip() != current_packet_id:
+            continue
+        if str(packet.get("kind") or "").strip() != "action_request":
+            return None
+        return packet
+    return None
+
+
+def _codex_session_hint_state(bridge_liveness: dict[str, object]) -> str:
+    hints = bridge_liveness.get("session_state_hints")
+    if not isinstance(hints, dict):
+        return ""
+    codex = hints.get("codex")
+    if not isinstance(codex, dict):
+        return ""
+    return str(codex.get("state") or "").strip()

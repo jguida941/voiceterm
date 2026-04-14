@@ -395,6 +395,14 @@ Portability note:
   also drives `current_session.current_instruction`, so read-only dashboard and
   status clients do not fall back to a later commentary packet while a live
   action request is still pending.
+- The same review-channel/dashboard lane now keeps liveness and queue counts
+  fail-closed on typed runtime state too: `pending_action_requests` counts only
+  live pending `kind="action_request"` packets, dashboard terminal/markdown
+  renderers keep a conductor row in `RUNNING` when the typed session says
+  `alive=true` even if the PID is unavailable, and `ensure --follow` may
+  relaunch one waiting Codex reviewer conductor for the newest unseen
+  action-request packet instead of leaving that wake-up dependent on a
+  separately started watcher.
 - The same lane no longer trusts bridge prose or raw HEAD equality for
   publish authority. `reviewer_runtime` owns implementer ACK/block truth,
   `bridge_review_accepted` is typed-only, and push recovery matches

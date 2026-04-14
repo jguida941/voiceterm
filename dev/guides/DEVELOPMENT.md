@@ -132,6 +132,13 @@ Use docs like this:
   on the action-request-first control path during read-only polls instead of
   falling back to a later commentary packet while a live action request is
   still pending.
+- Keep remote-control review-channel wake, status, and dashboard surfaces in
+  lockstep when you touch that lane: `pending_action_requests` means live
+  pending `kind="action_request"` packets only, dashboard conductor rows must
+  stay `RUNNING` when typed session state says `alive=true` even if a PID is
+  unavailable, and `ensure --follow` may relaunch one waiting Codex reviewer
+  conductor for the newest unseen action-request packet instead of depending
+  on a separate watcher.
 - The bundle.tooling hygiene gate ignores the long-standing publications drift warning via --ignore-warning-source publications alongside the existing mutation_badge exclusion, so unrelated pushes are no longer blocked by external-site drift.
 - The same Phase-2 authority cleanup now keeps review/push truth on typed
   runtime contracts too: `reviewer_runtime` owns
