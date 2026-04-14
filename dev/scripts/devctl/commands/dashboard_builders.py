@@ -308,6 +308,7 @@ def _build_coordination_section(
     finding_lines = [
         ln for ln in findings.splitlines() if ln.strip().startswith("-")
     ] if findings.lower() != "none" else []
+    pending_findings_count = len(finding_lines)
 
     reviewer_age = _age_seconds(bridge.get("last_poll_utc", ""))
     pending_count = len(ctx.typed_packets) if ctx.typed_packets else 0
@@ -317,10 +318,12 @@ def _build_coordination_section(
 
     return {
         "pending_packets": pending_count,
+        "pending_count": pending_count,
         "instruction_rev": ctx.instruction_rev,
         "reviewer_age": _format_age(reviewer_age),
         "implementer_state": "current" if session.get("implementer_ack_state") == "current" else "stale",
-        "pending_findings": f"{len(finding_lines)} findings" if finding_lines else "0 findings",
+        "pending_findings_count": pending_findings_count,
+        "pending_findings": f"{pending_findings_count} findings",
         "next_action": ctx.receipt_push,
         "session_age": ctx.session_info.get("session_label", "--"),
         "session_started": ctx.session_info.get("started_time", ""),

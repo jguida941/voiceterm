@@ -26,6 +26,7 @@ drift. Q99 applies the same shape to top_blocker/next_action.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+import re
 from typing import TYPE_CHECKING, Any, Literal
 
 if TYPE_CHECKING:
@@ -75,12 +76,45 @@ def _first_line_clip(value: str, limit: int = 60) -> str:
     return first_line
 
 
+_PENDING_REVIEW_PACKET_RE = re.compile(
+    r"^(?P<count>\d+)\s+pending review packet\(s\)$",
+    re.IGNORECASE,
+)
+
+
+def _normalize_pending_review_packet_blocker(
+    findings: str,
+    pending_count: int | None,
+) -> str:
+    """Prefer the typed pending-packet count over stale prose summaries.
+
+    Some surfaces still project ``session.open_findings`` as a string like
+    ``"1 pending review packet(s)"`` while the typed packet queue already
+    knows the live total. When both signals refer to pending review packets,
+    prefer the typed count so blocker text does not drift across dashboard,
+    control-plane, and session surfaces.
+    """
+    if pending_count is None or pending_count <= 0:
+        return findings
+    first_line = findings.strip().splitlines()[0].lstrip("- ").strip()
+    if "pending review packet" not in first_line.lower():
+        return findings
+    match = _PENDING_REVIEW_PACKET_RE.match(first_line)
+    if match is None:
+        return findings
+    current_count = int(match.group("count"))
+    if current_count == pending_count:
+        return findings
+    return f"{pending_count} pending review packet(s)"
+
+
 def derive_blocker_decision(
     *,
     quality: dict[str, Any] | None,
     doctor: dict[str, Any] | None,
     session: dict[str, Any] | None,
     push_action: str = "",
+    pending_count: int | None = None,
 ) -> BlockerSnapshot:
     """Canonical reducer for top_blocker + next_action.
 
@@ -97,6 +131,11 @@ def derive_blocker_decision(
     3. **Session findings** -- ``session["open_findings"]`` has a
        non-empty, non-"none" value. The first bullet becomes the
        blocker string. ``blocker_source="session"``.
+    When ``pending_count`` is supplied and the session blocker prose is a
+    pending-review-packet summary, the reducer normalizes that prose to the
+    typed count before clipping it. This keeps stale packet prose from
+    outranking the live typed queue.
+
     4. **Default** -- no blocker detected. ``blocker_source="none"``.
 
     ``next_action`` mirrors ``push_action`` from the governed push
@@ -156,6 +195,7 @@ def derive_blocker_decision(
         )
 
     findings = str(session.get("open_findings") or "").strip()
+    findings = _normalize_pending_review_packet_blocker(findings, pending_count)
     if findings and findings.lower() != "none":
         clipped = _first_line_clip(findings)
         evidence.append("session.open_findings[0]")

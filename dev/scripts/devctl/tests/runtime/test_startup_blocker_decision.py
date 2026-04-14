@@ -85,6 +85,16 @@ class DeriveBlockerDecisionTests(unittest.TestCase):
         self.assertTrue(snapshot.top_blocker.endswith("..."))
         self.assertLessEqual(len(snapshot.top_blocker), 63)
 
+    def test_pending_review_packet_summary_prefers_typed_count(self) -> None:
+        snapshot = derive_blocker_decision(
+            quality={},
+            doctor={},
+            session={"open_findings": "1 pending review packet(s)"},
+            pending_count=6,
+        )
+        self.assertEqual(snapshot.blocker_source, "session")
+        self.assertEqual(snapshot.top_blocker, "6 pending review packet(s)")
+
     def test_none_when_all_clean(self) -> None:
         snapshot = derive_blocker_decision(
             quality={"failing": []},

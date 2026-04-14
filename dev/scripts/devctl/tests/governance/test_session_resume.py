@@ -644,6 +644,40 @@ class TestRunCommand(unittest.TestCase):
             )
             self.assertEqual(run(args), 0)
 
+    @patch(_PATCH_CONTINUITY, return_value=None)
+    @patch(_PATCH_HEAD, return_value="abc123")
+    @patch(_PATCH_ROOT)
+    def test_run_json_cache_hit_returns_zero_even_with_blockers(
+        self,
+        mock_root,
+        mock_head,
+        mock_cont,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            mock_root.return_value = root
+            cache_dir = root / "dev" / "reports" / "session_cache" / "latest"
+            cache_dir.mkdir(parents=True)
+            pkt = SessionCachePacket(
+                head_sha="abc123",
+                role="implementer",
+                blockers="8 pending review packet(s)",
+                authority_snapshot=AuthoritySnapshot(
+                    coordination_state="single_agent_authoritative",
+                    safe_to_continue=True,
+                ),
+            )
+            (cache_dir / "cache.json").write_text(json.dumps(pkt.to_dict()))
+            args = SimpleNamespace(
+                format="json",
+                output=None,
+                pipe_command=None,
+                pipe_args=None,
+                role="implementer",
+            )
+
+            self.assertEqual(run(args), 0)
+
     @patch(_PATCH_HEAD, return_value="abc123")
     @patch(_PATCH_ROOT)
     def test_run_md_format_no_artifacts_fails_closed(self, mock_root, mock_head) -> None:
@@ -1513,6 +1547,92 @@ class TestV2Fields(unittest.TestCase):
             packet.authority_snapshot.next_command,
             "python3 dev/scripts/devctl.py commit -m \"<descriptive message>\"",
         )
+
+    def test_authority_snapshot_prefers_coordination_resync_over_push_guidance(self) -> None:
+        """AuthoritySnapshot stays blocker-aware even when the read model says push."""
+        from dev.scripts.devctl.runtime.control_plane_read_model import (
+            ControlPlaneReadModel,
+        )
+
+        model = ControlPlaneReadModel(
+            timestamp="t", branch="b", head_sha="h",
+            worktree_clean=True, ahead_of_upstream=23,
+            resolved_phase="pushing",
+            push_eligible=True, implementation_blocked=False,
+            top_blocker="1 pending review packet(s)",
+            next_action="run_devctl_push",
+            next_command="python3 dev/scripts/devctl.py push --execute",
+            reviewer_mode="single_agent",
+            operator_interaction_mode="local_terminal",
+            reviewer_freshness="overdue", review_accepted=True,
+            last_reviewed_sha="", attention_status="healthy",
+            attention_summary="Review loop signals are fresh.",
+            publisher_running=False, supervisor_running=False,
+            codex_conductor_alive=True, claude_conductor_alive=False,
+            pending_action_requests=1, last_guard_ok=True,
+            check_details=(),
+        )
+        sources = self._make_sources(
+            review_state={
+                "attention": {
+                    "status": "healthy",
+                    "summary": "Review loop signals are fresh.",
+                },
+                "recovery_assessment": {
+                    "diagnosis": {
+                        "status": "healthy",
+                        "root_cause": "Review loop signals are fresh.",
+                    },
+                    "decision": {
+                        "action_id": "continue_scoped_loop",
+                        "command": "",
+                        "execution_owner": "system",
+                    },
+                },
+                "current_session": {
+                    "current_instruction": "Do the thing",
+                    "current_instruction_revision": "rev123",
+                    "implementer_ack_state": "missing",
+                },
+                "bridge": {
+                    "reviewer_mode": "single_agent",
+                    "effective_reviewer_mode": "single_agent",
+                    "reviewer_freshness": "overdue",
+                },
+                "reviewer_runtime": {
+                    "reviewer_mode": "single_agent",
+                    "effective_reviewer_mode": "single_agent",
+                    "reviewer_freshness": "overdue",
+                    "publish_clear": True,
+                    "review_acceptance": {
+                        "review_accepted": True,
+                        "open_findings": "1 pending review packet(s)",
+                    },
+                },
+                "coordination": {
+                    "observed_topology": "dual_agent",
+                    "resync_required": True,
+                    "current_slice": "Priority action_request",
+                    "active_target": {
+                        "plan_path": "dev/active/ai_governance_platform.md",
+                    },
+                },
+            },
+        )
+
+        with tempfile.TemporaryDirectory() as td:
+            packet = build_from_sources(
+                Path(td), role="reviewer", head_sha="abc",
+                read_model_override=model, sources_override=sources,
+            )
+
+        assert packet.authority_snapshot is not None
+        self.assertEqual(
+            packet.authority_snapshot.next_command,
+            "python3 dev/scripts/devctl.py review-channel --action status --terminal none --format json",
+        )
+        self.assertTrue(packet.authority_snapshot.observed_control_topology)
+        self.assertTrue(packet.authority_snapshot.implementation_permission)
 
     def test_advisory_action_from_read_model_not_receipt(self) -> None:
         """advisory_action is derived from read model next_action, not receipt."""

@@ -17,6 +17,7 @@ def emit_governance_command_output(
     markdown_output: str,
     ok: bool = True,
     summary: Mapping[str, Any] | None = None,
+    exit_zero_on_non_ok: bool = False,
 ) -> int:
     """Emit canonical JSON for automation or markdown for humans."""
     return emit_machine_artifact_output(
@@ -24,7 +25,11 @@ def emit_governance_command_output(
         command=command,
         json_payload=json_payload,
         human_output=markdown_output,
-        options=ArtifactOutputOptions(ok=ok, summary=summary),
+        options=ArtifactOutputOptions(
+            ok=ok,
+            summary=summary,
+            exit_zero_on_non_ok=exit_zero_on_non_ok,
+        ),
     )
 
 

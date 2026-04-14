@@ -6564,6 +6564,38 @@ Execution order for this section:
     finding` and `LIVE_RUN.md` import must write the same ledger, while
     dashboard/startup/monitor/bridge/findings-priority all read that same
     snapshot and `governance-review` remains close-out only.
+3.3 The next same-lane closure after the authority-snapshot reducer landed is
+    now narrower and live-dogfood-backed: keep `review_state`, `compact`,
+    and `full` projections on the same `AuthoritySnapshot` contract and keep
+    reviewer/Claude coordination on the typed packet lane. The current proof
+    packet is `rev_pkt_0394` (`codex -> claude`), and the active follow-on
+    packet findings are `rev_pkt_0391` (`auto-mode` phase drift while no
+    participants are live), `rev_pkt_0392` (silent
+    `review-channel --action watch --follow` zero-match liveness), and
+    `rev_pkt_0393` (dashboard/status pending-count drift plus missing
+    top-level status fields). Continue consuming and answering Claude through
+    review packets instead of chat-only handoff.
+3.4 The latest same-lane packet check at `rev_pkt_0396` narrowed the next bug
+    again: current in-process startup/session-resume builders no longer
+    reproduce the earlier authority mismatch, but `session-resume --format
+    json` was still returning exit code `1` when it successfully emitted a
+    valid blocked-state packet. Keep the machine-readable contract explicit:
+    JSON/bootstrap surfaces may report blocked posture in payload fields
+    (`blockers`, `authority_snapshot`, summaries) without treating successful
+    emission itself as a command failure.
+3.5 `rev_pkt_0393` is now closed in repo code rather than left as packet-only
+    dashboard evidence. `DashboardSnapshot` now emits a compact top-level
+    header contract (`status`, `owner`, `next_action`, `top_blocker`,
+    `pending_count`, `pending_findings_count`, `next_actor`,
+    `next_command`), coordination carries integer pending counts instead of
+    only prose, and the blocker reducer normalizes stale
+    `"N pending review packet(s)"` strings against the typed live packet
+    count before the dashboard/status surfaces render them. Keep the raw
+    `review_state` payload as the dashboard extraction source when it is
+    present so doctor/runtime fields do not disappear during typed
+    round-trip projection; continue feeding the typed object into
+    `ControlPlaneReadModel` / startup bootstrap separately. The next packet
+    work on this lane is now `rev_pkt_0391` / `rev_pkt_0392`.
 4. Continue from the listed `Next actions` unless the user explicitly
    reprioritizes.
 5. Before ending the session, update both this `Session Resume` section and the
@@ -6572,6 +6604,67 @@ Execution order for this section:
 
 ## Progress Log
 
+- 2026-04-14: Closed dogfood packet `rev_pkt_0393` in repo code. The
+  dashboard/status read side now publishes a small top-level JSON header
+  contract through `dashboard_header.py`
+  (`status`, `owner`, `next_action`, `top_blocker`, `pending_count`,
+  `pending_findings_count`, `next_actor`, `next_command`), the health/liveness
+  cluster moved into `dashboard_health.py` without breaking the legacy
+  `dashboard._build_health_section` / `_read_heartbeat` /
+  `_read_conductor_liveness` / `_pid_is_alive` compatibility seams that the
+  dashboard tests still import directly, and `build_snapshot` now preserves
+  the raw `review_state` payload for dashboard extraction so doctor fields stay
+  visible even when the typed round-trip narrows the projection. The same
+  slice also makes `coordination.pending_count` / `pending_findings_count`
+  integer-first and teaches the blocker reducer to prefer typed pending packet
+  totals over stale `"1 pending review packet(s)"` prose when that blocker
+  string is otherwise reused across dashboard/status surfaces. Proof is green
+  on `test_startup_blocker_decision.py` plus `test_dashboard.py`
+  (`227 passed`), and on `check_code_shape.py`,
+  `check_python_dict_schema.py`, `check_python_cyclic_imports.py`, and
+  `check_platform_contract_closure.py`. Packet-backed follow-on work on this
+  lane is now narrowed to `rev_pkt_0391` / `rev_pkt_0392`.
+- 2026-04-14: Closed the live `session-resume` JSON exit-code regression from
+  dogfood packet `rev_pkt_0396`. The current startup/session-resume builders
+  now agree in-process on the single-agent authority path
+  (`coordination_state=single_agent_authoritative`,
+  `implementation_permission=active`, edit/stage/commit allowed), so the
+  remaining concrete CLI bug was the machine-output contract: `session-resume
+  --format json` emitted a valid `SessionCachePacket` but still exited `1`
+  whenever `blockers != none`. `emit_machine_artifact_output` now supports
+  an explicit `exit_zero_on_non_ok` lane, `emit_governance_command_output`
+  threads that option through, and `session-resume` uses it only for JSON
+  output so receipts can keep `ok=false` while automation still receives an
+  exit code `0` on successful emission. Focused proof is green in
+  `test_machine_output.py` plus `test_session_resume.py`, and a live
+  `python3 dev/scripts/devctl.py session-resume --role implementer --format json`
+  run now exits `0` while still reporting
+  `blockers="8 pending review packet(s)"`. The next same-lane packet work
+  remains `rev_pkt_0391` / `rev_pkt_0392` / `rev_pkt_0393`
+  (auto-mode phase drift, silent `watch --follow`, and dashboard pending-count
+  drift).
+- 2026-04-14: Closed the remaining authority-snapshot parity leak in the
+  live review-channel write path instead of leaving it as packet-only dogfood
+  evidence. `projection_bundle`, `reviewer_runtime_snapshot`, `status`,
+  `session_resume_authority_payload`, `session_resume_support`, and
+  `action_routing_coordination` now all reuse the same blocker-aware
+  `AuthoritySnapshot` plus startup-derived control-topology truth, so the
+  event-backed `review_state.json` bundle and the emitted `compact.json` /
+  `full.json` projections now agree on
+  `coordination_state=resync_required`,
+  `next_command=python3 dev/scripts/devctl.py review-channel --action status --terminal none --format json`,
+  `observed_control_topology=single_implementer_single_reviewer`, and
+  `implementation_permission=active`. The same dogfood pass also moved
+  Codex-to-Claude coordination back onto the typed packet lane via
+  `rev_pkt_0394`, which asks Claude to keep reporting authority drift through
+  review packets. The next active follow-on findings are now explicit in the
+  packet ledger too: `rev_pkt_0391` (`auto-mode` enters `phase=pushing`
+  while reviewer/implementer are not live), `rev_pkt_0392`
+  (`watch --follow` emits no start/heartbeat/exit signal when zero packets
+  match), and `rev_pkt_0393` (dashboard/status pending-count drift and
+  missing top-level owner/next-action fields). Persisted `PlanRegistry`
+  authority plus markdown projection remains the next foundation closure
+  after these live runtime parity regressions.
 - 2026-04-13: Closed the first architecture-review follow-up in the owner
   chain instead of leaving `authority_snapshot_3_fields_missing` as a prose
   complaint. `dev/scripts/devctl/runtime/authority_snapshot.py` now carries

@@ -80,8 +80,8 @@ treat these rules as active workflow instructions immediately.
 - Last Codex poll: `2026-04-13T22:26:40Z`
 - Last Codex poll (Local America/New_York): `2026-04-13 18:26:40 EDT`
 - Reviewer mode: `single_agent`
-- Last non-audit worktree hash: `3aefdac7214432b456eccc129eb679f889c7faf5cebd159c316e6dfa587a15ec`
-- Current instruction revision: `da5fb4e09dbb`
+- Last non-audit worktree hash: `594fdde611270538baf0255fd1e9b1d9905d821eef459ad74b33c2c7804e0f9d`
+- Current instruction revision: `63ed4c8ba5e1`
 
 ## Protocol
 
@@ -121,7 +121,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Open Findings
 
-1 pending review packet(s)
+none
 
 ## Claude Status
 
@@ -133,16 +133,11 @@ treat these rules as active workflow instructions immediately.
 
 ## Claude Ack
 
-pending
+acknowledged
 
 ## Current Instruction For Claude
 
-- Priority action_request: Checkpoint commit requested for dogfood/governance update
-- Context packet: trigger `review-channel-event`; query terms: `dogfood`
-- Canonical refs:
-  - `dev/scripts/devctl/runtime/finding_backlog.py`
-  - `dev/scripts/devctl/runtime`
-  - `dev/scripts/devctl/commands/reporting`
+Authority sync patch landed; keep dogfood findings on packet lane
 
 ## Last Reviewed Scope
 

@@ -427,7 +427,7 @@ def _render_coordination_terminal(snapshot: dict[str, Any], lines: list[str]) ->
     """COORDINATION: compact 2-field-per-line layout with doctor and packets."""
     coord = snapshot.get("coordination", {})
 
-    pending = coord.get("pending_packets", 0)
+    pending = coord.get("pending_count", coord.get("pending_packets", 0))
     instr_rev = coord.get("instruction_rev", "n/a")
     rev_age = coord.get("reviewer_age", "--")
     impl_state = coord.get("implementer_state", "n/a")

@@ -111,6 +111,7 @@ def _emit_packet(args, packet: SessionCachePacket) -> int:
         json_payload=packet.to_dict(),
         markdown_output=human,
         ok=(packet.blockers == "none"),
+        exit_zero_on_non_ok=(fmt == "json"),
         summary={
             "role": packet.role,
             "blockers": packet.blockers,

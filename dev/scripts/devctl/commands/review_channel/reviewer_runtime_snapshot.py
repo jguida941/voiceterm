@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import asdict
 from collections.abc import Mapping
 
+from ...runtime.control_topology import derive_startup_control_truth
 from ...runtime.review_state_models import ReviewState
 from ...review_channel.runtime_counts import build_runtime_counts
 from ...review_channel.reviewer_runtime_contract import (
@@ -60,6 +61,11 @@ def attach_reviewer_runtime_snapshot(
     coordination = getattr(review_state, "coordination", None)
     if coordination is not None:
         report["coordination"] = coordination.to_dict()
+    observed_control_topology, implementation_permission = derive_startup_control_truth(
+        review_state
+    )
+    report["observed_control_topology"] = observed_control_topology
+    report["implementation_permission"] = implementation_permission
     bridge_liveness = dict(bridge_liveness_report or {})
     if current_session is not None:
         bridge_liveness.update(
@@ -104,7 +110,8 @@ def attach_reviewer_runtime_snapshot(
             else False
         ),
     )
-    project_authority_snapshot(
-        report,
-        next_command=str(report["doctor"].get("recommended_command") or "").strip(),
-    )
+    existing_authority = getattr(review_state, "authority_snapshot", None)
+    if existing_authority is not None:
+        report["authority_snapshot"] = existing_authority.to_dict()
+    else:
+        project_authority_snapshot(report)

@@ -14,6 +14,8 @@ class SessionResumeAuthorityPayload:
     reviewer_mode: str
     reviewer_freshness: str
     operator_interaction_mode: str
+    observed_control_topology: str
+    implementation_permission: str
     attention: dict[str, Any]
     recovery_assessment: dict[str, Any]
     current_instruction: str
@@ -28,6 +30,8 @@ class SessionResumeAuthorityPayload:
         payload["reviewer_mode"] = self.reviewer_mode
         payload["reviewer_freshness"] = self.reviewer_freshness
         payload["operator_interaction_mode"] = self.operator_interaction_mode
+        payload["observed_control_topology"] = self.observed_control_topology
+        payload["implementation_permission"] = self.implementation_permission
         payload["attention"] = self.attention
         payload["recovery_assessment"] = self.recovery_assessment
         payload["current_session"] = _build_current_session_payload(

@@ -299,9 +299,11 @@ def _full_snapshot() -> dict:
         },
         "coordination": {
             "pending_packets": 0,
+            "pending_count": 0,
             "instruction_rev": "f7f80b28c5fe",
             "reviewer_age": "18s ago",
             "implementer_state": "current",
+            "pending_findings_count": 2,
             "pending_findings": "2 findings",
             "next_action": "run_devctl_push",
             "session_age": "45m",
@@ -375,6 +377,15 @@ def _full_snapshot() -> dict:
             "secondary_blocker": "Attention inactive",
             "one_line": "Implementer active; infra down; quality gate failing on code_shape; push blocked.",
         },
+        "status": "blocked",
+        "owner": "Reviewer",
+        "next_action": "review worker results and checkpoint",
+        "top_blocker": "code-shape debt in common_io.py",
+        "pending_count": 2,
+        "pending_findings_count": 2,
+        "next_actor": "implementer",
+        "next_command": "python3 dev/scripts/devctl.py review-channel --action status --terminal none --format json",
+        "pending_action_requests": 2,
     }
 
 
@@ -2626,6 +2637,8 @@ class TestTypedReviewState(unittest.TestCase):
                 snapshot = dashboard.build_snapshot(repo_root=root)
 
             self.assertEqual(snapshot["coordination"]["pending_packets"], 2)
+            self.assertEqual(snapshot["coordination"]["pending_count"], 2)
+            self.assertEqual(snapshot["pending_count"], 2)
 
     def test_doctor_fields_in_coordination(self) -> None:
         """Doctor status from ReviewState appears in coordination section."""
@@ -2650,6 +2663,59 @@ class TestTypedReviewState(unittest.TestCase):
             coord = snapshot["coordination"]
             self.assertEqual(coord["doctor_status"], "blocked")
             self.assertEqual(coord["doctor_blocked"], "stale_state")
+
+    def test_snapshot_exposes_top_level_header_contract(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            rs = _minimal_review_state()
+            rs["current_session"]["open_findings"] = "1 pending review packet(s)"
+            rs["queue"]["pending_total"] = 4
+            rs["packets"].append({
+                "packet_id": "pkt_004",
+                "kind": "finding",
+                "from_agent": "claude",
+                "to_agent": "codex",
+                "summary": "Another live packet",
+                "body": "",
+                "status": "pending",
+                "policy_hint": "",
+                "requested_action": "review_only",
+                "approval_required": False,
+                "posted_at": "2026-04-04T02:57:00Z",
+            })
+            rs["packets"].append({
+                "packet_id": "pkt_005",
+                "kind": "finding",
+                "from_agent": "claude",
+                "to_agent": "codex",
+                "summary": "One more live packet",
+                "body": "",
+                "status": "pending",
+                "policy_hint": "",
+                "requested_action": "review_only",
+                "approval_required": False,
+                "posted_at": "2026-04-04T02:58:00Z",
+            })
+            _write_artifact(
+                root,
+                "dev/reports/review_channel/state/latest.json",
+                rs,
+            )
+            bridge = root / "bridge.md"
+            bridge.write_text(_minimal_bridge_text(), encoding="utf-8")
+
+            with patch.object(dashboard, "_git_short", return_value={
+                "branch": "main", "head": "abc", "dirty": "CLEAN",
+            }), patch.object(dashboard, "_repo_name", return_value="test"):
+                snapshot = dashboard.build_snapshot(repo_root=root)
+
+            self.assertEqual(snapshot["status"], snapshot["summary"]["overall_state"])
+            self.assertEqual(snapshot["owner"], snapshot["now"]["owner"])
+            self.assertEqual(snapshot["next_action"], snapshot["now"]["next_action"])
+            self.assertEqual(snapshot["top_blocker"], "4 pending review packet(s)")
+            self.assertEqual(snapshot["coordination"]["pending_count"], 4)
+            self.assertEqual(snapshot["pending_count"], 4)
+            self.assertEqual(snapshot["pending_findings_count"], 0)
 
     def test_health_prefers_typed_liveness_over_stale_runtime_artifacts(self) -> None:
         class FrozenReviewState:

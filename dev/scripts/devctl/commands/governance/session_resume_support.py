@@ -19,7 +19,10 @@ from ...runtime.authority_snapshot import (
     AuthoritySnapshot,
     authority_snapshot_from_mapping,
     build_authority_snapshot,
+    summary_blockers,
+    summary_next_command,
 )
+from ...runtime.control_topology import derive_startup_control_truth
 from ...runtime.review_state_parser import review_state_from_payload
 from ...runtime.review_state_models import (
     packet_inbox_from_mapping,
@@ -245,6 +248,7 @@ def build_from_sources(
     review_state_payload = (
         sources.get("review_state") if isinstance(sources.get("review_state"), dict) else {}
     )
+    typed_review_state = review_state or review_state_from_payload(review_state_payload)
     attention_payload = _extract_attention_payload(
         sources,
         default_status=model.attention_status,
@@ -265,10 +269,18 @@ def build_from_sources(
             attention=review_state_payload.get("attention", {}),
         )
     )
+    observed_control_topology = ""
+    implementation_permission = ""
+    if typed_review_state is not None:
+        observed_control_topology, implementation_permission = (
+            derive_startup_control_truth(typed_review_state)
+        )
     authority_payload = SessionResumeAuthorityPayload(
         reviewer_mode=model.reviewer_mode,
         reviewer_freshness=model.reviewer_freshness,
         operator_interaction_mode=model.operator_interaction_mode,
+        observed_control_topology=observed_control_topology,
+        implementation_permission=implementation_permission,
         attention=attention_payload,
         recovery_assessment=recovery_payload,
         current_instruction=current_instruction,
@@ -278,7 +290,9 @@ def build_from_sources(
         packet_inbox=packet_inbox,
         next_command=next_cmd,
     ).to_dict()
-    authority_snapshot = build_authority_snapshot(authority_payload, next_command=next_cmd)
+    if summary_blockers(authority_payload):
+        authority_payload["next_command"] = summary_next_command(authority_payload)
+    authority_snapshot = build_authority_snapshot(authority_payload)
     return SessionCachePacket(
         generated_at_utc=utc_timestamp(),
         role=role,

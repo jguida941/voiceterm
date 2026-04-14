@@ -88,6 +88,33 @@ class MachineOutputTests(unittest.TestCase):
         self.assertIsNone(metrics["path"])
         self.assertEqual(metrics["delivery"], "stdout")
 
+    def test_non_ok_can_still_exit_zero_when_requested(self) -> None:
+        args = SimpleNamespace(
+            format="json",
+            output=None,
+            pipe_command=None,
+            pipe_args=None,
+        )
+        stdout = io.StringIO()
+
+        with redirect_stdout(stdout):
+            rc = emit_machine_artifact_output(
+                args,
+                command="session-resume",
+                json_payload={"ok": False, "blockers": "pending review packet(s)"},
+                human_output="# ignored\n",
+                options=ArtifactOutputOptions(
+                    ok=False,
+                    exit_zero_on_non_ok=True,
+                ),
+            )
+
+        self.assertEqual(rc, 0)
+        self.assertEqual(
+            stdout.getvalue().strip(),
+            '{"blockers":"pending review packet(s)","command":"session-resume","ok":false}',
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

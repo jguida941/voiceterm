@@ -190,7 +190,8 @@ def _refresh_bridge_status_report(
     recommended_command, command_source = resolve_status_recommended_command(report)
     report["recommended_command"] = recommended_command
     report["recommended_command_source"] = command_source
-    project_authority_snapshot(report, next_command=recommended_command)
+    if not isinstance(report.get("authority_snapshot"), dict):
+        project_authority_snapshot(report)
     existing_warnings = report.get("warnings")
     if bridge_synced:
         existing_warnings = _without_bridge_current_session_drift(existing_warnings)
@@ -267,7 +268,8 @@ def _run_status_action(
                 )
                 report["recommended_command"] = recommended_command
                 report["recommended_command_source"] = command_source
-                project_authority_snapshot(report, next_command=recommended_command)
+                if not isinstance(report.get("authority_snapshot"), dict):
+                    project_authority_snapshot(report)
                 return report, exit_code
 
             fallback_warnings.append(

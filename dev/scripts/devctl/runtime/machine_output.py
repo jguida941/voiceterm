@@ -72,6 +72,7 @@ class ArtifactOutputOptions:
     ok: bool = True
     summary: Mapping[str, Any] | None = None
     json_output_path: str | None = None
+    exit_zero_on_non_ok: bool = False
 
 
 def _build_artifact_metrics(
@@ -199,7 +200,12 @@ def emit_machine_artifact_output(
             announce_output_path=announce_output_path,
             stdout_content=stdout_content,
         )
-        return 0 if pipe_code == 0 and active_options.ok else pipe_code or 1
+        return (
+            0
+            if pipe_code == 0
+            and (active_options.ok or active_options.exit_zero_on_non_ok)
+            else pipe_code or 1
+        )
 
     if extra_json_path:
         _record_machine_output_metrics(
@@ -218,4 +224,9 @@ def emit_machine_artifact_output(
         pipe_args=getattr(args, "pipe_args", None),
         additional_outputs=additional_outputs,
     )
-    return 0 if pipe_code == 0 and active_options.ok else pipe_code or 1
+    return (
+        0
+        if pipe_code == 0
+        and (active_options.ok or active_options.exit_zero_on_non_ok)
+        else pipe_code or 1
+    )

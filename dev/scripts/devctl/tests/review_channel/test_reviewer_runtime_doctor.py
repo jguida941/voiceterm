@@ -13,6 +13,7 @@ from dev.scripts.devctl.commands.review_channel.doctor_support import (
 from dev.scripts.devctl.review_channel.reviewer_runtime_doctor import (
     build_reviewer_doctor_surface,
 )
+from dev.scripts.devctl.runtime.authority_snapshot import AuthoritySnapshot
 from dev.scripts.devctl.runtime.action_contracts import ActionResult
 from dev.scripts.devctl.platform.coordination_snapshot_models import (
     CoordinationSnapshot,
@@ -300,6 +301,24 @@ def test_attach_reviewer_runtime_snapshot_projects_authority_snapshot() -> None:
             implementer_ack_revision="rev-122",
             implementer_ack_state="stale",
         ),
+        bridge={
+            "reviewer_mode": "active_dual_agent",
+            "effective_reviewer_mode": "active_dual_agent",
+            "codex_conductor_active": True,
+            "claude_conductor_active": True,
+        },
+        authority_snapshot=AuthoritySnapshot(
+            coordination_state="handshake_stale",
+            current_instruction_revision="rev-123",
+            implementer_ack_state="stale",
+            next_command=(
+                "python3 dev/scripts/devctl.py review-channel --action status "
+                "--terminal none --format json"
+            ),
+            observed_control_topology="single_implementer_single_reviewer",
+            implementation_permission="active",
+            safe_to_continue=False,
+        ),
         coordination=CoordinationSnapshot(
             observed_topology="single_implementer_single_reviewer",
             recommended_topology="single_implementer_single_reviewer",
@@ -326,6 +345,11 @@ def test_attach_reviewer_runtime_snapshot_projects_authority_snapshot() -> None:
     assert snapshot["coordination_state"] == "handshake_stale"
     assert snapshot["current_instruction_revision"] == "rev-123"
     assert snapshot["implementer_ack_state"] == "stale"
+    assert snapshot["next_command"].startswith(
+        "python3 dev/scripts/devctl.py review-channel --action status"
+    )
+    assert report["observed_control_topology"] == "single_implementer_single_reviewer"
+    assert report["implementation_permission"] == "active"
 
     doctor_report, _ = build_doctor_report(status_report=report, exit_code=1)
     assert doctor_report["authority_snapshot"]["coordination_state"] == "handshake_stale"

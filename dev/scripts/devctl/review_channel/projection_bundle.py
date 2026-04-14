@@ -8,7 +8,11 @@ from copy import deepcopy
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
-from ..runtime.authority_snapshot import project_authority_snapshot
+from ..runtime.authority_snapshot import (
+    project_authority_snapshot,
+    summary_blockers,
+    summary_next_command,
+)
 from .context_refs import normalize_context_pack_refs
 from .current_session_projection import current_focus_line
 from .projection_bundle_markdown import render_latest_markdown
@@ -79,6 +83,7 @@ def write_projection_bundle(
 ) -> ReviewChannelProjectionPaths:
     """Write a projection bundle from one reduced review-state snapshot."""
     review_state_payload = _normalize_review_state_payload(review_state)
+    _apply_review_state_authority_context(review_state_payload)
     obs_proj = build_observation_projection(review_state_payload)
     if (
         obs_proj is not None
@@ -266,7 +271,36 @@ def _normalize_review_state_payload(
     return normalized
 
 
+def _apply_review_state_authority_context(
+    review_state_payload: dict[str, object],
+) -> None:
+    """Seed shared authority fields from the typed review-state contract.
+
+    Startup already projects observed topology and implementation permission
+    through the shared control-topology reducer. Mirror that same reducer here
+    before the compact `AuthoritySnapshot` is compiled so status, doctor,
+    session-resume, and startup can agree on the same runtime truth.
+    """
+    from ..runtime.control_topology import derive_startup_control_truth
+    from ..runtime.review_state_parser import review_state_from_payload
+
+    typed_state = review_state_from_payload(review_state_payload)
+    if typed_state is None:
+        return
+
+    observed_control_topology, implementation_permission = (
+        derive_startup_control_truth(typed_state)
+    )
+    review_state_payload["observed_control_topology"] = observed_control_topology
+    review_state_payload["implementation_permission"] = implementation_permission
+
+
 def _projection_next_command(review_state: Mapping[str, object]) -> str:
+    if summary_blockers(review_state):
+        command = summary_next_command(review_state)
+        if command:
+            return command
+
     compat = _mapping(review_state.get("_compat"))
     doctor = _mapping(compat.get("doctor"))
     attention = _mapping(review_state.get("attention"))

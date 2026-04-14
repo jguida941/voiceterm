@@ -307,8 +307,13 @@ def build_control_plane_read_model(
     reviewer = resolve_reviewer_state(review_state_payload, compact, full_json)
     daemons = resolve_daemon_state(sources)
     quality = resolve_quality(push_report)
-    blocker = resolve_blocker_and_action(receipt, review_state_payload, quality)
     pending = resolve_pending_packets(review_state_payload)
+    blocker = resolve_blocker_and_action(
+        receipt,
+        review_state_payload,
+        quality,
+        pending_count=pending,
+    )
 
     impl_blocked = coerce_bool((receipt or {}).get("implementation_blocked", False))
     op_mode = _derive_operator_interaction_mode(

@@ -40,7 +40,11 @@ def build_authority_snapshot(
     allowed_actions = _string_items(payload.get("allowed_actions"))
     blocked_actions = _string_items(payload.get("blocked_actions"))
     if not allowed_actions and not blocked_actions and (
-        "reviewer_gate" in payload or "work_intake" in payload or "governance" in payload
+        "coordination" in payload
+        or "implementation_permission" in payload
+        or "reviewer_gate" in payload
+        or "work_intake" in payload
+        or "governance" in payload
     ):
         routing = build_startup_action_routing(
             payload,

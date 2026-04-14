@@ -159,6 +159,8 @@ def resolve_blocker_and_action(
     receipt: dict[str, Any] | None,
     review_state: dict[str, Any] | None,
     quality: dict[str, Any],
+    *,
+    pending_count: int | None = None,
 ) -> dict[str, Any]:
     """Derive top blocker, next action, and next command.
 
@@ -182,6 +184,7 @@ def resolve_blocker_and_action(
         doctor=doctor,
         session=session,
         push_action=next_action,
+        pending_count=pending_count,
     )
     next_command = _command_for_push_action(next_action)
     return {

@@ -308,9 +308,10 @@ def _render_analytics_markdown(snapshot: dict[str, Any], lines: list[str]) -> No
 def _render_coordination_markdown(snapshot: dict[str, Any], lines: list[str]) -> None:
     """COORDINATION: packets, instruction rev, session age."""
     coord = snapshot.get("coordination", {})
+    pending = coord.get("pending_count", coord.get("pending_packets", 0))
     lines.append("## Coordination")
     lines.append("")
-    lines.append(f"- **Packets**: {coord.get('pending_packets', 0)} pending")
+    lines.append(f"- **Packets**: {pending} pending")
     lines.append(f"- **Instruction rev**: `{coord.get('instruction_rev', 'n/a')}`")
     lines.append(f"- **Reviewer**: {coord.get('reviewer_age', '--')}")
     lines.append(f"- **Implementer**: {coord.get('implementer_state', 'n/a')}")

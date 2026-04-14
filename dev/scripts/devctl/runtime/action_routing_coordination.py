@@ -13,9 +13,38 @@ from .work_intake_models import (
 def coordination_state(
     ctx_payload: Mapping[str, object],
 ) -> WorkIntakeCoordinationState | None:
-    """Resolve typed coordination for action-routing from work-intake only."""
+    """Resolve typed coordination for action-routing from shared payload shapes."""
     work_intake = _mapping(ctx_payload.get("work_intake"))
-    return work_intake_coordination_from_mapping(work_intake.get("coordination"))
+    work_intake_coordination = work_intake_coordination_from_mapping(
+        work_intake.get("coordination")
+    )
+    if work_intake_coordination is not None:
+        return work_intake_coordination
+
+    coordination = _mapping(ctx_payload.get("coordination"))
+    if not coordination:
+        return None
+
+    projected = dict(coordination)
+    if not projected.get("implementation_permission"):
+        implementation_permission = str(
+            ctx_payload.get("implementation_permission") or ""
+        ).strip()
+        if implementation_permission:
+            projected["implementation_permission"] = implementation_permission
+    if not projected.get("reviewer_mode"):
+        reviewer_mode = str(ctx_payload.get("reviewer_mode") or "").strip()
+        if reviewer_mode:
+            projected["reviewer_mode"] = reviewer_mode
+    if not projected.get("effective_reviewer_mode"):
+        effective_mode = str(
+            ctx_payload.get("effective_reviewer_mode")
+            or ctx_payload.get("reviewer_mode")
+            or ""
+        ).strip()
+        if effective_mode:
+            projected["effective_reviewer_mode"] = effective_mode
+    return work_intake_coordination_from_mapping(projected)
 
 
 def active_implementation_owner(

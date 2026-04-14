@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import os
 import re
 import subprocess
 from pathlib import Path
@@ -20,9 +19,15 @@ from ..runtime.governance_scan import scan_repo_governance_safely
 from ..runtime.startup_blocker_decision import derive_blocker_decision
 from ..runtime.review_state_locator import load_current_review_state
 from ..runtime.review_state_parser import review_state_from_payload
-from ..review_channel.session_probe import load_conductor_sessions
-from ..review_channel.runtime_counts import build_runtime_counts
 from ..time_utils import utc_timestamp
+from .dashboard_health import (
+    _pid_is_alive,
+    _read_conductor_liveness,
+    _read_heartbeat,
+    build_health_section,
+    build_health_section as _build_health_section,
+)
+from .dashboard_header import project_dashboard_header_fields
 
 # Shared utilities extracted to break circular import with dashboard_builders.
 from .dashboard_utils import (
@@ -175,100 +180,6 @@ def _repo_name() -> str:
     return REPO_ROOT.name
 
 
-def _read_heartbeat(path: Path) -> dict[str, Any]:
-    """Read a daemon heartbeat file and derive running state from stopped_at_utc."""
-    data = _read_json(path)
-    if data is None:
-        return {
-            "running": False, "pid": 0, "last_heartbeat": "n/a",
-            "last_heartbeat_age": "--", "snapshots": 0,
-        }
-    stopped = data.get("stopped_at_utc", "")
-    running = not bool(stopped)
-    hb_utc = data.get("last_heartbeat_utc", "n/a")
-    return {
-        "running": running,
-        "pid": data.get("pid", 0),
-        "last_heartbeat": hb_utc,
-        "last_heartbeat_age": _format_age(_age_seconds(hb_utc)),
-        "snapshots": data.get("snapshots_emitted", 0),
-    }
-
-
-def _pid_is_alive(pid: int) -> bool:
-    """Check whether a process with the given PID is currently running."""
-    try:
-        os.kill(pid, 0)
-        return True
-    except (ProcessLookupError, OSError):
-        return False
-
-
-def _read_conductor_liveness(path: Path) -> dict[str, Any]:
-    """Read conductor liveness through the shared repo-owned session probe."""
-    data = _read_json(path)
-    if data is None:
-        return {"pid": None, "alive": False}
-
-    provider = str(data.get("provider") or path.stem.removesuffix("-conductor")).strip()
-    session_output_root = path.parent.parent
-    for record in load_conductor_sessions(session_output_root=session_output_root):
-        if record.provider != provider:
-            continue
-        if record.session_pid is None and not record.live:
-            break
-        return {"pid": record.session_pid, "alive": record.live}
-
-    pid = data.get("session_pid")
-    if pid is None or not isinstance(pid, int) or pid <= 0:
-        return {"pid": None, "alive": False}
-    return {"pid": pid, "alive": _pid_is_alive(pid)}
-
-
-def _build_health_section(
-    repo_root: Path,
-    compact: dict[str, Any] | None,
-    *,
-    runtime_counts: dict[str, Any] | None = None,
-) -> dict[str, Any]:
-    """Build the HEALTH section from daemon heartbeats, conductors, and attention."""
-    p = _paths()
-    publisher = _read_heartbeat(repo_root / p["publisher_hb"])
-    supervisor = _read_heartbeat(repo_root / p["supervisor_hb"])
-
-    codex_conductor = _read_conductor_liveness(repo_root / p["codex_conductor_session"])
-    claude_conductor = _read_conductor_liveness(repo_root / p["claude_conductor_session"])
-
-    # Extract attention from full.json (compact does not carry it)
-    full_data = _read_json(repo_root / p["full_json"])
-    attention = (full_data or {}).get("attention", {})
-    attention_status = attention.get("status", "n/a")
-    attention_summary = attention.get("summary", "n/a")
-
-    active_daemons = sum(1 for d in (publisher, supervisor) if d["running"])
-    agent_counts = runtime_counts or build_runtime_counts(
-        publisher_running=publisher["running"],
-        reviewer_supervisor_running=supervisor["running"],
-        bridge_liveness={
-            "codex_conductor_active": codex_conductor["alive"],
-            "claude_conductor_active": claude_conductor["alive"],
-            "publisher_running": publisher["running"],
-            "reviewer_supervisor_running": supervisor["running"],
-        },
-    )
-
-    return {
-        "publisher": publisher,
-        "supervisor": supervisor,
-        "codex_conductor": codex_conductor,
-        "claude_conductor": claude_conductor,
-        "attention_status": attention_status,
-        "attention_summary": attention_summary,
-        "active_daemons": active_daemons,
-        "agent_counts": agent_counts,
-    }
-
-
 def _build_timeline_section(
     repo_root: Path, *, count: int = 10,
 ) -> list[dict[str, str]]:
@@ -364,8 +275,12 @@ def build_snapshot(
         if isinstance(review_state_payload, dict)
         else None
     )
-    if typed_review_state is not None and hasattr(typed_review_state, "to_dict"):
-        review_state_payload = typed_review_state.to_dict()
+    dashboard_review_state = review_state_payload
+    if dashboard_review_state is None and typed_review_state is not None and hasattr(
+        typed_review_state,
+        "to_dict",
+    ):
+        dashboard_review_state = typed_review_state.to_dict()
 
     compact = (
         sources.get("compact_json")
@@ -389,8 +304,8 @@ def build_snapshot(
     _need_br = load_all or bool(needs & {"review", "now", "coordination", "reviewer_activity", "findings"})
     _need_fi = load_all or bool(needs & {"findings", "plan"})
     _bridge_path = repo_root / p["bridge_md"]
-    bridge = _extract_typed_bridge_fields(review_state_payload) if review_state_payload and _need_br else (_parse_bridge(_bridge_path) if _need_br else _empty_bridge())
-    bridge_findings = _extract_typed_bridge_findings(review_state_payload) if review_state_payload and _need_fi else (_parse_bridge_findings(_bridge_path) if _need_fi else [])
+    bridge = _extract_typed_bridge_fields(dashboard_review_state) if dashboard_review_state and _need_br else (_parse_bridge(_bridge_path) if _need_br else _empty_bridge())
+    bridge_findings = _extract_typed_bridge_findings(dashboard_review_state) if dashboard_review_state and _need_fi else (_parse_bridge_findings(_bridge_path) if _need_fi else [])
     gov_data = _read_json(repo_root / p["governance_review_json"]) if load_all or (needs & {"audit"}) else None
     probe_data = _read_json(repo_root / p["probe_summary_json"]) if load_all or (needs & {"quality"}) else None
     ds_data = _read_json(repo_root / p["data_science_json"]) if load_all or (needs & {"analytics"}) else None
@@ -425,7 +340,7 @@ def build_snapshot(
         session_info=session_info,
         repo_root=repo_root,
         view=view,
-        review_state=review_state_payload,
+        review_state=dashboard_review_state,
         control_plane=cp_model,
         startup_context=startup_context_payload,
     )
@@ -438,6 +353,128 @@ def _empty_bridge() -> dict[str, str]:
         "instruction": "n/a", "verdict": "n/a", "findings_raw": "",
         "reviewed_scope_raw": "", "instruction_full": "n/a",
     }
+
+
+def _prepare_runtime_sections(
+    *,
+    compact: dict[str, Any] | None,
+    bridge: dict[str, str],
+    review_state: dict[str, Any] | None,
+    repo_root: Path,
+    control_plane: ControlPlaneReadModel | None,
+    quality: dict[str, Any],
+    session_info: dict[str, Any] | None,
+    receipt_push: str,
+) -> tuple[
+    dict[str, Any],
+    dict[str, Any],
+    str,
+    str,
+    dict[str, Any] | None,
+    list[dict[str, Any]],
+    dict[str, int],
+    dict[str, Any],
+    dict[str, Any],
+    dict[str, Any] | None,
+]:
+    """Resolve typed runtime sections shared by the dashboard snapshot."""
+    if review_state:
+        session = _extract_typed_session(review_state)
+        doctor = _extract_typed_doctor(review_state)
+    else:
+        session = (compact or {}).get("current_session", {})
+        doctor = (compact or {}).get("doctor", {})
+    session_instruction = str(session.get("current_instruction") or "").strip()
+    bridge_instruction = str(
+        bridge.get("instruction_full") or bridge.get("instruction") or ""
+    ).strip()
+    instruction_text = (
+        bridge_instruction
+        if review_state and bridge_instruction and bridge_instruction != "n/a"
+        else (session_instruction or bridge_instruction or "n/a")
+    )
+    top_blocker = (
+        control_plane.top_blocker
+        if control_plane is not None
+        else derive_blocker_decision(
+            quality=quality,
+            doctor=doctor,
+            session=session,
+        ).top_blocker
+    )
+    typed_coordination = (
+        control_plane.coordination.to_dict()
+        if control_plane and control_plane.coordination is not None
+        else _extract_typed_coordination(review_state)
+    )
+    typed_packets = _extract_typed_packets(review_state)
+    typed_runtime_counts = _extract_typed_runtime_counts(review_state)
+    typed_attention = _extract_typed_attention(review_state)
+    if not typed_coordination or not str(typed_coordination.get("current_slice") or "").strip():
+        from ..runtime.startup_context import build_startup_context
+
+        fallback_startup_context = build_startup_context(repo_root=repo_root)
+        if fallback_startup_context.coordination is not None:
+            typed_coordination = fallback_startup_context.coordination.to_dict()
+
+    health = build_health_section(repo_root, compact, runtime_counts=typed_runtime_counts)
+    if control_plane:
+        health["publisher"]["running"] = control_plane.publisher_running
+        health["supervisor"]["running"] = control_plane.supervisor_running
+        health["codex_conductor"]["alive"] = control_plane.codex_conductor_alive
+        health["claude_conductor"]["alive"] = control_plane.claude_conductor_alive
+        health["active_daemons"] = sum(
+            1
+            for running in (
+                control_plane.publisher_running,
+                control_plane.supervisor_running,
+            )
+            if running
+        )
+        health["attention_status"] = control_plane.attention_status
+        health["attention_summary"] = control_plane.attention_summary
+
+    coordination = _build_coordination_section(
+        session,
+        bridge,
+        doctor,
+        CoordinationContext(
+            instruction_rev=session.get("current_instruction_revision", "n/a"),
+            receipt_push=control_plane.next_action if control_plane else receipt_push,
+            session_info=session_info or {},
+            typed_packets=typed_packets,
+            runtime_counts=typed_runtime_counts,
+        ),
+    )
+    if typed_coordination:
+        coordination.update({
+            "active_target": typed_coordination.get("active_target"),
+            "current_slice": typed_coordination.get("current_slice", ""),
+            "scope_paths": typed_coordination.get("scope_paths", []),
+            "ownership_status": typed_coordination.get("ownership_status", ""),
+            "declared_topology": typed_coordination.get("declared_topology", ""),
+            "observed_topology": typed_coordination.get("observed_topology", ""),
+            "recommended_topology": typed_coordination.get("recommended_topology", ""),
+            "fanout_posture": typed_coordination.get("fanout_posture", ""),
+            "safe_to_fanout": typed_coordination.get("safe_to_fanout", False),
+            "worktree_strategy": typed_coordination.get("worktree_strategy", ""),
+            "resync_required": typed_coordination.get("resync_required", False),
+            "resync_reasons": typed_coordination.get("resync_reasons", []),
+            "duplicate_worktrees": typed_coordination.get("duplicate_worktrees", []),
+            "actors": typed_coordination.get("actors", []),
+        })
+    return (
+        session,
+        doctor,
+        instruction_text,
+        top_blocker,
+        typed_coordination,
+        typed_packets,
+        typed_runtime_counts,
+        health,
+        coordination,
+        typed_attention,
+    )
 
 
 def _assemble(
@@ -467,16 +504,6 @@ def _assemble(
     sections read resolved gates from the single read model instead of
     recomputing them independently.
     """
-    if review_state:
-        session = _extract_typed_session(review_state)
-        doctor = _extract_typed_doctor(review_state)
-    else:
-        session = (compact or {}).get("current_session", {})
-        doctor = (compact or {}).get("doctor", {})
-    instruction_rev = session.get("current_instruction_revision", "n/a")
-    session_instruction = str(session.get("current_instruction") or "").strip()
-    bridge_instruction = str(bridge.get("instruction_full") or bridge.get("instruction") or "").strip()
-    instruction_text = bridge_instruction if review_state and bridge_instruction and bridge_instruction != "n/a" else (session_instruction or bridge_instruction or "n/a")
     reviewer_agent = _find_agent_by_role(agents, "reviewer")
     implementer_agent = _find_agent_by_role(agents, "implementer")
     receipt_push = (receipt or {}).get("push_action", "n/a")
@@ -485,71 +512,29 @@ def _assemble(
     publication_effective["timers"] = _extract_push_timers(push_data)
     quality = _build_quality_section(push_data)
     quality["probes"] = _build_probes_section(probe_data)
-    if control_plane:
-        top_blocker = control_plane.top_blocker
-    else:
-        top_blocker = derive_blocker_decision(
-            quality=quality, doctor=doctor, session=session,
-        ).top_blocker
     last_change_age = _age_seconds(bridge.get("last_poll_utc", ""))
     timeline_count = 100 if view == "analytics" else 10
-    typed_attention = _extract_typed_attention(review_state)
-    typed_coordination = control_plane.coordination.to_dict() if control_plane and control_plane.coordination is not None else _extract_typed_coordination(review_state)
-    typed_packets = _extract_typed_packets(review_state)
-    typed_runtime_counts = _extract_typed_runtime_counts(review_state)
-    if not typed_coordination or not str(typed_coordination.get("current_slice") or "").strip():
-        from ..runtime.startup_context import build_startup_context
-
-        fallback_startup_context = build_startup_context(repo_root=repo_root)
-        if fallback_startup_context.coordination is not None:
-            typed_coordination = fallback_startup_context.coordination.to_dict()
-
-    health = _build_health_section(repo_root, compact, runtime_counts=typed_runtime_counts)
-    if control_plane:
-        health["publisher"]["running"] = control_plane.publisher_running
-        health["supervisor"]["running"] = control_plane.supervisor_running
-        health["codex_conductor"]["alive"] = control_plane.codex_conductor_alive
-        health["claude_conductor"]["alive"] = control_plane.claude_conductor_alive
-        health["active_daemons"] = sum(
-            1
-            for running in (
-                control_plane.publisher_running,
-                control_plane.supervisor_running,
-            )
-            if running
-        )
-        health["attention_status"] = control_plane.attention_status
-        health["attention_summary"] = control_plane.attention_summary
-
-    coordination = _build_coordination_section(
+    (
         session,
-        bridge,
         doctor,
-        CoordinationContext(
-            instruction_rev=instruction_rev,
-            receipt_push=control_plane.next_action if control_plane else receipt_push,
-            session_info=session_info or {},
-            typed_packets=typed_packets,
-            runtime_counts=typed_runtime_counts,
-        ),
+        instruction_text,
+        top_blocker,
+        typed_coordination,
+        typed_packets,
+        typed_runtime_counts,
+        health,
+        coordination,
+        typed_attention,
+    ) = _prepare_runtime_sections(
+        compact=compact,
+        bridge=bridge,
+        review_state=review_state,
+        repo_root=repo_root,
+        control_plane=control_plane,
+        quality=quality,
+        session_info=session_info,
+        receipt_push=receipt_push,
     )
-    if typed_coordination:
-        coordination.update({
-            "active_target": typed_coordination.get("active_target"),
-            "current_slice": typed_coordination.get("current_slice", ""),
-            "scope_paths": typed_coordination.get("scope_paths", []),
-            "ownership_status": typed_coordination.get("ownership_status", ""),
-            "declared_topology": typed_coordination.get("declared_topology", ""),
-            "observed_topology": typed_coordination.get("observed_topology", ""),
-            "recommended_topology": typed_coordination.get("recommended_topology", ""),
-            "fanout_posture": typed_coordination.get("fanout_posture", ""),
-            "safe_to_fanout": typed_coordination.get("safe_to_fanout", False),
-            "worktree_strategy": typed_coordination.get("worktree_strategy", ""),
-            "resync_required": typed_coordination.get("resync_required", False),
-            "resync_reasons": typed_coordination.get("resync_reasons", []),
-            "duplicate_worktrees": typed_coordination.get("duplicate_worktrees", []),
-            "actors": typed_coordination.get("actors", []),
-        })
 
     plan_section = plan if plan is not None else _build_plan_section(
         typed_coordination,
@@ -605,6 +590,14 @@ def _assemble(
         "control_plane": control_plane.to_dict() if control_plane else None,
     }
     snapshot["summary"] = _compile_summary(snapshot)
+    snapshot.update(
+        project_dashboard_header_fields(
+            summary=snapshot["summary"],
+            now=snapshot["now"],
+            coordination=snapshot["coordination"],
+            control_plane=control_plane,
+        )
+    )
     return snapshot
 
 

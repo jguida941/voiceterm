@@ -8438,6 +8438,92 @@ class ReviewChannelCommandTests(unittest.TestCase):
             "checkpoint_before_continue",
         )
 
+    def test_projection_bundle_authority_snapshot_prefers_resync_command_over_push(
+        self,
+    ) -> None:
+        from dev.scripts.devctl.review_channel.projection_bundle import (
+            write_projection_bundle,
+        )
+
+        review_state = {
+            "schema_version": 1,
+            "command": "review-channel",
+            "action": "status",
+            "timestamp": "2026-04-14T06:50:00Z",
+            "ok": True,
+            "review": {"session_id": "markdown-bridge"},
+            "queue": {"pending_total": 0},
+            "current_session": {
+                "current_instruction": "- keep the slice bounded",
+                "current_instruction_revision": "rev123",
+                "implementer_ack_state": "missing",
+            },
+            "bridge": {
+                "reviewer_mode": "single_agent",
+                "effective_reviewer_mode": "single_agent",
+                "reviewer_freshness": "overdue",
+            },
+            "reviewer_runtime": {
+                "reviewer_mode": "single_agent",
+                "effective_reviewer_mode": "single_agent",
+                "reviewer_freshness": "overdue",
+                "publish_clear": True,
+                "review_acceptance": {
+                    "review_accepted": True,
+                    "open_findings": "1 pending review packet(s)",
+                },
+            },
+            "attention": {
+                "status": "healthy",
+                "summary": "Review loop signals are fresh.",
+            },
+            "recovery_assessment": {
+                "diagnosis": {
+                    "status": "healthy",
+                    "root_cause": "Review loop signals are fresh.",
+                },
+                "decision": {
+                    "action_id": "continue_scoped_loop",
+                    "command": "",
+                    "execution_owner": "system",
+                },
+            },
+            "coordination": {
+                "observed_topology": "dual_agent",
+                "resync_required": True,
+                "current_slice": "Priority action_request",
+                "active_target": {
+                    "plan_path": "dev/active/ai_governance_platform.md",
+                },
+            },
+            "_compat": {
+                "doctor": {"recommended_command": ""},
+                "push_decision": {
+                    "next_step_command": "python3 dev/scripts/devctl.py push --execute",
+                },
+            },
+        }
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_root = Path(tmpdir) / "latest"
+            write_projection_bundle(
+                output_root=output_root,
+                review_state=review_state,
+                agent_registry={"schema_version": 1, "agents": []},
+                action="status",
+            )
+            compact = json.loads((output_root / "compact.json").read_text(encoding="utf-8"))
+            full = json.loads((output_root / "full.json").read_text(encoding="utf-8"))
+
+        authority = compact["authority_snapshot"]
+        self.assertEqual(
+            authority["next_command"],
+            "python3 dev/scripts/devctl.py review-channel --action status --terminal none --format json",
+        )
+        self.assertIn("review-channel.status", authority["allowed_actions"])
+        self.assertIn("implementation.edit", authority["blocked_actions"])
+        self.assertEqual(full["authority_snapshot"]["next_command"], authority["next_command"])
+
     def test_refresh_status_snapshot_prefers_prior_typed_session_authority(
         self,
     ) -> None:
