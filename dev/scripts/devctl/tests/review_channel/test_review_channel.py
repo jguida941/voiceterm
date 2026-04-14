@@ -2754,6 +2754,7 @@ class ReviewChannelWatchFollowTests(unittest.TestCase):
         with (
             patch.object(review_channel_follow_stream, "emit_output", side_effect=fake_emit_output),
             patch.object(review_channel_event_handler.time, "sleep", return_value=None),
+            patch.object(review_channel_event_handler, "load_or_refresh_event_bundle", return_value=initial_bundle),
             patch.object(review_channel_event_handler, "refresh_event_bundle", return_value=changed_bundle),
         ):
             report, rc = review_channel_event_handler._run_watch_follow(
@@ -2761,22 +2762,25 @@ class ReviewChannelWatchFollowTests(unittest.TestCase):
                 repo_root=Path("/tmp/repo"),
                 review_channel_path=Path("/tmp/repo/dev/active/review_channel.md"),
                 artifact_paths=initial_bundle.artifact_paths,
-                initial_bundle=initial_bundle,
-                initial_packets=initial_bundle.review_state["packets"],
             )
 
         self.assertEqual(rc, 0)
         self.assertTrue(report["_already_emitted"])
         self.assertEqual(report["snapshots_emitted"], 2)
-        self.assertEqual(len(emitted), 2)
-        first = json.loads(emitted[0])
-        second = json.loads(emitted[1])
+        self.assertEqual(len(emitted), 4)
+        started = json.loads(emitted[0])
+        first = json.loads(emitted[1])
+        second = json.loads(emitted[2])
+        exited = json.loads(emitted[3])
+        self.assertEqual(started["frame_type"], "watch_started")
         self.assertEqual(first["snapshot_seq"], 0)
         self.assertEqual(second["snapshot_seq"], 1)
+        self.assertEqual(first["frame_type"], "watch_snapshot")
+        self.assertEqual(second["frame_type"], "watch_snapshot")
         self.assertEqual(first["packets"][0]["packet_id"], "pkt-1")
         self.assertEqual(second["packets"][0]["packet_id"], "pkt-2")
-        self.assertEqual(len(first["packets"]), 1)
-        self.assertEqual(len(second["packets"]), 1)
+        self.assertEqual(exited["frame_type"], "watch_exit")
+        self.assertEqual(exited["stop_reason"], "max_follow_snapshots_reached")
 
     def test_watch_follow_does_not_reemit_when_packet_set_is_unchanged(self) -> None:
         args = self._build_follow_args(max_follow_snapshots=0)
@@ -2805,6 +2809,7 @@ class ReviewChannelWatchFollowTests(unittest.TestCase):
                 "sleep",
                 side_effect=[None, KeyboardInterrupt()],
             ),
+            patch.object(review_channel_event_handler, "load_or_refresh_event_bundle", return_value=bundle),
             patch.object(review_channel_event_handler, "refresh_event_bundle", return_value=bundle),
         ):
             report, rc = review_channel_event_handler._run_watch_follow(
@@ -2812,16 +2817,19 @@ class ReviewChannelWatchFollowTests(unittest.TestCase):
                 repo_root=Path("/tmp/repo"),
                 review_channel_path=Path("/tmp/repo/dev/active/review_channel.md"),
                 artifact_paths=bundle.artifact_paths,
-                initial_bundle=bundle,
-                initial_packets=bundle.review_state["packets"],
             )
 
         self.assertEqual(rc, 0)
         self.assertEqual(report["snapshots_emitted"], 1)
-        self.assertEqual(len(emitted), 1)
-        first = json.loads(emitted[0])
+        self.assertEqual(len(emitted), 4)
+        first = json.loads(emitted[1])
+        heartbeat = json.loads(emitted[2])
+        exited = json.loads(emitted[3])
         self.assertEqual(first["snapshot_seq"], 0)
         self.assertEqual(first["packets"][0]["packet_id"], "pkt-1")
+        self.assertEqual(heartbeat["frame_type"], "watch_heartbeat")
+        self.assertEqual(exited["frame_type"], "watch_exit")
+        self.assertEqual(exited["stop_reason"], "keyboard_interrupt")
 
     def test_watch_follow_honors_explicit_follow_interval_seconds(self) -> None:
         args = self._build_follow_args(
@@ -2838,6 +2846,7 @@ class ReviewChannelWatchFollowTests(unittest.TestCase):
                 "sleep",
                 side_effect=lambda seconds: slept.append(seconds) or (_ for _ in ()).throw(KeyboardInterrupt()),
             ),
+            patch.object(review_channel_event_handler, "load_or_refresh_event_bundle", return_value=bundle),
             patch.object(review_channel_event_handler, "refresh_event_bundle", return_value=bundle),
         ):
             report, rc = review_channel_event_handler._run_watch_follow(
@@ -2845,8 +2854,6 @@ class ReviewChannelWatchFollowTests(unittest.TestCase):
                 repo_root=Path("/tmp/repo"),
                 review_channel_path=Path("/tmp/repo/dev/active/review_channel.md"),
                 artifact_paths=bundle.artifact_paths,
-                initial_bundle=bundle,
-                initial_packets=bundle.review_state["packets"],
             )
 
         self.assertEqual(rc, 0)
@@ -2877,6 +2884,7 @@ class ReviewChannelWatchFollowTests(unittest.TestCase):
         with (
             patch.object(review_channel_follow_stream, "emit_output", side_effect=fake_emit_output),
             patch.object(review_channel_event_handler.time, "sleep", return_value=None),
+            patch.object(review_channel_event_handler, "load_or_refresh_event_bundle", return_value=initial_bundle),
             patch.object(review_channel_event_handler, "refresh_event_bundle", return_value=changed_bundle),
         ):
             report, rc = review_channel_event_handler._run_watch_follow(
@@ -2884,15 +2892,13 @@ class ReviewChannelWatchFollowTests(unittest.TestCase):
                 repo_root=Path("/tmp/repo"),
                 review_channel_path=Path("/tmp/repo/dev/active/review_channel.md"),
                 artifact_paths=initial_bundle.artifact_paths,
-                initial_bundle=initial_bundle,
-                initial_packets=initial_bundle.review_state["packets"],
             )
 
         self.assertEqual(rc, 0)
         self.assertEqual(report["snapshots_emitted"], 2)
-        self.assertEqual(len(emitted), 2)
-        first = json.loads(emitted[0])
-        second = json.loads(emitted[1])
+        self.assertEqual(len(emitted), 4)
+        first = json.loads(emitted[1])
+        second = json.loads(emitted[2])
         self.assertEqual(first["queue"]["stale_packet_count"], 0)
         self.assertEqual(second["queue"]["stale_packet_count"], 1)
 
@@ -2906,6 +2912,7 @@ class ReviewChannelWatchFollowTests(unittest.TestCase):
             args.output = str(output_path)
             with (
                 patch.object(review_channel_event_handler.time, "sleep", return_value=None),
+                patch.object(review_channel_event_handler, "load_or_refresh_event_bundle", return_value=initial_bundle),
                 patch.object(review_channel_event_handler, "refresh_event_bundle", return_value=changed_bundle),
             ):
                 report, rc = review_channel_event_handler._run_watch_follow(
@@ -2913,16 +2920,107 @@ class ReviewChannelWatchFollowTests(unittest.TestCase):
                     repo_root=Path(tmpdir),
                     review_channel_path=Path(tmpdir) / "dev/active/review_channel.md",
                     artifact_paths=initial_bundle.artifact_paths,
-                    initial_bundle=initial_bundle,
-                    initial_packets=initial_bundle.review_state["packets"],
                 )
 
             self.assertEqual(rc, 0)
             self.assertEqual(report["snapshots_emitted"], 2)
             lines = output_path.read_text(encoding="utf-8").splitlines()
-            self.assertEqual(len(lines), 2)
-            self.assertEqual(json.loads(lines[0])["snapshot_seq"], 0)
-            self.assertEqual(json.loads(lines[1])["snapshot_seq"], 1)
+            self.assertEqual(len(lines), 4)
+            self.assertEqual(json.loads(lines[1])["snapshot_seq"], 0)
+            self.assertEqual(json.loads(lines[2])["snapshot_seq"], 1)
+
+    def test_watch_follow_emits_initial_snapshot_before_refresh_or_sleep(self) -> None:
+        args = self._build_follow_args(max_follow_snapshots=1)
+        bundle = _build_event_bundle_for_test(["pkt-1"])
+        emitted: list[str] = []
+
+        def fake_emit_output(
+            content: str,
+            *,
+            output_path: str | None,
+            pipe_command: str | None,
+            pipe_args: list[str] | None,
+            announce_output_path: bool = True,
+            writer=None,
+            stdout_content: str | None = None,
+            piper=None,
+            additional_outputs=None,
+        ) -> int:
+            emitted.append(content)
+            return 0
+
+        with (
+            patch.object(review_channel_follow_stream, "emit_output", side_effect=fake_emit_output),
+            patch.object(review_channel_event_handler, "load_or_refresh_event_bundle", return_value=bundle),
+            patch.object(review_channel_event_handler.time, "sleep") as sleep_mock,
+            patch.object(review_channel_event_handler, "refresh_event_bundle", return_value=bundle),
+        ):
+            report, rc = review_channel_event_handler._run_watch_follow(
+                args=args,
+                repo_root=Path("/tmp/repo"),
+                review_channel_path=Path("/tmp/repo/dev/active/review_channel.md"),
+                artifact_paths=bundle.artifact_paths,
+            )
+
+        self.assertEqual(rc, 0)
+        self.assertEqual(report["snapshots_emitted"], 1)
+        self.assertEqual(json.loads(emitted[0])["frame_type"], "watch_started")
+        self.assertEqual(json.loads(emitted[1])["frame_type"], "watch_snapshot")
+        sleep_mock.assert_not_called()
+
+    def test_watch_follow_refuses_second_active_owner(self) -> None:
+        args = self._build_follow_args(max_follow_snapshots=1)
+        bundle = _build_event_bundle_for_test(["pkt-1"])
+        emitted: list[str] = []
+
+        def fake_emit_output(
+            content: str,
+            *,
+            output_path: str | None,
+            pipe_command: str | None,
+            pipe_args: list[str] | None,
+            announce_output_path: bool = True,
+            writer=None,
+            stdout_content: str | None = None,
+            piper=None,
+            additional_outputs=None,
+        ) -> int:
+            emitted.append(content)
+            return 0
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            artifact_paths = ReviewChannelArtifactPaths(
+                artifact_root=str(Path(tmpdir) / "artifacts"),
+                event_log_path=str(Path(tmpdir) / "artifacts/events/trace.ndjson"),
+                state_path=str(Path(tmpdir) / "state.json"),
+                projections_root=str(Path(tmpdir) / "projections"),
+            )
+            first_owner, first_conflict = review_channel_event_handler.claim_watch_lifecycle(
+                artifact_root=Path(artifact_paths.artifact_root),
+                target="claude",
+                status_filter="pending",
+                started_at_utc="2026-04-14T12:00:00Z",
+            )
+            self.assertIsNotNone(first_owner)
+            self.assertIsNone(first_conflict)
+            try:
+                with (
+                    patch.object(review_channel_follow_stream, "emit_output", side_effect=fake_emit_output),
+                    patch.object(review_channel_event_handler, "load_or_refresh_event_bundle", return_value=bundle),
+                ):
+                    report, rc = review_channel_event_handler._run_watch_follow(
+                        args=args,
+                        repo_root=Path(tmpdir),
+                        review_channel_path=Path(tmpdir) / "dev/active/review_channel.md",
+                        artifact_paths=artifact_paths,
+                    )
+            finally:
+                review_channel_event_handler.release_watch_lifecycle(first_owner)
+
+        self.assertEqual(rc, 1)
+        self.assertFalse(report["ok"])
+        self.assertEqual(len(emitted), 1)
+        self.assertEqual(json.loads(emitted[0])["stop_reason"], "single_flight_conflict")
 
     def test_run_skips_second_emit_when_follow_stream_already_emitted(self) -> None:
         args = SimpleNamespace(

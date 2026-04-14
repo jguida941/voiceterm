@@ -40,8 +40,17 @@ from ...review_channel.follow_stream import (
 )
 from ...review_channel.pending_packets import reconcile_review_state_packet_queue
 from ...review_channel.state import projection_paths_to_dict
+from ...review_channel.watch_lifecycle import (
+    claim_watch_lifecycle,
+    release_watch_lifecycle,
+    watch_parent_is_alive,
+    write_watch_heartbeat,
+    write_watch_stop,
+)
+from ...review_channel.watch_paths import watch_key
 from ...time_utils import utc_timestamp
 from .event_watch_support import load_target_packets, watch_snapshot_signature
+from .watch_follow import WatchFollowDeps, run_watch_follow
 
 
 emit_output = compat_emit_output
@@ -135,6 +144,13 @@ def _run_event_action(
     review_channel_path = paths["review_channel_path"]
     artifact_paths = paths["artifact_paths"]
     assert isinstance(review_channel_path, Path)
+    if args.action == "watch" and getattr(args, "follow", False):
+        return _run_watch_follow(
+            args=args,
+            repo_root=repo_root,
+            review_channel_path=review_channel_path,
+            artifact_paths=artifact_paths,
+        )
     if args.action == "post":
         bundle, event = post_packet(
             repo_root=repo_root,
@@ -241,15 +257,6 @@ def _run_event_action(
             artifact_paths=artifact_paths,
             status_filter=getattr(args, "status", None) or "pending",
         )
-        if getattr(args, "follow", False):
-            return _run_watch_follow(
-                args=args,
-                repo_root=repo_root,
-                review_channel_path=review_channel_path,
-                artifact_paths=artifact_paths,
-                initial_bundle=bundle,
-                initial_packets=packets,
-            )
         return _build_event_report(
             args=args,
             bundle=bundle,
@@ -288,98 +295,30 @@ def _run_watch_follow(
     repo_root: Path,
     review_channel_path: Path,
     artifact_paths,
-    initial_bundle,
-    initial_packets: list,
 ) -> tuple[dict, int]:
-    """Poll the event store and return snapshots as NDJSON when packets change.
-
-    ``--limit`` controls packet row count per snapshot (unchanged CLI contract).
-    The stream runs until interrupted or until ``--max-follow-snapshots``
-    snapshots have been emitted (default: unbounded).
-    """
-    validate_follow_json_format(action="watch", output_format=getattr(args, "format", "json"))
-    interval = _watch_follow_interval_seconds(args)
-    max_snapshots = getattr(args, "max_follow_snapshots", 0) or 0
-    target = getattr(args, "target", None)
-    status_filter = getattr(args, "status", None) or "pending"
-
-    def _emit(report: dict, seq: int) -> int:
-        frame = dict(report)
-        frame["follow"] = True
-        frame["snapshot_seq"] = seq
-        return emit_follow_ndjson_frame(frame, args=args)
-
-    # Emit initial snapshot through the normal output path
-    reset_follow_output(getattr(args, "output", None))
-    report, _ = _build_event_report(
-        args=args, bundle=initial_bundle, packets=initial_packets,
+    return run_watch_follow(
+        args=args,
+        repo_root=repo_root,
+        review_channel_path=review_channel_path,
+        artifact_paths=artifact_paths,
+        deps=WatchFollowDeps(
+            validate_follow_json_format_fn=validate_follow_json_format,
+            reset_follow_output_fn=reset_follow_output,
+            emit_follow_ndjson_frame_fn=emit_follow_ndjson_frame,
+            build_follow_output_error_report_fn=build_follow_output_error_report,
+            build_follow_completion_report_fn=build_follow_completion_report,
+            claim_watch_lifecycle_fn=claim_watch_lifecycle,
+            release_watch_lifecycle_fn=release_watch_lifecycle,
+            write_watch_heartbeat_fn=write_watch_heartbeat,
+            write_watch_stop_fn=write_watch_stop,
+            watch_parent_is_alive_fn=watch_parent_is_alive,
+            load_or_refresh_event_bundle_fn=load_or_refresh_event_bundle,
+            refresh_event_bundle_fn=refresh_event_bundle,
+            load_target_packets_fn=load_target_packets,
+            watch_snapshot_signature_fn=watch_snapshot_signature,
+            build_event_report_fn=_build_event_report,
+            watch_key_fn=watch_key,
+            utc_timestamp_fn=utc_timestamp,
+            sleep_fn=time.sleep,
+        ),
     )
-    pipe_rc = _emit(report, 0)
-    if pipe_rc != 0:
-        return build_follow_output_error_report(
-            action="watch",
-            snapshots_emitted=0,
-            pipe_rc=pipe_rc,
-        ), pipe_rc
-
-    prev_signature = watch_snapshot_signature(
-        packets=initial_packets,
-        review_state=initial_bundle.review_state,
-    )
-    emitted_count = 1
-    seq = 1
-
-    try:
-        while max_snapshots == 0 or emitted_count < max_snapshots:
-            time.sleep(interval)
-            try:
-                bundle = refresh_event_bundle(
-                    repo_root=repo_root,
-                    review_channel_path=review_channel_path,
-                    artifact_paths=artifact_paths,
-                )
-            except (OSError, ValueError):
-                continue
-            bundle, packets = load_target_packets(
-                args=args,
-                bundle=bundle,
-                repo_root=repo_root,
-                review_channel_path=review_channel_path,
-                artifact_paths=artifact_paths,
-                status_filter=status_filter,
-            )
-            cur_signature = watch_snapshot_signature(
-                packets=packets,
-                review_state=bundle.review_state,
-            )
-            if cur_signature != prev_signature:
-                report, _ = _build_event_report(
-                    args=args,
-                    bundle=bundle,
-                    packets=packets,
-                )
-                pipe_rc = _emit(report, seq)
-                if pipe_rc != 0:
-                    return build_follow_output_error_report(
-                        action="watch",
-                        snapshots_emitted=emitted_count,
-                        pipe_rc=pipe_rc,
-                    ), pipe_rc
-                prev_signature = cur_signature
-                emitted_count += 1
-                seq += 1
-    except KeyboardInterrupt:
-        pass
-
-    return build_follow_completion_report(
-        action="watch",
-        snapshots_emitted=emitted_count,
-        ok=True,
-    ), 0
-
-
-def _watch_follow_interval_seconds(args) -> int:
-    configured = int(getattr(args, "follow_interval_seconds", 0) or 0)
-    if configured > 0:
-        return max(1, configured)
-    return max(5, (getattr(args, "stale_minutes", 30) * 60) // 6)

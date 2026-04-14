@@ -12,6 +12,9 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 from dev.scripts.devctl.context_graph.command import run
+from dev.scripts.devctl.context_graph.latest_snapshot import (
+    latest_context_graph_snapshot_path,
+)
 from dev.scripts.devctl.context_graph.models import BootstrapContext, GraphEdge, GraphNode, GraphSize
 from dev.scripts.devctl.context_graph.snapshot import (
     CONTEXT_GRAPH_SNAPSHOT_CONTRACT_ID,
@@ -22,6 +25,7 @@ from dev.scripts.devctl.context_graph.snapshot import (
 )
 from dev.scripts.devctl.context_graph.snapshot_store import (
     list_context_graph_snapshots,
+    load_context_graph_snapshot,
     resolve_context_graph_snapshot_ref,
 )
 
@@ -144,6 +148,43 @@ class TestContextGraphSnapshotWriter(unittest.TestCase):
                 resolve_context_graph_snapshot_ref("previous", repo_root=repo_root),
                 first_path.resolve(),
             )
+
+    def test_latest_snapshot_path_reads_only_newest_valid_candidate(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            repo_root = Path(tmp)
+            write_context_graph_snapshot(
+                _sample_nodes(),
+                _sample_edges(),
+                capture=ContextGraphSnapshotCapture(
+                    source_mode="bootstrap",
+                    repo_root=repo_root,
+                    branch="feature/test",
+                    commit_hash="111111111111",
+                    generated_at_utc="2026-03-22T16:00:00Z",
+                    timestamp_slug="20260322T160000Z",
+                ),
+            )
+            latest_receipt = write_context_graph_snapshot(
+                _sample_nodes(),
+                _sample_edges(),
+                capture=ContextGraphSnapshotCapture(
+                    source_mode="bootstrap",
+                    repo_root=repo_root,
+                    branch="feature/test",
+                    commit_hash="222222222222",
+                    generated_at_utc="2026-03-22T16:05:00Z",
+                    timestamp_slug="20260322T160500Z",
+                ),
+            )
+
+            with patch(
+                "dev.scripts.devctl.context_graph.latest_snapshot.load_context_graph_snapshot",
+                wraps=load_context_graph_snapshot,
+            ) as load_snapshot:
+                resolved = latest_context_graph_snapshot_path(repo_root=repo_root)
+
+            self.assertEqual(resolved, (repo_root / latest_receipt.path).resolve())
+            self.assertEqual(load_snapshot.call_count, 1)
 
 
 class TestContextGraphSnapshotCommand(unittest.TestCase):

@@ -44,9 +44,9 @@ class ResolveGraphInputsSnapshotPreferenceTests(unittest.TestCase):
         with (
             patch.object(
                 pacing_module,
-                "list_context_graph_snapshots",
-                return_value=list(snapshot_paths),
-            ) as _list_snaps,
+                "latest_context_graph_snapshot_path",
+                return_value=Path(snapshot_paths[-1]) if snapshot_paths else None,
+            ) as _latest_snapshot,
             patch.object(
                 pacing_module,
                 "load_context_graph_snapshot",

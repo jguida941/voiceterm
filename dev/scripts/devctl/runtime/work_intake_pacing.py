@@ -15,11 +15,9 @@ from ..context_graph.models import (
     GraphEdge,
     GraphNode,
 )
+from ..context_graph.latest_snapshot import latest_context_graph_snapshot_path
 from ..context_graph.snapshot_payload import ContextGraphSnapshot
-from ..context_graph.snapshot_store import (
-    list_context_graph_snapshots,
-    load_context_graph_snapshot,
-)
+from ..context_graph.snapshot_store import load_context_graph_snapshot
 from ..platform.planning_ir_models import NextBestSliceRecord, PlanningIRSnapshot
 from .project_governance import ProjectGovernance
 from .review_state_models import ReviewState
@@ -174,9 +172,9 @@ def _resolve_graph_inputs(
     from ..governance.push_state import current_head_commit_sha
 
     head_commit = current_head_commit_sha(repo_root=repo_root) or ""
-    snapshot_paths = list_context_graph_snapshots(repo_root=repo_root)
-    if snapshot_paths:
-        snapshot = load_context_graph_snapshot(snapshot_paths[-1])
+    snapshot_path = latest_context_graph_snapshot_path(repo_root=repo_root)
+    if snapshot_path is not None:
+        snapshot = load_context_graph_snapshot(snapshot_path)
         if not head_commit or snapshot.commit_hash == head_commit:
             source = "saved_graph_snapshot_current"
             confidence = "high"

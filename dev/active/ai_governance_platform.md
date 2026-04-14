@@ -6596,6 +6596,21 @@ Execution order for this section:
     round-trip projection; continue feeding the typed object into
     `ControlPlaneReadModel` / startup bootstrap separately. The next packet
     work on this lane is now `rev_pkt_0391` / `rev_pkt_0392`.
+3.6 `rev_pkt_0392` and the later escalation packet `rev_pkt_0400` are now
+    closed in repo code and live dogfood rather than left as packet-only
+    watcher evidence. `review-channel --action watch --follow` now uses a
+    cheap latest-snapshot resolver on the Step 0 hot path instead of parsing
+    every saved graph artifact before first emit, and the watch loop now owns
+    one target/status lane via a typed single-flight lifecycle file. Live
+    proof on 2026-04-14 showed the first frame emits immediately
+    (`watch_started` then `watch_snapshot`), unchanged polls emit explicit
+    `watch_heartbeat` frames, a competing watcher exits immediately with
+    `single_flight_conflict`, and Ctrl-C emits a final `watch_exit` while the
+    persisted watcher state remains one valid JSON document after a
+    dogfood-found append-mode regression was patched in the same slice. The
+    remaining same-lane packet work is now `rev_pkt_0391`; keep the large
+    expired-packet backlog visible as hygiene debt unless it proves causally
+    tied to that lane.
 4. Continue from the listed `Next actions` unless the user explicitly
    reprioritizes.
 5. Before ending the session, update both this `Session Resume` section and the
@@ -6665,6 +6680,30 @@ Execution order for this section:
   missing top-level owner/next-action fields). Persisted `PlanRegistry`
   authority plus markdown projection remains the next foundation closure
   after these live runtime parity regressions.
+- 2026-04-14: Closed dogfood packets `rev_pkt_0392` and `rev_pkt_0400` in
+  repo code with live proof instead of stopping at unit green. The hot-path
+  pacing reader now resolves the newest saved graph snapshot without parsing
+  the full snapshot directory, so `review-channel --action watch --follow`
+  emits its first frame immediately again on the current repo state. The
+  watch loop now also self-governs through a target/status-scoped
+  single-flight lifecycle file: one live watcher owns the lane, unchanged
+  polls emit `watch_heartbeat`, competing launches exit immediately with
+  `single_flight_conflict`, parent loss is treated as a stop condition, and
+  Ctrl-C emits a final `watch_exit`. Live dogfood caught one follow-up bug in
+  the first pass too: the lifecycle file was opened with `a+`, so repeated
+  heartbeats appended multiple JSON documents. That regression was patched in
+  the same slice (`touch()` + `r+`) and pinned by
+  `test_watch_lifecycle.py`, then re-verified with a real watch-follow run
+  whose state file now parses as one JSON object with
+  `stop_reason=keyboard_interrupt`. Focused proof is green on
+  `test_snapshot.py`, `test_work_intake_pacing_snapshot_preference.py`,
+  `test_watch_lifecycle.py`, and the `watch_follow` slice of
+  `test_review_channel.py`; live artifacts are
+  `/tmp/review_watch_live2.ndjson`, `/tmp/review_watch_conflict2.ndjson`, and
+  `dev/reports/review_channel/watchers/watch_claude__pending.json`. Current
+  same-lane packet work is now `rev_pkt_0391`; the live queue still reports
+  `stale_packet_count=246`, but that backlog is being treated as separate
+  hygiene debt unless it re-enters the packet lane as a causal bug.
 - 2026-04-13: Closed the first architecture-review follow-up in the owner
   chain instead of leaving `authority_snapshot_3_fields_missing` as a prose
   complaint. `dev/scripts/devctl/runtime/authority_snapshot.py` now carries
