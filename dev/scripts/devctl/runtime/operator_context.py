@@ -9,13 +9,19 @@ make mode-aware decisions without string comparisons scattered across modules.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
+from typing import TYPE_CHECKING, Any
 
 from .enum_compat import StrEnum
 from .value_coercion import (
     coerce_mapping as _mapping,
     coerce_string as _string,
+    coerce_string,
 )
+
+if TYPE_CHECKING:
+    from .project_governance_contract import ProjectGovernance
 
 
 class OperatorInteractionMode(StrEnum):
@@ -91,3 +97,76 @@ def operator_context_from_mapping(value: object) -> OperatorContext:
             _string(mapping.get("notification_channel")) or "terminal"
         ),
     )
+
+
+def _nested_get(mapping: Mapping[str, Any] | None, *keys: str) -> Any:
+    current: Any = mapping
+    for key in keys:
+        if not isinstance(current, Mapping):
+            return None
+        current = current.get(key)
+    return current
+
+
+def _governance_interaction_mode(governance: "ProjectGovernance | None") -> str:
+    if governance is None:
+        return ""
+    return coerce_string(
+        getattr(getattr(governance, "bridge_config", None), "operator_interaction_mode", "")
+    )
+
+
+def derive_operator_interaction_mode(
+    *,
+    governance: "ProjectGovernance | None",
+    review_state_payload: Mapping[str, Any] | None,
+    receipt: Mapping[str, Any] | None,
+    reviewer_mode: str,
+) -> str:
+    """Canonical operator_interaction_mode derivation (rev_pkt_0463).
+
+    Single shared reducer used by startup-context, control-plane read model,
+    launcher discipline, ensure-follow, and reviewer-supervisor autostart
+    so they cannot silently diverge. Iterates all typed sources and prefers
+    any non-``local_terminal`` resolved value before falling back to
+    attachment override and then to the explicit ``local_terminal`` default.
+    Reviewer-mode derivation is the final fallback.
+
+    Deferred imports avoid a circular dependency between this module and
+    ``runtime.reviewer_runtime_models`` / ``runtime.conductor_capability``.
+    """
+    from .reviewer_runtime_models import (
+        has_active_remote_control_attachment,
+        remote_control_attachment_from_mapping,
+    )
+    from .conductor_capability import normalize_reviewer_mode
+
+    candidates = (
+        _governance_interaction_mode(governance),
+        coerce_string(_nested_get(review_state_payload, "collaboration", "operator_interaction_mode")),
+        coerce_string(_nested_get(review_state_payload, "reviewer_runtime", "operator_interaction_mode")),
+        coerce_string((receipt or {}).get("operator_interaction_mode")),
+    )
+    saw_local_terminal = False
+    for candidate in candidates:
+        resolved = resolve_operator_interaction_mode(candidate)
+        if is_resolved(resolved.value) and resolved.value != "local_terminal":
+            return resolved.value
+        if resolved.value == "local_terminal":
+            saw_local_terminal = True
+
+    attachment = remote_control_attachment_from_mapping(
+        _nested_get(review_state_payload, "reviewer_runtime", "remote_control_attachment")
+    )
+    if has_active_remote_control_attachment(attachment):
+        return "remote_control"
+
+    if saw_local_terminal:
+        return "local_terminal"
+
+    normalized = normalize_reviewer_mode(reviewer_mode)
+    if normalized == "active_dual_agent":
+        return "dual_agent"
+    if normalized == "single_agent":
+        return "single_agent"
+    return "unresolved"

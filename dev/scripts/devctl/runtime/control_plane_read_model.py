@@ -154,51 +154,11 @@ def _governance_operator_interaction_mode(
     return coerce_string(getattr(governance.bridge_config, "operator_interaction_mode", ""))
 
 
-def _derive_operator_interaction_mode(
-    *,
-    governance: "ProjectGovernance | None",
-    review_state_payload: dict[str, Any] | None,
-    receipt: dict[str, Any] | None,
-    reviewer_mode: str,
-) -> str:
-    """Match startup/session-resume interaction-mode derivation.
+from .operator_context import derive_operator_interaction_mode
 
-    Prefer explicit typed operator modes when available. When those are absent,
-    fall back to reviewer-mode-derived `dual_agent` / `single_agent` so the
-    read model does not diverge from startup/session-resume on the same tree.
-    """
-    explicit_mode = (
-        _governance_operator_interaction_mode(governance)
-        or coerce_string(
-            _nested_get(review_state_payload, "collaboration", "operator_interaction_mode")
-        )
-        or coerce_string(
-            _nested_get(review_state_payload, "reviewer_runtime", "operator_interaction_mode")
-        )
-        or coerce_string((receipt or {}).get("operator_interaction_mode"))
-    )
-    resolved_mode = resolve_operator_interaction_mode(explicit_mode)
-    if is_resolved(resolved_mode.value) and resolved_mode.value != "local_terminal":
-        return resolved_mode.value
-
-    attachment = remote_control_attachment_from_mapping(
-        _nested_get(review_state_payload, "reviewer_runtime", "remote_control_attachment")
-    )
-    # An active remote-control attachment overrides the local_terminal default
-    # so phone/remote operators resolve to remote_control without a repo-policy
-    # flip. (rev_pkt_0448)
-    if has_active_remote_control_attachment(attachment):
-        return "remote_control"
-
-    if resolved_mode.value == "local_terminal":
-        return "local_terminal"
-
-    normalized_mode = normalize_reviewer_mode(reviewer_mode)
-    if normalized_mode == "active_dual_agent":
-        return "dual_agent"
-    if normalized_mode == "single_agent":
-        return "single_agent"
-    return "unresolved"
+# Backward-compat private alias preserved for in-module callers and tests
+# referencing the original name.
+_derive_operator_interaction_mode = derive_operator_interaction_mode
 
 
 def _extract_coordination(
