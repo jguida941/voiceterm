@@ -21,13 +21,33 @@ def _resolve_supervisor_interaction_mode(
     repo_root: Path,
     args_fallback: str = "",
 ) -> str:
-    """Read operator interaction mode from governance typed state."""
+    """Read operator interaction mode from governance typed state.
+
+    Active remote-control attachment overrides ``local_terminal`` governance
+    default so supervisor restarts inherit the live attachment mode
+    (rev_pkt_0459 follow-up to rev_pkt_0448).
+    """
+    from ...runtime.review_state_locator import load_current_review_state_payload
+    from ...runtime.reviewer_runtime_models import (
+        has_active_remote_control_attachment,
+        remote_control_attachment_from_mapping,
+    )
     governance = scan_repo_governance_safely(repo_root)
+    gov_mode = ""
     if governance is not None:
-        mode = (governance.bridge_config.operator_interaction_mode or "").strip()
-        if mode:
-            return mode
-    return args_fallback.strip() or ""
+        gov_mode = (governance.bridge_config.operator_interaction_mode or "").strip()
+    if gov_mode and gov_mode != "local_terminal":
+        return gov_mode
+    try:
+        payload = load_current_review_state_payload(repo_root, governance=governance)
+    except Exception:  # broad-except: allow reason=supervisor-path must not crash on state read fallback=governance default
+        payload = None
+    runtime = payload.get("reviewer_runtime") if isinstance(payload, dict) else None
+    if isinstance(runtime, dict) and has_active_remote_control_attachment(
+        remote_control_attachment_from_mapping(runtime.get("remote_control_attachment"))
+    ):
+        return "remote_control"
+    return gov_mode or args_fallback.strip() or ""
 
 
 def ensure_reviewer_supervisor_running(

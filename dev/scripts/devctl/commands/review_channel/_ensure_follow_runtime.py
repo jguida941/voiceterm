@@ -21,16 +21,31 @@ def _resolve_operator_interaction_mode(
 ) -> str:
     """Read operator interaction mode from ProjectGovernance typed state.
 
-    Falls back to the CLI args value only when governance state is unavailable,
-    so the follow loop does not depend on a launch-time flag surviving across
-    daemon restarts.
+    Active remote-control attachment overrides a ``local_terminal`` governance
+    default so the wake/follow machinery sees the live attachment mode
+    (rev_pkt_0459 follow-up to rev_pkt_0448).
     """
+    from ...runtime.review_state_locator import load_current_review_state_payload
+    from ...runtime.reviewer_runtime_models import (
+        has_active_remote_control_attachment,
+        remote_control_attachment_from_mapping,
+    )
     governance = scan_repo_governance_safely(repo_root)
+    gov_mode = ""
     if governance is not None:
-        mode = (governance.bridge_config.operator_interaction_mode or "").strip()
-        if mode:
-            return mode
-    return args_fallback.strip() or ""
+        gov_mode = (governance.bridge_config.operator_interaction_mode or "").strip()
+    if gov_mode and gov_mode != "local_terminal":
+        return gov_mode
+    try:
+        payload = load_current_review_state_payload(repo_root, governance=governance)
+    except Exception:  # broad-except: allow reason=follow-path must not crash on state read fallback=governance default
+        payload = None
+    runtime = payload.get("reviewer_runtime") if isinstance(payload, dict) else None
+    if isinstance(runtime, dict) and has_active_remote_control_attachment(
+        remote_control_attachment_from_mapping(runtime.get("remote_control_attachment"))
+    ):
+        return "remote_control"
+    return gov_mode or args_fallback.strip() or ""
 
 
 def _build_ensure_follow_deps(
