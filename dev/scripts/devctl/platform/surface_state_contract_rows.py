@@ -225,6 +225,11 @@ SURFACE_STATE_CONTRACTS: tuple[ContractSpec, ...] = (
                 "Shared bounded coordination authority for remote-control bootstrap and dashboard parity.",
             ),
             ContractField(
+                "authority_snapshot",
+                "AuthoritySnapshot | None",
+                "Reduced next-turn authority contract for session-resume and startup parity.",
+            ),
+            ContractField(
                 "packet_inbox",
                 "PacketInboxState | None",
                 "Canonical packet-attention contract for session bootstrap.",

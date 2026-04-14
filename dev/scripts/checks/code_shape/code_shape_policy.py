@@ -205,12 +205,6 @@ PATH_POLICY_OVERRIDES: dict[str, ShapePolicy] = {
         oversize_growth_limit=20,
         hard_lock_growth_limit=0,
     ),
-    "dev/scripts/devctl/commands/autonomy_run.py": ShapePolicy(
-        soft_limit=370,
-        hard_limit=500,
-        oversize_growth_limit=20,
-        hard_lock_growth_limit=0,
-    ),
     "dev/scripts/devctl/cli_parser/reporting.py": ShapePolicy(
         soft_limit=300,
         hard_limit=400,

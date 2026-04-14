@@ -2,111 +2,25 @@
 
 from __future__ import annotations
 
-from .startup_context_render import (
-    publication_backlog_count,
-    publication_backlog_guidance,
+from ...runtime.authority_snapshot import (
+    reviewer_recovery_command as _reviewer_recovery_command,
+    summary_blockers_csv as _summary_blockers_csv,
+    summary_next_command as _summary_next_command,
 )
+from .startup_context_render import publication_backlog_count, publication_backlog_guidance
 from .startup_context_recovery import append_recovery_authority_summary_lines
-
-_CONTEXT_GRAPH_BOOTSTRAP_COMMAND = (
-    "python3 dev/scripts/devctl.py context-graph --mode bootstrap --format md"
-)
-_SUMMARY_RERUN_COMMAND = (
-    "python3 dev/scripts/devctl.py startup-context --format summary"
-)
-_REVIEW_STATUS_COMMAND = (
-    "python3 dev/scripts/devctl.py review-channel --action status "
-    "--terminal none --format json"
-)
 
 
 def summary_blockers(ctx_dict: dict) -> str:
-    blockers: list[str] = []
-
-    authority = ctx_dict.get("startup_authority")
-    if isinstance(authority, dict) and authority and not bool(authority.get("ok", False)):
-        blockers.append("startup_authority")
-
-    governance = ctx_dict.get("governance")
-    if isinstance(governance, dict):
-        push_enforcement = governance.get("push_enforcement")
-        if isinstance(push_enforcement, dict):
-            if bool(push_enforcement.get("checkpoint_required", False)):
-                blockers.append("checkpoint_required")
-            elif not bool(push_enforcement.get("safe_to_continue_editing", True)):
-                blockers.append("continuation_blocked")
-
-    reviewer_gate = ctx_dict.get("reviewer_gate")
-    if isinstance(reviewer_gate, dict) and bool(
-        reviewer_gate.get("implementation_blocked", False)
-    ) and not bool(reviewer_gate.get("review_gate_allows_push", False)):
-        block_reason = str(
-            reviewer_gate.get("implementation_block_reason") or ""
-        ).strip()
-        blockers.append(block_reason or "reviewer_gate")
-
-    coordination = coordination_dict(ctx_dict)
-    if bool(coordination.get("resync_required", False)):
-        blockers.append("coordination_resync_required")
-
-    permission = str(ctx_dict.get("implementation_permission") or "").strip()
-    if permission in {"blocked", "suspended"}:
-        blockers.append(f"implementation_permission_{permission}")
-
-    return ",".join(blockers) if blockers else "none"
+    return _summary_blockers_csv(ctx_dict)
 
 
 def summary_next_command(ctx_dict: dict) -> str:
-    blockers = summary_blockers(ctx_dict)
-    if blockers == "none":
-        return _CONTEXT_GRAPH_BOOTSTRAP_COMMAND
-
-    reviewer_command = reviewer_recovery_command(ctx_dict)
-    if reviewer_command:
-        return reviewer_command
-
-    coordination = coordination_dict(ctx_dict)
-    if bool(coordination.get("resync_required", False)):
-        return _REVIEW_STATUS_COMMAND
-    if "implementation_permission_" in blockers:
-        return _REVIEW_STATUS_COMMAND
-
-    push_decision = ctx_dict.get("push_decision")
-    if isinstance(push_decision, dict):
-        next_step_command = str(push_decision.get("next_step_command") or "").strip()
-        if next_step_command:
-            return next_step_command
-
-        if str(push_decision.get("action") or "").strip() == "await_checkpoint":
-            return f"checkpoint current slice, then rerun {_SUMMARY_RERUN_COMMAND}"
-
-    return f"resolve blockers, then rerun {_SUMMARY_RERUN_COMMAND}"
+    return _summary_next_command(ctx_dict)
 
 
 def reviewer_recovery_command(ctx_dict: dict) -> str:
-    action = str(ctx_dict.get("advisory_action") or "").strip()
-    if action != "repair_reviewer_loop":
-        return ""
-    reviewer_gate = ctx_dict.get("reviewer_gate")
-    if not isinstance(reviewer_gate, dict):
-        return _REVIEW_STATUS_COMMAND
-    recovery_command = str(reviewer_gate.get("recovery_command") or "").strip()
-    if recovery_command:
-        return recovery_command
-    if not bool(reviewer_gate.get("implementation_blocked", False)):
-        return ""
-    if bool(reviewer_gate.get("review_gate_allows_push", False)):
-        return ""
-    block_reason = str(
-        reviewer_gate.get("implementation_block_reason") or ""
-    ).strip()
-    try:
-        from ...review_channel.peer_recovery import STALE_PEER_RECOVERY
-    except ImportError:
-        return _REVIEW_STATUS_COMMAND
-    entry = STALE_PEER_RECOVERY.get(block_reason, {})
-    command = str(entry.get("recommended_command") or "").strip()
-    return command or _REVIEW_STATUS_COMMAND
+    return _reviewer_recovery_command(ctx_dict)
 
 
 def coordination_dict(ctx_dict: dict) -> dict[str, object]:

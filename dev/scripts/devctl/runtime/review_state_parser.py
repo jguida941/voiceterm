@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 
 from ..platform.coordination_snapshot_models import coordination_snapshot_from_mapping
+from .authority_snapshot import authority_snapshot_from_mapping
 from .control_state import _int, _mapping, _string, _string_rows
 from .remote_commit_pipeline_models import push_authorization_from_mapping
 from .review_state_collaboration_parse import collaboration_state_from_payload
@@ -41,6 +42,25 @@ def review_state_from_payload(payload: Mapping[str, object]) -> ReviewState | No
     envelope = _review_state_envelope(payload)
     if envelope is None:
         return None
+    return _build_review_state(
+        payload=payload,
+        envelope=envelope,
+    )
+
+
+def _build_review_state(
+    *,
+    payload: Mapping[str, object],
+    envelope: tuple[
+        Mapping[str, object],
+        Mapping[str, object],
+        Mapping[str, object],
+        Mapping[str, object],
+        Mapping[str, object],
+        list[str],
+        tuple[str, ...],
+    ],
+) -> ReviewState:
     (
         review_payload,
         registry_payload,
@@ -59,8 +79,10 @@ def review_state_from_payload(payload: Mapping[str, object]) -> ReviewState | No
         review_payload=review_payload,
     )
     current_session = _mapping(review_payload.get("current_session"))
-    packet_inbox = _mapping(payload.get("packet_inbox")) or _mapping(
-        review_payload.get("packet_inbox")
+    packet_inbox = _review_state_packet_inbox(
+        payload=payload,
+        review_payload=review_payload,
+        attention=attention,
     )
     current_session_state = _current_session_state_from_payload(
         current_session=current_session,
@@ -135,39 +157,10 @@ def review_state_from_payload(payload: Mapping[str, object]) -> ReviewState | No
             if "ok" in review_payload
             else not errors
         ),
-        review=ReviewSessionState(
-            plan_id=_string(review.get("plan_id")),
-            controller_run_id=_string(review.get("controller_run_id")),
-            session_id=_string(review.get("session_id")) or "markdown-bridge",
-            surface_mode=_string(review.get("surface_mode")) or "markdown-bridge",
-            active_lane=_string(review.get("active_lane")) or "review",
-            refresh_seq=_int(review.get("refresh_seq")),
-            bridge_path=_string(review.get("bridge_path")),
-            review_channel_path=_string(review.get("review_channel_path")),
-        ),
-        queue=ReviewQueueState(
-            pending_total=_int(queue.get("pending_total")),
-            pending_codex=_int(queue.get("pending_codex")),
-            pending_claude=_int(queue.get("pending_claude")),
-            pending_cursor=_int(queue.get("pending_cursor")),
-            pending_operator=_int(queue.get("pending_operator")),
-            stale_packet_count=_int(queue.get("stale_packet_count")),
-            derived_next_instruction=_string(queue.get("derived_next_instruction")),
-            derived_next_instruction_source=dict(
-                _mapping(queue.get("derived_next_instruction_source"))
-            ),
-        ),
+        review=_review_session_state(review),
+        queue=_review_queue_state(queue),
         current_session=current_session_state,
-        packet_inbox=(
-            packet_inbox_from_mapping(packet_inbox)
-            or packet_inbox_from_mapping(
-                build_packet_inbox_payload(
-                    review_payload.get("packets"),
-                    attention=attention,
-                )
-            )
-        )
-        or packet_inbox_from_mapping({"attention_revision": "", "agents": []}),
+        packet_inbox=packet_inbox,
         collaboration=collaboration_state,
         bridge=bridge_state,
         attention=attention_state,
@@ -179,11 +172,66 @@ def review_state_from_payload(payload: Mapping[str, object]) -> ReviewState | No
         reviewer_runtime=reviewer_runtime_state,
         commit_pipeline=commit_pipeline,
         coordination=coordination,
+        authority_snapshot=(
+            authority_snapshot_from_mapping(payload.get("authority_snapshot"))
+            or authority_snapshot_from_mapping(
+                review_payload.get("authority_snapshot")
+            )
+        ),
         warnings=tuple(warnings),
         errors=errors,
         snapshot_id=_string(payload.get("snapshot_id"))
         or _string(review_payload.get("snapshot_id"))
         or _string(_mapping(review_payload.get("commit_pipeline")).get("snapshot_id")),
+    )
+
+
+def _review_state_packet_inbox(
+    *,
+    payload: Mapping[str, object],
+    review_payload: Mapping[str, object],
+    attention: Mapping[str, object],
+):
+    packet_inbox = _mapping(payload.get("packet_inbox")) or _mapping(
+        review_payload.get("packet_inbox")
+    )
+    return (
+        packet_inbox_from_mapping(packet_inbox)
+        or packet_inbox_from_mapping(
+            build_packet_inbox_payload(
+                review_payload.get("packets"),
+                attention=attention,
+            )
+        )
+        or packet_inbox_from_mapping({"attention_revision": "", "agents": []})
+    )
+
+
+def _review_session_state(review: Mapping[str, object]) -> ReviewSessionState:
+    return ReviewSessionState(
+        plan_id=_string(review.get("plan_id")),
+        controller_run_id=_string(review.get("controller_run_id")),
+        session_id=_string(review.get("session_id")) or "markdown-bridge",
+        surface_mode=_string(review.get("surface_mode")) or "markdown-bridge",
+        active_lane=_string(review.get("active_lane")) or "review",
+        refresh_seq=_int(review.get("refresh_seq")),
+        bridge_path=_string(review.get("bridge_path")),
+        review_channel_path=_string(review.get("review_channel_path")),
+    )
+
+
+def _review_queue_state(queue: Mapping[str, object]) -> ReviewQueueState:
+    return ReviewQueueState(
+        pending_total=_int(queue.get("pending_total")),
+        pending_codex=_int(queue.get("pending_codex")),
+        pending_claude=_int(queue.get("pending_claude")),
+        pending_cursor=_int(queue.get("pending_cursor")),
+        pending_operator=_int(queue.get("pending_operator")),
+        stale_packet_count=_int(queue.get("stale_packet_count")),
+        derived_next_instruction=_string(queue.get("derived_next_instruction")),
+        derived_next_instruction_source=dict(
+            _mapping(queue.get("derived_next_instruction_source"))
+        ),
     )
 
 

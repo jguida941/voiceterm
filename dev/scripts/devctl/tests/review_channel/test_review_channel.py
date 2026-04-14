@@ -8118,6 +8118,34 @@ class ReviewChannelCommandTests(unittest.TestCase):
                 review_state["bridge"]["reviewer_mode"],
                 "active_dual_agent",
             )
+            review_authority = review_state["authority_snapshot"]
+            compact_authority = compact["authority_snapshot"]
+            full_authority = full["authority_snapshot"]
+            self.assertEqual(
+                review_authority["current_instruction_revision"],
+                review_state["current_session"]["current_instruction_revision"],
+            )
+            self.assertEqual(
+                review_authority["implementer_ack_state"],
+                review_state["current_session"]["implementer_ack_state"],
+            )
+            self.assertEqual(
+                compact_authority["current_instruction_revision"],
+                review_authority["current_instruction_revision"],
+            )
+            self.assertEqual(
+                full_authority["current_instruction_revision"],
+                review_authority["current_instruction_revision"],
+            )
+            self.assertTrue(review_authority["next_command"])
+            self.assertEqual(
+                compact_authority["next_command"],
+                review_authority["next_command"],
+            )
+            self.assertEqual(
+                full_authority["next_command"],
+                review_authority["next_command"],
+            )
             collaboration = review_state["collaboration"]
             self.assertEqual(collaboration["contract_id"], "CollaborationSession")
             self.assertEqual(collaboration["review_agent"], "codex")

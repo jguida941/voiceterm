@@ -16,6 +16,7 @@ def attach_status_runtime_snapshot(report: dict[str, object]) -> None:
         and isinstance(report.get("doctor"), dict)
         and isinstance(report.get("commit_pipeline"), dict)
         and "recovery_assessment" in report
+        and isinstance(report.get("authority_snapshot"), dict)
     ):
         return
 
@@ -86,6 +87,7 @@ def build_doctor_report(
     doctor_report["reviewer_runtime"] = status_report.get("reviewer_runtime")
     doctor_report["commit_pipeline"] = status_report.get("commit_pipeline")
     doctor_report["coordination"] = status_report.get("coordination")
+    doctor_report["authority_snapshot"] = status_report.get("authority_snapshot")
     doctor_report["projection_paths"] = status_report.get("projection_paths")
     doctor_report["service_identity"] = status_report.get("service_identity")
     doctor_report["attach_auth_policy"] = status_report.get("attach_auth_policy")

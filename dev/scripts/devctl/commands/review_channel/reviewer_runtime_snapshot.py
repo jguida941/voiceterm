@@ -14,6 +14,7 @@ from ...review_channel.reviewer_runtime_contract import (
 from ...review_channel.status_projection_bridge_state import (
     build_typed_bridge_liveness,
 )
+from ...runtime.authority_snapshot import project_authority_snapshot
 
 
 def attach_reviewer_runtime_snapshot(
@@ -54,6 +55,11 @@ def attach_reviewer_runtime_snapshot(
         else None
     )
     current_session = getattr(review_state, "current_session", None)
+    if current_session is not None:
+        report["current_session"] = asdict(current_session)
+    coordination = getattr(review_state, "coordination", None)
+    if coordination is not None:
+        report["coordination"] = coordination.to_dict()
     bridge_liveness = dict(bridge_liveness_report or {})
     if current_session is not None:
         bridge_liveness.update(
@@ -97,4 +103,8 @@ def attach_reviewer_runtime_snapshot(
             if isinstance(reviewer_supervisor, Mapping)
             else False
         ),
+    )
+    project_authority_snapshot(
+        report,
+        next_command=str(report["doctor"].get("recommended_command") or "").strip(),
     )

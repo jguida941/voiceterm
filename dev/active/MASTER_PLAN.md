@@ -173,6 +173,16 @@
   The next closure order stays repo-visible: authority snapshot reduction
   first, bridge-authority demotion second, persisted `PlanRegistry` +
   markdown projection third, then multi-agent dogfood/scenario widening.
+- 2026-04-13 authority-snapshot closure follow-up in `MP-377` scope:
+  startup-context, session-resume, and review-channel status/doctor now all
+  project the same reduced `AuthoritySnapshot` contract from
+  `runtime/authority_snapshot.py`, so callers get one typed
+  `coordination_state` / `root_cause` / `required_action` / `next_command` /
+  `safe_to_continue` packet instead of reconciling coordination, doctor,
+  current-session ACK, and packet-target fields by hand. Active dual-agent
+  instruction-revision drift with a stale implementer ACK now reduces to the
+  first-class `handshake_stale` state instead of collapsing into the generic
+  blocked label.
 - 2026-04-11 bootstrap/client-boundary + mutation-admissibility follow-up in
   `MP-377` scope: generated instruction/setup surfaces now say explicitly that
   VoiceTerm is a first-party client/product integration over the portable

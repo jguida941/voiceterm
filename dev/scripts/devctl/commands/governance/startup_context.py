@@ -31,6 +31,7 @@ from ...runtime.machine_output import (
     emit_machine_artifact_output,
 )
 from ...runtime.action_routing import project_startup_action_routing
+from ...runtime.authority_snapshot import project_authority_snapshot
 from ...runtime.conductor_capability import (
     reviewer_local_implementation_allowed,
     session_resume_command_for_role,
@@ -316,10 +317,31 @@ def run(args) -> int:
             advisory_reason=coerced_reason,
         )
     ctx = _role_bound_checkpoint_receipt(ctx, caller_role=caller_role)
+    push = governance.push_enforcement if governance is not None else None
+    payload = ctx.to_dict()
+    payload["checkpoint_required"] = (
+        bool(push.checkpoint_required) if push is not None else False
+    )
+    payload["safe_to_continue_editing"] = (
+        bool(push.safe_to_continue_editing) if push is not None else True
+    )
+    payload["startup_authority"] = _startup_authority_payload(authority_report)
+    project_startup_action_routing(
+        payload,
+        next_command=_summary_next_command(payload),
+        caller_role=caller_role,
+        reviewer_override=reviewer_override,
+    )
+    authority_snapshot = project_authority_snapshot(
+        payload,
+        caller_role=caller_role,
+        reviewer_override=reviewer_override,
+    )
     receipt = build_startup_receipt(
         ctx,
         authority_report=authority_report,
         intent_scope=authority_intent,
+        authority_snapshot=authority_snapshot,
     )
     # The startup receipt is the command's primary output — the launcher
     # validates it to gate subsequent actions.  On intentional read-only
@@ -335,24 +357,9 @@ def run(args) -> int:
     else:
         receipt_path = write_startup_receipt(receipt, governance=governance)
     receipt_display_path = display_path(receipt_path)
-    push = governance.push_enforcement if governance is not None else None
-    payload = ctx.to_dict()
-    payload["checkpoint_required"] = (
-        bool(push.checkpoint_required) if push is not None else False
-    )
-    payload["safe_to_continue_editing"] = (
-        bool(push.safe_to_continue_editing) if push is not None else True
-    )
-    payload["startup_authority"] = _startup_authority_payload(authority_report)
     payload["startup_receipt"] = _startup_receipt_payload(
         receipt_display_path,
         receipt.head_commit_sha,
-    )
-    project_startup_action_routing(
-        payload,
-        next_command=_summary_next_command(payload),
-        caller_role=caller_role,
-        reviewer_override=reviewer_override,
     )
     blocked = blocks_new_implementation(ctx) or not bool(authority_report.get("ok", False))
     # Role-aware reviewer gate: in active_dual_agent, reviewer must not

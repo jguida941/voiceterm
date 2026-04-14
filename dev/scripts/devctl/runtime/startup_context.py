@@ -13,7 +13,11 @@ from .reviewer_runtime_models import (
     RemoteControlAttachmentState,
     has_active_remote_control_attachment,
 )
-from .review_state_models import PacketInboxState, ReviewAttentionState
+from .review_state_models import (
+    PacketInboxState,
+    ReviewAttentionState,
+    ReviewCurrentSessionState,
+)
 from .recovery_authority import (
     RecoveryAuthorityState,
     derive_recovery_authority,
@@ -27,6 +31,7 @@ from .governance_scan import scan_repo_governance_safely
 from .operator_context import is_resolved, resolve_operator_interaction_mode
 from .project_governance import ProjectGovernance
 from .review_state_locator import load_current_review_state
+from .authority_snapshot import AuthoritySnapshot, project_authority_snapshot
 from .startup_advisory_decision import derive_advisory_decision as _derive_advisory_decision
 from .startup_blocker_decision import BlockerSnapshot, derive_startup_blocker
 from .startup_context_projections import (
@@ -95,8 +100,10 @@ class StartupContext:
     product_thesis: str = ""
     work_intake: WorkIntakePacket | None = None
     coordination: CoordinationSnapshot | None = None
+    authority_snapshot: AuthoritySnapshot | None = None
     remote_control_attachment: RemoteControlAttachmentState | None = None
     attention: ReviewAttentionState | None = None
+    current_session: ReviewCurrentSessionState | None = None
     packet_inbox: PacketInboxState | None = None
     quality_signals: dict[str, object] = field(default_factory=dict)
     blocker: BlockerSnapshot = field(default_factory=BlockerSnapshot)
@@ -138,10 +145,14 @@ class StartupContext:
             d["work_intake"] = self.work_intake.to_dict()
         if self.coordination is not None:
             d["coordination"] = startup_coordination_dict(self.coordination)
+        if self.authority_snapshot is not None:
+            d["authority_snapshot"] = self.authority_snapshot.to_dict()
         if self.remote_control_attachment is not None:
             d["remote_control_attachment"] = asdict(self.remote_control_attachment)
         if self.attention is not None:
             d["attention"] = asdict(self.attention)
+        if self.current_session is not None:
+            d["current_session"] = asdict(self.current_session)
         if self.packet_inbox is not None:
             d["packet_inbox"] = startup_packet_inbox_dict(self.packet_inbox)
         return d
@@ -474,7 +485,7 @@ def build_startup_context(
     )
     recovery_authority = derive_recovery_authority(review_state)
 
-    return StartupContext(
+    ctx = StartupContext(
         governance=governance,
         reviewer_gate=gate,
         push_decision=push_decision,
@@ -495,12 +506,18 @@ def build_startup_context(
             else None
         ),
         attention=(review_state.attention if review_state is not None else None),
+        current_session=(
+            review_state.current_session if review_state is not None else None
+        ),
         packet_inbox=(review_state.packet_inbox if review_state is not None else None),
         quality_signals=quality_signals,
         blocker=blocker,
         contract_ownership_map=build_contract_ownership_map(),
         snapshot_id=snapshot_id,
     )
+    snapshot_payload = ctx.to_dict()
+    authority_snapshot = project_authority_snapshot(snapshot_payload)
+    return replace(ctx, authority_snapshot=authority_snapshot)
 
 
 def blocks_new_implementation(ctx: StartupContext) -> bool:

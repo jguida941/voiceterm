@@ -15,6 +15,11 @@ from ...runtime.control_plane_read_model import (
     ControlPlaneReadModel,
     build_control_plane_read_model,
 )
+from ...runtime.authority_snapshot import (
+    AuthoritySnapshot,
+    authority_snapshot_from_mapping,
+    build_authority_snapshot,
+)
 from ...runtime.review_state_parser import review_state_from_payload
 from ...runtime.review_state_models import (
     packet_inbox_from_mapping,
@@ -37,6 +42,7 @@ from ...runtime.value_coercion import coerce_string
 from ...runtime.work_intake_models import SessionContinuityState
 from ...time_utils import utc_timestamp
 from . import session_resume_git as _session_resume_git
+from .session_resume_authority_payload import SessionResumeAuthorityPayload
 from .session_resume_paths import (
     get_review_state_mtime,
     governance_interaction_mode,
@@ -105,7 +111,6 @@ class SessionCachePacket:
     done_summary: str = ""
     next_action: str = ""
     key_rules: tuple[str, ...] = ()
-    # v2 fields: typed bootstrap for reviewer
     head_at_push_time: str = ""
     operator_interaction_mode: str = "unresolved"
     resolved_phase: str = "idle"
@@ -115,6 +120,7 @@ class SessionCachePacket:
     review_candidate: ReviewCandidateRecord | None = None
     remote_control_attachment: RemoteControlAttachmentState | None = None
     coordination: CoordinationSnapshot | None = None
+    authority_snapshot: AuthoritySnapshot | None = None
     attention_status: str = "n/a"
     attention_summary: str = "n/a"
     attention_revision: str = ""
@@ -125,6 +131,8 @@ class SessionCachePacket:
         payload["key_rules"] = list(self.key_rules)
         if self.coordination is not None:
             payload["coordination"] = self.coordination.to_dict()
+        if self.authority_snapshot is not None:
+            payload["authority_snapshot"] = self.authority_snapshot.to_dict()
         return payload
 
 
@@ -136,17 +144,7 @@ def try_cache_hit(
     review_state_mtime: float = 0.0,
     continuity: SessionContinuityState | None = None,
 ) -> SessionCachePacket | None:
-    """Return the cached packet when it matches current HEAD, role, and review state.
-
-    Continuity gate: even if the head/mtime/role freshness signals match,
-    refuse a cached packet when the typed continuity state shows the plan
-    and review state have drifted. Stale continuity means the cached
-    resume does not reflect the current target, and downstream callers
-    would otherwise act on outdated state. Callers that cannot build a
-    ``SessionContinuityState`` (for example legacy tests that only exercise
-    the head/role/mtime gate) may omit the parameter and will see the
-    existing behavior unchanged.
-    """
+    """Return the cached packet when head, role, and review state still match."""
     cache_path = repo_root / SESSION_CACHE_RELATIVE_DIR / SESSION_CACHE_FILENAME
     if not cache_path.is_file():
         return None
@@ -169,7 +167,6 @@ def try_cache_hit(
 
 
 def write_cache(repo_root: Path, packet: SessionCachePacket) -> None:
-    """Persist the session-cache packet for future cache hits."""
     cache_dir = repo_root / SESSION_CACHE_RELATIVE_DIR
     cache_dir.mkdir(parents=True, exist_ok=True)
     cache_path = cache_dir / SESSION_CACHE_FILENAME
@@ -190,21 +187,7 @@ def build_from_sources(
     changed_paths: list[str] | None = None,
     review_state: "ReviewState | None" = None,
 ) -> SessionCachePacket:
-    """Build a fresh packet as a pure projection of ControlPlaneReadModel.
-
-    All gate resolution comes from the read model so every governance
-    surface (dashboard, phone, session-resume) renders from one source.
-    Session-specific fields (instruction, ack, findings) come from the
-    same sources the read model consumed.
-
-    ``read_model_override`` and ``sources_override`` let tests inject
-    pre-built data without touching the filesystem. ``review_state`` is
-    the optional frozen typed review state the caller already resolved
-    for this proof tick; it is forwarded to
-    ``build_control_plane_read_model`` so every governance surface
-    computes coordination against the same typed review-state snapshot
-    instead of triggering an independent bridge-refreshed reload.
-    """
+    """Build a fresh packet from the governed read model and shared sources."""
     sources = sources_override if sources_override is not None else _load_governed_sources(
         repo_root,
         governance=governance,
@@ -213,18 +196,6 @@ def build_from_sources(
     git = load_git_state(repo_root) if sources_override is None else {
         "branch": "unknown", "head": head_sha, "clean": True, "ahead": 0,
     }
-
-    # Thread governance AND review_state so the read model resolves
-    # coordination via the same governed loader path session-resume used
-    # to pick ``sources``. Without the governance thread, the read model
-    # would reconstruct coordination without it and only ever see the
-    # persisted ``coordination`` mapping; without the review_state thread,
-    # the read model would trigger an independent
-    # ``load_current_review_state_payload`` refresh that can reproject
-    # ``bridge.md`` between the three parity calls and desync
-    # ``observed_topology`` / ``resync_reasons`` across surfaces. That
-    # independent refresh is the residual F1 flake the parity proof tick
-    # must close.
     model = read_model_override or build_control_plane_read_model(
         repo_root,
         sources_override=sources,
@@ -242,8 +213,6 @@ def build_from_sources(
     open_findings = _str_field(session, "open_findings")
 
     rs_mtime = get_review_state_mtime(repo_root, governance=governance)
-
-    # Gate booleans derived from read model, not receipt
     safe_to_continue = model.top_blocker == "none"
     checkpoint_required = model.resolved_phase == "committing"
 
@@ -263,16 +232,9 @@ def build_from_sources(
         repo_root, changed_paths,
         head_sha=head_sha, last_reviewed_sha=last_reviewed_sha,
     )
-    next_cmd = model.next_command or model.next_action
-
     obs_status = ""
     if model.reviewer_observation is not None:
         obs_status = model.reviewer_observation.status
-    # One coordination snapshot per tick: reuse the read model's
-    # already-resolved answer (built via the governed
-    # ``coordination_loader``) so session-resume and dashboard cannot
-    # diverge. ``_extract_coordination`` remains callable from tests and
-    # legacy code paths that do not go through the read model.
     coordination = model.coordination
     if coordination is None:
         coordination = _extract_coordination(
@@ -283,6 +245,18 @@ def build_from_sources(
     review_state_payload = (
         sources.get("review_state") if isinstance(sources.get("review_state"), dict) else {}
     )
+    attention_payload = _extract_attention_payload(
+        sources,
+        default_status=model.attention_status,
+        default_summary=model.attention_summary,
+    )
+    recovery_payload = _extract_recovery_assessment_payload(sources)
+    next_cmd = (
+        _str_field(_nested_dict(recovery_payload, "decision"), "command")
+        or _str_field(attention_payload, "recommended_command")
+        or model.next_command
+        or model.next_action
+    )
     packet_inbox = packet_inbox_from_mapping(
         review_state_payload.get("packet_inbox")
     ) or packet_inbox_from_mapping(
@@ -291,7 +265,20 @@ def build_from_sources(
             attention=review_state_payload.get("attention", {}),
         )
     )
-
+    authority_payload = SessionResumeAuthorityPayload(
+        reviewer_mode=model.reviewer_mode,
+        reviewer_freshness=model.reviewer_freshness,
+        operator_interaction_mode=model.operator_interaction_mode,
+        attention=attention_payload,
+        recovery_assessment=recovery_payload,
+        current_instruction=current_instruction,
+        instruction_revision=instruction_revision,
+        ack_state=ack_state,
+        coordination=coordination,
+        packet_inbox=packet_inbox,
+        next_command=next_cmd,
+    ).to_dict()
+    authority_snapshot = build_authority_snapshot(authority_payload, next_command=next_cmd)
     return SessionCachePacket(
         generated_at_utc=utc_timestamp(),
         role=role,
@@ -320,8 +307,9 @@ def build_from_sources(
         review_candidate=review_candidate,
         remote_control_attachment=getattr(model, "remote_control_attachment", None),
         coordination=coordination,
-        attention_status=model.attention_status,
-        attention_summary=model.attention_summary,
+        authority_snapshot=authority_snapshot,
+        attention_status=_str_field(attention_payload, "status") or model.attention_status,
+        attention_summary=_str_field(attention_payload, "summary") or model.attention_summary,
         attention_revision=(
             packet_inbox.attention_revision if packet_inbox is not None else ""
         ),
@@ -338,8 +326,33 @@ def _extract_current_session(sources: dict[str, Any]) -> dict[str, Any] | None:
     return _nested_dict(compact, "current_session")
 
 
+def _extract_attention_payload(
+    sources: dict[str, Any],
+    *,
+    default_status: str,
+    default_summary: str,
+) -> dict[str, Any]:
+    for key in ("review_state", "compact_json", "full_json"):
+        attention = _nested_dict(sources.get(key), "attention")
+        if attention:
+            return attention
+    payload: dict[str, Any] = {}
+    if default_status:
+        payload["status"] = default_status
+    if default_summary:
+        payload["summary"] = default_summary
+    return payload
+
+
+def _extract_recovery_assessment_payload(sources: dict[str, Any]) -> dict[str, Any]:
+    for key in ("review_state", "full_json", "compact_json"):
+        recovery = _nested_dict(sources.get(key), "recovery_assessment")
+        if recovery:
+            return recovery
+    return {}
+
+
 def _extract_head_at_push_time(sources: dict[str, Any]) -> str:
-    """Return head_at_push_time from the typed review_state before compact."""
     for key in ("review_state", "compact_json"):
         bridge = _nested_dict(sources.get(key), "bridge")
         sha = _str_field(bridge, "head_at_push_time")
@@ -373,17 +386,7 @@ def _extract_coordination(
     repo_root: Path,
     governance: "ProjectGovernance | None",
 ) -> CoordinationSnapshot | None:
-    """Return governed coordination truth via the shared loader.
-
-    Kept as a thin adapter around ``coordination_loader.load_coordination_
-    snapshot`` for direct test callers and any legacy code path that still
-    calls this helper. The primary code path inside ``build_from_sources``
-    reuses ``ControlPlaneReadModel.coordination`` so it and the dashboard
-    render from exactly one resolved snapshot. When neither the loader
-    nor the sources dict can produce a snapshot, a typed startup-context
-    build is used as a last-resort fallback so legacy fixtures without
-    governance still resolve something.
-    """
+    """Return governed coordination truth via the shared loader."""
     from ...runtime.coordination_loader import load_coordination_snapshot
 
     fresh = load_coordination_snapshot(
@@ -425,11 +428,7 @@ def derive_interaction_mode(
     *,
     governance: "ProjectGovernance | None" = None,
 ) -> str:
-    """Derive interaction mode, preferring governance BridgeConfig over compact.
-
-    Fails closed: returns 'unresolved' instead of 'local_terminal' when
-    no source provides a definitive mode.
-    """
+    """Derive interaction mode, preferring governance BridgeConfig over compact."""
     gov_mode = governance_interaction_mode(governance)
     if gov_mode:
         return gov_mode
@@ -527,6 +526,9 @@ def packet_from_mapping(payload: dict[str, Any]) -> SessionCachePacket:
             payload.get("remote_control_attachment")
         ),
         coordination=coordination_snapshot_from_mapping(payload.get("coordination")),
+        authority_snapshot=authority_snapshot_from_mapping(
+            payload.get("authority_snapshot")
+        ),
         attention_status=str(payload.get("attention_status") or "n/a").strip() or "n/a",
         attention_summary=str(payload.get("attention_summary") or "n/a").strip() or "n/a",
         attention_revision=str(payload.get("attention_revision") or "").strip(),
@@ -538,11 +540,7 @@ def _resolve_blockers(
     receipt: dict[str, Any] | None,
     top_blocker: str,
 ) -> str:
-    """Return the effective blocker string, failing closed when no receipt exists.
-
-    Without a receipt, there is no startup authority proof, so the session
-    must require a bootstrap pass rather than silently reporting success.
-    """
+    """Return the effective blocker string, failing closed without a receipt."""
     if receipt is None:
         return "bootstrap_required"
     return top_blocker
@@ -554,21 +552,7 @@ def _load_governed_sources(
     governance: "ProjectGovernance | None" = None,
     review_state: "ReviewState | None" = None,
 ) -> dict[str, Any]:
-    """Load sources using governance-aware path resolution.
-
-    When ``review_state`` is supplied, it is forwarded to ``load_sources``
-    via ``review_state_override`` so the bridge-refreshing
-    ``load_current_review_state_payload`` reload is skipped entirely. This is
-    the F1 / MP-384 parity contract: session-resume must observe the exact
-    same frozen typed snapshot as ``build_startup_context`` and the dashboard
-    rather than triggering an independent
-    ``refresh_bridge_backed_review_state_payload`` reproject between calls.
-
-    The compact projection still honors the governance ``review_root``
-    explicitly because ``load_sources`` reads it from the repo-pack
-    ``review_status_dir_rel``, which may point at a different directory
-    than the governance review root.
-    """
+    """Load governed sources without reprojecting review state mid-read."""
     base = load_sources(
         repo_root,
         governance=governance,

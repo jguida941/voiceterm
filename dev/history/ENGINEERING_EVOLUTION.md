@@ -37,6 +37,54 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 - [User Path (5 min)](#user-path-5-min)
 - [Developer Path (15 min)](#developer-path-15-min)
 
+### 2026-04-13 - Authority snapshot now gives startup, session-resume, and review status one shared recovery contract
+
+Fact: the repo already had the right typed reducers, but the last-mile
+authority read was still fragmented. `startup-context`, `session-resume`, and
+`review-channel --action status|doctor` each exposed adjacent truths
+(`CoordinationSnapshot`, reviewer runtime/doctor state, current instruction
+revision, implementer ACK state, packet-target attention, next-command
+routing), but no single reducer collapsed them into one turn-sized answer.
+That meant a stale instruction/ACK handshake could show up as raw
+`current_instruction_revision`, `implementer_ack_state`, `reviewer_mode`, and
+doctor/status fields without one canonical machine judgment telling the next
+AI turn whether the loop was merely single-agent, broadly resync-required, or
+specifically degraded because the implementer ACK had not caught up with the
+live instruction revision.
+
+This matters because "typed state exists somewhere" is not the product claim.
+The product claim is that fresh bootstrap/status surfaces tell the next actor
+what is true and what to do next without bridge-prose inference. If startup,
+session-resume, and status each make the caller recompute coordination state
+from different raw fields, the repo is still asking AI to reconcile authority
+in chat memory instead of from one runtime contract.
+
+The closure landed a small shared reducer instead of another surface-local
+summary. `dev/scripts/devctl/runtime/authority_snapshot.py` now projects
+`AuthoritySnapshot` from coordination posture, reviewer runtime/doctor state,
+typed current-session ACK state, packet-inbox target, and the resolved next
+command/allowed-actions path. `StartupContext` and `SessionCachePacket`
+persist that reduced contract directly, and review-channel `status` / `doctor`
+now attach the same object so callers can read one typed
+`coordination_state`, `root_cause`, `required_action`, `next_command`, and
+`safe_to_continue` packet. The semantics are explicit too: when the loop is
+still `active_dual_agent`, the live instruction revision is current, and the
+implementer ACK is stale, the reduced contract reports
+`coordination_state=handshake_stale` before the generic blocked-state
+fallback. That turns reviewer-to-implementer handshake drift into a first-
+class recovery state instead of a pile of raw fields.
+
+Evidence: `dev/scripts/devctl/runtime/authority_snapshot.py`,
+`dev/scripts/devctl/runtime/startup_context.py`,
+`dev/scripts/devctl/commands/governance/startup_context.py`,
+`dev/scripts/devctl/commands/governance/session_resume_support.py`,
+`dev/scripts/devctl/commands/review_channel/reviewer_runtime_snapshot.py`,
+`dev/scripts/devctl/commands/review_channel/status.py`,
+`dev/scripts/devctl/commands/review_channel/doctor_support.py`,
+`dev/scripts/devctl/tests/runtime/test_startup_context.py`,
+`dev/scripts/devctl/tests/governance/test_session_resume.py`, and
+`dev/scripts/devctl/tests/review_channel/test_reviewer_runtime_doctor.py`.
+
 ### 2026-04-13 - Dogfood walkthrough parity now closes stale target selection and projection drift across startup, session-resume, bridge, dashboard, and context-graph
 
 Fact: the live dogfood walkthrough proved the typed findings spine existed but

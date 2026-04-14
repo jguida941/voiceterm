@@ -14,13 +14,21 @@ from dev.scripts.devctl.review_channel.reviewer_runtime_doctor import (
     build_reviewer_doctor_surface,
 )
 from dev.scripts.devctl.runtime.action_contracts import ActionResult
+from dev.scripts.devctl.platform.coordination_snapshot_models import (
+    CoordinationSnapshot,
+)
 from dev.scripts.devctl.runtime.remote_commit_pipeline_models import (
     RemoteCommitPipelineContract,
 )
-from dev.scripts.devctl.runtime.review_state_models import ReviewAttentionState
+from dev.scripts.devctl.runtime.review_state_models import (
+    ReviewAttentionState,
+    ReviewCurrentSessionState,
+)
 from dev.scripts.devctl.runtime.reviewer_runtime_models import (
     ReviewerAcceptanceState,
+    ReviewerLastPollState,
     ReviewerRuntimeContract,
+    ReviewerRolloverState,
     ReviewerSessionOwnerState,
 )
 
@@ -258,6 +266,69 @@ def test_attach_reviewer_runtime_snapshot_prefers_review_state_attention_project
         == "Implementer ACK (`Claude Ack` compatibility heading) is stale for the live instruction."
     )
     assert "reset-implementer-state" in report["doctor"]["recommended_command"]
+
+
+def test_attach_reviewer_runtime_snapshot_projects_authority_snapshot() -> None:
+    review_state = SimpleNamespace(
+        reviewer_runtime=ReviewerRuntimeContract(
+            reviewer_mode="active_dual_agent",
+            effective_reviewer_mode="active_dual_agent",
+            reviewer_freshness="fresh",
+            stale_reason="claude_ack_stale",
+            implementer_ack_current=False,
+            implementation_blocked=True,
+            implementation_block_reason="implementer_ack_stale",
+            last_poll=ReviewerLastPollState(
+                last_codex_poll_utc="2026-04-13T12:00:00Z",
+                last_codex_poll_age_seconds=5,
+                last_reviewer_poll_utc="2026-04-13T12:00:00Z",
+                last_reviewer_poll_age_seconds=5,
+            ),
+            rollover=ReviewerRolloverState(),
+            review_acceptance=ReviewerAcceptanceState(
+                current_verdict="- pending",
+                open_findings="- handshake drift",
+                review_accepted=False,
+            ),
+        ),
+        commit_pipeline=RemoteCommitPipelineContract(),
+        current_session=ReviewCurrentSessionState(
+            current_instruction="- implement the active slice",
+            current_instruction_revision="rev-123",
+            implementer_status="- working",
+            implementer_ack="- acknowledged",
+            implementer_ack_revision="rev-122",
+            implementer_ack_state="stale",
+        ),
+        coordination=CoordinationSnapshot(
+            observed_topology="single_implementer_single_reviewer",
+            recommended_topology="single_implementer_single_reviewer",
+        ),
+    )
+    report = {
+        "bridge_liveness": {
+            "reviewer_mode": "active_dual_agent",
+            "reviewer_freshness": "fresh",
+        },
+        "publisher": {"running": False},
+        "reviewer_supervisor": {"running": False},
+    }
+
+    attach_reviewer_runtime_snapshot(
+        report,
+        review_state=review_state,
+        attention={},
+    )
+
+    snapshot = report["authority_snapshot"]
+    assert report["current_session"]["current_instruction_revision"] == "rev-123"
+    assert report["coordination"]["observed_topology"] == "single_implementer_single_reviewer"
+    assert snapshot["coordination_state"] == "handshake_stale"
+    assert snapshot["current_instruction_revision"] == "rev-123"
+    assert snapshot["implementer_ack_state"] == "stale"
+
+    doctor_report, _ = build_doctor_report(status_report=report, exit_code=1)
+    assert doctor_report["authority_snapshot"]["coordination_state"] == "handshake_stale"
 
 
 def test_build_reviewer_doctor_surface_exposes_visibility_state() -> None:

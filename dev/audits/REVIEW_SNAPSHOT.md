@@ -5,14 +5,14 @@
 ## Quick status
 
 - Branch: `feature/governance-quality-sweep`
-- HEAD: `24689590c23a` — Add dogfood governance recording and plan registry authority ordering
-- Tree hash: `fc78396e4ac9`
-- Generation stamp: `snap-82d217d100b2`
-- Generated at (UTC): 2026-04-13T23:15:00Z
-- Push decision: `run_devctl_push` — push_preconditions_satisfied
+- HEAD: `dde973d5387f` — Refresh external review snapshot for 24689590
+- Tree hash: `2a04da77920b`
+- Generation stamp: `snap-cf014a2276db`
+- Generated at (UTC): 2026-04-14T06:31:57Z
+- Push decision: `await_checkpoint` — staged_index_budget_exceeded
 - Reviewer mode: `single_agent` (interaction: `local_terminal`)
 - Pipeline state: `n/a` (approval: `n/a`)
-- Delta since last snapshot: 24 commits, 316 files, +23993/-6830
+- Delta since last snapshot: 25 commits, 316 files, +24057/-6902
 - Governance findings: 118 open / 79 fixed / 211 total
 - Probe hints: 0 total across 0 files scanned
 
@@ -54,24 +54,24 @@ adopters arrive.
 - Remote: `https://github.com/jguida941/voiceterm.git`
 - Default branch: `master`
 - Current branch: `feature/governance-quality-sweep`
-- HEAD SHA: `24689590c23a78d143aed1c99de968a1e94089a8`
+- HEAD SHA: `dde973d5387fe334dd228288c16100ae1706d4c5`
 - HEAD author: Justin Guida
 - HEAD timestamp (UTC): 2026-04-13T19:13:33-04:00
 
 ## 2. Governance state
 
 ### Push decision
-- action: `run_devctl_push`
-- reason: push_preconditions_satisfied
-- push_eligible_now: True
-- worktree_clean: True
-- staged_path_count: 0
+- action: `await_checkpoint`
+- reason: staged_index_budget_exceeded
+- push_eligible_now: False
+- worktree_clean: False
+- staged_path_count: 33
 - unstaged_path_count: 0
-- next_step_command: `python3 dev/scripts/devctl.py push --execute`
+- next_step_command: `n/a`
 - latest_push_report: `dev/reports/push/latest.json`
 - latest_push_report_state: `published_remote` (post_push_bundle_pending)
 - publication_backlog: urgent
-- publication_guidance: 21 local commit(s) waiting for governed push. Run `python3 dev/scripts/devctl.py push --execute` now.
+- publication_guidance: 22 local commit(s) waiting for governed push once the current slice is checkpoint-clean.
 
 ### Reviewer runtime
 - reviewer_mode: `single_agent`
@@ -87,17 +87,18 @@ adopters arrive.
 - active plan: **AI Governance Platform Plan**
 - plan path: `dev/active/ai_governance_platform.md`
 - active MP scope: `MP-377`
-- advisory: `push_allowed` — worktree_clean_and_review_accepted
+- advisory: `checkpoint_before_continue` — staged_index_budget_exceeded
+- checkpoint_required: **yes**
 
 ## 3. Delta — what changed since the previous snapshot
 
-Range: last 24 commits ending at `24689590c23a`
+Range: last 25 commits ending at `dde973d5387f`
 
-- commits: 24
+- commits: 25
 - files changed: 316
-- insertions: +23993
-- deletions: -6830
-- bundle classes touched: docs, tooling
+- insertions: +24057
+- deletions: -6902
+- bundle classes touched: tooling, docs
 - risk add-ons triggered: Parser / ANSI boundary
 - authority surfaces touched: 41 file(s)
 
@@ -105,30 +106,31 @@ Range: last 24 commits ending at `24689590c23a`
 
 | # | SHA | Subject | Files | +/- | Bundle | Risk |
 |---|---|---|---|---|---|---|
-| 1 | `24689590` | Add dogfood governance recording and plan registry authorit… | 17 | +901/-113 | tooling |  |
-| 2 | `27b7826c` | Refresh external review snapshot for a83b7f81 | 1 | +83/-84 | tooling |  |
-| 3 | `a83b7f81` | Add dogfood coverage and bridge portability | 47 | +1760/-224 | tooling |  |
-| 4 | `e78905c2` | Refresh external review snapshot for d6e474d5 | 1 | +47/-51 | tooling |  |
-| 5 | `d6e474d5` | Refresh bridge.md projection from typed state for push | 2 | +69/-172 | docs |  |
-| 6 | `871812bb` | Refresh review snapshot for governance-quality-sweep push | 1 | +55/-59 | tooling |  |
-| 7 | `45376a16` | Refresh external review snapshot for a19534a9 | 1 | +63/-65 | tooling |  |
-| 8 | `a19534a9` | Fix active_target routing, projection parity, and dogfood s… | 31 | +1070/-143 | tooling |  |
-| 9 | `ffafe4ff` | Expand contract closure to internal types and wire governan… | 13 | +584/-66 | tooling |  |
-| 10 | `9e75a66d` | Refresh external review snapshot for 5a4236c1 | 1 | +59/-63 | tooling |  |
-| 11 | `5a4236c1` | Wire FindingBacklog, connection pairs, and probe split advi… | 42 | +1803/-224 | tooling | Parser / ANSI boundary |
-| 12 | `67afd4d5` | Refresh external review snapshot for d0e5ac47 | 1 | +80/-83 | tooling |  |
-| 13 | `d0e5ac47` | Consolidate plan system: typed phases, plan ingestion, guar… | 29 | +1219/-229 | tooling |  |
-| 14 | `c06a989a` | Refresh external review snapshot for 1e24f79f | 1 | +110/-83 | tooling |  |
-| 15 | `1e24f79f` | Fix remote-control review-channel guard regressions and ext… | 158 | +12763/-4359 | tooling | Parser / ANSI boundary |
-| 16 | `687c0478` | Refresh external review snapshot for 4372e2cd | 1 | +86/-83 | tooling |  |
-| 17 | `4372e2cd` | Fix probe shims, event projection, and launch/rollover test… | 44 | +943/-142 | tooling |  |
-| 18 | `f88de94b` | Refresh external review snapshot for 5ed6e2fb | 1 | +80/-71 | tooling |  |
-| 19 | `5ed6e2fb` | Make review state role-neutral and bind push approval to wo… | 45 | +730/-117 | tooling |  |
-| 20 | `a1c7ffe3` | Refresh external review snapshot for 00e45380 | 1 | +67/-64 | tooling |  |
-| 21 | `00e45380` | Checkpoint single-agent liveness and worker-lane portability | 33 | +815/-159 | tooling |  |
-| 22 | `763be95d` | Refresh external review snapshot for e8ccc7e7 | 1 | +63/-64 | tooling |  |
-| 23 | `e8ccc7e7` | review_channel: remote-control attachment counts as live co… | 11 | +258/-61 | tooling |  |
-| 24 | `70e2544f` | docs(audit): dashboard-loop ticks 33-48 + liveness symmetry… | 3 | +285/-51 | tooling |  |
+| 1 | `dde973d5` | Refresh external review snapshot for 24689590 | 1 | +64/-72 | tooling |  |
+| 2 | `24689590` | Add dogfood governance recording and plan registry authorit… | 17 | +901/-113 | tooling |  |
+| 3 | `27b7826c` | Refresh external review snapshot for a83b7f81 | 1 | +83/-84 | tooling |  |
+| 4 | `a83b7f81` | Add dogfood coverage and bridge portability | 47 | +1760/-224 | tooling |  |
+| 5 | `e78905c2` | Refresh external review snapshot for d6e474d5 | 1 | +47/-51 | tooling |  |
+| 6 | `d6e474d5` | Refresh bridge.md projection from typed state for push | 2 | +69/-172 | docs |  |
+| 7 | `871812bb` | Refresh review snapshot for governance-quality-sweep push | 1 | +55/-59 | tooling |  |
+| 8 | `45376a16` | Refresh external review snapshot for a19534a9 | 1 | +63/-65 | tooling |  |
+| 9 | `a19534a9` | Fix active_target routing, projection parity, and dogfood s… | 31 | +1070/-143 | tooling |  |
+| 10 | `ffafe4ff` | Expand contract closure to internal types and wire governan… | 13 | +584/-66 | tooling |  |
+| 11 | `9e75a66d` | Refresh external review snapshot for 5a4236c1 | 1 | +59/-63 | tooling |  |
+| 12 | `5a4236c1` | Wire FindingBacklog, connection pairs, and probe split advi… | 42 | +1803/-224 | tooling | Parser / ANSI boundary |
+| 13 | `67afd4d5` | Refresh external review snapshot for d0e5ac47 | 1 | +80/-83 | tooling |  |
+| 14 | `d0e5ac47` | Consolidate plan system: typed phases, plan ingestion, guar… | 29 | +1219/-229 | tooling |  |
+| 15 | `c06a989a` | Refresh external review snapshot for 1e24f79f | 1 | +110/-83 | tooling |  |
+| 16 | `1e24f79f` | Fix remote-control review-channel guard regressions and ext… | 158 | +12763/-4359 | tooling | Parser / ANSI boundary |
+| 17 | `687c0478` | Refresh external review snapshot for 4372e2cd | 1 | +86/-83 | tooling |  |
+| 18 | `4372e2cd` | Fix probe shims, event projection, and launch/rollover test… | 44 | +943/-142 | tooling |  |
+| 19 | `f88de94b` | Refresh external review snapshot for 5ed6e2fb | 1 | +80/-71 | tooling |  |
+| 20 | `5ed6e2fb` | Make review state role-neutral and bind push approval to wo… | 45 | +730/-117 | tooling |  |
+| 21 | `a1c7ffe3` | Refresh external review snapshot for 00e45380 | 1 | +67/-64 | tooling |  |
+| 22 | `00e45380` | Checkpoint single-agent liveness and worker-lane portability | 33 | +815/-159 | tooling |  |
+| 23 | `763be95d` | Refresh external review snapshot for e8ccc7e7 | 1 | +63/-64 | tooling |  |
+| 24 | `e8ccc7e7` | review_channel: remote-control attachment counts as live co… | 11 | +258/-61 | tooling |  |
+| 25 | `70e2544f` | docs(audit): dashboard-loop ticks 33-48 + liveness symmetry… | 3 | +285/-51 | tooling |  |
 
 ### Files
 
@@ -146,7 +148,7 @@ Range: last 24 commits ending at `24689590c23a`
 | `dev/active/remote_control_runtime.md` | tooling | +284/-21 |
 | `dev/active/review_channel.md` | tooling | +7/-0 |
 | `dev/audits/LIVE_RUN.md` | tooling | +645/-0 |
-| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1620/-1592 |
+| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1684/-1664 |
 | `dev/config/devctl_policies/launcher.json` | tooling | +25/-0 |
 | `dev/config/git_hooks/pre-commit-review-snapshot.sh` | tooling | +45/-9 |
 | `dev/config/quality_presets/portable_python.json` | tooling | +3/-1 |
@@ -317,42 +319,44 @@ Recent findings:
 
 ### Per-commit rationale
 
+- **`dde973d5`** — Refresh external review snapshot for 24689590
+  - evolution: Fact: the repo already had the right typed reducers, but the last-mile authority read was still fragmented. `startup-context`, `session-resume`, and `review-channel --action status|doctor` each exposed adjacent truths (…
 - **`24689590`** — Add dogfood governance recording and plan registry authority ordering
   - - Wire devctl dogfood --record-governance with stable signal_type=dogfood
   -   findings, default target-path resolution, and override knobs
   - - Put persisted PlanRegistry authority before rendered markdown projections
-  - evolution: Fact: the live dogfood walkthrough proved the typed findings spine existed but the consuming surfaces still disagreed on what work was active. Startup could emit `plan_routing=MP377-P0/MP377-P0-T01` while `active_target…
+  - evolution: Fact: the repo already had the right typed reducers, but the last-mile authority read was still fragmented. `startup-context`, `session-resume`, and `review-channel --action status|doctor` each exposed adjacent truths (…
 - **`27b7826c`** — Refresh external review snapshot for a83b7f81
-  - evolution: Fact: the live dogfood walkthrough proved the typed findings spine existed but the consuming surfaces still disagreed on what work was active. Startup could emit `plan_routing=MP377-P0/MP377-P0-T01` while `active_target…
+  - evolution: Fact: the repo already had the right typed reducers, but the last-mile authority read was still fragmented. `startup-context`, `session-resume`, and `review-channel --action status|doctor` each exposed adjacent truths (…
 - **`a83b7f81`** — Add dogfood coverage and bridge portability
-  - evolution: Fact: the live dogfood walkthrough proved the typed findings spine existed but the consuming surfaces still disagreed on what work was active. Startup could emit `plan_routing=MP377-P0/MP377-P0-T01` while `active_target…
+  - evolution: Fact: the repo already had the right typed reducers, but the last-mile authority read was still fragmented. `startup-context`, `session-resume`, and `review-channel --action status|doctor` each exposed adjacent truths (…
 - **`e78905c2`** — Refresh external review snapshot for d6e474d5
-  - evolution: Fact: the live dogfood walkthrough proved the typed findings spine existed but the consuming surfaces still disagreed on what work was active. Startup could emit `plan_routing=MP377-P0/MP377-P0-T01` while `active_target…
+  - evolution: Fact: the repo already had the right typed reducers, but the last-mile authority read was still fragmented. `startup-context`, `session-resume`, and `review-channel --action status|doctor` each exposed adjacent truths (…
 - **`d6e474d5`** — Refresh bridge.md projection from typed state for push
-  - evolution: Fact: the live dogfood walkthrough proved the typed findings spine existed but the consuming surfaces still disagreed on what work was active. Startup could emit `plan_routing=MP377-P0/MP377-P0-T01` while `active_target…
+  - evolution: Fact: the repo already had the right typed reducers, but the last-mile authority read was still fragmented. `startup-context`, `session-resume`, and `review-channel --action status|doctor` each exposed adjacent truths (…
 - **`871812bb`** — Refresh review snapshot for governance-quality-sweep push
-  - evolution: Fact: the live dogfood walkthrough proved the typed findings spine existed but the consuming surfaces still disagreed on what work was active. Startup could emit `plan_routing=MP377-P0/MP377-P0-T01` while `active_target…
+  - evolution: Fact: the repo already had the right typed reducers, but the last-mile authority read was still fragmented. `startup-context`, `session-resume`, and `review-channel --action status|doctor` each exposed adjacent truths (…
 - **`45376a16`** — Refresh external review snapshot for a19534a9
-  - evolution: Fact: the live dogfood walkthrough proved the typed findings spine existed but the consuming surfaces still disagreed on what work was active. Startup could emit `plan_routing=MP377-P0/MP377-P0-T01` while `active_target…
+  - evolution: Fact: the repo already had the right typed reducers, but the last-mile authority read was still fragmented. `startup-context`, `session-resume`, and `review-channel --action status|doctor` each exposed adjacent truths (…
 - **`a19534a9`** — Fix active_target routing, projection parity, and dogfood session 6 findings
   - Routing fix:
   - - startup/session-resume/dashboard now promote MP377-P0 instead of
   -   stale review_channel continuity for active_target selection
-  - evolution: Fact: the live dogfood walkthrough proved the typed findings spine existed but the consuming surfaces still disagreed on what work was active. Startup could emit `plan_routing=MP377-P0/MP377-P0-T01` while `active_target…
+  - evolution: Fact: the repo already had the right typed reducers, but the last-mile authority read was still fragmented. `startup-context`, `session-resume`, and `review-channel --action status|doctor` each exposed adjacent truths (…
 - **`ffafe4ff`** — Expand contract closure to internal types and wire governance-closure guard
   - Contract closure expansion:
   - - Added PlanPhase, PlanTask, FindingBacklog, SessionPacingState to
   -   FIELD_ROUTE_FAMILY_REGISTRY with expected consumer routes
-  - evolution: Fact: the live dogfood walkthrough proved the typed findings spine existed but the consuming surfaces still disagreed on what work was active. Startup could emit `plan_routing=MP377-P0/MP377-P0-T01` while `active_target…
+  - evolution: Fact: the repo already had the right typed reducers, but the last-mile authority read was still fragmented. `startup-context`, `session-resume`, and `review-channel --action status|doctor` each exposed adjacent truths (…
 - **`9e75a66d`** — Refresh external review snapshot for 5a4236c1
-  - evolution: Fact: the live dogfood walkthrough proved the typed findings spine existed but the consuming surfaces still disagreed on what work was active. Startup could emit `plan_routing=MP377-P0/MP377-P0-T01` while `active_target…
+  - evolution: Fact: the repo already had the right typed reducers, but the last-mile authority read was still fragmented. `startup-context`, `session-resume`, and `review-channel --action status|doctor` each exposed adjacent truths (…
 - **`5a4236c1`** — Wire FindingBacklog, connection pairs, and probe split advisor into startup loop
   - Three connection pairs landed (closes feedback loops):
   - - SessionPacingState.live_finding_count now populated from planning-ir
   -   (was always 0)
-  - evolution: Fact: the live dogfood walkthrough proved the typed findings spine existed but the consuming surfaces still disagreed on what work was active. Startup could emit `plan_routing=MP377-P0/MP377-P0-T01` while `active_target…
+  - evolution: Fact: the repo already had the right typed reducers, but the last-mile authority read was still fragmented. `startup-context`, `session-resume`, and `review-channel --action status|doctor` each exposed adjacent truths (…
 - **`67afd4d5`** — Refresh external review snapshot for d0e5ac47
-  - evolution: Fact: the live dogfood walkthrough proved the typed findings spine existed but the consuming surfaces still disagreed on what work was active. Startup could emit `plan_routing=MP377-P0/MP377-P0-T01` while `active_target…
+  - evolution: Fact: the repo already had the right typed reducers, but the last-mile authority read was still fragmented. `startup-context`, `session-resume`, and `review-channel --action status|doctor` each exposed adjacent truths (…
 - **`d0e5ac47` | MPs: MP-377** — Consolidate plan system: typed phases, plan ingestion, guard wiring, registry reduction
   - Architecture session deliverables:
   - - Consolidated MP-377 execution authority under ai_governance_platform.md
@@ -362,14 +366,14 @@ Recent findings:
   - plan: `dev/active/autonomous_governance_loop_v2.md`
   - plan: `dev/active/remote_commit_pipeline.md`
   - plan: `dev/active/PLAN_FORMAT.md`
-  - evolution: Fact: the live dogfood walkthrough proved the typed findings spine existed but the consuming surfaces still disagreed on what work was active. Startup could emit `plan_routing=MP377-P0/MP377-P0-T01` while `active_target…
+  - evolution: Fact: the repo already had the right typed reducers, but the last-mile authority read was still fragmented. `startup-context`, `session-resume`, and `review-channel --action status|doctor` each exposed adjacent truths (…
 - **`c06a989a`** — Refresh external review snapshot for 1e24f79f
-  - evolution: Fact: the live dogfood walkthrough proved the typed findings spine existed but the consuming surfaces still disagreed on what work was active. Startup could emit `plan_routing=MP377-P0/MP377-P0-T01` while `active_target…
+  - evolution: Fact: the repo already had the right typed reducers, but the last-mile authority read was still fragmented. `startup-context`, `session-resume`, and `review-channel --action status|doctor` each exposed adjacent truths (…
 - **`1e24f79f`** — Fix remote-control review-channel guard regressions and extract oversized modules
   - Codex session 2 guard-fix work:
   - - Fixed 4 targeted guards (parameter-count, facade-wrappers, dict-schema, code-shape)
   - - Fixed attention_revision_stale false positive in commit gate
-  - evolution: Fact: the live dogfood walkthrough proved the typed findings spine existed but the consuming surfaces still disagreed on what work was active. Startup could emit `plan_routing=MP377-P0/MP377-P0-T01` while `active_target…
+  - evolution: Fact: the repo already had the right typed reducers, but the last-mile authority read was still fragmented. `startup-context`, `session-resume`, and `review-channel --action status|doctor` each exposed adjacent truths (…
 - **`687c0478`** — Refresh external review snapshot for 4372e2cd
   - evolution: Fact: the architecture docs already said reviewer, implementer, and operator are role-first contracts over one shared backend, but the active execution plans still mixed that with live-proof language that read as `Codex…
 - **`4372e2cd`** — Fix probe shims, event projection, and launch/rollover test regressions from role-neutral rename
@@ -416,10 +420,11 @@ Recent findings:
 - open governance findings: 118
 
 ### Startup advisories
-- push_allowed: worktree_clean_and_review_accepted
+- checkpoint_before_continue: staged_index_budget_exceeded
 
 ### Stale warnings
-- Stop because nothing remains to push.
+- Keep editing the current slice.
+- Move straight to the governed push path.
 
 ### Open gap rows
 - **governance_open** (`dev/scripts/devctl/commands/vcs/push.py`): dogfood.code_shape_push_regression: 
@@ -433,4 +438,4 @@ Recent findings:
 
 ---
 
-Projection produced by `devctl review-snapshot`. Generation stamp `snap-82d217d100b2` binds this file to HEAD `24689590c23a`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
+Projection produced by `devctl review-snapshot`. Generation stamp `snap-cf014a2276db` binds this file to HEAD `dde973d5387f`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.

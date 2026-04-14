@@ -22,6 +22,7 @@ from ...review_channel.state import (
     read_reviewer_supervisor_state,
     refresh_status_snapshot,
 )
+from ...runtime.authority_snapshot import project_authority_snapshot
 from .bridge_handler import _run_bridge_action
 from . import status_context as _status_context_mod
 from .status_bridge_sync import (
@@ -189,6 +190,7 @@ def _refresh_bridge_status_report(
     recommended_command, command_source = resolve_status_recommended_command(report)
     report["recommended_command"] = recommended_command
     report["recommended_command_source"] = command_source
+    project_authority_snapshot(report, next_command=recommended_command)
     existing_warnings = report.get("warnings")
     if bridge_synced:
         existing_warnings = _without_bridge_current_session_drift(existing_warnings)
@@ -260,6 +262,12 @@ def _run_status_action(
                     paths=runtime_paths,
                 )
                 attach_status_runtime_snapshot(report)
+                recommended_command, command_source = resolve_status_recommended_command(
+                    report
+                )
+                report["recommended_command"] = recommended_command
+                report["recommended_command_source"] = command_source
+                project_authority_snapshot(report, next_command=recommended_command)
                 return report, exit_code
 
             fallback_warnings.append(

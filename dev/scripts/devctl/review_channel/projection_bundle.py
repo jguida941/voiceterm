@@ -8,6 +8,7 @@ from copy import deepcopy
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
+from ..runtime.authority_snapshot import project_authority_snapshot
 from .context_refs import normalize_context_pack_refs
 from .current_session_projection import current_focus_line
 from .projection_bundle_markdown import render_latest_markdown
@@ -35,6 +36,7 @@ _TYPED_REVIEW_STATE_KEYS = (
     "reviewer_runtime",
     "commit_pipeline",
     "coordination",
+    "authority_snapshot",
     "warnings",
     "errors",
     "snapshot_id",
@@ -83,6 +85,10 @@ def write_projection_bundle(
         and "reviewer_observation" not in review_state_payload
     ):
         review_state_payload["reviewer_observation"] = obs_proj
+    project_authority_snapshot(
+        review_state_payload,
+        next_command=_projection_next_command(review_state_payload),
+    )
     compact = _build_compact_projection(review_state_payload)
     actions = _build_actions_projection(review_state_payload)
     full = {
@@ -92,6 +98,7 @@ def write_projection_bundle(
         "timestamp": review_state_payload.get("timestamp"),
         "ok": review_state_payload.get("ok"),
         "review_state": review_state_payload,
+        "authority_snapshot": review_state_payload.get("authority_snapshot"),
         "agent_registry": agent_registry,
         "warnings": review_state_payload.get("warnings", []),
         "errors": review_state_payload.get("errors", []),
@@ -163,6 +170,7 @@ def _build_compact_projection(review_state: dict[str, object]) -> dict[str, obje
         "snapshot_id": snapshot_id,
         "ok": review_state.get("ok"),
         "review": review_state.get("review"),
+        "authority_snapshot": review_state.get("authority_snapshot"),
         "current_session": current_session,
         "review_candidate": review_candidate,
         "recovery_assessment": review_state.get("recovery_assessment"),
@@ -256,3 +264,26 @@ def _normalize_review_state_payload(
     for key in _TYPED_REVIEW_STATE_KEYS:
         normalized[key] = typed_payload.get(key)
     return normalized
+
+
+def _projection_next_command(review_state: Mapping[str, object]) -> str:
+    compat = _mapping(review_state.get("_compat"))
+    doctor = _mapping(compat.get("doctor"))
+    attention = _mapping(review_state.get("attention"))
+    recovery = _mapping(review_state.get("recovery_assessment"))
+    decision = _mapping(recovery.get("decision"))
+    push_decision = _mapping(compat.get("push_decision"))
+    for candidate in (
+        doctor.get("recommended_command"),
+        decision.get("command"),
+        attention.get("recommended_command"),
+        push_decision.get("next_step_command"),
+    ):
+        command = str(candidate or "").strip()
+        if command:
+            return command
+    return ""
+
+
+def _mapping(value: object) -> Mapping[str, object]:
+    return value if isinstance(value, Mapping) else {}

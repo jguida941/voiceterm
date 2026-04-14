@@ -138,6 +138,11 @@ REVIEW_STATE_CONTRACTS: tuple[ContractSpec, ...] = (
                 "Shared bounded coordination authority mirrored into review-state projections for status, doctor, and dashboard parity.",
             ),
             ContractField(
+                "authority_snapshot",
+                "AuthoritySnapshot | None",
+                "Reduced next-turn authority contract mirrored into review-state projections.",
+            ),
+            ContractField(
                 "attention",
                 "ReviewAttentionState | None",
                 "Current top-priority attention state, if any.",

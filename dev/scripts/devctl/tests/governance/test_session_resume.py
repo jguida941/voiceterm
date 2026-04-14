@@ -25,6 +25,7 @@ from dev.scripts.devctl.commands.governance.session_resume_support import (
     try_cache_hit,
     write_cache,
 )
+from dev.scripts.devctl.runtime.authority_snapshot import AuthoritySnapshot
 from dev.scripts.devctl.runtime.reviewer_runtime_models import (
     RemoteControlAttachmentState,
 )
@@ -80,6 +81,29 @@ class TestSessionCachePacket(unittest.TestCase):
         self.assertIsNotNone(restored.remote_control_attachment)
         assert restored.remote_control_attachment is not None
         self.assertEqual(restored.remote_control_attachment.provider, "claude")
+
+    def test_roundtrip_with_authority_snapshot(self) -> None:
+        original = SessionCachePacket(
+            authority_snapshot=AuthoritySnapshot(
+                coordination_state="handshake_stale",
+                current_instruction_revision="rev-123",
+                implementer_ack_state="stale",
+                safe_to_continue=False,
+            )
+        )
+
+        restored = packet_from_mapping(original.to_dict())
+
+        self.assertIsNotNone(restored.authority_snapshot)
+        assert restored.authority_snapshot is not None
+        self.assertEqual(
+            restored.authority_snapshot.coordination_state,
+            "handshake_stale",
+        )
+        self.assertEqual(
+            restored.authority_snapshot.current_instruction_revision,
+            "rev-123",
+        )
 
 
 class TestFieldDerivation(unittest.TestCase):
@@ -304,6 +328,10 @@ class TestBuildFromSources(unittest.TestCase):
             self.assertEqual(packet.ack_state, "current")
             self.assertTrue(packet.last_guard_ok)
             self.assertIn("ack_current=True", packet.key_rules)
+            self.assertIsNotNone(packet.authority_snapshot)
+            assert packet.authority_snapshot is not None
+            self.assertEqual(packet.authority_snapshot.current_instruction_revision, "rev123")
+            self.assertEqual(packet.authority_snapshot.implementer_ack_state, "current")
 
     def test_build_no_artifacts(self) -> None:
         sources = self._make_sources()
@@ -1422,6 +1450,69 @@ class TestV2Fields(unittest.TestCase):
                 packet.next_recommended_command,
                 "python3 dev/scripts/devctl.py push --execute",
             )
+
+    def test_attention_command_overrides_stale_read_model_next_command(self) -> None:
+        """Typed attention/recovery guidance wins when the live surface already degraded."""
+        from dev.scripts.devctl.runtime.control_plane_read_model import (
+            ControlPlaneReadModel,
+        )
+
+        model = ControlPlaneReadModel(
+            timestamp="t", branch="b", head_sha="h",
+            worktree_clean=False, ahead_of_upstream=0,
+            resolved_phase="pushing",
+            push_eligible=False, implementation_blocked=False,
+            top_blocker="none",
+            next_action="run_devctl_push",
+            next_command="python3 dev/scripts/devctl.py push --execute",
+            reviewer_mode="single_agent",
+            operator_interaction_mode="local_terminal",
+            reviewer_freshness="overdue", review_accepted=False,
+            last_reviewed_sha="", attention_status="checkpoint_required",
+            attention_summary="checkpoint required",
+            publisher_running=False, supervisor_running=False,
+            codex_conductor_alive=False, claude_conductor_alive=False,
+            pending_action_requests=0, last_guard_ok=True,
+            check_details=(),
+        )
+        sources = self._make_sources(
+            review_state={
+                "attention": {
+                    "status": "checkpoint_required",
+                    "summary": "The current worktree has exceeded the checkpoint budget.",
+                    "recommended_action": "Cut a checkpoint before continuing.",
+                    "recommended_command": (
+                        "python3 dev/scripts/devctl.py commit -m "
+                        "\"<descriptive message>\""
+                    ),
+                },
+                "current_session": {
+                    "current_instruction": "Do the thing",
+                    "current_instruction_revision": "rev123",
+                    "implementer_ack_state": "stale",
+                },
+            },
+        )
+
+        with tempfile.TemporaryDirectory() as td:
+            packet = build_from_sources(
+                Path(td), role="implementer", head_sha="abc",
+                read_model_override=model, sources_override=sources,
+            )
+
+        self.assertEqual(
+            packet.next_recommended_command,
+            "python3 dev/scripts/devctl.py commit -m \"<descriptive message>\"",
+        )
+        self.assertEqual(
+            packet.next_action,
+            "python3 dev/scripts/devctl.py commit -m \"<descriptive message>\"",
+        )
+        assert packet.authority_snapshot is not None
+        self.assertEqual(
+            packet.authority_snapshot.next_command,
+            "python3 dev/scripts/devctl.py commit -m \"<descriptive message>\"",
+        )
 
     def test_advisory_action_from_read_model_not_receipt(self) -> None:
         """advisory_action is derived from read model next_action, not receipt."""

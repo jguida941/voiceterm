@@ -30,6 +30,11 @@ from dev.scripts.devctl.runtime.startup_context import (
     _load_startup_review_state,
     build_startup_context,
 )
+from dev.scripts.devctl.runtime.authority_snapshot import (
+    AuthoritySnapshot,
+    build_authority_snapshot,
+)
+from dev.scripts.devctl.runtime.startup_blocker_decision import BlockerSnapshot
 from dev.scripts.devctl.runtime.recovery_authority import (
     RecoveryAuthorityState,
     derive_recovery_authority,
@@ -41,6 +46,7 @@ from dev.scripts.devctl.runtime.review_state_models import (
     AgentAttentionRecord,
     PacketInboxState,
     ReviewAttentionState,
+    ReviewCurrentSessionState,
 )
 from dev.scripts.devctl.runtime.conductor_capability import (
     session_resume_command_for_role,
@@ -94,10 +100,72 @@ class TestStartupContextBuild(unittest.TestCase):
         self.assertIsNotNone(ctx)
         self.assertEqual(ctx.contract_id, "StartupContext")
 
+    def test_builds_authority_snapshot(self) -> None:
+        ctx = build_startup_context()
+
+        self.assertIsNotNone(ctx.authority_snapshot)
+        assert ctx.authority_snapshot is not None
+        self.assertTrue(ctx.authority_snapshot.coordination_state)
+        self.assertIn("authority_snapshot", ctx.to_dict())
+        self.assertIsNotNone(ctx.current_session)
+        assert ctx.current_session is not None
+        self.assertEqual(
+            ctx.authority_snapshot.current_instruction_revision,
+            ctx.current_session.current_instruction_revision,
+        )
+        self.assertEqual(
+            ctx.authority_snapshot.implementer_ack_state,
+            ctx.current_session.implementer_ack_state,
+        )
+
     def test_has_governance(self) -> None:
         ctx = build_startup_context()
         self.assertIsNotNone(ctx.governance)
         self.assertTrue(ctx.governance.repo_identity.repo_name)
+
+    def test_authority_snapshot_prefers_recovery_authority_over_startup_routing(self) -> None:
+        snapshot = build_authority_snapshot(
+            {
+                "next_command": (
+                    "python3 dev/scripts/devctl.py review-channel "
+                    "--action status --terminal none --format json"
+                ),
+                "control_recovery_action": "coordination_resync",
+                "implementation_permission": "active",
+                "coordination": {
+                    "resync_required": True,
+                    "current_slice": "dogfood authority fix",
+                    "active_target": {
+                        "plan_path": "dev/active/ai_governance_platform.md",
+                    },
+                },
+                "current_session": {
+                    "current_instruction_revision": "rev123",
+                    "implementer_ack_state": "stale",
+                },
+                "reviewer_gate": {
+                    "reviewer_mode": "single_agent",
+                },
+                "attention": {
+                    "status": "checkpoint_required",
+                    "recommended_action": "checkpoint_before_continue",
+                    "recommended_command": (
+                        'python3 dev/scripts/devctl.py commit -m "checkpoint"'
+                    ),
+                    "summary": "Checkpoint required before more edits.",
+                },
+                "recovery_authority": {
+                    "decision_action_id": "cut_checkpoint",
+                    "command": 'python3 dev/scripts/devctl.py commit -m "checkpoint"',
+                },
+            }
+        )
+
+        self.assertEqual(snapshot.required_action, "cut_checkpoint")
+        self.assertEqual(
+            snapshot.next_command,
+            'python3 dev/scripts/devctl.py commit -m "checkpoint"',
+        )
 
     def test_has_reviewer_gate(self) -> None:
         ctx = build_startup_context()
@@ -193,10 +261,13 @@ class TestStartupContextBuild(unittest.TestCase):
         self.assertTrue(ctx.work_intake.contract_id)
 
     def test_projects_implementation_permission_from_control_topology_truth(self) -> None:
+        fake_coordination = SimpleNamespace(
+            implementation_permission="active",
+            to_dict=lambda: {"implementation_permission": "active"},
+        )
         fake_work_intake = SimpleNamespace(
-            coordination=SimpleNamespace(
-                implementation_permission="active",
-            )
+            coordination=fake_coordination,
+            to_dict=lambda: {"coordination": {"implementation_permission": "active"}},
         )
         with (
             patch(
@@ -224,7 +295,7 @@ class TestStartupContextBuild(unittest.TestCase):
             ),
             patch(
                 "dev.scripts.devctl.runtime.startup_context.derive_startup_blocker",
-                return_value=SimpleNamespace(
+                return_value=BlockerSnapshot(
                     top_blocker="none",
                     next_action="continue editing",
                     blocker_source="none",
@@ -1779,6 +1850,70 @@ class TestCLIRegistration(unittest.TestCase):
             summary["packet_inbox"]["agents"][0]["current_instruction_packet_id"],
             "rev_pkt_0312",
         )
+
+    def test_command_receipt_persists_authority_snapshot(self) -> None:
+        ctx = StartupContext(
+            governance=_minimal_governance(),
+            reviewer_gate=ReviewerGateState(),
+            advisory_action="continue_editing",
+            advisory_reason="clean_worktree",
+            current_session=ReviewCurrentSessionState(
+                current_instruction="checkpoint",
+                current_instruction_revision="rev123",
+                implementer_status="coding",
+                implementer_ack="ack",
+                implementer_ack_revision="rev123",
+                implementer_ack_state="stale",
+            ),
+            authority_snapshot=AuthoritySnapshot(
+                coordination_state="handshake_stale",
+                current_instruction_revision="rev123",
+                implementer_ack_state="stale",
+                next_command='python3 dev/scripts/devctl.py commit -m "checkpoint"',
+                safe_to_continue=False,
+            ),
+        )
+        args = build_parser().parse_args(["startup-context", "--format", "json"])
+        captured: dict[str, object] = {}
+
+        def _fake_write(receipt, **_kwargs):
+            captured["receipt"] = receipt
+            return Path("/tmp/startup-receipt.json")
+
+        with patch.object(
+            startup_context_command,
+            "build_startup_context",
+            return_value=ctx,
+        ), patch.object(
+            startup_context_command,
+            "build_startup_authority_report",
+            return_value={
+                "ok": True,
+                "checks_run": 10,
+                "checks_passed": 10,
+                "errors": [],
+                "warnings": [],
+            },
+        ), patch.object(
+            startup_context_command,
+            "write_startup_receipt",
+            side_effect=_fake_write,
+        ), patch.object(
+            startup_context_command,
+            "emit_machine_artifact_output",
+            return_value=0,
+        ):
+            rc = startup_context_command.run(args)
+
+        self.assertEqual(rc, 0)
+        receipt = captured["receipt"]
+        self.assertIsNotNone(receipt.authority_snapshot)
+        assert receipt.authority_snapshot is not None
+        self.assertEqual(
+            receipt.authority_snapshot.current_instruction_revision,
+            "rev123",
+        )
+        self.assertEqual(receipt.authority_snapshot.implementer_ack_state, "stale")
 
 
 class TestReviewerGateSemantics(unittest.TestCase):

@@ -5044,6 +5044,17 @@ working on `MP-377`.
   execution order explicit: authority snapshot/object closure first, bridge
   demotion second, persisted `PlanRegistry` + markdown projection third, and
   scenario-runner widening after those foundations are real.
+- 2026-04-13 authority-snapshot follow-up:
+  the first closure from that architecture queue is now real. Startup,
+  session-resume, and review-channel status/doctor all project the same
+  reduced `AuthoritySnapshot` contract from
+  `dev/scripts/devctl/runtime/authority_snapshot.py`, so a fresh AI turn can
+  read one typed `coordination_state`, `root_cause`, `required_action`,
+  `next_command`, and `safe_to_continue` answer instead of reconstructing it
+  from startup prose, doctor fields, current-session ACK state, and packet
+  inbox rows separately. Dual-agent instruction-revision drift with a stale
+  implementer ACK now reduces to `handshake_stale` before the generic
+  blocked-state fallback.
 - Next action: close the remaining `P0`/`P1` foundation slices in order:
   land a persisted `PlanRegistry` / `PlanTargetRef` authority artifact, then
   render `INDEX.md` / `MASTER_PLAN.md` / owner-plan markdown as projections
@@ -6561,6 +6572,18 @@ Execution order for this section:
 
 ## Progress Log
 
+- 2026-04-13: Closed the first architecture-review follow-up in the owner
+  chain instead of leaving `authority_snapshot_3_fields_missing` as a prose
+  complaint. `dev/scripts/devctl/runtime/authority_snapshot.py` now carries
+  the shared `AuthoritySnapshot` reducer/projector, `StartupContext` and
+  `SessionCachePacket` persist that reduced contract directly, and
+  `review-channel --action status|doctor` now projects the same object over
+  reviewer runtime, current-session ACK state, coordination posture, packet
+  target, and next-command routing. The semantics are explicit: active
+  dual-agent instruction-revision drift with a stale implementer ACK is now
+  the first-class `handshake_stale` authority state, not just a generic
+  blocked loop. The next queued foundation work is still bridge-authority
+  demotion, then persisted `PlanRegistry` plus markdown projection.
 - 2026-04-13: Ingested Claude architecture-review packets `rev_pkt_0375`
   through `rev_pkt_0378` into repo-visible execution state instead of leaving
   them in the typed inbox only. The corresponding architecture findings are

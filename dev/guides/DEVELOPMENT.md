@@ -929,6 +929,15 @@ Three quality layers matter in practice:
   follow-on wiring. When you touch either seam, rerun
   `python3 -m pytest dev/scripts/devctl/tests/platform/test_coordination_snapshot.py dev/scripts/devctl/tests/platform/test_coordination_topology.py dev/scripts/devctl/tests/platform/test_system_picture.py -q --tb=short`
   before trusting the broader platform bundle.
+- The final turn-sized authority reducer now lives in
+  `dev/scripts/devctl/runtime/authority_snapshot.py`. `startup-context`,
+  `session-resume`, and `review-channel --action status|doctor` should project
+  `AuthoritySnapshot` instead of forcing callers to reconcile
+  `reviewer_mode`, `reviewer_freshness`, `current_instruction_revision`,
+  `implementer_ack_state`, packet-target attention, and next-command routing
+  by hand. When you touch that seam, rerun
+  `python3 -m pytest dev/scripts/devctl/tests/runtime/test_startup_context.py dev/scripts/devctl/tests/governance/test_session_resume.py dev/scripts/devctl/tests/review_channel/test_reviewer_runtime_doctor.py -q`
+  before trusting the broader platform bundle.
 - Use `python3 dev/scripts/devctl.py system-picture --format md` when that
   same platform/governance slice should refresh the generated external-review
   reducer and proof-ledger projection rather than leaving the proof surface as

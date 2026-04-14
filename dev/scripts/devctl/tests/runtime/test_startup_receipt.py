@@ -83,6 +83,13 @@ class StartupReceiptProblemTests(unittest.TestCase):
                 "publication_guidance": (
                     "2 local commit(s) waiting for governed push. Run `python3 dev/scripts/devctl.py push --execute` now."
                 ),
+                "authority_snapshot": {
+                    "coordination_state": "handshake_stale",
+                    "current_instruction_revision": "rev123",
+                    "implementer_ack_state": "stale",
+                    "next_command": "python3 dev/scripts/devctl.py commit -m \"checkpoint\"",
+                    "safe_to_continue": False,
+                },
             }
         )
 
@@ -97,6 +104,13 @@ class StartupReceiptProblemTests(unittest.TestCase):
         self.assertTrue(receipt.publication_backlog_recommended)
         self.assertEqual(receipt.staged_path_count, 4)
         self.assertEqual(receipt.unstaged_path_count, 1)
+        self.assertIsNotNone(receipt.authority_snapshot)
+        assert receipt.authority_snapshot is not None
+        self.assertEqual(
+            receipt.authority_snapshot.current_instruction_revision,
+            "rev123",
+        )
+        self.assertEqual(receipt.authority_snapshot.implementer_ack_state, "stale")
 
     def test_problem_list_flags_checkpoint_required_receipts(self) -> None:
         receipt = StartupReceipt(

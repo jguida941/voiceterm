@@ -6,6 +6,7 @@ from dataclasses import asdict, dataclass, field
 from typing import Any
 
 from ..platform.coordination_snapshot_models import CoordinationSnapshot
+from .authority_snapshot import AuthoritySnapshot
 from .reviewer_runtime_models import (
     ReviewerAcceptanceState,
     ReviewerLastPollState,
@@ -210,6 +211,7 @@ class ReviewState:
         default_factory=RemoteCommitPipelineContract
     )
     coordination: CoordinationSnapshot | None = None
+    authority_snapshot: AuthoritySnapshot | None = None
     warnings: tuple[str, ...] = ()
     errors: tuple[str, ...] = ()
     snapshot_id: str = ""
@@ -231,4 +233,7 @@ class ReviewState:
         )
 
     def to_dict(self) -> dict[str, Any]:
-        return asdict(self)
+        payload = asdict(self)
+        if self.authority_snapshot is not None:
+            payload["authority_snapshot"] = self.authority_snapshot.to_dict()
+        return payload
