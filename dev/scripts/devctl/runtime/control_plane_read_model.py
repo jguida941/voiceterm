@@ -178,14 +178,20 @@ def _derive_operator_interaction_mode(
         or coerce_string((receipt or {}).get("operator_interaction_mode"))
     )
     resolved_mode = resolve_operator_interaction_mode(explicit_mode)
-    if is_resolved(resolved_mode.value):
+    if is_resolved(resolved_mode.value) and resolved_mode.value != "local_terminal":
         return resolved_mode.value
 
     attachment = remote_control_attachment_from_mapping(
         _nested_get(review_state_payload, "reviewer_runtime", "remote_control_attachment")
     )
+    # An active remote-control attachment overrides the local_terminal default
+    # so phone/remote operators resolve to remote_control without a repo-policy
+    # flip. (rev_pkt_0448)
     if has_active_remote_control_attachment(attachment):
         return "remote_control"
+
+    if resolved_mode.value == "local_terminal":
+        return "local_terminal"
 
     normalized_mode = normalize_reviewer_mode(reviewer_mode)
     if normalized_mode == "active_dual_agent":

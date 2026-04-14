@@ -317,6 +317,61 @@ class BuildWithReviewStateTests(unittest.TestCase):
             )
         self.assertEqual(model.operator_interaction_mode, "remote_control")
 
+    def test_attachment_overrides_local_terminal_governance_default(self) -> None:
+        """rev_pkt_0448 regression: governance=local_terminal + active attachment
+        must resolve to remote_control, not local_terminal.
+
+        Prior behavior short-circuited on governance=local_terminal before checking
+        the attachment, forcing operators to hard-code remote_control into repo
+        policy (itself a regression per rev_pkt_0448). Attachment now wins over
+        the local_terminal default so phone/remote sessions resolve correctly
+        without a repo-policy flip.
+        """
+        sources = _empty_sources()
+        sources["review_state"] = {
+            "bridge": {"reviewer_mode": "single_agent"},
+            "collaboration": {"operator_interaction_mode": "local_terminal"},
+            "reviewer_runtime": {
+                "remote_control_attachment": {
+                    "provider": "claude",
+                    "session_name": "VoiceTerm Bridge Loop",
+                    "remote_session_id": "session_xyz789",
+                    "status": "attached",
+                }
+            },
+        }
+        with patch(
+            "dev.scripts.devctl.runtime.control_plane_read_model._extract_coordination",
+            return_value=None,
+        ):
+            model = build_control_plane_read_model(
+                Path("/tmp/nonexistent"),
+                sources_override=sources,
+                git_override=_base_git(),
+            )
+        self.assertEqual(model.operator_interaction_mode, "remote_control")
+
+    def test_local_terminal_governance_preserved_when_no_attachment(self) -> None:
+        """Counterpart to attachment override: without an active attachment,
+        governance=local_terminal must still resolve to local_terminal so
+        ordinary single-agent local sessions are not pushed into remote_control.
+        """
+        sources = _empty_sources()
+        sources["review_state"] = {
+            "bridge": {"reviewer_mode": "single_agent"},
+            "collaboration": {"operator_interaction_mode": "local_terminal"},
+        }
+        with patch(
+            "dev.scripts.devctl.runtime.control_plane_read_model._extract_coordination",
+            return_value=None,
+        ):
+            model = build_control_plane_read_model(
+                Path("/tmp/nonexistent"),
+                sources_override=sources,
+                git_override=_base_git(),
+            )
+        self.assertEqual(model.operator_interaction_mode, "local_terminal")
+
     def test_typed_review_state_overrides_stale_loaded_payload(self) -> None:
         sources = _empty_sources()
         sources["review_state"] = {
@@ -577,6 +632,14 @@ class ResolverUnitTests(unittest.TestCase):
                     },
                     "collaboration": {"review_agent": "codex"},
                 }
+                # collaboration_mod._utcnow is an alias of the source function
+                # in collaboration_session_local_reviewer; patch the source so
+                # the freshness check actually uses the patched clock rather
+                # than the real time on the real filesystem.
+                from dev.scripts.devctl.review_channel import (
+                    collaboration_session_local_reviewer as _local_reviewer_mod,
+                )
+                patched_now = datetime(2026, 4, 11, 21, 54, 0, tzinfo=timezone.utc)
                 with patch.object(
                     collaboration_mod,
                     "discover_latest_session",
@@ -584,7 +647,11 @@ class ResolverUnitTests(unittest.TestCase):
                 ), patch.object(
                     collaboration_mod,
                     "_utcnow",
-                    return_value=datetime(2026, 4, 11, 21, 54, 0, tzinfo=timezone.utc),
+                    return_value=patched_now,
+                ), patch.object(
+                    _local_reviewer_mod,
+                    "_utcnow",
+                    return_value=patched_now,
                 ):
                     d = resolve_daemon_state(sources)
                 self.assertTrue(d["codex_conductor_alive"])

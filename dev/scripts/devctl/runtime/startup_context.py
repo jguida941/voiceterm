@@ -217,10 +217,13 @@ def _interaction_mode_from_reviewer_mode(
     resolved = resolve_operator_interaction_mode(gov)
     if is_resolved(resolved.value) and resolved.value != "local_terminal":
         return resolved.value
-    if gov == "local_terminal":
-        return "local_terminal"
+    # An active remote-control attachment overrides the local_terminal governance
+    # default so operators on phone/remote sessions resolve to remote_control
+    # without needing a repo-policy flip. (rev_pkt_0448)
     if has_active_remote_control_attachment(remote_control_attachment):
         return "remote_control"
+    if gov == "local_terminal":
+        return "local_terminal"
     normalized = normalize_reviewer_mode(effective_mode)
     if normalized == "active_dual_agent":
         return "dual_agent"
