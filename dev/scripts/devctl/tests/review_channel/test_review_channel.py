@@ -125,6 +125,10 @@ from dev.scripts.devctl.review_channel.reviewer_state import (
     EnsureHeartbeatResult,
     ReviewerStateWrite,
 )
+from dev.scripts.devctl.review_channel.remote_control_attachment_artifact import (
+    load_remote_control_attachment,
+    persist_remote_control_attachment,
+)
 from dev.scripts.devctl.review_channel.session_probe import (
     ConductorSessionRecord,
     load_conductor_sessions,
@@ -7257,6 +7261,52 @@ class ReviewChannelCommandTests(unittest.TestCase):
                 "(mode: active_dual_agent; reason: reviewer-follow;",
                 updated_bridge,
             )
+
+    def test_write_reviewer_heartbeat_single_agent_detaches_remote_control_attachment(
+        self,
+    ) -> None:
+        from dev.scripts.devctl.review_channel.reviewer_state import write_reviewer_heartbeat
+        from dev.scripts.devctl.runtime.reviewer_runtime_models import (
+            RemoteControlAttachmentState,
+        )
+        from dev.scripts.devctl.repo_packs import active_path_config
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            bridge_path = root / "bridge.md"
+            bridge_path.write_text(_build_bridge_text(), encoding="utf-8")
+            output_root = root / active_path_config().review_status_dir_rel
+            output_root.mkdir(parents=True, exist_ok=True)
+            persist_remote_control_attachment(
+                RemoteControlAttachmentState(
+                    provider="claude",
+                    role="implementer",
+                    attachment_id="remote-attach-claude",
+                    session_name="Claude bridge",
+                    remote_session_id="session_claude",
+                    session_url="https://claude.ai/code/session_claude",
+                    status="attached",
+                ),
+                output_root=output_root,
+            )
+
+            with patch(
+                "dev.scripts.devctl.review_channel.reviewer_state._refresh_projections_after_checkpoint"
+            ):
+                write_reviewer_heartbeat(
+                    repo_root=root,
+                    bridge_path=bridge_path,
+                    reviewer_mode="single_agent",
+                    reason="manual-review",
+                )
+
+            attachment = load_remote_control_attachment(
+                output_root=output_root,
+                provider="claude",
+            )
+            self.assertIsNotNone(attachment)
+            assert attachment is not None
+            self.assertEqual(attachment.status, "detached")
 
     def _reviewer_checkpoint_args(
         self,

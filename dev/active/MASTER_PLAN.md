@@ -191,6 +191,16 @@
   current 74-path slice is still `bundle.tooling -> docs-check
   --strict-tooling`, so the matching maintainer-doc updates stay part of the
   closure criteria for this runtime-convergence slice.
+- 2026-04-15 governed publication follow-up in `MP-377` scope:
+  `devctl commit` now stops at `operator_approval_pending` before the commit
+  phase when `remote_control` or another non-auto-approved lane still has an
+  outstanding `commit_approval` request, and the ReviewSnapshot publication
+  path now treats a governed receipt commit as `REVIEW_SNAPSHOT.md` plus the
+  optional governed `bridge.md` projection bound to the parent code commit.
+  That keeps `check_review_snapshot_freshness.py`, persisted push
+  authorization, and live `devctl push --execute` preflight on one receipt
+  model instead of self-staling as soon as the post-commit receipt advances
+  `HEAD`.
 - 2026-04-13 authority-snapshot closure follow-up in `MP-377` scope:
   startup-context, session-resume, and review-channel status/doctor now all
   project the same reduced `AuthoritySnapshot` contract from
@@ -851,7 +861,10 @@
   records, and typed `current_session` / `reviewer_runtime` authority stays
   ahead of stale bridge prose when those sources disagree. `review-snapshot
   --write --receipt-commit` refuses non-snapshot dirty state and creates a
-  snapshot-only receipt commit bound to the current code HEAD, while
+  governed receipt commit bound to the current code HEAD; that receipt may
+  carry `dev/audits/REVIEW_SNAPSHOT.md` alone or atomically with `bridge.md`,
+  and freshness/push authorization both bind it back to the parent code
+  commit instead of treating the receipt as a fresh approval target, while
   `install-git-hooks` installs the pre-commit projection hook, the
   post-commit receipt hook that invokes that typed path with hook recursion
   disabled, and a blocking pre-push hook that forces raw publication back

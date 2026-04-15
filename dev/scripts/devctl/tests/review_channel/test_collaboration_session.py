@@ -599,3 +599,72 @@ def test_build_collaboration_session_promotes_recent_local_reviewer_rollout_acti
     )
     assert review_assignment.live is True
     assert review_assignment.source == "reviewer_turn"
+
+
+def test_build_collaboration_session_promotes_recent_packet_active_implementer(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    session_records = (
+        _session_record("codex", "reviewer", live=True),
+        _session_record("claude", "implementer", live=False),
+    )
+    projections_root = tmp_path / "projections" / "latest"
+    projections_root.mkdir(parents=True)
+    events_dir = tmp_path / "events"
+    events_dir.mkdir()
+    (events_dir / "trace.ndjson").write_text(
+        json.dumps(
+            {
+                "event_type": "packet_posted",
+                "timestamp_utc": "2026-04-15T19:35:58Z",
+                "from_agent": "claude",
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(
+        collaboration_mod,
+        "load_conductor_sessions",
+        lambda *, session_output_root: session_records,
+    )
+    monkeypatch.setattr(
+        collaboration_mod,
+        "load_remote_control_attachments",
+        lambda *, output_root, active_only=False: (),
+    )
+    monkeypatch.setattr(
+        collaboration_mod,
+        "_utcnow",
+        lambda: datetime(2026, 4, 15, 19, 36, 10, tzinfo=timezone.utc),
+    )
+    monkeypatch.setattr(
+        coordination_mod,
+        "dirty_paths_for_repo",
+        lambda repo_root: ("dev/scripts/devctl/runtime/startup_context.py",),
+    )
+
+    session = collaboration_mod.build_collaboration_session(
+        timestamp="2026-04-15T19:36:10Z",
+        plan_id="MP-377",
+        session_id="session-1",
+        bridge_liveness={
+            "reviewer_mode": "single_agent",
+            "effective_reviewer_mode": "single_agent",
+        },
+        current_session=_current_session(
+            instruction="Tighten `dev/scripts/devctl/runtime/control_topology.py`.",
+            last_reviewed_scope="dev/scripts/devctl/runtime/control_topology.py",
+        ),
+        repo_root=tmp_path,
+        session_output_root=projections_root,
+    )
+
+    live_providers = {row.provider for row in session.participants if row.live}
+    assert live_providers == {"claude", "codex"}
+    coding_assignment = next(
+        row for row in session.role_assignments if row.role_id == "coding_agent"
+    )
+    assert coding_assignment.live is True
+    assert coding_assignment.source == "packet_activity"

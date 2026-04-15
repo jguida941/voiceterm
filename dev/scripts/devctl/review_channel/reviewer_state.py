@@ -96,6 +96,12 @@ def write_reviewer_heartbeat(
 
     rewrite_bridge_markdown(bridge_path, transform=transform)
     assert write is not None
+    if normalized_mode == "single_agent":
+        try:
+            from .remote_control_attachment_artifact import deactivate_repo_remote_control_attachments
+            deactivate_repo_remote_control_attachments(repo_root=repo_root)
+        except (ImportError, OSError, ValueError):
+            pass
     _refresh_projections_after_checkpoint(
         repo_root=repo_root,
         bridge_path=bridge_path,

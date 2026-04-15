@@ -7059,9 +7059,35 @@ Execution order for this section:
   and the focused regression in `tests/vcs/test_commit_gate.py` proves the
   receipt is rebuilt and the commit records cleanly. Local dogfood is
   `dogfood-fc22bfd092ff`; Claude dogfood request `rev_pkt_0562` is pending.
+- 2026-04-15: Closed the governed commit remote-approval self-invalidation
+  path that the next live retry exposed. In `remote_control` approval mode,
+  `devctl commit` was still entering `vcs.commit` immediately after posting a
+  `commit_approval` request, so the new packet could change attention state
+  and fail the same run closed on `attention_revision_stale`. The preflight is
+  now split through `commands/vcs/commit_preflight.py`, which returns
+  `operator_approval_pending` before the commit phase whenever approval is
+  still outstanding. The focused regression in `tests/vcs/test_commit_gate.py`
+  proves the command stops before `vcs.commit`, and live proof is green too:
+  pipeline `pipeline-c773e2555beb` first paused at
+  `operator_approval_pending`, operator approval `rev_pkt_0565` was applied
+  against generation `gen-4e7c1e308d02`, and the resumed governed path
+  recorded code commit `0f66c9d8` before the trailing review-snapshot receipt.
+  Local dogfood is `dogfood-3bb9cde459f1`.
+- 2026-04-15: Closed the governed push review-snapshot self-staleness loop
+  that appeared immediately after the first successful governed commit.
+  `review-snapshot --write --receipt-commit` now lands a governed receipt
+  shape that refreshes both `dev/audits/REVIEW_SNAPSHOT.md` and `bridge.md`;
+  the new shared helper in `runtime/review_snapshot_refresh.py` makes that shape
+  explicit and lets both `check_review_snapshot_freshness.py` and
+  `runtime/push_authorization.py` inherit the parent code commit for freshness
+  and publication authority instead of treating the receipt commit as an
+  unrelated head change. Added focused regressions in
+  `tests/checks/test_check_review_snapshot_freshness.py` and
+  `tests/runtime/test_push_authorization.py`, and kept the existing atomic
+  receipt-pipeline tests green. Local dogfood is `dogfood-8f66a5109454`.
   Next step is to rerun `python3 dev/scripts/devctl.py commit -m "Stabilize review-channel authority recovery" --role implementer --format json`
-  against the current staged tree, then continue through the governed push
-  path if the checkpoint succeeds.
+  only if the latest staged tree changed again; otherwise run a fresh startup
+  receipt and continue directly through `python3 dev/scripts/devctl.py push --execute --format json`.
 - 2026-04-15: Closed the reopened live relaunch-vs-poll-due split inside the
   shared bridge-backed attention classifier. `review-channel --action status`
   had regressed to `attention.status=reviewer_poll_due` whenever freshness was
@@ -7080,6 +7106,65 @@ Execution order for this section:
   `review_loop_relaunch_required` while preserving checkpoint gating as a
   separate boundary. Claude observer dogfood is the next required closure on
   this slice.
+- 2026-04-15: Closed the stale remote-control vs local single-agent authority
+  split that was still leaving startup/event-backed state behind the live
+  reviewer lane. The local takeover writer now retires persisted
+  `remote_control_attachment` artifacts through
+  `review_channel/remote_control_attachment_artifact.py` when
+  `reviewer-heartbeat --reviewer-mode single_agent` records a sanctioned local
+  takeover, and `runtime/reviewer_runtime_models.py` no longer treats
+  `status=stale` attachments as active transport. The startup/runtime reducer
+  side was tightened too: `runtime/control_topology.py` now sanctions
+  single-agent authority in both `local_terminal` and `remote_control`
+  interaction modes, while the event-backed projection in
+  `review_channel/event_projection_bridge.py` plus
+  `event_projection_assembly.py` now prefers the live bridge reviewer mode so
+  `startup-context` no longer keeps stale daemon `active_dual_agent` metadata
+  after a local single-agent takeover. Focused proof is green on
+  `test_current_session_projection.py`,
+  `test_remote_control_attachment.py`,
+  `test_observed_topology.py`, and the targeted reviewer-heartbeat tests in
+  `test_review_channel.py`; `check_code_shape.py` and
+  `check_platform_contract_closure.py` are green too. Live repo proof is now
+  aligned across surfaces: `review-channel --action reviewer-heartbeat
+  --reviewer-mode single_agent --reason manual-review` detaches the stale
+  `reviewer_runtime.remote_control_attachment`, `review-channel --action status`
+  resolves `observed_control_topology=single_agent` with
+  `implementation_permission=active`, and `startup-context --format summary`
+  now reports `interaction_mode=local_terminal`,
+  `observed_control_topology=single_agent`,
+  `implementation_permission=active`, and
+  `attention_status=checkpoint_required` with only the expected
+  checkpoint/resync blockers remaining. Local dogfood is recorded as
+  `dogfood-c05252cb0003`; Claude PASS `rev_pkt_0570` for dogfood request
+  `rev_pkt_0569` is now acked too, confirming the expected
+  `local_terminal`/`single_agent` convergence with no new findings before the
+  governed checkpoint retry.
+- 2026-04-15: Closed the live chat-implementer topology gap Claude surfaced in
+  `rev_pkt_0571`. The collaboration/runtime reducers were already carrying
+  `coding_agent=claude`, but they only marked that role live from conductor
+  metadata or active attachments. `review_channel/collaboration_session.py`
+  now promotes a configured implementer to live when fresh packet-lane
+  activity proves the provider is active, using the new generic packet-activity
+  helper in `collaboration_session_local_reviewer.py`; and
+  `runtime/control_topology.py` now preserves typed live reviewer+implementer
+  evidence instead of collapsing it back to `single_agent` just because the
+  reviewer lane is still sanctioned `single_agent`. Focused proof is green on
+  `test_collaboration_session.py` and `test_observed_topology.py`;
+  `check_code_shape.py` and `check_platform_contract_closure.py` are green too.
+  Live repo proof now matches the bounded expectation: `review-channel --action
+  status` reports `runtime_counts.live_reviewer_total=1`,
+  `runtime_counts.live_implementer_total=1`,
+  `observed_control_topology=single_implementer_single_reviewer`, and
+  `authority_snapshot.observed_control_topology=single_implementer_single_reviewer`,
+  while `startup-context --format summary` reports the same observed topology
+  with `implementation_permission=active`. `interaction_mode` still stays
+  `local_terminal` until a repo-owned `remote_control_attachment` is active,
+  so the remote-control transport signal remains a separate follow-up rather
+  than being guessed from packet activity alone. Local dogfood is recorded as
+  `dogfood-45cbbc2fb48e`; Codex acked Claude finding `rev_pkt_0571` before
+  landing the fix and the next required closure is fresh Claude dogfood on the
+  bounded topology-vs-interaction split.
 - 2026-04-15: Closed the event-backed action-request queue hot path that was
   making `review-channel post` / `inbox` look hung during Codex<->Claude
   coordination. The root cause was not event-log reduction itself:

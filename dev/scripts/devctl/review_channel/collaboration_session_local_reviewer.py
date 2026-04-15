@@ -48,18 +48,31 @@ def local_reviewer_activity_is_fresh(
     reviewer_provider: str,
     session_output_root: Path | None,
 ) -> bool:
+    if provider_packet_activity_is_fresh(
+        provider=reviewer_provider,
+        session_output_root=session_output_root,
+    ):
+        return True
+    return local_reviewer_rollout_is_fresh(reviewer_provider=reviewer_provider)
+
+
+def provider_packet_activity_is_fresh(
+    *,
+    provider: str,
+    session_output_root: Path | None,
+) -> bool:
     event_log_path = resolve_event_log_path(session_output_root)
     if event_log_path is not None:
-        latest_activity = latest_local_reviewer_activity(
+        latest_activity = latest_provider_packet_activity(
             event_log_path,
-            reviewer_provider=reviewer_provider,
+            provider=provider,
         )
         if latest_activity is not None:
             activity_age = age_seconds(str(latest_activity.get("timestamp_utc") or ""))
             freshness = classify_reviewer_freshness(activity_age)
             if freshness not in {ReviewerFreshness.MISSING, ReviewerFreshness.OVERDUE}:
                 return True
-    return local_reviewer_rollout_is_fresh(reviewer_provider=reviewer_provider)
+    return False
 
 
 def local_reviewer_rollout_is_fresh(*, reviewer_provider: str) -> bool:
@@ -97,15 +110,15 @@ def resolve_event_log_path(session_output_root: Path | None) -> Path | None:
     return None
 
 
-def latest_local_reviewer_activity(
+def latest_provider_packet_activity(
     event_log_path: Path,
     *,
-    reviewer_provider: str,
+    provider: str,
 ) -> dict[str, object] | None:
     for event in reversed(load_recent_event_rows(event_log_path)):
-        if event_marks_local_reviewer_activity(
+        if event_marks_provider_packet_activity(
             event,
-            reviewer_provider=reviewer_provider,
+            provider=provider,
         ):
             return event
     return None
@@ -131,20 +144,20 @@ def load_recent_event_rows(event_log_path: Path) -> list[dict[str, object]]:
     return events
 
 
-def event_marks_local_reviewer_activity(
+def event_marks_provider_packet_activity(
     event: Mapping[str, object],
     *,
-    reviewer_provider: str,
+    provider: str,
 ) -> bool:
     event_type = str(event.get("event_type") or "").strip()
     if event_type not in _LOCAL_REVIEWER_ACTIVITY_EVENT_TYPES:
         return False
     if event_type == "packet_posted":
-        return text(event.get("from_agent")) == reviewer_provider
+        return text(event.get("from_agent")) == provider
     metadata = event.get("metadata")
     if not isinstance(metadata, Mapping):
         return False
-    return text(metadata.get("actor")) == reviewer_provider
+    return text(metadata.get("actor")) == provider
 
 
 def age_seconds(timestamp_utc: str) -> int | None:

@@ -107,25 +107,22 @@ def derive_startup_control_truth(
         bridge_liveness=bridge,
         runtime_counts=runtime_counts,
     )
-    sanctioned_single_agent = is_sanctioned_local_single_agent(
+    sanctioned_single_agent = is_sanctioned_single_agent_control(
         review_state,
         reviewer_gate=reviewer_gate,
     )
-    if sanctioned_single_agent and topology in {
-        "no_live_agents",
-        "reviewer_only",
-        "single_implementer_single_reviewer",
-    }:
+    typed_live_pair = _typed_live_reviewer_and_implementer_present(review_state)
+    if sanctioned_single_agent and topology != "dual_implementer" and not typed_live_pair:
         return "single_agent", "active"
     return topology, derive_implementation_permission(topology)
 
 
-def is_sanctioned_local_single_agent(
+def is_sanctioned_single_agent_control(
     review_state: object | None,
     *,
     reviewer_gate: object | None = None,
 ) -> bool:
-    """Return whether runtime truth represents sanctioned local solo authority."""
+    """Return whether runtime truth represents sanctioned single-agent authority."""
     reviewer_runtime = _field(review_state, "reviewer_runtime")
     bridge = _field(review_state, "bridge")
     effective_mode = (
@@ -140,11 +137,25 @@ def is_sanctioned_local_single_agent(
         return False
 
     interaction_mode = _text(_field(reviewer_gate, "operator_interaction_mode"))
-    if interaction_mode and interaction_mode not in {"local_terminal", "single_agent"}:
+    if interaction_mode and interaction_mode not in {
+        "local_terminal",
+        "single_agent",
+        "remote_control",
+    }:
         return False
 
-    return not _remote_control_attachment_active(
-        _field(reviewer_runtime, "remote_control_attachment")
+    return True
+
+
+def is_sanctioned_local_single_agent(
+    review_state: object | None,
+    *,
+    reviewer_gate: object | None = None,
+) -> bool:
+    """Backward-compatible alias for sanctioned single-agent authority."""
+    return is_sanctioned_single_agent_control(
+        review_state,
+        reviewer_gate=reviewer_gate,
     )
 
 
@@ -177,15 +188,46 @@ def _has_role_evidence(
     )
 
 
+def _typed_live_reviewer_and_implementer_present(review_state: object | None) -> bool:
+    collaboration = _field(review_state, "collaboration")
+    role_assignments = _sequence(_field(collaboration, "role_assignments"))
+    review_agent_live = any(
+        _text(_field(row, "role_id")) == "review_agent"
+        and boolish(_field(row, "live"))
+        for row in role_assignments
+    )
+    coding_agent_live = any(
+        _text(_field(row, "role_id")) == "coding_agent"
+        and boolish(_field(row, "live"))
+        for row in role_assignments
+    )
+    if review_agent_live and coding_agent_live:
+        return True
+
+    participants = _sequence(_field(collaboration, "participants"))
+    reviewer_live = any(
+        _text(_field(row, "role")) == "reviewer"
+        and boolish(_field(row, "live"))
+        for row in participants
+    )
+    implementer_live = any(
+        _text(_field(row, "role")) == "implementer"
+        and boolish(_field(row, "live"))
+        for row in participants
+    )
+    return reviewer_live and implementer_live
+
+
+def _sequence(value: object) -> tuple[object, ...]:
+    if not isinstance(value, (list, tuple)):
+        return ()
+    return tuple(value)
+
+
 def _field(value: object, key: str) -> object:
     if isinstance(value, Mapping):
         return value.get(key)
     return getattr(value, key, None)
-
-
-def _remote_control_attachment_active(value: object) -> bool:
-    status = _text(_field(value, "status"))
-    return status in {"attached", "unknown", "stale"}
 
 
 def _text(value: object) -> str:
@@ -194,6 +236,7 @@ def _text(value: object) -> str:
 __all__ = [
     "ImplementationPermission",
     "ObservedControlTopology",
+    "is_sanctioned_single_agent_control",
     "is_sanctioned_local_single_agent",
     "derive_implementation_permission",
     "derive_observed_control_topology",

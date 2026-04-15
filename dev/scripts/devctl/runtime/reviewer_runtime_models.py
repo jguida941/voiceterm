@@ -55,7 +55,7 @@ class RemoteControlAttachmentState:
 
 
 _ACTIVE_REMOTE_CONTROL_ATTACHMENT_STATUSES = frozenset(
-    {"attached", "unknown", "stale"}
+    {"attached", "unknown"}
 )
 
 

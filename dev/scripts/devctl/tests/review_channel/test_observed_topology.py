@@ -83,7 +83,7 @@ def test_derive_startup_control_truth_promotes_local_single_agent_takeover() -> 
         bridge={
             "reviewer_mode": "single_agent",
             "effective_reviewer_mode": "single_agent",
-            "codex_conductor_active": False,
+            "codex_conductor_active": True,
             "claude_conductor_active": False,
         },
         collaboration={"participants": ()},
@@ -135,6 +135,106 @@ def test_derive_startup_control_truth_prefers_single_agent_over_stale_pair_evide
     )
 
     assert topology == "single_agent"
+    assert permission == "active"
+
+
+def test_derive_startup_control_truth_allows_remote_control_single_agent() -> None:
+    review_state = SimpleNamespace(
+        bridge={
+            "reviewer_mode": "single_agent",
+            "effective_reviewer_mode": "single_agent",
+            "codex_conductor_active": True,
+            "claude_conductor_active": False,
+        },
+        collaboration={"participants": ()},
+        reviewer_runtime=SimpleNamespace(
+            reviewer_mode="single_agent",
+            effective_reviewer_mode="single_agent",
+            remote_control_attachment=SimpleNamespace(status="attached"),
+        ),
+    )
+    reviewer_gate = SimpleNamespace(
+        reviewer_mode="single_agent",
+        effective_reviewer_mode="single_agent",
+        operator_interaction_mode="remote_control",
+    )
+
+    topology, permission = derive_startup_control_truth(
+        review_state,
+        reviewer_gate=reviewer_gate,
+    )
+
+    assert topology == "single_agent"
+    assert permission == "active"
+
+
+def test_derive_startup_control_truth_promotes_remote_single_agent_over_implementer_only(
+) -> None:
+    review_state = SimpleNamespace(
+        bridge={
+            "reviewer_mode": "single_agent",
+            "effective_reviewer_mode": "single_agent",
+            "codex_conductor_active": False,
+            "claude_conductor_active": True,
+        },
+        collaboration={"participants": ()},
+        reviewer_runtime=SimpleNamespace(
+            reviewer_mode="single_agent",
+            effective_reviewer_mode="single_agent",
+            remote_control_attachment=SimpleNamespace(status="attached"),
+        ),
+    )
+    reviewer_gate = SimpleNamespace(
+        reviewer_mode="single_agent",
+        effective_reviewer_mode="single_agent",
+        operator_interaction_mode="remote_control",
+    )
+
+    topology, permission = derive_startup_control_truth(
+        review_state,
+        reviewer_gate=reviewer_gate,
+    )
+
+    assert topology == "single_agent"
+    assert permission == "active"
+
+
+def test_derive_startup_control_truth_keeps_typed_live_pair_visible() -> None:
+    review_state = SimpleNamespace(
+        bridge={
+            "reviewer_mode": "single_agent",
+            "effective_reviewer_mode": "single_agent",
+            "codex_conductor_active": True,
+            "claude_conductor_active": False,
+        },
+        collaboration={
+            "participants": (
+                {"provider": "codex", "role": "reviewer", "live": True},
+                {"provider": "claude", "role": "implementer", "live": True},
+            ),
+            "role_assignments": (
+                {"role_id": "review_agent", "provider": "codex", "live": True},
+                {"role_id": "coding_agent", "provider": "claude", "live": True},
+            ),
+        },
+        reviewer_runtime=SimpleNamespace(
+            reviewer_mode="single_agent",
+            effective_reviewer_mode="single_agent",
+            remote_control_attachment=SimpleNamespace(status="detached"),
+        ),
+    )
+    reviewer_gate = SimpleNamespace(
+        reviewer_mode="single_agent",
+        effective_reviewer_mode="single_agent",
+        operator_interaction_mode="local_terminal",
+    )
+
+    topology, permission = derive_startup_control_truth(
+        review_state,
+        reviewer_gate=reviewer_gate,
+    )
+
+    assert topology == "single_implementer_single_reviewer"
     assert permission == "active"
 
 

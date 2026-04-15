@@ -17,6 +17,7 @@ from dev.scripts.devctl.commands.review_channel_command.constants import (
 )
 from dev.scripts.devctl.commands.review_channel_command.helpers import _validate_args
 from dev.scripts.devctl.review_channel.remote_control_attachment_artifact import (
+    deactivate_remote_control_attachments,
     has_active_remote_control_attachment,
     load_remote_control_attachment,
     persist_remote_control_attachment,
@@ -194,6 +195,59 @@ def test_has_active_predicate_is_false_for_detached_attachment(tmp_path: Path) -
     assert loaded is not None
     assert loaded.status == "detached"
     assert has_active_remote_control_attachment(loaded) is False
+
+
+def test_has_active_predicate_is_false_for_stale_attachment() -> None:
+    attachment = RemoteControlAttachmentState(
+        provider="claude",
+        role="implementer",
+        attachment_id="remote-attach-stale",
+        session_name="VoiceTerm Bridge Loop",
+        remote_session_id="session_stale",
+        session_url="https://claude.ai/code/session_stale",
+        status="stale",
+    )
+
+    assert has_active_remote_control_attachment(attachment) is False
+
+
+def test_deactivate_remote_control_attachments_downgrades_all_providers(
+    tmp_path: Path,
+) -> None:
+    status_dir = tmp_path / "status"
+    status_dir.mkdir()
+    persist_remote_control_attachment(
+        RemoteControlAttachmentState(
+            provider="claude",
+            role="implementer",
+            attachment_id="remote-attach-claude",
+            session_name="Claude bridge",
+            remote_session_id="session_claude",
+            session_url="https://claude.ai/code/session_claude",
+            status="attached",
+        ),
+        output_root=status_dir,
+    )
+    persist_remote_control_attachment(
+        RemoteControlAttachmentState(
+            provider="codex",
+            role="reviewer",
+            attachment_id="remote-attach-codex",
+            session_name="Codex bridge",
+            remote_session_id="session_codex",
+            session_url="https://chatgpt.com/codex/session_codex",
+            status="unknown",
+        ),
+        output_root=status_dir,
+    )
+
+    updated_paths = deactivate_remote_control_attachments(output_root=status_dir)
+
+    assert len(updated_paths) == 2
+    assert {
+        load_remote_control_attachment(output_root=status_dir, provider="claude").status,
+        load_remote_control_attachment(output_root=status_dir, provider="codex").status,
+    } == {"detached"}
 
 
 def test_validate_args_requires_session_identity_when_attached() -> None:

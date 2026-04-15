@@ -81,10 +81,14 @@ earlier slice drifted `_should_auto_approve` to include
 `OperatorInteractionMode.REMOTE_CONTROL.value`. `devctl push` now reuses the repo-policy
 remote/current approved target when an active pipeline owns the branch, and
 packet-queue truth only clears commit-approval requests on applied decisions,
-not on `acked` rows or unrelated packet history. The same governed push path
-now also carries the preflight-resolved branch diff base into diff-sensitive
-post-push commands, so follow-up checks stay scoped to the just-published
-delta instead of resetting to `origin/develop` after publication. Commit
+not on `acked` rows or unrelated packet history. In `remote_control` and
+other non-auto-approved lanes, `devctl commit` now also stops at
+`operator_approval_pending` before it enters `vcs.commit`; posting a new
+approval request is not license to let that same invocation cross the commit
+boundary. The same governed push path now also carries the preflight-resolved
+branch diff base into diff-sensitive post-push commands, so follow-up checks
+stay scoped to the just-published delta instead of resetting to
+`origin/develop` after publication. Commit
 authority is separate from implementation evidence now too: before staging or
 running guards, `devctl commit` reads the typed `CommitPermissionDecision` and
 blocks when startup authority reports `implementation_permission=blocked` or
@@ -714,9 +718,11 @@ Portability note:
   (`check_review_snapshot_freshness.py`) keeps `dev/audits/REVIEW_SNAPSHOT.md`
   bound to the current HEAD + generation stamp by comparing the fields
   embedded in the file against the live typed projection. A final commit that
-  changes only the generated snapshot is also accepted when the snapshot binds
-  to that commit's parent, because a file inside a commit cannot contain its
-  own final SHA. Whenever non-snapshot HEAD moves or the typed generation
+  changes the generated snapshot, or the snapshot plus the governed
+  `bridge.md` compatibility projection, is also accepted when the embedded
+  snapshot binds to that receipt commit's parent code state, because a file
+  inside a commit cannot contain its own final SHA. Whenever non-receipt HEAD
+  moves or the typed generation
   stamp changes without a snapshot rewrite, the guard fails and instructs the
   caller to rerun
   `python3 dev/scripts/devctl.py review-snapshot --write`. Both
@@ -730,11 +736,11 @@ Portability note:
   compatibility projection through `review-channel --action status` and the
   ReviewSnapshot projection for allowed commits. The receipt hook delegates to
   `python3 dev/scripts/devctl.py review-snapshot --write --receipt-commit`
-  so the final pushed branch can end with a snapshot-only planning receipt
+  so the final pushed branch can end with a governed ReviewSnapshot receipt
   instead of a manually refreshed dirty worktree, while the pre-push hook
   refuses raw `git push` unless the nested push came from
   `python3 dev/scripts/devctl.py push --execute`. `devctl push` consumes that
-  shape directly: a snapshot-only HEAD may satisfy a current
+  shape directly: a receipt HEAD may satisfy a current
   `PushAuthorizationRecord` through its parent commit, while stale detached
   pipeline records are ignored in `single_agent` mode so an older override
   cannot strand the branch. When preflight resolved a branch-aware diff base,

@@ -145,6 +145,7 @@ Release-governance note:
 | Where is the 2026-04-10 P1/P2 reviewer-follow-up closure documented (`pipeline refresh-authorization` stale-HEAD refusal and `agent-mind --since-cursor` non-lossy rollout polling)? | `dev/history/ENGINEERING_EVOLUTION.md` 2026-04-10 entry "Pipeline refresh and agent-mind cursor polling now fail closed on stale authority" |
 | Where is the 2026-04-10 Q47/Q45/Q43 deterministic action-routing closure documented (`startup-context` action routing, typed `agent_lane`, and `devctl commit` `CommitPermissionDecision` hard block on `implementation_permission`)? | `dev/history/ENGINEERING_EVOLUTION.md` 2026-04-10 entry "Startup action routing and commit permission now make blocked implementation authority explicit" |
 | Where is the 2026-04-10 Q40/Q42 lane-edit and destructive-recovery authority closure documented (`lane_edit_gate`, `recovery_action`, `recovery_basis`, and `recovery_scope`)? | `dev/history/ENGINEERING_EVOLUTION.md` 2026-04-10 entry "Lane edit gates and destructive recovery now require typed startup authority" |
+| Where is the 2026-04-15 governed publication closure documented (`devctl commit` `operator_approval_pending` short-circuit plus ReviewSnapshot receipt commits that may refresh `bridge.md` as well as `REVIEW_SNAPSHOT.md`)? | `dev/history/ENGINEERING_EVOLUTION.md` 2026-04-15 entry "Governed commit approval windows and ReviewSnapshot receipt commits now stay bound to the parent code state" |
 | Where is the Ralph guardrail remediation/control-plane plan? | `dev/active/ralph_guardrail_control_plane.md` |
 | Where is the heuristic review-probe execution plan? | `dev/active/review_probes.md` |
 | Where is the code-shape expansion research companion (readability, coupling, AI-specific, information-theoretic probes/guards)? | `dev/active/code_shape_expansion.md` (subordinate evidence/calibration companion feeding `dev/active/review_probes.md` Phase 5b+, not a second execution authority) |
@@ -1311,16 +1312,18 @@ false positives, and fixes real issues — then re-runs CodeRabbit to verify.
    `check_review_snapshot_freshness.py` and
    `check_review_surface_consistency.py` in both
    `tooling_control_plane.yml` and `release_preflight.yml`. The snapshot
-   freshness guard intentionally accepts a trailing snapshot-only commit when
-   the snapshot binds to that commit's parent code state; non-snapshot HEAD
-   drift still fails closed. The managed `install-git-hooks` surface now
-   installs the pre-commit projection hook, the post-commit receipt hook that
-   delegates to `devctl review-snapshot --write --receipt-commit`, and a
-   blocking pre-push hook that refuses raw `git push` unless the nested push
-   came from `devctl push --execute`, so raw commits still produce the same
-   receipt shape while raw publication stays on the governed path. The
-   governed push path accepts that receipt shape when the snapshot-only HEAD's
-   parent matches the active
+   freshness guard intentionally accepts a trailing ReviewSnapshot receipt
+   commit when the embedded snapshot binds to that commit's parent code state;
+   the governed receipt may refresh `dev/audits/REVIEW_SNAPSHOT.md` alone or
+   atomically with the generated `bridge.md` compatibility projection, but any
+   other HEAD drift still fails closed. The managed `install-git-hooks`
+   surface now installs the pre-commit projection hook, the post-commit
+   receipt hook that delegates to `devctl review-snapshot --write
+   --receipt-commit`, and a blocking pre-push hook that refuses raw `git push`
+   unless the nested push came from `devctl push --execute`, so raw commits
+   still produce the same receipt shape while raw publication stays on the
+   governed path. The governed push path accepts that receipt shape when the
+   receipt HEAD's parent matches the active
    `PushAuthorizationRecord`; stale detached pipeline records are ignored in
    `single_agent` mode, while active dual-agent and current pipeline targets
    still require exact typed authorization. The typed ReviewSnapshot surface
@@ -1410,8 +1413,11 @@ Routine helper:
   may auto-apply typed approval only in resolved `local_terminal` or
   `single_agent` modes; `unresolved`, `remote_control`, and `dual_agent`
   must post or reuse approval packets and block until an applied decision
-  exists. Before staging or running guards, `devctl commit` must also honor
-  the typed `CommitPermissionDecision`: explicit
+  exists. In `remote_control` / unresolved approval mode, the governed command
+  must stop at `operator_approval_pending` before it enters `vcs.commit`;
+  posting the approval request is not itself permission to keep the same run
+  alive past the approval boundary. Before staging or running guards, `devctl
+  commit` must also honor the typed `CommitPermissionDecision`: explicit
   `implementation_permission=blocked|suspended` blocks `vcs.stage`,
   `vcs.commit`, and raw `git commit` until the routed startup/review recovery
   command is run. The one allowed exception is executor-scoped checkpoint
@@ -1422,6 +1428,10 @@ Routine helper:
   repaired. `devctl push` must reuse the repo-policy/default remote for any
   active governed pipeline and must not treat a degraded `tools_only`
   reviewer runtime as license to skip exact-head publication authorization.
+  Governed push also treats a receipt commit that refreshes
+  `dev/audits/REVIEW_SNAPSHOT.md` plus governed `bridge.md` as still bound to
+  the parent approved code commit; it must not force a second authorization
+  round just because the receipt itself advanced `HEAD`.
   Governed commit/push approval is also worktree-bound now: the staged
   pipeline contract, persisted push authorization, latest-push artifact, and
   current checkout must agree on `worktree_identity`. If startup or

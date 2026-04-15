@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from .control_topology import is_sanctioned_local_single_agent
+from .control_topology import is_sanctioned_single_agent_control
 from .review_state_models import ReviewState
 from .work_intake_models import WorkIntakeOwnershipState
 
@@ -32,7 +32,7 @@ def resync_required(
 
     sanctioned_single_agent = (
         collaboration_topology == "single_agent"
-        and is_sanctioned_local_single_agent(review_state)
+        and is_sanctioned_single_agent_control(review_state)
     )
     attention = getattr(review_state, "attention", None)
     attention_status = str(getattr(attention, "status", "") or "").strip()

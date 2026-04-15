@@ -5,14 +5,14 @@
 ## Quick status
 
 - Branch: `feature/governance-quality-sweep`
-- HEAD: `5304aecb3dfa` — Refresh external review snapshot for 0f66c9d8
-- Tree hash: `0afb83983995`
-- Generation stamp: `snap-f6b9e0d34c7c`
-- Generated at (UTC): 2026-04-15T17:56:42Z
-- Push decision: `run_devctl_push` — push_preconditions_satisfied
-- Reviewer mode: `tools_only` (interaction: `remote_control`)
+- HEAD: `970547835d3c` — Refresh external review snapshot for 5304aecb
+- Tree hash: `75329cf7e738`
+- Generation stamp: `snap-573624b7f74e`
+- Generated at (UTC): 2026-04-15T20:02:11Z
+- Push decision: `await_checkpoint` — staged_index_budget_exceeded
+- Reviewer mode: `single_agent` (interaction: `local_terminal`)
 - Pipeline state: `n/a` (approval: `n/a`)
-- Delta since last snapshot: 24 commits, 136 files, +12617/-3904
+- Delta since last snapshot: 24 commits, 136 files, +12623/-3900
 - Governance findings: 116 open / 82 fixed / 212 total
 - Probe hints: 0 total across 0 files scanned
 
@@ -54,34 +54,30 @@ adopters arrive.
 - Remote: `https://github.com/jguida941/voiceterm.git`
 - Default branch: `master`
 - Current branch: `feature/governance-quality-sweep`
-- HEAD SHA: `5304aecb3dfa6a425f9258ec4ac88fc382268e1f`
+- HEAD SHA: `970547835d3cc48af06f12f8aa91da8e5889d978`
 - HEAD author: Justin Guida
-- HEAD timestamp (UTC): 2026-04-15T13:54:20-04:00
+- HEAD timestamp (UTC): 2026-04-15T13:56:42-04:00
 
 ## 2. Governance state
 
 ### Push decision
-- action: `run_devctl_push`
-- reason: push_preconditions_satisfied
+- action: `await_checkpoint`
+- reason: staged_index_budget_exceeded
 - push_eligible_now: False
-- worktree_clean: True
-- staged_path_count: 0
+- worktree_clean: False
+- staged_path_count: 29
 - unstaged_path_count: 0
-- next_step_command: `python3 dev/scripts/devctl.py review-channel --action status --terminal none --format json`
+- next_step_command: `n/a`
 - latest_push_report: `dev/reports/push/latest.json`
 - latest_push_report_state: `blocked` (validation_failed)
-- current_push_authorization: `push-auth-20260415T175201715113Z` (valid=True)
-- authorized_head_commit: `5304aecb3dfa6a425f9258ec4ac88fc382268e1f`
-- approved_target_identity: `tree-receipt-20260415T175201715113Z:ac436b0e554105090d23aa3126915e860ad44710`
 - publication_backlog: recommended
-- publication_guidance: 2 local commit(s) waiting for governed push. Run `python3 dev/scripts/devctl.py push --execute` now.
+- publication_guidance: 3 local commit(s) waiting for governed push once the current slice is checkpoint-clean.
 
 ### Reviewer runtime
-- reviewer_mode: `tools_only`
+- reviewer_mode: `single_agent`
 - reviewer_freshness: unknown
-- reviewer_publish_clear: False
-- interaction_mode: `remote_control`
-- implementation_blocked: yes — review_loop_relaunch_required
+- reviewer_publish_clear: True
+- interaction_mode: `local_terminal`
 
 ### Remote commit pipeline
 - state: `n/a`
@@ -91,16 +87,17 @@ adopters arrive.
 - active plan: **AI Governance Platform Plan**
 - plan path: `dev/active/ai_governance_platform.md`
 - active MP scope: `MP-377`
-- advisory: `repair_reviewer_loop` — review_loop_relaunch_required
+- advisory: `checkpoint_before_continue` — staged_index_budget_exceeded
+- checkpoint_required: **yes**
 
 ## 3. Delta — what changed since the previous snapshot
 
-Range: last 24 commits ending at `5304aecb3dfa`
+Range: last 24 commits ending at `970547835d3c`
 
 - commits: 24
 - files changed: 136
-- insertions: +12617
-- deletions: -3904
+- insertions: +12623
+- deletions: -3900
 - bundle classes touched: docs, tooling
 - risk add-ons triggered: Parser / ANSI boundary
 - authority surfaces touched: 18 file(s)
@@ -109,30 +106,30 @@ Range: last 24 commits ending at `5304aecb3dfa`
 
 | # | SHA | Subject | Files | +/- | Bundle | Risk |
 |---|---|---|---|---|---|---|
-| 1 | `5304aecb` | Refresh external review snapshot for 0f66c9d8 | 2 | +85/-82 | docs |  |
-| 2 | `0f66c9d8` | Stabilize review-channel authority recovery | 88 | +6781/-1634 | tooling |  |
-| 3 | `1271a075` | Refresh external review snapshot for fc86c018 | 2 | +51/-47 | docs |  |
-| 4 | `fc86c018` | Mark Q94 fixed in LIVE_RUN | 1 | +9/-1 | tooling |  |
-| 5 | `9c63556a` | Refresh external review snapshot for 8d1c30a0 | 2 | +74/-82 | docs |  |
-| 6 | `8d1c30a0` | Fail closed on stale dashboard daemon state | 5 | +304/-31 | tooling |  |
-| 7 | `847adc03` | Refresh external review snapshot for 5daed3c2 | 1 | +54/-52 | tooling |  |
-| 8 | `5daed3c2` | Delete redesign_research/ — operator: stop making MDs, use… | 5 | +0/-748 | tooling |  |
-| 9 | `acac5ee0` | Refresh external review snapshot for f5dc6d5e | 1 | +62/-66 | tooling |  |
-| 10 | `f5dc6d5e` | Push redesign research bundle for Codex (operator directive… | 5 | +748/-0 | tooling |  |
-| 11 | `d3aafd01` | Refresh external review snapshot for 9b4f8fb2 | 2 | +86/-75 | docs |  |
-| 12 | `9b4f8fb2` | Bulk push for Codex redesign: 3 worktree agent slices (Q100… | 12 | +741/-38 | tooling |  |
-| 13 | `c6ef4054` | Refresh external review snapshot for 671dfff3 | 1 | +57/-57 | tooling |  |
-| 14 | `671dfff3` | Append Q100 architectural finding (attention_revision lease… | 3 | +141/-96 | tooling |  |
-| 15 | `b374610d` | Log Q100 architectural finding: commit pipeline self-invali… | 1 | +49/-44 | tooling |  |
-| 16 | `64ad27ef` | Refresh external review snapshot for 08859553 + sync bridge… | 1 | +64/-93 | tooling |  |
-| 17 | `08859553` | Extract canonical operator_interaction_mode reducer to oper… | 7 | +343/-189 | tooling |  |
-| 18 | `951b86aa` | Propagate attachment-overrides-local_terminal promotion to… | 3 | +69/-19 | tooling |  |
-| 19 | `dba730f7` | Wire reviewer-wake path + fix dashboard render keying + pen… | 14 | +769/-12 | tooling |  |
-| 20 | `493b9d03` | Fix attachment override of operator_interaction_mode; rever… | 4 | +131/-60 | tooling |  |
-| 21 | `60a8d1bd` | Refresh external review snapshot for 686a1283 | 1 | +61/-69 | tooling |  |
-| 22 | `686a1283` | Align authority parity and review packet handling | 15 | +623/-157 | tooling | Parser / ANSI boundary |
-| 23 | `6361080a` | Fix review-channel watch follow liveness | 16 | +1255/-183 | tooling |  |
-| 24 | `3d78ef9f` | Refresh external review snapshot for 6fdde964 | 1 | +60/-69 | tooling |  |
+| 1 | `97054783` | Refresh external review snapshot for 5304aecb | 2 | +66/-65 | docs |  |
+| 2 | `5304aecb` | Refresh external review snapshot for 0f66c9d8 | 2 | +85/-82 | docs |  |
+| 3 | `0f66c9d8` | Stabilize review-channel authority recovery | 88 | +6781/-1634 | tooling |  |
+| 4 | `1271a075` | Refresh external review snapshot for fc86c018 | 2 | +51/-47 | docs |  |
+| 5 | `fc86c018` | Mark Q94 fixed in LIVE_RUN | 1 | +9/-1 | tooling |  |
+| 6 | `9c63556a` | Refresh external review snapshot for 8d1c30a0 | 2 | +74/-82 | docs |  |
+| 7 | `8d1c30a0` | Fail closed on stale dashboard daemon state | 5 | +304/-31 | tooling |  |
+| 8 | `847adc03` | Refresh external review snapshot for 5daed3c2 | 1 | +54/-52 | tooling |  |
+| 9 | `5daed3c2` | Delete redesign_research/ — operator: stop making MDs, use… | 5 | +0/-748 | tooling |  |
+| 10 | `acac5ee0` | Refresh external review snapshot for f5dc6d5e | 1 | +62/-66 | tooling |  |
+| 11 | `f5dc6d5e` | Push redesign research bundle for Codex (operator directive… | 5 | +748/-0 | tooling |  |
+| 12 | `d3aafd01` | Refresh external review snapshot for 9b4f8fb2 | 2 | +86/-75 | docs |  |
+| 13 | `9b4f8fb2` | Bulk push for Codex redesign: 3 worktree agent slices (Q100… | 12 | +741/-38 | tooling |  |
+| 14 | `c6ef4054` | Refresh external review snapshot for 671dfff3 | 1 | +57/-57 | tooling |  |
+| 15 | `671dfff3` | Append Q100 architectural finding (attention_revision lease… | 3 | +141/-96 | tooling |  |
+| 16 | `b374610d` | Log Q100 architectural finding: commit pipeline self-invali… | 1 | +49/-44 | tooling |  |
+| 17 | `64ad27ef` | Refresh external review snapshot for 08859553 + sync bridge… | 1 | +64/-93 | tooling |  |
+| 18 | `08859553` | Extract canonical operator_interaction_mode reducer to oper… | 7 | +343/-189 | tooling |  |
+| 19 | `951b86aa` | Propagate attachment-overrides-local_terminal promotion to… | 3 | +69/-19 | tooling |  |
+| 20 | `dba730f7` | Wire reviewer-wake path + fix dashboard render keying + pen… | 14 | +769/-12 | tooling |  |
+| 21 | `493b9d03` | Fix attachment override of operator_interaction_mode; rever… | 4 | +131/-60 | tooling |  |
+| 22 | `60a8d1bd` | Refresh external review snapshot for 686a1283 | 1 | +61/-69 | tooling |  |
+| 23 | `686a1283` | Align authority parity and review packet handling | 15 | +623/-157 | tooling | Parser / ANSI boundary |
+| 24 | `6361080a` | Fix review-channel watch follow liveness | 16 | +1255/-183 | tooling |  |
 
 ### Files
 
@@ -140,11 +137,11 @@ Range: last 24 commits ending at `5304aecb3dfa`
 |---|---|---|
 | `0` | tooling | +0/-0 |
 | `AGENTS.md` | docs | +2/-0 |
-| `bridge.md` | docs | +67/-67 |
+| `bridge.md` | docs | +69/-69 |
 | `dev/active/MASTER_PLAN.md` | tooling | +18/-0 |
 | `dev/active/ai_governance_platform.md` | tooling | +703/-8 |
 | `dev/audits/LIVE_RUN.md` | tooling | +59/-1 |
-| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1072/-1139 |
+| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1076/-1133 |
 | `dev/audits/redesign_research/00_codex_directive.md` | tooling | +55/-55 |
 | `dev/audits/redesign_research/01_livelogs_findings.md` | tooling | +191/-191 |
 | `dev/audits/redesign_research/02_plans_landscape.md` | tooling | +216/-216 |
@@ -283,6 +280,8 @@ Recent findings:
 
 ### Per-commit rationale
 
+- **`97054783`** — Refresh external review snapshot for 5304aecb
+  - evolution: Fact: after the authority-snapshot and packet-inbox repairs landed, the repo still had one live cross-surface contradiction left. Bridge-backed `review-channel --action status` attached conductor session state before it…
 - **`5304aecb`** — Refresh external review snapshot for 0f66c9d8
   - evolution: Fact: after the authority-snapshot and packet-inbox repairs landed, the repo still had one live cross-surface contradiction left. Bridge-backed `review-channel --action status` attached conductor session state before it…
 - **`0f66c9d8`** — Stabilize review-channel authority recovery
@@ -334,8 +333,6 @@ Recent findings:
   - evolution: Fact: the remote-control review loop still had three small but real projection gaps. `ControlPlaneReadModel.pending_action_requests` counted every live pending packet even though the field name promised action requests …
 - **`6361080a`** — Fix review-channel watch follow liveness
   - evolution: Fact: the remote-control review loop still had three small but real projection gaps. `ControlPlaneReadModel.pending_action_requests` counted every live pending packet even though the field name promised action requests …
-- **`3d78ef9f`** — Refresh external review snapshot for 6fdde964
-  - evolution: Fact: the remote-control review loop still had three small but real projection gaps. `ControlPlaneReadModel.pending_action_requests` counted every live pending packet even though the field name promised action requests …
 ### Active MP scope (from MASTER_PLAN.md)
 
 - contract slice for MP-355 plus the temporary markdown-swarm operating mode
@@ -354,10 +351,11 @@ Recent findings:
 - open governance findings: 116
 
 ### Startup advisories
-- repair_reviewer_loop: review_loop_relaunch_required
+- checkpoint_before_continue: staged_index_budget_exceeded
 
 ### Stale warnings
-- Cut a checkpoint before doing anything else.
+- Keep editing the current slice.
+- Move straight to the governed push path.
 
 ### Open gap rows
 - **governance_open** (`dev/scripts/devctl/runtime/dogfood_log.py`): dogfood_finding_id_instability: 
@@ -371,4 +369,4 @@ Recent findings:
 
 ---
 
-Projection produced by `devctl review-snapshot`. Generation stamp `snap-f6b9e0d34c7c` binds this file to HEAD `5304aecb3dfa`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
+Projection produced by `devctl review-snapshot`. Generation stamp `snap-573624b7f74e` binds this file to HEAD `970547835d3c`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.

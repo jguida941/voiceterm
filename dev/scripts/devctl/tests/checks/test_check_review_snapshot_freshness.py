@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
+import subprocess
 from pathlib import Path
 
 import pytest
 
-from dev.scripts.checks.check_review_snapshot_freshness import build_report
+from dev.scripts.checks.review_snapshot_freshness.command import build_report
 
 
 _FRESH_FILE = """# Example — Review Snapshot
@@ -93,6 +94,88 @@ def test_build_report_accepts_snapshot_only_parent_binding(tmp_path: Path) -> No
     assert report["snapshot_only_parent_match"] is True
 
 
+def test_build_report_accepts_receipt_commit_with_snapshot_and_bridge(
+    tmp_path: Path,
+) -> None:
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    _init_git_repo(repo_root)
+
+    snapshot_path = repo_root / "dev/audits/REVIEW_SNAPSHOT.md"
+    snapshot_path.parent.mkdir(parents=True, exist_ok=True)
+    snapshot_path.write_text("# Seed snapshot\n", encoding="utf-8")
+    (repo_root / "bridge.md").write_text("seed bridge\n", encoding="utf-8")
+    subprocess.run(
+        ["git", "add", "dev/audits/REVIEW_SNAPSHOT.md", "bridge.md"],
+        cwd=repo_root,
+        check=True,
+        capture_output=True,
+    )
+    subprocess.run(
+        ["git", "commit", "-m", "Seed receipt artifacts"],
+        cwd=repo_root,
+        check=True,
+        capture_output=True,
+    )
+
+    (repo_root / "code.py").write_text("print('governed')\n", encoding="utf-8")
+    subprocess.run(
+        ["git", "add", "code.py"],
+        cwd=repo_root,
+        check=True,
+        capture_output=True,
+    )
+    subprocess.run(
+        ["git", "commit", "-m", "Code change"],
+        cwd=repo_root,
+        check=True,
+        capture_output=True,
+    )
+    parent_head = _git_output(repo_root, "rev-parse", "HEAD")
+    parent_short = _git_output(repo_root, "rev-parse", "--short", "HEAD")
+    snapshot_path.write_text(
+        "\n".join(
+            [
+                "# Example — Review Snapshot",
+                "",
+                "## Quick status",
+                "",
+                f"- Branch: `feature/test`",
+                f"- HEAD: `{parent_short}` — Code change",
+                "- Tree hash: `deadbeef1234`",
+                "- Generation stamp: `snap-oldreceipt`",
+                "- Generated at (UTC): 2026-04-07T20:00:00Z",
+                "",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    (repo_root / "bridge.md").write_text("receipt bridge refresh\n", encoding="utf-8")
+    subprocess.run(
+        ["git", "add", "dev/audits/REVIEW_SNAPSHOT.md", "bridge.md"],
+        cwd=repo_root,
+        check=True,
+        capture_output=True,
+    )
+    subprocess.run(
+        ["git", "commit", "-m", f"Refresh external review snapshot for {parent_short}"],
+        cwd=repo_root,
+        check=True,
+        capture_output=True,
+    )
+
+    report = build_report(
+        repo_root=repo_root,
+        live_head_sha=_git_output(repo_root, "rev-parse", "HEAD"),
+        live_generation_stamp="snap-newreceipt",
+    )
+
+    assert report["ok"] is True
+    assert report["errors"] == []
+    assert report["snapshot_only_parent_match"] is True
+    assert str(report["snapshot_only_parent_head"]).startswith(parent_head)
+
+
 def test_build_report_fails_when_head_line_missing(tmp_path: Path) -> None:
     report = build_report(
         repo_root=tmp_path,
@@ -134,3 +217,30 @@ def test_build_report_accepts_short_sha_prefix(
         live_generation_stamp="snap-aaaaaaaaaaaa",
     )
     assert report["ok"] is expected_ok
+
+
+def _init_git_repo(repo_root: Path) -> None:
+    subprocess.run(["git", "init"], cwd=repo_root, check=True, capture_output=True)
+    subprocess.run(
+        ["git", "config", "user.name", "Test User"],
+        cwd=repo_root,
+        check=True,
+        capture_output=True,
+    )
+    subprocess.run(
+        ["git", "config", "user.email", "test@example.com"],
+        cwd=repo_root,
+        check=True,
+        capture_output=True,
+    )
+
+
+def _git_output(repo_root: Path, *args: str) -> str:
+    completed = subprocess.run(
+        ["git", *args],
+        cwd=repo_root,
+        text=True,
+        check=True,
+        capture_output=True,
+    )
+    return completed.stdout.strip()

@@ -45,6 +45,7 @@ _text = _local_reviewer.text
 _utcnow = _local_reviewer._utcnow
 discover_latest_session = _local_reviewer.discover_latest_session
 _local_reviewer_activity_is_fresh = _local_reviewer.local_reviewer_activity_is_fresh
+_provider_packet_activity_is_fresh = _local_reviewer.provider_packet_activity_is_fresh
 
 
 def build_collaboration_session(
@@ -88,6 +89,11 @@ def build_collaboration_session(
         role_assignments=role_assignments,
         bridge_liveness=bridge_liveness,
         reviewer_mode=effective_mode,
+        session_output_root=session_output_root,
+    )
+    participants, role_assignments = _promote_packet_active_implementer_presence(
+        participants=participants,
+        role_assignments=role_assignments,
         session_output_root=session_output_root,
     )
     delegated_work = _build_delegated_work(session_records)
@@ -243,6 +249,67 @@ def _promote_local_reviewer_presence(
             session_name=session_name,
             live=True,
     )
+    return tuple(updated_participants), tuple(updated_assignments)
+
+
+def _promote_packet_active_implementer_presence(
+    *,
+    participants: tuple[CollaborationParticipantState, ...],
+    role_assignments: tuple[CollaborationRoleAssignmentState, ...],
+    session_output_root: Path | None,
+) -> tuple[
+    tuple[CollaborationParticipantState, ...],
+    tuple[CollaborationRoleAssignmentState, ...],
+]:
+    implementer_providers = tuple(
+        assignment.provider
+        for assignment in role_assignments
+        if assignment.role_id == "coding_agent" and assignment.provider
+    )
+    if not implementer_providers or session_output_root is None:
+        return participants, role_assignments
+
+    active_providers = {
+        provider
+        for provider in implementer_providers
+        if _provider_packet_activity_is_fresh(
+            provider=provider,
+            session_output_root=session_output_root,
+        )
+    }
+    if not active_providers:
+        return participants, role_assignments
+
+    updated_participants = list(participants)
+    for index, participant in enumerate(updated_participants):
+        if participant.provider not in active_providers or participant.live:
+            continue
+        updated_participants[index] = replace(
+            participant,
+            live=True,
+            status="live",
+            capture_mode=participant.capture_mode or "packet-activity",
+            supervision_mode=participant.supervision_mode or "packet-activity",
+            session_name=participant.session_name or f"{participant.provider}-packet-activity",
+            prepared_at=participant.prepared_at or _utcnow().isoformat(),
+        )
+
+    updated_assignments = list(role_assignments)
+    for index, assignment in enumerate(updated_assignments):
+        if (
+            assignment.role_id != "coding_agent"
+            or assignment.provider not in active_providers
+            or assignment.live
+        ):
+            continue
+        updated_assignments[index] = replace(
+            assignment,
+            status="live",
+            source="packet_activity",
+            session_name=assignment.session_name or f"{assignment.provider}-packet-activity",
+            live=True,
+        )
+
     return tuple(updated_participants), tuple(updated_assignments)
 
 

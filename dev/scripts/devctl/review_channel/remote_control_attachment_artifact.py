@@ -139,3 +139,42 @@ def persist_remote_control_attachment(
         encoding="utf-8",
     )
     return artifact_path
+
+
+def deactivate_remote_control_attachments(
+    *,
+    output_root: Path,
+    status: str = "detached",
+) -> tuple[Path, ...]:
+    """Downgrade persisted attachments so they no longer drive runtime mode."""
+    normalized_status = str(status or "detached").strip().lower() or "detached"
+    updated_paths: list[Path] = []
+    for attachment in _scan_provider_attachments(output_root / "sessions"):
+        current_status = str(attachment.status or "").strip().lower()
+        if current_status == normalized_status:
+            continue
+        updated_paths.append(
+            persist_remote_control_attachment(
+                replace(attachment, status=normalized_status),
+                output_root=output_root,
+            )
+        )
+    return tuple(updated_paths)
+
+
+def deactivate_repo_remote_control_attachments(
+    *,
+    repo_root: Path,
+    status: str = "detached",
+) -> tuple[Path, ...]:
+    """Downgrade attachment artifacts under the governed review status root."""
+    from ..repo_packs import active_path_config
+
+    config = active_path_config()
+    output_root = repo_root / config.review_status_dir_rel
+    if not output_root.exists():
+        return ()
+    return deactivate_remote_control_attachments(
+        output_root=output_root,
+        status=status,
+    )

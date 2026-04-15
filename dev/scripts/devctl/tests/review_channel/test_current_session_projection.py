@@ -255,6 +255,27 @@ def test_event_bridge_liveness_marks_expired_unresolved_open_findings() -> None:
     assert payload["open_findings_present"] is True
 
 
+def test_event_bridge_liveness_prefers_bridge_reviewer_mode() -> None:
+    payload = build_event_bridge_liveness_projection(
+        {
+            "timestamp": "2026-04-15T00:00:00Z",
+            "_compat": {
+                "runtime": {
+                    "daemons": {
+                        "reviewer_supervisor": {"reviewer_mode": "active_dual_agent"},
+                    }
+                }
+            },
+        },
+        bridge_snapshot=BridgeSnapshot(
+            metadata={"reviewer_mode": "single_agent"},
+            sections={},
+        ),
+    )
+
+    assert payload["reviewer_mode"] == "single_agent"
+
+
 def test_build_event_current_session_preserves_prior_instruction_when_queue_is_empty() -> None:
     state = build_event_current_session(
         review_state={

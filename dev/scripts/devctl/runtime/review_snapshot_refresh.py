@@ -25,11 +25,24 @@ from __future__ import annotations
 
 from pathlib import Path
 from typing import TYPE_CHECKING
+from typing import Protocol
 
 from ..config import REPO_ROOT
+from ..repo_packs import active_path_config
 
 if TYPE_CHECKING:
     from .project_governance import ProjectGovernance
+
+
+_RECEIPT_SUBJECT_PREFIX = "Refresh external review snapshot for "
+
+
+class _ReviewSnapshotArtifactRoots(Protocol):
+    review_snapshot_path: str
+
+
+class _GovernanceWithArtifactRoots(Protocol):
+    artifact_roots: _ReviewSnapshotArtifactRoots | None
 
 
 def refresh_review_snapshot_file(
@@ -163,4 +176,76 @@ def _resolve_target(governance: "ProjectGovernance | None") -> str:
     return value or default
 
 
-__all__ = ["refresh_and_stage_review_snapshot", "refresh_review_snapshot_file"]
+def receipt_commit_parent_sha(
+    *,
+    repo_root: Path = REPO_ROOT,
+    current_head: str = "HEAD",
+    governance: _GovernanceWithArtifactRoots | None = None,
+) -> str:
+    """Return a governed receipt commit's parent when HEAD matches the shape."""
+    try:
+        from .vcs import run_git_capture
+    except Exception:  # broad-except: allow reason=receipt-parent helper must fail closed when git runtime helpers are unavailable fallback=return empty parent SHA
+        return ""
+
+    target = str(current_head or "").strip() or "HEAD"
+    code, subject, _ = run_git_capture(
+        ["show", "-s", "--format=%s", target],
+        repo_root=repo_root,
+    )
+    if code != 0 or not str(subject or "").startswith(_RECEIPT_SUBJECT_PREFIX):
+        return ""
+
+    allowlist = set(receipt_artifact_relpaths(governance))
+    snapshot_rel = _resolve_receipt_snapshot_target(governance)
+    code, output, _ = run_git_capture(
+        ["diff-tree", "--no-commit-id", "--name-only", "-r", target],
+        repo_root=repo_root,
+    )
+    if code != 0:
+        return ""
+    changed_paths = {line.strip() for line in output.splitlines() if line.strip()}
+    if not changed_paths or snapshot_rel not in changed_paths:
+        return ""
+    if any(path not in allowlist for path in changed_paths):
+        return ""
+
+    parent_code, parent_sha, _ = run_git_capture(
+        ["rev-parse", f"{target}^"],
+        repo_root=repo_root,
+    )
+    if parent_code != 0:
+        return ""
+    return parent_sha.strip()
+
+
+def receipt_artifact_relpaths(
+    governance: _GovernanceWithArtifactRoots | None,
+) -> tuple[str, ...]:
+    """Return the governed artifact paths a receipt commit may touch."""
+    snapshot_rel = _resolve_receipt_snapshot_target(governance)
+    bridge_rel = str(active_path_config().bridge_rel or "").strip()
+    paths = [snapshot_rel]
+    if bridge_rel and bridge_rel != snapshot_rel:
+        paths.append(bridge_rel)
+    return tuple(paths)
+
+
+def _resolve_receipt_snapshot_target(
+    governance: _GovernanceWithArtifactRoots | None,
+) -> str:
+    if governance is None:
+        return "dev/audits/REVIEW_SNAPSHOT.md"
+    artifact_roots = governance.artifact_roots
+    if artifact_roots is None:
+        return "dev/audits/REVIEW_SNAPSHOT.md"
+    value = str(artifact_roots.review_snapshot_path or "").strip()
+    return value or "dev/audits/REVIEW_SNAPSHOT.md"
+
+
+__all__ = [
+    "receipt_artifact_relpaths",
+    "receipt_commit_parent_sha",
+    "refresh_and_stage_review_snapshot",
+    "refresh_review_snapshot_file",
+]

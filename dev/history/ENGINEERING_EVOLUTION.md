@@ -83,6 +83,55 @@ Evidence: `dev/scripts/devctl/review_channel/event_projection.py`,
 `python3 dev/scripts/devctl.py startup-context --format json`, and
 `python3 dev/scripts/devctl.py dashboard --format json`.
 
+### 2026-04-15 - Governed commit approval windows and ReviewSnapshot receipt commits now stay bound to the parent code state
+
+Fact: the governed publication path still had two live self-inflicted drifts.
+First, `devctl commit` in `remote_control` mode could post a new
+`commit_approval` request and then continue into `vcs.commit` in the same run,
+which meant the packet it had just posted could change typed attention and
+trip that same invocation on `attention_revision_stale`. Second, the
+post-commit `review-snapshot --write --receipt-commit` path had already grown
+into an atomic two-file receipt (`dev/audits/REVIEW_SNAPSHOT.md` plus
+`bridge.md`), but the freshness guard and push-authorization reader still
+treated "receipt commit" as "exactly one changed file." The result was a push
+preflight loop where the receipt writer advanced `HEAD`, then the next push
+insisted the new receipt was stale immediately.
+
+This matters because governed publication is supposed to replace chat-local
+timing games with repo-owned boundaries. If posting an approval request can
+self-invalidate the same commit invocation, or if the repo's own receipt hook
+creates a `HEAD` shape that its freshness guard refuses to recognize, the
+platform is still forcing operators back into manual retries instead of one
+typed control path.
+
+The closure made both boundaries explicit. `devctl commit` now splits approval
+resolution through a preflight seam and returns `operator_approval_pending`
+before the commit phase whenever a typed approval request is still
+outstanding; the run must be restarted from fresh startup/review authority
+after the decision is applied. The new shared
+`runtime/review_snapshot_refresh.py` helper defines the governed receipt shape
+once: a ReviewSnapshot receipt may update `dev/audits/REVIEW_SNAPSHOT.md`
+alone or atomically with the repo-pack `bridge.md` projection, and both
+`check_review_snapshot_freshness.py` and `runtime/push_authorization.py` now
+bind that receipt back to its parent code commit for freshness and publication
+authority. Focused proof is green on the new freshness/auth regressions plus
+the existing atomic receipt-pipeline tests, and live proof is green on the
+governed commit lane: pipeline `pipeline-c773e2555beb` first stopped at
+`operator_approval_pending`, the applied operator decision resumed the commit
+cleanly, and the next push-preflight repair no longer depends on inventing a
+second approval just because the receipt advanced `HEAD`.
+
+Evidence: `dev/scripts/devctl/commands/vcs/commit.py`,
+`dev/scripts/devctl/commands/vcs/commit_preflight.py`,
+`dev/scripts/devctl/runtime/review_snapshot_refresh.py`,
+`dev/scripts/checks/check_review_snapshot_freshness.py`,
+`dev/scripts/devctl/runtime/push_authorization.py`,
+`dev/scripts/devctl/tests/vcs/test_commit_gate.py`,
+`dev/scripts/devctl/tests/checks/test_check_review_snapshot_freshness.py`,
+`dev/scripts/devctl/tests/runtime/test_push_authorization.py`,
+`dev/scripts/devctl/tests/runtime/test_review_snapshot.py`, and
+`python3 dev/scripts/devctl.py commit -m "Stabilize review-channel authority recovery" --role implementer --format json`.
+
 ### 2026-04-13 - Authority snapshot now gives startup, session-resume, and review status one shared recovery contract
 
 ### 2026-04-14 - Remote-control reviewer wake and dashboard queue/liveness now follow the same typed action-request truth

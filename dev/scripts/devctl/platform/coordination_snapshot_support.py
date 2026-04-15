@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from .coordination_snapshot_models import CoordinationActorRecord
-from ..runtime.control_topology import is_sanctioned_local_single_agent
+from ..runtime.control_topology import is_sanctioned_single_agent_control
 
 _MAX_ACTORS = 8
 _MAX_REASONS = 4
@@ -86,7 +86,7 @@ def resync_reasons(
     reasons: list[str] = []
     sanctioned_single_agent = (
         observed_topology == "single_agent"
-        and is_sanctioned_local_single_agent(review_state)
+        and is_sanctioned_single_agent_control(review_state)
     )
     for conflict in conflicts:
         summary = text(getattr(conflict, "summary", ""))

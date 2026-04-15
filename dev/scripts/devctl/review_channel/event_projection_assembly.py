@@ -71,6 +71,7 @@ def enrich_event_review_state_impl(
     session_output_root = deps.resolve_session_output_root(projections_root)
     review_channel_path = context.review_channel_path
     plan_id, session_id = deps.review_identifiers(review_state)
+    bridge_snapshot = _load_bridge_snapshot(repo_root)
 
     raw_service_identity = deps.build_service_identity(
         repo_root=repo_root,
@@ -78,11 +79,9 @@ def enrich_event_review_state_impl(
         review_channel_path=review_channel_path,
         output_root=projections_root,
     )
-    raw_attach_auth_policy = deps.build_attach_auth_policy(
-        service_identity=raw_service_identity
-    )
+    raw_attach_auth_policy = deps.build_attach_auth_policy(service_identity=raw_service_identity)
 
-    bridge_liveness = deps.build_event_bridge_liveness_projection(review_state)
+    bridge_liveness = deps.build_event_bridge_liveness_projection(review_state, bridge_snapshot=bridge_snapshot)
     bridge_liveness["push_enforcement"] = (
         context.push_enforcement
         if context.push_enforcement is not None
@@ -93,7 +92,13 @@ def enrich_event_review_state_impl(
         output_root=session_output_root,
     )
 
-    current_session = _resolve_current_session(review_state, context, bridge_liveness, deps)
+    current_session = _resolve_current_session(
+        review_state,
+        context,
+        bridge_liveness,
+        deps,
+        bridge_snapshot=bridge_snapshot,
+    )
 
     governance = scan_repo_governance_safely(repo_root)
     recovery_assessment = deps.build_recovery_assessment(
@@ -131,9 +136,7 @@ def enrich_event_review_state_impl(
         bridge_liveness=bridge_liveness,
         reviewer_runtime=reviewer_runtime,
     )
-    commit_pipeline = deps.load_remote_commit_pipeline_contract(
-        output_root=projections_root
-    )
+    commit_pipeline = deps.load_remote_commit_pipeline_contract(output_root=projections_root)
     existing_compat = review_state.get("_compat")
     merged_compat = dict(existing_compat) if isinstance(existing_compat, dict) else {}
 
@@ -207,6 +210,8 @@ def _resolve_current_session(
     context,
     bridge_liveness: dict[str, object],
     deps: SimpleNamespace,
+    *,
+    bridge_snapshot=None,
 ):
     current_session = deps.build_event_current_session(
         review_state=review_state,
@@ -225,11 +230,9 @@ def _resolve_current_session(
         return current_session
     if codex_packet_attention_requires_clear(review_state):
         return current_session
-    try:
-        bridge_snapshot = extract_bridge_snapshot(
-            (context.repo_root / DEFAULT_BRIDGE_REL).read_text(encoding="utf-8")
-        )
-    except OSError:
+    if bridge_snapshot is None:
+        bridge_snapshot = _load_bridge_snapshot(context.repo_root)
+    if bridge_snapshot is None:
         return current_session
     bridge_session = deps.build_bridge_current_session(
         bridge_snapshot,
@@ -239,6 +242,15 @@ def _resolve_current_session(
     if bridge_session.current_instruction.strip() not in {"", "(missing)"}:
         return bridge_session
     return current_session
+
+
+def _load_bridge_snapshot(repo_root):
+    try:
+        return extract_bridge_snapshot(
+            (repo_root / DEFAULT_BRIDGE_REL).read_text(encoding="utf-8")
+        )
+    except OSError:
+        return None
 
 
 def _event_session_has_packet_attention(current_session) -> bool:

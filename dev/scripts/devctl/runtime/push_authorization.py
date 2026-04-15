@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Protocol
 
 from ..governance.draft import scan_repo_governance
 from ..governance.push_state import current_head_commit_sha
@@ -16,20 +15,12 @@ from ..review_channel.remote_commit_pipeline_artifact import (
 )
 from .action_contracts import ActionOutcome
 from .conductor_capability import normalize_reviewer_mode
+from .review_snapshot_refresh import receipt_commit_parent_sha
 from .remote_commit_pipeline_models import (
     PushAuthorizationRecord,
     RemoteCommitPipelineContract,
 )
 from .review_state_locator import load_review_state
-from .vcs import run_git_capture
-
-
-class _ReviewSnapshotArtifactRoots(Protocol):
-    review_snapshot_path: str
-
-
-class _GovernanceWithArtifactRoots(Protocol):
-    artifact_roots: _ReviewSnapshotArtifactRoots | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -88,128 +79,15 @@ def publication_authorization_decision(
                 "pipeline before pushing."
             ),
         )
-    authorized_via_snapshot_receipt = False
-    if (
-        authorization.authorized_head_sha
-        and current_head
-        and authorization.authorized_head_sha != current_head
-    ):
-        authorized_via_snapshot_receipt = _same_commit(
-            snapshot_receipt_parent,
-            authorization.authorized_head_sha,
-        )
-        if not authorized_via_snapshot_receipt:
-            return PublicationAuthorizationDecision(
-                authorization_required=True,
-                authorized=False,
-                reason="head_changed_after_authorization",
-                summary=(
-                    "The current HEAD no longer matches the authorized "
-                    "publication record. Review and re-authorize the new "
-                    "commit before pushing."
-                ),
-                push_authorization=authorization,
-            )
-    if is_expired(authorization.expires_at_utc):
-        return PublicationAuthorizationDecision(
-            authorization_required=True,
-            authorized=False,
-            reason="push_authorization_expired",
-            summary=(
-                "The current publication authorization has expired. Request a "
-                "fresh approval or a typed override before pushing."
-            ),
-            push_authorization=authorization,
-        )
-    if authorization.guard_status != ActionOutcome.PASS:
-        return PublicationAuthorizationDecision(
-            authorization_required=True,
-            authorized=False,
-            reason="push_authorization_guard_not_passed",
-            summary=(
-                "The publication authorization does not carry a passing guard "
-                "result for this commit."
-            ),
-            push_authorization=authorization,
-        )
-    if (
-        pipeline.pipeline_id
-        and pipeline.commit_sha
-        and authorization.authorized_head_sha
-        and pipeline.commit_sha != authorization.authorized_head_sha
-    ):
-        return PublicationAuthorizationDecision(
-            authorization_required=True,
-            authorized=False,
-            reason="push_authorization_pipeline_drift",
-            summary=(
-                "The current pipeline commit no longer matches the persisted "
-                "publication authorization."
-            ),
-            push_authorization=authorization,
-        )
-    if (
-        pipeline.approved_target_identity
-        and authorization.approved_target_identity
-        and pipeline.approved_target_identity != authorization.approved_target_identity
-    ):
-        return PublicationAuthorizationDecision(
-            authorization_required=True,
-            authorized=False,
-            reason="push_authorization_target_drift",
-            summary=(
-                "The approved publish identity drifted after authorization. "
-                "Recover the pipeline and request a fresh approval."
-            ),
-                push_authorization=authorization,
-            )
-    if (
-        pipeline.worktree_identity
-        and authorization.worktree_identity
-        and pipeline.worktree_identity != authorization.worktree_identity
-    ):
-        return PublicationAuthorizationDecision(
-            authorization_required=True,
-            authorized=False,
-            reason="push_authorization_worktree_record_drift",
-            summary=(
-                "The approved worktree identity drifted after authorization. "
-                "Recover the pipeline and request a fresh approval."
-            ),
-            push_authorization=authorization,
-        )
-    if (
-        pipeline.worktree_identity
-        and current_worktree_identity
-        and pipeline.worktree_identity != current_worktree_identity
-    ):
-        return PublicationAuthorizationDecision(
-            authorization_required=True,
-            authorized=False,
-            reason="push_authorization_worktree_drift",
-            summary=(
-                "The current worktree does not match the worktree that staged the "
-                "approved publication pipeline. Resume the owning worker lane or "
-                "recover and restage the pipeline here before pushing."
-            ),
-            push_authorization=authorization,
-        )
-    if (
-        authorization.worktree_identity
-        and current_worktree_identity
-        and authorization.worktree_identity != current_worktree_identity
-    ):
-        return PublicationAuthorizationDecision(
-            authorization_required=True,
-            authorized=False,
-            reason="push_authorization_worktree_mismatch",
-            summary=(
-                "The persisted publication authorization belongs to a different "
-                "worktree. Request a fresh approval from the worker lane that "
-                "owns this checkout before pushing."
-            ),
-            push_authorization=authorization,
-        )
+    authorized_via_snapshot_receipt, blocked_decision = _validate_authorization_record(
+        authorization=authorization,
+        pipeline=pipeline,
+        current_head=current_head,
+        current_worktree_identity=current_worktree_identity,
+        snapshot_receipt_parent=snapshot_receipt_parent,
+    )
+    if blocked_decision is not None:
+        return blocked_decision
     if authorized_via_snapshot_receipt:
         reason = "push_authorization_snapshot_receipt_current"
         summary = (
@@ -226,6 +104,138 @@ def publication_authorization_decision(
     return PublicationAuthorizationDecision(
         authorization_required=authorization_required,
         authorized=True,
+        reason=reason,
+        summary=summary,
+        push_authorization=authorization,
+    )
+
+
+def _validate_authorization_record(
+    *,
+    authorization: PushAuthorizationRecord,
+    pipeline: RemoteCommitPipelineContract,
+    current_head: str,
+    current_worktree_identity: str,
+    snapshot_receipt_parent: str,
+) -> tuple[bool, PublicationAuthorizationDecision | None]:
+    authorized_via_snapshot_receipt = False
+    if (
+        authorization.authorized_head_sha
+        and current_head
+        and authorization.authorized_head_sha != current_head
+    ):
+        authorized_via_snapshot_receipt = _same_commit(
+            snapshot_receipt_parent,
+            authorization.authorized_head_sha,
+        )
+        if not authorized_via_snapshot_receipt:
+            return False, _blocked_authorization_decision(
+                reason="head_changed_after_authorization",
+                summary=(
+                    "The current HEAD no longer matches the authorized "
+                    "publication record. Review and re-authorize the new "
+                    "commit before pushing."
+                ),
+                authorization=authorization,
+            )
+    if is_expired(authorization.expires_at_utc):
+        return False, _blocked_authorization_decision(
+            reason="push_authorization_expired",
+            summary=(
+                "The current publication authorization has expired. Request a "
+                "fresh approval or a typed override before pushing."
+            ),
+            authorization=authorization,
+        )
+    if authorization.guard_status != ActionOutcome.PASS:
+        return False, _blocked_authorization_decision(
+            reason="push_authorization_guard_not_passed",
+            summary=(
+                "The publication authorization does not carry a passing guard "
+                "result for this commit."
+            ),
+            authorization=authorization,
+        )
+    if (
+        pipeline.pipeline_id
+        and pipeline.commit_sha
+        and authorization.authorized_head_sha
+        and pipeline.commit_sha != authorization.authorized_head_sha
+    ):
+        return False, _blocked_authorization_decision(
+            reason="push_authorization_pipeline_drift",
+            summary=(
+                "The current pipeline commit no longer matches the persisted "
+                "publication authorization."
+            ),
+            authorization=authorization,
+        )
+    if (
+        pipeline.approved_target_identity
+        and authorization.approved_target_identity
+        and pipeline.approved_target_identity != authorization.approved_target_identity
+    ):
+        return False, _blocked_authorization_decision(
+            reason="push_authorization_target_drift",
+            summary=(
+                "The approved publish identity drifted after authorization. "
+                "Recover the pipeline and request a fresh approval."
+            ),
+            authorization=authorization,
+        )
+    if (
+        pipeline.worktree_identity
+        and authorization.worktree_identity
+        and pipeline.worktree_identity != authorization.worktree_identity
+    ):
+        return False, _blocked_authorization_decision(
+            reason="push_authorization_worktree_record_drift",
+            summary=(
+                "The approved worktree identity drifted after authorization. "
+                "Recover the pipeline and request a fresh approval."
+            ),
+            authorization=authorization,
+        )
+    if (
+        pipeline.worktree_identity
+        and current_worktree_identity
+        and pipeline.worktree_identity != current_worktree_identity
+    ):
+        return False, _blocked_authorization_decision(
+            reason="push_authorization_worktree_drift",
+            summary=(
+                "The current worktree does not match the worktree that staged the "
+                "approved publication pipeline. Resume the owning worker lane or "
+                "recover and restage the pipeline here before pushing."
+            ),
+            authorization=authorization,
+        )
+    if (
+        authorization.worktree_identity
+        and current_worktree_identity
+        and authorization.worktree_identity != current_worktree_identity
+    ):
+        return False, _blocked_authorization_decision(
+            reason="push_authorization_worktree_mismatch",
+            summary=(
+                "The persisted publication authorization belongs to a different "
+                "worktree. Request a fresh approval from the worker lane that "
+                "owns this checkout before pushing."
+            ),
+            authorization=authorization,
+        )
+    return authorized_via_snapshot_receipt, None
+
+
+def _blocked_authorization_decision(
+    *,
+    reason: str,
+    summary: str,
+    authorization: PushAuthorizationRecord,
+) -> PublicationAuthorizationDecision:
+    return PublicationAuthorizationDecision(
+        authorization_required=True,
+        authorized=False,
         reason=reason,
         summary=summary,
         push_authorization=authorization,
@@ -295,39 +305,12 @@ def _snapshot_only_receipt_parent_sha(
     current_head: str,
     governance: object,
 ) -> str:
-    """Return HEAD's parent when HEAD changes only the ReviewSnapshot file."""
-    if not current_head:
-        return ""
-    snapshot_rel = _review_snapshot_relpath(governance)
-    code, output, _ = run_git_capture(
-        ["diff-tree", "--no-commit-id", "--name-only", "-r", current_head],
+    """Return HEAD's parent when HEAD is a governed snapshot receipt commit."""
+    return receipt_commit_parent_sha(
         repo_root=repo_root,
+        current_head=current_head,
+        governance=governance,
     )
-    if code != 0:
-        return ""
-    changed_paths = tuple(line.strip() for line in output.splitlines() if line.strip())
-    if changed_paths != (snapshot_rel,):
-        return ""
-
-    parent_code, parent_sha, _ = run_git_capture(
-        ["rev-parse", f"{current_head}^"],
-        repo_root=repo_root,
-    )
-    if parent_code != 0:
-        return ""
-    return parent_sha.strip()
-
-
-def _review_snapshot_relpath(
-    governance: _GovernanceWithArtifactRoots | None,
-) -> str:
-    if governance is not None:
-        artifact_roots = governance.artifact_roots
-        if artifact_roots is not None:
-            value = str(artifact_roots.review_snapshot_path or "").strip()
-            if value:
-                return value
-    return "dev/audits/REVIEW_SNAPSHOT.md"
 
 
 def _same_commit(left: str, right: str) -> bool:
