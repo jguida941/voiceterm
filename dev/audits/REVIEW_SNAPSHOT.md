@@ -5,14 +5,14 @@
 ## Quick status
 
 - Branch: `feature/governance-quality-sweep`
-- HEAD: `f5dc6d5e3f1f` — Push redesign research bundle for Codex (operator directive 2026-04-15)
-- Tree hash: `3b6432d8fdd9`
-- Generation stamp: `snap-347badd53927`
-- Generated at (UTC): 2026-04-15T00:36:57Z
-- Push decision: `await_review` — claude_ack_stale
-- Reviewer mode: `active_dual_agent` (interaction: `local_terminal`)
+- HEAD: `5daed3c2d4c9` — Delete redesign_research/ — operator: stop making MDs, use existing master plan + 24 active plans + LIVE_RUN.md
+- Tree hash: `3c0d38e8e5a5`
+- Generation stamp: `snap-0446236b241b`
+- Generated at (UTC): 2026-04-15T00:44:31Z
+- Push decision: `await_review` — runtime_missing
+- Reviewer mode: `tools_only` (interaction: `remote_control`)
 - Pipeline state: `n/a` (approval: `n/a`)
-- Delta since last snapshot: 24 commits, 136 files, +10951/-2812
+- Delta since last snapshot: 24 commits, 136 files, +10889/-3395
 - Governance findings: 118 open / 79 fixed / 211 total
 - Probe hints: 0 total across 0 files scanned
 
@@ -54,15 +54,15 @@ adopters arrive.
 - Remote: `https://github.com/jguida941/voiceterm.git`
 - Default branch: `master`
 - Current branch: `feature/governance-quality-sweep`
-- HEAD SHA: `f5dc6d5e3f1fee6733551f9181ac4d6b8a001a4b`
+- HEAD SHA: `5daed3c2d4c9433ce1dba3655572dbf5afb761f0`
 - HEAD author: Justin Guida
-- HEAD timestamp (UTC): 2026-04-14T20:36:47-04:00
+- HEAD timestamp (UTC): 2026-04-14T20:44:22-04:00
 
 ## 2. Governance state
 
 ### Push decision
 - action: `await_review`
-- reason: claude_ack_stale
+- reason: runtime_missing
 - push_eligible_now: False
 - worktree_clean: True
 - staged_path_count: 0
@@ -77,11 +77,11 @@ adopters arrive.
 - publication_guidance: 1 local commit(s) waiting for governed push once review is accepted.
 
 ### Reviewer runtime
-- reviewer_mode: `active_dual_agent`
+- reviewer_mode: `tools_only`
 - reviewer_freshness: unknown
 - reviewer_publish_clear: False
-- interaction_mode: `local_terminal`
-- implementation_blocked: yes — claude_ack_stale
+- interaction_mode: `remote_control`
+- implementation_blocked: yes — runtime_missing
 
 ### Remote commit pipeline
 - state: `n/a`
@@ -91,16 +91,16 @@ adopters arrive.
 - active plan: **AI Governance Platform Plan**
 - plan path: `dev/active/ai_governance_platform.md`
 - active MP scope: `MP-377`
-- advisory: `repair_reviewer_loop` — claude_ack_stale
+- advisory: `repair_reviewer_loop` — runtime_missing
 
 ## 3. Delta — what changed since the previous snapshot
 
-Range: last 24 commits ending at `f5dc6d5e3f1f`
+Range: last 24 commits ending at `5daed3c2d4c9`
 
 - commits: 24
 - files changed: 136
-- insertions: +10951
-- deletions: -2812
+- insertions: +10889
+- deletions: -3395
 - bundle classes touched: tooling, docs
 - risk add-ons triggered: Parser / ANSI boundary
 - authority surfaces touched: 23 file(s)
@@ -109,46 +109,46 @@ Range: last 24 commits ending at `f5dc6d5e3f1f`
 
 | # | SHA | Subject | Files | +/- | Bundle | Risk |
 |---|---|---|---|---|---|---|
-| 1 | `f5dc6d5e` | Push redesign research bundle for Codex (operator directive… | 5 | +748/-0 | tooling |  |
-| 2 | `d3aafd01` | Refresh external review snapshot for 9b4f8fb2 | 2 | +86/-75 | docs |  |
-| 3 | `9b4f8fb2` | Bulk push for Codex redesign: 3 worktree agent slices (Q100… | 12 | +741/-38 | tooling |  |
-| 4 | `c6ef4054` | Refresh external review snapshot for 671dfff3 | 1 | +57/-57 | tooling |  |
-| 5 | `671dfff3` | Append Q100 architectural finding (attention_revision lease… | 3 | +141/-96 | tooling |  |
-| 6 | `b374610d` | Log Q100 architectural finding: commit pipeline self-invali… | 1 | +49/-44 | tooling |  |
-| 7 | `64ad27ef` | Refresh external review snapshot for 08859553 + sync bridge… | 1 | +64/-93 | tooling |  |
-| 8 | `08859553` | Extract canonical operator_interaction_mode reducer to oper… | 7 | +343/-189 | tooling |  |
-| 9 | `951b86aa` | Propagate attachment-overrides-local_terminal promotion to… | 3 | +69/-19 | tooling |  |
-| 10 | `dba730f7` | Wire reviewer-wake path + fix dashboard render keying + pen… | 14 | +769/-12 | tooling |  |
-| 11 | `493b9d03` | Fix attachment override of operator_interaction_mode; rever… | 4 | +131/-60 | tooling |  |
-| 12 | `60a8d1bd` | Refresh external review snapshot for 686a1283 | 1 | +61/-69 | tooling |  |
-| 13 | `686a1283` | Align authority parity and review packet handling | 15 | +623/-157 | tooling | Parser / ANSI boundary |
-| 14 | `6361080a` | Fix review-channel watch follow liveness | 16 | +1255/-183 | tooling |  |
-| 15 | `3d78ef9f` | Refresh external review snapshot for 6fdde964 | 1 | +60/-69 | tooling |  |
-| 16 | `6fdde964` | Align authority snapshots and dashboard headers | 28 | +996/-241 | tooling |  |
-| 17 | `455a2c64` | Add authority snapshot runtime contract | 34 | +1779/-635 | tooling |  |
-| 18 | `dde973d5` | Refresh external review snapshot for 24689590 | 1 | +64/-72 | tooling |  |
-| 19 | `24689590` | Add dogfood governance recording and plan registry authorit… | 17 | +901/-113 | tooling |  |
-| 20 | `27b7826c` | Refresh external review snapshot for a83b7f81 | 1 | +83/-84 | tooling |  |
-| 21 | `a83b7f81` | Add dogfood coverage and bridge portability | 47 | +1760/-224 | tooling |  |
-| 22 | `e78905c2` | Refresh external review snapshot for d6e474d5 | 1 | +47/-51 | tooling |  |
-| 23 | `d6e474d5` | Refresh bridge.md projection from typed state for push | 2 | +69/-172 | docs |  |
-| 24 | `871812bb` | Refresh review snapshot for governance-quality-sweep push | 1 | +55/-59 | tooling |  |
+| 1 | `5daed3c2` | Delete redesign_research/ — operator: stop making MDs, use… | 5 | +0/-748 | tooling |  |
+| 2 | `acac5ee0` | Refresh external review snapshot for f5dc6d5e | 1 | +62/-66 | tooling |  |
+| 3 | `f5dc6d5e` | Push redesign research bundle for Codex (operator directive… | 5 | +748/-0 | tooling |  |
+| 4 | `d3aafd01` | Refresh external review snapshot for 9b4f8fb2 | 2 | +86/-75 | docs |  |
+| 5 | `9b4f8fb2` | Bulk push for Codex redesign: 3 worktree agent slices (Q100… | 12 | +741/-38 | tooling |  |
+| 6 | `c6ef4054` | Refresh external review snapshot for 671dfff3 | 1 | +57/-57 | tooling |  |
+| 7 | `671dfff3` | Append Q100 architectural finding (attention_revision lease… | 3 | +141/-96 | tooling |  |
+| 8 | `b374610d` | Log Q100 architectural finding: commit pipeline self-invali… | 1 | +49/-44 | tooling |  |
+| 9 | `64ad27ef` | Refresh external review snapshot for 08859553 + sync bridge… | 1 | +64/-93 | tooling |  |
+| 10 | `08859553` | Extract canonical operator_interaction_mode reducer to oper… | 7 | +343/-189 | tooling |  |
+| 11 | `951b86aa` | Propagate attachment-overrides-local_terminal promotion to… | 3 | +69/-19 | tooling |  |
+| 12 | `dba730f7` | Wire reviewer-wake path + fix dashboard render keying + pen… | 14 | +769/-12 | tooling |  |
+| 13 | `493b9d03` | Fix attachment override of operator_interaction_mode; rever… | 4 | +131/-60 | tooling |  |
+| 14 | `60a8d1bd` | Refresh external review snapshot for 686a1283 | 1 | +61/-69 | tooling |  |
+| 15 | `686a1283` | Align authority parity and review packet handling | 15 | +623/-157 | tooling | Parser / ANSI boundary |
+| 16 | `6361080a` | Fix review-channel watch follow liveness | 16 | +1255/-183 | tooling |  |
+| 17 | `3d78ef9f` | Refresh external review snapshot for 6fdde964 | 1 | +60/-69 | tooling |  |
+| 18 | `6fdde964` | Align authority snapshots and dashboard headers | 28 | +996/-241 | tooling |  |
+| 19 | `455a2c64` | Add authority snapshot runtime contract | 34 | +1779/-635 | tooling |  |
+| 20 | `dde973d5` | Refresh external review snapshot for 24689590 | 1 | +64/-72 | tooling |  |
+| 21 | `24689590` | Add dogfood governance recording and plan registry authorit… | 17 | +901/-113 | tooling |  |
+| 22 | `27b7826c` | Refresh external review snapshot for a83b7f81 | 1 | +83/-84 | tooling |  |
+| 23 | `a83b7f81` | Add dogfood coverage and bridge portability | 47 | +1760/-224 | tooling |  |
+| 24 | `e78905c2` | Refresh external review snapshot for d6e474d5 | 1 | +47/-51 | tooling |  |
 
 ### Files
 
 | Path | Bundle | +/- |
 |---|---|---|
 | `AGENTS.md` | docs | +14/-2 |
-| `bridge.md` | docs | +99/-207 |
+| `bridge.md` | docs | +81/-83 |
 | `dev/active/MASTER_PLAN.md` | tooling | +52/-0 |
 | `dev/active/ai_governance_platform.md` | tooling | +337/-33 |
 | `dev/audits/LIVE_RUN.md` | tooling | +50/-0 |
-| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1238/-1291 |
-| `dev/audits/redesign_research/00_codex_directive.md` | tooling | +55/-0 |
-| `dev/audits/redesign_research/01_livelogs_findings.md` | tooling | +191/-0 |
-| `dev/audits/redesign_research/02_plans_landscape.md` | tooling | +216/-0 |
-| `dev/audits/redesign_research/03_debt_ledger.md` | tooling | +142/-0 |
-| `dev/audits/redesign_research/04_today_postmortem.md` | tooling | +144/-0 |
+| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1194/-1250 |
+| `dev/audits/redesign_research/00_codex_directive.md` | tooling | +55/-55 |
+| `dev/audits/redesign_research/01_livelogs_findings.md` | tooling | +191/-191 |
+| `dev/audits/redesign_research/02_plans_landscape.md` | tooling | +216/-216 |
+| `dev/audits/redesign_research/03_debt_ledger.md` | tooling | +142/-142 |
+| `dev/audits/redesign_research/04_today_postmortem.md` | tooling | +144/-144 |
 | `dev/config/git_hooks/pre-commit-review-snapshot.sh` | tooling | +32/-1 |
 | `dev/config/templates/portable_governance_finding_review.schema.json` | tooling | +1/-1 |
 | `dev/guides/DEVELOPMENT.md` | docs | +34/-5 |
@@ -293,6 +293,10 @@ Recent findings:
 
 ### Per-commit rationale
 
+- **`5daed3c2`** — Delete redesign_research/ — operator: stop making MDs, use existing master plan + 24 active plans + LIVE_RUN.md
+  - evolution: Fact: the remote-control review loop still had three small but real projection gaps. `ControlPlaneReadModel.pending_action_requests` counted every live pending packet even though the field name promised action requests …
+- **`acac5ee0`** — Refresh external review snapshot for f5dc6d5e
+  - evolution: Fact: the remote-control review loop still had three small but real projection gaps. `ControlPlaneReadModel.pending_action_requests` counted every live pending packet even though the field name promised action requests …
 - **`f5dc6d5e`** — Push redesign research bundle for Codex (operator directive 2026-04-15)
   - Operator: "All this needs to be pushed to Codex. It is going to plan and code
   - this. Your job is research and push findings. You are not coding a goddamn line."
@@ -340,8 +344,6 @@ Recent findings:
 - **`27b7826c`** — Refresh external review snapshot for a83b7f81
 - **`a83b7f81`** — Add dogfood coverage and bridge portability
 - **`e78905c2`** — Refresh external review snapshot for d6e474d5
-- **`d6e474d5`** — Refresh bridge.md projection from typed state for push
-- **`871812bb`** — Refresh review snapshot for governance-quality-sweep push
 ### Active MP scope (from MASTER_PLAN.md)
 
 - contract slice for MP-355 plus the temporary markdown-swarm operating mode
@@ -360,7 +362,7 @@ Recent findings:
 - open governance findings: 118
 
 ### Startup advisories
-- repair_reviewer_loop: claude_ack_stale
+- repair_reviewer_loop: runtime_missing
 
 ### Stale warnings
 - Cut a checkpoint before doing anything else.
@@ -377,4 +379,4 @@ Recent findings:
 
 ---
 
-Projection produced by `devctl review-snapshot`. Generation stamp `snap-347badd53927` binds this file to HEAD `f5dc6d5e3f1f`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
+Projection produced by `devctl review-snapshot`. Generation stamp `snap-0446236b241b` binds this file to HEAD `5daed3c2d4c9`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
