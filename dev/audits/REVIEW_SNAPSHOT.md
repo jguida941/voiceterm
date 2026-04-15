@@ -5,14 +5,14 @@
 ## Quick status
 
 - Branch: `feature/governance-quality-sweep`
-- HEAD: `08859553967b` — Extract canonical operator_interaction_mode reducer to operator_context + delegate 3 launcher sites (closes rev_pkt_0463)
-- Tree hash: `0df31d8db51e`
-- Generation stamp: `snap-b7d12f58ef60`
-- Generated at (UTC): 2026-04-14T23:56:38Z
-- Push decision: `await_checkpoint` — staged_index_present
+- HEAD: `64ad27ef9dad` — Refresh external review snapshot for 08859553 + sync bridge.md from typed review-state
+- Tree hash: `b92605c758b6`
+- Generation stamp: `snap-5ab2be626df5`
+- Generated at (UTC): 2026-04-15T00:08:32Z
+- Push decision: `await_checkpoint` — worktree_dirty
 - Reviewer mode: `single_agent` (interaction: `local_terminal`)
 - Pipeline state: `n/a` (approval: `n/a`)
-- Delta since last snapshot: 24 commits, 183 files, +13943/-3282
+- Delta since last snapshot: 25 commits, 183 files, +14007/-3375
 - Governance findings: 118 open / 79 fixed / 211 total
 - Probe hints: 0 total across 0 files scanned
 
@@ -54,24 +54,26 @@ adopters arrive.
 - Remote: `https://github.com/jguida941/voiceterm.git`
 - Default branch: `master`
 - Current branch: `feature/governance-quality-sweep`
-- HEAD SHA: `08859553967bf83c771e3036e2b217adb0f8762a`
+- HEAD SHA: `64ad27ef9dad232177d3d8794436d59540370c10`
 - HEAD author: Justin Guida
-- HEAD timestamp (UTC): 2026-04-14T19:34:45-04:00
+- HEAD timestamp (UTC): 2026-04-14T20:00:13-04:00
 
 ## 2. Governance state
 
 ### Push decision
 - action: `await_checkpoint`
-- reason: staged_index_present
+- reason: worktree_dirty
 - push_eligible_now: False
 - worktree_clean: False
-- staged_path_count: 1
-- unstaged_path_count: 0
+- staged_path_count: 0
+- unstaged_path_count: 1
 - next_step_command: `n/a`
 - latest_push_report: `dev/reports/push/latest.json`
-- latest_push_report_state: `blocked` (validation_failed)
-- publication_backlog: queued
-- publication_guidance: 1 local commit(s) waiting for governed push once the current slice is checkpoint-clean.
+- latest_push_report_state: `post_push_green` (push_completed)
+- current_push_authorization: `push-auth-20260414T235920457061Z` (valid=True)
+- authorized_head_commit: `64ad27ef9dad232177d3d8794436d59540370c10`
+- approved_target_identity: `tree-receipt-20260414T235920457061Z:b92605c758b672b41f560328dac29e419004012c`
+- publication_backlog: none
 
 ### Reviewer runtime
 - reviewer_mode: `single_agent`
@@ -91,12 +93,12 @@ adopters arrive.
 
 ## 3. Delta — what changed since the previous snapshot
 
-Range: last 24 commits ending at `08859553967b`
+Range: last 25 commits ending at `64ad27ef9dad`
 
-- commits: 24
+- commits: 25
 - files changed: 183
-- insertions: +13943
-- deletions: -3282
+- insertions: +14007
+- deletions: -3375
 - bundle classes touched: tooling, docs
 - risk add-ons triggered: Parser / ANSI boundary
 - authority surfaces touched: 17 file(s)
@@ -105,30 +107,31 @@ Range: last 24 commits ending at `08859553967b`
 
 | # | SHA | Subject | Files | +/- | Bundle | Risk |
 |---|---|---|---|---|---|---|
-| 1 | `08859553` | Extract canonical operator_interaction_mode reducer to oper… | 7 | +343/-189 | tooling |  |
-| 2 | `951b86aa` | Propagate attachment-overrides-local_terminal promotion to… | 3 | +69/-19 | tooling |  |
-| 3 | `dba730f7` | Wire reviewer-wake path + fix dashboard render keying + pen… | 14 | +769/-12 | tooling |  |
-| 4 | `493b9d03` | Fix attachment override of operator_interaction_mode; rever… | 4 | +131/-60 | tooling |  |
-| 5 | `60a8d1bd` | Refresh external review snapshot for 686a1283 | 1 | +61/-69 | tooling |  |
-| 6 | `686a1283` | Align authority parity and review packet handling | 15 | +623/-157 | tooling | Parser / ANSI boundary |
-| 7 | `6361080a` | Fix review-channel watch follow liveness | 16 | +1255/-183 | tooling |  |
-| 8 | `3d78ef9f` | Refresh external review snapshot for 6fdde964 | 1 | +60/-69 | tooling |  |
-| 9 | `6fdde964` | Align authority snapshots and dashboard headers | 28 | +996/-241 | tooling |  |
-| 10 | `455a2c64` | Add authority snapshot runtime contract | 34 | +1779/-635 | tooling |  |
-| 11 | `dde973d5` | Refresh external review snapshot for 24689590 | 1 | +64/-72 | tooling |  |
-| 12 | `24689590` | Add dogfood governance recording and plan registry authorit… | 17 | +901/-113 | tooling |  |
-| 13 | `27b7826c` | Refresh external review snapshot for a83b7f81 | 1 | +83/-84 | tooling |  |
-| 14 | `a83b7f81` | Add dogfood coverage and bridge portability | 47 | +1760/-224 | tooling |  |
-| 15 | `e78905c2` | Refresh external review snapshot for d6e474d5 | 1 | +47/-51 | tooling |  |
-| 16 | `d6e474d5` | Refresh bridge.md projection from typed state for push | 2 | +69/-172 | docs |  |
-| 17 | `871812bb` | Refresh review snapshot for governance-quality-sweep push | 1 | +55/-59 | tooling |  |
-| 18 | `45376a16` | Refresh external review snapshot for a19534a9 | 1 | +63/-65 | tooling |  |
-| 19 | `a19534a9` | Fix active_target routing, projection parity, and dogfood s… | 31 | +1070/-143 | tooling |  |
-| 20 | `ffafe4ff` | Expand contract closure to internal types and wire governan… | 13 | +584/-66 | tooling |  |
-| 21 | `9e75a66d` | Refresh external review snapshot for 5a4236c1 | 1 | +59/-63 | tooling |  |
-| 22 | `5a4236c1` | Wire FindingBacklog, connection pairs, and probe split advi… | 42 | +1803/-224 | tooling | Parser / ANSI boundary |
-| 23 | `67afd4d5` | Refresh external review snapshot for d0e5ac47 | 1 | +80/-83 | tooling |  |
-| 24 | `d0e5ac47` | Consolidate plan system: typed phases, plan ingestion, guar… | 29 | +1219/-229 | tooling |  |
+| 1 | `64ad27ef` | Refresh external review snapshot for 08859553 + sync bridge… | 1 | +64/-93 | tooling |  |
+| 2 | `08859553` | Extract canonical operator_interaction_mode reducer to oper… | 7 | +343/-189 | tooling |  |
+| 3 | `951b86aa` | Propagate attachment-overrides-local_terminal promotion to… | 3 | +69/-19 | tooling |  |
+| 4 | `dba730f7` | Wire reviewer-wake path + fix dashboard render keying + pen… | 14 | +769/-12 | tooling |  |
+| 5 | `493b9d03` | Fix attachment override of operator_interaction_mode; rever… | 4 | +131/-60 | tooling |  |
+| 6 | `60a8d1bd` | Refresh external review snapshot for 686a1283 | 1 | +61/-69 | tooling |  |
+| 7 | `686a1283` | Align authority parity and review packet handling | 15 | +623/-157 | tooling | Parser / ANSI boundary |
+| 8 | `6361080a` | Fix review-channel watch follow liveness | 16 | +1255/-183 | tooling |  |
+| 9 | `3d78ef9f` | Refresh external review snapshot for 6fdde964 | 1 | +60/-69 | tooling |  |
+| 10 | `6fdde964` | Align authority snapshots and dashboard headers | 28 | +996/-241 | tooling |  |
+| 11 | `455a2c64` | Add authority snapshot runtime contract | 34 | +1779/-635 | tooling |  |
+| 12 | `dde973d5` | Refresh external review snapshot for 24689590 | 1 | +64/-72 | tooling |  |
+| 13 | `24689590` | Add dogfood governance recording and plan registry authorit… | 17 | +901/-113 | tooling |  |
+| 14 | `27b7826c` | Refresh external review snapshot for a83b7f81 | 1 | +83/-84 | tooling |  |
+| 15 | `a83b7f81` | Add dogfood coverage and bridge portability | 47 | +1760/-224 | tooling |  |
+| 16 | `e78905c2` | Refresh external review snapshot for d6e474d5 | 1 | +47/-51 | tooling |  |
+| 17 | `d6e474d5` | Refresh bridge.md projection from typed state for push | 2 | +69/-172 | docs |  |
+| 18 | `871812bb` | Refresh review snapshot for governance-quality-sweep push | 1 | +55/-59 | tooling |  |
+| 19 | `45376a16` | Refresh external review snapshot for a19534a9 | 1 | +63/-65 | tooling |  |
+| 20 | `a19534a9` | Fix active_target routing, projection parity, and dogfood s… | 31 | +1070/-143 | tooling |  |
+| 21 | `ffafe4ff` | Expand contract closure to internal types and wire governan… | 13 | +584/-66 | tooling |  |
+| 22 | `9e75a66d` | Refresh external review snapshot for 5a4236c1 | 1 | +59/-63 | tooling |  |
+| 23 | `5a4236c1` | Wire FindingBacklog, connection pairs, and probe split advi… | 42 | +1803/-224 | tooling | Parser / ANSI boundary |
+| 24 | `67afd4d5` | Refresh external review snapshot for d0e5ac47 | 1 | +80/-83 | tooling |  |
+| 25 | `d0e5ac47` | Consolidate plan system: typed phases, plan ingestion, guar… | 29 | +1219/-229 | tooling |  |
 
 ### Files
 
@@ -140,7 +143,7 @@ Range: last 24 commits ending at `08859553967b`
 | `dev/active/MASTER_PLAN.md` | tooling | +101/-35 |
 | `dev/active/ai_governance_platform.md` | tooling | +455/-39 |
 | `dev/active/platform_authority_loop.md` | tooling | +34/-1 |
-| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1395/-1418 |
+| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1459/-1511 |
 | `dev/config/git_hooks/pre-commit-review-snapshot.sh` | tooling | +32/-1 |
 | `dev/config/quality_presets/portable_python.json` | tooling | +3/-1 |
 | `dev/config/quality_presets/portable_rust.json` | tooling | +1/-0 |
@@ -286,6 +289,8 @@ Recent findings:
 
 ### Per-commit rationale
 
+- **`64ad27ef`** — Refresh external review snapshot for 08859553 + sync bridge.md from typed review-state
+  - evolution: Fact: the remote-control review loop still had three small but real projection gaps. `ControlPlaneReadModel.pending_action_requests` counted every live pending packet even though the field name promised action requests …
 - **`08859553`** — Extract canonical operator_interaction_mode reducer to operator_context + delegate 3 launcher sites (closes rev_pkt_0463)
   - evolution: Fact: the remote-control review loop still had three small but real projection gaps. `ControlPlaneReadModel.pending_action_requests` counted every live pending packet even though the field name promised action requests …
 - **`951b86aa`** — Propagate attachment-overrides-local_terminal promotion to launcher/ensure-follow/supervisor (rev_pkt_0459)
@@ -375,4 +380,4 @@ Recent findings:
 
 ---
 
-Projection produced by `devctl review-snapshot`. Generation stamp `snap-b7d12f58ef60` binds this file to HEAD `08859553967b`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
+Projection produced by `devctl review-snapshot`. Generation stamp `snap-5ab2be626df5` binds this file to HEAD `64ad27ef9dad`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
