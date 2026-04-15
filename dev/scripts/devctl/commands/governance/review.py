@@ -39,7 +39,7 @@ def run(args) -> int:
             getattr(args, "promotion_queue", None)
         )
         if bool(getattr(args, "record", False)):
-            row = record_finding_backlog_row(
+            write_result = record_finding_backlog_row(
                 review_input=GovernanceReviewInput(
                     finding_id=getattr(args, "finding_id", None),
                     signal_type=getattr(args, "signal_type", None),
@@ -68,7 +68,7 @@ def run(args) -> int:
                 log_path=log_path,
             )
             promotion_candidate = append_guard_promotion_candidate_from_review(
-                row,
+                write_result.row,
                 queue_path=promotion_queue_path,
             )
         report = build_governance_review_report(

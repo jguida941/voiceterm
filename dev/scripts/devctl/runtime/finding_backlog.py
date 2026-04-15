@@ -196,18 +196,47 @@ def build_finding_backlog_from_report(
     )
 
 
+@dataclass(frozen=True, slots=True)
+class FindingBacklogWriteResult:
+    """Typed closure from a canonical backlog write.
+
+    Carries the appended JSONL row plus the consumer-side FindingRecord
+    projection so callers can verify the write reached the typed backlog
+    surface instead of treating the raw row as the only evidence.
+    """
+
+    row: dict[str, Any]
+    finding: FindingRecord | None
+    log_path: str
+
+
 def record_finding_backlog_row(
     *,
     review_input: GovernanceReviewInput,
     repo_root: Path,
     governance: object | None,
     log_path: Path | None = None,
-) -> dict[str, Any]:
-    """Write one governance-review row through the canonical backlog seam."""
+) -> FindingBacklogWriteResult:
+    """Write one governance-review row through the canonical backlog seam.
+
+    Returns a typed FindingBacklogWriteResult so downstream consumers can
+    verify the appended row re-projects cleanly through the same reader
+    path that load_finding_backlog() uses, closing the write/read loop.
+    """
     resolved_log_path = log_path or resolve_governance_log_path(repo_root, governance)
     row = build_governance_review_row(review_input=review_input, repo_root=repo_root)
     append_governance_review_row(row, log_path=resolved_log_path)
-    return row
+    finding = _finding_from_review_row(
+        row,
+        repo_name=repo_root.name,
+        repo_path=str(repo_root),
+        source_artifact=str(resolved_log_path),
+    )
+    return FindingBacklogWriteResult(
+        row=row,
+        finding=finding,
+        log_path=str(resolved_log_path),
+    )
 
 
 def _finding_from_review_row(
@@ -274,6 +303,7 @@ def _line_number(value: object) -> int | None:
 
 __all__ = [
     "FindingBacklog",
+    "FindingBacklogWriteResult",
     "FindingSeverityCount",
     "build_finding_backlog_from_report",
     "load_finding_backlog",

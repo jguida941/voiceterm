@@ -138,6 +138,7 @@ class RemoteCommitPipelineContract:
     push_authorization: PushAuthorizationRecord | None = None
     snapshot_id: str = ""
     worktree_identity: str = ""
+    attention_revision_lease: str = ""
 
     def to_dict(self) -> dict[str, object]:
         payload: dict[str, object] = {}
@@ -184,6 +185,7 @@ class RemoteCommitPipelineContract:
         )
         payload["snapshot_id"] = self.snapshot_id
         payload["worktree_identity"] = self.worktree_identity
+        payload["attention_revision_lease"] = self.attention_revision_lease
         return payload
 
 
@@ -291,6 +293,9 @@ def remote_commit_pipeline_contract_from_mapping(
         ),
         snapshot_id=coerce_string(mapping.get("snapshot_id")),
         worktree_identity=coerce_string(mapping.get("worktree_identity")),
+        attention_revision_lease=coerce_string(
+            mapping.get("attention_revision_lease")
+        ),
     )
 
 

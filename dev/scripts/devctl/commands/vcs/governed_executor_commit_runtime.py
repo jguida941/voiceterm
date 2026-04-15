@@ -18,8 +18,18 @@ def attention_revision_stale(
     *,
     repo_root: Path,
     review_channel_path: Path | None,
+    held_lease: str = "",
 ) -> bool:
-    """Return true when packet attention changed since the latest startup receipt."""
+    """Return true when packet attention changed since the latest startup receipt.
+
+    When `held_lease` is a non-empty revision string, treat it as authoritative:
+    the caller (e.g., the commit-pipeline post-approval window) has pinned the
+    attention revision and subsequent typed-state writes must not re-trigger the
+    stale gate. This is the Q100 attention-revision-lease pattern. Callers that
+    still want the pre-lease, receipt-comparison semantics pass an empty lease.
+    """
+    if _held_lease_active(held_lease):
+        return False
     review_state = load_live_review_state(
         repo_root=repo_root,
         review_channel_path=review_channel_path,
@@ -44,6 +54,29 @@ def attention_revision_stale(
     if receipt is None:
         return True
     return receipt.attention_revision != current_attention_revision
+
+
+def _held_lease_active(held_lease: str) -> bool:
+    """Return true when the caller is holding a non-empty attention lease."""
+    return bool(str(held_lease or "").strip())
+
+
+def live_attention_revision(
+    *,
+    repo_root: Path,
+    review_channel_path: Path | None,
+) -> str:
+    """Return the current live packet-inbox attention revision, or empty string."""
+    review_state = load_live_review_state(
+        repo_root=repo_root,
+        review_channel_path=review_channel_path,
+    )
+    if review_state is None:
+        return ""
+    packet_inbox = getattr(review_state, "packet_inbox", None)
+    if packet_inbox is None:
+        return ""
+    return str(getattr(packet_inbox, "attention_revision", "") or "").strip()
 
 
 def _has_actionable_packet_attention(record: object) -> bool:

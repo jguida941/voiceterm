@@ -16,6 +16,7 @@ from .governed_executor_actions import APPROVAL_PACKET_KIND
 from .governed_executor_authorization import build_push_authorization
 from .governed_executor_commit_runtime import (
     attention_revision_stale as runtime_attention_revision_stale,
+    live_attention_revision as runtime_live_attention_revision,
     load_live_review_state as runtime_load_live_review_state,
     resolve_commit_execution_target as runtime_resolve_commit_execution_target,
 )
@@ -82,9 +83,14 @@ def execute_commit(
         context.event_packets_loader(),
         approval_packet_kind=APPROVAL_PACKET_KIND,
     )
+    pipeline = _acquire_attention_revision_lease(
+        pipeline=pipeline,
+        context=context,
+    )
     if runtime_attention_revision_stale(
         repo_root=context.repo_root,
         review_channel_path=context.review_channel_path,
+        held_lease=pipeline.attention_revision_lease,
     ):
         return _attention_revision_stale_result(
             action_id=action.action_id,
@@ -158,6 +164,36 @@ def execute_commit(
         context=context,
         completed=completed,
     )
+
+
+def _acquire_attention_revision_lease(
+    *,
+    pipeline: RemoteCommitPipelineContract,
+    context: CommitPipelineContext,
+) -> RemoteCommitPipelineContract:
+    """Pin the live attention revision onto the pipeline at fresh approval.
+
+    Q100 lease: once the pipeline holds `approval_state=approved`, subsequent
+    typed-state writes (event projections, inbox updates, dogfood rows) will
+    bump the live `packet_inbox.attention_revision`. Without a held lease the
+    commit-record check would compare the pipeline's pre-guard revision to the
+    post-guard live revision and self-invalidate the already-approved commit.
+    Capturing the lease here locks the commit window to the approval-time
+    revision so mid-bundle writes do not rescind the operator's approval.
+    """
+    if pipeline.approval_state != "approved":
+        return pipeline
+    if pipeline.attention_revision_lease:
+        return pipeline
+    live_revision = runtime_live_attention_revision(
+        repo_root=context.repo_root,
+        review_channel_path=context.review_channel_path,
+    )
+    if not live_revision:
+        return pipeline
+    leased = replace(pipeline, attention_revision_lease=live_revision)
+    context.persist_pipeline(leased)
+    return leased
 
 
 def _post_commit_execution_handoff(

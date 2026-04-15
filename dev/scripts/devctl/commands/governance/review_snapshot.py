@@ -19,6 +19,11 @@ from pathlib import Path
 
 from ...common import add_standard_output_arguments
 from ...config import get_repo_root
+from ...repo_packs import active_path_config
+from ...review_channel.bridge_file import rewrite_bridge_markdown
+from ...review_channel.bridge_projection import render_bridge_projection
+from ...review_channel.core import bridge_is_active
+from ...review_channel.heartbeat import compute_non_audit_worktree_hash
 from ...runtime.governance_scan import scan_repo_governance_safely
 from ...runtime.review_snapshot import build_review_snapshot
 from ...runtime.review_snapshot_render import render_review_snapshot_markdown
@@ -108,12 +113,27 @@ def run(args) -> int:
             governance=governance,
         )
         target_display = str(target_path.relative_to(repo_root))
+
+        # Atomic governed pipeline: when a receipt commit is requested, the
+        # bridge.md projection is a pipeline-generated artifact that must be
+        # refreshed inside the same step as the snapshot. We sync it first so
+        # its path can enter the preflight allowlist and the final commit
+        # captures both typed review-state artifacts in a single commit.
+        bridge_sync: dict[str, object] = {}
+        allowlist: tuple[str, ...] = (target_display,)
         if receipt_commit:
+            bridge_sync = _sync_bridge_projection_if_active(repo_root=repo_root)
+            bridge_rel = str(bridge_sync.get("bridge_rel") or "").strip()
+            if bridge_rel:
+                allowlist = (target_display, bridge_rel)
+
             receipt_result = _preflight_receipt_commit(
                 repo_root=repo_root,
-                target_rel=target_display,
+                allowlist=allowlist,
             )
             if not receipt_result.get("ok"):
+                if bridge_sync:
+                    receipt_result["bridge_sync"] = bridge_sync
                 return _emit_result(
                     args,
                     snapshot=snapshot,
@@ -130,7 +150,10 @@ def run(args) -> int:
             receipt_result = _commit_snapshot_receipt(
                 repo_root=repo_root,
                 target_rel=target_display,
+                allowlist=allowlist,
             )
+            if bridge_sync:
+                receipt_result["bridge_sync"] = bridge_sync
 
     ok = not receipt_result or bool(receipt_result.get("ok"))
     return _emit_result(
@@ -187,14 +210,29 @@ def _emit_result(
     )
 
 
-def _preflight_receipt_commit(*, repo_root: Path, target_rel: str) -> dict[str, object]:
-    """Fail closed when a receipt commit would capture more than the snapshot."""
+def _preflight_receipt_commit(
+    *,
+    repo_root: Path,
+    target_rel: str | None = None,
+    allowlist: tuple[str, ...] | None = None,
+) -> dict[str, object]:
+    """Fail closed when the receipt commit would capture more than governed paths.
+
+    The allowlist is the set of paths produced by this pipeline step itself
+    (the snapshot and — when the bridge is active — the bridge.md projection
+    refreshed in the same atomic sequence). Any other dirty path indicates
+    user work that must be committed separately.
+    """
+    allow: set[str] = set(allowlist or ())
+    if target_rel:
+        allow.add(target_rel)
+
     dirty_result = _dirty_paths(repo_root=repo_root)
     if not dirty_result.get("ok"):
         return dirty_result
 
     dirty_paths = set(dirty_result.get("dirty_paths", ()))
-    non_snapshot_paths = sorted(path for path in dirty_paths if path != target_rel)
+    non_snapshot_paths = sorted(path for path in dirty_paths if path not in allow)
     if non_snapshot_paths:
         return {
             "ok": False,
@@ -204,32 +242,48 @@ def _preflight_receipt_commit(*, repo_root: Path, target_rel: str) -> dict[str, 
     return {"ok": True, "reason": "receipt_preflight_passed"}
 
 
-def _commit_snapshot_receipt(*, repo_root: Path, target_rel: str) -> dict[str, object]:
-    """Stage and commit only the generated ReviewSnapshot receipt."""
-    add_code, _, add_error = run_git_capture(
-        ["add", "--", target_rel],
-        repo_root=repo_root,
-    )
-    if add_code != 0:
-        return {
-            "ok": False,
-            "reason": "git_add_failed",
-            "error": add_error,
-        }
+def _commit_snapshot_receipt(
+    *,
+    repo_root: Path,
+    target_rel: str,
+    allowlist: tuple[str, ...] | None = None,
+) -> dict[str, object]:
+    """Stage and commit the ReviewSnapshot receipt plus its governed siblings.
+
+    When ``allowlist`` includes additional pipeline-generated paths (e.g. the
+    refreshed ``bridge.md`` projection), they are staged and committed together
+    so every HEAD bump produces exactly one governed receipt commit rather
+    than one code commit plus a trailing snapshot commit.
+    """
+    # Paths this atomic pipeline is authorized to stage/commit.
+    allow_tuple = tuple(dict.fromkeys((target_rel, *(allowlist or ()))))
+
+    for path in allow_tuple:
+        add_code, _, add_error = run_git_capture(
+            ["add", "--", path],
+            repo_root=repo_root,
+        )
+        if add_code != 0:
+            return {
+                "ok": False,
+                "reason": "git_add_failed",
+                "error": add_error,
+                "path": path,
+            }
 
     staged_result = _staged_paths(repo_root=repo_root)
     if not staged_result.get("ok"):
         return staged_result
 
     staged_paths = set(staged_result.get("staged_paths", ()))
-    non_snapshot_paths = sorted(path for path in staged_paths if path != target_rel)
+    non_snapshot_paths = sorted(path for path in staged_paths if path not in allow_tuple)
     if non_snapshot_paths:
         return {
             "ok": False,
             "reason": "non_snapshot_paths_staged",
             "staged_paths": non_snapshot_paths,
         }
-    if target_rel not in staged_paths:
+    if not staged_paths:
         return {"ok": True, "reason": "receipt_unchanged", "commit_sha": ""}
 
     head_code, head_short, head_error = run_git_capture(
@@ -281,6 +335,72 @@ def _commit_snapshot_receipt(*, repo_root: Path, target_rel: str) -> dict[str, o
         "reason": "receipt_committed",
         "commit_sha": commit_sha,
     }
+
+
+def _sync_bridge_projection_if_active(*, repo_root: Path) -> dict[str, object]:
+    """Refresh the bridge.md projection from typed review-state as an atomic step.
+
+    The receipt pipeline runs this before the preflight dirty-check so the
+    generated bridge.md can enter the same commit as the snapshot receipt
+    instead of surfacing as a phantom dirty path. Every field consumers read
+    is present in the typed ``review_state.json``; the markdown bridge is a
+    compatibility projection that future work will retire.
+
+    TODO(Q100/B): Remove this markdown projection and delete ``bridge.md``
+    once all consumers (reviewer poll, operator console, status renderers)
+    read typed ``current_session`` fields directly from ``review_state.json``.
+    Seam: keep this call site and the matching writer in
+    ``dev/scripts/devctl/commands/review_channel/status_bridge_sync.py``
+    aligned so retirement can land in one pass.
+    """
+    config = active_path_config()
+    bridge_path = repo_root / config.bridge_rel
+    review_channel_path = repo_root / config.review_channel_rel
+    if not bridge_path.is_file() or not review_channel_path.is_file():
+        return {"synced": False, "reason": "bridge_or_channel_missing"}
+
+    try:
+        review_channel_text = review_channel_path.read_text(encoding="utf-8")
+    except OSError as exc:
+        return {"synced": False, "reason": "review_channel_read_failed", "error": str(exc)}
+
+    if not bridge_is_active(review_channel_text):
+        return {"synced": False, "reason": "bridge_not_active"}
+
+    review_state_path = _resolve_review_state_path(repo_root=repo_root, config=config)
+    if review_state_path is None:
+        return {"synced": False, "reason": "review_state_missing"}
+
+    try:
+        review_state_payload = _json.loads(review_state_path.read_text(encoding="utf-8"))
+        if not isinstance(review_state_payload, dict):
+            return {"synced": False, "reason": "review_state_not_mapping"}
+        bridge_rel = str(bridge_path.relative_to(repo_root))
+        worktree_hash = compute_non_audit_worktree_hash(
+            repo_root=repo_root,
+            excluded_rel_paths=(bridge_rel,),
+        )
+
+        def transform(_bridge_text: str) -> str:
+            rendered, _ = render_bridge_projection(
+                review_state=review_state_payload,
+                last_worktree_hash=worktree_hash,
+            )
+            return rendered
+
+        rewrite_bridge_markdown(bridge_path, transform=transform)
+    except (OSError, ValueError, _json.JSONDecodeError) as exc:
+        return {"synced": False, "reason": "bridge_write_failed", "error": str(exc)}
+    return {"synced": True, "reason": "bridge_refreshed", "bridge_rel": bridge_rel}
+
+
+def _resolve_review_state_path(*, repo_root: Path, config) -> Path | None:
+    """Return the first existing review_state.json candidate, if any."""
+    for candidate in getattr(config, "review_state_candidates", ()):
+        path = repo_root / candidate
+        if path.is_file():
+            return path
+    return None
 
 
 def _dirty_paths(*, repo_root: Path) -> dict[str, object]:

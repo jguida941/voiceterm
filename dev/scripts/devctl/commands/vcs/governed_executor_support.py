@@ -25,6 +25,9 @@ def commit_failed_pipeline(
 ) -> RemoteCommitPipelineContract:
     """Return the blocked pipeline shape for a failed governed commit."""
     resolved_failure = failure or CommitFailureDetails()
+    # Release the Q100 attention-revision lease on hard commit failure so a
+    # later recovery/restage cycle is not observed as still inside the
+    # approval window of the previous pipeline attempt.
     return replace(
         pending_pipeline,
         state="push_blocked",
@@ -40,6 +43,7 @@ def commit_failed_pipeline(
             artifact_paths=(artifact_relpath,),
         ),
         blocked_reason=resolved_failure.reason,
+        attention_revision_lease="",
     )
 
 
@@ -53,6 +57,9 @@ def commit_recorded_pipeline(
     result_builder: Callable[..., ActionResult],
 ) -> RemoteCommitPipelineContract:
     """Return the recorded pipeline shape for a successful governed commit."""
+    # Release the Q100 attention-revision lease now that the commit is durable:
+    # the pipeline has crossed into `commit_recorded`, so later sessions must
+    # compare live attention against the startup receipt again.
     return replace(
         pending_pipeline,
         state="commit_recorded",
@@ -67,6 +74,7 @@ def commit_recorded_pipeline(
         commit_sha=commit_sha,
         push_authorization=push_authorization,
         blocked_reason="",
+        attention_revision_lease="",
     )
 
 

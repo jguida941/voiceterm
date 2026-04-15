@@ -833,3 +833,115 @@ def test_review_snapshot_preserves_non_push_next_step_when_blocked() -> None:
     assert snap.governance_state.push_eligible_now is False
     assert "review-channel" in snap.governance_state.next_step_command
     assert "push --execute" not in snap.governance_state.next_step_command
+
+
+# ---------------------------------------------------------------------------
+# Q100 Category B: atomic receipt-commit pipeline (snapshot + bridge.md)
+# ---------------------------------------------------------------------------
+
+
+def test_preflight_receipt_commit_allowlists_bridge_pipeline_artifact(tmp_path) -> None:
+    """Preflight must treat bridge.md as a governed pipeline artifact, not user dirt."""
+    from devctl.commands.governance.review_snapshot import _preflight_receipt_commit
+
+    repo_root = _init_receipt_repo(tmp_path / "repo")
+    # Track a committed bridge.md, then simulate the atomic pipeline having
+    # refreshed it (it now shows up as dirty). Before Q100/B this tripped
+    # the non_snapshot_paths_dirty rejection.
+    (repo_root / "bridge.md").write_text("initial\n", encoding="utf-8")
+    subprocess.run(["git", "add", "bridge.md"], cwd=repo_root, check=True)
+    subprocess.run(
+        ["git", "commit", "-m", "seed bridge"],
+        cwd=repo_root,
+        check=True,
+        capture_output=True,
+    )
+    (repo_root / "bridge.md").write_text("refreshed-by-pipeline\n", encoding="utf-8")
+
+    result = _preflight_receipt_commit(
+        repo_root=repo_root,
+        allowlist=("dev/audits/REVIEW_SNAPSHOT.md", "bridge.md"),
+    )
+
+    assert result["ok"] is True
+    assert result["reason"] == "receipt_preflight_passed"
+
+
+def test_commit_snapshot_receipt_bundles_bridge_into_single_commit(tmp_path) -> None:
+    """Atomic pipeline must produce exactly one commit, not two."""
+    from devctl.commands.governance.review_snapshot import _commit_snapshot_receipt
+
+    repo_root = _init_receipt_repo(tmp_path / "repo")
+    (repo_root / "bridge.md").write_text("initial\n", encoding="utf-8")
+    subprocess.run(["git", "add", "bridge.md"], cwd=repo_root, check=True)
+    subprocess.run(
+        ["git", "commit", "-m", "seed bridge"],
+        cwd=repo_root,
+        check=True,
+        capture_output=True,
+    )
+    commit_count_before = _commit_count(repo_root)
+
+    snapshot_path = repo_root / "dev/audits/REVIEW_SNAPSHOT.md"
+    snapshot_path.parent.mkdir(parents=True, exist_ok=True)
+    snapshot_path.write_text("# Review Snapshot\n\nreceipt\n", encoding="utf-8")
+    (repo_root / "bridge.md").write_text("refreshed-by-pipeline\n", encoding="utf-8")
+
+    result = _commit_snapshot_receipt(
+        repo_root=repo_root,
+        target_rel="dev/audits/REVIEW_SNAPSHOT.md",
+        allowlist=("dev/audits/REVIEW_SNAPSHOT.md", "bridge.md"),
+    )
+
+    assert result["ok"] is True
+    assert result["reason"] == "receipt_committed"
+    assert _commit_count(repo_root) == commit_count_before + 1
+
+    # Both governed pipeline artifacts must land in the same commit.
+    changed = subprocess.run(
+        ["git", "diff-tree", "--no-commit-id", "--name-only", "-r", "HEAD"],
+        cwd=repo_root,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    changed_paths = set(changed.stdout.split())
+    assert changed_paths == {"dev/audits/REVIEW_SNAPSHOT.md", "bridge.md"}
+
+    # And the worktree is clean afterward — the scenario Q100/B was fixing.
+    status = subprocess.run(
+        ["git", "status", "--porcelain"],
+        cwd=repo_root,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    assert status.stdout.strip() == ""
+
+
+def test_atomic_pipeline_rejects_unrelated_dirty_paths(tmp_path) -> None:
+    """User-authored dirty paths outside the allowlist still fail closed."""
+    from devctl.commands.governance.review_snapshot import _preflight_receipt_commit
+
+    repo_root = _init_receipt_repo(tmp_path / "repo")
+    (repo_root / "user_work.txt").write_text("unrelated\n", encoding="utf-8")
+
+    result = _preflight_receipt_commit(
+        repo_root=repo_root,
+        allowlist=("dev/audits/REVIEW_SNAPSHOT.md", "bridge.md"),
+    )
+
+    assert result["ok"] is False
+    assert result["reason"] == "non_snapshot_paths_dirty"
+    assert "user_work.txt" in result["dirty_paths"]
+
+
+def _commit_count(repo_root: Path) -> int:
+    out = subprocess.run(
+        ["git", "rev-list", "--count", "HEAD"],
+        cwd=repo_root,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    return int(out.stdout.strip())

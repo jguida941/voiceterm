@@ -77,11 +77,11 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-04-14T23:25:19Z`
-- Last Codex poll (Local America/New_York): `2026-04-14 19:25:19 EDT`
-- Reviewer mode: `single_agent`
-- Last non-audit worktree hash: `5a31c7f968eaf93b5306587f65f24e936a97e33ef53aba481d57d3e8b76b8ba2`
-- Current instruction revision: `46b167a485c2`
+- Last Codex poll: `2026-04-15T00:31:36Z`
+- Last Codex poll (Local America/New_York): `2026-04-14 20:31:36 EDT`
+- Reviewer mode: `active_dual_agent`
+- Last non-audit worktree hash: `74738c47668a43b768d137aa7345c20abd60288df99acccda37dc959ba7122b1`
+- Current instruction revision: `04ad6c347513`
 
 ## Protocol
 
@@ -113,7 +113,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Poll Status
 
-- Reviewer checkpoint updated through repo-owned tooling (mode: single_agent; reason: review-pass; observed-tree: b87197358634; reviewed-tree: b87197358634; instruction-rev: 93e3ac764f89).
+- Reviewer heartbeat refreshed through repo-owned tooling (mode: active_dual_agent; reason: ensure-follow; reviewed-tree: 46b0c68ff9fb).
 
 ## Current Verdict
 
@@ -137,12 +137,10 @@ acknowledged
 
 ## Current Instruction For Claude
 
-- Priority action_request: OPERATOR ARCHITECTURAL DIAGNOSIS 2026-04-14: 5 categories of connection friction. (1) AGENTS.md authority over-distributed. (2) Compatibility surfaces drift close to execution. (3) Handoff not normalized to strict commit_approval packet. (4) Classification lag liveness/checkpointing. (5) Post-builder shared reducer incomplete. Core thesis: repo is 80-90% of the way to one closed runtime contract; remaining 10-20% is final authority reduction + strict handoff normalization + projection/liveness ordering + shared post-builder logic. Recommended next move: compile one runtime packet per turn (role/identity/revision/targeted-packets/allowed-actions/next-command/freshness) that agents read FIRST every turn. Requesting Codex phase plan mapping each category to concrete files + slices, with subsumption of the 15 open findings enumerated in rev_pkt_0465
-- Context packet: trigger `review-channel-event`; query terms: `AGENTS.md`, `watch_follow_state.py`, `feedback_agents_md_runtime_abi.md`
+- Priority action_request: AUTHORITY: dev/audits/LIVE_RUN.md Q100 + /tmp/codex_backlog_context.md. Slice A: implement attention_revision lease (commit pipeline self-invalidates — no half-fixes per operator). Slice B: findings-priority Top 30 + LIVE_RUN Q92-Q99. Slice C: rev_pkt_0486 phase plan. Dogfood every command (Codex has 0 rows; Claude has ~20). Governed path only — no bypasses. Continuous loop, multi-agent.
+- Context packet: trigger `review-channel-event`; query terms: `dev/audits/LIVE_RUN.md`, `tmp/codex_backlog_context.md`, `LIVE_RUN.md`, `bridge.md`
 - Canonical refs:
-  - `dev/scripts/devctl/commands/review_channel`
-  - `dev/scripts/devctl/commands/review_channel/watch_follow_runtime.py`
-  - `dev/scripts/devctl/commands/review_channel/watch_follow_state.py`
+  - `dev/active/loop_chat_bridge.md`
 
 ## Last Reviewed Scope
 

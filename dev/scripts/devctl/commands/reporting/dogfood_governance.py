@@ -77,7 +77,7 @@ def maybe_record_governance_closeout(
             f"--target-kind {recorded_row.target_kind} "
             f"--target-id {recorded_row.target_id}"
         )
-    row = record_finding_backlog_row(
+    write_result = record_finding_backlog_row(
         review_input=build_dogfood_governance_input(
             recorded_row,
             finding_id=getattr(args, "finding_id", None),
@@ -101,7 +101,7 @@ def maybe_record_governance_closeout(
         log_path=governance_log_path,
     )
     promotion_candidate = append_guard_promotion_candidate_from_review(
-        row,
+        write_result.row,
         queue_path=promotion_queue_path,
     )
     governance_report = build_governance_review_report(
@@ -112,7 +112,7 @@ def maybe_record_governance_closeout(
         governance_report,
         summary_root=governance_summary_root,
     )
-    return row, governance_paths, promotion_candidate
+    return write_result.row, governance_paths, promotion_candidate
 
 
 def has_governance_closeout(args) -> bool:
