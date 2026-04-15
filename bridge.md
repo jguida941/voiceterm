@@ -77,8 +77,8 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-04-15T00:31:36Z`
-- Last Codex poll (Local America/New_York): `2026-04-14 20:31:36 EDT`
+- Last Codex poll: ``
+- Last Codex poll (Local America/New_York): ``
 - Reviewer mode: `active_dual_agent`
 - Last non-audit worktree hash: `74738c47668a43b768d137aa7345c20abd60288df99acccda37dc959ba7122b1`
 - Current instruction revision: `04ad6c347513`
@@ -113,11 +113,11 @@ treat these rules as active workflow instructions immediately.
 
 ## Poll Status
 
-- Reviewer heartbeat refreshed through repo-owned tooling (mode: active_dual_agent; reason: ensure-follow; reviewed-tree: 46b0c68ff9fb).
+- Reviewer state unavailable.
 
 ## Current Verdict
 
-Follow-up required before acceptance: 951b86aa fixes the attachment-only remote-control promotion, but launch/follow/supervisor still ignore explicit typed operator_interaction_mode in review-state and can fall back to local_terminal incorrectly.
+- reviewer state unavailable
 
 ## Open Findings
 
