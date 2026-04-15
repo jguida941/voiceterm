@@ -1,18 +1,18 @@
 # Review Bridge
 
-Live shared review channel for Codex <-> Codex coordination during active work.
+Live shared review channel for Codex <-> Claude coordination during active work.
 
 ## Start-Of-Conversation Rules
 
-If this file is attached at the start of a new Codex or Codex conversation,
+If this file is attached at the start of a new Codex or Claude conversation,
 treat these rules as active workflow instructions immediately.
 
-1. Use this file as the live Codex<->Codex coordination authority for the
+1. Use this file as the live Codex<->Claude coordination authority for the
    current loop. Do not create parallel control files for the same work.
-2. Codex is the reviewer. Codex is the coder.
+2. Codex is the reviewer. Claude is the coder.
 3. At conversation start, both agents must bootstrap repo authority before
-   acting. Codex uses `python3 dev/scripts/devctl.py startup-context --role reviewer --format summary` and Codex uses `python3 dev/scripts/devctl.py startup-context --role implementer --format summary` first.
-   If Codex's receipt exits non-zero, checkpoint or repair the
+   acting. Codex uses `python3 dev/scripts/devctl.py startup-context --role reviewer --format summary` and Claude uses `python3 dev/scripts/devctl.py startup-context --role implementer --format summary` first.
+   If Claude's receipt exits non-zero, checkpoint or repair the
    repo state before coding or relaunching conductor work.
    If Codex's receipt exits non-zero, read the summary fields
    before widening scope. `action=continue_editing` /
@@ -26,7 +26,7 @@ treat these rules as active workflow instructions immediately.
    repair or relaunch boundary.
    User summaries, stale chat continuity, or
    remembered prior state are not substitutes for this Step 0 receipt.
-   Then Codex uses `python3 dev/scripts/devctl.py session-resume --role reviewer --format bootstrap` and Codex uses
+   Then Codex uses `python3 dev/scripts/devctl.py session-resume --role reviewer --format bootstrap` and Claude uses
    `python3 dev/scripts/devctl.py session-resume --role implementer --format bootstrap` as the canonical role bootstrap packet.
    Then run
    `python3 dev/scripts/devctl.py context-graph --mode bootstrap --format md`.
@@ -36,10 +36,10 @@ treat these rules as active workflow instructions immediately.
    `dev/active/review_channel.md` as the canonical authority chain.
 5. Start from the live sections in this file:
    - Codex should start from `Poll Status`, `Current Verdict`, `Open Findings`, `Current Instruction For Claude`, and `Last Reviewed Scope`.
-   - Codex should start from `Poll Status`, `Current Verdict`, `Open Findings`, `Current Instruction For Claude`, and `Last Reviewed Scope`, then acknowledge the active instruction in the implementer ACK section (`Claude Ack` compatibility heading) before coding.
+   - Claude should start from `Poll Status`, `Current Verdict`, `Open Findings`, `Current Instruction For Claude`, and `Last Reviewed Scope`, then acknowledge the active instruction in the implementer ACK section (`Claude Ack` compatibility heading) before coding.
    - `Last Codex poll` remains the reviewer-heartbeat compatibility field and the implementer-owned compatibility sections (`Claude Status`, `Claude Ack`) remain aliases until native role-labeled bridge headings land.
    - The implementer ACK section (`Claude Ack` compatibility heading) must acknowledge the current instruction revision with a machine-readable line such as `- acknowledged current instruction revision: <rev>` or `- acknowledged; instruction-rev: <rev>`.
-   - Codex must read `Last Codex poll` / `Poll Status` first on each repoll.
+   - Claude must read `Last Codex poll` / `Poll Status` first on each repoll.
 6. Codex must poll non-`bridge.md` worktree changes every 2-3 minutes while
    code is moving.
 7. Codex must exclude `bridge.md` itself when computing the reviewed
@@ -53,9 +53,9 @@ treat these rules as active workflow instructions immediately.
    review/promote/wait paths unless the workflow explicitly switches to
    takeover (`reviewer_mode=single_agent` or `python3 dev/scripts/devctl.py startup-context --role reviewer --reviewer-override --format summary`).
 10. When `Reviewer mode` is `single_agent`, `tools_only`, `paused`, or
-    `offline`, Codex must not assume a live Codex review loop.
+    `offline`, Claude must not assume a live Codex review loop.
 11. Only the Codex conductor may update the Codex-owned sections in this file.
-12. Only the Codex conductor may update the implementer-owned compatibility sections (`Claude Status`, `Claude Questions`, `Claude Ack`) in this
+12. Only the Claude conductor may update the implementer-owned compatibility sections (`Claude Status`, `Claude Questions`, `Claude Ack`) in this
     file.
 13. Specialist workers should wake on owned-path changes instead of polling
     the full tree blindly.
@@ -66,7 +66,7 @@ treat these rules as active workflow instructions immediately.
 16. When the current slice is accepted and scoped plan work remains, Codex must
     promote the next bounded task instead of idling.
 17. If `Current Instruction For Claude` or `Poll Status` says `hold steady`,
-    Codex must stay in polling mode until the reviewer-owned sections change.
+    Claude must stay in polling mode until the reviewer-owned sections change.
 18. If `Current Instruction For Claude` still contains active work and there is
     no explicit reviewer-owned wait state, implementer status/ack updates
     must be substantive: name concrete files, subsystems, findings, or one concrete
@@ -77,15 +77,15 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-04-13T22:26:40Z`
-- Last Codex poll (Local America/New_York): `2026-04-13 18:26:40 EDT`
+- Last Codex poll: `2026-04-14T23:25:19Z`
+- Last Codex poll (Local America/New_York): `2026-04-14 19:25:19 EDT`
 - Reviewer mode: `single_agent`
-- Last non-audit worktree hash: `594fdde611270538baf0255fd1e9b1d9905d821eef459ad74b33c2c7804e0f9d`
-- Current instruction revision: `63ed4c8ba5e1`
+- Last non-audit worktree hash: `5a31c7f968eaf93b5306587f65f24e936a97e33ef53aba481d57d3e8b76b8ba2`
+- Current instruction revision: `46b167a485c2`
 
 ## Protocol
 
-1. Codex should poll this file periodically while coding.
+1. Claude should poll this file periodically while coding.
 2. Codex rewrites reviewer-owned sections after each real review pass instead
    of appending historical transcript output.
 3. `bridge.md` itself is coordination state; do not treat its mtime as code
@@ -113,15 +113,15 @@ treat these rules as active workflow instructions immediately.
 
 ## Poll Status
 
-- Reviewer heartbeat refreshed through repo-owned tooling (mode: single_agent; reason: branch-reconcile; reviewed-tree: 9a01f42ddf58).
+- Reviewer checkpoint updated through repo-owned tooling (mode: single_agent; reason: review-pass; observed-tree: b87197358634; reviewed-tree: b87197358634; instruction-rev: 93e3ac764f89).
 
 ## Current Verdict
 
-- reviewer state unavailable
+Follow-up required before acceptance: 951b86aa fixes the attachment-only remote-control promotion, but launch/follow/supervisor still ignore explicit typed operator_interaction_mode in review-state and can fall back to local_terminal incorrectly.
 
 ## Open Findings
 
-none
+2 pending review packet(s)
 
 ## Claude Status
 
@@ -137,7 +137,12 @@ acknowledged
 
 ## Current Instruction For Claude
 
-Authority sync patch landed; keep dogfood findings on packet lane
+- Priority action_request: OPERATOR ARCHITECTURAL DIAGNOSIS 2026-04-14: 5 categories of connection friction. (1) AGENTS.md authority over-distributed. (2) Compatibility surfaces drift close to execution. (3) Handoff not normalized to strict commit_approval packet. (4) Classification lag liveness/checkpointing. (5) Post-builder shared reducer incomplete. Core thesis: repo is 80-90% of the way to one closed runtime contract; remaining 10-20% is final authority reduction + strict handoff normalization + projection/liveness ordering + shared post-builder logic. Recommended next move: compile one runtime packet per turn (role/identity/revision/targeted-packets/allowed-actions/next-command/freshness) that agents read FIRST every turn. Requesting Codex phase plan mapping each category to concrete files + slices, with subsumption of the 15 open findings enumerated in rev_pkt_0465
+- Context packet: trigger `review-channel-event`; query terms: `AGENTS.md`, `watch_follow_state.py`, `feedback_agents_md_runtime_abi.md`
+- Canonical refs:
+  - `dev/scripts/devctl/commands/review_channel`
+  - `dev/scripts/devctl/commands/review_channel/watch_follow_runtime.py`
+  - `dev/scripts/devctl/commands/review_channel/watch_follow_state.py`
 
 ## Last Reviewed Scope
 

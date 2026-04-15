@@ -10423,3 +10423,53 @@ Needed to close:
 6. Plan-content guards (unique task IDs, required owner per task)
 
 This is the last 30% — the infrastructure to CONSUME typed plan content already exists in work-intake routing, context-graph indexing, and planning-IR reduction.
+
+### Q100 — ARCHITECTURAL — Commit pipeline self-invalidates approval via shared `attention_revision` (drift-lockout is structural, not transient)
+
+**Discovery**: 2026-04-15 (during rev_pkt_0463 closure + snapshot-refresh cycle at HEAD `64ad27ef`)
+
+**Symptom reproduced 3 times in this session**:
+1. `devctl commit` runs its approval step at `attention_revision=N`, returns `approval_state=approved`.
+2. During the 39-step guard bundle that follows, some step touches typed state (inbox read, findings-priority, review-channel write, or the pipeline's own event-projection write) and bumps revision to `N+1`.
+3. Final commit-record check compares pipeline-held N against live N+1, rejects with `reason=attention_revision_stale`, `pipeline_state=push_blocked`, no commit SHA recorded.
+4. Operator guidance says "rerun startup-context, refresh session-resume, ack inbox." But the next commit attempt races the same window and fails identically.
+
+**Empirical evidence**: tried tight inline refresh-then-commit with zero dashboard activity intervening — still failed with same reason. The commit pipeline's OWN internal guard bundle bumps the revision it's checking against. Only workaround found: refresh `session-resume --role implementer` immediately before `startup-context` immediately before `commit` in the same shell invocation (commit `64ad27ef` landed this way). The session-resume step writes the inbox-ack record that the commit pipeline's attention check reads against, closing the race window to microseconds.
+
+**Load-bearing corruption**: This is not a documentation or process bug — the commit pipeline is structurally unable to complete under any scenario where:
+- another agent is posting review-channel packets (multi-worker mode)
+- the dashboard runs polls during a long-running guard bundle
+- the pipeline's own steps write typed events
+
+Which is every real dogfood scenario. Multi-agent workflow is blocked behind this.
+
+**Fix direction (do the real fix, not half-measures)**:
+
+Option A — **attention_revision lease** (preferred):
+- At `approval_state=approved`, snapshot `attention_revision=N` into the pipeline's `commit_approval_packet` as a held lease.
+- All guard-bundle steps and the final commit-record check read from the lease, not from live typed state.
+- Lease is released only when `pipeline_state` transitions to `commit_recorded` or `push_blocked`.
+- Competing typed-state writes during the lease window are queued against the next revision but do not invalidate the held lease.
+- Files to change: `dev/scripts/devctl/commands/vcs/commit.py`, `dev/scripts/devctl/governance/commit_pipeline.py` (or equivalent), `dev/scripts/devctl/runtime/attention_revision_source.py`.
+
+Option B — **read-only dashboard view**:
+- Introduce a typed-state read mode that does NOT bump `attention_revision`.
+- Dashboard polls (`startup-context --format summary`, `review-channel --action inbox --target <x>`, `findings-priority`) use the read-only view.
+- Commit pipeline continues to use the mutating view.
+- Less invasive but doesn't help when the commit pipeline's OWN guard steps mutate typed state.
+
+**Recommended**: Option A is the real fix. Option B is a complement for dashboard safety.
+
+**Architectural category**: This is Category 2 of rev_pkt_0486 / rev_pkt_0465 operator diagnosis — "compatibility surfaces close to execution causing drift" — manifesting as commit-pipeline self-corruption. Two subsystems (review-channel event stream and commit approval state machine) share `attention_revision` with zero mutual exclusion.
+
+**Related**:
+- rev_pkt_0489 (typed finding posted 2026-04-14): atomic snapshot+bridge+receipt pipeline needed, bridge.md prose should not exist.
+- rev_pkt_0486 (operator 5-category architectural diagnosis): awaiting Codex phase plan.
+- Commit `64ad27ef` is a live instance of the successful narrow-window workaround.
+
+**Status**: OPEN — needs Codex to execute the real fix (Option A lease pattern). No half-fixes.
+
+**Dispatched to Codex as**: action_request packet (see post-commit chain).
+
+**Dogfood log**: Session commands for Claude dashboard role across this turn logged via `devctl dogfood --record --actor claude`. Codex must log every command it exercises via `devctl dogfood --record --dev-mode --actor codex` as part of the work on this slice — per operator directive, dogfood is not optional.
+
