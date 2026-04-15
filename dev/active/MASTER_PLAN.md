@@ -191,6 +191,16 @@
   current 74-path slice is still `bundle.tooling -> docs-check
   --strict-tooling`, so the matching maintainer-doc updates stay part of the
   closure criteria for this runtime-convergence slice.
+- 2026-04-15 review-surface snapshot-parity follow-up in `MP-377` scope:
+  event-backed `projections/latest/review_state.json` now backfills
+  `_compat.bridge_projection` from typed bridge/current-session/runtime state
+  when the persisted compat payload is missing, so
+  `check_review_surface_consistency.py` no longer reports
+  `review_state_bridge_projection: missing` after a bridge-backed status tick.
+  That keeps bridge-backed status, event-backed review-state, compact,
+  startup-context, and turn-authority on one shared `snapshot_id` family
+  during governed push preflight instead of relying on a previous
+  bridge-backed refresh to materialize the compat bridge payload.
 - 2026-04-15 governed publication follow-up in `MP-377` scope:
   `devctl commit` now stops at `operator_approval_pending` before the commit
   phase when `remote_control` or another non-auto-approved lane still has an

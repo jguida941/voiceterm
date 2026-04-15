@@ -7184,6 +7184,28 @@ Execution order for this section:
   maintenance follow-up `rev_pkt_0577` were both acked while clearing the
   render gate; `rev_pkt_0577` remains backlog context, not an active blocker
   for this governed push retry.
+- 2026-04-15: Closed the remaining event-backed compat bridge-projection gap
+  that was still blocking governed push after the bridge metadata repair. The
+  bridge-backed `latest/review_state.json` already carried the typed compat
+  bridge projection, but `projections/latest/review_state.json` was still
+  emitting `_compat.bridge_projection=null`, so
+  `check_review_surface_consistency.py` reported
+  `review_state_bridge_projection: missing` even though the live bridge-backed
+  snapshot was correct. `review_channel/event_projection_support.py` now
+  backfills the compat bridge projection through
+  `build_bridge_projection_state()` whenever event-backed enrichment inherits
+  no persisted bridge projection, and
+  `review_channel/event_projection_assembly.py` now loads the bridge text plus
+  snapshot once and passes the current-session/runtime/packet inputs through
+  that compat reducer. Focused proof is green on
+  `tests/review_channel/test_event_projection_push.py`; `check_code_shape.py`
+  is green too; and live repo proof is green after one bridge-backed status
+  refresh, one event-backed inbox refresh, and one startup refresh:
+  `check_review_surface_consistency.py` now reports
+  `review_state_bridge_projection=snap-401c698949d6` in lockstep with
+  `review_state`, `compact`, `turn_authority`, and `startup_context`. Local
+  dogfood is recorded as `dogfood-6f0699440b1d`; next step is the governed
+  commit/push retry plus fresh Claude dogfood on the landed slice.
 - 2026-04-15: Closed the event-backed action-request queue hot path that was
   making `review-channel post` / `inbox` look hung during Codex<->Claude
   coordination. The root cause was not event-log reduction itself:

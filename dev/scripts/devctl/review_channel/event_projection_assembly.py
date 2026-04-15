@@ -66,12 +66,11 @@ def enrich_event_review_state_impl(
     review_state = dict(review_state)
     deps.attach_event_queue_state(review_state, artifact_root=context.artifact_root)
 
-    repo_root = context.repo_root
-    projections_root = context.projections_root
+    repo_root, projections_root = context.repo_root, context.projections_root
     session_output_root = deps.resolve_session_output_root(projections_root)
     review_channel_path = context.review_channel_path
     plan_id, session_id = deps.review_identifiers(review_state)
-    bridge_snapshot = _load_bridge_snapshot(repo_root)
+    bridge_text, bridge_snapshot = _load_bridge_inputs(repo_root)
 
     raw_service_identity = deps.build_service_identity(
         repo_root=repo_root,
@@ -185,7 +184,12 @@ def enrich_event_review_state_impl(
         inputs=CompatProjectionInputs(
             raw_service_identity=raw_service_identity,
             raw_attach_auth_policy=raw_attach_auth_policy,
+            bridge_text=bridge_text,
             bridge_liveness=bridge_liveness,
+            current_session=review_state["current_session"],
+            reviewer_runtime_payload=review_state["reviewer_runtime"],
+            bridge_state=review_state["bridge"],
+            packets=review_state.get("packets"),
             reviewer_runtime=reviewer_runtime,
             collaboration=collaboration,
             recovery_assessment=recovery_assessment,
@@ -244,13 +248,12 @@ def _resolve_current_session(
     return current_session
 
 
-def _load_bridge_snapshot(repo_root):
+def _load_bridge_inputs(repo_root):
     try:
-        return extract_bridge_snapshot(
-            (repo_root / DEFAULT_BRIDGE_REL).read_text(encoding="utf-8")
-        )
+        bridge_text = (repo_root / DEFAULT_BRIDGE_REL).read_text(encoding="utf-8")
     except OSError:
-        return None
+        return "", None
+    return bridge_text, extract_bridge_snapshot(bridge_text)
 
 
 def _event_session_has_packet_attention(current_session) -> bool:

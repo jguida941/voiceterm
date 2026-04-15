@@ -2250,6 +2250,14 @@ Core commands:
     written typed projection, and only then fall back to bridge-backed status
     refresh. Do not reintroduce bridge refresh as the default live read path
     once typed authority already exists on disk.
+  - Event-backed review-state compat payloads must keep bridge parity alive
+    too: when persisted `_compat.bridge_projection` is missing, rebuild it
+    from typed bridge/current-session/runtime state in the same reducer tick
+    instead of assuming a prior bridge-backed status refresh already wrote it.
+    `check_review_surface_consistency.py` reads
+    `review_state_bridge_projection` from the event-backed
+    `projections/latest/review_state.json`; a bridge-backed-only compat bridge
+    projection is still contract drift.
   - Reviewer/implementer startup role commands plus explicit reviewer takeover are runtime-owned `ConductorCapabilityState` facts now. Prompt/bootstrap/bridge projection surfaces must consume that typed owner contract instead of inventing fallback policy text locally, and `check_platform_layer_boundaries.py` now fails closed if startup-authority/runtime capability modules import `dev.scripts.devctl.review_channel` orchestration directly.
   - Repo-owned reviewer heartbeat refresh must preserve a real reviewer checkpoint `Poll Status` instead of overwriting it with automation-only heartbeat text, and reviewer-owned hold-steady / checkpoint / governed-push-pending state counts as a valid Claude-side wait reason. In those states, conductors should keep polling repo-owned status/wait paths rather than asking the operator to choose between polling, pushing, or side work.
   - `--action reset-implementer-state` is the repo-owned repair path when live attention says implementer-owned sections must return to canonical pending state; it rewrites `Claude Status`, `Claude Questions`, and `Claude Ack`, then refreshes the typed review-channel projection.

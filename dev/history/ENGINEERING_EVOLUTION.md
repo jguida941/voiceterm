@@ -83,6 +83,43 @@ Evidence: `dev/scripts/devctl/review_channel/event_projection.py`,
 `python3 dev/scripts/devctl.py startup-context --format json`, and
 `python3 dev/scripts/devctl.py dashboard --format json`.
 
+### 2026-04-15 - Event-backed review-state now rebuilds compat bridge projection for snapshot parity
+
+Fact: governed push still had one last cross-surface leak after the bridge poll
+metadata repair. Bridge-backed `latest/review_state.json` already carried the
+typed `_compat.bridge_projection` payload, but the sibling event-backed
+`projections/latest/review_state.json` could still leave
+`_compat.bridge_projection=null` when it inherited an older persisted compat
+mapping. That made `check_review_surface_consistency.py` fail on
+`review_state_bridge_projection: missing` even though the live bridge-backed
+surface was already correct.
+
+This matters because the platform claim is not just "one path can recover the
+bridge payload eventually." The event-backed `review_state.json` bundle is the
+canonical typed read model for startup, push preflight, and later consumers.
+If that bundle can omit the compat bridge projection while the bridge-backed
+path has it, snapshot-id parity becomes dependent on whichever command happened
+to run first, which is exactly the kind of hidden ordering dependency the
+typed-surface contract is supposed to remove.
+
+The closure again lived in the producer. Event-backed enrichment now rebuilds
+`_compat.bridge_projection` through `build_bridge_projection_state()` whenever
+the persisted compat payload is missing, using the same bridge text, typed
+bridge liveness, current-session payload, reviewer-runtime payload, and packet
+list already in the reducer tick. Focused proof is green on
+`test_event_projection_push.py`, `check_code_shape.py` is green, and the live
+parity guard is green after one bridge-backed status refresh, one event-backed
+inbox refresh, and one startup refresh: `check_review_surface_consistency.py`
+now reports one shared snapshot family for `review_state`,
+`review_state_bridge_projection`, `compact`, `startup_context`, and
+`turn_authority`.
+
+Evidence: `dev/scripts/devctl/review_channel/event_projection_support.py`,
+`dev/scripts/devctl/review_channel/event_projection_assembly.py`,
+`dev/scripts/devctl/tests/review_channel/test_event_projection_push.py`,
+`python3 dev/scripts/checks/check_code_shape.py`, and
+`python3 dev/scripts/checks/check_review_surface_consistency.py`.
+
 ### 2026-04-15 - Governed commit approval windows and ReviewSnapshot receipt commits now stay bound to the parent code state
 
 Fact: the governed publication path still had two live self-inflicted drifts.

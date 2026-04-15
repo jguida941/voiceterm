@@ -12,6 +12,10 @@ from .attach_auth_projection import (
     build_attach_auth_policy_state,
     build_service_identity_state,
 )
+from .bridge_projection import (
+    bridge_projection_state_to_dict,
+    build_bridge_projection_state,
+)
 from .reviewer_runtime_contract import build_reviewer_doctor_surface
 
 
@@ -19,7 +23,12 @@ from .reviewer_runtime_contract import build_reviewer_doctor_surface
 class CompatProjectionInputs:
     raw_service_identity: object
     raw_attach_auth_policy: object
+    bridge_text: str
     bridge_liveness: dict[str, object]
+    current_session: object
+    reviewer_runtime_payload: object
+    bridge_state: object
+    packets: object
     reviewer_runtime: object
     collaboration: object
     recovery_assessment: object
@@ -102,6 +111,18 @@ def apply_compat_projections(
     merged_compat["attach_auth_policy"] = build_attach_auth_policy_state(
         inputs.raw_attach_auth_policy
     )
+    bridge_projection = _mapping(merged_compat.get("bridge_projection"))
+    if not bridge_projection:
+        merged_compat["bridge_projection"] = bridge_projection_state_to_dict(
+            build_bridge_projection_state(
+                bridge_text=inputs.bridge_text,
+                bridge_liveness=inputs.bridge_liveness,
+                current_session=_mapping(inputs.current_session),
+                reviewer_runtime=_mapping(inputs.reviewer_runtime_payload),
+                bridge_state=_mapping(inputs.bridge_state),
+                packets=inputs.packets if isinstance(inputs.packets, list) else None,
+            )
+        )
 
     push_enforcement = _mapping(inputs.bridge_liveness.get("push_enforcement"))
     if push_enforcement:

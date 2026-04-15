@@ -72,7 +72,7 @@ def _current_session() -> ReviewCurrentSessionState:
     return_value={},
 )
 @patch(
-    "dev.scripts.devctl.review_channel.event_projection.build_surface_snapshot_id",
+    "dev.scripts.devctl.review_channel.event_projection_assembly.build_surface_snapshot_id",
     return_value="snap-1",
 )
 @patch(
@@ -142,20 +142,28 @@ def test_enrich_event_review_state_attaches_push_truth(
         "_compat": {"runtime": {"daemons": {}}},
     }
 
-    enriched, extras = enrich_event_review_state(
-        review_state=review_state,
-        context=EventProjectionContext(
-            repo_root=Path("."),
-            review_channel_path=Path("dev/active/review_channel.md"),
-            projections_root=Path("dev/reports/review_channel/latest"),
-        ),
-    )
+    with patch(
+        "dev.scripts.devctl.review_channel.event_projection_assembly._load_bridge_inputs",
+        return_value=("", None),
+    ):
+        enriched, extras = enrich_event_review_state(
+            review_state=review_state,
+            context=EventProjectionContext(
+                repo_root=Path("."),
+                review_channel_path=Path("dev/active/review_channel.md"),
+                projections_root=Path("dev/reports/review_channel/latest"),
+            ),
+        )
 
     assert extras["bridge_liveness"]["push_enforcement"]["latest_push_report_path"]
     assert enriched["_compat"]["push_enforcement"]["latest_push_report_path"]
     assert enriched["_compat"]["push_decision"]["action"] == "no_push_needed"
     assert enriched["_compat"]["doctor"]["publication_source"] == "latest_push_report"
     assert enriched["_compat"]["doctor"]["published_remote"] is True
+    assert (
+        enriched["_compat"]["bridge_projection"]["metadata"]["snapshot_id"]
+        == enriched["snapshot_id"]
+    )
     assert (
         enriched["attention"]["status"]
         == enriched["recovery_assessment"]["diagnosis"]["status"]
@@ -217,7 +225,7 @@ _SNAPSHOT_PUSH_ENFORCEMENT: dict[str, object] = {
     return_value={},
 )
 @patch(
-    "dev.scripts.devctl.review_channel.event_projection.build_surface_snapshot_id",
+    "dev.scripts.devctl.review_channel.event_projection_assembly.build_surface_snapshot_id",
     return_value="snap-2",
 )
 @patch(
@@ -264,15 +272,19 @@ def test_enrich_uses_snapshot_push_enforcement_when_provided(
         "_compat": {"runtime": {"daemons": {}}},
     }
 
-    enriched, extras = enrich_event_review_state(
-        review_state=review_state,
-        context=EventProjectionContext(
-            repo_root=Path("."),
-            review_channel_path=Path("dev/active/review_channel.md"),
-            projections_root=Path("dev/reports/review_channel/latest"),
-            push_enforcement=_SNAPSHOT_PUSH_ENFORCEMENT,
-        ),
-    )
+    with patch(
+        "dev.scripts.devctl.review_channel.event_projection_assembly._load_bridge_inputs",
+        return_value=("", None),
+    ):
+        enriched, extras = enrich_event_review_state(
+            review_state=review_state,
+            context=EventProjectionContext(
+                repo_root=Path("."),
+                review_channel_path=Path("dev/active/review_channel.md"),
+                projections_root=Path("dev/reports/review_channel/latest"),
+                push_enforcement=_SNAPSHOT_PUSH_ENFORCEMENT,
+            ),
+        )
 
     push_enforcement_mock.assert_not_called()
     pe = extras["bridge_liveness"]["push_enforcement"]

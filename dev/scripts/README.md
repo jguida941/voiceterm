@@ -628,7 +628,12 @@ Portability note:
   `snapshot_id` across `review_state.json`, `compact.json`, `commit_pipeline`,
   compact/compat doctor projections, and `_compat.bridge_projection.metadata`
   so startup, phone, and review-channel surfaces can prove they were generated
-  from the same typed reviewer/pipeline snapshot.
+  from the same typed reviewer/pipeline snapshot. Event-backed
+  `projections/latest/review_state.json` must preserve that same compat bridge
+  payload too; when persisted `_compat.bridge_projection` is absent, the
+  event-backed enrichment path now rebuilds it from typed bridge/current-
+  session/runtime state before `check_review_surface_consistency.py` reads
+  `review_state_bridge_projection`.
   For feature-branch release-lane preflight, the shared CodeRabbit gate is
   also publication-aware: when the current local SHA is not present in any
   local remote-tracking ref yet, the gate reports that state as non-blocking
@@ -707,8 +712,11 @@ Portability note:
   attention-projection parity: when `recovery_assessment` is present,
   `review_state.attention` must match the canonical projection fields
   (`status`, `owner`, `summary`, `recommended_action`, `recommended_command`);
-  field drift is a CI-blocking error. Both `tooling_control_plane.yml` and
-  `release_preflight.yml` now enforce it.
+  field drift is a CI-blocking error. The same guard also reads
+  `review_state_bridge_projection` from the event-backed
+  `projections/latest/review_state.json` bundle and fails if that compat bridge
+  payload is missing or stamped with a different snapshot family. Both
+  `tooling_control_plane.yml` and `release_preflight.yml` now enforce it.
 - If a launched reviewer terminal is interrupted and status degrades into a
   Claude-only / hybrid loop, treat that as a runtime repair boundary instead of
   a coding invitation. Use `review-channel --action stop --daemon-kind all`
