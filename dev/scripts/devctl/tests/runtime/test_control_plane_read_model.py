@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import unittest
 from datetime import datetime, timezone
 from pathlib import Path
@@ -159,9 +160,23 @@ class BuildWithReceiptTests(unittest.TestCase):
             git_override=_base_git(),
         )
         self.assertTrue(model.push_eligible)
-        self.assertEqual(model.resolved_phase, "pushing")
+        self.assertEqual(model.resolved_phase, "reviewing")
         self.assertEqual(model.next_action, "run_devctl_push")
         self.assertIn("push --execute", model.next_command)
+
+    def test_push_phase_requires_live_participant(self) -> None:
+        sources = _empty_sources()
+        sources["receipt"] = {"push_action": "run_devctl_push"}
+        sources["review_state"] = {
+            "bridge": {"reviewer_mode": "active_dual_agent"},
+        }
+        model = build_control_plane_read_model(
+            Path("/tmp/nonexistent"),
+            sources_override=sources,
+            git_override=_base_git(),
+        )
+        self.assertTrue(model.push_eligible)
+        self.assertEqual(model.resolved_phase, "pushing")
 
     def test_await_checkpoint_blocks_push(self) -> None:
         sources = _empty_sources()
@@ -395,9 +410,10 @@ class BuildWithReviewStateTests(unittest.TestCase):
         sources = _empty_sources()
         sources["review_state"] = {
             "packets": [
-                {"status": "pending", "packet_id": "p1"},
-                {"status": "pending", "packet_id": "p2"},
-                {"status": "acked", "packet_id": "p3"},
+                {"status": "pending", "packet_id": "p1", "kind": "action_request"},
+                {"status": "pending", "packet_id": "p2", "kind": "action_request"},
+                {"status": "pending", "packet_id": "p3", "kind": "finding"},
+                {"status": "acked", "packet_id": "p4", "kind": "action_request"},
             ],
         }
         model = build_control_plane_read_model(
@@ -474,13 +490,23 @@ class BuildWithDaemonHeartbeatsTests(unittest.TestCase):
 
     def test_publisher_running(self) -> None:
         sources = _empty_sources()
-        sources["publisher_hb"] = {"pid": 123}
+        sources["publisher_hb"] = {"pid": os.getpid()}
         model = build_control_plane_read_model(
             Path("/tmp/nonexistent"),
             sources_override=sources,
             git_override=_base_git(),
         )
         self.assertTrue(model.publisher_running)
+
+    def test_publisher_dead_pid_not_running(self) -> None:
+        sources = _empty_sources()
+        sources["publisher_hb"] = {"pid": 999999999}
+        model = build_control_plane_read_model(
+            Path("/tmp/nonexistent"),
+            sources_override=sources,
+            git_override=_base_git(),
+        )
+        self.assertFalse(model.publisher_running)
 
     def test_publisher_stopped(self) -> None:
         sources = _empty_sources()
@@ -552,13 +578,43 @@ class ResolverUnitTests(unittest.TestCase):
                 "claude_conductor_active": True,
             },
         }
-        sources["publisher_hb"] = {"pid": 123}
-        sources["supervisor_hb"] = {"pid": 456}
+        sources["publisher_hb"] = {"pid": 999999999}
+        sources["supervisor_hb"] = {"pid": 999999999}
         d = resolve_daemon_state(sources)
         self.assertFalse(d["publisher_running"])
         self.assertFalse(d["supervisor_running"])
         self.assertTrue(d["codex_conductor_alive"])
         self.assertTrue(d["claude_conductor_alive"])
+
+    def test_resolve_daemon_heartbeat_overrides_stale_bridge_running(self) -> None:
+        sources = _empty_sources()
+        sources["review_state"] = {
+            "bridge": {
+                "publisher_running": True,
+                "reviewer_supervisor_running": True,
+            },
+        }
+        sources["publisher_hb"] = {"pid": 999999999}
+        sources["supervisor_hb"] = {"pid": 999999999}
+
+        d = resolve_daemon_state(sources)
+
+        self.assertFalse(d["publisher_running"])
+        self.assertFalse(d["supervisor_running"])
+
+    def test_resolve_daemon_missing_heartbeat_falls_back_to_bridge_projection(self) -> None:
+        sources = _empty_sources()
+        sources["review_state"] = {
+            "bridge": {
+                "publisher_running": True,
+                "reviewer_supervisor_running": True,
+            },
+        }
+
+        d = resolve_daemon_state(sources)
+
+        self.assertTrue(d["publisher_running"])
+        self.assertTrue(d["supervisor_running"])
 
     def test_resolve_daemon_promotes_fresh_single_agent_reviewer_activity(self) -> None:
         with self.subTest("fresh packet activity counts as live reviewer"):
@@ -765,16 +821,22 @@ class ResolverUnitTests(unittest.TestCase):
 
     def test_resolve_pending_packets_mixed(self) -> None:
         rs = {"packets": [
-            {"status": "pending"}, {"status": "acked"}, {"status": "pending"},
+            {"status": "pending", "kind": "action_request"},
+            {"status": "acked", "kind": "action_request"},
+            {"status": "pending", "kind": "action_request"},
+            {"status": "pending", "kind": "finding"},
         ]}
         self.assertEqual(resolve_pending_packets(rs), 2)
 
-    def test_resolve_pending_packets_prefers_typed_queue_total(self) -> None:
+    def test_resolve_pending_packets_ignores_queue_total_for_non_action_packets(self) -> None:
         rs = {
             "queue": {"pending_total": 1},
-            "packets": [{"status": "pending"}, {"status": "pending"}],
+            "packets": [
+                {"status": "pending", "kind": "finding"},
+                {"status": "pending", "kind": "finding"},
+            ],
         }
-        self.assertEqual(resolve_pending_packets(rs), 1)
+        self.assertEqual(resolve_pending_packets(rs), 0)
 
     def test_resolve_pending_packets_fallback_ignores_stale_history(self) -> None:
         rs = {
@@ -782,11 +844,13 @@ class ResolverUnitTests(unittest.TestCase):
                 {
                     "packet_id": "live",
                     "status": "pending",
+                    "kind": "action_request",
                     "expires_at_utc": "2999-01-01T00:00:00Z",
                 },
                 {
                     "packet_id": "stale",
                     "status": "pending",
+                    "kind": "action_request",
                     "expires_at_utc": "2000-01-01T00:00:00Z",
                 },
             ],
@@ -867,6 +931,9 @@ class IntegrationTests(unittest.TestCase):
         sources = _empty_sources()
         sources["receipt"] = {"push_action": "run_devctl_push"}
         sources["push_report"] = {"preflight_step": {"returncode": 1}}
+        sources["review_state"] = {
+            "bridge": {"reviewer_mode": "active_dual_agent"},
+        }
         model = build_control_plane_read_model(
             Path("/tmp/nonexistent"),
             sources_override=sources,
@@ -889,8 +956,8 @@ class IntegrationTests(unittest.TestCase):
             },
             "attention": {"status": "healthy", "summary": "all good"},
         }
-        sources["publisher_hb"] = {"pid": 100}
-        sources["supervisor_hb"] = {"pid": 200}
+        sources["publisher_hb"] = {"pid": os.getpid()}
+        sources["supervisor_hb"] = {"pid": os.getpid()}
         model = build_control_plane_read_model(
             Path("/tmp/nonexistent"),
             sources_override=sources,

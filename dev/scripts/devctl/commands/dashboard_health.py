@@ -17,7 +17,7 @@ from .dashboard_utils import (
 
 
 def _read_heartbeat(path: Path) -> dict[str, Any]:
-    """Read a daemon heartbeat file and derive running state from stopped_at_utc."""
+    """Read a daemon heartbeat file and derive running state from OS liveness."""
     data = _read_json(path)
     if data is None:
         return {
@@ -25,11 +25,17 @@ def _read_heartbeat(path: Path) -> dict[str, Any]:
             "last_heartbeat_age": "--", "snapshots": 0,
         }
     stopped = data.get("stopped_at_utc", "")
-    running = not bool(stopped)
+    pid = data.get("pid", 0)
+    running = (
+        not bool(stopped)
+        and isinstance(pid, int)
+        and pid > 0
+        and _pid_is_alive(pid)
+    )
     hb_utc = data.get("last_heartbeat_utc", "n/a")
     return {
         "running": running,
-        "pid": data.get("pid", 0),
+        "pid": pid,
         "last_heartbeat": hb_utc,
         "last_heartbeat_age": _format_age(_age_seconds(hb_utc)),
         "snapshots": data.get("snapshots_emitted", 0),

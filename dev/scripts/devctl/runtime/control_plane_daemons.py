@@ -23,14 +23,15 @@ def resolve_daemon_state(sources: dict[str, Any]) -> dict[str, Any]:
     doctor = _typed_doctor(authority)
     bridge = _typed_bridge(authority)
 
-    pub_running = _coalesce_bool(
+    pub_running = _resolve_daemon_running(
+        sources.get("publisher_hb"),
         _bool_or_none(doctor.get("publisher_running")),
         _bool_or_none(bridge.get("publisher_running")),
-        _is_daemon_running(sources.get("publisher_hb")),
     )
-    sup_running = _coalesce_bool(
+    sup_running = _resolve_daemon_running(
+        sources.get("supervisor_hb"),
         _bool_or_none(doctor.get("reviewer_supervisor_running")),
-        _is_daemon_running(sources.get("supervisor_hb")),
+        _bool_or_none(bridge.get("reviewer_supervisor_running")),
     )
     codex_alive = _coalesce_bool(
         _single_agent_remote_attachment_activity(
@@ -213,10 +214,31 @@ def _coalesce_bool(*values: bool | None) -> bool:
     return False
 
 
+def _resolve_daemon_running(
+    heartbeat: dict[str, Any] | None,
+    *fallbacks: bool | None,
+) -> bool:
+    """Prefer OS-backed heartbeat truth over projected booleans.
+
+    Review-state / bridge booleans are compatibility projections that can lag
+    behind the real daemon lifecycle. When a heartbeat artifact exists, treat
+    it as authoritative and fail closed on any stale or dead PID. Only fall
+    back to projected booleans when no heartbeat artifact is available.
+    """
+    if heartbeat is not None:
+        return _is_daemon_running(heartbeat)
+    return _coalesce_bool(*fallbacks)
+
+
 def _is_daemon_running(data: dict[str, Any] | None) -> bool:
     if data is None:
         return False
-    return not bool(data.get("stopped_at_utc", ""))
+    if bool(data.get("stopped_at_utc", "")):
+        return False
+    pid = data.get("pid")
+    if not isinstance(pid, int) or pid <= 0:
+        return False
+    return pid_is_alive(pid)
 
 
 def _is_conductor_alive(data: dict[str, Any] | None) -> bool:

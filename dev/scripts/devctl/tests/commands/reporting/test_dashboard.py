@@ -1267,7 +1267,11 @@ class TestHealthSection(unittest.TestCase):
                 {"attention": {"status": "reviewer_overdue", "summary": "Codex reviewer is overdue"}},
             )
 
-            health = dashboard._build_health_section(root, None)
+            with patch(
+                "dev.scripts.devctl.commands.dashboard_health._pid_is_alive",
+                side_effect=lambda pid: pid == 85205,
+            ):
+                health = dashboard._build_health_section(root, None)
             self.assertTrue(health["publisher"]["running"])
             self.assertEqual(health["publisher"]["pid"], 85205)
             self.assertEqual(health["publisher"]["snapshots"], 54)
@@ -1299,11 +1303,30 @@ class TestHealthSection(unittest.TestCase):
                 "pid": 123, "last_heartbeat_utc": "2026-04-04T03:00:00Z",
                 "snapshots_emitted": 10, "stopped_at_utc": "",
             }))
-            result = dashboard._read_heartbeat(hb_path)
+            with patch(
+                "dev.scripts.devctl.commands.dashboard_health._pid_is_alive",
+                return_value=True,
+            ):
+                result = dashboard._read_heartbeat(hb_path)
             self.assertTrue(result["running"])
             self.assertEqual(result["pid"], 123)
             self.assertEqual(result["snapshots"], 10)
             self.assertIn("ago", result["last_heartbeat_age"])
+
+    def test_read_heartbeat_dead_pid_not_running(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            hb_path = root / "hb.json"
+            hb_path.write_text(json.dumps({
+                "pid": 123, "last_heartbeat_utc": "2026-04-04T03:00:00Z",
+                "snapshots_emitted": 10, "stopped_at_utc": "",
+            }))
+            with patch(
+                "dev.scripts.devctl.commands.dashboard_health._pid_is_alive",
+                return_value=False,
+            ):
+                result = dashboard._read_heartbeat(hb_path)
+            self.assertFalse(result["running"])
 
     def test_read_heartbeat_stopped_when_stopped_at_present(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -1313,7 +1336,11 @@ class TestHealthSection(unittest.TestCase):
                 "pid": 456, "last_heartbeat_utc": "2026-04-04T03:00:00Z",
                 "snapshots_emitted": 5, "stopped_at_utc": "2026-04-04T03:01:00Z",
             }))
-            result = dashboard._read_heartbeat(hb_path)
+            with patch(
+                "dev.scripts.devctl.commands.dashboard_health._pid_is_alive",
+                return_value=True,
+            ):
+                result = dashboard._read_heartbeat(hb_path)
             self.assertFalse(result["running"])
 
     def test_health_terminal_render(self) -> None:
@@ -2757,8 +2784,8 @@ class TestTypedReviewState(unittest.TestCase):
                 "compact_json": None,
                 "push_report": None,
                 "receipt": None,
-                "publisher_hb": {"pid": 123},
-                "supervisor_hb": {"pid": 456},
+                "publisher_hb": {"pid": 999999999},
+                "supervisor_hb": {"pid": 999999999},
                 "codex_conductor": None,
                 "claude_conductor": None,
                 "full_json": None,
@@ -2792,6 +2819,62 @@ class TestTypedReviewState(unittest.TestCase):
             self.assertFalse(control_plane["supervisor_running"])
             self.assertTrue(control_plane["codex_conductor_alive"])
             self.assertTrue(control_plane["claude_conductor_alive"])
+
+    def test_health_heartbeat_overrides_stale_bridge_running_projection(self) -> None:
+        class FrozenReviewState:
+            def __init__(self, payload: dict[str, object]) -> None:
+                self._payload = payload
+
+            def to_dict(self) -> dict[str, object]:
+                return dict(self._payload)
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            rs = _minimal_review_state()
+            rs["bridge"] = {
+                "reviewer_mode": "active_dual_agent",
+                "publisher_running": True,
+                "reviewer_supervisor_running": True,
+                "codex_conductor_active": False,
+                "claude_conductor_active": False,
+                "last_codex_poll_utc": "2026-04-04T03:00:00Z",
+            }
+            bridge = root / "bridge.md"
+            bridge.write_text(_minimal_bridge_text(), encoding="utf-8")
+            sources = {
+                "review_state": rs,
+                "compact_json": None,
+                "push_report": None,
+                "receipt": None,
+                "publisher_hb": {"pid": 999999999},
+                "supervisor_hb": {"pid": 999999999},
+                "codex_conductor": None,
+                "claude_conductor": None,
+                "full_json": None,
+            }
+
+            with patch.object(
+                dashboard,
+                "load_sources",
+                return_value=sources,
+            ), patch.object(
+                dashboard,
+                "scan_repo_governance_safely",
+                return_value=None,
+            ), patch.object(
+                dashboard,
+                "load_current_review_state",
+                return_value=FrozenReviewState(rs),
+            ), patch.object(dashboard, "_git_short", return_value={
+                "branch": "main", "head": "abc", "dirty": "CLEAN",
+            }), patch.object(dashboard, "_repo_name", return_value="test"):
+                snapshot = dashboard.build_snapshot(repo_root=root, view="health")
+
+            self.assertFalse(snapshot["health"]["publisher"]["running"])
+            self.assertFalse(snapshot["health"]["supervisor"]["running"])
+            self.assertEqual(snapshot["health"]["active_daemons"], 0)
+            self.assertFalse(snapshot["control_plane"]["publisher_running"])
+            self.assertFalse(snapshot["control_plane"]["supervisor_running"])
 
     def test_health_promotes_single_agent_local_reviewer_activity(self) -> None:
         import json

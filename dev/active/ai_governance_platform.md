@@ -1,6 +1,6 @@
 # AI Governance Platform Plan
 
-**Status**: active  |  **Last updated**: 2026-04-14 | **Owner:** Tooling/control plane/product architecture
+**Status**: active  |  **Last updated**: 2026-04-15 | **Owner:** Tooling/control plane/product architecture
 Execution plan contract: required
 This spec remains execution mirrored in `dev/active/MASTER_PLAN.md` under
 `MP-377`, and it is the canonical active architecture plan for the standalone
@@ -196,6 +196,40 @@ Current 2026-04-13 dogfood walkthrough parity note:
   packets, and treats task-id / contract query discoverability
   (`PlanPhase`, `PlanTask`, `FindingBacklog`, `MP377-P0-T01`) as a required
   consumer-route proof rather than optional search sugar.
+
+Current 2026-04-15 consolidated redesign note:
+- The full active-plan set plus `LIVE_RUN.md` Q1-Q100 all point at the same
+  structural failure: the repo already has most of the right contracts, but
+  too many surfaces still recompute or rephrase runtime truth independently.
+  The redesign for the rest of `MP-377` is therefore a convergence order, not
+  a new architecture:
+  `FindingBacklog / PlanRegistry -> AuthoritySnapshot / CoordinationSnapshot ->
+  canonical ReviewState + commit_pipeline producer -> ControlPlaneReadModel /
+  startup-context / status / dashboard / mobile projections -> TypedAction /
+  ActionResult / ValidationReceipt -> dogfood/governance-review feedback`.
+- `bridge.md`, markdown tables, dashboard prose, and packet-friendly narrative
+  remain compatibility or explanation projections only. They may carry the
+  latest rendered answer, but they must not be the place where reviewer mode,
+  liveness, pending work, commit approval, push readiness, or current slice
+  becomes authoritative.
+- The next execution order is fixed by the audit and the owner docs already in
+  this repo:
+  1. single producer/read-model closure for review/runtime authority
+     (`review_state.json`, `commit_pipeline.json`, `AuthoritySnapshot`,
+     `CoordinationSnapshot`, `ControlPlaneReadModel`);
+  2. governed mutation self-healing so commit/push/phone actions refresh and
+     consume those same artifacts instead of fighting stale projections;
+  3. dogfood as the development engine so findings, priorities, and next-slice
+     selection share one persisted feedback loop;
+  4. observer/liveness boundary closure so dashboard/mobile/operator surfaces
+     route typed action requests but do not invent or mutate backend truth;
+  5. only then widen portable/adopter proof on top of the converged owner
+     chain.
+- Treat these audit clusters as the current acceptance map for that order:
+  `Q29`, `Q35-Q37`, `Q41-Q50`, `Q51-Q75`, and `Q90-Q100`. A slice is not done
+  until the owning typed contract changes, the read-side consumers converge,
+  and the relevant `LIVE_RUN` / `governance-review` entries are updated from
+  repo-visible evidence.
 
 ## Scope
 
@@ -3187,6 +3221,18 @@ Phase metadata: phase_id=MP377-P1; owner_doc=`dev/active/ai_governance_platform.
       owner_doc: `dev/active/ai_governance_platform.md`
       status: `pending`
       depends_on: `MP377-P1-T04`
+- [ ] `MP377-P1-T06` Collapse reviewer/runtime authority onto one canonical producer tick: `refresh_status_snapshot`, `load_current_review_state`, `review_state_parser`, `commit_pipeline` artifact writes, `AuthoritySnapshot`, and `CoordinationSnapshot` must share one snapshot/generation identity and one reducer-owned field route for liveness, pending packets, current slice, commit approval, and push readiness.
+      owner_doc: `dev/active/remote_control_runtime.md`
+      status: `pending`
+      depends_on: `MP377-P1-T03`
+- [ ] `MP377-P1-T07` Make governed mutation self-healing against stale projections: commit/push/phone/operator actions must refresh and consume the canonical review-state + commit-pipeline artifacts before consistency checks, treat compatibility-surface drift as a reducer bug to fix rather than a reason to require manual `review-channel --action status`, and keep raw `git` mutation outside the remote-control path.
+      owner_doc: `dev/active/remote_commit_pipeline.md`
+      status: `pending`
+      depends_on: `MP377-P1-T06`
+- [ ] `MP377-P1-T08` Emit one typed liveness/wake/death signal family for reviewer, implementer, publisher, and observer consumers so dashboard/mobile/startup/status can distinguish `alive`, `degraded`, `detached_runtime_only`, and `dead` from one producer instead of mixing heartbeat prose, PID guesses, and bridge hints.
+      owner_doc: `dev/active/remote_control_runtime.md`
+      status: `pending`
+      depends_on: `MP377-P1-T06`
 
 ### Phase P2 - Closed-Loop Quality Composition And Audit Orchestration
 
@@ -3208,6 +3254,14 @@ Phase metadata: phase_id=MP377-P2; owner_doc=`dev/active/review_probes.md`; stat
       owner_doc: `dev/active/autonomous_governance_loop_v2.md`
       status: `pending`
       depends_on: `MP377-P0-T04`, `MP377-P0-T06`, `MP377-P1-T05`
+- [ ] `MP377-P2-T05` Promote dogfood from ad hoc walkthrough to the development engine: persist repo-owned dev-mode coverage/results, feed them back into `FindingBacklog`, `findings-priority`, and planning reducers, and make new platform work land with a dogfood proof path instead of `/tmp` notes or operator memory.
+      owner_doc: `dev/active/autonomous_governance_loop_v2.md`
+      status: `pending`
+      depends_on: `MP377-P0-T04`, `MP377-P0-T06`, `MP377-P1-T07`
+- [ ] `MP377-P2-T06` Enforce the observer boundary for dashboard/phone/operator surfaces: read-model consumers may render, explain, and route typed action requests, but they must not become hidden implementation lanes, process-killers, or prose-only authority patches.
+      owner_doc: `dev/active/remote_control_runtime.md`
+      status: `pending`
+      depends_on: `MP377-P1-T08`, `MP377-P2-T05`
 
 ### Phase P3 - Portable Proof And Adopter Audit
 
@@ -5056,10 +5110,14 @@ working on `MP-377`.
   implementer ACK now reduces to `handshake_stale` before the generic
   blocked-state fallback.
 - Next action: close the remaining `P0`/`P1` foundation slices in order:
-  land a persisted `PlanRegistry` / `PlanTargetRef` authority artifact, then
-  render `INDEX.md` / `MASTER_PLAN.md` / owner-plan markdown as projections
-  over that typed state, then widen the dogfood engine into the multi-agent
-  audit runner, and only after that spend time on adopter-repo proof.
+  first collapse reviewer/runtime authority onto one producer/read-model path
+  (`review_state`, `commit_pipeline`, `AuthoritySnapshot`,
+  `CoordinationSnapshot`, `ControlPlaneReadModel`), then make commit/push and
+  phone/operator actions refresh and consume that same state without manual
+  `review-channel --action status` repair loops, then land the persisted
+  `PlanRegistry` / `PlanTargetRef` artifact plus markdown projections, then
+  widen the dogfood engine into the multi-agent audit runner, and only after
+  that spend time on adopter-repo proof.
 - Context rule: start from `startup-context`, `governance-review`, and the
   review-channel inbox, then read this file and only the owner docs named by
   the active typed phase/task route.
@@ -5093,6 +5151,21 @@ working on `MP-377`.
   move plan authority into persisted `PlanRegistry` state and rendered
   markdown projections before widening the same flow across reviewer,
   implementer, dashboard, and adopter-repo proofs.
+- 2026-04-15 consolidated redesign checkpoint:
+  after rereading the full active-plan set, the full `LIVE_RUN.md` Q1-Q100
+  audit, and the live runtime receipts (`startup-context`, review-channel
+  inbox, `findings-priority`, and `dashboard`), the execution order is now
+  explicit in this umbrella plan instead of spread across chat and narrow
+  packet notes. The whole repo is already describing one system: typed
+  runtime authority first, compatibility projections second, dogfood-fed
+  planning third. The next slice must therefore close the single-producer
+  reviewer/runtime path before more feature work: make
+  `refresh_status_snapshot` / `load_current_review_state` /
+  `review_state_parser` / `commit_pipeline` / `AuthoritySnapshot` /
+  `CoordinationSnapshot` / `ControlPlaneReadModel` agree on one snapshot and
+  one field route, then make governed commit/push refresh and consume that
+  state automatically so phone operators stop fighting stale `dashboard`,
+  `bridge.md`, and preflight artifacts by hand.
 - 2026-04-12 architecture-synthesis / phase-order update:
   the 15-command audit plus dashboard packet review confirmed that five
   directions are already platform law (deterministic runtime, role
@@ -6634,6 +6707,28 @@ Execution order for this section:
 
 ## Progress Log
 
+- 2026-04-15: Read the full active-plan set named by the operator,
+  reread `dev/audits/LIVE_RUN.md` Q1-Q100, and reconciled that material with
+  live runtime evidence from `startup-context`, review-channel inbox,
+  `findings-priority`, and `dashboard`. The outcome is not a new plan file;
+  it is the consolidated redesign note plus new typed tasks in this umbrella
+  plan: single-producer reviewer/runtime closure (`MP377-P1-T06`), mutation
+  self-healing against stale projections (`MP377-P1-T07`), typed liveness
+  signals (`MP377-P1-T08`), dogfood as the development engine
+  (`MP377-P2-T05`), and observer-boundary enforcement (`MP377-P2-T06`).
+  The audit clusters driving this order are now explicit too:
+  `Q29`, `Q35-Q37`, `Q41-Q50`, `Q51-Q75`, and `Q90-Q100`.
+- 2026-04-15: Landed the first concrete read-model repair from that redesign.
+  `ControlPlaneReadModel` daemon resolution now treats the OS-backed heartbeat
+  artifact as authoritative whenever it exists, instead of letting stale
+  bridge/review-state `publisher_running` / `reviewer_supervisor_running`
+  booleans override a dead process. This closes the live operator symptom where
+  `review-channel status` already reported dead daemons while
+  `devctl dashboard` still rendered `Publisher RUNNING`. Focused proof is
+  green on `test_control_plane_read_model.py` and the dashboard heartbeat/health
+  subset, and live `dashboard --format terminal` now renders
+  `Publisher STOPPED`, `Supervisor STOPPED`, and `Active daemons 0` on the repo
+  state that originally reproduced the contradiction.
 - 2026-04-14: Closed the current review-channel follow-up slice for
   `rev_pkt_0424`, `rev_pkt_0426`, and the bounded `rev_pkt_0428` wake path in
   repo code. Dashboard terminal/markdown renderers now treat repo-owned
