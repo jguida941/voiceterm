@@ -1,0 +1,48 @@
+"""Packet liveness helpers for the typed packet inbox."""
+
+from __future__ import annotations
+
+from collections.abc import Mapping
+from datetime import datetime, timezone
+
+
+def is_live_pending(packet: Mapping[str, object]) -> bool:
+    """Return True when a packet is still pending and not expired."""
+    if _packet_status(packet) != "pending":
+        return False
+    expires_at = _parse_utc(packet.get("expires_at_utc"))
+    if expires_at is None:
+        return True
+    return expires_at > datetime.now(timezone.utc)
+
+
+def is_expired_unresolved(packet: Mapping[str, object]) -> bool:
+    """Return True when a packet is expired but unresolved."""
+    status = _packet_status(packet)
+    if status == "expired":
+        return True
+    if status != "pending":
+        return False
+    expires_at = _parse_utc(packet.get("expires_at_utc"))
+    return expires_at is not None and expires_at <= datetime.now(timezone.utc)
+
+
+def _packet_status(packet: Mapping[str, object]) -> str:
+    return _normalized_text(packet.get("status"))
+
+
+def _normalized_text(value: object) -> str:
+    return str(value or "").strip()
+
+
+def _parse_utc(value: object):
+    text = _normalized_text(value)
+    if not text:
+        return None
+    try:
+        stamp = datetime.fromisoformat(text.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if stamp.tzinfo is None:
+        return stamp.replace(tzinfo=timezone.utc)
+    return stamp.astimezone(timezone.utc)

@@ -170,7 +170,11 @@ def _executor_checkpoint_commit_decision(
     checkpoint path, but raw `git commit` must stay blocked until the broader
     implementation authority question is repaired.
     """
-    if "implementation_permission_blocked" not in decision.blockers:
+    checkpoint_permission_blockers = {
+        "implementation_permission_blocked",
+        "implementation_permission_suspended",
+    }
+    if not checkpoint_permission_blockers.intersection(decision.blockers):
         return None
     if not _checkpoint_commit_allowed(ctx, review_authority=decision.review_authority):
         return None
@@ -178,7 +182,11 @@ def _executor_checkpoint_commit_decision(
     remaining_blockers = tuple(
         blocker
         for blocker in decision.blockers
-        if blocker != "implementation_permission_blocked"
+        if blocker
+        not in {
+            *checkpoint_permission_blockers,
+            "review_authority_stale",
+        }
     )
     blocked_actions = tuple(
         action
@@ -218,9 +226,9 @@ def _checkpoint_commit_allowed(
     *,
     review_authority: str,
 ) -> bool:
-    if review_authority != "valid":
+    if review_authority not in {"valid", "stale"}:
         return False
-    if _clean_text(ctx.implementation_permission) != "blocked":
+    if _clean_text(ctx.implementation_permission) not in {"blocked", "suspended"}:
         return False
 
     gate = ctx.reviewer_gate
@@ -229,7 +237,10 @@ def _checkpoint_commit_allowed(
 
     push_action = _clean_text(getattr(getattr(ctx, "push_decision", None), "action", ""))
     advisory_action = _clean_text(getattr(ctx, "advisory_action", ""))
-    return push_action == "await_checkpoint" or advisory_action == "checkpoint_allowed"
+    return push_action == "await_checkpoint" or advisory_action in {
+        "checkpoint_allowed",
+        "checkpoint_before_continue",
+    }
 
 
 def _startup_context_unavailable_decision() -> CommitPermissionDecision:

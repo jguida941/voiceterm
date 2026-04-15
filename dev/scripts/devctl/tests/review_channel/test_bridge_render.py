@@ -420,6 +420,29 @@ def test_render_bridge_projection_clears_stale_claude_status_when_typed_status_m
     assert snapshot.sections["Claude Status"] == "- Status unavailable."
 
 
+def test_render_bridge_projection_clears_stale_instruction_when_typed_instruction_missing() -> None:
+    review_state = _typed_review_state(_bridge_text())
+    review_state["current_session"] = {
+        "current_instruction": "",
+        "current_instruction_revision": "",
+        "open_findings": "193 expired unresolved review packet(s)",
+        "last_reviewed_scope": "- typed/scope.py",
+    }
+    compat_sections = review_state["_compat"]["bridge_projection"]["sections"]
+    compat_sections["Current Instruction For Claude"] = "- stale compat instruction"
+
+    rendered, _ = render_bridge_projection(
+        review_state=review_state,
+        last_worktree_hash="b" * 64,
+    )
+    snapshot = extract_bridge_snapshot(rendered)
+
+    assert snapshot.sections["Current Instruction For Claude"] == (
+        "- Await reviewer instruction refresh."
+    )
+    assert snapshot.sections["Open Findings"] == "193 expired unresolved review packet(s)"
+
+
 def test_render_bridge_projection_tracks_swapped_reviewer_and_implementer() -> None:
     review_state = _typed_review_state(_bridge_text())
     review_state["collaboration"] = {
@@ -710,6 +733,44 @@ def test_status_bridge_sync_reprojects_bridge_even_with_pending_packets(
     assert rewritten != original
     assert "Historical ack that should be dropped." not in rewritten
     assert "## Coverage" not in rewritten
+
+
+def test_status_bridge_sync_clears_stale_instruction_when_typed_projection_is_blank(
+    tmp_path: Path,
+) -> None:
+    root = tmp_path
+    bridge_path = root / "bridge.md"
+    original = _bridge_text()
+    bridge_path.write_text(original, encoding="utf-8")
+    status_dir = root / "dev/reports/review_channel/latest"
+    status_dir.mkdir(parents=True, exist_ok=True)
+    review_state = _typed_review_state(original)
+    review_state["current_session"] = {
+        "current_instruction": "",
+        "current_instruction_revision": "",
+        "open_findings": "193 expired unresolved review packet(s)",
+        "last_reviewed_scope": "- typed/scope.py",
+    }
+    review_state_path = status_dir / "review_state.json"
+    review_state_path.write_text(json.dumps(review_state, indent=2), encoding="utf-8")
+
+    synced, warning = sync_bridge_from_typed_projection_if_needed(
+        repo_root=root,
+        bridge_path=bridge_path,
+        snapshot=SimpleNamespace(
+            projection_paths=SimpleNamespace(review_state_path=str(review_state_path))
+        ),
+    )
+
+    rewritten = bridge_path.read_text(encoding="utf-8")
+    snapshot = extract_bridge_snapshot(rewritten)
+    assert synced is True
+    assert warning == ""
+    assert snapshot.sections["Current Instruction For Claude"] == (
+        "- Await reviewer instruction refresh."
+    )
+    assert snapshot.metadata.get("current_instruction_revision", "") == ""
+    assert "stale compat instruction" not in rewritten
 
 
 def test_build_bridge_success_report_uses_typed_collaboration_runtime_counts() -> None:

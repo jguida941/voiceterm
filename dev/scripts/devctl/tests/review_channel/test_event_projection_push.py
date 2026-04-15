@@ -92,6 +92,9 @@ def _current_session() -> ReviewCurrentSessionState:
     return_value=_current_session(),
 )
 @patch(
+    "dev.scripts.devctl.review_channel.event_projection.attach_conductor_session_state",
+)
+@patch(
     "dev.scripts.devctl.review_channel.event_projection.build_bridge_push_enforcement_state",
     return_value={
         "current_branch": "feature/demo",
@@ -120,6 +123,7 @@ def _current_session() -> ReviewCurrentSessionState:
 )
 def test_enrich_event_review_state_attaches_push_truth(
     _push_enforcement_mock,
+    _attach_conductor_session_state_mock,
     _current_session_mock,
     _collaboration_mock,
     _reviewer_runtime_mock,
@@ -233,10 +237,14 @@ _SNAPSHOT_PUSH_ENFORCEMENT: dict[str, object] = {
     return_value=_current_session(),
 )
 @patch(
+    "dev.scripts.devctl.review_channel.event_projection.attach_conductor_session_state",
+)
+@patch(
     "dev.scripts.devctl.review_channel.event_projection.build_bridge_push_enforcement_state",
 )
 def test_enrich_uses_snapshot_push_enforcement_when_provided(
     push_enforcement_mock,
+    _attach_conductor_session_state_mock,
     _current_session_mock,
     _collaboration_mock,
     _reviewer_runtime_mock,
@@ -325,11 +333,15 @@ def test_enrich_uses_snapshot_push_enforcement_when_provided(
     return_value=_current_session(),
 )
 @patch(
+    "dev.scripts.devctl.review_channel.event_projection.attach_conductor_session_state",
+)
+@patch(
     "dev.scripts.devctl.review_channel.event_projection.build_bridge_push_enforcement_state",
     return_value=_SNAPSHOT_PUSH_ENFORCEMENT,
 )
 def test_enrich_event_review_state_uses_shared_coordination_loader(
     _push_enforcement_mock,
+    _attach_conductor_session_state_mock,
     _current_session_mock,
     _collaboration_mock,
     _reviewer_runtime_mock,
@@ -360,3 +372,212 @@ def test_enrich_event_review_state_uses_shared_coordination_loader(
 
     coordination_loader_mock.assert_called_once()
     assert enriched["coordination"]["current_slice"] == "Fresh coordination from loader."
+
+
+@patch(
+    "dev.scripts.devctl.review_channel.event_projection.load_coordination_snapshot",
+    return_value=None,
+)
+@patch(
+    "dev.scripts.devctl.review_channel.event_projection.build_service_identity_state",
+    return_value={},
+)
+@patch(
+    "dev.scripts.devctl.review_channel.event_projection.build_attach_auth_policy_state",
+    return_value={},
+)
+@patch(
+    "dev.scripts.devctl.review_channel.event_projection.build_attach_auth_policy",
+    return_value={},
+)
+@patch(
+    "dev.scripts.devctl.review_channel.event_projection.build_service_identity",
+    return_value={},
+)
+@patch(
+    "dev.scripts.devctl.review_channel.event_projection.build_event_bridge_state_projection",
+    return_value={},
+)
+@patch(
+    "dev.scripts.devctl.review_channel.event_projection.build_surface_snapshot_id",
+    return_value="snap-4",
+)
+@patch(
+    "dev.scripts.devctl.review_channel.event_projection.load_remote_commit_pipeline_contract",
+    return_value=RemoteCommitPipelineContract(),
+)
+@patch(
+    "dev.scripts.devctl.review_channel.event_projection.build_reviewer_runtime_contract",
+    return_value=_REVIEWER_RUNTIME,
+)
+@patch(
+    "dev.scripts.devctl.review_channel.event_projection.build_collaboration_session",
+    return_value=_DummyCollaboration(),
+)
+@patch(
+    "dev.scripts.devctl.review_channel.event_projection.build_event_current_session",
+    return_value=_current_session(),
+)
+@patch(
+    "dev.scripts.devctl.review_channel.event_projection.attach_conductor_session_state",
+)
+@patch(
+    "dev.scripts.devctl.review_channel.event_projection.build_bridge_push_enforcement_state",
+    return_value=_SNAPSHOT_PUSH_ENFORCEMENT,
+)
+def test_enrich_event_review_state_reads_sessions_from_latest_root(
+    _push_enforcement_mock,
+    attach_conductor_session_state_mock,
+    _current_session_mock,
+    collaboration_mock,
+    reviewer_runtime_mock,
+    _pipeline_mock,
+    _snapshot_id_mock,
+    _bridge_state_mock,
+    _service_identity_mock,
+    _attach_auth_policy_mock,
+    _attach_auth_policy_state_mock,
+    _service_identity_state_mock,
+    _coordination_loader_mock,
+) -> None:
+    review_state = {
+        "timestamp": "2026-04-04T00:00:00Z",
+        "review": {"plan_id": "MP-377", "session_id": "sess-4"},
+        "queue": {},
+        "_compat": {"runtime": {"daemons": {}}},
+    }
+    projections_root = Path("dev/reports/review_channel/projections/latest")
+
+    enrich_event_review_state(
+        review_state=review_state,
+        context=EventProjectionContext(
+            repo_root=Path("."),
+            review_channel_path=Path("dev/active/review_channel.md"),
+            projections_root=projections_root,
+        ),
+    )
+
+    expected_session_root = Path("dev/reports/review_channel/latest")
+    assert collaboration_mock.call_args.kwargs["session_output_root"] == expected_session_root
+    reviewer_inputs = reviewer_runtime_mock.call_args.args[0]
+    assert reviewer_inputs.session_output_root == expected_session_root
+    assert (
+        attach_conductor_session_state_mock.call_args.kwargs["output_root"]
+        == expected_session_root
+    )
+
+
+@patch(
+    "dev.scripts.devctl.review_channel.event_projection.build_service_identity_state",
+    return_value={},
+)
+@patch(
+    "dev.scripts.devctl.review_channel.event_projection.build_attach_auth_policy_state",
+    return_value={},
+)
+@patch(
+    "dev.scripts.devctl.review_channel.event_projection.build_attach_auth_policy",
+    return_value={},
+)
+@patch(
+    "dev.scripts.devctl.review_channel.event_projection.build_service_identity",
+    return_value={},
+)
+@patch(
+    "dev.scripts.devctl.review_channel.event_projection.build_event_bridge_state_projection",
+    return_value={},
+)
+@patch(
+    "dev.scripts.devctl.review_channel.event_projection.build_surface_snapshot_id",
+    return_value="snap-5",
+)
+@patch(
+    "dev.scripts.devctl.review_channel.event_projection.load_remote_commit_pipeline_contract",
+    return_value=RemoteCommitPipelineContract(),
+)
+@patch(
+    "dev.scripts.devctl.review_channel.event_projection.build_reviewer_runtime_contract",
+    return_value=_REVIEWER_RUNTIME,
+)
+@patch(
+    "dev.scripts.devctl.review_channel.event_projection.build_collaboration_session",
+    return_value=_DummyCollaboration(),
+)
+@patch(
+    "dev.scripts.devctl.review_channel.event_projection.build_event_current_session",
+    return_value=_current_session(),
+)
+@patch(
+    "dev.scripts.devctl.review_channel.event_projection.build_event_bridge_liveness_projection",
+    return_value={
+        "overall_state": "fresh",
+        "codex_poll_state": "fresh",
+        "reviewer_freshness": "fresh",
+        "reviewer_mode": "active_dual_agent",
+        "last_codex_poll_age_seconds": 0,
+        "claude_status_present": True,
+        "claude_ack_present": True,
+        "claude_ack_current": True,
+        "reviewed_hash_current": True,
+        "implementer_completion_stall": False,
+        "publisher_running": True,
+        "reviewer_supervisor_running": False,
+        "review_needed": False,
+    },
+)
+@patch(
+    "dev.scripts.devctl.review_channel.event_projection.attach_conductor_session_state",
+    side_effect=lambda **kwargs: kwargs["bridge_liveness"].update(
+        {
+            "active_conductor_providers": ["claude"],
+            "codex_conductor_active": False,
+            "claude_conductor_active": True,
+            "conductor_visibility": "claude_only",
+            "launch_truth": "hybrid_claude_only",
+            "effective_reviewer_mode": "active_dual_agent",
+        }
+    ),
+)
+@patch(
+    "dev.scripts.devctl.review_channel.event_projection.build_bridge_push_enforcement_state",
+    return_value={
+        "checkpoint_required": True,
+        "safe_to_continue_editing": False,
+        "recommended_action": "checkpoint_before_continue",
+    },
+)
+def test_enrich_event_review_state_prioritizes_relaunch_when_conductor_helper_marks_hybrid_claude_only(
+    _push_enforcement_mock,
+    _attach_conductor_session_state_mock,
+    _bridge_liveness_mock,
+    _current_session_mock,
+    _collaboration_mock,
+    _reviewer_runtime_mock,
+    _pipeline_mock,
+    _snapshot_id_mock,
+    _bridge_state_mock,
+    _service_identity_mock,
+    _attach_auth_policy_mock,
+    _attach_auth_policy_state_mock,
+    _service_identity_state_mock,
+) -> None:
+    review_state = {
+        "timestamp": "2026-04-04T00:00:00Z",
+        "review": {"plan_id": "MP-377", "session_id": "sess-5"},
+        "queue": {},
+        "_compat": {"runtime": {"daemons": {}}},
+    }
+
+    enriched, _ = enrich_event_review_state(
+        review_state=review_state,
+        context=EventProjectionContext(
+            repo_root=Path("."),
+            review_channel_path=Path("dev/active/review_channel.md"),
+            projections_root=Path("dev/reports/review_channel/projections/latest"),
+        ),
+    )
+
+    assert enriched["attention"]["status"] == "review_loop_relaunch_required"
+    assert enriched["recovery_assessment"]["diagnosis"]["status"] == (
+        "review_loop_relaunch_required"
+    )

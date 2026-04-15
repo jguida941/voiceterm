@@ -7,6 +7,7 @@ import os
 import stat
 import tempfile
 import unittest
+from dataclasses import replace
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock
@@ -22,9 +23,18 @@ from dev.scripts.devctl.commands.vcs.commit import (
     _run_guard_bundle,
     run_commit,
 )
+from dev.scripts.devctl.commands.vcs.commit_guard_bundle import guard_result
 from dev.scripts.devctl.commands.vcs.governed_executor import GovernedVcsExecutor
+from dev.scripts.devctl.commands.vcs.governed_executor_actions import (
+    APPROVAL_PACKET_KIND,
+    build_stage_action,
+)
+from dev.scripts.devctl.runtime.remote_commit_pipeline_models import (
+    RemoteCommitPipelineContract,
+)
 from dev.scripts.devctl.commands.vcs.governed_executor_packets import (
     build_commit_approval_decision,
+    pipeline_target_ref,
 )
 from dev.scripts.devctl.config import REPO_ROOT
 from dev.scripts.devctl.governance.push_policy import (
@@ -47,6 +57,7 @@ from dev.scripts.devctl.platform.coordination_snapshot_models import (
     CoordinationSnapshot,
 )
 from dev.scripts.devctl.runtime.startup_context import ReviewerGateState, StartupContext
+from dev.scripts.devctl.runtime.review_state_packet_models import ReviewPacketState
 from dev.scripts.devctl.runtime.validation_contracts import ValidationPlan
 from dev.scripts.devctl.runtime.work_intake_models import (
     WorkIntakeCoordinationState,
@@ -407,6 +418,39 @@ class TestRawGitCommitPermissionHook(unittest.TestCase):
         self.assertIn("implementation_permission_blocked", rendered)
         self.assertIn("review-channel --action status", rendered)
 
+    def test_evaluate_raw_git_commit_permission_stays_blocked_for_suspended_checkpoint_recovery(
+        self,
+    ) -> None:
+        ctx = SimpleNamespace(
+            implementation_permission="suspended",
+            observed_control_topology="implementer_without_reviewer",
+            advisory_action="checkpoint_before_continue",
+            push_decision=SimpleNamespace(action="await_checkpoint"),
+            reviewer_gate=SimpleNamespace(
+                review_gate_allows_push=False,
+                implementation_blocked=True,
+                implementation_block_reason="runtime_missing",
+                checkpoint_permitted=True,
+            ),
+            governance=SimpleNamespace(
+                push_enforcement=SimpleNamespace(
+                    checkpoint_required=True,
+                    safe_to_continue_editing=False,
+                )
+            ),
+        )
+        with patch(
+            "dev.scripts.devctl.runtime.startup_context.build_startup_context",
+            return_value=ctx,
+        ):
+            allowed, lines = _evaluate_raw_git_commit_permission(Path("/tmp/repo"))
+
+        rendered = "\n".join(lines)
+        self.assertFalse(allowed)
+        self.assertIn("implementation_permission_suspended", rendered)
+        self.assertIn("review_authority_stale", rendered)
+        self.assertIn("review-channel --action status", rendered)
+
     def test_evaluate_raw_git_commit_permission_fails_closed_when_context_load_errors(
         self,
     ) -> None:
@@ -718,6 +762,73 @@ class TestGovernedCommitPipeline(unittest.TestCase):
                 "feat: governed checkpoint commit",
             )
 
+    def test_commit_allows_governed_checkpoint_when_reviewer_runtime_is_suspended(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            repo_root = _init_repo(Path(tmpdir) / "repo")
+            (repo_root / "tracked.txt").write_text("updated\n", encoding="utf-8")
+            _run_git(repo_root, "add", "tracked.txt")
+            guard_runner = MagicMock(return_value=_mock_subprocess_result(0))
+
+            def _startup_context_fn(*, repo_root: Path):
+                del repo_root
+                return SimpleNamespace(
+                    implementation_permission="suspended",
+                    observed_control_topology="implementer_without_reviewer",
+                    advisory_action="checkpoint_before_continue",
+                    reviewer_gate=SimpleNamespace(
+                        implementation_blocked=True,
+                        implementation_block_reason="runtime_missing",
+                        checkpoint_permitted=True,
+                        review_gate_allows_push=False,
+                    ),
+                    governance=SimpleNamespace(
+                        push_enforcement=SimpleNamespace(
+                            checkpoint_required=True,
+                            safe_to_continue_editing=False,
+                        )
+                    ),
+                    push_decision=SimpleNamespace(
+                        action="await_checkpoint",
+                        reason="staged_index_budget_exceeded",
+                    ),
+                )
+
+            executor = GovernedVcsExecutor(
+                repo_root=repo_root,
+                review_channel_path=repo_root / "dev/active/review_channel.md",
+                push_policy=_push_policy(),
+                startup_context_fn=_startup_context_fn,
+                refresh_projections=True,
+            )
+            executor._persist_pipeline(
+                RemoteCommitPipelineContract(
+                    pipeline_id="pipeline-old",
+                    state="push_pending",
+                    branch=_run_git(repo_root, "rev-parse", "--abbrev-ref", "HEAD"),
+                    commit_sha="old-sha",
+                )
+            )
+
+            rc = run_commit(
+                _make_args(message="feat: recovery checkpoint commit"),
+                repo_root=repo_root,
+                policy=_push_policy(),
+                executor=executor,
+                interaction_mode="local_terminal",
+                guard_runner=guard_runner,
+            )
+
+            pipeline = executor.load_pipeline()
+            self.assertEqual(rc, 0)
+            self.assertEqual(pipeline.state, "commit_recorded")
+            self.assertTrue(pipeline.commit_sha)
+            self.assertEqual(
+                _run_git(repo_root, "log", "-1", "--pretty=%s"),
+                "feat: recovery checkpoint commit",
+            )
+
     def test_commit_blocks_when_implementation_permission_is_blocked(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             repo_root = _init_repo(Path(tmpdir) / "repo")
@@ -841,6 +952,79 @@ class TestGovernedCommitPipeline(unittest.TestCase):
             self.assertEqual(pipeline.state, "operator_approval_pending")
             self.assertEqual(pipeline.approval_state, "pending")
 
+    def test_commit_stops_before_commit_phase_while_remote_approval_is_pending(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            repo_root = _init_repo(Path(tmpdir) / "repo")
+            executor = _executor(repo_root)
+            (repo_root / "tracked.txt").write_text("updated\n", encoding="utf-8")
+            _run_git(repo_root, "add", "tracked.txt")
+
+            stage_result = executor.execute(
+                build_stage_action(
+                    repo_pack_id=_push_policy().repo_pack_id,
+                    commit_message_draft="feat: wait for remote approval",
+                    push_requested=False,
+                    guard_profile="quick",
+                    work_intake_ref="devctl.commit",
+                    reuse_staged_index=True,
+                    requested_by="devctl.commit",
+                )
+            )
+            self.assertTrue(stage_result.ok)
+            guarded_pipeline = executor.record_guard_result(guard_result(0))
+            pending_packet = ReviewPacketState(
+                packet_id="rev_pkt_request",
+                kind=APPROVAL_PACKET_KIND,
+                from_agent="system",
+                to_agent="operator",
+                summary="Approve governed commit pipeline",
+                body="Operator approval is required before the governed executor may commit.",
+                status="pending",
+                policy_hint="operator_approval_required",
+                requested_action="approve_commit_pipeline",
+                approval_required=True,
+                posted_at="2026-04-15T17:45:00Z",
+                target_kind="runtime",
+                target_ref=pipeline_target_ref(guarded_pipeline),
+                target_revision=guarded_pipeline.generation_id,
+                pipeline_generation=guarded_pipeline.generation_id,
+                staged_snapshot_hash=guarded_pipeline.intent.staged_tree_hash,
+            )
+            executor._persist_pipeline(
+                replace(
+                    guarded_pipeline,
+                    approval_packet_id=pending_packet.packet_id,
+                    approval_state="pending",
+                    blocked_reason="",
+                )
+            )
+
+            with patch.object(
+                GovernedVcsExecutor,
+                "_event_packets",
+                return_value=(pending_packet,),
+            ), patch(
+                "dev.scripts.devctl.commands.vcs.commit.build_commit_action",
+                side_effect=AssertionError(
+                    "commit action should not be built before approval"
+                ),
+            ):
+                rc = run_commit(
+                    _make_args(message="feat: wait for remote approval"),
+                    repo_root=repo_root,
+                    policy=_push_policy(),
+                    executor=executor,
+                    interaction_mode="unresolved",
+                    guard_runner=MagicMock(return_value=_mock_subprocess_result(0)),
+                )
+
+            pipeline = executor.load_pipeline()
+            self.assertEqual(rc, 1)
+            self.assertEqual(pipeline.state, "operator_approval_pending")
+            self.assertEqual(pipeline.approval_state, "pending")
+
     def test_commit_reuses_approved_pipeline_without_rerunning_guards(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             repo_root = _init_repo(Path(tmpdir) / "repo")
@@ -894,6 +1078,98 @@ class TestGovernedCommitPipeline(unittest.TestCase):
             self.assertEqual(second_rc, 0)
             self.assertEqual(committed_pipeline.state, "commit_recorded")
             second_guard.assert_not_called()
+
+    def test_commit_replays_guards_when_approved_pipeline_loses_validation_receipt(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            repo_root = _init_repo(Path(tmpdir) / "repo")
+            executor = _executor(repo_root)
+            (repo_root / "tracked.txt").write_text("updated\n", encoding="utf-8")
+            _run_git(repo_root, "add", "tracked.txt")
+            stage_result = executor.execute(
+                build_stage_action(
+                    repo_pack_id=_push_policy().repo_pack_id,
+                    commit_message_draft="feat: replay missing validation receipt",
+                    push_requested=False,
+                    guard_profile="quick",
+                    work_intake_ref="devctl.commit",
+                    reuse_staged_index=True,
+                    requested_by="devctl.commit",
+                )
+            )
+            self.assertTrue(stage_result.ok)
+            staged_pipeline = executor.record_guard_result(guard_result(0))
+            request_packet = ReviewPacketState(
+                packet_id="rev_pkt_request",
+                kind=APPROVAL_PACKET_KIND,
+                from_agent="system",
+                to_agent="operator",
+                summary="Approve governed commit pipeline",
+                body="Operator approval is required before the governed executor may commit.",
+                status="pending",
+                policy_hint="operator_approval_required",
+                requested_action="approve_commit_pipeline",
+                approval_required=True,
+                posted_at="2026-04-15T16:40:00Z",
+                target_kind="runtime",
+                target_ref=pipeline_target_ref(staged_pipeline),
+                target_revision=staged_pipeline.generation_id,
+                pipeline_generation=staged_pipeline.generation_id,
+                staged_snapshot_hash=staged_pipeline.intent.staged_tree_hash,
+            )
+            decision_packet = ReviewPacketState(
+                packet_id="rev_pkt_decision",
+                kind=APPROVAL_PACKET_KIND,
+                from_agent="operator",
+                to_agent="system",
+                summary="Remote operator approved the governed commit.",
+                body="Operator approved the guarded staged snapshot.",
+                status="applied",
+                policy_hint="operator_approval_required",
+                requested_action="approve_commit_pipeline",
+                approval_required=False,
+                posted_at="2026-04-15T16:41:00Z",
+                target_kind="runtime",
+                target_ref=pipeline_target_ref(staged_pipeline),
+                target_revision=staged_pipeline.generation_id,
+                pipeline_generation=staged_pipeline.generation_id,
+                staged_snapshot_hash=staged_pipeline.intent.staged_tree_hash,
+                applied_at_utc="2026-04-15T16:41:30Z",
+            )
+            executor._persist_pipeline(
+                replace(
+                    staged_pipeline,
+                    state="approved",
+                    approval_state="approved",
+                    approval_packet_id=request_packet.packet_id,
+                    decision_packet_id=decision_packet.packet_id,
+                    validation_receipt=None,
+                    blocked_reason="",
+                    attention_revision_lease="",
+                )
+            )
+
+            replay_guard = MagicMock(return_value=_mock_subprocess_result(0))
+            with patch.object(
+                GovernedVcsExecutor,
+                "_event_packets",
+                return_value=(request_packet, decision_packet),
+            ):
+                second_rc = run_commit(
+                    _make_args(message="feat: replay missing validation receipt"),
+                    repo_root=repo_root,
+                    policy=_push_policy(),
+                    executor=executor,
+                    interaction_mode="unresolved",
+                    guard_runner=replay_guard,
+                )
+
+            committed_pipeline = executor.load_pipeline()
+            self.assertEqual(second_rc, 0)
+            self.assertEqual(committed_pipeline.state, "commit_recorded")
+            self.assertIsNotNone(committed_pipeline.validation_receipt)
+            replay_guard.assert_called_once()
 
     def test_commit_refreshes_snapshot_before_remote_approval(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

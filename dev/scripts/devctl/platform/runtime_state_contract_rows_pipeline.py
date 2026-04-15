@@ -133,6 +133,11 @@ PIPELINE_STATE_CONTRACTS: tuple[ContractSpec, ...] = (
                 "Exact worktree identity that staged and owns the current pipeline.",
             ),
             ContractField(
+                "attention_revision_lease",
+                "str",
+                "Bounded attention-revision lease held while one governed commit is executing.",
+            ),
+            ContractField(
                 "push_authorization",
                 "PushAuthorizationRecord | None",
                 "Frozen publication proof for the current governed commit, when one exists.",

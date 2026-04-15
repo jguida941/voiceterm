@@ -21,6 +21,7 @@ def projection_sections(
         (
             "Current Verdict",
             _typed_section_override(review_acceptance.get("current_verdict")),
+            "current_verdict" in review_acceptance,
         ),
         (
             "Open Findings",
@@ -28,29 +29,37 @@ def projection_sections(
                 review_acceptance.get("open_findings")
                 or current_session.get("open_findings")
             ),
+            (
+                "open_findings" in review_acceptance
+                or "open_findings" in current_session
+            ),
         ),
         (
             "Claude Status",
             _typed_section_override(current_session.get("implementer_status")),
+            "implementer_status" in current_session,
         ),
         (
             "Claude Ack",
             _typed_section_override(current_session.get("implementer_ack")),
+            "implementer_ack" in current_session,
         ),
         (
             "Current Instruction For Claude",
             _typed_section_override(current_session.get("current_instruction")),
+            "current_instruction" in current_session,
         ),
         (
             "Last Reviewed Scope",
             _typed_section_override(current_session.get("last_reviewed_scope")),
+            "last_reviewed_scope" in current_session,
         ),
     )
-    for heading, value in typed_overrides:
+    for heading, value, typed_present in typed_overrides:
         if value:
             sections[heading] = value
             continue
-        if heading == "Claude Status" and "implementer_status" in current_session:
+        if typed_present:
             sections[heading] = ""
     if packets is not None:
         sections["Action Requests"] = render_action_requests_from_packets(

@@ -287,9 +287,13 @@ def test_load_current_review_state_payload_prefers_newer_legacy_snapshot_when_ev
     refresh_status_snapshot_mock.assert_not_called()
 
 
+@patch(
+    "dev.scripts.devctl.runtime.review_state_locator.refresh_event_backed_review_state_payload"
+)
 @patch("dev.scripts.devctl.review_channel.state.refresh_status_snapshot")
-def test_load_current_review_state_payload_keeps_event_backed_projection_for_live_refresh_callers(
+def test_load_current_review_state_payload_refreshes_event_backed_projection_for_live_refresh_callers(
     refresh_status_snapshot_mock,
+    refresh_event_backed_review_state_payload_mock,
     tmp_path: Path,
 ) -> None:
     projection_path = (
@@ -325,6 +329,11 @@ def test_load_current_review_state_payload_keeps_event_backed_projection_for_liv
     review_channel_path = tmp_path / "dev" / "active" / "review_channel.md"
     review_channel_path.parent.mkdir(parents=True, exist_ok=True)
     review_channel_path.write_text("# Review Channel\n", encoding="utf-8")
+    refresh_event_backed_review_state_payload_mock.return_value = {
+        "bridge": {"review_accepted": True},
+        "current_session": {"current_instruction": "fresh event-backed slice"},
+        "coordination": {"current_slice": "MP-377"},
+    }
 
     payload = load_current_review_state_payload(
         tmp_path,
@@ -338,8 +347,17 @@ def test_load_current_review_state_payload_keeps_event_backed_projection_for_liv
     )
 
     assert payload is not None
-    assert payload["current_session"]["current_instruction"] == "event-backed slice"
-    assert payload["coordination"]["current_slice"] == "MP-355"
+    assert payload["current_session"]["current_instruction"] == "fresh event-backed slice"
+    assert payload["coordination"]["current_slice"] == "MP-377"
+    refresh_event_backed_review_state_payload_mock.assert_called_once_with(
+        tmp_path,
+        governance=_governance(
+            review_root="dev/reports/review_channel/latest",
+            bridge_path="bridge.md",
+            review_channel_path="dev/active/review_channel.md",
+            bridge_active=True,
+        ),
+    )
     refresh_status_snapshot_mock.assert_not_called()
 
 
@@ -432,6 +450,7 @@ def test_load_current_review_state_payload_threads_explicit_review_status_dir(
     payload = load_current_review_state_payload(
         tmp_path,
         governance=_governance(
+            review_root="custom-review-status",
             bridge_path="bridge.md",
             review_channel_path="dev/active/review_channel.md",
             bridge_active=True,
@@ -442,3 +461,41 @@ def test_load_current_review_state_payload_threads_explicit_review_status_dir(
     assert payload is not None
     assert payload["bridge"]["review_accepted"] is False
     assert payload["current_session"]["implementer_ack_state"] == "stale"
+
+
+@patch("dev.scripts.devctl.review_channel.state.refresh_status_snapshot")
+def test_load_current_review_state_payload_can_skip_live_refresh_for_prior_reads(
+    refresh_status_snapshot_mock,
+    tmp_path: Path,
+) -> None:
+    review_status_dir = tmp_path / "custom-review-status"
+    review_status_dir.mkdir(parents=True, exist_ok=True)
+    _write_review_state(
+        review_status_dir / "review_state.json",
+        payload={
+            "bridge": {"review_accepted": False},
+            "current_session": {"implementer_ack_state": "cached"},
+        },
+    )
+    bridge_path = tmp_path / "bridge.md"
+    bridge_path.write_text("# Review Bridge\n", encoding="utf-8")
+    review_channel_path = tmp_path / "dev" / "active" / "review_channel.md"
+    review_channel_path.parent.mkdir(parents=True, exist_ok=True)
+    review_channel_path.write_text("# Review Channel\n", encoding="utf-8")
+
+    payload = load_current_review_state_payload(
+        tmp_path,
+        governance=_governance(
+            review_root="custom-review-status",
+            bridge_path="bridge.md",
+            review_channel_path="dev/active/review_channel.md",
+            bridge_active=True,
+        ),
+        review_status_dir=review_status_dir,
+        prefer_cached_projection=False,
+        allow_live_refresh=False,
+    )
+
+    assert payload is not None
+    assert payload["current_session"]["implementer_ack_state"] == "cached"
+    refresh_status_snapshot_mock.assert_not_called()

@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import tempfile
 import unittest
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from dev.scripts.devctl.cli import build_parser
@@ -599,6 +600,85 @@ class ReviewChannelPlanPacketTests(unittest.TestCase):
         self.assertTrue(
             report["queue"]["derived_next_instruction_source"]["wake_required"]
         )
+
+    def test_expired_inbox_surfaces_stale_action_request_without_delivery_mutation(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            review_channel_path = root / "dev/active/review_channel.md"
+            review_channel_path.parent.mkdir(parents=True, exist_ok=True)
+            review_channel_path.write_text(_review_channel_text(), encoding="utf-8")
+            artifact_paths = resolve_artifact_paths(repo_root=root)
+            event_log_path = Path(artifact_paths.event_log_path)
+            event_log_path.parent.mkdir(parents=True, exist_ok=True)
+            expired_at = (
+                datetime.now(timezone.utc) - timedelta(minutes=30)
+            ).isoformat().replace("+00:00", "Z")
+            event_log_path.write_text(
+                json.dumps(
+                    {
+                        "schema_version": 1,
+                        "event_id": "rev_evt_0001",
+                        "session_id": "session-1",
+                        "project_id": "proj-1",
+                        "packet_id": "rev_pkt_0001",
+                        "trace_id": "trace_0001",
+                        "timestamp_utc": "2026-04-15T02:00:00Z",
+                        "source": "review_channel",
+                        "plan_id": "MP-377",
+                        "event_type": "packet_posted",
+                        "from_agent": "codex",
+                        "to_agent": "claude",
+                        "kind": "action_request",
+                        "summary": "Re-check the stale packet path",
+                        "body": "run the expired inbox visibility proof",
+                        "requested_action": "review_only",
+                        "policy_hint": "review_only",
+                        "approval_required": False,
+                        "status": "pending",
+                        "expires_at_utc": expired_at,
+                    }
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            parser = build_parser()
+            args = parser.parse_args(
+                [
+                    "review-channel",
+                    "--action",
+                    "inbox",
+                    "--target",
+                    "claude",
+                    "--status",
+                    "expired",
+                    "--terminal",
+                    "none",
+                    "--format",
+                    "json",
+                ]
+            )
+
+            from dev.scripts.devctl.commands.review_channel.event_handler import (
+                _run_event_action,
+            )
+
+            report, exit_code = _run_event_action(
+                args=args,
+                repo_root=root,
+                paths={
+                    "review_channel_path": review_channel_path,
+                    "artifact_paths": artifact_paths,
+                },
+            )
+
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(report["queue"]["stale_packet_count"], 1)
+        self.assertEqual(
+            [packet["packet_id"] for packet in report["packets"]],
+            ["rev_pkt_0001"],
+        )
+        self.assertEqual(report["packets"][0]["delivery_observed_at_utc"], "")
+        self.assertEqual(report["packets"][0]["delivery_observed_by"], "")
 
     def test_action_request_priority_drives_queue_instruction_after_later_instruction_post(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

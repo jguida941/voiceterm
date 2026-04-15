@@ -49,6 +49,9 @@ from dev.scripts.devctl.runtime.action_contracts import (
     ActionOutcome,
 )
 from dev.scripts.devctl.runtime import ActionResult
+from dev.scripts.devctl.runtime.remote_commit_pipeline_models import (
+    RemoteCommitPipelineContract,
+)
 from dev.scripts.devctl.tests.vcs._git_helpers import _run_git
 from dev.scripts.devctl.tests.test_review_channel_context_refs import (
     _review_channel_text,
@@ -81,6 +84,70 @@ def test_stage_action_persists_staged_snapshot_hash(tmp_path: Path) -> None:
     assert pipeline.intent.validation_plan.bundle_id == "bundle.tooling"
     assert pipeline.intent.validation_plan.staged_tree_hash == pipeline.intent.staged_tree_hash
     assert (repo_root / "dev/reports/review_channel/latest/commit_pipeline.json").exists()
+
+
+def test_stage_replaces_cross_branch_active_pipeline(tmp_path: Path) -> None:
+    repo_root = _init_repo(tmp_path / "repo")
+    (repo_root / "tracked.txt").write_text("updated\n", encoding="utf-8")
+    executor = _executor(repo_root)
+    executor._persist_pipeline(
+        RemoteCommitPipelineContract(
+            pipeline_id="pipeline-old",
+            state="push_pending",
+            branch="feature/other",
+            commit_sha="old-sha",
+        )
+    )
+
+    result = executor.execute(
+        build_stage_action(
+            repo_pack_id="test-pack",
+            paths=("tracked.txt",),
+            commit_message_draft="feat: replace stale cross-branch pipeline",
+            push_requested=True,
+            guard_profile="bundle.tooling",
+            work_intake_ref="MP-377",
+        )
+    )
+
+    pipeline = executor.load_pipeline()
+    assert result.ok is True
+    assert pipeline.state == "staged"
+    assert pipeline.pipeline_id != "pipeline-old"
+    assert pipeline.branch != "feature/other"
+
+
+def test_stage_replaces_stale_same_branch_pipeline_with_old_commit_sha(
+    tmp_path: Path,
+) -> None:
+    repo_root = _init_repo(tmp_path / "repo")
+    (repo_root / "tracked.txt").write_text("updated\n", encoding="utf-8")
+    executor = _executor(repo_root)
+    executor._persist_pipeline(
+        RemoteCommitPipelineContract(
+            pipeline_id="pipeline-old",
+            state="push_pending",
+            branch=_run_git(repo_root, "rev-parse", "--abbrev-ref", "HEAD"),
+            commit_sha="old-sha",
+        )
+    )
+
+    result = executor.execute(
+        build_stage_action(
+            repo_pack_id="test-pack",
+            paths=("tracked.txt",),
+            commit_message_draft="feat: replace stale same-branch pipeline",
+            push_requested=True,
+            guard_profile="bundle.tooling",
+            work_intake_ref="MP-377",
+        )
+    )
+
+    pipeline = executor.load_pipeline()
+    assert result.ok is True
+    assert pipeline.state == "staged"
+    assert pipeline.pipeline_id != "pipeline-old"
+    assert pipeline.commit_sha == ""
 
 
 def test_stage_surfaces_write_tree_error_when_git_index_is_blocked(tmp_path: Path) -> None:

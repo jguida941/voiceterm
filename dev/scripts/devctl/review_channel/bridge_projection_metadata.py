@@ -8,6 +8,11 @@ from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 
 _LOCAL_TIME_FORMAT = "%Y-%m-%d %H:%M:%S %Z"
+_PLACEHOLDER_INSTRUCTION_MARKERS = (
+    "stop at a safe boundary",
+    "relaunch before compaction",
+    "await reviewer instruction refresh",
+)
 
 
 def local_tz() -> ZoneInfo:
@@ -37,14 +42,19 @@ def projection_metadata(
     bridge_state: Mapping[str, object],
 ) -> dict[str, str]:
     current_instruction = str(sections.get("Current Instruction For Claude", "")).strip()
-    current_revision = str(
-        current_session.get("current_instruction_revision")
-        or bridge_state.get("current_instruction_revision")
-        or bridge_liveness.get("current_instruction_revision")
-        or snapshot.metadata.get("current_instruction_revision")
-        or ""
-    ).strip()
-    if not current_revision and current_instruction:
+    if _typed_instruction_explicitly_cleared(current_session):
+        current_revision = ""
+    else:
+        current_revision = str(
+            current_session.get("current_instruction_revision")
+            or bridge_state.get("current_instruction_revision")
+            or bridge_liveness.get("current_instruction_revision")
+            or snapshot.metadata.get("current_instruction_revision")
+            or ""
+        ).strip()
+    if not current_revision and current_instruction and not _is_placeholder_instruction(
+        current_instruction
+    ):
         current_revision = hashlib.sha256(
             current_instruction.encode("utf-8")
         ).hexdigest()[:12]
@@ -64,3 +74,16 @@ def projection_metadata(
         ).strip(),
         "current_instruction_revision": current_revision,
     }
+
+
+def _typed_instruction_explicitly_cleared(current_session: Mapping[str, object]) -> bool:
+    if "current_instruction" not in current_session:
+        return False
+    instruction = str(current_session.get("current_instruction") or "").strip()
+    revision = str(current_session.get("current_instruction_revision") or "").strip()
+    return not instruction and not revision
+
+
+def _is_placeholder_instruction(current_instruction: str) -> bool:
+    normalized = str(current_instruction or "").strip().lower()
+    return any(marker in normalized for marker in _PLACEHOLDER_INSTRUCTION_MARKERS)

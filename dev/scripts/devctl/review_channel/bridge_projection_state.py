@@ -26,6 +26,12 @@ from .bridge_projection_validation import (
 from .handoff import BridgeSnapshot, extract_bridge_snapshot
 from .pending_packets import live_pending_packets
 
+_PLACEHOLDER_INSTRUCTION_MARKERS = (
+    "stop at a safe boundary",
+    "relaunch before compaction",
+    "await reviewer instruction refresh",
+)
+
 @dataclass(frozen=True)
 class BridgeProjectionState:
     """Typed bridge-section payload used to rebuild the compatibility projection."""
@@ -136,7 +142,9 @@ def bridge_projection_metadata_lines(
     metadata = projection_state.metadata
     current_instruction = projection_state.sections["Current Instruction For Claude"]
     current_revision = metadata.get("current_instruction_revision", "").strip()
-    if not current_revision and current_instruction.strip():
+    if not current_revision and current_instruction.strip() and not _is_placeholder_instruction(
+        current_instruction
+    ):
         current_revision = hashlib.sha256(
             current_instruction.strip().encode("utf-8")
         ).hexdigest()[:12]
@@ -155,3 +163,8 @@ def bridge_projection_metadata_lines(
         f"- Last non-audit worktree hash: `{last_worktree_hash}`",
         f"- Current instruction revision: `{current_revision}`",
     ]
+
+
+def _is_placeholder_instruction(current_instruction: str) -> bool:
+    normalized = str(current_instruction or "").strip().lower()
+    return any(marker in normalized for marker in _PLACEHOLDER_INSTRUCTION_MARKERS)

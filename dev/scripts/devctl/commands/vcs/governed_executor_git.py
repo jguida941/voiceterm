@@ -91,6 +91,22 @@ def head_commit(repo_root: Path) -> str:
     return output if code == 0 else ""
 
 
+def pipeline_is_stale_for_current_repo(pipeline: object, *, repo_root: Path) -> bool:
+    """Return True when a stored pipeline no longer matches the current repo state."""
+    pipeline_id = string_value(getattr(pipeline, "pipeline_id", ""))
+    if not pipeline_id:
+        return False
+
+    pipeline_branch = string_value(getattr(pipeline, "branch", ""))
+    active_branch = current_branch(repo_root)
+    if pipeline_branch and active_branch and pipeline_branch != active_branch:
+        return True
+
+    pipeline_commit_sha = string_value(getattr(pipeline, "commit_sha", ""))
+    active_head = head_commit(repo_root)
+    return bool(pipeline_commit_sha and active_head and pipeline_commit_sha != active_head)
+
+
 def normalize_paths(value: object) -> list[str]:
     """Extract a list of non-empty string paths from a sequence-typed value."""
     if not isinstance(value, Sequence) or isinstance(value, (str, bytes)):

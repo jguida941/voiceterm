@@ -2,10 +2,14 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 from ..runtime.governance_scan import scan_repo_governance_safely
+from ..runtime.review_packet_inbox import (
+    packet_inbox_from_review_state,
+    summarize_packet_attention_open_findings,
+)
 from .current_session_projection import (
     current_session_authority_drift_warning,
     instruction_revision_reuse_warning,
@@ -45,6 +49,10 @@ def build_status_authority(
         snapshot=inputs.bridge_snapshot,
         bridge_liveness=inputs.bridge_liveness,
         prior_review_state=inputs.prior_review_state,
+    )
+    current_session = _normalize_current_session_from_packet_truth(
+        current_session=current_session,
+        review_state=inputs.prior_review_state,
     )
     _append_status_warning(
         inputs.merged_warnings,
@@ -101,6 +109,51 @@ def _operator_interaction_mode(repo_root: Path) -> str:
 def _append_status_warning(warnings: list[str], warning: str) -> None:
     if warning and warning not in warnings:
         warnings.append(warning)
+
+
+def _normalize_current_session_from_packet_truth(
+    *,
+    current_session,
+    review_state: dict[str, object] | None,
+):
+    if current_session is None:
+        return current_session
+    resolved_review_state = review_state
+    if isinstance(resolved_review_state, dict) and isinstance(
+        resolved_review_state.get("review_state"), dict
+    ):
+        resolved_review_state = resolved_review_state.get("review_state")
+    packet_inbox = packet_inbox_from_review_state(resolved_review_state)
+    record = packet_inbox.for_agent("codex") if packet_inbox is not None else None
+    clear_instruction = bool(
+        record is not None
+        and not str(record.current_instruction_packet_id or "").strip()
+        and (
+            tuple(record.pending_actionable_packet_ids or ())
+            or tuple(record.expired_unresolved_packet_ids or ())
+            or str(record.wake_reason or "").strip()
+            in {"finding_pending", "expired_unresolved_packet"}
+        )
+    )
+    packet_attention_present = bool(
+        record is not None
+        and (
+            clear_instruction
+            or str(record.current_instruction_packet_id or "").strip()
+        )
+    )
+    return replace(
+        current_session,
+        current_instruction="" if clear_instruction else current_session.current_instruction,
+        current_instruction_revision=(
+            "" if clear_instruction else current_session.current_instruction_revision
+        ),
+        open_findings=summarize_packet_attention_open_findings(
+            resolved_review_state,
+            fallback="" if packet_attention_present else current_session.open_findings,
+            agent="codex",
+        ),
+    )
 
 
 def _apply_current_session_fields(

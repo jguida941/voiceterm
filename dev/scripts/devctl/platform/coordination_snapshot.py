@@ -121,16 +121,11 @@ def build_coordination_snapshot(
         resync_reasons=resync_reason_rows,
     )
     repo_identity = getattr(resolved_governance, "repo_identity", None)
-    persisted_coordination = getattr(resolved_review_state, "coordination", None)
-    current_slice = _select_current_slice(
-        text(getattr(persisted_coordination, "current_slice", "")),
-        text(getattr(collaboration, "current_slice", "")),
-        text(getattr(getattr(resolved_review_state, "current_session", None), "current_instruction", "")),
-        text(getattr(continuity, "current_goal", "")),
-        text(getattr(continuity, "next_action", "")),
-        text(getattr(continuity, "summary", "")),
-        text(getattr(active_target, "plan_title", "")),
-        text(getattr(active_target, "plan_path", "")),
+    current_slice = _coordination_current_slice(
+        review_state=resolved_review_state,
+        collaboration=collaboration,
+        continuity=continuity,
+        active_target=active_target,
     )
     return CoordinationSnapshot(
         generated_at_utc=utc_timestamp(),
@@ -261,3 +256,51 @@ def _is_scope_only_slice(value: str) -> bool:
     stripped = _MP_SCOPE_TOKEN_RE.sub("", value)
     stripped = re.sub(r"[\s,;:/()._-]+", "", stripped)
     return not stripped
+
+
+def _coordination_current_slice(
+    *,
+    review_state: object | None,
+    collaboration: object | None,
+    continuity: object | None,
+    active_target: object | None,
+) -> str:
+    persisted_coordination = getattr(review_state, "coordination", None)
+    raw_current_instruction = text(
+        getattr(getattr(review_state, "current_session", None), "current_instruction", "")
+    )
+    clear_codex_instruction = _codex_instruction_requires_clear(review_state)
+    persisted_current_slice = text(getattr(persisted_coordination, "current_slice", ""))
+    collaboration_current_slice = text(getattr(collaboration, "current_slice", ""))
+    if clear_codex_instruction and persisted_current_slice == raw_current_instruction:
+        persisted_current_slice = ""
+    if clear_codex_instruction and collaboration_current_slice == raw_current_instruction:
+        collaboration_current_slice = ""
+    return _select_current_slice(
+        persisted_current_slice,
+        collaboration_current_slice,
+        "" if clear_codex_instruction else raw_current_instruction,
+        text(getattr(continuity, "current_goal", "")),
+        text(getattr(continuity, "next_action", "")),
+        text(getattr(continuity, "summary", "")),
+        text(getattr(active_target, "plan_title", "")),
+        text(getattr(active_target, "plan_path", "")),
+    )
+
+
+def _codex_instruction_requires_clear(review_state: object | None) -> bool:
+    packet_inbox = getattr(review_state, "packet_inbox", None)
+    if packet_inbox is None or not hasattr(packet_inbox, "for_agent"):
+        return False
+    record = packet_inbox.for_agent("codex")
+    if record is None:
+        return False
+    wake_reason = text(getattr(record, "wake_reason", ""))
+    return bool(
+        not text(getattr(record, "current_instruction_packet_id", ""))
+        and (
+            tuple(getattr(record, "pending_actionable_packet_ids", ()) or ())
+            or tuple(getattr(record, "expired_unresolved_packet_ids", ()) or ())
+            or wake_reason in {"finding_pending", "expired_unresolved_packet"}
+        )
+    )

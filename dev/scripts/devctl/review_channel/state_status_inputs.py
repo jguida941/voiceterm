@@ -6,7 +6,7 @@ import json
 from collections.abc import Mapping
 from pathlib import Path
 
-from ..runtime.review_state_locator import load_review_state_payload
+from ..runtime.review_state_locator import load_current_review_state_payload
 from .core import LaneAssignment, ensure_launcher_prereqs
 from .handoff import bridge_liveness_to_dict, summarize_bridge_liveness
 from .heartbeat import bridge_excluded_rel_paths, compute_non_audit_worktree_hash
@@ -70,7 +70,12 @@ def load_prior_review_state(
     repo_root: Path,
     output_root: Path,
 ) -> dict[str, object] | None:
-    canonical_payload = load_review_state_payload(repo_root)
+    canonical_payload = load_current_review_state_payload(
+        repo_root,
+        review_status_dir=output_root,
+        prefer_cached_projection=False,
+        allow_live_refresh=False,
+    )
     review_state_path = output_root / "review_state.json"
     try:
         local_payload = json.loads(review_state_path.read_text(encoding="utf-8"))

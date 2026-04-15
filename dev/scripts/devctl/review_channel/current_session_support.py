@@ -15,6 +15,7 @@ from .current_session_instruction_support import (
     resolve_instruction_revision,
 )
 from .status_projection_helpers import clean_section
+from ..runtime.review_packet_inbox import summarize_packet_attention_open_findings
 from ..runtime.review_state_models import ReviewCurrentSessionState
 from ..runtime.review_state_semantics import classify_implementer_ack_state
 
@@ -165,12 +166,13 @@ def event_current_instruction(review_state: Mapping[str, object]) -> str:
     return derived
 
 
-def event_open_findings(queue: Mapping[str, object]) -> str:
+def event_open_findings(review_state: Mapping[str, object]) -> str:
     """Summarize pending event-backed findings for the current session."""
-    pending_total = int(queue.get("pending_total") or 0)
-    if pending_total <= 0:
-        return "none"
-    return f"{pending_total} pending review packet(s)"
+    return summarize_packet_attention_open_findings(
+        review_state,
+        fallback="",
+        agent="codex",
+    )
 
 
 def event_claude_ack(queue: Mapping[str, object]) -> str:
@@ -201,6 +203,8 @@ def event_agent_status(
             or ""
         )
     return ""
+
+
 def _section_text(snapshot: BridgeSnapshot, section: str) -> str:
     return clean_section(snapshot.sections.get(section, ""))
 def _mapping(value: object) -> Mapping[str, object]:

@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Any
 from ..repo_packs import active_path_config, active_path_config_is_overridden
 from ..repo_packs.review_cache import cache_is_fresh
 from .review_state_refresh_support import (
+    refresh_event_backed_review_state_payload,
     projection_freshness_paths,
     refresh_bridge_backed_review_state_payload,
 )
@@ -83,6 +84,7 @@ def load_current_review_state_payload(
     governance: "ProjectGovernance | None" = None,
     review_status_dir: Path | None = None,
     prefer_cached_projection: bool = True,
+    allow_live_refresh: bool = True,
 ) -> dict[str, object] | None:
     """Load the freshest typed review-state payload available for live consumers.
 
@@ -100,6 +102,11 @@ def load_current_review_state_payload(
     callers onto the legacy bridge-refresh compatibility root reintroduces
     stale current-slice / coordination text and breaks parity across startup,
     dashboard, and session-resume surfaces.
+
+    Internal callers that need the freshest *prior* typed payload during an
+    in-progress bridge-backed refresh may set ``allow_live_refresh=False``.
+    That keeps the read on the already-written payload and avoids recursively
+    re-entering ``refresh_status_snapshot()`` for the same output root.
     """
     resolved_governance = _resolve_governance(repo_root, governance=governance)
     candidate_paths = _existing_candidate_paths(
@@ -122,6 +129,13 @@ def load_current_review_state_payload(
         typed_path,
         repo_root=repo_root,
     ):
+        if allow_live_refresh and not prefer_cached_projection:
+            refreshed_event_payload = refresh_event_backed_review_state_payload(
+                repo_root,
+                governance=resolved_governance,
+            )
+            if refreshed_event_payload is not None:
+                return refreshed_event_payload
         return typed_payload
     if prefer_cached_projection and typed_payload is not None and (
         not freshness_paths
@@ -129,15 +143,19 @@ def load_current_review_state_payload(
     ):
         return typed_payload
 
-    refreshed = refresh_bridge_backed_review_state_payload(
-        repo_root,
-        governance=resolved_governance,
-        review_status_dir=review_status_dir,
-    )
-    if refreshed is not None:
-        return refreshed
+    if allow_live_refresh:
+        refreshed = refresh_bridge_backed_review_state_payload(
+            repo_root,
+            governance=resolved_governance,
+            review_status_dir=review_status_dir,
+        )
+        if refreshed is not None:
+            return refreshed
 
     if typed_payload is not None and not freshness_paths:
+        return typed_payload
+
+    if typed_payload is not None and not allow_live_refresh:
         return typed_payload
 
     if freshness_paths:

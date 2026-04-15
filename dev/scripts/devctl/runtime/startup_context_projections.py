@@ -23,9 +23,7 @@ def build_contract_ownership_map() -> dict[str, dict[str, object]]:
             "owner_layer": spec.owner_layer,
             "runtime_model": spec.runtime_model,
             "startup_surface_token_count": len(spec.startup_surface_tokens),
-            "startup_surface_tokens": bounded_startup_surface_tokens(
-                spec.startup_surface_tokens
-            ),
+            "startup_surface_tokens": list(spec.startup_surface_tokens),
         }
     return ownership
 
@@ -48,6 +46,9 @@ def bounded_contract_ownership_map(
             "CollaborationSession",
         } and runtime_model:
             row["runtime_model"] = runtime_model
+        token_count = int(payload.get("startup_surface_token_count") or 0)
+        if token_count > 0:
+            row["startup_surface_token_count"] = token_count
         tokens = _bounded_contract_tokens(payload.get("startup_surface_tokens"))
         if tokens:
             row["startup_surface_tokens"] = tokens
@@ -68,16 +69,6 @@ def _bounded_contract_tokens(value: object) -> list[str]:
         if len(seen) >= 2:
             break
     return seen
-
-
-def bounded_startup_surface_tokens(tokens: tuple[str, ...]) -> list[str]:
-    """Return the first token (preferring ``snapshot_id``) for the startup packet."""
-    if "snapshot_id" in tokens:
-        return ["snapshot_id"]
-    if not tokens:
-        return []
-    return [tokens[0]]
-
 
 def startup_coordination_dict(coordination: CoordinationSnapshot) -> dict[str, object]:
     """Bounded coordination projection for the startup packet surface.
@@ -141,6 +132,5 @@ def startup_coordination_dict(coordination: CoordinationSnapshot) -> dict[str, o
 __all__ = [
     "build_contract_ownership_map",
     "bounded_contract_ownership_map",
-    "bounded_startup_surface_tokens",
     "startup_coordination_dict",
 ]

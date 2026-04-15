@@ -18,7 +18,10 @@ from dev.scripts.devctl.commands.governance.startup_context import (
     _render_summary,
 )
 from dev.scripts.devctl.commands.governance import startup_context as startup_context_command
-from dev.scripts.devctl.platform.coordination_snapshot_models import CoordinationSnapshot
+from dev.scripts.devctl.platform.coordination_snapshot_models import (
+    CoordinationActorRecord,
+    CoordinationSnapshot,
+)
 from dev.scripts.devctl.runtime.startup_context import (
     ReviewerGateState,
     StartupContext,
@@ -166,6 +169,87 @@ class TestStartupContextBuild(unittest.TestCase):
             snapshot.next_command,
             'python3 dev/scripts/devctl.py commit -m "checkpoint"',
         )
+
+    def test_authority_snapshot_ignores_shared_instruction_without_codex_packet(self) -> None:
+        shared_instruction = (
+            "Priority action_request: Dogfood split-authority current-slice contradiction"
+        )
+        snapshot = build_authority_snapshot(
+            {
+                "coordination": {
+                    "resync_required": False,
+                    "current_slice": shared_instruction,
+                    "active_target": {
+                        "plan_path": "dev/active/ai_governance_platform.md",
+                    },
+                },
+                "current_session": {
+                    "current_instruction": shared_instruction,
+                    "current_instruction_revision": "rev123",
+                    "implementer_ack_state": "missing",
+                },
+                "packet_inbox": {
+                    "agents": [
+                        {
+                            "agent": "codex",
+                            "current_instruction_packet_id": "",
+                            "pending_actionable_packet_ids": [],
+                            "expired_unresolved_packet_ids": ["rev_pkt_0502"],
+                            "attention_status": "review_needed",
+                            "wake_reason": "expired_unresolved_packet",
+                        },
+                        {
+                            "agent": "claude",
+                            "current_instruction_packet_id": "rev_pkt_0523",
+                            "pending_actionable_packet_ids": ["rev_pkt_0523"],
+                            "expired_unresolved_packet_ids": [],
+                            "attention_status": "wake_required",
+                            "wake_reason": "action_request_pending",
+                        },
+                    ],
+                },
+                "reviewer_gate": {
+                    "reviewer_mode": "single_agent",
+                },
+                "implementation_permission": "active",
+                "attention": {
+                    "status": "review_needed",
+                    "summary": "Expired unresolved review packet remains visible.",
+                },
+            }
+        )
+
+        self.assertEqual(snapshot.current_slice, "")
+
+    def test_authority_snapshot_carries_actor_role_identity_and_allowed_actions(self) -> None:
+        snapshot = build_authority_snapshot(
+            {
+                "coordination": {
+                    "actors": [
+                        {
+                            "actor_id": "codex",
+                            "provider": "codex",
+                            "role": "reviewer",
+                            "presence": "live",
+                        },
+                        {
+                            "actor_id": "claude",
+                            "provider": "claude",
+                            "role": "implementer",
+                            "presence": "live",
+                        },
+                    ],
+                },
+            },
+            next_command="python3 dev/scripts/devctl.py review-channel --action status",
+            caller_role="reviewer",
+        )
+
+        self.assertEqual(snapshot.actor_role, "reviewer")
+        self.assertEqual(snapshot.actor_identity, "codex")
+        self.assertIn("review-channel.status", snapshot.allowed_actions)
+        self.assertIn("review.checkpoint", snapshot.allowed_actions)
+        self.assertIn("implementation.edit", snapshot.blocked_actions)
 
     def test_has_reviewer_gate(self) -> None:
         ctx = build_startup_context()
@@ -323,10 +407,13 @@ class TestStartupContextBuild(unittest.TestCase):
     def test_has_contract_ownership_map(self) -> None:
         ctx = build_startup_context()
         self.assertIn("ReviewState", ctx.contract_ownership_map)
-        self.assertIn(
-            "snapshot_id",
-            ctx.contract_ownership_map["ReviewState"]["startup_surface_tokens"],
+        review_state = ctx.contract_ownership_map["ReviewState"]
+        self.assertIn("snapshot_id", review_state["startup_surface_tokens"])
+        self.assertEqual(
+            review_state["startup_surface_token_count"],
+            len(review_state["startup_surface_tokens"]),
         )
+        self.assertGreater(review_state["startup_surface_token_count"], 1)
 
     def test_has_snapshot_id(self) -> None:
         ctx = build_startup_context()
@@ -346,6 +433,10 @@ class TestStartupContextBuild(unittest.TestCase):
         self.assertIn("match_evidence", d)
         self.assertIn("rejected_rule_traces", d)
         self.assertIn("contract_ownership_map", d)
+        review_state = d["contract_ownership_map"]["ReviewState"]
+        self.assertEqual(review_state["startup_surface_token_count"], 5)
+        self.assertLessEqual(len(review_state["startup_surface_tokens"]), 2)
+        self.assertIn("snapshot_id", review_state["startup_surface_tokens"])
         self.assertIn("snapshot_id", d)
         self.assertIn("observed_control_topology", d)
         self.assertIn("implementation_permission", d)
@@ -1857,6 +1948,22 @@ class TestCLIRegistration(unittest.TestCase):
             reviewer_gate=ReviewerGateState(),
             advisory_action="continue_editing",
             advisory_reason="clean_worktree",
+            coordination=CoordinationSnapshot(
+                actors=(
+                    CoordinationActorRecord(
+                        actor_id="codex",
+                        provider="codex",
+                        role="reviewer",
+                        presence="live",
+                    ),
+                    CoordinationActorRecord(
+                        actor_id="claude",
+                        provider="claude",
+                        role="implementer",
+                        presence="live",
+                    ),
+                )
+            ),
             current_session=ReviewCurrentSessionState(
                 current_instruction="checkpoint",
                 current_instruction_revision="rev123",
@@ -1873,7 +1980,9 @@ class TestCLIRegistration(unittest.TestCase):
                 safe_to_continue=False,
             ),
         )
-        args = build_parser().parse_args(["startup-context", "--format", "json"])
+        args = build_parser().parse_args(
+            ["startup-context", "--role", "reviewer", "--format", "json"]
+        )
         captured: dict[str, object] = {}
 
         def _fake_write(receipt, **_kwargs):
@@ -1914,6 +2023,10 @@ class TestCLIRegistration(unittest.TestCase):
             "rev123",
         )
         self.assertEqual(receipt.authority_snapshot.implementer_ack_state, "stale")
+        self.assertEqual(receipt.authority_snapshot.actor_role, "reviewer")
+        self.assertEqual(receipt.authority_snapshot.actor_identity, "codex")
+        self.assertIn("review.checkpoint", receipt.authority_snapshot.allowed_actions)
+        self.assertIn("implementation.edit", receipt.authority_snapshot.blocked_actions)
 
 
 class TestReviewerGateSemantics(unittest.TestCase):

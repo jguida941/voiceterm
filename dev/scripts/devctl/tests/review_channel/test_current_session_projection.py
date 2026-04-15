@@ -5,6 +5,7 @@ from __future__ import annotations
 from hashlib import sha256
 import tempfile
 from pathlib import Path
+from unittest.mock import patch
 
 from dev.scripts.devctl.review_channel.current_session_projection import (
     build_bridge_current_session,
@@ -18,6 +19,13 @@ from dev.scripts.devctl.review_channel.current_session_support import (
 from dev.scripts.devctl.review_channel.event_projection import (
     EventProjectionContext,
     enrich_event_review_state,
+)
+from dev.scripts.devctl.review_channel.event_projection_current_session import (
+    CurrentSessionResolvers,
+    resolve_current_session as resolve_event_projection_current_session,
+)
+from dev.scripts.devctl.review_channel.event_projection_bridge import (
+    build_event_bridge_liveness_projection,
 )
 from dev.scripts.devctl.review_channel.handoff import BridgeSnapshot
 from dev.scripts.devctl.review_channel.reviewer_state_normalize import (
@@ -158,6 +166,95 @@ def test_build_event_current_session_does_not_promote_findings_to_instruction() 
     assert state.open_findings == "1 pending review packet(s)"
 
 
+def test_build_event_current_session_surfaces_expired_unresolved_packets() -> None:
+    state = build_event_current_session(
+        review_state={
+            "review": {"plan_id": "MP-355"},
+            "queue": {
+                "pending_total": 0,
+                "pending_claude": 0,
+                "derived_next_instruction": "",
+            },
+            "packets": [
+                {
+                    "packet_id": "rev_pkt_expired",
+                    "status": "pending",
+                    "summary": "Operator override still needs attention",
+                    "body": "Expired unresolved packet.",
+                    "kind": "action_request",
+                    "from_agent": "operator",
+                    "to_agent": "codex",
+                    "requested_action": "review_only",
+                    "expires_at_utc": "2000-01-01T00:00:00Z",
+                }
+            ],
+            "registry": {
+                "agents": [
+                    {
+                        "agent_id": "claude",
+                        "job_state": "active",
+                    }
+                ]
+            },
+        },
+        bridge_liveness={
+            "current_instruction_revision": "abc123def456",
+            "claude_ack_revision": "",
+            "claude_ack_current": False,
+        },
+    )
+
+    assert state.current_instruction == ""
+    assert state.open_findings == "1 expired unresolved review packet(s)"
+
+
+def test_event_bridge_liveness_does_not_mark_none_as_open_findings() -> None:
+    payload = build_event_bridge_liveness_projection(
+        {
+            "timestamp": "2026-04-15T00:00:00Z",
+            "queue": {
+                "pending_total": 0,
+                "pending_claude": 0,
+                "derived_next_instruction": "",
+            },
+            "registry": {"agents": []},
+            "_compat": {},
+        }
+    )
+
+    assert payload["open_findings_present"] is False
+
+
+def test_event_bridge_liveness_marks_expired_unresolved_open_findings() -> None:
+    payload = build_event_bridge_liveness_projection(
+        {
+            "timestamp": "2026-04-15T00:00:00Z",
+            "queue": {
+                "pending_total": 0,
+                "pending_claude": 0,
+                "derived_next_instruction": "",
+            },
+            "packets": [
+                {
+                    "packet_id": "rev_pkt_expired",
+                    "status": "pending",
+                    "summary": "Expired unresolved finding",
+                    "body": "Still needs reviewer attention.",
+                    "kind": "finding",
+                    "from_agent": "claude",
+                    "to_agent": "codex",
+                    "requested_action": "review_only",
+                    "expires_at_utc": "2000-01-01T00:00:00Z",
+                }
+            ],
+            "registry": {"agents": []},
+            "_compat": {},
+        }
+    )
+
+    assert payload["open_findings_present"] is True
+
+
 def test_build_event_current_session_preserves_prior_instruction_when_queue_is_empty() -> None:
     state = build_event_current_session(
         review_state={
@@ -197,6 +294,226 @@ def test_build_event_current_session_preserves_prior_instruction_when_queue_is_e
     assert state.current_instruction == "Keep the checkpoint lane stable."
     assert state.current_instruction_revision == "typed-rev-999"
     assert state.implementer_status == "active"
+
+
+def test_build_event_current_session_clears_prior_instruction_when_packets_still_need_attention() -> None:
+    state = build_event_current_session(
+        review_state={
+            "review": {"plan_id": "MP-355"},
+            "queue": {
+                "pending_total": 0,
+                "pending_claude": 0,
+                "derived_next_instruction": "",
+            },
+            "packets": [
+                {
+                    "packet_id": "rev_pkt_expired",
+                    "status": "pending",
+                    "summary": "Old action request still needs review",
+                    "body": "Expired unresolved packet.",
+                    "kind": "action_request",
+                    "from_agent": "operator",
+                    "to_agent": "codex",
+                    "requested_action": "review_only",
+                    "expires_at_utc": "2000-01-01T00:00:00Z",
+                }
+            ],
+            "registry": {
+                "agents": [
+                    {
+                        "agent_id": "claude",
+                        "job_state": "active",
+                    }
+                ]
+            },
+        },
+        bridge_liveness={
+            "current_instruction_revision": "",
+            "claude_ack_revision": "",
+            "claude_ack_current": False,
+        },
+        prior_review_state={
+            "current_session": {
+                "current_instruction": "Keep the checkpoint lane stable.",
+                "current_instruction_revision": "typed-rev-999",
+                "implementer_ack": "Acknowledged instruction revision `typed-rev-999`",
+                "implementer_ack_revision": "typed-rev-999",
+                "implementer_ack_state": "current",
+                "open_findings": "none",
+                "last_reviewed_scope": "MP-355",
+            }
+        },
+    )
+
+    assert state.current_instruction == ""
+    assert state.current_instruction_revision == ""
+    assert state.open_findings == "1 expired unresolved review packet(s)"
+
+
+def test_event_projection_does_not_fall_back_to_bridge_instruction_when_packet_findings_exist() -> None:
+    with tempfile.TemporaryDirectory() as tmpdir:
+        root = Path(tmpdir)
+        bridge_path = root / "bridge.md"
+        bridge_path.write_text(
+            "\n".join(
+                [
+                    "# Review Channel",
+                    "",
+                    "## Current Instruction For Claude",
+                    "",
+                    "- stale bridge instruction",
+                    "",
+                ]
+            ),
+            encoding="utf-8",
+        )
+        current_session = resolve_event_projection_current_session(
+            review_state={
+                "review": {"plan_id": "MP-355"},
+                "queue": {
+                    "pending_total": 0,
+                    "pending_claude": 0,
+                    "derived_next_instruction": "",
+                },
+                "packets": [
+                    {
+                        "packet_id": "rev_pkt_expired",
+                        "status": "pending",
+                        "summary": "Expired unresolved packet",
+                        "body": "Still needs reviewer attention.",
+                        "kind": "action_request",
+                        "from_agent": "operator",
+                        "to_agent": "codex",
+                        "requested_action": "review_only",
+                        "expires_at_utc": "2000-01-01T00:00:00Z",
+                    }
+                ],
+                "registry": {"agents": []},
+            },
+            repo_root=root,
+            prior_review_state={
+                "current_session": {
+                    "current_instruction": "Keep the checkpoint lane stable.",
+                    "current_instruction_revision": "typed-rev-999",
+                    "open_findings": "none",
+                }
+            },
+            bridge_liveness={
+                "current_instruction_revision": "",
+                "claude_ack_revision": "",
+                "claude_ack_current": False,
+            },
+            resolvers=CurrentSessionResolvers(
+                build_event_current_session_fn=build_event_current_session,
+                build_bridge_current_session_fn=build_bridge_current_session,
+            ),
+        )
+
+    assert current_session.current_instruction == ""
+    assert current_session.open_findings == "1 expired unresolved review packet(s)"
+
+
+def test_event_projection_uses_persisted_packet_inbox_when_live_packets_are_partial() -> None:
+    with tempfile.TemporaryDirectory() as tmpdir:
+        root = Path(tmpdir)
+        bridge_path = root / "bridge.md"
+        bridge_path.write_text(
+            "\n".join(
+                [
+                    "# Review Channel",
+                    "",
+                    "## Current Instruction For Claude",
+                    "",
+                    "- Await reviewer instruction refresh.",
+                    "",
+                ]
+            ),
+            encoding="utf-8",
+        )
+        current_session = resolve_event_projection_current_session(
+            review_state={
+                "review": {"plan_id": "MP-355"},
+                "queue": {
+                    "pending_total": 1,
+                    "pending_claude": 1,
+                    "derived_next_instruction": (
+                        "Priority action_request: Dogfood split-authority "
+                        "current-slice contradiction"
+                    ),
+                },
+                "packets": [
+                    {
+                        "packet_id": "rev_pkt_0523",
+                        "status": "pending",
+                        "summary": "Dogfood split-authority current-slice contradiction",
+                        "body": "Verify the shared current-slice contradiction.",
+                        "kind": "action_request",
+                        "from_agent": "codex",
+                        "to_agent": "claude",
+                        "requested_action": "review_only",
+                        "expires_at_utc": "2999-01-01T00:00:00Z",
+                    }
+                ],
+                "packet_inbox": {
+                    "attention_revision": "packet-attention-rev",
+                    "agents": [
+                        {
+                            "agent": "codex",
+                            "current_instruction_packet_id": "",
+                            "latest_finding_packet_id": "rev_pkt_0522",
+                            "pending_actionable_packet_ids": [],
+                            "expired_unresolved_packet_ids": ["rev_pkt_0502"],
+                            "attention_status": "review_needed",
+                            "wake_reason": "expired_unresolved_packet",
+                            "required_command": (
+                                "python3 dev/scripts/devctl.py review-channel "
+                                "--action inbox --target codex --terminal none --format md"
+                            ),
+                            "attention_revision": "codex-attention-rev",
+                            "delivery_state": "unseen",
+                        },
+                        {
+                            "agent": "claude",
+                            "current_instruction_packet_id": "rev_pkt_0523",
+                            "latest_finding_packet_id": "rev_pkt_0517",
+                            "pending_actionable_packet_ids": ["rev_pkt_0523"],
+                            "expired_unresolved_packet_ids": [],
+                            "attention_status": "wake_required",
+                            "wake_reason": "action_request_pending",
+                            "required_command": (
+                                "python3 dev/scripts/devctl.py review-channel "
+                                "--action inbox --target claude --terminal none --format md"
+                            ),
+                            "attention_revision": "claude-attention-rev",
+                            "delivery_state": "notified",
+                        },
+                    ],
+                },
+                "registry": {"agents": []},
+            },
+            repo_root=root,
+            prior_review_state={
+                "current_session": {
+                    "current_instruction": "- stale typed instruction",
+                    "current_instruction_revision": "typed-rev-999",
+                    "open_findings": "none",
+                }
+            },
+            bridge_liveness={
+                "current_instruction_revision": "",
+                "claude_ack_revision": "",
+                "claude_ack_current": False,
+            },
+            resolvers=CurrentSessionResolvers(
+                build_event_current_session_fn=build_event_current_session,
+                build_bridge_current_session_fn=build_bridge_current_session,
+            ),
+        )
+
+    assert current_session.current_instruction == ""
+    assert current_session.open_findings == (
+        "1 pending review packet(s); 1 expired unresolved review packet(s)"
+    )
 
 
 def test_build_event_current_session_canonicalizes_instruction_markdown_revision() -> None:
@@ -265,7 +582,12 @@ def test_prior_typed_current_session_canonicalizes_instruction_markdown_revision
     )
 
 
-def test_enrich_event_review_state_recovers_bridge_instruction_when_typed_focus_is_blank() -> None:
+@patch(
+    "dev.scripts.devctl.review_channel.event_projection.attach_conductor_session_state",
+)
+def test_enrich_event_review_state_recovers_bridge_instruction_when_typed_focus_is_blank(
+    _attach_conductor_session_state_mock,
+) -> None:
     with tempfile.TemporaryDirectory() as tmpdir:
         root = Path(tmpdir)
         bridge_path = root / "bridge.md"
@@ -552,3 +874,42 @@ def test_resolve_current_session_authority_recovers_bridge_session_when_prior_is
 
     assert resolved.current_instruction == "- Recover the live bridge checkpoint."
     assert resolved.current_instruction_revision == "bridge-rev-123"
+
+
+def test_resolve_current_session_authority_ignores_bridge_wait_placeholder() -> None:
+    resolved = resolve_current_session_authority(
+        snapshot=BridgeSnapshot(
+            metadata={"current_instruction_revision": "bridge-rev-123"},
+            sections={
+                "Current Instruction For Claude": "- Await reviewer instruction refresh.",
+                "Claude Status": "- waiting for review",
+                "Claude Questions": "",
+                "Claude Ack": "- pending",
+                "Open Findings": "193 expired unresolved review packet(s)",
+                "Last Reviewed Scope": "- MP-355",
+            },
+        ),
+        bridge_liveness={
+            "current_instruction_revision": "bridge-rev-123",
+            "claude_ack_revision": "",
+            "claude_ack_current": False,
+            "reviewer_freshness": "fresh",
+        },
+        prior_review_state={
+            "current_session": {
+                "current_instruction": "",
+                "current_instruction_revision": "",
+                "implementer_status": "- Status unavailable.",
+                "implementer_ack": "pending",
+                "implementer_ack_revision": "",
+                "implementer_ack_state": "missing",
+                "implementer_state_hash": "typed-hash",
+                "open_findings": "193 expired unresolved review packet(s)",
+                "last_reviewed_scope": "MP-355",
+            }
+        },
+    )
+
+    assert resolved.current_instruction in {"", "(missing)"}
+    assert resolved.current_instruction_revision == ""
+    assert resolved.open_findings == "193 expired unresolved review packet(s)"

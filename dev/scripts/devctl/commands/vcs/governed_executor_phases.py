@@ -26,6 +26,7 @@ from .governed_executor_git import (
     dirty_paths,
     index_tree_hash_result,
     normalize_paths,
+    pipeline_is_stale_for_current_repo,
     staged_diff_summary,
     staged_paths,
 )
@@ -101,7 +102,11 @@ def _check_stage_preconditions(
     if attention_revision_block is not None:
         return attention_revision_block
     current = load_pipeline()
-    if current.pipeline_id and current.state in _ACTIVE_PIPELINE_STATES:
+    if (
+        current.pipeline_id
+        and current.state in _ACTIVE_PIPELINE_STATES
+        and not pipeline_is_stale_for_current_repo(current, repo_root=repo_root)
+    ):
         return result_builder(
             action_id=action.action_id,
             ok=False,

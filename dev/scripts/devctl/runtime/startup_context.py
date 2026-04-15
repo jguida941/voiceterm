@@ -56,8 +56,6 @@ from .work_intake import (
 from .work_intake_coordination import build_work_intake_coordination_state
 from .work_intake_ownership import build_work_intake_ownership_state
 
-_MAX_STARTUP_SURFACE_TOKENS = 1
-
 
 @dataclass(frozen=True, slots=True)
 class ReviewerGateState:

@@ -20,16 +20,22 @@ def load_target_packets(
     status_filter: str | None = None,
 ) -> tuple[object, list[dict[str, object]]]:
     """Load target-filtered packets and refresh after action-request observation."""
+    effective_status_filter = (
+        status_filter
+        if status_filter is not None
+        else getattr(args, "status", None)
+    )
     packets = filter_inbox_packets(
         bundle.review_state,
         target=getattr(args, "target", None),
-        status=status_filter if status_filter is not None else getattr(args, "status", None),
+        status=effective_status_filter,
         limit=args.limit,
     )
     if _mark_targeted_action_request_observation(
         args=args,
         artifact_paths=artifact_paths,
         packets=packets,
+        status_filter=effective_status_filter,
     ):
         bundle = refresh_event_bundle(
             repo_root=repo_root,
@@ -39,7 +45,7 @@ def load_target_packets(
         packets = filter_inbox_packets(
             bundle.review_state,
             target=getattr(args, "target", None),
-            status=status_filter if status_filter is not None else getattr(args, "status", None),
+            status=effective_status_filter,
             limit=args.limit,
         )
     return bundle, packets
@@ -70,9 +76,12 @@ def _mark_targeted_action_request_observation(
     args,
     artifact_paths,
     packets: list[dict[str, object]],
+    status_filter: str | None,
 ) -> bool:
     target = str(getattr(args, "target", None) or "").strip()
     if not target:
+        return False
+    if status_filter not in {None, "", "pending"}:
         return False
     return mark_action_request_packets_observed(
         artifact_root=Path(artifact_paths.artifact_root),

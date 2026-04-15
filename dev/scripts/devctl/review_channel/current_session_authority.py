@@ -13,6 +13,7 @@ from ..runtime.review_state_models import ReviewCurrentSessionState
 _BRIDGE_ROLLOVER_FALLBACK_MARKERS = (
     "stop at a safe boundary",
     "relaunch before compaction",
+    "await reviewer instruction refresh",
 )
 
 
@@ -40,7 +41,7 @@ def prefer_bridge_current_session(
 
 def _bridge_rollover_fallback_instruction(current_instruction: str) -> bool:
     """Return whether the bridge instruction is a rollover/relaunch placeholder."""
-    normalized = _normalize_instruction_body(current_instruction)
+    normalized = _normalize_instruction_body(current_instruction).lower()
     return any(marker in normalized for marker in _BRIDGE_ROLLOVER_FALLBACK_MARKERS)
 
 

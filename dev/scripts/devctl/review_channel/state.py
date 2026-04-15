@@ -7,7 +7,10 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from ..runtime.review_state_models import RecoveryAssessmentState, ReviewState
-from ..runtime.review_state_locator import load_review_state_payload
+from ..runtime.review_state_locator import (
+    load_current_review_state_payload,
+    load_review_state_payload,
+)
 from .bridge_validation import validate_live_bridge_contract
 from .core import LaneAssignment, project_id_for_repo
 from .daemon_reducer import build_lifecycle_runtime_state
@@ -319,6 +322,9 @@ def _build_reduced_runtime(
 
 def _sync_status_input_hooks() -> None:
     _state_status_inputs_mod.load_review_state_payload = load_review_state_payload
+    _state_status_inputs_mod.load_current_review_state_payload = (
+        load_current_review_state_payload
+    )
     _state_status_inputs_mod.compute_non_audit_worktree_hash = (
         compute_non_audit_worktree_hash
     )

@@ -77,11 +77,11 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: ``
-- Last Codex poll (Local America/New_York): ``
+- Last Codex poll: `2026-04-15T17:49:06Z`
+- Last Codex poll (Local America/New_York): `2026-04-15 13:49:06 EDT`
 - Reviewer mode: `active_dual_agent`
-- Last non-audit worktree hash: `6fd3232868e2510718f41d9252f8f55c435ba250a69317e98ddcf78b216a4a2a`
-- Current instruction revision: `6ef1ffd68926`
+- Last non-audit worktree hash: `f5e9b3c607e9c138b8a5a433ffb5dc223b122dcae65bc87374bbb53ff4af32dc`
+- Current instruction revision: `12954e60379e`
 
 ## Protocol
 
@@ -113,7 +113,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Poll Status
 
-- Reviewer state unavailable.
+- Reviewer heartbeat refreshed through repo-owned tooling (mode: active_dual_agent; reason: reviewer-follow; reviewed-tree: f5e9b3c607e9).
 
 ## Current Verdict
 
@@ -121,7 +121,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Open Findings
 
-1 pending review packet(s)
+2 pending review packet(s); 193 expired unresolved review packet(s)
 
 ## Claude Status
 
@@ -137,12 +137,7 @@ pending
 
 ## Current Instruction For Claude
 
-- Priority action_request: Dogfood pushed dashboard daemon-liveness fix at 9c63556a
-- Context packet: trigger `review-channel-event`; query terms: `dev/scripts/devctl.py`, `review-channel`, `dashboard`
-- Canonical refs:
-  - `dev/scripts/devctl/cli.py`
-  - `dev/scripts/devctl/commands/dashboard.py`
-  - `dev/scripts/devctl/commands/governance/session_resume_support.py`
+- Await reviewer instruction refresh.
 
 ## Last Reviewed Scope
 

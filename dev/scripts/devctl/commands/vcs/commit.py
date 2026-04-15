@@ -2,187 +2,34 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from pathlib import Path
 
 from ...config import REPO_ROOT
 from ...governance.push_policy import load_push_policy
-from ...review_channel.events import post_packet, resolve_artifact_paths, transition_packet
-from ...review_channel.packet_contract import PacketTransitionRequest
-from ...runtime.action_contracts import ActionOutcome
 from ...runtime.commit_permission import build_commit_permission_decision_for_executor
-from ...runtime.control_plane_read_model import build_control_plane_read_model
-from ...runtime.governance_scan import scan_repo_governance_safely
-from ...runtime.operator_context import OperatorInteractionMode, resolve_operator_interaction_mode
 from .commit_caller_role import caller_role_report
 from .commit_guard_bundle import (
-    GUARD_PROFILE,
     _pipeline_has_validation_plan,
     guard_result,
     pipeline_has_checkpoint_snapshot as _pipeline_has_checkpoint_snapshot,
     run_guard_bundle,
 )
-from .governed_executor import GovernedVcsExecutor
-from .governed_executor_actions import APPROVAL_PACKET_KIND, _build_report, _emit_report, build_commit_action, build_stage_action
-from .governed_executor_packets import build_commit_approval_decision, build_commit_approval_request
-from .governed_executor_sync import sync_pipeline_approval
-
-_REUSABLE_PIPELINE_STATES = frozenset(
-    {
-        "staged",
-        "guards_running",
-        "guards_passed",
-        "operator_approval_pending",
-        "approved",
-        "commit_pending",
-    }
+from .commit_guard_replay import (
+    pipeline_needs_guard_replay,
+    replay_pipeline_guards,
 )
-_PIPELINE_BLOCKING_STATES = frozenset({"commit_recorded", "push_pending"})
+from .commit_preflight import ensure_pipeline_approval, prepare_pipeline, resolve_interaction_mode
+from .commit_passthrough import (
+    CommitPassthrough,
+    build_git_commit_cmd as _build_git_commit_cmd,
+    parse_passthrough as _parse_passthrough,
+)
+from .governed_executor import GovernedVcsExecutor
+from .governed_executor_actions import _build_report, _emit_report, build_commit_action
 
 # Compatibility re-export while commit guard helpers live in their own module.
 _run_guard_bundle = run_guard_bundle
-
-
-@dataclass(frozen=True, slots=True)
-class CommitPassthrough:
-    """Supported passthrough flags for the governed commit path."""
-
-    allow_empty: bool = False
-    no_edit: bool = False
-    unsupported: tuple[str, ...] = ()
-
-def _resolve_interaction_mode(repo_root: Path) -> str:
-    """Return the current operator interaction mode for commit approval."""
-    try:
-        governance = scan_repo_governance_safely(repo_root)
-        model = build_control_plane_read_model(
-            repo_root,
-            governance=governance,
-        )
-    except (OSError, ValueError):
-        return "unresolved"
-    return str(model.operator_interaction_mode or "").strip() or "unresolved"
-
-
-def _should_auto_approve(interaction_mode: str) -> bool:
-    """Only promptless on-box modes self-approve via typed packets.
-
-    ``local_terminal`` (operator is physically at the repo machine and can
-    confirm the commit inline) and ``single_agent`` (no human-in-the-loop
-    by design) are the two modes that may synthesize an applied operator
-    decision locally. ``remote_control`` intentionally does NOT self-
-    approve: the operator is off-box and cannot confirm in person, so
-    the governed commit must wait for a typed approval packet or
-    action-request path to be applied by the remote operator. Collapsing
-    that approval boundary was F1 in the Codex review and is the reason
-    we no longer include ``remote_control`` in this set.
-    """
-    mode = resolve_operator_interaction_mode(str(interaction_mode or "").strip()).value
-    return mode in {
-        OperatorInteractionMode.LOCAL_TERMINAL.value,
-        OperatorInteractionMode.SINGLE_AGENT.value,
-    }
-
-
-def _ensure_approval_request(
-    executor: GovernedVcsExecutor,
-    pipeline,
-) -> str:
-    """Post the typed approval request once per governed pipeline."""
-    synced = sync_pipeline_approval(
-        pipeline,
-        executor._event_packets(),
-        approval_packet_kind=APPROVAL_PACKET_KIND,
-    )
-    if synced.approval_packet_id or synced.approval_state == "approved":
-        executor._persist_pipeline(synced)
-        return synced.approval_packet_id
-    artifact_paths = resolve_artifact_paths(repo_root=executor.repo_root)
-    _, event = post_packet(
-        repo_root=executor.repo_root,
-        review_channel_path=executor.review_channel_path,
-        artifact_paths=artifact_paths,
-        request=build_commit_approval_request(pipeline),
-    )
-    return str(event.get("packet_id") or "").strip()
-
-
-def _apply_local_approval(executor: GovernedVcsExecutor, pipeline) -> None:
-    """Record request + applied operator decision for local terminal commits."""
-    artifact_paths = resolve_artifact_paths(repo_root=executor.repo_root)
-    request_packet_id = _ensure_approval_request(executor, pipeline)
-    if request_packet_id:
-        try:
-            transition_packet(
-                repo_root=executor.repo_root,
-                review_channel_path=executor.review_channel_path,
-                artifact_paths=artifact_paths,
-                request=PacketTransitionRequest(
-                    action="apply",
-                    packet_id=request_packet_id,
-                    actor="operator",
-                ),
-            )
-        except ValueError:
-            pass
-    _, decision_event = post_packet(
-        repo_root=executor.repo_root,
-        review_channel_path=executor.review_channel_path,
-        artifact_paths=artifact_paths,
-        request=build_commit_approval_decision(
-            pipeline,
-            summary=f"Local terminal approval for `{pipeline.pipeline_id}`",
-            body=(
-                "The local terminal operator approved the guarded staged "
-                "snapshot for governed commit execution."
-            ),
-        ),
-    )
-    transition_packet(
-        repo_root=executor.repo_root,
-        review_channel_path=executor.review_channel_path,
-        artifact_paths=artifact_paths,
-        request=PacketTransitionRequest(
-            action="apply",
-            packet_id=str(decision_event.get("packet_id") or ""),
-            actor="operator",
-        ),
-    )
-
-
-def _parse_passthrough(args) -> CommitPassthrough:
-    """Normalize supported passthrough flags and reject the rest."""
-    allow_empty = False
-    no_edit = False
-    unsupported: list[str] = []
-    for value in getattr(args, "passthrough", None) or ():
-        flag = str(value or "").strip()
-        if not flag:
-            continue
-        if flag == "--allow-empty":
-            allow_empty = True
-            continue
-        if flag == "--no-edit":
-            no_edit = True
-            continue
-        unsupported.append(flag)
-    return CommitPassthrough(
-        allow_empty=allow_empty,
-        no_edit=no_edit,
-        unsupported=tuple(unsupported),
-    )
-
-
-def _build_git_commit_cmd(args) -> list[str]:
-    """Compatibility helper used by parser tests and docs."""
-    cmd = ["git", "commit"]
-    if getattr(args, "message", None):
-        cmd.extend(["-m", args.message])
-    if getattr(args, "amend", False):
-        cmd.append("--amend")
-    extra = getattr(args, "passthrough", None) or []
-    cmd.extend(extra)
-    return cmd
+_resolve_interaction_mode = resolve_interaction_mode
 
 
 def _commit_permission_report(vcs_executor: GovernedVcsExecutor) -> dict[str, object] | None:
@@ -242,57 +89,23 @@ def run_commit(
     if permission_report is not None:
         _emit_report(args, permission_report)
         return 1
-    stage_warnings: list[str] = []
-
-    pipeline = vcs_executor.load_pipeline()
-    if pipeline.pipeline_id and pipeline.state in _PIPELINE_BLOCKING_STATES:
-        report = _build_report(
-            status="blocked",
-            reason="active_pipeline_requires_publish_or_recovery",
-            pipeline_id=pipeline.pipeline_id,
-            pipeline_state=pipeline.state,
-            guidance=(
-                "Finish the current governed publish flow or recover the "
-                "existing pipeline before creating another commit."
-            ),
-        )
-        _emit_report(args, report)
+    pipeline, stage_warnings, preflight_report = prepare_pipeline(
+        args=args,
+        repo_root=repo_root,
+        resolved_policy=resolved_policy,
+        vcs_executor=vcs_executor,
+    )
+    if preflight_report is not None:
+        _emit_report(args, preflight_report)
         return 1
 
-    if not pipeline.pipeline_id or pipeline.state not in _REUSABLE_PIPELINE_STATES:
-        stage_result = vcs_executor.execute(
-            build_stage_action(
-                repo_pack_id=resolved_policy.repo_pack_id,
-                commit_message_draft=str(getattr(args, "message", "") or ""),
-                push_requested=False,
-                guard_profile=GUARD_PROFILE,
-                work_intake_ref="devctl.commit",
-                reuse_staged_index=True,
-                allow_empty=passthrough.allow_empty,
-                requested_by="devctl.commit",
-            )
-        )
-        pipeline = vcs_executor.load_pipeline()
-        stage_warnings = list(stage_result.warnings)
-        if not stage_result.ok:
-            report = _build_report(
-                status="blocked",
-                reason=stage_result.reason,
-                pipeline_id=pipeline.pipeline_id,
-                pipeline_state=pipeline.state,
-                operator_guidance=stage_result.operator_guidance,
-                warnings=list(stage_result.warnings),
-            )
-            _emit_report(args, report)
-            return 1
-
-    if pipeline.guard_result is None or pipeline.guard_result.status != ActionOutcome.PASS:
-        guard_rc = run_guard_bundle(
+    if pipeline_needs_guard_replay(pipeline):
+        guard_rc, pipeline = replay_pipeline_guards(
+            vcs_executor=vcs_executor,
             repo_root=repo_root,
-            runner=guard_runner,
+            guard_runner=guard_runner,
             pipeline=pipeline,
         )
-        pipeline = vcs_executor.record_guard_result(guard_result(guard_rc))
         if guard_rc != 0:
             report = _build_report(
                 status="blocked",
@@ -305,12 +118,16 @@ def run_commit(
             _emit_report(args, report)
             return 1
 
-    resolved_mode = interaction_mode or _resolve_interaction_mode(repo_root)
-    if pipeline.approval_state != "approved":
-        if _should_auto_approve(resolved_mode):
-            _apply_local_approval(vcs_executor, pipeline)
-        else:
-            _ensure_approval_request(vcs_executor, pipeline)
+    resolved_mode = interaction_mode or resolve_interaction_mode(repo_root)
+    pipeline, approval_report = ensure_pipeline_approval(
+        vcs_executor=vcs_executor,
+        pipeline=pipeline,
+        resolved_mode=resolved_mode,
+        stage_warnings=stage_warnings,
+    )
+    if approval_report is not None:
+        _emit_report(args, approval_report)
+        return 1
 
     commit_result = vcs_executor.execute(
         build_commit_action(

@@ -3221,7 +3221,7 @@ Phase metadata: phase_id=MP377-P1; owner_doc=`dev/active/ai_governance_platform.
       owner_doc: `dev/active/ai_governance_platform.md`
       status: `pending`
       depends_on: `MP377-P1-T04`
-- [ ] `MP377-P1-T06` Collapse reviewer/runtime authority onto one canonical producer tick: `refresh_status_snapshot`, `load_current_review_state`, `review_state_parser`, `commit_pipeline` artifact writes, `AuthoritySnapshot`, and `CoordinationSnapshot` must share one snapshot/generation identity and one reducer-owned field route for liveness, pending packets, current slice, commit approval, and push readiness.
+- [ ] `MP377-P1-T06` Collapse reviewer/runtime authority onto one canonical producer tick: `refresh_status_snapshot`, `load_current_review_state`, `review_state_parser`, `commit_pipeline` artifact writes, `AuthoritySnapshot`, and `CoordinationSnapshot` must share one snapshot/generation identity and one reducer-owned field route for liveness, pending packets, current slice, commit approval, and push readiness. `packet_inbox` must become the sole continue-vs-wait authority for reviewer/implementer coordination so startup/session/status cannot drift back to chat-local `Claude Ack` or bridge prose when packet truth is degraded.
       owner_doc: `dev/active/remote_control_runtime.md`
       status: `pending`
       depends_on: `MP377-P1-T03`
@@ -3229,7 +3229,7 @@ Phase metadata: phase_id=MP377-P1; owner_doc=`dev/active/ai_governance_platform.
       owner_doc: `dev/active/remote_commit_pipeline.md`
       status: `pending`
       depends_on: `MP377-P1-T06`
-- [ ] `MP377-P1-T08` Emit one typed liveness/wake/death signal family for reviewer, implementer, publisher, and observer consumers so dashboard/mobile/startup/status can distinguish `alive`, `degraded`, `detached_runtime_only`, and `dead` from one producer instead of mixing heartbeat prose, PID guesses, and bridge hints.
+- [ ] `MP377-P1-T08` Emit one typed liveness/wake/death signal family for reviewer, implementer, publisher, and observer consumers so dashboard/mobile/startup/status can distinguish `alive`, `degraded`, `detached_runtime_only`, and `dead` from one producer instead of mixing heartbeat prose, PID guesses, and bridge hints. Compatibility projections like `Claude Ack` and bridge heartbeat sections may mirror that state, but they must not remain independent wake/repair gates once typed runtime evidence exists.
       owner_doc: `dev/active/remote_control_runtime.md`
       status: `pending`
       depends_on: `MP377-P1-T06`
@@ -5142,6 +5142,146 @@ working on `MP-377`.
   `rev_pkt_0414` is the next architecture request on deck after this
   checkpoint: add a typed WakeSignal / wake-fanout / agent-consumer-registry
   lane so Codex-to-Claude delivery is not stuck behind Claude-side polling.
+- 2026-04-15 cross-surface attention convergence follow-up:
+  the remaining `rev_pkt_0534` split is no longer live. Event-backed review
+  state enrichment now attaches the same typed conductor session state as
+  bridge-backed `review-channel status` before recovery assessment runs, so
+  `review-channel status`, `startup-context`, `session-resume`, and
+  `dashboard` all agree on
+  `attention.status=review_loop_relaunch_required` for the current repo
+  state. Checkpoint sequencing still lives in `advisory_action` /
+  `push_decision`, but runtime diagnosis is now one producer path instead of
+  a status-vs-dashboard split. Before commit/push, rerun
+  `docs-check --strict-tooling`: Claude confirmed via `rev_pkt_0540` and
+  `rev_pkt_0541` that `bundle.tooling` routes there authoritatively for this
+  change set.
+- 2026-04-15 control-plane error-handling follow-up:
+  the next real system-reported hotspot from Claude's `rev_pkt_0535`
+  governance-review lane is now partially closed too. The hot-path control
+  plane reader no longer hides git probe failures behind
+  `branch=unknown/head=unknown`: `runtime/control_plane_resolve.py::load_git_state()`
+  now raises a typed `ControlPlaneGitStateError` with causal `from exc`
+  context on `OSError` / `subprocess.TimeoutExpired`, and the read-model path
+  preserves that fail-closed behavior instead of silently treating missing git
+  state as benign. Focused proof is green in
+  `test_control_plane_read_model.py::GitStateFailureTests`.
+- 2026-04-15 bridge-backed attention-priority follow-up:
+  the live relaunch-vs-poll-due split reopened inside the shared classifier,
+  not in a renderer. `review-channel --action status --refresh-bridge-heartbeat-if-stale`
+  had started emitting `attention.status=reviewer_poll_due` even while the
+  same bridge payload still carried `launch_truth=hybrid_claude_only`,
+  `live_reviewer_total=0`, and detached-runtime contract errors; meanwhile
+  `startup-context --format summary` still correctly surfaced
+  `review_loop_relaunch_required`. The bounded fix is now in the shared
+  attention reducer: detached/hybrid launch truth short-circuits freshness in
+  `attention_classify.py` so bridge-backed status cannot downgrade a dead
+  reviewer loop to a heartbeat warning. Focused proof is green on the new
+  `test_attention_prioritizes_relaunch_over_poll_due_for_hybrid_claude_only`
+  regression plus the existing hybrid event-projection/status tests, and live
+  proof is green again on both `review-channel --action status ...` and
+  `startup-context --format summary`, which now agree on
+  `attention_status=review_loop_relaunch_required`. The next blocker after
+  this slice is only the real runtime approval boundary:
+  operator-approved `review-channel --action launch` / `rollover`.
+- 2026-04-15 action-request queue hot-path follow-up:
+  the repo-owned coordination lane slowdown was not the 18k-event reducer
+  itself. Direct timing on `refresh_event_bundle()` stayed near 1.5s on the
+  current event log, but event-backed `review-channel post` / `inbox` reads
+  were still taking tens of seconds whenever a pending `action_request`
+  existed because queue derivation rebuilt a context-graph escalation packet
+  on every read for the selected pending action-request. The shared queue path
+  now skips `build_event_context_packet()` for selected
+  `kind=action_request` packets while preserving the actionable summary and
+  control metadata (`packet_id`, selection policy, wake_required,
+  requested_action). Focused proof is green on the new
+  `test_action_request_priority_skips_expensive_context_packet_build` plus the
+  existing plan-packet action-request regressions, and live proof is green on
+  `python3 dev/scripts/devctl.py review-channel --action inbox --target claude
+  --terminal none --format json --execution-mode markdown-bridge --limit 1`,
+  which now completes in about 2.2s on the current repo state. Claude also
+  acked the clean observer request `rev_pkt_0547`; the malformed duplicate
+  `rev_pkt_0546` and timing probe `rev_pkt_0548` were explicitly dismissed so
+  packet backlog stayed clean.
+- 2026-04-15 startup contract-ownership projection follow-up:
+  the older `startup_surface_tokens_unpopulated` governance row was stale in
+  one real way: `startup-context` had grown a `contract_ownership_map`, but it
+  still collapsed startup-surface tokens down to a misleading one-token-only
+  preview before JSON serialization. The bounded repair now keeps the full
+  `startup_surface_tokens` list inside `StartupContext`, emits
+  `startup_surface_token_count` plus a bounded preview in
+  `startup-context --format json`, and removes the stale single-token limiter
+  from `runtime/startup_context.py`. Focused proof is green on
+  `test_startup_context.py` (`contract_ownership_map` / `to_dict` cases), live
+  proof is green on both `startup-context --format json` and
+  `startup-context --format summary` on the current repo state
+  (`ReviewState.startup_surface_token_count=5` with a bounded preview starting
+  at `snapshot_id`, while summary still reports
+  `action=checkpoint_before_continue`,
+  `reason=staged_index_budget_exceeded`, and
+  `attention_status=review_loop_relaunch_required`), and both
+  `check_platform_contract_closure.py` and `check_code_shape.py` stay green.
+  Local dogfood is recorded as `dogfood-95f32b3f4406`, governance-review
+  finding `2146d8ee3f303af6` is now fixed, Claude's PASS on the earlier
+  action-request queue hot path landed as `rev_pkt_0553` and is acked, and the
+  startup-slice observer request `rev_pkt_0554` has now closed cleanly too:
+  Claude's PASS landed as `rev_pkt_0555` and is acked.
+- 2026-04-15 authority-snapshot actor identity follow-up:
+  the older `authority_snapshot_3_fields_missing` architecture finding stayed
+  materially open after the first reducer pass: `AuthoritySnapshot` already
+  carried `allowed_actions`, but the startup projection still omitted
+  `actor_role` and `actor_identity`. The bounded repair now extends the shared
+  authority snapshot contract/core reducer so startup JSON and the generated
+  startup receipt both persist `actor_role`, `actor_identity`, and bounded
+  `allowed_actions` from the same typed snapshot
+  (`authority_snapshot.actor_role=implementer`,
+  `authority_snapshot.actor_identity=claude` on the current repo state). The
+  actor-resolution logic was extracted into
+  `runtime/authority_snapshot_actor.py` so `authority_snapshot_build.py` stays
+  under the code-shape soft limit. Focused proof is green on
+  `test_startup_context.py` authority-snapshot cases,
+  `test_session_resume.py` authority-snapshot roundtrip,
+  `check_platform_contract_closure.py`, and `check_code_shape.py`; local
+  dogfood is recorded as `dogfood-52ab6f07e6dd`, and governance-review finding
+  `8487d1d61d49efb9` is now fixed. Claude dogfood for this slice also closed
+  cleanly: request `rev_pkt_0556` was acked by Claude, PASS landed as
+  `rev_pkt_0557`, and Codex acked it.
+- 2026-04-15 governed-commit guard-bundle unblock:
+  the staged `MP-377` tree hit a real governed-commit stop, not just stale
+  review-loop posture: `devctl commit` reached the guard bundle and failed on
+  one duplicated packet-attention helper pair, five new high-parameter
+  functions, and one large dict literal. The unblock stayed surgical inside the
+  dirty worktree: current-session packet attention now resolves through the new
+  shared helper `review_channel/current_session_attention.py`, the
+  event-projection/reducer/heartbeat/authority helpers now pass typed resolver
+  or input objects instead of widening function signatures, and
+  `session_resume_authority_payload.py` now serializes the packet-attention
+  agent payload through `asdict()` instead of a new oversized dict literal.
+  Focused proof is green on `test_current_session_projection.py`,
+  `test_session_liveness_events.py`, targeted `test_startup_context.py`
+  authority-snapshot cases, targeted `test_session_resume.py` review-state
+  context/authority roundtrip, and the four blocking shape guards
+  (`check_function_duplication.py`, `check_structural_similarity.py`,
+  `check_parameter_count.py`, `check_python_dict_schema.py`). Local dogfood is
+  recorded as `dogfood-baf0d7aa6e50`; Claude observer request `rev_pkt_0558`
+  has already closed cleanly too: PASS landed as `rev_pkt_0559`, and Codex
+  acked it before rerunning the governed checkpoint.
+- 2026-04-15 governed commit validation-receipt replay:
+  the next governed retry exposed a real reuse-path automation gap:
+  `devctl commit` only replayed the routed guard bundle when
+  `guard_result` was missing/failing, so a reusable approved pipeline could
+  still fail closed on `validation_receipt_missing` after the staged tree
+  and operator decision were already intact. The fix is surgical and
+  modularized: `commands/vcs/commit.py` now delegates reusable-pipeline
+  receipt recovery through the new `commands/vcs/commit_guard_replay.py`
+  helper whenever `validation_receipt` is missing, stale, or
+  checkpoint-insufficient, then resyncs approval before `vcs.commit`
+  proceeds. Regression coverage in `tests/vcs/test_commit_gate.py` now
+  builds an approved pipeline with `validation_receipt=None` and proves the
+  receipt is rebuilt, the guard bundle reruns exactly once, and the commit
+  records cleanly. Focused proof is green on
+  `python3 -m unittest dev.scripts.devctl.tests.vcs.test_commit_gate.TestGovernedCommitPipeline.test_commit_replays_guards_when_approved_pipeline_loses_validation_receipt -v`
+  plus `check_code_shape.py`; local dogfood is `dogfood-fc22bfd092ff`, and
+  Claude dogfood request `rev_pkt_0562` is now posted on the packet lane.
 - 2026-04-13 dogfood engine follow-up:
   the dogfood engine now closes through the same findings spine as the rest
   of the platform: `governance-review --record` writes through the canonical
@@ -5166,6 +5306,149 @@ working on `MP-377`.
   one field route, then make governed commit/push refresh and consume that
   state automatically so phone operators stop fighting stale `dashboard`,
   `bridge.md`, and preflight artifacts by hand.
+- 2026-04-15 operator-directed convergence order:
+  use this umbrella plan as the only writable execution surface for the
+  current redesign; do not create another planning doc. The priority order is
+  now explicit for the next execution loop:
+  `MP377-P1-T04/T05` first so plan authority moves into persisted
+  `PlanRegistry` / `PlanTargetRef` state and markdown becomes a bounded
+  projection, `MP377-P1-T06` second so startup/status/dashboard/commit all
+  read one producer snapshot, `MP377-P1-T07` third so governed mutation
+  self-heals stale projections and closes the `Q100` attention-revision race,
+  `MP377-P1-T08` fourth so reviewer/implementer/publisher/observer liveness
+  comes from one typed signal family, then `MP377-P2-T05/T06` so dogfood and
+  observer-boundary enforcement become the default operating path instead of
+  operator memory. Live evidence for this order on the repo state at
+  `1271a075`:
+  `startup-context` still reports `ahead_of_upstream_commits=1` while
+  `review-channel --action status` reports `Ahead: 0`, the same status frame
+  reports `Infra: Down (0 daemons running)` with one pending action request,
+  and the worktree is otherwise clean. Treat any further cross-surface drift
+  as a reducer/runtime bug to close before widening features.
+- 2026-04-15 ensure-follow bootstrap repair:
+  the mandatory repair path itself was broken on the repo state at
+  `1271a075`: `python3 dev/scripts/devctl.py review-channel --action ensure
+  --follow --terminal none --format json --execution-mode markdown-bridge
+  --follow-inactivity-timeout-seconds 0` crashed before any relaunch because
+  the publisher tried to emit typed `MonitorSnapshotPaths` directly into the
+  NDJSON follow stream. `follow_stream.emit_follow_ndjson_frame` now
+  normalizes dataclasses / `to_dict()` payloads / `Path` values into JSON-safe
+  structures before emission, the regression is covered in
+  `dev/scripts/devctl/tests/review_channel/test_follow_controller.py`, and
+  the bounded live proof
+  (`review-channel --action ensure --follow ... --max-follow-snapshots 1`)
+  now emits a real JSON frame with `monitor_snapshot.{root_dir,json_path,markdown_path}`
+  instead of raising `TypeError`. Dogfood row
+  `command:review-channel.ensure_follow` is recorded for actor `codex`, and
+  Claude observer request `rev_pkt_0505` is pending for packeted acceptance or
+  a concrete finding on the repaired path.
+- 2026-04-15 expired-inbox visibility repair:
+  stale unresolved packets were still disappearing from the actionable packet
+  surfaces even after queue math started counting them. Live repro on the repo
+  state at `1271a075`:
+  `python3 dev/scripts/devctl.py review-channel --action inbox --target codex --status expired --terminal none --format json --limit 5`
+  reported `queue.stale_packet_count=282` but returned `packets=[]`. The bug
+  was reducer-side, not operator error: `filter_inbox_packets(..., status="expired")`
+  only matched literal `status=="expired"` rows, while most stale packets are
+  still typed as pending rows whose TTL elapsed. The repair now treats
+  `--status expired` as "expired unresolved" semantics
+  (explicit `status="expired"` OR pending rows with past `expires_at_utc`)
+  while keeping `--status pending` mapped to live actionable packets only.
+  The targeted inbox observation path is also fail-closed for non-pending
+  reads, so observer/debug reads of expired queues do not create fresh
+  `delivery_observed_at_utc` mutations for stale `action_request` rows.
+  Focused proof is green on
+  `test_review_channel.py::TestDaemonEventReducer.test_filter_inbox_packets_{skips,surfaces}_expired_pending_rows`
+  plus
+  `test_plan_packets.py::ReviewChannelPlanPacketTests.test_expired_inbox_surfaces_stale_action_request_without_delivery_mutation`,
+  and the live command above now returns real stale packet rows instead of an
+  empty list. Dogfood row `command:review-channel.inbox_expired` is recorded
+  for actor `codex`; Claude then reran the live path plus the observer-boundary
+  non-mutation check and posted PASS packet `rev_pkt_0511` with matching
+  dogfood rows (`command:review-channel.inbox.expired`,
+  `command:review-channel.inbox`).
+- 2026-04-15 expired-unresolved packet summaries:
+  Claude's follow-up packet `rev_pkt_0512` was correct: the expired-inbox fix
+  stopped selector poisoning, but stale work could still disappear from default
+  reviewer-facing summaries because `current_session.open_findings`,
+  control-plane blocker text, and `session-resume` kept trusting stale
+  bridge-backed packet prose. The shared repair now rebuilds packet inbox truth
+  from packet rows, derives `expired unresolved review packet(s)` summaries from
+  typed inbox attention without reviving `derived_next_instruction`, and threads
+  that summary through event-backed current-session/bridge reducers plus the
+  runtime/session-resume consumer path. Focused proof is green on
+  `test_current_session_projection.py`, the new
+  `ResolverUnitTests.test_resolve_blocker_uses_expired_unresolved_packet_summary`,
+  and
+  `TestBuildFromSources.test_build_from_sources_prefers_packet_backed_expired_findings_summary`.
+  Live proof is green on the event reducer (`queue.pending_total=0`,
+  `queue.stale_packet_count=282`, `current_session.open_findings=193 expired unresolved review packet(s)`)
+  and on `python3 dev/scripts/devctl.py session-resume --role reviewer --format json`
+  which now reports `open_findings=193 expired unresolved review packet(s)` and
+  blocker text beginning with the same summary instead of silently saying
+  `2 pending review packet(s)`. Dev-mode dogfood is recorded as
+  `dogfood-598ee3d0e5ff` for
+  `command:session-resume.expired_unresolved_visibility`, Claude observer
+  dogfood is recorded as `dogfood-34c28f1b9410`, and Claude acceptance landed
+  in `rev_pkt_0515` and is acked. This slice is now closed under the dogfood
+  contract: focused tests pass, the live reviewer-facing command path passes,
+  Claude posted packeted PASS, and the active plan reflects closure.
+- 2026-04-15 packet-lane authority gap:
+  The operator-called smell is real and belongs under `MP377-P1-T06/T08`, not
+  as chat-local process debt. Startup still reports
+  `action=checkpoint_before_continue`, `runtime_missing`, and
+  `implementation_permission=blocked` while `review-channel --action status
+  --execution-mode markdown-bridge --refresh-bridge-heartbeat-if-stale` still
+  fails closed on `Missing live implementer ACK compatibility section (Claude
+  Ack)`, even though the packet watcher lane is healthy enough to accept and
+  ack Claude findings (`rev_pkt_0515`, `rev_pkt_0516`). A bounded sidecar
+  investigation confirmed the root cause: packet-backed truth exists in
+  `review_packet_inbox`, but startup/session/status reducers and maintainer docs
+  still preserve compatibility fallbacks where `current_session`,
+  bridge-heartbeat prose, and `Claude Ack` can participate in wait routing.
+  Next implementation slice must make typed packet inbox plus typed liveness the
+  sole continue-vs-wait authority, keep compatibility projections read-only,
+  and remove bridge-only repair blockers that can stall a live packet lane.
+- 2026-04-15 live-loader convergence on bridge-backed status/ensure:
+  `MP377-P1-T06` moved one layer deeper: bridge-backed
+  `refresh_status_snapshot()` was still seeding `prior_review_state` from the
+  cached review-state loader, so `review-channel --action status` and
+  `review-channel --action ensure --follow` could drift back to the stale
+  `- Await reviewer instruction refresh.` projection even after
+  startup/session-resume had been repaired to use the live loader. Fixed the
+  status seed path by routing `load_prior_review_state()` through
+  `load_current_review_state_payload(..., prefer_cached_projection=False,
+  review_status_dir=output_root)`, then tightened bridge validation so the
+  `Current instruction revision` / `Claude Ack` compatibility gate no longer
+  fires when the bridge is only projecting the reviewer-wait placeholder and
+  there is no live instruction to acknowledge. Focused proof is green on
+  `test_review_state_locator.py`, the new
+  `test_refresh_status_snapshot_loads_live_prior_review_state_for_status_refresh`,
+  `test_run_status_rehydrates_authority_snapshot_from_fresh_projection`, and
+  the new `test_validate_live_bridge_contract_skips_ack_revision_gate_for_wait_placeholder`.
+  Live proof is green on both repo-owned commands:
+  `review-channel --action status --refresh-bridge-heartbeat-if-stale` and
+  `review-channel --action ensure --follow --max-follow-snapshots 1` now emit
+  the plan-backed `authority_snapshot.current_slice`, the same
+  `coordination.current_slice`, `current_session.current_instruction=""`, and
+  only the real reviewer-runtime error (`review_loop_relaunch_required`) rather
+  than the stale bridge revision error. `latest/review_state.json` now persists
+  the same plan-backed `current_slice` with empty `current_instruction`.
+  Dev-mode dogfood is recorded as `dogfood-e09b02277d9d`. Claude observer
+  action-request `rev_pkt_0528` is pending; `rev_pkt_0527` should be treated as
+  superseded because its body was shell-quoted badly during posting.
+- 2026-04-15 dogfood loop contract:
+  Codex owns implementation, canonical plan updates in this file, repo guard
+  runs, and `devctl dogfood --record --dev-mode --actor codex` for every
+  exercised command/guard slice. Claude owns dashboard/observer/phone-style
+  verification, packeted findings, and
+  `devctl dogfood --record --record-governance --dev-mode --actor claude`;
+  Claude must not become a hidden implementation lane or raw session killer.
+  The operator only supplies product intent, approval-boundary decisions, and
+  physical/manual validation. A slice is not done until four things are true:
+  focused tests pass, the live repo command path passes, Claude posts either a
+  packeted dogfood acceptance or a concrete finding, and the corresponding
+  `LIVE_RUN.md` Q-item or finding cluster is updated with the closure state.
 - 2026-04-12 architecture-synthesis / phase-order update:
   the 15-command audit plus dashboard packet review confirmed that five
   directions are already platform law (deterministic runtime, role
@@ -6707,6 +6990,226 @@ Execution order for this section:
 
 ## Progress Log
 
+- 2026-04-15: Closed the startup contract-ownership projection drift behind
+  the stale `startup_surface_tokens_unpopulated` governance finding. The
+  platform contract rows already carried startup-surface tokens, but
+  `runtime/startup_context_projections.py` was collapsing them to a
+  single-token preview before `startup-context --format json` ever rendered
+  them, which made the startup contract map look underpopulated. The bounded
+  repair now preserves the full token metadata inside `StartupContext`,
+  serializes `startup_surface_token_count` plus a two-token preview in the
+  startup JSON surface, and removes the stale one-token limiter from
+  `runtime/startup_context.py`. Added focused regression coverage in
+  `test_startup_context.py`, live `startup-context --format json` now shows
+  honest counts (for example `ReviewState` advertises count `5` with preview
+  `snapshot_id`, `bridge`) while `startup-context --format summary` remains
+  stable on the operator-facing `action` / `reason` / `attention_status`
+  lines, `check_platform_contract_closure.py` and `check_code_shape.py` are
+  green, local dogfood is recorded as `dogfood-95f32b3f4406`, and
+  governance-review finding `2146d8ee3f303af6` is fixed. Packet-state closure
+  is clean too: Claude's PASS for the earlier queue hot-path request landed as
+  `rev_pkt_0553` and is acked, and the new observer request for this startup
+  slice closed with Claude PASS `rev_pkt_0555`, now acked.
+- 2026-04-15: Closed the remaining live part of
+  `authority_snapshot_3_fields_missing`. The shared `AuthoritySnapshot`
+  contract already carried `allowed_actions`, but startup still dropped
+  `actor_role` and `actor_identity`, so the first architecture-review finding
+  was only partially fixed. The reducer now resolves actor role/identity from
+  the same typed startup/coordination payload that already drives
+  `allowed_actions`, persists those fields through startup JSON and
+  `dev/reports/startup/latest/receipt.json`, and keeps the reducer shape honest
+  by moving the new actor-resolution logic into
+  `runtime/authority_snapshot_actor.py`. Focused startup/session-resume tests
+  are green, live `startup-context --format json` now shows
+  `authority_snapshot.actor_role=implementer`,
+  `authority_snapshot.actor_identity=claude`, and bounded
+  `authority_snapshot.allowed_actions`, `check_platform_contract_closure.py`
+  and `check_code_shape.py` are green, local dogfood is recorded as
+  `dogfood-52ab6f07e6dd`, and governance-review finding
+  `8487d1d61d49efb9` is fixed. Claude-side dogfood also closed:
+  `rev_pkt_0556` was posted and acked, Claude PASS landed as `rev_pkt_0557`,
+  and Codex acked the result.
+- 2026-04-15: Cleared the live guard-bundle blockers that were stopping the
+  governed checkpoint on the dirty `MP-377` tree. The failure was concrete:
+  `devctl commit` hit one duplicated packet-attention helper pair, five new
+  high-parameter functions, and one large dict literal before it could write
+  the checkpoint. The repair stayed inside the touched review-channel/runtime
+  helpers instead of flattening behavior back into larger files: packet
+  attention now resolves through
+  `review_channel/current_session_attention.py`, the
+  event-projection/reducer/heartbeat/authority helpers now pass typed resolver
+  or input objects rather than growing signatures, and
+  `session_resume_authority_payload.py` now serializes packet-attention agent
+  rows through `asdict()`. Focused proof is green on
+  `test_current_session_projection.py`, `test_session_liveness_events.py`,
+  targeted `test_startup_context.py` authority-snapshot cases, targeted
+  `test_session_resume.py` review-state context/authority roundtrip, and the
+  four blocking shape guards
+  (`check_function_duplication.py`, `check_structural_similarity.py`,
+  `check_parameter_count.py`, `check_python_dict_schema.py`). Local dogfood is
+  recorded as `dogfood-baf0d7aa6e50`, and Claude dogfood request `rev_pkt_0558`
+  has already closed with PASS `rev_pkt_0559`, now acked. The first governed
+  commit retry then failed closed on `attention_revision_stale`, which is the
+  right typed behavior because Claude's PASS changed inbox state mid-checkpoint;
+  the next retry runs from a fresh startup receipt after the ack.
+- 2026-04-15: Closed the governed commit reuse-path `validation_receipt_missing`
+  automation gap. `commands/vcs/commit.py` now routes reusable approved
+  pipelines through the new `commands/vcs/commit_guard_replay.py` helper
+  whenever the validation receipt is missing, stale, or checkpoint-insufficient,
+  and the focused regression in `tests/vcs/test_commit_gate.py` proves the
+  receipt is rebuilt and the commit records cleanly. Local dogfood is
+  `dogfood-fc22bfd092ff`; Claude dogfood request `rev_pkt_0562` is pending.
+  Next step is to rerun `python3 dev/scripts/devctl.py commit -m "Stabilize review-channel authority recovery" --role implementer --format json`
+  against the current staged tree, then continue through the governed push
+  path if the checkpoint succeeds.
+- 2026-04-15: Closed the reopened live relaunch-vs-poll-due split inside the
+  shared bridge-backed attention classifier. `review-channel --action status`
+  had regressed to `attention.status=reviewer_poll_due` whenever freshness was
+  present, even if the same typed payload still showed
+  `launch_truth=hybrid_claude_only` / detached-runtime evidence and no live
+  reviewer. The fix is small but load-bearing:
+  `review_channel/attention_classify.py::_classify_startup_attention()` now
+  treats detached/hybrid launch truth as `review_loop_relaunch_required`
+  before it falls through to reviewer-freshness warnings. Added regression
+  coverage in `test_review_channel.py` for the exact live shape
+  (`poll_due + hybrid_claude_only -> review_loop_relaunch_required`) and kept
+  the existing event-backed hybrid relaunch proof green. Focused pytest proof
+  is green, `check_code_shape.py` is green, and live repo proof is green:
+  `review-channel --action status --refresh-bridge-heartbeat-if-stale` and
+  `startup-context --format summary` now both emit
+  `review_loop_relaunch_required` while preserving checkpoint gating as a
+  separate boundary. Claude observer dogfood is the next required closure on
+  this slice.
+- 2026-04-15: Closed the event-backed action-request queue hot path that was
+  making `review-channel post` / `inbox` look hung during Codex<->Claude
+  coordination. The root cause was not event-log reduction itself:
+  `refresh_event_bundle()` timed at about 1.5s on 18.8k events. The slowdown
+  was the queue reducer rebuilding a context-graph escalation packet for the
+  selected pending `action_request` on every read, which bloated
+  `derived_next_instruction_source` and turned simple coordination commands
+  into multi-second or timeout-prone operations. The shared queue path now
+  skips context-packet construction for selected `action_request` packets
+  while keeping the actionable summary plus control metadata intact. Added the
+  focused regression in `test_context_injection.py` and kept the existing
+  plan-packet action-request tests green. Live proof is green too:
+  `review-channel --action inbox --target claude --terminal none --format json
+  --execution-mode markdown-bridge --limit 1` now returns in about 2.242s on
+  the current repo state, and Claude acked the clean observer request
+  `rev_pkt_0547` while the malformed duplicate `rev_pkt_0546` and timing probe
+  `rev_pkt_0548` were dismissed to keep the queue clear.
+- 2026-04-15: Closed the live `rev_pkt_0534` / `rev_pkt_0535` attention split
+  by fixing the producer, not the renderer. Event-backed review-state
+  enrichment now attaches typed conductor session state through
+  `status_projection_helpers.attach_conductor_session_state()` before
+  `build_recovery_assessment()` runs, matching the bridge-backed
+  `refresh_status_snapshot()` path. Focused proof is green on
+  `test_event_projection_push.py` and the current-session regression, and live
+  proof is green on `review-channel --action status --refresh-bridge-heartbeat-if-stale`,
+  `startup-context --format json`, and `dashboard --format json`: all three
+  now emit `attention.status=review_loop_relaunch_required` while checkpoint
+  guidance stays in `advisory_action=checkpoint_before_continue` and
+  `push_decision=await_checkpoint`. Claude's follow-up findings
+  `rev_pkt_0539`, `rev_pkt_0540`, and `rev_pkt_0541` are acked; the next
+  blocker is no longer cross-surface drift but the real runtime boundary
+  (reviewer loop not live) plus the authoritative `docs-check
+  --strict-tooling` maintainer-doc gate for this `bundle.tooling` slice.
+- 2026-04-15: Closed one live governance-review error-handling defect in the
+  hot control-plane path instead of leaving `rev_pkt_0535` as background
+  signal. `runtime/control_plane_resolve.py::load_git_state()` no longer
+  swallows `OSError` / `subprocess.TimeoutExpired` and returns a fake
+  `unknown/clean` git snapshot; it now raises `ControlPlaneGitStateError`
+  with causal `from exc` context, and `build_control_plane_read_model()` keeps
+  that fail-closed behavior instead of suppressing it upstream. Focused proof
+  is green on the new `GitStateFailureTests` plus the existing control-plane
+  read-model regressions, and `check_code_shape.py` stays green after the
+  helper extraction.
+- 2026-04-15: Fixed the stale typed-packet visibility bug on the event-backed
+  inbox path. `review-channel --action inbox --status expired` was returning an
+  empty packet list even while the same report admitted
+  `queue.stale_packet_count > 0`, because the reducer only matched literal
+  `status=="expired"` rows and ignored the far more common case of pending
+  rows whose TTL had elapsed. `filter_inbox_packets()` now treats
+  `status=expired` as expired-unresolved semantics, while
+  `event_watch_support.load_target_packets()` refuses to stamp
+  `delivery_observed_at_utc` on non-pending debug/observer reads. Focused
+  regression proof is green on the reducer and event-action tests, live
+  `review-channel --action inbox --target codex --status expired --terminal none --format json --limit 5`
+  now returns stale packet rows (`rev_pkt_0502`, `rev_pkt_0501`, `rev_pkt_0500`,
+  `rev_pkt_0489`, `rev_pkt_0486` at proof time), dev-mode dogfood is recorded
+  as `dogfood-503289bbafec`, and Claude observer acceptance landed as
+  `rev_pkt_0511`: live expired-inbox visibility PASS, pending-inbox remains
+  live-only, and the explicit observer-boundary probe found `0` fresh delivery
+  mutations across the sampled stale `action_request` rows.
+- 2026-04-15: Closed the follow-up gap Claude reported in `rev_pkt_0512`.
+  The first expired-inbox repair kept stale packets out of the live actionable
+  queue, but reviewer-facing summaries still trusted stale bridge prose and
+  could silently reduce expired-unresolved work to `none` or a stale pending
+  count. Added a shared packet-backed open-findings summary path that rebuilds
+  inbox truth from packet rows, emits `expired unresolved review packet(s)`
+  when the live queue is empty but stale work remains, and reuses that summary
+  in event-backed current-session/bridge reducers, control-plane blocker
+  reduction, and `session-resume`. Focused proof is green on
+  `test_current_session_projection.py`, the new runtime reducer unit test, and
+  the new `session-resume` build test. Live proof is also green:
+  the event-backed reducer now reports `queue.pending_total=0` together with
+  `current_session.open_findings=193 expired unresolved review packet(s)`, and
+  `session-resume --role reviewer --format json` now surfaces the same expired
+  summary in both `open_findings` and `blockers`. Recorded dev-mode dogfood as
+  `dogfood-598ee3d0e5ff`; Claude re-dogfooded the reviewer-facing command
+  surface under `dogfood-34c28f1b9410`, posted PASS in `rev_pkt_0515`, and that
+  acceptance packet is now acked.
+- 2026-04-15: Recorded a new operator-raised design flaw under
+  `MP377-P1-T06/T08`: the repo still exposes a split authority model where
+  typed packet inbox truth can coexist with bridge-local `Claude Ack`,
+  `current_session`, and heartbeat compatibility fallbacks in startup/session
+  wait routing. Live evidence this session was contradictory by construction:
+  the standing Codex packet watcher accepted and cleared Claude packets, but
+  markdown-bridge `review-channel --action status` still refused heartbeat
+  refresh because the implementer ACK compatibility section was missing, and
+  `startup-context` continued to route toward a stale bridge-local
+  `current_slice`. The follow-up slice is to make packet-backed inbox truth plus
+  typed liveness the only continue-vs-wait source, leaving bridge prose as a
+  compatibility projection instead of a blocker-capable authority path.
+- 2026-04-15: Bridge-backed status/ensure now share the live review-state seed
+  path used by startup/session-resume instead of the cached status projection.
+  Status and bounded ensure-follow both emit the plan-backed MP-377 foundation
+  `current_slice`, `current_session.current_instruction=""`, and
+  `open_findings=193 expired unresolved review packet(s)`, and the stale
+  `Current instruction revision` bridge-validation error is gone when there is
+  no live instruction to acknowledge. Persisted `latest/review_state.json` now
+  carries the same authority/coordination slice. Remaining blocker after this
+  slice is the real approval-boundary/runtime fault only:
+  `Reviewer mode is active_dual_agent but no live repo-owned Codex or Claude
+  conductor sessions are present`, which still requires an operator-approved
+  `review-channel --action launch` / `rollover`. Dogfood record:
+  `dogfood-e09b02277d9d`. Claude observer request `rev_pkt_0528` is pending.
+- 2026-04-15: Mandatory bootstrap exposed a fresh repo-owned runtime bug in
+  the canonical repair path itself: `review-channel --action ensure --follow`
+  crashed inside `follow_stream.emit_follow_ndjson_frame` because the
+  ensure-follow publisher attached typed `MonitorSnapshotPaths` from
+  `write_latest_monitor_snapshot()` directly to the follow report. Fixed the
+  serializer boundary instead of the caller by normalizing dataclasses,
+  `to_dict()` contracts, and `Path` objects before NDJSON emission. Focused
+  proof is green on `python3 -m unittest
+  dev.scripts.devctl.tests.review_channel.test_follow_controller
+  dev.scripts.devctl.tests.runtime.test_monitor_snapshot`, and the live repair
+  command now succeeds in bounded mode with
+  `--max-follow-snapshots 1`. Recorded dev-mode dogfood for
+  `command:review-channel.ensure_follow` and posted Claude observer
+  action-request `rev_pkt_0505` so acceptance/finding traffic stays on the
+  repo-owned review channel rather than chat.
+- 2026-04-15: Re-read the governed startup/status surfaces and converted the
+  operator's "one real plan, one real dogfood loop" directive into explicit
+  umbrella-plan execution order instead of more chat-only guidance. The
+  current convergence order is now repo-visible:
+  `MP377-P1-T04/T05` plan-registry authority first,
+  `MP377-P1-T06/T07/T08` runtime snapshot plus mutation plus liveness second,
+  then `MP377-P2-T05/T06` dogfood-engine and observer-boundary enforcement.
+  The matching dogfood contract is also repo-visible here: Codex implements
+  and records dev-mode dogfood, Claude stays in observer/tester mode and
+  records findings/acceptance through packets plus dogfood/governance rows,
+  and a slice only closes after tests, live command proof, packeted dogfood
+  verdict, and `LIVE_RUN.md` closure all agree.
 - 2026-04-15: Read the full active-plan set named by the operator,
   reread `dev/audits/LIVE_RUN.md` Q1-Q100, and reconciled that material with
   live runtime evidence from `startup-context`, review-channel inbox,

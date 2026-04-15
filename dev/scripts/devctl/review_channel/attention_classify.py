@@ -277,6 +277,11 @@ def _classify_startup_attention(ctx: BridgeAttentionContext) -> str | None:
         or not ctx.reviewer_runtime_running
     ):
         return AttentionStatus.RUNTIME_MISSING
+    if ctx.launch_truth in {
+        LaunchTruthState.DETACHED_RUNTIME_ONLY.value,
+        LaunchTruthState.HYBRID_CLAUDE_ONLY.value,
+    }:
+        return AttentionStatus.REVIEW_LOOP_RELAUNCH_REQUIRED
     return _classify_reviewer_freshness(ctx)
 
 

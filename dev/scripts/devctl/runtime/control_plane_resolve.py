@@ -14,12 +14,37 @@ from typing import Any
 
 from .control_plane_daemons import resolve_daemon_state
 from .control_plane_sources import artifact_paths, load_sources, read_json_artifact
+from .review_packet_inbox import summarize_packet_attention_open_findings
 from .startup_blocker_decision import BlockerSnapshot, derive_blocker_decision
 from .value_coercion import coerce_bool, coerce_string
 
 
+class ControlPlaneGitStateError(RuntimeError):
+    """Raised when control-plane git probes cannot produce trustworthy state."""
+
+
 def utc_now_iso() -> str:
     return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+
+
+def _run_git_probe(
+    repo_root: Path,
+    args: list[str],
+) -> subprocess.CompletedProcess[str]:
+    try:
+        return subprocess.run(
+            args,
+            capture_output=True,
+            text=True,
+            timeout=5,
+            cwd=str(repo_root),
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        command = " ".join(args)
+        raise ControlPlaneGitStateError(
+            f"Failed to probe git state with `{command}` in {repo_root}."
+        ) from exc
 
 
 def load_git_state(repo_root: Path) -> dict[str, Any]:
@@ -27,34 +52,21 @@ def load_git_state(repo_root: Path) -> dict[str, Any]:
     result: dict[str, Any] = {
         "branch": "unknown", "head": "unknown", "clean": True, "ahead": 0,
     }
-    try:
-        sb = subprocess.run(
-            ["git", "status", "-sb", "--porcelain"],
-            capture_output=True, text=True, timeout=5, cwd=str(repo_root),
-            check=False,
-        )
-        lines = sb.stdout.strip().splitlines()
-        if lines:
-            header = lines[0].lstrip("# ").strip()
-            result["branch"] = header.split("...")[0] if "..." in header else header
-            result["clean"] = len(lines) <= 1
-            bracket = re.search(r"\[(.+?)\]", header)
-            if bracket:
-                am = re.search(r"ahead\s+(\d+)", bracket.group(1))
-                result["ahead"] = int(am.group(1)) if am else 0
-    except (OSError, subprocess.TimeoutExpired):
-        pass
-    try:
-        log = subprocess.run(
-            ["git", "log", "--oneline", "-1"],
-            capture_output=True, text=True, timeout=5, cwd=str(repo_root),
-            check=False,
-        )
-        sha_line = log.stdout.strip()
-        if sha_line:
-            result["head"] = sha_line.split(None, 1)[0]
-    except (OSError, subprocess.TimeoutExpired):
-        pass
+    sb = _run_git_probe(repo_root, ["git", "status", "-sb", "--porcelain"])
+    lines = sb.stdout.strip().splitlines()
+    if lines:
+        header = lines[0].lstrip("# ").strip()
+        result["branch"] = header.split("...")[0] if "..." in header else header
+        result["clean"] = len(lines) <= 1
+        bracket = re.search(r"\[(.+?)\]", header)
+        if bracket:
+            am = re.search(r"ahead\s+(\d+)", bracket.group(1))
+            result["ahead"] = int(am.group(1)) if am else 0
+
+    log = _run_git_probe(repo_root, ["git", "log", "--oneline", "-1"])
+    sha_line = log.stdout.strip()
+    if sha_line:
+        result["head"] = sha_line.split(None, 1)[0]
     return result
 
 
@@ -174,7 +186,12 @@ def resolve_blocker_and_action(
     session: dict[str, Any] = {}
     doctor: dict[str, Any] = {}
     if review_state:
-        session = review_state.get("current_session", {}) or {}
+        session = dict(review_state.get("current_session", {}) or {})
+        session["open_findings"] = summarize_packet_attention_open_findings(
+            review_state,
+            fallback=coerce_string(session.get("open_findings")),
+            agent="codex",
+        )
         rt = review_state.get("reviewer_runtime", {}) or {}
         doctor = rt.get("doctor", {}) if isinstance(rt, dict) else {}
 
@@ -207,87 +224,3 @@ def _command_for_push_action(action: str) -> str:
             "--action status --terminal none --format json"
         )
     return ""
-
-
-def resolve_pending_packets(review_state: dict[str, Any] | None) -> int:
-    """Count live pending action_request packets from review state."""
-    if review_state is None:
-        return 0
-    packets = review_state.get("packets", [])
-    if not isinstance(packets, list):
-        return 0
-    return sum(
-        1
-        for packet in packets
-        if _is_live_pending_action_request(packet, packets)
-    )
-
-
-def _is_live_pending_action_request(
-    packet: object,
-    packets: list[dict[str, Any]],
-) -> bool:
-    if not isinstance(packet, dict):
-        return False
-    if str(packet.get("kind") or "").strip() != "action_request":
-        return False
-    return _is_live_pending_packet(packet, packets)
-
-
-def _is_live_pending_packet(
-    packet: object,
-    packets: list[dict[str, Any]],
-) -> bool:
-    def _parse_utc_stamp(value: str) -> datetime | None:
-        if not value:
-            return None
-        try:
-            return datetime.fromisoformat(value.replace("Z", "+00:00"))
-        except ValueError:
-            return None
-
-    if not isinstance(packet, dict):
-        return False
-    status = str(packet.get("status") or "").strip()
-    if status != "pending":
-        return False
-    if _is_resolved_commit_approval_request(packet, packets):
-        return False
-    expires_at = _parse_utc_stamp(str(packet.get("expires_at_utc") or "").strip())
-    if expires_at is not None and expires_at <= datetime.now(timezone.utc):
-        return False
-    return True
-
-
-def _is_resolved_commit_approval_request(
-    packet: dict[str, Any],
-    packets: list[dict[str, Any]],
-) -> bool:
-    if str(packet.get("kind") or "").strip() != "commit_approval":
-        return False
-    if not bool(packet.get("approval_required")):
-        return False
-    key = _packet_resolution_key(packet)
-    if not any(key):
-        return False
-    for other in packets:
-        if not isinstance(other, dict):
-            continue
-        if str(other.get("status") or "").strip() != "applied":
-            continue
-        if bool(other.get("approval_required")):
-            continue
-        if str(other.get("kind") or "").strip() != "commit_approval":
-            continue
-        if _packet_resolution_key(other) == key:
-            return True
-    return False
-
-
-def _packet_resolution_key(packet: dict[str, Any]) -> tuple[str, str, str, str]:
-    return (
-        str(packet.get("trace_id") or "").strip(),
-        str(packet.get("kind") or "").strip(),
-        str(packet.get("target_ref") or "").strip(),
-        str(packet.get("pipeline_generation") or "").strip(),
-    )

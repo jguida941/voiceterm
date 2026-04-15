@@ -77,6 +77,7 @@ def bridge_launch_state(
                 repo_root=context.repo_root,
                 bridge_path=context.bridge_path,
                 reason=f"devctl review-channel {args.action}",
+                allow_non_refreshable_launch_errors=args.action == "status",
             )
     if context.bridge_path.exists():
         bridge_snapshot = extract_bridge_snapshot(

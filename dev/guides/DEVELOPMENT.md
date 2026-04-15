@@ -139,6 +139,14 @@ Use docs like this:
   unavailable, and `ensure --follow` may relaunch one waiting Codex reviewer
   conductor for the newest unseen action-request packet instead of depending
   on a separate watcher.
+- Keep bridge-backed and event-backed attention producers in lockstep too:
+  `refresh_status_snapshot()` and event-backed review-state enrichment must
+  both attach typed conductor session state before recovery assessment runs.
+  `review-channel status`, `startup-context`, `session-resume`, and
+  `dashboard` may still differ on `advisory_action` / `push_decision`, but
+  they must not disagree on runtime diagnosis such as
+  `review_loop_relaunch_required` vs `checkpoint_required` just because one
+  reader saw `launch_truth` before conductor-state attachment.
 - The bundle.tooling hygiene gate ignores the long-standing publications drift warning via --ignore-warning-source publications alongside the existing mutation_badge exclusion, so unrelated pushes are no longer blocked by external-site drift.
 - The same Phase-2 authority cleanup now keeps review/push truth on typed
   runtime contracts too: `reviewer_runtime` owns

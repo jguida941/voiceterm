@@ -257,6 +257,7 @@ def _heartbeat_state_from_data(
     state["reviewer_mode"] = data.get("reviewer_mode", "unknown")
     state["stop_reason"] = stop_reason
     state["stopped_at_utc"] = stopped_at_utc
+    state["recoverable"] = bool(data.get("recoverable"))
     return state
 
 

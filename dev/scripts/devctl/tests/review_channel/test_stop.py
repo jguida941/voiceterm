@@ -150,6 +150,54 @@ def test_reviewer_supervisor_auto_start_respects_manual_stop(
     }
 
 
+def test_reviewer_supervisor_auto_start_allows_manual_stop_when_recovery_is_typed(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    status_dir = tmp_path / "status"
+    status_dir.mkdir()
+    write_reviewer_supervisor_heartbeat(
+        status_dir,
+        ReviewerSupervisorHeartbeat(
+            pid=4242,
+            started_at_utc="2026-03-25T12:00:00Z",
+            last_heartbeat_utc="2026-03-25T12:00:05Z",
+            snapshots_emitted=3,
+            reviewer_mode="active_dual_agent",
+            stop_reason="manual_stop",
+            stopped_at_utc="2026-03-25T12:00:05Z",
+        ),
+    )
+    monkeypatch.setattr(
+        "dev.scripts.devctl.commands.review_channel._reviewer_supervisor_autostart._resolve_supervisor_interaction_mode",
+        lambda **_kwargs: "remote_control",
+    )
+    monkeypatch.setattr(
+        "dev.scripts.devctl.commands.review_channel._reviewer_supervisor_autostart.spawn_reviewer_supervisor",
+        lambda **_kwargs: (True, 4321, "/tmp/reviewer_supervisor_follow.log"),
+    )
+    monkeypatch.setattr(
+        "dev.scripts.devctl.commands.review_channel._reviewer_supervisor_autostart.verify_reviewer_supervisor_start",
+        lambda **_kwargs: "started",
+    )
+
+    report = ensure_reviewer_supervisor_running(
+        args=SimpleNamespace(follow=False, reviewer_mode="active_dual_agent"),
+        repo_root=tmp_path,
+        paths={"status_dir": status_dir},
+        allow_manual_stop_recovery=True,
+        sleep_seconds=0.0,
+    )
+
+    assert report == {
+        "attempted": True,
+        "started": True,
+        "pid": 4321,
+        "log_path": "/tmp/reviewer_supervisor_follow.log",
+        "start_status": "started",
+    }
+
+
 def test_run_stop_action_is_idempotent_when_daemon_is_not_running(tmp_path: Path) -> None:
     status_dir = tmp_path / "status"
     status_dir.mkdir()

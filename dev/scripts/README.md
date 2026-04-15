@@ -403,6 +403,14 @@ Portability note:
   relaunch one waiting Codex reviewer conductor for the newest unseen
   action-request packet instead of leaving that wake-up dependent on a
   separately started watcher.
+- Attention-priority parity is shared across producer paths too: bridge-backed
+  `review-channel --action status` and event-backed `startup-context`,
+  `session-resume`, and `dashboard` now all attach typed conductor session
+  state before recovery assessment runs. Read `attention.status` as the
+  runtime diagnosis and `advisory_action` / `push_decision` as the
+  checkpoint/publication sequencing layer; one surface should not say
+  `review_loop_relaunch_required` while another says `checkpoint_required`
+  for the same runtime snapshot.
 - The same lane no longer trusts bridge prose or raw HEAD equality for
   publish authority. `reviewer_runtime` owns implementer ACK/block truth,
   `bridge_review_accepted` is typed-only, and push recovery matches

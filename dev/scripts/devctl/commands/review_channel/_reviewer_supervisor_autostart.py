@@ -57,6 +57,7 @@ def ensure_reviewer_supervisor_running(
     repo_root: Path,
     paths: RuntimePaths | Mapping[str, object],
     allow_follow: bool = False,
+    allow_manual_stop_recovery: bool = False,
     sleep_seconds: float = 0.5,
 ) -> dict[str, object] | None:
     """Keep the detached reviewer supervisor alive for active reviewer mode."""
@@ -78,6 +79,7 @@ def ensure_reviewer_supervisor_running(
         return {"attempted": False, "started": False, "reason": "already_running"}
     blocked_reason = non_restartable_reviewer_supervisor_stop_reason(
         supervisor_state,
+        allow_manual_stop_recovery=allow_manual_stop_recovery,
     )
     if blocked_reason:
         return {

@@ -27,6 +27,7 @@ from .current_session_support import (
 from .handoff import BridgeSnapshot
 from .session_state_hints import provider_session_state_hint
 from .status_projection_helpers import clean_section
+from ..runtime.review_packet_inbox import packet_inbox_from_review_state
 from ..runtime.review_state_models import ReviewCurrentSessionState
 from ..runtime.review_state_semantics import classify_implementer_ack_state
 
@@ -127,10 +128,15 @@ def build_event_current_session(
     prior_session = prior_typed_current_session(prior_review_state)
     current_instruction = event_current_instruction(review_state)
     instruction_missing = not current_instruction.strip()
+    packet_attention = _packet_attention(review_state, agent="codex")
     current_instruction_revision = str(
         bridge_liveness.get("current_instruction_revision") or ""
     )
-    if not current_instruction and prior_session is not None:
+    if (
+        not current_instruction
+        and prior_session is not None
+        and not _packet_attention_requires_clear(packet_attention)
+    ):
         current_instruction = prior_session.current_instruction
         current_instruction_revision = (
             current_instruction_revision or prior_session.current_instruction_revision
@@ -139,7 +145,11 @@ def build_event_current_session(
         current_instruction,
         current_instruction_revision,
     )
-    if instruction_missing and prior_session is None and current_instruction == "(missing)":
+    if (
+        instruction_missing
+        and current_instruction == "(missing)"
+        and (prior_session is None or _packet_attention_requires_clear(packet_attention))
+    ):
         current_instruction = ""
     implementer_ack = event_claude_ack(queue)
     implementer_status = event_agent_status(review_state, "claude")
@@ -163,7 +173,7 @@ def build_event_current_session(
         ),
         implementer_session_state=str(claude_hint.get("state") or ""),
         implementer_session_hint=str(claude_hint.get("summary") or ""),
-        open_findings=event_open_findings(queue),
+        open_findings=event_open_findings(review_state),
         last_reviewed_scope=str(
             _mapping(review_state.get("review")).get("plan_id") or ""
         ),
@@ -187,6 +197,31 @@ def current_session_mapping(
 def _section_text(snapshot: BridgeSnapshot, section: str) -> str:
     raw = snapshot.sections.get(section, "")
     return clean_section(raw)
+
+
+def _packet_attention(
+    review_state: Mapping[str, object],
+    *,
+    agent: str,
+) -> object | None:
+    packet_inbox = packet_inbox_from_review_state(review_state)
+    if packet_inbox is None:
+        return None
+    return packet_inbox.for_agent(agent)
+
+
+def _packet_attention_requires_clear(packet_attention: object | None) -> bool:
+    if packet_attention is None:
+        return False
+    wake_reason = str(getattr(packet_attention, "wake_reason", "") or "").strip()
+    return any(
+        (
+            str(getattr(packet_attention, "current_instruction_packet_id", "") or "").strip(),
+            tuple(getattr(packet_attention, "pending_actionable_packet_ids", ()) or ()),
+            tuple(getattr(packet_attention, "expired_unresolved_packet_ids", ()) or ()),
+            wake_reason in {"finding_pending", "expired_unresolved_packet"},
+        )
+    )
 
 
 def _mapping(value: object) -> Mapping[str, Any]:

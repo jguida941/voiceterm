@@ -3,9 +3,27 @@
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
-from datetime import datetime, timezone
 from hashlib import sha256
 import json
+
+from .review_packet_inbox_actionable import (
+    ordered_actionable_packets as _ordered_actionable_packets,
+    select_actionable_packet as _select_actionable_packet,
+)
+from .review_packet_inbox_lookup import latest_packet as _latest_packet, packet_id as _packet_id
+from .review_packet_inbox_liveness import (
+    is_expired_unresolved as _is_expired_unresolved,
+    is_live_pending as _is_live_pending,
+)
+from .review_packet_inbox_actionable import is_actionable as _is_actionable
+from .review_packet_inbox_merge import (
+    live_packet_ids as _live_packet_ids,
+    merge_packet_inbox_states as _merge_packet_inbox_states,
+)
+from .review_state_packet_models import (
+    PacketInboxState,
+    packet_inbox_from_mapping,
+)
 
 _DEFAULT_AGENTS: tuple[str, ...] = ("codex", "claude", "cursor", "operator")
 _INBOX_COMMAND_TEMPLATE = (
@@ -45,43 +63,75 @@ def build_packet_inbox_payload(
     }
 
 
+def packet_inbox_from_review_state(
+    review_state: Mapping[str, object] | None,
+):
+    """Return packet-inbox truth, preferring a fresh rebuild from packet rows."""
+    if not isinstance(review_state, Mapping):
+        return None
+    persisted = packet_inbox_from_mapping(review_state.get("packet_inbox"))
+    rebuilt = packet_inbox_from_mapping(
+        build_packet_inbox_payload(
+            review_state.get("packets", ()),
+            attention=_mapping(review_state.get("attention")),
+        )
+    )
+    if rebuilt is None:
+        return persisted
+    if persisted is None:
+        return rebuilt
+    return _merge_packet_inbox_states(
+        rebuilt=rebuilt,
+        persisted=persisted,
+        live_packet_ids=_live_packet_ids(review_state.get("packets", ())),
+    )
+
+
+def summarize_packet_attention_open_findings(
+    review_state: Mapping[str, object] | None,
+    *,
+    fallback: str = "",
+    agent: str = "codex",
+) -> str:
+    """Project packet-backed finding summaries without reviving expired work."""
+    normalized_fallback = str(fallback or "").strip()
+    if normalized_fallback and not _is_packet_summary_text(normalized_fallback):
+        return normalized_fallback
+
+    queue = _mapping(review_state.get("queue")) if isinstance(review_state, Mapping) else {}
+    pending_total = int(queue.get("pending_total") or 0)
+    expired_total = _expired_unresolved_total(review_state, agent=agent)
+    summary_parts: list[str] = []
+    if pending_total > 0:
+        summary_parts.append(f"{pending_total} pending review packet(s)")
+    if expired_total > 0:
+        summary_parts.append(f"{expired_total} expired unresolved review packet(s)")
+    if summary_parts:
+        return "; ".join(summary_parts)
+    if normalized_fallback:
+        return normalized_fallback
+    return "none"
+
+
 def _build_agent_attention_payload(
     agent: str,
     packet_rows: list[dict[str, object]],
     *,
     attention: Mapping[str, object] | None,
 ) -> dict[str, object]:
-    targeted = [
-        packet
-        for packet in packet_rows
-        if str(packet.get("to_agent") or "").strip().lower() == agent
-    ]
+    targeted = _targeted_packets(packet_rows, agent)
     live_pending = [packet for packet in targeted if _is_live_pending(packet)]
-    actionable = [packet for packet in live_pending if _is_actionable(packet)]
+    actionable = _actionable_packets(live_pending)
     selected_actionable = _select_actionable_packet(actionable)
     current_instruction_packet_id = _packet_id(selected_actionable)
-    latest_finding_packet_id = _packet_id(
-        _latest_packet(
-            packet
-            for packet in targeted
-            if str(packet.get("kind") or "").strip() == "finding"
-        )
+    latest_finding_packet_id = _packet_id(_latest_packet(_finding_packets(targeted)))
+    pending_actionable_packet_ids = _packet_ids(
+        _ordered_actionable_packets(actionable)
     )
-    pending_actionable_packet_ids = tuple(
-        _packet_id(packet)
-        for packet in _ordered_actionable_packets(actionable)
-        if _packet_id(packet)
+    expired_unresolved_packet_ids = _packet_ids(
+        _expired_unresolved_packets(targeted)
     )
-    expired_unresolved_packet_ids = tuple(
-        _packet_id(packet)
-        for packet in targeted
-        if _is_expired_unresolved(packet)
-    )
-    live_finding_packets = [
-        packet
-        for packet in live_pending
-        if str(packet.get("kind") or "").strip() == "finding"
-    ]
+    live_finding_packets = _finding_packets(live_pending)
     attention_status, wake_reason, required_command = _agent_attention_state(
         agent=agent,
         selected_actionable=selected_actionable,
@@ -105,6 +155,75 @@ def _build_agent_attention_payload(
     )
     payload["attention_revision"] = _digest_payload(payload)
     return payload
+
+
+def _expired_unresolved_total(
+    review_state: Mapping[str, object] | None,
+    *,
+    agent: str,
+) -> int:
+    packet_inbox = packet_inbox_from_review_state(review_state)
+    if packet_inbox is None:
+        return 0
+    record = packet_inbox.for_agent(agent)
+    if record is None:
+        return 0
+    return len(record.expired_unresolved_packet_ids)
+
+
+def _is_packet_summary_text(value: str) -> bool:
+    normalized = value.strip().lower()
+    if normalized in {"", "none"}:
+        return True
+    return (
+        "pending review packet" in normalized
+        or "expired unresolved review packet" in normalized
+    )
+
+
+def _mapping(value: object) -> Mapping[str, object]:
+    return value if isinstance(value, Mapping) else {}
+
+
+def _targeted_packets(
+    packet_rows: list[dict[str, object]],
+    agent: str,
+) -> list[dict[str, object]]:
+    return [
+        packet
+        for packet in packet_rows
+        if str(packet.get("to_agent") or "").strip().lower() == agent
+    ]
+
+
+def _finding_packets(
+    packet_rows: list[dict[str, object]],
+) -> list[dict[str, object]]:
+    return [
+        packet
+        for packet in packet_rows
+        if str(packet.get("kind") or "").strip() == "finding"
+    ]
+
+
+def _actionable_packets(
+    packet_rows: list[dict[str, object]],
+) -> list[dict[str, object]]:
+    return [packet for packet in packet_rows if _is_actionable(packet)]
+
+
+def _expired_unresolved_packets(
+    packet_rows: list[dict[str, object]],
+) -> list[dict[str, object]]:
+    return [packet for packet in packet_rows if _is_expired_unresolved(packet)]
+
+
+def _packet_ids(packet_rows: Sequence[Mapping[str, object]]) -> tuple[str, ...]:
+    return tuple(
+        packet_id
+        for packet_id in (_packet_id(packet) for packet in packet_rows)
+        if packet_id
+    )
 
 
 def _agent_attention_state(
@@ -185,116 +304,6 @@ def _target_agents(packet_rows: list[dict[str, object]]) -> tuple[str, ...]:
         - set(_DEFAULT_AGENTS)
     )
     return tuple(default_agents + extras)
-
-
-def _ordered_actionable_packets(
-    packets: Sequence[Mapping[str, object]],
-) -> tuple[Mapping[str, object], ...]:
-    action_requests = [packet for packet in packets if _is_action_request(packet)]
-    instructions = [
-        packet
-        for packet in packets
-        if str(packet.get("kind") or "").strip() == "instruction"
-    ]
-    return (
-        *sorted(action_requests, key=_action_request_priority_key),
-        *sorted(instructions, key=_latest_sort_key, reverse=True),
-    )
-
-
-def _select_actionable_packet(
-    packets: Sequence[Mapping[str, object]],
-) -> Mapping[str, object] | None:
-    ordered = _ordered_actionable_packets(packets)
-    return ordered[0] if ordered else None
-
-
-def _latest_packet(
-    packets: Sequence[Mapping[str, object]] | object,
-) -> Mapping[str, object] | None:
-    packet_rows = [
-        packet
-        for packet in packets
-        if isinstance(packet, Mapping)
-    ]
-    if not packet_rows:
-        return None
-    return max(packet_rows, key=_latest_sort_key)
-
-
-def _action_request_priority_key(packet: Mapping[str, object]) -> tuple[object, ...]:
-    state_rank = {
-        "execution_pending": 0,
-        "delivery_pending": 1,
-        "in_progress": 2,
-    }
-    return (
-        state_rank.get(_action_request_state(packet), 9),
-        _parse_utc(packet.get("expires_at_utc")),
-        _parse_utc(packet.get("posted_at")),
-        _packet_id(packet),
-    )
-
-
-def _latest_sort_key(packet: Mapping[str, object]) -> tuple[object, ...]:
-    return (
-        _parse_utc(packet.get("posted_at")),
-        _packet_id(packet),
-    )
-
-
-def _action_request_state(packet: Mapping[str, object]) -> str:
-    if str(packet.get("execution_started_at_utc") or "").strip():
-        return "in_progress"
-    if str(packet.get("delivery_observed_at_utc") or "").strip():
-        return "execution_pending"
-    return "delivery_pending"
-
-
-def _is_actionable(packet: Mapping[str, object]) -> bool:
-    return _is_action_request(packet) or str(packet.get("kind") or "").strip() == "instruction"
-
-
-def _is_action_request(packet: Mapping[str, object]) -> bool:
-    return str(packet.get("kind") or "").strip() == "action_request"
-
-
-def _is_live_pending(packet: Mapping[str, object]) -> bool:
-    if str(packet.get("status") or "").strip() != "pending":
-        return False
-    expires_at = _parse_utc(packet.get("expires_at_utc"))
-    if expires_at is None:
-        return True
-    return expires_at > datetime.now(timezone.utc)
-
-
-def _is_expired_unresolved(packet: Mapping[str, object]) -> bool:
-    status = str(packet.get("status") or "").strip()
-    if status == "expired":
-        return True
-    if status != "pending":
-        return False
-    expires_at = _parse_utc(packet.get("expires_at_utc"))
-    return expires_at is not None and expires_at <= datetime.now(timezone.utc)
-
-
-def _parse_utc(value: object) -> datetime:
-    text = str(value or "").strip()
-    if not text:
-        return datetime.min.replace(tzinfo=timezone.utc)
-    try:
-        stamp = datetime.fromisoformat(text.replace("Z", "+00:00"))
-    except ValueError:
-        return datetime.min.replace(tzinfo=timezone.utc)
-    if stamp.tzinfo is None:
-        return stamp.replace(tzinfo=timezone.utc)
-    return stamp.astimezone(timezone.utc)
-
-
-def _packet_id(packet: Mapping[str, object] | None) -> str:
-    if packet is None:
-        return ""
-    return str(packet.get("packet_id") or "").strip()
 
 
 def _digest_payload(payload: Mapping[str, object]) -> str:

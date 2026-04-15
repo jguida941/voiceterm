@@ -82,18 +82,7 @@ def write_projection_bundle(
     full_extras: dict[str, object] | None = None,
 ) -> ReviewChannelProjectionPaths:
     """Write a projection bundle from one reduced review-state snapshot."""
-    review_state_payload = _normalize_review_state_payload(review_state)
-    _apply_review_state_authority_context(review_state_payload)
-    obs_proj = build_observation_projection(review_state_payload)
-    if (
-        obs_proj is not None
-        and "reviewer_observation" not in review_state_payload
-    ):
-        review_state_payload["reviewer_observation"] = obs_proj
-    project_authority_snapshot(
-        review_state_payload,
-        next_command=_projection_next_command(review_state_payload),
-    )
+    review_state_payload = canonicalize_projection_review_state(review_state)
     compact = _build_compact_projection(review_state_payload)
     actions = _build_actions_projection(review_state_payload)
     full = {
@@ -153,6 +142,25 @@ def write_projection_bundle(
         agent_registry_path=str(agent_registry_path),
         commit_pipeline_path=str(commit_pipeline_path),
     )
+
+
+def canonicalize_projection_review_state(
+    review_state: Mapping[str, object],
+) -> dict[str, object]:
+    """Return the same canonical review-state payload that bundle writes persist."""
+    review_state_payload = _normalize_review_state_payload(review_state)
+    _apply_review_state_authority_context(review_state_payload)
+    obs_proj = build_observation_projection(review_state_payload)
+    if (
+        obs_proj is not None
+        and "reviewer_observation" not in review_state_payload
+    ):
+        review_state_payload["reviewer_observation"] = obs_proj
+    project_authority_snapshot(
+        review_state_payload,
+        next_command=_projection_next_command(review_state_payload),
+    )
+    return review_state_payload
 
 
 def _build_compact_projection(review_state: dict[str, object]) -> dict[str, object]:

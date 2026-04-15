@@ -4,59 +4,29 @@ from __future__ import annotations
 
 import hashlib
 import os
-import re
 import subprocess
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from zoneinfo import ZoneInfo
 
 from ..common import display_path
 from .bridge_file import rewrite_bridge_markdown
-from .bridge_validation import (
-    extract_poll_status_reviewer_modes,
-    validate_launch_bridge_state,
-)
 from .handoff import extract_bridge_snapshot, summarize_bridge_liveness
-from .poll_status import AUTO_REFRESH_PREFIX, rewrite_poll_status as _rewrite_poll_status
-
-LAST_CODEX_POLL_RE = re.compile(r"(?m)^- Last Codex poll:\s*`.*?`\s*$")
-LAST_CODEX_POLL_LOCAL_RE = re.compile(
-    r"(?m)^- Last Codex poll \(Local [^)]+\):\s*`.*?`\s*$"
+from .heartbeat_launch_contract import (
+    validate_refreshable_launch_contract as _validate_refreshable_launch_contract,
 )
-LAST_WORKTREE_HASH_RE = re.compile(
-    r"(?m)^- Last non-audit worktree hash:\s*`.*?`\s*$"
-)
-CURRENT_INSTRUCTION_REVISION_RE = re.compile(
-    r"(?m)^- Current instruction revision:\s*`.*?`\s*$"
-)
-LAST_CHECKPOINT_ACTION_RE = re.compile(
-    r"(?m)^- Last checkpoint action:\s*`.*?`\s*$"
-)
-HEAD_AT_PUSH_TIME_RE = re.compile(
-    r"(?m)^- Head at push time:\s*`.*?`\s*$"
-)
-_REPO_OWNED_POLL_STATUS_PREFIXES = (
-    AUTO_REFRESH_PREFIX,
-    "- Reviewer checkpoint updated through repo-owned tooling",
-    "- Reviewer heartbeat refreshed through repo-owned tooling",
-    "- Reviewer state:",
-    "- Reviewer mode ",
-    "- Reviewer conductor ",
-)
-REFRESHABLE_LAUNCH_ERRORS = (
-    "Missing `Last Codex poll`;",
-    "Missing `Last Codex poll`",
-    "`Last Codex poll` is stale;",
-    "`Last Codex poll` is stale",
-)
-_TIMESTAMPED_POLL_STATUS_RE = re.compile(
-    r"^-\s+`?\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z`?(?:\b|[/:])"
-)
-_HISTORICAL_POLL_STATUS_PHRASES = (
-    "bridge attention no longer reflects an ack wait",
-    "live bridge status now matches the reviewed tree hash",
-    "structural authority docs are green on the current tree",
+from .heartbeat_metadata import (
+    CURRENT_INSTRUCTION_REVISION_RE,
+    HEAD_AT_PUSH_TIME_RE,
+    HeartbeatMetadataInputs,
+    LAST_CHECKPOINT_ACTION_RE,
+    LAST_CODEX_POLL_LOCAL_RE,
+    LAST_CODEX_POLL_RE,
+    LAST_WORKTREE_HASH_RE,
+    format_local_timestamp as _format_local_timestamp,
+    replace_or_insert_metadata_line as _replace_or_insert_metadata_line,
+    rewrite_heartbeat_metadata as _rewrite_heartbeat_metadata,
+    should_strip_poll_status_line as _should_strip_poll_status_line,
 )
 _BASE_NON_AUDIT_HASH_EXCLUDED_PREFIXES = (
     "dev/reports/",
@@ -98,6 +68,12 @@ class BridgeHeartbeatRefresh:
     last_worktree_hash: str
 
 
+@dataclass(frozen=True)
+class _HeartbeatHashes:
+    observed_hash: str
+    reviewed_hash: str
+
+
 def bridge_heartbeat_refresh_to_dict(
     refresh: BridgeHeartbeatRefresh | None,
 ) -> dict[str, object] | None:
@@ -124,6 +100,7 @@ def refresh_bridge_heartbeat(
     repo_root: Path,
     bridge_path: Path,
     reason: str,
+    allow_non_refreshable_launch_errors: bool = False,
 ) -> BridgeHeartbeatRefresh:
     """Refresh the reviewer heartbeat metadata when launch is otherwise valid."""
     refresh: BridgeHeartbeatRefresh | None = None
@@ -134,57 +111,30 @@ def refresh_bridge_heartbeat(
 
         snapshot = extract_bridge_snapshot(bridge_text)
         liveness = summarize_bridge_liveness(snapshot)
-        launch_errors = validate_launch_bridge_state(snapshot, liveness=liveness)
-        non_refreshable = [
-            error for error in launch_errors if not _is_refreshable_launch_error(error)
-        ]
-        if non_refreshable:
-            raise ValueError(
-                "Bridge heartbeat refresh refused because the launch contract has "
-                "other blockers: " + "; ".join(non_refreshable)
-            )
+        _validate_refreshable_launch_contract(
+            snapshot=snapshot,
+            liveness=liveness,
+            allow_non_refreshable_launch_errors=allow_non_refreshable_launch_errors,
+        )
 
         now_utc = datetime.now(timezone.utc)
         last_codex_poll_utc = now_utc.strftime("%Y-%m-%dT%H:%M:%SZ")
         last_codex_poll_local = _format_local_timestamp(now_utc)
-        reviewed_hash = snapshot.metadata.get("last_non_audit_worktree_hash") or ""
-        # Refresh the heartbeat timestamp without advancing the reviewed hash.
-        # Heartbeat/ensure flows are liveness-only; they must not claim that the
-        # current tree has been semantically reviewed.
-        try:
-            observed_hash = compute_non_audit_worktree_hash(
-                repo_root=repo_root,
-                excluded_rel_paths=bridge_excluded_rel_paths(
-                    repo_root=repo_root,
-                    bridge_path=bridge_path,
-                ),
-            )
-        except (ValueError, OSError):
-            observed_hash = reviewed_hash
-        if not reviewed_hash:
-            reviewed_hash = observed_hash
-
-        updated_text = bridge_text
-        updated_text = _replace_or_insert_metadata_line(
-            updated_text,
-            pattern=LAST_CODEX_POLL_RE,
-            replacement=f"- Last Codex poll: `{last_codex_poll_utc}`",
+        hashes = _compute_heartbeat_hashes(
+            repo_root=repo_root,
+            bridge_path=bridge_path,
+            reviewed_hash=str(snapshot.metadata.get("last_non_audit_worktree_hash") or ""),
         )
         tz_label = active_path_config().display_timezone
-        updated_text = _replace_or_insert_metadata_line(
-            updated_text,
-            pattern=LAST_CODEX_POLL_LOCAL_RE,
-            replacement=(
-                f"- Last Codex poll (Local {tz_label}): "
-                f"`{last_codex_poll_local}`"
-            ),
-        )
-        updated_text = _rewrite_poll_status(
-            updated_text,
-            note=(
-                f"{AUTO_REFRESH_PREFIX} `{last_codex_poll_utc}` "
-                f"(reason: {reason}; observed-tree: {observed_hash[:12]}; "
-                f"reviewed-tree: {reviewed_hash[:12]})."
+        updated_text = _rewrite_heartbeat_metadata(
+            inputs=HeartbeatMetadataInputs(
+                bridge_text=bridge_text,
+                last_codex_poll_utc=last_codex_poll_utc,
+                last_codex_poll_local=last_codex_poll_local,
+                tz_label=tz_label,
+                reason=reason,
+                observed_hash=hashes.observed_hash,
+                reviewed_hash=hashes.reviewed_hash,
             ),
         )
         refresh = BridgeHeartbeatRefresh(
@@ -192,7 +142,7 @@ def refresh_bridge_heartbeat(
             reason=reason,
             last_codex_poll_utc=last_codex_poll_utc,
             last_codex_poll_local=last_codex_poll_local,
-            last_worktree_hash=reviewed_hash,
+            last_worktree_hash=hashes.reviewed_hash,
         )
         return updated_text
 
@@ -201,46 +151,29 @@ def refresh_bridge_heartbeat(
     return refresh
 
 
-def _is_refreshable_launch_error(error: str) -> bool:
-    stripped = error.strip()
-    return any(stripped.startswith(prefix) for prefix in REFRESHABLE_LAUNCH_ERRORS)
-
-
-def _replace_or_insert_metadata_line(
-    text: str,
+def _compute_heartbeat_hashes(
     *,
-    pattern: re.Pattern[str],
-    replacement: str,
-) -> str:
-    updated, count = pattern.subn(replacement, text, count=1)
-    if count == 1:
-        return updated
-    marker = "\n## Protocol\n"
-    if marker not in text:
-        raise ValueError("Unable to locate the markdown-bridge metadata block.")
-    return text.replace(marker, f"\n{replacement}{marker}", 1)
-
-
-def _should_strip_poll_status_line(line: str) -> bool:
-    stripped = line.strip()
-    if any(
-        stripped.startswith(prefix) for prefix in _REPO_OWNED_POLL_STATUS_PREFIXES
-    ):
-        return True
-    if extract_poll_status_reviewer_modes(stripped):
-        return True
-    if _TIMESTAMPED_POLL_STATUS_RE.match(stripped):
-        return True
-    lowered = stripped.lower()
-    return any(phrase in lowered for phrase in _HISTORICAL_POLL_STATUS_PHRASES)
-
-
-def _format_local_timestamp(timestamp_utc: datetime) -> str:
-    from ..repo_packs import active_path_config
-
-    tz_name = active_path_config().display_timezone
-    local = timestamp_utc.astimezone(ZoneInfo(tz_name))
-    return local.strftime("%Y-%m-%d %H:%M:%S %Z")
+    repo_root: Path,
+    bridge_path: Path,
+    reviewed_hash: str,
+) -> _HeartbeatHashes:
+    # Refresh the heartbeat timestamp without advancing the reviewed hash.
+    # Heartbeat/ensure flows are liveness-only; they must not claim that the
+    # current tree has been semantically reviewed.
+    try:
+        observed_hash = compute_non_audit_worktree_hash(
+            repo_root=repo_root,
+            excluded_rel_paths=bridge_excluded_rel_paths(
+                repo_root=repo_root,
+                bridge_path=bridge_path,
+            ),
+        )
+    except (ValueError, OSError):
+        observed_hash = reviewed_hash
+    return _HeartbeatHashes(
+        observed_hash=observed_hash,
+        reviewed_hash=reviewed_hash or observed_hash,
+    )
 
 
 def compute_non_audit_worktree_hash(
@@ -252,31 +185,7 @@ def compute_non_audit_worktree_hash(
     if excluded_prefixes is None:
         excluded_prefixes = non_audit_hash_excluded_prefixes()
     excluded = {path.strip() for path in excluded_rel_paths if path.strip()}
-    if (repo_root / ".git").exists():
-        completed = subprocess.run(
-            ["git", "ls-files", "-z", "--cached", "--others", "--exclude-standard"],
-            cwd=repo_root,
-            check=False,
-            capture_output=True,
-        )
-        if completed.returncode != 0:
-            detail = (completed.stderr or completed.stdout).decode(
-                "utf-8",
-                errors="replace",
-            )
-            raise ValueError(
-                detail.strip()
-                or "git ls-files failed while refreshing bridge heartbeat."
-            )
-        entries = sorted(
-            {
-                raw.decode("utf-8", errors="surrogateescape")
-                for raw in completed.stdout.split(b"\0")
-                if raw
-            }
-        )
-    else:
-        entries = sorted(_walk_repo_paths(repo_root))
+    entries = _repo_entries_for_hash(repo_root)
     digest = hashlib.sha256()
     for relative_path in entries:
         if _is_non_audit_hash_excluded(
@@ -285,23 +194,65 @@ def compute_non_audit_worktree_hash(
             excluded_prefixes=excluded_prefixes,
         ):
             continue
-        target = repo_root / relative_path
-        digest.update(relative_path.encode("utf-8", errors="surrogateescape"))
-        digest.update(b"\0")
-        if target.is_symlink():
-            digest.update(b"symlink\0")
-            digest.update(os.readlink(target).encode("utf-8", errors="surrogateescape"))
-            digest.update(b"\0")
-            continue
-        if target.is_file():
-            digest.update(target.read_bytes())
-            digest.update(b"\0")
-            continue
-        if target.exists():
-            digest.update(b"non-file\0")
-        else:
-            digest.update(b"missing\0")
+        _update_digest_for_path(
+            digest=digest,
+            repo_root=repo_root,
+            relative_path=relative_path,
+        )
     return digest.hexdigest()
+
+
+def _repo_entries_for_hash(repo_root: Path) -> list[str]:
+    if not (repo_root / ".git").exists():
+        return sorted(_walk_repo_paths(repo_root))
+
+    completed = subprocess.run(
+        ["git", "ls-files", "-z", "--cached", "--others", "--exclude-standard"],
+        cwd=repo_root,
+        check=False,
+        capture_output=True,
+    )
+    if completed.returncode != 0:
+        detail = (completed.stderr or completed.stdout).decode(
+            "utf-8",
+            errors="replace",
+        )
+        raise ValueError(
+            detail.strip()
+            or "git ls-files failed while refreshing bridge heartbeat."
+        )
+
+    return sorted(
+        {
+            raw.decode("utf-8", errors="surrogateescape")
+            for raw in completed.stdout.split(b"\0")
+            if raw
+        }
+    )
+
+
+def _update_digest_for_path(
+    *,
+    digest: object,
+    repo_root: Path,
+    relative_path: str,
+) -> None:
+    target = repo_root / relative_path
+    digest.update(relative_path.encode("utf-8", errors="surrogateescape"))
+    digest.update(b"\0")
+
+    if target.is_symlink():
+        digest.update(b"symlink\0")
+        digest.update(os.readlink(target).encode("utf-8", errors="surrogateescape"))
+        digest.update(b"\0")
+        return
+
+    if target.is_file():
+        digest.update(target.read_bytes())
+        digest.update(b"\0")
+        return
+
+    digest.update(b"non-file\0" if target.exists() else b"missing\0")
 
 
 def _is_non_audit_hash_excluded(

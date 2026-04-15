@@ -26,6 +26,9 @@ from .reviewer_follow_guard import (
     wake_report,
 )
 from .reviewer_head_tracking import compute_review_range
+from ..commands.review_channel._supervisor_restart_policy import (
+    manual_stop_recovery_allowed,
+)
 
 _WAITING_REVIEWER_SESSION_STATES = frozenset(
     {"interrupt_prompt", "waiting_for_user_input"}
@@ -197,6 +200,7 @@ def _maybe_restart_reviewer_supervisor(
         repo_root=repo_root,
         paths=paths,
         allow_follow=True,
+        allow_manual_stop_recovery=manual_stop_recovery_allowed(report),
     )
 
 

@@ -30,6 +30,11 @@ _REVIEWER_OWNED_VALIDATION_SECTIONS = (
     "Current Instruction For Claude",
     "Last Reviewed Scope",
 )
+_WAITING_INSTRUCTION_MARKERS = (
+    "await reviewer instruction refresh",
+    "waiting for reviewer promotion",
+    "hold steady",
+)
 
 
 def validate_live_bridge_contract(snapshot) -> list[str]:
@@ -87,7 +92,11 @@ def validate_live_bridge_contract(snapshot) -> list[str]:
         )
 
     explicit_revision = (snapshot.metadata.get("current_instruction_revision") or "").strip()
-    if reviewer_mode_is_active(reviewer_mode) and liveness.claude_ack_present:
+    if (
+        reviewer_mode_is_active(reviewer_mode)
+        and liveness.claude_ack_present
+        and not _waiting_instruction_placeholder(current_instruction)
+    ):
         if not explicit_revision:
             errors.append(
                 "Active bridge mode requires `Current instruction revision` metadata "
@@ -138,6 +147,11 @@ def validate_live_bridge_contract(snapshot) -> list[str]:
             )
 
     return errors
+
+
+def _waiting_instruction_placeholder(current_instruction: str) -> bool:
+    normalized = current_instruction.strip().lower()
+    return any(marker in normalized for marker in _WAITING_INSTRUCTION_MARKERS)
 def validate_launch_bridge_state(
     snapshot,
     *,

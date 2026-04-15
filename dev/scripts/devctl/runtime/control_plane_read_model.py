@@ -23,11 +23,11 @@ from ..platform.coordination_snapshot_models import (
 from .auto_mode import AutoModeInputs, AutoModePhase, resolve_auto_mode_phase
 from .conductor_capability import normalize_reviewer_mode
 from .control_plane_sources import load_sources
+from .control_plane_pending_packets import resolve_pending_packets
 from .control_plane_resolve import (
     load_git_state,
     resolve_blocker_and_action,
     resolve_daemon_state,
-    resolve_pending_packets,
     resolve_quality,
     resolve_reviewer_state,
     utc_now_iso,

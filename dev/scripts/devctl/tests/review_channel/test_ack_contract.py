@@ -93,6 +93,25 @@ def test_validate_live_bridge_contract_accepts_semantic_ack_phrase() -> None:
     assert not any("Claude Ack" in error for error in errors)
 
 
+def test_validate_live_bridge_contract_skips_ack_revision_gate_for_wait_placeholder() -> None:
+    snapshot = extract_bridge_snapshot(
+        _bridge_text(claude_ack="- acknowledged")
+        .replace(
+            "- Current instruction revision: `56bcd5d01510`\n",
+            "",
+        )
+        .replace(
+            "- Implement the typed authority slice.",
+            "- Await reviewer instruction refresh.",
+        )
+    )
+
+    errors = validate_live_bridge_contract(snapshot)
+
+    assert not any("Current instruction revision" in error for error in errors)
+    assert not any("Claude Ack" in error for error in errors)
+
+
 def test_build_bridge_current_session_accepts_implementer_heading_aliases() -> None:
     snapshot = extract_bridge_snapshot(
         _bridge_text(claude_ack="- acknowledged; instruction-rev: `56bcd5d01510`")

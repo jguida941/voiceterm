@@ -181,6 +181,16 @@
   relaunch one waiting Codex reviewer conductor for the newest unseen
   action-request packet instead of leaving that wake-up dependent on a
   separate watcher.
+- 2026-04-15 reviewer-runtime attention convergence follow-up in `MP-377`
+  scope: bridge-backed `review-channel status` and the event-backed
+  `startup-context` / `session-resume` / `dashboard` lane now attach the same
+  typed conductor session state before recovery assessment, so all four
+  surfaces agree on runtime diagnosis (`review_loop_relaunch_required` on the
+  live repo state) while checkpoint sequencing remains in
+  `advisory_action` / `push_decision`. The authoritative bundle for the
+  current 74-path slice is still `bundle.tooling -> docs-check
+  --strict-tooling`, so the matching maintainer-doc updates stay part of the
+  closure criteria for this runtime-convergence slice.
 - 2026-04-13 authority-snapshot closure follow-up in `MP-377` scope:
   startup-context, session-resume, and review-channel status/doctor now all
   project the same reduced `AuthoritySnapshot` contract from

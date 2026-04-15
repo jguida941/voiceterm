@@ -30,7 +30,6 @@ from ...runtime.review_state_models import (
     ReviewCandidateRecord,
     review_candidate_from_mapping,
 )
-from ...runtime.review_packet_inbox import build_packet_inbox_payload
 from ...runtime.reviewer_runtime_models import (
     RemoteControlAttachmentState,
     has_active_remote_control_attachment,
@@ -45,7 +44,12 @@ from ...runtime.value_coercion import coerce_bool, coerce_string
 from ...runtime.work_intake_models import SessionContinuityState
 from ...time_utils import utc_timestamp
 from . import session_resume_git as _session_resume_git
-from .session_resume_authority_payload import SessionResumeAuthorityPayload
+from .session_resume_authority_payload import (
+    build_session_resume_review_state_context,
+    SessionResumeAuthorityPayload,
+    SessionResumeCurrentSessionPayload,
+    SessionResumePacketInboxPayload,
+)
 from .session_resume_paths import (
     get_review_state_mtime,
     governance_interaction_mode,
@@ -211,7 +215,6 @@ def build_from_sources(
     current_instruction = _str_field(session, "current_instruction")
     instruction_revision = _str_field(session, "current_instruction_revision")
     ack_state = _str_field(session, "implementer_ack_state") or "missing"
-    open_findings = _str_field(session, "open_findings")
 
     rs_mtime = get_review_state_mtime(repo_root, governance=governance)
     push_governance, safe_to_continue, checkpoint_required = _push_gate_state(
@@ -234,11 +237,7 @@ def build_from_sources(
         repo_root, changed_paths,
         head_sha=head_sha, last_reviewed_sha=last_reviewed_sha,
     )
-    obs_status = (
-        model.reviewer_observation.status
-        if model.reviewer_observation is not None
-        else ""
-    )
+    obs_status = model.reviewer_observation.status if model.reviewer_observation is not None else ""
     coordination = model.coordination or _extract_coordination(
         sources,
         repo_root=repo_root,
@@ -255,19 +254,16 @@ def build_from_sources(
     next_cmd = (_str_field(_nested_dict(recovery_payload, "decision"), "command")
         or _str_field(attention_payload, "recommended_command")
         or model.next_command or model.next_action)
-    packet_inbox = packet_inbox_from_mapping(
-        review_state_payload.get("packet_inbox")
-    ) or packet_inbox_from_mapping(
-        build_packet_inbox_payload(
-            review_state_payload.get("packets", ()),
-            attention=review_state_payload.get("attention", {}),
-        )
+    review_state_context = build_session_resume_review_state_context(
+        review_state_payload,
+        fallback_open_findings=_str_field(session, "open_findings"),
+        role=role,
     )
-    observed_control_topology, implementation_permission = (
-        derive_startup_control_truth(typed_review_state)
-        if typed_review_state is not None
-        else ("", "")
-    )
+    packet_inbox = review_state_context.packet_inbox
+    open_findings = review_state_context.open_findings
+    observed_control_topology, implementation_permission = derive_startup_control_truth(
+        typed_review_state
+    ) if typed_review_state is not None else ("", "")
     authority_payload = SessionResumeAuthorityPayload(
         reviewer_mode=model.reviewer_mode,
         reviewer_freshness=model.reviewer_freshness,
@@ -276,19 +272,22 @@ def build_from_sources(
         implementation_permission=implementation_permission,
         attention=attention_payload,
         recovery_assessment=recovery_payload,
-        current_instruction=current_instruction,
-        instruction_revision=instruction_revision,
-        ack_state=ack_state,
+        current_session=SessionResumeCurrentSessionPayload(
+            current_instruction=current_instruction,
+            current_instruction_revision=instruction_revision,
+            implementer_ack_state=ack_state,
+        ),
         coordination=coordination,
-        packet_inbox=packet_inbox,
+        packet_inbox=SessionResumePacketInboxPayload.from_state(packet_inbox),
         next_command=next_cmd,
+        governance=push_governance,
     ).to_dict()
-    if push_governance:
-        authority_payload["governance"] = push_governance
     shared_blockers = summary_blockers_csv(authority_payload)
-    blockers = _resolve_blockers(receipt, model.top_blocker, shared_blockers)
-    if shared_blockers != "none":
-        authority_payload["next_command"] = summary_next_command(authority_payload)
+    top_blocker = model.top_blocker
+    if top_blocker == _str_field(session, "open_findings"):
+        top_blocker = open_findings
+    blockers = _resolve_blockers(receipt, top_blocker, shared_blockers)
+    if shared_blockers != "none": authority_payload["next_command"] = summary_next_command(authority_payload)
     authority_snapshot = build_authority_snapshot(authority_payload)
     return SessionCachePacket(
         generated_at_utc=utc_timestamp(),
@@ -296,7 +295,7 @@ def build_from_sources(
         branch=model.branch,
         head_sha=head_sha,
         advisory_action=model.next_action,
-        advisory_reason=model.top_blocker,
+        advisory_reason=top_blocker,
         blockers=blockers,
         interaction_mode=model.operator_interaction_mode,
         current_instruction=current_instruction,

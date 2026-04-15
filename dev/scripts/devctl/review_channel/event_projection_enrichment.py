@@ -40,6 +40,8 @@ def resolve_current_session(
     )
     if current_session.current_instruction.strip() not in {"", "(missing)"}:
         return current_session
+    if _event_session_has_packet_attention(current_session):
+        return current_session
     try:
         bridge_snapshot = extract_bridge_snapshot(
             (context.repo_root / DEFAULT_BRIDGE_REL).read_text(encoding="utf-8")
@@ -54,3 +56,8 @@ def resolve_current_session(
     if bridge_session.current_instruction.strip() not in {"", "(missing)"}:
         return bridge_session
     return current_session
+
+
+def _event_session_has_packet_attention(current_session) -> bool:
+    open_findings = str(getattr(current_session, "open_findings", "") or "").strip().lower()
+    return open_findings not in {"", "none"}

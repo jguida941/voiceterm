@@ -46,6 +46,8 @@ class AuthoritySnapshot:
     root_cause: str = ""
     required_action: str = ""
     next_command: str = ""
+    actor_role: str = ""
+    actor_identity: str = ""
     safe_to_continue: bool = True
     reviewer_mode: str = ""
     reviewer_freshness: str = ""
@@ -82,6 +84,8 @@ def authority_snapshot_from_mapping(value: object) -> AuthoritySnapshot | None:
         root_cause=str(value.get("root_cause") or "").strip(),
         required_action=str(value.get("required_action") or "").strip(),
         next_command=str(value.get("next_command") or "").strip(),
+        actor_role=str(value.get("actor_role") or "").strip(),
+        actor_identity=str(value.get("actor_identity") or "").strip(),
         safe_to_continue=bool(value.get("safe_to_continue", True)),
         reviewer_mode=str(value.get("reviewer_mode") or "").strip(),
         reviewer_freshness=str(value.get("reviewer_freshness") or "").strip(),

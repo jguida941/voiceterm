@@ -1,0 +1,165 @@
+"""Merge helpers for persisted and rebuilt packet-inbox state."""
+
+from __future__ import annotations
+
+from collections.abc import Mapping, Sequence
+
+from .review_packet_inbox_lookup import packet_id as _packet_id
+from .review_state_packet_models import (
+    AgentAttentionRecord,
+    PacketInboxState,
+)
+
+
+def live_packet_ids(packets: Sequence[object] | object) -> frozenset[str]:
+    """Return the normalized ids for currently-live packet rows."""
+    return frozenset(
+        packet_id
+        for packet_id in (_packet_id(packet) for packet in _packet_rows(packets))
+        if packet_id
+    )
+
+
+def merge_packet_inbox_states(
+    *,
+    rebuilt: PacketInboxState,
+    persisted: PacketInboxState,
+    live_packet_ids: frozenset[str],
+) -> PacketInboxState:
+    """Merge rebuilt packet-inbox truth with any still-relevant persisted state."""
+    merged_agents: list[AgentAttentionRecord] = []
+    for agent in sorted(_agent_ids(rebuilt=rebuilt, persisted=persisted)):
+        rebuilt_record = rebuilt.for_agent(agent)
+        persisted_record = sanitize_persisted_record(
+            persisted.for_agent(agent),
+            live_packet_ids=live_packet_ids,
+        )
+        if rebuilt_record is None and persisted_record is None:
+            continue
+        if rebuilt_record is None:
+            assert persisted_record is not None
+            merged_agents.append(persisted_record)
+            continue
+        if persisted_record is None:
+            merged_agents.append(rebuilt_record)
+            continue
+        merged_agents.append(
+            _merge_agent_attention_records(
+                rebuilt_record=rebuilt_record,
+                persisted_record=persisted_record,
+            )
+        )
+    return PacketInboxState(
+        attention_revision=rebuilt.attention_revision or persisted.attention_revision,
+        agents=tuple(merged_agents),
+    )
+
+
+def sanitize_persisted_record(
+    record: AgentAttentionRecord | None,
+    *,
+    live_packet_ids: frozenset[str],
+) -> AgentAttentionRecord | None:
+    """Drop persisted packet references that no longer exist in the live reducer."""
+    if record is None:
+        return None
+    if not live_packet_ids:
+        return record
+    return AgentAttentionRecord(
+        agent=record.agent,
+        current_instruction_packet_id=(
+            record.current_instruction_packet_id
+            if record.current_instruction_packet_id in live_packet_ids
+            else ""
+        ),
+        latest_finding_packet_id=record.latest_finding_packet_id,
+        pending_actionable_packet_ids=tuple(
+            packet_id
+            for packet_id in record.pending_actionable_packet_ids
+            if packet_id in live_packet_ids
+        ),
+        expired_unresolved_packet_ids=record.expired_unresolved_packet_ids,
+        attention_status=record.attention_status,
+        wake_reason=record.wake_reason,
+        required_command=record.required_command,
+        attention_revision=record.attention_revision,
+        delivery_state=record.delivery_state,
+    )
+
+
+def _merge_agent_attention_records(
+    *,
+    rebuilt_record: AgentAttentionRecord,
+    persisted_record: AgentAttentionRecord,
+) -> AgentAttentionRecord:
+    driver = _attention_driver(rebuilt_record, persisted_record)
+    return AgentAttentionRecord(
+        agent=rebuilt_record.agent,
+        current_instruction_packet_id=(
+            rebuilt_record.current_instruction_packet_id
+            or persisted_record.current_instruction_packet_id
+        ),
+        latest_finding_packet_id=(
+            rebuilt_record.latest_finding_packet_id
+            or persisted_record.latest_finding_packet_id
+        ),
+        pending_actionable_packet_ids=(
+            rebuilt_record.pending_actionable_packet_ids
+            or persisted_record.pending_actionable_packet_ids
+        ),
+        expired_unresolved_packet_ids=(
+            rebuilt_record.expired_unresolved_packet_ids
+            or persisted_record.expired_unresolved_packet_ids
+        ),
+        attention_status=driver.attention_status,
+        wake_reason=driver.wake_reason,
+        required_command=driver.required_command
+        or rebuilt_record.required_command
+        or persisted_record.required_command,
+        attention_revision=driver.attention_revision
+        or rebuilt_record.attention_revision
+        or persisted_record.attention_revision,
+        delivery_state=driver.delivery_state,
+    )
+
+
+def _attention_driver(
+    rebuilt_record: AgentAttentionRecord,
+    persisted_record: AgentAttentionRecord,
+) -> AgentAttentionRecord:
+    rebuilt_score = _attention_score(rebuilt_record)
+    persisted_score = _attention_score(persisted_record)
+    if persisted_score > rebuilt_score:
+        return persisted_record
+    return rebuilt_record
+
+
+def _attention_score(record: AgentAttentionRecord) -> tuple[int, ...]:
+    return (
+        1 if record.current_instruction_packet_id else 0,
+        len(record.pending_actionable_packet_ids),
+        len(record.expired_unresolved_packet_ids),
+        1 if record.latest_finding_packet_id else 0,
+        1 if record.attention_status not in {"", "none"} else 0,
+        1 if record.required_command else 0,
+        1 if record.delivery_state != "idle" else 0,
+    )
+
+
+def _agent_ids(
+    *,
+    rebuilt: PacketInboxState,
+    persisted: PacketInboxState,
+) -> frozenset[str]:
+    return frozenset(
+        {
+            *(record.agent for record in persisted.agents),
+            *(record.agent for record in rebuilt.agents),
+        }
+    )
+
+
+def _packet_rows(packets: Sequence[object] | object) -> tuple[Mapping[str, object], ...]:
+    if not isinstance(packets, Sequence) or isinstance(packets, (str, bytes)):
+        return ()
+    return tuple(packet for packet in packets if isinstance(packet, Mapping))

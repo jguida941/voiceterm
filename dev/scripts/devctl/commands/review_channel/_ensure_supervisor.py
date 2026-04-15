@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from typing import Callable
 
 from ._supervisor_restart_policy import (
+    manual_stop_recovery_allowed,
     non_restartable_reviewer_supervisor_stop_reason,
 )
 
@@ -57,6 +58,7 @@ def try_restart_reviewer_supervisor(
     reviewer_supervisor = report.get("reviewer_supervisor")
     blocked_reason = non_restartable_reviewer_supervisor_stop_reason(
         reviewer_supervisor if isinstance(reviewer_supervisor, dict) else None,
+        allow_manual_stop_recovery=manual_stop_recovery_allowed(report),
     )
     if blocked_reason:
         return ReviewerSupervisorRestartAttempt(

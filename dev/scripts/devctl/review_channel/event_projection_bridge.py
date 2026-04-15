@@ -32,6 +32,7 @@ def build_event_bridge_liveness_projection(
     current_session = current_session_mapping(review_state)
     claude_status = event_agent_status(review_state, "claude")
     claude_ack = event_claude_ack(queue)
+    open_findings = event_open_findings(review_state)
     reviewer_mode = _event_reviewer_mode(runtime)
     bridge_liveness: dict[str, object] = {}
     bridge_liveness["overall_state"] = (
@@ -48,7 +49,9 @@ def build_event_bridge_liveness_projection(
     bridge_liveness["last_codex_poll_age_seconds"] = 0
     bridge_liveness["claude_status_present"] = bool(claude_status)
     bridge_liveness["claude_ack_present"] = bool(claude_ack)
-    bridge_liveness["open_findings_present"] = bool(event_open_findings(queue))
+    bridge_liveness["open_findings_present"] = bool(
+        open_findings and open_findings != "none"
+    )
     bridge_liveness["reviewed_hash_current"] = None
     bridge_liveness["implementer_completion_stall"] = detect_event_implementer_stall(
         claude_status=claude_status,

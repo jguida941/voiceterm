@@ -10,6 +10,11 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 from dev.scripts.devctl.commands.governance.session_resume import run
+from dev.scripts.devctl.commands.governance.session_resume_authority_payload import (
+    SessionResumeAuthorityPayload,
+    SessionResumeCurrentSessionPayload,
+    SessionResumePacketInboxPayload,
+)
 from dev.scripts.devctl.commands.governance.session_resume_paths import (
     get_review_state_mtime,
     resolve_source_paths,
@@ -26,9 +31,84 @@ from dev.scripts.devctl.commands.governance.session_resume_support import (
     write_cache,
 )
 from dev.scripts.devctl.runtime.authority_snapshot import AuthoritySnapshot
+from dev.scripts.devctl.runtime.review_state_packet_models import (
+    AgentAttentionRecord,
+    PacketInboxState,
+)
 from dev.scripts.devctl.runtime.reviewer_runtime_models import (
     RemoteControlAttachmentState,
 )
+
+
+class TestSessionResumeAuthorityPayload(unittest.TestCase):
+    """Authority payload serialization remains compact and behavior-stable."""
+
+    def test_build_session_resume_authority_payload_serializes_nested_rows(self) -> None:
+        payload = SessionResumeAuthorityPayload(
+            reviewer_mode="tools_only",
+            reviewer_freshness="fresh",
+            operator_interaction_mode="local_terminal",
+            observed_control_topology="no_live_agents",
+            implementation_permission="blocked",
+            attention={"status": "runtime_missing"},
+            recovery_assessment={"decision": {"action_id": "ensure_runtime"}},
+            current_session=SessionResumeCurrentSessionPayload(
+                current_instruction="refresh the runtime",
+                current_instruction_revision="rev-123",
+                implementer_ack_state="missing",
+            ),
+            coordination=None,
+            packet_inbox=SessionResumePacketInboxPayload.from_state(PacketInboxState(
+                attention_revision="attn-123",
+                agents=(
+                    AgentAttentionRecord(
+                        agent="codex",
+                        current_instruction_packet_id="pkt-1",
+                        latest_finding_packet_id="pkt-2",
+                        pending_actionable_packet_ids=("pkt-a", "pkt-b"),
+                        expired_unresolved_packet_ids=("pkt-c",),
+                        attention_status="wake_required",
+                        wake_reason="action_request_pending",
+                        required_command="python3 dev/scripts/devctl.py review-channel --action inbox",
+                        delivery_state="notified",
+                    ),
+                ),
+            )),
+            next_command="python3 dev/scripts/devctl.py review-channel --action status",
+            governance={"push_enforcement": {"checkpoint_required": True}},
+        ).to_dict()
+
+        self.assertEqual(
+            payload["current_session"],
+            {
+                "current_instruction": "refresh the runtime",
+                "current_instruction_revision": "rev-123",
+                "implementer_ack_state": "missing",
+            },
+        )
+        self.assertEqual(
+            payload["packet_inbox"],
+            {
+                "attention_revision": "attn-123",
+                "agents": [
+                    {
+                        "agent": "codex",
+                        "current_instruction_packet_id": "pkt-1",
+                        "latest_finding_packet_id": "pkt-2",
+                        "pending_actionable_total": 2,
+                        "expired_unresolved_total": 1,
+                        "attention_status": "wake_required",
+                        "wake_reason": "action_request_pending",
+                        "required_command": "python3 dev/scripts/devctl.py review-channel --action inbox",
+                        "delivery_state": "notified",
+                    }
+                ],
+            },
+        )
+        self.assertEqual(
+            payload["governance"],
+            {"push_enforcement": {"checkpoint_required": True}},
+        )
 
 
 class TestSessionCachePacket(unittest.TestCase):
@@ -88,6 +168,8 @@ class TestSessionCachePacket(unittest.TestCase):
                 coordination_state="handshake_stale",
                 current_instruction_revision="rev-123",
                 implementer_ack_state="stale",
+                actor_role="reviewer",
+                actor_identity="codex",
                 safe_to_continue=False,
             )
         )
@@ -104,6 +186,8 @@ class TestSessionCachePacket(unittest.TestCase):
             restored.authority_snapshot.current_instruction_revision,
             "rev-123",
         )
+        self.assertEqual(restored.authority_snapshot.actor_role, "reviewer")
+        self.assertEqual(restored.authority_snapshot.actor_identity, "codex")
 
 
 class TestFieldDerivation(unittest.TestCase):
@@ -401,6 +485,98 @@ class TestBuildFromSources(unittest.TestCase):
             self.assertEqual(packet.resolved_phase, "idle")
             self.assertEqual(packet.operator_interaction_mode, "local_terminal")
             self.assertEqual(packet.next_recommended_command, "python3 dev/scripts/devctl.py do-it")
+
+    def test_build_from_sources_prefers_packet_backed_expired_findings_summary(self) -> None:
+        from dev.scripts.devctl.runtime.control_plane_read_model import (
+            ControlPlaneReadModel,
+        )
+
+        model = ControlPlaneReadModel(
+            timestamp="2026-04-04T00:00:00Z",
+            branch="review-branch",
+            head_sha="rm_sha",
+            worktree_clean=True,
+            ahead_of_upstream=0,
+            resolved_phase="idle",
+            push_eligible=False,
+            implementation_blocked=False,
+            top_blocker="1 pending review packet(s)",
+            next_action="continue_review",
+            next_command="python3 dev/scripts/devctl.py review-channel --action status --terminal none --format json",
+            reviewer_mode="single_agent",
+            operator_interaction_mode="local_terminal",
+            reviewer_freshness="--",
+            review_accepted=False,
+            last_reviewed_sha="",
+            attention_status="review_needed",
+            attention_summary="stale packets need review",
+            publisher_running=False,
+            supervisor_running=False,
+            codex_conductor_alive=False,
+            claude_conductor_alive=False,
+            pending_action_requests=0,
+            last_guard_ok=True,
+            check_details=(),
+        )
+        sources = self._make_sources(
+            receipt={
+                "advisory_action": "continue_review",
+                "advisory_reason": "packet_attention",
+                "checkpoint_required": False,
+                "safe_to_continue_editing": True,
+                "startup_authority_ok": True,
+            },
+            review_state={
+                "current_session": {
+                    "current_instruction": "Review the stale backlog",
+                    "current_instruction_revision": "rev123",
+                    "implementer_ack_state": "missing",
+                    "open_findings": "1 pending review packet(s)",
+                },
+                "queue": {
+                    "pending_total": 0,
+                    "pending_claude": 0,
+                    "stale_packet_count": 1,
+                    "derived_next_instruction": "",
+                    "derived_next_instruction_source": {},
+                },
+                "packets": [
+                    {
+                        "packet_id": "rev_pkt_expired",
+                        "status": "pending",
+                        "kind": "action_request",
+                        "from_agent": "operator",
+                        "to_agent": "codex",
+                        "summary": "Expired operator directive",
+                        "body": "Still needs review.",
+                        "requested_action": "review_only",
+                        "expires_at_utc": "2000-01-01T00:00:00Z",
+                    }
+                ],
+            },
+        )
+
+        with tempfile.TemporaryDirectory() as td:
+            packet = build_from_sources(
+                Path(td),
+                role="reviewer",
+                head_sha="sha3",
+                read_model_override=model,
+                sources_override=sources,
+            )
+
+        self.assertEqual(
+            packet.open_findings,
+            "1 expired unresolved review packet(s)",
+        )
+        self.assertEqual(
+            packet.blockers,
+            "1 expired unresolved review packet(s)",
+        )
+        self.assertEqual(
+            packet.advisory_reason,
+            "1 expired unresolved review packet(s)",
+        )
 
 
 class TestRepoPackPaths(unittest.TestCase):

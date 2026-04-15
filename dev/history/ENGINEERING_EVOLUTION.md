@@ -4,7 +4,7 @@
 
 **Status:** Draft v4 (historical design and process record)
 **Audience:** users and developers
-**Last Updated:** 2026-04-14
+**Last Updated:** 2026-04-15
 
 ## At a Glance
 
@@ -36,6 +36,52 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 - [Quick Read (2 min)](#quick-read-2-min)
 - [User Path (5 min)](#user-path-5-min)
 - [Developer Path (15 min)](#developer-path-15-min)
+
+### 2026-04-15 - Bridge-backed status and event-backed startup/dashboard now share one attention-priority reducer
+
+Fact: after the authority-snapshot and packet-inbox repairs landed, the repo
+still had one live cross-surface contradiction left. Bridge-backed
+`review-channel --action status` attached conductor session state before it
+classified attention, but the event-backed producer used by
+`startup-context`, `session-resume`, and `dashboard` classified attention from
+an earlier bridge-liveness snapshot. On the same dirty tree that meant status
+said `review_loop_relaunch_required` while dashboard/startup still said
+`checkpoint_required`, even though they were all reading the same repo-owned
+runtime.
+
+This matters because the platform claim is not "multiple surfaces eventually
+agree if you know which one to trust." The claim is that bridge-backed and
+event-backed readers are compatibility projections over one typed producer
+tick. If one path computes `launch_truth` before it knows which conductors are
+actually live, AI turns and operator surfaces get different recovery advice
+from the same state and the repo slides back toward chat-local arbitration.
+
+The closure was a producer fix, not a renderer band-aid. Event-backed review
+state enrichment now calls the same
+`status_projection_helpers.attach_conductor_session_state()` helper that
+bridge-backed status already used, and it does so before
+`build_recovery_assessment()` runs. That means `launch_truth`,
+`effective_reviewer_mode`, `attention.status`, and the downstream
+`AuthoritySnapshot` all read the same conductor-attached runtime. Focused
+proof is green on the event-projection and current-session regressions, and
+live proof is green on `review-channel --action status`,
+`startup-context --format json`, and `dashboard --format json`, which now all
+emit `review_loop_relaunch_required` on the live repo state while still
+keeping checkpoint guidance in `advisory_action` / `push_decision`.
+
+The same slice also refreshed the maintainer authority docs
+(`AGENTS.md`, `dev/guides/DEVELOPMENT.md`, `dev/scripts/README.md`,
+`dev/active/MASTER_PLAN.md`) so `docs-check --strict-tooling` treats this as
+load-bearing runtime convergence rather than an undocumented local tweak.
+
+Evidence: `dev/scripts/devctl/review_channel/event_projection.py`,
+`dev/scripts/devctl/review_channel/event_projection_assembly.py`,
+`dev/scripts/devctl/review_channel/status_projection_helpers.py`,
+`dev/scripts/devctl/tests/review_channel/test_event_projection_push.py`,
+`dev/scripts/devctl/tests/review_channel/test_current_session_projection.py`,
+`python3 dev/scripts/devctl.py review-channel --action status --terminal none --format json --execution-mode markdown-bridge --refresh-bridge-heartbeat-if-stale`,
+`python3 dev/scripts/devctl.py startup-context --format json`, and
+`python3 dev/scripts/devctl.py dashboard --format json`.
 
 ### 2026-04-13 - Authority snapshot now gives startup, session-resume, and review status one shared recovery contract
 

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import subprocess
 import unittest
 from datetime import datetime, timezone
 from pathlib import Path
@@ -17,10 +18,14 @@ from dev.scripts.devctl.runtime.control_plane_read_model import (
     control_plane_read_model_from_mapping,
     _default_read_model,
 )
+from dev.scripts.devctl.runtime.control_plane_pending_packets import (
+    resolve_pending_packets,
+)
 from dev.scripts.devctl.runtime.control_plane_resolve import (
+    ControlPlaneGitStateError,
+    load_git_state,
     resolve_blocker_and_action,
     resolve_daemon_state,
-    resolve_pending_packets,
     resolve_quality,
     resolve_reviewer_state,
 )
@@ -146,6 +151,35 @@ class ReviewStatusDirThreadingTests(unittest.TestCase):
             review_status_dir=review_status_dir,
             review_state_override=None,
         )
+
+
+class GitStateFailureTests(unittest.TestCase):
+    """Fail closed when control-plane git probes cannot produce trusted state."""
+
+    @patch(
+        "dev.scripts.devctl.runtime.control_plane_resolve.subprocess.run",
+        side_effect=subprocess.TimeoutExpired(cmd=["git", "status"], timeout=5),
+    )
+    def test_load_git_state_raises_typed_error_with_cause(self, _run_mock) -> None:
+        with self.assertRaises(ControlPlaneGitStateError) as ctx:
+            load_git_state(Path("/tmp/repo"))
+
+        self.assertIn("git status -sb --porcelain", str(ctx.exception))
+        self.assertIsInstance(ctx.exception.__cause__, subprocess.TimeoutExpired)
+
+    @patch(
+        "dev.scripts.devctl.runtime.control_plane_read_model.load_git_state",
+        side_effect=ControlPlaneGitStateError("git probe failed"),
+    )
+    def test_build_control_plane_read_model_propagates_git_probe_failure(
+        self,
+        _load_git_state_mock,
+    ) -> None:
+        with self.assertRaises(ControlPlaneGitStateError):
+            build_control_plane_read_model(
+                Path("/tmp/repo"),
+                sources_override=_empty_sources(),
+            )
 
 
 class BuildWithReceiptTests(unittest.TestCase):
@@ -875,6 +909,34 @@ class ResolverUnitTests(unittest.TestCase):
         rs = {"current_session": {"open_findings": "- F1: bridge stale"}}
         b = resolve_blocker_and_action(None, rs, quality)
         self.assertIn("bridge stale", b["top_blocker"])
+
+    def test_resolve_blocker_uses_expired_unresolved_packet_summary(self) -> None:
+        quality = {"last_guard_ok": True, "check_details": ()}
+        rs = {
+            "current_session": {"open_findings": "1 pending review packet(s)"},
+            "queue": {
+                "pending_total": 0,
+                "stale_packet_count": 1,
+            },
+            "packets": [
+                {
+                    "packet_id": "rev_pkt_expired",
+                    "status": "pending",
+                    "kind": "action_request",
+                    "from_agent": "operator",
+                    "to_agent": "codex",
+                    "summary": "Expired operator directive",
+                    "expires_at_utc": "2000-01-01T00:00:00Z",
+                }
+            ],
+        }
+
+        b = resolve_blocker_and_action(None, rs, quality)
+
+        self.assertEqual(
+            b["top_blocker"],
+            "1 expired unresolved review packet(s)",
+        )
 
 
 class DeserializationTests(unittest.TestCase):

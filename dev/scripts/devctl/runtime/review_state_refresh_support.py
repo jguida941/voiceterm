@@ -60,6 +60,32 @@ def refresh_bridge_backed_review_state_payload(
     return _load_payload_from_path(Path(snapshot.projection_paths.review_state_path))
 
 
+def refresh_event_backed_review_state_payload(
+    repo_root: Path,
+    *,
+    governance: "ProjectGovernance | None",
+) -> dict[str, object] | None:
+    """Refresh and load the event-backed review-state payload from the event log."""
+    review_channel_path = _review_channel_path(repo_root, governance=governance)
+    if review_channel_path is None:
+        return None
+    try:
+        from ..review_channel.event_reducer import refresh_event_bundle
+        from ..review_channel.event_store import resolve_artifact_paths
+    except ImportError:
+        return None
+    try:
+        bundle = refresh_event_bundle(
+            repo_root=repo_root,
+            review_channel_path=review_channel_path,
+            artifact_paths=resolve_artifact_paths(repo_root=repo_root),
+            prior_review_state=None,
+        )
+    except (OSError, ValueError):
+        return None
+    return _load_payload_from_path(Path(bundle.projection_paths.review_state_path))
+
+
 def review_status_output_root(
     repo_root: Path,
     *,
@@ -127,6 +153,25 @@ def _governed_existing_path(
         return None
     path = repo_root / candidate
     return path if path.is_file() else None
+
+
+def _review_channel_path(
+    repo_root: Path,
+    governance: "ProjectGovernance | None",
+) -> Path | None:
+    governed = _governed_existing_path(
+        repo_root,
+        governance=governance,
+        relative_path=(
+            str(governance.bridge_config.review_channel_path or "").strip()
+            if governance is not None
+            else ""
+        ),
+    )
+    if governed is not None:
+        return governed
+    candidate = repo_root / active_path_config().review_channel_rel
+    return candidate if candidate.is_file() else None
 
 
 def _load_payload_from_path(path: Path | None) -> dict[str, object] | None:

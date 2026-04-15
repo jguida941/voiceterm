@@ -203,6 +203,48 @@ class ReviewChannelEventProjectionContextTests(unittest.TestCase):
             "push",
         )
 
+    @patch(
+        "dev.scripts.devctl.review_channel.event_projection.build_event_context_packet"
+    )
+    def test_action_request_priority_skips_expensive_context_packet_build(
+        self,
+        packet_mock,
+    ) -> None:
+        from dev.scripts.devctl.review_channel.event_projection import (
+            build_event_queue_summary,
+        )
+
+        summary = build_event_queue_summary(
+            {"codex": 1},
+            0,
+            packets=[
+                {
+                    "packet_id": "rev_pkt_action",
+                    "status": "pending",
+                    "summary": "Execute the governed push",
+                    "body": "push the reviewed slice",
+                    "plan_id": "MP-380",
+                    "kind": "action_request",
+                    "from_agent": "claude",
+                    "to_agent": "codex",
+                    "requested_action": "push",
+                    "posted_at": "2026-04-11T22:20:00Z",
+                    "expires_at_utc": "2999-01-01T00:00:00Z",
+                }
+            ],
+        )
+
+        packet_mock.assert_not_called()
+        self.assertTrue(
+            summary["derived_next_instruction"].startswith(
+                "Priority action_request: Execute the governed push"
+            )
+        )
+        self.assertNotIn(
+            "context_packet",
+            summary["derived_next_instruction_source"],
+        )
+
     def test_finding_packet_does_not_become_derived_next_instruction(self) -> None:
         from dev.scripts.devctl.review_channel.event_projection import (
             build_event_queue_summary,

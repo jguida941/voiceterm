@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import asdict, is_dataclass
 import json
 from pathlib import Path
 
@@ -28,7 +29,7 @@ def reset_follow_output(output_path: str | None) -> None:
 
 def emit_follow_ndjson_frame(payload: dict[str, object], *, args) -> int:
     """Emit one follow-mode NDJSON frame through the normal output surfaces."""
-    content = json.dumps(payload, sort_keys=True)
+    content = json.dumps(_json_compatible(payload), sort_keys=True)
     return emit_output(
         content,
         output_path=getattr(args, "output", None),
@@ -94,3 +95,21 @@ def _append_stream_writer(
                 handle.write("\n")
         return
     print(rendered)
+
+
+def _json_compatible(value: object) -> object:
+    """Normalize typed follow payloads before emitting NDJSON."""
+    if hasattr(value, "to_dict") and callable(getattr(value, "to_dict")):
+        return _json_compatible(value.to_dict())
+    if is_dataclass(value):
+        return _json_compatible(asdict(value))
+    if isinstance(value, Path):
+        return str(value)
+    if isinstance(value, dict):
+        return {
+            str(key): _json_compatible(item)
+            for key, item in value.items()
+        }
+    if isinstance(value, (list, tuple, set, frozenset)):
+        return [_json_compatible(item) for item in value]
+    return value

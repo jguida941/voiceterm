@@ -275,6 +275,60 @@ def test_build_coordination_snapshot_allows_safe_live_fanout(
     assert snapshot.live_delegated_worker_count == 1
 
 
+def test_build_coordination_snapshot_ignores_shared_instruction_without_codex_packet(
+    tmp_path: Path,
+) -> None:
+    startup = _startup_context(
+        repo_root=tmp_path,
+        ownership=WorkIntakeOwnershipState(status="clear"),
+        coordination=WorkIntakeCoordinationState(
+            collaboration_topology="multi_agent_orchestrated",
+            authority_mode="reviewer_gated",
+            work_ownership_mode="shared_slice",
+            sync_cadence_mode="continuous",
+            active_participant_count=2,
+            active_participants=("codex:reviewer", "claude:implementer"),
+        ),
+    )
+    review_state = _review_state(
+        topology_mode="multi_agent_orchestrated",
+        participants=(
+            _participant("codex", "reviewer", live=True),
+            _participant("claude", "implementer", live=True),
+        ),
+        delegated_work=(),
+        ready_gates=(),
+        attention_status="review_needed",
+        reviewer_freshness="fresh",
+        registry_agents=(),
+    )
+    shared_instruction = (
+        "Priority action_request: Dogfood split-authority current-slice contradiction"
+    )
+    review_state.collaboration.current_slice = shared_instruction
+    review_state.current_session.current_instruction = shared_instruction
+    review_state.packet_inbox = SimpleNamespace(
+        for_agent=lambda agent: (
+            SimpleNamespace(
+                current_instruction_packet_id="",
+                pending_actionable_packet_ids=(),
+                expired_unresolved_packet_ids=("rev_pkt_0502",),
+                wake_reason="expired_unresolved_packet",
+            )
+            if agent == "codex"
+            else None
+        )
+    )
+
+    snapshot = build_coordination_snapshot(
+        repo_root=tmp_path,
+        startup_context=startup,
+        review_state=review_state,
+    )
+
+    assert snapshot.current_slice == "Platform Authority Loop"
+
+
 def test_build_coordination_snapshot_allows_sanctioned_local_single_agent_takeover(
     tmp_path: Path,
 ) -> None:

@@ -15,6 +15,7 @@ from .core import LaneAssignment, project_id_for_repo
 from .handoff import extract_bridge_snapshot
 from .projection_bundle import (
     ReviewChannelProjectionPaths,
+    canonicalize_projection_review_state,
     write_projection_bundle,
 )
 from .pending_packets import load_pending_packet_queue
@@ -80,6 +81,7 @@ def write_status_projection_bundle(
         snapshot=snapshot,
         timestamp=timestamp,
     )
+    review_state = canonicalize_projection_review_state(review_state)
     snapshot_id = str(review_state.get("snapshot_id") or "").strip()
     agent_registry = _status_agent_registry(review_state)
     projection_paths = write_projection_bundle(
