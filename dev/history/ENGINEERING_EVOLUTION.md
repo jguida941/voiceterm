@@ -132,6 +132,42 @@ Evidence: `dev/scripts/devctl/commands/vcs/commit.py`,
 `dev/scripts/devctl/tests/runtime/test_review_snapshot.py`, and
 `python3 dev/scripts/devctl.py commit -m "Stabilize review-channel authority recovery" --role implementer --format json`.
 
+### 2026-04-15 - Bridge compatibility poll metadata now recovers from typed state and normalizes back to the guard format
+
+Fact: governed push still had one compatibility-only blocker left after commit
+`ae95f570`. The repo-owned bridge render path rebuilt `bridge.md` from typed
+state, but its metadata reducer only trusted the existing markdown snapshot
+for `Last Codex poll`. Once those fields were blank in the file, rerender kept
+preserving the blanks. Then when event-backed typed state did carry a poll
+timestamp, it arrived with fractional seconds (`2026-04-15T20:41:51.635818Z`)
+that the compatibility bridge guard intentionally rejected because the bridge
+contract requires whole-second UTC plus a matching local display line.
+
+This matters because `bridge.md` is explicitly not the primary authority, but
+governed push and bridge guardrails still use it as a compatibility receipt.
+If repo-owned render/status cannot recover a blank compatibility heartbeat
+from typed state, or if it rewrites typed ISO timestamps into a format the
+same guard later rejects, governed publication is still vulnerable to
+projection drift even when the underlying runtime state is healthy.
+
+The closure stayed in the compatibility reducer. The bridge projection
+metadata path now falls back to typed bridge state/liveness whenever snapshot
+poll metadata is blank, and it normalizes ISO timestamps back to the canonical
+whole-second `YYYY-MM-DDTHH:MM:SSZ` bridge format before local-time rendering.
+That means repo-owned `review-channel --action render-bridge` and status-driven
+bridge sync can repopulate `Last Codex poll` truth from typed runtime state
+instead of preserving a bad snapshot, while `check_review_channel_bridge.py`
+continues to enforce one stable compatibility format. Focused proof is green
+on `test_bridge_render.py`, and live proof is green on the current repo state:
+`bridge.md` now renders `Last Codex poll: 2026-04-15T20:42:53Z`,
+`Last Codex poll (Local America/New_York): 2026-04-15 16:42:53 EDT`, and the
+bridge guard passes again.
+
+Evidence: `dev/scripts/devctl/review_channel/bridge_projection_metadata.py`,
+`dev/scripts/devctl/tests/review_channel/test_bridge_render.py`,
+`python3 dev/scripts/devctl.py review-channel --action render-bridge --terminal none --format json --execution-mode markdown-bridge`,
+and `python3 dev/scripts/checks/check_review_channel_bridge.py`.
+
 ### 2026-04-13 - Authority snapshot now gives startup, session-resume, and review status one shared recovery contract
 
 ### 2026-04-14 - Remote-control reviewer wake and dashboard queue/liveness now follow the same typed action-request truth

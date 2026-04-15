@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from datetime import datetime, timezone
 from pathlib import Path
 from types import SimpleNamespace
@@ -23,6 +24,10 @@ from dev.scripts.devctl.review_channel.bridge_section_validation import (
 )
 from dev.scripts.devctl.review_channel.current_session_projection import (
     bridge_implementer_state_hash,
+)
+from dev.scripts.devctl.review_channel.bridge_projection_metadata import (
+    format_local_poll_time,
+    normalize_poll_time,
 )
 from dev.scripts.devctl.review_channel.handoff import extract_bridge_snapshot
 from dev.scripts.devctl.review_channel.bridge_sanitize import (
@@ -269,6 +274,45 @@ def test_render_bridge_projection_drops_transcript_noise_and_extra_sections() ->
     assert "## Operator Direction" in rendered
     assert "### ROLE ENFORCEMENT (read first, every session)" in rendered
     assert bridge_hygiene_errors(rendered) == []
+
+
+def test_render_bridge_projection_recovers_blank_poll_metadata_from_typed_bridge_state() -> None:
+    blank_bridge_text = re.sub(
+        r"- Last Codex poll: `[^`]*`",
+        "- Last Codex poll: ``",
+        _bridge_text(),
+    )
+    blank_bridge_text = re.sub(
+        r"- Last Codex poll \(Local [^)]+\): `[^`]*`",
+        "- Last Codex poll (Local America/New_York): ``",
+        blank_bridge_text,
+    )
+    projection_state = build_bridge_projection_state(
+        bridge_text=blank_bridge_text,
+        bridge_liveness={},
+    )
+    poll_utc = "2026-04-15T20:17:23.123456Z"
+    normalized_poll_utc = normalize_poll_time(poll_utc)
+
+    rendered, _ = render_bridge_projection(
+        review_state={
+            "_compat": {
+                "bridge_projection": bridge_projection_state_to_dict(projection_state),
+            },
+            "bridge": {
+                "last_codex_poll_utc": poll_utc,
+                "last_reviewer_poll_utc": poll_utc,
+                "reviewer_mode": "single_agent",
+            },
+        },
+        last_worktree_hash="b" * 64,
+    )
+
+    assert f"- Last Codex poll: `{normalized_poll_utc}`" in rendered
+    assert (
+        "- Last Codex poll (Local America/New_York): "
+        f"`{format_local_poll_time(normalized_poll_utc)}`"
+    ) in rendered
 
 
 def test_render_bridge_projection_projects_bound_action_request_packets() -> None:

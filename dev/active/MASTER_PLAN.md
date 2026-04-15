@@ -200,7 +200,12 @@
   That keeps `check_review_snapshot_freshness.py`, persisted push
   authorization, and live `devctl push --execute` preflight on one receipt
   model instead of self-staling as soon as the post-commit receipt advances
-  `HEAD`.
+  `HEAD`. The same governed-publication lane now also normalizes bridge
+  compatibility poll metadata on repair: repo-owned `review-channel`
+  status/render rebuilds recover blank `Last Codex poll` fields from typed
+  bridge state and canonicalize fractional-second typed timestamps back to the
+  whole-second UTC/local bridge format so `check_review_channel_bridge.py`
+  cannot keep blocking governed push on compatibility-only timestamp drift.
 - 2026-04-13 authority-snapshot closure follow-up in `MP-377` scope:
   startup-context, session-resume, and review-channel status/doctor now all
   project the same reduced `AuthoritySnapshot` contract from

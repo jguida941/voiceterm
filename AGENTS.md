@@ -36,7 +36,11 @@ Portable-platform rule:
   topology only. The runtime participant registry is provider/session-backed
   typed state, and the default requested worker fanout is zero unless a launch
   explicitly requests more. `bridge.md` stays a compatibility projection until
-  native `CollaborationSession` / worker-topology authority lands.
+  native `CollaborationSession` / worker-topology authority lands, and any
+  repo-owned bridge repair/write path must recover blank `Last Codex poll`
+  metadata from typed bridge state plus normalize fractional-second typed poll
+  timestamps back to the canonical whole-second bridge format before
+  `check_review_channel_bridge.py` or governed push can trust the projection.
 
 Documentation-boundary rule:
 - Keep VoiceTerm product docs (`README.md`, `QUICK_START.md`, `guides/*`)

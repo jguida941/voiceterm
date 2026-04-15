@@ -408,7 +408,10 @@ Three quality layers matter in practice:
     `python3 dev/scripts/devctl.py review-channel --action render-bridge --terminal none --format md`
     instead of hand-editing `bridge.md`; that repair path now rebuilds from
     the typed `review_state` compatibility payload (`_compat.bridge_projection`)
-    rather than reparsing the live markdown body, and the bridge guard now
+    rather than reparsing the live markdown body, recovers blank `Last Codex
+    poll` metadata from typed bridge state, normalizes fractional-second typed
+    poll timestamps to the canonical whole-second bridge format before local
+    display rendering, and the bridge guard now
     fails closed on oversize bridges, duplicate/unsupported sections,
     transcript/ANSI contamination, embedded markdown headings inside fixed
     flat sections, and overgrown live `Claude Status` / `Claude Ack` blocks.
@@ -864,7 +867,9 @@ Three quality layers matter in practice:
 - Status-driven compatibility refresh stays narrower than explicit rewrite:
   `review-channel --action status` may now reproject `bridge.md` from typed
   `_compat.bridge_projection` state even while pending reviewer-targeted
-  packets exist, but `review-channel --action render-bridge` remains the
+  packets exist, canonicalizing recovered `Last Codex poll` metadata to the
+  whole-second UTC/local bridge format when typed state carries blanks or
+  fractional seconds, but `review-channel --action render-bridge` remains the
   fail-closed manual rewrite path when those packets are pending.
 - Treat those generated bootstrap surfaces as architecture surfaces too: they
   should explain the compiler-style control model and the

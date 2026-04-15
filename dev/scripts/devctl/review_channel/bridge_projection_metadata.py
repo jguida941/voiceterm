@@ -23,14 +23,30 @@ def local_tz() -> ZoneInfo:
 
 
 def format_local_poll_time(last_codex_poll_utc: str) -> str:
+    normalized_poll_utc = normalize_poll_time(last_codex_poll_utc)
+    if not normalized_poll_utc:
+        return ""
     try:
         parsed = datetime.strptime(
-            last_codex_poll_utc,
+            normalized_poll_utc,
             "%Y-%m-%dT%H:%M:%SZ",
         ).replace(tzinfo=timezone.utc)
     except ValueError:
         return ""
     return parsed.astimezone(local_tz()).strftime(_LOCAL_TIME_FORMAT)
+
+
+def normalize_poll_time(last_codex_poll_utc: str) -> str:
+    normalized = str(last_codex_poll_utc or "").strip()
+    if not normalized:
+        return ""
+    try:
+        parsed = datetime.fromisoformat(normalized.replace("Z", "+00:00"))
+    except ValueError:
+        return ""
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 def projection_metadata(
@@ -58,10 +74,23 @@ def projection_metadata(
         current_revision = hashlib.sha256(
             current_instruction.encode("utf-8")
         ).hexdigest()[:12]
-    last_codex_poll_utc = str(snapshot.metadata.get("last_codex_poll_utc") or "").strip()
-    last_codex_poll_local = str(
-        snapshot.metadata.get("last_codex_poll_local") or ""
-    ).strip()
+    last_codex_poll_utc = _first_text(
+        snapshot.metadata.get("last_codex_poll_utc"),
+        bridge_state.get("last_codex_poll_utc"),
+        bridge_state.get("last_reviewer_poll_utc"),
+        bridge_liveness.get("last_codex_poll_utc"),
+        bridge_liveness.get("last_reviewer_poll_utc"),
+    )
+    last_codex_poll_local = _first_text(
+        snapshot.metadata.get("last_codex_poll_local"),
+        bridge_state.get("last_codex_poll_local"),
+        bridge_state.get("last_reviewer_poll_local"),
+        bridge_liveness.get("last_codex_poll_local"),
+        bridge_liveness.get("last_reviewer_poll_local"),
+    )
+    normalized_poll_utc = normalize_poll_time(last_codex_poll_utc)
+    if normalized_poll_utc:
+        last_codex_poll_utc = normalized_poll_utc
     if not last_codex_poll_local and last_codex_poll_utc:
         last_codex_poll_local = format_local_poll_time(last_codex_poll_utc)
     return {
@@ -82,6 +111,14 @@ def _typed_instruction_explicitly_cleared(current_session: Mapping[str, object])
     instruction = str(current_session.get("current_instruction") or "").strip()
     revision = str(current_session.get("current_instruction_revision") or "").strip()
     return not instruction and not revision
+
+
+def _first_text(*candidates: object) -> str:
+    for candidate in candidates:
+        value = str(candidate or "").strip()
+        if value:
+            return value
+    return ""
 
 
 def _is_placeholder_instruction(current_instruction: str) -> bool:

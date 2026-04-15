@@ -7165,6 +7165,25 @@ Execution order for this section:
   `dogfood-45cbbc2fb48e`; Codex acked Claude finding `rev_pkt_0571` before
   landing the fix and the next required closure is fresh Claude dogfood on the
   bounded topology-vs-interaction split.
+- 2026-04-15: Closed the live bridge poll-metadata compatibility drift that
+  was blocking governed push after commit `ae95f570`. The render path in
+  `review_channel/bridge_projection_metadata.py` was preserving empty
+  `Last Codex poll` fields from the existing `bridge.md` snapshot and then
+  failing again when event-backed typed state supplied fractional-second UTC
+  timestamps. The compatibility reducer now recovers `last_codex_poll_*`
+  values from typed bridge state/liveness whenever the snapshot metadata is
+  blank and normalizes ISO timestamps to the canonical whole-second
+  `YYYY-MM-DDTHH:MM:SSZ` bridge format before local display rendering. The
+  regression is locked in `tests/review_channel/test_bridge_render.py`.
+  Focused proof is green on that test file plus `check_code_shape.py`; live
+  repo proof is green too: `review-channel --action render-bridge` now
+  repopulates `bridge.md` with `Last Codex poll: 2026-04-15T20:42:53Z`,
+  `Last Codex poll (Local America/New_York): 2026-04-15 16:42:53 EDT`, and
+  `check_review_channel_bridge.py` passes again. Local dogfood is recorded as
+  `dogfood-2e845091c081`. Claude's pre-commit PASS `rev_pkt_0576` and
+  maintenance follow-up `rev_pkt_0577` were both acked while clearing the
+  render gate; `rev_pkt_0577` remains backlog context, not an active blocker
+  for this governed push retry.
 - 2026-04-15: Closed the event-backed action-request queue hot path that was
   making `review-channel post` / `inbox` look hung during Codex<->Claude
   coordination. The root cause was not event-log reduction itself:
