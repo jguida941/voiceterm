@@ -52,6 +52,10 @@ def build_dogfood_governance_input(
             "Unable to resolve a default governance path for this dogfood target. "
             "Provide --finding-path."
         )
+    notes = _merge_campaign_note(
+        optional_text(notes) or optional_text(record.notes),
+        record=record,
+    )
     return GovernanceReviewInput(
         finding_id=optional_text(finding_id),
         signal_type="dogfood",
@@ -67,7 +71,7 @@ def build_dogfood_governance_input(
         or "python3 dev/scripts/devctl.py dogfood --record --dev-mode",
         repo_name=record.repo_name,
         repo_path=record.repo_path,
-        notes=optional_text(notes) or optional_text(record.notes),
+        notes=notes,
         finding_type=optional_text(finding_type),
         finding_class=optional_text(finding_class)
         or default_dogfood_finding_class(record),
@@ -137,3 +141,37 @@ def _module_relative_path(module_name: str, *, repo_root: Path) -> str:
         return str(module_path.relative_to(repo_root))
     except ValueError:
         return ""
+
+
+def _merge_campaign_note(base_notes: str | None, *, record: DogfoodRecord) -> str | None:
+    campaign_note = _campaign_note(record)
+    if not base_notes:
+        return campaign_note
+    if not campaign_note:
+        return base_notes
+    return f"{base_notes}\n{campaign_note}"
+
+
+def _campaign_note(record: DogfoodRecord) -> str | None:
+    parts: list[str] = []
+    if record.campaign_id:
+        parts.append(f"campaign_id={record.campaign_id}")
+    if record.scenario_id:
+        parts.append(f"scenario_id={record.scenario_id}")
+    if record.repo_scope:
+        parts.append(f"repo_scope={record.repo_scope}")
+    if record.repo_label:
+        parts.append(f"repo_label={record.repo_label}")
+    if record.repo_path:
+        parts.append(f"repo_path={record.repo_path}")
+    if record.topology:
+        parts.append(f"topology={record.topology}")
+    if record.lane_role:
+        parts.append(f"lane_role={record.lane_role}")
+    if record.live_run_refs:
+        parts.append(f"live_run_refs=[{', '.join(record.live_run_refs)}]")
+    if record.governance_finding_ids:
+        parts.append(
+            f"governance_finding_ids=[{', '.join(record.governance_finding_ids)}]"
+        )
+    return "; ".join(parts) if parts else None

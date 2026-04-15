@@ -81,6 +81,23 @@ def add_parser(sub: argparse._SubParsersAction) -> None:
         choices=("passed", "failed", "blocked", "skipped"),
         help="Outcome for the recorded dogfood row",
     )
+    cmd.add_argument("--campaign-id", help="Optional campaign identifier for the row")
+    cmd.add_argument("--scenario-id", help="Optional scenario identifier for the row")
+    cmd.add_argument("--repo-scope", help="Optional repo scope label for the row")
+    cmd.add_argument("--repo-label", help="Optional repo label for the row")
+    cmd.add_argument("--repo-path", help="Optional repo path override for the row")
+    cmd.add_argument("--topology", help="Optional campaign topology label for the row")
+    cmd.add_argument("--lane-role", help="Optional lane role for the row")
+    cmd.add_argument(
+        "--live-run-ref",
+        nargs="+",
+        help="Optional live run reference or references linked to the row",
+    )
+    cmd.add_argument(
+        "--governance-finding-id",
+        nargs="+",
+        help="Optional governance finding reference or references linked to the row",
+    )
     cmd.add_argument("--actor", help="Actor or lane recording the dogfood result")
     cmd.add_argument("--provider", help="Optional provider label for the recorded dogfood row")
     cmd.add_argument("--run-label", help="Optional run/session label for grouping records")
@@ -168,6 +185,17 @@ def run(args) -> int:
                     target_kind=getattr(args, "target_kind", None),
                     target_id=getattr(args, "target_id", None),
                     status=getattr(args, "status", None),
+                    campaign_id=getattr(args, "campaign_id", None),
+                    scenario_id=getattr(args, "scenario_id", None),
+                    repo_scope=getattr(args, "repo_scope", None),
+                    repo_label=getattr(args, "repo_label", None),
+                    repo_path=getattr(args, "repo_path", None),
+                    topology=getattr(args, "topology", None),
+                    lane_role=getattr(args, "lane_role", None),
+                    live_run_refs=tuple(getattr(args, "live_run_ref", None) or ()),
+                    governance_finding_ids=tuple(
+                        getattr(args, "governance_finding_id", None) or ()
+                    ),
                     actor=getattr(args, "actor", None),
                     provider=getattr(args, "provider", None),
                     run_label=getattr(args, "run_label", None),

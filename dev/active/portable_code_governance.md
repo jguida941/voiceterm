@@ -1,6 +1,6 @@
 # Portable Code Governance Plan
 
-**Status**: active  |  **Last updated**: 2026-04-09 | **Owner:** Tooling/code governance
+**Status**: active  |  **Last updated**: 2026-04-15 | **Owner:** Tooling/code governance
 Execution plan contract: required
 This spec remains execution mirrored in `dev/active/MASTER_PLAN.md` under
 `MP-376`. It is the narrower engine/adoption companion to
@@ -94,6 +94,8 @@ honest with one governed external Python corpus loop:
 5. Only import or adjudicate adopter findings after the engine path is clean
    on that repo:
    - raw findings -> `governance-import-findings`
+     (`--input-format md` for `LIVE_RUN.md` compatibility intake; repo-scoped
+     `repo_name:Q-ID` sync ids keep repeated imports stable)
    - adjudicated outcomes -> `governance-review --record`
 6. If the remaining failures reduce to Step 0/startup or governed push, treat
    them as blocking architecture work under `MP-377`, not as "portable
@@ -125,7 +127,8 @@ architecture work that is not needed to interpret corpus failures:
 1. Checkpoint the current plan/docs slice so startup authority stops failing on
    dirty-after-checkpoint state.
 2. Seed the first fixed Python anchor corpus and record it in the repo matrix.
-3. Run the corpus in waves of `3-5` new repos at a time.
+3. Resume future corpus waves at `3` repos at a time; only widen back toward
+   `5` once one clean wave adds no new `engine_bug` class.
 4. Stop the wave immediately on the first new `engine_bug`.
 5. Fix that engine bug here, rerun the failing repo plus every previously green
    anchor repo, and only then resume widening.
@@ -797,6 +800,18 @@ Use one deterministic triage on every failing repo before widening again:
 
 ## Progress Log
 
+- 2026-04-15: Turned the external-repo campaign rules into explicit operator
+  authority instead of leaving them split between chat and historical wave
+  notes. Future matrix work now resumes in waves of `3` repos, widens back
+  toward `5` only after a clean wave, and keeps the current active anchors
+  (`ci-cd-hub`, `adaptive-hashmap-studio`, `zgraph-scientific-package`,
+  `mkgui`, `requests`, `interactions.py`, `pre-commit-hooks`) distinct from
+  the held reserve wave (`vector_space`, `yamllint`, `MemLite`). The ingress
+  contract is explicit too: honest adopter findings may arrive as JSON/JSONL
+  or `LIVE_RUN.md` through `governance-import-findings --input-format md`,
+  with repo-scoped `repo_name:Q-ID` identity so the markdown mirror does not
+  become a second backlog. The next matrix widening is therefore blocked on
+  real engine cleanliness, not on whether the repo list looks impressive.
 - 2026-04-10: Routed the guard-promotion pipeline's portable slice here: the
   queue path now lives in repo-pack configuration and the initial command reads
   it through the same governance ledger helpers as other portable review
@@ -1694,6 +1709,19 @@ Use one deterministic triage on every failing repo before widening again:
 
 ## Session Resume
 
+- 2026-04-15 corpus-wave contract:
+  resume future external-repo proof in waves of `3`, not by widening the full
+  seeded matrix at once. The active anchors remain `ci-cd-hub`,
+  `adaptive-hashmap-studio`, `zgraph-scientific-package`, `mkgui`,
+  `requests`, `interactions.py`, and `pre-commit-hooks`; the next reserve wave
+  stays `vector_space`, `yamllint`, and `MemLite` until one clean wave adds no
+  new `engine_bug`.
+- 2026-04-15 finding-ingress rule:
+  keep adopter findings canonical. Import honest target-repo debt through
+  `governance-import-findings` (including `--input-format md` for
+  `LIVE_RUN.md` compatibility evidence), let repo-scoped `repo_name:Q-ID`
+  identity collapse repeated imports, and keep `governance-review` as the only
+  disposition sink.
 - 2026-04-10 guard-promotion portability seam:
   resume with promotion-candidate storage treated as a repo-pack path, not a
   VoiceTerm literal. Future `validate-guard-proposal` / `promote-guard`
@@ -1902,6 +1930,7 @@ Use one deterministic triage on every failing repo before widening again:
   `python3 dev/scripts/devctl.py probe-report --repo-path <path> --adoption-scan --format json`
   `python3 dev/scripts/devctl.py check --profile ci --repo-path <path> --adoption-scan --format json`
   `python3 dev/scripts/devctl.py governance-import-findings --input <raw-findings.jsonl> --repo-name <repo> --repo-path <path> --scan-mode external --format md`
+  `python3 dev/scripts/devctl.py governance-import-findings --input <LIVE_RUN.md> --input-format md --repo-name <repo> --repo-path <path> --scan-mode external --format md`
   `python3 dev/scripts/devctl.py governance-review --record --repo-name <repo> --repo-path <path> --scan-mode external --signal-type <guard|probe|audit> --check-id <id> --verdict <verdict> --finding-class <class> --recurrence-risk <risk> --prevention-surface <surface> --path <repo-relative-path> --format md`
 - Portable resolver inspection: `python3 dev/scripts/devctl.py quality-policy --format md`
 - Probe packet + hotspot report: `python3 dev/scripts/devctl.py probe-report --format md`

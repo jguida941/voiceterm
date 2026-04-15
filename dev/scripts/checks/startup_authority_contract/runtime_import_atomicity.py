@@ -15,6 +15,7 @@ except ModuleNotFoundError:
     )
 
 from .runtime_import_git import (
+    _list_local_python_paths,
     _list_committed_python_paths,
     _list_staged_python_paths,
     _read_committed_file,
@@ -35,11 +36,14 @@ def collect_import_index_atomicity_findings(
     """Return repo-local import atomicity errors plus non-fatal warnings."""
     staged_paths, staged_warning = _list_staged_python_paths(repo_root)
     committed_paths, committed_warning = _list_committed_python_paths(repo_root)
+    local_python_paths, local_warning = _list_local_python_paths(repo_root)
     warnings: list[str] = []
     if staged_warning:
         warnings.append(staged_warning)
     if committed_warning:
         warnings.append(committed_warning)
+    if local_warning:
+        warnings.append(local_warning)
 
     target_roots = resolve_quality_scope_roots("python_guard", repo_root=repo_root)
     errors: list[str] = []
@@ -76,12 +80,19 @@ def collect_import_index_atomicity_findings(
                 )
             )
 
-    if committed_paths:
+    committed_scope_dirs = _local_committed_scope_dirs(
+        local_python_paths=local_python_paths,
+        repo_root=repo_root,
+        target_roots=target_roots,
+    )
+    if committed_paths and committed_scope_dirs:
         committed_top_packages = {
             Path(path).parts[0] for path in committed_paths if Path(path).parts
         }
         for relative in sorted(committed_paths):
             importer = Path(relative)
+            if importer.parent not in committed_scope_dirs:
+                continue
             if not is_under_target_roots(
                 importer,
                 repo_root=repo_root,
@@ -113,6 +124,30 @@ def collect_import_index_atomicity_findings(
             )
 
     return sorted(set(errors)), warnings
+
+
+def _local_committed_scope_dirs(
+    *,
+    local_python_paths: set[str],
+    repo_root: Path,
+    target_roots: tuple[Path, ...],
+) -> set[Path]:
+    dirs: set[Path] = set()
+    for relative in sorted(local_python_paths):
+        local_path = Path(relative)
+        if not is_under_target_roots(
+            local_path,
+            repo_root=repo_root,
+            target_roots=target_roots,
+        ):
+            continue
+        current = local_path.parent
+        ancestor_budget = 2
+        while current != Path(".") and ancestor_budget > 0:
+            dirs.add(current)
+            current = current.parent
+            ancestor_budget -= 1
+    return dirs
 
 
 def _collect_file_atomicity_errors(

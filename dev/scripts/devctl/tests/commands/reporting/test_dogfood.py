@@ -46,6 +46,54 @@ class DogfoodParserTests(unittest.TestCase):
         self.assertEqual(args.actor, "codex")
         self.assertEqual(args.provider, "codex")
 
+    def test_parser_accepts_campaign_metadata_flags(self) -> None:
+        parser = build_parser()
+        args = parser.parse_args(
+            [
+                "dogfood",
+                "--record",
+                "--dev-mode",
+                "--target-kind",
+                "role",
+                "--target-id",
+                "reviewer",
+                "--status",
+                "passed",
+                "--campaign-id",
+                "campaign-voice-01",
+                "--scenario-id",
+                "scenario-dogfood-swarm",
+                "--repo-scope",
+                "voice-term",
+                "--repo-label",
+                "primary",
+                "--repo-path",
+                "/tmp/external-repo",
+                "--topology",
+                "multi_agent_orchestrated",
+                "--lane-role",
+                "reviewer",
+                "--live-run-ref",
+                "run-001",
+                "run-002",
+                "--governance-finding-id",
+                "finding-abc",
+                "finding-def",
+                "--format",
+                "json",
+            ]
+        )
+
+        self.assertEqual(args.campaign_id, "campaign-voice-01")
+        self.assertEqual(args.scenario_id, "scenario-dogfood-swarm")
+        self.assertEqual(args.repo_scope, "voice-term")
+        self.assertEqual(args.repo_label, "primary")
+        self.assertEqual(args.repo_path, "/tmp/external-repo")
+        self.assertEqual(args.topology, "multi_agent_orchestrated")
+        self.assertEqual(args.lane_role, "reviewer")
+        self.assertEqual(args.live_run_ref, ["run-001", "run-002"])
+        self.assertEqual(args.governance_finding_id, ["finding-abc", "finding-def"])
+
     def test_handler_and_listing_registered(self) -> None:
         self.assertIn("dogfood", COMMAND_HANDLERS)
         self.assertIn("dogfood", COMMANDS)
@@ -128,6 +176,26 @@ class DogfoodCommandTests(unittest.TestCase):
                     "dogfood",
                     "--status",
                     "passed",
+                    "--campaign-id",
+                    "campaign-voice-01",
+                    "--scenario-id",
+                    "scenario-dogfood-swarm",
+                    "--repo-scope",
+                    "voice-term",
+                    "--repo-label",
+                    "primary",
+                    "--repo-path",
+                    str(root),
+                    "--topology",
+                    "multi_agent_orchestrated",
+                    "--lane-role",
+                    "reviewer",
+                    "--live-run-ref",
+                    "run-001",
+                    "run-002",
+                    "--governance-finding-id",
+                    "finding-abc",
+                    "finding-def",
                     "--actor",
                     "codex",
                     "--provider",
@@ -150,10 +218,27 @@ class DogfoodCommandTests(unittest.TestCase):
             self.assertEqual(recorded_rows[0]["target_kind"], "command")
             self.assertEqual(recorded_rows[0]["target_id"], "dogfood")
             self.assertEqual(recorded_rows[0]["status"], "passed")
+            self.assertEqual(recorded_rows[0]["campaign_id"], "campaign-voice-01")
+            self.assertEqual(recorded_rows[0]["scenario_id"], "scenario-dogfood-swarm")
+            self.assertEqual(recorded_rows[0]["repo_scope"], "voice-term")
+            self.assertEqual(recorded_rows[0]["repo_label"], "primary")
+            self.assertEqual(recorded_rows[0]["repo_path"], str(root))
+            self.assertEqual(recorded_rows[0]["topology"], "multi_agent_orchestrated")
+            self.assertEqual(recorded_rows[0]["lane_role"], "reviewer")
+            self.assertEqual(recorded_rows[0]["live_run_refs"], ["run-001", "run-002"])
+            self.assertEqual(
+                recorded_rows[0]["governance_finding_ids"],
+                ["finding-abc", "finding-def"],
+            )
 
             payload = json.loads(output_path.read_text(encoding="utf-8"))
             self.assertEqual(payload["command"], "dogfood")
             self.assertEqual(payload["recorded"]["target_id"], "dogfood")
+            self.assertEqual(payload["recorded"]["campaign_id"], "campaign-voice-01")
+            self.assertEqual(
+                payload["recorded"]["live_run_refs"],
+                ["run-001", "run-002"],
+            )
 
             summary_json = summary_root / "summary.json"
             summary_md = summary_root / "summary.md"
@@ -168,6 +253,18 @@ class DogfoodCommandTests(unittest.TestCase):
             self.assertGreaterEqual(command_bucket["catalog_total"], 1)
             self.assertEqual(command_bucket["covered_total"], 1)
             self.assertEqual(command_bucket["passed_total"], 1)
+            self.assertEqual(
+                summary_payload["recent_records"][0]["campaign_id"],
+                "campaign-voice-01",
+            )
+            self.assertEqual(
+                summary_payload["recent_records"][0]["live_run_refs"],
+                ["run-001", "run-002"],
+            )
+            self.assertIn(
+                "campaign_id=campaign-voice-01",
+                summary_md.read_text(encoding="utf-8"),
+            )
 
     def test_record_governance_defaults_from_target_catalog(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -195,6 +292,18 @@ class DogfoodCommandTests(unittest.TestCase):
                     "dogfood",
                     "--status",
                     "failed",
+                    "--campaign-id",
+                    "campaign-voice-01",
+                    "--scenario-id",
+                    "scenario-dogfood-swarm",
+                    "--repo-scope",
+                    "voice-term",
+                    "--repo-label",
+                    "primary",
+                    "--live-run-ref",
+                    "run-001",
+                    "--governance-finding-id",
+                    "finding-abc",
                     "--output",
                     str(output_path),
                     "--format",
@@ -237,6 +346,8 @@ class DogfoodCommandTests(unittest.TestCase):
                 governance_rows[0]["file_path"],
                 "dev/scripts/devctl/commands/reporting/dogfood.py",
             )
+            self.assertIn("campaign_id=campaign-voice-01", governance_rows[0]["notes"])
+            self.assertIn("live_run_refs=[run-001]", governance_rows[0]["notes"])
 
             payload = json.loads(output_path.read_text(encoding="utf-8"))
             self.assertEqual(

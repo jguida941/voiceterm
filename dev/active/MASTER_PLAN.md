@@ -216,6 +216,26 @@
   bridge state and canonicalize fractional-second typed timestamps back to the
   whole-second UTC/local bridge format so `check_review_channel_bridge.py`
   cannot keep blocking governed push on compatibility-only timestamp drift.
+- 2026-04-15 dogfood campaign contract follow-up in `MP-377` / `MP-376`
+  scope: the repo-owned system-test path now records the metadata needed for
+  real multi-surface proof instead of depending on chat memory. `devctl
+  dogfood --record` now persists campaign/scenario/repo/topology/lane linkage
+  and mirrors that linkage into auto-recorded dogfood governance notes, while
+  `governance-import-findings` can ingest `LIVE_RUN.md` as compatibility
+  evidence with repo-scoped `repo_name:Q-ID` sync ids. The active owner docs
+  now lock the execution order explicitly: VoiceTerm full live loop first
+  (`Codex reviewer/conductor + Claude remote implementer + permanent Claude
+  watcher`), external repo matrix second in waves of `3`, and no mutating
+  fanout widening while startup receipts still report
+  `safe_to_fanout=False` / `resync_required=True`.
+- 2026-04-15 startup-authority bounded-import follow-up in `MP-377` scope:
+  the live `startup-context` stall was traced to the startup-authority
+  import-index atomicity scan, not the startup reducer. The guard was walking
+  the entire committed Python tree from `HEAD` and reading importer files
+  one-by-one on every bootstrap. It is now bounded to the local package scope
+  touched by current Python worktree paths, which preserves split/atomicity
+  protection for the active slice while restoring fast startup receipts on the
+  live repo.
 - 2026-04-13 authority-snapshot closure follow-up in `MP-377` scope:
   startup-context, session-resume, and review-channel status/doctor now all
   project the same reduced `AuthoritySnapshot` contract from

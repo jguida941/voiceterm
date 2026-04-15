@@ -1288,5 +1288,36 @@ def test_import_index_atomicity_accepts_committed_module_split(tmp_path: Path) -
     assert warnings == []
 
 
+def test_import_index_atomicity_limits_committed_scan_to_local_package_scope(
+    tmp_path: Path,
+) -> None:
+    """Committed HEAD importers outside the local dirty package are ignored."""
+    subprocess.run(["git", "init"], cwd=tmp_path, check=True, capture_output=True)
+    for package in ("pkg_a", "pkg_b"):
+        importer = tmp_path / "dev" / package / "importer.py"
+        importer.parent.mkdir(parents=True, exist_ok=True)
+        importer.write_text("from . import startup_signals\n", encoding="utf-8")
+    subprocess.run(
+        ["git", "add", "dev/pkg_a/importer.py", "dev/pkg_b/importer.py"],
+        cwd=tmp_path,
+        check=True,
+        capture_output=True,
+    )
+    _git_commit(tmp_path, "commit importers without targets")
+    (tmp_path / "dev" / "pkg_b" / "startup_signals.py").write_text(
+        "VALUE = 1\n", encoding="utf-8"
+    )
+
+    with patch(
+        "dev.scripts.checks.startup_authority_contract.runtime_checks.resolve_quality_scope_roots",
+        return_value=(Path("dev"),),
+    ):
+        errors, warnings = collect_import_index_atomicity_findings(tmp_path)
+
+    assert warnings == []
+    assert any("dev/pkg_b/startup_signals.py" in error for error in errors)
+    assert not any("dev/pkg_a/startup_signals.py" in error for error in errors)
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

@@ -1869,7 +1869,12 @@ Structured audit/event ledgers are separate from that handoff surface:
   row and stable finding id, defaulting the file path/classification from the
   live target catalog unless you override them with `--finding-path`,
   `--governance-check-id`, `--finding-class`, `--recurrence-risk`, or
-  `--prevention-surface`; plain
+  `--prevention-surface`. Campaign/system-test rows may also carry
+  `--campaign-id`, `--scenario-id`, `--repo-scope`, `--repo-label`,
+  `--repo-path`, `--topology`, `--lane-role`, `--live-run-ref`, and
+  `--governance-finding-id` so later closeout can reconcile dogfood receipts,
+  `LIVE_RUN` compatibility updates, and canonical findings without chat-local
+  correlation; plain
   `python3 dev/scripts/devctl.py governance-review --record --signal-type dogfood`
   remains the manual fallback for later closeout or reclassification.
 - `dev/reports/governance/guard_promotion_candidates.jsonl` records durable
@@ -1903,6 +1908,10 @@ Structured audit/event ledgers are separate from that handoff surface:
   4. Once the run is honest, import the target findings with
      `governance-import-findings`, then adjudicate important outcomes with
      `governance-review --record`.
+     Compatibility markdown evidence may enter through
+     `governance-import-findings --input-format md`; those rows sync on
+     repo-scoped `repo_name:Q-ID` identity so `LIVE_RUN.md` stays a mirror,
+     not a second canonical backlog.
   5. If startup/push proof still requires a target-local exported stack,
      track that as a workflow/authority gap in the active plan instead of
      mislabeling it as an adopter finding.

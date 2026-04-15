@@ -1,6 +1,6 @@
 # Remote Control Runtime Closure Plan
 
-**Status**: active  |  **Last updated**: 2026-04-13 | **Owner:** Tooling/control plane/review runtime/dashboard
+**Status**: active  |  **Last updated**: 2026-04-15 | **Owner:** Tooling/control plane/review runtime/dashboard
 Execution plan contract: required
 This spec is mirrored in `dev/active/MASTER_PLAN.md` under `MP-380..MP-387`.
 It closes the remote-control/operator-surface gaps found in the 2026-04-04
@@ -482,6 +482,16 @@ remote/runtime order explicit:
 
 ## Progress Log
 
+- 2026-04-15: Locked the remote-control dogfood expansion to one typed
+  baseline instead of ad hoc widening. The owner-doc chain now says the first
+  live proof is `Codex conductor/reviewer + Claude remote-control implementer
+  + permanent Claude packet watcher`, not a free-form worker swarm, and the
+  dogfood ledger can now record the campaign/scenario/topology/lane linkage
+  that ties those remote runs back to canonical findings and `LIVE_RUN`
+  mirror updates. The compatibility-finding ingress is explicit too:
+  `governance-import-findings --input-format md` now imports `LIVE_RUN.md`
+  through repo-scoped `repo_name:Q-ID` identity, so remote-control misses can
+  move into the canonical backlog without hand-copying markdown prose.
 - 2026-04-13: Closed the guard-driven modularization and compatibility-seam
   cleanup that the live remote-control dogfood loop surfaced in the typed
   review-channel/runtime lane. The pending-packet, reviewer-follow,
@@ -1315,6 +1325,19 @@ No `ControlPlaneReadModel` exists. Each surface independently reads raw artifact
 
 ## Session Resume
 
+- 2026-04-15 remote-control campaign baseline:
+  resume this lane from the bounded live proof, not from abstract fanout.
+  The default topology is `Codex conductor/reviewer + Claude remote-control
+  implementer + permanent Claude packet watcher`; worker fanout stays zero for
+  mutating work until startup receipts stop reporting
+  `safe_to_fanout=False` / `resync_required=True`.
+- 2026-04-15 finding-ingress contract:
+  remote-control misses now have one explicit compatibility path.
+  `LIVE_RUN.md` remains projection/mirror evidence only, but
+  `governance-import-findings --input-format md` can import those sections
+  with repo-scoped `repo_name:Q-ID` identity while dogfood rows carry the
+  matching campaign, topology, and finding references needed to correlate the
+  live run.
 - 2026-04-13 packet-inbox + stale-attention write barrier:
   resume from current-instruction convergence, not from packet attention
   modeling again. `ReviewState.packet_inbox` is now the canonical typed wake /

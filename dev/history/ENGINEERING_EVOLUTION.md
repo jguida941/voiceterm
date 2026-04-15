@@ -9923,6 +9923,86 @@ Evidence:
 `dev/active/MASTER_PLAN.md`,
 `dev/active/ai_governance_platform.md`.
 
+### 2026-04-15 - Dogfood campaign rows now carry cross-surface linkage, and `LIVE_RUN.md` imports collapse on repo-scoped Q-ids
+
+Fact: the repo had already decided that canonical findings belong in
+`FindingBacklog` / `governance-review` while `LIVE_RUN.md` stays compatibility
+evidence, but the live system-test loop still lacked the connective tissue to
+prove that contract end to end. Dogfood rows could say "this command/role
+passed" without identifying the campaign/scenario/topology they belonged to,
+and markdown finding mirrors still risked turning into a second backlog unless
+imports collapsed on a stable repo-scoped identity.
+
+The closure made both paths explicit. `devctl dogfood --record` now accepts
+campaign metadata (`campaign_id`, `scenario_id`, `repo_scope`, `repo_label`,
+`repo_path`, `topology`, `lane_role`) plus cross-surface linkage
+(`live_run_refs`, `governance_finding_ids`), persists that state in
+`dev/reports/dogfood/runs.jsonl`, renders it in the latest dogfood summary,
+and copies the same linkage into auto-recorded dogfood governance notes.
+`governance-import-findings` now also accepts `--input-format md` for
+`LIVE_RUN.md` compatibility intake, reuses the existing markdown section
+parser, and emits repo-scoped sync ids in the form `<repo_name>:Qnn` so
+repeated imports converge on one canonical finding identity instead of
+spawning per-run duplicates.
+
+This matters because the next proof target is no longer "one command works."
+It is "the live multi-agent system stays coherent under packets, remote
+control, dogfood receipts, and compatibility mirrors." The owner-doc chain now
+locks that execution order in repo state: VoiceTerm full live proof first,
+external repo matrix second, and no mutating fanout widening while startup
+still reports `safe_to_fanout=False` / `resync_required=True`.
+
+Evidence:
+`dev/scripts/devctl/runtime/dogfood_models.py`,
+`dev/scripts/devctl/runtime/dogfood_log.py`,
+`dev/scripts/devctl/runtime/dogfood_render.py`,
+`dev/scripts/devctl/runtime/dogfood_governance.py`,
+`dev/scripts/devctl/commands/reporting/dogfood.py`,
+`dev/scripts/devctl/governance/parser.py`,
+`dev/scripts/devctl/governance/live_run_import.py`,
+`dev/scripts/devctl/commands/governance/import_findings.py`,
+`dev/scripts/devctl/tests/commands/reporting/test_dogfood.py`,
+`dev/scripts/devctl/tests/governance/test_governance_import_findings.py`,
+`dev/active/MASTER_PLAN.md`,
+`dev/active/ai_governance_platform.md`,
+`dev/active/continuous_swarm.md`,
+`dev/active/remote_control_runtime.md`,
+`dev/active/portable_code_governance.md`,
+`dev/guides/DEVELOPMENT.md`,
+`dev/scripts/README.md`.
+
+### 2026-04-15 - Startup authority no longer scans the whole committed Python tree on every bootstrap
+
+Fact: the next live blocker after the dogfood campaign slice was not a policy
+decision but a startup regression. `startup-context --format summary` had
+started appearing hung on the real repo even though the underlying startup
+reducer still built in a few seconds. The slow path was inside
+`build_startup_authority_report()`: the import-index atomicity check was
+reading committed importer source from `HEAD` across the full Python tree on
+every startup receipt.
+
+This mattered because startup authority is Step 0 for every implementation and
+reviewer-owned launcher session. A guard that quietly turns bootstrap into a
+full committed-tree audit defeats the whole bounded-startup contract and makes
+the honest checkpoint/resync diagnosis look like a deadlock.
+
+The fix kept the real protection and removed the pathological scope. The
+import-index atomicity scan now limits the committed-tree layer to the local
+package scope touched by current Python worktree paths, while the staged/index
+layer still checks the full staged tree. That means startup still catches the
+split/atomicity drift caused by local module moves or partial staging, but it
+no longer shells out through `git show HEAD:<path>` for every committed Python
+importer in the repo on each bootstrap. Focused atomicity regressions are
+green, and the live repo now returns the expected
+`checkpoint_before_continue` startup summary again.
+
+Evidence:
+`dev/scripts/checks/startup_authority_contract/runtime_import_git.py`,
+`dev/scripts/checks/startup_authority_contract/runtime_import_atomicity.py`,
+`dev/scripts/devctl/tests/checks/test_startup_authority_contract.py`,
+`dev/active/MASTER_PLAN.md`,
+`dev/active/ai_governance_platform.md`.
+
 ### 2026-04-02 - Reviewer-follow guard stops fake heartbeats and fixes one-shot dedupe
 
 The ensure --follow daemon was unconditionally refreshing reviewer heartbeats

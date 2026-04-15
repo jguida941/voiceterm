@@ -464,6 +464,19 @@ Out of scope until the local proof gate is green:
 
 ## Progress Log
 
+- 2026-04-15: Wrote the standing dogfood campaign contract into repo-owned
+  state instead of leaving the widened topology in chat. The loop now has one
+  explicit baseline topology to prove first:
+  `Codex conductor/reviewer + Claude remote-control implementer + permanent
+  Claude packet watcher`, with optional Codex architecture-review sidecar on
+  non-trivial slices. `devctl dogfood --record` can now persist the campaign,
+  scenario, topology, lane, `LIVE_RUN`, and governance linkage needed to make
+  those runs auditable across sessions, and the owner chain now says plainly
+  that mutating fanout stays frozen while startup still reports
+  `safe_to_fanout=False` / `resync_required=True`. The next live widening is
+  therefore no longer "spawn more lanes"; it is proving three consecutive
+  baseline slices from typed receipts and packet traffic before adding up to
+  two isolated Claude worker lanes.
 - 2026-04-13: Made the reviewer-side wake path obey typed inbox authority
   instead of reconstructing it from raw pending-packet scans. Reviewer wait
   now loads `packet_inbox` from the governed status/report projection, fails
@@ -1095,6 +1108,17 @@ Out of scope until the local proof gate is green:
 
 ## Session Resume
 
+- Current status: the standing loop now has a repo-visible baseline topology
+  and trace contract. Use `Codex conductor/reviewer + Claude remote-control
+  implementer + permanent Claude packet watcher` as the default live proof,
+  and record every exercised slice with campaign/scenario/topology/lane
+  metadata in `devctl dogfood --record` instead of reconstructing the run from
+  packets or chat.
+- Next action: keep the Claude watcher live, close slices from typed startup /
+  inbox / status authority, and do not widen mutating fanout until startup
+  receipts stop reporting `safe_to_fanout=False`. Once the baseline loop
+  closes cleanly, add at most two isolated Claude workers with owned path
+  scopes and keep Codex as the reviewer/conductor.
 - Current status: the markdown-bridge status lane no longer invents current-
   instruction or `Claude Status` drift. The live operator surface,
   `bridge.md`, and typed `review_state.json` now converge on canonical

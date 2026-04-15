@@ -14,6 +14,10 @@ from ...governance.external_findings_log import (
     resolve_external_finding_log_path,
     resolve_external_finding_summary_root,
 )
+from ...governance.live_run_import import (
+    build_live_run_import_rows,
+    is_live_run_markdown_path,
+)
 from ...governance.external_findings_models import ExternalFindingInput
 from ...governance.external_findings_render import (
     render_external_finding_markdown,
@@ -91,7 +95,11 @@ def _load_import_rows(
     input_format: str,
     args,
 ) -> tuple[list[dict[str, Any]], str]:
-    payload_rows = _load_candidate_rows(input_path, input_format=input_format)
+    payload_rows = _load_candidate_rows(
+        input_path,
+        input_format=input_format,
+        args=args,
+    )
     import_run_id = (
         str(getattr(args, "run_id", None) or "").strip()
         or _default_import_run_id(input_path)
@@ -111,15 +119,29 @@ def _load_import_rows(
     return rows, import_run_id
 
 
-def _load_candidate_rows(input_path: Path, *, input_format: str) -> list[dict[str, Any]]:
+def _load_candidate_rows(
+    input_path: Path,
+    *,
+    input_format: str,
+    args,
+) -> list[dict[str, Any]]:
     try:
         raw_text = input_path.read_text(encoding="utf-8")
     except OSError as exc:
         raise ValueError(f"unable to read input file `{input_path}`: {exc}") from exc
 
     mode = input_format.strip().lower()
-    if mode not in {"auto", "json", "jsonl"}:
-        raise ValueError("input_format must be one of: auto, json, jsonl")
+    if mode not in {"auto", "json", "jsonl", "md"}:
+        raise ValueError("input_format must be one of: auto, json, jsonl, md")
+    if mode == "md" or (mode == "auto" and is_live_run_markdown_path(input_path)):
+        return build_live_run_import_rows(
+            input_path=input_path,
+            args=args,
+            import_run_id=(
+                str(getattr(args, "run_id", None) or "").strip()
+                or _default_import_run_id(input_path)
+            ),
+        )
     if mode == "jsonl":
         return _parse_jsonl_rows(raw_text, input_path=input_path)
     if mode == "json":

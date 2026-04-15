@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
@@ -38,6 +37,8 @@ from .dogfood_models import (
     DogfoodReport,
     VALID_DOGFOOD_STATUSES,
     VALID_DOGFOOD_TARGET_KINDS,
+    dogfood_record_from_row,
+    normalize_dogfood_text_items,
 )
 
 DEFAULT_DOGFOOD_LOG = Path(active_path_config().dogfood_log_rel)
@@ -96,6 +97,16 @@ def build_dogfood_record(
         field_name="status",
     )
     timestamp = utc_timestamp()
+    campaign_id = optional_text(record_input.campaign_id)
+    scenario_id = optional_text(record_input.scenario_id)
+    repo_scope = optional_text(record_input.repo_scope)
+    repo_label = optional_text(record_input.repo_label)
+    topology = optional_text(record_input.topology)
+    lane_role = optional_text(record_input.lane_role)
+    live_run_refs = normalize_dogfood_text_items(record_input.live_run_refs)
+    governance_finding_ids = normalize_dogfood_text_items(
+        record_input.governance_finding_ids
+    )
     actor = optional_text(record_input.actor)
     provider = optional_text(record_input.provider)
     run_label = optional_text(record_input.run_label)
@@ -123,6 +134,14 @@ def build_dogfood_record(
         target_kind=target_kind,
         target_id=target_id,
         status=status,
+        campaign_id=campaign_id,
+        scenario_id=scenario_id,
+        repo_scope=repo_scope,
+        repo_label=repo_label,
+        topology=topology,
+        lane_role=lane_role,
+        live_run_refs=live_run_refs,
+        governance_finding_ids=governance_finding_ids,
         actor=actor,
         provider=provider,
         run_label=run_label,
@@ -188,7 +207,7 @@ def build_dogfood_report(
         )
         for target_kind, target_ids in dogfood_catalog(repo_root=repo_root).items()
     )
-    recent_records = tuple(_record_from_row(row) for row in recent_rows)
+    recent_records = tuple(dogfood_record_from_row(row) for row in recent_rows)
     latest_recorded_at_utc = (
         recent_records[0].timestamp_utc if recent_records else ""
     )
@@ -305,22 +324,3 @@ def _build_governance_summary(
         recent_findings=recent_findings,
     )
 
-
-def _record_from_row(row: Mapping[str, object]) -> DogfoodRecord:
-    return DogfoodRecord(
-        record_id=optional_text(row.get("record_id")),
-        timestamp_utc=optional_text(row.get("timestamp_utc")),
-        contract_id=optional_text(row.get("contract_id")),
-        schema_version=int(row.get("schema_version") or DOGFOOD_RECORD_SCHEMA_VERSION),
-        repo_name=optional_text(row.get("repo_name")),
-        repo_path=optional_text(row.get("repo_path")),
-        target_kind=optional_text(row.get("target_kind")),
-        target_id=optional_text(row.get("target_id")),
-        status=optional_text(row.get("status")),
-        actor=optional_text(row.get("actor")),
-        provider=optional_text(row.get("provider")),
-        run_label=optional_text(row.get("run_label")),
-        source_command=optional_text(row.get("source_command")),
-        artifact_path=optional_text(row.get("artifact_path")),
-        notes=optional_text(row.get("notes")),
-    )

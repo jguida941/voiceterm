@@ -52,12 +52,7 @@ def render_dogfood_markdown(report: DogfoodReport) -> str:
         lines.append("- No dogfood rows recorded yet.")
     else:
         for record in report.recent_records:
-            actor = f" actor={record.actor}" if record.actor else ""
-            provider = f" provider={record.provider}" if record.provider else ""
-            lines.append(
-                f"- `{record.timestamp_utc}` `{record.target_kind}:{record.target_id}` "
-                f"status={record.status}{actor}{provider}"
-            )
+            lines.append(_render_record_line(record))
     return "\n".join(lines)
 
 
@@ -82,3 +77,34 @@ def write_dogfood_summary(
         "summary_json": str(summary_json),
         "summary_md": str(summary_md),
     }
+
+
+def _render_record_line(record) -> str:
+    parts = [
+        f"- `{record.timestamp_utc}` `{record.target_kind}:{record.target_id}` status={record.status}"
+    ]
+    if record.actor:
+        parts.append(f"actor={record.actor}")
+    if record.provider:
+        parts.append(f"provider={record.provider}")
+    if record.campaign_id:
+        parts.append(f"campaign_id={record.campaign_id}")
+    if record.scenario_id:
+        parts.append(f"scenario_id={record.scenario_id}")
+    if record.repo_scope:
+        parts.append(f"repo_scope={record.repo_scope}")
+    if record.repo_label:
+        parts.append(f"repo_label={record.repo_label}")
+    if record.repo_path:
+        parts.append(f"repo_path={record.repo_path}")
+    if record.topology:
+        parts.append(f"topology={record.topology}")
+    if record.lane_role:
+        parts.append(f"lane_role={record.lane_role}")
+    if record.live_run_refs:
+        parts.append(f"live_run_refs=[{', '.join(record.live_run_refs)}]")
+    if record.governance_finding_ids:
+        parts.append(
+            f"governance_finding_ids=[{', '.join(record.governance_finding_ids)}]"
+        )
+    return " ".join(parts)

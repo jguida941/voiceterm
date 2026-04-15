@@ -24,13 +24,16 @@ def add_governance_import_findings_parser(sub: argparse._SubParsersAction) -> No
     )
     import_cmd.add_argument(
         "--input",
-        help="Optional JSON/JSONL file containing raw external findings to import",
+        help=(
+            "Optional JSON/JSONL/LIVE_RUN markdown file containing raw "
+            "external findings to import"
+        ),
     )
     import_cmd.add_argument(
         "--input-format",
-        choices=["auto", "json", "jsonl"],
+        choices=["auto", "json", "jsonl", "md"],
         default="auto",
-        help="Input format for --input (default: auto)",
+        help="Input format for --input (default: auto; md parses LIVE_RUN markdown)",
     )
     import_cmd.add_argument(
         "--log-path",

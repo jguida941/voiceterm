@@ -5079,6 +5079,35 @@ prefer the typed phase/task entries before any free-form backlog bullets.
 Use this section as the single "left off here" surface for fresh AI sessions
 working on `MP-377`.
 
+- 2026-04-15 dogfood campaign contract closure:
+  `devctl dogfood --record` now carries the live campaign/linkage metadata the
+  platform needs for real multi-surface proof (`campaign_id`, `scenario_id`,
+  `repo_scope`, `repo_label`, `repo_path`, `topology`, `lane_role`,
+  `live_run_refs`, `governance_finding_ids`), and
+  `governance-import-findings` now treats `LIVE_RUN.md` as explicit
+  compatibility intake with repo-scoped `repo_name:Q-ID` sync keys instead of
+  manual copy-forward. That makes the campaign executable through repo-owned
+  ledgers: canonical findings stay in `FindingBacklog` /
+  `governance-review`, `LIVE_RUN.md` stays mirror/projection evidence, and
+  dogfood rows can link the two without chat-local bookkeeping.
+- Next action: run the campaign in the bounded order now written into the
+  owner docs. VoiceTerm remains the full live proof first with
+  `Codex conductor/reviewer + Claude remote-control implementer + permanent
+  Claude packet watcher`, and mutating fanout stays capped until startup
+  receipts stop reporting `safe_to_fanout=False` / `resync_required=True`.
+  External repos remain engine-matrix proof first: rerun anchors in waves of
+  `3`, stop on the first new `engine_bug`, import honest adopter findings
+  through `governance-import-findings`, and only widen back toward `5` repos
+  after one clean wave.
+- 2026-04-15 startup-authority bootstrap fix:
+  `startup-context --format summary` is healthy again on the live repo. The
+  regression was not in startup-context assembly; it was in the
+  startup-authority guard's import-index atomicity check, which was walking the
+  entire committed Python tree from `HEAD` and reading importer source
+  file-by-file on every bootstrap. The guard is now bounded to the local
+  worktree package scope touched by current Python changes, so startup still
+  catches local split/atomicity drift without turning every fresh session into
+  a full committed-tree import audit.
 - Current status: the umbrella plan now owns the reduced execution-owner set
   and the typed phase/task contract. The live dogfood walkthrough already
   closed the stale `active_target` / projection parity gaps across startup,
@@ -7007,6 +7036,32 @@ Execution order for this section:
 
 ## Progress Log
 
+- 2026-04-15: Landed the repo-owned contract for the live dogfood campaign
+  instead of leaving the system-test topology in chat. `devctl dogfood
+  --record` now persists campaign/linkage metadata alongside each coverage row
+  (`campaign_id`, `scenario_id`, `repo_scope`, `repo_label`, `repo_path`,
+  `topology`, `lane_role`, `live_run_refs`, `governance_finding_ids`),
+  renders that state in the summary/report surface, and carries the same
+  linkage into auto-recorded `signal_type=dogfood` governance notes. The same
+  slice makes the compatibility findings path explicit too:
+  `governance-import-findings` can now ingest `LIVE_RUN.md` through the
+  shared markdown parser with repo-scoped `repo_name:Q-ID` sync keys, so
+  repeated imports collapse onto canonical external-finding identity instead
+  of spawning per-run duplicates. The owner docs now lock the next execution
+  order to the real system: VoiceTerm full live loop first, external repo
+  matrix second, and no mutating fanout beyond the current startup receipt
+  while it still reports `safe_to_fanout=False`.
+- 2026-04-15: Closed the startup-authority performance regression behind the
+  live `startup-context` stall. The typed startup reducer was still healthy,
+  but `build_startup_authority_report()` was calling the import-index
+  atomicity scan in a way that re-read committed Python importer files across
+  the whole repo from `HEAD` on every bootstrap. The guard now bounds the
+  committed-layer scan to the local package scope touched by current Python
+  worktree paths, preserving the real split/atomicity check for local edits
+  while restoring fast startup receipts on the live repo. Focused
+  `test_startup_authority_contract.py -k import_index_atomicity` is green, and
+  `startup-context --format summary` now returns the expected
+  `checkpoint_before_continue` receipt instead of appearing hung.
 - 2026-04-15: Closed the startup contract-ownership projection drift behind
   the stale `startup_surface_tokens_unpopulated` governance finding. The
   platform contract rows already carried startup-surface tokens, but
@@ -10143,10 +10198,18 @@ Execution order for this section:
 - `dev/scripts/devctl/runtime/dogfood_models.py`
 - `dev/scripts/devctl/runtime/dogfood_log.py`
 - `dev/scripts/devctl/runtime/dogfood_render.py`
+- `dev/scripts/devctl/runtime/dogfood_governance.py`
 - `dev/scripts/devctl/runtime/review_state.py`
+- `dev/scripts/devctl/governance/live_run_import.py`
+- `dev/scripts/devctl/governance/parser.py`
+- `dev/scripts/checks/startup_authority_contract/runtime_import_git.py`
+- `dev/scripts/checks/startup_authority_contract/runtime_import_atomicity.py`
 - `dev/scripts/devctl/commands/reporting/dogfood.py`
+- `dev/scripts/devctl/commands/governance/import_findings.py`
 - `dev/scripts/devctl/commands/vcs/push.py`
 - `dev/scripts/devctl/tests/commands/reporting/test_dogfood.py`
+- `dev/scripts/devctl/tests/governance/test_governance_import_findings.py`
+- `dev/scripts/devctl/tests/checks/test_startup_authority_contract.py`
 - `dev/scripts/devctl/tests/vcs/test_push.py`
 - `dev/scripts/checks/check_platform_layer_boundaries.py`
 - `dev/scripts/checks/check_architecture_surface_sync.py`

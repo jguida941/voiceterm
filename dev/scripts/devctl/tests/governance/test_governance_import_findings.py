@@ -26,9 +26,9 @@ class GovernanceImportFindingsTests(unittest.TestCase):
             [
                 "governance-import-findings",
                 "--input",
-                "/tmp/findings.json",
+                "/tmp/LIVE_RUN.md",
                 "--input-format",
-                "json",
+                "md",
                 "--run-id",
                 "pilot-16-repos",
                 "--repo-name",
@@ -43,8 +43,8 @@ class GovernanceImportFindingsTests(unittest.TestCase):
         )
 
         self.assertEqual(args.command, "governance-import-findings")
-        self.assertEqual(args.input, "/tmp/findings.json")
-        self.assertEqual(args.input_format, "json")
+        self.assertEqual(args.input, "/tmp/LIVE_RUN.md")
+        self.assertEqual(args.input_format, "md")
         self.assertEqual(args.run_id, "pilot-16-repos")
         self.assertEqual(args.repo_name, "ci-cd-hub")
         self.assertEqual(args.check_id, "external_audit")
@@ -168,6 +168,75 @@ class GovernanceImportFindingsTests(unittest.TestCase):
             self.assertEqual(stats.get("adjudication_coverage_pct"), 50.0)
             self.assertEqual(stats.get("fixed_count"), 1)
             self.assertEqual((stats.get("by_repo") or [])[0]["bucket"], "alpha")
+
+    def test_import_live_run_markdown_uses_qid_based_sync_ids(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            input_path = root / "LIVE_RUN.md"
+            log_path = root / "external-findings.jsonl"
+            review_log_path = root / "reviews.jsonl"
+            summary_root = root / "summary"
+            input_path.write_text(
+                "\n".join(
+                    [
+                        "### Q17 — initial note",
+                        "- **Severity**: medium",
+                        "- **Location**: `pkg/old.py`",
+                        "- **Body**: initial note",
+                        "- **Status**: OPEN",
+                        "",
+                        "### Q17 — follow-up note",
+                        "- **Severity**: high",
+                        "- **Location**: `pkg/old.py`",
+                        "- **Body**: updated note",
+                        "- **Status**: FIXED",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+
+            args = cli.build_parser().parse_args(
+                [
+                    "governance-import-findings",
+                    "--input",
+                    str(input_path),
+                    "--input-format",
+                    "md",
+                    "--log-path",
+                    str(log_path),
+                    "--summary-root",
+                    str(summary_root),
+                    "--governance-review-log",
+                    str(review_log_path),
+                    "--repo-name",
+                    "codex-voice",
+                    "--repo-path",
+                    str(root),
+                    "--format",
+                    "json",
+                ]
+            )
+
+            self.assertEqual(import_findings.run(args), 0)
+
+            imported_rows = [
+                json.loads(line)
+                for line in log_path.read_text(encoding="utf-8").splitlines()
+                if line.strip()
+            ]
+            self.assertEqual(len(imported_rows), 2)
+            self.assertEqual(
+                [row["finding_id"] for row in imported_rows],
+                ["codex-voice:Q17", "codex-voice:Q17"],
+            )
+
+            summary_json = summary_root / "external_findings_summary.json"
+            payload = json.loads(summary_json.read_text(encoding="utf-8"))
+            stats = payload.get("stats") or {}
+            self.assertEqual(stats.get("total_findings"), 1)
+            recent_findings = payload.get("recent_findings") or []
+            self.assertEqual(recent_findings[0].get("finding_id"), "codex-voice:Q17")
+            self.assertEqual(recent_findings[0].get("severity"), "high")
 
     def test_import_requires_repo_identity(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
