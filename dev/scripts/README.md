@@ -1253,7 +1253,11 @@ before falling back to operator nudges. That repo-owned path classifies the
 current startup state from typed startup/review owner artifacts, applies at
 most one bounded safe repair (`ensure`, `render-bridge`,
 `reset-implementer-state`) per invocation, refreshes the managed startup
-receipt, and still fails closed on checkpoint/approval boundaries. The same
+receipt, and still fails closed on checkpoint/approval boundaries. It also
+surfaces typed `AuthoritySnapshot` / `CoordinationSnapshot` blockers such as
+`coordination_resync_required` as explicit manual follow-up instead of
+falsely reporting the startup state as healthy when review attention happens
+to remain `healthy`. The same
 repair adapter resolves the governed review-channel `rollover_dir` sibling
 from the managed review root before dispatching repo-owned review-channel
 actions, so startup repair stays coherent as review-channel command packages
@@ -1695,7 +1699,10 @@ Machine-first output note:
   CLI JSON as an internal API. The bounded runtime adapter now also carries
   the governed review-channel `rollover_dir` sibling derived from the managed
   review root, so bridge-backed status/ensure repair paths do not fail on
-  missing runtime-path context after command-package refactors.
+  missing runtime-path context after command-package refactors. The repair
+  classifier also consumes typed authority/coordination blockers, so
+  `coordination_resync_required` and similar non-attention startup stops show
+  up as real manual follow-up issues instead of a false healthy receipt.
 - `pipeline --action refresh-authorization`: same-HEAD authorization-window
   recovery for the remote commit/push pipeline. It refuses to refresh when
   current HEAD is unavailable or differs from the stored

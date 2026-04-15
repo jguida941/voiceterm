@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from .review_state_models import ReviewState
 from .startup_context import StartupContext
+from .startup_repair_authority import authority_follow_up_issue
 from .startup_repair_models import (
     StartupRepairActionRecord,
     StartupRepairActionId,
@@ -129,6 +130,15 @@ def _classified_issues(
     )
     if review_issue is not None:
         issues.append(review_issue)
+
+    authority_issue = authority_follow_up_issue(
+        ctx=ctx,
+        review_issue=review_issue,
+        approval_boundary_active=approval_boundary_active,
+        default_command=REVIEW_STATUS_COMMAND,
+    )
+    if authority_issue is not None:
+        issues.append(authority_issue)
 
     if _needs_generic_startup_authority_issue(
         ctx=ctx,
@@ -257,8 +267,6 @@ def _review_issue(
         changes_tracked_state=changes_tracked_state,
         blocked_by_approval_boundary=blocked_by_approval_boundary,
     )
-
-
 def _attention_safe_fix(
     status: str,
     *,

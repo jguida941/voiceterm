@@ -11,6 +11,8 @@ from unittest.mock import patch
 
 from dev.scripts.devctl import cli
 from dev.scripts.devctl.commands.listing import COMMANDS
+from dev.scripts.devctl.platform.coordination_snapshot_models import CoordinationSnapshot
+from dev.scripts.devctl.runtime.authority_snapshot import AuthoritySnapshot
 from dev.scripts.devctl.runtime.startup_repair import (
     StartupRepairActionRecord,
     StartupRepairIssue,
@@ -82,6 +84,10 @@ def _ctx(
     *,
     push_overrides: dict[str, object] | None = None,
     reviewer_gate: ReviewerGateState | None = None,
+    coordination: CoordinationSnapshot | None = None,
+    authority_snapshot: AuthoritySnapshot | None = None,
+    advisory_action: str = "continue_editing",
+    advisory_reason: str = "clean_worktree",
 ) -> StartupContext:
     return StartupContext(
         governance=_minimal_governance(**(push_overrides or {})),
@@ -91,8 +97,10 @@ def _ctx(
             reviewer_mode="active_dual_agent",
             review_accepted=False,
         ),
-        advisory_action="continue_editing",
-        advisory_reason="clean_worktree",
+        advisory_action=advisory_action,
+        advisory_reason=advisory_reason,
+        coordination=coordination,
+        authority_snapshot=authority_snapshot,
     )
 
 
@@ -374,6 +382,56 @@ class StartupRepairContractTests(unittest.TestCase):
 
         self.assertEqual(select_safe_repair_action(result), "ensure_runtime")
 
+    def test_coordination_resync_becomes_manual_follow_up_issue(self) -> None:
+        result = build_startup_repair_result(
+            ctx=_ctx(
+                coordination=CoordinationSnapshot(
+                    declared_topology="multi_agent_orchestrated",
+                    observed_topology="single_agent",
+                    recommended_topology="single_agent",
+                    fanout_posture="planned_scaffolding_only",
+                    resync_required=True,
+                    resync_reasons=("attention:healthy",),
+                    summary=(
+                        "observed=single_agent; declared=multi_agent_orchestrated; "
+                        "fanout=planned_scaffolding_only; recommended=single_agent; "
+                        "resync required"
+                    ),
+                ),
+                authority_snapshot=AuthoritySnapshot(
+                    coordination_state="resync_required",
+                    required_action="continue_scoped_loop",
+                    next_command=(
+                        "python3 dev/scripts/devctl.py review-channel --action status "
+                        "--terminal none --format json"
+                    ),
+                    safe_to_continue=False,
+                ),
+            ),
+            authority_report={"ok": True, "errors": [], "warnings": []},
+            startup_receipt_path="dev/reports/startup/latest/receipt.json",
+            review_state=_review_state(
+                status="healthy",
+                owner="system",
+                summary="Review loop signals are fresh.",
+                recommended_action="Continue the scoped review/coding loop.",
+                recommended_command="",
+            ),
+        )
+
+        self.assertFalse(result.ok)
+        self.assertEqual(result.next_action, "manual_follow_up")
+        self.assertEqual(result.issue_count, 1)
+        issue = result.issues[0]
+        self.assertEqual(issue.issue_id, "coordination_resync_required")
+        self.assertEqual(issue.issue_class, "manual_follow_up")
+        self.assertFalse(issue.repairable)
+        self.assertEqual(
+            issue.recommended_command,
+            "python3 dev/scripts/devctl.py review-channel --action status --terminal none --format json",
+        )
+        self.assertIn("resync required", issue.detail)
+
 
 class StartupRepairCommandTests(unittest.TestCase):
     def test_review_runtime_paths_derive_rollover_dir_from_review_root(self) -> None:
@@ -503,6 +561,65 @@ class StartupRepairCommandTests(unittest.TestCase):
         rc = cli.COMMAND_HANDLERS[args.command](args)
 
         self.assertNotEqual(rc, 0)
+
+    def test_collect_state_coerces_advisory_for_resync_blocker(self) -> None:
+        from dev.scripts.devctl.commands.governance import startup_repair_runtime
+
+        ctx = _ctx(
+            advisory_action="push_allowed",
+            advisory_reason="worktree_clean_and_review_accepted",
+            coordination=CoordinationSnapshot(
+                declared_topology="multi_agent_orchestrated",
+                observed_topology="single_agent",
+                recommended_topology="single_agent",
+                fanout_posture="planned_scaffolding_only",
+                resync_required=True,
+                resync_reasons=("attention:healthy",),
+                summary=(
+                    "observed=single_agent; declared=multi_agent_orchestrated; "
+                    "fanout=planned_scaffolding_only; recommended=single_agent; "
+                    "resync required"
+                ),
+            ),
+            authority_snapshot=AuthoritySnapshot(
+                coordination_state="resync_required",
+                next_command=(
+                    "python3 dev/scripts/devctl.py review-channel --action status "
+                    "--terminal none --format json"
+                ),
+                safe_to_continue=False,
+            ),
+        )
+
+        with patch.object(
+            startup_repair_runtime,
+            "build_startup_context",
+            return_value=ctx,
+        ), patch.object(
+            startup_repair_runtime,
+            "build_startup_authority_report",
+            return_value={"ok": True, "errors": [], "warnings": []},
+        ), patch.object(
+            startup_repair_runtime,
+            "_read_review_state",
+            return_value=(None, None, None),
+        ), patch.object(
+            startup_repair_runtime,
+            "_write_current_startup_receipt",
+            return_value="dev/reports/startup/latest/receipt.json",
+        ):
+            state = startup_repair_runtime.collect_state(
+                repo_root=Path("/tmp/repo"),
+                applied_actions=(),
+            )
+
+        self.assertEqual(state.result.advisory_action, "repair_reviewer_loop")
+        self.assertEqual(
+            state.result.advisory_reason,
+            "blockers_present:coordination_resync_required",
+        )
+        self.assertFalse(state.result.ok)
+        self.assertEqual(state.result.next_action, "manual_follow_up")
 
 
 if __name__ == "__main__":

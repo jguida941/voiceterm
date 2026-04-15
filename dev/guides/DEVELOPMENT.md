@@ -758,6 +758,11 @@ Three quality layers matter in practice:
     most one bounded safe repo-owned repair per invocation, refreshes the
     managed startup receipt after each pass, and still fails closed on
     checkpoint/publish/launch approval boundaries. The bounded repair adapter
+    now also treats typed `AuthoritySnapshot` /
+    `CoordinationSnapshot` blockers as explicit manual-follow-up issues, so a
+    live `coordination_resync_required` state no longer hides behind a false
+    "startup state is healthy" repair receipt.
+    The bounded repair adapter
     also resolves the governed review-channel `rollover_dir` sibling from the
     managed review root before dispatching repo-owned review-channel actions,
     so review-channel command splits do not silently break startup repair.

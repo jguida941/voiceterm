@@ -250,6 +250,10 @@ Run this sequence for every task. Do not skip steps.
    applies at most one deterministic safe fix per invocation. User summaries,
    stale chat continuity, or remembered prior state are not a substitute for
    this Step 0 receipt.
+   Repair mode now also treats typed `AuthoritySnapshot` /
+   `CoordinationSnapshot` blockers as first-class startup issues, so a receipt
+   that still says `coordination_resync_required` must not be treated as
+   healthy just because review attention stayed `healthy`.
    The same repair path now resolves the governed review-channel
    `rollover_dir` sibling from the managed review root before dispatching
    repo-owned review-channel repair actions, so command-package refactors do

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -17,6 +17,11 @@ from ...runtime.startup_repair import (
     build_startup_repair_result,
 )
 from ...runtime.startup_repair_models import StartupRepairActionId
+from .startup_context_advisory_coherence import (
+    build_blocker_probe_payload,
+    coerce_advisory_for_blockers,
+)
+from .startup_context_summary import summary_blockers as _summary_blockers
 
 _TRACKED_STATE_ACTIONS = {
     StartupRepairActionId.RENDER_BRIDGE.value,
@@ -48,7 +53,12 @@ def collect_state(
     applied_actions: tuple[StartupRepairActionRecord, ...],
 ) -> CollectedStartupRepairState:
     ctx = build_startup_context(repo_root=repo_root)
-    authority_report = build_startup_authority_report(repo_root=repo_root)
+    authority_report = build_startup_authority_report(
+        repo_root=repo_root,
+        governance=ctx.governance,
+        reviewer_gate=ctx.reviewer_gate,
+    )
+    ctx = _cohere_repair_advisory(ctx=ctx, authority_report=authority_report)
     review_state, review_error, runtime_paths = _read_review_state(
         repo_root=repo_root,
         ctx=ctx,
@@ -67,6 +77,35 @@ def collect_state(
         applied_actions=applied_actions,
     )
     return CollectedStartupRepairState(result=result, runtime_paths=runtime_paths)
+
+
+def _cohere_repair_advisory(
+    *,
+    ctx,
+    authority_report: dict[str, object],
+):
+    authority_payload = {
+        "ok": bool(authority_report.get("ok", False)),
+        "checks_run": int(authority_report.get("checks_run", 0) or 0),
+        "checks_passed": int(authority_report.get("checks_passed", 0) or 0),
+        "error_count": len(authority_report.get("errors", ()) or ()),
+        "warning_count": len(authority_report.get("warnings", ()) or ()),
+    }
+    blockers_csv = _summary_blockers(
+        build_blocker_probe_payload(ctx, authority_payload)
+    )
+    action, reason = coerce_advisory_for_blockers(
+        str(ctx.advisory_action or "").strip(),
+        str(ctx.advisory_reason or "").strip(),
+        blockers_csv,
+    )
+    if action == ctx.advisory_action and reason == ctx.advisory_reason:
+        return ctx
+    return replace(
+        ctx,
+        advisory_action=action,
+        advisory_reason=reason,
+    )
 
 
 def apply_safe_repair_action(

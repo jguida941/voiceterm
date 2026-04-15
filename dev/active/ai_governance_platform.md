@@ -5108,6 +5108,16 @@ working on `MP-377`.
   worktree package scope touched by current Python changes, so startup still
   catches local split/atomicity drift without turning every fresh session into
   a full committed-tree import audit.
+- 2026-04-15 startup-repair authority parity fix:
+  `startup-context --repair` no longer reports "healthy" when the same typed
+  startup state already blocks implementation on
+  `coordination_resync_required`. The repair path now reuses the same
+  blocker-driven advisory coercion as normal `startup-context` output and
+  emits an explicit manual-follow-up issue from `AuthoritySnapshot` /
+  `CoordinationSnapshot` whenever `safe_to_continue=false` comes from
+  coordination resync rather than review attention degradation. Remaining live
+  resync receipts are now honest operational state, not a repair-surface blind
+  spot.
 - Current status: the umbrella plan now owns the reduced execution-owner set
   and the typed phase/task contract. The live dogfood walkthrough already
   closed the stale `active_target` / projection parity gaps across startup,

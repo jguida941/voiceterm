@@ -10003,6 +10003,37 @@ Evidence:
 `dev/active/MASTER_PLAN.md`,
 `dev/active/ai_governance_platform.md`.
 
+### 2026-04-15 - Startup repair now surfaces coordination-resync blockers instead of falsely reporting healthy
+
+Fact: the startup bootstrap hang was fixed, but the next live contradiction
+showed the repair lane was still lying by omission. On the same clean repo
+state, `startup-context --format summary` correctly blocked with
+`blockers=coordination_resync_required` while `startup-context --repair`
+claimed "Startup state is healthy; no bounded repair action is required."
+
+That split mattered because `startup-context --repair` is supposed to be the
+repo-owned bounded recovery surface for exactly these "what should I do next?"
+states. A repair receipt that ignores `AuthoritySnapshot.safe_to_continue=false`
+teaches the wrong operator reflex: it says nothing is wrong even while the
+typed authority packet is telling the agent not to continue.
+
+The fix closed both halves of that mismatch. The repair runtime now reuses the
+same blocker-driven advisory coercion as normal startup output, so repair
+receipts no longer keep a stale green `push_allowed` action when blockers are
+present. The startup-repair classifier also now emits an explicit
+`coordination_resync_required` manual-follow-up issue whenever the
+`AuthoritySnapshot` / `CoordinationSnapshot` pair says resync is still
+required, even if review attention is otherwise `healthy`. After the patch,
+repair output points back at repo-owned `review-channel --action status`
+instead of falsely claiming the session is clear.
+
+Evidence:
+`dev/scripts/devctl/commands/governance/startup_repair_runtime.py`,
+`dev/scripts/devctl/runtime/startup_repair.py`,
+`dev/scripts/devctl/tests/governance/test_startup_repair.py`,
+`dev/active/MASTER_PLAN.md`,
+`dev/active/ai_governance_platform.md`.
+
 ### 2026-04-02 - Reviewer-follow guard stops fake heartbeats and fixes one-shot dedupe
 
 The ensure --follow daemon was unconditionally refreshing reviewer heartbeats

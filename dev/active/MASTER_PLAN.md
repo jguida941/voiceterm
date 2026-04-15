@@ -236,6 +236,14 @@
   touched by current Python worktree paths, which preserves split/atomicity
   protection for the active slice while restoring fast startup receipts on the
   live repo.
+- 2026-04-15 startup-repair authority parity follow-up in `MP-377` scope:
+  `startup-context --repair` now consumes the same blocker-driven advisory
+  coherence as normal startup receipts and treats
+  `AuthoritySnapshot.safe_to_continue=false` from coordination resync as a
+  real manual-follow-up issue. That closes the live contradiction where
+  `startup-context --format summary` blocked on
+  `coordination_resync_required` while `startup-context --repair` still
+  claimed the startup state was healthy.
 - 2026-04-13 authority-snapshot closure follow-up in `MP-377` scope:
   startup-context, session-resume, and review-channel status/doctor now all
   project the same reduced `AuthoritySnapshot` contract from
