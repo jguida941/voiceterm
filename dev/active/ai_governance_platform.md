@@ -5325,6 +5325,23 @@ working on `MP-377`.
   reports `Infra: Down (0 daemons running)` with one pending action request,
   and the worktree is otherwise clean. Treat any further cross-surface drift
   as a reducer/runtime bug to close before widening features.
+- 2026-04-15 shim/public-contract correction plus flat typed review-state
+  follow-up:
+  the package-layout and review-state lanes both exposed "docs said one thing,
+  policy/parser said another" drift. Full shim adoption-scan showed the repo
+  was still misclassifying documented `dev/scripts/checks` helper wrappers as
+  temporary remove-now debt because repo policy only allowlisted
+  `check_*` / `probe_*` / `run_*` root shims; that is now corrected in
+  `dev/config/quality_presets/voiceterm.json`, the dead
+  `dev/scripts/devctl/quality_policy_values.py` wrapper is gone, and the live
+  shim backlog dropped from 9 hints to 7 with the remaining debt concentrated
+  in the `dev/scripts/devctl` root plus crowded command families. In the same
+  bounded slice, `review_state_parser` stopped requiring bridge-shaped envelope
+  keys before it would treat a payload as canonical review state; flat typed
+  payloads with `current_session`, `reviewer_runtime`, `coordination`,
+  `authority_snapshot`, and `packet_inbox` now parse through the same reducer
+  path, which closes one more route back to compatibility-prose authority
+  under `MP377-P1-T06`.
 - 2026-04-15 ensure-follow bootstrap repair:
   the mandatory repair path itself was broken on the repo state at
   `1271a075`: `python3 dev/scripts/devctl.py review-channel --action ensure

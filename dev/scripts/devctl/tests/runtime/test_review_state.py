@@ -583,6 +583,45 @@ class ReviewStateTests(unittest.TestCase):
         self.assertEqual(state.packets[0].packet_id, "pkt-legacy")
         self.assertEqual(state.lane_agents("claude")[0].agent_id, "AGENT-9")
 
+    def test_review_state_from_flat_typed_shape_without_bridge_wrapper(self) -> None:
+        state = review_state_from_payload(
+            {
+                "schema_version": 1,
+                "contract_id": "ReviewState",
+                "command": "review-channel",
+                "action": "status",
+                "timestamp": "2026-04-15T00:00:00Z",
+                "ok": True,
+                "current_session": {
+                    "current_instruction": "typed slice",
+                    "current_instruction_revision": "typed-rev",
+                    "implementer_status": "working",
+                    "implementer_ack": "ack",
+                    "implementer_ack_revision": "typed-rev",
+                    "implementer_ack_state": "current",
+                    "implementer_session_state": "waiting_for_user_input",
+                    "implementer_session_hint": "waiting on user input",
+                },
+                "reviewer_runtime": {
+                    "reviewer_mode": "tools_only",
+                    "effective_reviewer_mode": "tools_only",
+                },
+            }
+        )
+
+        self.assertIsNotNone(state)
+        assert state is not None
+        self.assertEqual(state.current_session.current_instruction, "typed slice")
+        self.assertEqual(
+            state.current_session.implementer_session_state,
+            "waiting_for_user_input",
+        )
+        self.assertEqual(state.reviewer_runtime.reviewer_mode, "tools_only")
+        self.assertEqual(
+            state.reviewer_runtime.effective_reviewer_mode,
+            "tools_only",
+        )
+
     def test_missing_reviewer_mode_defaults_to_single_agent(self) -> None:
         state = review_state_from_payload(
             {

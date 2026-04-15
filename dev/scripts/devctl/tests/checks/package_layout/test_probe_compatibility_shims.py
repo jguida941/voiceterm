@@ -429,6 +429,35 @@ class ProbeCompatibilityShimTests(unittest.TestCase):
         )
         self.assertIn("no repo-visible callers", report.risk_hints[0].signals[0])
 
+    def test_public_allowlist_excludes_specific_paths_from_unused_hint(self) -> None:
+        self._write("dev/scripts/devctl/public/helper.py")
+        path = self._write(
+            "dev/scripts/devctl/public_helper.py",
+            (
+                '"""Backward-compat shim -- use devctl.public.helper instead."""\n'
+                "# shim-owner: tooling\n"
+                "# shim-reason: stable public helper seam\n"
+                "# shim-expiry: 2026-12-31\n"
+                "# shim-target: dev/scripts/devctl/public/helper.py\n"
+                "from .public.helper import *\n"
+            ),
+        )
+
+        report = SCRIPT.build_report(
+            repo_root=self.root,
+            candidate_paths=[path.relative_to(self.root)],
+            current_text_by_path={},
+            mode="working-tree",
+            policy=self._policy(
+                root_rules=self._root_rules(),
+                public_contracts=self._public_contracts(
+                    "dev/scripts/devctl/public_helper.py"
+                ),
+            ),
+        )
+
+        self.assertEqual(report.risk_hints, [])
+
     def test_usage_scan_exclude_roots_ignore_generated_report_refs(self) -> None:
         self._write("dev/scripts/devctl/autonomy/run_plan.py")
         path = self._write(

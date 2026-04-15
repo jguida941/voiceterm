@@ -1182,6 +1182,17 @@
   `dev/scripts/devctl/review_channel/handoff_constants.py`,
   `dev/scripts/devctl/repo_packs/voiceterm.py`,
   `dev/scripts/checks/review_channel_bridge/report.py`.
+- Latest same-lane closure on 2026-04-15: `review_state_parser.py` now accepts
+  flat typed review-state payloads by a shared canonical key set
+  (`current_session`, `reviewer_runtime`, `coordination`,
+  `authority_snapshot`, `packet_inbox`, `recovery_assessment`, and related
+  envelope fields) instead of only recognizing bridge-shaped `review` /
+  `queue` / `bridge` wrappers. That keeps bridge-backed and event-backed
+  producers aligned on one parse surface without reintroducing compatibility
+  prose as authority. Evidence:
+  `dev/scripts/devctl/runtime/review_state_parser.py`,
+  `dev/scripts/devctl/tests/runtime/test_review_state.py`,
+  `dev/scripts/checks/check_review_surface_consistency.py`.
 - Accepted next Phase-6 direction inside that same lane: keep canonical
   pointer refs as the authority surface for plans/docs/repo-map/evidence,
   then layer native repo-owned `ConceptIndex` / optional ZGraph-compatible
@@ -2684,6 +2695,16 @@
   unresolved shim targets, and shim-heavy roots/families, while the fallback
   `run_probe_report.py` path now resolves probe entrypoints from the shared
   quality policy/script catalog instead of carrying a stale hard-coded list.
+- MP-376 shim-classification follow-up (2026-04-15):
+  repo policy now explicitly allowlists the documented long-lived
+  `dev/scripts/checks` helper shims (`code_shape_*.py`,
+  `python_default_trap_core.py`, `mobile_relay_rust_parser.py`,
+  `rust_guard_common.py`, `rust_check_text_utils.py`,
+  `compat_matrix_smoke.py`, `yaml_json_loader.py`) so adoption-scan no longer
+  misclassifies them as temporary remove-now debt. The same slice deleted the
+  dead `dev/scripts/devctl/quality_policy_values.py` wrapper; the remaining
+  real shim backlog is concentrated in the `dev/scripts/devctl` root plus the
+  `check_*`, `autonomy_*`, `docs_*`, and `review_channel_*` command families.
 - MP-376 package-layout wrapper follow-up (2026-03-12):
   the crowded `dev/scripts/checks/` root no longer hard-codes
   `package_layout.command` as its only allowed shim shape. The portable shim

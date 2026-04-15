@@ -307,7 +307,15 @@ Three quality layers matter in practice:
   see the canonical destination path directly. Thin re-export shims and thin
   module-alias shims are both acceptable when they keep stable import/patch
   paths pointed at the moved implementation without turning the crowded root
-  back into a second implementation surface.
+  back into a second implementation surface. When a crowded-root helper shim is
+  supposed to stay long-lived, register it in repo policy
+  `probe_compatibility_shims.allowed_public_shims`; otherwise the adoption-scan
+  probe will keep ranking it as temporary shim debt even if a package README
+  still mentions that wrapper. When you are auditing shim debt rather than only
+  the current diff, run
+  `python3 dev/scripts/checks/probe_compatibility_shims.py --since-ref __DEVCTL_EMPTY_TREE_BASE__ --head-ref __DEVCTL_WORKTREE_HEAD__ --format md`
+  once so the scan sees the full repo backlog instead of only touched
+  candidates.
 - `dev/config/devctl_repo_policy.json` is the repo-local switchboard for which
   built-in guards/probes are active by default; keep enablement there instead
   of hard-coding repo behavior into `check` or `probe-report`.

@@ -1,6 +1,6 @@
 """`devctl check` command — orchestrator.
 
-Phase logic lives in check_phases.py. This module owns the public entry
+Phase logic lives in check.phases. This module owns the public entry
 point (run), the process-sweep wrappers, and release-gate command building
 that other modules import.
 """

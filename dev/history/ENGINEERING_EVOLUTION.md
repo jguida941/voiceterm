@@ -9879,6 +9879,50 @@ Evidence: `dev/scripts/devctl/commands/docs/policy_runtime.py`,
 `dev/guides/DEVELOPMENT.md`,
 `dev/scripts/README.md`.
 
+### 2026-04-15 - Shim public contracts are explicit, and review-state parsing no longer assumes bridge-shaped envelopes
+
+Fact: the shim/decomposition layer and the review-state convergence layer both
+had the same class of drift: maintainers had already documented the intended
+authority boundary, but the live policy/parser still only understood the older
+shape. That meant the system emitted misleading advice even though the code was
+nominally green.
+
+This mattered in two ways. First, full
+`probe_compatibility_shims.py --since-ref __DEVCTL_EMPTY_TREE_BASE__ --head-ref __DEVCTL_WORKTREE_HEAD__`
+still flagged documented `dev/scripts/checks` helper wrappers such as
+`code_shape_*.py`, `python_default_trap_core.py`, and
+`mobile_relay_rust_parser.py` as temporary remove-now debt because repo policy
+only allowlisted `check_*`, `probe_*`, and `run_*` root shims. Second,
+`dev/scripts/devctl/runtime/review_state_parser.py` still inferred "this is a
+canonical review-state payload" from bridge-shaped envelope keys
+(`review` / `queue` / `bridge` / `packets` / `agents`) even when the producer
+was already emitting flat typed runtime state through fields like
+`current_session`, `reviewer_runtime`, `coordination`, and `packet_inbox`.
+
+The closure made the authority explicit in both places. Repo policy now
+allowlists the documented long-lived helper shims under
+`probe_compatibility_shims.allowed_public_shims`, the dead
+`dev/scripts/devctl/quality_policy_values.py` wrapper was deleted instead of
+being preserved by lore, and the same full adoption scan dropped from 9 hints
+to 7 with the remaining backlog narrowed to the real `dev/scripts/devctl`
+root/command-family migration debt. On the runtime side,
+`review_state_parser.py` now recognizes flat typed review-state envelopes by a
+shared canonical key set, and the focused regression proves that a payload with
+`current_session` plus `reviewer_runtime` no longer needs bridge prose keys to
+parse as first-class review state.
+
+Evidence:
+`dev/config/quality_presets/voiceterm.json`,
+`dev/scripts/devctl/quality_policy_values.py`,
+`dev/scripts/devctl/runtime/review_state_parser.py`,
+`dev/scripts/devctl/tests/checks/package_layout/test_probe_compatibility_shims.py`,
+`dev/scripts/devctl/tests/runtime/test_review_state.py`,
+`AGENTS.md`,
+`dev/guides/DEVELOPMENT.md`,
+`dev/scripts/README.md`,
+`dev/active/MASTER_PLAN.md`,
+`dev/active/ai_governance_platform.md`.
+
 ### 2026-04-02 - Reviewer-follow guard stops fake heartbeats and fixes one-shot dedupe
 
 The ensure --follow daemon was unconditionally refreshing reviewer heartbeats

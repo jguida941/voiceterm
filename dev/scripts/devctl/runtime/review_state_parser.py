@@ -36,6 +36,24 @@ from .review_packet_inbox import build_packet_inbox_payload
 from .review_state_commit_pipeline_parse import commit_pipeline_from_review_payload
 from .reviewer_runtime_parser import reviewer_runtime_state_from_payload
 
+_REVIEW_STATE_SHAPE_KEYS = (
+    "review",
+    "queue",
+    "bridge",
+    "packets",
+    "agents",
+    "current_session",
+    "collaboration",
+    "review_candidate",
+    "push_authorization",
+    "reviewer_runtime",
+    "commit_pipeline",
+    "coordination",
+    "authority_snapshot",
+    "packet_inbox",
+    "recovery_assessment",
+)
+
 
 def review_state_from_payload(payload: Mapping[str, object]) -> ReviewState | None:
     """Normalize review-state or full projection payloads into a shared contract."""
@@ -247,9 +265,7 @@ def _review_state_envelope(
     tuple[str, ...],
 ] | None:
     review_payload = _mapping(payload.get("review_state"))
-    if not review_payload and any(
-        key in payload for key in ("review", "queue", "bridge", "packets", "agents")
-    ):
+    if not review_payload and any(key in payload for key in _REVIEW_STATE_SHAPE_KEYS):
         review_payload = payload
     if not review_payload:
         return None

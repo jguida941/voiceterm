@@ -350,8 +350,8 @@ class CheckProfileTests(TestCase):
         self.assertEqual(wake_call["env"]["WAKE_WORD_SOAK_ROUNDS"], "7")
 
     @patch("dev.scripts.devctl.commands.check_steps.run_cmd")
-    @patch("dev.scripts.devctl.commands.check_phases.build_mutation_score_cmd")
-    @patch("dev.scripts.devctl.commands.check_phases.resolve_outcomes_path")
+    @patch("dev.scripts.devctl.commands.check.phases.build_mutation_score_cmd")
+    @patch("dev.scripts.devctl.commands.check.phases.resolve_outcomes_path")
     @patch("dev.scripts.devctl.commands.check.build_env")
     def test_release_profile_enables_wake_guard_and_mutation_score(
         self,
@@ -422,8 +422,8 @@ class CheckProfileTests(TestCase):
         self.assertEqual(coderabbit_gate_call["env"]["CI"], "1")
         self.assertEqual(coderabbit_ralph_gate_call["env"]["CI"], "1")
 
-    @patch("dev.scripts.devctl.commands.check_phases.write_output")
-    @patch("dev.scripts.devctl.commands.check_phases.resolve_outcomes_path")
+    @patch("dev.scripts.devctl.commands.check.phases.write_output")
+    @patch("dev.scripts.devctl.commands.check.phases.resolve_outcomes_path")
     @patch("dev.scripts.devctl.commands.check.build_env")
     def test_with_mutation_score_missing_outcomes_fails(
         self,
@@ -451,8 +451,8 @@ class CheckProfileTests(TestCase):
         self.assertIn("mutation outcomes.json not found", check_halt["error"])
 
     @patch("dev.scripts.devctl.commands.check_steps.run_cmd")
-    @patch("dev.scripts.devctl.commands.check_phases.build_mutation_score_cmd")
-    @patch("dev.scripts.devctl.commands.check_phases.resolve_outcomes_path")
+    @patch("dev.scripts.devctl.commands.check.phases.build_mutation_score_cmd")
+    @patch("dev.scripts.devctl.commands.check.phases.resolve_outcomes_path")
     @patch("dev.scripts.devctl.commands.check.build_env")
     def test_release_profile_allows_missing_outcomes_in_report_only_mode(
         self,
@@ -598,7 +598,7 @@ class CheckProfileTests(TestCase):
         self.assertIn("code-shape-guard", names)
         self.assertEqual(get_repo_root(), REPO_ROOT)
 
-    @patch("dev.scripts.devctl.commands.check_phases.run_cmd")
+    @patch("dev.scripts.devctl.commands.check.phases.run_cmd")
     @patch("dev.scripts.devctl.commands.check_steps.run_cmd")
     @patch("dev.scripts.devctl.commands.check.build_env")
     def test_ai_guard_failure_triggers_audit_scaffold_auto_generation(
@@ -758,7 +758,7 @@ class CheckProfileTests(TestCase):
         self.assertIn("--head-ref", code_shape_cmd)
         self.assertIn(WORKTREE_HEAD_REF, code_shape_cmd)
 
-    @patch("dev.scripts.devctl.commands.check_phases.run_step_specs")
+    @patch("dev.scripts.devctl.commands.check.phases.run_step_specs")
     @patch("dev.scripts.devctl.commands.check.build_env")
     def test_parallel_mode_uses_parallel_runner_for_setup_phase(
         self,
@@ -795,7 +795,7 @@ class CheckProfileTests(TestCase):
         self.assertEqual([spec["name"] for spec in step_specs], ["fmt-check", "clippy"])
         self.assertTrue(mock_run_step_specs.call_args.kwargs["parallel_enabled"])
 
-    @patch("dev.scripts.devctl.commands.check_phases.run_step_specs")
+    @patch("dev.scripts.devctl.commands.check.phases.run_step_specs")
     @patch("dev.scripts.devctl.commands.check.build_env")
     def test_no_parallel_flag_uses_serial_runner(
         self,
@@ -831,7 +831,7 @@ class CheckProfileTests(TestCase):
         mock_run_step_specs.assert_called_once()
         self.assertFalse(mock_run_step_specs.call_args.kwargs["parallel_enabled"])
 
-    @patch("dev.scripts.devctl.commands.check_phases.run_step_specs")
+    @patch("dev.scripts.devctl.commands.check.phases.run_step_specs")
     @patch("dev.scripts.devctl.commands.check.build_env")
     def test_clippy_high_signal_guard_runs_after_setup_batch(
         self,

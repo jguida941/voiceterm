@@ -78,6 +78,12 @@ Package-layout truth rule:
   diff touches one of those selected roots; clean-worktree and adoption-scan
   runs still enforce the targeted roots globally so release/self-hosting truth
   does not silently degrade.
+- If a documented root helper wrapper is intended to remain a stable public
+  seam after package extraction, declare it in repo policy
+  `probe_compatibility_shims.allowed_public_shims` in the same change.
+  Package-README prose alone is not enough; otherwise adoption-scan will keep
+  classifying that wrapper as temporary shim debt and surface stale
+  `remove-now` guidance.
 - When decomposing a crowded flat root or namespace family, keep required
   compatibility files as explicit thin shims only. Accepted shim shapes include
   direct re-export wrappers and module-alias wrappers that preserve stable

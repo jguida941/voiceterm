@@ -301,6 +301,34 @@
         {
           "glob": "dev/scripts/checks/run_*.py",
           "reason": "Public report/runner entrypoints stay stable root scripts while helper logic moves into owned subpackages."
+        },
+        {
+          "glob": "dev/scripts/checks/code_shape_*.py",
+          "reason": "Stable code-shape helper surfaces stay at the checks root while implementation lives under `code_shape/`."
+        },
+        {
+          "path": "dev/scripts/checks/python_default_trap_core.py",
+          "reason": "Stable Python-analysis helper surface stays at the checks root while implementation lives under `python_analysis/`."
+        },
+        {
+          "path": "dev/scripts/checks/mobile_relay_rust_parser.py",
+          "reason": "Stable mobile-relay Rust parser helper stays at the checks root while implementation lives under `rust_analysis/`."
+        },
+        {
+          "path": "dev/scripts/checks/rust_guard_common.py",
+          "reason": "Stable Rust-analysis helper surface stays at the checks root while implementation lives under `rust_analysis/`."
+        },
+        {
+          "path": "dev/scripts/checks/rust_check_text_utils.py",
+          "reason": "Stable Rust-analysis text helper stays at the checks root while implementation lives under `rust_analysis/`."
+        },
+        {
+          "path": "dev/scripts/checks/compat_matrix_smoke.py",
+          "reason": "Stable compatibility-matrix smoke entrypoint stays at the checks root while implementation lives under `compat_matrix/`."
+        },
+        {
+          "path": "dev/scripts/checks/yaml_json_loader.py",
+          "reason": "Stable compatibility-matrix loader helper stays at the checks root while implementation lives under `compat_matrix/`."
         }
       ],
       "root_rules": [

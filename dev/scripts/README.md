@@ -1890,7 +1890,13 @@ Use this profile for fast guard-focused iteration; run your target full profile
 - `probe_compatibility_shims.py` is now part of that pack. It uses the same
   portable shim primitive as package-layout to surface missing metadata,
   expired wrappers, broken shim-target convergence, and shim-heavy roots or
-  crowded flat families.
+  crowded flat families. Normal working-tree runs only scan touched shim
+  candidates; use
+  `python3 dev/scripts/checks/probe_compatibility_shims.py --since-ref __DEVCTL_EMPTY_TREE_BASE__ --head-ref __DEVCTL_WORKTREE_HEAD__ --format md`
+  for the full repo backlog. If a root helper wrapper is an intentional
+  long-lived public seam, declare it in repo policy
+  `probe_compatibility_shims.allowed_public_shims`; otherwise the probe will
+  continue treating it as temporary migration debt.
 - The promoted code-shape probe family now includes:
   `probe_blank_line_frequency.py`, `probe_identifier_density.py`,
   `probe_term_consistency.py`,
