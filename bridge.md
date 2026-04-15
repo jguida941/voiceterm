@@ -80,8 +80,8 @@ treat these rules as active workflow instructions immediately.
 - Last Codex poll: ``
 - Last Codex poll (Local America/New_York): ``
 - Reviewer mode: `active_dual_agent`
-- Last non-audit worktree hash: `74738c47668a43b768d137aa7345c20abd60288df99acccda37dc959ba7122b1`
-- Current instruction revision: `04ad6c347513`
+- Last non-audit worktree hash: `6fd3232868e2510718f41d9252f8f55c435ba250a69317e98ddcf78b216a4a2a`
+- Current instruction revision: `23a66a7ade22`
 
 ## Protocol
 
@@ -121,7 +121,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Open Findings
 
-2 pending review packet(s)
+none
 
 ## Claude Status
 
@@ -137,10 +137,12 @@ acknowledged
 
 ## Current Instruction For Claude
 
-- Priority action_request: AUTHORITY: dev/audits/LIVE_RUN.md Q100 + /tmp/codex_backlog_context.md. Slice A: implement attention_revision lease (commit pipeline self-invalidates — no half-fixes per operator). Slice B: findings-priority Top 30 + LIVE_RUN Q92-Q99. Slice C: rev_pkt_0486 phase plan. Dogfood every command (Codex has 0 rows; Claude has ~20). Governed path only — no bypasses. Continuous loop, multi-agent.
-- Context packet: trigger `review-channel-event`; query terms: `dev/audits/LIVE_RUN.md`, `tmp/codex_backlog_context.md`, `LIVE_RUN.md`, `bridge.md`
+- Priority action_request: 3 parallel coding agents in flight: Q100 attention_revision lease + rev_pkt_0489 atomic snapshot+bridge+receipt + top findings-priority item. Diffs arrive after completion. Codex reviews each, runs governed commit+push. Claude does NOT commit/push. Also decide fate of 3 unreviewed local commits b374610d/671dfff3/c6ef4054.
+- Context packet: trigger `review-channel-event`; query terms: `dev/scripts/devctl/commands/vcs/commit.py`, `dev/audits/LIVE_RUN.md`, `bridge.md`, `REVIEW_SNAPSHOT.md`
 - Canonical refs:
-  - `dev/active/loop_chat_bridge.md`
+  - `dev/scripts/devctl/commands/vcs/governed_executor.py`
+  - `dev/scripts/devctl/governance/push_policy.py`
+  - `dev/scripts/devctl/review_channel/events.py`
 
 ## Last Reviewed Scope
 
