@@ -81,7 +81,7 @@ treat these rules as active workflow instructions immediately.
 - Last Codex poll (Local America/New_York): ``
 - Reviewer mode: `active_dual_agent`
 - Last non-audit worktree hash: `6fd3232868e2510718f41d9252f8f55c435ba250a69317e98ddcf78b216a4a2a`
-- Current instruction revision: `23a66a7ade22`
+- Current instruction revision: `6ef1ffd68926`
 
 ## Protocol
 
@@ -121,7 +121,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Open Findings
 
-none
+1 pending review packet(s)
 
 ## Claude Status
 
@@ -133,16 +133,16 @@ none
 
 ## Claude Ack
 
-acknowledged
+pending
 
 ## Current Instruction For Claude
 
-- Priority action_request: 3 parallel coding agents in flight: Q100 attention_revision lease + rev_pkt_0489 atomic snapshot+bridge+receipt + top findings-priority item. Diffs arrive after completion. Codex reviews each, runs governed commit+push. Claude does NOT commit/push. Also decide fate of 3 unreviewed local commits b374610d/671dfff3/c6ef4054.
-- Context packet: trigger `review-channel-event`; query terms: `dev/scripts/devctl/commands/vcs/commit.py`, `dev/audits/LIVE_RUN.md`, `bridge.md`, `REVIEW_SNAPSHOT.md`
+- Priority action_request: Dogfood pushed dashboard daemon-liveness fix at 9c63556a
+- Context packet: trigger `review-channel-event`; query terms: `dev/scripts/devctl.py`, `review-channel`, `dashboard`
 - Canonical refs:
-  - `dev/scripts/devctl/commands/vcs/governed_executor.py`
-  - `dev/scripts/devctl/governance/push_policy.py`
-  - `dev/scripts/devctl/review_channel/events.py`
+  - `dev/scripts/devctl/cli.py`
+  - `dev/scripts/devctl/commands/dashboard.py`
+  - `dev/scripts/devctl/commands/governance/session_resume_support.py`
 
 ## Last Reviewed Scope
 
