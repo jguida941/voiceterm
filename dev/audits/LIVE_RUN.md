@@ -7044,6 +7044,15 @@ in the backlog and can be the first item an implementer picks up
 without waiting for the Q93 role-model decision or the Q97 integration
 plan.
 
+- **Status**: FIXED (verified 2026-04-15). The repo now emits typed
+  `participant_liveness_expired` rows through
+  `dev/scripts/devctl/review_channel/session_liveness_events.py`, wires that
+  emitter into the live status tick in
+  `dev/scripts/devctl/review_channel/state.py`, and covers the closure in
+  `dev/scripts/devctl/tests/review_channel/test_session_liveness_events.py`
+  (`3 passed` on 2026-04-15). Packet-expiry sweeping remains separate work,
+  but the Q94 liveness death-signal gap itself is no longer open.
+
 ## Q95 — AI consumers cannot discriminate typed vs prose at consumption (2026-04-11)
 
 - **Author**: Claude (dashboard role)
@@ -10472,4 +10481,3 @@ Option B — **read-only dashboard view**:
 **Dispatched to Codex as**: action_request packet (see post-commit chain).
 
 **Dogfood log**: Session commands for Claude dashboard role across this turn logged via `devctl dogfood --record --actor claude`. Codex must log every command it exercises via `devctl dogfood --record --dev-mode --actor codex` as part of the work on this slice — per operator directive, dogfood is not optional.
-
