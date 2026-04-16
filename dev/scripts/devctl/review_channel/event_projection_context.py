@@ -59,9 +59,11 @@ def _load_cached_graph():
         snapshot_dir = get_repo_root() / _SNAPSHOT_DIR
         if not snapshot_dir.is_dir():
             return None
-        snapshot_files = sorted(snapshot_dir.glob("*.json"))
+        snapshot_files = list(snapshot_dir.glob("*.json"))
         if not snapshot_files:
             return None
+        # Filenames are <commit_hash>_<timestamp>.json — sort by timestamp
+        snapshot_files.sort(key=lambda p: p.stem.split("_", 1)[-1] if "_" in p.stem else p.stem)
         latest = load_context_graph_snapshot(snapshot_files[-1])
         if latest.nodes and latest.edges:
             return (
