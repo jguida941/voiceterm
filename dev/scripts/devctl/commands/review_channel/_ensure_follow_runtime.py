@@ -21,10 +21,16 @@ def _resolve_operator_interaction_mode(
 ) -> str:
     """Delegate to the canonical reducer (rev_pkt_0463).
 
-    All operator_interaction_mode consumers share a single precedence via
-    ``operator_context.derive_operator_interaction_mode`` so ensure-follow
-    sees the same mode the read model / launcher / startup path resolve to.
+    Precedence: env override → typed state → args fallback.
+    The env override supports ``devctl session --role reviewer --loop``
+    which sets DEVCTL_OPERATOR_INTERACTION_MODE=remote_control because
+    --loop implies continuous automated operation (rev_pkt_0794).
     """
+    import os
+    env_override = os.environ.get("DEVCTL_OPERATOR_INTERACTION_MODE", "").strip()
+    if env_override and env_override != "unresolved":
+        return env_override
+
     from ...runtime.operator_context import derive_operator_interaction_mode
     from ...runtime.review_state_locator import load_current_review_state_payload
 

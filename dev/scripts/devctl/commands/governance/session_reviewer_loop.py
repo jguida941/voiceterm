@@ -61,10 +61,17 @@ def run_reviewer_loop(
         "--execution-mode", "markdown-bridge",
     ]
 
+    # --loop implies continuous automated operation, which requires
+    # remote_control interaction mode for the wake controller to
+    # actually relaunch the reviewer (rev_pkt_0794).
+    import os
+    env = {**os.environ, "DEVCTL_OPERATOR_INTERACTION_MODE": "remote_control"}
+
     try:
         result = subprocess.run(
             cmd,
             cwd=str(repo_root),
+            env=env,
         )
         return result.returncode
     except KeyboardInterrupt:
