@@ -8,6 +8,11 @@ from pathlib import Path
 
 from ..governance.doc_authority_rules import parse_index_registry
 from ..markdown_sections import parse_markdown_sections
+from ..runtime.governance_scan import scan_repo_governance_safely
+from ..runtime.plan_registry_projection import (
+    resolve_plan_path_for_scope,
+    scope_cell_matches,
+)
 from ..repo_packs import active_path_config
 
 _BACKTICK_PATH_RE = re.compile(r"`(?P<path>[^`]+?\.md)`")
@@ -21,8 +26,6 @@ _MASTER_MAIN_SCOPE_RE = re.compile(
 _MASTER_EXEC_SCOPE_RE = re.compile(
     r"(?im)^-\s*Current\s+`(?P<scope>MP-\d+)`\s+execution branch:"
 )
-_MP_RANGE_RE = re.compile(r"MP-(?P<start>\d+)\s*\.\.\s*MP-(?P<end>\d+)")
-_MP_TOKEN_RE = re.compile(r"MP-(?P<num>\d+)")
 
 
 @dataclass(frozen=True)
@@ -103,7 +106,11 @@ def _resolve_from_bridge(
 
 
 def _resolve_from_master_tracker(*, repo_root: Path) -> PlanResolution:
-    tracker_rel, index_rel = _tracker_and_index_paths(repo_root)
+    governance = scan_repo_governance_safely(repo_root)
+    tracker_rel, index_rel = _tracker_and_index_paths(
+        repo_root,
+        governance=governance,
+    )
     master_path = (repo_root / tracker_rel).resolve()
     index_path = (repo_root / index_rel).resolve()
     if not master_path.exists():
@@ -112,7 +119,7 @@ def _resolve_from_master_tracker(*, repo_root: Path) -> PlanResolution:
             source="tracker_missing",
             detail=f"Tracker missing: {master_path}",
         )
-    if not index_path.exists():
+    if governance is None and not index_path.exists():
         return PlanResolution(
             path=None,
             source="index_missing",
@@ -129,13 +136,20 @@ def _resolve_from_master_tracker(*, repo_root: Path) -> PlanResolution:
             source="tracker_scope_missing",
             detail="Tracker does not expose a current active MP scope token.",
         )
+    if governance is not None:
+        candidate = _normalize_repo_path(
+            repo_root=repo_root,
+            raw=resolve_plan_path_for_scope(governance.plan_registry, scope),
+        )
+        if candidate is not None:
+            return PlanResolution(path=candidate, source="tracker_scope")
     try:
         registry = parse_index_registry(index_path)
     except OSError as exc:
         return PlanResolution(path=None, source="tracker_read_error", detail=str(exc))
     for path, row in registry.items():
         scope_cell = row.get("scope", "")
-        if not _mp_scope_cell_matches(scope_token=scope, scope_cell=scope_cell):
+        if not scope_cell_matches(scope_token=scope, scope_cell=scope_cell):
             continue
         candidate = _normalize_repo_path(repo_root=repo_root, raw=path)
         if candidate is not None:
@@ -147,13 +161,11 @@ def _resolve_from_master_tracker(*, repo_root: Path) -> PlanResolution:
     )
 
 
-def _tracker_and_index_paths(repo_root: Path) -> tuple[str, str]:
-    try:
-        from ..governance.draft import scan_repo_governance
-
-        governance = scan_repo_governance(repo_root)
-    except (ImportError, OSError, ValueError):
-        governance = None
+def _tracker_and_index_paths(
+    repo_root: Path,
+    *,
+    governance=None,
+) -> tuple[str, str]:
     if governance is not None:
         tracker_rel = str(governance.plan_registry.tracker_path or "").strip()
         index_rel = str(
@@ -205,19 +217,3 @@ def _active_scope_token(master_text: str) -> str | None:
     if exec_match is not None:
         return exec_match.group("scope")
     return None
-
-
-def _mp_scope_cell_matches(*, scope_token: str, scope_cell: str) -> bool:
-    token_match = _MP_TOKEN_RE.fullmatch(scope_token.strip())
-    if token_match is None:
-        return False
-    target = int(token_match.group("num"))
-    for range_match in _MP_RANGE_RE.finditer(scope_cell):
-        start = int(range_match.group("start"))
-        end = int(range_match.group("end"))
-        if start <= target <= end:
-            return True
-    for token in _MP_TOKEN_RE.finditer(scope_cell):
-        if int(token.group("num")) == target:
-            return True
-    return False

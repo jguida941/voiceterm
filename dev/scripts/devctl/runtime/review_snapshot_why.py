@@ -15,6 +15,8 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+from .governance_scan import scan_repo_governance_safely
+from .plan_registry_projection import plan_index_by_mp
 from .review_snapshot_git import RawCommit, extract_checkpoint_markers, extract_mp_refs
 from .review_snapshot_models import WhyRecord
 
@@ -62,12 +64,18 @@ def build_why_record(
 
 
 def load_plan_index(repo_root: Path) -> dict[str, tuple[str, ...]]:
-    """Return ``{MP-id: (plan_doc_path, ...)}`` parsed from INDEX.md.
+    """Return ``{MP-id: (plan_doc_path, ...)}`` from typed plan-registry state.
 
-    The INDEX.md file is a markdown table with a ``MP scope`` column. We scan
-    each row, extract the first backtick path (the plan doc), and associate
-    it with each MP-NNN mentioned in the row.
+    The persisted/governed PlanRegistry is authoritative when available. Raw
+    INDEX.md parsing remains only as a compatibility fallback for incomplete
+    repos or older test fixtures.
     """
+    governance = scan_repo_governance_safely(repo_root)
+    plan_index = plan_index_by_mp(
+        governance.plan_registry if governance is not None else None
+    )
+    if plan_index:
+        return plan_index
     index_path = repo_root / _INDEX_REL
     if not index_path.is_file():
         return {}

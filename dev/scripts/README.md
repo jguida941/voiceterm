@@ -666,7 +666,10 @@ Portability note:
   `PlanRegistry` / `PlanTargetRef` authority under
   `dev/reports/governance/plan_registry.json` and reuses that artifact while
   the governed doc set is unchanged, so startup/planning readers stop
-  reparsing mutable plan markdown on every read. Generated bootstrap surfaces
+  reparsing mutable plan markdown on every read. Authority readers that still
+  need legacy MP/path/router views now project them from typed registry state
+  through `dev/scripts/devctl/runtime/plan_registry_projection.py` before any
+  compatibility fallback to raw `INDEX.md` parsing. Generated bootstrap surfaces
   now make
   `startup-context --format summary` the mandatory Step 0 gate before edits,
   validation, or repo-owned launcher work. User summaries, stale chat

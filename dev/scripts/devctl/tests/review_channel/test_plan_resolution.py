@@ -5,9 +5,14 @@ from __future__ import annotations
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from dev.scripts.devctl.review_channel.plan_resolution import (
     resolve_promotion_plan_path,
+)
+from dev.scripts.devctl.tests.plan_registry_support import (
+    governance_with_entries,
+    plan_registry_entry,
 )
 
 
@@ -74,6 +79,28 @@ class TestPlanResolutionFromTracker(unittest.TestCase):
             )
             self.assertIsNone(result.path)
             self.assertIn(result.source, ("bridge_missing", "bridge_scope_missing", "tracker_scope_unmapped"))
+
+    def test_resolves_mp_scope_from_typed_plan_registry_when_index_missing(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Path(tmp)
+            plan_path = repo / "dev" / "active" / "typed_plan.md"
+            plan_path.parent.mkdir(parents=True, exist_ok=True)
+            plan_path.write_text("# Typed Plan\n")
+            _write_master(repo, "MP-222")
+            governance = governance_with_entries(
+                plan_registry_entry("dev/active/typed_plan.md", "MP-222")
+            )
+            with patch(
+                "dev.scripts.devctl.review_channel.plan_resolution.scan_repo_governance_safely",
+                return_value=governance,
+            ):
+                result = resolve_promotion_plan_path(
+                    repo_root=repo,
+                    bridge_path=None,
+                    explicit_plan_path=None,
+                )
+            self.assertEqual(result.source, "tracker_scope")
+            self.assertEqual(result.path, plan_path.resolve())
 
 
 if __name__ == "__main__":

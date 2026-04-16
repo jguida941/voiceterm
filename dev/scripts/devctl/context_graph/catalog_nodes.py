@@ -6,6 +6,8 @@ import importlib
 from pathlib import Path
 
 from ..governance.doc_authority_rules import parse_index_registry
+from ..runtime.governance_scan import scan_repo_governance_safely
+from ..runtime.plan_registry_projection import plan_registry_rows
 from ..platform.planning_ir_plan_content import parse_execution_plan_phases
 from .models import (
     EDGE_KIND_RELATED_TO,
@@ -72,7 +74,19 @@ def collect_plan_nodes(repo_root: Path) -> tuple[list[GraphNode], list[tuple[str
 
     path_config = active_path_config()
     index_path = repo_root / path_config.active_index_doc_rel
-    registry = parse_index_registry(index_path)
+    governance = scan_repo_governance_safely(repo_root)
+    registry = plan_registry_rows(
+        governance.plan_registry if governance is not None else None
+    )
+    provenance_ref = (
+        str(governance.plan_registry.index_path or "").strip()
+        if governance is not None
+        else ""
+    )
+    if not registry:
+        registry = parse_index_registry(index_path)
+    if not provenance_ref:
+        provenance_ref = str(index_path.relative_to(repo_root))
     nodes: list[GraphNode] = []
     deferred_edges: list[tuple[str, str]] = []
     for path, row in registry.items():
@@ -93,7 +107,7 @@ def collect_plan_nodes(repo_root: Path) -> tuple[list[GraphNode], list[tuple[str
                 node_kind=NODE_KIND_PLAN,
                 label=path,
                 canonical_pointer_ref=path,
-                provenance_ref=str(index_path.relative_to(repo_root)),
+                provenance_ref=provenance_ref,
                 temperature=temperature,
                 metadata=_plan_metadata(
                     role=role,

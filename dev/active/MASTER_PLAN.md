@@ -1029,6 +1029,14 @@
   `build_target_ref()` now consumes the persisted target metadata before
   rehashing plan markdown. That closes `MP377-P1-T04` and leaves
   `MP377-P1-T05` as the next projection-layer task.
+- Latest same-lane progress on 2026-04-15: the first `MP377-P1-T05`
+  authority-reader pass is now live. Context-graph plan nodes, reviewer
+  tracker-plan resolution, scoped promotion MP lookup, and `ReviewSnapshot`
+  plan indexing prefer the persisted `PlanRegistry` / `ProjectGovernance`
+  artifact and only fall back to raw `INDEX.md` parsing when typed governance
+  is unavailable. Remaining `T05` scope is the docs-governance/reporting side
+  that still scans markdown for registry metadata before markdown can be
+  treated as bounded projection-only state.
 - Latest same-lane closure on 2026-04-02: the dirty-branch
   `dev/scripts/checks/**` modularization/layout blocker is closed. The
   remaining flat helpers for bundle workflow parity, duplication audit,

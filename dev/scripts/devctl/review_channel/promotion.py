@@ -13,6 +13,8 @@ from ..context_graph.escalation import (
     collect_query_terms,
 )
 from ..context_graph.escalation_render import append_compact_context_packet_markdown
+from ..runtime.governance_scan import scan_repo_governance_safely
+from ..runtime.plan_registry_projection import resolve_plan_path_for_scope
 from ..repo_packs import active_path_config
 from .bridge_file import rewrite_bridge_markdown
 from .handoff import (
@@ -218,7 +220,7 @@ def resolve_scope_plan_path(
     Accepts:
     - A bare filename: ``review_probes`` or ``review_probes.md``
     - A relative path: ``dev/active/review_probes.md``
-    - An MP id: ``MP-368`` or ``368`` (scans INDEX.md for matching scope)
+    - An MP id: ``MP-368`` or ``368`` (uses the typed plan registry)
     """
     active_dir = repo_root / "dev" / "active"
 
@@ -239,6 +241,15 @@ def resolve_scope_plan_path(
     mp_query = scope_value.upper()
     if not mp_query.startswith("MP-"):
         mp_query = f"MP-{scope_value}"
+    governance = scan_repo_governance_safely(repo_root)
+    governed_path = resolve_plan_path_for_scope(
+        governance.plan_registry if governance is not None else None,
+        mp_query,
+    )
+    if governed_path:
+        candidate = repo_root / governed_path
+        if candidate.exists():
+            return candidate
     index_path = active_dir / "INDEX.md"
     if index_path.exists():
         for line in index_path.read_text(encoding="utf-8").splitlines():

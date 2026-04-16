@@ -110,6 +110,42 @@ Evidence: `dev/scripts/devctl/governance/draft_governed_docs.py`,
 `dev/scripts/devctl/tests/platform/test_planning_ir.py`, and
 `dev/scripts/devctl/tests/runtime/test_startup_context.py`.
 
+### 2026-04-15 - Plan authority readers now prefer typed `PlanRegistry` projection over raw `INDEX.md`
+
+Fact: persisting `dev/reports/governance/plan_registry.json` closed the startup
+artifact gap, but several downstream authority readers still treated raw
+`INDEX.md` rows as the live registry. Context-graph plan nodes, tracker-plan
+resolution, scoped promotion, and `ReviewSnapshot` plan indexing were each
+reparsing markdown even though the same information already existed in the
+typed `ProjectGovernance.plan_registry` artifact.
+
+This mattered because `MP377-P1-T05` is not just about startup speed. The plan
+layer cannot become a bounded projection while authority consumers keep
+secretly re-deriving MP/path/router state from markdown tables. That leaves
+runtime surfaces vulnerable to stale or inconsistent raw-doc reads and keeps
+the typed registry from being the real control surface.
+
+The fix introduces one shared projection seam:
+`dev/scripts/devctl/runtime/plan_registry_projection.py`. Context-graph plan
+node collection, reviewer tracker-plan resolution, scoped promotion MP lookup,
+and `ReviewSnapshot` plan indexing now prefer the persisted
+`ProjectGovernance.plan_registry` projection and only fall back to raw
+`INDEX.md` parsing when typed governance is unavailable. This lands the first
+artifact-first `MP377-P1-T05` authority-reader pass without pretending the
+remaining docs-governance/reporting markdown scans are finished.
+
+Evidence: `dev/scripts/devctl/runtime/plan_registry_projection.py`,
+`dev/scripts/devctl/context_graph/catalog_nodes.py`,
+`dev/scripts/devctl/review_channel/plan_resolution.py`,
+`dev/scripts/devctl/review_channel/promotion.py`,
+`dev/scripts/devctl/runtime/review_snapshot_why.py`,
+`dev/scripts/devctl/tests/context_graph/test_catalog_nodes.py`,
+`dev/scripts/devctl/tests/review_channel/test_plan_resolution.py`,
+`dev/scripts/devctl/tests/review_channel/test_promotion_scope.py`,
+`dev/scripts/devctl/tests/runtime/test_review_snapshot_why.py`,
+`dev/scripts/devctl/tests/context_graph/test_context_graph.py`, and
+`dev/scripts/devctl/tests/runtime/test_review_snapshot.py`.
+
 ### 2026-04-15 - Bridge-backed status and event-backed startup/dashboard now share one attention-priority reducer
 
 Fact: after the authority-snapshot and packet-inbox repairs landed, the repo

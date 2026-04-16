@@ -7048,6 +7048,17 @@ Execution order for this section:
     remaining same-lane packet work is now `rev_pkt_0391`; keep the large
     expired-packet backlog visible as hygiene debt unless it proves causally
     tied to that lane.
+3.7 `MP377-P1-T05` is now partially landed as an authority-reader pass rather
+    than just a plan note. Context-graph plan nodes, reviewer tracker-plan
+    resolution, scoped promotion MP lookup, and `ReviewSnapshot` plan indexing
+    now prefer the persisted `PlanRegistry` / `ProjectGovernance` artifact and
+    only fall back to raw `INDEX.md` parsing when typed governance is
+    unavailable. Focused proof is green in
+    `test_plan_resolution.py`, `test_promotion_scope.py`,
+    `test_review_snapshot_why.py`, `test_catalog_nodes.py`,
+    `test_context_graph.py`, and `test_review_snapshot.py`. Remaining `T05`
+    work is the docs-governance/reporting side that still treats markdown
+    scans as the registry source.
 4. Continue from the listed `Next actions` unless the user explicitly
    reprioritizes.
 5. Before ending the session, update both this `Session Resume` section and the
@@ -7067,6 +7078,17 @@ Execution order for this section:
   `MP377-P1-T05` so `INDEX.md` / `MASTER_PLAN.md` / owner-plan markdown can
   become bounded projections over the persisted registry instead of mutable
   execution authority.
+- 2026-04-15: Started `MP377-P1-T05` with the first artifact-first authority
+  consumer pass instead of another markdown-only plan note. Context-graph plan
+  nodes, reviewer tracker-plan resolution, scoped promotion MP lookup, and
+  `ReviewSnapshot` plan indexing now prefer the persisted
+  `ProjectGovernance.plan_registry` state and only fall back to raw `INDEX.md`
+  parsing when typed governance is unavailable. Focused proof is green in
+  `test_plan_resolution.py`, `test_promotion_scope.py`,
+  `test_review_snapshot_why.py`, `test_catalog_nodes.py`,
+  `test_context_graph.py`, and `test_review_snapshot.py`. Remaining `T05`
+  scope is the docs-governance/reporting side that still scans markdown for
+  registry metadata.
 - 2026-04-15: Closed the live review-channel observability/parity regressions
   surfaced during the dogfood relaunch. The packet miss was not transport
   loss: typed inbox state still carried the live Codex queue, but the
