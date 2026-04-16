@@ -1053,6 +1053,15 @@
   has already dropped those packet ids. Focused proof is green; full
   `check --profile ci` is still blocked by baseline package-layout debt and
   the branch's over-budget dirty startup state.
+- Latest same-lane progress on 2026-04-15: the commands-root baseline-debt
+  publish blocker is now burned down without hiding the larger layout debt.
+  `loop-packet` and its helper moved into
+  `dev/scripts/devctl/commands/packets/`, the flat `commands/loop_packet*.py`
+  paths now stay as metadata-bearing alias shims, and the scoped gate
+  `check_package_layout.py --fail-on-baseline-debt --baseline-debt-root dev/scripts/devctl/commands`
+  now passes again while the broader crowded-root report remains truthful
+  about `dev/scripts/checks`, `dev/scripts/devctl`, and
+  `dev/scripts/devctl/tests`.
 - Latest same-lane closure on 2026-04-02: the dirty-branch
   `dev/scripts/checks/**` modularization/layout blocker is closed. The
   remaining flat helpers for bundle workflow parity, duplication audit,

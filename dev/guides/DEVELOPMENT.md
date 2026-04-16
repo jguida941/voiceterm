@@ -1013,6 +1013,13 @@ Three quality layers matter in practice:
   smoke/integration surfaces, not pure unit seams: direct module tests are not
   enough when script mode, package mode, and public CLI/root-entrypoint
   reachability are part of the contract.
+- For crowded `dev/scripts/devctl/commands/**` package extractions, keep the
+  flat command module as a metadata-bearing alias shim into the topical
+  package and prove the routed root command still works after the move. The
+  tooling/release bundle now hard-fails touched debt in that root through
+  `check_package_layout.py --fail-on-baseline-debt --baseline-debt-root dev/scripts/devctl/commands`,
+  so a split like `loop-packet -> commands/packets/` is only complete when the
+  root shim, package target, and focused command tests all stay green.
 - For `dev/scripts/checks/**` package extractions, rerun the legacy root
   `check_*.py` / `probe_*.py` entrypoint directly after the move, not only the
   package module or unit tests. The public root shim is still part of the

@@ -151,7 +151,11 @@ working-tree and commit-range runs only hard-fail if the current diff touches
 one of those roots; clean-worktree and adoption-scan runs still enforce the
 selected roots globally. Repo policy can also ratchet known crowded
 roots/families from `freeze` to `strict` when a self-hosting repo needs
-touched flat-root files to stop behaving like normal healthy edits. The same report now also emits `compatibility_redirects` from
+touched flat-root files to stop behaving like normal healthy edits. For the
+commands root specifically, the publish-safe repair shape is to move the live
+implementation into an existing topical package and leave the flat command path
+behind as a thin alias shim with `shim-target` metadata, rather than parking
+more logic at `dev/scripts/devctl/commands/`. The same report now also emits `compatibility_redirects` from
 valid `shim-target` metadata so agents can follow moved entrypoints through
 one repo-owned surface instead of inferring the new path ad hoc.
 Compatibility shims inside that layout surface are now governed too: the

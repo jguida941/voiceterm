@@ -10764,3 +10764,35 @@ Evidence: `dev/scripts/checks/platform_contract_closure/field_routes.py`,
 `AGENTS.md`,
 `dev/guides/DEVELOPMENT.md`,
 `dev/scripts/README.md`.
+
+### 2026-04-15 - Commands-root package-layout publication gate now burns down real debt through loop-packet package shims
+
+Fact: governed push was no longer blocked on packet/review-channel logic. The
+remaining failure was the scoped package-layout publish gate for
+`dev/scripts/devctl/commands`: `check_package_layout.py --fail-on-baseline-debt
+--baseline-debt-root dev/scripts/devctl/commands` still saw the root at 50
+files against a max of 48. The honest fix was to reduce real implementation
+density in that root, not waive the debt. `loop-packet` and its helper now
+live under `dev/scripts/devctl/commands/packets/`, while the original flat
+paths remain thin alias shims with explicit `shim-target` metadata so stable
+imports and monkeypatch paths still resolve.
+
+This matters because the commands-root ratchet is doing exactly what it should:
+forcing touched crowded command families to migrate into topical packages while
+keeping old entrypoints stable. The push lane now clears the scoped commands
+gate without pretending the rest of the repo is layout-clean; the same package
+report still surfaces broader baseline debt in `dev/scripts/checks`,
+`dev/scripts/devctl`, and `dev/scripts/devctl/tests`.
+
+Evidence:
+
+- `dev/scripts/devctl/commands/loop_packet.py`
+- `dev/scripts/devctl/commands/loop_packet_helpers.py`
+- `dev/scripts/devctl/commands/packets/loop_packet.py`
+- `dev/scripts/devctl/commands/packets/loop_packet_helpers.py`
+- `dev/scripts/devctl/tests/test_loop_packet.py`
+- `dev/scripts/devctl/tests/test_autonomy_loop.py`
+- `AGENTS.md`
+- `dev/guides/DEVELOPMENT.md`
+- `dev/scripts/README.md`
+- `dev/active/MASTER_PLAN.md`
