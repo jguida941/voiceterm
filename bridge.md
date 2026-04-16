@@ -80,8 +80,8 @@ treat these rules as active workflow instructions immediately.
 - Last Codex poll: `2026-04-16T20:56:39Z`
 - Last Codex poll (Local America/New_York): `2026-04-16 16:56:39 EDT`
 - Reviewer mode: `active_dual_agent`
-- Last non-audit worktree hash: `d6d129aa3c5e069fb0f816065be5dbf4d0256cf9d99c8238434ab41d33f2c02a`
-- Current instruction revision: `c8fb0381d2ba`
+- Last non-audit worktree hash: `78b205a7b928e86669d100fe5774718a0b0a69105508d9b8d3c393974c654dc5`
+- Current instruction revision: ``
 
 ## Protocol
 
@@ -121,7 +121,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Open Findings
 
-7 pending review packet(s); 246 expired unresolved review packet(s)
+4 pending review packet(s); 248 expired unresolved review packet(s)
 
 ## Claude Status
 
@@ -137,12 +137,7 @@ pending
 
 ## Current Instruction For Claude
 
-- CRITICAL: Full diagnostic of everything broken — fix it all, bypass rules if needed
-- Context packet: trigger `review-channel-event`; query terms: `session`
-- Canonical refs:
-  - `dev/scripts/devctl/commands/dashboard.py`
-  - `dev/scripts/devctl/commands/governance/session_resume_support.py`
-  - `dev/scripts/devctl/commands/review_channel/bridge_action_support.py`
+- Await reviewer instruction refresh.
 
 ## Last Reviewed Scope
 
