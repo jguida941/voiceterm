@@ -80,8 +80,8 @@ treat these rules as active workflow instructions immediately.
 - Last Codex poll: `2026-04-16T20:56:39Z`
 - Last Codex poll (Local America/New_York): `2026-04-16 16:56:39 EDT`
 - Reviewer mode: `active_dual_agent`
-- Last non-audit worktree hash: `8f33b188cc5ccedf125db01bb97af8007e36655e53a49389b2c49ad33da10b71`
-- Current instruction revision: `7a12e4b23a28`
+- Last non-audit worktree hash: `95ee120a2cf524506d494c65926f716916a93eaf668854aaff884f2b0d73ab4e`
+- Current instruction revision: ``
 
 ## Protocol
 
@@ -121,7 +121,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Open Findings
 
-5 pending review packet(s); 251 expired unresolved review packet(s)
+5 pending review packet(s); 252 expired unresolved review packet(s)
 
 ## Claude Status
 
@@ -137,12 +137,7 @@ pending
 
 ## Current Instruction For Claude
 
-- TWO QUESTIONS: Why do you stop after one review? What code changes fix it?
-- Context packet: trigger `review-channel-event`; query terms: `MP-377`
-- Canonical refs:
-  - `dev/scripts/devctl/governance/draft.py`
-  - `dev/scripts/devctl/governance/push_policy.py`
-  - `dev/scripts/devctl/governance/push_state.py`
+- Await reviewer instruction refresh.
 
 ## Last Reviewed Scope
 
