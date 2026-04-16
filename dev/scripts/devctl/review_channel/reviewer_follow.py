@@ -26,7 +26,6 @@ from .reviewer_follow_guard import (
 from .reviewer_follow_packets import attach_reviewer_packets
 from . import reviewer_follow_promotion as _reviewer_follow_promotion
 from .reviewer_head_tracking import compute_review_range
-from .reviewer_turn_runner import detect_reviewer_wake
 from .reviewer_follow_recovery import (
     ReviewerFollowRecoveryInput,
     ReviewerFollowRecoveryState,
@@ -145,11 +144,6 @@ def _build_reviewer_follow_tick(
     review_range = compute_review_range(repo_root=repo_root, bridge_path=bridge_path)
     if review_range is not None:
         report["review_range"] = review_range
-    wake_signal = detect_reviewer_wake(
-        repo_root=repo_root, bridge_path=bridge_path,
-    )
-    if wake_signal is not None:
-        report["reviewer_turn_wake"] = wake_signal.to_dict()
     auto_promotion = maybe_auto_promote(
         args=args,
         repo_root=repo_root,

@@ -40,12 +40,10 @@ from .reviewer_head_tracking import (
     compute_review_range as compute_review_range,
     current_head_sha as _current_head_sha,
 )
-from ..runtime.role_profile import TandemRole, default_provider_for_role
-
 REVIEWER_MODE_RE = re.compile(r"(?m)^- Reviewer mode:\s*`.*?`\s*$")
 
 
-DEFAULT_REVIEWER_ACTOR = default_provider_for_role(TandemRole.REVIEWER)
+DEFAULT_REVIEWER_ACTOR = "codex"
 
 
 @dataclass(frozen=True)

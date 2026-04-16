@@ -163,6 +163,27 @@ class TestDetectReviewerWake(unittest.TestCase):
     @patch(
         "dev.scripts.devctl.review_channel.reviewer_turn_runner.load_pending_packets"
     )
+    def test_acked_packets_do_not_trigger_wake(self, mock_load):
+        mock_load.return_value = (_make_packet(status="acked"),)
+        tick = ReviewerWorkerTick(
+            state="up_to_date",
+            review_needed=False,
+            reviewed_hash="aaa",
+            current_hash="aaa",
+            reviewer_mode="active_dual_agent",
+            detail="Tree matches reviewed hash",
+        )
+        signal = detect_reviewer_wake(
+            repo_root=Path("/fake"),
+            bridge_path=Path("/fake/bridge.md"),
+            reviewer_provider="codex",
+            worker_tick=tick,
+        )
+        self.assertIsNone(signal)
+
+    @patch(
+        "dev.scripts.devctl.review_channel.reviewer_turn_runner.load_pending_packets"
+    )
     def test_ignores_packets_for_other_agent(self, mock_load):
         mock_load.return_value = (_make_packet(to_agent="claude"),)
         tick = ReviewerWorkerTick(

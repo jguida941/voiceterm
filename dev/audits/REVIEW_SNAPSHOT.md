@@ -5,14 +5,14 @@
 ## Quick status
 
 - Branch: `feature/governance-quality-sweep`
-- HEAD: `4d2c991c4480` — Refresh external review snapshot for d08407ca
-- Tree hash: `21eeb7e068ee`
-- Generation stamp: `snap-9493ce375151`
-- Generated at (UTC): 2026-04-16T07:26:19Z
+- HEAD: `26e8730a9c30` — Refresh external review snapshot for d08407ca
+- Tree hash: `66fa23e4a00d`
+- Generation stamp: `snap-739350624987`
+- Generated at (UTC): 2026-04-16T07:29:09Z
 - Push decision: `await_checkpoint` — staged_index_present
 - Reviewer mode: `single_agent` (interaction: `local_terminal`)
 - Pipeline state: `n/a` (approval: `n/a`)
-- Delta since last snapshot: 24 commits, 97 files, +6952/-2402
+- Delta since last snapshot: 24 commits, 97 files, +6945/-2408
 - Governance findings: 112 open / 86 fixed / 212 total
 - Probe hints: 0 total across 0 files scanned
 
@@ -54,9 +54,9 @@ adopters arrive.
 - Remote: `https://github.com/jguida941/voiceterm.git`
 - Default branch: `master`
 - Current branch: `feature/governance-quality-sweep`
-- HEAD SHA: `4d2c991c44801f1e23e7531bb730523a7fac07ef`
+- HEAD SHA: `26e8730a9c30ba9cf609f38c58e8188a40240a33`
 - HEAD author: Justin Guida
-- HEAD timestamp (UTC): 2026-04-16T03:22:44-04:00
+- HEAD timestamp (UTC): 2026-04-16T03:25:52-04:00
 
 ## 2. Governance state
 
@@ -65,7 +65,7 @@ adopters arrive.
 - reason: staged_index_present
 - push_eligible_now: False
 - worktree_clean: False
-- staged_path_count: 1
+- staged_path_count: 5
 - unstaged_path_count: 0
 - next_step_command: `n/a`
 - latest_push_report: `dev/reports/push/latest.json`
@@ -74,7 +74,7 @@ adopters arrive.
 - authorized_head_commit: `09ef6ccc55c84eef7ba8deccc4aef760856f2106`
 - approved_target_identity: `tree-receipt-20260416T045111064083Z:5d89fb3f8b159b4226e2ef22e214464969be6342`
 - publication_backlog: urgent
-- publication_guidance: 9 local commit(s) waiting for governed push once the current slice is checkpoint-clean.
+- publication_guidance: 10 local commit(s) waiting for governed push once the current slice is checkpoint-clean.
 
 ### Reviewer runtime
 - reviewer_mode: `single_agent`
@@ -94,43 +94,43 @@ adopters arrive.
 
 ## 3. Delta — what changed since the previous snapshot
 
-Range: last 24 commits ending at `4d2c991c4480`
+Range: last 24 commits ending at `26e8730a9c30`
 
 - commits: 24
 - files changed: 97
-- insertions: +6952
-- deletions: -2402
-- bundle classes touched: docs, tooling
+- insertions: +6945
+- deletions: -2408
+- bundle classes touched: tooling, docs
 - authority surfaces touched: 10 file(s)
 
 ### Commits
 
 | # | SHA | Subject | Files | +/- | Bundle | Risk |
 |---|---|---|---|---|---|---|
-| 1 | `4d2c991c` | Refresh external review snapshot for d08407ca | 2 | +66/-63 | docs |  |
-| 2 | `d08407ca` | Add portable controller-owned reviewer turn runner + public… | 9 | +1129/-65 | tooling |  |
-| 3 | `eea5abf5` | Refresh external review snapshot for bf0c0d90 | 2 | +56/-54 | docs |  |
-| 4 | `bf0c0d90` | Fix test_implementer_stall import after event_projection re… | 2 | +59/-60 | tooling |  |
-| 5 | `0e0b3288` | Refresh external review snapshot for 7ef603c1 | 2 | +57/-54 | docs |  |
-| 6 | `7ef603c1` | Block stale bridge instruction fallback on explicit typed c… | 3 | +112/-61 | tooling |  |
-| 7 | `9fb25fcd` | Drop zref from snapshot hash inputs + fix bridge instructio… | 4 | +99/-57 | tooling |  |
-| 8 | `d2171db6` | Refresh external review snapshot for 3187f7ce | 2 | +77/-78 | docs |  |
-| 9 | `3187f7ce` | Fix zref regression + contract parity + focused tests | 26 | +552/-211 | tooling |  |
-| 10 | `09ef6ccc` | Refresh external review snapshot for a0686d76 | 2 | +62/-66 | docs |  |
-| 11 | `a0686d76` | Split loop-packet commands into packets package | 11 | +653/-581 | tooling |  |
-| 12 | `1e54c022` | Refresh external review snapshot for 85b11941 | 2 | +58/-61 | docs |  |
-| 13 | `85b11941` | Project typed plan authority and packet inbox state | 24 | +1116/-138 | tooling |  |
-| 14 | `fa370be5` | Refresh external review snapshot for bc594104 | 2 | +65/-68 | docs |  |
-| 15 | `bc594104` | Project plan authority readers from typed registry | 18 | +464/-93 | tooling |  |
-| 16 | `af3724b7` | Refresh external review snapshot for 8873e4e5 | 2 | +62/-67 | docs |  |
-| 17 | `8873e4e5` | Persist plan registry artifact for startup authority | 14 | +703/-73 | tooling |  |
-| 18 | `42ddab83` | Refresh external review snapshot for 980648dd | 2 | +69/-76 | docs |  |
-| 19 | `980648dd` | Prefer effective reviewer mode for governed commit fallback | 10 | +159/-73 | tooling |  |
-| 20 | `5146e651` | Refresh external review snapshot for a14356d3 | 2 | +72/-89 | docs |  |
-| 21 | `a14356d3` | Fix review-channel launch authority and runtime packet pari… | 28 | +732/-126 | tooling |  |
-| 22 | `bc1b011b` | Refresh external review snapshot for d599b9b6 | 2 | +61/-61 | docs |  |
-| 23 | `d599b9b6` | Fix startup repair authority parity | 11 | +395/-58 | tooling |  |
-| 24 | `7d35f8e8` | Refresh external review snapshot for f3350f0d | 2 | +74/-69 | docs |  |
+| 1 | `26e8730a` | Refresh external review snapshot for d08407ca | 1 | +67/-75 | tooling |  |
+| 2 | `4d2c991c` | Refresh external review snapshot for d08407ca | 2 | +66/-63 | docs |  |
+| 3 | `d08407ca` | Add portable controller-owned reviewer turn runner + public… | 9 | +1129/-65 | tooling |  |
+| 4 | `eea5abf5` | Refresh external review snapshot for bf0c0d90 | 2 | +56/-54 | docs |  |
+| 5 | `bf0c0d90` | Fix test_implementer_stall import after event_projection re… | 2 | +59/-60 | tooling |  |
+| 6 | `0e0b3288` | Refresh external review snapshot for 7ef603c1 | 2 | +57/-54 | docs |  |
+| 7 | `7ef603c1` | Block stale bridge instruction fallback on explicit typed c… | 3 | +112/-61 | tooling |  |
+| 8 | `9fb25fcd` | Drop zref from snapshot hash inputs + fix bridge instructio… | 4 | +99/-57 | tooling |  |
+| 9 | `d2171db6` | Refresh external review snapshot for 3187f7ce | 2 | +77/-78 | docs |  |
+| 10 | `3187f7ce` | Fix zref regression + contract parity + focused tests | 26 | +552/-211 | tooling |  |
+| 11 | `09ef6ccc` | Refresh external review snapshot for a0686d76 | 2 | +62/-66 | docs |  |
+| 12 | `a0686d76` | Split loop-packet commands into packets package | 11 | +653/-581 | tooling |  |
+| 13 | `1e54c022` | Refresh external review snapshot for 85b11941 | 2 | +58/-61 | docs |  |
+| 14 | `85b11941` | Project typed plan authority and packet inbox state | 24 | +1116/-138 | tooling |  |
+| 15 | `fa370be5` | Refresh external review snapshot for bc594104 | 2 | +65/-68 | docs |  |
+| 16 | `bc594104` | Project plan authority readers from typed registry | 18 | +464/-93 | tooling |  |
+| 17 | `af3724b7` | Refresh external review snapshot for 8873e4e5 | 2 | +62/-67 | docs |  |
+| 18 | `8873e4e5` | Persist plan registry artifact for startup authority | 14 | +703/-73 | tooling |  |
+| 19 | `42ddab83` | Refresh external review snapshot for 980648dd | 2 | +69/-76 | docs |  |
+| 20 | `980648dd` | Prefer effective reviewer mode for governed commit fallback | 10 | +159/-73 | tooling |  |
+| 21 | `5146e651` | Refresh external review snapshot for a14356d3 | 2 | +72/-89 | docs |  |
+| 22 | `a14356d3` | Fix review-channel launch authority and runtime packet pari… | 28 | +732/-126 | tooling |  |
+| 23 | `bc1b011b` | Refresh external review snapshot for d599b9b6 | 2 | +61/-61 | docs |  |
+| 24 | `d599b9b6` | Fix startup repair authority parity | 11 | +395/-58 | tooling |  |
 
 ### Files
 
@@ -138,10 +138,10 @@ Range: last 24 commits ending at `4d2c991c4480`
 |---|---|---|
 | `0` | tooling | +0/-0 |
 | `AGENTS.md` | docs | +22/-6 |
-| `bridge.md` | docs | +54/-54 |
+| `bridge.md` | docs | +52/-52 |
 | `dev/active/MASTER_PLAN.md` | tooling | +65/-0 |
 | `dev/active/ai_governance_platform.md` | tooling | +124/-4 |
-| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1444/-1454 |
+| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1439/-1462 |
 | `dev/guides/DEVELOPMENT.md` | docs | +37/-5 |
 | `dev/history/ENGINEERING_EVOLUTION.md` | tooling | +301/-0 |
 | `dev/scripts/README.md` | tooling | +38/-7 |
@@ -272,6 +272,7 @@ Recent findings:
 
 ### Per-commit rationale
 
+- **`26e8730a`** — Refresh external review snapshot for d08407ca
 - **`4d2c991c`** — Refresh external review snapshot for d08407ca
 - **`d08407ca`** — Add portable controller-owned reviewer turn runner + publication ownership
   - Cut 1: reviewer_turn_runner.py — typed contract for one bounded reviewer
@@ -320,8 +321,6 @@ Recent findings:
   - evolution: Fact: the next dogfood pass after the launch-authority/runtime-parity repair found one more place where declared topology could outrank typed authority. `resolve_commit_execution_target()` still preferred `collaboration…
 - **`d599b9b6`** — Fix startup repair authority parity
   - evolution: Fact: the next dogfood pass after the launch-authority/runtime-parity repair found one more place where declared topology could outrank typed authority. `resolve_commit_execution_target()` still preferred `collaboration…
-- **`7d35f8e8`** — Refresh external review snapshot for f3350f0d
-  - evolution: Fact: the next dogfood pass after the launch-authority/runtime-parity repair found one more place where declared topology could outrank typed authority. `resolve_commit_execution_target()` still preferred `collaboration…
 ### Active MP scope (from MASTER_PLAN.md)
 
 - contract slice for MP-355 plus the temporary markdown-swarm operating mode
@@ -357,4 +356,4 @@ Recent findings:
 
 ---
 
-Projection produced by `devctl review-snapshot`. Generation stamp `snap-9493ce375151` binds this file to HEAD `4d2c991c4480`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
+Projection produced by `devctl review-snapshot`. Generation stamp `snap-739350624987` binds this file to HEAD `26e8730a9c30`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.

@@ -253,6 +253,6 @@ def _pending_packets_for(
         if to_agent != agent_name.lower():
             continue
         status = str(pkt.get("status") or "").strip()
-        if status in {"pending", "acked"}:
+        if status == "pending":
             result.append(pkt)
     return result
