@@ -59,10 +59,19 @@ def select_active_plan_entry(
 def build_target_ref(
     repo_root: Path,
     entry: PlanRegistryEntry | None,
+    *,
+    reports_root: str = "",
 ) -> PlanTargetRef | None:
     """Build the canonical startup plan target reference."""
     if entry is None:
         return None
+    persisted = _load_persisted_target_ref(
+        repo_root,
+        entry.path,
+        reports_root=reports_root,
+    )
+    if persisted is not None:
+        return persisted
     target_kind, anchor_ref, expected_revision = _target_parts(repo_root, entry)
     target_digest = sha256(
         f"{entry.path}|{target_kind}|{anchor_ref}".encode("utf-8")
@@ -185,6 +194,25 @@ def _file_revision(repo_root: Path, relative_path: str) -> str:
     except OSError:
         return ""
     return sha256(text.encode("utf-8")).hexdigest()[:16]
+
+
+def _load_persisted_target_ref(
+    repo_root: Path,
+    relative_path: str,
+    *,
+    reports_root: str = "",
+) -> PlanTargetRef | None:
+    try:
+        from ..governance.draft_governed_docs_artifact import (
+            load_persisted_plan_target_ref,
+        )
+    except ImportError:
+        return None
+    return load_persisted_plan_target_ref(
+        repo_root,
+        relative_path,
+        reports_root=reports_root,
+    )
 
 
 __all__ = [

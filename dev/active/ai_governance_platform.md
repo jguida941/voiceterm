@@ -3213,9 +3213,9 @@ Phase metadata: phase_id=MP377-P1; owner_doc=`dev/active/ai_governance_platform.
       owner_doc: `dev/active/platform_authority_loop.md`
       status: `done`
       depends_on: `MP377-P1-T01`
-- [ ] `MP377-P1-T04` Persist a repo-pack-owned `PlanRegistry` / `PlanTargetRef` authority artifact so startup and planning consumers stop reparsing mutable markdown on every read.
+- [x] `MP377-P1-T04` Persist a repo-pack-owned `PlanRegistry` / `PlanTargetRef` authority artifact so startup and planning consumers stop reparsing mutable markdown on every read.
       owner_doc: `dev/active/platform_authority_loop.md`
-      status: `pending`
+      status: `done`
       depends_on: `MP377-P1-T03`
 - [ ] `MP377-P1-T05` Render `INDEX.md`, `MASTER_PLAN.md`, and owner-plan markdown as bounded projections over that persisted plan registry instead of treating raw markdown as mutable execution authority.
       owner_doc: `dev/active/ai_governance_platform.md`
@@ -5079,6 +5079,16 @@ prefer the typed phase/task entries before any free-form backlog bullets.
 Use this section as the single "left off here" surface for fresh AI sessions
 working on `MP-377`.
 
+- 2026-04-15 plan-registry authority artifact closure:
+  `scan_governed_markdown_contracts()` now persists governed markdown
+  `PlanRegistry` plus per-plan `PlanTargetRef` data to
+  `dev/reports/governance/plan_registry.json`, reuses that artifact while the
+  governed doc set and per-file stats stay fresh, and `build_target_ref()`
+  now consumes the persisted target metadata before hashing plan markdown
+  again. Proof is green in `test_governance_draft.py`,
+  `test_work_intake.py`, `test_planning_ir.py`, and
+  `test_startup_context.py`. Next target: `MP377-P1-T05` bounded markdown
+  projection rendering over that persisted registry.
 - 2026-04-15 dogfood campaign contract closure:
   `devctl dogfood --record` now carries the live campaign/linkage metadata the
   platform needs for real multi-surface proof (`campaign_id`, `scenario_id`,
@@ -7046,6 +7056,17 @@ Execution order for this section:
 
 ## Progress Log
 
+- 2026-04-15: Closed `MP377-P1-T04` by persisting governed markdown
+  `PlanRegistry` plus per-plan `PlanTargetRef` authority to
+  `dev/reports/governance/plan_registry.json`, teaching
+  `scan_governed_markdown_contracts()` to reuse that artifact while the
+  governed doc set is unchanged, and teaching `build_target_ref()` to reuse
+  the persisted target metadata before reopening plan markdown. Focused proof
+  is green in `test_governance_draft.py`, `test_work_intake.py`,
+  `test_planning_ir.py`, and `test_startup_context.py`; next queued work is
+  `MP377-P1-T05` so `INDEX.md` / `MASTER_PLAN.md` / owner-plan markdown can
+  become bounded projections over the persisted registry instead of mutable
+  execution authority.
 - 2026-04-15: Closed the live review-channel observability/parity regressions
   surfaced during the dogfood relaunch. The packet miss was not transport
   loss: typed inbox state still carried the live Codex queue, but the

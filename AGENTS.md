@@ -269,7 +269,10 @@ Run this sequence for every task. Do not skip steps.
    That typed startup receipt now emits a bounded `WorkIntakePacket`
    (selected `PlanTargetRef`, typed continuity, routing hints, and bounded
    `session_pacing` research guidance derived from planning/graph evidence),
-   writes a managed startup receipt under the repo-owned reports root, and
+   writes a managed startup receipt under the repo-owned reports root,
+   prefers the persisted repo-owned `PlanRegistry` / `PlanTargetRef`
+   artifact under the governed reports root before reparsing mutable plan
+   markdown on every read, and
    exits non-zero when checkpoint budget or startup-authority truth says
    another implementation slice is not allowed yet. The scoped startup gate
    (`startup_gate.py`) reads `StartupReceipt.advisory_action` as a typed

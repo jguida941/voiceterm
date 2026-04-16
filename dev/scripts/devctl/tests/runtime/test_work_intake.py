@@ -7,6 +7,7 @@ import subprocess
 from dataclasses import replace
 from pathlib import Path
 from types import SimpleNamespace
+from unittest.mock import patch
 
 import pytest
 
@@ -14,6 +15,7 @@ from dev.scripts.devctl.context_graph.snapshot_payload import (
     ContextGraphSnapshot,
     TemperatureDistributionSummary,
 )
+from dev.scripts.devctl.governance.draft import scan_repo_governance
 from dev.scripts.devctl.platform.planning_ir_models import (
     NextBestSliceRecord,
     PlanningIRSnapshot,
@@ -48,6 +50,15 @@ from dev.scripts.devctl.runtime.work_intake_models import (
     WorkIntakeCoordinationState,
     WorkIntakeOwnershipState,
 )
+from dev.scripts.devctl.runtime.work_intake_selection import build_target_ref
+
+
+def _mock_governance_subprocess_run(*_args, **_kwargs):
+    class _FakeResult:
+        returncode = 1
+        stdout = ""
+
+    return _FakeResult()
 
 
 def _write(path: Path, text: str) -> None:
@@ -261,6 +272,42 @@ def _governance(
             }
         },
     )
+
+
+@patch(
+    "dev.scripts.devctl.governance.draft.subprocess.run",
+    _mock_governance_subprocess_run,
+)
+def test_build_target_ref_uses_persisted_plan_registry_artifact(
+    tmp_path: Path,
+) -> None:
+    _write(tmp_path / "AGENTS.md", "# Agents\n")
+    _write(tmp_path / "dev/active/INDEX.md", "# Index\n")
+    _write(tmp_path / "dev/active/MASTER_PLAN.md", "# Master Plan\n")
+    _write(tmp_path / "dev/reports/.keep", "")
+
+    governance = scan_repo_governance(tmp_path, policy={})
+    tracker_entry = next(
+        entry
+        for entry in governance.plan_registry.entries
+        if entry.path == "dev/active/MASTER_PLAN.md"
+    )
+
+    with patch(
+        "dev.scripts.devctl.runtime.work_intake_selection._file_revision",
+        side_effect=AssertionError(
+            "persisted target ref should avoid rereading markdown"
+        ),
+    ):
+        target = build_target_ref(
+            tmp_path,
+            tracker_entry,
+            reports_root=governance.path_roots.reports,
+        )
+
+    assert target is not None
+    assert target.plan_path == tracker_entry.path
+    assert target.plan_title == tracker_entry.title
 
 
 def test_build_work_intake_packet_prefers_mp_scoped_spec_and_reconciles_review_state(

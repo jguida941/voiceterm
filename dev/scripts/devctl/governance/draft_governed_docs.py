@@ -12,6 +12,12 @@ from .doc_authority_models import (
     GovernedDocLayout,
 )
 from .doc_authority_support import scan_governed_docs_for_layout
+from .draft_governed_docs_artifact import (
+    build_plan_target_ref,
+    GovernedMarkdownContractsArtifact,
+    load_governed_markdown_contracts_artifact,
+    write_governed_markdown_contracts_artifact,
+)
 from ..runtime.project_governance import (
     BridgeConfig,
     DocBudget,
@@ -131,13 +137,16 @@ def _scan_plan_registry(
     inputs: GovernedMarkdownScanInputs,
     *,
     records: list[object],
-) -> PlanRegistry:
+) -> tuple[PlanRegistry, dict[str, object]]:
     entries: list[PlanRegistryEntry] = []
+    plan_targets: dict[str, object] = {}
     for record in records:
         if getattr(record, "doc_class", "") not in PLAN_DOC_CLASSES:
             continue
         record_path = str(getattr(record, "path", ""))
         text = (repo_root / record_path).read_text(encoding="utf-8", errors="replace")
+        title = _doc_title(text, record_path)
+        session_resume = extract_session_resume_state(text)
         entries.append(
             PlanRegistryEntry(
                 path=record_path,
@@ -149,18 +158,30 @@ def _scan_plan_registry(
                 authority=str(getattr(record, "authority", "")),
                 scope=str(getattr(record, "scope", "")),
                 when_agents_read=str(getattr(record, "canonical_consumer", "")),
-                title=_doc_title(text, record_path),
+                title=title,
                 owner=str(getattr(record, "owner", "")),
                 lifecycle=str(getattr(record, "lifecycle", "unknown")),
                 has_execution_plan_contract="Execution plan contract: required" in text,
-                session_resume=extract_session_resume_state(text),
+                session_resume=session_resume,
             )
         )
-    return PlanRegistry(
-        registry_path=inputs.index_path,
-        tracker_path=inputs.tracker_path,
-        index_path=inputs.index_path,
-        entries=tuple(entries),
+        plan_targets[record_path] = build_plan_target_ref(
+            relative_path=record_path,
+            title=title,
+            scope=str(getattr(record, "scope", "")),
+            session_resume_hash=(
+                session_resume.section_hash if session_resume is not None else ""
+            ),
+            file_text=text,
+        )
+    return (
+        PlanRegistry(
+            registry_path=inputs.index_path,
+            tracker_path=inputs.tracker_path,
+            index_path=inputs.index_path,
+            entries=tuple(entries),
+        ),
+        plan_targets,
     )
 
 
@@ -206,13 +227,36 @@ def scan_governed_markdown_contracts(
 ) -> tuple[PlanRegistry, DocPolicy, DocRegistry]:
     """Build the first typed plan/doc runtime contracts from governed markdown."""
     layout = _build_governed_doc_layout(repo_root, inputs)
+    cached = load_governed_markdown_contracts_artifact(
+        repo_root,
+        reports_root=inputs.path_roots.reports,
+        layout=layout,
+    )
+    if cached is not None:
+        return cached
+
     governed_docs = scan_governed_docs_for_layout(repo_root, layout)
-    plan_registry = _scan_plan_registry(repo_root, inputs, records=governed_docs)
+    plan_registry, plan_targets = _scan_plan_registry(
+        repo_root,
+        inputs,
+        records=governed_docs,
+    )
     doc_policy = _scan_doc_policy(inputs, plan_registry=plan_registry)
     doc_registry = _scan_doc_registry(
         inputs,
         plan_registry=plan_registry,
         records=governed_docs,
+    )
+    write_governed_markdown_contracts_artifact(
+        repo_root,
+        reports_root=inputs.path_roots.reports,
+        layout=layout,
+        artifact=GovernedMarkdownContractsArtifact(
+            plan_registry=plan_registry,
+            doc_policy=doc_policy,
+            doc_registry=doc_registry,
+            plan_targets=plan_targets,
+        ),
     )
     return plan_registry, doc_policy, doc_registry
 

@@ -76,6 +76,40 @@ Evidence: `dev/scripts/devctl/commands/vcs/governed_executor_commit_runtime.py`,
 `python3 dev/scripts/checks/check_multi_agent_sync.py`, and
 `python3 dev/scripts/checks/check_review_channel_bridge.py`.
 
+### 2026-04-15 - Governed markdown startup now persists `PlanRegistry` and `PlanTargetRef` authority
+
+Fact: `ProjectGovernance` already carried typed governed-markdown metadata, but
+the active startup/planning path still rebuilt that data by reparsing mutable
+plan markdown every time `scan_governed_markdown_contracts()` ran, and
+`build_target_ref()` still reopened plan files just to recover the same target
+hash. That left `MP377-P1-T04` open: startup and planning had typed contracts,
+but not a repo-owned persisted authority artifact for the plan layer itself.
+
+This matters because `MP377-P1-T05` through `MP377-P1-T08` all assume the plan
+authority chain has already stopped treating mutable markdown as the live
+runtime source for every read. Without a persisted `PlanRegistry` /
+`PlanTargetRef` bundle, every fresh startup or planning pass can diverge on
+file-read timing and the system keeps paying the full markdown reparse cost
+even when the plan set has not changed.
+
+The closure now persists governed markdown authority to
+`dev/reports/governance/plan_registry.json`. The governed markdown scan writes
+`PlanRegistry`, `DocPolicy`, `DocRegistry`, source-file freshness records, and
+per-plan `PlanTargetRef` metadata into that repo-owned artifact, reuses it
+while the governed doc set and per-file stats are unchanged, and falls back to
+a fresh markdown scan only when the artifact is missing or stale.
+`build_target_ref()` now consumes the persisted target metadata before
+rehashing plan markdown, so startup/work-intake and planning IR both reuse the
+same target authority when the plan files are unchanged.
+
+Evidence: `dev/scripts/devctl/governance/draft_governed_docs.py`,
+`dev/scripts/devctl/governance/draft_governed_docs_artifact.py`,
+`dev/scripts/devctl/runtime/work_intake_selection.py`,
+`dev/scripts/devctl/tests/governance/test_governance_draft.py`,
+`dev/scripts/devctl/tests/runtime/test_work_intake.py`,
+`dev/scripts/devctl/tests/platform/test_planning_ir.py`, and
+`dev/scripts/devctl/tests/runtime/test_startup_context.py`.
+
 ### 2026-04-15 - Bridge-backed status and event-backed startup/dashboard now share one attention-priority reducer
 
 Fact: after the authority-snapshot and packet-inbox repairs landed, the repo

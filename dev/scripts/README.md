@@ -662,7 +662,12 @@ Portability note:
   governed-markdown baseline (`DocPolicy`, `DocRegistry`, parsed
   `PlanRegistry` entries) so startup no longer depends only on hard-coded
   path roots, but `## Session Resume` content is still markdown-only restart
-  state. Generated bootstrap surfaces now make
+  state. The same governed startup path now persists
+  `PlanRegistry` / `PlanTargetRef` authority under
+  `dev/reports/governance/plan_registry.json` and reuses that artifact while
+  the governed doc set is unchanged, so startup/planning readers stop
+  reparsing mutable plan markdown on every read. Generated bootstrap surfaces
+  now make
   `startup-context --format summary` the mandatory Step 0 gate before edits,
   validation, or repo-owned launcher work. User summaries, stale chat
   continuity, or remembered prior state are not substitutes for that

@@ -698,7 +698,12 @@ Three quality layers matter in practice:
     mistaking it for execution authority. The reviewed markdown `## Session
     Resume` section still remains the canonical restart surface; the typed
     continuity state is a startup projection over that markdown, not a second
-    authority store. Generated bootstrap surfaces now make
+    authority store. The same startup path now persists governed markdown
+    `PlanRegistry` / `PlanTargetRef` authority under
+    `dev/reports/governance/plan_registry.json` and reuses that artifact while
+    the governed doc set is unchanged, so startup/planning readers stop
+    reparsing mutable plan markdown on every turn. Generated bootstrap
+    surfaces now make
     `startup-context --format summary` the mandatory Step 0 gate before edits,
     validation, or repo-owned launcher work; user summaries, stale chat
     continuity, or remembered prior state are not substitutes for that

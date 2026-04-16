@@ -1022,6 +1022,13 @@
   writable conductor capabilities. That keeps local `single_agent` takeover
   authoritative for checkpoint commits even when typed collaboration topology
   still advertises `active_dual_agent` provenance.
+- Latest same-lane closure on 2026-04-15: governed markdown startup now
+  persists `PlanRegistry` plus per-plan `PlanTargetRef` authority under
+  `dev/reports/governance/plan_registry.json`. The governed markdown scan
+  reuses that artifact while the doc set is unchanged, and
+  `build_target_ref()` now consumes the persisted target metadata before
+  rehashing plan markdown. That closes `MP377-P1-T04` and leaves
+  `MP377-P1-T05` as the next projection-layer task.
 - Latest same-lane closure on 2026-04-02: the dirty-branch
   `dev/scripts/checks/**` modularization/layout blocker is closed. The
   remaining flat helpers for bundle workflow parity, duplication audit,

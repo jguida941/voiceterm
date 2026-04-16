@@ -80,7 +80,11 @@ def build_work_intake_packet(
         review_state=resolved_review_state,
         continuity=continuity,
     )
-    target_ref = build_target_ref(repo_root, active_entry)
+    target_ref = build_target_ref(
+        repo_root,
+        active_entry,
+        reports_root=governance.path_roots.reports,
+    )
     resolved_warm_refs = warm_refs(
         repo_root,
         governance=governance,
@@ -116,7 +120,11 @@ def build_work_intake_packet(
             review_state=resolved_review_state,
             continuity=continuity,
         )
-        target_ref = build_target_ref(repo_root, active_entry)
+        target_ref = build_target_ref(
+            repo_root,
+            active_entry,
+            reports_root=governance.path_roots.reports,
+        )
         resolved_warm_refs = warm_refs(
             repo_root,
             governance=governance,

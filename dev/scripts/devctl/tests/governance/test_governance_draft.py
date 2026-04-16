@@ -11,6 +11,12 @@ from dev.scripts.devctl.governance.draft import (
     render_governance_draft_markdown,
     scan_repo_governance,
 )
+from dev.scripts.devctl.governance.draft_governed_docs import (
+    scan_governed_docs_for_layout,
+)
+from dev.scripts.devctl.governance.draft_governed_docs_artifact import (
+    resolve_plan_registry_artifact_path,
+)
 from dev.scripts.devctl.runtime.project_governance import (
     project_governance_from_mapping,
 )
@@ -133,6 +139,74 @@ def test_scan_repo_governance_with_standard_layout(tmp_path: Path) -> None:
     )
     assert bridge_entry.artifact_role == "compatibility_projection"
     assert bridge_entry.authority_kind == "compatibility_only"
+
+
+@patch("dev.scripts.devctl.governance.draft.subprocess.run", _mock_subprocess_run)
+def test_scan_repo_governance_reuses_persisted_plan_registry_artifact(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "dev" / "active").mkdir(parents=True)
+    (tmp_path / "dev" / "reports").mkdir(parents=True)
+    (tmp_path / "dev" / "guides").mkdir(parents=True)
+    (tmp_path / "AGENTS.md").write_text("# Agents\n", encoding="utf-8")
+    (tmp_path / "dev" / "active" / "INDEX.md").write_text(
+        "# Index\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "dev" / "active" / "MASTER_PLAN.md").write_text(
+        "# Master Plan\n",
+        encoding="utf-8",
+    )
+
+    original = scan_repo_governance(tmp_path, policy={})
+
+    artifact_path = resolve_plan_registry_artifact_path(
+        tmp_path,
+        reports_root=original.path_roots.reports,
+    )
+    assert artifact_path.is_file()
+
+    with patch(
+        "dev.scripts.devctl.governance.draft_governed_docs.scan_governed_docs_for_layout",
+        side_effect=AssertionError("governed markdown should come from artifact"),
+    ):
+        restored = scan_repo_governance(tmp_path, policy={})
+
+    assert restored.plan_registry == original.plan_registry
+    assert restored.doc_registry == original.doc_registry
+
+
+@patch("dev.scripts.devctl.governance.draft.subprocess.run", _mock_subprocess_run)
+def test_scan_repo_governance_refreshes_persisted_plan_registry_artifact_when_stale(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "dev" / "active").mkdir(parents=True)
+    (tmp_path / "dev" / "reports").mkdir(parents=True)
+    (tmp_path / "dev" / "guides").mkdir(parents=True)
+    (tmp_path / "AGENTS.md").write_text("# Agents\n", encoding="utf-8")
+    (tmp_path / "dev" / "active" / "INDEX.md").write_text(
+        "# Index\n",
+        encoding="utf-8",
+    )
+    master_plan_path = tmp_path / "dev" / "active" / "MASTER_PLAN.md"
+    master_plan_path.write_text("# Master Plan\n", encoding="utf-8")
+
+    scan_repo_governance(tmp_path, policy={})
+    master_plan_path.write_text("# Updated Master Plan\n", encoding="utf-8")
+
+    with patch(
+        "dev.scripts.devctl.governance.draft_governed_docs.scan_governed_docs_for_layout",
+        wraps=scan_governed_docs_for_layout,
+    ) as scan_mock:
+        refreshed = scan_repo_governance(tmp_path, policy={})
+
+    assert scan_mock.called
+    tracker_entry = next(
+        entry
+        for entry in refreshed.plan_registry.entries
+        if entry.path == "dev/active/MASTER_PLAN.md"
+    )
+    assert tracker_entry.title == "Updated Master Plan"
 
 
 @patch("dev.scripts.devctl.governance.draft.subprocess.run", _mock_subprocess_run)

@@ -81,7 +81,7 @@ treat these rules as active workflow instructions immediately.
 - Last Codex poll (Local America/New_York): `2026-04-15 20:55:56 EDT`
 - Reviewer mode: `single_agent`
 - Last non-audit worktree hash: `545392dde693a53d5d885aeb51bb54e0d005afedd5d144f727c1f8b2f70e0597`
-- Current instruction revision: ``
+- Current instruction revision: `12954e60379e`
 
 ## Protocol
 
