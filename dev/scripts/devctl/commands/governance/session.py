@@ -82,7 +82,7 @@ def _run_implementer(args, repo_root: Path) -> int:
 
 def _run_dashboard(args, repo_root: Path) -> int:
     """Start a dashboard session (read-only monitoring)."""
-    return _emit_bootstrap(args, repo_root, role="dashboard")
+    return _emit_bootstrap(args, repo_root, role="observer")
 
 
 def _emit_bootstrap(args, repo_root: Path, *, role: str) -> int:

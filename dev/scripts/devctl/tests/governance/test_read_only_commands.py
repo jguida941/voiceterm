@@ -26,6 +26,7 @@ class ReadOnlyCommandSetTests(unittest.TestCase):
         expected = {
             "auto-mode",
             "startup-context",
+            "session",
             "session-resume",
             "context-graph",
             "review-channel",

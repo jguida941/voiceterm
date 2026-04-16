@@ -17,11 +17,9 @@ def typed_report_trigger_available(report: dict[str, object]) -> bool:
 
 
 def typed_report_trigger_met(report: dict[str, object]) -> bool:
-    """Typed-report gate: reviewer mode is active, review is needed, and resync is not required."""
+    """Typed-report gate: reviewer mode is active, resync not required, and either review needed or relaunch required."""
     from .peer_liveness import reviewer_mode_is_active
 
-    if not bool(report.get("review_needed")):
-        return False
     authority_snap = report.get("authority_snapshot")
     if not isinstance(authority_snap, dict):
         return False
@@ -31,8 +29,12 @@ def typed_report_trigger_met(report: dict[str, object]) -> bool:
     if not reviewer_mode_is_active(reviewer_mode):
         return False
     attention_status = str(authority_snap.get("attention_status") or "").strip()
+    # Relaunch-required always triggers regardless of review_needed
     if attention_status == "review_loop_relaunch_required":
         return True
+    # All other triggers require review_needed
+    if not bool(report.get("review_needed")):
+        return False
     coordination = report.get("coordination")
     if isinstance(coordination, dict):
         launch_truth = str(coordination.get("launch_truth") or "").strip()
