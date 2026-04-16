@@ -1037,6 +1037,22 @@
   is unavailable. Remaining `T05` scope is the docs-governance/reporting side
   that still scans markdown for registry metadata before markdown can be
   treated as bounded projection-only state.
+- Latest same-lane progress on 2026-04-15: docs-governance routing now closes
+  the first maintainer-doc read-side gap on that remaining `T05` scope.
+  `governed_doc_routing.py` prefers typed `ProjectGovernance` doc paths
+  (`docs_authority`, guide roots, scripts README, tracker/index roots) before
+  surface-generation context fallbacks, and the docs-check policy defaults
+  are covered by focused governance/docs regressions plus a clean
+  `devctl check --profile ci` run.
+- Latest same-lane progress on 2026-04-15: the next `MP377-P1-T05`
+  follow-up keeps `plan_registry` bounded to execution-authority docs while
+  closing two more read-side gaps. Scoped plan readers now resolve execution
+  plans first and then typed `doc_registry` companion docs before any raw
+  `INDEX.md` compatibility path, and packet-inbox merge no longer revives
+  evicted expired findings in `open_findings`/attention when the live reducer
+  has already dropped those packet ids. Focused proof is green; full
+  `check --profile ci` is still blocked by baseline package-layout debt and
+  the branch's over-budget dirty startup state.
 - Latest same-lane closure on 2026-04-02: the dirty-branch
   `dev/scripts/checks/**` modularization/layout blocker is closed. The
   remaining flat helpers for bundle workflow parity, duplication audit,

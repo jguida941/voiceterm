@@ -846,8 +846,11 @@ Three quality layers matter in practice:
   - `check-router` and `docs-check` now follow the same rule for markdown
     routing: use typed doc authority (`DocRegistry` plus repo-owned surface
     context) to decide which docs are tooling/self-hosting surfaces before
-    generic path buckets, and keep empty/partial repo policy from silently
-    reviving VoiceTerm maintainer-doc defaults in another repo.
+    generic path buckets, keep empty/partial repo policy from silently
+    reviving VoiceTerm maintainer-doc defaults in another repo, and prefer
+    typed `ProjectGovernance` doc paths (`docs_authority`, guide roots,
+    scripts README, tracker/index roots) before surface-generation context
+    fallbacks when composing docs-governance routing defaults.
   - Repo-governance checkpoint policy may declare compatibility projections
     such as `bridge.md` that are excluded from advisory dirty-path budgeting.
     That exclusion only affects checkpoint-budget accounting; raw git state

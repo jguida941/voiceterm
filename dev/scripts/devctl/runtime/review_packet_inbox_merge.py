@@ -2,22 +2,10 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
-
-from .review_packet_inbox_lookup import packet_id as _packet_id
 from .review_state_packet_models import (
     AgentAttentionRecord,
     PacketInboxState,
 )
-
-
-def live_packet_ids(packets: Sequence[object] | object) -> frozenset[str]:
-    """Return the normalized ids for currently-live packet rows."""
-    return frozenset(
-        packet_id
-        for packet_id in (_packet_id(packet) for packet in _packet_rows(packets))
-        if packet_id
-    )
 
 
 def merge_packet_inbox_states(
@@ -63,27 +51,47 @@ def sanitize_persisted_record(
     """Drop persisted packet references that no longer exist in the live reducer."""
     if record is None:
         return None
-    if not live_packet_ids:
-        return record
-    return AgentAttentionRecord(
+    sanitized = AgentAttentionRecord(
         agent=record.agent,
         current_instruction_packet_id=(
             record.current_instruction_packet_id
             if record.current_instruction_packet_id in live_packet_ids
             else ""
         ),
-        latest_finding_packet_id=record.latest_finding_packet_id,
+        latest_finding_packet_id=(
+            record.latest_finding_packet_id
+            if record.latest_finding_packet_id in live_packet_ids
+            else ""
+        ),
         pending_actionable_packet_ids=tuple(
             packet_id
             for packet_id in record.pending_actionable_packet_ids
             if packet_id in live_packet_ids
         ),
-        expired_unresolved_packet_ids=record.expired_unresolved_packet_ids,
+        expired_unresolved_packet_ids=tuple(
+            packet_id
+            for packet_id in record.expired_unresolved_packet_ids
+            if packet_id in live_packet_ids
+        ),
         attention_status=record.attention_status,
         wake_reason=record.wake_reason,
         required_command=record.required_command,
         attention_revision=record.attention_revision,
         delivery_state=record.delivery_state,
+    )
+    if _record_has_live_attention(sanitized):
+        return sanitized
+    return AgentAttentionRecord(
+        agent=sanitized.agent,
+        current_instruction_packet_id=sanitized.current_instruction_packet_id,
+        latest_finding_packet_id=sanitized.latest_finding_packet_id,
+        pending_actionable_packet_ids=sanitized.pending_actionable_packet_ids,
+        expired_unresolved_packet_ids=sanitized.expired_unresolved_packet_ids,
+        attention_status="none",
+        wake_reason="",
+        required_command="",
+        attention_revision=sanitized.attention_revision,
+        delivery_state="idle",
     )
 
 
@@ -146,6 +154,14 @@ def _attention_score(record: AgentAttentionRecord) -> tuple[int, ...]:
     )
 
 
+def _record_has_live_attention(record: AgentAttentionRecord) -> bool:
+    return bool(
+        record.current_instruction_packet_id
+        or record.pending_actionable_packet_ids
+        or record.expired_unresolved_packet_ids
+    )
+
+
 def _agent_ids(
     *,
     rebuilt: PacketInboxState,
@@ -157,9 +173,3 @@ def _agent_ids(
             *(record.agent for record in rebuilt.agents),
         }
     )
-
-
-def _packet_rows(packets: Sequence[object] | object) -> tuple[Mapping[str, object], ...]:
-    if not isinstance(packets, Sequence) or isinstance(packets, (str, bytes)):
-        return ()
-    return tuple(packet for packet in packets if isinstance(packet, Mapping))

@@ -36,8 +36,6 @@ from .event_store import (
     idempotency_key,
     load_events,
     next_event_id,
-    next_packet_id,
-    next_trace_id,
     resolve_artifact_paths,
 )
 from .state import project_id_for_repo
@@ -91,20 +89,13 @@ def post_packet(
         ),
     )
 
-    # Assign packet and trace IDs (caller-supplied or auto-generated)
-    next_packet = request.packet_id or next_packet_id(existing_events)
-    next_trace = request.trace_id or next_trace_id(
-        existing_events,
-        from_agent=request.from_agent,
-    )
-
     event = {
         "schema_version": 1,
         "event_id": next_event_id(existing_events),
         "session_id": request.session_id,
         "project_id": project_id_for_repo(repo_root),
-        "packet_id": next_packet,
-        "trace_id": next_trace,
+        "packet_id": request.packet_id,
+        "trace_id": request.trace_id,
         "timestamp_utc": utc_timestamp(),
         "source": "review_channel",
         "plan_id": request.plan_id,
@@ -127,14 +118,7 @@ def post_packet(
         **request.target.to_event_fields(),
         **request.runtime_approval.to_event_fields(),
         "status": "pending",
-        "idempotency_key": idempotency_key(
-            "packet_posted",
-            next_packet,
-            request.from_agent,
-            request.to_agent,
-            request.summary,
-            request.body,
-        ),
+        "idempotency_key": "",
         "nonce": secrets.token_hex(12),
         "expires_at_utc": future_utc_timestamp(minutes=request.expires_in_minutes),
         "metadata": {},

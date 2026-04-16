@@ -1,13 +1,24 @@
-"""Shared projections over typed PlanRegistry entries."""
+"""Shared projections over typed plan/doc registry entries."""
 
 from __future__ import annotations
 
+from pathlib import Path
 import re
 
-from .project_governance import PlanRegistry
+from .project_governance import DocRegistry, PlanRegistry, ProjectGovernance
 
 _MP_RANGE_RE = re.compile(r"MP-(?P<start>\d+)\s*\.\.\s*MP-(?P<end>\d+)")
 _MP_TOKEN_RE = re.compile(r"MP-(?P<num>\d+)")
+_SCOPED_DOC_CLASSES = frozenset({"tracker", "spec", "runbook", "reference"})
+_SKIPPED_SCOPED_ARTIFACT_ROLES = frozenset(
+    {
+        "compatibility_projection",
+        "docs_authority",
+        "generated_surface",
+        "plan_registry",
+        "shared_backlog",
+    }
+)
 
 
 def plan_registry_rows(
@@ -54,6 +65,61 @@ def resolve_plan_path_for_scope(
     return ""
 
 
+def resolve_governed_doc_path_for_scope(
+    governance: ProjectGovernance | None,
+    scope_token: str,
+) -> str:
+    """Return the best typed governed-doc path for a scoped MP token."""
+    if governance is None:
+        return ""
+
+    governed_path = resolve_plan_path_for_scope(governance.plan_registry, scope_token)
+    if governed_path:
+        return governed_path
+
+    return resolve_doc_registry_path_for_scope(
+        governance.doc_registry,
+        scope_token,
+        exclude_paths=(
+            governance.plan_registry.index_path,
+            governance.plan_registry.registry_path,
+        ),
+    )
+
+
+def resolve_doc_registry_path_for_scope(
+    doc_registry: DocRegistry | None,
+    scope_token: str,
+    *,
+    exclude_paths: tuple[str, ...] = (),
+) -> str:
+    """Return the first typed governed-doc companion path for a scoped MP token."""
+    if doc_registry is None:
+        return ""
+
+    excluded_paths = {
+        str(path or "").strip()
+        for path in exclude_paths
+        if str(path or "").strip()
+    }
+    active_root = _active_docs_root(doc_registry)
+    for entry in doc_registry.entries:
+        path = str(entry.path or "").strip()
+        if not path or path in excluded_paths:
+            continue
+        if active_root and not _path_in_root(path, active_root):
+            continue
+        if str(entry.doc_class or "").strip() not in _SCOPED_DOC_CLASSES:
+            continue
+        if str(entry.artifact_role or "").strip() in _SKIPPED_SCOPED_ARTIFACT_ROLES:
+            continue
+        if str(entry.authority_kind or "").strip() == "compatibility_only":
+            continue
+        if scope_cell_matches(scope_token=scope_token, scope_cell=str(entry.scope or "")):
+            return path
+    return ""
+
+
 def scope_cell_matches(*, scope_token: str, scope_cell: str) -> bool:
     """Return whether an MP token is present in one plan-registry scope cell."""
     token_match = _MP_TOKEN_RE.fullmatch(scope_token.strip())
@@ -80,7 +146,27 @@ def _iter_mp_ids(scope_cell: str) -> tuple[str, ...]:
     return tuple(mp_ids)
 
 
+def _active_docs_root(doc_registry: DocRegistry) -> str:
+    index_path = str(doc_registry.index_path or "").strip()
+    if not index_path:
+        return ""
+    parent = Path(index_path).parent.as_posix().strip("/")
+    return parent
+
+
+def _path_in_root(path: str, root: str) -> bool:
+    normalized_path = path.strip().strip("/")
+    normalized_root = root.strip().strip("/")
+    if not normalized_root:
+        return True
+    return normalized_path == normalized_root or normalized_path.startswith(
+        f"{normalized_root}/"
+    )
+
+
 __all__ = [
+    "resolve_doc_registry_path_for_scope",
+    "resolve_governed_doc_path_for_scope",
     "plan_index_by_mp",
     "plan_registry_rows",
     "resolve_plan_path_for_scope",

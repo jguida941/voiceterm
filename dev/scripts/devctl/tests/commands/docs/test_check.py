@@ -11,7 +11,9 @@ from dev.scripts.devctl import collect
 from dev.scripts.devctl.config import REPO_ROOT, get_repo_root, set_repo_root
 from dev.scripts.devctl.cli import build_parser
 from dev.scripts.devctl.commands.docs import check as docs_check
+from dev.scripts.devctl.commands import docs_check_policy
 from dev.scripts.devctl.commands.docs.check_runtime import StrictToolingGateState
+from dev.scripts.devctl.governance.governed_doc_routing import GovernedDocRouting
 from dev.scripts.devctl.quality_scan_mode import ADOPTION_BASE_REF, WORKTREE_HEAD_REF
 
 
@@ -213,6 +215,66 @@ class DocsCheckCommandTests(unittest.TestCase):
         code = docs_check.run(args)
 
         self.assertEqual(code, 1)
+
+
+class DocsCheckPolicyRuntimeTests(unittest.TestCase):
+    def test_policy_defaults_follow_governed_doc_routing(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            repo_root = Path(tmpdir)
+            policy_path = repo_root / "policy.json"
+            policy_path.write_text("{}", encoding="utf-8")
+            (repo_root / "Makefile").write_text("check:\n\t@true\n", encoding="utf-8")
+            routing = GovernedDocRouting(
+                process_doc="CONTRIBUTING.md",
+                development_doc="docs/engineering/DEVELOPMENT.md",
+                scripts_readme_doc="tools/README.md",
+                architecture_doc="docs/engineering/ARCHITECTURE.md",
+                tracker_path="docs/plans/MASTER_PLAN.md",
+                index_path="docs/plans/INDEX.md",
+                governed_tooling_docs=(),
+                governed_tooling_prefixes=(),
+                tooling_change_prefixes=("tools/",),
+            )
+
+            with patch(
+                "dev.scripts.devctl.commands.docs.policy_runtime.resolve_governed_doc_routing",
+                return_value=routing,
+            ):
+                resolved = docs_check_policy.resolve_docs_check_policy(
+                    repo_root=repo_root,
+                    policy_path=str(policy_path),
+                )
+
+            self.assertEqual(
+                resolved.tooling_required_docs,
+                (
+                    "CONTRIBUTING.md",
+                    "docs/engineering/DEVELOPMENT.md",
+                    "tools/README.md",
+                    "docs/plans/MASTER_PLAN.md",
+                ),
+            )
+            self.assertEqual(
+                resolved.tooling_change_exact,
+                frozenset(
+                    {
+                        "CONTRIBUTING.md",
+                        "docs/engineering/DEVELOPMENT.md",
+                        "tools/README.md",
+                        "Makefile",
+                    }
+                ),
+            )
+            self.assertIn(
+                "docs/engineering/ARCHITECTURE.md",
+                resolved.evolution_change_exact,
+            )
+            self.assertIn("CONTRIBUTING.md", resolved.deprecated_reference_targets)
+            self.assertIn(
+                "docs/engineering/DEVELOPMENT.md",
+                resolved.deprecated_reference_targets,
+            )
+            self.assertIn("tools/README.md", resolved.deprecated_reference_targets)
 
     @patch("dev.scripts.devctl.commands.docs.check.write_output")
     @patch(

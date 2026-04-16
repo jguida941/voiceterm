@@ -10,7 +10,7 @@ from ..governance.doc_authority_rules import parse_index_registry
 from ..markdown_sections import parse_markdown_sections
 from ..runtime.governance_scan import scan_repo_governance_safely
 from ..runtime.plan_registry_projection import (
-    resolve_plan_path_for_scope,
+    resolve_governed_doc_path_for_scope,
     scope_cell_matches,
 )
 from ..repo_packs import active_path_config
@@ -139,7 +139,7 @@ def _resolve_from_master_tracker(*, repo_root: Path) -> PlanResolution:
     if governance is not None:
         candidate = _normalize_repo_path(
             repo_root=repo_root,
-            raw=resolve_plan_path_for_scope(governance.plan_registry, scope),
+            raw=resolve_governed_doc_path_for_scope(governance, scope),
         )
         if candidate is not None:
             return PlanResolution(path=candidate, source="tracker_scope")

@@ -11,6 +11,7 @@ from dev.scripts.devctl.review_channel.plan_resolution import (
     resolve_promotion_plan_path,
 )
 from dev.scripts.devctl.tests.plan_registry_support import (
+    doc_registry_entry,
     governance_with_entries,
     plan_registry_entry,
 )
@@ -101,6 +102,34 @@ class TestPlanResolutionFromTracker(unittest.TestCase):
                 )
             self.assertEqual(result.source, "tracker_scope")
             self.assertEqual(result.path, plan_path.resolve())
+
+    def test_resolves_mp_scope_from_typed_doc_registry_reference_when_plan_registry_has_no_match(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Path(tmp)
+            companion_path = repo / "dev" / "active" / "platform_authority_loop.md"
+            companion_path.parent.mkdir(parents=True, exist_ok=True)
+            companion_path.write_text("# Platform Authority Loop\n")
+            _write_master(repo, "MP-377")
+            governance = governance_with_entries(
+                plan_registry_entry("dev/active/review_channel.md", "MP-355"),
+                doc_entries=(
+                    doc_registry_entry(
+                        "dev/active/platform_authority_loop.md",
+                        "MP-377",
+                    ),
+                ),
+            )
+            with patch(
+                "dev.scripts.devctl.review_channel.plan_resolution.scan_repo_governance_safely",
+                return_value=governance,
+            ):
+                result = resolve_promotion_plan_path(
+                    repo_root=repo,
+                    bridge_path=None,
+                    explicit_plan_path=None,
+                )
+            self.assertEqual(result.source, "tracker_scope")
+            self.assertEqual(result.path, companion_path.resolve())
 
 
 if __name__ == "__main__":

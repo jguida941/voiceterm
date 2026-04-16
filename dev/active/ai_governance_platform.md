@@ -5100,6 +5100,26 @@ working on `MP-377`.
   ledgers: canonical findings stay in `FindingBacklog` /
   `governance-review`, `LIVE_RUN.md` stays mirror/projection evidence, and
   dogfood rows can link the two without chat-local bookkeeping.
+- 2026-04-15 docs-routing authority closure:
+  `governed_doc_routing.py` now prefers typed `ProjectGovernance` doc paths
+  (`docs_authority`, guide roots, scripts README, tracker/index roots) before
+  surface-generation context fallbacks when docs-governance composes
+  maintainer-doc defaults. Focused proof is green in
+  `test_governed_doc_routing.py`, `test_docs_check_constants.py`, and
+  `test_governance_draft.py`; clean-tree proof is green in
+  `python3 dev/scripts/devctl.py check --profile ci`.
+- 2026-04-15 typed scope-reader plus packet-inbox cleanup follow-up:
+  `MP377-P1-T05` now keeps `plan_registry` bounded to execution-authority docs
+  while still giving scoped plan readers a typed path to companion docs.
+  `plan_registry_projection.py` resolves execution plans first and then typed
+  `doc_registry` companion docs before any raw `INDEX.md` compatibility
+  fallback, and `review_packet_inbox_merge.py` now drops persisted
+  latest-finding/expired-unresolved ids that are no longer present in the
+  live reducer so `open_findings`/attention cannot be revived by stale merge
+  state alone. Focused proof is green in `test_plan_resolution.py`,
+  `test_promotion_scope.py`, `test_review_packet_inbox.py`, and
+  `test_work_intake.py`; the remaining open queue debt is the historical
+  `stale_packet_count` semantics, not current packet visibility.
 - Next action: run the campaign in the bounded order now written into the
   owner docs. VoiceTerm remains the full live proof first with
   `Codex conductor/reviewer + Claude remote-control implementer + permanent
@@ -7057,8 +7077,12 @@ Execution order for this section:
     `test_plan_resolution.py`, `test_promotion_scope.py`,
     `test_review_snapshot_why.py`, `test_catalog_nodes.py`,
     `test_context_graph.py`, and `test_review_snapshot.py`. Remaining `T05`
-    work is the docs-governance/reporting side that still treats markdown
-    scans as the registry source.
+    work is the narrower docs-governance/reporting side that still treats
+    markdown scans as the registry source. The first maintainer-doc routing
+    follow-up is now closed too: `governed_doc_routing.py` prefers typed
+    `ProjectGovernance` doc paths before surface-generation context fallbacks,
+    and focused docs-governance regressions plus a clean
+    `devctl check --profile ci` run are green on that slice.
 4. Continue from the listed `Next actions` unless the user explicitly
    reprioritizes.
 5. Before ending the session, update both this `Session Resume` section and the
@@ -7089,6 +7113,33 @@ Execution order for this section:
   `test_context_graph.py`, and `test_review_snapshot.py`. Remaining `T05`
   scope is the docs-governance/reporting side that still scans markdown for
   registry metadata.
+- 2026-04-15: Closed the first docs-governance follow-up on the remaining
+  `MP377-P1-T05` read-side scope. `governed_doc_routing.py` now prefers typed
+  `ProjectGovernance` doc paths (`docs_authority`, guide roots, scripts
+  README, tracker/index roots) before surface-generation context fallbacks,
+  and docs-check default composition is covered by new focused regressions in
+  `test_governed_doc_routing.py` and `test_docs_check_constants.py` plus
+  non-regression proof in `test_governance_draft.py` and a clean
+  `python3 dev/scripts/devctl.py check --profile ci` run. Remaining same-lane
+  work is narrower reporting/dogfood consumers, not maintainer-doc routing.
+- 2026-04-15: Landed the next `MP377-P1-T05` read-side follow-up without
+  pretending every `INDEX.md` row is an execution plan. Scoped plan readers
+  now resolve typed execution-authority entries first and then typed
+  `doc_registry` companion docs before raw `INDEX.md` compatibility fallback,
+  which lets `plan_resolution.py` and `promotion.py` stop depending on live
+  markdown rows for scoped companion-plan routing. The same slice fixes one
+  packet-queue hygiene bug in the live dogfood loop: persisted
+  `expired_unresolved_packet_ids` and stale latest-finding ids are now pruned
+  against the live reducer before packet inbox state is merged, so
+  `open_findings` / reviewer attention stop reviving already-evicted expired
+  packets. Focused proof is green in `test_plan_resolution.py`,
+  `test_promotion_scope.py`, `test_review_packet_inbox.py`, and
+  `test_work_intake.py`; repo-wide `docs-check --strict-tooling`,
+  `check_code_shape.py`, `check_review_surface_consistency.py`,
+  `check_active_plan_sync.py`, `check_multi_agent_sync.py`, and
+  `check_review_channel_bridge.py` are green. Remaining red in
+  `check --profile ci` is governance/budget debt (`package-layout` baseline
+  debt plus startup-authority dirty-budget), not a regression in this slice.
 - 2026-04-15: Closed the live review-channel observability/parity regressions
   surfaced during the dogfood relaunch. The packet miss was not transport
   loss: typed inbox state still carried the live Codex queue, but the

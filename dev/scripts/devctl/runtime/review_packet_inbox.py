@@ -16,10 +16,8 @@ from .review_packet_inbox_liveness import (
     is_live_pending as _is_live_pending,
 )
 from .review_packet_inbox_actionable import is_actionable as _is_actionable
-from .review_packet_inbox_merge import (
-    live_packet_ids as _live_packet_ids,
-    merge_packet_inbox_states as _merge_packet_inbox_states,
-)
+from .review_packet_inbox_merge import merge_packet_inbox_states as _merge_packet_inbox_states
+from .review_packet_inbox_rows import live_packet_ids as _live_packet_ids
 from .review_state_packet_models import (
     PacketInboxState,
     packet_inbox_from_mapping,

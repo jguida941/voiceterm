@@ -14,7 +14,7 @@ from ..context_graph.escalation import (
 )
 from ..context_graph.escalation_render import append_compact_context_packet_markdown
 from ..runtime.governance_scan import scan_repo_governance_safely
-from ..runtime.plan_registry_projection import resolve_plan_path_for_scope
+from ..runtime.plan_registry_projection import resolve_governed_doc_path_for_scope
 from ..repo_packs import active_path_config
 from .bridge_file import rewrite_bridge_markdown
 from .handoff import (
@@ -242,10 +242,7 @@ def resolve_scope_plan_path(
     if not mp_query.startswith("MP-"):
         mp_query = f"MP-{scope_value}"
     governance = scan_repo_governance_safely(repo_root)
-    governed_path = resolve_plan_path_for_scope(
-        governance.plan_registry if governance is not None else None,
-        mp_query,
-    )
+    governed_path = resolve_governed_doc_path_for_scope(governance, mp_query)
     if governed_path:
         candidate = repo_root / governed_path
         if candidate.exists():

@@ -73,6 +73,29 @@ def test_next_event_id_ignores_malformed_ids() -> None:
     assert next_event_id(events) == "rev_evt_0004"
 
 
+def test_next_packet_id_from_empty_list() -> None:
+    assert next_packet_id([]) == "rev_pkt_0001"
+
+
+def test_next_packet_id_sequential() -> None:
+    events = [
+        {"event_type": "packet_posted", "packet_id": "rev_pkt_0001"},
+        {"event_type": "packet_posted", "packet_id": "rev_pkt_0002"},
+        {"event_type": "packet_posted", "packet_id": "rev_pkt_0003"},
+    ]
+    assert next_packet_id(events) == "rev_pkt_0004"
+
+
+def test_next_packet_id_survives_gaps_and_ignores_non_numeric_ids() -> None:
+    events = [
+        {"event_type": "packet_posted", "packet_id": "rev_pkt_0001"},
+        {"event_type": "packet_posted", "packet_id": "custom-packet"},
+        {"event_type": "packet_posted", "packet_id": "rev_pkt_0005"},
+        {"event_type": "packet_acked", "packet_id": "rev_pkt_9999"},
+    ]
+    assert next_packet_id(events) == "rev_pkt_0006"
+
+
 def test_append_event_single_write_atomicity() -> None:
     """Verify append writes JSON+newline in a single call."""
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -131,6 +154,70 @@ def test_append_event_allocates_id_from_disk_not_snapshot() -> None:
         assert event_ids[3] == "rev_evt_0004"
 
 
+def test_append_event_allocates_packet_id_from_disk_not_snapshot() -> None:
+    """Two packet writers with stale snapshots must get unique packet_ids."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        events_path = Path(tmpdir) / "trace.ndjson"
+
+        seed_events = [
+            {
+                "event_id": "rev_evt_0001",
+                "event_type": "packet_posted",
+                "packet_id": "rev_pkt_0001",
+                "idempotency_key": "seed_pkt_1",
+            },
+            {
+                "event_id": "rev_evt_0002",
+                "event_type": "packet_posted",
+                "packet_id": "rev_pkt_0002",
+                "idempotency_key": "seed_pkt_2",
+            },
+        ]
+        for event in seed_events:
+            events_path.parent.mkdir(parents=True, exist_ok=True)
+            with events_path.open("a", encoding="utf-8") as handle:
+                handle.write(json.dumps(event, sort_keys=True) + "\n")
+
+        stale_snapshot = list(seed_events)
+
+        written_a = append_event(
+            events_path,
+            {
+                "event_type": "packet_posted",
+                "packet_id": "",
+                "trace_id": "",
+                "from_agent": "claude",
+                "to_agent": "codex",
+                "summary": "finding-a",
+                "body": "body-a",
+                "idempotency_key": "",
+            },
+            existing_events=stale_snapshot,
+        )
+        written_b = append_event(
+            events_path,
+            {
+                "event_type": "packet_posted",
+                "packet_id": "",
+                "trace_id": "",
+                "from_agent": "claude",
+                "to_agent": "codex",
+                "summary": "finding-b",
+                "body": "body-b",
+                "idempotency_key": "",
+            },
+            existing_events=stale_snapshot,
+        )
+
+        assert written_a["packet_id"] == "rev_pkt_0003"
+        assert written_b["packet_id"] == "rev_pkt_0004"
+        assert written_a["packet_id"] != written_b["packet_id"]
+
+        lines = events_path.read_text(encoding="utf-8").strip().split("\n")
+        packet_ids = [json.loads(line)["packet_id"] for line in lines]
+        assert len(set(packet_ids)) == 4, f"Duplicate packet_ids: {packet_ids}"
+
+
 def test_append_event_returns_written_event_with_correct_id() -> None:
     """Caller must receive the event with the serialized (possibly reallocated) event_id."""
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -148,6 +235,39 @@ def test_append_event_returns_written_event_with_correct_id() -> None:
         # The returned event should have the serialized event_id, not the stale one
         assert written["event_id"] == "rev_evt_0002"
         assert written["event_id"] != "rev_evt_9999"
+
+
+def test_append_event_returns_written_packet_id_for_auto_packet_posts() -> None:
+    """Caller must receive the serialized packet_id after locked auto-allocation."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        events_path = Path(tmpdir) / "trace.ndjson"
+
+        seed = {
+            "event_id": "rev_evt_0001",
+            "event_type": "packet_posted",
+            "packet_id": "rev_pkt_0001",
+            "idempotency_key": "seed_pkt_1",
+        }
+        with events_path.open("a", encoding="utf-8") as handle:
+            handle.write(json.dumps(seed, sort_keys=True) + "\n")
+
+        written = append_event(
+            events_path,
+            {
+                "event_type": "packet_posted",
+                "packet_id": "",
+                "trace_id": "",
+                "from_agent": "codex",
+                "to_agent": "claude",
+                "summary": "next-packet",
+                "body": "next-body",
+                "idempotency_key": "",
+            },
+            existing_events=[seed],
+        )
+
+        assert written["packet_id"] == "rev_pkt_0002"
+        assert written["trace_id"]
 
 
 def test_append_event_rejects_malformed_trace() -> None:
@@ -189,6 +309,77 @@ def test_append_event_rejects_duplicate_idempotency_key() -> None:
             assert False, "Should have raised ValueError"
         except ValueError as exc:
             assert "Duplicate" in str(exc)
+
+
+def test_append_event_rejects_duplicate_packet_id_for_packet_posts() -> None:
+    """Caller-supplied packet_posted ids must stay unique."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        events_path = Path(tmpdir) / "trace.ndjson"
+        append_event(
+            events_path,
+            {
+                "event_type": "packet_posted",
+                "packet_id": "rev_pkt_0001",
+                "trace_id": "trace_1",
+                "from_agent": "system",
+                "to_agent": "operator",
+                "summary": "approval",
+                "body": "body",
+                "idempotency_key": "",
+            },
+            existing_events=[],
+        )
+
+        try:
+            append_event(
+                events_path,
+                {
+                    "event_type": "packet_posted",
+                    "packet_id": "rev_pkt_0001",
+                    "trace_id": "trace_2",
+                    "from_agent": "claude",
+                    "to_agent": "codex",
+                    "summary": "finding",
+                    "body": "body",
+                    "idempotency_key": "",
+                },
+                existing_events=[],
+            )
+            assert False, "Should have raised ValueError on duplicate packet_id"
+        except ValueError as exc:
+            assert "packet_id" in str(exc)
+
+
+def test_append_event_allows_transition_events_to_reuse_packet_id() -> None:
+    """Only packet_posted rows must enforce packet_id uniqueness."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        events_path = Path(tmpdir) / "trace.ndjson"
+        append_event(
+            events_path,
+            {
+                "event_type": "packet_posted",
+                "packet_id": "rev_pkt_0001",
+                "trace_id": "trace_1",
+                "from_agent": "system",
+                "to_agent": "operator",
+                "summary": "approval",
+                "body": "body",
+                "idempotency_key": "",
+            },
+            existing_events=[],
+        )
+
+        written = append_event(
+            events_path,
+            {
+                "event_type": "packet_applied",
+                "packet_id": "rev_pkt_0001",
+                "idempotency_key": "apply_1",
+            },
+            existing_events=[],
+        )
+
+        assert written["packet_id"] == "rev_pkt_0001"
 
 
 def test_caller_sees_written_event_id_not_stale() -> None:

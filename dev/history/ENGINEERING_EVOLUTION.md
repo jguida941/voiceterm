@@ -146,6 +146,95 @@ Evidence: `dev/scripts/devctl/runtime/plan_registry_projection.py`,
 `dev/scripts/devctl/tests/context_graph/test_context_graph.py`, and
 `dev/scripts/devctl/tests/runtime/test_review_snapshot.py`.
 
+### 2026-04-15 - Docs-governance routing now prefers typed maintainer-doc paths before policy-context fallbacks
+
+Fact: the first `MP377-P1-T05` reader pass moved plan-node, promotion, and
+review-snapshot consumers onto the persisted `PlanRegistry`, but
+docs-governance still had one smaller read-side gap. The shared
+`governed_doc_routing.py` helper already trusted typed tracker/index roots, yet
+it still sourced the maintainer-doc aliases used by docs-check defaults from
+surface-generation context first. That left `process_doc`,
+`development_doc`, `architecture_doc`, and `scripts_readme_doc` one step away
+from the typed `ProjectGovernance` doc registry/path-root authority the rest of
+the same lane was trying to make canonical.
+
+This matters because the platform boundary is not just about plan routing. If
+docs-check and check-router can still rebuild their maintainer-doc defaults
+from policy-context strings before consulting the typed runtime view, another
+repo can regress back toward hidden VoiceTerm-shaped defaults even while the
+governance scan already knows the real docs authority, guide root, scripts
+root, and tracker/index paths.
+
+The closure is intentionally bounded. `governed_doc_routing.py` now prefers
+typed `ProjectGovernance` doc paths (`docs_authority`, guide roots, scripts
+README, tracker/index roots) whenever those docs are present in the runtime
+registry, and only falls back to surface-generation context when typed
+governance cannot identify them. Focused regressions prove both ends of the
+contract: the routing helper itself prefers typed doc paths over stale policy
+context, and the docs-check policy defaults follow the resolved routing object
+instead of silently reviving baked-in maintainer-doc assumptions. Clean-tree
+`devctl check --profile ci` is also green on the checkpoint that carries the
+change.
+
+Evidence: `dev/scripts/devctl/governance/governed_doc_routing.py`,
+`dev/scripts/devctl/tests/governance/test_governed_doc_routing.py`,
+`dev/scripts/devctl/tests/test_docs_check_constants.py`,
+`dev/scripts/devctl/tests/governance/test_governance_draft.py`, and
+`python3 dev/scripts/devctl.py check --profile ci`.
+
+### 2026-04-15 - Scoped plan readers now use typed companion-doc fallback, and packet inbox merge stops reviving evicted expired findings
+
+Fact: the next `MP377-P1-T05` dogfood pass surfaced a real boundary, but not
+the one the first probe claimed. `INDEX.md` currently carries 29 active rows,
+yet only 4 of them are execution-authority plan docs. The remaining 25 are
+reference/companion docs. That meant widening `PlanRegistry` to "everything in
+INDEX" would have broken the execution-authority boundary, but some scope
+readers still needed a typed way to reach companion docs without reparsing raw
+markdown tables. The same live queue pass also showed a different packet bug:
+persisted packet-inbox state could keep `latest_finding_packet_id` and
+`expired_unresolved_packet_ids` alive even after the event-backed reducer had
+already dropped those packet ids, which let `open_findings` and reviewer
+attention revive expired backlog from merge residue alone.
+
+This mattered because both bugs undermine the same platform promise: markdown
+and packet history can stay as compatibility evidence, but they should not
+quietly become the only source of truth once typed governance/runtime state is
+already available. If scope resolution still has to fall back to raw
+`INDEX.md` for companion docs, or if expired packet ids can survive purely in a
+persisted merge surface, the platform keeps reintroducing hidden mutable state
+through compatibility paths.
+
+The closure kept the authority boundary intact. `plan_registry_projection.py`
+now resolves scoped docs in two typed steps: execution-authority plan entries
+first, then typed `doc_registry` companion docs, and only then raw `INDEX.md`
+compatibility fallback when typed governance is unavailable or incomplete.
+`review_channel/plan_resolution.py` and `review_channel/promotion.py` now use
+that typed resolver. Separately, `review_packet_inbox_merge.py` now drops
+persisted latest-finding and expired-unresolved ids that are no longer present
+in the live reducer, while `review_packet_inbox.py` routes live packet-id
+collection through its own small helper seam so the merge module stays within
+shape policy. Focused proof is green, and the remaining red in
+`check --profile ci` is governance debt already visible on the branch
+(`package-layout` baseline debt and startup-authority dirty-budget), not a
+regression in the new logic.
+
+Evidence: `dev/scripts/devctl/runtime/plan_registry_projection.py`,
+`dev/scripts/devctl/review_channel/plan_resolution.py`,
+`dev/scripts/devctl/review_channel/promotion.py`,
+`dev/scripts/devctl/runtime/review_packet_inbox.py`,
+`dev/scripts/devctl/runtime/review_packet_inbox_merge.py`,
+`dev/scripts/devctl/runtime/review_packet_inbox_rows.py`,
+`dev/scripts/devctl/tests/review_channel/test_plan_resolution.py`,
+`dev/scripts/devctl/tests/review_channel/test_promotion_scope.py`,
+`dev/scripts/devctl/tests/runtime/test_review_packet_inbox.py`,
+`dev/scripts/devctl/tests/runtime/test_work_intake.py`,
+`python3 dev/scripts/devctl.py docs-check --strict-tooling`,
+`python3 dev/scripts/checks/check_code_shape.py`,
+`python3 dev/scripts/checks/check_review_surface_consistency.py`,
+`python3 dev/scripts/checks/check_active_plan_sync.py`,
+`python3 dev/scripts/checks/check_multi_agent_sync.py`, and
+`python3 dev/scripts/checks/check_review_channel_bridge.py`.
+
 ### 2026-04-15 - Bridge-backed status and event-backed startup/dashboard now share one attention-priority reducer
 
 Fact: after the authority-snapshot and packet-inbox repairs landed, the repo

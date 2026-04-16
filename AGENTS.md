@@ -820,8 +820,12 @@ checklist plus chat memory.
 4.7.0 Docs-routing follows that same rule now: `check-router` /
     `docs-check` should classify governed markdown from typed doc authority
     (`DocRegistry` plus repo-owned surface context) before falling back to
-    generic path buckets, and empty `docs_check` policy sections must not
-    silently recreate VoiceTerm maintainer-doc requirements in another repo.
+    generic path buckets. The governed-doc routing helper should also prefer
+    typed `ProjectGovernance` doc paths (`docs_authority`, `DocRegistry`,
+    `PathRoots`, tracker/index roots) for maintainer docs before it consults
+    surface-generation context fallbacks, and empty `docs_check` policy
+    sections must not silently recreate VoiceTerm maintainer-doc
+    requirements in another repo.
 4.7.1 Preserve the product boundary while doing that work: in portable
     runtime/tooling layers, treat VoiceTerm as a consumer of the governance
     platform rather than the universal repo shape. New portable code should

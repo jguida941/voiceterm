@@ -112,12 +112,14 @@ def append_event(
     *,
     existing_events: list[dict[str, object]],
 ) -> dict[str, object]:
-    """Append one event with serialized event-id allocation. Returns the written event.
+    """Append one event with serialized event/packet allocation. Returns the written event.
 
     Acquires an exclusive file lock, re-reads the on-disk log to get the
     true latest state, allocates the event_id from that fresh state, and
-    rechecks idempotency_key against the fresh log. This prevents duplicate
-    event_id values when concurrent writers hold stale snapshots.
+    canonicalizes packet-posted identifiers from that same locked view before
+    rechecking idempotency_key against the fresh log. This prevents duplicate
+    event_id or auto-generated packet_id values when concurrent writers hold
+    stale snapshots.
     """
     events_path.parent.mkdir(parents=True, exist_ok=True)
     with events_path.open("a", encoding="utf-8") as handle:
@@ -126,9 +128,10 @@ def append_event(
             # Re-read the on-disk log while holding the lock to get fresh state.
             fresh_events = _read_events_under_lock(events_path)
 
-            # Allocate event_id from fresh on-disk state, not stale caller snapshot.
+            # Allocate ids from fresh on-disk state, not stale caller snapshots.
             event = dict(event)
             event["event_id"] = next_event_id(fresh_events)
+            _finalize_packet_posted_identity(event, fresh_events)
 
             # Recheck idempotency_key against fresh state.
             idempotency_key = str(event.get("idempotency_key") or "").strip()
@@ -153,6 +156,44 @@ def append_event(
         finally:
             fcntl.flock(handle, fcntl.LOCK_UN)
     return event
+
+
+def _finalize_packet_posted_identity(
+    event: dict[str, object],
+    fresh_events: list[dict[str, object]],
+) -> None:
+    """Allocate packet-posted ids from the locked on-disk view."""
+    if str(event.get("event_type") or "").strip() != "packet_posted":
+        return
+
+    packet_id = str(event.get("packet_id") or "").strip()
+    if not packet_id:
+        packet_id = next_packet_id(fresh_events)
+        event["packet_id"] = packet_id
+    elif any(
+        str(existing.get("event_type") or "").strip() == "packet_posted"
+        and str(existing.get("packet_id") or "").strip() == packet_id
+        for existing in fresh_events
+    ):
+        raise ValueError(
+            f"Duplicate review-channel packet_id rejected: {packet_id}"
+        )
+
+    trace_id = str(event.get("trace_id") or "").strip()
+    if not trace_id:
+        event["trace_id"] = next_trace_id(
+            fresh_events,
+            from_agent=str(event.get("from_agent") or "").strip(),
+        )
+
+    event["idempotency_key"] = idempotency_key(
+        "packet_posted",
+        packet_id,
+        event.get("from_agent"),
+        event.get("to_agent"),
+        event.get("summary"),
+        event.get("body"),
+    )
 
 
 def _read_events_under_lock(events_path: Path) -> list[dict[str, object]]:
@@ -251,10 +292,20 @@ def next_event_id(events: list[dict[str, object]]) -> str:
 
 def next_packet_id(events: list[dict[str, object]]) -> str:
     """Generate the next sequential packet id."""
-    next_index = (
-        sum(1 for event in events if event.get("event_type") == "packet_posted") + 1
-    )
-    return f"rev_pkt_{next_index:04d}"
+    max_index = 0
+    for event in events:
+        if str(event.get("event_type") or "").strip() != "packet_posted":
+            continue
+        packet_id = str(event.get("packet_id") or "")
+        if not packet_id.startswith("rev_pkt_"):
+            continue
+        try:
+            index = int(packet_id[len("rev_pkt_"):])
+        except ValueError:
+            continue
+        if index > max_index:
+            max_index = index
+    return f"rev_pkt_{max_index + 1:04d}"
 
 
 def next_trace_id(

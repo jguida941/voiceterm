@@ -45,6 +45,53 @@ def _existing_dir_prefix(repo_root: Path, candidate: object) -> str:
     return f"{text}/" if (repo_root / text).is_dir() else ""
 
 
+def _registry_paths(governance: object) -> tuple[str, ...]:
+    paths: list[str] = []
+    entries = getattr(getattr(governance, "doc_registry", None), "entries", ())
+    for entry in entries:
+        path = str(getattr(entry, "path", "") or "").strip()
+        if path and path not in paths:
+            paths.append(path)
+    return tuple(paths)
+
+
+def _typed_process_doc(repo_root: Path, governance: object) -> str:
+    for candidate in (
+        getattr(governance, "docs_authority", ""),
+        getattr(getattr(governance, "doc_policy", None), "docs_authority_path", ""),
+    ):
+        existing = _existing_file(repo_root, candidate)
+        if existing:
+            return existing
+    return ""
+
+
+def _typed_doc_with_name(
+    repo_root: Path,
+    governance: object,
+    *,
+    file_name: str,
+    preferred_roots: tuple[object, ...] = (),
+) -> str:
+    registry_paths = _registry_paths(governance)
+    if not registry_paths:
+        return ""
+    for root in preferred_roots:
+        root_text = str(root or "").strip().rstrip("/")
+        if not root_text:
+            continue
+        candidate = _existing_file(repo_root, f"{root_text}/{file_name}")
+        if candidate and candidate in registry_paths:
+            return candidate
+    for candidate in registry_paths:
+        if Path(candidate).name != file_name:
+            continue
+        existing = _existing_file(repo_root, candidate)
+        if existing:
+            return existing
+    return ""
+
+
 def resolve_governed_doc_routing(
     *,
     repo_root: Path = REPO_ROOT,
@@ -67,10 +114,10 @@ def resolve_governed_doc_routing(
     except (ImportError, OSError, ValueError):
         governance = None
 
-    process_doc = _existing_file(repo_root, context.get("process_doc"))
-    development_doc = _existing_file(repo_root, context.get("development_doc"))
-    scripts_readme_doc = _existing_file(repo_root, context.get("scripts_readme_doc"))
-    architecture_doc = _existing_file(repo_root, context.get("architecture_doc"))
+    process_doc = ""
+    development_doc = ""
+    scripts_readme_doc = ""
+    architecture_doc = ""
 
     tracker_path = ""
     index_path = ""
@@ -78,6 +125,31 @@ def resolve_governed_doc_routing(
     governed_tooling_prefixes: list[str] = []
     tooling_change_prefixes: list[str] = []
     if governance is not None:
+        process_doc = _typed_process_doc(repo_root, governance)
+        development_doc = _typed_doc_with_name(
+            repo_root,
+            governance,
+            file_name="DEVELOPMENT.md",
+            preferred_roots=(
+                getattr(governance.path_roots, "guides", ""),
+                getattr(governance.doc_policy, "guides_root", ""),
+            ),
+        )
+        scripts_readme_doc = _typed_doc_with_name(
+            repo_root,
+            governance,
+            file_name="README.md",
+            preferred_roots=(getattr(governance.path_roots, "scripts", ""),),
+        )
+        architecture_doc = _typed_doc_with_name(
+            repo_root,
+            governance,
+            file_name="ARCHITECTURE.md",
+            preferred_roots=(
+                getattr(governance.path_roots, "guides", ""),
+                getattr(governance.doc_policy, "guides_root", ""),
+            ),
+        )
         tracker_path = _existing_file(repo_root, governance.plan_registry.tracker_path)
         index_path = _existing_file(repo_root, governance.plan_registry.index_path)
         for entry in governance.doc_registry.entries:
@@ -104,11 +176,23 @@ def resolve_governed_doc_routing(
             governance.path_roots.workflows,
             ".github/scripts",
             "scripts/macro-packs",
-        ):
-            _append_unique(
-                tooling_change_prefixes,
-                _existing_dir_prefix(repo_root, item),
-            )
+            ):
+                _append_unique(
+                    tooling_change_prefixes,
+                    _existing_dir_prefix(repo_root, item),
+                )
+
+    if not process_doc:
+        process_doc = _existing_file(repo_root, context.get("process_doc"))
+    if not development_doc:
+        development_doc = _existing_file(repo_root, context.get("development_doc"))
+    if not scripts_readme_doc:
+        scripts_readme_doc = _existing_file(
+            repo_root,
+            context.get("scripts_readme_doc"),
+        )
+    if not architecture_doc:
+        architecture_doc = _existing_file(repo_root, context.get("architecture_doc"))
 
     for item in (
         process_doc,
