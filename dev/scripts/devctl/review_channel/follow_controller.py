@@ -26,12 +26,9 @@ from .reviewer_follow_guard import (
     wake_report,
 )
 from .reviewer_head_tracking import compute_review_range
-from ..commands.review_channel._supervisor_restart_policy import (
-    manual_stop_recovery_allowed,
-)
-
-_WAITING_REVIEWER_SESSION_STATES = frozenset(
-    {"interrupt_prompt", "waiting_for_user_input"}
+from .follow_controller_wake_target import (
+    resolve_reviewer_wake_target as _resolve_reviewer_wake_target,
+    resolve_reviewer_wake_paths as _resolve_reviewer_wake_paths,
 )
 
 
@@ -173,6 +170,14 @@ def _build_ensure_follow_tick(
     )
 
 
+def _manual_stop_recovery_allowed(report: dict[str, object]) -> bool:
+    """Lazy import to break circular follow_controller ↔ commands/review_channel."""
+    from ..commands.review_channel._supervisor_restart_policy import (
+        manual_stop_recovery_allowed,
+    )
+    return manual_stop_recovery_allowed(report)
+
+
 def _maybe_restart_reviewer_supervisor(
     *,
     deps: EnsureFollowDeps,
@@ -200,7 +205,7 @@ def _maybe_restart_reviewer_supervisor(
         repo_root=repo_root,
         paths=paths,
         allow_follow=True,
-        allow_manual_stop_recovery=manual_stop_recovery_allowed(report),
+        allow_manual_stop_recovery=_manual_stop_recovery_allowed(report),
     )
 
 
@@ -267,80 +272,3 @@ def maybe_wake_waiting_reviewer_conductor(
     )
 
 
-def _resolve_reviewer_wake_target(
-    *,
-    report: dict[str, object],
-    operator_interaction_mode: str,
-) -> tuple[dict[str, object] | None, dict[str, object] | None]:
-    if operator_interaction_mode.strip() != "remote_control":
-        return None, None
-
-    bridge_liveness = report.get("bridge_liveness")
-    if not isinstance(bridge_liveness, dict):
-        return None, None
-    if _codex_session_hint_state(bridge_liveness) not in _WAITING_REVIEWER_SESSION_STATES:
-        return None, None
-
-    packet = _selected_codex_action_request(report)
-    if packet is None:
-        return None, None
-    if str(packet.get("delivery_observed_at_utc") or "").strip():
-        return None, None
-    return packet, None
-
-
-def _resolve_reviewer_wake_paths(
-    paths: dict[str, object],
-) -> ReviewerWakePaths | None:
-    status_dir = as_path(paths.get("status_dir"))
-    review_channel_path = as_path(paths.get("review_channel_path"))
-    bridge_path = as_path(paths.get("bridge_path"))
-    if status_dir is None or review_channel_path is None or bridge_path is None:
-        return None
-    return ReviewerWakePaths(
-        status_dir=status_dir,
-        review_channel_path=review_channel_path,
-        bridge_path=bridge_path,
-    )
-
-
-def _selected_codex_action_request(
-    report: dict[str, object],
-) -> dict[str, object] | None:
-    packet_inbox = report.get("packet_inbox")
-    packets = report.get("packets")
-    if not isinstance(packet_inbox, dict) or not isinstance(packets, list):
-        return None
-
-    current_packet_id = ""
-    for agent in packet_inbox.get("agents", ()):
-        if not isinstance(agent, dict):
-            continue
-        if str(agent.get("agent") or "").strip() != "codex":
-            continue
-        if str(agent.get("attention_status") or "").strip() != "wake_required":
-            return None
-        current_packet_id = str(agent.get("current_instruction_packet_id") or "").strip()
-        break
-    if not current_packet_id:
-        return None
-
-    for packet in packets:
-        if not isinstance(packet, dict):
-            continue
-        if str(packet.get("packet_id") or "").strip() != current_packet_id:
-            continue
-        if str(packet.get("kind") or "").strip() != "action_request":
-            return None
-        return packet
-    return None
-
-
-def _codex_session_hint_state(bridge_liveness: dict[str, object]) -> str:
-    hints = bridge_liveness.get("session_state_hints")
-    if not isinstance(hints, dict):
-        return ""
-    codex = hints.get("codex")
-    if not isinstance(codex, dict):
-        return ""
-    return str(codex.get("state") or "").strip()

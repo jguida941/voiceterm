@@ -579,10 +579,10 @@ class TestInteractionModeResolution(unittest.TestCase):
         repo_root = Path("/tmp/repo")
         governance = SimpleNamespace(bridge_config=SimpleNamespace())
         with patch(
-            "dev.scripts.devctl.commands.vcs.commit.scan_repo_governance_safely",
+            "dev.scripts.devctl.commands.vcs.commit_preflight.scan_repo_governance_safely",
             return_value=governance,
         ) as scan_mock, patch(
-            "dev.scripts.devctl.commands.vcs.commit.build_control_plane_read_model",
+            "dev.scripts.devctl.commands.vcs.commit_preflight.build_control_plane_read_model",
             return_value=SimpleNamespace(operator_interaction_mode="single_agent"),
         ) as build_model_mock:
             self.assertEqual(_resolve_interaction_mode(repo_root), "single_agent")
@@ -1155,6 +1155,9 @@ class TestGovernedCommitPipeline(unittest.TestCase):
                 GovernedVcsExecutor,
                 "_event_packets",
                 return_value=(request_packet, decision_packet),
+            ), patch(
+                "dev.scripts.devctl.commands.vcs.governed_executor_commit_phase.check_commit_packet_gate",
+                return_value=None,
             ):
                 second_rc = run_commit(
                     _make_args(message="feat: replay missing validation receipt"),

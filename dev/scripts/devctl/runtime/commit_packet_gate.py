@@ -77,7 +77,8 @@ def pending_reviewer_packets_block_commit(
         )
 
     blocking: list[tuple[str, list[str]]] = []
-    for record in packet_inbox.agents:
+    agents = getattr(packet_inbox, "agents", None) or ()
+    for record in agents:
         if normalized_target and record.agent.lower() != normalized_target:
             continue
         if _has_actionable_attention(record):

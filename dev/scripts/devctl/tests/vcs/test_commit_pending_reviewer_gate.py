@@ -344,5 +344,45 @@ class TestCheckCommitPacketGateFailClosed(unittest.TestCase):
         self.assertIsNone(result)
 
 
+class TestMalformedPacketInboxFailsClosed(unittest.TestCase):
+    """Regression: malformed packet_inbox.agents must not crash the gate."""
+
+    def test_agents_none_does_not_crash(self):
+        """packet_inbox with agents=None should not raise TypeError."""
+        inbox = SimpleNamespace(agents=None, attention_revision="rev-1")
+        fake_state = SimpleNamespace(packet_inbox=inbox)
+        rc_path = Path("/tmp/fake_review_channel")
+        with patch.object(rc_path.__class__, "exists", return_value=True):
+            with patch(
+                "dev.scripts.devctl.runtime.commit_packet_gate._load_review_state",
+                return_value=fake_state,
+            ):
+                result = pending_reviewer_packets_block_commit(
+                    repo_root=Path("/tmp/fake_repo"),
+                    review_channel_path=rc_path,
+                    target_agent="claude",
+                )
+        self.assertIsNone(result)
+
+    def test_agents_missing_attr_does_not_crash(self):
+        """packet_inbox without agents attr should not raise AttributeError."""
+        inbox = SimpleNamespace(attention_revision="rev-1")
+        fake_state = SimpleNamespace(packet_inbox=inbox)
+        rc_path = Path("/tmp/fake_review_channel")
+        with patch.object(rc_path.__class__, "exists", return_value=True):
+            with patch(
+                "dev.scripts.devctl.runtime.commit_packet_gate._load_review_state",
+                return_value=fake_state,
+            ):
+                try:
+                    result = pending_reviewer_packets_block_commit(
+                        repo_root=Path("/tmp/fake_repo"),
+                        review_channel_path=rc_path,
+                        target_agent="claude",
+                    )
+                except AttributeError:
+                    self.fail("Should not crash on missing agents attribute")
+
+
 if __name__ == "__main__":
     unittest.main()

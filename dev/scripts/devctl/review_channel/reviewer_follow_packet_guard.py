@@ -13,6 +13,12 @@ from .events import (
 )
 from .packet_contract import PacketPostRequest
 from .turn_authority import ReviewerTurnAuthority
+from .reviewer_follow_trigger_gate import (
+    typed_report_trigger_available as _typed_report_trigger_available,
+    typed_report_trigger_met as _typed_report_trigger_met,
+    authority_trigger_met as _authority_trigger_met,
+    legacy_trigger_met as _legacy_trigger_met,
+)
 
 _REVIEW_TRIGGER_KEY_PREFIX = "- review_trigger_key: `"
 _REVIEW_TRIGGER_KIND = "action_request"
@@ -127,6 +133,12 @@ def _resolve_packet_context(
         if not _authority_trigger_met(authority):
             return None
         attention_status = authority.attention_status
+    elif _typed_report_trigger_available(request.report):
+        if not _typed_report_trigger_met(request.report):
+            return None
+        authority_snap = request.report["authority_snapshot"]
+        assert isinstance(authority_snap, dict)
+        attention_status = str(authority_snap.get("attention_status") or "").strip()
     else:
         if not bool(request.report.get("review_needed")):
             return None
@@ -155,34 +167,6 @@ def _resolve_packet_context(
     )
 
 
-def _authority_trigger_met(authority: ReviewerTurnAuthority) -> bool:
-    """Check trigger condition using the shared turn-authority contract."""
-    if not authority.next_turn_required:
-        return False
-    return authority.next_turn_role == "reviewer"
-
-
-def _legacy_trigger_met(
-    bridge_liveness: dict[str, object],
-    attention: dict[str, object],
-) -> bool:
-    """Fallback trigger condition for callers without a turn authority."""
-    from .peer_liveness import reviewer_mode_is_active
-
-    reviewer_mode = str(
-        bridge_liveness.get("effective_reviewer_mode")
-        or bridge_liveness.get("reviewer_mode")
-        or ""
-    )
-    if not reviewer_mode_is_active(reviewer_mode):
-        return False
-    attention_status = str(attention.get("status") or "").strip()
-    if attention_status == "review_loop_relaunch_required":
-        return True
-    launch_truth = str(bridge_liveness.get("launch_truth") or "").strip()
-    if launch_truth in {"detached_runtime_only", "automation_only", "hybrid_claude_only"}:
-        return True
-    return bool(bridge_liveness.get("poll_status_automation_only"))
 
 
 def _build_trigger_key(
