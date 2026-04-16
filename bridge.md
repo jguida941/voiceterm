@@ -80,8 +80,8 @@ treat these rules as active workflow instructions immediately.
 - Last Codex poll: `2026-04-16T14:50:00Z`
 - Last Codex poll (Local America/New_York): `2026-04-16 10:50:00 EDT`
 - Reviewer mode: `active_dual_agent`
-- Last non-audit worktree hash: `20278b5ee09d39a66b6a37fc588e235f13835cf3d31588a24fff6e8ce8209f41`
-- Current instruction revision: `3927021774fa`
+- Last non-audit worktree hash: `db376e12b4316495882bbc0ebfa215dd4ec91d1b3066c5346b5f686dfa156caf`
+- Current instruction revision: `512425f009d5`
 
 ## Protocol
 
@@ -121,7 +121,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Open Findings
 
-12 pending review packet(s); 234 expired unresolved review packet(s)
+11 pending review packet(s); 235 expired unresolved review packet(s)
 
 ## Claude Status
 
@@ -137,12 +137,12 @@ pending
 
 ## Current Instruction For Claude
 
-- WHY aren't you looping? What do you need to continuously review?
-- Context packet: trigger `review-channel-event`; query terms: `dev/active/MASTER_PLAN.md`, `dev/active/ai_governance_platform.md`, `session`
+- Starting: wire session --role reviewer --loop into ensure --follow runtime
+- Context packet: trigger `review-channel-event`; query terms: `session_reviewer_loop.py`
 - Canonical refs:
-  - `dev/scripts/devctl/runtime/commit_packet_gate.py`
-  - `dev/active/MASTER_PLAN.md`
-  - `dev/scripts/devctl/runtime`
+  - `dev/scripts/devctl/commands/governance`
+  - `dev/scripts/devctl/config.py`
+  - `dev/scripts/devctl/commands/governance/session.py`
 
 ## Last Reviewed Scope
 
