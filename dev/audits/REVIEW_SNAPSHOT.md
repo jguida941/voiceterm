@@ -5,14 +5,14 @@
 ## Quick status
 
 - Branch: `feature/governance-quality-sweep`
-- HEAD: `d2171db622bb` — Refresh external review snapshot for 3187f7ce
-- Tree hash: `9472ab0c9cb6`
-- Generation stamp: `snap-18b7577b3205`
-- Generated at (UTC): 2026-04-16T06:21:21Z
-- Push decision: `await_checkpoint` — staged_index_present
+- HEAD: `9fb25fcd1da7` — Drop zref from snapshot hash inputs + fix bridge instruction-revision drift
+- Tree hash: `2bb2adeac46c`
+- Generation stamp: `snap-150200d85644`
+- Generated at (UTC): 2026-04-16T06:29:45Z
+- Push decision: `await_checkpoint` — staged_and_unstaged_worktree_present
 - Reviewer mode: `single_agent` (interaction: `local_terminal`)
 - Pipeline state: `n/a` (approval: `n/a`)
-- Delta since last snapshot: 24 commits, 111 files, +7198/-2532
+- Delta since last snapshot: 24 commits, 111 files, +7073/-2516
 - Governance findings: 112 open / 86 fixed / 212 total
 - Probe hints: 0 total across 0 files scanned
 
@@ -54,19 +54,19 @@ adopters arrive.
 - Remote: `https://github.com/jguida941/voiceterm.git`
 - Default branch: `master`
 - Current branch: `feature/governance-quality-sweep`
-- HEAD SHA: `d2171db622bb85d98af63f616d081896947f1eeb`
+- HEAD SHA: `9fb25fcd1da71811476aa9d33f555ffebab4416a`
 - HEAD author: Justin Guida
-- HEAD timestamp (UTC): 2026-04-16T02:10:53-04:00
+- HEAD timestamp (UTC): 2026-04-16T02:20:38-04:00
 
 ## 2. Governance state
 
 ### Push decision
 - action: `await_checkpoint`
-- reason: staged_index_present
+- reason: staged_and_unstaged_worktree_present
 - push_eligible_now: False
 - worktree_clean: False
-- staged_path_count: 3
-- unstaged_path_count: 0
+- staged_path_count: 2
+- unstaged_path_count: 1
 - next_step_command: `n/a`
 - latest_push_report: `dev/reports/push/latest.json`
 - latest_push_report_state: `post_push_green` (push_completed)
@@ -74,7 +74,7 @@ adopters arrive.
 - authorized_head_commit: `09ef6ccc55c84eef7ba8deccc4aef760856f2106`
 - approved_target_identity: `tree-receipt-20260416T045111064083Z:5d89fb3f8b159b4226e2ef22e214464969be6342`
 - publication_backlog: recommended
-- publication_guidance: 2 local commit(s) waiting for governed push once the current slice is checkpoint-clean.
+- publication_guidance: 3 local commit(s) waiting for governed push once the current slice is checkpoint-clean.
 
 ### Reviewer runtime
 - reviewer_mode: `single_agent`
@@ -94,13 +94,13 @@ adopters arrive.
 
 ## 3. Delta — what changed since the previous snapshot
 
-Range: last 24 commits ending at `d2171db622bb`
+Range: last 24 commits ending at `9fb25fcd1da7`
 
 - commits: 24
 - files changed: 111
-- insertions: +7198
-- deletions: -2532
-- bundle classes touched: docs, tooling
+- insertions: +7073
+- deletions: -2516
+- bundle classes touched: tooling, docs
 - risk add-ons triggered: Parser / ANSI boundary
 - authority surfaces touched: 11 file(s)
 
@@ -108,48 +108,48 @@ Range: last 24 commits ending at `d2171db622bb`
 
 | # | SHA | Subject | Files | +/- | Bundle | Risk |
 |---|---|---|---|---|---|---|
-| 1 | `d2171db6` | Refresh external review snapshot for 3187f7ce | 2 | +77/-78 | docs |  |
-| 2 | `3187f7ce` | Fix zref regression + contract parity + focused tests | 26 | +552/-211 | tooling |  |
-| 3 | `09ef6ccc` | Refresh external review snapshot for a0686d76 | 2 | +62/-66 | docs |  |
-| 4 | `a0686d76` | Split loop-packet commands into packets package | 11 | +653/-581 | tooling |  |
-| 5 | `1e54c022` | Refresh external review snapshot for 85b11941 | 2 | +58/-61 | docs |  |
-| 6 | `85b11941` | Project typed plan authority and packet inbox state | 24 | +1116/-138 | tooling |  |
-| 7 | `fa370be5` | Refresh external review snapshot for bc594104 | 2 | +65/-68 | docs |  |
-| 8 | `bc594104` | Project plan authority readers from typed registry | 18 | +464/-93 | tooling |  |
-| 9 | `af3724b7` | Refresh external review snapshot for 8873e4e5 | 2 | +62/-67 | docs |  |
-| 10 | `8873e4e5` | Persist plan registry artifact for startup authority | 14 | +703/-73 | tooling |  |
-| 11 | `42ddab83` | Refresh external review snapshot for 980648dd | 2 | +69/-76 | docs |  |
-| 12 | `980648dd` | Prefer effective reviewer mode for governed commit fallback | 10 | +159/-73 | tooling |  |
-| 13 | `5146e651` | Refresh external review snapshot for a14356d3 | 2 | +72/-89 | docs |  |
-| 14 | `a14356d3` | Fix review-channel launch authority and runtime packet pari… | 28 | +732/-126 | tooling |  |
-| 15 | `bc1b011b` | Refresh external review snapshot for d599b9b6 | 2 | +61/-61 | docs |  |
-| 16 | `d599b9b6` | Fix startup repair authority parity | 11 | +395/-58 | tooling |  |
-| 17 | `7d35f8e8` | Refresh external review snapshot for f3350f0d | 2 | +74/-69 | docs |  |
-| 18 | `f3350f0d` | Implement dogfood campaign contract and bound startup autho… | 23 | +908/-99 | tooling | Parser / ANSI boundary |
-| 19 | `8b587485` | Refresh external review snapshot for 5807328b | 2 | +66/-68 | docs |  |
-| 20 | `5807328b` | Harden shim governance and review state parsing | 15 | +292/-94 | tooling |  |
-| 21 | `2454de6b` | Refresh external review snapshot for 63ad7200 | 1 | +62/-66 | tooling |  |
-| 22 | `63ad7200` | Repair event-backed bridge projection parity | 11 | +214/-83 | tooling |  |
-| 23 | `8dfa6a83` | Refresh external review snapshot for 0af6b46f | 1 | +58/-61 | tooling |  |
-| 24 | `0af6b46f` | Repair bridge poll metadata projection | 10 | +224/-73 | tooling |  |
+| 1 | `9fb25fcd` | Drop zref from snapshot hash inputs + fix bridge instructio… | 4 | +99/-57 | tooling |  |
+| 2 | `d2171db6` | Refresh external review snapshot for 3187f7ce | 2 | +77/-78 | docs |  |
+| 3 | `3187f7ce` | Fix zref regression + contract parity + focused tests | 26 | +552/-211 | tooling |  |
+| 4 | `09ef6ccc` | Refresh external review snapshot for a0686d76 | 2 | +62/-66 | docs |  |
+| 5 | `a0686d76` | Split loop-packet commands into packets package | 11 | +653/-581 | tooling |  |
+| 6 | `1e54c022` | Refresh external review snapshot for 85b11941 | 2 | +58/-61 | docs |  |
+| 7 | `85b11941` | Project typed plan authority and packet inbox state | 24 | +1116/-138 | tooling |  |
+| 8 | `fa370be5` | Refresh external review snapshot for bc594104 | 2 | +65/-68 | docs |  |
+| 9 | `bc594104` | Project plan authority readers from typed registry | 18 | +464/-93 | tooling |  |
+| 10 | `af3724b7` | Refresh external review snapshot for 8873e4e5 | 2 | +62/-67 | docs |  |
+| 11 | `8873e4e5` | Persist plan registry artifact for startup authority | 14 | +703/-73 | tooling |  |
+| 12 | `42ddab83` | Refresh external review snapshot for 980648dd | 2 | +69/-76 | docs |  |
+| 13 | `980648dd` | Prefer effective reviewer mode for governed commit fallback | 10 | +159/-73 | tooling |  |
+| 14 | `5146e651` | Refresh external review snapshot for a14356d3 | 2 | +72/-89 | docs |  |
+| 15 | `a14356d3` | Fix review-channel launch authority and runtime packet pari… | 28 | +732/-126 | tooling |  |
+| 16 | `bc1b011b` | Refresh external review snapshot for d599b9b6 | 2 | +61/-61 | docs |  |
+| 17 | `d599b9b6` | Fix startup repair authority parity | 11 | +395/-58 | tooling |  |
+| 18 | `7d35f8e8` | Refresh external review snapshot for f3350f0d | 2 | +74/-69 | docs |  |
+| 19 | `f3350f0d` | Implement dogfood campaign contract and bound startup autho… | 23 | +908/-99 | tooling | Parser / ANSI boundary |
+| 20 | `8b587485` | Refresh external review snapshot for 5807328b | 2 | +66/-68 | docs |  |
+| 21 | `5807328b` | Harden shim governance and review state parsing | 15 | +292/-94 | tooling |  |
+| 22 | `2454de6b` | Refresh external review snapshot for 63ad7200 | 1 | +62/-66 | tooling |  |
+| 23 | `63ad7200` | Repair event-backed bridge projection parity | 11 | +214/-83 | tooling |  |
+| 24 | `8dfa6a83` | Refresh external review snapshot for 0af6b46f | 1 | +58/-61 | tooling |  |
 
 ### Files
 
 | Path | Bundle | +/- |
 |---|---|---|
 | `0` | tooling | +0/-0 |
-| `AGENTS.md` | docs | +44/-10 |
-| `bridge.md` | docs | +53/-53 |
-| `dev/active/MASTER_PLAN.md` | tooling | +122/-1 |
-| `dev/active/ai_governance_platform.md` | tooling | +245/-4 |
+| `AGENTS.md` | docs | +39/-9 |
+| `bridge.md` | docs | +48/-48 |
+| `dev/active/MASTER_PLAN.md` | tooling | +116/-0 |
+| `dev/active/ai_governance_platform.md` | tooling | +226/-4 |
 | `dev/active/continuous_swarm.md` | tooling | +24/-0 |
 | `dev/active/portable_code_governance.md` | tooling | +31/-2 |
 | `dev/active/remote_control_runtime.md` | tooling | +24/-1 |
-| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1464/-1480 |
+| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1454/-1472 |
 | `dev/config/quality_presets/voiceterm.json` | tooling | +28/-0 |
-| `dev/guides/DEVELOPMENT.md` | docs | +70/-9 |
-| `dev/history/ENGINEERING_EVOLUTION.md` | tooling | +498/-0 |
-| `dev/scripts/README.md` | tooling | +62/-12 |
+| `dev/guides/DEVELOPMENT.md` | docs | +63/-7 |
+| `dev/history/ENGINEERING_EVOLUTION.md` | tooling | +462/-0 |
+| `dev/scripts/README.md` | tooling | +61/-11 |
 | `dev/scripts/checks/python_analysis/cyclic_imports_graph.py` | tooling | +36/-69 |
 | `dev/scripts/checks/startup_authority_contract/runtime_import_atomicity.py` | tooling | +36/-1 |
 | `dev/scripts/checks/startup_authority_contract/runtime_import_git.py` | tooling | +37/-0 |
@@ -248,6 +248,7 @@ Recent findings:
 ### Targeted hints
 
 - **risk**: Parser / ANSI boundary — Delta touches a risk-sensitive surface; verify the routed bundle
+- **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/review_channel/bridge_projection_metadata.py`) — Review contract-level invariants for this file
 - **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/runtime/remote_commit_pipeline_models.py`) — Review contract-level invariants for this file
 - **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/runtime/startup_context.py`) — Review contract-level invariants for this file
 - **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/runtime/review_snapshot_why.py`) — Review contract-level invariants for this file
@@ -258,7 +259,6 @@ Recent findings:
 - **authority_surface**: Typed authority surface touched (`dev/scripts/checks/startup_authority_contract/runtime_import_atomicity.py`) — Review contract-level invariants for this file
 - **authority_surface**: Typed authority surface touched (`dev/scripts/checks/startup_authority_contract/runtime_import_git.py`) — Review contract-level invariants for this file
 - **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/tests/checks/test_startup_authority_contract.py`) — Review contract-level invariants for this file
-- **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/review_channel/bridge_projection_metadata.py`) — Review contract-level invariants for this file
 - **contract_mutation**: Contract / typed model mutated (`dev/scripts/devctl/platform/surface_state_contract_rows.py`) — Commit 3187f7ce changed dev/scripts/devctl/platform/surface_state_contract_rows.py
 - **contract_mutation**: Contract / typed model mutated (`dev/scripts/devctl/runtime/remote_commit_pipeline_models.py`) — Commit 3187f7ce changed dev/scripts/devctl/runtime/remote_commit_pipeline_models.py
 - **contract_mutation**: Contract / typed model mutated (`dev/scripts/devctl/runtime/review_state_models.py`) — Commit 3187f7ce changed dev/scripts/devctl/runtime/review_state_models.py
@@ -277,6 +277,10 @@ Recent findings:
 
 ### Per-commit rationale
 
+- **`9fb25fcd`** — Drop zref from snapshot hash inputs + fix bridge instruction-revision drift
+  - - surface_snapshot.py: add 'zref' to drop_keys alongside 'snapshot_id' in
+  -   build_surface_snapshot_id, attach_snapshot_id, and _normalize_push_decision
+  -   so derived zref never creates self-referential snapshot hash drift.
 - **`d2171db6`** — Refresh external review snapshot for 3187f7ce
 - **`3187f7ce`** — Fix zref regression + contract parity + focused tests
   - - Safe getattr access for snapshot_id/zref on frozen review-state stubs
@@ -320,8 +324,6 @@ Recent findings:
   - evolution: Fact: the next dogfood pass after the launch-authority/runtime-parity repair found one more place where declared topology could outrank typed authority. `resolve_commit_execution_target()` still preferred `collaboration…
 - **`8dfa6a83`** — Refresh external review snapshot for 0af6b46f
   - evolution: Fact: the next dogfood pass after the launch-authority/runtime-parity repair found one more place where declared topology could outrank typed authority. `resolve_commit_execution_target()` still preferred `collaboration…
-- **`0af6b46f`** — Repair bridge poll metadata projection
-  - evolution: Fact: the next dogfood pass after the launch-authority/runtime-parity repair found one more place where declared topology could outrank typed authority. `resolve_commit_execution_target()` still preferred `collaboration…
 ### Active MP scope (from MASTER_PLAN.md)
 
 - contract slice for MP-355 plus the temporary markdown-swarm operating mode
@@ -357,4 +359,4 @@ Recent findings:
 
 ---
 
-Projection produced by `devctl review-snapshot`. Generation stamp `snap-18b7577b3205` binds this file to HEAD `d2171db622bb`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
+Projection produced by `devctl review-snapshot`. Generation stamp `snap-150200d85644` binds this file to HEAD `9fb25fcd1da7`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.

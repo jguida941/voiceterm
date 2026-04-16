@@ -115,15 +115,24 @@ def with_fallback_sections(
         "Claude Ack",
         _section_text(current_session.get("implementer_ack"), default="- missing"),
     )
-    _set_missing(
-        result,
-        "Current Instruction For Claude",
-        _section_text(
-            current_session.get("current_instruction"),
-            bridge_state.get("current_instruction"),
-            default="- Await reviewer instruction refresh.",
-        ),
-    )
+    if "current_instruction" in current_session:
+        _set_missing(
+            result,
+            "Current Instruction For Claude",
+            _section_text(
+                current_session.get("current_instruction"),
+                default="- Await reviewer instruction refresh.",
+            ),
+        )
+    else:
+        _set_missing(
+            result,
+            "Current Instruction For Claude",
+            _section_text(
+                bridge_state.get("current_instruction"),
+                default="- Await reviewer instruction refresh.",
+            ),
+        )
     _set_missing(
         result,
         "Last Reviewed Scope",
