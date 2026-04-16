@@ -64,3 +64,7 @@ def attach_conductor_session_state(
         and single_agent_lane_has_live_typed_authority(bridge_liveness)
     ):
         bridge_liveness["overall_state"] = _liveness.OverallLivenessState.SINGLE_AGENT_ACTIVE
+    # Emit typed liveness signals (MP377-P1-T08)
+    bridge_liveness["participant_liveness"] = _liveness._build_participant_liveness(
+        bridge_liveness, active_providers
+    )
