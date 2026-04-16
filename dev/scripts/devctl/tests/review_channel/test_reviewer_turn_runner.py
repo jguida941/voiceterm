@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 
 from dev.scripts.devctl.review_channel.reviewer_turn_runner import (
@@ -217,6 +218,34 @@ class TestDetectReviewerWake(unittest.TestCase):
         self.assertIsNotNone(signal)
         self.assertEqual(signal.kind, WAKE_PENDING_PACKET)
 
+    @patch(
+        "dev.scripts.devctl.review_channel.reviewer_turn_runner.load_pending_packets"
+    )
+    def test_governance_resolves_bridge_path(self, mock_load):
+        mock_load.return_value = ()
+        governance = SimpleNamespace(
+            bridge_config=SimpleNamespace(
+                bridge_path="bridge.md",
+                operator_interaction_mode="remote_control",
+            ),
+        )
+        tick = ReviewerWorkerTick(
+            state="review_needed",
+            review_needed=True,
+            reviewed_hash="aaa",
+            current_hash="bbb",
+            reviewer_mode="active_dual_agent",
+            detail="Tree changed",
+        )
+        signal = detect_reviewer_wake(
+            repo_root=Path("/fake"),
+            governance=governance,
+            reviewer_provider="codex",
+            worker_tick=tick,
+        )
+        self.assertIsNotNone(signal)
+        self.assertEqual(signal.kind, WAKE_TREE_CHANGED)
+
 
 # ── Context assembly tests ─────────────────────────────────────
 
@@ -323,6 +352,28 @@ class TestBuildReviewerTurnContext(unittest.TestCase):
         self.assertIsInstance(d, dict)
         self.assertEqual(d["reviewer_provider"], "codex")
         self.assertEqual(d["pending_packet_count"], 1)
+
+    @patch(
+        "dev.scripts.devctl.review_channel.reviewer_turn_runner.load_pending_packets"
+    )
+    def test_governance_sets_interaction_mode(self, mock_load):
+        mock_load.return_value = ()
+        governance = SimpleNamespace(
+            bridge_config=SimpleNamespace(
+                bridge_path="bridge.md",
+                operator_interaction_mode="remote_control",
+            ),
+        )
+        authority = _make_authority()
+        wake = _make_wake()
+        ctx = build_reviewer_turn_context(
+            wake_signal=wake,
+            authority=authority,
+            repo_root=Path("/fake"),
+            governance=governance,
+        )
+        self.assertIsNotNone(ctx)
+        self.assertEqual(ctx.interaction_mode, "remote_control")
 
 
 # ── Result validation tests ────────────────────────────────────

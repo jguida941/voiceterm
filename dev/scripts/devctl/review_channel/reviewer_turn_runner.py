@@ -17,11 +17,15 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from ..runtime.role_profile import TandemRole, default_provider_for_role
 from .pending_packet_storage import load_pending_packets
 from .reviewer_worker import ReviewerWorkerTick, check_review_needed
 from .turn_authority import ReviewerTurnAuthority
+
+if TYPE_CHECKING:
+    from ..runtime.project_governance_contract import ProjectGovernance
 
 
 # ── Wake signal constants ──────────────────────────────────────
@@ -116,15 +120,22 @@ class ReviewerTurnResult:
 def detect_reviewer_wake(
     *,
     repo_root: Path,
-    bridge_path: Path,
+    bridge_path: Path | None = None,
+    governance: ProjectGovernance | None = None,
     reviewer_provider: str = "",
     worker_tick: ReviewerWorkerTick | None = None,
 ) -> ReviewerWakeSignal | None:
     """Check for conditions that should wake the reviewer loop.
 
-    Returns None when no wake is needed. The controller should not
-    proceed with a turn if this returns None.
+    Resolves ``bridge_path`` from ``governance.bridge_config.bridge_path``
+    when governance is provided. Falls back to the direct parameter when
+    governance is unavailable.
+
+    Returns None when no wake is needed.
     """
+    resolved_bridge = _resolve_bridge_path(
+        repo_root=repo_root, bridge_path=bridge_path, governance=governance,
+    )
     reviewer_name = (
         reviewer_provider or default_provider_for_role(TandemRole.REVIEWER)
     )
@@ -139,8 +150,10 @@ def detect_reviewer_wake(
                 str(p.get("packet_id", "")) for p in pending
             ),
         )
+    if resolved_bridge is None:
+        return None
     tick = worker_tick or check_review_needed(
-        repo_root=repo_root, bridge_path=bridge_path,
+        repo_root=repo_root, bridge_path=resolved_bridge,
     )
     if tick.review_needed:
         return ReviewerWakeSignal(
@@ -160,16 +173,18 @@ def build_reviewer_turn_context(
     wake_signal: ReviewerWakeSignal,
     authority: ReviewerTurnAuthority,
     repo_root: Path,
+    governance: ProjectGovernance | None = None,
     interaction_mode: str = "",
     reviewer_provider: str = "",
     implementer_provider: str = "",
 ) -> ReviewerTurnContext | None:
     """Assemble typed turn context from repo-owned surfaces.
 
+    When ``governance`` is provided, ``interaction_mode`` defaults to
+    ``governance.bridge_config.operator_interaction_mode``.
+
     Returns None when authority says no reviewer turn is needed (unless
     the wake signal is an operator request, which overrides authority).
-    Fail-closed: if authority is missing or says it is the implementer's
-    turn, returns None.
     """
     is_operator_override = wake_signal.kind == WAKE_OPERATOR_REQUEST
     if not authority.next_turn_required and not is_operator_override:
@@ -198,7 +213,15 @@ def build_reviewer_turn_context(
         repo_root=str(repo_root),
         reviewer_provider=resolved_reviewer,
         implementer_provider=resolved_implementer,
-        interaction_mode=interaction_mode or "local_terminal",
+        interaction_mode=(
+            interaction_mode
+            or (
+                governance.bridge_config.operator_interaction_mode
+                if governance is not None
+                else ""
+            )
+            or "local_terminal"
+        ),
     )
 
 
@@ -232,6 +255,20 @@ def validate_turn_result(result: ReviewerTurnResult) -> list[str]:
 
 
 # ── Internal helpers ───────────────────────────────────────────
+
+
+def _resolve_bridge_path(
+    *,
+    repo_root: Path,
+    bridge_path: Path | None,
+    governance: ProjectGovernance | None,
+) -> Path | None:
+    """Resolve bridge path from governance or direct parameter."""
+    if governance is not None:
+        rel = str(governance.bridge_config.bridge_path or "").strip()
+        if rel:
+            return (repo_root / rel).resolve()
+    return bridge_path
 
 
 def _pending_packets_for(
