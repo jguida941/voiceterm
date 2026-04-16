@@ -77,11 +77,11 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-04-16T20:00:41Z`
-- Last Codex poll (Local America/New_York): `2026-04-16 16:00:41 EDT`
+- Last Codex poll: `2026-04-16T20:56:39Z`
+- Last Codex poll (Local America/New_York): `2026-04-16 16:56:39 EDT`
 - Reviewer mode: `active_dual_agent`
-- Last non-audit worktree hash: `9899585d78cd725cbbcb75887253266a5cb74f41a6ae03973be80185de43b91f`
-- Current instruction revision: ``
+- Last non-audit worktree hash: `03114f29067a60dc4c06bef174db9658733998565274ad17fc1a141819f6e1aa`
+- Current instruction revision: `c8fb0381d2ba`
 
 ## Protocol
 
@@ -113,7 +113,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Poll Status
 
-- Reviewer heartbeat refreshed through repo-owned tooling (mode: active_dual_agent; reason: ensure-follow; reviewed-tree: 9899585d78cd).
+- Reviewer heartbeat refreshed through repo-owned tooling (mode: active_dual_agent; reason: ensure-follow; reviewed-tree: 2c3c5321b42c).
 
 ## Current Verdict
 
@@ -121,7 +121,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Open Findings
 
-1 pending review packet(s); 242 expired unresolved review packet(s)
+5 pending review packet(s); 246 expired unresolved review packet(s)
 
 ## Claude Status
 
@@ -133,11 +133,16 @@ treat these rules as active workflow instructions immediately.
 
 ## Claude Ack
 
-acknowledged
+pending
 
 ## Current Instruction For Claude
 
-- Await reviewer instruction refresh.
+- CRITICAL: Full diagnostic of everything broken — fix it all, bypass rules if needed
+- Context packet: trigger `review-channel-event`; query terms: `session`
+- Canonical refs:
+  - `dev/scripts/devctl/commands/dashboard.py`
+  - `dev/scripts/devctl/commands/governance/session_resume_support.py`
+  - `dev/scripts/devctl/commands/review_channel/bridge_action_support.py`
 
 ## Last Reviewed Scope
 
