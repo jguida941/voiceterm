@@ -1,24 +1,18 @@
-"""Reviewer loop: delegates to the governed ensure-follow runtime.
+"""Hybrid reviewer loop: ensure-follow heartbeats + direct Codex launches.
 
-Instead of spawning raw codex --full-auto passes, this wires into the
-existing review-channel ensure --follow runtime which owns:
-- Publisher heartbeat lifecycle
-- Reviewer supervisor auto-restart
-- Typed wake signals (pending packets, worktree drift, implementer state)
-- Reviewer wake/relaunch via follow_controller
-
-Per Codex rev_pkt_0791: the reviewer needs a durable runtime that
-re-enters the next review cycle, not one-shot chat turns.
+Runs ensure --follow as a short tick for heartbeats/supervisor state,
+then checks for pending packets or dirty worktree. When work exists
+and no Codex process is alive, launches ``codex --full-auto`` directly,
+waits for it to finish, and loops back.
 """
 
 from __future__ import annotations
 
+import os
+import shutil
 import subprocess
 import sys
 from pathlib import Path
-from types import SimpleNamespace
-
-from ...config import get_repo_root
 
 
 def run_reviewer_loop(
@@ -27,15 +21,7 @@ def run_reviewer_loop(
     interval: int = 30,
     headless: bool = False,
 ) -> int:
-    """Start the governed reviewer runtime via ensure --follow.
-
-    This delegates to ``review-channel --action ensure --follow`` which
-    owns the full reviewer lifecycle: publisher heartbeat, supervisor
-    auto-restart, typed wake signals, and reviewer conductor relaunch.
-
-    The --follow flag keeps the runtime alive indefinitely. The
-    --follow-inactivity-timeout-seconds 0 prevents timeout exits.
-    """
+    """Run the hybrid reviewer loop: heartbeat ticks + Codex launches."""
     if not headless and not sys.stdin.isatty():
         print(
             "[session] ERROR: stdin is not a terminal. "
@@ -44,10 +30,21 @@ def run_reviewer_loop(
         )
         return 1
 
-    print(f"[session] Starting governed reviewer runtime (interval={interval}s)")
-    print(f"[session] Delegating to: review-channel --action ensure --follow")
+    print(f"[session] Starting hybrid reviewer loop (tick={interval}s)")
     print(f"[session] Repo: {repo_root}")
 
+    try:
+        while True:
+            _run_ensure_tick(repo_root, interval)
+            if _has_pending_work(repo_root) and not _codex_is_running():
+                _launch_codex_review(repo_root)
+    except KeyboardInterrupt:
+        print("\n[session] Reviewer loop stopped by user.")
+        return 0
+
+
+def _run_ensure_tick(repo_root: Path, interval: int) -> None:
+    """Run one ensure --follow tick as a subprocess with a short timeout."""
     cmd = [
         sys.executable,
         "dev/scripts/devctl.py",
@@ -55,28 +52,97 @@ def run_reviewer_loop(
         "--action", "ensure",
         "--follow",
         "--follow-interval-seconds", str(interval),
-        "--follow-inactivity-timeout-seconds", "0",
+        "--follow-inactivity-timeout-seconds", str(interval),
         "--terminal", "none",
         "--format", "json",
         "--execution-mode", "markdown-bridge",
     ]
-
-    # --loop implies continuous automated operation, which requires
-    # remote_control interaction mode for the wake controller to
-    # actually relaunch the reviewer (rev_pkt_0794).
-    import os
     env = {**os.environ, "DEVCTL_OPERATOR_INTERACTION_MODE": "remote_control"}
-
     try:
-        result = subprocess.run(
+        subprocess.run(
             cmd,
             cwd=str(repo_root),
             env=env,
+            timeout=interval + 15,
         )
-        return result.returncode
-    except KeyboardInterrupt:
-        print("\n[session] Reviewer runtime stopped by user.")
-        return 0
+    except subprocess.TimeoutExpired:
+        pass
     except FileNotFoundError:
-        print("[session] ERROR: python3 not found", file=sys.stderr)
-        return 127
+        print("[session] WARNING: python3 not found for ensure tick",
+              file=sys.stderr)
+
+
+def _has_pending_work(repo_root: Path) -> bool:
+    """Return True when there are pending packets or uncommitted changes."""
+    try:
+        from ...review_channel.pending_packet_storage import (
+            load_pending_packets,
+        )
+        if load_pending_packets(repo_root):
+            return True
+    except Exception:
+        pass
+    try:
+        result = subprocess.run(
+            ["git", "status", "--porcelain"],
+            cwd=str(repo_root),
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        if result.stdout.strip():
+            return True
+    except Exception:
+        pass
+    return False
+
+
+def _codex_is_running() -> bool:
+    """Check whether any codex process is currently alive."""
+    try:
+        result = subprocess.run(
+            ["pgrep", "-f", "codex"],
+            capture_output=True,
+            timeout=5,
+        )
+        return result.returncode == 0
+    except Exception:
+        return False
+
+
+def _launch_codex_review(repo_root: Path) -> None:
+    """Launch codex --full-auto for one review pass, wait for it to finish."""
+    codex_bin = shutil.which("codex")
+    if codex_bin is None:
+        print("[session] WARNING: codex not found in PATH", file=sys.stderr)
+        return
+
+    prompt = (
+        f"cd {repo_root} && "
+        "python3 dev/scripts/devctl.py session-resume "
+        "--role reviewer --format bootstrap | head -80\n\n"
+        "You are the reviewer. Read the bootstrap output above, then:\n"
+        "1. Run: python3 dev/scripts/devctl.py review-channel "
+        "--action inbox --status pending --format json\n"
+        "2. Review each pending packet and the current diff\n"
+        "3. Post findings via: python3 dev/scripts/devctl.py "
+        "review-channel --action reviewer-checkpoint "
+        "--reviewer-mode active_dual_agent "
+        "--reason review-pass --terminal none --format md\n"
+        "4. Exit when done."
+    )
+
+    cmd = [
+        codex_bin,
+        "-C", str(repo_root),
+        "--full-auto",
+        "-q", prompt,
+    ]
+    print(f"[session] Launching Codex review pass...")
+    try:
+        result = subprocess.run(cmd, cwd=str(repo_root), timeout=300)
+        print(f"[session] Codex exited with code {result.returncode}")
+    except subprocess.TimeoutExpired:
+        print("[session] Codex review timed out after 5 minutes")
+    except Exception as exc:
+        print(f"[session] Codex launch failed: {exc}", file=sys.stderr)
