@@ -80,6 +80,8 @@ class PushAuthorizationRecord:
     expires_at_utc: str = ""
     override_reason: str = ""
     worktree_identity: str = ""
+    publication_owner: str = ""
+    target_executor_lane: str = ""
 
     def to_dict(self) -> dict[str, object]:
         payload: dict[str, object] = {}
@@ -102,6 +104,8 @@ class PushAuthorizationRecord:
         payload["expires_at_utc"] = self.expires_at_utc
         payload["override_reason"] = self.override_reason
         payload["worktree_identity"] = self.worktree_identity
+        payload["publication_owner"] = self.publication_owner
+        payload["target_executor_lane"] = self.target_executor_lane
         return payload
 
 
@@ -225,6 +229,8 @@ def push_authorization_from_mapping(
         expires_at_utc=coerce_string(mapping.get("expires_at_utc")),
         override_reason=coerce_string(mapping.get("override_reason")),
         worktree_identity=coerce_string(mapping.get("worktree_identity")),
+        publication_owner=coerce_string(mapping.get("publication_owner")),
+        target_executor_lane=coerce_string(mapping.get("target_executor_lane")),
     )
 
 
