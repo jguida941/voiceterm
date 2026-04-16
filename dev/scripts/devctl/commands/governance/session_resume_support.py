@@ -268,9 +268,9 @@ def build_from_sources(
     # so session-resume uses the same source as the dashboard.
     try:
         backlog = load_finding_backlog(repo_root=repo_root, governance=governance)
-        if backlog.total_findings > 0:
-            count = len(backlog.open_rows)
-            open_findings = f"{count} open finding(s) (backlog)" if count else "0 open findings (backlog)"
+        # Always prefer backlog when it loads, even if empty — prevents stale bridge counts
+        count = len(backlog.open_rows)
+        open_findings = f"{count} open finding(s) (backlog)" if count else "0 open findings (backlog)"
     except Exception:
         pass  # fall back to bridge-derived count on any load error
     observed_control_topology, implementation_permission = derive_startup_control_truth(
