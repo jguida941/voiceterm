@@ -87,18 +87,35 @@ def _run_dashboard(args, repo_root: Path) -> int:
 
 def _emit_bootstrap(args, repo_root: Path, *, role: str) -> int:
     """Run session-resume for the role and emit the bootstrap packet."""
-    result = subprocess.run(
-        [
-            sys.executable,
-            "dev/scripts/devctl.py",
-            "session-resume",
-            "--role", role,
-            "--format", "bootstrap",
-        ],
-        cwd=str(repo_root),
-        capture_output=True,
-        text=True,
-    )
+    try:
+        result = subprocess.run(
+            [
+                sys.executable,
+                "dev/scripts/devctl.py",
+                "session-resume",
+                "--role", role,
+                "--format", "bootstrap",
+            ],
+            cwd=str(repo_root),
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+    except subprocess.TimeoutExpired:
+        report = {
+            "command": "session",
+            "role": role,
+            "loop": getattr(args, "loop", False),
+            "bootstrap_exit_code": 124,
+            "bootstrap": "",
+            "errors": ["session-resume timed out after 30s — review-state refresh may be stuck"],
+        }
+        fmt = getattr(args, "format", "json")
+        if fmt == "json":
+            print(json.dumps(report, indent=2))
+        else:
+            print("ERROR: session-resume timed out")
+        return 124
     report = {
         "command": "session",
         "role": role,
