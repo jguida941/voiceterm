@@ -5,14 +5,14 @@
 ## Quick status
 
 - Branch: `feature/governance-quality-sweep`
-- HEAD: `066654716efb` — Refresh external review snapshot for 32e5997d
-- Tree hash: `405b0a0197e1`
-- Generation stamp: `snap-d02b0ac2bfb2`
-- Generated at (UTC): 2026-04-16T16:07:58Z
-- Push decision: `await_checkpoint` — staged_index_present
+- HEAD: `819a88a39656` — Typed reviewer-wake convergence + modularization
+- Tree hash: `e4c27f30f8ad`
+- Generation stamp: `snap-dbd5ad57dc89`
+- Generated at (UTC): 2026-04-16T16:14:26Z
+- Push decision: `await_review` — runtime_missing
 - Reviewer mode: `tools_only` (interaction: `local_terminal`)
 - Pipeline state: `n/a` (approval: `n/a`)
-- Delta since last snapshot: 24 commits, 53 files, +4965/-2300
+- Delta since last snapshot: 24 commits, 59 files, +5268/-2420
 - Governance findings: 112 open / 86 fixed / 212 total
 - Probe hints: 0 total across 0 files scanned
 
@@ -54,23 +54,24 @@ adopters arrive.
 - Remote: `https://github.com/jguida941/voiceterm.git`
 - Default branch: `master`
 - Current branch: `feature/governance-quality-sweep`
-- HEAD SHA: `066654716efb355fb6963384c085205de2234f51`
+- HEAD SHA: `819a88a39656b309b46e21efcd4e81760240323b`
 - HEAD author: Justin Guida
-- HEAD timestamp (UTC): 2026-04-16T11:47:31-04:00
+- HEAD timestamp (UTC): 2026-04-16T12:13:59-04:00
 
 ## 2. Governance state
 
 ### Push decision
-- action: `await_checkpoint`
-- reason: staged_index_present
+- action: `await_review`
+- reason: runtime_missing
 - push_eligible_now: False
-- worktree_clean: False
-- staged_path_count: 9
+- worktree_clean: True
+- staged_path_count: 0
 - unstaged_path_count: 0
 - next_step_command: `python3 dev/scripts/devctl.py review-channel --action status --terminal none --format json`
 - latest_push_report: `dev/reports/push/latest.json`
 - latest_push_report_state: `post_push_green` (push_completed)
-- publication_backlog: none
+- publication_backlog: queued
+- publication_guidance: 1 local commit(s) waiting for governed push once review is accepted.
 
 ### Reviewer runtime
 - reviewer_mode: `tools_only`
@@ -91,43 +92,43 @@ adopters arrive.
 
 ## 3. Delta — what changed since the previous snapshot
 
-Range: last 24 commits ending at `066654716efb`
+Range: last 24 commits ending at `819a88a39656`
 
 - commits: 24
-- files changed: 53
-- insertions: +4965
-- deletions: -2300
-- bundle classes touched: docs, tooling
-- authority surfaces touched: 8 file(s)
+- files changed: 59
+- insertions: +5268
+- deletions: -2420
+- bundle classes touched: tooling, docs
+- authority surfaces touched: 11 file(s)
 
 ### Commits
 
 | # | SHA | Subject | Files | +/- | Bundle | Risk |
 |---|---|---|---|---|---|---|
-| 1 | `06665471` | Refresh external review snapshot for 32e5997d | 2 | +50/-54 | docs |  |
-| 2 | `32e5997d` | Refresh external review snapshot for e9f6a6b3 | 2 | +72/-70 | docs |  |
-| 3 | `e9f6a6b3` | Fix fail-open regression in commit_packet_gate + contract d… | 5 | +448/-74 | tooling |  |
-| 4 | `a9f1a42f` | Refresh external review snapshot for d2d91aaf | 2 | +66/-64 | docs |  |
-| 5 | `d2d91aaf` | Unify commit-gate caller policy across governed + receipt p… | 8 | +218/-145 | tooling |  |
-| 6 | `7c1562f3` | Refresh external review snapshot for dae1df84 | 2 | +65/-65 | docs |  |
-| 7 | `dae1df84` | Make reviewer turn runner governance-shaped instead of brid… | 3 | +138/-50 | tooling |  |
-| 8 | `b627c135` | Unify target resolver + fail-closed on unresolved target +… | 5 | +110/-118 | tooling |  |
-| 9 | `4c01b779` | Add fail-closed commit gate on pending reviewer packets | 6 | +622/-49 | tooling |  |
-| 10 | `6221bc32` | Refresh external review snapshot for f4c3a335 | 2 | +63/-61 | docs |  |
-| 11 | `f4c3a335` | Fix Codex review findings: revert premature follow wiring +… | 6 | +66/-64 | tooling |  |
-| 12 | `26e8730a` | Refresh external review snapshot for d08407ca | 1 | +67/-75 | tooling |  |
-| 13 | `4d2c991c` | Refresh external review snapshot for d08407ca | 2 | +66/-63 | docs |  |
-| 14 | `d08407ca` | Add portable controller-owned reviewer turn runner + public… | 9 | +1129/-65 | tooling |  |
-| 15 | `eea5abf5` | Refresh external review snapshot for bf0c0d90 | 2 | +56/-54 | docs |  |
-| 16 | `bf0c0d90` | Fix test_implementer_stall import after event_projection re… | 2 | +59/-60 | tooling |  |
-| 17 | `0e0b3288` | Refresh external review snapshot for 7ef603c1 | 2 | +57/-54 | docs |  |
-| 18 | `7ef603c1` | Block stale bridge instruction fallback on explicit typed c… | 3 | +112/-61 | tooling |  |
-| 19 | `9fb25fcd` | Drop zref from snapshot hash inputs + fix bridge instructio… | 4 | +99/-57 | tooling |  |
-| 20 | `d2171db6` | Refresh external review snapshot for 3187f7ce | 2 | +77/-78 | docs |  |
-| 21 | `3187f7ce` | Fix zref regression + contract parity + focused tests | 26 | +552/-211 | tooling |  |
-| 22 | `09ef6ccc` | Refresh external review snapshot for a0686d76 | 2 | +62/-66 | docs |  |
-| 23 | `a0686d76` | Split loop-packet commands into packets package | 11 | +653/-581 | tooling |  |
-| 24 | `1e54c022` | Refresh external review snapshot for 85b11941 | 2 | +58/-61 | docs |  |
+| 1 | `819a88a3` | Typed reviewer-wake convergence + modularization | 9 | +361/-181 | tooling |  |
+| 2 | `06665471` | Refresh external review snapshot for 32e5997d | 2 | +50/-54 | docs |  |
+| 3 | `32e5997d` | Refresh external review snapshot for e9f6a6b3 | 2 | +72/-70 | docs |  |
+| 4 | `e9f6a6b3` | Fix fail-open regression in commit_packet_gate + contract d… | 5 | +448/-74 | tooling |  |
+| 5 | `a9f1a42f` | Refresh external review snapshot for d2d91aaf | 2 | +66/-64 | docs |  |
+| 6 | `d2d91aaf` | Unify commit-gate caller policy across governed + receipt p… | 8 | +218/-145 | tooling |  |
+| 7 | `7c1562f3` | Refresh external review snapshot for dae1df84 | 2 | +65/-65 | docs |  |
+| 8 | `dae1df84` | Make reviewer turn runner governance-shaped instead of brid… | 3 | +138/-50 | tooling |  |
+| 9 | `b627c135` | Unify target resolver + fail-closed on unresolved target +… | 5 | +110/-118 | tooling |  |
+| 10 | `4c01b779` | Add fail-closed commit gate on pending reviewer packets | 6 | +622/-49 | tooling |  |
+| 11 | `6221bc32` | Refresh external review snapshot for f4c3a335 | 2 | +63/-61 | docs |  |
+| 12 | `f4c3a335` | Fix Codex review findings: revert premature follow wiring +… | 6 | +66/-64 | tooling |  |
+| 13 | `26e8730a` | Refresh external review snapshot for d08407ca | 1 | +67/-75 | tooling |  |
+| 14 | `4d2c991c` | Refresh external review snapshot for d08407ca | 2 | +66/-63 | docs |  |
+| 15 | `d08407ca` | Add portable controller-owned reviewer turn runner + public… | 9 | +1129/-65 | tooling |  |
+| 16 | `eea5abf5` | Refresh external review snapshot for bf0c0d90 | 2 | +56/-54 | docs |  |
+| 17 | `bf0c0d90` | Fix test_implementer_stall import after event_projection re… | 2 | +59/-60 | tooling |  |
+| 18 | `0e0b3288` | Refresh external review snapshot for 7ef603c1 | 2 | +57/-54 | docs |  |
+| 19 | `7ef603c1` | Block stale bridge instruction fallback on explicit typed c… | 3 | +112/-61 | tooling |  |
+| 20 | `9fb25fcd` | Drop zref from snapshot hash inputs + fix bridge instructio… | 4 | +99/-57 | tooling |  |
+| 21 | `d2171db6` | Refresh external review snapshot for 3187f7ce | 2 | +77/-78 | docs |  |
+| 22 | `3187f7ce` | Fix zref regression + contract parity + focused tests | 26 | +552/-211 | tooling |  |
+| 23 | `09ef6ccc` | Refresh external review snapshot for a0686d76 | 2 | +62/-66 | docs |  |
+| 24 | `a0686d76` | Split loop-packet commands into packets package | 11 | +653/-581 | tooling |  |
 
 ### Files
 
@@ -135,9 +136,9 @@ Range: last 24 commits ending at `066654716efb`
 |---|---|---|
 | `0` | tooling | +0/-0 |
 | `AGENTS.md` | docs | +1/-1 |
-| `bridge.md` | docs | +32/-32 |
+| `bridge.md` | docs | +31/-31 |
 | `dev/active/MASTER_PLAN.md` | tooling | +9/-0 |
-| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1375/-1388 |
+| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1384/-1394 |
 | `dev/guides/DEVELOPMENT.md` | docs | +7/-0 |
 | `dev/history/ENGINEERING_EVOLUTION.md` | tooling | +32/-0 |
 | `dev/scripts/README.md` | tooling | +5/-1 |
@@ -148,6 +149,7 @@ Range: last 24 commits ending at `066654716efb`
 | `dev/scripts/devctl/commands/loop_packet_helpers.py` | tooling | +8/-215 |
 | `dev/scripts/devctl/commands/packets/loop_packet.py` | tooling | +288/-0 |
 | `dev/scripts/devctl/commands/packets/loop_packet_helpers.py` | tooling | +218/-0 |
+| `dev/scripts/devctl/commands/review_channel/reviewer_runtime_snapshot.py` | tooling | +3/-0 |
 | `dev/scripts/devctl/commands/vcs/governed_executor_commit_phase.py` | tooling | +34/-10 |
 | `dev/scripts/devctl/context_graph/traversal.py` | tooling | +60/-0 |
 | `dev/scripts/devctl/governance_graph/mutation_bypass.py` | tooling | +35/-43 |
@@ -161,19 +163,18 @@ Range: last 24 commits ending at `066654716efb`
 | `dev/scripts/devctl/review_channel/current_session_attention.py` | tooling | +14/-14 |
 | `dev/scripts/devctl/review_channel/event_projection_assembly.py` | tooling | +10/-2 |
 | `dev/scripts/devctl/review_channel/event_projection_support.py` | tooling | +9/-0 |
+| `dev/scripts/devctl/review_channel/follow_controller.py` | tooling | +12/-84 |
+| `dev/scripts/devctl/review_channel/follow_controller_wake_target.py` | tooling | +152/-0 |
 | `dev/scripts/devctl/review_channel/projection_bundle.py` | tooling | +7/-3 |
 | `dev/scripts/devctl/review_channel/publication_ownership.py` | tooling | +164/-0 |
 | `dev/scripts/devctl/review_channel/reviewer_follow.py` | tooling | +6/-6 |
+| `dev/scripts/devctl/review_channel/reviewer_follow_packet_guard.py` | tooling | +12/-28 |
+| `dev/scripts/devctl/review_channel/reviewer_follow_trigger_gate.py` | tooling | +69/-0 |
 | `dev/scripts/devctl/review_channel/reviewer_state.py` | tooling | +3/-4 |
 | `dev/scripts/devctl/review_channel/reviewer_turn_runner.py` | tooling | +309/-14 |
 | `dev/scripts/devctl/review_channel/status_bundle.py` | tooling | +13/-3 |
 | `dev/scripts/devctl/review_channel/status_projection.py` | tooling | +4/-0 |
-| `dev/scripts/devctl/review_channel/status_projection_commit_bundle.py` | tooling | +10/-2 |
-| `dev/scripts/devctl/review_channel/status_projection_compat.py` | tooling | +5/-0 |
-| `dev/scripts/devctl/runtime/commit_packet_gate.py` | tooling | +241/-60 |
-| `dev/scripts/devctl/runtime/control_plane_read_model.py` | tooling | +13/-0 |
-| `dev/scripts/devctl/runtime/remote_commit_pipeline_models.py` | tooling | +9/-0 |
-| _13 more files trimmed_ | | |
+| _19 more files trimmed_ | | |
 
 ## 4. Quality signals
 
@@ -243,6 +244,9 @@ Recent findings:
 
 ### Targeted hints
 
+- **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/commands/review_channel/reviewer_runtime_snapshot.py`) — Review contract-level invariants for this file
+- **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/review_channel/reviewer_follow_packet_guard.py`) — Review contract-level invariants for this file
+- **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/review_channel/reviewer_follow_trigger_gate.py`) — Review contract-level invariants for this file
 - **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/tests/runtime/test_review_snapshot.py`) — Review contract-level invariants for this file
 - **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/commands/governance/review_snapshot.py`) — Review contract-level invariants for this file
 - **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/commands/vcs/governed_executor_commit_phase.py`) — Review contract-level invariants for this file
@@ -267,6 +271,10 @@ Recent findings:
 
 ### Per-commit rationale
 
+- **`819a88a3`** — Typed reviewer-wake convergence + modularization
+  - Reviewer-wake convergence (MP377-P1-T06, rev_pkt_0734):
+  - - reviewer_runtime_snapshot: attaches typed packet_inbox to report
+  - - follow_controller: typed coordination gate, typed packet selection
 - **`06665471`** — Refresh external review snapshot for 32e5997d
 - **`32e5997d`** — Refresh external review snapshot for e9f6a6b3
 - **`e9f6a6b3`** — Fix fail-open regression in commit_packet_gate + contract drift
@@ -321,7 +329,6 @@ Recent findings:
   -   objects that lack these fields.
 - **`09ef6ccc`** — Refresh external review snapshot for a0686d76
 - **`a0686d76`** — Split loop-packet commands into packets package
-- **`1e54c022`** — Refresh external review snapshot for 85b11941
 ### Active MP scope (from MASTER_PLAN.md)
 
 - contract slice for MP-355 plus the temporary markdown-swarm operating mode
@@ -357,4 +364,4 @@ Recent findings:
 
 ---
 
-Projection produced by `devctl review-snapshot`. Generation stamp `snap-d02b0ac2bfb2` binds this file to HEAD `066654716efb`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
+Projection produced by `devctl review-snapshot`. Generation stamp `snap-dbd5ad57dc89` binds this file to HEAD `819a88a39656`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
