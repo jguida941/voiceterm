@@ -76,12 +76,12 @@ class ReviewChannelEventProjectionContextTests(unittest.TestCase):
     @patch(
         "dev.scripts.devctl.review_channel.event_projection_context.build_context_escalation_packet"
     )
-    @patch("dev.scripts.devctl.context_graph.snapshot_store.load_context_graph_snapshot")
-    @patch("dev.scripts.devctl.config.get_repo_root")
+    @patch("dev.scripts.devctl.review_channel.event_projection_context.list_context_graph_snapshots")
+    @patch("dev.scripts.devctl.review_channel.event_projection_context.load_context_graph_snapshot")
     def test_event_context_packet_rehydrates_cached_snapshot_rows(
         self,
-        repo_root_mock,
         load_snapshot_mock,
+        list_snapshots_mock,
         escalation_mock,
     ) -> None:
         from dev.scripts.devctl.context_graph.models import GraphEdge, GraphNode
@@ -89,41 +89,37 @@ class ReviewChannelEventProjectionContextTests(unittest.TestCase):
             build_event_context_packet,
         )
 
-        with tempfile.TemporaryDirectory() as tmpdir:
-            root = Path(tmpdir)
-            snapshot_dir = root / "dev/reports/graph_snapshots"
-            snapshot_dir.mkdir(parents=True, exist_ok=True)
-            (snapshot_dir / "latest.json").write_text("{}", encoding="utf-8")
-            repo_root_mock.return_value = root
-            load_snapshot_mock.return_value = SimpleNamespace(
-                nodes=[
-                    {
-                        "node_id": "src:bridge",
-                        "node_kind": "source_file",
-                        "label": "bridge.md",
-                        "canonical_pointer_ref": "bridge.md",
-                        "provenance_ref": "snapshot",
-                        "temperature": 0.6,
-                        "metadata": {"scope": "bridge"},
-                    }
-                ],
-                edges=[
-                    {
-                        "source_id": "plan:mp",
-                        "target_id": "src:bridge",
-                        "edge_kind": "documented_by",
-                    }
-                ],
-            )
-
-            build_event_context_packet(
+        fake_snapshot_path = Path("/tmp/fake_snapshot.json")
+        list_snapshots_mock.return_value = [fake_snapshot_path]
+        load_snapshot_mock.return_value = SimpleNamespace(
+            nodes=[
                 {
-                    "summary": "Inspect bridge diff",
-                    "body": "bridge.md changed",
-                    "plan_id": "MP-999",
-                    "kind": "finding",
+                    "node_id": "src:bridge",
+                    "node_kind": "source_file",
+                    "label": "bridge.md",
+                    "canonical_pointer_ref": "bridge.md",
+                    "provenance_ref": "snapshot",
+                    "temperature": 0.6,
+                    "metadata": {"scope": "bridge"},
                 }
-            )
+            ],
+            edges=[
+                {
+                    "source_id": "plan:mp",
+                    "target_id": "src:bridge",
+                    "edge_kind": "documented_by",
+                }
+            ],
+        )
+
+        build_event_context_packet(
+            {
+                "summary": "Inspect bridge diff",
+                "body": "bridge.md changed",
+                "plan_id": "MP-999",
+                "kind": "finding",
+            }
+        )
 
         graph = escalation_mock.call_args.kwargs["graph"]
         self.assertIsInstance(graph[0][0], GraphNode)

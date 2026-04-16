@@ -12,6 +12,10 @@ from ..context_graph.escalation import (
 )
 from ..context_graph.models import GraphEdge, GraphNode
 from ..context_graph.escalation_render import append_compact_context_packet_markdown
+from ..context_graph.snapshot_store import (
+    list_context_graph_snapshots,
+    load_context_graph_snapshot,
+)
 
 
 def build_event_context_packet(
@@ -48,11 +52,6 @@ def _load_cached_graph():
     mtime) per Codex finding rev_pkt_0803.
     """
     try:
-        from ..context_graph.snapshot_store import (
-            list_context_graph_snapshots,
-            load_context_graph_snapshot,
-        )
-
         snapshots = list_context_graph_snapshots()
         if not snapshots:
             return None
