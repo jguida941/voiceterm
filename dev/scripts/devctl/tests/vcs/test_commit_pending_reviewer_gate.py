@@ -1,0 +1,241 @@
+"""Tests for the fail-closed commit gate on pending reviewer packets.
+
+Verifies that both the governed commit path and the snapshot receipt path
+block when actionable reviewer packets exist, even when an attention-revision
+lease is held.
+"""
+
+from __future__ import annotations
+
+import unittest
+from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import patch
+
+from dev.scripts.devctl.runtime.commit_packet_gate import (
+    _has_actionable_attention,
+    pending_reviewer_packets_block_commit,
+)
+
+
+def _make_inbox_record(
+    agent: str = "claude",
+    pending_ids: tuple[str, ...] = (),
+    wake_reason: str = "",
+) -> SimpleNamespace:
+    return SimpleNamespace(
+        agent=agent,
+        pending_actionable_packet_ids=pending_ids,
+        wake_reason=wake_reason,
+    )
+
+
+def _make_review_state(
+    agents: list | None = None,
+    attention_revision: str = "rev-001",
+) -> SimpleNamespace:
+    if agents is None:
+        agents = []
+    return SimpleNamespace(
+        packet_inbox=SimpleNamespace(
+            agents=agents,
+            attention_revision=attention_revision,
+        ),
+    )
+
+
+# ── Core gate tests ───────────────────────────────────────────
+
+
+class TestPendingReviewerPacketsBlockCommit(unittest.TestCase):
+    """Test the shared fail-closed gate."""
+
+    @patch(
+        "dev.scripts.devctl.runtime.commit_packet_gate._load_review_state"
+    )
+    def test_blocks_when_pending_packets_exist(self, mock_load):
+        mock_load.return_value = _make_review_state(
+            agents=[
+                _make_inbox_record(
+                    agent="claude",
+                    pending_ids=("rev_pkt_0703", "rev_pkt_0704"),
+                ),
+            ],
+        )
+        result = pending_reviewer_packets_block_commit(
+            repo_root=None, review_channel_path=Path("/fake/exists"),
+        )
+        self.assertIsNotNone(result)
+        self.assertIn("Commit blocked", result)
+        self.assertIn("rev_pkt_0703", result)
+
+    @patch(
+        "dev.scripts.devctl.runtime.commit_packet_gate._load_review_state"
+    )
+    def test_allows_when_no_pending_packets(self, mock_load):
+        mock_load.return_value = _make_review_state(
+            agents=[_make_inbox_record(agent="claude", pending_ids=())],
+        )
+        result = pending_reviewer_packets_block_commit(
+            repo_root=None, review_channel_path=Path("/fake/exists"),
+        )
+        self.assertIsNone(result)
+
+    def test_allows_when_no_review_channel_path(self):
+        result = pending_reviewer_packets_block_commit(
+            repo_root=None, review_channel_path=None,
+        )
+        self.assertIsNone(result)
+
+    @patch(
+        "dev.scripts.devctl.runtime.commit_packet_gate._load_review_state"
+    )
+    def test_blocks_when_review_state_unavailable(self, mock_load):
+        mock_load.return_value = None
+        result = pending_reviewer_packets_block_commit(
+            repo_root=None, review_channel_path=Path("/fake/exists"),
+        )
+        self.assertIsNotNone(result)
+        self.assertIn("could not be loaded", result)
+
+    @patch(
+        "dev.scripts.devctl.runtime.commit_packet_gate._load_review_state"
+    )
+    def test_blocks_when_no_packet_inbox(self, mock_load):
+        mock_load.return_value = SimpleNamespace(packet_inbox=None)
+        result = pending_reviewer_packets_block_commit(
+            repo_root=None, review_channel_path=Path("/fake/exists"),
+        )
+        self.assertIsNotNone(result)
+        self.assertIn("no packet inbox", result)
+
+    @patch(
+        "dev.scripts.devctl.runtime.commit_packet_gate._load_review_state"
+    )
+    def test_blocks_on_load_error(self, mock_load):
+        mock_load.side_effect = ValueError("event log corrupt")
+        result = pending_reviewer_packets_block_commit(
+            repo_root=None, review_channel_path=Path("/fake/exists"),
+        )
+        self.assertIsNotNone(result)
+        self.assertIn("load failed", result)
+
+    @patch(
+        "dev.scripts.devctl.runtime.commit_packet_gate._load_review_state"
+    )
+    def test_blocks_on_finding_pending_wake_reason(self, mock_load):
+        mock_load.return_value = _make_review_state(
+            agents=[
+                _make_inbox_record(
+                    agent="claude",
+                    pending_ids=(),
+                    wake_reason="finding_pending",
+                ),
+            ],
+        )
+        result = pending_reviewer_packets_block_commit(
+            repo_root=None, review_channel_path=Path("/fake/exists"),
+        )
+        self.assertIsNotNone(result)
+        self.assertIn("Commit blocked", result)
+
+    @patch(
+        "dev.scripts.devctl.runtime.commit_packet_gate._load_review_state"
+    )
+    def test_target_agent_filters_to_specific_agent(self, mock_load):
+        mock_load.return_value = _make_review_state(
+            agents=[
+                _make_inbox_record(
+                    agent="codex",
+                    pending_ids=("rev_pkt_100",),
+                ),
+                _make_inbox_record(
+                    agent="claude",
+                    pending_ids=(),
+                ),
+            ],
+        )
+        # Targeting claude — codex's packets should not block
+        result = pending_reviewer_packets_block_commit(
+            repo_root=None,
+            review_channel_path=Path("/fake/exists"),
+            target_agent="claude",
+        )
+        self.assertIsNone(result)
+
+    @patch(
+        "dev.scripts.devctl.runtime.commit_packet_gate._load_review_state"
+    )
+    def test_no_target_checks_all_agents(self, mock_load):
+        mock_load.return_value = _make_review_state(
+            agents=[
+                _make_inbox_record(
+                    agent="codex",
+                    pending_ids=("rev_pkt_100",),
+                ),
+            ],
+        )
+        # No target — any agent with pending packets blocks
+        result = pending_reviewer_packets_block_commit(
+            repo_root=None, review_channel_path=Path("/fake/exists"),
+        )
+        self.assertIsNotNone(result)
+
+
+# ── Lease-independence test ────────────────────────────────────
+
+
+class TestLeaseDoesNotSuppressGate(unittest.TestCase):
+    """Verify the gate blocks even when a lease would suppress the stale check."""
+
+    @patch(
+        "dev.scripts.devctl.runtime.commit_packet_gate._load_review_state"
+    )
+    def test_held_lease_does_not_suppress_pending_packet_gate(self, mock_load):
+        """The key regression: a held lease must NOT allow pending packets through.
+
+        This is the exact scenario from rev_pkt_0707: lease acquired before
+        reviewer packets arrive, then reviewer posts findings, but the lease
+        suppresses the stale check. The gate must still block.
+        """
+        mock_load.return_value = _make_review_state(
+            agents=[
+                _make_inbox_record(
+                    agent="claude",
+                    pending_ids=("rev_pkt_0703", "rev_pkt_0704"),
+                ),
+            ],
+        )
+        # Gate has no lease parameter — it's lease-independent by design
+        result = pending_reviewer_packets_block_commit(
+            repo_root=None, review_channel_path=Path("/fake/exists"),
+        )
+        self.assertIsNotNone(result)
+        self.assertIn("rev_pkt_0703", result)
+
+
+# ── Actionable attention helper ────────────────────────────────
+
+
+class TestHasActionableAttention(unittest.TestCase):
+    """Test the attention checker mirrors governed_executor_commit_runtime."""
+
+    def test_pending_ids_trigger_attention(self):
+        record = _make_inbox_record(pending_ids=("pkt1",))
+        self.assertTrue(_has_actionable_attention(record))
+
+    def test_finding_pending_wake_triggers_attention(self):
+        record = _make_inbox_record(wake_reason="finding_pending")
+        self.assertTrue(_has_actionable_attention(record))
+
+    def test_empty_inbox_no_attention(self):
+        record = _make_inbox_record()
+        self.assertFalse(_has_actionable_attention(record))
+
+    def test_irrelevant_wake_reason_no_attention(self):
+        record = _make_inbox_record(wake_reason="heartbeat_refresh")
+        self.assertFalse(_has_actionable_attention(record))
+
+
+if __name__ == "__main__":
+    unittest.main()

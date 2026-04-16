@@ -122,6 +122,37 @@ def run(args) -> int:
         bridge_sync: dict[str, object] = {}
         allowlist: tuple[str, ...] = (target_display,)
         if receipt_commit:
+            from ...runtime.commit_packet_gate import (
+                pending_reviewer_packets_block_commit,
+                resolve_commit_target_for_gate,
+            )
+
+            config = active_path_config()
+            rc_path = repo_root / config.review_channel_rel
+            receipt_target = resolve_commit_target_for_gate(
+                repo_root=repo_root,
+                review_channel_path=rc_path if rc_path.exists() else None,
+            )
+            pending_block = pending_reviewer_packets_block_commit(
+                repo_root=repo_root,
+                review_channel_path=rc_path if rc_path.exists() else None,
+                target_agent=receipt_target,
+            )
+            if pending_block is not None:
+                return _emit_result(
+                    args,
+                    snapshot=snapshot,
+                    markdown=markdown,
+                    payload=payload,
+                    target_display=target_display,
+                    receipt_result={
+                        "ok": False,
+                        "reason": "pending_reviewer_packets",
+                        "detail": pending_block,
+                    },
+                    ok=False,
+                )
+
             bridge_sync = _sync_bridge_projection_if_active(repo_root=repo_root)
             bridge_rel = str(bridge_sync.get("bridge_rel") or "").strip()
             if bridge_rel:
