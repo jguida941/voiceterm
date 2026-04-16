@@ -246,5 +246,103 @@ class TestHasActionableAttention(unittest.TestCase):
         self.assertFalse(_has_actionable_attention(record))
 
 
+# ---------------------------------------------------------------------------
+# Shared helper: check_commit_packet_gate fail-closed contract
+# ---------------------------------------------------------------------------
+
+
+class TestCheckCommitPacketGateFailClosed(unittest.TestCase):
+    """Verify check_commit_packet_gate distinguishes missing vs unreadable."""
+
+    def test_none_path_allows(self):
+        from dev.scripts.devctl.runtime.commit_packet_gate import (
+            check_commit_packet_gate,
+        )
+
+        result = check_commit_packet_gate(
+            repo_root=Path("/fake"),
+            review_channel_path=None,
+            load_review_state_fn=lambda: None,
+            resolve_target_fn=lambda _: "",
+        )
+        self.assertIsNone(result)
+
+    def test_nonexistent_path_allows(self, tmp_path=None):
+        from dev.scripts.devctl.runtime.commit_packet_gate import (
+            check_commit_packet_gate,
+        )
+
+        result = check_commit_packet_gate(
+            repo_root=Path("/fake"),
+            review_channel_path=Path("/nonexistent/review_channel"),
+            load_review_state_fn=lambda: None,
+            resolve_target_fn=lambda _: "",
+        )
+        self.assertIsNone(result)
+
+    def test_existing_path_loader_returns_none_blocks(self):
+        """Fail-closed: existing path + None state = unreadable = block."""
+        import tempfile
+
+        from dev.scripts.devctl.runtime.commit_packet_gate import (
+            check_commit_packet_gate,
+        )
+
+        with tempfile.TemporaryDirectory() as td:
+            rc_path = Path(td) / "review_channel.md"
+            rc_path.write_text("exists")
+            result = check_commit_packet_gate(
+                repo_root=Path(td),
+                review_channel_path=rc_path,
+                load_review_state_fn=lambda: None,
+                resolve_target_fn=lambda _: "",
+            )
+        self.assertIsNotNone(result)
+        self.assertIn("could not be loaded", result)
+
+    def test_existing_path_loader_raises_blocks(self):
+        """Fail-closed: existing path + ValueError = block."""
+        import tempfile
+
+        from dev.scripts.devctl.runtime.commit_packet_gate import (
+            check_commit_packet_gate,
+        )
+
+        def _raise():
+            raise ValueError("corrupt bundle")
+
+        with tempfile.TemporaryDirectory() as td:
+            rc_path = Path(td) / "review_channel.md"
+            rc_path.write_text("exists")
+            result = check_commit_packet_gate(
+                repo_root=Path(td),
+                review_channel_path=rc_path,
+                load_review_state_fn=_raise,
+                resolve_target_fn=lambda _: "",
+            )
+        self.assertIsNotNone(result)
+        self.assertIn("load failed", result)
+
+    def test_existing_path_no_writable_lane_allows(self):
+        """No writable lane resolved = skip gate, allow commit."""
+        import tempfile
+
+        from dev.scripts.devctl.runtime.commit_packet_gate import (
+            check_commit_packet_gate,
+        )
+
+        fake_state = SimpleNamespace()
+        with tempfile.TemporaryDirectory() as td:
+            rc_path = Path(td) / "review_channel.md"
+            rc_path.write_text("exists")
+            result = check_commit_packet_gate(
+                repo_root=Path(td),
+                review_channel_path=rc_path,
+                load_review_state_fn=lambda: fake_state,
+                resolve_target_fn=lambda _: "",
+            )
+        self.assertIsNone(result)
+
+
 if __name__ == "__main__":
     unittest.main()

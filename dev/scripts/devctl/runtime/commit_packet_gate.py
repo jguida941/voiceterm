@@ -15,6 +15,7 @@ from pathlib import Path
 
 from ..review_channel.event_reducer import load_or_refresh_event_bundle
 from ..review_channel.events import resolve_artifact_paths
+from .review_state_packet_models import AgentAttentionRecord, PacketInboxState
 from .review_state_parser import review_state_from_payload
 
 
@@ -56,14 +57,15 @@ def pending_reviewer_packets_block_commit(
             "Resolve the review-channel projection before committing."
         )
 
-    packet_inbox = getattr(review_state, "packet_inbox", None)
+    packet_inbox: PacketInboxState | None = getattr(
+        review_state, "packet_inbox", None,
+    )
     if packet_inbox is None:
         return (
             "Commit blocked: typed review state has no packet inbox. "
             "Cannot verify pending reviewer packets."
         )
 
-    agent_records = tuple(getattr(packet_inbox, "agents", ()) or ())
     normalized_target = target_agent.strip().lower()
 
     if not normalized_target:
@@ -75,16 +77,12 @@ def pending_reviewer_packets_block_commit(
         )
 
     blocking: list[tuple[str, list[str]]] = []
-    for record in agent_records:
-        agent = str(getattr(record, "agent", "") or "").strip()
-        if normalized_target and agent.lower() != normalized_target:
+    for record in packet_inbox.agents:
+        if normalized_target and record.agent.lower() != normalized_target:
             continue
         if _has_actionable_attention(record):
-            ids = [
-                str(p) for p in
-                (getattr(record, "pending_actionable_packet_ids", ()) or ())
-            ]
-            blocking.append((agent, ids))
+            ids = [str(p) for p in record.pending_actionable_packet_ids]
+            blocking.append((record.agent, ids))
 
     if not blocking:
         return None
@@ -115,12 +113,32 @@ def check_commit_packet_gate(
 
     Both governed commit and receipt-commit callers use this to avoid
     duplicating the "skip when no review state / no writable lane" logic.
-    The shared gate's fail-closed on empty target is preserved — this
-    function guards the caller from invoking it when there's nothing to check.
+
+    Fail-closed contract:
+    - review_channel_path=None → skip (no review channel configured)
+    - review_channel_path set but directory absent → skip (not yet created)
+    - review_channel_path set, directory exists, but load fails → BLOCK
+    - review_channel_path set, state loads, no writable lane → skip
+    - review_channel_path set, state loads, writable lane → delegate to gate
     """
-    review_state = load_review_state_fn()
-    if review_state is None:
+    if review_channel_path is None:
         return None
+    if not review_channel_path.exists():
+        return None
+    try:
+        review_state = load_review_state_fn()
+    except (ValueError, OSError) as exc:
+        return (
+            f"Commit blocked: review state load failed ({exc}). "
+            "Cannot verify pending reviewer packets. "
+            "Resolve the review-channel projection before committing."
+        )
+    if review_state is None:
+        return (
+            "Commit blocked: typed review state could not be loaded from "
+            f"{review_channel_path}. Cannot verify pending reviewer packets. "
+            "Resolve the review-channel projection before committing."
+        )
     target = resolve_target_fn(review_state)
     if not target:
         return None
@@ -134,13 +152,11 @@ def check_commit_packet_gate(
 # ── Internal helpers ───────────────────────────────────────────
 
 
-def _has_actionable_attention(record: object) -> bool:
+def _has_actionable_attention(record: AgentAttentionRecord) -> bool:
     """Mirror of governed_executor_commit_runtime._has_actionable_packet_attention."""
-    pending = getattr(record, "pending_actionable_packet_ids", ()) or ()
-    if pending:
+    if record.pending_actionable_packet_ids:
         return True
-    wake_reason = str(getattr(record, "wake_reason", "") or "").strip()
-    return wake_reason == "finding_pending"
+    return record.wake_reason.strip() == "finding_pending"
 
 
 def _load_review_state(

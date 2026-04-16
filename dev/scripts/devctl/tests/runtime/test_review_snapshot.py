@@ -1078,6 +1078,267 @@ def test_receipt_commit_allowed_when_gate_clear(tmp_path) -> None:
     assert rc == 0, f"run() should return 0 when gate is clear, got {rc}"
 
 
+# ---------------------------------------------------------------------------
+# Shared helper policy regressions (exercises check_commit_packet_gate without
+# mocking the helper itself — proves receipt path follows fail-closed contract)
+# ---------------------------------------------------------------------------
+
+
+def test_receipt_fails_closed_on_unreadable_review_state(tmp_path) -> None:
+    """Regression (rev_pkt_0730): receipt path blocks when review state is
+    unreadable, even though load_live_review_state collapses ValueError to None.
+
+    Does NOT mock check_commit_packet_gate — the real shared helper runs.
+    """
+    from types import SimpleNamespace
+    from unittest.mock import MagicMock, patch
+
+    from devctl.runtime.review_snapshot_models import ReviewSnapshot
+
+    repo_root = _init_receipt_repo(tmp_path / "repo")
+    out_path = tmp_path / "out.json"
+    snapshot_target = repo_root / "dev/audits/REVIEW_SNAPSHOT.md"
+    snapshot_target.parent.mkdir(parents=True, exist_ok=True)
+
+    # Create review channel path so rc_effective is not None
+    rc_rel = "dev/active/review_channel.md"
+    rc_path = repo_root / rc_rel
+    rc_path.parent.mkdir(parents=True, exist_ok=True)
+    rc_path.write_text("# review channel\n")
+
+    sync_spy = MagicMock(return_value={})
+    commit_spy = MagicMock(
+        return_value={"ok": True, "reason": "receipt_committed", "commit_sha": "abc"},
+    )
+
+    args = SimpleNamespace(
+        write=False,
+        receipt_commit=True,
+        target="",
+        previous_head="",
+        commit_limit=5,
+        format="json",
+        output=str(out_path),
+        pipe_command=None,
+        pipe_args=None,
+    )
+
+    with (
+        patch(
+            "devctl.commands.governance.review_snapshot.get_repo_root",
+            return_value=repo_root,
+        ),
+        patch(
+            "devctl.commands.governance.review_snapshot.scan_repo_governance_safely",
+            return_value=None,
+        ),
+        patch(
+            "devctl.commands.governance.review_snapshot.build_review_snapshot",
+            return_value=ReviewSnapshot(),
+        ),
+        patch(
+            "devctl.commands.governance.review_snapshot.render_review_snapshot_markdown",
+            return_value="# ReviewSnapshot\n",
+        ),
+        patch(
+            "devctl.commands.governance.review_snapshot.active_path_config",
+            return_value=SimpleNamespace(review_channel_rel=rc_rel),
+        ),
+        # Loader returns None — simulates collapsed ValueError from unreadable state
+        patch(
+            "devctl.commands.vcs.governed_executor_commit_runtime.load_live_review_state",
+            return_value=None,
+        ),
+        patch(
+            "devctl.commands.governance.review_snapshot._sync_bridge_projection_if_active",
+            sync_spy,
+        ),
+        patch(
+            "devctl.commands.governance.review_snapshot._commit_snapshot_receipt",
+            commit_spy,
+        ),
+    ):
+        from devctl.commands.governance.review_snapshot import run
+
+        rc = run(args)
+
+    assert rc != 0, f"receipt must block on unreadable review state, got rc={rc}"
+    sync_spy.assert_not_called()
+    commit_spy.assert_not_called()
+
+
+def test_receipt_skips_gate_when_no_writable_lane(tmp_path) -> None:
+    """Shared helper allows commit when review state loads but no writable lane.
+
+    Does NOT mock check_commit_packet_gate — the real shared helper runs.
+    Proves the no-writable-lane path returns None (allow), not a block.
+    """
+    from types import SimpleNamespace
+    from unittest.mock import patch
+
+    from devctl.runtime.review_snapshot_models import ReviewSnapshot
+
+    repo_root = _init_receipt_repo(tmp_path / "repo")
+    out_path = tmp_path / "out.json"
+    snapshot_target = repo_root / "dev/audits/REVIEW_SNAPSHOT.md"
+    snapshot_target.parent.mkdir(parents=True, exist_ok=True)
+
+    rc_rel = "dev/active/review_channel.md"
+    rc_path = repo_root / rc_rel
+    rc_path.parent.mkdir(parents=True, exist_ok=True)
+    rc_path.write_text("# review channel\n")
+    # Commit the file so it's not a dirty untracked path
+    subprocess.run(["git", "add", rc_rel], cwd=repo_root, check=True)
+    subprocess.run(
+        ["git", "commit", "-m", "add review channel"],
+        cwd=repo_root, check=True, capture_output=True,
+    )
+
+    fake_review_state = SimpleNamespace(
+        bridge=SimpleNamespace(
+            effective_reviewer_mode="",
+            reviewer_mode="",
+        ),
+        collaboration=SimpleNamespace(reviewer_mode=""),
+    )
+
+    args = SimpleNamespace(
+        write=False,
+        receipt_commit=True,
+        target="",
+        previous_head="",
+        commit_limit=5,
+        format="json",
+        output=str(out_path),
+        pipe_command=None,
+        pipe_args=None,
+    )
+
+    with (
+        patch(
+            "devctl.commands.governance.review_snapshot.get_repo_root",
+            return_value=repo_root,
+        ),
+        patch(
+            "devctl.commands.governance.review_snapshot.scan_repo_governance_safely",
+            return_value=None,
+        ),
+        patch(
+            "devctl.commands.governance.review_snapshot.build_review_snapshot",
+            return_value=ReviewSnapshot(),
+        ),
+        patch(
+            "devctl.commands.governance.review_snapshot.render_review_snapshot_markdown",
+            return_value="# ReviewSnapshot\n",
+        ),
+        patch(
+            "devctl.commands.governance.review_snapshot.active_path_config",
+            return_value=SimpleNamespace(review_channel_rel=rc_rel),
+        ),
+        # Loader returns a state object — but resolve_target returns "" (no lane)
+        patch(
+            "devctl.commands.vcs.governed_executor_commit_runtime.load_live_review_state",
+            return_value=fake_review_state,
+        ),
+        patch(
+            "devctl.commands.vcs.governed_executor_commit_runtime.resolve_commit_execution_target",
+            return_value="",
+        ),
+        patch(
+            "devctl.commands.governance.review_snapshot._sync_bridge_projection_if_active",
+            return_value={},
+        ),
+    ):
+        from devctl.commands.governance.review_snapshot import run
+
+        rc = run(args)
+
+    # Gate skipped (no writable lane), receipt should proceed
+    assert rc == 0, f"receipt should proceed when no writable lane, got rc={rc}"
+
+
+def test_receipt_fails_closed_on_loader_exception(tmp_path) -> None:
+    """Shared helper blocks when load_review_state_fn raises ValueError.
+
+    Covers the try/except path in check_commit_packet_gate for loaders
+    that propagate exceptions instead of collapsing them to None.
+    """
+    from types import SimpleNamespace
+    from unittest.mock import MagicMock, patch
+
+    from devctl.runtime.review_snapshot_models import ReviewSnapshot
+
+    repo_root = _init_receipt_repo(tmp_path / "repo")
+    out_path = tmp_path / "out.json"
+    snapshot_target = repo_root / "dev/audits/REVIEW_SNAPSHOT.md"
+    snapshot_target.parent.mkdir(parents=True, exist_ok=True)
+
+    rc_rel = "dev/active/review_channel.md"
+    rc_path = repo_root / rc_rel
+    rc_path.parent.mkdir(parents=True, exist_ok=True)
+    rc_path.write_text("# review channel\n")
+
+    sync_spy = MagicMock(return_value={})
+    commit_spy = MagicMock(
+        return_value={"ok": True, "reason": "receipt_committed", "commit_sha": "abc"},
+    )
+
+    args = SimpleNamespace(
+        write=False,
+        receipt_commit=True,
+        target="",
+        previous_head="",
+        commit_limit=5,
+        format="json",
+        output=str(out_path),
+        pipe_command=None,
+        pipe_args=None,
+    )
+
+    with (
+        patch(
+            "devctl.commands.governance.review_snapshot.get_repo_root",
+            return_value=repo_root,
+        ),
+        patch(
+            "devctl.commands.governance.review_snapshot.scan_repo_governance_safely",
+            return_value=None,
+        ),
+        patch(
+            "devctl.commands.governance.review_snapshot.build_review_snapshot",
+            return_value=ReviewSnapshot(),
+        ),
+        patch(
+            "devctl.commands.governance.review_snapshot.render_review_snapshot_markdown",
+            return_value="# ReviewSnapshot\n",
+        ),
+        patch(
+            "devctl.commands.governance.review_snapshot.active_path_config",
+            return_value=SimpleNamespace(review_channel_rel=rc_rel),
+        ),
+        # Loader raises ValueError — simulates corrupt event bundle
+        patch(
+            "devctl.commands.vcs.governed_executor_commit_runtime.load_live_review_state",
+            side_effect=ValueError("corrupt event bundle"),
+        ),
+        patch(
+            "devctl.commands.governance.review_snapshot._sync_bridge_projection_if_active",
+            sync_spy,
+        ),
+        patch(
+            "devctl.commands.governance.review_snapshot._commit_snapshot_receipt",
+            commit_spy,
+        ),
+    ):
+        from devctl.commands.governance.review_snapshot import run
+
+        rc = run(args)
+
+    assert rc != 0, f"receipt must block on loader exception, got rc={rc}"
+    sync_spy.assert_not_called()
+    commit_spy.assert_not_called()
+
+
 def _commit_count(repo_root: Path) -> int:
     out = subprocess.run(
         ["git", "rev-list", "--count", "HEAD"],

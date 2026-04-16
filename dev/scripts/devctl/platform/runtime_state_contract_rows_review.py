@@ -60,6 +60,8 @@ REVIEW_STATE_CONTRACTS: tuple[ContractSpec, ...] = (
             ContractField("approved_at_utc", "str", "UTC timestamp when publication authority was granted."),
             ContractField("expires_at_utc", "str", "UTC expiry for the authorization, if any."),
             ContractField("override_reason", "str", "Recorded rationale when publication authority came from an override."),
+            ContractField("publication_owner", "str", "Agent lane that owns the publication workflow for this authorization."),
+            ContractField("target_executor_lane", "str", "Executor lane authorized to run the push for this commit."),
         ),
         runtime_model=(
             "dev.scripts.devctl.runtime.remote_commit_pipeline_models:"

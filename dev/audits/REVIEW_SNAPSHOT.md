@@ -5,14 +5,14 @@
 ## Quick status
 
 - Branch: `feature/governance-quality-sweep`
-- HEAD: `d2d91aafd606` — Unify commit-gate caller policy across governed + receipt paths
-- Tree hash: `3d32d91cf8fa`
-- Generation stamp: `snap-c73df5262d3f`
-- Generated at (UTC): 2026-04-16T14:03:42Z
-- Push decision: `run_devctl_push` — push_preconditions_satisfied
-- Reviewer mode: `single_agent` (interaction: `local_terminal`)
+- HEAD: `a9f1a42fa797` — Refresh external review snapshot for d2d91aaf
+- Tree hash: `187e318f8def`
+- Generation stamp: `snap-476bb605638c`
+- Generated at (UTC): 2026-04-16T14:56:08Z
+- Push decision: `await_checkpoint` — staged_index_present
+- Reviewer mode: `tools_only` (interaction: `local_terminal`)
 - Pipeline state: `n/a` (approval: `n/a`)
-- Delta since last snapshot: 24 commits, 74 files, +6036/-2404
+- Delta since last snapshot: 24 commits, 74 files, +6040/-2401
 - Governance findings: 112 open / 86 fixed / 212 total
 - Probe hints: 0 total across 0 files scanned
 
@@ -54,33 +54,31 @@ adopters arrive.
 - Remote: `https://github.com/jguida941/voiceterm.git`
 - Default branch: `master`
 - Current branch: `feature/governance-quality-sweep`
-- HEAD SHA: `d2d91aafd6060f4d296f5cdc0e8e7b8990446b64`
+- HEAD SHA: `a9f1a42fa797395f526fd9003780c37e56007968`
 - HEAD author: Justin Guida
 - HEAD timestamp (UTC): 2026-04-16T10:03:13-04:00
 
 ## 2. Governance state
 
 ### Push decision
-- action: `run_devctl_push`
-- reason: push_preconditions_satisfied
-- push_eligible_now: True
-- worktree_clean: True
-- staged_path_count: 0
+- action: `await_checkpoint`
+- reason: staged_index_present
+- push_eligible_now: False
+- worktree_clean: False
+- staged_path_count: 5
 - unstaged_path_count: 0
-- next_step_command: `python3 dev/scripts/devctl.py push --execute`
+- next_step_command: `python3 dev/scripts/devctl.py review-channel --action status --terminal none --format json`
 - latest_push_report: `dev/reports/push/latest.json`
 - latest_push_report_state: `published_remote` (post_push_bundle_pending)
-- current_push_authorization: `push-auth-20260416T045111064083Z` (valid=False)
-- authorized_head_commit: `09ef6ccc55c84eef7ba8deccc4aef760856f2106`
-- approved_target_identity: `tree-receipt-20260416T045111064083Z:5d89fb3f8b159b4226e2ef22e214464969be6342`
 - publication_backlog: urgent
-- publication_guidance: 17 local commit(s) waiting for governed push. Run `python3 dev/scripts/devctl.py push --execute` now.
+- publication_guidance: 18 local commit(s) waiting for governed push once the current slice is checkpoint-clean.
 
 ### Reviewer runtime
-- reviewer_mode: `single_agent`
+- reviewer_mode: `tools_only`
 - reviewer_freshness: unknown
-- reviewer_publish_clear: True
+- reviewer_publish_clear: False
 - interaction_mode: `local_terminal`
+- implementation_blocked: yes — runtime_missing
 
 ### Remote commit pipeline
 - state: `n/a`
@@ -90,16 +88,16 @@ adopters arrive.
 - active plan: **AI Governance Platform Plan**
 - plan path: `dev/active/ai_governance_platform.md`
 - active MP scope: `MP-377`
-- advisory: `push_allowed` — worktree_clean_and_review_accepted
+- advisory: `repair_reviewer_loop` — runtime_missing
 
 ## 3. Delta — what changed since the previous snapshot
 
-Range: last 24 commits ending at `d2d91aafd606`
+Range: last 24 commits ending at `a9f1a42fa797`
 
 - commits: 24
 - files changed: 74
-- insertions: +6036
-- deletions: -2404
+- insertions: +6040
+- deletions: -2401
 - bundle classes touched: docs, tooling
 - authority surfaces touched: 10 file(s)
 
@@ -107,30 +105,30 @@ Range: last 24 commits ending at `d2d91aafd606`
 
 | # | SHA | Subject | Files | +/- | Bundle | Risk |
 |---|---|---|---|---|---|---|
-| 1 | `d2d91aaf` | Unify commit-gate caller policy across governed + receipt p… | 8 | +218/-145 | tooling |  |
-| 2 | `7c1562f3` | Refresh external review snapshot for dae1df84 | 2 | +65/-65 | docs |  |
-| 3 | `dae1df84` | Make reviewer turn runner governance-shaped instead of brid… | 3 | +138/-50 | tooling |  |
-| 4 | `b627c135` | Unify target resolver + fail-closed on unresolved target +… | 5 | +110/-118 | tooling |  |
-| 5 | `4c01b779` | Add fail-closed commit gate on pending reviewer packets | 6 | +622/-49 | tooling |  |
-| 6 | `6221bc32` | Refresh external review snapshot for f4c3a335 | 2 | +63/-61 | docs |  |
-| 7 | `f4c3a335` | Fix Codex review findings: revert premature follow wiring +… | 6 | +66/-64 | tooling |  |
-| 8 | `26e8730a` | Refresh external review snapshot for d08407ca | 1 | +67/-75 | tooling |  |
-| 9 | `4d2c991c` | Refresh external review snapshot for d08407ca | 2 | +66/-63 | docs |  |
-| 10 | `d08407ca` | Add portable controller-owned reviewer turn runner + public… | 9 | +1129/-65 | tooling |  |
-| 11 | `eea5abf5` | Refresh external review snapshot for bf0c0d90 | 2 | +56/-54 | docs |  |
-| 12 | `bf0c0d90` | Fix test_implementer_stall import after event_projection re… | 2 | +59/-60 | tooling |  |
-| 13 | `0e0b3288` | Refresh external review snapshot for 7ef603c1 | 2 | +57/-54 | docs |  |
-| 14 | `7ef603c1` | Block stale bridge instruction fallback on explicit typed c… | 3 | +112/-61 | tooling |  |
-| 15 | `9fb25fcd` | Drop zref from snapshot hash inputs + fix bridge instructio… | 4 | +99/-57 | tooling |  |
-| 16 | `d2171db6` | Refresh external review snapshot for 3187f7ce | 2 | +77/-78 | docs |  |
-| 17 | `3187f7ce` | Fix zref regression + contract parity + focused tests | 26 | +552/-211 | tooling |  |
-| 18 | `09ef6ccc` | Refresh external review snapshot for a0686d76 | 2 | +62/-66 | docs |  |
-| 19 | `a0686d76` | Split loop-packet commands into packets package | 11 | +653/-581 | tooling |  |
-| 20 | `1e54c022` | Refresh external review snapshot for 85b11941 | 2 | +58/-61 | docs |  |
-| 21 | `85b11941` | Project typed plan authority and packet inbox state | 24 | +1116/-138 | tooling |  |
-| 22 | `fa370be5` | Refresh external review snapshot for bc594104 | 2 | +65/-68 | docs |  |
-| 23 | `bc594104` | Project plan authority readers from typed registry | 18 | +464/-93 | tooling |  |
-| 24 | `af3724b7` | Refresh external review snapshot for 8873e4e5 | 2 | +62/-67 | docs |  |
+| 1 | `a9f1a42f` | Refresh external review snapshot for d2d91aaf | 2 | +66/-64 | docs |  |
+| 2 | `d2d91aaf` | Unify commit-gate caller policy across governed + receipt p… | 8 | +218/-145 | tooling |  |
+| 3 | `7c1562f3` | Refresh external review snapshot for dae1df84 | 2 | +65/-65 | docs |  |
+| 4 | `dae1df84` | Make reviewer turn runner governance-shaped instead of brid… | 3 | +138/-50 | tooling |  |
+| 5 | `b627c135` | Unify target resolver + fail-closed on unresolved target +… | 5 | +110/-118 | tooling |  |
+| 6 | `4c01b779` | Add fail-closed commit gate on pending reviewer packets | 6 | +622/-49 | tooling |  |
+| 7 | `6221bc32` | Refresh external review snapshot for f4c3a335 | 2 | +63/-61 | docs |  |
+| 8 | `f4c3a335` | Fix Codex review findings: revert premature follow wiring +… | 6 | +66/-64 | tooling |  |
+| 9 | `26e8730a` | Refresh external review snapshot for d08407ca | 1 | +67/-75 | tooling |  |
+| 10 | `4d2c991c` | Refresh external review snapshot for d08407ca | 2 | +66/-63 | docs |  |
+| 11 | `d08407ca` | Add portable controller-owned reviewer turn runner + public… | 9 | +1129/-65 | tooling |  |
+| 12 | `eea5abf5` | Refresh external review snapshot for bf0c0d90 | 2 | +56/-54 | docs |  |
+| 13 | `bf0c0d90` | Fix test_implementer_stall import after event_projection re… | 2 | +59/-60 | tooling |  |
+| 14 | `0e0b3288` | Refresh external review snapshot for 7ef603c1 | 2 | +57/-54 | docs |  |
+| 15 | `7ef603c1` | Block stale bridge instruction fallback on explicit typed c… | 3 | +112/-61 | tooling |  |
+| 16 | `9fb25fcd` | Drop zref from snapshot hash inputs + fix bridge instructio… | 4 | +99/-57 | tooling |  |
+| 17 | `d2171db6` | Refresh external review snapshot for 3187f7ce | 2 | +77/-78 | docs |  |
+| 18 | `3187f7ce` | Fix zref regression + contract parity + focused tests | 26 | +552/-211 | tooling |  |
+| 19 | `09ef6ccc` | Refresh external review snapshot for a0686d76 | 2 | +62/-66 | docs |  |
+| 20 | `a0686d76` | Split loop-packet commands into packets package | 11 | +653/-581 | tooling |  |
+| 21 | `1e54c022` | Refresh external review snapshot for 85b11941 | 2 | +58/-61 | docs |  |
+| 22 | `85b11941` | Project typed plan authority and packet inbox state | 24 | +1116/-138 | tooling |  |
+| 23 | `fa370be5` | Refresh external review snapshot for bc594104 | 2 | +65/-68 | docs |  |
+| 24 | `bc594104` | Project plan authority readers from typed registry | 18 | +464/-93 | tooling |  |
 
 ### Files
 
@@ -138,10 +136,10 @@ Range: last 24 commits ending at `d2d91aafd606`
 |---|---|---|
 | `0` | tooling | +0/-0 |
 | `AGENTS.md` | docs | +8/-3 |
-| `bridge.md` | docs | +39/-39 |
+| `bridge.md` | docs | +37/-37 |
 | `dev/active/MASTER_PLAN.md` | tooling | +33/-0 |
 | `dev/active/ai_governance_platform.md` | tooling | +75/-2 |
-| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1375/-1386 |
+| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1381/-1385 |
 | `dev/guides/DEVELOPMENT.md` | docs | +16/-3 |
 | `dev/history/ENGINEERING_EVOLUTION.md` | tooling | +157/-0 |
 | `dev/scripts/README.md` | tooling | +14/-2 |
@@ -272,6 +270,7 @@ Recent findings:
 
 ### Per-commit rationale
 
+- **`a9f1a42f`** — Refresh external review snapshot for d2d91aaf
 - **`d2d91aaf`** — Unify commit-gate caller policy across governed + receipt paths
   - Both governed_executor_commit_phase and review_snapshot now call
   - check_commit_packet_gate() with identical load→resolve→skip→gate
@@ -325,8 +324,6 @@ Recent findings:
   - evolution: Fact: the next dogfood pass after the launch-authority/runtime-parity repair found one more place where declared topology could outrank typed authority. `resolve_commit_execution_target()` still preferred `collaboration…
 - **`bc594104`** — Project plan authority readers from typed registry
   - evolution: Fact: the next dogfood pass after the launch-authority/runtime-parity repair found one more place where declared topology could outrank typed authority. `resolve_commit_execution_target()` still preferred `collaboration…
-- **`af3724b7`** — Refresh external review snapshot for 8873e4e5
-  - evolution: Fact: the next dogfood pass after the launch-authority/runtime-parity repair found one more place where declared topology could outrank typed authority. `resolve_commit_execution_target()` still preferred `collaboration…
 ### Active MP scope (from MASTER_PLAN.md)
 
 - contract slice for MP-355 plus the temporary markdown-swarm operating mode
@@ -345,10 +342,10 @@ Recent findings:
 - open governance findings: 112
 
 ### Startup advisories
-- push_allowed: worktree_clean_and_review_accepted
+- repair_reviewer_loop: runtime_missing
 
 ### Stale warnings
-- Stop because nothing remains to push.
+- Cut a checkpoint before doing anything else.
 
 ### Open gap rows
 - **governance_open** (`dev/scripts/devctl/runtime/dogfood_log.py`): dogfood_finding_id_instability: 
@@ -362,4 +359,4 @@ Recent findings:
 
 ---
 
-Projection produced by `devctl review-snapshot`. Generation stamp `snap-c73df5262d3f` binds this file to HEAD `d2d91aafd606`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
+Projection produced by `devctl review-snapshot`. Generation stamp `snap-476bb605638c` binds this file to HEAD `a9f1a42fa797`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
