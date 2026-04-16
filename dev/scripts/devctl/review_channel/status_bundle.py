@@ -83,6 +83,7 @@ def write_status_projection_bundle(
     )
     review_state = canonicalize_projection_review_state(review_state)
     snapshot_id = str(review_state.get("snapshot_id") or "").strip()
+    zref = str(review_state.get("zref") or "").strip()
     agent_registry = _status_agent_registry(review_state)
     projection_paths = write_projection_bundle(
         output_root=context.output_root,
@@ -94,6 +95,7 @@ def write_status_projection_bundle(
             context=context,
             payload=payload,
             snapshot_id=snapshot_id,
+            zref=zref,
         ),
     )
     mirror_root = _projection_mirror_root(context.output_root)
@@ -108,6 +110,7 @@ def write_status_projection_bundle(
                 context=context,
                 payload=payload,
                 snapshot_id=snapshot_id,
+                zref=zref,
             ),
         )
     return StatusProjectionBundleResult(
@@ -163,6 +166,7 @@ def _build_status_review_state(
         reduced_runtime=payload.reduced_runtime,
     )
     snapshot_id = str(review_state.get("snapshot_id") or "").strip()
+    zref = str(review_state.get("zref") or "").strip()
     compat = review_state.get("_compat")
     if isinstance(compat, dict):
         compat["planned_topology"] = build_planned_topology(
@@ -178,9 +182,10 @@ def _build_status_review_state(
         if isinstance(push_enforcement, dict):
             compat["push_enforcement"] = push_enforcement
         if isinstance(payload.push_decision, dict):
-            compat["push_decision"] = _with_snapshot_id(
+            compat["push_decision"] = _with_surface_identity(
                 payload.push_decision,
                 snapshot_id,
+                zref,
             )
     return review_state
 
@@ -211,6 +216,7 @@ def _status_full_extras(
     context: StatusProjectionContext,
     payload: StatusProjectionPayload,
     snapshot_id: str,
+    zref: str,
 ) -> dict[str, object]:
     push_enforcement = context.bridge_liveness.get("push_enforcement")
     extras = {
@@ -223,16 +229,20 @@ def _status_full_extras(
     if isinstance(push_enforcement, dict):
         extras["push_enforcement"] = push_enforcement
     if isinstance(payload.push_decision, dict):
-        extras["push_decision"] = _with_snapshot_id(
+        extras["push_decision"] = _with_surface_identity(
             payload.push_decision,
             snapshot_id,
+            zref,
         )
     return extras
-def _with_snapshot_id(
+def _with_surface_identity(
     payload: dict[str, object],
     snapshot_id: str,
+    zref: str,
 ) -> dict[str, object]:
     result = dict(payload)
     if snapshot_id:
         result["snapshot_id"] = snapshot_id
+    if zref:
+        result["zref"] = zref
     return result

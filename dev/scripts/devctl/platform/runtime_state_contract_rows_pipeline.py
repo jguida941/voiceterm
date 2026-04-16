@@ -21,6 +21,11 @@ PIPELINE_STATE_CONTRACTS: tuple[ContractSpec, ...] = (
                 "Shared surface-generation stamp for the current pipeline projection.",
             ),
             ContractField(
+                "zref",
+                "str",
+                "Compact human-readable handle derived from snapshot_id and head_sha prefixes.",
+            ),
+            ContractField(
                 "state",
                 "str",
                 "Current pipeline lifecycle state.",

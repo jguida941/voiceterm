@@ -201,6 +201,9 @@ def _build_review_state(
         snapshot_id=_string(payload.get("snapshot_id"))
         or _string(review_payload.get("snapshot_id"))
         or _string(_mapping(review_payload.get("commit_pipeline")).get("snapshot_id")),
+        zref=_string(payload.get("zref"))
+        or _string(review_payload.get("zref"))
+        or _string(_mapping(review_payload.get("commit_pipeline")).get("zref")),
     )
 
 

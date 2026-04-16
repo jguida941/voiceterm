@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 import re
-from collections import deque
 from pathlib import Path
 
 from ..config import get_repo_root
@@ -13,6 +12,7 @@ from ..context_graph.codeshape import (
     build_codeshape_subgraph,
 )
 from ..context_graph.models import EDGE_KIND_CALLS, EDGE_KIND_CONTAINS, NODE_KIND_MUTATION_CALLSITE
+from ..context_graph.traversal import contains_parents, edge_adjacency, shortest_paths
 
 GOVERNED_ANCHOR_POINTER = (
     "dev/scripts/devctl/commands/vcs/governed_executor.py::GovernedVcsExecutor.execute"
@@ -49,13 +49,39 @@ def build_report(
         repo_root=effective_repo_root,
         scope_paths=scope_paths,
     )
+    return build_report_from_codeshape_graph(
+        codeshape_graph=codeshape_graph,
+        repo_root=effective_repo_root,
+        proof_output_path=proof_output_path,
+        entrypoint_pointers=entrypoint_pointers,
+        governed_anchor_pointer=governed_anchor_pointer,
+        scope_paths=scope_paths,
+    )
+
+
+def build_report_from_codeshape_graph(
+    *,
+    codeshape_graph,
+    repo_root: Path,
+    proof_output_path: Path | None = None,
+    entrypoint_pointers: tuple[str, ...] = DEFAULT_ENTRYPOINT_POINTERS,
+    governed_anchor_pointer: str = GOVERNED_ANCHOR_POINTER,
+    scope_paths: tuple[str, ...] = DEFAULT_CODESHAPE_SCOPE_PATHS,
+) -> dict[str, object]:
+    """Build a mutation-bypass proof from one prebuilt codeshape graph."""
     node_by_id = {node.node_id: node for node in codeshape_graph.nodes}
     node_by_pointer = {
         node.canonical_pointer_ref: node
         for node in codeshape_graph.nodes
     }
-    calls_adjacency = _calls_adjacency(codeshape_graph.edges)
-    callsite_parents = _callsite_parents(codeshape_graph.edges)
+    calls_adjacency = edge_adjacency(
+        codeshape_graph.edges,
+        edge_kind=EDGE_KIND_CALLS,
+    )
+    callsite_parents = contains_parents(
+        codeshape_graph.edges,
+        child_prefix="mutation:",
+    )
 
     entrypoint_ids = {
         pointer: node_by_pointer[pointer].node_id
@@ -63,7 +89,7 @@ def build_report(
         if pointer in node_by_pointer
     }
     reachable_paths = {
-        pointer: _shortest_paths(entry_id, calls_adjacency)
+        pointer: shortest_paths(entry_id, calls_adjacency)
         for pointer, entry_id in entrypoint_ids.items()
     }
     anchor_node_id = entrypoint_ids.get(governed_anchor_pointer, "")
@@ -88,13 +114,13 @@ def build_report(
             bypasses.append(callsite)
 
     classified_debt = {
-        "hook_owned": _scan_hook_mutations(effective_repo_root),
-        "test_helpers": _scan_test_helper_mutations(effective_repo_root),
+        "hook_owned": _scan_hook_mutations(repo_root),
+        "test_helpers": _scan_test_helper_mutations(repo_root),
     }
     report: dict[str, object] = {
         "command": "check_mutation_bypass_graph_closure",
         "ok": not bypasses and not codeshape_graph.parse_errors,
-        "repo_root": str(effective_repo_root),
+        "repo_root": str(repo_root),
         "scope_paths": list(scope_paths),
         "entrypoints": list(entrypoint_pointers),
     }
@@ -106,44 +132,11 @@ def build_report(
     report["bypasses"] = bypasses
     report["classified_debt"] = classified_debt
 
-    output_path = proof_output_path or (effective_repo_root / DEFAULT_PROOF_ARTIFACT)
+    output_path = proof_output_path or (repo_root / DEFAULT_PROOF_ARTIFACT)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    report["proof_artifact"] = _relative_path(output_path, effective_repo_root)
+    report["proof_artifact"] = _relative_path(output_path, repo_root)
     return report
-
-
-def _calls_adjacency(edges) -> dict[str, tuple[str, ...]]:
-    adjacency: dict[str, list[str]] = {}
-    for edge in edges:
-        if edge.edge_kind != EDGE_KIND_CALLS:
-            continue
-        adjacency.setdefault(edge.source_id, []).append(edge.target_id)
-    return {key: tuple(value) for key, value in adjacency.items()}
-
-
-def _callsite_parents(edges) -> dict[str, str]:
-    parents: dict[str, str] = {}
-    for edge in edges:
-        if edge.edge_kind != EDGE_KIND_CONTAINS:
-            continue
-        if edge.target_id.startswith("mutation:"):
-            parents[edge.target_id] = edge.source_id
-    return parents
-
-
-def _shortest_paths(start_id: str, adjacency: dict[str, tuple[str, ...]]) -> dict[str, tuple[str, ...]]:
-    paths = {start_id: (start_id,)}
-    queue: deque[str] = deque([start_id])
-    while queue:
-        current = queue.popleft()
-        current_path = paths[current]
-        for neighbor in adjacency.get(current, ()):
-            if neighbor in paths:
-                continue
-            paths[neighbor] = current_path + (neighbor,)
-            queue.append(neighbor)
-    return paths
 
 
 def _render_callsite(
@@ -256,4 +249,3 @@ def _build_callsite_payload(
     payload["classification"] = classification
     payload["reachable_entrypoints"] = reachable_entrypoints
     return payload
-

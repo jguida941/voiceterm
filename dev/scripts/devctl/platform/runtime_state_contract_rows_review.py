@@ -83,6 +83,11 @@ REVIEW_STATE_CONTRACTS: tuple[ContractSpec, ...] = (
                 "Shared surface-generation stamp carried across startup, doctor, bridge projection, and commit pipeline surfaces.",
             ),
             ContractField(
+                "zref",
+                "str",
+                "Compact human-readable handle derived from snapshot_id and head_sha prefixes.",
+            ),
+            ContractField(
                 "ok",
                 "bool",
                 "Whether the review snapshot resolved without blocking errors.",

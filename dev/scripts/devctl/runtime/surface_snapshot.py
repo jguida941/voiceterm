@@ -38,6 +38,32 @@ def attach_snapshot_id(
     return mapping
 
 
+def build_surface_zref(
+    *,
+    snapshot_id: str,
+    head_sha: str,
+) -> str:
+    """Return a compact human-readable handle for one snapshot/head pair."""
+    snapshot_prefix = _identity_prefix(snapshot_id)
+    head_prefix = _identity_prefix(head_sha)
+    if not snapshot_prefix and not head_prefix:
+        return ""
+    return f"zref_{snapshot_prefix or 'unknown'}_{head_prefix or 'unknown'}"
+
+
+def attach_surface_identity(
+    payload: object,
+    *,
+    snapshot_id: str,
+    zref: str,
+) -> dict[str, object]:
+    """Copy one mapping-like payload and attach snapshot/zref identity fields."""
+    mapping = attach_snapshot_id(payload, snapshot_id)
+    if zref:
+        mapping["zref"] = zref
+    return mapping
+
+
 def _normalize_push_decision(payload: object) -> dict[str, object]:
     mapping = _normalize_payload(payload, drop_keys=("snapshot_id",))
     backlog = mapping.get("publication_backlog")
@@ -77,3 +103,12 @@ def _normalize_payload(
     for key in drop_keys:
         mapping.pop(key, None)
     return mapping
+
+
+def _identity_prefix(value: object) -> str:
+    text = str(value or "").strip()
+    if not text:
+        return ""
+    if "-" in text:
+        text = text.split("-", 1)[-1]
+    return text[:8]

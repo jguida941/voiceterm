@@ -6,7 +6,7 @@ from dataclasses import asdict, dataclass, replace
 from collections.abc import Mapping
 from pathlib import Path
 
-from ..runtime.surface_snapshot import build_surface_snapshot_id
+from ..runtime.surface_snapshot import build_surface_snapshot_id, build_surface_zref
 from .remote_commit_pipeline_artifact import load_remote_commit_pipeline_contract
 from .reviewer_runtime_contract import build_reviewer_doctor_surface
 
@@ -31,6 +31,7 @@ class CommitProjectionBundle:
 
     commit_pipeline: object
     snapshot_id: str
+    zref: str
     doctor: dict[str, object]
 
 
@@ -43,7 +44,13 @@ def build_commit_projection_bundle(
         commit_pipeline=commit_pipeline,
         push_decision=inputs.push_decision,
     )
-    commit_pipeline = replace(commit_pipeline, snapshot_id=snapshot_id)
+    head_sha = str(
+        (inputs.bridge_liveness.get("push_enforcement") or {}).get("current_head_commit")
+        or commit_pipeline.commit_sha
+        or ""
+    ).strip()
+    zref = build_surface_zref(snapshot_id=snapshot_id, head_sha=head_sha)
+    commit_pipeline = replace(commit_pipeline, snapshot_id=snapshot_id, zref=zref)
     runtime_daemons = (
         inputs.reduced_runtime.get("daemons", {})
         if isinstance(inputs.reduced_runtime, dict)
@@ -63,5 +70,6 @@ def build_commit_projection_bundle(
     return CommitProjectionBundle(
         commit_pipeline=commit_pipeline,
         snapshot_id=snapshot_id,
+        zref=zref,
         doctor=doctor,
     )

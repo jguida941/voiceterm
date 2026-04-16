@@ -86,6 +86,8 @@ SURFACE_STATE_CONTRACTS: tuple[ContractSpec, ...] = (
         ),
         required_fields=(
             ContractField("timestamp", "str", "UTC timestamp for the resolved snapshot."),
+            ContractField("snapshot_id", "str", "Shared surface-generation stamp."),
+            ContractField("zref", "str", "Compact human-readable handle derived from snapshot_id and head_sha prefixes."),
             ContractField("branch", "str", "Current git branch."),
             ContractField("head_sha", "str", "Current HEAD commit SHA."),
             ContractField("worktree_clean", "bool", "Whether the git worktree is clean."),
@@ -178,6 +180,8 @@ SURFACE_STATE_CONTRACTS: tuple[ContractSpec, ...] = (
             ContractField("role", "str", "Agent role that owns the session."),
             ContractField("branch", "str", "Current git branch."),
             ContractField("head_sha", "str", "Current HEAD commit SHA."),
+            ContractField("snapshot_id", "str", "Shared surface-generation stamp from review state."),
+            ContractField("zref", "str", "Compact human-readable handle derived from snapshot_id and head_sha prefixes."),
             ContractField("advisory_action", "str", "Governance advisory action from startup receipt."),
             ContractField("advisory_reason", "str", "Reason for the advisory action."),
             ContractField("blockers", "str", "Comma-separated blocker identifiers or 'none'."),

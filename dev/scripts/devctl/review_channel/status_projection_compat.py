@@ -30,6 +30,7 @@ class CompatProjectionInputs:
     bridge_state: object
     doctor: object
     snapshot_id: str = ""
+    zref: str = ""
     packets: list[dict[str, object]] | None = None
 
 
@@ -65,9 +66,13 @@ def build_bridge_compat_projection(
         metadata = bridge_projection.get("metadata")
         if isinstance(metadata, dict) and inputs.snapshot_id:
             metadata["snapshot_id"] = inputs.snapshot_id
+            if inputs.zref:
+                metadata["zref"] = inputs.zref
     compat["doctor"] = _mapping(inputs.doctor)
     if inputs.snapshot_id:
         compat["snapshot_id"] = inputs.snapshot_id
+    if inputs.zref:
+        compat["zref"] = inputs.zref
     compat["agents"] = inputs.legacy_agents
     return compat
 

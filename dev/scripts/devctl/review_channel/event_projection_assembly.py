@@ -9,7 +9,7 @@ from ..runtime.coordination_loader import load_coordination_snapshot
 from ..runtime.governance_scan import scan_repo_governance_safely
 from ..runtime.review_packet_inbox import build_packet_inbox_payload
 from ..runtime.review_state_parser import review_state_from_payload
-from ..runtime.surface_snapshot import build_surface_snapshot_id
+from ..runtime.surface_snapshot import build_surface_snapshot_id, build_surface_zref
 from .attach_auth_policy import build_attach_auth_policy
 from .attach_auth_projection import (
     build_attach_auth_policy_state,
@@ -144,7 +144,13 @@ def enrich_event_review_state_impl(
         commit_pipeline=commit_pipeline,
         push_decision=push_decision,
     )
-    commit_pipeline = replace(commit_pipeline, snapshot_id=snapshot_id)
+    head_sha = str(
+        (bridge_liveness.get("push_enforcement") or {}).get("current_head_commit")
+        or commit_pipeline.commit_sha
+        or ""
+    ).strip()
+    zref = build_surface_zref(snapshot_id=snapshot_id, head_sha=head_sha)
+    commit_pipeline = replace(commit_pipeline, snapshot_id=snapshot_id, zref=zref)
 
     bridge_liveness["review_accepted"] = (
         reviewer_runtime.review_acceptance.review_accepted
@@ -152,6 +158,7 @@ def enrich_event_review_state_impl(
     bridge_liveness["publish_clear"] = reviewer_runtime.publish_clear
 
     review_state["snapshot_id"] = snapshot_id
+    review_state["zref"] = zref
     review_state["current_session"] = current_session_payload(current_session)
     review_state["collaboration"] = asdict(collaboration)
     review_state["reviewer_runtime"] = asdict(reviewer_runtime)
@@ -197,6 +204,7 @@ def enrich_event_review_state_impl(
             commit_pipeline=commit_pipeline,
             push_decision=push_decision,
             snapshot_id=snapshot_id,
+            zref=zref,
         ),
     )
     review_state["_compat"] = merged_compat

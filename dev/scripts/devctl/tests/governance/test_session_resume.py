@@ -2288,5 +2288,76 @@ class TestReadModelPureProjection(unittest.TestCase):
             self.assertIn("implementation.edit", packet.authority_snapshot.blocked_actions)
 
 
+class TestFrozenReviewStateZrefSafety(unittest.TestCase):
+    """Verify getattr-safe access to snapshot_id/zref on frozen review-state stubs."""
+
+    def test_legacy_stub_without_snapshot_id_or_zref_produces_empty_defaults(self) -> None:
+        class LegacyFrozenReviewState:
+            def to_dict(self) -> dict[str, object]:
+                return {"current_session": {}, "bridge": {}}
+
+        payload = {"review_state": LegacyFrozenReviewState().to_dict()}
+        packet = packet_from_mapping(
+            {
+                "generated_at_utc": "2026-01-01T00:00:00Z",
+                "role": "implementer",
+                "branch": "main",
+                "head_sha": "abc123",
+                "snapshot_id": "",
+                "zref": "",
+                "advisory_action": "continue",
+                "advisory_reason": "ok",
+                "blockers": "",
+                "interaction_mode": "local_terminal",
+                "current_instruction": "",
+                "instruction_revision": "",
+                "ack_state": "",
+                "open_findings": "none",
+                "last_guard_ok": True,
+                "review_state_mtime": 0.0,
+                "last_reviewed_sha": "",
+                "done_summary": "",
+                "next_action": "",
+                "key_rules": [],
+                "head_at_push_time": "",
+            }
+        )
+        self.assertEqual(packet.snapshot_id, "")
+        self.assertEqual(packet.zref, "")
+
+    def test_stub_with_zref_roundtrips_correctly(self) -> None:
+        packet = packet_from_mapping(
+            {
+                "generated_at_utc": "2026-01-01T00:00:00Z",
+                "role": "implementer",
+                "branch": "main",
+                "head_sha": "abc123",
+                "snapshot_id": "snap-abc12345",
+                "zref": "zref_abc12345_def67890",
+                "advisory_action": "continue",
+                "advisory_reason": "ok",
+                "blockers": "",
+                "interaction_mode": "local_terminal",
+                "current_instruction": "",
+                "instruction_revision": "",
+                "ack_state": "",
+                "open_findings": "none",
+                "last_guard_ok": True,
+                "review_state_mtime": 0.0,
+                "last_reviewed_sha": "",
+                "done_summary": "",
+                "next_action": "",
+                "key_rules": [],
+                "head_at_push_time": "",
+            }
+        )
+        self.assertEqual(packet.snapshot_id, "snap-abc12345")
+        self.assertEqual(packet.zref, "zref_abc12345_def67890")
+
+    def test_getattr_on_none_review_state_returns_empty(self) -> None:
+        self.assertEqual(getattr(None, "snapshot_id", ""), "")
+        self.assertEqual(getattr(None, "zref", ""), "")
+
+
 if __name__ == "__main__":
     unittest.main()

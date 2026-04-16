@@ -3,15 +3,30 @@
 from __future__ import annotations
 
 import ast
+import sys
 from collections.abc import Iterable
 from pathlib import Path
 
-
-def canonical_module_name(path: Path) -> str:
-    parts = list(path.with_suffix("").parts)
-    if parts and parts[-1] == "__init__":
-        parts = parts[:-1]
-    return ".".join(parts)
+try:
+    from dev.scripts.devctl.probe_topology.python_modules import (
+        canonical_module_name,
+        candidate_python_modules,
+        module_names_for_path,
+        resolve_module_target,
+        resolve_relative_module as _resolve_relative_module,
+    )
+except ModuleNotFoundError:  # pragma: no cover
+    repo_root = Path(__file__).resolve().parents[4]
+    repo_root_str = str(repo_root)
+    if repo_root_str not in sys.path:
+        sys.path.insert(0, repo_root_str)
+    from dev.scripts.devctl.probe_topology.python_modules import (
+        canonical_module_name,
+        candidate_python_modules,
+        module_names_for_path,
+        resolve_module_target,
+        resolve_relative_module as _resolve_relative_module,
+    )
 
 
 def module_names_for_path(
@@ -49,21 +64,7 @@ def build_module_index(
 
 
 def resolve_module(module_name: str, module_index: dict[str, Path]) -> Path | None:
-    parts = [part for part in module_name.split(".") if part]
-    for size in range(len(parts), 0, -1):
-        candidate = ".".join(parts[:size])
-        path = module_index.get(candidate)
-        if path is not None:
-            return path
-    return None
-
-
-def _package_name(module_name: str, *, is_package: bool) -> str:
-    if is_package:
-        return module_name
-    if "." not in module_name:
-        return ""
-    return module_name.rsplit(".", 1)[0]
+    return resolve_module_target(module_name, module_index)
 
 
 def resolve_relative_module(
@@ -73,22 +74,12 @@ def resolve_relative_module(
     level: int,
     module: str | None,
 ) -> str | None:
-    package_parts = [
-        part
-        for part in _package_name(
-            current_module,
-            is_package=current_is_package,
-        ).split(".")
-        if part
-    ]
-    if level > 1:
-        up_levels = level - 1
-        if up_levels > len(package_parts):
-            return None
-        package_parts = package_parts[:-up_levels]
-    if module:
-        package_parts.extend(part for part in module.split(".") if part)
-    return ".".join(package_parts)
+    return _resolve_relative_module(
+        current_module=current_module,
+        current_is_package=current_is_package,
+        level=level,
+        module=module,
+    )
 
 
 def top_level_dependencies(
@@ -107,38 +98,14 @@ def top_level_dependencies(
 
     dependencies: set[Path] = set()
     for node in tree.body:
-        if isinstance(node, ast.Import):
-            for alias in node.names:
-                target = resolve_module(alias.name, module_index)
-                if target is not None:
-                    dependencies.add(target)
-            continue
-        if not isinstance(node, ast.ImportFrom):
-            continue
-        base_module = (
-            resolve_relative_module(
-                current_module=current_module,
-                current_is_package=current_is_package,
-                level=node.level,
-                module=node.module,
-            )
-            if node.level
-            else node.module
-        )
-        if not base_module:
-            continue
-        for alias in node.names:
-            if alias.name != "*":
-                submodule_target = resolve_module(
-                    f"{base_module}.{alias.name}",
-                    module_index,
-                )
-                if submodule_target is not None:
-                    dependencies.add(submodule_target)
-                    continue
-            base_target = resolve_module(base_module, module_index)
-            if base_target is not None:
-                dependencies.add(base_target)
+        for candidate in candidate_python_modules(
+            current_module=current_module,
+            current_is_package=current_is_package,
+            node=node,
+        ):
+            target = resolve_module(candidate, module_index)
+            if target is not None:
+                dependencies.add(target)
     return dependencies
 
 

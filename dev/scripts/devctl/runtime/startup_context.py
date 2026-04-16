@@ -47,7 +47,7 @@ from .startup_push_decision import (
 )
 from .startup_packet_inbox import startup_packet_inbox_dict
 from .startup_signals import load_startup_quality_signals
-from .surface_snapshot import build_surface_snapshot_id
+from .surface_snapshot import build_surface_snapshot_id, build_surface_zref
 from .work_intake import (
     WorkIntakePacket,
     WorkIntakeStateInputs,
@@ -107,6 +107,7 @@ class StartupContext:
     blocker: BlockerSnapshot = field(default_factory=BlockerSnapshot)
     contract_ownership_map: dict[str, dict[str, object]] = field(default_factory=dict)
     snapshot_id: str = ""
+    zref: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         d: dict[str, Any] = {}
@@ -135,6 +136,7 @@ class StartupContext:
             self.contract_ownership_map
         )
         d["snapshot_id"] = self.snapshot_id
+        d["zref"] = self.zref
         if self.product_thesis:
             d["product_thesis"] = self.product_thesis
         if self.governance is not None:
@@ -479,6 +481,11 @@ def build_startup_context(
             push_decision=push_decision,
         )
     )
+    head_sha = str(
+        getattr(getattr(governance, "push_enforcement", None), "current_head_commit", "")
+        or ""
+    ).strip()
+    zref = build_surface_zref(snapshot_id=snapshot_id, head_sha=head_sha)
     push_decision = replace(push_decision, snapshot_id=snapshot_id)
     observed_control_topology, implementation_permission = derive_startup_control_truth(
         review_state,
@@ -515,6 +522,7 @@ def build_startup_context(
         blocker=blocker,
         contract_ownership_map=build_contract_ownership_map(),
         snapshot_id=snapshot_id,
+        zref=zref,
     )
     snapshot_payload = ctx.to_dict()
     authority_snapshot = project_authority_snapshot(snapshot_payload)

@@ -203,6 +203,7 @@ def build_bridge_review_state(
         warnings=tuple(warnings),
         errors=tuple(errors),
         snapshot_id=commit_bundle.snapshot_id,
+        zref=commit_bundle.zref,
     )
     governance = scan_repo_governance_safely(context.repo_root)
     review_state = replace(
@@ -221,6 +222,7 @@ def build_bridge_review_state(
         reduced_runtime=reduced_runtime,
         doctor=commit_bundle.doctor,
         snapshot_id=commit_bundle.snapshot_id,
+        zref=commit_bundle.zref,
     )
 
 
@@ -242,6 +244,7 @@ def _attach_review_state_compat(
     reduced_runtime: dict[str, object] | None,
     doctor: dict[str, object],
     snapshot_id: str,
+    zref: str,
 ) -> dict[str, object]:
     result: dict[str, object] = asdict(review_state)
     return attach_bridge_compat_projection(
@@ -259,6 +262,7 @@ def _attach_review_state_compat(
             bridge_state=result.get("bridge"),
             doctor=doctor,
             snapshot_id=snapshot_id,
+            zref=zref,
         ),
     )
 def _legacy_agents(registry: object) -> list[dict[str, object]]:

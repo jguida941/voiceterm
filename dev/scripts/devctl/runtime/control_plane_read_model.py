@@ -40,6 +40,7 @@ from .reviewer_runtime_models import (
     has_active_remote_control_attachment,
     remote_control_attachment_from_mapping,
 )
+from .surface_snapshot import build_surface_zref
 from .value_coercion import coerce_bool, coerce_int, coerce_string
 
 if TYPE_CHECKING:
@@ -97,6 +98,8 @@ class ControlPlaneReadModel:
     reviewer_observation: ReviewerObservation | None = None
     remote_control_attachment: RemoteControlAttachmentState | None = None
     coordination: CoordinationSnapshot | None = None
+    snapshot_id: str = ""
+    zref: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         payload = asdict(self)
@@ -324,11 +327,17 @@ def build_control_plane_read_model(
             "remote_control_attachment",
         )
     )
+    snapshot_id = coerce_string(_nested_get(review_state_payload, "snapshot_id"))
 
     return ControlPlaneReadModel(
         timestamp=utc_now_iso(),
         branch=git.get("branch", "unknown"),
         head_sha=git.get("head", "unknown"),
+        snapshot_id=snapshot_id,
+        zref=build_surface_zref(
+            snapshot_id=snapshot_id,
+            head_sha=git.get("head", "unknown"),
+        ),
         worktree_clean=git.get("clean", True),
         ahead_of_upstream=git.get("ahead", 0),
         resolved_phase=auto_state.phase,
@@ -381,6 +390,8 @@ def control_plane_read_model_from_mapping(
         timestamp=coerce_string(value.get("timestamp")),
         branch=coerce_string(value.get("branch")) or "unknown",
         head_sha=coerce_string(value.get("head_sha")) or "unknown",
+        snapshot_id=coerce_string(value.get("snapshot_id")),
+        zref=coerce_string(value.get("zref")),
         worktree_clean=coerce_bool(value.get("worktree_clean", True)),
         ahead_of_upstream=coerce_int(value.get("ahead_of_upstream")),
         resolved_phase=coerce_string(value.get("resolved_phase")) or AutoModePhase.IDLE.value,
@@ -433,6 +444,8 @@ def _default_read_model() -> ControlPlaneReadModel:
         timestamp="",
         branch="unknown",
         head_sha="unknown",
+        snapshot_id="",
+        zref="",
         worktree_clean=True,
         ahead_of_upstream=0,
         resolved_phase=AutoModePhase.IDLE.value,

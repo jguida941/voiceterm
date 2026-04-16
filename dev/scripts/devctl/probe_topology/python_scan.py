@@ -5,21 +5,27 @@ from __future__ import annotations
 import ast
 from pathlib import Path
 
+from .python_modules import (
+    candidate_python_modules as _candidate_python_modules,
+    module_names_for_path,
+    resolve_module_target,
+    resolve_relative_module,
+)
 from .source_paths import repo_relative, repo_root
 
 
 def python_module_name(path: Path) -> str:
-    rel = path.relative_to(repo_root()).with_suffix("")
-    parts = list(rel.parts)
-    if parts and parts[-1] == "__init__":
-        parts = parts[:-1]
-    return ".".join(parts)
+    rel = path.relative_to(repo_root())
+    aliases = module_names_for_path(rel)
+    return aliases[0] if aliases else ""
 
 
 def build_python_module_index(paths: list[Path]) -> dict[str, str]:
     index: dict[str, str] = {}
     for path in paths:
-        index[python_module_name(path)] = repo_relative(path)
+        rel_path = repo_relative(path)
+        for module_name in module_names_for_path(Path(rel_path)):
+            index[module_name] = rel_path
     return index
 
 
@@ -28,16 +34,15 @@ def resolve_relative_python_module(
     module: str | None,
     level: int,
 ) -> str:
-    if level <= 0:
-        return module or ""
-    package_parts = current_module.split(".")[:-1]
-    trim = max(level - 1, 0)
-    if trim:
-        package_parts = package_parts[:-trim]
-    base = ".".join(part for part in package_parts if part)
-    if base and module:
-        return f"{base}.{module}"
-    return base or (module or "")
+    return (
+        resolve_relative_module(
+            current_module=current_module,
+            current_is_package=False,
+            level=level,
+            module=module,
+        )
+        or ""
+    )
 
 
 def candidate_python_modules(
@@ -45,33 +50,18 @@ def candidate_python_modules(
     current_module: str,
     node: ast.AST,
 ) -> list[str]:
-    if isinstance(node, ast.Import):
-        return [alias.name for alias in node.names]
-    if not isinstance(node, ast.ImportFrom):
-        return []
-    base = resolve_relative_python_module(current_module, node.module, node.level)
-    if not base:
-        return []
-    candidates = [base]
-    for alias in node.names:
-        if alias.name != "*":
-            candidates.append(f"{base}.{alias.name}")
-    return candidates
+    return _candidate_python_modules(
+        current_module=current_module,
+        current_is_package=False,
+        node=node,
+    )
 
 
 def resolve_python_target(
     candidate: str,
     module_index: dict[str, str],
 ) -> str | None:
-    current = candidate
-    while current:
-        target = module_index.get(current)
-        if target is not None:
-            return target
-        if "." not in current:
-            break
-        current = current.rsplit(".", 1)[0]
-    return None
+    return resolve_module_target(candidate, module_index)
 
 
 def collect_python_edges(

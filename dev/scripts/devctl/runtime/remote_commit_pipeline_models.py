@@ -137,6 +137,7 @@ class RemoteCommitPipelineContract:
     approved_target_identity: str = ""
     push_authorization: PushAuthorizationRecord | None = None
     snapshot_id: str = ""
+    zref: str = ""
     worktree_identity: str = ""
     attention_revision_lease: str = ""
 
@@ -184,6 +185,7 @@ class RemoteCommitPipelineContract:
             else None
         )
         payload["snapshot_id"] = self.snapshot_id
+        payload["zref"] = self.zref
         payload["worktree_identity"] = self.worktree_identity
         payload["attention_revision_lease"] = self.attention_revision_lease
         return payload
@@ -292,6 +294,7 @@ def remote_commit_pipeline_contract_from_mapping(
             coerce_mapping(mapping.get("push_authorization"))
         ),
         snapshot_id=coerce_string(mapping.get("snapshot_id")),
+        zref=coerce_string(mapping.get("zref")),
         worktree_identity=coerce_string(mapping.get("worktree_identity")),
         attention_revision_lease=coerce_string(
             mapping.get("attention_revision_lease")

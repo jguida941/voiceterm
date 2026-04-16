@@ -36,6 +36,7 @@ class CompatProjectionInputs:
     commit_pipeline: object
     push_decision: object
     snapshot_id: object
+    zref: object
 
 
 def review_identifiers(review_state: Mapping[str, object]) -> tuple[str, str]:
@@ -147,6 +148,7 @@ def apply_compat_projections(
         _propagate_snapshot_id(
             merged_compat=merged_compat,
             snapshot_id=inputs.snapshot_id,
+            zref=inputs.zref,
         )
 
     return merged_compat
@@ -156,13 +158,18 @@ def _propagate_snapshot_id(
     *,
     merged_compat: dict[str, object],
     snapshot_id: object,
+    zref: object,
 ) -> None:
     merged_compat["snapshot_id"] = snapshot_id
+    if zref:
+        merged_compat["zref"] = zref
 
     compat_push_decision = _mapping(merged_compat.get("push_decision"))
     if compat_push_decision:
         updated_push_decision = dict(compat_push_decision)
         updated_push_decision["snapshot_id"] = snapshot_id
+        if zref and not updated_push_decision.get("zref"):
+            updated_push_decision["zref"] = zref
         merged_compat["push_decision"] = updated_push_decision
 
     bridge_projection = _mapping(merged_compat.get("bridge_projection"))
@@ -173,6 +180,8 @@ def _propagate_snapshot_id(
     updated_bridge_projection = dict(bridge_projection)
     updated_metadata = dict(metadata)
     updated_metadata["snapshot_id"] = snapshot_id
+    if zref:
+        updated_metadata["zref"] = zref
     updated_bridge_projection["metadata"] = updated_metadata
     merged_compat["bridge_projection"] = updated_bridge_projection
 

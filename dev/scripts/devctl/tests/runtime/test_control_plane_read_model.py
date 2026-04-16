@@ -70,7 +70,7 @@ class ControlPlaneReadModelDataclassTests(unittest.TestCase):
     def test_all_fields_present(self) -> None:
         model = _default_read_model()
         expected_fields = {
-            "timestamp", "branch", "head_sha", "worktree_clean",
+            "timestamp", "branch", "head_sha", "snapshot_id", "zref", "worktree_clean",
             "ahead_of_upstream", "resolved_phase", "push_eligible",
             "implementation_blocked", "top_blocker", "next_action",
             "next_command", "reviewer_mode", "operator_interaction_mode",
@@ -108,6 +108,8 @@ class BuildFromEmptySourcesTests(unittest.TestCase):
         )
         self.assertEqual(model.branch, "feature/test")
         self.assertEqual(model.head_sha, "abc1234")
+        self.assertEqual(model.snapshot_id, "")
+        self.assertEqual(model.zref, "zref_unknown_abc1234")
         self.assertTrue(model.worktree_clean)
         self.assertEqual(model.resolved_phase, "idle")
         self.assertFalse(model.push_eligible)

@@ -215,6 +215,7 @@ class ReviewState:
     warnings: tuple[str, ...] = ()
     errors: tuple[str, ...] = ()
     snapshot_id: str = ""
+    zref: str = ""
 
     def pending_approvals(self) -> tuple[ReviewPacketState, ...]:
         from ..review_channel.pending_packets import live_pending_packets

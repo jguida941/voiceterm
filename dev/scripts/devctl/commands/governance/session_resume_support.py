@@ -102,6 +102,8 @@ class SessionCachePacket:
     role: str = "implementer"
     branch: str = ""
     head_sha: str = ""
+    snapshot_id: str = ""
+    zref: str = ""
     advisory_action: str = ""
     advisory_reason: str = ""
     blockers: str = "none"
@@ -294,6 +296,8 @@ def build_from_sources(
         role=role,
         branch=model.branch,
         head_sha=head_sha,
+        snapshot_id=getattr(typed_review_state, "snapshot_id", "") if typed_review_state is not None else "",
+        zref=getattr(typed_review_state, "zref", "") if typed_review_state is not None else "",
         advisory_action=model.next_action,
         advisory_reason=top_blocker,
         blockers=blockers,
@@ -530,6 +534,8 @@ def packet_from_mapping(payload: dict[str, Any]) -> SessionCachePacket:
         role=str(payload.get("role") or "implementer").strip(),
         branch=str(payload.get("branch") or "").strip(),
         head_sha=str(payload.get("head_sha") or "").strip(),
+        snapshot_id=str(payload.get("snapshot_id") or "").strip(),
+        zref=str(payload.get("zref") or "").strip(),
         advisory_action=str(payload.get("advisory_action") or "").strip(),
         advisory_reason=str(payload.get("advisory_reason") or "").strip(),
         blockers=str(payload.get("blockers") or "none").strip(),

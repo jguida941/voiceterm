@@ -175,12 +175,14 @@ def _build_compact_projection(review_state: dict[str, object]) -> dict[str, obje
     doctor = compat.get("doctor")
     commit_pipeline = review_state.get("commit_pipeline")
     snapshot_id = str(review_state.get("snapshot_id") or "").strip()
+    zref = str(review_state.get("zref") or "").strip()
     current_focus = current_focus_line(review_state)
     return {
         "schema_version": 1,
         "command": "review-channel",
         "timestamp": review_state.get("timestamp"),
         "snapshot_id": snapshot_id,
+        "zref": zref,
         "ok": review_state.get("ok"),
         "review": review_state.get("review"),
         "authority_snapshot": review_state.get("authority_snapshot"),
@@ -189,8 +191,8 @@ def _build_compact_projection(review_state: dict[str, object]) -> dict[str, obje
         "recovery_assessment": review_state.get("recovery_assessment"),
         "service_identity": service_identity,
         "attach_auth_policy": attach_auth_policy,
-        "push_decision": _with_snapshot_id(push_decision, snapshot_id),
-        "doctor": _with_snapshot_id(doctor, snapshot_id),
+        "push_decision": _with_surface_identity(push_decision, snapshot_id, zref),
+        "doctor": _with_surface_identity(doctor, snapshot_id, zref),
         "commit_pipeline": commit_pipeline,
         "bridge": {
             "last_codex_poll_utc": bridge.get("last_codex_poll_utc"),
@@ -241,12 +243,14 @@ def _build_actions_projection(review_state: dict[str, object]) -> dict[str, obje
     }
 
 
-def _with_snapshot_id(payload: object, snapshot_id: str) -> object:
+def _with_surface_identity(payload: object, snapshot_id: str, zref: str) -> object:
     if not isinstance(payload, dict):
         return payload
     result = dict(payload)
     if snapshot_id and not result.get("snapshot_id"):
         result["snapshot_id"] = snapshot_id
+    if zref and not result.get("zref"):
+        result["zref"] = zref
     return result
 
 
