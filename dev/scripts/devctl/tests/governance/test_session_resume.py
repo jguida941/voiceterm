@@ -1466,6 +1466,26 @@ class TestLastReviewedSha(unittest.TestCase):
             "Reviewer Conversation Starter must put review-channel status before context-graph",
         )
 
+    def test_render_bootstrap_reviewer_requires_pending_inbox_before_questions(
+        self,
+    ) -> None:
+        """Reviewer bootstrap must consume pending inbox guidance before bridge-only analysis."""
+        from dev.scripts.devctl.commands.governance.session_resume_support import (
+            render_bootstrap,
+        )
+
+        packet = SessionCachePacket(
+            role="reviewer",
+            head_sha="aabbccddeeff0011",
+            operator_interaction_mode="active_dual_agent",
+        )
+
+        md = render_bootstrap(packet)
+        self.assertIn(
+            "If `Pending Inbox` already names a reviewer-targeted packet or `required_command`, run that repo-owned inbox command immediately before bridge-only analysis or operator questions.",
+            md,
+        )
+
     def test_render_bootstrap_implementer_no_status_poll_step(self) -> None:
         """Implementer Run In Order must not include review-channel status as a step."""
         from dev.scripts.devctl.commands.governance.session_resume_support import (
@@ -1484,6 +1504,30 @@ class TestLastReviewedSha(unittest.TestCase):
         if next_section_idx > 0:
             run_in_order_section = run_in_order_section[:next_section_idx]
         self.assertNotIn("review-channel --action status", run_in_order_section)
+
+    def test_render_bootstrap_implementer_requires_packet_inbox_before_operator_question(
+        self,
+    ) -> None:
+        """Implementer bootstrap must force the typed inbox step before asking."""
+        from dev.scripts.devctl.commands.governance.session_resume_support import (
+            render_bootstrap,
+        )
+
+        packet = SessionCachePacket(
+            role="implementer",
+            instruction_revision="rev-456",
+            operator_interaction_mode="active_dual_agent",
+        )
+
+        md = render_bootstrap(packet)
+        self.assertIn(
+            "run `python3 dev/scripts/devctl.py review-channel --action inbox --target claude --status pending --format md` immediately before asking what to do next.",
+            md,
+        )
+        self.assertIn(
+            "Do not ask the operator whether to continue a permitted probe or pull a pending packet when the typed inbox already provides the next non-destructive step.",
+            md,
+        )
 
 
 class TestV2Fields(unittest.TestCase):

@@ -12,6 +12,9 @@ from typing import Mapping
 from .handoff import extract_bridge_snapshot
 
 NON_RESTARTABLE_LAUNCH_AUTHORITY_EXIT_CODE = 82
+_COMPATIBLE_SESSION_IDS = frozenset(
+    {"local-review", "markdown-bridge", "review-channel"}
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -45,23 +48,25 @@ def build_prepared_launch_authority(
     review_state = _load_review_state(review_state_path)
     bridge = _mapping(review_state.get("bridge")) if review_state else {}
     review = _mapping(review_state.get("review")) if review_state else {}
-    current_session = (
-        _mapping(review_state.get("current_session")) if review_state else {}
-    )
     bridge_snapshot = _bridge_snapshot(bridge_path)
     bridge_liveness = bridge_liveness or {}
 
-    instruction_revision = _first_text(
-        current_session.get("current_instruction_revision"),
-        bridge.get("current_instruction_revision"),
-        bridge_liveness.get("current_instruction_revision"),
-        bridge_snapshot.metadata.get("current_instruction_revision"),
-    )
-    last_codex_poll = _first_text(
-        bridge.get("last_codex_poll_utc"),
-        bridge_liveness.get("last_codex_poll_utc"),
-        bridge_snapshot.metadata.get("last_codex_poll_utc"),
-    )
+    if review_state:
+        authority = _current_launch_authority(
+            repo_root=head_root,
+            review_state_path=review_state_path,
+        )
+        instruction_revision = authority.instruction_revision
+        last_codex_poll = _first_text(bridge.get("last_codex_poll_utc"))
+    else:
+        instruction_revision = _first_text(
+            bridge_liveness.get("current_instruction_revision"),
+            bridge_snapshot.metadata.get("current_instruction_revision"),
+        )
+        last_codex_poll = _first_text(
+            bridge_liveness.get("last_codex_poll_utc"),
+            bridge_snapshot.metadata.get("last_codex_poll_utc"),
+        )
     session_id = _first_text(review.get("session_id"), "markdown-bridge")
 
     return PreparedLaunchAuthority(
@@ -136,16 +141,11 @@ def assess_prepared_launch_authority(
             ),
         )
 
-    if (
-        prepared_session_token.strip()
-        and current_authority.session_token != prepared_session_token.strip()
-    ):
-        return PreparedLaunchAuthorityState(
-            state="stale",
-            reason=(
-                "prepared session token no longer matches the current typed reviewer turn"
-            ),
-        )
+    # The session token intentionally bakes in bridge/session heartbeat details so
+    # the launch script can fail closed before the provider starts. Once the
+    # session is running, that same heartbeat is expected to advance, so
+    # post-launch liveness probes must not reclaim the session on token drift
+    # alone.
 
     return PreparedLaunchAuthorityState(
         state="current",
@@ -160,14 +160,27 @@ def launch_session_token(
     last_codex_poll_utc: str,
 ) -> str:
     """Return the stable typed turn/session token used by launch scripts."""
+    normalized_session_id = normalize_launch_session_id(session_id)
     payload = "\0".join(
         part.strip()
-        for part in (session_id, instruction_revision, last_codex_poll_utc)
+        for part in (
+            normalized_session_id,
+            instruction_revision,
+            last_codex_poll_utc,
+        )
         if part.strip()
     )
     if not payload:
         return ""
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()[:16]
+
+
+def normalize_launch_session_id(session_id: object) -> str:
+    """Collapse compatible review-channel session ids into one token identity."""
+    text = str(session_id or "").strip()
+    if text.lower() in _COMPATIBLE_SESSION_IDS:
+        return "review-channel"
+    return text
 
 
 def current_head_sha(repo_root: Path) -> str:

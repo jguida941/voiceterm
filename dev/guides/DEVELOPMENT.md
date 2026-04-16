@@ -592,6 +592,11 @@ Three quality layers matter in practice:
     inspection. If implementer-complete bridge state claims a finished slice
     without a valid candidate, treat that as a fail-closed handoff bug and
     repair `review-channel --action status`/implementer state before review.
+    Implementer bootstrap is packet-first as well: if `Pending Inbox` / typed
+    packet state already names a Claude-targeted packet or required command,
+    run `review-channel --action inbox --target claude --status pending
+    --format md` before asking the operator whether to continue a permitted
+    probe.
   - The review-candidate / recovery / collaboration-model seams are now split
     into helper modules (`candidate_parse.py`, `candidate_paths.py`,
     `recovery_decision.py`, `recovery_evidence.py`,

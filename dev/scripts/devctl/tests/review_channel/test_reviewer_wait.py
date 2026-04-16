@@ -555,7 +555,7 @@ class TestReviewerWaitLoop(unittest.TestCase):
                             "expired_unresolved_packet_ids": [],
                             "attention_status": "wake_required",
                             "wake_reason": "instruction_pending",
-                            "required_command": "python3 dev/scripts/devctl.py review-channel --action inbox --target codex --terminal none --format md",
+                            "required_command": "python3 dev/scripts/devctl.py review-channel --action inbox --target codex --status pending --terminal none --format md",
                             "attention_revision": "codex_attn_rev_1",
                             "delivery_state": "unseen",
                         }
@@ -683,7 +683,7 @@ class TestReviewerWaitLoop(unittest.TestCase):
                             "expired_unresolved_packet_ids": [],
                             "attention_status": "wake_required",
                             "wake_reason": "instruction_pending",
-                            "required_command": "python3 dev/scripts/devctl.py review-channel --action inbox --target codex --terminal none --format md",
+                            "required_command": "python3 dev/scripts/devctl.py review-channel --action inbox --target codex --status pending --terminal none --format md",
                             "attention_revision": "codex_attn_rev_2",
                             "delivery_state": "unseen",
                         }
@@ -730,7 +730,7 @@ class TestReviewerWaitLoop(unittest.TestCase):
                             "expired_unresolved_packet_ids": [],
                             "attention_status": "review_needed",
                             "wake_reason": "finding_pending",
-                            "required_command": "python3 dev/scripts/devctl.py review-channel --action inbox --target codex --terminal none --format md",
+                            "required_command": "python3 dev/scripts/devctl.py review-channel --action inbox --target codex --status pending --terminal none --format md",
                             "attention_revision": "codex_attn_rev_3",
                             "delivery_state": "unseen",
                         }

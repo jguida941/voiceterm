@@ -264,6 +264,7 @@ def _reviewer_bootstrap_section(packet: "SessionCachePacket") -> list[str]:
         "### Reviewer Rules",
         "- Use this packet as the first-hop reviewer bootstrap instead of operator memory or stale bridge prose.",
         "- Start from `Poll Status`, `Current Verdict`, `Open Findings`, `Current Instruction For Claude`, and `Last Reviewed Scope`.",
+        "- If `Pending Inbox` already names a reviewer-targeted packet or `required_command`, run that repo-owned inbox command immediately before bridge-only analysis or operator questions.",
     ]
     candidate = packet.review_candidate
     head = packet.head_sha.strip()
@@ -319,6 +320,8 @@ def _implementer_bootstrap_section(packet: "SessionCachePacket") -> list[str]:
         "- Use `Current Instruction For Claude` / typed `current_instruction` as the live work source.",
         "- Acknowledge the live `instruction_revision` before coding.",
         "- If reviewer-owned state says `hold steady`, `waiting for reviewer promotion`, or governed push/review is still in progress, stay in polling mode instead of mining side work.",
+        "- If `Pending Inbox` or typed packet state names a Claude-targeted packet or required inbox command, run `python3 dev/scripts/devctl.py review-channel --action inbox --target claude --status pending --format md` immediately before asking what to do next.",
+        "- Do not ask the operator whether to continue a permitted probe or pull a pending packet when the typed inbox already provides the next non-destructive step.",
     ]
     if packet.instruction_revision:
         lines.append(
@@ -339,4 +342,3 @@ def _implementer_bootstrap_section(packet: "SessionCachePacket") -> list[str]:
         ]
     )
     return lines
-

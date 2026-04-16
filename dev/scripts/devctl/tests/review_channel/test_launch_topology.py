@@ -172,6 +172,88 @@ class LaunchTopologyTests(unittest.TestCase):
                 script_text,
             )
 
+    def test_build_launch_sessions_freezes_shared_session_token_for_one_launch_batch(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            review_channel_path = root / "dev/active/review_channel.md"
+            review_channel_path.parent.mkdir(parents=True, exist_ok=True)
+            review_channel_path.write_text("# Review Channel\n", encoding="utf-8")
+            bridge_path = root / "bridge.md"
+            bridge_path.write_text("# Bridge\n", encoding="utf-8")
+            status_dir = root / "dev/reports/review_channel/latest"
+            status_dir.mkdir(parents=True, exist_ok=True)
+            review_state_path = status_dir / "review_state.json"
+            review_state_path.write_text(
+                json.dumps(
+                    {
+                        "review": {"session_id": "local-review"},
+                        "current_session": {
+                            "current_instruction_revision": "",
+                        },
+                        "bridge": {
+                            "current_instruction_revision": "",
+                            "last_codex_poll_utc": "2026-04-16T00:02:51Z",
+                        },
+                    }
+                ),
+                encoding="utf-8",
+            )
+            prompt_calls = 0
+
+            def _prompt(**_: object) -> str:
+                nonlocal prompt_calls
+                prompt_calls += 1
+                if prompt_calls == 1:
+                    review_state_path.write_text(
+                        json.dumps(
+                            {
+                                "review": {"session_id": "local-review"},
+                                "current_session": {
+                                    "current_instruction_revision": "",
+                                },
+                                "bridge": {
+                                    "current_instruction_revision": "",
+                                    "last_codex_poll_utc": "2026-04-16T00:03:30Z",
+                                },
+                            }
+                        ),
+                        encoding="utf-8",
+                    )
+                return "prompt"
+
+            sessions = build_launch_sessions(
+                request=LaunchSessionRequest(
+                    repo_root=root,
+                    review_channel_path=review_channel_path,
+                    bridge_path=bridge_path,
+                    codex_lanes=[],
+                    claude_lanes=[],
+                    codex_workers=0,
+                    claude_workers=0,
+                    provider_lane_map={
+                        "codex": [_lane("AGENT-1", "codex", "Codex review")],
+                        "claude": [_lane("AGENT-2", "claude", "Claude coding")],
+                    },
+                    requested_worker_budgets={"codex": 0, "claude": 0},
+                    rollover_threshold_pct=20,
+                    await_ack_seconds=180,
+                    retirement_note="bridge-gated",
+                    promotion_plan_rel="dev/active/review_channel.md",
+                    session_output_root=status_dir,
+                    review_state_path=review_state_path,
+                ),
+                build_conductor_prompt_fn=_prompt,
+                resolve_cli_path_fn=lambda provider: provider,
+            )
+
+        self.assertEqual(prompt_calls, 2)
+        self.assertEqual(
+            sessions[0]["prepared_session_token"],
+            sessions[1]["prepared_session_token"],
+        )
+
     def test_build_launch_sessions_preserves_swapped_role_metadata(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)

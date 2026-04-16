@@ -244,6 +244,17 @@
   `startup-context --format summary` blocked on
   `coordination_resync_required` while `startup-context --repair` still
   claimed the startup state was healthy.
+- 2026-04-15 review-channel launch/remote-control bootstrap follow-up in
+  `MP-355` / `MP-377` scope: `build_launch_sessions()` now freezes one shared
+  prepared launch authority per visible launch batch so sibling Codex/Claude
+  conductors cannot diverge on `prepared_session_token` while
+  `review_state.bridge.last_codex_poll_utc` advances mid-launch, and the
+  implementer `session-resume --format bootstrap` surface now treats
+  `Pending Inbox` / typed packet `required_command` as the next bounded action
+  for remote-control Claude sessions instead of leaving "continue the probe?"
+  to operator chat. Focused launch/session-resume regressions plus
+  `check_code_shape.py`, `check_active_plan_sync.py`, and
+  `check_multi_agent_sync.py` are green on the live tree.
 - 2026-04-13 authority-snapshot closure follow-up in `MP-377` scope:
   startup-context, session-resume, and review-channel status/doctor now all
   project the same reduced `AuthoritySnapshot` contract from

@@ -101,27 +101,52 @@ def resolve_reviewer_state(
     bridge: dict[str, Any] = {}
     if review_state:
         bridge = review_state.get("bridge", {}) or {}
-    reviewer_mode = coerce_string(bridge.get("reviewer_mode")) or "single_agent"
     poll_utc = coerce_string(bridge.get("last_codex_poll_utc"))
+    authority: dict[str, Any] = {}
+    reviewer_runtime: dict[str, Any] = {}
+    if review_state and isinstance(review_state.get("authority_snapshot"), dict):
+        authority = review_state["authority_snapshot"]
+    if review_state and isinstance(review_state.get("reviewer_runtime"), dict):
+        reviewer_runtime = review_state["reviewer_runtime"]
+    reviewer_mode = (
+        coerce_string(reviewer_runtime.get("effective_reviewer_mode"))
+        or coerce_string(bridge.get("effective_reviewer_mode"))
+        or coerce_string(bridge.get("reviewer_mode"))
+        or "single_agent"
+    )
 
     # Prefer typed reviewer_freshness from reviewer_runtime over age-derived text
     typed_freshness = ""
-    rt_for_freshness: dict[str, Any] = {}
-    if review_state:
-        rt_for_freshness = review_state.get("reviewer_runtime", {}) or {}
+    rt_for_freshness = reviewer_runtime
+    if rt_for_freshness:
         typed_freshness = coerce_string(rt_for_freshness.get("reviewer_freshness"))
-    freshness = typed_freshness or (_format_age(_age_seconds(poll_utc)) if poll_utc else "--")
+    freshness = (
+        typed_freshness
+        or coerce_string(authority.get("reviewer_freshness"))
+        or (_format_age(_age_seconds(poll_utc)) if poll_utc else "--")
+    )
 
     attention: dict[str, Any] = {}
     if review_state and isinstance(review_state.get("attention"), dict):
         attention = review_state["attention"]
     elif full_json and isinstance(full_json.get("attention"), dict):
         attention = full_json["attention"]
+    attention_status = coerce_string(attention.get("status")) or "n/a"
+    implementation_permission = coerce_string(
+        authority.get("implementation_permission")
+    ).lower()
+    if (
+        freshness in {"fresh", "poll_due"}
+        and attention_status == "review_loop_relaunch_required"
+    ) or (
+        freshness == "fresh"
+        and implementation_permission in {"blocked", "suspended"}
+    ):
+        freshness = "stale"
 
     accepted = False
     if review_state:
-        rt = review_state.get("reviewer_runtime", {}) or {}
-        acceptance = rt.get("review_acceptance", {}) or {}
+        acceptance = reviewer_runtime.get("review_acceptance", {}) or {}
         # Prefer the typed boolean when present; verdict text is display-only fallback
         raw_bool = acceptance.get("review_accepted")
         if isinstance(raw_bool, bool):
@@ -141,7 +166,7 @@ def resolve_reviewer_state(
         "reviewer_freshness": freshness,
         "review_accepted": accepted,
         "last_reviewed_sha": last_reviewed_sha,
-        "attention_status": coerce_string(attention.get("status")) or "n/a",
+        "attention_status": attention_status,
         "attention_summary": coerce_string(attention.get("summary")) or "n/a",
     }
 
@@ -210,6 +235,33 @@ def resolve_blocker_and_action(
         "next_command": next_command,
         "blocker_snapshot": snapshot,
     }
+
+
+def resolve_implementation_blocked(
+    receipt: dict[str, Any] | None,
+    review_state: dict[str, Any] | None,
+) -> bool:
+    """Prefer live typed authority when the startup receipt is stale."""
+    if coerce_bool((receipt or {}).get("implementation_blocked", False)):
+        return True
+    if not isinstance(review_state, dict):
+        return False
+
+    authority = review_state.get("authority_snapshot")
+    if isinstance(authority, dict):
+        permission = coerce_string(authority.get("implementation_permission")).lower()
+        if permission in {"blocked", "suspended"}:
+            return True
+
+    reviewer_runtime = review_state.get("reviewer_runtime")
+    if not isinstance(reviewer_runtime, dict):
+        return False
+    if coerce_bool(reviewer_runtime.get("implementation_blocked", False)):
+        return True
+    doctor = reviewer_runtime.get("doctor")
+    return isinstance(doctor, dict) and coerce_bool(
+        doctor.get("implementation_blocked", False)
+    )
 
 
 def _command_for_push_action(action: str) -> str:

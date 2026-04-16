@@ -20,7 +20,7 @@ from .launch_records import (
     resolve_session_workspace_root,
     session_output_paths,
 )
-from .launch_authority import build_prepared_launch_authority
+from .launch_authority import build_prepared_launch_authority, current_head_sha
 from .launch_topology import build_conductor_launch_specs
 from .launch_script import build_session_script
 from .prompt import build_conductor_prompt
@@ -46,6 +46,8 @@ class _LaunchSessionBuildContext:
     effective_script_dir: Path
     session_dir: Path | None
     review_state_path: Path | None
+    prepared_instruction_revision: str
+    prepared_session_token: str
     prepared_at: str
     resolved_approval_mode: str
     rollover_command: str
@@ -126,12 +128,8 @@ def _build_launch_session(
         lanes=lanes,
         default_worktree_path=request.worktree_path,
     )
-    launch_authority = build_prepared_launch_authority(
-        workspace_root=workspace_root,
-        bridge_path=request.bridge_path,
-        bridge_liveness=request.bridge_liveness,
-        review_state_path=context.review_state_path,
-    )
+    head_root = workspace_root if workspace_root is not None else request.repo_root
+    prepared_head_sha = current_head_sha(head_root)
     log_path, metadata_path = session_output_paths(
         session_dir=context.session_dir,
         session_name=session_name,
@@ -179,10 +177,10 @@ def _build_launch_session(
         metadata_path=metadata_path,
         interaction_mode=request.interaction_mode,
         rollover_provider=request.rollover_provider,
-        prepared_head_sha=launch_authority.head_sha,
-        prepared_instruction_revision=launch_authority.instruction_revision,
-        prepared_session_token=launch_authority.session_token,
-        review_state_path=launch_authority.review_state_path,
+        prepared_head_sha=prepared_head_sha,
+        prepared_instruction_revision=context.prepared_instruction_revision,
+        prepared_session_token=context.prepared_session_token,
+        review_state_path=context.review_state_path,
         workspace_root=workspace_root,
     )
     session_record.write_metadata()
@@ -199,10 +197,10 @@ def _build_launch_session(
         log_path=log_path,
         resolve_cli_path_fn=context.resolve_cli_path_fn,
         interaction_mode=request.interaction_mode,
-        prepared_head_sha=launch_authority.head_sha,
-        prepared_instruction_revision=launch_authority.instruction_revision,
-        prepared_session_token=launch_authority.session_token,
-        review_state_path=launch_authority.review_state_path,
+        prepared_head_sha=prepared_head_sha,
+        prepared_instruction_revision=context.prepared_instruction_revision,
+        prepared_session_token=context.prepared_session_token,
+        review_state_path=context.review_state_path,
     )
     session_record.script_path = script_path
     return session_record.report_payload()
@@ -249,11 +247,20 @@ def build_launch_sessions(
         )
     )
     prepared_at = utc_timestamp()
+    shared_authority = build_prepared_launch_authority(
+        repo_root=request.repo_root,
+        workspace_root=request.worktree_path,
+        bridge_path=request.bridge_path,
+        bridge_liveness=request.bridge_liveness,
+        review_state_path=review_state_path,
+    )
     context = _LaunchSessionBuildContext(
         request=request,
         effective_script_dir=effective_script_dir,
         session_dir=session_dir,
         review_state_path=review_state_path,
+        prepared_instruction_revision=shared_authority.instruction_revision,
+        prepared_session_token=shared_authority.session_token,
         prepared_at=prepared_at,
         resolved_approval_mode=resolved_approval_mode,
         rollover_command=rollover_command,

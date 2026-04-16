@@ -114,6 +114,7 @@ def attach_conductor_session_state(
         session_output_root=output_root
     )
     bridge_liveness["launch_truth"] = classify_launch_truth(bridge_liveness).value
+    _degrade_active_dual_agent_freshness(bridge_liveness)
     bridge_liveness["effective_reviewer_mode"] = effective_reviewer_mode(
         bridge_liveness
     )
@@ -123,6 +124,43 @@ def attach_conductor_session_state(
         and single_agent_lane_has_live_typed_authority(bridge_liveness)
     ):
         bridge_liveness["overall_state"] = OverallLivenessState.SINGLE_AGENT_ACTIVE
+
+
+def _degrade_active_dual_agent_freshness(
+    bridge_liveness: dict[str, object],
+) -> None:
+    reviewer_mode = str(bridge_liveness.get("reviewer_mode") or "").strip()
+    if not reviewer_mode_is_active(reviewer_mode):
+        return
+
+    launch_truth = str(
+        bridge_liveness.get("launch_truth") or classify_launch_truth(bridge_liveness).value
+    ).strip()
+    if launch_truth == LaunchTruthState.LIVE.value:
+        return
+
+    if launch_truth == LaunchTruthState.RUNTIME_MISSING.value:
+        bridge_liveness["overall_state"] = OverallLivenessState.RUNTIME_MISSING
+    elif (
+        str(bridge_liveness.get("overall_state") or "").strip()
+        == OverallLivenessState.FRESH.value
+    ):
+        bridge_liveness["overall_state"] = OverallLivenessState.STALE
+
+    if bool(bridge_liveness.get("codex_conductor_active")):
+        return
+
+    poll_state = str(bridge_liveness.get("codex_poll_state") or "").strip()
+    if poll_state in {CodexPollState.FRESH.value, CodexPollState.POLL_DUE.value}:
+        bridge_liveness["codex_poll_state"] = CodexPollState.STALE
+
+    reviewer_freshness = str(bridge_liveness.get("reviewer_freshness") or "").strip()
+    if reviewer_freshness in {
+        ReviewerFreshness.FRESH.value,
+        ReviewerFreshness.POLL_DUE.value,
+        "unknown",
+    }:
+        bridge_liveness["reviewer_freshness"] = ReviewerFreshness.STALE
 
 
 def hybrid_loop_errors(bridge_liveness: dict[str, object]) -> list[str]:

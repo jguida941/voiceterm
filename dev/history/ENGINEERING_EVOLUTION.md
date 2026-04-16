@@ -83,6 +83,46 @@ Evidence: `dev/scripts/devctl/review_channel/event_projection.py`,
 `python3 dev/scripts/devctl.py startup-context --format json`, and
 `python3 dev/scripts/devctl.py dashboard --format json`.
 
+### 2026-04-15 - Visible launch batches now freeze one shared token, and remote-control bootstrap stays on the typed packet lane
+
+Fact: the next dogfood pass surfaced two smaller but related control-plane
+gaps after the blank-revision stale-authority fix landed. Fresh visible
+`review-channel --action launch --terminal terminal-app` no longer died on the
+old stale bridge revision, but Codex and Claude were still being prepared with
+different `prepared_session_token` values inside the same launch batch when
+`review_state.bridge.last_codex_poll_utc` advanced between sibling session
+builds. In parallel, the active Claude remote-control session was still
+bootstrapping through the weaker `session-resume --format bootstrap` path, so
+it could ask the operator whether to continue a permitted probe instead of
+consuming the already-named typed inbox command.
+
+This matters because both failures break the same product promise from
+different sides. Launch authority is supposed to be one deterministic batch
+receipt for the conductor pair, not two race-sensitive hashes that can stale
+one sibling before it starts. And remote-control/bootstrap surfaces are
+supposed to keep Claude on the typed packet lane, not let the active session
+fall back to chat-local arbitration when `Pending Inbox` already carries the
+next non-destructive action.
+
+The closure was two bounded fixes. `build_launch_sessions()` now freezes one
+shared prepared launch authority per launch batch and reuses its
+`prepared_instruction_revision` plus `prepared_session_token` for both
+conductors while still resolving `prepared_head_sha` per workspace. The
+implementer `session-resume` bootstrap surface now also states the same
+inbox-first rule the richer conductor prompt already carried: if `Pending
+Inbox` / typed packet state names a Claude-targeted packet or required inbox
+command, run `review-channel --action inbox --target claude --status pending
+--format md` immediately and do not ask the operator whether to continue a
+permitted probe or pull a pending packet.
+
+Focused proof is green on the launch topology/script regressions, the
+review-channel prompt regression, the new session-resume bootstrap regression,
+and `check_code_shape.py`, `check_active_plan_sync.py`, and
+`check_multi_agent_sync.py`. Event-backed packet evidence also showed the
+observability miss was not packet loss: Claude's `rev_pkt_0611` remained
+pending in the inbox the whole time, while the newer in-session "should I
+continue?" pause never entered the typed packet lane at all.
+
 ### 2026-04-15 - Event-backed review-state now rebuilds compat bridge projection for snapshot parity
 
 Fact: governed push still had one last cross-surface leak after the bridge poll

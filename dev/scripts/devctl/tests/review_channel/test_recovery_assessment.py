@@ -38,6 +38,36 @@ def _current_session() -> ReviewCurrentSessionState:
     )
 
 
+def test_attach_conductor_session_state_degrades_freshness_without_live_reviewer(
+    tmp_path: Path,
+) -> None:
+    bridge_liveness = {
+        "reviewer_mode": "active_dual_agent",
+        "overall_state": "fresh",
+        "codex_poll_state": "fresh",
+        "reviewer_freshness": "fresh",
+        "publisher_running": True,
+        "reviewer_supervisor_running": False,
+    }
+
+    with patch(
+        "dev.scripts.devctl.review_channel.status_projection_helpers.active_conductor_providers",
+        return_value=["claude"],
+    ), patch(
+        "dev.scripts.devctl.review_channel.status_projection_helpers.conductor_visibility",
+        return_value="claude_only",
+    ):
+        attach_conductor_session_state(
+            bridge_liveness=bridge_liveness,
+            output_root=tmp_path,
+        )
+
+    assert bridge_liveness["launch_truth"] == "hybrid_claude_only"
+    assert bridge_liveness["overall_state"] == "stale"
+    assert bridge_liveness["codex_poll_state"] == "stale"
+    assert bridge_liveness["reviewer_freshness"] == "stale"
+
+
 def test_single_agent_inactive_summary_mentions_typed_authority_when_lane_is_live() -> None:
     assessment = build_recovery_assessment(
         bridge_liveness={

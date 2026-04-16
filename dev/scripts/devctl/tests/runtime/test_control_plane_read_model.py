@@ -257,6 +257,35 @@ class BuildWithReviewStateTests(unittest.TestCase):
         )
         self.assertEqual(model.reviewer_mode, "active_dual_agent")
 
+    def test_effective_reviewer_mode_overrides_planned_mode(self) -> None:
+        sources = _empty_sources()
+        sources["review_state"] = {
+            "bridge": {
+                "reviewer_mode": "active_dual_agent",
+                "effective_reviewer_mode": "tools_only",
+            },
+            "reviewer_runtime": {
+                "effective_reviewer_mode": "tools_only",
+                "reviewer_freshness": "fresh",
+                "implementation_blocked": True,
+            },
+            "attention": {
+                "status": "review_loop_relaunch_required",
+                "summary": "relaunch reviewer",
+            },
+            "authority_snapshot": {
+                "implementation_permission": "suspended",
+            },
+        }
+        model = build_control_plane_read_model(
+            Path("/tmp/nonexistent"),
+            sources_override=sources,
+            git_override=_base_git(),
+        )
+        self.assertEqual(model.reviewer_mode, "tools_only")
+        self.assertEqual(model.reviewer_freshness, "stale")
+        self.assertTrue(model.implementation_blocked)
+
     def test_operator_mode_falls_back_to_single_agent_reviewer_mode(self) -> None:
         sources = _empty_sources()
         sources["review_state"] = {

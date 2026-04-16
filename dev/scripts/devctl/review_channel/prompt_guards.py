@@ -53,6 +53,7 @@ def provider_bootstrap_guard_lines(
             capability=capability,
             counterpart_provider_name=counterpart_provider_name,
             counterpart_provider_id=counterpart_provider_id,
+            provider_id=provider_id,
             provider_name=provider_name,
             promote_command=promote_command,
         )
@@ -68,6 +69,7 @@ def _reviewer_guard_lines(
     capability: ConductorCapabilityState,
     counterpart_provider_name: str,
     counterpart_provider_id: str,
+    provider_id: str,
     provider_name: str,
     promote_command: str,
 ) -> list[str]:
@@ -105,6 +107,18 @@ def _reviewer_guard_lines(
             "If a command or worker branch needs human approval, record the "
             "blocked state in `Poll Status`, skip or defer that branch, and keep "
             "the reviewer heartbeat current instead of waiting silently."
+        ),
+        (
+            "- On each repoll, also poll the reviewer-targeted packet inbox/watch "
+            f"surface (`review-channel --action inbox --target {provider_id} "
+            "--status pending --format json` or equivalent) so reviewer packets "
+            "cannot hide behind bridge-only polling."
+        ),
+        (
+            "- If the live reviewer-targeted packet inbox already names a pending "
+            "packet or `required_command`, run that repo-owned inbox/read step "
+            "immediately before widening scope or asking the operator what "
+            "changed."
         ),
         (
             "- When an interactive permission prompt blocks progress (commit, "
@@ -221,6 +235,13 @@ def _implementer_guard_lines(
             f"and the pending {provider_name}-targeted packet set are unchanged after you "
             "already finished the current bounded work, that is a live wait "
             "state; do not hammer one fixed offset or one cached line range."
+        ),
+        (
+            f"- If the live {provider_name}-targeted packet inbox already names a pending "
+            "packet or required inbox command, run that repo-owned inbox/read "
+            "step immediately. Do not ask the operator whether to pull/read a "
+            "pending packet when the next non-destructive action is already "
+            "authorized by the typed authority snapshot."
         ),
         (
             "- If you use `review-channel --action bridge-poll`, treat "

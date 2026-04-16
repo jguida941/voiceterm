@@ -28,6 +28,7 @@ from .control_plane_resolve import (
     load_git_state,
     resolve_blocker_and_action,
     resolve_daemon_state,
+    resolve_implementation_blocked,
     resolve_quality,
     resolve_reviewer_state,
     utc_now_iso,
@@ -281,7 +282,7 @@ def build_control_plane_read_model(
         pending_count=pending,
     )
 
-    impl_blocked = coerce_bool((receipt or {}).get("implementation_blocked", False))
+    impl_blocked = resolve_implementation_blocked(receipt, review_state_payload)
     op_mode = _derive_operator_interaction_mode(
         governance=governance,
         review_state_payload=review_state_payload,

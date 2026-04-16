@@ -54,6 +54,7 @@ def attach_conductor_session_state(
         session_output_root=output_root
     )
     bridge_liveness["launch_truth"] = _liveness.classify_launch_truth(bridge_liveness).value
+    _liveness._degrade_active_dual_agent_freshness(bridge_liveness)
     bridge_liveness["effective_reviewer_mode"] = _liveness.effective_reviewer_mode(
         bridge_liveness
     )

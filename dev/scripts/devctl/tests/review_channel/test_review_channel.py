@@ -63,6 +63,9 @@ from dev.scripts.devctl.review_channel.event_store import (
     ReviewChannelArtifactPaths,
     resolve_artifact_paths,
 )
+from dev.scripts.devctl.review_channel.launch_authority import (
+    launch_session_token,
+)
 from dev.scripts.devctl.review_channel.launch import (
     _build_terminal_launch_lines,
     build_promote_command,
@@ -1003,7 +1006,7 @@ class ReviewChannelHelperTests(unittest.TestCase):
                         "log_path": str(log_path),
                         "terminal_window_id": 777,
                         "review_state_path": str(review_state_path),
-                        "prepared_instruction_revision": "rev-current",
+                        "prepared_instruction_revision": "rev-stale",
                         "prepared_session_token": "stale-token",
                     }
                 ),
@@ -1063,7 +1066,7 @@ class ReviewChannelHelperTests(unittest.TestCase):
                         "log_path": str(log_path),
                         "terminal_window_id": 777,
                         "review_state_path": str(review_state_path),
-                        "prepared_instruction_revision": "rev-current",
+                        "prepared_instruction_revision": "rev-stale",
                         "prepared_session_token": "stale-token",
                     }
                 ),
@@ -1089,6 +1092,72 @@ class ReviewChannelHelperTests(unittest.TestCase):
         self.assertEqual(sessions[0].script_probe_state, "running")
         self.assertEqual(sessions[0].terminal_window_state, "open")
         self.assertIn("no longer matches", sessions[0].live_reason)
+
+    def test_load_conductor_sessions_ignores_session_token_drift_after_launch(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            status_dir = Path(tmpdir)
+            sessions_dir = status_dir / "sessions"
+            sessions_dir.mkdir(parents=True, exist_ok=True)
+            review_state_path = status_dir / "review_state.json"
+            review_state_path.write_text(
+                json.dumps(
+                    {
+                        "review": {"session_id": "local-review"},
+                        "bridge": {
+                            "current_instruction_revision": "rev-current",
+                            "last_codex_poll_utc": _fresh_utc_z(seconds_offset=-10),
+                        },
+                        "current_session": {
+                            "current_instruction_revision": "rev-current",
+                        },
+                    }
+                ),
+                encoding="utf-8",
+            )
+            metadata_path = sessions_dir / "codex-conductor.json"
+            log_path = sessions_dir / "codex-conductor.log"
+            metadata_path.write_text(
+                json.dumps(
+                    {
+                        "provider": "codex",
+                        "session_name": "codex-conductor",
+                        "repo_root": tmpdir,
+                        "script_path": str(sessions_dir / "codex-conductor.sh"),
+                        "log_path": str(log_path),
+                        "terminal_window_id": 777,
+                        "review_state_path": str(review_state_path),
+                        "prepared_instruction_revision": "rev-current",
+                        "prepared_session_token": launch_session_token(
+                            session_id="markdown-bridge",
+                            instruction_revision="rev-current",
+                            last_codex_poll_utc=_fresh_utc_z(seconds_offset=-120),
+                        ),
+                    }
+                ),
+                encoding="utf-8",
+            )
+            log_path.write_text("still active\n", encoding="utf-8")
+
+            with (
+                patch(
+                    "dev.scripts.devctl.review_channel.session_probe._probe_script_running",
+                    return_value=True,
+                ),
+                patch(
+                    "dev.scripts.devctl.review_channel.session_liveness._probe_terminal_window_open",
+                    return_value=True,
+                ),
+            ):
+                sessions = load_conductor_sessions(session_output_root=status_dir)
+
+        self.assertEqual(len(sessions), 1)
+        self.assertTrue(sessions[0].live)
+        self.assertEqual(sessions[0].launch_authority_state, "current")
+        self.assertEqual(sessions[0].script_probe_state, "running")
+        self.assertEqual(sessions[0].terminal_window_state, "open")
+        self.assertIn("still running", sessions[0].live_reason)
 
     def test_launch_sessions_if_requested_cleans_retired_rollover_sessions_after_ack(
         self,
@@ -1679,7 +1748,7 @@ class ReviewChannelHelperTests(unittest.TestCase):
                         "log_path": str(log_path),
                         "terminal_window_id": 777,
                         "review_state_path": str(review_state_path),
-                        "prepared_instruction_revision": "rev-current",
+                        "prepared_instruction_revision": "rev-stale",
                         "prepared_session_token": "stale-token",
                     }
                 ),
@@ -2087,6 +2156,15 @@ class ReviewChannelHelperTests(unittest.TestCase):
             prompt,
         )
         self.assertIn(
+            "review-channel --action inbox --target codex --status pending --format json",
+            prompt,
+        )
+        self.assertIn(
+            "reviewer-targeted packet inbox already names a pending "
+            "packet or `required_command`",
+            prompt,
+        )
+        self.assertIn(
             "Treat scratch/reference artifacts such as `convo.md` and "
             "`dev/audits/**` as advisory context unless the live instruction "
             "explicitly scopes them.",
@@ -2251,6 +2329,10 @@ class ReviewChannelHelperTests(unittest.TestCase):
             prompt,
         )
         self.assertIn(
+            "Do not ask the operator whether to pull/read a pending packet when the next non-destructive action is already authorized by the typed authority snapshot.",
+            prompt,
+        )
+        self.assertIn(
             "every implementer status/ACK compatibility update (`Claude Status` / "
             "`Claude Ack`) must name concrete files, subsystems, findings, or one "
             "concrete blocker/question.",
@@ -2291,6 +2373,28 @@ class ReviewChannelHelperTests(unittest.TestCase):
             prompt,
         )
         self.assertNotIn("MP-355 markdown-bridge swarm", prompt)
+
+    def test_packet_inbox_required_command_filters_pending_rows(self) -> None:
+        from dev.scripts.devctl.runtime.review_packet_inbox import (
+            build_packet_inbox_payload,
+        )
+
+        payload = build_packet_inbox_payload(
+            [
+                {
+                    "packet_id": "rev_pkt_1000",
+                    "from_agent": "claude",
+                    "to_agent": "codex",
+                    "kind": "finding",
+                    "status": "pending",
+                }
+            ]
+        )
+
+        agent_payload = next(
+            agent for agent in payload["agents"] if agent["agent"] == "codex"
+        )
+        self.assertIn("--status pending", agent_payload["required_command"])
 
     def test_swapped_role_prompt_uses_explicit_role_contract(self) -> None:
         from dev.scripts.devctl.review_channel.prompt import build_conductor_prompt
@@ -3401,7 +3505,7 @@ class ReviewChannelWatchFollowTests(unittest.TestCase):
                         "expired_unresolved_packet_ids": [],
                         "attention_status": "review_needed",
                         "wake_reason": "finding_pending",
-                        "required_command": "python3 dev/scripts/devctl.py review-channel --action inbox --target codex --terminal none --format md",
+                        "required_command": "python3 dev/scripts/devctl.py review-channel --action inbox --target codex --status pending --terminal none --format md",
                         "attention_revision": "codex_attn_rev_1",
                         "delivery_state": "unseen",
                     }
@@ -3497,7 +3601,7 @@ class ReviewChannelWatchFollowTests(unittest.TestCase):
                         "expired_unresolved_packet_ids": [],
                         "attention_status": "review_needed",
                         "wake_reason": "finding_pending",
-                        "required_command": "python3 dev/scripts/devctl.py review-channel --action inbox --target codex --terminal none --format md",
+                        "required_command": "python3 dev/scripts/devctl.py review-channel --action inbox --target codex --status pending --terminal none --format md",
                         "attention_revision": "codex_attn_rev_1",
                         "delivery_state": "unseen",
                     }
@@ -9549,7 +9653,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
                                 "wake_reason": "expired_unresolved_packet",
                                 "required_command": (
                                     "python3 dev/scripts/devctl.py review-channel "
-                                    "--action inbox --target codex --terminal none --format md"
+                                    "--action inbox --target codex --status pending --terminal none --format md"
                                 ),
                                 "attention_revision": "codex-attention-rev",
                                 "delivery_state": "unseen",
@@ -9564,7 +9668,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
                                 "wake_reason": "action_request_pending",
                                 "required_command": (
                                     "python3 dev/scripts/devctl.py review-channel "
-                                    "--action inbox --target claude --terminal none --format md"
+                                    "--action inbox --target claude --status pending --terminal none --format md"
                                 ),
                                 "attention_revision": "claude-attention-rev",
                                 "delivery_state": "notified",

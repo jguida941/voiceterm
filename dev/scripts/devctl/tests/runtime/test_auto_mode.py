@@ -561,6 +561,38 @@ class AutoModeFromControlPlaneReadModelTests(unittest.TestCase):
         self.assertEqual(inputs.reviewer_mode, "active_dual_agent")
         self.assertTrue(state.reviewer_alive)
 
+    def test_effective_reviewer_mode_from_read_model_clears_reviewer_liveness(
+        self,
+    ) -> None:
+        from dev.scripts.devctl.commands.auto_mode_status import (
+            inputs_from_read_model,
+        )
+
+        model = self._build_model(
+            sources={
+                "review_state": {
+                    "bridge": {
+                        "reviewer_mode": "active_dual_agent",
+                        "effective_reviewer_mode": "tools_only",
+                    },
+                    "reviewer_runtime": {
+                        "effective_reviewer_mode": "tools_only",
+                        "implementation_blocked": True,
+                    },
+                    "attention": {
+                        "status": "review_loop_relaunch_required",
+                    },
+                    "authority_snapshot": {
+                        "implementation_permission": "suspended",
+                    },
+                },
+            },
+        )
+        inputs = inputs_from_read_model(model)
+        state = resolve_auto_mode_phase(inputs)
+        self.assertEqual(inputs.reviewer_mode, "tools_only")
+        self.assertFalse(state.reviewer_alive)
+
     def test_head_sha_propagates(self) -> None:
         from dev.scripts.devctl.commands.auto_mode_status import (
             inputs_from_read_model,

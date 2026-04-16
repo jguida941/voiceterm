@@ -1686,7 +1686,11 @@ Machine-first output note:
   same promoted `active_target` / `CoordinationSnapshot` path as
   `startup-context` and dashboard so live findings can outrank stale
   continuity, and the same `AuthoritySnapshot` reducer so resume/startup/status
-  do not silently disagree on handshake recovery.
+  do not silently disagree on handshake recovery. Implementer bootstrap now
+  treats `Pending Inbox` / typed packet `required_command` as the next bounded
+  step too, so remote-control Claude sessions poll
+  `review-channel --action inbox --target claude --status pending --format md`
+  before asking whether to continue a permitted probe.
 - `startup-context --repair`: repo-owned startup auto-triage/repair mode; reads typed
   `startup-context`, startup-authority, and the canonical typed review-state
   owner surfaced by `review-channel` status refresh,

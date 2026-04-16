@@ -16,6 +16,7 @@ from dev.scripts.devctl.commands.review_channel._publisher import (
 from dev.scripts.devctl.review_channel.launch_script import build_session_script
 from dev.scripts.devctl.review_channel.launch_authority import (
     NON_RESTARTABLE_LAUNCH_AUTHORITY_EXIT_CODE,
+    build_prepared_launch_authority,
     current_head_sha,
     launch_session_token,
 )
@@ -169,12 +170,13 @@ class TestLaunchScriptAuthority(unittest.TestCase):
         *,
         instruction_revision: str,
         last_codex_poll_utc: str,
+        session_id: str = "markdown-bridge",
     ) -> Path:
         review_state_path = root / "review_state.json"
         review_state_path.write_text(
             json.dumps(
                 {
-                    "review": {"session_id": "markdown-bridge"},
+                    "review": {"session_id": session_id},
                     "current_session": {
                         "current_instruction_revision": instruction_revision,
                     },
@@ -194,6 +196,8 @@ class TestLaunchScriptAuthority(unittest.TestCase):
         review_state_revision: str,
         prepared_revision: str = "rev-1",
         headless: bool = True,
+        review_state_session_id: str = "markdown-bridge",
+        prepared_session_id: str = "markdown-bridge",
     ) -> subprocess.CompletedProcess[str]:
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
@@ -202,6 +206,7 @@ class TestLaunchScriptAuthority(unittest.TestCase):
                 root,
                 instruction_revision=review_state_revision,
                 last_codex_poll_utc=last_poll,
+                session_id=review_state_session_id,
             )
             script_path = root / "conductor.sh"
             repo_root = Path.cwd()
@@ -215,7 +220,7 @@ class TestLaunchScriptAuthority(unittest.TestCase):
                 prepared_head_sha=current_head_sha(repo_root),
                 prepared_instruction_revision=prepared_revision,
                 prepared_session_token=launch_session_token(
-                    session_id="markdown-bridge",
+                    session_id=prepared_session_id,
                     instruction_revision=prepared_revision,
                     last_codex_poll_utc=last_poll,
                 ),
@@ -236,6 +241,15 @@ class TestLaunchScriptAuthority(unittest.TestCase):
 
         self.assertEqual(result.returncode, 0, result.stderr)
 
+    def test_compatible_session_ids_do_not_stale_launch_authority(self) -> None:
+        result = self._run_authority_script(
+            review_state_revision="rev-1",
+            review_state_session_id="local-review",
+            prepared_session_id="markdown-bridge",
+        )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+
     def test_stale_instruction_revision_exits_non_restartable_headless(self) -> None:
         result = self._run_authority_script(review_state_revision="rev-2")
 
@@ -246,6 +260,56 @@ class TestLaunchScriptAuthority(unittest.TestCase):
         self.assertIn("launch authority stale", result.stderr)
         self.assertIn("non-restartable status", result.stderr)
         self.assertNotIn("restarting in", result.stderr)
+
+    def test_prepared_authority_ignores_stale_bridge_revision_when_typed_state_blank(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            review_state_path = root / "review_state.json"
+            review_state_path.write_text(
+                json.dumps(
+                    {
+                        "review": {"session_id": "markdown-bridge"},
+                        "current_session": {"current_instruction_revision": ""},
+                        "bridge": {
+                            "current_instruction_revision": "",
+                            "last_codex_poll_utc": "2026-04-15T23:08:48Z",
+                        },
+                    }
+                ),
+                encoding="utf-8",
+            )
+            bridge_path = root / "bridge.md"
+            bridge_path.write_text(
+                "\n".join(
+                    (
+                        "- Current instruction revision: `stale-bridge-rev`",
+                        "- Last Codex poll: `2026-04-15T23:08:48Z`",
+                    )
+                ),
+                encoding="utf-8",
+            )
+
+            authority = build_prepared_launch_authority(
+                repo_root=Path.cwd(),
+                bridge_path=bridge_path,
+                bridge_liveness={
+                    "current_instruction_revision": "stale-liveness-rev",
+                    "last_codex_poll_utc": "2026-04-15T23:08:48Z",
+                },
+                review_state_path=review_state_path,
+            )
+
+        self.assertEqual(authority.instruction_revision, "")
+        self.assertEqual(
+            authority.session_token,
+            launch_session_token(
+                session_id="markdown-bridge",
+                instruction_revision="",
+                last_codex_poll_utc="2026-04-15T23:08:48Z",
+            ),
+        )
 
 
 class TestResolveRecoveryTerminal(unittest.TestCase):

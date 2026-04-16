@@ -488,7 +488,7 @@ def test_event_projection_uses_persisted_packet_inbox_when_live_packets_are_part
                             "wake_reason": "expired_unresolved_packet",
                             "required_command": (
                                 "python3 dev/scripts/devctl.py review-channel "
-                                "--action inbox --target codex --terminal none --format md"
+                                "--action inbox --target codex --status pending --terminal none --format md"
                             ),
                             "attention_revision": "codex-attention-rev",
                             "delivery_state": "unseen",
@@ -503,7 +503,7 @@ def test_event_projection_uses_persisted_packet_inbox_when_live_packets_are_part
                             "wake_reason": "action_request_pending",
                             "required_command": (
                                 "python3 dev/scripts/devctl.py review-channel "
-                                "--action inbox --target claude --terminal none --format md"
+                                "--action inbox --target claude --status pending --terminal none --format md"
                             ),
                             "attention_revision": "claude-attention-rev",
                             "delivery_state": "notified",

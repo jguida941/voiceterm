@@ -28,7 +28,7 @@ from .review_state_packet_models import (
 _DEFAULT_AGENTS: tuple[str, ...] = ("codex", "claude", "cursor", "operator")
 _INBOX_COMMAND_TEMPLATE = (
     "python3 dev/scripts/devctl.py review-channel --action inbox "
-    "--target {agent} --terminal none --format md"
+    "--target {agent} --status pending --terminal none --format md"
 )
 
 

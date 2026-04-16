@@ -1889,7 +1889,7 @@ class TestCLIRegistration(unittest.TestCase):
                         wake_reason="instruction_pending",
                         required_command=(
                             "python3 dev/scripts/devctl.py review-channel "
-                            "--action inbox --target codex --terminal none --format md"
+                            "--action inbox --target codex --status pending --terminal none --format md"
                         ),
                         delivery_state="unseen",
                         attention_revision="attn-agent-rev-1",
