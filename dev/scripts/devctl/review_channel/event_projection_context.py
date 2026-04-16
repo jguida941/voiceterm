@@ -48,14 +48,21 @@ def build_event_context_packet(
 def _load_cached_graph():
     """Load the latest cached context graph snapshot, or None to rebuild.
 
-    Uses the canonical snapshot store resolver (by generated_at_utc, not
-    mtime) per Codex finding rev_pkt_0803.
+    Finds the most recent snapshot by filename sort (timestamps embedded
+    in filenames) and loads only that one file. Does NOT use
+    list_context_graph_snapshots() which deserializes all 362+ files.
     """
     try:
-        snapshots = list_context_graph_snapshots()
-        if not snapshots:
+        from ..context_graph.snapshot_payload import _SNAPSHOT_DIR
+        from ..config import get_repo_root
+
+        snapshot_dir = get_repo_root() / _SNAPSHOT_DIR
+        if not snapshot_dir.is_dir():
             return None
-        latest = load_context_graph_snapshot(snapshots[-1])
+        snapshot_files = sorted(snapshot_dir.glob("*.json"))
+        if not snapshot_files:
+            return None
+        latest = load_context_graph_snapshot(snapshot_files[-1])
         if latest.nodes and latest.edges:
             return (
                 _coerce_cached_nodes(latest.nodes),
