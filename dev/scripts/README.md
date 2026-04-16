@@ -576,7 +576,10 @@ Portability note:
   The typed `bridge` block now also carries `effective_reviewer_mode`; use that
   field for live-authority decisions when declared bridge `reviewer_mode`
   still says `active_dual_agent` but typed `launch_truth` has already demoted
-  the loop. The current handoff/recovery seam now stays shape-bounded through
+  the loop. Governed commit execution uses that same precedence when it must
+  infer the writable lane from typed review state, so a stale declared
+  collaboration mode cannot re-grant the implementer lane after local
+  reviewer takeover. The current handoff/recovery seam now stays shape-bounded through
   helper modules too: `review_candidate.py` orchestrates `candidate_parse.py`
   + `candidate_paths.py`, `recovery_assessment.py` orchestrates
   `recovery_decision.py` + `recovery_evidence.py`, and

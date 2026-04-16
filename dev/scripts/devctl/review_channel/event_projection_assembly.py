@@ -256,6 +256,10 @@ def _load_bridge_inputs(repo_root):
     return bridge_text, extract_bridge_snapshot(bridge_text)
 
 
+def _load_bridge_snapshot(repo_root):
+    return _load_bridge_inputs(repo_root)[1]
+
+
 def _event_session_has_packet_attention(current_session) -> bool:
     open_findings = str(getattr(current_session, "open_findings", "") or "").strip().lower()
     return open_findings not in {"", "none"}

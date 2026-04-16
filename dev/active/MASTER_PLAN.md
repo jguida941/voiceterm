@@ -1016,6 +1016,12 @@
   `review_state` exists. The remaining honest gap is native worker-session /
   delegated-work execution, plus the last recovery/CLI surfaces that still
   assume a fixed implementer provider.
+- Latest same-lane closure on 2026-04-15: governed commit fallback now prefers
+  `bridge.effective_reviewer_mode` before declared collaboration
+  `reviewer_mode` when `resolve_commit_execution_target()` has to synthesize
+  writable conductor capabilities. That keeps local `single_agent` takeover
+  authoritative for checkpoint commits even when typed collaboration topology
+  still advertises `active_dual_agent` provenance.
 - Latest same-lane closure on 2026-04-02: the dirty-branch
   `dev/scripts/checks/**` modularization/layout blocker is closed. The
   remaining flat helpers for bundle workflow parity, duplication audit,

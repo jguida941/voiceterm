@@ -634,7 +634,11 @@ Three quality layers matter in practice:
     prefer `bridge.effective_reviewer_mode` over the declared bridge
     `reviewer_mode`: the declared mode stays provenance, while the effective
     field demotes dead `active_dual_agent` runtime to an inactive read-only
-    state for startup/wait consumers.
+    state for startup/wait consumers. Governed commit execution follows the
+    same rule when it must synthesize lane capabilities without a fully
+    populated capability object: effective mode outranks declared
+    collaboration mode so local `single_agent` checkpoint work keeps the
+    writable lane on the reviewer side.
     `review-channel --action bridge-poll`
     now follows that same rule by refreshing and preferring the typed
     `review_state` projection before deciding live ACK freshness.

@@ -37,6 +37,45 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 - [User Path (5 min)](#user-path-5-min)
 - [Developer Path (15 min)](#developer-path-15-min)
 
+### 2026-04-15 - Governed commit fallback now trusts effective reviewer mode, and status `sessions=[]` is action-scoped
+
+Fact: the next dogfood pass after the launch-authority/runtime-parity repair
+found one more place where declared topology could outrank typed authority.
+`resolve_commit_execution_target()` still preferred
+`collaboration.reviewer_mode` before `bridge.effective_reviewer_mode` when it
+had to synthesize conductor capabilities without a fully populated capability
+object. In a local `single_agent` takeover, that meant a stale declared
+`active_dual_agent` collaboration record could incorrectly make the implementer
+lane look writable again. The same probe also clarified a status-surface point:
+top-level `review-channel status` `sessions=[]` on non-launch actions is the
+expected action-scoped report shape, not proof that live conductor metadata is
+missing.
+
+This matters because governed checkpoint/commit execution is one of the last
+places where typed authority has to remain stronger than compatibility
+provenance. If declared collaboration topology can still re-grant the
+implementer lane after takeover, then the remote commit pipeline is not really
+fail-closed: a local reviewer checkpoint can still route back to the wrong
+actor even though the typed bridge/runtime state already demoted the lane.
+
+The closure was intentionally small. `resolve_commit_execution_target()` now
+prefers `bridge.effective_reviewer_mode` before collaboration/declared mode
+when it synthesizes writable lane capabilities, and a focused regression test
+proves that a stale declared `active_dual_agent` record no longer steals
+single-agent checkpoint authority from Codex. The matching maintainer docs
+(`AGENTS.md`, `dev/guides/DEVELOPMENT.md`, `dev/scripts/README.md`,
+`dev/active/MASTER_PLAN.md`) were updated in the same slice so
+`docs-check --strict-tooling` treats the precedence as a repo-owned runtime
+contract instead of a hidden local fix.
+
+Evidence: `dev/scripts/devctl/commands/vcs/governed_executor_commit_runtime.py`,
+`dev/scripts/devctl/tests/vcs/test_governed_executor.py`,
+`python3 dev/scripts/checks/check_code_shape.py`,
+`python3 dev/scripts/checks/check_review_surface_consistency.py`,
+`python3 dev/scripts/checks/check_active_plan_sync.py`,
+`python3 dev/scripts/checks/check_multi_agent_sync.py`, and
+`python3 dev/scripts/checks/check_review_channel_bridge.py`.
+
 ### 2026-04-15 - Bridge-backed status and event-backed startup/dashboard now share one attention-priority reducer
 
 Fact: after the authority-snapshot and packet-inbox repairs landed, the repo

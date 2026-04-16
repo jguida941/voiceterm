@@ -566,6 +566,26 @@ def test_commit_execution_target_falls_back_to_writable_reviewer_lane() -> None:
     assert _resolve_commit_execution_target(review_state) == "codex"
 
 
+def test_commit_execution_target_prefers_effective_mode_when_declared_mode_is_stale(
+) -> None:
+    review_state = SimpleNamespace(
+        collaboration=SimpleNamespace(
+            reviewer_mode="active_dual_agent",
+            coding_agent="claude",
+            review_agent="codex",
+            role_assignments=(),
+        ),
+        bridge=SimpleNamespace(
+            implementer_capability=None,
+            reviewer_capability=None,
+            effective_reviewer_mode="single_agent",
+            reviewer_mode="active_dual_agent",
+        ),
+    )
+
+    assert _resolve_commit_execution_target(review_state) == "codex"
+
+
 def test_commit_execution_target_fails_closed_without_writable_lane() -> None:
     review_state = SimpleNamespace(
         collaboration=SimpleNamespace(

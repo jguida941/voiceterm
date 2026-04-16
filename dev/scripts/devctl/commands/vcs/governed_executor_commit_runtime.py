@@ -164,8 +164,8 @@ def resolve_commit_execution_target(review_state: ReviewState | None) -> str:
     if review_state is None:
         return ""
     reviewer_mode = (
-        review_state.collaboration.reviewer_mode
-        or review_state.bridge.effective_reviewer_mode
+        review_state.bridge.effective_reviewer_mode
+        or review_state.collaboration.reviewer_mode
         or review_state.bridge.reviewer_mode
         or "single_agent"
     )

@@ -636,7 +636,11 @@ checklist plus chat memory.
     authority consumers: keep the declared bridge `reviewer_mode` for
     provenance, but prefer `bridge.effective_reviewer_mode` when deciding
     whether `active_dual_agent` is actually live enough to grant reviewer/
-    implementer loop authority.
+    implementer loop authority. Apply that same precedence to governed
+    commit/push lane selection too: when a writable conductor capability must
+    be synthesized, `bridge.effective_reviewer_mode` outranks stale declared
+    collaboration topology so local `single_agent` takeover cannot silently
+    hand commit execution back to the implementer lane.
     Governed push and hook-owned preflights that trust or stage `bridge.md`
     must refresh the typed review-state/status projection first and then
     reproject the compatibility bridge from that typed state instead of
