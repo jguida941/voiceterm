@@ -5,14 +5,14 @@
 ## Quick status
 
 - Branch: `feature/governance-quality-sweep`
-- HEAD: `8fa4728cd1ab` — Fix reviewer loop wake: --loop sets remote_control mode (rev_pkt_0794)
-- Tree hash: `0562423adaef`
-- Generation stamp: `snap-a6c62832af2a`
-- Generated at (UTC): 2026-04-16T18:56:20Z
+- HEAD: `0f85c5d96694` — Dashboard reads FindingBacklog for open count (Phase-0 item #2)
+- Tree hash: `121dfe2b72e5`
+- Generation stamp: `snap-c6ac7db03ec1`
+- Generated at (UTC): 2026-04-16T19:49:47Z
 - Push decision: `await_review` — review_loop_relaunch_required
 - Reviewer mode: `tools_only` (interaction: `local_terminal`)
 - Pipeline state: `n/a` (approval: `n/a`)
-- Delta since last snapshot: 24 commits, 25 files, +3268/-1665
+- Delta since last snapshot: 25 commits, 26 files, +3272/-1656
 - Governance findings: 112 open / 86 fixed / 212 total
 - Probe hints: 0 total across 0 files scanned
 
@@ -54,9 +54,9 @@ adopters arrive.
 - Remote: `https://github.com/jguida941/voiceterm.git`
 - Default branch: `master`
 - Current branch: `feature/governance-quality-sweep`
-- HEAD SHA: `8fa4728cd1ab7328986b329c860cac13b22b7fd2`
+- HEAD SHA: `0f85c5d96694fcc37d9a954fc24452c8b7b45ec7`
 - HEAD author: Justin Guida
-- HEAD timestamp (UTC): 2026-04-16T14:55:55-04:00
+- HEAD timestamp (UTC): 2026-04-16T15:49:22-04:00
 
 ## 2. Governance state
 
@@ -92,12 +92,12 @@ adopters arrive.
 
 ## 3. Delta — what changed since the previous snapshot
 
-Range: last 24 commits ending at `8fa4728cd1ab`
+Range: last 25 commits ending at `0f85c5d96694`
 
-- commits: 24
-- files changed: 25
-- insertions: +3268
-- deletions: -1665
+- commits: 25
+- files changed: 26
+- insertions: +3272
+- deletions: -1656
 - bundle classes touched: tooling, docs
 - authority surfaces touched: 7 file(s)
 
@@ -105,38 +105,40 @@ Range: last 24 commits ending at `8fa4728cd1ab`
 
 | # | SHA | Subject | Files | +/- | Bundle | Risk |
 |---|---|---|---|---|---|---|
-| 1 | `8fa4728c` | Fix reviewer loop wake: --loop sets remote_control mode (re… | 2 | +16/-3 | tooling |  |
-| 2 | `68acce2b` | Refresh external review snapshot for 6f8fce71 | 2 | +51/-53 | docs |  |
-| 3 | `6f8fce71` | Wire session reviewer loop into governed ensure --follow ru… | 1 | +39/-149 | tooling |  |
-| 4 | `a38150a1` | Refresh external review snapshot for 23c4239a | 2 | +49/-64 | docs |  |
-| 5 | `23c4239a` | Fix session command blocking (Codex finding rev_pkt_0785):… | 1 | +29/-12 | tooling |  |
-| 6 | `598aa8a3` | Refresh external review snapshot for 526019f9 | 2 | +70/-76 | docs |  |
-| 7 | `526019f9` | Fix Codex findings rev_pkt_0777/0779/0783 | 3 | +7/-4 | tooling |  |
-| 8 | `5fa0f1a2` | Refresh external review snapshot for 66ca79db | 2 | +58/-56 | docs |  |
-| 9 | `66ca79db` | devctl session command + gate hardening + reviewer loop + m… | 8 | +479/-64 | tooling |  |
-| 10 | `c3e13cdf` | Refresh external review snapshot for 1f927cbf | 1 | +58/-55 | tooling |  |
-| 11 | `1f927cbf` | Refresh external review snapshot for 819a88a3 | 2 | +66/-59 | docs |  |
-| 12 | `819a88a3` | Typed reviewer-wake convergence + modularization | 9 | +361/-181 | tooling |  |
-| 13 | `06665471` | Refresh external review snapshot for 32e5997d | 2 | +50/-54 | docs |  |
-| 14 | `32e5997d` | Refresh external review snapshot for e9f6a6b3 | 2 | +72/-70 | docs |  |
-| 15 | `e9f6a6b3` | Fix fail-open regression in commit_packet_gate + contract d… | 5 | +448/-74 | tooling |  |
-| 16 | `a9f1a42f` | Refresh external review snapshot for d2d91aaf | 2 | +66/-64 | docs |  |
-| 17 | `d2d91aaf` | Unify commit-gate caller policy across governed + receipt p… | 8 | +218/-145 | tooling |  |
-| 18 | `7c1562f3` | Refresh external review snapshot for dae1df84 | 2 | +65/-65 | docs |  |
-| 19 | `dae1df84` | Make reviewer turn runner governance-shaped instead of brid… | 3 | +138/-50 | tooling |  |
-| 20 | `b627c135` | Unify target resolver + fail-closed on unresolved target +… | 5 | +110/-118 | tooling |  |
-| 21 | `4c01b779` | Add fail-closed commit gate on pending reviewer packets | 6 | +622/-49 | tooling |  |
-| 22 | `6221bc32` | Refresh external review snapshot for f4c3a335 | 2 | +63/-61 | docs |  |
-| 23 | `f4c3a335` | Fix Codex review findings: revert premature follow wiring +… | 6 | +66/-64 | tooling |  |
-| 24 | `26e8730a` | Refresh external review snapshot for d08407ca | 1 | +67/-75 | tooling |  |
+| 1 | `0f85c5d9` | Dashboard reads FindingBacklog for open count (Phase-0 item… | 1 | +10/-1 | tooling |  |
+| 2 | `ad1d5a99` | Refresh external review snapshot for 8fa4728c | 2 | +61/-65 | docs |  |
+| 3 | `8fa4728c` | Fix reviewer loop wake: --loop sets remote_control mode (re… | 2 | +16/-3 | tooling |  |
+| 4 | `68acce2b` | Refresh external review snapshot for 6f8fce71 | 2 | +51/-53 | docs |  |
+| 5 | `6f8fce71` | Wire session reviewer loop into governed ensure --follow ru… | 1 | +39/-149 | tooling |  |
+| 6 | `a38150a1` | Refresh external review snapshot for 23c4239a | 2 | +49/-64 | docs |  |
+| 7 | `23c4239a` | Fix session command blocking (Codex finding rev_pkt_0785):… | 1 | +29/-12 | tooling |  |
+| 8 | `598aa8a3` | Refresh external review snapshot for 526019f9 | 2 | +70/-76 | docs |  |
+| 9 | `526019f9` | Fix Codex findings rev_pkt_0777/0779/0783 | 3 | +7/-4 | tooling |  |
+| 10 | `5fa0f1a2` | Refresh external review snapshot for 66ca79db | 2 | +58/-56 | docs |  |
+| 11 | `66ca79db` | devctl session command + gate hardening + reviewer loop + m… | 8 | +479/-64 | tooling |  |
+| 12 | `c3e13cdf` | Refresh external review snapshot for 1f927cbf | 1 | +58/-55 | tooling |  |
+| 13 | `1f927cbf` | Refresh external review snapshot for 819a88a3 | 2 | +66/-59 | docs |  |
+| 14 | `819a88a3` | Typed reviewer-wake convergence + modularization | 9 | +361/-181 | tooling |  |
+| 15 | `06665471` | Refresh external review snapshot for 32e5997d | 2 | +50/-54 | docs |  |
+| 16 | `32e5997d` | Refresh external review snapshot for e9f6a6b3 | 2 | +72/-70 | docs |  |
+| 17 | `e9f6a6b3` | Fix fail-open regression in commit_packet_gate + contract d… | 5 | +448/-74 | tooling |  |
+| 18 | `a9f1a42f` | Refresh external review snapshot for d2d91aaf | 2 | +66/-64 | docs |  |
+| 19 | `d2d91aaf` | Unify commit-gate caller policy across governed + receipt p… | 8 | +218/-145 | tooling |  |
+| 20 | `7c1562f3` | Refresh external review snapshot for dae1df84 | 2 | +65/-65 | docs |  |
+| 21 | `dae1df84` | Make reviewer turn runner governance-shaped instead of brid… | 3 | +138/-50 | tooling |  |
+| 22 | `b627c135` | Unify target resolver + fail-closed on unresolved target +… | 5 | +110/-118 | tooling |  |
+| 23 | `4c01b779` | Add fail-closed commit gate on pending reviewer packets | 6 | +622/-49 | tooling |  |
+| 24 | `6221bc32` | Refresh external review snapshot for f4c3a335 | 2 | +63/-61 | docs |  |
+| 25 | `f4c3a335` | Fix Codex review findings: revert premature follow wiring +… | 6 | +66/-64 | tooling |  |
 
 ### Files
 
 | Path | Bundle | +/- |
 |---|---|---|
-| `bridge.md` | docs | +45/-40 |
-| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1098/-1122 |
+| `bridge.md` | docs | +50/-45 |
+| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1087/-1107 |
 | `dev/scripts/devctl/cli_parser/entrypoint.py` | tooling | +4/-0 |
+| `dev/scripts/devctl/commands/dashboard_builders.py` | tooling | +10/-1 |
 | `dev/scripts/devctl/commands/governance/review_snapshot.py` | tooling | +47/-14 |
 | `dev/scripts/devctl/commands/governance/session.py` | tooling | +146/-13 |
 | `dev/scripts/devctl/commands/governance/session_reviewer_loop.py` | tooling | +231/-149 |
@@ -248,6 +250,11 @@ Recent findings:
 
 ### Per-commit rationale
 
+- **`0f85c5d9`** — Dashboard reads FindingBacklog for open count (Phase-0 item #2)
+  - Dashboard now prefers quality_signals.finding_backlog.open_finding_count
+  - over the raw governance_review.open_finding_count. Falls back to the
+  - old source when FindingBacklog isn't loaded.
+- **`ad1d5a99`** — Refresh external review snapshot for 8fa4728c
 - **`8fa4728c`** — Fix reviewer loop wake: --loop sets remote_control mode (rev_pkt_0794)
   - session --role reviewer --loop now sets DEVCTL_OPERATOR_INTERACTION_MODE=
   - remote_control for the ensure --follow subprocess. The wake controller
@@ -301,7 +308,6 @@ Recent findings:
   - 1. Revert reviewer_follow.py wiring — keep turn runner out of live
   -    follow/report path until core wake/context contract is accepted.
   - 2. Fix acked-status wake bug — only pending packets trigger reviewer
-- **`26e8730a`** — Refresh external review snapshot for d08407ca
 ### Active MP scope (from MASTER_PLAN.md)
 
 - contract slice for MP-355 plus the temporary markdown-swarm operating mode
@@ -337,4 +343,4 @@ Recent findings:
 
 ---
 
-Projection produced by `devctl review-snapshot`. Generation stamp `snap-a6c62832af2a` binds this file to HEAD `8fa4728cd1ab`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
+Projection produced by `devctl review-snapshot`. Generation stamp `snap-c6ac7db03ec1` binds this file to HEAD `0f85c5d96694`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.

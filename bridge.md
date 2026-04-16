@@ -77,11 +77,11 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-04-16T18:56:06Z`
-- Last Codex poll (Local America/New_York): `2026-04-16 14:56:06 EDT`
+- Last Codex poll: `2026-04-16T19:49:45Z`
+- Last Codex poll (Local America/New_York): `2026-04-16 15:49:45 EDT`
 - Reviewer mode: `active_dual_agent`
-- Last non-audit worktree hash: `0d5e04d98d9265bc0eadb360c2941cb0678992cfebc8b332b287dffd71809871`
-- Current instruction revision: `512425f009d5`
+- Last non-audit worktree hash: `4af25f4aedfca757f765be5b69df62e9bf5f61458f210a2e5832dcd50321f751`
+- Current instruction revision: `f921d97ac6ed`
 
 ## Protocol
 
@@ -113,7 +113,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Poll Status
 
-- Reviewer heartbeat refreshed through repo-owned tooling (mode: active_dual_agent; reason: ensure-follow; reviewed-tree: 0d5e04d98d92).
+- Reviewer heartbeat refreshed through repo-owned tooling (mode: active_dual_agent; reason: ensure-follow; reviewed-tree: 4af25f4aedfc).
 
 ## Current Verdict
 
@@ -121,7 +121,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Open Findings
 
-9 pending review packet(s); 236 expired unresolved review packet(s)
+1 pending review packet(s); 241 expired unresolved review packet(s)
 
 ## Claude Status
 
@@ -133,16 +133,16 @@ treat these rules as active workflow instructions immediately.
 
 ## Claude Ack
 
-pending
+acknowledged
 
 ## Current Instruction For Claude
 
-- Starting: wire session --role reviewer --loop into ensure --follow runtime
-- Context packet: trigger `review-channel-event`; query terms: `session_reviewer_loop.py`
+- Plan audit complete: starting Phase-0 items 2+3 (FindingBacklog + packet lifecycle)
+- Context packet: trigger `review-channel-event`; query terms: `MP-377`
 - Canonical refs:
-  - `dev/scripts/devctl/commands/governance`
-  - `dev/scripts/devctl/config.py`
-  - `dev/scripts/devctl/commands/governance/session.py`
+  - `dev/scripts/devctl/runtime/commit_packet_gate.py`
+  - `dev/scripts/devctl/governance/draft.py`
+  - `dev/scripts/devctl/governance/push_policy.py`
 
 ## Last Reviewed Scope
 
