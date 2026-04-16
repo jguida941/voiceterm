@@ -14,9 +14,7 @@ from ...runtime.remote_commit_pipeline_models import RemoteCommitPipelineContrac
 from ...runtime.vcs import run_git_capture
 from .governed_executor_actions import APPROVAL_PACKET_KIND
 from .governed_executor_authorization import build_push_authorization
-from ...runtime.commit_packet_gate import (
-    pending_reviewer_packets_block_commit,
-)
+from ...runtime.commit_packet_gate import check_commit_packet_gate
 from .governed_executor_commit_runtime import (
     attention_revision_stale as runtime_attention_revision_stale,
     live_attention_revision as runtime_live_attention_revision,
@@ -100,15 +98,14 @@ def execute_commit(
             context=context,
             pipeline=pipeline,
         )
-    commit_review_state = runtime_load_live_review_state(
+    pending_block = check_commit_packet_gate(
         repo_root=context.repo_root,
         review_channel_path=context.review_channel_path,
-    )
-    commit_target = runtime_resolve_commit_execution_target(commit_review_state)
-    pending_block = pending_reviewer_packets_block_commit(
-        repo_root=context.repo_root,
-        review_channel_path=context.review_channel_path,
-        target_agent=commit_target,
+        load_review_state_fn=lambda: runtime_load_live_review_state(
+            repo_root=context.repo_root,
+            review_channel_path=context.review_channel_path,
+        ),
+        resolve_target_fn=runtime_resolve_commit_execution_target,
     )
     if pending_block is not None:
         return _commit_block_result(

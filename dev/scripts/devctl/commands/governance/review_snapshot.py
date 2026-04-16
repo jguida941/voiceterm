@@ -122,9 +122,7 @@ def run(args) -> int:
         bridge_sync: dict[str, object] = {}
         allowlist: tuple[str, ...] = (target_display,)
         if receipt_commit:
-            from ...runtime.commit_packet_gate import (
-                pending_reviewer_packets_block_commit,
-            )
+            from ...runtime.commit_packet_gate import check_commit_packet_gate
             from ..vcs.governed_executor_commit_runtime import (
                 load_live_review_state as _load_live_review_state,
                 resolve_commit_execution_target as _resolve_commit_target,
@@ -133,15 +131,14 @@ def run(args) -> int:
             config = active_path_config()
             rc_path = repo_root / config.review_channel_rel
             rc_effective = rc_path if rc_path.exists() else None
-            receipt_review_state = _load_live_review_state(
+            pending_block = check_commit_packet_gate(
                 repo_root=repo_root,
                 review_channel_path=rc_effective,
-            )
-            receipt_target = _resolve_commit_target(receipt_review_state)
-            pending_block = pending_reviewer_packets_block_commit(
-                repo_root=repo_root,
-                review_channel_path=rc_effective,
-                target_agent=receipt_target,
+                load_review_state_fn=lambda: _load_live_review_state(
+                    repo_root=repo_root,
+                    review_channel_path=rc_effective,
+                ),
+                resolve_target_fn=_resolve_commit_target,
             )
             if pending_block is not None:
                 return _emit_result(

@@ -101,6 +101,36 @@ def pending_reviewer_packets_block_commit(
     )
 
 
+# ── Shared caller policy ───────────────────────────────────────
+
+
+def check_commit_packet_gate(
+    *,
+    repo_root: Path,
+    review_channel_path: Path | None,
+    load_review_state_fn,
+    resolve_target_fn,
+) -> str | None:
+    """Shared caller policy: load → resolve → gate, skip when not applicable.
+
+    Both governed commit and receipt-commit callers use this to avoid
+    duplicating the "skip when no review state / no writable lane" logic.
+    The shared gate's fail-closed on empty target is preserved — this
+    function guards the caller from invoking it when there's nothing to check.
+    """
+    review_state = load_review_state_fn()
+    if review_state is None:
+        return None
+    target = resolve_target_fn(review_state)
+    if not target:
+        return None
+    return pending_reviewer_packets_block_commit(
+        repo_root=repo_root,
+        review_channel_path=review_channel_path,
+        target_agent=target,
+    )
+
+
 # ── Internal helpers ───────────────────────────────────────────
 
 

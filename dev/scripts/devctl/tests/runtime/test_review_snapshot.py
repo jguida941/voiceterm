@@ -942,112 +942,140 @@ def test_atomic_pipeline_rejects_unrelated_dirty_paths(tmp_path) -> None:
 
 
 def test_receipt_commit_blocked_by_pending_reviewer_packets(tmp_path) -> None:
-    """Receipt-commit gate blocks before bridge sync and snapshot write.
+    """Receipt path in review_snapshot.run() blocks when the gate fires.
 
-    Directly tests the gate integration by verifying that when
-    pending_reviewer_packets_block_commit returns a block summary,
-    _sync_bridge_projection_if_active and _commit_snapshot_receipt
-    are never reached.
+    Exercises the real run() entrypoint with receipt_commit=True and
+    verifies: blocked result has reason=pending_reviewer_packets, and
+    bridge sync / snapshot commit are not reached.
     """
-    from unittest.mock import MagicMock, call, patch
+    from types import SimpleNamespace
+    from unittest.mock import MagicMock, patch
 
-    gate_mock = MagicMock(return_value="Commit blocked: 2 pending packets")
-    target_mock = MagicMock(return_value="claude")
-    sync_mock = MagicMock(return_value={})
-    commit_mock = MagicMock(
-        return_value={"ok": True, "reason": "receipt_committed", "commit_sha": "abc"}
+    from devctl.runtime.review_snapshot_models import ReviewSnapshot
+
+    repo_root = _init_receipt_repo(tmp_path / "repo")
+    out_path = tmp_path / "out.json"
+    snapshot_target = repo_root / "dev/audits/REVIEW_SNAPSHOT.md"
+    snapshot_target.parent.mkdir(parents=True, exist_ok=True)
+
+    sync_spy = MagicMock(return_value={})
+    commit_spy = MagicMock(
+        return_value={"ok": True, "reason": "receipt_committed", "commit_sha": "abc"},
+    )
+
+    args = SimpleNamespace(
+        write=False,
+        receipt_commit=True,
+        target="",
+        previous_head="",
+        commit_limit=5,
+        format="json",
+        output=str(out_path),
+        pipe_command=None,
+        pipe_args=None,
     )
 
     with (
         patch(
-            "devctl.runtime.commit_packet_gate"
-            ".pending_reviewer_packets_block_commit",
-            gate_mock,
+            "devctl.commands.governance.review_snapshot.get_repo_root",
+            return_value=repo_root,
         ),
         patch(
-            "devctl.commands.vcs.governed_executor_commit_runtime"
-            ".resolve_commit_execution_target",
-            target_mock,
-        ),
-        patch(
-            "devctl.commands.vcs.governed_executor_commit_runtime"
-            ".load_live_review_state",
+            "devctl.commands.governance.review_snapshot.scan_repo_governance_safely",
             return_value=None,
         ),
         patch(
-            "devctl.commands.governance.review_snapshot"
-            "._sync_bridge_projection_if_active",
-            sync_mock,
+            "devctl.commands.governance.review_snapshot.build_review_snapshot",
+            return_value=ReviewSnapshot(),
         ),
         patch(
-            "devctl.commands.governance.review_snapshot"
-            "._commit_snapshot_receipt",
-            commit_mock,
+            "devctl.commands.governance.review_snapshot.render_review_snapshot_markdown",
+            return_value="# ReviewSnapshot\n",
+        ),
+        patch(
+            "devctl.runtime.commit_packet_gate.check_commit_packet_gate",
+            return_value="Commit blocked: 2 pending reviewer packet(s)",
+        ),
+        patch(
+            "devctl.commands.governance.review_snapshot._sync_bridge_projection_if_active",
+            sync_spy,
+        ),
+        patch(
+            "devctl.commands.governance.review_snapshot._commit_snapshot_receipt",
+            commit_spy,
         ),
     ):
-        # Dynamically import after mocks are in place to get the gated code path
-        import importlib
+        from devctl.commands.governance.review_snapshot import run
 
-        import devctl.commands.governance.review_snapshot as snap_mod
+        rc = run(args)
 
-        importlib.reload(snap_mod)
+    # run() returns non-zero on blocked receipt
+    assert rc != 0, f"run() should return non-zero when gate blocks, got {rc}"
 
-        # Verify the gate fires with the resolved target
-        from devctl.runtime.commit_packet_gate import (
-            pending_reviewer_packets_block_commit,
-        )
+    # Bridge sync and snapshot commit must NOT have been reached
+    sync_spy.assert_not_called()
+    commit_spy.assert_not_called()
 
-        block = pending_reviewer_packets_block_commit(
-            repo_root=tmp_path,
-            review_channel_path=tmp_path / "rc",
-            target_agent="claude",
-        )
-
-        assert block is not None
-        assert "Commit blocked" in block
-
-    # Bridge sync and snapshot commit must NOT have been called
-    sync_mock.assert_not_called()
-    commit_mock.assert_not_called()
+    # Snapshot file must NOT have been written
+    assert not snapshot_target.exists(), "snapshot must not be written on block"
 
 
 def test_receipt_commit_allowed_when_gate_clear(tmp_path) -> None:
-    """Receipt-commit proceeds normally when the gate returns clear."""
+    """Receipt path in run() proceeds normally when the gate returns clear."""
+    from types import SimpleNamespace
     from unittest.mock import patch
 
+    from devctl.runtime.review_snapshot_models import ReviewSnapshot
+
     repo_root = _init_receipt_repo(tmp_path / "repo")
-    snapshot_path = repo_root / "dev/audits/REVIEW_SNAPSHOT.md"
-    snapshot_path.parent.mkdir(parents=True, exist_ok=True)
+    out_path = tmp_path / "out.json"
+    snapshot_target = repo_root / "dev/audits/REVIEW_SNAPSHOT.md"
+    snapshot_target.parent.mkdir(parents=True, exist_ok=True)
+
+    args = SimpleNamespace(
+        write=False,
+        receipt_commit=True,
+        target="",
+        previous_head="",
+        commit_limit=5,
+        format="json",
+        output=str(out_path),
+        pipe_command=None,
+        pipe_args=None,
+    )
 
     with (
         patch(
-            "devctl.runtime.commit_packet_gate"
-            ".pending_reviewer_packets_block_commit",
+            "devctl.commands.governance.review_snapshot.get_repo_root",
+            return_value=repo_root,
+        ),
+        patch(
+            "devctl.commands.governance.review_snapshot.scan_repo_governance_safely",
             return_value=None,
         ),
         patch(
-            "devctl.commands.vcs.governed_executor_commit_runtime"
-            ".resolve_commit_execution_target",
-            return_value="claude",
+            "devctl.commands.governance.review_snapshot.build_review_snapshot",
+            return_value=ReviewSnapshot(),
         ),
         patch(
-            "devctl.commands.vcs.governed_executor_commit_runtime"
-            ".load_live_review_state",
+            "devctl.commands.governance.review_snapshot.render_review_snapshot_markdown",
+            return_value="# ReviewSnapshot\n",
+        ),
+        patch(
+            "devctl.runtime.commit_packet_gate.check_commit_packet_gate",
             return_value=None,
+        ),
+        patch(
+            "devctl.commands.governance.review_snapshot._sync_bridge_projection_if_active",
+            return_value={},
         ),
     ):
-        from devctl.commands.governance.review_snapshot import (
-            _commit_snapshot_receipt,
-        )
+        from devctl.commands.governance.review_snapshot import run
 
-        snapshot_path.write_text("# Snapshot\nreceipt\n", encoding="utf-8")
-        result = _commit_snapshot_receipt(
-            repo_root=repo_root,
-            target_rel="dev/audits/REVIEW_SNAPSHOT.md",
-        )
+        rc = run(args)
 
-    assert result["ok"] is True
-    assert result["reason"] == "receipt_committed"
+    # run() returns 0 on successful receipt commit
+    assert rc == 0, f"run() should return 0 when gate is clear, got {rc}"
 
 
 def _commit_count(repo_root: Path) -> int:

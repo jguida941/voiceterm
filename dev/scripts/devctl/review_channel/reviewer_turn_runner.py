@@ -150,12 +150,12 @@ def detect_reviewer_wake(
                 str(p.get("packet_id", "")) for p in pending
             ),
         )
-    if resolved_bridge is None:
-        return None
-    tick = worker_tick or check_review_needed(
-        repo_root=repo_root, bridge_path=resolved_bridge,
-    )
-    if tick.review_needed:
+    tick = worker_tick
+    if tick is None and resolved_bridge is not None:
+        tick = check_review_needed(
+            repo_root=repo_root, bridge_path=resolved_bridge,
+        )
+    if tick is not None and tick.review_needed:
         return ReviewerWakeSignal(
             kind=WAKE_TREE_CHANGED,
             detail=tick.detail,

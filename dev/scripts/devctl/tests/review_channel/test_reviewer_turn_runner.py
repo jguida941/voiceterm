@@ -221,6 +221,28 @@ class TestDetectReviewerWake(unittest.TestCase):
     @patch(
         "dev.scripts.devctl.review_channel.reviewer_turn_runner.load_pending_packets"
     )
+    def test_precomputed_worker_tick_wakes_without_bridge_path(self, mock_load):
+        mock_load.return_value = ()
+        tick = ReviewerWorkerTick(
+            state="review_needed",
+            review_needed=True,
+            reviewed_hash="aaa",
+            current_hash="bbb",
+            reviewer_mode="active_dual_agent",
+            detail="Tree changed",
+        )
+        signal = detect_reviewer_wake(
+            repo_root=Path("/fake"),
+            reviewer_provider="codex",
+            worker_tick=tick,
+        )
+        self.assertIsNotNone(signal)
+        self.assertEqual(signal.kind, WAKE_TREE_CHANGED)
+        self.assertEqual(signal.tree_hash_after, "bbb")
+
+    @patch(
+        "dev.scripts.devctl.review_channel.reviewer_turn_runner.load_pending_packets"
+    )
     def test_governance_resolves_bridge_path(self, mock_load):
         mock_load.return_value = ()
         governance = SimpleNamespace(
