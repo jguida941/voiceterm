@@ -68,12 +68,12 @@ def projection_metadata(
             or snapshot.metadata.get("current_instruction_revision")
             or ""
         ).strip()
-    if not current_revision and current_instruction and not _is_placeholder_instruction(
-        current_instruction
-    ):
-        current_revision = hashlib.sha256(
+    if current_instruction and not _is_placeholder_instruction(current_instruction):
+        derived_revision = hashlib.sha256(
             current_instruction.encode("utf-8")
         ).hexdigest()[:12]
+        if not current_revision or current_revision != derived_revision:
+            current_revision = derived_revision
     last_codex_poll_utc = _first_text(
         snapshot.metadata.get("last_codex_poll_utc"),
         bridge_state.get("last_codex_poll_utc"),

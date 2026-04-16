@@ -19,7 +19,7 @@ def build_surface_snapshot_id(
         "reviewer_runtime": _normalize_payload(reviewer_runtime, drop_keys=()),
         "commit_pipeline": _normalize_payload(
             commit_pipeline,
-            drop_keys=("snapshot_id",),
+            drop_keys=("snapshot_id", "zref"),
         ),
         "push_decision": _normalize_push_decision(push_decision),
     }
@@ -32,7 +32,7 @@ def attach_snapshot_id(
     snapshot_id: str,
 ) -> dict[str, object]:
     """Copy one mapping-like payload and attach the shared snapshot id."""
-    mapping = _normalize_payload(payload, drop_keys=("snapshot_id",))
+    mapping = _normalize_payload(payload, drop_keys=("snapshot_id", "zref"))
     if snapshot_id:
         mapping["snapshot_id"] = snapshot_id
     return mapping
@@ -65,7 +65,7 @@ def attach_surface_identity(
 
 
 def _normalize_push_decision(payload: object) -> dict[str, object]:
-    mapping = _normalize_payload(payload, drop_keys=("snapshot_id",))
+    mapping = _normalize_payload(payload, drop_keys=("snapshot_id", "zref"))
     backlog = mapping.get("publication_backlog")
     backlog_mapping = backlog if isinstance(backlog, Mapping) else {}
     return {
