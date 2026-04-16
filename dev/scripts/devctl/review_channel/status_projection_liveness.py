@@ -124,6 +124,10 @@ def attach_conductor_session_state(
         and single_agent_lane_has_live_typed_authority(bridge_liveness)
     ):
         bridge_liveness["overall_state"] = OverallLivenessState.SINGLE_AGENT_ACTIVE
+    # Emit typed liveness signals (MP377-P1-T08)
+    bridge_liveness["participant_liveness"] = _build_participant_liveness(
+        bridge_liveness, active_providers
+    )
 
 
 def _degrade_active_dual_agent_freshness(
@@ -255,3 +259,29 @@ def _single_agent_remote_control_providers(
         if provider and provider not in providers:
             providers.append(provider)
     return tuple(providers)
+
+
+def _build_participant_liveness(
+    bridge_liveness: dict[str, object],
+    active_providers: list[str],
+) -> list[dict[str, object]]:
+    """Emit typed ParticipantLivenessSignal for each known provider."""
+    from .participant_liveness_signal import classify_participant_liveness
+
+    publisher_running = bool(bridge_liveness.get("publisher_running"))
+    supervisor_running = bool(bridge_liveness.get("reviewer_supervisor_running"))
+    signals = []
+    for provider in ("codex", "claude"):
+        role = "reviewer" if provider == "codex" else "implementer"
+        poll_key = f"last_{provider}_poll_age_seconds"
+        poll_age = bridge_liveness.get(poll_key)
+        signal = classify_participant_liveness(
+            provider=provider,
+            role=role,
+            publisher_running=publisher_running if provider == "codex" else False,
+            reviewer_supervisor_running=supervisor_running if provider == "codex" else False,
+            conductor_active=provider in active_providers,
+            poll_age_seconds=int(poll_age) if poll_age is not None else None,
+        )
+        signals.append(signal.to_dict())
+    return signals
