@@ -965,9 +965,14 @@ def test_receipt_commit_blocked_by_pending_reviewer_packets(tmp_path) -> None:
             gate_mock,
         ),
         patch(
-            "devctl.runtime.commit_packet_gate"
-            ".resolve_commit_target_for_gate",
+            "devctl.commands.vcs.governed_executor_commit_runtime"
+            ".resolve_commit_execution_target",
             target_mock,
+        ),
+        patch(
+            "devctl.commands.vcs.governed_executor_commit_runtime"
+            ".load_live_review_state",
+            return_value=None,
         ),
         patch(
             "devctl.commands.governance.review_snapshot"
@@ -987,18 +992,15 @@ def test_receipt_commit_blocked_by_pending_reviewer_packets(tmp_path) -> None:
 
         importlib.reload(snap_mod)
 
-        # Simulate the receipt path: the gate fires → sync/commit never called
+        # Verify the gate fires with the resolved target
         from devctl.runtime.commit_packet_gate import (
             pending_reviewer_packets_block_commit,
-            resolve_commit_target_for_gate,
         )
 
-        rc_path = tmp_path / "review_channel"
-        target = resolve_commit_target_for_gate(
-            repo_root=tmp_path, review_channel_path=rc_path,
-        )
         block = pending_reviewer_packets_block_commit(
-            repo_root=tmp_path, review_channel_path=rc_path, target_agent=target,
+            repo_root=tmp_path,
+            review_channel_path=tmp_path / "rc",
+            target_agent="claude",
         )
 
         assert block is not None
@@ -1024,9 +1026,14 @@ def test_receipt_commit_allowed_when_gate_clear(tmp_path) -> None:
             return_value=None,
         ),
         patch(
-            "devctl.runtime.commit_packet_gate"
-            ".resolve_commit_target_for_gate",
+            "devctl.commands.vcs.governed_executor_commit_runtime"
+            ".resolve_commit_execution_target",
             return_value="claude",
+        ),
+        patch(
+            "devctl.commands.vcs.governed_executor_commit_runtime"
+            ".load_live_review_state",
+            return_value=None,
         ),
     ):
         from devctl.commands.governance.review_snapshot import (

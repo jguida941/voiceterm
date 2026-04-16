@@ -124,18 +124,23 @@ def run(args) -> int:
         if receipt_commit:
             from ...runtime.commit_packet_gate import (
                 pending_reviewer_packets_block_commit,
-                resolve_commit_target_for_gate,
+            )
+            from ..vcs.governed_executor_commit_runtime import (
+                load_live_review_state as _load_live_review_state,
+                resolve_commit_execution_target as _resolve_commit_target,
             )
 
             config = active_path_config()
             rc_path = repo_root / config.review_channel_rel
-            receipt_target = resolve_commit_target_for_gate(
+            rc_effective = rc_path if rc_path.exists() else None
+            receipt_review_state = _load_live_review_state(
                 repo_root=repo_root,
-                review_channel_path=rc_path if rc_path.exists() else None,
+                review_channel_path=rc_effective,
             )
+            receipt_target = _resolve_commit_target(receipt_review_state)
             pending_block = pending_reviewer_packets_block_commit(
                 repo_root=repo_root,
-                review_channel_path=rc_path if rc_path.exists() else None,
+                review_channel_path=rc_effective,
                 target_agent=receipt_target,
             )
             if pending_block is not None:

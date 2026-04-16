@@ -66,6 +66,14 @@ def pending_reviewer_packets_block_commit(
     agent_records = tuple(getattr(packet_inbox, "agents", ()) or ())
     normalized_target = target_agent.strip().lower()
 
+    if not normalized_target:
+        return (
+            "Commit blocked: writable execution target could not be resolved "
+            "from typed review state. Cannot determine which lane to check "
+            "for pending reviewer packets. Resolve the review-channel "
+            "projection and ensure a writable lane is configured."
+        )
+
     blocking: list[tuple[str, list[str]]] = []
     for record in agent_records:
         agent = str(getattr(record, "agent", "") or "").strip()
@@ -91,47 +99,6 @@ def pending_reviewer_packets_block_commit(
         "Resolve pending packets before committing: "
         "`devctl review-channel --action inbox --status pending --format json`."
     )
-
-
-# ── Target resolution ──────────────────────────────────────────
-
-
-def resolve_commit_target_for_gate(
-    *,
-    repo_root: Path,
-    review_channel_path: Path | None,
-) -> str:
-    """Resolve the writable execution target for the commit gate.
-
-    Loads review state and delegates to the same typed resolution that
-    the governed commit path uses. Returns empty string when resolution
-    is not possible (the gate will fail-closed on all agents).
-    """
-    try:
-        review_state = _load_review_state(
-            repo_root=repo_root,
-            review_channel_path=review_channel_path,
-        )
-    except (ValueError, OSError):
-        return ""
-    if review_state is None:
-        return ""
-    return _resolve_writable_target(review_state)
-
-
-def _resolve_writable_target(review_state: object) -> str:
-    """Extract the writable provider lane from typed review state."""
-    collaboration = getattr(review_state, "collaboration", None)
-    bridge = getattr(review_state, "bridge", None)
-    coding_agent = str(getattr(collaboration, "coding_agent", "") or "").strip()
-    if coding_agent:
-        return coding_agent
-    implementer_provider = str(
-        getattr(bridge, "implementer_provider", "") or ""
-    ).strip()
-    if implementer_provider:
-        return implementer_provider
-    return ""
 
 
 # ── Internal helpers ───────────────────────────────────────────

@@ -63,7 +63,9 @@ class TestPendingReviewerPacketsBlockCommit(unittest.TestCase):
             ],
         )
         result = pending_reviewer_packets_block_commit(
-            repo_root=None, review_channel_path=Path("/fake/exists"),
+            repo_root=None,
+            review_channel_path=Path("/fake/exists"),
+            target_agent="claude",
         )
         self.assertIsNotNone(result)
         self.assertIn("Commit blocked", result)
@@ -77,7 +79,9 @@ class TestPendingReviewerPacketsBlockCommit(unittest.TestCase):
             agents=[_make_inbox_record(agent="claude", pending_ids=())],
         )
         result = pending_reviewer_packets_block_commit(
-            repo_root=None, review_channel_path=Path("/fake/exists"),
+            repo_root=None,
+            review_channel_path=Path("/fake/exists"),
+            target_agent="claude",
         )
         self.assertIsNone(result)
 
@@ -134,7 +138,9 @@ class TestPendingReviewerPacketsBlockCommit(unittest.TestCase):
             ],
         )
         result = pending_reviewer_packets_block_commit(
-            repo_root=None, review_channel_path=Path("/fake/exists"),
+            repo_root=None,
+            review_channel_path=Path("/fake/exists"),
+            target_agent="claude",
         )
         self.assertIsNotNone(result)
         self.assertIn("Commit blocked", result)
@@ -166,7 +172,7 @@ class TestPendingReviewerPacketsBlockCommit(unittest.TestCase):
     @patch(
         "dev.scripts.devctl.runtime.commit_packet_gate._load_review_state"
     )
-    def test_no_target_checks_all_agents(self, mock_load):
+    def test_empty_target_blocks_with_guidance(self, mock_load):
         mock_load.return_value = _make_review_state(
             agents=[
                 _make_inbox_record(
@@ -175,11 +181,12 @@ class TestPendingReviewerPacketsBlockCommit(unittest.TestCase):
                 ),
             ],
         )
-        # No target — any agent with pending packets blocks
+        # Empty target → fail-closed with explicit guidance
         result = pending_reviewer_packets_block_commit(
             repo_root=None, review_channel_path=Path("/fake/exists"),
         )
         self.assertIsNotNone(result)
+        self.assertIn("could not be resolved", result)
 
 
 # ── Lease-independence test ────────────────────────────────────
@@ -208,7 +215,9 @@ class TestLeaseDoesNotSuppressGate(unittest.TestCase):
         )
         # Gate has no lease parameter — it's lease-independent by design
         result = pending_reviewer_packets_block_commit(
-            repo_root=None, review_channel_path=Path("/fake/exists"),
+            repo_root=None,
+            review_channel_path=Path("/fake/exists"),
+            target_agent="claude",
         )
         self.assertIsNotNone(result)
         self.assertIn("rev_pkt_0703", result)
