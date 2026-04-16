@@ -80,8 +80,8 @@ treat these rules as active workflow instructions immediately.
 - Last Codex poll: `2026-04-16T20:56:39Z`
 - Last Codex poll (Local America/New_York): `2026-04-16 16:56:39 EDT`
 - Reviewer mode: `active_dual_agent`
-- Last non-audit worktree hash: `bdc9a31ba70002f4d8434cc9b950b582512f4d8efa272b728aa741b729a7b06a`
-- Current instruction revision: `95414fe8e2b7`
+- Last non-audit worktree hash: `cb89af213eabf6e8ab7cafa548c04d48e3861fdf9e3fdf795cdf35f370e8c1d8`
+- Current instruction revision: `72cf9cb504eb`
 
 ## Protocol
 
@@ -140,9 +140,9 @@ pending
 - LIST ALL MAJOR GAPS: What needs to get done to ship MP-377 and make the system work
 - Context packet: trigger `review-channel-event`; query terms: `MP-377`
 - Canonical refs:
-  - `dev/scripts/devctl/governance/draft.py`
   - `dev/scripts/devctl/governance/push_policy.py`
-  - `dev/scripts/devctl/governance/push_state.py`
+  - `dev/scripts/devctl/governance/draft.py`
+  - `dev/scripts/devctl/runtime/startup_context.py`
 
 ## Last Reviewed Scope
 

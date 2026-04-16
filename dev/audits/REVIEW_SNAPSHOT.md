@@ -5,14 +5,14 @@
 ## Quick status
 
 - Branch: `feature/governance-quality-sweep`
-- HEAD: `072624193c94` — Add ParticipantLivenessSignal typed model (MP377-P1-T08)
-- Tree hash: `738af90b976d`
-- Generation stamp: `snap-72aa23396304`
-- Generated at (UTC): 2026-04-16T21:45:40Z
+- HEAD: `28d5d1202bc8` — Fix graph cache: load single latest snapshot, not all 362 files
+- Tree hash: `192b7c5d8ecd`
+- Generation stamp: `snap-73ac3970f925`
+- Generated at (UTC): 2026-04-16T21:58:36Z
 - Push decision: `await_review` — review_loop_relaunch_required
 - Reviewer mode: `tools_only` (interaction: `local_terminal`)
 - Pipeline state: `n/a` (approval: `n/a`)
-- Delta since last snapshot: 25 commits, 16 files, +1605/-1004
+- Delta since last snapshot: 25 commits, 12 files, +1128/-930
 - Governance findings: 112 open / 86 fixed / 212 total
 - Probe hints: 0 total across 0 files scanned
 
@@ -54,9 +54,9 @@ adopters arrive.
 - Remote: `https://github.com/jguida941/voiceterm.git`
 - Default branch: `master`
 - Current branch: `feature/governance-quality-sweep`
-- HEAD SHA: `072624193c9468796b219fa41882efc01d90f1ba`
+- HEAD SHA: `28d5d1202bc85517834b4757ab2282074872b99f`
 - HEAD author: Justin Guida
-- HEAD timestamp (UTC): 2026-04-16T17:45:02-04:00
+- HEAD timestamp (UTC): 2026-04-16T17:58:21-04:00
 
 ## 2. Governance state
 
@@ -92,12 +92,12 @@ adopters arrive.
 
 ## 3. Delta — what changed since the previous snapshot
 
-Range: last 25 commits ending at `072624193c94`
+Range: last 25 commits ending at `28d5d1202bc8`
 
 - commits: 25
-- files changed: 16
-- insertions: +1605
-- deletions: -1004
+- files changed: 12
+- insertions: +1128
+- deletions: -930
 - bundle classes touched: tooling, docs
 - authority surfaces touched: 1 file(s)
 
@@ -105,52 +105,48 @@ Range: last 25 commits ending at `072624193c94`
 
 | # | SHA | Subject | Files | +/- | Bundle | Risk |
 |---|---|---|---|---|---|---|
-| 1 | `07262419` | Add ParticipantLivenessSignal typed model (MP377-P1-T08) | 1 | +87/-0 | tooling |  |
-| 2 | `d62361a0` | Refresh external review snapshot for d2539063 | 2 | +54/-59 | docs |  |
-| 3 | `d2539063` | Fix rev_pkt_0810: only override open_findings when backlog… | 1 | +6/-3 | tooling |  |
-| 4 | `713cb440` | Refresh external review snapshot for 3f698e22 | 2 | +49/-62 | docs |  |
-| 5 | `3f698e22` | Fix rev_pkt_0809: empty backlog always overrides stale brid… | 1 | +3/-3 | tooling |  |
-| 6 | `403c547e` | Refresh external review snapshot for cbcb36bb | 2 | +52/-58 | docs |  |
-| 7 | `cbcb36bb` | Fix Codex findings 0806/0807 + hybrid loop rewrite | 3 | +39/-43 | tooling |  |
-| 8 | `d69ff4e1` | Refresh external review snapshot for 46679665 | 2 | +76/-67 | docs |  |
-| 9 | `46679665` | Hybrid reviewer loop: ensure heartbeats + direct Codex rela… | 1 | +104/-38 | tooling |  |
-| 10 | `7ac8911c` | Wire FindingBacklog into session-resume + cached graph rehy… | 2 | +67/-0 | tooling |  |
-| 11 | `107bd54a` | Fix stale snapshot selection: use canonical resolver (Codex… | 1 | +55/-8 | tooling |  |
-| 12 | `7d2a3897` | Refresh external review snapshot for 84d06a2d | 2 | +55/-63 | docs |  |
-| 13 | `84d06a2d` | Use cached context graph in session-resume — fixes infinite… | 1 | +31/-1 | tooling |  |
-| 14 | `f402fbe8` | Refresh external review snapshot for 0f85c5d9 | 2 | +58/-52 | docs |  |
-| 15 | `0f85c5d9` | Dashboard reads FindingBacklog for open count (Phase-0 item… | 1 | +10/-1 | tooling |  |
-| 16 | `ad1d5a99` | Refresh external review snapshot for 8fa4728c | 2 | +61/-65 | docs |  |
-| 17 | `8fa4728c` | Fix reviewer loop wake: --loop sets remote_control mode (re… | 2 | +16/-3 | tooling |  |
-| 18 | `68acce2b` | Refresh external review snapshot for 6f8fce71 | 2 | +51/-53 | docs |  |
-| 19 | `6f8fce71` | Wire session reviewer loop into governed ensure --follow ru… | 1 | +39/-149 | tooling |  |
-| 20 | `a38150a1` | Refresh external review snapshot for 23c4239a | 2 | +49/-64 | docs |  |
-| 21 | `23c4239a` | Fix session command blocking (Codex finding rev_pkt_0785):… | 1 | +29/-12 | tooling |  |
-| 22 | `598aa8a3` | Refresh external review snapshot for 526019f9 | 2 | +70/-76 | docs |  |
-| 23 | `526019f9` | Fix Codex findings rev_pkt_0777/0779/0783 | 3 | +7/-4 | tooling |  |
-| 24 | `5fa0f1a2` | Refresh external review snapshot for 66ca79db | 2 | +58/-56 | docs |  |
-| 25 | `66ca79db` | devctl session command + gate hardening + reviewer loop + m… | 8 | +479/-64 | tooling |  |
+| 1 | `28d5d120` | Fix graph cache: load single latest snapshot, not all 362 f… | 1 | +12/-5 | tooling |  |
+| 2 | `d918792c` | Refresh external review snapshot for 07262419 | 2 | +48/-41 | docs |  |
+| 3 | `07262419` | Add ParticipantLivenessSignal typed model (MP377-P1-T08) | 1 | +87/-0 | tooling |  |
+| 4 | `d62361a0` | Refresh external review snapshot for d2539063 | 2 | +54/-59 | docs |  |
+| 5 | `d2539063` | Fix rev_pkt_0810: only override open_findings when backlog… | 1 | +6/-3 | tooling |  |
+| 6 | `713cb440` | Refresh external review snapshot for 3f698e22 | 2 | +49/-62 | docs |  |
+| 7 | `3f698e22` | Fix rev_pkt_0809: empty backlog always overrides stale brid… | 1 | +3/-3 | tooling |  |
+| 8 | `403c547e` | Refresh external review snapshot for cbcb36bb | 2 | +52/-58 | docs |  |
+| 9 | `cbcb36bb` | Fix Codex findings 0806/0807 + hybrid loop rewrite | 3 | +39/-43 | tooling |  |
+| 10 | `d69ff4e1` | Refresh external review snapshot for 46679665 | 2 | +76/-67 | docs |  |
+| 11 | `46679665` | Hybrid reviewer loop: ensure heartbeats + direct Codex rela… | 1 | +104/-38 | tooling |  |
+| 12 | `7ac8911c` | Wire FindingBacklog into session-resume + cached graph rehy… | 2 | +67/-0 | tooling |  |
+| 13 | `107bd54a` | Fix stale snapshot selection: use canonical resolver (Codex… | 1 | +55/-8 | tooling |  |
+| 14 | `7d2a3897` | Refresh external review snapshot for 84d06a2d | 2 | +55/-63 | docs |  |
+| 15 | `84d06a2d` | Use cached context graph in session-resume — fixes infinite… | 1 | +31/-1 | tooling |  |
+| 16 | `f402fbe8` | Refresh external review snapshot for 0f85c5d9 | 2 | +58/-52 | docs |  |
+| 17 | `0f85c5d9` | Dashboard reads FindingBacklog for open count (Phase-0 item… | 1 | +10/-1 | tooling |  |
+| 18 | `ad1d5a99` | Refresh external review snapshot for 8fa4728c | 2 | +61/-65 | docs |  |
+| 19 | `8fa4728c` | Fix reviewer loop wake: --loop sets remote_control mode (re… | 2 | +16/-3 | tooling |  |
+| 20 | `68acce2b` | Refresh external review snapshot for 6f8fce71 | 2 | +51/-53 | docs |  |
+| 21 | `6f8fce71` | Wire session reviewer loop into governed ensure --follow ru… | 1 | +39/-149 | tooling |  |
+| 22 | `a38150a1` | Refresh external review snapshot for 23c4239a | 2 | +49/-64 | docs |  |
+| 23 | `23c4239a` | Fix session command blocking (Codex finding rev_pkt_0785):… | 1 | +29/-12 | tooling |  |
+| 24 | `598aa8a3` | Refresh external review snapshot for 526019f9 | 2 | +70/-76 | docs |  |
+| 25 | `526019f9` | Fix Codex findings rev_pkt_0777/0779/0783 | 3 | +7/-4 | tooling |  |
 
 ### Files
 
 | Path | Bundle | +/- |
 |---|---|---|
-| `bridge.md` | docs | +77/-72 |
-| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +602/-649 |
-| `dev/scripts/devctl/cli_parser/entrypoint.py` | tooling | +4/-0 |
+| `bridge.md` | docs | +76/-71 |
+| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +547/-589 |
 | `dev/scripts/devctl/commands/dashboard_builders.py` | tooling | +10/-1 |
-| `dev/scripts/devctl/commands/governance/session.py` | tooling | +146/-13 |
+| `dev/scripts/devctl/commands/governance/session.py` | tooling | +30/-13 |
 | `dev/scripts/devctl/commands/governance/session_resume_support.py` | tooling | +21/-8 |
-| `dev/scripts/devctl/commands/governance/session_reviewer_loop.py` | tooling | +335/-187 |
+| `dev/scripts/devctl/commands/governance/session_reviewer_loop.py` | tooling | +150/-187 |
 | `dev/scripts/devctl/commands/review_channel/_ensure_follow_runtime.py` | tooling | +9/-3 |
-| `dev/scripts/devctl/review_channel/event_projection_context.py` | tooling | +90/-14 |
+| `dev/scripts/devctl/review_channel/event_projection_context.py` | tooling | +102/-19 |
 | `dev/scripts/devctl/review_channel/participant_liveness_signal.py` | tooling | +87/-0 |
-| `dev/scripts/devctl/review_channel/reviewer_follow_trigger_gate.py` | tooling | +8/-4 |
-| `dev/scripts/devctl/runtime/commit_packet_gate.py` | tooling | +18/-4 |
+| `dev/scripts/devctl/review_channel/reviewer_follow_trigger_gate.py` | tooling | +5/-3 |
 | `dev/scripts/devctl/tests/governance/test_read_only_commands.py` | tooling | +1/-0 |
 | `dev/scripts/devctl/tests/review_channel/test_context_injection.py` | tooling | +90/-36 |
-| `dev/scripts/devctl/tests/vcs/test_commit_pending_reviewer_gate.py` | tooling | +13/-13 |
-| `dev/scripts/reviewer_loop.sh` | tooling | +94/-0 |
 
 ## 4. Quality signals
 
@@ -234,6 +230,8 @@ Recent findings:
 
 ### Per-commit rationale
 
+- **`28d5d120`** — Fix graph cache: load single latest snapshot, not all 362 files
+- **`d918792c`** — Refresh external review snapshot for 07262419
 - **`07262419` | MPs: MP-377** — Add ParticipantLivenessSignal typed model (MP377-P1-T08)
   - New canonical liveness signal family: alive/degraded/detached_runtime_only/dead.
   - classify_participant_liveness() classifies one agent based on conductor,
@@ -287,11 +285,6 @@ Recent findings:
   - - session.py: dashboard role maps to 'observer' (rev_pkt_0777)
   - - reviewer_follow_trigger_gate: relaunch-required bypasses review_needed
   -   check instead of being blocked by it (rev_pkt_0779)
-- **`5fa0f1a2`** — Refresh external review snapshot for 66ca79db
-- **`66ca79db`** — devctl session command + gate hardening + reviewer loop + modularization
-  - New command: devctl session --role reviewer/implementer/dashboard
-  - - session.py: role dispatcher with --loop and --headless flags
-  - - session_reviewer_loop.py: governed Python reviewer loop
 ### Active MP scope (from MASTER_PLAN.md)
 
 - contract slice for MP-355 plus the temporary markdown-swarm operating mode
@@ -327,4 +320,4 @@ Recent findings:
 
 ---
 
-Projection produced by `devctl review-snapshot`. Generation stamp `snap-72aa23396304` binds this file to HEAD `072624193c94`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
+Projection produced by `devctl review-snapshot`. Generation stamp `snap-73ac3970f925` binds this file to HEAD `28d5d1202bc8`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
