@@ -80,8 +80,8 @@ treat these rules as active workflow instructions immediately.
 - Last Codex poll: `2026-04-16T20:56:39Z`
 - Last Codex poll (Local America/New_York): `2026-04-16 16:56:39 EDT`
 - Reviewer mode: `active_dual_agent`
-- Last non-audit worktree hash: `198dd926aabe74303b9862d006f91c998fae54d09f1e77edb64e1a80be7c5f9d`
-- Current instruction revision: `c35fb8fb7fcf`
+- Last non-audit worktree hash: `38274ba137c4c717f324b9f86398f330881d7c69779a6a49b4808002fad5322d`
+- Current instruction revision: `7241f77b41eb`
 
 ## Protocol
 
@@ -121,7 +121,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Open Findings
 
-9 pending review packet(s); 252 expired unresolved review packet(s)
+10 pending review packet(s); 252 expired unresolved review packet(s)
 
 ## Claude Status
 
@@ -137,12 +137,12 @@ pending
 
 ## Current Instruction For Claude
 
-- STOP AND REVIEW: Propose the right entry point name + architecture before I code anything
-- Context packet: trigger `review-channel-event`; query terms: `dev/active/ai_governance_platform.md`, `dev/active/MASTER_PLAN.md`, `dev/active/remote_control_runtime.md`, `dev/active/review_channel.md`
+- Review ALL 22 commits on this branch — tell us where we are
+- Context packet: trigger `review-channel-event`; query terms: `MP-377`, `dev/scripts/devctl.py`, `review-channel`, `session`
 - Canonical refs:
-  - `dev/active/MASTER_PLAN.md`
-  - `dev/scripts/devctl/governance/draft.py`
-  - `dev/scripts/devctl/governance/push_policy.py`
+  - `dev/scripts/devctl/commands/dashboard.py`
+  - `dev/scripts/devctl/commands/governance/session_resume_support.py`
+  - `dev/scripts/devctl/commands/governance/startup_context.py`
 
 ## Last Reviewed Scope
 
