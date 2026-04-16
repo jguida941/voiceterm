@@ -80,8 +80,8 @@ treat these rules as active workflow instructions immediately.
 - Last Codex poll: `2026-04-16T20:56:39Z`
 - Last Codex poll (Local America/New_York): `2026-04-16 16:56:39 EDT`
 - Reviewer mode: `active_dual_agent`
-- Last non-audit worktree hash: `38274ba137c4c717f324b9f86398f330881d7c69779a6a49b4808002fad5322d`
-- Current instruction revision: `7241f77b41eb`
+- Last non-audit worktree hash: `06e6bf49762a3395802521de7dec23bcd037e9753f06c694399863a10a7a351b`
+- Current instruction revision: ``
 
 ## Protocol
 
@@ -121,7 +121,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Open Findings
 
-10 pending review packet(s); 252 expired unresolved review packet(s)
+5 pending review packet(s); 260 expired unresolved review packet(s)
 
 ## Claude Status
 
@@ -137,12 +137,7 @@ pending
 
 ## Current Instruction For Claude
 
-- Review ALL 22 commits on this branch — tell us where we are
-- Context packet: trigger `review-channel-event`; query terms: `MP-377`, `dev/scripts/devctl.py`, `review-channel`, `session`
-- Canonical refs:
-  - `dev/scripts/devctl/commands/dashboard.py`
-  - `dev/scripts/devctl/commands/governance/session_resume_support.py`
-  - `dev/scripts/devctl/commands/governance/startup_context.py`
+- Await reviewer instruction refresh.
 
 ## Last Reviewed Scope
 

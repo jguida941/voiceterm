@@ -5,14 +5,14 @@
 ## Quick status
 
 - Branch: `feature/governance-quality-sweep`
-- HEAD: `bed137b99714` — Fix cache type mismatch: coerce snapshot dicts to GraphNode/GraphEdge (rev_pkt_0830)
-- Tree hash: `f1db1923b500`
-- Generation stamp: `snap-77546aeecf22`
-- Generated at (UTC): 2026-04-16T23:06:39Z
+- HEAD: `e29f388d3612` — Fix 3 Codex blockers: graph freshness, loop scoping, T08 providers
+- Tree hash: `760d678d92c2`
+- Generation stamp: `snap-fcaae7927bfc`
+- Generated at (UTC): 2026-04-16T23:47:02Z
 - Push decision: `await_review` — review_loop_relaunch_required
 - Reviewer mode: `tools_only` (interaction: `local_terminal`)
 - Pipeline state: `n/a` (approval: `n/a`)
-- Delta since last snapshot: 25 commits, 11 files, +1064/-706
+- Delta since last snapshot: 25 commits, 12 files, +1151/-776
 - Governance findings: 112 open / 86 fixed / 212 total
 - Probe hints: 0 total across 0 files scanned
 
@@ -54,9 +54,9 @@ adopters arrive.
 - Remote: `https://github.com/jguida941/voiceterm.git`
 - Default branch: `master`
 - Current branch: `feature/governance-quality-sweep`
-- HEAD SHA: `bed137b99714ba7a507cad9490b043e6f999b325`
+- HEAD SHA: `e29f388d361214d41fe79cd3dcd9d216a04b93d2`
 - HEAD author: Justin Guida
-- HEAD timestamp (UTC): 2026-04-16T19:06:25-04:00
+- HEAD timestamp (UTC): 2026-04-16T19:46:36-04:00
 
 ## 2. Governance state
 
@@ -92,59 +92,60 @@ adopters arrive.
 
 ## 3. Delta — what changed since the previous snapshot
 
-Range: last 25 commits ending at `bed137b99714`
+Range: last 25 commits ending at `e29f388d3612`
 
 - commits: 25
-- files changed: 11
-- insertions: +1064
-- deletions: -706
+- files changed: 12
+- insertions: +1151
+- deletions: -776
 - bundle classes touched: tooling, docs
 
 ### Commits
 
 | # | SHA | Subject | Files | +/- | Bundle | Risk |
 |---|---|---|---|---|---|---|
-| 1 | `bed137b9` | Fix cache type mismatch: coerce snapshot dicts to GraphNode… | 1 | +32/-4 | tooling |  |
-| 2 | `f3a9785d` | Refresh external review snapshot for c09fb18c | 2 | +53/-48 | docs |  |
-| 3 | `c09fb18c` | Cache graph at escalation level — fixes ALL blocking paths… | 1 | +31/-1 | tooling |  |
-| 4 | `ca4439d8` | Refresh external review snapshot for 38a05ad3 | 2 | +46/-47 | docs |  |
-| 5 | `38a05ad3` | Fix rev_pkt_0819: emit liveness on real status path + HEAD… | 1 | +4/-0 | tooling |  |
-| 6 | `058d5259` | Refresh external review snapshot for afbcc99f | 2 | +50/-53 | docs |  |
-| 7 | `afbcc99f` | Fix reviewer loop death: HEAD change no longer kills sessio… | 1 | +13/-0 | tooling |  |
-| 8 | `b6da49eb` | Refresh external review snapshot for bc266a94 | 2 | +55/-44 | docs |  |
-| 9 | `bc266a94` | Wire ParticipantLivenessSignal into status projection (T08) | 1 | +30/-0 | tooling |  |
-| 10 | `81a50662` | Refresh external review snapshot for 7f703e6d | 2 | +46/-65 | docs |  |
-| 11 | `7f703e6d` | Fix snapshot sort: use timestamp portion of filename (Codex… | 1 | +3/-1 | tooling |  |
-| 12 | `a0b6047a` | Refresh external review snapshot for 28d5d120 | 2 | +49/-56 | docs |  |
-| 13 | `28d5d120` | Fix graph cache: load single latest snapshot, not all 362 f… | 1 | +12/-5 | tooling |  |
-| 14 | `d918792c` | Refresh external review snapshot for 07262419 | 2 | +48/-41 | docs |  |
-| 15 | `07262419` | Add ParticipantLivenessSignal typed model (MP377-P1-T08) | 1 | +87/-0 | tooling |  |
-| 16 | `d62361a0` | Refresh external review snapshot for d2539063 | 2 | +54/-59 | docs |  |
-| 17 | `d2539063` | Fix rev_pkt_0810: only override open_findings when backlog… | 1 | +6/-3 | tooling |  |
-| 18 | `713cb440` | Refresh external review snapshot for 3f698e22 | 2 | +49/-62 | docs |  |
-| 19 | `3f698e22` | Fix rev_pkt_0809: empty backlog always overrides stale brid… | 1 | +3/-3 | tooling |  |
-| 20 | `403c547e` | Refresh external review snapshot for cbcb36bb | 2 | +52/-58 | docs |  |
-| 21 | `cbcb36bb` | Fix Codex findings 0806/0807 + hybrid loop rewrite | 3 | +39/-43 | tooling |  |
-| 22 | `d69ff4e1` | Refresh external review snapshot for 46679665 | 2 | +76/-67 | docs |  |
-| 23 | `46679665` | Hybrid reviewer loop: ensure heartbeats + direct Codex rela… | 1 | +104/-38 | tooling |  |
-| 24 | `7ac8911c` | Wire FindingBacklog into session-resume + cached graph rehy… | 2 | +67/-0 | tooling |  |
-| 25 | `107bd54a` | Fix stale snapshot selection: use canonical resolver (Codex… | 1 | +55/-8 | tooling |  |
+| 1 | `e29f388d` | Fix 3 Codex blockers: graph freshness, loop scoping, T08 pr… | 5 | +156/-25 | tooling |  |
+| 2 | `9a4238f1` | Refresh external review snapshot for bed137b9 | 2 | +53/-53 | docs |  |
+| 3 | `bed137b9` | Fix cache type mismatch: coerce snapshot dicts to GraphNode… | 1 | +32/-4 | tooling |  |
+| 4 | `f3a9785d` | Refresh external review snapshot for c09fb18c | 2 | +53/-48 | docs |  |
+| 5 | `c09fb18c` | Cache graph at escalation level — fixes ALL blocking paths… | 1 | +31/-1 | tooling |  |
+| 6 | `ca4439d8` | Refresh external review snapshot for 38a05ad3 | 2 | +46/-47 | docs |  |
+| 7 | `38a05ad3` | Fix rev_pkt_0819: emit liveness on real status path + HEAD… | 1 | +4/-0 | tooling |  |
+| 8 | `058d5259` | Refresh external review snapshot for afbcc99f | 2 | +50/-53 | docs |  |
+| 9 | `afbcc99f` | Fix reviewer loop death: HEAD change no longer kills sessio… | 1 | +13/-0 | tooling |  |
+| 10 | `b6da49eb` | Refresh external review snapshot for bc266a94 | 2 | +55/-44 | docs |  |
+| 11 | `bc266a94` | Wire ParticipantLivenessSignal into status projection (T08) | 1 | +30/-0 | tooling |  |
+| 12 | `81a50662` | Refresh external review snapshot for 7f703e6d | 2 | +46/-65 | docs |  |
+| 13 | `7f703e6d` | Fix snapshot sort: use timestamp portion of filename (Codex… | 1 | +3/-1 | tooling |  |
+| 14 | `a0b6047a` | Refresh external review snapshot for 28d5d120 | 2 | +49/-56 | docs |  |
+| 15 | `28d5d120` | Fix graph cache: load single latest snapshot, not all 362 f… | 1 | +12/-5 | tooling |  |
+| 16 | `d918792c` | Refresh external review snapshot for 07262419 | 2 | +48/-41 | docs |  |
+| 17 | `07262419` | Add ParticipantLivenessSignal typed model (MP377-P1-T08) | 1 | +87/-0 | tooling |  |
+| 18 | `d62361a0` | Refresh external review snapshot for d2539063 | 2 | +54/-59 | docs |  |
+| 19 | `d2539063` | Fix rev_pkt_0810: only override open_findings when backlog… | 1 | +6/-3 | tooling |  |
+| 20 | `713cb440` | Refresh external review snapshot for 3f698e22 | 2 | +49/-62 | docs |  |
+| 21 | `3f698e22` | Fix rev_pkt_0809: empty backlog always overrides stale brid… | 1 | +3/-3 | tooling |  |
+| 22 | `403c547e` | Refresh external review snapshot for cbcb36bb | 2 | +52/-58 | docs |  |
+| 23 | `cbcb36bb` | Fix Codex findings 0806/0807 + hybrid loop rewrite | 3 | +39/-43 | tooling |  |
+| 24 | `d69ff4e1` | Refresh external review snapshot for 46679665 | 2 | +76/-67 | docs |  |
+| 25 | `46679665` | Hybrid reviewer loop: ensure heartbeats + direct Codex rela… | 1 | +104/-38 | tooling |  |
 
 ### Files
 
 | Path | Bundle | +/- |
 |---|---|---|
-| `bridge.md` | docs | +61/-56 |
-| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +517/-544 |
-| `dev/scripts/devctl/commands/governance/session_resume_support.py` | tooling | +21/-8 |
-| `dev/scripts/devctl/commands/governance/session_reviewer_loop.py` | tooling | +104/-38 |
-| `dev/scripts/devctl/context_graph/escalation.py` | tooling | +63/-5 |
-| `dev/scripts/devctl/review_channel/event_projection_context.py` | tooling | +74/-19 |
+| `bridge.md` | docs | +69/-64 |
+| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +562/-589 |
+| `dev/scripts/devctl/commands/governance/session_resume_support.py` | tooling | +12/-8 |
+| `dev/scripts/devctl/commands/governance/session_reviewer_loop.py` | tooling | +147/-47 |
+| `dev/scripts/devctl/context_graph/escalation.py` | tooling | +79/-8 |
+| `dev/scripts/devctl/context_graph/snapshot_payload.py` | tooling | +53/-0 |
+| `dev/scripts/devctl/review_channel/event_projection_context.py` | tooling | +34/-14 |
 | `dev/scripts/devctl/review_channel/launch_authority.py` | tooling | +13/-0 |
 | `dev/scripts/devctl/review_channel/participant_liveness_signal.py` | tooling | +87/-0 |
 | `dev/scripts/devctl/review_channel/status_projection_helpers.py` | tooling | +4/-0 |
-| `dev/scripts/devctl/review_channel/status_projection_liveness.py` | tooling | +30/-0 |
-| `dev/scripts/devctl/tests/review_channel/test_context_injection.py` | tooling | +90/-36 |
+| `dev/scripts/devctl/review_channel/status_projection_liveness.py` | tooling | +59/-10 |
+| `dev/scripts/devctl/tests/review_channel/test_context_injection.py` | tooling | +32/-36 |
 
 ## 4. Quality signals
 
@@ -223,6 +224,11 @@ Recent findings:
 
 ### Per-commit rationale
 
+- **`e29f388d`** — Fix 3 Codex blockers: graph freshness, loop scoping, T08 providers
+  - 1. Graph cache freshness (rev_pkt_0832 #1):
+  -    - escalation.py + event_projection_context.py: validate snapshot HEAD
+  -      against current HEAD, reject stale snapshots
+- **`9a4238f1`** — Refresh external review snapshot for bed137b9
 - **`bed137b9`** — Fix cache type mismatch: coerce snapshot dicts to GraphNode/GraphEdge (rev_pkt_0830)
   - Cached graph snapshots contain raw dicts but query.py expects typed
   - GraphNode objects with .label attribute. Now coerces each row to the
@@ -270,14 +276,6 @@ Recent findings:
   - Rewrites session_reviewer_loop.py as a hybrid that:
   - 1. Runs ensure --follow tick for heartbeats/supervisor state (bounded)
   - 2. Checks for pending packets + dirty worktree
-- **`7ac8911c`** — Wire FindingBacklog into session-resume + cached graph rehydration test
-  - Session-resume now prefers canonical FindingBacklog count over
-  - bridge-derived open_findings, matching the dashboard wiring.
-  - Falls back on load errors.
-- **`107bd54a`** — Fix stale snapshot selection: use canonical resolver (Codex rev_pkt_0803)
-  - _load_cached_graph now uses list_context_graph_snapshots() which sorts
-  - by generated_at_utc instead of raw stat().st_mtime. This prevents
-  - selecting a stale snapshot when file modification time disagrees with
 ### Active MP scope (from MASTER_PLAN.md)
 
 - contract slice for MP-355 plus the temporary markdown-swarm operating mode
@@ -313,4 +311,4 @@ Recent findings:
 
 ---
 
-Projection produced by `devctl review-snapshot`. Generation stamp `snap-77546aeecf22` binds this file to HEAD `bed137b99714`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
+Projection produced by `devctl review-snapshot`. Generation stamp `snap-fcaae7927bfc` binds this file to HEAD `e29f388d3612`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
