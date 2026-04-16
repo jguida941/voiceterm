@@ -352,16 +352,25 @@ def _resolve_options(
 def _try_cached_graph() -> tuple[list[GraphNode], list[GraphEdge]] | None:
     """Load the latest cached graph snapshot to avoid full AST rebuild.
 
+    Returns None (forcing a fresh build) when the newest snapshot was
+    created at a different commit than the current HEAD or is older than
+    the configured staleness threshold.
+
     Coerces snapshot rows to typed GraphNode/GraphEdge objects since the
     query layer expects .label/.node_id attributes (rev_pkt_0830).
     """
     try:
         from .snapshot_store import load_context_graph_snapshot
-        from .snapshot_payload import _SNAPSHOT_DIR
+        from .snapshot_payload import (
+            _SNAPSHOT_DIR,
+            resolve_head_sha,
+            snapshot_cache_is_fresh,
+        )
         from ..config import get_repo_root
         from collections.abc import Mapping
 
-        snapshot_dir = get_repo_root() / _SNAPSHOT_DIR
+        repo_root = get_repo_root()
+        snapshot_dir = repo_root / _SNAPSHOT_DIR
         if not snapshot_dir.is_dir():
             return None
         snapshot_files = sorted(snapshot_dir.glob("*.json"))
@@ -370,7 +379,11 @@ def _try_cached_graph() -> tuple[list[GraphNode], list[GraphEdge]] | None:
         snapshot_files.sort(
             key=lambda p: p.stem.split("_", 1)[-1] if "_" in p.stem else p.stem
         )
-        latest = load_context_graph_snapshot(snapshot_files[-1])
+        latest_path = snapshot_files[-1]
+        head_sha = resolve_head_sha(repo_root)
+        if not snapshot_cache_is_fresh(latest_path, head_sha):
+            return None
+        latest = load_context_graph_snapshot(latest_path)
         if not latest.nodes or not latest.edges:
             return None
         nodes = [

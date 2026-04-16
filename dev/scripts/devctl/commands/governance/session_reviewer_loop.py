@@ -36,7 +36,7 @@ def run_reviewer_loop(
     try:
         while True:
             _run_ensure_tick(repo_root, interval)
-            if _has_pending_work(repo_root) and not _codex_is_running():
+            if _has_pending_work(repo_root) and not _codex_is_running(repo_root):
                 _launch_codex_review(repo_root)
     except KeyboardInterrupt:
         print("\n[session] Reviewer loop stopped by user.")
@@ -73,15 +73,30 @@ def _run_ensure_tick(repo_root: Path, interval: int) -> None:
 
 
 def _has_pending_work(repo_root: Path) -> bool:
-    """Return True when there are pending packets or uncommitted changes."""
+    """Return True when reviewer-targeted packets or relevant uncommitted changes exist."""
     try:
         from ...review_channel.pending_packet_storage import (
-            load_pending_packets,
+            load_pending_reviewer_packets,
         )
-        if load_pending_packets(repo_root):
+        if load_pending_reviewer_packets(repo_root, reviewer_agent="codex"):
             return True
     except Exception:
         pass
+    if _has_reviewer_relevant_changes(repo_root):
+        return True
+    return False
+
+
+# Paths that are projection artifacts or bridge drift, not reviewer-actionable changes.
+_WORKTREE_NOISE_PREFIXES: tuple[str, ...] = (
+    "bridge.md",
+    "dev/reports/review_channel/",
+    ".voiceterm/memory/",
+)
+
+
+def _has_reviewer_relevant_changes(repo_root: Path) -> bool:
+    """Return True only when the dirty worktree has changes outside projection noise."""
     try:
         result = subprocess.run(
             ["git", "status", "--porcelain"],
@@ -90,18 +105,37 @@ def _has_pending_work(repo_root: Path) -> bool:
             text=True,
             timeout=10,
         )
-        if result.stdout.strip():
-            return True
     except Exception:
-        pass
+        return False
+    for line in result.stdout.splitlines():
+        # porcelain format: "XY <path>" -- path starts at column 3
+        path = line[3:].strip().strip('"')
+        if not any(path.startswith(prefix) for prefix in _WORKTREE_NOISE_PREFIXES):
+            return True
     return False
 
 
-def _codex_is_running() -> bool:
-    """Check whether any codex process is currently alive."""
+def _codex_is_running(repo_root: Path) -> bool:
+    """Check whether a Codex session is live for THIS repo, not globally."""
+    try:
+        from ...repo_packs import active_path_config
+        from ...review_channel.session_probe import active_conductor_providers
+
+        config = active_path_config()
+        status_dir = repo_root / config.review_status_dir_rel
+        providers = active_conductor_providers(session_output_root=status_dir)
+        return "codex" in providers
+    except Exception:
+        pass
+    # Fallback: narrow pgrep to codex processes whose cwd is this repo
+    return _pgrep_codex_for_repo(repo_root)
+
+
+def _pgrep_codex_for_repo(repo_root: Path) -> bool:
+    """Fallback process check scoped to this repo's directory."""
     try:
         result = subprocess.run(
-            ["pgrep", "-f", "codex"],
+            ["pgrep", "-f", f"codex.*{repo_root}"],
             capture_output=True,
             timeout=5,
         )

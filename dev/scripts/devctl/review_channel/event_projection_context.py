@@ -48,15 +48,23 @@ def build_event_context_packet(
 def _load_cached_graph():
     """Load the latest cached context graph snapshot, or None to rebuild.
 
+    Returns None when the newest snapshot was created at a different commit
+    than the current HEAD or is older than the staleness threshold.
+
     Finds the most recent snapshot by filename sort (timestamps embedded
     in filenames) and loads only that one file. Does NOT use
     list_context_graph_snapshots() which deserializes all 362+ files.
     """
     try:
-        from ..context_graph.snapshot_payload import _SNAPSHOT_DIR
+        from ..context_graph.snapshot_payload import (
+            _SNAPSHOT_DIR,
+            resolve_head_sha,
+            snapshot_cache_is_fresh,
+        )
         from ..config import get_repo_root
 
-        snapshot_dir = get_repo_root() / _SNAPSHOT_DIR
+        repo_root = get_repo_root()
+        snapshot_dir = repo_root / _SNAPSHOT_DIR
         if not snapshot_dir.is_dir():
             return None
         snapshot_files = list(snapshot_dir.glob("*.json"))
@@ -64,7 +72,11 @@ def _load_cached_graph():
             return None
         # Filenames are <commit_hash>_<timestamp>.json — sort by timestamp
         snapshot_files.sort(key=lambda p: p.stem.split("_", 1)[-1] if "_" in p.stem else p.stem)
-        latest = load_context_graph_snapshot(snapshot_files[-1])
+        latest_path = snapshot_files[-1]
+        head_sha = resolve_head_sha(repo_root)
+        if not snapshot_cache_is_fresh(latest_path, head_sha):
+            return None
+        latest = load_context_graph_snapshot(latest_path)
         if latest.nodes and latest.edges:
             return (
                 _coerce_cached_nodes(latest.nodes),

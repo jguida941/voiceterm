@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import subprocess
 from dataclasses import dataclass
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from .models import GraphNode
@@ -10,6 +12,7 @@ from .models import GraphNode
 CONTEXT_GRAPH_SNAPSHOT_SCHEMA_VERSION = 1
 CONTEXT_GRAPH_SNAPSHOT_CONTRACT_ID = "ContextGraphSnapshot"
 _SNAPSHOT_DIR = Path("dev/reports/graph_snapshots")
+_SNAPSHOT_CACHE_MAX_AGE = timedelta(hours=1)
 
 
 @dataclass(frozen=True, slots=True)
@@ -158,3 +161,53 @@ def _temperature_bucket_label(temperature: float) -> str:
     if temperature < 0.75:
         return "0.50-0.74"
     return "0.75-1.00"
+
+
+# --- Snapshot cache freshness ---
+
+
+def resolve_head_sha(repo_root: Path) -> str:
+    """Return the full HEAD SHA for the repo, or empty string on failure."""
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=str(repo_root),
+            capture_output=True,
+            text=True,
+            timeout=5,
+            check=False,
+        )
+        return result.stdout.strip() if result.returncode == 0 else ""
+    except (OSError, subprocess.TimeoutExpired):
+        return ""
+
+
+def snapshot_cache_is_fresh(snapshot_path: Path, head_sha: str) -> bool:
+    """Check whether a cached snapshot file is safe to serve.
+
+    Validates two conditions:
+    1. The snapshot was created at the same commit as the current HEAD.
+       The filename format is ``<commit_hash>_<timestamp>.json`` so the
+       commit hash is extracted without parsing JSON.
+    2. The snapshot is not older than ``_SNAPSHOT_CACHE_MAX_AGE``.
+
+    Returns False (force rebuild) when either check fails or when the
+    inputs are unusable.
+    """
+    if not head_sha:
+        return False
+    stem = snapshot_path.stem
+    sep_index = stem.find("_")
+    if sep_index < 1:
+        return False
+    snapshot_head = stem[:sep_index]
+    if snapshot_head != head_sha:
+        return False
+    timestamp_slug = stem[sep_index + 1:]
+    try:
+        snapshot_time = datetime.strptime(timestamp_slug, "%Y%m%dT%H%M%SZ")
+        snapshot_time = snapshot_time.replace(tzinfo=timezone.utc)
+    except ValueError:
+        return False
+    age = datetime.now(timezone.utc) - snapshot_time
+    return age <= _SNAPSHOT_CACHE_MAX_AGE
