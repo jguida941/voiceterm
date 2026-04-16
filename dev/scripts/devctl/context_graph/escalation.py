@@ -350,11 +350,16 @@ def _resolve_options(
 
 
 def _try_cached_graph() -> tuple[list[GraphNode], list[GraphEdge]] | None:
-    """Load the latest cached graph snapshot to avoid full AST rebuild."""
+    """Load the latest cached graph snapshot to avoid full AST rebuild.
+
+    Coerces snapshot rows to typed GraphNode/GraphEdge objects since the
+    query layer expects .label/.node_id attributes (rev_pkt_0830).
+    """
     try:
         from .snapshot_store import load_context_graph_snapshot
         from .snapshot_payload import _SNAPSHOT_DIR
         from ..config import get_repo_root
+        from collections.abc import Mapping
 
         snapshot_dir = get_repo_root() / _SNAPSHOT_DIR
         if not snapshot_dir.is_dir():
@@ -362,13 +367,36 @@ def _try_cached_graph() -> tuple[list[GraphNode], list[GraphEdge]] | None:
         snapshot_files = sorted(snapshot_dir.glob("*.json"))
         if not snapshot_files:
             return None
-        # Sort by timestamp portion of filename (hash_timestamp.json)
         snapshot_files.sort(
             key=lambda p: p.stem.split("_", 1)[-1] if "_" in p.stem else p.stem
         )
         latest = load_context_graph_snapshot(snapshot_files[-1])
-        if latest.nodes and latest.edges:
-            return (latest.nodes, latest.edges)
+        if not latest.nodes or not latest.edges:
+            return None
+        nodes = [
+            row if isinstance(row, GraphNode) else GraphNode(
+                node_id=str(row.get("node_id") or ""),
+                node_kind=str(row.get("node_kind") or ""),
+                label=str(row.get("label") or ""),
+                canonical_pointer_ref=str(row.get("canonical_pointer_ref") or ""),
+                provenance_ref=str(row.get("provenance_ref") or ""),
+                temperature=float(row.get("temperature") or 0.0),
+                metadata=dict(row.get("metadata")) if isinstance(row.get("metadata"), Mapping) else {},
+            )
+            for row in latest.nodes
+            if isinstance(row, (GraphNode, Mapping))
+        ]
+        edges = [
+            row if isinstance(row, GraphEdge) else GraphEdge(
+                source_id=str(row.get("source_id") or ""),
+                target_id=str(row.get("target_id") or ""),
+                edge_kind=str(row.get("edge_kind") or ""),
+            )
+            for row in latest.edges
+            if isinstance(row, (GraphEdge, Mapping))
+        ]
+        if nodes and edges:
+            return (nodes, edges)
     except Exception:
         pass
     return None
