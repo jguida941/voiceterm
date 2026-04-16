@@ -241,7 +241,12 @@ def build_context_escalation_packet(
         return None
 
     if graph is None:
-        nodes, edges = build_context_graph()
+        # Try cached snapshot first to avoid full AST scan (~191K LOC)
+        cached = _try_cached_graph()
+        if cached is not None:
+            nodes, edges = cached
+        else:
+            nodes, edges = build_context_graph()
     else:
         nodes, edges = graph
 
@@ -342,3 +347,28 @@ def _resolve_options(
             max_chars=int(options.get("max_chars", 1200)),
         )
     return ContextEscalationOptions()
+
+
+def _try_cached_graph() -> tuple[list[GraphNode], list[GraphEdge]] | None:
+    """Load the latest cached graph snapshot to avoid full AST rebuild."""
+    try:
+        from .snapshot_store import load_context_graph_snapshot
+        from .snapshot_payload import _SNAPSHOT_DIR
+        from ..config import get_repo_root
+
+        snapshot_dir = get_repo_root() / _SNAPSHOT_DIR
+        if not snapshot_dir.is_dir():
+            return None
+        snapshot_files = sorted(snapshot_dir.glob("*.json"))
+        if not snapshot_files:
+            return None
+        # Sort by timestamp portion of filename (hash_timestamp.json)
+        snapshot_files.sort(
+            key=lambda p: p.stem.split("_", 1)[-1] if "_" in p.stem else p.stem
+        )
+        latest = load_context_graph_snapshot(snapshot_files[-1])
+        if latest.nodes and latest.edges:
+            return (latest.nodes, latest.edges)
+    except Exception:
+        pass
+    return None
