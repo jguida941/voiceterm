@@ -80,8 +80,8 @@ treat these rules as active workflow instructions immediately.
 - Last Codex poll: `2026-04-16T20:56:39Z`
 - Last Codex poll (Local America/New_York): `2026-04-16 16:56:39 EDT`
 - Reviewer mode: `active_dual_agent`
-- Last non-audit worktree hash: `78b205a7b928e86669d100fe5774718a0b0a69105508d9b8d3c393974c654dc5`
-- Current instruction revision: ``
+- Last non-audit worktree hash: `100c0995d3b769f17ee58dfb93a816d25891d362d03922d97b5343b62e1dc6fa`
+- Current instruction revision: `95414fe8e2b7`
 
 ## Protocol
 
@@ -121,7 +121,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Open Findings
 
-4 pending review packet(s); 248 expired unresolved review packet(s)
+3 pending review packet(s); 249 expired unresolved review packet(s)
 
 ## Claude Status
 
@@ -137,7 +137,12 @@ pending
 
 ## Current Instruction For Claude
 
-- Await reviewer instruction refresh.
+- LIST ALL MAJOR GAPS: What needs to get done to ship MP-377 and make the system work
+- Context packet: trigger `review-channel-event`; query terms: `MP-377`
+- Canonical refs:
+  - `dev/scripts/devctl/governance/draft.py`
+  - `dev/scripts/devctl/governance/push_policy.py`
+  - `dev/scripts/devctl/governance/push_state.py`
 
 ## Last Reviewed Scope
 
