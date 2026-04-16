@@ -80,8 +80,8 @@ treat these rules as active workflow instructions immediately.
 - Last Codex poll: `2026-04-16T14:50:00Z`
 - Last Codex poll (Local America/New_York): `2026-04-16 10:50:00 EDT`
 - Reviewer mode: `active_dual_agent`
-- Last non-audit worktree hash: `e4f39f0bb7211e35579d5abfb239160e67002deaaf6c24ca9bcaaea527300a72`
-- Current instruction revision: ``
+- Last non-audit worktree hash: `b99cb925be574fbb4e15f8cd6dca8d026d770fa33eaf4b4297a2d34d56ee8ac3`
+- Current instruction revision: `de5d4e422572`
 
 ## Protocol
 
@@ -121,7 +121,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Open Findings
 
-5 pending review packet(s); 232 expired unresolved review packet(s)
+9 pending review packet(s); 233 expired unresolved review packet(s)
 
 ## Claude Status
 
@@ -137,7 +137,12 @@ pending
 
 ## Current Instruction For Claude
 
-- Await reviewer instruction refresh.
+- Code pushed: devctl session + gate hardening + modularization. Come up with a plan.
+- Context packet: trigger `review-channel-event`; query terms: `session`, `session.py`, `session_reviewer_loop.py`, `commit_packet_gate.py`
+- Canonical refs:
+  - `dev/scripts/devctl/runtime/commit_packet_gate.py`
+  - `dev/scripts/devctl/runtime`
+  - `dev/scripts/devctl/cli.py`
 
 ## Last Reviewed Scope
 
