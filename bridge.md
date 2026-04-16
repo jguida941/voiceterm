@@ -80,7 +80,7 @@ treat these rules as active workflow instructions immediately.
 - Last Codex poll: `2026-04-16T00:55:56Z`
 - Last Codex poll (Local America/New_York): `2026-04-15 20:55:56 EDT`
 - Reviewer mode: `single_agent`
-- Last non-audit worktree hash: `b0838bd4e3844baf28ad873feb0b4f8af05e1359ab712d606f8135c04fa8c545`
+- Last non-audit worktree hash: `9d0db66675880b6fede850c2f77c29a73ce972176167ec9a78bcecb111d7b9bc`
 - Current instruction revision: ``
 
 ## Protocol
@@ -121,7 +121,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Open Findings
 
-215 expired unresolved review packet(s)
+2 pending review packet(s); 216 expired unresolved review packet(s)
 
 ## Claude Status
 
