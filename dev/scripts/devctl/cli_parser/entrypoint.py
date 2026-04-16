@@ -88,6 +88,7 @@ from ..commands.governance import (
     render_surfaces,
     review as governance_review,
     review_snapshot as governance_review_snapshot,
+    session as governance_session,
     session_resume as governance_session_resume,
     simple_lanes,
     startup_context as governance_startup_context,
@@ -143,6 +144,7 @@ from .builders import add_standard_parsers
 READ_ONLY_COMMANDS: frozenset[str] = frozenset({
     "auto-mode",
     "startup-context",
+    "session",
     "session-resume",
     "context-graph",
     "review-channel",
@@ -222,6 +224,7 @@ def build_parser() -> argparse.ArgumentParser:
     add_integrations_import_parser(sub)
     add_context_graph_parser(sub)
     governance_startup_context.add_parser(sub)
+    governance_session.add_parser(sub)
     governance_session_resume.add_parser(sub)
     governance_review_snapshot.add_parser(sub)
     governance_install_git_hooks.add_parser(sub)
@@ -346,6 +349,7 @@ COMMAND_HANDLERS = {
     "audit-scaffold": audit_scaffold.run,
     "context-graph": context_graph_run,
     "startup-context": governance_startup_context.run,
+    "session": governance_session.run,
     "session-resume": governance_session_resume.run,
     "review-snapshot": governance_review_snapshot.run,
     "install-git-hooks": governance_install_git_hooks.run,

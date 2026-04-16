@@ -17,9 +17,11 @@ def typed_report_trigger_available(report: dict[str, object]) -> bool:
 
 
 def typed_report_trigger_met(report: dict[str, object]) -> bool:
-    """Typed-report gate: reviewer mode is active and resync is not required."""
+    """Typed-report gate: reviewer mode is active, review is needed, and resync is not required."""
     from .peer_liveness import reviewer_mode_is_active
 
+    if not bool(report.get("review_needed")):
+        return False
     authority_snap = report.get("authority_snapshot")
     if not isinstance(authority_snap, dict):
         return False

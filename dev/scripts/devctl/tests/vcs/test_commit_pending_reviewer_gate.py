@@ -347,8 +347,8 @@ class TestCheckCommitPacketGateFailClosed(unittest.TestCase):
 class TestMalformedPacketInboxFailsClosed(unittest.TestCase):
     """Regression: malformed packet_inbox.agents must not crash the gate."""
 
-    def test_agents_none_does_not_crash(self):
-        """packet_inbox with agents=None should not raise TypeError."""
+    def test_agents_none_blocks_closed(self):
+        """packet_inbox with agents=None must block (fail-closed), not allow."""
         inbox = SimpleNamespace(agents=None, attention_revision="rev-1")
         fake_state = SimpleNamespace(packet_inbox=inbox)
         rc_path = Path("/tmp/fake_review_channel")
@@ -362,10 +362,11 @@ class TestMalformedPacketInboxFailsClosed(unittest.TestCase):
                     review_channel_path=rc_path,
                     target_agent="claude",
                 )
-        self.assertIsNone(result)
+        self.assertIsNotNone(result)
+        self.assertIn("malformed", result)
 
-    def test_agents_missing_attr_does_not_crash(self):
-        """packet_inbox without agents attr should not raise AttributeError."""
+    def test_agents_missing_attr_blocks_closed(self):
+        """packet_inbox without agents attr must block, not crash or allow."""
         inbox = SimpleNamespace(attention_revision="rev-1")
         fake_state = SimpleNamespace(packet_inbox=inbox)
         rc_path = Path("/tmp/fake_review_channel")
@@ -374,14 +375,13 @@ class TestMalformedPacketInboxFailsClosed(unittest.TestCase):
                 "dev.scripts.devctl.runtime.commit_packet_gate._load_review_state",
                 return_value=fake_state,
             ):
-                try:
-                    result = pending_reviewer_packets_block_commit(
-                        repo_root=Path("/tmp/fake_repo"),
-                        review_channel_path=rc_path,
-                        target_agent="claude",
-                    )
-                except AttributeError:
-                    self.fail("Should not crash on missing agents attribute")
+                result = pending_reviewer_packets_block_commit(
+                    repo_root=Path("/tmp/fake_repo"),
+                    review_channel_path=rc_path,
+                    target_agent="claude",
+                )
+        self.assertIsNotNone(result)
+        self.assertIn("malformed", result)
 
 
 if __name__ == "__main__":

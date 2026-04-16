@@ -76,14 +76,28 @@ def pending_reviewer_packets_block_commit(
             "projection and ensure a writable lane is configured."
         )
 
+    agents = getattr(packet_inbox, "agents", None)
+    if agents is None or not isinstance(agents, (list, tuple)):
+        return (
+            "Commit blocked: packet inbox has malformed or missing agents field. "
+            "Cannot verify pending reviewer packets."
+        )
+
     blocking: list[tuple[str, list[str]]] = []
-    agents = getattr(packet_inbox, "agents", None) or ()
     for record in agents:
-        if normalized_target and record.agent.lower() != normalized_target:
+        agent_name = getattr(record, "agent", None)
+        pending_ids = getattr(record, "pending_actionable_packet_ids", None)
+        if not isinstance(agent_name, str) or not isinstance(pending_ids, (list, tuple)):
+            return (
+                "Commit blocked: malformed agent record in packet inbox "
+                f"(agent={type(agent_name).__name__}, ids={type(pending_ids).__name__}). "
+                "Cannot verify pending reviewer packets."
+            )
+        if normalized_target and agent_name.lower() != normalized_target:
             continue
         if _has_actionable_attention(record):
-            ids = [str(p) for p in record.pending_actionable_packet_ids]
-            blocking.append((record.agent, ids))
+            ids = [str(p) for p in pending_ids]
+            blocking.append((agent_name, ids))
 
     if not blocking:
         return None
