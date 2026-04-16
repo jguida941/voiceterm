@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dev.scripts.devctl.review_channel.event_projection import (
+from dev.scripts.devctl.review_channel.event_projection_bridge import (
     detect_event_implementer_stall,
 )
 
