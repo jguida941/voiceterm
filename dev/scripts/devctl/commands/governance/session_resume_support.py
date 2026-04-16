@@ -40,6 +40,7 @@ from ...runtime.control_plane_resolve import (
     load_sources,
     read_json_artifact,
 )
+from ...runtime.finding_backlog import load_finding_backlog
 from ...runtime.value_coercion import coerce_bool, coerce_string
 from ...runtime.work_intake_models import SessionContinuityState
 from ...time_utils import utc_timestamp
@@ -263,6 +264,14 @@ def build_from_sources(
     )
     packet_inbox = review_state_context.packet_inbox
     open_findings = review_state_context.open_findings
+    # Prefer canonical FindingBacklog count over bridge-derived open_findings
+    # so session-resume uses the same source as the dashboard.
+    try:
+        backlog = load_finding_backlog(repo_root=repo_root, governance=governance)
+        if backlog.open_rows:
+            open_findings = f"{len(backlog.open_rows)} open finding(s) (backlog)"
+    except Exception:
+        pass  # fall back to bridge-derived count on any load error
     observed_control_topology, implementation_permission = derive_startup_control_truth(
         typed_review_state
     ) if typed_review_state is not None else ("", "")
