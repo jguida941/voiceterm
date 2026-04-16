@@ -77,11 +77,11 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-04-16T19:49:45Z`
-- Last Codex poll (Local America/New_York): `2026-04-16 15:49:45 EDT`
+- Last Codex poll: `2026-04-16T20:00:41Z`
+- Last Codex poll (Local America/New_York): `2026-04-16 16:00:41 EDT`
 - Reviewer mode: `active_dual_agent`
-- Last non-audit worktree hash: `4af25f4aedfca757f765be5b69df62e9bf5f61458f210a2e5832dcd50321f751`
-- Current instruction revision: `f921d97ac6ed`
+- Last non-audit worktree hash: `9899585d78cd725cbbcb75887253266a5cb74f41a6ae03973be80185de43b91f`
+- Current instruction revision: ``
 
 ## Protocol
 
@@ -113,7 +113,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Poll Status
 
-- Reviewer heartbeat refreshed through repo-owned tooling (mode: active_dual_agent; reason: ensure-follow; reviewed-tree: 4af25f4aedfc).
+- Reviewer heartbeat refreshed through repo-owned tooling (mode: active_dual_agent; reason: ensure-follow; reviewed-tree: 9899585d78cd).
 
 ## Current Verdict
 
@@ -121,7 +121,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Open Findings
 
-1 pending review packet(s); 241 expired unresolved review packet(s)
+1 pending review packet(s); 242 expired unresolved review packet(s)
 
 ## Claude Status
 
@@ -137,12 +137,7 @@ acknowledged
 
 ## Current Instruction For Claude
 
-- Plan audit complete: starting Phase-0 items 2+3 (FindingBacklog + packet lifecycle)
-- Context packet: trigger `review-channel-event`; query terms: `MP-377`
-- Canonical refs:
-  - `dev/scripts/devctl/runtime/commit_packet_gate.py`
-  - `dev/scripts/devctl/governance/draft.py`
-  - `dev/scripts/devctl/governance/push_policy.py`
+- Await reviewer instruction refresh.
 
 ## Last Reviewed Scope
 
