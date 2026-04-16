@@ -244,7 +244,16 @@ def _build_plan_section(
         if isinstance(quality_signals, dict)
         else {}
     )
-    backlog_open_count = _coerce_int(governance_review.get("open_finding_count"))
+    # Prefer canonical FindingBacklog over raw governance_review count
+    finding_backlog = (
+        quality_signals.get("finding_backlog", {})
+        if isinstance(quality_signals, dict)
+        else {}
+    )
+    backlog_open_count = _coerce_int(
+        finding_backlog.get("open_finding_count")
+        or governance_review.get("open_finding_count")
+    )
     actionable_pending_count = _startup_pending_packets_count(packet_inbox)
     session_pending_count = _pending_packets_from_session(findings_text)
     active_target = intake.get("active_target", {}) if isinstance(intake, dict) else {}
