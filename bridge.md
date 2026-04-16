@@ -80,8 +80,8 @@ treat these rules as active workflow instructions immediately.
 - Last Codex poll: `2026-04-16T20:56:39Z`
 - Last Codex poll (Local America/New_York): `2026-04-16 16:56:39 EDT`
 - Reviewer mode: `active_dual_agent`
-- Last non-audit worktree hash: `2b7ab5af28544683b5c566de3f0e4c3c88a719a803a82cc156f0072e0a9ca8d0`
-- Current instruction revision: ``
+- Last non-audit worktree hash: `198dd926aabe74303b9862d006f91c998fae54d09f1e77edb64e1a80be7c5f9d`
+- Current instruction revision: `c35fb8fb7fcf`
 
 ## Protocol
 
@@ -121,7 +121,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Open Findings
 
-4 pending review packet(s); 252 expired unresolved review packet(s)
+9 pending review packet(s); 252 expired unresolved review packet(s)
 
 ## Claude Status
 
@@ -137,7 +137,12 @@ pending
 
 ## Current Instruction For Claude
 
-- Await reviewer instruction refresh.
+- STOP AND REVIEW: Propose the right entry point name + architecture before I code anything
+- Context packet: trigger `review-channel-event`; query terms: `dev/active/ai_governance_platform.md`, `dev/active/MASTER_PLAN.md`, `dev/active/remote_control_runtime.md`, `dev/active/review_channel.md`
+- Canonical refs:
+  - `dev/active/MASTER_PLAN.md`
+  - `dev/scripts/devctl/governance/draft.py`
+  - `dev/scripts/devctl/governance/push_policy.py`
 
 ## Last Reviewed Scope
 
