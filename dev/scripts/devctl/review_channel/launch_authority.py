@@ -122,6 +122,19 @@ def assess_prepared_launch_authority(
     )
 
     if prepared_head_sha.strip() and current_authority.head_sha != prepared_head_sha.strip():
+        # In remote_control / reviewer-loop mode, HEAD advancement is expected
+        # (the implementer commits while the reviewer runs). Downgrade from
+        # "stale" to "refresh_recommended" so the loop continues instead of
+        # killing the reviewer session on every commit.
+        import os
+        if os.environ.get("DEVCTL_OPERATOR_INTERACTION_MODE") == "remote_control":
+            return PreparedLaunchAuthorityState(
+                state="refresh_recommended",
+                reason=(
+                    "prepared git HEAD no longer matches the current repo HEAD "
+                    "(remote_control mode — reviewer continues)"
+                ),
+            )
         return PreparedLaunchAuthorityState(
             state="stale",
             reason=(
