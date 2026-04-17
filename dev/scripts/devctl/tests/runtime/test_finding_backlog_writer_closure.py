@@ -12,6 +12,7 @@ from pathlib import Path
 
 from dev.scripts.devctl.governance_review_models import GovernanceReviewInput
 from dev.scripts.devctl.runtime.finding_backlog import (
+    FindingBacklog,
     FindingBacklogWriteResult,
     load_finding_backlog_from_log,
     record_finding_backlog_row,
@@ -105,3 +106,17 @@ def test_record_finding_backlog_row_result_exposes_raw_row(
     assert result.row["check_id"] == "writer_closure_regression"
     assert result.row["verdict"] == "confirmed_issue"
     assert "finding_id" in result.row
+
+
+def test_finding_backlog_to_dict_includes_contract_metadata(tmp_path: Path) -> None:
+    backlog = FindingBacklog.from_rows(
+        rows=[],
+        log_path=tmp_path / "finding_reviews.jsonl",
+        repo_name="demo-repo",
+        repo_path=str(tmp_path),
+    )
+
+    payload = backlog.to_dict()
+
+    assert payload["schema_version"] == 1
+    assert payload["contract_id"] == "FindingBacklog"

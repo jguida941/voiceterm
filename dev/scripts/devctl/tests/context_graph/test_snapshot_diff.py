@@ -17,6 +17,10 @@ from dev.scripts.devctl.context_graph.snapshot import (
     SnapshotResolutionError,
     write_context_graph_snapshot,
 )
+from dev.scripts.devctl.context_graph.snapshot_payload import (
+    ContextGraphSnapshot,
+    TemperatureDistributionSummary,
+)
 from dev.scripts.devctl.context_graph.snapshot_diff import (
     build_snapshot_trend,
     compute_graph_delta,
@@ -85,6 +89,33 @@ def _base_edges() -> list[GraphEdge]:
 
 class TestContextGraphSnapshotLoad(unittest.TestCase):
     """Verify saved snapshots round-trip into the typed contract."""
+
+    def test_context_graph_snapshot_from_dict_round_trip(self) -> None:
+        snapshot = ContextGraphSnapshot(
+            schema_version=1,
+            contract_id="ContextGraphSnapshot",
+            repo="codex-voice",
+            branch="feature/test",
+            commit_hash="111111111111",
+            generated_at_utc="2026-03-23T04:00:00Z",
+            source_mode="bootstrap",
+            node_count=2,
+            edge_count=1,
+            nodes_by_kind={"source_file": 2},
+            edges_by_kind={"imports": 1},
+            temperature_distribution=TemperatureDistributionSummary(
+                minimum=0.1,
+                maximum=0.2,
+                average=0.15,
+                buckets={"0.00-0.24": 2, "0.25-0.49": 0, "0.50-0.74": 0, "0.75-1.00": 0},
+            ),
+            nodes=[{"node_id": "src:a.py"}],
+            edges=[{"source_id": "src:a.py", "target_id": "src:b.py"}],
+        )
+
+        rebuilt = ContextGraphSnapshot.from_dict(asdict(snapshot))
+
+        self.assertEqual(rebuilt, snapshot)
 
     def test_load_context_graph_snapshot_round_trip(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

@@ -14,11 +14,6 @@ from .snapshot_payload import (
     SnapshotResolutionError,
     _SNAPSHOT_DIR,
 )
-from .snapshot_payload import (
-    coerce_int_map,
-    coerce_object_list,
-    load_temperature_distribution,
-)
 
 
 def load_context_graph_snapshot(path: str | Path) -> ContextGraphSnapshot:
@@ -34,24 +29,7 @@ def load_context_graph_snapshot(path: str | Path) -> ContextGraphSnapshot:
             "unexpected ContextGraphSnapshot schema_version "
             f"{payload.get('schema_version')!r}"
         )
-    return ContextGraphSnapshot(
-        schema_version=CONTEXT_GRAPH_SNAPSHOT_SCHEMA_VERSION,
-        contract_id=CONTEXT_GRAPH_SNAPSHOT_CONTRACT_ID,
-        repo=str(payload.get("repo") or ""),
-        branch=str(payload.get("branch") or "unknown"),
-        commit_hash=str(payload.get("commit_hash") or "unknown"),
-        generated_at_utc=str(payload.get("generated_at_utc") or ""),
-        source_mode=str(payload.get("source_mode") or "unknown"),
-        node_count=int(payload.get("node_count") or 0),
-        edge_count=int(payload.get("edge_count") or 0),
-        nodes_by_kind=coerce_int_map(payload.get("nodes_by_kind")),
-        edges_by_kind=coerce_int_map(payload.get("edges_by_kind")),
-        temperature_distribution=load_temperature_distribution(
-            payload.get("temperature_distribution")
-        ),
-        nodes=coerce_object_list(payload.get("nodes")),
-        edges=coerce_object_list(payload.get("edges")),
-    )
+    return ContextGraphSnapshot.from_dict(payload)
 
 
 def list_context_graph_snapshots(

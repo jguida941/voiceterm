@@ -56,6 +56,8 @@ class FindingBacklog:
     open_rows: tuple[dict[str, Any], ...] = ()
     open_findings: tuple[FindingRecord, ...] = ()
     open_severity_counts: tuple[FindingSeverityCount, ...] = ()
+    schema_version: int = 1
+    contract_id: str = "FindingBacklog"
 
     def severity_counts_dict(self) -> dict[str, int]:
         counts = {bucket.severity: bucket.count for bucket in self.open_severity_counts}
@@ -65,6 +67,8 @@ class FindingBacklog:
 
     def to_dict(self) -> dict[str, object]:
         payload: dict[str, object] = {}
+        payload["schema_version"] = self.schema_version
+        payload["contract_id"] = self.contract_id
         payload["log_path"] = self.log_path
         payload["repo_name"] = self.repo_name
         payload["repo_path"] = self.repo_path

@@ -209,6 +209,8 @@ def test_project_governance_from_mapping_normalizes_full_payload() -> None:
     assert gov.push_enforcement.unstaged_path_count == 1
 
     assert gov.plan_registry.registry_path == "dev/active/INDEX.md"
+    assert gov.plan_registry.schema_version == 1
+    assert gov.plan_registry.contract_id == "PlanRegistry"
     assert gov.plan_registry.tracker_path == "dev/active/MASTER_PLAN.md"
     assert len(gov.plan_registry.entries) == 1
     assert gov.plan_registry.entries[0].title == "Master Plan"
@@ -269,6 +271,25 @@ def test_project_governance_from_mapping_normalizes_full_payload() -> None:
     assert gov.docs_authority == "AGENTS.md"
     assert gov.workflow_profiles == ("ci", "release")
     assert gov.command_routing_defaults == {"profile": "ci"}
+
+
+def test_plan_registry_to_dict_includes_contract_metadata() -> None:
+    registry = PlanRegistry(
+        entries=(
+            PlanRegistryEntry(
+                path="dev/active/MASTER_PLAN.md",
+                role="tracker",
+                authority="canonical",
+                scope="all active MP execution state",
+                when_agents_read="always",
+            ),
+        )
+    )
+
+    payload = registry.to_dict()
+
+    assert payload["schema_version"] == 1
+    assert payload["contract_id"] == "PlanRegistry"
 
 
 def test_project_governance_from_mapping_with_defaults() -> None:

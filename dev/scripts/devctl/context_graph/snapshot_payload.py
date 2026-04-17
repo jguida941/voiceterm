@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import subprocess
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -43,6 +44,32 @@ class ContextGraphSnapshot:
     temperature_distribution: TemperatureDistributionSummary
     nodes: list[dict[str, object]]
     edges: list[dict[str, object]]
+
+    @classmethod
+    def from_dict(cls, payload: Mapping[str, object]) -> "ContextGraphSnapshot":
+        """Rebuild one typed snapshot from a serialized payload."""
+        return cls(
+            schema_version=int(
+                payload.get("schema_version") or CONTEXT_GRAPH_SNAPSHOT_SCHEMA_VERSION
+            ),
+            contract_id=str(
+                payload.get("contract_id") or CONTEXT_GRAPH_SNAPSHOT_CONTRACT_ID
+            ),
+            repo=str(payload.get("repo") or ""),
+            branch=str(payload.get("branch") or "unknown"),
+            commit_hash=str(payload.get("commit_hash") or "unknown"),
+            generated_at_utc=str(payload.get("generated_at_utc") or ""),
+            source_mode=str(payload.get("source_mode") or "unknown"),
+            node_count=int(payload.get("node_count") or 0),
+            edge_count=int(payload.get("edge_count") or 0),
+            nodes_by_kind=coerce_int_map(payload.get("nodes_by_kind")),
+            edges_by_kind=coerce_int_map(payload.get("edges_by_kind")),
+            temperature_distribution=load_temperature_distribution(
+                payload.get("temperature_distribution")
+            ),
+            nodes=coerce_object_list(payload.get("nodes")),
+            edges=coerce_object_list(payload.get("edges")),
+        )
 
 
 @dataclass(frozen=True, slots=True)

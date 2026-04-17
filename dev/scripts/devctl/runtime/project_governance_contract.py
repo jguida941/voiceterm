@@ -159,6 +159,8 @@ class PlanRegistryEntry:
 class PlanRegistry:
     """Typed plan-registry authority surfaces plus parsed plan entries."""
 
+    schema_version: int = 1
+    contract_id: str = "PlanRegistry"
     registry_path: str = "dev/active/INDEX.md"
     tracker_path: str = "dev/active/MASTER_PLAN.md"
     index_path: str = "dev/active/INDEX.md"

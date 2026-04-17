@@ -44,6 +44,8 @@ def plan_registry_from_mapping(
     payload: Mapping[str, object],
 ) -> PlanRegistry:
     registry = PlanRegistry(
+        schema_version=int(payload.get("schema_version") or 1),
+        contract_id=coerce_string(payload.get("contract_id")) or "PlanRegistry",
         registry_path=coerce_string(payload.get("registry_path")),
         tracker_path=coerce_string(payload.get("tracker_path")),
         index_path=coerce_string(payload.get("index_path")),
