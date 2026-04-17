@@ -5,13 +5,11 @@ from __future__ import annotations
 from dataclasses import dataclass, replace
 from pathlib import Path
 
-from .core import DEFAULT_BRIDGE_REL
 from .current_session_attention import codex_packet_attention_requires_clear
 from .current_session_projection import (
     build_bridge_current_session,
     build_event_current_session,
 )
-from .handoff import extract_bridge_snapshot
 
 
 @dataclass(frozen=True, slots=True)
@@ -31,7 +29,7 @@ def resolve_current_session(
     bridge_liveness: dict[str, object],
     resolvers: CurrentSessionResolvers | None = None,
 ):
-    """Prefer typed event state, but recover bridge instructions when focus is blank."""
+    """Resolve current-session authority from typed event state only."""
     if context is not None:
         repo_root = context.repo_root
         prior_review_state = context.prior_review_state
@@ -50,28 +48,4 @@ def resolve_current_session(
             current_instruction="",
             current_instruction_revision="",
         )
-    if current_session.current_instruction.strip() not in {"", "(missing)"}:
-        return current_session
-    if _event_session_has_packet_attention(current_session):
-        return current_session
-    if codex_packet_attention_requires_clear(review_state):
-        return current_session
-    try:
-        bridge_snapshot = extract_bridge_snapshot(
-            (repo_root / DEFAULT_BRIDGE_REL).read_text(encoding="utf-8")
-        )
-    except OSError:
-        return current_session
-    bridge_session = active_resolvers.build_bridge_current_session_fn(
-        bridge_snapshot,
-        bridge_liveness,
-        prior_review_state=prior_review_state,
-    )
-    if bridge_session.current_instruction.strip() not in {"", "(missing)"}:
-        return bridge_session
     return current_session
-
-
-def _event_session_has_packet_attention(current_session) -> bool:
-    open_findings = str(getattr(current_session, "open_findings", "") or "").strip().lower()
-    return open_findings not in {"", "none"}

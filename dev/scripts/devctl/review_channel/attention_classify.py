@@ -239,6 +239,9 @@ def _classify_peer_waiting(ctx: BridgeAttentionContext) -> str | None:
     if ctx.implementer_state_pending:
         return AttentionStatus.WAITING_ON_PEER
 
+    if not _reviewer_state_seeded(ctx.bridge_liveness):
+        return AttentionStatus.WAITING_ON_PEER
+
     if not ctx.claude_status_present:
         return AttentionStatus.CLAUDE_STATUS_MISSING
 
@@ -317,7 +320,7 @@ def _classify_review_attention(ctx: BridgeAttentionContext) -> str | None:
         return AttentionStatus.REVIEW_FOLLOW_UP_REQUIRED
     if ctx.review_needed and not ctx.reviewer_supervisor_running:
         return AttentionStatus.REVIEWER_SUPERVISOR_REQUIRED
-    if ctx.checkpoint_required or not ctx.safe_to_continue_editing:
+    if ctx.checkpoint_required or ctx.safe_to_continue_editing is False:
         return AttentionStatus.CHECKPOINT_REQUIRED
     return None
 

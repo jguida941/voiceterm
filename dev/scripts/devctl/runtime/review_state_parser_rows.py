@@ -55,29 +55,18 @@ def current_session_state_from_payload(
             open_findings=_string(current_session.get("open_findings")),
             last_reviewed_scope=_string(current_session.get("last_reviewed_scope")),
         )
-
-    implementer_ack = _string(bridge.get("claude_ack"))
-    current_instruction, current_instruction_revision = (
-        canonicalize_current_instruction_state(
-            _string(bridge.get("current_instruction")),
-            _string(bridge.get("current_instruction_revision")),
-        )
-    )
     return ReviewCurrentSessionState(
-        current_instruction=current_instruction,
-        current_instruction_revision=current_instruction_revision,
-        implementer_status=_string(bridge.get("claude_status")),
-        implementer_ack=implementer_ack,
-        implementer_ack_revision=_string(bridge.get("claude_ack_revision")),
-        implementer_ack_state=bridge_ack_state(
-            bridge=bridge,
-            implementer_ack=implementer_ack,
-        ),
-        implementer_state_hash=_string(bridge.get("implementer_state_hash")),
+        current_instruction="",
+        current_instruction_revision="",
+        implementer_status="",
+        implementer_ack="",
+        implementer_ack_revision="",
+        implementer_ack_state="missing",
+        implementer_state_hash="",
         implementer_session_state="",
         implementer_session_hint="",
-        open_findings=_string(bridge.get("open_findings")),
-        last_reviewed_scope=_string(bridge.get("last_reviewed_scope")),
+        open_findings="",
+        last_reviewed_scope="",
     )
 
 

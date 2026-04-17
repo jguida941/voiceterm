@@ -186,14 +186,19 @@ def refresh_status_snapshot(
             )
         )
     )
+    push_decision_bridge_liveness = dict(bridge_liveness)
+    push_decision_bridge_liveness["review_accepted"] = (
+        reviewer_runtime.review_acceptance.review_accepted
+    )
+    push_decision_bridge_liveness["publish_clear"] = reviewer_runtime.publish_clear
+    push_decision = build_status_push_decision(
+        bridge_liveness=push_decision_bridge_liveness,
+        reviewer_runtime=reviewer_runtime,
+    )
     bridge_liveness["review_accepted"] = (
         reviewer_runtime.review_acceptance.review_accepted
     )
     bridge_liveness["publish_clear"] = reviewer_runtime.publish_clear
-    push_decision = build_status_push_decision(
-        bridge_liveness=bridge_liveness,
-        reviewer_runtime=reviewer_runtime,
-    )
     service_identity = build_service_identity(
         repo_root=repo_root,
         bridge_path=bridge_path,

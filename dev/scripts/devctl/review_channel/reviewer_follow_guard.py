@@ -192,7 +192,11 @@ def launch_waiting_reviewer_conductor(
 
     launch_warnings: list[str] = []
     woke = deps.launch_sessions_headless_fn(sessions, launch_warnings)
-    if woke and artifact_root is not None:
+    if (
+        woke
+        and artifact_root is not None
+        and str(context.packet.get("kind") or "").strip() == "action_request"
+    ):
         deps.mark_action_request_packets_observed_fn(
             artifact_root=artifact_root,
             packets=[context.packet],

@@ -5,6 +5,7 @@ from __future__ import annotations
 from hashlib import sha256
 import tempfile
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 
 from dev.scripts.devctl.review_channel.current_session_projection import (
@@ -20,6 +21,13 @@ from dev.scripts.devctl.review_channel.event_projection import (
     EventProjectionContext,
     enrich_event_review_state,
 )
+from dev.scripts.devctl.review_channel.event_projection_assembly import (
+    _resolve_current_session as resolve_event_projection_assembly_current_session,
+)
+from dev.scripts.devctl.review_channel.event_projection_enrichment import (
+    EventProjectionContext as EnrichmentProjectionContext,
+    resolve_current_session as resolve_event_projection_enrichment_current_session,
+)
 from dev.scripts.devctl.review_channel.event_projection_current_session import (
     CurrentSessionResolvers,
     resolve_current_session as resolve_event_projection_current_session,
@@ -28,9 +36,13 @@ from dev.scripts.devctl.review_channel.event_projection_bridge import (
     build_event_bridge_liveness_projection,
 )
 from dev.scripts.devctl.review_channel.handoff import BridgeSnapshot
+from dev.scripts.devctl.review_channel.status_snapshot_authority import (
+    _normalize_current_session_from_packet_truth,
+)
 from dev.scripts.devctl.review_channel.reviewer_state_normalize import (
     instruction_revision,
 )
+from dev.scripts.devctl.runtime.review_state_models import ReviewCurrentSessionState
 
 
 def test_event_agent_status_prefers_typed_registry_rows() -> None:
@@ -85,6 +97,38 @@ def test_build_event_current_session_uses_registry_without_compat_agents() -> No
     assert state.implementer_status == "active"
     assert state.implementer_ack == "acknowledged"
     assert state.last_reviewed_scope == "MP-355"
+
+
+def test_build_event_current_session_clears_ack_without_live_instruction() -> None:
+    state = build_event_current_session(
+        review_state={
+            "review": {"plan_id": "MP-355"},
+            "queue": {
+                "pending_total": 0,
+                "pending_claude": 0,
+                "derived_next_instruction": "",
+            },
+            "registry": {
+                "agents": [
+                    {
+                        "agent_id": "claude",
+                        "job_state": "active",
+                    }
+                ]
+            },
+        },
+        bridge_liveness={
+            "current_instruction_revision": "",
+            "claude_ack_revision": "",
+            "claude_ack_current": False,
+        },
+    )
+
+    assert state.current_instruction == ""
+    assert state.current_instruction_revision == ""
+    assert state.implementer_ack == ""
+    assert state.implementer_ack_revision == ""
+    assert state.implementer_ack_state == "missing"
 
 
 def test_build_event_current_session_preserves_session_hints() -> None:
@@ -273,7 +317,7 @@ def test_event_bridge_liveness_prefers_bridge_reviewer_mode() -> None:
         ),
     )
 
-    assert payload["reviewer_mode"] == "single_agent"
+    assert payload["reviewer_mode"] == "active_dual_agent"
 
 
 def test_build_event_current_session_preserves_prior_instruction_when_queue_is_empty() -> None:
@@ -537,6 +581,128 @@ def test_event_projection_uses_persisted_packet_inbox_when_live_packets_are_part
     )
 
 
+def test_event_projection_current_session_does_not_fallback_to_bridge_instruction_when_blank() -> None:
+    with tempfile.TemporaryDirectory() as tmpdir:
+        root = Path(tmpdir)
+        (root / "bridge.md").write_text(
+            "\n".join(
+                [
+                    "# Review Channel",
+                    "",
+                    "## Current Instruction For Claude",
+                    "",
+                    "- stale bridge instruction",
+                    "",
+                ]
+            ),
+            encoding="utf-8",
+        )
+        current_session = resolve_event_projection_current_session(
+            review_state={
+                "review": {"plan_id": "MP-355"},
+                "queue": {
+                    "pending_total": 0,
+                    "pending_claude": 0,
+                    "derived_next_instruction": "",
+                },
+                "registry": {"agents": []},
+            },
+            repo_root=root,
+            prior_review_state={"current_session": {}},
+            bridge_liveness={
+                "current_instruction_revision": "",
+                "claude_ack_revision": "",
+                "claude_ack_current": False,
+            },
+            resolvers=CurrentSessionResolvers(
+                build_event_current_session_fn=build_event_current_session,
+            ),
+        )
+
+    assert current_session.current_instruction == ""
+
+
+def test_event_projection_enrichment_does_not_fallback_to_bridge_instruction_when_blank() -> None:
+    with tempfile.TemporaryDirectory() as tmpdir:
+        root = Path(tmpdir)
+        (root / "bridge.md").write_text(
+            "\n".join(
+                [
+                    "# Review Channel",
+                    "",
+                    "## Current Instruction For Claude",
+                    "",
+                    "- stale bridge instruction",
+                    "",
+                ]
+            ),
+            encoding="utf-8",
+        )
+        current_session = resolve_event_projection_enrichment_current_session(
+            review_state={
+                "review": {"plan_id": "MP-355"},
+                "queue": {
+                    "pending_total": 0,
+                    "pending_claude": 0,
+                    "derived_next_instruction": "",
+                },
+                "registry": {"agents": []},
+            },
+            context=EnrichmentProjectionContext(
+                repo_root=root,
+                review_channel_path=root / "dev/active/review_channel.md",
+                projections_root=root / "dev/reports/review_channel/projections/latest",
+            ),
+            bridge_liveness={
+                "current_instruction_revision": "",
+                "claude_ack_revision": "",
+                "claude_ack_current": False,
+            },
+        )
+
+    assert current_session.current_instruction == ""
+
+
+def test_event_projection_assembly_does_not_fallback_to_bridge_instruction_when_blank() -> None:
+    with tempfile.TemporaryDirectory() as tmpdir:
+        root = Path(tmpdir)
+        (root / "bridge.md").write_text(
+            "\n".join(
+                [
+                    "# Review Channel",
+                    "",
+                    "## Current Instruction For Claude",
+                    "",
+                    "- stale bridge instruction",
+                    "",
+                ]
+            ),
+            encoding="utf-8",
+        )
+        current_session = resolve_event_projection_assembly_current_session(
+            {
+                "review": {"plan_id": "MP-355"},
+                "queue": {
+                    "pending_total": 0,
+                    "pending_claude": 0,
+                    "derived_next_instruction": "",
+                },
+                "registry": {"agents": []},
+            },
+            SimpleNamespace(prior_review_state={"current_session": {}}, repo_root=root),
+            {
+                "current_instruction_revision": "",
+                "claude_ack_revision": "",
+                "claude_ack_current": False,
+            },
+            SimpleNamespace(
+                build_event_current_session=build_event_current_session,
+            ),
+        )
+
+    assert current_session.current_instruction == ""
+
+
 def test_build_event_current_session_canonicalizes_instruction_markdown_revision() -> None:
     raw_instruction = "\n".join(
         [
@@ -606,7 +772,7 @@ def test_prior_typed_current_session_canonicalizes_instruction_markdown_revision
 @patch(
     "dev.scripts.devctl.review_channel.event_projection.attach_conductor_session_state",
 )
-def test_enrich_event_review_state_recovers_bridge_instruction_when_typed_focus_is_blank(
+def test_enrich_event_review_state_does_not_recover_bridge_instruction_when_typed_focus_is_blank(
     _attach_conductor_session_state_mock,
 ) -> None:
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -680,11 +846,8 @@ def test_enrich_event_review_state_recovers_bridge_instruction_when_typed_focus_
             ),
         )
 
-    assert (
-        review_state["current_session"]["current_instruction"]
-        == "- Recover the bridge-backed instruction."
-    )
-    assert review_state["current_session"]["current_instruction_revision"] == "bridge-rev-123"
+    assert review_state["current_session"]["current_instruction"] == ""
+    assert review_state["current_session"]["current_instruction_revision"] == ""
 
 
 def test_bridge_and_event_paths_produce_same_ack_state_when_stale() -> None:
@@ -824,6 +987,70 @@ def test_build_bridge_current_session_clears_revision_when_instruction_missing()
 
     assert state.current_instruction == "(missing)"
     assert state.current_instruction_revision == ""
+
+
+def test_build_bridge_current_session_clears_ack_for_refresh_placeholder() -> None:
+    state = build_bridge_current_session(
+        snapshot=BridgeSnapshot(
+            metadata={"current_instruction_revision": "rev-abc"},
+            sections={
+                "Current Instruction For Claude": "- Await reviewer instruction refresh.",
+                "Claude Status": "working",
+                "Claude Questions": "",
+                "Claude Ack": "Acknowledged instruction revision `rev-abc`",
+                "Open Findings": "none",
+                "Last Reviewed Scope": "MP-400",
+            },
+        ),
+        bridge_liveness={
+            "current_instruction_revision": "rev-abc",
+            "claude_ack_revision": "rev-abc",
+            "claude_ack_current": True,
+        },
+    )
+
+    assert state.current_instruction == "- Await reviewer instruction refresh."
+    assert state.current_instruction_revision == ""
+    assert state.implementer_ack == ""
+    assert state.implementer_ack_revision == ""
+    assert state.implementer_ack_state == "missing"
+
+
+def test_normalize_current_session_from_packet_truth_clears_missing_instruction_ack() -> None:
+    normalized = _normalize_current_session_from_packet_truth(
+        current_session=ReviewCurrentSessionState(
+            current_instruction="- Await reviewer instruction refresh.",
+            current_instruction_revision="rev-abc",
+            implementer_status="working",
+            implementer_ack="acknowledged",
+            implementer_ack_revision="rev-abc",
+            implementer_ack_state="stale",
+            implementer_state_hash="stale-hash",
+            implementer_session_state="",
+            implementer_session_hint="",
+            open_findings="none",
+            last_reviewed_scope="MP-400",
+        ),
+        review_state={
+            "packet_inbox": {
+                "agents": [
+                    {
+                        "agent": "codex",
+                        "current_instruction_packet_id": "",
+                        "pending_actionable_packet_ids": [],
+                        "expired_unresolved_packet_ids": [],
+                        "wake_reason": "",
+                    }
+                ]
+            }
+        },
+    )
+
+    assert normalized.current_instruction == ""
+    assert normalized.current_instruction_revision == ""
+    assert normalized.implementer_ack == ""
+    assert normalized.implementer_ack_revision == ""
+    assert normalized.implementer_ack_state == "missing"
 
 
 def test_resolve_current_session_authority_prefers_live_bridge_checkpoint() -> None:

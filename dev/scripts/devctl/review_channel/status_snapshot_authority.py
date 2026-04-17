@@ -15,6 +15,7 @@ from .current_session_projection import (
     instruction_revision_reuse_warning,
     resolve_current_session_authority,
 )
+from .current_session_support import compute_implementer_state_hash
 from .handoff import BridgeSnapshot
 from .recovery_assessment import (
     build_recovery_assessment,
@@ -24,6 +25,7 @@ from .reviewer_runtime_contract import (
     ReviewerRuntimeInputs,
     build_reviewer_runtime_contract,
 )
+from ..runtime.review_state_semantics import is_missing_instruction
 
 
 @dataclass
@@ -142,11 +144,33 @@ def _normalize_current_session_from_packet_truth(
             or str(record.current_instruction_packet_id or "").strip()
         )
     )
+    missing_instruction = is_missing_instruction(current_session.current_instruction)
+    clear_current_instruction = clear_instruction or missing_instruction
+    cleared_ack = "" if clear_current_instruction else current_session.implementer_ack
     return replace(
         current_session,
-        current_instruction="" if clear_instruction else current_session.current_instruction,
+        current_instruction=(
+            "" if clear_current_instruction else current_session.current_instruction
+        ),
         current_instruction_revision=(
-            "" if clear_instruction else current_session.current_instruction_revision
+            ""
+            if clear_current_instruction
+            else current_session.current_instruction_revision
+        ),
+        implementer_ack=cleared_ack,
+        implementer_ack_revision=(
+            ""
+            if clear_current_instruction
+            else current_session.implementer_ack_revision
+        ),
+        implementer_ack_state=(
+            "missing"
+            if clear_current_instruction
+            else current_session.implementer_ack_state
+        ),
+        implementer_state_hash=compute_implementer_state_hash(
+            implementer_status=current_session.implementer_status,
+            implementer_ack=cleared_ack,
         ),
         open_findings=summarize_packet_attention_open_findings(
             resolved_review_state,

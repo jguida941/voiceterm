@@ -175,7 +175,6 @@ def hybrid_loop_errors(bridge_liveness: dict[str, object]) -> list[str]:
     launch_truth = str(
         bridge_liveness.get("launch_truth") or classify_launch_truth(bridge_liveness).value
     )
-    bridge_liveness["launch_truth"] = launch_truth
     if launch_truth == LaunchTruthState.DETACHED_RUNTIME_ONLY.value:
         return [
             "Reviewer mode is `active_dual_agent` but no live repo-owned Codex or "

@@ -27,10 +27,20 @@ def normalize_instruction_markdown(text: str) -> str:
     return "\n".join(normalized)
 
 
+_MISSING_INSTRUCTION_MARKERS = {
+    "await reviewer instruction refresh",
+    "relaunch before compaction",
+    "stop at a safe boundary",
+}
+
+
 def is_missing_instruction(text: str | None) -> bool:
     """Return True when instruction text represents no live instruction."""
     normalized = str(text or "").strip()
-    return normalized in {"", "(missing)"}
+    if normalized in {"", "(missing)"}:
+        return True
+    placeholder = normalized.lstrip("-").strip().lower().rstrip(".")
+    return placeholder in _MISSING_INSTRUCTION_MARKERS
 
 
 def is_pending_placeholder(text: str | None) -> bool:

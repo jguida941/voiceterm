@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 
+from ..runtime.review_state_semantics import is_missing_instruction
 from .action_request import render_action_requests_from_packets
 from .bridge_validation_poll_status import poll_status_is_automation_only_refresh
 from .bridge_projection_contract import BRIDGE_SECTION_ORDER
@@ -84,7 +85,6 @@ def with_fallback_sections(
     current_session = _mapping(review_state.get("current_session"))
     reviewer_runtime = _mapping(review_state.get("reviewer_runtime"))
     review_acceptance = _mapping(reviewer_runtime.get("review_acceptance"))
-    bridge_state = _mapping(review_state.get("bridge"))
     raw_poll_status = raw_projection_sections.get("Poll Status", "")
     poll_status_fallback = _poll_status_fallback(review_state)
     if poll_status_is_automation_only_refresh(raw_poll_status):
@@ -129,11 +129,14 @@ def with_fallback_sections(
         _section_text(current_session.get("implementer_ack"), default="- missing"),
     )
     if "current_instruction" in current_session:
+        current_instruction = current_session.get("current_instruction")
+        if is_missing_instruction(str(current_instruction or "")):
+            current_instruction = ""
         _set_missing(
             result,
             "Current Instruction For Claude",
             _section_text(
-                current_session.get("current_instruction"),
+                current_instruction,
                 default="- Await reviewer instruction refresh.",
             ),
         )
@@ -141,17 +144,13 @@ def with_fallback_sections(
         _set_missing(
             result,
             "Current Instruction For Claude",
-            _section_text(
-                bridge_state.get("current_instruction"),
-                default="- Await reviewer instruction refresh.",
-            ),
+            "- Await reviewer instruction refresh.",
         )
     _set_missing(
         result,
         "Last Reviewed Scope",
         _section_text(
             current_session.get("last_reviewed_scope"),
-            bridge_state.get("last_reviewed_scope"),
             default="- (missing)",
         ),
     )

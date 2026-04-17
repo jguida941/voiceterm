@@ -19,7 +19,6 @@ from .launch_truth import classify_launch_truth, effective_reviewer_mode
 from .peer_liveness import (
     IMPLEMENTER_STALL_MARKERS,
     REVIEWER_WAIT_STATE_MARKERS,
-    normalize_reviewer_mode,
 )
 
 
@@ -39,10 +38,7 @@ def build_event_bridge_liveness_projection(
     claude_status = event_agent_status(review_state, "claude")
     claude_ack = event_claude_ack(queue)
     open_findings = event_open_findings(review_state)
-    reviewer_mode = (
-        _bridge_snapshot_reviewer_mode(bridge_snapshot)
-        or _event_reviewer_mode(runtime)
-    )
+    reviewer_mode = _event_reviewer_mode(runtime)
     bridge_liveness: dict[str, object] = {}
     bridge_liveness["overall_state"] = (
         "stale" if review_state.get("errors") else "fresh"
@@ -273,17 +269,6 @@ def _event_reviewer_mode(runtime: Mapping[str, object]) -> str:
         if reviewer_mode:
             return reviewer_mode
     return "tools_only"
-
-
-def _bridge_snapshot_reviewer_mode(snapshot: object | None) -> str:
-    metadata = getattr(snapshot, "metadata", None)
-    if not isinstance(metadata, Mapping):
-        metadata = _mapping(snapshot).get("metadata")
-    if not isinstance(metadata, Mapping):
-        return ""
-    return str(normalize_reviewer_mode(metadata.get("reviewer_mode")) or "").strip()
-
-
 def _mapping(value: object) -> Mapping[str, object]:
     return value if isinstance(value, Mapping) else {}
 

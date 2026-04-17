@@ -228,7 +228,7 @@ def _bridge_reviewer_runtime_state(
         review_acceptance=ReviewerAcceptanceState(
             current_verdict="",
             open_findings=current_session.open_findings
-            or _string(bridge.get("open_findings")),
+            or "- reviewer state unavailable.",
             review_accepted=review_accepted,
             reviewer_accepted_implementer_state_hash="",
         ),

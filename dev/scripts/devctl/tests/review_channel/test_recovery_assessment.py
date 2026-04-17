@@ -19,6 +19,9 @@ from dev.scripts.devctl.review_channel.status_projection_helpers import (
     attach_conductor_session_state,
     bridge_liveness_warnings,
 )
+from dev.scripts.devctl.review_channel.status_projection_liveness import (
+    hybrid_loop_errors,
+)
 from dev.scripts.devctl.runtime.review_state_models import ReviewCurrentSessionState
 from dev.scripts.devctl.runtime.reviewer_runtime_models import (
     RemoteControlAttachmentState,
@@ -116,6 +119,24 @@ def test_single_agent_active_runtime_reports_real_blocker_instead_of_inactive() 
     )
 
     assert assessment.diagnosis.status == "checkpoint_required"
+
+
+def test_hybrid_loop_errors_does_not_write_launch_truth_back() -> None:
+    bridge_liveness = {
+        "reviewer_mode": "active_dual_agent",
+        "publisher_running": True,
+        "reviewer_supervisor_running": True,
+        "codex_conductor_active": False,
+        "claude_conductor_active": False,
+        "overall_state": "fresh",
+        "codex_poll_state": "fresh",
+        "reviewer_freshness": "fresh",
+    }
+
+    errors = hybrid_loop_errors(bridge_liveness)
+
+    assert errors
+    assert "launch_truth" not in bridge_liveness
 
 
 def test_checkpoint_required_recovery_recommends_governed_commit() -> None:

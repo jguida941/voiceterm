@@ -63,8 +63,17 @@ def build_bridge_current_session(
         current_instruction,
         current_instruction_revision,
     )
-    implementer_ack_revision = extract_implementer_ack_revision(implementer_ack)
-    ack_current = _is_substantive_text(implementer_ack) and (
+    instruction_missing = is_missing_instruction(current_instruction)
+    if instruction_missing:
+        implementer_ack = ""
+    implementer_ack_revision = (
+        ""
+        if instruction_missing
+        else extract_implementer_ack_revision(implementer_ack)
+    )
+    ack_current = (not instruction_missing) and _is_substantive_text(
+        implementer_ack
+    ) and (
         not current_instruction_revision
         or implementer_ack_revision == current_instruction_revision
     )
@@ -75,12 +84,16 @@ def build_bridge_current_session(
         implementer_status=implementer_status,
         implementer_ack=implementer_ack,
         implementer_ack_revision=implementer_ack_revision,
-        implementer_ack_state=classify_implementer_ack_state(
-            implementer_status=implementer_status,
-            implementer_ack=implementer_ack,
-            ack_current=ack_current,
-            stale_label="stale",
-            is_substantive_text=_is_substantive_text,
+        implementer_ack_state=(
+            "missing"
+            if instruction_missing
+            else classify_implementer_ack_state(
+                implementer_status=implementer_status,
+                implementer_ack=implementer_ack,
+                ack_current=ack_current,
+                stale_label="stale",
+                is_substantive_text=_is_substantive_text,
+            )
         ),
         implementer_state_hash=compute_implementer_state_hash(
             implementer_status=implementer_status,
@@ -149,13 +162,29 @@ def build_event_current_session(
     if _packet_attention_requires_clear(packet_attention):
         current_instruction = ""
         current_instruction_revision = ""
+    instruction_missing = is_missing_instruction(current_instruction)
     if (
         instruction_missing
         and current_instruction == "(missing)"
         and (prior_session is None or _packet_attention_requires_clear(packet_attention))
     ):
         current_instruction = ""
-    implementer_ack = event_claude_ack(queue)
+        current_instruction_revision = ""
+    live_instruction_present = (
+        not is_missing_instruction(current_instruction)
+        and bool(current_instruction_revision)
+    )
+    implementer_ack = event_claude_ack(queue) if live_instruction_present else ""
+    implementer_ack_revision = (
+        str(bridge_liveness.get("claude_ack_revision") or "")
+        if live_instruction_present
+        else ""
+    )
+    ack_current = (
+        bool(bridge_liveness.get("claude_ack_current"))
+        if live_instruction_present
+        else False
+    )
     implementer_status = event_agent_status(review_state, "claude")
     claude_hint = provider_session_state_hint(dict(bridge_liveness), provider="claude")
     return ReviewCurrentSessionState(
@@ -163,11 +192,11 @@ def build_event_current_session(
         current_instruction_revision=current_instruction_revision,
         implementer_status=implementer_status,
         implementer_ack=implementer_ack,
-        implementer_ack_revision=str(bridge_liveness.get("claude_ack_revision") or ""),
+        implementer_ack_revision=implementer_ack_revision,
         implementer_ack_state=classify_implementer_ack_state(
             implementer_status=implementer_status,
             implementer_ack=implementer_ack,
-            ack_current=bool(bridge_liveness.get("claude_ack_current")),
+            ack_current=ack_current,
             stale_label="stale",
             is_substantive_text=_is_substantive_text,
         ),

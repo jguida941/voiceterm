@@ -24,7 +24,7 @@ def resolve_reviewer_wake_target(
     report: dict[str, object],
     operator_interaction_mode: str,
 ) -> tuple[dict[str, object] | None, dict[str, object] | None]:
-    """Select one pending codex action-request packet for wake, or None."""
+    """Select one pending codex wake packet for wake, or None."""
     if operator_interaction_mode.strip() != "remote_control":
         return None, None
 
@@ -42,9 +42,9 @@ def resolve_reviewer_wake_target(
         return None, None
 
     # Prefer typed packet_inbox for packet selection when present.
-    packet = _selected_codex_action_request_typed(report)
+    packet = _selected_codex_wake_packet_typed(report)
     if packet is None:
-        packet = _selected_codex_action_request(report)
+        packet = _selected_codex_wake_packet(report)
     if packet is None:
         return None, None
     if str(packet.get("delivery_observed_at_utc") or "").strip():
@@ -68,7 +68,7 @@ def resolve_reviewer_wake_paths(
     )
 
 
-def _selected_codex_action_request_typed(
+def _selected_codex_wake_packet_typed(
     report: dict[str, object],
 ) -> dict[str, object] | None:
     """Select a codex wake packet from typed packet_inbox when present."""
@@ -88,11 +88,22 @@ def _selected_codex_action_request_typed(
         break
     if codex_record is None:
         return None
-    if str(codex_record.get("attention_status") or "").strip() != "wake_required":
+    attention_status = str(codex_record.get("attention_status") or "").strip()
+    wake_reason = str(codex_record.get("wake_reason") or "").strip()
+    target_packet_id = ""
+    expected_kind = ""
+    if attention_status == "wake_required":
+        target_packet_id = str(
+            codex_record.get("current_instruction_packet_id") or ""
+        ).strip()
+        expected_kind = "action_request"
+    elif attention_status == "review_needed" and wake_reason == "finding_pending":
+        target_packet_id = str(
+            codex_record.get("latest_finding_packet_id") or ""
+        ).strip()
+        expected_kind = "finding"
+    else:
         return None
-    target_packet_id = str(
-        codex_record.get("current_instruction_packet_id") or ""
-    ).strip()
     if not target_packet_id:
         return None
     packets = report.get("packets")
@@ -103,30 +114,40 @@ def _selected_codex_action_request_typed(
             continue
         if str(packet.get("packet_id") or "").strip() != target_packet_id:
             continue
-        if str(packet.get("kind") or "").strip() != "action_request":
+        if str(packet.get("kind") or "").strip() != expected_kind:
             return None
         return packet
     return None
 
 
-def _selected_codex_action_request(
+def _selected_codex_wake_packet(
     report: dict[str, object],
 ) -> dict[str, object] | None:
-    """Legacy codex action-request selection from report dicts."""
+    """Legacy codex wake-packet selection from report dicts."""
     packet_inbox = report.get("packet_inbox")
     packets = report.get("packets")
     if not isinstance(packet_inbox, dict) or not isinstance(packets, list):
         return None
 
     current_packet_id = ""
+    expected_kind = ""
     for agent in packet_inbox.get("agents", ()):
         if not isinstance(agent, dict):
             continue
         if str(agent.get("agent") or "").strip() != "codex":
             continue
-        if str(agent.get("attention_status") or "").strip() != "wake_required":
+        attention_status = str(agent.get("attention_status") or "").strip()
+        wake_reason = str(agent.get("wake_reason") or "").strip()
+        if attention_status == "wake_required":
+            current_packet_id = str(
+                agent.get("current_instruction_packet_id") or ""
+            ).strip()
+            expected_kind = "action_request"
+        elif attention_status == "review_needed" and wake_reason == "finding_pending":
+            current_packet_id = str(agent.get("latest_finding_packet_id") or "").strip()
+            expected_kind = "finding"
+        else:
             return None
-        current_packet_id = str(agent.get("current_instruction_packet_id") or "").strip()
         break
     if not current_packet_id:
         return None
@@ -136,7 +157,7 @@ def _selected_codex_action_request(
             continue
         if str(packet.get("packet_id") or "").strip() != current_packet_id:
             continue
-        if str(packet.get("kind") or "").strip() != "action_request":
+        if str(packet.get("kind") or "").strip() != expected_kind:
             return None
         return packet
     return None

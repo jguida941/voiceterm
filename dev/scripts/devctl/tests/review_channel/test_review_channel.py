@@ -5094,6 +5094,27 @@ class ReviewChannelWatchFollowTests(unittest.TestCase):
         self.assertEqual(attention["status"], "checkpoint_required")
         self.assertIn("checkpoint", attention["summary"].lower())
 
+    def test_attention_does_not_infer_checkpoint_from_missing_edit_budget_truth(self) -> None:
+        from dev.scripts.devctl.review_channel.attention import derive_bridge_attention
+
+        liveness = {
+            "overall_state": "fresh",
+            "codex_poll_state": "fresh",
+            "reviewer_mode": "active_dual_agent",
+            "claude_status_present": True,
+            "claude_ack_present": True,
+            "claude_ack_current": True,
+            "reviewed_hash_current": True,
+            "implementer_completion_stall": False,
+            "publisher_running": True,
+            "push_enforcement": {
+                "checkpoint_required": False,
+            },
+        }
+
+        attention = derive_bridge_attention(liveness)
+        self.assertEqual(attention["status"], "healthy")
+
     def test_attention_prioritizes_review_follow_up_over_checkpoint_required(self) -> None:
         from dev.scripts.devctl.review_channel.attention import derive_bridge_attention
 
@@ -5232,6 +5253,9 @@ class ReviewChannelWatchFollowTests(unittest.TestCase):
             "overall_state": "waiting_on_peer",
             "codex_poll_state": "fresh",
             "reviewer_mode": "active_dual_agent",
+            "current_instruction": "Implement the current reviewer slice.",
+            "current_instruction_revision": "rev-123",
+            "last_reviewed_scope_present": True,
             "claude_status_present": True,
             "claude_ack_present": True,
             "claude_ack_current": False,
@@ -5241,6 +5265,27 @@ class ReviewChannelWatchFollowTests(unittest.TestCase):
         }
         attention = derive_bridge_attention(liveness)
         self.assertEqual(attention["status"], "claude_ack_stale")
+
+    def test_attention_ignores_claude_ack_when_no_live_instruction_exists(self) -> None:
+        from dev.scripts.devctl.review_channel.attention import derive_bridge_attention
+
+        liveness = {
+            "overall_state": "waiting_on_peer",
+            "codex_poll_state": "fresh",
+            "reviewer_mode": "active_dual_agent",
+            "current_instruction": "",
+            "current_instruction_revision": "",
+            "last_reviewed_scope_present": True,
+            "claude_status_present": True,
+            "claude_ack_present": True,
+            "claude_ack_current": False,
+            "reviewed_hash_current": True,
+            "implementer_completion_stall": False,
+            "publisher_running": True,
+        }
+
+        attention = derive_bridge_attention(liveness)
+        self.assertEqual(attention["status"], "waiting_on_peer")
 
     def test_attention_allows_implementer_relaunch_to_outrank_stall_contract_hint(self) -> None:
         from dev.scripts.devctl.review_channel.attention import derive_bridge_attention
@@ -8933,6 +8978,94 @@ class ReviewChannelCommandTests(unittest.TestCase):
         self.assertEqual(
             full_payload["push_enforcement"]["recommended_action"],
             "checkpoint_before_continue",
+        )
+
+    def test_refresh_status_snapshot_builds_push_decision_from_bridge_copy(self) -> None:
+        from dev.scripts.devctl.review_channel.state import refresh_status_snapshot
+        from dev.scripts.devctl.review_channel.status_push_decision import (
+            build_status_push_decision as real_build_status_push_decision,
+        )
+
+        push_state = {
+            "default_remote": "origin",
+            "development_branch": "main",
+            "release_branch": "main",
+            "pre_push_hook_path": "/tmp/repo/.git/hooks/pre-push",
+            "pre_push_hook_installed": True,
+            "raw_git_push_guarded": True,
+            "upstream_ref": "origin/main",
+            "ahead_of_upstream_commits": 0,
+            "dirty_path_count": 0,
+            "untracked_path_count": 0,
+            "max_dirty_paths_before_checkpoint": 12,
+            "max_untracked_paths_before_checkpoint": 6,
+            "checkpoint_required": False,
+            "safe_to_continue_editing": True,
+            "checkpoint_reason": "within_dirty_budget",
+            "worktree_dirty": False,
+            "worktree_clean": True,
+            "recommended_action": "continue",
+        }
+        captured: dict[str, object] = {}
+
+        def capture_push_decision(*, bridge_liveness, reviewer_runtime):
+            captured["bridge_liveness_id"] = id(bridge_liveness)
+            captured["review_accepted"] = bridge_liveness.get("review_accepted")
+            captured["publish_clear"] = bridge_liveness.get("publish_clear")
+            return real_build_status_push_decision(
+                bridge_liveness=bridge_liveness,
+                reviewer_runtime=reviewer_runtime,
+            )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            review_channel_path = root / "dev/active/review_channel.md"
+            review_channel_path.parent.mkdir(parents=True, exist_ok=True)
+            review_channel_path.write_text(
+                _build_review_channel_text(),
+                encoding="utf-8",
+            )
+            bridge_path = root / "bridge.md"
+            bridge_path.write_text(_build_bridge_text(), encoding="utf-8")
+            status_dir = root / "dev/reports/review_channel/latest"
+
+            with patch(
+                "dev.scripts.devctl.review_channel.state.build_bridge_push_enforcement_state",
+                return_value=push_state,
+            ), patch(
+                "dev.scripts.devctl.review_channel.state._load_lifecycle_states",
+                return_value=(
+                    {"running": True, "stop_reason": "", "pid": 10101},
+                    {"running": True, "stop_reason": "", "pid": 20202},
+                ),
+            ), patch(
+                "dev.scripts.devctl.review_channel.state.build_status_push_decision",
+                side_effect=capture_push_decision,
+            ):
+                status_snapshot = refresh_status_snapshot(
+                    repo_root=root,
+                    bridge_path=bridge_path,
+                    review_channel_path=review_channel_path,
+                    output_root=status_dir,
+                    promotion_plan_path=root / "dev/active/continuous_swarm.md",
+                    execution_mode="markdown-bridge",
+                    warnings=[],
+                    errors=[],
+                )
+
+        self.assertIn("review_accepted", status_snapshot.bridge_liveness)
+        self.assertIn("publish_clear", status_snapshot.bridge_liveness)
+        self.assertEqual(
+            captured["review_accepted"],
+            status_snapshot.bridge_liveness["review_accepted"],
+        )
+        self.assertEqual(
+            captured["publish_clear"],
+            status_snapshot.bridge_liveness["publish_clear"],
+        )
+        self.assertNotEqual(
+            captured["bridge_liveness_id"],
+            id(status_snapshot.bridge_liveness),
         )
 
     def test_projection_bundle_authority_snapshot_prefers_resync_command_over_push(

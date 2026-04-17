@@ -18,7 +18,6 @@ from .attach_auth_projection import (
 from .collaboration_session import build_collaboration_session
 from .core import DEFAULT_BRIDGE_REL
 from .current_session_projection import (
-    build_bridge_current_session,
     build_event_current_session,
     current_session_payload,
 )
@@ -236,23 +235,6 @@ def _resolve_current_session(
             current_instruction="",
             current_instruction_revision="",
         )
-    if current_session.current_instruction.strip() not in {"", "(missing)"}:
-        return current_session
-    if _event_session_has_packet_attention(current_session):
-        return current_session
-    if codex_packet_attention_requires_clear(review_state):
-        return current_session
-    if bridge_snapshot is None:
-        bridge_snapshot = _load_bridge_snapshot(context.repo_root)
-    if bridge_snapshot is None:
-        return current_session
-    bridge_session = deps.build_bridge_current_session(
-        bridge_snapshot,
-        bridge_liveness,
-        prior_review_state=context.prior_review_state,
-    )
-    if bridge_session.current_instruction.strip() not in {"", "(missing)"}:
-        return bridge_session
     return current_session
 
 
@@ -262,12 +244,3 @@ def _load_bridge_inputs(repo_root):
     except OSError:
         return "", None
     return bridge_text, extract_bridge_snapshot(bridge_text)
-
-
-def _load_bridge_snapshot(repo_root):
-    return _load_bridge_inputs(repo_root)[1]
-
-
-def _event_session_has_packet_attention(current_session) -> bool:
-    open_findings = str(getattr(current_session, "open_findings", "") or "").strip().lower()
-    return open_findings not in {"", "none"}
