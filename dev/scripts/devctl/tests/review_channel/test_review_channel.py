@@ -64,6 +64,7 @@ from dev.scripts.devctl.review_channel.event_store import (
     resolve_artifact_paths,
 )
 from dev.scripts.devctl.review_channel.launch_authority import (
+    PreparedLaunchAuthorityState,
     launch_session_token,
 )
 from dev.scripts.devctl.review_channel.launch import (
@@ -1807,6 +1808,48 @@ class ReviewChannelHelperTests(unittest.TestCase):
         self.assertEqual(len(conflicts), 1)
         self.assertEqual(conflicts[0].provider, "codex")
         self.assertIn("returned no match", conflicts[0].reason)
+
+    def test_detect_active_session_conflicts_ignores_refresh_recommended_no_process(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            sessions_dir = root / "latest/sessions"
+            sessions_dir.mkdir(parents=True, exist_ok=True)
+            metadata_path = sessions_dir / "codex-conductor.json"
+            log_path = sessions_dir / "codex-conductor.log"
+            metadata_path.write_text(
+                json.dumps(
+                    {
+                        "provider": "codex",
+                        "session_name": "codex-conductor",
+                        "repo_root": tmpdir,
+                        "script_path": str(sessions_dir / "codex-conductor.sh"),
+                        "log_path": str(log_path),
+                    }
+                ),
+                encoding="utf-8",
+            )
+            log_path.write_text("recent trace\n", encoding="utf-8")
+
+            with (
+                patch(
+                    "dev.scripts.devctl.review_channel.session_probe._probe_script_running",
+                    return_value=False,
+                ),
+                patch(
+                    "dev.scripts.devctl.review_channel.session_probe.assess_prepared_launch_authority",
+                    return_value=PreparedLaunchAuthorityState(
+                        state="refresh_recommended",
+                        reason="prepared git HEAD no longer matches the current repo HEAD",
+                    ),
+                ),
+            ):
+                conflicts = detect_active_session_conflicts(
+                    session_output_root=root / "latest"
+                )
+
+        self.assertEqual(conflicts, ())
 
     def test_validate_live_launch_conflicts_cleans_reclaimable_stale_visible_sessions(
         self,

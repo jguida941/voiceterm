@@ -76,6 +76,22 @@ def build_session_liveness_evidence(
             terminal_window_state=terminal_window_state,
         )
 
+    if (
+        process_running is False
+        and terminal_window_open is not True
+        and launch_authority_state == "refresh_recommended"
+    ):
+        reason = launch_authority_reason or (
+            "prepared launch authority needs refresh and no live conductor "
+            "process or Terminal window was found"
+        )
+        return SessionLivenessEvidence(
+            live=False,
+            reason=reason,
+            script_probe_state=script_probe_state,
+            terminal_window_state=terminal_window_state,
+        )
+
     if age_seconds is not None and age_seconds <= freshness_seconds:
         probe_detail = (
             "returned no match"
