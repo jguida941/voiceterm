@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 import re
 
-from .project_governance import DocRegistry, PlanRegistry, ProjectGovernance
+from .project_governance import DocRegistry, PlanRegistry, PlanRegistryEntry, ProjectGovernance
 
 _MP_RANGE_RE = re.compile(r"MP-(?P<start>\d+)\s*\.\.\s*MP-(?P<end>\d+)")
 _MP_TOKEN_RE = re.compile(r"MP-(?P<num>\d+)")
@@ -164,7 +164,125 @@ def _path_in_root(path: str, root: str) -> bool:
     )
 
 
+def render_index_projection(plan_registry: PlanRegistry) -> str:
+    """Render INDEX.md content as a bounded projection from PlanRegistry.
+
+    Produces a markdown registry table matching the existing INDEX.md format
+    so the markdown file becomes a deterministic rendering over typed state
+    rather than hand-edited mutable authority.
+    """
+    lines: list[str] = [
+        "# Active Docs Index",
+        "",
+        "<!-- Generated projection from PlanRegistry. Do not hand-edit. -->",
+        "",
+        "## Registry",
+        "",
+        "| Path | Role | Execution authority | MP scope | When agents read |",
+        "|---|---|---|---|---|",
+    ]
+    for entry in plan_registry.entries:
+        path = str(entry.path or "").strip()
+        if not path:
+            continue
+        lines.append(_index_row(entry))
+    lines.append("")
+    return "\n".join(lines)
+
+
+def _index_row(entry: PlanRegistryEntry) -> str:
+    """Format one PlanRegistryEntry as an INDEX.md table row."""
+    path = f"`{entry.path}`"
+    role = f"`{entry.role}`" if entry.role else ""
+    authority = f"`{entry.authority}`" if entry.authority else ""
+    scope = str(entry.scope or "")
+    when = str(entry.when_agents_read or "")
+    return f"| {path} | {role} | {authority} | {scope} | {when} |"
+
+
+_LIFECYCLE_ORDER = ("active", "complete", "deferred", "unknown")
+
+
+def render_master_plan_projection(plan_registry: PlanRegistry) -> str:
+    """Render MASTER_PLAN.md plan-entry listing from PlanRegistry.
+
+    Groups entries by lifecycle and renders each with title, scope, role,
+    and path so the plan tracker becomes a bounded projection over typed
+    state rather than hand-edited prose.
+    """
+    lines: list[str] = [
+        "# Master Plan (Active, Unified)",
+        "",
+        "<!-- Generated projection from PlanRegistry. Do not hand-edit. -->",
+        "",
+    ]
+    grouped = _group_by_lifecycle(plan_registry)
+    for lifecycle in _LIFECYCLE_ORDER:
+        entries = grouped.get(lifecycle)
+        if not entries:
+            continue
+        heading = _lifecycle_heading(lifecycle)
+        lines.append(f"## {heading}")
+        lines.append("")
+        for entry in entries:
+            lines.extend(_master_plan_entry_lines(entry))
+        lines.append("")
+    leftover = sorted(set(grouped) - set(_LIFECYCLE_ORDER))
+    for lifecycle in leftover:
+        entries = grouped[lifecycle]
+        heading = _lifecycle_heading(lifecycle)
+        lines.append(f"## {heading}")
+        lines.append("")
+        for entry in entries:
+            lines.extend(_master_plan_entry_lines(entry))
+        lines.append("")
+    return "\n".join(lines)
+
+
+def _group_by_lifecycle(
+    plan_registry: PlanRegistry,
+) -> dict[str, list[PlanRegistryEntry]]:
+    """Group plan-registry entries by lifecycle for MASTER_PLAN rendering."""
+    grouped: dict[str, list[PlanRegistryEntry]] = {}
+    for entry in plan_registry.entries:
+        lifecycle = str(entry.lifecycle or "unknown").strip() or "unknown"
+        grouped.setdefault(lifecycle, []).append(entry)
+    return grouped
+
+
+def _lifecycle_heading(lifecycle: str) -> str:
+    """Map a lifecycle value to a human-readable MASTER_PLAN section heading."""
+    headings = {
+        "active": "Active Plans",
+        "complete": "Completed Plans",
+        "deferred": "Deferred Plans",
+        "unknown": "Uncategorized Plans",
+    }
+    return headings.get(lifecycle, f"Plans ({lifecycle})")
+
+
+def _master_plan_entry_lines(entry: PlanRegistryEntry) -> list[str]:
+    """Render one PlanRegistryEntry as MASTER_PLAN bullet lines."""
+    title = str(entry.title or "").strip() or Path(entry.path).stem
+    path = str(entry.path or "").strip()
+    scope = str(entry.scope or "").strip()
+    role = str(entry.role or "").strip()
+    parts = [f"- **{title}** (`{path}`)"]
+    details: list[str] = []
+    if scope:
+        details.append(f"Scope: {scope}")
+    if role:
+        details.append(f"Role: {role}")
+    if entry.authority:
+        details.append(f"Authority: {entry.authority}")
+    if details:
+        parts.append(f"  - {' | '.join(details)}")
+    return parts
+
+
 __all__ = [
+    "render_index_projection",
+    "render_master_plan_projection",
     "resolve_doc_registry_path_for_scope",
     "resolve_governed_doc_path_for_scope",
     "plan_index_by_mp",
