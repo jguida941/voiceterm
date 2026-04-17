@@ -24,9 +24,9 @@ def prefer_bridge_current_session(
     bridge_liveness: Mapping[str, object] | None = None,
 ) -> bool:
     """Return whether live bridge-backed reviewer state should replace the cache."""
-    bridge_key = _current_session_authority_key(bridge_session)
-    if not any(bridge_key):
+    if not _current_session_has_authority_signal(bridge_session):
         return False
+    bridge_key = _current_session_authority_key(bridge_session)
     if _bridge_rollover_fallback_instruction(bridge_session.current_instruction):
         return False
     reviewer_freshness = str(

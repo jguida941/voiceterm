@@ -2019,6 +2019,18 @@ Docs governance guardrails:
   change: update `AGENTS.md`, this guide, `dev/active/MASTER_PLAN.md`, and
   `dev/history/ENGINEERING_EVOLUTION.md` in the same slice unless the diff is
   explicitly documented as an exemption.
+- Review-channel `current_session` is fail-closed on explicit packet truth:
+  blank queue state alone preserves the prior typed instruction/ACK posture,
+  while explicit packet authority with no live current-instruction packet may
+  clear it. Queue `derived_next_instruction` only feeds Claude's live
+  instruction when `derived_next_instruction_source.to_agent` is blank or
+  `claude`; reviewer-targeted (`codex`) instructions stay in attention/open-
+  findings. Missing or empty typed `implementation_permission` is likewise a
+  hard mutation block in `derive_implementation_admissibility()`. When you
+  change this contract, update `AGENTS.md`, this guide,
+  `dev/scripts/README.md`, `dev/active/MASTER_PLAN.md`,
+  `dev/active/ai_governance_platform.md`, and
+  `dev/history/ENGINEERING_EVOLUTION.md` in the same slice.
 - `python3 dev/scripts/checks/check_workflow_action_pinning.py` blocks non-SHA and dynamic `uses:` refs in workflow files.
 - `python3 dev/scripts/checks/check_guard_enforcement_inventory.py` blocks registered check scripts from drifting out of bundle/workflow enforcement lanes unless they are explicitly marked helper-only, manual-only, or temporary advisory backlog exceptions. Shared hard guards should also appear in the resolved `quality-policy` inventory so `devctl check`, generated surfaces, and workflow/bundle enforcement all describe the same lane.
 - `python3 dev/scripts/devctl.py hygiene --strict-warnings --ignore-warning-source mutation_badge` also treats public `dev/scripts/checks/check_*.py` entrypoints as self-hosting maintainer surfaces: if you add or shim a guard, register it in `dev/scripts/devctl/script_catalog.py` and document it in `dev/scripts/README.md` in the same change or governed push preflight will fail later on catalog/README drift.

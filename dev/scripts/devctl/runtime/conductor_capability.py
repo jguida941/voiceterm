@@ -10,7 +10,7 @@ _SESSION_RESUME_BASE_COMMAND = "python3 dev/scripts/devctl.py session-resume"
 _CONTEXT_GRAPH_BOOTSTRAP_COMMAND = (
     "python3 dev/scripts/devctl.py context-graph --mode bootstrap --format md"
 )
-_DEFAULT_REVIEWER_MODE = "active_dual_agent"
+_DEFAULT_REVIEWER_MODE = "tools_only"
 _KNOWN_REVIEWER_MODES = {
     "active_dual_agent",
     "single_agent",

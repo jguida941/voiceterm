@@ -12,6 +12,10 @@ from dev.scripts.devctl.commands.review_channel._attach_remote_control import (
     _session_id_from_url,
     run_attach_remote_control_action,
 )
+from dev.scripts.devctl.review_channel.events import (
+    post_packet,
+    resolve_artifact_paths,
+)
 from dev.scripts.devctl.commands.review_channel_command.constants import (
     ReviewChannelAction,
 )
@@ -26,6 +30,11 @@ from dev.scripts.devctl.review_channel.remote_control_attachment_artifact import
 from dev.scripts.devctl.runtime.reviewer_runtime_models import (
     RemoteControlAttachmentState,
 )
+from dev.scripts.devctl.review_channel.packet_contract import PacketPostRequest
+from dev.scripts.devctl.tests.test_review_channel_context_refs import (
+    _review_channel_text,
+)
+from dev.scripts.devctl.repo_packs import active_path_config
 
 
 def _make_attach_args(**overrides: object) -> SimpleNamespace:
@@ -318,6 +327,48 @@ def test_provider_parameterized_artifacts_do_not_clobber_each_other(
     scanned = load_remote_control_attachment(output_root=status_dir)
     assert scanned is not None
     assert scanned.provider == "codex"
+
+
+def test_post_packet_refreshes_active_remote_control_attachment_last_seen(
+    tmp_path: Path,
+) -> None:
+    review_channel_path = tmp_path / "dev/active/review_channel.md"
+    review_channel_path.parent.mkdir(parents=True, exist_ok=True)
+    review_channel_path.write_text(_review_channel_text(), encoding="utf-8")
+    artifact_paths = resolve_artifact_paths(repo_root=tmp_path)
+    status_dir = tmp_path / active_path_config().review_status_dir_rel
+    persist_remote_control_attachment(
+        RemoteControlAttachmentState(
+            provider="claude",
+            role="operator",
+            attachment_id="remote-attach-claude",
+            session_name="Claude remote control",
+            remote_session_id="session_claude",
+            session_url="https://claude.ai/code/session_claude",
+            status="attached",
+            attached_at_utc="2026-04-09T00:00:00Z",
+            last_seen_utc="2026-04-09T00:00:01Z",
+        ),
+        output_root=status_dir,
+    )
+
+    _, event = post_packet(
+        repo_root=tmp_path,
+        review_channel_path=review_channel_path,
+        artifact_paths=artifact_paths,
+        request=PacketPostRequest(
+            from_agent="claude",
+            to_agent="codex",
+            kind="instruction",
+            summary="Remote-control heartbeat proof",
+            body="Refresh the active remote attachment timestamp on post.",
+        ),
+    )
+
+    attachment = load_remote_control_attachment(output_root=status_dir, provider="claude")
+
+    assert attachment is not None
+    assert attachment.last_seen_utc == event["timestamp_utc"]
 
 
 def test_session_id_from_url_strips_query_and_fragment() -> None:

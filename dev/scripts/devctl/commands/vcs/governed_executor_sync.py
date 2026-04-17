@@ -2,13 +2,16 @@
 
 from __future__ import annotations
 
+import json
 from dataclasses import replace
 from pathlib import Path
 
 from ...governance.push_state_support import is_expired
 from ...repo_packs import active_path_config
-from ...review_channel.event_reducer import load_or_refresh_event_bundle, refresh_event_bundle
+from ...review_channel.event_reducer import refresh_event_bundle, reduce_events
+from ...review_channel.event_reducer_lanes import load_lane_assignments
 from ...review_channel.event_store import resolve_artifact_paths
+from ...review_channel.event_store import load_events
 from ...review_channel.remote_commit_pipeline_artifact import (
     persist_remote_commit_pipeline_contract,
 )
@@ -212,20 +215,31 @@ def load_event_packets(
     repo_root: Path,
     review_channel_path: Path | None,
 ) -> tuple[ReviewPacketState, ...]:
-    """Load review-channel event packets for approval sync."""
+    """Load review-channel packet rows without rebuilding full projections."""
     if review_channel_path is None or not review_channel_path.exists():
         return ()
     artifact_paths = resolve_artifact_paths(repo_root=repo_root)
     event_log = Path(artifact_paths.event_log_path)
     state_path = Path(artifact_paths.state_path)
-    if not event_log.exists() and not state_path.exists():
+    if event_log.exists():
+        try:
+            review_state, _ = reduce_events(
+                events=load_events(event_log),
+                repo_root=repo_root,
+                review_channel_path=review_channel_path,
+                lanes=load_lane_assignments(review_channel_path),
+            )
+        except ValueError:
+            return ()
+        parsed = review_state_from_payload(review_state)
+        return () if parsed is None else parsed.packets
+    if not state_path.exists():
         return ()
     try:
-        bundle = load_or_refresh_event_bundle(
-            repo_root=repo_root,
-            review_channel_path=review_channel_path,
-            artifact_paths=artifact_paths,
-        )
-    except ValueError:
+        payload = json.loads(state_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
         return ()
-    return review_state_from_payload(bundle.review_state).packets
+    if not isinstance(payload, dict):
+        return ()
+    parsed = review_state_from_payload(payload)
+    return () if parsed is None else parsed.packets

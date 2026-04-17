@@ -33,6 +33,61 @@ class AuthorityActionInputs:
     recovery_authority: Mapping[str, object]
 
 
+def _resolved_next_command(
+    *,
+    payload: Mapping[str, object],
+    recovery_authority: Mapping[str, object],
+    doctor: Mapping[str, object],
+    decision: Mapping[str, object],
+    next_command: str,
+) -> str:
+    command = (
+        next_command
+        or str(recovery_authority.get("command") or "").strip()
+        or str(payload.get("next_command") or "").strip()
+        or str(doctor.get("decision_command") or "").strip()
+        or str(decision.get("command") or "").strip()
+        or str(payload.get("recommended_command") or "").strip()
+    )
+    if command:
+        return command
+    if (
+        "reviewer_gate" in payload
+        or "implementation_permission" in payload
+        or "push_decision" in payload
+    ):
+        return summary_next_command(payload)
+    return ""
+
+
+def _resolved_action_sets(
+    *,
+    payload: Mapping[str, object],
+    command: str,
+    caller_role: object,
+    reviewer_override: bool,
+) -> tuple[tuple[str, ...], tuple[str, ...]]:
+    allowed_actions = _string_items(payload.get("allowed_actions"))
+    blocked_actions = _string_items(payload.get("blocked_actions"))
+    if allowed_actions or blocked_actions:
+        return allowed_actions, blocked_actions
+    if not (
+        "coordination" in payload
+        or "implementation_permission" in payload
+        or "reviewer_gate" in payload
+        or "work_intake" in payload
+        or "governance" in payload
+    ):
+        return allowed_actions, blocked_actions
+    routing = build_startup_action_routing(
+        payload,
+        next_command=command,
+        caller_role=caller_role,
+        reviewer_override=reviewer_override,
+    )
+    return routing.allowed_actions, routing.blocked_actions
+
+
 def build_authority_snapshot(
     payload: Mapping[str, object],
     *,
@@ -42,45 +97,29 @@ def build_authority_snapshot(
 ) -> AuthoritySnapshot:
     """Reduce a startup/session/status payload into one compact authority object."""
     recovery_authority = _mapping(payload.get("recovery_authority"))
-    command = (
-        next_command
-        or str(recovery_authority.get("command") or "").strip()
-        or str(payload.get("next_command") or "").strip()
-    )
-    if not command and (
-        "reviewer_gate" in payload
-        or "implementation_permission" in payload
-        or "push_decision" in payload
-    ):
-        command = summary_next_command(payload)
-
-    allowed_actions = _string_items(payload.get("allowed_actions"))
-    blocked_actions = _string_items(payload.get("blocked_actions"))
-    if not allowed_actions and not blocked_actions and (
-        "coordination" in payload
-        or "implementation_permission" in payload
-        or "reviewer_gate" in payload
-        or "work_intake" in payload
-        or "governance" in payload
-    ):
-        routing = build_startup_action_routing(
-            payload,
-            next_command=command,
-            caller_role=caller_role,
-            reviewer_override=reviewer_override,
-        )
-        allowed_actions = routing.allowed_actions
-        blocked_actions = routing.blocked_actions
-
-    coordination = _mapping(payload.get("coordination"))
-    current_session = _mapping(payload.get("current_session"))
-    reviewer_gate = _mapping(payload.get("reviewer_gate"))
-    reviewer_runtime = _mapping(payload.get("reviewer_runtime"))
     attention = _mapping(payload.get("attention"))
     doctor = _mapping(payload.get("doctor"))
     recovery = _mapping(payload.get("recovery_assessment"))
     diagnosis = _mapping(recovery.get("diagnosis"))
     decision = _mapping(recovery.get("decision"))
+    command = _resolved_next_command(
+        payload=payload,
+        recovery_authority=recovery_authority,
+        doctor=doctor,
+        decision=decision,
+        next_command=next_command,
+    )
+    allowed_actions, blocked_actions = _resolved_action_sets(
+        payload=payload,
+        command=command,
+        caller_role=caller_role,
+        reviewer_override=reviewer_override,
+    )
+
+    coordination = _mapping(payload.get("coordination"))
+    current_session = _mapping(payload.get("current_session"))
+    reviewer_gate = _mapping(payload.get("reviewer_gate"))
+    reviewer_runtime = _mapping(payload.get("reviewer_runtime"))
     packet_inbox = _mapping(payload.get("packet_inbox"))
     current_instruction = str(current_session.get("current_instruction") or "").strip()
     clear_from_packet_truth = _codex_instruction_requires_clear(packet_inbox)

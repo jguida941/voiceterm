@@ -180,7 +180,7 @@ def summary_blockers(ctx_dict: Mapping[str, object]) -> tuple[str, ...]:
     if permission in {"blocked", "suspended"}:
         blockers.append(f"implementation_permission_{permission}")
 
-    return tuple(blockers)
+    return tuple(dict.fromkeys(blockers))
 
 
 def summary_blockers_csv(ctx_dict: Mapping[str, object]) -> str:
@@ -217,6 +217,12 @@ def summary_next_command(ctx_dict: Mapping[str, object]) -> str:
     blockers = summary_blockers(ctx_dict)
     if not blockers:
         return _CONTEXT_GRAPH_BOOTSTRAP_COMMAND
+
+    recovery_authority = _mapping(ctx_dict.get("recovery_authority"))
+    recovery_action = str(recovery_authority.get("decision_action_id") or "").strip()
+    recovery_command = str(recovery_authority.get("command") or "").strip()
+    if recovery_action == "cut_checkpoint" and recovery_command:
+        return recovery_command
 
     reviewer_command = reviewer_recovery_command(ctx_dict)
     if reviewer_command:

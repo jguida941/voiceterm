@@ -61,6 +61,15 @@ class TestConductorCapability(unittest.TestCase):
         self.assertEqual(capability.worker_unavailable_policy, "self_execute")
         self.assertEqual(capability.queue_policy, "implement_assigned_work")
 
+    def test_missing_mode_fails_closed_for_implementer_capability(self) -> None:
+        capability = build_conductor_capability_state(
+            provider="claude",
+            reviewer_mode="",
+        )
+
+        self.assertFalse(capability.may_edit_repo)
+        self.assertEqual(capability.queue_policy, "inactive")
+
     def test_explicit_role_override_allows_swapped_provider_assignments(self) -> None:
         reviewer = build_conductor_capability_state(
             provider="claude",

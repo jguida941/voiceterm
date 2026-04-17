@@ -14,6 +14,9 @@ from dev.scripts.devctl.review_channel.current_session_projection import (
     event_agent_status,
     resolve_current_session_authority,
 )
+from dev.scripts.devctl.review_channel.current_session_authority import (
+    prefer_bridge_current_session,
+)
 from dev.scripts.devctl.review_channel.current_session_support import (
     prior_typed_current_session,
 )
@@ -66,6 +69,39 @@ def test_event_agent_status_prefers_typed_registry_rows() -> None:
     }
 
     assert event_agent_status(review_state, "claude") == "active"
+
+
+def test_prefer_bridge_current_session_fails_closed_when_bridge_has_no_authority() -> None:
+    prior_session = ReviewCurrentSessionState(
+        current_instruction="Keep the checkpoint lane stable.",
+        current_instruction_revision="typed-rev-999",
+        implementer_status="active",
+        implementer_ack="acknowledged",
+        implementer_ack_revision="typed-rev-999",
+        implementer_ack_state="current",
+        implementer_state_hash="state-hash",
+        implementer_session_state="active",
+        implementer_session_hint="live",
+        open_findings="none",
+        last_reviewed_scope="MP-355",
+    )
+    bridge_session = ReviewCurrentSessionState(
+        current_instruction="",
+        current_instruction_revision="",
+        implementer_status="",
+        implementer_ack="",
+        implementer_ack_revision="",
+        implementer_ack_state="missing",
+    )
+
+    assert (
+        prefer_bridge_current_session(
+            prior_session=prior_session,
+            bridge_session=bridge_session,
+            bridge_liveness={},
+        )
+        is False
+    )
 
 
 def test_build_event_current_session_uses_registry_without_compat_agents() -> None:
@@ -184,6 +220,54 @@ def test_build_event_current_session_does_not_promote_findings_to_instruction() 
                     "summary": "Dashboard dogfood: 6 critical issues",
                     "body": "Finding only.",
                     "kind": "finding",
+                    "from_agent": "claude",
+                    "to_agent": "codex",
+                    "requested_action": "review_only",
+                    "expires_at_utc": "2999-01-01T00:00:00Z",
+                }
+            ],
+            "registry": {
+                "agents": [
+                    {
+                        "agent_id": "claude",
+                        "job_state": "active",
+                    }
+                ]
+            },
+        },
+        bridge_liveness={
+            "current_instruction_revision": "abc123def456",
+            "claude_ack_revision": "",
+            "claude_ack_current": False,
+        },
+    )
+
+    assert state.current_instruction == ""
+    assert state.open_findings == "1 pending review packet(s)"
+
+
+def test_build_event_current_session_ignores_non_claude_instruction_source() -> None:
+    state = build_event_current_session(
+        review_state={
+            "review": {"plan_id": "MP-355"},
+            "queue": {
+                "pending_total": 1,
+                "pending_claude": 0,
+                "derived_next_instruction": "Claude sent Codex a reviewer-only note.",
+                "derived_next_instruction_source": {
+                    "packet_id": "rev_pkt_0884",
+                    "kind": "instruction",
+                    "from_agent": "claude",
+                    "to_agent": "codex",
+                },
+            },
+            "packets": [
+                {
+                    "packet_id": "rev_pkt_0884",
+                    "status": "pending",
+                    "summary": "Claude sent Codex a reviewer-only note.",
+                    "body": "review only",
+                    "kind": "instruction",
                     "from_agent": "claude",
                     "to_agent": "codex",
                     "requested_action": "review_only",
@@ -356,11 +440,11 @@ def test_build_event_current_session_clears_prior_instruction_when_queue_is_empt
         },
     )
 
-    assert state.current_instruction == ""
-    assert state.current_instruction_revision == ""
-    assert state.implementer_ack == ""
+    assert state.current_instruction == "Keep the checkpoint lane stable."
+    assert state.current_instruction_revision == "typed-rev-999"
+    assert state.implementer_ack == "acknowledged"
     assert state.implementer_ack_revision == ""
-    assert state.implementer_ack_state == "missing"
+    assert state.implementer_ack_state == "stale"
     assert state.implementer_status == "active"
 
 
@@ -399,8 +483,8 @@ def test_event_projection_current_session_clears_prior_instruction_when_queue_is
             ),
         )
 
-    assert current_session.current_instruction == ""
-    assert current_session.current_instruction_revision == ""
+    assert current_session.current_instruction == "Keep the checkpoint lane stable."
+    assert current_session.current_instruction_revision == "typed-rev-999"
 
 
 def test_build_event_current_session_clears_prior_instruction_when_packets_still_need_attention() -> None:
@@ -761,6 +845,40 @@ def test_build_event_current_session_canonicalizes_instruction_markdown_revision
                 "pending_total": 1,
                 "pending_claude": 0,
                 "derived_next_instruction": raw_instruction,
+                "derived_next_instruction_source": {
+                    "packet_id": "rev_pkt_0420",
+                    "kind": "instruction",
+                    "from_agent": "codex",
+                    "to_agent": "claude",
+                },
+            },
+            "packets": [
+                {
+                    "packet_id": "rev_pkt_0420",
+                    "status": "pending",
+                    "summary": "Current-instruction authority now converged",
+                    "body": raw_instruction,
+                    "kind": "instruction",
+                    "from_agent": "codex",
+                    "to_agent": "claude",
+                    "requested_action": "continue",
+                    "expires_at_utc": "2999-01-01T00:00:00Z",
+                }
+            ],
+            "packet_inbox": {
+                "agents": [
+                    {
+                        "agent": "codex",
+                        "current_instruction_packet_id": "rev_pkt_0420",
+                        "pending_actionable_packet_ids": ["rev_pkt_0420"],
+                        "expired_unresolved_packet_ids": [],
+                        "attention_status": "review_needed",
+                        "wake_reason": "pending_instruction",
+                        "required_command": "",
+                        "attention_revision": "codex-attention-rev",
+                        "delivery_state": "unseen",
+                    }
+                ]
             },
             "registry": {
                 "agents": [

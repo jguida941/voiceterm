@@ -91,6 +91,15 @@ def add_commit_parser(subparsers: argparse._SubParsersAction) -> None:
         help="Amend the previous commit (passed to git commit --amend)",
     )
     commit_cmd.add_argument(
+        "--approve-pending",
+        action="store_true",
+        help=(
+            "Operator-owned remote-control resume: approve the current governed "
+            "pipeline and continue the existing commit without reconstructing "
+            "packet fields by hand."
+        ),
+    )
+    commit_cmd.add_argument(
         "--role",
         choices=("dashboard", "implementer", "observer", "reviewer"),
         default=None,

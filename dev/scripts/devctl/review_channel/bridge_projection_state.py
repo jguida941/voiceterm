@@ -162,7 +162,7 @@ def bridge_projection_metadata_lines(
         f"- Last Codex poll: `{last_codex_poll_utc}`",
         f"- Last Codex poll (Local {tz_label}): "
         f"`{last_codex_poll_local}`",
-        f"- Reviewer mode: `{metadata.get('reviewer_mode', 'active_dual_agent')}`",
+        f"- Reviewer mode: `{metadata.get('reviewer_mode', 'tools_only')}`",
         f"- Last non-audit worktree hash: `{last_worktree_hash}`",
         f"- Current instruction revision: `{current_revision}`",
     ]

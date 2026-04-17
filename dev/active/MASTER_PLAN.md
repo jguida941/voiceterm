@@ -201,6 +201,43 @@
   startup-context, and turn-authority on one shared `snapshot_id` family
   during governed push preflight instead of relying on a previous
   bridge-backed refresh to materialize the compat bridge payload.
+- 2026-04-17 current-session authority hardening follow-up in `MP-377` /
+  `MP-355` scope: event-backed `current_session` now requires explicit packet
+  truth before blank queue state can clear a prior typed instruction, ignores
+  queue instructions whose `derived_next_instruction_source.to_agent` is not
+  `claude`, and refuses to let bridge-backed authority override persisted
+  typed state when the live bridge contributes no authority signal. The same
+  slice makes missing/empty typed `implementation_permission` a hard
+  `ImplementationAdmissibility` block and marks
+  `relaunch_review_loop` auto-fixable so reviewer-follow auto-relaunch only
+  fires when the typed recovery decision explicitly allows it. Focused proof
+  is green on `test_current_session_projection.py`,
+  `test_implementation_admissibility.py`, and
+  `test_reviewer_follow_restore_policy.py`.
+- 2026-04-17 checkpoint-first detached-runtime follow-up in `MP-377` scope:
+  detached `active_dual_agent` runtime no longer outranks stronger checkpoint
+  authority when the review proof is already current. When
+  `reviewed_hash_current=true`, `review_needed=false`, and typed
+  `push_enforcement` already says the tree is over budget, shared attention
+  now emits `checkpoint_required`, status/doctor/startup all converge on
+  `cut_checkpoint` plus
+  `python3 dev/scripts/devctl.py commit -m "<descriptive message>"`, and the
+  reduced `authority_snapshot` / startup action router allow `vcs.stage` and
+  `vcs.commit` while still blocking `implementation.edit`. Focused proof is
+  green on `test_recovery_assessment.py`, `test_action_routing.py`,
+  `test_startup_context.py`, and the checkpoint-routing status regressions in
+  `test_review_channel.py`.
+- 2026-04-17 remote-control commit approval automation follow-up in
+  `MP-377` scope: the repo now exposes
+  `python3 dev/scripts/devctl.py commit --approve-pending` as the explicit
+  operator-owned resume path for remote-control checkpoints. The helper
+  reuses the current governed pipeline, posts/applies the matching typed
+  `commit_approval` decision, and continues the same `vcs.commit` without
+  manual packet field reconstruction. The approval helper and commit-phase
+  packet loader now read reduced packet rows directly instead of forcing a
+  full event-bundle enrichment pass just to match approval packets. Focused
+  proof is green, and the remaining latency hotspot sits in the first-stage
+  remote-control `devctl commit -m ...` preflight/context-graph path.
 - 2026-04-15 governed publication follow-up in `MP-377` scope:
   `devctl commit` now stops at `operator_approval_pending` before the commit
   phase when `remote_control` or another non-auto-approved lane still has an
@@ -4024,8 +4061,12 @@ become the main product surface.
   current Claude ACK but launch truth degrades to
   `detached_runtime_only`/`automation_only`/`hybrid_claude_only`,
   status/startup/doctor no longer misroute that state through
-  `reset-implementer-state`; they emit `review_loop_relaunch_required` and
-  the reviewer-owned `launch|rollover` recovery command instead.
+  `reset-implementer-state`; if checkpoint authority is otherwise clear they
+  emit `review_loop_relaunch_required` and the reviewer-owned
+  `launch|rollover` recovery command instead, but an over-budget
+  `reviewed_hash_current=true` / `review_needed=false` snapshot now preempts
+  that detached-runtime repair with `checkpoint_required` plus the governed
+  checkpoint command.
   2026-04-08 launch-warmup follow-up: typed session-state hints now require a
   true idle prompt before they emit `waiting_for_user_input`. Fresh Terminal
   launch/recover sessions that still show active `esc to interrupt` progress,

@@ -98,6 +98,7 @@ def _emit_bootstrap(args, repo_root: Path, *, role: str) -> int:
             ],
             cwd=str(repo_root),
             capture_output=True,
+            check=False,
             text=True,
             timeout=30,
         )

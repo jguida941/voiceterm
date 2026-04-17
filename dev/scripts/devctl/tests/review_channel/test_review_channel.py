@@ -10739,7 +10739,9 @@ class ReviewChannelCommandTests(unittest.TestCase):
                 )
             )
 
-    def test_run_status_prioritizes_bridge_contract_error_over_checkpoint_required(self) -> None:
+    def test_run_status_prefers_checkpoint_when_review_current_and_budget_exhausted(
+        self,
+    ) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
             review_channel_path = root / "dev/active/review_channel.md"
@@ -10795,7 +10797,22 @@ class ReviewChannelCommandTests(unittest.TestCase):
             self.assertEqual(rc, 0)
             payload = json.loads(output_path.read_text(encoding="utf-8"))
             self.assertEqual(
-                payload["attention"]["status"], "review_loop_relaunch_required"
+                payload["attention"]["status"], "checkpoint_required"
+            )
+            self.assertIn("dev/scripts/devctl.py commit -m", payload["attention"]["recommended_command"])
+            self.assertEqual(
+                payload["authority_snapshot"]["required_action"],
+                "cut_checkpoint",
+            )
+            self.assertIn(
+                "dev/scripts/devctl.py commit -m",
+                payload["authority_snapshot"]["next_command"],
+            )
+            self.assertIn("vcs.stage", payload["authority_snapshot"]["allowed_actions"])
+            self.assertIn("vcs.commit", payload["authority_snapshot"]["allowed_actions"])
+            self.assertIn(
+                "implementation.edit",
+                payload["authority_snapshot"]["blocked_actions"],
             )
             self.assertTrue(
                 payload["bridge_liveness"]["push_enforcement"]["checkpoint_required"]

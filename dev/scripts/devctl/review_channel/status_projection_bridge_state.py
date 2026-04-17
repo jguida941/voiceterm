@@ -17,6 +17,7 @@ from ..runtime.role_profile import TandemRole, default_provider_for_role
 from .collaboration_provider import collaboration_provider
 from .launch_truth import classify_launch_truth, effective_reviewer_mode
 from .handoff import BridgeSnapshot
+from .peer_liveness import resolve_reported_reviewer_mode
 
 
 def build_typed_bridge_liveness(
@@ -49,12 +50,13 @@ def build_typed_bridge_liveness(
     implementer_ack = str(
         typed.get("implementer_ack") or typed.get("claude_ack") or ""
     )
-    reviewer_mode = str(typed.get("reviewer_mode") or "active_dual_agent")
+    reviewer_mode = resolve_reported_reviewer_mode(typed)
     live_provider_ids = _live_participant_providers(collaboration)
     if collaboration is not None:
         typed["active_conductor_providers"] = list(live_provider_ids)
         typed["codex_conductor_active"] = "codex" in live_provider_ids
         typed["claude_conductor_active"] = "claude" in live_provider_ids
+    typed["reviewer_mode"] = reviewer_mode
     typed["reviewer_poll_state"] = reviewer_poll_state
     typed["codex_poll_state"] = reviewer_poll_state
     typed["last_reviewer_poll_utc"] = reviewer_poll_utc
@@ -136,7 +138,7 @@ def build_review_bridge_state(
 ) -> ReviewBridgeState:
     reviewed_hash_current = bridge_liveness.get("reviewed_hash_current")
     review_needed = bridge_liveness.get("review_needed")
-    reviewer_mode = str(bridge_liveness.get("reviewer_mode") or "active_dual_agent")
+    reviewer_mode = resolve_reported_reviewer_mode(bridge_liveness)
     effective_mode = str(
         bridge_liveness.get("effective_reviewer_mode") or reviewer_mode
     )
@@ -156,9 +158,7 @@ def build_review_bridge_state(
         reviewer_freshness=str(
             bridge_liveness.get("reviewer_freshness") or "unknown"
         ),
-        reviewer_mode=str(
-            bridge_liveness.get("reviewer_mode") or "active_dual_agent"
-        ),
+        reviewer_mode=reviewer_mode,
         last_codex_poll_utc=str(snapshot.metadata.get("last_codex_poll_utc") or ""),
         last_codex_poll_age_seconds=int(
             bridge_liveness.get("last_codex_poll_age_seconds") or 0

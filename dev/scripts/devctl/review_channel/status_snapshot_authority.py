@@ -10,6 +10,7 @@ from ..runtime.review_packet_inbox import (
     packet_inbox_from_review_state,
     summarize_packet_attention_open_findings,
 )
+from .current_session_attention import has_explicit_packet_truth
 from .current_session_projection import (
     current_session_authority_drift_warning,
     instruction_revision_reuse_warning,
@@ -125,7 +126,15 @@ def _normalize_current_session_from_packet_truth(
         resolved_review_state.get("review_state"), dict
     ):
         resolved_review_state = resolved_review_state.get("review_state")
-    packet_inbox = packet_inbox_from_review_state(resolved_review_state)
+    packet_truth_present = bool(
+        isinstance(resolved_review_state, dict)
+        and has_explicit_packet_truth(resolved_review_state)
+    )
+    packet_inbox = (
+        packet_inbox_from_review_state(resolved_review_state)
+        if packet_truth_present
+        else None
+    )
     record = packet_inbox.for_agent("codex") if packet_inbox is not None else None
     clear_instruction = bool(
         record is not None
@@ -166,8 +175,6 @@ def _normalize_current_session_from_packet_truth(
             agent="codex",
         ),
     )
-
-
 def _apply_current_session_fields(
     *,
     bridge_liveness: dict[str, object],

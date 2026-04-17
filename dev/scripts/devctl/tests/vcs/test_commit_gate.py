@@ -69,6 +69,7 @@ def _make_args(**overrides) -> SimpleNamespace:
     defaults = {
         "message": "test commit",
         "amend": False,
+        "approve_pending": False,
         "role": None,
         "passthrough": [],
         "format": "json",
@@ -199,6 +200,11 @@ def _capture_startup_context_payload(
 
 
 class TestStartupActionRouting(unittest.TestCase):
+    def test_commit_parser_accepts_approve_pending_flag(self) -> None:
+        args = build_parser().parse_args(["commit", "--approve-pending"])
+
+        self.assertTrue(args.approve_pending)
+
     def test_dashboard_role_projects_read_only_agent_lane(self) -> None:
         rc, captured = _capture_startup_context_payload(
             StartupContext(
@@ -1078,6 +1084,65 @@ class TestGovernedCommitPipeline(unittest.TestCase):
             self.assertEqual(second_rc, 0)
             self.assertEqual(committed_pipeline.state, "commit_recorded")
             second_guard.assert_not_called()
+
+    def test_commit_approve_pending_resumes_remote_pipeline_without_manual_packets(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            repo_root = _init_repo(Path(tmpdir) / "repo")
+            executor = _executor(repo_root)
+            (repo_root / "tracked.txt").write_text("updated\n", encoding="utf-8")
+            _run_git(repo_root, "add", "tracked.txt")
+
+            first_guard = MagicMock(return_value=_mock_subprocess_result(0))
+            first_rc = run_commit(
+                _make_args(message="feat: explicit operator approval"),
+                repo_root=repo_root,
+                policy=_push_policy(),
+                executor=executor,
+                interaction_mode="remote_control",
+                guard_runner=first_guard,
+            )
+            self.assertEqual(first_rc, 1)
+
+            second_guard = MagicMock(return_value=_mock_subprocess_result(0))
+            second_rc = run_commit(
+                _make_args(message=None, approve_pending=True),
+                repo_root=repo_root,
+                policy=_push_policy(),
+                executor=executor,
+                interaction_mode="remote_control",
+                guard_runner=second_guard,
+            )
+
+            committed_pipeline = executor.load_pipeline()
+            self.assertEqual(second_rc, 0)
+            self.assertEqual(committed_pipeline.state, "commit_recorded")
+            self.assertEqual(committed_pipeline.approval_state, "approved")
+            self.assertTrue(committed_pipeline.decision_packet_id)
+            self.assertEqual(
+                _run_git(repo_root, "log", "-1", "--pretty=%s"),
+                "feat: explicit operator approval",
+            )
+            second_guard.assert_not_called()
+
+    def test_commit_approve_pending_requires_existing_pipeline(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            repo_root = _init_repo(Path(tmpdir) / "repo")
+            executor = _executor(repo_root)
+
+            rc = run_commit(
+                _make_args(message=None, approve_pending=True),
+                repo_root=repo_root,
+                policy=_push_policy(),
+                executor=executor,
+                interaction_mode="remote_control",
+                guard_runner=MagicMock(return_value=_mock_subprocess_result(0)),
+            )
+
+            pipeline = executor.load_pipeline()
+            self.assertEqual(rc, 1)
+            self.assertFalse(pipeline.pipeline_id)
 
     def test_commit_replays_guards_when_approved_pipeline_loses_validation_receipt(
         self,

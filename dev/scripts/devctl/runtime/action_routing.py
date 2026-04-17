@@ -9,6 +9,11 @@ from .action_routing_coordination import (
     active_implementation_owner,
     coordination_state,
 )
+from .action_routing_support import (
+    checkpoint_commit_allowed,
+    commit_permission_context,
+    push_enforcement,
+)
 from .commit_permission import (
     CommitPermissionDecision,
     build_commit_permission_decision,
@@ -179,10 +184,11 @@ def build_startup_action_routing(
     control_recovery_action = ""
     escalation_action = ""
 
-    governance = _mapping(ctx_payload.get("governance"))
-    push = _mapping(governance.get("push_enforcement"))
+    push = push_enforcement(ctx_payload)
     permission = str(
-        getattr(resolved_coordination, "implementation_permission", "") or ""
+        getattr(resolved_coordination, "implementation_permission", "")
+        or ctx_payload.get("implementation_permission")
+        or ""
     ).strip()
     permission_missing = resolved_coordination is not None and not permission
     resync_required = bool(
@@ -200,8 +206,22 @@ def build_startup_action_routing(
             reasons=(*admissibility.reasons, "implementation_permission_missing"),
         )
 
+    commit_permission = build_commit_permission_decision(
+        commit_permission_context(
+            ctx_payload=ctx_payload,
+            implementation_permission=permission,
+        )
+    )
+    checkpoint_allowed = checkpoint_commit_allowed(
+        ctx_payload=ctx_payload,
+        implementation_permission=permission,
+    )
+
     if admissibility.status != "allowed":
-        _append_unique(blocked, _IMPLEMENTATION_ACTIONS)
+        _append_unique(blocked, ("implementation.edit",))
+
+    if commit_permission.commit_permission == "blocked" and not checkpoint_allowed:
+        _append_unique(blocked, ("vcs.stage", "vcs.commit"))
 
     if permission in {"blocked", "suspended"} or permission_missing:
         control_recovery_action = "refresh_startup_or_review_status"
@@ -255,10 +275,6 @@ def _append_unique(target: list[str], values: tuple[str, ...]) -> None:
     for value in values:
         if value not in target:
             target.append(value)
-
-
-def _mapping(value: object) -> Mapping[str, object]:
-    return value if isinstance(value, Mapping) else {}
 
 
 __all__ = [

@@ -113,8 +113,4 @@ def attach_reviewer_runtime_snapshot(
     packet_inbox = getattr(review_state, "packet_inbox", None)
     if packet_inbox is not None:
         report["packet_inbox"] = asdict(packet_inbox)
-    existing_authority = getattr(review_state, "authority_snapshot", None)
-    if existing_authority is not None:
-        report["authority_snapshot"] = existing_authority.to_dict()
-    else:
-        project_authority_snapshot(report)
+    project_authority_snapshot(report)

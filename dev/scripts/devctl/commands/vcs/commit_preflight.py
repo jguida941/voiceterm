@@ -16,6 +16,7 @@ from .governed_executor_actions import APPROVAL_PACKET_KIND, _build_report, buil
 from .governed_executor_git import pipeline_is_stale_for_current_repo
 from .governed_executor_packets import build_commit_approval_decision, build_commit_approval_request
 from .governed_executor_sync import sync_pipeline_approval
+from .governed_executor_sync import sync_pipeline_approval
 
 _REUSABLE_PIPELINE_STATES = frozenset(
     {
@@ -28,6 +29,13 @@ _REUSABLE_PIPELINE_STATES = frozenset(
     }
 )
 _PIPELINE_BLOCKING_STATES = frozenset({"commit_recorded", "push_pending"})
+_EXPLICIT_APPROVAL_PIPELINE_STATES = frozenset(
+    {
+        "guards_passed",
+        "operator_approval_pending",
+        "approved",
+    }
+)
 
 
 def resolve_interaction_mode(repo_root: Path) -> str:
@@ -109,6 +117,52 @@ def prepare_pipeline(
     return pipeline, stage_warnings, None
 
 
+def load_pipeline_for_explicit_approval(
+    *,
+    repo_root: Path,
+    vcs_executor: GovernedVcsExecutor,
+):
+    """Return the existing governed pipeline for explicit operator approval."""
+    pipeline = vcs_executor.load_pipeline()
+    if not pipeline.pipeline_id:
+        return pipeline, _build_report(
+            status="blocked",
+            reason="no_pending_pipeline_to_approve",
+            operator_guidance=(
+                "Run `devctl commit -m \"...\"` first so the repo stages and "
+                "guards one governed pipeline, then rerun "
+                "`devctl commit --approve-pending`."
+            ),
+        )
+    if pipeline_is_stale_for_current_repo(
+        repo_root=repo_root,
+        pipeline=pipeline,
+    ):
+        return pipeline, _build_report(
+            status="blocked",
+            reason="pending_pipeline_stale_for_current_repo",
+            pipeline_id=pipeline.pipeline_id,
+            pipeline_state=pipeline.state,
+            operator_guidance=(
+                "The current governed pipeline no longer matches the live repo "
+                "state. Mint a fresh pipeline with `devctl commit -m \"...\"` "
+                "before approving it."
+            ),
+        )
+    if pipeline.state not in _EXPLICIT_APPROVAL_PIPELINE_STATES:
+        return pipeline, _build_report(
+            status="blocked",
+            reason="pipeline_not_waiting_for_operator_approval",
+            pipeline_id=pipeline.pipeline_id,
+            pipeline_state=pipeline.state,
+            operator_guidance=(
+                "Only guarded pipelines awaiting or holding approval may be "
+                "resumed with `devctl commit --approve-pending`."
+            ),
+        )
+    return pipeline, None
+
+
 def ensure_pipeline_approval(
     *,
     vcs_executor: GovernedVcsExecutor,
@@ -138,6 +192,55 @@ def ensure_pipeline_approval(
         operator_guidance=(
             "Post and apply the matching `commit_approval` decision packet "
             "before `vcs.commit`."
+        ),
+        interaction_mode=resolved_mode,
+        warnings=stage_warnings,
+    )
+
+
+def apply_explicit_operator_approval(
+    *,
+    vcs_executor: GovernedVcsExecutor,
+    pipeline,
+    resolved_mode: str,
+    stage_warnings: list[str],
+):
+    """Record explicit operator approval for the current governed pipeline."""
+    pipeline = sync_pipeline_approval(
+        pipeline,
+        vcs_executor._event_packets(),
+        approval_packet_kind=APPROVAL_PACKET_KIND,
+    )
+    if pipeline.approval_state == "approved":
+        return pipeline, None
+    _record_operator_approval(
+        vcs_executor,
+        pipeline,
+        summary=(
+            "Remote-control operator approved governed commit pipeline "
+            f"`{pipeline.pipeline_id}`"
+        ),
+        body=(
+            "The remote-control operator explicitly approved the current "
+            "guarded staged snapshot for governed commit execution."
+        ),
+    )
+    pipeline = sync_pipeline_approval(
+        vcs_executor.load_pipeline(),
+        vcs_executor._event_packets(),
+        approval_packet_kind=APPROVAL_PACKET_KIND,
+    )
+    if pipeline.approval_state == "approved":
+        return pipeline, None
+    return pipeline, _build_report(
+        status="blocked",
+        reason="operator_approval_missing",
+        pipeline_id=pipeline.pipeline_id,
+        pipeline_state=pipeline.state,
+        approval_state=pipeline.approval_state,
+        operator_guidance=(
+            "Explicit operator approval did not bind to the current governed "
+            "pipeline. Re-check the active packet queue and retry the approval."
         ),
         interaction_mode=resolved_mode,
         warnings=stage_warnings,
@@ -178,6 +281,25 @@ def _ensure_approval_request(
 
 def _apply_local_approval(executor: GovernedVcsExecutor, pipeline) -> None:
     """Record request + applied operator decision for local terminal commits."""
+    _record_operator_approval(
+        executor,
+        pipeline,
+        summary=f"Local terminal approval for `{pipeline.pipeline_id}`",
+        body=(
+            "The local terminal operator approved the guarded staged "
+            "snapshot for governed commit execution."
+        ),
+    )
+
+
+def _record_operator_approval(
+    executor: GovernedVcsExecutor,
+    pipeline,
+    *,
+    summary: str,
+    body: str,
+) -> None:
+    """Post and apply one typed operator approval for the current pipeline."""
     artifact_paths = resolve_artifact_paths(repo_root=executor.repo_root)
     request_packet_id = _ensure_approval_request(executor, pipeline)
     if request_packet_id:
@@ -200,11 +322,8 @@ def _apply_local_approval(executor: GovernedVcsExecutor, pipeline) -> None:
         artifact_paths=artifact_paths,
         request=build_commit_approval_decision(
             pipeline,
-            summary=f"Local terminal approval for `{pipeline.pipeline_id}`",
-            body=(
-                "The local terminal operator approved the guarded staged "
-                "snapshot for governed commit execution."
-            ),
+            summary=summary,
+            body=body,
         ),
     )
     transition_packet(

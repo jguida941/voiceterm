@@ -41,10 +41,10 @@ def build_decision_state(
             "render_bridge",
             "reset_implementer_state",
             "refresh_review_status",
+            "relaunch_review_loop",
         },
         requires_approval=action_id in {
             "cut_checkpoint",
-            "relaunch_review_loop",
             "recover_implementer",
             "resume_live_review_loop",
         },

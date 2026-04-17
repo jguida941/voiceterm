@@ -89,6 +89,24 @@ def _reviewer_state_seeded(bridge_liveness: dict[str, object]) -> bool:
     )
 
 
+def _checkpoint_preempts_runtime_recovery(ctx: BridgeAttentionContext) -> bool:
+    if not (ctx.checkpoint_required or ctx.safe_to_continue_editing is False):
+        return False
+    if ctx.review_needed:
+        return False
+    if ctx.reviewed_hash_current is False:
+        return False
+    if ctx.launch_truth in {
+        LaunchTruthState.DETACHED_RUNTIME_ONLY.value,
+        LaunchTruthState.HYBRID_CLAUDE_ONLY.value,
+    }:
+        return True
+    return (
+        ctx.overall_state == OverallLivenessState.RUNTIME_MISSING
+        or not ctx.reviewer_runtime_running
+    )
+
+
 def _requires_implementer_state_reset(ctx: BridgeAttentionContext) -> bool:
     if not ctx.reviewer_mode_active or ctx.review_needed:
         return False
@@ -276,6 +294,8 @@ def _classify_startup_attention(ctx: BridgeAttentionContext) -> str | None:
         if ctx.overall_state == OverallLivenessState.SINGLE_AGENT_ACTIVE:
             return None
         return AttentionStatus.INACTIVE
+    if _checkpoint_preempts_runtime_recovery(ctx):
+        return AttentionStatus.CHECKPOINT_REQUIRED
     if _requires_implementer_state_reset(ctx):
         return AttentionStatus.IMPLEMENTER_STATE_RESET_REQUIRED
     if (

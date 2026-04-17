@@ -6,6 +6,10 @@ from collections.abc import Mapping
 from dataclasses import asdict
 
 from .ack_contract import extract_implementer_ack_revision
+from .current_session_attention import (
+    packet_attention_for,
+    packet_attention_requires_clear,
+)
 from .current_session_authority import prefer_bridge_current_session
 from .handoff_constants import _is_substantive_text
 from .current_session_render import (
@@ -141,8 +145,8 @@ def build_event_current_session(
     queue = _mapping(review_state.get("queue"))
     prior_session = prior_typed_current_session(prior_review_state)
     current_instruction = event_current_instruction(review_state)
-    packet_attention = _packet_attention(review_state, agent="codex")
-    clear_from_packet_truth = _packet_attention_requires_clear(packet_attention)
+    packet_attention = packet_attention_for(review_state, agent="codex")
+    clear_from_packet_truth = packet_attention_requires_clear(packet_attention)
     current_instruction_revision = str(
         bridge_liveness.get("current_instruction_revision") or ""
     )
@@ -166,7 +170,10 @@ def build_event_current_session(
     if (
         instruction_missing
         and current_instruction == "(missing)"
-        and (prior_session is None or _packet_attention_requires_clear(packet_attention))
+        and (
+            prior_session is None
+            or packet_attention_requires_clear(packet_attention)
+        )
     ):
         current_instruction = ""
         current_instruction_revision = ""
@@ -230,25 +237,6 @@ def current_session_mapping(
 def _section_text(snapshot: BridgeSnapshot, section: str) -> str:
     raw = snapshot.sections.get(section, "")
     return clean_section(raw)
-
-
-def _packet_attention(
-    review_state: Mapping[str, object],
-    *,
-    agent: str,
-) -> object | None:
-    packet_inbox = packet_inbox_from_review_state(review_state)
-    if packet_inbox is None:
-        return None
-    return packet_inbox.for_agent(agent)
-
-
-def _packet_attention_requires_clear(packet_attention: object | None) -> bool:
-    if packet_attention is None:
-        return False
-    return not str(
-        getattr(packet_attention, "current_instruction_packet_id", "") or ""
-    ).strip()
 
 
 def _mapping(value: object) -> Mapping[str, Any]:

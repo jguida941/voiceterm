@@ -1,6 +1,6 @@
 # AI Governance Platform Plan
 
-**Status**: active  |  **Last updated**: 2026-04-15 | **Owner:** Tooling/control plane/product architecture
+**Status**: active  |  **Last updated**: 2026-04-17 | **Owner:** Tooling/control plane/product architecture
 Execution plan contract: required
 This spec remains execution mirrored in `dev/active/MASTER_PLAN.md` under
 `MP-377`, and it is the canonical active architecture plan for the standalone
@@ -5079,6 +5079,45 @@ prefer the typed phase/task entries before any free-form backlog bullets.
 Use this section as the single "left off here" surface for fresh AI sessions
 working on `MP-377`.
 
+- 2026-04-17 checkpoint-first detached-runtime follow-up:
+  the current repo proof no longer deadlocks on "relaunch vs checkpoint" when
+  dual-agent runtime is detached but reviewer authority is already current.
+  Shared attention now preempts detached-runtime recovery with
+  `checkpoint_required` when `reviewed_hash_current=true`,
+  `review_needed=false`, and typed `push_enforcement` says the tree is over
+  budget; `status`, `doctor`, and `startup-context` all surface
+  `required_action=cut_checkpoint`, `next_command=python3 dev/scripts/devctl.py commit -m "<descriptive message>"`,
+  and allow `vcs.stage` / `vcs.commit` while still blocking
+  `implementation.edit`. Focused proof is green on
+  `test_recovery_assessment.py`, `test_action_routing.py`,
+  `test_startup_context.py`, and the checkpoint-routing status regression in
+  `test_review_channel.py`. Next step after this receipt is the governed
+  checkpoint, then resume the standing-loop automation work from a fresh
+  post-commit receipt.
+- 2026-04-17 remote-control commit approval automation follow-up:
+  remote-control checkpoints no longer require hand-assembled
+  `commit_approval` packets. `devctl commit --approve-pending` now acts as
+  the explicit operator-owned resume command: it reuses the governed
+  pipeline, posts/applies the matching typed `commit_approval` decision, and
+  continues the same `vcs.commit` run without manual packet field assembly.
+  The helper and commit-phase packet loader now consume reduced packet rows
+  directly instead of forcing a full event-bundle enrichment pass for packet
+  matching. Focused proof is green, and the remaining latency hotspot is the
+  first `devctl commit -m ...` remote-control preflight, which still pulls
+  the heavier context-graph/work-intake path and remains follow-up work.
+- 2026-04-17 current-session authority hardening follow-up:
+  event-backed `current_session` now requires explicit packet truth before a
+  blank queue can clear the prior typed instruction, and
+  `queue.derived_next_instruction` only projects into Claude's lane when
+  `derived_next_instruction_source.to_agent` is blank or `claude`. The same
+  slice keeps bridge-backed authority fail-closed when the live bridge has no
+  authority signal, blocks `ImplementationAdmissibility` when typed
+  `implementation_permission` is missing/empty, and lets reviewer-follow
+  auto-relaunch only when the typed recovery decision marks
+  `relaunch_review_loop` auto-fixable. Focused projection/runtime proof is
+  green; maintainer-doc closure for this slice now lives in `AGENTS.md`,
+  `dev/guides/DEVELOPMENT.md`, `dev/scripts/README.md`,
+  `dev/active/MASTER_PLAN.md`, and `dev/history/ENGINEERING_EVOLUTION.md`.
 - 2026-04-15 plan-registry authority artifact closure:
   `scan_governed_markdown_contracts()` now persists governed markdown
   `PlanRegistry` plus per-plan `PlanTargetRef` data to
@@ -7091,6 +7130,41 @@ Execution order for this section:
 
 ## Progress Log
 
+- 2026-04-17: Closed the checkpoint-vs-relaunch deadlock that remained after
+  the current-session authority repair. Detached `active_dual_agent`
+  runtime-only evidence was still outranking stronger checkpoint truth, so the
+  same review-current, over-budget repo state could say
+  `attention.status=review_loop_relaunch_required` while startup authority
+  already required a checkpoint. The bounded fix now lets checkpoint
+  authority preempt detached-runtime recovery when
+  `reviewed_hash_current=true`, `review_needed=false`, and typed
+  `push_enforcement` says the tree is over budget. `status`, `doctor`,
+  `authority_snapshot`, and `startup-context` now converge on
+  `checkpoint_required` / `cut_checkpoint` plus the governed
+  `devctl commit -m` command, dedupe the startup blocker summary, and keep
+  action routing fail-closed by allowing `vcs.stage` / `vcs.commit` while
+  still blocking `implementation.edit`. Focused proof is green on
+  `test_recovery_assessment.py`, `test_action_routing.py`,
+  `test_startup_context.py`, and targeted status regressions in
+  `test_review_channel.py`.
+- 2026-04-17: Closed the reopened current-session/runtime authority gap that
+  dogfood exposed after the packet-attention helper extraction. The reducer
+  was still treating missing packet surfaces as explicit clear authority, so
+  blank queue state erased prior typed reviewer instructions and one
+  canonicalization fixture no longer represented live packet truth. The
+  bounded repair now requires explicit packet authority before
+  `current_session` clears, ignores reviewer-targeted
+  `derived_next_instruction_source.to_agent=codex` queue rows when projecting
+  Claude's live instruction, keeps bridge-backed authority fail-closed when
+  the live bridge has no authority signal, blocks
+  `ImplementationAdmissibility` on missing/empty typed
+  `implementation_permission`, and marks `relaunch_review_loop` auto-fixable
+  so reviewer-follow relaunch stays bound to the typed recovery decision.
+  Focused proof is green on `test_current_session_projection.py`,
+  `test_implementation_admissibility.py`, and
+  `test_reviewer_follow_restore_policy.py`; maintainer-doc closure for the
+  slice also landed so `docs-check --strict-tooling` can treat the behavior as
+  repo-owned contract instead of hidden chat state.
 - 2026-04-15: Closed `MP377-P1-T04` by persisting governed markdown
   `PlanRegistry` plus per-plan `PlanTargetRef` authority to
   `dev/reports/governance/plan_registry.json`, teaching

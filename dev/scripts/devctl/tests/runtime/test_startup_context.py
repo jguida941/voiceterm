@@ -36,6 +36,7 @@ from dev.scripts.devctl.runtime.startup_context import (
 from dev.scripts.devctl.runtime.authority_snapshot import (
     AuthoritySnapshot,
     build_authority_snapshot,
+    summary_next_command,
 )
 from dev.scripts.devctl.runtime.startup_blocker_decision import BlockerSnapshot
 from dev.scripts.devctl.runtime.recovery_authority import (
@@ -44,6 +45,8 @@ from dev.scripts.devctl.runtime.recovery_authority import (
 )
 from dev.scripts.devctl.runtime.reviewer_runtime_models import (
     RemoteControlAttachmentState,
+    ReviewerRuntimeContract,
+    ReviewerSessionOwnerState,
 )
 from dev.scripts.devctl.runtime.review_state_models import (
     AgentAttentionRecord,
@@ -222,6 +225,27 @@ class TestStartupContextBuild(unittest.TestCase):
         self.assertEqual(snapshot.current_slice, "")
         self.assertEqual(snapshot.current_instruction_revision, "")
         self.assertEqual(snapshot.implementer_ack_state, "missing")
+
+    def test_summary_next_command_prefers_cut_checkpoint_recovery_command(self) -> None:
+        payload = {
+            "startup_authority": {"ok": False},
+            "governance": {
+                "push_enforcement": {
+                    "checkpoint_required": True,
+                    "safe_to_continue_editing": False,
+                }
+            },
+            "implementation_permission": "blocked",
+            "recovery_authority": {
+                "decision_action_id": "cut_checkpoint",
+                "command": 'python3 dev/scripts/devctl.py commit -m "checkpoint"',
+            },
+        }
+
+        self.assertEqual(
+            summary_next_command(payload),
+            'python3 dev/scripts/devctl.py commit -m "checkpoint"',
+        )
 
     def test_authority_snapshot_clears_missing_instruction_placeholder_revision(self) -> None:
         snapshot = build_authority_snapshot(
@@ -483,6 +507,37 @@ class TestStartupContextBuild(unittest.TestCase):
         self.assertEqual(
             payload["remote_control_attachment"]["remote_session_id"],
             "session_abc123",
+        )
+
+    def test_to_dict_serializes_startup_aliases_and_reviewer_runtime(self) -> None:
+        ctx = StartupContext(
+            advisory_action="checkpoint_before_continue",
+            advisory_reason="dirty_path_budget_exceeded",
+            reviewer_gate=ReviewerGateState(operator_interaction_mode="remote_control"),
+            reviewer_runtime=ReviewerRuntimeContract(
+                conductor_visibility="none",
+                session_owner=ReviewerSessionOwnerState(
+                    provider="codex",
+                    session_name="codex-review",
+                    session_pid=42,
+                    session_visibility="headless",
+                ),
+            ),
+        )
+
+        payload = ctx.to_dict()
+
+        self.assertEqual(payload["action"], "checkpoint_before_continue")
+        self.assertEqual(payload["reason"], "dirty_path_budget_exceeded")
+        self.assertEqual(payload["interaction_mode"], "remote_control")
+        self.assertEqual(payload["reviewer_runtime"]["conductor_visibility"], "none")
+        self.assertEqual(
+            payload["reviewer_runtime"]["session_owner"]["session_visibility"],
+            "headless",
+        )
+        self.assertEqual(
+            payload["reviewer_runtime"]["session_owner"]["session_pid"],
+            42,
         )
 
     def test_slim_token_budget(self) -> None:

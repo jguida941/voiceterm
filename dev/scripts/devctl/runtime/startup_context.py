@@ -11,6 +11,7 @@ from ..platform.coordination_snapshot_models import CoordinationSnapshot
 from .finding_contracts import RejectedRuleTraceRecord, RuleMatchEvidenceRecord
 from .reviewer_runtime_models import (
     RemoteControlAttachmentState,
+    ReviewerRuntimeContract,
     has_active_remote_control_attachment,
 )
 from .review_state_models import (
@@ -99,6 +100,7 @@ class StartupContext:
     work_intake: WorkIntakePacket | None = None
     coordination: CoordinationSnapshot | None = None
     authority_snapshot: AuthoritySnapshot | None = None
+    reviewer_runtime: ReviewerRuntimeContract | None = None
     remote_control_attachment: RemoteControlAttachmentState | None = None
     attention: ReviewAttentionState | None = None
     current_session: ReviewCurrentSessionState | None = None
@@ -113,8 +115,11 @@ class StartupContext:
         d: dict[str, Any] = {}
         d["schema_version"] = self.schema_version
         d["contract_id"] = self.contract_id
+        d["action"] = self.advisory_action
+        d["reason"] = self.advisory_reason
         d["advisory_action"] = self.advisory_action
         d["advisory_reason"] = self.advisory_reason
+        d["interaction_mode"] = self.reviewer_gate.operator_interaction_mode
         d["observed_control_topology"] = self.observed_control_topology
         d["implementation_permission"] = self.implementation_permission
         d["recovery_action"] = self.recovery_authority.recovery_action
@@ -147,6 +152,8 @@ class StartupContext:
             d["coordination"] = startup_coordination_dict(self.coordination)
         if self.authority_snapshot is not None:
             d["authority_snapshot"] = self.authority_snapshot.to_dict()
+        if self.reviewer_runtime is not None:
+            d["reviewer_runtime"] = asdict(self.reviewer_runtime)
         if self.remote_control_attachment is not None:
             d["remote_control_attachment"] = asdict(self.remote_control_attachment)
         if self.attention is not None:
@@ -508,6 +515,9 @@ def build_startup_context(
         product_thesis=governance.product_thesis if governance else "",
         work_intake=work_intake,
         coordination=coordination_snapshot,
+        reviewer_runtime=(
+            review_state.reviewer_runtime if review_state is not None else None
+        ),
         remote_control_attachment=(
             review_state.reviewer_runtime.remote_control_attachment
             if review_state is not None

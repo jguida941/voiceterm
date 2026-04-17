@@ -11,6 +11,7 @@ from ..runtime.reviewer_runtime_models import (
     has_active_remote_control_attachment,
     remote_control_attachment_from_mapping,
 )
+from ..time_utils import utc_timestamp
 
 
 # Default provider preserves the legacy "claude-remote-control.json" filename so
@@ -139,6 +140,30 @@ def persist_remote_control_attachment(
         encoding="utf-8",
     )
     return artifact_path
+
+
+def heartbeat_repo_remote_control_attachment(
+    *,
+    repo_root: Path,
+    provider: str | None,
+    seen_at_utc: str | None = None,
+) -> Path | None:
+    """Refresh `last_seen_utc` for an active repo-owned remote attachment."""
+    from ..repo_packs import active_path_config
+
+    normalized_provider = _normalize_provider(provider)
+    output_root = repo_root / active_path_config().review_status_dir_rel
+    attachment = load_remote_control_attachment(
+        output_root=output_root,
+        provider=normalized_provider,
+    )
+    if attachment is None or not has_active_remote_control_attachment(attachment):
+        return None
+    timestamp = str(seen_at_utc or "").strip() or utc_timestamp()
+    return persist_remote_control_attachment(
+        replace(attachment, last_seen_utc=timestamp),
+        output_root=output_root,
+    )
 
 
 def deactivate_remote_control_attachments(

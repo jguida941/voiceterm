@@ -187,6 +187,7 @@ def test_build_startup_action_routing_blocks_when_owner_present_but_permission_m
 
 def test_build_startup_action_routing_blocks_on_checkpoint_gate() -> None:
     payload = {
+        "implementation_permission": "active",
         "governance": {
             "push_enforcement": {
                 "checkpoint_required": True,
@@ -206,3 +207,35 @@ def test_build_startup_action_routing_blocks_on_checkpoint_gate() -> None:
     assert "vcs.commit" in decision.blocked_actions
     assert "implementation.edit" not in decision.allowed_actions
     assert decision.recovery_action == ""
+
+
+def test_build_startup_action_routing_allows_checkpoint_commit_via_status_payload() -> None:
+    payload = {
+        "implementation_permission": "blocked",
+        "observed_control_topology": "no_live_agents",
+        "bridge_liveness": {
+            "push_enforcement": {
+                "checkpoint_required": True,
+                "safe_to_continue_editing": False,
+            }
+        },
+        "push_decision": {
+            "action": "await_checkpoint",
+        },
+        "doctor": {
+            "implementation_blocked": True,
+            "implementation_block_reason": "review_loop_relaunch_required",
+        },
+    }
+
+    decision = build_startup_action_routing(
+        payload,
+        next_command='python3 dev/scripts/devctl.py commit -m "checkpoint"',
+    )
+
+    assert "implementation.edit" in decision.blocked_actions
+    assert "implementation.edit" not in decision.allowed_actions
+    assert "vcs.stage" not in decision.blocked_actions
+    assert "vcs.commit" not in decision.blocked_actions
+    assert "vcs.stage" in decision.allowed_actions
+    assert "vcs.commit" in decision.allowed_actions

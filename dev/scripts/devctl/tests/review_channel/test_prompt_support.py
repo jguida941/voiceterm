@@ -34,3 +34,15 @@ def test_resolve_conductor_capability_falls_back_to_reviewer_mode() -> None:
 
     assert cap.may_edit_repo is True
     assert cap.queue_policy == "implement_assigned_work"
+
+
+def test_resolve_conductor_capability_defaults_to_tools_only_without_mode_signal() -> None:
+    """Missing reviewer mode must fail closed instead of inventing active dual-agent."""
+    cap = resolve_conductor_capability(
+        provider="claude",
+        role="implementer",
+        bridge_liveness={},
+    )
+
+    assert cap.may_edit_repo is False
+    assert cap.queue_policy == "inactive"

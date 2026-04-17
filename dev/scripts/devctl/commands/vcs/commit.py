@@ -18,7 +18,13 @@ from .commit_guard_replay import (
     pipeline_needs_guard_replay,
     replay_pipeline_guards,
 )
-from .commit_preflight import ensure_pipeline_approval, prepare_pipeline, resolve_interaction_mode
+from .commit_preflight import (
+    apply_explicit_operator_approval,
+    ensure_pipeline_approval,
+    load_pipeline_for_explicit_approval,
+    prepare_pipeline,
+    resolve_interaction_mode,
+)
 from .commit_passthrough import (
     CommitPassthrough,
     build_git_commit_cmd as _build_git_commit_cmd,
@@ -89,12 +95,20 @@ def run_commit(
     if permission_report is not None:
         _emit_report(args, permission_report)
         return 1
-    pipeline, stage_warnings, preflight_report = prepare_pipeline(
-        args=args,
-        repo_root=repo_root,
-        resolved_policy=resolved_policy,
-        vcs_executor=vcs_executor,
-    )
+    approve_pending = bool(getattr(args, "approve_pending", False))
+    stage_warnings: list[str] = []
+    if approve_pending:
+        pipeline, preflight_report = load_pipeline_for_explicit_approval(
+            repo_root=repo_root,
+            vcs_executor=vcs_executor,
+        )
+    else:
+        pipeline, stage_warnings, preflight_report = prepare_pipeline(
+            args=args,
+            repo_root=repo_root,
+            resolved_policy=resolved_policy,
+            vcs_executor=vcs_executor,
+        )
     if preflight_report is not None:
         _emit_report(args, preflight_report)
         return 1
@@ -119,12 +133,20 @@ def run_commit(
             return 1
 
     resolved_mode = interaction_mode or resolve_interaction_mode(repo_root)
-    pipeline, approval_report = ensure_pipeline_approval(
-        vcs_executor=vcs_executor,
-        pipeline=pipeline,
-        resolved_mode=resolved_mode,
-        stage_warnings=stage_warnings,
-    )
+    if approve_pending:
+        pipeline, approval_report = apply_explicit_operator_approval(
+            vcs_executor=vcs_executor,
+            pipeline=pipeline,
+            resolved_mode=resolved_mode,
+            stage_warnings=stage_warnings,
+        )
+    else:
+        pipeline, approval_report = ensure_pipeline_approval(
+            vcs_executor=vcs_executor,
+            pipeline=pipeline,
+            resolved_mode=resolved_mode,
+            stage_warnings=stage_warnings,
+        )
     if approval_report is not None:
         _emit_report(args, approval_report)
         return 1

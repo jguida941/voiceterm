@@ -39,6 +39,8 @@ def derive_implementation_admissibility(
 
     if resync:
         reasons.append("coordination_resync_required")
+    if not permission:
+        reasons.append("implementation_permission_missing")
     if permission in {"blocked", "suspended"}:
         reasons.append(f"implementation_permission_{permission}")
     if checkpoint:
@@ -46,7 +48,7 @@ def derive_implementation_admissibility(
     if not safe:
         reasons.append("safe_to_continue_editing_false")
 
-    if resync or permission in {"blocked", "suspended"}:
+    if resync or not permission or permission in {"blocked", "suspended"}:
         status: ImplementationAdmissibility = "blocked"
     elif checkpoint or not safe:
         status = "checkpoint_required"

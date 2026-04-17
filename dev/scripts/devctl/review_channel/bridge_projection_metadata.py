@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 
 from ..runtime.review_state_semantics import is_missing_instruction
+from .peer_liveness import resolve_reported_reviewer_mode
 
 _LOCAL_TIME_FORMAT = "%Y-%m-%d %H:%M:%S %Z"
 _PLACEHOLDER_INSTRUCTION_MARKERS = (
@@ -102,11 +103,19 @@ def projection_metadata(
     return {
         "last_codex_poll_utc": last_codex_poll_utc,
         "last_codex_poll_local": last_codex_poll_local,
-        "reviewer_mode": str(
-            bridge_liveness.get("reviewer_mode")
-            or snapshot.metadata.get("reviewer_mode")
-            or "active_dual_agent"
-        ).strip(),
+        "reviewer_mode": resolve_reported_reviewer_mode(
+            {
+                "reviewer_mode": (
+                    bridge_liveness.get("reviewer_mode")
+                    or bridge_state.get("reviewer_mode")
+                    or snapshot.metadata.get("reviewer_mode")
+                ),
+                "effective_reviewer_mode": (
+                    bridge_liveness.get("effective_reviewer_mode")
+                    or bridge_state.get("effective_reviewer_mode")
+                ),
+            }
+        ),
         "current_instruction_revision": current_revision,
     }
 

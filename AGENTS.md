@@ -623,6 +623,17 @@ checklist plus chat memory.
     not provider truth, and live readers/guards must treat neutral
     implementer-heading aliases plus typed `implementer_*` state as the
     authority boundary.
+4.4.8 Event-backed `current_session` authority is fail-closed on explicit
+    packet truth, not on missing packet surfaces. If queue instruction text is
+    blank and no live `packets` / persisted `packet_inbox` authority is
+    present, preserve the prior typed instruction instead of clearing it by
+    assumption. Only queue rows whose
+    `derived_next_instruction_source.to_agent` is blank or `claude` may feed
+    `current_session.current_instruction`; reviewer-targeted (`codex`) queue
+    instructions remain attention/open-findings only. The same fail-closed
+    rule applies to mutation authority: missing or empty typed
+    `implementation_permission` is a hard block in
+    `ImplementationAdmissibility`, not an implicit allow.
 4.5 In that same live review-channel mode, treat
     `dev/reports/review_channel/latest/review_state.json` (and the mirrored
     `compact.json` projection) `current_session` block as the canonical typed

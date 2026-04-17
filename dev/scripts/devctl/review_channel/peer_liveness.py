@@ -9,6 +9,8 @@ plan item.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
+
 from ..runtime.enum_compat import StrEnum
 
 # ---------------------------------------------------------------------------
@@ -184,6 +186,19 @@ def normalize_reviewer_mode(value: str | None) -> ReviewerMode:
         if raw == mode.value:
             return mode
     return ReviewerMode.ACTIVE_DUAL_AGENT
+
+
+def resolve_reported_reviewer_mode(source: Mapping[str, object] | None) -> str:
+    """Resolve the declared reviewer mode without inventing active dual-agent state."""
+    if source is None:
+        return ReviewerMode.TOOLS_ONLY.value
+    raw_mode = str(source.get("reviewer_mode") or "").strip()
+    if raw_mode:
+        return normalize_reviewer_mode(raw_mode).value
+    raw_mode = str(source.get("effective_reviewer_mode") or "").strip()
+    if raw_mode:
+        return normalize_reviewer_mode(raw_mode).value
+    return ReviewerMode.TOOLS_ONLY.value
 
 def reviewer_mode_is_active(value: str | None) -> bool:
     """Return True only when the bridge declares an actively enforced dual-agent loop."""

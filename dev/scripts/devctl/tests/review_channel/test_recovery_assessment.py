@@ -166,6 +166,37 @@ def test_checkpoint_required_recovery_recommends_governed_commit() -> None:
     assert "dev/scripts/devctl.py commit -m" in assessment.decision.command
 
 
+def test_detached_dual_agent_checkpoint_budget_prefers_governed_commit() -> None:
+    assessment = build_recovery_assessment(
+        bridge_liveness={
+            "reviewer_mode": "active_dual_agent",
+            "effective_reviewer_mode": "tools_only",
+            "overall_state": "waiting_on_peer",
+            "launch_truth": "detached_runtime_only",
+            "publisher_running": False,
+            "reviewer_supervisor_running": True,
+            "codex_conductor_active": False,
+            "claude_conductor_active": False,
+            "claude_status_present": False,
+            "claude_ack_present": False,
+            "claude_ack_current": False,
+            "review_needed": False,
+            "reviewed_hash_current": True,
+            "implementer_completion_stall": False,
+            "reviewer_freshness": "stale",
+            "push_enforcement": {
+                "checkpoint_required": True,
+                "safe_to_continue_editing": False,
+            },
+        },
+        current_session=_current_session(),
+    )
+
+    assert assessment.diagnosis.status == "checkpoint_required"
+    assert assessment.decision.action_id == "cut_checkpoint"
+    assert "dev/scripts/devctl.py commit -m" in assessment.decision.command
+
+
 def test_single_agent_warning_mentions_typed_authority_when_lane_is_live() -> None:
     warnings = bridge_liveness_warnings(
         {

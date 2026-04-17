@@ -162,6 +162,10 @@ def current_session_authority_drift_warning(
 def event_current_instruction(review_state: Mapping[str, object]) -> str:
     """Derive the event-backed current instruction from the typed queue only."""
     queue = _mapping(review_state.get("queue"))
+    source = _mapping(queue.get("derived_next_instruction_source"))
+    target = str(source.get("to_agent") or "").strip().lower()
+    if target and target != "claude":
+        return ""
     derived = str(queue.get("derived_next_instruction") or "").strip()
     return derived
 

@@ -23,6 +23,7 @@ from .handoff import (
     expected_rollover_ack_line,
     expected_rollover_ack_section,
 )
+from .peer_liveness import resolve_reported_reviewer_mode
 from .prompt_guards import reviewer_takeover_note, startup_context_follow_up
 
 if TYPE_CHECKING:
@@ -107,8 +108,7 @@ def resolve_conductor_capability(
     liveness = bridge_liveness or {}
     reviewer_mode = str(
         liveness.get("effective_reviewer_mode")
-        or liveness.get("reviewer_mode")
-        or "active_dual_agent"
+        or resolve_reported_reviewer_mode(liveness)
     )
     return build_conductor_capability_state(
         provider=provider,

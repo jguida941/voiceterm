@@ -63,6 +63,7 @@ def _run_ensure_tick(repo_root: Path, interval: int) -> None:
             cmd,
             cwd=str(repo_root),
             env=env,
+            check=False,
             timeout=interval + 15,
         )
     except subprocess.TimeoutExpired:
@@ -102,6 +103,7 @@ def _has_reviewer_relevant_changes(repo_root: Path) -> bool:
             ["git", "status", "--porcelain"],
             cwd=str(repo_root),
             capture_output=True,
+            check=False,
             text=True,
             timeout=10,
         )
@@ -137,6 +139,7 @@ def _pgrep_codex_for_repo(repo_root: Path) -> bool:
         result = subprocess.run(
             ["pgrep", "-f", f"codex.*{repo_root}"],
             capture_output=True,
+            check=False,
             timeout=5,
         )
         return result.returncode == 0
@@ -174,7 +177,12 @@ def _launch_codex_review(repo_root: Path) -> None:
     ]
     print(f"[session] Launching Codex review pass...")
     try:
-        result = subprocess.run(cmd, cwd=str(repo_root), timeout=300)
+        result = subprocess.run(
+            cmd,
+            cwd=str(repo_root),
+            check=False,
+            timeout=300,
+        )
         print(f"[session] Codex exited with code {result.returncode}")
     except subprocess.TimeoutExpired:
         print("[session] Codex review timed out after 5 minutes")

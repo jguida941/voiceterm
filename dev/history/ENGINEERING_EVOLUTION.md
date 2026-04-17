@@ -4,7 +4,7 @@
 
 **Status:** Draft v4 (historical design and process record)
 **Audience:** users and developers
-**Last Updated:** 2026-04-15
+**Last Updated:** 2026-04-17
 
 ## At a Glance
 
@@ -36,6 +36,141 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 - [Quick Read (2 min)](#quick-read-2-min)
 - [User Path (5 min)](#user-path-5-min)
 - [Developer Path (15 min)](#developer-path-15-min)
+
+### 2026-04-17 - Event-backed current-session only clears on explicit packet truth, and missing implementation permission now blocks mutation
+
+Fact: the next review-channel/current-session dogfood pass exposed a narrower
+authority bug than "packet clearing is wrong." The reducer had already been
+tightened to ignore missing packet surfaces in some paths, but the remaining
+event-backed projection still treated a blank queue like an explicit clear
+whenever packet authority was absent or only implied by stale fixtures. That
+erased prior typed instructions, made a canonical markdown-revision test fail
+for the wrong reason, and left `ImplementationAdmissibility` with one
+fail-open gap: missing/empty `implementation_permission` still did not block
+mutation. The same slice also closed the reviewer-follow relaunch mismatch by
+making `relaunch_review_loop` explicitly auto-fixable only through the typed
+recovery decision.
+
+This mattered because the current-session/runtime lane is one of the last
+portable authority seams that cannot depend on chat memory or compatibility
+bridge lore. If blank queue state clears instructions without explicit packet
+truth, or if missing implementation permission still counts as writable, the
+repo can silently drift from fail-closed typed authority back toward hidden
+defaults.
+
+The closure stayed bounded. Event-backed `current_session` now preserves the
+prior typed instruction when queue text is blank and no explicit `packets` /
+`packet_inbox` authority is present, and queue
+`derived_next_instruction_source.to_agent` must be blank or `claude` before
+the text projects into Claude's live instruction lane. Bridge-backed
+authority now refuses to outrank persisted typed state when the live bridge
+contributes no authority signal. `derive_implementation_admissibility()` now
+returns `blocked` with `implementation_permission_missing` for missing or
+empty permission, and reviewer-follow relaunch keeps its fail-closed posture
+by allowing auto-relaunch only when the typed recovery decision marks
+`relaunch_review_loop` auto-fixable. The same slice also refreshed the
+maintainer/self-hosting docs and documented the repo-local `reviewer_loop.sh`
+wrapper in `dev/scripts/README.md` so `docs-check --strict-tooling` and
+`hygiene` can keep this contract repo-visible.
+
+Evidence: `dev/scripts/devctl/review_channel/current_session_attention.py`,
+`dev/scripts/devctl/review_channel/current_session_authority.py`,
+`dev/scripts/devctl/review_channel/current_session_projection.py`,
+`dev/scripts/devctl/review_channel/current_session_support.py`,
+`dev/scripts/devctl/review_channel/recovery_decision.py`,
+`dev/scripts/devctl/review_channel/status_snapshot_authority.py`,
+`dev/scripts/devctl/runtime/implementation_admissibility.py`,
+`dev/scripts/devctl/tests/review_channel/test_current_session_projection.py`,
+`dev/scripts/devctl/tests/review_channel/test_reviewer_follow_restore_policy.py`,
+`dev/scripts/devctl/tests/runtime/test_implementation_admissibility.py`,
+`AGENTS.md`,
+`dev/guides/DEVELOPMENT.md`,
+`dev/scripts/README.md`,
+`dev/active/MASTER_PLAN.md`,
+`dev/active/ai_governance_platform.md`.
+
+### 2026-04-17 - Detached dual-agent over-budget state now cuts a checkpoint instead of asking for relaunch
+
+Fact: once the current-session authority repair landed, one narrower deadlock
+remained in the live repo proof. Detached `active_dual_agent` runtime truth
+still outranked stronger checkpoint authority, so the same review-current,
+over-budget state could tell operators to relaunch the review loop even while
+startup authority already said the next permitted action was a governed
+checkpoint. That also made the reduced authority surfaces too blunt: the
+status/startup contract blocked implementation correctly, but it did not make
+the checkpoint-safe `vcs.stage` / `vcs.commit` path explicit.
+
+This mattered because the platform claim is not just "fail closed." The
+contract also has to tell the truth about what kind of recovery is allowed.
+In a detached loop where `reviewed_hash_current=true`, `review_needed=false`,
+and the worktree is simply over budget, relaunch is the wrong next step. The
+right next step is to cut the bounded checkpoint, refresh the receipt, and
+only then decide whether launch/ensure automation should resume.
+
+The closure stayed bounded. The shared attention reducer now lets checkpoint
+authority preempt detached-runtime recovery when typed push enforcement says
+the tree is over budget and reviewer proof is already current. The shared
+action-routing path now falls back to top-level status payloads for
+`implementation_permission`, `reviewer_gate`, and push-enforcement truth,
+keeps `implementation.edit` blocked, but allows `vcs.stage` / `vcs.commit`
+for the governed checkpoint exception. The same slice dedupes startup blocker
+summaries and makes `cut_checkpoint` prefer the typed governed
+`devctl commit -m "<descriptive message>"` next command across
+`review-channel --action status`, `startup-context`, and the reduced
+`authority_snapshot`.
+
+Evidence: `dev/scripts/devctl/review_channel/attention_classify.py`,
+`dev/scripts/devctl/runtime/action_routing.py`,
+`dev/scripts/devctl/runtime/authority_snapshot_build.py`,
+`dev/scripts/devctl/runtime/authority_snapshot_core.py`,
+`dev/scripts/devctl/commands/review_channel/reviewer_runtime_snapshot.py`,
+`dev/scripts/devctl/tests/review_channel/test_recovery_assessment.py`,
+`dev/scripts/devctl/tests/runtime/test_action_routing.py`,
+`dev/scripts/devctl/tests/runtime/test_startup_context.py`,
+`dev/scripts/devctl/tests/review_channel/test_review_channel.py`,
+`python3 dev/scripts/devctl.py review-channel --action status --terminal none --format json`,
+and `python3 dev/scripts/devctl.py startup-context --format summary`.
+
+### 2026-04-17 - Remote-control checkpoints can now resume through one operator command instead of hand-built approval packets
+
+Fact: the next dogfood pass after the checkpoint-first routing fix exposed a
+different gap in the same governed remote-control lane. `devctl commit`
+correctly failed closed at `operator_approval_pending`, but the only way to
+resume the pipeline was to manually reconstruct a typed `commit_approval`
+decision packet from `commit_pipeline.json`, post it through
+`review-channel --action post`, apply it, and then rerun `devctl commit`.
+That was architecturally correct but operationally wrong: the system already
+had the pipeline id, generation id, staged snapshot hash, and guard summary,
+yet the repo still made operators rebuild them by hand.
+
+This mattered because the remote-control contract is supposed to be
+self-hosting. A governed commit should require explicit operator intent, but
+explicit intent is not the same thing as forcing humans or AI copilots to
+copy packet fields out of JSON receipts. If the repo cannot offer one
+operator-owned resume surface, the approval boundary stays technically safe
+while still encouraging ad hoc recovery steps.
+
+The closure stayed bounded. `devctl commit` now accepts
+`--approve-pending` as the explicit operator-owned resume path for governed
+remote-control checkpoints. The flag reuses the current guarded pipeline,
+posts/applies the matching typed `commit_approval` decision, and continues
+the same `vcs.commit` instead of requiring manual `review-channel post|apply`
+field assembly. The same slice also narrowed packet reads on the commit
+path: approval helper and commit-phase packet loaders now reduce raw event
+packets directly instead of rebuilding the full enriched event bundle just to
+match approval packets. That cut the focused approval-resume regression from
+roughly 169 seconds to roughly 109 seconds, while leaving a separate
+first-stage remote-control preflight/context-graph latency as the next
+follow-up optimization.
+
+Evidence: `dev/scripts/devctl/commands/vcs/parser.py`,
+`dev/scripts/devctl/commands/vcs/commit.py`,
+`dev/scripts/devctl/commands/vcs/commit_preflight.py`,
+`dev/scripts/devctl/commands/vcs/governed_executor_sync.py`,
+`dev/scripts/devctl/tests/vcs/test_commit_gate.py`,
+`dev/scripts/README.md`,
+`dev/active/MASTER_PLAN.md`,
+`dev/active/ai_governance_platform.md`.
 
 ### 2026-04-15 - Governed commit fallback now trusts effective reviewer mode, and status `sessions=[]` is action-scoped
 
