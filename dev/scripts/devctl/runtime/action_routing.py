@@ -15,6 +15,7 @@ from .commit_permission import (
     build_commit_permission_decision_for_executor,
 )
 from .implementation_admissibility import (
+    ImplementationAdmissibilityState,
     derive_implementation_admissibility,
 )
 
@@ -183,6 +184,7 @@ def build_startup_action_routing(
     permission = str(
         getattr(resolved_coordination, "implementation_permission", "") or ""
     ).strip()
+    permission_missing = resolved_coordination is not None and not permission
     resync_required = bool(
         getattr(resolved_coordination, "resync_required", False)
     )
@@ -192,11 +194,16 @@ def build_startup_action_routing(
         safe_to_continue_editing=push.get("safe_to_continue_editing", True),
         resync_required=resync_required,
     )
+    if permission_missing:
+        admissibility = ImplementationAdmissibilityState(
+            status="blocked",
+            reasons=(*admissibility.reasons, "implementation_permission_missing"),
+        )
 
     if admissibility.status != "allowed":
         _append_unique(blocked, _IMPLEMENTATION_ACTIONS)
 
-    if permission in {"blocked", "suspended"}:
+    if permission in {"blocked", "suspended"} or permission_missing:
         control_recovery_action = "refresh_startup_or_review_status"
         escalation_action = "operator_resync_required"
 

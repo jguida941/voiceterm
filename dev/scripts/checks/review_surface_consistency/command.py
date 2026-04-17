@@ -9,10 +9,12 @@ from pathlib import Path
 
 from dev.scripts.devctl.runtime.startup_context import build_startup_context
 
+from .models import ConvergencePassResult
 from .parity import (
-    bridge_poll_parity_errors,
+    bridge_poll_parity_violations,
     disk_turn_authority_parity_errors,
-    recovery_surface_parity_errors,
+    disk_turn_authority_parity_violations,
+    recovery_surface_parity_violations,
 )
 from .payloads import load_bridge_poll_payload, load_turn_authority_payload
 from .support import _load_json, _nested, load_review_state_payload, surface_path
@@ -59,16 +61,25 @@ def build_report(
         commit_pipeline=commit_pipeline,
     )
     errors = _snapshot_errors(snapshot_ids, generation_ids)
-    errors.extend(bridge_poll_parity_errors(bridge_poll, turn_authority))
-    errors.extend(
-        recovery_surface_parity_errors(
+    violations = [
+        _raw_error_violation(error)
+        for error in errors
+    ]
+    violations.extend(
+        bridge_poll_parity_violations(
+            bridge_poll=bridge_poll,
+            turn_authority=turn_authority,
+        )
+    )
+    violations.extend(
+        recovery_surface_parity_violations(
             review_state=review_state,
             compact=compact,
             bridge_poll=bridge_poll,
             turn_authority=turn_authority,
         )
     )
-    disk_errors, disk_warnings = disk_turn_authority_parity_errors(
+    disk_violations, disk_warnings = disk_turn_authority_parity_violations(
         repo_root=repo_root,
         turn_authority=turn_authority,
         bridge_poll=bridge_poll,
@@ -77,17 +88,18 @@ def build_report(
         ),
         disk_override_provided=disk_review_state_payload is not _UNSET,
     )
-    errors.extend(disk_errors)
-    return {
-        "command": "check_review_surface_consistency",
-        "ok": not errors,
-        "snapshot_ids": snapshot_ids,
-        "generation_ids": generation_ids,
-        "bridge_poll": bridge_poll,
-        "turn_authority": turn_authority,
-        "disk_parity_warnings": disk_warnings,
-        "errors": errors,
-    }
+    violations.extend(disk_violations)
+    errors = [violation.detail for violation in violations]
+    return ConvergencePassResult(
+        ok=not errors,
+        snapshot_ids=snapshot_ids,
+        generation_ids=generation_ids,
+        bridge_poll=bridge_poll,
+        turn_authority=turn_authority,
+        disk_parity_warnings=tuple(disk_warnings),
+        errors=tuple(errors),
+        violations=tuple(violations),
+    ).to_dict()
 
 
 def _disk_turn_authority_parity_errors(
@@ -169,6 +181,15 @@ def _snapshot_errors(
     if len(nonempty_generations) > 1:
         errors.append("pipeline generation mismatch: " + ", ".join(nonempty_generations))
     return errors
+
+
+def _raw_error_violation(error: str):
+    from .models import ConvergencePassViolation
+
+    return ConvergencePassViolation(
+        category="snapshot_consistency",
+        detail=error,
+    )
 
 
 def _render_report(report: dict[str, object]) -> str:

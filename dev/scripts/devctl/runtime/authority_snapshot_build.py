@@ -83,6 +83,7 @@ def build_authority_snapshot(
     decision = _mapping(recovery.get("decision"))
     packet_inbox = _mapping(payload.get("packet_inbox"))
     current_instruction = str(current_session.get("current_instruction") or "").strip()
+    clear_from_packet_truth = _codex_instruction_requires_clear(packet_inbox)
     reviewer_mode, reviewer_freshness, attention_status = _authority_modes(
         payload=payload,
         reviewer_gate=reviewer_gate,
@@ -102,12 +103,14 @@ def build_authority_snapshot(
     resync_required = bool(coordination.get("resync_required", False))
     current_instruction_revision = (
         ""
-        if is_missing_instruction(current_instruction)
+        if clear_from_packet_truth or is_missing_instruction(current_instruction)
         else str(current_session.get("current_instruction_revision") or "").strip()
     )
-    implementer_ack_state = str(
-        current_session.get("implementer_ack_state") or ""
-    ).strip()
+    implementer_ack_state = (
+        "missing"
+        if clear_from_packet_truth or is_missing_instruction(current_instruction)
+        else str(current_session.get("implementer_ack_state") or "").strip()
+    )
     root_cause, required_action = _authority_actions(
         AuthorityActionInputs(
             payload=payload,
@@ -294,12 +297,4 @@ def _codex_instruction_requires_clear(packet_inbox: Mapping[str, object]) -> boo
     )
     if not record:
         return False
-    wake_reason = str(record.get("wake_reason") or "").strip()
-    return bool(
-        not str(record.get("current_instruction_packet_id") or "").strip()
-        and (
-            tuple(record.get("pending_actionable_packet_ids", ()) or ())
-            or tuple(record.get("expired_unresolved_packet_ids", ()) or ())
-            or wake_reason in {"finding_pending", "expired_unresolved_packet"}
-        )
-    )
+    return not str(record.get("current_instruction_packet_id") or "").strip()

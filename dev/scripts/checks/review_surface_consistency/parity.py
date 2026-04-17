@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from .models import ConvergencePassViolation
 from .support import load_disk_review_state
 
 _ATTENTION_PROJECTION_FIELDS = (
@@ -19,12 +20,35 @@ def bridge_poll_parity_errors(
     bridge_poll: dict[str, object],
     turn_authority: dict[str, object],
 ) -> list[str]:
+    return [
+        violation.detail
+        for violation in bridge_poll_parity_violations(
+            bridge_poll=bridge_poll,
+            turn_authority=turn_authority,
+        )
+    ]
+
+
+def bridge_poll_parity_violations(
+    *,
+    bridge_poll: dict[str, object],
+    turn_authority: dict[str, object],
+) -> list[ConvergencePassViolation]:
     if not bridge_poll or not turn_authority:
         return []
     return [
-        "bridge-poll parity mismatch on "
-        f"{field}: bridge-poll={bridge_poll.get(field)!r}, "
-        f"turn-authority={turn_authority.get(field)!r}"
+        ConvergencePassViolation(
+            category="bridge_poll_parity",
+            surface="bridge_poll",
+            field=field,
+            expected=repr(turn_authority.get(field)),
+            actual=repr(bridge_poll.get(field)),
+            detail=(
+                "bridge-poll parity mismatch on "
+                f"{field}: bridge-poll={bridge_poll.get(field)!r}, "
+                f"turn-authority={turn_authority.get(field)!r}"
+            ),
+        )
         for field in (
             "effective_reviewer_mode",
             "launch_truth",
@@ -55,6 +79,24 @@ def recovery_surface_parity_errors(
     bridge_poll: dict[str, object],
     turn_authority: dict[str, object],
 ) -> list[str]:
+    return [
+        violation.detail
+        for violation in recovery_surface_parity_violations(
+            review_state=review_state,
+            compact=compact,
+            bridge_poll=bridge_poll,
+            turn_authority=turn_authority,
+        )
+    ]
+
+
+def recovery_surface_parity_violations(
+    *,
+    review_state: dict[str, object],
+    compact: dict[str, object],
+    bridge_poll: dict[str, object],
+    turn_authority: dict[str, object],
+) -> list[ConvergencePassViolation]:
     diagnosis_status = _nested(
         review_state, "recovery_assessment", "diagnosis", "status"
     ) or _nested(review_state, "attention", "status")
@@ -67,7 +109,7 @@ def recovery_surface_parity_errors(
     if not diagnosis_status and not decision_action_id and not decision_command:
         return []
 
-    errors: list[str] = []
+    errors: list[ConvergencePassViolation] = []
     surfaces = {
         "review_state_attention": {
             "diagnosis_status": _nested(review_state, "attention", "status"),
@@ -105,15 +147,35 @@ def recovery_surface_parity_errors(
                 surface_status = str(payload.get("status") or "").strip()
             if surface_status and surface_status != diagnosis_status:
                 errors.append(
-                    f"diagnosis parity mismatch on {surface_name}: "
-                    f"expected={diagnosis_status!r}, actual={surface_status!r}"
+                    ConvergencePassViolation(
+                        category="diagnosis_parity",
+                        surface=surface_name,
+                        field="diagnosis_status",
+                        expected=diagnosis_status,
+                        actual=surface_status,
+                        detail=(
+                            f"diagnosis parity mismatch on {surface_name}: "
+                            f"expected={diagnosis_status!r}, actual={surface_status!r}"
+                        ),
+                    )
                 )
         if decision_action_id:
             surface_action_id = str(payload.get("decision_action_id") or "").strip()
             if surface_action_id and surface_action_id != decision_action_id:
                 errors.append(
-                    f"decision parity mismatch on {surface_name}.decision_action_id: "
-                    f"expected={decision_action_id!r}, actual={surface_action_id!r}"
+                    ConvergencePassViolation(
+                        category="decision_parity",
+                        surface=surface_name,
+                        field="decision_action_id",
+                        expected=decision_action_id,
+                        actual=surface_action_id,
+                        detail=(
+                            f"decision parity mismatch on "
+                            f"{surface_name}.decision_action_id: "
+                            f"expected={decision_action_id!r}, "
+                            f"actual={surface_action_id!r}"
+                        ),
+                    )
                 )
         if decision_command:
             surface_command = str(payload.get("decision_command") or "").strip()
@@ -125,15 +187,36 @@ def recovery_surface_parity_errors(
                 ).strip()
             if surface_command and surface_command != decision_command:
                 errors.append(
-                    f"decision parity mismatch on {surface_name}.decision_command: "
-                    f"expected={decision_command!r}, actual={surface_command!r}"
+                    ConvergencePassViolation(
+                        category="decision_parity",
+                        surface=surface_name,
+                        field="decision_command",
+                        expected=decision_command,
+                        actual=surface_command,
+                        detail=(
+                            f"decision parity mismatch on "
+                            f"{surface_name}.decision_command: "
+                            f"expected={decision_command!r}, "
+                            f"actual={surface_command!r}"
+                        ),
+                    )
                 )
         status = str(payload.get("status") or "").strip()
         if diagnosis_status not in {"", "healthy"} and status == "healthy":
             errors.append(
-                f"{surface_name} reports healthy while diagnosis is {diagnosis_status!r}"
+                ConvergencePassViolation(
+                    category="healthy_surface_mismatch",
+                    surface=surface_name,
+                    field="status",
+                    expected=diagnosis_status,
+                    actual=status,
+                    detail=(
+                        f"{surface_name} reports healthy while diagnosis is "
+                        f"{diagnosis_status!r}"
+                    ),
+                )
             )
-    errors.extend(attention_projection_parity_errors(review_state))
+    errors.extend(attention_projection_parity_violations(review_state))
     return errors
 
 
@@ -145,6 +228,24 @@ def disk_turn_authority_parity_errors(
     disk_review_state_override: dict[str, object] | None = None,
     disk_override_provided: bool = False,
 ) -> tuple[list[str], list[str]]:
+    violations, warnings = disk_turn_authority_parity_violations(
+        repo_root=repo_root,
+        turn_authority=turn_authority,
+        bridge_poll=bridge_poll,
+        disk_review_state_override=disk_review_state_override,
+        disk_override_provided=disk_override_provided,
+    )
+    return [violation.detail for violation in violations], warnings
+
+
+def disk_turn_authority_parity_violations(
+    *,
+    repo_root: Path,
+    turn_authority: dict[str, object],
+    bridge_poll: dict[str, object],
+    disk_review_state_override: dict[str, object] | None = None,
+    disk_override_provided: bool = False,
+) -> tuple[list[ConvergencePassViolation], list[str]]:
     errors: list[str] = []
     warnings: list[str] = []
     if disk_override_provided:
@@ -199,8 +300,17 @@ def disk_turn_authority_parity_errors(
             continue
         if authority_text != disk_value:
             errors.append(
-                f"disk-artifact parity mismatch on {field_name}: "
-                f"authority={authority_text!r}, disk={disk_value!r}"
+                ConvergencePassViolation(
+                    category="disk_artifact_parity",
+                    surface="disk_review_state",
+                    field=field_name,
+                    expected=authority_text,
+                    actual=disk_value,
+                    detail=(
+                        f"disk-artifact parity mismatch on {field_name}: "
+                        f"authority={authority_text!r}, disk={disk_value!r}"
+                    ),
+                )
             )
     return errors, warnings
 
@@ -237,6 +347,15 @@ def _nested(mapping: dict[str, object], *keys: str) -> str:
 
 
 def attention_projection_parity_errors(review_state: dict[str, object]) -> list[str]:
+    return [
+        violation.detail
+        for violation in attention_projection_parity_violations(review_state)
+    ]
+
+
+def attention_projection_parity_violations(
+    review_state: dict[str, object],
+) -> list[ConvergencePassViolation]:
     assessment = review_state.get("recovery_assessment")
     attention = review_state.get("attention")
     if not isinstance(assessment, dict):
@@ -245,15 +364,31 @@ def attention_projection_parity_errors(review_state: dict[str, object]) -> list[
     if not projected_attention:
         return []
     if not isinstance(attention, dict):
-        return ["review_state.attention missing while recovery_assessment is present"]
-    errors: list[str] = []
+        return [
+            ConvergencePassViolation(
+                category="attention_projection",
+                surface="review_state.attention",
+                detail="review_state.attention missing while recovery_assessment is present",
+            )
+        ]
+    errors: list[ConvergencePassViolation] = []
     for field in _ATTENTION_PROJECTION_FIELDS:
         expected = projected_attention.get(field, "")
         actual = _nested(review_state, "attention", field)
         if actual != expected:
             errors.append(
-                "attention projection mismatch on "
-                f"review_state.attention.{field}: expected={expected!r}, actual={actual!r}"
+                ConvergencePassViolation(
+                    category="attention_projection",
+                    surface="review_state.attention",
+                    field=field,
+                    expected=expected,
+                    actual=actual,
+                    detail=(
+                        "attention projection mismatch on "
+                        f"review_state.attention.{field}: "
+                        f"expected={expected!r}, actual={actual!r}"
+                    ),
+                )
             )
     return errors
 

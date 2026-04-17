@@ -108,7 +108,10 @@ class CheckReviewSurfaceConsistencyTests(unittest.TestCase):
         )
 
         self.assertTrue(report["ok"])
+        self.assertEqual(report["contract_id"], "ConvergencePassResult")
+        self.assertEqual(report["schema_version"], 1)
         self.assertEqual(report["errors"], [])
+        self.assertEqual(report["violations"], [])
 
     def test_build_report_fails_when_snapshot_ids_diverge(self) -> None:
         report = self.script.build_report(
@@ -215,6 +218,13 @@ class CheckReviewSurfaceConsistencyTests(unittest.TestCase):
         self.assertIn("bridge-poll parity mismatch", "\n".join(report["errors"]))
         self.assertIn("diagnosis parity mismatch", "\n".join(report["errors"]))
         self.assertIn("reports healthy while diagnosis", "\n".join(report["errors"]))
+        self.assertTrue(
+            any(
+                violation.get("category") == "bridge_poll_parity"
+                and violation.get("field") == "next_turn_reason"
+                for violation in report["violations"]
+            )
+        )
 
     def test_build_report_fails_when_attention_drifts_from_recovery_assessment(self) -> None:
         report = self.script.build_report(

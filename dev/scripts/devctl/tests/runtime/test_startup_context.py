@@ -220,6 +220,8 @@ class TestStartupContextBuild(unittest.TestCase):
         )
 
         self.assertEqual(snapshot.current_slice, "")
+        self.assertEqual(snapshot.current_instruction_revision, "")
+        self.assertEqual(snapshot.implementer_ack_state, "missing")
 
     def test_authority_snapshot_clears_missing_instruction_placeholder_revision(self) -> None:
         snapshot = build_authority_snapshot(

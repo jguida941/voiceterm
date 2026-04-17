@@ -141,15 +141,15 @@ def build_event_current_session(
     queue = _mapping(review_state.get("queue"))
     prior_session = prior_typed_current_session(prior_review_state)
     current_instruction = event_current_instruction(review_state)
-    instruction_missing = is_missing_instruction(current_instruction)
     packet_attention = _packet_attention(review_state, agent="codex")
+    clear_from_packet_truth = _packet_attention_requires_clear(packet_attention)
     current_instruction_revision = str(
         bridge_liveness.get("current_instruction_revision") or ""
     )
     if (
         not current_instruction
         and prior_session is not None
-        and not _packet_attention_requires_clear(packet_attention)
+        and not clear_from_packet_truth
     ):
         current_instruction = prior_session.current_instruction
         current_instruction_revision = (
@@ -159,7 +159,7 @@ def build_event_current_session(
         current_instruction,
         current_instruction_revision,
     )
-    if _packet_attention_requires_clear(packet_attention):
+    if clear_from_packet_truth:
         current_instruction = ""
         current_instruction_revision = ""
     instruction_missing = is_missing_instruction(current_instruction)
@@ -246,15 +246,9 @@ def _packet_attention(
 def _packet_attention_requires_clear(packet_attention: object | None) -> bool:
     if packet_attention is None:
         return False
-    wake_reason = str(getattr(packet_attention, "wake_reason", "") or "").strip()
-    return any(
-        (
-            str(getattr(packet_attention, "current_instruction_packet_id", "") or "").strip(),
-            tuple(getattr(packet_attention, "pending_actionable_packet_ids", ()) or ()),
-            tuple(getattr(packet_attention, "expired_unresolved_packet_ids", ()) or ()),
-            wake_reason in {"finding_pending", "expired_unresolved_packet"},
-        )
-    )
+    return not str(
+        getattr(packet_attention, "current_instruction_packet_id", "") or ""
+    ).strip()
 
 
 def _mapping(value: object) -> Mapping[str, Any]:

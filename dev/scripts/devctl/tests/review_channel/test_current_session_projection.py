@@ -320,7 +320,7 @@ def test_event_bridge_liveness_prefers_bridge_reviewer_mode() -> None:
     assert payload["reviewer_mode"] == "active_dual_agent"
 
 
-def test_build_event_current_session_preserves_prior_instruction_when_queue_is_empty() -> None:
+def test_build_event_current_session_clears_prior_instruction_when_queue_is_empty() -> None:
     state = build_event_current_session(
         review_state={
             "review": {"plan_id": "MP-355"},
@@ -356,9 +356,51 @@ def test_build_event_current_session_preserves_prior_instruction_when_queue_is_e
         },
     )
 
-    assert state.current_instruction == "Keep the checkpoint lane stable."
-    assert state.current_instruction_revision == "typed-rev-999"
+    assert state.current_instruction == ""
+    assert state.current_instruction_revision == ""
+    assert state.implementer_ack == ""
+    assert state.implementer_ack_revision == ""
+    assert state.implementer_ack_state == "missing"
     assert state.implementer_status == "active"
+
+
+def test_event_projection_current_session_clears_prior_instruction_when_queue_is_empty() -> None:
+    with tempfile.TemporaryDirectory() as tmpdir:
+        root = Path(tmpdir)
+        current_session = resolve_event_projection_current_session(
+            review_state={
+                "review": {"plan_id": "MP-355"},
+                "queue": {
+                    "pending_total": 0,
+                    "pending_claude": 0,
+                    "derived_next_instruction": "",
+                },
+                "registry": {"agents": []},
+            },
+            repo_root=root,
+            prior_review_state={
+                "current_session": {
+                    "current_instruction": "Keep the checkpoint lane stable.",
+                    "current_instruction_revision": "typed-rev-999",
+                    "implementer_ack": (
+                        "Acknowledged instruction revision `typed-rev-999`"
+                    ),
+                    "implementer_ack_revision": "typed-rev-999",
+                    "implementer_ack_state": "current",
+                }
+            },
+            bridge_liveness={
+                "current_instruction_revision": "",
+                "claude_ack_revision": "",
+                "claude_ack_current": False,
+            },
+            resolvers=CurrentSessionResolvers(
+                build_event_current_session_fn=build_event_current_session,
+            ),
+        )
+
+    assert current_session.current_instruction == ""
+    assert current_session.current_instruction_revision == ""
 
 
 def test_build_event_current_session_clears_prior_instruction_when_packets_still_need_attention() -> None:

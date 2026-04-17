@@ -130,20 +130,8 @@ def _normalize_current_session_from_packet_truth(
     clear_instruction = bool(
         record is not None
         and not str(record.current_instruction_packet_id or "").strip()
-        and (
-            tuple(record.pending_actionable_packet_ids or ())
-            or tuple(record.expired_unresolved_packet_ids or ())
-            or str(record.wake_reason or "").strip()
-            in {"finding_pending", "expired_unresolved_packet"}
-        )
     )
-    packet_attention_present = bool(
-        record is not None
-        and (
-            clear_instruction
-            or str(record.current_instruction_packet_id or "").strip()
-        )
-    )
+    packet_attention_present = record is not None
     missing_instruction = is_missing_instruction(current_session.current_instruction)
     clear_current_instruction = clear_instruction or missing_instruction
     cleared_ack = "" if clear_current_instruction else current_session.implementer_ack
