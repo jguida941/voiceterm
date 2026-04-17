@@ -31,6 +31,7 @@ from .support import (
     make_refreshed_authorization,
     pipeline_id_of,
     pipeline_state_of,
+    refresh_pipeline_projections,
     resolve_current_head,
     resolve_pipeline_paths,
     write_pipeline_payload,
@@ -131,6 +132,7 @@ def _apply_recover(
         receipt,
         filename=RECOVER_RECEIPT_FILENAME,
     )
+    warnings = refresh_pipeline_projections(paths)
     return {
         "ok": True,
         "action": "recover",
@@ -141,6 +143,7 @@ def _apply_recover(
         "new_authorized_head_sha": current_head,
         "pipeline_artifact_path": str(paths.pipeline_path),
         "receipt_path": str(receipt_path),
+        "warnings": warnings,
     }
 
 

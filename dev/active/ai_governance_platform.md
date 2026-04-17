@@ -5161,6 +5161,22 @@ working on `MP-377`.
   mobile/read-only consumers refresh when push-state changes. Focused proof is
   green on push-state/startup regressions, compat/cache regressions, and
   `check_code_shape.py`.
+- 2026-04-17 checkpoint-recovery projection follow-up:
+  the next checkpoint-repair pass closed a stale-state overwrite that was
+  still making the dogfood loop look hung. Direct `pipeline`
+  `abandon` / `recover` / `refresh-authorization` writes now refresh the
+  shared review-channel projections immediately after they persist canonical
+  pipeline truth, so `review-channel status` and the next governed
+  `devctl commit` read cannot mirror an older `latest/commit_pipeline.json`
+  payload back over `projections/latest/commit_pipeline.json`. The same slice
+  also types the expanded pending-reviewer commit gate against `ReviewState`,
+  keeping repo-wide `check_python_typed_seams.py` green after the helper
+  extraction. Focused proof is green on
+  `test_pipeline_command.py`, `test_commit_pending_reviewer_gate.py`,
+  `check_python_typed_seams.py`, and `check_code_shape.py`. Next live step:
+  rerun the governed checkpoint, then take Claude's
+  `guards_failed` next-command follow-up (`rev_pkt_0949`) before widening to
+  the findings-backlog / packet-lifecycle automation slice.
 - 2026-04-15 plan-registry authority artifact closure:
   `scan_governed_markdown_contracts()` now persists governed markdown
   `PlanRegistry` plus per-plan `PlanTargetRef` data to
@@ -7173,6 +7189,25 @@ Execution order for this section:
 
 ## Progress Log
 
+- 2026-04-17: Closed the stale pipeline-recovery mirror that was still making
+  the governed checkpoint path look manual. A live dogfood retry proved that
+  `pipeline --action abandon` could record `new_state=abandoned` in the
+  canonical pipeline artifact and still have the next bridge-backed status
+  refresh rehydrate `push_blocked` back into both `review-channel status` and
+  `projections/latest/commit_pipeline.json`. The bounded fix keeps the
+  canonical pipeline write authoritative: direct `pipeline`
+  `abandon` / `recover` / `refresh-authorization` actions now refresh the
+  shared review-channel projections immediately after they persist the new
+  pipeline payload, so later status/commit reads pick up the updated pipeline
+  state instead of replaying the stale `latest/commit_pipeline.json` mirror.
+  The same closure typed the expanded pending-reviewer commit gate helper
+  against `ReviewState`, which cleared the repo-wide
+  `check_python_typed_seams.py` failure that surfaced on the first fresh
+  checkpoint retry after the projection fix. Focused proof is green on
+  `test_pipeline_command.py`, `test_commit_pending_reviewer_gate.py`,
+  `check_python_typed_seams.py`, and `check_code_shape.py`, and the next live
+  move is back on the governed checkpoint path instead of another manual
+  pipeline detour.
 - 2026-04-17: Closed the checkpoint-vs-relaunch deadlock that remained after
   the current-session authority repair. Detached `active_dual_agent`
   runtime-only evidence was still outranking stronger checkpoint truth, so the

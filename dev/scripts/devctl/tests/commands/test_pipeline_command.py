@@ -14,6 +14,7 @@ import unittest
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from types import SimpleNamespace
+from unittest.mock import patch
 
 from dev.scripts.devctl.cli import COMMAND_HANDLERS, build_parser
 from dev.scripts.devctl.commands.pipeline.abandon_action import run_abandon
@@ -106,6 +107,7 @@ class _PipelineFixture:
             action="",
             reason="",
             operator_actor="operator",
+            repo_root_override=str(self.root),
             pipeline_root_override=str(self.pipeline_root),
             receipts_root_override=str(self.receipts_root),
             format="json",
@@ -115,6 +117,7 @@ class _PipelineFixture:
 
     def paths(self):
         return resolve_pipeline_paths(
+            repo_root=self.root,
             pipeline_root_override=self.pipeline_root,
             receipts_root_override=self.receipts_root,
         )
@@ -187,6 +190,23 @@ class PipelineStatusTests(unittest.TestCase):
         finally:
             fixture.close()
 
+    def test_status_recommends_abandon_command_for_live_push_blocked_pipeline(
+        self,
+    ) -> None:
+        fixture = _PipelineFixture(fake_head="deadbeef00000000000000000000000000000000")
+        try:
+            fixture.write_payload(_sample_pipeline_payload(state="push_blocked"))
+            view = build_status_view(fixture.paths())
+            self.assertFalse(view["authorization_expired"])
+            self.assertEqual(view["recommended_next_action"], "abandon")
+            self.assertEqual(
+                view["next_command"],
+                'python3 dev/scripts/devctl.py pipeline --action abandon --reason '
+                '"<descriptive reason>" --format json',
+            )
+        finally:
+            fixture.close()
+
     def test_status_when_no_pipeline_artifact_exits_nonzero(self) -> None:
         fixture = _PipelineFixture(fake_head="deadbeef")
         try:
@@ -222,12 +242,17 @@ class PipelineAbandonTests(unittest.TestCase):
         fixture = _PipelineFixture(fake_head="deadbeef")
         try:
             fixture.write_payload(_sample_pipeline_payload())
-            args = fixture.namespace(
-                action="abandon",
-                reason="manual recovery test fixture",
-            )
-            rc = run_abandon(args)
+            with patch(
+                "dev.scripts.devctl.commands.pipeline.abandon_action.refresh_pipeline_projections",
+                return_value=[],
+            ) as mock_refresh:
+                args = fixture.namespace(
+                    action="abandon",
+                    reason="manual recovery test fixture",
+                )
+                rc = run_abandon(args)
             self.assertEqual(rc, 0)
+            mock_refresh.assert_called_once()
             updated = fixture.read_payload()
             self.assertEqual(updated["state"], "abandoned")
             receipt_path = fixture.receipts_root / ABANDONED_RECEIPT_FILENAME
@@ -282,9 +307,14 @@ class PipelineRecoverTests(unittest.TestCase):
         fixture = _PipelineFixture(fake_head=moved_head)
         try:
             fixture.write_payload(_sample_pipeline_payload())
-            args = fixture.namespace(action="recover")
-            rc = run_recover(args)
+            with patch(
+                "dev.scripts.devctl.commands.pipeline.recover_action.refresh_pipeline_projections",
+                return_value=[],
+            ) as mock_refresh:
+                args = fixture.namespace(action="recover")
+                rc = run_recover(args)
             self.assertEqual(rc, 0)
+            mock_refresh.assert_called_once()
             updated = fixture.read_payload()
             self.assertEqual(
                 updated["push_authorization"]["authorized_head_sha"],
@@ -323,9 +353,14 @@ class PipelineRefreshAuthorizationTests(unittest.TestCase):
             fixture.write_payload(
                 _sample_pipeline_payload(expires_at_utc=expired)
             )
-            args = fixture.namespace(action="refresh-authorization")
-            rc = run_refresh_authorization(args)
+            with patch(
+                "dev.scripts.devctl.commands.pipeline.refresh_authorization_action.refresh_pipeline_projections",
+                return_value=[],
+            ) as mock_refresh:
+                args = fixture.namespace(action="refresh-authorization")
+                rc = run_refresh_authorization(args)
             self.assertEqual(rc, 0)
+            mock_refresh.assert_called_once()
             updated = fixture.read_payload()
             new_expires = updated["push_authorization"]["expires_at_utc"]
             self.assertNotEqual(new_expires, expired)

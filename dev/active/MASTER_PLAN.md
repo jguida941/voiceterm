@@ -275,6 +275,19 @@
   read-only/mobile consumers do not lag after push-state updates. Proof is
   green on the narrowed push-state/startup regressions, the new compat/cache
   tests, and `check_code_shape.py`.
+- 2026-04-17 checkpoint-recovery projection follow-up in `MP-377` /
+  `MP-355` scope: direct pipeline recovery actions now refresh the shared
+  review-channel projections immediately after they write canonical pipeline
+  state, so a live `pipeline --action abandon|recover|refresh-authorization`
+  result cannot be overwritten by a stale `latest/commit_pipeline.json`
+  mirror on the very next status or commit read. The same checkpoint-repair
+  slice also types the expanded pending-reviewer commit gate against
+  `ReviewState`, keeping `check_python_typed_seams.py` green after the helper
+  extraction. Focused proof is green on
+  `test_pipeline_command.py`, `test_commit_pending_reviewer_gate.py`,
+  `check_python_typed_seams.py`, and `check_code_shape.py`; the next live
+  step is the governed checkpoint retry, then the same-class
+  `guards_failed` next-command gap Claude reported in `rev_pkt_0949`.
 - 2026-04-15 governed publication follow-up in `MP-377` scope:
   `devctl commit` now stops at `operator_approval_pending` before the commit
   phase when `remote_control` or another non-auto-approved lane still has an

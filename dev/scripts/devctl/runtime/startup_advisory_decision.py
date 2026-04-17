@@ -1,33 +1,30 @@
-"""Typed startup advisory-decision helpers."""
+"""Typed startup advisory-decision routing."""
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from .decision_explainability import rejected_rule_trace, rule_match_evidence
-from .finding_contracts import RejectedRuleTraceRecord, RuleMatchEvidenceRecord
+from .startup_advisory_push_support import (
+    checkpoint_progress_decision,
+    steady_state_decision,
+)
+from .startup_advisory_support import (
+    StartupAdvisoryDecision,
+    blocked_loop_decision,
+    concurrent_writer_decision,
+    coordination_conflict_decision,
+    detached_publication_decision,
+    pending_review_decision,
+)
 from .startup_push_decision import _is_detached_publication_only
 
 if TYPE_CHECKING:
     from .project_governance import ProjectGovernance
-    from .project_governance_push import PushEnforcement
     from .startup_context import ReviewerGateState
     from .work_intake_models import (
         WorkIntakeCoordinationState,
         WorkIntakeOwnershipState,
     )
-
-
-@dataclass(frozen=True, slots=True)
-class StartupAdvisoryDecision:
-    """Typed answer for the next startup advisory action."""
-
-    action: str
-    reason: str
-    rule_summary: str
-    match_evidence: tuple[RuleMatchEvidenceRecord, ...]
-    rejected_rule_traces: tuple[RejectedRuleTraceRecord, ...]
 
 
 def derive_advisory_decision(
@@ -38,384 +35,29 @@ def derive_advisory_decision(
 ) -> StartupAdvisoryDecision:
     """Derive the advisory action from push enforcement and reviewer state."""
     push = governance.push_enforcement
-    if push.checkpoint_required:
-        return _checkpoint_required_decision(push)
-    if not push.safe_to_continue_editing:
-        return _budget_exceeded_decision(push)
+    decision = checkpoint_progress_decision(push)
+    if decision is not None:
+        return decision
     if ownership is not None and ownership.concurrent_writer_detected:
-        return _concurrent_writer_decision(ownership)
-    if (
-        coordination is not None
-        and coordination.concurrent_writer_conflict_detected
-    ):
-        return _coordination_conflict_decision(coordination)
+        return concurrent_writer_decision(ownership)
+    if coordination is not None and coordination.concurrent_writer_conflict_detected:
+        return coordination_conflict_decision(coordination)
     if gate.implementation_blocked and not gate.review_gate_allows_push:
         # Manual reviewer approval can publish a clean branch, but cannot
         # authorize more coding.  Skip the blocked-loop route for detached
         # patterns so publication checks can still proceed.
         if not _is_detached_publication_only(gate.implementation_block_reason):
-            return _blocked_loop_decision(gate)
-        result = _detached_publication_decision(push, gate)
+            return blocked_loop_decision(gate)
+        result = detached_publication_decision(push, gate)
         if result is not None:
             return result
     if gate.bridge_active and not gate.review_accepted:
-        return _pending_review_decision(
+        return pending_review_decision(
             bridge_active=gate.bridge_active,
             review_accepted=gate.review_accepted,
             worktree_clean=push.worktree_clean,
         )
-    if push.worktree_clean and push.ahead_of_upstream_commits in (0, None):
-        return _decision(
-            "no_push_needed",
-            "clean_worktree",
-            (
-                "Startup found no further governed push step because the branch "
-                "already matches upstream."
-            ),
-            (
-                rule_match_evidence(
-                    "startup_advisory.no_push_needed",
-                    "The worktree is clean and there is no remote delta left to publish.",
-                    f"worktree_clean={push.worktree_clean}",
-                    f"ahead_of_upstream_commits={push.ahead_of_upstream_commits}",
-                ),
-            ),
-            (
-                rejected_rule_trace(
-                    "startup_advisory.push_allowed",
-                    "Move straight to the governed push path.",
-                    "There is no remote delta left to publish.",
-                ),
-            ),
-        )
-    if push.worktree_clean and gate.review_gate_allows_push:
-        return _decision(
-            "push_allowed",
-            "worktree_clean_and_review_accepted",
-            (
-                "Startup allows the governed push path because the worktree is "
-                "clean and the review gate is satisfied."
-            ),
-            (
-                rule_match_evidence(
-                    "startup_advisory.push_allowed",
-                    "All startup prerequisites for governed push are satisfied.",
-                    f"worktree_clean={push.worktree_clean}",
-                    f"review_gate_allows_push={gate.review_gate_allows_push}",
-                ),
-            ),
-            (
-                rejected_rule_trace(
-                    "startup_advisory.no_push_needed",
-                    "Stop because nothing remains to push.",
-                    "The branch still has work available for publication.",
-                ),
-            ),
-        )
-    if gate.checkpoint_permitted and push.worktree_dirty:
-        return _decision(
-            "checkpoint_allowed",
-            "worktree_dirty_within_budget",
-            (
-                "Startup allows a checkpoint now because the worktree is dirty "
-                "but still within the repo's continuation budget."
-            ),
-            (
-                rule_match_evidence(
-                    "startup_advisory.checkpoint_allowed",
-                    "The worktree is dirty, but startup has room to checkpoint without forcing a hard stop.",
-                    f"worktree_dirty={push.worktree_dirty}",
-                    f"checkpoint_permitted={gate.checkpoint_permitted}",
-                ),
-            ),
-            (
-                rejected_rule_trace(
-                    "startup_advisory.push_allowed",
-                    "Move straight to the governed push path.",
-                    "The worktree is not clean yet.",
-                ),
-            ),
-        )
-    return _decision(
-        "continue_editing",
-        "clean_worktree",
-        (
-            "Startup allows editing to continue because no checkpoint, review, "
-            "or push gate requires a different action yet."
-        ),
-        (
-            rule_match_evidence(
-                "startup_advisory.continue_editing_default",
-                "No stronger startup rule matched, so the repo stays in the default editing state.",
-                f"worktree_clean={push.worktree_clean}",
-                f"review_gate_allows_push={gate.review_gate_allows_push}",
-            ),
-        ),
-        (
-            rejected_rule_trace(
-                "startup_advisory.push_allowed",
-                "Move straight to the governed push path.",
-                "Startup has not reached a clean, push-ready state yet.",
-            ),
-        ),
-    )
-
-
-def _detached_publication_decision(
-    push: "PushEnforcement", gate: "ReviewerGateState",
-) -> StartupAdvisoryDecision | None:
-    """Surface governed push for detached-runtime blocks with accepted review."""
-    if not (push.worktree_clean and gate.review_accepted
-            and push.ahead_of_upstream_commits not in (0, None)):
-        return None
-    reason = gate.implementation_block_reason
-    return _decision(
-        "push_allowed", "detached_publication_approved",
-        "Startup allows governed push: worktree clean, reviewer checkpoint "
-        "accepted this snapshot for publication, live loop is detached.",
-        (rule_match_evidence(
-            "startup_advisory.push_allowed_detached",
-            "Detached-runtime block with fresh reviewer acceptance surfaces governed push.",
-            f"worktree_clean={push.worktree_clean}",
-            f"review_accepted={gate.review_accepted}",
-            f"implementation_block_reason={reason}",
-        ),),
-        (rejected_rule_trace(
-            "startup_advisory.continue_editing",
-            "Keep editing the current slice.",
-            "Reviewer checkpoint already accepted this snapshot for publication.",
-        ),),
-    )
-
-
-def _pending_review_decision(
-    *,
-    bridge_active: bool,
-    review_accepted: bool,
-    worktree_clean: bool,
-) -> StartupAdvisoryDecision:
-    if worktree_clean:
-        return StartupAdvisoryDecision(
-            action="await_review",
-            reason="review_pending_before_push",
-            rule_summary=(
-                "Startup waits for review because the worktree is clean but "
-                "reviewer acceptance is still pending."
-            ),
-            match_evidence=(
-                rule_match_evidence(
-                    "startup_advisory.await_review_clean_pending",
-                    "The bridge is active, review is still pending, and the local slice is already checkpoint-clean.",
-                    f"bridge_active={bridge_active}",
-                    f"review_accepted={review_accepted}",
-                    f"worktree_clean={worktree_clean}",
-                ),
-            ),
-            rejected_rule_traces=(
-                rejected_rule_trace(
-                    "startup_advisory.continue_editing",
-                    "Keep editing the current slice.",
-                    "The worktree is already clean, so startup should wait for review instead of widening the slice.",
-                ),
-                rejected_rule_trace(
-                    "startup_advisory.push_allowed",
-                    "Move straight to the governed push path.",
-                    "Review acceptance is still pending.",
-                ),
-            ),
-        )
-    return StartupAdvisoryDecision(
-        action="continue_editing",
-        reason="review_pending",
-        rule_summary=(
-            "Startup allows editing to continue because review is pending but "
-            "the current slice is not checkpoint-clean yet."
-        ),
-        match_evidence=(
-            rule_match_evidence(
-                "startup_advisory.continue_editing_pending_review",
-                "Review is pending, but the local slice still has active work.",
-                f"bridge_active={bridge_active}",
-                f"review_accepted={review_accepted}",
-                f"worktree_clean={worktree_clean}",
-            ),
-        ),
-        rejected_rule_traces=(
-            rejected_rule_trace(
-                "startup_advisory.await_review",
-                "Pause and wait for reviewer-owned state.",
-                "The worktree is not clean yet, so startup keeps the slice local.",
-            ),
-        ),
-    )
-
-
-def _checkpoint_required_decision(
-    push: "PushEnforcement",
-) -> StartupAdvisoryDecision:
-    checkpoint_reason = push.checkpoint_reason
-    checkpoint_required = push.checkpoint_required
-    return _decision(
-        "checkpoint_before_continue",
-        checkpoint_reason,
-        (
-            "Startup blocks another implementation slice because the repo "
-            "already requires a checkpoint."
-        ),
-        (
-            rule_match_evidence(
-                "startup_advisory.checkpoint_required",
-                "The checkpoint gate fired before any edit or push path could continue.",
-                f"checkpoint_required={checkpoint_required}",
-                f"checkpoint_reason={checkpoint_reason}",
-            ),
-        ),
-        (
-            rejected_rule_trace(
-                "startup_advisory.continue_editing",
-                "Keep editing the current slice.",
-                "The checkpoint gate is already red.",
-            ),
-            rejected_rule_trace(
-                "startup_advisory.push_allowed",
-                "Move straight to the governed push path.",
-                "Startup will not skip the checkpoint prerequisite.",
-            ),
-        ),
-    )
-
-
-def _budget_exceeded_decision(
-    push: "PushEnforcement",
-) -> StartupAdvisoryDecision:
-    safe_to_continue_editing = push.safe_to_continue_editing
-    return _decision(
-        "checkpoint_before_continue",
-        "worktree_budget_exceeded",
-        (
-            "Startup blocks another implementation slice because the "
-            "worktree has crossed the repo's continuation budget."
-        ),
-        (
-            rule_match_evidence(
-                "startup_advisory.worktree_budget_exceeded",
-                "The continuation budget is exhausted even though the hard checkpoint flag is not set.",
-                f"safe_to_continue_editing={safe_to_continue_editing}",
-            ),
-        ),
-        (
-            rejected_rule_trace(
-                "startup_advisory.continue_editing",
-                "Keep editing the current slice.",
-                "The worktree budget is already exceeded.",
-            ),
-        ),
-    )
-
-
-def _blocked_loop_decision(gate: "ReviewerGateState") -> StartupAdvisoryDecision:
-    block_reason = gate.implementation_block_reason or "reviewer_loop_blocked"
-    return _decision(
-        "repair_reviewer_loop",
-        block_reason,
-        (
-            "Startup routes the next step to reviewer-loop repair because "
-            "reviewer-owned state is blocking the live collaboration lane."
-        ),
-        (
-            rule_match_evidence(
-                "startup_advisory.repair_reviewer_loop",
-                "Reviewer-owned state marked the current loop as blocked.",
-                f"implementation_blocked={gate.implementation_blocked}",
-                f"block_reason={block_reason}",
-            ),
-        ),
-        (
-            rejected_rule_trace(
-                "startup_advisory.checkpoint_before_continue",
-                "Cut a checkpoint before doing anything else.",
-                "The continuation budget is still green; the blocked reviewer loop is the stricter next action.",
-            ),
-        ),
-    )
-
-
-def _concurrent_writer_decision(
-    ownership: "WorkIntakeOwnershipState",
-) -> StartupAdvisoryDecision:
-    outside_paths = ", ".join(ownership.outside_scope_dirty_paths[:3]) or "unknown"
-    live_agents = ", ".join(ownership.live_agents[:3]) or "unknown"
-    return _decision(
-        "checkpoint_before_continue",
-        "concurrent_writer_activity",
-        (
-            "Startup blocks another local edit slice because dirty paths fall "
-            "outside the claimed scope while typed peer activity is present."
-        ),
-        (
-            rule_match_evidence(
-                "startup_advisory.concurrent_writer_activity",
-                "Outside-scope dirty paths overlapped with active peer ownership.",
-                f"outside_scope_dirty_paths={outside_paths}",
-                f"live_agents={live_agents}",
-            ),
-        ),
-        (
-            rejected_rule_trace(
-                "startup_advisory.continue_editing",
-                "Keep editing the current slice.",
-                "Another typed agent or delegated lane still appears active on a divergent dirty path set.",
-            ),
-        ),
-    )
-
-
-def _coordination_conflict_decision(
-    coordination: "WorkIntakeCoordinationState",
-) -> StartupAdvisoryDecision:
-    duplicate_worktrees = ", ".join(
-        coordination.duplicate_delegated_worktrees[:3]
-    ) or "unknown"
-    delegated_agents = ", ".join(coordination.delegated_agents[:3]) or "unknown"
-    return _decision(
-        "checkpoint_before_continue",
-        "concurrent_writer_activity",
-        (
-            "Startup blocks another local edit slice because delegated lanes "
-            "still overlap on the same claimed worktree."
-        ),
-        (
-            rule_match_evidence(
-                "startup_advisory.concurrent_writer_assignment_conflict",
-                "Delegated worker worktree assignments overlap before the next slice starts.",
-                f"duplicate_delegated_worktrees={duplicate_worktrees}",
-                f"delegated_agents={delegated_agents}",
-            ),
-        ),
-        (
-            rejected_rule_trace(
-                "startup_advisory.continue_editing",
-                "Keep editing the current slice.",
-                "The typed worker topology still points multiple live lanes at the same worktree.",
-            ),
-        ),
-    )
-
-
-def _decision(
-    action: str,
-    reason: str,
-    rule_summary: str,
-    match_evidence: tuple[RuleMatchEvidenceRecord, ...],
-    rejected_rule_traces: tuple[RejectedRuleTraceRecord, ...],
-) -> StartupAdvisoryDecision:
-    return StartupAdvisoryDecision(
-        action=action,
-        reason=reason,
-        rule_summary=rule_summary,
-        match_evidence=match_evidence,
-        rejected_rule_traces=rejected_rule_traces,
-    )
+    return steady_state_decision(push, gate)
 
 
 __all__ = ["StartupAdvisoryDecision", "derive_advisory_decision"]

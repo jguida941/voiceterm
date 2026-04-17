@@ -11,12 +11,14 @@ git commit.
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from pathlib import Path
 
 from ..review_channel.event_reducer import load_or_refresh_event_bundle
 from ..review_channel.events import resolve_artifact_paths
 from .review_state_packet_models import AgentAttentionRecord, PacketInboxState
 from .review_state_parser import review_state_from_payload
+from .review_state_models import ReviewState
 
 
 def pending_reviewer_packets_block_commit(
@@ -95,8 +97,22 @@ def pending_reviewer_packets_block_commit(
             )
         if normalized_target and agent_name.lower() != normalized_target:
             continue
-        if _has_actionable_attention(record):
+        blocking_ids = _blocking_pending_packet_ids(review_state, agent_name)
+        if blocking_ids is None:
+            if not _has_actionable_attention(record):
+                continue
             ids = [str(p) for p in pending_ids]
+            if (
+                not ids
+                and getattr(record, "wake_reason", "").strip() == "finding_pending"
+            ):
+                latest_finding = str(
+                    getattr(record, "latest_finding_packet_id", "") or ""
+                ).strip()
+                ids = [latest_finding or "finding_pending"]
+        else:
+            ids = blocking_ids
+        if ids:
             blocking.append((agent_name, ids))
 
     if not blocking:
@@ -172,6 +188,70 @@ def _has_actionable_attention(record: AgentAttentionRecord) -> bool:
     if record.pending_actionable_packet_ids:
         return True
     return record.wake_reason.strip() == "finding_pending"
+
+
+def _blocking_pending_packet_ids(
+    review_state: ReviewState,
+    agent_name: str,
+) -> list[str] | None:
+    packets = review_state.packets
+    if not isinstance(packets, (list, tuple)):
+        return None
+    if not packets:
+        return None
+    blocking_ids: list[str] = []
+    for packet in packets:
+        if not _packet_targets_agent(packet, agent_name):
+            continue
+        if not _is_live_pending_packet(packet):
+            continue
+        if not _packet_blocks_commit(packet):
+            continue
+        packet_id = _packet_text(packet, "packet_id")
+        if packet_id:
+            blocking_ids.append(packet_id)
+    return blocking_ids
+
+
+def _packet_targets_agent(packet: object, agent_name: str) -> bool:
+    return _packet_text(packet, "to_agent").lower() == agent_name.strip().lower()
+
+
+def _is_live_pending_packet(packet: object) -> bool:
+    if _packet_text(packet, "status") != "pending":
+        return False
+    expires_at = _parse_packet_utc(packet, "expires_at_utc")
+    if expires_at is None:
+        return True
+    return expires_at > datetime.now(timezone.utc)
+
+
+def _packet_blocks_commit(packet: object) -> bool:
+    kind = _packet_text(packet, "kind")
+    if kind in {"action_request", "finding"}:
+        return True
+    if kind != "instruction":
+        return False
+    requested_action = _packet_text(packet, "requested_action")
+    policy_hint = _packet_text(packet, "policy_hint")
+    return requested_action != "review_only" or policy_hint != "review_only"
+
+
+def _packet_text(packet: object, field: str) -> str:
+    return str(getattr(packet, field, "") or "").strip()
+
+
+def _parse_packet_utc(packet: object, field: str) -> datetime | None:
+    raw_value = _packet_text(packet, field)
+    if not raw_value:
+        return None
+    try:
+        stamp = datetime.fromisoformat(raw_value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if stamp.tzinfo is None:
+        return stamp.replace(tzinfo=timezone.utc)
+    return stamp.astimezone(timezone.utc)
 
 
 def _load_review_state(

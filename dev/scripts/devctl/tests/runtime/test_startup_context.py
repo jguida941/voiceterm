@@ -2328,6 +2328,55 @@ class TestAdvisoryAction(unittest.TestCase):
         self.assertEqual(action, "repair_reviewer_loop")
         self.assertEqual(reason, "claude_ack_stale")
 
+    def test_post_checkpoint_dirty_worktree_outranks_reviewer_loop_relaunch(self) -> None:
+        gov = _minimal_governance(
+            worktree_clean=False,
+            worktree_dirty=True,
+            ahead_of_upstream_commits=1,
+            recommended_action="commit_before_push",
+        )
+        gate = ReviewerGateState(
+            bridge_active=True,
+            review_accepted=False,
+            implementation_blocked=True,
+            implementation_block_reason="review_loop_relaunch_required",
+        )
+
+        action, reason = _derive_advisory_action(gov, gate)
+
+        self.assertEqual(action, "checkpoint_before_continue")
+        self.assertEqual(reason, "dirty_after_local_checkpoint")
+
+    def test_summary_next_command_prefers_commit_when_post_checkpoint_dirty(self) -> None:
+        payload = {
+            "startup_authority": {"ok": False},
+            "governance": {
+                "push_enforcement": {
+                    "checkpoint_required": False,
+                    "safe_to_continue_editing": True,
+                    "worktree_dirty": True,
+                    "ahead_of_upstream_commits": 1,
+                    "recommended_action": "commit_before_push",
+                }
+            },
+            "advisory_action": "repair_reviewer_loop",
+            "reviewer_gate": {
+                "implementation_blocked": True,
+                "implementation_block_reason": "review_loop_relaunch_required",
+                "review_gate_allows_push": False,
+                "recovery_command": (
+                    "python3 dev/scripts/devctl.py review-channel --action launch "
+                    "--terminal terminal-app --format json"
+                ),
+            },
+            "implementation_permission": "suspended",
+        }
+
+        self.assertEqual(
+            summary_next_command(payload),
+            'python3 dev/scripts/devctl.py commit -m "<descriptive message>"',
+        )
+
     def test_concurrent_writer_activity_blocks_with_distinct_reason(self) -> None:
         gov = _minimal_governance(worktree_clean=False, worktree_dirty=True)
         gate = ReviewerGateState()

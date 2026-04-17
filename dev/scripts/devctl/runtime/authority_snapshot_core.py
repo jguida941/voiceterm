@@ -5,6 +5,11 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from dataclasses import asdict, dataclass
 
+from .post_checkpoint_dirty_support import (
+    COMMIT_CHECKPOINT_COMMAND,
+    requires_commit_before_push,
+)
+
 _CONTEXT_GRAPH_BOOTSTRAP_COMMAND = (
     "python3 dev/scripts/devctl.py context-graph --mode bootstrap --format md"
 )
@@ -162,6 +167,8 @@ def summary_blockers(ctx_dict: Mapping[str, object]) -> tuple[str, ...]:
         push_enforcement.get("safe_to_continue_editing", True)
     ):
         blockers.append("continuation_blocked")
+    if requires_commit_before_push(push_enforcement):
+        blockers.append("post_checkpoint_dirty_worktree")
 
     reviewer_gate = _mapping(ctx_dict.get("reviewer_gate"))
     if bool(reviewer_gate.get("implementation_blocked", False)) and not bool(
@@ -224,6 +231,9 @@ def summary_next_command(ctx_dict: Mapping[str, object]) -> str:
     if recovery_action == "cut_checkpoint" and recovery_command:
         return recovery_command
 
+    if "post_checkpoint_dirty_worktree" in blockers:
+        return _COMMIT_CHECKPOINT_COMMAND
+
     reviewer_command = reviewer_recovery_command(ctx_dict)
     if reviewer_command:
         return reviewer_command
@@ -241,8 +251,6 @@ def summary_next_command(ctx_dict: Mapping[str, object]) -> str:
     if str(push_decision.get("action") or "").strip() == "await_checkpoint":
         return f"checkpoint current slice, then rerun {_SUMMARY_RERUN_COMMAND}"
     return f"resolve blockers, then rerun {_SUMMARY_RERUN_COMMAND}"
-
-
 def _coordination_state(
     inputs: tuple[str, str, str, bool, str, str, str],
 ) -> str:

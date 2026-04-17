@@ -33,14 +33,39 @@ def _make_inbox_record(
 def _make_review_state(
     agents: list | None = None,
     attention_revision: str = "rev-001",
+    packets: list | None = None,
 ) -> SimpleNamespace:
     if agents is None:
         agents = []
+    if packets is None:
+        packets = []
     return SimpleNamespace(
         packet_inbox=SimpleNamespace(
             agents=agents,
             attention_revision=attention_revision,
         ),
+        packets=packets,
+    )
+
+
+def _make_packet(
+    *,
+    packet_id: str = "rev_pkt_0001",
+    kind: str = "instruction",
+    to_agent: str = "claude",
+    status: str = "pending",
+    requested_action: str = "review_only",
+    policy_hint: str = "review_only",
+    expires_at_utc: str = "",
+) -> SimpleNamespace:
+    return SimpleNamespace(
+        packet_id=packet_id,
+        kind=kind,
+        to_agent=to_agent,
+        status=status,
+        requested_action=requested_action,
+        policy_hint=policy_hint,
+        expires_at_utc=expires_at_utc,
     )
 
 
@@ -168,6 +193,67 @@ class TestPendingReviewerPacketsBlockCommit(unittest.TestCase):
             target_agent="claude",
         )
         self.assertIsNone(result)
+
+    @patch(
+        "dev.scripts.devctl.runtime.commit_packet_gate._load_review_state"
+    )
+    def test_review_only_instruction_packets_do_not_block_commit(self, mock_load):
+        mock_load.return_value = _make_review_state(
+            agents=[
+                _make_inbox_record(
+                    agent="claude",
+                    pending_ids=("rev_pkt_0952",),
+                ),
+            ],
+            packets=[
+                _make_packet(
+                    packet_id="rev_pkt_0952",
+                    kind="instruction",
+                    to_agent="claude",
+                    requested_action="review_only",
+                    policy_hint="review_only",
+                ),
+            ],
+        )
+
+        result = pending_reviewer_packets_block_commit(
+            repo_root=None,
+            review_channel_path=Path("/fake/exists"),
+            target_agent="claude",
+        )
+
+        self.assertIsNone(result)
+
+    @patch(
+        "dev.scripts.devctl.runtime.commit_packet_gate._load_review_state"
+    )
+    def test_non_review_only_instruction_packets_still_block_commit(self, mock_load):
+        mock_load.return_value = _make_review_state(
+            agents=[
+                _make_inbox_record(
+                    agent="claude",
+                    pending_ids=("rev_pkt_0953",),
+                ),
+            ],
+            packets=[
+                _make_packet(
+                    packet_id="rev_pkt_0953",
+                    kind="instruction",
+                    to_agent="claude",
+                    requested_action="run_check",
+                    policy_hint="safe_auto_apply",
+                ),
+            ],
+        )
+
+        result = pending_reviewer_packets_block_commit(
+            repo_root=None,
+            review_channel_path=Path("/fake/exists"),
+            target_agent="claude",
+        )
+
+        self.assertIsNotNone(result)
+        self.assertIn("rev_pkt_0953", result)
 
     @patch(
         "dev.scripts.devctl.runtime.commit_packet_gate._load_review_state"

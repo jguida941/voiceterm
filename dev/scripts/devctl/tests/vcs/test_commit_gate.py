@@ -403,7 +403,10 @@ class TestStartupActionRouting(unittest.TestCase):
         }
         refreshed_view = {
             "recommended_next_action": "abandon",
-            "next_command": "python3 dev/scripts/devctl.py push --execute",
+            "next_command": (
+                'python3 dev/scripts/devctl.py pipeline --action abandon '
+                '--reason "<descriptive reason>" --format json'
+            ),
             "authorized_head_sha": "abc123",
             "current_head_sha": "abc123",
         }
@@ -425,15 +428,66 @@ class TestStartupActionRouting(unittest.TestCase):
         refresh_mock.assert_called_once()
         self.assertEqual(
             report["next_command"],
-            "python3 dev/scripts/devctl.py push --execute",
+            'python3 dev/scripts/devctl.py pipeline --action abandon '
+            '--reason "<descriptive reason>" --format json',
         )
         self.assertEqual(report["recommended_next_action"], "abandon")
         self.assertEqual(
             report["operator_guidance"],
-            "Run `python3 dev/scripts/devctl.py push --execute` before creating another commit.",
+            "Run `python3 dev/scripts/devctl.py pipeline --action abandon "
+            '--reason "<descriptive reason>" --format json` before creating '
+            "another commit.",
         )
         self.assertTrue(report["authorization_refreshed"])
         self.assertEqual(report["refresh_receipt_path"], "/tmp/refresh.json")
+
+    def test_active_pipeline_block_report_abandons_superseded_commit_recorded_pipeline(
+        self,
+    ) -> None:
+        pipeline = SimpleNamespace(
+            pipeline_id="pipeline-123",
+            state="commit_recorded",
+            approval_state="approved",
+            commit_sha="abc123",
+        )
+        status_view = {
+            "recommended_next_action": "none",
+            "next_command": "python3 dev/scripts/devctl.py push --execute",
+            "current_head_sha": "abc123",
+        }
+        with (
+            patch(
+                "dev.scripts.devctl.commands.vcs.commit_pipeline_blocking.build_status_view",
+                return_value=status_view,
+            ),
+            patch(
+                "dev.scripts.devctl.commands.vcs.commit_pipeline_blocking.scan_repo_governance_safely",
+                return_value=SimpleNamespace(
+                    push_enforcement=SimpleNamespace(
+                        ahead_of_upstream_commits=1,
+                        worktree_dirty=True,
+                        recommended_action="commit_before_push",
+                    )
+                ),
+            ),
+        ):
+            report = build_active_pipeline_block_report(
+                repo_root=Path("/tmp/repo"),
+                pipeline=pipeline,
+            )
+
+        self.assertEqual(report["recommended_next_action"], "abandon")
+        self.assertEqual(
+            report["next_command"],
+            'python3 dev/scripts/devctl.py pipeline --action abandon '
+            '--reason "<descriptive reason>" --format json',
+        )
+        self.assertEqual(
+            report["operator_guidance"],
+            "Run `python3 dev/scripts/devctl.py pipeline --action abandon "
+            '--reason "<descriptive reason>" --format json` before creating '
+            "another commit.",
+        )
 
 
 class TestPreCommitHookTemplate(unittest.TestCase):

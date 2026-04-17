@@ -299,6 +299,48 @@ Evidence: `dev/scripts/devctl/governance/push_state.py`,
 `dev/scripts/devctl/tests/review_channel/test_status_projection_compat.py`,
 and `dev/scripts/devctl/tests/runtime/test_startup_context.py`.
 
+### 2026-04-17 - Direct pipeline recovery now refreshes review projections before the next checkpoint read
+
+Fact: the next governed checkpoint retry exposed one more stale-state loop in
+the remote-control dogfood path. `pipeline --action abandon` could truthfully
+return `ok=true` and `new_state=abandoned`, but the very next
+bridge-backed `review-channel status` or `devctl commit` read could still
+reload an older `latest/commit_pipeline.json` payload and mirror `push_blocked`
+back into the canonical `projections/latest/commit_pipeline.json` artifact.
+That made the system look like it needed more operator babysitting when the
+real problem was a write-through gap between direct pipeline recovery actions
+and the shared review-channel projection cache.
+
+This mattered because the current product goal is not "eventual consistency if
+an agent keeps re-reading until the right file wins." The canonical reducer had
+already chosen the new pipeline state; the repo-owned recovery command that
+wrote that state needed to refresh the same projection surfaces the rest of the
+system trusts next. Otherwise the checkpoint lane still behaves like an
+operator has to understand the hidden artifact topology well enough to know why
+`abandoned` just turned back into `push_blocked`.
+
+The closure stayed bounded. The shared pipeline support path now refreshes the
+review-channel projections immediately after direct
+`pipeline --action abandon`, `recover`, or `refresh-authorization` writes,
+using the same repo-owned projection refresh machinery the governed executor
+path already trusted. The same checkpoint-repair slice also typed the expanded
+pending-reviewer commit-gate helper against `ReviewState`, which cleared the
+repo-wide `check_python_typed_seams.py` failure that surfaced on the first
+fresh commit retry after the projection refresh landed. The result is smaller
+than the upcoming packet-lifecycle redesign, but operationally important: a
+live checkpoint retry now advances from the current pipeline truth instead of
+falling back into a stale mirror loop before the next governed read.
+
+Evidence: `dev/scripts/devctl/commands/pipeline/support.py`,
+`dev/scripts/devctl/commands/pipeline/abandon_action.py`,
+`dev/scripts/devctl/commands/pipeline/recover_action.py`,
+`dev/scripts/devctl/commands/pipeline/refresh_authorization_action.py`,
+`dev/scripts/devctl/runtime/commit_packet_gate.py`,
+`dev/scripts/devctl/tests/commands/test_pipeline_command.py`,
+`dev/scripts/devctl/tests/vcs/test_commit_pending_reviewer_gate.py`,
+`dev/active/MASTER_PLAN.md`,
+and `dev/active/ai_governance_platform.md`.
+
 ### 2026-04-15 - Governed commit fallback now trusts effective reviewer mode, and status `sessions=[]` is action-scoped
 
 Fact: the next dogfood pass after the launch-authority/runtime-parity repair

@@ -25,6 +25,7 @@ from .support import (
     load_pipeline_payload,
     pipeline_id_of,
     pipeline_state_of,
+    refresh_pipeline_projections,
     resolve_pipeline_paths,
     write_pipeline_payload,
     write_receipt,
@@ -122,6 +123,7 @@ def _apply_abandon(
         receipt,
         filename=ABANDONED_RECEIPT_FILENAME,
     )
+    warnings = refresh_pipeline_projections(paths)
     return {
         "ok": True,
         "action": "abandon",
@@ -131,6 +133,7 @@ def _apply_abandon(
         "pipeline_artifact_path": str(paths.pipeline_path),
         "receipt_path": str(receipt_path),
         "reason": reason,
+        "warnings": warnings,
     }
 
 

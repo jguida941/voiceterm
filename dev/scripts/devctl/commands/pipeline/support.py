@@ -23,6 +23,9 @@ from typing import Any
 
 from ...config import REPO_ROOT
 from ...repo_packs import active_path_config
+from ...review_channel.event_reducer import refresh_event_bundle
+from ...review_channel.event_store import resolve_artifact_paths
+from ...review_channel.state import refresh_status_snapshot
 from ...runtime.pipeline_recovery_receipt import (
     PipelineRecoveryReceipt,
     utc_now_iso,
@@ -58,6 +61,10 @@ TERMINAL_STATES: frozenset[str] = frozenset({
 })
 
 _PUSH_EXECUTE_COMMAND = "python3 dev/scripts/devctl.py push --execute"
+_PIPELINE_ABANDON_COMMAND = (
+    'python3 dev/scripts/devctl.py pipeline --action abandon --reason '
+    '"<descriptive reason>" --format json'
+)
 _PIPELINE_RECOVER_COMMAND = (
     "python3 dev/scripts/devctl.py pipeline --action recover --format json"
 )
@@ -145,6 +152,36 @@ def write_receipt(
         encoding="utf-8",
     )
     return receipt_path
+
+
+def refresh_pipeline_projections(paths: PipelinePaths) -> list[str]:
+    """Refresh review-channel projections after a direct pipeline mutation."""
+    warnings: list[str] = []
+    config = active_path_config()
+    review_channel_path = paths.repo_root / config.review_channel_rel
+    if not review_channel_path.exists():
+        return warnings
+    bridge_path = paths.repo_root / config.bridge_rel
+    try:
+        artifact_paths = resolve_artifact_paths(repo_root=paths.repo_root)
+        event_log = Path(artifact_paths.event_log_path)
+        state_path = Path(artifact_paths.state_path)
+        if event_log.exists() or state_path.exists():
+            refresh_event_bundle(
+                repo_root=paths.repo_root,
+                review_channel_path=review_channel_path,
+                artifact_paths=artifact_paths,
+            )
+        elif bridge_path.exists():
+            refresh_status_snapshot(
+                repo_root=paths.repo_root,
+                bridge_path=bridge_path,
+                review_channel_path=review_channel_path,
+                output_root=paths.pipeline_path.parent,
+            )
+    except (OSError, ValueError) as exc:
+        warnings.append(f"projection_refresh_failed: {exc}")
+    return warnings
 
 
 def resolve_current_head(*, repo_root: Path) -> str:
@@ -275,7 +312,7 @@ def recommended_next_command(
             return _PUSH_EXECUTE_COMMAND
         return _PIPELINE_REFRESH_AUTHORIZATION_COMMAND
     if state == "push_blocked":
-        return _PUSH_EXECUTE_COMMAND
+        return _PIPELINE_ABANDON_COMMAND
     if state in RECOVERABLE_STATES:
         return _PIPELINE_STATUS_COMMAND
     return ""
