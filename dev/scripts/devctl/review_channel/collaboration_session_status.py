@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 
+from ..runtime.review_state_semantics import is_missing_instruction
 from ..runtime.review_state_models import (
     CollaborationArbitrationState,
     CollaborationParticipantState,
@@ -62,7 +63,10 @@ def _build_restart_state(
     elif participants or delegated_work:
         status = "resumable"
         source = "session_metadata"
-    elif current_session.current_instruction or current_session.open_findings:
+    elif (
+        not is_missing_instruction(current_session.current_instruction)
+        or current_session.open_findings
+    ):
         status = "handoff_only"
         source = "review_state"
     else:
@@ -196,7 +200,7 @@ def _implementer_gate_status(
 ) -> str:
     if reviewer_mode != "active_dual_agent":
         return "not_required"
-    if not current_session.current_instruction:
+    if is_missing_instruction(current_session.current_instruction):
         return "not_required"
     if current_session.implementer_ack_state == "current":
         return "ready"
@@ -214,7 +218,7 @@ def _implementer_gate_summary(
         return (
             "Single-agent reviewer mode does not require a separate implementer ACK."
         )
-    if not current_session.current_instruction:
+    if is_missing_instruction(current_session.current_instruction):
         return "No active implementer instruction is present."
     if current_session.implementer_ack_state == "current":
         return "Implementer state matches the current instruction revision."
@@ -264,7 +268,10 @@ def _collaboration_status(
         return "live"
     if participants or delegated_work:
         return "resumable"
-    if current_session.current_instruction or current_session.open_findings:
+    if (
+        not is_missing_instruction(current_session.current_instruction)
+        or current_session.open_findings
+    ):
         return "handoff_only"
     return "inactive"
 

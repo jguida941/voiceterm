@@ -23,6 +23,7 @@ from .bridge_projection_validation import (
     bridge_projection_parts,
     validate_flat_bridge_sections as _validate_flat_bridge_sections,
 )
+from .bridge_validation_poll_status import poll_status_is_automation_only_refresh
 from .handoff import BridgeSnapshot, extract_bridge_snapshot
 from .pending_packets import live_pending_packets
 
@@ -69,6 +70,8 @@ def build_bridge_projection_state(
         reviewer_runtime=_mapping(reviewer_runtime),
         packets=packets,
     )
+    if poll_status_is_automation_only_refresh(snapshot.sections.get("Poll Status", "")):
+        sections["Poll Status"] = ""
     return BridgeProjectionState(
         metadata=_projection_metadata(
             snapshot=snapshot,

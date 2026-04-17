@@ -233,7 +233,7 @@ def test_load_current_review_state_payload_prefers_event_backed_projection_over_
 
 
 @patch("dev.scripts.devctl.review_channel.state.refresh_status_snapshot")
-def test_load_current_review_state_payload_prefers_newer_legacy_snapshot_when_event_bundle_is_older(
+def test_load_current_review_state_payload_keeps_event_bundle_authoritative_when_legacy_snapshot_is_newer(
     refresh_status_snapshot_mock,
     tmp_path: Path,
 ) -> None:
@@ -283,7 +283,7 @@ def test_load_current_review_state_payload_prefers_newer_legacy_snapshot_when_ev
     )
 
     assert payload is not None
-    assert payload["current_session"]["current_instruction"] == "newer bridge refresh"
+    assert payload["current_session"]["current_instruction"] == "older event-backed slice"
     refresh_status_snapshot_mock.assert_not_called()
 
 

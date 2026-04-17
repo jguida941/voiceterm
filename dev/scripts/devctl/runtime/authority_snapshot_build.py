@@ -19,6 +19,7 @@ from .authority_snapshot_core import (
     _string_items,
     summary_next_command,
 )
+from .review_state_semantics import is_missing_instruction
 
 
 @dataclass(frozen=True, slots=True)
@@ -81,6 +82,7 @@ def build_authority_snapshot(
     diagnosis = _mapping(recovery.get("diagnosis"))
     decision = _mapping(recovery.get("decision"))
     packet_inbox = _mapping(payload.get("packet_inbox"))
+    current_instruction = str(current_session.get("current_instruction") or "").strip()
     reviewer_mode, reviewer_freshness, attention_status = _authority_modes(
         payload=payload,
         reviewer_gate=reviewer_gate,
@@ -98,9 +100,11 @@ def build_authority_snapshot(
         or ""
     ).strip()
     resync_required = bool(coordination.get("resync_required", False))
-    current_instruction_revision = str(
-        current_session.get("current_instruction_revision") or ""
-    ).strip()
+    current_instruction_revision = (
+        ""
+        if is_missing_instruction(current_instruction)
+        else str(current_session.get("current_instruction_revision") or "").strip()
+    )
     implementer_ack_state = str(
         current_session.get("implementer_ack_state") or ""
     ).strip()
@@ -203,9 +207,12 @@ def _current_instruction_for_reviewer(
     current_session: Mapping[str, object],
     packet_inbox: Mapping[str, object],
 ) -> str:
-    if _codex_instruction_requires_clear(packet_inbox):
+    instruction = str(current_session.get("current_instruction") or "").strip()
+    if _codex_instruction_requires_clear(packet_inbox) or is_missing_instruction(
+        instruction
+    ):
         return ""
-    return str(current_session.get("current_instruction") or "").strip()
+    return instruction
 
 
 def _resolved_coordination_current_slice(
@@ -217,6 +224,8 @@ def _resolved_coordination_current_slice(
     current_slice = str(coordination.get("current_slice") or "").strip()
     raw_current_instruction = str(current_session.get("current_instruction") or "").strip()
     if _codex_instruction_requires_clear(packet_inbox) and current_slice == raw_current_instruction:
+        return ""
+    if is_missing_instruction(raw_current_instruction) and current_slice == raw_current_instruction:
         return ""
     return current_slice
 

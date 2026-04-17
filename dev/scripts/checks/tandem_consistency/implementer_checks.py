@@ -7,6 +7,7 @@ from dev.scripts.devctl.review_channel.peer_liveness import (
     reviewer_mode_is_active,
 )
 from dev.scripts.devctl.runtime.review_state_semantics import (
+    is_missing_instruction,
     is_pending_implementer_state,
 )
 from dev.scripts.devctl.runtime.role_profile import TandemRole
@@ -21,6 +22,18 @@ from .support import (
     leading_section_excerpt,
     make_result,
 )
+
+
+def _typed_or_bridge_section(
+    typed_current_session: dict[str, object],
+    *,
+    field: str,
+    bridge_text: str,
+    section: str,
+) -> str:
+    if field in typed_current_session:
+        return str(typed_current_session.get(field) or "").strip()
+    return extract_section(bridge_text, section)
 
 
 def check_implementer_ack_freshness(
@@ -60,12 +73,27 @@ def check_implementer_ack_freshness(
         )
 
     # Prefer typed current_session fields
-    instruction = str(cs.get("current_instruction") or "").strip() or extract_section(bridge_text, "Current Instruction For Claude")
-    ack = str(cs.get("implementer_ack") or "").strip() or extract_section(bridge_text, "Claude Ack")
-    status = str(cs.get("implementer_status") or "").strip() or extract_section(bridge_text, "Claude Status")
+    instruction = _typed_or_bridge_section(
+        cs,
+        field="current_instruction",
+        bridge_text=bridge_text,
+        section="Current Instruction For Claude",
+    )
+    ack = _typed_or_bridge_section(
+        cs,
+        field="implementer_ack",
+        bridge_text=bridge_text,
+        section="Claude Ack",
+    )
+    status = _typed_or_bridge_section(
+        cs,
+        field="implementer_status",
+        bridge_text=bridge_text,
+        section="Claude Status",
+    )
     typed_ack_state = str(cs.get("implementer_ack_state") or "").strip().lower()
 
-    if not instruction.strip():
+    if is_missing_instruction(instruction):
         return make_result(
             _CK,
             _R,

@@ -28,6 +28,7 @@ from .handoff import BridgeSnapshot
 from .session_state_hints import provider_session_state_hint
 from .status_projection_helpers import clean_section
 from ..runtime.review_packet_inbox import packet_inbox_from_review_state
+from ..runtime.review_state_semantics import is_missing_instruction
 from ..runtime.review_state_models import ReviewCurrentSessionState
 from ..runtime.review_state_semantics import classify_implementer_ack_state
 
@@ -127,7 +128,7 @@ def build_event_current_session(
     queue = _mapping(review_state.get("queue"))
     prior_session = prior_typed_current_session(prior_review_state)
     current_instruction = event_current_instruction(review_state)
-    instruction_missing = not current_instruction.strip()
+    instruction_missing = is_missing_instruction(current_instruction)
     packet_attention = _packet_attention(review_state, agent="codex")
     current_instruction_revision = str(
         bridge_liveness.get("current_instruction_revision") or ""
@@ -145,6 +146,9 @@ def build_event_current_session(
         current_instruction,
         current_instruction_revision,
     )
+    if _packet_attention_requires_clear(packet_attention):
+        current_instruction = ""
+        current_instruction_revision = ""
     if (
         instruction_missing
         and current_instruction == "(missing)"

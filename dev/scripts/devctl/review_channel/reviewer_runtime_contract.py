@@ -93,6 +93,7 @@ def build_reviewer_runtime_contract(
             effective_reviewer_mode=effective_mode,
             implementer_ack_current=implementer_ack_current,
             attention_status=stale_reason,
+            current_instruction=inputs.current_session.current_instruction,
             implementer_status=inputs.current_session.implementer_status,
             implementer_ack=inputs.current_session.implementer_ack,
             implementer_ack_state=inputs.current_session.implementer_ack_state,

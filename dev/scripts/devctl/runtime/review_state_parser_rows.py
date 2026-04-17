@@ -6,6 +6,10 @@ from collections.abc import Mapping, Sequence
 from hashlib import sha256
 
 from .control_state import _mapping, _string, _string_rows
+from .review_state_semantics import (
+    is_missing_instruction,
+    normalize_instruction_markdown,
+)
 from .review_state_models import (
     AgentRegistryEntryState,
     ContextPackRefState,
@@ -82,6 +86,8 @@ def canonicalize_current_instruction_state(
     current_instruction_revision: str,
 ) -> tuple[str, str]:
     canonical_instruction = canonical_instruction_markdown(current_instruction)
+    if is_missing_instruction(canonical_instruction):
+        return canonical_instruction, ""
     revision = _string(current_instruction_revision)
     if canonical_instruction != current_instruction:
         raw_revision = instruction_revision(current_instruction)
@@ -93,28 +99,12 @@ def canonicalize_current_instruction_state(
 
 
 def canonical_instruction_markdown(current_instruction: str) -> str:
-    text = _string(current_instruction)
-    lines = [line.rstrip() for line in text.splitlines() if line.strip()]
-    if not lines or not any(line.lstrip().startswith("- ") for line in lines):
-        return text
-    normalized: list[str] = []
-    seen_bullet = False
-    for line in lines:
-        stripped = line.strip()
-        if line.lstrip().startswith("- "):
-            normalized.append(line)
-            seen_bullet = True
-            continue
-        if not seen_bullet:
-            normalized.append(f"- {stripped}")
-            continue
-        normalized.append(line)
-    return "\n".join(normalized)
+    return normalize_instruction_markdown(_string(current_instruction))
 
 
 def instruction_revision(text: str) -> str:
     normalized = _string(text).strip()
-    if not normalized:
+    if is_missing_instruction(normalized):
         return ""
     return sha256(normalized.encode("utf-8")).hexdigest()[:12]
 

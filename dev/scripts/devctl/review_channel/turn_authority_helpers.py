@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import asdict
 
+from ..runtime.review_state_semantics import is_missing_instruction
 from ..runtime.review_state_models import (
     RecoveryAssessmentState,
     ReviewBridgeState,
@@ -206,7 +207,7 @@ def derive_next_turn_state(
             implementation_block_reason,
         )
 
-    if not current_instruction.strip():
+    if is_missing_instruction(current_instruction):
         return True, TandemRole.REVIEWER.value, "reviewer_instruction_missing"
 
     if not has_content(claude_status, bridge_liveness.claude_status_present):

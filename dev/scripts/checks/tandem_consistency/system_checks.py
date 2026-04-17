@@ -14,6 +14,7 @@ from dev.scripts.devctl.review_channel.peer_liveness import (
     CODEX_POLL_STALE_AFTER_SECONDS,
     reviewer_mode_is_active,
 )
+from dev.scripts.devctl.runtime.review_state_semantics import is_missing_instruction
 
 from .support import skip_live_freshness
 
@@ -40,6 +41,11 @@ def check_launch_truth(
         overall_state = typed_overall
         reviewer_mode = str(bridge_block.get("reviewer_mode") or "")
         codex_poll_state = str(bridge_block.get("codex_poll_state") or "")
+        current_instruction = str(
+            ((typed_state or {}).get("current_session") or {}).get("current_instruction")
+            or bridge_block.get("current_instruction")
+            or ""
+        ).strip()
         claude_status_present = bool(
             str(bridge_block.get("claude_status") or "").strip()
         )
@@ -67,6 +73,9 @@ def check_launch_truth(
         overall_state = liveness.overall_state
         reviewer_mode = liveness.reviewer_mode
         codex_poll_state = liveness.codex_poll_state
+        current_instruction = str(
+            snapshot.sections.get("Current Instruction For Claude", "") or ""
+        ).strip()
         claude_status_present = liveness.claude_status_present
         claude_ack_present = liveness.claude_ack_present
         age = liveness.last_codex_poll_age_seconds
@@ -90,6 +99,7 @@ def check_launch_truth(
         }
 
     issues: list[str] = []
+    implementer_visibility_required = not is_missing_instruction(current_instruction)
     genuinely_stale = (
         age is not None and age > _TANDEM_GUARD_STALE_THRESHOLD
     ) and not skip_live_freshness()
@@ -97,9 +107,9 @@ def check_launch_truth(
         issues.append(f"Overall bridge state is {overall_state}.")
     if codex_poll_state == "missing":
         issues.append("Reviewer poll state is missing.")
-    if not claude_status_present:
+    if implementer_visibility_required and not claude_status_present:
         issues.append("Implementer status is not visible in bridge.")
-    if not claude_ack_present:
+    if implementer_visibility_required and not claude_ack_present:
         issues.append("Implementer ACK is not visible in bridge.")
     if launch_truth == LaunchTruthState.DETACHED_RUNTIME_ONLY.value:
         issues.append("No live repo-owned Codex or Claude conductor sessions are present.")

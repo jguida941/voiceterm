@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from ..runtime.review_state_semantics import is_missing_instruction
 from .attention_helpers import (
     RESETTABLE_IMPLEMENTER_SESSION_STATES,
     active_contract_errors_for_mode,
@@ -81,8 +82,10 @@ def _bridge_push_checkpoint_state(
     return checkpoint_required, bool(safe_to_edit)
 
 def _reviewer_state_seeded(bridge_liveness: dict[str, object]) -> bool:
-    return bool(bridge_liveness.get("current_instruction_revision")) and bool(
-        bridge_liveness.get("last_reviewed_scope_present")
+    return (
+        not is_missing_instruction(str(bridge_liveness.get("current_instruction") or ""))
+        and bool(bridge_liveness.get("current_instruction_revision"))
+        and bool(bridge_liveness.get("last_reviewed_scope_present"))
     )
 
 

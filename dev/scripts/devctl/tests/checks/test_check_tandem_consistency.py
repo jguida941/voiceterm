@@ -153,6 +153,11 @@ class TestImplementerAckFreshness:
         result = check_implementer_ack_freshness(text)
         assert result["ok"] is True
 
+    def test_missing_instruction_placeholder_skips(self):
+        text = _bridge(instruction="(missing)", ack="", status="")
+        result = check_implementer_ack_freshness(text)
+        assert result["ok"] is True
+
     def test_tranche_aligned(self):
         text = _bridge(
             instruction="Fix M11 tandem guard hash check.",
@@ -331,6 +336,32 @@ class TestLaunchTruth:
         assert result["ok"] is False
         assert result["launch_truth"] == "detached_runtime_only"
         assert any("No live repo-owned Codex or Claude conductor sessions" in issue for issue in result["issues"])
+
+    def test_typed_missing_instruction_placeholder_skips_implementer_visibility_checks(self):
+        text = _bridge(instruction="(missing)", ack="", status="")
+        result = check_launch_truth(
+            text,
+            typed_state={
+                "bridge": {
+                    "overall_state": "fresh",
+                    "reviewer_mode": "active_dual_agent",
+                    "codex_poll_state": "fresh",
+                    "claude_status": "",
+                    "claude_ack": "",
+                    "publisher_running": True,
+                    "reviewer_supervisor_running": True,
+                    "codex_conductor_active": True,
+                    "claude_conductor_active": True,
+                },
+                "current_session": {
+                    "current_instruction": "(missing)",
+                },
+            },
+        )
+
+        assert result["ok"] is True
+        assert not any("Implementer status" in issue for issue in result["issues"])
+        assert not any("Implementer ACK" in issue for issue in result["issues"])
 
 
 def _mock_hash_matching():
@@ -578,6 +609,36 @@ class TestTypedPathImplementerAck:
         )
         assert result["ok"] is True
         assert result["ack_state"] == "pending"
+
+    def test_typed_missing_instruction_placeholder_skips(self):
+        text = _bridge(instruction="(missing)", ack="", status="")
+        result = check_implementer_ack_freshness(
+            text,
+            typed_state=_typed_state(
+                current_instruction="(missing)",
+                implementer_ack="",
+                implementer_status="",
+                implementer_ack_state="missing",
+            ),
+        )
+        assert result["ok"] is True
+
+    def test_typed_empty_instruction_does_not_fall_back_to_bridge_placeholder(self):
+        text = _bridge(
+            instruction="- Await reviewer instruction refresh.",
+            ack="Widening pass 12 complete.",
+            status="Pushed checkpoint.",
+        )
+        result = check_implementer_ack_freshness(
+            text,
+            typed_state=_typed_state(
+                current_instruction="",
+                implementer_ack="",
+                implementer_status="",
+                implementer_ack_state="missing",
+            ),
+        )
+        assert result["ok"] is True
 
     def test_falls_back_to_bridge_when_typed_missing(self):
         text = _bridge()

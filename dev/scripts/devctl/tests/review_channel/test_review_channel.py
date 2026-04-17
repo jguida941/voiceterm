@@ -10087,7 +10087,9 @@ class ReviewChannelCommandTests(unittest.TestCase):
             payload = json.loads(output_path.read_text(encoding="utf-8"))
             self.assertFalse(payload["ok"])
             self.assertIsNotNone(payload["bridge_heartbeat_refresh"])
-            self.assertEqual(payload["attention"]["status"], "bridge_contract_error")
+            self.assertEqual(
+                payload["attention"]["status"], "review_loop_relaunch_required"
+            )
             self.assertTrue(payload["bridge_liveness"]["poll_status_automation_only"])
             self.assertTrue(
                 any(
@@ -10534,7 +10536,9 @@ class ReviewChannelCommandTests(unittest.TestCase):
             self.assertFalse(payload["ok"])
             self.assertTrue(payload["bridge_liveness"]["codex_conductor_active"])
             self.assertTrue(payload["bridge_liveness"]["claude_conductor_active"])
-            self.assertEqual(payload["attention"]["status"], "bridge_contract_error")
+            self.assertEqual(
+                payload["attention"]["status"], "review_loop_relaunch_required"
+            )
             self.assertTrue(
                 any(
                     "automation-only heartbeat refresh" in error

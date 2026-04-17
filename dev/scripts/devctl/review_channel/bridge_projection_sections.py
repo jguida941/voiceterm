@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 
 from .action_request import render_action_requests_from_packets
+from .bridge_validation_poll_status import poll_status_is_automation_only_refresh
 from .bridge_projection_contract import BRIDGE_SECTION_ORDER
 
 
@@ -16,6 +17,11 @@ def projection_sections(
     packets: list[dict[str, object]] | None = None,
 ) -> dict[str, str]:
     sections = _tracked_sections(raw_sections)
+    if poll_status_is_automation_only_refresh(sections.get("Poll Status", "")):
+        # Automation heartbeats are runtime bookkeeping, not reviewer-owned
+        # authority. Drop them so render-bridge falls back to typed projection
+        # text instead of preserving a stale launch-truth blocker.
+        sections["Poll Status"] = ""
     review_acceptance = _mapping(reviewer_runtime.get("review_acceptance"))
     typed_overrides = (
         (
@@ -73,16 +79,23 @@ def with_fallback_sections(
     sections: Mapping[str, str],
 ) -> dict[str, str]:
     result = {heading: str(sections.get(heading, "")) for heading in BRIDGE_SECTION_ORDER}
+    compat_projection = _mapping(_mapping(review_state.get("_compat")).get("bridge_projection"))
+    raw_projection_sections = string_mapping(compat_projection.get("sections"))
     current_session = _mapping(review_state.get("current_session"))
     reviewer_runtime = _mapping(review_state.get("reviewer_runtime"))
     review_acceptance = _mapping(reviewer_runtime.get("review_acceptance"))
     bridge_state = _mapping(review_state.get("bridge"))
-
-    _set_missing(
-        result,
-        "Poll Status",
-        _poll_status_fallback(review_state),
-    )
+    raw_poll_status = raw_projection_sections.get("Poll Status", "")
+    poll_status_fallback = _poll_status_fallback(review_state)
+    if poll_status_is_automation_only_refresh(raw_poll_status):
+        result["Poll Status"] = poll_status_fallback
+    elif (
+        not raw_poll_status.strip()
+        and result.get("Poll Status", "").strip() == "- Reviewer state unavailable."
+    ):
+        result["Poll Status"] = poll_status_fallback
+    else:
+        _set_missing(result, "Poll Status", poll_status_fallback)
     _set_missing(
         result,
         "Current Verdict",

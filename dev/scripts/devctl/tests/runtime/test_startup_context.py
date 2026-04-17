@@ -221,6 +221,28 @@ class TestStartupContextBuild(unittest.TestCase):
 
         self.assertEqual(snapshot.current_slice, "")
 
+    def test_authority_snapshot_clears_missing_instruction_placeholder_revision(self) -> None:
+        snapshot = build_authority_snapshot(
+            {
+                "coordination": {
+                    "resync_required": False,
+                },
+                "current_session": {
+                    "current_instruction": "(missing)",
+                    "current_instruction_revision": "rev123",
+                    "implementer_ack_state": "stale",
+                },
+                "reviewer_gate": {
+                    "reviewer_mode": "active_dual_agent",
+                },
+                "implementation_permission": "active",
+            }
+        )
+
+        self.assertEqual(snapshot.current_instruction_revision, "")
+        self.assertEqual(snapshot.current_slice, "")
+        self.assertNotEqual(snapshot.coordination_state, "handshake_stale")
+
     def test_authority_snapshot_carries_actor_role_identity_and_allowed_actions(self) -> None:
         snapshot = build_authority_snapshot(
             {

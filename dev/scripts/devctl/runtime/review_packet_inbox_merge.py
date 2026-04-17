@@ -68,11 +68,10 @@ def sanitize_persisted_record(
             for packet_id in record.pending_actionable_packet_ids
             if packet_id in live_packet_ids
         ),
-        expired_unresolved_packet_ids=tuple(
-            packet_id
-            for packet_id in record.expired_unresolved_packet_ids
-            if packet_id in live_packet_ids
-        ),
+        # Expired unresolved packets are intentionally not part of the live
+        # pending packet set; preserve them until the reducer observes a real
+        # resolution instead of erasing reviewer attention on a partial refresh.
+        expired_unresolved_packet_ids=record.expired_unresolved_packet_ids,
         attention_status=record.attention_status,
         wake_reason=record.wake_reason,
         required_command=record.required_command,

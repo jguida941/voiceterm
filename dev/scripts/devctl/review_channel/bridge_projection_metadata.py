@@ -7,6 +7,8 @@ import hashlib
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 
+from ..runtime.review_state_semantics import is_missing_instruction
+
 _LOCAL_TIME_FORMAT = "%Y-%m-%d %H:%M:%S %Z"
 _PLACEHOLDER_INSTRUCTION_MARKERS = (
     "stop at a safe boundary",
@@ -68,7 +70,11 @@ def projection_metadata(
             or snapshot.metadata.get("current_instruction_revision")
             or ""
         ).strip()
-    if current_instruction and not _is_placeholder_instruction(current_instruction):
+    if (
+        current_instruction
+        and not is_missing_instruction(current_instruction)
+        and not _is_placeholder_instruction(current_instruction)
+    ):
         derived_revision = hashlib.sha256(
             current_instruction.encode("utf-8")
         ).hexdigest()[:12]
@@ -109,8 +115,7 @@ def _typed_instruction_explicitly_cleared(current_session: Mapping[str, object])
     if "current_instruction" not in current_session:
         return False
     instruction = str(current_session.get("current_instruction") or "").strip()
-    revision = str(current_session.get("current_instruction_revision") or "").strip()
-    return not instruction and not revision
+    return is_missing_instruction(instruction)
 
 
 def _first_text(*candidates: object) -> str:

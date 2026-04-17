@@ -266,29 +266,18 @@ def _prefer_newer_typed_candidate(
     preferred_payload: dict[str, object] | None,
     repo_root: Path,
 ) -> tuple[Path | None, dict[str, object] | None]:
-    """Keep event-backed preference unless a later governed snapshot is newer.
+    """Preserve the event-backed bundle as canonical review-state authority.
 
-    The `projections/latest` bundle remains the preferred authority path, but
-    a bridge-refreshed compatibility mirror may legitimately become newer
-    during dogfood/status refreshes before the next event-backed write. In
-    that case, live startup/dashboard/session-resume consumers should follow
-    the newer typed snapshot instead of pinning themselves to an older event
-    bundle solely because it comes first in the candidate list.
+    A legacy bridge-refreshed compatibility mirror may be newer on disk, but
+    it must not outrank the governed `projections/latest` payload for canonical
+    runtime reads. Loader freshness and explicit event refresh are the only
+    supported ways to advance the event-backed authority path.
     """
+    del candidate_paths
     if preferred_path is None or preferred_payload is None:
         return preferred_path, preferred_payload
     if not _is_event_backed_projection_path(preferred_path, repo_root=repo_root):
         return preferred_path, preferred_payload
-    preferred_timestamp = _payload_timestamp(preferred_payload)
-    if not preferred_timestamp:
-        return preferred_path, preferred_payload
-    for candidate_path in candidate_paths[1:]:
-        candidate_payload = _load_payload_from_path(candidate_path)
-        candidate_timestamp = _payload_timestamp(candidate_payload)
-        if candidate_payload is None or not candidate_timestamp:
-            continue
-        if candidate_timestamp > preferred_timestamp:
-            return candidate_path, candidate_payload
     return preferred_path, preferred_payload
 
 

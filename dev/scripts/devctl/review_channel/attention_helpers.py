@@ -18,6 +18,7 @@ _RESETTABLE_IMPLEMENTER_ERROR_PREFIXES = (
 )
 _RELAUNCH_REQUIRED_ERROR_PREFIXES = (
     "Reviewer mode is `active_dual_agent` but no live repo-owned Codex or Claude conductor sessions are present.",
+    "Repo-owned Codex conductor sessions are present, but the latest reviewer poll still comes from automation-only heartbeat refresh",
     "Repo-owned Claude conductor is active but no live repo-owned Codex conductor session is present.",
 )
 RESETTABLE_IMPLEMENTER_SESSION_STATES = frozenset(

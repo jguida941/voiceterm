@@ -778,8 +778,52 @@ def test_build_bridge_current_session_rederives_revision_when_instruction_change
     expected_revision = sha256(current_instruction.encode("utf-8")).hexdigest()[:12]
 
     assert bridge_state.current_instruction_revision == expected_revision
-    assert bridge_state.implementer_ack_revision == "abc123def456"
-    assert bridge_state.implementer_ack_state == "stale"
+
+
+def test_build_event_current_session_clears_revision_when_instruction_missing() -> None:
+    state = build_event_current_session(
+        review_state={
+            "review": {"plan_id": "MP-400"},
+            "queue": {
+                "pending_total": 0,
+                "pending_claude": 0,
+                "derived_next_instruction": "",
+            },
+            "registry": {"agents": []},
+        },
+        bridge_liveness={
+            "current_instruction_revision": "rev-abc",
+            "claude_ack_revision": "rev-abc",
+            "claude_ack_current": False,
+        },
+    )
+
+    assert state.current_instruction == ""
+    assert state.current_instruction_revision == ""
+
+
+def test_build_bridge_current_session_clears_revision_when_instruction_missing() -> None:
+    state = build_bridge_current_session(
+        snapshot=BridgeSnapshot(
+            metadata={"current_instruction_revision": "rev-abc"},
+            sections={
+                "Current Instruction For Claude": "",
+                "Claude Status": "",
+                "Claude Questions": "",
+                "Claude Ack": "",
+                "Open Findings": "none",
+                "Last Reviewed Scope": "MP-400",
+            },
+        ),
+        bridge_liveness={
+            "current_instruction_revision": "rev-abc",
+            "claude_ack_revision": "",
+            "claude_ack_current": False,
+        },
+    )
+
+    assert state.current_instruction == "(missing)"
+    assert state.current_instruction_revision == ""
 
 
 def test_resolve_current_session_authority_prefers_live_bridge_checkpoint() -> None:

@@ -5,6 +5,34 @@ from __future__ import annotations
 from collections.abc import Callable
 
 
+def normalize_instruction_markdown(text: str) -> str:
+    """Return the canonical markdown form for live instruction text."""
+    if text == "(missing)":
+        return text
+    lines = [line.rstrip() for line in text.splitlines() if line.strip()]
+    if not lines or not any(line.lstrip().startswith("- ") for line in lines):
+        return text
+    normalized: list[str] = []
+    seen_bullet = False
+    for line in lines:
+        stripped = line.strip()
+        if line.lstrip().startswith("- "):
+            normalized.append(line)
+            seen_bullet = True
+            continue
+        if not seen_bullet:
+            normalized.append(f"- {stripped}")
+            continue
+        normalized.append(line)
+    return "\n".join(normalized)
+
+
+def is_missing_instruction(text: str | None) -> bool:
+    """Return True when instruction text represents no live instruction."""
+    normalized = str(text or "").strip()
+    return normalized in {"", "(missing)"}
+
+
 def is_pending_placeholder(text: str | None) -> bool:
     """Return True when text is the canonical pending placeholder."""
     if not text:

@@ -29,6 +29,9 @@ from dev.scripts.devctl.review_channel.bridge_projection_metadata import (
     format_local_poll_time,
     normalize_poll_time,
 )
+from dev.scripts.devctl.review_channel.bridge_validation_poll_status import (
+    poll_status_is_automation_only_refresh,
+)
 from dev.scripts.devctl.review_channel.handoff import extract_bridge_snapshot
 from dev.scripts.devctl.review_channel.bridge_sanitize import (
     BRIDGE_SECTION_LINE_LIMITS,
@@ -315,6 +318,45 @@ def test_render_bridge_projection_recovers_blank_poll_metadata_from_typed_bridge
     ) in rendered
 
 
+def test_build_bridge_projection_state_clears_automation_only_poll_status() -> None:
+    automation_only_bridge = _bridge_text().replace(
+        "- Reviewer heartbeat refreshed through repo-owned tooling.",
+        "- Reviewer heartbeat refreshed through repo-owned tooling "
+        "(mode: active_dual_agent; reason: ensure-follow; reviewed-tree: af17e60c37d5).",
+    )
+
+    projection_state = build_bridge_projection_state(
+        bridge_text=automation_only_bridge,
+        bridge_liveness={},
+    )
+
+    assert "ensure-follow" not in projection_state.sections["Poll Status"]
+    assert (
+        poll_status_is_automation_only_refresh(projection_state.sections["Poll Status"])
+        is False
+    )
+
+
+def test_render_bridge_projection_replaces_automation_only_poll_status_with_typed_fallback() -> None:
+    automation_only_bridge = _bridge_text().replace(
+        "- Reviewer heartbeat refreshed through repo-owned tooling.",
+        "- Reviewer heartbeat refreshed through repo-owned tooling "
+        "(mode: active_dual_agent; reason: ensure-follow; reviewed-tree: af17e60c37d5).",
+    )
+    review_state = _typed_review_state(automation_only_bridge)
+    review_state["timestamp"] = "2026-04-17T02:03:00Z"
+
+    rendered, _ = render_bridge_projection(
+        review_state=review_state,
+        last_worktree_hash="b" * 64,
+    )
+
+    poll_status = extract_bridge_snapshot(rendered).sections["Poll Status"]
+    assert "typed review-state projection" in poll_status
+    assert "ensure-follow" not in poll_status
+    assert poll_status_is_automation_only_refresh(poll_status) is False
+
+
 def test_render_bridge_projection_projects_bound_action_request_packets() -> None:
     review_state = _typed_review_state(_bridge_text())
     review_state["packets"] = [
@@ -485,6 +527,27 @@ def test_render_bridge_projection_clears_stale_instruction_when_typed_instructio
         "- Await reviewer instruction refresh."
     )
     assert snapshot.sections["Open Findings"] == "193 expired unresolved review packet(s)"
+
+
+def test_render_bridge_projection_clears_revision_for_missing_instruction_placeholder() -> None:
+    review_state = _typed_review_state(_bridge_text())
+    review_state["current_session"] = {
+        "current_instruction": "(missing)",
+        "current_instruction_revision": "typedrev123456",
+        "open_findings": "2 pending review packet(s)",
+        "last_reviewed_scope": "- typed/scope.py",
+    }
+
+    rendered, _ = render_bridge_projection(
+        review_state=review_state,
+        last_worktree_hash="b" * 64,
+    )
+    snapshot = extract_bridge_snapshot(rendered)
+
+    assert snapshot.sections["Current Instruction For Claude"] == (
+        "- Await reviewer instruction refresh."
+    )
+    assert snapshot.metadata.get("current_instruction_revision", "") == ""
 
 
 def test_render_bridge_projection_tracks_swapped_reviewer_and_implementer() -> None:

@@ -4,6 +4,10 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 
+from ..runtime.review_state_semantics import (
+    is_missing_instruction,
+    normalize_instruction_markdown,
+)
 from .handoff import BridgeSnapshot
 from .reviewer_state_normalize import (
     instruction_revision as _normalized_instruction_revision,
@@ -79,6 +83,8 @@ def canonicalize_instruction_state(
     current_instruction_revision: str,
 ) -> tuple[str, str]:
     canonical_instruction = canonical_instruction_markdown(current_instruction)
+    if is_missing_instruction(canonical_instruction):
+        return canonical_instruction, ""
     revision = str(current_instruction_revision or "").strip()
     if canonical_instruction != current_instruction:
         raw_revision = _derived_instruction_revision(current_instruction)
@@ -90,25 +96,7 @@ def canonicalize_instruction_state(
 
 
 def canonical_instruction_markdown(current_instruction: str) -> str:
-    text = clean_section(current_instruction)
-    if text == "(missing)":
-        return text
-    lines = [line.rstrip() for line in text.splitlines() if line.strip()]
-    if not lines or not any(line.lstrip().startswith("- ") for line in lines):
-        return text
-    normalized: list[str] = []
-    seen_bullet = False
-    for line in lines:
-        stripped = line.strip()
-        if line.lstrip().startswith("- "):
-            normalized.append(line)
-            seen_bullet = True
-            continue
-        if not seen_bullet:
-            normalized.append(f"- {stripped}")
-            continue
-        normalized.append(line)
-    return "\n".join(normalized)
+    return normalize_instruction_markdown(clean_section(current_instruction))
 
 
 def _instruction_revision_reused_for_changed_instruction(
@@ -134,9 +122,7 @@ def _instruction_revision_reused_for_changed_instruction(
 
 def _derived_instruction_revision(current_instruction: str) -> str:
     normalized_instruction = _normalize_instruction_body(current_instruction)
-    if normalized_instruction == "(missing)":
-        return ""
-    if not normalized_instruction:
+    if is_missing_instruction(normalized_instruction):
         return ""
     return _normalized_instruction_revision(normalized_instruction)
 

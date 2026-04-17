@@ -283,6 +283,7 @@ def _implementation_block_state(
             effective_reviewer_mode=effective_reviewer_mode,
             implementer_ack_current=implementer_ack_current,
             attention_status=attention_status,
+            current_instruction=current_session.current_instruction,
             implementer_status=current_session.implementer_status,
             implementer_ack=current_session.implementer_ack,
             implementer_ack_state=current_session.implementer_ack_state,
