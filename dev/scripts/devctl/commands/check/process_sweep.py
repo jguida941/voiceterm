@@ -88,18 +88,38 @@ def cleanup_orphaned_voiceterm_test_binaries(
 SUPERVISED_CONDUCTOR_SCOPE = "review_channel_conductor"
 
 
+def _session_pid_is_cleanup_protected(session: object) -> bool:
+    """Return True when a conductor session PID is runtime-live enough to protect.
+
+    Host-process cleanup must key off runtime liveness, not only the broader
+    governance/session freshness captured by ``session.live``. A conductor can
+    remain script-running while ``session.live`` flips false because the
+    prepared HEAD or instruction revision has drifted; cleanup should not reap
+    or fail that still-running typed session.
+    """
+    session_pid = int(getattr(session, "session_pid", 0) or 0)
+    if session_pid <= 0:
+        return False
+    if bool(getattr(session, "live", False)):
+        return True
+    return str(getattr(session, "script_probe_state", "")).strip().lower() == "running"
+
+
 def _protected_registered_conductor_pids(
     *,
     rows: list[dict],
     repo_root: Path,
 ) -> set[int]:
-    """Return live registered conductor pids plus descendants to exclude.
+    """Return runtime-live registered conductor pids plus descendants to exclude.
 
     Only PIDs recovered from the typed session registry
-    (``load_conductor_sessions``) are protected.  A running supervisor
+    (``load_conductor_sessions``) are protected. A running supervisor
     heartbeat is NOT sufficient on its own — unregistered detached
     wrappers must fall through to orphan/detached classification so
-    invisible agents are surfaced instead of silently hidden (Q37).
+    invisible agents are surfaced instead of silently hidden (Q37). For
+    registered sessions, runtime/script liveness is sufficient even when the
+    broader launch authority has gone stale; host cleanup should not kill a
+    still-running conductor just because prepared-head freshness drifted.
     """
     from ...repo_packs import active_path_config
     from ...review_channel.session_probe import load_conductor_sessions
@@ -112,7 +132,7 @@ def _protected_registered_conductor_pids(
     session_pids = {
         int(session.session_pid)
         for session in sessions
-        if session.live and session.session_pid
+        if _session_pid_is_cleanup_protected(session)
     }
 
     if not session_pids:

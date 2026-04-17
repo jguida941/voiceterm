@@ -338,8 +338,66 @@ Evidence: `dev/scripts/devctl/commands/pipeline/support.py`,
 `dev/scripts/devctl/runtime/commit_packet_gate.py`,
 `dev/scripts/devctl/tests/commands/test_pipeline_command.py`,
 `dev/scripts/devctl/tests/vcs/test_commit_pending_reviewer_gate.py`,
+
+### 2026-04-17 - Commit-recorded pipeline status now distinguishes continue-push from recovery
+
+Fact: the next dogfood retry exposed a second, narrower defect after the
+projection-refresh closure. Same-head `commit_recorded` pipeline state could
+still project contradictory recovery truth: `recommended_next_action` said
+`abandon` or `refresh-authorization`, while `next_command` silently preferred
+`python3 dev/scripts/devctl.py push --execute`. That made the pipeline surface
+look like it needed manual interpretation exactly when the product goal is to
+let typed status tell the agent whether it should continue publication or take
+recovery action.
+
+The fix was small but load-bearing. Pipeline status now treats same-head
+`commit_recorded` as a continue-publication state with
+`recommended_next_action=none` and
+`next_command=python3 dev/scripts/devctl.py push --execute`. When the same
+state is expired, the status surface now projects the explicit
+`refresh-authorization` command instead of silently preferring push. The
+governed commit block path still overrides superseded post-checkpoint-dirty
+`commit_recorded` pipelines to `abandon`, so the recovery semantics only
+surface when the current worktree actually needs them.
+
+Evidence: `dev/scripts/devctl/commands/pipeline/support.py`,
+`dev/scripts/devctl/tests/commands/test_pipeline_command.py`,
+`dev/scripts/devctl/tests/vcs/test_commit_gate.py`, and
+`dev/scripts/README.md`.
 `dev/active/MASTER_PLAN.md`,
 and `dev/active/ai_governance_platform.md`.
+
+### 2026-04-17 - Host cleanup now protects registry-backed running conductors even when prepared authority drifted stale
+
+Fact: the next live governed-checkpoint retry was no longer blocked by
+pipeline/status drift; it was blocked by `host-process-cleanup-post`. The real
+host process tree showed a detached Codex conductor wrapper still running under
+the typed session registry, but `_protected_registered_conductor_pids()` only
+trusted `session.live`. Because `session.live` also encodes prepared-head
+freshness, the same running conductor flipped into `recent_detached` failure
+state as soon as prepared authority drifted, even though cleanup still could
+not safely reap it.
+
+This matters because the product goal is not "kill more processes." The host
+cleanup lane must distinguish runtime liveness from broader governance
+freshness, otherwise a healthy review loop can block `process-cleanup --verify`
+and every governed checkpoint that depends on it.
+
+The bounded fix keeps the protection scope typed and narrow: registered
+conductor `session_pid` values stay protected when the script probe still says
+`running`, even if `session.live` is false because prepared authority has gone
+stale. Unregistered or pid-less detached wrappers still fail closed. Focused
+proof is green on the protected-PID process-sweep tests, targeted strict
+process-audit regressions, and live
+`python3 dev/scripts/devctl.py process-cleanup --verify --format json`, which
+now returns `ok: true` on the previously blocked detached-conductor tree.
+
+Evidence: `dev/scripts/devctl/commands/check/process_sweep.py`,
+`dev/scripts/devctl/tests/process_sweep/test_process_sweep.py`,
+`dev/scripts/devctl/tests/commands/process/test_process_audit.py`,
+`dev/active/MASTER_PLAN.md`,
+`dev/active/ai_governance_platform.md`,
+and `dev/scripts/README.md`.
 
 ### 2026-04-15 - Governed commit fallback now trusts effective reviewer mode, and status `sessions=[]` is action-scoped
 

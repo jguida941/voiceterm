@@ -5079,6 +5079,15 @@ prefer the typed phase/task entries before any free-form backlog bullets.
 Use this section as the single "left off here" surface for fresh AI sessions
 working on `MP-377`.
 
+- 2026-04-17 host-process cleanup checkpoint follow-up:
+  live `process-cleanup --verify` is green again after narrowing conductor
+  protection to runtime/script liveness for registry-backed `session_pid`
+  values, even when `session.live` is false because prepared authority drifted.
+  That clears the current governed checkpoint blocker without killing the live
+  review loop. The explicit next architecture slice after this checkpoint is
+  `rev_pkt_0947`: add typed packet lifecycle state so inbox observation stops
+  masquerading as resolution; `rev_pkt_0950` Tier 1.1 findings-priority
+  activation stays immediately behind it.
 - 2026-04-17 checkpoint-first detached-runtime follow-up:
   the current repo proof no longer deadlocks on "relaunch vs checkpoint" when
   dual-agent runtime is detached but reviewer authority is already current.
@@ -7189,6 +7198,19 @@ Execution order for this section:
 
 ## Progress Log
 
+- 2026-04-17: Closed the live host-process cleanup false block that was still
+  freezing governed checkpoints after the earlier pipeline/startup repairs. A
+  real detached Codex conductor wrapper remained registry-backed and
+  script-running, but `_protected_registered_conductor_pids()` only trusted
+  `session.live`, so prepared-head drift flipped the same running conductor
+  into a strict `recent_detached` failure without making it safe to reap. The
+  bounded fix now protects registry-backed running `session_pid` values based
+  on runtime/script liveness rather than broader prepared-head freshness, so
+  `process-cleanup --verify` and `host-process-cleanup-post` stay green for a
+  still-running conductor while unregistered or pid-less detached wrappers
+  continue to fail closed. Focused proof is green on
+  `test_process_sweep.py`, targeted `test_process_audit.py`, and live
+  `python3 dev/scripts/devctl.py process-cleanup --verify --format json`.
 - 2026-04-17: Closed the stale pipeline-recovery mirror that was still making
   the governed checkpoint path look manual. A live dogfood retry proved that
   `pipeline --action abandon` could record `new_state=abandoned` in the

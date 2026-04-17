@@ -286,7 +286,7 @@ def recommended_next_action(
         return "recover"
     if authorization_is_expired(payload, now=now):
         return "refresh-authorization"
-    if state in RECOVERABLE_STATES:
+    if state == "push_blocked":
         return "abandon"
     return "none"
 
@@ -303,14 +303,14 @@ def recommended_next_command(
         return ""
     if head_has_moved(payload, current_head=current_head):
         return _PIPELINE_RECOVER_COMMAND
-    if state in {"commit_recorded", "push_pending"}:
-        return _PUSH_EXECUTE_COMMAND
     if authorization_is_expired(payload, now=now):
         if state == "push_blocked":
             # `devctl push --execute` can refresh the same-HEAD authorization
             # window before reusing the governed publish pipeline.
             return _PUSH_EXECUTE_COMMAND
         return _PIPELINE_REFRESH_AUTHORIZATION_COMMAND
+    if state in {"commit_recorded", "push_pending"}:
+        return _PUSH_EXECUTE_COMMAND
     if state == "push_blocked":
         return _PIPELINE_ABANDON_COMMAND
     if state in RECOVERABLE_STATES:

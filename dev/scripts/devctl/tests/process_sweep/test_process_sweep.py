@@ -989,6 +989,43 @@ def test_protected_pids_uses_registry_when_session_pid_is_live() -> None:
     assert 9999 not in protected, "unrelated voiceterm row stays reapable"
 
 
+def test_protected_pids_preserve_running_stale_authority_session() -> None:
+    """A running registered conductor stays protected even when authority drifts.
+
+    Host-process cleanup should key off runtime/script liveness for registered
+    sessions so a still-running conductor is not reaped or failed merely
+    because prepared HEAD freshness made ``session.live`` false.
+    """
+    with tempfile.TemporaryDirectory() as tmpdir:
+        repo_root = Path(tmpdir)
+        status_dir = repo_root / "dev" / "reports" / "review_channel" / "latest"
+        status_dir.mkdir(parents=True)
+
+        stale_but_running_session = SimpleNamespace(
+            live=False,
+            session_pid=1234,
+            script_probe_state="running",
+        )
+        rows = [
+            {"pid": 1234, "ppid": 1, "match_scope": "review_channel_conductor"},
+            {"pid": 5678, "ppid": 1234, "match_scope": "review_channel_conductor"},
+            {"pid": 9999, "ppid": 1, "match_scope": "voiceterm"},
+        ]
+
+        with patch(
+            "dev.scripts.devctl.review_channel.session_probe.load_conductor_sessions",
+            return_value=(stale_but_running_session,),
+        ):
+            protected = check_process_sweep._protected_registered_conductor_pids(
+                rows=rows,
+                repo_root=repo_root,
+            )
+
+    assert 1234 in protected, "running registered session pid must stay protected"
+    assert 5678 in protected, "descendants of a protected running pid inherit protection"
+    assert 9999 not in protected, "unrelated voiceterm row stays reapable"
+
+
 def test_protected_pids_empty_when_no_registry_and_dead_supervisor() -> None:
     """No protection path: empty registry plus a dead reviewer_supervisor
     heartbeat must yield an empty protected set, preserving the original

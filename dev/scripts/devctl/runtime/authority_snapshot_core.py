@@ -232,7 +232,7 @@ def summary_next_command(ctx_dict: Mapping[str, object]) -> str:
         return recovery_command
 
     if "post_checkpoint_dirty_worktree" in blockers:
-        return _COMMIT_CHECKPOINT_COMMAND
+        return COMMIT_CHECKPOINT_COMMAND
 
     reviewer_command = reviewer_recovery_command(ctx_dict)
     if reviewer_command:

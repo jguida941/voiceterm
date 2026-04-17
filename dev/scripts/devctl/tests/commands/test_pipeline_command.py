@@ -169,7 +169,21 @@ class PipelineStatusTests(unittest.TestCase):
         finally:
             fixture.close()
 
-    def test_status_recommends_abandon_when_authorization_expired(self) -> None:
+    def test_status_projects_push_execute_for_live_commit_recorded_pipeline(self) -> None:
+        fixture = _PipelineFixture(fake_head="deadbeef00000000000000000000000000000000")
+        try:
+            fixture.write_payload(_sample_pipeline_payload())
+            view = build_status_view(fixture.paths())
+            self.assertFalse(view["authorization_expired"])
+            self.assertEqual(view["recommended_next_action"], "none")
+            self.assertEqual(
+                view["next_command"],
+                "python3 dev/scripts/devctl.py push --execute",
+            )
+        finally:
+            fixture.close()
+
+    def test_status_recommends_refresh_when_authorization_expired(self) -> None:
         fixture = _PipelineFixture(fake_head="deadbeef00000000000000000000000000000000")
         try:
             expired = "2000-01-01T00:00:00.000000Z"
@@ -185,7 +199,10 @@ class PipelineStatusTests(unittest.TestCase):
             )
             self.assertEqual(
                 view["next_command"],
-                "python3 dev/scripts/devctl.py push --execute",
+                (
+                    "python3 dev/scripts/devctl.py pipeline --action "
+                    "refresh-authorization --format json"
+                ),
             )
         finally:
             fixture.close()

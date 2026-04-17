@@ -4258,7 +4258,14 @@ become the main product surface.
   review-channel proof closed the next Q41 gap: registered conductor wrappers
   that intentionally reparent to PID 1 now stay in supervised-conductor state
   for strict `process-audit` / `process-cleanup --verify`, while unregistered
-  detached helpers remain blocking. Execution spec:
+  detached helpers remain blocking. A 2026-04-17 live remote-control follow-up
+  closed the stale-authority variant of that same seam: host cleanup
+  protection now trusts registry-backed running `session_pid` values when the
+  script probe still says `running`, even if `session.live` flipped false
+  because prepared-head freshness drifted. That keeps
+  `host-process-cleanup-post` green for a real running conductor instead of
+  forcing a kill-or-block choice during governed checkpoint retry.
+  Execution spec:
   `dev/active/host_process_hygiene.md`. 2026-03-09 Codex re-review reopened
   follow-up hardening: orphaned non-allowlisted repo-cwd descendants can
   still slip once the matched parent exits, tty-attached repo helpers
