@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from pathlib import Path
 
 from ...review_channel.action_request_delivery import (
@@ -10,45 +11,59 @@ from ...review_channel.action_request_delivery import (
 from ...review_channel.events import filter_inbox_packets, refresh_event_bundle
 
 
+@dataclass(frozen=True)
+class EventWatchContext:
+    args: object
+    bundle: object
+    repo_root: Path
+    review_channel_path: Path
+    artifact_paths: object
+
+
 def load_target_packets(
     *,
-    args,
-    bundle,
-    repo_root: Path,
-    review_channel_path: Path,
-    artifact_paths,
+    context: EventWatchContext,
     status_filter: str | None = None,
+    target_override: str | None = None,
+    observe_action_requests: bool = True,
 ) -> tuple[object, list[dict[str, object]]]:
     """Load target-filtered packets and refresh after action-request observation."""
     effective_status_filter = (
         status_filter
         if status_filter is not None
-        else getattr(args, "status", None)
+        else getattr(context.args, "status", None)
+    )
+    effective_target = (
+        target_override
+        if target_override is not None
+        else getattr(context.args, "target", None)
     )
     packets = filter_inbox_packets(
-        bundle.review_state,
-        target=getattr(args, "target", None),
+        context.bundle.review_state,
+        target=effective_target,
         status=effective_status_filter,
-        limit=args.limit,
+        limit=context.args.limit,
     )
     if _mark_targeted_action_request_observation(
-        args=args,
-        artifact_paths=artifact_paths,
+        target=effective_target,
+        artifact_paths=context.artifact_paths,
         packets=packets,
         status_filter=effective_status_filter,
+        observe_action_requests=observe_action_requests,
     ):
-        bundle = refresh_event_bundle(
-            repo_root=repo_root,
-            review_channel_path=review_channel_path,
-            artifact_paths=artifact_paths,
+        refreshed_bundle = refresh_event_bundle(
+            repo_root=context.repo_root,
+            review_channel_path=context.review_channel_path,
+            artifact_paths=context.artifact_paths,
         )
         packets = filter_inbox_packets(
-            bundle.review_state,
-            target=getattr(args, "target", None),
+            refreshed_bundle.review_state,
+            target=effective_target,
             status=effective_status_filter,
-            limit=args.limit,
+            limit=context.args.limit,
         )
-    return bundle, packets
+        return refreshed_bundle, packets
+    return context.bundle, packets
 
 
 def watch_snapshot_signature(
@@ -73,12 +88,15 @@ def watch_snapshot_signature(
 
 def _mark_targeted_action_request_observation(
     *,
-    args,
+    target: str | None,
     artifact_paths,
     packets: list[dict[str, object]],
     status_filter: str | None,
+    observe_action_requests: bool,
 ) -> bool:
-    target = str(getattr(args, "target", None) or "").strip()
+    if not observe_action_requests:
+        return False
+    target = str(target or "").strip()
     if not target:
         return False
     if status_filter not in {None, "", "pending"}:

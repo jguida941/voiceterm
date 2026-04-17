@@ -134,9 +134,11 @@ def projection_freshness_paths(
     )
     if bridge_path is None or review_channel_path is None:
         return ()
+    push_report_path = repo_root / active_path_config().push_report_rel
     return projection_dependency_paths(
         bridge_path=bridge_path,
         review_channel_path=review_channel_path,
+        push_report_path=push_report_path,
     )
 
 

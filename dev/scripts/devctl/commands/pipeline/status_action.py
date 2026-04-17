@@ -23,6 +23,7 @@ from .support import (
     pipeline_id_of,
     pipeline_state_of,
     recommended_next_action,
+    recommended_next_command,
     resolve_current_head,
 )
 
@@ -72,6 +73,11 @@ def build_status_view(
             current_head=current_head,
             now=reference_now,
         ),
+        "next_command": recommended_next_command(
+            payload,
+            current_head=current_head,
+            now=reference_now,
+        ),
     }
 
 
@@ -103,6 +109,7 @@ def render_status_markdown(view: dict[str, Any]) -> str:
         lines.append("- pipeline: (no commit_pipeline.json artifact found)")
         lines.append(f"- artifact: `{view.get('pipeline_artifact_path','')}`")
         lines.append("- recommended next action: `none`")
+        lines.append("- next command: ``")
         return "\n".join(lines) + "\n"
     lines.extend([
         f"- artifact: `{view['pipeline_artifact_path']}`",
@@ -116,6 +123,7 @@ def render_status_markdown(view: dict[str, Any]) -> str:
         f"- authorization_expired: `{view['authorization_expired']}`",
         f"- head_has_moved: `{view['head_has_moved']}`",
         f"- recommended next action: `{view['recommended_next_action']}`",
+        f"- next command: `{view['next_command']}`",
     ])
     return "\n".join(lines) + "\n"
 

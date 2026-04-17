@@ -121,6 +121,12 @@ Use docs like this:
   `apply` stamp `execution_started_at_utc` / `execution_started_by`; when you
   verify remote-control or dashboard behavior, use those fields instead of
   guessing from packet counts alone.
+- The operator read surface now has an explicit read-only alias too:
+  `review-channel --action operator-inbox` fixes `target=operator`, defaults
+  to the live pending queue, and must not stamp `delivery_observed_*` on live
+  `action_request` packets. Use it for operator/dashboard/phone inspection,
+  and keep targeted `inbox` / `watch` polls for the actor lanes that are
+  supposed to record packet observation.
 - Queue-derived next-step projections are action-request-first now. A live
   `action_request` must outrank later findings or commentary in
   `queue.derived_next_instruction`, and the typed source payload should carry
@@ -677,6 +683,13 @@ Three quality layers matter in practice:
     has the matching fail-closed rule on the read side: it must not apply a
     fixed raw-line rollout tail before the cursor filter, because a busy
     session can emit hundreds of noise lines after an unseen decision event.
+    The same authority rule now applies to commit/push blockers: when typed
+    pipeline status already carries `recommended_next_action` plus
+    `next_command`, downstream commit surfaces must project those fields
+    directly instead of regenerating prose. If the active publish pipeline is
+    same-HEAD and only the authorization window expired, the block path should
+    refresh that authorization in place before it tells the operator the next
+    command is `devctl push --execute`.
   - `startup-context` is the typed startup packet for those same sessions.
     It should read reviewer/publish gating from typed
     `reviewer_runtime.review_acceptance.review_accepted` and

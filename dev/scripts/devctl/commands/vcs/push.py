@@ -42,6 +42,7 @@ from .push_artifact import (
 )
 from .push_flow import PushFlowDependencies, execute_push_flow_with_dependencies
 from .push_report import PushStageTruth, render_push_report
+from .push_executor_routing import maybe_run_executor_routed_push
 from .push_snapshot import (
     PushReportContext,
     build_push_report_payload,
@@ -524,7 +525,6 @@ def run_push_action(
 def run(args) -> int:
     """Validate and optionally execute a guarded push for the current branch."""
     from .governed_executor import GovernedVcsExecutor
-    from .governed_executor_actions import _PUSHABLE_PIPELINE_STATES
 
     resolved_policy = load_push_policy(
         repo_root=REPO_ROOT,
@@ -540,54 +540,15 @@ def run(args) -> int:
         push_policy=resolved_policy,
     )
     pipeline = executor.load_pipeline()
-    active_pipeline_matches_branch = bool(pipeline.pipeline_id) and bool(state.branch) and (
-        pipeline.branch == state.branch
+    routed_exit = maybe_run_executor_routed_push(
+        args=args,
+        resolved_policy=resolved_policy,
+        state=state,
+        executor=executor,
+        pipeline=pipeline,
     )
-    if (
-        active_pipeline_matches_branch
-        and pipeline.state in _PUSHABLE_PIPELINE_STATES
-        and bool(pipeline.commit_sha)
-    ):
-        result = executor.execute(
-            build_push_action(
-                repo_pack_id=resolved_policy.repo_pack_id,
-                branch=str(pipeline.branch or getattr(args, "branch", "") or ""),
-                remote=str(
-                    getattr(args, "remote", "")
-                    or state.remote
-                    or resolved_policy.default_remote
-                ),
-                execute=bool(args.execute),
-                skip_preflight=bool(args.skip_preflight),
-                skip_post_push=bool(args.skip_post_push),
-                approved_target_identity=str(
-                    getattr(args, "approved_target_identity", "")
-                    or getattr(pipeline, "approved_target_identity", "")
-                    or state.approved_target_identity
-                ),
-                approved_worktree_identity=str(
-                    getattr(pipeline, "worktree_identity", "")
-                    or state.approved_worktree_identity
-                ),
-                requested_by=REQUESTED_BY,
-            )
-        )
-        report = load_latest_push_report(repo_root=REPO_ROOT)
-        if report is not None:
-            report_json = serialize_push_report(report)
-            output = report_json if args.format == "json" else render_push_report(report)
-            pipe_rc = emit_output(
-                output,
-                output_path=args.output,
-                pipe_command=args.pipe_command,
-                pipe_args=args.pipe_args,
-                additional_outputs=((report_json, latest_push_report_relpath(repo_root=REPO_ROOT)),),
-                writer=write_output,
-                piper=pipe_output,
-            )
-            if pipe_rc != 0:
-                return pipe_rc
-        return 0 if result.ok else 1
+    if routed_exit is not None:
+        return routed_exit
     exit_code, _ = run_push_action(args, policy=resolved_policy)
     return exit_code
 

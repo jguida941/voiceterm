@@ -7,6 +7,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+from dev.scripts.devctl.repo_packs.review_cache import projection_dependency_paths
 from dev.scripts.devctl.repo_packs.review_helpers import MobileReviewStateResult
 from dev.scripts.devctl.repo_packs.voiceterm import (
     RepoPathConfig,
@@ -15,6 +16,22 @@ from dev.scripts.devctl.repo_packs.voiceterm import (
 
 
 class VoiceTermReviewPayloadTests(unittest.TestCase):
+    def test_projection_dependency_paths_include_push_report_artifact(self) -> None:
+        bridge_path = Path("/tmp/bridge.md")
+        review_channel_path = Path("/tmp/review_channel.md")
+        push_report_path = Path("/tmp/dev/reports/push/latest.json")
+
+        paths = projection_dependency_paths(
+            bridge_path=bridge_path,
+            review_channel_path=review_channel_path,
+            push_report_path=push_report_path,
+        )
+
+        self.assertEqual(
+            paths,
+            (bridge_path, review_channel_path, push_report_path),
+        )
+
     def test_load_review_payload_from_bridge_uses_shared_mobile_review_loader(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             repo_root = Path(tmp_dir)

@@ -134,8 +134,8 @@ class PushCommandTests(unittest.TestCase):
         self.sync_bridge_mock = self._sync_bridge_patcher.start()
         self.addCleanup(self._sync_bridge_patcher.stop)
 
-    @patch("dev.scripts.devctl.commands.vcs.push.emit_output")
-    @patch("dev.scripts.devctl.commands.vcs.push.load_latest_push_report")
+    @patch("dev.scripts.devctl.commands.vcs.push_executor_routing.emit_output")
+    @patch("dev.scripts.devctl.commands.vcs.push_executor_routing.load_latest_push_report")
     @patch("dev.scripts.devctl.commands.vcs.push.remote_exists", return_value=True)
     @patch("dev.scripts.devctl.commands.vcs.push.collect_git_status")
     @patch("dev.scripts.devctl.commands.vcs.push.load_push_policy")
@@ -178,8 +178,80 @@ class PushCommandTests(unittest.TestCase):
         fake_executor.execute.assert_called_once()
         emit_output_mock.assert_called_once()
 
-    @patch("dev.scripts.devctl.commands.vcs.push.emit_output", return_value=7)
-    @patch("dev.scripts.devctl.commands.vcs.push.load_latest_push_report")
+    @patch("dev.scripts.devctl.commands.vcs.push_pipeline_recovery.apply_refresh_authorization")
+    @patch(
+        "dev.scripts.devctl.commands.vcs.push_pipeline_recovery.current_head_commit_sha",
+        return_value="abc123",
+    )
+    @patch("dev.scripts.devctl.commands.vcs.push_executor_routing.emit_output")
+    @patch("dev.scripts.devctl.commands.vcs.push_executor_routing.load_latest_push_report")
+    @patch("dev.scripts.devctl.commands.vcs.push.remote_exists", return_value=True)
+    @patch("dev.scripts.devctl.commands.vcs.push.collect_git_status")
+    @patch("dev.scripts.devctl.commands.vcs.push.load_push_policy")
+    @patch("dev.scripts.devctl.commands.vcs.governed_executor.GovernedVcsExecutor")
+    def test_run_auto_refreshes_expired_same_head_pipeline_authorization(
+        self,
+        executor_cls_mock,
+        load_push_policy_mock,
+        collect_git_status_mock,
+        _remote_exists_mock,
+        load_latest_report_mock,
+        emit_output_mock,
+        _current_head_mock,
+        apply_refresh_authorization_mock,
+    ) -> None:
+        expired_auth = SimpleNamespace(
+            expires_at_utc="2000-01-01T00:00:00Z",
+            authorized_head_sha="abc123",
+        )
+        refreshed_auth = SimpleNamespace(
+            expires_at_utc="2999-01-01T00:00:00Z",
+            authorized_head_sha="abc123",
+        )
+        fake_executor = MagicMock()
+        fake_executor.load_pipeline.side_effect = [
+            SimpleNamespace(
+                pipeline_id="pipeline-123",
+                state="push_blocked",
+                commit_sha="abc123",
+                branch="feature/demo",
+                approved_target_identity="tree-receipt-20260403T010000Z:tree-123",
+                push_authorization=expired_auth,
+            ),
+            SimpleNamespace(
+                pipeline_id="pipeline-123",
+                state="push_blocked",
+                commit_sha="abc123",
+                branch="feature/demo",
+                approved_target_identity="tree-receipt-20260403T010000Z:tree-123",
+                push_authorization=refreshed_auth,
+            ),
+        ]
+        fake_executor.execute.return_value = SimpleNamespace(ok=True)
+        executor_cls_mock.return_value = fake_executor
+        load_push_policy_mock.return_value = make_policy()
+        collect_git_status_mock.return_value = {"branch": "feature/demo", "changes": []}
+        load_latest_report_mock.return_value = {
+            "ok": True,
+            "branch": "feature/demo",
+            "head_commit": "abc123",
+            "push_stages": {
+                "published_remote": True,
+                "post_push_green": True,
+                "validation_ready": True,
+            },
+        }
+        emit_output_mock.return_value = 0
+        apply_refresh_authorization_mock.return_value = {"ok": True}
+
+        rc = push.run(make_args(execute=True, format="json"))
+
+        self.assertEqual(rc, 0)
+        apply_refresh_authorization_mock.assert_called_once()
+        fake_executor.execute.assert_called_once()
+
+    @patch("dev.scripts.devctl.commands.vcs.push_executor_routing.emit_output", return_value=7)
+    @patch("dev.scripts.devctl.commands.vcs.push_executor_routing.load_latest_push_report")
     @patch("dev.scripts.devctl.commands.vcs.push.remote_exists", return_value=True)
     @patch("dev.scripts.devctl.commands.vcs.push.collect_git_status")
     @patch("dev.scripts.devctl.commands.vcs.push.load_push_policy")
@@ -220,8 +292,8 @@ class PushCommandTests(unittest.TestCase):
 
         self.assertEqual(rc, 7)
 
-    @patch("dev.scripts.devctl.commands.vcs.push.emit_output")
-    @patch("dev.scripts.devctl.commands.vcs.push.load_latest_push_report")
+    @patch("dev.scripts.devctl.commands.vcs.push_executor_routing.emit_output")
+    @patch("dev.scripts.devctl.commands.vcs.push_executor_routing.load_latest_push_report")
     @patch("dev.scripts.devctl.commands.vcs.push.remote_exists", return_value=True)
     @patch("dev.scripts.devctl.commands.vcs.push.collect_git_status")
     @patch("dev.scripts.devctl.commands.vcs.push.load_push_policy")
@@ -2056,9 +2128,13 @@ class PushReceiptTests(unittest.TestCase):
         state = detect_push_enforcement_state(make_policy())
 
         self.assertEqual(state["recommended_action"], "no_push_needed")
-        self.assertTrue(state["latest_push_report_published_remote"])
-        self.assertTrue(state["latest_push_report_post_push_green"])
-        self.assertTrue(state["latest_push_report_matches_current_head"])
+        self.assertFalse(state["latest_push_report_published_remote"])
+        self.assertFalse(state["latest_push_report_post_push_green"])
+        self.assertFalse(state["latest_push_report_matches_current_head"])
+        self.assertEqual(state["selected_push_report_source"], "receipt_history")
+        self.assertTrue(state["selected_push_report_published_remote"])
+        self.assertTrue(state["selected_push_report_post_push_green"])
+        self.assertTrue(state["selected_push_report_matches_current_head"])
 
     @patch(
         "dev.scripts.devctl.governance.push_state.latest_push_report_relpath",
@@ -2130,6 +2206,10 @@ class PushReceiptTests(unittest.TestCase):
         self.assertEqual(state["latest_push_report_reason"], "push_pending")
         self.assertEqual(state["latest_push_report_head_commit"], "current-head")
         self.assertTrue(state["latest_push_report_matches_current_head"])
+        self.assertEqual(state["selected_push_report_source"], "latest_artifact")
+        self.assertEqual(state["selected_push_report_reason"], "push_pending")
+        self.assertEqual(state["selected_push_report_head_commit"], "current-head")
+        self.assertTrue(state["selected_push_report_matches_current_head"])
 
 
 if __name__ == "__main__":

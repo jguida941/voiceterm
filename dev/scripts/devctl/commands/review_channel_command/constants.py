@@ -92,6 +92,7 @@ class ReviewChannelAction(StrEnum):
     POST = "post"
     WATCH = "watch"
     INBOX = "inbox"
+    OPERATOR_INBOX = "operator-inbox"
     ACK = "ack"
     DISMISS = "dismiss"
     APPLY = "apply"
@@ -106,6 +107,7 @@ EVENT_ACTION_SET = frozenset(
         ReviewChannelAction.POST,
         ReviewChannelAction.WATCH,
         ReviewChannelAction.INBOX,
+        ReviewChannelAction.OPERATOR_INBOX,
         ReviewChannelAction.ACK,
         ReviewChannelAction.DISMISS,
         ReviewChannelAction.APPLY,
@@ -135,6 +137,7 @@ PACKET_TRANSITION_ACTIONS = frozenset(
 LIMITED_QUERY_ACTIONS = frozenset(
     {
         ReviewChannelAction.INBOX,
+        ReviewChannelAction.OPERATOR_INBOX,
         ReviewChannelAction.WATCH,
         ReviewChannelAction.HISTORY,
     }

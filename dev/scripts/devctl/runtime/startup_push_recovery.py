@@ -22,13 +22,43 @@ _CURRENT_HEAD_PUSH_IN_PROGRESS_REASONS = frozenset({
 })
 
 
+def selected_push_report_source(push_enforcement: "PushEnforcement") -> str:
+    """Return the selected push-report source, or empty for legacy payloads."""
+    return str(getattr(push_enforcement, "selected_push_report_source", "") or "").strip()
+
+
+def selected_push_report_text(
+    push_enforcement: "PushEnforcement",
+    field: str,
+) -> str:
+    """Return selected push-report text, falling back to legacy latest fields."""
+    if not selected_push_report_source(push_enforcement):
+        return str(
+            getattr(push_enforcement, f"latest_push_report_{field}", "") or ""
+        ).strip()
+    return str(
+        getattr(push_enforcement, f"selected_push_report_{field}", "") or ""
+    ).strip()
+
+
+def selected_push_report_bool(
+    push_enforcement: "PushEnforcement",
+    field: str,
+) -> bool:
+    """Return selected push-report booleans, falling back to legacy latest fields."""
+    if not selected_push_report_source(push_enforcement):
+        return bool(getattr(push_enforcement, f"latest_push_report_{field}", False))
+    return bool(getattr(push_enforcement, f"selected_push_report_{field}", False))
+
+
 def artifact_records_current_head_publish(push_enforcement: "PushEnforcement") -> bool:
-    """Return True when the latest push artifact proves current approved-target publication."""
-    latest_push_report_published_remote = bool(
-        getattr(push_enforcement, "latest_push_report_published_remote", False)
+    """Return True when the selected push report proves current publication."""
+    selected_push_report_published_remote = selected_push_report_bool(
+        push_enforcement,
+        "published_remote",
     )
     return bool(
-        latest_push_report_published_remote
+        selected_push_report_published_remote
         and _artifact_matches_current_publication_target(push_enforcement)
     )
 
@@ -42,7 +72,7 @@ def artifact_publication_truth(
         published_remote,
         bool(
             published_remote
-            and getattr(push_enforcement, "latest_push_report_post_push_green", False)
+            and selected_push_report_bool(push_enforcement, "post_push_green")
         ),
     )
 
@@ -50,10 +80,10 @@ def artifact_publication_truth(
 def artifact_push_in_progress_for_current_head(
     push_enforcement: "PushEnforcement",
 ) -> bool:
-    """Return True when the latest push artifact represents a live push phase."""
+    """Return True when the selected push report represents a live push phase."""
     if not _artifact_matches_current_publication_target(push_enforcement):
         return False
-    reason = str(getattr(push_enforcement, "latest_push_report_reason", "") or "").strip()
+    reason = selected_push_report_text(push_enforcement, "reason")
     return reason in _CURRENT_HEAD_PUSH_IN_PROGRESS_REASONS
 
 
@@ -73,13 +103,17 @@ def artifact_publication_recovery_decision(
     """Return a recovery decision when persisted push truth already proves publication."""
     if not artifact_records_current_head_publish(push_enforcement):
         return None
-    artifact_path = str(push_enforcement.latest_push_report_path or "").strip()
+    artifact_path = ""
+    selected_source = selected_push_report_source(push_enforcement)
+    latest_artifact_path = str(push_enforcement.latest_push_report_path or "").strip()
+    if selected_source == "latest_artifact" or (not selected_source and latest_artifact_path):
+        artifact_path = latest_artifact_path
     artifact_hint = (
         f" Review the latest push artifact at `{artifact_path}` for the current HEAD."
         if artifact_path
         else ""
     )
-    if not push_enforcement.latest_push_report_post_push_green:
+    if not selected_push_report_bool(push_enforcement, "post_push_green"):
         return project_push_decision(
             inputs,
             PushDecisionSpec(
@@ -105,10 +139,10 @@ def artifact_publication_recovery_decision(
                         "review_gate_allows_push=True",
                         "current_approved_target_identity="
                         f"{push_enforcement.current_approved_target_identity or '(missing)'}",
-                        "latest_push_report_published_remote=True",
-                        "latest_push_report_post_push_green=False",
-                        "latest_push_report_matches_current_approved_target=True",
-                        "latest_push_report_matches_current_branch=True",
+                        "selected_push_report_published_remote=True",
+                        "selected_push_report_post_push_green=False",
+                        "selected_push_report_matches_current_approved_target=True",
+                        "selected_push_report_matches_current_branch=True",
                     ),
                 ),
                 rejected_rule_traces=(
@@ -143,10 +177,10 @@ def artifact_publication_recovery_decision(
                     "current approved reviewer target.",
                     "worktree_clean=True",
                     "review_gate_allows_push=True",
-                    "latest_push_report_published_remote=True",
-                    "latest_push_report_post_push_green=True",
-                    "latest_push_report_matches_current_approved_target=True",
-                    "latest_push_report_matches_current_branch=True",
+                    "selected_push_report_published_remote=True",
+                    "selected_push_report_post_push_green=True",
+                    "selected_push_report_matches_current_approved_target=True",
+                    "selected_push_report_matches_current_branch=True",
                 ),
             ),
             rejected_rule_traces=(
@@ -170,57 +204,50 @@ def _current_target_remote(push_enforcement: "PushEnforcement") -> str:
 def _artifact_matches_current_publication_target(
     push_enforcement: "PushEnforcement",
 ) -> bool:
-    latest_push_report_matches_current_branch = bool(
-        getattr(push_enforcement, "latest_push_report_matches_current_branch", False)
+    selected_push_report_matches_current_branch = selected_push_report_bool(
+        push_enforcement,
+        "matches_current_branch",
     )
-    latest_push_report_matches_current_head = bool(
-        getattr(push_enforcement, "latest_push_report_matches_current_head", False)
+    selected_push_report_matches_current_head = selected_push_report_bool(
+        push_enforcement,
+        "matches_current_head",
     )
-    latest_push_report_matches_current_approved_target = bool(
-        getattr(
-            push_enforcement,
-            "latest_push_report_matches_current_approved_target",
-            False,
-        )
+    selected_push_report_matches_current_approved_target = selected_push_report_bool(
+        push_enforcement,
+        "matches_current_approved_target",
     )
-    latest_push_report_matches_current_worktree = bool(
-        getattr(
-            push_enforcement,
-            "latest_push_report_matches_current_worktree",
-            False,
-        )
+    selected_push_report_matches_current_worktree = selected_push_report_bool(
+        push_enforcement,
+        "matches_current_worktree",
     )
     current_branch = str(getattr(push_enforcement, "current_branch", "") or "")
-    latest_push_report_branch = str(
-        getattr(push_enforcement, "latest_push_report_branch", "") or ""
-    )
+    selected_push_report_branch = selected_push_report_text(push_enforcement, "branch")
     current_head_commit = str(getattr(push_enforcement, "current_head_commit", "") or "")
-    latest_push_report_head_commit = str(
-        getattr(push_enforcement, "latest_push_report_head_commit", "") or ""
+    selected_push_report_head_commit = selected_push_report_text(
+        push_enforcement,
+        "head_commit",
     )
-    latest_push_report_remote = str(
-        getattr(push_enforcement, "latest_push_report_remote", "") or ""
-    )
-    artifact_branch_matches = latest_push_report_matches_current_branch
+    selected_push_report_remote = selected_push_report_text(push_enforcement, "remote")
+    artifact_branch_matches = selected_push_report_matches_current_branch
     if not artifact_branch_matches:
         artifact_branch_matches = bool(
             current_branch
-            and latest_push_report_branch
-            and current_branch == latest_push_report_branch
+            and selected_push_report_branch
+            and current_branch == selected_push_report_branch
         )
-    artifact_head_matches = latest_push_report_matches_current_head
+    artifact_head_matches = selected_push_report_matches_current_head
     if not artifact_head_matches:
         artifact_head_matches = bool(
             current_head_commit
-            and latest_push_report_head_commit
-            and current_head_commit == latest_push_report_head_commit
+            and selected_push_report_head_commit
+            and current_head_commit == selected_push_report_head_commit
         )
-    artifact_remote_matches = not latest_push_report_remote or (
-        latest_push_report_remote == _current_target_remote(push_enforcement)
+    artifact_remote_matches = not selected_push_report_remote or (
+        selected_push_report_remote == _current_target_remote(push_enforcement)
     )
     return bool(
-        latest_push_report_matches_current_approved_target
-        and latest_push_report_matches_current_worktree
+        selected_push_report_matches_current_approved_target
+        and selected_push_report_matches_current_worktree
         and artifact_branch_matches
         and artifact_head_matches
         and artifact_remote_matches

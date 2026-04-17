@@ -116,6 +116,71 @@ def _existing_review_state_payload(
     return review_payload, projection_files, review_state_path, []
 
 
+def _review_freshness_paths(
+    repo_root: Path,
+    *,
+    bridge_path: Path,
+    review_channel_path: Path,
+) -> tuple[Path, ...]:
+    from . import active_path_config
+
+    return projection_dependency_paths(
+        bridge_path=bridge_path,
+        review_channel_path=review_channel_path,
+        push_report_path=repo_root / active_path_config().push_report_rel,
+    )
+
+
+def _should_use_event_path(
+    *,
+    execution_mode: str,
+    bridge_active: bool,
+    artifact_paths,
+    event_state_exists_fn,
+) -> bool:
+    return bool(
+        execution_mode != "markdown-bridge"
+        and not (execution_mode == "auto" and bridge_active)
+        and event_state_exists_fn(artifact_paths)
+    )
+
+
+def _reuse_existing_projection(
+    result: MobileReviewStateResult,
+    *,
+    review_status_dir: Path,
+    freshness_paths: tuple[Path, ...],
+    fallback_warning: str | None,
+) -> bool:
+    if result.review_full_path is not None:
+        return False
+    existing_payload, existing_projection_files, existing_full_path, existing_errors = (
+        _existing_projection_payload(
+            review_status_dir,
+            freshness_paths=freshness_paths,
+        )
+    )
+    if not existing_errors:
+        if fallback_warning is not None:
+            result.warnings.append(fallback_warning)
+        result.review_payload = existing_payload
+        result.review_projection_files = existing_projection_files
+        result.review_full_path = existing_full_path
+        return True
+    existing_review_state_payload, existing_review_state_projection_files, existing_review_state_path, existing_review_state_errors = _existing_review_state_payload(
+        review_status_dir,
+        freshness_paths=freshness_paths,
+    )
+    if existing_review_state_errors:
+        return False
+    if fallback_warning is not None:
+        result.warnings.append(fallback_warning)
+    result.review_payload = existing_review_state_payload
+    result.review_projection_files = existing_review_state_projection_files
+    result.review_full_path = existing_review_state_path
+    return True
+
+
 def load_mobile_review_state(
     repo_root: Path,
     *,
@@ -148,15 +213,17 @@ def load_mobile_review_state(
     result = MobileReviewStateResult()
     artifact_paths = resolve_artifact_paths(repo_root=repo_root)
     bridge_active = bridge_path.exists()
-    freshness_paths = projection_dependency_paths(
+    freshness_paths = _review_freshness_paths(
+        repo_root,
         bridge_path=bridge_path,
         review_channel_path=review_channel_path,
     )
 
-    use_event_path = (
-        execution_mode != "markdown-bridge"
-        and not (execution_mode == "auto" and bridge_active)
-        and event_state_exists(artifact_paths)
+    use_event_path = _should_use_event_path(
+        execution_mode=execution_mode,
+        bridge_active=bridge_active,
+        artifact_paths=artifact_paths,
+        event_state_exists_fn=event_state_exists,
     )
 
     fallback_warning: str | None = None
@@ -197,41 +264,13 @@ def load_mobile_review_state(
     # Prefer an already-written projection bundle over triggering another
     # bridge-backed refresh path. This keeps thin clients aligned with a shared
     # status tick when another surface already refreshed the review bundle.
-    if result.review_full_path is None:
-        (
-            existing_payload,
-            existing_projection_files,
-            existing_full_path,
-            existing_errors,
-        ) = _existing_projection_payload(
-            review_status_dir,
-            freshness_paths=freshness_paths,
-        )
-        if not existing_errors:
-            if fallback_warning is not None:
-                result.warnings.append(fallback_warning)
-            result.review_payload = existing_payload
-            result.review_projection_files = existing_projection_files
-            result.review_full_path = existing_full_path
-            return result
-
-    if result.review_full_path is None:
-        (
-            existing_review_state_payload,
-            existing_review_state_projection_files,
-            existing_review_state_path,
-            existing_review_state_errors,
-        ) = _existing_review_state_payload(
-            review_status_dir,
-            freshness_paths=freshness_paths,
-        )
-        if not existing_review_state_errors:
-            if fallback_warning is not None:
-                result.warnings.append(fallback_warning)
-            result.review_payload = existing_review_state_payload
-            result.review_projection_files = existing_review_state_projection_files
-            result.review_full_path = existing_review_state_path
-            return result
+    if _reuse_existing_projection(
+        result,
+        review_status_dir=review_status_dir,
+        freshness_paths=freshness_paths,
+        fallback_warning=fallback_warning,
+    ):
+        return result
 
     # Bridge-backed fallback when the event path was skipped or failed
     if result.review_full_path is None:

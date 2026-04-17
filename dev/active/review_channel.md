@@ -864,6 +864,11 @@ Planned actions:
      --format json
    ```
 
+   `watch --follow` is now a production packet-watcher seam for the live
+   Codex/Claude loop, not a demo-only helper. Keep its sleep/poll dependency
+   path green because the repo uses that exact watcher to prove dense
+   packet-driven collaboration during dogfood runs.
+
 4. `inbox`
 
    ```bash
@@ -873,6 +878,18 @@ Planned actions:
      --terminal none \
      --format json
    ```
+
+   Operator-facing read-only alias:
+
+   ```bash
+   python3 dev/scripts/devctl.py review-channel \
+     --action operator-inbox \
+     --terminal none \
+     --format json
+   ```
+
+   This alias fixes `target=operator`, defaults to the live pending view, and
+   does not stamp delivery-observation receipts on `action_request` packets.
 
 5. `ack`
 
@@ -1433,7 +1450,10 @@ Acceptance:
    stream, actions view, and terminal-packet projection.
 2. `devctl review-channel --action inbox --target codex` returns only targeted
    pending packets with deterministic status fields.
-3. `check_review_channel.py` passes on a valid bundle and fails on schema drift,
+3. `devctl review-channel --action operator-inbox` returns only operator-
+   targeted live pending packets and remains read-only for delivery
+   observation state.
+4. `check_review_channel.py` passes on a valid bundle and fails on schema drift,
    stale pending packets, or projection mismatch.
 
 Expected Phase-1 tests:

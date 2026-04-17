@@ -25,6 +25,7 @@ from .commit_preflight import (
     prepare_pipeline,
     resolve_interaction_mode,
 )
+from .commit_visibility import commit_visibility_payload
 from .commit_passthrough import (
     CommitPassthrough,
     build_git_commit_cmd as _build_git_commit_cmd,
@@ -43,7 +44,10 @@ def _commit_permission_report(vcs_executor: GovernedVcsExecutor) -> dict[str, ob
     decision, load_error = build_commit_permission_decision_for_executor(vcs_executor)
     if decision.commit_permission != "blocked":
         return None
+    next_command = str(decision.next_command or "").strip()
     guidance = "Run the reported next_command before staging or committing."
+    if next_command:
+        guidance = f"Run `{next_command}` before staging or committing."
     if load_error:
         guidance = (
             f"Startup authority could not be loaded for the commit gate: {load_error}. "
@@ -53,6 +57,12 @@ def _commit_permission_report(vcs_executor: GovernedVcsExecutor) -> dict[str, ob
         status="blocked",
         reason="commit_permission_blocked",
         commit_permission=decision.to_dict(),
+        blockers=list(decision.blockers),
+        next_command=next_command,
+        allowed_actions=list(decision.allowed_actions),
+        blocked_actions=list(decision.blocked_actions),
+        recovery_action=decision.recovery_action,
+        escalation_action=decision.escalation_action,
         operator_guidance=guidance,
     )
 
@@ -75,8 +85,8 @@ def run_commit(
             unsupported_passthrough=list(passthrough.unsupported),
             guidance=(
                 "Stage the exact paths first, then rerun `devctl commit`. "
-                "The governed commit path only supports `--allow-empty` and "
-                "`--no-edit`."
+                "The governed commit path only supports `--allow-empty`, "
+                "`--no-edit`, and `--amend`."
             ),
         )
         _emit_report(args, report)
@@ -127,6 +137,8 @@ def run_commit(
                 guard_exit_code=guard_rc,
                 pipeline_id=pipeline.pipeline_id,
                 pipeline_state=pipeline.state,
+                approval_state=pipeline.approval_state,
+                **commit_visibility_payload(pipeline),
                 warnings=stage_warnings,
             )
             _emit_report(args, report)
@@ -169,6 +181,7 @@ def run_commit(
         pipeline_id=pipeline.pipeline_id,
         pipeline_state=pipeline.state,
         approval_state=pipeline.approval_state,
+        **commit_visibility_payload(pipeline),
         commit_sha=pipeline.commit_sha,
         operator_guidance=commit_result.operator_guidance,
         interaction_mode=resolved_mode,

@@ -57,6 +57,20 @@ class PushEnforcement:
     latest_push_report_matches_current_worktree: bool = True
     latest_push_report_matches_current_branch: bool = False
     latest_push_report_matches_current_head: bool = False
+    selected_push_report_source: str = ""
+    selected_push_report_branch: str = ""
+    selected_push_report_remote: str = ""
+    selected_push_report_head_commit: str = ""
+    selected_push_report_status: str = ""
+    selected_push_report_reason: str = ""
+    selected_push_report_published_remote: bool = False
+    selected_push_report_post_push_green: bool = False
+    selected_push_report_approved_worktree_identity: str = ""
+    selected_push_report_approved_target_identity: str = ""
+    selected_push_report_matches_current_approved_target: bool = False
+    selected_push_report_matches_current_worktree: bool = True
+    selected_push_report_matches_current_branch: bool = False
+    selected_push_report_matches_current_head: bool = False
     current_push_authorization_id: str = ""
     current_push_authorization_mode: str = ""
     current_push_authorization_head_commit: str = ""
@@ -67,6 +81,76 @@ class PushEnforcement:
     current_push_authorization_matches_current_approved_target: bool = False
     current_push_authorization_matches_current_worktree: bool = True
     current_push_authorization_valid: bool = False
+
+
+def _fallback_payload_value(
+    payload: Mapping[str, object],
+    key: str,
+    *,
+    fallback_key: str | None = None,
+) -> object:
+    value = payload.get(key)
+    if value is not None or fallback_key is None:
+        return value
+    return payload.get(fallback_key)
+
+
+def _push_report_projection_kwargs(
+    payload: Mapping[str, object],
+    *,
+    prefix: str,
+    current_worktree_identity: str,
+    fallback_prefix: str | None = None,
+) -> dict[str, object]:
+    def _value(name: str) -> object:
+        fallback_name = f"{fallback_prefix}_{name}" if fallback_prefix else None
+        return _fallback_payload_value(
+            payload,
+            f"{prefix}_{name}",
+            fallback_key=fallback_name,
+        )
+
+    approved_worktree_identity = coerce_string(_value("approved_worktree_identity"))
+    return {
+        f"{prefix}_branch": coerce_string(_value("branch")),
+        f"{prefix}_remote": coerce_string(_value("remote")),
+        f"{prefix}_head_commit": coerce_string(_value("head_commit")),
+        f"{prefix}_status": coerce_string(_value("status")),
+        f"{prefix}_reason": coerce_string(_value("reason")),
+        f"{prefix}_published_remote": coerce_bool(_value("published_remote")),
+        f"{prefix}_post_push_green": coerce_bool(_value("post_push_green")),
+        f"{prefix}_approved_worktree_identity": approved_worktree_identity,
+        f"{prefix}_approved_target_identity": coerce_string(
+            _value("approved_target_identity")
+        ),
+        f"{prefix}_matches_current_approved_target": coerce_bool(
+            _value("matches_current_approved_target")
+        ),
+        f"{prefix}_matches_current_worktree": _coerce_worktree_match(
+            _value("matches_current_worktree"),
+            approved_worktree_identity=approved_worktree_identity,
+            current_worktree_identity=current_worktree_identity,
+        ),
+        f"{prefix}_matches_current_branch": coerce_bool(
+            _value("matches_current_branch")
+        ),
+        f"{prefix}_matches_current_head": coerce_bool(_value("matches_current_head")),
+    }
+
+
+def _selected_push_report_source(payload: Mapping[str, object]) -> str:
+    explicit = coerce_string(payload.get("selected_push_report_source"))
+    if explicit:
+        return explicit
+    if (
+        payload.get("selected_push_report_status") is None
+        and (
+            payload.get("latest_push_report_status") is not None
+            or payload.get("latest_push_report_reason") is not None
+        )
+    ):
+        return "latest_artifact"
+    return ""
 
 
 def push_enforcement_from_mapping(
@@ -86,11 +170,19 @@ def push_enforcement_from_mapping(
     else:
         worktree_clean = coerce_bool(worktree_clean_raw)
     current_worktree_identity = coerce_string(payload.get("current_worktree_identity"))
-    latest_push_report_approved_worktree_identity = coerce_string(
-        payload.get("latest_push_report_approved_worktree_identity")
-    )
     current_push_authorization_approved_worktree_identity = coerce_string(
         payload.get("current_push_authorization_approved_worktree_identity")
+    )
+    latest_push_report_kwargs = _push_report_projection_kwargs(
+        payload,
+        prefix="latest_push_report",
+        current_worktree_identity=current_worktree_identity,
+    )
+    selected_push_report_kwargs = _push_report_projection_kwargs(
+        payload,
+        prefix="selected_push_report",
+        current_worktree_identity=current_worktree_identity,
+        fallback_prefix="latest_push_report",
     )
     return PushEnforcement(
         current_branch=coerce_string(payload.get("current_branch")),
@@ -149,41 +241,11 @@ def push_enforcement_from_mapping(
             coerce_int(payload.get("urgent_after_ahead_commits")) or 5
         ),
         latest_push_report_path=coerce_string(payload.get("latest_push_report_path")),
-        latest_push_report_branch=coerce_string(payload.get("latest_push_report_branch")),
-        latest_push_report_remote=coerce_string(payload.get("latest_push_report_remote")),
-        latest_push_report_head_commit=coerce_string(
-            payload.get("latest_push_report_head_commit")
-        ),
-        latest_push_report_status=coerce_string(payload.get("latest_push_report_status")),
-        latest_push_report_reason=coerce_string(payload.get("latest_push_report_reason")),
-        latest_push_report_published_remote=coerce_bool(
-            payload.get("latest_push_report_published_remote")
-        ),
-        latest_push_report_post_push_green=coerce_bool(
-            payload.get("latest_push_report_post_push_green")
-        ),
         current_worktree_identity=current_worktree_identity,
         current_approved_target_identity=coerce_string(
             payload.get("current_approved_target_identity")
         ),
-        latest_push_report_approved_worktree_identity=latest_push_report_approved_worktree_identity,
-        latest_push_report_approved_target_identity=coerce_string(
-            payload.get("latest_push_report_approved_target_identity")
-        ),
-        latest_push_report_matches_current_approved_target=coerce_bool(
-            payload.get("latest_push_report_matches_current_approved_target")
-        ),
-        latest_push_report_matches_current_worktree=_coerce_worktree_match(
-            payload.get("latest_push_report_matches_current_worktree"),
-            approved_worktree_identity=latest_push_report_approved_worktree_identity,
-            current_worktree_identity=current_worktree_identity,
-        ),
-        latest_push_report_matches_current_branch=coerce_bool(
-            payload.get("latest_push_report_matches_current_branch")
-        ),
-        latest_push_report_matches_current_head=coerce_bool(
-            payload.get("latest_push_report_matches_current_head")
-        ),
+        selected_push_report_source=_selected_push_report_source(payload),
         current_push_authorization_id=coerce_string(
             payload.get("current_push_authorization_id")
         ),
@@ -214,6 +276,8 @@ def push_enforcement_from_mapping(
         current_push_authorization_valid=coerce_bool(
             payload.get("current_push_authorization_valid")
         ),
+        **latest_push_report_kwargs,
+        **selected_push_report_kwargs,
     )
 
 

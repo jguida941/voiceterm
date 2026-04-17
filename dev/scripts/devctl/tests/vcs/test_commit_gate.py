@@ -16,12 +16,21 @@ from unittest.mock import patch
 from dev.scripts.devctl.cli import build_parser
 from dev.scripts.devctl.commands.governance import startup_context as startup_context_command
 from dev.scripts.devctl.commands.vcs.commit import (
+    _commit_permission_report,
     _build_git_commit_cmd,
     _pipeline_has_checkpoint_snapshot,
     _pipeline_has_validation_plan,
     _resolve_interaction_mode,
     _run_guard_bundle,
     run_commit,
+)
+from dev.scripts.devctl.commands.vcs.commit_pipeline_blocking import (
+    build_active_pipeline_block_report,
+)
+from dev.scripts.devctl.commands.vcs.commit_preflight import (
+    apply_explicit_operator_approval,
+    load_pipeline_for_explicit_approval,
+    prepare_pipeline,
 )
 from dev.scripts.devctl.commands.vcs.commit_guard_bundle import guard_result
 from dev.scripts.devctl.commands.vcs.governed_executor import GovernedVcsExecutor
@@ -56,6 +65,7 @@ from dev.scripts.devctl.platform.coordination_snapshot_models import (
     CoordinationActorRecord,
     CoordinationSnapshot,
 )
+from dev.scripts.devctl.runtime.commit_permission import CommitPermissionDecision
 from dev.scripts.devctl.runtime.startup_context import ReviewerGateState, StartupContext
 from dev.scripts.devctl.runtime.review_state_packet_models import ReviewPacketState
 from dev.scripts.devctl.runtime.validation_contracts import ValidationPlan
@@ -290,8 +300,9 @@ class TestStartupActionRouting(unittest.TestCase):
         )
 
         self.assertEqual(rc, 0)
-        self.assertIn("vcs.stage", captured["blocked_actions"])
-        self.assertIn("vcs.commit", captured["blocked_actions"])
+        self.assertIn("implementation.edit", captured["blocked_actions"])
+        self.assertIn("vcs.stage", captured["allowed_actions"])
+        self.assertIn("vcs.commit", captured["allowed_actions"])
         self.assertEqual(captured["recovery_action"], "none")
         self.assertEqual(
             captured["control_recovery_action"],
@@ -303,6 +314,126 @@ class TestStartupActionRouting(unittest.TestCase):
             "python3 dev/scripts/devctl.py review-channel --action status "
             "--terminal none --format json",
         )
+
+    def test_prepare_pipeline_blocks_push_blocked_pipeline_with_exact_next_command(
+        self,
+    ) -> None:
+        pipeline = SimpleNamespace(
+            pipeline_id="pipeline-123",
+            state="push_blocked",
+            approval_state="approved",
+            commit_sha="abc123",
+        )
+        executor = MagicMock()
+        executor.load_pipeline.return_value = pipeline
+
+        with (
+            patch(
+                "dev.scripts.devctl.commands.vcs.commit_preflight.pipeline_is_stale_for_current_repo",
+                return_value=False,
+            ),
+            patch(
+                "dev.scripts.devctl.commands.vcs.commit_preflight.build_active_pipeline_block_report",
+                return_value={
+                    "reason": "active_pipeline_requires_publish_or_recovery",
+                    "recommended_next_action": "refresh-authorization",
+                    "next_command": "python3 dev/scripts/devctl.py push --execute",
+                    "pipeline_state": "push_blocked",
+                    "commit_phase": "push_blocked",
+                },
+            ),
+        ):
+            returned_pipeline, warnings, report = prepare_pipeline(
+                args=_make_args(),
+                repo_root=Path("/tmp/repo"),
+                resolved_policy=SimpleNamespace(repo_pack_id="voiceterm"),
+                vcs_executor=executor,
+            )
+
+        self.assertIs(returned_pipeline, pipeline)
+        self.assertEqual(warnings, [])
+        self.assertEqual(report["reason"], "active_pipeline_requires_publish_or_recovery")
+        self.assertEqual(report["pipeline_state"], "push_blocked")
+        self.assertEqual(report["recommended_next_action"], "refresh-authorization")
+        self.assertEqual(
+            report["next_command"],
+            "python3 dev/scripts/devctl.py push --execute",
+        )
+        self.assertEqual(report["commit_phase"], "push_blocked")
+
+    def test_load_pipeline_for_explicit_approval_projects_commit_command(self) -> None:
+        pipeline = SimpleNamespace(
+            pipeline_id="",
+            state="",
+            approval_state="",
+        )
+        executor = MagicMock()
+        executor.load_pipeline.return_value = pipeline
+
+        returned_pipeline, report = load_pipeline_for_explicit_approval(
+            repo_root=Path("/tmp/repo"),
+            vcs_executor=executor,
+        )
+
+        self.assertIs(returned_pipeline, pipeline)
+        self.assertEqual(report["reason"], "no_pending_pipeline_to_approve")
+        self.assertEqual(
+            report["next_command"],
+            'python3 dev/scripts/devctl.py commit -m "<descriptive message>"',
+        )
+        self.assertEqual(report["recommended_next_action"], "stage_commit_pipeline")
+
+    def test_active_pipeline_block_report_auto_refreshes_same_head_authorization(
+        self,
+    ) -> None:
+        pipeline = SimpleNamespace(
+            pipeline_id="pipeline-123",
+            state="push_blocked",
+            approval_state="approved",
+            commit_sha="abc123",
+        )
+        stale_view = {
+            "recommended_next_action": "refresh-authorization",
+            "next_command": (
+                "python3 dev/scripts/devctl.py pipeline --action "
+                "refresh-authorization --format json"
+            ),
+            "authorized_head_sha": "abc123",
+            "current_head_sha": "abc123",
+        }
+        refreshed_view = {
+            "recommended_next_action": "abandon",
+            "next_command": "python3 dev/scripts/devctl.py push --execute",
+            "authorized_head_sha": "abc123",
+            "current_head_sha": "abc123",
+        }
+        with (
+            patch(
+                "dev.scripts.devctl.commands.vcs.commit_pipeline_blocking.build_status_view",
+                side_effect=[stale_view, refreshed_view],
+            ),
+            patch(
+                "dev.scripts.devctl.commands.vcs.commit_pipeline_blocking.apply_refresh_authorization",
+                return_value={"ok": True, "receipt_path": "/tmp/refresh.json"},
+            ) as refresh_mock,
+        ):
+            report = build_active_pipeline_block_report(
+                repo_root=Path("/tmp/repo"),
+                pipeline=pipeline,
+            )
+
+        refresh_mock.assert_called_once()
+        self.assertEqual(
+            report["next_command"],
+            "python3 dev/scripts/devctl.py push --execute",
+        )
+        self.assertEqual(report["recommended_next_action"], "abandon")
+        self.assertEqual(
+            report["operator_guidance"],
+            "Run `python3 dev/scripts/devctl.py push --execute` before creating another commit.",
+        )
+        self.assertTrue(report["authorization_refreshed"])
+        self.assertEqual(report["refresh_receipt_path"], "/tmp/refresh.json")
 
 
 class TestPreCommitHookTemplate(unittest.TestCase):
@@ -1125,6 +1256,190 @@ class TestGovernedCommitPipeline(unittest.TestCase):
                 "feat: explicit operator approval",
             )
             second_guard.assert_not_called()
+
+    def test_commit_remote_mode_reports_explicit_pending_phase(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            repo_root = _init_repo(Path(tmpdir) / "repo")
+            executor = _executor(repo_root)
+            (repo_root / "tracked.txt").write_text("updated\n", encoding="utf-8")
+            _run_git(repo_root, "add", "tracked.txt")
+            captured: dict[str, object] = {}
+
+            with patch(
+                "dev.scripts.devctl.commands.vcs.commit._emit_report",
+                side_effect=lambda _args, report: captured.update(report),
+            ):
+                rc = run_commit(
+                    _make_args(message="feat: explicit operator approval"),
+                    repo_root=repo_root,
+                    policy=_push_policy(),
+                    executor=executor,
+                    interaction_mode="remote_control",
+                    guard_runner=MagicMock(return_value=_mock_subprocess_result(0)),
+                )
+
+            self.assertEqual(rc, 1)
+            self.assertEqual(captured["reason"], "operator_approval_missing")
+            self.assertEqual(captured["commit_phase"], "awaiting_operator_approval")
+            self.assertEqual(
+                captured["commit_progress"],
+                "guarded_pipeline_waiting_for_operator_approval",
+            )
+            self.assertEqual(captured["requested_action"], "approve_commit_pipeline")
+            self.assertEqual(
+                captured["next_command"],
+                "python3 dev/scripts/devctl.py review-channel --action operator-inbox "
+                "--status pending --terminal none --format json",
+            )
+            self.assertTrue(captured["approval_request_packet_id"])
+            self.assertTrue(captured["pipeline_pending"])
+
+    def test_commit_permission_report_projects_typed_next_command(self) -> None:
+        decision = CommitPermissionDecision(
+            commit_permission="blocked",
+            blockers=("review_authority_stale",),
+            next_command=(
+                "python3 dev/scripts/devctl.py review-channel --action status "
+                "--terminal none --format json"
+            ),
+            allowed_actions=("startup-context.summary",),
+            blocked_actions=("vcs.stage", "vcs.commit"),
+            recovery_action="refresh_startup_or_review_status",
+            escalation_action="operator_resync_required",
+        )
+
+        with patch(
+            "dev.scripts.devctl.commands.vcs.commit.build_commit_permission_decision_for_executor",
+            return_value=(decision, ""),
+        ):
+            report = _commit_permission_report(MagicMock())
+
+        assert report is not None
+        self.assertEqual(report["reason"], "commit_permission_blocked")
+        self.assertEqual(report["next_command"], decision.next_command)
+        self.assertEqual(
+            report["operator_guidance"],
+            f"Run `{decision.next_command}` before staging or committing.",
+        )
+        self.assertEqual(report["recovery_action"], "refresh_startup_or_review_status")
+        self.assertEqual(report["escalation_action"], "operator_resync_required")
+
+    def test_apply_explicit_operator_approval_persists_synced_pipeline_state(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            repo_root = _init_repo(Path(tmpdir) / "repo")
+            executor = _executor(repo_root)
+            (repo_root / "tracked.txt").write_text("updated\n", encoding="utf-8")
+            _run_git(repo_root, "add", "tracked.txt")
+
+            first_rc = run_commit(
+                _make_args(message="feat: explicit operator approval"),
+                repo_root=repo_root,
+                policy=_push_policy(),
+                executor=executor,
+                interaction_mode="remote_control",
+                guard_runner=MagicMock(return_value=_mock_subprocess_result(0)),
+            )
+            self.assertEqual(first_rc, 1)
+
+            pipeline = executor.load_pipeline()
+            artifact_paths = resolve_artifact_paths(repo_root=repo_root)
+            _, decision_event = post_packet(
+                repo_root=repo_root,
+                review_channel_path=repo_root / "dev/active/review_channel.md",
+                artifact_paths=artifact_paths,
+                request=build_commit_approval_decision(
+                    pipeline,
+                    summary="Remote operator approved the governed commit.",
+                ),
+            )
+            transition_packet(
+                repo_root=repo_root,
+                review_channel_path=repo_root / "dev/active/review_channel.md",
+                artifact_paths=artifact_paths,
+                request=PacketTransitionRequest(
+                    action="apply",
+                    packet_id=str(decision_event["packet_id"]),
+                    actor="operator",
+                ),
+            )
+
+            approved_pipeline, report = apply_explicit_operator_approval(
+                vcs_executor=executor,
+                pipeline=executor.load_pipeline(),
+                resolved_mode="remote_control",
+                stage_warnings=[],
+            )
+
+            self.assertIsNone(report)
+            self.assertEqual(approved_pipeline.approval_state, "approved")
+            persisted = executor.load_pipeline()
+            self.assertEqual(persisted.approval_state, "approved")
+            self.assertEqual(persisted.decision_packet_id, decision_event["packet_id"])
+
+    def test_commit_approve_pending_is_idempotent_for_commit_pending_pipeline(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            repo_root = _init_repo(Path(tmpdir) / "repo")
+            executor = _executor(repo_root)
+            (repo_root / "tracked.txt").write_text("updated\n", encoding="utf-8")
+            _run_git(repo_root, "add", "tracked.txt")
+
+            first_rc = run_commit(
+                _make_args(message="feat: explicit operator approval"),
+                repo_root=repo_root,
+                policy=_push_policy(),
+                executor=executor,
+                interaction_mode="remote_control",
+                guard_runner=MagicMock(return_value=_mock_subprocess_result(0)),
+            )
+            self.assertEqual(first_rc, 1)
+
+            pipeline = executor.load_pipeline()
+            artifact_paths = resolve_artifact_paths(repo_root=repo_root)
+            _, decision_event = post_packet(
+                repo_root=repo_root,
+                review_channel_path=repo_root / "dev/active/review_channel.md",
+                artifact_paths=artifact_paths,
+                request=build_commit_approval_decision(
+                    pipeline,
+                    summary="Remote operator approved the governed commit.",
+                ),
+            )
+            transition_packet(
+                repo_root=repo_root,
+                review_channel_path=repo_root / "dev/active/review_channel.md",
+                artifact_paths=artifact_paths,
+                request=PacketTransitionRequest(
+                    action="apply",
+                    packet_id=str(decision_event["packet_id"]),
+                    actor="operator",
+                ),
+            )
+            executor._persist_pipeline(
+                replace(
+                    executor.load_pipeline(),
+                    state="commit_pending",
+                    approval_state="approved",
+                    decision_packet_id=str(decision_event["packet_id"]),
+                )
+            )
+
+            second_rc = run_commit(
+                _make_args(message=None, approve_pending=True),
+                repo_root=repo_root,
+                policy=_push_policy(),
+                executor=executor,
+                interaction_mode="remote_control",
+                guard_runner=MagicMock(return_value=_mock_subprocess_result(0)),
+            )
+
+            committed_pipeline = executor.load_pipeline()
+            self.assertEqual(second_rc, 0)
+            self.assertEqual(committed_pipeline.state, "commit_recorded")
+            self.assertEqual(committed_pipeline.approval_state, "approved")
 
     def test_commit_approve_pending_requires_existing_pipeline(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

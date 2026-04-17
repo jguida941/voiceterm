@@ -57,6 +57,17 @@ TERMINAL_STATES: frozenset[str] = frozenset({
     "abandoned",
 })
 
+_PUSH_EXECUTE_COMMAND = "python3 dev/scripts/devctl.py push --execute"
+_PIPELINE_RECOVER_COMMAND = (
+    "python3 dev/scripts/devctl.py pipeline --action recover --format json"
+)
+_PIPELINE_REFRESH_AUTHORIZATION_COMMAND = (
+    "python3 dev/scripts/devctl.py pipeline --action refresh-authorization --format json"
+)
+_PIPELINE_STATUS_COMMAND = (
+    "python3 dev/scripts/devctl.py pipeline --action status --format json"
+)
+
 
 @dataclass(frozen=True, slots=True)
 class PipelinePaths:
@@ -241,6 +252,33 @@ def recommended_next_action(
     if state in RECOVERABLE_STATES:
         return "abandon"
     return "none"
+
+
+def recommended_next_command(
+    payload: dict[str, Any],
+    *,
+    current_head: str,
+    now: datetime | None = None,
+) -> str:
+    """Return the exact devctl command an operator/agent should run next."""
+    state = pipeline_state_of(payload)
+    if not payload or state in TERMINAL_STATES:
+        return ""
+    if head_has_moved(payload, current_head=current_head):
+        return _PIPELINE_RECOVER_COMMAND
+    if state in {"commit_recorded", "push_pending"}:
+        return _PUSH_EXECUTE_COMMAND
+    if authorization_is_expired(payload, now=now):
+        if state == "push_blocked":
+            # `devctl push --execute` can refresh the same-HEAD authorization
+            # window before reusing the governed publish pipeline.
+            return _PUSH_EXECUTE_COMMAND
+        return _PIPELINE_REFRESH_AUTHORIZATION_COMMAND
+    if state == "push_blocked":
+        return _PUSH_EXECUTE_COMMAND
+    if state in RECOVERABLE_STATES:
+        return _PIPELINE_STATUS_COMMAND
+    return ""
 
 
 def make_refreshed_authorization(

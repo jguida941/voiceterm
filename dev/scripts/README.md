@@ -384,6 +384,11 @@ Portability note:
   `commit_approval` decision, and continues the same `vcs.commit` without
   reconstructing packet fields by hand. The lower-level
   `review-channel --action post|apply` flow remains the raw escape hatch.
+  When an active governed publish pipeline is already blocking a new commit,
+  downstream commit surfaces should project the pipeline reducer's
+  `next_command` directly instead of emitting free-form prose. Same-HEAD
+  expired `push_blocked` pipelines now self-heal that authorization window in
+  the block path and point operators straight at `devctl push --execute`.
 - `review-channel --action post --kind action_request` is the event-backed
   source for bridge `## Action Requests`, but executable requests are
   fail-closed on typed runtime binding. Use `--requested-action run_check` or
@@ -399,6 +404,13 @@ Portability note:
   prove a remote lane actually saw and started the request instead of only
   inferring from queue length. Prose-only runtime requests stay in packet
   history but are not projected into the bridge execution queue.
+- `review-channel --action operator-inbox` is the read-only operator queue
+  alias over that same typed packet lane. It fixes `target=operator`,
+  defaults to `--status pending`, and intentionally does not stamp
+  `delivery_observed_at_utc` / `delivery_observed_by` on live
+  `action_request` packets. Use it when the operator needs a bounded inbox
+  view without mutating delivery receipts; keep `inbox|watch --target <agent>`
+  for the active lane watchers that are supposed to acknowledge observation.
 - The same event-backed queue now prioritizes live `action_request` packets
   over later commentary when it derives `queue.derived_next_instruction` for
   status/current-session projections. `derived_next_instruction_source` now
@@ -561,7 +573,14 @@ Portability note:
   strings alone. The same path still escalates attention to
   `checkpoint_required` when the worktree is over the continuation budget
   (reviewer follow-up takes priority when review is also pending on a stale
-  hash).
+  hash). Push-state truth is now split explicitly too: raw on-disk
+  `dev/reports/push/latest.json` artifact facts stay under
+  `latest_push_report_*`, while startup/governed-push recovery logic consumes
+  `selected_push_report_*` plus `selected_push_report_source` for the current
+  publication target. Bridge-backed `_compat` payloads now carry
+  `push_enforcement` directly, and review projection cache freshness also
+  tracks the latest push artifact so read-only/mobile consumers invalidate
+  when push-state advances instead of serving a stale compat projection.
 - That same `review-channel --action status` path now emits a typed
   `current_session` block in `dev/reports/review_channel/latest/review_state.json`
   and `compact.json`; prefer it for live current instruction / implementer ACK
@@ -1718,6 +1737,11 @@ Machine-first output note:
   step too, so remote-control Claude sessions poll
   `review-channel --action inbox --target claude --status pending --format md`
   before asking whether to continue a permitted probe.
+- The same operator-facing lane now has a packet-native read surface too:
+  `review-channel --action operator-inbox --terminal none --format json`
+  returns the typed operator queue directly, defaults to the live pending
+  view, and stays read-only so phone/dashboard/operator receipts can inspect
+  commit/action requests without silently mutating delivery observation state.
 - `startup-context --repair`: repo-owned startup auto-triage/repair mode; reads typed
   `startup-context`, startup-authority, and the canonical typed review-state
   owner surfaced by `review-channel` status refresh,
@@ -1740,6 +1764,9 @@ Machine-first output note:
   `authorized_head_sha`, and stale-HEAD cases should route the operator to
   `pipeline --action recover` instead of rewriting the existing authorization
   as if it still described the current commit.
+  The typed status view now carries the exact `next_command` an operator or
+  agent should run next, and commit/push consumers are expected to reuse that
+  field instead of inventing a second prose-only recovery plan.
 - `agent-mind --since-cursor`: cursor-based cross-agent polling over rollout
   traces. When a cursor is supplied, the command must parse enough rollout
   history for the cursor filter to see every unseen decision event instead of

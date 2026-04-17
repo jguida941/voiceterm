@@ -8,14 +8,22 @@ from ...review_channel.events import post_packet, resolve_artifact_paths, transi
 from ...review_channel.packet_contract import PacketTransitionRequest
 from ...runtime.control_plane_read_model import build_control_plane_read_model
 from ...runtime.governance_scan import scan_repo_governance_safely
-from ...runtime.operator_context import OperatorInteractionMode, resolve_operator_interaction_mode
 from .commit_guard_bundle import GUARD_PROFILE
 from .commit_guard_replay import sync_pipeline_approval_state
+from .commit_pipeline_blocking import build_active_pipeline_block_report
+from .commit_preflight_support import (
+    APPROVE_PENDING_COMMAND,
+    COMMIT_START_COMMAND,
+    OPERATOR_HISTORY_COMMAND,
+    OPERATOR_INBOX_COMMAND,
+    next_command_guidance,
+    should_auto_approve,
+)
+from .commit_visibility import commit_visibility_payload
 from .governed_executor import GovernedVcsExecutor
 from .governed_executor_actions import APPROVAL_PACKET_KIND, _build_report, build_stage_action
 from .governed_executor_git import pipeline_is_stale_for_current_repo
 from .governed_executor_packets import build_commit_approval_decision, build_commit_approval_request
-from .governed_executor_sync import sync_pipeline_approval
 from .governed_executor_sync import sync_pipeline_approval
 
 _REUSABLE_PIPELINE_STATES = frozenset(
@@ -28,15 +36,15 @@ _REUSABLE_PIPELINE_STATES = frozenset(
         "commit_pending",
     }
 )
-_PIPELINE_BLOCKING_STATES = frozenset({"commit_recorded", "push_pending"})
+_PIPELINE_BLOCKING_STATES = frozenset({"commit_recorded", "push_pending", "push_blocked"})
 _EXPLICIT_APPROVAL_PIPELINE_STATES = frozenset(
     {
         "guards_passed",
         "operator_approval_pending",
         "approved",
+        "commit_pending",
     }
 )
-
 
 def resolve_interaction_mode(repo_root: Path) -> str:
     """Return the current operator interaction mode for commit approval."""
@@ -75,15 +83,9 @@ def prepare_pipeline(
         and pipeline.state in _PIPELINE_BLOCKING_STATES
         and not stale_pipeline
     ):
-        return pipeline, stage_warnings, _build_report(
-            status="blocked",
-            reason="active_pipeline_requires_publish_or_recovery",
-            pipeline_id=pipeline.pipeline_id,
-            pipeline_state=pipeline.state,
-            guidance=(
-                "Finish the current governed publish flow or recover the "
-                "existing pipeline before creating another commit."
-            ),
+        return pipeline, stage_warnings, build_active_pipeline_block_report(
+            repo_root=repo_root,
+            pipeline=pipeline,
         )
 
     if (
@@ -128,11 +130,10 @@ def load_pipeline_for_explicit_approval(
         return pipeline, _build_report(
             status="blocked",
             reason="no_pending_pipeline_to_approve",
-            operator_guidance=(
-                "Run `devctl commit -m \"...\"` first so the repo stages and "
-                "guards one governed pipeline, then rerun "
-                "`devctl commit --approve-pending`."
-            ),
+            **commit_visibility_payload(pipeline),
+            recommended_next_action="stage_commit_pipeline",
+            next_command=COMMIT_START_COMMAND,
+            operator_guidance=next_command_guidance(COMMIT_START_COMMAND),
         )
     if pipeline_is_stale_for_current_repo(
         repo_root=repo_root,
@@ -143,11 +144,16 @@ def load_pipeline_for_explicit_approval(
             reason="pending_pipeline_stale_for_current_repo",
             pipeline_id=pipeline.pipeline_id,
             pipeline_state=pipeline.state,
-            operator_guidance=(
-                "The current governed pipeline no longer matches the live repo "
-                "state. Mint a fresh pipeline with `devctl commit -m \"...\"` "
-                "before approving it."
-            ),
+            approval_state=pipeline.approval_state,
+            **commit_visibility_payload(pipeline),
+            recommended_next_action="stage_commit_pipeline",
+            next_command=COMMIT_START_COMMAND,
+            operator_guidance=next_command_guidance(COMMIT_START_COMMAND),
+        )
+    if pipeline.state in _PIPELINE_BLOCKING_STATES:
+        return pipeline, build_active_pipeline_block_report(
+            repo_root=repo_root,
+            pipeline=pipeline,
         )
     if pipeline.state not in _EXPLICIT_APPROVAL_PIPELINE_STATES:
         return pipeline, _build_report(
@@ -155,6 +161,8 @@ def load_pipeline_for_explicit_approval(
             reason="pipeline_not_waiting_for_operator_approval",
             pipeline_id=pipeline.pipeline_id,
             pipeline_state=pipeline.state,
+            approval_state=pipeline.approval_state,
+            **commit_visibility_payload(pipeline),
             operator_guidance=(
                 "Only guarded pipelines awaiting or holding approval may be "
                 "resumed with `devctl commit --approve-pending`."
@@ -172,11 +180,13 @@ def ensure_pipeline_approval(
 ):
     """Return the synced approval state or the blocking approval report."""
     if pipeline.approval_state == "approved":
+        vcs_executor._persist_pipeline(pipeline)
         return pipeline, None
-    if _should_auto_approve(resolved_mode):
+    request_packet_id = ""
+    if should_auto_approve(resolved_mode):
         _apply_local_approval(vcs_executor, pipeline)
     else:
-        _ensure_approval_request(vcs_executor, pipeline)
+        request_packet_id = _ensure_approval_request(vcs_executor, pipeline)
     pipeline = sync_pipeline_approval_state(
         vcs_executor,
         vcs_executor.load_pipeline(),
@@ -189,10 +199,12 @@ def ensure_pipeline_approval(
         pipeline_id=pipeline.pipeline_id,
         pipeline_state=pipeline.state,
         approval_state=pipeline.approval_state,
-        operator_guidance=(
-            "Post and apply the matching `commit_approval` decision packet "
-            "before `vcs.commit`."
-        ),
+        **commit_visibility_payload(pipeline),
+        requested_action="approve_commit_pipeline",
+        next_command=OPERATOR_INBOX_COMMAND,
+        approval_request_packet_id=request_packet_id,
+        resume_command=APPROVE_PENDING_COMMAND,
+        operator_guidance=next_command_guidance(OPERATOR_INBOX_COMMAND),
         interaction_mode=resolved_mode,
         warnings=stage_warnings,
     )
@@ -212,6 +224,7 @@ def apply_explicit_operator_approval(
         approval_packet_kind=APPROVAL_PACKET_KIND,
     )
     if pipeline.approval_state == "approved":
+        vcs_executor._persist_pipeline(pipeline)
         return pipeline, None
     _record_operator_approval(
         vcs_executor,
@@ -231,6 +244,7 @@ def apply_explicit_operator_approval(
         approval_packet_kind=APPROVAL_PACKET_KIND,
     )
     if pipeline.approval_state == "approved":
+        vcs_executor._persist_pipeline(pipeline)
         return pipeline, None
     return pipeline, _build_report(
         status="blocked",
@@ -238,23 +252,13 @@ def apply_explicit_operator_approval(
         pipeline_id=pipeline.pipeline_id,
         pipeline_state=pipeline.state,
         approval_state=pipeline.approval_state,
-        operator_guidance=(
-            "Explicit operator approval did not bind to the current governed "
-            "pipeline. Re-check the active packet queue and retry the approval."
-        ),
+        **commit_visibility_payload(pipeline),
+        requested_action="reconcile_operator_approval",
+        next_command=OPERATOR_HISTORY_COMMAND,
+        operator_guidance=next_command_guidance(OPERATOR_HISTORY_COMMAND),
         interaction_mode=resolved_mode,
         warnings=stage_warnings,
     )
-
-
-def _should_auto_approve(interaction_mode: str) -> bool:
-    """Only promptless on-box modes self-approve via typed packets."""
-    mode = resolve_operator_interaction_mode(str(interaction_mode or "").strip()).value
-    return mode in {
-        OperatorInteractionMode.LOCAL_TERMINAL.value,
-        OperatorInteractionMode.SINGLE_AGENT.value,
-    }
-
 
 def _ensure_approval_request(
     executor: GovernedVcsExecutor,

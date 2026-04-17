@@ -58,6 +58,7 @@ REVIEW_ACTION_CHOICES = (
     "post",
     "watch",
     "inbox",
+    "operator-inbox",
     "ack",
     "dismiss",
     "apply",

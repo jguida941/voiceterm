@@ -170,7 +170,134 @@ Evidence: `dev/scripts/devctl/commands/vcs/parser.py`,
 `dev/scripts/devctl/tests/vcs/test_commit_gate.py`,
 `dev/scripts/README.md`,
 `dev/active/MASTER_PLAN.md`,
-`dev/active/ai_governance_platform.md`.
+and `dev/active/ai_governance_platform.md`.
+
+### 2026-04-17 - Operator inbox now rides the typed packet lane as a read-only alias
+
+Fact: the next `rev_pkt_0915` dogfood discussion narrowed the "operator as a
+first-class packet participant" gap again. The repo did not actually need a
+new transport or fresh packet enums to start closing that loop: `operator`
+was already in the packet roster, `approval_request` already existed in the
+contract, and `review-channel --action inbox --target operator` could already
+read the queue. The missing seam was an explicit operator-facing read surface
+that stayed packet-native without mutating live delivery receipts.
+
+This mattered because operator, dashboard, and phone surfaces are supposed to
+consume the same typed packet spine the agent lanes use. If the only operator
+read path is a generic inbox call that also stamps
+`delivery_observed_at_utc` / `delivery_observed_by`, the act of inspecting
+the queue can accidentally masquerade as lane-level delivery proof. That is
+exactly the kind of cross-surface authority confusion the platform is trying
+to eliminate.
+
+The closure stayed bounded. `review-channel --action operator-inbox` now acts
+as a read-only alias over the existing event-backed packet queue: it fixes
+`target=operator`, defaults to `status=pending`, and intentionally refuses to
+mark live `action_request` packets observed. The same slice extracted the
+event-handler post/transition/inbox-like helpers into a companion module so
+`check_code_shape.py` stays green while the operator-facing read surface lands.
+
+Evidence: `dev/scripts/devctl/commands/review_channel/event_handler.py`,
+`dev/scripts/devctl/commands/review_channel/event_action_support.py`,
+`dev/scripts/devctl/commands/review_channel/event_watch_support.py`,
+`dev/scripts/devctl/commands/review_channel_command/constants.py`,
+`dev/scripts/devctl/review_channel/parser.py`,
+`dev/scripts/devctl/tests/review_channel/test_operator_inbox.py`,
+`dev/scripts/README.md`,
+`dev/active/review_channel.md`,
+`dev/active/MASTER_PLAN.md`,
+and `dev/active/ai_governance_platform.md`.
+
+### 2026-04-17 - Active commit/push pipeline blocks now self-heal same-HEAD authorization and project exact next commands
+
+Fact: the next remote-control dogfood pass found the remaining
+operator-facing gap after `--approve-pending` landed. The repo already had
+typed pipeline truth for the live blocked publish path:
+`pipeline --action status` could show `state=push_blocked`,
+`authorization_expired=true`, `authorized_head_sha == current_head_sha`, and
+`next_command=python3 dev/scripts/devctl.py push --execute`. But the commit
+lane still blocked on locally regenerated prose, so agents had to infer when
+to refresh authorization, when to reuse the current pipeline, and when a
+blocked commit was really a publish-follow-up instead of a fresh staging
+problem.
+
+This mattered because the platform contract is supposed to be compiler-like.
+Once the typed reducer has already chosen the next command, downstream
+surfaces should not invent a second explanation layer and hope humans or AI
+reconstruct the same answer. The same defect showed up on the commit side:
+explicit-approval blocking reports still emitted free-form text for "no
+pipeline", "stale pipeline", and "approval missing" instead of projecting the
+exact command the operator should run next.
+
+The closure stayed bounded. `commit_pipeline_blocking.py` now consumes the
+typed pipeline status view directly, auto-refreshes same-HEAD expired
+authorization before it emits the block report, and drops the fallback prose
+branch in favor of the typed `next_command`. `commit_preflight.py` now
+projects exact next commands for `no_pending_pipeline_to_approve`, stale
+pipeline, and operator-approval-missing states, while reusing the active
+pipeline block report for `push_blocked` / `commit_recorded` reuse paths.
+`commit.py` also projects `CommitPermissionDecision` `next_command`,
+`recovery_action`, and `escalation_action` at top level so agents do not have
+to unpack nested JSON or guess from generic guidance, and the unsupported
+passthrough help text now names `--amend` to stay aligned with the actual
+accepted flags. The same slice also updated the stale startup-context
+checkpoint test to match the current checkpoint-first contract: over-budget
+or resync-required sessions may still allow `vcs.stage` / `vcs.commit` while
+blocking `implementation.edit`.
+
+Evidence: `dev/scripts/devctl/commands/vcs/commit.py`,
+`dev/scripts/devctl/commands/vcs/commit_pipeline_blocking.py`,
+`dev/scripts/devctl/commands/vcs/commit_preflight.py`,
+`dev/scripts/devctl/commands/vcs/commit_preflight_support.py`,
+`dev/scripts/devctl/tests/vcs/test_commit_gate.py`,
+`dev/scripts/devctl/tests/vcs/test_push.py`,
+`dev/scripts/devctl/tests/commands/test_pipeline_command.py`,
+`dev/scripts/README.md`,
+`dev/guides/DEVELOPMENT.md`,
+`dev/active/MASTER_PLAN.md`,
+`dev/active/ai_governance_platform.md`,
+and `AGENTS.md`.
+
+### 2026-04-17 - Review-channel status now separates raw latest push truth from selected current-target push truth
+
+Fact: the next remote-control dogfood pass found that `review-channel status`
+still had two distinct push-state seams after the `next_command` work landed.
+First, `detect_push_enforcement_state()` overloaded
+`latest_push_report_*` to mean both "the raw `dev/reports/push/latest.json`
+artifact" and "the current-target report selected for safe startup/push
+decisions", so a mismatched latest artifact could silently collapse back to
+an older receipt while still presenting itself as "latest". Second, the
+bridge-backed `_compat` writer in
+`review_channel/status_projection_compat.py` computed fresh
+`bridge_liveness["push_enforcement"]` truth but never copied it into the
+compat projection, so some `review_state.json` consumers stayed stale even
+after the reducer updated.
+
+The closure made the contracts explicit instead of asking agents to infer
+them. Governed push-state now carries raw-latest fields
+(`latest_push_report_*`) and separately selected current-target fields
+(`selected_push_report_*` plus `selected_push_report_source`). Startup
+recovery/push decision logic consumes the selected fields, while the
+bridge-backed status compat payload now includes `push_enforcement`
+directly. Cache freshness paths for review projections also include the
+managed latest push artifact, so read-only/mobile surfaces invalidate when
+`dev/reports/push/latest.json` advances. Legacy direct constructions and old
+payloads still fall back cleanly to the historical `latest_*` semantics for
+decision hints.
+
+Evidence: `dev/scripts/devctl/governance/push_state.py`,
+`dev/scripts/devctl/governance/push_state_selection.py`,
+`dev/scripts/devctl/runtime/project_governance_push.py`,
+`dev/scripts/devctl/runtime/startup_push_recovery.py`,
+`dev/scripts/devctl/runtime/startup_push_decision.py`,
+`dev/scripts/devctl/repo_packs/review_cache.py`,
+`dev/scripts/devctl/repo_packs/review_helpers.py`,
+`dev/scripts/devctl/runtime/review_state_refresh_support.py`,
+`dev/scripts/devctl/review_channel/status_projection_compat.py`,
+`dev/scripts/devctl/tests/vcs/test_push.py`,
+`dev/scripts/devctl/tests/repo_packs/test_repo_packs.py`,
+`dev/scripts/devctl/tests/review_channel/test_status_projection_compat.py`,
+and `dev/scripts/devctl/tests/runtime/test_startup_context.py`.
 
 ### 2026-04-15 - Governed commit fallback now trusts effective reviewer mode, and status `sessions=[]` is action-scoped
 

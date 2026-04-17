@@ -159,6 +159,10 @@ class PipelineStatusTests(unittest.TestCase):
             view = build_status_view(fixture.paths())
             self.assertTrue(view["head_has_moved"])
             self.assertEqual(view["recommended_next_action"], "recover")
+            self.assertEqual(
+                view["next_command"],
+                "python3 dev/scripts/devctl.py pipeline --action recover --format json",
+            )
         finally:
             fixture.close()
 
@@ -175,6 +179,10 @@ class PipelineStatusTests(unittest.TestCase):
             self.assertEqual(
                 view["recommended_next_action"],
                 "refresh-authorization",
+            )
+            self.assertEqual(
+                view["next_command"],
+                "python3 dev/scripts/devctl.py push --execute",
             )
         finally:
             fixture.close()

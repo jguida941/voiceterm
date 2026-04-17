@@ -31,16 +31,10 @@ from .push_state_git import (
     parse_worktree_change_summary,
     worktree_change_counts as _worktree_change_counts,
 )
-from .push_state_report import (
-    current_target_remote as _current_target_remote,
-    latest_push_report_state as _latest_push_report_state,
+from .push_state_selection import (
+    PushProjectionInputs,
+    load_push_report_projections as _load_push_report_projections,
 )
-
-_CURRENT_HEAD_LATEST_REPORT_REASONS = frozenset({
-    "push_preflight_running",
-    "push_pending",
-    "post_push_bundle_pending",
-})
 
 
 def _worktree_change_summary(
@@ -82,6 +76,121 @@ def _worktree_change_counts(
     return summary.dirty_path_count, summary.untracked_path_count
 
 
+def _build_push_enforcement_snapshot(
+    *,
+    policy: PushPolicy,
+    repo_root: Path,
+    inputs: "_PushEnforcementSnapshotInputs",
+) -> PushEnforcementSnapshot:
+    return PushEnforcementSnapshot(
+        current_branch=inputs.runtime.current_branch,
+        current_head_commit=inputs.runtime.current_head_commit,
+        default_remote=policy.default_remote,
+        development_branch=policy.development_branch,
+        release_branch=policy.release_branch,
+        pre_push_hook_path=str(inputs.runtime.hook_path),
+        pre_push_hook_installed=inputs.runtime.hook_installed,
+        raw_git_push_guarded=inputs.runtime.raw_git_push_guarded,
+        upstream_ref=inputs.runtime.upstream_ref,
+        ahead_of_upstream_commits=inputs.runtime.ahead_of_upstream_commits,
+        dirty_path_count=inputs.dirty_path_count,
+        untracked_path_count=inputs.untracked_path_count,
+        staged_path_count=inputs.staged_path_count,
+        unstaged_path_count=inputs.unstaged_path_count,
+        max_dirty_paths_before_checkpoint=policy.checkpoint.max_dirty_paths_before_checkpoint,
+        max_untracked_paths_before_checkpoint=policy.checkpoint.max_untracked_paths_before_checkpoint,
+        checkpoint_required=inputs.checkpoint_required,
+        safe_to_continue_editing=inputs.safe_to_continue_editing,
+        checkpoint_reason=inputs.checkpoint_reason,
+        worktree_dirty=inputs.worktree_dirty,
+        worktree_clean=inputs.worktree_clean,
+        recommended_action=inputs.recommended_action,
+        pending_publication_commits=inputs.publication_backlog.pending_publication_commits,
+        publication_backlog_state=inputs.publication_backlog.backlog_state,
+        publication_backlog_summary=inputs.publication_backlog.backlog_summary,
+        publication_backlog_recommended=inputs.publication_backlog.backlog_recommended,
+        publication_backlog_urgent=inputs.publication_backlog.backlog_urgent,
+        recommend_after_ahead_commits=inputs.publication_backlog.recommend_after_ahead_commits,
+        urgent_after_ahead_commits=inputs.publication_backlog.urgent_after_ahead_commits,
+        latest_push_report_path=latest_push_report_relpath(repo_root=repo_root),
+        latest_push_report_branch=inputs.latest_push_report.branch,
+        latest_push_report_remote=inputs.latest_push_report.remote,
+        latest_push_report_head_commit=inputs.latest_push_report.head_commit,
+        latest_push_report_status=inputs.latest_push_report.status,
+        latest_push_report_reason=inputs.latest_push_report.reason,
+        latest_push_report_published_remote=inputs.latest_push_report.published_remote,
+        latest_push_report_post_push_green=inputs.latest_push_report.post_push_green,
+        current_worktree_identity=inputs.runtime.current_worktree_identity,
+        current_approved_target_identity=inputs.runtime.current_approved_target_identity,
+        latest_push_report_approved_worktree_identity=(
+            inputs.latest_push_report.approved_worktree_identity
+        ),
+        latest_push_report_approved_target_identity=(
+            inputs.latest_push_report.approved_target_identity
+        ),
+        latest_push_report_matches_current_approved_target=(
+            inputs.latest_push_report.matches_current_approved_target
+        ),
+        latest_push_report_matches_current_worktree=(
+            inputs.latest_push_report.matches_current_worktree
+        ),
+        latest_push_report_matches_current_branch=(
+            inputs.latest_push_report.matches_current_branch
+        ),
+        latest_push_report_matches_current_head=inputs.latest_push_report.matches_current_head,
+        selected_push_report_source=inputs.selected_push_report_source,
+        selected_push_report_branch=inputs.selected_push_report_state.branch,
+        selected_push_report_remote=inputs.selected_push_report_state.remote,
+        selected_push_report_head_commit=inputs.selected_push_report_state.head_commit,
+        selected_push_report_status=inputs.selected_push_report_state.status,
+        selected_push_report_reason=inputs.selected_push_report_state.reason,
+        selected_push_report_published_remote=(
+            inputs.selected_push_report_state.published_remote
+        ),
+        selected_push_report_post_push_green=(
+            inputs.selected_push_report_state.post_push_green
+        ),
+        selected_push_report_approved_worktree_identity=(
+            inputs.selected_push_report_state.approved_worktree_identity
+        ),
+        selected_push_report_approved_target_identity=(
+            inputs.selected_push_report_state.approved_target_identity
+        ),
+        selected_push_report_matches_current_approved_target=(
+            inputs.selected_push_report_state.matches_current_approved_target
+        ),
+        selected_push_report_matches_current_worktree=(
+            inputs.selected_push_report_state.matches_current_worktree
+        ),
+        selected_push_report_matches_current_branch=(
+            inputs.selected_push_report_state.matches_current_branch
+        ),
+        selected_push_report_matches_current_head=(
+            inputs.selected_push_report_state.matches_current_head
+        ),
+        current_push_authorization_id=inputs.runtime.current_push_authorization_id,
+        current_push_authorization_mode=inputs.runtime.current_push_authorization_mode,
+        current_push_authorization_head_commit=inputs.runtime.current_push_authorization_head_commit,
+        current_push_authorization_expires_at_utc=inputs.runtime.current_push_authorization_expires_at_utc,
+        current_push_authorization_approved_worktree_identity=(
+            inputs.runtime.current_push_authorization_approved_worktree_identity
+        ),
+        current_push_authorization_approved_target_identity=(
+            inputs.runtime.current_push_authorization_approved_target_identity
+        ),
+        current_push_authorization_matches_current_head=(
+            inputs.runtime.current_push_authorization_matches_current_head
+        ),
+        current_push_authorization_matches_current_approved_target=(
+            inputs.runtime.current_push_authorization_matches_current_approved_target
+        ),
+        current_push_authorization_matches_current_worktree=(
+            inputs.runtime.current_push_authorization_matches_current_worktree
+        ),
+        current_push_authorization_valid=inputs.runtime.current_push_authorization_valid,
+    )
+
+
 def detect_push_enforcement_state(
     policy: PushPolicy,
     *,
@@ -113,46 +222,22 @@ def detect_push_enforcement_state(
         head_commit=runtime.current_head_commit,
         repo_root=repo_root,
     )
-    latest_report_artifact = load_latest_push_report(repo_root=repo_root) or {}
-    latest_push_report = _resolve_current_push_report(
-        receipt=receipt,
-        latest=latest_report_artifact,
-        current_branch=runtime.current_branch,
-        current_head_commit=runtime.current_head_commit,
-        current_approved_target_identity=runtime.current_approved_target_identity,
-        current_worktree_identity=runtime.current_worktree_identity,
-    )
-    push_stages = latest_push_report.get("push_stages")
-    if not isinstance(push_stages, dict):
-        push_stages = {}
     (
-        latest_push_report_branch,
-        latest_push_report_remote,
-        latest_push_report_head_commit,
-        latest_push_report_approved_target_identity,
-        latest_push_report_approved_worktree_identity,
-        latest_push_report_matches_current_branch,
-        latest_push_report_matches_current_head,
-        latest_push_report_matches_current_approved_target,
-        latest_push_report_matches_current_worktree,
-    ) = _latest_push_report_state(
-        report=latest_push_report,
-        current_branch=runtime.current_branch,
-        current_head_commit=runtime.current_head_commit,
-        current_approved_target_identity=runtime.current_approved_target_identity,
-        current_worktree_identity=runtime.current_worktree_identity,
-    )
-    current_target_remote = _current_target_remote(
-        upstream_ref=runtime.upstream_ref,
-        default_remote=policy.default_remote,
-    )
-    recorded_remote_publication_for_current_target = (
-        bool(push_stages.get("published_remote"))
-        and latest_push_report_matches_current_branch
-        and latest_push_report_matches_current_head
-        and latest_push_report_matches_current_approved_target
-        and latest_push_report_matches_current_worktree
-        and (not latest_push_report_remote or latest_push_report_remote == current_target_remote)
+        latest_push_report,
+        selected_push_report_state,
+        selected_push_report_source,
+        recorded_remote_publication_for_current_target,
+    ) = _load_push_report_projections(
+        receipt=receipt,
+        latest=load_latest_push_report(repo_root=repo_root) or {},
+        inputs=PushProjectionInputs(
+            upstream_ref=runtime.upstream_ref,
+            default_remote=policy.default_remote,
+            current_branch=runtime.current_branch,
+            current_head_commit=runtime.current_head_commit,
+            current_approved_target_identity=runtime.current_approved_target_identity,
+            current_worktree_identity=runtime.current_worktree_identity,
+        ),
     )
     has_remote_work_to_push = not (
         recorded_remote_publication_for_current_target
@@ -185,74 +270,47 @@ def detect_push_enforcement_state(
         recommend_after_ahead_commits=policy.publication.recommend_after_ahead_commits,
         urgent_after_ahead_commits=policy.publication.urgent_after_ahead_commits,
     )
-    snapshot = PushEnforcementSnapshot(
-        current_branch=runtime.current_branch,
-        current_head_commit=runtime.current_head_commit,
-        default_remote=policy.default_remote,
-        development_branch=policy.development_branch,
-        release_branch=policy.release_branch,
-        pre_push_hook_path=str(runtime.hook_path),
-        pre_push_hook_installed=runtime.hook_installed,
-        raw_git_push_guarded=runtime.raw_git_push_guarded,
-        upstream_ref=runtime.upstream_ref,
-        ahead_of_upstream_commits=runtime.ahead_of_upstream_commits,
-        dirty_path_count=dirty_path_count,
-        untracked_path_count=untracked_path_count,
-        staged_path_count=staged_path_count,
-        unstaged_path_count=unstaged_path_count,
-        max_dirty_paths_before_checkpoint=policy.checkpoint.max_dirty_paths_before_checkpoint,
-        max_untracked_paths_before_checkpoint=policy.checkpoint.max_untracked_paths_before_checkpoint,
-        checkpoint_required=checkpoint_required,
-        safe_to_continue_editing=safe_to_continue_editing,
-        checkpoint_reason=checkpoint_reason,
-        worktree_dirty=worktree_dirty,
-        worktree_clean=worktree_clean,
-        recommended_action=recommended_action,
-        pending_publication_commits=publication_backlog.pending_publication_commits,
-        publication_backlog_state=publication_backlog.backlog_state,
-        publication_backlog_summary=publication_backlog.backlog_summary,
-        publication_backlog_recommended=publication_backlog.backlog_recommended,
-        publication_backlog_urgent=publication_backlog.backlog_urgent,
-        recommend_after_ahead_commits=publication_backlog.recommend_after_ahead_commits,
-        urgent_after_ahead_commits=publication_backlog.urgent_after_ahead_commits,
-        latest_push_report_path=latest_push_report_relpath(repo_root=repo_root),
-        latest_push_report_branch=latest_push_report_branch,
-        latest_push_report_remote=latest_push_report_remote,
-        latest_push_report_head_commit=latest_push_report_head_commit,
-        latest_push_report_status=str(latest_push_report.get("status") or "").strip(),
-        latest_push_report_reason=str(latest_push_report.get("reason") or "").strip(),
-        latest_push_report_published_remote=bool(push_stages.get("published_remote")),
-        latest_push_report_post_push_green=bool(push_stages.get("post_push_green")),
-        current_worktree_identity=runtime.current_worktree_identity,
-        current_approved_target_identity=runtime.current_approved_target_identity,
-        latest_push_report_approved_worktree_identity=latest_push_report_approved_worktree_identity,
-        latest_push_report_approved_target_identity=latest_push_report_approved_target_identity,
-        latest_push_report_matches_current_approved_target=latest_push_report_matches_current_approved_target,
-        latest_push_report_matches_current_worktree=latest_push_report_matches_current_worktree,
-        latest_push_report_matches_current_branch=latest_push_report_matches_current_branch,
-        latest_push_report_matches_current_head=latest_push_report_matches_current_head,
-        current_push_authorization_id=runtime.current_push_authorization_id,
-        current_push_authorization_mode=runtime.current_push_authorization_mode,
-        current_push_authorization_head_commit=runtime.current_push_authorization_head_commit,
-        current_push_authorization_expires_at_utc=runtime.current_push_authorization_expires_at_utc,
-        current_push_authorization_approved_worktree_identity=(
-            runtime.current_push_authorization_approved_worktree_identity
+    snapshot = _build_push_enforcement_snapshot(
+        policy=policy,
+        repo_root=repo_root,
+        inputs=_PushEnforcementSnapshotInputs(
+            runtime=runtime,
+            publication_backlog=publication_backlog,
+            latest_push_report=latest_push_report,
+            selected_push_report_state=selected_push_report_state,
+            selected_push_report_source=selected_push_report_source,
+            dirty_path_count=dirty_path_count,
+            untracked_path_count=untracked_path_count,
+            staged_path_count=staged_path_count,
+            unstaged_path_count=unstaged_path_count,
+            checkpoint_required=checkpoint_required,
+            safe_to_continue_editing=safe_to_continue_editing,
+            checkpoint_reason=checkpoint_reason,
+            worktree_dirty=worktree_dirty,
+            worktree_clean=worktree_clean,
+            recommended_action=recommended_action,
         ),
-        current_push_authorization_approved_target_identity=(
-            runtime.current_push_authorization_approved_target_identity
-        ),
-        current_push_authorization_matches_current_head=(
-            runtime.current_push_authorization_matches_current_head
-        ),
-        current_push_authorization_matches_current_approved_target=(
-            runtime.current_push_authorization_matches_current_approved_target
-        ),
-        current_push_authorization_matches_current_worktree=(
-            runtime.current_push_authorization_matches_current_worktree
-        ),
-        current_push_authorization_valid=runtime.current_push_authorization_valid,
     )
     return asdict(snapshot)
+
+
+@dataclass(frozen=True, slots=True)
+class _PushEnforcementSnapshotInputs:
+    runtime: "_PushRuntimeInputs"
+    publication_backlog: object
+    latest_push_report: object
+    selected_push_report_state: object
+    selected_push_report_source: str
+    dirty_path_count: int
+    untracked_path_count: int
+    staged_path_count: int
+    unstaged_path_count: int
+    checkpoint_required: bool
+    safe_to_continue_editing: bool
+    checkpoint_reason: str
+    worktree_dirty: bool
+    worktree_clean: bool
+    recommended_action: str
 
 
 @dataclass(frozen=True, slots=True)
@@ -382,57 +440,3 @@ def current_upstream_ref(*, repo_root: Path = REPO_ROOT) -> str:
 def current_head_commit_sha(*, repo_root: Path = REPO_ROOT) -> str:
     """Return the current HEAD commit SHA, or empty when unavailable."""
     return _git_stdout(repo_root, "rev-parse", "HEAD")
-
-
-def _resolve_current_push_report(
-    *,
-    receipt: dict[str, object] | None,
-    latest: dict[str, object],
-    current_branch: str,
-    current_head_commit: str,
-    current_approved_target_identity: str,
-    current_worktree_identity: str,
-) -> dict[str, object]:
-    """Prefer a current-head in-flight latest report over stale final receipts."""
-    if _latest_report_is_current_head_inflight(
-        latest,
-        current_branch=current_branch,
-        current_head_commit=current_head_commit,
-        current_approved_target_identity=current_approved_target_identity,
-        current_worktree_identity=current_worktree_identity,
-    ):
-        return latest
-    return receipt or latest
-
-
-def _latest_report_is_current_head_inflight(
-    report: dict[str, object],
-    *,
-    current_branch: str,
-    current_head_commit: str,
-    current_approved_target_identity: str,
-    current_worktree_identity: str,
-) -> bool:
-    if not report:
-        return False
-    reason = str(report.get("reason") or "").strip()
-    if reason not in _CURRENT_HEAD_LATEST_REPORT_REASONS:
-        return False
-    (
-        _branch,
-        _remote,
-        _head_commit,
-        _approved_target_identity,
-        _approved_worktree_identity,
-        matches_branch,
-        matches_head,
-        matches_target,
-        matches_worktree,
-    ) = _latest_push_report_state(
-        report=report,
-        current_branch=current_branch,
-        current_head_commit=current_head_commit,
-        current_approved_target_identity=current_approved_target_identity,
-        current_worktree_identity=current_worktree_identity,
-    )
-    return bool(matches_branch and matches_head and matches_target and matches_worktree)

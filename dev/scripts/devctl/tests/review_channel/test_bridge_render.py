@@ -550,6 +550,41 @@ def test_render_bridge_projection_clears_revision_for_missing_instruction_placeh
     assert snapshot.metadata.get("current_instruction_revision", "") == ""
 
 
+def test_render_bridge_projection_uses_checkpoint_instruction_when_attention_requires_checkpoint() -> None:
+    review_state = _typed_review_state(_bridge_text())
+    review_state["current_session"] = {
+        "current_instruction": "",
+        "current_instruction_revision": "",
+        "open_findings": "193 expired unresolved review packet(s)",
+        "last_reviewed_scope": "- typed/scope.py",
+    }
+    review_state["attention"] = {"status": "checkpoint_required"}
+    review_state["recommended_command"] = (
+        'python3 dev/scripts/devctl.py commit -m "<descriptive message>"'
+    )
+    compat_sections = review_state["_compat"]["bridge_projection"]["sections"]
+    compat_sections["Current Instruction For Claude"] = "- stale compat instruction"
+
+    rendered, _ = render_bridge_projection(
+        review_state=review_state,
+        last_worktree_hash="b" * 64,
+    )
+    snapshot = extract_bridge_snapshot(rendered)
+
+    assert "Await reviewer instruction refresh" not in snapshot.sections[
+        "Current Instruction For Claude"
+    ]
+    assert "Cut a checkpoint before continuing to edit." in snapshot.sections[
+        "Current Instruction For Claude"
+    ]
+    assert 'python3 dev/scripts/devctl.py commit -m "<descriptive message>"' in snapshot.sections[
+        "Current Instruction For Claude"
+    ]
+    assert "stale compat instruction" not in snapshot.sections[
+        "Current Instruction For Claude"
+    ]
+
+
 def test_render_bridge_projection_tracks_swapped_reviewer_and_implementer() -> None:
     review_state = _typed_review_state(_bridge_text())
     review_state["collaboration"] = {

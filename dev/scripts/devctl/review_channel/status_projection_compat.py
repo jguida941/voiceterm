@@ -45,6 +45,9 @@ def build_bridge_compat_projection(
         inputs.bridge_liveness,
         inputs.reduced_runtime,
     )
+    push_enforcement = _mapping(inputs.bridge_liveness.get("push_enforcement"))
+    if push_enforcement:
+        compat["push_enforcement"] = dict(push_enforcement)
     compat["service_identity"] = build_service_identity_state(
         inputs.service_identity
     )

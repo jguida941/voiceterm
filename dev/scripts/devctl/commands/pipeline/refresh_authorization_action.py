@@ -38,7 +38,7 @@ _RECOVER_RECOMMENDATION = "recover"
 
 def run_refresh_authorization(args) -> int:
     """Entry point for ``devctl pipeline --action refresh-authorization``."""
-    paths = resolve_pipeline_paths(
+    result = apply_refresh_authorization(
         repo_root=getattr(args, "repo_root_override", None),
         pipeline_root_override=_maybe_path(
             getattr(args, "pipeline_root_override", None)
@@ -46,17 +46,10 @@ def run_refresh_authorization(args) -> int:
         receipts_root_override=_maybe_path(
             getattr(args, "receipts_root_override", None)
         ),
-    )
-    operator_actor = str(
-        getattr(args, "operator_actor", None) or "operator"
-    )
-    reason = str(getattr(args, "reason", "") or "").strip() or (
-        "reissue fresh authorization window"
-    )
-    result = _apply_refresh(
-        paths=paths,
-        reason=reason,
-        operator_actor=operator_actor,
+        operator_actor=str(getattr(args, "operator_actor", None) or "operator"),
+        reason=str(getattr(args, "reason", "") or "").strip() or (
+            "reissue fresh authorization window"
+        ),
     )
     fmt = str(getattr(args, "format", "md") or "md")
     if fmt == "json":
@@ -64,6 +57,27 @@ def run_refresh_authorization(args) -> int:
     else:
         print(_render_markdown(result))
     return 0 if result.get("ok") else 1
+
+
+def apply_refresh_authorization(
+    *,
+    repo_root: Path | None = None,
+    pipeline_root_override: Path | None = None,
+    receipts_root_override: Path | None = None,
+    operator_actor: str = "operator",
+    reason: str = "reissue fresh authorization window",
+) -> dict[str, Any]:
+    """Refresh the current pipeline authorization window and return the typed result."""
+    paths = resolve_pipeline_paths(
+        repo_root=repo_root,
+        pipeline_root_override=pipeline_root_override,
+        receipts_root_override=receipts_root_override,
+    )
+    return _apply_refresh(
+        paths=paths,
+        reason=reason,
+        operator_actor=operator_actor,
+    )
 
 
 def _apply_refresh(

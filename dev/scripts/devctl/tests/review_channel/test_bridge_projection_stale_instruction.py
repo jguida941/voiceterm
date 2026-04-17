@@ -48,6 +48,21 @@ class TestExplicitClearNoStaleFallback(unittest.TestCase):
         self.assertNotIn("(missing)", instruction)
         self.assertIn("Await reviewer instruction refresh", instruction)
 
+    def test_checkpoint_required_uses_typed_checkpoint_instruction(self) -> None:
+        review_state = {
+            "current_session": {"current_instruction": ""},
+            "bridge": {"current_instruction": "- stale bridge instruction"},
+            "reviewer_runtime": {},
+            "attention": {"status": "checkpoint_required"},
+            "recommended_command": 'python3 dev/scripts/devctl.py commit -m "<descriptive message>"',
+        }
+        result = with_fallback_sections(review_state, {})
+        instruction = result.get("Current Instruction For Claude", "")
+        self.assertNotIn("stale bridge instruction", instruction)
+        self.assertNotIn("Await reviewer instruction refresh", instruction)
+        self.assertIn("Cut a checkpoint before continuing to edit.", instruction)
+        self.assertIn('python3 dev/scripts/devctl.py commit -m "<descriptive message>"', instruction)
+
     def test_missing_last_reviewed_scope_does_not_fallback_to_bridge_state(self) -> None:
         review_state = {
             "current_session": {},

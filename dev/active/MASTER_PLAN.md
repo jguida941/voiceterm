@@ -238,6 +238,43 @@
   full event-bundle enrichment pass just to match approval packets. Focused
   proof is green, and the remaining latency hotspot sits in the first-stage
   remote-control `devctl commit -m ...` preflight/context-graph path.
+- 2026-04-17 operator-inbox Phase-1 follow-up in `MP-377` / `MP-355` scope:
+  the first operator-facing packet read surface now rides the existing
+  review-channel transport instead of inventing a second lane.
+  `review-channel --action operator-inbox` fixes `target=operator`,
+  defaults to `status=pending`, and deliberately does not stamp
+  `delivery_observed_*` on live `action_request` packets, so operator reads
+  stay packet-native but read-only. Focused proof is green on the new
+  operator-inbox regression plus `check_code_shape.py`; the next expansion is
+  dogfood/ledger integration and only then a decision on whether a later
+  top-level `devctl operator-inbox` wrapper is worth the extra surface area.
+- 2026-04-17 commit/push next-command convergence follow-up in `MP-377`
+  scope: the repo now uses typed `next_command` as the active publish
+  pipeline authority instead of leaving commit/push surfaces to reconstruct
+  prose. `pipeline --action status` already projects
+  `next_command=python3 dev/scripts/devctl.py push --execute` for the live
+  same-HEAD expired `push_blocked` pipeline, `commit_pipeline_blocking.py`
+  now auto-refreshes that authorization window before it emits the block
+  report, and commit-preflight blocks for no pending pipeline, stale
+  pipeline, or missing operator approval now project exact next commands
+  instead of free-form guidance. The same slice promotes
+  `CommitPermissionDecision` recovery fields to top-level commit reports and
+  fixes the `--amend` support text drift. Proof is green on the narrowed
+  commit-gate regressions, the full `test_push.py` /
+  `test_pipeline_command.py` bundle, and `check_code_shape.py`.
+- 2026-04-17 push-status truth-split follow-up in `MP-377` / `MP-355`
+  scope: `push_enforcement` now projects raw latest push-artifact truth and
+  separately selected current-target truth instead of conflating them under
+  `latest_push_report_*`. The reducer emits
+  `selected_push_report_*` plus `selected_push_report_source` for startup and
+  governed push decisions, while `latest_push_report_*` stays truthful to the
+  on-disk `dev/reports/push/latest.json` artifact. The same slice also closes
+  the stale bridge compat seam: bridge-backed `review_state.json`
+  `_compat` payloads now include `push_enforcement`, and review projection
+  cache freshness paths now invalidate on latest-push artifact changes so
+  read-only/mobile consumers do not lag after push-state updates. Proof is
+  green on the narrowed push-state/startup regressions, the new compat/cache
+  tests, and `check_code_shape.py`.
 - 2026-04-15 governed publication follow-up in `MP-377` scope:
   `devctl commit` now stops at `operator_approval_pending` before the commit
   phase when `remote_control` or another non-auto-approved lane still has an

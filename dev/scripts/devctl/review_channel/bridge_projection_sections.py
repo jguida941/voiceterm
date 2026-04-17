@@ -128,6 +128,7 @@ def with_fallback_sections(
         "Claude Ack",
         _section_text(current_session.get("implementer_ack"), default="- missing"),
     )
+    instruction_fallback = _current_instruction_fallback(review_state)
     if "current_instruction" in current_session:
         current_instruction = current_session.get("current_instruction")
         if is_missing_instruction(str(current_instruction or "")):
@@ -137,15 +138,19 @@ def with_fallback_sections(
             "Current Instruction For Claude",
             _section_text(
                 current_instruction,
-                default="- Await reviewer instruction refresh.",
+                default=instruction_fallback,
             ),
         )
     else:
         _set_missing(
             result,
             "Current Instruction For Claude",
-            "- Await reviewer instruction refresh.",
+            instruction_fallback,
         )
+    _replace_wait_placeholder_with_typed_fallback(
+        result,
+        instruction_fallback=instruction_fallback,
+    )
     _set_missing(
         result,
         "Last Reviewed Scope",
@@ -189,6 +194,36 @@ def _poll_status_fallback(review_state: Mapping[str, object]) -> str:
     timestamp = str(review_state.get("timestamp") or "").strip()
     suffix = f" at {timestamp}" if timestamp else ""
     return "- Reviewer state rebuilt from typed review-state projection" + suffix + "."
+
+
+def _current_instruction_fallback(review_state: Mapping[str, object]) -> str:
+    attention = _mapping(review_state.get("attention"))
+    if str(attention.get("status") or "").strip() != "checkpoint_required":
+        return "- Await reviewer instruction refresh."
+    command = str(
+        review_state.get("recommended_command")
+        or attention.get("recommended_command")
+        or ""
+    ).strip()
+    rows = ["Cut a checkpoint before continuing to edit."]
+    if command:
+        rows.append(f"Run `{command}`.")
+    return _section_text(rows, default="- Await reviewer instruction refresh.")
+
+
+def _replace_wait_placeholder_with_typed_fallback(
+    sections: dict[str, str],
+    *,
+    instruction_fallback: str,
+) -> None:
+    current_instruction = str(
+        sections.get("Current Instruction For Claude") or ""
+    ).strip()
+    if current_instruction != "- Await reviewer instruction refresh.":
+        return
+    if instruction_fallback == "- Await reviewer instruction refresh.":
+        return
+    sections["Current Instruction For Claude"] = instruction_fallback
 
 
 def _section_text(*values: object, default: str) -> str:

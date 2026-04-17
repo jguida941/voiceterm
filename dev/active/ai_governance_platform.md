@@ -5118,6 +5118,49 @@ working on `MP-377`.
   green; maintainer-doc closure for this slice now lives in `AGENTS.md`,
   `dev/guides/DEVELOPMENT.md`, `dev/scripts/README.md`,
   `dev/active/MASTER_PLAN.md`, and `dev/history/ENGINEERING_EVOLUTION.md`.
+- 2026-04-17 operator-inbox read-only alias follow-up:
+  the next `rev_pkt_0915` Phase-1 dogfood slice did not need a new transport
+  or new packet enums. `review-channel --action operator-inbox` now exposes
+  the operator queue as a first-class read surface over the existing typed
+  packet lane, fixes `target=operator`, defaults to `status=pending`, and
+  intentionally refuses to stamp `delivery_observed_*` receipts on live
+  `action_request` packets. That keeps operator/dashboard/phone reads on the
+  same packet spine without mutating delivery state that belongs to the live
+  actor watchers. Focused proof is green on the new operator-inbox regression
+  test plus `check_code_shape.py`, and the next follow-up remains broader
+  dogfood integration: record this operator-facing read surface in the
+  dev-mode dogfood ledger and decide whether the later top-level
+  `devctl operator-inbox` wrapper is worth the extra command-surface cost.
+- 2026-04-17 commit/push next-command convergence follow-up:
+  the next dogfood slice closed the remaining gap between typed pipeline
+  truth and the operator-facing commit/push blockers. `pipeline status`
+  already projected exact `next_command` strings, but commit surfaces still
+  regenerated prose. `commit_pipeline_blocking.py` now consumes the typed
+  status view directly, auto-refreshes same-HEAD expired authorization before
+  it blocks on a live `push_blocked` pipeline, and emits the exact next
+  command instead of a fallback sentence. `commit_preflight.py` now does the
+  same for explicit-approval edge cases (`no_pending_pipeline_to_approve`,
+  stale pipeline, missing operator approval), and `commit.py` projects
+  `CommitPermissionDecision` `next_command` / `recovery_action` /
+  `escalation_action` at top level so agents do not have to unpack or infer
+  the recovery path from nested payloads. Focused proof is green on the
+  narrowed commit-gate regressions, the full push/pipeline bundle, and
+  `check_code_shape.py`.
+- 2026-04-17 push-status truth-split follow-up:
+  the next dogfood slice closed the remaining ambiguity between "what is the
+  raw latest push artifact on disk?" and "what push report should startup /
+  review-channel trust for the current publication target?" `push_enforcement`
+  now emits both raw `latest_push_report_*` fields and separately selected
+  `selected_push_report_*` / `selected_push_report_source` fields, so
+  startup recovery and governed push decisions can fail closed on the
+  selected current-target receipt while operator/read-only status surfaces
+  stay truthful about the actual `dev/reports/push/latest.json` artifact. The
+  same slice also closes the bridge compat omission that kept
+  bridge-backed `_compat` payloads from carrying `push_enforcement`, and adds
+  latest-push artifact freshness invalidation to review projection caches so
+  mobile/read-only consumers refresh when push-state changes. Focused proof is
+  green on push-state/startup regressions, compat/cache regressions, and
+  `check_code_shape.py`.
 - 2026-04-15 plan-registry authority artifact closure:
   `scan_governed_markdown_contracts()` now persists governed markdown
   `PlanRegistry` plus per-plan `PlanTargetRef` data to

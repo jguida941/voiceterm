@@ -9,9 +9,13 @@ def projection_dependency_paths(
     *,
     bridge_path: Path,
     review_channel_path: Path,
+    push_report_path: Path | None = None,
 ) -> tuple[Path, ...]:
     """Return the authoritative source paths for review projection caches."""
-    return (bridge_path, review_channel_path)
+    paths: list[Path] = [bridge_path, review_channel_path]
+    if push_report_path is not None:
+        paths.append(push_report_path)
+    return tuple(paths)
 
 
 def cache_is_fresh(

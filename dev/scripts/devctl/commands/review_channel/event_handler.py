@@ -1,6 +1,6 @@
 """Event-backed action rendering and execution for `devctl review-channel`.
 
-Handles post, watch, inbox, ack, dismiss, apply, and history actions that
+Handles post, watch, inbox, operator-inbox, ack, dismiss, apply, and history actions that
 operate against the structured event store. Extracted from
 commands/review_channel.py to keep the command orchestrator under the
 file-size soft limit.
@@ -8,27 +8,16 @@ file-size soft limit.
 
 from __future__ import annotations
 
-import time
 from pathlib import Path
+import time
 
 from ...common import emit_output as compat_emit_output
-from ...review_channel.context_refs import (
-    resolve_context_pack_refs,
-)
 from ...review_channel.events import (
     artifact_paths_to_dict,
     filter_history_packets,
     filter_history_events,
     load_or_refresh_event_bundle,
-    post_packet,
     refresh_event_bundle,
-    transition_packet,
-)
-from ...review_channel.packet_contract import (
-    PacketPostRequest,
-    PacketRuntimeApprovalFields,
-    PacketTargetFields,
-    PacketTransitionRequest,
 )
 from ...review_channel.event_render import render_event_md
 from ...review_channel.follow_stream import (
@@ -49,6 +38,12 @@ from ...review_channel.watch_lifecycle import (
 )
 from ...review_channel.watch_paths import watch_key
 from ...time_utils import utc_timestamp
+from .event_action_support import (
+    EventActionContext,
+    run_inbox_like_action,
+    run_packet_transition_action,
+    run_post_action,
+)
 from .event_watch_support import load_target_packets, watch_snapshot_signature
 from .watch_follow import WatchFollowDeps, run_watch_follow
 
@@ -123,17 +118,6 @@ def _build_event_report(
     }
     return report, report["exit_code"]
 
-
-def _load_post_body(args) -> str:
-    """Read the packet body from --body or --body-file."""
-    body = getattr(args, "body", None)
-    body_file = getattr(args, "body_file", None)
-    if body:
-        return str(body)
-    assert body_file is not None
-    return Path(body_file).read_text(encoding="utf-8")
-
-
 def _run_event_action(
     *,
     args,
@@ -144,6 +128,13 @@ def _run_event_action(
     review_channel_path = paths["review_channel_path"]
     artifact_paths = paths["artifact_paths"]
     assert isinstance(review_channel_path, Path)
+    context = EventActionContext(
+        args=args,
+        repo_root=repo_root,
+        review_channel_path=review_channel_path,
+        artifact_paths=artifact_paths,
+        build_event_report_fn=_build_event_report,
+    )
     if args.action == "watch" and getattr(args, "follow", False):
         return _run_watch_follow(
             args=args,
@@ -152,81 +143,9 @@ def _run_event_action(
             artifact_paths=artifact_paths,
         )
     if args.action == "post":
-        bundle, event = post_packet(
-            repo_root=repo_root,
-            review_channel_path=review_channel_path,
-            artifact_paths=artifact_paths,
-            request=PacketPostRequest(
-                from_agent=args.from_agent,
-                to_agent=args.to_agent,
-                kind=args.kind,
-                summary=args.summary,
-                body=_load_post_body(args),
-                evidence_refs=tuple(args.evidence_ref or []),
-                context_pack_refs=tuple(resolve_context_pack_refs(args, repo_root)),
-                confidence=float(args.confidence),
-                requested_action=args.requested_action,
-                policy_hint=args.policy_hint,
-                approval_required=bool(args.approval_required),
-                packet_id=getattr(args, "packet_id", None),
-                trace_id=getattr(args, "trace_id", None),
-                session_id=args.session_id,
-                plan_id=args.plan_id,
-                controller_run_id=getattr(args, "controller_run_id", None),
-                expires_in_minutes=args.expires_in_minutes,
-                target=PacketTargetFields.from_values(
-                    target_kind=getattr(args, "target_kind", None),
-                    target_ref=getattr(args, "target_ref", None),
-                    target_revision=getattr(args, "target_revision", None),
-                    anchor_refs=getattr(args, "anchor_ref", []),
-                    intake_ref=getattr(args, "intake_ref", None),
-                    mutation_op=getattr(args, "mutation_op", None),
-                ),
-                runtime_approval=PacketRuntimeApprovalFields.from_values(
-                    pipeline_generation=getattr(args, "pipeline_generation", None),
-                    staged_snapshot_hash=getattr(
-                        args, "staged_snapshot_hash", None
-                    ),
-                    guard_results_summary=getattr(
-                        args, "guard_results_summary", None
-                    ),
-                ),
-            ),
-        )
-        packet = next(
-            (
-                packet_row
-                for packet_row in bundle.review_state.get("packets", [])
-                if isinstance(packet_row, dict)
-                and packet_row.get("packet_id") == event.get("packet_id")
-            ),
-            None,
-        )
-        return _build_event_report(args=args, bundle=bundle, packet=packet, event=event)
+        return run_post_action(context=context)
     if args.action in {"ack", "dismiss", "apply"}:
-        bundle, event = transition_packet(
-            repo_root=repo_root,
-            review_channel_path=review_channel_path,
-            artifact_paths=artifact_paths,
-            request=PacketTransitionRequest(
-                action=args.action,
-                packet_id=args.packet_id,
-                actor=args.actor,
-                session_id=args.session_id,
-                plan_id=args.plan_id,
-                controller_run_id=getattr(args, "controller_run_id", None),
-            ),
-        )
-        packet = next(
-            (
-                packet_row
-                for packet_row in bundle.review_state.get("packets", [])
-                if isinstance(packet_row, dict)
-                and packet_row.get("packet_id") == args.packet_id
-            ),
-            None,
-        )
-        return _build_event_report(args=args, bundle=bundle, packet=packet, event=event)
+        return run_packet_transition_action(context=context)
     bundle = load_or_refresh_event_bundle(
         repo_root=repo_root,
         review_channel_path=review_channel_path,
@@ -240,27 +159,20 @@ def _run_event_action(
         )
         return _build_event_report(args=args, bundle=bundle)
     if args.action == "inbox":
-        bundle, packets = load_target_packets(
-            args=args,
+        return run_inbox_like_action(context=context, bundle=bundle)
+    if args.action == "operator-inbox":
+        return run_inbox_like_action(
+            context=context,
             bundle=bundle,
-            repo_root=repo_root,
-            review_channel_path=review_channel_path,
-            artifact_paths=artifact_paths,
+            target_override="operator",
+            status_override="pending",
+            observe_action_requests=False,
         )
-        return _build_event_report(args=args, bundle=bundle, packets=packets)
     if args.action == "watch":
-        bundle, packets = load_target_packets(
-            args=args,
+        return run_inbox_like_action(
+            context=context,
             bundle=bundle,
-            repo_root=repo_root,
-            review_channel_path=review_channel_path,
-            artifact_paths=artifact_paths,
-            status_filter=getattr(args, "status", None) or "pending",
-        )
-        return _build_event_report(
-            args=args,
-            bundle=bundle,
-            packets=packets,
+            status_override="pending",
         )
     if args.action == "history":
         packets = filter_history_packets(
