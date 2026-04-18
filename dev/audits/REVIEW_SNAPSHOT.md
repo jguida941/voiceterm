@@ -5,14 +5,14 @@
 ## Quick status
 
 - Branch: `feature/governance-quality-sweep`
-- HEAD: `7d0f87a46108` — Extend MP-377 with consolidation phases MP-388..MP-397 (Codex v3 plan-authoring slice)
-- Tree hash: `72f7de1e9910`
-- Generation stamp: `snap-6151d98e9937`
-- Generated at (UTC): 2026-04-18T16:48:47Z
-- Push decision: `await_checkpoint` — worktree_dirty
+- HEAD: `a2e283de11ef` — Post-commit checkpoint: governance refresh after MP-388..MP-397 landing
+- Tree hash: `a9d3987b10e1`
+- Generation stamp: `snap-821b0bee2064`
+- Generated at (UTC): 2026-04-18T16:59:27Z
+- Push decision: `await_checkpoint` — staged_index_present
 - Reviewer mode: `active_dual_agent` (interaction: `remote_control`)
 - Pipeline state: `n/a` (approval: `n/a`)
-- Delta since last snapshot: 25 commits, 183 files, +11530/-3451
+- Delta since last snapshot: 24 commits, 183 files, +11491/-3436
 - Governance findings: 112 open / 86 fixed / 212 total
 - Probe hints: 0 total across 0 files scanned
 
@@ -54,27 +54,27 @@ adopters arrive.
 - Remote: `https://github.com/jguida941/voiceterm.git`
 - Default branch: `master`
 - Current branch: `feature/governance-quality-sweep`
-- HEAD SHA: `7d0f87a461086ecb2eeec9815018257b1eaa304f`
+- HEAD SHA: `a2e283de11ef3672d273bac86fb4ef97dedff035`
 - HEAD author: Justin Guida
-- HEAD timestamp (UTC): 2026-04-18T12:16:56-04:00
+- HEAD timestamp (UTC): 2026-04-18T12:55:35-04:00
 
 ## 2. Governance state
 
 ### Push decision
 - action: `await_checkpoint`
-- reason: worktree_dirty
+- reason: staged_index_present
 - push_eligible_now: False
 - worktree_clean: False
-- staged_path_count: 0
-- unstaged_path_count: 3
+- staged_path_count: 3
+- unstaged_path_count: 0
 - next_step_command: `python3 dev/scripts/devctl.py review-channel --action status --terminal none --format json`
 - latest_push_report: `dev/reports/push/latest.json`
 - latest_push_report_state: `blocked` (validation_failed)
-- current_push_authorization: `push-auth-20260418T164638458947Z` (valid=True)
-- authorized_head_commit: `7d0f87a461086ecb2eeec9815018257b1eaa304f`
-- approved_target_identity: `tree-receipt-20260418T161501635390Z:72f7de1e9910f4d40651e815f8427079dd87ee89`
+- current_push_authorization: `push-auth-20260418T165340476381Z` (valid=True)
+- authorized_head_commit: `a2e283de11ef3672d273bac86fb4ef97dedff035`
+- approved_target_identity: `tree-receipt-20260418T165340476381Z:a9d3987b10e1ee3548c6a28c019254e83aeb4023`
 - publication_backlog: urgent
-- publication_guidance: 11 local commit(s) waiting for governed push once the current slice is checkpoint-clean.
+- publication_guidance: 12 local commit(s) waiting for governed push once the current slice is checkpoint-clean.
 
 ### Reviewer runtime
 - reviewer_mode: `active_dual_agent`
@@ -94,12 +94,12 @@ adopters arrive.
 
 ## 3. Delta — what changed since the previous snapshot
 
-Range: last 25 commits ending at `7d0f87a46108`
+Range: last 24 commits ending at `a2e283de11ef`
 
-- commits: 25
+- commits: 24
 - files changed: 183
-- insertions: +11530
-- deletions: -3451
+- insertions: +11491
+- deletions: -3436
 - bundle classes touched: tooling, docs
 - risk add-ons triggered: Parser / ANSI boundary
 - authority surfaces touched: 25 file(s)
@@ -108,42 +108,41 @@ Range: last 25 commits ending at `7d0f87a46108`
 
 | # | SHA | Subject | Files | +/- | Bundle | Risk |
 |---|---|---|---|---|---|---|
-| 1 | `7d0f87a4` | Extend MP-377 with consolidation phases MP-388..MP-397 (Cod… | 1 | +57/-66 | tooling |  |
-| 2 | `0b09da19` | Refresh external review snapshot for 4f19b308 | 2 | +85/-75 | docs |  |
-| 3 | `4f19b308` | Converge review-channel authority and effective-mode projec… | 74 | +3274/-789 | tooling |  |
-| 4 | `637ef6f3` | Refresh external review snapshot for 077a875e | 2 | +58/-57 | docs |  |
-| 5 | `077a875e` | Allow review relaunch when refresh-recommended sessions hav… | 4 | +119/-62 | tooling |  |
-| 6 | `1732a6f5` | Refresh external review snapshot for 3632d600 | 2 | +68/-71 | docs |  |
-| 7 | `3632d600` | Finish checkpoint repair authority follow-up | 13 | +247/-80 | tooling |  |
-| 8 | `17d84eb0` | Protect running conductors during host cleanup | 20 | +1088/-476 | tooling |  |
-| 9 | `3f387494` | Refine commit packet gate and pipeline recovery sequencing | 44 | +2368/-649 | tooling | Parser / ANSI boundary |
-| 10 | `72103135` | Refresh external review snapshot for e117defd | 2 | +89/-83 | docs |  |
-| 11 | `e117defd` | Automate remote-control checkpoint approval | 47 | +1514/-190 | tooling | Parser / ANSI boundary |
-| 12 | `baad2052` | Fail closed packet authority and type convergence results | 12 | +383/-94 | tooling |  |
-| 13 | `12360f8e` | Refresh external review snapshot for 30b1beff | 2 | +58/-58 | docs |  |
-| 14 | `30b1beff` | Add IR contract metadata closures | 8 | +103/-23 | tooling |  |
-| 15 | `c90cf9ab` | Refresh external review snapshot for 0e7c12a3 | 2 | +68/-67 | docs |  |
-| 16 | `0e7c12a3` | Fail closed reviewer instruction authority state | 21 | +687/-168 | tooling |  |
-| 17 | `afc2af14` | Refresh external review snapshot for 83e27bad | 2 | +98/-59 | docs |  |
-| 18 | `83e27bad` | Harden typed review-channel authority state | 30 | +606/-192 | tooling |  |
-| 19 | `1e7465d5` | T05: Render INDEX.md + MASTER_PLAN.md from PlanRegistry (MP… | 1 | +119/-1 | tooling |  |
-| 20 | `d79ca5c3` | Refresh external review snapshot for cbd035fc | 2 | +45/-47 | docs |  |
-| 21 | `cbd035fc` | Add 12 tests for graph cache freshness validation | 1 | +100/-0 | tooling |  |
-| 22 | `dd16c411` | Refresh external review snapshot for e29f388d | 2 | +55/-62 | docs |  |
-| 23 | `e29f388d` | Fix 3 Codex blockers: graph freshness, loop scoping, T08 pr… | 5 | +156/-25 | tooling |  |
-| 24 | `9a4238f1` | Refresh external review snapshot for bed137b9 | 2 | +53/-53 | docs |  |
-| 25 | `bed137b9` | Fix cache type mismatch: coerce snapshot dicts to GraphNode… | 1 | +32/-4 | tooling |  |
+| 1 | `a2e283de` | Post-commit checkpoint: governance refresh after MP-388..MP… | 1 | +46/-42 | tooling |  |
+| 2 | `7d0f87a4` | Extend MP-377 with consolidation phases MP-388..MP-397 (Cod… | 1 | +57/-66 | tooling |  |
+| 3 | `0b09da19` | Refresh external review snapshot for 4f19b308 | 2 | +85/-75 | docs |  |
+| 4 | `4f19b308` | Converge review-channel authority and effective-mode projec… | 74 | +3274/-789 | tooling |  |
+| 5 | `637ef6f3` | Refresh external review snapshot for 077a875e | 2 | +58/-57 | docs |  |
+| 6 | `077a875e` | Allow review relaunch when refresh-recommended sessions hav… | 4 | +119/-62 | tooling |  |
+| 7 | `1732a6f5` | Refresh external review snapshot for 3632d600 | 2 | +68/-71 | docs |  |
+| 8 | `3632d600` | Finish checkpoint repair authority follow-up | 13 | +247/-80 | tooling |  |
+| 9 | `17d84eb0` | Protect running conductors during host cleanup | 20 | +1088/-476 | tooling |  |
+| 10 | `3f387494` | Refine commit packet gate and pipeline recovery sequencing | 44 | +2368/-649 | tooling | Parser / ANSI boundary |
+| 11 | `72103135` | Refresh external review snapshot for e117defd | 2 | +89/-83 | docs |  |
+| 12 | `e117defd` | Automate remote-control checkpoint approval | 47 | +1514/-190 | tooling | Parser / ANSI boundary |
+| 13 | `baad2052` | Fail closed packet authority and type convergence results | 12 | +383/-94 | tooling |  |
+| 14 | `12360f8e` | Refresh external review snapshot for 30b1beff | 2 | +58/-58 | docs |  |
+| 15 | `30b1beff` | Add IR contract metadata closures | 8 | +103/-23 | tooling |  |
+| 16 | `c90cf9ab` | Refresh external review snapshot for 0e7c12a3 | 2 | +68/-67 | docs |  |
+| 17 | `0e7c12a3` | Fail closed reviewer instruction authority state | 21 | +687/-168 | tooling |  |
+| 18 | `afc2af14` | Refresh external review snapshot for 83e27bad | 2 | +98/-59 | docs |  |
+| 19 | `83e27bad` | Harden typed review-channel authority state | 30 | +606/-192 | tooling |  |
+| 20 | `1e7465d5` | T05: Render INDEX.md + MASTER_PLAN.md from PlanRegistry (MP… | 1 | +119/-1 | tooling |  |
+| 21 | `d79ca5c3` | Refresh external review snapshot for cbd035fc | 2 | +45/-47 | docs |  |
+| 22 | `cbd035fc` | Add 12 tests for graph cache freshness validation | 1 | +100/-0 | tooling |  |
+| 23 | `dd16c411` | Refresh external review snapshot for e29f388d | 2 | +55/-62 | docs |  |
+| 24 | `e29f388d` | Fix 3 Codex blockers: graph freshness, loop scoping, T08 pr… | 5 | +156/-25 | tooling |  |
 
 ### Files
 
 | Path | Bundle | +/- |
 |---|---|---|
 | `AGENTS.md` | docs | +19/-2 |
-| `bridge.md` | docs | +72/-77 |
+| `bridge.md` | docs | +64/-69 |
 | `dev/active/MASTER_PLAN.md` | tooling | +105/-4 |
 | `dev/active/ai_governance_platform.md` | tooling | +215/-2 |
 | `dev/active/review_channel.md` | tooling | +22/-1 |
-| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1110/-1064 |
+| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1111/-1061 |
 | `dev/guides/DEVELOPMENT.md` | docs | +31/-2 |
 | `dev/history/ENGINEERING_EVOLUTION.md` | tooling | +385/-2 |
 | `dev/scripts/README.md` | tooling | +68/-8 |
@@ -290,6 +289,8 @@ Recent findings:
 
 ### Per-commit rationale
 
+- **`a2e283de` | MPs: MP-388, MP-397** — Post-commit checkpoint: governance refresh after MP-388..MP-397 landing
+  - evolution: Fact: the 2026-04-18 operator directive changed the planning contract more than the code. The repo already had a consolidation framework in place under `MP-377`, but the active-plan set still left one architectural gap:…
 - **`7d0f87a4` | MPs: MP-377, MP-388, MP-397** — Extend MP-377 with consolidation phases MP-388..MP-397 (Codex v3 plan-authoring slice)
   - plan: `dev/active/ai_governance_platform.md`
   - evolution: Fact: the 2026-04-18 operator directive changed the planning contract more than the code. The repo already had a consolidation framework in place under `MP-377`, but the active-plan set still left one architectural gap:…
@@ -323,11 +324,6 @@ Recent findings:
   - 1. Graph cache freshness (rev_pkt_0832 #1):
   -    - escalation.py + event_projection_context.py: validate snapshot HEAD
   -      against current HEAD, reject stale snapshots
-- **`9a4238f1`** — Refresh external review snapshot for bed137b9
-- **`bed137b9`** — Fix cache type mismatch: coerce snapshot dicts to GraphNode/GraphEdge (rev_pkt_0830)
-  - Cached graph snapshots contain raw dicts but query.py expects typed
-  - GraphNode objects with .label attribute. Now coerces each row to the
-  - typed dataclass. Status command: crash → 14.1s success.
 ### Active MP scope (from MASTER_PLAN.md)
 
 - contract slice for MP-355 plus the temporary markdown-swarm operating mode
@@ -363,4 +359,4 @@ Recent findings:
 
 ---
 
-Projection produced by `devctl review-snapshot`. Generation stamp `snap-6151d98e9937` binds this file to HEAD `7d0f87a46108`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
+Projection produced by `devctl review-snapshot`. Generation stamp `snap-821b0bee2064` binds this file to HEAD `a2e283de11ef`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.

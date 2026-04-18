@@ -753,6 +753,28 @@ Implementation order stays the same as the list above. Do not jump to a Rust
 compiler core first; make the current authority loop carry the full method
 explicitly before hardening or reimplementing it.
 
+## Data Contracts
+
+The current `MP-388..MP-397` consolidation lane adds or tightens these typed
+contracts on top of the broader shared inventory below:
+
+- `RoleOwnershipRule`: typed role-authority row for one durable role, including
+  allowed packet kinds, command families, write surfaces, default policy hint,
+  and capability flags so planner/auditor/researcher/coordinator behavior does
+  not get inferred from provider names or prose.
+- `CommandRegistryEntry`: typed custom-command row linking one command id to
+  its owning `PlanTargetRef`, allowed roles, policy/default interaction mode,
+  writeback surface, and `active|experimental|deprecated` state.
+- `PlanSemanticSnapshot`: persisted semantic projection for one governed plan
+  doc, including scope-path hints, checklist completion summary, typed
+  phase/task rows, stable anchor refs, referenced contract ids, and the source
+  revision used to derive `PlanRegistry` / `WorkIntakePacket` routing.
+- `PlanMutationReceipt`: typed writeback record for accepted
+  `plan_patch_review` packets, carrying packet id, target ref, expected source
+  revision, applied `mutation_op`, changed anchor refs, resulting revision, and
+  evidence refs so markdown mutation becomes auditable runtime authority rather
+  than a silent side effect.
+
 ## Shared Contracts
 
 Frontends and repo integrations should converge on one explicit backend
@@ -3199,7 +3221,7 @@ Phase metadata: phase_id=MP377-P0; owner_doc=`dev/active/ai_governance_platform.
 
 ### Phase P1 - Typed Plan Ingestion And Registry Projection
 
-Phase metadata: phase_id=MP377-P1; owner_doc=`dev/active/ai_governance_platform.md`; status=in_progress; depends_on=`MP377-P0`; summary=Close the missing typed plan-content layer, then promote persisted plan-registry state over markdown-authority drift.
+Phase metadata: phase_id=MP377-P1; owner_doc=`dev/active/ai_governance_platform.md`; status=blocked; depends_on=`MP377-P0`; summary=Finish the remaining typed plan projection and review/runtime convergence work after the `MP-388..MP-397` consolidation lane lands.
 
 - [x] `MP377-P1-T01` Land typed `PlanPhase`, `PlanTask`, and `PlanDependency` models plus a parser for structured execution-checklist phase/task metadata.
       owner_doc: `dev/active/ai_governance_platform.md`
@@ -3217,22 +3239,188 @@ Phase metadata: phase_id=MP377-P1; owner_doc=`dev/active/ai_governance_platform.
       owner_doc: `dev/active/platform_authority_loop.md`
       status: `done`
       depends_on: `MP377-P1-T03`
-- [ ] `MP377-P1-T05` Render `INDEX.md`, `MASTER_PLAN.md`, and owner-plan markdown as bounded projections over that persisted plan registry instead of treating raw markdown as mutable execution authority.
+- [ ] `MP377-P1-T05` Render `INDEX.md`, `MASTER_PLAN.md`, and owner-plan markdown as bounded projections over the semantic `PlanRegistry` closure instead of treating raw markdown as mutable execution authority.
       owner_doc: `dev/active/ai_governance_platform.md`
-      status: `pending`
-      depends_on: `MP377-P1-T04`
+      status: `blocked`
+      depends_on: `MP377-P1-T04`, `MP391-P0`
 - [ ] `MP377-P1-T06` Collapse reviewer/runtime authority onto one canonical producer tick: `refresh_status_snapshot`, `load_current_review_state`, `review_state_parser`, `commit_pipeline` artifact writes, `AuthoritySnapshot`, and `CoordinationSnapshot` must share one snapshot/generation identity and one reducer-owned field route for liveness, pending packets, current slice, commit approval, and push readiness. `packet_inbox` must become the sole continue-vs-wait authority for reviewer/implementer coordination so startup/session/status cannot drift back to chat-local `Claude Ack` or bridge prose when packet truth is degraded.
       owner_doc: `dev/active/remote_control_runtime.md`
-      status: `pending`
-      depends_on: `MP377-P1-T03`
+      status: `blocked`
+      depends_on: `MP377-P1-T03`, `MP393-P0`
 - [ ] `MP377-P1-T07` Make governed mutation self-healing against stale projections: commit/push/phone/operator actions must refresh and consume the canonical review-state + commit-pipeline artifacts before consistency checks, treat compatibility-surface drift as a reducer bug to fix rather than a reason to require manual `review-channel --action status`, and keep raw `git` mutation outside the remote-control path.
       owner_doc: `dev/active/remote_commit_pipeline.md`
-      status: `pending`
-      depends_on: `MP377-P1-T06`
+      status: `blocked`
+      depends_on: `MP377-P1-T06`, `MP394-P0`
 - [ ] `MP377-P1-T08` Emit one typed liveness/wake/death signal family for reviewer, implementer, publisher, and observer consumers so dashboard/mobile/startup/status can distinguish `alive`, `degraded`, `detached_runtime_only`, and `dead` from one producer instead of mixing heartbeat prose, PID guesses, and bridge hints. Compatibility projections like `Claude Ack` and bridge heartbeat sections may mirror that state, but they must not remain independent wake/repair gates once typed runtime evidence exists.
       owner_doc: `dev/active/remote_control_runtime.md`
+      status: `blocked`
+      depends_on: `MP377-P1-T06`, `MP397-P0`
+
+### Phase MP-388 - Archive The Remaining Reference-Only Active Docs
+
+Phase metadata: phase_id=MP388-P0; owner_doc=`dev/active/ai_governance_platform.md`; status=pending; depends_on=`MP377-P0`; summary=Archive the last four reference-only active-doc remnants so the live set matches one umbrella plan plus the small owner-doc set.
+
+- [ ] `MP388-T01` Move `move.md`, `loop_chat_bridge.md`, `phase2.md`, and `RUST_AUDIT_FINDINGS.md` out of `dev/active/` without leaving duplicate active authority or broken reference links.
+      owner_doc: `dev/active/ai_governance_platform.md`
       status: `pending`
-      depends_on: `MP377-P1-T06`
+      depends_on: `MP377-P0-T02`
+- [ ] `MP388-T02` Update `INDEX.md`, discovery docs, and archive/deferred pointers so startup/context-graph stop surfacing the archived files as live planning context and the active-doc count drops from 30 to 26.
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `pending`
+      depends_on: `MP388-T01`
+
+### Phase MP-389 - Semantic Plan Loader Core
+
+Phase metadata: phase_id=MP389-P0; owner_doc=`dev/active/platform_authority_loop.md`; status=pending; depends_on=`MP388-P0`; summary=Promote plan docs from registration-only records to semantic inputs by extracting scope paths, checklist state, and typed phase/task routing into `PlanRegistry`.
+
+- [ ] `MP389-T01` Extract bounded scope-path hints from each governed `## Scope` section and persist them as typed plan-content fields instead of prose-only descriptions.
+      owner_doc: `dev/active/platform_authority_loop.md`
+      status: `pending`
+      depends_on: `MP388-P0`
+- [ ] `MP389-T02` Persist checklist completion state plus typed phase/task summaries from governed plan docs so `PlanRegistry` can answer open-vs-done status without reparsing markdown on every read.
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `pending`
+      depends_on: `MP389-T01`
+- [ ] `MP389-T03` Feed the semantic phase/task extraction into `plan_routing` and `PlanningIRSnapshot` so startup/work-intake can route from live plan state instead of tracker prose.
+      owner_doc: `dev/active/platform_authority_loop.md`
+      status: `pending`
+      depends_on: `MP389-T02`
+
+### Phase MP-390 - Plan Mutation And Anchor Authority
+
+Phase metadata: phase_id=MP390-P0; owner_doc=`dev/active/ai_governance_platform.md`; status=pending; depends_on=`MP389-P0`; summary=Make plan anchors and accepted plan-patch mutations typed runtime authority instead of manual markdown conventions.
+
+- [ ] `MP390-T01` Auto-populate stable anchor refs for scope, checklist, session-resume, progress, and audit sections so `PlanTargetRef` no longer depends on free-form manual slugs.
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `pending`
+      depends_on: `MP389-P0`
+- [ ] `MP390-T02` Apply accepted `plan_patch_review` `mutation_op` packets back to markdown with expected-revision checks instead of leaving the packet contract write-only.
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `pending`
+      depends_on: `MP390-T01`
+- [ ] `MP390-T03` Emit a typed `PlanMutationReceipt` for each applied change so startup/review/status can prove when plan state changed because of accepted packet authority.
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `pending`
+      depends_on: `MP390-T02`
+
+### Phase MP-391 - Plan-Target Cutover And Tracker Demotion
+
+Phase metadata: phase_id=MP391-P0; owner_doc=`dev/active/platform_authority_loop.md`; status=pending; depends_on=`MP390-P0`; summary=Make `PlanTargetRef` and semantic plan state the primary routing source, then demote `MASTER_PLAN.md` from live task authority to bounded tracker/reference projection.
+
+- [ ] `MP391-T01` Make `WorkIntakePacket.plan_target_path` plus the selected `PlanTargetRef` the primary scope source for startup/session routing instead of stale continuity or tracker prose.
+      owner_doc: `dev/active/platform_authority_loop.md`
+      status: `pending`
+      depends_on: `MP390-P0`
+- [ ] `MP391-T02` Render `MASTER_PLAN.md` as a bounded tracker/projection over semantic `PlanRegistry` state and explicitly demote its free-form task prose to reference/mirror status.
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `pending`
+      depends_on: `MP391-T01`
+- [ ] `MP391-T03` Keep `check_active_plan_sync`, docs-governance, and startup receipts honest about the new authority order so projected markdown and persisted registry state cannot drift silently.
+      owner_doc: `dev/active/PLAN_FORMAT.md`
+      status: `pending`
+      depends_on: `MP391-T02`
+
+### Phase MP-392 - Role Vocabulary And Ownership
+
+Phase metadata: phase_id=MP392-P0; owner_doc=`dev/active/ai_governance_platform.md`; status=pending; depends_on=`MP391-P0`; summary=Extend the durable collaboration roles beyond reviewer/implementer/operator and bind typed packet/command ownership to those roles.
+
+- [ ] `MP392-T01` Extend `TandemRole` with `PLANNER`, `AUDITOR`, `RESEARCHER`, and `COORDINATOR` plus aliases and default capability envelopes.
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `pending`
+      depends_on: `MP391-P0`
+- [ ] `MP392-T02` Add `role_ownership.py` so packet kinds, command families, write surfaces, and review-only boundaries map to roles instead of provider-name assumptions.
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `pending`
+      depends_on: `MP392-T01`
+- [ ] `MP392-T03` Route `plan_gap_review`, `plan_patch_review`, and `plan_ready_gate` through `PLANNER` ownership while keeping `AUDITOR` read-only by contract.
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `pending`
+      depends_on: `MP392-T02`
+
+### Phase MP-393 - Role-Aware Runtime Routing
+
+Phase metadata: phase_id=MP393-P0; owner_doc=`dev/active/remote_control_runtime.md`; status=pending; depends_on=`MP392-P0`; summary=Wire the expanded role model through startup, session, commit, and review-channel flows without regressing existing reviewer/implementer/operator behavior.
+
+- [ ] `MP393-T01` Make `session-resume --role`, `startup-context --role`, `commit --role`, and review-channel actor validation accept the expanded role set.
+      owner_doc: `dev/active/remote_control_runtime.md`
+      status: `pending`
+      depends_on: `MP392-P0`
+- [ ] `MP393-T02` Surface role ownership in startup/session packets and commit gating so planner/auditor/researcher/coordinator authority is explicit at runtime.
+      owner_doc: `dev/active/platform_authority_loop.md`
+      status: `pending`
+      depends_on: `MP393-T01`
+- [ ] `MP393-T03` Add focused proof that the new roles survive remote-control and review-channel flows without breaking existing reviewer/implementer/operator semantics.
+      owner_doc: `dev/active/remote_control_runtime.md`
+      status: `pending`
+      depends_on: `MP393-T02`
+
+### Phase MP-394 - Command Registry And Plan-Linked Command Ownership
+
+Phase metadata: phase_id=MP394-P0; owner_doc=`dev/active/ai_governance_platform.md`; status=pending; depends_on=`MP393-P0`; summary=Move slash/custom command ownership out of prose and into a typed registry that links commands to plan targets, roles, and policy.
+
+- [ ] `MP394-T01` Add `.claude/command_registry.yaml` with typed command rows linking command id to owning plan target, allowed roles, default policy hint, and `active|experimental|deprecated` state.
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `pending`
+      depends_on: `MP393-P0`
+- [ ] `MP394-T02` Migrate `/bridge-loop`, `/remote-control`, and `/voice` onto that registry so command ownership no longer depends on prose-only docs.
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `pending`
+      depends_on: `MP394-T01`
+- [ ] `MP394-T03` Extend plan/docs sync guards so active commands fail closed when they lack plan linkage, role ownership, or truthful deprecation state.
+      owner_doc: `dev/active/PLAN_FORMAT.md`
+      status: `pending`
+      depends_on: `MP394-T02`
+
+### Phase MP-395 - Structured Checklist Migration For Half-Done Plans
+
+Phase metadata: phase_id=MP395-P0; owner_doc=`dev/active/operator_console.md`; status=pending; depends_on=`MP394-P0`; summary=Convert the biggest prose-only half-done plan surfaces into typed task/checklist state so routing can see them instead of burying them in long docs.
+
+- [ ] `MP395-T01` Convert `operator_console.md` into typed phase/task or YAML/JSON-backed checklist state so its 113 unchecked items stop living as prose-only backlog.
+      owner_doc: `dev/active/operator_console.md`
+      status: `pending`
+      depends_on: `MP394-P0`
+- [ ] `MP395-T02` Migrate the remaining `remote_control_runtime.md` `MP-380..MP-387` closure items onto the same structured checklist contract without promoting a second umbrella plan.
+      owner_doc: `dev/active/remote_control_runtime.md`
+      status: `pending`
+      depends_on: `MP395-T01`
+- [ ] `MP395-T03` Add stale-item visibility rules so execution items older than 30 days surface typed owner/status metadata instead of hiding inside long-form prose.
+      owner_doc: `dev/active/PLAN_FORMAT.md`
+      status: `pending`
+      depends_on: `MP395-T02`
+
+### Phase MP-396 - Generator And Module-Ownership Closure
+
+Phase metadata: phase_id=MP396-P0; owner_doc=`dev/active/ai_governance_platform.md`; status=pending; depends_on=`MP395-P0`; summary=Finish the declared generator and module-ownership surfaces so half-built scaffolds stop surviving as silent debt.
+
+- [ ] `MP396-T01` Implement `extension_bundle.py` surface generators for the already-declared contract dataclasses and add round-trip tests proving emitted surfaces match the contract.
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `pending`
+      depends_on: `MP395-P0`
+- [ ] `MP396-T02` Add an orphan-module detector so every module is either dispatcher-reachable or explicitly marked internal-only.
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `pending`
+      depends_on: `MP396-T01`
+- [ ] `MP396-T03` Route generator/orphan findings through `bundle.tooling` so unfinished scaffolds fail closed instead of living only in review notes.
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `pending`
+      depends_on: `MP396-T02`
+
+### Phase MP-397 - CLI And Runtime Parity Closure
+
+Phase metadata: phase_id=MP397-P0; owner_doc=`dev/active/remote_control_runtime.md`; status=pending; depends_on=`MP396-P0`; summary=Make help text, runtime surfaces, and typed contracts tell the same truth about what is implemented, deprecated, or still experimental.
+
+- [ ] `MP397-T01` Finish `devctl rollout-tail --follow` or mark it `[DEPRECATED]` / experimental with truthful help text and typed output contracts.
+      owner_doc: `dev/active/remote_control_runtime.md`
+      status: `pending`
+      depends_on: `MP396-P0`
+- [ ] `MP397-T02` Make CLI help and plan docs converge on one rule: every flag is implemented, deprecated, or explicitly experimental; no `--help` text may claim "not yet implemented."
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `pending`
+      depends_on: `MP397-T01`
+- [ ] `MP397-T03` Close the remaining typed-contract/prose gap on runtime surfaces so packet/decision paths stay 1:1 with rendered docs instead of compatibility prose.
+      owner_doc: `dev/active/remote_control_runtime.md`
+      status: `pending`
+      depends_on: `MP397-T02`
 
 ### Phase P2 - Closed-Loop Quality Composition And Audit Orchestration
 
@@ -5079,6 +5267,17 @@ prefer the typed phase/task entries before any free-form backlog bullets.
 Use this section as the single "left off here" surface for fresh AI sessions
 working on `MP-377`.
 
+- 2026-04-18 consolidation-plan authoring follow-up:
+  `MP-377` now explicitly absorbs the one-plan consolidation campaign instead
+  of spawning another active plan. The new bounded lane is `MP-388..MP-397`:
+  archive four reference-only active docs first, then land semantic
+  plan-loader extraction, anchor/mutation writeback, `PlanTargetRef` /
+  `WorkIntakePacket` cutover plus `MASTER_PLAN` demotion, role expansion,
+  command-registry wiring, and the half-done closure contract. `MP377-P1-T05`
+  through `MP377-P1-T08` are intentionally parked as `blocked` follow-up work
+  until that consolidation lane lands. The next bounded slice is
+  `MP388-T01` / `MP388-T02`; the highest-value technical follow-up right after
+  that cleanup is `MP389-T01`.
 - 2026-04-18 provider-role authority + prepared-launch checkpoint follow-up:
   the current `rev_pkt_0991` checkpoint now folds the sibling
   `rev_pkt_1014` provider-hardcode cleanup into the same bounded proof.
@@ -7219,6 +7418,18 @@ Execution order for this section:
 
 ## Progress Log
 
+- 2026-04-18: Absorbed Claude's four-agent consolidation synthesis into the
+  live umbrella plan instead of creating a new active plan doc. `MP-388`
+  through `MP-397` now sequence the remaining consolidation work in bounded
+  slices: archive four reference-only active docs, land the semantic
+  `PlanRegistry` loader and plan-mutation writeback, cut startup/work-intake
+  over to `PlanTargetRef` authority, extend the role model with planner /
+  auditor / researcher / coordinator, add a typed command registry, and close
+  the biggest half-done surfaces through structured checklists, generators,
+  orphan detection, and CLI/runtime parity rules. The older `MP377-P1-T05`
+  through `MP377-P1-T08` items are now explicitly `blocked` behind that lane
+  so startup routing keeps selecting the consolidation work instead of the
+  previously parked projection/runtime follow-ups.
 - 2026-04-18: Closed the bounded provider-hardcode / prepared-launch drift
   seam in the live `MP-377` / `MP-355` proof. Prepared launch authority now
   derives post-launch `remote_control` continuity from typed
@@ -10499,6 +10710,15 @@ Execution order for this section:
 
 ## Audit Evidence
 
+- 2026-04-18 consolidation-plan authoring validation:
+  `python3 dev/scripts/devctl.py docs-check --strict-tooling --format md`
+  (pass),
+  `python3 dev/scripts/checks/check_active_plan_sync.py` (pass), and
+  `python3 dev/scripts/devctl.py check-router --execute --keep-going --format md`
+  (tooling lane surfaced pre-existing runtime-authority failures in
+  `check_review_channel_bridge`, `check_startup_authority_contract`, and
+  `check_tandem_consistency`; the new plan-doc edits themselves stayed green
+  on the doc-authority and active-plan sync gates).
 - Local shared-worktree research companions (reference-only, non-authoritative,
   when present): `GUARD_AUDIT_FINDINGS.md` is the focused guard-audit /
   sequencing synthesis, and `ZGRAPH_RESEARCH_EVIDENCE.md` is the expanded

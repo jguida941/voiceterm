@@ -74,6 +74,46 @@
   registry at the top of `dev/active/ai_governance_platform.md`: each phase
   declares owner doc, task ids, dependencies, and status, and startup/work-
   intake may only treat those typed phase tasks as live execution authority.
+- 2026-04-18 `MP-388` consolidation archive pass in `MP-377` scope:
+  archive `move.md`, `loop_chat_bridge.md`, `phase2.md`, and
+  `RUST_AUDIT_FINDINGS.md` out of `dev/active/`, update discovery pointers,
+  and reduce the active-doc count from 30 to 26 so the live set matches the
+  one-umbrella-plan policy.
+- 2026-04-18 `MP-389` semantic plan-loader core in `MP-377` scope:
+  extract bounded scope paths, checklist state, and typed phase/task routing
+  from governed plan markdown into `PlanRegistry` so plans stop being
+  registration-only inputs.
+- 2026-04-18 `MP-390` plan-mutation and anchor authority in `MP-377` scope:
+  auto-populate stable anchor refs and apply accepted `plan_patch_review`
+  `mutation_op` packets back to markdown with typed receipts instead of
+  leaving plan writes as advisory-only packets.
+- 2026-04-18 `MP-391` plan-target cutover and tracker demotion in
+  `MP-377` scope: make `WorkIntakePacket.plan_target_path` /
+  `PlanTargetRef` the primary routing source and demote `MASTER_PLAN.md`
+  from live task authority to bounded tracker/reference projection.
+- 2026-04-18 `MP-392` role vocabulary and ownership in `MP-377` scope:
+  extend `TandemRole` with `PLANNER`, `AUDITOR`, `RESEARCHER`, and
+  `COORDINATOR`, then bind packet kinds, command families, and write
+  authority to typed roles.
+- 2026-04-18 `MP-393` role-aware runtime routing in `MP-377` scope:
+  wire the expanded role model through `startup-context`, `session-resume`,
+  `commit --role`, and review-channel actor validation without regressing the
+  existing reviewer/implementer/operator lanes.
+- 2026-04-18 `MP-394` command registry in `MP-377` scope:
+  add `.claude/command_registry.yaml`, link commands to owning plans/roles,
+  and migrate `/bridge-loop`, `/remote-control`, and `/voice` off prose-only
+  ownership.
+- 2026-04-18 `MP-395` structured checklist migration in `MP-377` scope:
+  convert `operator_console.md` and the remaining `remote_control_runtime.md`
+  closure items into typed checklist/task state so half-done work stops
+  hiding inside long prose docs.
+- 2026-04-18 `MP-396` generator and module-ownership closure in `MP-377`
+  scope: implement `extension_bundle.py` generators with round-trip tests and
+  add orphan-module detection so unfinished scaffolds fail closed.
+- 2026-04-18 `MP-397` CLI/runtime parity closure in `MP-377` scope:
+  finish or truthfully deprecate `rollout-tail --follow`, require every help
+  flag to be implemented/deprecated/experimental, and close the typed
+  contract vs prose drift on remaining runtime surfaces.
 - 2026-04-09 branch reviewer-follow-up cycle on
   `feature/governance-quality-sweep`: Codex's full-range review pass
   promoted verdict from "accepted: hygiene fix landed" (`696f4772`) to
