@@ -1,6 +1,6 @@
 # Remote Control Runtime Closure Plan
 
-**Status**: active  |  **Last updated**: 2026-04-15 | **Owner:** Tooling/control plane/review runtime/dashboard
+**Status**: active  |  **Last updated**: 2026-04-18 | **Owner:** Tooling/control plane/review runtime/dashboard
 Execution plan contract: required
 This spec is mirrored in `dev/active/MASTER_PLAN.md` under `MP-380..MP-387`.
 It closes the remote-control/operator-surface gaps found in the 2026-04-04
@@ -482,6 +482,18 @@ remote/runtime order explicit:
 
 ## Progress Log
 
+- 2026-04-18: Closed the first role-implicit commit-approval gap in the live
+  `/remote-control` dogfood loop without reopening blanket promptless
+  approval. Governed commit preflight now resolves a typed
+  `CommitApprovalAuthority` from `interaction_mode` plus active
+  `remote_control_attachment` evidence, so `remote_control` only
+  auto-satisfies approval when runtime proves an active operator-role
+  delegate for the current lane. Plain `remote_control` still fails closed at
+  `operator_approval_pending`, and `devctl commit --approve-pending` remains
+  the explicit resume path otherwise. Focused proof is green on the
+  delegate-backed auto-approval, no-delegate pending, explicit resume, synced
+  approval persistence, pending-phase reporting, and interaction-mode
+  resolution regressions.
 - 2026-04-15: Locked the remote-control dogfood expansion to one typed
   baseline instead of ad hoc widening. The owner-doc chain now says the first
   live proof is `Codex conductor/reviewer + Claude remote-control implementer
@@ -1325,6 +1337,18 @@ No `ControlPlaneReadModel` exists. Each surface independently reads raw artifact
 
 ## Session Resume
 
+- 2026-04-18 role-implicit commit-approval slice:
+  resume from the live `/remote-control` dogfood regression, not from either
+  blanket extreme. The repo already projects one active
+  `remote_control_attachment` for Claude with `role=operator`, and the same
+  review state exposes Claude as both `coding_agent` and `operator_agent`
+  while startup/control-plane still resolve `interaction_mode=remote_control`.
+  The next bounded closure is to replace string-only remote-control approval
+  gating with one typed approval-authority decision: auto-satisfy the governed
+  commit approval step only when runtime evidence proves an active
+  operator-role delegation for the current remote-control lane; otherwise keep
+  the explicit typed approval-packet / `devctl commit --approve-pending`
+  recovery path fail-closed.
 - 2026-04-15 remote-control campaign baseline:
   resume this lane from the bounded live proof, not from abstract fanout.
   The default topology is `Codex conductor/reviewer + Claude remote-control

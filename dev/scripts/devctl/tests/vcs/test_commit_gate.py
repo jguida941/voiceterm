@@ -32,6 +32,9 @@ from dev.scripts.devctl.commands.vcs.commit_preflight import (
     load_pipeline_for_explicit_approval,
     prepare_pipeline,
 )
+from dev.scripts.devctl.commands.vcs.commit_preflight_support import (
+    build_commit_approval_authority,
+)
 from dev.scripts.devctl.commands.vcs.commit_guard_bundle import guard_result
 from dev.scripts.devctl.commands.vcs.governed_executor import GovernedVcsExecutor
 from dev.scripts.devctl.commands.vcs.governed_executor_actions import (
@@ -60,12 +63,19 @@ from dev.scripts.devctl.review_channel.events import (
     resolve_artifact_paths,
     transition_packet,
 )
+from dev.scripts.devctl.review_channel.remote_control_attachment_artifact import (
+    persist_remote_control_attachment,
+)
 from dev.scripts.devctl.review_channel.packet_contract import PacketTransitionRequest
 from dev.scripts.devctl.platform.coordination_snapshot_models import (
     CoordinationActorRecord,
     CoordinationSnapshot,
 )
+from dev.scripts.devctl.repo_packs import active_path_config
 from dev.scripts.devctl.runtime.commit_permission import CommitPermissionDecision
+from dev.scripts.devctl.runtime.reviewer_runtime_models import (
+    RemoteControlAttachmentState,
+)
 from dev.scripts.devctl.runtime.startup_context import ReviewerGateState, StartupContext
 from dev.scripts.devctl.runtime.review_state_packet_models import ReviewPacketState
 from dev.scripts.devctl.runtime.validation_contracts import ValidationPlan
@@ -167,6 +177,27 @@ def _executor(repo_root: Path) -> GovernedVcsExecutor:
         push_policy=_push_policy(),
         startup_context_fn=_startup_context_fn,
         refresh_projections=True,
+    )
+
+
+def _persist_remote_operator_attachment(
+    repo_root: Path,
+    *,
+    provider: str = "claude",
+) -> None:
+    persist_remote_control_attachment(
+        RemoteControlAttachmentState(
+            provider=provider,
+            role="operator",
+            attachment_id=f"{provider}-remote-operator",
+            session_name=f"{provider}-remote-control",
+            remote_session_id=f"{provider}-session",
+            session_url=f"https://example.invalid/{provider}-session",
+            status="attached",
+            attached_at_utc="2026-04-18T14:00:00Z",
+            last_seen_utc="2026-04-18T14:00:01Z",
+        ),
+        output_root=repo_root / active_path_config().review_status_dir_rel,
     )
 
 
@@ -1146,15 +1177,52 @@ class TestGovernedCommitPipeline(unittest.TestCase):
                 "feat: governed local commit",
             )
 
-    def test_commit_remote_mode_waits_for_typed_approval(self) -> None:
-        """F1 regression: remote_control must not self-approve.
+    def test_commit_remote_mode_auto_approves_for_active_operator_delegate(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            repo_root = _init_repo(Path(tmpdir) / "repo")
+            _persist_remote_operator_attachment(repo_root)
+            (repo_root / "tracked.txt").write_text("updated\n", encoding="utf-8")
+            _run_git(repo_root, "add", "tracked.txt")
+            guard_runner = MagicMock(return_value=_mock_subprocess_result(0))
 
-        When the operator is on remote control the local terminal cannot
-        authoritatively speak for them, so the governed commit path must
-        leave the pipeline in ``operator_approval_pending`` until a typed
-        approval or action-request packet is applied by the off-box
-        operator. Only ``local_terminal`` and ``single_agent`` self-
-        approve. Collapsing this boundary was F1 in the Codex review.
+            rc = run_commit(
+                _make_args(message="feat: delegated remote-control commit"),
+                repo_root=repo_root,
+                policy=_push_policy(),
+                executor=_executor(repo_root),
+                interaction_mode="remote_control",
+                guard_runner=guard_runner,
+            )
+
+            executor = _executor(repo_root)
+            pipeline = executor.load_pipeline()
+            packets = {
+                packet.packet_id: packet
+                for packet in executor._event_packets()
+            }
+            self.assertEqual(rc, 0)
+            self.assertEqual(pipeline.state, "commit_recorded")
+            self.assertEqual(pipeline.approval_state, "approved")
+            self.assertEqual(packets[pipeline.approval_packet_id].to_agent, "operator")
+            self.assertEqual(packets[pipeline.decision_packet_id].from_agent, "operator")
+            self.assertIn(
+                "remote-control operator delegate `claude`",
+                packets[pipeline.decision_packet_id].body,
+            )
+            self.assertEqual(
+                _run_git(repo_root, "log", "-1", "--pretty=%s"),
+                "feat: delegated remote-control commit",
+            )
+
+    def test_commit_remote_mode_without_operator_delegate_waits_for_typed_approval(
+        self,
+    ) -> None:
+        """Remote-control stays fail-closed when typed operator delegation is absent.
+
+        The governed commit path should only auto-satisfy approval when typed
+        runtime evidence proves that the remote-control lane already delegates
+        operator authority to a live agent. A bare ``interaction_mode`` string
+        is not sufficient on its own.
         """
         with tempfile.TemporaryDirectory() as tmpdir:
             repo_root = _init_repo(Path(tmpdir) / "repo")
@@ -1476,7 +1544,9 @@ class TestGovernedCommitPipeline(unittest.TestCase):
             approved_pipeline, report = apply_explicit_operator_approval(
                 vcs_executor=executor,
                 pipeline=executor.load_pipeline(),
-                resolved_mode="remote_control",
+                approval_authority=build_commit_approval_authority(
+                    interaction_mode="remote_control",
+                ),
                 stage_warnings=[],
             )
 

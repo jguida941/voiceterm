@@ -236,16 +236,32 @@ def _ensure_approval_request(
     return str(event.get("packet_id") or "").strip()
 
 
-def _apply_local_approval(executor: GovernedVcsExecutor, pipeline) -> None:
-    """Record request + applied operator decision for local terminal commits."""
+def _apply_local_approval(
+    executor: GovernedVcsExecutor,
+    pipeline,
+    *,
+    approval_actor: str = "operator",
+    authority_reason: str = "",
+) -> None:
+    """Record request + applied approval for trusted local or delegated modes."""
+    summary = f"Local terminal approval for `{pipeline.pipeline_id}`"
+    body = (
+        "The local terminal operator approved the guarded staged "
+        "snapshot for governed commit execution."
+    )
+    if authority_reason == "remote_control_operator_delegate":
+        summary = f"Remote-control delegated approval for `{pipeline.pipeline_id}`"
+        actor_label = str(approval_actor or "operator").strip()
+        body = (
+            "The active remote-control operator delegate "
+            f"`{actor_label}` approved the guarded staged snapshot for "
+            "governed commit execution."
+        )
     _record_operator_approval(
         executor,
         pipeline,
-        summary=f"Local terminal approval for `{pipeline.pipeline_id}`",
-        body=(
-            "The local terminal operator approved the guarded staged "
-            "snapshot for governed commit execution."
-        ),
+        summary=summary,
+        body=body,
     )
 
 

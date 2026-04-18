@@ -194,9 +194,12 @@ exception is checkpoint-only authority: when startup explicitly says
 `reviewer_gate.checkpoint_permitted=true`, `devctl commit` may still cut the
 governed checkpoint for already-staged work, while raw `git commit` stays
 blocked until the broader implementation-authority issue is repaired. In
-`remote_control` or other non-auto-approved lanes, a governed commit that
-posts a new approval request must stop at `operator_approval_pending` before
-the `vcs.commit` phase; apply or reuse the typed decision first, then rerun
+`remote_control`, the approval rule is now typed-evidence-first: an active
+`reviewer_runtime.remote_control_attachment` with `role=operator` may
+auto-satisfy the governed commit approval step through the existing typed
+operator packet flow, but `remote_control` without that delegation and other
+non-auto-approved lanes must still stop at `operator_approval_pending` before
+the `vcs.commit` phase. Apply or reuse the typed decision first, then rerun
 the command from a fresh startup/review receipt instead of expecting the same
 invocation to cross the approval boundary.
 Treat `allowed_actions` as the effective post-gate set, not the raw lane
@@ -1377,12 +1380,15 @@ Workflow permissions note:
    The shared `devctl` command runner now follows the parent push/post-push
    command lifetime instead of waiting forever on inherited descendant stdout
    pipes after the governed push has already completed.
-   `devctl commit` follows the same fail-closed rule: only resolved
-   `local_terminal` or `single_agent` modes may self-apply the typed approval
-   packet; `remote_control`, `dual_agent`, and `unresolved` must stop at the
-   approval request until an applied operator decision exists. Queue truth is
-   apply-bound too: only applied `commit_approval` decisions clear the live
-   approval request, not `acked` packets or stale packet history.
+   `devctl commit` follows the same fail-closed rule: resolved
+   `local_terminal` and `single_agent` modes may self-apply the typed approval
+   packet, and `remote_control` may do the same only when typed runtime state
+   proves an active operator-role `remote_control_attachment` for the current
+   lane. `remote_control` without that evidence, plus `dual_agent` and
+   `unresolved`, must stop at the approval request until an applied operator
+   decision exists. Queue truth is apply-bound too: only applied
+   `commit_approval` decisions clear the live approval request, not `acked`
+   packets or stale packet history.
 6. If you are not using `devctl push`, run `python3 dev/scripts/devctl.py check-router --since-ref origin/develop --execute` or the matching bundle manually (`bundle.runtime`, `bundle.docs`, or `bundle.tooling`) before `git push`, then run `bundle.post-push`.
 7. If you add or rename a `devctl` command, update the CLI inventory (`devctl list`) and the maintainer command docs in the same change so discovery stays truthful.
 8. Merge to `develop` only after review and green checks.

@@ -278,6 +278,18 @@
   full event-bundle enrichment pass just to match approval packets. Focused
   proof is green, and the remaining latency hotspot sits in the first-stage
   remote-control `devctl commit -m ...` preflight/context-graph path.
+- 2026-04-18 remote-control delegated approval follow-up in `MP-377` scope:
+  governed commit no longer treats `remote_control` as one blanket approval
+  rule. The preflight lane now resolves a typed approval-authority decision
+  from `interaction_mode` plus active `remote_control_attachment` evidence, so
+  `remote_control` only auto-satisfies approval when runtime proves an active
+  operator-role delegate for the current lane. Plain `remote_control` still
+  fails closed at `operator_approval_pending`, and
+  `python3 dev/scripts/devctl.py commit --approve-pending` remains the
+  explicit resume path when that typed delegation is absent. Focused proof is
+  green on the delegate-backed auto-approval, no-delegate fail-closed,
+  explicit resume, explicit approval sync, pending-phase reporting, and
+  interaction-mode resolution regressions.
 - 2026-04-17 operator-inbox Phase-1 follow-up in `MP-377` / `MP-355` scope:
   the first operator-facing packet read surface now rides the existing
   review-channel transport instead of inventing a second lane.

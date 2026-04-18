@@ -4,14 +4,20 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from ...repo_packs import active_path_config
 from ...runtime.control_plane_read_model import build_control_plane_read_model
 from ...runtime.governance_scan import scan_repo_governance_safely
+from ...review_channel.remote_control_attachment_artifact import (
+    load_remote_control_attachment,
+)
 from .commit_guard_replay import sync_pipeline_approval_state
 from .commit_pipeline_blocking import build_active_pipeline_block_report
 from .commit_preflight_support import (
     APPROVE_PENDING_COMMAND,
+    CommitApprovalAuthority,
     OPERATOR_HISTORY_COMMAND,
     OPERATOR_INBOX_COMMAND,
+    build_commit_approval_authority,
     next_command_guidance,
     should_auto_approve,
 )
@@ -31,8 +37,27 @@ from .governed_executor_git import pipeline_is_stale_for_current_repo
 from .governed_executor_sync import sync_pipeline_approval
 
 
-def resolve_interaction_mode(repo_root: Path) -> str:
-    """Return the current operator interaction mode for commit approval."""
+def resolve_commit_approval_authority(
+    repo_root: Path,
+    *,
+    interaction_mode_override: str | None = None,
+) -> CommitApprovalAuthority:
+    """Return the typed approval authority for the current commit attempt."""
+    override_mode = str(interaction_mode_override or "").strip()
+    if override_mode and override_mode != "remote_control":
+        return build_commit_approval_authority(
+            interaction_mode=override_mode,
+        )
+    if override_mode == "remote_control":
+        output_root = repo_root / active_path_config().review_status_dir_rel
+        return build_commit_approval_authority(
+            interaction_mode=override_mode,
+            remote_control_attachment=load_remote_control_attachment(
+                output_root=output_root,
+            ),
+        )
+
+    remote_control_attachment = None
     try:
         governance = scan_repo_governance_safely(repo_root)
         model = build_control_plane_read_model(
@@ -40,8 +65,22 @@ def resolve_interaction_mode(repo_root: Path) -> str:
             governance=governance,
         )
     except (OSError, ValueError):
-        return "unresolved"
-    return str(model.operator_interaction_mode or "").strip() or "unresolved"
+        interaction_mode = "unresolved"
+    else:
+        interaction_mode = (
+            str(model.operator_interaction_mode or "").strip()
+            or "unresolved"
+        )
+        remote_control_attachment = getattr(model, "remote_control_attachment", None)
+    return build_commit_approval_authority(
+        interaction_mode=interaction_mode,
+        remote_control_attachment=remote_control_attachment,
+    )
+
+
+def resolve_interaction_mode(repo_root: Path) -> str:
+    """Return the current operator interaction mode for commit approval."""
+    return resolve_commit_approval_authority(repo_root).interaction_mode
 
 
 def prepare_pipeline(
@@ -84,7 +123,7 @@ def ensure_pipeline_approval(
     *,
     vcs_executor: GovernedVcsExecutor,
     pipeline,
-    resolved_mode: str,
+    approval_authority: CommitApprovalAuthority,
     stage_warnings: list[str],
 ):
     """Return the synced approval state or the blocking approval report."""
@@ -92,8 +131,13 @@ def ensure_pipeline_approval(
         vcs_executor._persist_pipeline(pipeline)
         return pipeline, None
     request_packet_id = ""
-    if should_auto_approve(resolved_mode):
-        _apply_local_approval(vcs_executor, pipeline)
+    if should_auto_approve(approval_authority):
+        _apply_local_approval(
+            vcs_executor,
+            pipeline,
+            approval_actor=approval_authority.approval_actor,
+            authority_reason=approval_authority.authority_reason,
+        )
     else:
         request_packet_id = _ensure_approval_request(vcs_executor, pipeline)
     pipeline = sync_pipeline_approval_state(
@@ -114,7 +158,7 @@ def ensure_pipeline_approval(
         approval_request_packet_id=request_packet_id,
         resume_command=APPROVE_PENDING_COMMAND,
         operator_guidance=next_command_guidance(OPERATOR_INBOX_COMMAND),
-        interaction_mode=resolved_mode,
+        interaction_mode=approval_authority.interaction_mode,
         warnings=stage_warnings,
     )
 
@@ -123,7 +167,7 @@ def apply_explicit_operator_approval(
     *,
     vcs_executor: GovernedVcsExecutor,
     pipeline,
-    resolved_mode: str,
+    approval_authority: CommitApprovalAuthority,
     stage_warnings: list[str],
 ):
     """Record explicit operator approval for the current governed pipeline."""
@@ -165,6 +209,6 @@ def apply_explicit_operator_approval(
         requested_action="reconcile_operator_approval",
         next_command=OPERATOR_HISTORY_COMMAND,
         operator_guidance=next_command_guidance(OPERATOR_HISTORY_COMMAND),
-        interaction_mode=resolved_mode,
+        interaction_mode=approval_authority.interaction_mode,
         warnings=stage_warnings,
     )

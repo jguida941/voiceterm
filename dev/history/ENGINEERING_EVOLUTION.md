@@ -39,45 +39,52 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 
 ### 2026-04-17 - Event-backed current-session only clears on explicit packet truth, and missing implementation permission now blocks mutation
 
-### 2026-04-18 - MP-377 now absorbs the one-plan consolidation campaign instead of spawning another active plan
+### 2026-04-18 - Remote-control operator delegation now auto-satisfies governed commit approval when typed runtime proves the operator role
 
-Fact: the 2026-04-18 operator directive changed the planning contract more
-than the code. The repo already had a consolidation framework in place under
-`MP-377`, but the active-plan set still left one architectural gap: the
-system could register plan docs and route from typed phase/task metadata, yet
-the next slices needed to make "ingest one plan and guide work from it" real
-were still scattered across review packets, prose tracker notes, and
-reference-only docs. Creating a new plan for that campaign would have
-violated the same consolidation policy the repo had just adopted.
+Fact: the next live `/remote-control` dogfood pass exposed a narrower gap
+than either of the repo's earlier extremes. The branch had already moved away
+from blanket promptless `remote_control` approval, and
+`devctl commit --approve-pending` now existed as the explicit resume path, but
+the governed commit lane was still using the raw `interaction_mode` string as
+its entire approval decision. That meant the live pipeline still stopped at
+`operator_approval_pending` and minted `rev_pkt_1122` even when typed runtime
+state already proved an active `remote_control_attachment` for Claude with
+`role=operator`, plus the collaboration roster projected the same Claude lane
+as `operator_agent`.
 
-This mattered because the planning stack is now runtime-adjacent authority.
-If the umbrella plan does not absorb new consolidation work directly, startup
-and reviewer routing can drift back toward "which memo did the operator mean?"
-instead of one typed plan chain. The repo also needed a bounded record of why
-older `MP377-P1` follow-ups were parked: without that note, first-action
-routing would keep resurfacing older projection/runtime tasks instead of the
-new plan-authority closure work.
+This mattered because the approval boundary is supposed to be role-first and
+typed. A bare `remote_control` string is not enough to self-approve, but an
+active operator-role attachment is also not "just another prompt": it is the
+repo's own typed proof that the remote-control lane already delegated operator
+authority to a live session. Requiring a second manual approval packet in that
+state turns governed mutation into paperwork instead of enforcing a stronger
+boundary.
 
-The closure stayed documentation-first and bounded. `dev/active/ai_governance_platform.md`
-now adds a `## Data Contracts` section for the consolidation lane and
-registers `MP-388..MP-397` as explicit next slices: archive four
-reference-only active docs, land the semantic plan-loader core, wire plan
-mutation writeback, cut startup/work-intake over to `PlanTargetRef`
-authority, extend the role model with planner/auditor/researcher/coordinator,
-add a typed command registry, and close the biggest half-done surfaces
-through structured checklists, generators, orphan detection, and CLI/runtime
-parity. `dev/active/MASTER_PLAN.md` now mirrors those MP ids, and the older
-`MP377-P1-T05..T08` rows are explicitly marked `blocked` so startup routing
-selects the consolidation lane first.
+The closure stayed bounded. `commit_preflight_support.py` now exposes a small
+`CommitApprovalAuthority` decision built from `interaction_mode` plus optional
+`remote_control_attachment` evidence. Local-terminal and single-agent still
+self-approve, plain `remote_control` still fails closed, and `remote_control`
+only auto-satisfies approval when runtime proves an active operator-role
+delegate for the current lane. The governed commit path then reuses the
+existing typed operator packet flow instead of inventing a new packet-recipient
+permission model or bypass flag, while `devctl commit --approve-pending`
+remains the explicit resume path for remote-control sessions that do not carry
+that typed delegation. Focused proof is green on six commit-gate regressions:
+delegate-backed auto-approval, no-delegate fail-closed behavior, explicit
+resume, explicit approval sync, pending-phase reporting, and interaction-mode
+resolution.
 
-Evidence: `dev/active/ai_governance_platform.md`,
+Evidence: `dev/scripts/devctl/commands/vcs/commit.py`,
+`dev/scripts/devctl/commands/vcs/commit_preflight.py`,
+`dev/scripts/devctl/commands/vcs/commit_preflight_support.py`,
+`dev/scripts/devctl/commands/vcs/commit_preflight_validators.py`,
+`dev/scripts/devctl/commands/vcs/governed_executor_packets.py`,
+`dev/scripts/devctl/tests/vcs/test_commit_gate.py`,
+`dev/scripts/README.md`,
+`dev/guides/DEVELOPMENT.md`,
 `dev/active/MASTER_PLAN.md`,
-`dev/active/PLAN_FORMAT.md`,
-`dev/scripts/devctl/runtime/role_profile.py`,
-`dev/scripts/devctl/review_channel/packet_contract.py`,
-and `rev_pkt_1129`.
-
-### 2026-04-17 - Event-backed current-session only clears on explicit packet truth, and missing implementation permission now blocks mutation
+`dev/active/remote_control_runtime.md`,
+and `AGENTS.md`.
 
 Fact: the next review-channel/current-session dogfood pass exposed a narrower
 authority bug than "packet clearing is wrong." The reducer had already been

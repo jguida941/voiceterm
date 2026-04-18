@@ -72,22 +72,28 @@ acceptance is typed-only instead of prose-regex fallback, and governed push
 recovery keys approval identity to the reviewer-owned
 `approved_target_identity` tree receipt instead of raw HEAD equality.
 Current governed-mutation rule: `devctl commit` only self-applies typed
-approval in resolved `local_terminal` or `single_agent` mode. Remote,
-dual-agent, and unresolved sessions must keep the approval request live until
-an applied operator decision exists. The 2026-04-09 F1 closure entry in
-`dev/history/ENGINEERING_EVOLUTION.md` ("Remote-control commit now waits
-for typed approval") restored code compliance with this rule after an
-earlier slice drifted `_should_auto_approve` to include
-`OperatorInteractionMode.REMOTE_CONTROL.value`. `devctl push` now reuses the repo-policy
+approval in resolved `local_terminal` or `single_agent` mode, and
+`remote_control` may auto-satisfy the same typed approval step only when
+runtime state proves an active `remote_control_attachment` with
+`role=operator` for the current lane. `remote_control` without that
+delegation, plus dual-agent and unresolved sessions, must keep the approval
+request live until an applied operator decision exists. The 2026-04-09 F1
+closure entry in `dev/history/ENGINEERING_EVOLUTION.md` ("Remote-control
+commit now waits for typed approval") restored the fail-closed boundary after
+an earlier slice drifted `_should_auto_approve` to include
+`OperatorInteractionMode.REMOTE_CONTROL.value`, and the 2026-04-18 follow-up
+now narrows the promptless case back to typed operator delegation instead of a
+blanket mode string. `devctl push` now reuses the repo-policy
 remote/current approved target when an active pipeline owns the branch, and
 packet-queue truth only clears commit-approval requests on applied decisions,
 not on `acked` rows or unrelated packet history. In `remote_control` and
-other non-auto-approved lanes, `devctl commit` now also stops at
-`operator_approval_pending` before it enters `vcs.commit`; posting a new
-approval request is not license to let that same invocation cross the commit
-boundary. The same governed push path now also carries the preflight-resolved
-branch diff base into diff-sensitive post-push commands, so follow-up checks
-stay scoped to the just-published delta instead of resetting to
+other non-auto-approved lanes without that typed operator delegate,
+`devctl commit` now also stops at `operator_approval_pending` before it enters
+`vcs.commit`; posting a new approval request is not license to let that same
+invocation cross the commit boundary. The same governed push path now also
+carries the preflight-resolved branch diff base into diff-sensitive post-push
+commands, so follow-up checks stay scoped to the just-published delta instead
+of resetting to
 `origin/develop` after publication. Commit
 authority is separate from implementation evidence now too: before staging or
 running guards, `devctl commit` reads the typed `CommitPermissionDecision` and
@@ -382,7 +388,11 @@ Portability note:
   `python3 dev/scripts/devctl.py commit --approve-pending`: it reuses the
   current governed pipeline, posts/applies the matching typed
   `commit_approval` decision, and continues the same `vcs.commit` without
-  reconstructing packet fields by hand. The lower-level
+  reconstructing packet fields by hand. That explicit resume path is still the
+  fail-closed contract whenever the remote-control lane lacks typed
+  operator-role delegation; when an active `remote_control_attachment` already
+  proves `role=operator`, the initial governed `devctl commit` may satisfy the
+  approval step without stopping. The lower-level
   `review-channel --action post|apply` flow remains the raw escape hatch.
   When an active governed publish pipeline is already blocking a new commit,
   downstream commit surfaces should project the pipeline reducer's

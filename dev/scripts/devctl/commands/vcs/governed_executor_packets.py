@@ -20,11 +20,12 @@ def build_commit_approval_request(
     *,
     approval_packet_kind: str = "commit_approval",
     expires_in_minutes: int = 30,
+    to_agent: str = "operator",
 ) -> PacketPostRequest:
     """Build the canonical operator approval request packet for one pipeline."""
     return PacketPostRequest(
         from_agent="system",
-        to_agent="operator",
+        to_agent=to_agent,
         kind=approval_packet_kind,
         summary=f"Approve governed commit pipeline `{pipeline.pipeline_id}`",
         body=(

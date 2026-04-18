@@ -23,6 +23,7 @@ from .commit_preflight import (
     ensure_pipeline_approval,
     load_pipeline_for_explicit_approval,
     prepare_pipeline,
+    resolve_commit_approval_authority,
     resolve_interaction_mode,
 )
 from .commit_visibility import commit_visibility_payload
@@ -144,19 +145,23 @@ def run_commit(
             _emit_report(args, report)
             return 1
 
-    resolved_mode = interaction_mode or resolve_interaction_mode(repo_root)
+    approval_authority = resolve_commit_approval_authority(
+        repo_root,
+        interaction_mode_override=interaction_mode,
+    )
+    resolved_mode = approval_authority.interaction_mode
     if approve_pending:
         pipeline, approval_report = apply_explicit_operator_approval(
             vcs_executor=vcs_executor,
             pipeline=pipeline,
-            resolved_mode=resolved_mode,
+            approval_authority=approval_authority,
             stage_warnings=stage_warnings,
         )
     else:
         pipeline, approval_report = ensure_pipeline_approval(
             vcs_executor=vcs_executor,
             pipeline=pipeline,
-            resolved_mode=resolved_mode,
+            approval_authority=approval_authority,
             stage_warnings=stage_warnings,
         )
     if approval_report is not None:
