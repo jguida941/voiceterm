@@ -361,6 +361,60 @@ class TestStartupActionRouting(unittest.TestCase):
         )
         self.assertEqual(report["commit_phase"], "push_blocked")
 
+    def test_prepare_pipeline_posts_handoff_when_reuse_staged_index_hits_git_lock(
+        self,
+    ) -> None:
+        pipeline = SimpleNamespace(
+            pipeline_id="pipeline-123",
+            state="abandoned",
+            approval_state="approved",
+            intent=SimpleNamespace(staged_tree_hash="tree-123"),
+        )
+        stage_result = SimpleNamespace(
+            ok=False,
+            reason="git_index_write_blocked",
+            operator_guidance="generic git guidance",
+            warnings=(
+                "fatal: Unable to create '/tmp/repo/.git/index.lock': Operation not permitted",
+            ),
+        )
+        executor = MagicMock()
+        executor.load_pipeline.side_effect = [pipeline, pipeline]
+        executor.execute.return_value = stage_result
+        executor.review_channel_path = Path("/tmp/repo/dev/active/review_channel.md")
+
+        with (
+            patch(
+                "dev.scripts.devctl.commands.vcs.commit_preflight.pipeline_is_stale_for_current_repo",
+                return_value=False,
+            ),
+            patch(
+                "dev.scripts.devctl.commands.vcs.commit_preflight.post_commit_execution_handoff",
+                return_value=("claude", "rev_pkt_123", ""),
+            ) as handoff_mock,
+        ):
+            returned_pipeline, warnings, report = prepare_pipeline(
+                args=_make_args(),
+                repo_root=Path("/tmp/repo"),
+                resolved_policy=SimpleNamespace(repo_pack_id="voiceterm"),
+                vcs_executor=executor,
+            )
+
+        self.assertIs(returned_pipeline, pipeline)
+        self.assertEqual(warnings, list(stage_result.warnings))
+        self.assertEqual(report["reason"], "git_index_write_blocked")
+        self.assertIn("rev_pkt_123", report["operator_guidance"])
+        self.assertIn("claude", report["operator_guidance"])
+        self.assertIn("commit_execution_request_packet=rev_pkt_123", report["warnings"])
+        self.assertIn("commit_execution_request_target=claude", report["warnings"])
+        handoff_mock.assert_called_once_with(
+            pipeline=pipeline,
+            repo_root=Path("/tmp/repo"),
+            review_channel_path=Path("/tmp/repo/dev/active/review_channel.md"),
+        )
+        execute_action = executor.execute.call_args.args[0]
+        self.assertTrue(execute_action.parameters["reuse_staged_index"])
+
     def test_load_pipeline_for_explicit_approval_projects_commit_command(self) -> None:
         pipeline = SimpleNamespace(
             pipeline_id="",

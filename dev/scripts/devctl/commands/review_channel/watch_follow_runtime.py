@@ -113,6 +113,7 @@ def run_claimed_watch_follow(
         prev_signature = ctx.deps.watch_snapshot_signature_fn(
             packets=packets,
             review_state=bundle.review_state,
+            target=ctx.target,
         )
         loop_state = WatchFollowLoopState(
             emitted_count=emitted_count,
@@ -194,6 +195,7 @@ def run_watch_follow_loop(
         cur_signature = ctx.deps.watch_snapshot_signature_fn(
             packets=packets,
             review_state=bundle.review_state,
+            target=ctx.target,
         )
         report, _ = ctx.deps.build_event_report_fn(
             args=ctx.args,

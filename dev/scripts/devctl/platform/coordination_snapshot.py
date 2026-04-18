@@ -13,6 +13,7 @@ from ..runtime.work_intake import WorkIntakeStateInputs, build_work_intake_packe
 from ..runtime.work_intake_coordination import build_work_intake_coordination_state
 from ..runtime.work_intake_ownership import build_work_intake_ownership_state
 from ..time_utils import utc_timestamp
+from ..review_channel.collaboration_provider import coding_provider_from_review_state
 from .coordination_snapshot_models import CoordinationSnapshot
 from .coordination_snapshot_support import (
     actor_records,
@@ -269,17 +270,17 @@ def _coordination_current_slice(
     raw_current_instruction = text(
         getattr(getattr(review_state, "current_session", None), "current_instruction", "")
     )
-    clear_codex_instruction = _codex_instruction_requires_clear(review_state)
+    clear_current_instruction = _current_instruction_requires_clear(review_state)
     persisted_current_slice = text(getattr(persisted_coordination, "current_slice", ""))
     collaboration_current_slice = text(getattr(collaboration, "current_slice", ""))
-    if clear_codex_instruction and persisted_current_slice == raw_current_instruction:
+    if clear_current_instruction and persisted_current_slice == raw_current_instruction:
         persisted_current_slice = ""
-    if clear_codex_instruction and collaboration_current_slice == raw_current_instruction:
+    if clear_current_instruction and collaboration_current_slice == raw_current_instruction:
         collaboration_current_slice = ""
     return _select_current_slice(
         persisted_current_slice,
         collaboration_current_slice,
-        "" if clear_codex_instruction else raw_current_instruction,
+        "" if clear_current_instruction else raw_current_instruction,
         text(getattr(continuity, "current_goal", "")),
         text(getattr(continuity, "next_action", "")),
         text(getattr(continuity, "summary", "")),
@@ -288,11 +289,11 @@ def _coordination_current_slice(
     )
 
 
-def _codex_instruction_requires_clear(review_state: object | None) -> bool:
+def _current_instruction_requires_clear(review_state: object | None) -> bool:
     packet_inbox = getattr(review_state, "packet_inbox", None)
     if packet_inbox is None or not hasattr(packet_inbox, "for_agent"):
         return False
-    record = packet_inbox.for_agent("codex")
+    record = packet_inbox.for_agent(coding_provider_from_review_state(review_state))
     if record is None:
         return False
     wake_reason = text(getattr(record, "wake_reason", ""))

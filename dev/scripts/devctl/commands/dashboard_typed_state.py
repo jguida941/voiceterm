@@ -172,16 +172,26 @@ def _extract_typed_bridge_fields(
     bridge = review_state.get("bridge", {})
     if not isinstance(bridge, dict):
         bridge = {}
+    reviewer_runtime = review_state.get("reviewer_runtime", {})
+    if not isinstance(reviewer_runtime, dict):
+        reviewer_runtime = {}
     instr = bridge.get("current_instruction", "")
     poll_utc = bridge.get("last_codex_poll_utc", "")
     findings = bridge.get("open_findings", "")
     scope = bridge.get("last_reviewed_scope", "")
     truncated = instr[:120] + ("..." if len(instr) > 120 else "") if instr else "n/a"
+    reviewer_mode = (
+        bridge.get("effective_reviewer_mode")
+        or reviewer_runtime.get("effective_reviewer_mode")
+        or bridge.get("reviewer_mode")
+        or reviewer_runtime.get("reviewer_mode")
+        or "n/a"
+    )
     verdict = _resolve_typed_verdict(review_state)
     return BridgeFields(
         last_poll=poll_utc if poll_utc else "n/a",
         last_poll_utc=poll_utc,
-        reviewer_mode=bridge.get("reviewer_mode", "n/a"),
+        reviewer_mode=reviewer_mode,
         instruction=truncated,
         verdict=verdict,
         findings_raw=findings,

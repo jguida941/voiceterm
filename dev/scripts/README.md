@@ -523,7 +523,11 @@ Portability note:
   --terminal none --format json`) remains useful for observer dashboards and
   queue inspection, and it still marks observed `action_request` packets in
   the typed receipt path so remote-dashboard beta loops can prove packet
-  delivery without bridge prose or queue-only heuristics.
+  delivery without bridge prose or queue-only heuristics. Prepared
+  conductor-launch authority follows the same typed-source rule after launch:
+  remote-control receipt-commit HEAD drift must be classified from typed
+  governance/review-state evidence rather than a lone
+  `DEVCTL_OPERATOR_INTERACTION_MODE` env var.
 - `review-channel --action status|ensure|reviewer-heartbeat|reviewer-checkpoint`
   now emit machine-readable `reviewer_worker` state, and
   `review-channel --action ensure --follow` cadence frames also surface a

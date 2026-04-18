@@ -12,6 +12,9 @@ from dev.scripts.devctl.review_channel import collaboration_session as collabora
 from dev.scripts.devctl.review_channel import (
     collaboration_session_coordination as coordination_mod,
 )
+from dev.scripts.devctl.review_channel import (
+    collaboration_session_roster_lookup as roster_lookup_mod,
+)
 from dev.scripts.devctl.review_channel.session_probe import ConductorSessionRecord
 from dev.scripts.devctl.runtime.review_state_models import ReviewCurrentSessionState
 from dev.scripts.devctl.runtime.reviewer_runtime_models import (
@@ -668,3 +671,94 @@ def test_build_collaboration_session_promotes_recent_packet_active_implementer(
     )
     assert coding_assignment.live is True
     assert coding_assignment.source == "packet_activity"
+
+
+def test_build_collaboration_session_demotes_stale_implementer_assignment_when_attachment_is_operator(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    session_records = (
+        _session_record("codex", "reviewer"),
+        _session_record("claude", "implementer"),
+    )
+    monkeypatch.setattr(
+        collaboration_mod,
+        "load_conductor_sessions",
+        lambda *, session_output_root: session_records,
+    )
+    monkeypatch.setattr(
+        collaboration_mod,
+        "load_remote_control_attachments",
+        lambda *, output_root, active_only=False: (
+            RemoteControlAttachmentState(
+                provider="claude",
+                role="operator",
+                attachment_id="remote-attach-1",
+                session_name="claude-remote-control",
+                remote_session_id="session_dash",
+                session_url="https://claude.ai/code/session_dash",
+                status="attached",
+                attached_at_utc="2026-04-18T00:00:00Z",
+                last_seen_utc="2026-04-18T00:00:01Z",
+                metadata_path=str(tmp_path / "sessions" / "claude-remote-control.json"),
+            ),
+        ),
+    )
+    monkeypatch.setattr(
+        coordination_mod,
+        "dirty_paths_for_repo",
+        lambda repo_root: ("dev/scripts/devctl/runtime/control_topology.py",),
+    )
+
+    session = collaboration_mod.build_collaboration_session(
+        timestamp="2026-04-18T00:00:00Z",
+        plan_id="MP-377",
+        session_id="session-1",
+        bridge_liveness={
+            "reviewer_mode": "active_dual_agent",
+            "effective_reviewer_mode": "active_dual_agent",
+            "codex_conductor_active": True,
+            "claude_conductor_active": True,
+        },
+        current_session=_current_session(
+            instruction="Keep the typed control topology honest.",
+            last_reviewed_scope="dev/scripts/devctl/runtime/control_topology.py",
+        ),
+        repo_root=tmp_path,
+        session_output_root=tmp_path,
+    )
+
+    claude_participant = next(
+        row for row in session.participants if row.provider == "claude"
+    )
+    coding_assignment = next(
+        row for row in session.role_assignments if row.role_id == "coding_agent"
+    )
+    runtime_gate = next(
+        row for row in session.ready_gates if row.gate_id == "runtime_truth"
+    )
+
+    assert claude_participant.role == "operator"
+    assert coding_assignment.provider == "claude"
+    assert coding_assignment.live is False
+    assert coding_assignment.status == "configured"
+    assert coding_assignment.source == "remote_control_attachment"
+    assert runtime_gate.status == "blocked"
+    assert (
+        runtime_gate.summary
+        == "Active dual-agent mode still requires live reviewer and implementer conductor sessions."
+    )
+
+
+def test_role_assignment_fails_closed_for_unknown_role_id() -> None:
+    assignment = roster_lookup_mod.role_assignment(
+        "observer_agent",
+        "claude",
+        "Claude",
+        (_session_record("claude", "implementer"),),
+    )
+
+    assert assignment.provider == "claude"
+    assert assignment.live is False
+    assert assignment.status == "configured"
+    assert assignment.source == "session_metadata"

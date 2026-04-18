@@ -226,6 +226,54 @@ class TestStartupContextBuild(unittest.TestCase):
         self.assertEqual(snapshot.current_instruction_revision, "")
         self.assertEqual(snapshot.implementer_ack_state, "missing")
 
+    def test_authority_snapshot_uses_typed_reviewer_provider_for_packet_clear(self) -> None:
+        shared_instruction = "Cursor reviewer owns the instruction state"
+        snapshot = build_authority_snapshot(
+            {
+                "collaboration": {
+                    "review_agent": "cursor",
+                    "role_assignments": (),
+                },
+                "coordination": {
+                    "resync_required": False,
+                    "current_slice": shared_instruction,
+                },
+                "current_session": {
+                    "current_instruction": shared_instruction,
+                    "current_instruction_revision": "rev-cursor",
+                    "implementer_ack_state": "current",
+                },
+                "packet_inbox": {
+                    "agents": [
+                        {
+                            "agent": "cursor",
+                            "current_instruction_packet_id": "rev_pkt_cursor_instruction",
+                            "pending_actionable_total": 1,
+                            "expired_unresolved_total": 0,
+                            "attention_status": "wake_required",
+                            "wake_reason": "instruction_pending",
+                        },
+                        {
+                            "agent": "codex",
+                            "current_instruction_packet_id": "",
+                            "pending_actionable_total": 0,
+                            "expired_unresolved_total": 0,
+                            "attention_status": "none",
+                            "wake_reason": "",
+                        },
+                    ],
+                },
+                "reviewer_gate": {
+                    "reviewer_mode": "single_agent",
+                },
+                "implementation_permission": "active",
+            }
+        )
+
+        self.assertEqual(snapshot.current_instruction_revision, "rev-cursor")
+        self.assertEqual(snapshot.implementer_ack_state, "current")
+        self.assertEqual(snapshot.current_slice, shared_instruction)
+
     def test_summary_next_command_prefers_cut_checkpoint_recovery_command(self) -> None:
         payload = {
             "startup_authority": {"ok": False},
@@ -1227,6 +1275,27 @@ class TestCLIRegistration(unittest.TestCase):
         # The hollow step table preamble must not leak into startup output.
         self.assertNotIn("| Step | Status | Duration (s) | Command |", rendered)
 
+    def test_markdown_reviewer_gate_prefers_effective_mode(self) -> None:
+        rendered = _render_markdown(
+            {
+                "advisory_action": "await_review",
+                "advisory_reason": "runtime_missing",
+                "reviewer_gate": {
+                    "bridge_active": True,
+                    "reviewer_mode": "active_dual_agent",
+                    "effective_reviewer_mode": "tools_only",
+                    "review_accepted": False,
+                },
+                "governance": {
+                    "repo_identity": {"repo_name": "test", "current_branch": "feature/x"},
+                },
+                "push_decision": {"action": "await_review", "next_step_command": ""},
+            }
+        )
+
+        self.assertIn("- reviewer_mode: tools_only", rendered)
+        self.assertNotIn("- reviewer_mode: active_dual_agent", rendered)
+
     def test_push_decision_recovers_remote_published_post_push_failure_for_current_head(
         self,
     ) -> None:
@@ -1714,6 +1783,63 @@ class TestCLIRegistration(unittest.TestCase):
             rc = startup_context_command.run(args)
 
         self.assertEqual(rc, 0)
+
+    def test_reviewer_role_uses_effective_mode_for_local_edit_gate(self) -> None:
+        ctx = StartupContext(
+            governance=_minimal_governance(
+                checkpoint_required=False,
+                safe_to_continue_editing=True,
+            ),
+            reviewer_gate=ReviewerGateState(
+                bridge_active=True,
+                reviewer_mode="active_dual_agent",
+                effective_reviewer_mode="tools_only",
+                review_accepted=False,
+            ),
+            advisory_action="continue_editing",
+            advisory_reason="clean_worktree",
+            implementation_permission="active",
+        )
+        args = build_parser().parse_args(
+            ["startup-context", "--role", "reviewer", "--format", "json"]
+        )
+
+        with patch.object(
+            startup_context_command,
+            "build_startup_context",
+            return_value=ctx,
+        ), patch.object(
+            startup_context_command,
+            "build_startup_authority_report",
+            return_value={
+                "ok": True,
+                "checks_run": 10,
+                "checks_passed": 10,
+                "errors": [],
+                "warnings": [],
+            },
+        ), patch.object(
+            startup_context_command,
+            "write_startup_receipt",
+            return_value=Path("/tmp/startup-receipt.json"),
+        ), patch.object(
+            startup_context_command,
+            "reviewer_local_implementation_allowed",
+            return_value=True,
+        ) as reviewer_local_allowed_mock, patch.object(
+            startup_context_command,
+            "emit_machine_artifact_output",
+            return_value=0,
+        ), patch.object(
+            startup_context_command, "_render_summary", return_value=""
+        ):
+            rc = startup_context_command.run(args)
+
+        self.assertEqual(rc, 0)
+        reviewer_local_allowed_mock.assert_called_once_with(
+            reviewer_mode="tools_only",
+            reviewer_override=False,
+        )
 
     def test_command_fails_closed_when_startup_authority_is_red(self) -> None:
         ctx = StartupContext(
@@ -3102,11 +3228,10 @@ class TestInteractionModeFromReviewerMode(unittest.TestCase):
             "unresolved",
         )
 
-    def test_empty_string_normalizes_to_dual_agent(self) -> None:
-        # normalize_reviewer_mode("") returns "active_dual_agent" by default
+    def test_empty_string_fails_closed_to_unresolved(self) -> None:
         self.assertEqual(
             _interaction_mode_from_reviewer_mode(""),
-            "dual_agent",
+            "unresolved",
         )
 
     def test_governance_mode_takes_precedence(self) -> None:

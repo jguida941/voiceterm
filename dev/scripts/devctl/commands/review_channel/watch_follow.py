@@ -27,7 +27,7 @@ class WatchFollowDeps:
     load_or_refresh_event_bundle_fn: Callable[..., object]
     refresh_event_bundle_fn: Callable[..., object]
     load_target_packets_fn: Callable[..., tuple[object, list[dict[str, object]]]]
-    watch_snapshot_signature_fn: Callable[..., tuple[frozenset[object], int]]
+    watch_snapshot_signature_fn: Callable[..., tuple[frozenset[object], int, str]]
     build_event_report_fn: Callable[..., tuple[dict, int]]
     watch_key_fn: Callable[..., str]
     utc_timestamp_fn: Callable[[], str]

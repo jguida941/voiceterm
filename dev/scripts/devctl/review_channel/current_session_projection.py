@@ -6,8 +6,9 @@ from collections.abc import Mapping
 from dataclasses import asdict
 
 from .ack_contract import extract_implementer_ack_revision
+from .collaboration_provider import coding_provider_from_review_state
 from .current_session_attention import (
-    packet_attention_for,
+    implementer_packet_attention_for,
     packet_attention_requires_clear,
 )
 from .current_session_authority import prefer_bridge_current_session
@@ -23,6 +24,7 @@ from .current_session_support import (
     event_agent_status,
     event_claude_ack,
     event_current_instruction,
+    event_implementer_ack,
     event_open_findings,
     instruction_revision_reuse_warning,
     prior_typed_current_session,
@@ -81,7 +83,11 @@ def build_bridge_current_session(
         not current_instruction_revision
         or implementer_ack_revision == current_instruction_revision
     )
-    claude_hint = provider_session_state_hint(dict(bridge_liveness), provider="claude")
+    implementer_provider = coding_provider_from_review_state(prior_review_state)
+    implementer_hint = provider_session_state_hint(
+        dict(bridge_liveness),
+        provider=implementer_provider,
+    )
     return ReviewCurrentSessionState(
         current_instruction=current_instruction,
         current_instruction_revision=current_instruction_revision,
@@ -104,8 +110,8 @@ def build_bridge_current_session(
             implementer_questions=implementer_questions,
             implementer_ack=implementer_ack,
         ),
-        implementer_session_state=str(claude_hint.get("state") or ""),
-        implementer_session_hint=str(claude_hint.get("summary") or ""),
+        implementer_session_state=str(implementer_hint.get("state") or ""),
+        implementer_session_hint=str(implementer_hint.get("summary") or ""),
         open_findings=_section_text(snapshot, "Open Findings"),
         last_reviewed_scope=_section_text(snapshot, "Last Reviewed Scope"),
     )
@@ -142,10 +148,10 @@ def build_event_current_session(
     prior_review_state: Mapping[str, object] | None = None,
 ) -> ReviewCurrentSessionState:
     """Build typed current-session state from event-backed review state."""
-    queue = _mapping(review_state.get("queue"))
     prior_session = prior_typed_current_session(prior_review_state)
+    implementer_provider = coding_provider_from_review_state(review_state)
     current_instruction = event_current_instruction(review_state)
-    packet_attention = packet_attention_for(review_state, agent="codex")
+    packet_attention = implementer_packet_attention_for(review_state)
     clear_from_packet_truth = packet_attention_requires_clear(packet_attention)
     current_instruction_revision = str(
         bridge_liveness.get("current_instruction_revision") or ""
@@ -181,19 +187,31 @@ def build_event_current_session(
         not is_missing_instruction(current_instruction)
         and bool(current_instruction_revision)
     )
-    implementer_ack = event_claude_ack(queue) if live_instruction_present else ""
+    implementer_ack = (
+        event_implementer_ack(review_state) if live_instruction_present else ""
+    )
     implementer_ack_revision = (
-        str(bridge_liveness.get("claude_ack_revision") or "")
+        str(
+            bridge_liveness.get("implementer_ack_revision")
+            or bridge_liveness.get("claude_ack_revision")
+            or ""
+        )
         if live_instruction_present
         else ""
     )
     ack_current = (
-        bool(bridge_liveness.get("claude_ack_current"))
+        bool(
+            bridge_liveness.get("implementer_ack_current")
+            or bridge_liveness.get("claude_ack_current")
+        )
         if live_instruction_present
         else False
     )
-    implementer_status = event_agent_status(review_state, "claude")
-    claude_hint = provider_session_state_hint(dict(bridge_liveness), provider="claude")
+    implementer_status = event_agent_status(review_state, implementer_provider)
+    implementer_hint = provider_session_state_hint(
+        dict(bridge_liveness),
+        provider=implementer_provider,
+    )
     return ReviewCurrentSessionState(
         current_instruction=current_instruction,
         current_instruction_revision=current_instruction_revision,
@@ -211,8 +229,8 @@ def build_event_current_session(
             implementer_status=implementer_status,
             implementer_ack=implementer_ack,
         ),
-        implementer_session_state=str(claude_hint.get("state") or ""),
-        implementer_session_hint=str(claude_hint.get("summary") or ""),
+        implementer_session_state=str(implementer_hint.get("state") or ""),
+        implementer_session_hint=str(implementer_hint.get("summary") or ""),
         open_findings=event_open_findings(review_state),
         last_reviewed_scope=str(
             _mapping(review_state.get("review")).get("plan_id") or ""

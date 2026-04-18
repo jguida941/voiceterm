@@ -6,6 +6,10 @@ from collections.abc import Mapping
 from dataclasses import asdict, dataclass
 
 from ...platform.coordination_snapshot_models import CoordinationSnapshot
+from ...review_channel.collaboration_provider import (
+    coding_provider_from_review_state,
+    reviewer_provider_from_review_state,
+)
 from ...runtime.review_packet_inbox import (
     packet_inbox_from_review_state,
     summarize_packet_attention_open_findings,
@@ -137,13 +141,20 @@ def build_session_resume_review_state_context(
     role: str,
 ) -> SessionResumeReviewStateContext:
     payload = dict(review_state_payload)
-    packet_inbox = packet_inbox_from_review_state(payload) or packet_inbox_from_mapping(
-        payload.get("packet_inbox")
+    attention_agent = (
+        reviewer_provider_from_review_state(payload)
+        if role == "reviewer"
+        else coding_provider_from_review_state(payload)
     )
+    packet_inbox = None
+    if payload:
+        packet_inbox = packet_inbox_from_review_state(payload) or packet_inbox_from_mapping(
+            payload.get("packet_inbox")
+        )
     open_findings = summarize_packet_attention_open_findings(
         payload,
         fallback=fallback_open_findings,
-        agent="codex" if role == "reviewer" else "claude",
+        agent=attention_agent,
     )
     return SessionResumeReviewStateContext(
         packet_inbox=packet_inbox,

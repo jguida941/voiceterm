@@ -5,6 +5,10 @@ from __future__ import annotations
 from dataclasses import dataclass, replace
 from pathlib import Path
 
+from .collaboration_provider import (
+    coding_provider_from_review_state,
+    reviewer_provider_from_review_state,
+)
 from ..runtime.governance_scan import scan_repo_governance_safely
 from ..runtime.review_packet_inbox import (
     packet_inbox_from_review_state,
@@ -135,7 +139,13 @@ def _normalize_current_session_from_packet_truth(
         if packet_truth_present
         else None
     )
-    record = packet_inbox.for_agent("codex") if packet_inbox is not None else None
+    implementer_provider = coding_provider_from_review_state(resolved_review_state)
+    reviewer_provider = reviewer_provider_from_review_state(resolved_review_state)
+    record = (
+        packet_inbox.for_agent(implementer_provider)
+        if packet_inbox is not None
+        else None
+    )
     clear_instruction = bool(
         record is not None
         and not str(record.current_instruction_packet_id or "").strip()
@@ -172,7 +182,7 @@ def _normalize_current_session_from_packet_truth(
         open_findings=summarize_packet_attention_open_findings(
             resolved_review_state,
             fallback="" if packet_attention_present else current_session.open_findings,
-            agent="codex",
+            agent=reviewer_provider,
         ),
     )
 def _apply_current_session_fields(

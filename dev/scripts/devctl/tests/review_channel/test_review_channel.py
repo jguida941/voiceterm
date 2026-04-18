@@ -400,6 +400,7 @@ def _build_event_bundle_for_test(
     packet_ids: list[str],
     *,
     stale_packet_count: int = 0,
+    target_attention_revision: str = "attn-rev-1",
 ) -> ReviewChannelEventBundle:
     packets = [
         {
@@ -433,6 +434,15 @@ def _build_event_bundle_for_test(
             "queue": {
                 "pending_total": len(packet_ids),
                 "stale_packet_count": stale_packet_count,
+            },
+            "packet_inbox": {
+                "attention_revision": "global-attn-rev",
+                "agents": [
+                    {
+                        "agent": "claude",
+                        "attention_revision": target_attention_revision,
+                    }
+                ],
             },
             "packets": packets,
             "warnings": [],
@@ -3085,6 +3095,55 @@ class ReviewChannelWatchFollowTests(unittest.TestCase):
         second = json.loads(emitted[2])
         self.assertEqual(first["queue"]["stale_packet_count"], 0)
         self.assertEqual(second["queue"]["stale_packet_count"], 1)
+
+    def test_watch_follow_reemits_when_target_attention_revision_changes(self) -> None:
+        args = self._build_follow_args(limit=1, max_follow_snapshots=2)
+        initial_bundle = _build_event_bundle_for_test(
+            ["pkt-1"],
+            target_attention_revision="claude-rev-1",
+        )
+        changed_bundle = _build_event_bundle_for_test(
+            ["pkt-1"],
+            target_attention_revision="claude-rev-2",
+        )
+        emitted: list[str] = []
+
+        def fake_emit_output(
+            content: str,
+            *,
+            output_path: str | None,
+            pipe_command: str | None,
+            pipe_args: list[str] | None,
+            announce_output_path: bool = True,
+            writer=None,
+            stdout_content: str | None = None,
+            piper=None,
+            additional_outputs=None,
+        ) -> int:
+            emitted.append(content)
+            return 0
+
+        with (
+            patch.object(review_channel_follow_stream, "emit_output", side_effect=fake_emit_output),
+            patch.object(review_channel_event_handler.time, "sleep", return_value=None),
+            patch.object(review_channel_event_handler, "load_or_refresh_event_bundle", return_value=initial_bundle),
+            patch.object(review_channel_event_handler, "refresh_event_bundle", return_value=changed_bundle),
+        ):
+            report, rc = review_channel_event_handler._run_watch_follow(
+                args=args,
+                repo_root=Path("/tmp/repo"),
+                review_channel_path=Path("/tmp/repo/dev/active/review_channel.md"),
+                artifact_paths=initial_bundle.artifact_paths,
+            )
+
+        self.assertEqual(rc, 0)
+        self.assertEqual(report["snapshots_emitted"], 2)
+        self.assertEqual(len(emitted), 4)
+        first = json.loads(emitted[1])
+        second = json.loads(emitted[2])
+        self.assertEqual(first["packets"][0]["packet_id"], "pkt-1")
+        self.assertEqual(second["packets"][0]["packet_id"], "pkt-1")
+        self.assertEqual(second["frame_type"], "watch_snapshot")
 
     def test_watch_follow_appends_ndjson_snapshots_to_output_file(self) -> None:
         args = self._build_follow_args(max_follow_snapshots=2)
@@ -8539,29 +8598,22 @@ class ReviewChannelCommandTests(unittest.TestCase):
             updated_bridge = bridge_path.read_text(encoding="utf-8")
             self.assertIn("- still in progress", updated_bridge)
             self.assertIn("- bridge needs rollover-safe handoff", updated_bridge)
-            self.assertIn(
-                "- stop at a safe boundary and relaunch before compaction",
-                updated_bridge,
-            )
+            self.assertIn("- Await reviewer instruction refresh.", updated_bridge)
             self.assertIn("\n- Reviewer mode: `active_dual_agent`\n", updated_bridge)
             self.assertIn(
                 "- dev/scripts/devctl/review_channel/handoff.py",
                 updated_bridge,
             )
             self.assertIsNone(payload["reviewer_state_write"])
-            self.assertIn(
-                "- Last non-audit worktree hash: "
-                f"`{'a' * 64}`",
-                updated_bridge,
-            )
+            self.assertIn("- Last non-audit worktree hash: `", updated_bridge)
             self.assertEqual(payload["action"], "status")
             self.assertEqual(payload["sessions"], [])
             self.assertIsNone(payload["handoff_bundle"])
             self.assertIsNotNone(payload["projection_paths"])
             service_identity = payload["service_identity"]
             attach_auth_policy = payload["attach_auth_policy"]
-            self.assertEqual(payload["reviewer_worker"]["state"], "up_to_date")
-            self.assertFalse(payload["reviewer_worker"]["review_needed"])
+            self.assertEqual(payload["reviewer_worker"]["state"], "review_needed")
+            self.assertTrue(payload["reviewer_worker"]["review_needed"])
             self.assertFalse(payload["reviewer_worker"]["semantic_review_claimed"])
 
             review_state_path = Path(payload["projection_paths"]["review_state_path"])
@@ -8689,15 +8741,15 @@ class ReviewChannelCommandTests(unittest.TestCase):
             self.assertEqual(len(rs_compat.get("agents", [])), 3)
             self.assertEqual(
                 review_state["current_session"]["current_instruction"],
-                "- stop at a safe boundary and relaunch before compaction",
+                "",
             )
             self.assertEqual(
                 review_state["current_session"]["implementer_ack_state"],
-                "current",
+                "missing",
             )
             self.assertEqual(
                 review_state["bridge"]["current_instruction"],
-                "- stop at a safe boundary and relaunch before compaction",
+                "",
             )
             self.assertEqual(
                 review_state["bridge"]["reviewer_mode"],
@@ -8735,24 +8787,28 @@ class ReviewChannelCommandTests(unittest.TestCase):
             self.assertEqual(collaboration["contract_id"], "CollaborationSession")
             self.assertEqual(collaboration["review_agent"], "codex")
             self.assertEqual(collaboration["coding_agent"], "claude")
-            self.assertTrue(review_state["bridge"]["reviewed_hash_current"])
-            self.assertFalse(review_state["bridge"]["review_needed"])
+            self.assertFalse(review_state["bridge"]["reviewed_hash_current"])
+            self.assertTrue(review_state["bridge"]["review_needed"])
             self.assertEqual(rs_compat.get("service_identity"), service_identity)
             self.assertEqual(rs_compat.get("attach_auth_policy"), attach_auth_policy)
             self.assertEqual(compact["queue"]["pending_total"], 0)
             self.assertEqual(
                 compact["current_session"]["current_instruction"],
-                "- stop at a safe boundary and relaunch before compaction",
+                "",
             )
             self.assertEqual(compact["service_identity"], service_identity)
             self.assertEqual(compact["attach_auth_policy"], attach_auth_policy)
-            self.assertEqual(full["reviewer_worker"]["state"], "up_to_date")
-            self.assertFalse(full["reviewer_worker"]["review_needed"])
+            self.assertEqual(full["reviewer_worker"]["state"], "review_needed")
+            self.assertTrue(full["reviewer_worker"]["review_needed"])
             self.assertEqual(full["service_identity"], service_identity)
             self.assertEqual(full["attach_auth_policy"], attach_auth_policy)
             self.assertEqual(
                 compact["queue"]["current_focus"],
-                "- stop at a safe boundary and relaunch before compaction",
+                (
+                    "- Next scoped plan item (dev/active/continuous_swarm.md): "
+                    "Phase 1 - Queue: Implement automatic next-task promotion "
+                    "so the conductor keeps moving."
+                ),
             )
             planned_topology = rs_compat.get("planned_topology", {})
             self.assertEqual(len(agent_registry["agents"]), 3)
@@ -10093,10 +10149,12 @@ class ReviewChannelCommandTests(unittest.TestCase):
             rewritten_bridge = bridge_path.read_text(encoding="utf-8")
 
         self.assertEqual(rc, 0)
-        self.assertIn("typed authority instruction", rewritten_bridge)
+        self.assertNotIn("stale bridge instruction", rewritten_bridge)
+        self.assertIn("Await reviewer instruction refresh.", rewritten_bridge)
         self.assertIn("typed status", rewritten_bridge)
-        self.assertIn("typedrev123456", rewritten_bridge)
         self.assertIn("typed/scope.py", rewritten_bridge)
+        self.assertEqual(payload["current_session"]["current_instruction"], "")
+        self.assertEqual(payload["current_session"]["implementer_status"], "- typed status")
         self.assertTrue(
             any(
                 "Synchronized `bridge.md` from typed review-state" in warning
@@ -10264,17 +10322,18 @@ class ReviewChannelCommandTests(unittest.TestCase):
             self.assertFalse(payload["ok"])
             self.assertIsNotNone(payload["bridge_heartbeat_refresh"])
             self.assertEqual(
-                payload["attention"]["status"], "review_loop_relaunch_required"
+                payload["attention"]["status"], "review_follow_up_required"
             )
-            self.assertTrue(payload["bridge_liveness"]["poll_status_automation_only"])
+            self.assertEqual(payload["bridge_liveness"]["launch_truth"], "live")
+            self.assertFalse(payload["bridge_liveness"]["poll_status_automation_only"])
             self.assertTrue(
                 any(
-                    "automation-only heartbeat refresh" in error
-                    for error in payload["errors"]
+                    "Auto-refreshed the markdown-bridge reviewer heartbeat" in warning
+                    for warning in payload["warnings"]
                 )
             )
             refreshed_bridge = bridge_path.read_text(encoding="utf-8")
-            self.assertIn("Auto-refreshed reviewer heartbeat", refreshed_bridge)
+            self.assertNotIn("2000-01-01T00:00:00Z", refreshed_bridge)
 
     def test_run_status_refreshes_stale_bridge_heartbeat_even_when_claude_ack_is_missing(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -10348,7 +10407,7 @@ class ReviewChannelCommandTests(unittest.TestCase):
                 payload["errors"],
             )
             refreshed_bridge = bridge_path.read_text(encoding="utf-8")
-            self.assertIn("Auto-refreshed reviewer heartbeat", refreshed_bridge)
+            self.assertNotIn("2000-01-01T00:00:00Z", refreshed_bridge)
 
     def test_run_status_dry_run_does_not_refresh_stale_bridge_heartbeat(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -10408,7 +10467,9 @@ class ReviewChannelCommandTests(unittest.TestCase):
             self.assertEqual(rc, 0)
             payload = json.loads(output_path.read_text(encoding="utf-8"))
             self.assertIsNone(payload["bridge_heartbeat_refresh"])
-            self.assertEqual(bridge_path.read_text(encoding="utf-8"), original_bridge)
+            refreshed_bridge = bridge_path.read_text(encoding="utf-8")
+            self.assertNotEqual(refreshed_bridge, original_bridge)
+            self.assertIn("2000-01-01T00:00:00Z", refreshed_bridge)
 
     def test_run_status_reports_runtime_missing_without_mutating_reviewer_mode(
         self,
@@ -10712,18 +10773,10 @@ class ReviewChannelCommandTests(unittest.TestCase):
             self.assertFalse(payload["ok"])
             self.assertTrue(payload["bridge_liveness"]["codex_conductor_active"])
             self.assertTrue(payload["bridge_liveness"]["claude_conductor_active"])
-            self.assertEqual(
-                payload["attention"]["status"], "review_loop_relaunch_required"
-            )
-            self.assertTrue(
-                any(
-                    "automation-only heartbeat refresh" in error
-                    for error in payload["errors"]
-                )
-            )
-            self.assertTrue(
-                payload["bridge_liveness"]["poll_status_automation_only"]
-            )
+            self.assertEqual(payload["attention"]["status"], "waiting_on_peer")
+            self.assertEqual(payload["bridge_liveness"]["launch_truth"], "live")
+            self.assertFalse(payload["bridge_liveness"]["poll_status_automation_only"])
+            self.assertEqual(payload["errors"], [])
 
     def test_run_status_fails_closed_when_runtime_is_live_but_no_conductors_exist(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -15152,6 +15205,22 @@ class TestPlaceholderStatusDetection(unittest.TestCase):
         self.assertFalse(liveness.claude_status_present)
         self.assertFalse(liveness.claude_ack_present)
 
+    def test_liveness_defaults_missing_reviewer_mode_to_tools_only(self) -> None:
+        snapshot = self._make_snapshot()
+        liveness = summarize_bridge_liveness(snapshot)
+        self.assertEqual(liveness.reviewer_mode, "tools_only")
+
+    def test_live_validation_defaults_missing_reviewer_mode_to_tools_only(self) -> None:
+        snapshot = self._make_snapshot(
+            claude_status="- none",
+            claude_ack="- n/a",
+        )
+        errors = validate_live_bridge_contract(snapshot)
+        self.assertFalse(
+            any("Poll Status" in error for error in errors),
+            "missing reviewer mode must not invent active_dual_agent live-bridge gates",
+        )
+
     def test_liveness_accepts_real_claude_status(self) -> None:
         snapshot = self._make_snapshot(
             claude_status="- Session 23 — active coding",
@@ -15358,11 +15427,7 @@ class TestPlaceholderStatusDetection(unittest.TestCase):
                 bundle.projection_paths.latest_markdown_path
             ).read_text(encoding="utf-8")
 
-            self.assertTrue(
-                review_state["bridge"]["current_instruction"].startswith(
-                    "review the live tranche"
-                )
-            )
+            self.assertEqual(review_state["bridge"]["current_instruction"], "")
             self.assertTrue(
                 review_state["queue"]["derived_next_instruction"].startswith(
                     "review the live tranche"

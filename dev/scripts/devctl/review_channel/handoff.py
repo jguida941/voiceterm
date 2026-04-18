@@ -63,7 +63,7 @@ from .peer_liveness import (
     OverallLivenessState,
     ReviewerMode,
     classify_reviewer_freshness,
-    normalize_reviewer_mode,
+    resolve_reported_reviewer_mode,
     reviewer_mode_is_active,
 )
 
@@ -165,7 +165,7 @@ def summarize_bridge_liveness(
         poll_status
     )
     poll_status_automation_only = poll_status_is_automation_only_refresh(poll_status)
-    reviewer_mode = normalize_reviewer_mode(snapshot.metadata.get("reviewer_mode"))
+    reviewer_mode = ReviewerMode(resolve_reported_reviewer_mode(snapshot.metadata))
     last_codex_poll_utc = snapshot.metadata.get("last_codex_poll_utc")
     last_codex_poll_age_seconds = _timestamp_age_seconds(
         last_codex_poll_utc,

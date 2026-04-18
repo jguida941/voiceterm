@@ -11,6 +11,7 @@ from .control_topology_bridge_counts import (
     bridge_role_counts,
 )
 from .runtime_count_roles import participant_role_provider_ids
+from .runtime_count_roles import provider_has_only_non_tandem_presence
 
 
 def startup_runtime_counts(
@@ -91,6 +92,12 @@ def _live_role_totals(
             continue
         provider = _text(row.get("provider") or row.get("agent_id"))
         if not provider:
+            continue
+        if provider_has_only_non_tandem_presence(
+            live_participants,
+            provider,
+            text_fn=_text,
+        ):
             continue
         role_id = _text(row.get("role_id"))
         if role_id == "review_agent" and provider not in reviewer_ids:

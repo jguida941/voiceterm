@@ -201,6 +201,29 @@ def test_implementation_blocked_emits_reviewer_gate_violation() -> None:
     )
 
 
+def test_implementation_blocked_prefers_effective_reviewer_mode_in_summary() -> None:
+    """Current-state blocker summaries should use the effective reviewer mode."""
+    summary = _summary(
+        reviewer_gate={
+            "bridge_active": True,
+            "reviewer_mode": "active_dual_agent",
+            "effective_reviewer_mode": "tools_only",
+            "review_accepted": False,
+            "implementation_blocked": True,
+            "implementation_block_reason": "",
+            "recovery_diagnosis_status": "runtime_missing",
+            "recovery_action_id": "",
+            "recovery_command": "",
+            "operator_interaction_mode": "local_terminal",
+        },
+    )
+
+    violations = startup_summary_to_violations(summary)
+
+    assert len(violations) == 1
+    assert violations[0].summary == "implementation_blocked: tools_only"
+
+
 def test_implementation_blocked_false_yields_no_violation() -> None:
     """When `implementation_blocked` is false, no reviewer_gate record is emitted."""
     summary = _summary(

@@ -72,3 +72,31 @@ def test_open_findings_summary_does_not_revive_evicted_expired_packets() -> None
     )
 
     assert summary == "none"
+
+
+def test_packet_inbox_indexes_current_instruction_by_target_agent() -> None:
+    review_state = {
+        "packets": [
+            {
+                "packet_id": "rev_pkt_cursor_1",
+                "status": "pending",
+                "summary": "Cursor owns the active instruction",
+                "body": "Cursor owns the active instruction",
+                "kind": "instruction",
+                "from_agent": "codex",
+                "to_agent": "cursor",
+                "requested_action": "continue",
+                "expires_at_utc": "2999-01-01T00:00:00Z",
+            }
+        ]
+    }
+
+    packet_inbox = packet_inbox_from_review_state(review_state)
+
+    assert packet_inbox is not None
+    cursor = packet_inbox.for_agent("cursor")
+    codex = packet_inbox.for_agent("codex")
+    assert cursor is not None
+    assert codex is not None
+    assert cursor.current_instruction_packet_id == "rev_pkt_cursor_1"
+    assert codex.current_instruction_packet_id == ""

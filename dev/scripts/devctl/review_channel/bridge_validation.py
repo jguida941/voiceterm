@@ -21,7 +21,6 @@ from .handoff_constants import (
 )
 from .peer_liveness import (
     CodexPollState,
-    normalize_reviewer_mode,
     reviewer_mode_is_active,
 )
 _REVIEWER_OWNED_VALIDATION_SECTIONS = (
@@ -42,8 +41,8 @@ def validate_live_bridge_contract(snapshot) -> list[str]:
     from .handoff import summarize_bridge_liveness as _summarize
 
     errors: list[str] = []
-    reviewer_mode = normalize_reviewer_mode(snapshot.metadata.get("reviewer_mode"))
     liveness = _summarize(snapshot)
+    reviewer_mode = liveness.reviewer_mode
     poll_status = snapshot.sections.get("Poll Status", "").strip()
     last_reviewed_scope = snapshot.sections.get("Last Reviewed Scope", "").strip()
     if not last_reviewed_scope:
@@ -167,18 +166,17 @@ def validate_launch_bridge_state(
         implementer_ack=snapshot.sections.get("Claude Ack", ""),
     )
 
-    if not reviewer_mode_is_active(effective_liveness.reviewer_mode):
-        return errors
-    if effective_liveness.codex_poll_state == CodexPollState.MISSING:
-        errors.append(
-            "Missing `Last Codex poll`; fresh launch requires a live reviewer poll "
-            "timestamp in the bridge header."
-        )
-    elif effective_liveness.codex_poll_state == CodexPollState.STALE:
-        errors.append(
-            "`Last Codex poll` is stale; fresh launch requires bridge activity "
-            "within the five-minute heartbeat contract."
-        )
+    if reviewer_mode_is_active(effective_liveness.reviewer_mode):
+        if effective_liveness.codex_poll_state == CodexPollState.MISSING:
+            errors.append(
+                "Missing `Last Codex poll`; fresh launch requires a live reviewer poll "
+                "timestamp in the bridge header."
+            )
+        elif effective_liveness.codex_poll_state == CodexPollState.STALE:
+            errors.append(
+                "`Last Codex poll` is stale; fresh launch requires bridge activity "
+                "within the five-minute heartbeat contract."
+            )
     if not effective_liveness.claude_status_present and not pending_implementer_state:
         errors.append(
             "Missing live implementer status compatibility section (`Claude Status`); "

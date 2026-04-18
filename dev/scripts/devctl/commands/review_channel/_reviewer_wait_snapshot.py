@@ -7,6 +7,7 @@ from dataclasses import dataclass
 import json
 from pathlib import Path
 
+from ...review_channel.collaboration_provider import reviewer_provider_from_review_state
 from ...runtime.review_state_models import packet_inbox_from_mapping
 from ..review_channel_command import RuntimePaths
 from ._wait_shared import WaitDeps
@@ -55,8 +56,9 @@ def capture_reviewer_snapshot(
     reviewer_runtime = _mapping(report.get("reviewer_runtime"))
     review_acceptance = _mapping(reviewer_runtime.get("review_acceptance"))
     packet_inbox = _load_packet_inbox(report)
+    reviewer_provider = reviewer_provider_from_review_state(report)
     agent_attention = (
-        packet_inbox.for_agent("codex")
+        packet_inbox.for_agent(reviewer_provider)
         if packet_inbox is not None
         else None
     )

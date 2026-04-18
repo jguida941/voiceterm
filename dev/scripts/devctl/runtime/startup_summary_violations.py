@@ -143,7 +143,9 @@ def _reviewer_gate_violation(
     if not bool(gate.get("implementation_blocked")):
         return None
     reason = coerce_stripped_str(gate.get("implementation_block_reason"))
-    reviewer_mode = coerce_stripped_str(gate.get("reviewer_mode"))
+    reviewer_mode = coerce_stripped_str(
+        gate.get("effective_reviewer_mode")
+    ) or coerce_stripped_str(gate.get("reviewer_mode"))
     recovery_command = coerce_stripped_str(gate.get("recovery_command"))
     recovery_action = coerce_stripped_str(gate.get("recovery_action_id"))
     return ViolationRecord(

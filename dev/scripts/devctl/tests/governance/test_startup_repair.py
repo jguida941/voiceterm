@@ -248,6 +248,22 @@ class StartupRepairContractTests(unittest.TestCase):
         self.assertEqual(result.issues[0].apply_action, "ensure_runtime")
         self.assertTrue(result.issues[0].safe_to_apply_now)
 
+    def test_build_result_prefers_effective_reviewer_mode(self) -> None:
+        result = build_startup_repair_result(
+            ctx=_ctx(
+                reviewer_gate=ReviewerGateState(
+                    bridge_active=True,
+                    reviewer_mode="active_dual_agent",
+                    effective_reviewer_mode="tools_only",
+                    review_accepted=False,
+                )
+            ),
+            authority_report={"ok": True, "errors": [], "warnings": []},
+            startup_receipt_path="dev/reports/startup/latest/receipt.json",
+        )
+
+        self.assertEqual(result.reviewer_mode, "tools_only")
+
     def test_tracked_state_fix_is_blocked_by_checkpoint_boundary(self) -> None:
         result = build_startup_repair_result(
             ctx=_ctx(

@@ -53,6 +53,7 @@ from .status_projection_helpers import (
     attach_conductor_session_state,
     build_bridge_push_enforcement_state,
 )
+from .status_projection_bridge_state import build_typed_bridge_liveness
 from .status_push_decision import build_status_push_decision
 from ..runtime.coordination_loader import load_coordination_snapshot
 from ..runtime.surface_snapshot import build_surface_snapshot_id
@@ -110,6 +111,7 @@ def enrich_event_review_state(
         build_service_identity=build_service_identity,
         build_service_identity_state=build_service_identity_state,
         build_status_push_decision=build_status_push_decision,
+        build_typed_bridge_liveness=build_typed_bridge_liveness,
         current_session_payload=current_session_payload,
         enrichment_extras=enrichment_extras,
         load_coordination_snapshot=load_coordination_snapshot,

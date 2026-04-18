@@ -4,7 +4,10 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 
-from ..runtime.runtime_count_roles import participant_role_provider_ids
+from ..runtime.runtime_count_roles import (
+    participant_role_provider_ids,
+    provider_has_only_non_tandem_presence,
+)
 
 
 def build_runtime_counts(
@@ -185,6 +188,12 @@ def _live_role_totals(
             continue
         provider = _text(row.get("provider") or row.get("agent_id"))
         if not provider:
+            continue
+        if provider_has_only_non_tandem_presence(
+            live_participants,
+            provider,
+            text_fn=_text,
+        ):
             continue
         role_id = _text(row.get("role_id"))
         if role_id == "review_agent" and provider not in reviewer_ids:

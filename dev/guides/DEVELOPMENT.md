@@ -561,7 +561,11 @@ Three quality layers matter in practice:
     still blocks those actions on
     checkpoint-budget or other real authority failures, but it no longer
     blocks `launch|rollover` solely because the current reviewer loop is stale
-    on the implementer side or because a reviewer-state commit changed HEAD; those actions remain the sanctioned full-session
+    on the implementer side or because a reviewer-state commit changed HEAD;
+    prepared conductor authority follows that same rule after launch, so
+    remote-control commit-driven HEAD drift must be classified from typed
+    governance/review-state evidence rather than
+    `DEVCTL_OPERATOR_INTERACTION_MODE` alone. Those actions remain the sanctioned full-session
     relaunch path when the pair needs a fresh start, while `recover` is the
     narrower implementer-only repair path when the repo-owned reviewer is
     already live.

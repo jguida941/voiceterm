@@ -14,6 +14,7 @@ from dev.scripts.devctl.commands.governance.session_resume_authority_payload imp
     SessionResumeAuthorityPayload,
     SessionResumeCurrentSessionPayload,
     SessionResumePacketInboxPayload,
+    build_session_resume_review_state_context,
 )
 from dev.scripts.devctl.commands.governance.session_resume_paths import (
     get_review_state_mtime,
@@ -108,6 +109,69 @@ class TestSessionResumeAuthorityPayload(unittest.TestCase):
         self.assertEqual(
             payload["governance"],
             {"push_enforcement": {"checkpoint_required": True}},
+        )
+
+    def test_build_session_resume_review_state_context_uses_typed_role_agents(self) -> None:
+        review_state_payload = {
+            "collaboration": {
+                "review_agent": "cursor",
+                "coding_agent": "gemini",
+                "role_assignments": (),
+            },
+            "queue": {
+                "pending_total": 0,
+                "stale_packet_count": 0,
+            },
+            "packet_inbox": {
+                "attention_revision": "attn-123",
+                "agents": [
+                    {
+                        "agent": "cursor",
+                        "current_instruction_packet_id": "",
+                        "latest_finding_packet_id": "",
+                        "pending_actionable_packet_ids": [],
+                        "expired_unresolved_packet_ids": ["rev_pkt_cursor_old"],
+                        "attention_status": "review_needed",
+                        "wake_reason": "expired_unresolved_packet",
+                        "required_command": "",
+                        "delivery_state": "notified",
+                    },
+                    {
+                        "agent": "gemini",
+                        "current_instruction_packet_id": "",
+                        "latest_finding_packet_id": "",
+                        "pending_actionable_packet_ids": [],
+                        "expired_unresolved_packet_ids": [
+                            "rev_pkt_gemini_old_1",
+                            "rev_pkt_gemini_old_2",
+                        ],
+                        "attention_status": "review_needed",
+                        "wake_reason": "expired_unresolved_packet",
+                        "required_command": "",
+                        "delivery_state": "notified",
+                    },
+                ],
+            },
+        }
+
+        reviewer_context = build_session_resume_review_state_context(
+            review_state_payload,
+            fallback_open_findings="none",
+            role="reviewer",
+        )
+        implementer_context = build_session_resume_review_state_context(
+            review_state_payload,
+            fallback_open_findings="none",
+            role="implementer",
+        )
+
+        self.assertEqual(
+            reviewer_context.open_findings,
+            "1 expired unresolved review packet(s)",
+        )
+        self.assertEqual(
+            implementer_context.open_findings,
+            "2 expired unresolved review packet(s)",
         )
 
 

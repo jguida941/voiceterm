@@ -365,8 +365,16 @@ def run(args) -> int:
     # Role-aware reviewer gate: in active_dual_agent, reviewer must not
     # start implementation work unless explicitly overridden.
     reviewer_blocked = False
+    reviewer_mode = (
+        str(
+            ctx.reviewer_gate.effective_reviewer_mode
+            or ctx.reviewer_gate.reviewer_mode
+            or ""
+        ).strip()
+        or "tools_only"
+    )
     if caller_role == "reviewer" and not reviewer_local_implementation_allowed(
-        reviewer_mode=ctx.reviewer_gate.reviewer_mode,
+        reviewer_mode=reviewer_mode,
         reviewer_override=reviewer_override,
     ):
         reviewer_blocked = True

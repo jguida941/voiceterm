@@ -6,6 +6,7 @@ from collections.abc import Mapping
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
+from .collaboration_provider import reviewer_provider_from_review_state
 from ..runtime.review_state_locator import load_current_review_state
 from ..runtime.review_state_models import packet_inbox_from_mapping
 
@@ -59,7 +60,10 @@ def attach_reviewer_packets(*, report: dict[str, object], repo_root: Path) -> No
     packet_inbox = packet_inbox_from_mapping(report.get("packet_inbox"))
     if packet_inbox is None and review_state is not None:
         packet_inbox = review_state.packet_inbox
-    agent_attention = packet_inbox.for_agent("codex") if packet_inbox is not None else None
+    reviewer_provider = reviewer_provider_from_review_state(review_state)
+    agent_attention = (
+        packet_inbox.for_agent(reviewer_provider) if packet_inbox is not None else None
+    )
     if agent_attention is None:
         report["reviewer_packets"] = ReviewerFollowPacketProjection(
             pending_total=0,

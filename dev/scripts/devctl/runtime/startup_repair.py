@@ -63,7 +63,14 @@ def build_startup_repair_result(
         startup_receipt_path=startup_receipt_path,
         advisory_action=str(ctx.advisory_action or "").strip(),
         advisory_reason=str(ctx.advisory_reason or "").strip(),
-        reviewer_mode=str(ctx.reviewer_gate.reviewer_mode or "").strip() or "single_agent",
+        reviewer_mode=(
+            str(
+                ctx.reviewer_gate.effective_reviewer_mode
+                or ctx.reviewer_gate.reviewer_mode
+                or ""
+            ).strip()
+            or "tools_only"
+        ),
         bridge_active=bool(ctx.reviewer_gate.bridge_active),
         startup_authority_ok=bool(authority_report.get("ok", False)),
         checkpoint_required=checkpoint_required,

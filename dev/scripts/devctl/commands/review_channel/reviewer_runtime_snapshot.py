@@ -17,6 +17,10 @@ from ...review_channel.status_projection_bridge_state import (
 )
 from ...runtime.authority_snapshot import project_authority_snapshot
 
+_AUTHORITY_BOOTSTRAP_COMMAND = (
+    "python3 dev/scripts/devctl.py context-graph --mode bootstrap --format md"
+)
+
 
 def attach_reviewer_runtime_snapshot(
     report: dict[str, object],
@@ -113,4 +117,15 @@ def attach_reviewer_runtime_snapshot(
     packet_inbox = getattr(review_state, "packet_inbox", None)
     if packet_inbox is not None:
         report["packet_inbox"] = asdict(packet_inbox)
-    project_authority_snapshot(report)
+    authority_snapshot = getattr(review_state, "authority_snapshot", None)
+    fallback_next_command = (
+        str(authority_snapshot.next_command or "").strip()
+        if authority_snapshot is not None
+        else ""
+    )
+    projected = project_authority_snapshot(report)
+    if (
+        fallback_next_command
+        and projected.next_command in {"", _AUTHORITY_BOOTSTRAP_COMMAND}
+    ):
+        project_authority_snapshot(report, next_command=fallback_next_command)

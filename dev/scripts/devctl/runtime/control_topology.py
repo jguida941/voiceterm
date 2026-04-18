@@ -12,6 +12,7 @@ from .control_topology_numeric import (
     int_value,
     supervised_conductor_count as resolve_supervised_conductor_count,
 )
+from .runtime_count_roles import provider_has_only_non_tandem_presence
 from .control_topology_runtime_counts import (
     startup_bridge_liveness,
     startup_runtime_counts,
@@ -39,6 +40,7 @@ def derive_observed_control_topology(
     """Derive live control topology from role counts and supervision evidence."""
     bridge = bridge_liveness if isinstance(bridge_liveness, Mapping) else {}
     counts = runtime_counts if isinstance(runtime_counts, Mapping) else {}
+    typed_participant_evidence = count(counts, "participants_total") > 0
     active_conductors = resolve_supervised_conductor_count(
         supervised_conductor_count_value=supervised_conductor_count,
         runtime_counts=counts,
@@ -46,15 +48,22 @@ def derive_observed_control_topology(
     reviewer_count = max(
         int_value(live_reviewer_count),
         count(counts, "live_reviewer_count", "live_reviewer_total"),
-        bridge_provider_count(bridge, "codex"),
-        int(boolish(bridge.get("codex_conductor_active"))),
     )
     implementer_count = max(
         int_value(live_implementer_count),
         count(counts, "live_implementer_count", "live_implementer_total"),
-        bridge_provider_count(bridge, "claude"),
-        int(boolish(bridge.get("claude_conductor_active"))),
     )
+    if not typed_participant_evidence:
+        reviewer_count = max(
+            reviewer_count,
+            bridge_provider_count(bridge, "codex"),
+            int(boolish(bridge.get("codex_conductor_active"))),
+        )
+        implementer_count = max(
+            implementer_count,
+            bridge_provider_count(bridge, "claude"),
+            int(boolish(bridge.get("claude_conductor_active"))),
+        )
 
     if active_conductors <= 0:
         reviewer_count = 0
@@ -190,21 +199,34 @@ def _has_role_evidence(
 
 def _typed_live_reviewer_and_implementer_present(review_state: object | None) -> bool:
     collaboration = _field(review_state, "collaboration")
+    participants = _sequence(_field(collaboration, "participants"))
+    live_participants = tuple(
+        row for row in participants if boolish(_field(row, "live"))
+    )
     role_assignments = _sequence(_field(collaboration, "role_assignments"))
     review_agent_live = any(
         _text(_field(row, "role_id")) == "review_agent"
         and boolish(_field(row, "live"))
+        and not provider_has_only_non_tandem_presence(
+            list(live_participants),
+            _text(_field(row, "provider") or _field(row, "agent_id")),
+            text_fn=_text,
+        )
         for row in role_assignments
     )
     coding_agent_live = any(
         _text(_field(row, "role_id")) == "coding_agent"
         and boolish(_field(row, "live"))
+        and not provider_has_only_non_tandem_presence(
+            list(live_participants),
+            _text(_field(row, "provider") or _field(row, "agent_id")),
+            text_fn=_text,
+        )
         for row in role_assignments
     )
     if review_agent_live and coding_agent_live:
         return True
 
-    participants = _sequence(_field(collaboration, "participants"))
     reviewer_live = any(
         _text(_field(row, "role")) == "reviewer"
         and boolish(_field(row, "live"))

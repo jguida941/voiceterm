@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 
+from .conductor_capability import normalize_reviewer_mode
 from .control_state import _int, _mapping, _string
 from .review_state_parse_support import _bool
 from .review_state_models import ReviewCurrentSessionState
@@ -17,6 +18,15 @@ from .reviewer_runtime_models import (
     ReviewerSessionOwnerState,
     remote_control_attachment_from_mapping,
 )
+
+
+def _resolved_reviewer_mode(*values: object) -> str:
+    """Resolve reviewer mode from ordered values and fail closed to tools_only."""
+    for value in values:
+        raw = _string(value)
+        if raw:
+            return normalize_reviewer_mode(raw)
+    return "tools_only"
 
 
 def reviewer_runtime_state_from_payload(
@@ -74,16 +84,16 @@ def _typed_reviewer_runtime_state(
         reviewer_runtime.get("remote_control_attachment")
     )
     review_accepted = _bool(review_acceptance.get("review_accepted"))
-    reviewer_mode = (
-        _string(reviewer_runtime.get("reviewer_mode"))
-        or _string(bridge.get("reviewer_mode"))
-        or "single_agent"
+    reviewer_mode = _resolved_reviewer_mode(
+        reviewer_runtime.get("reviewer_mode"),
+        bridge.get("reviewer_mode"),
+        bridge.get("effective_reviewer_mode"),
     )
-    effective_reviewer_mode = (
-        _string(reviewer_runtime.get("effective_reviewer_mode"))
-        or _string(bridge.get("effective_reviewer_mode"))
-        or _string(bridge.get("reviewer_mode"))
-        or "single_agent"
+    effective_reviewer_mode = _resolved_reviewer_mode(
+        reviewer_runtime.get("effective_reviewer_mode"),
+        bridge.get("effective_reviewer_mode"),
+        reviewer_runtime.get("reviewer_mode"),
+        bridge.get("reviewer_mode"),
     )
     stale_reason = _stale_reason(
         reviewer_runtime.get("stale_reason"), attention_status=attention_status
@@ -182,8 +192,14 @@ def _bridge_reviewer_runtime_state(
     attention_status: str,
     recovery_command: str,
 ) -> ReviewerRuntimeContract:
-    reviewer_mode = _string(bridge.get("reviewer_mode")) or "single_agent"
-    effective_reviewer_mode = _string(bridge.get("effective_reviewer_mode")) or reviewer_mode
+    reviewer_mode = _resolved_reviewer_mode(
+        bridge.get("reviewer_mode"),
+        bridge.get("effective_reviewer_mode"),
+    )
+    effective_reviewer_mode = _resolved_reviewer_mode(
+        bridge.get("effective_reviewer_mode"),
+        bridge.get("reviewer_mode"),
+    )
     implementer_ack_current = _implementer_ack_current(
         reviewer_runtime={},
         bridge=bridge,

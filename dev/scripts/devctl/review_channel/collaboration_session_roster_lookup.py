@@ -12,6 +12,9 @@ from ..runtime.role_profile import (
     normalize_tandem_role,
     role_for_provider,
 )
+from .session_probe import ConductorSessionRecord
+
+
 def active_attachment_by_provider(
     remote_attachments: tuple[RemoteControlAttachmentState, ...],
 ) -> dict[str, RemoteControlAttachmentState]:
@@ -32,8 +35,29 @@ def role_assignment(
     *,
     remote_attachments: tuple[RemoteControlAttachmentState, ...] = (),
 ) -> CollaborationRoleAssignmentState:
+    record = next((row for row in session_records if row.provider == provider), None)
     attachment = active_attachment_by_provider(remote_attachments).get(provider)
     expected_role = role_for_role_id(role_id)
+    if expected_role is None:
+        if record is None:
+            return CollaborationRoleAssignmentState(
+                role_id=role_id,
+                agent_id=provider,
+                provider=provider,
+                display_name=display_name,
+                status="declared",
+                source="compatibility_profile",
+            )
+        return CollaborationRoleAssignmentState(
+            role_id=role_id,
+            agent_id=provider,
+            provider=provider,
+            display_name=display_name,
+            status="configured",
+            source="session_metadata",
+            session_name=record.session_name,
+            live=False,
+        )
     if attachment is not None and attachment_matches_role(
         attachment,
         expected_role=expected_role,
@@ -49,7 +73,18 @@ def role_assignment(
             session_name=session_name,
             live=True,
         )
-    record = next((row for row in session_records if row.provider == provider), None)
+    if attachment is not None and normalize_tandem_role(attachment.role) is not None:
+        session_name = attachment.session_name or f"{provider}-remote-control"
+        return CollaborationRoleAssignmentState(
+            role_id=role_id,
+            agent_id=provider,
+            provider=provider,
+            display_name=display_name,
+            status="configured" if record is not None else "declared",
+            source="remote_control_attachment",
+            session_name=session_name,
+            live=False,
+        )
     if record is None:
         return CollaborationRoleAssignmentState(
             role_id=role_id,
@@ -82,8 +117,10 @@ def record_role(record) -> TandemRole:
 def attachment_matches_role(
     attachment: RemoteControlAttachmentState,
     *,
-    expected_role: TandemRole,
+    expected_role: TandemRole | None,
 ) -> bool:
+    if expected_role is None:
+        return False
     normalized = normalize_tandem_role(attachment.role)
     return normalized == expected_role
 
@@ -97,11 +134,11 @@ def has_active_remote_operator(
     )
 
 
-def role_for_role_id(role_id: str) -> TandemRole:
+def role_for_role_id(role_id: str) -> TandemRole | None:
     if role_id in {"lead_agent", "review_agent"}:
         return TandemRole.REVIEWER
     if role_id == "coding_agent":
         return TandemRole.IMPLEMENTER
     if role_id == "operator_agent":
         return TandemRole.OPERATOR
-    return TandemRole.IMPLEMENTER
+    return None

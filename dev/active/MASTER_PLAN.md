@@ -5105,7 +5105,10 @@ become the main product surface.
   compatibility-shaped `mobile-status` payloads second, and Claude remote-
   loop plus external-review surfaces onto typed status plus the generated
   summary third. Those clients stay projection-only; they are not new
-  authority owners.
+  authority owners. The same owner chain also keeps prepared launch authority
+  typed after launch: remote-control receipt-commit `HEAD` drift must be
+  classified from governance/review-state evidence before any runtime reader
+  downgrades continuity to `refresh_recommended`.
   Latest proof-surface follow-up (2026-04-04): `system-picture` now has a
   live repo-owned command path and the tracked proof ledger is a generated
   writeback from that snapshot, not a second execution tracker.

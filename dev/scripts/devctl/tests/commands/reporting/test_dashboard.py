@@ -2749,7 +2749,7 @@ class TestTypedReviewState(unittest.TestCase):
             self.assertEqual(snapshot["status"], snapshot["summary"]["overall_state"])
             self.assertEqual(snapshot["owner"], snapshot["now"]["owner"])
             self.assertEqual(snapshot["next_action"], snapshot["now"]["next_action"])
-            self.assertEqual(snapshot["top_blocker"], "1 pending review packet(s)")
+            self.assertEqual(snapshot["top_blocker"], "4 pending review packet(s)")
             self.assertEqual(snapshot["coordination"]["pending_count"], 4)
             self.assertEqual(snapshot["pending_count"], 4)
             self.assertEqual(snapshot["pending_findings_count"], 0)
@@ -3681,6 +3681,27 @@ class TestTypedBridgePath(unittest.TestCase):
         rs = _review_state_with_bridge()
         fields = _extract_typed_bridge_fields(rs)
         self.assertEqual(fields["verdict"], "n/a")
+
+    def test_typed_bridge_fields_prefer_effective_reviewer_mode(self) -> None:
+        """Dashboard fallback mode should reflect the effective reviewer mode."""
+        from dev.scripts.devctl.commands.dashboard_typed_state import (
+            _extract_typed_bridge_fields,
+        )
+
+        review_state = {
+            "bridge": {
+                "current_instruction": "fix shape",
+                "last_codex_poll_utc": "2026-04-04T00:00:00Z",
+                "reviewer_mode": "active_dual_agent",
+                "effective_reviewer_mode": "tools_only",
+            },
+            "reviewer_runtime": {
+                "effective_reviewer_mode": "tools_only",
+            },
+        }
+
+        fields = _extract_typed_bridge_fields(review_state)
+        self.assertEqual(fields["reviewer_mode"], "tools_only")
 
     def test_typed_bridge_findings_extraction(self) -> None:
         """Typed bridge findings parse the markdown list correctly."""

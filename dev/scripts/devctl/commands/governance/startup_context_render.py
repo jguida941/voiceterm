@@ -348,9 +348,14 @@ def render_markdown(ctx_dict: dict) -> str:
         lines.append("")
 
     gate = ctx_dict.get("reviewer_gate", {})
+    gate_mode = str(
+        gate.get("effective_reviewer_mode")
+        or gate.get("reviewer_mode")
+        or "tools_only"
+    ).strip()
     lines.append("## Reviewer Gate")
     lines.append(f"- bridge_active: {gate.get('bridge_active', False)}")
-    lines.append(f"- reviewer_mode: {gate.get('reviewer_mode', 'single_agent')}")
+    lines.append(f"- reviewer_mode: {gate_mode}")
     lines.append(f"- review_accepted: {gate.get('review_accepted', False)}")
     lines.append(
         "- review_gate_allows_push: "

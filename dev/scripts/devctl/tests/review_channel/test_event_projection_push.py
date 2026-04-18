@@ -26,6 +26,7 @@ from dev.scripts.devctl.runtime.reviewer_runtime_models import (
 @dataclass(frozen=True)
 class _DummyCollaboration:
     contract_id: str = "CollaborationSession"
+    participants: tuple[object, ...] = ()
 
 
 _REVIEWER_RUNTIME = ReviewerRuntimeContract(
@@ -60,6 +61,14 @@ def _current_session() -> ReviewCurrentSessionState:
     return_value={},
 )
 @patch(
+    "dev.scripts.devctl.review_channel.event_projection.build_typed_bridge_liveness",
+    side_effect=lambda **kwargs: {
+        **kwargs["bridge_liveness"],
+        "reviewer_mode": "active_dual_agent",
+        "effective_reviewer_mode": "tools_only",
+    },
+)
+@patch(
     "dev.scripts.devctl.review_channel.event_projection.build_attach_auth_policy",
     return_value={},
 )
@@ -85,7 +94,16 @@ def _current_session() -> ReviewCurrentSessionState:
 )
 @patch(
     "dev.scripts.devctl.review_channel.event_projection.build_collaboration_session",
-    return_value=_DummyCollaboration(),
+    return_value=_DummyCollaboration(
+        participants=(
+            SimpleNamespace(
+                provider="claude",
+                agent_id="claude",
+                role="implementer",
+                live=True,
+            ),
+        ),
+    ),
 )
 @patch(
     "dev.scripts.devctl.review_channel.event_projection.build_event_current_session",
@@ -132,6 +150,7 @@ def test_enrich_event_review_state_attaches_push_truth(
     _bridge_state_mock,
     _service_identity_mock,
     _attach_auth_policy_mock,
+    _typed_bridge_liveness_mock,
     _attach_auth_policy_state_mock,
     _service_identity_state_mock,
 ) -> None:
@@ -176,6 +195,8 @@ def test_enrich_event_review_state_attaches_push_truth(
         enriched["attention"]["recommended_command"]
         == enriched["recovery_assessment"]["decision"]["command"]
     )
+    runtime_inputs = _reviewer_runtime_mock.call_args.args[0]
+    assert runtime_inputs.bridge_liveness["effective_reviewer_mode"] == "tools_only"
 
 
 _SNAPSHOT_PUSH_ENFORCEMENT: dict[str, object] = {
@@ -238,7 +259,16 @@ _SNAPSHOT_PUSH_ENFORCEMENT: dict[str, object] = {
 )
 @patch(
     "dev.scripts.devctl.review_channel.event_projection.build_collaboration_session",
-    return_value=_DummyCollaboration(),
+    return_value=_DummyCollaboration(
+        participants=(
+            SimpleNamespace(
+                provider="claude",
+                agent_id="claude",
+                role="implementer",
+                live=True,
+            ),
+        ),
+    ),
 )
 @patch(
     "dev.scripts.devctl.review_channel.event_projection.build_event_current_session",
@@ -558,7 +588,7 @@ def test_enrich_event_review_state_reads_sessions_from_latest_root(
         "recommended_action": "checkpoint_before_continue",
     },
 )
-def test_enrich_event_review_state_prioritizes_relaunch_when_conductor_helper_marks_hybrid_claude_only(
+def test_enrich_event_review_state_prioritizes_checkpoint_when_conductor_helper_marks_hybrid_claude_only(
     _push_enforcement_mock,
     _attach_conductor_session_state_mock,
     _bridge_liveness_mock,
@@ -589,7 +619,7 @@ def test_enrich_event_review_state_prioritizes_relaunch_when_conductor_helper_ma
         ),
     )
 
-    assert enriched["attention"]["status"] == "review_loop_relaunch_required"
+    assert enriched["attention"]["status"] == "checkpoint_required"
     assert enriched["recovery_assessment"]["diagnosis"]["status"] == (
-        "review_loop_relaunch_required"
+        "checkpoint_required"
     )

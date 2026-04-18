@@ -238,6 +238,47 @@ def test_derive_startup_control_truth_keeps_typed_live_pair_visible() -> None:
     assert permission == "active"
 
 
+def test_derive_startup_control_truth_ignores_operator_only_implementer_assignment(
+) -> None:
+    review_state = SimpleNamespace(
+        bridge={
+            "reviewer_mode": "active_dual_agent",
+            "effective_reviewer_mode": "tools_only",
+            "codex_conductor_active": True,
+            "claude_conductor_active": True,
+        },
+        collaboration={
+            "participants": (
+                {"provider": "codex", "role": "reviewer", "live": True},
+                {"provider": "claude", "role": "operator", "live": True},
+            ),
+            "role_assignments": (
+                {"role_id": "review_agent", "provider": "codex", "live": True},
+                {"role_id": "coding_agent", "provider": "claude", "live": True},
+                {"role_id": "operator_agent", "provider": "claude", "live": True},
+            ),
+        },
+        reviewer_runtime=SimpleNamespace(
+            reviewer_mode="active_dual_agent",
+            effective_reviewer_mode="tools_only",
+            remote_control_attachment=SimpleNamespace(status="attached"),
+        ),
+    )
+    reviewer_gate = SimpleNamespace(
+        reviewer_mode="active_dual_agent",
+        effective_reviewer_mode="tools_only",
+        operator_interaction_mode="remote_control",
+    )
+
+    topology, permission = derive_startup_control_truth(
+        review_state,
+        reviewer_gate=reviewer_gate,
+    )
+
+    assert topology == "reviewer_only"
+    assert permission == "blocked"
+
+
 def test_startup_summary_includes_observed_control_topology() -> None:
     rendered = _render_summary(
         {

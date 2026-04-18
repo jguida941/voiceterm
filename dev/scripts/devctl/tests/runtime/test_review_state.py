@@ -622,7 +622,7 @@ class ReviewStateTests(unittest.TestCase):
             "tools_only",
         )
 
-    def test_missing_reviewer_mode_defaults_to_single_agent(self) -> None:
+    def test_missing_reviewer_mode_defaults_to_tools_only(self) -> None:
         state = review_state_from_payload(
             {
                 "review_state": {
@@ -635,7 +635,10 @@ class ReviewStateTests(unittest.TestCase):
 
         self.assertIsNotNone(state)
         assert state is not None
-        self.assertEqual(state.bridge.reviewer_mode, "single_agent")
+        self.assertEqual(state.bridge.reviewer_mode, "tools_only")
+        self.assertEqual(state.bridge.effective_reviewer_mode, "tools_only")
+        self.assertEqual(state.reviewer_runtime.reviewer_mode, "tools_only")
+        self.assertEqual(state.reviewer_runtime.effective_reviewer_mode, "tools_only")
         self.assertEqual(state.commit_pipeline.state, "push_blocked")
         self.assertEqual(state.commit_pipeline.blocked_reason, "pipeline_unavailable")
 

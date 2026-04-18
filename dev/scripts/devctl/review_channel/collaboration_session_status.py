@@ -154,12 +154,15 @@ def _runtime_gate_summary(
         return (
             f"Reviewer mode `{reviewer_mode}` does not require live dual-agent conductors."
         )
-    live_roles = sorted(
-        participant.role
+    reviewer_live = any(
+        participant.live and participant.role == TandemRole.REVIEWER.value
         for participant in participants
-        if participant.live
     )
-    if len(live_roles) >= 2:
+    implementer_live = any(
+        participant.live and participant.role == TandemRole.IMPLEMENTER.value
+        for participant in participants
+    )
+    if reviewer_live and implementer_live:
         return "Live reviewer and implementer conductor sessions are present."
     return "Active dual-agent mode still requires live reviewer and implementer conductor sessions."
 

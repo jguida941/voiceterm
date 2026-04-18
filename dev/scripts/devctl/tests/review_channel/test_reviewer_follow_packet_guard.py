@@ -262,6 +262,45 @@ class TestMaybeQueueWithAuthority(unittest.TestCase):
         self.assertEqual(result["packet_id"], "pkt-123")
         self.assertEqual(len(posted_packets), 1)
 
+    def test_routes_packet_to_typed_coding_provider(self):
+        auth = _make_authority()
+        req = _make_request(
+            report={
+                **_make_report(),
+                "collaboration": {
+                    "coding_agent": "cursor",
+                    "role_assignments": [
+                        {"role_id": "coding_agent", "provider": "cursor"}
+                    ],
+                },
+            },
+            turn_authority=auth,
+        )
+        state = ReviewerFollowTriggerState()
+
+        posted_packets = []
+
+        def fake_post(*, repo_root, review_channel_path, artifact_paths, request):
+            posted_packets.append(request)
+            return (object(), {"packet_id": "pkt-cursor"})
+
+        def fake_load(*, repo_root, review_channel_path, artifact_paths):
+            return SimpleNamespace(review_state={"packets": []})
+
+        deps = ReviewerFollowPacketDeps(
+            load_bundle_fn=fake_load,
+            post_packet_fn=fake_post,
+        )
+        result = maybe_queue_reviewer_follow_packet(
+            request=req,
+            trigger_state=state,
+            deps=deps,
+        )
+
+        self.assertIsNotNone(result)
+        self.assertEqual(result["to_agent"], "cursor")
+        self.assertEqual(posted_packets[0].to_agent, "cursor")
+
     def test_deduplicates_existing_pending_packet(self):
         auth = _make_authority(
             attention_status="review_follow_up_required",

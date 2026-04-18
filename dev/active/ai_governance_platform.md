@@ -1,6 +1,6 @@
 # AI Governance Platform Plan
 
-**Status**: active  |  **Last updated**: 2026-04-17 | **Owner:** Tooling/control plane/product architecture
+**Status**: active  |  **Last updated**: 2026-04-18 | **Owner:** Tooling/control plane/product architecture
 Execution plan contract: required
 This spec remains execution mirrored in `dev/active/MASTER_PLAN.md` under
 `MP-377`, and it is the canonical active architecture plan for the standalone
@@ -5079,6 +5079,27 @@ prefer the typed phase/task entries before any free-form backlog bullets.
 Use this section as the single "left off here" surface for fresh AI sessions
 working on `MP-377`.
 
+- 2026-04-18 provider-role authority + prepared-launch checkpoint follow-up:
+  the current `rev_pkt_0991` checkpoint now folds the sibling
+  `rev_pkt_1014` provider-hardcode cleanup into the same bounded proof.
+  `assess_prepared_launch_authority()` derives post-launch
+  `remote_control` head-drift continuity from typed governance/review-state
+  evidence while still honoring explicit `DEVCTL_OPERATOR_INTERACTION_MODE`
+  overrides first, and event/status/coordination current-session consumers
+  now resolve coding/reviewer providers from `CollaborationSessionState`
+  instead of assuming `codex` / `claude`. The same slice keeps
+  `event_watch_support.load_target_packets()` compatible with both the new
+  `EventWatchContext` call path and the legacy watch-follow arguments during
+  the command-package migration. Focused proof is green on
+  `test_launch_authority.py`, `test_current_session_projection.py`,
+  `test_coordination_snapshot.py`, `test_event_watch_support.py`, and the
+  targeted provider-index regression in `test_review_packet_inbox.py`.
+  Treat this as code-hardening only, not live runtime closure: fresh
+  2026-04-18 `review-channel status` / `doctor` receipts still report
+  `runtime_missing`, blank `current_instruction_revision`, and
+  `implementer_ack_state=missing`, so the next step after the governed
+  checkpoint is to re-run startup/status from the new `HEAD` and keep the
+  locked order on `rev_pkt_0947` then `rev_pkt_0950`.
 - 2026-04-17 host-process cleanup checkpoint follow-up:
   live `process-cleanup --verify` is green again after narrowing conductor
   protection to runtime/script liveness for registry-backed `session_pid`
@@ -7198,6 +7219,24 @@ Execution order for this section:
 
 ## Progress Log
 
+- 2026-04-18: Closed the bounded provider-hardcode / prepared-launch drift
+  seam in the live `MP-377` / `MP-355` proof. Prepared launch authority now
+  derives post-launch `remote_control` continuity from typed
+  governance/review-state evidence instead of a single env var while still
+  honoring explicit operator-mode overrides first, and the
+  current-session/status/coordination reducers now resolve coding/reviewer
+  identities from typed collaboration state instead of hardcoded `codex` /
+  `claude` packet paths. The same checkpoint keeps
+  `event_watch_support.load_target_packets()` backward-compatible across the
+  `EventWatchContext` migration so live watch-follow callers do not crash on
+  the legacy argument shape. Focused proof is green on
+  `test_launch_authority.py`, `test_current_session_projection.py`,
+  `test_coordination_snapshot.py`, `test_event_watch_support.py`, and the
+  targeted `test_review_packet_inbox.py -k indexes_current_instruction_by_target_agent`
+  regression. Fresh `review-channel status` / `doctor` receipts still show
+  `runtime_missing`, blank `current_instruction_revision`, and
+  `implementer_ack_state=missing`, so this checkpoint explicitly leaves live
+  runtime continuity open instead of over-claiming closure.
 - 2026-04-17: Closed the live host-process cleanup false block that was still
   freezing governed checkpoints after the earlier pipeline/startup repairs. A
   real detached Codex conductor wrapper remained registry-backed and

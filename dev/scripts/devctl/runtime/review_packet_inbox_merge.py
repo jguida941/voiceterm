@@ -12,7 +12,7 @@ def merge_packet_inbox_states(
     *,
     rebuilt: PacketInboxState,
     persisted: PacketInboxState,
-    live_packet_ids: frozenset[str],
+    live_packet_ids: frozenset[str] | None,
 ) -> PacketInboxState:
     """Merge rebuilt packet-inbox truth with any still-relevant persisted state."""
     merged_agents: list[AgentAttentionRecord] = []
@@ -46,32 +46,38 @@ def merge_packet_inbox_states(
 def sanitize_persisted_record(
     record: AgentAttentionRecord | None,
     *,
-    live_packet_ids: frozenset[str],
+    live_packet_ids: frozenset[str] | None,
 ) -> AgentAttentionRecord | None:
     """Drop persisted packet references that no longer exist in the live reducer."""
     if record is None:
         return None
+    packets_missing = live_packet_ids is None
     sanitized = AgentAttentionRecord(
         agent=record.agent,
         current_instruction_packet_id=(
             record.current_instruction_packet_id
-            if record.current_instruction_packet_id in live_packet_ids
+            if packets_missing or record.current_instruction_packet_id in live_packet_ids
             else ""
         ),
         latest_finding_packet_id=(
             record.latest_finding_packet_id
-            if record.latest_finding_packet_id in live_packet_ids
+            if packets_missing or record.latest_finding_packet_id in live_packet_ids
             else ""
         ),
         pending_actionable_packet_ids=tuple(
             packet_id
             for packet_id in record.pending_actionable_packet_ids
-            if packet_id in live_packet_ids
+            if packets_missing or packet_id in live_packet_ids
         ),
-        # Expired unresolved packets are intentionally not part of the live
-        # pending packet set; preserve them until the reducer observes a real
-        # resolution instead of erasing reviewer attention on a partial refresh.
-        expired_unresolved_packet_ids=record.expired_unresolved_packet_ids,
+        # Expired unresolved packets are not always present in partial live
+        # refreshes, so keep persisted reviewer debt while any live packet rows
+        # still exist. Drop it only when the live reducer is empty and the
+        # persisted snapshot would otherwise revive already-evicted work.
+        expired_unresolved_packet_ids=(
+            record.expired_unresolved_packet_ids
+            if packets_missing or live_packet_ids
+            else ()
+        ),
         attention_status=record.attention_status,
         wake_reason=record.wake_reason,
         required_command=record.required_command,

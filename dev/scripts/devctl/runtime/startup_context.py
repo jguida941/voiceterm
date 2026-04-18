@@ -231,7 +231,7 @@ def _interaction_mode_from_reviewer_mode(
         return "remote_control"
     if gov == "local_terminal":
         return "local_terminal"
-    normalized = normalize_reviewer_mode(effective_mode)
+    normalized = normalize_reviewer_mode(effective_mode) if effective_mode else ""
     if normalized == "active_dual_agent":
         return "dual_agent"
     if normalized == "single_agent":
@@ -247,6 +247,8 @@ def _detect_reviewer_gate_from_review_state(
     if state is None:
         return None
     reviewer_runtime = state.reviewer_runtime
+    current_session = state.current_session
+    attention = state.attention
     assessment = state.recovery_assessment
     mode = reviewer_runtime.reviewer_mode
     effective_mode = str(reviewer_runtime.effective_reviewer_mode or "").strip() or mode
@@ -275,6 +277,18 @@ def _detect_reviewer_gate_from_review_state(
     )
     declared_active = normalize_reviewer_mode(mode) == "active_dual_agent"
     effective_active = normalize_reviewer_mode(effective_mode) == "active_dual_agent"
+    attention_status = str(getattr(attention, "status", "") or "").strip()
+    implementation_blocked = reviewer_runtime.implementation_blocked
+    implementation_block_reason = reviewer_runtime.implementation_block_reason
+    if (
+        declared_active
+        and effective_active
+        and not implementation_blocked
+        and attention_status == "claude_ack_stale"
+        and str(current_session.implementer_ack_state or "").strip() == "stale"
+    ):
+        implementation_blocked = True
+        implementation_block_reason = attention_status
     if not declared_active:
         return ReviewerGateState(
             bridge_active=False,
@@ -299,8 +313,8 @@ def _detect_reviewer_gate_from_review_state(
         required_checks_status="unknown",
         checkpoint_permitted=True,
         review_gate_allows_push=publish_clear,
-        implementation_blocked=reviewer_runtime.implementation_blocked,
-        implementation_block_reason=reviewer_runtime.implementation_block_reason,
+        implementation_blocked=implementation_blocked,
+        implementation_block_reason=implementation_block_reason,
         recovery_diagnosis_status=diagnosis_status,
         recovery_action_id=action_id,
         recovery_command=recovery_command,

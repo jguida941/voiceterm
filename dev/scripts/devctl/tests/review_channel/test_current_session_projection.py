@@ -631,6 +631,12 @@ def test_event_projection_uses_persisted_packet_inbox_when_live_packets_are_part
                         "Priority action_request: Dogfood split-authority "
                         "current-slice contradiction"
                     ),
+                    "derived_next_instruction_source": {
+                        "packet_id": "rev_pkt_0523",
+                        "kind": "action_request",
+                        "from_agent": "codex",
+                        "to_agent": "claude",
+                    },
                 },
                 "packets": [
                     {
@@ -701,7 +707,10 @@ def test_event_projection_uses_persisted_packet_inbox_when_live_packets_are_part
             ),
         )
 
-    assert current_session.current_instruction == ""
+    assert current_session.current_instruction == (
+        "Priority action_request: Dogfood split-authority "
+        "current-slice contradiction"
+    )
     assert current_session.open_findings == (
         "1 pending review packet(s); 1 expired unresolved review packet(s)"
     )
@@ -868,7 +877,7 @@ def test_build_event_current_session_canonicalizes_instruction_markdown_revision
             "packet_inbox": {
                 "agents": [
                     {
-                        "agent": "codex",
+                        "agent": "claude",
                         "current_instruction_packet_id": "rev_pkt_0420",
                         "pending_actionable_packet_ids": ["rev_pkt_0420"],
                         "expired_unresolved_packet_ids": [],
@@ -1192,10 +1201,13 @@ def test_normalize_current_session_from_packet_truth_clears_missing_instruction_
             last_reviewed_scope="MP-400",
         ),
         review_state={
+            "collaboration": {
+                "coding_agent": "claude",
+            },
             "packet_inbox": {
                 "agents": [
                     {
-                        "agent": "codex",
+                        "agent": "claude",
                         "current_instruction_packet_id": "",
                         "pending_actionable_packet_ids": [],
                         "expired_unresolved_packet_ids": [],
@@ -1210,6 +1222,111 @@ def test_normalize_current_session_from_packet_truth_clears_missing_instruction_
     assert normalized.current_instruction_revision == ""
     assert normalized.implementer_ack == ""
     assert normalized.implementer_ack_revision == ""
+    assert normalized.implementer_ack_state == "missing"
+
+
+def test_build_event_current_session_uses_nondefault_coding_provider_for_instruction_packet_truth() -> None:
+    state = build_event_current_session(
+        review_state={
+            "collaboration": {
+                "coding_agent": "cursor",
+            },
+            "review": {"plan_id": "MP-355"},
+            "queue": {
+                "pending_total": 1,
+                "pending_cursor": 1,
+                "derived_next_instruction": "Cursor owns this active instruction.",
+                "derived_next_instruction_source": {
+                    "packet_id": "rev_pkt_cursor_1",
+                    "kind": "instruction",
+                    "from_agent": "codex",
+                    "to_agent": "cursor",
+                },
+            },
+            "packets": [
+                {
+                    "packet_id": "rev_pkt_cursor_1",
+                    "status": "pending",
+                    "summary": "Cursor takes the active slice",
+                    "body": "Cursor owns this active instruction.",
+                    "kind": "instruction",
+                    "from_agent": "codex",
+                    "to_agent": "cursor",
+                    "requested_action": "continue",
+                    "expires_at_utc": "2999-01-01T00:00:00Z",
+                }
+            ],
+            "packet_inbox": {
+                "agents": [
+                    {
+                        "agent": "cursor",
+                        "current_instruction_packet_id": "rev_pkt_cursor_1",
+                        "pending_actionable_packet_ids": ["rev_pkt_cursor_1"],
+                        "expired_unresolved_packet_ids": [],
+                        "attention_status": "wake_required",
+                        "wake_reason": "instruction_pending",
+                        "required_command": "",
+                        "attention_revision": "cursor-attention-rev",
+                        "delivery_state": "unseen",
+                    }
+                ]
+            },
+            "registry": {
+                "agents": [
+                    {
+                        "agent_id": "cursor",
+                        "job_state": "active",
+                    }
+                ]
+            },
+        },
+        bridge_liveness={
+            "current_instruction_revision": "rev-cursor-1",
+            "implementer_ack_revision": "",
+            "implementer_ack_current": False,
+        },
+    )
+
+    assert state.current_instruction == "Cursor owns this active instruction."
+    assert state.implementer_status == "active"
+
+
+def test_normalize_current_session_from_packet_truth_uses_nondefault_coding_provider() -> None:
+    normalized = _normalize_current_session_from_packet_truth(
+        current_session=ReviewCurrentSessionState(
+            current_instruction="Cursor owns this active instruction.",
+            current_instruction_revision="rev-cursor-1",
+            implementer_status="working",
+            implementer_ack="acknowledged",
+            implementer_ack_revision="rev-cursor-1",
+            implementer_ack_state="current",
+            implementer_state_hash="state-hash",
+            implementer_session_state="",
+            implementer_session_hint="",
+            open_findings="none",
+            last_reviewed_scope="MP-355",
+        ),
+        review_state={
+            "collaboration": {
+                "coding_agent": "cursor",
+            },
+            "packet_inbox": {
+                "agents": [
+                    {
+                        "agent": "cursor",
+                        "current_instruction_packet_id": "",
+                        "pending_actionable_packet_ids": [],
+                        "expired_unresolved_packet_ids": [],
+                        "wake_reason": "",
+                    }
+                ]
+            },
+        },
+    )
+
+    assert normalized.current_instruction == ""
+    assert normalized.current_instruction_revision == ""
+    assert normalized.implementer_ack == ""
     assert normalized.implementer_ack_state == "missing"
 
 

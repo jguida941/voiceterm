@@ -315,7 +315,7 @@ def test_build_coordination_snapshot_ignores_shared_instruction_without_codex_pa
                 expired_unresolved_packet_ids=("rev_pkt_0502",),
                 wake_reason="expired_unresolved_packet",
             )
-            if agent == "codex"
+            if agent == "claude"
             else None
         )
     )

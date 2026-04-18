@@ -41,6 +41,10 @@ Portable-platform rule:
   metadata from typed bridge state plus normalize fractional-second typed poll
   timestamps back to the canonical whole-second bridge format before
   `check_review_channel_bridge.py` or governed push can trust the projection.
+  The same contract applies to prepared launch authority after launch:
+  remote-control continuity must be derived from typed governance/review-state
+  evidence rather than launcher env vars alone, so receipt commits do not make
+  different runtime readers disagree about whether the loop is still valid.
 
 Documentation-boundary rule:
 - Keep VoiceTerm product docs (`README.md`, `QUICK_START.md`, `guides/*`)

@@ -367,6 +367,27 @@ Evidence: `dev/scripts/devctl/commands/pipeline/support.py`,
 `dev/active/MASTER_PLAN.md`,
 and `dev/active/ai_governance_platform.md`.
 
+### 2026-04-17 - Prepared launch authority now derives remote-control continuity from typed state
+
+The post-commit reviewer-loop persistence slice exposed one remaining split in
+prepared conductor authority: `launch_authority.assess_prepared_launch_authority()`
+only downgraded commit-driven `HEAD` drift to `refresh_recommended` when
+`DEVCTL_OPERATOR_INTERACTION_MODE=remote_control` was present in the process
+environment. Startup/status/runtime readers that did not inherit that env var
+could classify the same post-launch session as fully `stale`, so receipt
+commits kept flipping the same remote-control reviewer loop between
+"continue" and "relaunch required" depending on which surface read it. The
+bounded fix now resolves remote-control continuity from the canonical typed
+inputs first: repo governance plus the current `review_state.json` payload via
+`derive_operator_interaction_mode()`, with the env override kept only as a
+legacy fast path. Existing stale-authority session-probe behavior stays
+fail-closed for non-remote launches, while remote-control receipt commits now
+stay aligned with the rest of the control plane.
+
+Evidence: `dev/scripts/devctl/review_channel/launch_authority.py`,
+`dev/scripts/devctl/tests/review_channel/test_launch_authority.py`,
+`dev/scripts/devctl/tests/review_channel/test_review_channel.py`.
+
 ### 2026-04-17 - Host cleanup now protects registry-backed running conductors even when prepared authority drifted stale
 
 Fact: the next live governed-checkpoint retry was no longer blocked by

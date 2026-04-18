@@ -67,10 +67,12 @@ def packet_inbox_from_review_state(
     """Return packet-inbox truth, preferring a fresh rebuild from packet rows."""
     if not isinstance(review_state, Mapping):
         return None
+    packets_present = "packets" in review_state
+    raw_packets = review_state.get("packets", ())
     persisted = packet_inbox_from_mapping(review_state.get("packet_inbox"))
     rebuilt = packet_inbox_from_mapping(
         build_packet_inbox_payload(
-            review_state.get("packets", ()),
+            raw_packets,
             attention=_mapping(review_state.get("attention")),
         )
     )
@@ -81,7 +83,7 @@ def packet_inbox_from_review_state(
     return _merge_packet_inbox_states(
         rebuilt=rebuilt,
         persisted=persisted,
-        live_packet_ids=_live_packet_ids(review_state.get("packets", ())),
+        live_packet_ids=_live_packet_ids(raw_packets) if packets_present else None,
     )
 
 

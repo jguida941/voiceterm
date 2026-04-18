@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 
+from .conductor_capability import normalize_reviewer_mode
 from .control_state import _int, _mapping, _string, _string_rows
 from .review_state_models import (
     ConductorCapabilityState,
@@ -80,18 +81,32 @@ def conductor_capability_state_from_payload(
     )
 
 
+def _resolved_reviewer_mode(mapping: Mapping[str, object], *keys: str) -> str:
+    """Resolve reviewer mode from ordered keys and fail closed to tools_only."""
+    for key in keys:
+        value = _string(mapping.get(key))
+        if value:
+            return normalize_reviewer_mode(value)
+    return "tools_only"
+
+
 def review_bridge_state_from_payload(
     *,
     bridge: Mapping[str, object],
     bridge_liveness: Mapping[str, object],
 ) -> ReviewBridgeState:
     """Parse the typed bridge projection shared by review-state surfaces."""
+    reviewer_mode = _resolved_reviewer_mode(
+        bridge,
+        "reviewer_mode",
+        "effective_reviewer_mode",
+    )
     return ReviewBridgeState(
         overall_state=_string(bridge_liveness.get("overall_state")) or "unknown",
         codex_poll_state=_string(bridge_liveness.get("codex_poll_state")) or "unknown",
         reviewer_freshness=_string(bridge_liveness.get("reviewer_freshness"))
         or "unknown",
-        reviewer_mode=_string(bridge.get("reviewer_mode")) or "single_agent",
+        reviewer_mode=reviewer_mode,
         last_codex_poll_utc=_string(bridge.get("last_codex_poll_utc")),
         last_codex_poll_age_seconds=_int(
             bridge_liveness.get("last_codex_poll_age_seconds")
@@ -127,7 +142,11 @@ def review_bridge_state_from_payload(
         implementer_ack_revision=_string(bridge.get("implementer_ack_revision"))
         or _string(bridge.get("claude_ack_revision")),
         launch_truth=_string(bridge.get("launch_truth")),
-        effective_reviewer_mode=_string(bridge.get("effective_reviewer_mode")),
+        effective_reviewer_mode=_resolved_reviewer_mode(
+            bridge,
+            "effective_reviewer_mode",
+            "reviewer_mode",
+        ),
         implementer_state_hash=_string(bridge.get("implementer_state_hash")),
         reviewed_hash_current=_optional_bool(bridge, "reviewed_hash_current"),
         review_needed=_optional_bool(bridge, "review_needed"),

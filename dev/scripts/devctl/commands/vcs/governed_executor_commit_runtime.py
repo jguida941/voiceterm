@@ -6,11 +6,17 @@ from pathlib import Path
 
 from ...review_channel.event_reducer import load_or_refresh_event_bundle
 from ...review_channel.events import post_packet, resolve_artifact_paths
+from ...review_channel.publication_ownership import resolve_publication_owner
 from ...runtime.conductor_capability import build_conductor_capability_state
 from ...runtime.remote_commit_pipeline_models import RemoteCommitPipelineContract
 from ...runtime.review_state_models import ReviewState
 from ...runtime.review_state_parser import review_state_from_payload
+from ...runtime.reviewer_runtime_models import has_active_remote_control_attachment
 from ...runtime.startup_receipt import load_startup_receipt
+from .governed_executor_commit_attention import (
+    _held_lease_active,
+    _target_agent_has_actionable_packet_attention,
+)
 from .governed_executor_packets import build_commit_execution_request
 
 
@@ -55,12 +61,6 @@ def attention_revision_stale(
         return True
     return receipt.attention_revision != current_attention_revision
 
-
-def _held_lease_active(held_lease: str) -> bool:
-    """Return true when the caller is holding a non-empty attention lease."""
-    return bool(str(held_lease or "").strip())
-
-
 def live_attention_revision(
     *,
     repo_root: Path,
@@ -78,31 +78,6 @@ def live_attention_revision(
         return ""
     return str(getattr(packet_inbox, "attention_revision", "") or "").strip()
 
-
-def _has_actionable_packet_attention(record: object) -> bool:
-    pending_actionable = getattr(record, "pending_actionable_packet_ids", ()) or ()
-    if pending_actionable:
-        return True
-    wake_reason = str(getattr(record, "wake_reason", "") or "").strip()
-    return wake_reason == "finding_pending"
-
-
-def _target_agent_has_actionable_packet_attention(
-    *,
-    packet_inbox: object,
-    target_agent: str,
-) -> bool:
-    agent_records = tuple(getattr(packet_inbox, "agents", ()) or ())
-    if target_agent:
-        normalized_target = target_agent.strip().lower()
-        for record in agent_records:
-            if str(getattr(record, "agent", "") or "").strip().lower() != normalized_target:
-                continue
-            return _has_actionable_packet_attention(record)
-        return False
-    return any(_has_actionable_packet_attention(record) for record in agent_records)
-
-
 def post_commit_execution_handoff(
     *,
     pipeline: RemoteCommitPipelineContract,
@@ -115,8 +90,10 @@ def post_commit_execution_handoff(
         review_channel_path=review_channel_path,
     )
     target_agent = resolve_commit_execution_target(review_state)
-    if not target_agent or review_channel_path is None:
-        return "", "", ""
+    if review_channel_path is None:
+        return "", "", "commit_execution_request_review_channel_missing"
+    if not target_agent:
+        return "", "", "commit_execution_target_unavailable"
     artifact_paths = resolve_artifact_paths(repo_root=repo_root)
     try:
         _, event = post_packet(
@@ -188,6 +165,11 @@ def resolve_commit_execution_target(review_state: ReviewState | None) -> str:
         implementer_provider
         and implementer_capability
         and implementer_capability.may_edit_repo
+        and _provider_has_live_role(
+            review_state,
+            provider=implementer_provider,
+            role="implementer",
+        )
     ):
         return implementer_provider
 
@@ -206,9 +188,22 @@ def resolve_commit_execution_target(review_state: ReviewState | None) -> str:
         if reviewer_provider
         else None
     )
-    if reviewer_provider and reviewer_capability and reviewer_capability.may_edit_repo:
+    if (
+        reviewer_provider
+        and reviewer_capability
+        and reviewer_capability.may_edit_repo
+        and _provider_has_live_role(
+            review_state,
+            provider=reviewer_provider,
+            role="reviewer",
+        )
+    ):
         return reviewer_provider
-    return ""
+    return _publication_owned_target(
+        review_state,
+        reviewer_provider=reviewer_provider,
+        implementer_provider=implementer_provider,
+    )
 
 
 def _provider_for_role(
@@ -236,3 +231,120 @@ def _provider_for_role(
         if provider:
             return provider
     return ""
+
+
+def _publication_owned_target(
+    review_state: ReviewState,
+    *,
+    reviewer_provider: str,
+    implementer_provider: str,
+) -> str:
+    interaction_mode = _commit_execution_interaction_mode(review_state)
+    if interaction_mode != "remote_control":
+        return ""
+    collaboration = getattr(review_state, "collaboration", None)
+    topology = str(getattr(collaboration, "topology_mode", "") or "").strip()
+    decision = resolve_publication_owner(
+        interaction_mode=interaction_mode,
+        topology=topology,
+        reviewer_provider=reviewer_provider,
+        implementer_provider=implementer_provider,
+    )
+    target_provider = str(decision.owner_provider or "").strip().lower()
+    if not target_provider:
+        return ""
+    target_role = ""
+    if str(decision.owner or "").strip().lower() == "implementer":
+        target_role = "implementer"
+    elif str(decision.owner or "").strip().lower() == "reviewer":
+        target_role = "reviewer"
+    if target_role and not _provider_has_live_role(
+        review_state,
+        provider=target_provider,
+        role=target_role,
+    ):
+        return ""
+    return target_provider
+
+
+def _provider_has_live_role(
+    review_state: ReviewState,
+    *,
+    provider: str,
+    role: str,
+) -> bool:
+    normalized_provider = str(provider or "").strip().lower()
+    normalized_role = str(role or "").strip().lower()
+    if not normalized_provider or normalized_role not in {"implementer", "reviewer"}:
+        return False
+    collaboration = getattr(review_state, "collaboration", None)
+    participants = tuple(getattr(collaboration, "participants", ()) or ())
+    saw_live_provider_participant = False
+    for participant in participants:
+        participant_provider = str(
+            getattr(participant, "provider", "")
+            or getattr(participant, "agent_id", "")
+            or ""
+        ).strip().lower()
+        if participant_provider != normalized_provider or not bool(
+            getattr(participant, "live", False)
+        ):
+            continue
+        saw_live_provider_participant = True
+        participant_role = str(getattr(participant, "role", "") or "").strip().lower()
+        if participant_role == normalized_role:
+            return True
+    if saw_live_provider_participant:
+        return False
+    assignment_status = _provider_live_role_assignment_status(
+        collaboration,
+        provider=normalized_provider,
+        role=normalized_role,
+    )
+    if assignment_status == "matching":
+        return True
+    if assignment_status == "other":
+        return False
+    return True
+
+
+def _provider_live_role_assignment_status(
+    collaboration: object,
+    *,
+    provider: str,
+    role: str,
+) -> str:
+    role_ids = ("coding_agent",) if role == "implementer" else ("review_agent", "lead_agent")
+    saw_live_provider_assignment = False
+    for assignment in tuple(getattr(collaboration, "role_assignments", ()) or ()):
+        assignment_provider = str(
+            getattr(assignment, "provider", "")
+            or getattr(assignment, "agent_id", "")
+            or ""
+        ).strip().lower()
+        if assignment_provider != provider or not bool(getattr(assignment, "live", False)):
+            continue
+        saw_live_provider_assignment = True
+        if str(getattr(assignment, "role_id", "") or "").strip().lower() in role_ids:
+            return "matching"
+    if saw_live_provider_assignment:
+        return "other"
+    return "unknown"
+
+
+def _commit_execution_interaction_mode(review_state: ReviewState) -> str:
+    reviewer_runtime = getattr(review_state, "reviewer_runtime", None)
+    attachment = getattr(reviewer_runtime, "remote_control_attachment", None)
+    if has_active_remote_control_attachment(attachment):
+        return "remote_control"
+
+    collaboration = getattr(review_state, "collaboration", None)
+    restart = getattr(collaboration, "restart", None)
+    if str(getattr(restart, "source", "") or "").strip() == "remote_control_attachment":
+        return "remote_control"
+
+    participants = tuple(getattr(collaboration, "participants", ()) or ())
+    for participant in participants:
+        if str(getattr(participant, "capture_mode", "") or "").strip().lower() == "remote-control":
+            return "remote_control"
+    return "local_terminal"

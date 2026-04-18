@@ -14,6 +14,10 @@ import subprocess
 import sys
 from pathlib import Path
 
+from ...review_channel.collaboration_provider import reviewer_provider_from_review_state
+from ...review_channel.pending_packet_storage import load_pending_reviewer_packets
+from ...runtime.review_state_locator import load_current_review_state
+
 
 def run_reviewer_loop(
     *,
@@ -76,10 +80,12 @@ def _run_ensure_tick(repo_root: Path, interval: int) -> None:
 def _has_pending_work(repo_root: Path) -> bool:
     """Return True when reviewer-targeted packets or relevant uncommitted changes exist."""
     try:
-        from ...review_channel.pending_packet_storage import (
-            load_pending_reviewer_packets,
+        review_state = load_current_review_state(
+            repo_root,
+            prefer_cached_projection=False,
         )
-        if load_pending_reviewer_packets(repo_root, reviewer_agent="codex"):
+        reviewer_agent = reviewer_provider_from_review_state(review_state)
+        if load_pending_reviewer_packets(repo_root, reviewer_agent=reviewer_agent):
             return True
     except Exception:
         pass

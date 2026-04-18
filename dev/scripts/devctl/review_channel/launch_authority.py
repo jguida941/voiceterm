@@ -4,12 +4,15 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Mapping
 
 from .handoff import extract_bridge_snapshot
+from ..runtime.governance_scan import scan_repo_governance_safely
+from ..runtime.operator_context import derive_operator_interaction_mode
 
 NON_RESTARTABLE_LAUNCH_AUTHORITY_EXIT_CODE = 82
 _COMPATIBLE_SESSION_IDS = frozenset(
@@ -122,12 +125,17 @@ def assess_prepared_launch_authority(
     )
 
     if prepared_head_sha.strip() and current_authority.head_sha != prepared_head_sha.strip():
-        # In remote_control / reviewer-loop mode, HEAD advancement is expected
-        # (the implementer commits while the reviewer runs). Downgrade from
-        # "stale" to "refresh_recommended" so the loop continues instead of
-        # killing the reviewer session on every commit.
-        import os
-        if os.environ.get("DEVCTL_OPERATOR_INTERACTION_MODE") == "remote_control":
+        # In remote_control reviewer-loop mode, HEAD advancement is expected
+        # (the implementer commits while the reviewer runs). Derive the mode
+        # from the same typed review/governance evidence the rest of the
+        # control plane uses so status/startup do not depend on one env var.
+        if (
+            _prepared_head_drift_interaction_mode(
+                repo_root=head_root,
+                review_state_path=review_state_path,
+            )
+            == "remote_control"
+        ):
             return PreparedLaunchAuthorityState(
                 state="refresh_recommended",
                 reason=(
@@ -240,6 +248,30 @@ def _current_launch_authority(
             last_codex_poll_utc=last_codex_poll,
         ),
         review_state_path=review_state_path,
+    )
+
+
+def _prepared_head_drift_interaction_mode(
+    *,
+    repo_root: Path,
+    review_state_path: Path,
+) -> str:
+    env_override = os.environ.get("DEVCTL_OPERATOR_INTERACTION_MODE", "").strip()
+    if env_override:
+        return env_override
+
+    review_state = _load_review_state(review_state_path)
+    governance = scan_repo_governance_safely(repo_root)
+    reviewer_mode = _first_text(
+        _mapping(review_state.get("bridge")).get("reviewer_mode"),
+        _mapping(review_state.get("reviewer_runtime")).get("reviewer_mode"),
+        _mapping(review_state.get("collaboration")).get("reviewer_mode"),
+    )
+    return derive_operator_interaction_mode(
+        governance=governance,
+        review_state_payload=review_state if review_state else None,
+        receipt=None,
+        reviewer_mode=reviewer_mode,
     )
 
 

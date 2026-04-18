@@ -19,6 +19,24 @@ class EventWatchContext:
     review_channel_path: Path
     artifact_paths: object
 
+    @classmethod
+    def from_legacy(
+        cls,
+        *,
+        args: object,
+        bundle: object,
+        repo_root: Path,
+        review_channel_path: Path,
+        artifact_paths: object,
+    ) -> "EventWatchContext":
+        return cls(
+            args=args,
+            bundle=bundle,
+            repo_root=repo_root,
+            review_channel_path=review_channel_path,
+            artifact_paths=artifact_paths,
+        )
+
 
 def load_target_packets(
     *,
@@ -70,11 +88,14 @@ def watch_snapshot_signature(
     *,
     packets: list[dict[str, object]],
     review_state: object,
-) -> tuple[frozenset[object], int]:
+    target: str | None = None,
+) -> tuple[frozenset[object], int, str]:
     """Return the watch-stream signature for live and stale queue state."""
     queue = {}
+    packet_inbox = {}
     if isinstance(review_state, dict):
         queue = review_state.get("queue", {})
+        packet_inbox = review_state.get("packet_inbox", {})
     stale_packet_count = 0
     if isinstance(queue, dict):
         stale_packet_count = int(queue.get("stale_packet_count", 0) or 0)
@@ -83,7 +104,26 @@ def watch_snapshot_signature(
         for packet in packets
         if isinstance(packet, dict)
     )
-    return packet_ids, stale_packet_count
+    return (
+        packet_ids,
+        stale_packet_count,
+        _target_attention_revision(packet_inbox, target=target),
+    )
+
+
+def _target_attention_revision(packet_inbox: object, *, target: str | None) -> str:
+    if not isinstance(packet_inbox, dict):
+        return ""
+    normalized_target = str(target or "").strip().lower()
+    agents = packet_inbox.get("agents", ())
+    if isinstance(agents, list):
+        for record in agents:
+            if not isinstance(record, dict):
+                continue
+            if str(record.get("agent") or "").strip().lower() != normalized_target:
+                continue
+            return str(record.get("attention_revision") or "").strip()
+    return str(packet_inbox.get("attention_revision") or "").strip()
 
 
 def _mark_targeted_action_request_observation(

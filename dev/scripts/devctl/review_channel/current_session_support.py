@@ -6,6 +6,10 @@ from collections.abc import Mapping
 from hashlib import sha256
 
 from .ack_contract import extract_implementer_ack_revision
+from .collaboration_provider import (
+    coding_provider_from_review_state,
+    reviewer_provider_from_review_state,
+)
 from .handoff import BridgeSnapshot
 from .handoff_constants import _is_substantive_text
 from .current_session_instruction_support import (
@@ -164,7 +168,7 @@ def event_current_instruction(review_state: Mapping[str, object]) -> str:
     queue = _mapping(review_state.get("queue"))
     source = _mapping(queue.get("derived_next_instruction_source"))
     target = str(source.get("to_agent") or "").strip().lower()
-    if target and target != "claude":
+    if target and target != coding_provider_from_review_state(review_state):
         return ""
     derived = str(queue.get("derived_next_instruction") or "").strip()
     return derived
@@ -175,7 +179,7 @@ def event_open_findings(review_state: Mapping[str, object]) -> str:
     return summarize_packet_attention_open_findings(
         review_state,
         fallback="",
-        agent="codex",
+        agent=reviewer_provider_from_review_state(review_state),
     )
 
 
@@ -183,6 +187,15 @@ def event_claude_ack(queue: Mapping[str, object]) -> str:
     """Derive the implementer ACK state from event-backed queue counts."""
     pending_claude = int(queue.get("pending_claude") or 0)
     return "pending" if pending_claude else "acknowledged"
+
+
+def event_implementer_ack(review_state: Mapping[str, object]) -> str:
+    """Derive implementer ACK state from the active coding-agent queue slot."""
+    queue = _mapping(review_state.get("queue"))
+    pending_total = int(
+        queue.get(f"pending_{coding_provider_from_review_state(review_state)}") or 0
+    )
+    return "pending" if pending_total else "acknowledged"
 
 
 def event_agent_status(
