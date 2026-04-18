@@ -5,14 +5,14 @@
 ## Quick status
 
 - Branch: `feature/governance-quality-sweep`
-- HEAD: `46d346609f07` — Refresh external review snapshot for 6e87e071
-- Tree hash: `aedbf078bfca`
-- Generation stamp: `snap-a44e7f2a32ce`
-- Generated at (UTC): 2026-04-18T17:18:45Z
-- Push decision: `await_checkpoint` — staged_index_budget_exceeded
+- HEAD: `aa570cee13f3` — Add role-implicit commit approval for /remote-control (rev_pkt_1120 gap #1)
+- Tree hash: `2bb465f404ba`
+- Generation stamp: `snap-8ee97e09ca0f`
+- Generated at (UTC): 2026-04-18T17:24:33Z
+- Push decision: `await_review` — review_pending_before_push
 - Reviewer mode: `active_dual_agent` (interaction: `remote_control`)
 - Pipeline state: `n/a` (approval: `n/a`)
-- Delta since last snapshot: 24 commits, 181 files, +11700/-3471
+- Delta since last snapshot: 24 commits, 182 files, +12014/-3630
 - Governance findings: 112 open / 86 fixed / 212 total
 - Probe hints: 0 total across 0 files scanned
 
@@ -54,27 +54,24 @@ adopters arrive.
 - Remote: `https://github.com/jguida941/voiceterm.git`
 - Default branch: `master`
 - Current branch: `feature/governance-quality-sweep`
-- HEAD SHA: `46d346609f078f5b0b6c9d18d53a007b654ee900`
+- HEAD SHA: `aa570cee13f382c0f451bafd3a22ed68b86fd138`
 - HEAD author: Justin Guida
-- HEAD timestamp (UTC): 2026-04-18T13:06:03-04:00
+- HEAD timestamp (UTC): 2026-04-18T13:24:08-04:00
 
 ## 2. Governance state
 
 ### Push decision
-- action: `await_checkpoint`
-- reason: staged_index_budget_exceeded
+- action: `await_review`
+- reason: review_pending_before_push
 - push_eligible_now: False
-- worktree_clean: False
-- staged_path_count: 12
+- worktree_clean: True
+- staged_path_count: 0
 - unstaged_path_count: 0
 - next_step_command: `python3 dev/scripts/devctl.py review-channel --action status --terminal none --format json`
 - latest_push_report: `dev/reports/push/latest.json`
 - latest_push_report_state: `blocked` (validation_failed)
-- current_push_authorization: `push-auth-20260418T170411365108Z` (valid=True)
-- authorized_head_commit: `46d346609f078f5b0b6c9d18d53a007b654ee900`
-- approved_target_identity: `tree-receipt-20260418T170411365108Z:a0ed935e21b06b0e670d9f13a3fb15e6e826fd59`
 - publication_backlog: urgent
-- publication_guidance: 14 local commit(s) waiting for governed push once the current slice is checkpoint-clean.
+- publication_guidance: 15 local commit(s) waiting for governed push once review is accepted.
 
 ### Reviewer runtime
 - reviewer_mode: `active_dual_agent`
@@ -90,63 +87,63 @@ adopters arrive.
 - active plan: **AI Governance Platform Plan**
 - plan path: `dev/active/ai_governance_platform.md`
 - active MP scope: `MP-377`
-- advisory: `checkpoint_before_continue` — staged_index_budget_exceeded
-- checkpoint_required: **yes**
+- advisory: `await_review` — review_pending_before_push
 
 ## 3. Delta — what changed since the previous snapshot
 
-Range: last 24 commits ending at `46d346609f07`
+Range: last 24 commits ending at `aa570cee13f3`
 
 - commits: 24
-- files changed: 181
-- insertions: +11700
-- deletions: -3471
+- files changed: 182
+- insertions: +12014
+- deletions: -3630
 - bundle classes touched: docs, tooling
 - risk add-ons triggered: Parser / ANSI boundary
-- authority surfaces touched: 25 file(s)
+- authority surfaces touched: 26 file(s)
 
 ### Commits
 
 | # | SHA | Subject | Files | +/- | Bundle | Risk |
 |---|---|---|---|---|---|---|
-| 1 | `46d34660` | Refresh external review snapshot for 6e87e071 | 2 | +58/-56 | docs |  |
-| 2 | `6e87e071` | Extend MP-377 with consolidation phases MP-388..MP-397 + Da… | 5 | +362/-66 | tooling |  |
-| 3 | `a2e283de` | Post-commit checkpoint: governance refresh after MP-388..MP… | 1 | +46/-42 | tooling |  |
-| 4 | `7d0f87a4` | Extend MP-377 with consolidation phases MP-388..MP-397 (Cod… | 1 | +57/-66 | tooling |  |
-| 5 | `0b09da19` | Refresh external review snapshot for 4f19b308 | 2 | +85/-75 | docs |  |
-| 6 | `4f19b308` | Converge review-channel authority and effective-mode projec… | 74 | +3274/-789 | tooling |  |
-| 7 | `637ef6f3` | Refresh external review snapshot for 077a875e | 2 | +58/-57 | docs |  |
-| 8 | `077a875e` | Allow review relaunch when refresh-recommended sessions hav… | 4 | +119/-62 | tooling |  |
-| 9 | `1732a6f5` | Refresh external review snapshot for 3632d600 | 2 | +68/-71 | docs |  |
-| 10 | `3632d600` | Finish checkpoint repair authority follow-up | 13 | +247/-80 | tooling |  |
-| 11 | `17d84eb0` | Protect running conductors during host cleanup | 20 | +1088/-476 | tooling |  |
-| 12 | `3f387494` | Refine commit packet gate and pipeline recovery sequencing | 44 | +2368/-649 | tooling | Parser / ANSI boundary |
-| 13 | `72103135` | Refresh external review snapshot for e117defd | 2 | +89/-83 | docs |  |
-| 14 | `e117defd` | Automate remote-control checkpoint approval | 47 | +1514/-190 | tooling | Parser / ANSI boundary |
-| 15 | `baad2052` | Fail closed packet authority and type convergence results | 12 | +383/-94 | tooling |  |
-| 16 | `12360f8e` | Refresh external review snapshot for 30b1beff | 2 | +58/-58 | docs |  |
-| 17 | `30b1beff` | Add IR contract metadata closures | 8 | +103/-23 | tooling |  |
-| 18 | `c90cf9ab` | Refresh external review snapshot for 0e7c12a3 | 2 | +68/-67 | docs |  |
-| 19 | `0e7c12a3` | Fail closed reviewer instruction authority state | 21 | +687/-168 | tooling |  |
-| 20 | `afc2af14` | Refresh external review snapshot for 83e27bad | 2 | +98/-59 | docs |  |
-| 21 | `83e27bad` | Harden typed review-channel authority state | 30 | +606/-192 | tooling |  |
-| 22 | `1e7465d5` | T05: Render INDEX.md + MASTER_PLAN.md from PlanRegistry (MP… | 1 | +119/-1 | tooling |  |
-| 23 | `d79ca5c3` | Refresh external review snapshot for cbd035fc | 2 | +45/-47 | docs |  |
-| 24 | `cbd035fc` | Add 12 tests for graph cache freshness validation | 1 | +100/-0 | tooling |  |
+| 1 | `aa570cee` | Add role-implicit commit approval for /remote-control (rev_… | 14 | +414/-159 | tooling |  |
+| 2 | `46d34660` | Refresh external review snapshot for 6e87e071 | 2 | +58/-56 | docs |  |
+| 3 | `6e87e071` | Extend MP-377 with consolidation phases MP-388..MP-397 + Da… | 5 | +362/-66 | tooling |  |
+| 4 | `a2e283de` | Post-commit checkpoint: governance refresh after MP-388..MP… | 1 | +46/-42 | tooling |  |
+| 5 | `7d0f87a4` | Extend MP-377 with consolidation phases MP-388..MP-397 (Cod… | 1 | +57/-66 | tooling |  |
+| 6 | `0b09da19` | Refresh external review snapshot for 4f19b308 | 2 | +85/-75 | docs |  |
+| 7 | `4f19b308` | Converge review-channel authority and effective-mode projec… | 74 | +3274/-789 | tooling |  |
+| 8 | `637ef6f3` | Refresh external review snapshot for 077a875e | 2 | +58/-57 | docs |  |
+| 9 | `077a875e` | Allow review relaunch when refresh-recommended sessions hav… | 4 | +119/-62 | tooling |  |
+| 10 | `1732a6f5` | Refresh external review snapshot for 3632d600 | 2 | +68/-71 | docs |  |
+| 11 | `3632d600` | Finish checkpoint repair authority follow-up | 13 | +247/-80 | tooling |  |
+| 12 | `17d84eb0` | Protect running conductors during host cleanup | 20 | +1088/-476 | tooling |  |
+| 13 | `3f387494` | Refine commit packet gate and pipeline recovery sequencing | 44 | +2368/-649 | tooling | Parser / ANSI boundary |
+| 14 | `72103135` | Refresh external review snapshot for e117defd | 2 | +89/-83 | docs |  |
+| 15 | `e117defd` | Automate remote-control checkpoint approval | 47 | +1514/-190 | tooling | Parser / ANSI boundary |
+| 16 | `baad2052` | Fail closed packet authority and type convergence results | 12 | +383/-94 | tooling |  |
+| 17 | `12360f8e` | Refresh external review snapshot for 30b1beff | 2 | +58/-58 | docs |  |
+| 18 | `30b1beff` | Add IR contract metadata closures | 8 | +103/-23 | tooling |  |
+| 19 | `c90cf9ab` | Refresh external review snapshot for 0e7c12a3 | 2 | +68/-67 | docs |  |
+| 20 | `0e7c12a3` | Fail closed reviewer instruction authority state | 21 | +687/-168 | tooling |  |
+| 21 | `afc2af14` | Refresh external review snapshot for 83e27bad | 2 | +98/-59 | docs |  |
+| 22 | `83e27bad` | Harden typed review-channel authority state | 30 | +606/-192 | tooling |  |
+| 23 | `1e7465d5` | T05: Render INDEX.md + MASTER_PLAN.md from PlanRegistry (MP… | 1 | +119/-1 | tooling |  |
+| 24 | `d79ca5c3` | Refresh external review snapshot for cbd035fc | 2 | +45/-47 | docs |  |
 
 ### Files
 
 | Path | Bundle | +/- |
 |---|---|---|
-| `AGENTS.md` | docs | +19/-2 |
-| `bridge.md` | docs | +66/-66 |
-| `dev/active/MASTER_PLAN.md` | tooling | +145/-4 |
+| `AGENTS.md` | docs | +20/-2 |
+| `bridge.md` | docs | +70/-70 |
+| `dev/active/MASTER_PLAN.md` | tooling | +157/-4 |
 | `dev/active/ai_governance_platform.md` | tooling | +444/-11 |
+| `dev/active/remote_control_runtime.md` | tooling | +25/-1 |
 | `dev/active/review_channel.md` | tooling | +22/-1 |
-| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1164/-1114 |
-| `dev/guides/DEVELOPMENT.md` | docs | +31/-2 |
-| `dev/history/ENGINEERING_EVOLUTION.md` | tooling | +426/-3 |
-| `dev/scripts/README.md` | tooling | +68/-8 |
+| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1223/-1173 |
+| `dev/guides/DEVELOPMENT.md` | docs | +46/-11 |
+| `dev/history/ENGINEERING_EVOLUTION.md` | tooling | +471/-41 |
+| `dev/scripts/README.md` | tooling | +92/-22 |
 | `dev/scripts/checks/review_surface_consistency/command.py` | tooling | +38/-17 |
 | `dev/scripts/checks/review_surface_consistency/models.py` | tooling | +45/-0 |
 | `dev/scripts/checks/review_surface_consistency/parity.py` | tooling | +153/-18 |
@@ -172,13 +169,12 @@ Range: last 24 commits ending at `46d346609f07`
 | `dev/scripts/devctl/commands/review_channel/watch_follow.py` | tooling | +1/-1 |
 | `dev/scripts/devctl/commands/review_channel/watch_follow_runtime.py` | tooling | +2/-0 |
 | `dev/scripts/devctl/commands/review_channel_command/constants.py` | tooling | +3/-0 |
-| `dev/scripts/devctl/commands/vcs/commit.py` | tooling | +50/-15 |
+| `dev/scripts/devctl/commands/vcs/commit.py` | tooling | +58/-18 |
 | `dev/scripts/devctl/commands/vcs/commit_pipeline_blocking.py` | tooling | +101/-3 |
-| `dev/scripts/devctl/commands/vcs/commit_preflight.py` | tooling | +198/-247 |
-| `dev/scripts/devctl/commands/vcs/commit_preflight_support.py` | tooling | +37/-0 |
-| `dev/scripts/devctl/commands/vcs/commit_preflight_validators.py` | tooling | +295/-0 |
-| `dev/scripts/devctl/commands/vcs/commit_visibility.py` | tooling | +70/-0 |
-| _141 more files trimmed_ | | |
+| `dev/scripts/devctl/commands/vcs/commit_preflight.py` | tooling | +252/-257 |
+| `dev/scripts/devctl/commands/vcs/commit_preflight_support.py` | tooling | +100/-4 |
+| `dev/scripts/devctl/commands/vcs/commit_preflight_validators.py` | tooling | +318/-7 |
+| _142 more files trimmed_ | | |
 
 ## 4. Quality signals
 
@@ -249,6 +245,7 @@ Recent findings:
 ### Targeted hints
 
 - **risk**: Parser / ANSI boundary — Delta touches a risk-sensitive surface; verify the routed bundle
+- **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/commands/vcs/governed_executor_packets.py`) — Review contract-level invariants for this file
 - **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/commands/governance/startup_context.py`) — Review contract-level invariants for this file
 - **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/commands/review_channel/reviewer_runtime_snapshot.py`) — Review contract-level invariants for this file
 - **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/commands/vcs/governed_executor_commit_attention.py`) — Review contract-level invariants for this file
@@ -290,6 +287,8 @@ Recent findings:
 
 ### Per-commit rationale
 
+- **`aa570cee`** — Add role-implicit commit approval for /remote-control (rev_pkt_1120 gap #1)
+  - evolution: Fact: the next live `/remote-control` dogfood pass exposed a narrower gap than either of the repo's earlier extremes. The branch had already moved away from blanket promptless `remote_control` approval, and `devctl comm…
 - **`46d34660`** — Refresh external review snapshot for 6e87e071
   - evolution: Fact: the next live `/remote-control` dogfood pass exposed a narrower gap than either of the repo's earlier extremes. The branch had already moved away from blanket promptless `remote_control` approval, and `devctl comm…
 - **`6e87e071` | MPs: MP-377, MP-388, MP-397** — Extend MP-377 with consolidation phases MP-388..MP-397 + Data Contracts
@@ -324,7 +323,6 @@ Recent findings:
   - - render_index_projection: produces INDEX.md table from typed PlanRegistry
   - - render_master_plan_projection: produces MASTER_PLAN.md grouped by lifecycle
 - **`d79ca5c3`** — Refresh external review snapshot for cbd035fc
-- **`cbd035fc`** — Add 12 tests for graph cache freshness validation
 ### Active MP scope (from MASTER_PLAN.md)
 
 - contract slice for MP-355 plus the temporary markdown-swarm operating mode
@@ -343,7 +341,7 @@ Recent findings:
 - open governance findings: 112
 
 ### Startup advisories
-- checkpoint_before_continue: staged_index_budget_exceeded
+- await_review: review_pending_before_push
 
 ### Stale warnings
 - Keep editing the current slice.
@@ -361,4 +359,4 @@ Recent findings:
 
 ---
 
-Projection produced by `devctl review-snapshot`. Generation stamp `snap-a44e7f2a32ce` binds this file to HEAD `46d346609f07`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
+Projection produced by `devctl review-snapshot`. Generation stamp `snap-8ee97e09ca0f` binds this file to HEAD `aa570cee13f3`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
