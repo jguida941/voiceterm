@@ -11,7 +11,7 @@ from typing import Any
 from .config import REPO_ROOT
 from .governance.guard_findings import build_guard_findings
 from .quality_policy import resolve_quality_policy
-from .quality_policy_loader import QUALITY_POLICY_ENV_VAR
+from .quality_policy.loader import QUALITY_POLICY_ENV_VAR
 
 PYTHON_GUARD_SPECS: dict[str, dict[str, Any]] = {
     "python_dict_schema": {

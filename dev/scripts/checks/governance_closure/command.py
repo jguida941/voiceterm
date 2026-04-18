@@ -34,7 +34,7 @@ PROBE_SCRIPT_RELATIVE_PATHS = _script_catalog.PROBE_SCRIPT_RELATIVE_PATHS
 _quality_policy = importlib.import_module("dev.scripts.devctl.quality_policy")
 resolve_quality_policy = _quality_policy.resolve_quality_policy
 
-_review_log = importlib.import_module("dev.scripts.devctl.governance_review_log")
+_review_log = importlib.import_module("dev.scripts.devctl.governance_review.log")
 DEFAULT_MAX_GOVERNANCE_REVIEW_ROWS = _review_log.DEFAULT_MAX_GOVERNANCE_REVIEW_ROWS
 governance_review_row_disposition_errors = (
     _review_log.governance_review_row_disposition_errors

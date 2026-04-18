@@ -37,8 +37,20 @@ class CollectGitStatusTests(unittest.TestCase):
         self.assertEqual(
             report["changes"],
             [
-                {"status": "M", "path": "guides/USAGE.md"},
-                {"status": "A", "path": "dev/CHANGELOG.md"},
+                {
+                    "status": "M",
+                    "path": "guides/USAGE.md",
+                    "raw_status": " M",
+                    "index_status": " ",
+                    "worktree_status": "M",
+                },
+                {
+                    "status": "A",
+                    "path": "dev/CHANGELOG.md",
+                    "raw_status": "A ",
+                    "index_status": "A",
+                    "worktree_status": " ",
+                },
             ],
         )
         self.assertEqual(

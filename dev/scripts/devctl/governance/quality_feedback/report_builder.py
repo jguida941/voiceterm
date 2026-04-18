@@ -7,7 +7,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from ...governance_review_log import (
+from ...governance_review.log import (
     build_governance_review_stats,
     read_governance_review_rows,
     resolve_governance_review_log_path,

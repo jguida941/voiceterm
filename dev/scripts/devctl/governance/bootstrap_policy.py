@@ -11,7 +11,7 @@ from .bootstrap_surfaces import build_surface_generation_governance
 from .bootstrap_push import build_starter_push_governance
 from ..config import REPO_ROOT
 from ..quality_policy import RepoCapabilities, detect_repo_capabilities
-from ..quality_policy_scopes import resolve_quality_scopes
+from ..quality_policy.scopes import resolve_quality_scopes
 
 STARTER_POLICY_RELATIVE_PATH = "dev/config/devctl_repo_policy.json"
 ENGINE_PRESETS_DIR = REPO_ROOT / "dev" / "config" / "quality_presets"

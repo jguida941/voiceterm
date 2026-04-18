@@ -11,6 +11,7 @@ from unittest.mock import MagicMock, patch
 
 from dev.scripts.devctl.cli import build_parser
 from dev.scripts.devctl.commands.vcs import push
+from dev.scripts.devctl.commands.vcs import push_preflight_commit
 from dev.scripts.devctl.governance.push_policy import (
     PushBypassPolicy,
     PushCheckpointPolicy,
@@ -133,6 +134,12 @@ class PushCommandTests(unittest.TestCase):
         )
         self.sync_bridge_mock = self._sync_bridge_patcher.start()
         self.addCleanup(self._sync_bridge_patcher.stop)
+        self._preflight_status_patcher = patch(
+            "dev.scripts.devctl.commands.vcs.push_preflight_commit.collect_git_status",
+            return_value={"changes": []},
+        )
+        self.preflight_status_mock = self._preflight_status_patcher.start()
+        self.addCleanup(self._preflight_status_patcher.stop)
 
     @patch("dev.scripts.devctl.commands.vcs.push_executor_routing.emit_output")
     @patch("dev.scripts.devctl.commands.vcs.push_executor_routing.load_latest_push_report")
@@ -827,6 +834,34 @@ class PushCommandTests(unittest.TestCase):
         self.assertEqual(state.dirty_paths, [])
         self.assertEqual(state.errors, [])
 
+    @patch("dev.scripts.devctl.commands.vcs.push.remote_exists", return_value=True)
+    @patch("dev.scripts.devctl.commands.vcs.push.collect_git_status")
+    @patch("dev.scripts.devctl.commands.vcs.push.publication_authorization_decision")
+    def test_push_loader_allows_staged_only_paths(
+        self,
+        publication_authorization_mock,
+        collect_git_status_mock,
+        _remote_exists_mock,
+    ) -> None:
+        collect_git_status_mock.return_value = {
+            "branch": "feature/demo",
+            "changes": [
+                {
+                    "path": "next_commit.py",
+                    "status": "M",
+                    "raw_status": "M ",
+                    "index_status": "M",
+                    "worktree_status": " ",
+                }
+            ],
+        }
+        publication_authorization_mock.return_value = _publication_authorization()
+
+        state = push._load_run_state(make_policy(), make_args())
+
+        self.assertEqual(state.dirty_paths, [])
+        self.assertEqual(state.errors, [])
+
     @patch("dev.scripts.devctl.commands.vcs.push.write_output")
     @patch("dev.scripts.devctl.commands.vcs.push.load_push_policy")
     @patch("dev.scripts.devctl.commands.vcs.push.collect_git_status")
@@ -1280,6 +1315,14 @@ class PushCommandTests(unittest.TestCase):
 
 
 class PushBridgeSyncTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self._preflight_status_patcher = patch(
+            "dev.scripts.devctl.commands.vcs.push_preflight_commit.collect_git_status",
+            return_value={"changes": []},
+        )
+        self.preflight_status_mock = self._preflight_status_patcher.start()
+        self.addCleanup(self._preflight_status_patcher.stop)
+
     def test_sync_bridge_projection_before_preflight_reprojects_active_bridge(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             repo_root = Path(tmp_dir)
@@ -1407,6 +1450,106 @@ class PushBridgeSyncTests(unittest.TestCase):
         payload = json.loads(write_output_mock.call_args.args[0])
         self.assertEqual(payload["status"], "blocked")
         self.assertIn("Working tree has uncommitted changes", payload["errors"][0])
+
+    @patch("dev.scripts.devctl.commands.vcs.push_preflight_commit.run_git_capture")
+    @patch("dev.scripts.devctl.commands.vcs.push_preflight_commit.collect_git_status")
+    def test_preflight_autocommit_ignores_staged_only_paths(
+        self,
+        collect_git_status_mock,
+        run_git_capture_mock,
+    ) -> None:
+        collect_git_status_mock.return_value = {
+            "changes": [
+                {
+                    "path": "next_commit.py",
+                    "status": "M",
+                    "raw_status": "M ",
+                    "index_status": "M",
+                    "worktree_status": " ",
+                }
+            ]
+        }
+        state = SimpleNamespace(errors=[])
+
+        push_preflight_commit.auto_commit_preflight_generated_changes(
+            state,
+            make_policy(),
+        )
+
+        run_git_capture_mock.assert_not_called()
+        self.assertEqual(state.errors, [])
+
+    @patch("dev.scripts.devctl.commands.vcs.push_preflight_commit.run_git_capture")
+    @patch("dev.scripts.devctl.commands.vcs.push_preflight_commit.collect_git_status")
+    def test_preflight_autocommit_uses_git_subcommands_without_double_prefix(
+        self,
+        collect_git_status_mock,
+        run_git_capture_mock,
+    ) -> None:
+        collect_git_status_mock.return_value = {
+            "changes": [
+                {
+                    "path": "generated.py",
+                    "status": "M",
+                    "raw_status": " M",
+                    "index_status": " ",
+                    "worktree_status": "M",
+                }
+            ]
+        }
+        run_git_capture_mock.side_effect = [
+            (0, "", ""),
+            (0, "", ""),
+        ]
+        state = SimpleNamespace(errors=[])
+
+        push_preflight_commit.auto_commit_preflight_generated_changes(
+            state,
+            make_policy(),
+        )
+
+        self.assertEqual(
+            run_git_capture_mock.call_args_list[0].args[0],
+            ["add", "--", "generated.py"],
+        )
+        self.assertEqual(
+            run_git_capture_mock.call_args_list[1].args[0],
+            ["commit", "-m", "chore(push): auto-commit preflight-generated changes"],
+        )
+        self.assertEqual(state.errors, [])
+
+    @patch("dev.scripts.devctl.commands.vcs.push_preflight_commit.run_git_capture")
+    @patch("dev.scripts.devctl.commands.vcs.push_preflight_commit.collect_git_status")
+    def test_preflight_autocommit_surfaces_git_add_failures(
+        self,
+        collect_git_status_mock,
+        run_git_capture_mock,
+    ) -> None:
+        collect_git_status_mock.return_value = {
+            "changes": [
+                {
+                    "path": "generated.py",
+                    "status": "M",
+                    "raw_status": " M",
+                    "index_status": " ",
+                    "worktree_status": "M",
+                }
+            ]
+        }
+        run_git_capture_mock.return_value = (128, "", "fatal: bad add")
+        state = SimpleNamespace(errors=[])
+
+        push_preflight_commit.auto_commit_preflight_generated_changes(
+            state,
+            make_policy(),
+        )
+
+        self.assertEqual(
+            state.errors,
+            [
+                "Preflight generated 1 dirty path(s) but git add failed for generated.py: fatal: bad add"
+            ],
+        )
 
     @patch("dev.scripts.devctl.commands.vcs.push.write_output")
     @patch(

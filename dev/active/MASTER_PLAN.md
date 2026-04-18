@@ -74,6 +74,21 @@
   registry at the top of `dev/active/ai_governance_platform.md`: each phase
   declares owner doc, task ids, dependencies, and status, and startup/work-
   intake may only treat those typed phase tasks as live execution authority.
+- 2026-04-18 `MP-399` governed commit staged-index preservation in `MP-377`
+  scope: fail closed if the managed ReviewSnapshot refresh ever drops
+  preexisting staged user paths, and make governed commit reporting explicit
+  about the staged/content commit versus any trailing snapshot-only receipt
+  commit so operators stop mistaking the receipt for lost staged work.
+- 2026-04-18 `MP-410` devctl root package-layout relief in `MP-377` scope:
+  relocate crowded `dev/scripts/devctl/` root modules into topical
+  subpackages, retire extracted root shims that no longer carry authority,
+  and bring the strict package-layout guard back under the 60-file root cap
+  so multi-file governance slices can land without waivers.
+- 2026-04-18 `MP-398` push preflight staged-index exclusion in `MP-377`
+  scope: treat staged-only next-commit content as allowed "on deck" state,
+  not push-blocking worktree dirt, and apply the same exclusion to the
+  preflight auto-commit path so publication cannot sweep staged user intent
+  into a machine commit.
 - 2026-04-18 `MP-388` consolidation archive pass in `MP-377` scope:
   archive `move.md`, `loop_chat_bridge.md`, `phase2.md`, and
   `RUST_AUDIT_FINDINGS.md` out of `dev/active/`, update discovery pointers,

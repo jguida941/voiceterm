@@ -23,7 +23,7 @@ from ...governance.external_findings_render import (
     render_external_finding_markdown,
     write_external_finding_summary,
 )
-from ...governance_review_log import resolve_governance_review_log_path
+from ...governance_review.log import resolve_governance_review_log_path
 from ...jsonl_support import parse_json_line_dict
 from ...time_utils import utc_timestamp
 from .common import emit_governance_command_output, render_governance_value_error

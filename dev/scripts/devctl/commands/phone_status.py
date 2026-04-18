@@ -14,14 +14,27 @@ from typing import Any
 
 from ..common import emit_output, pipe_output, write_output
 from ..config import REPO_ROOT
-from ..phone_status_views import (
+from ..mobile.phone_views import (
     render_report_markdown,
     view_payload,
     write_projection_bundle,
 )
+from ..runtime.control_plane_section import project_control_plane_section
 from ..runtime.control_plane_read_model import (
-    ControlPlaneReadModel,
     build_control_plane_read_model,
+)
+
+_PHONE_CONTROL_PLANE_FIELDS = (
+    "resolved_phase",
+    "top_blocker",
+    "next_action",
+    "next_command",
+    "push_eligible",
+    "review_accepted",
+    "reviewer_mode",
+    "operator_interaction_mode",
+    "last_guard_ok",
+    "pending_action_requests",
 )
 
 
@@ -55,27 +68,9 @@ def _load_payload(input_path: Path) -> tuple[dict[str, Any], list[str]]:
     return loaded, []
 
 
-def _control_plane_section(model: ControlPlaneReadModel) -> dict[str, Any]:
-    """Project the governance-surface fields straight from the shared read model.
-
-    Pure projection: no I/O, no derivation. The parity guard
-    `check_control_plane_parity` (see
-    `dev/scripts/checks/platform_contract_closure/field_routes_parity.py`)
-    feeds a fixture model directly into this helper to prove the phone
-    surface renders the same fields as every other governance surface.
-    """
-    return {
-        "resolved_phase": model.resolved_phase,
-        "top_blocker": model.top_blocker,
-        "next_action": model.next_action,
-        "next_command": model.next_command,
-        "push_eligible": model.push_eligible,
-        "review_accepted": model.review_accepted,
-        "reviewer_mode": model.reviewer_mode,
-        "operator_interaction_mode": model.operator_interaction_mode,
-        "last_guard_ok": model.last_guard_ok,
-        "pending_action_requests": model.pending_action_requests,
-    }
+def _control_plane_section(model) -> dict[str, Any]:
+    projected = project_control_plane_section(model)
+    return {field: projected[field] for field in _PHONE_CONTROL_PLANE_FIELDS}
 
 
 def _build_control_plane_section(repo_root: Path) -> dict[str, Any]:

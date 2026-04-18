@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from dev.scripts.devctl.governance_review_models import GovernanceReviewInput
+from dev.scripts.devctl.governance_review.models import GovernanceReviewInput
 from dev.scripts.devctl.runtime.finding_backlog import (
     FindingBacklog,
     FindingBacklogWriteResult,

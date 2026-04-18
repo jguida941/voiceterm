@@ -2,18 +2,18 @@
 
 from __future__ import annotations
 
-from ...governance_review_log import (
+from ...governance_review.log import (
     build_governance_review_report,
     resolve_governance_review_log_path,
     resolve_governance_review_summary_root,
 )
-from ...governance_review_models import GovernanceReviewInput
+from ...governance_review.models import GovernanceReviewInput
 from ...governance.guard_promotion_queue import (
     append_guard_promotion_candidate_from_review,
     resolve_guard_promotion_queue_path,
 )
 from ...config import get_repo_root
-from ...governance_review_render import (
+from ...governance_review.render import (
     render_governance_review_markdown,
     write_governance_review_summary,
 )

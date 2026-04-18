@@ -13,12 +13,12 @@ from ..governance.ledger_helpers import (
     optional_line_number,
     optional_text,
 )
-from ..governance_review_log import (
+from ..governance_review.log import (
     append_governance_review_row,
     build_governance_review_row,
     read_governance_review_rows,
 )
-from ..governance_review_models import GovernanceReviewInput
+from ..governance_review.models import GovernanceReviewInput
 from .finding_contracts import (
     FINDING_CONTRACT_ID,
     FINDING_SCHEMA_VERSION,

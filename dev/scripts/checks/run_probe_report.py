@@ -24,7 +24,7 @@ except ModuleNotFoundError:  # pragma: no cover
 
 _quality_policy = import_repo_module("dev.scripts.devctl.quality_policy", repo_root=REPO_ROOT)
 _quality_policy_loader = import_repo_module(
-    "dev.scripts.devctl.quality_policy_loader",
+    "dev.scripts.devctl.quality_policy.loader",
     repo_root=REPO_ROOT,
 )
 _script_catalog = import_repo_module("dev.scripts.devctl.script_catalog", repo_root=REPO_ROOT)

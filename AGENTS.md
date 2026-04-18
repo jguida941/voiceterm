@@ -162,6 +162,7 @@ Release-governance note:
 | Where is the 2026-04-10 Q40/Q42 lane-edit and destructive-recovery authority closure documented (`lane_edit_gate`, `recovery_action`, `recovery_basis`, and `recovery_scope`)? | `dev/history/ENGINEERING_EVOLUTION.md` 2026-04-10 entry "Lane edit gates and destructive recovery now require typed startup authority" |
 | Where is the 2026-04-15 governed publication closure documented (`devctl commit` `operator_approval_pending` short-circuit plus ReviewSnapshot receipt commits that may refresh `bridge.md` as well as `REVIEW_SNAPSHOT.md`)? | `dev/history/ENGINEERING_EVOLUTION.md` 2026-04-15 entry "Governed commit approval windows and ReviewSnapshot receipt commits now stay bound to the parent code state" |
 | Where is the 2026-04-18 remote-control delegated commit-approval closure documented (governed `devctl commit` auto-satisfies approval only when typed runtime proves an active operator-role `remote_control_attachment`)? | `dev/history/ENGINEERING_EVOLUTION.md` 2026-04-18 entry "Remote-control operator delegation now auto-satisfies governed commit approval when typed runtime proves the operator role" |
+| Where is the 2026-04-18 staged-intent commit/push closure documented (`devctl push` ignores staged-only next-commit content, governed stage fails closed if ReviewSnapshot refresh drops user-staged paths, and commit reports distinguish content vs receipt SHA)? | `dev/history/ENGINEERING_EVOLUTION.md` 2026-04-18 entry "Governed commit/push now preserve staged intent and separate receipt reporting from content commits" |
 | Where is the 2026-04-17 commit/push next-command convergence closure documented (same-HEAD active pipeline blocks auto-refresh authorization, commit preflight emits exact next commands, and commit permission reports project recovery fields at top level)? | `dev/history/ENGINEERING_EVOLUTION.md` 2026-04-17 entry "Active commit/push pipeline blocks now self-heal same-HEAD authorization and project exact next commands" |
 | Where is the Ralph guardrail remediation/control-plane plan? | `dev/active/ralph_guardrail_control_plane.md` |
 | Where is the heuristic review-probe execution plan? | `dev/active/review_probes.md` |
@@ -1472,6 +1473,12 @@ Routine helper:
   repaired. `devctl push` must reuse the repo-policy/default remote for any
   active governed pipeline and must not treat a degraded `tools_only`
   reviewer runtime as license to skip exact-head publication authorization.
+  Push cleanliness now blocks only on unstaged or untracked dirty paths:
+  staged-only "next commit" intent must not deadlock `devctl push` or its
+  preflight auto-commit repair path. Governed stage also fails closed if the
+  managed ReviewSnapshot refresh drops previously staged user content, and
+  governed commit reports may now surface the approved content SHA separately
+  from a trailing ReviewSnapshot receipt SHA.
   Governed push also treats a receipt commit that refreshes
   `dev/audits/REVIEW_SNAPSHOT.md` plus governed `bridge.md` as still bound to
   the parent approved code commit; it must not force a second authorization

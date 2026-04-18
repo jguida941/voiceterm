@@ -116,11 +116,22 @@ def collect_git_status(since_ref: str | None = None, head_ref: str = "HEAD") -> 
         for line in status_raw.splitlines():
             if not line:
                 continue
-            status = line[:2].strip()
+            raw_status = line[:2]
+            status = raw_status.strip()
+            index_status = raw_status[:1]
+            worktree_status = raw_status[1:2]
             path = line[3:]
             if "->" in path:
                 path = path.split("->")[-1].strip()
-            changes.append({"status": status, "path": path})
+            changes.append(
+                {
+                    "status": status,
+                    "path": path,
+                    "raw_status": raw_status,
+                    "index_status": index_status,
+                    "worktree_status": worktree_status,
+                }
+            )
 
     return _build_git_status_payload(
         branch=branch,

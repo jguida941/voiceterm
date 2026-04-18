@@ -103,7 +103,13 @@ executor-only: if startup explicitly says
 `advisory_action=checkpoint_allowed` and `push_decision=await_checkpoint`
 with `reviewer_gate.checkpoint_permitted=true`, `devctl commit` may still cut
 the governed checkpoint for the staged tree, but raw `git commit` remains
-blocked until the wider implementation-authority issue is repaired. Repo-owned
+blocked until the wider implementation-authority issue is repaired. Push
+cleanliness now blocks only on unstaged or untracked dirt, so staged-only
+"next commit" intent does not deadlock `devctl push` or the preflight
+auto-commit repair path. Governed staging also fails closed if the managed
+ReviewSnapshot refresh drops already-staged user paths, and governed commit
+reports may expose the approved content SHA separately from a trailing
+ReviewSnapshot `receipt_commit_sha`. Repo-owned
 review-channel conductors now also export their typed lane as
 `DEVCTL_CALLER_ROLE`, and `devctl commit --role <lane>` remains available for
 wrappers/tests, so dashboard, observer, and default reviewer lanes fail closed

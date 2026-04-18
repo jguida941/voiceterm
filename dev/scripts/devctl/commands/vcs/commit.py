@@ -6,6 +6,8 @@ from pathlib import Path
 
 from ...config import REPO_ROOT
 from ...governance.push_policy import load_push_policy
+from ...runtime.governance_scan import scan_repo_governance_safely
+from ...runtime.review_snapshot_refresh import receipt_commit_parent_sha
 from ...runtime.commit_permission import build_commit_permission_decision_for_executor
 from .commit_caller_role import caller_role_report
 from .commit_guard_bundle import (
@@ -38,6 +40,29 @@ from .governed_executor_actions import _build_report, _emit_report, build_commit
 # Compatibility re-export while commit guard helpers live in their own module.
 _run_guard_bundle = run_guard_bundle
 _resolve_interaction_mode = resolve_interaction_mode
+
+
+def _report_commit_shas(
+    *,
+    repo_root: Path,
+    commit_sha: str,
+) -> tuple[str, str]:
+    """Return ``(content_commit_sha, receipt_commit_sha)`` for reporting."""
+    head_sha = str(commit_sha or "").strip()
+    if not head_sha:
+        return "", ""
+    try:
+        governance = scan_repo_governance_safely(repo_root)
+    except (OSError, ValueError):
+        governance = None
+    content_sha = receipt_commit_parent_sha(
+        repo_root=repo_root,
+        current_head=head_sha,
+        governance=governance,
+    )
+    if content_sha and content_sha != head_sha:
+        return content_sha, head_sha
+    return head_sha, ""
 
 
 def _commit_permission_report(vcs_executor: GovernedVcsExecutor) -> dict[str, object] | None:
@@ -180,6 +205,10 @@ def run_commit(
         )
     )
     pipeline = vcs_executor.load_pipeline()
+    commit_sha, receipt_commit_sha = _report_commit_shas(
+        repo_root=repo_root,
+        commit_sha=pipeline.commit_sha,
+    )
     report = _build_report(
         status="committed" if commit_result.ok else "blocked",
         reason=commit_result.reason,
@@ -187,7 +216,8 @@ def run_commit(
         pipeline_state=pipeline.state,
         approval_state=pipeline.approval_state,
         **commit_visibility_payload(pipeline),
-        commit_sha=pipeline.commit_sha,
+        commit_sha=commit_sha,
+        receipt_commit_sha=receipt_commit_sha or None,
         operator_guidance=commit_result.operator_guidance,
         interaction_mode=resolved_mode,
         warnings=[*stage_warnings, *commit_result.warnings],

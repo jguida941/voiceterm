@@ -8,10 +8,10 @@ import unittest
 from pathlib import Path
 from types import SimpleNamespace
 
-from dev.scripts.devctl import phone_status_views
 from dev.scripts.devctl.autonomy.phone_status import build_phone_status
 from dev.scripts.devctl.cli import build_parser
 from dev.scripts.devctl.commands import phone_status
+from dev.scripts.devctl.mobile import phone_views
 
 
 def make_args(**overrides) -> SimpleNamespace:
@@ -172,7 +172,7 @@ class PhoneStatusCommandTests(unittest.TestCase):
     def test_view_payload_falls_back_to_compact_projection(self) -> None:
         payload = _sample_payload()
 
-        projection = phone_status_views.view_payload(payload, "unexpected-view")
+        projection = phone_views.view_payload(payload, "unexpected-view")
 
         self.assertEqual(projection["view"], "compact")
         self.assertEqual(projection["plan_id"], "mp340")
@@ -193,10 +193,10 @@ class PhoneStatusCommandTests(unittest.TestCase):
             "warnings": [],
             "errors": [],
             "ralph": payload["ralph"],
-            "view_payload": phone_status_views.view_payload(payload, "trace"),
+            "view_payload": phone_views.view_payload(payload, "trace"),
         }
 
-        output = phone_status_views.render_report_markdown(report)
+        output = phone_views.render_report_markdown(report)
 
         self.assertIn("## Trace View", output)
         self.assertIn("- controller_run_id: abc123", output)

@@ -7,7 +7,7 @@ from typing import Any
 
 from ..config import get_repo_root
 from ..governance.push_policy import detect_push_enforcement_state, load_push_policy
-from ..probe_topology_packet import (
+from ..probe_topology.packet import (
     enrich_query_node,
     query_hot_index_ranking_summary,
     query_match_evidence,

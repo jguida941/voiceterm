@@ -17,11 +17,10 @@ from ..governance.ledger_helpers import (
     optional_line_number,
     optional_text,
     rate,
-    read_ledger_rows,
     resolve_ledger_path,
 )
-from ..jsonl_support import parse_json_line_dict
-from ..governance_review_log import read_governance_review_rows
+from ..governance.jsonl_ledger import read_jsonl_ledger_rows as read_external_finding_rows
+from ..governance_review.log import read_governance_review_rows
 from ..repo_packs import active_path_config
 from ..repo_packs.voiceterm import voiceterm_repo_root
 from ..time_utils import utc_timestamp
@@ -40,36 +39,14 @@ SCHEMA_VERSION = 1
 VALID_SIGNAL_TYPES = frozenset({"guard", "probe", "audit"})
 
 
-def resolve_external_finding_log_path(
-    raw_path: str | Path | None = None,
-    *,
-    repo_root: Path | None = None,
-) -> Path:
-    """Resolve the imported external-finding JSONL path relative to the repo.
-
-    Uses ``DEFAULT_EXTERNAL_FINDING_LOG`` when *raw_path* is absent.
-    """
-    resolved = resolve_ledger_path(
-        raw_path, default_rel=DEFAULT_EXTERNAL_FINDING_LOG,
-        repo_root_fn=voiceterm_repo_root, repo_root=repo_root,
-    )
+def resolve_external_finding_log_path(raw_path: str | Path | None = None, *, repo_root: Path | None = None) -> Path:
+    resolved = resolve_ledger_path(raw_path, default_rel=DEFAULT_EXTERNAL_FINDING_LOG, repo_root_fn=voiceterm_repo_root, repo_root=repo_root)
     resolved.parent.mkdir(parents=True, exist_ok=True)
     return resolved
 
 
-def resolve_external_finding_summary_root(
-    raw_path: str | Path | None = None,
-    *,
-    repo_root: Path | None = None,
-) -> Path:
-    """Resolve the imported external-finding summary root relative to the repo.
-
-    Uses ``DEFAULT_EXTERNAL_FINDING_SUMMARY_ROOT`` when *raw_path* is absent.
-    """
-    resolved = resolve_ledger_path(
-        raw_path, default_rel=DEFAULT_EXTERNAL_FINDING_SUMMARY_ROOT,
-        repo_root_fn=voiceterm_repo_root, repo_root=repo_root,
-    )
+def resolve_external_finding_summary_root(raw_path: str | Path | None = None, *, repo_root: Path | None = None) -> Path:
+    resolved = resolve_ledger_path(raw_path, default_rel=DEFAULT_EXTERNAL_FINDING_SUMMARY_ROOT, repo_root_fn=voiceterm_repo_root, repo_root=repo_root)
     resolved.mkdir(parents=True, exist_ok=True)
     return resolved
 
@@ -170,17 +147,6 @@ def append_external_finding_rows(
         if "finding_id" not in row:
             raise ValueError("external finding row must contain finding_id")
     append_ledger_rows(rows, log_path=log_path)
-
-
-def read_external_finding_rows(
-    log_path: Path,
-    *,
-    max_rows: int,
-) -> list[dict[str, Any]]:
-    """Read imported external-finding rows from JSONL, bounded to recent rows."""
-    return read_ledger_rows(
-        log_path, max_rows=max_rows, parse_line_fn=parse_json_line_dict,
-    )
 
 
 def build_external_finding_stats(

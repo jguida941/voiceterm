@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from ..config import REPO_ROOT
-from ..quality_policy_loader import (
+from ..quality_policy.loader import (
     DEFAULT_POLICY_RELATIVE_PATH,
     load_policy_payload,
     resolve_policy_path,

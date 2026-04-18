@@ -7,7 +7,7 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
 
-from ..phone_status_views import render_ralph_section_lines
+from ..mobile.phone_views import render_ralph_section_lines
 from ..text_utils import truncate_text
 from .loop_helpers import iso_z, packet_risk, utc_now
 

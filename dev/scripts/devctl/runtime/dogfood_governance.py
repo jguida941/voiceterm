@@ -12,7 +12,7 @@ from ..governance.script_catalog_registry import (
     PROBE_SCRIPT_RELATIVE_PATHS,
 )
 from ..governance.system_catalog import build_system_catalog
-from ..governance_review_models import GovernanceReviewInput
+from ..governance_review.models import GovernanceReviewInput
 from .dogfood_models import DogfoodRecord
 
 DOGFOOD_ROLE_DEFAULT_PATHS = {

@@ -34,7 +34,7 @@ def safe_governance_report(
 ) -> Mapping[str, object]:
     """Load the governance-review report using repo-pack-configured paths."""
     try:
-        from ..governance_review_log import build_governance_review_report
+        from ..governance_review.log import build_governance_review_report
     except Exception:  # broad-except: allow reason=governance-report import failure should degrade to an empty projection instead of aborting snapshot rendering. fallback=return {}
         return {}
     log_path = resolve_governance_log_path(repo_root, governance)

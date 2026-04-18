@@ -10,7 +10,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from dev.scripts.devctl.context_graph.artifact_inputs import load_artifact_inputs
-from dev.scripts.devctl.probe_topology_scan import iter_source_files
+from dev.scripts.devctl.probe_topology.scan import iter_source_files
 
 
 def _topology_payload(*, generated_at: str | None) -> dict[str, object]:

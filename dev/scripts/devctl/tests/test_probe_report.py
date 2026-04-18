@@ -23,7 +23,7 @@ from dev.scripts.devctl import cli, quality_policy, review_probe_report
 from dev.scripts.devctl.config import REPO_ROOT, get_repo_root
 from dev.scripts.devctl.commands import probe_report
 from dev.scripts.devctl.probe_topology import render_review_packet_markdown
-from dev.scripts.devctl.quality_policy_loader import QUALITY_POLICY_ENV_VAR
+from dev.scripts.devctl.quality_policy.loader import QUALITY_POLICY_ENV_VAR
 from dev.scripts.devctl.quality_scan_mode import ADOPTION_BASE_REF, WORKTREE_HEAD_REF
 
 

@@ -86,6 +86,64 @@ Evidence: `dev/scripts/devctl/commands/vcs/commit.py`,
 `dev/active/remote_control_runtime.md`,
 and `AGENTS.md`.
 
+### 2026-04-18 - Governed commit/push now preserve staged intent and separate receipt reporting from content commits
+
+Fact: the next live push attempts exposed two architectural defects in the
+same governed publication lane. First, `devctl push` and its preflight
+auto-commit repair path still treated every dirty-tree row as push-blocking,
+so a user who had already started staging the next slice could deadlock the
+already-approved push path into a commit/push/dirty-tree loop. Second, the
+governed commit lane still left one high-risk blind spot around the managed
+ReviewSnapshot refresh: if that refresh ever dropped previously staged user
+paths, the stage phase would continue silently, and the final report could
+still make the trailing receipt commit look like the substantive code commit.
+
+This mattered because both defects block normal multi-file work. A governed
+push that treats staged-only intent as dirt turns the repo-owned publication
+path into a loop generator, and a governed commit lane that cannot prove it
+preserved the staged set is not safe to trust during checkpointed or
+multi-file work. The reporting ambiguity made the second problem worse by
+pointing operators at the receipt SHA instead of the parent code commit that
+actually carried the user's staged content.
+
+The closure stayed typed and low-risk. `collect_git_status()` now emits
+working-tree-aware porcelain fields (`raw_status`, `index_status`,
+`worktree_status`) so the new `push_worktree_changes.py` helper can treat
+unstaged/untracked dirt as push-blocking while allowing staged-only next-commit
+intent to coexist with the approved push path. `push.py` and
+`push_preflight_commit.py` now both reuse that helper, so preflight-generated
+auto-commit logic and the final push cleanliness gate agree on the same
+contract. On the commit side, governed staging now routes ReviewSnapshot
+refresh bookkeeping through a dedicated helper module, fails closed with
+`staged_index_preservation_failed` if the managed refresh drops previously
+staged non-artifact paths, and keeps the main stage phase small enough for the
+repo's code-shape guards. `devctl commit` also now reports the approved
+content SHA separately from a trailing `receipt_commit_sha` when HEAD is a
+ReviewSnapshot receipt commit, so operators can see the real substantive
+commit without reparsing git history by hand.
+
+Focused proof is green on the new staged-only push regressions, the staged
+index preservation failure regression, the commit report SHA regressions, and
+the docs-check payload update for richer git-status rows.
+
+Evidence: `dev/scripts/devctl/collect.py`,
+`dev/scripts/devctl/commands/vcs/commit.py`,
+`dev/scripts/devctl/commands/vcs/governed_executor_phases.py`,
+`dev/scripts/devctl/commands/vcs/governed_executor_stage_attention.py`,
+`dev/scripts/devctl/commands/vcs/governed_executor_stage_snapshot.py`,
+`dev/scripts/devctl/commands/vcs/push.py`,
+`dev/scripts/devctl/commands/vcs/push_preflight_commit.py`,
+`dev/scripts/devctl/commands/vcs/push_worktree_changes.py`,
+`dev/scripts/devctl/tests/commands/docs/test_check.py`,
+`dev/scripts/devctl/tests/vcs/test_commit_gate.py`,
+`dev/scripts/devctl/tests/vcs/test_governed_executor.py`,
+`dev/scripts/devctl/tests/vcs/test_push.py`,
+`dev/scripts/README.md`,
+`dev/guides/DEVELOPMENT.md`,
+`dev/active/MASTER_PLAN.md`,
+`dev/active/ai_governance_platform.md`,
+and `AGENTS.md`.
+
 Fact: the next review-channel/current-session dogfood pass exposed a narrower
 authority bug than "packet clearing is wrong." The reducer had already been
 tightened to ignore missing packet surfaces in some paths, but the remaining

@@ -6,6 +6,43 @@ import subprocess
 from pathlib import Path
 
 
+def list_staged_new_python_module_paths(
+    repo_root: Path,
+) -> tuple[tuple[str, ...], str | None]:
+    """Return added or renamed Python module paths staged in the git index."""
+    try:
+        result = subprocess.run(
+            ["git", "diff", "--cached", "--name-status", "--diff-filter=AR"],
+            cwd=str(repo_root),
+            capture_output=True,
+            text=True,
+            timeout=5,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        return (), f"git diff unavailable for import atomicity preflight ({exc})"
+    if result.returncode != 0:
+        stderr = (
+            str(getattr(result, "stderr", "") or "").strip()
+            or "git diff --cached --name-status failed"
+        )
+        return (), f"git diff unavailable for import atomicity preflight ({stderr})"
+
+    paths: set[str] = set()
+    for line in result.stdout.splitlines():
+        columns = [column.strip() for column in line.split("\t") if column.strip()]
+        if len(columns) < 2:
+            continue
+        status = columns[0]
+        if status.startswith("R") and len(columns) >= 3:
+            candidate = columns[2]
+        else:
+            candidate = columns[1]
+        if candidate.endswith(".py"):
+            paths.add(candidate)
+    return tuple(sorted(paths)), None
+
+
 def _read_committed_file(
     repo_root: Path,
     relative: Path,

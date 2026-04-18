@@ -15,33 +15,14 @@ from typing import Any
 from ..approval_mode import build_approval_policy_payload, normalize_approval_mode
 from ..common import emit_output, pipe_output, write_output
 from ..config import REPO_ROOT
-from ..mobile_status_views import (
-    render_report_markdown,
-    view_payload,
-    write_projection_bundle,
-)
+from ..mobile.status_output import render_report_markdown, write_projection_bundle
+from ..mobile.status_views import view_payload
 from ..repo_packs.review_helpers import load_mobile_review_state
 from ..runtime import ControlStateContext, build_control_state
+from ..runtime.control_plane_section import project_control_plane_section as _control_plane_section
 from ..runtime.control_plane_read_model import (
-    ControlPlaneReadModel,
     build_control_plane_read_model,
 )
-
-
-def _control_plane_section(model: ControlPlaneReadModel) -> dict[str, Any]:
-    """Extract governance-surface fields from the shared read model."""
-    return {
-        "resolved_phase": model.resolved_phase,
-        "top_blocker": model.top_blocker,
-        "next_action": model.next_action,
-        "next_command": model.next_command,
-        "push_eligible": model.push_eligible,
-        "review_accepted": model.review_accepted,
-        "reviewer_mode": model.reviewer_mode,
-        "operator_interaction_mode": model.operator_interaction_mode,
-        "last_guard_ok": model.last_guard_ok,
-        "pending_action_requests": model.pending_action_requests,
-    }
 
 
 def _iso_z(value: datetime) -> str:

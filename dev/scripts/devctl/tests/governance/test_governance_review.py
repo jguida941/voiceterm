@@ -11,11 +11,11 @@ from unittest.mock import patch
 from dev.scripts.devctl import cli
 from dev.scripts.devctl.commands.governance import review as governance_review
 from dev.scripts.devctl.config import REPO_ROOT, get_repo_root, set_repo_root
-from dev.scripts.devctl.governance_review_log import (
+from dev.scripts.devctl.governance_review.log import (
     build_governance_review_row,
     resolve_governance_review_log_path,
 )
-from dev.scripts.devctl.governance_review_models import (
+from dev.scripts.devctl.governance_review.models import (
     FINDING_REVIEW_CONTRACT_ID,
     FINDING_REVIEW_SCHEMA_VERSION,
     GovernanceReviewInput,

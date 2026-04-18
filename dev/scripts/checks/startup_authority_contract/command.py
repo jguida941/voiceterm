@@ -125,7 +125,7 @@ def _runtime_authority_checks(
     *,
     intent: str,
     reviewer_gate=None,
-) -> tuple[list[str], list[str], int, int, bool, bool, int]:
+) -> tuple[list[str], list[str], int, int, bool, bool, list[str]]:
     errors: list[str] = []
     warnings: list[str] = []
     checks_run = 0
@@ -197,7 +197,7 @@ def _runtime_authority_checks(
         intent == "reviewer_bootstrap"
         and bool(strict_reviewer_loop_errors)
         and not reviewer_loop_errors,
-        len(import_atomicity_errors),
+        list(import_atomicity_errors),
     )
 
 
@@ -219,7 +219,7 @@ def _build_report(
         runtime_checks_passed,
         reviewer_loop_blocked,
         reviewer_loop_bootstrap_allowed,
-        import_index_atomicity_violations,
+        import_index_atomicity_findings,
     ) = _runtime_authority_checks(
         root,
         gov,
@@ -252,7 +252,8 @@ def _build_report(
         ),
         "reviewer_loop_blocked": reviewer_loop_blocked,
         "reviewer_loop_bootstrap_allowed": reviewer_loop_bootstrap_allowed,
-        "import_index_atomicity_violations": import_index_atomicity_violations,
+        "import_index_atomicity_violations": len(import_index_atomicity_findings),
+        "import_index_atomicity_findings": list(import_index_atomicity_findings),
     }
 
 
@@ -278,6 +279,11 @@ def _render_md(report: dict) -> str:
         "- import_index_atomicity_violations: "
         f"{report['import_index_atomicity_violations']}"
     )
+    if report["import_index_atomicity_findings"]:
+        lines.append(
+            "- import_index_atomicity_first_violation: "
+            f"{report['import_index_atomicity_findings'][0]}"
+        )
     lines.append(f"- reviewer_loop_blocked: {report['reviewer_loop_blocked']}")
     if report["errors"]:
         lines.append("")

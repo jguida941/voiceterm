@@ -17,7 +17,7 @@ from ..governance.ledger_helpers import (
 from ..governance.review_validation import require_choice
 from ..governance.system_catalog import build_system_catalog
 from ..governance.script_catalog_registry import CHECK_SCRIPT_FILES, PROBE_SCRIPT_FILES
-from ..governance_review_log import (
+from ..governance_review.log import (
     build_governance_review_report,
     resolve_governance_review_log_path,
 )
@@ -323,4 +323,3 @@ def _build_governance_summary(
         fixed_findings=int(bucket.get("fixed_count") or 0),
         recent_findings=recent_findings,
     )
-

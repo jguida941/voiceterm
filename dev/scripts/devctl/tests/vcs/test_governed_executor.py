@@ -216,6 +216,39 @@ def test_stage_surfaces_git_add_sandbox_block_as_index_write_blocked(
     )
 
 
+def test_stage_reuse_staged_index_fails_if_snapshot_refresh_drops_user_paths(
+    tmp_path: Path,
+) -> None:
+    repo_root = _init_repo(tmp_path / "repo")
+    executor = _executor(repo_root)
+
+    with (
+        patch(
+            "dev.scripts.devctl.commands.vcs.governed_executor_phases.refresh_snapshot_staging",
+            return_value=(
+                [],
+                ["dev/audits/REVIEW_SNAPSHOT.md"],
+                ["tracked.txt", "extra.py"],
+            ),
+        ),
+    ):
+        result = executor.execute(
+            build_stage_action(
+                repo_pack_id="test-pack",
+                commit_message_draft="feat: preserve staged index",
+                push_requested=False,
+                guard_profile="bundle.tooling",
+                work_intake_ref="MP-377",
+                reuse_staged_index=True,
+            )
+        )
+
+    assert result.ok is False
+    assert result.reason == "staged_index_preservation_failed"
+    assert "tracked.txt" in result.warnings
+    assert "extra.py" in result.warnings
+
+
 def test_commit_requires_applied_operator_approval(tmp_path: Path) -> None:
     repo_root = _init_repo(tmp_path / "repo")
     (repo_root / "tracked.txt").write_text("updated\n", encoding="utf-8")

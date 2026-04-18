@@ -12,7 +12,7 @@ from typing import Any
 
 from ..commands.docs.policy_runtime import resolve_docs_check_policy
 from ..config import get_repo_root
-from ..probe_topology_scan import (
+from ..probe_topology.scan import (
     build_python_module_index,
     build_rust_suffix_index,
     collect_python_edges,

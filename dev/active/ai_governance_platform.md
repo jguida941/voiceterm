@@ -755,8 +755,15 @@ explicitly before hardening or reimplementing it.
 
 ## Data Contracts
 
-The current `MP-388..MP-397` consolidation lane adds or tightens these typed
+The current `MP-388..MP-410` consolidation lane adds or tightens these typed
 contracts on top of the broader shared inventory below:
+
+`MP-398` and `MP-399` harden the existing governed commit/push contracts
+without introducing a new persisted schema family; they close stale index,
+push-preflight, and receipt-reporting gaps inside the current typed lane.
+`MP-410` keeps the same lane shippable by relocating crowded `devctl` root
+modules into topical packages so package-layout enforcement can stay strict
+without waivers.
 
 - `RoleOwnershipRule`: typed role-authority row for one durable role, including
   allowed packet kinds, command families, write surfaces, default policy hint,
@@ -3221,7 +3228,7 @@ Phase metadata: phase_id=MP377-P0; owner_doc=`dev/active/ai_governance_platform.
 
 ### Phase P1 - Typed Plan Ingestion And Registry Projection
 
-Phase metadata: phase_id=MP377-P1; owner_doc=`dev/active/ai_governance_platform.md`; status=blocked; depends_on=`MP377-P0`; summary=Finish the remaining typed plan projection and review/runtime convergence work after the `MP-388..MP-397` consolidation lane lands.
+Phase metadata: phase_id=MP377-P1; owner_doc=`dev/active/ai_governance_platform.md`; status=blocked; depends_on=`MP377-P0`; summary=Finish the remaining typed plan projection and review/runtime convergence work after the `MP-388..MP-410` consolidation lane lands.
 
 - [x] `MP377-P1-T01` Land typed `PlanPhase`, `PlanTask`, and `PlanDependency` models plus a parser for structured execution-checklist phase/task metadata.
       owner_doc: `dev/active/ai_governance_platform.md`
@@ -3256,14 +3263,69 @@ Phase metadata: phase_id=MP377-P1; owner_doc=`dev/active/ai_governance_platform.
       status: `blocked`
       depends_on: `MP377-P1-T06`, `MP397-P0`
 
+### Phase MP-399 - Governed Commit Staged-Index Preservation
+
+Phase metadata: phase_id=MP399-P0; owner_doc=`dev/active/remote_commit_pipeline.md`; status=in_progress; depends_on=`MP377-P0`; summary=Make `devctl commit` preserve user-staged content through the managed ReviewSnapshot refresh and report the governed content commit separately from any trailing receipt commit.
+
+- [ ] `MP399-T01` Fail closed when the managed ReviewSnapshot refresh drops preexisting user-staged paths from the index instead of silently replacing the staged set with repo-owned artifacts.
+      owner_doc: `dev/active/remote_commit_pipeline.md`
+      status: `in_progress`
+      depends_on: `MP377-P0-T05`
+- [ ] `MP399-T02` Keep governed commit reporting truthful when a trailing ReviewSnapshot receipt commit advances `HEAD`: surface the staged/content commit distinctly from the snapshot-only receipt so operators do not infer staged work was lost.
+      owner_doc: `dev/active/remote_commit_pipeline.md`
+      status: `in_progress`
+      depends_on: `MP399-T01`
+- [ ] `MP399-T03` Add regression coverage proving user-staged content survives governed staging/commit execution and that receipt-aware commit reporting stays explicit.
+      owner_doc: `dev/active/remote_commit_pipeline.md`
+      status: `in_progress`
+      depends_on: `MP399-T02`
+
+### Phase MP-410 - Devctl Root Package Layout Relief
+
+Phase metadata: phase_id=MP410-P0; owner_doc=`dev/active/ai_governance_platform.md`; status=in_progress; depends_on=`MP399-P0`; summary=Relocate dev/scripts/devctl/ root files into topical subpackages to satisfy package-layout-guard and unblock multi-file slices.
+
+- [ ] `MP410-T01` Move probe-topology and probe-report support modules out of the crowded `dev/scripts/devctl/` root and into their owning packages, then update topology/report callers to the new module paths.
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `in_progress`
+      depends_on: `MP399-P0`
+- [ ] `MP410-T02` Create topical `governance_review/` and `governance_export/` packages and relocate the review/export helpers out of the root without widening the command surface.
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `in_progress`
+      depends_on: `MP410-T01`
+- [ ] `MP410-T03` Move the phone/mobile app and status helpers into one `mobile/` package so the frontend-owned support surface no longer crowds the root namespace.
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `in_progress`
+      depends_on: `MP410-T02`
+- [ ] `MP410-T04` Retire the now-redundant root compatibility shims and rerun package-layout/import validation until `dev/scripts/devctl/` drops below the strict root file cap.
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `in_progress`
+      depends_on: `MP410-T03`
+
+### Phase MP-398 - Push Preflight Staged-Index Exclusion
+
+Phase metadata: phase_id=MP398-P0; owner_doc=`dev/active/remote_commit_pipeline.md`; status=in_progress; depends_on=`MP399-P0`; summary=Allow `devctl push --execute` to publish the current governed commit even when the index already holds staged-only content for the next commit.
+
+- [ ] `MP398-T01` Narrow push dirty-tree blocking to unstaged edits plus untracked paths so staged-only next-commit content no longer trips `Working tree has uncommitted changes`.
+      owner_doc: `dev/active/remote_commit_pipeline.md`
+      status: `in_progress`
+      depends_on: `MP399-P0`
+- [ ] `MP398-T02` Apply the same staged-index exclusion to preflight-generated auto-commit logic so the push lane cannot sweep staged next-commit intent into a machine commit.
+      owner_doc: `dev/active/remote_commit_pipeline.md`
+      status: `in_progress`
+      depends_on: `MP398-T01`
+- [ ] `MP398-T03` Add regression coverage proving push preflight ignores staged-only content while still blocking unstaged or untracked dirt.
+      owner_doc: `dev/active/remote_commit_pipeline.md`
+      status: `in_progress`
+      depends_on: `MP398-T02`
+
 ### Phase MP-388 - Archive The Remaining Reference-Only Active Docs
 
-Phase metadata: phase_id=MP388-P0; owner_doc=`dev/active/ai_governance_platform.md`; status=pending; depends_on=`MP377-P0`; summary=Archive the last four reference-only active-doc remnants so the live set matches one umbrella plan plus the small owner-doc set.
+Phase metadata: phase_id=MP388-P0; owner_doc=`dev/active/ai_governance_platform.md`; status=pending; depends_on=`MP398-P0`; summary=Archive the last four reference-only active-doc remnants so the live set matches one umbrella plan plus the small owner-doc set.
 
 - [ ] `MP388-T01` Move `move.md`, `loop_chat_bridge.md`, `phase2.md`, and `RUST_AUDIT_FINDINGS.md` out of `dev/active/` without leaving duplicate active authority or broken reference links.
       owner_doc: `dev/active/ai_governance_platform.md`
       status: `pending`
-      depends_on: `MP377-P0-T02`
+      depends_on: `MP398-P0`
 - [ ] `MP388-T02` Update `INDEX.md`, discovery docs, and archive/deferred pointers so startup/context-graph stop surfacing the archived files as live planning context and the active-doc count drops from 30 to 26.
       owner_doc: `dev/active/ai_governance_platform.md`
       status: `pending`

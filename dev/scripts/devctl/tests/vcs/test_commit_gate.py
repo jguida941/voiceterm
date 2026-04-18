@@ -17,6 +17,7 @@ from dev.scripts.devctl.cli import build_parser
 from dev.scripts.devctl.commands.governance import startup_context as startup_context_command
 from dev.scripts.devctl.commands.vcs.commit import (
     _commit_permission_report,
+    _report_commit_shas,
     _build_git_commit_cmd,
     _pipeline_has_checkpoint_snapshot,
     _pipeline_has_validation_plan,
@@ -240,6 +241,40 @@ def _capture_startup_context_payload(
     return rc, captured
 
 
+class CommitReportShaTests(unittest.TestCase):
+    def test_report_commit_shas_prefers_content_commit_when_head_is_receipt(self) -> None:
+        with patch(
+            "dev.scripts.devctl.commands.vcs.commit.scan_repo_governance_safely",
+            return_value=None,
+        ), patch(
+            "dev.scripts.devctl.commands.vcs.commit.receipt_commit_parent_sha",
+            return_value="content-sha",
+        ):
+            commit_sha, receipt_commit_sha = _report_commit_shas(
+                repo_root=Path("/tmp/repo"),
+                commit_sha="receipt-sha",
+            )
+
+        self.assertEqual(commit_sha, "content-sha")
+        self.assertEqual(receipt_commit_sha, "receipt-sha")
+
+    def test_report_commit_shas_uses_head_when_no_receipt_parent_exists(self) -> None:
+        with patch(
+            "dev.scripts.devctl.commands.vcs.commit.scan_repo_governance_safely",
+            return_value=None,
+        ), patch(
+            "dev.scripts.devctl.commands.vcs.commit.receipt_commit_parent_sha",
+            return_value="",
+        ):
+            commit_sha, receipt_commit_sha = _report_commit_shas(
+                repo_root=Path("/tmp/repo"),
+                commit_sha="head-sha",
+            )
+
+        self.assertEqual(commit_sha, "head-sha")
+        self.assertEqual(receipt_commit_sha, "")
+
+
 class TestStartupActionRouting(unittest.TestCase):
     def test_commit_parser_accepts_approve_pending_flag(self) -> None:
         args = build_parser().parse_args(["commit", "--approve-pending"])
@@ -445,6 +480,66 @@ class TestStartupActionRouting(unittest.TestCase):
         )
         execute_action = executor.execute.call_args.args[0]
         self.assertTrue(execute_action.parameters["reuse_staged_index"])
+
+    def test_prepare_pipeline_blocks_on_import_index_atomicity_violation(
+        self,
+    ) -> None:
+        empty_pipeline = SimpleNamespace(
+            pipeline_id="",
+            state="",
+            approval_state="",
+        )
+        staged_pipeline = SimpleNamespace(
+            pipeline_id="pipeline-123",
+            state="staged",
+            approval_state="pending",
+        )
+        stage_result = SimpleNamespace(
+            ok=True,
+            reason="staged",
+            warnings=(),
+        )
+        executor = MagicMock()
+        executor.load_pipeline.side_effect = [empty_pipeline, staged_pipeline]
+        executor.execute.return_value = stage_result
+        violation = (
+            "app/operator_console/state/snapshots/phone_status_snapshot.py: "
+            "`from dev.scripts.devctl.phone_status_views import compact_view` "
+            "resolves to module candidates `dev/scripts/devctl/phone_status_views.py`, "
+            "`dev/scripts/devctl/phone_status_views/__init__.py` missing from git "
+            "index (staged)."
+        )
+
+        with (
+            patch(
+                "dev.scripts.devctl.commands.vcs.commit_preflight.pipeline_is_stale_for_current_repo",
+                return_value=False,
+            ),
+            patch(
+                "dev.scripts.devctl.commands.vcs.commit_preflight_atomicity.list_staged_new_python_module_paths",
+                return_value=(("dev/scripts/devctl/mobile/phone_views.py",), None),
+            ),
+            patch(
+                "dev.scripts.devctl.commands.vcs.commit_preflight_atomicity.collect_import_index_atomicity_findings",
+                return_value=([violation], []),
+            ),
+        ):
+            returned_pipeline, warnings, report = prepare_pipeline(
+                args=_make_args(),
+                repo_root=Path("/tmp/repo"),
+                resolved_policy=SimpleNamespace(repo_pack_id="voiceterm"),
+                vcs_executor=executor,
+            )
+
+        self.assertIs(returned_pipeline, staged_pipeline)
+        self.assertEqual(warnings, [])
+        self.assertEqual(report["reason"], "import_index_atomicity_violation")
+        self.assertEqual(
+            report["staged_new_python_module_paths"],
+            ["dev/scripts/devctl/mobile/phone_views.py"],
+        )
+        self.assertEqual(report["import_index_atomicity_findings"], [violation])
+        self.assertIn("phone_status_views.py", report["operator_guidance"])
 
     def test_load_pipeline_for_explicit_approval_projects_commit_command(self) -> None:
         pipeline = SimpleNamespace(

@@ -49,6 +49,7 @@ from .push_snapshot import (
     persist_push_progress_snapshot,
     persist_published_remote_snapshot,
 )
+from .push_worktree_changes import blocking_dirty_paths
 from .governed_executor_actions import build_push_action
 
 REQUESTED_BY = "devctl.push"
@@ -94,7 +95,7 @@ def _load_run_state(
         return state
 
     state.branch = str(git.get("branch", "")).strip()
-    state.dirty_paths = _summarize_dirty_paths(
+    state.dirty_paths = blocking_dirty_paths(
         git.get("changes", []),
         exclude_paths=_push_exclusion_paths(policy),
     )
@@ -312,23 +313,6 @@ def _record_divergence(
         state.errors.append(f"Branch `{branch}` is behind {remote}/{branch}; sync it before push.")
         return False
     return True
-
-
-def _summarize_dirty_paths(
-    changes: list[dict[str, object]],
-    *,
-    exclude_paths: tuple[str, ...] = (),
-) -> list[str]:
-    exclude_set = set(exclude_paths)
-    paths: list[str] = []
-    for change in changes:
-        path = str(change.get("path", "")).strip()
-        if not path or path in exclude_set:
-            continue
-        paths.append(path)
-    return paths
-
-
 def _push_exclusion_paths(policy) -> tuple[str, ...]:
     return (
         *policy.checkpoint.compatibility_projection_paths,

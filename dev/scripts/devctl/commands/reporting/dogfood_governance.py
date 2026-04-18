@@ -9,12 +9,12 @@ from ...governance.guard_promotion_queue import (
     append_guard_promotion_candidate_from_review,
     resolve_guard_promotion_queue_path,
 )
-from ...governance_review_log import (
+from ...governance_review.log import (
     build_governance_review_report,
     resolve_governance_review_log_path,
     resolve_governance_review_summary_root,
 )
-from ...governance_review_render import write_governance_review_summary
+from ...governance_review.render import write_governance_review_summary
 from ...runtime.dogfood_governance import (
     build_dogfood_governance_input,
     default_dogfood_governance_verdict,

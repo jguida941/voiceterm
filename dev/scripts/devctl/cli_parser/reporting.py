@@ -13,10 +13,10 @@ from ..common import add_standard_output_arguments
 from ..repo_packs import active_path_config as _active_path_config
 from ..data_science.parser import add_data_science_parser
 from ..governance_bootstrap_parser import add_governance_bootstrap_parser
-from ..governance_export_parser import add_governance_export_parser
-from ..governance_review_parser import add_governance_review_parser
-from ..probe_report_parser import add_probe_report_parser
-from ..quality_policy_parser import add_quality_policy_parser
+from ..governance_export.parser import add_governance_export_parser
+from ..governance_review.parser import add_governance_review_parser
+from ..probe_report.parser import add_probe_report_parser
+from ..quality_policy.parser import add_quality_policy_parser
 from ..ralph_status_parser import add_ralph_status_parser
 from .builders_ops import (
     add_audit_scaffold_parser,

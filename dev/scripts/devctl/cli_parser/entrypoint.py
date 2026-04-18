@@ -120,7 +120,7 @@ from ..governance.parser import (
 from ..integrations.import_parser import add_integrations_import_parser
 from ..integrations.sync_parser import add_integrations_sync_parser
 from ..loops.packet_parser import add_loop_packet_parser
-from ..mobile_app_parser import add_mobile_app_parser
+from ..mobile.app_parser import add_mobile_app_parser
 from ..mutation_loop.parser import add_mutation_loop_parser
 from ..orchestrate_parser import add_orchestrate_parsers
 from ..path_audit_parser import add_path_audit_parser, add_path_rewrite_parser

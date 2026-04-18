@@ -112,5 +112,3 @@ def append_ledger_rows(
         for row in rows:
             handle.write(json.dumps(row, sort_keys=True))
             handle.write("\n")
-
-

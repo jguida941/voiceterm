@@ -8,12 +8,12 @@ from pathlib import Path
 from ...review_channel.events import post_packet, resolve_artifact_paths, transition_packet
 from ...review_channel.packet_contract import PacketTransitionRequest
 from .commit_guard_bundle import GUARD_PROFILE
+from .commit_preflight_atomicity import preflight_import_index_atomicity
 from .commit_pipeline_blocking import build_active_pipeline_block_report
 from .commit_preflight_support import (
     COMMIT_START_COMMAND,
     next_command_guidance,
 )
-from .commit_visibility import commit_visibility_payload
 from .governed_executor import GovernedVcsExecutor
 from .governed_executor_actions import (
     APPROVAL_PACKET_KIND,
@@ -156,6 +156,13 @@ def prepare_pipeline(
                 operator_guidance=operator_guidance,
                 warnings=report_warnings,
             )
+    stage_warnings, atomicity_report = preflight_import_index_atomicity(
+        repo_root=repo_root,
+        pipeline=pipeline,
+        stage_warnings=stage_warnings,
+    )
+    if atomicity_report is not None:
+        return pipeline, stage_warnings, atomicity_report
     return pipeline, stage_warnings, None
 
 

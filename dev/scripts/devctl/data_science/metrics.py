@@ -18,7 +18,7 @@ from ..governance.external_findings_log import (
     read_external_finding_rows,
     resolve_external_finding_log_path,
 )
-from ..governance_review_log import (
+from ..governance_review.log import (
     DEFAULT_GOVERNANCE_REVIEW_LOG,
     DEFAULT_MAX_GOVERNANCE_REVIEW_ROWS,
     build_governance_review_stats,

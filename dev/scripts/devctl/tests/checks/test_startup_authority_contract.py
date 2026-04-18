@@ -345,6 +345,38 @@ def test_startup_authority_allows_pre_checkpoint_dirty_worktree(
     )
 
 
+def test_startup_authority_reports_first_import_atomicity_violation(
+    tmp_path: Path,
+) -> None:
+    _setup_full_layout(tmp_path)
+    fake_module = SimpleNamespace(
+        scan_repo_governance=lambda _root: _fake_governance(tmp_path)
+    )
+    violation = (
+        "app/operator_console/state/snapshots/phone_status_snapshot.py: "
+        "`from dev.scripts.devctl.phone_status_views import compact_view` "
+        "resolves to module candidates `dev/scripts/devctl/phone_status_views.py`, "
+        "`dev/scripts/devctl/phone_status_views/__init__.py` missing from git "
+        "index (staged)."
+    )
+
+    with (
+        patch(
+            "dev.scripts.checks.startup_authority_contract.command.import_repo_module",
+            return_value=fake_module,
+        ),
+        patch(
+            "dev.scripts.checks.startup_authority_contract.command.collect_import_index_atomicity_findings",
+            return_value=([violation], []),
+        ),
+    ):
+        report = _build_report(repo_root=tmp_path)
+
+    assert report["ok"] is False
+    assert report["import_index_atomicity_violations"] == 1
+    assert report["import_index_atomicity_findings"] == [violation]
+
+
 def test_collect_concurrent_writer_errors_when_outside_scope_dirty_paths_overlap_live_agents(
     tmp_path: Path,
 ) -> None:

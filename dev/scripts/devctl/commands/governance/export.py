@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass
 
-from ...governance_export_support import (
+from ...governance_export.support import (
     GovernanceExportRequest,
     build_governance_export,
 )

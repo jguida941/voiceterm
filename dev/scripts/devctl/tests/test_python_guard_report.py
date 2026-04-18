@@ -9,7 +9,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from dev.scripts.devctl import python_guard_report
-from dev.scripts.devctl.quality_policy_loader import QUALITY_POLICY_ENV_VAR
+from dev.scripts.devctl.quality_policy.loader import QUALITY_POLICY_ENV_VAR
 
 
 def _completed(payload: dict, *, returncode: int = 0) -> subprocess.CompletedProcess[str]:

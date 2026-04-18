@@ -43,13 +43,13 @@ except ModuleNotFoundError:  # pragma: no cover
 
 from .common import resolve_repo_python_command
 from .config import REPO_ROOT, get_repo_root
-from .probe_report_artifacts import write_probe_artifacts
+from .probe_report.artifacts import write_probe_artifacts
 from .probe_topology import (
     build_probe_topology_artifact,
     build_review_packet,
 )
 from .quality_policy import resolve_quality_policy
-from .quality_policy_loader import QUALITY_POLICY_ENV_VAR
+from .quality_policy.loader import QUALITY_POLICY_ENV_VAR
 from .quality_scan_mode import is_adoption_scan
 from .probe_report.renderers import (
     render_probe_report_markdown as _render_probe_report_markdown,

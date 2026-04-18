@@ -6,7 +6,7 @@ from collections.abc import Mapping
 from typing import Any
 
 from .ledger_helpers import optional_text, required_text
-from ..governance_review_models import (
+from ..governance_review.models import (
     FINDING_REVIEW_CONTRACT_ID,
     FINDING_REVIEW_SCHEMA_VERSION,
     VALID_FINDING_CLASSES,

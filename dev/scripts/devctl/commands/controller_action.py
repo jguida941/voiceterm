@@ -24,7 +24,7 @@ from ..controller_action_support import (
     workflow_allowed,
     write_controller_mode,
 )
-from ..phone_status_views import view_payload
+from ..mobile.phone_views import view_payload
 
 from ..repo_packs.process_helpers import resolve_repo, run_capture
 

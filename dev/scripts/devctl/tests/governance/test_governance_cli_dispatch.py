@@ -8,7 +8,8 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from dev.scripts.devctl import cli, governance_bootstrap_support, governance_export_support
+from dev.scripts.devctl import cli, governance_bootstrap_support
+from dev.scripts.devctl.governance_export import support as governance_export_support
 
 
 class GovernanceCliDispatchTests(unittest.TestCase):

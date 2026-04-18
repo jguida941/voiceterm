@@ -9,27 +9,21 @@ from typing import Any
 from ...runtime import ActionResult, TypedAction
 from ...runtime.action_contracts import ActionOutcome
 from ...runtime.remote_commit_pipeline_models import RemoteCommitPipelineContract
-from ...runtime.startup_receipt import load_startup_receipt
-from ...runtime.review_snapshot_refresh import refresh_and_stage_review_snapshot
 from ...runtime.vcs import run_git_capture
-from .governed_executor_actions import (
-    _ACTIVE_PIPELINE_STATES,
-    build_staged_pipeline,
-)
-from .governed_executor_field_access import (
-    bool_field,
-    field,
-    string_field,
-)
+from .governed_executor_actions import build_staged_pipeline
+from .governed_executor_field_access import bool_field
 from .governed_executor_git import (
     current_branch,
     dirty_paths,
     index_tree_hash_result,
     normalize_paths,
-    pipeline_is_stale_for_current_repo,
     staged_diff_summary,
-    staged_paths,
 )
+from .governed_executor_stage_attention import (
+    attention_revision_block as _attention_revision_block,
+    check_stage_preconditions as _check_stage_preconditions,
+)
+from .governed_executor_stage_snapshot import refresh_snapshot_staging
 
 ResultBuilder = Callable[..., ActionResult]
 PipelinePersister = Callable[[RemoteCommitPipelineContract], list[str]]
@@ -54,143 +48,108 @@ def _git_index_failure_guidance() -> str:
     )
 
 
-def _refresh_snapshot_staging(*, repo_root: Path) -> tuple[list[str], list[str]]:
-    """Return refresh warnings plus the staged-path view after refresh."""
-    return (
-        refresh_and_stage_review_snapshot(repo_root=repo_root),
-        staged_paths(repo_root),
-    )
-
-
-def _check_stage_preconditions(
+def _staged_index_preservation_failed(
     action: TypedAction,
     *,
-    repo_root: Path,
-    startup_context: Any,
-    load_pipeline: Callable[[], RemoteCommitPipelineContract],
-    pipeline_artifact_relpath: str,
+    refresh_warnings: list[str],
+    lost_paths: list[str],
+    operator_guidance: str,
     result_builder: ResultBuilder,
-) -> ActionResult | None:
-    """Return an early-exit ActionResult if stage preconditions fail, else None."""
-    reviewer_gate = field(startup_context, "reviewer_gate")
-    checkpoint_stage_allowed = (
-        string_field(field(startup_context, "push_decision"), "action")
-        == "await_checkpoint"
-        and bool_field(reviewer_gate, "checkpoint_permitted", default=True)
-    )
-    if (
-        bool_field(reviewer_gate, "implementation_blocked")
-        and not checkpoint_stage_allowed
-    ):
-        return result_builder(
-            action_id=action.action_id,
-            ok=False,
-            status=ActionOutcome.FAIL,
-            reason=string_field(reviewer_gate, "implementation_block_reason")
-            or "reviewer_gate_blocked",
-            operator_guidance=(
-                "Repair the review/startup state before staging a remote "
-                "commit pipeline."
-            ),
-        )
-    attention_revision_block = _attention_revision_block(
-        action=action,
-        repo_root=repo_root,
-        startup_context=startup_context,
-        result_builder=result_builder,
-    )
-    if attention_revision_block is not None:
-        return attention_revision_block
-    current = load_pipeline()
-    if (
-        current.pipeline_id
-        and current.state in _ACTIVE_PIPELINE_STATES
-        and not pipeline_is_stale_for_current_repo(current, repo_root=repo_root)
-    ):
-        return result_builder(
-            action_id=action.action_id,
-            ok=False,
-            status=ActionOutcome.FAIL,
-            reason="active_pipeline_exists",
-            operator_guidance=(
-                "Recover or complete the current remote commit pipeline "
-                "before staging another one."
-            ),
-            warnings=(f"active_pipeline_id={current.pipeline_id}",),
-            artifact_paths=(pipeline_artifact_relpath,),
-        )
-    return None
-
-
-def _attention_revision_block(
-    *,
-    action: TypedAction,
-    repo_root: Path,
-    startup_context: Any,
-    result_builder: ResultBuilder,
-) -> ActionResult | None:
-    packet_inbox = field(startup_context, "packet_inbox")
-    current_attention_revision = string_field(packet_inbox, "attention_revision")
-    if not current_attention_revision:
-        return None
-    agents = field(packet_inbox, "agents")
-    if not isinstance(agents, (tuple, list)):
-        return None
-    target_agent = _startup_context_active_implementation_owner(startup_context)
-    if not _target_agent_has_actionable_packet_attention(
-        agents=agents,
-        target_agent=target_agent,
-    ):
-        return None
-    receipt = load_startup_receipt(repo_root=repo_root)
-    if receipt is not None and receipt.attention_revision == current_attention_revision:
-        return None
+) -> ActionResult:
     return result_builder(
         action_id=action.action_id,
         ok=False,
         status=ActionOutcome.FAIL,
-        reason="attention_revision_stale",
-        operator_guidance=(
-            "Typed packet attention changed since the last startup receipt. "
-            "Rerun `python3 dev/scripts/devctl.py startup-context --format summary`, "
-            "refresh `session-resume`, then acknowledge the new typed inbox state "
-            "before staging more work."
-        ),
+        reason="staged_index_preservation_failed",
+        operator_guidance=operator_guidance,
+        warnings=tuple([*refresh_warnings, *lost_paths]),
     )
 
 
-def _has_actionable_packet_attention(row: object) -> bool:
-    pending_actionable_total = 0
-    if isinstance(row, dict):
-        pending_actionable_total = int(row.get("pending_actionable_total") or 0)
-        wake_reason = str(row.get("wake_reason") or "").strip()
-    else:
-        pending_actionable_total = int(getattr(row, "pending_actionable_total", 0) or 0)
-        wake_reason = str(getattr(row, "wake_reason", "") or "").strip()
-    if pending_actionable_total > 0:
-        return True
-    return wake_reason == "finding_pending"
-
-
-def _target_agent_has_actionable_packet_attention(
+def _no_staged_changes_result(
+    action: TypedAction,
     *,
-    agents: tuple[object, ...] | list[object],
-    target_agent: str,
-) -> bool:
-    if target_agent:
-        normalized_target = target_agent.strip().lower()
-        for row in agents:
-            if string_field(row, "agent").lower() != normalized_target:
-                continue
-            return _has_actionable_packet_attention(row)
-        return False
-    return any(_has_actionable_packet_attention(row) for row in agents)
+    operator_guidance: str,
+    warnings: tuple[str, ...] = (),
+    result_builder: ResultBuilder,
+) -> ActionResult:
+    return result_builder(
+        action_id=action.action_id,
+        ok=False,
+        status=ActionOutcome.FAIL,
+        reason="no_staged_changes",
+        operator_guidance=operator_guidance,
+        warnings=warnings,
+    )
 
 
-def _startup_context_active_implementation_owner(startup_context: object) -> str:
-    work_intake = field(startup_context, "work_intake")
-    coordination = field(work_intake, "coordination")
-    return string_field(coordination, "active_implementation_owner").lower()
+def _stage_selected_paths(
+    action: TypedAction,
+    *,
+    repo_root: Path,
+    selected_paths: list[str],
+    result_builder: ResultBuilder,
+) -> ActionResult | None:
+    stage_code, _, stage_error = run_git_capture(
+        ["add", "-A", "--", *selected_paths],
+        repo_root=repo_root,
+    )
+    if stage_code == 0:
+        return None
+    guidance = (
+        _git_index_failure_guidance()
+        if _git_index_write_blocked(stage_error)
+        else "Repair the git index error and rerun `vcs.stage`."
+    )
+    return result_builder(
+        action_id=action.action_id,
+        ok=False,
+        status=ActionOutcome.FAIL,
+        reason=_git_index_failure_reason(
+            stage_error,
+            default="git_add_failed",
+        ),
+        operator_guidance=guidance,
+        warnings=((stage_error,) if stage_error else ()),
+    )
+
+
+def _refresh_staged_snapshot(
+    action: TypedAction,
+    *,
+    repo_root: Path,
+    allow_empty: bool,
+    no_staged_guidance: str,
+    lost_paths_guidance: str,
+    result_builder: ResultBuilder,
+) -> tuple[ActionResult | None, list[str], list[str]]:
+    refresh_warnings, staged, lost_paths = refresh_snapshot_staging(
+        repo_root=repo_root
+    )
+    if lost_paths:
+        return (
+            _staged_index_preservation_failed(
+                action,
+                refresh_warnings=refresh_warnings,
+                lost_paths=lost_paths,
+                operator_guidance=lost_paths_guidance,
+                result_builder=result_builder,
+            ),
+            [],
+            [],
+        )
+    if not staged and not allow_empty:
+        return (
+            _no_staged_changes_result(
+                action,
+                operator_guidance=no_staged_guidance,
+                warnings=tuple(refresh_warnings),
+                result_builder=result_builder,
+            ),
+            [],
+            [],
+        )
+    return None, refresh_warnings, staged
 
 
 def execute_stage(
@@ -223,17 +182,21 @@ def execute_stage(
     worktree_dirty = dirty_paths(repo_root)
     selected_paths = normalize_paths(action.parameters.get("paths"))
     if reuse_staged_index:
-        refresh_warnings, staged = _refresh_snapshot_staging(repo_root=repo_root)
-        if not staged and not allow_empty:
-            return result_builder(
-                action_id=action.action_id,
-                ok=False,
-                status=ActionOutcome.FAIL,
-                reason="no_staged_changes",
-                operator_guidance=(
-                    "Stage changes first or rerun with `--allow-empty`."
-                ),
-            )
+        failure, refresh_warnings, staged = _refresh_staged_snapshot(
+            action,
+            repo_root=repo_root,
+            allow_empty=allow_empty,
+            no_staged_guidance="Stage changes first or rerun with `--allow-empty`.",
+            lost_paths_guidance=(
+                "The managed ReviewSnapshot refresh removed user-staged "
+                "content from the index. Restage the affected paths and "
+                "rerun `devctl commit`; the refresh path must add the "
+                "artifact, not replace your staged set."
+            ),
+            result_builder=result_builder,
+        )
+        if failure is not None:
+            return failure
     elif not worktree_dirty:
         return result_builder(
             action_id=action.action_id,
@@ -260,41 +223,31 @@ def execute_stage(
         selected_paths = worktree_dirty
 
     if not reuse_staged_index:
-        stage_code, _, stage_error = run_git_capture(
-            ["add", "-A", "--", *selected_paths],
+        stage_failure = _stage_selected_paths(
+            action,
             repo_root=repo_root,
+            selected_paths=selected_paths,
+            result_builder=result_builder,
         )
-        if stage_code != 0:
-            guidance = (
-                _git_index_failure_guidance()
-                if _git_index_write_blocked(stage_error)
-                else "Repair the git index error and rerun `vcs.stage`."
-            )
-            return result_builder(
-                action_id=action.action_id,
-                ok=False,
-                status=ActionOutcome.FAIL,
-                reason=_git_index_failure_reason(
-                    stage_error,
-                    default="git_add_failed",
-                ),
-                operator_guidance=guidance,
-                warnings=((stage_error,) if stage_error else ()),
-            )
-
-        refresh_warnings, staged = _refresh_snapshot_staging(repo_root=repo_root)
-        if not staged and not allow_empty:
-            return result_builder(
-                action_id=action.action_id,
-                ok=False,
-                status=ActionOutcome.FAIL,
-                reason="no_staged_changes",
-                operator_guidance=(
-                    "The selected scope did not produce a staged snapshot. "
-                    "Adjust the path list or make a real change first."
-                ),
-                warnings=tuple(refresh_warnings),
-            )
+        if stage_failure is not None:
+            return stage_failure
+        failure, refresh_warnings, staged = _refresh_staged_snapshot(
+            action,
+            repo_root=repo_root,
+            allow_empty=allow_empty,
+            no_staged_guidance=(
+                "The selected scope did not produce a staged snapshot. "
+                "Adjust the path list or make a real change first."
+            ),
+            lost_paths_guidance=(
+                "The managed ReviewSnapshot refresh removed staged content "
+                "from the index after `git add`. Restage the affected "
+                "paths and rerun `vcs.stage`."
+            ),
+            result_builder=result_builder,
+        )
+        if failure is not None:
+            return failure
 
     tree_hash, tree_error = index_tree_hash_result(repo_root)
     if not tree_hash:
