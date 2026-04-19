@@ -5,14 +5,14 @@
 ## Quick status
 
 - Branch: `feature/governance-quality-sweep`
-- HEAD: `8a8ef05951a1` — SYSTEM_MAP.md v6.1 — sections 48-53 + governance-first §0.5 pivot
-- Tree hash: `f2891f832fbc`
-- Generation stamp: `snap-95de333ba985`
-- Generated at (UTC): 2026-04-19T20:23:38Z
-- Push decision: `await_review` — review_loop_relaunch_required
-- Reviewer mode: `tools_only` (interaction: `local_terminal`)
+- HEAD: `cb5214c80f99` — Refresh external review snapshot for 8a8ef059
+- Tree hash: `f2c18568e930`
+- Generation stamp: `snap-0e68619e591a`
+- Generated at (UTC): 2026-04-19T20:38:16Z
+- Push decision: `await_checkpoint` — staged_index_present
+- Reviewer mode: `active_dual_agent` (interaction: `local_terminal`)
 - Pipeline state: `n/a` (approval: `n/a`)
-- Delta since last snapshot: 24 commits, 213 files, +11378/-4947
+- Delta since last snapshot: 24 commits, 68 files, +6989/-1210
 - Governance findings: 112 open / 86 fixed / 212 total
 - Probe hints: 0 total across 0 files scanned
 
@@ -54,18 +54,18 @@ adopters arrive.
 - Remote: `https://github.com/jguida941/voiceterm.git`
 - Default branch: `master`
 - Current branch: `feature/governance-quality-sweep`
-- HEAD SHA: `8a8ef05951a123e3cafd73491c9e732fbac302f5`
+- HEAD SHA: `cb5214c80f99c12aa22602d9667560d7131692dd`
 - HEAD author: Justin Guida
 - HEAD timestamp (UTC): 2026-04-19T16:23:25-04:00
 
 ## 2. Governance state
 
 ### Push decision
-- action: `await_review`
-- reason: review_loop_relaunch_required
+- action: `await_checkpoint`
+- reason: staged_index_present
 - push_eligible_now: False
-- worktree_clean: True
-- staged_path_count: 0
+- worktree_clean: False
+- staged_path_count: 2
 - unstaged_path_count: 0
 - next_step_command: `python3 dev/scripts/devctl.py review-channel --action status --terminal none --format json`
 - latest_push_report: `dev/reports/push/latest.json`
@@ -73,15 +73,13 @@ adopters arrive.
 - current_push_authorization: `push-auth-20260419T184040545919Z` (valid=False)
 - authorized_head_commit: `92b17e69456d8959e36d6091fa6a6f0a23c85844`
 - approved_target_identity: `tree-receipt-20260419T132557054922Z:ad447307c9b99c354023f77d625a2babf8f55a3d`
-- publication_backlog: queued
-- publication_guidance: 1 local commit(s) waiting for governed push once review is accepted.
+- publication_backlog: none
 
 ### Reviewer runtime
-- reviewer_mode: `tools_only`
+- reviewer_mode: `active_dual_agent`
 - reviewer_freshness: unknown
 - reviewer_publish_clear: False
 - interaction_mode: `local_terminal`
-- implementation_blocked: yes — review_loop_relaunch_required
 
 ### Remote commit pipeline
 - state: `n/a`
@@ -91,94 +89,93 @@ adopters arrive.
 - active plan: **AI Governance Platform Plan**
 - plan path: `dev/active/ai_governance_platform.md`
 - active MP scope: `MP-377`
-- advisory: `repair_reviewer_loop` — review_loop_relaunch_required
+- advisory: `continue_editing` — review_pending
 
 ## 3. Delta — what changed since the previous snapshot
 
-Range: last 24 commits ending at `8a8ef05951a1`
+Range: last 24 commits ending at `cb5214c80f99`
 
 - commits: 24
-- files changed: 213
-- insertions: +11378
-- deletions: -4947
+- files changed: 68
+- insertions: +6989
+- deletions: -1210
 - bundle classes touched: docs, tooling
-- risk add-ons triggered: Parser / ANSI boundary
-- authority surfaces touched: 14 file(s)
+- authority surfaces touched: 7 file(s)
 
 ### Commits
 
 | # | SHA | Subject | Files | +/- | Bundle | Risk |
 |---|---|---|---|---|---|---|
-| 1 | `8a8ef059` | SYSTEM_MAP.md v6.1 — sections 48-53 + governance-first §0.5… | 1 | +233/-7 | docs |  |
-| 2 | `331c7ff2` | Refresh external review snapshot for a7e9e127 | 2 | +51/-50 | docs |  |
-| 3 | `a7e9e127` | SYSTEM_MAP.md §47 — doc sprawl (60 top-level orientation MD… | 1 | +71/-0 | docs |  |
-| 4 | `d7168933` | Refresh external review snapshot for b16d5d3b | 2 | +45/-44 | docs |  |
-| 5 | `b16d5d3b` | SYSTEM_MAP.md v6 — 10 gap-audit sections added per external… | 1 | +320/-0 | docs |  |
-| 6 | `548401c3` | Refresh external review snapshot for 01830a05 | 2 | +53/-62 | docs |  |
-| 7 | `01830a05` | Fix SYSTEM_MAP.md per Codex rev_pkt_1358/1360 + prep for ex… | 1 | +11/-5 | docs |  |
-| 8 | `0fb9dda6` | Refresh external review snapshot for 4dc05995 | 2 | +51/-46 | docs |  |
-| 9 | `4dc05995` | SYSTEM_MAP.md v5 — operator override on Codex rev_pkt_1354… | 1 | +259/-2 | docs |  |
-| 10 | `da2a7aec` | Refresh external review snapshot for ce1d75b4 | 2 | +55/-52 | docs |  |
-| 11 | `ce1d75b4` | Fix SYSTEM_MAP.md per Codex rev_pkt_1353/1356 re-review | 1 | +8/-6 | docs |  |
-| 12 | `27fc2d73` | Refresh external review snapshot for e19c5551 | 2 | +60/-59 | docs |  |
-| 13 | `e19c5551` | Expand SYSTEM_MAP.md sections 22-29 from third 8-agent sweep | 1 | +186/-0 | docs |  |
-| 14 | `983d3381` | Refresh external review snapshot for 995559a8 | 2 | +57/-57 | docs |  |
-| 15 | `995559a8` | Fix SYSTEM_MAP.md per Codex review (rev_pkt_1348) | 1 | +36/-18 | docs |  |
-| 16 | `6b0bcba1` | Refresh external review snapshot for 3c59b601 | 2 | +56/-50 | docs |  |
-| 17 | `3c59b601` | Expand SYSTEM_MAP.md sections 14-21 from second 8-agent swe… | 1 | +243/-0 | docs |  |
-| 18 | `fe9ed851` | Refresh external review snapshot for 9097f268 | 2 | +52/-51 | docs |  |
-| 19 | `9097f268` | Add dev/guides/SYSTEM_MAP.md living connectivity index | 1 | +378/-0 | docs |  |
-| 20 | `37d6be74` | Refresh external review snapshot for 8ef9f1a7 | 2 | +93/-79 | docs |  |
-| 21 | `8ef9f1a7` | Recovery checkpoint: restore stashed session state + test f… | 7 | +312/-5 | docs |  |
-| 22 | `92b17e69` | Land collaboration wake/ownership + typed plan integration… | 61 | +4203/-474 | tooling |  |
-| 23 | `4245890c` | Refresh external review snapshot for 1f7b4f38 | 2 | +97/-86 | docs |  |
-| 24 | `1f7b4f38` | Land MP-398/399/410/412/413/415/416 combined multi-slice (C… | 157 | +4448/-3794 | tooling | Parser / ANSI boundary |
+| 1 | `cb5214c8` | Refresh external review snapshot for 8a8ef059 | 2 | +59/-57 | docs |  |
+| 2 | `8a8ef059` | SYSTEM_MAP.md v6.1 — sections 48-53 + governance-first §0.5… | 1 | +233/-7 | docs |  |
+| 3 | `331c7ff2` | Refresh external review snapshot for a7e9e127 | 2 | +51/-50 | docs |  |
+| 4 | `a7e9e127` | SYSTEM_MAP.md §47 — doc sprawl (60 top-level orientation MD… | 1 | +71/-0 | docs |  |
+| 5 | `d7168933` | Refresh external review snapshot for b16d5d3b | 2 | +45/-44 | docs |  |
+| 6 | `b16d5d3b` | SYSTEM_MAP.md v6 — 10 gap-audit sections added per external… | 1 | +320/-0 | docs |  |
+| 7 | `548401c3` | Refresh external review snapshot for 01830a05 | 2 | +53/-62 | docs |  |
+| 8 | `01830a05` | Fix SYSTEM_MAP.md per Codex rev_pkt_1358/1360 + prep for ex… | 1 | +11/-5 | docs |  |
+| 9 | `0fb9dda6` | Refresh external review snapshot for 4dc05995 | 2 | +51/-46 | docs |  |
+| 10 | `4dc05995` | SYSTEM_MAP.md v5 — operator override on Codex rev_pkt_1354… | 1 | +259/-2 | docs |  |
+| 11 | `da2a7aec` | Refresh external review snapshot for ce1d75b4 | 2 | +55/-52 | docs |  |
+| 12 | `ce1d75b4` | Fix SYSTEM_MAP.md per Codex rev_pkt_1353/1356 re-review | 1 | +8/-6 | docs |  |
+| 13 | `27fc2d73` | Refresh external review snapshot for e19c5551 | 2 | +60/-59 | docs |  |
+| 14 | `e19c5551` | Expand SYSTEM_MAP.md sections 22-29 from third 8-agent sweep | 1 | +186/-0 | docs |  |
+| 15 | `983d3381` | Refresh external review snapshot for 995559a8 | 2 | +57/-57 | docs |  |
+| 16 | `995559a8` | Fix SYSTEM_MAP.md per Codex review (rev_pkt_1348) | 1 | +36/-18 | docs |  |
+| 17 | `6b0bcba1` | Refresh external review snapshot for 3c59b601 | 2 | +56/-50 | docs |  |
+| 18 | `3c59b601` | Expand SYSTEM_MAP.md sections 14-21 from second 8-agent swe… | 1 | +243/-0 | docs |  |
+| 19 | `fe9ed851` | Refresh external review snapshot for 9097f268 | 2 | +52/-51 | docs |  |
+| 20 | `9097f268` | Add dev/guides/SYSTEM_MAP.md living connectivity index | 1 | +378/-0 | docs |  |
+| 21 | `37d6be74` | Refresh external review snapshot for 8ef9f1a7 | 2 | +93/-79 | docs |  |
+| 22 | `8ef9f1a7` | Recovery checkpoint: restore stashed session state + test f… | 7 | +312/-5 | docs |  |
+| 23 | `92b17e69` | Land collaboration wake/ownership + typed plan integration… | 61 | +4203/-474 | tooling |  |
+| 24 | `4245890c` | Refresh external review snapshot for 1f7b4f38 | 2 | +97/-86 | docs |  |
 
 ### Files
 
 | Path | Bundle | +/- |
 |---|---|---|
-| `AGENTS.md` | docs | +12/-0 |
-| `bridge.md` | docs | +53/-53 |
-| `dev/active/MASTER_PLAN.md` | tooling | +69/-0 |
-| `dev/active/ai_governance_platform.md` | tooling | +261/-4 |
-| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +750/-718 |
+| `AGENTS.md` | docs | +5/-0 |
+| `bridge.md` | docs | +54/-54 |
+| `dev/active/MASTER_PLAN.md` | tooling | +54/-0 |
+| `dev/active/ai_governance_platform.md` | tooling | +195/-0 |
+| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +753/-721 |
 | `dev/config/publication_sync_registry.json` | tooling | +2/-2 |
 | `dev/drafts/claude_finding_readiness_proposal.md` | docs | +73/-0 |
 | `dev/drafts/codex_exit_82_silent_death.md` | docs | +88/-0 |
 | `dev/drafts/rev_pkt_1270_validation_partial.md` | docs | +58/-0 |
 | `dev/drafts/wake_system_empirical_fail_20260419.md` | docs | +62/-0 |
-| `dev/guides/DEVELOPMENT.md` | docs | +13/-1 |
+| `dev/guides/DEVELOPMENT.md` | docs | +4/-0 |
 | `dev/guides/SYSTEM_MAP.md` | docs | +1745/-38 |
-| `dev/history/ENGINEERING_EVOLUTION.md` | tooling | +139/-1 |
-| `dev/scripts/README.md` | tooling | +8/-1 |
+| `dev/history/ENGINEERING_EVOLUTION.md` | tooling | +81/-1 |
+| `dev/scripts/README.md` | tooling | +1/-0 |
 | `dev/scripts/checks/active_plan/packet_plan_sync.py` | tooling | +69/-0 |
-| `dev/scripts/checks/check_rustsec_policy.py` | tooling | +1/-17 |
-| `dev/scripts/checks/coderabbit/gate_core.py` | tooling | +319/-0 |
-| `dev/scripts/checks/coderabbit/gate_support.py` | tooling | +236/-0 |
-| `dev/scripts/checks/coderabbit/run_ralph_loop.py` | tooling | +118/-0 |
-| `dev/scripts/checks/coderabbit_gate_core.py` | tooling | +6/-318 |
-| `dev/scripts/checks/coderabbit_gate_support.py` | tooling | +10/-236 |
-| `dev/scripts/checks/governance_closure/command.py` | tooling | +1/-1 |
-| `dev/scripts/checks/mutation_outcome_parse.py` | tooling | +6/-144 |
-| `dev/scripts/checks/mutation_ralph_loop/outcome_parse.py` | tooling | +145/-0 |
 | `dev/scripts/checks/platform_contract_closure/emitter_parity_contract_checks.py` | tooling | +5/-0 |
-| `dev/scripts/checks/probe_boolean_params.py` | tooling | +1/-17 |
-| `dev/scripts/checks/probe_clone_density.py` | tooling | +1/-17 |
-| `dev/scripts/checks/probe_concurrency.py` | tooling | +1/-17 |
-| `dev/scripts/checks/probe_defensive_overchecking.py` | tooling | +1/-17 |
-| `dev/scripts/checks/probe_design_smells.py` | tooling | +1/-17 |
-| `dev/scripts/checks/probe_dict_as_struct.py` | tooling | +1/-17 |
-| `dev/scripts/checks/probe_exception_quality.py` | tooling | +1/-17 |
-| `dev/scripts/checks/probe_magic_numbers.py` | tooling | +1/-17 |
-| `dev/scripts/checks/probe_stringly_typed.py` | tooling | +1/-17 |
-| `dev/scripts/checks/probe_type_conversions.py` | tooling | +1/-17 |
-| `dev/scripts/checks/probe_unnecessary_intermediates.py` | tooling | +1/-17 |
-| `dev/scripts/checks/probe_unwrap_chains.py` | tooling | +1/-17 |
-| `dev/scripts/checks/probe_vague_errors.py` | tooling | +1/-17 |
-| `dev/scripts/checks/run_coderabbit_ralph_loop.py` | tooling | +7/-113 |
-| `dev/scripts/checks/run_probe_report.py` | tooling | +1/-1 |
-| _173 more files trimmed_ | | |
+| `dev/scripts/devctl/collect.py` | tooling | +12/-7 |
+| `dev/scripts/devctl/commands/review_channel/event_action_support.py` | tooling | +3/-2 |
+| `dev/scripts/devctl/commands/review_channel/event_handler.py` | tooling | +15/-2 |
+| `dev/scripts/devctl/commands/review_channel/event_post_wake.py` | tooling | +238/-0 |
+| `dev/scripts/devctl/commands/review_channel/reviewer_runtime_snapshot.py` | tooling | +20/-6 |
+| `dev/scripts/devctl/commands/review_channel/watch_follow_runtime.py` | tooling | +8/-5 |
+| `dev/scripts/devctl/commands/review_channel/watch_follow_state.py` | tooling | +8/-5 |
+| `dev/scripts/devctl/commands/vcs/governed_executor.py` | tooling | +7/-0 |
+| `dev/scripts/devctl/commands/vcs/governed_executor_commit_phase.py` | tooling | +7/-6 |
+| `dev/scripts/devctl/commands/vcs/governed_executor_sync.py` | tooling | +18/-4 |
+| `dev/scripts/devctl/commands/vcs/push_preflight_commit.py` | tooling | +1/-1 |
+| `dev/scripts/devctl/context_graph/catalog_nodes.py` | tooling | +25/-4 |
+| `dev/scripts/devctl/review_channel/collaboration_session.py` | tooling | +33/-8 |
+| `dev/scripts/devctl/review_channel/collaboration_session_lane_owners.py` | tooling | +95/-0 |
+| `dev/scripts/devctl/review_channel/collaboration_session_presence.py` | tooling | +201/-0 |
+| `dev/scripts/devctl/review_channel/current_session_bridge_fallback.py` | tooling | +69/-0 |
+| `dev/scripts/devctl/review_channel/current_session_projection.py` | tooling | +39/-0 |
+| `dev/scripts/devctl/review_channel/follow_controller.py` | tooling | +6/-8 |
+| `dev/scripts/devctl/review_channel/follow_controller_wake_target.py` | tooling | +73/-10 |
+| `dev/scripts/devctl/runtime/authority_snapshot_build.py` | tooling | +8/-0 |
+| `dev/scripts/devctl/runtime/authority_snapshot_core.py` | tooling | +15/-18 |
+| `dev/scripts/devctl/runtime/authority_snapshot_parse.py` | tooling | +87/-0 |
+| `dev/scripts/devctl/runtime/authority_snapshot_parse_support.py` | tooling | +20/-0 |
+| `dev/scripts/devctl/runtime/authority_snapshot_projection.py` | tooling | +143/-0 |
+| _28 more files trimmed_ | | |
 
 ## 4. Quality signals
 
@@ -248,7 +245,6 @@ Recent findings:
 
 ### Targeted hints
 
-- **risk**: Parser / ANSI boundary — Delta touches a risk-sensitive surface; verify the routed bundle
 - **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/commands/review_channel/reviewer_runtime_snapshot.py`) — Review contract-level invariants for this file
 - **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/commands/vcs/governed_executor.py`) — Review contract-level invariants for this file
 - **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/commands/vcs/governed_executor_commit_phase.py`) — Review contract-level invariants for this file
@@ -256,18 +252,9 @@ Recent findings:
 - **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/tests/review_channel/test_reviewer_runtime_doctor.py`) — Review contract-level invariants for this file
 - **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/tests/runtime/test_startup_context.py`) — Review contract-level invariants for this file
 - **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/tests/vcs/test_governed_executor.py`) — Review contract-level invariants for this file
-- **authority_surface**: Typed authority surface touched (`dev/scripts/checks/startup_authority_contract/command.py`) — Review contract-level invariants for this file
-- **authority_surface**: Typed authority surface touched (`dev/scripts/checks/startup_authority_contract/runtime_import_git.py`) — Review contract-level invariants for this file
-- **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/commands/vcs/governed_executor_phases.py`) — Review contract-level invariants for this file
-- **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/commands/vcs/governed_executor_stage_attention.py`) — Review contract-level invariants for this file
-- **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/commands/vcs/governed_executor_stage_snapshot.py`) — Review contract-level invariants for this file
-- **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/runtime/review_snapshot_sources.py`) — Review contract-level invariants for this file
-- **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/tests/checks/test_startup_authority_contract.py`) — Review contract-level invariants for this file
 - **contract_mutation**: Contract / typed model mutated (`dev/scripts/devctl/runtime/collaboration_wake_contract.py`) — Commit 92b17e69 changed dev/scripts/devctl/runtime/collaboration_wake_contract.py
 - **contract_mutation**: Contract / typed model mutated (`dev/scripts/devctl/runtime/review_state_collaboration_models.py`) — Commit 92b17e69 changed dev/scripts/devctl/runtime/review_state_collaboration_models.py
 - **contract_mutation**: Contract / typed model mutated (`dev/scripts/devctl/tests/test_active_plan_contract.py`) — Commit 92b17e69 changed dev/scripts/devctl/tests/test_active_plan_contract.py
-- **contract_mutation**: Contract / typed model mutated (`dev/scripts/devctl/{governance_review_models.py => governance_review/models.py}`) — Commit 1f7b4f38 changed dev/scripts/devctl/{governance_review_models.py => governance_review/models.py}
-- **contract_mutation**: Contract / typed model mutated (`dev/scripts/devctl/tests/checks/test_startup_authority_contract.py`) — Commit 1f7b4f38 changed dev/scripts/devctl/tests/checks/test_startup_authority_contract.py
 
 ### Suggested verification commands
 
@@ -281,6 +268,8 @@ Recent findings:
 
 ### Per-commit rationale
 
+- **`cb5214c8`** — Refresh external review snapshot for 8a8ef059
+  - evolution: Fact: the next live Codex+Claude remote-control pass exposed a narrower defect than "the heartbeat is stale." Event-backed packet posting already updated the typed queue immediately, but the actual reviewer wake lived o…
 - **`8a8ef059`** — SYSTEM_MAP.md v6.1 — sections 48-53 + governance-first §0.5 pivot
   - - §0.5 reframed governance-first: repo is a portable typed AI-governance
   -   platform; VoiceTerm is ONE adopter/product shell, not the engine
@@ -356,8 +345,6 @@ Recent findings:
   - evolution: Fact: the next live Codex+Claude remote-control pass exposed a narrower defect than "the heartbeat is stale." Event-backed packet posting already updated the typed queue immediately, but the actual reviewer wake lived o…
 - **`4245890c`** — Refresh external review snapshot for 1f7b4f38
   - evolution: Fact: the next MP-377 collaboration pass exposed a smaller but more important coupling bug than "Claude should dogfood more." The repo already had `devctl dogfood --record --dev-mode`, but the live collaboration contrac…
-- **`1f7b4f38` | MPs: MP-398** — Land MP-398/399/410/412/413/415/416 combined multi-slice (Codex v2-v7)
-  - evolution: Fact: the next MP-377 collaboration pass exposed a smaller but more important coupling bug than "Claude should dogfood more." The repo already had `devctl dogfood --record --dev-mode`, but the live collaboration contrac…
 ### Active MP scope (from MASTER_PLAN.md)
 
 - contract slice for MP-355 plus the temporary markdown-swarm operating mode
@@ -375,11 +362,8 @@ Recent findings:
 
 - open governance findings: 112
 
-### Startup advisories
-- repair_reviewer_loop: review_loop_relaunch_required
-
 ### Stale warnings
-- Cut a checkpoint before doing anything else.
+- Pause and wait for reviewer-owned state.
 
 ### Open gap rows
 - **governance_open** (`dev/scripts/devctl/runtime/dogfood_log.py`): dogfood_finding_id_instability: 
@@ -393,4 +377,4 @@ Recent findings:
 
 ---
 
-Projection produced by `devctl review-snapshot`. Generation stamp `snap-95de333ba985` binds this file to HEAD `8a8ef05951a1`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
+Projection produced by `devctl review-snapshot`. Generation stamp `snap-0e68619e591a` binds this file to HEAD `cb5214c80f99`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.

@@ -55,6 +55,46 @@ SYSTEM_MAP.md is a supplementary navigation index read AFTER the canonical boots
 
 ---
 
+## 0.6 Canonical Runtime Spine (v6.2 — promoted from §49 for top-of-doc visibility)
+
+One deterministic control path from repo truth → governed action → evidence → context. Each object is either implemented (✅), partially wired (⚠️), or not yet materialized (❌). Full authority-object detail remains in §49; this is the compact at-a-glance view.
+
+```
+ProjectGovernance ✅
+  └─ RepoPack ⚠️ (spec'd; RepoPackRef stub only)
+      └─ PlanRegistry ✅
+          └─ PlanTargetRef ✅
+              └─ WorkIntakePacket ✅
+                  └─ PlanExpectationPacket ❌ (named in platform_authority_loop.md; not materialized)
+                      └─ CollaborationSession ✅
+                          └─ TypedAction ⚠️ (record-only; no execution contract)
+                              └─ ActionResult ⚠️
+                                  └─ RunRecord ⚠️ (partial — not load-bearing for decisions)
+                                      └─ Finding ✅
+                                          └─ CandidateInvariant ❌
+                                              └─ SessionDecisionLog ❌ (new row per external-AI round 3)
+                                                  └─ ContextPack ⚠️ (bootstrap reducer; not yet unified)
+```
+
+**Closure rule:** promote one ❌/⚠️ per session until the chain is fully ✅. Each promotion must include a typed contract, a producer, at least one consumer, and a regression test. See §51 for the ordered closure list.
+
+## 0.7 Authority Load Order (v6.2 — new section per external-AI round 3)
+
+What counts as execution authority vs navigation vs reference:
+
+| Tier | Surface | Role |
+|------|---------|------|
+| 1 — **Execution authority** | `startup-context --format json`, `session-resume --role <r> --format bootstrap`, `review-channel --action status`, `push --execute` | Typed state; agent MUST act on these |
+| 2 — **Canonical prose authority** | `AGENTS.md`, `dev/active/INDEX.md`, `dev/active/MASTER_PLAN.md`, `dev/active/ai_governance_platform.md`, `dev/active/platform_authority_loop.md` | Prose that binds behavior when typed state is silent |
+| 3 — **Navigation / connectivity index** | `SYSTEM_MAP.md` (this doc), `context-graph --mode bootstrap` | Human-readable reducer over the system; NOT authority |
+| 4 — **Reference / generated projection** | `dev/guides/*`, `dev/reports/*`, `bridge.md`, `dev/audits/REVIEW_SNAPSHOT.md` | Consult when tier 1–3 points at them; do not treat as authority on their own |
+
+**Rule:** If tier 3 conflicts with tier 1, tier 1 wins and tier 3 must be updated. This doc can become stale; typed state cannot.
+
+**Freshness contract:** SYSTEM_MAP.md must be regenerated whenever `dev/audits/REVIEW_SNAPSHOT.md`, `bridge.md`, or any authority-spine object under §49 changes. Target future state: SYSTEM_MAP.md is a **generated projection** over typed state (see §51 closure row), not a hand-maintained doc.
+
+---
+
 ## 0. Living Flowchart
 
 ```mermaid
