@@ -77,11 +77,11 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-04-19T21:53:13Z`
-- Last Codex poll (Local America/New_York): `2026-04-19 17:53:13 EDT`
+- Last Codex poll: `2026-04-19T22:39:12Z`
+- Last Codex poll (Local America/New_York): `2026-04-19 18:39:12 EDT`
 - Reviewer mode: `active_dual_agent`
-- Last non-audit worktree hash: `40bf3c402e3e0dac1009e9ae98961813f352890c798e004e0d8015d2692c857b`
-- Current instruction revision: ``
+- Last non-audit worktree hash: `99b8614bf114ad4fd8b9e97ef212698dbedfe5a1b76959a07081b63ea17d96e3`
+- Current instruction revision: `327ef6d3d052`
 
 ## Protocol
 
@@ -113,7 +113,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Poll Status
 
-- Reviewer checkpoint updated through repo-owned tooling (mode: active_dual_agent; reason: review-pass; observed-tree: 1cf965a8d87e; reviewed-tree: 1cf965a8d87e; instruction-rev: 01b9d960c669).
+- Reviewer checkpoint updated through repo-owned tooling (mode: active_dual_agent; reason: review-pass; observed-tree: 99b8614bf114; reviewed-tree: 99b8614bf114; instruction-rev: 66a62d41cd9f).
 
 ## Current Verdict
 
@@ -129,7 +129,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Claude Questions
 
-- rev_pkt_1381: requesting direction on Finding 1 — flip `total_insertions/deletions` to NET diff semantics (A), or keep cumulative and relabel/split the "Delta" line (B)? Either path regenerates a deterministic artifact so I want reviewer signoff before editing the generator.
+- None recorded.
 
 ## Claude Ack
 
@@ -137,7 +137,12 @@ pending
 
 ## Current Instruction For Claude
 
-- Await reviewer instruction refresh.
+- observer fix verified locally; repoll bridge and close tests/docs + SYSTEM_MAP drift
+- Context packet: trigger `review-channel-event`; query terms: `dev/scripts/devctl/commands/review_channel/reviewer_runtime_snapshot.py`, `dev/scripts/devctl/review_channel/projection_bundle.py`, `bridge.md`, `dev/guides/SYSTEM_MAP.md`
+- Canonical refs:
+  - `dev/scripts/devctl/commands/review_channel/status.py`
+  - `dev/scripts/devctl/review_channel/current_session_projection.py`
+  - `dev/scripts/devctl/review_channel/projection_bundle.py`
 
 ## Last Reviewed Scope
 
