@@ -1078,6 +1078,324 @@ PyPI, Homebrew tap (`jguida941/homebrew-voiceterm`), GitHub release (Linux amd64
 
 ---
 
+## 37. Authority Ladder — Order When Surfaces Disagree
+
+**Rule (from external-AI gap audit, rev_pkt_1364):** SYSTEM_MAP.md is a
+**system picture**, not a second source of truth. When surfaces disagree,
+use this order:
+
+1. **Tracked architecture / plan authority** — `dev/active/MASTER_PLAN.md`
+   + owner-doc specs in `dev/active/*.md`
+2. **Typed runtime authority** — `review_state.json`, `authority_snapshot`,
+   `WorkIntakePacket`, `CollaborationSessionState`, `StartupContext`
+3. **Generated projections / status surfaces** — `context-graph`,
+   `system-picture`, `dashboard`, `data_science`
+4. **Compatibility markdown** — `bridge.md` (repo-pack-owned projection
+   over typed state, NOT live authority)
+5. **Reference-only research/audit docs** — this doc, `dev/guides/*.md`,
+   `dev/history/*.md`, `ZGRAPH_RESEARCH_EVIDENCE.md`
+
+**Step 0 per CLAUDE.md:** `startup-context --format summary` is
+mandatory — not optional. `bridge.md` is a compatibility projection,
+not authority. The AGENTS.md bootstrap route runs BEFORE this doc.
+
+---
+
+## 38. System Spine End-to-End (Full Runtime Flow)
+
+**Canonical chain** (from `SYSTEM_ARCHITECTURE_SPEC.md` + external-AI audit):
+
+```
+repo truth
+  ↓
+ProjectGovernance + RepoPack + DocPolicy / DocRegistry
+  ↓
+PlanRegistry → PlanTargetRef
+  ↓
+startup-context (Step 0 bootstrap receipt)
+  ↓
+WorkIntakePacket (bounded routing envelope)
+  ↓
+CollaborationSession (dual-agent typed state)
+  ↓
+PlanExpectationPacket (NOT YET IMPLEMENTED — next authority-loop closure)
+  ↓
+lane packet (per-agent bounded scope)
+  ↓
+TypedAction (proposed + validated)
+  ↓
+ActionResult / RunRecord / Finding
+  ↓
+guard / probe outcomes
+  ↓
+CandidateInvariant (NOT YET IMPLEMENTED — feedback closure)
+  ↓
+ContextPack / system-picture (generated read-only navigation)
+```
+
+**Critical not-yet-closed links:** `PlanExpectationPacket` + `CandidateInvariant`
+are called out in `dev/active/ai_governance_platform.md` as next closures.
+Without them, plan truth → action truth → feedback-to-invariant loop stays
+open (external-AI gap #2).
+
+---
+
+## 39. Startup + Session Continuity Contract
+
+**Per AGENTS.md:235-242 + CLAUDE.md:**
+
+- **Step 0 mandatory:** `python3 dev/scripts/devctl.py startup-context --format summary`
+- **Then:** `dev/active/INDEX.md` → `dev/active/MASTER_PLAN.md`
+- **Then:** task-class router → matching bundle
+
+**Data Step 0 MUST load:**
+- `ProjectGovernance` — tracked plan/doc authority
+- `review_state.json` — typed runtime state
+- `recovery_assessment` — diagnosis + decision
+- `packet_inbox` — pending review packets
+- `reviewer_gate` — typed review loop state
+
+**Staleness definition:** `startup-context.action != continue_editing` means
+repair/checkpoint/wait is required. The action field IS the staleness signal.
+
+**Continuity artifacts (read on session resume):**
+- `SessionCachePacket` (session_resume_support.py:97-144) — snapshot_id,
+  head_sha, review_state_mtime, blockers, coordination, authority_snapshot,
+  packet_inbox
+- `startup-context` receipt
+- Latest review_state projection
+
+**Warm start vs cold start:** Warm = SessionCachePacket hash matches current
+tree + no startup-context action requires repair. Cold = anything else,
+requires fresh agents/plans/bridge re-read per canonical order.
+
+**Blocks mutation:** implementation_permission=blocked|suspended,
+checkpoint_required=True, reviewer_gate.implementation_blocked=True,
+push_decision.action=await_review | await_checkpoint.
+
+**Gap:** Startup is still fragmented (evidence doc: "four separate startup
+systems"). Memory + session-resume + execution traces are still disconnected
+silos. Next closure: merge bootstrap+startup-context+plan-resume+memory-roots
+into one bounded ContextPack startup family.
+
+---
+
+## 40. Lane Topology + Ownership
+
+### Per-agent lanes (typed)
+| Lane | Default Agent | Owns | May Mutate | Escalates Via |
+|---|---|---|---|---|
+| `mutation_owner` / `coding_agent` | Codex | Code edits | rust/, dev/scripts/, tests | review-channel post finding |
+| `review_agent` / `reviewer` | Claude (or Codex in dual-agent) | Review, findings | packet acks, decisions | reviewer-checkpoint |
+| `watcher` | Claude | Dashboard, dogfood | packet posts only (no code) | operator escalation |
+| `operator_agent` | Operator (human) | Policy, role assignments | all (ultimate authority) | direct command |
+
+### Role is sticky + typed
+Per rev_pkt_1314 + operator 2026-04-19: **any agent can occupy any role, but
+once assigned, stays in that role until explicitly switched**. Typed
+assignment lives in `CollaborationSessionState.role_assignments` (read via
+`_agent_for_role(role_assignments, role_id)`).
+
+### Worktree/path scope
+Currently NO typed per-lane path scope. All lanes see the full worktree.
+MP-412 `HarnessAuthContract` is the intended typed seam for path-scoped
+lane permissions.
+
+### Multi-agent collision protection
+- `collaboration_session.ownership.concurrent_writer_conflict` detects
+  mid-flight conflicts
+- `delegated_work` tuple tracks assigned AGENT-N lanes for fanout
+- `ready_gates` (runtime_truth, review_truth, implementer_state) block
+  unsafe parallelism
+
+**Gap:** Typed lane packets (per external-AI audit #7) not yet implemented.
+Workers still re-interpret the repo per spawn.
+
+---
+
+## 41. Guard / Probe / Finding / Invariant Lifecycle
+
+### How a missing behavior becomes a finding
+1. Guard (blocking) or probe (advisory) runs in routed check bundle
+2. Emits structured finding: `finding_id`, `file:line`, `check_id`,
+   `finding_class`, `recurrence_risk`, `prevention_surface`, `ai_instruction`
+3. Written to `dev/reports/governance/finding_reviews.jsonl` (append-only)
+
+### Finding → candidate invariant (NOT YET IMPLEMENTED)
+Per external-AI audit #3 + `ai_governance_platform.md`:
+- `CandidateInvariant` is the typed promotion layer from finding to rule
+- Transitions: `open → acknowledged → deferred → fixed → regressed`
+- Missing: the actual `CandidateInvariant` typed contract
+
+### Candidate → probe or guard (MP-406 scope)
+- `MP-406 guard/probe generator` generates scaffolds from typed findings
+  metadata
+- Status: proposed, not built
+- Currently: scaffolds are hand-written
+
+### False-positive downgrade / retirement
+- `governance-review --record --verdict dismissed` marks as FP
+- No automatic downgrade — manual only
+- **89% of confirmed_issue entries lack MP scope** (section 25 item 6);
+  no retirement discipline
+
+### Promotion readiness proof
+- Guard-level: passes `check --profile ci` across N commits without regression
+- Probe-level: catches ≥1 real finding in dogfood runs
+- Currently NO automated promotion — requires manual plan-doc decision
+
+### Duplicate/stale prevention
+- `check_duplicate_types.py`, `check_function_duplication.py`,
+  `check_duplication_audit.py` — structural duplication only
+- **No semantic-duplication guard** (rev_pkt_1342 proposed MP-405-T04)
+
+**Summary:** The finding→invariant→rule→promotion→retirement pipeline is
+partial. Detection + recording exist; promotion + closure + retirement
+require manual intervention.
+
+---
+
+## 42. AI Feedback / Learning Closure
+
+**Per external-AI audit #4:** the repo has 3 breaks in the AI learning loop:
+
+1. **Probe-generated `ai_instruction` not fully wired into fix path** —
+   probes emit fix guidance but commands don't consume it automatically
+2. **Failed fixes are forgotten** — no persistent "tried X, it didn't work"
+   memory; agent retries same approaches
+3. **Quality feedback improves guards not agent behavior** — `governance-review`
+   records guard outcomes; agent doesn't learn from its own miss-pattern
+
+### Proposed closure (not implemented)
+- **Input findings** — consumed from `finding_reviews.jsonl` + probe output
+- **Instruction synthesis** — `ai_instruction` merged with prior fix-attempts
+- **Failed-fix memory** — typed `FailedFixRecord` persisted per attempt
+- **Replay corpus** — past (finding, instruction, fix, outcome) tuples
+- **Accuracy attribution** — per-agent, per-check_id success rates
+- **Promotion into invariant/rule proposals** — high-recurrence misses
+  become `CandidateInvariant` → rule
+
+**Memory Studio** (section 33) is partially the substrate: it has event
+ingest + retrieval but isn't wired to ai_instruction consumption.
+
+**Current state:** detection is real, learning closure is missing.
+
+---
+
+## 43. Canonical Truth vs Generated Navigation
+
+**Rule (external-AI #5):** never let generated navigation redefine policy.
+
+### Canonical truth (authority sources)
+- `dev/active/MASTER_PLAN.md` + plan specs
+- `dev/reports/governance/plan_registry.json`
+- `review_state.json` (at `dev/reports/review_channel/projections/latest/`)
+- `finding_reviews.jsonl`
+- `SessionCachePacket`, `StartupContext`, typed dataclasses
+- Active typed runtime packets
+
+### Generated navigation (compiled views only)
+- `system-picture` (8-section dashboard)
+- `context-graph` / ZGraph (semantic compression layer)
+- `dashboard.py` output
+- SVG charts from `data-science`
+- `bridge.md` (repo-pack-owned compatibility projection)
+- **SYSTEM_MAP.md (THIS doc)** — compiled picture, not law
+
+### Tiered retrieval semantics (from `ai_governance_platform.md`)
+- **Hot:** startup-context + current_session + packet_inbox (tokens ≤ 10k
+  per `test_slim_token_budget`)
+- **Warm:** recent_packets + active_findings + bridge_projection
+- **Cold:** full review_state history, all plans, all probe reports
+
+**Never:** agents must not treat graph summaries, system-picture renders, or
+this doc as policy. All citations must expand back to canonical refs.
+
+---
+
+## 44. Consumer Matrix
+
+| Artifact | Producer | Consumers | Authoritative? | Read at |
+|---|---|---|---|---|
+| `review_state.json` | review-channel reducer | startup-context, session-resume, dashboard, review-channel status, operator_console, commands/review_channel/* | YES (canonical) | startup, runtime, review |
+| `plan_registry.json` | platform authority loop | work-intake routing | YES | startup, intake |
+| `finding_reviews.jsonl` | guards + probes + governance-review | findings-priority, dashboard, external import | YES | review, dashboard |
+| `startup-context receipt` | startup_context.py | CLAUDE.md Step 0, hooks, check profile router | YES | startup |
+| `authority_snapshot` | authority_snapshot_build | control_plane_resolve, reviewer_follow_packet_guard, status_projection, dashboard, pre-commit hook | YES (projection of canonical) | runtime, review, commit |
+| `SessionCachePacket` | session_resume_support | session-resume --accept-handoff (future) | YES | session resume |
+| `dogfood/runs.jsonl` | dogfood --record | dashboard governance section, data-science | YES | dashboard |
+| `data_science/summary.json` | maybe_auto_refresh_data_science | dashboard, mobile-status, ralph_status, external MCP | NO (projection) | dashboard |
+| `system-picture` | system_picture_render | AI bootstrap packet | NO (projection) | bootstrap |
+| `bridge.md` | repo-pack projection | legacy consumers + compatibility | NO (projection) | compatibility |
+| `SYSTEM_MAP.md` | hand + agents | AI orientation | NO (supplementary) | navigation |
+
+### Write-only / never-read (drift)
+Per section 25 item 10: `authority_snapshot.wake_continuity_ok` + `wake_gap_summary` have producers but no typed consumer reads them for action. Per section 17: `plan_registry.json` has 7 writers in governance, 0 reads in commands.
+
+---
+
+## 45. Portability Split — Engine vs Repo-Pack vs Legacy
+
+### Portable engine (target: works on arbitrary repos)
+- `dev/scripts/devctl/runtime/` — typed contracts
+- `dev/scripts/devctl/review_channel/` — packet protocol
+- `dev/scripts/checks/` — guards (most)
+- `context-graph` + ZGraph
+- governance review + finding_reviews.jsonl schema
+
+### Repo-pack / local policy (per-adopter configuration)
+- `.quality-policy.yml` (if present)
+- `ProjectGovernance.path_roots` — repo-local paths
+- `repo_pack.json` — adopter-specific overrides
+- `dev/active/INDEX.md` — local plan registry
+- `AGENTS.md` / `CLAUDE.md` — local bootstrap
+
+### Compatibility layer (transitional)
+- `bridge.md` — prose projection over typed state
+- Legacy `_from_mapping()` helpers (40+ across runtime/)
+- `handoff.py::BridgeSnapshot` (superseded by SessionCachePacket)
+
+### VoiceTerm-local legacy (NOT portable)
+Per section 25 divergences:
+- `surface_definitions.py:102` `service_id="voiceterm_daemon"` hardcoded
+- `extension_bundle_defaults.py:13` `repo_pack_id="voiceterm"` hardcoded
+- `review_snapshot_hints.py:231` `cargo test --bin voiceterm` hardcoded
+- All of `rust/src/bin/voiceterm/` product code
+- Mutation badge (mutation_badge.svg)
+- Terminal-as-interface publication sync
+
+**Rule:** when adding a subsystem, mark it portable/pack-local/compat/legacy
+explicitly. Three divergences above are active portability bugs.
+
+---
+
+## 46. Current Gaps / Not-Yet-Closed (explicit honesty)
+
+Per external-AI audit and own evidence docs:
+
+| Gap | Why it matters | Source |
+|---|---|---|
+| `PlanExpectationPacket` not implemented | plan truth → action truth closure is open | ai_governance_platform.md |
+| `CandidateInvariant` not implemented | finding → rule promotion closure is open | ai_governance_platform.md + external-AI #3 |
+| MP-406 guard/probe generator | scaffolds still hand-written | MP-406 spec |
+| `devctl system-map --regenerate` | Phase 2 proposed, CLI not registered | rev_pkt_1358 |
+| Layer B (live-agent soak tests) | only Layer A deterministic exists | section 20 |
+| AI feedback learning loop | 3 breaks (ai_instruction, failed-fix memory, agent-learning) | section 42 |
+| Typed lane packets | multi-agent fanout re-interprets repo per spawn | MP-412 |
+| 89% confirmed_issues unscoped to MP | execution accountability missing | section 25 item 6 |
+| 3-way reviewer_mode drift (rev_pkt_1335) | causes deadlock on state mismatch | section 4 + rev_pkt_1335 |
+| Daemon WebSocket unauthenticated | critical security gap on 0.0.0.0:9876 | section 34 |
+| Memory Studio not wired | MP-230..255 mostly scaffold, Rust-isolated | section 33 |
+| Legacy collaboration fallback crash | rev_pkt_1350/1353 TypeError on empty collaboration | Codex lane |
+| Bridge-poll hash mismatch | turn_authority vs write_preconditions compute differently | rev_pkt_1356 |
+| `test_review_state_semantics.py` fails | 2 assertions fail on current HEAD | rev_pkt_1357 |
+| `test_slim_token_budget` fails | 12332 tokens > 10000 limit | rev_pkt_1318 |
+
+**These are NOT yet true in the system.** Agents must NOT hallucinate
+closure — if you claim one of these works today, cite file:line evidence.
+
+---
+
 ## Maintenance Log
 
 | Date | Added | By |
@@ -1088,3 +1406,5 @@ PyPI, Homebrew tap (`jguida941/homebrew-voiceterm`), GitHub release (Linux amd64
 | 2026-04-19 (third sweep) | Sections 22-29 appended from third 8-agent sweep: data-science + flowchart generators, typed-state field writer→reader trace (5 zero-writer critical fields, 6 drift-risk fields), connectivity claim verification (4 correct, 3 wrong), architectural divergences (10, with 89% confirmed_issues lacking MP scope CRITICAL), redundancy sweep (6 additional), self-updating design (Phase 2 mechanism), Rust product code layout (10 subsystems, Memory Studio not wired), GitHub workflows + CI map (20 workflows, 50+ orphan commands, 3 CI gaps). | claude (dashboard, operator-authorized write) |
 | 2026-04-19 (Codex re-review round 2) | rev_pkt_1353/1356 fixes applied: purpose statement lines 3-6 rewritten to position SYSTEM_MAP.md as supplementary navigation (canonical bootstrap order runs first), section 0 mermaid `CommitPipelineContract → RemoteCommitPipelineContract`, ZGRAPH_RESEARCH_EVIDENCE.md path corrected to repo-root. | claude (dashboard, Codex-reviewed via rev_pkt_1353/1356) |
 | 2026-04-19 (fourth sweep — operator override) | Sections 0.5 (Executive Summary) + 30-36 from fourth 8-agent sweep: Rust voiceterm deep-dive (5 subsystems), typed artifact store (`dev/reports/` 24 dirs, canonical paths, unbounded growth flags), settings+env vars (~20 vars, 6 config files), Memory Studio detail (11 modules, MP-230..255 phases), Daemon IPC (**CRITICAL security finding**: WebSocket unauthenticated on 0.0.0.0:9876), Release pipeline end-to-end (7-step ship, 50+ preflight checks, no auto-rollback), Data-science telemetry schema. Operator override on Codex's rev_pkt_1354 "hold expansion" decision — coverage over convergence. | claude (dashboard, operator explicit override) |
+| 2026-04-19 (Codex re-review round 3) | Sections 21 + 23 + 27 fixes per rev_pkt_1358/1360: AUTONOMY_MODE values corrected (off/read-only/operate, not single_agent/dual_agent/swarm), packet-kinds dormancy claim retracted (commit_approval + plan packets ARE wired), ReviewerRuntimeContract.review_acceptance.review_accepted nesting corrected, system-map --regenerate labeled PROPOSED not implemented. | claude (dashboard, Codex-reviewed) |
+| 2026-04-19 (external-AI gap audit) | Sections 37-46 added per outside-AI review response: Authority Ladder (5-tier), System Spine End-to-End (full runtime flow with PlanExpectationPacket + CandidateInvariant gap), Startup+Session Continuity Contract, Lane Topology + Ownership, Guard/Probe/Finding/Invariant Lifecycle, AI Feedback/Learning Closure (3 breaks documented), Canonical Truth vs Generated Navigation (hot/warm/cold retrieval), Consumer Matrix (producer/consumer/authority matrix for 11 artifacts), Portability Split (engine vs repo-pack vs compat vs legacy), Current Gaps / Not-Yet-Closed (15 explicit unclosed items). SYSTEM_MAP.md now covers the 10 missing content areas the external AI identified. | claude (dashboard, external-AI gap audit response) |
