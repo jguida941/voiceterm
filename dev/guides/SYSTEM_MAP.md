@@ -631,9 +631,195 @@ Defined in `packet_contract.py`: `approval_request`, `system_notice`, `plan_gap_
 
 ---
 
+## 22. Data-Science + Flowchart Generators
+
+### `data-science` command — hidden auto-trigger
+**Location:** `dev/scripts/devctl/data_science/` + auto-registered at `cli_parser/reporting.py:45`
+
+**Auto-trigger:** Fires after non-read-only devctl commands via
+`maybe_auto_refresh_data_science()` (`entrypoint.py:402`) unless
+`DEVCTL_DATA_SCIENCE_DISABLE=1`. Operators rarely invoke it manually but
+it powers dashboards.
+
+**Aggregates:**
+- devctl event metrics (up to 20,000 events) — success rate, duration percentiles, token estimates
+- agent swarm/benchmark data — recommendation scores, tasks-per-minute
+- guarded coding episodes — watchdog stats, time-to-green, false-positive rates
+- governance reviews — external finding corpus, adjudication coverage
+- autonomy analytics — guard family frequencies
+
+**Reports:**
+- `dev/reports/data_science/latest/summary.{json,md}`
+- `dev/reports/data_science/latest/charts/*.svg` (5 SVG bar charts: command_frequency, agent_recommendation_score, agent_tasks_per_minute, watchdog_time_to_green, watchdog_guard_family_frequency)
+- `dev/reports/data_science/history/snapshots.jsonl` (append-only)
+
+### Flowchart / diagram generators (2 independent subsystems)
+
+1. **Context-graph concept renderers** — `context-graph --mode concept-view --format {mermaid|dot}` at `dev/scripts/devctl/context_graph/render.py::render_concept_{mermaid,dot}`
+2. **Probe-report hotspot diagrams** — embedded in `probe-report`, emits `dev/reports/probes/latest/hotspots.{mmd,dot}` via `probe_topology/render.py::render_hotspot_mermaid`
+
+**`context-graph --mode bootstrap --format md` emits markdown, NOT mermaid.** The `--format` flag is only honored in concept-view.
+
+---
+
+## 23. Typed-State Field Writer→Reader Trace
+
+Sampled 5 core dataclasses, 16 load-bearing fields. Key findings:
+
+### Fields with ZERO writers (frozen-dataclass builder pattern, by design)
+| Field | Readers | Notes |
+|---|---:|---|
+| `ReviewerRuntimeContract.review_accepted` | 36 | Populated only by `reviewer_runtime_parser.parse_reviewer_runtime_contract()` |
+| `ReviewerRuntimeContract.publish_clear` | 11 | Same builder pattern |
+| `ReviewerRuntimeContract.remote_control_attachment` | 35 | 0 direct writers, constructor-only |
+| `RecoveryAssessment.diagnosis` | 23 | Populated by `build_recovery_assessment()` only |
+| `RecoveryAssessment.decision` | 58 | Same; **58 readers consuming a frozen field** |
+
+### Fields with drift risk (3+ writers → many readers)
+| Field | Writers | Readers | Risk |
+|---|---:|---:|---|
+| `CollaborationSessionState.reviewer_mode` | 10 | 96 | **HIGH_DRIFT** — rev_pkt_1335 root cause |
+| `ReviewerRuntimeContract.effective_reviewer_mode` | 6 | 35 | HIGH_DRIFT — co-fuels the 3-way split |
+| `ReviewCurrentSessionState.current_instruction` | 31 | 154 | HIGH_DRIFT — central broadcast point |
+| `ReviewCurrentSessionState.implementer_ack` | 7 | 102 | HIGH_FAN_OUT — gates multiple workflow checks |
+| `ReviewCurrentSessionState.implementer_ack_state` | 20 | 32 | HIGH_DRIFT — multiple parsers |
+| `RemoteCommitPipelineContract.state` | 12 | 176 | HIGH_DRIFT — state-machine hub |
+
+### Underutilized fields (candidate for cleanup)
+`mutation_owner`, `watcher_owner`, `verification_owner` all have **2 writers and 1 reader each** — incomplete lane-ownership implementation or legacy fields. Either wire them into more decision paths or remove.
+
+---
+
+## 24. Connectivity Claim Verification (7 claims, 4 CORRECT, 3 fixes needed)
+
+| # | Claim | Status | Evidence |
+|---|---|---|---|
+| 1 | `CollaborationSessionState → EPA → ASB` 2-hop chain | CORRECT | `event_projection_assembly.py:1-22` + `authority_snapshot_build.py:140` |
+| 2 | `session-resume` calls `build_authority_snapshot` | CORRECT | `session_resume_support.py:306` |
+| 3 | `ReviewerGateState` populated from typed `review_state` | CORRECT | `startup_context.py:242-322` `_detect_reviewer_gate_from_review_state` |
+| 4 | `review-channel status → authority_snapshot` pipeline | PARTIAL | Core fields wired; 3 fan-in gaps (wake_continuity_ok, doctor, reviewer_gate) |
+| 5 | `dashboard.py → load_current_review_state` cached | **WRONG** | `dashboard.py:258` forces `prefer_cached_projection=False` every tick (fan_out=16 critical finding) |
+| 6 | `findings-priority` `fan_out` accurate | HEURISTIC | `triage/findings_priority.py:244-262` counts import edges only; ignores inheritance/composition/calls |
+| 7 | `dogfood` log has CI writers | **WRONG** | Zero CI workflows call `dogfood --record`; blocked by `--dev-mode` scope gate |
+
+---
+
+## 25. Architectural Spec↔Reality Divergences (10 documented)
+
+| # | Divergence | Severity |
+|---|---|---|
+| 1 | `RepoPack` class spec'd in chain, only `RepoPackRef` stub exists | HIGH |
+| 2 | AGENTS.md:235-242 mandatory bootstrap NOT enforced — no guard blocks skipping | HIGH |
+| 3 | Portability claims vs 3 VoiceTerm hardcodes: `surface_definitions.py:102`, `extension_bundle_defaults.py:13`, `review_snapshot_hints.py:231` | MEDIUM |
+| 4 | `schema_version=1` everywhere; spec promises migration + rollback path; zero migration logic exists | HIGH |
+| 5 | Spec claims SYSTEM_MAP.md "6 dormant packet kinds"; code doesn't mark dormancy | MEDIUM |
+| 6 | **89% of `confirmed_issue` findings (111 of 124) have zero MP scope** — floating without execution accountability | CRITICAL |
+| 7 | 3-way `reviewer_mode` split at `launch_authority.py:265-268` contradicted "single authority" spec | CRITICAL |
+| 8 | Bootstrap Step 0 `startup-context` marked mandatory in AGENTS.md; no enforcement in commands | HIGH |
+| 9 | `portable_code_governance.md` "no core-engine patches" claim contradicted by 2 proof-run revisions | MEDIUM |
+| 10 | `authority_snapshot.wake_continuity_ok/wake_gap_summary` reads untyped `work_intake` dict; no typed emitter | MEDIUM |
+
+---
+
+## 26. Redundancy Sweep — Same-Job-Different-Path (6 additional beyond Section 5)
+
+| # | Pattern | Merge target |
+|---|---|---|
+| 1 | Review-state loading 3 entry points: `load_review_state_payload()`, `load_current_review_state()`, `load_mobile_review_state()` | Single `load_review_state()` with `LoadStrategy` enum |
+| 2 | Packet inbox 4 reader paths: inbox reducer + event reducer + `inbox` CLI + `operator-inbox` CLI alias | Single `PacketInboxReader` class; operator-inbox as preset |
+| 3 | System snapshot 3 builders: `dashboard.py` + `system-picture` + `operator_console/snapshot_builder.py` | Extract `SnapshotSourceLoader`; builders work on common payload |
+| 4 | Authority snapshot 2 construction paths: `build_authority_snapshot()` + `authority_snapshot_from_mapping()` | Rename latter to `_parse_fields()`, route through builder |
+| 5 | Bootstrap 3 entry points: `startup-context`, `session-resume`, `context-graph --mode bootstrap` | `BootstrapPayloadBuilder` with pluggable freshness + role profile |
+| 6 | Check orchestration 2 paths: `check-router` + `check --profile {ci\|quick}` | Unify into `CheckProfile` dataclass; check-router becomes dynamic profile builder |
+
+**Bonus:** Bridge parsing occurs in 6+ places — all call `parse_markdown_sections()`, no true duplication but caching would avoid reparsing.
+
+---
+
+## 27. Self-Updating SYSTEM_MAP Design (Phase 2 mechanism)
+
+**Proposed command:** `python3 dev/scripts/devctl.py system-map --regenerate --preserve-sections "13,14,15" --format md --write --dry-run`
+
+**Auto-generatable sections (14 of 21):** 0 (flowchart via context-graph), 2 (commands via discover), 3 (guards+probes via discover+dogfood), 6 (half-built via system-picture+findings-priority), 7 (dormant surfaces via system-picture+discover), 9 (dogfood coverage via dogfood), 10 (priority backlog via findings-priority), 16 (MP tracker via grep+MASTER_PLAN), 18 (autonomy via discover+system-picture), 20 (test architecture via pytest collect), 21 (undocumented catalog via discover+grep), +3 hybrid (4, 5, 8, 14, 15, 17, 19).
+
+**Canonical hand-written (must preserve):** 1 (typed sources), 11 (architecture docs), 12 (bootstrap order), 13 (session context).
+
+**Preservation marker:** `<!-- BEGIN SYSTEM_MAP_PRESERVE:section_N -->` ... `<!-- END SYSTEM_MAP_PRESERVE:section_N -->` wraps operator-curated content. Regenerate replaces everything outside markers.
+
+**Phases:** (1) dry-run with discover+dogfood seeding, (2) full 8-source regeneration with section-hash tracking + `--write` mode, (3) pre-push gate + `--watch` mode + MP-406 generator integration.
+
+---
+
+## 28. Rust Product Code Layout (`rust/src/`)
+
+**Entry:** `rust/src/bin/voiceterm/main.rs` (944 LOC) — hierarchical module tree, 67 public submodules, concurrent input/PTY/voice/HUD/writer threads.
+
+**10 major Rust subsystems:**
+1. **Voice Pipeline** (`voice_control/`, 4 modules, 10.4 KLOC `drain.rs`) — VoiceManager orchestration, native/Python fallback detection
+2. **Prompt Detection** (`prompt/`, 9 modules, 3K+ test LOC) — ready-marker pattern matching, occlusion signals
+3. **HUD System** (`hud/`, `status_line/`, 16 modules, 1.2K test LOC) — modular HudModule trait
+4. **Terminal I/O** (`writer/`, 8 modules, 1.7K test LOC) — crossbeam channel serialization
+5. **IPC Daemon** (`daemon/`, 10 modules, 343 `#[cfg(test)]` blocks) — Unix socket + WebSocket bridge
+6. **Memory Studio** (`memory/`, 11 modules) — **SCAFFOLDED BUT NOT WIRED** (`#![allow(dead_code)]`, MP-230..MP-255 pending)
+7. **Dev Panel** (`dev_panel/`, `dev_command/`, 15 modules) — cockpit page, review artifact browser
+8. **Theme System** (`theme/`, 19 modules, 343 test configurations) — component registry, style schema
+9. **Event Loop** (`event_loop/`, 13 modules, 1.2K test LOC) — overlay state machine
+10. **Config & Backends** (`config/`, 4 modules) — CLI schema, backend resolution
+
+**Rust↔Python seam:** ONLY fallback path via `legacy_tui/state.rs::run_python_transcription()` (spawns Python pipeline script). Daemon IPC is Unix socket + serde_json, **no bidirectional Python state sync**. No reviewer_mode or collaboration state flows from Python to Rust.
+
+**Rust-side architectural gaps:**
+1. **Memory Studio incomplete wiring** — APIs exist, cockpit displays stats, but retrieval is deterministic-basic (no semantic rerank), SQLite index in-memory only, action execution not integrated
+2. **Reviewer/collaboration state invisible Rust-side** — test fixtures reference "reviewer-1" but no Python→Rust daemon sync for reviewer state
+3. **Python fallback read-only** — no async feedback loop; daemon doesn't expose Python pipeline health
+
+**Tests:** 2413 Rust `#[test]` blocks. Top coverage: writer state (1735 LOC), status-line buttons (1275), event loop (1248), settings handlers (1232), dev panel (963).
+
+**No `todo!()` or `unimplemented!()` in production code.** Memory subsystem `#![allow(dead_code)]` is scaffolded ahead of UI wiring.
+
+---
+
+## 29. GitHub Workflows + CI Pipeline Map (20 workflows)
+
+### Active CI workflows that invoke devctl
+| Workflow | Triggers | devctl commands |
+|---|---|---|
+| `autonomy_controller.yml` | schedule 6h, manual | `autonomy-loop` |
+| `coderabbit_ralph_loop.yml` | workflow_run, manual | `triage-loop` |
+| `failure_triage.yml` | workflow_run | `triage` |
+| `orchestrator_watchdog.yml` | schedule 15m, manual | `orchestrate-status`, `orchestrate-watch` |
+| `rust_ci.yml` | push/pr (Rust) | `check --profile ci` |
+| `security_guard.yml` | schedule daily, push/pr, manual | `check`, `security` |
+| `release_preflight.yml` | manual only | `release-gates`, `check`, `security`, `docs-check`, `hygiene`, `orchestrate-*`, `ship`, `process-cleanup` |
+| `publish_homebrew.yml` | release, manual | `release-gates`, `ship` |
+| `publish_pypi.yml` | release | `release-gates`, `ship` |
+| `release_attestation.yml` | release, manual | `release-gates` |
+| `mutation_ralph_loop.yml` | workflow_run, manual | **custom bridge `mutation_ralph.py run-loop`, NOT devctl** |
+
+### devctl commands NOT invoked from any workflow (orphaned)
+`audit-scaffold`, `list`, `pypi`, `homebrew`, `render-surfaces`, `autonomy-benchmark`, `swarm_run`, `data-science`, `discover`, `dogfood`, `findings-priority`, `system-picture`, `context-graph`, `agent-mind`, `system-map`, `mobile-app`, `mobile-status`, `phone-status`, `governance-*`, `launcher-*`, `integrations-*`, ~50 others.
+
+### 3 CI gaps
+1. **Mutation-loop uses custom Python bridge** (`mutation_ralph.py`), not `devctl mutation-loop` — creates maintenance divergence
+2. **No autonomy-benchmark workflow** — matrix testing code exists but never scheduled
+3. **`release-gates` + `ship` separate invocation paths** — 3 release workflows call them independently; risk of desync
+
+### Security workflows summary
+- `dependency_review.yml` — GitHub native action
+- `security_guard.yml` — cargo deny + `devctl security` + optional zizmor
+- `release_preflight.yml` — full compliance gate (50+ checks)
+- **No dedicated secret-scanning workflow** — relies on GitHub's built-in
+
+### All runners GitHub-hosted
+Ubuntu-latest / ubuntu-20.04 / macos-14. No self-hosted runners.
+
+---
+
 ## Maintenance Log
 
 | Date | Added | By |
 |---|---|---|
 | 2026-04-19 | Initial seed from 8-agent audit + 7-doc consolidation pass. Recovery commit 8ef9f1a7 context. | claude (dashboard, operator-authorized write) |
 | 2026-04-19 (later) | Sections 14-21 appended from second 8-agent sweep: ZGraph, plans inventory, MP tracker, integration seams, autonomy subsystem, dashboard subsystem, test architecture, undocumented-commands catalog. State change: `tools_only → active_dual_agent` restored after Codex wake. | claude (dashboard, operator-authorized write) |
+| 2026-04-19 (still later) | Fixes per Codex rev_pkt_1348 review: `CommitPipelineContract`→`RemoteCommitPipelineContract`, bootstrap-order contradiction resolved, live evidence split historical/current, archive-target docs marked forward-looking. docs-check ok=True. | claude (dashboard, Codex-reviewed) |
+| 2026-04-19 (third sweep) | Sections 22-29 appended from third 8-agent sweep: data-science + flowchart generators, typed-state field writer→reader trace (5 zero-writer critical fields, 6 drift-risk fields), connectivity claim verification (4 correct, 3 wrong), architectural divergences (10, with 89% confirmed_issues lacking MP scope CRITICAL), redundancy sweep (6 additional), self-updating design (Phase 2 mechanism), Rust product code layout (10 subsystems, Memory Studio not wired), GitHub workflows + CI map (20 workflows, 50+ orphan commands, 3 CI gaps). | claude (dashboard, operator-authorized write) |
