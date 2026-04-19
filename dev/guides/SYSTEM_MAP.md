@@ -25,15 +25,15 @@ sweeps + 7-doc consolidation + Codex review cycle. Recovery commit 8ef9f1a7.)
 
 ## 0.5 Executive Summary — System at a Glance
 
-**What is this repo in 2 sentences:** VoiceTerm is a low-latency Rust terminal overlay for Codex and Claude Code that lets you speak commands instead of typing. Behind it sits a typed governance platform (`devctl` + review-channel) that records every agent decision, enforces safe mutations, and surfaces system health to an operator console.
+**What this repo is in 2 sentences (governance-first framing):** This repo is a portable typed AI-governance platform (`devctl` runtime + review-channel packet protocol + guards/probes/findings pipeline) designed to record agent decisions, enforce safe mutations, and compile policy across any adopting repo. VoiceTerm — a Rust terminal overlay for voice-driven AI CLI interaction — is ONE adopter/product shell around that engine, not the engine itself.
 
-### 5 Core Subsystems (1 line each)
+### 5 Core Subsystems (engine-first)
 
-1. **Voice Terminal** — Rust binary (`rust/src/bin/voiceterm/main.rs`, 944 LOC entry). Mic → Whisper STT → keystroke injection → HUD overlay. Concurrent threads: voice, terminal I/O, wake words.
-2. **devctl Command Tree** — Python CLI, **84 commands** (19 dogfood-covered, 65 orphan). Top tier: `startup-context`, `review-channel`, `session-resume`, `check`, `governance-review`, `dashboard`, `findings-priority`.
-3. **Review Channel** — Typed packet protocol for Claude↔Codex. 5 dataclasses → `event_projection_assembly.py` → typed snapshots consumed by `startup-context` / `session-resume` / `review-channel status`.
-4. **Governance Platform** — 71 guards + 26 probes + `findings-priority` ranker. Live ledger. Coverage: 42% guards, 88% probes, 100% roles.
-5. **Dashboard + Operator Console** — `dashboard.py` (+ `phone-status` / `mobile-status`) renders typed review state. Operator Console = PyQt6, ~23.5k LOC in `app/operator_console/`.
+1. **Governance Engine** — portable typed runtime. 71 guards + 26 probes + `findings-priority` ranker + `governance-review` ledger. Contract chain: `ProjectGovernance → RepoPack → PlanRegistry → PlanTargetRef → WorkIntakePacket → CollaborationSession → TypedAction → ActionResult/RunRecord/Finding → ContextPack`. Coverage: 42% guards, 88% probes, 100% roles.
+2. **devctl Command Tree** — Python CLI orchestrator, **84 commands** (19 dogfood-covered, 65 orphan). Top tier: `startup-context`, `review-channel`, `session-resume`, `check`, `governance-review`, `dashboard`, `findings-priority`.
+3. **Review Channel** — typed packet protocol for dual-agent collaboration. 5 dataclasses → `event_projection_assembly.py` → typed snapshots consumed by `startup-context` / `session-resume` / `review-channel status`.
+4. **Dashboard + Operator Console** — `dashboard.py` (+ `phone-status` / `mobile-status`) renders typed review state. Operator Console = PyQt6, ~23.5k LOC in `app/operator_console/`.
+5. **VoiceTerm Product Shell (ONE adopter example)** — Rust binary `rust/src/bin/voiceterm/main.rs` demonstrates voice-driven AI CLI interaction atop the governance engine. Mic → Whisper STT → keystroke injection → HUD overlay. Other adopters plug their own product shell — the engine is the portable part.
 
 ### The Typed Data Chain (1 sentence)
 
@@ -1464,6 +1464,232 @@ Already flagged in section 11: fold 4 of the 7 architecture guides INTO SYSTEM_M
 The 60 orientation docs exist because **each slice added its own MD instead of editing an existing one.** The same anti-pattern SYSTEM_MAP.md exists to combat: "build on existing systems, don't create parallel ones."
 
 This section now flags the pattern explicitly. Future slices must prefer EDITING an existing doc over CREATING a new one, unless the new doc is sharply scoped and the existing doc is saturated.
+
+---
+
+## 48. Portable Engine Boundary (primary organizing principle)
+
+Per external-AI v6 gap audit: SYSTEM_MAP.md must organize by portability boundary,
+not by subsystem-topology connectivity. Four tiers:
+
+### Tier 1 — Portable Governance Engine (works on any adopter repo)
+| Surface | Files |
+|---|---|
+| Core contract runtime | `dev/scripts/devctl/runtime/authority_snapshot*.py` (core/build/parse/projection), `project_governance_contract.py`, `action_contracts.py`, `work_intake*.py`, `finding_contracts.py` |
+| Guard + Probe infrastructure | `dev/scripts/devctl/governance/guard_findings.py`, `dev/scripts/devctl/probe_report/`, `dev/scripts/devctl/probe_topology/`, `dev/scripts/devctl/python_guard_report.py` |
+| Repo-pack abstraction | `dev/scripts/devctl/repo_packs/__init__.py`, `dev/scripts/devctl/runtime/plan_registry_projection.py` |
+| ~40 files total |
+
+### Tier 2 — Repo-Pack / Adopter-Local Policy (pluggable per repo)
+| Surface | Files |
+|---|---|
+| VoiceTerm repo-pack (example) | `dev/scripts/devctl/repo_packs/voiceterm.py` |
+| Templates | `dev/config/templates/portable_governance_repo_setup.template.md`, `dev/config/templates/portable_*.sh` |
+| Presets | `dev/config/quality_presets/portable_python.json` |
+| External adopter samples | `/tmp/ci-cd-hub-governance-proof/.voiceterm/policy.json`, `/tmp/zgraph-scientific-package/project.governance.md` |
+| ~5 files per repo |
+
+### Tier 3 — Product Integration Layer (this repo's VoiceTerm integration)
+| Surface | Files |
+|---|---|
+| Operator Console | `app/operator_console/` (23.5k LOC, PyQt6) |
+| Review Channel transport | `dev/scripts/devctl/review_channel/` (189 files) |
+| Rust voice terminal binary | `rust/src/bin/voiceterm/main.rs` + subsystems |
+| Mobile bridge | `app/ios/`, `dev/scripts/devctl/mobile/` |
+| ~350+ files (most of repo by volume) |
+
+### Tier 4 — Legacy VoiceTerm-Only Residue (refactoring debt)
+| Issue | Files |
+|---|---|
+| Hardcoded `voiceterm_daemon` service_id | `dev/scripts/devctl/platform/surface_definitions.py:102` |
+| Hardcoded `repo_pack_id="voiceterm"` | `dev/scripts/devctl/platform/extension_bundle_defaults.py:13` |
+| Hardcoded `cargo test --bin voiceterm` | `dev/scripts/devctl/runtime/review_snapshot_hints.py:231` |
+| `voiceterm_repo_root()` references | `audit_events.py`, `reports_retention.py`, `review_probe_report.py` (788 call sites) |
+| `app/operator_console/launch_support.py` | hardcoded `dev/reports/` roots |
+| `.github/workflows/` | VoiceTerm-specific CI (not adopter-portable) |
+| ~20 files with path coupling |
+
+**Rule going forward:** engine must load authority from `ProjectGovernance` contract + injected `RepoPathConfig`. Never hardcode paths. Never assume agent identity. Never assume VoiceTerm filesystem layout.
+
+---
+
+## 49. Authority Spine — 8 Core Objects (implementation status)
+
+External AI flagged these 8 objects as the canonical extraction anchor. Grep-verified status:
+
+| # | Object | Class | File:Line | Status | Purpose |
+|---|---|---|---|---|---|
+| 1 | RepoPack | `RepoPackRef` | `dev/scripts/devctl/runtime/project_governance_contract.py:24` | ✅ Implemented | Reference to repo-pack config identity (pack_id, version, description) |
+| 2 | PlanTargetRef | `PlanTargetRef` | `dev/scripts/devctl/runtime/work_intake_models.py:15` | ✅ Implemented | Canonical mutable plan target (target_id, plan_path, kind, anchor_ref, revision) |
+| 3 | WorkIntakePacket | `WorkIntakePacket` | `dev/scripts/devctl/runtime/work_intake_models.py:310` | ✅ Implemented | Bounded startup/routing envelope (continuity, routing, ownership, coordination, pacing) |
+| 4 | CollaborationSession | `CollaborationSessionState` | `dev/scripts/devctl/runtime/review_state_collaboration_models.py:103` | ✅ Implemented | Dual-agent typed collaboration state |
+| 5 | **PlanExpectationPacket** | — | documented as proposed in `dev/active/ai_governance_platform.md` | **❌ NOT STARTED** | Plan truth → action truth closure; links CollaborationSession output to lane packet generation |
+| 6 | **CandidateInvariant** | — | documented as proposed in `dev/active/ai_governance_platform.md` | **❌ NOT STARTED** | Finding → rule promotion; lifecycle (open→acknowledged→deferred→fixed→regressed) |
+| 7 | RunRecord | `RunRecord` | `dev/scripts/devctl/runtime/action_contracts.py:29` | ✅ Implemented | Action execution record (run_id, status, artifact_paths, findings_count, timestamps) |
+| 8 | ContextPack | `ContextPack` | `rust/src/bin/voiceterm/memory/types.rs` + `app/operator_console/state/core/models.py:17` (ContextPackRef) | ✅ Implemented (Rust struct + Python ref model) | Memory pack (query, evidence, active_tasks, recent_decisions, retrieval_plan, token_budget) |
+
+**6 of 8 implemented. 2 missing** (PlanExpectationPacket, CandidateInvariant) block two closure loops:
+- Plan truth → action truth (without PlanExpectationPacket)
+- Finding → rule evolution (without CandidateInvariant)
+
+Both are explicitly called out in `dev/active/ai_governance_platform.md` as next authority-loop closures. Until they exist, the governance engine extraction is incomplete.
+
+---
+
+## 50. Plan-Reduction Policy (Survivor Set for 30 Active Plans)
+
+External AI proposed 5-plan survivor set; agent audit expanded to **11 active specs + tracker** per the scope of current subsystems. Final recommendation:
+
+### Proposed survivors (11 active + 1 tracker)
+| Plan | Scope | Role |
+|---|---|---|
+| `MASTER_PLAN.md` | MP-377..MP-410 unified | canonical tracker |
+| `ai_governance_platform.md` | MP-377 product extraction | spec + owner |
+| `platform_authority_loop.md` | MP-377 startup/authority | engine/executable spine |
+| `review_channel.md` | MP-355 control surface | subsystem owner |
+| `remote_control_runtime.md` | MP-380..387 | subsystem owner (remote/phone closure) |
+| `portable_code_governance.md` | MP-376 | engine portability |
+| `review_probes.md` | MP-368..375 | quality model layer |
+| `pre_release_architecture_audit.md` | MP-347/349 | pre-release sequencer |
+| `ide_provider_modularization.md` | MP-346/354 | host/provider boundaries |
+| `remote_commit_pipeline.md` | MP-377 subordinate | VCS lifecycle |
+| `autonomous_governance_loop_v2.md` | MP-377 subordinate | loop composition |
+
+### 19 plans to consolidate (classified)
+
+**FOLD INTO existing active (8 plans):**
+- `autonomous_control_plane.md` → fold into `ai_governance_platform.md` (MP-377 subordinate phases)
+- `continuous_swarm.md` → fold into `MASTER_PLAN.md` (MP-358 runbook only)
+- `code_shape_expansion.md` → fold into `review_probes.md` (Phase 5b)
+- `operator_console.md` → fold into `ai_governance_platform.md`
+- `slash_command_standalone.md` → fold into `review_probes.md`
+- `ralph_guardrail_control_plane.md` → fold into `autonomous_control_plane.md`
+- `devctl_reporting_upgrade.md` → demote, fold into DEVCTL_ARCHITECTURE appendix
+- `audit.md` → demote to reference, fold into `pre_release_architecture_audit.md`
+
+**DEMOTE TO dev/guides/reference (5 plans):**
+- `memory_studio.md` (MP-230..255, scaffolded, not top-level)
+- `theme_upgrade.md` (MP-161..182, reference-only)
+- `host_process_hygiene.md` (MP-356, checklist complete)
+- `naming_api_cohesion.md` (MP-267, no new phases)
+- `PLAN_FORMAT.md` (schema spec, reference)
+
+**ARCHIVE TO dev/history/ (6 plans):**
+- `move.md` (raw audit transcript, superseded)
+- `RUST_AUDIT_FINDINGS.md` (bridge pointer, completed)
+- `phase2.md` (bridge to dev/deferred/)
+- `loop_chat_bridge.md` (completed runbook)
+- `README.md` (navigation; keep but clearly mark as directory helper)
+- `INDEX.md` (registry tracker; keep but clearly mark as non-spec)
+
+**Post-consolidation state:** 11 active specs + 1 tracker + 2 registries = **14 top-level items in `dev/active/`** (down from 30). Matches AGENTS.md "3-4 owner specs" rule with subordinate MP execution spreading across existing owners.
+
+**Blocker:** each consolidation must verify no references break. Run `docs-check` after each fold.
+
+---
+
+## 51. Next 10 Closure Objects / Merges (ordered by unblocking impact)
+
+Per external-AI #4 + cross-reference with §46 Current Gaps:
+
+| # | Closure | Type | Blocker | Unblocks | Scope |
+|---|---|---|---|---|---|
+| 1 | **PlanExpectationPacket** | Build typed contract | Plan→action loop open; multi-agent scope still prose-based | #2-5 | Medium (~2w) |
+| 2 | **CandidateInvariant** | Build typed contract | Finding→rule promotion missing; guards hand-written | #3, #9 | Medium (~2w) |
+| 3 | **MP-406 guard/probe generator** | Build automation | Scaffolds hand-written; no deterministic candidate→rule path | #7-10 | Large (~3w) |
+| 4 | **Reviewer_mode drift consolidation** (rev_pkt_1335) | Kill duplicate | 3-way split → deadlock risk | #5-6 | Small (~1w) |
+| 5 | **Daemon WebSocket auth** | Build security | CRITICAL unauth on 0.0.0.0:9876 | #6 | Small (~3d) |
+| 6 | **Commit/push ValidationPlan contract** | Build typed contract | Mutation routing on guard_profile strings only | #7-8 | Medium (~2w) |
+| 7 | **Fold bootstrap + startup-context + plan-resume + memory-roots** | Merge 4 fragments | Continuity fragmented across SessionCachePacket + recovery + bootstrap | #8-10 | Large (~3w) |
+| 8 | **Bridge-poll hash mismatch fix** (rev_pkt_1356) | Kill duplicate computation | Bridge projection drifts from typed state | #9 | Small (~3d) |
+| 9 | **Fold SYSTEM_FLOWCHART + SYSTEM_AUDIT into SYSTEM_MAP** | Merge documentation | 60-MD sprawl; operator flagged | #10 | Medium (~2w) |
+| 10 | **AI feedback learning loop repair** | Build 3-part closure | ai_instruction not wired + failed-fix memory + agent-learning all broken | (terminal — requires #1-9 stable) | Large (~4w) |
+
+**Sequential unblocking order:** 1 → 2 → 3 → {4,5,6} → 7 → 8 → 9 → 10. Each step's scope is bounded; total estimated end-to-end is ~6 months of focused engineering.
+
+---
+
+## 52. Expanded Consumer Matrix + Projection Citation Rule
+
+Expanded §44 table per external-AI audit. **30 rows across 6 primary reducers + 15+ surfaces.**
+
+### The 6 primary reducers
+| Reducer | File | Emits | Read By | Type |
+|---|---|---|---|---|
+| event_reducer | `review_channel/event_reducer.py` | packets, packet_rows, provider_state, daemon_snapshots | review_state.json, projection bundle, bridge projections | Canonical (append-only event log) |
+| daemon_reducer | `review_channel/daemon_reducer.py` | DaemonSnapshot (running/stopped/heartbeat) | runtime.daemons, bridge_liveness | Canonical (lifecycle events) |
+| status_snapshot_authority | `review_channel/status_snapshot_authority.py` | current_session, attention, recovery_assessment, reviewer_runtime | bridge_liveness, startup-context, session-resume | **Authority merger (3-way drift risk)** |
+| bridge_projection_sections | `review_channel/bridge_projection_sections.py` | typed_overrides (Current Verdict, Open Findings, Claude Status) | projection_sections dict | Projection-only |
+| status_projection (bridge-backed) | `review_channel/status_projection.py` | ReviewState dict, bridge state, commit pipeline, doctor | review_state.json compat key | Canonical (bridge → ReviewState reducer) |
+| event_projection_assembly | `review_channel/event_projection_assembly.py` | 9 keys into review_state (collaboration, reviewer_runtime, etc.) | review_state.json + downstream | **Central hub reducer** |
+
+### Bootstrap path duplication (3 shadow systems — per §26)
+
+| Path | Canonical | Shadows | Risk |
+|---|---|---|---|
+| **review_state loading** | `dev/reports/review_channel/projections/latest/review_state.json` (event-backed) | `latest/review_state.json`, enrichment duplicate | startup-context vs review-channel disagree |
+| **snapshot building** | `snapshot_builder.py` (bridge + analytics) | `phone_status_snapshot.py` (mobile first), `analytics_snapshot.py` (cached) | Phone reads mobile first, misses bridge authority if mobile stale |
+| **packet inbox** | `review_state.packets` (event-backed) | `packet_inbox_from_review_state()` (computed), `pending_packet_storage.py` | 3 codepaths compute same inbox, race on packet state |
+
+### CRITICAL PROJECTION-CITATION RULE (new, per external-AI audit)
+
+**Any surface that is a projection MUST:**
+1. **Cite canonical source on every read** — no "assume current" state. Always pass canonical path through the load chain and include in output metadata.
+2. **Fail-closed if canonical unavailable** — return `{stale: true, last_known: ...}` not a synthetic guess.
+3. **Record projection-to-canonical mapping** — every written projection JSON includes `_canonical_source: <path>` field.
+4. **Audit cycle** — projection emitters logged; misses trigger `projection_staleness` probe.
+
+### Implementation checklist (10 additions)
+- [ ] Add `_canonical_source` key to all projection JSON outputs (5 sites)
+- [ ] Add `stale: true` flag when projection reads cached canonical (3 sites)
+- [ ] Document 3-way reviewer_mode merger in `launch_authority.py`; fix per rev_pkt_1335
+- [ ] `PhoneControlSnapshot` fallback must cite bridge path, not assume mobile freshness
+- [ ] Add projection-emitter audit probe (`projection_observation.py`)
+- [ ] Round-trip tests: projection → canonical path validity
+- [ ] Compat-layer semantics in `status_projection_compat.py` (docstring)
+- [ ] Move bootstrap 3-way duplication into single `BootstrapPayloadBuilder` (closure #7 from §51)
+- [ ] Packet inbox single `PacketInboxReader` (closure #8 from §26)
+- [ ] authority_snapshot dual construction paths → single `build_authority_snapshot()` (from §26)
+
+---
+
+## 53. VoiceTerm Product Mentions — Relegation Plan
+
+External AI + operator: "since this isn't about voice term anymore... make this all about the AI platform."
+
+**21 VoiceTerm mentions found in SYSTEM_MAP.md. Classification:**
+
+| Count | Action | Example lines |
+|---|---|---|
+| 8 | **DELETE** — pure product description not relevant to governance engine | §31 Rust product layout (L795), §32 voiceterm config.toml (L932), §35 version parity 5-file VoiceTerm release (L1038) |
+| 7 | **RELEGATE to new `dev/guides/PRODUCT_VOICETERM.md`** — full Rust product sections | §28 entire, §30 entire (voice pipeline, HUD, prompt detection, terminal I/O, event loop) |
+| 4 | **REFRAME** — mentions governance engine but with VoiceTerm framing | §0.5 opener (already fixed to governance-first), §1 5 dataclasses, §34 IPC "~/.voiceterm/control.sock" → "`~/{product}/control.sock`" template |
+| 2 | **KEEP (flagged)** — VoiceTerm hardcode technical debt | §25 portability hardcodes (§48 tier 4 reinforces) |
+
+### Section-level actions
+| Section | Verdict | Target |
+|---|---|---|
+| §28 Rust Product Code Layout | → PRODUCT_VOICETERM.md | condense SYSTEM_MAP.md ref to 1-line pointer |
+| §30 Rust Voiceterm Deep-Dive (5 subsystems) | → PRODUCT_VOICETERM.md | keep only Rust↔Python seam (L809) in map |
+| §33 Memory Studio | KEEP (reframe) | retitle "Memory Studio (Portable Governance Subsystem)"; genericize `.voiceterm/memory/` → `{product}/memory/`; note housed-in-VoiceTerm is incidental |
+| §34 Daemon + IPC | KEEP (retitle) | "Governance Control Plane — IPC Protocol"; VoiceTerm is one transport example |
+| §35 Release Pipeline | Partial RELEGATE | Move VoiceTerm-specific version-parity + homebrew to PRODUCT_VOICETERM.md; keep general governance release gates |
+
+**Post-restructure target:** SYSTEM_MAP.md ≈ 25-30 pages (from 38), 100% AI-governance-platform-centric. VoiceTerm product details in `PRODUCT_VOICETERM.md` companion doc (cross-referenced from SYSTEM_MAP §45 portability split + new §53 relegation index).
+
+### v7 TOC compression plan (per external-AI 5-question recommendation)
+
+External AI's recommended top-level structure: answer ONLY 5 questions, with detailed appendices below. Proposed v7 ToC:
+
+- **Q1: Canonical portable authority spine?** → synthesis pulls §37 (ladder), §38 (spine), §39 (startup), §43 (canonical vs generated), §49 (8-object status)
+- **Q2: What is still duplicated or split?** → synthesis pulls §5, §17, §23, §26, §46, §52
+- **Q3: Execution authority vs reference vs projection?** → synthesis pulls §4, §2, §40, §44 (now §52 expanded), §18
+- **Q4: Which active plans survive consolidation?** → synthesis pulls §15, §10, §16, §41, §42, §50
+- **Q5: Next 10 closure objects or merges?** → synthesis pulls §20, §35, §27, §47, §51
+
+Then 6 appendices (Subsystem Deep-Dives, Guards/Probes/Governance, Config/Storage, Infrastructure/CI-CD, Navigation/Context, Maintenance/Metadata).
+
+**Status:** v7 compression is the NEXT restructure phase. This v6.1 adds the missing content (§§48-53); v7 will reorganize it. Operator + Codex approval needed before ripping out existing section numbers.
 
 ---
 
