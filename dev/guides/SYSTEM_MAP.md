@@ -1645,8 +1645,11 @@ Per external-AI #4 + cross-reference with §46 Current Gaps:
 | 8 | **Bridge-poll hash mismatch fix** (rev_pkt_1356) | Kill duplicate computation | Bridge projection drifts from typed state | #9 | Small (~3d) |
 | 9 | **Fold SYSTEM_FLOWCHART + SYSTEM_AUDIT into SYSTEM_MAP** | Merge documentation | 60-MD sprawl; operator flagged | #10 | Medium (~2w) |
 | 10 | **AI feedback learning loop repair** | Build 3-part closure | ai_instruction not wired + failed-fix memory + agent-learning all broken | (terminal — requires #1-9 stable) | Large (~4w) |
+| 11 | **Typed state-transition reasons + auto-chain hooks** (operator 2026-04-19) | Build typed contract | `STATE_CHANGE` events carry no `reason` field and no `suggested_next_action`; agent sees "X was Y" without knowing why or what to do next. Grep confirmed zero instances of `transition_reason` / `state_transition` / `auto_follow` / `auto_chain` in devctl/. | Automation plan: deterministic state→state→command chains fire without agent intervention | Medium (~2w) |
 
-**Sequential unblocking order:** 1 → 2 → 3 → {4,5,6} → 7 → 8 → 9 → 10. Each step's scope is bounded; total estimated end-to-end is ~6 months of focused engineering.
+**Sequential unblocking order:** 1 → 2 → 3 → {4,5,6} → 7 → 8 → 9 → 10 → 11. Each step's scope is bounded; total estimated end-to-end is ~6 months of focused engineering.
+
+**Closure #11 specifics (operator finding 2026-04-19):** every typed state change should emit a `StateTransitionEvent` carrying `(from_state, to_state, reason_enum, evidence_refs, suggested_next_action, auto_fire_ok)`. Deterministic cases (e.g. `tools_only → active_dual_agent` caused by conductor-alive-again + heartbeat-fresh) with `auto_fire_ok=true` should trigger the next command automatically without agent round-trip. Today the agent sees "was X now Y" in monitor output and has to re-derive the reason + next action from scratch every turn — high cognitive waste, repeatable wrong inferences, no learning signal.
 
 ---
 
