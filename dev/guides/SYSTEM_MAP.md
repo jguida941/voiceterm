@@ -87,7 +87,8 @@ What counts as execution authority vs navigation vs reference:
 | Tier | Surface | Role |
 |------|---------|------|
 | 1 — **Execution authority** | `startup-context --format json`, `session-resume --role <r> --format bootstrap`, `review-channel --action status`, `push --execute` | Typed state; agent MUST act on these |
-| 2 — **Canonical prose authority** | `AGENTS.md`, `dev/active/INDEX.md`, `dev/active/MASTER_PLAN.md`, `dev/active/ai_governance_platform.md`, `dev/active/platform_authority_loop.md` | Prose that binds behavior when typed state is silent |
+| 2 — **Canonical prose authority** | `AGENTS.md`, `dev/active/INDEX.md`, `dev/active/MASTER_PLAN.md`, `dev/active/ai_governance_platform.md` | Prose that binds behavior when typed state is silent |
+| 2-ref — **Reference-only owner docs** | `dev/active/platform_authority_loop.md` (per `INDEX.md:34-36` — load ONLY when typed MP-377 route names it; do not treat as always-canonical) | Scoped reference — authority only when the active typed phase points at it |
 | 3 — **Navigation / connectivity index** | `SYSTEM_MAP.md` (this doc), `context-graph --mode bootstrap` | Human-readable reducer over the system; NOT authority |
 | 4 — **Reference / generated projection** | `dev/guides/*`, `dev/reports/*`, `bridge.md`, `dev/audits/REVIEW_SNAPSHOT.md` | Consult when tier 1–3 points at them; do not treat as authority on their own |
 
