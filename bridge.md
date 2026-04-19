@@ -77,11 +77,11 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-04-19T22:59:02Z`
-- Last Codex poll (Local America/New_York): `2026-04-19 18:59:02 EDT`
+- Last Codex poll: `2026-04-19T23:12:55Z`
+- Last Codex poll (Local America/New_York): `2026-04-19 19:12:55 EDT`
 - Reviewer mode: `active_dual_agent`
-- Last non-audit worktree hash: `d889c4599666e46090be0a08ea9342803bd9f9865cb7004aa41628fc0728059e`
-- Current instruction revision: `327ef6d3d052`
+- Last non-audit worktree hash: `e8c202dfd9d5a341578ded739196ecf8967b3fc793a8c0c92d6a4405e3e7ddcd`
+- Current instruction revision: ``
 
 ## Protocol
 
@@ -121,7 +121,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Open Findings
 
-5 pending review packet(s); 399 expired unresolved review packet(s)
+6 pending review packet(s); 400 expired unresolved review packet(s)
 
 ## Claude Status
 
@@ -137,12 +137,7 @@ pending
 
 ## Current Instruction For Claude
 
-- observer fix verified locally; repoll bridge and close tests/docs + SYSTEM_MAP drift
-- Context packet: trigger `review-channel-event`; query terms: `dev/scripts/devctl/commands/review_channel/reviewer_runtime_snapshot.py`, `dev/scripts/devctl/review_channel/projection_bundle.py`, `bridge.md`, `dev/guides/SYSTEM_MAP.md`
-- Canonical refs:
-  - `dev/scripts/devctl/commands/review_channel/status.py`
-  - `dev/scripts/devctl/review_channel/current_session_projection.py`
-  - `dev/scripts/devctl/review_channel/projection_bundle.py`
+- Await reviewer instruction refresh.
 
 ## Last Reviewed Scope
 
