@@ -67,8 +67,8 @@ ProjectGovernance ✅
       └─ PlanRegistry ✅
           └─ PlanTargetRef ✅
               └─ WorkIntakePacket ✅
-                  └─ PlanExpectationPacket ❌ (named in platform_authority_loop.md; not materialized)
-                      └─ CollaborationSession ✅
+                  └─ CollaborationSession ✅
+                      └─ PlanExpectationPacket ❌ (downstream of collaboration/intake per platform_authority_loop.md; not materialized — v6.7 reorder per rev_pkt_1380)
                           └─ TypedAction ⚠️ (record-only; no execution contract)
                               └─ ActionResult ⚠️
                                   └─ RunRecord ⚠️ (partial — not load-bearing for decisions)
@@ -1224,11 +1224,14 @@ into one bounded ContextPack startup family.
 ## 40. Lane Topology + Ownership
 
 ### Per-agent lanes (typed)
-| Lane | Default Agent | Owns | May Mutate | Escalates Via |
+
+**⚠️ v6.7 correction per rev_pkt_1380 Finding 3:** the "Agent" column below is **historically common pattern**, not current authority. Current authority lives in `CollaborationSessionState.role_assignments`. As of this writing the live state is `mutation_owner=claude, verification_owner=codex` — which is the REVERSE of what a naive read of the table suggests. Read typed state at session start; do not trust this table in isolation.
+
+| Lane | Historically Common Agent (read live from typed state) | Owns | May Mutate | Escalates Via |
 |---|---|---|---|---|
-| `mutation_owner` / `coding_agent` | Codex | Code edits | rust/, dev/scripts/, tests | review-channel post finding |
-| `review_agent` / `reviewer` | Claude (or Codex in dual-agent) | Review, findings | packet acks, decisions | reviewer-checkpoint |
-| `watcher` | Claude | Dashboard, dogfood | packet posts only (no code) | operator escalation |
+| `mutation_owner` / `coding_agent` | either (currently `claude` per typed state) | Code edits | rust/, dev/scripts/, tests | review-channel post finding |
+| `verification_owner` / `review_agent` | either (currently `codex` per typed state) | Review, findings | packet acks, decisions | reviewer-checkpoint |
+| `watcher` | either (often Claude in dashboard sessions) | Dashboard, dogfood | packet posts only (no code) | operator escalation |
 | `operator_agent` | Operator (human) | Policy, role assignments | all (ultimate authority) | direct command |
 
 ### Role is sticky + typed
