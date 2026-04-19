@@ -1,9 +1,11 @@
 # SYSTEM_MAP.md — Living Connectivity Index
 
-**Purpose.** Single source of truth for *how the typed system is wired together and
-where it is not*. This is the connectivity map, not another architecture essay.
-If you are a fresh AI session, read this doc **first**, then consult the referenced
-architecture docs only for depth on a specific subsystem.
+**Purpose.** Connectivity index for *how the typed system is wired together and
+where it is not*. This is a **supplementary navigation surface**, not a bootstrap
+replacement. The canonical bootstrap order in `AGENTS.md:235-242` and
+`dev/active/INDEX.md:3-4` always comes first — SYSTEM_MAP.md is consulted
+**after** startup-context + INDEX + MASTER_PLAN (see section 12 for full
+sequence).
 
 **Maintenance rule (honor or the map decays).** Every time dogfood,
 findings-priority, agent-mind, system-picture, or any audit surfaces a new
@@ -29,7 +31,7 @@ flowchart TD
     RRC[ReviewerRuntimeContract]:::src
     RA[RecoveryAssessment]:::src
     RCS[ReviewCurrentSessionState]:::src
-    CPC[CommitPipelineContract]:::src
+    CPC[RemoteCommitPipelineContract]:::src
 
     EPA[event_projection_assembly.py<br/>central hub]
     CSS --> EPA
@@ -410,7 +412,7 @@ full semantic encoding is Phase 2-3.
 
 **Current state:** **half-built**. Tier 0 complete (128+ references, functional in production). Tier 1-2 design-only — proof chains, Z-ref encoding (12-bit pattern + 10-bit hash), contract-value guards, AI context injection all documented in `ZGRAPH_RESEARCH_EVIDENCE.md` (1429 lines) but not yet implemented.
 
-**Authority doc:** `dev/reports/governance/ZGRAPH_RESEARCH_EVIDENCE.md` — Phase 1-6 roadmap, industry validation (6.8x-49x token reductions), 100+ integration points.
+**Authority doc:** `ZGRAPH_RESEARCH_EVIDENCE.md` (repo root) — Phase 1-6 roadmap, industry validation (6.8x-49x token reductions), 100+ integration points.
 
 **Live graph (per `context-graph --mode bootstrap` today):** 2973 source files, 71 guards, 26 probes, 4 plans, 77076 edges.
 
