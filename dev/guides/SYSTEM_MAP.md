@@ -91,7 +91,7 @@ What counts as execution authority vs navigation vs reference:
 | 3 — **Navigation / connectivity index** | `SYSTEM_MAP.md` (this doc), `context-graph --mode bootstrap` | Human-readable reducer over the system; NOT authority |
 | 4 — **Reference / generated projection** | `dev/guides/*`, `dev/reports/*`, `bridge.md`, `dev/audits/REVIEW_SNAPSHOT.md` | Consult when tier 1–3 points at them; do not treat as authority on their own |
 
-**Rule:** If tier 3 conflicts with tier 1, tier 1 wins and tier 3 must be updated. This doc can become stale; typed state cannot.
+**Resolution policy (not enforced):** if tier 3 conflicts with tier 1, tier 1 wins and tier 3 should be hand-updated (or, once rev_pkt_1370 Patch 1 lands, regenerated). Today this is a convention, not a guard — there is no check_* that fails when tier 3 drifts from tier 1. This doc can become stale; typed state cannot.
 
 **Freshness contract (ASPIRATIONAL — not yet enforced):** the target is that SYSTEM_MAP.md regenerates whenever `dev/audits/REVIEW_SNAPSHOT.md`, `bridge.md`, or any authority-spine object under §49 changes. **There is currently no check_* guard that enforces this.** rev_pkt_1370 Patch 1 proposes adding a `system_map_renderer` entry to `repo_governance.surface_generation.surfaces` in `dev/config/devctl_repo_policy.json` and extending `check_instruction_surface_sync.py` to validate drift. Until that lands, this doc is hand-maintained and can silently go stale. Final target state: SYSTEM_MAP.md becomes a **generated projection** over typed state (see §51 closure row), not a hand-maintained doc.
 
