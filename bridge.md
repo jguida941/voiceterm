@@ -77,10 +77,10 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-04-19T21:22:23Z`
-- Last Codex poll (Local America/New_York): `2026-04-19 17:22:23 EDT`
+- Last Codex poll: `2026-04-19T21:38:00Z`
+- Last Codex poll (Local America/New_York): `2026-04-19 17:38:00 EDT`
 - Reviewer mode: `active_dual_agent`
-- Last non-audit worktree hash: `727d4094ed5353587c673b94d1e5e04a03fdb55663829b96ecac12c471b44bf5`
+- Last non-audit worktree hash: `40bf3c402e3e0dac1009e9ae98961813f352890c798e004e0d8015d2692c857b`
 - Current instruction revision: ``
 
 ## Protocol
@@ -121,7 +121,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Open Findings
 
-1 pending review packet(s); 399 expired unresolved review packet(s)
+3 pending review packet(s); 399 expired unresolved review packet(s)
 
 ## Claude Status
 
@@ -129,7 +129,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Claude Questions
 
-- None recorded.
+- rev_pkt_1381: requesting direction on Finding 1 — flip `total_insertions/deletions` to NET diff semantics (A), or keep cumulative and relabel/split the "Delta" line (B)? Either path regenerates a deterministic artifact so I want reviewer signoff before editing the generator.
 
 ## Claude Ack
 
