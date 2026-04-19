@@ -18,8 +18,40 @@ MP-405-T04 `check_system_map_freshness` (proposed in rev_pkt_1342).
 connected and making sure everything that is connected is just supposed to be
 the system that works together. Keep on iterating till everything is connected."
 
-**Last updated:** 2026-04-19 (initial seed from 8-agent audit + 7-doc
-consolidation pass. Seeded as recovery commit 8ef9f1a7.)
+**Last updated:** 2026-04-19 (sections 0-37 seeded from 24-agent audit across 3
+sweeps + 7-doc consolidation + Codex review cycle. Recovery commit 8ef9f1a7.)
+
+---
+
+## 0.5 Executive Summary — System at a Glance
+
+**What is this repo in 2 sentences:** VoiceTerm is a low-latency Rust terminal overlay for Codex and Claude Code that lets you speak commands instead of typing. Behind it sits a typed governance platform (`devctl` + review-channel) that records every agent decision, enforces safe mutations, and surfaces system health to an operator console.
+
+### 5 Core Subsystems (1 line each)
+
+1. **Voice Terminal** — Rust binary (`rust/src/bin/voiceterm/main.rs`, 944 LOC entry). Mic → Whisper STT → keystroke injection → HUD overlay. Concurrent threads: voice, terminal I/O, wake words.
+2. **devctl Command Tree** — Python CLI, **84 commands** (19 dogfood-covered, 65 orphan). Top tier: `startup-context`, `review-channel`, `session-resume`, `check`, `governance-review`, `dashboard`, `findings-priority`.
+3. **Review Channel** — Typed packet protocol for Claude↔Codex. 5 dataclasses → `event_projection_assembly.py` → typed snapshots consumed by `startup-context` / `session-resume` / `review-channel status`.
+4. **Governance Platform** — 71 guards + 26 probes + `findings-priority` ranker. Live ledger. Coverage: 42% guards, 88% probes, 100% roles.
+5. **Dashboard + Operator Console** — `dashboard.py` (+ `phone-status` / `mobile-status`) renders typed review state. Operator Console = PyQt6, ~23.5k LOC in `app/operator_console/`.
+
+### The Typed Data Chain (1 sentence)
+
+Data flows from **5 source dataclasses** (`CollaborationSessionState`, `ReviewerRuntimeContract`, `RecoveryAssessment`, `ReviewCurrentSessionState`, `RemoteCommitPipelineContract`) → `event_projection_assembly.py` hub → `authority_snapshot` gate → startup-context/review/resume surfaces, with governance guards/probes projecting parallel views into findings.
+
+### Known Chronic Problems (3 one-liners)
+
+1. **3-way reviewer_mode drift (rev_pkt_1335):** `launch_authority.py:265-268` reads reviewer_mode from 3 sources; `collaboration_session.py:144` overwrites declared with effective → startup-context/review-channel/session-resume disagree → state oscillates `active_dual_agent ↔ tools_only`.
+2. **Projection redundancy (rev_pkt_1333):** 10+ emitter/reader pairs mismatch; 40+ `_from_mapping()` duplicates; 6 same-job-different-path systems exist (review-state loading, packet inbox, snapshot construction, authority snapshot, bootstrap, check orchestration).
+3. **89% of findings unscoped to MPs** — 111 of 124 `confirmed_issue` entries have zero Master Plan ticket; top-3 critical (fan_out ≥ 16) unowned.
+
+### How the System Is Supposed to Work (2 sentences)
+
+Operator directs agents (Claude = dashboard/reviewer, Codex = implementer by default; roles are sticky but swappable) via typed packets; agents exchange through review-channel while governance guards validate each mutation against policy. Dashboard surfaces current state, commit+push enforce governed execution (pre-commit checks authority_snapshot, pre-push enforces review gate, post-commit refreshes state).
+
+### Where This Doc Fits (1 sentence)
+
+SYSTEM_MAP.md is a supplementary navigation index read AFTER the canonical bootstrap (`startup-context` → `INDEX.md` → `MASTER_PLAN.md`); use section 0 (flowchart), section 4 (projection graph), section 10 (priority backlog), and the section-30+ subsystem deep-dives to locate details in `dev/guides/` and `dev/active/`.
 
 ---
 
@@ -817,6 +849,229 @@ Ubuntu-latest / ubuntu-20.04 / macos-14. No self-hosted runners.
 
 ---
 
+## 30. Rust Voiceterm Deep-Dive — 5 Core Subsystems
+
+### 1. Voice Pipeline (`rust/src/bin/voiceterm/voice_control/`, `audio/`, `stt.rs`)
+Captures audio, detects speech/silence, transcribes to text.
+- **Modules:** `recorder.rs` (CPAL audio enumeration), `capture.rs` (VAD policy, latency/quality balance), `vad.rs` (configurable silence thresholds), `resample.rs` (16kHz mono).
+- **Native STT engine:** Whisper via `whisper_rs` crate v0.14.1 (GGML-based), loaded once + reused.
+- **Flow:** Mic → CPAL → FrameDispatcher → VadSmoother → CaptureResult (bounded PCM) → Whisper → text → Drain.
+
+### 2. HUD System (`hud/`, `status_line/`)
+Renders real-time voice state in terminal status line without occluding content.
+- **Modules:** `ModeModule` (● AUTO / ○ MANUAL / ◐ INSERT), `MeterModule` (waveform bars), `LatencyModule` (sparkline), `QueueModule` (pending transcript count).
+- **Rendering:** ANSI cursor save/restore (CSI s/u for ANSI, DEC \x1b7/\x1b8 for JetBrains), synchronized output mode (CSI 2026h/l), SGR reset. Updated every 80-90ms.
+
+### 3. Prompt Detection (`prompt/claude_prompt_detect.rs`, `occlusion_signals.rs`)
+Detects interactive approval prompts that would be occluded by HUD; auto-suppresses HUD when needed.
+- **PromptType enum:** SingleCommandApproval, WorktreePermission, MultiToolBatch, StartupGuard, ReplyComposer.
+- **Patterns:** ~30 regex rules ("(y/n)", "press enter to continue", numbered_option).
+- **Currently Claude-only** (enum extensible for Codex/Gemini).
+
+### 4. Terminal I/O (`writer/`, PTY integration)
+Serializes all output (PTY, HUD, overlays, status) to prevent interleaving.
+- **PTY management:** `WriterState` receives `WriterMessage::PtyOutput(bytes)`, drains + flushes.
+- **Color rendering:** Sanitizer strips ANSI for width calc, preserves control seqs, SGR reset before/after status to isolate colors.
+- **Adaptive cursor:** JetBrains gets DEC-only, Cursor/generic get ANSI+DEC. 25ms poll cadence.
+
+### 5. Event Loop (`event_loop/`)
+Central loop coordinating input/output/voice/periodic across threads.
+- **Driver:** `run_event_loop(state, timers, deps)` runs `select!()` on 4 channels: PTY output (batch ≤16 chunks), input events, voice job messages, periodic tasks (20ms idle poll).
+- **Thread coordination:** Main loop delegates to input/PTY/writer threads via crossbeam channels; voice runs in VoiceManager background.
+
+---
+
+## 31. Typed Artifact Store (`dev/reports/` tree)
+
+### Top-level directories (24 total)
+
+**Hot (updated within 7 days):**
+- `review_channel/` (262M, 402 files) — Shared control-plane review packets
+- `governance/` (1.3M, 12 files) — Finding reviews + guard candidates
+- `agent_minds/` (12K) — Latest agent state snapshots
+- `push/` (5.3M) — Latest deployment state
+- `dogfood/` (244K) — Run execution logs
+- `autonomy/` (1.7M, 284 files) — Orchestration task matrix + queues
+
+**Stale (>30 days):**
+- `data_science/` (333M) — **LARGEST**, dormant since Feb 24, no cleanup
+- `research/` (7M, 800 files) — Swarm/placebo experiments
+- `graph_snapshots/` (2.9G, 363 files) — **UNBOUNDED growth**
+- `probes/`, `mp346/`, `clippy/`, `check/`, `duplication/`
+
+### Canonical authority paths
+
+**Live review state:** `dev/reports/review_channel/projections/latest/review_state.json` (4.8M, updates 5-10min). **Dual-written** to `review_channel/latest/` for backward compat.
+
+**Work routing:** `dev/reports/governance/plan_registry.json` (277K, 2x daily).
+
+**Event log:** `dev/reports/audits/devctl_events.jsonl` (16.4M, append-only, 2x daily writes).
+
+### Risk flags
+- **No automated cleanup** anywhere — `graph_snapshots` (2.9G), `data_science` (333M), `autonomy/` grow unbounded
+- 25+ stale PID entries in `review_channel/latest/publisher_heartbeat.*.json`
+
+---
+
+## 32. Settings + Config + Environment Variables
+
+### Settings files (6)
+| File | Scope | Reader | Contents |
+|---|---|---|---|
+| `.claude/settings.local.json` | repo | Claude Code harness | Permissions (Bash/Read/Write/Edit/Glob/Grep), outputStyle: Explanatory |
+| `.pre-commit-config.yaml` | repo | git pre-commit | Trailing whitespace, YAML/TOML, ruff, yamllint; Rust deferred to CI |
+| `.coderabbit.yaml` | repo | CodeRabbit AI | Profile=assertive; auto-review on develop/master; path-instructions |
+| `rust/Cargo.toml` | Rust | Cargo | voiceterm v1.2.3; features (high-quality-audio, vad_earshot, mutants, theme_studio_v2); Rust 1.88.0+ |
+| `.github/dependabot.yml` | CI | Dependabot | Weekly: actions Mon 05:00, cargo 05:15, pip 05:30 UTC |
+| `~/.config/voiceterm/config.toml` | user | persistent_config.rs | Theme, hud_style, voice_send_mode, sensitivity_db, memory_mode |
+
+### Environment variables (~20, most undocumented)
+
+**Runtime control:**
+`VOICETERM_CONFIG_DIR`, `VOICETERM_BOOTSTRAP_MODE` (binary-only/binary-then-source/source-only), `VOICETERM_NATIVE_BIN`, `VOICETERM_REPO_URL`, `VOICETERM_REPO_REF`, `VOICETERM_TRACE_LOG`, `VOICETERM_BACKEND_LABEL`, `VOICETERM_CWD`, `VOICETERM_DEV_PACKET_AUTOSEND`, `VOICETERM_STYLE_PACK_JSON`, `VOICETERM_CLAUDE_EXTRA_GAP_ROWS`.
+
+**devctl control:**
+`DEVCTL_PROBE_REPORT_ROOT`, `DEVCTL_OPERATOR_INTERACTION_MODE`, `DEVCTL_DATA_SCIENCE_DISABLE`, `DEVCTL_DATA_SCIENCE_OUTPUT_ROOT`, `DEVCTL_PIPELINE_FAKE_HEAD` (test-only), `DEVCTL_NO_REVIEW_SNAPSHOT_REFRESH`.
+
+**Autonomy:**
+`AUTONOMY_MODE` — values are `off | read-only | operate` (NOT single_agent/dual_agent/swarm; that claim was in earlier drafts and rev_pkt_1351 corrected it per `dev/scripts/README.md:1295` + `dev/scripts/devctl/commands/autonomy/loop.py:88-101`).
+
+**CI context:**
+`GITHUB_ACTIONS`, `GITHUB_ENV`, `GITHUB_OUTPUT`, `GITHUB_STEP_SUMMARY`; secrets `PYPI_API_TOKEN`, `HOMEBREW_TAP_TOKEN`.
+
+**Display:**
+`NO_COLOR`, `HOME`.
+
+---
+
+## 33. Memory Studio Architecture Detail (MP-230..MP-255)
+
+11 Rust modules in `rust/src/bin/voiceterm/memory/`:
+
+| Module | LOC | Role |
+|---|---:|---|
+| `types.rs` | 22.6K | Canonical event schema: MemoryEvent envelope (session_id, ts, source, event_type, role, text, topic_tags, entities, task_refs, artifacts, importance, confidence, retrieval_state) |
+| `schema.rs` | 6.6K | Validation + SQLite DDL (events, sessions, topics, entities, tasks, artifacts, action_runs, FTS) |
+| `store/jsonl.rs` | — | Append-only event writer, rotation, ANSI strip, noise filter, 50-event batches / 5-sec flush |
+| `store/sqlite.rs` | 15.8K | In-memory index contract (vectors + HashMaps) mirroring SQLite schema; DDL ready for live migration |
+| `ingest.rs` | 28.4K | Normalize voice/PTY/devtool inputs → canonical events, bounded metadata extraction |
+| `retrieval.rs` | 16.2K | Deterministic queries (Recent/ByTopic/ByTask/TextSearch/Timeline) + ContextSignal routing |
+| `context_pack.rs` | 17.6K | Boot/task pack generation w/ evidence + token budgets |
+| `governance.rs` | 10.7K | Retention GC + redaction (8+ secret patterns). Project-scoped `.voiceterm/memory/events.jsonl` |
+| `action_audit.rs` | 10.8K | Action templates + policy tiers (ReadOnly/ConfirmRequired/Blocked). References 3 Python devctl cmds |
+| `survival_index.rs` | 15.8K | Compaction recovery layer (~2K token JSON). **Scaffolded** |
+| `mod.rs` | 1.5K | Module tree + `#![allow(dead_code)]` scaffolding marker |
+
+### Phase status
+- **MP-230/231 SHIPPED:** schema, ingest, retrieval, context_pack basics
+- **MP-232 SHIPPED:** boot/task pack generation w/ evidence + token budgets
+- **MP-233/234 SCAFFOLDED:** Memory tab in dev_panel (read-only). Memory Browser + Action Center overlays NOT live
+- **MP-235 PARTIAL:** GC + redaction REAL; `MemoryMode` enum exists but broader trust controls scaffolded
+- **MP-236..239 PARTIAL:** context_pack_refs wired, packet-outcome ingest not live
+- **MP-240..255 NOT STARTED:** Memory Cards, MCP exposure, evaluation, import, isolation
+
+### Gaps
+- SQLite index: **schema ready, in-memory only** (no live SQLite I/O)
+- No semantic rerank (deterministic only)
+- Python↔Rust memory: action_audit hardcodes 3 Python devctl commands; no live bidirectional sync
+
+---
+
+## 34. Daemon + IPC Protocol (CRITICAL SECURITY ISSUE)
+
+### 11 daemon modules in `rust/src/bin/voiceterm/daemon/`
+`types.rs`, `mod.rs`, `run.rs`, `socket_listener.rs`, `ws_bridge.rs`, `event_bus.rs`, `session_registry.rs`, `agent_driver.rs`, `memory_bridge.rs`, `client_codec.rs`, `tests.rs`.
+
+### Transport
+- **Unix Socket (primary):** `~/.voiceterm/control.sock` — filesystem-permission gated
+- **WebSocket (optional):** binds to `0.0.0.0:9876` (configurable via `DaemonConfig.ws_port`) — advertised as localhost only
+- **Format:** JSON-lines (one JSON object per line)
+
+### Commands (client → daemon)
+`spawn_agent`, `send_to_agent`, `kill_agent`, `list_agents`, `get_status`, `shutdown`.
+
+### Events (daemon → client)
+`daemon_ready`, `agent_spawned`, `agent_output`, `agent_exited`, `agent_killed`, `agent_list`, `daemon_status`, `error`, `daemon_shutdown`.
+
+### ⚠️ CRITICAL SECURITY GAP
+**WebSocket binds to `0.0.0.0:9876` with ZERO authentication.** Any process on the network can:
+- Enumerate running agent sessions (`list_agents`)
+- Spawn arbitrary agents (Claude, Codex, custom providers)
+- Inject commands into running sessions (`send_to_agent`)
+- Kill sessions / shutdown daemon
+
+**No token, credential, or capability-based access control.** Unix socket has OS-level ACL but WebSocket exposes full command surface unauthenticated.
+
+### Recommended fixes (not yet applied)
+1. Bind WebSocket to `127.0.0.1` only
+2. Add optional bearer token to WebSocket protocol
+3. Document Unix socket permission requirements (0600)
+
+### Known clients
+- iOS Swift: `app/ios/VoiceTermMobile/Sources/.../DaemonWebSocketClient.swift` (port 9876)
+- Operator Console Python: `app/operator_console/collaboration/daemon_client.py` (Unix socket)
+- PyQt6 local: Unix socket
+- CLI tools: Unix socket
+
+---
+
+## 35. Release + Distribution Pipeline
+
+### Trigger mechanisms
+- Manual preflight: `workflow_dispatch` on `release_preflight.yml` (requires X.Y.Z)
+- Automated release: GitHub `release: published` event
+- Manual publish override: per-workflow `workflow_dispatch`
+
+### Release gates (`devctl release-gates`)
+3-step sequence with 30-min default wait + 20s polling:
+1. CodeRabbit Triage Gate — medium/high findings must be triaged
+2. Release Preflight Gate — waits for `release_preflight.yml`
+3. CodeRabbit Ralph Gate — AI remediation review completion
+
+### Preflight checks (50+ compliance gates)
+- **Version parity** across 5 files: `rust/Cargo.toml`, `pypi/pyproject.toml`, `pypi/src/voiceterm/__init__.py`, macOS Info.plist (short + bundle)
+- **Security:** cargo deny, devctl security tier, zizmor, audit patterns
+- **Governance (19 checks):** docs/tooling/architecture sync, contract closure, platform boundaries, Rust serde/panic policy
+- **Release bundle:** check profile, hygiene, orchestration status
+- **Ship dry-runs:** verify `ship --notes|--pypi|--homebrew` paths
+
+### Ship command (7 optional steps, fail-fast)
+`--prepare-release` (sync version) → `--verify` (parallel checks, up to 4 workers) → `--tag` (annotated, validate branch/clean/version, push) → `--notes` (gen markdown from git log) → `--github` (create release via gh CLI) → `--pypi` (wheel+sdist, twine upload) → `--homebrew` (tap formula update).
+
+### Distribution targets
+PyPI, Homebrew tap (`jguida941/homebrew-voiceterm`), GitHub release (Linux amd64, macOS amd64+arm64 via `publish_release_binaries.yml`), SLSA provenance (`release_attestation.yml`).
+
+### Rollback
+**No automated rollback.** Manual: delete GitHub release + tag → unpublish PyPI → revert Homebrew PR → bump patch + re-ship.
+
+---
+
+## 36. Data-Science Telemetry Schema
+
+### summary.json fields (auto-refreshed post-command)
+`generated_at`, `trigger_command`, `event_stats` (per-command success_rate, duration p50/p95, token estimates), `agent_stats` (selected_agents, recommendation_score, tasks_per_minute), `watchdog_stats` (success_rate_pct, time_to_green_seconds, guard_families), `governance_review_stats`, `external_finding_stats`, `source_counts`.
+
+### Chart rendering (5 SVG files at 980×420px)
+`command_frequency.svg`, `agent_recommendation_score.svg`, `agent_tasks_per_minute.svg`, `watchdog_time_to_green.svg`, `watchdog_guard_family_frequency.svg`.
+
+### Event aggregation
+- **Primary:** `devctl_events.jsonl` tail (last 20k events). Fields: command, success, duration_seconds, execution_source, machine_output.{size_bytes, estimated_tokens}
+- **Secondary:** swarm_root, benchmark_root, watchdog_root, governance_review_log, external_finding_log
+
+### Auto-refresh trigger
+`maybe_auto_refresh_data_science(command=args.command)` in `cli_parser/entrypoint.py:402`. Skipped for READ_ONLY_COMMANDS (16 including dashboard, review-channel, startup-context, session-resume, context-graph, etc.). Disabled if `DEVCTL_DATA_SCIENCE_DISABLE=1`.
+
+### Consumers
+`dashboard` command (governance health section), `ralph_status`, external MCP adapters, `mobile-status`.
+
+### Token model
+`estimated_tokens = ceil(byte_count / 4)` — throughput estimate only, NOT LM-accurate tokenization.
+
+### Privacy
+**No content logged.** Only duration, command type, byte count, success/failure. No LM tokenization either — byte-based estimate.
+
+---
+
 ## Maintenance Log
 
 | Date | Added | By |
@@ -825,3 +1080,5 @@ Ubuntu-latest / ubuntu-20.04 / macos-14. No self-hosted runners.
 | 2026-04-19 (later) | Sections 14-21 appended from second 8-agent sweep: ZGraph, plans inventory, MP tracker, integration seams, autonomy subsystem, dashboard subsystem, test architecture, undocumented-commands catalog. State change: `tools_only → active_dual_agent` restored after Codex wake. | claude (dashboard, operator-authorized write) |
 | 2026-04-19 (still later) | Fixes per Codex rev_pkt_1348 review: `CommitPipelineContract`→`RemoteCommitPipelineContract`, bootstrap-order contradiction resolved, live evidence split historical/current, archive-target docs marked forward-looking. docs-check ok=True. | claude (dashboard, Codex-reviewed) |
 | 2026-04-19 (third sweep) | Sections 22-29 appended from third 8-agent sweep: data-science + flowchart generators, typed-state field writer→reader trace (5 zero-writer critical fields, 6 drift-risk fields), connectivity claim verification (4 correct, 3 wrong), architectural divergences (10, with 89% confirmed_issues lacking MP scope CRITICAL), redundancy sweep (6 additional), self-updating design (Phase 2 mechanism), Rust product code layout (10 subsystems, Memory Studio not wired), GitHub workflows + CI map (20 workflows, 50+ orphan commands, 3 CI gaps). | claude (dashboard, operator-authorized write) |
+| 2026-04-19 (Codex re-review round 2) | rev_pkt_1353/1356 fixes applied: purpose statement lines 3-6 rewritten to position SYSTEM_MAP.md as supplementary navigation (canonical bootstrap order runs first), section 0 mermaid `CommitPipelineContract → RemoteCommitPipelineContract`, ZGRAPH_RESEARCH_EVIDENCE.md path corrected to repo-root. | claude (dashboard, Codex-reviewed via rev_pkt_1353/1356) |
+| 2026-04-19 (fourth sweep — operator override) | Sections 0.5 (Executive Summary) + 30-36 from fourth 8-agent sweep: Rust voiceterm deep-dive (5 subsystems), typed artifact store (`dev/reports/` 24 dirs, canonical paths, unbounded growth flags), settings+env vars (~20 vars, 6 config files), Memory Studio detail (11 modules, MP-230..255 phases), Daemon IPC (**CRITICAL security finding**: WebSocket unauthenticated on 0.0.0.0:9876), Release pipeline end-to-end (7-step ship, 50+ preflight checks, no auto-rollback), Data-science telemetry schema. Operator override on Codex's rev_pkt_1354 "hold expansion" decision — coverage over convergence. | claude (dashboard, operator explicit override) |
