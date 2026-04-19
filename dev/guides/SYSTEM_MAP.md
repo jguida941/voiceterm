@@ -371,8 +371,251 @@ the full audit. See also:
 
 ---
 
+## 14. Context Graph / ZGraph Semantic-Compression System
+
+**What it is (plain English):** semantic compression layer that encodes
+contract obligations, proof chains, authority sources, and AI fix recipes
+into compressed 22-bit pointers (Z-refs). Foundation is built and working;
+full semantic encoding is Phase 2-3.
+
+**Top files:**
+- `dev/scripts/devctl/context_graph/builder.py` (351 lines) — graph builder from probes/guards/plans/contracts
+- `dev/scripts/devctl/context_graph/snapshot_payload.py` (241 lines) — `ContextGraphSnapshot` dataclass
+- `dev/scripts/devctl/context_graph/models.py` (102 lines) — 14 node kinds, 7 edge kinds
+- `dev/scripts/devctl/context_graph/command.py` (251 lines) — CLI: query/bootstrap/concept-view/diff
+- `dev/scripts/devctl/context_graph/query.py` — graph queries, confidence scoring
+
+**Commands:**
+- `python3 dev/scripts/devctl.py context-graph --mode bootstrap --format md` — AI startup packet
+- `python3 dev/scripts/devctl.py context-graph --query '<term>' --format md` — targeted subgraph
+- `python3 dev/scripts/devctl.py context-graph --mode diff --from <sha> --to <sha> --format md` — snapshot delta
+
+**Current state:** **half-built**. Tier 0 complete (128+ references, functional in production). Tier 1-2 design-only — proof chains, Z-ref encoding (12-bit pattern + 10-bit hash), contract-value guards, AI context injection all documented in `ZGRAPH_RESEARCH_EVIDENCE.md` (1429 lines) but not yet implemented.
+
+**Authority doc:** `dev/reports/governance/ZGRAPH_RESEARCH_EVIDENCE.md` — Phase 1-6 roadmap, industry validation (6.8x-49x token reductions), 100+ integration points.
+
+**Live graph (per `context-graph --mode bootstrap` today):** 2973 source files, 71 guards, 26 probes, 4 plans, 77076 edges.
+
+---
+
+## 15. Active Plans Inventory (30 docs in `dev/active/`)
+
+**Section 11 previously listed 7 architecture guides.** The full active-plan landscape
+is 30 markdown files across `dev/active/` driving live execution. Top-10 with owner
+role and current state:
+
+| Plan | Scope | Role | Status | Last |
+|---|---|---|---|---|
+| `MASTER_PLAN.md` | MP-377..MP-410 unified | canonical tracker | in_progress | Apr 19 |
+| `ai_governance_platform.md` | MP-377 governance product | spec + tracker | in_progress | Apr 19 |
+| `review_channel.md` | MP-355 dual-agent surfaces | spec + mirrored | active | Apr 17 |
+| `review_probes.md` | MP-368..MP-375 AI review | spec + mirrored | active | Apr 9 |
+| `platform_authority_loop.md` | MP-377 startup/routing | reference owner-doc | active | Mar 27 |
+| `remote_control_runtime.md` | MP-380..MP-387 reviewer/runtime | reference owner-doc | active | Apr 18 |
+| `continuous_swarm.md` | MP-358 Codex/Claude dogfood | reference-only | active | Apr 15 |
+| `portable_code_governance.md` | MP-376 portable guards | reference owner-doc | active | Apr 15 |
+| `autonomous_control_plane.md` | MP-325..MP-340 mobile control | reference-only | active | Apr 11 |
+| `pre_release_architecture_audit.md` | MP-347/349 pre-release | reference-only | done | Mar 27 |
+
+**Promises not tracked in any MP (5):**
+1. "smarter guard/probe rollout" — `ai_governance_platform.md:3578` (no MP assigned)
+2. "absence-checking" guards — `pre_release_architecture_audit.md:272` (no MP)
+3. `missing_guard`/`missing_probe` governance-ledger linkage — `platform_authority_loop.md:302`
+4. JS/TS/Java guard/probe packs — `MASTER_PLAN.md:5101` (phrased as a need)
+5. Theme Studio 6 deferred fields — `theme_upgrade.md:1412`
+
+**Orphan plans (0-5 external refs):** `slash_command_standalone.md`,
+`naming_api_cohesion.md`, `code_shape_expansion.md` — candidates for archive
+or MP re-anchoring.
+
+---
+
+## 16. MP Tracker (22 open MPs, all healthy, 5 HOT driving 70% of activity)
+
+**Dependency structure:** all feed into MP-377 (AI Governance Platform umbrella).
+Acyclic peers within scope. **Zero orphaned MPs (all have packet refs); zero stuck (no MP >30 days idle).**
+
+### HOT MPs (packet-ref count)
+| Rank | MP-ID | Refs | Title |
+|---:|---|---:|---|
+| 1 | MP-398 | 41 | push preflight staged-index exclusion |
+| 2 | MP-411 | 39 | portability audit |
+| 3 | MP-417 | 34 | snapshot-drift ordering fix |
+| 4 | MP-388 | 26 | consolidation archive pass |
+| 5 | MP-405 | 24 | guard expansion (parent of MP-405-T03 dead-api) |
+| 6 | MP-412 | 13 | HarnessAuthContract |
+| 7 | MP-414 | 12 | typed decision policy |
+| 8 | MP-399 | 11 | governed commit staged-index preservation |
+| 9 | MP-410 | 11 | devctl root package-layout relief |
+| 10 | MP-397 | 11 | CLI/runtime parity closure |
+
+### Key insight
+Top-5 HOT MPs directly map to Section 10 root-cause fixes:
+- MP-398/411/417 → address 3-way reviewer_mode split + session_resume defects (rev_pkt_1335/1321-1324)
+- MP-388 → the SYSTEM_MAP.md consolidation itself
+- MP-405 → closes half-built systems + dormant surfaces
+
+---
+
+## 17. Integration Seams (8 major points, 3 OVER-connected, 3 DRIFT, 3 BROKEN)
+
+| From | To | Type | Count | Status |
+|---|---|---|---:|---|
+| Rust voiceterm | pypi cli.py | subprocess | 1 | OK |
+| devctl commands/ | devctl runtime/ | imports | **246** | **OVER** |
+| devctl runtime/ | dev/scripts/checks/ | typed state | 3 | UNDER |
+| devctl commands/ | review_state.json | R/W | **204** | **OVER** |
+| app/operator_console/ | devctl/ | subproc+packets | 57 | MODERATE |
+| publication_sync/ | external state | git+heartbeat | **524** | **OVER** |
+| devctl integrations/ | cihub, code-link-ide | federation | 13 | UNDER |
+| governance/ | review_channel/ | plan_registry.json | 0 | **DRIFT** |
+
+### 3 DRIFT cases (one side writes, other never reads)
+1. **Governance → plan_registry.json:** 7 writes in `dev/reports/governance/`, 0 reads in any `devctl/commands/`
+2. **Rollover → handoff.json:** 30+ directories written since 2026-03-09, only `projection_bundle.py` reads them — 80% unread
+3. **Commands → review_state.json refresh cache:** 80+ command files write independently, refresh protocol not enforced
+
+### 3 BROKEN seams observed
+1. `dev/scripts/checks/mutation_outcome_parse.py:7` shim — blocks `devctl triage`
+2. `control_plane_daemons.py` — no factory/registry; can't add daemon without editing 3+ subsystems
+3. `review_state_refresh_support.py` — refresh authority defined but scattered writers bypass it
+
+---
+
+## 18. Autonomy + Remediation Subsystem (8 commands, 3 wired, 5 dormant)
+
+### Command wiring
+| Tier | Command | Role | Next caller |
+|---|---|---|---|
+| Entry | `swarm_run` | Plan orchestrator | `autonomy-swarm` |
+| Orchestration | `autonomy-swarm` | N-agent runner | N × `autonomy-loop` |
+| Execution | `autonomy-loop` | Controller | `triage-loop` + `loop-packet` |
+| Remediation | `triage-loop` | Backlog fixer | terminal |
+| Risk | `loop-packet` | Score + draft | terminal |
+| Post-audit | `autonomy-report` | Digest | optional from swarm |
+| **Dormant** | `autonomy-benchmark` | Matrix test | (unwired) |
+| **Orphaned** | `mutation-loop` | Score tracker | (never called) |
+
+### Smarter-guard pattern (YES, this IS the smarter-guard system operator remembered)
+1. **Mode enforcement:** `AUTONOMY_MODE` env must be `operate` for mutations (default `report-only`)
+2. **Policy bounds:** `max_rounds_hard_cap`, `max_hours_hard_cap`, `max_tasks_hard_cap` from security policy
+3. **Branch allowlist:** validated at startup
+4. **Risk gating:** `loop-packet` scores risk{low,med,high} + approval_required
+5. **Fix-command policy:** `triage-loop.evaluate_fix_policy` before mutations
+6. **Governance gates:** `swarm_run` enforces sync/safety checks
+
+### Top-3 gaps
+1. `autonomy-benchmark` never runs — code exists, no CI, no dogfood
+2. `mutation-loop` orphaned from swarm — standalone only
+3. `autonomy-report` not auto-triggered from `autonomy-loop` — only from swarm --post-audit
+
+---
+
+## 19. Dashboard + Operator Console Subsystem
+
+### Wiring
+```
+bridge.md + review_state.json + compact.json
+    ↓ (prefer typed)
+load_current_review_state()
+    ↓
+dashboard_typed_state (extractors)
+    ↓
+dashboard_builders (11 sections)
+    ↓
+DashboardSnapshot (json/md/terminal)
+    ↓
+phone-status / mobile-status
+    ↓
+operator_console (PyQt6, ~23.5k LOC, reads bridge+review directly)
+```
+
+### Critical findings (both fan_out=16)
+1. **`dogfood_development_engine`** at `dashboard.py:255-259`: forces bridge-projection refresh **every tick** with `prefer_cached_projection=False`. **Fix:** change to `True`. Stops 16 downstream re-computations per run.
+2. **`dogfood_dev_mode_needed`**: dogfood re-activation blocked because `.claude` hook reads `--dev-mode` as scope escalation. **Fix:** typed `operator_role_override` surface (rev_pkt_1342).
+
+### operator_console structure (~165 files / 23.5k LOC / 9 submodules)
+`state/` (43 files, 5.9k LOC): bridge/review/sessions/snapshots/core/activity/presentation/repo/jobs. No subprocess calls — reads artifacts directly. Builds its own `OperatorConsoleSnapshot` independent of `dashboard.py`.
+
+### Dashboard-ready commands
+`dashboard`, `phone-status`, `mobile-status`, `status`, `startup-context`, `control-plane read-model` (internal).
+
+---
+
+## 20. Test Architecture
+
+**Totals:** 387 Python test files (~3758 cases) + 2413 Rust tests = **6171 tests total**.
+
+### Coverage by subsystem
+| Area | Files | Cases | Ratio |
+|---|---:|---:|---:|
+| root | 132 | ~1100 | — |
+| review_channel | 56 | ~900 | 30% of modules |
+| runtime | 44 | ~600 | 25% |
+| checks | 79 | ~700 | 42% guards, 88% probes |
+| governance | 23 | ~350 | 35% |
+
+### Known failing (2 confirmed)
+- `test_slim_token_budget` at `test_startup_context.py:603` — 12332 tokens > 10000 limit (rev_pkt_1318)
+- `test_attention_command_overrides_stale_read_model_next_command` at `test_session_resume.py:1772` (rev_pkt_1322)
+
+### Two-layer architecture status
+- **Layer A (deterministic scenario tests):** ✅ **built** — ~3300 fixture-driven tests; `test_review_channel.py` alone is 16,007 lines. But **blind** to multi-source projection collapse (rev_pkt_1335 has zero direct coverage).
+- **Layer B (live-agent soak):** ❌ **absent** — dogfood lives in `commands/`, not test tree. Blocked on `--dev-mode` scope-escalation gate.
+
+### Top-5 coverage gaps
+1. rev_pkt_1335 3-way reviewer_mode split — **zero direct test**
+2. Wake-continuity state machine emission → consumption — no emitter trace
+3. Multi-agent `to_agent` packet filter (rev_pkt_0884) — topology tested, routing not
+4. Recovery policy enforcement — classification built, policy unused, untested
+5. Rust panic fail-closed — 3 authority funcs with zero fail-closed tests
+
+---
+
+## 21. Complete Undocumented-Commands Catalog
+
+### 84 commands → only 19 dogfood-covered. Prior section 2 named 10 barely-wired.  Additional 15 below.
+
+| Command | Purpose | Risk |
+|---|---|---|
+| `agent-mind` | Mind-stream reader for codex/claude | Live provider modes; may auto-mutate |
+| `autonomy-benchmark` | Score autonomous completion across scenarios | Mutation-heavy; coverage instrumented |
+| `autonomy-loop` | Bounded controller loop | Dual-agent circular-instruction deadlock |
+| `autonomy-swarm` | N-parallel agents + consensus | No OOM protection under high N |
+| `cihub-setup` | CI/CD hub config init | Overwrites `.ci-hub.yml`; needs gh token |
+| `data-science` | Extract telemetry | May leak probe metadata |
+| `governance-draft` | Stage draft decision packet | No cycle detection |
+| `governance-import-findings` | Ingest external findings | Blind upsert; lost customizations |
+| `guard-run` | Execute one guard in isolation | Can mutate source if misconfigured |
+| `install-git-hooks` | Write pre-commit hooks | Silently overwrites existing |
+| `integrations-import` | Vendor external submodules | Network I/O fail on unreachable remote |
+| `integrations-sync` | Force-reset submodules to HEAD | Loses local integration changes |
+| `loop-packet` | Wrap action into review-packet | 30min TTL; old packets silently drop |
+| `monitor` | Long-running event watcher | No auto-restart |
+| `mutation-loop` | Iterative mutation + recheck | Can deadlock if mutation touches guards |
+
+### 17 hidden review-channel actions (previously undocumented)
+`doctor`, `stop`, `reviewer-heartbeat`, `reviewer-checkpoint`, `reset-implementer-state`, `promote`, `post`, `operator-inbox`, `ack`, `dismiss`, `apply`, `history`, `bridge-poll`, `render-bridge`, `attach-remote-control`, plus `--allow-unread-inbox` / `--auto-promote` / `--refresh-bridge-heartbeat-if-stale` flags.
+
+### Undocumented environment variables
+- `DEVCTL_QUALITY_POLICY` — override active policy path
+- `AUTONOMY_MODE` — `single_agent` / `dual_agent` / `swarm`
+- `VOICETERM_DEVCTL_LIVE_OUTPUT_TIMEOUT_SECONDS` — command polling timeout
+- `DEVCTL_PIPELINE_FAKE_HEAD` — test-only HEAD override
+- `DEVCTL_NO_REVIEW_SNAPSHOT_REFRESH` — skip pre-commit snapshot refresh
+
+### Dormant packet kinds (6 of 12 defined, never used)
+Defined in `packet_contract.py`: `approval_request`, `system_notice`, `plan_gap_review`, `plan_patch_review`, `plan_ready_gate`, `commit_approval` — 0 grep hits in consumer code.
+
+### `integrations/` summary
+- `code-link-ide/` — Phase 0 voice-driven remote IDE controller (Rust+Swift+TS/Kotlin). mTLS pairing underspecified.
+- `ci-cd-hub/` — Java+Python CI hub; `cihub setup/init/check/run` CLI. 3-tier config merge (defaults→hub→repo); drift possible.
+
+---
+
 ## Maintenance Log
 
 | Date | Added | By |
 |---|---|---|
 | 2026-04-19 | Initial seed from 8-agent audit + 7-doc consolidation pass. Recovery commit 8ef9f1a7 context. | claude (dashboard, operator-authorized write) |
+| 2026-04-19 (later) | Sections 14-21 appended from second 8-agent sweep: ZGraph, plans inventory, MP tracker, integration seams, autonomy subsystem, dashboard subsystem, test architecture, undocumented-commands catalog. State change: `tools_only → active_dual_agent` restored after Codex wake. | claude (dashboard, operator-authorized write) |
