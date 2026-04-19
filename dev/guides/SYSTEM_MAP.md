@@ -651,13 +651,17 @@ operator_console (PyQt6, ~23.5k LOC, reads bridge+review directly)
 
 ### Undocumented environment variables
 - `DEVCTL_QUALITY_POLICY` — override active policy path
-- `AUTONOMY_MODE` — `single_agent` / `dual_agent` / `swarm`
+- `AUTONOMY_MODE` — `off` / `read-only` / `operate` (per `dev/scripts/devctl/commands/autonomy/loop.py:88-101` + `dev/scripts/README.md:1295`; prior drafts incorrectly listed `single_agent/dual_agent/swarm`)
 - `VOICETERM_DEVCTL_LIVE_OUTPUT_TIMEOUT_SECONDS` — command polling timeout
 - `DEVCTL_PIPELINE_FAKE_HEAD` — test-only HEAD override
 - `DEVCTL_NO_REVIEW_SNAPSHOT_REFRESH` — skip pre-commit snapshot refresh
 
-### Dormant packet kinds (6 of 12 defined, never used)
-Defined in `packet_contract.py`: `approval_request`, `system_notice`, `plan_gap_review`, `plan_patch_review`, `plan_ready_gate`, `commit_approval` — 0 grep hits in consumer code.
+### Packet kinds — dormancy claim requires grep-level verification (per rev_pkt_1360)
+Prior drafts claimed 6 of 12 kinds were dormant. Re-verification needed:
+- `commit_approval` IS wired in runtime code (rev_pkt_1360 evidence)
+- Plan packet kinds (`plan_gap_review`, `plan_patch_review`, `plan_ready_gate`) ARE wired in planning flows (rev_pkt_1360 evidence)
+- `approval_request` and `system_notice` — grep status to be re-verified in next audit
+- Previous blanket "dormant" claim is retracted pending per-kind consumer-site grep
 
 ### `integrations/` summary
 - `code-link-ide/` — Phase 0 voice-driven remote IDE controller (Rust+Swift+TS/Kotlin). mTLS pairing underspecified.
@@ -703,7 +707,7 @@ Sampled 5 core dataclasses, 16 load-bearing fields. Key findings:
 ### Fields with ZERO writers (frozen-dataclass builder pattern, by design)
 | Field | Readers | Notes |
 |---|---:|---|
-| `ReviewerRuntimeContract.review_accepted` | 36 | Populated only by `reviewer_runtime_parser.parse_reviewer_runtime_contract()` |
+| `ReviewerRuntimeContract.review_acceptance.review_accepted` (nested) | 36 | Populated only by `reviewer_runtime_parser.parse_reviewer_runtime_contract()` — prior draft omitted the `.review_acceptance` nesting (rev_pkt_1360 correction) |
 | `ReviewerRuntimeContract.publish_clear` | 11 | Same builder pattern |
 | `ReviewerRuntimeContract.remote_control_attachment` | 35 | 0 direct writers, constructor-only |
 | `RecoveryAssessment.diagnosis` | 23 | Populated by `build_recovery_assessment()` only |
@@ -772,7 +776,9 @@ Sampled 5 core dataclasses, 16 load-bearing fields. Key findings:
 
 ## 27. Self-Updating SYSTEM_MAP Design (Phase 2 mechanism)
 
-**Proposed command:** `python3 dev/scripts/devctl.py system-map --regenerate --preserve-sections "13,14,15" --format md --write --dry-run`
+**PROPOSED (not yet implemented, no CLI registration exists today — rev_pkt_1358 clarification):** `python3 dev/scripts/devctl.py system-map --regenerate --preserve-sections "13,14,15" --format md --write --dry-run`
+
+This is a Phase 2 design artifact for discussion. `devctl discover` does not list a `system-map` subcommand; the command must be added to the CLI parser + command registry before this design can be exercised. Treat all references to `devctl system-map` in this doc as proposed/pending until implementation lands.
 
 **Auto-generatable sections (14 of 21):** 0 (flowchart via context-graph), 2 (commands via discover), 3 (guards+probes via discover+dogfood), 6 (half-built via system-picture+findings-priority), 7 (dormant surfaces via system-picture+discover), 9 (dogfood coverage via dogfood), 10 (priority backlog via findings-priority), 16 (MP tracker via grep+MASTER_PLAN), 18 (autonomy via discover+system-picture), 20 (test architecture via pytest collect), 21 (undocumented catalog via discover+grep), +3 hybrid (4, 5, 8, 14, 15, 17, 19).
 
