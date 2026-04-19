@@ -57,6 +57,8 @@ SYSTEM_MAP.md is a supplementary navigation index read AFTER the canonical boots
 
 ## 0.6 Canonical Runtime Spine (v6.2 — promoted from §49 for top-of-doc visibility)
 
+> ⚠️ **v6.4 correction per rev_pkt_1374:** The ✅ marker below means "typed dataclass exists and is used in some codepath" — it does **NOT** mean the object is wired into `context-graph` edges, discoverable from `startup-context`, or validated by any guard. As of this commit: `context-graph --query SYSTEM_MAP` returns 0 neighbor edges; `startup-context --format json` has no `featured_docs` / `key_surfaces` / SYSTEM_MAP reference; no code in `dev/config/devctl_repo_policy.json` or `dev/scripts/devctl/governance/surface_runtime.py` references `system_map_renderer`. See rev_pkt_1370 Patches 1–3 for the coder-lane work that would make this spine actually load-bearing. Until those land, this section **describes a target shape, not current runtime wiring.**
+
 One deterministic control path from repo truth → governed action → evidence → context. Each object is either implemented (✅), partially wired (⚠️), or not yet materialized (❌). Full authority-object detail remains in §49; this is the compact at-a-glance view.
 
 ```
@@ -91,7 +93,7 @@ What counts as execution authority vs navigation vs reference:
 
 **Rule:** If tier 3 conflicts with tier 1, tier 1 wins and tier 3 must be updated. This doc can become stale; typed state cannot.
 
-**Freshness contract:** SYSTEM_MAP.md must be regenerated whenever `dev/audits/REVIEW_SNAPSHOT.md`, `bridge.md`, or any authority-spine object under §49 changes. Target future state: SYSTEM_MAP.md is a **generated projection** over typed state (see §51 closure row), not a hand-maintained doc.
+**Freshness contract (ASPIRATIONAL — not yet enforced):** the target is that SYSTEM_MAP.md regenerates whenever `dev/audits/REVIEW_SNAPSHOT.md`, `bridge.md`, or any authority-spine object under §49 changes. **There is currently no check_* guard that enforces this.** rev_pkt_1370 Patch 1 proposes adding a `system_map_renderer` entry to `repo_governance.surface_generation.surfaces` in `dev/config/devctl_repo_policy.json` and extending `check_instruction_surface_sync.py` to validate drift. Until that lands, this doc is hand-maintained and can silently go stale. Final target state: SYSTEM_MAP.md becomes a **generated projection** over typed state (see §51 closure row), not a hand-maintained doc.
 
 ---
 
