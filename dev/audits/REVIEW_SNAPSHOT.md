@@ -5,14 +5,14 @@
 ## Quick status
 
 - Branch: `feature/governance-quality-sweep`
-- HEAD: `a7e9e127f640` — SYSTEM_MAP.md §47 — doc sprawl (60 top-level orientation MDs) + consolidation roadmap
-- Tree hash: `daa0b7b5be33`
-- Generation stamp: `snap-2bac06d1bd9e`
-- Generated at (UTC): 2026-04-19T20:14:04Z
+- HEAD: `8a8ef05951a1` — SYSTEM_MAP.md v6.1 — sections 48-53 + governance-first §0.5 pivot
+- Tree hash: `f2891f832fbc`
+- Generation stamp: `snap-95de333ba985`
+- Generated at (UTC): 2026-04-19T20:23:38Z
 - Push decision: `await_review` — review_loop_relaunch_required
 - Reviewer mode: `tools_only` (interaction: `local_terminal`)
 - Pipeline state: `n/a` (approval: `n/a`)
-- Delta since last snapshot: 24 commits, 217 files, +11573/-5116
+- Delta since last snapshot: 24 commits, 213 files, +11378/-4947
 - Governance findings: 112 open / 86 fixed / 212 total
 - Probe hints: 0 total across 0 files scanned
 
@@ -54,9 +54,9 @@ adopters arrive.
 - Remote: `https://github.com/jguida941/voiceterm.git`
 - Default branch: `master`
 - Current branch: `feature/governance-quality-sweep`
-- HEAD SHA: `a7e9e127f640a987f52cbb1d10a29de6d6894280`
+- HEAD SHA: `8a8ef05951a123e3cafd73491c9e732fbac302f5`
 - HEAD author: Justin Guida
-- HEAD timestamp (UTC): 2026-04-19T16:13:51-04:00
+- HEAD timestamp (UTC): 2026-04-19T16:23:25-04:00
 
 ## 2. Governance state
 
@@ -95,64 +95,63 @@ adopters arrive.
 
 ## 3. Delta — what changed since the previous snapshot
 
-Range: last 24 commits ending at `a7e9e127f640`
+Range: last 24 commits ending at `8a8ef05951a1`
 
 - commits: 24
-- files changed: 217
-- insertions: +11573
-- deletions: -5116
+- files changed: 213
+- insertions: +11378
+- deletions: -4947
 - bundle classes touched: docs, tooling
 - risk add-ons triggered: Parser / ANSI boundary
-- authority surfaces touched: 15 file(s)
+- authority surfaces touched: 14 file(s)
 
 ### Commits
 
 | # | SHA | Subject | Files | +/- | Bundle | Risk |
 |---|---|---|---|---|---|---|
-| 1 | `a7e9e127` | SYSTEM_MAP.md §47 — doc sprawl (60 top-level orientation MD… | 1 | +71/-0 | docs |  |
-| 2 | `d7168933` | Refresh external review snapshot for b16d5d3b | 2 | +45/-44 | docs |  |
-| 3 | `b16d5d3b` | SYSTEM_MAP.md v6 — 10 gap-audit sections added per external… | 1 | +320/-0 | docs |  |
-| 4 | `548401c3` | Refresh external review snapshot for 01830a05 | 2 | +53/-62 | docs |  |
-| 5 | `01830a05` | Fix SYSTEM_MAP.md per Codex rev_pkt_1358/1360 + prep for ex… | 1 | +11/-5 | docs |  |
-| 6 | `0fb9dda6` | Refresh external review snapshot for 4dc05995 | 2 | +51/-46 | docs |  |
-| 7 | `4dc05995` | SYSTEM_MAP.md v5 — operator override on Codex rev_pkt_1354… | 1 | +259/-2 | docs |  |
-| 8 | `da2a7aec` | Refresh external review snapshot for ce1d75b4 | 2 | +55/-52 | docs |  |
-| 9 | `ce1d75b4` | Fix SYSTEM_MAP.md per Codex rev_pkt_1353/1356 re-review | 1 | +8/-6 | docs |  |
-| 10 | `27fc2d73` | Refresh external review snapshot for e19c5551 | 2 | +60/-59 | docs |  |
-| 11 | `e19c5551` | Expand SYSTEM_MAP.md sections 22-29 from third 8-agent sweep | 1 | +186/-0 | docs |  |
-| 12 | `983d3381` | Refresh external review snapshot for 995559a8 | 2 | +57/-57 | docs |  |
-| 13 | `995559a8` | Fix SYSTEM_MAP.md per Codex review (rev_pkt_1348) | 1 | +36/-18 | docs |  |
-| 14 | `6b0bcba1` | Refresh external review snapshot for 3c59b601 | 2 | +56/-50 | docs |  |
-| 15 | `3c59b601` | Expand SYSTEM_MAP.md sections 14-21 from second 8-agent swe… | 1 | +243/-0 | docs |  |
-| 16 | `fe9ed851` | Refresh external review snapshot for 9097f268 | 2 | +52/-51 | docs |  |
-| 17 | `9097f268` | Add dev/guides/SYSTEM_MAP.md living connectivity index | 1 | +378/-0 | docs |  |
-| 18 | `37d6be74` | Refresh external review snapshot for 8ef9f1a7 | 2 | +93/-79 | docs |  |
-| 19 | `8ef9f1a7` | Recovery checkpoint: restore stashed session state + test f… | 7 | +312/-5 | docs |  |
-| 20 | `92b17e69` | Land collaboration wake/ownership + typed plan integration… | 61 | +4203/-474 | tooling |  |
-| 21 | `4245890c` | Refresh external review snapshot for 1f7b4f38 | 2 | +97/-86 | docs |  |
-| 22 | `1f7b4f38` | Land MP-398/399/410/412/413/415/416 combined multi-slice (C… | 157 | +4448/-3794 | tooling | Parser / ANSI boundary |
-| 23 | `fc20cc1b` | Refresh external review snapshot for aa570cee | 2 | +65/-67 | docs |  |
-| 24 | `aa570cee` | Add role-implicit commit approval for /remote-control (rev_… | 14 | +414/-159 | tooling |  |
+| 1 | `8a8ef059` | SYSTEM_MAP.md v6.1 — sections 48-53 + governance-first §0.5… | 1 | +233/-7 | docs |  |
+| 2 | `331c7ff2` | Refresh external review snapshot for a7e9e127 | 2 | +51/-50 | docs |  |
+| 3 | `a7e9e127` | SYSTEM_MAP.md §47 — doc sprawl (60 top-level orientation MD… | 1 | +71/-0 | docs |  |
+| 4 | `d7168933` | Refresh external review snapshot for b16d5d3b | 2 | +45/-44 | docs |  |
+| 5 | `b16d5d3b` | SYSTEM_MAP.md v6 — 10 gap-audit sections added per external… | 1 | +320/-0 | docs |  |
+| 6 | `548401c3` | Refresh external review snapshot for 01830a05 | 2 | +53/-62 | docs |  |
+| 7 | `01830a05` | Fix SYSTEM_MAP.md per Codex rev_pkt_1358/1360 + prep for ex… | 1 | +11/-5 | docs |  |
+| 8 | `0fb9dda6` | Refresh external review snapshot for 4dc05995 | 2 | +51/-46 | docs |  |
+| 9 | `4dc05995` | SYSTEM_MAP.md v5 — operator override on Codex rev_pkt_1354… | 1 | +259/-2 | docs |  |
+| 10 | `da2a7aec` | Refresh external review snapshot for ce1d75b4 | 2 | +55/-52 | docs |  |
+| 11 | `ce1d75b4` | Fix SYSTEM_MAP.md per Codex rev_pkt_1353/1356 re-review | 1 | +8/-6 | docs |  |
+| 12 | `27fc2d73` | Refresh external review snapshot for e19c5551 | 2 | +60/-59 | docs |  |
+| 13 | `e19c5551` | Expand SYSTEM_MAP.md sections 22-29 from third 8-agent sweep | 1 | +186/-0 | docs |  |
+| 14 | `983d3381` | Refresh external review snapshot for 995559a8 | 2 | +57/-57 | docs |  |
+| 15 | `995559a8` | Fix SYSTEM_MAP.md per Codex review (rev_pkt_1348) | 1 | +36/-18 | docs |  |
+| 16 | `6b0bcba1` | Refresh external review snapshot for 3c59b601 | 2 | +56/-50 | docs |  |
+| 17 | `3c59b601` | Expand SYSTEM_MAP.md sections 14-21 from second 8-agent swe… | 1 | +243/-0 | docs |  |
+| 18 | `fe9ed851` | Refresh external review snapshot for 9097f268 | 2 | +52/-51 | docs |  |
+| 19 | `9097f268` | Add dev/guides/SYSTEM_MAP.md living connectivity index | 1 | +378/-0 | docs |  |
+| 20 | `37d6be74` | Refresh external review snapshot for 8ef9f1a7 | 2 | +93/-79 | docs |  |
+| 21 | `8ef9f1a7` | Recovery checkpoint: restore stashed session state + test f… | 7 | +312/-5 | docs |  |
+| 22 | `92b17e69` | Land collaboration wake/ownership + typed plan integration… | 61 | +4203/-474 | tooling |  |
+| 23 | `4245890c` | Refresh external review snapshot for 1f7b4f38 | 2 | +97/-86 | docs |  |
+| 24 | `1f7b4f38` | Land MP-398/399/410/412/413/415/416 combined multi-slice (C… | 157 | +4448/-3794 | tooling | Parser / ANSI boundary |
 
 ### Files
 
 | Path | Bundle | +/- |
 |---|---|---|
-| `AGENTS.md` | docs | +13/-0 |
-| `bridge.md` | docs | +57/-57 |
-| `dev/active/MASTER_PLAN.md` | tooling | +81/-0 |
+| `AGENTS.md` | docs | +12/-0 |
+| `bridge.md` | docs | +53/-53 |
+| `dev/active/MASTER_PLAN.md` | tooling | +69/-0 |
 | `dev/active/ai_governance_platform.md` | tooling | +261/-4 |
-| `dev/active/remote_control_runtime.md` | tooling | +25/-1 |
-| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +823/-794 |
+| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +750/-718 |
 | `dev/config/publication_sync_registry.json` | tooling | +2/-2 |
 | `dev/drafts/claude_finding_readiness_proposal.md` | docs | +73/-0 |
 | `dev/drafts/codex_exit_82_silent_death.md` | docs | +88/-0 |
 | `dev/drafts/rev_pkt_1270_validation_partial.md` | docs | +58/-0 |
 | `dev/drafts/wake_system_empirical_fail_20260419.md` | docs | +62/-0 |
-| `dev/guides/DEVELOPMENT.md` | docs | +28/-10 |
-| `dev/guides/SYSTEM_MAP.md` | docs | +1512/-31 |
-| `dev/history/ENGINEERING_EVOLUTION.md` | tooling | +184/-39 |
-| `dev/scripts/README.md` | tooling | +32/-15 |
+| `dev/guides/DEVELOPMENT.md` | docs | +13/-1 |
+| `dev/guides/SYSTEM_MAP.md` | docs | +1745/-38 |
+| `dev/history/ENGINEERING_EVOLUTION.md` | tooling | +139/-1 |
+| `dev/scripts/README.md` | tooling | +8/-1 |
 | `dev/scripts/checks/active_plan/packet_plan_sync.py` | tooling | +69/-0 |
 | `dev/scripts/checks/check_rustsec_policy.py` | tooling | +1/-17 |
 | `dev/scripts/checks/coderabbit/gate_core.py` | tooling | +319/-0 |
@@ -178,7 +177,8 @@ Range: last 24 commits ending at `a7e9e127f640`
 | `dev/scripts/checks/probe_unwrap_chains.py` | tooling | +1/-17 |
 | `dev/scripts/checks/probe_vague_errors.py` | tooling | +1/-17 |
 | `dev/scripts/checks/run_coderabbit_ralph_loop.py` | tooling | +7/-113 |
-| _177 more files trimmed_ | | |
+| `dev/scripts/checks/run_probe_report.py` | tooling | +1/-1 |
+| _173 more files trimmed_ | | |
 
 ## 4. Quality signals
 
@@ -263,7 +263,6 @@ Recent findings:
 - **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/commands/vcs/governed_executor_stage_snapshot.py`) — Review contract-level invariants for this file
 - **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/runtime/review_snapshot_sources.py`) — Review contract-level invariants for this file
 - **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/tests/checks/test_startup_authority_contract.py`) — Review contract-level invariants for this file
-- **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/commands/vcs/governed_executor_packets.py`) — Review contract-level invariants for this file
 - **contract_mutation**: Contract / typed model mutated (`dev/scripts/devctl/runtime/collaboration_wake_contract.py`) — Commit 92b17e69 changed dev/scripts/devctl/runtime/collaboration_wake_contract.py
 - **contract_mutation**: Contract / typed model mutated (`dev/scripts/devctl/runtime/review_state_collaboration_models.py`) — Commit 92b17e69 changed dev/scripts/devctl/runtime/review_state_collaboration_models.py
 - **contract_mutation**: Contract / typed model mutated (`dev/scripts/devctl/tests/test_active_plan_contract.py`) — Commit 92b17e69 changed dev/scripts/devctl/tests/test_active_plan_contract.py
@@ -282,6 +281,13 @@ Recent findings:
 
 ### Per-commit rationale
 
+- **`8a8ef059`** — SYSTEM_MAP.md v6.1 — sections 48-53 + governance-first §0.5 pivot
+  - - §0.5 reframed governance-first: repo is a portable typed AI-governance
+  -   platform; VoiceTerm is ONE adopter/product shell, not the engine
+  - - §48 Portable Engine Boundary: 4-tier classification (engine / repo-pack /
+  - evolution: Fact: the next live Codex+Claude remote-control pass exposed a narrower defect than "the heartbeat is stale." Event-backed packet posting already updated the typed queue immediately, but the actual reviewer wake lived o…
+- **`331c7ff2`** — Refresh external review snapshot for a7e9e127
+  - evolution: Fact: the next live Codex+Claude remote-control pass exposed a narrower defect than "the heartbeat is stale." Event-backed packet posting already updated the typed queue immediately, but the actual reviewer wake lived o…
 - **`a7e9e127` | MPs: MP-388** — SYSTEM_MAP.md §47 — doc sprawl (60 top-level orientation MDs) + consolidation roadmap
   - Operator 2026-04-19 evening: 'I cannot have 50 fucking different MDs. This
   - needs to be addressed in the system plan.'
@@ -352,10 +358,6 @@ Recent findings:
   - evolution: Fact: the next MP-377 collaboration pass exposed a smaller but more important coupling bug than "Claude should dogfood more." The repo already had `devctl dogfood --record --dev-mode`, but the live collaboration contrac…
 - **`1f7b4f38` | MPs: MP-398** — Land MP-398/399/410/412/413/415/416 combined multi-slice (Codex v2-v7)
   - evolution: Fact: the next MP-377 collaboration pass exposed a smaller but more important coupling bug than "Claude should dogfood more." The repo already had `devctl dogfood --record --dev-mode`, but the live collaboration contrac…
-- **`fc20cc1b`** — Refresh external review snapshot for aa570cee
-  - evolution: Fact: the next MP-377 collaboration pass exposed a smaller but more important coupling bug than "Claude should dogfood more." The repo already had `devctl dogfood --record --dev-mode`, but the live collaboration contrac…
-- **`aa570cee`** — Add role-implicit commit approval for /remote-control (rev_pkt_1120 gap #1)
-  - evolution: Fact: the next MP-377 collaboration pass exposed a smaller but more important coupling bug than "Claude should dogfood more." The repo already had `devctl dogfood --record --dev-mode`, but the live collaboration contrac…
 ### Active MP scope (from MASTER_PLAN.md)
 
 - contract slice for MP-355 plus the temporary markdown-swarm operating mode
@@ -391,4 +393,4 @@ Recent findings:
 
 ---
 
-Projection produced by `devctl review-snapshot`. Generation stamp `snap-2bac06d1bd9e` binds this file to HEAD `a7e9e127f640`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
+Projection produced by `devctl review-snapshot`. Generation stamp `snap-95de333ba985` binds this file to HEAD `8a8ef05951a1`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
