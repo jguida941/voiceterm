@@ -158,6 +158,7 @@ def canonicalize_projection_review_state(
         review_state_payload["reviewer_observation"] = obs_proj
     project_authority_snapshot(
         review_state_payload,
+        caller_role="observer",
         next_command=_projection_next_command(review_state_payload),
     )
     return review_state_payload

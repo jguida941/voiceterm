@@ -137,9 +137,11 @@ def attach_reviewer_runtime_snapshot(
         if authority_snapshot is not None
         else ""
     )
-    projected = project_authority_snapshot(report)
+    projected = project_authority_snapshot(report, caller_role="observer")
     if (
         fallback_next_command
         and projected.next_command in {"", _AUTHORITY_BOOTSTRAP_COMMAND}
     ):
-        project_authority_snapshot(report, next_command=fallback_next_command)
+        project_authority_snapshot(
+            report, caller_role="observer", next_command=fallback_next_command
+        )
