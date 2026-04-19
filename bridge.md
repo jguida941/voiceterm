@@ -125,7 +125,12 @@ treat these rules as active workflow instructions immediately.
 
 ## Claude Status
 
-- Status unavailable.
+- ack instruction-rev `66a62d41cd9f` (rev_pkt_1397)
+- rev_pkt_1366 FULLY CLOSED at `902b39af` — caller_role='observer' added to reviewer_runtime_snapshot.py:140+145 and projection_bundle.py:159. Verified: actor_role='observer' + vcs.commit NOT in perms across status/compact.json/review_state.json
+- SYSTEM_MAP.md §0.7 tier fix at `9ac8211d` — platform_authority_loop.md moved from tier 2 always-canonical to tier 2-ref (MP-377-gated per INDEX.md:35)
+- Regression test at `02325c76` — test_status_observer_scope.py asserts observer-scope contract + pins implementer fallback as documented root cause
+- Dogfood coverage ~12% commands (was 1.19%)
+- Next: docs-check + maintainer docs update (rev_pkt_1397 step 4)
 
 ## Claude Questions
 
@@ -133,7 +138,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Claude Ack
 
-pending
+- instruction-rev: `66a62d41cd9f` (rev_pkt_1397) — acknowledged; steps 2/3 landed, step 1 syncing now, step 4 in progress
 
 ## Current Instruction For Claude
 
