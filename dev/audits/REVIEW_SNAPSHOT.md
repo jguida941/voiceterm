@@ -5,14 +5,14 @@
 ## Quick status
 
 - Branch: `feature/governance-quality-sweep`
-- HEAD: `e19c5551c386` — Expand SYSTEM_MAP.md sections 22-29 from third 8-agent sweep
-- Tree hash: `c05e9468890d`
-- Generation stamp: `snap-f0a16eee9a86`
-- Generated at (UTC): 2026-04-19T19:48:27Z
+- HEAD: `ce1d75b4d163` — Fix SYSTEM_MAP.md per Codex rev_pkt_1353/1356 re-review
+- Tree hash: `7a08da7d003b`
+- Generation stamp: `snap-443def8e84fd`
+- Generated at (UTC): 2026-04-19T19:55:44Z
 - Push decision: `await_review` — review_loop_relaunch_required
 - Reviewer mode: `tools_only` (interaction: `local_terminal`)
 - Pipeline state: `n/a` (approval: `n/a`)
-- Delta since last snapshot: 24 commits, 278 files, +15014/-6204
+- Delta since last snapshot: 24 commits, 274 files, +14767/-6118
 - Governance findings: 112 open / 86 fixed / 212 total
 - Probe hints: 0 total across 0 files scanned
 
@@ -54,9 +54,9 @@ adopters arrive.
 - Remote: `https://github.com/jguida941/voiceterm.git`
 - Default branch: `master`
 - Current branch: `feature/governance-quality-sweep`
-- HEAD SHA: `e19c5551c386179f95665d1615d0fab0257c7789`
+- HEAD SHA: `ce1d75b4d16390d16b5a10cd8a714ecb0c8c3ffa`
 - HEAD author: Justin Guida
-- HEAD timestamp (UTC): 2026-04-19T15:48:14-04:00
+- HEAD timestamp (UTC): 2026-04-19T15:55:31-04:00
 
 ## 2. Governance state
 
@@ -95,12 +95,12 @@ adopters arrive.
 
 ## 3. Delta — what changed since the previous snapshot
 
-Range: last 24 commits ending at `e19c5551c386`
+Range: last 24 commits ending at `ce1d75b4d163`
 
 - commits: 24
-- files changed: 278
-- insertions: +15014
-- deletions: -6204
+- files changed: 274
+- insertions: +14767
+- deletions: -6118
 - bundle classes touched: docs, tooling
 - risk add-ons triggered: Parser / ANSI boundary
 - authority surfaces touched: 25 file(s)
@@ -109,51 +109,51 @@ Range: last 24 commits ending at `e19c5551c386`
 
 | # | SHA | Subject | Files | +/- | Bundle | Risk |
 |---|---|---|---|---|---|---|
-| 1 | `e19c5551` | Expand SYSTEM_MAP.md sections 22-29 from third 8-agent sweep | 1 | +186/-0 | docs |  |
-| 2 | `983d3381` | Refresh external review snapshot for 995559a8 | 2 | +57/-57 | docs |  |
-| 3 | `995559a8` | Fix SYSTEM_MAP.md per Codex review (rev_pkt_1348) | 1 | +36/-18 | docs |  |
-| 4 | `6b0bcba1` | Refresh external review snapshot for 3c59b601 | 2 | +56/-50 | docs |  |
-| 5 | `3c59b601` | Expand SYSTEM_MAP.md sections 14-21 from second 8-agent swe… | 1 | +243/-0 | docs |  |
-| 6 | `fe9ed851` | Refresh external review snapshot for 9097f268 | 2 | +52/-51 | docs |  |
-| 7 | `9097f268` | Add dev/guides/SYSTEM_MAP.md living connectivity index | 1 | +378/-0 | docs |  |
-| 8 | `37d6be74` | Refresh external review snapshot for 8ef9f1a7 | 2 | +93/-79 | docs |  |
-| 9 | `8ef9f1a7` | Recovery checkpoint: restore stashed session state + test f… | 7 | +312/-5 | docs |  |
-| 10 | `92b17e69` | Land collaboration wake/ownership + typed plan integration… | 61 | +4203/-474 | tooling |  |
-| 11 | `4245890c` | Refresh external review snapshot for 1f7b4f38 | 2 | +97/-86 | docs |  |
-| 12 | `1f7b4f38` | Land MP-398/399/410/412/413/415/416 combined multi-slice (C… | 157 | +4448/-3794 | tooling | Parser / ANSI boundary |
-| 13 | `fc20cc1b` | Refresh external review snapshot for aa570cee | 2 | +65/-67 | docs |  |
-| 14 | `aa570cee` | Add role-implicit commit approval for /remote-control (rev_… | 14 | +414/-159 | tooling |  |
-| 15 | `46d34660` | Refresh external review snapshot for 6e87e071 | 2 | +58/-56 | docs |  |
-| 16 | `6e87e071` | Extend MP-377 with consolidation phases MP-388..MP-397 + Da… | 5 | +362/-66 | tooling |  |
-| 17 | `a2e283de` | Post-commit checkpoint: governance refresh after MP-388..MP… | 1 | +46/-42 | tooling |  |
-| 18 | `7d0f87a4` | Extend MP-377 with consolidation phases MP-388..MP-397 (Cod… | 1 | +57/-66 | tooling |  |
-| 19 | `0b09da19` | Refresh external review snapshot for 4f19b308 | 2 | +85/-75 | docs |  |
-| 20 | `4f19b308` | Converge review-channel authority and effective-mode projec… | 74 | +3274/-789 | tooling |  |
-| 21 | `637ef6f3` | Refresh external review snapshot for 077a875e | 2 | +58/-57 | docs |  |
-| 22 | `077a875e` | Allow review relaunch when refresh-recommended sessions hav… | 4 | +119/-62 | tooling |  |
-| 23 | `1732a6f5` | Refresh external review snapshot for 3632d600 | 2 | +68/-71 | docs |  |
-| 24 | `3632d600` | Finish checkpoint repair authority follow-up | 13 | +247/-80 | tooling |  |
+| 1 | `ce1d75b4` | Fix SYSTEM_MAP.md per Codex rev_pkt_1353/1356 re-review | 1 | +8/-6 | docs |  |
+| 2 | `27fc2d73` | Refresh external review snapshot for e19c5551 | 2 | +60/-59 | docs |  |
+| 3 | `e19c5551` | Expand SYSTEM_MAP.md sections 22-29 from third 8-agent sweep | 1 | +186/-0 | docs |  |
+| 4 | `983d3381` | Refresh external review snapshot for 995559a8 | 2 | +57/-57 | docs |  |
+| 5 | `995559a8` | Fix SYSTEM_MAP.md per Codex review (rev_pkt_1348) | 1 | +36/-18 | docs |  |
+| 6 | `6b0bcba1` | Refresh external review snapshot for 3c59b601 | 2 | +56/-50 | docs |  |
+| 7 | `3c59b601` | Expand SYSTEM_MAP.md sections 14-21 from second 8-agent swe… | 1 | +243/-0 | docs |  |
+| 8 | `fe9ed851` | Refresh external review snapshot for 9097f268 | 2 | +52/-51 | docs |  |
+| 9 | `9097f268` | Add dev/guides/SYSTEM_MAP.md living connectivity index | 1 | +378/-0 | docs |  |
+| 10 | `37d6be74` | Refresh external review snapshot for 8ef9f1a7 | 2 | +93/-79 | docs |  |
+| 11 | `8ef9f1a7` | Recovery checkpoint: restore stashed session state + test f… | 7 | +312/-5 | docs |  |
+| 12 | `92b17e69` | Land collaboration wake/ownership + typed plan integration… | 61 | +4203/-474 | tooling |  |
+| 13 | `4245890c` | Refresh external review snapshot for 1f7b4f38 | 2 | +97/-86 | docs |  |
+| 14 | `1f7b4f38` | Land MP-398/399/410/412/413/415/416 combined multi-slice (C… | 157 | +4448/-3794 | tooling | Parser / ANSI boundary |
+| 15 | `fc20cc1b` | Refresh external review snapshot for aa570cee | 2 | +65/-67 | docs |  |
+| 16 | `aa570cee` | Add role-implicit commit approval for /remote-control (rev_… | 14 | +414/-159 | tooling |  |
+| 17 | `46d34660` | Refresh external review snapshot for 6e87e071 | 2 | +58/-56 | docs |  |
+| 18 | `6e87e071` | Extend MP-377 with consolidation phases MP-388..MP-397 + Da… | 5 | +362/-66 | tooling |  |
+| 19 | `a2e283de` | Post-commit checkpoint: governance refresh after MP-388..MP… | 1 | +46/-42 | tooling |  |
+| 20 | `7d0f87a4` | Extend MP-377 with consolidation phases MP-388..MP-397 (Cod… | 1 | +57/-66 | tooling |  |
+| 21 | `0b09da19` | Refresh external review snapshot for 4f19b308 | 2 | +85/-75 | docs |  |
+| 22 | `4f19b308` | Converge review-channel authority and effective-mode projec… | 74 | +3274/-789 | tooling |  |
+| 23 | `637ef6f3` | Refresh external review snapshot for 077a875e | 2 | +58/-57 | docs |  |
+| 24 | `077a875e` | Allow review relaunch when refresh-recommended sessions hav… | 4 | +119/-62 | tooling |  |
 
 ### Files
 
 | Path | Bundle | +/- |
 |---|---|---|
-| `AGENTS.md` | docs | +19/-2 |
-| `bridge.md` | docs | +71/-71 |
-| `dev/active/MASTER_PLAN.md` | tooling | +133/-2 |
-| `dev/active/ai_governance_platform.md` | tooling | +552/-14 |
+| `AGENTS.md` | docs | +17/-0 |
+| `bridge.md` | docs | +64/-64 |
+| `dev/active/MASTER_PLAN.md` | tooling | +125/-1 |
+| `dev/active/ai_governance_platform.md` | tooling | +530/-14 |
 | `dev/active/remote_control_runtime.md` | tooling | +25/-1 |
 | `dev/active/review_channel.md` | tooling | +1/-0 |
-| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1148/-1123 |
+| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1083/-1054 |
 | `dev/config/publication_sync_registry.json` | tooling | +2/-2 |
 | `dev/drafts/claude_finding_readiness_proposal.md` | docs | +73/-0 |
 | `dev/drafts/codex_exit_82_silent_death.md` | docs | +88/-0 |
 | `dev/drafts/rev_pkt_1270_validation_partial.md` | docs | +58/-0 |
 | `dev/drafts/wake_system_empirical_fail_20260419.md` | docs | +62/-0 |
-| `dev/guides/DEVELOPMENT.md` | docs | +34/-12 |
-| `dev/guides/SYSTEM_MAP.md` | docs | +843/-18 |
-| `dev/history/ENGINEERING_EVOLUTION.md` | tooling | +304/-40 |
-| `dev/scripts/README.md` | tooling | +45/-18 |
+| `dev/guides/DEVELOPMENT.md` | docs | +33/-11 |
+| `dev/guides/SYSTEM_MAP.md` | docs | +851/-24 |
+| `dev/history/ENGINEERING_EVOLUTION.md` | tooling | +246/-40 |
+| `dev/scripts/README.md` | tooling | +37/-16 |
 | `dev/scripts/checks/active_plan/packet_plan_sync.py` | tooling | +69/-0 |
 | `dev/scripts/checks/check_rustsec_policy.py` | tooling | +1/-17 |
 | `dev/scripts/checks/coderabbit/gate_core.py` | tooling | +319/-0 |
@@ -178,7 +178,7 @@ Range: last 24 commits ending at `e19c5551c386`
 | `dev/scripts/checks/probe_unnecessary_intermediates.py` | tooling | +1/-17 |
 | `dev/scripts/checks/probe_unwrap_chains.py` | tooling | +1/-17 |
 | `dev/scripts/checks/probe_vague_errors.py` | tooling | +1/-17 |
-| _238 more files trimmed_ | | |
+| _234 more files trimmed_ | | |
 
 ## 4. Quality signals
 
@@ -292,6 +292,11 @@ Recent findings:
 
 ### Per-commit rationale
 
+- **`ce1d75b4`** — Fix SYSTEM_MAP.md per Codex rev_pkt_1353/1356 re-review
+  - 3 remaining doc integrity issues addressed:
+  - evolution: Fact: the next live Codex+Claude remote-control pass exposed a narrower defect than "the heartbeat is stale." Event-backed packet posting already updated the typed queue immediately, but the actual reviewer wake lived o…
+- **`27fc2d73`** — Refresh external review snapshot for e19c5551
+  - evolution: Fact: the next live Codex+Claude remote-control pass exposed a narrower defect than "the heartbeat is stale." Event-backed packet posting already updated the typed queue immediately, but the actual reviewer wake lived o…
 - **`e19c5551`** — Expand SYSTEM_MAP.md sections 22-29 from third 8-agent sweep
   - Operator directive 2026-04-19 evening: 'keep iterating with as many agents as
   - you need... looking for type state isn't connected... full system map of
@@ -353,8 +358,6 @@ Recent findings:
   - evolution: Fact: the next MP-377 collaboration pass exposed a smaller but more important coupling bug than "Claude should dogfood more." The repo already had `devctl dogfood --record --dev-mode`, but the live collaboration contrac…
 - **`637ef6f3`** — Refresh external review snapshot for 077a875e
 - **`077a875e`** — Allow review relaunch when refresh-recommended sessions have no live process
-- **`1732a6f5`** — Refresh external review snapshot for 3632d600
-- **`3632d600`** — Finish checkpoint repair authority follow-up
 ### Active MP scope (from MASTER_PLAN.md)
 
 - contract slice for MP-355 plus the temporary markdown-swarm operating mode
@@ -390,4 +393,4 @@ Recent findings:
 
 ---
 
-Projection produced by `devctl review-snapshot`. Generation stamp `snap-f0a16eee9a86` binds this file to HEAD `e19c5551c386`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
+Projection produced by `devctl review-snapshot`. Generation stamp `snap-443def8e84fd` binds this file to HEAD `ce1d75b4d163`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
