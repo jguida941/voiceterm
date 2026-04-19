@@ -14,11 +14,6 @@ from ..runtime.review_state_models import (
     ReviewCurrentSessionState,
 )
 from ..runtime.role_profile import TandemRole, default_provider_for_role
-from .peer_liveness import (
-    CODEX_POLL_STALE_AFTER_SECONDS,
-    ReviewerFreshness,
-    classify_reviewer_freshness,
-)
 from .collaboration_session_roster import (
     _build_delegated_work,
     _build_participants,
@@ -39,7 +34,12 @@ from .collaboration_session_status import (
     _collaboration_status,
     _operator_mode,
 )
-from .session_probe import ConductorSessionRecord, load_conductor_sessions
+from .collaboration_session_lane_owners import (
+    owner_status as _owner_status,
+    verification_owner as _verification_owner,
+    watcher_owner as _watcher_owner,
+)
+from .session_probe import load_conductor_sessions
 
 _text = _local_reviewer.text
 _utcnow = _local_reviewer._utcnow
@@ -116,6 +116,28 @@ def build_collaboration_session(
         reviewer_mode=reviewer_mode,
         effective_mode=effective_mode,
     )
+    mutation_owner = _agent_for_role(role_assignments, "coding_agent")
+    verification_owner = _verification_owner(
+        role_assignments=role_assignments,
+        mutation_owner=mutation_owner,
+    )
+    verification_status = _owner_status(
+        agent_id=verification_owner,
+        participants=participants,
+        role_assignments=role_assignments,
+        preferred_role_ids=("review_agent", "operator_agent"),
+    )
+    watcher_owner = _watcher_owner(
+        participants=participants,
+        role_assignments=role_assignments,
+        mutation_owner=mutation_owner,
+        verification_owner=verification_owner,
+    )
+    watcher_status = _owner_status(
+        agent_id=watcher_owner,
+        participants=participants,
+        role_assignments=role_assignments,
+    )
     return CollaborationSessionState(
         schema_version=1,
         contract_id="CollaborationSession",
@@ -160,9 +182,12 @@ def build_collaboration_session(
         ),
         work_ownership_mode=work_ownership_mode(ownership),
         ownership=ownership,
+        mutation_owner=mutation_owner,
+        verification_owner=verification_owner,
+        verification_status=verification_status,
+        watcher_owner=watcher_owner,
+        watcher_status=watcher_status,
     )
-
-
 def _promote_local_reviewer_presence(
     *,
     participants: tuple[CollaborationParticipantState, ...],

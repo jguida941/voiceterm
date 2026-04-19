@@ -163,10 +163,11 @@ def persist_pipeline(
     bridge_path: Path | None,
 ) -> list[str]:
     """Write the pipeline contract and refresh review projections."""
-    persist_remote_commit_pipeline_contract(pipeline, output_root=projections_root)
-    legacy_root = repo_root / active_path_config().review_status_dir_rel
-    if legacy_root.resolve() != projections_root.resolve():
-        persist_remote_commit_pipeline_contract(pipeline, output_root=legacy_root)
+    persist_pipeline_contract_only(
+        pipeline,
+        projections_root=projections_root,
+        repo_root=repo_root,
+    )
     return refresh_review_projections(
         repo_root=repo_root,
         refresh_projections=refresh_projections,
@@ -174,6 +175,19 @@ def persist_pipeline(
         bridge_path=bridge_path,
         projections_root=projections_root,
     )
+
+
+def persist_pipeline_contract_only(
+    pipeline: RemoteCommitPipelineContract,
+    *,
+    projections_root: Path,
+    repo_root: Path,
+) -> None:
+    """Write the pipeline contract without refreshing review projections."""
+    persist_remote_commit_pipeline_contract(pipeline, output_root=projections_root)
+    legacy_root = repo_root / active_path_config().review_status_dir_rel
+    if legacy_root.resolve() != projections_root.resolve():
+        persist_remote_commit_pipeline_contract(pipeline, output_root=legacy_root)
 
 
 def refresh_review_projections(

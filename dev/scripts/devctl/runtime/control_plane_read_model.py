@@ -20,24 +20,21 @@ from ..platform.coordination_snapshot_models import (
     CoordinationSnapshot,
     coordination_snapshot_from_mapping,
 )
-from .auto_mode import AutoModeInputs, AutoModePhase, resolve_auto_mode_phase
-from .conductor_capability import normalize_reviewer_mode
+from .auto_mode import AutoModePhase
 from .control_plane_sources import load_sources
-from .control_plane_pending_packets import resolve_pending_packets
+from .control_plane_loop_wake import ControlPlaneLoopWakeState
+from .control_plane_read_model_support import (
+    ControlPlaneContextInputs,
+    _extract_coordination,
+    resolve_control_plane_context,
+)
 from .control_plane_resolve import (
     load_git_state,
-    resolve_blocker_and_action,
-    resolve_daemon_state,
-    resolve_implementation_blocked,
-    resolve_quality,
-    resolve_reviewer_state,
     utc_now_iso,
 )
-from .operator_context import is_resolved, resolve_operator_interaction_mode
-from .reviewer_observation import ReviewerObservation, resolve_reviewer_observation
+from .reviewer_observation import ReviewerObservation
 from .reviewer_runtime_models import (
     RemoteControlAttachmentState,
-    has_active_remote_control_attachment,
     remote_control_attachment_from_mapping,
 )
 from .surface_snapshot import build_surface_zref
@@ -93,6 +90,11 @@ class ControlPlaneReadModel:
     # Quality
     last_guard_ok: bool
     check_details: tuple[dict[str, str], ...]
+    loop_wake_mode: str = "unknown"
+    loop_wake_interval_seconds: int = 0
+    loop_driver_agent: str = ""
+    loop_autonomy_ok: bool = False
+    loop_gap_summary: str = ""
 
     # Typed reviewer observation (derived from bridge state)
     reviewer_observation: ReviewerObservation | None = None
@@ -106,115 +108,6 @@ class ControlPlaneReadModel:
         if self.coordination is not None:
             payload["coordination"] = self.coordination.to_dict()
         return payload
-
-
-def _nested_get(d: dict[str, Any] | None, *keys: str) -> Any:
-    """Safely traverse nested dicts, returning None on any miss."""
-    cur: Any = d
-    for k in keys:
-        if not isinstance(cur, dict):
-            return None
-        cur = cur.get(k)
-    return cur
-
-
-def _build_reviewer_observation(
-    *,
-    head_sha: str,
-    reviewer: dict[str, Any],
-    review_state: dict[str, Any] | None,
-) -> ReviewerObservation | None:
-    """Build a ReviewerObservation from resolved reviewer dict and raw bridge data.
-
-    Returns None when no review_state is available (single-agent mode with
-    no bridge data to derive observation from).
-    """
-    bridge: dict[str, Any] = {}
-    if review_state:
-        bridge = review_state.get("bridge", {}) or {}
-    poll_utc = coerce_string(
-        bridge.get("last_reviewer_poll_utc") or bridge.get("last_codex_poll_utc")
-    )
-    review_needed = bool(bridge.get("review_needed", True))
-    reviewed_hash_current = bool(bridge.get("reviewed_hash_current", False))
-    head_at_push_time = coerce_string(bridge.get("head_at_push_time"))
-    return resolve_reviewer_observation(
-        head_sha=head_sha,
-        last_codex_poll_utc=poll_utc,
-        reviewer_freshness=reviewer["reviewer_freshness"],
-        review_needed=review_needed,
-        reviewed_hash_current=reviewed_hash_current,
-        last_reviewed_sha=reviewer.get("last_reviewed_sha", ""),
-        head_at_push_time=head_at_push_time,
-        review_accepted=reviewer["review_accepted"],
-    )
-
-
-def _governance_operator_interaction_mode(
-    governance: "ProjectGovernance | None",
-) -> str:
-    if governance is None:
-        return ""
-    return coerce_string(getattr(governance.bridge_config, "operator_interaction_mode", ""))
-
-
-from .operator_context import derive_operator_interaction_mode
-
-# Backward-compat private alias preserved for in-module callers and tests
-# referencing the original name.
-_derive_operator_interaction_mode = derive_operator_interaction_mode
-
-
-def _extract_coordination(
-    *,
-    repo_root: Path,
-    sources: dict[str, Any],
-    governance: "ProjectGovernance | None",
-    allow_startup_fallback: bool,
-    review_state: "ReviewState | None" = None,
-) -> CoordinationSnapshot | None:
-    """Return shared coordination truth via the governed loader.
-
-    Delegates to ``coordination_loader.load_coordination_snapshot`` so every
-    surface (dashboard, session-resume, startup-context) observes the same
-    gate-aware reducer output for one tick. Before this wiring, the read
-    model preferred any persisted ``coordination`` mapping found in the
-    sources dict over a fresh build, which meant dashboard and session-
-    resume could echo stale topology while startup-context emitted the
-    gate-corrected answer — the exact F1 divergence MP-384/MP-387 must
-    close.
-
-    ``review_state`` is the optional frozen typed review state the caller
-    already resolved for this proof tick. When supplied, it is threaded into
-    ``load_coordination_snapshot`` so the shared reducer uses the exact same
-    typed state as ``build_startup_context``; without this, each surface
-    triggered an independent ``load_current_review_state_payload`` refresh
-    that could silently reproject ``bridge.md`` between calls and desync
-    ``observed_topology`` / ``resync_reasons`` across surfaces.
-
-    ``allow_startup_fallback`` preserves the legacy fixture path: tests
-    that inject a synthetic ``sources_override`` without governance still
-    fall through to an on-disk ``build_startup_context`` only when
-    explicitly allowed.
-    """
-    from .coordination_loader import load_coordination_snapshot
-
-    fresh = load_coordination_snapshot(
-        repo_root=repo_root,
-        sources=sources,
-        governance=governance,
-        review_state=review_state,
-    )
-    if fresh is not None:
-        return fresh
-    if not allow_startup_fallback:
-        return None
-    try:
-        from .startup_context import build_startup_context
-    except ImportError:
-        return None
-    startup_context = build_startup_context(repo_root=repo_root)
-    return startup_context.coordination
 
 
 # -------------------------------------------------------
@@ -264,105 +157,61 @@ def build_control_plane_read_model(
         sources["review_state"] = review_state.to_dict()
     git = git_override if git_override is not None else load_git_state(repo_root)
 
-    receipt = sources.get("receipt")
-    # ``review_state_payload`` is the dict-shaped projection of review_state
-    # that every legacy helper below consumes. It is intentionally kept
-    # separate from the typed ``review_state`` parameter so the F1
-    # coordination parity thread is not shadowed by the sources dict.
-    review_state_payload = sources.get("review_state")
-    push_report = sources.get("push_report")
-    compact = sources.get("compact_json")
-    full_json = sources.get("full_json")
-
-    reviewer = resolve_reviewer_state(review_state_payload, compact, full_json)
-    daemons = resolve_daemon_state(sources)
-    quality = resolve_quality(push_report)
-    pending = resolve_pending_packets(review_state_payload)
-    blocker = resolve_blocker_and_action(
-        receipt,
-        review_state_payload,
-        quality,
-        pending_count=pending,
-    )
-
-    impl_blocked = resolve_implementation_blocked(receipt, review_state_payload)
-    op_mode = _derive_operator_interaction_mode(
-        governance=governance,
-        review_state_payload=review_state_payload,
-        receipt=receipt,
-        reviewer_mode=reviewer["reviewer_mode"],
-    )
-    push_action = coerce_string((receipt or {}).get("push_action"))
-
-    auto_state = resolve_auto_mode_phase(AutoModeInputs(
-        push_decision_action=push_action,
-        worktree_clean=git.get("clean", True),
-        review_gate_allows_push=reviewer["review_accepted"],
-        reviewer_mode=reviewer["reviewer_mode"],
-        implementation_blocked=impl_blocked,
-        last_guard_ok=quality["last_guard_ok"],
-        current_head_commit=git.get("head", ""),
-        last_reviewed_sha=reviewer.get("last_reviewed_sha", ""),
-        pending_action_requests=pending,
-        operator_interaction_mode=op_mode,
-        timestamp_utc=utc_now_iso(),
-    ))
-
-    observation = _build_reviewer_observation(
-        head_sha=git.get("head", "unknown"),
-        reviewer=reviewer,
-        review_state=review_state_payload,
-    )
-    coordination = _extract_coordination(
+    context = resolve_control_plane_context(
         repo_root=repo_root,
-        sources=sources,
-        governance=governance,
-        allow_startup_fallback=sources_override is None,
-        review_state=review_state,
+        inputs=ControlPlaneContextInputs(
+            sources=sources,
+            git=git,
+            governance=governance,
+            review_state=review_state,
+            review_state_payload=sources.get("review_state"),
+            receipt=sources.get("receipt"),
+            push_report=sources.get("push_report"),
+            compact=sources.get("compact_json"),
+            full_json=sources.get("full_json"),
+        ),
+        extract_coordination_fn=_extract_coordination,
     )
-    remote_control_attachment = remote_control_attachment_from_mapping(
-        _nested_get(
-            review_state_payload,
-            "reviewer_runtime",
-            "remote_control_attachment",
-        )
-    )
-    snapshot_id = coerce_string(_nested_get(review_state_payload, "snapshot_id"))
 
     return ControlPlaneReadModel(
         timestamp=utc_now_iso(),
         branch=git.get("branch", "unknown"),
         head_sha=git.get("head", "unknown"),
-        snapshot_id=snapshot_id,
+        snapshot_id=context.snapshot_id,
         zref=build_surface_zref(
-            snapshot_id=snapshot_id,
+            snapshot_id=context.snapshot_id,
             head_sha=git.get("head", "unknown"),
         ),
         worktree_clean=git.get("clean", True),
         ahead_of_upstream=git.get("ahead", 0),
-        resolved_phase=auto_state.phase,
-        push_eligible=(push_action == "run_devctl_push"),
-        implementation_blocked=impl_blocked,
-        top_blocker=blocker["top_blocker"],
-        next_action=blocker["next_action"],
-        next_command=blocker["next_command"],
-        reviewer_mode=reviewer["reviewer_mode"],
-        operator_interaction_mode=op_mode,
-        reviewer_freshness=reviewer["reviewer_freshness"],
-        review_accepted=reviewer["review_accepted"],
-        last_reviewed_sha=reviewer.get("last_reviewed_sha", ""),
-        attention_status=reviewer["attention_status"],
-        attention_summary=reviewer["attention_summary"],
-        reviewer_observation=observation,
-        publisher_running=daemons["publisher_running"],
-        supervisor_running=daemons["supervisor_running"],
-        codex_conductor_alive=daemons["codex_conductor_alive"],
-        claude_conductor_alive=daemons["claude_conductor_alive"],
-        pending_action_requests=pending,
-        last_guard_ok=quality["last_guard_ok"],
-        check_details=quality["check_details"],
-        remote_control_attachment=remote_control_attachment,
-        coordination=coordination,
+        resolved_phase=context.auto_state.phase,
+        push_eligible=(context.blocker["next_action"] == "run_devctl_push"),
+        implementation_blocked=context.implementation_blocked,
+        top_blocker=context.blocker["top_blocker"],
+        next_action=context.blocker["next_action"],
+        next_command=context.blocker["next_command"],
+        reviewer_mode=context.reviewer["reviewer_mode"],
+        operator_interaction_mode=context.operator_interaction_mode,
+        reviewer_freshness=context.reviewer["reviewer_freshness"],
+        review_accepted=context.reviewer["review_accepted"],
+        last_reviewed_sha=context.reviewer.get("last_reviewed_sha", ""),
+        attention_status=context.reviewer["attention_status"],
+        attention_summary=context.reviewer["attention_summary"],
+        reviewer_observation=context.reviewer_observation,
+        publisher_running=context.daemons["publisher_running"],
+        supervisor_running=context.daemons["supervisor_running"],
+        codex_conductor_alive=context.daemons["codex_conductor_alive"],
+        claude_conductor_alive=context.daemons["claude_conductor_alive"],
+        pending_action_requests=context.pending,
+        last_guard_ok=context.quality["last_guard_ok"],
+        check_details=context.quality["check_details"],
+        loop_wake_mode=context.loop_wake.loop_wake_mode,
+        loop_wake_interval_seconds=context.loop_wake.loop_wake_interval_seconds,
+        loop_driver_agent=context.loop_wake.loop_driver_agent,
+        loop_autonomy_ok=context.loop_wake.loop_autonomy_ok,
+        loop_gap_summary=context.loop_wake.loop_gap_summary,
+        remote_control_attachment=context.remote_control_attachment,
+        coordination=context.coordination,
     )
 
 
@@ -376,6 +225,7 @@ def control_plane_read_model_from_mapping(
     """Deserialize a ControlPlaneReadModel from a JSON-like mapping."""
     if not isinstance(value, dict):
         return _default_read_model()
+    loop_wake = ControlPlaneLoopWakeState.from_mapping(value) or ControlPlaneLoopWakeState()
     details_raw = value.get("check_details", ())
     details: list[dict[str, str]] = []
     if isinstance(details_raw, (list, tuple)):
@@ -418,6 +268,11 @@ def control_plane_read_model_from_mapping(
         pending_action_requests=coerce_int(value.get("pending_action_requests")),
         last_guard_ok=coerce_bool(value.get("last_guard_ok", True)),
         check_details=tuple(details),
+        loop_wake_mode=loop_wake.loop_wake_mode,
+        loop_wake_interval_seconds=loop_wake.loop_wake_interval_seconds,
+        loop_driver_agent=loop_wake.loop_driver_agent,
+        loop_autonomy_ok=loop_wake.loop_autonomy_ok,
+        loop_gap_summary=loop_wake.loop_gap_summary,
         coordination=coordination_snapshot_from_mapping(value.get("coordination")),
     )
 
@@ -468,6 +323,11 @@ def _default_read_model() -> ControlPlaneReadModel:
         pending_action_requests=0,
         last_guard_ok=True,
         check_details=(),
+        loop_wake_mode="unknown",
+        loop_wake_interval_seconds=0,
+        loop_driver_agent="",
+        loop_autonomy_ok=False,
+        loop_gap_summary="",
         remote_control_attachment=None,
         coordination=None,
     )

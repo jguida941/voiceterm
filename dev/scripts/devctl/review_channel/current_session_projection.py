@@ -12,6 +12,7 @@ from .current_session_attention import (
     packet_attention_requires_clear,
 )
 from .current_session_authority import prefer_bridge_current_session
+from .current_session_bridge_fallback import merge_bridge_session_event_fallback
 from .handoff_constants import _is_substantive_text
 from .current_session_render import (
     append_current_session_markdown,
@@ -124,12 +125,22 @@ def resolve_current_session_authority(
     prior_review_state: Mapping[str, object] | None = None,
 ) -> ReviewCurrentSessionState:
     """Return the canonical current-session owner for bridge-backed status."""
+    event_session = _event_current_session_candidate(
+        review_state=prior_review_state,
+        bridge_liveness=bridge_liveness,
+    )
     bridge_session = build_bridge_current_session(
         snapshot,
         bridge_liveness,
         prior_review_state=prior_review_state,
     )
+    bridge_session = merge_bridge_session_event_fallback(
+        bridge_session=bridge_session,
+        event_session=event_session,
+    )
     prior_session = prior_typed_current_session(prior_review_state)
+    if prior_session is None:
+        prior_session = event_session
     if prior_session is None:
         return bridge_session
     if prefer_bridge_current_session(
@@ -139,6 +150,34 @@ def resolve_current_session_authority(
     ):
         return bridge_session
     return prior_session
+
+
+def _event_current_session_candidate(
+    *,
+    review_state: Mapping[str, object] | None,
+    bridge_liveness: Mapping[str, object],
+) -> ReviewCurrentSessionState | None:
+    resolved_review_state = _mapping(review_state)
+    resolved_review_state = (
+        _mapping(resolved_review_state.get("review_state")) or resolved_review_state
+    )
+    if not resolved_review_state:
+        return None
+
+    event_session = build_event_current_session(
+        review_state=resolved_review_state,
+        bridge_liveness=bridge_liveness,
+        prior_review_state=resolved_review_state,
+    )
+    if not any(
+        (
+            clean_section(event_session.current_instruction),
+            clean_section(event_session.implementer_status),
+            clean_section(event_session.open_findings),
+        )
+    ):
+        return None
+    return event_session
 
 
 def build_event_current_session(

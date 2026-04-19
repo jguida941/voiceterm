@@ -411,7 +411,7 @@ def test_stage_attention_revision_ignores_expired_unresolved_only() -> None:
     }
 
     with patch(
-        "dev.scripts.devctl.commands.vcs.governed_executor_phases.load_startup_receipt",
+        "dev.scripts.devctl.commands.vcs.governed_executor_stage_attention.load_startup_receipt",
         return_value=SimpleNamespace(attention_revision="receipt-rev"),
     ):
         result = _attention_revision_block(
@@ -442,7 +442,7 @@ def test_stage_attention_revision_blocks_on_live_finding_attention() -> None:
     }
 
     with patch(
-        "dev.scripts.devctl.commands.vcs.governed_executor_phases.load_startup_receipt",
+        "dev.scripts.devctl.commands.vcs.governed_executor_stage_attention.load_startup_receipt",
         return_value=SimpleNamespace(attention_revision="receipt-rev"),
     ):
         result = _attention_revision_block(
@@ -474,7 +474,7 @@ def test_stage_attention_revision_ignores_other_agents_actionable_packets() -> N
     }
 
     with patch(
-        "dev.scripts.devctl.commands.vcs.governed_executor_phases.load_startup_receipt",
+        "dev.scripts.devctl.commands.vcs.governed_executor_stage_attention.load_startup_receipt",
         return_value=SimpleNamespace(attention_revision="receipt-rev"),
     ):
         result = _attention_revision_block(
@@ -1158,6 +1158,85 @@ def test_commit_does_not_reread_startup_publish_gate_after_approval(tmp_path: Pa
     assert committed_pipeline.state == "commit_recorded"
     assert committed_pipeline.push_authorization is not None
     assert startup_calls == 1
+
+
+def test_commit_does_not_refresh_review_projections_after_approval(
+    tmp_path: Path,
+) -> None:
+    repo_root = _init_repo(tmp_path / "repo")
+    (repo_root / "tracked.txt").write_text("updated\n", encoding="utf-8")
+    executor = _executor(repo_root)
+
+    executor.execute(
+        build_stage_action(
+            repo_pack_id="test-pack",
+            paths=("tracked.txt",),
+            commit_message_draft="feat: commit without projection drift",
+            push_requested=True,
+            guard_profile="bundle.tooling",
+            work_intake_ref="MP-377",
+        )
+    )
+    executor.record_guard_result(_passing_guard_result())
+    pipeline = executor.load_pipeline()
+    artifact_paths = resolve_artifact_paths(repo_root=repo_root)
+    post_packet(
+        repo_root=repo_root,
+        review_channel_path=repo_root / "dev/active/review_channel.md",
+        artifact_paths=artifact_paths,
+        request=build_commit_approval_request(pipeline),
+    )
+    _, decision_event = post_packet(
+        repo_root=repo_root,
+        review_channel_path=repo_root / "dev/active/review_channel.md",
+        artifact_paths=artifact_paths,
+        request=PacketPostRequest(
+            from_agent="operator",
+            to_agent="system",
+            kind=APPROVAL_PACKET_KIND,
+            summary="Approve governed commit pipeline",
+            body="Operator approved the guarded staged snapshot.",
+            requested_action="approve_commit_pipeline",
+            policy_hint="operator_approval_required",
+            approval_required=False,
+            trace_id=pipeline.pipeline_id,
+            target=PacketTargetFields.from_values(
+                target_kind="runtime",
+                target_ref=f"remote_commit_pipeline:{pipeline.pipeline_id}",
+                target_revision=pipeline.generation_id,
+            ),
+            runtime_approval=PacketRuntimeApprovalFields.from_values(
+                pipeline_generation=pipeline.generation_id,
+                staged_snapshot_hash=pipeline.intent.staged_tree_hash,
+                guard_results_summary='{"action_id": "quality.guard_bundle", "reason": "", "status": "pass"}',
+            ),
+        ),
+    )
+    transition_packet(
+        repo_root=repo_root,
+        review_channel_path=repo_root / "dev/active/review_channel.md",
+        artifact_paths=artifact_paths,
+        request=PacketTransitionRequest(
+            action="apply",
+            packet_id=str(decision_event["packet_id"]),
+            actor="operator",
+        ),
+    )
+
+    with patch(
+        "dev.scripts.devctl.commands.vcs.governed_executor_sync.refresh_review_projections",
+        side_effect=AssertionError(
+            "`vcs.commit` must not refresh review projections after approval."
+        ),
+    ):
+        commit_result = executor.execute(
+            build_commit_action(repo_pack_id="test-pack", pipeline_id=pipeline.pipeline_id)
+        )
+
+    committed_pipeline = executor.load_pipeline()
+    assert commit_result.ok is True
+    assert committed_pipeline.state == "commit_recorded"
+    assert committed_pipeline.push_authorization is not None
 
 
 def test_commit_marks_git_invocation_as_governed(tmp_path: Path) -> None:

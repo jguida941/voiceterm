@@ -92,6 +92,7 @@ def _build_review_state(
     review = _mapping(review_payload.get("review"))
     queue = _mapping(review_payload.get("queue"))
     bridge = _mapping(review_payload.get("bridge"))
+    collaboration = _mapping(review_payload.get("collaboration"))
     commit_pipeline = commit_pipeline_from_review_payload(
         payload=payload,
         review_payload=review_payload,
@@ -105,6 +106,7 @@ def _build_review_state(
     current_session_state = _current_session_state_from_payload(
         current_session=current_session,
         bridge=bridge,
+        collaboration=collaboration,
     )
     bridge_state = review_bridge_state_from_payload(
         bridge=bridge,
@@ -116,7 +118,7 @@ def _build_review_state(
         agents=_registry_agents_from_value(registry_payload.get("agents")),
     )
     collaboration_state = collaboration_state_from_payload(
-        collaboration=_mapping(review_payload.get("collaboration")),
+        collaboration=collaboration,
         review=review,
         current_session=current_session_state,
         bridge=bridge_state,

@@ -5,14 +5,14 @@
 ## Quick status
 
 - Branch: `feature/governance-quality-sweep`
-- HEAD: `1f7b4f380350` — Land MP-398/399/410/412/413/415/416 combined multi-slice (Codex v2-v7)
-- Tree hash: `979213eb92fb`
-- Generation stamp: `snap-b8b656bc9395`
-- Generated at (UTC): 2026-04-18T21:36:03Z
-- Push decision: `await_review` — review_pending_before_push
-- Reviewer mode: `active_dual_agent` (interaction: `remote_control`)
+- HEAD: `4245890cff9f` — Refresh external review snapshot for 1f7b4f38
+- Tree hash: `9cf934fd64c5`
+- Generation stamp: `snap-025b6f5c2f7d`
+- Generated at (UTC): 2026-04-19T13:24:31Z
+- Push decision: `await_checkpoint` — staged_index_budget_exceeded
+- Reviewer mode: `tools_only` (interaction: `remote_control`)
 - Pipeline state: `n/a` (approval: `n/a`)
-- Delta since last snapshot: 25 commits, 323 files, +16482/-7444
+- Delta since last snapshot: 24 commits, 310 files, +15854/-7337
 - Governance findings: 112 open / 86 fixed / 212 total
 - Probe hints: 0 total across 0 files scanned
 
@@ -54,30 +54,31 @@ adopters arrive.
 - Remote: `https://github.com/jguida941/voiceterm.git`
 - Default branch: `master`
 - Current branch: `feature/governance-quality-sweep`
-- HEAD SHA: `1f7b4f3803508d9160af2af7f2d97ef30d6dc4e9`
+- HEAD SHA: `4245890cff9fe95f6c4b806e27857b15dbd4d393`
 - HEAD author: Justin Guida
 - HEAD timestamp (UTC): 2026-04-18T17:35:37-04:00
 
 ## 2. Governance state
 
 ### Push decision
-- action: `await_review`
-- reason: review_pending_before_push
+- action: `await_checkpoint`
+- reason: staged_index_budget_exceeded
 - push_eligible_now: False
-- worktree_clean: True
-- staged_path_count: 0
-- unstaged_path_count: 0
+- worktree_clean: False
+- staged_path_count: 60
+- unstaged_path_count: 42
 - next_step_command: `python3 dev/scripts/devctl.py review-channel --action status --terminal none --format json`
 - latest_push_report: `dev/reports/push/latest.json`
-- latest_push_report_state: `published_remote` (post_push_bundle_pending)
+- latest_push_report_state: `blocked` (validation_failed)
 - publication_backlog: urgent
-- publication_guidance: 17 local commit(s) waiting for governed push once review is accepted.
+- publication_guidance: 18 local commit(s) waiting for governed push once the current slice is checkpoint-clean.
 
 ### Reviewer runtime
-- reviewer_mode: `active_dual_agent`
+- reviewer_mode: `tools_only`
 - reviewer_freshness: unknown
 - reviewer_publish_clear: False
 - interaction_mode: `remote_control`
+- implementation_blocked: yes — checkpoint_required
 
 ### Remote commit pipeline
 - state: `n/a`
@@ -87,61 +88,61 @@ adopters arrive.
 - active plan: **AI Governance Platform Plan**
 - plan path: `dev/active/ai_governance_platform.md`
 - active MP scope: `MP-377`
-- advisory: `await_review` — review_pending_before_push
+- advisory: `checkpoint_before_continue` — staged_index_budget_exceeded
+- checkpoint_required: **yes**
 
 ## 3. Delta — what changed since the previous snapshot
 
-Range: last 25 commits ending at `1f7b4f380350`
+Range: last 24 commits ending at `4245890cff9f`
 
-- commits: 25
-- files changed: 323
-- insertions: +16482
-- deletions: -7444
+- commits: 24
+- files changed: 310
+- insertions: +15854
+- deletions: -7337
 - bundle classes touched: docs, tooling
 - risk add-ons triggered: Parser / ANSI boundary
-- authority surfaces touched: 33 file(s)
+- authority surfaces touched: 32 file(s)
 
 ### Commits
 
 | # | SHA | Subject | Files | +/- | Bundle | Risk |
 |---|---|---|---|---|---|---|
-| 1 | `1f7b4f38` | Land MP-398/399/410/412/413/415/416 combined multi-slice (C… | 157 | +4448/-3794 | tooling | Parser / ANSI boundary |
-| 2 | `fc20cc1b` | Refresh external review snapshot for aa570cee | 2 | +65/-67 | docs |  |
-| 3 | `aa570cee` | Add role-implicit commit approval for /remote-control (rev_… | 14 | +414/-159 | tooling |  |
-| 4 | `46d34660` | Refresh external review snapshot for 6e87e071 | 2 | +58/-56 | docs |  |
-| 5 | `6e87e071` | Extend MP-377 with consolidation phases MP-388..MP-397 + Da… | 5 | +362/-66 | tooling |  |
-| 6 | `a2e283de` | Post-commit checkpoint: governance refresh after MP-388..MP… | 1 | +46/-42 | tooling |  |
-| 7 | `7d0f87a4` | Extend MP-377 with consolidation phases MP-388..MP-397 (Cod… | 1 | +57/-66 | tooling |  |
-| 8 | `0b09da19` | Refresh external review snapshot for 4f19b308 | 2 | +85/-75 | docs |  |
-| 9 | `4f19b308` | Converge review-channel authority and effective-mode projec… | 74 | +3274/-789 | tooling |  |
-| 10 | `637ef6f3` | Refresh external review snapshot for 077a875e | 2 | +58/-57 | docs |  |
-| 11 | `077a875e` | Allow review relaunch when refresh-recommended sessions hav… | 4 | +119/-62 | tooling |  |
-| 12 | `1732a6f5` | Refresh external review snapshot for 3632d600 | 2 | +68/-71 | docs |  |
-| 13 | `3632d600` | Finish checkpoint repair authority follow-up | 13 | +247/-80 | tooling |  |
-| 14 | `17d84eb0` | Protect running conductors during host cleanup | 20 | +1088/-476 | tooling |  |
-| 15 | `3f387494` | Refine commit packet gate and pipeline recovery sequencing | 44 | +2368/-649 | tooling | Parser / ANSI boundary |
-| 16 | `72103135` | Refresh external review snapshot for e117defd | 2 | +89/-83 | docs |  |
-| 17 | `e117defd` | Automate remote-control checkpoint approval | 47 | +1514/-190 | tooling | Parser / ANSI boundary |
-| 18 | `baad2052` | Fail closed packet authority and type convergence results | 12 | +383/-94 | tooling |  |
-| 19 | `12360f8e` | Refresh external review snapshot for 30b1beff | 2 | +58/-58 | docs |  |
-| 20 | `30b1beff` | Add IR contract metadata closures | 8 | +103/-23 | tooling |  |
-| 21 | `c90cf9ab` | Refresh external review snapshot for 0e7c12a3 | 2 | +68/-67 | docs |  |
-| 22 | `0e7c12a3` | Fail closed reviewer instruction authority state | 21 | +687/-168 | tooling |  |
-| 23 | `afc2af14` | Refresh external review snapshot for 83e27bad | 2 | +98/-59 | docs |  |
-| 24 | `83e27bad` | Harden typed review-channel authority state | 30 | +606/-192 | tooling |  |
-| 25 | `1e7465d5` | T05: Render INDEX.md + MASTER_PLAN.md from PlanRegistry (MP… | 1 | +119/-1 | tooling |  |
+| 1 | `4245890c` | Refresh external review snapshot for 1f7b4f38 | 2 | +97/-86 | docs |  |
+| 2 | `1f7b4f38` | Land MP-398/399/410/412/413/415/416 combined multi-slice (C… | 157 | +4448/-3794 | tooling | Parser / ANSI boundary |
+| 3 | `fc20cc1b` | Refresh external review snapshot for aa570cee | 2 | +65/-67 | docs |  |
+| 4 | `aa570cee` | Add role-implicit commit approval for /remote-control (rev_… | 14 | +414/-159 | tooling |  |
+| 5 | `46d34660` | Refresh external review snapshot for 6e87e071 | 2 | +58/-56 | docs |  |
+| 6 | `6e87e071` | Extend MP-377 with consolidation phases MP-388..MP-397 + Da… | 5 | +362/-66 | tooling |  |
+| 7 | `a2e283de` | Post-commit checkpoint: governance refresh after MP-388..MP… | 1 | +46/-42 | tooling |  |
+| 8 | `7d0f87a4` | Extend MP-377 with consolidation phases MP-388..MP-397 (Cod… | 1 | +57/-66 | tooling |  |
+| 9 | `0b09da19` | Refresh external review snapshot for 4f19b308 | 2 | +85/-75 | docs |  |
+| 10 | `4f19b308` | Converge review-channel authority and effective-mode projec… | 74 | +3274/-789 | tooling |  |
+| 11 | `637ef6f3` | Refresh external review snapshot for 077a875e | 2 | +58/-57 | docs |  |
+| 12 | `077a875e` | Allow review relaunch when refresh-recommended sessions hav… | 4 | +119/-62 | tooling |  |
+| 13 | `1732a6f5` | Refresh external review snapshot for 3632d600 | 2 | +68/-71 | docs |  |
+| 14 | `3632d600` | Finish checkpoint repair authority follow-up | 13 | +247/-80 | tooling |  |
+| 15 | `17d84eb0` | Protect running conductors during host cleanup | 20 | +1088/-476 | tooling |  |
+| 16 | `3f387494` | Refine commit packet gate and pipeline recovery sequencing | 44 | +2368/-649 | tooling | Parser / ANSI boundary |
+| 17 | `72103135` | Refresh external review snapshot for e117defd | 2 | +89/-83 | docs |  |
+| 18 | `e117defd` | Automate remote-control checkpoint approval | 47 | +1514/-190 | tooling | Parser / ANSI boundary |
+| 19 | `baad2052` | Fail closed packet authority and type convergence results | 12 | +383/-94 | tooling |  |
+| 20 | `12360f8e` | Refresh external review snapshot for 30b1beff | 2 | +58/-58 | docs |  |
+| 21 | `30b1beff` | Add IR contract metadata closures | 8 | +103/-23 | tooling |  |
+| 22 | `c90cf9ab` | Refresh external review snapshot for 0e7c12a3 | 2 | +68/-67 | docs |  |
+| 23 | `0e7c12a3` | Fail closed reviewer instruction authority state | 21 | +687/-168 | tooling |  |
+| 24 | `afc2af14` | Refresh external review snapshot for 83e27bad | 2 | +98/-59 | docs |  |
 
 ### Files
 
 | Path | Bundle | +/- |
 |---|---|---|
 | `AGENTS.md` | docs | +27/-2 |
-| `bridge.md` | docs | +76/-76 |
+| `bridge.md` | docs | +74/-74 |
 | `dev/active/MASTER_PLAN.md` | tooling | +172/-4 |
 | `dev/active/ai_governance_platform.md` | tooling | +510/-15 |
 | `dev/active/remote_control_runtime.md` | tooling | +25/-1 |
 | `dev/active/review_channel.md` | tooling | +22/-1 |
-| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1292/-1240 |
+| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1327/-1263 |
 | `dev/guides/DEVELOPMENT.md` | docs | +55/-12 |
 | `dev/history/ENGINEERING_EVOLUTION.md` | tooling | +529/-41 |
 | `dev/scripts/README.md` | tooling | +99/-23 |
@@ -174,8 +175,8 @@ Range: last 25 commits ending at `1f7b4f380350`
 | `dev/scripts/checks/run_probe_report.py` | tooling | +1/-1 |
 | `dev/scripts/checks/startup_authority_contract/command.py` | tooling | +10/-4 |
 | `dev/scripts/checks/startup_authority_contract/runtime_import_git.py` | tooling | +37/-0 |
-| `dev/scripts/checks/tandem_consistency/implementer_checks.py` | tooling | +32/-4 |
-| _283 more files trimmed_ | | |
+| `dev/scripts/devctl/agent_mind_parser.py` | tooling | +6/-74 |
+| _270 more files trimmed_ | | |
 
 ## 4. Quality signals
 
@@ -278,12 +279,10 @@ Recent findings:
 - **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/runtime/project_governance_plan_parse.py`) — Review contract-level invariants for this file
 - **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/tests/runtime/test_project_governance.py`) — Review contract-level invariants for this file
 - **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/review_channel/reviewer_follow_guard.py`) — Review contract-level invariants for this file
-- **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/review_channel/reviewer_runtime_contract.py`) — Review contract-level invariants for this file
 - **contract_mutation**: Contract / typed model mutated (`dev/scripts/devctl/{governance_review_models.py => governance_review/models.py}`) — Commit 1f7b4f38 changed dev/scripts/devctl/{governance_review_models.py => governance_review/models.py}
 - **contract_mutation**: Contract / typed model mutated (`dev/scripts/devctl/tests/checks/test_startup_authority_contract.py`) — Commit 1f7b4f38 changed dev/scripts/devctl/tests/checks/test_startup_authority_contract.py
 - **contract_mutation**: Contract / typed model mutated (`dev/scripts/devctl/governance/push_state_models.py`) — Commit 3f387494 changed dev/scripts/devctl/governance/push_state_models.py
 - **contract_mutation**: Contract / typed model mutated (`dev/scripts/devctl/runtime/project_governance_contract.py`) — Commit 30b1beff changed dev/scripts/devctl/runtime/project_governance_contract.py
-- **contract_mutation**: Contract / typed model mutated (`dev/scripts/devctl/review_channel/reviewer_runtime_contract.py`) — Commit 83e27bad changed dev/scripts/devctl/review_channel/reviewer_runtime_contract.py
 
 ### Suggested verification commands
 
@@ -297,26 +296,28 @@ Recent findings:
 
 ### Per-commit rationale
 
+- **`4245890c`** — Refresh external review snapshot for 1f7b4f38
+  - evolution: Fact: the next MP-377 collaboration pass exposed a smaller but more important coupling bug than "Claude should dogfood more." The repo already had `devctl dogfood --record --dev-mode`, but the live collaboration contrac…
 - **`1f7b4f38` | MPs: MP-398** — Land MP-398/399/410/412/413/415/416 combined multi-slice (Codex v2-v7)
-  - evolution: Fact: the next live `/remote-control` dogfood pass exposed a narrower gap than either of the repo's earlier extremes. The branch had already moved away from blanket promptless `remote_control` approval, and `devctl comm…
+  - evolution: Fact: the next MP-377 collaboration pass exposed a smaller but more important coupling bug than "Claude should dogfood more." The repo already had `devctl dogfood --record --dev-mode`, but the live collaboration contrac…
 - **`fc20cc1b`** — Refresh external review snapshot for aa570cee
-  - evolution: Fact: the next live `/remote-control` dogfood pass exposed a narrower gap than either of the repo's earlier extremes. The branch had already moved away from blanket promptless `remote_control` approval, and `devctl comm…
+  - evolution: Fact: the next MP-377 collaboration pass exposed a smaller but more important coupling bug than "Claude should dogfood more." The repo already had `devctl dogfood --record --dev-mode`, but the live collaboration contrac…
 - **`aa570cee`** — Add role-implicit commit approval for /remote-control (rev_pkt_1120 gap #1)
-  - evolution: Fact: the next live `/remote-control` dogfood pass exposed a narrower gap than either of the repo's earlier extremes. The branch had already moved away from blanket promptless `remote_control` approval, and `devctl comm…
+  - evolution: Fact: the next MP-377 collaboration pass exposed a smaller but more important coupling bug than "Claude should dogfood more." The repo already had `devctl dogfood --record --dev-mode`, but the live collaboration contrac…
 - **`46d34660`** — Refresh external review snapshot for 6e87e071
-  - evolution: Fact: the next live `/remote-control` dogfood pass exposed a narrower gap than either of the repo's earlier extremes. The branch had already moved away from blanket promptless `remote_control` approval, and `devctl comm…
+  - evolution: Fact: the next MP-377 collaboration pass exposed a smaller but more important coupling bug than "Claude should dogfood more." The repo already had `devctl dogfood --record --dev-mode`, but the live collaboration contrac…
 - **`6e87e071` | MPs: MP-377, MP-388, MP-397** — Extend MP-377 with consolidation phases MP-388..MP-397 + Data Contracts
   - plan: `dev/active/ai_governance_platform.md`
-  - evolution: Fact: the next live `/remote-control` dogfood pass exposed a narrower gap than either of the repo's earlier extremes. The branch had already moved away from blanket promptless `remote_control` approval, and `devctl comm…
+  - evolution: Fact: the next MP-377 collaboration pass exposed a smaller but more important coupling bug than "Claude should dogfood more." The repo already had `devctl dogfood --record --dev-mode`, but the live collaboration contrac…
 - **`a2e283de` | MPs: MP-388, MP-397** — Post-commit checkpoint: governance refresh after MP-388..MP-397 landing
-  - evolution: Fact: the next live `/remote-control` dogfood pass exposed a narrower gap than either of the repo's earlier extremes. The branch had already moved away from blanket promptless `remote_control` approval, and `devctl comm…
+  - evolution: Fact: the next MP-377 collaboration pass exposed a smaller but more important coupling bug than "Claude should dogfood more." The repo already had `devctl dogfood --record --dev-mode`, but the live collaboration contrac…
 - **`7d0f87a4` | MPs: MP-377, MP-388, MP-397** — Extend MP-377 with consolidation phases MP-388..MP-397 (Codex v3 plan-authoring slice)
   - plan: `dev/active/ai_governance_platform.md`
-  - evolution: Fact: the next live `/remote-control` dogfood pass exposed a narrower gap than either of the repo's earlier extremes. The branch had already moved away from blanket promptless `remote_control` approval, and `devctl comm…
+  - evolution: Fact: the next MP-377 collaboration pass exposed a smaller but more important coupling bug than "Claude should dogfood more." The repo already had `devctl dogfood --record --dev-mode`, but the live collaboration contrac…
 - **`0b09da19`** — Refresh external review snapshot for 4f19b308
-  - evolution: Fact: the next live `/remote-control` dogfood pass exposed a narrower gap than either of the repo's earlier extremes. The branch had already moved away from blanket promptless `remote_control` approval, and `devctl comm…
+  - evolution: Fact: the next MP-377 collaboration pass exposed a smaller but more important coupling bug than "Claude should dogfood more." The repo already had `devctl dogfood --record --dev-mode`, but the live collaboration contrac…
 - **`4f19b308`** — Converge review-channel authority and effective-mode projections
-  - evolution: Fact: the next live `/remote-control` dogfood pass exposed a narrower gap than either of the repo's earlier extremes. The branch had already moved away from blanket promptless `remote_control` approval, and `devctl comm…
+  - evolution: Fact: the next MP-377 collaboration pass exposed a smaller but more important coupling bug than "Claude should dogfood more." The repo already had `devctl dogfood --record --dev-mode`, but the live collaboration contrac…
 - **`637ef6f3`** — Refresh external review snapshot for 077a875e
 - **`077a875e`** — Allow review relaunch when refresh-recommended sessions have no live process
 - **`1732a6f5`** — Refresh external review snapshot for 3632d600
@@ -331,11 +332,6 @@ Recent findings:
 - **`c90cf9ab`** — Refresh external review snapshot for 0e7c12a3
 - **`0e7c12a3`** — Fail closed reviewer instruction authority state
 - **`afc2af14`** — Refresh external review snapshot for 83e27bad
-- **`83e27bad`** — Harden typed review-channel authority state
-- **`1e7465d5`** — T05: Render INDEX.md + MASTER_PLAN.md from PlanRegistry (MP377-P1-T05)
-  - New functions in plan_registry_projection.py:
-  - - render_index_projection: produces INDEX.md table from typed PlanRegistry
-  - - render_master_plan_projection: produces MASTER_PLAN.md grouped by lifecycle
 ### Active MP scope (from MASTER_PLAN.md)
 
 - contract slice for MP-355 plus the temporary markdown-swarm operating mode
@@ -354,7 +350,7 @@ Recent findings:
 - open governance findings: 112
 
 ### Startup advisories
-- await_review: review_pending_before_push
+- checkpoint_before_continue: staged_index_budget_exceeded
 
 ### Stale warnings
 - Keep editing the current slice.
@@ -372,4 +368,4 @@ Recent findings:
 
 ---
 
-Projection produced by `devctl review-snapshot`. Generation stamp `snap-b8b656bc9395` binds this file to HEAD `1f7b4f380350`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
+Projection produced by `devctl review-snapshot`. Generation stamp `snap-025b6f5c2f7d` binds this file to HEAD `4245890cff9f`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.

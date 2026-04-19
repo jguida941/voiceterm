@@ -1453,6 +1453,40 @@ class PushBridgeSyncTests(unittest.TestCase):
 
     @patch("dev.scripts.devctl.commands.vcs.push_preflight_commit.run_git_capture")
     @patch("dev.scripts.devctl.commands.vcs.push_preflight_commit.collect_git_status")
+    def test_preflight_autocommit_collects_git_status_from_target_repo(
+        self,
+        collect_git_status_mock,
+        run_git_capture_mock,
+    ) -> None:
+        repo_root = Path("/tmp/target-repo")
+        collect_git_status_mock.return_value = {
+            "changes": [
+                {
+                    "path": "generated.py",
+                    "status": "M",
+                    "raw_status": " M",
+                    "index_status": " ",
+                    "worktree_status": "M",
+                }
+            ]
+        }
+        run_git_capture_mock.side_effect = [
+            (0, "", ""),
+            (0, "", ""),
+        ]
+        state = SimpleNamespace(errors=[])
+
+        push_preflight_commit.auto_commit_preflight_generated_changes(
+            state,
+            make_policy(),
+            repo_root=repo_root,
+        )
+
+        collect_git_status_mock.assert_called_once_with(repo_root=repo_root)
+        self.assertEqual(state.errors, [])
+
+    @patch("dev.scripts.devctl.commands.vcs.push_preflight_commit.run_git_capture")
+    @patch("dev.scripts.devctl.commands.vcs.push_preflight_commit.collect_git_status")
     def test_preflight_autocommit_ignores_staged_only_paths(
         self,
         collect_git_status_mock,

@@ -129,6 +129,60 @@
   finish or truthfully deprecate `rollout-tail --follow`, require every help
   flag to be implemented/deprecated/experimental, and close the typed
   contract vs prose drift on remaining runtime surfaces.
+- 2026-04-18 `MP-400..MP-404` hygiene-gate separation in `MP-377` scope:
+  split checkpoint/publication/packet-debt/projection-drift/next-command
+  routing into explicit typed blocker families so collaboration and repo
+  hygiene stop collapsing into one generic red state.
+- 2026-04-18 `MP-405` guard expansion in `MP-377` scope:
+  add repo-owned coverage for packet-to-plan promotion gaps and the
+  packet-only architectural decision trail surfaced by dogfood, starting
+  with the `rev_pkt_1221` look-first + half-built-typed-state directive.
+- 2026-04-18 `MP-406` guard/probe generator path in `MP-377` scope:
+  generate recurring guard/probe scaffolds from typed findings metadata so
+  new architectural checks stop depending on chat memory.
+- 2026-04-18 `MP-407..MP-409` higher-order probe/guard/coherence closure in
+  `MP-377` scope: teach probes and guards to catch cross-surface plan/runtime
+  drift and then restore docs/runtime/generated-surface coherence on top of
+  that smarter detection lane, including the `rev_pkt_1222` stress-
+  abstraction / polymorphism / architectural-decision probe classes.
+- 2026-04-18 `MP-411` portability audit in `MP-377` scope:
+  audit remaining repo-specific leakage in portable layers and thread
+  `ProjectGovernance.path_roots` / repo-pack seams through the offenders.
+- 2026-04-18 `MP-412` HarnessAuthContract in `MP-377` scope:
+  define one typed harness-authorization seam so automation can trust the
+  current authority snapshot instead of waiting on ad hoc operator chat.
+- 2026-04-18 `MP-413` staged-intent and worker-output closure in `MP-377`
+  scope: preserve worker-created files and staged user intent through the
+  governed mutation path without manual `git add` cleanup.
+- 2026-04-18 `MP-414` typed decision policy in `MP-377` scope:
+  route unresolved A/B/C architecture choices into one repo-owned typed
+  decision surface instead of letting them remain packet prose, including
+  `rev_pkt_1221/1222/1223/1234` before those packets leave the live queue.
+- 2026-04-18 `MP-415` / `MP-416` collaboration-role and reviewer-wake
+  closure in `MP-377` scope: keep mutation/verifier/watcher ownership derived
+  from typed runtime state and make packet-post reviewer wake repo-owned and
+  visible in typed receipts.
+- 2026-04-18 `MP-417` snapshot-drift ordering fix in `MP-377` scope:
+  make stage approval, review-state refresh, and compatibility projection
+  writes idempotent so the worktree does not re-dirty after approval, and
+  treat `attention_revision_stale` as its own prior slice when peer packet
+  traffic advances attention without changing staged slice integrity.
+- 2026-04-18 `MP-418` process-lifecycle ownership in `MP-377` scope:
+  emit one typed lifecycle contract for reviewer, implementer, publisher, and
+  watchers so silent death becomes runtime state instead of lore.
+- 2026-04-19 wake-continuity truth follow-up in `MP-377` scope:
+  carry per-lane host wake capability through typed collaboration and
+  authority state, and fail closed whenever `active_dual_agent` is still
+  tick-based, manual, or unknown on the mutation/verification/watcher lanes.
+- 2026-04-19 loop-autonomy follow-up in `MP-377` scope:
+  project one typed loop-autonomy answer across single-agent, multi-agent,
+  local, and remote-control modes so control-plane surfaces and reviewer wake
+  logic stop treating wake scheduling as a remote-only split or a
+  dual-agent-only concern.
+- 2026-04-18 collaboration-role contract follow-up in `MP-377` scope:
+  keep mutation/verifier/watcher posture on typed collaboration authority
+  instead of letting dev dogfood status imply who should code. Dogfood stays
+  the development evidence ledger layered on top of that runtime truth.
 - 2026-04-09 branch reviewer-follow-up cycle on
   `feature/governance-quality-sweep`: Codex's full-range review pass
   promoted verdict from "accepted: hygiene fix landed" (`696f4772`) to

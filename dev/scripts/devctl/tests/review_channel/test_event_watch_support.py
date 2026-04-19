@@ -10,6 +10,10 @@ from dev.scripts.devctl.commands.review_channel.event_watch_support import (
     load_target_packets,
     watch_snapshot_signature,
 )
+from dev.scripts.devctl.commands.review_channel.watch_follow_state import (
+    WatchFollowRuntimeContext,
+    load_initial_watch_bundle,
+)
 
 
 def _bundle(packet_id: str):
@@ -124,3 +128,39 @@ def test_watch_snapshot_signature_falls_back_to_global_attention_revision() -> N
     )
 
     assert signature == (frozenset({"pkt-1"}), 0, "global-rev")
+
+
+def test_load_initial_watch_bundle_passes_event_watch_context(monkeypatch) -> None:
+    bundle = _bundle("pkt-watch")
+    observed: dict[str, object] = {}
+
+    def fake_load_target_packets(*, context, status_filter=None, **_kwargs):
+        observed["context"] = context
+        observed["status_filter"] = status_filter
+        return context.bundle, list(context.bundle.review_state["packets"])
+
+    ctx = WatchFollowRuntimeContext(
+        args=SimpleNamespace(target="claude", status="pending", limit=20),
+        repo_root=Path("/tmp/repo"),
+        review_channel_path=Path("/tmp/repo/dev/active/review_channel.md"),
+        artifact_paths=SimpleNamespace(artifact_root="/tmp/repo/dev/reports/review_channel"),
+        target="claude",
+        status_filter="pending",
+        owner=SimpleNamespace(),
+        interval=5,
+        max_snapshots=1,
+        deps=SimpleNamespace(
+            load_or_refresh_event_bundle_fn=lambda **_kwargs: bundle,
+            load_target_packets_fn=fake_load_target_packets,
+        ),
+    )
+
+    loaded_bundle, packets, error = load_initial_watch_bundle(ctx)
+
+    assert error is None
+    assert loaded_bundle is bundle
+    assert packets == list(bundle.review_state["packets"])
+    assert isinstance(observed["context"], EventWatchContext)
+    assert observed["context"].args.target == "claude"
+    assert observed["context"].bundle is bundle
+    assert observed["status_filter"] == "pending"

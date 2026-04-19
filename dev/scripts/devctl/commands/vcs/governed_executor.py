@@ -41,6 +41,7 @@ from .governed_executor_validation import build_validation_receipt
 from .governed_executor_sync import (
     load_event_packets,
     persist_pipeline,
+    persist_pipeline_contract_only,
     sync_pipeline_push_authorization,
 )
 from .push import build_push_args, run_push_action
@@ -154,6 +155,12 @@ class GovernedVcsExecutor:
                 review_channel_path=self.review_channel_path,
                 load_pipeline=self.load_pipeline,
                 persist_pipeline=self._persist_pipeline,
+                persist_pipeline_contract_only=lambda pipeline: persist_pipeline_contract_only(
+                    pipeline,
+                    projections_root=self.projections_root,
+                    repo_root=self.repo_root,
+                )
+                or [],
                 event_packets_loader=self._event_packets,
                 pipeline_artifact_relpath=self._pipeline_artifact_relpath(),
                 result_builder=self._result,

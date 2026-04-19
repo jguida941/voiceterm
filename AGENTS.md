@@ -45,6 +45,11 @@ Portable-platform rule:
   remote-control continuity must be derived from typed governance/review-state
   evidence rather than launcher env vars alone, so receipt commits do not make
   different runtime readers disagree about whether the loop is still valid.
+- Collaboration-role posture must also stay on typed runtime authority:
+  `CollaborationSession` / `AuthoritySnapshot` decide mutation, verification,
+  and watcher/dashboard ownership. `devctl dogfood` remains development-only
+  evidence capture layered on top of that runtime truth; it is not the
+  universal role-selection mode for arbitrary repos.
 
 Documentation-boundary rule:
 - Keep VoiceTerm product docs (`README.md`, `QUICK_START.md`, `guides/*`)

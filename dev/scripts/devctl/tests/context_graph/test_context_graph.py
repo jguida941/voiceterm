@@ -199,6 +199,30 @@ class TestContextGraphQuery(unittest.TestCase):
         plan_nodes = [n for n in result.matched_nodes if n.node_kind == NODE_KIND_PLAN]
         self.assertGreater(len(plan_nodes), 0, "MP-377 query should find plan nodes")
 
+    def test_phase_mp_query_returns_owner_plan_node(self) -> None:
+        result = query_context_graph("MP-411", self.nodes, self.edges)
+        self.assertNotEqual(result.confidence, "no_match")
+        self.assertTrue(
+            any(
+                node.node_kind == NODE_KIND_PLAN
+                and node.canonical_pointer_ref == "dev/active/ai_governance_platform.md"
+                for node in result.matched_nodes
+            ),
+            "phase MP query should resolve the owning active plan node",
+        )
+
+    def test_tracker_mp_query_returns_master_plan_node(self) -> None:
+        result = query_context_graph("MP-395", self.nodes, self.edges)
+        self.assertNotEqual(result.confidence, "no_match")
+        self.assertTrue(
+            any(
+                node.node_kind == NODE_KIND_PLAN
+                and node.canonical_pointer_ref == "dev/active/MASTER_PLAN.md"
+                for node in result.matched_nodes
+            ),
+            "tracker MP query should resolve the tracker plan node",
+        )
+
     def test_guard_query_returns_guard_and_source(self) -> None:
         result = query_context_graph("code_shape", self.nodes, self.edges)
         kinds = {n.node_kind for n in result.matched_nodes}

@@ -124,3 +124,8 @@ class CollaborationSessionState:
     ownership: WorkIntakeOwnershipState = field(
         default_factory=WorkIntakeOwnershipState
     )
+    mutation_owner: str = ""
+    verification_owner: str = ""
+    verification_status: str = "inactive"
+    watcher_owner: str = ""
+    watcher_status: str = "inactive"

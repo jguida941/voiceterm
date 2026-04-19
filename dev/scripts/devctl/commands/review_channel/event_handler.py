@@ -44,6 +44,7 @@ from .event_action_support import (
     run_packet_transition_action,
     run_post_action,
 )
+from .event_post_wake import maybe_wake_posted_reviewer_packet
 from .event_watch_support import load_target_packets, watch_snapshot_signature
 from .watch_follow import WatchFollowDeps, run_watch_follow
 
@@ -141,9 +142,21 @@ def _run_event_action(
             repo_root=repo_root,
             review_channel_path=review_channel_path,
             artifact_paths=artifact_paths,
-        )
+    )
     if args.action == "post":
-        return run_post_action(context=context)
+        report, exit_code, review_state_payload = run_post_action(context=context)
+        packet = report.get("packet")
+        if isinstance(packet, dict):
+            reviewer_wake = maybe_wake_posted_reviewer_packet(
+                args=args,
+                repo_root=repo_root,
+                paths=paths,
+                packet=packet,
+                posted_review_state_payload=review_state_payload,
+            )
+            if reviewer_wake is not None:
+                report["reviewer_wake"] = reviewer_wake
+        return report, exit_code
     if args.action in {"ack", "dismiss", "apply"}:
         return run_packet_transition_action(context=context)
     bundle = load_or_refresh_event_bundle(

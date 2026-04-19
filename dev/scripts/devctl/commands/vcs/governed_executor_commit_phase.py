@@ -55,6 +55,7 @@ class CommitPipelineContext:
     review_channel_path: Path | None
     load_pipeline: Callable[[], RemoteCommitPipelineContract]
     persist_pipeline: PipelinePersister
+    persist_pipeline_contract_only: PipelinePersister
     event_packets_loader: EventPacketsLoader
     pipeline_artifact_relpath: str
     result_builder: ResultBuilder
@@ -148,7 +149,7 @@ def execute_commit(
         commit_action_id=action.action_id,
         blocked_reason="",
     )
-    context.persist_pipeline(commit_pending)
+    context.persist_pipeline_contract_only(commit_pending)
 
     commit_code, _, commit_error = run_git_capture(
         list(readiness.git_commit_args),
@@ -216,7 +217,7 @@ def _acquire_attention_revision_lease(
     if not live_revision:
         return pipeline
     leased = replace(pipeline, attention_revision_lease=live_revision)
-    context.persist_pipeline(leased)
+    context.persist_pipeline_contract_only(leased)
     return leased
 
 
@@ -265,7 +266,7 @@ def _attention_revision_stale_result(
         state="push_blocked",
         blocked_reason="attention_revision_stale",
     )
-    warnings = context.persist_pipeline(blocked)
+    warnings = context.persist_pipeline_contract_only(blocked)
     return context.result_builder(
         action_id=action_id,
         ok=False,
@@ -287,7 +288,7 @@ def _commit_block_result(
     context: CommitPipelineContext,
     blocked: CommitBlock,
 ) -> ActionResult:
-    blocked_warnings = context.persist_pipeline(blocked.pipeline)
+    blocked_warnings = context.persist_pipeline_contract_only(blocked.pipeline)
     return context.result_builder(
         action_id=action_id,
         ok=False,
@@ -341,7 +342,7 @@ def _commit_failure_result(
             operator_guidance=failure_guidance,
         ),
     )
-    warnings = context.persist_pipeline(failed)
+    warnings = context.persist_pipeline_contract_only(failed)
     if handoff_packet_id:
         warnings.append(f"commit_execution_request_packet={handoff_packet_id}")
     if handoff_target:
@@ -367,7 +368,7 @@ def _commit_success_result(
     context: CommitPipelineContext,
     completed: RemoteCommitPipelineContract,
 ) -> ActionResult:
-    warnings = context.persist_pipeline(completed)
+    warnings = context.persist_pipeline_contract_only(completed)
     return context.result_builder(
         action_id=action_id,
         ok=True,

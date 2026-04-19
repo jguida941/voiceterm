@@ -3484,6 +3484,192 @@ Phase metadata: phase_id=MP397-P0; owner_doc=`dev/active/remote_control_runtime.
       status: `pending`
       depends_on: `MP397-T02`
 
+### Phase MP-400 - Hygiene Gate Category Separation
+
+Phase metadata: phase_id=MP400-P0; owner_doc=`dev/active/ai_governance_platform.md`; status=pending; depends_on=`MP397-P0`; summary=Separate checkpoint, publication, runtime drift, and collaboration debt into typed hygiene-gate families instead of one blended blocker surface.
+
+- [ ] `MP400-T01` Introduce one typed hygiene-gate category family across startup, status, doctor, and commit so repo-owned next-command routing stops flattening different blockers into generic red-state prose.
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `pending`
+      depends_on: `MP397-P0`
+
+### Phase MP-401 - Packet Debt vs Repo Dirt
+
+Phase metadata: phase_id=MP401-P0; owner_doc=`dev/active/review_channel.md`; status=pending; depends_on=`MP400-P0`; summary=Separate unread reviewer/implementer packet debt from repo dirt and publication backlog so collaboration work does not masquerade as hygiene drift.
+
+- [ ] `MP401-T01` Split packet debt from repo-governance dirt in startup/status/doctor attention so unread collaboration work produces its own typed fix path instead of collapsing into checkpoint-only guidance.
+      owner_doc: `dev/active/review_channel.md`
+      status: `pending`
+      depends_on: `MP400-P0`
+
+### Phase MP-402 - Projection Drift Classification
+
+Phase metadata: phase_id=MP402-P0; owner_doc=`dev/active/platform_authority_loop.md`; status=pending; depends_on=`MP401-P0`; summary=Separate stale projection drift from live authority loss so repair paths choose the right repo-owned fix instead of treating both as generic dirty state.
+
+- [ ] `MP402-T01` Teach startup/status/doctor to classify stale projection drift separately from live runtime authority loss and emit typed repair decisions for each class.
+      owner_doc: `dev/active/platform_authority_loop.md`
+      status: `pending`
+      depends_on: `MP401-P0`
+
+### Phase MP-403 - Compatibility Drift As Diagnostic
+
+Phase metadata: phase_id=MP403-P0; owner_doc=`dev/active/review_channel.md`; status=pending; depends_on=`MP402-P0`; summary=Treat compatibility-surface drift as a typed diagnostic/fix path instead of a generic dirty-worktree blocker.
+
+- [ ] `MP403-T01` Move bridge/compatibility projection drift onto a typed diagnostic lane with explicit repair commands instead of leaving it mixed into raw worktree hygiene blockers.
+      owner_doc: `dev/active/review_channel.md`
+      status: `pending`
+      depends_on: `MP402-P0`
+
+### Phase MP-404 - Typed Next-Command Hygiene Routing
+
+Phase metadata: phase_id=MP404-P0; owner_doc=`dev/active/platform_authority_loop.md`; status=pending; depends_on=`MP403-P0`; summary=Keep operator/repo-owned next-command guidance grouped by blocker family so hygiene routing stays deterministic and typed.
+
+- [ ] `MP404-T01` Route typed hygiene-gate categories into exact next-command guidance and blocked-action state so operators and AI stop reconstructing recovery from mixed prose.
+      owner_doc: `dev/active/platform_authority_loop.md`
+      status: `pending`
+      depends_on: `MP403-P0`
+
+### Phase MP-405 - Guard Expansion From Dogfood Findings
+
+Phase metadata: phase_id=MP405-P0; owner_doc=`dev/active/review_probes.md`; status=pending; depends_on=`MP404-P0`; summary=Expand guard coverage for packet-to-plan promotion, half-built plan-state drift, and the recurring dogfood findings now visible in typed review state.
+
+- [ ] `MP405-T01` Add the first repo-owned guard family for packet-to-plan promotion gaps, including the packet-only `look-first / half-built-guard / graph extension` A/B/C decision trail so it cannot live only in packet prose again.
+      owner_doc: `dev/active/review_probes.md`
+      status: `pending`
+      depends_on: `MP404-P0`
+- [ ] `MP405-T02` Land the first half-built typed-state guard slice from `rev_pkt_1221`: start with enum/field/value routes that define typed state without any canonical producer, consumer, or branch coverage, and require the `look-first` search discipline before new typed contracts land.
+      owner_doc: `dev/active/review_probes.md`
+      status: `pending`
+      depends_on: `MP405-P0`
+
+### Phase MP-406 - Guard/Probe Generator Path
+
+Phase metadata: phase_id=MP406-P0; owner_doc=`dev/active/review_probes.md`; status=pending; depends_on=`MP405-P0`; summary=Add one repo-owned generator path for recurring guard/probe additions so new detection seams land as typed artifacts instead of prose-only ideas.
+
+- [ ] `MP406-T01` Generate guard/probe scaffolds from typed findings metadata so repeated architectural seams stop waiting on manual copy/paste or chat memory before they become repo-owned checks.
+      owner_doc: `dev/active/review_probes.md`
+      status: `pending`
+      depends_on: `MP405-P0`
+
+### Phase MP-407 - Higher-Order Probe Sophistication
+
+Phase metadata: phase_id=MP407-P0; owner_doc=`dev/active/review_probes.md`; status=pending; depends_on=`MP406-P0`; summary=Teach probes to detect higher-order runtime/plan drift rather than only local file smells.
+
+- [ ] `MP407-T01` Expand probe reasoning so cross-surface drift, packet-only plan state, and half-built governance seams become first-class probe findings instead of operator-discovered surprises.
+      owner_doc: `dev/active/review_probes.md`
+      status: `pending`
+      depends_on: `MP406-P0`
+- [ ] `MP407-T02` Promote the `higher-order guards + self-teaching` directive from `rev_pkt_1222` into typed probe scope, starting with stress-abstraction, polymorphism-consistency, and architectural-decision mismatches as explicit governed probe classes rather than packet-only ideas.
+      owner_doc: `dev/active/review_probes.md`
+      status: `pending`
+      depends_on: `MP407-P0`
+
+### Phase MP-408 - Smart Guard Reasoning
+
+Phase metadata: phase_id=MP408-P0; owner_doc=`dev/active/review_probes.md`; status=pending; depends_on=`MP407-P0`; summary=Make guard logic smart enough to reason about half-built scaffolds, graph/plan mismatch, and repeated coherence debt.
+
+- [ ] `MP408-T01` Promote the `higher-order guards + self-teaching` decision lane into typed guard logic so the guard layer can reject known half-built or incoherent states without waiting for chat interpretation.
+      owner_doc: `dev/active/review_probes.md`
+      status: `pending`
+      depends_on: `MP407-P0`
+
+### Phase MP-409 - Coherence Restoration
+
+Phase metadata: phase_id=MP409-P0; owner_doc=`dev/active/ai_governance_platform.md`; status=pending; depends_on=`MP408-P0`; summary=Restore coherence across docs, runtime, help text, generated projections, and quality surfaces after the smarter guard/probe rollout.
+
+- [ ] `MP409-T01` Reconcile docs/help/runtime/generated surfaces after the expanded guard/probe lane so higher-order coherence fixes stop bouncing between packet findings and stale projections.
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `pending`
+      depends_on: `MP408-P0`
+
+### Phase MP-411 - Portability Audit Closure
+
+Phase metadata: phase_id=MP411-P0; owner_doc=`dev/active/portable_code_governance.md`; status=pending; depends_on=`MP409-P0`; summary=Run the full portability audit and remove remaining repo-specific leakage from portable layers before wider adopter proof.
+
+- [ ] `MP411-T01` Audit the portable-engine/runtime/help/code-shape surfaces for remaining repo-specific literals or hidden VoiceTerm defaults, then thread the existing `ProjectGovernance.path_roots` and repo-pack seams through the offenders.
+      owner_doc: `dev/active/portable_code_governance.md`
+      status: `pending`
+      depends_on: `MP409-P0`
+
+### Phase MP-412 - Harness Authorization Contract
+
+Phase metadata: phase_id=MP412-P0; owner_doc=`dev/active/platform_authority_loop.md`; status=pending; depends_on=`MP411-P0`; summary=Define one HarnessAuthContract so automation knows when typed state already authorizes the next step instead of waiting on chat or launcher lore.
+
+- [ ] `MP412-T01` Introduce the first typed harness-authorization contract that binds role, topology, and current authority snapshot to the sanctioned next actions without per-command chat reconstruction.
+      owner_doc: `dev/active/platform_authority_loop.md`
+      status: `pending`
+      depends_on: `MP411-P0`
+
+### Phase MP-413 - Staged Intent And Worker Output Closure
+
+Phase metadata: phase_id=MP413-P0; owner_doc=`dev/active/remote_commit_pipeline.md`; status=pending; depends_on=`MP412-P0`; summary=Close staged-intent and worker-created-file staging gaps so governed mutation preserves user intent without manual `git add` repair.
+
+- [ ] `MP413-T01` Make governed mutation preserve worker-created files and staged user intent through the managed commit path so remote-control and local lanes stop requiring manual staging cleanup to keep typed state truthful.
+      owner_doc: `dev/active/remote_commit_pipeline.md`
+      status: `pending`
+      depends_on: `MP412-P0`
+
+### Phase MP-414 - Typed Decision Policy
+
+Phase metadata: phase_id=MP414-P0; owner_doc=`dev/active/platform_authority_loop.md`; status=pending; depends_on=`MP412-P0`; summary=Promote typed decision policy so A/B/C architecture choices land in one repo-owned decision surface instead of packet prose.
+
+- [ ] `MP414-T01` Add the first typed decision-policy lane that records unresolved architectural choices, accepted branches, and approval posture so packet-only A/B/C prompts become typed state before more code lands.
+      owner_doc: `dev/active/platform_authority_loop.md`
+      status: `pending`
+      depends_on: `MP412-P0`
+- [ ] `MP414-T02` Promote `rev_pkt_1221`, `rev_pkt_1222`, `rev_pkt_1223`, and `rev_pkt_1234` into typed decision authority, including explicit branch choices for `look-first`, graph/guard expansion, and attention-stale handling before those packets leave the pending queue.
+      owner_doc: `dev/active/platform_authority_loop.md`
+      status: `pending`
+      depends_on: `MP414-P0`
+
+### Phase MP-415 - Collaboration Role Contract Read-Side
+
+Phase metadata: phase_id=MP415-P0; owner_doc=`dev/active/ai_governance_platform.md`; status=done; depends_on=`MP414-P0`; summary=Land the collaboration-role contract read-side closure and keep mutation/verifier/watcher ownership derived from typed runtime state.
+
+- [x] `MP415-T01` Project mutation, verification, and watcher ownership through typed collaboration/runtime state so startup, status, and startup-facing summaries stop inferring roles from dev dogfood posture.
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `done`
+      depends_on: `MP414-P0`
+
+### Phase MP-416 - Reviewer Wake On Packet Post
+
+Phase metadata: phase_id=MP416-P0; owner_doc=`dev/active/review_channel.md`; status=done; depends_on=`MP415-P0`; summary=Close reviewer wake-on-packet-post so repo-owned review traffic can relaunch or notify the reviewer lane without manual polling.
+
+- [x] `MP416-T01` Wire packet-post reviewer wake to the typed review-state authority and make the wake outcome visible in the post receipt instead of relying on silent polling.
+      owner_doc: `dev/active/review_channel.md`
+      status: `done`
+      depends_on: `MP415-P0`
+
+### Phase MP-417 - Snapshot Drift Ordering
+
+Phase metadata: phase_id=MP417-P0; owner_doc=`dev/active/remote_commit_pipeline.md`; status=pending; depends_on=`MP416-P0`; summary=Fix snapshot-drift and governance-refresh ordering so commit/push and review status stop dirtying the worktree after stage approval.
+
+- [ ] `MP417-T01` Move or harden the post-stage refresh path so staged-tree approval, review-state refresh, and compatibility projection writes stay idempotent and do not regenerate dirty worktree churn after approval.
+      owner_doc: `dev/active/remote_commit_pipeline.md`
+      status: `pending`
+      depends_on: `MP416-P0`
+- [ ] `MP417-T02` Treat `attention_revision_stale` as a separate prior slice, not a babysat side effect of later wake/ownership work: make commit authority tolerate peer packet/attention advancement when the staged tree and approved slice state are unchanged, as escalated in `rev_pkt_1223` and `rev_pkt_1234`.
+      owner_doc: `dev/active/remote_commit_pipeline.md`
+      status: `pending`
+      depends_on: `MP417-P0`
+
+### Phase MP-418 - Process Lifecycle Ownership
+
+Phase metadata: phase_id=MP418-P0; owner_doc=`dev/active/remote_control_runtime.md`; status=pending; depends_on=`MP417-P0`; summary=Define one process-lifecycle ownership contract for reviewer, implementer, publisher, and watchers so silent death becomes typed runtime state instead of lore.
+
+- [ ] `MP418-T01` Emit one repo-owned process-lifecycle ownership contract for reviewer, implementer, publisher, and watchers so silent death, detached runtimes, and stale observers resolve through typed state instead of operator memory.
+      owner_doc: `dev/active/remote_control_runtime.md`
+      status: `pending`
+      depends_on: `MP417-P0`
+- [x] `MP418-T02` Project per-lane host wake capability (`continuous`, `tick_based`, `manual_nudge_required`) into typed collaboration/authority state and fail closed when `active_dual_agent` lacks continuous wake on mutation, verification, or watcher ownership.
+      owner_doc: `dev/active/remote_control_runtime.md`
+      status: `done`
+      depends_on: `MP415-P0`
+- [x] `MP418-T03` Project one typed loop-autonomy contract across single-agent, dual-agent, local, and remote-control modes so control-plane surfaces stop treating host wake as a remote-only special case or a dual-agent-only guard.
+      owner_doc: `dev/active/remote_control_runtime.md`
+      status: `done`
+      depends_on: `MP418-T02`
+
 ### Phase P2 - Closed-Loop Quality Composition And Audit Orchestration
 
 Phase metadata: phase_id=MP377-P2; owner_doc=`dev/active/review_probes.md`; status=pending; depends_on=`MP377-P0`, `MP377-P1`; summary=Turn the existing guards, probes, dogfood ledger, and planning reducers into one closed quality loop with shared inputs and consumable outputs.
@@ -7510,6 +7696,15 @@ Execution order for this section:
   `runtime_missing`, blank `current_instruction_revision`, and
   `implementer_ack_state=missing`, so this checkpoint explicitly leaves live
   runtime continuity open instead of over-claiming closure.
+- 2026-04-18: Tightened the typed collaboration-role contract so role choice
+  no longer depends on treating `devctl dogfood` like a universal runtime
+  mode. `CollaborationSession` and `AuthoritySnapshot` now carry explicit
+  `mutation_owner`, `verification_owner`, and watcher ownership/status fields.
+  The active AI should derive who codes, who verifies, and who keeps the
+  watcher/dashboard lane live from typed collaboration state first. Dev-mode
+  dogfood stays a development evidence ledger layered on top of that runtime
+  truth, not the thing that decides the role posture for arbitrary end-user
+  sessions.
 - 2026-04-17: Closed the live host-process cleanup false block that was still
   freezing governed checkpoints after the earlier pipeline/startup repairs. A
   real detached Codex conductor wrapper remained registry-backed and

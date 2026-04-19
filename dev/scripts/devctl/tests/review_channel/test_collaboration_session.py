@@ -166,6 +166,11 @@ def test_build_collaboration_session_marks_dual_agent_exclusive_slice(
     assert session.ownership.in_scope_dirty_paths == (
         "dev/scripts/devctl/runtime/startup_context.py",
     )
+    assert session.mutation_owner == "claude"
+    assert session.verification_owner == "codex"
+    assert session.verification_status == "live"
+    assert session.watcher_owner == "claude"
+    assert session.watcher_status == "live"
 
 
 def test_build_collaboration_session_promotes_active_remote_control_attachment(
@@ -308,6 +313,11 @@ def test_build_collaboration_session_collapses_single_agent_remote_dashboard_to_
     assert operator_assignment.provider == "claude"
     assert operator_assignment.live is True
     assert operator_assignment.source == "remote_control_attachment"
+    assert session.mutation_owner == "codex"
+    assert session.verification_owner == "claude"
+    assert session.verification_status == "live"
+    assert session.watcher_owner == "claude"
+    assert session.watcher_status == "live"
 
 
 def test_build_collaboration_session_carries_lane_identity_from_session_metadata(

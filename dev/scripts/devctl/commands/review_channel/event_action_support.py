@@ -38,7 +38,7 @@ def load_post_body(args) -> str:
 def run_post_action(
     *,
     context: EventActionContext,
-) -> tuple[dict, int]:
+) -> tuple[dict, int, dict[str, object]]:
     """Append one event-backed review packet."""
     bundle, event = post_packet(
         repo_root=context.repo_root,
@@ -88,12 +88,13 @@ def run_post_action(
         ),
         None,
     )
-    return context.build_event_report_fn(
+    report, exit_code = context.build_event_report_fn(
         args=context.args,
         bundle=bundle,
         packet=packet,
         event=event,
     )
+    return report, exit_code, bundle.review_state
 
 
 def run_packet_transition_action(

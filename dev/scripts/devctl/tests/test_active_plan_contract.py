@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import json
 import subprocess
 import sys
 import tempfile
@@ -10,6 +11,9 @@ from pathlib import Path
 from unittest import TestCase
 
 from dev.scripts.checks.active_plan.contract import validate_execution_plan_contract
+from dev.scripts.checks.active_plan.packet_plan_sync import (
+    validate_live_packet_plan_sync,
+)
 from dev.scripts.checks.active_plan.typed_phase_contract import (
     validate_typed_phase_plan_contract,
 )
@@ -217,3 +221,179 @@ class ActivePlanContractTests(TestCase):
 
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(result.stdout.strip(), "True")
+
+    def test_live_packet_plan_sync_reports_unresolved_mp_from_pending_packets(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            repo_root = Path(tmpdir)
+            plan_path = repo_root / "dev/active/ai_governance_platform.md"
+            plan_path.parent.mkdir(parents=True)
+            plan_path.write_text("# AI Governance Platform\n", encoding="utf-8")
+            events_path = repo_root / "dev/reports/review_channel/events/trace.ndjson"
+            events_path.parent.mkdir(parents=True, exist_ok=True)
+            events_path.write_text(
+                json.dumps(
+                    {
+                        "event_type": "packet_posted",
+                        "packet_id": "rev_pkt_2001",
+                        "status": "pending",
+                        "kind": "finding",
+                        "from_agent": "claude",
+                        "to_agent": "codex",
+                        "summary": "Missing portability phase",
+                        "body": "Please add MP-411 before we keep coding.",
+                    }
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            issues = validate_live_packet_plan_sync(
+                repo_root=repo_root,
+                registry_by_path={
+                    "dev/active/ai_governance_platform.md": {
+                        "role": "spec",
+                        "authority": "mirrored in MASTER_PLAN",
+                        "scope": "MP-377",
+                        "when": "matching MP scope is in play",
+                    }
+                },
+            )
+
+            self.assertEqual(len(issues), 1)
+            self.assertIn("rev_pkt_2001", issues[0])
+            self.assertIn("MP-411", issues[0])
+
+    def test_live_packet_plan_sync_accepts_typed_task_ids_present_in_plan_docs(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            repo_root = Path(tmpdir)
+            plan_path = repo_root / "dev/active/ai_governance_platform.md"
+            plan_path.parent.mkdir(parents=True)
+            plan_path.write_text(
+                "\n".join(
+                    [
+                        "# AI Governance Platform",
+                        "",
+                        "## Execution Checklist",
+                        "",
+                        "### Phase P1 - Typed Ingestion",
+                        "Phase metadata: phase_id=MP377-P1; owner_doc=`dev/active/ai_governance_platform.md`; status=pending; depends_on=none; summary=Route startup from typed phases.",
+                        "- [ ] `MP377-P1-T06` Collapse runtime authority onto one producer tick.",
+                        "      owner_doc: `dev/active/ai_governance_platform.md`",
+                        "      status: `pending`",
+                        "      depends_on: none",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+            events_path = repo_root / "dev/reports/review_channel/events/trace.ndjson"
+            events_path.parent.mkdir(parents=True, exist_ok=True)
+            events_path.write_text(
+                json.dumps(
+                    {
+                        "event_type": "packet_posted",
+                        "packet_id": "rev_pkt_2002",
+                        "status": "pending",
+                        "kind": "finding",
+                        "from_agent": "claude",
+                        "to_agent": "codex",
+                        "summary": "Runtime convergence",
+                        "body": "MP377-P1-T06 is still the active closure task.",
+                    }
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            issues = validate_live_packet_plan_sync(
+                repo_root=repo_root,
+                registry_by_path={
+                    "dev/active/ai_governance_platform.md": {
+                        "role": "spec",
+                        "authority": "mirrored in MASTER_PLAN",
+                        "scope": "MP-377",
+                        "when": "matching MP scope is in play",
+                    }
+                },
+            )
+
+            self.assertEqual(issues, [])
+
+    def test_live_packet_plan_sync_reports_freeform_decision_prompts(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            repo_root = Path(tmpdir)
+            plan_path = repo_root / "dev/active/ai_governance_platform.md"
+            plan_path.parent.mkdir(parents=True)
+            plan_path.write_text("# AI Governance Platform\n", encoding="utf-8")
+            events_path = repo_root / "dev/reports/review_channel/events/trace.ndjson"
+            events_path.parent.mkdir(parents=True, exist_ok=True)
+            events_path.write_text(
+                json.dumps(
+                    {
+                        "event_type": "packet_posted",
+                        "packet_id": "rev_pkt_2003",
+                        "status": "pending",
+                        "kind": "finding",
+                        "from_agent": "claude",
+                        "to_agent": "codex",
+                        "summary": "Need a routing choice",
+                        "body": "A/B/C is still open here. Which do you want? Option A keeps graph-first, option B keeps guard-first, option C widens both.",
+                    }
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            issues = validate_live_packet_plan_sync(
+                repo_root=repo_root,
+                registry_by_path={
+                    "dev/active/ai_governance_platform.md": {
+                        "role": "spec",
+                        "authority": "mirrored in MASTER_PLAN",
+                        "scope": "MP-377",
+                        "when": "matching MP scope is in play",
+                    }
+                },
+            )
+
+            self.assertEqual(len(issues), 1)
+            self.assertIn("rev_pkt_2003", issues[0])
+            self.assertIn("decision prompt", issues[0])
+
+    def test_live_packet_plan_sync_ignores_meta_packets_describing_prompt_cleanup(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            repo_root = Path(tmpdir)
+            plan_path = repo_root / "dev/active/ai_governance_platform.md"
+            plan_path.parent.mkdir(parents=True)
+            plan_path.write_text("# AI Governance Platform\n", encoding="utf-8")
+            events_path = repo_root / "dev/reports/review_channel/events/trace.ndjson"
+            events_path.parent.mkdir(parents=True, exist_ok=True)
+            events_path.write_text(
+                json.dumps(
+                    {
+                        "event_type": "packet_posted",
+                        "packet_id": "rev_pkt_2004",
+                        "status": "pending",
+                        "kind": "finding",
+                        "from_agent": "codex",
+                        "to_agent": "claude",
+                        "summary": "Only typed decision prompts remain",
+                        "body": "The remaining freeform prompts from earlier packets still need typed decision authority. This packet is describing the cleanup, not asking you to choose A/B/C here.",
+                    }
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            issues = validate_live_packet_plan_sync(
+                repo_root=repo_root,
+                registry_by_path={
+                    "dev/active/ai_governance_platform.md": {
+                        "role": "spec",
+                        "authority": "mirrored in MASTER_PLAN",
+                        "scope": "MP-377",
+                        "when": "matching MP scope is in play",
+                    }
+                },
+            )
+
+            self.assertEqual(issues, [])

@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
+from .event_watch_support import EventWatchContext
 from .watch_follow_frames import (
     WatchFollowFrameSpec,
     build_watch_follow_error_report,
@@ -55,11 +56,13 @@ def load_initial_watch_bundle(
             artifact_paths=ctx.artifact_paths,
         )
         bundle, packets = ctx.deps.load_target_packets_fn(
-            args=ctx.args,
-            bundle=bundle,
-            repo_root=ctx.repo_root,
-            review_channel_path=ctx.review_channel_path,
-            artifact_paths=ctx.artifact_paths,
+            context=EventWatchContext(
+                args=ctx.args,
+                bundle=bundle,
+                repo_root=ctx.repo_root,
+                review_channel_path=ctx.review_channel_path,
+                artifact_paths=ctx.artifact_paths,
+            ),
             status_filter=ctx.status_filter,
         )
         return bundle, packets, None

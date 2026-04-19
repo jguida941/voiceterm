@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from .event_watch_support import EventWatchContext
 from .watch_follow_frames import (
     WatchFollowFrameSpec,
     emit_watch_frame,
@@ -185,11 +186,13 @@ def run_watch_follow_loop(
         except (OSError, ValueError):
             continue
         bundle, packets = ctx.deps.load_target_packets_fn(
-            args=ctx.args,
-            bundle=bundle,
-            repo_root=ctx.repo_root,
-            review_channel_path=ctx.review_channel_path,
-            artifact_paths=ctx.artifact_paths,
+            context=EventWatchContext(
+                args=ctx.args,
+                bundle=bundle,
+                repo_root=ctx.repo_root,
+                review_channel_path=ctx.review_channel_path,
+                artifact_paths=ctx.artifact_paths,
+            ),
             status_filter=ctx.status_filter,
         )
         cur_signature = ctx.deps.watch_snapshot_signature_fn(

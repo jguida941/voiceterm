@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib
+import re
 from pathlib import Path
 
 from ..governance.doc_authority_rules import parse_index_registry
@@ -33,6 +34,8 @@ _PLAN_CONCEPT_KEYWORDS: tuple[tuple[str, str], ...] = (
     ("mobile", "app/ios"),
 )
 _ACTIVE_PLAN_ROLES = {"tracker", "spec"}
+_PLAN_MP_TOKEN_RE = re.compile(r"\bMP-\d+\b", re.IGNORECASE)
+_PLAN_IDENTIFIER_MP_RE = re.compile(r"\bMP-?(\d+)\b", re.IGNORECASE)
 
 
 def _plan_metadata(
@@ -125,7 +128,6 @@ def collect_plan_nodes(repo_root: Path) -> tuple[list[GraphNode], list[tuple[str
                 break
     return nodes, deferred_edges
 
-
 def _plan_aliases(repo_root: Path, plan_path: str, scope_raw: str) -> list[str]:
     aliases: list[str] = []
     normalized_scope = scope_raw.replace("`", " ").replace(",", " ")
@@ -137,20 +139,39 @@ def _plan_aliases(repo_root: Path, plan_path: str, scope_raw: str) -> list[str]:
     if not absolute_path.is_file():
         return aliases
     try:
-        phases = parse_execution_plan_phases(
-            absolute_path.read_text(encoding="utf-8")
-        )
+        plan_text = absolute_path.read_text(encoding="utf-8")
     except OSError:
         return aliases
+    _append_structural_plan_mp_aliases(aliases, plan_text)
+    phases = parse_execution_plan_phases(plan_text)
     for phase in phases:
         phase_id = str(phase.phase_id or "").strip()
         if phase_id and phase_id not in aliases:
             aliases.append(phase_id)
+        _append_mp_alias_from_identifier(aliases, phase_id)
         for task in phase.tasks:
             task_id = str(task.task_id or "").strip()
             if task_id and task_id not in aliases:
                 aliases.append(task_id)
+            _append_mp_alias_from_identifier(aliases, task_id)
     return aliases
+
+
+def _append_structural_plan_mp_aliases(aliases: list[str], plan_text: str) -> None:
+    for raw_line in plan_text.splitlines():
+        line = raw_line.lstrip()
+        if line.startswith(("#", "-", "*")):
+            for match in _PLAN_MP_TOKEN_RE.finditer(line):
+                token = match.group(0).upper()
+                if token not in aliases:
+                    aliases.append(token)
+
+
+def _append_mp_alias_from_identifier(aliases: list[str], identifier: str) -> None:
+    if match := _PLAN_IDENTIFIER_MP_RE.search(identifier):
+        token = f"MP-{match.group(1)}"
+        if token not in aliases:
+            aliases.append(token)
 
 
 def collect_guide_nodes(repo_root: Path) -> list[GraphNode]:

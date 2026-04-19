@@ -2,12 +2,16 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Mapping
 from dataclasses import asdict, dataclass
 
 from .post_checkpoint_dirty_support import (
     COMMIT_CHECKPOINT_COMMAND,
     requires_commit_before_push,
+)
+from .authority_snapshot_parse_support import (
+    mapping_or_empty as _mapping,
+    string_items as _string_items,
 )
 
 _CONTEXT_GRAPH_BOOTSTRAP_COMMAND = (
@@ -67,6 +71,11 @@ class AuthoritySnapshot:
     allowed_actions: tuple[str, ...] = ()
     blocked_actions: tuple[str, ...] = ()
     packet_target: AuthorityPacketTarget | None = None
+    mutation_owner: str = ""
+    verification_owner: str = ""
+    verification_status: str = "inactive"
+    watcher_owner: str = ""
+    watcher_status: str = "inactive"
 
     def to_dict(self) -> dict[str, object]:
         payload = asdict(self)
@@ -111,6 +120,11 @@ def authority_snapshot_from_mapping(value: object) -> AuthoritySnapshot | None:
         allowed_actions=_string_items(value.get("allowed_actions")),
         blocked_actions=_string_items(value.get("blocked_actions")),
         packet_target=packet_target,
+        mutation_owner=str(value.get("mutation_owner") or "").strip(),
+        verification_owner=str(value.get("verification_owner") or "").strip(),
+        verification_status=str(value.get("verification_status") or "inactive").strip(),
+        watcher_owner=str(value.get("watcher_owner") or "").strip(),
+        watcher_status=str(value.get("watcher_status") or "inactive").strip(),
     )
 
 
@@ -134,23 +148,6 @@ def authority_packet_target_from_mapping(value: object) -> AuthorityPacketTarget
         pending_actionable_total=int(value.get("pending_actionable_total") or 0),
         expired_unresolved_total=int(value.get("expired_unresolved_total") or 0),
     )
-
-
-def _mapping(value: object) -> Mapping[str, object]:
-    return value if isinstance(value, Mapping) else {}
-
-
-def _string_items(value: object) -> tuple[str, ...]:
-    if not isinstance(value, Sequence) or isinstance(value, (str, bytes, bytearray)):
-        return ()
-    result: list[str] = []
-    for item in value:
-        text = str(item or "").strip()
-        if text:
-            result.append(text)
-    return tuple(result)
-
-
 def summary_blockers(ctx_dict: Mapping[str, object]) -> tuple[str, ...]:
     """Return the canonical startup blocker labels."""
     blockers: list[str] = []

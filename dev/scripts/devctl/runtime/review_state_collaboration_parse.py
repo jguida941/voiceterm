@@ -76,6 +76,13 @@ def collaboration_state_from_payload(
             ownership=ownership_state_from_mapping(
                 _mapping(collaboration.get("ownership"))
             ),
+            mutation_owner=_string(collaboration.get("mutation_owner")),
+            verification_owner=_string(collaboration.get("verification_owner")),
+            verification_status=(
+                _string(collaboration.get("verification_status")) or "inactive"
+            ),
+            watcher_owner=_string(collaboration.get("watcher_owner")),
+            watcher_status=_string(collaboration.get("watcher_status")) or "inactive",
         )
     return _legacy_collaboration_state(
         review=review,

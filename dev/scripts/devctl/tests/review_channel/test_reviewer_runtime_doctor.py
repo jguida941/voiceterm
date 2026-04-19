@@ -25,6 +25,12 @@ from dev.scripts.devctl.runtime.review_state_models import (
     ReviewAttentionState,
     ReviewCurrentSessionState,
 )
+from dev.scripts.devctl.runtime.review_state_collaboration_models import (
+    CollaborationArbitrationState,
+    CollaborationPeerReviewState,
+    CollaborationRestartState,
+    CollaborationSessionState,
+)
 from dev.scripts.devctl.runtime.reviewer_runtime_models import (
     ReviewerAcceptanceState,
     ReviewerLastPollState,
@@ -307,6 +313,45 @@ def test_attach_reviewer_runtime_snapshot_projects_authority_snapshot() -> None:
             "codex_conductor_active": True,
             "claude_conductor_active": True,
         },
+        collaboration=CollaborationSessionState(
+            schema_version=1,
+            contract_id="CollaborationSession",
+            session_id="session-1",
+            plan_id="MP-355",
+            status="active",
+            reviewer_mode="active_dual_agent",
+            operator_mode="remote_control",
+            lead_agent="codex",
+            review_agent="codex",
+            coding_agent="claude",
+            current_slice="MP-355",
+            peer_review=CollaborationPeerReviewState(
+                current_instruction="- implement the active slice",
+                current_instruction_revision="rev-123",
+                open_findings="- handshake drift",
+                implementer_status="- working",
+                implementer_ack="- acknowledged",
+                implementer_ack_state="stale",
+            ),
+            arbitration=CollaborationArbitrationState(
+                status="idle",
+                summary="",
+            ),
+            restart=CollaborationRestartState(
+                status="ready",
+                resumable=True,
+                source="typed",
+            ),
+            ready_gates=(),
+            role_assignments=(),
+            participants=(),
+            delegated_work=(),
+            mutation_owner="claude",
+            verification_owner="codex",
+            verification_status="live",
+            watcher_owner="claude",
+            watcher_status="live",
+        ),
         authority_snapshot=AuthoritySnapshot(
             coordination_state="handshake_stale",
             current_instruction_revision="rev-123",
@@ -340,11 +385,15 @@ def test_attach_reviewer_runtime_snapshot_projects_authority_snapshot() -> None:
     )
 
     snapshot = report["authority_snapshot"]
+    assert report["collaboration"]["mutation_owner"] == "claude"
     assert report["current_session"]["current_instruction_revision"] == "rev-123"
     assert report["coordination"]["observed_topology"] == "single_implementer_single_reviewer"
     assert snapshot["coordination_state"] == "handshake_stale"
     assert snapshot["current_instruction_revision"] == "rev-123"
     assert snapshot["implementer_ack_state"] == "stale"
+    assert snapshot["mutation_owner"] == "claude"
+    assert snapshot["verification_owner"] == "codex"
+    assert snapshot["watcher_owner"] == "claude"
     assert snapshot["next_command"].startswith(
         "python3 dev/scripts/devctl.py review-channel --action status"
     )

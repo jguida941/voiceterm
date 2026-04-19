@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import asdict
+from dataclasses import asdict, is_dataclass
 from collections.abc import Mapping
 
 from ...runtime.control_topology import derive_startup_control_truth
@@ -20,6 +20,22 @@ from ...runtime.authority_snapshot import project_authority_snapshot
 _AUTHORITY_BOOTSTRAP_COMMAND = (
     "python3 dev/scripts/devctl.py context-graph --mode bootstrap --format md"
 )
+
+
+def _collaboration_payload(collaboration_state: object) -> dict[str, object] | None:
+    if collaboration_state is None:
+        return None
+    if is_dataclass(collaboration_state) and not isinstance(collaboration_state, type):
+        return asdict(collaboration_state)
+    if isinstance(collaboration_state, Mapping):
+        return dict(collaboration_state)
+    to_dict = getattr(collaboration_state, "to_dict", None)
+    if callable(to_dict):
+        payload = to_dict()
+        if isinstance(payload, dict):
+            return payload
+    payload = getattr(collaboration_state, "__dict__", None)
+    return dict(payload) if isinstance(payload, dict) else None
 
 
 def attach_reviewer_runtime_snapshot(
@@ -54,11 +70,9 @@ def attach_reviewer_runtime_snapshot(
         else None
     )
     collaboration_state = getattr(review_state, "collaboration", None)
-    collaboration = (
-        asdict(collaboration_state)
-        if collaboration_state is not None
-        else None
-    )
+    collaboration = _collaboration_payload(collaboration_state)
+    if collaboration is not None:
+        report["collaboration"] = collaboration
     current_session = getattr(review_state, "current_session", None)
     if current_session is not None:
         report["current_session"] = asdict(current_session)

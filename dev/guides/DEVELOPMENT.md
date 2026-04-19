@@ -1940,6 +1940,10 @@ Structured audit/event ledgers are separate from that handoff surface:
   correlation; plain
   `python3 dev/scripts/devctl.py governance-review --record --signal-type dogfood`
   remains the manual fallback for later closeout or reclassification.
+  Dogfood is the development proof ledger, not the runtime role switch:
+  review-channel/startup/session-resume should derive who mutates, who
+  verifies, and who owns the watcher/dashboard lane from typed
+  `CollaborationSession` / `AuthoritySnapshot` ownership fields.
 - `dev/reports/governance/guard_promotion_candidates.jsonl` records durable
   guard/probe follow-up candidates when `governance-review --record` uses
   `--prevention-surface guard` or `--prevention-surface probe`; inspect that

@@ -4,7 +4,7 @@
 
 **Status:** Draft v4 (historical design and process record)
 **Audience:** users and developers
-**Last Updated:** 2026-04-18
+**Last Updated:** 2026-04-19
 
 ## At a Glance
 
@@ -38,6 +38,86 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 - [Developer Path (15 min)](#developer-path-15-min)
 
 ### 2026-04-17 - Event-backed current-session only clears on explicit packet truth, and missing implementation permission now blocks mutation
+
+### 2026-04-19 - Event-backed packet post now wakes the waiting reviewer instead of waiting for follow cadence
+
+Fact: the next live Codex+Claude remote-control pass exposed a narrower defect
+than "the heartbeat is stale." Event-backed packet posting already updated the
+typed queue immediately, but the actual reviewer wake lived only inside the
+detached ensure-follow loop. When Codex was sitting in a waiting reviewer
+state, a fresh Claude packet could land in the inbox and still do nothing
+until a later publisher tick or a manual operator poke woke the loop.
+
+This mattered because packet visibility and packet wake are different contracts.
+A dual-agent loop that only notices new work on cadence is still operator-led,
+even if the typed queue is correct. That is exactly the failure mode the
+remote-control dogfood surfaced: the queue changed, but the mutation/review
+lane did not react until a human forced it.
+
+The closure stayed bounded and reused the existing wake authority instead of
+inventing a second wake system. Event-backed `review-channel --action post`
+now refreshes typed status immediately after the packet write, derives the
+same operator interaction mode the rest of the runtime uses, and calls the
+existing reviewer wake primitive when the new packet targets Codex and the
+typed reviewer state says the lane is waiting. The follow loop still owns its
+cadence-based wake behavior, but packet arrival no longer has to wait for that
+cadence to restore the reviewer turn. Focused proof is green on the new
+post-path wake regression plus the existing reviewer-wake and watch support
+regressions.
+
+Evidence: `dev/scripts/devctl/commands/review_channel/event_handler.py`,
+`dev/scripts/devctl/commands/review_channel/event_post_wake.py`,
+`dev/scripts/devctl/review_channel/follow_controller.py`,
+`dev/scripts/devctl/tests/review_channel/test_event_post_wake.py`,
+`dev/scripts/devctl/tests/review_channel/test_follow_controller_reviewer_wake.py`,
+and `dev/scripts/devctl/tests/review_channel/test_event_watch_support.py`.
+
+### 2026-04-18 - Collaboration roles now derive from typed ownership while dogfood stays a development ledger
+
+Fact: the next MP-377 collaboration pass exposed a smaller but more important
+coupling bug than "Claude should dogfood more." The repo already had
+`devctl dogfood --record --dev-mode`, but the live collaboration contract was
+still easy to read as if dogfood were the thing that decided who coded and who
+verified. That would have baked a self-hosting development workflow into the
+universal runtime path even though end-user repos may want typed collaboration
+without any dogfood campaign at all.
+
+This mattered because runtime state and development evidence answer different
+questions. Typed runtime should decide mutation ownership, verification
+ownership, and watcher/dashboard ownership right now. Dogfood should record
+whether a development session exercised that path and captured evidence. If
+those concerns collapse into one mode flag, the runtime becomes
+development-shaped instead of repo-pack-shaped.
+
+The closure stayed bounded and typed. `CollaborationSession` now carries
+explicit `mutation_owner`, `verification_owner`, `verification_status`,
+`watcher_owner`, and `watcher_status`, and `AuthoritySnapshot` mirrors those
+fields for startup/status/session-resume consumers. The collaboration-session
+builder derives them from the existing typed roster plus remote-control
+attachments, and the review-state parser only falls back to collaboration or
+bridge instruction truth when `current_session` is absent. The same slice kept
+`devctl dogfood` explicitly documented as development-only evidence instead of
+promoting it into a universal runtime mode.
+
+Evidence: `dev/scripts/devctl/review_channel/collaboration_session.py`,
+`dev/scripts/devctl/review_channel/collaboration_session_lane_owners.py`,
+`dev/scripts/devctl/runtime/review_state_collaboration_models.py`,
+`dev/scripts/devctl/runtime/review_state_collaboration_parse.py`,
+`dev/scripts/devctl/runtime/review_state_collaboration_legacy.py`,
+`dev/scripts/devctl/runtime/review_state_parser.py`,
+`dev/scripts/devctl/runtime/review_state_parser_rows.py`,
+`dev/scripts/devctl/runtime/authority_snapshot_core.py`,
+`dev/scripts/devctl/runtime/authority_snapshot_build.py`,
+`dev/scripts/devctl/runtime/authority_snapshot_parse_support.py`,
+`dev/scripts/devctl/tests/review_channel/test_collaboration_session.py`,
+`dev/scripts/devctl/tests/runtime/test_review_state.py`,
+`dev/scripts/devctl/tests/runtime/test_startup_context.py`,
+`dev/scripts/devctl/tests/checks/platform_contract_closure/test_check_platform_contract_closure.py`,
+`AGENTS.md`,
+`dev/guides/DEVELOPMENT.md`,
+`dev/scripts/README.md`,
+`dev/active/MASTER_PLAN.md`,
+and `dev/active/ai_governance_platform.md`.
 
 ### 2026-04-18 - Remote-control operator delegation now auto-satisfies governed commit approval when typed runtime proves the operator role
 

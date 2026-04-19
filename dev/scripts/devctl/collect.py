@@ -50,26 +50,31 @@ def _build_git_status_payload(
     return payload
 
 
-def collect_git_status(since_ref: str | None = None, head_ref: str = "HEAD") -> dict:
+def collect_git_status(
+    since_ref: str | None = None,
+    head_ref: str = "HEAD",
+    *,
+    repo_root: str | Path | None = None,
+) -> dict:
     """Return branch and dirty state info from git."""
     if not shutil.which("git"):
         return {"error": "git not found"}
-    repo_root = get_repo_root()
+    resolved_repo_root = Path(repo_root) if repo_root is not None else get_repo_root()
     try:
         branch = subprocess.check_output(
             ["git", "rev-parse", "--abbrev-ref", "HEAD"],
-            cwd=repo_root,
+            cwd=resolved_repo_root,
             text=True,
         ).strip()
         if is_adoption_scan(since_ref=since_ref, head_ref=head_ref):
             tracked_raw = subprocess.check_output(
                 ["git", "ls-files"],
-                cwd=repo_root,
+                cwd=resolved_repo_root,
                 text=True,
             )
             untracked_raw = subprocess.check_output(
                 ["git", "ls-files", "--others", "--exclude-standard"],
-                cwd=repo_root,
+                cwd=resolved_repo_root,
                 text=True,
             )
             changes = []
@@ -89,13 +94,13 @@ def collect_git_status(since_ref: str | None = None, head_ref: str = "HEAD") -> 
         if since_ref:
             status_raw = subprocess.check_output(
                 ["git", "diff", "--name-status", f"{since_ref}...{head_ref}"],
-                cwd=repo_root,
+                cwd=resolved_repo_root,
                 text=True,
             )
         else:
             status_raw = subprocess.check_output(
                 ["git", "status", "--porcelain", "--untracked-files=all"],
-                cwd=repo_root,
+                cwd=resolved_repo_root,
                 text=True,
             )
     except subprocess.CalledProcessError as exc:

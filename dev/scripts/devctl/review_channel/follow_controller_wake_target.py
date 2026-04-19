@@ -25,20 +25,14 @@ def resolve_reviewer_wake_target(
     operator_interaction_mode: str,
 ) -> tuple[dict[str, object] | None, dict[str, object] | None]:
     """Select one pending codex wake packet for wake, or None."""
-    if operator_interaction_mode.strip() != "remote_control":
-        return None, None
-
-    # Typed coordination gate: refuse auto-wake when resync is required.
-    coordination = report.get("coordination")
-    if isinstance(coordination, dict) and coordination.get("resync_required"):
+    if not _reviewer_wake_allowed(
+        report=report,
+        operator_interaction_mode=operator_interaction_mode,
+    ):
         return None, None
 
     bridge_liveness = report.get("bridge_liveness")
     if not isinstance(bridge_liveness, dict):
-        return None, None
-
-    # Session hint is kept as the final confirmation that Codex is waiting.
-    if _codex_session_hint_state(bridge_liveness) not in _WAITING_REVIEWER_SESSION_STATES:
         return None, None
 
     # Prefer typed packet_inbox for packet selection when present.
@@ -46,6 +40,11 @@ def resolve_reviewer_wake_target(
     if packet is None:
         packet = _selected_codex_wake_packet(report)
     if packet is None:
+        return None, None
+    if _waiting_session_hint_required(report=report, packet=packet):
+        if _codex_session_hint_state(bridge_liveness) not in _WAITING_REVIEWER_SESSION_STATES:
+            return None, None
+    if _coordination_blocks_packet_wake(report=report, packet=packet):
         return None, None
     if str(packet.get("delivery_observed_at_utc") or "").strip():
         return None, None
@@ -171,3 +170,67 @@ def _codex_session_hint_state(bridge_liveness: dict[str, object]) -> str:
     if not isinstance(codex, dict):
         return ""
     return str(codex.get("state") or "").strip()
+
+
+def _reviewer_wake_allowed(
+    *,
+    report: dict[str, object],
+    operator_interaction_mode: str,
+) -> bool:
+    mode = operator_interaction_mode.strip()
+    if mode == "remote_control":
+        return True
+    authority_snapshot = report.get("authority_snapshot")
+    if not isinstance(authority_snapshot, dict):
+        return False
+    return _typed_collaboration_wake_allowed(authority_snapshot)
+
+
+def _typed_collaboration_wake_allowed(
+    authority_snapshot: dict[str, object],
+) -> bool:
+    verification_owner = str(authority_snapshot.get("verification_owner") or "").strip()
+    verification_status = str(
+        authority_snapshot.get("verification_status") or ""
+    ).strip()
+    mutation_owner = str(authority_snapshot.get("mutation_owner") or "").strip()
+    watcher_owner = str(authority_snapshot.get("watcher_owner") or "").strip()
+    watcher_status = str(authority_snapshot.get("watcher_status") or "").strip()
+    if verification_owner != "codex":
+        return False
+    if verification_status and verification_status not in {
+        "active",
+        "configured",
+        "declared",
+        "live",
+    }:
+        return False
+    if watcher_owner == "claude" and watcher_status == "live":
+        return True
+    return mutation_owner == "claude"
+
+
+def _coordination_blocks_packet_wake(
+    *,
+    report: dict[str, object],
+    packet: dict[str, object],
+) -> bool:
+    coordination = report.get("coordination")
+    if not isinstance(coordination, dict):
+        return False
+    if not coordination.get("resync_required"):
+        return False
+    return str(packet.get("kind") or "").strip() == "action_request"
+
+
+def _waiting_session_hint_required(
+    *,
+    report: dict[str, object],
+    packet: dict[str, object],
+) -> bool:
+    if str(packet.get("kind") or "").strip() != "finding":
+        return True
+    authority_snapshot = report.get("authority_snapshot")
+    if not isinstance(authority_snapshot, dict):
+        return True
+    return not _typed_collaboration_wake_allowed(authority_snapshot)

@@ -2,6 +2,11 @@
 
 from __future__ import annotations
 
+from .collaboration_wake_contract import (
+    loop_autonomy_contract,
+    wake_continuity_contract,
+)
+from .collaboration_owner_selection import select_verification_owner
 from .review_state_models import (
     AgentRegistryState,
     CollaborationArbitrationState,
@@ -15,11 +20,17 @@ from .review_state_models import (
     ReviewBridgeState,
     ReviewCurrentSessionState,
 )
+from .review_state_collaboration_legacy_support import (
+    capability_provider,
+    legacy_agent_for_role,
+    legacy_owner_status,
+    legacy_watcher_owner,
+    provider_from_registry,
+    same_agent,
+)
 from .role_profile import (
     TandemRole,
     default_provider_for_role,
-    normalize_tandem_role,
-    role_for_provider,
 )
 
 
@@ -33,6 +44,48 @@ def _legacy_collaboration_state(
 ) -> CollaborationSessionState:
     role_assignments = _legacy_role_assignments(bridge=bridge, registry=registry)
     participants = _legacy_participants(registry)
+    mutation_owner = legacy_agent_for_role(role_assignments, "coding_agent")
+    verification_owner = select_verification_owner(
+        role_assignments=role_assignments,
+        mutation_owner=mutation_owner,
+        same_agent_fn=same_agent,
+    )
+    verification_status = legacy_owner_status(
+        verification_owner,
+        participants=participants,
+        role_assignments=role_assignments,
+    )
+    watcher_owner = legacy_watcher_owner(
+        participants=participants,
+        role_assignments=role_assignments,
+        mutation_owner=mutation_owner,
+        verification_owner=verification_owner,
+    )
+    watcher_status = legacy_owner_status(
+        watcher_owner,
+        participants=participants,
+        role_assignments=role_assignments,
+    )
+    (
+        mutation_wake_mode,
+        verification_wake_mode,
+        watcher_wake_mode,
+        wake_continuity_ok,
+        wake_gap_summary,
+    ) = wake_continuity_contract(
+        reviewer_mode=bridge.effective_reviewer_mode or bridge.reviewer_mode,
+        mutation_owner=mutation_owner,
+        verification_owner=verification_owner,
+        watcher_owner=watcher_owner,
+        participants=participants,
+    )
+    loop_autonomy = loop_autonomy_contract(
+        reviewer_mode=bridge.effective_reviewer_mode or bridge.reviewer_mode,
+        mutation_owner=mutation_owner,
+        verification_owner=verification_owner,
+        watcher_owner=watcher_owner,
+        participants=participants,
+    )
     has_runtime = any(participant.live for participant in participants)
     has_context = bool(
         participants or current_session.current_instruction or current_session.open_findings
@@ -45,9 +98,9 @@ def _legacy_collaboration_state(
         status="live" if has_runtime else "resumable" if has_context else "inactive",
         reviewer_mode=bridge.effective_reviewer_mode or bridge.reviewer_mode,
         operator_mode="manual",
-        lead_agent=_legacy_agent_for_role(role_assignments, "lead_agent"),
-        review_agent=_legacy_agent_for_role(role_assignments, "review_agent"),
-        coding_agent=_legacy_agent_for_role(role_assignments, "coding_agent"),
+        lead_agent=legacy_agent_for_role(role_assignments, "lead_agent"),
+        review_agent=legacy_agent_for_role(role_assignments, "review_agent"),
+        coding_agent=legacy_agent_for_role(role_assignments, "coding_agent"),
         current_slice=current_session.current_instruction
         or current_session.last_reviewed_scope,
         peer_review=CollaborationPeerReviewState(
@@ -79,6 +132,21 @@ def _legacy_collaboration_state(
         role_assignments=role_assignments,
         participants=participants,
         delegated_work=(),
+        mutation_owner=mutation_owner,
+        verification_owner=verification_owner,
+        verification_status=verification_status,
+        watcher_owner=watcher_owner,
+        watcher_status=watcher_status,
+        mutation_wake_mode=mutation_wake_mode,
+        verification_wake_mode=verification_wake_mode,
+        watcher_wake_mode=watcher_wake_mode,
+        wake_continuity_ok=wake_continuity_ok,
+        wake_gap_summary=wake_gap_summary,
+        loop_wake_mode=loop_autonomy.loop_wake_mode,
+        loop_wake_interval_seconds=loop_autonomy.loop_wake_interval_seconds,
+        loop_driver_agent=loop_autonomy.loop_driver_agent,
+        loop_autonomy_ok=loop_autonomy.loop_autonomy_ok,
+        loop_gap_summary=loop_autonomy.loop_gap_summary,
     )
 
 
@@ -87,21 +155,21 @@ def _legacy_role_assignments(
     bridge: ReviewBridgeState,
     registry: AgentRegistryState,
 ) -> tuple[CollaborationRoleAssignmentState, ...]:
-    reviewer_provider = _provider_from_registry(
+    reviewer_provider = provider_from_registry(
         registry,
         TandemRole.REVIEWER.value,
-    ) or _capability_provider(
+    ) or capability_provider(
         bridge.reviewer_capability,
         default=default_provider_for_role(TandemRole.REVIEWER),
     )
-    implementer_provider = _provider_from_registry(
+    implementer_provider = provider_from_registry(
         registry,
         TandemRole.IMPLEMENTER.value,
-    ) or _capability_provider(
+    ) or capability_provider(
         bridge.implementer_capability,
         default=default_provider_for_role(TandemRole.IMPLEMENTER),
     )
-    operator_provider = _provider_from_registry(
+    operator_provider = provider_from_registry(
         registry,
         TandemRole.OPERATOR.value,
     ) or default_provider_for_role(TandemRole.OPERATOR)
@@ -169,6 +237,7 @@ def _legacy_participants(
                 launch_command="",
                 requested_worker_budget=None,
                 planned_lane_count=0,
+                host_wake_mode="continuous" if live else "inactive",
             )
         )
     return tuple(participants)
@@ -207,37 +276,3 @@ def _legacy_ready_gates(
             ),
         ),
     )
-
-
-def _legacy_agent_for_role(
-    assignments: tuple[CollaborationRoleAssignmentState, ...],
-    role_id: str,
-) -> str:
-    for assignment in assignments:
-        if assignment.role_id == role_id:
-            return assignment.agent_id
-    return ""
-
-
-def _provider_from_registry(
-    registry: AgentRegistryState,
-    role_name: str,
-) -> str:
-    for agent in registry.agents:
-        provider = agent.provider or agent.agent_id
-        if (
-            normalized_job := normalize_tandem_role(agent.current_job)
-        ) is not None and normalized_job.value == role_name:
-            return provider
-        if role_for_provider(provider).value == role_name:
-            return provider
-    return ""
-
-
-def _capability_provider(
-    capability: ConductorCapabilityState | None,
-    *,
-    default: str,
-) -> str:
-    provider = capability.provider if capability is not None else ""
-    return provider.strip() or default

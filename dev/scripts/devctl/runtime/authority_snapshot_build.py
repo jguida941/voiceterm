@@ -146,6 +146,7 @@ def build_authority_snapshot(
 ) -> AuthoritySnapshot:
     """Reduce a startup/session/status payload into one compact authority object."""
     context = _build_authority_context(payload)
+    collaboration = _mapping(payload.get("collaboration"))
     command = _resolved_next_command(
         payload=payload,
         recovery_authority=context.recovery_authority,
@@ -275,6 +276,13 @@ def build_authority_snapshot(
         allowed_actions=allowed_actions,
         blocked_actions=blocked_actions,
         packet_target=context.packet_target,
+        mutation_owner=str(collaboration.get("mutation_owner") or "").strip(),
+        verification_owner=str(collaboration.get("verification_owner") or "").strip(),
+        verification_status=str(
+            collaboration.get("verification_status") or "inactive"
+        ).strip(),
+        watcher_owner=str(collaboration.get("watcher_owner") or "").strip(),
+        watcher_status=str(collaboration.get("watcher_status") or "inactive").strip(),
     )
 
 

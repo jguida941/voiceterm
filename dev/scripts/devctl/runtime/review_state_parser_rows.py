@@ -23,50 +23,68 @@ def current_session_state_from_payload(
     *,
     current_session: Mapping[str, object],
     bridge: Mapping[str, object],
+    collaboration: Mapping[str, object] | None = None,
 ) -> ReviewCurrentSessionState:
-    if current_session:
-        current_instruction, current_instruction_revision = (
-            canonicalize_current_instruction_state(
-                _string(current_session.get("current_instruction")),
-                _string(current_session.get("current_instruction_revision")),
-            )
+    peer_review = _mapping(_mapping(collaboration).get("peer_review"))
+    current_instruction, current_instruction_revision = (
+        canonicalize_current_instruction_state(
+            _string(current_session.get("current_instruction"))
+            or _string(peer_review.get("current_instruction"))
+            or _string(bridge.get("current_instruction")),
+            _string(current_session.get("current_instruction_revision"))
+            or _string(peer_review.get("current_instruction_revision")),
         )
-        return ReviewCurrentSessionState(
-            current_instruction=current_instruction,
-            current_instruction_revision=current_instruction_revision,
-            implementer_status=_string(current_session.get("implementer_status")),
-            implementer_ack=_string(current_session.get("implementer_ack")),
-            implementer_ack_revision=_string(
-                current_session.get("implementer_ack_revision")
-            ),
-            implementer_ack_state=_string(
-                current_session.get("implementer_ack_state")
-            )
-            or "unknown",
-            implementer_state_hash=_string(
-                current_session.get("implementer_state_hash")
-            ),
-            implementer_session_state=_string(
-                current_session.get("implementer_session_state")
-            ),
-            implementer_session_hint=_string(
-                current_session.get("implementer_session_hint")
-            ),
-            open_findings=_string(current_session.get("open_findings")),
-            last_reviewed_scope=_string(current_session.get("last_reviewed_scope")),
+    )
+    implementer_status = (
+        _string(current_session.get("implementer_status"))
+        or _string(peer_review.get("implementer_status"))
+        or _string(bridge.get("implementer_status"))
+        or _string(bridge.get("claude_status"))
+    )
+    implementer_ack = (
+        _string(current_session.get("implementer_ack"))
+        or _string(peer_review.get("implementer_ack"))
+        or _string(bridge.get("implementer_ack"))
+        or _string(bridge.get("claude_ack"))
+    )
+    implementer_ack_revision = _string(current_session.get("implementer_ack_revision")) or (
+        _string(bridge.get("implementer_ack_revision"))
+        or _string(bridge.get("claude_ack_revision"))
+    )
+    implementer_ack_state = (
+        _string(current_session.get("implementer_ack_state"))
+        or _string(peer_review.get("implementer_ack_state"))
+        or bridge_ack_state(bridge=bridge, implementer_ack=implementer_ack)
+    )
+    if not any(
+        (
+            current_instruction,
+            current_instruction_revision,
+            implementer_status,
+            implementer_ack,
+            implementer_ack_revision,
+            implementer_ack_state,
         )
+    ):
+        implementer_ack_state = "missing"
     return ReviewCurrentSessionState(
-        current_instruction="",
-        current_instruction_revision="",
-        implementer_status="",
-        implementer_ack="",
-        implementer_ack_revision="",
-        implementer_ack_state="missing",
-        implementer_state_hash="",
-        implementer_session_state="",
-        implementer_session_hint="",
-        open_findings="",
-        last_reviewed_scope="",
+        current_instruction=current_instruction,
+        current_instruction_revision=current_instruction_revision,
+        implementer_status=implementer_status,
+        implementer_ack=implementer_ack,
+        implementer_ack_revision=implementer_ack_revision,
+        implementer_ack_state=implementer_ack_state or "unknown",
+        implementer_state_hash=_string(current_session.get("implementer_state_hash"))
+        or _string(peer_review.get("implementer_state_hash"))
+        or _string(bridge.get("implementer_state_hash")),
+        implementer_session_state=_string(current_session.get("implementer_session_state")),
+        implementer_session_hint=_string(current_session.get("implementer_session_hint")),
+        open_findings=_string(current_session.get("open_findings"))
+        or _string(peer_review.get("open_findings"))
+        or _string(bridge.get("open_findings")),
+        last_reviewed_scope=_string(current_session.get("last_reviewed_scope"))
+        or _string(peer_review.get("last_reviewed_scope"))
+        or _string(bridge.get("last_reviewed_scope")),
     )
 
 

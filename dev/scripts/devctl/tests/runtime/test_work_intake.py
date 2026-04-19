@@ -1091,13 +1091,13 @@ def test_build_work_intake_packet_emits_scope_aligned_when_only_scope_matches(
     assert packet.continuity.alignment_reason == "review_scope_matches_plan_target"
 
 
-def test_build_work_intake_packet_emits_instruction_aligned_when_only_instruction_matches(
+def test_build_work_intake_packet_fails_closed_when_review_scope_uses_unresolved_plan_reference(
     tmp_path: Path,
 ) -> None:
     _seed_minimal_repo(tmp_path)
-    # Scope deliberately points at an MP that is not in the plan registry
-    # so the MP-token gate drops scope-match but instruction keywords still
-    # align with the session_resume next_action.
+    # Scope deliberately points at an MP that is not in the plan registry.
+    # Startup must not silently fall back to instruction heuristics when
+    # review-state plan authority itself is unresolved.
     _write_review_state(
         tmp_path,
         last_reviewed_scope="MP-999",
@@ -1111,11 +1111,12 @@ def test_build_work_intake_packet_emits_instruction_aligned_when_only_instructio
         advisory_reason="clean_worktree",
     )
 
-    assert packet.continuity.alignment_status == "instruction_aligned"
-    assert (
-        packet.continuity.alignment_reason
-        == "review_instruction_matches_session_resume"
-    )
+    assert packet.active_target is None
+    assert packet.confidence == "low"
+    assert packet.fallback_reason == "unresolved_review_plan_reference"
+    assert packet.continuity.alignment_status == "needs_review"
+    assert packet.continuity.alignment_reason == "unresolved_review_plan_reference"
+    assert packet.continuity.unresolved_plan_references == ("MP-999",)
 
 
 def test_build_work_intake_packet_emits_needs_review_when_neither_matches(
@@ -1135,8 +1136,11 @@ def test_build_work_intake_packet_emits_needs_review_when_neither_matches(
         advisory_reason="clean_worktree",
     )
 
+    assert packet.active_target is None
     assert packet.continuity.alignment_status == "needs_review"
-    assert packet.continuity.alignment_reason == "plan_review_mismatch"
+    assert packet.continuity.alignment_reason == "unresolved_review_plan_reference"
+    assert packet.continuity.unresolved_plan_references == ("MP-999",)
+    assert packet.fallback_reason == "unresolved_review_plan_reference"
 
 
 def test_build_work_intake_packet_emits_review_only_when_session_resume_missing(
@@ -1145,13 +1149,13 @@ def test_build_work_intake_packet_emits_review_only_when_session_resume_missing(
     _seed_minimal_repo(tmp_path)
     _write_review_state(
         tmp_path,
-        last_reviewed_scope="MP-700",
+        last_reviewed_scope="MP-377",
         current_instruction="Some instruction the reviewer cares about.",
-        plan_id="MP-700",
+        plan_id="MP-377",
     )
 
     # Strip session_resume off every plan entry so build_continuity sees a
-    # plan target with no resume but a live review state.
+    # typed-resolved plan target with no resume but a live review state.
     base = _governance()
     stripped_entries = tuple(
         PlanRegistryEntry(

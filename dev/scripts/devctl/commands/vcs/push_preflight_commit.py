@@ -27,7 +27,7 @@ def auto_commit_preflight_generated_changes(
     them with a machine-generated message so the push can proceed.
     """
     try:
-        git = collect_git_status()
+        git = collect_git_status(repo_root=repo_root)
     except (OSError, FileNotFoundError):
         return
     changes = git.get("changes", [])

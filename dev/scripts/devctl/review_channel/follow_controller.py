@@ -241,13 +241,12 @@ def maybe_wake_waiting_reviewer_conductor(
         session_output_root=wake_paths.status_dir,
         deps=effective_deps,
     )
-    if not live_sessions:
-        return None
-
-    cleanup_warnings = cleanup_codex_sessions(
-        live_codex_sessions=live_sessions,
-        deps=effective_deps,
-    )
+    cleanup_warnings: list[str] = []
+    if live_sessions:
+        cleanup_warnings = cleanup_codex_sessions(
+            live_codex_sessions=live_sessions,
+            deps=effective_deps,
+        )
     if has_blocking_cleanup_warning(cleanup_warnings):
         return wake_report(
             packet=packet,
@@ -270,5 +269,4 @@ def maybe_wake_waiting_reviewer_conductor(
         ),
         deps=effective_deps,
     )
-
 

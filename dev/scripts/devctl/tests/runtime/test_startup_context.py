@@ -320,6 +320,13 @@ class TestStartupContextBuild(unittest.TestCase):
     def test_authority_snapshot_carries_actor_role_identity_and_allowed_actions(self) -> None:
         snapshot = build_authority_snapshot(
             {
+                "collaboration": {
+                    "mutation_owner": "claude",
+                    "verification_owner": "codex",
+                    "verification_status": "live",
+                    "watcher_owner": "claude",
+                    "watcher_status": "live",
+                },
                 "coordination": {
                     "actors": [
                         {
@@ -346,6 +353,11 @@ class TestStartupContextBuild(unittest.TestCase):
         self.assertIn("review-channel.status", snapshot.allowed_actions)
         self.assertIn("review.checkpoint", snapshot.allowed_actions)
         self.assertIn("implementation.edit", snapshot.blocked_actions)
+        self.assertEqual(snapshot.mutation_owner, "claude")
+        self.assertEqual(snapshot.verification_owner, "codex")
+        self.assertEqual(snapshot.verification_status, "live")
+        self.assertEqual(snapshot.watcher_owner, "claude")
+        self.assertEqual(snapshot.watcher_status, "live")
 
     def test_has_reviewer_gate(self) -> None:
         ctx = build_startup_context()
