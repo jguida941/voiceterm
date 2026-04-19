@@ -1396,6 +1396,77 @@ closure — if you claim one of these works today, cite file:line evidence.
 
 ---
 
+## 47. Documentation Sprawl — The 60+ Orientation Docs Problem
+
+**Operator 2026-04-19 evening:** "I cannot have 50 fucking different MDs. This needs to be addressed in the system plan."
+
+### The actual count (grep-verified 2026-04-19)
+
+| Location | MD count | Purpose |
+|---|---:|---|
+| `dev/guides/` | **17** | Architecture guides (many overlap — see section 11) |
+| `dev/active/` | **30** | Active plan docs (see section 15) |
+| `dev/history/` | 2 | Archived historical |
+| Repo root | **11** | README, PROJECT_ROADMAP, ZGRAPH_RESEARCH_EVIDENCE, etc. |
+| **Top-level orientation total** | **60** | What an operator/AI sees on first browse |
+| `dev/` full tree (including reports/) | **742** | All MDs incl. session rollovers + governance artifacts |
+
+**60 MDs is too many.** Operator has repeatedly flagged this. Even restricting to top-level orientation (not counting rollovers), a fresh AI session can't tell which doc to read first.
+
+### Existing plan: MP-388 (archive pass, decided 2026-04-18)
+
+From `dev/active/MASTER_PLAN.md:92-96`:
+
+> `MP-388` consolidation archive pass in `MP-377` scope: archive `move.md`,
+> `loop_chat_bridge.md`, `phase2.md`, and `RUST_AUDIT_FINDINGS.md` out of
+> `dev/active/`, update discovery pointers, and reduce the active-doc count
+> **from 30 to 26** so the live set matches the one-umbrella-plan policy.
+
+**Status:** planned, not executed. Would reduce active plans from 30 → 26. Partial fix — still leaves 21 guides + 11 repo root MDs.
+
+### SYSTEM_MAP.md §11 consolidation plan
+
+Already flagged in section 11: fold 4 of the 7 architecture guides INTO SYSTEM_MAP.md and archive originals:
+- `SYSTEM_FLOWCHART.md` (1095 lines) — SUPERSEDED by §0 Mermaid + §4
+- `SYSTEM_AUDIT.md` (1935 lines) — SUPERSEDED by §§4-9
+- `PYTHON_ARCHITECTURE.md` (257 lines) — fold into SYSTEM_ARCHITECTURE_SPEC Appendix A
+- `AGENT_COLLABORATION_SYSTEM.md` (741 lines) — partial archive, merge key sections here
+
+**Status:** planned, not executed. Would reduce guides from 17 → 13.
+
+### What's NOT yet in a plan (requires new MP)
+
+| Doc | Status | Consolidation target |
+|---|---|---|
+| `dev/guides/DEVCTL_AUTOGUIDE.md` | 2 weeks | Fold into SYSTEM_MAP §2 or DEVCTL_ARCHITECTURE |
+| `dev/guides/DEVCTL_JSON_CONTRACT.md` | 1 month | Fold into SYSTEM_ARCHITECTURE_SPEC Appendix |
+| `dev/guides/DEVCTL_MULTI_AGENT_OP.md` | 1 month | Fold into AGENT_COLLABORATION_SYSTEM |
+| `dev/guides/DEVCTL_PRODUCT_FLOW.md` | 1 month | Fold into DEVCTL_ARCHITECTURE |
+| `dev/guides/MCP_DEVCTL_ALIGNMENT.md` | 1 month | Possibly archive (MCP subsystem mostly dormant) |
+| `dev/guides/PORTABLE_CODE_GOVERNANCE.md` | 2 weeks | Cross-ref section 45 of this doc |
+| Repo root `*.md` (11 files) | various | Audit needed — likely most should move to dev/history/ or dev/guides/ |
+
+### Proposed (not yet an MP): full documentation-consolidation sweep
+
+**Goal:** reduce top-level orientation from 60 → ≤20 within a bounded slice.
+
+**Phases:**
+1. Execute MP-388 (30 → 26 active plans)
+2. Execute §11 consolidation (17 → 13 guides)
+3. Audit + consolidate remaining 8 DEVCTL_* / MCP_ / PORTABLE_ guides (13 → ~6-8 guides)
+4. Audit repo-root 11 MDs; move most to `dev/guides/` or `dev/history/`
+5. Target: 8 guides + 20 active plans + 2 history + ≤5 repo root = **~35 top-level**, and eventually the system picture is §0 of SYSTEM_MAP.md (when self-updating Phase 2 lands from §27)
+
+**Risk:** fold-before-proof. Each consolidation must verify no references break. Run `docs-check` after each step.
+
+### The meta-problem
+
+The 60 orientation docs exist because **each slice added its own MD instead of editing an existing one.** The same anti-pattern SYSTEM_MAP.md exists to combat: "build on existing systems, don't create parallel ones."
+
+This section now flags the pattern explicitly. Future slices must prefer EDITING an existing doc over CREATING a new one, unless the new doc is sharply scoped and the existing doc is saturated.
+
+---
+
 ## Maintenance Log
 
 | Date | Added | By |
