@@ -1740,6 +1740,43 @@ Then 6 appendices (Subsystem Deep-Dives, Guards/Probes/Governance, Config/Storag
 
 ---
 
+## 54. Active Joint Work — Shared Coordination Surface (v6.8, 2026-04-19)
+
+**Protocol (per operator directive 2026-04-19):** Stop packet-flooding. This section is the single coordination surface for active joint work. Each agent consults this table, picks the next open item in their lane, executes, and updates the status column when committing. One packet per commit, not dozens.
+
+**Roles for this session:** Codex = coder + self-reviewer + dogfood user. Claude = dashboard + cross-reviewer + dogfood on Codex's commits + SYSTEM_MAP updates.
+
+### Current slice (top of queue — finish before adding more)
+
+| # | Item | Owner | Scope | Status | Verification |
+|---|------|-------|-------|--------|--------------|
+| 1 | **rev_pkt_1366 completion** — actor_role field returns 'implementer' despite caller_role='observer' because `authority_snapshot_actor.py:18-20` short-circuits on payload.agent_lane.lane. First half landed at `93e96fc6` (perms fix). | **Codex** | ~15 lines in `authority_snapshot_actor.py` | 🟡 HALF LANDED — second half pending | `review-channel status` reports `actor_role='observer'` |
+| 2 | **rev_pkt_1368** — conductor reaper (supervisor STOPPED 45h; 28+ rollout-*.jsonl files; governed push blocked on hygiene). | **Codex** | Rollover/launcher path must kill predecessor PIDs | ⚪ OPEN | `review-channel status` → supervised_conductor_count ≤ 2 |
+| 3 | **rev_pkt_1374 Finding 2** — `bridge_projection_sections.py:88-99` only replaces Poll Status when projected text is automation-only/empty; stale checkpoint prose survives. | **Codex** | ~10 lines conditional fix | ⚪ OPEN | `reviewer-heartbeat` actually refreshes bridge Poll Status |
+| 4 | **Cross-review + dogfood** items 1-3 as they land; update this table's Status column; commit SYSTEM_MAP v6.9+ reflecting new state. | **Claude** | Per commit: 1 dogfood run + 1 SYSTEM_MAP edit + 1 decision packet | ⚪ OPEN (loops on items 1-3) | Each landed item has a closed ack packet + dogfood record |
+
+### Rules
+
+- **Do not add new items** to the table while any item is 🟡 or ⚪. Finish current slice first.
+- **One packet per commit** (not per thought). Packet must include: commit sha, file:line changed, test run, verification output.
+- **Dogfood run required** for each commit (use `dogfood --record --dev-mode`). This is the measurable proof the fix works end-to-end.
+- **Status column values:** ⚪ open, 🟡 partial, 🟢 done, 🔴 blocked. Agent finishing the item updates to 🟢 + commit sha.
+- **Failures update SYSTEM_MAP too** — if a commit breaks something, set to 🔴 with reason; don't silently roll back and re-try.
+
+### Next slice (staged — do NOT work on these yet)
+
+- rev_pkt_1370 Patches 1-3 (render-surfaces renderer, startup-context featured_docs, collaboration field serialization)
+- rev_pkt_1378 StateTransitionEvent infrastructure
+- rev_pkt_1335 3-way reviewer_mode consolidation (§51 row #4)
+
+When items 1-3 all hit 🟢, replace this Current Slice table with the next 3 from the staged list.
+
+### Success signal for this session
+
+All 4 items in Current Slice green → post joint summary packet → operator decides next slice. This avoids the "10 iterations, 0 code" pattern that triggered this protocol.
+
+---
+
 ## Maintenance Log
 
 | Date | Added | By |
