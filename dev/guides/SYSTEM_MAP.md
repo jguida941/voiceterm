@@ -75,7 +75,7 @@ flowchart TD
 | `ReviewerRuntimeContract` | `dev/scripts/devctl/runtime/reviewer_runtime_models.py` | Review loop runtime: mode, freshness, acceptance, attachment |
 | `RecoveryAssessment` | `dev/scripts/devctl/runtime/recovery_authority.py` | Diagnosis + decision for degraded states |
 | `ReviewCurrentSessionState` | `dev/scripts/devctl/runtime/review_state_models.py` | Current instruction + ack state for implementer |
-| `CommitPipelineContract` | `dev/scripts/devctl/runtime/commit_pipeline_models.py` | Publication + push readiness |
+| `RemoteCommitPipelineContract` | `dev/scripts/devctl/runtime/remote_commit_pipeline_models.py:113` | Publication + push readiness |
 
 All 5 flow through `event_projection_assembly.py` which emits 9 keys into
 `review_state.json`. The central-hub pattern means one change point when adding
@@ -153,11 +153,16 @@ reviewer_mode = _first_text(
 | B `reviewer_runtime.reviewer_mode` | `ReviewerRuntimeContract.to_dict` | HIGH — not always written |
 | C `collaboration.reviewer_mode` | `CollaborationSessionState.to_dict` | CRITICAL — overwritten by `effective_mode` at `collaboration_session.py:144` (rev_pkt_1335 bug) |
 
-**Live evidence (2026-04-19):** same project state produces three different
-answers:
+**Historical live evidence (2026-04-19 earlier, during the deadlock):** same
+project state was producing three different answers:
 - `startup-context` → `reviewer_mode=tools_only`, `mutation_owner=claude`
 - `review-channel status` → `reviewer_mode=single_agent`, `mutation_owner=claude`
 - `session-resume --role reviewer` → `reviewer_mode=tools_only`, `mutation_owner=""` (blank)
+
+**Current state (2026-04-19 after Codex wake, unstable):** state oscillates
+between `active_dual_agent|waiting_on_peer|await_review` and
+`tools_only|resync_required|repair_reviewer_loop`. Each state recompute hits the
+`collaboration_session.py:144` overwrite. Stable fix is landing rev_pkt_1335.
 
 ### Fan-out hotspots (3)
 1. `authority_snapshot_build.py:146-310` — 7 emitter reads (CRITICAL)
@@ -317,7 +322,7 @@ Claude-Code hook reads as scope escalation.
 |---|---:|---|---|
 | `dev/guides/ARCHITECTURE.md` | 905 | 4w | Umbrella, product narrative — keep, link from here |
 | `dev/guides/SYSTEM_ARCHITECTURE_SPEC.md` | 943 | 4w | Typed contract spec — keep, reference |
-| `dev/guides/SYSTEM_FLOWCHART.md` | 1095 | 4w | **Sections 1-9 SUPERSEDED by section 0 Mermaid + section 4 here; sections 10-13 extract to `EXTRACTION_ROADMAP.md` + `TARGET_ARCHITECTURE.md` + `PORTABILITY_DEFINITION.md`** |
+| `dev/guides/SYSTEM_FLOWCHART.md` | 1095 | 4w | **Sections 1-9 SUPERSEDED by section 0 Mermaid + section 4 here.** Sections 10-13 (EXTRACTION_ROADMAP + TARGET_ARCHITECTURE + PORTABILITY_DEFINITION) are FORWARD-LOOKING content to preserve into future dedicated docs if/when extraction begins — none of those target docs exist yet, do not link them as if they do |
 | `dev/guides/SYSTEM_AUDIT.md` | 1935 | 4w | **SUPERSEDED by sections 4-9 here** — archive after extracting security-critical entries (§15 RCE, §22.3 atomicity) |
 | `dev/guides/DEVCTL_ARCHITECTURE.md` | 577 | 2w | Most current — **keep as deep-dive appendix** referenced from section 2 here |
 | `dev/guides/PYTHON_ARCHITECTURE.md` | 257 | 3w | Type-shape decision tree — **fold into SYSTEM_ARCHITECTURE_SPEC Appendix A** |
@@ -331,20 +336,33 @@ are stale.
 
 ---
 
-## 12. What a Fresh AI Should Read First
+## 12. Where This Doc Fits In the Bootstrap Order
 
-**On every new session, in order:**
-1. This doc (sections 0, 4, 10) — connectivity + top backlog
-2. `python3 dev/scripts/devctl.py startup-context --format summary`
-3. `python3 dev/scripts/devctl.py findings-priority --format md`
-4. `python3 dev/scripts/devctl.py dogfood --format md`
-5. `python3 dev/scripts/devctl.py agent-mind --agent <self> --limit 5`
-6. Scoped plan via `context-graph --query <mp-id> --format md`
+**SYSTEM_MAP.md supplements the canonical bootstrap — it does NOT replace it.**
+The required order per `AGENTS.md:235-242` and `dev/active/INDEX.md:3-4` is:
 
-**Skip:** full re-read of `AGENTS.md` / `MASTER_PLAN.md` / `bridge.md` until
-after the above. The 30-sec bootstrap re-read that each fresh Codex conductor
-does today is mostly redundant and contributes to the latency pattern flagged
-in rev_pkt_1331.
+1. `python3 dev/scripts/devctl.py startup-context --format summary` (STEP 0 per CLAUDE.md)
+2. `dev/active/INDEX.md` — canonical registry for active docs
+3. `dev/active/MASTER_PLAN.md` — execution authority / tracker
+4. Task-class router → matching command bundle
+
+**Read SYSTEM_MAP.md (this doc) AFTER step 1 for connectivity context** — it is
+the index that tells you WHERE each subsystem lives and HOW to find gaps. Use
+sections 0 (flowchart), 4 (projection graph), and 10 (priority backlog) as the
+navigation surface into the detailed guides in `dev/guides/` and plans in
+`dev/active/`.
+
+**Then consult typed surfaces on demand:**
+- `python3 dev/scripts/devctl.py findings-priority --format md` (backlog ranker)
+- `python3 dev/scripts/devctl.py dogfood --format md` (coverage + confirmed issues)
+- `python3 dev/scripts/devctl.py agent-mind --agent <self> --limit 5` (own recent activity)
+- `python3 dev/scripts/devctl.py context-graph --query <mp-id> --format md` (scoped ZGraph subgraph)
+- `python3 dev/scripts/devctl.py system-picture --format md` (8-section typed dashboard)
+
+**Observation flagged in rev_pkt_1331:** each fresh Codex conductor currently
+re-reads the full `AGENTS.md` + `bridge.md` + `MASTER_PLAN.md` chain on spawn
+(~30 seconds) which contributes to latency. That's about optimizing the
+bootstrap after the canonical order executes — not skipping the order.
 
 ---
 
