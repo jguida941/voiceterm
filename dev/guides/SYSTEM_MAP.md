@@ -345,18 +345,19 @@ consent quoted in bash `description` field. Permanent fix: typed
 
 ---
 
-## 9. Dogfood Coverage (22% / 42% / 88% / 100%)
+## 9. Dogfood Coverage (37% / 42% / 88% / 100% — 2026-04-19)
 
 | Target | Covered | Total | % |
 |---|---:|---:|---:|
-| command | 19 | 84 | 22% |
+| command | 31 | 84 | 37% |
 | guard | 30 | 71 | 42% |
 | probe | 23 | 26 | 88% |
 | role | 3 | 3 | 100% |
 
-Latest dogfood run: 2026-04-17 (2 days stale as of 2026-04-19). Re-activation
-blocked on `dogfood --record` requiring `--dev-mode` flag which the
-Claude-Code hook reads as scope escalation.
+Latest dogfood run: 2026-04-19 (Claude + Codex joint session).
+`--dev-mode` flag unblocks `--record`; hook permits with flag supplied.
+
+**Dogfood command display bug observed 2026-04-19:** `devctl dogfood --format md --max-rows N` incorrectly applies `--max-rows` to the Coverage stat computation (not just row display). `--max-rows 1` reports coverage as `command 1/84 1.19%` even when 31 commands have been recorded. Use `--format md` WITHOUT `--max-rows` for accurate coverage. Follow-up finding for Codex's coder lane.
 
 **Top-3 recommended commands to cover next:**
 1. `check --profile ci` — exercises ~8-12 downstream guards in one run
