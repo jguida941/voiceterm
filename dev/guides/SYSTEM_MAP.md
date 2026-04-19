@@ -47,7 +47,7 @@ Data flows from **5 source dataclasses** (`CollaborationSessionState`, `Reviewer
 
 ### How the System Is Supposed to Work (2 sentences)
 
-Operator directs agents (Claude = dashboard/reviewer, Codex = implementer by default; roles are sticky but swappable) via typed packets; agents exchange through review-channel while governance guards validate each mutation against policy. Dashboard surfaces current state, commit+push enforce governed execution (pre-commit checks authority_snapshot, pre-push enforces review gate, post-commit refreshes state).
+Operator directs agents via typed packets; **current-session role assignment is live in typed state** (read `review_state.projections.latest.json::collaboration.mutation_owner` / `verification_owner` — as of this writing Claude=mutation_owner/coder, Codex=verification_owner/reviewer, but this is live data and can flip per `bridge.md` contract). Agents exchange through review-channel while governance guards validate each mutation against policy. Dashboard surfaces current state, commit+push enforce governed execution (pre-commit checks authority_snapshot, pre-push enforces review gate, post-commit refreshes state). **Rule:** never hardcode role assumptions in prose; always read typed state at session start.
 
 ### Where This Doc Fits (1 sentence)
 
@@ -1195,8 +1195,7 @@ open (external-AI gap #2).
 - `packet_inbox` — pending review packets
 - `reviewer_gate` — typed review loop state
 
-**Staleness definition:** `startup-context.action != continue_editing` means
-repair/checkpoint/wait is required. The action field IS the staleness signal.
+**Staleness definition (CORRECTED v6.3 per rev_pkt_1367):** `startup-context.action` names the required next step, which may be `continue_editing`, `await_review`, `run_devctl_push`, `checkpoint`, or `repair`. Only `repair`, `checkpoint`, and explicit blocker states require intervention. `await_review` + `reason=review_pending_before_push` is a **normal live-lane state** for reviewer bootstraps — it should continue into `review-channel --action status` and bridge refresh, not escalate to repair. The typed `push_decision` state machine (`await_checkpoint`, `await_review`, `run_devctl_push`, `no_push_needed`) is the authoritative next-action enumeration, not SYSTEM_MAP prose.
 
 **Continuity artifacts (read on session resume):**
 - `SessionCachePacket` (session_resume_support.py:97-144) — snapshot_id,
@@ -1503,7 +1502,7 @@ Already flagged in section 11: fold 4 of the 7 architecture guides INTO SYSTEM_M
 
 The 60 orientation docs exist because **each slice added its own MD instead of editing an existing one.** The same anti-pattern SYSTEM_MAP.md exists to combat: "build on existing systems, don't create parallel ones."
 
-This section now flags the pattern explicitly. Future slices must prefer EDITING an existing doc over CREATING a new one, unless the new doc is sharply scoped and the existing doc is saturated.
+This section now flags the pattern explicitly. **Proposal (not enforced here — this doc is supplementary navigation, not policy authority):** future slices should prefer EDITING an existing doc over CREATING a new one, unless the new doc is sharply scoped and the existing doc is saturated. **Enforcement would need to be lifted into `AGENTS.md` or an `MP-388`-scope rule with a check_* guard** — currently there is no check that validates "did this slice add a net-new MD without justification." Until then this remains advisory.
 
 ---
 
