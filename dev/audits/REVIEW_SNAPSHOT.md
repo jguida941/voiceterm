@@ -5,14 +5,14 @@
 ## Quick status
 
 - Branch: `feature/governance-quality-sweep`
-- HEAD: `635c1a23e4e3` — Refresh external review snapshot for 93e96fc6
-- Tree hash: `641b08cbd7a7`
-- Generation stamp: `snap-ca7382f721b4`
-- Generated at (UTC): 2026-04-19T21:46:20Z
-- Push decision: `await_checkpoint` — staged_index_present
-- Reviewer mode: `active_dual_agent` (interaction: `local_terminal`)
+- HEAD: `096df5bff1cb` — SYSTEM_MAP.md v6.8 — §54 Active Joint Work coordination surface
+- Tree hash: `3ffaca9fc602`
+- Generation stamp: `snap-f9322f0ea44d`
+- Generated at (UTC): 2026-04-19T21:46:34Z
+- Push decision: `await_review` — review_loop_relaunch_required
+- Reviewer mode: `tools_only` (interaction: `local_terminal`)
 - Pipeline state: `n/a` (approval: `n/a`)
-- Delta since last snapshot: 25 commits, 4 files, +2032/-1169
+- Delta since last snapshot: 24 commits, 4 files, +2058/-1161
 - Governance findings: 112 open / 86 fixed / 212 total
 - Probe hints: 0 total across 0 files scanned
 
@@ -54,18 +54,18 @@ adopters arrive.
 - Remote: `https://github.com/jguida941/voiceterm.git`
 - Default branch: `master`
 - Current branch: `feature/governance-quality-sweep`
-- HEAD SHA: `635c1a23e4e320c1fa51f4933cae05006f97508b`
+- HEAD SHA: `096df5bff1cbd34b61525ba150143dc9d4125dd0`
 - HEAD author: Justin Guida
-- HEAD timestamp (UTC): 2026-04-19T17:38:52-04:00
+- HEAD timestamp (UTC): 2026-04-19T17:46:03-04:00
 
 ## 2. Governance state
 
 ### Push decision
-- action: `await_checkpoint`
-- reason: staged_index_present
+- action: `await_review`
+- reason: review_loop_relaunch_required
 - push_eligible_now: False
-- worktree_clean: False
-- staged_path_count: 1
+- worktree_clean: True
+- staged_path_count: 0
 - unstaged_path_count: 0
 - next_step_command: `python3 dev/scripts/devctl.py review-channel --action status --terminal none --format json`
 - latest_push_report: `dev/reports/push/latest.json`
@@ -74,13 +74,14 @@ adopters arrive.
 - authorized_head_commit: `92b17e69456d8959e36d6091fa6a6f0a23c85844`
 - approved_target_identity: `tree-receipt-20260419T132557054922Z:ad447307c9b99c354023f77d625a2babf8f55a3d`
 - publication_backlog: urgent
-- publication_guidance: 13 local commit(s) waiting for governed push once the current slice is checkpoint-clean.
+- publication_guidance: 14 local commit(s) waiting for governed push once review is accepted.
 
 ### Reviewer runtime
-- reviewer_mode: `active_dual_agent`
+- reviewer_mode: `tools_only`
 - reviewer_freshness: unknown
 - reviewer_publish_clear: False
 - interaction_mode: `local_terminal`
+- implementation_blocked: yes — review_loop_relaunch_required
 
 ### Remote commit pipeline
 - state: `n/a`
@@ -90,55 +91,54 @@ adopters arrive.
 - active plan: **AI Governance Platform Plan**
 - plan path: `dev/active/ai_governance_platform.md`
 - active MP scope: `MP-377`
-- advisory: `checkpoint_before_continue` — dirty_after_local_checkpoint
+- advisory: `repair_reviewer_loop` — review_loop_relaunch_required
 
 ## 3. Delta — what changed since the previous snapshot
 
-Range: last 25 commits ending at `635c1a23e4e3`
+Range: last 24 commits ending at `096df5bff1cb`
 
-- commits: 25
+- commits: 24
 - files changed: 4
-- insertions: +2032
-- deletions: -1169
-- bundle classes touched: docs, tooling
+- insertions: +2058
+- deletions: -1161
+- bundle classes touched: tooling, docs
 
 ### Commits
 
 | # | SHA | Subject | Files | +/- | Bundle | Risk |
 |---|---|---|---|---|---|---|
-| 1 | `635c1a23` | Refresh external review snapshot for 93e96fc6 | 2 | +64/-65 | docs |  |
-| 2 | `93e96fc6` | rev_pkt_1366: status.py passes caller_role='observer' to pr… | 2 | +54/-52 | tooling |  |
-| 3 | `74c99383` | Refresh external review snapshot for 6d4ca720 | 2 | +61/-62 | docs |  |
-| 4 | `6d4ca720` | SYSTEM_MAP.md v6.7 — fix 2 errors from rev_pkt_1380 (spine… | 2 | +61/-56 | tooling |  |
-| 5 | `4248a857` | Refresh external review snapshot for 2a84010d | 2 | +55/-61 | docs |  |
-| 6 | `2a84010d` | SYSTEM_MAP.md v6.6 — §51 row #11: typed state-transition re… | 2 | +55/-50 | tooling |  |
-| 7 | `dfd27e61` | Refresh external review snapshot for 2e8db252 | 2 | +60/-62 | docs |  |
-| 8 | `2e8db252` | SYSTEM_MAP.md v6.5 — rev_pkt_1375: remove last imperative "… | 3 | +52/-47 | docs |  |
-| 9 | `13d57c1f` | SYSTEM_MAP.md v6.4 — rev_pkt_1374 correction: §0.6/§0.7 ove… | 2 | +55/-66 | tooling |  |
-| 10 | `1ca1b8ac` | Refresh external review snapshot for 48becbeb | 2 | +62/-110 | docs |  |
-| 11 | `48becbeb` | SYSTEM_MAP.md v6.3 — fix 3 errors flagged by Codex rev_pkt_… | 2 | +56/-55 | tooling |  |
-| 12 | `82c0d4bc` | Refresh external review snapshot for 18034f22 | 2 | +60/-55 | docs |  |
-| 13 | `18034f22` | SYSTEM_MAP.md v6.2 — compact Runtime Spine at top + Authori… | 2 | +121/-97 | tooling |  |
-| 14 | `cb5214c8` | Refresh external review snapshot for 8a8ef059 | 2 | +59/-57 | docs |  |
-| 15 | `8a8ef059` | SYSTEM_MAP.md v6.1 — sections 48-53 + governance-first §0.5… | 1 | +233/-7 | docs |  |
-| 16 | `331c7ff2` | Refresh external review snapshot for a7e9e127 | 2 | +51/-50 | docs |  |
-| 17 | `a7e9e127` | SYSTEM_MAP.md §47 — doc sprawl (60 top-level orientation MD… | 1 | +71/-0 | docs |  |
-| 18 | `d7168933` | Refresh external review snapshot for b16d5d3b | 2 | +45/-44 | docs |  |
-| 19 | `b16d5d3b` | SYSTEM_MAP.md v6 — 10 gap-audit sections added per external… | 1 | +320/-0 | docs |  |
-| 20 | `548401c3` | Refresh external review snapshot for 01830a05 | 2 | +53/-62 | docs |  |
-| 21 | `01830a05` | Fix SYSTEM_MAP.md per Codex rev_pkt_1358/1360 + prep for ex… | 1 | +11/-5 | docs |  |
-| 22 | `0fb9dda6` | Refresh external review snapshot for 4dc05995 | 2 | +51/-46 | docs |  |
-| 23 | `4dc05995` | SYSTEM_MAP.md v5 — operator override on Codex rev_pkt_1354… | 1 | +259/-2 | docs |  |
-| 24 | `da2a7aec` | Refresh external review snapshot for ce1d75b4 | 2 | +55/-52 | docs |  |
-| 25 | `ce1d75b4` | Fix SYSTEM_MAP.md per Codex rev_pkt_1353/1356 re-review | 1 | +8/-6 | docs |  |
+| 1 | `096df5bf` | SYSTEM_MAP.md v6.8 — §54 Active Joint Work coordination sur… | 2 | +89/-50 | tooling |  |
+| 2 | `635c1a23` | Refresh external review snapshot for 93e96fc6 | 2 | +64/-65 | docs |  |
+| 3 | `93e96fc6` | rev_pkt_1366: status.py passes caller_role='observer' to pr… | 2 | +54/-52 | tooling |  |
+| 4 | `74c99383` | Refresh external review snapshot for 6d4ca720 | 2 | +61/-62 | docs |  |
+| 5 | `6d4ca720` | SYSTEM_MAP.md v6.7 — fix 2 errors from rev_pkt_1380 (spine… | 2 | +61/-56 | tooling |  |
+| 6 | `4248a857` | Refresh external review snapshot for 2a84010d | 2 | +55/-61 | docs |  |
+| 7 | `2a84010d` | SYSTEM_MAP.md v6.6 — §51 row #11: typed state-transition re… | 2 | +55/-50 | tooling |  |
+| 8 | `dfd27e61` | Refresh external review snapshot for 2e8db252 | 2 | +60/-62 | docs |  |
+| 9 | `2e8db252` | SYSTEM_MAP.md v6.5 — rev_pkt_1375: remove last imperative "… | 3 | +52/-47 | docs |  |
+| 10 | `13d57c1f` | SYSTEM_MAP.md v6.4 — rev_pkt_1374 correction: §0.6/§0.7 ove… | 2 | +55/-66 | tooling |  |
+| 11 | `1ca1b8ac` | Refresh external review snapshot for 48becbeb | 2 | +62/-110 | docs |  |
+| 12 | `48becbeb` | SYSTEM_MAP.md v6.3 — fix 3 errors flagged by Codex rev_pkt_… | 2 | +56/-55 | tooling |  |
+| 13 | `82c0d4bc` | Refresh external review snapshot for 18034f22 | 2 | +60/-55 | docs |  |
+| 14 | `18034f22` | SYSTEM_MAP.md v6.2 — compact Runtime Spine at top + Authori… | 2 | +121/-97 | tooling |  |
+| 15 | `cb5214c8` | Refresh external review snapshot for 8a8ef059 | 2 | +59/-57 | docs |  |
+| 16 | `8a8ef059` | SYSTEM_MAP.md v6.1 — sections 48-53 + governance-first §0.5… | 1 | +233/-7 | docs |  |
+| 17 | `331c7ff2` | Refresh external review snapshot for a7e9e127 | 2 | +51/-50 | docs |  |
+| 18 | `a7e9e127` | SYSTEM_MAP.md §47 — doc sprawl (60 top-level orientation MD… | 1 | +71/-0 | docs |  |
+| 19 | `d7168933` | Refresh external review snapshot for b16d5d3b | 2 | +45/-44 | docs |  |
+| 20 | `b16d5d3b` | SYSTEM_MAP.md v6 — 10 gap-audit sections added per external… | 1 | +320/-0 | docs |  |
+| 21 | `548401c3` | Refresh external review snapshot for 01830a05 | 2 | +53/-62 | docs |  |
+| 22 | `01830a05` | Fix SYSTEM_MAP.md per Codex rev_pkt_1358/1360 + prep for ex… | 1 | +11/-5 | docs |  |
+| 23 | `0fb9dda6` | Refresh external review snapshot for 4dc05995 | 2 | +51/-46 | docs |  |
+| 24 | `4dc05995` | SYSTEM_MAP.md v5 — operator override on Codex rev_pkt_1354… | 1 | +259/-2 | docs |  |
 
 ### Files
 
 | Path | Bundle | +/- |
 |---|---|---|
-| `bridge.md` | docs | +47/-47 |
-| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1021/-1087 |
-| `dev/guides/SYSTEM_MAP.md` | docs | +962/-33 |
+| `bridge.md` | docs | +43/-43 |
+| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1022/-1089 |
+| `dev/guides/SYSTEM_MAP.md` | docs | +991/-27 |
 | `dev/scripts/devctl/commands/review_channel/status.py` | tooling | +2/-2 |
 
 ## 4. Quality signals
@@ -218,6 +218,11 @@ Recent findings:
 
 ### Per-commit rationale
 
+- **`096df5bf`** — SYSTEM_MAP.md v6.8 — §54 Active Joint Work coordination surface
+  - Operator directive 2026-04-19: 'that's the point of the system MD... stop
+  - packet-flooding and actually build.' This adds §54 as the single
+  - coordination surface for active joint work.
+  - evolution: Fact: the next live Codex+Claude remote-control pass exposed a narrower defect than "the heartbeat is stale." Event-backed packet posting already updated the typed queue immediately, but the actual reviewer wake lived o…
 - **`635c1a23`** — Refresh external review snapshot for 93e96fc6
   - evolution: Fact: the next live Codex+Claude remote-control pass exposed a narrower defect than "the heartbeat is stale." Event-backed packet posting already updated the typed queue immediately, but the actual reviewer wake lived o…
 - **`93e96fc6`** — rev_pkt_1366: status.py passes caller_role='observer' to project_authority_snapshot
@@ -286,11 +291,6 @@ Recent findings:
   - in the system map that AI is not gonna know things... We need to have the
   - whole system mapped... regardless of what codex says until both of you are
   - evolution: Fact: the next live Codex+Claude remote-control pass exposed a narrower defect than "the heartbeat is stale." Event-backed packet posting already updated the typed queue immediately, but the actual reviewer wake lived o…
-- **`da2a7aec`** — Refresh external review snapshot for ce1d75b4
-  - evolution: Fact: the next live Codex+Claude remote-control pass exposed a narrower defect than "the heartbeat is stale." Event-backed packet posting already updated the typed queue immediately, but the actual reviewer wake lived o…
-- **`ce1d75b4`** — Fix SYSTEM_MAP.md per Codex rev_pkt_1353/1356 re-review
-  - 3 remaining doc integrity issues addressed:
-  - evolution: Fact: the next live Codex+Claude remote-control pass exposed a narrower defect than "the heartbeat is stale." Event-backed packet posting already updated the typed queue immediately, but the actual reviewer wake lived o…
 ### Active MP scope (from MASTER_PLAN.md)
 
 - contract slice for MP-355 plus the temporary markdown-swarm operating mode
@@ -309,10 +309,10 @@ Recent findings:
 - open governance findings: 112
 
 ### Startup advisories
-- checkpoint_before_continue: dirty_after_local_checkpoint
+- repair_reviewer_loop: review_loop_relaunch_required
 
 ### Stale warnings
-- Relaunch the reviewer loop immediately.
+- Cut a checkpoint before doing anything else.
 
 ### Open gap rows
 - **governance_open** (`dev/scripts/devctl/runtime/dogfood_log.py`): dogfood_finding_id_instability: 
@@ -326,4 +326,4 @@ Recent findings:
 
 ---
 
-Projection produced by `devctl review-snapshot`. Generation stamp `snap-ca7382f721b4` binds this file to HEAD `635c1a23e4e3`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
+Projection produced by `devctl review-snapshot`. Generation stamp `snap-f9322f0ea44d` binds this file to HEAD `096df5bff1cb`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
