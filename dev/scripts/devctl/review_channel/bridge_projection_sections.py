@@ -6,7 +6,10 @@ from collections.abc import Mapping
 
 from ..runtime.review_state_semantics import is_missing_instruction
 from .action_request import render_action_requests_from_packets
-from .bridge_validation_poll_status import poll_status_is_automation_only_refresh
+from .bridge_validation_poll_status import (
+    extract_poll_status_reviewer_modes,
+    poll_status_is_automation_only_refresh,
+)
 from .bridge_projection_contract import BRIDGE_SECTION_ORDER
 
 
@@ -88,6 +91,8 @@ def with_fallback_sections(
     raw_poll_status = raw_projection_sections.get("Poll Status", "")
     poll_status_fallback = _poll_status_fallback(review_state)
     if poll_status_is_automation_only_refresh(raw_poll_status):
+        result["Poll Status"] = poll_status_fallback
+    elif _poll_status_conflicts_with_typed_mode(review_state, raw_poll_status):
         result["Poll Status"] = poll_status_fallback
     elif (
         not raw_poll_status.strip()
@@ -188,6 +193,24 @@ def int_value(value: object) -> int:
 def _set_missing(sections: dict[str, str], heading: str, value: str) -> None:
     if not sections.get(heading, "").strip():
         sections[heading] = value
+
+
+def _poll_status_conflicts_with_typed_mode(
+    review_state: Mapping[str, object],
+    poll_status: str,
+) -> bool:
+    typed_bridge = _mapping(review_state.get("bridge"))
+    effective_mode = str(
+        typed_bridge.get("effective_reviewer_mode")
+        or typed_bridge.get("reviewer_mode")
+        or ""
+    ).strip()
+    if not effective_mode:
+        return False
+    poll_status_modes = extract_poll_status_reviewer_modes(poll_status)
+    if not poll_status_modes:
+        return False
+    return any(mode != effective_mode for mode in poll_status_modes)
 
 
 def _poll_status_fallback(review_state: Mapping[str, object]) -> str:

@@ -915,6 +915,39 @@ def test_status_bridge_sync_clears_stale_instruction_when_typed_projection_is_bl
     assert "stale compat instruction" not in rewritten
 
 
+def test_status_bridge_sync_prefers_effective_reviewer_mode_from_typed_state(
+    tmp_path: Path,
+) -> None:
+    root = tmp_path
+    bridge_path = root / "bridge.md"
+    original = _bridge_text()
+    bridge_path.write_text(original, encoding="utf-8")
+    status_dir = root / "dev/reports/review_channel/latest"
+    status_dir.mkdir(parents=True, exist_ok=True)
+    review_state = _typed_review_state(original)
+    review_state["bridge"] = {
+        "reviewer_mode": "active_dual_agent",
+        "effective_reviewer_mode": "tools_only",
+    }
+    review_state_path = status_dir / "review_state.json"
+    review_state_path.write_text(json.dumps(review_state, indent=2), encoding="utf-8")
+
+    synced, warning = sync_bridge_from_typed_projection_if_needed(
+        repo_root=root,
+        bridge_path=bridge_path,
+        snapshot=SimpleNamespace(
+            projection_paths=SimpleNamespace(review_state_path=str(review_state_path))
+        ),
+    )
+
+    rewritten = bridge_path.read_text(encoding="utf-8")
+    assert synced is True
+    assert warning == ""
+    assert "- Reviewer mode: `tools_only`" in rewritten
+    assert "- Reviewer mode: `active_dual_agent`" not in rewritten
+    assert "mode: active_dual_agent" not in rewritten
+
+
 def test_build_bridge_success_report_uses_typed_collaboration_runtime_counts() -> None:
     report, exit_code = build_bridge_success_report(
         args=_bridge_report_args(),

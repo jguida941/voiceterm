@@ -100,22 +100,23 @@ def projection_metadata(
         last_codex_poll_utc = normalized_poll_utc
     if not last_codex_poll_local and last_codex_poll_utc:
         last_codex_poll_local = format_local_poll_time(last_codex_poll_utc)
+    reviewer_mode = resolve_reported_reviewer_mode(
+        {
+            # Compatibility projections must follow the validated runtime mode
+            # once typed state has downgraded a dead dual-agent loop.
+            "reviewer_mode": _first_text(
+                bridge_liveness.get("effective_reviewer_mode"),
+                bridge_state.get("effective_reviewer_mode"),
+                bridge_liveness.get("reviewer_mode"),
+                bridge_state.get("reviewer_mode"),
+                snapshot.metadata.get("reviewer_mode"),
+            ),
+        }
+    )
     return {
         "last_codex_poll_utc": last_codex_poll_utc,
         "last_codex_poll_local": last_codex_poll_local,
-        "reviewer_mode": resolve_reported_reviewer_mode(
-            {
-                "reviewer_mode": (
-                    bridge_liveness.get("reviewer_mode")
-                    or bridge_state.get("reviewer_mode")
-                    or snapshot.metadata.get("reviewer_mode")
-                ),
-                "effective_reviewer_mode": (
-                    bridge_liveness.get("effective_reviewer_mode")
-                    or bridge_state.get("effective_reviewer_mode")
-                ),
-            }
-        ),
+        "reviewer_mode": reviewer_mode,
         "current_instruction_revision": current_revision,
     }
 
