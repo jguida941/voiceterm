@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Mapping, Sequence
 
 from .support import _nested
 
@@ -116,8 +117,8 @@ def provenance_payloads(
 ) -> dict[str, dict[str, object]]:
     surfaces = {
         "review_state": review_state,
-        "review_state_registry": _nested(review_state, "registry"),
-        "review_state_bridge_projection": _nested(
+        "review_state_registry": _nested_payload(review_state, "registry"),
+        "review_state_bridge_projection": _nested_payload(
             review_state,
             "_compat",
             "bridge_projection",
@@ -166,10 +167,37 @@ def provenance_errors(
 
 
 def surface_provenance(payload: dict[str, object]) -> dict[str, object]:
+    source_identity = _nested_payload(payload, "source_identity")
+    observed_fields = _string_rows(_nested_value(payload, "observed_fields"))
+    inferred_fields = _string_rows(_nested_value(payload, "inferred_fields"))
     return {
-        "source_identity": _nested(payload, "source_identity") or {},
+        "source_identity": {
+            str(key).strip(): str(value or "").strip()
+            for key, value in source_identity.items()
+            if str(key).strip() and str(value or "").strip()
+        },
         "source_contract": _nested(payload, "source_contract"),
         "source_command": _nested(payload, "source_command"),
-        "observed_fields": list(_nested(payload, "observed_fields") or []),
-        "inferred_fields": list(_nested(payload, "inferred_fields") or []),
+        "observed_fields": observed_fields,
+        "inferred_fields": inferred_fields,
     }
+
+
+def _nested_value(payload: object, *keys: str) -> object:
+    current = payload
+    for key in keys:
+        if not isinstance(current, Mapping):
+            return None
+        current = current.get(key)
+    return current
+
+
+def _nested_payload(payload: object, *keys: str) -> dict[str, object]:
+    current = _nested_value(payload, *keys)
+    return dict(current) if isinstance(current, Mapping) else {}
+
+
+def _string_rows(value: object) -> list[str]:
+    if not isinstance(value, Sequence) or isinstance(value, (str, bytes)):
+        return []
+    return [str(item).strip() for item in value if str(item).strip()]

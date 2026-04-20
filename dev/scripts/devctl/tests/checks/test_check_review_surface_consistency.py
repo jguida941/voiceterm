@@ -258,16 +258,96 @@ class CheckReviewSurfaceConsistencyTests(unittest.TestCase):
         self.assertFalse(report["ok"])
         self.assertIn("snapshot_id mismatch", "\n".join(report["errors"]))
         self.assertIn("pipeline generation mismatch", "\n".join(report["errors"]))
-        self.assertIn("bridge-poll parity mismatch", "\n".join(report["errors"]))
-        self.assertIn("diagnosis parity mismatch", "\n".join(report["errors"]))
-        self.assertIn("reports healthy while diagnosis", "\n".join(report["errors"]))
-        self.assertTrue(
-            any(
-                violation.get("category") == "bridge_poll_parity"
-                and violation.get("field") == "next_turn_reason"
-                for violation in report["violations"]
-            )
+
+    def test_build_report_fails_when_provenance_tuple_diverges(self) -> None:
+        zref = "zref-123"
+        report = self.script.build_report(
+            startup_payload={
+                "snapshot_id": "snap-123",
+                "zref": zref,
+                "push_decision": {"snapshot_id": "snap-123", "zref": zref},
+            },
+            review_state_payload={
+                "snapshot_id": "snap-123",
+                "zref": zref,
+                **_provenance("gen-9"),
+                "recovery_assessment": {
+                    "diagnosis": {"status": "healthy"},
+                    "decision": {
+                        "action_id": "continue_scoped_loop",
+                        "command": "",
+                    },
+                },
+                "attention": {
+                    "status": "healthy",
+                    "owner": "system",
+                    "summary": "",
+                    "recommended_action": "",
+                    "recommended_command": "",
+                },
+                "commit_pipeline": {
+                    "snapshot_id": "snap-123",
+                    "zref": zref,
+                    "generation_id": "gen-9",
+                },
+                "registry": {
+                    "zref": zref,
+                    "agents": [],
+                    **_provenance("gen-9"),
+                    "source_command": "python3 dev/scripts/devctl.py review-channel --action doctor --terminal none --format json",
+                },
+                "_compat": {
+                    "doctor": {
+                        "snapshot_id": "snap-123",
+                        "generation_id": "gen-9",
+                        "status": "healthy",
+                        "diagnosis_status": "healthy",
+                        "decision_action_id": "continue_scoped_loop",
+                        "decision_command": "",
+                    },
+                    "bridge_projection": {
+                        "metadata": {
+                            "snapshot_id": "snap-123",
+                            "zref": zref,
+                            **_provenance("gen-9"),
+                        },
+                    },
+                },
+            },
+            compact_payload={
+                "snapshot_id": "snap-123",
+                "zref": zref,
+                "push_decision": {"snapshot_id": "snap-123", "zref": zref},
+                "doctor": {
+                    "snapshot_id": "snap-123",
+                    "generation_id": "gen-9",
+                    "status": "healthy",
+                    "diagnosis_status": "healthy",
+                    "decision_action_id": "continue_scoped_loop",
+                    "decision_command": "",
+                },
+            },
+            commit_pipeline_payload={
+                "snapshot_id": "snap-123",
+                "zref": zref,
+                "generation_id": "gen-9",
+            },
+            bridge_poll_payload={
+                "snapshot_id": "snap-123",
+                "zref": zref,
+                **_MATCHING_AUTHORITY_FIELDS,
+            },
+            turn_authority_payload={
+                "snapshot_id": "snap-123",
+                "zref": zref,
+                **_MATCHING_AUTHORITY_FIELDS,
+            },
+            disk_review_state_payload=None,
         )
+
+        self.assertFalse(report["ok"])
+        self.assertIn("provenance mismatch", "\n".join(report["errors"]))
+        self.assertIn("review_state_registry", "\n".join(report["errors"]))
 
     def test_build_report_fails_when_attention_drifts_from_recovery_assessment(self) -> None:
         report = self.script.build_report(

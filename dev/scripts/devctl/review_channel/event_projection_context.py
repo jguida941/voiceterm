@@ -100,12 +100,12 @@ def build_event_context_packet(
         ],
         max_terms=4,
     )
-    cached_graph = _load_cached_graph()
+    cached_graph = load_cached_context_graph()
     return build_context_escalation_packet(
         trigger="review-channel-event",
         query_terms=query_terms,
         options={"max_chars": 1200},
-        graph=load_cached_context_graph(),
+        graph=cached_graph,
     )
 
 

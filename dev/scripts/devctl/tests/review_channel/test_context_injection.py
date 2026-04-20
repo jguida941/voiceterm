@@ -5,7 +5,6 @@ from __future__ import annotations
 import tempfile
 import unittest
 from pathlib import Path
-from types import SimpleNamespace
 from unittest.mock import patch
 
 
@@ -76,12 +75,12 @@ class ReviewChannelEventProjectionContextTests(unittest.TestCase):
     @patch(
         "dev.scripts.devctl.review_channel.event_projection_context.build_context_escalation_packet"
     )
-    @patch("dev.scripts.devctl.review_channel.event_projection_context.list_context_graph_snapshots")
-    @patch("dev.scripts.devctl.review_channel.event_projection_context.load_context_graph_snapshot")
-    def test_event_context_packet_rehydrates_cached_snapshot_rows(
+    @patch(
+        "dev.scripts.devctl.review_channel.event_projection_context.load_cached_context_graph"
+    )
+    def test_event_context_packet_uses_cached_graph_adapter(
         self,
-        load_snapshot_mock,
-        list_snapshots_mock,
+        load_cached_graph_mock,
         escalation_mock,
     ) -> None:
         from dev.scripts.devctl.context_graph.models import GraphEdge, GraphNode
@@ -89,28 +88,27 @@ class ReviewChannelEventProjectionContextTests(unittest.TestCase):
             build_event_context_packet,
         )
 
-        fake_snapshot_path = Path("/tmp/fake_snapshot.json")
-        list_snapshots_mock.return_value = [fake_snapshot_path]
-        load_snapshot_mock.return_value = SimpleNamespace(
-            nodes=[
-                {
-                    "node_id": "src:bridge",
-                    "node_kind": "source_file",
-                    "label": "bridge.md",
-                    "canonical_pointer_ref": "bridge.md",
-                    "provenance_ref": "snapshot",
-                    "temperature": 0.6,
-                    "metadata": {"scope": "bridge"},
-                }
+        fake_graph = (
+            [
+                GraphNode(
+                    node_id="src:bridge",
+                    node_kind="source_file",
+                    label="bridge.md",
+                    canonical_pointer_ref="bridge.md",
+                    provenance_ref="snapshot",
+                    temperature=0.6,
+                    metadata={"scope": "bridge"},
+                )
             ],
-            edges=[
-                {
-                    "source_id": "plan:mp",
-                    "target_id": "src:bridge",
-                    "edge_kind": "documented_by",
-                }
+            [
+                GraphEdge(
+                    source_id="plan:mp",
+                    target_id="src:bridge",
+                    edge_kind="documented_by",
+                )
             ],
         )
+        load_cached_graph_mock.return_value = fake_graph
 
         build_event_context_packet(
             {
@@ -122,8 +120,7 @@ class ReviewChannelEventProjectionContextTests(unittest.TestCase):
         )
 
         graph = escalation_mock.call_args.kwargs["graph"]
-        self.assertIsInstance(graph[0][0], GraphNode)
-        self.assertIsInstance(graph[1][0], GraphEdge)
+        self.assertIs(graph, fake_graph)
         self.assertEqual(graph[0][0].metadata["scope"], "bridge")
 
     @patch(
