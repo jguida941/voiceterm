@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from dataclasses import asdict, dataclass
 
+from .registry_context import AgentRegistryContext
 from .collaboration_registry import build_runtime_agent_registry_from_collaboration
 from ..runtime.review_state_models import (
     AgentRegistryEntryState,
@@ -55,8 +56,7 @@ def agent_registry_to_dict(registry: AgentRegistryState) -> dict[str, object]:
 
 def build_runtime_agent_registry(
     *,
-    timestamp: str,
-    plan_id: str = "",
+    context: AgentRegistryContext,
     collaboration: CollaborationSessionState | None = None,
     lanes: Sequence[LaneAssignment] = (),
     provider_state: Mapping[str, Mapping[str, object]] | None = None,
@@ -71,8 +71,7 @@ def build_runtime_agent_registry(
     if collaboration is not None:
         return build_runtime_agent_registry_from_collaboration(
             collaboration=collaboration,
-            timestamp=timestamp,
-            plan_id=plan_id,
+            context=context,
         )
 
     normalized_state = {
@@ -110,21 +109,31 @@ def build_runtime_agent_registry(
         operator_provider=operator_provider,
     )
     agents = tuple(
-        _registry_entry(
-            provider=role_profile.provider,
-            role=role_profile.role,
-            display_name=role_profile.display_name,
-            plan_id=plan_id,
-            timestamp=timestamp,
-            provider_state=normalized_state.get(role_profile.provider, {}),
-        )
+            _registry_entry(
+                provider=role_profile.provider,
+                role=role_profile.role,
+                display_name=role_profile.display_name,
+                plan_id=context.plan_id,
+                timestamp=context.timestamp,
+                provider_state=normalized_state.get(role_profile.provider, {}),
+            )
         for role_profile in (
             profile.reviewer,
             *profile.implementers,
             profile.operator,
         )
     )
-    return AgentRegistryState(timestamp=timestamp, agents=agents)
+    return AgentRegistryState(
+        timestamp=context.timestamp,
+        agents=agents,
+        snapshot_id=context.snapshot_id,
+        zref=context.zref,
+        source_identity=context.source_identity_dict(),
+        source_contract=context.source_contract,
+        source_command=context.source_command,
+        observed_fields=context.observed_fields,
+        inferred_fields=context.inferred_fields,
+    )
 
 def build_planned_topology(
     *,

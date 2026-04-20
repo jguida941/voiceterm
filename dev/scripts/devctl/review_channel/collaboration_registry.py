@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from .registry_context import AgentRegistryContext
 from ..runtime.review_state_models import (
     AgentRegistryEntryState,
     AgentRegistryState,
@@ -15,8 +16,7 @@ from ..runtime.role_profile import TandemRole, role_for_provider
 def build_runtime_agent_registry_from_collaboration(
     *,
     collaboration: CollaborationSessionState,
-    timestamp: str,
-    plan_id: str,
+    context: AgentRegistryContext,
 ) -> AgentRegistryState:
     participants = {
         participant.agent_id: participant for participant in collaboration.participants
@@ -58,7 +58,7 @@ def build_runtime_agent_registry_from_collaboration(
                 mp_scope=plan_id,
                 worktree="",
                 branch="",
-                updated_at=timestamp,
+                updated_at=context.timestamp,
             )
         )
     for receipt in collaboration.delegated_work:
@@ -78,13 +78,23 @@ def build_runtime_agent_registry_from_collaboration(
                 last_packet_seen="",
                 last_packet_applied="",
                 script_profile="delegated-worker",
-                mp_scope=receipt.mp_scope or plan_id,
+                mp_scope=receipt.mp_scope or context.plan_id,
                 worktree=receipt.worktree,
                 branch=receipt.branch,
-                updated_at=timestamp,
+                updated_at=context.timestamp,
             )
         )
-    return AgentRegistryState(timestamp=timestamp, agents=tuple(agents))
+    return AgentRegistryState(
+        timestamp=context.timestamp,
+        agents=tuple(agents),
+        snapshot_id=context.snapshot_id,
+        zref=context.zref,
+        source_identity=context.source_identity_dict(),
+        source_contract=context.source_contract,
+        source_command=context.source_command,
+        observed_fields=context.observed_fields,
+        inferred_fields=context.inferred_fields,
+    )
 
 
 def _assignment_role(assignment: CollaborationRoleAssignmentState) -> str:

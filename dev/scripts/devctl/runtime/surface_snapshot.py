@@ -1,4 +1,4 @@
-"""Shared surface-generation snapshot helpers for startup/review projections."""
+"""Shared snapshot-id/zref helpers for startup/review projections."""
 
 from __future__ import annotations
 
@@ -6,6 +6,7 @@ import json
 from collections.abc import Mapping
 from dataclasses import asdict, is_dataclass
 from hashlib import sha256
+from typing import Protocol, runtime_checkable
 
 
 def build_surface_snapshot_id(
@@ -27,17 +28,6 @@ def build_surface_snapshot_id(
     return f"snap-{digest}"
 
 
-def attach_snapshot_id(
-    payload: object,
-    snapshot_id: str,
-) -> dict[str, object]:
-    """Copy one mapping-like payload and attach the shared snapshot id."""
-    mapping = _normalize_payload(payload, drop_keys=("snapshot_id", "zref"))
-    if snapshot_id:
-        mapping["snapshot_id"] = snapshot_id
-    return mapping
-
-
 def build_surface_zref(
     *,
     snapshot_id: str,
@@ -51,17 +41,11 @@ def build_surface_zref(
     return f"zref_{snapshot_prefix or 'unknown'}_{head_prefix or 'unknown'}"
 
 
-def attach_surface_identity(
-    payload: object,
-    *,
-    snapshot_id: str,
-    zref: str,
-) -> dict[str, object]:
-    """Copy one mapping-like payload and attach snapshot/zref identity fields."""
-    mapping = attach_snapshot_id(payload, snapshot_id)
-    if zref:
-        mapping["zref"] = zref
-    return mapping
+@runtime_checkable
+class SupportsToDict(Protocol):
+    """Protocol for typed payloads that expose a mapping projection."""
+
+    def to_dict(self) -> Mapping[str, object]: ...
 
 
 def _normalize_push_decision(payload: object) -> dict[str, object]:
@@ -86,18 +70,18 @@ def _normalize_push_decision(payload: object) -> dict[str, object]:
 
 
 def _normalize_payload(
-    payload: object,
+    payload: Mapping[str, object] | SupportsToDict | object | None,
     *,
     drop_keys: tuple[str, ...],
 ) -> dict[str, object]:
     if payload is None:
         return {}
-    if hasattr(payload, "to_dict") and callable(getattr(payload, "to_dict")):
-        mapping = payload.to_dict()
+    if isinstance(payload, Mapping):
+        mapping = dict(payload)
+    elif isinstance(payload, SupportsToDict):
+        mapping = dict(payload.to_dict())
     elif is_dataclass(payload):
         mapping = asdict(payload)
-    elif isinstance(payload, Mapping):
-        mapping = dict(payload)
     else:
         return {}
     for key in drop_keys:

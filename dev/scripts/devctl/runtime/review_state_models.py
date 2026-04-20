@@ -214,6 +214,11 @@ class ReviewState:
     authority_snapshot: AuthoritySnapshot | None = None
     warnings: tuple[str, ...] = ()
     errors: tuple[str, ...] = ()
+    source_identity: dict[str, str] = field(default_factory=dict)
+    source_contract: str = ""
+    source_command: str = ""
+    observed_fields: tuple[str, ...] = ()
+    inferred_fields: tuple[str, ...] = ()
     snapshot_id: str = ""
     zref: str = ""
 

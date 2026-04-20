@@ -112,11 +112,7 @@ def _build_review_state(
         bridge=bridge,
         bridge_liveness=bridge_liveness,
     )
-    registry_state = AgentRegistryState(
-        timestamp=_string(registry_payload.get("timestamp"))
-        or _string(registry_payload.get("updated_at")),
-        agents=_registry_agents_from_value(registry_payload.get("agents")),
-    )
+    registry_state = _registry_state(registry_payload)
     collaboration_state = collaboration_state_from_payload(
         collaboration=collaboration,
         review=review,
@@ -200,6 +196,11 @@ def _build_review_state(
         ),
         warnings=tuple(warnings),
         errors=errors,
+        source_identity=_source_identity(review_payload.get("source_identity")),
+        source_contract=_string(review_payload.get("source_contract")),
+        source_command=_string(review_payload.get("source_command")),
+        observed_fields=_string_rows(review_payload.get("observed_fields")),
+        inferred_fields=_string_rows(review_payload.get("inferred_fields")),
         snapshot_id=_string(payload.get("snapshot_id"))
         or _string(review_payload.get("snapshot_id"))
         or _string(_mapping(review_payload.get("commit_pipeline")).get("snapshot_id")),
@@ -207,6 +208,29 @@ def _build_review_state(
         or _string(review_payload.get("zref"))
         or _string(_mapping(review_payload.get("commit_pipeline")).get("zref")),
     )
+
+
+def _registry_state(registry_payload: Mapping[str, object]) -> AgentRegistryState:
+    return AgentRegistryState(
+        timestamp=_string(registry_payload.get("timestamp"))
+        or _string(registry_payload.get("updated_at")),
+        agents=_registry_agents_from_value(registry_payload.get("agents")),
+        snapshot_id=_string(registry_payload.get("snapshot_id")),
+        zref=_string(registry_payload.get("zref")),
+        source_identity=_source_identity(registry_payload.get("source_identity")),
+        source_contract=_string(registry_payload.get("source_contract")),
+        source_command=_string(registry_payload.get("source_command")),
+        observed_fields=_string_rows(registry_payload.get("observed_fields")),
+        inferred_fields=_string_rows(registry_payload.get("inferred_fields")),
+    )
+
+
+def _source_identity(value: object) -> dict[str, str]:
+    return {
+        str(key).strip(): _string(raw_value)
+        for key, raw_value in _mapping(value).items()
+        if str(key).strip() and _string(raw_value)
+    }
 
 
 def _review_state_packet_inbox(

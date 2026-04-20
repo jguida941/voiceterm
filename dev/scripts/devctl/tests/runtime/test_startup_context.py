@@ -527,6 +527,8 @@ class TestStartupContextBuild(unittest.TestCase):
         ctx = build_startup_context()
         self.assertTrue(ctx.snapshot_id)
         self.assertEqual(ctx.push_decision.snapshot_id, ctx.snapshot_id)
+        self.assertTrue(ctx.zref)
+        self.assertEqual(ctx.push_decision.zref, ctx.zref)
 
     def test_to_dict_serializes(self) -> None:
         ctx = build_startup_context()

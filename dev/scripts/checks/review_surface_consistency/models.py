@@ -30,7 +30,9 @@ class ConvergencePassResult:
     command: str = "check_review_surface_consistency"
     ok: bool = True
     snapshot_ids: dict[str, str] = field(default_factory=dict)
+    zrefs: dict[str, str] = field(default_factory=dict)
     generation_ids: dict[str, str] = field(default_factory=dict)
+    provenance: dict[str, dict[str, object]] = field(default_factory=dict)
     bridge_poll: dict[str, object] = field(default_factory=dict)
     turn_authority: dict[str, object] = field(default_factory=dict)
     disk_parity_warnings: tuple[str, ...] = ()

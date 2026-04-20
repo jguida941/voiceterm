@@ -54,6 +54,7 @@ class BridgePollResult:
     decision_execution_owner: str = ""
     decision_requires_approval: bool = False
     decision_can_auto_fix: bool = False
+    zref: str = ""
 
     def to_dict(self) -> dict[str, object]:
         return asdict(self)
@@ -115,6 +116,7 @@ def build_bridge_poll_result(
         decision_execution_owner=authority.decision_execution_owner,
         decision_requires_approval=authority.decision_requires_approval,
         decision_can_auto_fix=authority.decision_can_auto_fix,
+        zref=authority.zref,
     )
 
 

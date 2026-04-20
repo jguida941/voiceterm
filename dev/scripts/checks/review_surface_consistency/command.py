@@ -6,6 +6,7 @@ import argparse
 import json
 import sys
 from pathlib import Path
+from typing import Any
 
 from dev.scripts.devctl.runtime.startup_context import build_startup_context
 
@@ -17,6 +18,14 @@ from .parity import (
     recovery_surface_parity_violations,
 )
 from .payloads import load_bridge_poll_payload, load_turn_authority_payload
+from .snapshot_fields import (
+    generation_ids as surface_generation_ids,
+    provenance_errors,
+    provenance_payloads,
+    snapshot_errors,
+    snapshot_ids as surface_snapshot_ids,
+    zrefs as surface_zrefs,
+)
 from .support import _load_json, _nested, load_review_state_payload, surface_path
 
 _UNSET = object()
@@ -47,7 +56,7 @@ def build_report(
         repo_root=repo_root,
         review_state_payload=review_state,
     )
-    snapshot_ids = _snapshot_ids(
+    snapshot_ids = surface_snapshot_ids(
         startup=startup,
         review_state=review_state,
         compact=compact,
@@ -55,12 +64,22 @@ def build_report(
         bridge_poll=bridge_poll,
         turn_authority=turn_authority,
     )
-    generation_ids = _generation_ids(
+    zrefs = surface_zrefs(
+        startup=startup,
+        review_state=review_state,
+        compact=compact,
+        commit_pipeline=commit_pipeline,
+        bridge_poll=bridge_poll,
+        turn_authority=turn_authority,
+    )
+    generation_ids = surface_generation_ids(
         review_state=review_state,
         compact=compact,
         commit_pipeline=commit_pipeline,
     )
-    errors = _snapshot_errors(snapshot_ids, generation_ids)
+    provenance = provenance_payloads(review_state=review_state)
+    errors = snapshot_errors(snapshot_ids, zrefs, generation_ids)
+    errors.extend(provenance_errors(provenance))
     violations = [
         _raw_error_violation(error)
         for error in errors
@@ -93,7 +112,9 @@ def build_report(
     return ConvergencePassResult(
         ok=not errors,
         snapshot_ids=snapshot_ids,
+        zrefs=zrefs,
         generation_ids=generation_ids,
+        provenance=provenance,
         bridge_poll=bridge_poll,
         turn_authority=turn_authority,
         disk_parity_warnings=tuple(disk_warnings),
@@ -117,72 +138,6 @@ def _disk_turn_authority_parity_errors(
         disk_review_state_override=disk_review_state_override,
         disk_override_provided=disk_override_provided,
     )
-
-
-def _snapshot_ids(
-    *,
-    startup: dict[str, object],
-    review_state: dict[str, object],
-    compact: dict[str, object],
-    commit_pipeline: dict[str, object],
-    bridge_poll: dict[str, object],
-    turn_authority: dict[str, object],
-) -> dict[str, str]:
-    return {
-        "startup_context": _nested(startup, "snapshot_id"),
-        "startup_push_decision": _nested(startup, "push_decision", "snapshot_id"),
-        "review_state": _nested(review_state, "snapshot_id"),
-        "review_state_commit_pipeline": _nested(
-            review_state, "commit_pipeline", "snapshot_id"
-        ),
-        "review_state_doctor": _nested(review_state, "_compat", "doctor", "snapshot_id"),
-        "review_state_bridge_projection": _nested(
-            review_state,
-            "_compat",
-            "bridge_projection",
-            "metadata",
-            "snapshot_id",
-        ),
-        "compact": _nested(compact, "snapshot_id"),
-        "compact_push_decision": _nested(compact, "push_decision", "snapshot_id"),
-        "compact_doctor": _nested(compact, "doctor", "snapshot_id"),
-        "commit_pipeline": _nested(commit_pipeline, "snapshot_id"),
-        "bridge_poll": _nested(bridge_poll, "snapshot_id"),
-        "turn_authority": _nested(turn_authority, "snapshot_id"),
-    }
-
-
-def _generation_ids(
-    *,
-    review_state: dict[str, object],
-    compact: dict[str, object],
-    commit_pipeline: dict[str, object],
-) -> dict[str, str]:
-    return {
-        "review_state_commit_pipeline": _nested(review_state, "commit_pipeline", "generation_id"),
-        "review_state_doctor": _nested(review_state, "_compat", "doctor", "generation_id"),
-        "compact_doctor": _nested(compact, "doctor", "generation_id"),
-        "commit_pipeline": _nested(commit_pipeline, "generation_id"),
-    }
-
-
-def _snapshot_errors(
-    snapshot_ids: dict[str, str],
-    generation_ids: dict[str, str],
-) -> list[str]:
-    errors: list[str] = []
-    missing = [surface for surface, value in snapshot_ids.items() if not value]
-    if missing:
-        errors.append("missing snapshot_id on: " + ", ".join(sorted(missing)))
-    nonempty_snapshots = sorted({value for value in snapshot_ids.values() if value})
-    nonempty_generations = sorted({value for value in generation_ids.values() if value})
-    if len(nonempty_snapshots) > 1:
-        errors.append("snapshot_id mismatch: " + ", ".join(nonempty_snapshots))
-    if len(nonempty_generations) > 1:
-        errors.append("pipeline generation mismatch: " + ", ".join(nonempty_generations))
-    return errors
-
-
 def _raw_error_violation(error: str):
     from .models import ConvergencePassViolation
 
@@ -197,6 +152,8 @@ def _render_report(report: dict[str, object]) -> str:
     lines.append(f"- ok: {report.get('ok')}")
     for surface, snapshot_id in sorted((report.get("snapshot_ids") or {}).items()):
         lines.append(f"- {surface}: {snapshot_id or 'missing'}")
+    for surface, zref in sorted((report.get("zrefs") or {}).items()):
+        lines.append(f"- {surface}.zref: {zref or 'missing'}")
     disk_warnings = report.get("disk_parity_warnings") or []
     if disk_warnings:
         lines.append("")

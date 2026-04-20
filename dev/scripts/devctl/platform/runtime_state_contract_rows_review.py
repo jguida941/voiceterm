@@ -90,6 +90,31 @@ REVIEW_STATE_CONTRACTS: tuple[ContractSpec, ...] = (
                 "Compact human-readable handle derived from snapshot_id and head_sha prefixes.",
             ),
             ContractField(
+                "source_identity",
+                "dict[str, str]",
+                "Canonical provenance identity tuple including generation_id when present plus head_sha/worktree_hash.",
+            ),
+            ContractField(
+                "source_contract",
+                "str",
+                "Canonical contract name for the authority payload that emitted this surface.",
+            ),
+            ContractField(
+                "source_command",
+                "str",
+                "Canonical repo-owned command string that emitted this review-state surface.",
+            ),
+            ContractField(
+                "observed_fields",
+                "tuple[str, ...]",
+                "Authority fields observed directly when projecting this review-state surface.",
+            ),
+            ContractField(
+                "inferred_fields",
+                "tuple[str, ...]",
+                "Derived identity fields inferred from the canonical observed authority tuple.",
+            ),
+            ContractField(
                 "ok",
                 "bool",
                 "Whether the review snapshot resolved without blocking errors.",

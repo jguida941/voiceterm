@@ -31,6 +31,11 @@ class CompatProjectionInputs:
     doctor: object
     snapshot_id: str = ""
     zref: str = ""
+    source_identity: dict[str, str] | None = None
+    source_contract: str = ""
+    source_command: str = ""
+    observed_fields: tuple[str, ...] = ()
+    inferred_fields: tuple[str, ...] = ()
     packets: list[dict[str, object]] | None = None
 
 
@@ -71,6 +76,16 @@ def build_bridge_compat_projection(
             metadata["snapshot_id"] = inputs.snapshot_id
             if inputs.zref:
                 metadata["zref"] = inputs.zref
+            if inputs.source_identity:
+                metadata["source_identity"] = dict(inputs.source_identity)
+            if inputs.source_contract:
+                metadata["source_contract"] = inputs.source_contract
+            if inputs.source_command:
+                metadata["source_command"] = inputs.source_command
+            if inputs.observed_fields:
+                metadata["observed_fields"] = list(inputs.observed_fields)
+            if inputs.inferred_fields:
+                metadata["inferred_fields"] = list(inputs.inferred_fields)
     compat["doctor"] = _mapping(inputs.doctor)
     if inputs.snapshot_id:
         compat["snapshot_id"] = inputs.snapshot_id

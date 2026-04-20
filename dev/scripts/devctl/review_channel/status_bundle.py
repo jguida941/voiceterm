@@ -20,7 +20,8 @@ from .projection_bundle import (
 )
 from .pending_packets import load_pending_packet_queue
 from .promotion import derive_promotion_candidate
-from .status_projection import ReviewStateContext, build_bridge_review_state
+from .status_projection import build_bridge_review_state
+from .status_projection_support import ReviewStateContext
 from .topology import build_planned_topology
 from ..time_utils import utc_timestamp
 

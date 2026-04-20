@@ -195,6 +195,7 @@ def _typed_review_state(
     )
     return {
         "snapshot_id": snapshot_id,
+        "zref": "zref_12345678_deadbeef",
         "review": {
             "bridge_path": "bridge.md",
             "review_channel_path": "dev/active/review_channel.md",
@@ -330,8 +331,11 @@ def test_bridge_poll_reports_changed_since_last_ack(tmp_path: Path) -> None:
         ),
     )
 
-    assert rc == 0
-    assert payload["ok"] is True
+    assert rc == 1
+    assert payload["ok"] is False
+    assert payload["errors"] == [
+        "Live implementer ACK (`Claude Ack` compatibility heading) revision does not match the current reviewer instruction revision."
+    ]
     assert payload["claude_ack_current"] is False
     assert payload["changed_since_last_ack"] is True
     assert payload["poll_status"] == "- active reviewer loop"
@@ -429,6 +433,7 @@ def test_bridge_poll_prefers_typed_runtime_authority_for_dead_dual_agent_loop() 
     )
 
     assert result.snapshot_id == "snap-123"
+    assert result.zref == "zref_12345678_deadbeef"
     assert result.effective_reviewer_mode == "tools_only"
     assert result.launch_truth == "detached_runtime_only"
     assert result.attention_status == "review_loop_relaunch_required"
@@ -470,6 +475,7 @@ def test_bridge_poll_command_uses_typed_turn_authority_projection(
 
     assert rc == 0
     assert payload["snapshot_id"] == "snap-123"
+    assert payload["zref"] == "zref_12345678_deadbeef"
     assert payload["effective_reviewer_mode"] == "tools_only"
     assert payload["launch_truth"] == "detached_runtime_only"
     assert payload["attention_status"] == "review_loop_relaunch_required"

@@ -54,6 +54,7 @@ class ReviewerTurnAuthority:
     decision_execution_owner: str = ""
     decision_requires_approval: bool = False
     decision_can_auto_fix: bool = False
+    zref: str = ""
 
     def to_dict(self) -> dict[str, object]:
         return asdict(self)
@@ -340,4 +341,5 @@ def _build_authority_result(
             if fallback_assessment is not None
             else False
         ),
+        zref=review_state.zref if review_state is not None else "",
     )

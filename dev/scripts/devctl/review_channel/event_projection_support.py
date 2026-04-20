@@ -37,6 +37,22 @@ class CompatProjectionInputs:
     push_decision: object
     snapshot_id: object
     zref: object
+    source_identity: dict[str, str] | None = None
+    source_contract: str = ""
+    source_command: str = ""
+    observed_fields: tuple[str, ...] = ()
+    inferred_fields: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
+class CompatSnapshotStamp:
+    snapshot_id: object
+    zref: object
+    source_identity: dict[str, str] | None = None
+    source_contract: str = ""
+    source_command: str = ""
+    observed_fields: tuple[str, ...] = ()
+    inferred_fields: tuple[str, ...] = ()
 
 
 def review_identifiers(review_state: Mapping[str, object]) -> tuple[str, str]:
@@ -147,8 +163,15 @@ def apply_compat_projections(
     if inputs.snapshot_id:
         _propagate_snapshot_id(
             merged_compat=merged_compat,
-            snapshot_id=inputs.snapshot_id,
-            zref=inputs.zref,
+            stamp=CompatSnapshotStamp(
+                snapshot_id=inputs.snapshot_id,
+                zref=inputs.zref,
+                source_identity=inputs.source_identity,
+                source_contract=inputs.source_contract,
+                source_command=inputs.source_command,
+                observed_fields=inputs.observed_fields,
+                inferred_fields=inputs.inferred_fields,
+            ),
         )
 
     return merged_compat
@@ -157,19 +180,18 @@ def apply_compat_projections(
 def _propagate_snapshot_id(
     *,
     merged_compat: dict[str, object],
-    snapshot_id: object,
-    zref: object,
+    stamp: CompatSnapshotStamp,
 ) -> None:
-    merged_compat["snapshot_id"] = snapshot_id
-    if zref:
-        merged_compat["zref"] = zref
+    merged_compat["snapshot_id"] = stamp.snapshot_id
+    if stamp.zref:
+        merged_compat["zref"] = stamp.zref
 
     compat_push_decision = _mapping(merged_compat.get("push_decision"))
     if compat_push_decision:
         updated_push_decision = dict(compat_push_decision)
-        updated_push_decision["snapshot_id"] = snapshot_id
-        if zref and not updated_push_decision.get("zref"):
-            updated_push_decision["zref"] = zref
+        updated_push_decision["snapshot_id"] = stamp.snapshot_id
+        if stamp.zref and not updated_push_decision.get("zref"):
+            updated_push_decision["zref"] = stamp.zref
         merged_compat["push_decision"] = updated_push_decision
 
     bridge_projection = _mapping(merged_compat.get("bridge_projection"))
@@ -179,9 +201,19 @@ def _propagate_snapshot_id(
 
     updated_bridge_projection = dict(bridge_projection)
     updated_metadata = dict(metadata)
-    updated_metadata["snapshot_id"] = snapshot_id
-    if zref:
-        updated_metadata["zref"] = zref
+    updated_metadata["snapshot_id"] = stamp.snapshot_id
+    if stamp.zref:
+        updated_metadata["zref"] = stamp.zref
+    if stamp.source_identity:
+        updated_metadata["source_identity"] = dict(stamp.source_identity)
+    if stamp.source_contract:
+        updated_metadata["source_contract"] = stamp.source_contract
+    if stamp.source_command:
+        updated_metadata["source_command"] = stamp.source_command
+    if stamp.observed_fields:
+        updated_metadata["observed_fields"] = list(stamp.observed_fields)
+    if stamp.inferred_fields:
+        updated_metadata["inferred_fields"] = list(stamp.inferred_fields)
     updated_bridge_projection["metadata"] = updated_metadata
     merged_compat["bridge_projection"] = updated_bridge_projection
 

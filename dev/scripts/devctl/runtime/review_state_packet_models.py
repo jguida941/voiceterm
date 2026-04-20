@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 
 @dataclass(frozen=True, slots=True)
@@ -228,6 +228,13 @@ class AgentRegistryEntryState:
 class AgentRegistryState:
     timestamp: str
     agents: tuple[AgentRegistryEntryState, ...]
+    snapshot_id: str = ""
+    zref: str = ""
+    source_identity: dict[str, str] = field(default_factory=dict)
+    source_contract: str = ""
+    source_command: str = ""
+    observed_fields: tuple[str, ...] = ()
+    inferred_fields: tuple[str, ...] = ()
 
 
 def packet_requires_operator_approval(packet: object) -> bool:

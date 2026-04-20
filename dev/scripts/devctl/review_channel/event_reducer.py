@@ -22,6 +22,7 @@ from .event_projection import (
     EventProjectionContext,
     enrich_event_review_state,
 )
+from .registry_context import AgentRegistryContext
 from .event_reducer_inbox import (
     filter_history_events,
     filter_history_packets,
@@ -305,8 +306,10 @@ def reduce_events(
 
     hydrate_provider_job_state(provider_state, pending_counts)
     registry_state = build_runtime_agent_registry(
-        timestamp=latest_timestamp,
-        plan_id=latest_plan_id,
+        context=AgentRegistryContext(
+            timestamp=latest_timestamp,
+            plan_id=latest_plan_id,
+        ),
         lanes=list(lanes or []),
         provider_state=provider_state,
     )

@@ -31,6 +31,31 @@ _MATCHING_AUTHORITY_FIELDS: dict[str, object] = {
     "next_turn_reason": "up_to_date",
 }
 
+_STATUS_SOURCE_COMMAND = (
+    "python3 dev/scripts/devctl.py review-channel --action status "
+    "--terminal none --format json"
+)
+_PROVENANCE_OBSERVED_FIELDS = ["head_sha", "worktree_hash", "generation_id"]
+_PROVENANCE_INFERRED_FIELDS = ["snapshot_id", "zref"]
+
+
+def _source_identity(generation_id: str) -> dict[str, str]:
+    return {
+        "generation_id": generation_id,
+        "head_sha": f"head-{generation_id}",
+        "worktree_hash": f"worktree-{generation_id}",
+    }
+
+
+def _provenance(generation_id: str) -> dict[str, object]:
+    return {
+        "source_identity": _source_identity(generation_id),
+        "source_contract": "ReviewState",
+        "source_command": _STATUS_SOURCE_COMMAND,
+        "observed_fields": list(_PROVENANCE_OBSERVED_FIELDS),
+        "inferred_fields": list(_PROVENANCE_INFERRED_FIELDS),
+    }
+
 
 class CheckReviewSurfaceConsistencyTests(unittest.TestCase):
     @classmethod
@@ -41,13 +66,17 @@ class CheckReviewSurfaceConsistencyTests(unittest.TestCase):
         )
 
     def test_build_report_passes_when_all_surfaces_share_snapshot_id(self) -> None:
+        zref = "zref-123"
         report = self.script.build_report(
             startup_payload={
                 "snapshot_id": "snap-123",
-                "push_decision": {"snapshot_id": "snap-123"},
+                "zref": zref,
+                "push_decision": {"snapshot_id": "snap-123", "zref": zref},
             },
             review_state_payload={
                 "snapshot_id": "snap-123",
+                "zref": zref,
+                **_provenance("gen-9"),
                 "recovery_assessment": {
                     "diagnosis": {"status": "healthy"},
                     "decision": {
@@ -64,7 +93,13 @@ class CheckReviewSurfaceConsistencyTests(unittest.TestCase):
                 },
                 "commit_pipeline": {
                     "snapshot_id": "snap-123",
+                    "zref": zref,
                     "generation_id": "gen-9",
+                },
+                "registry": {
+                    "zref": zref,
+                    "agents": [],
+                    **_provenance("gen-9"),
                 },
                 "_compat": {
                     "doctor": {
@@ -76,13 +111,18 @@ class CheckReviewSurfaceConsistencyTests(unittest.TestCase):
                         "decision_command": "",
                     },
                     "bridge_projection": {
-                        "metadata": {"snapshot_id": "snap-123"},
+                        "metadata": {
+                            "snapshot_id": "snap-123",
+                            "zref": zref,
+                            **_provenance("gen-9"),
+                        },
                     },
                 },
             },
             compact_payload={
                 "snapshot_id": "snap-123",
-                "push_decision": {"snapshot_id": "snap-123"},
+                "zref": zref,
+                "push_decision": {"snapshot_id": "snap-123", "zref": zref},
                 "doctor": {
                     "snapshot_id": "snap-123",
                     "generation_id": "gen-9",
@@ -94,14 +134,17 @@ class CheckReviewSurfaceConsistencyTests(unittest.TestCase):
             },
             commit_pipeline_payload={
                 "snapshot_id": "snap-123",
+                "zref": zref,
                 "generation_id": "gen-9",
             },
             bridge_poll_payload={
                 "snapshot_id": "snap-123",
+                "zref": zref,
                 **_MATCHING_AUTHORITY_FIELDS,
             },
             turn_authority_payload={
                 "snapshot_id": "snap-123",
+                "zref": zref,
                 **_MATCHING_AUTHORITY_FIELDS,
             },
             disk_review_state_payload=None,
@@ -353,13 +396,17 @@ class DiskTurnAuthorityParityTests(unittest.TestCase):
 
     def _base_payloads(self, **overrides: object) -> dict[str, object]:
         """Return minimal payloads with consistent snapshot_ids and authority fields."""
+        zref = "zref-1"
         base = {
             "startup_payload": {
                 "snapshot_id": "snap-1",
-                "push_decision": {"snapshot_id": "snap-1"},
+                "zref": zref,
+                "push_decision": {"snapshot_id": "snap-1", "zref": zref},
             },
             "review_state_payload": {
                 "snapshot_id": "snap-1",
+                "zref": zref,
+                **_provenance("g1"),
                 "recovery_assessment": {
                     "diagnosis": {"status": "healthy"},
                     "decision": {
@@ -376,7 +423,16 @@ class DiskTurnAuthorityParityTests(unittest.TestCase):
                     "recommended_action": "",
                     "recommended_command": "",
                 },
-                "commit_pipeline": {"snapshot_id": "snap-1", "generation_id": "g1"},
+                "commit_pipeline": {
+                    "snapshot_id": "snap-1",
+                    "zref": zref,
+                    "generation_id": "g1",
+                },
+                "registry": {
+                    "zref": zref,
+                    "agents": [],
+                    **_provenance("g1"),
+                },
                 "_compat": {
                     "doctor": {
                         "snapshot_id": "snap-1",
@@ -386,12 +442,19 @@ class DiskTurnAuthorityParityTests(unittest.TestCase):
                         "decision_action_id": "continue_scoped_loop",
                         "decision_command": "",
                     },
-                    "bridge_projection": {"metadata": {"snapshot_id": "snap-1"}},
+                    "bridge_projection": {
+                        "metadata": {
+                            "snapshot_id": "snap-1",
+                            "zref": zref,
+                            **_provenance("g1"),
+                        }
+                    },
                 },
             },
             "compact_payload": {
                 "snapshot_id": "snap-1",
-                "push_decision": {"snapshot_id": "snap-1"},
+                "zref": zref,
+                "push_decision": {"snapshot_id": "snap-1", "zref": zref},
                 "doctor": {
                     "snapshot_id": "snap-1",
                     "generation_id": "g1",
@@ -401,13 +464,19 @@ class DiskTurnAuthorityParityTests(unittest.TestCase):
                     "decision_command": "",
                 },
             },
-            "commit_pipeline_payload": {"snapshot_id": "snap-1", "generation_id": "g1"},
+            "commit_pipeline_payload": {
+                "snapshot_id": "snap-1",
+                "zref": zref,
+                "generation_id": "g1",
+            },
             "bridge_poll_payload": {
                 "snapshot_id": "snap-1",
+                "zref": zref,
                 **_MATCHING_AUTHORITY_FIELDS,
             },
             "turn_authority_payload": {
                 "snapshot_id": "snap-1",
+                "zref": zref,
                 **_MATCHING_AUTHORITY_FIELDS,
             },
         }

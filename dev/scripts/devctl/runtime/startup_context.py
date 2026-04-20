@@ -507,7 +507,7 @@ def build_startup_context(
         or ""
     ).strip()
     zref = build_surface_zref(snapshot_id=snapshot_id, head_sha=head_sha)
-    push_decision = replace(push_decision, snapshot_id=snapshot_id)
+    push_decision = replace(push_decision, snapshot_id=snapshot_id, zref=zref)
     observed_control_topology, implementation_permission = derive_startup_control_truth(
         review_state,
         reviewer_gate=gate,

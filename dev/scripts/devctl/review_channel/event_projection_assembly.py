@@ -8,10 +8,19 @@ from types import SimpleNamespace
 from ..runtime.governance_scan import scan_repo_governance_safely
 from ..runtime.review_packet_inbox import build_packet_inbox_payload
 from ..runtime.review_state_parser import review_state_from_payload
-from ..runtime.surface_snapshot import build_surface_snapshot_id, build_surface_zref
+from ..runtime.surface_snapshot import (
+    build_surface_snapshot_id,
+    build_surface_zref,
+)
 from .core import DEFAULT_BRIDGE_REL
 from .current_session_attention import codex_packet_attention_requires_clear
 from .current_session_projection import current_session_payload
+from .event_projection_context import (
+    EventProjectionBaseState,
+    EventProjectionIdentityState,
+    build_projection_base,
+    build_projection_identity,
+)
 from .event_projection_bridge import build_event_bridge_state_projection
 from .event_projection_support import (
     CompatProjectionInputs,
@@ -20,25 +29,14 @@ from .event_projection_support import (
     push_authorization_payload,
 )
 from .handoff import extract_bridge_snapshot
+from .projection_provenance import (
+    PROVENANCE_INFERRED_FIELDS,
+    PROVENANCE_OBSERVED_FIELDS,
+    REVIEW_STATE_SOURCE_CONTRACT,
+    STATUS_SOURCE_COMMAND,
+    projection_source_identity,
+)
 from .reviewer_runtime_contract import ReviewerRuntimeInputs
-
-
-@dataclass(frozen=True, slots=True)
-class EventProjectionBaseState:
-    repo_root: object
-    projections_root: object
-    session_output_root: object
-    review_channel_path: object
-    plan_id: str
-    session_id: str
-    bridge_text: str
-    bridge_snapshot: object
-
-
-@dataclass(frozen=True, slots=True)
-class EventProjectionIdentityState:
-    raw_service_identity: object
-    raw_attach_auth_policy: object
 
 
 @dataclass(frozen=True, slots=True)
@@ -66,8 +64,8 @@ def enrich_event_review_state_impl(
     review_state = dict(review_state)
     deps.attach_event_queue_state(review_state, artifact_root=context.artifact_root)
 
-    base = _build_projection_base(review_state, context, deps)
-    identity = _build_projection_identity(base, deps)
+    base = build_projection_base(review_state, context, deps)
+    identity = build_projection_identity(base, deps)
     runtime = _build_projection_runtime(review_state, context, deps, base)
 
     snapshot_id = build_surface_snapshot_id(
@@ -98,47 +96,6 @@ def enrich_event_review_state_impl(
         ),
     )
     return review_state, extras
-
-
-def _build_projection_base(
-    review_state: dict[str, object],
-    context,
-    deps: SimpleNamespace,
-) -> EventProjectionBaseState:
-    repo_root = context.repo_root
-    projections_root = context.projections_root
-    session_output_root = deps.resolve_session_output_root(projections_root)
-    plan_id, session_id = deps.review_identifiers(review_state)
-    bridge_text, bridge_snapshot = _load_bridge_inputs(repo_root)
-    return EventProjectionBaseState(
-        repo_root=repo_root,
-        projections_root=projections_root,
-        session_output_root=session_output_root,
-        review_channel_path=context.review_channel_path,
-        plan_id=plan_id,
-        session_id=session_id,
-        bridge_text=bridge_text,
-        bridge_snapshot=bridge_snapshot,
-    )
-
-
-def _build_projection_identity(
-    base: EventProjectionBaseState,
-    deps: SimpleNamespace,
-) -> EventProjectionIdentityState:
-    raw_service_identity = deps.build_service_identity(
-        repo_root=base.repo_root,
-        bridge_path=base.repo_root / DEFAULT_BRIDGE_REL,
-        review_channel_path=base.review_channel_path,
-        output_root=base.projections_root,
-    )
-    raw_attach_auth_policy = deps.build_attach_auth_policy(
-        service_identity=raw_service_identity
-    )
-    return EventProjectionIdentityState(
-        raw_service_identity=raw_service_identity,
-        raw_attach_auth_policy=raw_attach_auth_policy,
-    )
 
 
 def _build_projection_runtime(
@@ -238,6 +195,21 @@ def _apply_review_state_enrichment(
 
     review_state["snapshot_id"] = runtime.snapshot_id
     review_state["zref"] = runtime.zref
+    review_state["source_identity"] = projection_source_identity(
+        typed_bridge_liveness=runtime.typed_bridge_liveness,
+        generation_id=runtime.commit_pipeline.generation_id,
+        head_sha=str(
+            (runtime.typed_bridge_liveness.get("push_enforcement") or {}).get(
+                "current_head_commit"
+            )
+            or runtime.commit_pipeline.commit_sha
+            or ""
+        ).strip(),
+    )
+    review_state["source_contract"] = REVIEW_STATE_SOURCE_CONTRACT
+    review_state["source_command"] = STATUS_SOURCE_COMMAND
+    review_state["observed_fields"] = list(PROVENANCE_OBSERVED_FIELDS)
+    review_state["inferred_fields"] = list(PROVENANCE_INFERRED_FIELDS)
     review_state["current_session"] = current_session_payload(runtime.current_session)
     review_state["collaboration"] = asdict(runtime.collaboration)
     review_state["reviewer_runtime"] = asdict(runtime.reviewer_runtime)
@@ -256,6 +228,17 @@ def _apply_review_state_enrichment(
         review_state.get("packets", ()),
         attention=runtime.attention,
     )
+    registry = review_state.get("registry")
+    if isinstance(registry, dict):
+        updated_registry = dict(registry)
+        updated_registry["snapshot_id"] = runtime.snapshot_id
+        updated_registry["zref"] = runtime.zref
+        updated_registry["source_identity"] = review_state["source_identity"]
+        updated_registry["source_contract"] = REVIEW_STATE_SOURCE_CONTRACT
+        updated_registry["source_command"] = STATUS_SOURCE_COMMAND
+        updated_registry["observed_fields"] = list(PROVENANCE_OBSERVED_FIELDS)
+        updated_registry["inferred_fields"] = list(PROVENANCE_INFERRED_FIELDS)
+        review_state["registry"] = updated_registry
 
     typed_review_state = review_state_from_payload(review_state)
     coordination = deps.load_coordination_snapshot(
@@ -288,6 +271,11 @@ def _apply_review_state_enrichment(
             push_decision=runtime.push_decision,
             snapshot_id=runtime.snapshot_id,
             zref=runtime.zref,
+            source_identity=review_state["source_identity"],
+            source_contract=REVIEW_STATE_SOURCE_CONTRACT,
+            source_command=STATUS_SOURCE_COMMAND,
+            observed_fields=PROVENANCE_OBSERVED_FIELDS,
+            inferred_fields=PROVENANCE_INFERRED_FIELDS,
         ),
     )
 
@@ -320,10 +308,3 @@ def _resolve_current_session(
         )
     return current_session
 
-
-def _load_bridge_inputs(repo_root):
-    try:
-        bridge_text = (repo_root / DEFAULT_BRIDGE_REL).read_text(encoding="utf-8")
-    except OSError:
-        return "", None
-    return bridge_text, extract_bridge_snapshot(bridge_text)

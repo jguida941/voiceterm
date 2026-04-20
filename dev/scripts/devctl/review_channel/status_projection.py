@@ -10,37 +10,25 @@ Bridge-specific extras (``runtime``, ``service_identity``,
 from __future__ import annotations
 
 from collections.abc import Mapping
-from dataclasses import asdict, dataclass, replace
+from dataclasses import replace
 from pathlib import Path
 
-from ..common import display_path
 from ..runtime.coordination_loader import load_coordination_snapshot
 from ..runtime.governance_scan import scan_repo_governance_safely
 from ..runtime.review_state_models import (
-    AgentRegistryState,
-    packet_inbox_from_mapping,
     RecoveryAssessmentState,
-    ReviewAttentionState,
-    ReviewCurrentSessionState,
-    ReviewQueueState,
-    ReviewSessionState,
     ReviewState,
 )
-from ..runtime.review_packet_inbox import build_packet_inbox_payload
-from .collaboration_session import build_collaboration_session
 from .current_session_projection import resolve_current_session_authority
 from .handoff import BridgeSnapshot
 from .peer_liveness import OverallLivenessState
 from .promotion import PromotionCandidate, promotion_candidate_to_dict
-from .review_candidate import build_review_candidate, review_candidate_error
 from .status_projection_bridge_state import (
     build_review_bridge_state,
     build_typed_bridge_liveness,
 )
 from .status_projection_compat import (
     CompatProjectionInputs,
-    attach_bridge_compat_projection,
-    legacy_agent_entry,
 )
 from .reviewer_runtime_contract import (
     ReviewerRuntimeInputs,
@@ -51,31 +39,26 @@ from .status_projection_commit_bundle import (
     CommitProjectionInputs,
     build_commit_projection_bundle,
 )
+from .projection_provenance import (
+    PROVENANCE_INFERRED_FIELDS,
+    PROVENANCE_OBSERVED_FIELDS,
+    REVIEW_STATE_SOURCE_CONTRACT,
+    STATUS_SOURCE_COMMAND,
+    projection_source_identity,
+)
+from .registry_context import AgentRegistryContext
+from .status_projection_support import (
+    ReviewStateContext,
+    ReviewStatePayloadInputs,
+    attach_review_state_compat,
+    build_attention,
+    build_queue_state,
+    build_review_session,
+    build_review_state_payload,
+    legacy_agents,
+    review_candidate_with_errors,
+)
 from .topology import build_runtime_agent_registry
-
-
-@dataclass(frozen=True)
-class ReviewStateContext:
-    """Grouped path/identity context for review-state projection."""
-
-    repo_root: Path
-    bridge_path: Path
-    review_channel_path: Path
-    output_root: Path
-    bridge_text: str
-    project_id: str
-    timestamp: str
-    service_identity: dict[str, object]
-    attach_auth_policy: dict[str, object]
-    plan_id: str = ""
-    warnings: tuple[str, ...] = ()
-    errors: tuple[str, ...] = ()
-    prior_review_state: Mapping[str, object] | None = None
-    current_session: ReviewCurrentSessionState | None = None
-    reviewer_accepted_implementer_state_hash_override: str | None = None
-    recovery_assessment: RecoveryAssessmentState | None = None
-    pending_packets: tuple[dict[str, object], ...] = ()
-    stale_packet_count: int = 0
 
 
 def build_bridge_review_state(
@@ -140,7 +123,7 @@ def build_bridge_review_state(
         collaboration=collaboration,
         reviewer_runtime=reviewer_runtime,
     )
-    review_candidate, candidate_error = _review_candidate_with_errors(
+    review_candidate, candidate_error = review_candidate_with_errors(
         context=context,
         current_session=current_session,
         bridge_liveness=typed_bridge_liveness,
@@ -159,51 +142,44 @@ def build_bridge_review_state(
             reduced_runtime=reduced_runtime,
         )
     )
+    head_sha = str(
+        (typed_bridge_liveness.get("push_enforcement") or {}).get("current_head_commit")
+        or commit_bundle.commit_pipeline.commit_sha
+        or ""
+    ).strip()
 
-    review_state = ReviewState(
-        schema_version=1,
-        contract_id="ReviewState",
-        command="review-channel",
-        action="status",
+    registry_context = AgentRegistryContext(
         timestamp=context.timestamp,
-        ok=_projection_ok(overall_state, tuple(errors)),
-        review=_build_review_session(context),
-        queue=_build_queue_state(
-            promotion_candidate,
-            pending_packets=context.pending_packets,
-            stale_packet_count=context.stale_packet_count,
-        ),
-        current_session=current_session,
-        collaboration=collaboration,
-        bridge=bridge_state,
-        review_candidate=review_candidate,
-        push_authorization=commit_bundle.commit_pipeline.push_authorization,
-        reviewer_runtime=reviewer_runtime,
-        commit_pipeline=commit_bundle.commit_pipeline,
-        attention=_build_attention(
-            typed_attention,
-            recovery_assessment=recovery_assessment,
-        ),
-        packets=context.pending_packets,
-        registry=_build_agent_registry(
-            timestamp=context.timestamp,
-            plan_id=context.plan_id,
-            collaboration=collaboration,
-        ),
-        packet_inbox=(
-            packet_inbox_from_mapping(
-                build_packet_inbox_payload(
-                    context.pending_packets,
-                    attention=typed_attention,
-                )
-            )
-            or packet_inbox_from_mapping({"attention_revision": "", "agents": []})
-        ),
-        recovery_assessment=recovery_assessment,
-        warnings=tuple(warnings),
-        errors=tuple(errors),
+        plan_id=context.plan_id,
         snapshot_id=commit_bundle.snapshot_id,
         zref=commit_bundle.zref,
+        source_identity=projection_source_identity(
+            typed_bridge_liveness=typed_bridge_liveness,
+            generation_id=commit_bundle.commit_pipeline.generation_id,
+            head_sha=head_sha,
+        ),
+        source_contract=REVIEW_STATE_SOURCE_CONTRACT,
+        source_command=STATUS_SOURCE_COMMAND,
+        observed_fields=PROVENANCE_OBSERVED_FIELDS,
+        inferred_fields=PROVENANCE_INFERRED_FIELDS,
+    )
+    review_state = build_review_state_payload(
+        ReviewStatePayloadInputs(
+            context=context,
+            overall_state=overall_state,
+            errors=tuple(errors),
+            promotion_candidate=promotion_candidate,
+            current_session=current_session,
+            collaboration=collaboration,
+            bridge_state=bridge_state,
+            review_candidate=review_candidate,
+            reviewer_runtime=reviewer_runtime,
+            commit_bundle=commit_bundle,
+            typed_attention=typed_attention,
+            typed_bridge_liveness=typed_bridge_liveness,
+            recovery_assessment=recovery_assessment,
+            registry_context=registry_context,
+        )
     )
     governance = scan_repo_governance_safely(context.repo_root)
     review_state = replace(
@@ -215,14 +191,12 @@ def build_bridge_review_state(
             review_state=review_state,
         ),
     )
-    return _attach_review_state_compat(
+    return attach_review_state_compat(
         review_state=review_state,
         context=context,
         typed_bridge_liveness=typed_bridge_liveness,
         reduced_runtime=reduced_runtime,
         doctor=commit_bundle.doctor,
-        snapshot_id=commit_bundle.snapshot_id,
-        zref=commit_bundle.zref,
     )
 
 
@@ -233,147 +207,4 @@ def _projection_ok(overall_state: str, errors: tuple[str, ...]) -> bool:
         OverallLivenessState.FRESH,
         OverallLivenessState.INACTIVE,
         OverallLivenessState.SINGLE_AGENT_ACTIVE,
-    )
-
-
-def _attach_review_state_compat(
-    *,
-    review_state: ReviewState,
-    context: ReviewStateContext,
-    typed_bridge_liveness: dict[str, object],
-    reduced_runtime: dict[str, object] | None,
-    doctor: dict[str, object],
-    snapshot_id: str,
-    zref: str,
-) -> dict[str, object]:
-    result: dict[str, object] = asdict(review_state)
-    return attach_bridge_compat_projection(
-        result=result,
-        inputs=CompatProjectionInputs(
-            project_id=context.project_id,
-            bridge_text=context.bridge_text,
-            bridge_liveness=typed_bridge_liveness,
-            reduced_runtime=reduced_runtime,
-            service_identity=context.service_identity,
-            attach_auth_policy=context.attach_auth_policy,
-            legacy_agents=_legacy_agents(result.get("registry")),
-            current_session=result.get("current_session"),
-            reviewer_runtime=result.get("reviewer_runtime"),
-            bridge_state=result.get("bridge"),
-            doctor=doctor,
-            snapshot_id=snapshot_id,
-            zref=zref,
-        ),
-    )
-def _legacy_agents(registry: object) -> list[dict[str, object]]:
-    registry_dict = registry if isinstance(registry, dict) else {}
-    raw_agents = registry_dict.get("agents", [])
-    return [legacy_agent_entry(agent) for agent in raw_agents]
-
-
-def _build_review_session(context: ReviewStateContext) -> ReviewSessionState:
-    return ReviewSessionState(
-        plan_id=context.plan_id,
-        controller_run_id="",
-        session_id="markdown-bridge",
-        surface_mode="markdown-bridge",
-        active_lane="review",
-        refresh_seq=1,
-        bridge_path=display_path(context.bridge_path, repo_root=context.repo_root),
-        review_channel_path=display_path(
-            context.review_channel_path,
-            repo_root=context.repo_root,
-        ),
-    )
-
-
-def _build_agent_registry(
-    *,
-    timestamp: str,
-    collaboration,
-    plan_id: str = "",
-) -> AgentRegistryState:
-    return build_runtime_agent_registry(
-        timestamp=timestamp,
-        plan_id=plan_id,
-        collaboration=collaboration,
-    )
-
-
-def _review_candidate_with_errors(
-    *,
-    context: ReviewStateContext,
-    current_session,
-    bridge_liveness,
-) -> tuple[object, str]:
-    candidate = build_review_candidate(
-        repo_root=context.repo_root,
-        current_session=current_session,
-        bridge_liveness=bridge_liveness,
-        prior_review_state=context.prior_review_state,
-    )
-    return candidate, review_candidate_error(
-        current_session=current_session,
-        candidate=candidate,
-    )
-
-
-def _build_queue_state(
-    promotion_candidate: PromotionCandidate | None,
-    *,
-    pending_packets: tuple[dict[str, object], ...] = (),
-    stale_packet_count: int = 0,
-) -> ReviewQueueState:
-    pending_counts = _count_pending_by_target(pending_packets)
-    return ReviewQueueState(
-        pending_total=sum(pending_counts.values()),
-        pending_codex=pending_counts.get("codex", 0),
-        pending_claude=pending_counts.get("claude", 0),
-        pending_cursor=pending_counts.get("cursor", 0),
-        pending_operator=pending_counts.get("operator", 0),
-        stale_packet_count=stale_packet_count,
-        derived_next_instruction=(
-            promotion_candidate.instruction if promotion_candidate is not None else ""
-        ),
-        derived_next_instruction_source=(
-            promotion_candidate_to_dict(promotion_candidate)
-            if promotion_candidate is not None
-            else {}
-        ),
-    )
-
-
-def _count_pending_by_target(
-    packets: tuple[dict[str, object], ...],
-) -> dict[str, int]:
-    """Count pending packets grouped by target agent."""
-    counts: dict[str, int] = {}
-    for packet in packets:
-        if not isinstance(packet, dict):
-            continue
-        if str(packet.get("status") or "") != "pending":
-            continue
-        target = str(packet.get("to_agent") or "").strip().lower()
-        if target:
-            counts[target] = counts.get(target, 0) + 1
-    return counts
-
-
-def _build_attention(
-    attention: Mapping[str, object],
-    *,
-    recovery_assessment: RecoveryAssessmentState | None,
-) -> ReviewAttentionState | None:
-    if recovery_assessment is not None:
-        state = recovery_assessment_to_attention_state(recovery_assessment)
-        if state is not None:
-            return state
-    if not attention:
-        return None
-    return ReviewAttentionState(
-        status=str(attention.get("status") or ""),
-        owner=str(attention.get("owner") or ""),
-        summary=str(attention.get("summary") or ""),
-        recommended_action=str(attention.get("recommended_action") or ""),
-        recommended_command=str(attention.get("recommended_command") or ""),
     )
