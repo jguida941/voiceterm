@@ -12,6 +12,9 @@ from unittest.mock import MagicMock, patch
 from dev.scripts.devctl.cli import build_parser
 from dev.scripts.devctl.commands.vcs import push
 from dev.scripts.devctl.commands.vcs import push_preflight_commit
+from dev.scripts.devctl.commands.vcs.push_pipeline_state_sync import (
+    sync_commit_pipeline_with_push_report,
+)
 from dev.scripts.devctl.governance.push_policy import (
     PushBypassPolicy,
     PushCheckpointPolicy,
@@ -22,6 +25,14 @@ from dev.scripts.devctl.governance.push_policy import (
     build_post_push_commands,
     detect_push_enforcement_state,
     load_push_policy,
+)
+from dev.scripts.devctl.review_channel.event_store import resolve_artifact_paths
+from dev.scripts.devctl.review_channel.remote_commit_pipeline_artifact import (
+    load_remote_commit_pipeline_contract,
+    persist_remote_commit_pipeline_contract,
+)
+from dev.scripts.devctl.runtime.remote_commit_pipeline_models import (
+    RemoteCommitPipelineContract,
 )
 
 
@@ -2387,6 +2398,148 @@ class PushReceiptTests(unittest.TestCase):
         self.assertEqual(state["selected_push_report_reason"], "push_pending")
         self.assertEqual(state["selected_push_report_head_commit"], "current-head")
         self.assertTrue(state["selected_push_report_matches_current_head"])
+
+
+class PushPipelineStateSyncTests(unittest.TestCase):
+    def test_sync_commit_pipeline_with_push_report_updates_both_pipeline_artifacts(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            repo_root = Path(tmp_dir)
+            artifact_paths = resolve_artifact_paths(repo_root=repo_root)
+            projections_root = Path(artifact_paths.projections_root)
+            projections_root.mkdir(parents=True, exist_ok=True)
+
+            pipeline = RemoteCommitPipelineContract(
+                pipeline_id="pipeline-123",
+                state="push_pending",
+                branch="feature/demo",
+                remote="origin",
+                commit_sha="abc123",
+                approved_target_identity="tree-receipt-1",
+            )
+            persist_remote_commit_pipeline_contract(
+                pipeline,
+                output_root=projections_root,
+            )
+
+            synced = sync_commit_pipeline_with_push_report(
+                repo_root=repo_root,
+                current_branch="feature/demo",
+                current_remote="origin",
+                current_head_commit="abc123",
+                approved_target_identity="tree-receipt-1",
+                report={
+                    "reason": "push_completed",
+                    "artifacts": {"latest_json": "dev/reports/push/latest.json"},
+                    "push_stages": {
+                        "validation_ready": True,
+                        "published_remote": True,
+                        "post_push_green": True,
+                    },
+                },
+            )
+
+            self.assertTrue(synced)
+            persisted = load_remote_commit_pipeline_contract(output_root=projections_root)
+            legacy = load_remote_commit_pipeline_contract(
+                output_root=repo_root / "dev/reports/review_channel/latest"
+            )
+            self.assertEqual(persisted.state, "push_completed")
+            self.assertEqual(legacy.state, "push_completed")
+            self.assertEqual(persisted.push_report_path, "dev/reports/push/latest.json")
+            self.assertEqual(legacy.push_report_path, "dev/reports/push/latest.json")
+            self.assertIsNotNone(persisted.push_result)
+            self.assertIsNotNone(legacy.push_result)
+            self.assertEqual(persisted.push_result.reason, "push_completed")
+            self.assertEqual(legacy.push_result.reason, "push_completed")
+
+    def test_sync_commit_pipeline_with_push_report_skips_mismatched_head(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            repo_root = Path(tmp_dir)
+            artifact_paths = resolve_artifact_paths(repo_root=repo_root)
+            projections_root = Path(artifact_paths.projections_root)
+            projections_root.mkdir(parents=True, exist_ok=True)
+
+            persist_remote_commit_pipeline_contract(
+                RemoteCommitPipelineContract(
+                    pipeline_id="pipeline-123",
+                    state="push_pending",
+                    branch="feature/demo",
+                    remote="origin",
+                    commit_sha="abc123",
+                    approved_target_identity="tree-receipt-1",
+                ),
+                output_root=projections_root,
+            )
+
+            synced = sync_commit_pipeline_with_push_report(
+                repo_root=repo_root,
+                current_branch="feature/demo",
+                current_remote="origin",
+                current_head_commit="different-head",
+                approved_target_identity="tree-receipt-1",
+                report={
+                    "reason": "push_completed",
+                    "artifacts": {"latest_json": "dev/reports/push/latest.json"},
+                    "push_stages": {
+                        "validation_ready": True,
+                        "published_remote": True,
+                        "post_push_green": True,
+                    },
+                },
+            )
+
+            self.assertFalse(synced)
+            persisted = load_remote_commit_pipeline_contract(output_root=projections_root)
+            self.assertEqual(persisted.state, "push_pending")
+            self.assertIsNone(persisted.push_result)
+            self.assertEqual(persisted.push_report_path, "")
+
+    def test_sync_commit_pipeline_with_push_report_preserves_push_completed_on_branch_already_pushed(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            repo_root = Path(tmp_dir)
+            artifact_paths = resolve_artifact_paths(repo_root=repo_root)
+            projections_root = Path(artifact_paths.projections_root)
+            projections_root.mkdir(parents=True, exist_ok=True)
+
+            completed_pipeline = RemoteCommitPipelineContract(
+                pipeline_id="pipeline-123",
+                state="push_completed",
+                branch="feature/demo",
+                remote="origin",
+                commit_sha="abc123",
+                approved_target_identity="tree-receipt-1",
+            )
+            persist_remote_commit_pipeline_contract(
+                completed_pipeline,
+                output_root=projections_root,
+            )
+
+            synced = sync_commit_pipeline_with_push_report(
+                repo_root=repo_root,
+                current_branch="feature/demo",
+                current_remote="origin",
+                current_head_commit="abc123",
+                approved_target_identity="tree-receipt-1",
+                report={
+                    "reason": "branch_already_pushed",
+                    "artifacts": {"latest_json": "dev/reports/push/latest.json"},
+                    "push_stages": {
+                        "validation_ready": True,
+                        "published_remote": True,
+                        "post_push_green": False,
+                    },
+                },
+            )
+
+            self.assertFalse(synced)
+            persisted = load_remote_commit_pipeline_contract(
+                output_root=projections_root
+            )
+            self.assertEqual(persisted.state, "push_completed")
 
 
 if __name__ == "__main__":

@@ -41,6 +41,7 @@ from .push_artifact import (
     serialize_push_report,
 )
 from .push_flow import PushFlowDependencies, execute_push_flow_with_dependencies
+from .push_pipeline_state_sync import sync_commit_pipeline_with_push_report
 from .push_report import PushStageTruth, render_push_report
 from .push_executor_routing import maybe_run_executor_routed_push
 from .push_snapshot import (
@@ -484,6 +485,15 @@ def run_push_action(
         ),
     )
     report = build_push_report_payload(report_context, outcome=outcome)
+    if bool(args.execute):
+        sync_commit_pipeline_with_push_report(
+            repo_root=repo_root,
+            current_branch=state.branch,
+            current_remote=state.remote,
+            current_head_commit=current_head_commit_sha(repo_root=repo_root),
+            approved_target_identity=approved_target_identity,
+            report=report,
+        )
     if not emit_output_report:
         persist_latest_push_report(report, repo_root=repo_root)
         append_push_receipt(report, repo_root=repo_root)
