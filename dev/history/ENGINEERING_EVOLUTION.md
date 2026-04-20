@@ -4,7 +4,7 @@
 
 **Status:** Draft v4 (historical design and process record)
 **Audience:** users and developers
-**Last Updated:** 2026-04-19
+**Last Updated:** 2026-04-20
 
 ## At a Glance
 
@@ -38,6 +38,27 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 - [Developer Path (15 min)](#developer-path-15-min)
 
 ### 2026-04-17 - Event-backed current-session only clears on explicit packet truth, and missing implementation permission now blocks mutation
+
+### 2026-04-20 - Governed push reruns now heal already-published pipelines back to `push_completed`
+
+Fact: the first fix for the no-op governed-push regression only added a
+monotonic guard at pipeline persistence time. That prevented an already-green
+`push_completed` pipeline from regressing on a rerun, but it still left one
+real failure mode open: if an older run had already been persisted as
+`push_blocked`, a later `branch_already_pushed` rerun would keep reporting the
+branch as remotely published while the pipeline artifact stayed blocked.
+
+Change: the push-result projector now treats
+`reason=branch_already_pushed` plus `published_remote=true` as terminal push
+completion. The same rerun now projects `next_state=push_completed`, clears the
+blocked publication interpretation, and emits a passing `push_result` instead of
+partial-progress failure semantics. Regression proof now covers both the direct
+projection path and the pipeline sync heal path for an already-regressed
+`push_blocked` artifact.
+
+Evidence:
+- `dev/scripts/devctl/commands/vcs/governed_executor_push_result.py`
+- `dev/scripts/devctl/tests/vcs/test_push.py`
 
 ### 2026-04-19 - Event-backed packet post now wakes the waiting reviewer instead of waiting for follow cadence
 

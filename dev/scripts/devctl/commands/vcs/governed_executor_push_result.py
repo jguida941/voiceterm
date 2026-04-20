@@ -45,12 +45,7 @@ def project_push_report(
                 artifacts = (latest_json,)
                 push_report_path = latest_json
 
-    stages = report.get("push_stages", {}) if isinstance(report, dict) else {}
-    push_completed = bool(
-        isinstance(stages, dict)
-        and stages.get("published_remote")
-        and stages.get("post_push_green")
-    )
+    push_completed = _push_report_completed(report)
     next_state = "push_completed" if push_completed else "push_blocked"
     blocked_reason = "" if push_completed else string_value(report.get("reason"))
     return PushReportProjection(
@@ -71,9 +66,15 @@ def pipeline_push_result(
 ) -> ActionResult:
     """Project one governed push report into an ActionResult."""
     stages = mapping(report.get("push_stages"))
+    reason = string_value(report.get("reason"))
     published_remote = bool(stages.get("published_remote"))
     post_push_green = bool(stages.get("post_push_green"))
-    if published_remote and post_push_green:
+    if _push_report_completed(report):
+        operator_guidance = "Remote publication and post-push validation completed."
+        if reason == "branch_already_pushed" and published_remote and not post_push_green:
+            operator_guidance = (
+                "Current HEAD is already published; treating the rerun as push complete."
+            )
         return ActionResult(
             schema_version=ACTION_RESULT_SCHEMA_VERSION,
             contract_id=ACTION_RESULT_CONTRACT_ID,
@@ -81,7 +82,7 @@ def pipeline_push_result(
             ok=True,
             status=ActionOutcome.PASS,
             reason="push_completed",
-            operator_guidance="Remote publication and post-push validation completed.",
+            operator_guidance=operator_guidance,
         )
     if published_remote:
         return ActionResult(
@@ -90,7 +91,7 @@ def pipeline_push_result(
             action_id=action_id,
             ok=False,
             status=ActionOutcome.FAIL,
-            reason=string_value(report.get("reason")) or "post_push_incomplete",
+            reason=reason or "post_push_incomplete",
             retryable=True,
             partial_progress=True,
             operator_guidance=(
@@ -110,3 +111,13 @@ def pipeline_push_result(
         )
         or "Inspect the push failure and retry through the governed path.",
     )
+
+
+def _push_report_completed(report: Mapping[str, object]) -> bool:
+    """Treat already-published no-op reruns as terminal push completion."""
+    stages = mapping(report.get("push_stages"))
+    if not bool(stages.get("published_remote")):
+        return False
+    if bool(stages.get("post_push_green")):
+        return True
+    return string_value(report.get("reason")) == "branch_already_pushed"

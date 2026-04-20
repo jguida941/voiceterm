@@ -12,6 +12,9 @@ from unittest.mock import MagicMock, patch
 from dev.scripts.devctl.cli import build_parser
 from dev.scripts.devctl.commands.vcs import push
 from dev.scripts.devctl.commands.vcs import push_preflight_commit
+from dev.scripts.devctl.commands.vcs.governed_executor_push_result import (
+    project_push_report,
+)
 from dev.scripts.devctl.commands.vcs.push_pipeline_state_sync import (
     sync_commit_pipeline_with_push_report,
 )
@@ -2401,6 +2404,28 @@ class PushReceiptTests(unittest.TestCase):
 
 
 class PushPipelineStateSyncTests(unittest.TestCase):
+    def test_project_push_report_heals_branch_already_pushed_with_published_remote(
+        self,
+    ) -> None:
+        projection = project_push_report(
+            action_id="vcs.push",
+            report={
+                "reason": "branch_already_pushed",
+                "artifacts": {"latest_json": "dev/reports/push/latest.json"},
+                "push_stages": {
+                    "validation_ready": True,
+                    "published_remote": True,
+                    "post_push_green": False,
+                },
+            },
+            pipeline_artifact_relpath="dev/reports/commit_pipeline.json",
+        )
+
+        self.assertEqual(projection.next_state, "push_completed")
+        self.assertEqual(projection.blocked_reason, "")
+        self.assertTrue(projection.push_result.ok)
+        self.assertEqual(projection.push_result.reason, "push_completed")
+
     def test_sync_commit_pipeline_with_push_report_updates_both_pipeline_artifacts(
         self,
     ) -> None:
@@ -2535,11 +2560,65 @@ class PushPipelineStateSyncTests(unittest.TestCase):
                 },
             )
 
-            self.assertFalse(synced)
+            self.assertTrue(synced)
             persisted = load_remote_commit_pipeline_contract(
                 output_root=projections_root
             )
             self.assertEqual(persisted.state, "push_completed")
+            self.assertIsNotNone(persisted.push_result)
+            self.assertEqual(persisted.push_result.reason, "push_completed")
+            self.assertEqual(persisted.push_report_path, "dev/reports/push/latest.json")
+
+    def test_sync_commit_pipeline_with_push_report_heals_regressed_push_blocked_on_branch_already_pushed(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            repo_root = Path(tmp_dir)
+            artifact_paths = resolve_artifact_paths(repo_root=repo_root)
+            projections_root = Path(artifact_paths.projections_root)
+            projections_root.mkdir(parents=True, exist_ok=True)
+
+            persist_remote_commit_pipeline_contract(
+                RemoteCommitPipelineContract(
+                    pipeline_id="pipeline-123",
+                    state="push_blocked",
+                    branch="feature/demo",
+                    remote="origin",
+                    commit_sha="abc123",
+                    approved_target_identity="tree-receipt-1",
+                    blocked_reason="branch_already_pushed",
+                ),
+                output_root=projections_root,
+            )
+
+            synced = sync_commit_pipeline_with_push_report(
+                repo_root=repo_root,
+                current_branch="feature/demo",
+                current_remote="origin",
+                current_head_commit="abc123",
+                approved_target_identity="tree-receipt-1",
+                report={
+                    "reason": "branch_already_pushed",
+                    "artifacts": {"latest_json": "dev/reports/push/latest.json"},
+                    "push_stages": {
+                        "validation_ready": True,
+                        "published_remote": True,
+                        "post_push_green": False,
+                    },
+                },
+            )
+
+            self.assertTrue(synced)
+            persisted = load_remote_commit_pipeline_contract(output_root=projections_root)
+            legacy = load_remote_commit_pipeline_contract(
+                output_root=repo_root / "dev/reports/review_channel/latest"
+            )
+            self.assertEqual(persisted.state, "push_completed")
+            self.assertEqual(legacy.state, "push_completed")
+            self.assertIsNotNone(persisted.push_result)
+            self.assertIsNotNone(legacy.push_result)
+            self.assertEqual(persisted.push_result.reason, "push_completed")
+            self.assertEqual(legacy.push_result.reason, "push_completed")
 
 
 if __name__ == "__main__":
