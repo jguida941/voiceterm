@@ -28,6 +28,7 @@ from .heartbeat_metadata import (
     rewrite_heartbeat_metadata as _rewrite_heartbeat_metadata,
     should_strip_poll_status_line as _should_strip_poll_status_line,
 )
+from .poll_status import rewrite_poll_status as _rewrite_poll_status
 _BASE_NON_AUDIT_HASH_EXCLUDED_PREFIXES = (
     "dev/reports/",
     "dev/audits/",

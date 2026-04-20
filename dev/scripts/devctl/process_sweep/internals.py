@@ -168,46 +168,14 @@ def merge_scanned_row_groups(*row_groups: list[dict]) -> list[dict]:
     return merged_rows
 
 
-def _is_registered_conductor_process(row: dict) -> bool:
-    """Return True if the process row is a live review-channel conductor.
-
-    Fire-and-forget conductor shells launched by `review-channel --action
-    launch` reparent to PID 1 when their launcher returns, so they look
-    like orphans by the PPID=1 rule below. They are NOT orphans — they
-    are the live dual-agent loop. Reaping them mid-task was the root
-    cause of every silent conductor death in the remote_control beta
-    test (see LIVE_RUN.md Q41). We identify them by matching the cmd
-    against the session log path convention used by `terminal_app.py`:
-    every launch writes its script under
-    ``dev/reports/review_channel/latest/sessions/*-conductor.log`` and
-    runs it through ``/bin/zsh`` with a ``-conductor.sh`` wrapper, so
-    the command line reliably contains those substrings for the
-    outer wrapper and the nested CLI inherits the same wrapper tree.
-    """
-    cmd = str(row.get("cmd") or row.get("command") or "")
-    if "review_channel/latest/sessions" in cmd:
-        return True
-    if "-conductor.sh" in cmd:
-        return True
-    if "-conductor.log" in cmd:
-        return True
-    return False
-
-
 def split_orphaned_processes(
     rows: list[dict], *, min_age_seconds: int = DEFAULT_ORPHAN_MIN_AGE_SECONDS
 ) -> tuple[list[dict], list[dict]]:
-    """Split rows into `orphaned` vs `active` using PPID=1 + minimum age.
-
-    Registered review-channel conductor shells are always treated as
-    active, never orphaned — see Q41 in LIVE_RUN.md for the incident
-    that produced this carve-out.
-    """
+    """Split rows into `orphaned` vs `active` using PPID=1 + minimum age."""
     orphaned = [
         row for row in rows
         if row["ppid"] == 1
         and row["elapsed_seconds"] >= min_age_seconds
-        and not _is_registered_conductor_process(row)
     ]
     active = [row for row in rows if row not in orphaned]
     return orphaned, active
@@ -216,18 +184,11 @@ def split_orphaned_processes(
 def split_stale_processes(
     rows: list[dict], *, min_age_seconds: int = DEFAULT_STALE_MIN_AGE_SECONDS
 ) -> tuple[list[dict], list[dict]]:
-    """Split rows into `stale` vs `recent` using elapsed runtime age.
-
-    Registered review-channel conductor shells are always treated as
-    recent, never stale — same Q41 carve-out as `split_orphaned_processes`.
-    Long-running review loops legitimately exceed the 600s stale
-    threshold and must not be reaped by the host-cleanup path.
-    """
+    """Split rows into `stale` vs `recent` using elapsed runtime age."""
     stale = [
         row for row in rows
         if row["elapsed_seconds"] >= 0
         and row["elapsed_seconds"] >= min_age_seconds
-        and not _is_registered_conductor_process(row)
     ]
     recent = [row for row in rows if row not in stale]
     return stale, recent

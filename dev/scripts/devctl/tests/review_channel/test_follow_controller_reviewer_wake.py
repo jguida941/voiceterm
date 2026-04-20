@@ -472,6 +472,73 @@ def test_maybe_wake_waiting_reviewer_conductor_launches_when_no_live_codex_sessi
     }
 
 
+def test_maybe_wake_waiting_reviewer_conductor_cleans_stale_running_codex_session() -> None:
+    cleanup_calls: list[str] = []
+
+    deps = ReviewerWakeDeps(
+        ensure_launcher_prereqs_fn=lambda **_kw: (
+            "",
+            [
+                LaneAssignment(
+                    agent_id="AGENT-1",
+                    provider="codex",
+                    role="reviewer",
+                    lane="Codex reviewer",
+                    docs="review",
+                    mp_scope="MP-355",
+                    worktree="../codex-voice-wt-a1",
+                    branch="feature/a1",
+                )
+            ],
+        ),
+        build_launch_sessions_fn=lambda **_kw: [{"session_name": "codex-conductor"}],
+        launch_sessions_headless_fn=lambda _sessions, _warnings: True,
+        load_conductor_sessions_fn=lambda **_kw: (
+            SimpleNamespace(
+                provider="codex",
+                live=False,
+                session_name="codex-conductor",
+                session_pid=4242,
+                script_probe_state="running",
+            ),
+        ),
+        cleanup_terminal_session_fn=lambda session: cleanup_calls.append(session.session_name)
+        or [],
+    )
+
+    result = maybe_wake_waiting_reviewer_conductor(
+        args=SimpleNamespace(
+            execution_mode="markdown-bridge",
+            rollover_threshold_pct=20,
+            await_ack_seconds=180,
+            approval_mode="balanced",
+            dangerous=False,
+        ),
+        repo_root=Path("/tmp/repo"),
+        paths={
+            "bridge_path": Path("/tmp/repo/bridge.md"),
+            "review_channel_path": Path("/tmp/repo/dev/active/review_channel.md"),
+            "status_dir": Path("/tmp/repo/dev/reports/review_channel/latest"),
+            "promotion_plan_path": Path("/tmp/repo/dev/active/ai_governance_platform.md"),
+            "artifact_paths": SimpleNamespace(
+                artifact_root=Path("/tmp/repo/dev/reports/review_channel")
+            ),
+        },
+        report=_base_report(),
+        operator_interaction_mode="remote_control",
+        deps=deps,
+    )
+
+    assert result == {
+        "attempted": True,
+        "woke": True,
+        "reason": "launched",
+        "packet_id": "pkt-1",
+        "requested_action": "restore_reviewer_turn",
+    }
+    assert cleanup_calls == ["codex-conductor"]
+
+
 def test_maybe_wake_waiting_reviewer_conductor_allows_finding_wake_during_resync() -> None:
     cleanup_calls: list[str] = []
     report = {

@@ -106,10 +106,14 @@ def resolve_conductor_capability(
 ) -> ConductorCapabilityState:
     """Return the typed capability contract for one conductor prompt."""
     liveness = bridge_liveness or {}
-    reviewer_mode = str(
-        liveness.get("effective_reviewer_mode")
-        or resolve_reported_reviewer_mode(liveness)
-    )
+    effective_reviewer_mode = str(liveness.get("effective_reviewer_mode") or "").strip()
+    declared_reviewer_mode = str(liveness.get("reviewer_mode") or "").strip()
+    reviewer_mode = effective_reviewer_mode or resolve_reported_reviewer_mode(liveness)
+    if role == "reviewer" and not (effective_reviewer_mode or declared_reviewer_mode):
+        # Prompt rendering needs the planned reviewer-only contract even before
+        # a live bridge/status payload exists. Runtime authority still fails
+        # closed elsewhere; this fallback only restores the bootstrap wording.
+        reviewer_mode = "active_dual_agent"
     return build_conductor_capability_state(
         provider=provider,
         role=role,

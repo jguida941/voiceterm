@@ -574,19 +574,16 @@ class HygieneAuditTests(unittest.TestCase):
         self.assertFalse(report["errors"])
         self.assertFalse(report["warnings"])
 
-    def test_reparented_conductor_with_live_supervisor_is_not_flagged_as_orphan(
+    @mock.patch.object(
+        hygiene_support,
+        "_protected_registered_conductor_pids",
+        return_value={99999},
+    )
+    def test_reparented_conductor_with_typed_pid_protection_is_not_flagged_as_orphan(
         self,
+        _protected_pids_mock: mock.Mock,
     ) -> None:
-        """Live supervisor heartbeat overrides ppid=1 reparenting for conductors.
-
-        Recreates the commit 696f4772 symptom row: a reviewer-channel
-        conductor whose launcher shell exited (ppid reparented to init=1) but
-        whose reviewer_supervisor daemon is actively supervising it through
-        the typed heartbeat. The ``-conductor.log`` command token keeps the
-        row inside the ``_is_registered_conductor_process`` process_sweep
-        carve-out so the decision cleanly reaches the hygiene_support
-        supervisor-liveness path under test.
-        """
+        """Typed PID protection, not heartbeat alone, keeps detached conductors safe."""
         reparented_row = {
             "pid": 99999,
             "ppid": 1,
@@ -618,19 +615,16 @@ class HygieneAuditTests(unittest.TestCase):
         self.assertFalse(report["warnings"])
         self.assertEqual(report["active_supervised_conductors"], [reparented_row])
 
-    def test_reparented_conductor_without_supervisor_is_still_flagged(
+    @mock.patch.object(
+        hygiene_support,
+        "_protected_registered_conductor_pids",
+        return_value=set(),
+    )
+    def test_reparented_conductor_without_typed_protection_becomes_orphan(
         self,
+        _protected_pids_mock: mock.Mock,
     ) -> None:
-        """With no live supervisor, ppid=1 conductors remain flagged for operator attention.
-
-        Preserves the pre-696f4772 safety invariant: when nothing is owning
-        the reparented conductor, the hygiene guard must still surface it.
-        Conductor shells get carved out of orphan/stale splits by
-        ``_is_registered_conductor_process`` at the process_sweep layer, so
-        the visible signal when the supervisor is absent comes through
-        ``report["warnings"]`` (active-conductor section + the new
-        "heartbeat unreadable" diagnostic), not ``report["orphaned"]``.
-        """
+        """Detached conductors need typed protection; heartbeat alone is diagnostic."""
         reparented_row = {
             "pid": 99999,
             "ppid": 1,
@@ -653,25 +647,19 @@ class HygieneAuditTests(unittest.TestCase):
             )
 
         self.assertEqual(report["total_detected"], 1)
-        # Without a live supervisor, the ppid=1 conductor is NOT promoted
-        # into active_supervised_conductors — that preserves the original
-        # "no silent owner" invariant.
         self.assertEqual(report["active_supervised_conductors"], [])
-        self.assertEqual(report["orphaned"], [])
+        self.assertEqual(report["orphaned"], [reparented_row])
         self.assertEqual(report["stale_active"], [])
-        # Row lands in the fresh_active bucket, which produces a warning.
-        self.assertEqual(report["active"], [reparented_row])
-        self.assertTrue(report["warnings"])
+        self.assertEqual(report["active"], [])
+        self.assertTrue(report["errors"])
         self.assertTrue(
             any(
-                "Active" in warning and "host processes" in warning
-                for warning in report["warnings"]
+                "Orphaned" in error and "host processes" in error
+                for error in report["errors"]
             ),
-            report["warnings"],
+            report["errors"],
         )
-        # H3: corrupt/unreadable heartbeat must surface a diagnostic warning
-        # so operators realize the heartbeat is the reason the conductor is
-        # no longer being trusted as supervised.
+        self.assertTrue(report["warnings"])
         self.assertTrue(
             any(
                 "heartbeat unreadable" in warning

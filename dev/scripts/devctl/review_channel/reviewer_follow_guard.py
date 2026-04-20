@@ -99,7 +99,7 @@ def has_blocking_cleanup_warning(warnings: list[str]) -> bool:
     )
 
 
-def live_codex_sessions(
+def cleanup_candidate_codex_sessions(
     *,
     session_output_root: Path,
     deps: ReviewerWakeDeps,
@@ -109,7 +109,13 @@ def live_codex_sessions(
         session
         for session in sessions
         if getattr(session, "provider", "") == "codex"
-        and bool(getattr(session, "live", False))
+        and (
+            bool(getattr(session, "live", False))
+            or bool(int(getattr(session, "session_pid", 0) or 0) > 0)
+            or getattr(session, "terminal_window_id", None) is not None
+            or str(getattr(session, "script_probe_state", "")).strip().lower()
+            == "running"
+        )
     )
 
 

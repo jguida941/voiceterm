@@ -88,21 +88,48 @@ def cleanup_orphaned_voiceterm_test_binaries(
 SUPERVISED_CONDUCTOR_SCOPE = "review_channel_conductor"
 
 
-def _session_pid_is_cleanup_protected(session: object) -> bool:
-    """Return True when a conductor session PID is runtime-live enough to protect.
+def _session_is_cleanup_protected(session: object) -> bool:
+    """Return True when a conductor session is runtime-live enough to protect.
 
     Host-process cleanup must key off runtime liveness, not only the broader
     governance/session freshness captured by ``session.live``. A conductor can
     remain script-running while ``session.live`` flips false because the
-    prepared HEAD or instruction revision has drifted; cleanup should not reap
-    or fail that still-running typed session.
+    prepared HEAD or instruction revision has drifted. When ``session_pid`` is
+    missing, cleanup still needs enough typed identity to match the current
+    wrapper by script path instead of silently protecting every conductor-like
+    row.
     """
-    session_pid = int(getattr(session, "session_pid", 0) or 0)
-    if session_pid <= 0:
-        return False
     if bool(getattr(session, "live", False)):
         return True
     return str(getattr(session, "script_probe_state", "")).strip().lower() == "running"
+
+
+def _row_command_text(row: dict) -> str:
+    return str(row.get("cmd") or row.get("command") or "").strip()
+
+
+def _session_process_match_tokens(session: object) -> tuple[str, ...]:
+    script_path = str(getattr(session, "script_path", "") or "").strip()
+    if not script_path:
+        return ()
+    return (script_path,)
+
+
+def _runtime_live_registered_conductor_sessions(
+    *,
+    repo_root: Path,
+) -> tuple[object, ...]:
+    from ...repo_packs import active_path_config
+    from ...review_channel.session_probe import load_conductor_sessions
+
+    status_dir = repo_root / active_path_config().review_status_dir_rel
+    if not status_dir.exists():
+        return ()
+
+    sessions = load_conductor_sessions(session_output_root=status_dir)
+    return tuple(
+        session for session in sessions if _session_is_cleanup_protected(session)
+    )
 
 
 def _protected_registered_conductor_pids(
@@ -121,19 +148,24 @@ def _protected_registered_conductor_pids(
     broader launch authority has gone stale; host cleanup should not kill a
     still-running conductor just because prepared-head freshness drifted.
     """
-    from ...repo_packs import active_path_config
-    from ...review_channel.session_probe import load_conductor_sessions
-
-    status_dir = repo_root / active_path_config().review_status_dir_rel
-    if not status_dir.exists():
-        return set()
-
-    sessions = load_conductor_sessions(session_output_root=status_dir)
+    sessions = _runtime_live_registered_conductor_sessions(repo_root=repo_root)
     session_pids = {
-        int(session.session_pid)
+        int(getattr(session, "session_pid", 0) or 0)
         for session in sessions
-        if _session_pid_is_cleanup_protected(session)
+        if int(getattr(session, "session_pid", 0) or 0) > 0
     }
+    if not session_pids:
+        for session in sessions:
+            tokens = _session_process_match_tokens(session)
+            if not tokens:
+                continue
+            for row in rows:
+                pid = int(row.get("pid", 0) or 0)
+                if pid <= 0:
+                    continue
+                command = _row_command_text(row)
+                if any(token in command for token in tokens):
+                    session_pids.add(pid)
 
     if not session_pids:
         return set()

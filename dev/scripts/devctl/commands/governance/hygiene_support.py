@@ -20,6 +20,7 @@ from ...process_sweep.core import (
 )
 from ...repo_packs import active_path_config
 from ...review_channel.lifecycle_state import read_reviewer_supervisor_state
+from ..check.process_sweep import _protected_registered_conductor_pids
 
 ORPHAN_TEST_MIN_AGE_SECONDS = DEFAULT_ORPHAN_MIN_AGE_SECONDS
 STALE_ACTIVE_TEST_MIN_AGE_SECONDS = DEFAULT_STALE_MIN_AGE_SECONDS
@@ -100,30 +101,29 @@ def _audit_runtime_processes(
         else:
             warnings.append(warning)
 
-    orphaned, active = split_orphaned_processes(
-        test_processes,
-        min_age_seconds=ORPHAN_TEST_MIN_AGE_SECONDS,
+    protected_conductor_pids = _protected_registered_conductor_pids(
+        rows=test_processes,
+        repo_root=REPO_ROOT,
     )
-    # A live reviewer_supervisor daemon owns conductor scripts even when the
-    # kernel has reparented them to init (ppid=1) after the original launcher
-    # shell exited. Trust the typed supervisor heartbeat as the authoritative
-    # "this scope is supervised" signal rather than relying on ppid alone,
-    # which would permanently flag reparented conductors as orphans any time a
-    # launcher shell exits and the session continues under a background
-    # supervisor.
-    supervisor_live, supervisor_detail = _resolve_supervisor_liveness()
     supervised_conductors = [
         row
-        for row in active
+        for row in test_processes
         if row.get("match_scope") == SUPERVISED_CONDUCTOR_SCOPE
-        and (row.get("ppid") != 1 or supervisor_live)
+        and (row.get("ppid") != 1 or row.get("pid") in protected_conductor_pids)
     ]
     supervised_conductor_pids = {row["pid"] for row in supervised_conductors}
-    active = [row for row in active if row.get("pid") not in supervised_conductor_pids]
+    unprotected_rows = [
+        row for row in test_processes if row.get("pid") not in supervised_conductor_pids
+    ]
+    orphaned, active = split_orphaned_processes(
+        unprotected_rows,
+        min_age_seconds=ORPHAN_TEST_MIN_AGE_SECONDS,
+    )
+    supervisor_live, supervisor_detail = _resolve_supervisor_liveness()
     # If the supervisor heartbeat exists but is unreadable/corrupt and there
     # are conductor-scope rows visible, surface that to the operator so a
-    # stale heartbeat doesn't silently promote reparented conductors into
-    # false orphans (or vice versa) without any diagnostic trail.
+    # stale heartbeat does not obscure why detached conductors are no longer
+    # being trusted without typed PID/script-path protection.
     if (
         not supervisor_live
         and supervisor_detail

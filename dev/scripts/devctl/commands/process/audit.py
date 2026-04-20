@@ -47,11 +47,13 @@ def collect_process_audit_state() -> dict:
         and (row.get("ppid") != 1 or row.get("pid") in protected_conductor_pids)
     ]
     supervised_conductor_pids = {row["pid"] for row in supervised_conductor_rows}
+    unprotected_rows = [
+        row for row in rows if row.get("pid") not in supervised_conductor_pids
+    ]
     orphaned, active = split_orphaned_processes(
-        rows,
+        unprotected_rows,
         min_age_seconds=DEFAULT_ORPHAN_MIN_AGE_SECONDS,
     )
-    active = [row for row in active if row.get("pid") not in supervised_conductor_pids]
     stale_active, active_recent = split_stale_processes(
         active,
         min_age_seconds=DEFAULT_STALE_MIN_AGE_SECONDS,

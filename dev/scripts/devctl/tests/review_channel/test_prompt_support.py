@@ -46,3 +46,15 @@ def test_resolve_conductor_capability_defaults_to_tools_only_without_mode_signal
 
     assert cap.may_edit_repo is False
     assert cap.queue_policy == "inactive"
+
+
+def test_resolve_conductor_capability_uses_reviewer_prompt_fallback_without_mode_signal() -> None:
+    """Reviewer prompts still need the planned review-only contract on empty liveness."""
+    cap = resolve_conductor_capability(
+        provider="codex",
+        role="reviewer",
+        bridge_liveness={},
+    )
+
+    assert cap.queue_policy == "review_only"
+    assert "--reviewer-override" in cap.takeover_command

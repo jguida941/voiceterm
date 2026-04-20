@@ -18,10 +18,10 @@ from .reviewer_follow_guard import (
     ReviewerWakeLaunchContext,
     ReviewerWakePaths,
     as_path,
+    cleanup_candidate_codex_sessions,
     cleanup_codex_sessions,
     has_blocking_cleanup_warning,
     launch_waiting_reviewer_conductor,
-    live_codex_sessions,
     maybe_refresh_automation_reviewer_heartbeat,
     wake_report,
 )
@@ -237,14 +237,14 @@ def maybe_wake_waiting_reviewer_conductor(
             reason="runtime_paths_missing",
         )
 
-    live_sessions = live_codex_sessions(
+    cleanup_sessions = cleanup_candidate_codex_sessions(
         session_output_root=wake_paths.status_dir,
         deps=effective_deps,
     )
     cleanup_warnings: list[str] = []
-    if live_sessions:
+    if cleanup_sessions:
         cleanup_warnings = cleanup_codex_sessions(
-            live_codex_sessions=live_sessions,
+            live_codex_sessions=cleanup_sessions,
             deps=effective_deps,
         )
     if has_blocking_cleanup_warning(cleanup_warnings):
@@ -269,4 +269,3 @@ def maybe_wake_waiting_reviewer_conductor(
         ),
         deps=effective_deps,
     )
-

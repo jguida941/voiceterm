@@ -168,6 +168,28 @@ class ProcessSweepTests(TestCase):
         self.assertEqual([row["pid"] for row in stale], [11])
         self.assertEqual([row["pid"] for row in recent], [12, 13])
 
+    def test_split_orphaned_processes_does_not_exempt_conductor_tokens(self) -> None:
+        rows = [
+            {
+                "pid": 21,
+                "ppid": 1,
+                "elapsed_seconds": 601,
+                "command": (
+                    "script -q -F -t 0 /tmp/codex.log "
+                    "/tmp/review-channel-launch-old/codex-conductor.sh "
+                    "__review_channel_inner"
+                ),
+            }
+        ]
+
+        orphaned, active = process_sweep.split_orphaned_processes(
+            rows,
+            min_age_seconds=600,
+        )
+
+        self.assertEqual([row["pid"] for row in orphaned], [21])
+        self.assertEqual(active, [])
+
     @patch("dev.scripts.devctl.process_sweep.scans.subprocess.run")
     def test_scan_voiceterm_test_process_tree_includes_descendants(self, run_mock) -> None:
         run_mock.return_value = subprocess.CompletedProcess(
@@ -894,21 +916,26 @@ class ProcessSweepTests(TestCase):
         self.assertEqual(rows, [])
 
 
-def test_protected_pids_fall_back_to_supervisor_when_session_pid_missing() -> None:
-    """Q37 fix: unregistered conductors must NOT be silently protected.
+def test_protected_pids_stay_empty_when_session_pid_and_script_path_are_missing() -> None:
+    """Missing typed identity means the conductor stays unprotected.
 
     When the typed session registry produces a live conductor session with
-    no recoverable ``session_pid``, the protected set must remain empty
-    for that session.  A running supervisor heartbeat alone is not
-    sufficient — the previous fallback added every conductor-scoped PID,
-    hiding invisible headless agents from strict audit (Q37 in LIVE_RUN).
+    no recoverable ``session_pid`` and no current script-path token, the
+    protected set must remain empty for that session. A running supervisor
+    heartbeat alone is not sufficient — the previous fallback added every
+    conductor-scoped PID, hiding invisible headless agents from strict audit
+    (Q37 in LIVE_RUN).
     """
     with tempfile.TemporaryDirectory() as tmpdir:
         repo_root = Path(tmpdir)
         status_dir = repo_root / "dev" / "reports" / "review_channel" / "latest"
         status_dir.mkdir(parents=True)
 
-        live_session_without_pid = SimpleNamespace(live=True, session_pid=None)
+        live_session_without_pid = SimpleNamespace(
+            live=True,
+            session_pid=None,
+            script_path="",
+        )
         rows = [
             {
                 "pid": 555,
@@ -953,6 +980,54 @@ def test_protected_pids_fall_back_to_supervisor_when_session_pid_missing() -> No
         "voiceterm-scoped row 700 is not a supervised conductor and must "
         "remain reapable"
     )
+
+
+def test_protected_pids_use_current_script_path_when_session_pid_missing() -> None:
+    """Current typed script identity protects the detached conductor tree."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        repo_root = Path(tmpdir)
+        status_dir = repo_root / "dev" / "reports" / "review_channel" / "latest"
+        status_dir.mkdir(parents=True)
+
+        live_session_without_pid = SimpleNamespace(
+            live=True,
+            session_pid=None,
+            script_path="/tmp/review-channel-launch-current/codex-conductor.sh",
+        )
+        rows = [
+            {
+                "pid": 555,
+                "ppid": 1,
+                "match_scope": "review_channel_conductor",
+                "elapsed_seconds": 900,
+                "lineage_depth": 0,
+                "command": (
+                    "script -q -F -t 0 /tmp/codex.log "
+                    "/tmp/review-channel-launch-current/codex-conductor.sh "
+                    "__review_channel_inner"
+                ),
+            },
+            {
+                "pid": 600,
+                "ppid": 555,
+                "match_scope": "review_channel_conductor",
+                "elapsed_seconds": 880,
+                "lineage_depth": 1,
+                "command": "codex exec reviewer",
+            },
+        ]
+
+        with patch(
+            "dev.scripts.devctl.review_channel.session_probe.load_conductor_sessions",
+            return_value=(live_session_without_pid,),
+        ):
+            protected = check_process_sweep._protected_registered_conductor_pids(
+                rows=rows,
+                repo_root=repo_root,
+            )
+
+    assert 555 in protected, "current script-path match must protect the wrapper pid"
+    assert 600 in protected, "descendants inherit protection from the matched wrapper pid"
 
 
 def test_protected_pids_uses_registry_when_session_pid_is_live() -> None:
