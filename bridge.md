@@ -77,10 +77,10 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-04-20T09:39:56Z`
-- Last Codex poll (Local America/New_York): `2026-04-20 05:39:56 EDT`
+- Last Codex poll: `2026-04-20T10:17:44Z`
+- Last Codex poll (Local America/New_York): `2026-04-20 06:17:44 EDT`
 - Reviewer mode: `tools_only`
-- Last non-audit worktree hash: `871c9b2d3b27631daaf653473a2f78e7b57079cf154083253fa0485c9f11f025`
+- Last non-audit worktree hash: `6d84541c58015708ac7dde6914665ca71d59b51c7c0ca7d5121b32b5a62ec3c2`
 - Current instruction revision: ``
 
 ## Protocol
@@ -113,7 +113,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Poll Status
 
-- Reviewer checkpoint updated through repo-owned tooling (mode: tools_only; reason: review-pass; observed-tree: 4509c450d270; reviewed-tree: 4509c450d270; instruction-rev: 4423d695fb51).
+- Reviewer state rebuilt from typed review-state projection at 2026-04-20T12:56:18.417638Z.
 
 ## Current Verdict
 
