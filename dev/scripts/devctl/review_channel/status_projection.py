@@ -19,6 +19,7 @@ from ..runtime.review_state_models import (
     RecoveryAssessmentState,
     ReviewState,
 )
+from .collaboration_session import build_collaboration_session
 from .current_session_projection import resolve_current_session_authority
 from .handoff import BridgeSnapshot
 from .peer_liveness import OverallLivenessState
@@ -51,14 +52,9 @@ from .status_projection_support import (
     ReviewStateContext,
     ReviewStatePayloadInputs,
     attach_review_state_compat,
-    build_attention,
-    build_queue_state,
-    build_review_session,
     build_review_state_payload,
-    legacy_agents,
     review_candidate_with_errors,
 )
-from .topology import build_runtime_agent_registry
 
 
 def build_bridge_review_state(

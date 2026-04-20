@@ -55,7 +55,7 @@ def build_runtime_agent_registry_from_collaboration(
                     participant=participant,
                     role=role,
                 ),
-                mp_scope=plan_id,
+                mp_scope=context.plan_id,
                 worktree="",
                 branch="",
                 updated_at=context.timestamp,

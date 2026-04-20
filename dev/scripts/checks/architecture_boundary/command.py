@@ -3,7 +3,6 @@
 
 from __future__ import annotations
 
-import ast
 import json
 import sys
 from dataclasses import dataclass
@@ -37,6 +36,11 @@ except ModuleNotFoundError:  # pragma: no cover
         sys.path.insert(0, repo_root_str)
     from dev.scripts.devctl.quality_scan_mode import is_adoption_scan
 
+try:
+    from .imports import parse_import_hits
+except ModuleNotFoundError:  # pragma: no cover
+    from dev.scripts.checks.architecture_boundary.imports import parse_import_hits
+
 list_changed_paths = import_attr("rust_guard_common", "list_changed_paths")
 GuardContext = import_attr("rust_guard_common", "GuardContext")
 
@@ -51,12 +55,6 @@ class BoundaryRule:
     forbidden_import_prefixes: tuple[str, ...]
     allow_import_prefixes: tuple[str, ...]
     guidance: str
-
-
-@dataclass(frozen=True, slots=True)
-class ImportHit:
-    import_name: str
-    lineno: int
 
 
 def _coerce_strings(value: object) -> tuple[str, ...]:
@@ -115,29 +113,6 @@ def _matches_import_prefix(import_name: str, prefix: str) -> bool:
     return import_name == prefix or import_name.startswith(f"{prefix}.")
 
 
-def parse_import_hits(text: str) -> tuple[ImportHit, ...]:
-    tree = ast.parse(text)
-    hits: list[ImportHit] = []
-    for node in ast.walk(tree):
-        if isinstance(node, ast.Import):
-            for alias in node.names:
-                hits.append(ImportHit(import_name=alias.name, lineno=node.lineno))
-            continue
-        if not isinstance(node, ast.ImportFrom) or not node.module or node.level:
-            continue
-        if any(alias.name == "*" for alias in node.names):
-            hits.append(ImportHit(import_name=node.module, lineno=node.lineno))
-            continue
-        for alias in node.names:
-            hits.append(
-                ImportHit(
-                    import_name=f"{node.module}.{alias.name}",
-                    lineno=node.lineno,
-                )
-            )
-    return tuple(hits)
-
-
 def _candidate_rule_map(
     repo_root: Path,
     candidate_paths: list[Path],
@@ -171,7 +146,7 @@ def collect_boundary_violations(
         if text is None:
             continue
         try:
-            import_hits = parse_import_hits(text)
+            import_hits = parse_import_hits(text, relative_path=relative_path)
         except SyntaxError as exc:
             violations.append(
                 {

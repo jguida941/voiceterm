@@ -272,6 +272,21 @@
             "dev.scripts.devctl.review_channel"
           ],
           "guidance": "Startup authority and typed conductor capability must consume runtime-owned role/capability contracts, not review-channel prompt, bridge, or orchestration modules."
+        },
+        {
+          "rule_id": "projection_support_no_world_building_imports",
+          "include_globs": [
+            "dev/scripts/devctl/review_channel/*support.py",
+            "dev/scripts/devctl/review_channel/*context.py"
+          ],
+          "forbidden_import_prefixes": [
+            "dev.scripts.devctl.commands",
+            "dev.scripts.devctl.context_graph.snapshot_payload",
+            "dev.scripts.devctl.context_graph.snapshot_store",
+            "dev.scripts.devctl.runtime.governance_scan",
+            "dev.scripts.devctl.config"
+          ],
+          "guidance": "Projection support/context modules must stay pure lowerers over typed inputs. Move repo-root discovery, governance scans, cache loading, and command orchestration behind dedicated adapters or upstream authority builders."
         }
       ]
     },
