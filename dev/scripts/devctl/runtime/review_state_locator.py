@@ -8,6 +8,9 @@ from typing import TYPE_CHECKING, Any
 
 from ..repo_packs import active_path_config, active_path_config_is_overridden
 from ..repo_packs.review_cache import cache_is_fresh
+from .review_state_contract_drift import (
+    cached_projection_has_bridge_contract_drift as _cached_projection_has_bridge_contract_drift,
+)
 from .review_state_refresh_support import (
     refresh_event_backed_review_state_payload,
     projection_freshness_paths,
@@ -125,6 +128,19 @@ def load_current_review_state_payload(
         repo_root,
         governance=resolved_governance,
     )
+    if typed_payload is not None and _cached_projection_has_bridge_contract_drift(
+        payload=typed_payload,
+        repo_root=repo_root,
+        governance=resolved_governance,
+    ):
+        if allow_live_refresh:
+            refreshed = refresh_bridge_backed_review_state_payload(
+                repo_root,
+                governance=resolved_governance,
+                review_status_dir=review_status_dir,
+            )
+            if refreshed is not None:
+                return refreshed
     if typed_payload is not None and _is_event_backed_projection_path(
         typed_path,
         repo_root=repo_root,

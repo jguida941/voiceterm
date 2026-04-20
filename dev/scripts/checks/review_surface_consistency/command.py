@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from dev.scripts.devctl.runtime.startup_context import build_startup_context
+from dev.scripts.devctl.runtime.review_state_parser import review_state_from_payload
 
 from .models import ConvergencePassResult
 from .parity import (
@@ -42,8 +43,18 @@ def build_report(
     turn_authority_payload: dict[str, object] | None = None,
     disk_review_state_payload: dict[str, object] | None = _UNSET,
 ) -> dict[str, object]:
-    startup = startup_payload or build_startup_context(repo_root=repo_root).to_dict()
     review_state = review_state_payload or load_review_state_payload(repo_root)
+    startup = startup_payload
+    if startup is None:
+        typed_review_state = (
+            review_state_from_payload(review_state)
+            if isinstance(review_state, dict)
+            else None
+        )
+        startup = build_startup_context(
+            repo_root=repo_root,
+            review_state=typed_review_state,
+        ).to_dict()
     compact = compact_payload or _load_json(surface_path(repo_root, "compact.json"))
     commit_pipeline = commit_pipeline_payload or _load_json(
         surface_path(repo_root, "commit_pipeline.json")

@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import unittest
+from types import SimpleNamespace
+from unittest.mock import Mock, patch
 
 from dev.scripts.devctl.tests.conftest import load_repo_module
 
@@ -155,6 +157,113 @@ class CheckReviewSurfaceConsistencyTests(unittest.TestCase):
         self.assertEqual(report["schema_version"], 1)
         self.assertEqual(report["errors"], [])
         self.assertEqual(report["violations"], [])
+
+    def test_build_report_reuses_frozen_review_state_for_startup_context(
+        self,
+    ) -> None:
+        zref = "zref-123"
+        review_state_payload = {
+            "snapshot_id": "snap-123",
+            "zref": zref,
+            **_provenance("gen-9"),
+            "recovery_assessment": {
+                "diagnosis": {"status": "healthy"},
+                "decision": {
+                    "action_id": "continue_scoped_loop",
+                    "command": "",
+                },
+            },
+            "attention": {
+                "status": "healthy",
+                "owner": "system",
+                "summary": "",
+                "recommended_action": "",
+                "recommended_command": "",
+            },
+            "commit_pipeline": {
+                "snapshot_id": "snap-123",
+                "zref": zref,
+                "generation_id": "gen-9",
+            },
+            "registry": {
+                "zref": zref,
+                "agents": [],
+                **_provenance("gen-9"),
+            },
+            "_compat": {
+                "doctor": {
+                    "snapshot_id": "snap-123",
+                    "generation_id": "gen-9",
+                    "status": "healthy",
+                    "diagnosis_status": "healthy",
+                    "decision_action_id": "continue_scoped_loop",
+                    "decision_command": "",
+                },
+                "bridge_projection": {
+                    "metadata": {
+                        "snapshot_id": "snap-123",
+                        "zref": zref,
+                        **_provenance("gen-9"),
+                    },
+                },
+            },
+        }
+        build_startup_context_mock = Mock(
+            return_value=SimpleNamespace(
+                to_dict=lambda: {
+                    "snapshot_id": "snap-123",
+                    "zref": zref,
+                    "push_decision": {"snapshot_id": "snap-123", "zref": zref},
+                }
+            )
+        )
+        with patch.dict(
+            self.script.build_report.__globals__,
+            {
+                "build_startup_context": build_startup_context_mock,
+                "review_state_from_payload": lambda payload: payload,
+            },
+        ):
+            report = self.script.build_report(
+                review_state_payload=review_state_payload,
+                compact_payload={
+                    "snapshot_id": "snap-123",
+                    "zref": zref,
+                    "push_decision": {"snapshot_id": "snap-123", "zref": zref},
+                    "doctor": {
+                        "snapshot_id": "snap-123",
+                        "generation_id": "gen-9",
+                        "status": "healthy",
+                        "diagnosis_status": "healthy",
+                        "decision_action_id": "continue_scoped_loop",
+                        "decision_command": "",
+                    },
+                },
+                commit_pipeline_payload={
+                    "snapshot_id": "snap-123",
+                    "zref": zref,
+                    "generation_id": "gen-9",
+                },
+                bridge_poll_payload={
+                    "snapshot_id": "snap-123",
+                    "zref": zref,
+                    **_MATCHING_AUTHORITY_FIELDS,
+                },
+                turn_authority_payload={
+                    "snapshot_id": "snap-123",
+                    "zref": zref,
+                    **_MATCHING_AUTHORITY_FIELDS,
+                },
+                disk_review_state_payload=None,
+            )
+
+        self.assertIn("ok", report)
+        build_startup_context_mock.assert_called_once()
+        self.assertIn("repo_root", build_startup_context_mock.call_args.kwargs)
+        self.assertIs(
+            build_startup_context_mock.call_args.kwargs["review_state"],
+            review_state_payload,
+        )
 
     def test_build_report_fails_when_snapshot_ids_diverge(self) -> None:
         report = self.script.build_report(
