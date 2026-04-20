@@ -5,14 +5,14 @@
 ## Quick status
 
 - Branch: `feature/governance-quality-sweep`
-- HEAD: `89807c691e35` — Refresh external review snapshot for e6fe5938
-- Tree hash: `f95ada80b46a`
-- Generation stamp: `snap-0f64ebb23a76`
-- Generated at (UTC): 2026-04-20T09:09:04Z
-- Push decision: `await_checkpoint` — staged_and_unstaged_worktree_present
-- Reviewer mode: `single_agent` (interaction: `local_terminal`)
+- HEAD: `65fbf18835ff` — Align bridge projection to effective reviewer mode
+- Tree hash: `78c2f2dc8a87`
+- Generation stamp: `snap-d97b2394f0e9`
+- Generated at (UTC): 2026-04-20T09:11:05Z
+- Push decision: `await_review` — review_pending_before_push
+- Reviewer mode: `active_dual_agent` (interaction: `local_terminal`)
 - Pipeline state: `n/a` (approval: `n/a`)
-- Delta since last snapshot: 24 commits, 78 files, +4753/-2297
+- Delta since last snapshot: 25 commits, 82 files, +4896/-2374
 - Governance findings: 112 open / 86 fixed / 212 total
 - Probe hints: 0 total across 0 files scanned
 
@@ -54,31 +54,29 @@ adopters arrive.
 - Remote: `https://github.com/jguida941/voiceterm.git`
 - Default branch: `master`
 - Current branch: `feature/governance-quality-sweep`
-- HEAD SHA: `89807c691e3530e716cf83e8e0192f54a0dcfbd9`
+- HEAD SHA: `65fbf18835ff2ae16d5879a2f723f79e5e177e27`
 - HEAD author: Justin Guida
-- HEAD timestamp (UTC): 2026-04-20T04:26:37-04:00
+- HEAD timestamp (UTC): 2026-04-20T05:10:54-04:00
 
 ## 2. Governance state
 
 ### Push decision
-- action: `await_checkpoint`
-- reason: staged_and_unstaged_worktree_present
+- action: `await_review`
+- reason: review_pending_before_push
 - push_eligible_now: False
-- worktree_clean: False
-- staged_path_count: 4
-- unstaged_path_count: 1
-- next_step_command: `n/a`
+- worktree_clean: True
+- staged_path_count: 0
+- unstaged_path_count: 0
+- next_step_command: `python3 dev/scripts/devctl.py review-channel --action status --terminal none --format json`
 - latest_push_report: `dev/reports/push/latest.json`
 - latest_push_report_state: `blocked` (validation_failed)
-- current_push_authorization: `push-auth-20260420T085829514019Z` (valid=True)
-- authorized_head_commit: `89807c691e3530e716cf83e8e0192f54a0dcfbd9`
-- approved_target_identity: `tree-receipt-20260420T082618539468Z:af02bfee04f6df3674bbe9980b1da1389f015ed1`
-- publication_backlog: none
+- publication_backlog: queued
+- publication_guidance: 1 local commit(s) waiting for governed push once review is accepted.
 
 ### Reviewer runtime
-- reviewer_mode: `single_agent`
+- reviewer_mode: `active_dual_agent`
 - reviewer_freshness: unknown
-- reviewer_publish_clear: True
+- reviewer_publish_clear: False
 - interaction_mode: `local_terminal`
 
 ### Remote commit pipeline
@@ -89,47 +87,48 @@ adopters arrive.
 - active plan: **AI Governance Platform Plan**
 - plan path: `dev/active/ai_governance_platform.md`
 - active MP scope: `MP-377`
-- advisory: `checkpoint_allowed` — worktree_dirty_within_budget
+- advisory: `await_review` — review_pending_before_push
 
 ## 3. Delta — what changed since the previous snapshot
 
-Range: last 24 commits ending at `89807c691e35`
+Range: last 25 commits ending at `65fbf18835ff`
 
-- commits: 24
-- files changed: 78
-- insertions: +4753
-- deletions: -2297
-- bundle classes touched: docs, tooling
-- authority surfaces touched: 5 file(s)
+- commits: 25
+- files changed: 82
+- insertions: +4896
+- deletions: -2374
+- bundle classes touched: tooling, docs
+- authority surfaces touched: 7 file(s)
 
 ### Commits
 
 | # | SHA | Subject | Files | +/- | Bundle | Risk |
 |---|---|---|---|---|---|---|
-| 1 | `89807c69` | Refresh external review snapshot for e6fe5938 | 2 | +58/-59 | docs |  |
-| 2 | `e6fe5938` | Guard projection helpers against world-building drift | 9 | +343/-179 | tooling |  |
-| 3 | `99334c92` | Refresh external review snapshot for 7faed568 | 2 | +76/-71 | docs |  |
-| 4 | `7faed568` | Propagate review-state provenance and zref parity | 29 | +1140/-551 | tooling |  |
-| 5 | `b36d14e8` | Harden conductor hygiene and reviewer wake | 14 | +393/-185 | tooling |  |
-| 6 | `54ec06d8` | Advance session-resume parity and conductor hygiene | 24 | +1302/-503 | tooling |  |
-| 7 | `19bbe4f6` | Refresh external review snapshot for 066112fb | 2 | +74/-63 | docs |  |
-| 8 | `066112fb` | Checkpoint session-resume parity and collaboration wake clo… | 14 | +657/-93 | tooling |  |
-| 9 | `95131e80` | Refresh external review snapshot for 818e4692 | 2 | +53/-56 | docs |  |
-| 10 | `818e4692` | Fix regression test per Codex rev_pkt_1403: assert real fie… | 1 | +71/-17 | tooling |  |
-| 11 | `e61fb65c` | Refresh external review snapshot for 3d14a22a | 2 | +50/-47 | docs |  |
-| 12 | `3d14a22a` | SYSTEM_MAP.md v7.1 — §9 coverage refreshed 22%->37% + dogfo… | 1 | +6/-5 | docs |  |
-| 13 | `c762e1c0` | Refresh external review snapshot for 6944d2c9 | 2 | +48/-54 | docs |  |
-| 14 | `6944d2c9` | bridge.md: substantive Claude Status + Ack for rev 66a62d41… | 1 | +7/-2 | docs |  |
-| 15 | `fe7cf67b` | Refresh external review snapshot for 02325c76 | 2 | +48/-46 | docs |  |
-| 16 | `02325c76` | Add regression test for observer-scoped authority snapshot… | 1 | +45/-0 | tooling |  |
-| 17 | `74467983` | Refresh external review snapshot for 9ac8211d | 2 | +48/-50 | docs |  |
-| 18 | `9ac8211d` | SYSTEM_MAP.md v7.0 — §0.7 tier fix per Codex rev_pkt_1397 s… | 1 | +2/-1 | docs |  |
-| 19 | `c52d7972` | Refresh external review snapshot for 902b39af | 2 | +67/-52 | docs |  |
-| 20 | `902b39af` | rev_pkt_1366 FULL close per Codex rev_pkt_1396 directive | 2 | +5/-2 | tooling |  |
-| 21 | `908b0c97` | Refresh external review snapshot for 17d68365 | 2 | +58/-63 | docs |  |
-| 22 | `17d68365` | SYSTEM_MAP.md v6.9 — revert §54 per operator: SYSTEM_MAP is… | 2 | +52/-87 | tooling |  |
-| 23 | `3dc695bc` | Refresh external review snapshot for 096df5bf | 2 | +61/-61 | docs |  |
-| 24 | `096df5bf` | SYSTEM_MAP.md v6.8 — §54 Active Joint Work coordination sur… | 2 | +89/-50 | tooling |  |
+| 1 | `65fbf188` | Align bridge projection to effective reviewer mode | 5 | +143/-77 | tooling |  |
+| 2 | `89807c69` | Refresh external review snapshot for e6fe5938 | 2 | +58/-59 | docs |  |
+| 3 | `e6fe5938` | Guard projection helpers against world-building drift | 9 | +343/-179 | tooling |  |
+| 4 | `99334c92` | Refresh external review snapshot for 7faed568 | 2 | +76/-71 | docs |  |
+| 5 | `7faed568` | Propagate review-state provenance and zref parity | 29 | +1140/-551 | tooling |  |
+| 6 | `b36d14e8` | Harden conductor hygiene and reviewer wake | 14 | +393/-185 | tooling |  |
+| 7 | `54ec06d8` | Advance session-resume parity and conductor hygiene | 24 | +1302/-503 | tooling |  |
+| 8 | `19bbe4f6` | Refresh external review snapshot for 066112fb | 2 | +74/-63 | docs |  |
+| 9 | `066112fb` | Checkpoint session-resume parity and collaboration wake clo… | 14 | +657/-93 | tooling |  |
+| 10 | `95131e80` | Refresh external review snapshot for 818e4692 | 2 | +53/-56 | docs |  |
+| 11 | `818e4692` | Fix regression test per Codex rev_pkt_1403: assert real fie… | 1 | +71/-17 | tooling |  |
+| 12 | `e61fb65c` | Refresh external review snapshot for 3d14a22a | 2 | +50/-47 | docs |  |
+| 13 | `3d14a22a` | SYSTEM_MAP.md v7.1 — §9 coverage refreshed 22%->37% + dogfo… | 1 | +6/-5 | docs |  |
+| 14 | `c762e1c0` | Refresh external review snapshot for 6944d2c9 | 2 | +48/-54 | docs |  |
+| 15 | `6944d2c9` | bridge.md: substantive Claude Status + Ack for rev 66a62d41… | 1 | +7/-2 | docs |  |
+| 16 | `fe7cf67b` | Refresh external review snapshot for 02325c76 | 2 | +48/-46 | docs |  |
+| 17 | `02325c76` | Add regression test for observer-scoped authority snapshot… | 1 | +45/-0 | tooling |  |
+| 18 | `74467983` | Refresh external review snapshot for 9ac8211d | 2 | +48/-50 | docs |  |
+| 19 | `9ac8211d` | SYSTEM_MAP.md v7.0 — §0.7 tier fix per Codex rev_pkt_1397 s… | 1 | +2/-1 | docs |  |
+| 20 | `c52d7972` | Refresh external review snapshot for 902b39af | 2 | +67/-52 | docs |  |
+| 21 | `902b39af` | rev_pkt_1366 FULL close per Codex rev_pkt_1396 directive | 2 | +5/-2 | tooling |  |
+| 22 | `908b0c97` | Refresh external review snapshot for 17d68365 | 2 | +58/-63 | docs |  |
+| 23 | `17d68365` | SYSTEM_MAP.md v6.9 — revert §54 per operator: SYSTEM_MAP is… | 2 | +52/-87 | tooling |  |
+| 24 | `3dc695bc` | Refresh external review snapshot for 096df5bf | 2 | +61/-61 | docs |  |
+| 25 | `096df5bf` | SYSTEM_MAP.md v6.8 — §54 Active Joint Work coordination sur… | 2 | +89/-50 | tooling |  |
 
 ### Files
 
@@ -138,7 +137,7 @@ Range: last 24 commits ending at `89807c691e35`
 | `bridge.md` | docs | +62/-62 |
 | `dev/active/MASTER_PLAN.md` | tooling | +9/-4 |
 | `dev/active/ai_governance_platform.md` | tooling | +24/-8 |
-| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +995/-950 |
+| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1052/-1013 |
 | `dev/config/quality_presets/voiceterm.json` | tooling | +15/-0 |
 | `dev/guides/SYSTEM_MAP.md` | docs | +45/-43 |
 | `dev/scripts/README.md` | tooling | +24/-10 |
@@ -165,6 +164,8 @@ Range: last 24 commits ending at `89807c691e35`
 | `dev/scripts/devctl/platform/runtime_state_contract_rows_review.py` | tooling | +25/-0 |
 | `dev/scripts/devctl/platform/surface_state_contract_rows.py` | tooling | +25/-0 |
 | `dev/scripts/devctl/process_sweep/internals.py` | tooling | +2/-41 |
+| `dev/scripts/devctl/review_channel/bridge_projection_metadata.py` | tooling | +14/-13 |
+| `dev/scripts/devctl/review_channel/bridge_projection_sections.py` | tooling | +24/-1 |
 | `dev/scripts/devctl/review_channel/collaboration_registry.py` | tooling | +17/-7 |
 | `dev/scripts/devctl/review_channel/event_projection_assembly.py` | tooling | +50/-69 |
 | `dev/scripts/devctl/review_channel/event_projection_context.py` | tooling | +116/-137 |
@@ -173,9 +174,7 @@ Range: last 24 commits ending at `89807c691e35`
 | `dev/scripts/devctl/review_channel/follow_controller.py` | tooling | +4/-5 |
 | `dev/scripts/devctl/review_channel/heartbeat.py` | tooling | +1/-0 |
 | `dev/scripts/devctl/review_channel/projection_bundle.py` | tooling | +3/-1 |
-| `dev/scripts/devctl/review_channel/projection_bundle_parity.py` | tooling | +77/-0 |
-| `dev/scripts/devctl/review_channel/projection_provenance.py` | tooling | +29/-0 |
-| _38 more files trimmed_ | | |
+| _42 more files trimmed_ | | |
 
 ## 4. Quality signals
 
@@ -245,6 +244,8 @@ Recent findings:
 
 ### Targeted hints
 
+- **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/review_channel/bridge_projection_metadata.py`) — Review contract-level invariants for this file
+- **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/review_channel/bridge_projection_sections.py`) — Review contract-level invariants for this file
 - **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/runtime/startup_context.py`) — Review contract-level invariants for this file
 - **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/tests/runtime/test_startup_context.py`) — Review contract-level invariants for this file
 - **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/review_channel/reviewer_follow_guard.py`) — Review contract-level invariants for this file
@@ -269,6 +270,7 @@ Recent findings:
 
 ### Per-commit rationale
 
+- **`65fbf188`** — Align bridge projection to effective reviewer mode
 - **`89807c69`** — Refresh external review snapshot for e6fe5938
 - **`e6fe5938`** — Guard projection helpers against world-building drift
 - **`99334c92`** — Refresh external review snapshot for 7faed568
@@ -346,9 +348,10 @@ Recent findings:
 - open governance findings: 112
 
 ### Startup advisories
-- checkpoint_allowed: worktree_dirty_within_budget
+- await_review: review_pending_before_push
 
 ### Stale warnings
+- Keep editing the current slice.
 - Move straight to the governed push path.
 
 ### Open gap rows
@@ -363,4 +366,4 @@ Recent findings:
 
 ---
 
-Projection produced by `devctl review-snapshot`. Generation stamp `snap-0f64ebb23a76` binds this file to HEAD `89807c691e35`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
+Projection produced by `devctl review-snapshot`. Generation stamp `snap-d97b2394f0e9` binds this file to HEAD `65fbf18835ff`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
