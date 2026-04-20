@@ -31,6 +31,9 @@ class CollaborationParticipantState:
     capture_mode: str = ""
     approval_mode: str = ""
     supervision_mode: str = ""
+    host_wake_mode: str = ""
+    wake_interval_seconds: int = 0
+    host_wake_summary: str = ""
     prepared_at: str = ""
     metadata_path: str = ""
     log_path: str = ""
@@ -129,3 +132,13 @@ class CollaborationSessionState:
     verification_status: str = "inactive"
     watcher_owner: str = ""
     watcher_status: str = "inactive"
+    mutation_wake_mode: str = "unknown"
+    verification_wake_mode: str = "unknown"
+    watcher_wake_mode: str = "unknown"
+    wake_continuity_ok: bool = True
+    wake_gap_summary: str = ""
+    loop_wake_mode: str = "unknown"
+    loop_wake_interval_seconds: int = 0
+    loop_driver_agent: str = ""
+    loop_autonomy_ok: bool = False
+    loop_gap_summary: str = ""

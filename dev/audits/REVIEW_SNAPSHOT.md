@@ -5,14 +5,14 @@
 ## Quick status
 
 - Branch: `feature/governance-quality-sweep`
-- HEAD: `818e46924a73` — Fix regression test per Codex rev_pkt_1403: assert real fields + exercise call sites
-- Tree hash: `45b6ef40dd6a`
-- Generation stamp: `snap-84546c554509`
-- Generated at (UTC): 2026-04-19T23:15:50Z
-- Push decision: `await_review` — review_loop_relaunch_required
-- Reviewer mode: `tools_only` (interaction: `local_terminal`)
+- HEAD: `95131e800ca7` — Refresh external review snapshot for 818e4692
+- Tree hash: `f2f4fbfa7f0a`
+- Generation stamp: `snap-50b9446cef16`
+- Generated at (UTC): 2026-04-20T01:21:54Z
+- Push decision: `await_checkpoint` — staged_index_budget_exceeded
+- Reviewer mode: `active_dual_agent` (interaction: `local_terminal`)
 - Pipeline state: `n/a` (approval: `n/a`)
-- Delta since last snapshot: 24 commits, 7 files, +1174/-1058
+- Delta since last snapshot: 25 commits, 7 files, +1227/-1114
 - Governance findings: 112 open / 86 fixed / 212 total
 - Probe hints: 0 total across 0 files scanned
 
@@ -54,18 +54,18 @@ adopters arrive.
 - Remote: `https://github.com/jguida941/voiceterm.git`
 - Default branch: `master`
 - Current branch: `feature/governance-quality-sweep`
-- HEAD SHA: `818e46924a73db74336c7a67ba7e4f34e8bea8c8`
+- HEAD SHA: `95131e800ca7ca93aadc83f638a057d182b6301f`
 - HEAD author: Justin Guida
 - HEAD timestamp (UTC): 2026-04-19T19:15:38-04:00
 
 ## 2. Governance state
 
 ### Push decision
-- action: `await_review`
-- reason: review_loop_relaunch_required
+- action: `await_checkpoint`
+- reason: staged_index_budget_exceeded
 - push_eligible_now: False
-- worktree_clean: True
-- staged_path_count: 0
+- worktree_clean: False
+- staged_path_count: 13
 - unstaged_path_count: 0
 - next_step_command: `python3 dev/scripts/devctl.py review-channel --action status --terminal none --format json`
 - latest_push_report: `dev/reports/push/latest.json`
@@ -74,14 +74,13 @@ adopters arrive.
 - authorized_head_commit: `92b17e69456d8959e36d6091fa6a6f0a23c85844`
 - approved_target_identity: `tree-receipt-20260419T132557054922Z:ad447307c9b99c354023f77d625a2babf8f55a3d`
 - publication_backlog: urgent
-- publication_guidance: 28 local commit(s) waiting for governed push once review is accepted.
+- publication_guidance: 29 local commit(s) waiting for governed push once the current slice is checkpoint-clean.
 
 ### Reviewer runtime
-- reviewer_mode: `tools_only`
+- reviewer_mode: `active_dual_agent`
 - reviewer_freshness: unknown
 - reviewer_publish_clear: False
 - interaction_mode: `local_terminal`
-- implementation_blocked: yes — review_loop_relaunch_required
 
 ### Remote commit pipeline
 - state: `n/a`
@@ -91,54 +90,56 @@ adopters arrive.
 - active plan: **AI Governance Platform Plan**
 - plan path: `dev/active/ai_governance_platform.md`
 - active MP scope: `MP-377`
-- advisory: `repair_reviewer_loop` — review_loop_relaunch_required
+- advisory: `checkpoint_before_continue` — staged_index_budget_exceeded
+- checkpoint_required: **yes**
 
 ## 3. Delta — what changed since the previous snapshot
 
-Range: last 24 commits ending at `818e46924a73`
+Range: last 25 commits ending at `95131e800ca7`
 
-- commits: 24
+- commits: 25
 - files changed: 7
-- insertions: +1174
-- deletions: -1058
-- bundle classes touched: tooling, docs
+- insertions: +1227
+- deletions: -1114
+- bundle classes touched: docs, tooling
 - authority surfaces touched: 1 file(s)
 
 ### Commits
 
 | # | SHA | Subject | Files | +/- | Bundle | Risk |
 |---|---|---|---|---|---|---|
-| 1 | `818e4692` | Fix regression test per Codex rev_pkt_1403: assert real fie… | 1 | +71/-17 | tooling |  |
-| 2 | `e61fb65c` | Refresh external review snapshot for 3d14a22a | 2 | +50/-47 | docs |  |
-| 3 | `3d14a22a` | SYSTEM_MAP.md v7.1 — §9 coverage refreshed 22%->37% + dogfo… | 1 | +6/-5 | docs |  |
-| 4 | `c762e1c0` | Refresh external review snapshot for 6944d2c9 | 2 | +48/-54 | docs |  |
-| 5 | `6944d2c9` | bridge.md: substantive Claude Status + Ack for rev 66a62d41… | 1 | +7/-2 | docs |  |
-| 6 | `fe7cf67b` | Refresh external review snapshot for 02325c76 | 2 | +48/-46 | docs |  |
-| 7 | `02325c76` | Add regression test for observer-scoped authority snapshot… | 1 | +45/-0 | tooling |  |
-| 8 | `74467983` | Refresh external review snapshot for 9ac8211d | 2 | +48/-50 | docs |  |
-| 9 | `9ac8211d` | SYSTEM_MAP.md v7.0 — §0.7 tier fix per Codex rev_pkt_1397 s… | 1 | +2/-1 | docs |  |
-| 10 | `c52d7972` | Refresh external review snapshot for 902b39af | 2 | +67/-52 | docs |  |
-| 11 | `902b39af` | rev_pkt_1366 FULL close per Codex rev_pkt_1396 directive | 2 | +5/-2 | tooling |  |
-| 12 | `908b0c97` | Refresh external review snapshot for 17d68365 | 2 | +58/-63 | docs |  |
-| 13 | `17d68365` | SYSTEM_MAP.md v6.9 — revert §54 per operator: SYSTEM_MAP is… | 2 | +52/-87 | tooling |  |
-| 14 | `3dc695bc` | Refresh external review snapshot for 096df5bf | 2 | +61/-61 | docs |  |
-| 15 | `096df5bf` | SYSTEM_MAP.md v6.8 — §54 Active Joint Work coordination sur… | 2 | +89/-50 | tooling |  |
-| 16 | `635c1a23` | Refresh external review snapshot for 93e96fc6 | 2 | +64/-65 | docs |  |
-| 17 | `93e96fc6` | rev_pkt_1366: status.py passes caller_role='observer' to pr… | 2 | +54/-52 | tooling |  |
-| 18 | `74c99383` | Refresh external review snapshot for 6d4ca720 | 2 | +61/-62 | docs |  |
-| 19 | `6d4ca720` | SYSTEM_MAP.md v6.7 — fix 2 errors from rev_pkt_1380 (spine… | 2 | +61/-56 | tooling |  |
-| 20 | `4248a857` | Refresh external review snapshot for 2a84010d | 2 | +55/-61 | docs |  |
-| 21 | `2a84010d` | SYSTEM_MAP.md v6.6 — §51 row #11: typed state-transition re… | 2 | +55/-50 | tooling |  |
-| 22 | `dfd27e61` | Refresh external review snapshot for 2e8db252 | 2 | +60/-62 | docs |  |
-| 23 | `2e8db252` | SYSTEM_MAP.md v6.5 — rev_pkt_1375: remove last imperative "… | 3 | +52/-47 | docs |  |
-| 24 | `13d57c1f` | SYSTEM_MAP.md v6.4 — rev_pkt_1374 correction: §0.6/§0.7 ove… | 2 | +55/-66 | tooling |  |
+| 1 | `95131e80` | Refresh external review snapshot for 818e4692 | 2 | +53/-56 | docs |  |
+| 2 | `818e4692` | Fix regression test per Codex rev_pkt_1403: assert real fie… | 1 | +71/-17 | tooling |  |
+| 3 | `e61fb65c` | Refresh external review snapshot for 3d14a22a | 2 | +50/-47 | docs |  |
+| 4 | `3d14a22a` | SYSTEM_MAP.md v7.1 — §9 coverage refreshed 22%->37% + dogfo… | 1 | +6/-5 | docs |  |
+| 5 | `c762e1c0` | Refresh external review snapshot for 6944d2c9 | 2 | +48/-54 | docs |  |
+| 6 | `6944d2c9` | bridge.md: substantive Claude Status + Ack for rev 66a62d41… | 1 | +7/-2 | docs |  |
+| 7 | `fe7cf67b` | Refresh external review snapshot for 02325c76 | 2 | +48/-46 | docs |  |
+| 8 | `02325c76` | Add regression test for observer-scoped authority snapshot… | 1 | +45/-0 | tooling |  |
+| 9 | `74467983` | Refresh external review snapshot for 9ac8211d | 2 | +48/-50 | docs |  |
+| 10 | `9ac8211d` | SYSTEM_MAP.md v7.0 — §0.7 tier fix per Codex rev_pkt_1397 s… | 1 | +2/-1 | docs |  |
+| 11 | `c52d7972` | Refresh external review snapshot for 902b39af | 2 | +67/-52 | docs |  |
+| 12 | `902b39af` | rev_pkt_1366 FULL close per Codex rev_pkt_1396 directive | 2 | +5/-2 | tooling |  |
+| 13 | `908b0c97` | Refresh external review snapshot for 17d68365 | 2 | +58/-63 | docs |  |
+| 14 | `17d68365` | SYSTEM_MAP.md v6.9 — revert §54 per operator: SYSTEM_MAP is… | 2 | +52/-87 | tooling |  |
+| 15 | `3dc695bc` | Refresh external review snapshot for 096df5bf | 2 | +61/-61 | docs |  |
+| 16 | `096df5bf` | SYSTEM_MAP.md v6.8 — §54 Active Joint Work coordination sur… | 2 | +89/-50 | tooling |  |
+| 17 | `635c1a23` | Refresh external review snapshot for 93e96fc6 | 2 | +64/-65 | docs |  |
+| 18 | `93e96fc6` | rev_pkt_1366: status.py passes caller_role='observer' to pr… | 2 | +54/-52 | tooling |  |
+| 19 | `74c99383` | Refresh external review snapshot for 6d4ca720 | 2 | +61/-62 | docs |  |
+| 20 | `6d4ca720` | SYSTEM_MAP.md v6.7 — fix 2 errors from rev_pkt_1380 (spine… | 2 | +61/-56 | tooling |  |
+| 21 | `4248a857` | Refresh external review snapshot for 2a84010d | 2 | +55/-61 | docs |  |
+| 22 | `2a84010d` | SYSTEM_MAP.md v6.6 — §51 row #11: typed state-transition re… | 2 | +55/-50 | tooling |  |
+| 23 | `dfd27e61` | Refresh external review snapshot for 2e8db252 | 2 | +60/-62 | docs |  |
+| 24 | `2e8db252` | SYSTEM_MAP.md v6.5 — rev_pkt_1375: remove last imperative "… | 3 | +52/-47 | docs |  |
+| 25 | `13d57c1f` | SYSTEM_MAP.md v6.4 — rev_pkt_1374 correction: §0.6/§0.7 ove… | 2 | +55/-66 | tooling |  |
 
 ### Files
 
 | Path | Bundle | +/- |
 |---|---|---|
-| `bridge.md` | docs | +58/-53 |
-| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +931/-932 |
+| `bridge.md` | docs | +64/-64 |
+| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +978/-977 |
 | `dev/guides/SYSTEM_MAP.md` | docs | +62/-52 |
 | `dev/scripts/devctl/commands/review_channel/reviewer_runtime_snapshot.py` | tooling | +4/-2 |
 | `dev/scripts/devctl/commands/review_channel/status.py` | tooling | +2/-2 |
@@ -227,6 +228,8 @@ Recent findings:
 
 ### Per-commit rationale
 
+- **`95131e80`** — Refresh external review snapshot for 818e4692
+  - evolution: Fact: the next live Codex+Claude remote-control pass exposed a narrower defect than "the heartbeat is stale." Event-backed packet posting already updated the typed queue immediately, but the actual reviewer wake lived o…
 - **`818e4692`** — Fix regression test per Codex rev_pkt_1403: assert real fields + exercise call sites
   - Codex rev_pkt_1403: my 02325c76 regression test was vacuous. It read
   - authority_snapshot['agent_lane']['permissions'] but AuthoritySnapshot.to_dict()
@@ -320,10 +323,11 @@ Recent findings:
 - open governance findings: 112
 
 ### Startup advisories
-- repair_reviewer_loop: review_loop_relaunch_required
+- checkpoint_before_continue: staged_index_budget_exceeded
 
 ### Stale warnings
-- Cut a checkpoint before doing anything else.
+- Keep editing the current slice.
+- Move straight to the governed push path.
 
 ### Open gap rows
 - **governance_open** (`dev/scripts/devctl/runtime/dogfood_log.py`): dogfood_finding_id_instability: 
@@ -337,4 +341,4 @@ Recent findings:
 
 ---
 
-Projection produced by `devctl review-snapshot`. Generation stamp `snap-84546c554509` binds this file to HEAD `818e46924a73`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
+Projection produced by `devctl review-snapshot`. Generation stamp `snap-50b9446cef16` binds this file to HEAD `95131e800ca7`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.

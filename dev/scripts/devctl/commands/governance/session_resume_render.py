@@ -70,6 +70,17 @@ def render_bootstrap(packet: "SessionCachePacket") -> str:
                 f"4. `{context_graph_bootstrap_command()}`",
             ]
         )
+    elif role in {"dashboard", "observer"}:
+        lines.extend(
+            [
+                "",
+                "### Run In Order",
+                f"1. `{startup_context_command_for_role(role)}`",
+                f"2. `{session_resume_command_for_role(role)}`",
+                "3. `python3 dev/scripts/devctl.py review-channel --action status --terminal none --format json`",
+                f"4. `{context_graph_bootstrap_command()}`",
+            ]
+        )
     else:
         lines.extend(
             [
@@ -245,16 +256,26 @@ def render_summary(packet: "SessionCachePacket") -> str:
 
 def _normalized_role(packet: "SessionCachePacket") -> str:
     role = str(packet.role or "").strip().lower()
-    return "reviewer" if role == "reviewer" else "implementer"
+    if role in {"dashboard", "implementer", "observer", "reviewer"}:
+        return role
+    return "implementer"
 
 
 def _role_label(role: str) -> str:
-    return "Reviewer" if role == "reviewer" else "Implementer"
+    if role == "reviewer":
+        return "Reviewer"
+    if role == "observer":
+        return "Observer"
+    if role == "dashboard":
+        return "Dashboard"
+    return "Implementer"
 
 
 def _role_bootstrap_section(packet: "SessionCachePacket", *, role: str) -> list[str]:
     if role == "reviewer":
         return _reviewer_bootstrap_section(packet)
+    if role in {"dashboard", "observer"}:
+        return _observer_bootstrap_section(packet, role=role)
     return _implementer_bootstrap_section(packet)
 
 
@@ -338,6 +359,39 @@ def _implementer_bootstrap_section(packet: "SessionCachePacket") -> list[str]:
                 f"`{context_graph_bootstrap_command()}`. Use this packet plus typed "
                 "review-state/`bridge.md` as live authority and acknowledge the "
                 "current instruction revision before coding."
+            ),
+        ]
+    )
+    return lines
+
+
+def _observer_bootstrap_section(
+    packet: "SessionCachePacket",
+    *,
+    role: str,
+) -> list[str]:
+    role_name = "Dashboard" if role == "dashboard" else "Observer"
+    lines = [
+        "",
+        f"### {role_name} Rules",
+        "- Use this packet as the read-only bootstrap surface before bridge-first inspection or operator memory.",
+        "- Run the typed status surface before interpreting stale bridge prose, lane tables, or local assumptions.",
+        "- This lane may inspect state and post findings or action requests, but it must not take implementation ownership.",
+        "- If `Pending Inbox` names a required command, run that repo-owned inbox/status command before asking what to do next.",
+    ]
+    lines.extend(
+        [
+            "",
+            "### Conversation Starter",
+            (
+                f"{role_name} lane only. Run "
+                f"`{startup_context_command_for_role(role)}`, then "
+                f"`{session_resume_command_for_role(role)}`, then "
+                "`python3 dev/scripts/devctl.py review-channel --action status "
+                "--terminal none --format json`, then "
+                f"`{context_graph_bootstrap_command()}`. Use typed review-state "
+                "and `bridge.md` as read-only authority, not as permission to "
+                "edit or commit."
             ),
         ]
     )

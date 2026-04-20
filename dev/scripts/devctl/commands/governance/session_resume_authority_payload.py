@@ -134,6 +134,9 @@ class SessionResumeAuthorityPayload:
         return payload
 
 
+_READ_ONLY_SESSION_ROLES = frozenset({"dashboard", "observer"})
+
+
 def build_session_resume_review_state_context(
     review_state_payload: Mapping[str, object],
     *,
@@ -141,11 +144,7 @@ def build_session_resume_review_state_context(
     role: str,
 ) -> SessionResumeReviewStateContext:
     payload = dict(review_state_payload)
-    attention_agent = (
-        reviewer_provider_from_review_state(payload)
-        if role == "reviewer"
-        else coding_provider_from_review_state(payload)
-    )
+    attention_agent = _attention_agent_for_role(payload, role=role)
     packet_inbox = None
     if payload:
         packet_inbox = packet_inbox_from_review_state(payload) or packet_inbox_from_mapping(
@@ -160,3 +159,16 @@ def build_session_resume_review_state_context(
         packet_inbox=packet_inbox,
         open_findings=open_findings,
     )
+
+
+def _attention_agent_for_role(
+    review_state_payload: Mapping[str, object],
+    *,
+    role: str,
+) -> str:
+    normalized_role = str(role or "").strip().lower()
+    if normalized_role == "reviewer":
+        return reviewer_provider_from_review_state(review_state_payload)
+    if normalized_role in _READ_ONLY_SESSION_ROLES:
+        return "operator"
+    return coding_provider_from_review_state(review_state_payload)

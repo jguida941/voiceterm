@@ -33,9 +33,9 @@ def add_parser(subparsers) -> None:
     )
     cmd.add_argument(
         "--role",
-        choices=("implementer", "reviewer"),
+        choices=("dashboard", "implementer", "observer", "reviewer"),
         default="implementer",
-        help="Declare caller role (default: implementer).",
+        help="Declare caller role; dashboard normalizes to the observer lane.",
     )
     add_standard_output_arguments(
         cmd,
@@ -46,7 +46,7 @@ def add_parser(subparsers) -> None:
 def run(args) -> int:
     """Emit cached session state or rebuild from source artifacts."""
     repo_root = get_repo_root()
-    role = getattr(args, "role", "implementer") or "implementer"
+    role = _normalize_role(getattr(args, "role", "implementer"))
     head_sha = current_head(repo_root)
     governance = resolve_governance(repo_root)
     rs_mtime = get_review_state_mtime(repo_root, governance=governance)
@@ -120,6 +120,15 @@ def _emit_packet(args, packet: SessionCachePacket) -> int:
             "last_guard_ok": packet.last_guard_ok,
         },
     )
+
+
+def _normalize_role(role: object) -> str:
+    normalized = str(role or "implementer").strip().lower()
+    if normalized == "dashboard":
+        return "observer"
+    if normalized in {"implementer", "observer", "reviewer"}:
+        return normalized
+    return "implementer"
 
 
 __all__ = [

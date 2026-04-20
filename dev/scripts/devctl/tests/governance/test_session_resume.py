@@ -150,6 +150,17 @@ class TestSessionResumeAuthorityPayload(unittest.TestCase):
                         "required_command": "",
                         "delivery_state": "notified",
                     },
+                    {
+                        "agent": "operator",
+                        "current_instruction_packet_id": "",
+                        "latest_finding_packet_id": "",
+                        "pending_actionable_packet_ids": [],
+                        "expired_unresolved_packet_ids": ["rev_pkt_operator_old"],
+                        "attention_status": "review_needed",
+                        "wake_reason": "expired_unresolved_packet",
+                        "required_command": "",
+                        "delivery_state": "notified",
+                    },
                 ],
             },
         }
@@ -164,6 +175,11 @@ class TestSessionResumeAuthorityPayload(unittest.TestCase):
             fallback_open_findings="none",
             role="implementer",
         )
+        observer_context = build_session_resume_review_state_context(
+            review_state_payload,
+            fallback_open_findings="none",
+            role="observer",
+        )
 
         self.assertEqual(
             reviewer_context.open_findings,
@@ -172,6 +188,10 @@ class TestSessionResumeAuthorityPayload(unittest.TestCase):
         self.assertEqual(
             implementer_context.open_findings,
             "2 expired unresolved review packet(s)",
+        )
+        self.assertEqual(
+            observer_context.open_findings,
+            "1 expired unresolved review packet(s)",
         )
 
 
@@ -633,13 +653,112 @@ class TestBuildFromSources(unittest.TestCase):
             packet.open_findings,
             "1 expired unresolved review packet(s)",
         )
-        self.assertEqual(
-            packet.blockers,
+        self.assertIn(
             "1 expired unresolved review packet(s)",
+            packet.blockers,
+        )
+        self.assertIn(
+            "implementation_permission_blocked",
+            packet.blockers,
         )
         self.assertEqual(
             packet.advisory_reason,
             "1 expired unresolved review packet(s)",
+        )
+
+    def test_build_from_sources_threads_role_into_authority_snapshot(self) -> None:
+        from dev.scripts.devctl.runtime.control_plane_read_model import (
+            ControlPlaneReadModel,
+        )
+
+        model = ControlPlaneReadModel(
+            timestamp="2026-04-04T00:00:00Z",
+            branch="role-branch",
+            head_sha="role_sha",
+            worktree_clean=True,
+            ahead_of_upstream=0,
+            resolved_phase="idle",
+            push_eligible=False,
+            implementation_blocked=False,
+            top_blocker="none",
+            next_action="observe",
+            next_command="python3 dev/scripts/devctl.py review-channel --action status --terminal none --format json",
+            reviewer_mode="active_dual_agent",
+            operator_interaction_mode="active_dual_agent",
+            reviewer_freshness="fresh",
+            review_accepted=False,
+            last_reviewed_sha="",
+            attention_status="healthy",
+            attention_summary="healthy",
+            publisher_running=False,
+            supervisor_running=False,
+            codex_conductor_alive=True,
+            claude_conductor_alive=True,
+            pending_action_requests=0,
+            last_guard_ok=True,
+            check_details=(),
+        )
+        sources = self._make_sources(
+            review_state={
+                "current_session": {
+                    "current_instruction": "Observe the live state",
+                    "current_instruction_revision": "rev-123",
+                    "implementer_ack_state": "missing",
+                },
+                "coordination": {
+                    "actors": [
+                        {
+                            "actor_id": "codex",
+                            "provider": "codex",
+                            "role": "reviewer",
+                            "presence": "live",
+                        },
+                        {
+                            "actor_id": "claude",
+                            "provider": "claude",
+                            "role": "implementer",
+                            "presence": "live",
+                        },
+                        {
+                            "actor_id": "operator",
+                            "provider": "operator",
+                            "role": "operator",
+                            "presence": "live",
+                        },
+                    ],
+                },
+            },
+        )
+
+        with tempfile.TemporaryDirectory() as td:
+            observer_packet = build_from_sources(
+                Path(td),
+                role="observer",
+                head_sha="role_sha",
+                read_model_override=model,
+                sources_override=sources,
+            )
+            reviewer_packet = build_from_sources(
+                Path(td),
+                role="reviewer",
+                head_sha="role_sha",
+                read_model_override=model,
+                sources_override=sources,
+            )
+
+        assert observer_packet.authority_snapshot is not None
+        assert reviewer_packet.authority_snapshot is not None
+        self.assertEqual(observer_packet.authority_snapshot.actor_role, "observer")
+        self.assertEqual(observer_packet.authority_snapshot.actor_identity, "operator")
+        self.assertNotIn(
+            "implementation.edit",
+            observer_packet.authority_snapshot.allowed_actions,
+        )
+        self.assertEqual(reviewer_packet.authority_snapshot.actor_role, "reviewer")
+        self.assertEqual(reviewer_packet.authority_snapshot.actor_identity, "codex")
+        self.assertIn(
+            "review.checkpoint",
+            reviewer_packet.authority_snapshot.allowed_actions,
         )
 
 
@@ -953,6 +1072,43 @@ class TestRunCommand(unittest.TestCase):
                 role="reviewer",
             )
             self.assertEqual(run(args), 0)
+
+    @patch("dev.scripts.devctl.commands.governance.session_resume.build_from_sources")
+    @patch("dev.scripts.devctl.commands.governance.session_resume.load_current_review_state")
+    @patch("dev.scripts.devctl.commands.governance.session_resume.try_cache_hit", return_value=None)
+    @patch(_PATCH_CONTINUITY, return_value=None)
+    @patch(_PATCH_HEAD, return_value="abc123")
+    @patch(_PATCH_ROOT)
+    def test_run_normalizes_dashboard_role_to_observer(
+        self,
+        mock_root,
+        mock_head,
+        mock_cont,
+        mock_cache,
+        mock_load_current_review_state,
+        mock_build_from_sources,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            mock_root.return_value = root
+            mock_load_current_review_state.return_value = object()
+            mock_build_from_sources.return_value = SessionCachePacket(
+                head_sha="abc123",
+                role="observer",
+            )
+            args = SimpleNamespace(
+                format="json",
+                output=None,
+                pipe_command=None,
+                pipe_args=None,
+                role="dashboard",
+            )
+
+            self.assertEqual(run(args), 0)
+            self.assertEqual(
+                mock_build_from_sources.call_args.kwargs["role"],
+                "observer",
+            )
 
     @patch("dev.scripts.devctl.commands.governance.session_resume.build_from_sources")
     @patch("dev.scripts.devctl.commands.governance.session_resume.load_current_review_state")
@@ -1447,6 +1603,29 @@ class TestLastReviewedSha(unittest.TestCase):
         self.assertIn("Current instruction revision to acknowledge: `rev-123`.", md)
         self.assertIn("Implement the bounded slice.", md)
 
+    def test_render_bootstrap_observer_stays_read_only(self) -> None:
+        """Observer bootstrap should stay on the read-only status path."""
+        from dev.scripts.devctl.commands.governance.session_resume_support import (
+            render_bootstrap,
+        )
+
+        packet = SessionCachePacket(
+            role="observer",
+            operator_interaction_mode="active_dual_agent",
+        )
+
+        md = render_bootstrap(packet)
+        self.assertIn("Observer Bootstrap Packet", md)
+        self.assertIn(
+            "python3 dev/scripts/devctl.py session-resume --role observer --format bootstrap",
+            md,
+        )
+        self.assertIn(
+            "python3 dev/scripts/devctl.py review-channel --action status --terminal none --format json",
+            md,
+        )
+        self.assertIn("must not take implementation ownership", md)
+
     def test_render_bootstrap_reviewer_prefers_review_candidate(self) -> None:
         """Reviewer bootstrap should prefer a typed review candidate over raw diff range."""
         from dev.scripts.devctl.commands.governance.session_resume_support import (
@@ -1829,7 +2008,7 @@ class TestV2Fields(unittest.TestCase):
         assert packet.authority_snapshot is not None
         self.assertEqual(
             packet.authority_snapshot.next_command,
-            "python3 dev/scripts/devctl.py commit -m \"<descriptive message>\"",
+            "python3 dev/scripts/devctl.py review-channel --action status --terminal none --format json",
         )
 
     def test_authority_snapshot_prefers_coordination_resync_over_push_guidance(self) -> None:

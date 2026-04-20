@@ -3416,22 +3416,34 @@ Phase metadata: phase_id=MP393-P0; owner_doc=`dev/active/remote_control_runtime.
       status: `pending`
       depends_on: `MP393-T02`
 
-### Phase MP-394 - Command Registry And Plan-Linked Command Ownership
+### Phase MP-394 - Assistant Command Registry And Role-Aware Command Ownership
 
-Phase metadata: phase_id=MP394-P0; owner_doc=`dev/active/ai_governance_platform.md`; status=pending; depends_on=`MP393-P0`; summary=Move slash/custom command ownership out of prose and into a typed registry that links commands to plan targets, roles, and policy.
+Phase metadata: phase_id=MP394-P0; owner_doc=`dev/active/ai_governance_platform.md`; status=pending; depends_on=`MP391-P0`; summary=Split assistant-command work into a current-role portable registry first (`MP394-A`), then role-aware ownership/guards after `MP-392` / `MP-393` (`MP394-B`).
 
-- [ ] `MP394-T01` Add `.claude/command_registry.yaml` with typed command rows linking command id to owning plan target, allowed roles, default policy hint, and `active|experimental|deprecated` state.
+- [ ] `MP394-A-T01` Add canonical `repo_governance.assistant_commands` rows to `dev/config/devctl_repo_policy.json` with command id, goal group, plan target, allowed lanes, required bootstrap, mode preconditions, mutation policy, policy hint, provider aliases, and projection state.
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `pending`
+      depends_on: `MP391-P0`
+- [ ] `MP394-A-T02` Materialize only the already-shipped provider assets (`control.bridge_loop`, `voice.capture_once`) from that canonical registry and keep additional command ids as truthful `planned` rows until their projections exist.
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `pending`
+      depends_on: `MP394-A-T01`
+- [ ] `MP394-A-T03` Require provider projections to use explicit typed packet visibility (`review-channel --action inbox|watch --target <agent>`) instead of assuming Codex- or Claude-targeted packets are implicitly visible across lanes.
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `pending`
+      depends_on: `MP394-A-T02`
+- [ ] `MP394-A-T04` Extend plan/docs sync guards so active assistant commands fail closed when they lack canonical plan linkage, truthful projection state, or current-role policy metadata.
+      owner_doc: `dev/active/PLAN_FORMAT.md`
+      status: `pending`
+      depends_on: `MP394-A-T03`
+- [ ] `MP394-B-T01` After `MP-393`, widen assistant-command ownership, allowed-role gates, and runtime guard coverage to the expanded role vocabulary without introducing command-only exceptions.
       owner_doc: `dev/active/ai_governance_platform.md`
       status: `pending`
       depends_on: `MP393-P0`
-- [ ] `MP394-T02` Migrate `/bridge-loop`, `/remote-control`, and `/voice` onto that registry so command ownership no longer depends on prose-only docs.
-      owner_doc: `dev/active/ai_governance_platform.md`
-      status: `pending`
-      depends_on: `MP394-T01`
-- [ ] `MP394-T03` Extend plan/docs sync guards so active commands fail closed when they lack plan linkage, role ownership, or truthful deprecation state.
+- [ ] `MP394-B-T02` Keep provider projections (`.claude/commands/*`, slash templates, future Codex assets) as generated wrappers over the canonical registry and reject provider-local registries as authority.
       owner_doc: `dev/active/PLAN_FORMAT.md`
       status: `pending`
-      depends_on: `MP394-T02`
+      depends_on: `MP394-B-T01`
 
 ### Phase MP-395 - Structured Checklist Migration For Half-Done Plans
 
@@ -5700,6 +5712,10 @@ working on `MP-377`.
   `Codex conductor/reviewer + Claude remote-control implementer + permanent
   Claude packet watcher`, and mutating fanout stays capped until startup
   receipts stop reporting `safe_to_fanout=False` / `resync_required=True`.
+  When Claude/operator loops need live reviewer packet visibility, use the
+  explicit typed `review-channel --action inbox|watch --target codex`
+  surface; Codex-targeted packets are not implicitly visible in the Claude
+  lane.
   External repos remain engine-matrix proof first: rerun anchors in waves of
   `3`, stop on the first new `engine_bug`, import honest adopter findings
   through `governance-import-findings`, and only widen back toward `5` repos

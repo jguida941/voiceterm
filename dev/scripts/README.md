@@ -129,9 +129,11 @@ heartbeat/bridge refresh; reserve relaunch/repair for
 `action=repair_reviewer_loop`, checkpoint/budget blockers, or typed stale /
 non-live reviewer runtime. After that Step 0 receipt, the canonical role-bound
 starter packet for a fresh Codex or Claude conversation is
-`python3 dev/scripts/devctl.py session-resume --role reviewer|implementer --format bootstrap`;
-use that repo-owned packet instead of hand-written mode prompts or operator
-memory. The Step-0 summary now also carries bounded coordination truth
+`python3 dev/scripts/devctl.py session-resume --role reviewer|implementer|observer --format bootstrap`;
+`dashboard` is accepted as the user-facing alias for the same read-only
+observer lane. Use that repo-owned packet instead of hand-written mode prompts
+or operator memory. The Step-0 summary now also carries bounded coordination
+truth
 (`coordination`, `safe_to_fanout`, `resync_required`, `current_slice`,
 `active_target`) and may direct the operator or launcher back to
 `review-channel --action status` when resync is required before a fresh
@@ -536,10 +538,17 @@ Portability note:
   `compact.json` projections rather than from an invented top-level status
   payload block. The standalone packet watcher
   (`review-channel --action watch --target claude --status pending --follow
-  --terminal none --format json`) remains useful for observer dashboards and
-  queue inspection, and it still marks observed `action_request` packets in
-  the typed receipt path so remote-dashboard beta loops can prove packet
-  delivery without bridge prose or queue-only heuristics. Prepared
+  --terminal none --format json` or
+  `review-channel --action watch --target codex --status pending --follow
+  --terminal none --format json`) remains useful for observer dashboards,
+  queue inspection, and explicit cross-lane packet visibility. Packet
+  visibility is not implicit across providers: if Claude or an operator needs
+  to observe Codex-targeted packets, they must use the codex-targeted
+  `inbox|watch` surface instead of assuming those packets will appear in the
+  Claude lane automatically. The watcher still marks observed
+  `action_request` packets in the typed receipt path so remote-dashboard beta
+  loops can prove packet delivery without bridge prose or queue-only
+  heuristics. Prepared
   conductor-launch authority follows the same typed-source rule after launch:
   remote-control receipt-commit HEAD drift must be classified from typed
   governance/review-state evidence rather than a lone
@@ -1747,8 +1756,11 @@ Machine-first output note:
 - `session-resume`: compact cached role bootstrap packet over the same typed
   startup/review/runtime sources. `--format summary|md|json` stays available
   for status inspection, and `--format bootstrap` is the canonical fresh-
-  conversation starter surface for reviewer and implementer sessions. Run the
-  matching role after `startup-context` to get the exact role commands,
+  conversation starter surface for reviewer, implementer, and observer
+  sessions. `dashboard` is the accepted user-facing alias and currently
+  normalizes to the same read-only observer lane until a distinct dashboard
+  runtime contract exists. Run the matching role after `startup-context` to
+  get the exact role commands,
   authority docs, review range/current instruction, frozen `review_candidate`
   when dirty-tree review is ready, the reduced `authority_snapshot`
   (`coordination_state`, `root_cause`, `required_action`, `next_command`,
@@ -1759,7 +1771,9 @@ Machine-first output note:
   same promoted `active_target` / `CoordinationSnapshot` path as
   `startup-context` and dashboard so live findings can outrank stale
   continuity, and the same `AuthoritySnapshot` reducer so resume/startup/status
-  do not silently disagree on handshake recovery. Implementer bootstrap now
+  do not silently disagree on handshake recovery. Observer bootstrap stays on
+  the typed read-only status path and must not inherit implementer-lane
+  ownership or mutation guidance. Implementer bootstrap now
   treats `Pending Inbox` / typed packet `required_command` as the next bounded
   step too, so remote-control Claude sessions poll
   `review-channel --action inbox --target claude --status pending --format md`

@@ -303,7 +303,10 @@ def build_from_sources(
         top_blocker = open_findings
     blockers = _resolve_blockers(receipt, top_blocker, shared_blockers)
     if shared_blockers != "none": authority_payload["next_command"] = summary_next_command(authority_payload)
-    authority_snapshot = build_authority_snapshot(authority_payload)
+    authority_snapshot = build_authority_snapshot(
+        authority_payload,
+        caller_role=role,
+    )
     return SessionCachePacket(
         generated_at_utc=utc_timestamp(),
         role=role,

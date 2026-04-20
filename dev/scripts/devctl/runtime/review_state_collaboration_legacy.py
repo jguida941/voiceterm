@@ -31,6 +31,7 @@ from .review_state_collaboration_legacy_support import (
 from .role_profile import (
     TandemRole,
     default_provider_for_role,
+    role_for_provider,
 )
 
 

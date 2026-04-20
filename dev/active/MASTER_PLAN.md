@@ -114,10 +114,15 @@
   wire the expanded role model through `startup-context`, `session-resume`,
   `commit --role`, and review-channel actor validation without regressing the
   existing reviewer/implementer/operator lanes.
-- 2026-04-18 `MP-394` command registry in `MP-377` scope:
-  add `.claude/command_registry.yaml`, link commands to owning plans/roles,
-  and migrate `/bridge-loop`, `/remote-control`, and `/voice` off prose-only
-  ownership.
+- 2026-04-18 `MP-394A` current-role assistant-command registry in `MP-377`
+  scope: add canonical `repo_governance.assistant_commands` rows in
+  `dev/config/devctl_repo_policy.json`, keep the registry current-role-only
+  before role expansion, and render the already-materialized provider assets
+  (`bridge-loop`, `voice`) as projections instead of prose-only ownership.
+- 2026-04-18 `MP-394B` role-aware assistant-command ownership in `MP-377`
+  scope: after `MP-392`/`MP-393`, widen command ownership/guards to the
+  expanded role model without creating command-only exceptions or restoring
+  provider-local registries as authority.
 - 2026-04-18 `MP-395` structured checklist migration in `MP-377` scope:
   convert `operator_console.md` and the remaining `remote_control_runtime.md`
   closure items into typed checklist/task state so half-done work stops
