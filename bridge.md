@@ -77,11 +77,11 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-04-20T18:37:03Z`
-- Last Codex poll (Local America/New_York): `2026-04-20 14:37:03 EDT`
+- Last Codex poll: `2026-04-20T23:41:22Z`
+- Last Codex poll (Local America/New_York): `2026-04-20 19:41:22 EDT`
 - Reviewer mode: `single_agent`
-- Last non-audit worktree hash: `d6ccff5e15dd0dab9fce7aafe83e545beb9ede1ed113422218f84a3a569de3e1`
-- Current instruction revision: `dba55175c2b6`
+- Last non-audit worktree hash: `d37e5e5b7357b5f183e3f6d275bd8a68bb3b4026f926d486b2cec6697becce59`
+- Current instruction revision: `acfc025a45ef`
 
 ## Protocol
 
@@ -113,7 +113,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Poll Status
 
-- Reviewer checkpoint updated through repo-owned tooling (mode: single_agent; reason: review-pass; observed-tree: d6ccff5e15dd; reviewed-tree: d6ccff5e15dd; instruction-rev: 666714500ab3).
+- Reviewer checkpoint updated through repo-owned tooling (mode: single_agent; reason: review-pass; observed-tree: 4e4f681e0e68; reviewed-tree: 4e4f681e0e68; instruction-rev: ea0afd771f15).
 
 ## Current Verdict
 
@@ -121,7 +121,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Open Findings
 
-1 pending review packet(s); 423 expired unresolved review packet(s)
+1 pending review packet(s); 427 expired unresolved review packet(s)
 
 ## Claude Status
 
@@ -133,11 +133,12 @@ treat these rules as active workflow instructions immediately.
 
 ## Claude Ack
 
-pending
+- missing
 
 ## Current Instruction For Claude
 
-Priority action_request: Heal-path ready: project_push_report promotes branch_already_pushed+published_remote to push_completed
+- Cut a checkpoint before continuing to edit.
+- Run `python3 dev/scripts/devctl.py commit -m "<descriptive message>"`.
 
 ## Last Reviewed Scope
 

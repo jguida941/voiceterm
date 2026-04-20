@@ -6,7 +6,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
-from ...approval_mode import normalize_approval_mode
+from ...approval_mode import auto_elevated_approval_mode, normalize_approval_mode
 from ...common import display_path
 from ...runtime.governance_scan import scan_repo_governance_safely
 from ...review_channel.core import (
@@ -235,7 +235,10 @@ def build_bridge_sessions(
 
     effective_cursor_lanes = context.cursor_lanes or []
     approval_mode = normalize_approval_mode(
-        getattr(args, "approval_mode", None),
+        auto_elevated_approval_mode(
+            explicit_mode=getattr(args, "approval_mode", None),
+            interaction_mode=context.interaction_mode,
+        ),
         dangerous=bool(args.dangerous),
     )
     effective_resolve_cli_path = resolve_cli_path_fn

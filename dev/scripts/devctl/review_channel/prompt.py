@@ -107,6 +107,20 @@ def build_conductor_prompt(
                 )
             ],
             "",
+            (
+                "After bootstrap, FIRST drain the review-channel inbox and "
+                "ack any pending operator-authority packets BEFORE any "
+                "reviewer-bootstrap, code reading, git diff, or routed bundle:"
+            ),
+            (
+                f"- `python3 dev/scripts/devctl.py review-channel --action inbox "
+                f"--target {provider} --status pending --terminal none --format md`"
+            ),
+            (
+                f"- For each pending instruction-class packet: "
+                f"`review-channel --action ack --packet-id <id> --actor {provider}`."
+            ),
+            "",
             "Operating contract:",
             *operating_contract_lines(
                 OperatingContractInput(

@@ -41,6 +41,35 @@ def normalize_approval_mode(
     return normalized
 
 
+def auto_elevated_approval_mode(
+    *,
+    explicit_mode: str | None,
+    interaction_mode: str,
+) -> str | None:
+    """Return the approval-mode after typed-state-driven auto-elevation.
+
+    When `explicit_mode` is None and the typed launcher state indicates a
+    headless `interaction_mode == "remote_control"` (which cannot render
+    local sandbox-escalation prompts), upgrade to `trusted` so the codex
+    binary does not silently deadlock on permission requests. All other
+    cases fall through to the explicit mode (or None for downstream
+    callers to normalize via DEFAULT_APPROVAL_MODE).
+
+    Empirical motivation: `rev_pkt_1510` + `rev_pkt_1512` reproduced the
+    deadlock under `--approval-mode balanced --terminal none`; switching
+    to `--approval-mode trusted` cleared it. Codex `rev_pkt_1521` flagged
+    that this elevation must fire under the real argparse parser (default
+    `None`, not `balanced`), and `rev_pkt_1522` flagged that the recover
+    path also needs the elevation, so the helper is shared across all
+    launcher entry points.
+    """
+    if explicit_mode is not None:
+        return explicit_mode
+    if interaction_mode == "remote_control":
+        return "trusted"
+    return None
+
+
 def provider_args_for_approval_mode(
     *,
     provider: str,

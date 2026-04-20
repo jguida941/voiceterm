@@ -121,6 +121,19 @@ Use docs like this:
   `apply` stamp `execution_started_at_utc` / `execution_started_by`; when you
   verify remote-control or dashboard behavior, use those fields instead of
   guessing from packet counts alone.
+- Headless `review-channel --action launch` (and `--action recover`) now
+  auto-elevate `--approval-mode` to `trusted` when typed
+  `interaction_mode == "remote_control"` and the operator did not pass an
+  explicit `--approval-mode`. This eliminates the silent sandbox-escalation
+  deadlock where headless `--terminal none` could not render local approval
+  prompts (`auto_elevated_approval_mode` lives in
+  `dev/scripts/devctl/approval_mode.py`). The rendered launch prompt now
+  also includes an explicit inbox-drain section after the bootstrap chain,
+  so codex sessions ack pending operator-authority packets before any
+  reviewer-bootstrap or code reading. Typed conductor-stall observations
+  for any wedge that escapes prevention live in
+  `dev/scripts/devctl/review_channel/stall_diagnostics.py` (typed
+  `ConductorStallDiagnosis` reader over codex rollout JSONL).
 - The operator read surface now has an explicit read-only alias too:
   `review-channel --action operator-inbox` fixes `target=operator`, defaults
   to the live pending queue, and must not stamp `delivery_observed_*` on live

@@ -11385,3 +11385,71 @@ Evidence:
 - `dev/guides/DEVELOPMENT.md`
 - `dev/scripts/README.md`
 - `dev/active/MASTER_PLAN.md`
+
+### 2026-04-20 — Headless remote-control launches auto-elevate approval-mode and conductor stalls become typed
+
+Fact: every dashboard-mode session this hour silently wedged on a `ps` /
+`pgrep` sandbox-escalation prompt that headless `--terminal none` could not
+render. The codex binary sat waiting forever for an operator approval that
+never reached the local TTY, and operators saw a "wedged conductor" with no
+typed signal explaining the cause. Empirically reproduced via codex sessions
+`019dacd1` (`--approval-mode balanced` → wedge) versus `019dace3` /
+`019dad14` (`--approval-mode trusted` → productive review work). The wedge
+was indistinguishable from healthy idle from the dashboard's read-only view.
+
+Fix landed across the launcher entry points so the operator-visible behavior
+matches the typed launch posture:
+
+- `dev/scripts/devctl/approval_mode.py` introduces
+  `auto_elevated_approval_mode(explicit_mode, interaction_mode)`. When the
+  caller passes no explicit mode and `interaction_mode == "remote_control"`,
+  the helper returns `"trusted"` so the codex binary stops blocking on local
+  approval prompts. All other paths fall through to the explicit mode (or
+  `None` for `normalize_approval_mode` to default to `balanced`).
+- `dev/scripts/devctl/review_channel/parser.py` flips `--approval-mode`'s
+  default from the literal `"balanced"` string to `None` so the typed-state
+  branch in the launcher actually fires under the real argparse parser.
+  Operators retain explicit override by passing `--approval-mode <mode>`.
+- `dev/scripts/devctl/commands/review_channel/bridge_action_support.py`
+  routes the launch / rollover paths through the shared helper.
+- `dev/scripts/devctl/commands/review_channel/_recover.py` routes the
+  recover path through the same helper so headless recovery launches do
+  not silently wedge on the same escalation deadlock.
+- `dev/scripts/devctl/review_channel/prompt.py` renders an explicit
+  inbox-drain section after the bootstrap chain (preserving the canonical
+  Step 0 startup-context contract from `bridge.md`) but before the operating
+  contract, so codex sessions ack pending operator-authority packets before
+  reviewer-bootstrap or code reading.
+- `dev/scripts/devctl/review_channel/stall_diagnostics.py` provides a typed
+  `ConductorStallDiagnosis` dataclass that reads codex rollout JSONL and
+  surfaces both `task_complete + budget exceeded` and
+  `is_escalation: true + budget exceeded` as a `stalled` boolean with a
+  reason enum (`escalation_deadlock`, `stalled_beyond_budget`,
+  `new_session_spawned`, `within_budget`, `escalation_recent`,
+  `no_task_complete_yet`). Caller-supplied `replacement_session_ids` makes
+  the "newer session exists" signal explicit instead of guessing by mtime
+  in the shared `~/.codex/sessions/` root.
+
+This matters because the persistence-loop wedge was only diagnosable by
+manually correlating codex rollout JSONL events with `ps` output. The launcher
+now removes the deadlock for the common headless-remote-control case, the
+prompt template stops the inbox-blind investigation habit at its source, and
+the diagnostic helper gives the dashboard a typed read-out for any wedge that
+escapes the prevention. Wiring the diagnostic into a runtime consumer
+(dashboard, doctor, or a new `devctl stall-check` subcommand) is deliberate
+follow-up scope.
+
+Evidence:
+
+- `dev/scripts/devctl/approval_mode.py`
+- `dev/scripts/devctl/commands/review_channel/_recover.py`
+- `dev/scripts/devctl/commands/review_channel/bridge_action_support.py`
+- `dev/scripts/devctl/review_channel/parser.py`
+- `dev/scripts/devctl/review_channel/prompt.py`
+- `dev/scripts/devctl/review_channel/stall_diagnostics.py`
+- `dev/scripts/devctl/tests/review_channel/test_inbox_first_and_trusted_default.py`
+- `dev/scripts/devctl/tests/review_channel/test_stall_diagnostics.py`
+- `AGENTS.md`
+- `dev/guides/DEVELOPMENT.md`
+- `dev/scripts/README.md`
+- `dev/active/MASTER_PLAN.md`

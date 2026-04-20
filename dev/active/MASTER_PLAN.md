@@ -29,6 +29,20 @@
   default requested worker fanout is zero unless explicitly requested, and
   `bridge.md` remains a compatibility projection until native
   `CollaborationSession` topology lands.
+- 2026-04-20 persistence-loop unblock (subordinate to
+  `dev/active/autonomous_governance_loop_v2.md` MP-377): headless
+  `review-channel --action launch | recover` now auto-elevate
+  `--approval-mode` to `trusted` when typed `interaction_mode ==
+  "remote_control"` (shared helper at
+  `dev/scripts/devctl/approval_mode.py::auto_elevated_approval_mode`),
+  so headless conductors no longer silently wedge on local sandbox-
+  escalation prompts. The rendered launch prompt also includes an
+  inbox-drain section after the canonical Step 0 bootstrap chain so
+  codex sessions ack pending operator-authority packets before any
+  reviewer-bootstrap. Typed conductor-stall observations live in
+  `dev/scripts/devctl/review_channel/stall_diagnostics.py`. Wiring the
+  diagnostic into a runtime consumer (dashboard render or `devctl
+  stall-check`) remains follow-up scope.
 - `dev/active/review_probes.md` is the review-probe execution spec; implementation tasks stay in this file under `MP-368..MP-375`.
 - `dev/active/portable_code_governance.md` is the narrower engine/adoption
   companion under `MP-376`, not a second main product plan; implementation

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from ...approval_mode import auto_elevated_approval_mode as _auto_elevated_approval_mode
 from ...review_channel.core import (
     AUTO_DARK_TERMINAL_PROFILES,
     DEFAULT_TERMINAL_PROFILE,
@@ -239,7 +240,10 @@ def _build_recover_sessions(
                 "and wait for a current ACK before trusting the loop again."
             ),
             promotion_plan_rel="dev/active/review_channel.md",
-            approval_mode=getattr(args, "approval_mode", None),
+            approval_mode=_auto_elevated_approval_mode(
+                explicit_mode=getattr(args, "approval_mode", None),
+                interaction_mode=interaction_mode,
+            ),
             dangerous=bool(getattr(args, "dangerous", False)),
             bridge_liveness=status_snapshot.bridge_liveness,
             handoff_bundle=None,

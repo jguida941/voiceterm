@@ -163,12 +163,14 @@ LAUNCH_ARGUMENTS: list[ArgumentDef] = [
     _arg(
         "--approval-mode",
         choices=list(APPROVAL_MODE_CHOICES),
-        default=DEFAULT_APPROVAL_MODE,
+        default=None,
         help=(
-            "Shared approval policy for conductor launches. `balanced` is the "
-            "safe default, `trusted` enables provider no-prompt modes, and "
-            "`strict` reserves dangerous/publish-class actions for explicit "
-            "approval surfaces."
+            "Shared approval policy for conductor launches. When unset, the "
+            "launcher auto-selects `trusted` for headless `interaction_mode="
+            "remote_control` launches (which cannot render local sandbox-"
+            "escalation prompts) and otherwise falls back to `balanced`. "
+            "`trusted` enables provider no-prompt modes, and `strict` reserves "
+            "dangerous/publish-class actions for explicit approval surfaces."
         ),
     ),
     _arg(
