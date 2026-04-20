@@ -77,10 +77,10 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-04-20T09:08:35Z`
-- Last Codex poll (Local America/New_York): `2026-04-20 05:08:35 EDT`
+- Last Codex poll: `2026-04-20T09:32:13Z`
+- Last Codex poll (Local America/New_York): `2026-04-20 05:32:13 EDT`
 - Reviewer mode: `tools_only`
-- Last non-audit worktree hash: `286a928774637d2c2fcac74645150bfa1af36812fddadc448b10c2464ecda00d`
+- Last non-audit worktree hash: `4509c450d270a4da595849c77d71c974862269c9d4eb7e5e0eb35bd4dea644ef`
 - Current instruction revision: ``
 
 ## Protocol
@@ -113,7 +113,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Poll Status
 
-- Reviewer state rebuilt from typed review-state projection at 2026-04-20T09:10:31.493432Z.
+- Reviewer heartbeat refreshed through repo-owned tooling (mode: tools_only; reason: bootstrap-refresh; reviewed-tree: 60b38fdb6ad9).
 
 ## Current Verdict
 
@@ -121,7 +121,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Open Findings
 
-1 pending review packet(s); 417 expired unresolved review packet(s)
+2 pending review packet(s); 418 expired unresolved review packet(s)
 
 ## Claude Status
 
