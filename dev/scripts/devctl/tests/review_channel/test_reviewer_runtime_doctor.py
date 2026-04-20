@@ -354,6 +354,7 @@ def test_attach_reviewer_runtime_snapshot_projects_authority_snapshot() -> None:
         ),
         authority_snapshot=AuthoritySnapshot(
             coordination_state="handshake_stale",
+            reviewer_mode="tools_only",
             current_instruction_revision="rev-123",
             implementer_ack_state="stale",
             next_command=(
@@ -367,11 +368,17 @@ def test_attach_reviewer_runtime_snapshot_projects_authority_snapshot() -> None:
         coordination=CoordinationSnapshot(
             observed_topology="single_implementer_single_reviewer",
             recommended_topology="single_implementer_single_reviewer",
+            ownership_status="scope_aligned",
+            safe_to_fanout=False,
+            resync_required=True,
         ),
+        snapshot_id="snap-1234567890ab",
+        zref="zref_12345678_deadbeef",
     )
     report = {
         "bridge_liveness": {
             "reviewer_mode": "active_dual_agent",
+            "effective_reviewer_mode": "active_dual_agent",
             "reviewer_freshness": "fresh",
         },
         "publisher": {"running": False},
@@ -388,7 +395,7 @@ def test_attach_reviewer_runtime_snapshot_projects_authority_snapshot() -> None:
     assert report["collaboration"]["mutation_owner"] == "claude"
     assert report["current_session"]["current_instruction_revision"] == "rev-123"
     assert report["coordination"]["observed_topology"] == "single_implementer_single_reviewer"
-    assert snapshot["coordination_state"] == "handshake_stale"
+    assert snapshot["coordination_state"] == "resync_required"
     assert snapshot["current_instruction_revision"] == "rev-123"
     assert snapshot["implementer_ack_state"] == "stale"
     assert snapshot["mutation_owner"] == "claude"
@@ -397,11 +404,25 @@ def test_attach_reviewer_runtime_snapshot_projects_authority_snapshot() -> None:
     assert snapshot["next_command"].startswith(
         "python3 dev/scripts/devctl.py review-channel --action status"
     )
+    assert report["reviewer_mode"] == snapshot["reviewer_mode"]
+    assert report["effective_reviewer_mode"] == "active_dual_agent"
+    assert report["reviewer_freshness"] == "fresh"
+    assert report["current_instruction_revision"] == "rev-123"
+    assert report["implementer_ack_state"] == "stale"
+    assert report["safe_to_fanout"] is False
+    assert report["resync_required"] is True
+    assert report["ownership_status"] == "scope_aligned"
+    assert report["next_command"].startswith(
+        "python3 dev/scripts/devctl.py review-channel --action status"
+    )
+    assert report["last_codex_poll"] == "2026-04-13T12:00:00Z"
+    assert report["snapshot_id"] == "snap-1234567890ab"
+    assert report["zref"] == "zref_12345678_deadbeef"
     assert report["observed_control_topology"] == "single_implementer_single_reviewer"
     assert report["implementation_permission"] == "active"
 
     doctor_report, _ = build_doctor_report(status_report=report, exit_code=1)
-    assert doctor_report["authority_snapshot"]["coordination_state"] == "handshake_stale"
+    assert doctor_report["authority_snapshot"]["coordination_state"] == "resync_required"
 
 
 def test_build_reviewer_doctor_surface_exposes_visibility_state() -> None:

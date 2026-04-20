@@ -27,9 +27,16 @@ if TYPE_CHECKING:
     from .session_resume_support import SessionCachePacket
 
 
+_STATUS_COMMAND = (
+    "python3 dev/scripts/devctl.py review-channel --action status "
+    "--terminal none --format json"
+)
+
+
 def render_bootstrap(packet: "SessionCachePacket") -> str:
     """Render the canonical role-bound bootstrap packet for a fresh session."""
     role = _normalized_role(packet)
+    display_next = _display_next_command(packet, role=role)
     lines = [
         f"## {_role_label(role)} Bootstrap Packet",
         "",
@@ -54,10 +61,8 @@ def render_bootstrap(packet: "SessionCachePacket") -> str:
             lines.append(
                 f"- **remote_control**: {attachment.status} via `{target}`"
             )
-    if packet.next_recommended_command:
-        lines.append(f"- **next_command**: `{packet.next_recommended_command}`")
-    elif packet.next_action:
-        lines.append(f"- **next_command**: `{packet.next_action}`")
+    if display_next:
+        lines.append(f"- **next_command**: `{display_next}`")
 
     if role == "reviewer":
         lines.extend(
@@ -136,6 +141,8 @@ def render_bootstrap(packet: "SessionCachePacket") -> str:
 
 def render_markdown(packet: "SessionCachePacket") -> str:
     """Render a human-readable markdown summary of the session packet."""
+    role = _normalized_role(packet)
+    display_next = _display_next_command(packet, role=role)
     lines = [
         "## Session Resume",
         "",
@@ -178,11 +185,8 @@ def render_markdown(packet: "SessionCachePacket") -> str:
         lines.extend(candidate_lines)
         lines.append("")
     lines.extend(_coordination_lines(packet))
-    if packet.next_recommended_command:
-        lines.append(f"**Next**: `{packet.next_recommended_command}`")
-        lines.append("")
-    elif packet.next_action:
-        lines.append(f"**Next**: `{packet.next_action}`")
+    if display_next:
+        lines.append(f"**Next**: `{display_next}`")
         lines.append("")
     if packet.key_rules:
         lines.append("### Key rules")
@@ -194,6 +198,7 @@ def render_markdown(packet: "SessionCachePacket") -> str:
 
 def render_summary(packet: "SessionCachePacket") -> str:
     """Render a compact key=value summary for terminal output."""
+    role = _normalized_role(packet)
     lines = [
         f"role={packet.role}",
         f"branch={packet.branch}",
@@ -249,7 +254,7 @@ def render_summary(packet: "SessionCachePacket") -> str:
             if packet.coordination is not None
             else "resync_required=unknown"
         ),
-        f"next={packet.next_recommended_command or packet.next_action}",
+        f"next={_display_next_command(packet, role=role)}",
     ]
     return "\n".join(lines)
 
@@ -269,6 +274,12 @@ def _role_label(role: str) -> str:
     if role == "dashboard":
         return "Dashboard"
     return "Implementer"
+
+
+def _display_next_command(packet: "SessionCachePacket", *, role: str) -> str:
+    if packet.authority_snapshot is not None and packet.authority_snapshot.next_command:
+        return packet.authority_snapshot.next_command
+    return packet.next_recommended_command or packet.next_action
 
 
 def _role_bootstrap_section(packet: "SessionCachePacket", *, role: str) -> list[str]:

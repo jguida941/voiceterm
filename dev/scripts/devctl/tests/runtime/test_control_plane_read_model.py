@@ -81,7 +81,9 @@ class ControlPlaneReadModelDataclassTests(unittest.TestCase):
             "publisher_running", "supervisor_running",
             "codex_conductor_alive", "claude_conductor_alive",
             "pending_action_requests", "last_guard_ok",
-            "check_details", "coordination",
+            "check_details", "loop_wake_mode",
+            "loop_wake_interval_seconds", "loop_driver_agent",
+            "loop_autonomy_ok", "loop_gap_summary", "coordination",
         }
         actual_fields = set(model.to_dict().keys())
         self.assertEqual(expected_fields, actual_fields)
@@ -118,6 +120,14 @@ class BuildFromEmptySourcesTests(unittest.TestCase):
         self.assertEqual(model.reviewer_mode, "single_agent")
         self.assertTrue(model.last_guard_ok)
         self.assertEqual(model.check_details, ())
+        self.assertEqual(model.loop_wake_mode, "unknown")
+        self.assertEqual(model.loop_wake_interval_seconds, 0)
+        self.assertEqual(model.loop_driver_agent, "")
+        self.assertFalse(model.loop_autonomy_ok)
+        self.assertEqual(
+            model.loop_gap_summary,
+            "single_agent loop has no typed wake-capable owner or scheduler.",
+        )
 
     def test_dirty_worktree_resolves_implementing(self) -> None:
         git = _base_git()

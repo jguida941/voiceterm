@@ -25,9 +25,18 @@ class LoopAutonomyState(NamedTuple):
     def from_mapping(cls, value: object) -> LoopAutonomyState | None:
         if not isinstance(value, Mapping):
             return None
-        if "loop_autonomy_ok" not in value and "loop_wake_mode" not in value:
+        if not any(
+            key in value
+            for key in (
+                "loop_autonomy_ok",
+                "loop_wake_mode",
+                "loop_wake_interval_seconds",
+                "loop_driver_agent",
+                "loop_gap_summary",
+            )
+        ):
             return None
-        return cls(
+        state = cls(
             loop_wake_mode=normalize_wake_mode(value.get("loop_wake_mode")),
             loop_wake_interval_seconds=max(
                 0, int(value.get("loop_wake_interval_seconds") or 0)
@@ -36,6 +45,15 @@ class LoopAutonomyState(NamedTuple):
             loop_autonomy_ok=bool(value.get("loop_autonomy_ok", False)),
             loop_gap_summary=str(value.get("loop_gap_summary") or "").strip(),
         )
+        if (
+            not state.loop_autonomy_ok
+            and state.loop_wake_mode == "unknown"
+            and state.loop_wake_interval_seconds == 0
+            and not state.loop_driver_agent
+            and not state.loop_gap_summary
+        ):
+            return None
+        return state
 
 
 def normalize_wake_mode(value: object) -> str:

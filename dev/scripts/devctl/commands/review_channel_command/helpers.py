@@ -273,6 +273,15 @@ def _validate_args(
         _validate_reviewer_checkpoint_args(args)
 
     if (
+        normalized_action in LIMITED_QUERY_ACTIONS
+        and getattr(args, "to_agent", None)
+    ):
+        raise ValueError(
+            "--to-agent is only valid for review-channel post. "
+            "Use --target for inbox/watch/history filters."
+        )
+
+    if (
         getattr(args, "start_publisher_if_missing", False)
         and normalized_action is not ReviewChannelAction.ENSURE
     ):

@@ -7,6 +7,7 @@ from collections.abc import Mapping
 from .control_state import _int, _mapping, _string
 from .review_state_parse_support import _bool
 from .collaboration_wake_contract import (
+    LoopAutonomyState,
     loop_autonomy_contract,
     wake_continuity_contract,
 )
@@ -47,26 +48,34 @@ def collaboration_state_from_payload(
         mutation_owner = _string(collaboration.get("mutation_owner"))
         verification_owner = _string(collaboration.get("verification_owner"))
         watcher_owner = _string(collaboration.get("watcher_owner"))
-        (
-            derived_mutation_wake_mode,
-            derived_verification_wake_mode,
-            derived_watcher_wake_mode,
-            derived_wake_continuity_ok,
-            derived_wake_gap_summary,
-        ) = wake_continuity_contract(
-            reviewer_mode=reviewer_mode,
-            mutation_owner=mutation_owner,
-            verification_owner=verification_owner,
-            watcher_owner=watcher_owner,
-            participants=participants,
-        )
-        derived_loop_autonomy = loop_autonomy_contract(
-            reviewer_mode=reviewer_mode,
-            mutation_owner=mutation_owner,
-            verification_owner=verification_owner,
-            watcher_owner=watcher_owner,
-            participants=participants,
-        )
+        if participants:
+            (
+                derived_mutation_wake_mode,
+                derived_verification_wake_mode,
+                derived_watcher_wake_mode,
+                derived_wake_continuity_ok,
+                derived_wake_gap_summary,
+            ) = wake_continuity_contract(
+                reviewer_mode=reviewer_mode,
+                mutation_owner=mutation_owner,
+                verification_owner=verification_owner,
+                watcher_owner=watcher_owner,
+                participants=participants,
+            )
+            derived_loop_autonomy = loop_autonomy_contract(
+                reviewer_mode=reviewer_mode,
+                mutation_owner=mutation_owner,
+                verification_owner=verification_owner,
+                watcher_owner=watcher_owner,
+                participants=participants,
+            )
+        else:
+            derived_mutation_wake_mode = "unknown"
+            derived_verification_wake_mode = "unknown"
+            derived_watcher_wake_mode = "unknown"
+            derived_wake_continuity_ok = True
+            derived_wake_gap_summary = ""
+            derived_loop_autonomy = LoopAutonomyState()
         return CollaborationSessionState(
             schema_version=_int(collaboration.get("schema_version")) or 1,
             contract_id=_string(collaboration.get("contract_id")) or "CollaborationSession",

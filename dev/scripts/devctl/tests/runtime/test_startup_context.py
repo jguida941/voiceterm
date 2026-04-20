@@ -627,7 +627,7 @@ class TestStartupContextBuild(unittest.TestCase):
             repo_root,
             governance=None,
             review_status_dir=review_status_dir,
-            prefer_cached_projection=False,
+            prefer_cached_projection=True,
         )
         self.assertIs(result, sentinel)
 

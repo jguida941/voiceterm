@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+from dev.scripts.devctl.runtime.control_plane_loop_wake import (
+    resolve_control_plane_loop_wake,
+)
+from dev.scripts.devctl.runtime.review_state_parser import review_state_from_payload
 from dev.scripts.devctl.runtime.review_state_collaboration_parse import (
     collaboration_state_from_payload,
 )
@@ -26,12 +30,12 @@ def _current_session() -> ReviewCurrentSessionState:
     )
 
 
-def _bridge_state() -> ReviewBridgeState:
+def _bridge_state(*, reviewer_mode: str = "active_dual_agent") -> ReviewBridgeState:
     return ReviewBridgeState(
         overall_state="healthy",
         codex_poll_state="fresh",
         reviewer_freshness="fresh",
-        reviewer_mode="active_dual_agent",
+        reviewer_mode=reviewer_mode,
         last_codex_poll_utc="2026-04-19T00:00:00Z",
         last_codex_poll_age_seconds=0,
         last_worktree_hash="",
@@ -43,7 +47,7 @@ def _bridge_state() -> ReviewBridgeState:
         current_instruction_revision="",
         claude_ack_revision="",
         last_reviewed_scope="",
-        effective_reviewer_mode="active_dual_agent",
+        effective_reviewer_mode=reviewer_mode,
     )
 
 
@@ -174,3 +178,61 @@ def test_collaboration_state_legacy_fallback_builds_wake_fields_without_type_err
     assert state.loop_autonomy_ok is True
     assert state.participants
     assert state.participants[0].host_wake_mode == "continuous"
+
+
+def test_sparse_collaboration_without_typed_participants_leaves_loop_fields_unset() -> None:
+    state = collaboration_state_from_payload(
+        collaboration={"review_agent": "codex"},
+        review={"session_id": "review-channel"},
+        current_session=_current_session(),
+        bridge=_bridge_state(reviewer_mode="single_agent"),
+        registry=_registry(),
+    )
+
+    assert state.mutation_wake_mode == "unknown"
+    assert state.verification_wake_mode == "unknown"
+    assert state.watcher_wake_mode == "unknown"
+    assert state.wake_continuity_ok is True
+    assert state.wake_gap_summary == ""
+    assert state.loop_wake_mode == "unknown"
+    assert state.loop_wake_interval_seconds == 0
+    assert state.loop_driver_agent == ""
+    assert state.loop_autonomy_ok is False
+    assert state.loop_gap_summary == ""
+
+
+def test_sparse_collaboration_round_trip_preserves_loop_fallback() -> None:
+    raw_payload = {
+        "schema_version": 1,
+        "command": "review-channel",
+        "action": "status",
+        "timestamp": "2026-04-20T00:00:00Z",
+        "ok": True,
+        "review": {"session_id": "review-channel"},
+        "queue": {"pending_total": 0},
+        "bridge": {"reviewer_mode": "single_agent"},
+        "collaboration": {"review_agent": "codex"},
+    }
+
+    expected = resolve_control_plane_loop_wake(
+        review_state_payload=raw_payload,
+        reviewer_mode="single_agent",
+        remote_control_attachment=None,
+        codex_conductor_alive=True,
+        claude_conductor_alive=False,
+    )
+    parsed = review_state_from_payload(raw_payload)
+
+    assert parsed is not None
+    observed = resolve_control_plane_loop_wake(
+        review_state_payload=parsed.to_dict(),
+        reviewer_mode="single_agent",
+        remote_control_attachment=None,
+        codex_conductor_alive=True,
+        claude_conductor_alive=False,
+    )
+
+    assert expected.loop_wake_mode == "continuous"
+    assert expected.loop_driver_agent == "codex"
+    assert expected.loop_autonomy_ok is True
+    assert observed == expected

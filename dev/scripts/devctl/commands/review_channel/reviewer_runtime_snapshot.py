@@ -38,6 +38,97 @@ def _collaboration_payload(collaboration_state: object) -> dict[str, object] | N
     return dict(payload) if isinstance(payload, dict) else None
 
 
+def _text(value: object) -> str:
+    return str(value or "").strip()
+
+
+def _attach_phase_zero_parity_fields(
+    report: dict[str, object],
+    *,
+    review_state: ReviewState,
+    current_session: object,
+    bridge_liveness: Mapping[str, object],
+) -> None:
+    """Promote the proof-tick parity fields to the status top level."""
+    authority_snapshot = report.get("authority_snapshot")
+    if not isinstance(authority_snapshot, Mapping):
+        authority_snapshot = getattr(review_state, "authority_snapshot", None)
+    coordination = getattr(review_state, "coordination", None)
+    reviewer_runtime = getattr(review_state, "reviewer_runtime", None)
+
+    reviewer_mode = ""
+    effective_reviewer_mode = ""
+    current_instruction_revision = ""
+    implementer_ack_state = ""
+    resync_required: bool | None = None
+    next_command = ""
+
+    if authority_snapshot is not None:
+        if isinstance(authority_snapshot, Mapping):
+            reviewer_mode = _text(authority_snapshot.get("reviewer_mode"))
+            current_instruction_revision = _text(
+                authority_snapshot.get("current_instruction_revision")
+            )
+            implementer_ack_state = _text(
+                authority_snapshot.get("implementer_ack_state")
+            )
+            resync_required = bool(authority_snapshot.get("resync_required", False))
+            next_command = _text(authority_snapshot.get("next_command"))
+        else:
+            reviewer_mode = _text(getattr(authority_snapshot, "reviewer_mode", ""))
+            current_instruction_revision = _text(
+                getattr(authority_snapshot, "current_instruction_revision", "")
+            )
+            implementer_ack_state = _text(
+                getattr(authority_snapshot, "implementer_ack_state", "")
+            )
+            resync_required = bool(getattr(authority_snapshot, "resync_required", False))
+            next_command = _text(getattr(authority_snapshot, "next_command", ""))
+
+    if reviewer_runtime is not None:
+        effective_reviewer_mode = _text(
+            getattr(reviewer_runtime, "effective_reviewer_mode", "")
+        )
+        report["reviewer_freshness"] = _text(
+            getattr(reviewer_runtime, "reviewer_freshness", "")
+        )
+        last_poll = getattr(reviewer_runtime, "last_poll", None)
+        report["last_codex_poll"] = _text(
+            getattr(last_poll, "last_codex_poll_utc", "")
+        ) or _text(bridge_liveness.get("last_codex_poll_utc"))
+        report["last_codex_poll_utc"] = report["last_codex_poll"]
+
+    if coordination is not None:
+        report["safe_to_fanout"] = bool(getattr(coordination, "safe_to_fanout", False))
+        report["ownership_status"] = _text(getattr(coordination, "ownership_status", ""))
+        resync_required = bool(getattr(coordination, "resync_required", False))
+
+    if current_session is not None:
+        current_instruction_revision = current_instruction_revision or _text(
+            getattr(current_session, "current_instruction_revision", "")
+        )
+        implementer_ack_state = implementer_ack_state or _text(
+            getattr(current_session, "implementer_ack_state", "")
+        )
+
+    report["reviewer_mode"] = reviewer_mode or effective_reviewer_mode
+    report["effective_reviewer_mode"] = (
+        effective_reviewer_mode or reviewer_mode or _text(bridge_liveness.get("effective_reviewer_mode"))
+    )
+    report["current_instruction_revision"] = current_instruction_revision
+    report["implementer_ack_state"] = implementer_ack_state
+    if resync_required is not None:
+        report["resync_required"] = resync_required
+    report["next_command"] = next_command
+
+    snapshot_id = _text(getattr(review_state, "snapshot_id", ""))
+    zref = _text(getattr(review_state, "zref", ""))
+    if snapshot_id:
+        report["snapshot_id"] = snapshot_id
+    if zref:
+        report["zref"] = zref
+
+
 def attach_reviewer_runtime_snapshot(
     report: dict[str, object],
     *,
@@ -145,3 +236,9 @@ def attach_reviewer_runtime_snapshot(
         project_authority_snapshot(
             report, caller_role="observer", next_command=fallback_next_command
         )
+    _attach_phase_zero_parity_fields(
+        report,
+        review_state=review_state,
+        current_session=current_session,
+        bridge_liveness=bridge_liveness,
+    )

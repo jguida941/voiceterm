@@ -40,6 +40,11 @@ from dev.scripts.devctl.runtime.reviewer_runtime_models import (
     RemoteControlAttachmentState,
 )
 
+_STATUS_COMMAND = (
+    "python3 dev/scripts/devctl.py review-channel --action status "
+    "--terminal none --format json"
+)
+
 
 class TestSessionResumeAuthorityPayload(unittest.TestCase):
     """Authority payload serialization remains compact and behavior-stable."""
@@ -761,6 +766,93 @@ class TestBuildFromSources(unittest.TestCase):
             reviewer_packet.authority_snapshot.allowed_actions,
         )
 
+    def test_build_from_sources_preserves_explicit_recovery_next_command(self) -> None:
+        from dev.scripts.devctl.runtime.control_plane_read_model import (
+            ControlPlaneReadModel,
+        )
+
+        launch_command = (
+            "python3 dev/scripts/devctl.py review-channel --action launch "
+            "--terminal terminal-app --format json --execution-mode markdown-bridge "
+            "--refresh-bridge-heartbeat-if-stale"
+        )
+        model = ControlPlaneReadModel(
+            timestamp="2026-04-20T00:00:00Z",
+            branch="feature/runtime-truth",
+            head_sha="head123",
+            worktree_clean=True,
+            ahead_of_upstream=0,
+            resolved_phase="testing",
+            push_eligible=False,
+            implementation_blocked=True,
+            top_blocker="review_loop_relaunch_required",
+            next_action="repair_reviewer_loop",
+            next_command=launch_command,
+            reviewer_mode="tools_only",
+            operator_interaction_mode="local_terminal",
+            reviewer_freshness="stale",
+            review_accepted=False,
+            last_reviewed_sha="",
+            attention_status="review_loop_relaunch_required",
+            attention_summary="Relaunch the review loop.",
+            publisher_running=False,
+            supervisor_running=False,
+            codex_conductor_alive=False,
+            claude_conductor_alive=True,
+            pending_action_requests=0,
+            last_guard_ok=False,
+            check_details=(),
+        )
+        sources = self._make_sources(
+            receipt={
+                "advisory_action": "await_review",
+                "advisory_reason": "guard fail: push-preflight",
+                "checkpoint_required": False,
+                "safe_to_continue_editing": True,
+                "startup_authority_ok": True,
+            },
+            review_state={
+                "snapshot_id": "snap-runtime123",
+                "zref": "zref_runtime123_head123",
+                "current_session": {
+                    "current_instruction": "",
+                    "current_instruction_revision": "",
+                    "implementer_ack_state": "missing",
+                },
+                "attention": {
+                    "status": "review_loop_relaunch_required",
+                    "summary": "Relaunch the review loop.",
+                    "recommended_command": launch_command,
+                },
+                "recovery_assessment": {
+                    "decision": {
+                        "action_id": "relaunch_review_loop",
+                        "command": launch_command,
+                    }
+                },
+                "coordination": {
+                    "resync_required": True,
+                    "current_slice": "repair the reviewer runtime",
+                    "actors": [],
+                },
+            },
+        )
+
+        with tempfile.TemporaryDirectory() as td:
+            packet = build_from_sources(
+                Path(td),
+                role="observer",
+                head_sha="head123",
+                read_model_override=model,
+                sources_override=sources,
+            )
+
+        self.assertEqual(packet.snapshot_id, "snap-runtime123")
+        self.assertEqual(packet.next_action, launch_command)
+        self.assertEqual(packet.next_recommended_command, launch_command)
+        assert packet.authority_snapshot is not None
+        self.assertEqual(packet.authority_snapshot.next_command, launch_command)
+
 
 class TestRepoPackPaths(unittest.TestCase):
     """Paths resolve from active_path_config, not hardcoded literals."""
@@ -1145,7 +1237,7 @@ class TestRunCommand(unittest.TestCase):
                 mock_load_current_review_state.call_args.args[0],
                 root,
             )
-            self.assertFalse(
+            self.assertTrue(
                 mock_load_current_review_state.call_args.kwargs["prefer_cached_projection"],
             )
             mock_build_from_sources.assert_called_once()
@@ -1604,7 +1696,7 @@ class TestLastReviewedSha(unittest.TestCase):
         self.assertIn("Implement the bounded slice.", md)
 
     def test_render_bootstrap_observer_stays_read_only(self) -> None:
-        """Observer bootstrap should stay on the read-only status path."""
+        """Observer bootstrap shows the upstream next command without mutating authority."""
         from dev.scripts.devctl.commands.governance.session_resume_support import (
             render_bootstrap,
         )
@@ -1612,6 +1704,7 @@ class TestLastReviewedSha(unittest.TestCase):
         packet = SessionCachePacket(
             role="observer",
             operator_interaction_mode="active_dual_agent",
+            next_recommended_command='python3 dev/scripts/devctl.py commit -m "checkpoint"',
         )
 
         md = render_bootstrap(packet)
@@ -1624,6 +1717,7 @@ class TestLastReviewedSha(unittest.TestCase):
             "python3 dev/scripts/devctl.py review-channel --action status --terminal none --format json",
             md,
         )
+        self.assertIn('python3 dev/scripts/devctl.py commit -m "checkpoint"', md)
         self.assertIn("must not take implementation ownership", md)
 
     def test_render_bootstrap_reviewer_prefers_review_candidate(self) -> None:
@@ -2008,8 +2102,64 @@ class TestV2Fields(unittest.TestCase):
         assert packet.authority_snapshot is not None
         self.assertEqual(
             packet.authority_snapshot.next_command,
-            "python3 dev/scripts/devctl.py review-channel --action status --terminal none --format json",
+            "python3 dev/scripts/devctl.py commit -m \"<descriptive message>\"",
         )
+
+    def test_observer_projects_read_only_next_command_fields(self) -> None:
+        """Observer/dashboard packet fields preserve the shared next command."""
+        from dev.scripts.devctl.runtime.control_plane_read_model import (
+            ControlPlaneReadModel,
+        )
+
+        commit_command = (
+            "python3 dev/scripts/devctl.py commit -m "
+            "\"<descriptive message>\""
+        )
+        model = ControlPlaneReadModel(
+            timestamp="t", branch="b", head_sha="h",
+            worktree_clean=False, ahead_of_upstream=0,
+            resolved_phase="pushing",
+            push_eligible=False, implementation_blocked=False,
+            top_blocker="none",
+            next_action="run_devctl_push",
+            next_command="python3 dev/scripts/devctl.py push --execute",
+            reviewer_mode="single_agent",
+            operator_interaction_mode="local_terminal",
+            reviewer_freshness="overdue", review_accepted=False,
+            last_reviewed_sha="", attention_status="checkpoint_required",
+            attention_summary="checkpoint required",
+            publisher_running=False, supervisor_running=False,
+            codex_conductor_alive=False, claude_conductor_alive=False,
+            pending_action_requests=0, last_guard_ok=True,
+            check_details=(),
+        )
+        sources = self._make_sources(
+            review_state={
+                "attention": {
+                    "status": "checkpoint_required",
+                    "summary": "The current worktree has exceeded the checkpoint budget.",
+                    "recommended_action": "Cut a checkpoint before continuing.",
+                    "recommended_command": commit_command,
+                },
+                "current_session": {
+                    "current_instruction": "Do the thing",
+                    "current_instruction_revision": "rev123",
+                    "implementer_ack_state": "stale",
+                },
+            },
+        )
+
+        with tempfile.TemporaryDirectory() as td:
+            packet = build_from_sources(
+                Path(td), role="observer", head_sha="abc",
+                read_model_override=model, sources_override=sources,
+            )
+
+        self.assertEqual(packet.next_recommended_command, commit_command)
+        self.assertEqual(packet.next_action, commit_command)
+        assert packet.authority_snapshot is not None
+        self.assertEqual(packet.authority_snapshot.actor_role, "observer")
+        self.assertEqual(packet.authority_snapshot.next_command, commit_command)
 
     def test_authority_snapshot_prefers_coordination_resync_over_push_guidance(self) -> None:
         """AuthoritySnapshot stays blocker-aware even when the read model says push."""

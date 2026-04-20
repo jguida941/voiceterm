@@ -15,6 +15,7 @@ from ..runtime.authority_snapshot import (
 )
 from .context_refs import normalize_context_pack_refs
 from .current_session_projection import current_focus_line
+from .projection_bundle_parity import apply_phase_zero_parity_projection
 from .projection_bundle_markdown import render_latest_markdown
 from .projection_observation import build_observation_projection
 
@@ -161,6 +162,7 @@ def canonicalize_projection_review_state(
         caller_role="observer",
         next_command=_projection_next_command(review_state_payload),
     )
+    apply_phase_zero_parity_projection(review_state_payload)
     return review_state_payload
 
 
@@ -306,7 +308,6 @@ def _apply_review_state_authority_context(
     )
     review_state_payload["observed_control_topology"] = observed_control_topology
     review_state_payload["implementation_permission"] = implementation_permission
-
 
 def _projection_next_command(review_state: Mapping[str, object]) -> str:
     if summary_blockers(review_state):

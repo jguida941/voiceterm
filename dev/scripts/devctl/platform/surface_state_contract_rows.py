@@ -125,6 +125,31 @@ SURFACE_STATE_CONTRACTS: tuple[ContractSpec, ...] = (
                 "Per-check status detail rows from the last guard run.",
             ),
             ContractField(
+                "loop_wake_mode",
+                "str",
+                "Resolved loop wake mode projected from typed collaboration authority.",
+            ),
+            ContractField(
+                "loop_wake_interval_seconds",
+                "int",
+                "Wake interval for tick-based loop modes; zero for continuous or unknown modes.",
+            ),
+            ContractField(
+                "loop_driver_agent",
+                "str",
+                "Canonical driver lane/provider projected by the typed loop-autonomy reducer.",
+            ),
+            ContractField(
+                "loop_autonomy_ok",
+                "bool",
+                "Whether the current runtime truth proves loop autonomy is healthy for this proof tick.",
+            ),
+            ContractField(
+                "loop_gap_summary",
+                "str",
+                "Human-readable explanation for why loop autonomy is blocked or degraded.",
+            ),
+            ContractField(
                 "reviewer_observation",
                 "ReviewerObservation | None",
                 "Typed reviewer-observation record for HEAD visibility and review status.",

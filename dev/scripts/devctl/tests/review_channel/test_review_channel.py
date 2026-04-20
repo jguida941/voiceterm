@@ -2924,6 +2924,14 @@ class ReviewChannelWatchFollowTests(unittest.TestCase):
         ):
             review_channel_command._validate_args(args)
 
+    def test_validate_args_rejects_to_agent_on_watch(self) -> None:
+        args = self._build_follow_args(to_agent="claude")
+        with self.assertRaisesRegex(
+            ValueError,
+            "--to-agent is only valid for review-channel post",
+        ):
+            review_channel_command._validate_args(args)
+
     def test_watch_follow_emits_ndjson_snapshots_until_max_follow_snapshots(self) -> None:
         args = self._build_follow_args(limit=1, max_follow_snapshots=2)
         initial_bundle = _build_event_bundle_for_test(["pkt-1"])
@@ -10543,6 +10551,24 @@ class ReviewChannelCommandTests(unittest.TestCase):
                 payload["bridge_liveness"]["overall_state"],
                 "runtime_missing",
             )
+            self.assertEqual(payload["reviewer_mode"], "tools_only")
+            self.assertEqual(payload["effective_reviewer_mode"], "tools_only")
+            self.assertEqual(payload["reviewer_freshness"], "overdue")
+            self.assertEqual(payload["current_instruction_revision"], "")
+            self.assertEqual(payload["implementer_ack_state"], "missing")
+            self.assertFalse(payload["safe_to_fanout"])
+            self.assertTrue(payload["resync_required"])
+            self.assertEqual(
+                payload["ownership_status"],
+                payload["coordination"]["ownership_status"],
+            )
+            self.assertEqual(payload["last_codex_poll"], "2000-01-01T00:00:00Z")
+            self.assertEqual(
+                payload["next_command"],
+                payload["authority_snapshot"]["next_command"],
+            )
+            self.assertTrue(str(payload["snapshot_id"]).startswith("snap-"))
+            self.assertTrue(str(payload["zref"]).startswith("zref_"))
             self.assertEqual(payload["attention"]["status"], "runtime_missing")
             self.assertEqual(payload["reviewer_worker"]["state"], "review_needed")
             self.assertTrue(payload["reviewer_worker"]["review_needed"])
@@ -10551,6 +10577,29 @@ class ReviewChannelCommandTests(unittest.TestCase):
                     encoding="utf-8"
                 )
             )
+            self.assertEqual(review_state["reviewer_mode"], payload["reviewer_mode"])
+            self.assertEqual(
+                review_state["effective_reviewer_mode"],
+                payload["effective_reviewer_mode"],
+            )
+            self.assertEqual(
+                review_state["current_instruction_revision"],
+                payload["current_instruction_revision"],
+            )
+            self.assertEqual(
+                review_state["implementer_ack_state"],
+                payload["implementer_ack_state"],
+            )
+            self.assertEqual(review_state["safe_to_fanout"], payload["safe_to_fanout"])
+            self.assertEqual(
+                review_state["resync_required"],
+                payload["resync_required"],
+            )
+            self.assertEqual(
+                review_state["ownership_status"],
+                payload["ownership_status"],
+            )
+            self.assertEqual(review_state["last_codex_poll"], payload["last_codex_poll"])
             self.assertFalse(review_state["bridge"]["reviewed_hash_current"])
             self.assertTrue(review_state["bridge"]["review_needed"])
             self.assertEqual(

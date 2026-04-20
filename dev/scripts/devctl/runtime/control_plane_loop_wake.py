@@ -49,7 +49,13 @@ def resolve_control_plane_loop_wake(
         )
 
     if has_active_remote_control_attachment(remote_control_attachment):
-        mode = normalize_wake_mode(remote_control_attachment.host_wake_mode)
+        mode = normalize_wake_mode(
+            coerce_string(getattr(remote_control_attachment, "host_wake_mode", ""))
+        )
+        wake_interval_seconds = max(
+            0,
+            coerce_int(getattr(remote_control_attachment, "wake_interval_seconds", 0)),
+        )
         driver = (
             str(remote_control_attachment.provider or "").strip()
             or str(remote_control_attachment.role or "").strip()
@@ -58,9 +64,7 @@ def resolve_control_plane_loop_wake(
             return ControlPlaneLoopWakeState(
                 loop_wake_mode=mode,
                 loop_wake_interval_seconds=(
-                    max(0, int(remote_control_attachment.wake_interval_seconds or 0))
-                    if mode == "tick_based"
-                    else 0
+                    wake_interval_seconds if mode == "tick_based" else 0
                 ),
                 loop_driver_agent=driver,
                 loop_autonomy_ok=True,

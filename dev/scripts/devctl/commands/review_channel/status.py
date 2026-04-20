@@ -40,7 +40,9 @@ from .doctor_support import (
     build_doctor_report,
     resolve_status_recommended_command,
 )
-from .reviewer_runtime_snapshot import attach_reviewer_runtime_snapshot
+from .status_runtime_projection import (
+    refresh_report_runtime_snapshot as _refresh_report_runtime_snapshot,
+)
 from ..review_channel_command import (
     RuntimePaths,
     _coerce_runtime_paths,
@@ -121,32 +123,6 @@ def _sync_status_context_hooks() -> None:
     _status_context_mod._read_reviewer_supervisor_state_safe = (
         _read_reviewer_supervisor_state_safe
     )
-
-
-def _refresh_report_runtime_snapshot(report: dict[str, object]) -> None:
-    """Rehydrate top-level runtime fields from the fresh typed projection bundle."""
-    typed_review_state = report.pop("_typed_review_state", None)
-    for key in (
-        "authority_snapshot",
-        "reviewer_runtime",
-        "doctor",
-        "commit_pipeline",
-        "recovery_assessment",
-        "current_session",
-        "coordination",
-        "observed_control_topology",
-        "implementation_permission",
-    ):
-        report.pop(key, None)
-    if typed_review_state is not None:
-        attention = report.get("attention") if isinstance(report.get("attention"), dict) else None
-        attach_reviewer_runtime_snapshot(
-            report,
-            review_state=typed_review_state,
-            attention=attention,
-        )
-        return
-    attach_status_runtime_snapshot(report)
 
 
 def _refresh_bridge_status_report(

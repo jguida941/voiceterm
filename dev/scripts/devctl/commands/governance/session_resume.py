@@ -65,7 +65,7 @@ def run(args) -> int:
     review_state = load_current_review_state(
         repo_root,
         governance=governance,
-        prefer_cached_projection=False,
+        prefer_cached_projection=True,
     )
     packet = build_from_sources(
         repo_root,
