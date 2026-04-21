@@ -43,6 +43,16 @@
   `dev/scripts/devctl/review_channel/stall_diagnostics.py`. Wiring the
   diagnostic into a runtime consumer (dashboard render or `devctl
   stall-check`) remains follow-up scope.
+- 2026-04-20 follow-up closure (also under MP-377): the ensure-follow
+  reviewer-wake path
+  (`dev/scripts/devctl/review_channel/reviewer_follow_guard.py::launch_waiting_reviewer_conductor`)
+  now routes through the same `auto_elevated_approval_mode` seam so a
+  remote-control reviewer relaunched after a wake also avoids the
+  sandbox-escalation deadlock. The typed `ConductorStallDiagnosis`
+  reader now accepts the real codex rollout JSONL envelope shape
+  (`payload.type == "task_complete"`, `payload.is_escalation`) and
+  surfaces `escalation_deadlock` regardless of whether the session
+  previously emitted task-complete events.
 - `dev/active/review_probes.md` is the review-probe execution spec; implementation tasks stay in this file under `MP-368..MP-375`.
 - `dev/active/portable_code_governance.md` is the narrower engine/adoption
   companion under `MP-376`, not a second main product plan; implementation

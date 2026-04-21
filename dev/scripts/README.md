@@ -1117,7 +1117,9 @@ python3 dev/scripts/devctl.py review-channel --action launch --approval-mode tru
 # Note: when --approval-mode is unset and typed interaction_mode == "remote_control",
 # the launcher auto-elevates to "trusted" via approval_mode.auto_elevated_approval_mode
 # so headless launches do not silently wedge on local sandbox-escalation prompts.
-# review-channel --action recover follows the same auto-elevation rule.
+# review-channel --action recover and the ensure-follow reviewer-wake path
+# (reviewer_follow_guard.launch_waiting_reviewer_conductor) follow the same
+# auto-elevation rule.
 python3 dev/scripts/devctl.py review-channel --action status --terminal none --format md --output /tmp/review-channel-status.md
 python3 dev/scripts/devctl.py review-channel --action promote --terminal none --format md --output /tmp/review-channel-promote.md
 python3 dev/scripts/devctl.py review-channel --action launch --format md --output /tmp/review-channel-live.md

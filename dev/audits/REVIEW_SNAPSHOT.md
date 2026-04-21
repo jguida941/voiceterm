@@ -5,14 +5,14 @@
 ## Quick status
 
 - Branch: `feature/governance-quality-sweep`
-- HEAD: `16c6f9ad950c` — Unblock headless remote-control launches and add typed conductor stall diagnostics
-- Tree hash: `97d3cd7c210d`
-- Generation stamp: `snap-953be0324c9b`
-- Generated at (UTC): 2026-04-21T00:47:23Z
-- Push decision: `no_push_needed` — branch_already_synced
+- HEAD: `99442e7ff7b3` — Refresh external review snapshot for 16c6f9ad
+- Tree hash: `a73d02ce730f`
+- Generation stamp: `snap-7358cc1c1fdd`
+- Generated at (UTC): 2026-04-21T01:11:13Z
+- Push decision: `await_checkpoint` — staged_index_present
 - Reviewer mode: `single_agent` (interaction: `local_terminal`)
 - Pipeline state: `n/a` (approval: `n/a`)
-- Delta since last snapshot: 24 commits, 102 files, +6874/-2632
+- Delta since last snapshot: 25 commits, 102 files, +6947/-2707
 - Governance findings: 112 open / 86 fixed / 212 total
 - Probe hints: 0 total across 0 files scanned
 
@@ -54,18 +54,18 @@ adopters arrive.
 - Remote: `https://github.com/jguida941/voiceterm.git`
 - Default branch: `master`
 - Current branch: `feature/governance-quality-sweep`
-- HEAD SHA: `16c6f9ad950ca03a41b28197280a14bd0db8c573`
+- HEAD SHA: `99442e7ff7b3a1ca2578b9e67ee6860580414efa`
 - HEAD author: Justin Guida
-- HEAD timestamp (UTC): 2026-04-20T19:58:53-04:00
+- HEAD timestamp (UTC): 2026-04-20T20:47:29-04:00
 
 ## 2. Governance state
 
 ### Push decision
-- action: `no_push_needed`
-- reason: branch_already_synced
+- action: `await_checkpoint`
+- reason: staged_index_present
 - push_eligible_now: False
-- worktree_clean: True
-- staged_path_count: 0
+- worktree_clean: False
+- staged_path_count: 9
 - unstaged_path_count: 0
 - next_step_command: `n/a`
 - latest_push_report: `dev/reports/push/latest.json`
@@ -73,7 +73,8 @@ adopters arrive.
 - current_push_authorization: `push-auth-20260420T125551238377Z` (valid=False)
 - authorized_head_commit: `861d8bc43bf17bd6d13b1fe32172bca90ae9ef50`
 - approved_target_identity: `tree-receipt-20260420T125551238377Z:b2c921400551a8a623c82114d4195b996afbed0b`
-- publication_backlog: none
+- publication_backlog: queued
+- publication_guidance: 1 local commit(s) waiting for governed push once the current slice is checkpoint-clean.
 
 ### Reviewer runtime
 - reviewer_mode: `single_agent`
@@ -89,16 +90,16 @@ adopters arrive.
 - active plan: **AI Governance Platform Plan**
 - plan path: `dev/active/ai_governance_platform.md`
 - active MP scope: `MP-377`
-- advisory: `no_push_needed` — clean_worktree
+- advisory: `checkpoint_before_continue` — dirty_after_local_checkpoint
 
 ## 3. Delta — what changed since the previous snapshot
 
-Range: last 24 commits ending at `16c6f9ad950c`
+Range: last 25 commits ending at `99442e7ff7b3`
 
-- commits: 24
+- commits: 25
 - files changed: 102
-- insertions: +6874
-- deletions: -2632
+- insertions: +6947
+- deletions: -2707
 - bundle classes touched: docs, tooling
 - risk add-ons triggered: Parser / ANSI boundary
 - authority surfaces touched: 10 file(s)
@@ -107,30 +108,31 @@ Range: last 24 commits ending at `16c6f9ad950c`
 
 | # | SHA | Subject | Files | +/- | Bundle | Risk |
 |---|---|---|---|---|---|---|
-| 1 | `16c6f9ad` | Unblock headless remote-control launches and add typed cond… | 15 | +1017/-68 | tooling | Parser / ANSI boundary |
-| 2 | `25d420ad` | Refresh external review snapshot for 103a9871 | 2 | +75/-76 | docs |  |
-| 3 | `103a9871` | Heal no-op push reruns back to push_completed | 8 | +200/-57 | tooling |  |
-| 4 | `e72da77b` | Keep push pipeline state monotonic on no-op reruns | 4 | +337/-53 | tooling |  |
-| 5 | `861d8bc4` | Refresh external review snapshot for d7fea144 | 2 | +60/-59 | docs |  |
-| 6 | `d7fea144` | Refresh review-state cache and proof-tick parity | 6 | +370/-64 | tooling |  |
-| 7 | `92dc15df` | Refresh external review snapshot for b1e8bfc9 | 2 | +61/-62 | docs |  |
-| 8 | `b1e8bfc9` | Align phone bridge fallback with tools-only contract | 2 | +54/-52 | tooling |  |
-| 9 | `a0c1e5f9` | Refresh external review snapshot for 1b671cfb | 2 | +60/-64 | docs |  |
-| 10 | `1b671cfb` | Close event context seam and provenance guard gap | 5 | +206/-106 | tooling |  |
-| 11 | `fb5030f3` | Refresh external review snapshot for 65fbf188 | 2 | +68/-65 | docs |  |
-| 12 | `65fbf188` | Align bridge projection to effective reviewer mode | 5 | +143/-77 | tooling |  |
-| 13 | `89807c69` | Refresh external review snapshot for e6fe5938 | 2 | +58/-59 | docs |  |
-| 14 | `e6fe5938` | Guard projection helpers against world-building drift | 9 | +343/-179 | tooling |  |
-| 15 | `99334c92` | Refresh external review snapshot for 7faed568 | 2 | +76/-71 | docs |  |
-| 16 | `7faed568` | Propagate review-state provenance and zref parity | 29 | +1140/-551 | tooling |  |
-| 17 | `b36d14e8` | Harden conductor hygiene and reviewer wake | 14 | +393/-185 | tooling |  |
-| 18 | `54ec06d8` | Advance session-resume parity and conductor hygiene | 24 | +1302/-503 | tooling |  |
-| 19 | `19bbe4f6` | Refresh external review snapshot for 066112fb | 2 | +74/-63 | docs |  |
-| 20 | `066112fb` | Checkpoint session-resume parity and collaboration wake clo… | 14 | +657/-93 | tooling |  |
-| 21 | `95131e80` | Refresh external review snapshot for 818e4692 | 2 | +53/-56 | docs |  |
-| 22 | `818e4692` | Fix regression test per Codex rev_pkt_1403: assert real fie… | 1 | +71/-17 | tooling |  |
-| 23 | `e61fb65c` | Refresh external review snapshot for 3d14a22a | 2 | +50/-47 | docs |  |
-| 24 | `3d14a22a` | SYSTEM_MAP.md v7.1 — §9 coverage refreshed 22%->37% + dogfo… | 1 | +6/-5 | docs |  |
+| 1 | `99442e7f` | Refresh external review snapshot for 16c6f9ad | 2 | +73/-75 | docs |  |
+| 2 | `16c6f9ad` | Unblock headless remote-control launches and add typed cond… | 15 | +1017/-68 | tooling | Parser / ANSI boundary |
+| 3 | `25d420ad` | Refresh external review snapshot for 103a9871 | 2 | +75/-76 | docs |  |
+| 4 | `103a9871` | Heal no-op push reruns back to push_completed | 8 | +200/-57 | tooling |  |
+| 5 | `e72da77b` | Keep push pipeline state monotonic on no-op reruns | 4 | +337/-53 | tooling |  |
+| 6 | `861d8bc4` | Refresh external review snapshot for d7fea144 | 2 | +60/-59 | docs |  |
+| 7 | `d7fea144` | Refresh review-state cache and proof-tick parity | 6 | +370/-64 | tooling |  |
+| 8 | `92dc15df` | Refresh external review snapshot for b1e8bfc9 | 2 | +61/-62 | docs |  |
+| 9 | `b1e8bfc9` | Align phone bridge fallback with tools-only contract | 2 | +54/-52 | tooling |  |
+| 10 | `a0c1e5f9` | Refresh external review snapshot for 1b671cfb | 2 | +60/-64 | docs |  |
+| 11 | `1b671cfb` | Close event context seam and provenance guard gap | 5 | +206/-106 | tooling |  |
+| 12 | `fb5030f3` | Refresh external review snapshot for 65fbf188 | 2 | +68/-65 | docs |  |
+| 13 | `65fbf188` | Align bridge projection to effective reviewer mode | 5 | +143/-77 | tooling |  |
+| 14 | `89807c69` | Refresh external review snapshot for e6fe5938 | 2 | +58/-59 | docs |  |
+| 15 | `e6fe5938` | Guard projection helpers against world-building drift | 9 | +343/-179 | tooling |  |
+| 16 | `99334c92` | Refresh external review snapshot for 7faed568 | 2 | +76/-71 | docs |  |
+| 17 | `7faed568` | Propagate review-state provenance and zref parity | 29 | +1140/-551 | tooling |  |
+| 18 | `b36d14e8` | Harden conductor hygiene and reviewer wake | 14 | +393/-185 | tooling |  |
+| 19 | `54ec06d8` | Advance session-resume parity and conductor hygiene | 24 | +1302/-503 | tooling |  |
+| 20 | `19bbe4f6` | Refresh external review snapshot for 066112fb | 2 | +74/-63 | docs |  |
+| 21 | `066112fb` | Checkpoint session-resume parity and collaboration wake clo… | 14 | +657/-93 | tooling |  |
+| 22 | `95131e80` | Refresh external review snapshot for 818e4692 | 2 | +53/-56 | docs |  |
+| 23 | `818e4692` | Fix regression test per Codex rev_pkt_1403: assert real fie… | 1 | +71/-17 | tooling |  |
+| 24 | `e61fb65c` | Refresh external review snapshot for 3d14a22a | 2 | +50/-47 | docs |  |
+| 25 | `3d14a22a` | SYSTEM_MAP.md v7.1 — §9 coverage refreshed 22%->37% + dogfo… | 1 | +6/-5 | docs |  |
 
 ### Files
 
@@ -138,10 +140,10 @@ Range: last 24 commits ending at `16c6f9ad950c`
 |---|---|---|
 | `AGENTS.md` | docs | +5/-1 |
 | `app/operator_console/tests/state/test_phone_status_snapshot.py` | tooling | +1/-1 |
-| `bridge.md` | docs | +66/-70 |
+| `bridge.md` | docs | +73/-78 |
 | `dev/active/MASTER_PLAN.md` | tooling | +28/-4 |
 | `dev/active/ai_governance_platform.md` | tooling | +24/-8 |
-| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1279/-1236 |
+| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1345/-1303 |
 | `dev/config/quality_presets/voiceterm.json` | tooling | +15/-0 |
 | `dev/guides/DEVELOPMENT.md` | docs | +18/-1 |
 | `dev/guides/SYSTEM_MAP.md` | docs | +6/-5 |
@@ -276,6 +278,8 @@ Recent findings:
 
 ### Per-commit rationale
 
+- **`99442e7f`** — Refresh external review snapshot for 16c6f9ad
+  - evolution: Fact: the first fix for the no-op governed-push regression only added a monotonic guard at pipeline persistence time. That prevented an already-green `push_completed` pipeline from regressing on a rerun, but it still le…
 - **`16c6f9ad`** — Unblock headless remote-control launches and add typed conductor stall diagnostics
   - Headless `--terminal none` review-channel launches in remote-control mode were
   - silently wedging on local sandbox-escalation prompts (e.g. ps/pgrep) that
@@ -357,10 +361,10 @@ Recent findings:
 - open governance findings: 112
 
 ### Startup advisories
-- no_push_needed: clean_worktree
+- checkpoint_before_continue: dirty_after_local_checkpoint
 
 ### Stale warnings
-- Move straight to the governed push path.
+- Relaunch the reviewer loop immediately.
 
 ### Open gap rows
 - **governance_open** (`dev/scripts/devctl/runtime/dogfood_log.py`): dogfood_finding_id_instability: 
@@ -374,4 +378,4 @@ Recent findings:
 
 ---
 
-Projection produced by `devctl review-snapshot`. Generation stamp `snap-953be0324c9b` binds this file to HEAD `16c6f9ad950c`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
+Projection produced by `devctl review-snapshot`. Generation stamp `snap-7358cc1c1fdd` binds this file to HEAD `99442e7ff7b3`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.

@@ -260,6 +260,43 @@ def test_real_parser_default_is_none_so_auto_elevation_fires_in_production() -> 
     )
 
 
+def test_reviewer_wake_resolves_to_trusted_under_remote_control() -> None:
+    """rev_pkt_1528 fix: the reviewer-wake path in reviewer_follow_guard.py must
+    route through auto_elevated_approval_mode so a remote-control reviewer
+    relaunched by ensure-follow does not silently wedge on the same hidden
+    sandbox-escalation prompt the launch/recover paths now avoid."""
+    from argparse import Namespace
+
+    from dev.scripts.devctl.review_channel.reviewer_follow_guard import (
+        _resolved_wake_approval_mode,
+    )
+
+    args_unset = Namespace(approval_mode=None)
+    assert (
+        _resolved_wake_approval_mode(
+            args=args_unset, interaction_mode="remote_control"
+        )
+        == "trusted"
+    )
+
+    # Local-terminal stays empty (downstream normalize falls back to balanced).
+    assert (
+        _resolved_wake_approval_mode(
+            args=args_unset, interaction_mode="local_terminal"
+        )
+        == ""
+    )
+
+    # Explicit operator override wins regardless of interaction_mode.
+    args_explicit = Namespace(approval_mode="balanced")
+    assert (
+        _resolved_wake_approval_mode(
+            args=args_explicit, interaction_mode="remote_control"
+        )
+        == "balanced"
+    )
+
+
 def test_explicit_approval_mode_arg_wins_even_in_remote_control() -> None:
     """An explicit --approval-mode on the command line must always win over
     the remote-control auto-elevation, so operators retain final say."""

@@ -11453,3 +11453,66 @@ Evidence:
 - `dev/guides/DEVELOPMENT.md`
 - `dev/scripts/README.md`
 - `dev/active/MASTER_PLAN.md`
+
+### 2026-04-20 — Reviewer-wake auto-elevation closure plus payload-shape stall diagnostics
+
+Fact: the headless-remote-control auto-elevation landed at `16c6f9ad`
+covered launch / rollover / recover, but a third launch entry point —
+`launch_waiting_reviewer_conductor()` in
+`dev/scripts/devctl/review_channel/reviewer_follow_guard.py` — still coerced
+the unset parser default to an empty string and fed that straight into
+`LaunchSessionRequest`, where `normalize_approval_mode("")` collapsed back to
+`balanced`. So a remote-control reviewer relaunched by ensure-follow could
+still wedge on the same hidden sandbox-escalation prompt the rest of the
+launcher now avoids. At the same time, the typed `ConductorStallDiagnosis`
+helper was reading top-level `type` / `is_escalation` fields, but real codex
+rollout JSONL nests those signals under a `payload` envelope; and the
+`escalation_deadlock` reason was gated by `and not task_complete_iso`, so
+any long-lived conductor that completed earlier work and only later wedged
+on an escalation prompt was misclassified as `stalled_beyond_budget` instead
+of `escalation_deadlock`.
+
+This follow-up closes all three gaps:
+
+- `dev/scripts/devctl/review_channel/reviewer_follow_guard.py` adds an
+  internal `_resolved_wake_approval_mode()` helper that routes through the
+  shared `auto_elevated_approval_mode()` (`approval_mode.py`) so the
+  reviewer-wake `LaunchSessionRequest` matches the launch / rollover /
+  recover behavior. Empirically reproduced before the fix as
+  `{'approval_mode': '', 'interaction_mode': 'remote_control'}` reaching
+  `LaunchSessionRequest`; after the fix it resolves to `'trusted'`.
+- `dev/scripts/devctl/review_channel/stall_diagnostics.py::_read_rollout_signals`
+  now accepts both the top-level synthetic shape used by focused tests and
+  the `{"type": "event_msg" | "response_item", "payload": {...}}` envelope
+  used by real codex rollouts. `task_complete` is detected by either
+  top-level `type` or `payload.type`; `is_escalation` is detected by
+  either top-level or `payload`. The escalation summary is read from
+  whichever side actually carried it.
+- `dev/scripts/devctl/review_channel/stall_diagnostics.py::diagnose_conductor_stall`
+  drops the `and not task_complete_iso` gate on the escalation-deadlock
+  branch so any escalation that is the latest event in the rollout AND has
+  exceeded the budget surfaces as `escalation_deadlock` regardless of
+  prior task-complete events. Three new regression tests cover the
+  payload-nested task-complete shape, the payload-nested escalation shape,
+  and the prior-task-complete-then-later-escalation deadlock pattern.
+
+This matters because the persistence-loop closure was operationally
+incomplete without these three follow-ups. Reviewer-wake is the path
+ensure-follow uses to relaunch a stuck remote-control reviewer, so a
+gap there reproduced the very wedge the original fix was meant to
+eliminate. And the typed stall diagnostic was advertised as a dashboard
+read-out for residual wedges but was inert against real rollout data
+and silent on the most realistic deadlock pattern (long-lived session
+that completed earlier work and only later got stuck on an
+unanswerable approval prompt).
+
+Evidence:
+
+- `dev/scripts/devctl/review_channel/reviewer_follow_guard.py`
+- `dev/scripts/devctl/review_channel/stall_diagnostics.py`
+- `dev/scripts/devctl/tests/review_channel/test_inbox_first_and_trusted_default.py`
+- `dev/scripts/devctl/tests/review_channel/test_stall_diagnostics.py`
+- `AGENTS.md`
+- `dev/guides/DEVELOPMENT.md`
+- `dev/scripts/README.md`
+- `dev/active/MASTER_PLAN.md`

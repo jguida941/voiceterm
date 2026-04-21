@@ -77,6 +77,14 @@ def _read_rollout_signals(rollout_path: Path) -> dict[str, str]:
     callers can distinguish "escalation was the last thing that happened"
     (deadlock candidate) from "escalation happened, then later activity
     resumed" (recovered).
+
+    Real codex rollout JSONL nests typed payloads under a top-level
+    `{"type": "event_msg" | "response_item", "payload": {...}}` envelope; the
+    `task_complete` typed payload appears as `payload.type == "task_complete"`
+    and sandbox-escalation events expose `is_escalation: true` either at the
+    top level (legacy/test-fixture shape) or inside `payload`. Both shapes are
+    accepted so the diagnostic stays correct against production rollouts and
+    the synthetic events used by focused tests.
     """
     signals = {
         "latest_task_complete_utc": "",
@@ -90,12 +98,25 @@ def _read_rollout_signals(rollout_path: Path) -> dict[str, str]:
             continue
         if ts > signals["latest_event_utc"]:
             signals["latest_event_utc"] = ts
-        event_type = event.get("type") or event.get("event_type") or ""
-        if event_type == "task_complete" and ts > signals["latest_task_complete_utc"]:
+        payload = event.get("payload") if isinstance(event.get("payload"), dict) else {}
+        event_type = (
+            event.get("type")
+            or event.get("event_type")
+            or (payload.get("type") if payload else "")
+            or ""
+        )
+        payload_inner_type = payload.get("type") if payload else ""
+        is_task_complete = (
+            event_type == "task_complete" or payload_inner_type == "task_complete"
+        )
+        if is_task_complete and ts > signals["latest_task_complete_utc"]:
             signals["latest_task_complete_utc"] = ts
-        if event.get("is_escalation") is True and ts > signals["latest_escalation_utc"]:
+        is_escalation = bool(event.get("is_escalation")) or bool(
+            payload.get("is_escalation") if payload else False
+        )
+        if is_escalation and ts > signals["latest_escalation_utc"]:
             signals["latest_escalation_utc"] = ts
-            summary = event.get("summary") or ""
+            summary = event.get("summary") or (payload.get("summary") if payload else "") or ""
             if isinstance(summary, str):
                 signals["latest_escalation_summary"] = summary
     return signals
@@ -187,9 +208,16 @@ def diagnose_conductor_stall(
 
     if (
         escalation_is_latest_event
-        and not task_complete_iso
         and elapsed_escalation > stall_budget_seconds
     ):
+        # An escalation that is the latest event in the rollout AND has
+        # exceeded the budget is the canonical headless sandbox-escalation
+        # deadlock, regardless of whether the session previously emitted
+        # one or more task_complete events. Gating this on "no prior
+        # task_complete" (the v1 shape) masked deadlocks for any long-lived
+        # conductor that completed earlier work and only later wedged on
+        # an unanswerable approval prompt — exactly the scenario this
+        # diagnostic exists to surface.
         stalled = True
         reason = "escalation_deadlock"
     elif task_complete_iso and new_session_observed:

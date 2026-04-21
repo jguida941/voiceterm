@@ -17,12 +17,30 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable
 
+from ..approval_mode import auto_elevated_approval_mode
 from .action_request_delivery import mark_action_request_packets_observed
 from .core import ensure_launcher_prereqs, filter_provider_lanes
 from .launch import build_launch_sessions
 from .launch_records import LaunchSessionRequest
 from .session_probe import load_conductor_sessions
 from .terminal_app import cleanup_terminal_session
+
+
+def _resolved_wake_approval_mode(*, args: object, interaction_mode: str) -> str:
+    """Apply the typed-state-driven approval-mode auto-elevation for reviewer-wake.
+
+    Mirrors the launch / rollover / recover entry points so a remote-control
+    reviewer-wake spawn does not silently wedge on a sandbox-escalation prompt
+    the headless terminal cannot render. When the operator did not pass an
+    explicit `--approval-mode`, route through the shared helper; otherwise
+    preserve the explicit value as a string for `LaunchSessionRequest`.
+    """
+    explicit = getattr(args, "approval_mode", None)
+    elevated = auto_elevated_approval_mode(
+        explicit_mode=explicit,
+        interaction_mode=interaction_mode,
+    )
+    return str(elevated or "")
 
 _BLOCKING_CLEANUP_WARNING_FRAGMENTS = (
     "permission denied",
@@ -173,7 +191,10 @@ def launch_waiting_reviewer_conductor(
                         context.paths.get("promotion_plan_path")
                     ),
                 ),
-                approval_mode=str(getattr(context.args, "approval_mode", "") or ""),
+                approval_mode=_resolved_wake_approval_mode(
+                    args=context.args,
+                    interaction_mode=context.operator_interaction_mode,
+                ),
                 dangerous=bool(getattr(context.args, "dangerous", False)),
                 headless=True,
                 bridge_liveness=bridge_liveness,

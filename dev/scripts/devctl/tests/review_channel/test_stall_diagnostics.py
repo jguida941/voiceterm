@@ -259,6 +259,117 @@ def test_recent_escalation_within_budget_is_not_stalled(tmp_path: Path) -> None:
     assert diagnosis.reason == "escalation_recent"
 
 
+def test_payload_nested_task_complete_is_recognized(tmp_path: Path) -> None:
+    """rev_pkt_1527 fix: real codex rollout JSONL nests typed payloads under
+    `payload`, e.g. `{"type": "event_msg", "payload": {"type": "task_complete",
+    ...}}`. The diagnostic must recognize this real shape, not just the
+    top-level `type` field used by synthetic test fixtures."""
+    rollouts_root = tmp_path / "sessions"
+    rollout = rollouts_root / "rollout-2026-04-20T17-08-08-019dacb8.jsonl"
+    _write_rollout(
+        rollout,
+        events=[
+            {
+                "type": "event_msg",
+                "payload": {"type": "task_complete", "turn_id": "abc"},
+                "timestamp": "2026-04-20T20:00:00.000Z",
+            },
+        ],
+    )
+
+    observation_iso = "2026-04-20T21:00:00.000Z"
+    diagnosis = diagnose_conductor_stall(
+        session_id="019dacb8",
+        rollout_path=rollout,
+        rollouts_root=rollouts_root,
+        observation_utc=observation_iso,
+        observation_unix_seconds=_iso_to_unix(observation_iso),
+        stall_budget_seconds=300.0,
+    )
+
+    assert diagnosis.latest_task_complete_utc == "2026-04-20T20:00:00.000Z"
+    assert diagnosis.stalled is True
+    assert diagnosis.reason == "stalled_beyond_budget"
+
+
+def test_payload_nested_escalation_is_recognized(tmp_path: Path) -> None:
+    """rev_pkt_1527 fix: sandbox-escalation events in real rollouts may carry
+    `is_escalation: true` either at the top-level envelope or inside the
+    `payload`. Both shapes must be recognized."""
+    rollouts_root = tmp_path / "sessions"
+    rollout = rollouts_root / "rollout-019dacd1.jsonl"
+    _write_rollout(
+        rollout,
+        events=[
+            {
+                "type": "response_item",
+                "payload": {
+                    "is_escalation": True,
+                    "summary": "ESCALATION: approval requested via payload",
+                },
+                "timestamp": "2026-04-20T21:00:00.000Z",
+            },
+        ],
+    )
+
+    observation_iso = "2026-04-20T21:30:00.000Z"
+    diagnosis = diagnose_conductor_stall(
+        session_id="019dacd1",
+        rollout_path=rollout,
+        rollouts_root=rollouts_root,
+        observation_utc=observation_iso,
+        observation_unix_seconds=_iso_to_unix(observation_iso),
+        stall_budget_seconds=300.0,
+    )
+
+    assert diagnosis.latest_escalation_utc == "2026-04-20T21:00:00.000Z"
+    assert "via payload" in diagnosis.latest_escalation_summary
+    assert diagnosis.stalled is True
+    assert diagnosis.reason == "escalation_deadlock"
+
+
+def test_escalation_after_prior_task_complete_still_flags_deadlock(tmp_path: Path) -> None:
+    """rev_pkt_1529 fix: the `escalation_deadlock` reason must fire when an
+    escalation IS the latest event and elapsed > budget, even if the session
+    previously emitted one or more `task_complete` events. The v1 gate `and
+    not task_complete_iso` masked deadlocks for any long-lived conductor that
+    completed earlier work and only later wedged on an unanswerable approval
+    prompt — exactly the scenario this diagnostic exists to surface."""
+    rollouts_root = tmp_path / "sessions"
+    rollout = rollouts_root / "rollout-019dacd1.jsonl"
+    _write_rollout(
+        rollout,
+        events=[
+            {
+                "type": "event_msg",
+                "payload": {"type": "task_complete"},
+                "timestamp": "2026-04-20T20:00:00.000Z",
+            },
+            {
+                "type": "response_item",
+                "is_escalation": True,
+                "summary": "ESCALATION: stuck-process inspection",
+                "timestamp": "2026-04-20T21:36:54.924Z",
+            },
+        ],
+    )
+
+    observation_iso = "2026-04-20T21:50:00.000Z"
+    diagnosis = diagnose_conductor_stall(
+        session_id="019dacd1",
+        rollout_path=rollout,
+        rollouts_root=rollouts_root,
+        observation_utc=observation_iso,
+        observation_unix_seconds=_iso_to_unix(observation_iso),
+        stall_budget_seconds=300.0,
+    )
+
+    assert diagnosis.latest_task_complete_utc == "2026-04-20T20:00:00.000Z"
+    assert diagnosis.latest_escalation_utc == "2026-04-20T21:36:54.924Z"
+    assert diagnosis.stalled is True
+    assert diagnosis.reason == "escalation_deadlock"
+
+
 def test_missing_rollout_file_is_not_stalled(tmp_path: Path) -> None:
     rollouts_root = tmp_path / "sessions"
     rollouts_root.mkdir()

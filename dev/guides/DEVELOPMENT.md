@@ -134,6 +134,16 @@ Use docs like this:
   for any wedge that escapes prevention live in
   `dev/scripts/devctl/review_channel/stall_diagnostics.py` (typed
   `ConductorStallDiagnosis` reader over codex rollout JSONL).
+- The `ensure-follow` reviewer-wake path
+  (`dev/scripts/devctl/review_channel/reviewer_follow_guard.py::launch_waiting_reviewer_conductor`)
+  shares the same auto-elevation seam, so a remote-control reviewer
+  relaunched after a wake does not silently wedge on the same approval
+  prompt the launch / rollover / recover paths now avoid. The stall
+  diagnostic also reads the real codex rollout JSONL envelope shape
+  (`payload.type == "task_complete"`, `payload.is_escalation`) and
+  surfaces `escalation_deadlock` regardless of whether the session
+  previously emitted task-complete events — covering the long-lived
+  conductor that completes earlier work and only later wedges.
 - The operator read surface now has an explicit read-only alias too:
   `review-channel --action operator-inbox` fixes `target=operator`, defaults
   to the live pending queue, and must not stamp `delivery_observed_*` on live
