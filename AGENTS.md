@@ -2307,6 +2307,10 @@ Core commands:
     written typed projection, and only then fall back to bridge-backed status
     refresh. Do not reintroduce bridge refresh as the default live read path
     once typed authority already exists on disk.
+    The 2026-04-21 `rev_pkt_1503` follow-up makes this ordering explicit for
+    contract-drift repair too: event-backed
+    `projections/latest/review_state.json` payloads must return before
+    bridge-contract-drift checks can trigger a bridge-backed refresh.
   - Event-backed review-state compat payloads must keep bridge parity alive
     too: when persisted `_compat.bridge_projection` is missing, rebuild it
     from typed bridge/current-session/runtime state in the same reducer tick

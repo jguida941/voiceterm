@@ -625,6 +625,10 @@ Three quality layers matter in practice:
     Shared live runtime loaders now follow the same rule more broadly:
     canonical event-backed review state wins first, an existing typed
     projection is second, and bridge refresh is the last fallback only.
+    The `rev_pkt_1503` follow-up keeps contract-drift repair under that same
+    ordering: an event-backed `projections/latest/review_state.json` payload
+    is already canonical and must not be downgraded through a bridge-backed
+    refresh just because the compatibility bridge shape drifted.
     Raw bridge verdict/findings prose remains compatibility or drift evidence,
     not primary runtime authority.
   - Fresh reviewer and implementer sessions should bootstrap from role-first

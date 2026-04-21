@@ -368,22 +368,16 @@ def test_load_current_review_state_payload_refreshes_event_backed_projection_for
 @patch(
     "dev.scripts.devctl.runtime.review_state_locator.refresh_bridge_backed_review_state_payload"
 )
-def test_load_current_review_state_payload_refreshes_contract_drifted_cached_projection(
+def test_load_current_review_state_payload_refreshes_contract_drifted_bridge_projection(
     refresh_bridge_backed_review_state_payload_mock,
     contract_drift_mock,
     tmp_path: Path,
 ) -> None:
-    projection_path = (
-        tmp_path
-        / "dev"
-        / "reports"
-        / "review_channel"
-        / "projections"
-        / "latest"
-        / "review_state.json"
+    review_state_path = (
+        tmp_path / "dev" / "reports" / "review_channel" / "latest" / "review_state.json"
     )
     _write_review_state(
-        projection_path,
+        review_state_path,
         payload={
             "attention": {"status": "inactive"},
             "bridge": {"reviewer_mode": "tools_only"},
@@ -424,6 +418,62 @@ def test_load_current_review_state_payload_refreshes_contract_drifted_cached_pro
     assert payload["attention"]["status"] == "healthy"
     contract_drift_mock.assert_called_once()
     refresh_bridge_backed_review_state_payload_mock.assert_called_once()
+
+
+@patch(
+    "dev.scripts.devctl.runtime.review_state_locator._cached_projection_has_bridge_contract_drift",
+    return_value=True,
+)
+@patch(
+    "dev.scripts.devctl.runtime.review_state_locator.refresh_bridge_backed_review_state_payload"
+)
+def test_load_current_review_state_payload_keeps_event_projection_authoritative_when_contract_drifted(
+    refresh_bridge_backed_review_state_payload_mock,
+    contract_drift_mock,
+    tmp_path: Path,
+) -> None:
+    projection_path = (
+        tmp_path
+        / "dev"
+        / "reports"
+        / "review_channel"
+        / "projections"
+        / "latest"
+        / "review_state.json"
+    )
+    _write_review_state(
+        projection_path,
+        payload={
+            "attention": {"status": "inactive"},
+            "bridge": {"reviewer_mode": "tools_only"},
+            "reviewer_runtime": {
+                "reviewer_mode": "tools_only",
+                "effective_reviewer_mode": "tools_only",
+            },
+            "authority_snapshot": {"attention_status": "inactive"},
+            "current_session": {"current_instruction": "event-backed authority"},
+        },
+    )
+    bridge_path = tmp_path / "bridge.md"
+    bridge_path.write_text("# Review Bridge\n", encoding="utf-8")
+    review_channel_path = tmp_path / "dev" / "active" / "review_channel.md"
+    review_channel_path.parent.mkdir(parents=True, exist_ok=True)
+    review_channel_path.write_text("# Review Channel\n", encoding="utf-8")
+
+    payload = load_current_review_state_payload(
+        tmp_path,
+        governance=_governance(
+            review_root="dev/reports/review_channel/latest",
+            bridge_path="bridge.md",
+            review_channel_path="dev/active/review_channel.md",
+            bridge_active=True,
+        ),
+    )
+
+    assert payload is not None
+    assert payload["current_session"]["current_instruction"] == "event-backed authority"
+    contract_drift_mock.assert_not_called()
+    refresh_bridge_backed_review_state_payload_mock.assert_not_called()
 
 
 @patch("dev.scripts.devctl.review_channel.state.refresh_status_snapshot")

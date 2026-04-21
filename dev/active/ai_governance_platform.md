@@ -1,6 +1,6 @@
 # AI Governance Platform Plan
 
-**Status**: active  |  **Last updated**: 2026-04-18 | **Owner:** Tooling/control plane/product architecture
+**Status**: active  |  **Last updated**: 2026-04-21 | **Owner:** Tooling/control plane/product architecture
 Execution plan contract: required
 This spec remains execution mirrored in `dev/active/MASTER_PLAN.md` under
 `MP-377`, and it is the canonical active architecture plan for the standalone
@@ -6114,6 +6114,13 @@ working on `MP-377`.
   Dev-mode dogfood is recorded as `dogfood-e09b02277d9d`. Claude observer
   action-request `rev_pkt_0528` is pending; `rev_pkt_0527` should be treated as
   superseded because its body was shell-quoted badly during posting.
+- 2026-04-21 `rev_pkt_1503` live-loader follow-up: `MP377-P1-T06` now also
+  keeps bridge-contract-drift repair behind event-backed review-state
+  authority. `load_current_review_state_payload()` branches
+  `projections/latest/review_state.json` before checking cached bridge contract
+  drift, so event-backed startup/status/session-resume/dashboard reads cannot
+  be silently downgraded to the bridge-backed compatibility root. The
+  bridge-backed cached projection path still refreshes when drift is detected.
 - 2026-04-15 dogfood loop contract:
   Codex owns implementation, canonical plan updates in this file, repo guard
   runs, and `devctl dogfood --record --dev-mode --actor codex` for every

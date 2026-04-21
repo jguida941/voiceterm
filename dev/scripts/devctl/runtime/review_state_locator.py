@@ -128,6 +128,18 @@ def load_current_review_state_payload(
         repo_root,
         governance=resolved_governance,
     )
+    if typed_payload is not None and _is_event_backed_projection_path(
+        typed_path,
+        repo_root=repo_root,
+    ):
+        if allow_live_refresh and not prefer_cached_projection:
+            refreshed_event_payload = refresh_event_backed_review_state_payload(
+                repo_root,
+                governance=resolved_governance,
+            )
+            if refreshed_event_payload is not None:
+                return refreshed_event_payload
+        return typed_payload
     if typed_payload is not None and _cached_projection_has_bridge_contract_drift(
         payload=typed_payload,
         repo_root=repo_root,
@@ -141,18 +153,6 @@ def load_current_review_state_payload(
             )
             if refreshed is not None:
                 return refreshed
-    if typed_payload is not None and _is_event_backed_projection_path(
-        typed_path,
-        repo_root=repo_root,
-    ):
-        if allow_live_refresh and not prefer_cached_projection:
-            refreshed_event_payload = refresh_event_backed_review_state_payload(
-                repo_root,
-                governance=resolved_governance,
-            )
-            if refreshed_event_payload is not None:
-                return refreshed_event_payload
-        return typed_payload
     if prefer_cached_projection and typed_payload is not None and (
         not freshness_paths
         or cache_is_fresh(typed_path, freshness_paths=freshness_paths)

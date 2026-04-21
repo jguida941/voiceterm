@@ -631,6 +631,10 @@ Portability note:
   `.../review_channel/projections/latest/review_state.json` bundle and keeps
   that event-backed path authoritative even for live-refresh callers instead
   of silently downgrading back to the stale bridge-era compatibility file.
+  As of the 2026-04-21 `rev_pkt_1503` closure, bridge-contract-drift repair is
+  also subordinate to that ordering: when the governed resolver selected the
+  event-backed projections bundle, runtime loaders return or refresh that
+  event-backed authority before any bridge-backed repair can run.
   The typed `bridge` block now also carries `effective_reviewer_mode`; use that
   field for live-authority decisions when declared bridge `reviewer_mode`
   still says `active_dual_agent` but typed `launch_truth` has already demoted

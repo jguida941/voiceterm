@@ -39,6 +39,32 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 
 ### 2026-04-17 - Event-backed current-session only clears on explicit packet truth, and missing implementation permission now blocks mutation
 
+### 2026-04-21 - Event-backed review-state stays authoritative before bridge drift repair
+
+Fact: `rev_pkt_1503` exposed that
+`load_current_review_state_payload()` still checked cached bridge contract
+drift before honoring the governed event-backed
+`projections/latest/review_state.json` path. That meant an event-backed caller
+could be silently downgraded into a bridge-backed refresh whenever the
+compatibility bridge shape drifted, even though the event-backed reducer had
+already emitted the canonical typed authority.
+
+Change: the shared loader now branches event-backed projection paths before
+bridge-contract-drift repair. Event-backed live-refresh callers still refresh
+through `refresh_event_backed_review_state_payload()` when they explicitly ask
+for a live read, while bridge-backed cached projections continue to use the
+drift repair path. Regression coverage now proves bridge-backed drift still
+refreshes and event-backed drift does not call the bridge refresh.
+
+Evidence:
+- `dev/scripts/devctl/runtime/review_state_locator.py`
+- `dev/scripts/devctl/tests/runtime/test_review_state_locator.py`
+- `AGENTS.md`
+- `dev/guides/DEVELOPMENT.md`
+- `dev/scripts/README.md`
+- `dev/active/MASTER_PLAN.md`
+- `dev/active/ai_governance_platform.md`
+
 ### 2026-04-21 - Stall diagnostics clear replaced sessions before stale escalation deadlocks
 
 Fact: `rev_pkt_1529` exposed one remaining order-of-checks bug in the typed

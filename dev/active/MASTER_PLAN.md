@@ -58,6 +58,12 @@
   clears a prior conductor before stale `escalation_deadlock` classification,
   so a wedged session that was successfully relaunched no longer keeps
   reporting deadlock forever.
+- 2026-04-21 `rev_pkt_1503` review-state loader follow-up (also under
+  MP-377): event-backed `projections/latest/review_state.json` payloads now
+  stay authoritative before bridge-contract-drift repair runs, so
+  startup/status/session-resume/dashboard consumers cannot silently downgrade
+  to bridge-backed compatibility state when the event-backed reducer has
+  already emitted typed authority.
 - `dev/active/review_probes.md` is the review-probe execution spec; implementation tasks stay in this file under `MP-368..MP-375`.
 - `dev/active/portable_code_governance.md` is the narrower engine/adoption
   companion under `MP-376`, not a second main product plan; implementation
@@ -631,6 +637,12 @@
   advance the governed checkpoint path while raw `git commit` stays blocked.
   The next closure stays on shared status/doctor wording plus Q55 findings
   convergence, not another commit-on-behalf exception.
+- 2026-04-21 `rev_pkt_1503` follow-up in the same `MP-377` /
+  `MP-380..MP-387` scope: the shared loader now branches event-backed
+  projections before bridge-contract-drift repair, preserving
+  `projections/latest/review_state.json` as typed authority even when the
+  bridge compatibility contract drifts. Bridge-backed cached projections still
+  refresh through the repair path; event-backed consumers do not downgrade.
 - 2026-04-12 Q55/Q84 findings-convergence planning follow-up in
   `MP-377` / `MP-380..MP-387` scope: dogfood across `dashboard`, `monitor`,
   `review-channel`, and `findings-priority` confirmed that live findings
