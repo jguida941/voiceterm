@@ -79,7 +79,7 @@ treat these rules as active workflow instructions immediately.
 
 - Last Codex poll: `2026-04-21T17:44:12Z`
 - Last Codex poll (Local America/New_York): `2026-04-21 13:44:12 EDT`
-- Reviewer mode: `single_agent`
+- Reviewer mode: `tools_only`
 - Last non-audit worktree hash: `b87baf9a90f9ab055daf796b7d9bb32cd0d5aa306099743150a35ee9c071a594`
 - Current instruction revision: ``
 
@@ -113,7 +113,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Poll Status
 
-- Reviewer heartbeat refreshed through repo-owned tooling (mode: single_agent; reason: operator-commit-rev_pkt_1502; reviewed-tree: b87baf9a90f9).
+- Reviewer state rebuilt from typed review-state projection at 2026-04-21T17:35:58.469603Z.
 
 ## Current Verdict
 
@@ -133,7 +133,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Claude Ack
 
-- missing
+acknowledged
 
 ## Current Instruction For Claude
 
