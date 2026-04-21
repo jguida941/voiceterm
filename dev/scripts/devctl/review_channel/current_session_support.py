@@ -19,6 +19,7 @@ from .current_session_instruction_support import (
     resolve_instruction_revision,
 )
 from .status_projection_helpers import clean_section
+from .current_session_authority import prefer_bridge_current_session
 from ..runtime.review_packet_inbox import summarize_packet_attention_open_findings
 from ..runtime.review_state_models import ReviewCurrentSessionState
 from ..runtime.review_state_semantics import classify_implementer_ack_state
@@ -128,10 +129,21 @@ def current_session_authority_drift_warning(
     *,
     snapshot: BridgeSnapshot,
     prior_review_state: Mapping[str, object] | None,
+    bridge_liveness: Mapping[str, object] | None = None,
 ) -> str:
     """Warn when the compatibility bridge drifts from typed current-session state."""
     prior_session = prior_typed_current_session(prior_review_state)
     if prior_session is None:
+        return ""
+    bridge_session = _bridge_current_session_from_snapshot(
+        snapshot,
+        bridge_liveness=bridge_liveness,
+    )
+    if prefer_bridge_current_session(
+        prior_session=prior_session,
+        bridge_session=bridge_session,
+        bridge_liveness=bridge_liveness,
+    ):
         return ""
 
     drifted: list[str] = []
@@ -162,6 +174,46 @@ def current_session_authority_drift_warning(
         f"authority ({joined}). This refresh is reprojecting the live bridge "
         "state so the next typed snapshot converges on the reviewer-owned "
         "checkpoint."
+    )
+
+
+def _bridge_current_session_from_snapshot(
+    snapshot: BridgeSnapshot,
+    *,
+    bridge_liveness: Mapping[str, object] | None = None,
+) -> ReviewCurrentSessionState:
+    current_instruction = _section_text(snapshot, "Current Instruction For Claude")
+    implementer_status = _section_text(snapshot, "Claude Status")
+    implementer_ack = _section_text(snapshot, "Claude Ack")
+    implementer_ack_revision = (
+        str((bridge_liveness or {}).get("implementer_ack_revision") or "").strip()
+        or extract_implementer_ack_revision(implementer_ack)
+    )
+    return ReviewCurrentSessionState(
+        current_instruction=current_instruction,
+        current_instruction_revision=str(
+            snapshot.metadata.get("current_instruction_revision")
+            or (bridge_liveness or {}).get("current_instruction_revision")
+            or ""
+        ).strip(),
+        implementer_status=implementer_status,
+        implementer_ack=implementer_ack,
+        implementer_ack_revision=implementer_ack_revision,
+        implementer_ack_state=str(
+            (bridge_liveness or {}).get("implementer_ack_state") or "unknown"
+        ).strip(),
+        implementer_state_hash=compute_implementer_state_hash(
+            implementer_status=implementer_status,
+            implementer_ack=implementer_ack,
+        ),
+        implementer_session_state=str(
+            (bridge_liveness or {}).get("implementer_session_state") or ""
+        ).strip(),
+        implementer_session_hint=str(
+            (bridge_liveness or {}).get("implementer_session_hint") or ""
+        ).strip(),
+        open_findings=_section_text(snapshot, "Open Findings"),
+        last_reviewed_scope=_section_text(snapshot, "Last Reviewed Scope"),
     )
 def event_current_instruction(review_state: Mapping[str, object]) -> str:
     """Derive the event-backed current instruction from the typed queue only."""

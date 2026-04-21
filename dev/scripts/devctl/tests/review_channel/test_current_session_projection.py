@@ -18,6 +18,7 @@ from dev.scripts.devctl.review_channel.current_session_authority import (
     prefer_bridge_current_session,
 )
 from dev.scripts.devctl.review_channel.current_session_support import (
+    current_session_authority_drift_warning,
     prior_typed_current_session,
 )
 from dev.scripts.devctl.review_channel.event_projection import (
@@ -401,7 +402,57 @@ def test_event_bridge_liveness_prefers_bridge_reviewer_mode() -> None:
         ),
     )
 
-    assert payload["reviewer_mode"] == "active_dual_agent"
+    assert payload["reviewer_mode"] == "single_agent"
+
+
+def test_event_bridge_liveness_ignores_stopped_daemon_reviewer_mode() -> None:
+    payload = build_event_bridge_liveness_projection(
+        {
+            "timestamp": "2026-04-15T00:00:00Z",
+            "_compat": {
+                "runtime": {
+                    "daemons": {
+                        "publisher": {
+                            "running": False,
+                            "reviewer_mode": "active_dual_agent",
+                        },
+                    }
+                }
+            },
+        },
+    )
+
+    assert payload["reviewer_mode"] == "tools_only"
+
+
+def test_current_session_drift_warning_keeps_fresh_bridge_checkpoint_authority() -> None:
+    warning = current_session_authority_drift_warning(
+        snapshot=BridgeSnapshot(
+            metadata={"current_instruction_revision": "freshrev1234"},
+            sections={
+                "Current Instruction For Claude": "- Fresh reviewer instruction.",
+                "Claude Status": "- Status unavailable.",
+                "Claude Ack": "- missing",
+                "Open Findings": "- none",
+                "Last Reviewed Scope": "- MP-355",
+            },
+        ),
+        prior_review_state={
+            "current_session": {
+                "current_instruction": "",
+                "current_instruction_revision": "",
+                "implementer_status": "",
+                "implementer_ack": "",
+                "implementer_ack_revision": "",
+                "implementer_ack_state": "missing",
+                "open_findings": "stale packet findings",
+                "last_reviewed_scope": "old scope",
+            }
+        },
+        bridge_liveness={"reviewer_freshness": "fresh"},
+    )
+
+    assert warning == ""
 
 
 def test_build_event_current_session_clears_prior_instruction_when_queue_is_empty() -> None:

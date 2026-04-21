@@ -164,6 +164,7 @@ def _refresh_bridge_status_report(
         snapshot.warnings,
         bridge_path=bridge_path,
         review_state_path=Path(snapshot.projection_paths.review_state_path),
+        bridge_liveness=snapshot.bridge_liveness,
     ):
         bridge_synced, sync_warning = _sync_bridge_from_typed_projection_if_needed(
             repo_root=repo_root,

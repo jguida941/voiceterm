@@ -66,6 +66,7 @@ def build_status_authority(
         current_session_authority_drift_warning(
             snapshot=inputs.bridge_snapshot,
             prior_review_state=inputs.prior_review_state,
+            bridge_liveness=inputs.bridge_liveness,
         ),
     )
     _append_status_warning(

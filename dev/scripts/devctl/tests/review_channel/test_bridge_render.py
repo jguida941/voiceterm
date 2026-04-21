@@ -17,6 +17,7 @@ from dev.scripts.devctl.commands.review_channel.bridge_render import (
     build_bridge_success_report,
 )
 from dev.scripts.devctl.commands.review_channel.status_bridge_sync import (
+    bridge_current_session_drifted,
     sync_bridge_from_typed_projection_if_needed,
 )
 from dev.scripts.devctl.review_channel.bridge_section_validation import (
@@ -875,6 +876,44 @@ def test_status_bridge_sync_reprojects_bridge_even_with_pending_packets(
     assert rewritten != original
     assert "Historical ack that should be dropped." not in rewritten
     assert "## Coverage" not in rewritten
+
+
+def test_status_bridge_sync_does_not_reverse_fresh_bridge_checkpoint(
+    tmp_path: Path,
+) -> None:
+    root = tmp_path
+    bridge_path = root / "bridge.md"
+    bridge_path.write_text(_bridge_text(), encoding="utf-8")
+    status_dir = root / "dev/reports/review_channel/latest"
+    status_dir.mkdir(parents=True, exist_ok=True)
+    review_state_path = status_dir / "review_state.json"
+    review_state_path.write_text(
+        json.dumps(
+            {
+                "current_session": {
+                    "current_instruction": "",
+                    "current_instruction_revision": "",
+                    "implementer_status": "",
+                    "implementer_ack": "",
+                    "implementer_ack_revision": "",
+                    "implementer_ack_state": "missing",
+                    "open_findings": "stale packet findings",
+                    "last_reviewed_scope": "old scope",
+                }
+            },
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+
+    drifted = bridge_current_session_drifted(
+        ["Live bridge sections drift from persisted typed `current_session` authority."],
+        bridge_path=bridge_path,
+        review_state_path=review_state_path,
+        bridge_liveness={"reviewer_freshness": "fresh"},
+    )
+
+    assert drifted is False
 
 
 def test_status_bridge_sync_clears_stale_instruction_when_typed_projection_is_blank(

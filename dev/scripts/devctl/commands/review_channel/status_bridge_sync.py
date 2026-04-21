@@ -19,27 +19,28 @@ def bridge_current_session_drifted(
     *,
     bridge_path: Path | None = None,
     review_state_path: Path | None = None,
+    bridge_liveness: dict[str, object] | None = None,
 ) -> bool:
-    if any(
+    warning_reported_drift = any(
         "typed `current_session` authority" in str(warning)
         for warning in warnings
-    ):
-        return True
+    )
     if bridge_path is None or review_state_path is None:
-        return False
+        return warning_reported_drift
     if not bridge_path.is_file() or not review_state_path.is_file():
-        return False
+        return warning_reported_drift
     try:
         prior_review_state = json.loads(review_state_path.read_text(encoding="utf-8"))
         if not isinstance(prior_review_state, dict):
-            return False
+            return warning_reported_drift
         snapshot = extract_bridge_snapshot(bridge_path.read_text(encoding="utf-8"))
     except (OSError, ValueError, json.JSONDecodeError):
-        return False
+        return warning_reported_drift
     return bool(
         current_session_authority_drift_warning(
             snapshot=snapshot,
             prior_review_state=prior_review_state,
+            bridge_liveness=bridge_liveness,
         )
     )
 
