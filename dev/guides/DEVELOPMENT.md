@@ -1394,11 +1394,10 @@ Workflow permissions note:
    auditing," not "still waiting to push." If a later rerun fetches the
    tracked branch and proves `ahead == 0`, `devctl push` now returns the
    existing already-published receipt before router preflight instead of
-   defaulting zero changed paths into the docs lane. The push-result
-   projector now also treats that `branch_already_pushed` +
-   `published_remote=true` rerun as `push_completed`, so a pre-fix
-   `push_blocked` pipeline heals on rerun instead of preserving stale blocked
-   publication state. The same runtime path now
+   defaulting zero changed paths into the docs lane. That no-op receipt is
+   not allowed to reconstruct a stale `push_blocked` commit-pipeline artifact
+   into `push_completed`; startup/status recover current publication from the
+   persisted push artifact instead. The same runtime path now
    also reuses the preflight-resolved `since_ref` for diff-sensitive post-push
    commands, so existing upstream-backed branches audit the published delta
    instead of reopening unrelated branch-vs-develop debt. The governed

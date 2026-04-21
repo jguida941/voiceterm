@@ -1446,10 +1446,10 @@ Routine helper:
   later rerun fetches the tracked branch and proves `ahead == 0`, `devctl
   push` now exits with the existing `branch_already_pushed` /
   `published_remote` receipt before router preflight so a clean already-
-  published branch cannot be misclassified into a zero-diff docs lane. The
-  same projector path now also heals a stale `push_blocked` pipeline back to
-  `push_completed` when that no-op rerun proves `published_remote=true`, so
-  already-published heads do not stay stranded behind pre-fix blocked state.
+  published branch cannot be misclassified into a zero-diff docs lane. That
+  no-op receipt must not reconstruct a stale `push_blocked` commit-pipeline
+  artifact into `push_completed`; read-side publication truth comes from the
+  current persisted push artifact instead.
 - Shared `devctl` command execution now follows the parent command lifetime:
   inherited stdout pipes from detached descendants must not keep a completed
   governed push session open after the parent push/post-push step exits.

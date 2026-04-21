@@ -91,7 +91,36 @@ Evidence:
 - `dev/scripts/README.md`
 - `dev/active/MASTER_PLAN.md`
 
-### 2026-04-20 - Governed push reruns now heal already-published pipelines back to `push_completed`
+### 2026-04-21 - Branch-already-pushed reruns stop reconstructing blocked pipelines
+
+Fact: the 2026-04-20 governed-push heal made a stale blocked commit pipeline
+look complete when a later no-op rerun returned `branch_already_pushed` with
+`published_remote=true`. That hid the actual state boundary: remote publication
+can be current while post-push validation is still unresolved, and the commit
+pipeline should not be rewritten into `push_completed` unless both remote
+publication and post-push green evidence exist.
+
+Change: `pipeline_push_result()` now leaves `branch_already_pushed` no-op
+receipts as partial-progress push-blocked results unless the push report also
+proves `post_push_green=true`. Reviewer runtime publication no longer
+reconstructs publication from partial pipeline push results; it treats the
+commit pipeline as published only when the pipeline state is `push_completed`
+and recovers already-published truth from the latest persisted push artifact
+when that artifact matches the current branch and HEAD.
+
+Evidence:
+- `dev/scripts/devctl/commands/vcs/governed_executor_push_result.py`
+- `dev/scripts/devctl/review_channel/reviewer_runtime_publication.py`
+- `dev/scripts/devctl/tests/vcs/test_push.py`
+- `dev/scripts/devctl/tests/review_channel/test_reviewer_runtime_doctor.py`
+- `AGENTS.md`
+- `dev/guides/DEVELOPMENT.md`
+- `dev/scripts/README.md`
+- `dev/active/MASTER_PLAN.md`
+
+### 2026-04-20 - Governed push reruns briefly healed already-published pipelines back to `push_completed`
+
+Superseded by the 2026-04-21 follow-up above.
 
 Fact: the first fix for the no-op governed-push regression only added a
 monotonic guard at pipeline persistence time. That prevented an already-green
@@ -100,10 +129,10 @@ real failure mode open: if an older run had already been persisted as
 `push_blocked`, a later `branch_already_pushed` rerun would keep reporting the
 branch as remotely published while the pipeline artifact stayed blocked.
 
-Change: the push-result projector now treats
+Change: at that point, the push-result projector treated
 `reason=branch_already_pushed` plus `published_remote=true` as terminal push
-completion. The same rerun now projects `next_state=push_completed`, clears the
-blocked publication interpretation, and emits a passing `push_result` instead of
+completion. The same rerun projected `next_state=push_completed`, cleared the
+blocked publication interpretation, and emitted a passing `push_result` instead of
 partial-progress failure semantics. Regression proof now covers both the direct
 projection path and the pipeline sync heal path for an already-regressed
 `push_blocked` artifact.

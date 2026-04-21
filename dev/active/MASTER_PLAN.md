@@ -535,11 +535,17 @@
   (`push_pending`) and remote publication, while startup treats a current-head
   in-flight push receipt as "wait for the running governed push" instead of
   telling the operator to launch a second push from stale artifact state.
-- 2026-04-20 governed-push no-op rerun heal follow-up in `MP-377` scope:
-  `project_push_report()` now treats `reason=branch_already_pushed` plus
-  `published_remote=true` as `push_completed`, so reruns on already-published
-  heads heal pre-fix `push_blocked` pipeline artifacts instead of preserving
-  stale blocked publication state after the branch is already on the remote.
+- 2026-04-20 governed-push no-op rerun heal follow-up in `MP-377` scope
+  (superseded by the 2026-04-21 tightening below): the first follow-up treated
+  `reason=branch_already_pushed` plus `published_remote=true` as
+  `push_completed` so already-published heads could heal pre-fix
+  `push_blocked` pipeline artifacts.
+- 2026-04-21 governed-push no-op rerun tightening in `MP-377` scope:
+  `branch_already_pushed` receipts no longer reconstruct stale
+  `push_blocked` commit-pipeline artifacts into `push_completed`. Pipeline
+  completion now requires `published_remote=true` and `post_push_green=true`,
+  while startup/status recover already-published truth from the current
+  persisted push artifact.
 - 2026-04-11 remote-participant visibility follow-up in `MP-380..MP-387`
   scope: active `attach-remote-control` artifacts now feed the typed
   collaboration roster/role-assignment path, so dashboard/status/coordination

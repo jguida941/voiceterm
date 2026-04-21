@@ -70,11 +70,6 @@ def pipeline_push_result(
     published_remote = bool(stages.get("published_remote"))
     post_push_green = bool(stages.get("post_push_green"))
     if _push_report_completed(report):
-        operator_guidance = "Remote publication and post-push validation completed."
-        if reason == "branch_already_pushed" and published_remote and not post_push_green:
-            operator_guidance = (
-                "Current HEAD is already published; treating the rerun as push complete."
-            )
         return ActionResult(
             schema_version=ACTION_RESULT_SCHEMA_VERSION,
             contract_id=ACTION_RESULT_CONTRACT_ID,
@@ -82,7 +77,7 @@ def pipeline_push_result(
             ok=True,
             status=ActionOutcome.PASS,
             reason="push_completed",
-            operator_guidance=operator_guidance,
+            operator_guidance="Remote publication and post-push validation completed.",
         )
     if published_remote:
         return ActionResult(
@@ -114,10 +109,8 @@ def pipeline_push_result(
 
 
 def _push_report_completed(report: Mapping[str, object]) -> bool:
-    """Treat already-published no-op reruns as terminal push completion."""
+    """Return true only when the push report proves full post-push completion."""
     stages = mapping(report.get("push_stages"))
     if not bool(stages.get("published_remote")):
         return False
-    if bool(stages.get("post_push_green")):
-        return True
-    return string_value(report.get("reason")) == "branch_already_pushed"
+    return bool(stages.get("post_push_green"))

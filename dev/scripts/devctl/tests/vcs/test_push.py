@@ -2404,7 +2404,7 @@ class PushReceiptTests(unittest.TestCase):
 
 
 class PushPipelineStateSyncTests(unittest.TestCase):
-    def test_project_push_report_heals_branch_already_pushed_with_published_remote(
+    def test_project_push_report_keeps_branch_already_pushed_as_partial_progress(
         self,
     ) -> None:
         projection = project_push_report(
@@ -2421,10 +2421,11 @@ class PushPipelineStateSyncTests(unittest.TestCase):
             pipeline_artifact_relpath="dev/reports/commit_pipeline.json",
         )
 
-        self.assertEqual(projection.next_state, "push_completed")
-        self.assertEqual(projection.blocked_reason, "")
-        self.assertTrue(projection.push_result.ok)
-        self.assertEqual(projection.push_result.reason, "push_completed")
+        self.assertEqual(projection.next_state, "push_blocked")
+        self.assertEqual(projection.blocked_reason, "branch_already_pushed")
+        self.assertFalse(projection.push_result.ok)
+        self.assertTrue(projection.push_result.partial_progress)
+        self.assertEqual(projection.push_result.reason, "branch_already_pushed")
 
     def test_sync_commit_pipeline_with_push_report_updates_both_pipeline_artifacts(
         self,
@@ -2560,16 +2561,15 @@ class PushPipelineStateSyncTests(unittest.TestCase):
                 },
             )
 
-            self.assertTrue(synced)
+            self.assertFalse(synced)
             persisted = load_remote_commit_pipeline_contract(
                 output_root=projections_root
             )
             self.assertEqual(persisted.state, "push_completed")
-            self.assertIsNotNone(persisted.push_result)
-            self.assertEqual(persisted.push_result.reason, "push_completed")
-            self.assertEqual(persisted.push_report_path, "dev/reports/push/latest.json")
+            self.assertIsNone(persisted.push_result)
+            self.assertEqual(persisted.push_report_path, "")
 
-    def test_sync_commit_pipeline_with_push_report_heals_regressed_push_blocked_on_branch_already_pushed(
+    def test_sync_commit_pipeline_with_push_report_does_not_heal_regressed_push_blocked_on_branch_already_pushed(
         self,
     ) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -2613,12 +2613,14 @@ class PushPipelineStateSyncTests(unittest.TestCase):
             legacy = load_remote_commit_pipeline_contract(
                 output_root=repo_root / "dev/reports/review_channel/latest"
             )
-            self.assertEqual(persisted.state, "push_completed")
-            self.assertEqual(legacy.state, "push_completed")
+            self.assertEqual(persisted.state, "push_blocked")
+            self.assertEqual(legacy.state, "push_blocked")
             self.assertIsNotNone(persisted.push_result)
             self.assertIsNotNone(legacy.push_result)
-            self.assertEqual(persisted.push_result.reason, "push_completed")
-            self.assertEqual(legacy.push_result.reason, "push_completed")
+            self.assertEqual(persisted.push_result.reason, "branch_already_pushed")
+            self.assertEqual(legacy.push_result.reason, "branch_already_pushed")
+            self.assertTrue(persisted.push_result.partial_progress)
+            self.assertTrue(legacy.push_result.partial_progress)
 
 
 if __name__ == "__main__":

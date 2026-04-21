@@ -86,17 +86,11 @@ def resolve_publication_blocked_reason(
 
 
 def _pipeline_published_remote(pipeline: RemoteCommitPipelineContract) -> bool:
-    if pipeline.state == "push_completed":
-        return True
-    if pipeline.push_result is None:
-        return False
-    if pipeline.push_result.partial_progress:
-        return True
-    return bool(pipeline.push_result.ok and pipeline.push_result.status == "pass")
+    return pipeline.state == "push_completed"
 
 
 def _pipeline_post_push_green(pipeline: RemoteCommitPipelineContract) -> bool:
-    return pipeline.state == "push_completed" and _pipeline_published_remote(pipeline)
+    return _pipeline_published_remote(pipeline)
 
 
 def current_pipeline_projection(

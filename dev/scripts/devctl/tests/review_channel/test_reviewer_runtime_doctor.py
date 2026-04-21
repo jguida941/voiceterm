@@ -53,7 +53,7 @@ def _runtime_contract(*, publish_clear: bool = True) -> ReviewerRuntimeContract:
     )
 
 
-def test_build_reviewer_doctor_surface_treats_partial_progress_push_as_published() -> None:
+def test_build_reviewer_doctor_surface_does_not_reconstruct_publication_from_partial_pipeline() -> None:
     pipeline = RemoteCommitPipelineContract(
         state="push_blocked",
         push_report_path="dev/reports/push/latest.json",
@@ -74,10 +74,59 @@ def test_build_reviewer_doctor_surface_treats_partial_progress_push_as_published
         commit_pipeline=pipeline,
     )
 
+    assert doctor["published_remote"] is False
+    assert doctor["post_push_green"] is False
+    assert doctor["push_report_path"] == "dev/reports/push/latest.json"
+    assert doctor["publication_source"] == "none"
+    assert doctor["summary"] == "Reviewer runtime is green and publish-clear."
+
+
+def test_build_reviewer_doctor_surface_recovers_partial_pipeline_publication_from_artifact() -> None:
+    pipeline = RemoteCommitPipelineContract(
+        state="push_blocked",
+        push_report_path="dev/reports/push/latest.json",
+        push_result=ActionResult(
+            schema_version=1,
+            contract_id="ActionResult",
+            action_id="vcs.push",
+            ok=False,
+            status="fail",
+            reason="branch_already_pushed",
+            partial_progress=True,
+        ),
+        blocked_reason="branch_already_pushed",
+        branch="feature/demo",
+        remote="origin",
+        commit_sha="abc123",
+    )
+
+    doctor = build_reviewer_doctor_surface(
+        contract=_runtime_contract(),
+        commit_pipeline=pipeline,
+        push_enforcement={
+            "current_branch": "feature/demo",
+            "current_head_commit": "abc123",
+            "default_remote": "origin",
+            "upstream_ref": "origin/feature/demo",
+            "latest_push_report_path": "dev/reports/push/latest.json",
+            "latest_push_report_branch": "feature/demo",
+            "latest_push_report_remote": "origin",
+            "latest_push_report_head_commit": "abc123",
+            "latest_push_report_status": "published_remote",
+            "latest_push_report_reason": "branch_already_pushed",
+            "latest_push_report_published_remote": True,
+            "latest_push_report_post_push_green": False,
+            "latest_push_report_approved_target_identity": "",
+            "latest_push_report_matches_current_approved_target": True,
+            "latest_push_report_matches_current_branch": True,
+            "latest_push_report_matches_current_head": True,
+        },
+    )
+
     assert doctor["published_remote"] is True
     assert doctor["post_push_green"] is False
     assert doctor["push_report_path"] == "dev/reports/push/latest.json"
-    assert doctor["publication_source"] == "commit_pipeline"
+    assert doctor["publication_source"] == "latest_push_report"
     assert "post-push follow-up is not green yet" in doctor["summary"]
 
 
