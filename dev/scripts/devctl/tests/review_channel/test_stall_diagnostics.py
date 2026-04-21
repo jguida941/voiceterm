@@ -370,6 +370,50 @@ def test_escalation_after_prior_task_complete_still_flags_deadlock(tmp_path: Pat
     assert diagnosis.reason == "escalation_deadlock"
 
 
+def test_replacement_session_clears_prior_escalation_deadlock(tmp_path: Path) -> None:
+    """rev_pkt_1529 follow-up: explicit replacement evidence outranks stale
+    escalation-deadlock diagnosis for a successfully relaunched session."""
+    rollouts_root = tmp_path / "sessions"
+    old_rollout = rollouts_root / "rollout-019dacd1.jsonl"
+    _write_rollout(
+        old_rollout,
+        events=[
+            {
+                "type": "event_msg",
+                "payload": {"type": "task_complete"},
+                "timestamp": "2026-04-20T20:00:00.000Z",
+            },
+            {
+                "type": "response_item",
+                "is_escalation": True,
+                "summary": "ESCALATION: stuck-process inspection",
+                "timestamp": "2026-04-20T21:36:54.924Z",
+            },
+        ],
+    )
+    replacement_rollout = rollouts_root / "rollout-2026-04-20T21-40-00-019dad00.jsonl"
+    _write_rollout(
+        replacement_rollout,
+        events=[{"type": "reasoning", "timestamp": "2026-04-20T21:40:00.000Z"}],
+    )
+
+    observation_iso = "2026-04-20T21:50:00.000Z"
+    diagnosis = diagnose_conductor_stall(
+        session_id="019dacd1",
+        rollout_path=old_rollout,
+        rollouts_root=rollouts_root,
+        observation_utc=observation_iso,
+        observation_unix_seconds=_iso_to_unix(observation_iso),
+        stall_budget_seconds=300.0,
+        replacement_session_ids=frozenset({"019dad00"}),
+    )
+
+    assert diagnosis.latest_escalation_utc == "2026-04-20T21:36:54.924Z"
+    assert diagnosis.new_session_since_task_complete is True
+    assert diagnosis.stalled is False
+    assert diagnosis.reason == "new_session_spawned"
+
+
 def test_missing_rollout_file_is_not_stalled(tmp_path: Path) -> None:
     rollouts_root = tmp_path / "sessions"
     rollouts_root.mkdir()

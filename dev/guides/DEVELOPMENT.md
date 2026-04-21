@@ -144,6 +144,11 @@ Use docs like this:
   surfaces `escalation_deadlock` regardless of whether the session
   previously emitted task-complete events — covering the long-lived
   conductor that completes earlier work and only later wedges.
+- The 2026-04-21 `rev_pkt_1529` follow-up keeps explicit replacement-session
+  evidence ahead of stale escalation-deadlock classification in
+  `stall_diagnostics.py`; callers that pass `replacement_session_ids` and
+  prove the replacement rollout exists should see `new_session_spawned`, not
+  a lingering deadlock for the replaced conductor.
 - The operator read surface now has an explicit read-only alias too:
   `review-channel --action operator-inbox` fixes `target=operator`, defaults
   to the live pending queue, and must not stamp `delivery_observed_*` on live

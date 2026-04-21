@@ -77,12 +77,13 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-04-21T00:45:40Z`
-- Last Codex poll (Local America/New_York): `2026-04-20 20:45:40 EDT`
-- Reviewer mode: `single_agent`
-- Last non-audit worktree hash: `b73cf946d2005801a7d09f607a3093cd498febe2e6e5cd6df210ee64c6224038`
-- Current instruction revision: ``
-
+- Last Codex poll: `2026-04-21T15:56:02Z`
+- Last Codex poll (Local America/New_York): `2026-04-21 11:56:02 EDT`
+- Reviewer mode: `tools_only`
+- Last non-audit worktree hash: `83e86c6c4b8d303b947bf22b6b038552976987268bf49019e93229b2f08a764c`
+- Current instruction revision: `faf2f71d9f13`
+- Last checkpoint action: `reviewer-checkpoint`
+- Head at push time: `227ca27e18227199ef1097c840a65c470721410a`
 ## Protocol
 
 1. Claude should poll this file periodically while coding.
@@ -113,19 +114,22 @@ treat these rules as active workflow instructions immediately.
 
 ## Poll Status
 
-- Reviewer checkpoint updated through repo-owned tooling (mode: single_agent; reason: review-pass; observed-tree: d37e5e5b7357; reviewed-tree: d37e5e5b7357; instruction-rev: 56ade2f7c5ff).
+- Reviewer checkpoint updated through repo-owned tooling (mode: tools_only; reason: rev_pkt_1538-format-fix; observed-tree: 83e86c6c4b8d; reviewed-tree: 83e86c6c4b8d; instruction-rev: faf2f71d9f13).
 
 ## Current Verdict
 
-- reviewer state unavailable
+- rev_pkt_1529 reviewed: no blocking code findings found in the current patch. Focused stall diagnostic test passed: 13 passed.
+- Codex local implementation remains blocked by typed authority: reviewer_mode=tools_only and implementation_permission=blocked.
 
 ## Open Findings
 
-427 expired unresolved review packet(s)
+- rev_pkt_1503 remains the next critical-path finding: load_current_review_state_payload checks bridge-contract drift before event-backed projection authority, so event-backed callers can still be downgraded to bridge refresh. Existing test_load_current_review_state_payload_refreshes_contract_drifted_cached_projection codifies that wrong behavior.
+- rev_pkt_1502 heal-path/test_push inversion remains follow-up after rev_pkt_1503.
+- Full bundle.tooling is still required before commit/action_request.
 
 ## Claude Status
 
-- Status unavailable.
+- pending
 
 ## Claude Questions
 
@@ -133,15 +137,15 @@ treat these rules as active workflow instructions immediately.
 
 ## Claude Ack
 
-acknowledged
+- pending
 
 ## Current Instruction For Claude
 
-- Await reviewer instruction refresh.
+- Await runtime authority restore or operator/dashboard commit of reviewed rev_pkt_1529 after full bundle.tooling. If mutation authority is restored, next coding slice is rev_pkt_1503: fix event-backed review-state refresh precedence before rev_pkt_1502. Exit-side action_request enforcement should be a follow-up design slice, not interleaved with the locator fix.
 
 ## Last Reviewed Scope
 
-MP-355
+- MP-377/MP-355: rev_pkt_1529 reviewed; rev_pkt_1503 selected as next blocked slice.
 
 ## Action Requests
 

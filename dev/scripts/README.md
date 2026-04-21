@@ -1120,6 +1120,9 @@ python3 dev/scripts/devctl.py review-channel --action launch --approval-mode tru
 # review-channel --action recover and the ensure-follow reviewer-wake path
 # (reviewer_follow_guard.launch_waiting_reviewer_conductor) follow the same
 # auto-elevation rule.
+# The typed stall diagnostic treats caller-supplied replacement-session
+# rollouts as stronger evidence than an old escalation-deadlock event, so a
+# successfully relaunched conductor clears as new_session_spawned.
 python3 dev/scripts/devctl.py review-channel --action status --terminal none --format md --output /tmp/review-channel-status.md
 python3 dev/scripts/devctl.py review-channel --action promote --terminal none --format md --output /tmp/review-channel-promote.md
 python3 dev/scripts/devctl.py review-channel --action launch --format md --output /tmp/review-channel-live.md

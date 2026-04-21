@@ -206,7 +206,10 @@ def diagnose_conductor_stall(
         and escalation_iso == latest_event_iso
     )
 
-    if (
+    if task_complete_iso and new_session_observed:
+        stalled = False
+        reason = "new_session_spawned"
+    elif (
         escalation_is_latest_event
         and elapsed_escalation > stall_budget_seconds
     ):
@@ -220,9 +223,6 @@ def diagnose_conductor_stall(
         # diagnostic exists to surface.
         stalled = True
         reason = "escalation_deadlock"
-    elif task_complete_iso and new_session_observed:
-        stalled = False
-        reason = "new_session_spawned"
     elif task_complete_iso and elapsed_complete > stall_budget_seconds:
         stalled = True
         reason = "stalled_beyond_budget"

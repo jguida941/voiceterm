@@ -53,6 +53,11 @@
   (`payload.type == "task_complete"`, `payload.is_escalation`) and
   surfaces `escalation_deadlock` regardless of whether the session
   previously emitted task-complete events.
+- 2026-04-21 `rev_pkt_1529` stall-diagnostic follow-up (also under
+  MP-377): explicit caller-supplied replacement-session rollout evidence now
+  clears a prior conductor before stale `escalation_deadlock` classification,
+  so a wedged session that was successfully relaunched no longer keeps
+  reporting deadlock forever.
 - `dev/active/review_probes.md` is the review-probe execution spec; implementation tasks stay in this file under `MP-368..MP-375`.
 - `dev/active/portable_code_governance.md` is the narrower engine/adoption
   companion under `MP-376`, not a second main product plan; implementation

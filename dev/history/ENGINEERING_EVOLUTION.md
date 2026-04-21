@@ -4,7 +4,7 @@
 
 **Status:** Draft v4 (historical design and process record)
 **Audience:** users and developers
-**Last Updated:** 2026-04-20
+**Last Updated:** 2026-04-21
 
 ## At a Glance
 
@@ -38,6 +38,32 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 - [Developer Path (15 min)](#developer-path-15-min)
 
 ### 2026-04-17 - Event-backed current-session only clears on explicit packet truth, and missing implementation permission now blocks mutation
+
+### 2026-04-21 - Stall diagnostics clear replaced sessions before stale escalation deadlocks
+
+Fact: `rev_pkt_1529` exposed one remaining order-of-checks bug in the typed
+conductor stall diagnostic. The previous follow-up correctly made
+`escalation_deadlock` fire when a long-lived conductor completed earlier work
+and later wedged on a headless sandbox-escalation prompt, but that branch ran
+before the explicit replacement-session check. A conductor that was wedged,
+then relaunched with caller-supplied `replacement_session_ids`, could still
+surface as deadlocked forever even though the expected replacement rollout
+existed.
+
+Change: `diagnose_conductor_stall()` now evaluates explicit replacement
+evidence before stale escalation-deadlock classification for sessions with a
+task-complete marker. The focused regression writes an old rollout with both
+task-complete and escalation events plus a caller-named replacement rollout,
+then proves the diagnosis returns `new_session_spawned` instead of
+`escalation_deadlock`.
+
+Evidence:
+- `dev/scripts/devctl/review_channel/stall_diagnostics.py`
+- `dev/scripts/devctl/tests/review_channel/test_stall_diagnostics.py`
+- `AGENTS.md`
+- `dev/guides/DEVELOPMENT.md`
+- `dev/scripts/README.md`
+- `dev/active/MASTER_PLAN.md`
 
 ### 2026-04-20 - Governed push reruns now heal already-published pipelines back to `push_completed`
 
