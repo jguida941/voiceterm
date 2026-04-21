@@ -20,6 +20,25 @@ SURFACE_STATE_CONTRACTS: tuple[ContractSpec, ...] = (
             "review-channel, dashboard, and remote-control bootstrap surfaces."
         ),
         required_fields=(
+            ContractField("snapshot_id", "str", "Shared source proof-tick snapshot id."),
+            ContractField("zref", "str", "Compact source proof-tick reference."),
+            ContractField(
+                "source_identity",
+                "dict[str, str] | None",
+                "Sanitized producer identity tuple for the snapshot source.",
+            ),
+            ContractField("source_contract", "str", "Producer contract id for the source payload."),
+            ContractField("source_command", "str", "Repo-owned command that produced the source payload."),
+            ContractField(
+                "observed_fields",
+                "tuple[str, ...]",
+                "Fields copied from observed runtime authority.",
+            ),
+            ContractField(
+                "inferred_fields",
+                "tuple[str, ...]",
+                "Fields inferred by the producer while projecting the snapshot.",
+            ),
             ContractField("generated_at_utc", "str", "UTC timestamp when the coordination snapshot was built."),
             ContractField("repo_name", "str", "Resolved repo name for the coordination snapshot."),
             ContractField("repo_root", "str", "Resolved repo root for the coordination snapshot."),

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 
 from .post_checkpoint_dirty_support import (
     COMMIT_CHECKPOINT_COMMAND,
@@ -13,6 +13,11 @@ from .authority_snapshot_parse_support import (
     mapping_or_empty as _mapping,
     string_items as _string_items,
 )
+from .review_state_packet_models import (
+    AgentAttentionRecord,
+    agent_attention_record_from_mapping,
+)
+from .surface_provenance import attach_surface_provenance, surface_provenance_kwargs
 
 _CONTEXT_GRAPH_BOOTSTRAP_COMMAND = (
     "python3 dev/scripts/devctl.py context-graph --mode bootstrap --format md"
@@ -51,6 +56,13 @@ class AuthoritySnapshot:
 
     schema_version: int = 1
     contract_id: str = "AuthoritySnapshot"
+    snapshot_id: str = ""
+    zref: str = ""
+    source_identity: dict[str, str] = field(default_factory=dict)
+    source_contract: str = ""
+    source_command: str = ""
+    observed_fields: tuple[str, ...] = ()
+    inferred_fields: tuple[str, ...] = ()
     coordination_state: str = "ready"
     root_cause: str = ""
     required_action: str = ""
@@ -83,7 +95,9 @@ class AuthoritySnapshot:
         payload["blocked_actions"] = list(self.blocked_actions)
         if self.packet_target is None:
             payload.pop("packet_target", None)
-        return payload
+        else:
+            payload["packet_target"] = self.packet_target.to_dict()
+        return attach_surface_provenance(payload)
 
 
 def authority_snapshot_from_mapping(value: object) -> AuthoritySnapshot | None:
@@ -94,6 +108,7 @@ def authority_snapshot_from_mapping(value: object) -> AuthoritySnapshot | None:
     return AuthoritySnapshot(
         schema_version=int(value.get("schema_version") or 1),
         contract_id=str(value.get("contract_id") or "AuthoritySnapshot").strip(),
+        **surface_provenance_kwargs(value),
         coordination_state=str(value.get("coordination_state") or "ready").strip(),
         root_cause=str(value.get("root_cause") or "").strip(),
         required_action=str(value.get("required_action") or "").strip(),
@@ -130,24 +145,31 @@ def authority_snapshot_from_mapping(value: object) -> AuthoritySnapshot | None:
 
 def authority_packet_target_from_mapping(value: object) -> AuthorityPacketTarget | None:
     """Deserialize one authority packet target row."""
-    if not isinstance(value, Mapping):
+    record = agent_attention_record_from_mapping(value)
+    if record is None:
         return None
+    return authority_packet_target_from_attention_record(record)
+
+
+def authority_packet_target_from_attention_record(
+    record: AgentAttentionRecord,
+    *,
+    attention_revision: str = "",
+) -> AuthorityPacketTarget:
     return AuthorityPacketTarget(
-        attention_revision=str(value.get("attention_revision") or "").strip(),
-        agent=str(value.get("agent") or "").strip(),
-        attention_status=str(value.get("attention_status") or "").strip(),
-        wake_reason=str(value.get("wake_reason") or "").strip(),
-        required_command=str(value.get("required_command") or "").strip(),
-        delivery_state=str(value.get("delivery_state") or "").strip(),
-        current_instruction_packet_id=str(
-            value.get("current_instruction_packet_id") or ""
-        ).strip(),
-        latest_finding_packet_id=str(
-            value.get("latest_finding_packet_id") or ""
-        ).strip(),
-        pending_actionable_total=int(value.get("pending_actionable_total") or 0),
-        expired_unresolved_total=int(value.get("expired_unresolved_total") or 0),
+        attention_revision=attention_revision or record.attention_revision,
+        agent=record.agent,
+        attention_status=record.attention_status,
+        wake_reason=record.wake_reason,
+        required_command=record.required_command,
+        delivery_state=record.delivery_state,
+        current_instruction_packet_id=record.current_instruction_packet_id,
+        latest_finding_packet_id=record.latest_finding_packet_id,
+        pending_actionable_total=len(record.pending_actionable_packet_ids),
+        expired_unresolved_total=len(record.expired_unresolved_packet_ids),
     )
+
+
 def summary_blockers(ctx_dict: Mapping[str, object]) -> tuple[str, ...]:
     """Return the canonical startup blocker labels."""
     blockers: list[str] = []
@@ -298,47 +320,3 @@ def _safe_to_continue(
     if implementation_permission in {"blocked", "suspended"}:
         return False
     return coordination_state in {"ready", "single_agent", "single_agent_authoritative"}
-
-
-def _select_packet_target(
-    packet_inbox: Mapping[str, object],
-) -> AuthorityPacketTarget | None:
-    attention_revision = str(packet_inbox.get("attention_revision") or "").strip()
-    agents = packet_inbox.get("agents")
-    if not isinstance(agents, list):
-        return None
-
-    best_row: Mapping[str, object] | None = None
-    best_key: tuple[object, ...] | None = None
-    for raw_row in agents:
-        row = _mapping(raw_row)
-        if not row:
-            continue
-        sort_key = (
-            0 if str(row.get("current_instruction_packet_id") or "").strip() else 1,
-            0 if int(row.get("pending_actionable_total") or 0) > 0 else 1,
-            0 if str(row.get("required_command") or "").strip() else 1,
-            0 if str(row.get("attention_status") or "").strip() not in {"", "none"} else 1,
-            str(row.get("agent") or ""),
-        )
-        if best_key is None or sort_key < best_key:
-            best_key = sort_key
-            best_row = row
-    if best_row is None:
-        return None
-    return AuthorityPacketTarget(
-        attention_revision=attention_revision,
-        agent=str(best_row.get("agent") or "").strip(),
-        attention_status=str(best_row.get("attention_status") or "").strip(),
-        wake_reason=str(best_row.get("wake_reason") or "").strip(),
-        required_command=str(best_row.get("required_command") or "").strip(),
-        delivery_state=str(best_row.get("delivery_state") or "").strip(),
-        current_instruction_packet_id=str(
-            best_row.get("current_instruction_packet_id") or ""
-        ).strip(),
-        latest_finding_packet_id=str(
-            best_row.get("latest_finding_packet_id") or ""
-        ).strip(),
-        pending_actionable_total=int(best_row.get("pending_actionable_total") or 0),
-        expired_unresolved_total=int(best_row.get("expired_unresolved_total") or 0),
-    )

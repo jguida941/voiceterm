@@ -6,6 +6,10 @@ from dataclasses import asdict, dataclass
 from typing import Any
 
 from ..runtime.work_intake_models import PlanTargetRef
+from ..runtime.surface_provenance import (
+    attach_surface_provenance,
+    surface_provenance_kwargs,
+)
 
 COORDINATION_SNAPSHOT_SCHEMA_VERSION = 1
 COORDINATION_SNAPSHOT_CONTRACT_ID = "CoordinationSnapshot"
@@ -38,6 +42,13 @@ class CoordinationSnapshot:
 
     schema_version: int = COORDINATION_SNAPSHOT_SCHEMA_VERSION
     contract_id: str = COORDINATION_SNAPSHOT_CONTRACT_ID
+    snapshot_id: str = ""
+    zref: str = ""
+    source_identity: dict[str, str] | None = None
+    source_contract: str = ""
+    source_command: str = ""
+    observed_fields: tuple[str, ...] = ()
+    inferred_fields: tuple[str, ...] = ()
     generated_at_utc: str = ""
     repo_name: str = ""
     repo_root: str = ""
@@ -80,7 +91,7 @@ class CoordinationSnapshot:
             payload["active_target"] = None
         else:
             payload["active_target"] = self.active_target.to_dict()
-        return payload
+        return attach_surface_provenance(payload)
 
 
 def coordination_actor_from_mapping(value: object) -> CoordinationActorRecord | None:
@@ -140,6 +151,7 @@ def coordination_snapshot_from_mapping(value: object) -> CoordinationSnapshot | 
     return CoordinationSnapshot(
         schema_version=int(value.get("schema_version") or COORDINATION_SNAPSHOT_SCHEMA_VERSION),
         contract_id=contract_id or COORDINATION_SNAPSHOT_CONTRACT_ID,
+        **surface_provenance_kwargs(value),
         generated_at_utc=str(value.get("generated_at_utc") or "").strip(),
         repo_name=str(value.get("repo_name") or "").strip(),
         repo_root=str(value.get("repo_root") or "").strip(),
@@ -198,8 +210,6 @@ def coordination_snapshot_from_mapping(value: object) -> CoordinationSnapshot | 
         actors=tuple(actors),
         summary=str(value.get("summary") or "").strip(),
     )
-
-
 __all__ = [
     "COORDINATION_SNAPSHOT_CONTRACT_ID",
     "COORDINATION_SNAPSHOT_SCHEMA_VERSION",

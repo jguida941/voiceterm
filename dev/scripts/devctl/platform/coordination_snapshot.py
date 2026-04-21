@@ -12,6 +12,11 @@ from ..runtime.startup_context import build_startup_context
 from ..runtime.work_intake import WorkIntakeStateInputs, build_work_intake_packet
 from ..runtime.work_intake_coordination import build_work_intake_coordination_state
 from ..runtime.work_intake_ownership import build_work_intake_ownership_state
+from ..runtime.surface_provenance import (
+    build_surface_source_identity,
+    source_identity_from_mapping,
+    surface_provenance_from_object,
+)
 from ..time_utils import utc_timestamp
 from ..review_channel.collaboration_provider import coding_provider_from_review_state
 from .coordination_snapshot_models import CoordinationSnapshot
@@ -41,12 +46,7 @@ def build_coordination_snapshot(
     governance: object | None = None,
     work_intake: object | None = None,
 ) -> CoordinationSnapshot:
-    """Build one bounded answer for topology, ownership, fanout, and resync.
-
-    Callers that already resolved a typed ``review_state`` for the current proof
-    tick should pass it explicitly so this reducer does not refresh live review
-    state a second time through ``load_current_review_state``.
-    """
+    """Build one bounded answer for topology, ownership, fanout, and resync."""
     resolved_root = (repo_root or get_repo_root()).resolve()
     resolved_startup = startup_context
     resolved_governance = (
@@ -128,12 +128,17 @@ def build_coordination_snapshot(
         continuity=continuity,
         active_target=active_target,
     )
+    head_commit_sha = current_head_commit_sha(repo_root=resolved_root) or ""
     return CoordinationSnapshot(
+        **_coordination_snapshot_provenance(
+            review_state=resolved_review_state,
+            head_sha=head_commit_sha,
+        ),
         generated_at_utc=utc_timestamp(),
         repo_name=repo_name(resolved_governance, resolved_root),
         repo_root=str(resolved_root),
         current_branch=text(getattr(repo_identity, "current_branch", "")),
-        head_commit_sha=current_head_commit_sha(repo_root=resolved_root) or "",
+        head_commit_sha=head_commit_sha,
         active_target=active_target,
         current_slice=current_slice,
         scope_paths=tuple(getattr(ownership, "scope_paths", ()) or ()),
@@ -246,6 +251,39 @@ def _select_current_slice(*candidates: str) -> str:
             continue
         return value
     return fallback
+
+
+def _coordination_source_identity(
+    *,
+    review_state: object | None,
+    head_sha: str,
+) -> dict[str, str]:
+    raw_identity = getattr(review_state, "source_identity", {}) if review_state else {}
+    parsed_identity = source_identity_from_mapping(raw_identity)
+    if parsed_identity:
+        return parsed_identity
+    commit_pipeline = getattr(review_state, "commit_pipeline", None)
+    bridge = getattr(review_state, "bridge", None)
+    return build_surface_source_identity(
+        generation_id=text(getattr(commit_pipeline, "generation_id", "")),
+        head_sha=head_sha,
+        worktree_hash=text(getattr(bridge, "last_worktree_hash", "")),
+    )
+
+
+def _coordination_snapshot_provenance(
+    *,
+    review_state: object | None,
+    head_sha: str,
+) -> dict[str, object]:
+    provenance = surface_provenance_from_object(
+        review_state,
+        source_identity=_coordination_source_identity(
+            review_state=review_state,
+            head_sha=head_sha,
+        ),
+    )
+    return provenance.as_kwargs()
 
 
 def _is_scope_only_slice(value: str) -> bool:

@@ -64,6 +64,12 @@
   startup/status/session-resume/dashboard consumers cannot silently downgrade
   to bridge-backed compatibility state when the event-backed reducer has
   already emitted typed authority.
+- 2026-04-21 Phase 0.a producer-provenance follow-up (also under MP-377):
+  `AuthoritySnapshot` and `CoordinationSnapshot` now carry the shared
+  proof-tick provenance tuple (`snapshot_id`, `zref`, `source_identity`,
+  `source_contract`, `source_command`, `observed_fields`, and
+  `inferred_fields`) from their producer paths instead of leaving
+  downstream parity tests to reconstruct source identity after the fact.
 - `dev/active/review_probes.md` is the review-probe execution spec; implementation tasks stay in this file under `MP-368..MP-375`.
 - `dev/active/portable_code_governance.md` is the narrower engine/adoption
   companion under `MP-376`, not a second main product plan; implementation

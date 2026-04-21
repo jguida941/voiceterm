@@ -557,6 +557,11 @@ Portability note:
   now emit machine-readable `reviewer_worker` state, and
   `review-channel --action ensure --follow` cadence frames also surface a
   `review_needed` signal without claiming semantic review completion.
+  The nested `AuthoritySnapshot` and `CoordinationSnapshot` projections now
+  also carry the shared proof-tick provenance tuple (`snapshot_id`, `zref`,
+  source identity, source contract/command, and observed/inferred field
+  lists) so startup, session-resume, status, and dashboard readers can verify
+  producer identity without reconstructing it from surrounding payloads.
   `ensure --follow` also reclaims a missing detached reviewer supervisor when
   dual-agent mode is still active, so the recovery loop is corrective instead
   of status-only. The ensure orchestration delegates heartbeat refresh,

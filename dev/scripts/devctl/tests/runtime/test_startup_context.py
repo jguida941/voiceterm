@@ -35,6 +35,7 @@ from dev.scripts.devctl.runtime.startup_context import (
 )
 from dev.scripts.devctl.runtime.authority_snapshot import (
     AuthoritySnapshot,
+    authority_snapshot_from_mapping,
     build_authority_snapshot,
     summary_next_command,
 )
@@ -123,6 +124,50 @@ class TestStartupContextBuild(unittest.TestCase):
             ctx.authority_snapshot.implementer_ack_state,
             ctx.current_session.implementer_ack_state,
         )
+
+    def test_authority_snapshot_carries_surface_provenance(self) -> None:
+        snapshot = build_authority_snapshot(
+            {
+                "snapshot_id": "snap-test",
+                "zref": "zref_test_head",
+                "source_identity": {
+                    "generation_id": "gen-test",
+                    "head_sha": "head-test",
+                    "worktree_hash": "tree-test",
+                },
+                "source_contract": "ReviewState",
+                "source_command": (
+                    "python3 dev/scripts/devctl.py review-channel "
+                    "--action status --terminal none --format json"
+                ),
+                "observed_fields": ["head_sha", "worktree_hash", "generation_id"],
+                "inferred_fields": ["snapshot_id", "zref"],
+                "coordination": {
+                    "resync_required": False,
+                    "current_slice": "producer provenance closure",
+                },
+                "reviewer_gate": {
+                    "reviewer_mode": "single_agent",
+                },
+                "implementation_permission": "active",
+            }
+        )
+
+        payload = snapshot.to_dict()
+
+        self.assertEqual(payload["snapshot_id"], "snap-test")
+        self.assertEqual(payload["zref"], "zref_test_head")
+        self.assertEqual(payload["source_identity"]["generation_id"], "gen-test")
+        self.assertEqual(payload["source_contract"], "ReviewState")
+        self.assertEqual(
+            payload["observed_fields"],
+            ["head_sha", "worktree_hash", "generation_id"],
+        )
+        restored = authority_snapshot_from_mapping(payload)
+        self.assertIsNotNone(restored)
+        assert restored is not None
+        self.assertEqual(restored.snapshot_id, "snap-test")
+        self.assertEqual(restored.source_identity["worktree_hash"], "tree-test")
 
     def test_has_governance(self) -> None:
         ctx = build_startup_context()

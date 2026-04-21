@@ -21,10 +21,11 @@ from .authority_snapshot_core import (
     _coordination_state,
     _mapping,
     _safe_to_continue,
-    _select_packet_target,
     _string_items,
     summary_next_command,
 )
+from .authority_snapshot_packet_target import select_packet_target
+from .authority_snapshot_provenance import authority_snapshot_provenance_kwargs
 from .authority_snapshot_instructions import (
     AuthorityInstructionInputs,
     current_instruction_for_reviewer,
@@ -77,7 +78,7 @@ def _build_authority_context(payload: Mapping[str, object]) -> AuthorityBuildCon
         reviewer_gate=reviewer_gate,
         reviewer_runtime=reviewer_runtime,
         packet_inbox=packet_inbox,
-        packet_target=_select_packet_target(packet_inbox),
+        packet_target=select_packet_target(packet_inbox),
         reviewer_agent=reviewer_provider_from_payload(payload),
     )
 
@@ -248,6 +249,7 @@ def build_authority_snapshot(
         clear_from_packet_truth=clear_from_packet_truth,
     )
     return AuthoritySnapshot(
+        **authority_snapshot_provenance_kwargs(payload),
         coordination_state=coordination_state,
         root_cause=root_cause,
         required_action=required_action,
@@ -267,11 +269,7 @@ def build_authority_snapshot(
         current_instruction_revision=current_instruction_revision,
         implementer_ack_state=implementer_ack_state,
         resync_required=resync_required,
-        current_slice=str(
-            coordination_current_slice
-            or current_instruction
-            or ""
-        ).strip(),
+        current_slice=str(coordination_current_slice or current_instruction or "").strip(),
         active_target_path=str(active_target.get("plan_path") or "").strip(),
         allowed_actions=allowed_actions,
         blocked_actions=blocked_actions,

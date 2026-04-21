@@ -1044,7 +1044,14 @@ Three quality layers matter in practice:
   prose, or startup-summary hints. `CoordinationSnapshot` is the first
   repo-visible `system-picture` consumer; `CoordinationTopologySnapshot` is
   the richer shared contract for startup/status/dashboard/remote-control
-  follow-on wiring. When you touch either seam, rerun
+  follow-on wiring. `CoordinationSnapshot` also carries producer provenance
+  (`snapshot_id`, `zref`, `source_identity`, `source_contract`,
+  `source_command`, `observed_fields`, `inferred_fields`) from the typed
+  review-state proof tick; update
+  `dev/scripts/devctl/platform/surface_state_contract_rows.py` when that
+  field set changes so `check_platform_contract_closure.py` can verify the
+  runtime dataclass and platform contract row stay aligned. When you touch
+  either seam, rerun
   `python3 -m pytest dev/scripts/devctl/tests/platform/test_coordination_snapshot.py dev/scripts/devctl/tests/platform/test_coordination_topology.py dev/scripts/devctl/tests/platform/test_system_picture.py -q --tb=short`
   before trusting the broader platform bundle.
 - The final turn-sized authority reducer now lives in
@@ -1053,7 +1060,11 @@ Three quality layers matter in practice:
   `AuthoritySnapshot` instead of forcing callers to reconcile
   `reviewer_mode`, `reviewer_freshness`, `current_instruction_revision`,
   `implementer_ack_state`, packet-target attention, and next-command routing
-  by hand. When you touch that seam, rerun
+  by hand. The nested `AuthoritySnapshot` payload uses
+  `dev/scripts/devctl/runtime/surface_provenance.py` for the same proof-tick
+  provenance tuple as `CoordinationSnapshot`, so fresh sessions can trace the
+  producer source instead of treating nested authority as anonymous copied
+  JSON. When you touch that seam, rerun
   `python3 -m pytest dev/scripts/devctl/tests/runtime/test_startup_context.py dev/scripts/devctl/tests/governance/test_session_resume.py dev/scripts/devctl/tests/review_channel/test_reviewer_runtime_doctor.py -q`
   before trusting the broader platform bundle.
 - Use `python3 dev/scripts/devctl.py system-picture --format md` when that

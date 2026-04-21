@@ -7689,6 +7689,17 @@ Execution order for this section:
 
 ## Progress Log
 
+- 2026-04-21: Closed the Phase 0.a producer-provenance slice for nested
+  runtime authority surfaces. `AuthoritySnapshot` and
+  `CoordinationSnapshot` now carry the same seven-field proof-tick
+  provenance tuple as review-state projections (`snapshot_id`, `zref`,
+  `source_identity`, `source_contract`, `source_command`,
+  `observed_fields`, `inferred_fields`) by copying producer-owned source
+  identity through `attach_surface_provenance()` instead of making later
+  parity tests reconstruct it. Focused proof is green for the owning
+  startup/coordination suites plus review-state/runtime-doctor and
+  session-resume deserialization coverage. The remaining Phase 0.b work is
+  to freeze the wider nine-surface parity test over these emitted fields.
 - 2026-04-18: Absorbed Claude's four-agent consolidation synthesis into the
   live umbrella plan instead of creating a new active plan doc. `MP-388`
   through `MP-397` now sequence the remaining consolidation work in bounded

@@ -9,6 +9,9 @@ from unittest.mock import patch
 from dev.scripts.devctl.platform.coordination_snapshot import (
     build_coordination_snapshot,
 )
+from dev.scripts.devctl.platform.coordination_snapshot_models import (
+    coordination_snapshot_from_mapping,
+)
 from dev.scripts.devctl.runtime.work_intake_models import (
     PlanTargetRef,
     WorkIntakeCoordinationState,
@@ -117,6 +120,13 @@ def _review_state(
     attention_status: str,
     reviewer_freshness: str,
     registry_agents: tuple[SimpleNamespace, ...],
+    snapshot_id: str = "",
+    zref: str = "",
+    source_identity: dict[str, str] | None = None,
+    source_contract: str = "",
+    source_command: str = "",
+    observed_fields: tuple[str, ...] = (),
+    inferred_fields: tuple[str, ...] = (),
 ) -> SimpleNamespace:
     return SimpleNamespace(
         collaboration=SimpleNamespace(
@@ -132,7 +142,76 @@ def _review_state(
         current_session=SimpleNamespace(
             current_instruction="Tighten startup coordination",
         ),
+        snapshot_id=snapshot_id,
+        zref=zref,
+        source_identity=source_identity or {},
+        source_contract=source_contract,
+        source_command=source_command,
+        observed_fields=observed_fields,
+        inferred_fields=inferred_fields,
     )
+
+
+def test_build_coordination_snapshot_carries_surface_provenance(
+    tmp_path: Path,
+) -> None:
+    startup = _startup_context(
+        repo_root=tmp_path,
+        ownership=WorkIntakeOwnershipState(status="clear"),
+        coordination=WorkIntakeCoordinationState(
+            collaboration_topology="single_agent",
+            authority_mode="self_directed",
+            work_ownership_mode="exclusive_slice",
+        ),
+    )
+    review_state = _review_state(
+        topology_mode="single_agent",
+        participants=(_participant("codex", "reviewer", live=True),),
+        delegated_work=(),
+        ready_gates=(),
+        attention_status="healthy",
+        reviewer_freshness="fresh",
+        registry_agents=(),
+        snapshot_id="snap-test",
+        zref="zref_test_head",
+        source_identity={
+            "generation_id": "gen-test",
+            "head_sha": "head-test",
+            "worktree_hash": "tree-test",
+        },
+        source_contract="ReviewState",
+        source_command=(
+            "python3 dev/scripts/devctl.py review-channel --action status "
+            "--terminal none --format json"
+        ),
+        observed_fields=("head_sha", "worktree_hash", "generation_id"),
+        inferred_fields=("snapshot_id", "zref"),
+    )
+
+    snapshot = build_coordination_snapshot(
+        repo_root=tmp_path,
+        startup_context=startup,
+        review_state=review_state,
+    )
+    payload = snapshot.to_dict()
+
+    assert payload["snapshot_id"] == "snap-test"
+    assert payload["zref"] == "zref_test_head"
+    assert payload["source_identity"]["worktree_hash"] == "tree-test"
+    assert payload["source_contract"] == "ReviewState"
+    assert payload["observed_fields"] == [
+        "head_sha",
+        "worktree_hash",
+        "generation_id",
+    ]
+    restored = coordination_snapshot_from_mapping(payload)
+    assert restored is not None
+    assert restored.snapshot_id == "snap-test"
+    assert restored.source_identity == {
+        "generation_id": "gen-test",
+        "head_sha": "head-test",
+        "worktree_hash": "tree-test",
+    }
 
 
 def test_build_coordination_snapshot_demotes_planned_but_inactive_fanout(

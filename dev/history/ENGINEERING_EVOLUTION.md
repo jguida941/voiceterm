@@ -39,6 +39,37 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 
 ### 2026-04-17 - Event-backed current-session only clears on explicit packet truth, and missing implementation permission now blocks mutation
 
+### 2026-04-21 - Authority and coordination snapshots carry producer provenance
+
+Fact: the Phase 0.a Runtime Truth First slice left `AuthoritySnapshot` and
+`CoordinationSnapshot` as nested proof surfaces without their own producer
+provenance. Downstream parity checks could see the surrounding
+`review_state` provenance, but the reduced authority and coordination
+contracts themselves still lacked the shared `snapshot_id` / `zref` /
+`source_identity` tuple needed to prove that startup, session-resume, status,
+and dashboard views were reading the same producer tick.
+
+Change: both snapshot contracts now carry the seven-field provenance tuple
+(`snapshot_id`, `zref`, `source_identity`, `source_contract`,
+`source_command`, `observed_fields`, and `inferred_fields`) and serialize it
+through the shared `attach_surface_provenance()` helper. The authority builder
+copies provenance from its source payload, while the coordination reducer
+copies provenance from the typed review-state producer before projecting the
+nested snapshot. Regression tests now cover producer wiring and round-trip
+deserialization for both contracts.
+
+Evidence:
+- `dev/scripts/devctl/runtime/authority_snapshot_core.py`
+- `dev/scripts/devctl/runtime/authority_snapshot_build.py`
+- `dev/scripts/devctl/runtime/surface_provenance.py`
+- `dev/scripts/devctl/platform/coordination_snapshot.py`
+- `dev/scripts/devctl/platform/coordination_snapshot_models.py`
+- `dev/scripts/devctl/tests/runtime/test_startup_context.py`
+- `dev/scripts/devctl/tests/platform/test_coordination_snapshot.py`
+- `dev/active/MASTER_PLAN.md`
+- `dev/active/ai_governance_platform.md`
+- `dev/scripts/README.md`
+
 ### 2026-04-21 - Event-backed review-state stays authoritative before bridge drift repair
 
 Fact: `rev_pkt_1503` exposed that

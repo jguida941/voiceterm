@@ -77,11 +77,11 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-04-21T17:44:12Z`
-- Last Codex poll (Local America/New_York): `2026-04-21 13:44:12 EDT`
-- Reviewer mode: `tools_only`
-- Last non-audit worktree hash: `b87baf9a90f9ab055daf796b7d9bb32cd0d5aa306099743150a35ee9c071a594`
-- Current instruction revision: ``
+- Last Codex poll: `2026-04-21T20:26:00Z`
+- Last Codex poll (Local America/New_York): `2026-04-21 16:26:00 EDT`
+- Reviewer mode: `single_agent`
+- Last non-audit worktree hash: `c5c44faf7660aa39089d6a6f3c23b4dc50316f28a7991e9b9b70bcd6ab8b4794`
+- Current instruction revision: `acfc025a45ef`
 
 ## Protocol
 
@@ -113,7 +113,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Poll Status
 
-- Reviewer state rebuilt from typed review-state projection at 2026-04-21T17:35:58.469603Z.
+- Reviewer heartbeat refreshed through repo-owned tooling (mode: single_agent; reason: operator-codex-implements-phase-0a; reviewed-tree: b87baf9a90f9).
 
 ## Current Verdict
 
@@ -133,11 +133,12 @@ treat these rules as active workflow instructions immediately.
 
 ## Claude Ack
 
-acknowledged
+- missing
 
 ## Current Instruction For Claude
 
-- Await reviewer instruction refresh.
+- Cut a checkpoint before continuing to edit.
+- Run `python3 dev/scripts/devctl.py commit -m "<descriptive message>"`.
 
 ## Last Reviewed Scope
 
