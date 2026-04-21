@@ -79,9 +79,9 @@ treat these rules as active workflow instructions immediately.
 
 - Last Codex poll: `2026-04-21T20:26:00Z`
 - Last Codex poll (Local America/New_York): `2026-04-21 16:26:00 EDT`
-- Reviewer mode: `single_agent`
+- Reviewer mode: `tools_only`
 - Last non-audit worktree hash: `c5c44faf7660aa39089d6a6f3c23b4dc50316f28a7991e9b9b70bcd6ab8b4794`
-- Current instruction revision: `acfc025a45ef`
+- Current instruction revision: ``
 
 ## Protocol
 
@@ -113,7 +113,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Poll Status
 
-- Reviewer heartbeat refreshed through repo-owned tooling (mode: single_agent; reason: operator-codex-implements-phase-0a; reviewed-tree: b87baf9a90f9).
+- Reviewer state rebuilt from typed review-state projection at 2026-04-21T21:12:31.876340Z.
 
 ## Current Verdict
 
@@ -133,12 +133,11 @@ treat these rules as active workflow instructions immediately.
 
 ## Claude Ack
 
-- missing
+acknowledged
 
 ## Current Instruction For Claude
 
-- Cut a checkpoint before continuing to edit.
-- Run `python3 dev/scripts/devctl.py commit -m "<descriptive message>"`.
+- Await reviewer instruction refresh.
 
 ## Last Reviewed Scope
 
