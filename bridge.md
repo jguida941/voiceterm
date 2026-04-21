@@ -121,7 +121,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Open Findings
 
-1 pending review packet(s); 428 expired unresolved review packet(s)
+428 expired unresolved review packet(s)
 
 ## Claude Status
 
