@@ -6038,7 +6038,11 @@ become the main product surface.
   lifecycle heartbeat truth instead of hard-coding an empty supervisor,
   `latest.md` renders that same runtime block for operators, and auto
   event-backed status stays gated on materialized `state.json` so daemon-only
-  event logs do not silently flip authority. The next same-scope follow-up is
+  event logs do not silently flip authority. The next same-scope correction is
+  now in too: event-backed liveness keeps explicit reviewer-owned bridge mode
+  ahead of daemon lifecycle rows, ignores stopped daemon mode hints, and stops
+  stale typed `current_session` drift warnings from reverse-overwriting a
+  newer reviewer heartbeat/checkpoint bridge write. The next same-scope follow-up is
   now the retirement path for VoiceTerm-local action brokerage so the "one
   backend" claim becomes executable rather than aspirational. Preferred
   end-state is now explicit too:

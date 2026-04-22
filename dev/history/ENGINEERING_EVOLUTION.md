@@ -39,6 +39,33 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 
 ### 2026-04-17 - Event-backed current-session only clears on explicit packet truth, and missing implementation permission now blocks mutation
 
+### 2026-04-21 - Review-channel mode drift and checkpoint reprojection are bounded by explicit bridge authority
+
+Fact: `rev_pkt_1557` exposed a reviewer-mode drift loop in the transitional
+review-channel path. `reviewer-heartbeat --reviewer-mode single_agent` wrote
+the explicit bridge mode, but event-backed bridge liveness could derive
+`reviewer_mode` from daemon lifecycle rows, including stopped or observer
+follow-loop rows. In the related `rev_pkt_1556` path, status drift repair
+could also render `bridge.md` from a stale typed `current_session` after a
+fresh reviewer checkpoint had just written newer reviewer-owned sections.
+
+Change: event-backed bridge liveness now prefers explicit bridge reviewer
+metadata before daemon observer rows and only falls back to running daemon
+mode when no bridge mode exists. Current-session drift detection now treats a
+fresh, meaningful bridge checkpoint as the authority that updates typed
+current-session state, rather than as permission to reverse-sync stale typed
+state back onto `bridge.md`. Regression coverage protects both the mode
+projection and the fresh-checkpoint bridge-sync boundary.
+
+Evidence:
+- `dev/scripts/devctl/review_channel/event_projection_bridge.py`
+- `dev/scripts/devctl/review_channel/current_session_support.py`
+- `dev/scripts/devctl/commands/review_channel/status.py`
+- `dev/scripts/devctl/commands/review_channel/status_bridge_sync.py`
+- `dev/scripts/devctl/review_channel/status_snapshot_authority.py`
+- `dev/scripts/devctl/tests/review_channel/test_current_session_projection.py`
+- `dev/scripts/devctl/tests/review_channel/test_bridge_render.py`
+
 ### 2026-04-21 - Authority and coordination snapshots carry producer provenance
 
 Fact: the Phase 0.a Runtime Truth First slice left `AuthoritySnapshot` and

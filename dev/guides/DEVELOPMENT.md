@@ -413,6 +413,13 @@ Three quality layers matter in practice:
     local takeover now also retires the detached publisher/reviewer-supervisor
     runtime so stale dual-agent heartbeats cannot silently restore
     `active_dual_agent` after the reviewer has intentionally downgraded modes.
+    Event-backed status projections must also preserve that explicit bridge
+    choice: read reviewer mode from the fresh bridge snapshot before daemon
+    lifecycle rows, ignore stopped daemon mode hints, and only use running
+    daemon rows as a fallback. Fresh reviewer-owned heartbeat/checkpoint state
+    is allowed to update typed `current_session`, but stale
+    `current_session` drift warnings must not cause `status` to reverse-write
+    old session state over a newer reviewer bridge write.
     When the phone/dashboard stays attached in that mode, keep the primary
     worktree control-only and do mutating implementation work in reusable
     isolated worker worktrees so the operator surface does not have to share a

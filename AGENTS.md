@@ -41,6 +41,12 @@ Portable-platform rule:
   metadata from typed bridge state plus normalize fractional-second typed poll
   timestamps back to the canonical whole-second bridge format before
   `check_review_channel_bridge.py` or governed push can trust the projection.
+  Event-backed review-channel projections must not let detached daemon
+  lifecycle rows override an explicit reviewer-owned bridge mode; prefer the
+  fresh bridge snapshot, ignore stopped daemon mode hints, and treat a fresh
+  reviewer heartbeat/checkpoint as the source that updates typed
+  `current_session` state rather than reverse-reprojecting stale session state
+  back into `bridge.md`.
   The same contract applies to prepared launch authority after launch:
   remote-control continuity must be derived from typed governance/review-state
   evidence rather than launcher env vars alone, so receipt commits do not make
