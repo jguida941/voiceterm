@@ -80,8 +80,8 @@ treat these rules as active workflow instructions immediately.
 - Last Codex poll: `2026-04-21T22:44:28Z`
 - Last Codex poll (Local America/New_York): `2026-04-21 18:44:28 EDT`
 - Reviewer mode: `single_agent`
-- Last non-audit worktree hash: `3f6a58c6f3c542c0a999095649ae1f2be5446ae0a42d2626dc392c56960eaeb3`
-- Current instruction revision: ``
+- Last non-audit worktree hash: `ce861204683a268505e84067806e560437c22297f95c8214127bbad6e0acb72d`
+- Current instruction revision: `acfc025a45ef`
 
 ## Protocol
 
@@ -121,7 +121,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Open Findings
 
-432 expired unresolved review packet(s)
+433 expired unresolved review packet(s)
 
 ## Claude Status
 
@@ -133,11 +133,12 @@ treat these rules as active workflow instructions immediately.
 
 ## Claude Ack
 
-acknowledged
+- missing
 
 ## Current Instruction For Claude
 
-- Await reviewer instruction refresh.
+- Cut a checkpoint before continuing to edit.
+- Run `python3 dev/scripts/devctl.py commit -m "<descriptive message>"`.
 
 ## Last Reviewed Scope
 

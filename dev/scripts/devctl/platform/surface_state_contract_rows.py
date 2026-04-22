@@ -183,6 +183,11 @@ SURFACE_STATE_CONTRACTS: tuple[ContractSpec, ...] = (
                 "CoordinationSnapshot | None",
                 "Shared bounded coordination authority for dashboard/bootstrap parity.",
             ),
+            ContractField(
+                "provenance",
+                "SurfaceProvenance | None",
+                "Shared proof-tick source provenance copied from the review-state producer.",
+            ),
         ),
         runtime_model="dev.scripts.devctl.runtime.control_plane_read_model:ControlPlaneReadModel",
         startup_surface_tokens=("push_eligible", "top_blocker", "resolved_phase"),
@@ -281,6 +286,11 @@ SURFACE_STATE_CONTRACTS: tuple[ContractSpec, ...] = (
                 "packet_inbox",
                 "PacketInboxState | None",
                 "Canonical packet-attention contract for session bootstrap.",
+            ),
+            ContractField(
+                "provenance",
+                "SurfaceProvenance | None",
+                "Shared proof-tick source provenance copied from the review-state producer.",
             ),
         ),
         runtime_model=(

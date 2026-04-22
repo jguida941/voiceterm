@@ -656,6 +656,19 @@ checklist plus chat memory.
     rule applies to mutation authority: missing or empty typed
     `implementation_permission` is a hard block in
     `ImplementationAdmissibility`, not an implicit allow.
+4.4.9 Runtime proof-tick parity is producer-owned. `ControlPlaneReadModel`
+    and `SessionCachePacket` carry the shared `SurfaceProvenance` tuple from
+    the typed review-state producer, and review-channel derived projections
+    copy that same tuple instead of reconstructing identity from surrounding
+    prose. `check_review_surface_consistency.py` now compares the frozen
+    proof-tick fields across coordination, authority, control-plane,
+    startup-context, session-resume, review-channel status, persisted
+    review-state, registry, and bridge-compat surfaces. For one proof tick,
+    `reviewer_mode`, `effective_reviewer_mode`,
+    `observed_control_topology`, `current_instruction_revision`,
+    `ownership_status`, `implementation_permission`, `next_command`,
+    `snapshot_id`, `generation_id`, `head_sha`, `worktree_hash`, and `zref`
+    must agree wherever a surface exposes them.
 4.5 In that same live review-channel mode, treat
     `dev/reports/review_channel/latest/review_state.json` (and the mirrored
     `compact.json` projection) `current_session` block as the canonical typed

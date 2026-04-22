@@ -140,11 +140,10 @@ def _single_agent_local_reviewer_activity(
     session_output_root = sources.get("session_output_root")
     if not isinstance(session_output_root, Path):
         return None
-    from ..review_channel.collaboration_session import (
-        _local_reviewer_activity_is_fresh,
-    )
+    from ..review_channel import collaboration_session
 
-    if _local_reviewer_activity_is_fresh(
+    collaboration_session._sync_local_reviewer_test_hooks()
+    if collaboration_session._local_reviewer_activity_is_fresh(
         reviewer_provider=target_provider,
         session_output_root=session_output_root,
     ):

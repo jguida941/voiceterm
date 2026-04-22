@@ -9261,6 +9261,116 @@ class ReviewChannelCommandTests(unittest.TestCase):
         self.assertIn("implementation.edit", authority["blocked_actions"])
         self.assertEqual(full["authority_snapshot"]["next_command"], authority["next_command"])
 
+    def test_projection_bundle_authority_snapshot_prefers_checkpoint_command(
+        self,
+    ) -> None:
+        from dev.scripts.devctl.review_channel.projection_bundle import (
+            write_projection_bundle,
+        )
+
+        checkpoint_command = 'python3 dev/scripts/devctl.py commit -m "<descriptive message>"'
+        review_state = {
+            "schema_version": 1,
+            "command": "review-channel",
+            "action": "status",
+            "timestamp": "2026-04-14T06:50:00Z",
+            "ok": False,
+            "review": {"session_id": "markdown-bridge"},
+            "queue": {"pending_total": 0},
+            "current_session": {},
+            "bridge": {
+                "reviewer_mode": "single_agent",
+                "effective_reviewer_mode": "single_agent",
+                "reviewer_freshness": "overdue",
+            },
+            "attention": {"status": "checkpoint_required"},
+            "recovery_assessment": {
+                "diagnosis": {"status": "checkpoint_required"},
+                "decision": {
+                    "action_id": "cut_checkpoint",
+                    "command": checkpoint_command,
+                    "execution_owner": "system",
+                },
+            },
+            "coordination": {
+                "observed_topology": "single_agent",
+                "resync_required": True,
+            },
+        }
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_root = Path(tmpdir) / "latest"
+            write_projection_bundle(
+                output_root=output_root,
+                review_state=review_state,
+                agent_registry={"schema_version": 1, "agents": []},
+                action="status",
+            )
+            compact = json.loads((output_root / "compact.json").read_text(encoding="utf-8"))
+
+        self.assertEqual(
+            compact["authority_snapshot"]["next_command"],
+            checkpoint_command,
+        )
+
+    def test_projection_bundle_preserves_provenance_on_derived_surfaces(self) -> None:
+        from dev.scripts.devctl.review_channel.projection_bundle import (
+            write_projection_bundle,
+        )
+
+        source_identity = {
+            "generation_id": "gen-test",
+            "head_sha": "abc123",
+            "worktree_hash": "worktree:sha256:current",
+        }
+        review_state = {
+            "schema_version": 1,
+            "contract_id": "ReviewState",
+            "command": "review-channel",
+            "action": "status",
+            "timestamp": "2026-04-14T06:50:00Z",
+            "ok": True,
+            "review": {"session_id": "markdown-bridge"},
+            "queue": {"pending_total": 0},
+            "current_session": {},
+            "bridge": {
+                "reviewer_mode": "single_agent",
+                "effective_reviewer_mode": "single_agent",
+                "last_worktree_hash": "legacy-reviewed-tree",
+            },
+            "coordination": {
+                "observed_topology": "single_agent",
+                "resync_required": False,
+            },
+            "snapshot_id": "snap-test",
+            "zref": "zref_test",
+            "source_identity": source_identity,
+            "source_contract": "ReviewState",
+            "source_command": (
+                "python3 dev/scripts/devctl.py review-channel --action status "
+                "--terminal none --format json"
+            ),
+            "observed_fields": ("head_sha", "worktree_hash", "generation_id"),
+            "inferred_fields": ("snapshot_id", "zref"),
+        }
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_root = Path(tmpdir) / "latest"
+            write_projection_bundle(
+                output_root=output_root,
+                review_state=review_state,
+                agent_registry={"schema_version": 1, "agents": []},
+                action="status",
+            )
+            compact = json.loads((output_root / "compact.json").read_text(encoding="utf-8"))
+            full = json.loads((output_root / "full.json").read_text(encoding="utf-8"))
+            actions = json.loads((output_root / "actions.json").read_text(encoding="utf-8"))
+
+        self.assertEqual(compact["source_identity"], source_identity)
+        self.assertEqual(full["source_identity"], source_identity)
+        self.assertEqual(actions["source_identity"], source_identity)
+        self.assertEqual(compact["bridge"]["last_worktree_hash"], "legacy-reviewed-tree")
+
     def test_refresh_status_snapshot_prefers_prior_typed_session_authority(
         self,
     ) -> None:

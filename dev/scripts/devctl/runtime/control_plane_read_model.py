@@ -38,6 +38,11 @@ from .reviewer_runtime_models import (
     remote_control_attachment_from_mapping,
 )
 from .surface_snapshot import build_surface_zref
+from .surface_provenance import (
+    SurfaceProvenance,
+    attach_surface_provenance,
+    surface_provenance_from_mapping,
+)
 from .value_coercion import coerce_bool, coerce_int, coerce_string
 
 if TYPE_CHECKING:
@@ -47,11 +52,6 @@ if TYPE_CHECKING:
 
 CONTROL_PLANE_READ_MODEL_CONTRACT_ID = "ControlPlaneReadModel"
 CONTROL_PLANE_READ_MODEL_SCHEMA_VERSION = 1
-
-
-# -------------------------------------------------------
-# Frozen read model -- all surfaces render only this
-# -------------------------------------------------------
 
 @dataclass(frozen=True, slots=True)
 class ControlPlaneReadModel:
@@ -102,17 +102,17 @@ class ControlPlaneReadModel:
     coordination: CoordinationSnapshot | None = None
     snapshot_id: str = ""
     zref: str = ""
+    provenance: SurfaceProvenance | None = None
 
     def to_dict(self) -> dict[str, Any]:
         payload = asdict(self)
+        payload.pop("provenance", None)
         if self.coordination is not None:
             payload["coordination"] = self.coordination.to_dict()
-        return payload
-
-
-# -------------------------------------------------------
-# Public builder: one call, one frozen model
-# -------------------------------------------------------
+        result = attach_surface_provenance(payload, provenance=self.provenance)
+        result.setdefault("snapshot_id", self.snapshot_id)
+        result.setdefault("zref", self.zref)
+        return result
 
 def build_control_plane_read_model(
     repo_root: Path,
@@ -172,6 +172,13 @@ def build_control_plane_read_model(
         ),
         extract_coordination_fn=_extract_coordination,
     )
+    review_state_payload = (
+        review_state.to_dict()
+        if review_state is not None
+        else sources.get("review_state")
+    )
+    if not isinstance(review_state_payload, dict):
+        review_state_payload = {}
 
     return ControlPlaneReadModel(
         timestamp=utc_now_iso(),
@@ -212,12 +219,8 @@ def build_control_plane_read_model(
         loop_gap_summary=context.loop_wake.loop_gap_summary,
         remote_control_attachment=context.remote_control_attachment,
         coordination=context.coordination,
+        provenance=surface_provenance_from_mapping(review_state_payload),
     )
-
-
-# -------------------------------------------------------
-# Deserialization from JSON-like mapping
-# -------------------------------------------------------
 
 def control_plane_read_model_from_mapping(
     value: object,
@@ -274,6 +277,7 @@ def control_plane_read_model_from_mapping(
         loop_autonomy_ok=loop_wake.loop_autonomy_ok,
         loop_gap_summary=loop_wake.loop_gap_summary,
         coordination=coordination_snapshot_from_mapping(value.get("coordination")),
+        provenance=surface_provenance_from_mapping(value),
     )
 
 

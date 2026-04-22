@@ -805,6 +805,13 @@ Portability note:
   `projections/latest/review_state.json` bundle and fails if that compat bridge
   payload is missing or stamped with a different snapshot family. Both
   `tooling_control_plane.yml` and `release_preflight.yml` now enforce it.
+  The same guard now freezes the Phase 0 proof tick across coordination,
+  authority, control-plane, startup-context, session-resume, review-channel
+  status, persisted review-state, registry, and bridge-compat surfaces. Where
+  a surface exposes proof-tick fields, reviewer mode, topology, instruction
+  revision, ownership, implementation permission, next command,
+  snapshot/generation identity, HEAD/worktree identity, and `zref` must match
+  the single producer tick and carry producer-owned `SurfaceProvenance`.
 - If a launched reviewer terminal is interrupted and status degrades into a
   Claude-only / hybrid loop, treat that as a runtime repair boundary instead of
   a coding invitation. Use `review-channel --action stop --daemon-kind all`

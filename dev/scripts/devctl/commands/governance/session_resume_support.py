@@ -35,6 +35,10 @@ from ...runtime.control_plane_resolve import (
     read_json_artifact,
 )
 from ...runtime.value_coercion import coerce_bool, coerce_string
+from ...runtime.surface_provenance import (
+    attach_surface_provenance,
+    surface_provenance_from_object,
+)
 from ...time_utils import utc_timestamp
 from . import session_resume_git as _session_resume_git
 from .session_resume_packet import (
@@ -135,6 +139,11 @@ def _build_session_cache_packet(
     typed_review_state = build_context.typed_review_state
     snapshot_id = getattr(typed_review_state, "snapshot_id", "") if typed_review_state is not None else ""
     zref = getattr(typed_review_state, "zref", "") if typed_review_state is not None else ""
+    provenance = (
+        surface_provenance_from_object(typed_review_state)
+        if typed_review_state is not None
+        else None
+    )
     visible_next_cmd = fields.visible_next_cmd
     next_cmd = fields.next_cmd
     return SessionCachePacket(
@@ -176,6 +185,7 @@ def _build_session_cache_packet(
             else ""
         ),
         packet_inbox=build_context.packet_inbox,
+        provenance=provenance,
     )
 
 
@@ -269,6 +279,7 @@ def build_from_sources(
             push_governance=push_governance,
         ),
     )
+    _attach_review_state_provenance(authority_payload, typed_review_state)
     shared_blockers = summary_blockers_csv(authority_payload)
     top_blocker = model.top_blocker
     if top_blocker == _str_field(session, "open_findings"):
@@ -313,6 +324,20 @@ def build_from_sources(
             packet_inbox=packet_inbox,
             fields=packet_fields,
         ),
+    )
+
+
+def _attach_review_state_provenance(
+    payload: dict[str, Any],
+    typed_review_state: "ReviewState | None",
+) -> None:
+    if typed_review_state is None:
+        return
+    payload.update(
+        attach_surface_provenance(
+            payload,
+            provenance=surface_provenance_from_object(typed_review_state),
+        )
     )
 
 def _push_gate_state(

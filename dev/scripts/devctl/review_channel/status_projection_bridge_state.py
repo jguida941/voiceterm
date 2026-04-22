@@ -33,6 +33,10 @@ def build_typed_bridge_liveness(
             "head_at_push_time",
             str(snapshot.metadata.get("head_at_push_time") or "").strip(),
         )
+        if not str(typed.get("last_worktree_hash") or "").strip():
+            typed["last_worktree_hash"] = str(
+                snapshot.metadata.get("last_non_audit_worktree_hash") or ""
+            ).strip()
     reviewer_poll_state = str(
         typed.get("reviewer_poll_state") or typed.get("codex_poll_state") or "unknown"
     )

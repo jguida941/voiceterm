@@ -70,6 +70,14 @@
   `source_contract`, `source_command`, `observed_fields`, and
   `inferred_fields`) from their producer paths instead of leaving
   downstream parity tests to reconstruct source identity after the fact.
+- 2026-04-22 Phase 0.b proof-tick parity follow-up (also under MP-377):
+  `ControlPlaneReadModel`, `SessionCachePacket`, and review-channel derived
+  projections now preserve producer-owned `SurfaceProvenance`, and
+  `check_review_surface_consistency.py` freezes the same proof tick across
+  coordination, authority, control-plane, startup-context, session-resume,
+  review-channel status, persisted review-state, registry, and bridge-compat
+  surfaces. Dual-agent fanout remains blocked until runtime truth reports
+  `safe_to_fanout=true` and `resync_required=false`.
 - `dev/active/review_probes.md` is the review-probe execution spec; implementation tasks stay in this file under `MP-368..MP-375`.
 - `dev/active/portable_code_governance.md` is the narrower engine/adoption
   companion under `MP-376`, not a second main product plan; implementation

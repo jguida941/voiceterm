@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from collections.abc import Mapping, Sequence
+from collections.abc import Mapping
 from copy import deepcopy
 from dataclasses import asdict, dataclass
 from pathlib import Path
@@ -13,10 +13,17 @@ from ..runtime.authority_snapshot import (
     summary_blockers,
     summary_next_command,
 )
-from .context_refs import normalize_context_pack_refs
+from ..runtime.surface_provenance import (
+    attach_surface_provenance,
+    surface_provenance_from_mapping,
+)
 from .current_session_projection import current_focus_line
 from .projection_bundle_parity import apply_phase_zero_parity_projection
 from .projection_bundle_markdown import render_latest_markdown
+from .projection_bundle_payloads import (
+    build_actions_projection,
+    build_full_projection,
+)
 from .projection_observation import build_observation_projection
 
 _TYPED_REVIEW_STATE_KEYS = (
@@ -85,19 +92,12 @@ def write_projection_bundle(
     """Write a projection bundle from one reduced review-state snapshot."""
     review_state_payload = canonicalize_projection_review_state(review_state)
     compact = _build_compact_projection(review_state_payload)
-    actions = _build_actions_projection(review_state_payload)
-    full = {
-        "schema_version": 1,
-        "command": "review-channel",
-        "action": action,
-        "timestamp": review_state_payload.get("timestamp"),
-        "ok": review_state_payload.get("ok"),
-        "review_state": review_state_payload,
-        "authority_snapshot": review_state_payload.get("authority_snapshot"),
-        "agent_registry": agent_registry,
-        "warnings": review_state_payload.get("warnings", []),
-        "errors": review_state_payload.get("errors", []),
-    }
+    actions = build_actions_projection(review_state_payload)
+    full = build_full_projection(
+        action=action,
+        review_state=review_state_payload,
+        agent_registry=agent_registry,
+    )
     if isinstance(full_extras, dict):
         full.update(full_extras)
     latest_markdown = render_latest_markdown(review_state_payload, agent_registry)
@@ -180,7 +180,7 @@ def _build_compact_projection(review_state: dict[str, object]) -> dict[str, obje
     snapshot_id = str(review_state.get("snapshot_id") or "").strip()
     zref = str(review_state.get("zref") or "").strip()
     current_focus = current_focus_line(review_state)
-    return {
+    payload = {
         "schema_version": 1,
         "command": "review-channel",
         "timestamp": review_state.get("timestamp"),
@@ -211,39 +211,10 @@ def _build_compact_projection(review_state: dict[str, object]) -> dict[str, obje
         "warnings": review_state.get("warnings", []),
         "errors": review_state.get("errors", []),
     }
-
-
-def _build_actions_projection(review_state: dict[str, object]) -> dict[str, object]:
-    packets = review_state.get("packets")
-    action_rows: list[dict[str, object]] = []
-    if isinstance(packets, Sequence) and not isinstance(packets, (str, bytes)):
-        for packet in packets:
-            if not isinstance(packet, dict):
-                continue
-            action_rows.append(
-                {
-                    "packet_id": packet.get("packet_id"),
-                    "requested_action": packet.get("requested_action"),
-                    "policy_hint": packet.get("policy_hint"),
-                    "approval_required": packet.get("approval_required"),
-                    "status": packet.get("status"),
-                    "target_kind": packet.get("target_kind"),
-                    "target_ref": packet.get("target_ref"),
-                    "target_revision": packet.get("target_revision"),
-                    "pipeline_generation": packet.get("pipeline_generation"),
-                    "staged_snapshot_hash": packet.get("staged_snapshot_hash"),
-                    "guard_results_summary": packet.get("guard_results_summary"),
-                    "context_pack_refs": normalize_context_pack_refs(
-                        packet.get("context_pack_refs")
-                    ),
-                }
-            )
-    return {
-        "schema_version": 1,
-        "command": "review-channel",
-        "timestamp": review_state.get("timestamp"),
-        "actions": action_rows,
-    }
+    return attach_surface_provenance(
+        payload,
+        provenance=surface_provenance_from_mapping(review_state),
+    )
 
 
 def _with_surface_identity(payload: object, snapshot_id: str, zref: str) -> object:
@@ -310,6 +281,13 @@ def _apply_review_state_authority_context(
     review_state_payload["implementation_permission"] = implementation_permission
 
 def _projection_next_command(review_state: Mapping[str, object]) -> str:
+    recovery = _mapping(review_state.get("recovery_assessment"))
+    decision = _mapping(recovery.get("decision"))
+    if str(decision.get("action_id") or "").strip() == "cut_checkpoint":
+        command = str(decision.get("command") or "").strip()
+        if command:
+            return command
+
     if summary_blockers(review_state):
         command = summary_next_command(review_state)
         if command:

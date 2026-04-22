@@ -152,6 +152,15 @@ def provenance_errors(
     ]
     if missing:
         errors.append("missing provenance tuple on: " + ", ".join(sorted(missing)))
+    missing_identity_keys = _missing_source_identity_keys(provenance)
+    if missing_identity_keys:
+        errors.append(
+            "missing source_identity keys: "
+            + ", ".join(
+                f"{surface}={','.join(keys)}"
+                for surface, keys in sorted(missing_identity_keys.items())
+            )
+        )
     normalized = {
         surface: json.dumps(payload, sort_keys=True)
         for surface, payload in provenance.items()
@@ -164,6 +173,23 @@ def provenance_errors(
         )
         errors.append("provenance mismatch: " + surfaces)
     return errors
+
+
+def _missing_source_identity_keys(
+    provenance: dict[str, dict[str, object]],
+) -> dict[str, tuple[str, ...]]:
+    missing: dict[str, tuple[str, ...]] = {}
+    for surface, payload in provenance.items():
+        observed = set(_string_rows(payload.get("observed_fields")))
+        identity = _nested_payload(payload, "source_identity")
+        required = tuple(
+            key
+            for key in ("generation_id", "head_sha", "worktree_hash")
+            if key in observed and not identity.get(key)
+        )
+        if required:
+            missing[surface] = required
+    return missing
 
 
 def surface_provenance(payload: dict[str, object]) -> dict[str, object]:

@@ -22,8 +22,14 @@ def projection_source_identity(
     head_sha: str,
 ) -> dict[str, str]:
     """Return the canonical provenance identity for review-state emitters."""
+    push_enforcement = typed_bridge_liveness.get("push_enforcement")
+    push_enforcement = push_enforcement if isinstance(push_enforcement, Mapping) else {}
     return build_surface_source_identity(
         generation_id=generation_id,
         head_sha=head_sha,
-        worktree_hash=str(typed_bridge_liveness.get("last_worktree_hash") or ""),
+        worktree_hash=str(
+            push_enforcement.get("current_worktree_identity")
+            or typed_bridge_liveness.get("last_worktree_hash")
+            or ""
+        ),
     )

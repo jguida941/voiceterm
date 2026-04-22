@@ -458,6 +458,315 @@ class CheckReviewSurfaceConsistencyTests(unittest.TestCase):
         self.assertIn("provenance mismatch", "\n".join(report["errors"]))
         self.assertIn("review_state_registry", "\n".join(report["errors"]))
 
+    def test_build_report_fails_when_source_identity_omits_observed_key(self) -> None:
+        zref = "zref-123"
+        incomplete_provenance = _provenance("gen-9")
+        incomplete_provenance["source_identity"] = {
+            "generation_id": "gen-9",
+            "head_sha": "head-gen-9",
+        }
+        report = self.script.build_report(
+            startup_payload={
+                "snapshot_id": "snap-123",
+                "zref": zref,
+                "push_decision": {"snapshot_id": "snap-123", "zref": zref},
+            },
+            review_state_payload={
+                "snapshot_id": "snap-123",
+                "zref": zref,
+                **incomplete_provenance,
+                "recovery_assessment": {
+                    "diagnosis": {"status": "healthy"},
+                    "decision": {
+                        "action_id": "continue_scoped_loop",
+                        "command": "",
+                    },
+                },
+                "attention": {
+                    "status": "healthy",
+                    "owner": "system",
+                    "summary": "",
+                    "recommended_action": "",
+                    "recommended_command": "",
+                },
+                "commit_pipeline": {
+                    "snapshot_id": "snap-123",
+                    "zref": zref,
+                    "generation_id": "gen-9",
+                },
+                "registry": {
+                    "zref": zref,
+                    "agents": [],
+                    **incomplete_provenance,
+                },
+                "_compat": {
+                    "doctor": {
+                        "snapshot_id": "snap-123",
+                        "generation_id": "gen-9",
+                        "status": "healthy",
+                        "diagnosis_status": "healthy",
+                        "decision_action_id": "continue_scoped_loop",
+                        "decision_command": "",
+                    },
+                    "bridge_projection": {
+                        "metadata": {
+                            "snapshot_id": "snap-123",
+                            "zref": zref,
+                            **incomplete_provenance,
+                        },
+                    },
+                },
+            },
+            compact_payload={
+                "snapshot_id": "snap-123",
+                "zref": zref,
+                "push_decision": {"snapshot_id": "snap-123", "zref": zref},
+                "doctor": {
+                    "snapshot_id": "snap-123",
+                    "generation_id": "gen-9",
+                    "status": "healthy",
+                    "diagnosis_status": "healthy",
+                    "decision_action_id": "continue_scoped_loop",
+                    "decision_command": "",
+                },
+            },
+            commit_pipeline_payload={
+                "snapshot_id": "snap-123",
+                "zref": zref,
+                "generation_id": "gen-9",
+            },
+            bridge_poll_payload={
+                "snapshot_id": "snap-123",
+                "zref": zref,
+                **_MATCHING_AUTHORITY_FIELDS,
+            },
+            turn_authority_payload={
+                "snapshot_id": "snap-123",
+                "zref": zref,
+                **_MATCHING_AUTHORITY_FIELDS,
+            },
+            disk_review_state_payload=None,
+        )
+
+        self.assertFalse(report["ok"])
+        self.assertIn("missing source_identity keys", "\n".join(report["errors"]))
+        self.assertIn("worktree_hash", "\n".join(report["errors"]))
+
+    def test_build_report_compares_frozen_nine_surface_proof_tick_fields(self) -> None:
+        payloads = self._phase_zero_payloads()
+        report = self.script.build_report(**payloads, disk_review_state_payload=None)
+
+        self.assertTrue(report["ok"])
+        proof_surfaces = report["proof_tick_fields"]
+        for surface in (
+            "coordination_snapshot",
+            "authority_snapshot",
+            "control_plane_read_model",
+            "startup_context",
+            "session_resume",
+            "review_channel_status",
+            "persisted_review_state",
+            "registry_agents",
+            "bridge_compat",
+        ):
+            self.assertIn(surface, proof_surfaces)
+        self.assertEqual(
+            proof_surfaces["session_resume"]["next_command"],
+            "python3 dev/scripts/devctl.py review-channel --action status --terminal none --format json",
+        )
+
+        drifted = dict(payloads["session_resume_payload"])
+        drifted["next_recommended_command"] = "python3 dev/scripts/devctl.py stale"
+        failed = self.script.build_report(
+            **{**payloads, "session_resume_payload": drifted},
+            disk_review_state_payload=None,
+        )
+
+        self.assertFalse(failed["ok"])
+        self.assertIn(
+            "proof-tick parity mismatch on next_command",
+            "\n".join(failed["errors"]),
+        )
+
+    def _phase_zero_payloads(self) -> dict[str, object]:
+        snapshot_id = "snap-phase0"
+        zref = "zref_phase0_head"
+        generation_id = "gen-phase0"
+        head_sha = "head-gen-phase0"
+        worktree_hash = "worktree:sha256:phase0"
+        next_command = (
+            "python3 dev/scripts/devctl.py review-channel --action status "
+            "--terminal none --format json"
+        )
+        source_identity = {
+            "generation_id": generation_id,
+            "head_sha": head_sha,
+            "worktree_hash": worktree_hash,
+        }
+        provenance = {
+            "source_identity": source_identity,
+            "source_contract": "ReviewState",
+            "source_command": _STATUS_SOURCE_COMMAND,
+            "observed_fields": list(_PROVENANCE_OBSERVED_FIELDS),
+            "inferred_fields": list(_PROVENANCE_INFERRED_FIELDS),
+        }
+        coordination = {
+            "snapshot_id": snapshot_id,
+            "zref": zref,
+            **provenance,
+            "observed_topology": "single_agent",
+            "ownership_status": "clear",
+        }
+        authority = {
+            "snapshot_id": snapshot_id,
+            "zref": zref,
+            **provenance,
+            "reviewer_mode": "single_agent",
+            "observed_control_topology": "single_agent",
+            "current_instruction_revision": "rev-phase0",
+            "implementation_permission": "active",
+            "next_command": next_command,
+        }
+        review_state = {
+            "snapshot_id": snapshot_id,
+            "zref": zref,
+            **provenance,
+            "reviewer_mode": "single_agent",
+            "effective_reviewer_mode": "single_agent",
+            "observed_control_topology": "single_agent",
+            "current_instruction_revision": "rev-phase0",
+            "ownership_status": "clear",
+            "implementation_permission": "active",
+            "next_command": next_command,
+            "coordination": coordination,
+            "authority_snapshot": authority,
+            "current_session": {"current_instruction_revision": "rev-phase0"},
+            "recovery_assessment": {
+                "diagnosis": {"status": "healthy"},
+                "decision": {
+                    "action_id": "continue_scoped_loop",
+                    "command": next_command,
+                    "execution_owner": "system",
+                    "rationale": "Continue the scoped loop.",
+                },
+            },
+            "attention": {
+                "status": "healthy",
+                "owner": "system",
+                "summary": "",
+                "recommended_action": "Continue the scoped loop.",
+                "recommended_command": next_command,
+            },
+            "commit_pipeline": {
+                "snapshot_id": snapshot_id,
+                "zref": zref,
+                "generation_id": generation_id,
+                "commit_sha": head_sha,
+                "worktree_identity": worktree_hash,
+            },
+            "registry": {
+                "snapshot_id": snapshot_id,
+                "zref": zref,
+                **provenance,
+                "agents": [],
+            },
+            "_compat": {
+                "doctor": {
+                    "snapshot_id": snapshot_id,
+                    "generation_id": generation_id,
+                    "status": "healthy",
+                    "diagnosis_status": "healthy",
+                    "decision_action_id": "continue_scoped_loop",
+                    "decision_command": next_command,
+                },
+                "bridge_projection": {
+                    "metadata": {
+                        "snapshot_id": snapshot_id,
+                        "zref": zref,
+                        **provenance,
+                    },
+                },
+            },
+        }
+        bridge_surface = {
+            "snapshot_id": snapshot_id,
+            "zref": zref,
+            **_MATCHING_AUTHORITY_FIELDS,
+            "reviewer_mode": "single_agent",
+            "effective_reviewer_mode": "single_agent",
+            "current_instruction_revision": "rev-phase0",
+            "decision_command": next_command,
+        }
+        return {
+            "startup_payload": {
+                "snapshot_id": snapshot_id,
+                "zref": zref,
+                "observed_control_topology": "single_agent",
+                "implementation_permission": "active",
+                "next_command": next_command,
+                "authority_snapshot": authority,
+                "coordination": coordination,
+                "current_session": {"current_instruction_revision": "rev-phase0"},
+                "push_decision": {"snapshot_id": snapshot_id, "zref": zref},
+            },
+            "review_state_payload": review_state,
+            "compact_payload": {
+                "snapshot_id": snapshot_id,
+                "zref": zref,
+                "authority_snapshot": authority,
+                "current_session": {"current_instruction_revision": "rev-phase0"},
+                "recovery_assessment": review_state["recovery_assessment"],
+                "push_decision": {"snapshot_id": snapshot_id, "zref": zref},
+                "doctor": {
+                    "snapshot_id": snapshot_id,
+                    "generation_id": generation_id,
+                    "status": "healthy",
+                    "diagnosis_status": "healthy",
+                    "decision_action_id": "continue_scoped_loop",
+                    "decision_command": next_command,
+                },
+                "commit_pipeline": review_state["commit_pipeline"],
+            },
+            "commit_pipeline_payload": review_state["commit_pipeline"],
+            "bridge_poll_payload": bridge_surface,
+            "turn_authority_payload": bridge_surface,
+            "control_plane_payload": {
+                "snapshot_id": snapshot_id,
+                "zref": zref,
+                "head_sha": head_sha,
+                "reviewer_mode": "single_agent",
+                "next_command": next_command,
+                "coordination": coordination,
+                **provenance,
+            },
+            "session_resume_payload": {
+                "snapshot_id": snapshot_id,
+                "zref": zref,
+                "head_sha": head_sha,
+                "instruction_revision": "rev-phase0",
+                "next_recommended_command": next_command,
+                "authority_snapshot": authority,
+                "coordination": coordination,
+                **provenance,
+            },
+            "status_payload": {
+                "snapshot_id": snapshot_id,
+                "zref": zref,
+                "reviewer_mode": "single_agent",
+                "effective_reviewer_mode": "single_agent",
+                "observed_control_topology": "single_agent",
+                "current_instruction_revision": "rev-phase0",
+                "ownership_status": "clear",
+                "implementation_permission": "active",
+                "next_command": next_command,
+                "authority_snapshot": authority,
+                "coordination": coordination,
+                **provenance,
+            },
+            "registry_payload": review_state["registry"],
+            "bridge_compat_payload": bridge_surface,
+        }
+
     def test_build_report_fails_when_attention_drifts_from_recovery_assessment(self) -> None:
         report = self.script.build_report(
             startup_payload={

@@ -19,6 +19,7 @@ from .parity import (
     recovery_surface_parity_violations,
 )
 from .payloads import load_bridge_poll_payload, load_turn_authority_payload
+from .proof_tick import proof_tick_field_parity_violations, proof_tick_fields
 from .snapshot_fields import (
     generation_ids as surface_generation_ids,
     provenance_errors,
@@ -35,14 +36,25 @@ _UNSET = object()
 def build_report(
     *,
     repo_root: Path = Path(__file__).resolve().parents[4],
-    startup_payload: dict[str, object] | None = None,
-    review_state_payload: dict[str, object] | None = None,
-    compact_payload: dict[str, object] | None = None,
-    commit_pipeline_payload: dict[str, object] | None = None,
-    bridge_poll_payload: dict[str, object] | None = None,
-    turn_authority_payload: dict[str, object] | None = None,
     disk_review_state_payload: dict[str, object] | None = _UNSET,
+    **payload_overrides: object,
 ) -> dict[str, object]:
+    startup_payload = _payload_override(payload_overrides, "startup_payload")
+    review_state_payload = _payload_override(payload_overrides, "review_state_payload")
+    compact_payload = _payload_override(payload_overrides, "compact_payload")
+    commit_pipeline_payload = _payload_override(
+        payload_overrides, "commit_pipeline_payload"
+    )
+    bridge_poll_payload = _payload_override(payload_overrides, "bridge_poll_payload")
+    turn_authority_payload = _payload_override(payload_overrides, "turn_authority_payload")
+    control_plane_payload = _payload_override(payload_overrides, "control_plane_payload")
+    session_resume_payload = _payload_override(payload_overrides, "session_resume_payload")
+    status_payload = _payload_override(payload_overrides, "status_payload")
+    registry_payload = _payload_override(payload_overrides, "registry_payload")
+    bridge_compat_payload = _payload_override(payload_overrides, "bridge_compat_payload")
+    if payload_overrides:
+        unexpected = ", ".join(sorted(payload_overrides))
+        raise TypeError(f"unexpected payload override(s): {unexpected}")
     review_state = review_state_payload or load_review_state_payload(repo_root)
     startup = startup_payload
     if startup is None:
@@ -89,6 +101,19 @@ def build_report(
         commit_pipeline=commit_pipeline,
     )
     provenance = provenance_payloads(review_state=review_state)
+    proof_tick_surfaces = _proof_tick_surfaces(
+        startup=startup,
+        review_state=review_state,
+        compact=compact,
+        commit_pipeline=commit_pipeline,
+        bridge_poll=bridge_poll,
+        turn_authority=turn_authority,
+        control_plane=control_plane_payload,
+        session_resume=session_resume_payload,
+        status=status_payload,
+        registry=registry_payload,
+        bridge_compat=bridge_compat_payload,
+    )
     errors = snapshot_errors(snapshot_ids, zrefs, generation_ids)
     errors.extend(provenance_errors(provenance))
     violations = [
@@ -109,6 +134,7 @@ def build_report(
             turn_authority=turn_authority,
         )
     )
+    violations.extend(proof_tick_field_parity_violations(proof_tick_surfaces))
     disk_violations, disk_warnings = disk_turn_authority_parity_violations(
         repo_root=repo_root,
         turn_authority=turn_authority,
@@ -126,12 +152,64 @@ def build_report(
         zrefs=zrefs,
         generation_ids=generation_ids,
         provenance=provenance,
+        proof_tick_fields=proof_tick_fields(proof_tick_surfaces),
         bridge_poll=bridge_poll,
         turn_authority=turn_authority,
         disk_parity_warnings=tuple(disk_warnings),
         errors=tuple(errors),
         violations=tuple(violations),
     ).to_dict()
+
+
+def _proof_tick_surfaces(
+    *,
+    startup: dict[str, object],
+    review_state: dict[str, object],
+    compact: dict[str, object],
+    commit_pipeline: dict[str, object],
+    bridge_poll: dict[str, object],
+    turn_authority: dict[str, object],
+    control_plane: dict[str, object] | None,
+    session_resume: dict[str, object] | None,
+    status: dict[str, object] | None,
+    registry: dict[str, object] | None,
+    bridge_compat: dict[str, object] | None,
+) -> dict[str, dict[str, object]]:
+    surfaces = {
+        "coordination_snapshot": _nested_payload(review_state, "coordination"),
+        "authority_snapshot": _nested_payload(review_state, "authority_snapshot"),
+        "control_plane_read_model": control_plane or {},
+        "startup_context": startup,
+        "session_resume": session_resume or {},
+        "review_channel_status": status or {},
+        "persisted_review_state": review_state,
+        "registry_agents": registry or _nested_payload(review_state, "registry"),
+        "bridge_compat": bridge_compat or bridge_poll or turn_authority,
+        "compact_projection": compact,
+        "commit_pipeline": commit_pipeline,
+    }
+    return {
+        surface: payload
+        for surface, payload in surfaces.items()
+        if isinstance(payload, dict) and payload
+    }
+
+
+def _nested_payload(payload: object, *keys: str) -> dict[str, object]:
+    current = payload
+    for key in keys:
+        if not isinstance(current, dict):
+            return {}
+        current = current.get(key)
+    return dict(current) if isinstance(current, dict) else {}
+
+
+def _payload_override(
+    payload_overrides: dict[str, object],
+    key: str,
+) -> dict[str, object] | None:
+    value = payload_overrides.pop(key, None)
+    return value if isinstance(value, dict) else None
 
 
 def _disk_turn_authority_parity_errors(

@@ -25,6 +25,11 @@ from ...runtime.reviewer_runtime_models import (
     remote_control_attachment_from_mapping,
 )
 from ...runtime.work_intake_models import SessionContinuityState
+from ...runtime.surface_provenance import (
+    SurfaceProvenance,
+    attach_surface_provenance,
+    surface_provenance_from_mapping,
+)
 
 SESSION_CACHE_RELATIVE_DIR = Path("dev/reports/session_cache/latest")
 SESSION_CACHE_FILENAME = "cache.json"
@@ -79,15 +84,20 @@ class SessionCachePacket:
     attention_summary: str = "n/a"
     attention_revision: str = ""
     packet_inbox: PacketInboxState | None = None
+    provenance: SurfaceProvenance | None = None
 
     def to_dict(self) -> dict[str, object]:
         payload = asdict(self)
+        payload.pop("provenance", None)
         payload["key_rules"] = list(self.key_rules)
         if self.coordination is not None:
             payload["coordination"] = self.coordination.to_dict()
         if self.authority_snapshot is not None:
             payload["authority_snapshot"] = self.authority_snapshot.to_dict()
-        return payload
+        result = attach_surface_provenance(payload, provenance=self.provenance)
+        result.setdefault("snapshot_id", self.snapshot_id)
+        result.setdefault("zref", self.zref)
+        return result
 
 
 def try_cache_hit(
@@ -176,4 +186,5 @@ def packet_from_mapping(payload: dict[str, object]) -> SessionCachePacket:
         attention_summary=str(payload.get("attention_summary") or "n/a").strip() or "n/a",
         attention_revision=str(payload.get("attention_revision") or "").strip(),
         packet_inbox=packet_inbox_from_mapping(payload.get("packet_inbox")),
+        provenance=surface_provenance_from_mapping(payload),
     )

@@ -1,6 +1,6 @@
 # AI Governance Platform Plan
 
-**Status**: active  |  **Last updated**: 2026-04-21 | **Owner:** Tooling/control plane/product architecture
+**Status**: active  |  **Last updated**: 2026-04-22 | **Owner:** Tooling/control plane/product architecture
 Execution plan contract: required
 This spec remains execution mirrored in `dev/active/MASTER_PLAN.md` under
 `MP-377`, and it is the canonical active architecture plan for the standalone
@@ -7689,6 +7689,18 @@ Execution order for this section:
 
 ## Progress Log
 
+- 2026-04-22: Closed the Phase 0.b proof-tick parity slice without widening
+  back into dual-agent mode. `ControlPlaneReadModel` and
+  `SessionCachePacket` now carry producer-owned `SurfaceProvenance` from the
+  typed review-state tick, review-channel compact/full/actions projections
+  copy the same tuple, and `check_review_surface_consistency.py` freezes the
+  nine-surface parity contract across coordination, authority,
+  control-plane, startup-context, session-resume, status, persisted
+  review-state, registry, and bridge compatibility. Focused proof is green on
+  the review-surface consistency, control-plane read-model, session-resume,
+  and projection-bundle regressions; live surface consistency is green after
+  one status projection refresh. Runtime still reports checkpoint-required
+  single-agent posture, so dual-agent fanout remains closed.
 - 2026-04-21: Closed the Phase 0.a producer-provenance slice for nested
   runtime authority surfaces. `AuthoritySnapshot` and
   `CoordinationSnapshot` now carry the same seven-field proof-tick

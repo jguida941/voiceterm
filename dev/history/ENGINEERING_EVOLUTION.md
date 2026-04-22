@@ -4,7 +4,7 @@
 
 **Status:** Draft v4 (historical design and process record)
 **Audience:** users and developers
-**Last Updated:** 2026-04-21
+**Last Updated:** 2026-04-22
 
 ## At a Glance
 
@@ -36,6 +36,38 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 - [Quick Read (2 min)](#quick-read-2-min)
 - [User Path (5 min)](#user-path-5-min)
 - [Developer Path (15 min)](#developer-path-15-min)
+
+### 2026-04-22 - Phase 0 proof-tick parity now spans nine runtime surfaces
+
+Fact: after `AuthoritySnapshot` and `CoordinationSnapshot` started carrying
+producer provenance, the remaining read-side surfaces could still diverge for
+the same proof tick. `ControlPlaneReadModel` and `SessionCachePacket` exposed
+the right runtime fields but did not carry the producer-owned source tuple as
+typed provenance, and the review-surface consistency guard still checked
+snapshot/generation drift without freezing the wider runtime-truth fields
+across all surfaces.
+
+Change: `ControlPlaneReadModel` and `SessionCachePacket` now carry a nested
+`SurfaceProvenance` value and serialize the same seven provenance fields as
+the review-state producer. Review-channel compact/full/actions projections
+copy the same tuple through shared helpers. The consistency guard now records
+and compares the frozen proof tick across coordination snapshot, authority
+snapshot, control-plane read model, startup-context, session-resume,
+review-channel status, persisted review-state, registry agents, and
+bridge-compat output. For exposed fields, reviewer mode, effective reviewer
+mode, observed topology, instruction revision, ownership, implementation
+permission, next command, snapshot/generation identity, HEAD/worktree
+identity, and `zref` must agree.
+
+Evidence:
+- `dev/scripts/checks/review_surface_consistency/proof_tick.py`
+- `dev/scripts/checks/review_surface_consistency/command.py`
+- `dev/scripts/devctl/runtime/control_plane_read_model.py`
+- `dev/scripts/devctl/commands/governance/session_resume_packet.py`
+- `dev/scripts/devctl/review_channel/projection_bundle.py`
+- `dev/scripts/devctl/review_channel/projection_bundle_payloads.py`
+- `dev/scripts/devctl/tests/checks/test_check_review_surface_consistency.py`
+- `dev/scripts/devctl/tests/review_channel/test_review_channel.py`
 
 ### 2026-04-17 - Event-backed current-session only clears on explicit packet truth, and missing implementation permission now blocks mutation
 
