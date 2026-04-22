@@ -94,7 +94,7 @@ def resync_reasons(
             reasons.append(summary)
     attention = getattr(review_state, "attention", None)
     attention_status = text(getattr(attention, "status", ""))
-    if attention_status and attention_status not in {"clear", "ready"}:
+    if attention_status and attention_status not in {"clear", "ready", "healthy"}:
         if not (sanctioned_single_agent and attention_status == "inactive"):
             reasons.append(f"attention:{attention_status}")
     collaboration = getattr(review_state, "collaboration", None)

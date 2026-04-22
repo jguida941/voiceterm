@@ -57,7 +57,8 @@ def collaboration_topology_mode(
         max(participant.requested_worker_budget or 0, 0)
         for participant in participants
     )
-    if delegated_work or requested_budget > 0:
+    live_delegated_work = any(receipt.live for receipt in delegated_work)
+    if live_delegated_work or requested_budget > 0:
         return "multi_agent_orchestrated"
 
     live_roles = {

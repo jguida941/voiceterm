@@ -125,6 +125,61 @@ def test_build_collaboration_session_marks_concurrent_writer_conflict(
     assert session.ownership.live_agents == ("codex", "claude")
 
 
+def test_build_collaboration_session_keeps_planned_lanes_out_of_runtime_topology(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    session_records = (
+        _session_record(
+            "codex",
+            "reviewer",
+            planned_lanes=(
+                {
+                    "agent_id": "AGENT-1",
+                    "provider": "claude",
+                    "lane": "planned worker lane",
+                    "role": "implementer",
+                },
+            ),
+        ),
+        _session_record("claude", "implementer"),
+    )
+    monkeypatch.setattr(
+        collaboration_mod,
+        "load_conductor_sessions",
+        lambda *, session_output_root: session_records,
+    )
+    monkeypatch.setattr(
+        coordination_mod,
+        "dirty_paths_for_repo",
+        lambda repo_root: (),
+    )
+
+    session = collaboration_mod.build_collaboration_session(
+        timestamp="2026-04-22T14:00:00Z",
+        plan_id="MP-377",
+        session_id="session-1",
+        bridge_liveness={
+            "reviewer_mode": "active_dual_agent",
+            "effective_reviewer_mode": "active_dual_agent",
+        },
+        current_session=_current_session(
+            instruction="Prepare a planned lane without requesting fanout.",
+            last_reviewed_scope="dev/scripts/devctl/review_channel/launch.py",
+        ),
+        repo_root=tmp_path,
+        session_output_root=tmp_path,
+    )
+
+    assert session.topology_mode == "dual_agent"
+    assert len(session.delegated_work) == 1
+    assert session.delegated_work[0].live is False
+    delegated_gate = next(
+        row for row in session.ready_gates if row.gate_id == "delegated_work"
+    )
+    assert delegated_gate.status == "not_requested"
+
+
 def test_build_collaboration_session_marks_dual_agent_exclusive_slice(
     monkeypatch,
     tmp_path: Path,
@@ -215,8 +270,8 @@ def test_build_collaboration_session_promotes_active_remote_control_attachment(
         plan_id="MP-380",
         session_id="session-1",
         bridge_liveness={
-            "reviewer_mode": "single_agent",
-            "effective_reviewer_mode": "single_agent",
+            "reviewer_mode": "active_dual_agent",
+            "effective_reviewer_mode": "active_dual_agent",
         },
         current_session=_current_session(
             instruction="Tighten `dev/scripts/devctl/runtime/startup_context.py`.",
@@ -663,8 +718,8 @@ def test_build_collaboration_session_promotes_recent_packet_active_implementer(
         plan_id="MP-377",
         session_id="session-1",
         bridge_liveness={
-            "reviewer_mode": "single_agent",
-            "effective_reviewer_mode": "single_agent",
+            "reviewer_mode": "active_dual_agent",
+            "effective_reviewer_mode": "active_dual_agent",
         },
         current_session=_current_session(
             instruction="Tighten `dev/scripts/devctl/runtime/control_topology.py`.",
@@ -681,6 +736,83 @@ def test_build_collaboration_session_promotes_recent_packet_active_implementer(
     )
     assert coding_assignment.live is True
     assert coding_assignment.source == "packet_activity"
+
+
+def test_build_collaboration_session_single_agent_ignores_stale_implementer_packet_activity(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    session_records = (
+        _session_record("codex", "reviewer", live=False),
+        _session_record("claude", "implementer", live=False),
+    )
+    projections_root = tmp_path / "projections" / "latest"
+    projections_root.mkdir(parents=True)
+    events_dir = tmp_path / "events"
+    events_dir.mkdir()
+    (events_dir / "trace.ndjson").write_text(
+        json.dumps(
+            {
+                "event_type": "packet_posted",
+                "timestamp_utc": "2026-04-22T14:40:00Z",
+                "from_agent": "claude",
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(
+        collaboration_mod,
+        "load_conductor_sessions",
+        lambda *, session_output_root: session_records,
+    )
+    monkeypatch.setattr(
+        collaboration_mod,
+        "load_remote_control_attachments",
+        lambda *, output_root, active_only=False: (),
+    )
+    monkeypatch.setattr(
+        collaboration_mod,
+        "_utcnow",
+        lambda: datetime(2026, 4, 22, 14, 41, 0, tzinfo=timezone.utc),
+    )
+    monkeypatch.setattr(
+        coordination_mod,
+        "dirty_paths_for_repo",
+        lambda repo_root: (),
+    )
+
+    session = collaboration_mod.build_collaboration_session(
+        timestamp="2026-04-22T14:41:00Z",
+        plan_id="MP-377",
+        session_id="session-1",
+        bridge_liveness={
+            "reviewer_mode": "single_agent",
+            "effective_reviewer_mode": "single_agent",
+            "codex_poll_state": "fresh",
+            "last_codex_poll_utc": "2026-04-22T14:40:59Z",
+        },
+        current_session=_current_session(
+            instruction="Keep Codex as the single local implementer.",
+            last_reviewed_scope="dev/scripts/devctl/review_channel/launch.py",
+        ),
+        repo_root=tmp_path,
+        session_output_root=projections_root,
+    )
+
+    coding_assignment = next(
+        row for row in session.role_assignments if row.role_id == "coding_agent"
+    )
+    claude_participant = next(
+        row for row in session.participants if row.provider == "claude"
+    )
+
+    assert coding_assignment.provider == "codex"
+    assert coding_assignment.live is True
+    assert coding_assignment.source == "reviewer_turn"
+    assert claude_participant.live is False
+    assert session.mutation_owner == "codex"
+    assert session.topology_mode == "single_agent"
 
 
 def test_build_collaboration_session_demotes_stale_implementer_assignment_when_attachment_is_operator(

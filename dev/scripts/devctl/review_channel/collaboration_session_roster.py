@@ -78,15 +78,22 @@ def _build_role_assignments(
         session_records,
         TandemRole.REVIEWER,
     ) or default_profile.reviewer.provider
+    active_remote_implementer_providers = _providers_for_remote_role(
+        active_attachments,
+        TandemRole.IMPLEMENTER,
+    )
     live_implementer_providers = _providers_for_role(
         session_records,
         TandemRole.IMPLEMENTER,
         live_only=True,
-    ) or _providers_for_remote_role(
-        active_attachments,
-        TandemRole.IMPLEMENTER,
-    )
-    if live_implementer_providers:
+    ) or active_remote_implementer_providers
+    if (
+        reviewer_mode == "single_agent"
+        and reviewer_provider
+        and not active_remote_implementer_providers
+    ):
+        implementer_providers = (reviewer_provider,)
+    elif live_implementer_providers:
         implementer_providers = live_implementer_providers
     elif (
         reviewer_mode == "single_agent"

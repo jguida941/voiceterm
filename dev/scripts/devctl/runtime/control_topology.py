@@ -204,27 +204,21 @@ def _typed_live_reviewer_and_implementer_present(review_state: object | None) ->
         row for row in participants if boolish(_field(row, "live"))
     )
     role_assignments = _sequence(_field(collaboration, "role_assignments"))
-    review_agent_live = any(
-        _text(_field(row, "role_id")) == "review_agent"
-        and boolish(_field(row, "live"))
-        and not provider_has_only_non_tandem_presence(
-            list(live_participants),
-            _text(_field(row, "provider") or _field(row, "agent_id")),
-            text_fn=_text,
-        )
-        for row in role_assignments
+    review_agent_identities = _live_role_identities(
+        role_assignments,
+        role_id="review_agent",
+        live_participants=live_participants,
     )
-    coding_agent_live = any(
-        _text(_field(row, "role_id")) == "coding_agent"
-        and boolish(_field(row, "live"))
-        and not provider_has_only_non_tandem_presence(
-            list(live_participants),
-            _text(_field(row, "provider") or _field(row, "agent_id")),
-            text_fn=_text,
-        )
-        for row in role_assignments
+    coding_agent_identities = _live_role_identities(
+        role_assignments,
+        role_id="coding_agent",
+        live_participants=live_participants,
     )
-    if review_agent_live and coding_agent_live:
+    if any(
+        review_identity != coding_identity
+        for review_identity in review_agent_identities
+        for coding_identity in coding_agent_identities
+    ):
         return True
 
     reviewer_live = any(
@@ -238,6 +232,30 @@ def _typed_live_reviewer_and_implementer_present(review_state: object | None) ->
         for row in participants
     )
     return reviewer_live and implementer_live
+
+
+def _live_role_identities(
+    rows: tuple[object, ...],
+    *,
+    role_id: str,
+    live_participants: tuple[object, ...],
+) -> tuple[str, ...]:
+    identities: list[str] = []
+    for row in rows:
+        if _text(_field(row, "role_id")) != role_id or not boolish(_field(row, "live")):
+            continue
+        identity = _text(_field(row, "provider") or _field(row, "agent_id"))
+        if not identity:
+            continue
+        if provider_has_only_non_tandem_presence(
+            list(live_participants),
+            identity,
+            text_fn=_text,
+        ):
+            continue
+        if identity not in identities:
+            identities.append(identity)
+    return tuple(identities)
 
 
 def _sequence(value: object) -> tuple[object, ...]:

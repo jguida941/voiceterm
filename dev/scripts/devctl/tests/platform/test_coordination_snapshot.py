@@ -212,6 +212,8 @@ def test_build_coordination_snapshot_carries_surface_provenance(
         "head_sha": "head-test",
         "worktree_hash": "tree-test",
     }
+    assert snapshot.resync_required is False
+    assert "attention:healthy" not in snapshot.resync_reasons
 
 
 def test_build_coordination_snapshot_demotes_planned_but_inactive_fanout(

@@ -5,14 +5,14 @@
 ## Quick status
 
 - Branch: `feature/governance-quality-sweep`
-- HEAD: `a3df69dd9a8c` — Close Phase 0 proof tick parity
-- Tree hash: `472c43bfdd24`
-- Generation stamp: `snap-8c492abafe13`
-- Generated at (UTC): 2026-04-22T13:13:22Z
-- Push decision: `run_devctl_push` — push_preconditions_satisfied
+- HEAD: `caed14d175e3` — Refresh external review snapshot for a3df69dd
+- Tree hash: `b5b87570a7ad`
+- Generation stamp: `snap-e8802fdcd0ea`
+- Generated at (UTC): 2026-04-22T15:33:54Z
+- Push decision: `await_checkpoint` — staged_index_present
 - Reviewer mode: `single_agent` (interaction: `local_terminal`)
 - Pipeline state: `n/a` (approval: `n/a`)
-- Delta since last snapshot: 24 commits, 57 files, +5592/-1878
+- Delta since last snapshot: 24 commits, 57 files, +5605/-1892
 - Governance findings: 112 open / 86 fixed / 212 total
 - Probe hints: 0 total across 0 files scanned
 
@@ -54,24 +54,23 @@ adopters arrive.
 - Remote: `https://github.com/jguida941/voiceterm.git`
 - Default branch: `master`
 - Current branch: `feature/governance-quality-sweep`
-- HEAD SHA: `a3df69dd9a8ca9f634c29aa5bc52896dd982eb20`
+- HEAD SHA: `caed14d175e3cbf298d3fdfa477bcd97e5a1800d`
 - HEAD author: Justin Guida
 - HEAD timestamp (UTC): 2026-04-22T09:13:13-04:00
 
 ## 2. Governance state
 
 ### Push decision
-- action: `run_devctl_push`
-- reason: push_preconditions_satisfied
-- push_eligible_now: True
-- worktree_clean: True
-- staged_path_count: 0
+- action: `await_checkpoint`
+- reason: staged_index_present
+- push_eligible_now: False
+- worktree_clean: False
+- staged_path_count: 8
 - unstaged_path_count: 0
-- next_step_command: `python3 dev/scripts/devctl.py push --execute`
+- next_step_command: `n/a`
 - latest_push_report: `dev/reports/push/latest.json`
 - latest_push_report_state: `post_push_green` (push_completed)
-- publication_backlog: queued
-- publication_guidance: 1 local commit(s) waiting for governed push. Run `python3 dev/scripts/devctl.py push --execute` now.
+- publication_backlog: none
 
 ### Reviewer runtime
 - reviewer_mode: `single_agent`
@@ -87,16 +86,16 @@ adopters arrive.
 - active plan: **AI Governance Platform Plan**
 - plan path: `dev/active/ai_governance_platform.md`
 - active MP scope: `MP-377`
-- advisory: `push_allowed` — worktree_clean_and_review_accepted
+- advisory: `checkpoint_allowed` — worktree_dirty_within_budget
 
 ## 3. Delta — what changed since the previous snapshot
 
-Range: last 24 commits ending at `a3df69dd9a8c`
+Range: last 24 commits ending at `caed14d175e3`
 
 - commits: 24
 - files changed: 57
-- insertions: +5592
-- deletions: -1878
+- insertions: +5605
+- deletions: -1892
 - bundle classes touched: docs, tooling
 - risk add-ons triggered: Parser / ANSI boundary
 - authority surfaces touched: 7 file(s)
@@ -105,40 +104,40 @@ Range: last 24 commits ending at `a3df69dd9a8c`
 
 | # | SHA | Subject | Files | +/- | Bundle | Risk |
 |---|---|---|---|---|---|---|
-| 1 | `a3df69dd` | Close Phase 0 proof tick parity | 23 | +1003/-135 | tooling |  |
-| 2 | `94e2378f` | Refresh external review snapshot for 9e7b1050 | 2 | +63/-63 | docs |  |
-| 3 | `9e7b1050` | Doc drift sweep from prior sessions | 7 | +117/-70 | tooling |  |
-| 4 | `2490f839` | Phase 0.c: preserve explicit reviewer mode over daemon-deri… | 8 | +244/-78 | tooling |  |
-| 5 | `42fecac5` | Refresh external review snapshot for db210b73 | 2 | +76/-68 | docs |  |
-| 6 | `db210b73` | Add authority snapshot provenance | 18 | +592/-187 | tooling |  |
-| 7 | `c2eecb29` | Refresh external review snapshot for 7dd94280 | 2 | +71/-65 | docs |  |
-| 8 | `7dd94280` | Require post-push-green proof before projecting push_comple… | 11 | +220/-154 | tooling |  |
-| 9 | `bc0a31f7` | Refresh external review snapshot for 3625ecbb | 2 | +50/-50 | docs |  |
-| 10 | `3625ecbb` | Refresh external review snapshot for 211b6094 | 2 | +77/-81 | docs |  |
-| 11 | `211b6094` | Keep event-backed review state authoritative | 10 | +187/-79 | tooling |  |
-| 12 | `9f69c9d2` | Keep event-backed review state authoritative | 1 | +61/-63 | tooling |  |
-| 13 | `39816b18` | Refresh external review snapshot for be738893 | 2 | +73/-79 | docs |  |
-| 14 | `be738893` | Fix stall_diagnostics replacement-session precedence (rev_p… | 9 | +157/-68 | tooling |  |
-| 15 | `227ca27e` | Refresh external review snapshot for dbd0b7e2 | 2 | +67/-70 | docs |  |
-| 16 | `dbd0b7e2` | Close reviewer-wake auto-elevation gap and align stall diag… | 10 | +341/-54 | tooling |  |
-| 17 | `99442e7f` | Refresh external review snapshot for 16c6f9ad | 2 | +73/-75 | docs |  |
-| 18 | `16c6f9ad` | Unblock headless remote-control launches and add typed cond… | 15 | +1017/-68 | tooling | Parser / ANSI boundary |
-| 19 | `25d420ad` | Refresh external review snapshot for 103a9871 | 2 | +75/-76 | docs |  |
-| 20 | `103a9871` | Heal no-op push reruns back to push_completed | 8 | +200/-57 | tooling |  |
-| 21 | `e72da77b` | Keep push pipeline state monotonic on no-op reruns | 4 | +337/-53 | tooling |  |
-| 22 | `861d8bc4` | Refresh external review snapshot for d7fea144 | 2 | +60/-59 | docs |  |
-| 23 | `d7fea144` | Refresh review-state cache and proof-tick parity | 6 | +370/-64 | tooling |  |
-| 24 | `92dc15df` | Refresh external review snapshot for b1e8bfc9 | 2 | +61/-62 | docs |  |
+| 1 | `caed14d1` | Refresh external review snapshot for a3df69dd | 2 | +74/-76 | docs |  |
+| 2 | `a3df69dd` | Close Phase 0 proof tick parity | 23 | +1003/-135 | tooling |  |
+| 3 | `94e2378f` | Refresh external review snapshot for 9e7b1050 | 2 | +63/-63 | docs |  |
+| 4 | `9e7b1050` | Doc drift sweep from prior sessions | 7 | +117/-70 | tooling |  |
+| 5 | `2490f839` | Phase 0.c: preserve explicit reviewer mode over daemon-deri… | 8 | +244/-78 | tooling |  |
+| 6 | `42fecac5` | Refresh external review snapshot for db210b73 | 2 | +76/-68 | docs |  |
+| 7 | `db210b73` | Add authority snapshot provenance | 18 | +592/-187 | tooling |  |
+| 8 | `c2eecb29` | Refresh external review snapshot for 7dd94280 | 2 | +71/-65 | docs |  |
+| 9 | `7dd94280` | Require post-push-green proof before projecting push_comple… | 11 | +220/-154 | tooling |  |
+| 10 | `bc0a31f7` | Refresh external review snapshot for 3625ecbb | 2 | +50/-50 | docs |  |
+| 11 | `3625ecbb` | Refresh external review snapshot for 211b6094 | 2 | +77/-81 | docs |  |
+| 12 | `211b6094` | Keep event-backed review state authoritative | 10 | +187/-79 | tooling |  |
+| 13 | `9f69c9d2` | Keep event-backed review state authoritative | 1 | +61/-63 | tooling |  |
+| 14 | `39816b18` | Refresh external review snapshot for be738893 | 2 | +73/-79 | docs |  |
+| 15 | `be738893` | Fix stall_diagnostics replacement-session precedence (rev_p… | 9 | +157/-68 | tooling |  |
+| 16 | `227ca27e` | Refresh external review snapshot for dbd0b7e2 | 2 | +67/-70 | docs |  |
+| 17 | `dbd0b7e2` | Close reviewer-wake auto-elevation gap and align stall diag… | 10 | +341/-54 | tooling |  |
+| 18 | `99442e7f` | Refresh external review snapshot for 16c6f9ad | 2 | +73/-75 | docs |  |
+| 19 | `16c6f9ad` | Unblock headless remote-control launches and add typed cond… | 15 | +1017/-68 | tooling | Parser / ANSI boundary |
+| 20 | `25d420ad` | Refresh external review snapshot for 103a9871 | 2 | +75/-76 | docs |  |
+| 21 | `103a9871` | Heal no-op push reruns back to push_completed | 8 | +200/-57 | tooling |  |
+| 22 | `e72da77b` | Keep push pipeline state monotonic on no-op reruns | 4 | +337/-53 | tooling |  |
+| 23 | `861d8bc4` | Refresh external review snapshot for d7fea144 | 2 | +60/-59 | docs |  |
+| 24 | `d7fea144` | Refresh review-state cache and proof-tick parity | 6 | +370/-64 | tooling |  |
 
 ### Files
 
 | Path | Bundle | +/- |
 |---|---|---|
 | `AGENTS.md` | docs | +35/-6 |
-| `bridge.md` | docs | +114/-113 |
+| `bridge.md` | docs | +112/-112 |
 | `dev/active/MASTER_PLAN.md` | tooling | +76/-6 |
 | `dev/active/ai_governance_platform.md` | tooling | +32/-2 |
-| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1466/-1453 |
+| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1481/-1468 |
 | `dev/guides/DEVELOPMENT.md` | docs | +71/-8 |
 | `dev/history/ENGINEERING_EVOLUTION.md` | tooling | +330/-7 |
 | `dev/scripts/README.md` | tooling | +34/-5 |
@@ -267,6 +266,8 @@ Recent findings:
 
 ### Per-commit rationale
 
+- **`caed14d1`** — Refresh external review snapshot for a3df69dd
+  - evolution: Fact: after `AuthoritySnapshot` and `CoordinationSnapshot` started carrying producer provenance, the remaining read-side surfaces could still diverge for the same proof tick. `ControlPlaneReadModel` and `SessionCachePac…
 - **`a3df69dd`** — Close Phase 0 proof tick parity
   - evolution: Fact: after `AuthoritySnapshot` and `CoordinationSnapshot` started carrying producer provenance, the remaining read-side surfaces could still diverge for the same proof tick. `ControlPlaneReadModel` and `SessionCachePac…
 - **`94e2378f`** — Refresh external review snapshot for 9e7b1050
@@ -334,8 +335,6 @@ Recent findings:
   - evolution: Superseded by the 2026-04-21 follow-up above. Fact: the first fix for the no-op governed-push regression only added a monotonic guard at pipeline persistence time. That prevented an already-green `push_completed` pipeli…
 - **`d7fea144`** — Refresh review-state cache and proof-tick parity
   - evolution: Superseded by the 2026-04-21 follow-up above. Fact: the first fix for the no-op governed-push regression only added a monotonic guard at pipeline persistence time. That prevented an already-green `push_completed` pipeli…
-- **`92dc15df`** — Refresh external review snapshot for b1e8bfc9
-  - evolution: Superseded by the 2026-04-21 follow-up above. Fact: the first fix for the no-op governed-push regression only added a monotonic guard at pipeline persistence time. That prevented an already-green `push_completed` pipeli…
 ### Active MP scope (from MASTER_PLAN.md)
 
 - contract slice for MP-355 plus the temporary markdown-swarm operating mode
@@ -354,10 +353,10 @@ Recent findings:
 - open governance findings: 112
 
 ### Startup advisories
-- push_allowed: worktree_clean_and_review_accepted
+- checkpoint_allowed: worktree_dirty_within_budget
 
 ### Stale warnings
-- Stop because nothing remains to push.
+- Move straight to the governed push path.
 
 ### Open gap rows
 - **governance_open** (`dev/scripts/devctl/runtime/dogfood_log.py`): dogfood_finding_id_instability: 
@@ -371,4 +370,4 @@ Recent findings:
 
 ---
 
-Projection produced by `devctl review-snapshot`. Generation stamp `snap-8c492abafe13` binds this file to HEAD `a3df69dd9a8c`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
+Projection produced by `devctl review-snapshot`. Generation stamp `snap-e8802fdcd0ea` binds this file to HEAD `caed14d175e3`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
