@@ -1337,6 +1337,59 @@ class PushBridgeSyncTests(unittest.TestCase):
         self.preflight_status_mock = self._preflight_status_patcher.start()
         self.addCleanup(self._preflight_status_patcher.stop)
 
+    def test_run_fetch_and_preflight_consults_orphan_snapshot_advisory(self) -> None:
+        state = push.PushRunState(branch="feature/demo", remote="origin")
+        policy = make_policy()
+        args = make_args(skip_preflight=True)
+
+        def _runner(name, cmd, cwd=None, env=None):
+            return {
+                "name": name,
+                "cmd": cmd,
+                "cwd": str(cwd or "."),
+                "returncode": 0,
+                "duration_s": 0.1,
+                "skipped": False,
+            }
+
+        def _append_advisory(warnings, *, repo_root, scan_trigger):
+            self.assertEqual(scan_trigger, "push_preflight")
+            warnings.append("orphan_snapshot_advisory snapshot_hash=sha256:push")
+            return None
+
+        with (
+            patch(
+                "dev.scripts.devctl.commands.vcs.push.remote_branch_exists",
+                return_value=True,
+            ),
+            patch(
+                "dev.scripts.devctl.commands.vcs.push.current_upstream_ref",
+                return_value="origin/feature/demo",
+            ),
+            patch(
+                "dev.scripts.devctl.commands.vcs.push.branch_divergence",
+                return_value={"behind": 0, "ahead": 1, "error": None},
+            ),
+            patch(
+                "dev.scripts.devctl.commands.vcs.push.append_orphan_snapshot_advisory",
+                side_effect=_append_advisory,
+            ) as advisory_mock,
+        ):
+            push._run_fetch_and_preflight(
+                state,
+                policy,
+                args,
+                repo_root=Path("/tmp/repo"),
+                run_cmd_fn=_runner,
+            )
+
+        self.assertEqual(state.errors, [])
+        self.assertIn(
+            "orphan_snapshot_advisory snapshot_hash=sha256:push",
+            state.warnings,
+        )
+        advisory_mock.assert_called_once()
+
     def test_sync_bridge_projection_before_preflight_reprojects_active_bridge(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             repo_root = Path(tmp_dir)

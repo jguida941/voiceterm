@@ -67,6 +67,10 @@ Portable-platform rule:
   `python3 dev/scripts/devctl.py orphan-inventory --format md` is the
   bounded local report-only scan for this evidence; it must not fire launch,
   push, or fanout gates until the later gate slice consumes the typed report.
+  `compute_orphan_snapshot()` is the read-side projection over that report:
+  startup-context emits it as typed `orphan_snapshot` evidence, while governed
+  commit/push preflight may only consume it as advisory warning state until
+  the executor and gate slices land.
   These contracts live under
   `dev/scripts/devctl/runtime/worktree_orphan_*` and are registered in the
   platform `ContractSpec` surface; future launch/push/fanout gates must use

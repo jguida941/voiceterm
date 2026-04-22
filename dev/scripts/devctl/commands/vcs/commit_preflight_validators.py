@@ -15,6 +15,7 @@ from .commit_preflight_support import (
     next_command_guidance,
 )
 from .governed_executor import GovernedVcsExecutor
+from .orphan_snapshot_advisory import append_orphan_snapshot_advisory
 from .governed_executor_actions import (
     APPROVAL_PACKET_KIND,
     _build_report,
@@ -156,6 +157,11 @@ def prepare_pipeline(
                 operator_guidance=operator_guidance,
                 warnings=report_warnings,
             )
+    append_orphan_snapshot_advisory(
+        stage_warnings,
+        repo_root=repo_root,
+        scan_trigger="commit_preflight",
+    )
     stage_warnings, atomicity_report = preflight_import_index_atomicity(
         repo_root=repo_root,
         pipeline=pipeline,

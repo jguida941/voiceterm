@@ -44,6 +44,8 @@ class OrphanReconciliationDecision:
     authorization_receipt_ref: str
     governed_execution_plan_id: str
     decided_at_utc: str = ""
+    plan_scope_hint: str = ""
+    confirmed_issue_id: str = ""
     schema_version: int = 1
     contract_id: str = "OrphanReconciliationDecision"
 
@@ -147,6 +149,8 @@ def orphan_reconciliation_decision_from_mapping(
             payload.get("governed_execution_plan_id")
         ),
         decided_at_utc=coerce_string(payload.get("decided_at_utc")),
+        plan_scope_hint=coerce_string(payload.get("plan_scope_hint")),
+        confirmed_issue_id=coerce_string(payload.get("confirmed_issue_id")),
     )
 
 

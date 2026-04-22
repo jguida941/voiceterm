@@ -52,6 +52,7 @@ from .push_snapshot import (
 )
 from .push_worktree_changes import blocking_dirty_paths
 from .governed_executor_actions import build_push_action
+from .orphan_snapshot_advisory import append_orphan_snapshot_advisory
 
 REQUESTED_BY = "devctl.push"
 
@@ -276,6 +277,11 @@ def _run_fetch_and_preflight(
         return
     if state.branch_has_remote and state.ahead == 0:
         return
+    append_orphan_snapshot_advisory(
+        state.warnings,
+        repo_root=repo_root,
+        scan_trigger="push_preflight",
+    )
     if args.skip_preflight:
         return
 

@@ -118,6 +118,8 @@ def test_reconciliation_decision_and_accept_all_action_schema_round_trip() -> No
         operator_identity="operator:jguida",
         authorization_receipt_ref="receipt:operator-1",
         governed_execution_plan_id="orphan-plan-1",
+        plan_scope_hint="MP-377",
+        confirmed_issue_id="rev_pkt_1625",
         decided_at_utc="2026-04-22T14:02:00Z",
     )
     action = AcceptAllOrphansAction(
@@ -142,6 +144,23 @@ def test_reconciliation_decision_and_accept_all_action_schema_round_trip() -> No
     _assert_minimum_schema(schemas["AcceptAllOrphansReceipt"], receipt.to_dict())
 
     assert orphan_reconciliation_decision_from_mapping(decision.to_dict()) == decision
+    assert (
+        orphan_reconciliation_decision_from_mapping(
+            {
+                **decision.to_dict(),
+                "per_source_decisions": [
+                    {
+                        "source_ref": "planned-lane:AGENT-2",
+                        "chosen_action": "materialize_as_worker",
+                        "action_args": {},
+                    }
+                ],
+            }
+        )
+        .per_source_decisions[0]
+        .chosen_action
+        == "materialize_as_worker"
+    )
     assert accept_all_orphans_action_from_mapping(action.to_dict()) == action
     assert accept_all_orphans_receipt_from_mapping(receipt.to_dict()) == receipt
     assert action.scope in ACCEPT_ALL_ORPHAN_SCOPES

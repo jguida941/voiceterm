@@ -217,6 +217,13 @@ Current 2026-04-22 worktree-orphan prevention note:
   worktrees, planned coordination actors, bounded same-parent same-origin
   sibling clones, and stash sections. It does not fire gates; slice 3 promotes
   this observation stream into packet/projection surfaces before enforcement.
+- Slice 3 promotes the scanner output without adding a command:
+  `compute_orphan_snapshot()` turns an `OrphanInventoryReport` into a
+  deterministic `OrphanSnapshot` with ledger/lease provenance, startup-context
+  emits it as typed evidence, and governed commit/push preflight consume the
+  same projection as advisory-only warnings. `OrphanReconciliationDecision`
+  now also carries plan/finding scope hints so later executor and gate slices
+  do not create unscoped remediation debt.
 
 Current 2026-04-15 consolidated redesign note:
 - The full active-plan set plus `LIVE_RUN.md` Q1-Q100 all point at the same

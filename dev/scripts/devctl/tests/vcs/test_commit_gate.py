@@ -541,6 +541,58 @@ class TestStartupActionRouting(unittest.TestCase):
         self.assertEqual(report["import_index_atomicity_findings"], [violation])
         self.assertIn("phone_status_views.py", report["operator_guidance"])
 
+    def test_prepare_pipeline_consults_orphan_snapshot_advisory(self) -> None:
+        empty_pipeline = SimpleNamespace(
+            pipeline_id="",
+            state="",
+            approval_state="",
+        )
+        staged_pipeline = SimpleNamespace(
+            pipeline_id="pipeline-123",
+            state="staged",
+            approval_state="pending",
+        )
+        stage_result = SimpleNamespace(
+            ok=True,
+            reason="staged",
+            warnings=(),
+        )
+        executor = MagicMock()
+        executor.load_pipeline.side_effect = [empty_pipeline, staged_pipeline]
+        executor.execute.return_value = stage_result
+
+        def _append_advisory(warnings, *, repo_root, scan_trigger):
+            self.assertEqual(repo_root, Path("/tmp/repo"))
+            self.assertEqual(scan_trigger, "commit_preflight")
+            warnings.append("orphan_snapshot_advisory snapshot_hash=sha256:test")
+            return None
+
+        with (
+            patch(
+                "dev.scripts.devctl.commands.vcs.commit_preflight.pipeline_is_stale_for_current_repo",
+                return_value=False,
+            ),
+            patch(
+                "dev.scripts.devctl.commands.vcs.commit_preflight_validators.preflight_import_index_atomicity",
+                side_effect=lambda **kwargs: (kwargs["stage_warnings"], None),
+            ),
+            patch(
+                "dev.scripts.devctl.commands.vcs.commit_preflight_validators.append_orphan_snapshot_advisory",
+                side_effect=_append_advisory,
+            ) as advisory_mock,
+        ):
+            returned_pipeline, warnings, report = prepare_pipeline(
+                args=_make_args(),
+                repo_root=Path("/tmp/repo"),
+                resolved_policy=SimpleNamespace(repo_pack_id="voiceterm"),
+                vcs_executor=executor,
+            )
+
+        self.assertIs(returned_pipeline, staged_pipeline)
+        self.assertIsNone(report)
+        self.assertIn("orphan_snapshot_advisory snapshot_hash=sha256:test", warnings)
+        advisory_mock.assert_called_once()
+
     def test_load_pipeline_for_explicit_approval_projects_commit_command(self) -> None:
         pipeline = SimpleNamespace(
             pipeline_id="",

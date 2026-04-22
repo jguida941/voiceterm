@@ -45,6 +45,10 @@ from .worktree_orphan_snapshot import (
     orphan_snapshot_from_mapping,
     orphan_source_from_mapping,
 )
+from .worktree_orphan_snapshot_projection import (
+    build_orphan_snapshot_projection,
+    compute_orphan_snapshot,
+)
 from .worktree_orphan_types import (
     ACCEPT_ALL_ORPHAN_SCOPES,
     CHECKOUT_INVENTORY_STATES,
@@ -80,7 +84,9 @@ __all__ = [
     "accept_all_orphans_action_from_mapping",
     "accept_all_orphans_receipt_from_mapping",
     "build_orphan_inventory_report",
+    "build_orphan_snapshot_projection",
     "checkout_inventory_from_mapping",
+    "compute_orphan_snapshot",
     "checkout_inventory_row_from_mapping",
     "contract_json_schemas",
     "orphan_inventory_report_from_mapping",

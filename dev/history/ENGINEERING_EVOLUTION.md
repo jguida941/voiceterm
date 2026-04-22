@@ -11763,3 +11763,28 @@ Evidence:
 - `AGENTS.md`
 - `dev/guides/DEVELOPMENT.md`
 - `dev/active/MASTER_PLAN.md`
+
+### 2026-04-22 — Worktree-orphan snapshots become startup and VCS preflight evidence
+
+The third MP-377 orphan-worktree slice promotes the report-only inventory into
+a reusable projection instead of adding another command. `compute_orphan_snapshot()`
+now derives a deterministic `OrphanSnapshot` from an `OrphanInventoryReport`,
+records ledger/lease provenance with empty leases explicitly marked
+`backfill_pending`, and produces a stable content hash so operator decisions
+can bind to one observed orphan surface.
+
+`startup-context` emits that snapshot as a typed `orphan_snapshot` field.
+Governed commit and push preflight now consult the same projection as
+advisory-only warning evidence; no launch/push/fanout hard gate is introduced
+in this slice. The reconciliation packet surface also accepts the
+`materialize_as_worker` action plus optional plan/finding scope hints so later
+executor slices can keep remediation decisions tied to MP/finding authority.
+
+Evidence:
+
+- `dev/scripts/devctl/runtime/worktree_orphan_snapshot_projection.py`
+- `dev/scripts/devctl/runtime/startup_context.py`
+- `dev/scripts/devctl/commands/vcs/orphan_snapshot_advisory.py`
+- `dev/scripts/devctl/commands/vcs/commit_preflight_validators.py`
+- `dev/scripts/devctl/commands/vcs/push.py`
+- `dev/scripts/devctl/tests/runtime/test_worktree_orphan_snapshot_projection.py`

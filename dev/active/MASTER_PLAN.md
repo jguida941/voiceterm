@@ -96,6 +96,11 @@
   lanes, bounded same-parent same-origin sibling clones, and stash entries
   including untracked-section evidence, while explicitly leaving
   `gates_evaluated=false` until the later launch/push/fanout gate slice.
+- 2026-04-22 worktree-orphan projection slice (also under MP-377):
+  `compute_orphan_snapshot()` now derives a deterministic `OrphanSnapshot`
+  from the bounded inventory report, `startup-context` emits that projection
+  as typed startup evidence, and governed commit/push preflight consult it as
+  advisory-only warning state before any later hard gate lands.
 - `dev/active/review_probes.md` is the review-probe execution spec; implementation tasks stay in this file under `MP-368..MP-375`.
 - `dev/active/portable_code_governance.md` is the narrower engine/adoption
   companion under `MP-376`, not a second main product plan; implementation

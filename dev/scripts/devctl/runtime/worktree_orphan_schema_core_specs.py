@@ -83,6 +83,10 @@ _ORPHAN_SOURCE_SPECS = (
         object_ref("stats", "OrphanSnapshotStats"),
         field("load_bearing", "boolean"),
         field("snapshot_hash"),
+        field("derived_from", "object"),
+        field("ledger_ref"),
+        field("lease_source"),
+        field("freshness_requirement"),
     ),
 )
 
@@ -116,6 +120,8 @@ _ORPHAN_RECONCILIATION_SPECS = (
         field("authorization_receipt_ref"),
         field("governed_execution_plan_id"),
         field("decided_at_utc"),
+        field("plan_scope_hint"),
+        field("confirmed_issue_id"),
     ),
 )
 

@@ -342,6 +342,10 @@ Portability note:
   observes the current checkout, registered/prunable worktrees, planned worker
   lanes, same-parent same-origin sibling clones, and stash sections without
   firing startup/push/fanout gates.
+- `startup-context` now includes a fresh `orphan_snapshot` field derived by
+  `compute_orphan_snapshot()` from the bounded inventory report. Governed
+  commit and push preflight also consult that snapshot as advisory-only warning
+  evidence; enforcement remains in the later gate slice.
 - `system-picture` is the generated external-review reducer for this repo: it
   composes startup, graph, review-runtime, governance-review, imported
   findings, telemetry signals, and the current bounded coordination posture

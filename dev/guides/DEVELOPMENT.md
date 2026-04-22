@@ -375,7 +375,10 @@ Three quality layers matter in practice:
   bounded local `OrphanInventoryReport` across the current checkout,
   registered/prunable worktrees, planned worker lanes, same-parent sibling
   clones, and stash entries without firing any gates; use it as report-only
-  evidence until the later gate slice consumes the typed report. When touching
+  evidence until the later gate slice consumes the typed report. The
+  read-side `compute_orphan_snapshot()` projection now derives an
+  `OrphanSnapshot` from that report for startup-context and advisory
+  commit/push preflight consumption, still with gates disabled. When touching
   `dev/scripts/devctl/runtime/worktree_orphan_*`,
   `checkout_inventory_contracts.py`, `work_publication_ledger_contracts.py`,
   or `session_lease_contracts.py`, keep the platform rows in

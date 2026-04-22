@@ -22,6 +22,7 @@ ORPHAN_RECONCILIATION_ACTIONS = (
     "ignore_with_receipt",
     "prune_missing_unreferenced",
     "archive_after_user_approval",
+    "materialize_as_worker",
 )
 
 CHECKOUT_INVENTORY_STATES = (

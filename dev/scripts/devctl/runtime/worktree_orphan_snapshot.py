@@ -91,6 +91,10 @@ class OrphanSnapshot:
     stats: OrphanSnapshotStats = field(default_factory=OrphanSnapshotStats)
     load_bearing: bool = False
     snapshot_hash: str = ""
+    derived_from: dict[str, object] = field(default_factory=dict)
+    ledger_ref: str = "ledger:not_loaded"
+    lease_source: str = "backfill_pending"
+    freshness_requirement: str = "fresh_scan_required"
     schema_version: int = 1
     contract_id: str = "OrphanSnapshot"
 
@@ -98,6 +102,7 @@ class OrphanSnapshot:
         payload = asdict(self)
         payload["sources"] = [source.to_dict() for source in self.sources]
         payload["stats"] = self.stats.to_dict()
+        payload["derived_from"] = dict(self.derived_from)
         return payload
 
 
@@ -199,6 +204,15 @@ def orphan_snapshot_from_mapping(value: object) -> OrphanSnapshot | None:
         stats=orphan_snapshot_stats_from_mapping(payload.get("stats")),
         load_bearing=coerce_bool(payload.get("load_bearing")),
         snapshot_hash=coerce_string(payload.get("snapshot_hash")),
+        derived_from=dict(coerce_mapping(payload.get("derived_from"))),
+        ledger_ref=coerce_string(payload.get("ledger_ref")) or "ledger:not_loaded",
+        lease_source=(
+            coerce_string(payload.get("lease_source")) or "backfill_pending"
+        ),
+        freshness_requirement=(
+            coerce_string(payload.get("freshness_requirement"))
+            or "fresh_scan_required"
+        ),
     )
 
 

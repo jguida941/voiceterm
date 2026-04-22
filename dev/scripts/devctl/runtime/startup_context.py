@@ -48,6 +48,8 @@ from .startup_push_decision import (
 )
 from .startup_packet_inbox import startup_packet_inbox_dict
 from .startup_signals import load_startup_quality_signals
+from .worktree_orphan_snapshot import OrphanSnapshot
+from .worktree_orphan_snapshot_projection import build_orphan_snapshot_projection
 from .surface_snapshot import build_surface_snapshot_id, build_surface_zref
 from .work_intake import (
     WorkIntakePacket,
@@ -106,6 +108,7 @@ class StartupContext:
     current_session: ReviewCurrentSessionState | None = None
     packet_inbox: PacketInboxState | None = None
     quality_signals: dict[str, object] = field(default_factory=dict)
+    orphan_snapshot: OrphanSnapshot | None = None
     blocker: BlockerSnapshot = field(default_factory=BlockerSnapshot)
     contract_ownership_map: dict[str, dict[str, object]] = field(default_factory=dict)
     snapshot_id: str = ""
@@ -162,6 +165,8 @@ class StartupContext:
             d["current_session"] = asdict(self.current_session)
         if self.packet_inbox is not None:
             d["packet_inbox"] = startup_packet_inbox_dict(self.packet_inbox)
+        if self.orphan_snapshot is not None:
+            d["orphan_snapshot"] = self.orphan_snapshot.to_dict()
         return d
 
 
@@ -402,6 +407,32 @@ def _load_startup_coordination_snapshot(
     )
 
 
+def _attach_startup_surface_identity(
+    *,
+    governance: ProjectGovernance,
+    review_state: "ReviewState | None",
+    push_decision: PushDecisionState,
+) -> tuple[PushDecisionState, str, str]:
+    snapshot_id = (
+        str(getattr(review_state, "snapshot_id", "") or "").strip()
+        or build_surface_snapshot_id(
+            reviewer_runtime=(
+                getattr(review_state, "reviewer_runtime", None) if review_state else None
+            ),
+            commit_pipeline=(
+                getattr(review_state, "commit_pipeline", None) if review_state else None
+            ),
+            push_decision=push_decision,
+        )
+    )
+    head_sha = str(
+        getattr(getattr(governance, "push_enforcement", None), "current_head_commit", "")
+        or ""
+    ).strip()
+    zref = build_surface_zref(snapshot_id=snapshot_id, head_sha=head_sha)
+    return replace(push_decision, snapshot_id=snapshot_id, zref=zref), snapshot_id, zref
+
+
 def build_startup_context(
     *,
     repo_root: Path | None = None,
@@ -485,29 +516,21 @@ def build_startup_context(
         gate=gate,
         work_intake=work_intake,
     )
+    orphan_snapshot = build_orphan_snapshot_projection(
+        repo_root=repo_root,
+        review_state=review_state,
+        scan_trigger="startup_context",
+    )
     quality_signals = load_startup_quality_signals(repo_root)
     blocker = derive_startup_blocker(
         review_state=review_state,
         push_decision=push_decision,
     )
-    snapshot_id = (
-        str(getattr(review_state, "snapshot_id", "") or "").strip()
-        or build_surface_snapshot_id(
-            reviewer_runtime=(
-                getattr(review_state, "reviewer_runtime", None) if review_state else None
-            ),
-            commit_pipeline=(
-                getattr(review_state, "commit_pipeline", None) if review_state else None
-            ),
-            push_decision=push_decision,
-        )
+    push_decision, snapshot_id, zref = _attach_startup_surface_identity(
+        governance=governance,
+        review_state=review_state,
+        push_decision=push_decision,
     )
-    head_sha = str(
-        getattr(getattr(governance, "push_enforcement", None), "current_head_commit", "")
-        or ""
-    ).strip()
-    zref = build_surface_zref(snapshot_id=snapshot_id, head_sha=head_sha)
-    push_decision = replace(push_decision, snapshot_id=snapshot_id, zref=zref)
     observed_control_topology, implementation_permission = derive_startup_control_truth(
         review_state,
         reviewer_gate=gate,
@@ -543,6 +566,7 @@ def build_startup_context(
         ),
         packet_inbox=(review_state.packet_inbox if review_state is not None else None),
         quality_signals=quality_signals,
+        orphan_snapshot=orphan_snapshot,
         blocker=blocker,
         contract_ownership_map=build_contract_ownership_map(),
         snapshot_id=snapshot_id,
