@@ -326,6 +326,17 @@ Portability note:
 - `platform-contracts` exposes the broader shared backend blueprint so another
   repo, frontend, or AI installer can see the intended package/runtime/repo-pack
   boundary without reverse-engineering it from active-plan prose alone.
+- Worktree-orphan prevention is now represented as typed runtime contract
+  surface too: `dev/scripts/devctl/runtime/worktree_orphan_contracts.py`
+  re-exports the slice-one `OrphanSnapshot`, `OrphanSource`,
+  `OrphanReconciliationDecision`, `CheckoutInventory`,
+  `WorkPublicationLedger`, `SessionLease`, `WorktreeBaseline`, and
+  accept-all override/receipt models, while
+  `dev/scripts/devctl/platform/worktree_orphan_contract_rows.py` registers
+  them with the platform `ContractSpec` registry. Later scanner/gate slices
+  should consume those models rather than inventing local dict shapes for
+  current checkout, worktree, sibling-clone, deep-scan, stash, CI-root, or
+  latent-state debt.
 - `system-picture` is the generated external-review reducer for this repo: it
   composes startup, graph, review-runtime, governance-review, imported
   findings, telemetry signals, and the current bounded coordination posture

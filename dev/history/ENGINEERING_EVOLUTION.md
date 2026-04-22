@@ -11687,3 +11687,48 @@ Evidence:
 - `dev/guides/DEVELOPMENT.md`
 - `dev/scripts/README.md`
 - `dev/active/MASTER_PLAN.md`
+
+### 2026-04-22 — Worktree-orphan contracts and single-agent ownership repair
+
+The Phase 0 orphan-worktree incident exposed two separate architectural gaps:
+startup/launch authority was proving only the active checkout, and stale
+collaboration topology could still type Claude as implementer while Codex was
+the only live mutation owner. This slice repairs the immediate ownership
+reducer and lands the first durable contract layer for the longer-term orphan
+inventory plan.
+
+- `dev/scripts/devctl/review_channel/collaboration_session_coordination.py`
+  now treats planned delegated-worker receipts as planned topology only; they
+  no longer force `multi_agent_orchestrated` unless live delegated work or an
+  explicit requested worker budget exists.
+- `dev/scripts/devctl/review_channel/collaboration_session_roster.py` keeps
+  single-agent coding ownership on the reviewer provider when no active
+  remote implementer attachment exists, so stale Claude packet activity does
+  not steal mutation authority from Codex.
+- `dev/scripts/devctl/platform/coordination_snapshot_support.py` stops
+  reporting `attention:healthy` as a resync blocker.
+- The new worktree-orphan contract surface covers `OrphanSnapshot`,
+  `OrphanSource`, `OrphanReconciliationDecision`, `CheckoutInventory`,
+  `WorkPublicationLedger`, `SessionLease`, `WorktreeBaseline`, and accept-all
+  override receipts. Source variants include current checkout, registered
+  git worktrees, planned delegated worker worktrees, unregistered sibling
+  clones, deep-scan repos, prunable/missing worktrees, stash/worker-root/CI
+  roots, and latent state.
+- `dev/scripts/devctl/platform/worktree_orphan_contract_rows.py` registers
+  those runtime dataclasses with the platform `ContractSpec` registry so
+  contract connectivity, governance closure, and platform-contract closure
+  prove the schema surface is not orphaned before scanner/gate slices consume
+  it.
+
+Evidence:
+
+- `dev/scripts/devctl/runtime/worktree_orphan_contracts.py`
+- `dev/scripts/devctl/runtime/worktree_orphan_snapshot.py`
+- `dev/scripts/devctl/runtime/worktree_orphan_reconciliation.py`
+- `dev/scripts/devctl/runtime/checkout_inventory_contracts.py`
+- `dev/scripts/devctl/runtime/work_publication_ledger_contracts.py`
+- `dev/scripts/devctl/runtime/session_lease_contracts.py`
+- `dev/scripts/devctl/platform/worktree_orphan_contract_rows.py`
+- `dev/scripts/devctl/tests/runtime/test_worktree_orphan_contracts.py`
+- `dev/scripts/devctl/tests/review_channel/test_collaboration_session.py`
+- `dev/scripts/devctl/tests/platform/test_coordination_snapshot.py`

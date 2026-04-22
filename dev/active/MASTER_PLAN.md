@@ -78,6 +78,17 @@
   review-channel status, persisted review-state, registry, and bridge-compat
   surfaces. Dual-agent fanout remains blocked until runtime truth reports
   `safe_to_fanout=true` and `resync_required=false`.
+- 2026-04-22 worktree-orphan architecture slice (also under MP-377): the
+  orphan-prevention design now has typed slice-one runtime contracts for
+  `OrphanSnapshot`, `OrphanSource`, `OrphanReconciliationDecision`,
+  `CheckoutInventory`, `WorkPublicationLedger`, `SessionLease`,
+  `WorktreeBaseline`, and `AcceptAllOrphansAction` / receipt payloads, plus
+  platform `ContractSpec` registration so the contract-connectivity and
+  platform-contract closure guards prove these are not orphan dataclasses.
+  This is the foundation for mode-invariant launch/push/fanout gates that
+  classify current checkout, registered worktrees, planned worker roots,
+  sibling repo copies, deep-scan repos, prunable/missing worktrees, stashes,
+  CI roots, and latent state before accepting more work.
 - `dev/active/review_probes.md` is the review-probe execution spec; implementation tasks stay in this file under `MP-368..MP-375`.
 - `dev/active/portable_code_governance.md` is the narrower engine/adoption
   companion under `MP-376`, not a second main product plan; implementation

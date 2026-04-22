@@ -197,6 +197,22 @@ Current 2026-04-13 dogfood walkthrough parity note:
   (`PlanPhase`, `PlanTask`, `FindingBacklog`, `MP377-P0-T01`) as a required
   consumer-route proof rather than optional search sugar.
 
+Current 2026-04-22 worktree-orphan prevention note:
+- The post-Phase-0 design lock treats orphaned work as a cross-runtime
+  inventory problem, not a local `git status` problem. Slice 1 establishes the
+  typed contract set for `OrphanSnapshot` / `OrphanSource`,
+  `OrphanReconciliationDecision`, `CheckoutInventory`,
+  `WorkPublicationLedger`, `SessionLease`, `WorktreeBaseline`, and
+  accept-all override receipts. The variants explicitly cover the current
+  checkout, registered git worktrees, planned delegated worker worktrees,
+  unregistered sibling clones such as Finder/cp-backed repo copies, deep-scan
+  repos, prunable or missing worktrees, stash/worker/CI-root orphans, and
+  latent state. These contracts are registered through the platform
+  `ContractSpec` registry so `check_contract_connectivity.py`,
+  `check_governance_closure.py`, and
+  `check_platform_contract_closure.py` can prove the schema surface is
+  connected before later slices wire launch/push/fanout enforcement.
+
 Current 2026-04-15 consolidated redesign note:
 - The full active-plan set plus `LIVE_RUN.md` Q1-Q100 all point at the same
   structural failure: the repo already has most of the right contracts, but
@@ -3262,6 +3278,10 @@ Phase metadata: phase_id=MP377-P1; owner_doc=`dev/active/ai_governance_platform.
       owner_doc: `dev/active/remote_control_runtime.md`
       status: `blocked`
       depends_on: `MP377-P1-T06`, `MP397-P0`
+- [x] `MP377-P1-T09` Land slice-one worktree-orphan typed contracts and platform registration for orphan snapshots, checkout inventory, publication ledgers, session leases, baselines, reconciliation decisions, and accept-all receipts.
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `done`
+      depends_on: `MP377-P1-T04`
 
 ### Phase MP-399 - Governed Commit Staged-Index Preservation
 

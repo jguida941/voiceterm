@@ -370,6 +370,14 @@ Three quality layers matter in practice:
   contracts, purpose-guided high-overlap duplicates, and raw-dict stranded
   consumers, and defaults to growth-based non-regression so existing debt
   stays visible without blocking unrelated slices.
+- Worktree-orphan governance contracts are part of the platform contract
+  surface, not disposable parser structs. When touching
+  `dev/scripts/devctl/runtime/worktree_orphan_*`,
+  `checkout_inventory_contracts.py`, `work_publication_ledger_contracts.py`,
+  or `session_lease_contracts.py`, keep the platform rows in
+  `dev/scripts/devctl/platform/worktree_orphan_contract_rows.py` synchronized
+  and run both `check_contract_connectivity.py` and
+  `check_platform_contract_closure.py`.
 - Treat docs/governance path predicates as bounded-runtime code too: commands
   such as `docs-check --since-ref ...` should resolve the governing
   docs/policy contract once per repo/policy context and reuse it inside
@@ -1167,6 +1175,8 @@ fallback bug into its fix).
    - `python3 dev/scripts/devctl.py platform-contracts --format md`
    - `python3 dev/scripts/devctl.py system-picture --format md`
    - `python3 -m pytest dev/scripts/devctl/tests/platform/test_planning_ir.py dev/scripts/devctl/tests/platform/test_system_picture.py -q --tb=short`
+   - For worktree-orphan contract changes, also run
+     `python3 -m pytest dev/scripts/devctl/tests/runtime/test_worktree_orphan_contracts.py -q --tb=short`.
 5. For bounded context on specific files, MPs, guards, or subsystems during
    development, use `python3 dev/scripts/devctl.py context-graph --query '<term>' --format md`
    (the renderer suppresses the global summary on zero-match results).

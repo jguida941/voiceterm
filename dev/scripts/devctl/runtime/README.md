@@ -24,3 +24,6 @@ repo-local JSON shapes.
 - `review_state_models.py`: typed review session/queue/packet/registry models.
 - `review_state_parser.py`: normalization logic for `review_state.json` and
   `full.json` review-channel projections.
+- `worktree_orphan_contracts.py`: schema-only contracts for orphan snapshots,
+  checkout inventory, publication ledgers, session leases, worktree baselines,
+  and operator reconciliation actions.

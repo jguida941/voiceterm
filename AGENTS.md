@@ -56,6 +56,19 @@ Portable-platform rule:
   and watcher/dashboard ownership. `devctl dogfood` remains development-only
   evidence capture layered on top of that runtime truth; it is not the
   universal role-selection mode for arbitrary repos.
+- Worktree-orphan prevention is part of the same portable runtime contract.
+  Dirty/unpublished work must not be proven only for the current checkout.
+  The durable model is a typed `OrphanSnapshot` plus `CheckoutInventory`,
+  `WorkPublicationLedger`, `SessionLease`, `WorktreeBaseline`, and
+  `OrphanReconciliationDecision` family that can represent the current
+  checkout, registered worktrees, planned delegated worker roots,
+  unregistered sibling clones, deep-scan repos, prunable/missing worktrees,
+  stashes, CI roots, and latent state. These contracts live under
+  `dev/scripts/devctl/runtime/worktree_orphan_*` and are registered in the
+  platform `ContractSpec` surface; future launch/push/fanout gates must use
+  that typed inventory/reconciliation trail rather than treating chat memory,
+  `git worktree list` alone, or the active `bridge.md` projection as sufficient
+  evidence.
 
 Documentation-boundary rule:
 - Keep VoiceTerm product docs (`README.md`, `QUICK_START.md`, `guides/*`)
