@@ -140,6 +140,28 @@ class GovernanceCliDispatchTests(unittest.TestCase):
         self.assertEqual(payload["command"], "governance-import-findings")
         self.assertEqual(payload["stats"]["total_findings"], 3)
 
+    def test_orphan_inventory_dispatch_accepts_external_repo_path(self) -> None:
+        args, output_path = self._parse_args(
+            "orphan-inventory",
+            "--repo-path",
+            "/tmp/portable-pilot",
+        )
+
+        with patch(
+            "dev.scripts.devctl.commands.governance.orphan_inventory_run.build_orphan_inventory_report",
+            return_value=_FakeInventoryReport(),
+        ) as build_report:
+            rc = cli.COMMAND_HANDLERS[args.command](args)
+
+        payload = json.loads(output_path.read_text(encoding="utf-8"))
+        self.assertEqual(rc, 0)
+        self.assertEqual(payload["command"], "orphan-inventory")
+        self.assertEqual(payload["report"]["primary_repo_identity"]["path"], "fake")
+        self.assertEqual(
+            build_report.call_args.kwargs["repo_root"],
+            Path("/tmp/portable-pilot"),
+        )
+
     def test_render_surfaces_dispatch_emits_machine_output(self) -> None:
         args, output_path = self._parse_args(
             "render-surfaces",
@@ -162,6 +184,11 @@ class GovernanceCliDispatchTests(unittest.TestCase):
         self.assertEqual(rc, 0)
         self.assertEqual(payload["command"], "render-surfaces")
         self.assertEqual(payload["surface_count"], 1)
+
+
+class _FakeInventoryReport:
+    def to_dict(self) -> dict[str, object]:
+        return {"primary_repo_identity": {"path": "fake"}}
 
 
 if __name__ == "__main__":

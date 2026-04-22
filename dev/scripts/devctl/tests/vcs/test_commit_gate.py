@@ -1015,6 +1015,35 @@ class TestInteractionModeResolution(unittest.TestCase):
 
 
 class TestGovernedCommitPipeline(unittest.TestCase):
+    def test_stage_reuse_index_blocks_snapshot_only_scope_with_dirty_work(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            repo_root = _init_repo(Path(tmpdir) / "repo")
+            executor = _executor(repo_root)
+            snapshot_path = repo_root / "dev/audits/REVIEW_SNAPSHOT.md"
+            snapshot_path.parent.mkdir(parents=True, exist_ok=True)
+            snapshot_path.write_text("stale snapshot\n", encoding="utf-8")
+            _run_git(repo_root, "add", "dev/audits/REVIEW_SNAPSHOT.md")
+            (repo_root / "tracked.txt").write_text("updated\n", encoding="utf-8")
+
+            stage_result = executor.execute(
+                build_stage_action(
+                    repo_pack_id=_push_policy().repo_pack_id,
+                    commit_message_draft="feat: block snapshot-only commit",
+                    push_requested=False,
+                    guard_profile="quick",
+                    work_intake_ref="devctl.commit",
+                    reuse_staged_index=True,
+                    requested_by="devctl.commit",
+                )
+            )
+
+            pipeline = executor.load_pipeline()
+            self.assertFalse(stage_result.ok)
+            self.assertEqual(stage_result.reason, "staged_scope_missing_dirty_work")
+            self.assertIn("tracked.txt", stage_result.warnings)
+            self.assertIn("Stage the intended paths first", stage_result.operator_guidance)
+            self.assertFalse(pipeline.pipeline_id)
+
     def test_commit_blocks_dashboard_role_before_staging(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             repo_root = _init_repo(Path(tmpdir) / "repo")

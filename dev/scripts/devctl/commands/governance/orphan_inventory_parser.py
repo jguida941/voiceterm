@@ -16,6 +16,7 @@ def add_parser(subparsers) -> None:
     )
 
     add_scan_scope_argument(cmd)
+    add_repo_path_argument(cmd)
     add_standard_output_arguments(
         cmd,
         format_choices=("md", "json"),
@@ -28,6 +29,13 @@ def add_scan_scope_argument(cmd) -> None:
         "--scan-scope",
         default=DEFAULT_SCAN_SCOPE,
         help="Label for the bounded scan scope (default: bounded_local).",
+    )
+
+
+def add_repo_path_argument(cmd) -> None:
+    cmd.add_argument(
+        "--repo-path",
+        help="Optional external repository root to scan instead of this checkout.",
     )
 
 

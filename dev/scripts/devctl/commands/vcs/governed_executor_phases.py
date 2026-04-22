@@ -23,7 +23,11 @@ from .governed_executor_stage_attention import (
     attention_revision_block as _attention_revision_block,
     check_stage_preconditions as _check_stage_preconditions,
 )
-from .governed_executor_stage_snapshot import refresh_snapshot_staging
+from .governed_executor_stage_snapshot import (
+    non_receipt_artifact_paths,
+    refresh_and_stage_review_snapshot,
+    refresh_snapshot_staging,
+)
 
 ResultBuilder = Callable[..., ActionResult]
 PipelinePersister = Callable[[RemoteCommitPipelineContract], list[str]]
@@ -83,6 +87,39 @@ def _no_staged_changes_result(
     )
 
 
+def _snapshot_only_staged_scope_result(
+    action: TypedAction,
+    *,
+    repo_root: Path,
+    staged: list[str],
+    worktree_dirty: list[str],
+    result_builder: ResultBuilder,
+) -> ActionResult | None:
+    """Block snapshot-only governed commits when real work remains dirty."""
+    non_artifact_staged = non_receipt_artifact_paths(
+        repo_root=repo_root,
+        paths=staged,
+    )
+    non_artifact_dirty = non_receipt_artifact_paths(
+        repo_root=repo_root,
+        paths=worktree_dirty,
+    )
+    if non_artifact_staged or not non_artifact_dirty:
+        return None
+    return result_builder(
+        action_id=action.action_id,
+        ok=False,
+        status=ActionOutcome.FAIL,
+        reason="staged_scope_missing_dirty_work",
+        operator_guidance=(
+            "The ReviewSnapshot refresh staged only receipt artifacts while "
+            "real work remains dirty. Stage the intended paths first, or use "
+            "`review-snapshot --write --receipt-commit` for a snapshot-only receipt."
+        ),
+        warnings=tuple(non_artifact_dirty),
+    )
+
+
 def _stage_selected_paths(
     action: TypedAction,
     *,
@@ -124,7 +161,8 @@ def _refresh_staged_snapshot(
     result_builder: ResultBuilder,
 ) -> tuple[ActionResult | None, list[str], list[str]]:
     refresh_warnings, staged, lost_paths = refresh_snapshot_staging(
-        repo_root=repo_root
+        repo_root=repo_root,
+        refresh_snapshot_fn=refresh_and_stage_review_snapshot,
     )
     if lost_paths:
         return (
@@ -197,6 +235,15 @@ def execute_stage(
         )
         if failure is not None:
             return failure
+        scope_failure = _snapshot_only_staged_scope_result(
+            action,
+            repo_root=repo_root,
+            staged=staged,
+            worktree_dirty=worktree_dirty,
+            result_builder=result_builder,
+        )
+        if scope_failure is not None:
+            return scope_failure
     elif not worktree_dirty:
         return result_builder(
             action_id=action.action_id,

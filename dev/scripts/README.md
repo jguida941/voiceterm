@@ -108,8 +108,10 @@ cleanliness now blocks only on unstaged or untracked dirt, so staged-only
 "next commit" intent does not deadlock `devctl push` or the preflight
 auto-commit repair path. Governed staging also fails closed if the managed
 ReviewSnapshot refresh drops already-staged user paths, and governed commit
-reports may expose the approved content SHA separately from a trailing
-ReviewSnapshot `receipt_commit_sha`. Repo-owned
+also blocks `staged_scope_missing_dirty_work` when that refresh leaves only
+receipt artifacts staged while real dirty work remains outside the index.
+Governed commit reports may expose the approved content SHA separately from a
+trailing ReviewSnapshot `receipt_commit_sha`. Repo-owned
 review-channel conductors now also export their typed lane as
 `DEVCTL_CALLER_ROLE`, and `devctl commit --role <lane>` remains available for
 wrappers/tests, so dashboard, observer, and default reviewer lanes fail closed
@@ -341,7 +343,9 @@ Portability note:
 - `orphan-inventory` builds the report-only bounded scan for that surface. It
   observes the current checkout, registered/prunable worktrees, planned worker
   lanes, same-parent same-origin sibling clones, and stash sections without
-  firing startup/push/fanout gates.
+  firing startup/push/fanout gates. Use `--repo-path <path>` for report-only
+  portability proof against an external governed pilot checkout before adding
+  gate semantics on top of the scanner.
 - `startup-context` now includes a fresh `orphan_snapshot` field derived by
   `compute_orphan_snapshot()` from the bounded inventory report. Governed
   commit and push preflight also consult that snapshot as advisory-only warning

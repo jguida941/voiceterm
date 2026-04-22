@@ -14,6 +14,7 @@ from .commit_preflight_support import (
     COMMIT_START_COMMAND,
     next_command_guidance,
 )
+from .commit_visibility import commit_visibility_payload
 from .governed_executor import GovernedVcsExecutor
 from .orphan_snapshot_advisory import append_orphan_snapshot_advisory
 from .governed_executor_actions import (
@@ -157,11 +158,6 @@ def prepare_pipeline(
                 operator_guidance=operator_guidance,
                 warnings=report_warnings,
             )
-    append_orphan_snapshot_advisory(
-        stage_warnings,
-        repo_root=repo_root,
-        scan_trigger="commit_preflight",
-    )
     stage_warnings, atomicity_report = preflight_import_index_atomicity(
         repo_root=repo_root,
         pipeline=pipeline,
@@ -169,6 +165,11 @@ def prepare_pipeline(
     )
     if atomicity_report is not None:
         return pipeline, stage_warnings, atomicity_report
+    append_orphan_snapshot_advisory(
+        stage_warnings,
+        repo_root=repo_root,
+        scan_trigger="commit_preflight",
+    )
     return pipeline, stage_warnings, None
 
 

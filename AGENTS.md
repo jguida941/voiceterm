@@ -64,9 +64,9 @@ Portable-platform rule:
   family that can represent the current checkout, registered worktrees,
   planned delegated worker roots, unregistered sibling clones, deep-scan
   repos, prunable/missing worktrees, stashes, CI roots, and latent state.
-  `python3 dev/scripts/devctl.py orphan-inventory --format md` is the
-  bounded local report-only scan for this evidence; it must not fire launch,
-  push, or fanout gates until the later gate slice consumes the typed report.
+  `python3 dev/scripts/devctl.py orphan-inventory --format md` is the bounded
+  report-only scan for this evidence; add `--repo-path <path>` only for external
+  pilot proof, and never fire launch, push, or fanout gates until gates consume it.
   `compute_orphan_snapshot()` is the read-side projection over that report:
   startup-context emits it as typed `orphan_snapshot` evidence, while governed
   commit/push preflight may only consume it as advisory warning state until
@@ -1315,8 +1315,9 @@ Portable policy note:
   for full current-worktree onboarding scans when a repo has no trustworthy
   baseline yet.
 - External-adopter proof is a closure loop, not a one-pass findings dump:
-  bootstrap the copied repo, run `probe-report` / `check` with
-  `--repo-path --adoption-scan`, and classify the first failure before
+  bootstrap the copied repo, run `orphan-inventory --repo-path` for scanner
+  proof in scope, then `probe-report` / `check` with `--repo-path --adoption-scan`,
+  and classify the first failure before
   widening scope. If the run crashes, leaks this repo's paths, or assumes
   VoiceTerm-only policy/layout, treat that as a governance-engine bug and fix
   it here before importing adopter debt. After the run is honest, import raw

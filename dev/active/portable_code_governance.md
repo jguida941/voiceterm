@@ -114,7 +114,7 @@ honest with one governed external Python corpus loop:
 | `requests` | `/tmp/requests-governance-proof` | Wave 1 complete: `governance-bootstrap`, `probe-report`, and `check` all ran; `154` probe hints across `11` files. Classified as `adopter_finding`. | None new; governed path stayed target-local for the full run. | No engine-side blocker. Optional next work is adopter finding import/adjudication for code shape, broad exceptions, suppression debt, and facade wrappers. |
 | `interactions.py` | `/tmp/interactions-py-governance-proof` | Wave 1 complete: `governance-bootstrap`, `probe-report`, and `check` all ran; `508` probe hints across `79` files. Classified as `adopter_finding`. | None new; governed path stayed target-local for the full run. | No engine-side blocker. Optional next work is adopter finding import/adjudication for code shape, broad exceptions, parameter-count pressure, and facade-wrapper/cyclic-import debt. |
 | `yamllint` | `/tmp/yamllint-governance-proof` | Seeded clean clone; held as the next external mainstream reserve. | None yet; governed path not run. | Wave 1 capacity intentionally capped at five repos. |
-| `pre-commit-hooks` | `/tmp/pre-commit-hooks-governance-proof` | Wave 1 complete: `governance-bootstrap`, `probe-report`, and `check` all ran; `75` probe hints across `33` files. Classified as `adopter_finding`. | None new; governed path stayed target-local for the full run. | No engine-side blocker. Optional next work is adopter finding import/adjudication for duplication, nesting, dict-schema, and structural-similarity debt. |
+| `pre-commit-hooks` | `/tmp/pre-commit-hooks-governance-proof` | Wave 1 complete, then rerun 2026-04-22 for the worktree-orphan scanner: `orphan-inventory --repo-path` passed clean on a fresh clone with zero unresolved sources; `probe-report --repo-path --adoption-scan` found `71` adopter hints across `31` files; `check --profile quick --repo-path --adoption-scan` produced adopter/startup failures only. | 2026-04-22 rerun exposed that `orphan-inventory` had no external `--repo-path`; fixed in the scanner command before gate slices build on it. | No orphan-inventory engine-side blocker. Remaining quick-check blockers are unbootstrapped starter authority (`AGENTS.md`, `dev/active/INDEX.md`, `dev/active/MASTER_PLAN.md`) plus adopter findings in duplication, nesting, dict-schema, global-mutable, and structural-similarity guards. |
 
 Do not treat the two rows above as generality proof. They are the current
 adversarial samples and regression anchors for the next corpus expansion.
@@ -863,6 +863,18 @@ Use one deterministic triage on every failing repo before widening again:
   (`508` / `13`), and `pre-commit-hooks` (`75` / `5`). The next widened wave
   should start from the seeded reserve set `vector_space`, `yamllint`, and
   `MemLite` after a clean checkpoint rather than reopening Wave 1.
+- 2026-04-22: Reopened only the `pre-commit-hooks` Wave 1 anchor for the
+  worktree-orphan scanner before turning later slices into gates. A fresh
+  `/tmp/pre-commit-hooks-governance-proof` clone proved
+  `python3 dev/scripts/devctl.py orphan-inventory --repo-path /tmp/pre-commit-hooks-governance-proof --format json`
+  is report-only and clean (`0` unresolved sources, `0` warnings). The same
+  clone produced adopter evidence through
+  `probe-report --repo-path --adoption-scan` (`71` hints across `31` files)
+  and `check --profile quick --repo-path --adoption-scan` (expected
+  unbootstrapped startup-authority failure plus adopter guard findings). The
+  only engine gap exposed in this rerun was the missing `--repo-path` on
+  `orphan-inventory`, fixed before advisory/blocking orphan gates build on the
+  scanner.
 - 2026-04-02: Seeded the first fixed Python anchor corpus into clean `/tmp`
   clones and locked Wave 1 ordering before widening further. Maintainer-side
   seeds are `zgraph-scientific-package`, `vector_space`, and `mkgui`, with

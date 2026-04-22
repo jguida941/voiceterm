@@ -215,8 +215,13 @@ Current 2026-04-22 worktree-orphan prevention note:
 - Slice 2 keeps the first scanner report-only: `devctl orphan-inventory`
   builds an `OrphanInventoryReport` over the current checkout, registered
   worktrees, planned coordination actors, bounded same-parent same-origin
-  sibling clones, and stash sections. It does not fire gates; slice 3 promotes
-  this observation stream into packet/projection surfaces before enforcement.
+  sibling clones, and stash sections. It does not fire gates. The command now
+  accepts `--repo-path` so MP-376 external anchors can prove the scanner before
+  later gate slices consume it; the 2026-04-22 `pre-commit-hooks` rerun passed
+  the orphan inventory cleanly and left only adopter/startup findings in
+  `probe-report` / `check --profile quick`.
+  Slice 3 promotes this observation stream into packet/projection surfaces
+  before enforcement.
 - Slice 3 promotes the scanner output without adding a command:
   `compute_orphan_snapshot()` turns an `OrphanInventoryReport` into a
   deterministic `OrphanSnapshot` with ledger/lease provenance, startup-context
@@ -3311,6 +3316,12 @@ Phase metadata: phase_id=MP399-P0; owner_doc=`dev/active/remote_commit_pipeline.
       owner_doc: `dev/active/remote_commit_pipeline.md`
       status: `in_progress`
       depends_on: `MP399-T02`
+
+2026-04-22 dogfood extension: MP399-T01 now also covers the no-user-staged
+variant. Governed staging fails with `staged_scope_missing_dirty_work` when the
+managed ReviewSnapshot refresh leaves only receipt artifacts staged while real
+dirty work remains outside the index; use an explicit receipt command for
+snapshot-only commits.
 
 ### Phase MP-410 - Devctl Root Package Layout Relief
 

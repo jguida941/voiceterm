@@ -10481,3 +10481,32 @@ Option B — **read-only dashboard view**:
 **Dispatched to Codex as**: action_request packet (see post-commit chain).
 
 **Dogfood log**: Session commands for Claude dashboard role across this turn logged via `devctl dogfood --record --actor claude`. Codex must log every command it exercises via `devctl dogfood --record --dev-mode --actor codex` as part of the work on this slice — per operator directive, dogfood is not optional.
+
+## 2026-04-22 live dogfood notes — worktree-orphan prevention
+
+### Q101 — DOGFOOD — Local Codex prompts are not mirrored to active Claude remote-control dashboard
+
+**Discovery**: 2026-04-22 during the worktree-orphan prevention slice.
+
+**Symptom**: Operator was physically at the local Codex terminal while a Claude
+remote-control dashboard was also active. Codex displayed an approval prompt
+for `python3 dev/scripts/devctl.py review-snapshot --write --receipt-commit`
+only in the local terminal. The remote-control dashboard knew the slice status
+and push-pending state, but the prompt itself was not automatically routed as a
+typed operator action.
+
+**Observed runtime receipt**: `startup-context --format summary` still reported
+`interaction_mode=local_terminal` and `observed_control_topology=single_agent`
+while the user-visible remote-control UI was active.
+
+**Expected behavior**: If any live remote-control attachment is present, commands
+that require operator action should route or mirror the request to the typed
+remote-control lane (`action_request`, commit/push approval packet, or
+operator-inbox projection) and leave local terminal output as a secondary echo.
+The topology summary should represent co-present local terminal plus
+remote-control state instead of collapsing the session to local-only.
+
+**Tracking**: Logged as `ADR-004` in `dev/audits/AUTOMATION_DEBT_REGISTER.md`.
+
+**Status**: OPEN — keep this out of the current orphan-inventory proof commit
+unless the remote-control routing slice is explicitly selected next.

@@ -101,6 +101,13 @@
   from the bounded inventory report, `startup-context` emits that projection
   as typed startup evidence, and governed commit/push preflight consult it as
   advisory-only warning state before any later hard gate lands.
+- 2026-04-22 worktree-orphan portability dogfood (MP-377 with MP-376 proof):
+  `orphan-inventory` now accepts `--repo-path` for report-only external
+  checkout scans. A fresh `/tmp/pre-commit-hooks-governance-proof` rerun
+  passed the orphan inventory cleanly with zero unresolved sources; the
+  companion `probe-report --repo-path --adoption-scan` and
+  `check --profile quick --repo-path --adoption-scan` runs surfaced only
+  adopter/startup evidence, not an orphan-scanner engine blocker.
 - `dev/active/review_probes.md` is the review-probe execution spec; implementation tasks stay in this file under `MP-368..MP-375`.
 - `dev/active/portable_code_governance.md` is the narrower engine/adoption
   companion under `MP-376`, not a second main product plan; implementation

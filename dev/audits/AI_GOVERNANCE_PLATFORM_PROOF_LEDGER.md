@@ -199,6 +199,13 @@ What is still differentiated here is the composition:
 - 2026-04-04: Current graph reducer source is `dev/reports/graph_snapshots/d71c1d341286a3195e913639d6dbf8451c44b43e_20260404T001541Z.json`.
 - 2026-04-04: Current startup source is `dev/reports/startup/latest/receipt.json`.
 - 2026-04-04: Current review-runtime source is `dev/reports/review_channel/latest/review_state.json`.
+- 2026-04-22: Worktree-orphan external proof reran the Wave 1
+  `pre-commit-hooks` anchor after adding `orphan-inventory --repo-path`.
+  `orphan-inventory --repo-path /tmp/pre-commit-hooks-governance-proof`
+  returned `0` unresolved sources and `0` warnings on a fresh clone.
+  `probe-report --repo-path --adoption-scan` returned `71` adopter hints across
+  `31` files, and `check --profile quick --repo-path --adoption-scan` failed
+  only on unbootstrapped startup authority plus adopter guard findings.
 - 2026-03-24 to 2026-03-25: External ChatGPT architecture review was captured
   in `dev/audits/2026-03-24-chatgpt-integration-intake.md`, reswept against
   the live codebase, and split into "already exists" versus genuine gaps with

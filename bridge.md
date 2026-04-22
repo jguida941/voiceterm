@@ -80,8 +80,8 @@ treat these rules as active workflow instructions immediately.
 - Last Codex poll: `2026-04-22T17:07:08Z`
 - Last Codex poll (Local America/New_York): `2026-04-22 13:07:08 EDT`
 - Reviewer mode: `single_agent`
-- Last non-audit worktree hash: `fb3dbdd59404fdff7b68b9613e2fd6d72e9fa4bdde58e84cbe4375e6bdf14a4b`
-- Current instruction revision: ``
+- Last non-audit worktree hash: `bd1c03a20632cb930e4ed20825eb2dfcf40574be895200518beee99989bf85f0`
+- Current instruction revision: `acfc025a45ef`
 
 ## Protocol
 
@@ -121,7 +121,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Open Findings
 
-435 expired unresolved review packet(s)
+2 pending review packet(s); 435 expired unresolved review packet(s)
 
 ## Claude Status
 
@@ -133,11 +133,12 @@ treat these rules as active workflow instructions immediately.
 
 ## Claude Ack
 
-acknowledged
+- missing
 
 ## Current Instruction For Claude
 
-- Await reviewer instruction refresh.
+- Cut a checkpoint before continuing to edit.
+- Run `python3 dev/scripts/devctl.py commit -m "<descriptive message>"`.
 
 ## Last Reviewed Scope
 
@@ -145,4 +146,4 @@ MP-355
 
 ## Action Requests
 
-- No pending action requests.
+- [rev_pkt_1649] commit: target=runtime:remote_commit_pipeline:pipeline-8cc07d8a7701@gen-c4b0f7419785; Execute governed commit pipeline `pipeline-8cc07d8a7701` (status: pending)

@@ -69,6 +69,30 @@ Evidence:
 - `dev/scripts/devctl/tests/checks/test_check_review_surface_consistency.py`
 - `dev/scripts/devctl/tests/review_channel/test_review_channel.py`
 
+### 2026-04-22 - Governed commit now blocks snapshot-only staging when real work is dirty
+
+Fact: live worktree-orphan dogfood reproduced a narrower staged-intent gap in
+the same governed commit lane. A `devctl commit` retry refreshed and staged
+`dev/audits/REVIEW_SNAPSHOT.md`, then recorded a commit whose message matched
+the intended slice while the actual code/docs stayed dirty outside the index.
+The existing preservation guard only detected user-staged paths that vanished;
+it did not detect the equally dangerous case where no user paths were staged
+and the managed refresh became the whole approved tree.
+
+The fix is fail-closed automation. Governed staging now classifies the staged
+set against the ReviewSnapshot receipt allowlist and returns
+`staged_scope_missing_dirty_work` whenever only receipt artifacts are staged
+while non-artifact dirty paths remain. The operator guidance points to the two
+valid paths: stage the intended files first, or use
+`review-snapshot --write --receipt-commit` for an explicit snapshot-only
+receipt. Regression coverage proves a dirty tracked file plus a staged
+ReviewSnapshot artifact cannot mint a pipeline.
+
+Evidence:
+- `dev/scripts/devctl/commands/vcs/governed_executor_phases.py`
+- `dev/scripts/devctl/commands/vcs/governed_executor_stage_snapshot.py`
+- `dev/scripts/devctl/tests/vcs/test_commit_gate.py`
+
 ### 2026-04-17 - Event-backed current-session only clears on explicit packet truth, and missing implementation permission now blocks mutation
 
 ### 2026-04-21 - Review-channel mode drift and checkpoint reprojection are bounded by explicit bridge authority
@@ -11788,3 +11812,28 @@ Evidence:
 - `dev/scripts/devctl/commands/vcs/commit_preflight_validators.py`
 - `dev/scripts/devctl/commands/vcs/push.py`
 - `dev/scripts/devctl/tests/runtime/test_worktree_orphan_snapshot_projection.py`
+
+### 2026-04-22 — Worktree-orphan inventory gains external repo-path proof
+
+The first portability rerun before advisory/blocking orphan gates exposed a
+real command-surface gap: `orphan-inventory` could only scan the engine
+checkout because it lacked `--repo-path`. The command now accepts an external
+repo root and passes that path into the report-only `OrphanInventoryReport`
+builder, keeping the scanner usable for MP-376 Wave 1 anchors before gate
+semantics depend on it.
+
+The dogfood proof used a fresh `/tmp/pre-commit-hooks-governance-proof` clone.
+`orphan-inventory --repo-path` returned `0` unresolved sources and `0`
+warnings. `probe-report --repo-path --adoption-scan` returned `71` adopter
+hints across `31` files. `check --profile quick --repo-path --adoption-scan`
+failed only on unbootstrapped starter authority plus target-repo adopter
+findings, so the remaining failures are not orphan-scanner engine blockers.
+
+Evidence:
+
+- `dev/scripts/devctl/commands/governance/orphan_inventory_parser.py`
+- `dev/scripts/devctl/commands/governance/orphan_inventory_run.py`
+- `dev/scripts/devctl/tests/governance/test_governance_cli_dispatch.py`
+- `dev/active/portable_code_governance.md`
+- `dev/active/ai_governance_platform.md`
+- `dev/audits/AI_GOVERNANCE_PLATFORM_PROOF_LEDGER.md`

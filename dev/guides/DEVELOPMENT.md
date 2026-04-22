@@ -235,9 +235,10 @@ Push cleanliness now blocks only on unstaged or untracked dirt. Staged-only
 preflight auto-commit repair path do not loop on already-approved work just
 because the implementer has begun staging the next slice. Governed staging
 also fails closed if the managed ReviewSnapshot refresh drops already-staged
-user paths, and governed commit reports may surface both the approved content
-SHA and a trailing ReviewSnapshot `receipt_commit_sha` when the hook adds a
-receipt commit after the main code commit.
+user paths or if the refresh leaves only receipt artifacts staged while real
+dirty work remains outside the index. Governed commit reports may surface both
+the approved content SHA and a trailing ReviewSnapshot `receipt_commit_sha`
+when the hook adds a receipt commit after the main code commit.
 Treat `allowed_actions` as the effective post-gate set, not the raw lane
 capability list: `intrinsic_allowed_actions` preserves lane capability when
 checkpoint budget, resync, or implementation authority temporarily blocks
@@ -375,7 +376,9 @@ Three quality layers matter in practice:
   bounded local `OrphanInventoryReport` across the current checkout,
   registered/prunable worktrees, planned worker lanes, same-parent sibling
   clones, and stash entries without firing any gates; use it as report-only
-  evidence until the later gate slice consumes the typed report. The
+  evidence until the later gate slice consumes the typed report. Use
+  `--repo-path <path>` to run the same report-only scanner against an external
+  pilot checkout before turning the scanner into advisory or blocking gates. The
   read-side `compute_orphan_snapshot()` projection now derives an
   `OrphanSnapshot` from that report for startup-context and advisory
   commit/push preflight consumption, still with gates disabled. When touching
