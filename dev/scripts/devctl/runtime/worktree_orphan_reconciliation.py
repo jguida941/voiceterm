@@ -107,6 +107,17 @@ def orphan_source_decision_from_mapping(value: object) -> OrphanSourceDecision |
     )
 
 
+def orphan_source_decisions_from_mapping(
+    value: object,
+) -> tuple[OrphanSourceDecision, ...]:
+    decisions: list[OrphanSourceDecision] = []
+    for item in coerce_mapping_items(value):
+        decision = orphan_source_decision_from_mapping(item)
+        if decision is not None:
+            decisions.append(decision)
+    return tuple(decisions)
+
+
 def orphan_reconciliation_decision_from_mapping(
     value: object,
 ) -> OrphanReconciliationDecision | None:
@@ -117,7 +128,6 @@ def orphan_reconciliation_decision_from_mapping(
     contract_id = (
         coerce_string(payload.get("contract_id")) or "OrphanReconciliationDecision"
     )
-    per_source_decisions = tuple(_parsed_decisions(payload))
 
     return OrphanReconciliationDecision(
         schema_version=coerce_int(payload.get("schema_version")) or 1,
@@ -126,7 +136,9 @@ def orphan_reconciliation_decision_from_mapping(
         responds_to_snapshot_hash=coerce_string(
             payload.get("responds_to_snapshot_hash")
         ),
-        per_source_decisions=per_source_decisions,
+        per_source_decisions=orphan_source_decisions_from_mapping(
+            payload.get("per_source_decisions")
+        ),
         operator_identity=coerce_string(payload.get("operator_identity")),
         authorization_receipt_ref=coerce_string(
             payload.get("authorization_receipt_ref")
@@ -149,19 +161,12 @@ def accept_all_orphans_action_from_mapping(
     if not action_id:
         return None
 
-    contract_id = coerce_string(payload.get("contract_id")) or "AcceptAllOrphansAction"
-    scope = enum_value(
-        coerce_string(payload.get("scope")),
-        allowed=ACCEPT_ALL_ORPHAN_SCOPES,
-        default="worktree",
-    )
-
     return AcceptAllOrphansAction(
         schema_version=coerce_int(payload.get("schema_version")) or 1,
-        contract_id=contract_id,
+        contract_id=_accept_all_contract_id(payload, "AcceptAllOrphansAction"),
         action_id=action_id,
         reason=coerce_string(payload.get("reason")),
-        scope=scope,
+        scope=_accept_all_scope(payload),
         operator_identity=coerce_string(payload.get("operator_identity")),
         authorization_receipt_ref=coerce_string(
             payload.get("authorization_receipt_ref")
@@ -182,31 +187,27 @@ def accept_all_orphans_receipt_from_mapping(
     if not receipt_id or not action_id:
         return None
 
-    contract_id = coerce_string(payload.get("contract_id")) or "AcceptAllOrphansReceipt"
-    scope = enum_value(
-        coerce_string(payload.get("scope")),
-        allowed=ACCEPT_ALL_ORPHAN_SCOPES,
-        default="worktree",
-    )
-
     return AcceptAllOrphansReceipt(
         schema_version=coerce_int(payload.get("schema_version")) or 1,
-        contract_id=contract_id,
+        contract_id=_accept_all_contract_id(payload, "AcceptAllOrphansReceipt"),
         receipt_id=receipt_id,
         action_id=action_id,
-        scope=scope,
+        scope=_accept_all_scope(payload),
         affected_orphan_count=coerce_int(payload.get("affected_orphan_count")),
         emitted_at_utc=coerce_string(payload.get("emitted_at_utc")),
     )
 
 
-def _parsed_decisions(payload: Mapping[str, object]) -> tuple[OrphanSourceDecision, ...]:
-    decisions: list[OrphanSourceDecision] = []
-    for item in coerce_mapping_items(payload.get("per_source_decisions")):
-        decision = orphan_source_decision_from_mapping(item)
-        if decision is not None:
-            decisions.append(decision)
-    return tuple(decisions)
+def _accept_all_scope(payload: Mapping[str, object]) -> str:
+    return enum_value(
+        coerce_string(payload.get("scope")),
+        allowed=ACCEPT_ALL_ORPHAN_SCOPES,
+        default="worktree",
+    )
+
+
+def _accept_all_contract_id(payload: Mapping[str, object], default: str) -> str:
+    return coerce_string(payload.get("contract_id")) or default
 
 
 __all__ = [
@@ -217,4 +218,5 @@ __all__ = [
     "accept_all_orphans_action_from_mapping",
     "accept_all_orphans_receipt_from_mapping",
     "orphan_reconciliation_decision_from_mapping",
+    "orphan_source_decisions_from_mapping",
 ]
