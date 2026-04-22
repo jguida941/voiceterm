@@ -80,7 +80,7 @@ treat these rules as active workflow instructions immediately.
 - Last Codex poll: `2026-04-22T14:43:37Z`
 - Last Codex poll (Local America/New_York): `2026-04-22 10:43:37 EDT`
 - Reviewer mode: `single_agent`
-- Last non-audit worktree hash: `598fa6390918b99406ad16743557b4851253b06fcf80e3232e34436c82d8ec07`
+- Last non-audit worktree hash: `c5818f70648fe1a13acbe56506cba68af6d6b9f795d691967f0bbc76df05e46a`
 - Current instruction revision: ``
 
 ## Protocol
@@ -133,7 +133,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Claude Ack
 
-- missing
+acknowledged
 
 ## Current Instruction For Claude
 
