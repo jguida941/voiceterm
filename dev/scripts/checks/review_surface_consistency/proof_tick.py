@@ -59,13 +59,13 @@ _PROOF_TICK_FIELD_PATHS: dict[str, tuple[tuple[str, ...], ...]] = {
         ("source_identity", "generation_id"),
         ("commit_pipeline", "generation_id"),
     ),
+    # ``commit_sha`` on RemoteCommitPipelineContract is the approved content
+    # commit. Snapshot receipt commits legitimately move the proof-tick HEAD.
     "head_sha": (
         ("head_sha",),
         ("head_commit_sha",),
         ("head_commit",),
         ("source_identity", "head_sha"),
-        ("commit_sha",),
-        ("commit_pipeline", "commit_sha"),
     ),
     "worktree_hash": (
         ("worktree_hash",),
@@ -79,6 +79,8 @@ _PROOF_TICK_FIELD_PATHS: dict[str, tuple[tuple[str, ...], ...]] = {
 
 def proof_tick_field_parity_violations(
     surfaces: dict[str, dict[str, object]],
+    *,
+    ignored_fields: tuple[str, ...] = (),
 ) -> list[ConvergencePassViolation]:
     """Compare Phase 0 proof-tick fields across all surfaces that expose them."""
     rows = {
@@ -88,6 +90,8 @@ def proof_tick_field_parity_violations(
     }
     violations: list[ConvergencePassViolation] = []
     for field in _PROOF_TICK_FIELDS:
+        if field in ignored_fields:
+            continue
         values = {
             surface: value
             for surface, payload in rows.items()
@@ -142,4 +146,3 @@ def _first_nested(
         if value:
             return value
     return ""
-

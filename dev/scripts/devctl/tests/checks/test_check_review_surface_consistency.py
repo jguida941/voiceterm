@@ -588,6 +588,43 @@ class CheckReviewSurfaceConsistencyTests(unittest.TestCase):
             "\n".join(failed["errors"]),
         )
 
+    def test_build_report_allows_dirty_startup_dynamic_command(self) -> None:
+        payloads = self._phase_zero_payloads()
+        startup = dict(payloads["startup_payload"])
+        coordination = dict(startup["coordination"])
+        coordination["ownership_status"] = "scope_unknown_dirty_paths"
+        startup["coordination"] = coordination
+        startup["next_command"] = (
+            "python3 dev/scripts/devctl.py commit -m \"<descriptive message>\""
+        )
+
+        report = self.script.build_report(
+            **{**payloads, "startup_payload": startup},
+            disk_review_state_payload=None,
+        )
+
+        self.assertTrue(report["ok"])
+        self.assertEqual(report["errors"], [])
+
+    def test_build_report_accepts_receipt_parent_commit_pipeline_sha(self) -> None:
+        payloads = self._phase_zero_payloads()
+        review_state = payloads["review_state_payload"]
+        compact = payloads["compact_payload"]
+        assert isinstance(review_state, dict)
+        assert isinstance(compact, dict)
+        for pipeline in (
+            review_state["commit_pipeline"],
+            compact["commit_pipeline"],
+            payloads["commit_pipeline_payload"],
+        ):
+            assert isinstance(pipeline, dict)
+            pipeline["commit_sha"] = "parent-content-head"
+
+        report = self.script.build_report(**payloads, disk_review_state_payload=None)
+
+        self.assertTrue(report["ok"])
+        self.assertEqual(report["errors"], [])
+
     def _phase_zero_payloads(self) -> dict[str, object]:
         snapshot_id = "snap-phase0"
         zref = "zref_phase0_head"

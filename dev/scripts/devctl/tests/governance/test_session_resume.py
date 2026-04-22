@@ -2106,7 +2106,7 @@ class TestV2Fields(unittest.TestCase):
         )
 
     def test_observer_projects_read_only_next_command_fields(self) -> None:
-        """Observer/dashboard packet fields preserve the shared next command."""
+        """Observer/dashboard packet fields do not expose mutating next commands."""
         from dev.scripts.devctl.runtime.control_plane_read_model import (
             ControlPlaneReadModel,
         )
@@ -2155,11 +2155,15 @@ class TestV2Fields(unittest.TestCase):
                 read_model_override=model, sources_override=sources,
             )
 
-        self.assertEqual(packet.next_recommended_command, commit_command)
-        self.assertEqual(packet.next_action, commit_command)
+        read_only_command = (
+            "python3 dev/scripts/devctl.py review-channel --action status "
+            "--terminal none --format json"
+        )
+        self.assertEqual(packet.next_recommended_command, read_only_command)
+        self.assertEqual(packet.next_action, read_only_command)
         assert packet.authority_snapshot is not None
         self.assertEqual(packet.authority_snapshot.actor_role, "observer")
-        self.assertEqual(packet.authority_snapshot.next_command, commit_command)
+        self.assertEqual(packet.authority_snapshot.next_command, read_only_command)
 
     def test_authority_snapshot_prefers_coordination_resync_over_push_guidance(self) -> None:
         """AuthoritySnapshot stays blocker-aware even when the read model says push."""

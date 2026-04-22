@@ -55,6 +55,7 @@ from .session_resume_paths import (
     governance_interaction_mode,
     resolve_source_paths,
 )
+from .session_resume_role_projection import project_packet_next_command_for_role
 from .session_resume_source_helpers import (
     AuthorityPayloadInputs,
     _load_session_resume_sources_and_model,
@@ -77,6 +78,7 @@ current_head = _session_resume_git.current_head
 _git_changed_paths = _session_resume_git._git_changed_paths
 _git_commit_range_paths = _session_resume_git._git_commit_range_paths
 
+
 def resolve_guard_bundle(
     repo_root: Path,
     changed_paths: list[str] | None,
@@ -92,12 +94,6 @@ def resolve_guard_bundle(
         head_sha=head_sha,
         last_reviewed_sha=last_reviewed_sha,
     )
-
-
-def _project_packet_next_command_for_role(*, role: str, command: str) -> str:
-    """Return the role-visible next command for session-resume packet fields."""
-    return str(command or "").strip()
-
 
 @dataclass(frozen=True, slots=True)
 class SessionCachePacketFields:
@@ -263,6 +259,10 @@ def build_from_sources(
     observed_control_topology, implementation_permission = derive_startup_control_truth(
         typed_review_state
     ) if typed_review_state is not None else ("", "")
+    visible_next_cmd = project_packet_next_command_for_role(
+        role=role,
+        command=next_cmd,
+    )
     authority_payload = _build_authority_payload(
         model=model,
         payload_inputs=AuthorityPayloadInputs(
@@ -275,7 +275,7 @@ def build_from_sources(
             recovery_payload=recovery_payload,
             coordination=coordination,
             packet_inbox=packet_inbox,
-            next_command=next_cmd,
+            next_command=visible_next_cmd,
             push_governance=push_governance,
         ),
     )
@@ -288,6 +288,11 @@ def build_from_sources(
     explicit_runtime_command = bool(recovery_command or attention_command)
     if shared_blockers != "none" and not explicit_runtime_command:
         authority_payload["next_command"] = summary_next_command(authority_payload)
+    visible_next_cmd = project_packet_next_command_for_role(
+        role=role,
+        command=str(authority_payload.get("next_command") or visible_next_cmd),
+    )
+    authority_payload["next_command"] = visible_next_cmd
     authority_snapshot = build_authority_snapshot(
         authority_payload,
         caller_role=role,
@@ -306,10 +311,7 @@ def build_from_sources(
         open_findings=open_findings,
         review_state_mtime=rs_mtime,
         top_blocker=top_blocker,
-        visible_next_cmd=_project_packet_next_command_for_role(
-            role=role,
-            command=next_cmd,
-        ),
+        visible_next_cmd=visible_next_cmd,
     )
     return _build_session_cache_packet(
         model=model,

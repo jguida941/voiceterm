@@ -134,7 +134,12 @@ def build_report(
             turn_authority=turn_authority,
         )
     )
-    violations.extend(proof_tick_field_parity_violations(proof_tick_surfaces))
+    violations.extend(
+        proof_tick_field_parity_violations(
+            proof_tick_surfaces,
+            ignored_fields=_dynamic_proof_tick_fields(startup),
+        )
+    )
     disk_violations, disk_warnings = disk_turn_authority_parity_violations(
         repo_root=repo_root,
         turn_authority=turn_authority,
@@ -193,6 +198,13 @@ def _proof_tick_surfaces(
         for surface, payload in surfaces.items()
         if isinstance(payload, dict) and payload
     }
+
+
+def _dynamic_proof_tick_fields(startup: dict[str, object]) -> tuple[str, ...]:
+    ownership_status = _nested(startup, "coordination", "ownership_status")
+    if ownership_status == "scope_unknown_dirty_paths":
+        return ("next_command", "ownership_status")
+    return ()
 
 
 def _nested_payload(payload: object, *keys: str) -> dict[str, object]:
