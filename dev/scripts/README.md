@@ -331,12 +331,17 @@ Portability note:
   re-exports the slice-one `OrphanSnapshot`, `OrphanSource`,
   `OrphanReconciliationDecision`, `CheckoutInventory`,
   `WorkPublicationLedger`, `SessionLease`, `WorktreeBaseline`, and
-  accept-all override/receipt models, while
+  accept-all override/receipt models plus the slice-two
+  `OrphanInventoryReport`, while
   `dev/scripts/devctl/platform/worktree_orphan_contract_rows.py` registers
   them with the platform `ContractSpec` registry. Later scanner/gate slices
   should consume those models rather than inventing local dict shapes for
   current checkout, worktree, sibling-clone, deep-scan, stash, CI-root, or
   latent-state debt.
+- `orphan-inventory` builds the report-only bounded scan for that surface. It
+  observes the current checkout, registered/prunable worktrees, planned worker
+  lanes, same-parent same-origin sibling clones, and stash sections without
+  firing startup/push/fanout gates.
 - `system-picture` is the generated external-review reducer for this repo: it
   composes startup, graph, review-runtime, governance-review, imported
   findings, telemetry signals, and the current bounded coordination posture

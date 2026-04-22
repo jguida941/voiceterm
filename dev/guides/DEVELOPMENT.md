@@ -371,7 +371,11 @@ Three quality layers matter in practice:
   consumers, and defaults to growth-based non-regression so existing debt
   stays visible without blocking unrelated slices.
 - Worktree-orphan governance contracts are part of the platform contract
-  surface, not disposable parser structs. When touching
+  surface, not disposable parser structs. `devctl orphan-inventory` builds the
+  bounded local `OrphanInventoryReport` across the current checkout,
+  registered/prunable worktrees, planned worker lanes, same-parent sibling
+  clones, and stash entries without firing any gates; use it as report-only
+  evidence until the later gate slice consumes the typed report. When touching
   `dev/scripts/devctl/runtime/worktree_orphan_*`,
   `checkout_inventory_contracts.py`, `work_publication_ledger_contracts.py`,
   or `session_lease_contracts.py`, keep the platform rows in
@@ -1176,7 +1180,8 @@ fallback bug into its fix).
    - `python3 dev/scripts/devctl.py system-picture --format md`
    - `python3 -m pytest dev/scripts/devctl/tests/platform/test_planning_ir.py dev/scripts/devctl/tests/platform/test_system_picture.py -q --tb=short`
    - For worktree-orphan contract changes, also run
-     `python3 -m pytest dev/scripts/devctl/tests/runtime/test_worktree_orphan_contracts.py -q --tb=short`.
+     `python3 dev/scripts/devctl.py orphan-inventory --format md` and
+     `python3 -m pytest dev/scripts/devctl/tests/runtime/test_worktree_orphan_inventory.py dev/scripts/devctl/tests/runtime/test_worktree_orphan_contracts.py -q --tb=short`.
 5. For bounded context on specific files, MPs, guards, or subsystems during
    development, use `python3 dev/scripts/devctl.py context-graph --query '<term>' --format md`
    (the renderer suppresses the global summary on zero-match results).

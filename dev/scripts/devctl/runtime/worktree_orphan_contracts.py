@@ -31,6 +31,11 @@ from .worktree_orphan_reconciliation import (
     orphan_reconciliation_decision_from_mapping,
     orphan_source_decisions_from_mapping,
 )
+from .worktree_orphan_inventory import (
+    OrphanInventoryReport,
+    build_orphan_inventory_report,
+    orphan_inventory_report_from_mapping,
+)
 from .worktree_orphan_schemas import contract_json_schemas
 from .worktree_orphan_snapshot import (
     OrphanSnapshot,
@@ -59,6 +64,7 @@ __all__ = [
     "CheckoutInventory",
     "CheckoutInventoryClassification",
     "CheckoutInventoryRow",
+    "OrphanInventoryReport",
     "OrphanReconciliationDecision",
     "OrphanSnapshot",
     "OrphanSnapshotStats",
@@ -73,9 +79,11 @@ __all__ = [
     "WorktreeBaseline",
     "accept_all_orphans_action_from_mapping",
     "accept_all_orphans_receipt_from_mapping",
+    "build_orphan_inventory_report",
     "checkout_inventory_from_mapping",
     "checkout_inventory_row_from_mapping",
     "contract_json_schemas",
+    "orphan_inventory_report_from_mapping",
     "orphan_reconciliation_decision_from_mapping",
     "orphan_source_decisions_from_mapping",
     "orphan_snapshot_from_mapping",

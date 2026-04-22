@@ -217,5 +217,6 @@ __all__ = [
     "OrphanSource",
     "OrphanSourceClassification",
     "orphan_snapshot_from_mapping",
+    "orphan_snapshot_stats_from_mapping",
     "orphan_source_from_mapping",
 ]

@@ -58,12 +58,16 @@ Portable-platform rule:
   universal role-selection mode for arbitrary repos.
 - Worktree-orphan prevention is part of the same portable runtime contract.
   Dirty/unpublished work must not be proven only for the current checkout.
-  The durable model is a typed `OrphanSnapshot` plus `CheckoutInventory`,
-  `WorkPublicationLedger`, `SessionLease`, `WorktreeBaseline`, and
-  `OrphanReconciliationDecision` family that can represent the current
-  checkout, registered worktrees, planned delegated worker roots,
-  unregistered sibling clones, deep-scan repos, prunable/missing worktrees,
-  stashes, CI roots, and latent state. These contracts live under
+  The durable model is a report-first `OrphanInventoryReport` feeding a typed
+  `OrphanSnapshot` plus `CheckoutInventory`, `WorkPublicationLedger`,
+  `SessionLease`, `WorktreeBaseline`, and `OrphanReconciliationDecision`
+  family that can represent the current checkout, registered worktrees,
+  planned delegated worker roots, unregistered sibling clones, deep-scan
+  repos, prunable/missing worktrees, stashes, CI roots, and latent state.
+  `python3 dev/scripts/devctl.py orphan-inventory --format md` is the
+  bounded local report-only scan for this evidence; it must not fire launch,
+  push, or fanout gates until the later gate slice consumes the typed report.
+  These contracts live under
   `dev/scripts/devctl/runtime/worktree_orphan_*` and are registered in the
   platform `ContractSpec` surface; future launch/push/fanout gates must use
   that typed inventory/reconciliation trail rather than treating chat memory,

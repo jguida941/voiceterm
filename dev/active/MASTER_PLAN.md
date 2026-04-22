@@ -89,6 +89,13 @@
   classify current checkout, registered worktrees, planned worker roots,
   sibling repo copies, deep-scan repos, prunable/missing worktrees, stashes,
   CI roots, and latent state before accepting more work.
+- 2026-04-22 worktree-orphan inventory slice (also under MP-377):
+  `python3 dev/scripts/devctl.py orphan-inventory --format md` now emits a
+  report-only `OrphanInventoryReport` for the bounded local scan. It covers
+  the current checkout, registered/prunable git worktrees, planned worker
+  lanes, bounded same-parent same-origin sibling clones, and stash entries
+  including untracked-section evidence, while explicitly leaving
+  `gates_evaluated=false` until the later launch/push/fanout gate slice.
 - `dev/active/review_probes.md` is the review-probe execution spec; implementation tasks stay in this file under `MP-368..MP-375`.
 - `dev/active/portable_code_governance.md` is the narrower engine/adoption
   companion under `MP-376`, not a second main product plan; implementation

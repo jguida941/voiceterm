@@ -11732,3 +11732,34 @@ Evidence:
 - `dev/scripts/devctl/tests/runtime/test_worktree_orphan_contracts.py`
 - `dev/scripts/devctl/tests/review_channel/test_collaboration_session.py`
 - `dev/scripts/devctl/tests/platform/test_coordination_snapshot.py`
+
+### 2026-04-22 — Worktree-orphan inventory scan becomes report-only typed evidence
+
+The next MP-377 orphan-worktree slice adds the first executable inventory
+reader without yet turning it into a gate. `devctl orphan-inventory` now emits
+an `OrphanInventoryReport` that proves the bounded local surface: current
+checkout, registered/prunable git worktrees, planned delegated-worker lanes,
+same-parent same-origin sibling clones, and stash entries, including
+multi-parent stash sections that carry untracked files. The command is
+registered as read-only and reports `gates_evaluated=false`, so it can be used
+by dashboards, Claude/Codex typed packets, and operator triage before the later
+launch/push/fanout enforcement slice consumes the same contract.
+
+This closes the evidence gap exposed by the sibling `codex-voice 2` checkout:
+`git worktree list` alone is not sufficient, but an unbounded filesystem sweep
+is also too noisy for every startup. The new scan stays in the repo parent and
+governed runtime state by default, leaving deep scan as explicit follow-up
+scope.
+
+Evidence:
+
+- `dev/scripts/devctl/runtime/worktree_orphan_inventory.py`
+- `dev/scripts/devctl/runtime/worktree_orphan_inventory_git.py`
+- `dev/scripts/devctl/runtime/worktree_orphan_inventory_worktrees.py`
+- `dev/scripts/devctl/runtime/worktree_orphan_inventory_stashes.py`
+- `dev/scripts/devctl/commands/governance/orphan_inventory.py`
+- `dev/scripts/devctl/tests/runtime/test_worktree_orphan_inventory.py`
+- `dev/scripts/README.md`
+- `AGENTS.md`
+- `dev/guides/DEVELOPMENT.md`
+- `dev/active/MASTER_PLAN.md`

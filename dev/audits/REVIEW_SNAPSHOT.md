@@ -5,14 +5,14 @@
 ## Quick status
 
 - Branch: `feature/governance-quality-sweep`
-- HEAD: `ccb680671ee5` — Refine worktree orphan reconciliation parsers
-- Tree hash: `98e22b679289`
-- Generation stamp: `snap-e08992734a69`
-- Generated at (UTC): 2026-04-22T18:13:27Z
-- Push decision: `run_devctl_push` — push_preconditions_satisfied
+- HEAD: `b6aa8c9f6bba` — Refresh external review snapshot for ccb68067
+- Tree hash: `d91b920cf8d1`
+- Generation stamp: `snap-8ce678a303ba`
+- Generated at (UTC): 2026-04-22T20:55:33Z
+- Push decision: `await_checkpoint` — staged_index_budget_exceeded
 - Reviewer mode: `single_agent` (interaction: `local_terminal`)
 - Pipeline state: `n/a` (approval: `n/a`)
-- Delta since last snapshot: 24 commits, 68 files, +6015/-1947
+- Delta since last snapshot: 25 commits, 68 files, +6080/-2021
 - Governance findings: 112 open / 86 fixed / 212 total
 - Probe hints: 0 total across 0 files scanned
 
@@ -54,24 +54,26 @@ adopters arrive.
 - Remote: `https://github.com/jguida941/voiceterm.git`
 - Default branch: `master`
 - Current branch: `feature/governance-quality-sweep`
-- HEAD SHA: `ccb680671ee5b1ab4577c82ef5d593079fbeba8e`
+- HEAD SHA: `b6aa8c9f6bba1559c8d16326f4e1bae81b78dcc8`
 - HEAD author: Justin Guida
 - HEAD timestamp (UTC): 2026-04-22T14:13:18-04:00
 
 ## 2. Governance state
 
 ### Push decision
-- action: `run_devctl_push`
-- reason: push_preconditions_satisfied
-- push_eligible_now: True
-- worktree_clean: True
-- staged_path_count: 0
-- unstaged_path_count: 0
-- next_step_command: `python3 dev/scripts/devctl.py push --execute`
+- action: `await_checkpoint`
+- reason: staged_index_budget_exceeded
+- push_eligible_now: False
+- worktree_clean: False
+- staged_path_count: 35
+- unstaged_path_count: 1
+- next_step_command: `n/a`
 - latest_push_report: `dev/reports/push/latest.json`
 - latest_push_report_state: `post_push_green` (push_completed)
-- publication_backlog: queued
-- publication_guidance: 1 local commit(s) waiting for governed push. Run `python3 dev/scripts/devctl.py push --execute` now.
+- current_push_authorization: `push-auth-20260422T181252927641Z` (valid=False)
+- authorized_head_commit: `b6aa8c9f6bba1559c8d16326f4e1bae81b78dcc8`
+- approved_target_identity: `tree-receipt-20260422T181252927641Z:98e22b6792897de9df8f4bda84a8f703b82dba6c`
+- publication_backlog: none
 
 ### Reviewer runtime
 - reviewer_mode: `single_agent`
@@ -87,57 +89,59 @@ adopters arrive.
 - active plan: **AI Governance Platform Plan**
 - plan path: `dev/active/ai_governance_platform.md`
 - active MP scope: `MP-377`
-- advisory: `push_allowed` — worktree_clean_and_review_accepted
+- advisory: `checkpoint_before_continue` — staged_index_budget_exceeded
+- checkpoint_required: **yes**
 
 ## 3. Delta — what changed since the previous snapshot
 
-Range: last 24 commits ending at `ccb680671ee5`
+Range: last 25 commits ending at `b6aa8c9f6bba`
 
-- commits: 24
+- commits: 25
 - files changed: 68
-- insertions: +6015
-- deletions: -1947
-- bundle classes touched: tooling, docs
+- insertions: +6080
+- deletions: -2021
+- bundle classes touched: docs, tooling
 - authority surfaces touched: 4 file(s)
 
 ### Commits
 
 | # | SHA | Subject | Files | +/- | Bundle | Risk |
 |---|---|---|---|---|---|---|
-| 1 | `ccb68067` | Refine worktree orphan reconciliation parsers | 3 | +85/-76 | tooling |  |
-| 2 | `549e0cef` | Refresh external review snapshot for c3a2d9a7 | 2 | +93/-96 | docs |  |
-| 3 | `c3a2d9a7` | Add worktree orphan governance contracts | 22 | +2148/-52 | tooling |  |
-| 4 | `362dbdb9` | Refresh external review snapshot for c08d18c4 | 2 | +67/-76 | docs |  |
-| 5 | `c08d18c4` | Refresh bridge ack projection | 2 | +61/-60 | docs |  |
-| 6 | `3f4ef1a8` | Refresh external review snapshot for 2aa7c916 | 2 | +54/-54 | docs |  |
-| 7 | `2aa7c916` | Align startup authority push next command | 4 | +80/-52 | tooling |  |
-| 8 | `8ff2a6b5` | Refresh external review snapshot for 265e28f6 | 2 | +63/-64 | docs |  |
-| 9 | `265e28f6` | Repair single-agent ownership topology | 9 | +299/-101 | tooling |  |
-| 10 | `caed14d1` | Refresh external review snapshot for a3df69dd | 2 | +74/-76 | docs |  |
-| 11 | `a3df69dd` | Close Phase 0 proof tick parity | 23 | +1003/-135 | tooling |  |
-| 12 | `94e2378f` | Refresh external review snapshot for 9e7b1050 | 2 | +63/-63 | docs |  |
-| 13 | `9e7b1050` | Doc drift sweep from prior sessions | 7 | +117/-70 | tooling |  |
-| 14 | `2490f839` | Phase 0.c: preserve explicit reviewer mode over daemon-deri… | 8 | +244/-78 | tooling |  |
-| 15 | `42fecac5` | Refresh external review snapshot for db210b73 | 2 | +76/-68 | docs |  |
-| 16 | `db210b73` | Add authority snapshot provenance | 18 | +592/-187 | tooling |  |
-| 17 | `c2eecb29` | Refresh external review snapshot for 7dd94280 | 2 | +71/-65 | docs |  |
-| 18 | `7dd94280` | Require post-push-green proof before projecting push_comple… | 11 | +220/-154 | tooling |  |
-| 19 | `bc0a31f7` | Refresh external review snapshot for 3625ecbb | 2 | +50/-50 | docs |  |
-| 20 | `3625ecbb` | Refresh external review snapshot for 211b6094 | 2 | +77/-81 | docs |  |
-| 21 | `211b6094` | Keep event-backed review state authoritative | 10 | +187/-79 | tooling |  |
-| 22 | `9f69c9d2` | Keep event-backed review state authoritative | 1 | +61/-63 | tooling |  |
-| 23 | `39816b18` | Refresh external review snapshot for be738893 | 2 | +73/-79 | docs |  |
-| 24 | `be738893` | Fix stall_diagnostics replacement-session precedence (rev_p… | 9 | +157/-68 | tooling |  |
+| 1 | `b6aa8c9f` | Refresh external review snapshot for ccb68067 | 2 | +65/-74 | docs |  |
+| 2 | `ccb68067` | Refine worktree orphan reconciliation parsers | 3 | +85/-76 | tooling |  |
+| 3 | `549e0cef` | Refresh external review snapshot for c3a2d9a7 | 2 | +93/-96 | docs |  |
+| 4 | `c3a2d9a7` | Add worktree orphan governance contracts | 22 | +2148/-52 | tooling |  |
+| 5 | `362dbdb9` | Refresh external review snapshot for c08d18c4 | 2 | +67/-76 | docs |  |
+| 6 | `c08d18c4` | Refresh bridge ack projection | 2 | +61/-60 | docs |  |
+| 7 | `3f4ef1a8` | Refresh external review snapshot for 2aa7c916 | 2 | +54/-54 | docs |  |
+| 8 | `2aa7c916` | Align startup authority push next command | 4 | +80/-52 | tooling |  |
+| 9 | `8ff2a6b5` | Refresh external review snapshot for 265e28f6 | 2 | +63/-64 | docs |  |
+| 10 | `265e28f6` | Repair single-agent ownership topology | 9 | +299/-101 | tooling |  |
+| 11 | `caed14d1` | Refresh external review snapshot for a3df69dd | 2 | +74/-76 | docs |  |
+| 12 | `a3df69dd` | Close Phase 0 proof tick parity | 23 | +1003/-135 | tooling |  |
+| 13 | `94e2378f` | Refresh external review snapshot for 9e7b1050 | 2 | +63/-63 | docs |  |
+| 14 | `9e7b1050` | Doc drift sweep from prior sessions | 7 | +117/-70 | tooling |  |
+| 15 | `2490f839` | Phase 0.c: preserve explicit reviewer mode over daemon-deri… | 8 | +244/-78 | tooling |  |
+| 16 | `42fecac5` | Refresh external review snapshot for db210b73 | 2 | +76/-68 | docs |  |
+| 17 | `db210b73` | Add authority snapshot provenance | 18 | +592/-187 | tooling |  |
+| 18 | `c2eecb29` | Refresh external review snapshot for 7dd94280 | 2 | +71/-65 | docs |  |
+| 19 | `7dd94280` | Require post-push-green proof before projecting push_comple… | 11 | +220/-154 | tooling |  |
+| 20 | `bc0a31f7` | Refresh external review snapshot for 3625ecbb | 2 | +50/-50 | docs |  |
+| 21 | `3625ecbb` | Refresh external review snapshot for 211b6094 | 2 | +77/-81 | docs |  |
+| 22 | `211b6094` | Keep event-backed review state authoritative | 10 | +187/-79 | tooling |  |
+| 23 | `9f69c9d2` | Keep event-backed review state authoritative | 1 | +61/-63 | tooling |  |
+| 24 | `39816b18` | Refresh external review snapshot for be738893 | 2 | +73/-79 | docs |  |
+| 25 | `be738893` | Fix stall_diagnostics replacement-session precedence (rev_p… | 9 | +157/-68 | tooling |  |
 
 ### Files
 
 | Path | Bundle | +/- |
 |---|---|---|
 | `AGENTS.md` | docs | +42/-5 |
-| `bridge.md` | docs | +149/-149 |
+| `bridge.md` | docs | +150/-150 |
 | `dev/active/MASTER_PLAN.md` | tooling | +58/-6 |
 | `dev/active/ai_governance_platform.md` | tooling | +52/-2 |
-| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1470/-1458 |
+| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1534/-1531 |
 | `dev/guides/DEVELOPMENT.md` | docs | +53/-7 |
 | `dev/history/ENGINEERING_EVOLUTION.md` | tooling | +222/-6 |
 | `dev/scripts/README.md` | tooling | +37/-3 |
@@ -225,6 +229,7 @@ Recent findings:
 | `FailurePacket` | `governance_runtime` | `n/a` | runner, status |
 | `Finding` | `governance_runtime` | `n/a` | check_id, severity |
 | `LocalServiceEndpoint` | `governance_runtime` | `n/a` | service_id, discovery_fields |
+| `OrphanInventoryReport` | `governance_runtime` | `n/a` | orphan-snapshot, checkout-inventory |
 | `OrphanReconciliationDecision` | `governance_runtime` | `n/a` | orphan-snapshot, checkout-inventory |
 | `OrphanSnapshot` | `governance_runtime` | `n/a` | orphan-snapshot, checkout-inventory |
 | `OrphanSnapshotStats` | `governance_runtime` | `n/a` | orphan-snapshot, checkout-inventory |
@@ -286,6 +291,8 @@ Recent findings:
 
 ### Per-commit rationale
 
+- **`b6aa8c9f`** — Refresh external review snapshot for ccb68067
+  - evolution: Fact: after `AuthoritySnapshot` and `CoordinationSnapshot` started carrying producer provenance, the remaining read-side surfaces could still diverge for the same proof tick. `ControlPlaneReadModel` and `SessionCachePac…
 - **`ccb68067`** — Refine worktree orphan reconciliation parsers
   - evolution: Fact: after `AuthoritySnapshot` and `CoordinationSnapshot` started carrying producer provenance, the remaining read-side surfaces could still diverge for the same proof tick. `ControlPlaneReadModel` and `SessionCachePac…
 - **`549e0cef`** — Refresh external review snapshot for c3a2d9a7
@@ -361,10 +368,11 @@ Recent findings:
 - open governance findings: 112
 
 ### Startup advisories
-- push_allowed: worktree_clean_and_review_accepted
+- checkpoint_before_continue: staged_index_budget_exceeded
 
 ### Stale warnings
-- Stop because nothing remains to push.
+- Keep editing the current slice.
+- Move straight to the governed push path.
 
 ### Open gap rows
 - **governance_open** (`dev/scripts/devctl/runtime/dogfood_log.py`): dogfood_finding_id_instability: 
@@ -378,4 +386,4 @@ Recent findings:
 
 ---
 
-Projection produced by `devctl review-snapshot`. Generation stamp `snap-e08992734a69` binds this file to HEAD `ccb680671ee5`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
+Projection produced by `devctl review-snapshot`. Generation stamp `snap-8ce678a303ba` binds this file to HEAD `b6aa8c9f6bba`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.

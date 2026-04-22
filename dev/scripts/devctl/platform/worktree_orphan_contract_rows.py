@@ -23,6 +23,7 @@ from ..runtime.worktree_orphan_reconciliation import (
     OrphanReconciliationDecision,
     OrphanSourceDecision,
 )
+from ..runtime.worktree_orphan_inventory import OrphanInventoryReport
 from ..runtime.worktree_orphan_snapshot import (
     OrphanSnapshot,
     OrphanSnapshotStats,
@@ -77,6 +78,10 @@ _WORKTREE_ORPHAN_CONTRACT_ROWS = (
     (
         CheckoutInventory,
         "Bounded inventory over current checkout, worktrees, planned workers, and sibling copies.",
+    ),
+    (
+        OrphanInventoryReport,
+        "Report-only bounded inventory scan output before orphan snapshots/gates are enforced.",
     ),
     (
         WorkPublicationLedgerHeader,

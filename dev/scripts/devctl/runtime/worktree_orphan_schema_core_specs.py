@@ -11,7 +11,12 @@ from .worktree_orphan_types import (
 
 
 def core_schema_specs():
-    return _ORPHAN_SOURCE_SPECS + _ORPHAN_RECONCILIATION_SPECS + _CHECKOUT_INVENTORY_SPECS
+    return (
+        _ORPHAN_SOURCE_SPECS
+        + _ORPHAN_RECONCILIATION_SPECS
+        + _CHECKOUT_INVENTORY_SPECS
+        + _ORPHAN_INVENTORY_REPORT_SPECS
+    )
 
 
 _ORPHAN_SOURCE_SPECS = (
@@ -165,6 +170,38 @@ _CHECKOUT_INVENTORY_SPECS = (
         field("filesystem_scan_ref"),
         field("ledger_headers_ref"),
         array("rows", item_ref="CheckoutInventoryRow"),
+    ),
+)
+
+_ORPHAN_INVENTORY_REPORT_SPECS = (
+    spec(
+        "OrphanInventoryReport",
+        (
+            "schema_version",
+            "contract_id",
+            "report_id",
+            "generated_at_utc",
+            "scan_scope",
+            "primary_repo_identity",
+            "checkout_inventory",
+            "sources",
+            "stats",
+            "report_only",
+            "gates_evaluated",
+        ),
+        field("schema_version", "integer"),
+        field("contract_id", const_value="OrphanInventoryReport"),
+        field("report_id"),
+        field("generated_at_utc"),
+        field("scan_scope"),
+        field("primary_repo_identity"),
+        object_ref("checkout_inventory", "CheckoutInventory"),
+        array("sources", item_ref="OrphanSource"),
+        object_ref("stats", "OrphanSnapshotStats"),
+        field("report_only", "boolean"),
+        field("gates_evaluated", "boolean"),
+        array("warnings"),
+        array("errors"),
     ),
 )
 

@@ -212,6 +212,11 @@ Current 2026-04-22 worktree-orphan prevention note:
   `check_governance_closure.py`, and
   `check_platform_contract_closure.py` can prove the schema surface is
   connected before later slices wire launch/push/fanout enforcement.
+- Slice 2 keeps the first scanner report-only: `devctl orphan-inventory`
+  builds an `OrphanInventoryReport` over the current checkout, registered
+  worktrees, planned coordination actors, bounded same-parent same-origin
+  sibling clones, and stash sections. It does not fire gates; slice 3 promotes
+  this observation stream into packet/projection surfaces before enforcement.
 
 Current 2026-04-15 consolidated redesign note:
 - The full active-plan set plus `LIVE_RUN.md` Q1-Q100 all point at the same

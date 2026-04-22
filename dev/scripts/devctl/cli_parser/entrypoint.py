@@ -83,6 +83,7 @@ from ..commands.governance import (
     hygiene as governance_hygiene,
     import_findings as governance_import_findings,
     install_git_hooks as governance_install_git_hooks,
+    orphan_inventory as governance_orphan_inventory,
     orchestrate_watch as governance_orchestrate_watch,
     quality_feedback as governance_quality_feedback,
     render_surfaces,
@@ -149,6 +150,7 @@ READ_ONLY_COMMANDS: frozenset[str] = frozenset({
     "context-graph",
     "review-channel",
     "quality-policy",
+    "orphan-inventory",
     "platform-contracts",
     "mcp",
     "dashboard",
@@ -227,6 +229,7 @@ def build_parser() -> argparse.ArgumentParser:
     governance_session.add_parser(sub)
     governance_session_resume.add_parser(sub)
     governance_review_snapshot.add_parser(sub)
+    governance_orphan_inventory.add_parser(sub)
     governance_install_git_hooks.add_parser(sub)
     _add_dashboard_parser(sub)
     dogfood.add_parser(sub)
@@ -294,6 +297,7 @@ COMMAND_HANDLERS = {
     "orchestrate-status": orchestrate_status.run,
     "orchestrate-watch": governance_orchestrate_watch.run,
     "platform-contracts": platform_contracts.run,
+    "orphan-inventory": governance_orphan_inventory.run,
     "system-picture": system_picture.run,
     "report": report.run,
     "findings-priority": findings_priority.run,
