@@ -242,6 +242,11 @@ def summary_next_command(ctx_dict: Mapping[str, object]) -> str:
     """Return the canonical next command for the current startup payload."""
     blockers = summary_blockers(ctx_dict)
     if not blockers:
+        push_decision = _mapping(ctx_dict.get("push_decision"))
+        if str(push_decision.get("action") or "").strip() == "run_devctl_push":
+            next_step_command = str(push_decision.get("next_step_command") or "").strip()
+            if next_step_command:
+                return next_step_command
         return _CONTEXT_GRAPH_BOOTSTRAP_COMMAND
 
     recovery_authority = _mapping(ctx_dict.get("recovery_authority"))

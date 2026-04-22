@@ -340,6 +340,26 @@ class TestStartupContextBuild(unittest.TestCase):
             'python3 dev/scripts/devctl.py commit -m "checkpoint"',
         )
 
+    def test_summary_next_command_prefers_governed_push_when_push_ready(self) -> None:
+        payload = {
+            "startup_authority": {"ok": True},
+            "governance": {
+                "push_enforcement": {
+                    "checkpoint_required": False,
+                    "safe_to_continue_editing": True,
+                }
+            },
+            "push_decision": {
+                "action": "run_devctl_push",
+                "next_step_command": "python3 dev/scripts/devctl.py push --execute",
+            },
+        }
+
+        self.assertEqual(
+            summary_next_command(payload),
+            "python3 dev/scripts/devctl.py push --execute",
+        )
+
     def test_authority_snapshot_clears_missing_instruction_placeholder_revision(self) -> None:
         snapshot = build_authority_snapshot(
             {
