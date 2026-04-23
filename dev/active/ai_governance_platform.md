@@ -62,9 +62,15 @@ Current 2026-04-23 ADR-008 managed projection drift note:
   repo-governance checkpoint policy that already excludes compatibility
   projections from source-work budgets. Startup-context, context-graph,
   dashboard/control-plane, and push-decision surfaces render that typed state
-  explicitly. The remaining follow-up is the post-push auto-receipt/repair
-  policy that decides whether green governed pushes must reproject and commit
-  or repair tracked projection drift before handoff.
+  explicitly.
+- The second ADR-008 closure makes governed push own the repair instead of
+  leaving it as handoff trivia. After push preflight refreshes typed review
+  status and reprojects the compatibility bridge, `devctl push` now commits a
+  managed projection receipt when the only dirty paths are allowlisted receipt
+  artifacts such as `bridge.md` / `REVIEW_SNAPSHOT.md`, refreshes the current
+  HEAD before publication authorization, and lets the pipeline match that
+  receipt HEAD back to the approved content commit. Remaining ADR-008-adjacent
+  work is prompt-routing clarity, not green-push projection cleanup.
 
 Current 2026-04-07 portability-by-default closure note:
 - Accept the review verdict as plan state: the architecture is portable by

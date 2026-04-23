@@ -12,6 +12,7 @@ from ...review_channel.remote_commit_pipeline_artifact import (
     load_remote_commit_pipeline_contract,
     persist_remote_commit_pipeline_contract,
 )
+from ...runtime.review_snapshot_refresh import receipt_commit_parent_sha
 from ...runtime.remote_commit_pipeline_models import RemoteCommitPipelineContract
 from .governed_executor_push_result import project_push_report
 
@@ -30,6 +31,7 @@ def sync_commit_pipeline_with_push_report(
     projections_root = Path(resolve_artifact_paths(repo_root=repo_root).projections_root)
     pipeline = load_remote_commit_pipeline_contract(output_root=projections_root)
     if not _pipeline_matches_current_push(
+        repo_root=repo_root,
         pipeline=pipeline,
         current_branch=current_branch,
         current_remote=current_remote,
@@ -75,6 +77,7 @@ def sync_commit_pipeline_with_push_report(
 
 def _pipeline_matches_current_push(
     *,
+    repo_root: Path,
     pipeline: RemoteCommitPipelineContract,
     current_branch: str,
     current_remote: str,
@@ -88,8 +91,15 @@ def _pipeline_matches_current_push(
     pipeline_remote = str(pipeline.remote or "").strip()
     if current_remote and pipeline_remote and pipeline_remote != current_remote:
         return False
-    if current_head_commit and str(pipeline.commit_sha or "").strip() != current_head_commit:
-        return False
+    pipeline_commit = str(pipeline.commit_sha or "").strip()
+    if current_head_commit and pipeline_commit != current_head_commit:
+        receipt_parent = receipt_commit_parent_sha(
+            repo_root=repo_root,
+            current_head=current_head_commit,
+            governance=None,
+        )
+        if not receipt_parent or pipeline_commit != receipt_parent:
+            return False
     pipeline_target_identity = str(pipeline.approved_target_identity or "").strip()
     if (
         approved_target_identity

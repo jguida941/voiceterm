@@ -12,6 +12,7 @@ from unittest.mock import MagicMock, patch
 from dev.scripts.devctl.cli import build_parser
 from dev.scripts.devctl.commands.vcs import push
 from dev.scripts.devctl.commands.vcs import push_preflight_commit
+from dev.scripts.devctl.commands.vcs import push_projection_receipt
 from dev.scripts.devctl.commands.vcs.governed_executor_push_result import (
     project_push_report,
 )
@@ -154,6 +155,11 @@ class PushCommandTests(unittest.TestCase):
         )
         self.preflight_status_mock = self._preflight_status_patcher.start()
         self.addCleanup(self._preflight_status_patcher.stop)
+        self._projection_receipt_patcher = patch(
+            "dev.scripts.devctl.commands.vcs.push.auto_commit_managed_projection_receipt"
+        )
+        self.projection_receipt_mock = self._projection_receipt_patcher.start()
+        self.addCleanup(self._projection_receipt_patcher.stop)
 
     @patch("dev.scripts.devctl.commands.vcs.push_executor_routing.emit_output")
     @patch("dev.scripts.devctl.commands.vcs.push_executor_routing.load_latest_push_report")
@@ -1689,6 +1695,83 @@ class PushBridgeSyncTests(unittest.TestCase):
             ],
         )
 
+    @patch("dev.scripts.devctl.commands.vcs.push_projection_receipt.run_git_capture")
+    @patch(
+        "dev.scripts.devctl.commands.vcs.push_projection_receipt.scan_repo_governance_safely",
+        return_value=None,
+    )
+    def test_projection_receipt_commits_managed_bridge_drift_before_push(
+        self,
+        _scan_governance_mock,
+        run_git_capture_mock,
+    ) -> None:
+        run_git_capture_mock.side_effect = [
+            (0, "bridge.md", ""),
+            (0, "", ""),
+            (0, "", ""),
+            (0, "", ""),
+            (0, "bridge.md", ""),
+            (0, "abc1234", ""),
+            (0, "", ""),
+            (0, "receipt-sha", ""),
+        ]
+        state = SimpleNamespace(errors=[], warnings=[])
+
+        push_projection_receipt.auto_commit_managed_projection_receipt(
+            state,
+            make_policy(
+                checkpoint=PushCheckpointPolicy(
+                    compatibility_projection_paths=("bridge.md",),
+                )
+            ),
+        )
+
+        self.assertEqual(state.errors, [])
+        self.assertEqual(
+            state.warnings,
+            [
+                "Committed managed projection receipt receipt-sha for bridge.md before push."
+            ],
+        )
+        self.assertEqual(
+            run_git_capture_mock.call_args_list[3].args[0],
+            ["add", "--", "bridge.md"],
+        )
+        self.assertEqual(
+            run_git_capture_mock.call_args_list[6].args[0],
+            ["commit", "-m", "Refresh external review snapshot for abc1234"],
+        )
+
+    @patch("dev.scripts.devctl.commands.vcs.push_projection_receipt.run_git_capture")
+    @patch(
+        "dev.scripts.devctl.commands.vcs.push_projection_receipt.scan_repo_governance_safely",
+        return_value=None,
+    )
+    def test_projection_receipt_ignores_mixed_source_dirty_state(
+        self,
+        _scan_governance_mock,
+        run_git_capture_mock,
+    ) -> None:
+        run_git_capture_mock.side_effect = [
+            (0, "bridge.md\nsource.py", ""),
+            (0, "", ""),
+            (0, "", ""),
+        ]
+        state = SimpleNamespace(errors=[], warnings=[])
+
+        push_projection_receipt.auto_commit_managed_projection_receipt(
+            state,
+            make_policy(
+                checkpoint=PushCheckpointPolicy(
+                    compatibility_projection_paths=("bridge.md",),
+                )
+            ),
+        )
+
+        self.assertEqual(state.errors, [])
+        self.assertEqual(state.warnings, [])
+        self.assertEqual(run_git_capture_mock.call_count, 3)
+
     @patch("dev.scripts.devctl.commands.vcs.push.write_output")
     @patch(
         "dev.scripts.devctl.commands.vcs.push.current_upstream_ref",
@@ -2569,6 +2652,55 @@ class PushPipelineStateSyncTests(unittest.TestCase):
             self.assertIsNotNone(legacy.push_result)
             self.assertEqual(persisted.push_result.reason, "push_completed")
             self.assertEqual(legacy.push_result.reason, "push_completed")
+
+    def test_sync_commit_pipeline_accepts_managed_projection_receipt_head(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            repo_root = Path(tmp_dir)
+            artifact_paths = resolve_artifact_paths(repo_root=repo_root)
+            projections_root = Path(artifact_paths.projections_root)
+            projections_root.mkdir(parents=True, exist_ok=True)
+
+            pipeline = RemoteCommitPipelineContract(
+                pipeline_id="pipeline-123",
+                state="push_pending",
+                branch="feature/demo",
+                remote="origin",
+                commit_sha="content-head",
+                approved_target_identity="tree-receipt-1",
+            )
+            persist_remote_commit_pipeline_contract(
+                pipeline,
+                output_root=projections_root,
+            )
+
+            with patch(
+                "dev.scripts.devctl.commands.vcs.push_pipeline_state_sync."
+                "receipt_commit_parent_sha",
+                return_value="content-head",
+            ) as receipt_parent_mock:
+                synced = sync_commit_pipeline_with_push_report(
+                    repo_root=repo_root,
+                    current_branch="feature/demo",
+                    current_remote="origin",
+                    current_head_commit="receipt-head",
+                    approved_target_identity="tree-receipt-1",
+                    report={
+                        "reason": "push_completed",
+                        "artifacts": {"latest_json": "dev/reports/push/latest.json"},
+                        "push_stages": {
+                            "validation_ready": True,
+                            "published_remote": True,
+                            "post_push_green": True,
+                        },
+                    },
+                )
+
+            self.assertTrue(synced)
+            receipt_parent_mock.assert_called_once()
+            persisted = load_remote_commit_pipeline_contract(output_root=projections_root)
+            self.assertEqual(persisted.state, "push_completed")
+            self.assertIsNotNone(persisted.push_result)
+            self.assertEqual(persisted.push_result.reason, "push_completed")
 
     def test_sync_commit_pipeline_with_push_report_skips_mismatched_head(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:

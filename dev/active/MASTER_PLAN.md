@@ -5353,6 +5353,12 @@ become the main product surface.
   typed after launch: remote-control receipt-commit `HEAD` drift must be
   classified from governance/review-state evidence before any runtime reader
   downgrades continuity to `refresh_recommended`.
+  Latest ADR-008 follow-up (2026-04-23): governed push now owns managed
+  bridge projection cleanup before publication. After preflight reprojects
+  `bridge.md`, `devctl push` creates the same external-review receipt commit
+  when the remaining dirty paths are only governed projection artifacts,
+  refreshes the pushed HEAD for authorization/reporting, and lets pipeline
+  state sync match that receipt HEAD back to the approved content commit.
   Latest proof-surface follow-up (2026-04-04): `system-picture` now has a
   live repo-owned command path and the tracked proof ledger is a generated
   writeback from that snapshot, not a second execution tracker.

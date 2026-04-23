@@ -42,6 +42,7 @@ from .push_artifact import (
 )
 from .push_flow import PushFlowDependencies, execute_push_flow_with_dependencies
 from .push_pipeline_state_sync import sync_commit_pipeline_with_push_report
+from .push_projection_receipt import auto_commit_managed_projection_receipt
 from .push_report import PushStageTruth, render_push_report
 from .push_executor_routing import maybe_run_executor_routed_push
 from .push_snapshot import (
@@ -426,6 +427,12 @@ def run_push_action(
     if run_cmd_fn is None:
         from .push_preflight_commit import auto_commit_preflight_generated_changes
         auto_commit_preflight_generated_changes(state, resolved_policy, repo_root=repo_root)
+        auto_commit_managed_projection_receipt(
+            state,
+            resolved_policy,
+            repo_root=repo_root,
+        )
+        head_commit = current_head_commit_sha(repo_root=repo_root)
     _append_publication_authorization_errors(
         state,
         repo_root=repo_root,

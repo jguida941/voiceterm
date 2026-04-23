@@ -37,6 +37,32 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 - [User Path (5 min)](#user-path-5-min)
 - [Developer Path (15 min)](#developer-path-15-min)
 
+### 2026-04-23 - Governed push now receipts managed bridge projection drift before publication
+
+Fact: the first ADR-008 slice made `bridge.md` drift visible as managed
+projection state, but a green push could still end with raw `git status`
+showing the tracked compatibility projection dirty. That left the operator to
+decide whether the dirt was safe generated state or source work.
+
+Change: `devctl push` now closes that loop during preflight. After it refreshes
+typed review status and reprojects `bridge.md`, it checks the dirty path set;
+when every remaining path is a governed receipt artifact or configured
+compatibility projection, it stages those paths and creates the normal
+`Refresh external review snapshot for <content-head>` receipt commit before
+publication authorization. Push reporting refreshes the active HEAD after that
+receipt, publication authorization accepts bridge-only receipt commits through
+their parent content commit, and pipeline-state sync treats the receipt HEAD as
+the current pushed state while preserving the content commit as the approved
+target.
+
+Evidence:
+- `dev/scripts/devctl/commands/vcs/push_projection_receipt.py`
+- `dev/scripts/devctl/commands/vcs/push.py`
+- `dev/scripts/devctl/commands/vcs/push_pipeline_state_sync.py`
+- `dev/scripts/devctl/runtime/review_snapshot_refresh.py`
+- `dev/scripts/devctl/tests/vcs/test_push.py`
+- `dev/scripts/devctl/tests/runtime/test_push_authorization.py`
+
 ### 2026-04-23 - Managed bridge projection drift is now typed separately from source dirt
 
 Fact: ADR-008 dogfooding showed a confusing but intended split: raw

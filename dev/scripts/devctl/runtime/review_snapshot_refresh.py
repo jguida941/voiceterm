@@ -197,7 +197,6 @@ def receipt_commit_parent_sha(
         return ""
 
     allowlist = set(receipt_artifact_relpaths(governance))
-    snapshot_rel = _resolve_receipt_snapshot_target(governance)
     code, output, _ = run_git_capture(
         ["diff-tree", "--no-commit-id", "--name-only", "-r", target],
         repo_root=repo_root,
@@ -205,7 +204,7 @@ def receipt_commit_parent_sha(
     if code != 0:
         return ""
     changed_paths = {line.strip() for line in output.splitlines() if line.strip()}
-    if not changed_paths or snapshot_rel not in changed_paths:
+    if not changed_paths:
         return ""
     if any(path not in allowlist for path in changed_paths):
         return ""
