@@ -264,6 +264,10 @@ class CheckReviewSurfaceConsistencyTests(unittest.TestCase):
             build_startup_context_mock.call_args.kwargs["review_state"],
             review_state_payload,
         )
+        self.assertEqual(
+            build_startup_context_mock.call_args.kwargs["caller_role"],
+            "observer",
+        )
 
     def test_build_report_fails_when_snapshot_ids_diverge(self) -> None:
         report = self.script.build_report(

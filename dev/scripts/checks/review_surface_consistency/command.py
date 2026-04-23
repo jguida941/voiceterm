@@ -66,6 +66,7 @@ def build_report(
         startup = build_startup_context(
             repo_root=repo_root,
             review_state=typed_review_state,
+            caller_role="observer",
         ).to_dict()
     compact = compact_payload or _load_json(surface_path(repo_root, "compact.json"))
     commit_pipeline = commit_pipeline_payload or _load_json(

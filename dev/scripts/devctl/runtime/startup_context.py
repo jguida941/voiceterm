@@ -439,6 +439,7 @@ def build_startup_context(
     governance: ProjectGovernance | None = None,
     review_state: "ReviewState | None" = None,
     review_status_dir: Path | None = None,
+    caller_role: object = "",
 ) -> StartupContext:
     """Build the typed startup-context packet for the current repo state.
 
@@ -453,7 +454,9 @@ def build_startup_context(
     unchanged. ``review_status_dir`` threads the caller-selected review bundle
     through that single review-state load so startup-context stays on the same
     frozen bundle as the dashboard and session-resume surfaces when a custom
-    status root is in play.
+    status root is in play. ``caller_role`` only affects reduced advisory
+    authority projection, letting read-only composite surfaces reuse the same
+    startup tick without exposing mutating next commands.
     """
     if repo_root is None:
         from ..config import get_repo_root
@@ -573,7 +576,10 @@ def build_startup_context(
         zref=zref,
     )
     snapshot_payload = ctx.to_dict()
-    authority_snapshot = project_authority_snapshot(snapshot_payload)
+    authority_snapshot = project_authority_snapshot(
+        snapshot_payload,
+        caller_role=caller_role,
+    )
     return replace(ctx, authority_snapshot=authority_snapshot)
 
 
