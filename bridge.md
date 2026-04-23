@@ -80,8 +80,8 @@ treat these rules as active workflow instructions immediately.
 - Last Codex poll: `2026-04-22T17:07:08Z`
 - Last Codex poll (Local America/New_York): `2026-04-22 13:07:08 EDT`
 - Reviewer mode: `single_agent`
-- Last non-audit worktree hash: `f5135f31fc4b0806e8664048f72ca3cde8d5d388a495218b2ad05b01d1f23df3`
-- Current instruction revision: `acfc025a45ef`
+- Last non-audit worktree hash: `6d3b0c8c88586c77f0007d97a7246a617b7373b76c56af5f6dcaf6afaa774834`
+- Current instruction revision: ``
 
 ## Protocol
 
@@ -133,12 +133,11 @@ treat these rules as active workflow instructions immediately.
 
 ## Claude Ack
 
-- missing
+pending
 
 ## Current Instruction For Claude
 
-- Cut a checkpoint before continuing to edit.
-- Run `python3 dev/scripts/devctl.py commit -m "<descriptive message>"`.
+- Await reviewer instruction refresh.
 
 ## Last Reviewed Scope
 
