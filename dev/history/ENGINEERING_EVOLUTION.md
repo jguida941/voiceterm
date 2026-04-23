@@ -81,6 +81,42 @@ Evidence:
 - `dev/scripts/devctl/tests/review_channel/test_event_watch_support.py`
 - `dev/scripts/devctl/tests/review_channel/test_plan_packets.py`
 
+### 2026-04-23 - Review-surface proof ticks separate control topology from coordination topology
+
+Fact: the remote-control push preflight exposed a hard-blocking false
+divergence. `check_review_surface_consistency` compared the live
+`observed_control_topology=single_agent` against
+`coordination.observed_topology=dual_agent` and failed, even though those
+fields answer different questions: current control posture vs planned/live
+coordination topology.
+
+Change: proof-tick parity now only treats explicit
+`observed_control_topology` fields as the control-topology contract. The
+coordination snapshot can still report dual-agent planning/topology evidence
+without forcing startup, authority snapshot, and persisted review-state
+control posture to lie about the active remote-control lane.
+
+Evidence:
+- `dev/scripts/checks/review_surface_consistency/proof_tick.py`
+- `dev/scripts/devctl/tests/checks/test_check_review_surface_consistency.py`
+
+### 2026-04-23 - Session-resume follows ControlPlaneReadModel options API
+
+Fact: Claude dogfooding caught a canonical bootstrap crash:
+`session-resume --role reviewer` and `--role implementer` passed legacy
+`governance=` / `review_state=` keyword arguments directly to
+`build_control_plane_read_model`, whose API now takes those inputs through
+`ControlPlaneReadModelOptions`.
+
+Change: session-resume now builds the shared control-plane read model with
+`ControlPlaneReadModelOptions(governance=..., review_state=...)`, preserving
+the caller-threaded governance and frozen review-state contract without
+crashing fresh reviewer/implementer sessions.
+
+Evidence:
+- `dev/scripts/devctl/commands/governance/session_resume_source_helpers.py`
+- `dev/scripts/devctl/tests/governance/test_session_resume.py`
+
 ### 2026-04-23 - Pipeline status now distinguishes managed receipt HEAD movement
 
 Fact: ADR-008 dogfooding exposed a second operator-confusing split after the

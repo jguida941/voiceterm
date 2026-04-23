@@ -1435,6 +1435,10 @@ class TestFrozenReviewStatePrecedence(unittest.TestCase):
 
         self.assertEqual(packet.current_instruction, "typed instruction")
         self.assertEqual(packet.last_reviewed_sha, "typed-sha")
+        model_kwargs = mock_build_model.call_args.kwargs
+        self.assertNotIn("governance", model_kwargs)
+        self.assertNotIn("review_state", model_kwargs)
+        self.assertIs(model_kwargs["options"].review_state, frozen)
 
 
 class TestNoArtifactFailClosed(unittest.TestCase):

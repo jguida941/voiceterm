@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Any
 from ...platform.coordination_snapshot_models import CoordinationSnapshot
 from ...runtime.control_plane_read_model import (
     ControlPlaneReadModel,
+    ControlPlaneReadModelOptions,
     build_control_plane_read_model,
 )
 from ...runtime.control_plane_resolve import (
@@ -239,8 +240,10 @@ def _load_session_resume_sources_and_model(
         repo_root,
         sources_override=sources,
         git_override=git,
-        governance=governance,
-        review_state=review_state,
+        options=ControlPlaneReadModelOptions(
+            governance=governance,
+            review_state=review_state,
+        ),
     )
     return sources, model
 

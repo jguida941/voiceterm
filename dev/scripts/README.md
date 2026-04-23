@@ -859,6 +859,10 @@ Portability note:
   revision, ownership, implementation permission, next command,
   snapshot/generation identity, HEAD/worktree identity, and `zref` must match
   the single producer tick and carry producer-owned `SurfaceProvenance`.
+  The control-topology comparison is scoped to explicit
+  `observed_control_topology` fields; `coordination.observed_topology` remains
+  coordination evidence and is not a substitute for the active control
+  posture.
 - If a launched reviewer terminal is interrupted and status degrades into a
   Claude-only / hybrid loop, treat that as a runtime repair boundary instead of
   a coding invitation. Use `review-channel --action stop --daemon-kind all`
@@ -1844,6 +1848,9 @@ Machine-first output note:
   get the exact role commands,
   authority docs, review range/current instruction, frozen `review_candidate`
   when dirty-tree review is ready, the reduced `authority_snapshot`
+  from the shared control-plane read model, and governance/review-state inputs
+  threaded through `ControlPlaneReadModelOptions` rather than legacy direct
+  builder kwargs.
   (`coordination_state`, `root_cause`, `required_action`, `next_command`,
   `safe_to_continue`), and next guard bundle from repo-owned state instead of
   operator memory or stale bridge prose. Reviewer bootstrap prefers that typed

@@ -808,6 +808,33 @@ class CheckReviewSurfaceConsistencyTests(unittest.TestCase):
             "bridge_compat_payload": bridge_surface,
         }
 
+    def test_build_report_does_not_conflate_coordination_topology_with_control_topology(
+        self,
+    ) -> None:
+        payloads = self._phase_zero_payloads()
+        startup = payloads["startup_payload"]
+        review_state = payloads["review_state_payload"]
+        compact = payloads["compact_payload"]
+        status = payloads["status_payload"]
+        control_plane = payloads["control_plane_payload"]
+        session_resume = payloads["session_resume_payload"]
+        for payload in (
+            startup,
+            review_state,
+            compact,
+            status,
+            control_plane,
+            session_resume,
+        ):
+            coordination = payload.get("coordination")
+            if isinstance(coordination, dict):
+                coordination["observed_topology"] = "dual_agent"
+
+        report = self.script.build_report(**payloads, disk_review_state_payload=None)
+
+        self.assertTrue(report["ok"])
+        self.assertEqual(report["errors"], [])
+
     def test_build_report_fails_when_attention_drifts_from_recovery_assessment(self) -> None:
         report = self.script.build_report(
             startup_payload={

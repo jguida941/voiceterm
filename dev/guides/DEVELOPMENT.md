@@ -555,7 +555,10 @@ Three quality layers matter in practice:
     The paired bootstrap/session-resume surfaces must keep a caller-threaded
     typed `ReviewState` authoritative over stale compact/current-session text
     so a recovered implementer sees the same instruction the reviewer/status
-    surfaces already resolved.
+    surfaces already resolved. When session-resume builds the shared
+    `ControlPlaneReadModel`, it must route governance and frozen review-state
+    through `ControlPlaneReadModelOptions` instead of legacy direct keyword
+    arguments.
     Live Terminal.app
     launch now
     records the returned `terminal_window_id` in conductor session metadata,
@@ -2183,6 +2186,9 @@ Docs governance guardrails:
   HEAD/worktree identity, and `zref`. Runtime producers must attach the shared
   `SurfaceProvenance` tuple; tests must not reconstruct missing source
   identity after the fact.
+  `observed_control_topology` is compared only from explicit control-topology
+  fields; `CoordinationSnapshot.observed_topology` remains coordination
+  evidence and must not be treated as the remote-control posture.
 - `python3 dev/scripts/checks/check_review_snapshot_freshness.py` blocks stale `dev/audits/REVIEW_SNAPSHOT.md` by comparing the HEAD SHA and generation stamp embedded in the file against the live typed projection. The guard also accepts a final governed receipt commit when the generated snapshot binds to that commit's parent code state, because a file inside a commit cannot contain its own final SHA; that receipt may refresh `dev/audits/REVIEW_SNAPSHOT.md` alone or atomically with the governed `bridge.md` compatibility projection. If non-receipt HEAD or stamp drift occurs, the guard fails and instructs the caller to rerun `devctl review-snapshot --write`; both `tooling_control_plane.yml` and `release_preflight.yml` run it. The managed raw-git path is three-hook automation: `install-git-hooks` installs a pre-commit commit-permission-plus-projection hook, a post-commit receipt hook that calls `devctl review-snapshot --write --receipt-commit`, and a blocking pre-push hook that refuses raw `git push` unless the nested push came from `devctl push --execute`. The pre-commit hook now fails closed when the typed `commit_permission` boundary blocks raw `git commit`, then best-effort refreshes/stages the role-portable `bridge.md` compatibility projection through `review-channel --action status` plus the ReviewSnapshot projection for allowed commits. Governed staging must preserve any already-staged user paths while adding the refreshed snapshot artifact, and `devctl commit` may surface the main content SHA separately from the trailing receipt SHA when that hook lands. `devctl push` accepts that receipt shape when the receipt HEAD's parent matches the active `PushAuthorizationRecord`; it also creates the same managed projection receipt itself when push preflight leaves only governed receipt/projection artifacts such as `bridge.md` dirty, then refreshes the current HEAD before authorization/reporting so green pushes do not hand off tracked projection drift. `devctl push` ignores staged-only "next commit" intent when evaluating push dirt or preflight auto-commit repair, and ignores stale detached pipeline records in `single_agent` mode; active dual-agent and current pipeline targets still require exact typed authorization. The typed snapshot now also carries first-class probe run-state/artifact refs plus current push receipt/authorization refs so external review surfaces can cite emitted evidence instead of only replaying next-command suggestions.
 - `devctl` structured status reports for `check`/`triage` now emit UTC timestamps for deterministic run-correlation across local + CI artifacts.
 - `python3 dev/scripts/checks/check_agents_contract.py` validates required `AGENTS.md` SOP sections/bundles/router rows.

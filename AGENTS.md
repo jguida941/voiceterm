@@ -699,6 +699,10 @@ checklist plus chat memory.
     `ownership_status`, `implementation_permission`, `next_command`,
     `snapshot_id`, `generation_id`, `head_sha`, `worktree_hash`, and `zref`
     must agree wherever a surface exposes them.
+    `observed_control_topology` is the explicit control-posture field; do
+    not infer it from `CoordinationSnapshot.observed_topology`, because the
+    coordination topology may describe planned/live multi-agent structure
+    while the active remote-control lane remains single-agent.
 4.5 In that same live review-channel mode, treat
     `dev/reports/review_channel/latest/review_state.json` (and the mirrored
     `compact.json` projection) `current_session` block as the canonical typed
@@ -2388,7 +2392,7 @@ Core commands:
   - Builds/updates `dev/reports/audits/RUST_AUDIT_FINDINGS.md` from Rust/Python guard failures.
   - Auto-runs when AI-guard checks fail.
   - Run manually when you want a fresh findings file or a commit-range scoped view.
-- `session-resume` (typed reviewer/implementer bootstrap packet built from `ControlPlaneReadModel` and repo artifacts; emits `SessionCachePacket` with `head_sha`, `last_reviewed_sha`, optional frozen `review_candidate`, blockers, interaction mode, key rules, and a reduced `authority_snapshot` contract so fresh sessions start from typed state instead of re-reading the repo. It must reuse the same promoted `active_target` / `CoordinationSnapshot` path as `startup-context` and dashboard so stale continuity targets cannot diverge from live plan routing or finding pressure, and the same `AuthoritySnapshot` reduction must agree with startup/status on handshake state and next action. Implementer bootstrap is inbox-first too: when `Pending Inbox` / typed packet state already names a Claude-targeted packet or required command, the next bounded action is `review-channel --action inbox --target claude --actor claude --status pending --format md`, not another operator question.)
+- `session-resume` (typed reviewer/implementer bootstrap packet built from `ControlPlaneReadModel` and repo artifacts; emits `SessionCachePacket` with `head_sha`, `last_reviewed_sha`, optional frozen `review_candidate`, blockers, interaction mode, key rules, and a reduced `authority_snapshot` contract so fresh sessions start from typed state instead of re-reading the repo. It must pass caller-threaded governance and frozen review-state inputs into `ControlPlaneReadModelOptions`, reuse the same promoted `active_target` / `CoordinationSnapshot` path as `startup-context` and dashboard so stale continuity targets cannot diverge from live plan routing or finding pressure, and the same `AuthoritySnapshot` reduction must agree with startup/status on handshake state and next action. Implementer bootstrap is inbox-first too: when `Pending Inbox` / typed packet state already names a Claude-targeted packet or required command, the next bounded action is `review-channel --action inbox --target claude --actor claude --status pending --format md`, not another operator question.)
 - `discover` (static capability inventory of commands, guards, probes, and surfaces from existing registries; read-only, never mutates state)
 - `view` (thin presentation adapter over typed artifacts with `--surface ai|cli|phone` and `--mode slim|summary`; read-only renderer dispatch, not execution or state mutation)
 - `list`

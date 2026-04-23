@@ -28,8 +28,6 @@ _PROOF_TICK_FIELD_PATHS: dict[str, tuple[tuple[str, ...], ...]] = {
     ),
     "observed_control_topology": (
         ("observed_control_topology",),
-        ("coordination", "observed_topology"),
-        ("observed_topology",),
     ),
     "current_instruction_revision": (
         ("current_instruction_revision",),

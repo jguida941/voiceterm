@@ -77,7 +77,15 @@
   coordination, authority, control-plane, startup-context, session-resume,
   review-channel status, persisted review-state, registry, and bridge-compat
   surfaces. Dual-agent fanout remains blocked until runtime truth reports
-  `safe_to_fanout=true` and `resync_required=false`.
+  `safe_to_fanout=true` and `resync_required=false`. The proof tick keeps
+  explicit `observed_control_topology` separate from coordination
+  `observed_topology`, so planned/live topology evidence cannot overwrite the
+  active remote-control posture.
+- 2026-04-23 session-resume bootstrap repair (also under MP-377):
+  `session-resume --role reviewer|implementer` now calls
+  `ControlPlaneReadModel` through `ControlPlaneReadModelOptions` for
+  governance and frozen review-state inputs, keeping the canonical new-session
+  bootstrap path aligned with the shared control-plane API.
 - 2026-04-22 worktree-orphan architecture slice (also under MP-377): the
   orphan-prevention design now has typed slice-one runtime contracts for
   `OrphanSnapshot`, `OrphanSource`, `OrphanReconciliationDecision`,
