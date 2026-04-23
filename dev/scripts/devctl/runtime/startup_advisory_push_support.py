@@ -105,6 +105,44 @@ def steady_state_decision(
     gate: "ReviewerGateState",
 ) -> StartupAdvisoryDecision:
     """Return the remaining steady-state advisory decision once blockers clear."""
+    managed_projection_paths = tuple(
+        getattr(push, "managed_projection_dirty_paths", ()) or ()
+    )
+    if (
+        push.worktree_clean
+        and push.ahead_of_upstream_commits in (0, None)
+        and managed_projection_paths
+    ):
+        paths = ", ".join(managed_projection_paths)
+        return _decision(
+            "no_push_needed",
+            "managed_projection_drift_only",
+            (
+                "Startup found no source work or governed push step because only "
+                "managed compatibility projections are dirty."
+            ),
+            (
+                rule_match_evidence(
+                    "startup_advisory.managed_projection_drift_only",
+                    "The repo has no source dirty paths and no remote delta; dirty paths are generated projections.",
+                    "worktree_clean=True",
+                    "ahead_of_upstream_commits=0",
+                    f"managed_projection_dirty_paths={paths}",
+                ),
+            ),
+            (
+                rejected_rule_trace(
+                    "startup_advisory.checkpoint_allowed",
+                    "Checkpoint dirty work.",
+                    "Only generated compatibility projections are dirty.",
+                ),
+                rejected_rule_trace(
+                    "startup_advisory.push_allowed",
+                    "Move straight to the governed push path.",
+                    "There is no remote delta left to publish.",
+                ),
+            ),
+        )
     if push.worktree_clean and push.ahead_of_upstream_commits in (0, None):
         return _decision(
             "no_push_needed",

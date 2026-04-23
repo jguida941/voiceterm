@@ -1600,6 +1600,35 @@ class TestCLIRegistration(unittest.TestCase):
             ),
         )
 
+    def test_summary_names_managed_projection_drift(self) -> None:
+        rendered = _render_summary(
+            {
+                "advisory_action": "no_push_needed",
+                "advisory_reason": "managed_projection_drift_only",
+                "reviewer_gate": {
+                    "implementation_blocked": False,
+                    "implementation_block_reason": "",
+                },
+                "startup_authority": {"ok": True},
+                "governance": {
+                    "push_enforcement": {
+                        "checkpoint_required": False,
+                        "safe_to_continue_editing": True,
+                        "managed_projection_drift": True,
+                        "managed_projection_dirty_paths": ["bridge.md"],
+                    }
+                },
+                "push_decision": {
+                    "action": "no_push_needed",
+                    "next_step_command": "",
+                },
+            }
+        )
+
+        self.assertIn("reason=managed_projection_drift_only", rendered)
+        self.assertIn("managed_projection_drift=True", rendered)
+        self.assertIn("managed_projection_dirty_paths=bridge.md", rendered)
+
     def test_summary_surfaces_observed_control_topology(self) -> None:
         rendered = _render_summary(
             {
@@ -2698,6 +2727,30 @@ class TestAdvisoryAction(unittest.TestCase):
         gate = ReviewerGateState()
         action, _ = _derive_advisory_action(gov, gate)
         self.assertEqual(action, "no_push_needed")
+
+    def test_managed_projection_drift_only_is_not_source_work(self) -> None:
+        gov = _minimal_governance(
+            worktree_clean=True,
+            worktree_dirty=False,
+            ahead_of_upstream_commits=0,
+            upstream_ref="origin/feature/test",
+            managed_projection_drift=True,
+            managed_projection_dirty_paths=("bridge.md",),
+            excluded_path_count=1,
+        )
+        gate = ReviewerGateState()
+
+        action, reason = _derive_advisory_action(gov, gate)
+        push_decision = _derive_push_decision(
+            gov.push_enforcement,
+            review_gate_allows_push=gate.review_gate_allows_push,
+            implementation_blocked=gate.implementation_blocked,
+        )
+
+        self.assertEqual(action, "no_push_needed")
+        self.assertEqual(reason, "managed_projection_drift_only")
+        self.assertEqual(push_decision.action, "no_push_needed")
+        self.assertEqual(push_decision.reason, "managed_projection_drift_only")
 
     def test_push_allowed(self) -> None:
         gov = _minimal_governance(

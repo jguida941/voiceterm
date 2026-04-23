@@ -35,6 +35,7 @@ from .push_state_selection import (
     PushProjectionInputs,
     load_push_report_projections as _load_push_report_projections,
 )
+from .push_state_projection_drift import matching_excluded_paths
 
 
 def _worktree_change_summary(
@@ -105,6 +106,10 @@ def _build_push_enforcement_snapshot(
         worktree_dirty=inputs.worktree_dirty,
         worktree_clean=inputs.worktree_clean,
         recommended_action=inputs.recommended_action,
+        excluded_path_count=inputs.excluded_path_count,
+        managed_projection_drift=inputs.managed_projection_drift,
+        managed_projection_dirty_paths=inputs.managed_projection_dirty_paths,
+        advisory_context_dirty_paths=inputs.advisory_context_dirty_paths,
         pending_publication_commits=inputs.publication_backlog.pending_publication_commits,
         publication_backlog_state=inputs.publication_backlog.backlog_state,
         publication_backlog_summary=inputs.publication_backlog.backlog_summary,
@@ -210,6 +215,14 @@ def detect_push_enforcement_state(
     untracked_path_count = change_counts.untracked_path_count
     staged_path_count = change_counts.staged_path_count
     unstaged_path_count = change_counts.unstaged_path_count
+    managed_projection_dirty_paths = matching_excluded_paths(
+        change_counts.excluded_paths,
+        policy.checkpoint.compatibility_projection_paths,
+    )
+    advisory_context_dirty_paths = matching_excluded_paths(
+        change_counts.excluded_paths,
+        policy.checkpoint.advisory_context_paths,
+    )
     worktree_dirty = dirty_path_count > 0
     worktree_clean = not worktree_dirty
     checkpoint_required = (
@@ -289,6 +302,10 @@ def detect_push_enforcement_state(
             worktree_dirty=worktree_dirty,
             worktree_clean=worktree_clean,
             recommended_action=recommended_action,
+            excluded_path_count=change_counts.excluded_path_count,
+            managed_projection_drift=bool(managed_projection_dirty_paths),
+            managed_projection_dirty_paths=managed_projection_dirty_paths,
+            advisory_context_dirty_paths=advisory_context_dirty_paths,
         ),
     )
     return asdict(snapshot)
@@ -311,6 +328,10 @@ class _PushEnforcementSnapshotInputs:
     worktree_dirty: bool
     worktree_clean: bool
     recommended_action: str
+    excluded_path_count: int
+    managed_projection_drift: bool
+    managed_projection_dirty_paths: tuple[str, ...]
+    advisory_context_dirty_paths: tuple[str, ...]
 
 
 @dataclass(frozen=True, slots=True)

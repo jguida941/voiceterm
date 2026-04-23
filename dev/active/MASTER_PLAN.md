@@ -122,6 +122,14 @@
   `dashboard --role dashboard|observer`, so observer/dashboard surfaces
   render the read-only review-channel status command instead of mutating
   commit/push/pipeline commands. The dedicated probe remains follow-up scope.
+- 2026-04-23 managed bridge projection drift classification (ADR-008 partial
+  closure under MP-377): push/checkpoint state now records excluded generated
+  projection dirt as `managed_projection_drift` plus
+  `managed_projection_dirty_paths`, and startup-context, context-graph,
+  dashboard/control-plane, and push-decision surfaces render that state
+  separately from authored source dirt. The remaining ADR-008 follow-up is the
+  post-push auto-receipt/repair policy for ending green pushes without tracked
+  projection drift.
 - `dev/active/review_probes.md` is the review-probe execution spec; implementation tasks stay in this file under `MP-368..MP-375`.
 - `dev/active/portable_code_governance.md` is the narrower engine/adoption
   companion under `MP-376`, not a second main product plan; implementation

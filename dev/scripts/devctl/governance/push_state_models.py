@@ -31,6 +31,10 @@ class PushEnforcementSnapshot:
     worktree_dirty: bool
     worktree_clean: bool
     recommended_action: str
+    excluded_path_count: int = 0
+    managed_projection_drift: bool = False
+    managed_projection_dirty_paths: tuple[str, ...] = ()
+    advisory_context_dirty_paths: tuple[str, ...] = ()
     pending_publication_commits: int | None = None
     publication_backlog_state: str = "none"
     publication_backlog_summary: str = ""

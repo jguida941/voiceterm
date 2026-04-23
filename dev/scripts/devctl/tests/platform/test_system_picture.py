@@ -20,6 +20,9 @@ from dev.scripts.devctl.platform.coordination_snapshot_models import (
 from dev.scripts.devctl.runtime.control_plane_read_model import (
     ControlPlaneReadModel,
 )
+from dev.scripts.devctl.runtime.control_plane_read_model_support import (
+    ControlPlaneReadModelOptions,
+)
 from dev.scripts.devctl.platform.system_picture_models import (
     SystemPictureSection,
     SystemPictureSnapshot,
@@ -336,11 +339,15 @@ def test_build_system_picture_snapshot_reads_typed_sources() -> None:
             governance=startup_context.governance,
             review_state=review_state,
         )
-        mock_build_control_plane.assert_called_once_with(
-            resolved_root,
-            governance=startup_context.governance,
-            review_state=review_state,
-        )
+        mock_build_control_plane.assert_called_once()
+        control_plane_args, control_plane_kwargs = mock_build_control_plane.call_args
+        assert control_plane_args == (resolved_root,)
+        assert control_plane_kwargs == {
+            "options": ControlPlaneReadModelOptions(
+                governance=startup_context.governance,
+                review_state=review_state,
+            )
+        }
 
     sections = {section.section_id: section for section in snapshot.sections}
     assert snapshot.contract_id == "SystemPicture"

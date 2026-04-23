@@ -110,6 +110,16 @@ SURFACE_STATE_CONTRACTS: tuple[ContractSpec, ...] = (
             ContractField("branch", "str", "Current git branch."),
             ContractField("head_sha", "str", "Current HEAD commit SHA."),
             ContractField("worktree_clean", "bool", "Whether the git worktree is clean."),
+            ContractField(
+                "managed_projection_drift",
+                "bool",
+                "Whether ignored compatibility projections are dirty while source state is clean.",
+            ),
+            ContractField(
+                "managed_projection_dirty_paths",
+                "tuple[str, ...]",
+                "Dirty compatibility projection paths excluded from source-work budgets.",
+            ),
             ContractField("ahead_of_upstream", "int", "Commits ahead of the upstream tracking branch."),
             ContractField("resolved_phase", "str", "AutoModePhase derived from governance state."),
             ContractField("push_eligible", "bool", "Whether the governed push path is ready."),

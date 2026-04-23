@@ -5,7 +5,15 @@ from __future__ import annotations
 from dataclasses import dataclass
 from collections.abc import Mapping
 
-from .value_coercion import coerce_bool, coerce_int, coerce_string
+from ..governance.push_policy import PushPublicationPolicy
+from .project_governance_push_counts import worktree_change_counts_from_payload
+from .project_governance_push_projection import push_projection_inputs_from_payload
+from .value_coercion import (
+    coerce_bool,
+    coerce_int,
+    coerce_string,
+    coerce_string_items,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -33,6 +41,10 @@ class PushEnforcement:
     checkpoint_reason: str = "clean_worktree"
     worktree_dirty: bool = False
     worktree_clean: bool = True
+    excluded_path_count: int = 0
+    managed_projection_drift: bool = False
+    managed_projection_dirty_paths: tuple[str, ...] = ()
+    advisory_context_dirty_paths: tuple[str, ...] = ()
     recommended_action: str = "use_devctl_push"
     pending_publication_commits: int | None = None
     publication_backlog_state: str = "none"
@@ -159,6 +171,15 @@ def push_enforcement_from_mapping(
     """Parse PushEnforcement from a JSON-like mapping."""
     ahead_raw = payload.get("ahead_of_upstream_commits")
     ahead = coerce_int(ahead_raw) if ahead_raw is not None else None
+    change_counts = worktree_change_counts_from_payload(payload)
+    publication_policy = PushPublicationPolicy(
+        recommend_after_ahead_commits=(
+            coerce_int(payload.get("recommend_after_ahead_commits")) or 2
+        ),
+        urgent_after_ahead_commits=(
+            coerce_int(payload.get("urgent_after_ahead_commits")) or 5
+        ),
+    )
     worktree_dirty = coerce_bool(payload.get("worktree_dirty"))
     worktree_clean_raw = payload.get("worktree_clean")
     if worktree_clean_raw is None:
@@ -169,7 +190,8 @@ def push_enforcement_from_mapping(
             worktree_clean = not worktree_dirty
     else:
         worktree_clean = coerce_bool(worktree_clean_raw)
-    current_worktree_identity = coerce_string(payload.get("current_worktree_identity"))
+    projection_inputs = push_projection_inputs_from_payload(payload)
+    current_worktree_identity = projection_inputs.current_worktree_identity
     current_push_authorization_approved_worktree_identity = coerce_string(
         payload.get("current_push_authorization_approved_worktree_identity")
     )
@@ -185,21 +207,21 @@ def push_enforcement_from_mapping(
         fallback_prefix="latest_push_report",
     )
     return PushEnforcement(
-        current_branch=coerce_string(payload.get("current_branch")),
-        current_head_commit=coerce_string(payload.get("current_head_commit")),
-        default_remote=coerce_string(payload.get("default_remote")) or "origin",
+        current_branch=projection_inputs.current_branch,
+        current_head_commit=projection_inputs.current_head_commit,
+        default_remote=projection_inputs.default_remote,
         development_branch=coerce_string(payload.get("development_branch"))
         or "main",
         release_branch=coerce_string(payload.get("release_branch")) or "main",
         pre_push_hook_path=coerce_string(payload.get("pre_push_hook_path")),
         pre_push_hook_installed=coerce_bool(payload.get("pre_push_hook_installed")),
         raw_git_push_guarded=coerce_bool(payload.get("raw_git_push_guarded")),
-        upstream_ref=coerce_string(payload.get("upstream_ref")),
+        upstream_ref=projection_inputs.upstream_ref,
         ahead_of_upstream_commits=ahead,
-        dirty_path_count=coerce_int(payload.get("dirty_path_count")),
-        untracked_path_count=coerce_int(payload.get("untracked_path_count")),
-        staged_path_count=coerce_int(payload.get("staged_path_count")),
-        unstaged_path_count=coerce_int(payload.get("unstaged_path_count")),
+        dirty_path_count=change_counts.dirty_path_count,
+        untracked_path_count=change_counts.untracked_path_count,
+        staged_path_count=change_counts.staged_path_count,
+        unstaged_path_count=change_counts.unstaged_path_count,
         max_dirty_paths_before_checkpoint=(
             coerce_int(payload.get("max_dirty_paths_before_checkpoint")) or 12
         ),
@@ -216,6 +238,16 @@ def push_enforcement_from_mapping(
         or "clean_worktree",
         worktree_dirty=worktree_dirty,
         worktree_clean=worktree_clean,
+        excluded_path_count=change_counts.excluded_path_count,
+        managed_projection_drift=coerce_bool(
+            payload.get("managed_projection_drift")
+        ),
+        managed_projection_dirty_paths=coerce_string_items(
+            payload.get("managed_projection_dirty_paths")
+        ),
+        advisory_context_dirty_paths=coerce_string_items(
+            payload.get("advisory_context_dirty_paths")
+        ),
         recommended_action=coerce_string(payload.get("recommended_action"))
         or "use_devctl_push",
         pending_publication_commits=(
@@ -235,15 +267,13 @@ def push_enforcement_from_mapping(
             payload.get("publication_backlog_urgent")
         ),
         recommend_after_ahead_commits=(
-            coerce_int(payload.get("recommend_after_ahead_commits")) or 2
+            publication_policy.recommend_after_ahead_commits
         ),
-        urgent_after_ahead_commits=(
-            coerce_int(payload.get("urgent_after_ahead_commits")) or 5
-        ),
+        urgent_after_ahead_commits=publication_policy.urgent_after_ahead_commits,
         latest_push_report_path=coerce_string(payload.get("latest_push_report_path")),
         current_worktree_identity=current_worktree_identity,
-        current_approved_target_identity=coerce_string(
-            payload.get("current_approved_target_identity")
+        current_approved_target_identity=(
+            projection_inputs.current_approved_target_identity
         ),
         selected_push_report_source=_selected_push_report_source(payload),
         current_push_authorization_id=coerce_string(

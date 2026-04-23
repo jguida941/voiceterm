@@ -14,6 +14,19 @@ from .models import QueryResult
 from .quality_signal_render import append_quality_signal_lines
 
 
+def _append_managed_projection_state(
+    lines: list[str],
+    push_state: dict[str, Any],
+) -> None:
+    if not push_state.get("managed_projection_drift"):
+        return
+    paths = push_state.get("managed_projection_dirty_paths") or ()
+    path_text = ", ".join(str(path) for path in paths)
+    lines.append("- **managed_projection_drift**: yes")
+    if path_text:
+        lines.append(f"- **managed_projection_dirty_paths**: `{path_text}`")
+
+
 def render_query_result_markdown(result: QueryResult) -> str:
     """Render a QueryResult as human-readable markdown."""
     lines: list[str] = []
@@ -175,6 +188,7 @@ def render_bootstrap_markdown(ctx: dict[str, Any]) -> str:
         lines.append(
             f"- **dirty_path_count**: {push_state.get('dirty_path_count', 0)}"
         )
+        _append_managed_projection_state(lines, push_state)
         lines.append(
             f"- **untracked_path_count**: {push_state.get('untracked_path_count', 0)}"
         )

@@ -31,6 +31,8 @@ class WorktreeChangeCounts:
     untracked_path_count: int = 0
     staged_path_count: int = 0
     unstaged_path_count: int = 0
+    excluded_path_count: int = 0
+    excluded_paths: tuple[str, ...] = ()
 
 
 def parse_worktree_change_summary(
@@ -46,6 +48,7 @@ def parse_worktree_change_summary(
     untracked_paths: set[str] = set()
     staged_paths: set[str] = set()
     unstaged_paths: set[str] = set()
+    excluded_dirty_paths: set[str] = set()
     for line in status_raw.splitlines():
         if not line:
             continue
@@ -57,6 +60,8 @@ def parse_worktree_change_summary(
             path = path.split("->")[-1].strip()
         path = path.strip()
         if not path or path in exclude_set:
+            if path:
+                excluded_dirty_paths.add(path)
             continue
         dirty_paths.add(path)
         if status == "??":
@@ -71,6 +76,8 @@ def parse_worktree_change_summary(
         untracked_path_count=len(untracked_paths),
         staged_path_count=len(staged_paths),
         unstaged_path_count=len(unstaged_paths),
+        excluded_path_count=len(excluded_dirty_paths),
+        excluded_paths=tuple(sorted(excluded_dirty_paths)),
     )
 
 

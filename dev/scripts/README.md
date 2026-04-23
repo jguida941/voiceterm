@@ -909,7 +909,9 @@ Portability note:
   `run_devctl_push`, `no_push_needed`) instead of reconstructing remote
   readiness from mixed booleans. Clean local slices that are still waiting on
   reviewer acceptance should surface as `await_review`, not as implicitly
-  push-ready.
+  push-ready. Dirty generated compatibility projections expose
+  `managed_projection_drift=true` plus `managed_projection_dirty_paths`
+  instead of hiding the raw `bridge.md` dirt or counting it as source work.
 - Commit / review / push state machine:
 
 | `push_decision` | Meaning | Next governed step |

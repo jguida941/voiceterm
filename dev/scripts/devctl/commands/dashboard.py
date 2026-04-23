@@ -547,6 +547,15 @@ def _assemble(
         startup_context=startup_context,
         pending_packets_count=len(typed_packets),
     )
+    repo_worktree = git["dirty"]
+    repo_dirty_files = git.get("dirty_files", 0)
+    if (
+        control_plane is not None
+        and control_plane.worktree_clean
+        and control_plane.managed_projection_drift
+    ):
+        repo_worktree = "MANAGED_PROJECTION_DRIFT"
+        repo_dirty_files = 0
 
     snapshot: dict[str, Any] = {
         "schema_version": 2,
@@ -557,11 +566,11 @@ def _assemble(
             "name": _repo_name(),
             "branch": git["branch"],
             "head": git["head"],
-            "worktree": git["dirty"],
+            "worktree": repo_worktree,
             "session": (session_info or {}).get("session_label", "--"),
             "ahead": git.get("ahead", 0),
             "behind": git.get("behind", 0),
-            "dirty_files": git.get("dirty_files", 0),
+            "dirty_files": repo_dirty_files,
             "recent_commits": git.get("recent_commits", []),
         },
         "now": _build_now_section(NowSectionContext(

@@ -949,10 +949,14 @@ Three quality layers matter in practice:
     typed `ProjectGovernance` doc paths (`docs_authority`, guide roots,
     scripts README, tracker/index roots) before surface-generation context
     fallbacks when composing docs-governance routing defaults.
-  - Repo-governance checkpoint policy may declare compatibility projections
-    such as `bridge.md` that are excluded from advisory dirty-path budgeting.
-    That exclusion only affects checkpoint-budget accounting; raw git state
-    and reviewer-owned status remain canonical for real push/review truth.
+- Repo-governance checkpoint policy may declare compatibility projections
+  such as `bridge.md` that are excluded from advisory dirty-path budgeting.
+  That exclusion only affects source-work checkpoint-budget accounting; the
+  push/startup/control-plane payloads must still emit
+  `managed_projection_drift` and `managed_projection_dirty_paths` so generated
+  bridge projection drift stays visible without masquerading as authored work.
+  Raw git state and reviewer-owned status remain canonical for real push/review
+  truth.
   - Reviewer-owned instruction rewrites in the transitional markdown bridge
     now also reset implementer-owned live `Claude Status` / `Claude Ack`
     sections to placeholder `- pending` state whenever the instruction

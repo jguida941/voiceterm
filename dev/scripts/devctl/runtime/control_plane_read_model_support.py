@@ -22,6 +22,7 @@ from .control_plane_resolve import (
     resolve_reviewer_state,
     utc_now_iso,
 )
+from .control_plane_worktree_projection import control_plane_worktree_clean
 from .operator_context import derive_operator_interaction_mode
 from .reviewer_observation import ReviewerObservation, resolve_reviewer_observation
 from .reviewer_runtime_models import (
@@ -106,10 +107,14 @@ def resolve_control_plane_context(
     push_action = coerce_string((inputs.receipt or {}).get("push_action")) if isinstance(
         inputs.receipt, Mapping
     ) else ""
+    worktree_clean = control_plane_worktree_clean(
+        git=inputs.git,
+        governance=inputs.governance,
+    )
     auto_state = resolve_auto_mode_phase(
         AutoModeInputs(
             push_decision_action=push_action,
-            worktree_clean=inputs.git.get("clean", True),
+            worktree_clean=worktree_clean,
             review_gate_allows_push=reviewer["review_accepted"],
             reviewer_mode=reviewer["reviewer_mode"],
             implementation_blocked=implementation_blocked,

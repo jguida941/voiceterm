@@ -28,6 +28,28 @@ def coordination_dict(ctx_dict: dict) -> dict[str, object]:
     return coordination if isinstance(coordination, dict) else {}
 
 
+def _push_enforcement_dict(ctx_dict: dict) -> dict[str, object]:
+    governance = ctx_dict.get("governance")
+    if not isinstance(governance, dict):
+        return {}
+    push_enforcement = governance.get("push_enforcement")
+    return push_enforcement if isinstance(push_enforcement, dict) else {}
+
+
+def managed_projection_summary_lines(ctx_dict: dict) -> list[str]:
+    push_enforcement = _push_enforcement_dict(ctx_dict)
+    if not bool(push_enforcement.get("managed_projection_drift", False)):
+        return []
+    paths = push_enforcement.get("managed_projection_dirty_paths")
+    if not isinstance(paths, (list, tuple)):
+        paths = ()
+    path_text = ",".join(str(path) for path in paths if str(path).strip())
+    lines = ["managed_projection_drift=True"]
+    if path_text:
+        lines.append(f"managed_projection_dirty_paths={path_text}")
+    return lines
+
+
 def summary_coordination_lines(ctx_dict: dict) -> list[str]:
     coordination = coordination_dict(ctx_dict)
     if not coordination:
@@ -79,6 +101,7 @@ def render_summary(ctx_dict: dict) -> str:
         f"blockers={summary_blockers(ctx_dict)}",
         f"next={summary_next_command(ctx_dict)}",
     ]
+    lines.extend(managed_projection_summary_lines(ctx_dict))
     observed_control_topology = str(
         ctx_dict.get("observed_control_topology") or ""
     ).strip()

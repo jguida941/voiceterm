@@ -54,6 +54,18 @@ Current 2026-04-06 shared-violation convergence note:
   same row contract in governance-review, startup summaries, and dashboard
   surfaces instead of growing another probe-specific presentation family.
 
+Current 2026-04-23 ADR-008 managed projection drift note:
+- The first ADR-008 closure keeps `bridge.md` as generated compatibility
+  projection dirt without hiding it or treating it as authored source work.
+  Push/checkpoint state now emits `managed_projection_drift`,
+  `managed_projection_dirty_paths`, and excluded-path counts from the same
+  repo-governance checkpoint policy that already excludes compatibility
+  projections from source-work budgets. Startup-context, context-graph,
+  dashboard/control-plane, and push-decision surfaces render that typed state
+  explicitly. The remaining follow-up is the post-push auto-receipt/repair
+  policy that decides whether green governed pushes must reproject and commit
+  or repair tracked projection drift before handoff.
+
 Current 2026-04-07 portability-by-default closure note:
 - Accept the review verdict as plan state: the architecture is portable by
   design, but the live system is not yet portable by default. Treat the next

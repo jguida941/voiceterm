@@ -34,7 +34,11 @@ from .control_plane_resolve import (
     load_git_state,
     utc_now_iso,
 )
-from .reviewer_observation import ReviewerObservation
+from .control_plane_reviewer_observation_decode import observation_from_mapping
+from .control_plane_worktree_projection import (
+    control_plane_worktree_clean,
+    managed_projection_dirty_paths,
+)
 from .reviewer_runtime_models import (
     RemoteControlAttachmentState,
     remote_control_attachment_from_mapping,
@@ -45,10 +49,11 @@ from .surface_provenance import (
     attach_surface_provenance,
     surface_provenance_from_mapping,
 )
-from .value_coercion import coerce_bool, coerce_int, coerce_string
+from .value_coercion import coerce_bool, coerce_int, coerce_string, coerce_string_items
 
 if TYPE_CHECKING:
     from .project_governance import ProjectGovernance
+    from .reviewer_observation import ReviewerObservation
     from .review_state_models import ReviewState
 
 
@@ -92,6 +97,8 @@ class ControlPlaneReadModel:
     # Quality
     last_guard_ok: bool
     check_details: tuple[dict[str, str], ...]
+    managed_projection_drift: bool = False
+    managed_projection_dirty_paths: tuple[str, ...] = ()
     loop_wake_mode: str = "unknown"
     loop_wake_interval_seconds: int = 0
     loop_driver_agent: str = ""
@@ -184,6 +191,12 @@ def build_control_plane_read_model(
     if not isinstance(review_state_payload, dict):
         review_state_payload = {}
 
+    worktree_clean = control_plane_worktree_clean(
+        git=git,
+        governance=governance,
+    )
+    projection_paths = managed_projection_dirty_paths(governance)
+
     return ControlPlaneReadModel(
         timestamp=utc_now_iso(),
         branch=git.get("branch", "unknown"),
@@ -193,7 +206,9 @@ def build_control_plane_read_model(
             snapshot_id=context.snapshot_id,
             head_sha=git.get("head", "unknown"),
         ),
-        worktree_clean=git.get("clean", True),
+        worktree_clean=worktree_clean,
+        managed_projection_drift=bool(projection_paths),
+        managed_projection_dirty_paths=projection_paths,
         ahead_of_upstream=git.get("ahead", 0),
         resolved_phase=context.auto_state.phase,
         push_eligible=(context.blocker["next_action"] == "run_devctl_push"),
@@ -253,6 +268,12 @@ def control_plane_read_model_from_mapping(
         snapshot_id=coerce_string(value.get("snapshot_id")),
         zref=coerce_string(value.get("zref")),
         worktree_clean=coerce_bool(value.get("worktree_clean", True)),
+        managed_projection_drift=coerce_bool(
+            value.get("managed_projection_drift", False)
+        ),
+        managed_projection_dirty_paths=coerce_string_items(
+            value.get("managed_projection_dirty_paths")
+        ),
         ahead_of_upstream=coerce_int(value.get("ahead_of_upstream")),
         resolved_phase=coerce_string(value.get("resolved_phase")) or AutoModePhase.IDLE.value,
         push_eligible=coerce_bool(value.get("push_eligible", False)),
@@ -267,7 +288,9 @@ def control_plane_read_model_from_mapping(
         last_reviewed_sha=coerce_string(value.get("last_reviewed_sha")),
         attention_status=coerce_string(value.get("attention_status")) or "n/a",
         attention_summary=coerce_string(value.get("attention_summary")) or "n/a",
-        reviewer_observation=_observation_from_mapping(value.get("reviewer_observation")),
+        reviewer_observation=observation_from_mapping(
+            value.get("reviewer_observation")
+        ),
         remote_control_attachment=remote_control_attachment_from_mapping(
             value.get("remote_control_attachment")
         ),
@@ -286,23 +309,6 @@ def control_plane_read_model_from_mapping(
         coordination=coordination_snapshot_from_mapping(value.get("coordination")),
         provenance=surface_provenance_from_mapping(value),
     )
-
-
-def _observation_from_mapping(raw: object) -> ReviewerObservation | None:
-    """Deserialize a ReviewerObservation from a JSON-like mapping."""
-    if not isinstance(raw, dict):
-        return None
-    return ReviewerObservation(
-        head_sha=coerce_string(raw.get("head_sha")),
-        observed_head_sha=coerce_string(raw.get("observed_head_sha")),
-        observed_at_utc=coerce_string(raw.get("observed_at_utc")),
-        last_reviewed_sha=coerce_string(raw.get("last_reviewed_sha")),
-        status=coerce_string(raw.get("status")) or "not_seen",
-        review_needed=coerce_bool(raw.get("review_needed", True)),
-        reviewed_hash_current=coerce_bool(raw.get("reviewed_hash_current", False)),
-        stale=coerce_bool(raw.get("stale", True)),
-    )
-
 
 def _default_read_model() -> ControlPlaneReadModel:
     """Return a default read model when deserialization input is invalid."""

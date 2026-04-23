@@ -578,6 +578,43 @@ class PushCommandTests(unittest.TestCase):
         return_value=None,
     )
     @patch(
+        "dev.scripts.devctl.governance.push_state._git_stdout",
+        side_effect=[
+            "",
+            "feature/demo",
+            "abc123",
+            "origin/feature/demo",
+            "0",
+            " M bridge.md\n",
+        ],
+    )
+    def test_detect_push_enforcement_reports_managed_projection_drift(
+        self,
+        _git_stdout_mock,
+        _lookup_receipt_mock,
+    ) -> None:
+        policy = make_policy(
+            checkpoint=PushCheckpointPolicy(
+                compatibility_projection_paths=("bridge.md",),
+            )
+        )
+
+        state = detect_push_enforcement_state(policy)
+
+        self.assertFalse(state["worktree_dirty"])
+        self.assertTrue(state["worktree_clean"])
+        self.assertEqual(state["dirty_path_count"], 0)
+        self.assertEqual(state["excluded_path_count"], 1)
+        self.assertTrue(state["managed_projection_drift"])
+        self.assertEqual(state["managed_projection_dirty_paths"], ("bridge.md",))
+        self.assertEqual(state["recommended_action"], "no_push_needed")
+        self.assertEqual(state["checkpoint_reason"], "clean_worktree")
+
+    @patch(
+        "dev.scripts.devctl.governance.push_state.lookup_push_receipt",
+        return_value=None,
+    )
+    @patch(
         "dev.scripts.devctl.governance.push_state.latest_push_report_relpath",
         return_value="dev/reports/push/latest.json",
     )

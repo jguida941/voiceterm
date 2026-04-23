@@ -312,6 +312,11 @@ Run this sequence for every task. Do not skip steps.
    branch still has remote work to publish, so fresh sessions can answer
    "when do we push?" without manual `git` inspection or spelunking through
    typed JSON fields.
+   Managed compatibility-projection dirt such as `bridge.md` must stay
+   explicit: `startup-context` / context-graph / dashboard surfaces may exclude
+   those paths from source-work checkpoint budgets, but they must still render
+   `managed_projection_drift` and `managed_projection_dirty_paths` so raw git
+   dirt never appears to contradict typed clean-source state.
    That typed startup receipt now emits a bounded `WorkIntakePacket`
    (selected `PlanTargetRef`, typed continuity, routing hints, and bounded
    `session_pacing` research guidance derived from planning/graph evidence),

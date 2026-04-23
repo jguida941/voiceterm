@@ -75,6 +75,7 @@ class ControlPlaneReadModelDataclassTests(unittest.TestCase):
         model = _default_read_model()
         expected_fields = {
             "timestamp", "branch", "head_sha", "snapshot_id", "zref", "worktree_clean",
+            "managed_projection_drift", "managed_projection_dirty_paths",
             "ahead_of_upstream", "resolved_phase", "push_eligible",
             "implementation_blocked", "top_blocker", "next_action",
             "next_command", "reviewer_mode", "operator_interaction_mode",
@@ -1025,6 +1026,10 @@ class DeserializationTests(unittest.TestCase):
         self.assertEqual(restored.head_sha, original.head_sha)
         self.assertEqual(restored.resolved_phase, original.resolved_phase)
         self.assertEqual(restored.push_eligible, original.push_eligible)
+        self.assertEqual(
+            restored.managed_projection_dirty_paths,
+            original.managed_projection_dirty_paths,
+        )
         self.assertEqual(restored.reviewer_mode, original.reviewer_mode)
         self.assertEqual(restored.last_guard_ok, original.last_guard_ok)
         self.assertEqual(restored.coordination, original.coordination)

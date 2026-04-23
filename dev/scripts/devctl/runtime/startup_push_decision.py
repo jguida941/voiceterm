@@ -23,6 +23,7 @@ from .startup_push_recovery import (
     selected_push_report_source,
     selected_push_report_text,
 )
+from .startup_push_synced_decision import synced_branch_decision
 
 if TYPE_CHECKING:
     from .project_governance_push import PushEnforcement
@@ -139,6 +140,14 @@ def derive_push_decision(
         return local_readiness
     if artifact_push_in_progress_for_current_head(pe):
         return _in_progress_decision(inputs, pe)
+    managed_projection_paths = tuple(
+        getattr(pe, "managed_projection_dirty_paths", ()) or ()
+    )
+    if managed_projection_paths and not inputs.has_remote_work_to_push:
+        return synced_branch_decision(
+            inputs,
+            managed_projection_paths=managed_projection_paths,
+        )
     review_decision = _review_state_decision(
         inputs,
         publication_authorized=publication_authorized,
@@ -151,37 +160,7 @@ def derive_push_decision(
     if artifact_recovery is not None:
         return artifact_recovery
     if not inputs.has_remote_work_to_push:
-        return _project_push_decision(
-            inputs,
-            PushDecisionSpec(
-                action="no_push_needed",
-                reason="branch_already_synced",
-                next_step_summary=(
-                    "No governed push is required because the current branch already "
-                    "matches its upstream."
-                ),
-                rule_summary=(
-                    "No governed push is needed because the worktree is clean, the "
-                    "review gate is satisfied, and the branch already matches upstream."
-                ),
-                match_evidence=(
-                    rule_match_evidence(
-                        "startup_push.branch_already_synced",
-                        "Startup detected no remote delta left to publish.",
-                        "worktree_clean=True",
-                        "review_gate_allows_push=True",
-                        "ahead_of_upstream_commits=0",
-                    ),
-                ),
-                rejected_rule_traces=(
-                    rejected_rule_trace(
-                        "startup_push.run_devctl_push",
-                        "Run the governed push path immediately.",
-                        "There is no remote delta left to publish.",
-                    ),
-                ),
-            ),
-        )
+        return synced_branch_decision(inputs, managed_projection_paths=())
     return _project_push_decision(
         inputs,
         PushDecisionSpec(

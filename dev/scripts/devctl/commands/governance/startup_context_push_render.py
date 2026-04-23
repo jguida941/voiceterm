@@ -147,6 +147,12 @@ def append_push_state(lines: list[str], ctx_dict: dict) -> None:
     lines.append(
         f"- unstaged_path_count: {push_enforcement.get('unstaged_path_count', 0)}"
     )
+    if bool(push_enforcement.get("managed_projection_drift", False)):
+        paths = push_enforcement.get("managed_projection_dirty_paths")
+        path_text = ", ".join(paths) if isinstance(paths, (list, tuple)) else ""
+        lines.append("- managed_projection_drift: True")
+        if path_text:
+            lines.append(f"- managed_projection_dirty_paths: `{path_text}`")
     ahead = publication_backlog_count(ctx_dict)
     if ahead is not None:
         lines.append(f"- ahead_of_upstream_commits: {ahead}")

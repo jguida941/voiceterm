@@ -37,6 +37,34 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 - [User Path (5 min)](#user-path-5-min)
 - [Developer Path (15 min)](#developer-path-15-min)
 
+### 2026-04-23 - Managed bridge projection drift is now typed separately from source dirt
+
+Fact: ADR-008 dogfooding showed a confusing but intended split: raw
+`git status` could show `bridge.md` dirty after review-state synchronization,
+while `startup-context` reported `clean_worktree` because `bridge.md` is a
+generated compatibility projection excluded from source-work checkpoint
+budgets.
+
+Change: the push/checkpoint state now carries that excluded generated dirt as
+typed evidence instead of hiding it. `PushEnforcement` emits
+`managed_projection_drift`, `managed_projection_dirty_paths`, and excluded-path
+counts from the same repo-governance checkpoint policy that declares
+compatibility projections. Startup-context, context-graph,
+dashboard/control-plane, and push-decision surfaces render the managed
+projection drift separately from authored source dirt, with
+`managed_projection_drift_only` used when no source work or remote publication
+remains.
+
+Evidence:
+- `dev/scripts/devctl/governance/push_state.py`
+- `dev/scripts/devctl/governance/push_state_git.py`
+- `dev/scripts/devctl/runtime/project_governance_push.py`
+- `dev/scripts/devctl/runtime/startup_advisory_push_support.py`
+- `dev/scripts/devctl/runtime/startup_push_decision.py`
+- `dev/scripts/devctl/commands/governance/startup_context_summary.py`
+- `dev/scripts/devctl/context_graph/render.py`
+- `dev/scripts/devctl/commands/dashboard.py`
+
 ### 2026-04-23 - Read-only advisory roles no longer receive mutating next commands
 
 Fact: ADR-005 showed that fixing `session-resume --role observer` alone was
