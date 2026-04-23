@@ -260,6 +260,12 @@ def _add_dashboard_parser(sub: argparse._SubParsersAction) -> None:
         help="Dashboard view: overview (all), dev, analytics, quality, audit, publication, health",
     )
     dash.add_argument(
+        "--role",
+        choices=("dashboard", "observer"),
+        default="dashboard",
+        help="Caller role for advisory next-command filtering.",
+    )
+    dash.add_argument(
         "--follow",
         action="store_true",
         default=False,

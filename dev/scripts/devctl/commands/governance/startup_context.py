@@ -222,6 +222,8 @@ def _machine_summary(
     push,
     authority_report: dict[str, object],
     startup_receipt_path: str,
+    caller_role: str | None = None,
+    reviewer_override: bool = False,
 ) -> dict[str, object]:
     summary: dict[str, object] = {}
     summary["advisory_action"] = ctx.advisory_action
@@ -272,7 +274,12 @@ def _machine_summary(
             summary["work_intake"]["plan_routing"] = ctx.work_intake.plan_routing.to_dict()
     if ctx.coordination is not None:
         summary["coordination"] = _machine_summary_coordination(ctx.coordination)
-    project_startup_action_routing(summary, next_command=_summary_next_command(summary))
+    project_startup_action_routing(
+        summary,
+        next_command=_summary_next_command(summary),
+        caller_role=caller_role,
+        reviewer_override=reviewer_override,
+    )
     return summary
 
 
@@ -394,6 +401,8 @@ def run(args) -> int:
                 push=push,
                 authority_report=authority_report,
                 startup_receipt_path=receipt_display_path,
+                caller_role=caller_role,
+                reviewer_override=reviewer_override,
             ),
         ),
     )

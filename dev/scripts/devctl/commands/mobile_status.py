@@ -21,6 +21,7 @@ from ..repo_packs.review_helpers import load_mobile_review_state
 from ..runtime import ControlStateContext, build_control_state
 from ..runtime.control_plane_section import project_control_plane_section as _control_plane_section
 from ..runtime.control_plane_read_model import (
+    ControlPlaneReadModelOptions,
     build_control_plane_read_model,
 )
 
@@ -97,7 +98,9 @@ def run(args) -> int:
     if not errors:
         cp_model = build_control_plane_read_model(
             repo_root,
-            review_status_dir=review_status_dir,
+            options=ControlPlaneReadModelOptions(
+                review_status_dir=review_status_dir,
+            ),
         )
         approval_mode = normalize_approval_mode(getattr(args, "approval_mode", None))
         approval_policy = build_approval_policy_payload(approval_mode)

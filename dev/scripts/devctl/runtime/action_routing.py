@@ -14,6 +14,7 @@ from .action_routing_support import (
     commit_permission_context,
     push_enforcement,
 )
+from .advisory_next_action_role_filter import project_next_command_for_role
 from .commit_permission import (
     CommitPermissionDecision,
     build_commit_permission_decision,
@@ -232,8 +233,12 @@ def build_startup_action_routing(
         escalation_action = "operator_resume_review_loop"
 
     allowed = [action for action in intrinsic_allowed if action not in blocked]
+    visible_next_command = project_next_command_for_role(
+        role=caller_role,
+        command=next_command,
+    )
     return ActionRoutingDecision(
-        next_command=next_command,
+        next_command=visible_next_command,
         intrinsic_allowed_actions=tuple(intrinsic_allowed),
         allowed_actions=tuple(allowed),
         blocked_actions=tuple(blocked),

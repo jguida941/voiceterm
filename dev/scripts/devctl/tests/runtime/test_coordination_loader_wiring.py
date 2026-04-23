@@ -25,6 +25,7 @@ from unittest.mock import patch
 # Importing platform first would re-enter an already-loading runtime package
 # and trigger a partial-module ImportError.
 from dev.scripts.devctl.runtime.control_plane_read_model import (
+    ControlPlaneReadModelOptions,
     build_control_plane_read_model,
 )
 from dev.scripts.devctl.runtime.coordination_loader import (
@@ -108,7 +109,7 @@ class TestCoordinationLoaderThreeSurfaceParity(unittest.TestCase):
         ctx = build_startup_context(repo_root=REPO_ROOT)
         model = build_control_plane_read_model(
             REPO_ROOT,
-            governance=ctx.governance,
+            options=ControlPlaneReadModelOptions(governance=ctx.governance),
         )
         startup_snapshot = ctx.coordination
         model_snapshot = model.coordination
@@ -152,8 +153,10 @@ class TestCoordinationLoaderThreeSurfaceParity(unittest.TestCase):
         ) as mock_loader:
             model = build_control_plane_read_model(
                 REPO_ROOT,
-                governance=governance,
-                review_state=review_state,
+                options=ControlPlaneReadModelOptions(
+                    governance=governance,
+                    review_state=review_state,
+                ),
             )
         self.assertIsNotNone(model.coordination)
         mock_loader.assert_not_called()

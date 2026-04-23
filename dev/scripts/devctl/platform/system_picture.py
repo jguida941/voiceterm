@@ -15,7 +15,10 @@ from ..context_graph.snapshot_store import (
 from ..governance.push_state import current_head_commit_sha
 from ..repo_packs import active_path_config
 from ..review_channel.heartbeat import compute_non_audit_worktree_hash
-from ..runtime.control_plane_read_model import build_control_plane_read_model
+from ..runtime.control_plane_read_model import (
+    ControlPlaneReadModelOptions,
+    build_control_plane_read_model,
+)
 from ..runtime.governance_scan import scan_repo_governance_safely
 from ..runtime.review_state_locator import (
     load_current_review_state,
@@ -136,8 +139,10 @@ def build_system_picture_snapshot(
     quality_signals = load_startup_quality_signals(resolved_root)
     control_plane = build_control_plane_read_model(
         resolved_root,
-        governance=resolved_governance,
-        review_state=review_state,
+        options=ControlPlaneReadModelOptions(
+            governance=resolved_governance,
+            review_state=review_state,
+        ),
     )
     coordination_snapshot = build_coordination_snapshot(
         repo_root=resolved_root,

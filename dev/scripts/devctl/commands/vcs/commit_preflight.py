@@ -5,7 +5,10 @@ from __future__ import annotations
 from pathlib import Path
 
 from ...repo_packs import active_path_config
-from ...runtime.control_plane_read_model import build_control_plane_read_model
+from ...runtime.control_plane_read_model import (
+    ControlPlaneReadModelOptions,
+    build_control_plane_read_model,
+)
 from ...runtime.governance_scan import scan_repo_governance_safely
 from ...review_channel.remote_control_attachment_artifact import (
     load_remote_control_attachment,
@@ -62,7 +65,7 @@ def resolve_commit_approval_authority(
         governance = scan_repo_governance_safely(repo_root)
         model = build_control_plane_read_model(
             repo_root,
-            governance=governance,
+            options=ControlPlaneReadModelOptions(governance=governance),
         )
     except (OSError, ValueError):
         interaction_mode = "unresolved"

@@ -12,6 +12,7 @@ from ..common import emit_output, write_output
 from ..config import REPO_ROOT
 from ..runtime.control_plane_read_model import (
     ControlPlaneReadModel,
+    ControlPlaneReadModelOptions,
     build_control_plane_read_model,
 )
 from ..runtime.control_plane_sources import load_sources
@@ -239,7 +240,7 @@ def _view_needs(view: str, section: str) -> bool:
 
 
 def build_snapshot(
-    *, repo_root: Path = REPO_ROOT, view: str = "overview",
+    *, repo_root: Path = REPO_ROOT, view: str = "overview", role: str = "dashboard",
 ) -> dict[str, Any]:
     """Build a DashboardSnapshot dict from existing artifacts and git state.
 
@@ -317,8 +318,11 @@ def build_snapshot(
     cp_model = build_control_plane_read_model(
         repo_root,
         sources_override=sources,
-        governance=governance,
-        review_state=typed_review_state,
+        options=ControlPlaneReadModelOptions(
+            governance=governance,
+            review_state=typed_review_state,
+            caller_role=role,
+        ),
     )
     startup_context_payload: dict[str, Any] | None = None
     try:
@@ -606,7 +610,8 @@ def run(args) -> int:
     from .dashboard_render import render_json, render_markdown, render_terminal
 
     view = getattr(args, "view", "overview")
-    snapshot = build_snapshot(view=view)
+    role = getattr(args, "role", "dashboard")
+    snapshot = build_snapshot(view=view, role=role)
 
     no_color = getattr(args, "no_color", False)
     fmt = getattr(args, "format", "terminal")

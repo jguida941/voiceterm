@@ -17,6 +17,9 @@ from dev.scripts.devctl.commands import (
     dashboard_render,
     dashboard_typed_state,
 )
+from dev.scripts.devctl.runtime.advisory_next_action_role_filter import (
+    READ_ONLY_NEXT_COMMAND,
+)
 
 
 def _make_args(**overrides) -> SimpleNamespace:
@@ -1147,9 +1150,10 @@ class TestCliParserWiring(unittest.TestCase):
 
     def test_dashboard_parser_exists(self) -> None:
         parser = _build_dashboard_parser()
-        args = parser.parse_args(["dashboard", "--format", "json"])
+        args = parser.parse_args(["dashboard", "--format", "json", "--role", "observer"])
         self.assertEqual(args.command, "dashboard")
         self.assertEqual(args.format, "json")
+        self.assertEqual(args.role, "observer")
 
     def test_dashboard_follow_flag(self) -> None:
         parser = _build_dashboard_parser()
@@ -2192,6 +2196,43 @@ class TestSummaryCompilation(unittest.TestCase):
             self.assertIn("block_class", summary)
             self.assertIn("next_actor", summary)
             self.assertIn("one_line", summary)
+
+    def test_dashboard_role_filters_mutating_control_plane_command(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            _write_artifact(root, "dev/reports/review_channel/latest/compact.json", {})
+            _write_artifact(root, "dev/reports/review_channel/latest/full.json", {})
+            _write_artifact(
+                root,
+                "dev/reports/review_channel/latest/registry/agents.json",
+                {},
+            )
+            _write_artifact(
+                root,
+                "dev/reports/review_channel/latest/commit_pipeline.json",
+                {},
+            )
+            _write_artifact(root, "dev/reports/push/latest.json", {})
+            _write_artifact(
+                root,
+                "dev/reports/startup/latest/receipt.json",
+                {"push_action": "run_devctl_push"},
+            )
+            (root / "bridge.md").write_text(_minimal_bridge_text(), encoding="utf-8")
+
+            with patch.object(dashboard, "_git_short", return_value={
+                "branch": "feature/test",
+                "head": "abc1234",
+                "dirty": "CLEAN",
+                "ahead": 0,
+                "behind": 0,
+                "dirty_files": 0,
+                "recent_commits": [],
+            }), patch.object(dashboard, "_repo_name", return_value="test"):
+                snapshot = dashboard.build_snapshot(repo_root=root, role="dashboard")
+
+        self.assertEqual(snapshot["control_plane"]["next_command"], READ_ONLY_NEXT_COMMAND)
+        self.assertEqual(snapshot["next_command"], READ_ONLY_NEXT_COMMAND)
 
 
 class TestSummaryRendering(unittest.TestCase):

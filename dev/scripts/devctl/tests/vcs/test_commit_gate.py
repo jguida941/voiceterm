@@ -1011,7 +1011,10 @@ class TestInteractionModeResolution(unittest.TestCase):
             self.assertEqual(_resolve_interaction_mode(repo_root), "single_agent")
 
         scan_mock.assert_called_once_with(repo_root)
-        build_model_mock.assert_called_once_with(repo_root, governance=governance)
+        build_model_mock.assert_called_once()
+        args, kwargs = build_model_mock.call_args
+        self.assertEqual(args, (repo_root,))
+        self.assertIs(kwargs["options"].governance, governance)
 
 
 class TestGovernedCommitPipeline(unittest.TestCase):

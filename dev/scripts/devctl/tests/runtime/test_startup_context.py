@@ -739,6 +739,7 @@ class TestCoordinationParityF1(unittest.TestCase):
         from dev.scripts.devctl.config import get_repo_root
         from dev.scripts.devctl.governance.draft import scan_repo_governance
         from dev.scripts.devctl.runtime.control_plane_read_model import (
+            ControlPlaneReadModelOptions,
             build_control_plane_read_model,
         )
         from dev.scripts.devctl.runtime.review_state_locator import (
@@ -767,8 +768,10 @@ class TestCoordinationParityF1(unittest.TestCase):
         )
         dashboard = build_control_plane_read_model(
             repo,
-            governance=governance,
-            review_state=review_state,
+            options=ControlPlaneReadModelOptions(
+                governance=governance,
+                review_state=review_state,
+            ),
         )
         session = build_from_sources(
             repo,

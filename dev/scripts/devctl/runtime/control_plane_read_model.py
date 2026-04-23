@@ -21,10 +21,12 @@ from ..platform.coordination_snapshot_models import (
     coordination_snapshot_from_mapping,
 )
 from .auto_mode import AutoModePhase
+from .advisory_next_action_role_filter import project_next_command_for_role
 from .control_plane_sources import load_sources
 from .control_plane_loop_wake import ControlPlaneLoopWakeState
 from .control_plane_read_model_support import (
     ControlPlaneContextInputs,
+    ControlPlaneReadModelOptions,
     _extract_coordination,
     resolve_control_plane_context,
 )
@@ -114,35 +116,37 @@ class ControlPlaneReadModel:
         result.setdefault("zref", self.zref)
         return result
 
+
 def build_control_plane_read_model(
     repo_root: Path,
     *,
     sources_override: dict[str, Any] | None = None,
     git_override: dict[str, Any] | None = None,
-    governance: "ProjectGovernance | None" = None,
-    review_state: "ReviewState | None" = None,
-    review_status_dir: Path | None = None,
+    options: ControlPlaneReadModelOptions | None = None,
 ) -> ControlPlaneReadModel:
     """Load all artifacts ONCE, resolve ALL gates, return frozen model.
 
     ``sources_override`` and ``git_override`` allow tests to inject
-    pre-built data without touching the filesystem or git. When
-    ``governance`` is supplied, ``load_sources`` uses it so every
+    pre-built data without touching the filesystem or git. When options
+    include ``governance``, ``load_sources`` uses it so every
     surface that resolves governance up front (for example
     session-resume) shares the same bridge-refreshed review-state.
-    ``review_state`` is the optional frozen typed review state the caller
-    already resolved for this proof tick; it is forwarded unchanged to
-    ``_extract_coordination`` so the coordination reducer uses the exact
+    ``options.review_state`` is the optional frozen typed review state the
+    caller already resolved for this proof tick; it is forwarded unchanged
+    to ``_extract_coordination`` so the coordination reducer uses the exact
     same typed state as ``build_startup_context`` instead of triggering an
     independent bridge-refreshed reload.
     """
+    resolved_options = options or ControlPlaneReadModelOptions()
+    governance = resolved_options.governance
+    review_state = resolved_options.review_state
     sources = (
         dict(sources_override)
         if sources_override is not None
         else load_sources(
             repo_root,
             governance=governance,
-            review_status_dir=review_status_dir,
+            review_status_dir=resolved_options.review_status_dir,
             review_state_override=review_state,
         )
     )
@@ -196,7 +200,10 @@ def build_control_plane_read_model(
         implementation_blocked=context.implementation_blocked,
         top_blocker=context.blocker["top_blocker"],
         next_action=context.blocker["next_action"],
-        next_command=context.blocker["next_command"],
+        next_command=project_next_command_for_role(
+            role=resolved_options.caller_role,
+            command=context.blocker["next_command"],
+        ),
         reviewer_mode=context.reviewer["reviewer_mode"],
         operator_interaction_mode=context.operator_interaction_mode,
         reviewer_freshness=context.reviewer["reviewer_freshness"],

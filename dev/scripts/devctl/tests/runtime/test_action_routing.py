@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 from dev.scripts.devctl.runtime.action_routing import build_startup_action_routing
+from dev.scripts.devctl.runtime.advisory_next_action_role_filter import (
+    READ_ONLY_NEXT_COMMAND,
+)
 
 
 def test_build_startup_action_routing_prefers_work_intake_coordination_owner() -> None:
@@ -39,6 +42,20 @@ def test_build_startup_action_routing_prefers_work_intake_coordination_owner() -
     assert decision.agent_lane.edit_gate.reason == (
         "active_implementation_lane_owned_by_other_agent"
     )
+
+
+def test_build_startup_action_routing_filters_mutating_observer_command() -> None:
+    decision = build_startup_action_routing(
+        {
+            "implementation_permission": "active",
+            "coordination": {"resync_required": False},
+        },
+        next_command="python3 dev/scripts/devctl.py push --execute",
+        caller_role="observer",
+    )
+
+    assert decision.next_command == READ_ONLY_NEXT_COMMAND
+    assert "vcs.push" in decision.blocked_actions
 
 
 def test_build_startup_action_routing_blocks_when_work_intake_requires_resync() -> None:

@@ -4,7 +4,7 @@
 
 **Status:** Draft v4 (historical design and process record)
 **Audience:** users and developers
-**Last Updated:** 2026-04-22
+**Last Updated:** 2026-04-23
 
 ## At a Glance
 
@@ -36,6 +36,32 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 - [Quick Read (2 min)](#quick-read-2-min)
 - [User Path (5 min)](#user-path-5-min)
 - [Developer Path (15 min)](#developer-path-15-min)
+
+### 2026-04-23 - Read-only advisory roles no longer receive mutating next commands
+
+Fact: ADR-005 showed that fixing `session-resume --role observer` alone was
+not enough; sibling startup, dashboard, authority, and control-plane surfaces
+could still render implementer-lane commit/push/pipeline commands to
+observer/dashboard callers.
+
+Change: a shared
+`dev/scripts/devctl/runtime/advisory_next_action_role_filter.py` helper now
+projects mutating advisory next commands to the read-only review-channel
+status command for dashboard/observer roles. Startup action routing,
+`AuthoritySnapshot`, `ControlPlaneReadModel`, `session-resume`, and
+`dashboard --role dashboard|observer` all consume the helper.
+
+Evidence:
+- `dev/scripts/devctl/runtime/advisory_next_action_role_filter.py`
+- `dev/scripts/devctl/runtime/action_routing.py`
+- `dev/scripts/devctl/runtime/authority_snapshot_build.py`
+- `dev/scripts/devctl/runtime/control_plane_read_model.py`
+- `dev/scripts/devctl/commands/governance/session_resume_role_projection.py`
+- `dev/scripts/devctl/commands/dashboard.py`
+- `dev/scripts/devctl/tests/runtime/test_action_routing.py`
+- `dev/scripts/devctl/tests/runtime/test_control_plane_read_model.py`
+- `dev/scripts/devctl/tests/governance/test_session_resume.py`
+- `dev/scripts/devctl/tests/commands/reporting/test_dashboard.py`
 
 ### 2026-04-22 - Phase 0 proof-tick parity now spans nine runtime surfaces
 

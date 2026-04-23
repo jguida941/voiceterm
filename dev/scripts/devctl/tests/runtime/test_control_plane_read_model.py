@@ -14,9 +14,13 @@ from dev.scripts.devctl.runtime.control_plane_read_model import (
     CONTROL_PLANE_READ_MODEL_CONTRACT_ID,
     CONTROL_PLANE_READ_MODEL_SCHEMA_VERSION,
     ControlPlaneReadModel,
+    ControlPlaneReadModelOptions,
     build_control_plane_read_model,
     control_plane_read_model_from_mapping,
     _default_read_model,
+)
+from dev.scripts.devctl.runtime.advisory_next_action_role_filter import (
+    READ_ONLY_NEXT_COMMAND,
 )
 from dev.scripts.devctl.runtime.control_plane_pending_packets import (
     resolve_pending_packets,
@@ -154,7 +158,9 @@ class ReviewStatusDirThreadingTests(unittest.TestCase):
             build_control_plane_read_model(
                 repo_root,
                 git_override=_base_git(),
-                review_status_dir=review_status_dir,
+                options=ControlPlaneReadModelOptions(
+                    review_status_dir=review_status_dir,
+                ),
             )
 
         load_sources_mock.assert_called_once_with(
@@ -209,6 +215,20 @@ class BuildWithReceiptTests(unittest.TestCase):
         self.assertEqual(model.resolved_phase, "reviewing")
         self.assertEqual(model.next_action, "run_devctl_push")
         self.assertIn("push --execute", model.next_command)
+
+    def test_observer_role_filters_push_next_command(self) -> None:
+        sources = _empty_sources()
+        sources["receipt"] = {"push_action": "run_devctl_push"}
+        model = build_control_plane_read_model(
+            Path("/tmp/nonexistent"),
+            sources_override=sources,
+            git_override=_base_git(),
+            options=ControlPlaneReadModelOptions(caller_role="observer"),
+        )
+
+        self.assertTrue(model.push_eligible)
+        self.assertEqual(model.next_action, "run_devctl_push")
+        self.assertEqual(model.next_command, READ_ONLY_NEXT_COMMAND)
 
     def test_push_phase_requires_live_participant(self) -> None:
         sources = _empty_sources()
@@ -326,7 +346,7 @@ class BuildWithReviewStateTests(unittest.TestCase):
                 Path("/tmp/nonexistent"),
                 sources_override=sources,
                 git_override=_base_git(),
-                governance=governance,
+                options=ControlPlaneReadModelOptions(governance=governance),
             )
         self.assertEqual(model.operator_interaction_mode, "remote_control")
 
@@ -476,7 +496,7 @@ class BuildWithReviewStateTests(unittest.TestCase):
             Path("/tmp/nonexistent"),
             sources_override=sources,
             git_override=_base_git(),
-            review_state=frozen,
+            options=ControlPlaneReadModelOptions(review_state=frozen),
         )
         self.assertEqual(model.attention_status, "fresh_attention")
         self.assertEqual(model.attention_summary, "new")

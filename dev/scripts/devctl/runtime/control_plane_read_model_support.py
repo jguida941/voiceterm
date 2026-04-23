@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, NamedTuple
 
@@ -32,6 +33,16 @@ from .value_coercion import coerce_string
 if TYPE_CHECKING:
     from .project_governance import ProjectGovernance
     from .review_state_models import ReviewState
+
+
+@dataclass(frozen=True, slots=True)
+class ControlPlaneReadModelOptions:
+    """Optional frozen inputs shared by control-plane read-model callers."""
+
+    governance: "ProjectGovernance | None" = None
+    review_state: "ReviewState | None" = None
+    review_status_dir: Path | None = None
+    caller_role: object = ""
 
 
 class ResolvedControlPlaneContext(NamedTuple):

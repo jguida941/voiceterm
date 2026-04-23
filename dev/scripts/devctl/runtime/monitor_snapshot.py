@@ -7,7 +7,10 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from ..time_utils import utc_timestamp
-from .control_plane_read_model import build_control_plane_read_model
+from .control_plane_read_model import (
+    ControlPlaneReadModelOptions,
+    build_control_plane_read_model,
+)
 from .governance_scan import scan_repo_governance_safely
 from .monitor_snapshot_contracts import (
     MonitorSelfAudit,
@@ -63,9 +66,11 @@ def build_monitor_snapshot(
     )
     model = build_control_plane_read_model(
         resolved_root,
-        governance=resolved_governance,
-        review_state=typed_review_state,
-        review_status_dir=review_status_dir,
+        options=ControlPlaneReadModelOptions(
+            governance=resolved_governance,
+            review_state=typed_review_state,
+            review_status_dir=review_status_dir,
+        ),
     )
     review_state_payload = typed_review_state.to_dict() if typed_review_state else {}
     verdict_presence = _build_verdict_presence(review_state_payload)

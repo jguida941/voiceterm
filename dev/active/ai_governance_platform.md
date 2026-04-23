@@ -7732,6 +7732,15 @@ Execution order for this section:
 
 ## Progress Log
 
+- 2026-04-23: Partially closed ADR-005 in the MP-377 runtime-authority lane.
+  `dev/scripts/devctl/runtime/advisory_next_action_role_filter.py` is now the
+  shared read-only role projection for advisory next commands, and
+  startup action routing, `AuthoritySnapshot`, `ControlPlaneReadModel`,
+  `session-resume`, and `dashboard --role dashboard|observer` consume it.
+  Observer/dashboard callers now see the read-only review-channel status
+  command instead of mutating commit/push/pipeline commands. The broader
+  `probe_advisory_next_action_role_filter.py` inventory remains open so future
+  advisory surfaces cannot drift.
 - 2026-04-22: Closed the Phase 0.b proof-tick parity slice without widening
   back into dual-agent mode. `ControlPlaneReadModel` and
   `SessionCachePacket` now carry producer-owned `SurfaceProvenance` from the

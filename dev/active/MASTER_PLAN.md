@@ -115,6 +115,13 @@
   recovery action when safe, and writes `PipelineAutoRecoveryReceipt`.
   This closes the ADR-007 manual abandon/recover/refresh selection loop while
   preserving the existing audit receipts for the sub-action it invoked.
+- 2026-04-23 read-only advisory next-command projection (ADR-005 partial
+  closure under MP-377): `advisory_next_action_role_filter.py` now provides
+  the shared projection used by startup action routing, `AuthoritySnapshot`,
+  `ControlPlaneReadModel`, `session-resume`, and
+  `dashboard --role dashboard|observer`, so observer/dashboard surfaces
+  render the read-only review-channel status command instead of mutating
+  commit/push/pipeline commands. The dedicated probe remains follow-up scope.
 - `dev/active/review_probes.md` is the review-probe execution spec; implementation tasks stay in this file under `MP-368..MP-375`.
 - `dev/active/portable_code_governance.md` is the narrower engine/adoption
   companion under `MP-376`, not a second main product plan; implementation

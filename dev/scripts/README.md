@@ -378,6 +378,12 @@ Portability note:
   regression in
   `dev/scripts/devctl/tests/runtime/test_coordination_loader_wiring.py`
   locks that invariant in.
+- Read-only advisory roles share one next-command projection helper:
+  `dev/scripts/devctl/runtime/advisory_next_action_role_filter.py`.
+  `startup-context`, `AuthoritySnapshot`, `ControlPlaneReadModel`,
+  `session-resume`, and `dashboard --role dashboard|observer` must use it so
+  observer/dashboard surfaces show the read-only review-channel status command
+  instead of mutating commit/push/pipeline commands.
 - Repo-owned governance surfaces now live in
   `dev/config/devctl_repo_policy.json` too: `repo_governance.check_router`
   defines lane selection + risk add-ons, `repo_governance.docs_check` defines

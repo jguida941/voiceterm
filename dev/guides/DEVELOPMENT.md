@@ -181,6 +181,15 @@ Use docs like this:
   they must not disagree on runtime diagnosis such as
   `review_loop_relaunch_required` vs `checkpoint_required` just because one
   reader saw `launch_truth` before conductor-state attachment.
+- Keep read-only advisory next-command projection centralized too:
+  observer/dashboard callers must route mutating commit/push/pipeline command
+  strings through
+  `dev/scripts/devctl/runtime/advisory_next_action_role_filter.py::project_next_command_for_role`
+  before rendering startup action routing, `AuthoritySnapshot`,
+  `ControlPlaneReadModel`, `session-resume`, or `dashboard` output. Focused
+  tests live with the owning action-routing, control-plane, session-resume,
+  and dashboard suites until the broader `probe_advisory_next_action_role_filter.py`
+  guard lands.
 - The bundle.tooling hygiene gate ignores the long-standing publications drift warning via --ignore-warning-source publications alongside the existing mutation_badge exclusion, so unrelated pushes are no longer blocked by external-site drift.
 - The same Phase-2 authority cleanup now keeps review/push truth on typed
   runtime contracts too: `reviewer_runtime` owns

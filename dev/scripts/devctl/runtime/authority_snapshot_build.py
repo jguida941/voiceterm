@@ -6,6 +6,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 
 from .action_routing import build_startup_action_routing
+from .advisory_next_action_role_filter import project_next_command_for_role
 from .authority_snapshot_actions import (
     AuthorityActionInputs,
     authority_actions,
@@ -155,6 +156,7 @@ def build_authority_snapshot(
         decision=context.decision,
         next_command=next_command,
     )
+    command = project_next_command_for_role(role=caller_role, command=command)
     allowed_actions, blocked_actions = _resolved_action_sets(
         payload=payload,
         command=command,
