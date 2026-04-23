@@ -5,14 +5,14 @@
 ## Quick status
 
 - Branch: `feature/governance-quality-sweep`
-- HEAD: `cf61d1311caf` — Refresh external review snapshot for ddafb608
-- Tree hash: `86964d4d1609`
-- Generation stamp: `snap-d1228c63b409`
-- Generated at (UTC): 2026-04-23T13:23:43Z
-- Push decision: `await_checkpoint` — staged_index_budget_exceeded
+- HEAD: `4ba95539c603` — Route remote-control staging handoffs
+- Tree hash: `eb42a30536ed`
+- Generation stamp: `snap-262478f0c6c4`
+- Generated at (UTC): 2026-04-23T13:33:40Z
+- Push decision: `await_checkpoint` — staged_index_present
 - Reviewer mode: `single_agent` (interaction: `remote_control`)
 - Pipeline state: `n/a` (approval: `n/a`)
-- Delta since last snapshot: 24 commits, 106 files, +7282/-1708
+- Delta since last snapshot: 24 commits, 118 files, +8291/-2071
 - Governance findings: 112 open / 86 fixed / 212 total
 - Probe hints: 0 total across 0 files scanned
 
@@ -54,26 +54,27 @@ adopters arrive.
 - Remote: `https://github.com/jguida941/voiceterm.git`
 - Default branch: `master`
 - Current branch: `feature/governance-quality-sweep`
-- HEAD SHA: `cf61d1311caf5766d30b2dad2b5401f4f469cef2`
+- HEAD SHA: `4ba95539c6032065ede4e433e38ea84fc3c8fcf8`
 - HEAD author: Justin Guida
-- HEAD timestamp (UTC): 2026-04-23T00:37:48-04:00
+- HEAD timestamp (UTC): 2026-04-23T09:25:47-04:00
 
 ## 2. Governance state
 
 ### Push decision
 - action: `await_checkpoint`
-- reason: staged_index_budget_exceeded
+- reason: staged_index_present
 - push_eligible_now: False
 - worktree_clean: False
-- staged_path_count: 27
-- unstaged_path_count: 1
+- staged_path_count: 1
+- unstaged_path_count: 0
 - next_step_command: `n/a`
 - latest_push_report: `dev/reports/push/latest.json`
 - latest_push_report_state: `post_push_green` (push_completed)
-- current_push_authorization: `push-auth-20260423T043116557916Z` (valid=False)
-- authorized_head_commit: `ddafb608c98538c15ad4a49465c1653ee77a25e2`
-- approved_target_identity: `tree-receipt-20260423T043116557916Z:d52b6cbd29ab76d7a2c506eb5d444029fce1cf53`
-- publication_backlog: none
+- current_push_authorization: `push-auth-20260423T132522272297Z` (valid=True)
+- authorized_head_commit: `4ba95539c6032065ede4e433e38ea84fc3c8fcf8`
+- approved_target_identity: `tree-receipt-20260423T132522272297Z:eb42a30536edb994c0adffb41eaf4e9d7a381e29`
+- publication_backlog: queued
+- publication_guidance: 1 local commit(s) waiting for governed push once the current slice is checkpoint-clean.
 
 ### Reviewer runtime
 - reviewer_mode: `single_agent`
@@ -89,65 +90,65 @@ adopters arrive.
 - active plan: **AI Governance Platform Plan**
 - plan path: `dev/active/ai_governance_platform.md`
 - active MP scope: `MP-377`
-- advisory: `checkpoint_before_continue` — staged_index_budget_exceeded
-- checkpoint_required: **yes**
+- advisory: `checkpoint_before_continue` — dirty_after_local_checkpoint
 
 ## 3. Delta — what changed since the previous snapshot
 
-Range: last 24 commits ending at `cf61d1311caf`
+Range: last 24 commits ending at `4ba95539c603`
 
 - commits: 24
-- files changed: 106
-- insertions: +7282
-- deletions: -1708
+- files changed: 118
+- insertions: +8291
+- deletions: -2071
 - bundle classes touched: docs, tooling
-- authority surfaces touched: 10 file(s)
+- authority surfaces touched: 15 file(s)
 
 ### Commits
 
 | # | SHA | Subject | Files | +/- | Bundle | Risk |
 |---|---|---|---|---|---|---|
-| 1 | `cf61d131` | Refresh external review snapshot for ddafb608 | 1 | +1/-1 | docs |  |
-| 2 | `ddafb608` | Refresh external review snapshot for 415674d0 | 2 | +66/-66 | docs |  |
-| 3 | `415674d0` | Add managed projection receipt push cleanup | 14 | +500/-70 | tooling |  |
-| 4 | `fd11a448` | Refresh external review snapshot for 0ec1b679 | 2 | +75/-70 | docs |  |
-| 5 | `0ec1b679` | Classify managed bridge projection drift | 31 | +647/-135 | tooling |  |
-| 6 | `c03ce187` | Refresh external review snapshot for 41783001 | 2 | +54/-57 | docs |  |
-| 7 | `41783001` | Align observer review surface next-command parity | 4 | +71/-57 | tooling |  |
-| 8 | `6bd851e9` | Refresh external review snapshot for 42376bb0 | 2 | +73/-73 | docs |  |
-| 9 | `42376bb0` | Add read-only advisory next-command filter | 27 | +367/-126 | tooling |  |
-| 10 | `6505342a` | Refresh external review snapshot for d340497e | 2 | +71/-71 | docs |  |
-| 11 | `d340497e` | Add pipeline auto-recover for stale governed commits | 17 | +1340/-88 | tooling |  |
-| 12 | `5553d4f0` | Refresh external review snapshot for 49d0b13c | 2 | +55/-54 | docs |  |
-| 13 | `49d0b13c` | Record post-push bridge and publish automation debt | 3 | +54/-50 | tooling |  |
-| 14 | `1339466e` | Refresh external review snapshot for 86adf8b2 | 2 | +78/-80 | docs |  |
-| 15 | `86adf8b2` | Add external repo path for orphan inventory and staged-scop… | 19 | +351/-103 | tooling |  |
-| 16 | `a3299c78` | Add external repo path for orphan inventory proof | 1 | +58/-51 | tooling |  |
-| 17 | `041293c2` | Refresh external review snapshot for 71f7bcf2 | 2 | +58/-58 | docs |  |
-| 18 | `71f7bcf2` | Fix review surface receipt parity and observer resume routi… | 7 | +161/-73 | tooling |  |
-| 19 | `daf8f389` | Refresh external review snapshot for 5d439f50 | 2 | +68/-65 | docs |  |
-| 20 | `5d439f50` | Add advisory orphan snapshot projection | 21 | +692/-68 | tooling |  |
-| 21 | `6ebcddfd` | Refresh external review snapshot for dc82fbf1 | 2 | +71/-81 | docs |  |
-| 22 | `dc82fbf1` | Add report-only worktree orphan inventory scan | 36 | +2221/-61 | tooling |  |
-| 23 | `b6aa8c9f` | Refresh external review snapshot for ccb68067 | 2 | +65/-74 | docs |  |
-| 24 | `ccb68067` | Refine worktree orphan reconciliation parsers | 3 | +85/-76 | tooling |  |
+| 1 | `4ba95539` | Route remote-control staging handoffs | 28 | +1094/-439 | tooling |  |
+| 2 | `cf61d131` | Refresh external review snapshot for ddafb608 | 1 | +1/-1 | docs |  |
+| 3 | `ddafb608` | Refresh external review snapshot for 415674d0 | 2 | +66/-66 | docs |  |
+| 4 | `415674d0` | Add managed projection receipt push cleanup | 14 | +500/-70 | tooling |  |
+| 5 | `fd11a448` | Refresh external review snapshot for 0ec1b679 | 2 | +75/-70 | docs |  |
+| 6 | `0ec1b679` | Classify managed bridge projection drift | 31 | +647/-135 | tooling |  |
+| 7 | `c03ce187` | Refresh external review snapshot for 41783001 | 2 | +54/-57 | docs |  |
+| 8 | `41783001` | Align observer review surface next-command parity | 4 | +71/-57 | tooling |  |
+| 9 | `6bd851e9` | Refresh external review snapshot for 42376bb0 | 2 | +73/-73 | docs |  |
+| 10 | `42376bb0` | Add read-only advisory next-command filter | 27 | +367/-126 | tooling |  |
+| 11 | `6505342a` | Refresh external review snapshot for d340497e | 2 | +71/-71 | docs |  |
+| 12 | `d340497e` | Add pipeline auto-recover for stale governed commits | 17 | +1340/-88 | tooling |  |
+| 13 | `5553d4f0` | Refresh external review snapshot for 49d0b13c | 2 | +55/-54 | docs |  |
+| 14 | `49d0b13c` | Record post-push bridge and publish automation debt | 3 | +54/-50 | tooling |  |
+| 15 | `1339466e` | Refresh external review snapshot for 86adf8b2 | 2 | +78/-80 | docs |  |
+| 16 | `86adf8b2` | Add external repo path for orphan inventory and staged-scop… | 19 | +351/-103 | tooling |  |
+| 17 | `a3299c78` | Add external repo path for orphan inventory proof | 1 | +58/-51 | tooling |  |
+| 18 | `041293c2` | Refresh external review snapshot for 71f7bcf2 | 2 | +58/-58 | docs |  |
+| 19 | `71f7bcf2` | Fix review surface receipt parity and observer resume routi… | 7 | +161/-73 | tooling |  |
+| 20 | `daf8f389` | Refresh external review snapshot for 5d439f50 | 2 | +68/-65 | docs |  |
+| 21 | `5d439f50` | Add advisory orphan snapshot projection | 21 | +692/-68 | tooling |  |
+| 22 | `6ebcddfd` | Refresh external review snapshot for dc82fbf1 | 2 | +71/-81 | docs |  |
+| 23 | `dc82fbf1` | Add report-only worktree orphan inventory scan | 36 | +2221/-61 | tooling |  |
+| 24 | `b6aa8c9f` | Refresh external review snapshot for ccb68067 | 2 | +65/-74 | docs |  |
 
 ### Files
 
 | Path | Bundle | +/- |
 |---|---|---|
-| `AGENTS.md` | docs | +29/-12 |
+| `AGENTS.md` | docs | +31/-13 |
 | `bridge.md` | docs | +36/-36 |
-| `dev/active/MASTER_PLAN.md` | tooling | +47/-0 |
-| `dev/active/ai_governance_platform.md` | tooling | +66/-5 |
+| `dev/active/MASTER_PLAN.md` | tooling | +65/-5 |
+| `dev/active/ai_governance_platform.md` | tooling | +84/-5 |
 | `dev/active/portable_code_governance.md` | tooling | +13/-1 |
+| `dev/active/remote_commit_pipeline.md` | tooling | +13/-1 |
 | `dev/audits/AI_GOVERNANCE_PLATFORM_PROOF_LEDGER.md` | tooling | +7/-0 |
-| `dev/audits/AUTOMATION_DEBT_REGISTER.md` | tooling | +10/-4 |
+| `dev/audits/AUTOMATION_DEBT_REGISTER.md` | tooling | +12/-6 |
 | `dev/audits/LIVE_RUN.md` | tooling | +29/-0 |
-| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1388/-1392 |
-| `dev/guides/DEVELOPMENT.md` | docs | +40/-12 |
-| `dev/history/ENGINEERING_EVOLUTION.md` | tooling | +215/-1 |
-| `dev/scripts/README.md` | tooling | +47/-16 |
+| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1403/-1412 |
+| `dev/guides/DEVELOPMENT.md` | docs | +45/-13 |
+| `dev/history/ENGINEERING_EVOLUTION.md` | tooling | +270/-1 |
+| `dev/scripts/README.md` | tooling | +67/-20 |
 | `dev/scripts/checks/code_shape/code_shape_policy.py` | tooling | +0/-12 |
 | `dev/scripts/checks/review_surface_consistency/command.py` | tooling | +14/-1 |
 | `dev/scripts/checks/review_surface_consistency/proof_tick.py` | tooling | +6/-3 |
@@ -164,19 +165,18 @@ Range: last 24 commits ending at `cf61d1311caf`
 | `dev/scripts/devctl/commands/governance/startup_context_push_render.py` | tooling | +6/-0 |
 | `dev/scripts/devctl/commands/governance/startup_context_summary.py` | tooling | +23/-0 |
 | `dev/scripts/devctl/commands/mobile_status.py` | tooling | +4/-1 |
-| `dev/scripts/devctl/commands/pipeline/auto_recover_action.py` | tooling | +321/-0 |
-| `dev/scripts/devctl/commands/pipeline/auto_recover_result.py` | tooling | +208/-0 |
+| `dev/scripts/devctl/commands/pipeline/auto_recover_action.py` | tooling | +350/-2 |
+| `dev/scripts/devctl/commands/pipeline/auto_recover_result.py` | tooling | +210/-0 |
 | `dev/scripts/devctl/commands/pipeline/command.py` | tooling | +2/-0 |
-| `dev/scripts/devctl/commands/vcs/commit_preflight.py` | tooling | +5/-2 |
-| `dev/scripts/devctl/commands/vcs/commit_preflight_validators.py` | tooling | +12/-5 |
-| `dev/scripts/devctl/commands/vcs/governed_executor_phases.py` | tooling | +49/-2 |
-| `dev/scripts/devctl/commands/vcs/governed_executor_stage_snapshot.py` | tooling | +19/-4 |
-| `dev/scripts/devctl/commands/vcs/orphan_snapshot_advisory.py` | tooling | +45/-0 |
-| `dev/scripts/devctl/commands/vcs/push.py` | tooling | +13/-0 |
-| `dev/scripts/devctl/commands/vcs/push_pipeline_state_sync.py` | tooling | +12/-2 |
-| `dev/scripts/devctl/commands/vcs/push_projection_receipt.py` | tooling | +203/-0 |
-| `dev/scripts/devctl/context_graph/render.py` | tooling | +14/-0 |
-| _66 more files trimmed_ | | |
+| `dev/scripts/devctl/commands/pipeline/head_movement.py` | tooling | +103/-0 |
+| `dev/scripts/devctl/commands/pipeline/recover_action.py` | tooling | +14/-2 |
+| `dev/scripts/devctl/commands/pipeline/refresh_authorization_action.py` | tooling | +14/-2 |
+| `dev/scripts/devctl/commands/pipeline/status_action.py` | tooling | +21/-5 |
+| `dev/scripts/devctl/commands/pipeline/support.py` | tooling | +13/-10 |
+| `dev/scripts/devctl/commands/vcs/commit_preflight.py` | tooling | +18/-8 |
+| `dev/scripts/devctl/commands/vcs/commit_preflight_approval_packets.py` | tooling | +124/-0 |
+| `dev/scripts/devctl/commands/vcs/commit_preflight_validators.py` | tooling | +46/-113 |
+| _78 more files trimmed_ | | |
 
 ## 4. Quality signals
 
@@ -264,6 +264,11 @@ Recent findings:
 
 ### Targeted hints
 
+- **authority_surface**: Typed authority surface touched (`dev/active/remote_commit_pipeline.md`) — Review contract-level invariants for this file
+- **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/commands/vcs/governed_executor_commit_runtime.py`) — Review contract-level invariants for this file
+- **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/commands/vcs/governed_executor_commit_targets.py`) — Review contract-level invariants for this file
+- **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/commands/vcs/governed_executor_packets.py`) — Review contract-level invariants for this file
+- **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/tests/vcs/test_governed_executor.py`) — Review contract-level invariants for this file
 - **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/runtime/review_snapshot_refresh.py`) — Review contract-level invariants for this file
 - **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/runtime/project_governance_push.py`) — Review contract-level invariants for this file
 - **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/runtime/project_governance_push_counts.py`) — Review contract-level invariants for this file
@@ -274,10 +279,11 @@ Recent findings:
 - **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/commands/governance/startup_context.py`) — Review contract-level invariants for this file
 - **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/commands/vcs/governed_executor_phases.py`) — Review contract-level invariants for this file
 - **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/commands/vcs/governed_executor_stage_snapshot.py`) — Review contract-level invariants for this file
+- **contract_mutation**: Contract / typed model mutated (`dev/scripts/devctl/review_channel/packet_contract.py`) — Commit 4ba95539 changed dev/scripts/devctl/review_channel/packet_contract.py
+- **contract_mutation**: Contract / typed model mutated (`dev/scripts/devctl/runtime/pipeline_auto_recovery_contracts.py`) — Commit 4ba95539 changed dev/scripts/devctl/runtime/pipeline_auto_recovery_contracts.py
+- **contract_mutation**: Contract / typed model mutated (`dev/scripts/devctl/tests/runtime/test_pipeline_auto_recovery_contracts.py`) — Commit 4ba95539 changed dev/scripts/devctl/tests/runtime/test_pipeline_auto_recovery_contracts.py
 - **contract_mutation**: Contract / typed model mutated (`dev/scripts/devctl/governance/push_state_models.py`) — Commit 0ec1b679 changed dev/scripts/devctl/governance/push_state_models.py
 - **contract_mutation**: Contract / typed model mutated (`dev/scripts/devctl/platform/surface_state_contract_rows.py`) — Commit 0ec1b679 changed dev/scripts/devctl/platform/surface_state_contract_rows.py
-- **contract_mutation**: Contract / typed model mutated (`dev/scripts/devctl/runtime/pipeline_auto_recovery_contracts.py`) — Commit d340497e changed dev/scripts/devctl/runtime/pipeline_auto_recovery_contracts.py
-- **contract_mutation**: Contract / typed model mutated (`dev/scripts/devctl/tests/runtime/test_pipeline_auto_recovery_contracts.py`) — Commit d340497e changed dev/scripts/devctl/tests/runtime/test_pipeline_auto_recovery_contracts.py
 - **contract_mutation**: Contract / typed model mutated (`dev/scripts/devctl/runtime/worktree_orphan_contracts.py`) — Commit 5d439f50 changed dev/scripts/devctl/runtime/worktree_orphan_contracts.py
 - **contract_mutation**: Contract / typed model mutated (`dev/scripts/devctl/tests/runtime/test_worktree_orphan_contracts.py`) — Commit 5d439f50 changed dev/scripts/devctl/tests/runtime/test_worktree_orphan_contracts.py
 - **contract_mutation**: Contract / typed model mutated (`dev/scripts/devctl/platform/worktree_orphan_contract_rows.py`) — Commit dc82fbf1 changed dev/scripts/devctl/platform/worktree_orphan_contract_rows.py
@@ -294,6 +300,8 @@ Recent findings:
 
 ### Per-commit rationale
 
+- **`4ba95539`** — Route remote-control staging handoffs
+  - evolution: Fact: the first ADR-008 slice made `bridge.md` drift visible as managed projection state, but a green push could still end with raw `git status` showing the tracked compatibility projection dirty. That left the operator…
 - **`cf61d131`** — Refresh external review snapshot for ddafb608
   - evolution: Fact: the first ADR-008 slice made `bridge.md` drift visible as managed projection state, but a green push could still end with raw `git status` showing the tracked compatibility projection dirty. That left the operator…
 - **`ddafb608`** — Refresh external review snapshot for 415674d0
@@ -340,8 +348,6 @@ Recent findings:
   - evolution: Fact: after `AuthoritySnapshot` and `CoordinationSnapshot` started carrying producer provenance, the remaining read-side surfaces could still diverge for the same proof tick. `ControlPlaneReadModel` and `SessionCachePac…
 - **`b6aa8c9f`** — Refresh external review snapshot for ccb68067
   - evolution: Fact: after `AuthoritySnapshot` and `CoordinationSnapshot` started carrying producer provenance, the remaining read-side surfaces could still diverge for the same proof tick. `ControlPlaneReadModel` and `SessionCachePac…
-- **`ccb68067`** — Refine worktree orphan reconciliation parsers
-  - evolution: Fact: after `AuthoritySnapshot` and `CoordinationSnapshot` started carrying producer provenance, the remaining read-side surfaces could still diverge for the same proof tick. `ControlPlaneReadModel` and `SessionCachePac…
 ### Active MP scope (from MASTER_PLAN.md)
 
 - contract slice for MP-355 plus the temporary markdown-swarm operating mode
@@ -360,11 +366,10 @@ Recent findings:
 - open governance findings: 112
 
 ### Startup advisories
-- checkpoint_before_continue: staged_index_budget_exceeded
+- checkpoint_before_continue: dirty_after_local_checkpoint
 
 ### Stale warnings
-- Keep editing the current slice.
-- Move straight to the governed push path.
+- Relaunch the reviewer loop immediately.
 
 ### Open gap rows
 - **governance_open** (`dev/scripts/devctl/runtime/dogfood_log.py`): dogfood_finding_id_instability: 
@@ -378,4 +383,4 @@ Recent findings:
 
 ---
 
-Projection produced by `devctl review-snapshot`. Generation stamp `snap-d1228c63b409` binds this file to HEAD `cf61d1311caf`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
+Projection produced by `devctl review-snapshot`. Generation stamp `snap-262478f0c6c4` binds this file to HEAD `4ba95539c603`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
