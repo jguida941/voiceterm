@@ -566,6 +566,8 @@ class ReviewChannelPlanPacketTests(unittest.TestCase):
                     "inbox",
                     "--target",
                     "claude",
+                    "--actor",
+                    "claude",
                     "--status",
                     "pending",
                     "--terminal",

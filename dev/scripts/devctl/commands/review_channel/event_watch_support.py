@@ -63,6 +63,7 @@ def load_target_packets(
         limit=context.args.limit,
     )
     if _mark_targeted_action_request_observation(
+        args=context.args,
         target=effective_target,
         artifact_paths=context.artifact_paths,
         packets=packets,
@@ -128,6 +129,7 @@ def _target_attention_revision(packet_inbox: object, *, target: str | None) -> s
 
 def _mark_targeted_action_request_observation(
     *,
+    args: object,
     target: str | None,
     artifact_paths,
     packets: list[dict[str, object]],
@@ -139,10 +141,23 @@ def _mark_targeted_action_request_observation(
     target = str(target or "").strip()
     if not target:
         return False
+    observer = _action_request_observer(args=args, target=target)
+    if not observer:
+        return False
     if status_filter not in {None, "", "pending"}:
         return False
     return mark_action_request_packets_observed(
         artifact_root=Path(artifact_paths.artifact_root),
         packets=packets,
-        observer=target,
+        observer=observer,
     )
+
+
+def _action_request_observer(*, args: object, target: str) -> str:
+    """Return the agent allowed to stamp delivery for this targeted read."""
+    actor = str(getattr(args, "actor", "") or "").strip()
+    if not actor:
+        return ""
+    if actor.lower() != target.lower():
+        return ""
+    return actor

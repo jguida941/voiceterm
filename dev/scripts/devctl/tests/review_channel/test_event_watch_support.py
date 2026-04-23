@@ -84,6 +84,77 @@ def test_load_target_packets_accepts_context_argument(monkeypatch) -> None:
     assert bundle.review_state["packets"][0]["packet_id"] == "pkt-context"
 
 
+def test_load_target_packets_does_not_mark_observed_without_matching_actor(
+    monkeypatch,
+) -> None:
+    calls: list[dict[str, object]] = []
+    monkeypatch.setattr(
+        "dev.scripts.devctl.commands.review_channel.event_watch_support.filter_inbox_packets",
+        lambda review_state, *, target, status, limit: list(review_state["packets"]),
+    )
+    monkeypatch.setattr(
+        "dev.scripts.devctl.commands.review_channel.event_watch_support.mark_action_request_packets_observed",
+        lambda **kwargs: calls.append(kwargs) or True,
+    )
+
+    bundle, packets = load_target_packets(
+        context=EventWatchContext(
+            args=SimpleNamespace(target="claude", status="pending", limit=20),
+            bundle=_bundle("pkt-readonly"),
+            repo_root=Path("/tmp/repo"),
+            review_channel_path=Path("/tmp/repo/dev/active/review_channel.md"),
+            artifact_paths=SimpleNamespace(
+                artifact_root="/tmp/repo/dev/reports/review_channel"
+            ),
+        ),
+        status_filter="pending",
+    )
+
+    assert packets[0]["packet_id"] == "pkt-readonly"
+    assert bundle.review_state["packets"][0]["packet_id"] == "pkt-readonly"
+    assert calls == []
+
+
+def test_load_target_packets_marks_observed_for_matching_actor(monkeypatch) -> None:
+    calls: list[dict[str, object]] = []
+    initial = _bundle("pkt-initial")
+    refreshed = _bundle("pkt-refreshed")
+    monkeypatch.setattr(
+        "dev.scripts.devctl.commands.review_channel.event_watch_support.filter_inbox_packets",
+        lambda review_state, *, target, status, limit: list(review_state["packets"]),
+    )
+    monkeypatch.setattr(
+        "dev.scripts.devctl.commands.review_channel.event_watch_support.mark_action_request_packets_observed",
+        lambda **kwargs: calls.append(kwargs) or True,
+    )
+    monkeypatch.setattr(
+        "dev.scripts.devctl.commands.review_channel.event_watch_support.refresh_event_bundle",
+        lambda **_kwargs: refreshed,
+    )
+
+    bundle, packets = load_target_packets(
+        context=EventWatchContext(
+            args=SimpleNamespace(
+                target="claude",
+                actor="claude",
+                status="pending",
+                limit=20,
+            ),
+            bundle=initial,
+            repo_root=Path("/tmp/repo"),
+            review_channel_path=Path("/tmp/repo/dev/active/review_channel.md"),
+            artifact_paths=SimpleNamespace(
+                artifact_root="/tmp/repo/dev/reports/review_channel"
+            ),
+        ),
+        status_filter="pending",
+    )
+
+    assert packets[0]["packet_id"] == "pkt-refreshed"
+    assert bundle is refreshed
+    assert calls[0]["observer"] == "claude"
+
+
 def test_watch_snapshot_signature_prefers_target_attention_revision() -> None:
     signature = watch_snapshot_signature(
         packets=[{"packet_id": "pkt-1"}],

@@ -455,8 +455,9 @@ Portability note:
   `--target-ref remote_commit_pipeline:<pipeline_id>` plus
   `--pipeline-generation`, `--staged-snapshot-hash`, and
   `--guard-results-summary`. Targeted `review-channel --action inbox|watch`
-  polls now also stamp `delivery_observed_at_utc` / `delivery_observed_by`
-  for live `action_request` packets, while `ack|apply` stamp
+  polls now stamp `delivery_observed_at_utc` / `delivery_observed_by` only
+  when `--actor` matches the target agent for live `action_request` packets,
+  while `ack|apply` stamp
   `execution_started_at_utc` / `execution_started_by`; those receipt fields
   flow back into typed packet rows so dashboard/status/mobile surfaces can
   prove a remote lane actually saw and started the request instead of only
@@ -581,14 +582,16 @@ Portability note:
   --terminal none --format json` or
   `review-channel --action watch --target codex --status pending --follow
   --terminal none --format json`) remains useful for observer dashboards,
-  queue inspection, and explicit cross-lane packet visibility. Packet
+  queue inspection, and explicit cross-lane packet visibility; add
+  `--actor <same-agent>` only when the live lane itself is polling and should
+  stamp the delivery receipt. Packet
   visibility is not implicit across providers: if Claude or an operator needs
   to observe Codex-targeted packets, they must use the codex-targeted
   `inbox|watch` surface instead of assuming those packets will appear in the
-  Claude lane automatically. The watcher still marks observed
+  Claude lane automatically. Actor-matched watchers still mark observed
   `action_request` packets in the typed receipt path so remote-dashboard beta
   loops can prove packet delivery without bridge prose or queue-only
-  heuristics. Prepared
+  heuristics, while observer/dashboard reads stay read-only. Prepared
   conductor-launch authority follows the same typed-source rule after launch:
   remote-control receipt-commit HEAD drift must be classified from typed
   governance/review-state evidence rather than a lone
@@ -1854,8 +1857,8 @@ Machine-first output note:
   ownership or mutation guidance. Implementer bootstrap now
   treats `Pending Inbox` / typed packet `required_command` as the next bounded
   step too, so remote-control Claude sessions poll
-  `review-channel --action inbox --target claude --status pending --format md`
-  before asking whether to continue a permitted probe.
+  `review-channel --action inbox --target claude --actor claude --status
+  pending --format md` before asking whether to continue a permitted probe.
 - The same operator-facing lane now has a packet-native read surface too:
   `review-channel --action operator-inbox --terminal none --format json`
   returns the typed operator queue directly, defaults to the live pending

@@ -116,11 +116,11 @@ Use docs like this:
   `--guard-results-summary`. Prose-only runtime requests remain packet
   history, not executable bridge authority.
 - The same event-backed packet path now carries typed delivery/execution
-  receipts. `post` seeds `delivery_emitted_at_utc`, targeted `inbox` / `watch`
-  polls stamp `delivery_observed_at_utc` / `delivery_observed_by`, and `ack` /
-  `apply` stamp `execution_started_at_utc` / `execution_started_by`; when you
-  verify remote-control or dashboard behavior, use those fields instead of
-  guessing from packet counts alone.
+  receipts. `post` seeds `delivery_emitted_at_utc`, actor-matched `inbox` /
+  `watch` polls stamp `delivery_observed_at_utc` / `delivery_observed_by`, and
+  `ack` / `apply` stamp `execution_started_at_utc` /
+  `execution_started_by`; when you verify remote-control or dashboard behavior,
+  use those fields instead of guessing from packet counts alone.
 - Headless `review-channel --action launch` (and `--action recover`) now
   auto-elevate `--approval-mode` to `trusted` when typed
   `interaction_mode == "remote_control"` and the operator did not pass an
@@ -681,9 +681,9 @@ Three quality layers matter in practice:
     repair `review-channel --action status`/implementer state before review.
     Implementer bootstrap is packet-first as well: if `Pending Inbox` / typed
     packet state already names a Claude-targeted packet or required command,
-    run `review-channel --action inbox --target claude --status pending
-    --format md` before asking the operator whether to continue a permitted
-    probe.
+    run `review-channel --action inbox --target claude --actor claude --status
+    pending --format md` before asking the operator whether to continue a
+    permitted probe.
   - The review-candidate / recovery / collaboration-model seams are now split
     into helper modules (`candidate_parse.py`, `candidate_paths.py`,
     `recovery_decision.py`, `recovery_evidence.py`,

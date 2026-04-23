@@ -63,6 +63,24 @@ Evidence:
 - `dev/scripts/devctl/tests/vcs/test_push.py`
 - `dev/scripts/devctl/tests/runtime/test_push_authorization.py`
 
+### 2026-04-23 - Action-request delivery receipts now require actor-matched reads
+
+Fact: remote-control dogfooding found that a Codex-side observer command such
+as `review-channel --action watch --target claude` could stamp a Claude
+`action_request` as delivered. That made dashboard state claim Claude had seen
+a push request even when Codex only inspected the Claude lane.
+
+Change: event-backed `inbox|watch` delivery stamping now requires `--actor` to
+match the target agent before it writes `delivery_observed_at_utc` /
+`delivery_observed_by`. Observer/dashboard reads remain read-only unless they
+are explicitly running as the live lane actor, while `ack|apply` still stamps
+execution start through the existing packet transition path.
+
+Evidence:
+- `dev/scripts/devctl/commands/review_channel/event_watch_support.py`
+- `dev/scripts/devctl/tests/review_channel/test_event_watch_support.py`
+- `dev/scripts/devctl/tests/review_channel/test_plan_packets.py`
+
 ### 2026-04-23 - Pipeline status now distinguishes managed receipt HEAD movement
 
 Fact: ADR-008 dogfooding exposed a second operator-confusing split after the
@@ -1200,8 +1218,9 @@ implementer `session-resume` bootstrap surface now also states the same
 inbox-first rule the richer conductor prompt already carried: if `Pending
 Inbox` / typed packet state names a Claude-targeted packet or required inbox
 command, run `review-channel --action inbox --target claude --status pending
---format md` immediately and do not ask the operator whether to continue a
-permitted probe or pull a pending packet.
+--format md` immediately; current live-lane receipt stamping also passes
+`--actor claude`. Do not ask the operator whether to continue a permitted probe
+or pull a pending packet.
 
 Focused proof is green on the launch topology/script regressions, the
 review-channel prompt regression, the new session-resume bootstrap regression,

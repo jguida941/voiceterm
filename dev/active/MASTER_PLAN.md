@@ -741,7 +741,7 @@
   compatibility projection instead of the source of truth.
 - 2026-04-11 action-request delivery follow-up in `MP-380..MP-387` scope:
   event-backed `action_request` packets now carry typed delivery receipts too:
-  post seeds `delivery_emitted_at_utc`, targeted `inbox|watch` polls stamp
+  post seeds `delivery_emitted_at_utc`, actor-matched `inbox|watch` polls stamp
   `delivery_observed_at_utc` / `delivery_observed_by`, and `ack|apply` stamp
   `execution_started_at_utc` / `execution_started_by`. The same receipt fields
   now project through typed packet rows into `review-channel status`, inbox,

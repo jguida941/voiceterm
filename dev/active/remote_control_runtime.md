@@ -726,8 +726,9 @@ remote/runtime order explicit:
   remote-dashboard beta loop. Event-backed `action_request` packets now keep a
   repo-owned typed delivery receipt: post seeds
   `delivery_emitted_at_utc`, targeted `review-channel --action inbox|watch`
-  polls stamp `delivery_observed_at_utc` / `delivery_observed_by`, and
-  `ack|apply` stamp `execution_started_at_utc` / `execution_started_by`.
+  polls stamp `delivery_observed_at_utc` / `delivery_observed_by` only when
+  `--actor` matches the target agent, and `ack|apply` stamp
+  `execution_started_at_utc` / `execution_started_by`.
   Those fields now flow back into typed packet rows and dashboard pending
   packet JSON, so remote modes can prove they actually saw or started a
   request before the operator treats a pending queue row as ignored.

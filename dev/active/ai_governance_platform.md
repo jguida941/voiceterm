@@ -5675,8 +5675,9 @@ working on `MP-377`.
   packet lane, fixes `target=operator`, defaults to `status=pending`, and
   intentionally refuses to stamp `delivery_observed_*` receipts on live
   `action_request` packets. That keeps operator/dashboard/phone reads on the
-  same packet spine without mutating delivery state that belongs to the live
-  actor watchers. Focused proof is green on the new operator-inbox regression
+  same packet spine without mutating delivery state that belongs to actor-
+  matched live lane watchers. Focused proof is green on the new
+  operator-inbox regression
   test plus `check_code_shape.py`, and the next follow-up remains broader
   dogfood integration: record this operator-facing read surface in the
   dev-mode dogfood ledger and decide whether the later top-level
@@ -5918,8 +5919,9 @@ working on `MP-377`.
   `test_action_request_priority_skips_expensive_context_packet_build` plus the
   existing plan-packet action-request regressions, and live proof is green on
   `python3 dev/scripts/devctl.py review-channel --action inbox --target claude
-  --terminal none --format json --execution-mode markdown-bridge --limit 1`,
-  which now completes in about 2.2s on the current repo state. Claude also
+  --actor claude --terminal none --format json --execution-mode
+  markdown-bridge --limit 1`, which now completes in about 2.2s on the current
+  repo state. Claude also
   acked the clean observer request `rev_pkt_0547`; the malformed duplicate
   `rev_pkt_0546` and timing probe `rev_pkt_0548` were explicitly dismissed so
   packet backlog stayed clean.
@@ -8236,8 +8238,8 @@ Execution order for this section:
   while keeping the actionable summary plus control metadata intact. Added the
   focused regression in `test_context_injection.py` and kept the existing
   plan-packet action-request tests green. Live proof is green too:
-  `review-channel --action inbox --target claude --terminal none --format json
-  --execution-mode markdown-bridge --limit 1` now returns in about 2.242s on
+  `review-channel --action inbox --target claude --actor claude --terminal none
+  --format json --execution-mode markdown-bridge --limit 1` now returns in about 2.242s on
   the current repo state, and Claude acked the clean observer request
   `rev_pkt_0547` while the malformed duplicate `rev_pkt_0546` and timing probe
   `rev_pkt_0548` were dismissed to keep the queue clear.
