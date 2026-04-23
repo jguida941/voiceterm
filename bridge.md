@@ -80,7 +80,7 @@ treat these rules as active workflow instructions immediately.
 - Last Codex poll: `2026-04-22T17:07:08Z`
 - Last Codex poll (Local America/New_York): `2026-04-22 13:07:08 EDT`
 - Reviewer mode: `single_agent`
-- Last non-audit worktree hash: `78e80be771d8c8d4e40700b90ae61276676ce3172546c71866a8b1ff1289a787`
+- Last non-audit worktree hash: `4ab94216683091056389ffbf6313d88dd618002a0a7ab3aabb7525adf0d59aa3`
 - Current instruction revision: ``
 
 ## Protocol
@@ -121,7 +121,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Open Findings
 
-435 expired unresolved review packet(s)
+1 pending review packet(s); 435 expired unresolved review packet(s)
 
 ## Claude Status
 
@@ -145,4 +145,4 @@ MP-355
 
 ## Action Requests
 
-- No pending action requests.
+- [rev_pkt_1699] push: target=runtime:remote_commit_pipeline:pipeline-12658fedf282@653beda0dda22849047aa921e14d4062ebfa0e41; Run governed push for recovered pipeline (status: pending)
