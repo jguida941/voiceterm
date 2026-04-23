@@ -7826,6 +7826,17 @@ Execution order for this section:
   `check_python_typed_seams.py`, and `check_code_shape.py`, and the next live
   move is back on the governed checkpoint path instead of another manual
   pipeline detour.
+- 2026-04-22: Closed the next stale-pipeline automation gap exposed by
+  `rev_pkt_1650` and repeated follow-up commits. The explicit recovery actions
+  (`abandon`, `recover`, `refresh-authorization`) remain the authoritative
+  mutating primitives, but `devctl pipeline --action auto-recover` now adds a
+  typed classifier in front of them. It classifies current pipeline state as
+  already clean, needs recover, needs refresh, needs abandon, or ambiguous;
+  dispatches only the safe existing sub-action; and writes
+  `PipelineAutoRecoveryReceipt` with the classification, chosen action,
+  previous/new state, and sub-receipt path. Ambiguous states bail without
+  mutating the pipeline artifact. Focused proof is green on
+  `test_pipeline_command.py` and `test_pipeline_auto_recovery_contracts.py`.
 - 2026-04-17: Closed the checkpoint-vs-relaunch deadlock that remained after
   the current-session authority repair. Detached `active_dual_agent`
   runtime-only evidence was still outranking stronger checkpoint truth, so the

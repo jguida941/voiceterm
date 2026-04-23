@@ -108,6 +108,13 @@
   companion `probe-report --repo-path --adoption-scan` and
   `check --profile quick --repo-path --adoption-scan` runs surfaced only
   adopter/startup evidence, not an orphan-scanner engine blocker.
+- 2026-04-22 stale-pipeline recovery automation (also under MP-377):
+  `devctl pipeline --action auto-recover` now classifies the current
+  remote commit/push pipeline into no-op, recover, refresh-authorization,
+  abandon, or fail-closed ambiguous, dispatches the existing explicit
+  recovery action when safe, and writes `PipelineAutoRecoveryReceipt`.
+  This closes the ADR-007 manual abandon/recover/refresh selection loop while
+  preserving the existing audit receipts for the sub-action it invoked.
 - `dev/active/review_probes.md` is the review-probe execution spec; implementation tasks stay in this file under `MP-368..MP-375`.
 - `dev/active/portable_code_governance.md` is the narrower engine/adoption
   companion under `MP-376`, not a second main product plan; implementation

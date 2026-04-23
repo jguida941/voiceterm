@@ -1861,6 +1861,13 @@ Machine-first output note:
   The typed status view now carries the exact `next_command` an operator or
   agent should run next, and commit/push consumers are expected to reuse that
   field instead of inventing a second prose-only recovery plan.
+- `pipeline --action auto-recover`: typed stale-pipeline classifier and
+  dispatcher for the remote commit/push pipeline. It reads the current
+  pipeline artifact, decides between `recover`, `refresh-authorization`,
+  `abandon`, no-op, or fail-closed `ambiguous`, invokes the existing sub-action
+  when safe, and writes a `PipelineAutoRecoveryReceipt` alongside the
+  sub-action receipt so follow-up commits no longer require manual
+  abandon-vs-recover-vs-refresh selection.
 - `agent-mind --since-cursor`: cursor-based cross-agent polling over rollout
   traces. When a cursor is supplied, the command must parse enough rollout
   history for the cursor filter to see every unseen decision event instead of

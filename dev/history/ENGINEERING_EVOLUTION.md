@@ -11837,3 +11837,32 @@ Evidence:
 - `dev/active/portable_code_governance.md`
 - `dev/active/ai_governance_platform.md`
 - `dev/audits/AI_GOVERNANCE_PLATFORM_PROOF_LEDGER.md`
+
+### 2026-04-22 — Pipeline auto-recover removes stale-pipeline manual selection
+
+The ADR-007 dogfood loop showed that stale governed commit pipelines still made
+the operator or Codex manually choose between `abandon`, `recover`, and
+`refresh-authorization` before the next follow-up commit could proceed. That
+manual selection was repeatable process debt even though the three explicit
+recovery primitives were already typed and auditable.
+
+`devctl pipeline --action auto-recover` now puts a typed classifier in front of
+those existing primitives. It reads the current pipeline artifact and HEAD,
+classifies the state as already clean, needs recover, needs refresh
+authorization, needs abandon, or ambiguous, and dispatches only the safe
+sub-action. Ambiguous states bail without mutating the artifact. Every run
+writes a `PipelineAutoRecoveryReceipt` that records the classification, chosen
+action, prior/new state, operator actor, and sub-receipt path.
+
+The same slice removed two stale code-shape path overrides for 7-line
+compatibility shims, so the default code-shape guard can stay honest without a
+waiver.
+
+Evidence:
+
+- `dev/scripts/devctl/commands/pipeline/auto_recover_action.py`
+- `dev/scripts/devctl/commands/pipeline/auto_recover_result.py`
+- `dev/scripts/devctl/runtime/pipeline_auto_recovery_contracts.py`
+- `dev/scripts/devctl/tests/commands/test_pipeline_command.py`
+- `dev/scripts/devctl/tests/runtime/test_pipeline_auto_recovery_contracts.py`
+- `dev/scripts/checks/code_shape/code_shape_policy.py`

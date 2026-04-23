@@ -762,6 +762,10 @@ Three quality layers matter in practice:
     same-HEAD and only the authorization window expired, the block path should
     refresh that authorization in place before it tells the operator the next
     command is `devctl push --execute`.
+    `devctl pipeline --action auto-recover` is the typed automation wrapper for
+    the same recovery lane: it classifies stale pipeline state, dispatches the
+    safe explicit sub-action, and records a `PipelineAutoRecoveryReceipt`
+    instead of making the operator choose abandon/recover/refresh manually.
   - `startup-context` is the typed startup packet for those same sessions.
     It should read reviewer/publish gating from typed
     `reviewer_runtime.review_acceptance.review_accepted` and

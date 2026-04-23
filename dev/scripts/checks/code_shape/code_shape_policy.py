@@ -187,18 +187,6 @@ PATH_POLICY_OVERRIDES: dict[str, ShapePolicy] = {
         oversize_growth_limit=35,
         hard_lock_growth_limit=0,
     ),
-    "dev/scripts/checks/code_shape_function_exceptions.py": ShapePolicy(
-        soft_limit=450,
-        hard_limit=525,
-        oversize_growth_limit=25,
-        hard_lock_growth_limit=0,
-    ),
-    "dev/scripts/checks/code_shape_policy.py": ShapePolicy(
-        soft_limit=875,
-        hard_limit=950,
-        oversize_growth_limit=80,
-        hard_lock_growth_limit=0,
-    ),
     "dev/scripts/checks/naming_consistency_core.py": ShapePolicy(
         soft_limit=370,
         hard_limit=500,

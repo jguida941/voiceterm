@@ -12,6 +12,7 @@ from __future__ import annotations
 import sys
 
 from .abandon_action import run_abandon
+from .auto_recover_action import run_auto_recover
 from .recover_action import run_recover
 from .refresh_authorization_action import run_refresh_authorization
 from .status_action import run_status
@@ -22,6 +23,7 @@ _ACTION_HANDLERS = {
     "recover": run_recover,
     "abandon": run_abandon,
     "refresh-authorization": run_refresh_authorization,
+    "auto-recover": run_auto_recover,
 }
 
 

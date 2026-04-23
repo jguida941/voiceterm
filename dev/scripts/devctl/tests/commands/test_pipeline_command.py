@@ -18,6 +18,12 @@ from unittest.mock import patch
 
 from dev.scripts.devctl.cli import COMMAND_HANDLERS, build_parser
 from dev.scripts.devctl.commands.pipeline.abandon_action import run_abandon
+from dev.scripts.devctl.commands.pipeline.auto_recover_action import (
+    AUTO_RECOVERY_RECEIPT_FILENAME,
+    apply_auto_recover,
+    classify_pipeline,
+    run_auto_recover,
+)
 from dev.scripts.devctl.commands.pipeline.command import run as pipeline_run
 from dev.scripts.devctl.commands.pipeline.recover_action import run_recover
 from dev.scripts.devctl.commands.pipeline.refresh_authorization_action import (
@@ -38,6 +44,13 @@ from dev.scripts.devctl.commands.pipeline.support import (
 )
 from dev.scripts.devctl.runtime.pipeline_recovery_receipt import (
     PipelineRecoveryReceipt,
+)
+from dev.scripts.devctl.runtime.pipeline_auto_recovery_contracts import (
+    CLASSIFICATION_ALREADY_CLEAN,
+    CLASSIFICATION_AMBIGUOUS,
+    CLASSIFICATION_NEEDS_ABANDON,
+    CLASSIFICATION_NEEDS_RECOVER,
+    CLASSIFICATION_NEEDS_REFRESH_AUTHORIZATION,
 )
 
 
@@ -455,6 +468,148 @@ class PipelineRefreshAuthorizationTests(unittest.TestCase):
             fixture.close()
 
 
+class PipelineAutoRecoverTests(unittest.TestCase):
+    def test_classify_missing_pipeline_as_already_clean(self) -> None:
+        classification = classify_pipeline({}, current_head="deadbeef")
+
+        self.assertEqual(
+            classification.classification,
+            CLASSIFICATION_ALREADY_CLEAN,
+        )
+        self.assertEqual(classification.reason, "no_pipeline_artifact")
+
+    def test_auto_recover_rebinds_moved_commit_recorded_pipeline(self) -> None:
+        moved_head = "cafebabe00000000000000000000000000000000"
+        fixture = _PipelineFixture(fake_head=moved_head)
+        try:
+            fixture.write_payload(_sample_pipeline_payload())
+            with patch(
+                "dev.scripts.devctl.commands.pipeline.recover_action.refresh_pipeline_projections",
+                return_value=[],
+            ) as mock_refresh:
+                result = apply_auto_recover(
+                    paths=fixture.paths(),
+                    operator_actor="codex",
+                )
+
+            self.assertTrue(result["ok"])
+            self.assertEqual(result["chosen_action"], "recover")
+            self.assertEqual(
+                result["classification"]["classification"],
+                CLASSIFICATION_NEEDS_RECOVER,
+            )
+            mock_refresh.assert_called_once()
+            updated = fixture.read_payload()
+            self.assertEqual(
+                updated["push_authorization"]["authorized_head_sha"],
+                moved_head,
+            )
+            receipt_path = fixture.receipts_root / AUTO_RECOVERY_RECEIPT_FILENAME
+            receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
+            self.assertEqual(
+                receipt["contract_id"],
+                "PipelineAutoRecoveryReceipt",
+            )
+            self.assertEqual(receipt["chosen_action"], "recover")
+        finally:
+            fixture.close()
+
+    def test_auto_recover_refreshes_expired_same_head_pipeline(self) -> None:
+        fixture = _PipelineFixture(
+            fake_head="deadbeef00000000000000000000000000000000",
+        )
+        try:
+            expired = "2000-01-01T00:00:00.000000Z"
+            fixture.write_payload(
+                _sample_pipeline_payload(expires_at_utc=expired)
+            )
+            with patch(
+                "dev.scripts.devctl.commands.pipeline.refresh_authorization_action.refresh_pipeline_projections",
+                return_value=[],
+            ) as mock_refresh:
+                result = apply_auto_recover(
+                    paths=fixture.paths(),
+                    operator_actor="codex",
+                )
+
+            self.assertTrue(result["ok"])
+            self.assertEqual(result["chosen_action"], "refresh-authorization")
+            self.assertEqual(
+                result["classification"]["classification"],
+                CLASSIFICATION_NEEDS_REFRESH_AUTHORIZATION,
+            )
+            mock_refresh.assert_called_once()
+            updated = fixture.read_payload()
+            self.assertNotEqual(
+                updated["push_authorization"]["expires_at_utc"],
+                expired,
+            )
+        finally:
+            fixture.close()
+
+    def test_auto_recover_abandons_push_blocked_same_head_pipeline(self) -> None:
+        fixture = _PipelineFixture(
+            fake_head="deadbeef00000000000000000000000000000000",
+        )
+        try:
+            fixture.write_payload(_sample_pipeline_payload(state="push_blocked"))
+            with patch(
+                "dev.scripts.devctl.commands.pipeline.abandon_action.refresh_pipeline_projections",
+                return_value=[],
+            ) as mock_refresh:
+                result = apply_auto_recover(
+                    paths=fixture.paths(),
+                    operator_actor="codex",
+                )
+
+            self.assertTrue(result["ok"])
+            self.assertEqual(result["chosen_action"], "abandon")
+            self.assertEqual(
+                result["classification"]["classification"],
+                CLASSIFICATION_NEEDS_ABANDON,
+            )
+            mock_refresh.assert_called_once()
+            updated = fixture.read_payload()
+            self.assertEqual(updated["state"], "abandoned")
+        finally:
+            fixture.close()
+
+    def test_auto_recover_bails_on_ambiguous_live_state(self) -> None:
+        fixture = _PipelineFixture(
+            fake_head="deadbeef00000000000000000000000000000000",
+        )
+        try:
+            fixture.write_payload(_sample_pipeline_payload(state="staged"))
+            result = apply_auto_recover(
+                paths=fixture.paths(),
+                operator_actor="codex",
+            )
+
+            self.assertFalse(result["ok"])
+            self.assertEqual(result["chosen_action"], "bailed")
+            self.assertEqual(
+                result["classification"]["classification"],
+                CLASSIFICATION_AMBIGUOUS,
+            )
+            updated = fixture.read_payload()
+            self.assertEqual(updated["state"], "staged")
+        finally:
+            fixture.close()
+
+    def test_run_auto_recover_prints_json_result(self) -> None:
+        fixture = _PipelineFixture(
+            fake_head="deadbeef00000000000000000000000000000000",
+        )
+        try:
+            args = fixture.namespace(action="auto-recover")
+            rc = run_auto_recover(args)
+            self.assertEqual(rc, 0)
+            receipt_path = fixture.receipts_root / AUTO_RECOVERY_RECEIPT_FILENAME
+            self.assertTrue(receipt_path.exists())
+        finally:
+            fixture.close()
+
+
 class PipelineCLIIntegrationTests(unittest.TestCase):
     def test_pipeline_command_registered_in_handlers(self) -> None:
         self.assertIn("pipeline", COMMAND_HANDLERS)
@@ -464,6 +619,12 @@ class PipelineCLIIntegrationTests(unittest.TestCase):
         args = parser.parse_args(["pipeline", "--action", "status"])
         self.assertEqual(args.command, "pipeline")
         self.assertEqual(args.action, "status")
+
+    def test_pipeline_parser_accepts_auto_recover(self) -> None:
+        parser = build_parser()
+        args = parser.parse_args(["pipeline", "--action", "auto-recover"])
+        self.assertEqual(args.command, "pipeline")
+        self.assertEqual(args.action, "auto-recover")
 
     def test_pipeline_parser_rejects_unknown_action(self) -> None:
         parser = build_parser()

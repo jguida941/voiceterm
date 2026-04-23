@@ -17,6 +17,7 @@ SUPPORTED_ACTIONS: tuple[str, ...] = (
     "recover",
     "abandon",
     "refresh-authorization",
+    "auto-recover",
 )
 
 
@@ -35,8 +36,11 @@ def add_pipeline_parser(sub: argparse._SubParsersAction) -> None:
         required=True,
         choices=list(SUPPORTED_ACTIONS),
         help=(
-            "Recovery action. `status` is read-only; the other three "
-            "mutate the pipeline artifact and write a typed receipt."
+            "Recovery action. `status` is read-only; `auto-recover` "
+            "classifies the pipeline and dispatches the correct "
+            "sub-action; the three explicit sub-actions (recover, "
+            "abandon, refresh-authorization) mutate the pipeline "
+            "artifact and write a typed receipt."
         ),
     )
     cmd.add_argument(
