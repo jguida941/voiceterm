@@ -15,6 +15,11 @@ from ...review_channel.remote_control_attachment_artifact import (
 )
 from .commit_guard_replay import sync_pipeline_approval_state
 from .commit_pipeline_blocking import build_active_pipeline_block_report
+from .commit_preflight_approval_packets import (
+    apply_local_approval,
+    ensure_approval_request,
+    record_operator_approval,
+)
 from .commit_preflight_support import (
     APPROVE_PENDING_COMMAND,
     CommitApprovalAuthority,
@@ -26,9 +31,6 @@ from .commit_preflight_support import (
 )
 from .commit_preflight_validators import (
     CommitPreflightDeps,
-    _apply_local_approval,
-    _ensure_approval_request,
-    _record_operator_approval,
     load_pipeline_for_explicit_approval as _load_pipeline_for_explicit_approval,
     prepare_pipeline as _prepare_pipeline,
 )
@@ -135,14 +137,18 @@ def ensure_pipeline_approval(
         return pipeline, None
     request_packet_id = ""
     if should_auto_approve(approval_authority):
-        _apply_local_approval(
+        apply_local_approval(
             vcs_executor,
             pipeline,
             approval_actor=approval_authority.approval_actor,
             authority_reason=approval_authority.authority_reason,
         )
     else:
-        request_packet_id = _ensure_approval_request(vcs_executor, pipeline)
+        request_packet_id = ensure_approval_request(
+            vcs_executor,
+            pipeline,
+            to_agent=approval_authority.approval_actor,
+        )
     pipeline = sync_pipeline_approval_state(
         vcs_executor,
         vcs_executor.load_pipeline(),
@@ -182,7 +188,7 @@ def apply_explicit_operator_approval(
     if pipeline.approval_state == "approved":
         vcs_executor._persist_pipeline(pipeline)
         return pipeline, None
-    _record_operator_approval(
+    record_operator_approval(
         vcs_executor,
         pipeline,
         summary=(
@@ -193,6 +199,7 @@ def apply_explicit_operator_approval(
             "The remote-control operator explicitly approved the current "
             "guarded staged snapshot for governed commit execution."
         ),
+        approval_actor=approval_authority.approval_actor,
     )
     pipeline = sync_pipeline_approval(
         vcs_executor.load_pipeline(),

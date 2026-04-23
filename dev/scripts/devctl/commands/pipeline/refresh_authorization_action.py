@@ -17,12 +17,15 @@ from pathlib import Path
 from typing import Any
 
 from ...runtime.pipeline_recovery_receipt import build_receipt
+from .head_movement import (
+    head_has_moved,
+    managed_receipt_parent_for_current_head,
+)
 from .support import (
     PipelinePaths,
     REFRESHABLE_STATES,
     REFRESH_RECEIPT_FILENAME,
     authorization_of,
-    head_has_moved,
     load_pipeline_payload,
     make_refreshed_authorization,
     pipeline_id_of,
@@ -114,7 +117,16 @@ def _apply_refresh(
             pipeline_id=pipeline_id,
             recommended_next_action="none",
         )
-    if head_has_moved(payload, current_head=current_head):
+    receipt_parent = managed_receipt_parent_for_current_head(
+        payload,
+        current_head=current_head,
+        repo_root=paths.repo_root,
+    )
+    if head_has_moved(
+        payload,
+        current_head=current_head,
+        receipt_parent_sha=receipt_parent,
+    ):
         return _refused(
             paths,
             "head_moved_since_authorization",

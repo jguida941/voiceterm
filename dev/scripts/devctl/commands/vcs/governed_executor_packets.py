@@ -95,6 +95,52 @@ def build_commit_execution_request(
     )
 
 
+def build_commit_stage_request(
+    *,
+    to_agent: str,
+    head_sha: str,
+    commit_message_draft: str,
+    stage_reason: str,
+    stage_warnings: Sequence[str] = (),
+    expires_in_minutes: int = 30,
+) -> PacketPostRequest:
+    """Build a typed handoff when sandbox policy blocks pipeline staging."""
+    target_revision = str(head_sha or "").strip()
+    warning_summary = "\n".join(
+        f"- {warning}" for warning in stage_warnings if str(warning).strip()
+    )
+    body = (
+        "The current lane could not create `.git/index.lock` while preparing "
+        "the governed commit pipeline. Run the same governed commit from the "
+        "remote-control lane with repo-approved filesystem access, then let "
+        "the pipeline emit the normal guard, approval, commit, and push "
+        "receipts."
+    )
+    if commit_message_draft:
+        body += f"\n\nCommit message draft: `{commit_message_draft}`"
+    if stage_reason:
+        body += f"\n\nStage block reason: `{stage_reason}`"
+    if warning_summary:
+        body += f"\n\nWarnings:\n{warning_summary}"
+    return PacketPostRequest(
+        from_agent="system",
+        to_agent=to_agent,
+        kind="action_request",
+        summary="Run governed commit staging from remote-control lane",
+        body=body,
+        requested_action="stage_commit_pipeline",
+        policy_hint="safe_auto_apply",
+        approval_required=False,
+        trace_id=f"devctl_commit:{target_revision}",
+        expires_in_minutes=expires_in_minutes,
+        target=PacketTargetFields.from_values(
+            target_kind="runtime",
+            target_ref=commit_stage_target_ref(head_sha),
+            target_revision=target_revision,
+        ),
+    )
+
+
 def build_commit_approval_decision(
     pipeline: RemoteCommitPipelineContract,
     *,
@@ -224,6 +270,11 @@ def approval_decision_packet(
 def pipeline_target_ref(pipeline: RemoteCommitPipelineContract) -> str:
     """Return the runtime packet target ref for one governed pipeline."""
     return f"remote_commit_pipeline:{pipeline.pipeline_id}"
+
+
+def commit_stage_target_ref(head_sha: str) -> str:
+    """Return the runtime packet target ref for pre-pipeline commit staging."""
+    return f"devctl_commit:{str(head_sha or '').strip()}"
 
 
 def guard_results_summary(result: ActionResult | None) -> str:

@@ -7864,6 +7864,24 @@ Execution order for this section:
   previous/new state, and sub-receipt path. Ambiguous states bail without
   mutating the pipeline artifact. Focused proof is green on
   `test_pipeline_command.py` and `test_pipeline_auto_recovery_contracts.py`.
+- 2026-04-23: Closed the receipt-head clarity gap exposed by ADR-008
+  dogfood. A completed push can legitimately advance HEAD from the governed
+  pipeline commit to a trailing bridge/ReviewSnapshot receipt commit; pipeline
+  status and auto-recovery now classify that as
+  `head_movement_classification=managed_receipt`, keep
+  `head_has_moved=false`, and leave `recommended_next_action=none` for the
+  terminal pipeline. The same reducer is reused by `recover` and
+  `refresh-authorization` so manual recovery commands do not mistake governed
+  receipt publication for source drift.
+- 2026-04-23: Closed the remote-control pre-pipeline staging adapter dogfood
+  gap. After `attach-remote-control` made startup resolve
+  `interaction_mode=remote_control`, a no-escalation `devctl commit` hit
+  `.git/index.lock` before it could mint a fresh pipeline. The governed
+  preflight now emits `action_request` packets with
+  `requested_action=stage_commit_pipeline` to the active remote-control
+  attachment provider, binds the request to `devctl_commit:<head_sha>`, and
+  includes the commit-message draft so Claude can resume the same checkpoint
+  through the typed lane.
 - 2026-04-17: Closed the checkpoint-vs-relaunch deadlock that remained after
   the current-session authority repair. Detached `active_dual_agent`
   runtime-only evidence was still outranking stronger checkpoint truth, so the

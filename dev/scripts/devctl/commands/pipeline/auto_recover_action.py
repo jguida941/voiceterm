@@ -35,6 +35,10 @@ from .auto_recover_result import (
     finalize_sub_action,
     render_markdown,
 )
+from .head_movement import (
+    head_movement_context,
+    managed_receipt_parent_for_current_head,
+)
 from .recover_action import _apply_recover
 from .refresh_authorization_action import _apply_refresh
 from .support import (
@@ -44,7 +48,6 @@ from .support import (
     TERMINAL_STATES,
     authorization_is_expired,
     authorization_of,
-    head_has_moved,
     load_pipeline_payload,
     pipeline_id_of,
     pipeline_state_of,
@@ -95,6 +98,7 @@ def classify_pipeline(
     payload: dict[str, Any],
     *,
     current_head: str,
+    receipt_parent_sha: str = "",
     now: datetime | None = None,
 ) -> PipelineAutoRecoveryClassification:
     """Pure classifier — no IO, no side effects, safe to unit test.
@@ -114,7 +118,16 @@ def classify_pipeline(
         )
 
     state = pipeline_state_of(payload)
-    moved = head_has_moved(payload, current_head=current_head)
+    movement = head_movement_context(
+        payload,
+        current_head=current_head,
+        receipt_parent_sha=receipt_parent_sha,
+    )
+    moved = movement.head_has_moved
+    movement_fields = {
+        "head_movement_classification": movement.classification,
+        "managed_receipt_parent_sha": movement.managed_receipt_parent_sha,
+    }
     expired = authorization_is_expired(payload, now=reference_now)
 
     if state in TERMINAL_STATES:
@@ -124,6 +137,7 @@ def classify_pipeline(
             pipeline_state=state,
             head_has_moved=moved,
             authorization_expired=expired,
+            **movement_fields,
         )
 
     # HEAD moved off the authorized sha — rebind if we can, otherwise
@@ -136,6 +150,7 @@ def classify_pipeline(
                 pipeline_state=state,
                 head_has_moved=True,
                 authorization_expired=expired,
+                **movement_fields,
             )
         return PipelineAutoRecoveryClassification(
             classification=CLASSIFICATION_NEEDS_ABANDON,
@@ -143,6 +158,7 @@ def classify_pipeline(
             pipeline_state=state,
             head_has_moved=True,
             authorization_expired=expired,
+            **movement_fields,
         )
 
     # Any ``push_blocked`` pipeline with no HEAD drift is a wedge —
@@ -155,6 +171,7 @@ def classify_pipeline(
             pipeline_state=state,
             head_has_moved=False,
             authorization_expired=expired,
+            **movement_fields,
         )
 
     # HEAD still matches, not push_blocked. If the window has just
@@ -168,6 +185,7 @@ def classify_pipeline(
                 pipeline_state=state,
                 head_has_moved=False,
                 authorization_expired=True,
+                **movement_fields,
             )
         return PipelineAutoRecoveryClassification(
             classification=CLASSIFICATION_AMBIGUOUS,
@@ -177,6 +195,7 @@ def classify_pipeline(
             pipeline_state=state,
             head_has_moved=False,
             authorization_expired=True,
+            **movement_fields,
         )
 
     # Healthy, live, in-flight pipeline — no recovery needed.
@@ -187,6 +206,7 @@ def classify_pipeline(
             pipeline_state=state,
             head_has_moved=False,
             authorization_expired=False,
+            **movement_fields,
         )
 
     # Nothing above fired — refuse to guess. The operator still has
@@ -197,6 +217,7 @@ def classify_pipeline(
         pipeline_state=state,
         head_has_moved=moved,
         authorization_expired=expired,
+        **movement_fields,
     )
 
 
@@ -216,9 +237,15 @@ def apply_auto_recover(
     """
     payload = load_pipeline_payload(paths)
     current_head = resolve_current_head(repo_root=paths.repo_root)
+    receipt_parent = managed_receipt_parent_for_current_head(
+        payload,
+        current_head=current_head,
+        repo_root=paths.repo_root,
+    )
     classification = classify_pipeline(
         payload,
         current_head=current_head,
+        receipt_parent_sha=receipt_parent,
         now=now,
     )
     pipeline_id = pipeline_id_of(payload)

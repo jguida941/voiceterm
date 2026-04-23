@@ -30,6 +30,7 @@ from ...runtime.pipeline_recovery_receipt import (
     PipelineRecoveryReceipt,
     utc_now_iso,
 )
+from .head_movement import head_has_moved
 
 PIPELINE_FILENAME = "commit_pipeline.json"
 ABANDONED_RECEIPT_FILENAME = "pipeline_abandoned_receipt.json"
@@ -262,18 +263,11 @@ def authorization_is_expired(
     return expires_at < reference
 
 
-def head_has_moved(payload: dict[str, Any], *, current_head: str) -> bool:
-    """Return ``True`` when ``current_head`` differs from the authorized head."""
-    if not current_head:
-        return False
-    authorized = authorized_head_sha_of(payload)
-    return bool(authorized) and current_head != authorized
-
-
 def recommended_next_action(
     payload: dict[str, Any],
     *,
     current_head: str,
+    receipt_parent_sha: str = "",
     now: datetime | None = None,
 ) -> str:
     """Return the single recommended recovery action string for status output."""
@@ -282,7 +276,11 @@ def recommended_next_action(
         return "none"
     if state in TERMINAL_STATES:
         return "none"
-    if head_has_moved(payload, current_head=current_head):
+    if head_has_moved(
+        payload,
+        current_head=current_head,
+        receipt_parent_sha=receipt_parent_sha,
+    ):
         return "recover"
     if authorization_is_expired(payload, now=now):
         return "refresh-authorization"
@@ -295,13 +293,18 @@ def recommended_next_command(
     payload: dict[str, Any],
     *,
     current_head: str,
+    receipt_parent_sha: str = "",
     now: datetime | None = None,
 ) -> str:
     """Return the exact devctl command an operator/agent should run next."""
     state = pipeline_state_of(payload)
     if not payload or state in TERMINAL_STATES:
         return ""
-    if head_has_moved(payload, current_head=current_head):
+    if head_has_moved(
+        payload,
+        current_head=current_head,
+        receipt_parent_sha=receipt_parent_sha,
+    ):
         return _PIPELINE_RECOVER_COMMAND
     if authorization_is_expired(payload, now=now):
         if state == "push_blocked":

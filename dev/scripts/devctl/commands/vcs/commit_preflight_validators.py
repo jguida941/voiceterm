@@ -5,8 +5,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-from ...review_channel.events import post_packet, resolve_artifact_paths, transition_packet
-from ...review_channel.packet_contract import PacketTransitionRequest
 from .commit_guard_bundle import GUARD_PROFILE
 from .commit_preflight_atomicity import preflight_import_index_atomicity
 from .commit_pipeline_blocking import build_active_pipeline_block_report
@@ -18,17 +16,14 @@ from .commit_visibility import commit_visibility_payload
 from .governed_executor import GovernedVcsExecutor
 from .orphan_snapshot_advisory import append_orphan_snapshot_advisory
 from .governed_executor_actions import (
-    APPROVAL_PACKET_KIND,
     _build_report,
     build_stage_action,
 )
-from .governed_executor_commit_runtime import post_commit_execution_handoff
-from .governed_executor_git import pipeline_is_stale_for_current_repo
-from .governed_executor_packets import (
-    build_commit_approval_decision,
-    build_commit_approval_request,
+from .governed_executor_commit_runtime import (
+    post_commit_execution_handoff,
+    post_commit_stage_handoff,
 )
-from .governed_executor_sync import sync_pipeline_approval
+from .governed_executor_git import pipeline_is_stale_for_current_repo
 
 _REUSABLE_PIPELINE_STATES = frozenset(
     {
@@ -56,6 +51,7 @@ class CommitPreflightDeps:
     pipeline_is_stale_for_current_repo_fn: object = pipeline_is_stale_for_current_repo
     build_active_pipeline_block_report_fn: object = build_active_pipeline_block_report
     post_commit_execution_handoff_fn: object = post_commit_execution_handoff
+    post_commit_stage_handoff_fn: object = post_commit_stage_handoff
 
 
 def prepare_pipeline(
@@ -117,8 +113,36 @@ def prepare_pipeline(
             handoff_packet_id = ""
             handoff_target = ""
             handoff_error = ""
+            if stage_result.reason == "git_index_write_blocked":
+                commit_message = str(getattr(args, "message", "") or "")
+                handoff_target, handoff_packet_id, handoff_error = (
+                    resolved_deps.post_commit_stage_handoff_fn(
+                        repo_root=repo_root,
+                        review_channel_path=vcs_executor.review_channel_path,
+                        commit_message_draft=commit_message,
+                        stage_reason=stage_result.reason,
+                        stage_warnings=report_warnings,
+                    )
+                )
+                if handoff_packet_id and handoff_target:
+                    operator_guidance = (
+                        "The current execution sandbox cannot create `.git/index.lock`. "
+                        f"Posted typed `action_request` packet `{handoff_packet_id}` "
+                        f"to `{handoff_target}` so the remote-control lane can run "
+                        "the same governed commit staging with repo-approved "
+                        "filesystem access."
+                    )
+                    report_warnings.append(
+                        f"commit_stage_request_packet={handoff_packet_id}"
+                    )
+                    report_warnings.append(
+                        f"commit_stage_request_target={handoff_target}"
+                    )
+                elif handoff_error:
+                    report_warnings.append(handoff_error)
             if (
-                stage_result.reason == "git_index_write_blocked"
+                not handoff_packet_id
+                and stage_result.reason == "git_index_write_blocked"
                 and not stale_pipeline
                 and pipeline.pipeline_id
                 and str(getattr(pipeline, "approval_state", "") or "").strip()
@@ -225,101 +249,3 @@ def load_pipeline_for_explicit_approval(
             ),
         )
     return pipeline, None
-
-
-def _ensure_approval_request(
-    executor: GovernedVcsExecutor,
-    pipeline,
-) -> str:
-    """Post the typed approval request once per governed pipeline."""
-    synced = sync_pipeline_approval(
-        pipeline,
-        executor._event_packets(),
-        approval_packet_kind=APPROVAL_PACKET_KIND,
-    )
-    if synced.approval_packet_id or synced.approval_state == "approved":
-        executor._persist_pipeline(synced)
-        return synced.approval_packet_id
-    artifact_paths = resolve_artifact_paths(repo_root=executor.repo_root)
-    _, event = post_packet(
-        repo_root=executor.repo_root,
-        review_channel_path=executor.review_channel_path,
-        artifact_paths=artifact_paths,
-        request=build_commit_approval_request(pipeline),
-    )
-    return str(event.get("packet_id") or "").strip()
-
-
-def _apply_local_approval(
-    executor: GovernedVcsExecutor,
-    pipeline,
-    *,
-    approval_actor: str = "operator",
-    authority_reason: str = "",
-) -> None:
-    """Record request + applied approval for trusted local or delegated modes."""
-    summary = f"Local terminal approval for `{pipeline.pipeline_id}`"
-    body = (
-        "The local terminal operator approved the guarded staged "
-        "snapshot for governed commit execution."
-    )
-    if authority_reason == "remote_control_operator_delegate":
-        summary = f"Remote-control delegated approval for `{pipeline.pipeline_id}`"
-        actor_label = str(approval_actor or "operator").strip()
-        body = (
-            "The active remote-control operator delegate "
-            f"`{actor_label}` approved the guarded staged snapshot for "
-            "governed commit execution."
-        )
-    _record_operator_approval(
-        executor,
-        pipeline,
-        summary=summary,
-        body=body,
-    )
-
-
-def _record_operator_approval(
-    executor: GovernedVcsExecutor,
-    pipeline,
-    *,
-    summary: str,
-    body: str,
-) -> None:
-    """Post and apply one typed operator approval for the current pipeline."""
-    artifact_paths = resolve_artifact_paths(repo_root=executor.repo_root)
-    request_packet_id = _ensure_approval_request(executor, pipeline)
-    if request_packet_id:
-        try:
-            transition_packet(
-                repo_root=executor.repo_root,
-                review_channel_path=executor.review_channel_path,
-                artifact_paths=artifact_paths,
-                request=PacketTransitionRequest(
-                    action="apply",
-                    packet_id=request_packet_id,
-                    actor="operator",
-                ),
-            )
-        except ValueError:
-            pass
-    _, decision_event = post_packet(
-        repo_root=executor.repo_root,
-        review_channel_path=executor.review_channel_path,
-        artifact_paths=artifact_paths,
-        request=build_commit_approval_decision(
-            pipeline,
-            summary=summary,
-            body=body,
-        ),
-    )
-    transition_packet(
-        repo_root=executor.repo_root,
-        review_channel_path=executor.review_channel_path,
-        artifact_paths=artifact_paths,
-        request=PacketTransitionRequest(
-            action="apply",
-            packet_id=str(decision_event.get("packet_id") or ""),
-            actor="operator",
-        ),
-    )

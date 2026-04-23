@@ -770,7 +770,11 @@ Three quality layers matter in practice:
     directly instead of regenerating prose. If the active publish pipeline is
     same-HEAD and only the authorization window expired, the block path should
     refresh that authorization in place before it tells the operator the next
-    command is `devctl push --execute`.
+    command is `devctl push --execute`. If HEAD advanced only because a
+    governed bridge/ReviewSnapshot receipt commit sits above the authorized
+    pipeline commit, pipeline status must report
+    `head_movement_classification=managed_receipt` with
+    `head_has_moved=false`.
     `devctl pipeline --action auto-recover` is the typed automation wrapper for
     the same recovery lane: it classifies stale pipeline state, dispatches the
     safe explicit sub-action, and records a `PipelineAutoRecoveryReceipt`

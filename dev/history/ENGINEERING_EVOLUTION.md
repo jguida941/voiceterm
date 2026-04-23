@@ -63,6 +63,32 @@ Evidence:
 - `dev/scripts/devctl/tests/vcs/test_push.py`
 - `dev/scripts/devctl/tests/runtime/test_push_authorization.py`
 
+### 2026-04-23 - Pipeline status now distinguishes managed receipt HEAD movement
+
+Fact: ADR-008 dogfooding exposed a second operator-confusing split after the
+push receipt landed. The completed pipeline was healthy and recommended no
+action, but `pipeline --action status` still reported `head_has_moved=True`
+because current HEAD was the managed projection receipt commit above the
+authorized pipeline commit.
+
+Change: pipeline status now reduces HEAD movement through the same governed
+receipt shape used by push authorization. When current HEAD is a receipt commit
+touching only governed review artifacts and its parent is the pipeline
+`commit_sha` / `authorized_head_sha`, status and auto-recover project
+`head_movement_classification=managed_receipt`,
+`managed_receipt_parent_sha=<pipeline-commit>`, and
+`head_has_moved=False`. The recover and refresh-authorization actions reuse
+that reducer so manual recovery paths do not rebind or refuse against a
+generated receipt as if it were source drift.
+
+Evidence:
+- `dev/scripts/devctl/commands/pipeline/head_movement.py`
+- `dev/scripts/devctl/commands/pipeline/status_action.py`
+- `dev/scripts/devctl/commands/pipeline/auto_recover_action.py`
+- `dev/scripts/devctl/runtime/pipeline_auto_recovery_contracts.py`
+- `dev/scripts/devctl/tests/commands/test_pipeline_command.py`
+- `dev/scripts/devctl/tests/runtime/test_pipeline_auto_recovery_contracts.py`
+
 ### 2026-04-23 - Managed bridge projection drift is now typed separately from source dirt
 
 Fact: ADR-008 dogfooding showed a confusing but intended split: raw
@@ -11946,3 +11972,32 @@ Evidence:
 - `dev/scripts/devctl/tests/commands/test_pipeline_command.py`
 - `dev/scripts/devctl/tests/runtime/test_pipeline_auto_recovery_contracts.py`
 - `dev/scripts/checks/code_shape/code_shape_policy.py`
+
+### 2026-04-23 — Remote-control commit staging now hands sandbox prompts to Claude
+
+The live remote-control dogfood loop exposed the next missing execution
+adapter: after registering a Claude `remote_control_attachment`, `devctl
+commit` correctly resolved `interaction_mode=remote_control`, but a sandbox
+`.git/index.lock` denial before fresh pipeline creation still rendered local
+terminal retry guidance. That left phone/Claude operators dependent on a
+local approval prompt outside the typed packet lane.
+
+Governed commit preflight now converts that pre-pipeline
+`git_index_write_blocked` case into a typed `action_request` packet with
+`requested_action=stage_commit_pipeline`, target
+`devctl_commit:<head_sha>`, and the current commit-message draft. The stage
+handoff resolver prefers an active remote-control attachment provider for
+this prompt class, while the later already-approved pipeline execution
+handoff still uses the writable-lane resolver. Delegated remote-control
+approval receipts now also preserve the provider identity in the
+`commit_approval` request/decision packets instead of collapsing the visible
+receipt back to `operator`.
+
+Evidence:
+
+- `dev/scripts/devctl/review_channel/packet_contract.py`
+- `dev/scripts/devctl/commands/vcs/governed_executor_packets.py`
+- `dev/scripts/devctl/commands/vcs/governed_executor_commit_runtime.py`
+- `dev/scripts/devctl/commands/vcs/commit_preflight_validators.py`
+- `dev/scripts/devctl/tests/vcs/test_governed_executor.py`
+- `dev/scripts/devctl/tests/vcs/test_commit_gate.py`

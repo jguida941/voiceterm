@@ -93,8 +93,14 @@ other non-auto-approved lanes without that typed operator delegate,
 invocation cross the commit boundary. The same governed push path now also
 carries the preflight-resolved branch diff base into diff-sensitive post-push
 commands, so follow-up checks stay scoped to the just-published delta instead
-of resetting to
-`origin/develop` after publication. Commit
+of resetting to `origin/develop` after publication. If the current execution
+sandbox cannot create
+`.git/index.lock` before a fresh commit pipeline exists, `devctl commit`
+posts a typed `action_request` with `requested_action=stage_commit_pipeline`
+to the active remote-control attachment provider and binds it to
+`devctl_commit:<head_sha>` instead of asking the local operator to click
+through a hidden prompt.
+Commit
 authority is separate from implementation evidence now too: before staging or
 running guards, `devctl commit` reads the typed `CommitPermissionDecision` and
 blocks when startup authority reports `implementation_permission=blocked` or
@@ -432,6 +438,10 @@ Portability note:
   proves `role=operator`, the initial governed `devctl commit` may satisfy the
   approval step without stopping. The lower-level
   `review-channel --action post|apply` flow remains the raw escape hatch.
+  Sandbox staging handoff is packet-backed too: when a remote-control
+  checkpoint cannot mint the pipeline because `.git/index.lock` is denied,
+  the command emits `requested_action=stage_commit_pipeline` to the attached
+  remote-control provider with the commit message draft and current HEAD.
   When an active governed publish pipeline is already blocking a new commit,
   downstream commit surfaces should project the pipeline reducer's
   `next_command` directly instead of emitting free-form prose. Same-HEAD
@@ -733,7 +743,11 @@ Portability note:
   should therefore project `recommended_next_action=none` with
   `next_command=python3 dev/scripts/devctl.py push --execute`, while the
   superseded dirty-after-checkpoint path still overrides to `abandon` in the
-  governed commit block report.
+  governed commit block report. When current HEAD is a governed
+  bridge/ReviewSnapshot receipt commit whose parent is the pipeline
+  `commit_sha` / `authorized_head_sha`, status reports
+  `head_movement_classification=managed_receipt` and keeps
+  `head_has_moved=false` instead of recommending recovery.
   The same status refresh now stamps one shared
   `snapshot_id` across `review_state.json`, `compact.json`, `commit_pipeline`,
   compact/compat doctor projections, and `_compat.bridge_projection.metadata`
@@ -1878,7 +1892,9 @@ Machine-first output note:
   `abandon`, no-op, or fail-closed `ambiguous`, invokes the existing sub-action
   when safe, and writes a `PipelineAutoRecoveryReceipt` alongside the
   sub-action receipt so follow-up commits no longer require manual
-  abandon-vs-recover-vs-refresh selection.
+  abandon-vs-recover-vs-refresh selection. The classifier uses the same
+  receipt-aware HEAD movement reducer as status, so trailing governed
+  projection receipt commits are no-op evidence, not source drift.
 - `agent-mind --since-cursor`: cursor-based cross-agent polling over rollout
   traces. When a cursor is supplied, the command must parse enough rollout
   history for the cursor filter to see every unseen decision event instead of

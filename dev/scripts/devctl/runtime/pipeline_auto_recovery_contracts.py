@@ -86,6 +86,8 @@ class PipelineAutoRecoveryClassification:
     pipeline_state: str
     head_has_moved: bool
     authorization_expired: bool
+    head_movement_classification: str = ""
+    managed_receipt_parent_sha: str = ""
     schema_version: int = SCHEMA_VERSION
     contract_id: str = CLASSIFICATION_CONTRACT_ID
 
@@ -110,6 +112,8 @@ class PipelineAutoRecoveryClassification:
             ("pipeline_state", self.pipeline_state),
             ("head_has_moved", self.head_has_moved),
             ("authorization_expired", self.authorization_expired),
+            ("head_movement_classification", self.head_movement_classification),
+            ("managed_receipt_parent_sha", self.managed_receipt_parent_sha),
         ))
 
 

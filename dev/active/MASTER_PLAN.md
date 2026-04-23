@@ -115,6 +115,12 @@
   recovery action when safe, and writes `PipelineAutoRecoveryReceipt`.
   This closes the ADR-007 manual abandon/recover/refresh selection loop while
   preserving the existing audit receipts for the sub-action it invoked.
+- 2026-04-23 remote-control sandbox prompt routing (MP-377):
+  `devctl commit` now converts pre-pipeline `.git/index.lock` denial into a
+  typed `action_request` with `requested_action=stage_commit_pipeline` targeted
+  at the active remote-control attachment provider. The live proof emitted
+  `rev_pkt_1691` to Claude for the current checkpoint instead of requiring a
+  local approval prompt.
 - 2026-04-23 read-only advisory next-command projection (ADR-005 partial
   closure under MP-377): `advisory_next_action_role_filter.py` now provides
   the shared projection used by startup action routing, `AuthoritySnapshot`,
@@ -122,14 +128,21 @@
   `dashboard --role dashboard|observer`, so observer/dashboard surfaces
   render the read-only review-channel status command instead of mutating
   commit/push/pipeline commands. The dedicated probe remains follow-up scope.
-- 2026-04-23 managed bridge projection drift classification (ADR-008 partial
-  closure under MP-377): push/checkpoint state now records excluded generated
+- 2026-04-23 managed bridge projection drift classification and receipt
+  cleanup (ADR-008 closure under MP-377): push/checkpoint state now records excluded generated
   projection dirt as `managed_projection_drift` plus
   `managed_projection_dirty_paths`, and startup-context, context-graph,
   dashboard/control-plane, and push-decision surfaces render that state
-  separately from authored source dirt. The remaining ADR-008 follow-up is the
-  post-push auto-receipt/repair policy for ending green pushes without tracked
-  projection drift.
+  separately from authored source dirt. `devctl push` now commits any
+  bridge/ReviewSnapshot-only projection drift as a governed receipt before
+  publication so green pushes end with a clean worktree.
+- 2026-04-23 pipeline receipt-head movement classification (ADR-008 follow-up
+  under MP-377): `pipeline --action status`, `auto-recover`,
+  `recover`, and `refresh-authorization` now treat governed receipt commits
+  whose parent is the authorized pipeline commit as
+  `head_movement_classification=managed_receipt` instead of actionable HEAD
+  drift. This keeps completed push pipelines truthful after the push-time
+  bridge/ReviewSnapshot receipt commit advances HEAD.
 - `dev/active/review_probes.md` is the review-probe execution spec; implementation tasks stay in this file under `MP-368..MP-375`.
 - `dev/active/portable_code_governance.md` is the narrower engine/adoption
   companion under `MP-376`, not a second main product plan; implementation

@@ -20,13 +20,16 @@ from pathlib import Path
 from typing import Any
 
 from ...runtime.pipeline_recovery_receipt import build_receipt
+from .head_movement import (
+    head_has_moved,
+    managed_receipt_parent_for_current_head,
+)
 from .support import (
     PipelinePaths,
     RECOVERABLE_STATES,
     RECOVER_RECEIPT_FILENAME,
     authorization_of,
     authorized_head_sha_of,
-    head_has_moved,
     load_pipeline_payload,
     make_refreshed_authorization,
     pipeline_id_of,
@@ -100,7 +103,16 @@ def _apply_recover(
             recommended="none",
             pipeline_id=pipeline_id_of(payload),
         )
-    if not head_has_moved(payload, current_head=current_head):
+    receipt_parent = managed_receipt_parent_for_current_head(
+        payload,
+        current_head=current_head,
+        repo_root=paths.repo_root,
+    )
+    if not head_has_moved(
+        payload,
+        current_head=current_head,
+        receipt_parent_sha=receipt_parent,
+    ):
         return _refused(
             paths,
             reason_refused="head_matches_authorized_head",

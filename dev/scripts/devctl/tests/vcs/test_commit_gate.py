@@ -1382,8 +1382,8 @@ class TestGovernedCommitPipeline(unittest.TestCase):
             self.assertEqual(rc, 0)
             self.assertEqual(pipeline.state, "commit_recorded")
             self.assertEqual(pipeline.approval_state, "approved")
-            self.assertEqual(packets[pipeline.approval_packet_id].to_agent, "operator")
-            self.assertEqual(packets[pipeline.decision_packet_id].from_agent, "operator")
+            self.assertEqual(packets[pipeline.approval_packet_id].to_agent, "claude")
+            self.assertEqual(packets[pipeline.decision_packet_id].from_agent, "claude")
             self.assertIn(
                 "remote-control operator delegate `claude`",
                 packets[pipeline.decision_packet_id].body,

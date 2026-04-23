@@ -19,6 +19,10 @@ from dev.scripts.devctl.commands.vcs.governed_executor_commit_runtime import (
     attention_revision_stale,
     post_commit_execution_handoff,
     resolve_commit_execution_target as _resolve_commit_execution_target,
+    resolve_commit_stage_target as _resolve_commit_stage_target,
+)
+from dev.scripts.devctl.commands.vcs.governed_executor_packets import (
+    build_commit_stage_request,
 )
 from dev.scripts.devctl.commands.vcs.governed_executor_phases import (
     _attention_revision_block,
@@ -43,6 +47,7 @@ from dev.scripts.devctl.review_channel.packet_contract import (
     PacketRuntimeApprovalFields,
     PacketTargetFields,
     PacketTransitionRequest,
+    validate_post_request,
 )
 from dev.scripts.devctl.runtime.action_contracts import (
     ACTION_RESULT_CONTRACT_ID,
@@ -85,6 +90,25 @@ def test_stage_action_persists_staged_snapshot_hash(tmp_path: Path) -> None:
     assert pipeline.intent.validation_plan.bundle_id == "bundle.tooling"
     assert pipeline.intent.validation_plan.staged_tree_hash == pipeline.intent.staged_tree_hash
     assert (repo_root / "dev/reports/review_channel/latest/commit_pipeline.json").exists()
+
+
+def test_commit_stage_request_allows_pre_pipeline_runtime_target() -> None:
+    request = build_commit_stage_request(
+        to_agent="claude",
+        head_sha="abc123",
+        commit_message_draft="feat: checkpoint",
+        stage_reason="git_index_write_blocked",
+        stage_warnings=("index.lock denied",),
+    )
+
+    validate_post_request(request)
+
+    assert request.kind == "action_request"
+    assert request.requested_action == "stage_commit_pipeline"
+    assert request.to_agent == "claude"
+    assert request.target.target_kind == "runtime"
+    assert request.target.target_ref == "devctl_commit:abc123"
+    assert request.target.target_revision == "abc123"
 
 
 def test_stage_replaces_cross_branch_active_pipeline(tmp_path: Path) -> None:
@@ -747,6 +771,102 @@ def test_commit_execution_target_fails_closed_when_provider_is_live_as_operator_
     )
 
     assert _resolve_commit_execution_target(review_state) == ""
+
+
+def test_commit_stage_target_routes_remote_operator_attachment() -> None:
+    review_state = SimpleNamespace(
+        collaboration=SimpleNamespace(
+            reviewer_mode="single_agent",
+            coding_agent="",
+            review_agent="",
+            role_assignments=(
+                SimpleNamespace(role_id="operator_agent", provider="claude", live=True),
+            ),
+            topology_mode="single_agent",
+            participants=(
+                SimpleNamespace(
+                    provider="claude",
+                    agent_id="claude",
+                    role="operator",
+                    live=True,
+                    capture_mode="remote-control",
+                ),
+            ),
+        ),
+        bridge=SimpleNamespace(
+            implementer_capability=SimpleNamespace(
+                provider="",
+                may_edit_repo=False,
+            ),
+            reviewer_capability=SimpleNamespace(
+                provider="",
+                may_edit_repo=False,
+            ),
+            effective_reviewer_mode="single_agent",
+            reviewer_mode="single_agent",
+        ),
+        reviewer_runtime=SimpleNamespace(
+            remote_control_attachment=SimpleNamespace(
+                provider="claude",
+                status="attached",
+            )
+        ),
+    )
+
+    assert _resolve_commit_execution_target(review_state) == ""
+    assert _resolve_commit_stage_target(review_state) == "claude"
+
+
+def test_commit_stage_target_prefers_remote_attachment_over_local_executor() -> None:
+    review_state = SimpleNamespace(
+        collaboration=SimpleNamespace(
+            reviewer_mode="single_agent",
+            coding_agent="codex",
+            review_agent="codex",
+            role_assignments=(
+                SimpleNamespace(role_id="review_agent", provider="codex", live=True),
+                SimpleNamespace(role_id="operator_agent", provider="claude", live=True),
+            ),
+            topology_mode="single_agent",
+            participants=(
+                SimpleNamespace(
+                    provider="codex",
+                    agent_id="codex",
+                    role="reviewer",
+                    live=True,
+                    capture_mode="terminal-script",
+                ),
+                SimpleNamespace(
+                    provider="claude",
+                    agent_id="claude",
+                    role="operator",
+                    live=True,
+                    capture_mode="remote-control",
+                ),
+            ),
+        ),
+        bridge=SimpleNamespace(
+            implementer_capability=SimpleNamespace(
+                provider="codex",
+                may_edit_repo=True,
+            ),
+            reviewer_capability=SimpleNamespace(
+                provider="codex",
+                may_edit_repo=True,
+            ),
+            effective_reviewer_mode="single_agent",
+            reviewer_mode="single_agent",
+        ),
+        reviewer_runtime=SimpleNamespace(
+            remote_control_attachment=SimpleNamespace(
+                provider="claude",
+                status="attached",
+            )
+        ),
+    )
+
+    assert _resolve_commit_execution_target(review_state) == "codex"
+    assert _resolve_commit_stage_target(review_state) == "claude"
 
 
 def test_post_commit_execution_handoff_fails_closed_without_live_writable_target(

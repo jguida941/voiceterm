@@ -12,12 +12,15 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from .head_movement import (
+    head_movement_context,
+    managed_receipt_parent_for_current_head,
+)
 from .support import (
     PipelinePaths,
     authorization_is_expired,
     authorized_head_sha_of,
     expires_at_of,
-    head_has_moved,
     load_pipeline_payload,
     parse_iso,
     pipeline_id_of,
@@ -43,6 +46,16 @@ def build_status_view(
     commit_sha = str(payload.get("commit_sha") or "")
     authorized_head = authorized_head_sha_of(payload)
     expires_at = expires_at_of(payload)
+    receipt_parent = managed_receipt_parent_for_current_head(
+        payload,
+        current_head=current_head,
+        repo_root=paths.repo_root,
+    )
+    head_movement = head_movement_context(
+        payload,
+        current_head=current_head,
+        receipt_parent_sha=receipt_parent,
+    )
     approved_at = _approved_at_of(payload)
     age_seconds = _compute_age_seconds(
         approved_at=approved_at,
@@ -64,18 +77,19 @@ def build_status_view(
             payload,
             now=reference_now,
         ),
-        "head_has_moved": head_has_moved(
-            payload,
-            current_head=current_head,
-        ),
+        "head_has_moved": head_movement.head_has_moved,
+        "head_movement_classification": head_movement.classification,
+        "managed_receipt_parent_sha": head_movement.managed_receipt_parent_sha,
         "recommended_next_action": recommended_next_action(
             payload,
             current_head=current_head,
+            receipt_parent_sha=receipt_parent,
             now=reference_now,
         ),
         "next_command": recommended_next_command(
             payload,
             current_head=current_head,
+            receipt_parent_sha=receipt_parent,
             now=reference_now,
         ),
     }
@@ -122,6 +136,8 @@ def render_status_markdown(view: dict[str, Any]) -> str:
         f"- age_seconds: `{view['age_seconds']}`",
         f"- authorization_expired: `{view['authorization_expired']}`",
         f"- head_has_moved: `{view['head_has_moved']}`",
+        f"- head_movement_classification: `{view['head_movement_classification']}`",
+        f"- managed_receipt_parent_sha: `{view['managed_receipt_parent_sha']}`",
         f"- recommended next action: `{view['recommended_next_action']}`",
         f"- next command: `{view['next_command']}`",
     ])

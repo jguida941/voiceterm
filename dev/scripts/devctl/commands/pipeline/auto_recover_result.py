@@ -151,6 +151,8 @@ def render_markdown(result: dict[str, Any]) -> str:
         f"- previous_state: `{result.get('previous_state','')}`",
         f"- new_state: `{result.get('new_state','')}`",
         f"- head_has_moved: `{classification.get('head_has_moved', False)}`",
+        f"- head_movement_classification: `{classification.get('head_movement_classification','')}`",
+        f"- managed_receipt_parent_sha: `{classification.get('managed_receipt_parent_sha','')}`",
         f"- authorization_expired: `{classification.get('authorization_expired', False)}`",
         f"- artifact: `{result.get('pipeline_artifact_path','')}`",
         f"- receipt: `{result.get('receipt_path','')}`",

@@ -130,6 +130,18 @@ class PipelineClassifierTests(unittest.TestCase):
         self.assertEqual(result.classification, CLASSIFICATION_ALREADY_CLEAN)
         self.assertTrue(result.reason.startswith("pipeline_state_terminal:"))
 
+    def test_terminal_managed_receipt_head_is_not_actionable_drift(self) -> None:
+        payload = _sample_payload(state="push_completed")
+        result = classify_pipeline(
+            payload,
+            current_head=_OTHER_HEAD,
+            receipt_parent_sha=_DEFAULT_HEAD,
+        )
+        self.assertEqual(result.classification, CLASSIFICATION_ALREADY_CLEAN)
+        self.assertFalse(result.head_has_moved)
+        self.assertEqual(result.head_movement_classification, "managed_receipt")
+        self.assertEqual(result.managed_receipt_parent_sha, _DEFAULT_HEAD)
+
     def test_head_drift_on_recoverable_maps_to_needs_recover(self) -> None:
         payload = _sample_payload(state="commit_recorded")
         result = classify_pipeline(payload, current_head=_OTHER_HEAD)
@@ -332,6 +344,7 @@ class PipelineAutoRecoveryContractTests(unittest.TestCase):
         self.assertIsInstance(classification, PipelineAutoRecoveryClassification)
         self.assertEqual(classification.to_dict()["contract_id"],
                          "PipelineAutoRecoveryClassification")
+        self.assertIn("head_movement_classification", classification.to_dict())
 
 
 if __name__ == "__main__":

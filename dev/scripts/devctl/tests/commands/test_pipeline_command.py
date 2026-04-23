@@ -30,6 +30,9 @@ from dev.scripts.devctl.commands.pipeline.refresh_authorization_action import (
     _apply_refresh as apply_refresh_authorization,
     run_refresh_authorization,
 )
+from dev.scripts.devctl.commands.pipeline.head_movement import (
+    HEAD_MOVEMENT_MANAGED_RECEIPT,
+)
 from dev.scripts.devctl.commands.pipeline.status_action import (
     build_status_view,
     run_status,
@@ -179,6 +182,34 @@ class PipelineStatusTests(unittest.TestCase):
                 view["next_command"],
                 "python3 dev/scripts/devctl.py pipeline --action recover --format json",
             )
+        finally:
+            fixture.close()
+
+    def test_status_treats_managed_receipt_head_as_not_moved(self) -> None:
+        authorized = "deadbeef00000000000000000000000000000000"
+        receipt_head = "feedface00000000000000000000000000000000"
+        fixture = _PipelineFixture(fake_head=receipt_head)
+        try:
+            fixture.write_payload(
+                _sample_pipeline_payload(
+                    state="push_completed",
+                    authorized_head_sha=authorized,
+                    commit_sha=authorized,
+                )
+            )
+            with patch(
+                "dev.scripts.devctl.commands.pipeline.head_movement.receipt_commit_parent_sha",
+                return_value=authorized,
+            ):
+                view = build_status_view(fixture.paths())
+            self.assertFalse(view["head_has_moved"])
+            self.assertEqual(
+                view["head_movement_classification"],
+                HEAD_MOVEMENT_MANAGED_RECEIPT,
+            )
+            self.assertEqual(view["managed_receipt_parent_sha"], authorized)
+            self.assertEqual(view["recommended_next_action"], "none")
+            self.assertEqual(view["next_command"], "")
         finally:
             fixture.close()
 

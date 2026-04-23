@@ -36,8 +36,15 @@ PLANNING_PACKET_KINDS = {
     "plan_ready_gate",
 }
 RUNTIME_TARGET_PACKET_KINDS = {COMMIT_APPROVAL_PACKET_KIND}
-RUNTIME_ACTION_REQUEST_ACTIONS = {"commit", "run_check", "push", "kill_process"}
+RUNTIME_ACTION_REQUEST_ACTIONS = {
+    "commit",
+    "kill_process",
+    "push",
+    "run_check",
+    "stage_commit_pipeline",
+}
 PIPELINE_ACTION_REQUEST_ACTIONS = {"commit", "push"}
+STAGE_PIPELINE_ACTION_REQUEST_ACTIONS = {"stage_commit_pipeline"}
 VALID_POLICY_HINTS = {
     "review_only",
     "stage_draft",
@@ -367,6 +374,19 @@ def _validate_action_request_target_fields(
         raise ValueError(
             "Plan mutation fields are not valid on runtime action_request packets."
         )
+
+    if action in STAGE_PIPELINE_ACTION_REQUEST_ACTIONS:
+        if not target.target_ref.startswith("devctl_commit:"):
+            raise ValueError(
+                "Stage-commit action_request packets must target "
+                "`devctl_commit:<head_sha>`."
+            )
+        if runtime_approval.has_values():
+            raise ValueError(
+                "Stage-commit action_request packets do not carry runtime "
+                "approval fields until a commit pipeline exists."
+            )
+        return
 
     if action in PIPELINE_ACTION_REQUEST_ACTIONS:
         if not target.target_ref.startswith("remote_commit_pipeline:"):

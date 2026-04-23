@@ -566,7 +566,9 @@ surface for remote sessions. It should project:
       remote approval packets or dashboard actions, with exact pipeline /
       staged-tree / head identity, so headless operators can approve through
       repo-owned state and agents never treat a missing local click as
-      permission to use raw git.
+      permission to use raw git. The pre-pipeline `.git/index.lock`
+      adapter is now closed for governed commit staging; provider-native
+      approval prompts for other git operations remain in this item.
 - [ ] Record the mutation backlog boundary for still-untyped git operations
       (`revert`, `rebase`, `reset`, `tag push`, `stash`, `worktree add`, and
       `submodule` flows) so they cannot silently sit outside typed action
@@ -599,6 +601,16 @@ surface for remote sessions. It should project:
 
 ## Progress Log
 
+- 2026-04-23: Closed the pre-pipeline half of the execution-sandbox adapter
+  for governed commit staging. When `devctl commit` is running in a
+  remote-control session and the current lane cannot create `.git/index.lock`
+  before a fresh `RemoteCommitPipelineContract` exists, the failure now posts
+  a typed `action_request` with `requested_action=stage_commit_pipeline`,
+  target `devctl_commit:<head_sha>`, and the commit-message draft to the
+  active remote-control attachment provider. The live dogfood path registered
+  Claude as the operator attachment, retried the checkpoint without tool-level
+  escalation, and emitted `rev_pkt_1691` to Claude instead of requiring a
+  local approval prompt.
 - 2026-04-12: Closed the first repo-owned execution-handoff path for the
   `.git/index.lock` sandbox dead end exposed by the live dogfood loop. When
   the governed commit phase now fails specifically with
