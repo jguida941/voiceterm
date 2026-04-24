@@ -11,7 +11,7 @@ treat these rules as active workflow instructions immediately.
    current loop. Do not create parallel control files for the same work.
 2. Codex is the reviewer. Codex is the coder.
 3. At conversation start, both agents must bootstrap repo authority before
-   acting. Codex uses `python3.11 dev/scripts/devctl.py startup-context --role reviewer --format summary` and Codex uses `python3.11 dev/scripts/devctl.py startup-context --role implementer --format summary` first.
+   acting. Codex uses `python3 dev/scripts/devctl.py startup-context --role reviewer --format summary` and Codex uses `python3 dev/scripts/devctl.py startup-context --role implementer --format summary` first.
    If Codex's receipt exits non-zero, checkpoint or repair the
    repo state before coding or relaunching conductor work.
    If Codex's receipt exits non-zero, read the summary fields
@@ -26,10 +26,10 @@ treat these rules as active workflow instructions immediately.
    repair or relaunch boundary.
    User summaries, stale chat continuity, or
    remembered prior state are not substitutes for this Step 0 receipt.
-   Then Codex uses `python3.11 dev/scripts/devctl.py session-resume --role reviewer --format bootstrap` and Codex uses
-   `python3.11 dev/scripts/devctl.py session-resume --role implementer --format bootstrap` as the canonical role bootstrap packet.
+   Then Codex uses `python3 dev/scripts/devctl.py session-resume --role reviewer --format bootstrap` and Codex uses
+   `python3 dev/scripts/devctl.py session-resume --role implementer --format bootstrap` as the canonical role bootstrap packet.
    Then run
-   `python3.11 dev/scripts/devctl.py context-graph --mode bootstrap --format md`.
+   `python3 dev/scripts/devctl.py context-graph --mode bootstrap --format md`.
    Keep chat bootstrap acknowledgements concise: blocker state plus next step,
    not a replay of the packet, unless the operator asks for the detail.
 4. Treat `AGENTS.md`, `dev/active/INDEX.md`, `dev/active/MASTER_PLAN.md`, and
@@ -51,7 +51,7 @@ treat these rules as active workflow instructions immediately.
    missing worker worktrees, absent fanout, or a promising fix are not
    permission to start local implementation. Use the repo-owned
    review/promote/wait paths unless the workflow explicitly switches to
-   takeover (`reviewer_mode=single_agent` or `python3.11 dev/scripts/devctl.py startup-context --role reviewer --reviewer-override --format summary`).
+   takeover (`reviewer_mode=single_agent` or `python3 dev/scripts/devctl.py startup-context --role reviewer --reviewer-override --format summary`).
 10. When `Reviewer mode` is `single_agent`, `tools_only`, `paused`, or
     `offline`, Codex must not assume a live Codex review loop.
 11. Only the Codex conductor may update the Codex-owned sections in this file.
