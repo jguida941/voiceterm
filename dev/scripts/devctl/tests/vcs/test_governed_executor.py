@@ -538,7 +538,22 @@ def test_commit_posts_runtime_action_request_when_git_index_write_is_blocked(
             reviewer_mode="active_dual_agent",
             coding_agent="claude",
             review_agent="codex",
-            role_assignments=(),
+            role_assignments=(
+                SimpleNamespace(
+                    role_id="coding_agent",
+                    provider="claude",
+                    agent_id="claude",
+                    live=True,
+                ),
+            ),
+            participants=(
+                SimpleNamespace(
+                    provider="claude",
+                    agent_id="claude",
+                    role="implementer",
+                    live=True,
+                ),
+            ),
         ),
         bridge=SimpleNamespace(
             implementer_capability=SimpleNamespace(
@@ -606,7 +621,22 @@ def test_commit_execution_target_falls_back_to_writable_reviewer_lane() -> None:
             reviewer_mode="single_agent",
             coding_agent="claude",
             review_agent="codex",
-            role_assignments=(),
+            role_assignments=(
+                SimpleNamespace(
+                    role_id="review_agent",
+                    provider="codex",
+                    agent_id="codex",
+                    live=True,
+                ),
+            ),
+            participants=(
+                SimpleNamespace(
+                    provider="codex",
+                    agent_id="codex",
+                    role="reviewer",
+                    live=True,
+                ),
+            ),
         ),
         bridge=SimpleNamespace(
             implementer_capability=SimpleNamespace(
@@ -632,7 +662,22 @@ def test_commit_execution_target_prefers_effective_mode_when_declared_mode_is_st
             reviewer_mode="active_dual_agent",
             coding_agent="claude",
             review_agent="codex",
-            role_assignments=(),
+            role_assignments=(
+                SimpleNamespace(
+                    role_id="review_agent",
+                    provider="codex",
+                    agent_id="codex",
+                    live=True,
+                ),
+            ),
+            participants=(
+                SimpleNamespace(
+                    provider="codex",
+                    agent_id="codex",
+                    role="reviewer",
+                    live=True,
+                ),
+            ),
         ),
         bridge=SimpleNamespace(
             implementer_capability=None,
@@ -643,6 +688,225 @@ def test_commit_execution_target_prefers_effective_mode_when_declared_mode_is_st
     )
 
     assert _resolve_commit_execution_target(review_state) == "codex"
+
+
+def test_commit_execution_target_role_flipped_codex_as_coder_claude_as_reviewer() -> None:
+    """Resolver must follow typed roles, not provider names.
+
+    Operator architectural rule: either AI can play either typed role.
+    The resolver reads `collaboration.coding_agent` /
+    `collaboration.review_agent` from typed state, so flipping the
+    pairing — codex as the implementer, claude as the reviewer — must
+    resolve to ``codex`` (the live writable implementer), not ``claude``
+    (the historic implementer name).
+    """
+    review_state = SimpleNamespace(
+        collaboration=SimpleNamespace(
+            reviewer_mode="active_dual_agent",
+            coding_agent="codex",
+            review_agent="claude",
+            role_assignments=(
+                SimpleNamespace(
+                    role_id="coding_agent",
+                    provider="codex",
+                    agent_id="codex",
+                    live=True,
+                ),
+                SimpleNamespace(
+                    role_id="review_agent",
+                    provider="claude",
+                    agent_id="claude",
+                    live=True,
+                ),
+            ),
+            participants=(
+                SimpleNamespace(
+                    provider="codex",
+                    agent_id="codex",
+                    role="implementer",
+                    live=True,
+                ),
+                SimpleNamespace(
+                    provider="claude",
+                    agent_id="claude",
+                    role="reviewer",
+                    live=True,
+                ),
+            ),
+        ),
+        bridge=SimpleNamespace(
+            implementer_capability=SimpleNamespace(
+                provider="codex",
+                may_edit_repo=True,
+            ),
+            reviewer_capability=SimpleNamespace(
+                provider="claude",
+                may_edit_repo=False,
+            ),
+            effective_reviewer_mode="active_dual_agent",
+            reviewer_mode="active_dual_agent",
+        ),
+    )
+
+    assert _resolve_commit_execution_target(review_state) == "codex"
+
+
+def test_commit_execution_target_admits_third_party_provider_as_coder() -> None:
+    """Arbitrary provider ids (gemini, future agents) must work in any role.
+
+    Operator architectural rule: the typed state admits any provider via
+    ``packet_agents.py``; the resolver must follow whatever
+    ``collaboration.coding_agent`` names, even when the provider is not
+    one of the historic codex/claude/cursor triple.
+    """
+    review_state = SimpleNamespace(
+        collaboration=SimpleNamespace(
+            reviewer_mode="active_dual_agent",
+            coding_agent="gemini",
+            review_agent="codex",
+            role_assignments=(
+                SimpleNamespace(
+                    role_id="coding_agent",
+                    provider="gemini",
+                    agent_id="gemini",
+                    live=True,
+                ),
+                SimpleNamespace(
+                    role_id="review_agent",
+                    provider="codex",
+                    agent_id="codex",
+                    live=True,
+                ),
+            ),
+            participants=(
+                SimpleNamespace(
+                    provider="gemini",
+                    agent_id="gemini",
+                    role="implementer",
+                    live=True,
+                ),
+                SimpleNamespace(
+                    provider="codex",
+                    agent_id="codex",
+                    role="reviewer",
+                    live=True,
+                ),
+            ),
+        ),
+        bridge=SimpleNamespace(
+            implementer_capability=SimpleNamespace(
+                provider="gemini",
+                may_edit_repo=True,
+            ),
+            reviewer_capability=SimpleNamespace(
+                provider="codex",
+                may_edit_repo=False,
+            ),
+            effective_reviewer_mode="active_dual_agent",
+            reviewer_mode="active_dual_agent",
+        ),
+    )
+
+    assert _resolve_commit_execution_target(review_state) == "gemini"
+
+
+def test_commit_execution_target_picks_by_typed_role_not_participant_order() -> None:
+    """N participants: pick by typed role, not by name order in the list.
+
+    Operator architectural rule: identity is bound to the typed role,
+    not to the order in which participants happen to appear. Listing a
+    reviewer first must not cause the resolver to mistake it for the
+    coder.
+    """
+    review_state = SimpleNamespace(
+        collaboration=SimpleNamespace(
+            reviewer_mode="active_dual_agent",
+            coding_agent="claude",
+            review_agent="codex",
+            role_assignments=(
+                SimpleNamespace(
+                    role_id="review_agent",
+                    provider="codex",
+                    agent_id="codex",
+                    live=True,
+                ),
+                SimpleNamespace(
+                    role_id="coding_agent",
+                    provider="claude",
+                    agent_id="claude",
+                    live=True,
+                ),
+                SimpleNamespace(
+                    role_id="coding_agent",
+                    provider="gemini",
+                    agent_id="gemini",
+                    live=False,
+                ),
+            ),
+            participants=(
+                SimpleNamespace(
+                    provider="codex",
+                    agent_id="codex",
+                    role="reviewer",
+                    live=True,
+                ),
+                SimpleNamespace(
+                    provider="claude",
+                    agent_id="claude",
+                    role="implementer",
+                    live=True,
+                ),
+            ),
+        ),
+        bridge=SimpleNamespace(
+            implementer_capability=SimpleNamespace(
+                provider="claude",
+                may_edit_repo=True,
+            ),
+            reviewer_capability=SimpleNamespace(
+                provider="codex",
+                may_edit_repo=False,
+            ),
+            effective_reviewer_mode="active_dual_agent",
+            reviewer_mode="active_dual_agent",
+        ),
+    )
+
+    assert _resolve_commit_execution_target(review_state) == "claude"
+
+
+def test_commit_execution_target_fails_closed_without_live_role_evidence() -> None:
+    """Capability alone is not proof of liveness — codex finding rev_pkt_1780.
+
+    When ``_provider_has_live_role`` cannot find any live participant or
+    live role-assignment evidence for the candidate provider, returning
+    True would let the executor route a `commit` action_request to a
+    queue no live conductor owns. Fail-closed at the resolver instead so
+    the caller can defer or escalate to the operator.
+    """
+    review_state = SimpleNamespace(
+        collaboration=SimpleNamespace(
+            reviewer_mode="single_agent",
+            coding_agent="claude",
+            review_agent="codex",
+            role_assignments=(),
+            participants=(),
+        ),
+        bridge=SimpleNamespace(
+            implementer_capability=SimpleNamespace(
+                provider="claude",
+                may_edit_repo=True,
+            ),
+            reviewer_capability=SimpleNamespace(
+                provider="codex",
+                may_edit_repo=True,
+            ),
+            effective_reviewer_mode="single_agent",
+            reviewer_mode="single_agent",
+        ),
+    )
+
+    assert _resolve_commit_execution_target(review_state) == ""
 
 
 def test_commit_execution_target_fails_closed_without_writable_lane() -> None:
@@ -867,6 +1131,294 @@ def test_commit_stage_target_prefers_remote_attachment_over_local_executor() -> 
 
     assert _resolve_commit_execution_target(review_state) == "codex"
     assert _resolve_commit_stage_target(review_state) == "claude"
+
+
+def test_commit_stage_target_prefers_implementer_when_reviewer_is_attached() -> None:
+    """When the remote-control attachment provider is the reviewer-bound
+    agent and a separate implementer is bound, route the pre-pipeline
+    stage handoff to the implementer. Otherwise the handoff recirculates
+    back to the blocked reviewer queue (observed as
+    `resolve_commit_stage_target(...) == "codex"` when the attachment is
+    `provider="codex", role="operator"` while claude holds the coder role).
+    """
+    review_state = SimpleNamespace(
+        collaboration=SimpleNamespace(
+            reviewer_mode="single_agent",
+            coding_agent="claude",
+            review_agent="codex",
+            role_assignments=(
+                SimpleNamespace(role_id="coding_agent", provider="claude", live=True),
+                SimpleNamespace(role_id="review_agent", provider="codex", live=True),
+            ),
+            topology_mode="single_agent",
+            participants=(
+                SimpleNamespace(
+                    provider="claude",
+                    agent_id="claude",
+                    role="implementer",
+                    live=True,
+                    capture_mode="terminal-script",
+                ),
+                SimpleNamespace(
+                    provider="codex",
+                    agent_id="codex",
+                    role="reviewer",
+                    live=True,
+                    capture_mode="remote-control",
+                ),
+            ),
+        ),
+        bridge=SimpleNamespace(
+            implementer_capability=SimpleNamespace(
+                provider="claude",
+                may_edit_repo=True,
+            ),
+            reviewer_capability=SimpleNamespace(
+                provider="codex",
+                may_edit_repo=False,
+            ),
+            effective_reviewer_mode="single_agent",
+            reviewer_mode="single_agent",
+        ),
+        reviewer_runtime=SimpleNamespace(
+            remote_control_attachment=SimpleNamespace(
+                provider="codex",
+                role="operator",
+                status="attached",
+            )
+        ),
+    )
+
+    assert _resolve_commit_stage_target(review_state) == "claude"
+
+
+def test_commit_stage_target_reroutes_reviewer_role_attachment() -> None:
+    """Reroute must fire regardless of attachment.role label.
+
+    The live remote-control session uses ``role="reviewer"`` for the codex
+    attachment (not ``operator``). The deeper invariant — provider is the
+    reviewer-bound agent + coding_agent is a different live writable lane
+    — should trigger the reroute under any role label, not only
+    ``role="operator"``. Repro at rev_pkt_1768.
+    """
+    review_state = SimpleNamespace(
+        collaboration=SimpleNamespace(
+            reviewer_mode="single_agent",
+            coding_agent="claude",
+            review_agent="codex",
+            role_assignments=(
+                SimpleNamespace(role_id="coding_agent", provider="claude", live=True),
+                SimpleNamespace(role_id="review_agent", provider="codex", live=True),
+            ),
+            topology_mode="single_agent",
+            participants=(
+                SimpleNamespace(
+                    provider="claude",
+                    agent_id="claude",
+                    role="implementer",
+                    live=True,
+                    capture_mode="terminal-script",
+                ),
+                SimpleNamespace(
+                    provider="codex",
+                    agent_id="codex",
+                    role="reviewer",
+                    live=True,
+                    capture_mode="remote-control",
+                ),
+            ),
+        ),
+        bridge=SimpleNamespace(
+            implementer_capability=SimpleNamespace(
+                provider="claude",
+                may_edit_repo=True,
+            ),
+            reviewer_capability=SimpleNamespace(
+                provider="codex",
+                may_edit_repo=False,
+            ),
+            effective_reviewer_mode="single_agent",
+            reviewer_mode="single_agent",
+        ),
+        reviewer_runtime=SimpleNamespace(
+            remote_control_attachment=SimpleNamespace(
+                provider="codex",
+                role="reviewer",  # NOT "operator"; mirrors live session shape
+                status="attached",
+            )
+        ),
+    )
+
+    # Attachment role is "reviewer" not "operator". Reroute MUST still fire
+    # because provider==review_agent and coding_agent is a separate live
+    # writable lane. Without this, stage_commit_pipeline recirculates back
+    # to the blocked reviewer (codex).
+    assert _resolve_commit_stage_target(review_state) == "claude"
+
+
+def test_commit_stage_target_ignores_mismatched_capability_provider() -> None:
+    """Capability ownership must match the reroute target.
+
+    Otherwise a stale ``codex`` implementer_capability (in a single-agent
+    state) could authorize rerouting ``stage_commit_pipeline`` to a
+    ``claude`` coding lane based on the wrong agent's may_edit_repo flag,
+    suppressing the normal fallback and parking the handoff on an
+    unverified executor. Repro: implementer_capability.provider == "codex"
+    while reroute target would be "claude" → must not authorize reroute on
+    the codex capability.
+    """
+    review_state = SimpleNamespace(
+        collaboration=SimpleNamespace(
+            reviewer_mode="single_agent",
+            coding_agent="claude",
+            review_agent="codex",
+            role_assignments=(
+                SimpleNamespace(role_id="coding_agent", provider="claude", live=True),
+                SimpleNamespace(role_id="review_agent", provider="codex", live=True),
+            ),
+            topology_mode="single_agent",
+            participants=(
+                SimpleNamespace(
+                    provider="codex",
+                    agent_id="codex",
+                    role="reviewer",
+                    live=True,
+                    capture_mode="remote-control",
+                ),
+            ),
+        ),
+        bridge=SimpleNamespace(
+            implementer_capability=SimpleNamespace(
+                provider="codex",
+                may_edit_repo=True,
+            ),
+            reviewer_capability=SimpleNamespace(
+                provider="codex",
+                may_edit_repo=True,
+            ),
+            effective_reviewer_mode="single_agent",
+            reviewer_mode="single_agent",
+        ),
+        reviewer_runtime=SimpleNamespace(
+            remote_control_attachment=SimpleNamespace(
+                provider="codex",
+                role="operator",
+                status="attached",
+            )
+        ),
+    )
+
+    # Reroute target would be "claude" (coding_agent), but cached
+    # implementer_capability is for "codex". Reroute must NOT fire on a
+    # mismatched capability; falls through to attached provider ("codex").
+    assert _resolve_commit_stage_target(review_state) == "codex"
+
+
+def test_commit_stage_target_does_not_reroute_to_dead_implementer_lane() -> None:
+    """Role-aware reroute must fail-closed when the coding_agent lane is
+    dead or cannot edit the repo. Otherwise a degraded session would post
+    a stage_commit_pipeline action_request to a stale implementer lane,
+    which then suppresses the normal execution-handoff fallback in
+    commit_preflight_validators.post_commit_stage_handoff().
+    """
+    review_state = SimpleNamespace(
+        collaboration=SimpleNamespace(
+            reviewer_mode="single_agent",
+            coding_agent="claude",
+            review_agent="codex",
+            role_assignments=(
+                SimpleNamespace(role_id="coding_agent", provider="claude", live=False),
+                SimpleNamespace(role_id="review_agent", provider="codex", live=True),
+            ),
+            topology_mode="single_agent",
+            participants=(
+                SimpleNamespace(
+                    provider="claude",
+                    agent_id="claude",
+                    role="implementer",
+                    live=False,
+                    capture_mode="terminal-script",
+                ),
+                SimpleNamespace(
+                    provider="codex",
+                    agent_id="codex",
+                    role="reviewer",
+                    live=True,
+                    capture_mode="remote-control",
+                ),
+            ),
+        ),
+        bridge=SimpleNamespace(
+            implementer_capability=SimpleNamespace(
+                provider="claude",
+                may_edit_repo=False,
+            ),
+            reviewer_capability=SimpleNamespace(
+                provider="codex",
+                may_edit_repo=False,
+            ),
+            effective_reviewer_mode="single_agent",
+            reviewer_mode="single_agent",
+        ),
+        reviewer_runtime=SimpleNamespace(
+            remote_control_attachment=SimpleNamespace(
+                provider="codex",
+                role="operator",
+                status="attached",
+            )
+        ),
+    )
+
+    # Role-aware reroute target (coding_agent="claude") is dead +
+    # may_edit_repo=False, so the reroute must fall through to the
+    # attachment provider ("codex") rather than posting to a dead lane.
+    assert _resolve_commit_stage_target(review_state) == "codex"
+
+
+def test_commit_stage_target_fails_closed_without_remote_control_attachment() -> None:
+    """When no remote-control executor lane is attached, the stage handoff
+    must return an empty target so callers fail-closed instead of self-
+    routing the request back to the same local lane that just got
+    sandbox-blocked. Stage handoffs are only meaningful when there is an
+    external writable lane to receive them.
+    """
+    review_state = SimpleNamespace(
+        collaboration=SimpleNamespace(
+            reviewer_mode="single_agent",
+            coding_agent="claude",
+            review_agent="claude",
+            role_assignments=(
+                SimpleNamespace(role_id="coding_agent", provider="claude", live=True),
+            ),
+            topology_mode="single_agent",
+            participants=(
+                SimpleNamespace(
+                    provider="claude",
+                    agent_id="claude",
+                    role="implementer",
+                    live=True,
+                    capture_mode="terminal-script",
+                ),
+            ),
+        ),
+        bridge=SimpleNamespace(
+            implementer_capability=SimpleNamespace(
+                provider="claude",
+                may_edit_repo=True,
+            ),
+            reviewer_capability=SimpleNamespace(
+                provider="claude",
+                may_edit_repo=True,
+            ),
+            effective_reviewer_mode="single_agent",
+            reviewer_mode="single_agent",
+        ),
+        reviewer_runtime=SimpleNamespace(
+            remote_control_attachment=None,
+        ),
+    )
+
+    assert _resolve_commit_stage_target(review_state) == ""
 
 
 def test_post_commit_execution_handoff_fails_closed_without_live_writable_target(

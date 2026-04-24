@@ -12056,3 +12056,54 @@ Evidence:
 - `dev/scripts/devctl/commands/vcs/commit_preflight_validators.py`
 - `dev/scripts/devctl/tests/vcs/test_governed_executor.py`
 - `dev/scripts/devctl/tests/vcs/test_commit_gate.py`
+
+### 2026-04-23 — stage_commit_pipeline projection, role-aware stage handoff, and actor-matched polling
+
+The remote-control commit staging slice above introduced a new
+`requested_action="stage_commit_pipeline"` action_request kind, but the live
+dogfood loop showed two follow-up gaps that left the new packet stalling
+silently.
+
+First, `action_request.ActionKind` and the bridge projection only knew the
+legacy `commit | run_check | push | kill_process` set, so even valid
+`stage_commit_pipeline` packets were dropped from the projected `## Action
+Requests` surface. Reviewers/operators saw "no pending action requests" while
+the event store actually held a pending stage handoff. Adding
+`STAGE_COMMIT_PIPELINE` to the enum (and excluding it from the heavier
+`PIPELINE_ACTION_KINDS` runtime-binding gate, since stage handoffs precede
+the pipeline) restores projection visibility.
+
+Second, `resolve_commit_stage_target()` only inspected
+`remote_control_attachment.provider`. When the attached provider happened to
+be the reviewer-bound agent (e.g. an attached Codex operator session while
+Claude held the implementer role), the function self-targeted the blocked
+reviewer queue instead of routing to the writable implementer lane. The
+resolver now also reads `remote_control_attachment.role`: when role is
+`operator` and the attached provider equals the typed reviewer agent while a
+separate coding agent is bound, the stage handoff routes to the coding
+agent. Existing remote-control attachments that already point at the
+writable lane continue to resolve to the attachment provider unchanged.
+
+Third, the reviewer/operator polling prompt rendered by `prompt_guards.py`
+emitted `review-channel --action inbox --target <agent> --status pending`
+without `--actor`. The packet runtime only stamps
+`delivery_observed_at_utc` / `delivery_observed_by` when `--actor` matches
+the inbox target, so following the prompt left live `action_request` packets
+stuck as `unseen` and kept retriggering wake/attention state. The prompt now
+passes `--actor <provider_id>` and explains the receipt contract.
+
+Maintainer surfaces (`AGENTS.md`, `dev/guides/DEVELOPMENT.md`,
+`dev/scripts/README.md`) now also list `stage_commit_pipeline` alongside the
+other bridge-executable actions so generated guidance agrees with the typed
+contract.
+
+Evidence:
+
+- `dev/scripts/devctl/review_channel/action_request.py`
+- `dev/scripts/devctl/commands/vcs/governed_executor_commit_targets.py`
+- `dev/scripts/devctl/review_channel/prompt_guards.py`
+- `dev/scripts/devctl/tests/review_channel/test_action_request.py`
+- `dev/scripts/devctl/tests/vcs/test_governed_executor.py`
+- `AGENTS.md`
+- `dev/guides/DEVELOPMENT.md`
+- `dev/scripts/README.md`

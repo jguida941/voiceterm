@@ -36,6 +36,17 @@ if [ -z "$REPO_ROOT" ]; then
 fi
 cd "$REPO_ROOT"
 
+DEVCTL_PYTHON="@DEVCTL_PYTHON@"
+if [ ! -x "$DEVCTL_PYTHON" ]; then
+    if command -v python3.11 >/dev/null 2>&1; then
+        DEVCTL_PYTHON="$(command -v python3.11)"
+    elif command -v python3 >/dev/null 2>&1; then
+        DEVCTL_PYTHON="$(command -v python3)"
+    else
+        DEVCTL_PYTHON=""
+    fi
+fi
+
 GIT_DIR=$(git rev-parse --git-dir 2>/dev/null || echo ".git")
 for marker in \
     "$GIT_DIR/MERGE_HEAD" \
@@ -49,11 +60,15 @@ for marker in \
     fi
 done
 
-if ! python3 dev/scripts/devctl.py --help >/dev/null 2>&1; then
+if [ -z "$DEVCTL_PYTHON" ]; then
     exit 0
 fi
 
-TARGET=$(python3 - <<'PYEOF' 2>/dev/null || echo ""
+if ! "$DEVCTL_PYTHON" dev/scripts/devctl.py --help >/dev/null 2>&1; then
+    exit 0
+fi
+
+TARGET=$("$DEVCTL_PYTHON" - <<'PYEOF' 2>/dev/null || echo ""
 import sys
 from pathlib import Path
 sys.path.insert(0, "dev/scripts")
@@ -84,7 +99,7 @@ if [ "$CHANGED" = "$TARGET" ]; then
     exit 0
 fi
 
-if ! python3 dev/scripts/devctl.py review-snapshot --write --receipt-commit --format terminal >/dev/null 2>&1; then
+if ! "$DEVCTL_PYTHON" dev/scripts/devctl.py review-snapshot --write --receipt-commit --format terminal >/dev/null 2>&1; then
     echo "[post-commit hook] devctl review-snapshot --receipt-commit failed; continuing commit." >&2
 fi
 

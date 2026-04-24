@@ -216,9 +216,15 @@ class TestActionKindEnum:
         for kind in ActionKind:
             assert kind.value in VALID_ACTION_KINDS
 
-    def test_valid_set_has_four_members(self) -> None:
-        assert len(VALID_ACTION_KINDS) == 4
-        assert VALID_ACTION_KINDS == {"commit", "run_check", "push", "kill_process"}
+    def test_valid_set_has_expected_members(self) -> None:
+        assert len(VALID_ACTION_KINDS) == 5
+        assert VALID_ACTION_KINDS == {
+            "commit",
+            "run_check",
+            "push",
+            "kill_process",
+            "stage_commit_pipeline",
+        }
 
 
 class TestActionRequestsFromPackets:
@@ -336,6 +342,34 @@ class TestActionRequestsFromPackets:
         ]
 
         assert action_requests_from_packets(packets) == []
+
+    def test_includes_stage_commit_pipeline_action(self) -> None:
+        """`stage_commit_pipeline` is a first-class action-request kind.
+
+        Regression against the bridge projection silently dropping the
+        pre-pipeline commit-staging handoff. The packet must carry the
+        standard runtime binding (target_kind/ref/revision); heavier
+        pipeline fields are not required because the handoff happens
+        before the pipeline exists.
+        """
+        packets: list[dict[str, object]] = [
+            {
+                "packet_id": "rev_pkt_stage_1",
+                "kind": "action_request",
+                "status": "pending",
+                "requested_action": "stage_commit_pipeline",
+                "summary": "Run governed checkpoint from Claude lane",
+                "body": "Preflight green; 123 tests pass.",
+                "target_kind": "runtime",
+                "target_ref": "devctl_commit:abc123",
+                "target_revision": "abc123def456",
+            },
+        ]
+        result = action_requests_from_packets(packets)
+        assert len(result) == 1
+        assert result[0].id == "rev_pkt_stage_1"
+        assert result[0].action == "stage_commit_pipeline"
+        assert result[0].status == "pending"
 
     def test_empty_packets_returns_empty(self) -> None:
         assert action_requests_from_packets([]) == []

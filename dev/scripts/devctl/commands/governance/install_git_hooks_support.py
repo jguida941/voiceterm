@@ -2,12 +2,20 @@
 
 from __future__ import annotations
 
+import re
 import shutil
 import stat
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 
 from .common import emit_governance_command_output as _default_emit_governance_command_output
+
+_MANAGED_HOOK_PYTHON_PLACEHOLDER = "@DEVCTL_PYTHON@"
+_MANAGED_HOOK_PYTHON_ASSIGNMENT_RE = re.compile(
+    r'^DEVCTL_PYTHON="[^"\n]*"$',
+    re.MULTILINE,
+)
 
 
 @dataclass(frozen=True)
@@ -19,6 +27,24 @@ class InstallGitHooksContext:
     target_display: dict[str, str]
     hooks_dir: Path | None = None
     repo_root: Path | None = None
+
+
+def render_managed_hook_template(template_path: Path) -> str:
+    """Render one managed hook template with the active Python executable."""
+    content = template_path.read_text(encoding="utf-8")
+    return content.replace(
+        _MANAGED_HOOK_PYTHON_PLACEHOLDER,
+        sys.executable or "python3",
+    )
+
+
+def normalize_managed_hook_content(content: str) -> str:
+    """Collapse interpreter-specific hook lines back to the template placeholder."""
+    return _MANAGED_HOOK_PYTHON_ASSIGNMENT_RE.sub(
+        f'DEVCTL_PYTHON="{_MANAGED_HOOK_PYTHON_PLACEHOLDER}"',
+        content,
+        count=1,
+    )
 
 
 def run_install(
@@ -82,7 +108,11 @@ def run_install(
     hooks_dir.mkdir(parents=True, exist_ok=True)
     for paths in context.hook_targets.values():
         target_path = paths["target"]
-        shutil.copy2(paths["template"], target_path)
+        target_path.write_text(
+            render_managed_hook_template(paths["template"]),
+            encoding="utf-8",
+        )
+        shutil.copystat(paths["template"], target_path)
         target_path.chmod(
             target_path.stat().st_mode
             | stat.S_IXUSR

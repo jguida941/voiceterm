@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import sys
 from argparse import Namespace
 from pathlib import Path
 
@@ -148,6 +149,47 @@ def test_run_install_copies_template_into_hooks_dir(
         )
         # Hook must be executable after install.
         assert installed.stat().st_mode & 0o111 != 0
+
+
+def test_current_install_status_treats_rendered_interpreter_as_managed(
+    tmp_path: Path,
+) -> None:
+    template = tmp_path / "template.sh"
+    installed = tmp_path / "pre-commit"
+    template.write_text(
+        _MANAGED_HOOK_BODY + 'DEVCTL_PYTHON="@DEVCTL_PYTHON@"\n',
+        encoding="utf-8",
+    )
+    installed.write_text(
+        _MANAGED_HOOK_BODY + 'DEVCTL_PYTHON="/opt/homebrew/bin/python3.11"\n',
+        encoding="utf-8",
+    )
+
+    assert current_install_status(installed, template_path=template) == "managed"
+
+
+def test_run_install_renders_active_python_into_managed_hooks(
+    tmp_path: Path, monkeypatch
+) -> None:
+    repo_root = _make_main_worktree(tmp_path)
+    template = repo_root / "dev" / "config" / "git_hooks" / "pre-commit-review-snapshot.sh"
+    template.write_text(
+        _MANAGED_HOOK_BODY + 'DEVCTL_PYTHON="@DEVCTL_PYTHON@"\n',
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(
+        "devctl.commands.governance.install_git_hooks.REPO_ROOT", repo_root
+    )
+    args = Namespace(
+        check=False, uninstall=False, force=False, format="json", output=None,
+        pipe_command=None, pipe_args=None,
+    )
+
+    exit_code = run(args)
+
+    assert exit_code == 0
+    installed = repo_root / ".git" / "hooks" / "pre-commit"
+    assert f'DEVCTL_PYTHON="{sys.executable}"' in installed.read_text(encoding="utf-8")
 
 
 def test_run_install_refuses_to_overwrite_non_managed_hook_without_force(
@@ -323,7 +365,7 @@ def test_repo_pre_push_template_uses_typed_runtime_guidance() -> None:
     content = template_path.read_text(encoding="utf-8")
     assert "startup-context --format summary" in content
     assert "Next typed step:" in content
-    assert "Governed path: python3 dev/scripts/devctl.py push --execute" in content
+    assert 'Governed path: $(basename "$DEVCTL_PYTHON") dev/scripts/devctl.py push --execute' in content
 
 
 def test_repo_pre_commit_template_checks_commit_permission_before_refresh() -> None:

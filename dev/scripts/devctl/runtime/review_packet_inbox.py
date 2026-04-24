@@ -6,6 +6,7 @@ from collections.abc import Mapping, Sequence
 from hashlib import sha256
 import json
 
+from .inbox_command_template import inbox_command_for_agent as _inbox_command_for_agent
 from .review_packet_inbox_actionable import (
     ordered_actionable_packets as _ordered_actionable_packets,
     select_actionable_packet as _select_actionable_packet,
@@ -24,10 +25,6 @@ from .review_state_packet_models import (
 )
 
 _DEFAULT_AGENTS: tuple[str, ...] = ("codex", "claude", "cursor", "operator")
-_INBOX_COMMAND_TEMPLATE = (
-    "python3 dev/scripts/devctl.py review-channel --action inbox "
-    "--target {agent} --status pending --terminal none --format md"
-)
 
 
 def build_packet_inbox_payload(
@@ -234,7 +231,7 @@ def _agent_attention_state(
     expired_unresolved_packet_ids: tuple[str, ...],
     attention: Mapping[str, object] | None,
 ) -> tuple[str, str, str]:
-    inbox_command = _INBOX_COMMAND_TEMPLATE.format(agent=agent)
+    inbox_command = _inbox_command_for_agent(agent)
     if selected_actionable is not None:
         kind = str(selected_actionable.get("kind") or "").strip() or "packet"
         return "wake_required", f"{kind}_pending", inbox_command

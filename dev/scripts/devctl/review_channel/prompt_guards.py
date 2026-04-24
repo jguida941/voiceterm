@@ -2,8 +2,16 @@
 
 from __future__ import annotations
 
+import os
+import sys
+
 from .ack_contract import ack_contract_prompt_line
 from ..runtime.review_state_models import ConductorCapabilityState
+
+# Codex finding rev_pkt_1785: mirror the runtime interpreter so the rendered
+# guard prose runs under the same Python the launcher uses, not a stale
+# pyenv `python3` shim.
+_DEVCTL_INTERPRETER = os.path.basename(sys.executable) or "python3"
 
 
 def startup_context_follow_up(capability: ConductorCapabilityState) -> str:
@@ -14,12 +22,13 @@ def startup_context_follow_up(capability: ConductorCapabilityState) -> str:
             "`action=continue_editing` with `reason=review_pending` and "
             "`action=await_review` with `reason=review_pending_before_push` are "
             "normal reviewer-bootstrap receipts while the collaboration lane is "
-            "still live; continue bootstrap, poll `python3 dev/scripts/devctl.py "
-            "review-channel --action status --terminal none --format json`, and "
-            "refresh the reviewer-owned bridge heartbeat before attempting repair. "
-            "Treat only `action=repair_reviewer_loop`, checkpoint/budget blockers, "
-            "or typed review-channel status showing stale/non-live reviewer runtime "
-            "as a repair or relaunch boundary."
+            f"still live; continue bootstrap, poll `{_DEVCTL_INTERPRETER} "
+            "dev/scripts/devctl.py review-channel --action status --terminal "
+            "none --format json`, and refresh the reviewer-owned bridge "
+            "heartbeat before attempting repair. Treat only "
+            "`action=repair_reviewer_loop`, checkpoint/budget blockers, "
+            "or typed review-channel status showing stale/non-live reviewer "
+            "runtime as a repair or relaunch boundary."
         )
     return (
         "If it exits non-zero, checkpoint or repair the repo state before coding "
@@ -111,8 +120,12 @@ def _reviewer_guard_lines(
         (
             "- On each repoll, also poll the reviewer-targeted packet inbox/watch "
             f"surface (`review-channel --action inbox --target {provider_id} "
-            "--status pending --format json` or equivalent) so reviewer packets "
-            "cannot hide behind bridge-only polling."
+            f"--actor {provider_id} --status pending --format json` or "
+            "equivalent) so reviewer packets cannot hide behind bridge-only "
+            "polling. The `--actor` argument must match the target so the "
+            "runtime stamps `delivery_observed_at_utc`; otherwise live "
+            "`action_request` packets stay `unseen` and keep retriggering "
+            "wake/attention state."
         ),
         (
             "- If the live reviewer-targeted packet inbox already names a pending "
@@ -126,7 +139,8 @@ def _reviewer_guard_lines(
             "available in the terminal, post a typed action request via "
             "`review-channel --action post` with "
             "`PacketPostRequest(kind=\"action_request\")`. "
-            "Supported actions: `commit`, `run_check`, `push`, `kill_process`. "
+            "Supported actions: `commit`, `run_check`, `push`, `kill_process`, "
+            "`stage_commit_pipeline`. "
             "Do not write to the `## Action Requests` bridge section directly; "
             "it is a projection-only surface rendered from packet state. "
             f"{counterpart_provider_name} will execute pending requests on the next packet poll."
@@ -176,14 +190,18 @@ def _implementer_guard_lines(
         (
             "- On each bridge repoll, also poll the packet inbox for pending "
             f"`action_request` packets via `review-channel --action inbox "
-            f"--target {provider_id} --status pending --format json`. When {counterpart_provider_name} is "
-            "blocked on an interactive permission prompt (commit, push, "
-            "dialog dismissal), it posts a typed action request via "
-            "`PacketPostRequest(kind=\"action_request\")` instead of waiting. "
-            "Execute pending requests in order, then transition each packet "
-            "to `completed` or `failed` via the packet transport. Do not "
-            "read or write the `## Action Requests` bridge section directly; "
-            "it is a projection-only surface."
+            f"--target {provider_id} --actor {provider_id} --status pending "
+            "--format json`. The `--actor` argument must match the target so "
+            "the runtime stamps `delivery_observed_at_utc`; otherwise the "
+            "packet stays `unseen` and keeps retriggering wake/attention "
+            f"state. When {counterpart_provider_name} is blocked on an "
+            "interactive permission prompt (commit, push, dialog dismissal), "
+            "it posts a typed action request via "
+            "`PacketPostRequest(kind=\"action_request\")` instead of "
+            "waiting. Execute pending requests in order, then transition "
+            "each packet to `completed` or `failed` via the packet "
+            "transport. Do not read or write the `## Action Requests` "
+            "bridge section directly; it is a projection-only surface."
         ),
         (
             "- Before you summarize state for the operator or ask a question "
@@ -230,11 +248,14 @@ def _implementer_guard_lines(
             "re-read `Current Verdict`, `Open Findings`, and `Current Instruction "
             "For Claude` together. On the same cadence, also poll the "
             f"{provider_name}-targeted packet inbox/watch surface (`review-channel --action inbox "
-            f"--target {provider_id} --status pending --format json` or equivalent) so "
-            "reviewer packets cannot be missed. If those reviewer-owned sections "
-            f"and the pending {provider_name}-targeted packet set are unchanged after you "
-            "already finished the current bounded work, that is a live wait "
-            "state; do not hammer one fixed offset or one cached line range."
+            f"--target {provider_id} --actor {provider_id} --status pending "
+            "--format json` or equivalent) so reviewer packets cannot be "
+            "missed. The `--actor` argument must match the target so the "
+            "runtime stamps `delivery_observed_at_utc`. If those reviewer-"
+            f"owned sections and the pending {provider_name}-targeted packet "
+            "set are unchanged after you already finished the current "
+            "bounded work, that is a live wait state; do not hammer one "
+            "fixed offset or one cached line range."
         ),
         (
             f"- If the live {provider_name}-targeted packet inbox already names a pending "

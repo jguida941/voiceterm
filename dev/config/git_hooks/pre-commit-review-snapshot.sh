@@ -38,6 +38,17 @@ if [ -z "$REPO_ROOT" ]; then
 fi
 cd "$REPO_ROOT"
 
+DEVCTL_PYTHON="@DEVCTL_PYTHON@"
+if [ ! -x "$DEVCTL_PYTHON" ]; then
+    if command -v python3.11 >/dev/null 2>&1; then
+        DEVCTL_PYTHON="$(command -v python3.11)"
+    elif command -v python3 >/dev/null 2>&1; then
+        DEVCTL_PYTHON="$(command -v python3)"
+    else
+        DEVCTL_PYTHON=""
+    fi
+fi
+
 # Skip during rebase / merge / cherry-pick / bisect — running the refresh
 # during those operations can confuse the commit tree that git is about
 # to build. The guards will catch any stale state at CI push time.
@@ -64,14 +75,14 @@ fi
 # transient config flag so the raw-commit gate can distinguish the repo-owned
 # pipeline from an ungoverned shell/editor commit.
 if [ "${DEVCTL_GOVERNED_COMMIT:-}" != "1" ] && [ "$(git config --bool --get devctl.governed-commit 2>/dev/null || true)" != "true" ]; then
-    if ! command -v python3 >/dev/null 2>&1; then
-        echo "[pre-commit hook] python3 is required to evaluate commit_permission; raw git commit is blocked." >&2
+    if [ -z "$DEVCTL_PYTHON" ]; then
+        echo "[pre-commit hook] A compatible Python interpreter is required to evaluate commit_permission; raw git commit is blocked." >&2
         exit 1
     fi
 
     if ! PYTHONDONTWRITEBYTECODE=1 \
         PYTHONPATH="$REPO_ROOT/dev/scripts${PYTHONPATH:+:$PYTHONPATH}" \
-        python3 -m devctl.runtime.commit_permission_hook "$REPO_ROOT"; then
+        "$DEVCTL_PYTHON" -m devctl.runtime.commit_permission_hook "$REPO_ROOT"; then
         exit 1
     fi
 fi
@@ -83,15 +94,19 @@ if [ "${DEVCTL_NO_ARTIFACT_WRITES:-}" = "1" ]; then
     exit 0
 fi
 
+if [ -z "$DEVCTL_PYTHON" ]; then
+    exit 0
+fi
+
 # Bail out quietly if devctl isn't importable in this clone (partial
 # checkout, missing virtualenv, etc.).
-if ! python3 dev/scripts/devctl.py --help >/dev/null 2>&1; then
+if ! "$DEVCTL_PYTHON" dev/scripts/devctl.py --help >/dev/null 2>&1; then
     exit 0
 fi
 
 if [ "${DEVCTL_NO_REVIEW_CHANNEL_STATUS_REFRESH:-}" != "1" ] && [ "${DEVCTL_NO_ARTIFACT_WRITES:-}" != "1" ]; then
-    if python3 dev/scripts/devctl.py review-channel --action status --terminal none --format json >/dev/null 2>&1; then
-        BRIDGE_TARGET=$(python3 - <<'PYEOF' 2>/dev/null || echo ""
+    if "$DEVCTL_PYTHON" dev/scripts/devctl.py review-channel --action status --terminal none --format json >/dev/null 2>&1; then
+        BRIDGE_TARGET=$("$DEVCTL_PYTHON" - <<'PYEOF' 2>/dev/null || echo ""
 import sys
 from pathlib import Path
 sys.path.insert(0, "dev/scripts")
@@ -120,7 +135,7 @@ fi
 # Run the refresh through the typed command so the output path comes
 # from ProjectGovernance.artifact_roots.review_snapshot_path (adopter
 # repos override it via devctl_repo_policy.json).
-if ! python3 dev/scripts/devctl.py review-snapshot --write --format terminal >/dev/null 2>&1; then
+if ! "$DEVCTL_PYTHON" dev/scripts/devctl.py review-snapshot --write --format terminal >/dev/null 2>&1; then
     echo "[pre-commit hook] devctl review-snapshot --write failed; continuing commit." >&2
     exit 0
 fi
@@ -129,7 +144,7 @@ fi
 # hardcoding "dev/audits/REVIEW_SNAPSHOT.md" here: the install command
 # installs this hook verbatim into every adopter repo, so the lookup
 # has to route through ProjectGovernance.
-TARGET=$(python3 - <<'PYEOF' 2>/dev/null || echo ""
+TARGET=$("$DEVCTL_PYTHON" - <<'PYEOF' 2>/dev/null || echo ""
 import sys
 from pathlib import Path
 sys.path.insert(0, "dev/scripts")

@@ -98,8 +98,10 @@ def operating_contract_lines(contract: OperatingContractInput) -> list[str]:
         (
             f"- On each repoll, also poll the {contract.provider_name}-targeted packet "
             f"inbox/watch surface (`review-channel --action inbox --target {contract.provider_id} "
-            "--status pending --format json` or equivalent) so reviewer packets "
-            "cannot be missed behind bridge-only polling."
+            f"--actor {contract.provider_id} --status pending --format json` or "
+            "equivalent) so reviewer packets cannot be missed behind bridge-only "
+            "polling. The `--actor` must match the target so the runtime stamps "
+            "`delivery_observed_at_utc`; otherwise packets stay `unseen`."
         ),
         (
             "- `waiting_on_peer` means the loop stays live while you keep polling "

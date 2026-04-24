@@ -151,6 +151,20 @@
   `head_movement_classification=managed_receipt` instead of actionable HEAD
   drift. This keeps completed push pipelines truthful after the push-time
   bridge/ReviewSnapshot receipt commit advances HEAD.
+- 2026-04-23 stage_commit_pipeline projection + role-aware stage handoff
+  (MP-355 + MP-377 follow-up): `ActionKind.STAGE_COMMIT_PIPELINE` is now a
+  first-class bridge action-kind, so `action_requests_from_packets()` projects
+  pre-pipeline staging handoffs into `## Action Requests` instead of silently
+  dropping them. `resolve_commit_stage_target()` now reads the typed
+  `remote_control_attachment.role` alongside `provider`: when the attached
+  provider is the reviewer-bound agent and a separate implementer is bound,
+  the stage handoff routes to the implementer instead of recirculating back
+  to the blocked reviewer queue. The reviewer/operator polling prompt now
+  passes `--actor <provider_id>` so live `action_request` packets stamp
+  `delivery_observed_at_utc` instead of staying `unseen`. Maintainer surfaces
+  (`AGENTS.md`, `dev/guides/DEVELOPMENT.md`, `dev/scripts/README.md`,
+  `dev/scripts/devctl/review_channel/prompt_guards.py`) advertise the new
+  action kind so generated instructions agree with the typed contract.
 - `dev/active/review_probes.md` is the review-probe execution spec; implementation tasks stay in this file under `MP-368..MP-375`.
 - `dev/active/portable_code_governance.md` is the narrower engine/adoption
   companion under `MP-376`, not a second main product plan; implementation

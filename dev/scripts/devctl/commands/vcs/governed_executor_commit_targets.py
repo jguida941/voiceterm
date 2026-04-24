@@ -9,7 +9,22 @@ from ...runtime.reviewer_runtime_models import has_active_remote_control_attachm
 
 
 def resolve_commit_stage_target(review_state: ReviewState | None) -> str:
-    """Pick the remote-control lane that can receive a pre-pipeline handoff."""
+    """Pick the remote-control lane that can receive a pre-pipeline handoff.
+
+    Stage handoffs only make sense when a remote-control executor lane is
+    attached: the typical trigger is a sandbox-blocked ``.git/index.lock``
+    that the local lane cannot resolve, so handing the request back to the
+    same local lane would just re-emit the same block. Returns an empty
+    string (fail-closed) when no remote-control attachment is active so
+    callers can decide whether to defer or surface the block to the
+    operator instead of self-routing.
+
+    Attachments default to ``role="operator"``. The attached provider is
+    normally the writable operator lane, but when the attached provider is
+    the reviewer-bound agent and a separate implementer is bound, the
+    stage handoff must route to the implementer to avoid recirculating
+    back to the blocked reviewer queue.
+    """
     if review_state is None:
         return ""
     attachment = getattr(
@@ -18,9 +33,79 @@ def resolve_commit_stage_target(review_state: ReviewState | None) -> str:
         None,
     )
     if not has_active_remote_control_attachment(attachment):
-        return resolve_commit_execution_target(review_state)
+        return ""
     provider = str(getattr(attachment, "provider", "") or "").strip().lower()
-    return provider or resolve_commit_execution_target(review_state)
+    if provider:
+        # The deeper invariant: whenever the attachment provider is the
+        # typed reviewer-bound agent and a separate coding agent is bound,
+        # route the stage handoff to the implementer to avoid recirculating
+        # back to the blocked reviewer queue. This holds regardless of the
+        # attachment role label (`operator`, `reviewer`, etc.) — the live
+        # session payload uses `role="reviewer"` for the codex attachment
+        # while keeping claude as the coding agent, and the reroute must
+        # fire there too.
+        collaboration = getattr(review_state, "collaboration", None)
+        coding_agent = str(
+            getattr(collaboration, "coding_agent", "") or ""
+        ).strip().lower()
+        review_agent = str(
+            getattr(collaboration, "review_agent", "") or ""
+        ).strip().lower()
+        if (
+            coding_agent
+            and review_agent
+            and provider == review_agent
+            and coding_agent != review_agent
+            and _coding_agent_can_receive_stage_handoff(
+                review_state, provider=coding_agent
+            )
+        ):
+            return coding_agent
+    return provider
+
+
+def _coding_agent_can_receive_stage_handoff(
+    review_state: ReviewState,
+    *,
+    provider: str,
+) -> bool:
+    """Verify the coding-agent reroute target is live and writable.
+
+    Without this check, the role-aware reroute could post a
+    ``stage_commit_pipeline`` action_request to a dead implementer lane
+    in a degraded session, which then causes
+    ``commit_preflight_validators.post_commit_stage_handoff`` to suppress
+    the normal execution-handoff fallback.
+    """
+    capability = review_state.bridge.implementer_capability
+    capability_provider = (
+        str(getattr(capability, "provider", "") or "").strip().lower()
+        if capability is not None
+        else ""
+    )
+    if capability is None or capability_provider != provider:
+        # The cached implementer capability belongs to a different provider
+        # (e.g., a stale `codex` capability in a single-agent state). Build
+        # the capability for the actual reroute target so we don't authorize
+        # the handoff against an unrelated lane's may_edit_repo flag.
+        reviewer_mode = (
+            review_state.bridge.effective_reviewer_mode
+            or review_state.collaboration.reviewer_mode
+            or review_state.bridge.reviewer_mode
+            or "single_agent"
+        )
+        capability = build_conductor_capability_state(
+            provider=provider,
+            reviewer_mode=reviewer_mode,
+            role="implementer",
+        )
+    if capability is None or not getattr(capability, "may_edit_repo", False):
+        return False
+    return _provider_has_live_role(
+        review_state,
+        provider=provider,
+        role="implementer",
+    )
 
 
 def resolve_commit_execution_target(review_state: ReviewState | None) -> str:
@@ -192,7 +277,16 @@ def _provider_has_live_role(
         return True
     if assignment_status == "other":
         return False
-    return True
+    # Fail-closed: with no live participant *and* no live role-assignment
+    # evidence, we cannot prove the lane is reachable. Returning True here
+    # would let `resolve_commit_execution_target` /
+    # `resolve_commit_stage_target` route a `commit` or
+    # `stage_commit_pipeline` packet to a dead/nonexistent provider, where
+    # it would strand on a queue no conductor owns. Surface the missing
+    # evidence to the caller (which falls back to publication-owned target
+    # selection or, ultimately, deferral to the operator) instead of
+    # hand-waving a phantom liveness.
+    return False
 
 
 def _provider_live_role_assignment_status(

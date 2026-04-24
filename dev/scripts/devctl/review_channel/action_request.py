@@ -42,6 +42,7 @@ class ActionKind(str, Enum):
     RUN_CHECK = "run_check"
     PUSH = "push"
     KILL_PROCESS = "kill_process"
+    STAGE_COMMIT_PIPELINE = "stage_commit_pipeline"
 
 
 VALID_ACTION_KINDS = frozenset(member.value for member in ActionKind)

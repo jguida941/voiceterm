@@ -52,11 +52,15 @@ REQUIRED_BRIDGE_H2 = [
 ]
 
 REQUIRED_BRIDGE_MARKERS = [
-    "`python3 dev/scripts/devctl.py startup-context --role reviewer --format summary`",
-    "`python3 dev/scripts/devctl.py startup-context --role implementer --format summary`",
-    "`python3 dev/scripts/devctl.py session-resume --role reviewer --format bootstrap`",
-    "`python3 dev/scripts/devctl.py session-resume --role implementer --format bootstrap`",
-    "`python3 dev/scripts/devctl.py context-graph --mode bootstrap --format md`",
+    # Codex finding rev_pkt_1785: drop the `python3` prefix so the marker
+    # matches the interpreter actually rendered into bridge.md (which now
+    # comes from `os.path.basename(sys.executable)` and may be `python3.11`
+    # or any future interpreter), not just the literal `python3` shim.
+    "dev/scripts/devctl.py startup-context --role reviewer --format summary`",
+    "dev/scripts/devctl.py startup-context --role implementer --format summary`",
+    "dev/scripts/devctl.py session-resume --role reviewer --format bootstrap`",
+    "dev/scripts/devctl.py session-resume --role implementer --format bootstrap`",
+    "dev/scripts/devctl.py context-graph --mode bootstrap --format md`",
     "`AGENTS.md`",
     "`dev/active/INDEX.md`",
     "`dev/active/MASTER_PLAN.md`",

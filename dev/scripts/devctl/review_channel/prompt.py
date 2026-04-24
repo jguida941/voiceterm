@@ -2,10 +2,19 @@
 
 from __future__ import annotations
 
+import os
+import sys
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 from ..approval_mode import DEFAULT_APPROVAL_MODE
+
+# Mirror `runtime/review_packet_inbox.py::_DEVCTL_INTERPRETER` so the rendered
+# bootstrap commands run under the same Python the rest of the launcher uses.
+# Hardcoding `python3` breaks on pyenv installs where that shim resolves to a
+# stale interpreter (e.g. 3.10 without `datetime.UTC`) — codex finding
+# rev_pkt_1785.
+_DEVCTL_INTERPRETER = os.path.basename(sys.executable) or "python3"
 from ..runtime.role_profile import normalize_tandem_role, role_for_provider
 from .launch_records import resolve_lane_worktree_path
 from .prompt_sections import (
@@ -107,19 +116,7 @@ def build_conductor_prompt(
                 )
             ],
             "",
-            (
-                "After bootstrap, FIRST drain the review-channel inbox and "
-                "ack any pending operator-authority packets BEFORE any "
-                "reviewer-bootstrap, code reading, git diff, or routed bundle:"
-            ),
-            (
-                f"- `python3 dev/scripts/devctl.py review-channel --action inbox "
-                f"--target {provider} --status pending --terminal none --format md`"
-            ),
-            (
-                f"- For each pending instruction-class packet: "
-                f"`review-channel --action ack --packet-id <id> --actor {provider}`."
-            ),
+            *_inbox_drain_lines(provider=provider),
             "",
             "Operating contract:",
             *operating_contract_lines(
@@ -160,23 +157,67 @@ def build_conductor_prompt(
             f"{provider_name} planned lane assignments:",
             *lane_lines,
             "",
-            "Execution reminders:",
-            (
-                "- Keep `bridge.md` current-state only; do not turn it into a "
-                "transcript dump."
-            ),
-            (
-                "- Keep the active markdown bridge disciplined until the structured "
-                "`review-channel` / overlay-native path replaces it."
-            ),
-            retirement_note,
-            "",
-            (
-                f"Coordinate with {other_name} only through `bridge.md` plus the "
-                "required operator-visible progress updates."
+            *_execution_reminders_lines(
+                retirement_note=retirement_note,
+                other_name=other_name,
             ),
         ]
     )
     if preamble:
         return preamble + "\n\n" + body
     return body
+
+
+def _inbox_drain_lines(*, provider: str) -> list[str]:
+    """Render the inbox-drain bootstrap rule.
+
+    Extracted from ``build_conductor_prompt`` to keep the function under
+    the per-function line budget. Centralizes the wording about the
+    ``--actor`` receipt-stamping contract (codex finding rev_pkt_1781 /
+    rev_pkt_1785).
+    """
+    return [
+        (
+            "After bootstrap, FIRST drain the review-channel inbox and "
+            "ack any pending operator-authority packets BEFORE any "
+            "reviewer-bootstrap, code reading, git diff, or routed bundle:"
+        ),
+        (
+            f"- `{_DEVCTL_INTERPRETER} dev/scripts/devctl.py review-channel "
+            f"--action inbox --target {provider} --actor {provider} "
+            "--status pending --terminal none --format md` "
+            "(the `--actor` flag stamps delivery so the same packet is not "
+            "re-fired on the next wake; without it the fresh-launch drain "
+            "leaves live `action_request` packets `unseen` and the "
+            "wake/attention reducer keeps re-triggering them)."
+        ),
+        (
+            f"- For each pending instruction-class packet: "
+            f"`review-channel --action ack --packet-id <id> --actor {provider}`."
+        ),
+    ]
+
+
+def _execution_reminders_lines(
+    *,
+    retirement_note: str,
+    other_name: str,
+) -> list[str]:
+    """Render the trailing execution-reminders block."""
+    return [
+        "Execution reminders:",
+        (
+            "- Keep `bridge.md` current-state only; do not turn it into a "
+            "transcript dump."
+        ),
+        (
+            "- Keep the active markdown bridge disciplined until the structured "
+            "`review-channel` / overlay-native path replaces it."
+        ),
+        retirement_note,
+        "",
+        (
+            f"Coordinate with {other_name} only through `bridge.md` plus the "
+            "required operator-visible progress updates."
+        ),
+    ]

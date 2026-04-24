@@ -1665,13 +1665,16 @@ class TestLastReviewedSha(unittest.TestCase):
 
         md = render_bootstrap(packet)
         self.assertIn("Reviewer Bootstrap Packet", md)
+        # Interpreter prefix is dynamic; assert devctl args only.
         self.assertIn(
-            "python3 dev/scripts/devctl.py session-resume --role reviewer --format bootstrap",
+            "dev/scripts/devctl.py session-resume --role reviewer --format bootstrap",
             md,
         )
         self.assertIn("1122334455667788..aabbccddeeff0011", md)
+        # Interpreter prefix is dynamic (python3 / python3.11 / ...); assert
+        # devctl args only.
         self.assertIn(
-            "python3 dev/scripts/devctl.py review-channel --action status --terminal none --format json",
+            "dev/scripts/devctl.py review-channel --action status --terminal none --format json",
             md,
         )
         self.assertIn("Stay reviewer-only", md)
@@ -1691,8 +1694,9 @@ class TestLastReviewedSha(unittest.TestCase):
 
         md = render_bootstrap(packet)
         self.assertIn("Implementer Bootstrap Packet", md)
+        # Interpreter prefix is dynamic; assert devctl args only.
         self.assertIn(
-            "python3 dev/scripts/devctl.py session-resume --role implementer --format bootstrap",
+            "dev/scripts/devctl.py session-resume --role implementer --format bootstrap",
             md,
         )
         self.assertIn("Acknowledge the live `instruction_revision` before coding.", md)
@@ -1713,12 +1717,14 @@ class TestLastReviewedSha(unittest.TestCase):
 
         md = render_bootstrap(packet)
         self.assertIn("Observer Bootstrap Packet", md)
+        # Interpreter prefix is dynamic; assert devctl args only.
         self.assertIn(
-            "python3 dev/scripts/devctl.py session-resume --role observer --format bootstrap",
+            "dev/scripts/devctl.py session-resume --role observer --format bootstrap",
             md,
         )
+        # Interpreter prefix is dynamic; assert devctl args only.
         self.assertIn(
-            "python3 dev/scripts/devctl.py review-channel --action status --terminal none --format json",
+            "dev/scripts/devctl.py review-channel --action status --terminal none --format json",
             md,
         )
         self.assertIn('python3 dev/scripts/devctl.py commit -m "checkpoint"', md)
@@ -1849,7 +1855,15 @@ class TestLastReviewedSha(unittest.TestCase):
     def test_render_bootstrap_implementer_requires_packet_inbox_before_operator_question(
         self,
     ) -> None:
-        """Implementer bootstrap must force the typed inbox step before asking."""
+        """Implementer bootstrap must force the typed inbox step before asking.
+
+        Codex finding rev_pkt_1786: when the packet carries no live
+        coordination actor *and* no `authority_snapshot.mutation_owner`,
+        the renderer must NOT fabricate a `--target claude --actor claude`
+        command. Instead, it must surface the missing typed source so the
+        implementer repairs state before polling. This test asserts the
+        warning text and explicitly forbids the historic hard-pin.
+        """
         from dev.scripts.devctl.commands.governance.session_resume_support import (
             render_bootstrap,
         )
@@ -1862,13 +1876,50 @@ class TestLastReviewedSha(unittest.TestCase):
 
         md = render_bootstrap(packet)
         self.assertIn(
-            "run `python3 dev/scripts/devctl.py review-channel --action inbox --target claude --status pending --format md` immediately before asking what to do next.",
+            "No live implementer provider is recorded in the typed packet",
             md,
         )
+        self.assertNotIn("--target claude --actor claude", md)
         self.assertIn(
             "Do not ask the operator whether to continue a permitted probe or pull a pending packet when the typed inbox already provides the next non-destructive step.",
             md,
         )
+
+    def test_render_bootstrap_implementer_uses_authority_snapshot_mutation_owner_when_coordination_absent(
+        self,
+    ) -> None:
+        """`authority_snapshot.mutation_owner` is a valid typed source.
+
+        Codex finding rev_pkt_1786: `SessionCachePacket` admits
+        `authority_snapshot` without requiring `coordination`. When
+        coordination is empty but `authority_snapshot.mutation_owner`
+        names a non-claude implementer (e.g., codex on a flipped
+        session, or gemini on a third-party session), the rendered
+        bootstrap must target that provider — not silently pick claude.
+        """
+        from dev.scripts.devctl.commands.governance.session_resume_support import (
+            render_bootstrap,
+        )
+        from dev.scripts.devctl.runtime.authority_snapshot_core import (
+            AuthoritySnapshot,
+        )
+
+        packet = SessionCachePacket(
+            role="implementer",
+            instruction_revision="rev-789",
+            operator_interaction_mode="active_dual_agent",
+            authority_snapshot=AuthoritySnapshot(
+                mutation_owner="codex",
+                verification_owner="claude",
+            ),
+        )
+
+        md = render_bootstrap(packet)
+        self.assertIn(
+            "dev/scripts/devctl.py review-channel --action inbox --target codex --actor codex --status pending --format md`",
+            md,
+        )
+        self.assertNotIn("--target claude --actor claude", md)
 
 
 class TestV2Fields(unittest.TestCase):

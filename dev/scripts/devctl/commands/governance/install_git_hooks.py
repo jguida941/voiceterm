@@ -16,6 +16,7 @@ from .install_git_hooks_support import (
     InstallGitHooksContext,
     emit_install_git_hooks_command as _emit,
     hook_targets as _hook_targets,
+    normalize_managed_hook_content as _normalize_managed_hook_content,
     render_status_markdown as _render_status_markdown,
     run_install as _run_install,
     run_uninstall as _run_uninstall,
@@ -163,7 +164,9 @@ def current_install_status(
         template_content = template_path.read_text(encoding="utf-8")
     except OSError:
         return "managed"
-    if content != template_content:
+    if _normalize_managed_hook_content(content) != _normalize_managed_hook_content(
+        template_content
+    ):
         return "managed_drifted"
     return "managed"
 

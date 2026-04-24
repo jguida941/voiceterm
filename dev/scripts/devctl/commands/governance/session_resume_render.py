@@ -1,11 +1,15 @@
 """Rendering helpers for SessionCachePacket output formats.
 
 Extracted from session_resume_support.py to keep both modules under the
-Python soft file-size limit (350 lines).
+Python soft file-size limit (350 lines). The role-specific bootstrap
+section helpers moved further into
+``session_resume_render_role_sections`` for the same reason.
 """
 
 from __future__ import annotations
 
+import os
+import sys
 from typing import TYPE_CHECKING
 
 from ...runtime.conductor_capability import (
@@ -13,6 +17,12 @@ from ...runtime.conductor_capability import (
     reviewer_takeover_command,
     session_resume_command_for_role,
     startup_context_command_for_role,
+)
+from .session_resume_render_role_sections import (
+    implementer_bootstrap_section as _implementer_bootstrap_section,
+    implementer_provider_id as _implementer_provider_id,
+    observer_bootstrap_section as _observer_bootstrap_section,
+    reviewer_bootstrap_section as _reviewer_bootstrap_section,
 )
 from .session_resume_render_sections import (
     coordination_lines as _coordination_lines,
@@ -27,8 +37,14 @@ if TYPE_CHECKING:
     from .session_resume_support import SessionCachePacket
 
 
+# Match the launch.py / peer_recovery.py / review_packet_inbox.py pattern:
+# derive the interpreter from the currently-running Python so generated
+# commands work under the same interpreter-selection the rest of the
+# review-channel runtime uses.
+_DEVCTL_INTERPRETER = os.path.basename(sys.executable) or "python3"
+
 _STATUS_COMMAND = (
-    "python3 dev/scripts/devctl.py review-channel --action status "
+    f"{_DEVCTL_INTERPRETER} dev/scripts/devctl.py review-channel --action status "
     "--terminal none --format json"
 )
 
@@ -71,7 +87,7 @@ def render_bootstrap(packet: "SessionCachePacket") -> str:
                 "### Run In Order",
                 f"1. `{startup_context_command_for_role(role)}`",
                 f"2. `{session_resume_command_for_role(role)}`",
-                "3. `python3 dev/scripts/devctl.py review-channel --action status --terminal none --format json`",
+                f"3. `{_STATUS_COMMAND}`",
                 f"4. `{context_graph_bootstrap_command()}`",
             ]
         )
@@ -82,7 +98,7 @@ def render_bootstrap(packet: "SessionCachePacket") -> str:
                 "### Run In Order",
                 f"1. `{startup_context_command_for_role(role)}`",
                 f"2. `{session_resume_command_for_role(role)}`",
-                "3. `python3 dev/scripts/devctl.py review-channel --action status --terminal none --format json`",
+                f"3. `{_STATUS_COMMAND}`",
                 f"4. `{context_graph_bootstrap_command()}`",
             ]
         )
@@ -290,120 +306,3 @@ def _role_bootstrap_section(packet: "SessionCachePacket", *, role: str) -> list[
     return _implementer_bootstrap_section(packet)
 
 
-def _reviewer_bootstrap_section(packet: "SessionCachePacket") -> list[str]:
-    lines = [
-        "",
-        "### Reviewer Rules",
-        "- Use this packet as the first-hop reviewer bootstrap instead of operator memory or stale bridge prose.",
-        "- Start from `Poll Status`, `Current Verdict`, `Open Findings`, `Current Instruction For Claude`, and `Last Reviewed Scope`.",
-        "- If `Pending Inbox` already names a reviewer-targeted packet or `required_command`, run that repo-owned inbox command immediately before bridge-only analysis or operator questions.",
-    ]
-    candidate = packet.review_candidate
-    head = packet.head_sha.strip()
-    last_reviewed = packet.last_reviewed_sha.strip()
-    if candidate is not None and candidate.valid and candidate.ready_for_review:
-        lines.append(
-            f"- Prefer frozen review candidate `{candidate.candidate_id}` over raw HEAD drift."
-        )
-        if candidate.changed_paths:
-            lines.append(
-                "- Review the candidate path set first: "
-                + ", ".join(f"`{path}`" for path in candidate.changed_paths[:6])
-                + ("." if len(candidate.changed_paths) <= 6 else ", ...")
-            )
-        if candidate.artifact_kind == "dirty_tree" and candidate.worktree_hash:
-            lines.append(
-                f"- Inspect the dirty-tree candidate at worktree hash `{candidate.worktree_hash[:12]}` before any commit-range fallback."
-            )
-    elif head and last_reviewed and head != last_reviewed:
-        lines.append(
-            f"- Review the exact diff range `{last_reviewed}..{head}` before widening scope."
-        )
-    elif head and not last_reviewed:
-        lines.append(
-            "- No prior `last_reviewed_sha` is recorded; review all pending changes before widening scope."
-        )
-    lines.append(
-        "- Stay reviewer-only unless the workflow explicitly enters `reviewer_mode=single_agent` "
-        f"or `{reviewer_takeover_command()}`."
-    )
-    lines.extend(
-        [
-            "",
-            "### Conversation Starter",
-            (
-                "Reviewer lane only. Run "
-                f"`{startup_context_command_for_role('reviewer')}`, then "
-                f"`{session_resume_command_for_role('reviewer')}`, then "
-                "`python3 dev/scripts/devctl.py review-channel --action status "
-                "--terminal none --format json`, then "
-                f"`{context_graph_bootstrap_command()}`. Use this packet plus typed "
-                "review-state/`bridge.md` as live authority."
-            ),
-        ]
-    )
-    return lines
-
-
-def _implementer_bootstrap_section(packet: "SessionCachePacket") -> list[str]:
-    lines = [
-        "",
-        "### Implementer Rules",
-        "- Use `Current Instruction For Claude` / typed `current_instruction` as the live work source.",
-        "- Acknowledge the live `instruction_revision` before coding.",
-        "- If reviewer-owned state says `hold steady`, `waiting for reviewer promotion`, or governed push/review is still in progress, stay in polling mode instead of mining side work.",
-        "- If `Pending Inbox` or typed packet state names a Claude-targeted packet or required inbox command, run `python3 dev/scripts/devctl.py review-channel --action inbox --target claude --status pending --format md` immediately before asking what to do next.",
-        "- Do not ask the operator whether to continue a permitted probe or pull a pending packet when the typed inbox already provides the next non-destructive step.",
-    ]
-    if packet.instruction_revision:
-        lines.append(
-            f"- Current instruction revision to acknowledge: `{packet.instruction_revision}`."
-        )
-    lines.extend(
-        [
-            "",
-            "### Conversation Starter",
-            (
-                "Coder lane only. Run "
-                f"`{startup_context_command_for_role('implementer')}`, then "
-                f"`{session_resume_command_for_role('implementer')}`, then "
-                f"`{context_graph_bootstrap_command()}`. Use this packet plus typed "
-                "review-state/`bridge.md` as live authority and acknowledge the "
-                "current instruction revision before coding."
-            ),
-        ]
-    )
-    return lines
-
-
-def _observer_bootstrap_section(
-    packet: "SessionCachePacket",
-    *,
-    role: str,
-) -> list[str]:
-    role_name = "Dashboard" if role == "dashboard" else "Observer"
-    lines = [
-        "",
-        f"### {role_name} Rules",
-        "- Use this packet as the read-only bootstrap surface before bridge-first inspection or operator memory.",
-        "- Run the typed status surface before interpreting stale bridge prose, lane tables, or local assumptions.",
-        "- This lane may inspect state and post findings or action requests, but it must not take implementation ownership.",
-        "- If `Pending Inbox` names a required command, run that repo-owned inbox/status command before asking what to do next.",
-    ]
-    lines.extend(
-        [
-            "",
-            "### Conversation Starter",
-            (
-                f"{role_name} lane only. Run "
-                f"`{startup_context_command_for_role(role)}`, then "
-                f"`{session_resume_command_for_role(role)}`, then "
-                "`python3 dev/scripts/devctl.py review-channel --action status "
-                "--terminal none --format json`, then "
-                f"`{context_graph_bootstrap_command()}`. Use typed review-state "
-                "and `bridge.md` as read-only authority, not as permission to "
-                "edit or commit."
-            ),
-        ]
-    )
-    return lines

@@ -22,12 +22,28 @@ if [ -z "$REPO_ROOT" ]; then
 fi
 cd "$REPO_ROOT"
 
-if ! python3 dev/scripts/devctl.py --help >/dev/null 2>&1; then
+DEVCTL_PYTHON="@DEVCTL_PYTHON@"
+if [ ! -x "$DEVCTL_PYTHON" ]; then
+    if command -v python3.11 >/dev/null 2>&1; then
+        DEVCTL_PYTHON="$(command -v python3.11)"
+    elif command -v python3 >/dev/null 2>&1; then
+        DEVCTL_PYTHON="$(command -v python3)"
+    else
+        DEVCTL_PYTHON=""
+    fi
+fi
+
+if [ -z "$DEVCTL_PYTHON" ]; then
+    echo "[pre-push hook] A compatible Python interpreter is required; raw git push is blocked." >&2
+    exit 1
+fi
+
+if ! "$DEVCTL_PYTHON" dev/scripts/devctl.py --help >/dev/null 2>&1; then
     echo "[pre-push hook] devctl is unavailable in this clone; raw git push is blocked." >&2
     exit 1
 fi
 
-STARTUP_SUMMARY="$(python3 dev/scripts/devctl.py startup-context --format summary 2>/dev/null || true)"
+STARTUP_SUMMARY="$("$DEVCTL_PYTHON" dev/scripts/devctl.py startup-context --format summary 2>/dev/null || true)"
 NEXT_COMMAND="$(printf '%s\n' "$STARTUP_SUMMARY" | awk -F= '/^next=/{sub(/^next=/,""); print; exit}')"
 ACTION="$(printf '%s\n' "$STARTUP_SUMMARY" | awk -F= '/^action=/{sub(/^action=/,""); print; exit}')"
 REASON="$(printf '%s\n' "$STARTUP_SUMMARY" | awk -F= '/^reason=/{sub(/^reason=/,""); print; exit}')"
@@ -39,5 +55,5 @@ fi
 if [ -n "$NEXT_COMMAND" ]; then
     echo "[pre-push hook] Next typed step: $NEXT_COMMAND" >&2
 fi
-echo "[pre-push hook] Governed path: python3 dev/scripts/devctl.py push --execute" >&2
+echo "[pre-push hook] Governed path: $(basename "$DEVCTL_PYTHON") dev/scripts/devctl.py push --execute" >&2
 exit 1

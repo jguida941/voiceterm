@@ -59,7 +59,7 @@ def test_inbox_poll_renders_after_bootstrap_but_before_operating_contract() -> N
         "After bootstrap, FIRST drain the review-channel inbox"
     )
     inbox_command_idx = prompt.find(
-        "review-channel --action inbox --target codex --status pending --terminal none --format md"
+        "review-channel --action inbox --target codex --actor codex --status pending"
     )
     operating_contract_idx = prompt.find("Operating contract:")
 

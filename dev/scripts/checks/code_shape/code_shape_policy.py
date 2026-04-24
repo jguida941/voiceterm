@@ -199,12 +199,10 @@ PATH_POLICY_OVERRIDES: dict[str, ShapePolicy] = {
         oversize_growth_limit=25,
         hard_lock_growth_limit=0,
     ),
-    "dev/scripts/devctl/commands/hygiene.py": ShapePolicy(
-        soft_limit=380,
-        hard_limit=550,
-        oversize_growth_limit=25,
-        hard_lock_growth_limit=0,
-    ),
+    # `dev/scripts/devctl/commands/hygiene.py` override removed by the
+    # stale_path_override_below_default_soft_limit guard: the file is now 7
+    # lines (modularized below the 350-line language default), so the prior
+    # 380/550 budget was looser than necessary. Default policy applies.
     "dev/scripts/devctl/commands/review_channel.py": ShapePolicy(
         soft_limit=900,
         hard_limit=1000,

@@ -5,15 +5,15 @@
 ## Quick status
 
 - Branch: `feature/governance-quality-sweep`
-- HEAD: `e66c68e34c69` — Refresh external review snapshot for 68dbe112
-- Tree hash: `b193f3b2f9ec`
-- Generation stamp: `snap-2db59374379e`
-- Generated at (UTC): 2026-04-23T14:23:41Z
-- Push decision: `await_checkpoint` — staged_and_unstaged_worktree_present
+- HEAD: `9d6f1eb63880` — Repair review surface bootstrap contracts
+- Tree hash: `377a81b38514`
+- Generation stamp: `snap-76ba48e238db`
+- Generated at (UTC): 2026-04-24T01:41:59Z
+- Push decision: `await_checkpoint` — staged_index_budget_exceeded
 - Reviewer mode: `single_agent` (interaction: `remote_control`)
 - Pipeline state: `n/a` (approval: `n/a`)
-- Delta since last snapshot: 24 commits, 90 files, +5523/-1954
-- Governance findings: 112 open / 86 fixed / 212 total
+- Delta since last snapshot: 24 commits, 90 files, +5527/-1955
+- Governance findings: 116 open / 88 fixed / 218 total
 - Probe hints: 0 total across 0 files scanned
 
 ## 1. Identity
@@ -54,27 +54,24 @@ adopters arrive.
 - Remote: `https://github.com/jguida941/voiceterm.git`
 - Default branch: `master`
 - Current branch: `feature/governance-quality-sweep`
-- HEAD SHA: `e66c68e34c69acca9b0e077cead3eed7f6bc1f12`
+- HEAD SHA: `9d6f1eb63880ad54c499f9e9555d83dec59cb3ae`
 - HEAD author: Justin Guida
-- HEAD timestamp (UTC): 2026-04-23T09:56:09-04:00
+- HEAD timestamp (UTC): 2026-04-23T10:25:34-04:00
 
 ## 2. Governance state
 
 ### Push decision
 - action: `await_checkpoint`
-- reason: staged_and_unstaged_worktree_present
+- reason: staged_index_budget_exceeded
 - push_eligible_now: False
 - worktree_clean: False
-- staged_path_count: 9
-- unstaged_path_count: 1
+- staged_path_count: 30
+- unstaged_path_count: 0
 - next_step_command: `n/a`
 - latest_push_report: `dev/reports/push/latest.json`
 - latest_push_report_state: `blocked` (validation_failed)
-- current_push_authorization: `push-auth-20260423T135401147842Z` (valid=False)
-- authorized_head_commit: `68dbe1123a8ecbbb532b7d4d4d5d3a3e900c6014`
-- approved_target_identity: `tree-receipt-20260423T132522272297Z:eb42a30536edb994c0adffb41eaf4e9d7a381e29`
 - publication_backlog: urgent
-- publication_guidance: 6 local commit(s) waiting for governed push once the current slice is checkpoint-clean.
+- publication_guidance: 7 local commit(s) waiting for governed push once the current slice is checkpoint-clean.
 
 ### Reviewer runtime
 - reviewer_mode: `single_agent`
@@ -90,16 +87,17 @@ adopters arrive.
 - active plan: **AI Governance Platform Plan**
 - plan path: `dev/active/ai_governance_platform.md`
 - active MP scope: `MP-377`
-- advisory: `checkpoint_before_continue` — dirty_after_local_checkpoint
+- advisory: `checkpoint_before_continue` — staged_index_budget_exceeded
+- checkpoint_required: **yes**
 
 ## 3. Delta — what changed since the previous snapshot
 
-Range: last 24 commits ending at `e66c68e34c69`
+Range: last 24 commits ending at `9d6f1eb63880`
 
 - commits: 24
 - files changed: 90
-- insertions: +5523
-- deletions: -1954
+- insertions: +5527
+- deletions: -1955
 - bundle classes touched: docs, tooling
 - authority surfaces touched: 15 file(s)
 
@@ -107,38 +105,38 @@ Range: last 24 commits ending at `e66c68e34c69`
 
 | # | SHA | Subject | Files | +/- | Bundle | Risk |
 |---|---|---|---|---|---|---|
-| 1 | `e66c68e3` | Refresh external review snapshot for 68dbe112 | 1 | +1/-1 | docs |  |
-| 2 | `68dbe112` | Refresh external review snapshot for e7211799 | 2 | +64/-64 | docs |  |
-| 3 | `e7211799` | chore(push): auto-commit preflight-generated changes | 11 | +202/-90 | tooling |  |
-| 4 | `e3ebc4ef` | Refresh external review snapshot for 653beda0 | 1 | +3/-3 | docs |  |
-| 5 | `653beda0` | chore(push): auto-commit preflight-generated changes | 1 | +79/-74 | tooling |  |
-| 6 | `4ba95539` | Route remote-control staging handoffs | 28 | +1094/-439 | tooling |  |
-| 7 | `cf61d131` | Refresh external review snapshot for ddafb608 | 1 | +1/-1 | docs |  |
-| 8 | `ddafb608` | Refresh external review snapshot for 415674d0 | 2 | +66/-66 | docs |  |
-| 9 | `415674d0` | Add managed projection receipt push cleanup | 14 | +500/-70 | tooling |  |
-| 10 | `fd11a448` | Refresh external review snapshot for 0ec1b679 | 2 | +75/-70 | docs |  |
-| 11 | `0ec1b679` | Classify managed bridge projection drift | 31 | +647/-135 | tooling |  |
-| 12 | `c03ce187` | Refresh external review snapshot for 41783001 | 2 | +54/-57 | docs |  |
-| 13 | `41783001` | Align observer review surface next-command parity | 4 | +71/-57 | tooling |  |
-| 14 | `6bd851e9` | Refresh external review snapshot for 42376bb0 | 2 | +73/-73 | docs |  |
-| 15 | `42376bb0` | Add read-only advisory next-command filter | 27 | +367/-126 | tooling |  |
-| 16 | `6505342a` | Refresh external review snapshot for d340497e | 2 | +71/-71 | docs |  |
-| 17 | `d340497e` | Add pipeline auto-recover for stale governed commits | 17 | +1340/-88 | tooling |  |
-| 18 | `5553d4f0` | Refresh external review snapshot for 49d0b13c | 2 | +55/-54 | docs |  |
-| 19 | `49d0b13c` | Record post-push bridge and publish automation debt | 3 | +54/-50 | tooling |  |
-| 20 | `1339466e` | Refresh external review snapshot for 86adf8b2 | 2 | +78/-80 | docs |  |
-| 21 | `86adf8b2` | Add external repo path for orphan inventory and staged-scop… | 19 | +351/-103 | tooling |  |
-| 22 | `a3299c78` | Add external repo path for orphan inventory proof | 1 | +58/-51 | tooling |  |
-| 23 | `041293c2` | Refresh external review snapshot for 71f7bcf2 | 2 | +58/-58 | docs |  |
-| 24 | `71f7bcf2` | Fix review surface receipt parity and observer resume routi… | 7 | +161/-73 | tooling |  |
+| 1 | `9d6f1eb6` | Repair review surface bootstrap contracts | 10 | +165/-74 | tooling |  |
+| 2 | `e66c68e3` | Refresh external review snapshot for 68dbe112 | 1 | +1/-1 | docs |  |
+| 3 | `68dbe112` | Refresh external review snapshot for e7211799 | 2 | +64/-64 | docs |  |
+| 4 | `e7211799` | chore(push): auto-commit preflight-generated changes | 11 | +202/-90 | tooling |  |
+| 5 | `e3ebc4ef` | Refresh external review snapshot for 653beda0 | 1 | +3/-3 | docs |  |
+| 6 | `653beda0` | chore(push): auto-commit preflight-generated changes | 1 | +79/-74 | tooling |  |
+| 7 | `4ba95539` | Route remote-control staging handoffs | 28 | +1094/-439 | tooling |  |
+| 8 | `cf61d131` | Refresh external review snapshot for ddafb608 | 1 | +1/-1 | docs |  |
+| 9 | `ddafb608` | Refresh external review snapshot for 415674d0 | 2 | +66/-66 | docs |  |
+| 10 | `415674d0` | Add managed projection receipt push cleanup | 14 | +500/-70 | tooling |  |
+| 11 | `fd11a448` | Refresh external review snapshot for 0ec1b679 | 2 | +75/-70 | docs |  |
+| 12 | `0ec1b679` | Classify managed bridge projection drift | 31 | +647/-135 | tooling |  |
+| 13 | `c03ce187` | Refresh external review snapshot for 41783001 | 2 | +54/-57 | docs |  |
+| 14 | `41783001` | Align observer review surface next-command parity | 4 | +71/-57 | tooling |  |
+| 15 | `6bd851e9` | Refresh external review snapshot for 42376bb0 | 2 | +73/-73 | docs |  |
+| 16 | `42376bb0` | Add read-only advisory next-command filter | 27 | +367/-126 | tooling |  |
+| 17 | `6505342a` | Refresh external review snapshot for d340497e | 2 | +71/-71 | docs |  |
+| 18 | `d340497e` | Add pipeline auto-recover for stale governed commits | 17 | +1340/-88 | tooling |  |
+| 19 | `5553d4f0` | Refresh external review snapshot for 49d0b13c | 2 | +55/-54 | docs |  |
+| 20 | `49d0b13c` | Record post-push bridge and publish automation debt | 3 | +54/-50 | tooling |  |
+| 21 | `1339466e` | Refresh external review snapshot for 86adf8b2 | 2 | +78/-80 | docs |  |
+| 22 | `86adf8b2` | Add external repo path for orphan inventory and staged-scop… | 19 | +351/-103 | tooling |  |
+| 23 | `a3299c78` | Add external repo path for orphan inventory proof | 1 | +58/-51 | tooling |  |
+| 24 | `041293c2` | Refresh external review snapshot for 71f7bcf2 | 2 | +58/-58 | docs |  |
 
 ### Files
 
 | Path | Bundle | +/- |
 |---|---|---|
-| `AGENTS.md` | docs | +19/-9 |
+| `AGENTS.md` | docs | +24/-10 |
 | `bridge.md` | docs | +40/-40 |
-| `dev/active/MASTER_PLAN.md` | tooling | +54/-6 |
+| `dev/active/MASTER_PLAN.md` | tooling | +63/-7 |
 | `dev/active/ai_governance_platform.md` | tooling | +80/-11 |
 | `dev/active/portable_code_governance.md` | tooling | +13/-1 |
 | `dev/active/remote_commit_pipeline.md` | tooling | +13/-1 |
@@ -146,20 +144,20 @@ Range: last 24 commits ending at `e66c68e34c69`
 | `dev/audits/AI_GOVERNANCE_PLATFORM_PROOF_LEDGER.md` | tooling | +7/-0 |
 | `dev/audits/AUTOMATION_DEBT_REGISTER.md` | tooling | +12/-6 |
 | `dev/audits/LIVE_RUN.md` | tooling | +29/-0 |
-| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1292/-1290 |
-| `dev/guides/DEVELOPMENT.md` | docs | +42/-18 |
-| `dev/history/ENGINEERING_EVOLUTION.md` | tooling | +235/-3 |
-| `dev/scripts/README.md` | tooling | +67/-26 |
+| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1306/-1303 |
+| `dev/guides/DEVELOPMENT.md` | docs | +49/-19 |
+| `dev/history/ENGINEERING_EVOLUTION.md` | tooling | +271/-3 |
+| `dev/scripts/README.md` | tooling | +74/-26 |
 | `dev/scripts/checks/code_shape/code_shape_policy.py` | tooling | +0/-12 |
-| `dev/scripts/checks/review_surface_consistency/command.py` | tooling | +14/-1 |
-| `dev/scripts/checks/review_surface_consistency/proof_tick.py` | tooling | +6/-3 |
+| `dev/scripts/checks/review_surface_consistency/command.py` | tooling | +1/-0 |
+| `dev/scripts/checks/review_surface_consistency/proof_tick.py` | tooling | +0/-2 |
 | `dev/scripts/devctl/cli_parser/entrypoint.py` | tooling | +6/-0 |
 | `dev/scripts/devctl/cli_parser/pipeline.py` | tooling | +6/-2 |
 | `dev/scripts/devctl/commands/dashboard.py` | tooling | +20/-6 |
 | `dev/scripts/devctl/commands/governance/orphan_inventory_parser.py` | tooling | +8/-0 |
 | `dev/scripts/devctl/commands/governance/orphan_inventory_run.py` | tooling | +5/-1 |
-| `dev/scripts/devctl/commands/governance/session_resume_role_projection.py` | tooling | +43/-21 |
-| `dev/scripts/devctl/commands/governance/session_resume_support.py` | tooling | +13/-11 |
+| `dev/scripts/devctl/commands/governance/session_resume_role_projection.py` | tooling | +10/-21 |
+| `dev/scripts/devctl/commands/governance/session_resume_source_helpers.py` | tooling | +5/-2 |
 | `dev/scripts/devctl/commands/governance/startup_context.py` | tooling | +10/-1 |
 | `dev/scripts/devctl/commands/governance/startup_context_push_render.py` | tooling | +6/-0 |
 | `dev/scripts/devctl/commands/governance/startup_context_summary.py` | tooling | +23/-0 |
@@ -181,22 +179,22 @@ Range: last 24 commits ending at `e66c68e34c69`
 ## 4. Quality signals
 
 ### Governance review
-- total findings: 212
-- open: 112
-- fixed: 86
+- total findings: 218
+- open: 116
+- fixed: 88
 - false positives: 0
 
 Recent findings:
-- `dogfood_finding_id_instability` — `dev/scripts/devctl/runtime/dogfood_log.py` (n/a, verdict=`confirmed_issue`)
-- `dogfood_read_only_registration_missing` — `dev/scripts/devctl/cli_parser/entrypoint.py` (n/a, verdict=`confirmed_issue`)
-- `finding_backlog_writer_closure_broken` — `dev/scripts/devctl/runtime/finding_backlog.py` (n/a, verdict=`confirmed_issue`)
-- `dogfood_governance_pipeline_missing` — `dev/scripts/devctl/runtime/dogfood_log.py` (n/a, verdict=`confirmed_issue`)
-- `bridge_authority_conflict` — `bridge.md` (n/a, verdict=`confirmed_issue`)
-- `plan_markdown_projection_missing` — `dev/scripts/devctl/platform/planning_ir_models.py` (n/a, verdict=`confirmed_issue`)
 - `plan_authority_gap` — `dev/active/MASTER_PLAN.md` (n/a, verdict=`confirmed_issue`)
 - `bridge_metadata_parsed_as_authority` — `dev/scripts/devctl/review_channel/handoff.py` (n/a, verdict=`confirmed_issue`)
 - `authority_snapshot_3_fields_missing` — `dev/scripts/devctl/runtime/startup_context.py` (n/a, verdict=`fixed`)
 - `dogfood.command.startup-context` — `dev/scripts/devctl/commands/governance/startup_context.py` (n/a, verdict=`confirmed_issue`)
+- `agents_md_dual_purpose_conflict` — `AGENTS.md` (n/a, verdict=`confirmed_issue`)
+- `dogfood.command.dogfood` — `dev/scripts/devctl/commands/reporting/dogfood.py` (n/a, verdict=`fixed`)
+- `dogfood.code_shape_push_regression` — `dev/scripts/devctl/commands/vcs/push.py` (n/a, verdict=`confirmed_issue`)
+- `dogfood.review_channel_post_timeout` — `dev/scripts/devctl/commands/review_channel/event_handler.py` (n/a, verdict=`confirmed_issue`)
+- `dogfood.review_channel_post_timeout` — `dev/scripts/devctl/review_channel/event_projection_queue.py` (n/a, verdict=`fixed`)
+- `portability_python_310` — `dev/scripts/devctl/runtime/worktree_orphan_inventory_support.py` (p0, verdict=`confirmed_issue`)
 
 ### Probe report
 - run_state: `missing`
@@ -297,6 +295,8 @@ Recent findings:
 
 ### Per-commit rationale
 
+- **`9d6f1eb6`** — Repair review surface bootstrap contracts
+  - evolution: Fact: the first ADR-008 slice made `bridge.md` drift visible as managed projection state, but a green push could still end with raw `git status` showing the tracked compatibility projection dirty. That left the operator…
 - **`e66c68e3`** — Refresh external review snapshot for 68dbe112
   - evolution: Fact: the first ADR-008 slice made `bridge.md` drift visible as managed projection state, but a green push could still end with raw `git status` showing the tracked compatibility projection dirty. That left the operator…
 - **`68dbe112`** — Refresh external review snapshot for e7211799
@@ -343,8 +343,6 @@ Recent findings:
   - evolution: Fact: after `AuthoritySnapshot` and `CoordinationSnapshot` started carrying producer provenance, the remaining read-side surfaces could still diverge for the same proof tick. `ControlPlaneReadModel` and `SessionCachePac…
 - **`041293c2`** — Refresh external review snapshot for 71f7bcf2
   - evolution: Fact: after `AuthoritySnapshot` and `CoordinationSnapshot` started carrying producer provenance, the remaining read-side surfaces could still diverge for the same proof tick. `ControlPlaneReadModel` and `SessionCachePac…
-- **`71f7bcf2`** — Fix review surface receipt parity and observer resume routing
-  - evolution: Fact: after `AuthoritySnapshot` and `CoordinationSnapshot` started carrying producer provenance, the remaining read-side surfaces could still diverge for the same proof tick. `ControlPlaneReadModel` and `SessionCachePac…
 ### Active MP scope (from MASTER_PLAN.md)
 
 - contract slice for MP-355 plus the temporary markdown-swarm operating mode
@@ -360,24 +358,23 @@ Recent findings:
 
 ## 8. Known gaps and open items
 
-- open governance findings: 112
+- open governance findings: 116
 
 ### Startup advisories
-- checkpoint_before_continue: dirty_after_local_checkpoint
+- checkpoint_before_continue: staged_index_budget_exceeded
 
 ### Stale warnings
-- Relaunch the reviewer loop immediately.
+- Keep editing the current slice.
+- Move straight to the governed push path.
 
 ### Open gap rows
-- **governance_open** (`dev/scripts/devctl/runtime/dogfood_log.py`): dogfood_finding_id_instability: 
-- **governance_open** (`dev/scripts/devctl/cli_parser/entrypoint.py`): dogfood_read_only_registration_missing: 
-- **governance_open** (`dev/scripts/devctl/runtime/finding_backlog.py`): finding_backlog_writer_closure_broken: 
-- **governance_open** (`dev/scripts/devctl/runtime/dogfood_log.py`): dogfood_governance_pipeline_missing: 
-- **governance_open** (`bridge.md`): bridge_authority_conflict: 
-- **governance_open** (`dev/scripts/devctl/platform/planning_ir_models.py`): plan_markdown_projection_missing: 
 - **governance_open** (`dev/active/MASTER_PLAN.md`): plan_authority_gap: 
 - **governance_open** (`dev/scripts/devctl/review_channel/handoff.py`): bridge_metadata_parsed_as_authority: 
+- **governance_open** (`dev/scripts/devctl/commands/governance/startup_context.py`): dogfood.command.startup-context: 
+- **governance_open** (`AGENTS.md`): agents_md_dual_purpose_conflict: 
+- **governance_open** (`dev/scripts/devctl/commands/vcs/push.py`): dogfood.code_shape_push_regression: Push preflight bridge sync expanded push.py beyond the hard limit.
+- **governance_open** (`dev/scripts/devctl/commands/review_channel/event_handler.py`): dogfood.review_channel_post_timeout: Timed out after 20s while posting review-channel --action post --kind action_request for the staged dogfood/governance handoff.
 
 ---
 
-Projection produced by `devctl review-snapshot`. Generation stamp `snap-2db59374379e` binds this file to HEAD `e66c68e34c69`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
+Projection produced by `devctl review-snapshot`. Generation stamp `snap-76ba48e238db` binds this file to HEAD `9d6f1eb63880`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.

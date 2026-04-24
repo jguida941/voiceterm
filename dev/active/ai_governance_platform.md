@@ -11240,3 +11240,48 @@ Execution order for this section:
 - `dev/scripts/devctl/tests/test_docs_check.py`
 - `dev/scripts/devctl/tests/test_docs_check_constants.py`
 - `dev/scripts/devctl/tests/quality_policy/test_quality_policy.py`
+
+## 2026-04-23 — `stage_commit_pipeline` projection + role-aware stage handoff (MP-355 + MP-377 follow-up)
+
+The remote-control commit staging slice introduced a new
+`requested_action="stage_commit_pipeline"` action_request kind, but the
+live dogfood loop showed three follow-up gaps that left the new packet
+stalling silently. This slice closes them under MP-377's runtime-truth
+convergence:
+
+- **Bridge projection visibility.** `ActionKind.STAGE_COMMIT_PIPELINE`
+  is now a first-class enum member, so `action_requests_from_packets`
+  no longer drops the new packet from the projected `## Action
+  Requests` surface.
+- **Role-aware stage handoff routing.** `resolve_commit_stage_target`
+  now reads `remote_control_attachment.role` alongside `provider`, and
+  reroutes the handoff to the typed `coding_agent` when the attached
+  provider is the reviewer-bound agent and the coding agent is both
+  live and `may_edit_repo=True`. Without an active remote-control
+  attachment the function fails closed (returns `""`), so the caller
+  cannot self-route a sandbox-blocked stage handoff back into the
+  same local lane.
+- **Actor-matched polling templates.** Every implementer/reviewer
+  inbox-poll prompt rendered out of `prompt_guards.py`, the
+  `_INBOX_COMMAND_TEMPLATE` in `runtime/review_packet_inbox.py`, and
+  the implementer bootstrap surface in
+  `commands/governance/session_resume_render.py` now passes
+  `--actor <provider_id>`, so the runtime stamps
+  `delivery_observed_at_utc` instead of leaving live `action_request`
+  packets `unseen` and retriggering wake/attention loops.
+
+Maintainer surfaces (`AGENTS.md`, `dev/guides/DEVELOPMENT.md`,
+`dev/scripts/README.md`, `dev/active/MASTER_PLAN.md`,
+`dev/history/ENGINEERING_EVOLUTION.md`) advertise `stage_commit_pipeline`
+alongside the other bridge-executable actions so generated guidance
+agrees with the typed contract.
+
+Evidence:
+
+- `dev/scripts/devctl/review_channel/action_request.py`
+- `dev/scripts/devctl/review_channel/prompt_guards.py`
+- `dev/scripts/devctl/runtime/review_packet_inbox.py`
+- `dev/scripts/devctl/commands/governance/session_resume_render.py`
+- `dev/scripts/devctl/commands/vcs/governed_executor_commit_targets.py`
+- `dev/scripts/devctl/tests/review_channel/test_action_request.py`
+- `dev/scripts/devctl/tests/vcs/test_governed_executor.py`

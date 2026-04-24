@@ -449,11 +449,11 @@ Portability note:
   the block path and point operators straight at `devctl push --execute`.
 - `review-channel --action post --kind action_request` is the event-backed
   source for bridge `## Action Requests`, but executable requests are
-  fail-closed on typed runtime binding. Use `--requested-action run_check` or
-  `kill_process` with `--target-kind runtime`, `--target-ref`, and
-  `--target-revision`; use `--requested-action commit` or `push` only with
-  `--target-ref remote_commit_pipeline:<pipeline_id>` plus
-  `--pipeline-generation`, `--staged-snapshot-hash`, and
+  fail-closed on typed runtime binding. Use `--requested-action run_check`,
+  `kill_process`, or `stage_commit_pipeline` with `--target-kind runtime`,
+  `--target-ref`, and `--target-revision`; use `--requested-action commit`
+  or `push` only with `--target-ref remote_commit_pipeline:<pipeline_id>`
+  plus `--pipeline-generation`, `--staged-snapshot-hash`, and
   `--guard-results-summary`. Targeted `review-channel --action inbox|watch`
   polls now stamp `delivery_observed_at_utc` / `delivery_observed_by` only
   when `--actor` matches the target agent for live `action_request` packets,

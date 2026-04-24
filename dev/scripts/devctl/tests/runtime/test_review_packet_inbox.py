@@ -1,9 +1,40 @@
 from __future__ import annotations
 
 from dev.scripts.devctl.runtime.review_packet_inbox import (
+    _inbox_command_for_agent,
     packet_inbox_from_review_state,
     summarize_packet_attention_open_findings,
 )
+
+
+def test_inbox_command_includes_actor_for_arbitrary_provider() -> None:
+    """Codex finding rev_pkt_1779 — arbitrary providers must stamp delivery.
+
+    `packet_agents.py` already admits any provider id discovered via
+    typed collaboration / registry / session metadata. The inbox-command
+    template must follow the same role-symmetric contract: if the agent
+    is not one of the known synthetic non-poller targets
+    (operator/system), it gets the delivery-stamping `--actor` flag —
+    not just the codex/claude/cursor whitelist.
+    """
+    for provider in ("codex", "claude", "cursor", "gemini", "future-agent"):
+        rendered = _inbox_command_for_agent(provider)
+        assert f"--target {provider}" in rendered
+        assert f"--actor {provider}" in rendered, provider
+
+
+def test_inbox_command_omits_actor_for_synthetic_non_poller_targets() -> None:
+    """Operator/system targets are read-only; stamping delivery would lie.
+
+    These ids do not represent live conductor lanes that can observe a
+    packet; emitting `--actor` for them would falsely advance the typed
+    delivery-stamp on `action_request` / decision packets, defeating the
+    `event_watch_support` deduplication contract.
+    """
+    for synthetic in ("operator", "system"):
+        rendered = _inbox_command_for_agent(synthetic)
+        assert f"--target {synthetic}" in rendered
+        assert "--actor" not in rendered, synthetic
 
 
 def test_packet_inbox_drops_persisted_expired_ids_when_live_packets_are_gone() -> None:
