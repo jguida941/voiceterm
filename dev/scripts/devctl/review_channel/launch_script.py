@@ -14,6 +14,8 @@ from ..approval_mode import (
     provider_args_for_approval_mode,
 )
 from .launch_authority import NON_RESTARTABLE_LAUNCH_AUTHORITY_EXIT_CODE
+from .launch_script_authority import launch_authority_check_lines as _launch_authority_check_lines
+from .launch_script_watchdog import inactivity_watchdog_lines as _inactivity_watchdog_lines
 
 
 @dataclass(frozen=True)
@@ -77,9 +79,38 @@ def build_session_script(
         )
     )
     lines.extend(_launch_authority_check_lines())
+    lines.extend(_inactivity_watchdog_lines(provider))
     lines.extend(_run_once_opening(workspace_root=effective_workspace_root))
     lines.extend(f"  {line}" for line in _provider_shell_prelude(provider))
-    lines.extend([f"  {execution_command} \"$REVIEW_CHANNEL_PROMPT\"", "}", ""])
+    # Spawn the conductor in background, then run the inactivity watchdog
+    # in parallel so SIGINT can be delivered when the conductor stalls
+    # without exiting (operator-authorized 2026-04-24 path 1 fix). When
+    # `REVIEW_CHANNEL_WATCHDOG_DISABLED=1`, fall back to the legacy
+    # blocking invocation so anyone reproducing the prior behavior can
+    # opt out.
+    lines.extend(
+        [
+            f'  if [[ "$REVIEW_CHANNEL_WATCHDOG_DISABLED" == "1" ]]; then',
+            f'    {execution_command} "$REVIEW_CHANNEL_PROMPT"',
+            "    return $?",
+            "  fi",
+            f'  {execution_command} "$REVIEW_CHANNEL_PROMPT" &',
+            "  local conductor_pid=$!",
+            "  review_channel_inactivity_watchdog "
+            '"$conductor_pid" '
+            '"$REVIEW_CHANNEL_INACTIVITY_TIMEOUT_SECONDS" '
+            '"$REVIEW_CHANNEL_WATCHDOG_STARTUP_GRACE_SECONDS" '
+            '"$REVIEW_CHANNEL_WATCHDOG_POLL_SECONDS" &',
+            "  local watchdog_pid=$!",
+            '  wait "$conductor_pid"',
+            "  local conductor_rc=$?",
+            '  kill "$watchdog_pid" 2>/dev/null || true',
+            '  wait "$watchdog_pid" 2>/dev/null || true',
+            '  return "$conductor_rc"',
+            "}",
+            "",
+        ]
+    )
     if log_path is not None:
         lines.extend(_log_wrapper_lines(log_path, inner_script_command))
     lines.extend(_supervision_loop_lines(provider))
@@ -107,6 +138,17 @@ def _header_lines(header: _SessionScriptHeader) -> list[str]:
         'export DEVCTL_CALLER_ROLE="${DEVCTL_CALLER_ROLE:-$REVIEW_CHANNEL_CALLER_ROLE}"',
         'REVIEW_CHANNEL_RESTART_DELAY_SECONDS="${REVIEW_CHANNEL_RESTART_DELAY_SECONDS:-2}"',
         'REVIEW_CHANNEL_EXIT_ON_SUCCESS="${REVIEW_CHANNEL_EXIT_ON_SUCCESS:-0}"',
+        # Inactivity-watchdog defaults (operator-authorized 2026-04-24 path 1):
+        # codex CLI sometimes idles after `task_complete` instead of exiting,
+        # so the supervision `while true` loop never relaunches. The watchdog
+        # tails the latest `~/.codex/sessions/<date>/rollout-*.jsonl` mtime
+        # and SIGINTs codex when no new event has landed for the timeout
+        # window, allowing the existing supervision loop to relaunch.
+        'REVIEW_CHANNEL_INACTIVITY_TIMEOUT_SECONDS="${REVIEW_CHANNEL_INACTIVITY_TIMEOUT_SECONDS:-600}"',
+        'REVIEW_CHANNEL_WATCHDOG_STARTUP_GRACE_SECONDS="${REVIEW_CHANNEL_WATCHDOG_STARTUP_GRACE_SECONDS:-60}"',
+        'REVIEW_CHANNEL_WATCHDOG_POLL_SECONDS="${REVIEW_CHANNEL_WATCHDOG_POLL_SECONDS:-30}"',
+        'REVIEW_CHANNEL_WATCHDOG_DISABLED="${REVIEW_CHANNEL_WATCHDOG_DISABLED:-0}"',
+        'REVIEW_CHANNEL_CODEX_SESSIONS_ROOT="${REVIEW_CHANNEL_CODEX_SESSIONS_ROOT:-$HOME/.codex/sessions}"',
         f'REVIEW_CHANNEL_HEADLESS_MODE="${{REVIEW_CHANNEL_HEADLESS_MODE:-{"1" if header.headless else "0"}}}"',
         f'REVIEW_CHANNEL_NON_RESTARTABLE_EXIT_CODES="${{REVIEW_CHANNEL_NON_RESTARTABLE_EXIT_CODES:-{NON_RESTARTABLE_LAUNCH_AUTHORITY_EXIT_CODE}}}"',
         f"REVIEW_CHANNEL_PREPARED_HEAD_SHA={shlex.quote(header.prepared_head_sha)}",
@@ -119,100 +161,6 @@ def _header_lines(header: _SessionScriptHeader) -> list[str]:
     ]
 
 
-def _launch_authority_check_lines() -> list[str]:
-    return [
-        "review_channel_launch_authority_check() {",
-        "  python3 - \"$REVIEW_CHANNEL_REVIEW_STATE_PATH\" \"$REVIEW_CHANNEL_PREPARED_HEAD_SHA\" \"$REVIEW_CHANNEL_PREPARED_INSTRUCTION_REVISION\" \"$REVIEW_CHANNEL_PREPARED_SESSION_TOKEN\" <<'PY_AUTHORITY'",
-        "import hashlib",
-        "import json",
-        "import subprocess",
-        "import sys",
-        "",
-        f"EXIT_CODE = {NON_RESTARTABLE_LAUNCH_AUTHORITY_EXIT_CODE}",
-        "review_state_path, expected_head, expected_revision, expected_token = sys.argv[1:5]",
-        "",
-        "def fail(message):",
-        "    print(f\"[review-channel] launch authority stale: {message}\", file=sys.stderr)",
-        "    raise SystemExit(EXIT_CODE)",
-        "",
-        "def text(value):",
-        "    return str(value or \"\").strip()",
-        "",
-        "def mapping(value):",
-        "    return value if isinstance(value, dict) else {}",
-        "",
-        "def normalize_session_id(value):",
-        "    text = str(value or \"\").strip()",
-        "    if text.lower() in {\"local-review\", \"markdown-bridge\", \"review-channel\"}:",
-        "        return \"review-channel\"",
-        "    return text",
-        "",
-        "if not any((expected_head, expected_revision, expected_token)):",
-        "    raise SystemExit(0)",
-        "",
-        "try:",
-        "    live_head = subprocess.run(",
-        "        [\"git\", \"rev-parse\", \"HEAD\"],",
-        "        capture_output=True,",
-        "        text=True,",
-        "        timeout=5,",
-        "        check=False,",
-        "    )",
-        "except Exception as exc:",
-        "    fail(f\"could not read git HEAD: {exc}\")",
-        "if live_head.returncode != 0:",
-        "    fail(\"could not read git HEAD\")",
-        "current_head = live_head.stdout.strip()",
-        "if expected_head and current_head != expected_head:",
-        "    fail(f\"prepared_head_sha={expected_head} current_head_sha={current_head}\")",
-        "",
-        "if not review_state_path:",
-        "    fail(\"review_state_path missing\")",
-        "try:",
-        "    with open(review_state_path, \"r\", encoding=\"utf-8\") as handle:",
-        "        review_state = json.load(handle)",
-        "except Exception as exc:",
-        "    fail(f\"could not read typed review state {review_state_path}: {exc}\")",
-        "review = mapping(review_state.get(\"review\"))",
-        "bridge = mapping(review_state.get(\"bridge\"))",
-        "current_session = mapping(review_state.get(\"current_session\"))",
-        "current_revision = text(",
-        "    current_session.get(\"current_instruction_revision\")",
-        "    or bridge.get(\"current_instruction_revision\")",
-        ")",
-        "if expected_revision and current_revision != expected_revision:",
-        "    fail(",
-        "        f\"prepared_instruction_revision={expected_revision} \"",
-        "        f\"current_instruction_revision={current_revision}\"",
-        "    )",
-        "session_id = normalize_session_id(review.get(\"session_id\") or \"markdown-bridge\")",
-        "last_poll = text(bridge.get(\"last_codex_poll_utc\"))",
-        "token_payload = \"\\0\".join(",
-        "    part for part in (session_id, current_revision, last_poll) if part",
-        ")",
-        "current_token = (",
-        "    hashlib.sha256(token_payload.encode(\"utf-8\")).hexdigest()[:16]",
-        "    if token_payload",
-        "    else \"\"",
-        ")",
-        "if expected_token and current_token != expected_token:",
-        "    fail(f\"prepared_session_token={expected_token} current_session_token={current_token}\")",
-        "raise SystemExit(0)",
-        "PY_AUTHORITY",
-        "}",
-        "",
-        "review_channel_exit_is_non_restartable() {",
-        "  local exit_code=\"$1\"",
-        "  local code",
-        "  for code in ${=REVIEW_CHANNEL_NON_RESTARTABLE_EXIT_CODES}; do",
-        "    if [[ \"$exit_code\" == \"$code\" ]]; then",
-        "      return 0",
-        "    fi",
-        "  done",
-        "  return 1",
-        "}",
-        "",
-    ]
 
 
 def _run_once_opening(*, workspace_root: Path) -> list[str]:

@@ -476,5 +476,82 @@ class TestRolloverProviderCarried(unittest.TestCase):
         self.assertEqual(rollover_input.rollover_provider, "codex")
 
 
+class TestInactivityWatchdog(unittest.TestCase):
+    """Operator-authorized 2026-04-24 path 1: idle-watchdog template.
+
+    Codex CLI sometimes idles after `task_complete` instead of exiting,
+    so the supervision `while true` loop in `_supervision_loop_lines`
+    never relaunches. The watchdog reaped by these tests tails the
+    latest rollout mtime and SIGINTs the conductor when no new event
+    has landed for ``REVIEW_CHANNEL_INACTIVITY_TIMEOUT_SECONDS``.
+    """
+
+    def _build_script(self, provider: str = "codex") -> str:
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            script_path = tmp_path / f"{provider}-conductor.sh"
+            build_session_script(
+                provider=provider,
+                repo_root=tmp_path,
+                prompt="test prompt",
+                role="reviewer" if provider == "codex" else "implementer",
+                script_path=script_path,
+                resolve_cli_path_fn=lambda _provider: "/usr/bin/true",
+                interaction_mode="remote_control",
+            )
+            return script_path.read_text(encoding="utf-8")
+
+    def test_codex_script_includes_watchdog_function(self) -> None:
+        script = self._build_script("codex")
+        self.assertIn("review_channel_inactivity_watchdog()", script)
+        self.assertIn("review_channel_latest_rollout_mtime()", script)
+
+    def test_codex_script_wraps_invocation_in_background_with_watchdog(self) -> None:
+        """The conductor invocation must run in `&` so watchdog can SIGINT it."""
+        script = self._build_script("codex")
+        # Conductor command (built by `_provider_args`) is followed by &
+        self.assertIn('"$REVIEW_CHANNEL_PROMPT" &', script)
+        self.assertIn("local conductor_pid=$!", script)
+        self.assertIn("review_channel_inactivity_watchdog \"$conductor_pid\"", script)
+        self.assertIn('wait "$conductor_pid"', script)
+
+    def test_watchdog_disabled_path_falls_back_to_blocking_invocation(self) -> None:
+        """When REVIEW_CHANNEL_WATCHDOG_DISABLED=1, run the legacy blocking call."""
+        script = self._build_script("codex")
+        self.assertIn('if [[ "$REVIEW_CHANNEL_WATCHDOG_DISABLED" == "1" ]]; then', script)
+
+    def test_inactivity_env_vars_have_defaults(self) -> None:
+        """Defaults: 600s timeout, 60s grace, 30s poll."""
+        script = self._build_script("codex")
+        self.assertIn(
+            'REVIEW_CHANNEL_INACTIVITY_TIMEOUT_SECONDS="${REVIEW_CHANNEL_INACTIVITY_TIMEOUT_SECONDS:-600}"',
+            script,
+        )
+        self.assertIn(
+            'REVIEW_CHANNEL_WATCHDOG_STARTUP_GRACE_SECONDS="${REVIEW_CHANNEL_WATCHDOG_STARTUP_GRACE_SECONDS:-60}"',
+            script,
+        )
+        self.assertIn(
+            'REVIEW_CHANNEL_WATCHDOG_POLL_SECONDS="${REVIEW_CHANNEL_WATCHDOG_POLL_SECONDS:-30}"',
+            script,
+        )
+
+    def test_watchdog_provider_label_appears_in_log_message(self) -> None:
+        """Each provider's watchdog must self-identify in its SIGINT log line."""
+        codex_script = self._build_script("codex")
+        claude_script = self._build_script("claude")
+        self.assertIn("[review-channel] codex inactivity-watchdog", codex_script)
+        self.assertIn("[review-channel] claude inactivity-watchdog", claude_script)
+
+    def test_watchdog_polls_codex_sessions_root(self) -> None:
+        """Watchdog reads ~/.codex/sessions/<date>/rollout-*.jsonl mtime."""
+        script = self._build_script("codex")
+        self.assertIn(
+            'REVIEW_CHANNEL_CODEX_SESSIONS_ROOT="${REVIEW_CHANNEL_CODEX_SESSIONS_ROOT:-$HOME/.codex/sessions}"',
+            script,
+        )
+        self.assertIn("rollout-*.jsonl", script)
+
+
 if __name__ == "__main__":
     unittest.main()
