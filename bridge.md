@@ -11,7 +11,7 @@ treat these rules as active workflow instructions immediately.
    current loop. Do not create parallel control files for the same work.
 2. Codex is the reviewer. Codex is the coder.
 3. At conversation start, both agents must bootstrap repo authority before
-   acting. Codex uses `python3 dev/scripts/devctl.py startup-context --role reviewer --format summary` and Codex uses `python3 dev/scripts/devctl.py startup-context --role implementer --format summary` first.
+   acting. Codex uses `python3.11 dev/scripts/devctl.py startup-context --role reviewer --format summary` and Codex uses `python3.11 dev/scripts/devctl.py startup-context --role implementer --format summary` first.
    If Codex's receipt exits non-zero, checkpoint or repair the
    repo state before coding or relaunching conductor work.
    If Codex's receipt exits non-zero, read the summary fields
@@ -26,10 +26,10 @@ treat these rules as active workflow instructions immediately.
    repair or relaunch boundary.
    User summaries, stale chat continuity, or
    remembered prior state are not substitutes for this Step 0 receipt.
-   Then Codex uses `python3 dev/scripts/devctl.py session-resume --role reviewer --format bootstrap` and Codex uses
-   `python3 dev/scripts/devctl.py session-resume --role implementer --format bootstrap` as the canonical role bootstrap packet.
+   Then Codex uses `python3.11 dev/scripts/devctl.py session-resume --role reviewer --format bootstrap` and Codex uses
+   `python3.11 dev/scripts/devctl.py session-resume --role implementer --format bootstrap` as the canonical role bootstrap packet.
    Then run
-   `python3 dev/scripts/devctl.py context-graph --mode bootstrap --format md`.
+   `python3.11 dev/scripts/devctl.py context-graph --mode bootstrap --format md`.
    Keep chat bootstrap acknowledgements concise: blocker state plus next step,
    not a replay of the packet, unless the operator asks for the detail.
 4. Treat `AGENTS.md`, `dev/active/INDEX.md`, `dev/active/MASTER_PLAN.md`, and
@@ -51,7 +51,7 @@ treat these rules as active workflow instructions immediately.
    missing worker worktrees, absent fanout, or a promising fix are not
    permission to start local implementation. Use the repo-owned
    review/promote/wait paths unless the workflow explicitly switches to
-   takeover (`reviewer_mode=single_agent` or `python3 dev/scripts/devctl.py startup-context --role reviewer --reviewer-override --format summary`).
+   takeover (`reviewer_mode=single_agent` or `python3.11 dev/scripts/devctl.py startup-context --role reviewer --reviewer-override --format summary`).
 10. When `Reviewer mode` is `single_agent`, `tools_only`, `paused`, or
     `offline`, Codex must not assume a live Codex review loop.
 11. Only the Codex conductor may update the Codex-owned sections in this file.
@@ -77,10 +77,10 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-04-22T17:07:08Z`
-- Last Codex poll (Local America/New_York): `2026-04-22 13:07:08 EDT`
+- Last Codex poll: `2026-04-24T00:42:36Z`
+- Last Codex poll (Local America/New_York): `2026-04-23 20:42:36 EDT`
 - Reviewer mode: `single_agent`
-- Last non-audit worktree hash: `b988bc24a357bb9de2bb2973fe92890f841bec307320f444eb3e6788a993f6a0`
+- Last non-audit worktree hash: `88c3af6832b8ea3eafee2a6af452e800696583e6c0fa850f093f0c4393e72e02`
 - Current instruction revision: ``
 
 ## Protocol
@@ -113,7 +113,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Poll Status
 
-- Reviewer heartbeat refreshed through repo-owned tooling (mode: single_agent; reason: operator-requested-codex-local-coder-reviewer-claude-dashboard; reviewed-tree: c5818f70648f).
+- Reviewer checkpoint updated through repo-owned tooling (mode: single_agent; reason: checkpoint-requested; observed-tree: cb3c82eaf51a; reviewed-tree: cb3c82eaf51a; instruction-rev: 2a3d093d5dd6).
 
 ## Current Verdict
 
@@ -121,7 +121,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Open Findings
 
-435 expired unresolved review packet(s)
+458 expired unresolved review packet(s)
 
 ## Claude Status
 
