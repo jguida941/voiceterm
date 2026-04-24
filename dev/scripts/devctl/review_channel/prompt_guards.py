@@ -2,16 +2,15 @@
 
 from __future__ import annotations
 
-import os
-import sys
-
 from .ack_contract import ack_contract_prompt_line
+from ..runtime.devctl_interpreter import devctl_interpreter
 from ..runtime.review_state_models import ConductorCapabilityState
 
-# Codex finding rev_pkt_1785: mirror the runtime interpreter so the rendered
-# guard prose runs under the same Python the launcher uses, not a stale
-# pyenv `python3` shim.
-_DEVCTL_INTERPRETER = os.path.basename(sys.executable) or "python3"
+# Resolve via the shared helper so the rendered token always begins with
+# ``python3`` (codex finding 2026-04-24): venv binaries named plain
+# ``python`` and pyenv shims that resolve to broken 3.10 both flow
+# through the same portable resolution.
+_DEVCTL_INTERPRETER = devctl_interpreter()
 
 
 def startup_context_follow_up(capability: ConductorCapabilityState) -> str:

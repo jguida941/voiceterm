@@ -8,8 +8,6 @@ section helpers moved further into
 
 from __future__ import annotations
 
-import os
-import sys
 from typing import TYPE_CHECKING
 
 from ...runtime.conductor_capability import (
@@ -18,6 +16,7 @@ from ...runtime.conductor_capability import (
     session_resume_command_for_role,
     startup_context_command_for_role,
 )
+from ...runtime.devctl_interpreter import devctl_interpreter
 from .session_resume_render_role_sections import (
     implementer_bootstrap_section as _implementer_bootstrap_section,
     implementer_provider_id as _implementer_provider_id,
@@ -37,11 +36,11 @@ if TYPE_CHECKING:
     from .session_resume_support import SessionCachePacket
 
 
-# Match the launch.py / peer_recovery.py / review_packet_inbox.py pattern:
-# derive the interpreter from the currently-running Python so generated
-# commands work under the same interpreter-selection the rest of the
-# review-channel runtime uses.
-_DEVCTL_INTERPRETER = os.path.basename(sys.executable) or "python3"
+# Resolve via the shared helper so the rendered token always begins with
+# ``python3`` (codex finding 2026-04-24): venv binaries named plain
+# ``python`` and pyenv shims that resolve to broken 3.10 both flow
+# through the same portable resolution.
+_DEVCTL_INTERPRETER = devctl_interpreter()
 
 _STATUS_COMMAND = (
     f"{_DEVCTL_INTERPRETER} dev/scripts/devctl.py review-channel --action status "

@@ -2,19 +2,15 @@
 
 from __future__ import annotations
 
-import os
-import sys
-
+from .devctl_interpreter import devctl_interpreter
 from .review_state_models import ConductorCapabilityState
 from .role_profile import TandemRole, normalize_tandem_role, role_for_provider
 
-# Match the launch.py / peer_recovery.py / review_packet_inbox.py pattern:
-# derive the interpreter from the currently-running Python so generated
-# bootstrap commands work under the same interpreter-selection the rest of
-# the review-channel runtime uses. Hardcoding `python3` breaks on pyenv
-# systems where the shim resolves to a stale interpreter (e.g., 3.10
-# without `datetime.UTC`), which makes fresh-session bootstrap fail.
-_DEVCTL_INTERPRETER = os.path.basename(sys.executable) or "python3"
+# Resolve via the shared helper so the rendered token is always
+# ``python3``-prefixed (codex finding 2026-04-24): venv binaries
+# named plain ``python`` and pyenv shims that resolve to broken
+# 3.10 both flow through the same portable resolution.
+_DEVCTL_INTERPRETER = devctl_interpreter()
 _STARTUP_CONTEXT_BASE_COMMAND = f"{_DEVCTL_INTERPRETER} dev/scripts/devctl.py startup-context"
 _SESSION_RESUME_BASE_COMMAND = f"{_DEVCTL_INTERPRETER} dev/scripts/devctl.py session-resume"
 _CONTEXT_GRAPH_BOOTSTRAP_COMMAND = (

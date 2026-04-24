@@ -2,20 +2,18 @@
 
 from __future__ import annotations
 
-import os
-import sys
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 from ..approval_mode import DEFAULT_APPROVAL_MODE
-
-# Mirror `runtime/review_packet_inbox.py::_DEVCTL_INTERPRETER` so the rendered
-# bootstrap commands run under the same Python the rest of the launcher uses.
-# Hardcoding `python3` breaks on pyenv installs where that shim resolves to a
-# stale interpreter (e.g. 3.10 without `datetime.UTC`) — codex finding
-# rev_pkt_1785.
-_DEVCTL_INTERPRETER = os.path.basename(sys.executable) or "python3"
+from ..runtime.devctl_interpreter import devctl_interpreter
 from ..runtime.role_profile import normalize_tandem_role, role_for_provider
+
+# Resolve via the shared helper so the rendered token always begins with
+# ``python3`` (codex finding 2026-04-24): venv binaries named plain
+# ``python`` and pyenv shims that resolve to broken 3.10 both flow
+# through the same portable resolution.
+_DEVCTL_INTERPRETER = devctl_interpreter()
 from .launch_records import resolve_lane_worktree_path
 from .prompt_sections import (
     OperatingContractInput,

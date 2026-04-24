@@ -8,8 +8,7 @@ exclusion list (codex finding rev_pkt_1779).
 
 from __future__ import annotations
 
-import os
-import sys
+from .devctl_interpreter import devctl_interpreter
 
 
 # Synthetic / non-poller targets (operator, system) must use the
@@ -26,12 +25,10 @@ import sys
 # break delivery stamping for those new lanes.
 _NON_CONDUCTOR_AGENTS: frozenset[str] = frozenset({"operator", "system"})
 
-# Match the launch.py / peer_recovery.py pattern: derive the interpreter
-# from the currently-running Python so generated commands work under the
-# same interpreter-selection the rest of the review-channel runtime
-# uses. Hardcoding `python3` breaks on pyenv systems where that shim
-# resolves to a stale interpreter (e.g., 3.10 without `datetime.UTC`).
-_DEVCTL_INTERPRETER = os.path.basename(sys.executable) or "python3"
+# Resolve via the shared helper so venv binaries named plain
+# ``python`` and pyenv shims that resolve to broken 3.10 both flow
+# through the same portable resolution (codex finding 2026-04-24).
+_DEVCTL_INTERPRETER = devctl_interpreter()
 
 _INBOX_COMMAND_TEMPLATE = (
     f"{_DEVCTL_INTERPRETER} dev/scripts/devctl.py review-channel --action inbox "
