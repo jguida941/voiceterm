@@ -286,6 +286,11 @@ def test_event_markdown_separates_live_packets_from_history() -> None:
                 ),
             ],
             "history": [],
+            "packet_outcome_ledger": {
+                "contract_id": "PacketOutcomeLedger",
+                "record_count": 1,
+                "outcome_counts": {"lost": 1},
+            },
         }
 
         markdown = render_event_md(report)
@@ -295,6 +300,8 @@ def test_event_markdown_separates_live_packets_from_history() -> None:
         assert "## Live Packets" in markdown
         assert "## Packet History" in markdown
         assert "stale: pending (expired)" in markdown
+        assert "## Packet Outcome Ledger" in markdown
+        assert "outcome_counts: lost=1" in markdown
     finally:
         if previous_stub is None:
             sys.modules.pop(stub_name, None)

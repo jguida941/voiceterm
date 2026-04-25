@@ -13,9 +13,6 @@ import time
 from types import SimpleNamespace
 
 from ...common import emit_output as compat_emit_output
-from ...review_channel.bridge_file import rewrite_bridge_markdown
-from ...review_channel.bridge_projection import render_bridge_projection
-from ...review_channel.core import DEFAULT_BRIDGE_REL
 from ...review_channel.events import (
     artifact_paths_to_dict,
     filter_history_packets,
@@ -31,7 +28,6 @@ from ...review_channel.follow_stream import (
     reset_follow_output,
     validate_follow_json_format,
 )
-from ...review_channel.heartbeat import compute_non_audit_worktree_hash
 from ...review_channel.pending_packets import reconcile_review_state_packet_queue
 from ...review_channel.state import projection_paths_to_dict
 from ...review_channel.watch_lifecycle import (
@@ -49,6 +45,8 @@ from .event_action_support import (
     run_packet_transition_action,
     run_post_action,
 )
+from .event_history_outcomes import attach_history_outcomes_if_requested
+from .event_post_bridge_sync import sync_bridge_after_posted_current_instruction
 from .event_post_wake import maybe_wake_posted_reviewer_packet
 from .event_watch_support import load_target_packets, watch_snapshot_signature
 from .watch_follow import WatchFollowDeps, run_watch_follow
@@ -65,6 +63,7 @@ def _build_event_report(
     event: dict[str, object] | None = None,
     packets: list[dict[str, object]] | None = None,
     history: list[dict[str, object]] | None = None,
+    packet_outcome_ledger: dict[str, object] | None = None,
     warnings: list[str] | None = None,
 ) -> tuple[dict, int]:
     """Assemble the event-backed action report dict."""
@@ -117,6 +116,7 @@ def _build_event_report(
             if isinstance(p, dict) and p.get("status") != "pending"
         ],
         "history": history or [],
+        "packet_outcome_ledger": packet_outcome_ledger,
         "event": event,
         "target": getattr(args, "target", None),
         "status_filter": getattr(args, "status", None),
@@ -152,7 +152,7 @@ def _run_event_action(
         report, exit_code, review_state_payload = run_post_action(context=context)
         packet = report.get("packet")
         if isinstance(packet, dict):
-            bridge_sync = _sync_bridge_after_posted_current_instruction(
+            bridge_sync = sync_bridge_after_posted_current_instruction(
                 repo_root=repo_root,
                 paths=paths,
                 packet=packet,
@@ -213,6 +213,12 @@ def _run_event_action(
             target=getattr(args, "target", None),
             limit=args.limit,
         )
+        packets, packet_outcome_ledger = attach_history_outcomes_if_requested(
+            args=args,
+            bundle=bundle,
+            packets=packets,
+            generated_at_utc=utc_timestamp(),
+        )
         history = []
         if getattr(args, "trace_id", None):
             history = filter_history_events(
@@ -225,74 +231,9 @@ def _run_event_action(
             bundle=bundle,
             packets=packets,
             history=history,
+            packet_outcome_ledger=packet_outcome_ledger,
         )
     raise ValueError(f"Unsupported event-backed review-channel action: {args.action}")
-
-
-def _sync_bridge_after_posted_current_instruction(
-    *,
-    repo_root: Path,
-    paths: dict[str, object],
-    packet: dict[str, object],
-    review_state_payload: dict[str, object],
-) -> dict[str, object] | None:
-    """Converge the compatibility bridge when a post becomes the live instruction."""
-    if not _posted_packet_drives_current_instruction(packet, review_state_payload):
-        return None
-    bridge_path = paths.get("bridge_path")
-    if not isinstance(bridge_path, Path):
-        bridge_path = repo_root / DEFAULT_BRIDGE_REL
-    if not bridge_path.is_file():
-        return {
-            "synced": False,
-            "reason": "bridge_missing",
-            "packet_id": str(packet.get("packet_id") or ""),
-        }
-    try:
-        bridge_rel = str(bridge_path.relative_to(repo_root))
-    except ValueError:
-        bridge_rel = DEFAULT_BRIDGE_REL
-    try:
-        worktree_hash = compute_non_audit_worktree_hash(
-            repo_root=repo_root,
-            excluded_rel_paths=(bridge_rel,),
-        )
-
-        def transform(_bridge_text: str) -> str:
-            rendered, _metadata = render_bridge_projection(
-                review_state=review_state_payload,
-                last_worktree_hash=worktree_hash,
-            )
-            return rendered
-
-        rewrite_bridge_markdown(bridge_path, transform=transform)
-    except (OSError, ValueError) as exc:
-        return {
-            "synced": False,
-            "reason": f"sync_failed:{exc}",
-            "packet_id": str(packet.get("packet_id") or ""),
-        }
-    return {
-        "synced": True,
-        "reason": "posted_current_instruction",
-        "packet_id": str(packet.get("packet_id") or ""),
-    }
-
-
-def _posted_packet_drives_current_instruction(
-    packet: dict[str, object],
-    review_state_payload: dict[str, object],
-) -> bool:
-    packet_id = str(packet.get("packet_id") or "").strip()
-    if not packet_id:
-        return False
-    queue = review_state_payload.get("queue")
-    if not isinstance(queue, dict):
-        return False
-    source = queue.get("derived_next_instruction_source")
-    if not isinstance(source, dict):
-        return False
-    return str(source.get("packet_id") or "").strip() == packet_id
 
 
 def _render_event_md(report: dict) -> str:

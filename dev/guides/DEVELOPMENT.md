@@ -988,6 +988,12 @@ Three quality layers matter in practice:
     `current_session` must preserve `implementer_session_state` /
     `implementer_session_hint`, and status/doctor/dashboard queue counts
     should agree with inbox on pending vs stale after packet expiry.
+  - Packet-history work now has a bounded typed outcome surface:
+    `review-channel --action history --include-outcomes` emits a
+    `PacketOutcomeLedger` for the shown history rows. Use it for S2-style
+    dogfood and stale-graveyard analysis, but do not treat it as a transport
+    transition or implementer ACK; the full closure guard over all expired
+    packets remains a follow-on slice.
   - If `tandem-validate` is red only because a release-lane external status
     check cannot reach GitHub or another off-repo dependency, treat that as an
     environment blocker and call it out separately from code-quality failures.

@@ -37,6 +37,31 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 - [User Path (5 min)](#user-path-5-min)
 - [Developer Path (15 min)](#developer-path-15-min)
 
+### 2026-04-25 - Review-channel history gained a typed packet outcome ledger
+
+Fact: live dogfood showed expired-pending review packets accumulating even
+when Codex had addressed the substance in code or follow-up packets. The queue
+already hid expired pending rows from actionable inbox counts, but history had
+no typed terminal outcome that could distinguish delivered, superseded,
+withdrawn, unrecoverable, or truly lost work.
+
+Change: `review-channel --action history --include-outcomes` now attaches a
+bounded read-side `PacketOutcomeLedger` for the history rows being shown. The
+ledger classifies expired-pending packets into
+`delivered_via_commit`, `superseded_by`, `promoted_to_finding`,
+`withdrawn_by_reviewer`, `expired_unrecoverable`, or `lost` from later typed
+review-channel event evidence, then renders the outcome in markdown packet
+history without mutating packet transport state. This is the S2 first slice:
+the full stale-packet migration and blocking closure guard over all expired
+packets remain tracked under `rev_pkt_1822`.
+
+Evidence:
+- `dev/scripts/devctl/review_channel/packet_outcomes.py`
+- `dev/scripts/devctl/commands/review_channel/event_handler.py`
+- `dev/scripts/devctl/review_channel/event_render.py`
+- `dev/scripts/devctl/tests/review_channel/test_packet_outcomes.py`
+- `dev/scripts/devctl/tests/review_channel/test_packet_queue_cleanup.py`
+
 ### 2026-04-25 - SYSTEM_MAP connectivity registry became shared runtime authority
 
 Fact: the generated SYSTEM_MAP block had a typed

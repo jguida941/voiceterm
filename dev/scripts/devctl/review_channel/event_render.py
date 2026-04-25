@@ -36,6 +36,7 @@ def render_event_md(report: dict) -> str:
     packet = report.get("packet")
     if isinstance(packet, dict):
         _append_packet_section(lines, packet)
+    _append_packet_outcome_ledger(lines, report.get("packet_outcome_ledger"))
     packets = report.get("packets")
     if isinstance(packets, list) and packets:
         _append_packet_queue_sections(lines, packets)
@@ -114,6 +115,14 @@ def _format_packet_line(
         summary += f" | packs: {ctx}"
     if packet_row.get("pipeline_generation"):
         summary += f" | gen: {packet_row.get('pipeline_generation')}"
+    outcome = packet_row.get("packet_outcome")
+    if isinstance(outcome, dict):
+        outcome_name = str(outcome.get("outcome") or "").strip()
+        evidence_ref = str(outcome.get("evidence_ref") or "").strip()
+        if outcome_name:
+            summary += f" | outcome: {outcome_name}"
+            if evidence_ref:
+                summary += f" ({evidence_ref})"
     return summary
 
 
@@ -144,6 +153,24 @@ def _append_packet_section(lines: list[str], packet: dict) -> None:
         heading="- context_pack_refs:",
         indent="  ",
     )
+
+
+def _append_packet_outcome_ledger(lines: list[str], ledger: object) -> None:
+    if not isinstance(ledger, dict):
+        return
+    lines.append("")
+    lines.append("## Packet Outcome Ledger")
+    lines.append(f"- contract_id: {ledger.get('contract_id')}")
+    lines.append(f"- record_count: {ledger.get('record_count', 0)}")
+    counts = ledger.get("outcome_counts")
+    if isinstance(counts, dict):
+        nonzero = [
+            f"{name}={count}"
+            for name, count in counts.items()
+            if int(count or 0) > 0
+        ]
+        if nonzero:
+            lines.append(f"- outcome_counts: {', '.join(nonzero)}")
 
 
 def _append_packet_queue_sections(

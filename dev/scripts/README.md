@@ -475,6 +475,14 @@ Portability note:
   `action_request` packets. Use it when the operator needs a bounded inbox
   view without mutating delivery receipts; keep `inbox|watch --target <agent>`
   for the active lane watchers that are supposed to acknowledge observation.
+- `review-channel --action history --include-outcomes` attaches a bounded
+  read-side `PacketOutcomeLedger` to the shown history rows. The first ledger
+  slice classifies expired-pending packets as `delivered_via_commit`,
+  `superseded_by`, `promoted_to_finding`, `withdrawn_by_reviewer`,
+  `expired_unrecoverable`, or `lost` from later typed review-channel event
+  evidence. It is a report surface only: it does not rewrite packet transport
+  state, does not satisfy implementer ACK, and does not migrate the full stale
+  packet graveyard until the follow-on closure guard lands.
 - The same event-backed queue now prioritizes live `action_request` packets
   over later commentary when it derives `queue.derived_next_instruction` for
   status/current-session projections. `derived_next_instruction_source` now

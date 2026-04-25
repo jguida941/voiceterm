@@ -4510,6 +4510,15 @@ become the main product surface.
   accidentally open duplicate Codex/Claude conductor windows that race on the
   same session-tail files, but the remaining
   event-backed `watch|inbox|ack|dismiss|apply|history` path is still open. A
+  2026-04-25 S2 first slice added a bounded read-side
+  `PacketOutcomeLedger` to `review-channel --action history --include-outcomes`
+  so expired-pending packet rows can carry typed outcomes
+  (`delivered_via_commit`, `superseded_by`, `promoted_to_finding`,
+  `withdrawn_by_reviewer`, `expired_unrecoverable`, `lost`) from later event
+  evidence instead of staying invisible graveyard rows. The full migration and
+  blocking closure guard over every expired packet remain open under
+  `rev_pkt_1822`; this slice only proves the typed model and narrow report
+  surface. A
   2026-03-13 follow-up also closed the next live-launch honesty gap: the
   Terminal-app launch path now waits for `Last Codex poll` to advance and fails
   closed if a fresh reviewer heartbeat never appears, and the bridge-backed

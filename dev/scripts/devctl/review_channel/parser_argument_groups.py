@@ -148,6 +148,11 @@ def build_query_arguments(arg_builder: Callable[..., Any]) -> list[Any]:
         ),
         arg_builder("--limit", type=int, default=20, help="Limit rows returned by inbox/history/watch"),
         arg_builder(
+            "--include-outcomes",
+            action="store_true",
+            help="Attach a typed PacketOutcomeLedger to history rows.",
+        ),
+        arg_builder(
             "--follow",
             action="store_true",
             help="Stream NDJSON snapshots when the watched packet set changes",
