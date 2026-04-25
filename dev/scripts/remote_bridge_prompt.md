@@ -15,10 +15,14 @@ relay everything they need to know without them having to ask.
    - When `reviewer_runtime.remote_control_attachment` is present, treat it as the canonical typed record for the external Claude remote-control session instead of relying on chat memory about which phone session is active.
    - Capture `recommended_command`, `recommended_command_source`, and `doctor.decision_command` when present. Those are the repo-owned next-step fields.
    - If one of those fields is only a typed decision id such as `resume_live_review_loop` instead of a shell command, report it as decision state and fall back to the sanctioned command path below instead of trying to run the id.
-4. Read bridge.md — parse the metadata and all sections.
-5. Read AGENTS.md, dev/active/INDEX.md, and dev/active/MASTER_PLAN.md for authority context.
-6. Check Codex/loop health (see "Codex Health Check" below).
-7. Report a concise status to the user: review-loop health, bridge state, Codex health, current instruction, typed next command.
+4. Poll the typed packet inbox for your lane:
+   python3 dev/scripts/devctl.py review-channel --action inbox --target claude --actor claude --status pending --terminal none --format json
+   - Packet `ack` / `apply` / `dismiss` is transport lifecycle only. It does not satisfy implementer ACK, does not write `Claude Ack`, and does not make `implementer_ack_state=current`.
+   - Posting an `action_request` is non-terminal. Continue `status`, `watch`, or `inbox` polling until the packet is applied, dismissed, superseded, or explicitly blocked.
+5. Read bridge.md — parse the metadata and all sections.
+6. Read AGENTS.md, dev/active/INDEX.md, and dev/active/MASTER_PLAN.md for authority context.
+7. Check Codex/loop health (see "Codex Health Check" below).
+8. Report a concise status to the user: review-loop health, bridge state, Codex health, current instruction, typed next command.
 
 ## Step 1: Read current state and relay it to the user
 
@@ -66,7 +70,8 @@ If Current Instruction says "hold steady" or contains a wait state:
 
 If Current Instruction has active work:
 - Tell the user what the instruction is before starting.
-- Acknowledge it in Claude Ack with the instruction revision hash.
+- Acknowledge it in Claude Ack with the instruction revision hash. Do not treat
+  `review-channel --action ack --packet-id ...` as this ACK.
 - Execute ONE bounded slice of the instruction.
 - After EVERY file edit, run the required guard bundle:
   python3 dev/scripts/devctl.py check --profile ci

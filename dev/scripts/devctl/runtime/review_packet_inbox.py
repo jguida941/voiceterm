@@ -14,6 +14,7 @@ from .review_packet_inbox_actionable import (
 from .review_packet_inbox_lookup import latest_packet as _latest_packet, packet_id as _packet_id
 from .review_packet_inbox_liveness import (
     is_expired_unresolved as _is_expired_unresolved,
+    is_live_control_packet as _is_live_control_packet,
     is_live_pending as _is_live_pending,
 )
 from .review_packet_inbox_actionable import is_actionable as _is_actionable
@@ -118,7 +119,8 @@ def _build_agent_attention_payload(
 ) -> dict[str, object]:
     targeted = _targeted_packets(packet_rows, agent)
     live_pending = [packet for packet in targeted if _is_live_pending(packet)]
-    actionable = _actionable_packets(live_pending)
+    live_control = [packet for packet in targeted if _is_live_control_packet(packet)]
+    actionable = _actionable_packets(live_control)
     selected_actionable = _select_actionable_packet(actionable)
     current_instruction_packet_id = _packet_id(selected_actionable)
     latest_finding_packet_id = _packet_id(_latest_packet(_finding_packets(targeted)))

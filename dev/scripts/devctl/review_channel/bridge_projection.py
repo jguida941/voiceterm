@@ -11,6 +11,7 @@ from ..runtime.conductor_capability import (
     session_resume_command_for_role,
 )
 from ..runtime.role_profile import TandemRole, default_provider_for_role
+from .ack_contract import packet_ack_is_transport_lifecycle_line
 from .bridge_projection_state import (
     BRIDGE_SECTION_ORDER,
     bridge_projection_metadata_lines,
@@ -228,6 +229,7 @@ def _render_start_rules_body(
             "land."
         ),
         "   - The implementer ACK section (`Claude Ack` compatibility heading) must acknowledge the current instruction revision with a machine-readable line such as `- acknowledged current instruction revision: <rev>` or `- acknowledged; instruction-rev: <rev>`.",
+        f"   {packet_ack_is_transport_lifecycle_line()}",
         f"   - {implementer_name} must read `Last Codex poll` / `Poll Status` first on each repoll.",
         f"6. {reviewer_name} must poll non-`bridge.md` worktree changes every 2-3 minutes while",
         "   code is moving.",

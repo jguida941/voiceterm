@@ -561,6 +561,11 @@ surface for remote sessions. It should project:
       `action_request` packets, but they may not depend on hidden terminal
       prompts or raw shell retry rituals once the governed lane owns the
       branch.
+- [ ] Keep packet transport separate from commit/implementer authority:
+      `review-channel ack/apply/dismiss` records packet lifecycle only. It is
+      not a commit approval receipt, does not satisfy the implementer `Claude
+      Ack` current-instruction revision, and must not be accepted as
+      `repo.commit` authority without the typed approval/outcome proof.
 - [ ] Add an execution-sandbox approval adapter contract: Codex/Claude provider
       permission prompts for governed VCS actions must be projected as typed
       remote approval packets or dashboard actions, with exact pipeline /

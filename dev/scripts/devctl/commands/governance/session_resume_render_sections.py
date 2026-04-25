@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from ...review_channel.ack_contract import packet_ack_is_transport_lifecycle_line
+
 if TYPE_CHECKING:
     from .session_resume_support import SessionCachePacket
 
@@ -15,6 +17,7 @@ def packet_inbox_lines(packet: "SessionCachePacket") -> list[str]:
     lines = [
         "",
         "### Pending Inbox",
+        packet_ack_is_transport_lifecycle_line(),
     ]
     if packet_inbox.attention_revision:
         lines.append(f"- **attention_revision**: `{packet_inbox.attention_revision}`")

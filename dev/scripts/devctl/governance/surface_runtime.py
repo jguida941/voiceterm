@@ -59,6 +59,8 @@ def evaluate_surface(
             write=write,
             allow_missing_local_only=allow_missing_local_only,
         )
+    if spec.renderer == "system_map_renderer":
+        return _evaluate_system_map_surface(spec, repo_root=repo_root, write=write)
     entry = _base_surface_entry(
         spec,
         repo_root / spec.output_path,
@@ -67,6 +69,53 @@ def evaluate_surface(
     entry["ok"] = False
     entry["state"] = "unsupported-renderer"
     entry["error"] = f"unsupported renderer `{spec.renderer}`"
+    return entry
+
+
+def _evaluate_system_map_surface(
+    spec: Any,
+    *,
+    repo_root: Path,
+    write: bool,
+) -> dict[str, Any]:
+    from ..platform.system_map import (
+        build_system_map_snapshot,
+        render_system_map_document,
+    )
+
+    output_path = resolve_repo_path(spec.output_path, repo_root=repo_root)
+    current_text = output_path.read_text(encoding="utf-8") if output_path.exists() else ""
+    snapshot = build_system_map_snapshot(repo_root=repo_root)
+    rendered_text = render_system_map_document(current_text, snapshot)
+    missing_required_contains = _missing_required_contains(
+        rendered_text,
+        spec.required_contains,
+    )
+    if missing_required_contains:
+        entry = _base_surface_entry(spec, output_path, None)
+        entry["ok"] = False
+        entry["state"] = "render-contract-error"
+        entry["missing_required_contains"] = missing_required_contains
+        entry["error"] = "rendered surface is missing required content"
+        return entry
+    changed = current_text != rendered_text
+    wrote = False
+    if write and changed:
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_text(rendered_text, encoding="utf-8")
+        wrote = True
+        changed = False
+    entry = _base_surface_entry(spec, output_path, None)
+    entry["ok"] = not changed
+    entry["state"] = "in-sync" if not changed else "drifted"
+    entry["exists"] = output_path.exists()
+    entry["changed"] = changed
+    entry["wrote"] = wrote
+    entry["diff_preview"] = (
+        _diff_preview(current_text, rendered_text)
+        if current_text != rendered_text
+        else []
+    )
     return entry
 
 

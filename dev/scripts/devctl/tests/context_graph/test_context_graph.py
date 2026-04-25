@@ -651,7 +651,13 @@ class TestGraphHonesty(unittest.TestCase):
                 "process_doc": "CONTRIBUTING.md",
                 "execution_tracker_doc": "docs/plans/MASTER_PLAN.md",
                 "active_registry_doc": "docs/plans/INDEX.md",
-            }
+            },
+            surfaces=(
+                SimpleNamespace(
+                    surface_type="connectivity_index",
+                    output_path="docs/SYSTEM_MAP.md",
+                ),
+            ),
         )
         with patch(
             "dev.scripts.devctl.context_graph.bootstrap_catalog.load_surface_policy",
@@ -667,6 +673,7 @@ class TestGraphHonesty(unittest.TestCase):
             ctx.bootstrap_links["plan_registry"],
             "docs/plans/INDEX.md",
         )
+        self.assertEqual(ctx.bootstrap_links["connectivity_index"], "docs/SYSTEM_MAP.md")
 
     def test_bootstrap_includes_push_enforcement_state(self) -> None:
         ctx = build_bootstrap_context(self.nodes, self.edges)

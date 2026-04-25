@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 from ..approval_mode import DEFAULT_APPROVAL_MODE
 from ..runtime.devctl_interpreter import devctl_interpreter
 from ..runtime.role_profile import normalize_tandem_role, role_for_provider
+from .ack_contract import packet_ack_is_transport_lifecycle_line
 
 # Resolve via the shared helper so the rendered token always begins with
 # ``python3`` (codex finding 2026-04-24): venv binaries named plain
@@ -193,6 +194,7 @@ def _inbox_drain_lines(*, provider: str) -> list[str]:
             f"- For each pending instruction-class packet: "
             f"`review-channel --action ack --packet-id <id> --actor {provider}`."
         ),
+        packet_ack_is_transport_lifecycle_line(),
     ]
 
 

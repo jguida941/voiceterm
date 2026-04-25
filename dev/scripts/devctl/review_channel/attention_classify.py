@@ -19,15 +19,15 @@ from .attention_helpers import (
     relaunch_required_contract_error,
 )
 from .attention_implementer_relaunch import classify_implementer_relaunch
+from .launch_truth import LaunchTruthState, classify_launch_truth
 from .peer_liveness import (
-    AttentionStatus,
     CODEX_POLL_OVERDUE_AFTER_SECONDS,
+    AttentionStatus,
     CodexPollState,
     OverallLivenessState,
     ReviewerFreshness,
     reviewer_mode_is_active,
 )
-from .launch_truth import LaunchTruthState, classify_launch_truth
 
 
 @dataclass(frozen=True, slots=True)
@@ -81,9 +81,12 @@ def _bridge_push_checkpoint_state(
 
     return checkpoint_required, bool(safe_to_edit)
 
+
 def _reviewer_state_seeded(bridge_liveness: dict[str, object]) -> bool:
     return (
-        not is_missing_instruction(str(bridge_liveness.get("current_instruction") or ""))
+        not is_missing_instruction(
+            str(bridge_liveness.get("current_instruction") or "")
+        )
         and bool(bridge_liveness.get("current_instruction_revision"))
         and bool(bridge_liveness.get("last_reviewed_scope_present"))
     )
@@ -144,17 +147,22 @@ def extract_attention_context(
     contract_errors: list[str] | None,
 ) -> BridgeAttentionContext:
     """Extract all fields needed for attention status classification."""
-    reviewer_mode = str(bridge_liveness.get("reviewer_mode") or "")
-    reviewer_mode_active = reviewer_mode_is_active(reviewer_mode)
+    declared_reviewer_mode = str(bridge_liveness.get("reviewer_mode") or "")
+    effective_reviewer_mode = str(bridge_liveness.get("effective_reviewer_mode") or "")
+    reviewer_mode_active = reviewer_mode_is_active(
+        effective_reviewer_mode
+    ) or reviewer_mode_is_active(declared_reviewer_mode)
     supervisor_running = bool(bridge_liveness.get("reviewer_supervisor_running"))
     publisher_running = bool(bridge_liveness.get("publisher_running"))
     raw_errors = [str(e) for e in (contract_errors or [])]
 
     checkpoint_required, safe_to_edit = _bridge_push_checkpoint_state(
-        bridge_liveness, push_state=push_state,
+        bridge_liveness,
+        push_state=push_state,
     )
     launch_truth = str(
-        bridge_liveness.get("launch_truth") or classify_launch_truth(bridge_liveness).value
+        bridge_liveness.get("launch_truth")
+        or classify_launch_truth(bridge_liveness).value
     )
     bridge_liveness["launch_truth"] = launch_truth
 
@@ -175,7 +183,8 @@ def extract_attention_context(
         reviewer_freshness=str(bridge_liveness.get("reviewer_freshness") or ""),
         poll_age=bridge_liveness.get("last_codex_poll_age_seconds"),
         overdue_threshold=bridge_liveness.get(
-            "reviewer_overdue_threshold_seconds", CODEX_POLL_OVERDUE_AFTER_SECONDS,
+            "reviewer_overdue_threshold_seconds",
+            CODEX_POLL_OVERDUE_AFTER_SECONDS,
         ),
         checkpoint_required=checkpoint_required,
         safe_to_continue_editing=safe_to_edit,
@@ -187,7 +196,8 @@ def extract_attention_context(
         ),
         session_hint_state=claude_session_hint_state(bridge_liveness),
         active_contract_errors=active_contract_errors_for_mode(
-            contract_errors, reviewer_mode_active=reviewer_mode_active,
+            contract_errors,
+            reviewer_mode_active=reviewer_mode_active,
         ),
         bridge_verdict_accepted=bool(bridge_liveness.get("bridge_verdict_accepted")),
         poll_status_action=str(bridge_liveness.get("poll_status_action") or ""),
@@ -336,7 +346,11 @@ def _classify_review_attention(ctx: BridgeAttentionContext) -> str | None:
         implementer_state_pending=ctx.implementer_state_pending,
     ):
         return AttentionStatus.BRIDGE_CONTRACT_ERROR
-    if ctx.review_needed and ctx.reviewer_supervisor_running and ctx.reviewed_hash_current is False:
+    if (
+        ctx.review_needed
+        and ctx.reviewer_supervisor_running
+        and ctx.reviewed_hash_current is False
+    ):
         return AttentionStatus.REVIEW_FOLLOW_UP_REQUIRED
     if ctx.review_needed and not ctx.reviewer_supervisor_running:
         return AttentionStatus.REVIEWER_SUPERVISOR_REQUIRED

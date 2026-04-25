@@ -12,14 +12,15 @@ findings-priority, agent-mind, system-picture, or any audit surfaces a new
 disconnected system, duplicate, dormant field, or drift, **add a row to the
 relevant table below**. A broken connection without a row here is a bug in this
 doc, not just a bug in the system. Update-before-land is tracked by
-MP-405-T04 `check_system_map_freshness` (proposed in rev_pkt_1342).
+the `system_map_renderer` managed block plus the instruction-surface sync guard.
 
 **Operator directive (2026-04-19):** "Keep on connecting systems that aren't
 connected and making sure everything that is connected is just supposed to be
 the system that works together. Keep on iterating till everything is connected."
 
-**Last updated:** 2026-04-19 (sections 0-37 seeded from 24-agent audit across 3
-sweeps + 7-doc consolidation + Codex review cycle. Recovery commit 8ef9f1a7.)
+**Last updated:** 2026-04-25 (managed connectivity block, `system-map` command,
+startup/session key-surface wiring, and rev_pkt_1358/1370/1374/1380 corrections
+folded into the SYSTEM_MAP source-of-truth slice.)
 
 ---
 
@@ -30,7 +31,10 @@ sweeps + 7-doc consolidation + Codex review cycle. Recovery commit 8ef9f1a7.)
 ### 5 Core Subsystems (engine-first)
 
 1. **Governance Engine** — portable typed runtime. 71 guards + 26 probes + `findings-priority` ranker + `governance-review` ledger. Contract chain: `ProjectGovernance → RepoPack → PlanRegistry → PlanTargetRef → WorkIntakePacket → CollaborationSession → TypedAction → ActionResult/RunRecord/Finding → ContextPack`. Coverage: 42% guards, 88% probes, 100% roles.
-2. **devctl Command Tree** — Python CLI orchestrator, **84 commands** (19 dogfood-covered, 65 orphan). Top tier: `startup-context`, `review-channel`, `session-resume`, `check`, `governance-review`, `dashboard`, `findings-priority`.
+2. **devctl Command Tree** — Python CLI orchestrator. Use the generated command
+   inventory below for the current count; top tier: `startup-context`,
+   `review-channel`, `session-resume`, `check`, `governance-review`,
+   `dashboard`, `findings-priority`, `system-map`.
 3. **Review Channel** — typed packet protocol for dual-agent collaboration. 5 dataclasses → `event_projection_assembly.py` → typed snapshots consumed by `startup-context` / `session-resume` / `review-channel status`.
 4. **Dashboard + Operator Console** — `dashboard.py` (+ `phone-status` / `mobile-status`) renders typed review state. Operator Console = PyQt6, ~23.5k LOC in `app/operator_console/`.
 5. **VoiceTerm Product Shell (ONE adopter example)** — Rust binary `rust/src/bin/voiceterm/main.rs` demonstrates voice-driven AI CLI interaction atop the governance engine. Mic → Whisper STT → keystroke injection → HUD overlay. Other adopters plug their own product shell — the engine is the portable part.
@@ -57,7 +61,7 @@ SYSTEM_MAP.md is a supplementary navigation index read AFTER the canonical boots
 
 ## 0.6 Canonical Runtime Spine (v6.2 — promoted from §49 for top-of-doc visibility)
 
-> ⚠️ **v6.4 correction per rev_pkt_1374:** The ✅ marker below means "typed dataclass exists and is used in some codepath" — it does **NOT** mean the object is wired into `context-graph` edges, discoverable from `startup-context`, or validated by any guard. As of this commit: `context-graph --query SYSTEM_MAP` returns 0 neighbor edges; `startup-context --format json` has no `featured_docs` / `key_surfaces` / SYSTEM_MAP reference; no code in `dev/config/devctl_repo_policy.json` or `dev/scripts/devctl/governance/surface_runtime.py` references `system_map_renderer`. See rev_pkt_1370 Patches 1–3 for the coder-lane work that would make this spine actually load-bearing. Until those land, this section **describes a target shape, not current runtime wiring.**
+> ⚠️ **v6.4 correction per rev_pkt_1374, updated 2026-04-25:** The ✅ marker below means "typed dataclass exists and is used in some codepath" — it does **NOT** mean the object is wired into `context-graph` edges or discoverable from `startup-context`. The first rev_pkt_1370 closure is now active: `system_map_renderer` is registered in repo policy, `devctl system-map` renders the managed connectivity snapshot, and `check_instruction_surface_sync.py` validates the generated block. Context-graph and startup-context discoverability remain follow-up wiring.
 
 One deterministic control path from repo truth → governed action → evidence → context. Each object is either implemented (✅), partially wired (⚠️), or not yet materialized (❌). Full authority-object detail remains in §49; this is the compact at-a-glance view.
 
@@ -94,9 +98,68 @@ What counts as execution authority vs navigation vs reference:
 
 **Resolution policy (not enforced):** if tier 3 conflicts with tier 1, tier 1 wins and tier 3 should be hand-updated (or, once rev_pkt_1370 Patch 1 lands, regenerated). Today this is a convention, not a guard — there is no check_* that fails when tier 3 drifts from tier 1. This doc can become stale; typed state cannot.
 
-**Freshness contract (ASPIRATIONAL — not yet enforced):** the target is that SYSTEM_MAP.md regenerates whenever `dev/audits/REVIEW_SNAPSHOT.md`, `bridge.md`, or any authority-spine object under §49 changes. **There is currently no check_* guard that enforces this.** rev_pkt_1370 Patch 1 proposes adding a `system_map_renderer` entry to `repo_governance.surface_generation.surfaces` in `dev/config/devctl_repo_policy.json` and extending `check_instruction_surface_sync.py` to validate drift. Until that lands, this doc is hand-maintained and can silently go stale. Final target state: SYSTEM_MAP.md becomes a **generated projection** over typed state (see §51 closure row), not a hand-maintained doc.
+**Freshness contract (initial enforcement active):** SYSTEM_MAP.md now contains a `system_map_renderer` managed block registered in `repo_governance.surface_generation.surfaces`. `check_instruction_surface_sync.py` validates that generated block and `render-surfaces --write --surface system_map_index` refreshes it. The remaining target is broader: move more prose into typed `ConnectivityRegistry` inputs so SYSTEM_MAP.md becomes a generated projection over typed state (see §51 closure row), not a hand-maintained doc.
 
 ---
+
+<!-- BEGIN DEVCTL_SYSTEM_MAP_GENERATED -->
+## Generated Connectivity Snapshot
+
+This block is generated by `system_map_renderer`; edit the typed inputs or rerun the renderer instead of hand-editing this block.
+
+- contract_id: `SystemMapSnapshot`
+- section_id: `devctl_system_map_generated`
+- source_policy: `dev/config/devctl_repo_policy.json`
+
+### Architecture Roots
+
+| Root | Python files | Largest namespaces |
+|---|---:|---|
+| `dev/scripts/devctl` | 1601 | tests=429, commands=368, runtime=220, review_channel=200, governance=67, (root)=58, platform=56, context_graph=36 |
+| `dev/scripts/checks` | 380 | (root)=122, package_layout=32, python_analysis=17, platform_contract_closure=16, review_probes=16, code_shape=15, rust_analysis=15, multi_agent_sync=12 |
+
+### Governed Surfaces
+
+| Surface | Renderer | Output | Scope |
+|---|---|---|---|
+| `agents_bundle_reference` | `agents_bundle_section` | `AGENTS.md` | tracked |
+| `system_map_index` | `system_map_renderer` | `dev/guides/SYSTEM_MAP.md` | tracked |
+| `claude_instructions` | `template_file` | `CLAUDE.md` | local-only |
+| `codex_voice_slash` | `template_file` | `dev/templates/slash/codex/voice.md` | tracked |
+| `claude_voice_skill` | `template_file` | `dev/templates/slash/claude/SKILL.md` | tracked |
+| `portable_pre_commit_hook_stub` | `template_file` | `dev/config/templates/portable_governance_pre_commit_hook.stub.sh` | tracked |
+| `portable_post_commit_hook_stub` | `template_file` | `dev/config/templates/portable_governance_post_commit_hook.stub.sh` | tracked |
+| `portable_pre_push_hook_stub` | `template_file` | `dev/config/templates/portable_governance_pre_push_hook.stub.sh` | tracked |
+| `portable_tooling_workflow_stub` | `template_file` | `dev/config/templates/portable_governance_tooling_workflow.stub.yml` | tracked |
+
+### Typed Connectivity Registry
+
+- contract_id: `ConnectivityRegistrySnapshot`
+- source_contract_count: 43
+- connected_contract_count: 43
+
+| Contract | Owner | Fields | Writer | Consumers |
+|---|---|---:|---|---|
+| `RepoPack` | `repo_packs` | 3 | `contract:RepoPack:declared` | cli |
+| `TypedAction` | `governance_runtime` | 5 | `dev.scripts.devctl.runtime.action_contracts:TypedAction` | cli, pyqt6_operator_console, overlay_tui |
+| `RunRecord` | `governance_runtime` | 7 | `dev.scripts.devctl.runtime.action_contracts:RunRecord` | cli, phone_mobile, mcp |
+| `ActionResult` | `governance_runtime` | 10 | `dev.scripts.devctl.runtime.action_contracts:ActionResult` | none |
+| `ArtifactStore` | `governance_runtime` | 3 | `dev.scripts.devctl.runtime.action_contracts:ArtifactStore` | cli, pyqt6_operator_console, phone_mobile |
+| `Finding` | `governance_runtime` | 18 | `dev.scripts.devctl.runtime.finding_contracts:FindingRecord` | none |
+| `DecisionPacket` | `governance_runtime` | 21 | `dev.scripts.devctl.runtime.finding_contracts:DecisionPacketRecord` | none |
+| `FailurePacket` | `governance_runtime` | 14 | `dev.scripts.devctl.runtime.failure_packet:FailurePacket` | none |
+| `CheckResult` | `governance_runtime` | 8 | `dev.scripts.devctl.runtime.check_result_models:CheckResult` | none |
+| `ControlState` | `governance_runtime` | 9 | `dev.scripts.devctl.runtime.control_state:ControlState` | pyqt6_operator_console, overlay_tui, phone_mobile, mcp |
+| `CapabilityGrantState` | `governance_runtime` | 12 | `dev.scripts.devctl.runtime.review_state_collaboration_models:CapabilityGrantState` | none |
+| `ActorAuthorityState` | `governance_runtime` | 17 | `dev.scripts.devctl.runtime.review_state_collaboration_models:ActorAuthorityState` | none |
+
+
+### Required Commands
+
+- `python3 dev/scripts/devctl.py system-map --format md`
+- `python3 dev/scripts/devctl.py render-surfaces --write --surface system_map_index --format md`
+- `python3 dev/scripts/checks/check_instruction_surface_sync.py --format md`
+<!-- END DEVCTL_SYSTEM_MAP_GENERATED -->
 
 ## 0. Living Flowchart
 
@@ -670,7 +733,7 @@ operator_console (PyQt6, ~23.5k LOC, reads bridge+review directly)
 
 ## 21. Complete Undocumented-Commands Catalog
 
-### 84 commands → only 19 dogfood-covered. Prior section 2 named 10 barely-wired.  Additional 15 below.
+### 85 commands → only 19 dogfood-covered. Prior section 2 named 10 barely-wired.  Additional 15 below.
 
 | Command | Purpose | Risk |
 |---|---|---|
@@ -820,9 +883,9 @@ Sampled 5 core dataclasses, 16 load-bearing fields. Key findings:
 
 ## 27. Self-Updating SYSTEM_MAP Design (Phase 2 mechanism)
 
-**PROPOSED (not yet implemented, no CLI registration exists today — rev_pkt_1358 clarification):** `python3 dev/scripts/devctl.py system-map --regenerate --preserve-sections "13,14,15" --format md --write --dry-run`
+**PARTIALLY IMPLEMENTED:** `python3 dev/scripts/devctl.py system-map --format md` now renders the bounded managed connectivity snapshot, and `render-surfaces --write --surface system_map_index` writes it into this file. The broader regenerate workflow remains proposed: `python3 dev/scripts/devctl.py system-map --regenerate --preserve-sections "13,14,15" --format md --write --dry-run`
 
-This is a Phase 2 design artifact for discussion. `devctl discover` does not list a `system-map` subcommand; the command must be added to the CLI parser + command registry before this design can be exercised. Treat all references to `devctl system-map` in this doc as proposed/pending until implementation lands.
+The full section-preserving regeneration flow is still a Phase 2 design artifact for discussion. Treat references to `devctl system-map --regenerate` as proposed/pending until that option lands.
 
 **Auto-generatable sections (14 of 21):** 0 (flowchart via context-graph), 2 (commands via discover), 3 (guards+probes via discover+dogfood), 6 (half-built via system-picture+findings-priority), 7 (dormant surfaces via system-picture+discover), 9 (dogfood coverage via dogfood), 10 (priority backlog via findings-priority), 16 (MP tracker via grep+MASTER_PLAN), 18 (autonomy via discover+system-picture), 20 (test architecture via pytest collect), 21 (undocumented catalog via discover+grep), +3 hybrid (4, 5, 8, 14, 15, 17, 19).
 
@@ -1373,7 +1436,7 @@ this doc as policy. All citations must expand back to canonical refs.
 | `data_science/summary.json` | maybe_auto_refresh_data_science | dashboard, mobile-status, ralph_status, external MCP | NO (projection) | dashboard |
 | `system-picture` | system_picture_render | AI bootstrap packet | NO (projection) | bootstrap |
 | `bridge.md` | repo-pack projection | legacy consumers + compatibility | NO (projection) | compatibility |
-| `SYSTEM_MAP.md` | hand + agents | AI orientation | NO (supplementary) | navigation |
+| `SYSTEM_MAP.md` | `system_map_renderer` managed block + typed `ConnectivityRegistrySnapshot` seed; remaining prose is hand-maintained until §51 closure | AI orientation, startup/session key surface, context-graph connectivity link | NO (supplementary projection) | navigation / startup warm ref |
 
 ### Write-only / never-read (drift)
 Per section 25 item 10: `authority_snapshot.wake_continuity_ok` + `wake_gap_summary` have producers but no typed consumer reads them for action. Per section 17: `plan_registry.json` has 7 writers in governance, 0 reads in commands.
@@ -1424,7 +1487,7 @@ Per external-AI audit and own evidence docs:
 | `PlanExpectationPacket` not implemented | plan truth → action truth closure is open | ai_governance_platform.md |
 | `CandidateInvariant` not implemented | finding → rule promotion closure is open | ai_governance_platform.md + external-AI #3 |
 | MP-406 guard/probe generator | scaffolds still hand-written | MP-406 spec |
-| `devctl system-map --regenerate` | Phase 2 proposed, CLI not registered | rev_pkt_1358 |
+| `devctl system-map --regenerate` | Phase 2 proposed; base `system-map --format md` command now registered | rev_pkt_1358 + rev_pkt_1370 P1-P3 |
 | Layer B (live-agent soak tests) | only Layer A deterministic exists | section 20 |
 | AI feedback learning loop | 3 breaks (ai_instruction, failed-fix memory, agent-learning) | section 42 |
 | Typed lane packets | multi-agent fanout re-interprets repo per spawn | MP-412 |

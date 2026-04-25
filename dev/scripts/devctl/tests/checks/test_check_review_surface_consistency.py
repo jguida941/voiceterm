@@ -835,6 +835,31 @@ class CheckReviewSurfaceConsistencyTests(unittest.TestCase):
         self.assertTrue(report["ok"])
         self.assertEqual(report["errors"], [])
 
+    def test_build_report_fails_when_queue_instruction_does_not_reach_current_session(
+        self,
+    ) -> None:
+        payloads = self._phase_zero_payloads()
+        review_state = payloads["review_state_payload"]
+        assert isinstance(review_state, dict)
+        review_state["queue"] = {
+            "derived_next_instruction": (
+                "Priority action_request: Run governed checkpoint"
+            ),
+            "derived_next_instruction_source": {"packet_id": "rev_pkt_1818"},
+        }
+        review_state["current_session"] = {
+            "current_instruction": "",
+            "current_instruction_revision": "",
+        }
+
+        report = self.script.build_report(**payloads, disk_review_state_payload=None)
+
+        self.assertFalse(report["ok"])
+        self.assertIn(
+            "queue/current-session parity mismatch",
+            "\n".join(report["errors"]),
+        )
+
     def test_build_report_fails_when_attention_drifts_from_recovery_assessment(self) -> None:
         report = self.script.build_report(
             startup_payload={

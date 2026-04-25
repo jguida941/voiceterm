@@ -50,6 +50,7 @@ COMMANDS = [
     "startup-context",
     "session-resume",
     "platform-contracts",
+    "system-map",
     "system-picture",
     "doc-authority",
     "governance-draft",

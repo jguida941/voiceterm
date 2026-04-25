@@ -143,6 +143,14 @@ def resolve_current_session_authority(
         prior_session = event_session
     if prior_session is None:
         return bridge_session
+    if _event_session_has_active_instruction(event_session):
+        bridge_should_override_event = prefer_bridge_current_session(
+            prior_session=event_session,
+            bridge_session=bridge_session,
+            bridge_liveness=bridge_liveness,
+        )
+        if not bridge_should_override_event:
+            return event_session
     if prefer_bridge_current_session(
         prior_session=prior_session,
         bridge_session=bridge_session,
@@ -178,6 +186,16 @@ def _event_current_session_candidate(
     ):
         return None
     return event_session
+
+
+def _event_session_has_active_instruction(
+    event_session: ReviewCurrentSessionState | None,
+) -> bool:
+    if event_session is None:
+        return False
+    return not is_missing_instruction(event_session.current_instruction) and bool(
+        event_session.current_instruction_revision
+    )
 
 
 def build_event_current_session(

@@ -6,19 +6,20 @@ from collections.abc import Mapping
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
+from ..runtime.conductor_capability import authority_reviewer_mode
 from ..runtime.review_state_models import (
     CollaborationSessionState,
     RecoveryAssessmentState,
     ReviewCurrentSessionState,
 )
+from ..runtime.reviewer_gate_logic import (
+    ReviewerRuntimeBlockInputs,
+    reviewer_runtime_block_state,
+)
 from ..runtime.reviewer_runtime_models import (
     ReviewerAcceptanceState,
     ReviewerLastPollState,
     ReviewerRuntimeContract,
-)
-from ..runtime.reviewer_gate_logic import (
-    ReviewerRuntimeBlockInputs,
-    reviewer_runtime_block_state,
 )
 from .bridge_validation_acceptance import review_acceptance_projection
 from .handoff import BridgeSnapshot
@@ -66,13 +67,16 @@ def build_reviewer_runtime_contract(
 ) -> ReviewerRuntimeContract:
     """Build the reviewer lifecycle owner from typed review-channel inputs."""
     bridge_liveness = inputs.bridge_liveness
-    reviewer_mode = str(bridge_liveness.get("reviewer_mode") or "single_agent")
     effective_mode = str(
-        bridge_liveness.get("effective_reviewer_mode") or reviewer_mode
+        bridge_liveness.get("effective_reviewer_mode")
+        or bridge_liveness.get("reviewer_mode")
+        or "single_agent"
     )
-    reviewer_freshness = str(
-        bridge_liveness.get("reviewer_freshness") or "unknown"
+    reviewer_mode = authority_reviewer_mode(
+        str(bridge_liveness.get("reviewer_mode") or ""),
+        effective_mode,
     )
+    reviewer_freshness = str(bridge_liveness.get("reviewer_freshness") or "unknown")
     stale_reason = _stale_reason(
         recovery_assessment=inputs.recovery_assessment,
         attention=inputs.attention,
@@ -195,9 +199,8 @@ def _review_acceptance_state(
             review_accepted=review_accepted,
             reviewer_accepted_implementer_state_hash=accepted_impl_hash,
         )
-    open_findings = (
-        current_session.open_findings
-        or str(bridge_liveness.get("open_findings") or "")
+    open_findings = current_session.open_findings or str(
+        bridge_liveness.get("open_findings") or ""
     )
     return ReviewerAcceptanceState(
         current_verdict="",
@@ -210,7 +213,9 @@ def _review_acceptance_state(
 def _prior_review_acceptance_state(
     prior_review_state: Mapping[str, object] | None,
 ) -> ReviewerAcceptanceState | None:
-    prior_payload = prior_review_state if isinstance(prior_review_state, Mapping) else {}
+    prior_payload = (
+        prior_review_state if isinstance(prior_review_state, Mapping) else {}
+    )
     review_state = prior_payload.get("review_state")
     if not isinstance(review_state, Mapping):
         review_state = prior_payload

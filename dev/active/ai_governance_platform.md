@@ -1,6 +1,6 @@
 # AI Governance Platform Plan
 
-**Status**: active  |  **Last updated**: 2026-04-22 | **Owner:** Tooling/control plane/product architecture
+**Status**: active  |  **Last updated**: 2026-04-24 | **Owner:** Tooling/control plane/product architecture
 Execution plan contract: required
 This spec remains execution mirrored in `dev/active/MASTER_PLAN.md` under
 `MP-377`, and it is the canonical active architecture plan for the standalone
@@ -71,6 +71,19 @@ Current 2026-04-23 ADR-008 managed projection drift note:
   HEAD before publication authorization, and lets the pipeline match that
   receipt HEAD back to the approved content commit. Remaining ADR-008-adjacent
   work is prompt-routing clarity, not green-push projection cleanup.
+
+Current 2026-04-24 actor-authority grant note:
+- The next mutation-authority slice keeps the portable platform boundary
+  identity-first. `CollaborationSession.actor_authorities` now carries
+  additive `ActorAuthorityState` rows with explicit `CapabilityGrantState`
+  grants for `repo.commit`, `repo.stage`, `repo.stage_handoff`,
+  `review.checkpoint`, `runtime.observe`, and `approval.commit`. Commit
+  target selection consumes the live mutation owner's `repo.commit` grant
+  before legacy reviewer-mode artifacts, while approval remains a separate
+  capability and push still depends on persisted publication authorization.
+  This is the compatibility-preserving bridge from reviewer-mode labels to
+  principal-actor capability checks; full fallback removal remains later
+  cutover work after all surfaces prove grant parity.
 
 Current 2026-04-07 portability-by-default closure note:
 - Accept the review verdict as plan state: the architecture is portable by

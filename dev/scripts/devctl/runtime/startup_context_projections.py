@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from ..platform.contract_definitions import shared_contracts
 from ..platform.coordination_snapshot_models import CoordinationSnapshot
+from .worktree_orphan_snapshot import OrphanSnapshot
 
 
 def build_contract_ownership_map() -> dict[str, dict[str, object]]:
@@ -39,12 +40,16 @@ def bounded_contract_ownership_map(
         if owner_layer:
             row["owner_layer"] = owner_layer
         runtime_model = str(payload.get("runtime_model") or "").strip()
-        if contract_id in {
-            "ReviewState",
-            "RemoteCommitPipelineContract",
-            "WorkIntakePacket",
-            "CollaborationSession",
-        } and runtime_model:
+        if (
+            contract_id
+            in {
+                "ReviewState",
+                "RemoteCommitPipelineContract",
+                "WorkIntakePacket",
+                "CollaborationSession",
+            }
+            and runtime_model
+        ):
             row["runtime_model"] = runtime_model
         token_count = int(payload.get("startup_surface_token_count") or 0)
         if token_count > 0:
@@ -70,6 +75,51 @@ def _bounded_contract_tokens(value: object) -> list[str]:
             break
     return seen
 
+
+def startup_orphan_snapshot_dict(snapshot: OrphanSnapshot) -> dict[str, object]:
+    """Bounded orphan-work projection for the startup packet surface."""
+    payload: dict[str, object] = {}
+    payload["schema_version"] = snapshot.schema_version
+    payload["contract_id"] = snapshot.contract_id
+    payload["snapshot_id"] = snapshot.snapshot_id
+    payload["scan_at_utc"] = snapshot.scan_at_utc
+    payload["scan_trigger"] = snapshot.scan_trigger
+    payload["scan_scope_applied"] = snapshot.scan_scope_applied
+    payload["primary_repo_identity"] = snapshot.primary_repo_identity
+    payload["stats"] = snapshot.stats.to_dict()
+    payload["load_bearing"] = snapshot.load_bearing
+    payload["snapshot_hash"] = snapshot.snapshot_hash
+    payload["ledger_ref"] = snapshot.ledger_ref
+    payload["lease_source"] = snapshot.lease_source
+    payload["freshness_requirement"] = snapshot.freshness_requirement
+    if snapshot.derived_from:
+        payload["derived_from"] = dict(snapshot.derived_from)
+    load_bearing_sources = [
+        source
+        for source in snapshot.sources
+        if source.classification.load_bearing or source.dirty_path_count > 0
+    ]
+    if load_bearing_sources:
+        payload["source_summary"] = [
+            _startup_orphan_source_summary(source)
+            for source in load_bearing_sources[:4]
+        ]
+    return payload
+
+
+def _startup_orphan_source_summary(source: object) -> dict[str, object]:
+    payload: dict[str, object] = {}
+    payload["source_id"] = source.source_id
+    payload["source_kind"] = source.source_kind
+    payload["path"] = source.path
+    payload["branch"] = source.branch
+    payload["dirty_path_count"] = source.dirty_path_count
+    payload["untracked_path_count"] = source.untracked_path_count
+    payload["status"] = source.status
+    payload["risk"] = source.classification.risk
+    return payload
+
+
 def startup_coordination_dict(coordination: CoordinationSnapshot) -> dict[str, object]:
     """Bounded coordination projection for the startup packet surface.
 
@@ -88,9 +138,7 @@ def startup_coordination_dict(coordination: CoordinationSnapshot) -> dict[str, o
         "worktree_strategy": coordination.worktree_strategy,
         "resync_required": coordination.resync_required,
     }
-    ownership_status = str(
-        getattr(coordination, "ownership_status", "") or ""
-    ).strip()
+    ownership_status = str(getattr(coordination, "ownership_status", "") or "").strip()
     if ownership_status:
         payload["ownership_status"] = ownership_status
     authority_mode = str(getattr(coordination, "authority_mode", "") or "").strip()
@@ -132,5 +180,6 @@ def startup_coordination_dict(coordination: CoordinationSnapshot) -> dict[str, o
 __all__ = [
     "build_contract_ownership_map",
     "bounded_contract_ownership_map",
+    "startup_orphan_snapshot_dict",
     "startup_coordination_dict",
 ]

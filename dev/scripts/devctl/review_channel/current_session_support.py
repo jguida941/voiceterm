@@ -236,18 +236,24 @@ def event_open_findings(review_state: Mapping[str, object]) -> str:
 
 
 def event_claude_ack(queue: Mapping[str, object]) -> str:
-    """Derive the implementer ACK state from event-backed queue counts."""
+    """Return a pending marker for event-backed queue pressure.
+
+    Packet delivery/ack/apply lifecycle is not the implementer ACK contract.
+    The event queue may show that an implementer still needs to act, but an
+    empty queue must not synthesize `Claude Ack` or mark the current instruction
+    acknowledged.
+    """
     pending_claude = int(queue.get("pending_claude") or 0)
-    return "pending" if pending_claude else "acknowledged"
+    return "pending" if pending_claude else ""
 
 
 def event_implementer_ack(review_state: Mapping[str, object]) -> str:
-    """Derive implementer ACK state from the active coding-agent queue slot."""
+    """Return a pending marker for the active coding-agent queue slot."""
     queue = _mapping(review_state.get("queue"))
     pending_total = int(
         queue.get(f"pending_{coding_provider_from_review_state(review_state)}") or 0
     )
-    return "pending" if pending_total else "acknowledged"
+    return "pending" if pending_total else ""
 
 
 def event_agent_status(

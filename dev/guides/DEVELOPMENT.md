@@ -121,6 +121,11 @@ Use docs like this:
   `ack` / `apply` stamp `execution_started_at_utc` /
   `execution_started_by`; when you verify remote-control or dashboard behavior,
   use those fields instead of guessing from packet counts alone.
+  These receipts are not implementer ACKs: `review-channel --action ack` does
+  not write `Claude Ack` and does not make
+  `current_session.implementer_ack_state=current`. The implementer ACK still
+  requires a machine-readable current-instruction revision in typed
+  current-session/bridge state.
 - Headless `review-channel --action launch` (and `--action recover`) now
   auto-elevate `--approval-mode` to `trusted` when typed
   `interaction_mode == "remote_control"` and the operator did not pass an
@@ -437,6 +442,13 @@ Three quality layers matter in practice:
     must also keep the attached remote provider live from typed
     `remote_control_attachment` authority rather than letting Claude fall out
     of conductor truth just because the last typed packet is old. That
+    remote-control continuity rule also applies to the explicit
+    `review-channel --action status --refresh-bridge-heartbeat-if-stale`
+    resync path: when a stale compatibility bridge has drifted to
+    `tools_only` but typed remote-control attachment state is live, status may
+    refresh Codex liveness and reproject the bridge to `active_dual_agent`.
+    Do not extend that exception to fresh launch/rollover; those paths remain
+    governed by the stricter live-bridge contract. That
     local takeover now also retires the detached publisher/reviewer-supervisor
     runtime so stale dual-agent heartbeats cannot silently restore
     `active_dual_agent` after the reviewer has intentionally downgraded modes.
@@ -2042,6 +2054,10 @@ Structured audit/event ledgers are separate from that handoff surface:
   review-channel/startup/session-resume should derive who mutates, who
   verifies, and who owns the watcher/dashboard lane from typed
   `CollaborationSession` / `AuthoritySnapshot` ownership fields.
+  Mutation checks should prefer typed actor-authority grants
+  (`repo.commit`, `repo.stage`, `repo.stage_handoff`) on the live
+  `mutation_owner`; approval grants such as `approval.commit` are a separate
+  operator decision signal, not repo-write authority.
 - `dev/reports/governance/guard_promotion_candidates.jsonl` records durable
   guard/probe follow-up candidates when `governance-review --record` uses
   `--prevention-surface guard` or `--prevention-surface probe`; inspect that

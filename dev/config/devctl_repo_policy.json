@@ -484,6 +484,22 @@
           "description": "Rendered AGENTS command-bundle reference section."
         },
         {
+          "id": "system_map_index",
+          "surface_type": "connectivity_index",
+          "renderer": "system_map_renderer",
+          "output_path": "dev/guides/SYSTEM_MAP.md",
+          "tracked": true,
+          "local_only": false,
+          "description": "Generated managed connectivity snapshot inside SYSTEM_MAP.md.",
+          "required_contains": [
+            "<!-- BEGIN DEVCTL_SYSTEM_MAP_GENERATED -->",
+            "<!-- END DEVCTL_SYSTEM_MAP_GENERATED -->",
+            "## Generated Connectivity Snapshot",
+            "system_map_renderer",
+            "python3 dev/scripts/devctl.py system-map --format md"
+          ]
+        },
+        {
           "id": "claude_instructions",
           "surface_type": "local_instructions",
           "renderer": "template_file",

@@ -254,6 +254,50 @@ class ReviewChannelEventProjectionContextTests(unittest.TestCase):
             "push",
         )
 
+    def test_acked_action_request_stays_current_instruction_until_applied(self) -> None:
+        from dev.scripts.devctl.review_channel.event_projection import (
+            build_event_queue_summary,
+        )
+
+        summary = build_event_queue_summary(
+            {"claude": 0},
+            0,
+            packets=[
+                {
+                    "packet_id": "rev_pkt_action",
+                    "status": "acked",
+                    "summary": "Run governed checkpoint",
+                    "body": "checkpoint the current actor-authority slice",
+                    "plan_id": "MP-377",
+                    "kind": "action_request",
+                    "from_agent": "codex",
+                    "to_agent": "claude",
+                    "requested_action": "run_governed_checkpoint",
+                    "posted_at": "2026-04-25T02:15:17Z",
+                    "expires_at_utc": "2999-01-01T00:00:00Z",
+                    "delivery_observed_at_utc": "2026-04-25T02:22:03Z",
+                    "delivery_observed_by": "claude",
+                    "execution_started_at_utc": "2026-04-25T02:23:03Z",
+                    "execution_started_by": "claude",
+                }
+            ],
+        )
+
+        self.assertTrue(
+            summary["derived_next_instruction"].startswith(
+                "Priority action_request: Run governed checkpoint"
+            )
+        )
+        self.assertEqual(
+            summary["derived_next_instruction_source"]["packet_id"],
+            "rev_pkt_action",
+        )
+        self.assertEqual(
+            summary["derived_next_instruction_source"]["control_state"],
+            "in_progress",
+        )
+        self.assertFalse(summary["derived_next_instruction_source"]["wake_required"])
+
     @patch(
         "dev.scripts.devctl.review_channel.event_projection.build_event_context_packet"
     )

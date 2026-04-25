@@ -1070,15 +1070,8 @@ def test_enrich_event_review_state_does_not_recover_bridge_instruction_when_type
     assert review_state["current_session"]["current_instruction_revision"] == ""
 
 
-def test_bridge_and_event_paths_produce_same_ack_state_when_stale() -> None:
-    """Regression: stale_label must be identical across projection paths.
-
-    Before the fix, build_bridge_current_session used stale_label="stale"
-    while build_event_current_session used stale_label="unknown". The
-    divergence caused _implementer_ack_current in reviewer_runtime_parser
-    to fall through to a different code path for the event projection,
-    producing a different implementation_blocked result.
-    """
+def test_event_path_does_not_synthesize_ack_from_empty_packet_queue() -> None:
+    """Packet queue emptiness is not the implementer ACK contract."""
     bridge_state = build_bridge_current_session(
         snapshot=BridgeSnapshot(
             metadata={},
@@ -1122,13 +1115,51 @@ def test_bridge_and_event_paths_produce_same_ack_state_when_stale() -> None:
     assert bridge_state.implementer_ack_state == "stale", (
         "bridge path should label a non-current ack as 'stale'"
     )
-    assert event_state.implementer_ack_state == "stale", (
-        "event path should label a non-current ack as 'stale' (was 'unknown' before fix)"
+    assert event_state.implementer_ack == "", (
+        "event path must not synthesize `acknowledged` from pending_total=0"
     )
-    assert bridge_state.implementer_ack_state == event_state.implementer_ack_state, (
-        "both projection paths must produce the same implementer_ack_state "
-        "so that implementation_blocked computes identically"
+    assert event_state.implementer_ack_state == "missing", (
+        "packet lifecycle state alone must not satisfy implementer ACK"
     )
+
+
+def test_acked_action_request_keeps_instruction_without_implementer_ack() -> None:
+    state = build_event_current_session(
+        review_state={
+            "review": {"plan_id": "MP-400"},
+            "queue": {
+                "pending_total": 0,
+                "pending_claude": 0,
+                "derived_next_instruction": (
+                    "Priority action_request: Run governed checkpoint"
+                ),
+                "derived_next_instruction_source": {
+                    "packet_id": "rev_pkt_1818",
+                    "packet_class": "action_request",
+                    "control_state": "in_progress",
+                    "to_agent": "claude",
+                },
+            },
+            "registry": {
+                "agents": [
+                    {"agent_id": "claude", "job_state": "running checkpoint"}
+                ]
+            },
+        },
+        bridge_liveness={
+            "current_instruction_revision": "",
+            "claude_ack_revision": "",
+            "claude_ack_current": False,
+        },
+    )
+
+    assert state.current_instruction == (
+        "Priority action_request: Run governed checkpoint"
+    )
+    assert state.current_instruction_revision
+    assert state.implementer_ack == ""
+    assert state.implementer_ack_revision == ""
+    assert state.implementer_ack_state == "missing"
 
 
 def test_build_bridge_current_session_rederives_revision_when_instruction_changes() -> None:
@@ -1456,6 +1487,65 @@ def test_resolve_current_session_authority_keeps_prior_typed_session_when_bridge
     assert resolved.current_instruction == "Use the newer typed authority instruction."
     assert resolved.current_instruction_revision == "typed-rev-999"
     assert resolved.open_findings == "- typed findings"
+
+
+def test_resolve_current_session_authority_prefers_active_packet_instruction_over_blank_prior() -> None:
+    resolved = resolve_current_session_authority(
+        snapshot=BridgeSnapshot(
+            metadata={},
+            sections={
+                "Current Instruction For Claude": "- Await reviewer instruction refresh.",
+                "Claude Status": "",
+                "Claude Questions": "",
+                "Claude Ack": "",
+                "Open Findings": "1 pending review packet(s)",
+                "Last Reviewed Scope": "MP-355",
+            },
+        ),
+        bridge_liveness={
+            "current_instruction_revision": "",
+            "claude_ack_revision": "",
+            "claude_ack_current": False,
+            "reviewer_freshness": "stale",
+        },
+        prior_review_state={
+            "review": {"plan_id": "MP-355"},
+            "queue": {
+                "pending_total": 0,
+                "pending_claude": 0,
+                "derived_next_instruction": (
+                    "Priority action_request: Run governed checkpoint"
+                ),
+                "derived_next_instruction_source": {
+                    "packet_id": "rev_pkt_1818",
+                    "packet_class": "action_request",
+                    "control_state": "in_progress",
+                    "to_agent": "claude",
+                },
+            },
+            "registry": {
+                "agents": [
+                    {"agent_id": "claude", "job_state": "running checkpoint"}
+                ]
+            },
+            "current_session": {
+                "current_instruction": "",
+                "current_instruction_revision": "",
+                "implementer_status": "(missing)",
+                "implementer_ack": "",
+                "implementer_ack_revision": "",
+                "implementer_ack_state": "missing",
+                "open_findings": "1 pending review packet(s)",
+                "last_reviewed_scope": "MP-355",
+            },
+        },
+    )
+
+    assert resolved.current_instruction == (
+        "Priority action_request: Run governed checkpoint"
+    )
+    assert resolved.current_instruction_revision
+    assert resolved.implementer_ack_state == "missing"
 
 
 def test_resolve_current_session_authority_recovers_bridge_session_when_prior_is_placeholder() -> None:

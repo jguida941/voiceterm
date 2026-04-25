@@ -46,6 +46,24 @@ class RenderSurfacesParserTests(unittest.TestCase):
     def test_command_handler_and_listing_are_registered(self) -> None:
         self.assertIs(cli.COMMAND_HANDLERS["render-surfaces"], render_surfaces.run)
         self.assertIn("render-surfaces", listing.COMMANDS)
+        self.assertIn("system-map", cli.COMMAND_HANDLERS)
+        self.assertIn("system-map", listing.COMMANDS)
+
+    def test_cli_accepts_system_map_command(self) -> None:
+        parser = cli.build_parser()
+        args = parser.parse_args(
+            [
+                "system-map",
+                "--quality-policy",
+                "/tmp/pilot-policy.json",
+                "--format",
+                "json",
+            ]
+        )
+
+        self.assertEqual(args.command, "system-map")
+        self.assertEqual(args.quality_policy, "/tmp/pilot-policy.json")
+        self.assertEqual(args.format, "json")
 
 
 class RenderSurfacesPolicyTests(unittest.TestCase):
@@ -53,7 +71,7 @@ class RenderSurfacesPolicyTests(unittest.TestCase):
         report = surfaces.build_surface_report(allow_missing_local_only=True)
 
         self.assertTrue(report["ok"])
-        self.assertEqual(report["surface_count"], 8)
+        self.assertEqual(report["surface_count"], 9)
         self.assertIn(
             "agents_bundle_reference",
             {entry["surface_id"] for entry in report["surfaces"]},
@@ -63,9 +81,13 @@ class RenderSurfacesPolicyTests(unittest.TestCase):
         report = instruction_surface_sync.build_report()
 
         self.assertTrue(report["ok"])
-        self.assertEqual(report["surface_count"], 7)
+        self.assertEqual(report["surface_count"], 8)
         self.assertNotIn(
             "agents_bundle_reference",
+            {entry["surface_id"] for entry in report["surfaces"]},
+        )
+        self.assertIn(
+            "system_map_index",
             {entry["surface_id"] for entry in report["surfaces"]},
         )
 

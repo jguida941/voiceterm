@@ -5,6 +5,8 @@ from __future__ import annotations
 from collections.abc import Callable
 from pathlib import Path
 
+from ...review_channel.bridge_runtime_state import BridgeStateContext, BridgeStateResult
+from ...review_channel.bridge_validation import validate_launch_bridge_state
 from ...review_channel.core import (
     build_bridge_guard_report,
     ensure_launcher_prereqs,
@@ -12,11 +14,6 @@ from ...review_channel.core import (
     summarize_bridge_guard_failures,
 )
 from ...review_channel.current_session_projection import bridge_implementer_state_hash
-from ...review_channel.bridge_validation import validate_launch_bridge_state
-from ...review_channel.bridge_runtime_state import (
-    BridgeStateContext,
-    BridgeStateResult,
-)
 from ...review_channel.handoff import (
     bridge_liveness_to_dict,
     extract_bridge_snapshot,
@@ -26,12 +23,20 @@ from ...review_channel.heartbeat import (
     compute_non_audit_worktree_hash,
     refresh_bridge_heartbeat,
 )
+from ...review_channel.peer_liveness import (
+    CodexPollState,
+    ReviewerMode,
+    resolve_reported_reviewer_mode,
+)
 from ...review_channel.plan_resolution import resolve_promotion_plan_path
 from ...review_channel.promotion import (
     DEFAULT_PROMOTION_PLAN_REL,
     derive_promotion_candidate,
     resolve_scope_plan_path,
     scope_bridge_instruction,
+)
+from ...review_channel.remote_control_attachment_artifact import (
+    load_remote_control_attachments,
 )
 from ...review_channel.reviewer_state_support import (
     current_instruction_revision_from_bridge_text,
@@ -56,7 +61,9 @@ def bridge_launch_state(
     bridge_refresh = None
     reviewer_state_write = None
     refreshable_actions = set(bridge_actions) | {"status"}
-    allow_status_refresh = args.action != "status" or not getattr(args, "dry_run", False)
+    allow_status_refresh = args.action != "status" or not getattr(
+        args, "dry_run", False
+    )
     if (
         context.bridge_path.exists()
         and args.action in refreshable_actions
@@ -71,6 +78,8 @@ def bridge_launch_state(
             repo_root=context.repo_root,
             review_channel_path=context.review_channel_path,
             bridge_path=context.bridge_path,
+            status_dir=context.status_dir,
+            enable_typed_remote_control_refresh=args.action == "status",
         )
         if stale_errors:
             bridge_refresh = refresh_bridge_heartbeat(
@@ -85,6 +94,7 @@ def bridge_launch_state(
         )
     else:
         from ...review_channel.handoff import BridgeSnapshot
+
         bridge_snapshot = BridgeSnapshot(metadata={}, sections={})
     bridge_rel = str(context.bridge_path.relative_to(context.repo_root))
     try:
@@ -105,7 +115,8 @@ def bridge_launch_state(
         if not bridge_guard_report.get("ok", False):
             raise ValueError(
                 "Fresh conductor bootstrap requires a green review-channel "
-                "bridge guard before launch: " + summarize_bridge_guard_failures(bridge_guard_report)
+                "bridge guard before launch: "
+                + summarize_bridge_guard_failures(bridge_guard_report)
             )
         launch_state_errors = validate_launch_bridge_state(
             bridge_snapshot,
@@ -140,7 +151,9 @@ def resolve_launch_promotion_plan_path(
     action: str,
 ) -> Path:
     """Resolve the launch-time promotion plan, with a default fallback for non-promote actions."""
-    explicit_plan_path = promotion_plan_path if isinstance(promotion_plan_path, Path) else None
+    explicit_plan_path = (
+        promotion_plan_path if isinstance(promotion_plan_path, Path) else None
+    )
     plan_resolution = resolve_promotion_plan_path(
         repo_root=repo_root,
         bridge_path=bridge_path,
@@ -158,7 +171,9 @@ def resolve_launch_promotion_plan_path(
     return resolved_path
 
 
-def apply_scope_if_requested(*, args, repo_root: Path, bridge_path: Path) -> object | None:
+def apply_scope_if_requested(
+    *, args, repo_root: Path, bridge_path: Path
+) -> object | None:
     """Rewrite the bridge instruction from ``--scope`` before launch.
 
     Returns the :class:`PromotionCandidate` when scope was applied, or
@@ -190,13 +205,12 @@ def apply_scope_if_requested(*, args, repo_root: Path, bridge_path: Path) -> obj
         None,
     )
     if (
-        (not expected_instruction_revision or not expected_implementer_state_hash)
-        and bridge_path.exists()
-    ):
+        not expected_instruction_revision or not expected_implementer_state_hash
+    ) and bridge_path.exists():
         bridge_text = bridge_path.read_text(encoding="utf-8")
         if not expected_instruction_revision:
-            expected_instruction_revision = current_instruction_revision_from_bridge_text(
-                bridge_text
+            expected_instruction_revision = (
+                current_instruction_revision_from_bridge_text(bridge_text)
             )
         if not expected_implementer_state_hash:
             expected_implementer_state_hash = bridge_implementer_state_hash(
@@ -216,6 +230,8 @@ def stale_bridge_launch_errors(
     repo_root: Path,
     review_channel_path: Path,
     bridge_path: Path,
+    status_dir: Path | None = None,
+    enable_typed_remote_control_refresh: bool = False,
     build_bridge_guard_report_fn: Callable[..., dict[str, object]] | None = None,
 ) -> list[str]:
     """Return refreshable metadata errors when the bridge guard fails on stale heartbeat."""
@@ -238,15 +254,36 @@ def stale_bridge_launch_errors(
     if isinstance(state_errors, list) and state_errors:
         return []
     bridge_snapshot = extract_bridge_snapshot(bridge_path.read_text(encoding="utf-8"))
+    liveness = summarize_bridge_liveness(bridge_snapshot)
     launch_errors = validate_launch_bridge_state(
         bridge_snapshot,
-        liveness=summarize_bridge_liveness(bridge_snapshot),
+        liveness=liveness,
     )
-    return [str(error).strip() for error in launch_errors if _is_refreshable_metadata_error(str(error))]
+    refreshable_errors = [
+        str(error).strip()
+        for error in launch_errors
+        if _is_refreshable_metadata_error(str(error))
+    ]
+    if refreshable_errors:
+        return refreshable_errors
+    if (
+        enable_typed_remote_control_refresh
+        and _typed_remote_control_tools_only_refreshable(
+            snapshot=bridge_snapshot,
+            liveness=liveness,
+            status_dir=status_dir,
+        )
+    ):
+        return [
+            "`Last Codex poll` is stale; typed remote-control continuity "
+            "requires a reviewer heartbeat refresh."
+        ]
+    return []
 
 
 def _is_refreshable_metadata_error(error: str) -> bool:
     refreshable_tokens = (
+        "Missing `Last Codex poll`",
         "Invalid `Last Codex poll` timestamp",
         "`Last Codex poll` is stale",
         "`Last Codex poll` is in the future",
@@ -254,3 +291,25 @@ def _is_refreshable_metadata_error(error: str) -> bool:
         "Invalid `Last non-audit worktree hash`",
     )
     return any(token in error for token in refreshable_tokens)
+
+
+def _typed_remote_control_tools_only_refreshable(
+    *,
+    snapshot: object,
+    liveness: object,
+    status_dir: Path | None,
+) -> bool:
+    """Allow status refresh to reassert liveness from typed remote-control state."""
+    if status_dir is None:
+        return False
+    reviewer_mode = resolve_reported_reviewer_mode(
+        getattr(snapshot, "metadata", {}) or {}
+    )
+    if reviewer_mode != ReviewerMode.TOOLS_ONLY.value:
+        return False
+    poll_state = str(getattr(liveness, "codex_poll_state", "") or "").strip()
+    if poll_state not in {CodexPollState.MISSING.value, CodexPollState.STALE.value}:
+        return False
+    return bool(
+        load_remote_control_attachments(output_root=status_dir, active_only=True)
+    )

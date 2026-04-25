@@ -32,7 +32,7 @@ from .review_state_models import (
     ReviewState,
     review_candidate_from_mapping,
 )
-from .review_packet_inbox import build_packet_inbox_payload
+from .review_packet_inbox import packet_inbox_from_review_state
 from .review_state_commit_pipeline_parse import commit_pipeline_from_review_payload
 from .reviewer_runtime_parser import reviewer_runtime_state_from_payload
 
@@ -239,19 +239,32 @@ def _review_state_packet_inbox(
     review_payload: Mapping[str, object],
     attention: Mapping[str, object],
 ):
-    packet_inbox = _mapping(payload.get("packet_inbox")) or _mapping(
-        review_payload.get("packet_inbox")
-    )
     return (
-        packet_inbox_from_mapping(packet_inbox)
-        or packet_inbox_from_mapping(
-            build_packet_inbox_payload(
-                review_payload.get("packets"),
+        packet_inbox_from_review_state(
+            _packet_inbox_review_payload(
+                payload=payload,
+                review_payload=review_payload,
                 attention=attention,
             )
         )
         or packet_inbox_from_mapping({"attention_revision": "", "agents": []})
     )
+
+
+def _packet_inbox_review_payload(
+    *,
+    payload: Mapping[str, object],
+    review_payload: Mapping[str, object],
+    attention: Mapping[str, object],
+) -> dict[str, object]:
+    packet_payload = dict(review_payload)
+    if "packet_inbox" not in packet_payload and isinstance(
+        payload.get("packet_inbox"), Mapping
+    ):
+        packet_payload["packet_inbox"] = payload.get("packet_inbox")
+    if "attention" not in packet_payload and attention:
+        packet_payload["attention"] = attention
+    return packet_payload
 
 
 def _review_session_state(review: Mapping[str, object]) -> ReviewSessionState:

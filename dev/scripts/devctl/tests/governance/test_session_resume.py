@@ -49,7 +49,9 @@ _STATUS_COMMAND = (
 class TestSessionResumeAuthorityPayload(unittest.TestCase):
     """Authority payload serialization remains compact and behavior-stable."""
 
-    def test_build_session_resume_authority_payload_serializes_nested_rows(self) -> None:
+    def test_build_session_resume_authority_payload_serializes_nested_rows(
+        self,
+    ) -> None:
         payload = SessionResumeAuthorityPayload(
             reviewer_mode="tools_only",
             reviewer_freshness="fresh",
@@ -64,22 +66,24 @@ class TestSessionResumeAuthorityPayload(unittest.TestCase):
                 implementer_ack_state="missing",
             ),
             coordination=None,
-            packet_inbox=SessionResumePacketInboxPayload.from_state(PacketInboxState(
-                attention_revision="attn-123",
-                agents=(
-                    AgentAttentionRecord(
-                        agent="codex",
-                        current_instruction_packet_id="pkt-1",
-                        latest_finding_packet_id="pkt-2",
-                        pending_actionable_packet_ids=("pkt-a", "pkt-b"),
-                        expired_unresolved_packet_ids=("pkt-c",),
-                        attention_status="wake_required",
-                        wake_reason="action_request_pending",
-                        required_command="python3 dev/scripts/devctl.py review-channel --action inbox",
-                        delivery_state="notified",
+            packet_inbox=SessionResumePacketInboxPayload.from_state(
+                PacketInboxState(
+                    attention_revision="attn-123",
+                    agents=(
+                        AgentAttentionRecord(
+                            agent="codex",
+                            current_instruction_packet_id="pkt-1",
+                            latest_finding_packet_id="pkt-2",
+                            pending_actionable_packet_ids=("pkt-a", "pkt-b"),
+                            expired_unresolved_packet_ids=("pkt-c",),
+                            attention_status="wake_required",
+                            wake_reason="action_request_pending",
+                            required_command="python3 dev/scripts/devctl.py review-channel --action inbox",
+                            delivery_state="notified",
+                        ),
                     ),
-                ),
-            )),
+                )
+            ),
             next_command="python3 dev/scripts/devctl.py review-channel --action status",
             governance={"push_enforcement": {"checkpoint_required": True}},
         ).to_dict()
@@ -116,7 +120,9 @@ class TestSessionResumeAuthorityPayload(unittest.TestCase):
             {"push_enforcement": {"checkpoint_required": True}},
         )
 
-    def test_build_session_resume_review_state_context_uses_typed_role_agents(self) -> None:
+    def test_build_session_resume_review_state_context_uses_typed_role_agents(
+        self,
+    ) -> None:
         review_state_payload = {
             "collaboration": {
                 "review_agent": "cursor",
@@ -226,8 +232,11 @@ class TestSessionCachePacket(unittest.TestCase):
 
     def test_roundtrip(self) -> None:
         original = SessionCachePacket(
-            role="reviewer", branch="main", head_sha="abc123",
-            blockers="checkpoint_required", key_rules=("safe_to_continue=True",),
+            role="reviewer",
+            branch="main",
+            head_sha="abc123",
+            blockers="checkpoint_required",
+            key_rules=("safe_to_continue=True",),
         )
         restored = packet_from_mapping(original.to_dict())
         self.assertEqual(restored.role, original.role)
@@ -284,22 +293,36 @@ class TestFieldDerivation(unittest.TestCase):
 
     def test_no_blockers(self) -> None:
         self.assertEqual(
-            compute_blockers(checkpoint_required=False, safe_to_continue=True, authority_ok=True),
+            compute_blockers(
+                checkpoint_required=False, safe_to_continue=True, authority_ok=True
+            ),
             "none",
         )
 
     def test_authority_failure(self) -> None:
-        self.assertIn("startup_authority", compute_blockers(
-            checkpoint_required=False, safe_to_continue=True, authority_ok=False,
-        ))
+        self.assertIn(
+            "startup_authority",
+            compute_blockers(
+                checkpoint_required=False,
+                safe_to_continue=True,
+                authority_ok=False,
+            ),
+        )
 
     def test_checkpoint_required(self) -> None:
-        self.assertEqual(compute_blockers(
-            checkpoint_required=True, safe_to_continue=True, authority_ok=True,
-        ), "checkpoint_required")
+        self.assertEqual(
+            compute_blockers(
+                checkpoint_required=True,
+                safe_to_continue=True,
+                authority_ok=True,
+            ),
+            "checkpoint_required",
+        )
 
     def test_multiple_blockers(self) -> None:
-        result = compute_blockers(checkpoint_required=True, safe_to_continue=False, authority_ok=False)
+        result = compute_blockers(
+            checkpoint_required=True, safe_to_continue=False, authority_ok=False
+        )
         for b in ("startup_authority", "checkpoint_required", "continuation_blocked"):
             self.assertIn(b, result)
 
@@ -311,13 +334,17 @@ class TestFieldDerivation(unittest.TestCase):
 
     def test_interaction_mode_active_dual(self) -> None:
         self.assertEqual(
-            derive_interaction_mode({"collaboration": {"reviewer_mode": "active_dual_agent"}}),
+            derive_interaction_mode(
+                {"collaboration": {"reviewer_mode": "active_dual_agent"}}
+            ),
             "dual_agent",
         )
 
     def test_interaction_mode_single_agent(self) -> None:
         self.assertEqual(
-            derive_interaction_mode({"collaboration": {"reviewer_mode": "single_agent"}}),
+            derive_interaction_mode(
+                {"collaboration": {"reviewer_mode": "single_agent"}}
+            ),
             "single_agent",
         )
 
@@ -343,7 +370,9 @@ class TestFieldDerivation(unittest.TestCase):
 
     def test_next_action_blockers_with_command(self) -> None:
         self.assertEqual(
-            derive_next_action({"push_next_step_command": "do-something"}, "checkpoint_required"),
+            derive_next_action(
+                {"push_next_step_command": "do-something"}, "checkpoint_required"
+            ),
             "do-something",
         )
 
@@ -351,23 +380,35 @@ class TestFieldDerivation(unittest.TestCase):
         self.assertIn("resolve blockers", derive_next_action({}, "startup_authority"))
 
     def test_next_action_run_push(self) -> None:
-        self.assertIn("push --execute", derive_next_action({"push_action": "run_devctl_push"}, "none"))
+        self.assertIn(
+            "push --execute",
+            derive_next_action({"push_action": "run_devctl_push"}, "none"),
+        )
 
     def test_next_action_default_bootstrap(self) -> None:
-        self.assertIn("context-graph", derive_next_action({"push_action": "no_push_needed"}, "none"))
+        self.assertIn(
+            "context-graph",
+            derive_next_action({"push_action": "no_push_needed"}, "none"),
+        )
 
     def test_key_rules_length(self) -> None:
         rules = distill_key_rules(
-            safe_to_continue=True, checkpoint_required=False,
-            ack_current=True, review_gate_allows_push=True, last_guard_ok=True,
+            safe_to_continue=True,
+            checkpoint_required=False,
+            ack_current=True,
+            review_gate_allows_push=True,
+            last_guard_ok=True,
         )
         self.assertEqual(len(rules), 5)
         self.assertIn("safe_to_continue=True", rules)
 
     def test_key_rules_mixed(self) -> None:
         rules = distill_key_rules(
-            safe_to_continue=False, checkpoint_required=True,
-            ack_current=False, review_gate_allows_push=False, last_guard_ok=False,
+            safe_to_continue=False,
+            checkpoint_required=True,
+            ack_current=False,
+            review_gate_allows_push=False,
+            last_guard_ok=False,
         )
         self.assertIn("safe_to_continue=False", rules)
         self.assertIn("last_guard_ok=False", rules)
@@ -378,7 +419,9 @@ class TestCacheHitMiss(unittest.TestCase):
 
     def test_cache_miss_no_file(self) -> None:
         with tempfile.TemporaryDirectory() as td:
-            self.assertIsNone(try_cache_hit(Path(td), head_sha="abc", role="implementer"))
+            self.assertIsNone(
+                try_cache_hit(Path(td), head_sha="abc", role="implementer")
+            )
 
     def test_cache_miss_wrong_sha(self) -> None:
         with tempfile.TemporaryDirectory() as td:
@@ -387,7 +430,9 @@ class TestCacheHitMiss(unittest.TestCase):
             cache_dir.mkdir(parents=True)
             pkt = SessionCachePacket(head_sha="old_sha", role="implementer")
             (cache_dir / "cache.json").write_text(json.dumps(pkt.to_dict()))
-            self.assertIsNone(try_cache_hit(root, head_sha="new_sha", role="implementer"))
+            self.assertIsNone(
+                try_cache_hit(root, head_sha="new_sha", role="implementer")
+            )
 
     def test_cache_miss_wrong_role(self) -> None:
         with tempfile.TemporaryDirectory() as td:
@@ -403,7 +448,9 @@ class TestCacheHitMiss(unittest.TestCase):
             root = Path(td)
             cache_dir = root / "dev" / "reports" / "session_cache" / "latest"
             cache_dir.mkdir(parents=True)
-            pkt = SessionCachePacket(head_sha="abc123", role="implementer", branch="main")
+            pkt = SessionCachePacket(
+                head_sha="abc123", role="implementer", branch="main"
+            )
             (cache_dir / "cache.json").write_text(json.dumps(pkt.to_dict()))
             result = try_cache_hit(root, head_sha="abc123", role="implementer")
             self.assertIsNotNone(result)
@@ -416,13 +463,20 @@ class TestCacheHitMiss(unittest.TestCase):
             cache_dir = root / "dev" / "reports" / "session_cache" / "latest"
             cache_dir.mkdir(parents=True)
             pkt = SessionCachePacket(
-                head_sha="abc123", role="implementer", review_state_mtime=1000.0,
+                head_sha="abc123",
+                role="implementer",
+                review_state_mtime=1000.0,
             )
             (cache_dir / "cache.json").write_text(json.dumps(pkt.to_dict()))
             # Same head and role but different mtime triggers a miss
-            self.assertIsNone(try_cache_hit(
-                root, head_sha="abc123", role="implementer", review_state_mtime=2000.0,
-            ))
+            self.assertIsNone(
+                try_cache_hit(
+                    root,
+                    head_sha="abc123",
+                    role="implementer",
+                    review_state_mtime=2000.0,
+                )
+            )
 
     def test_cache_hit_with_matching_mtime(self) -> None:
         """Cache hits when head, role, and review_state mtime all match."""
@@ -431,11 +485,16 @@ class TestCacheHitMiss(unittest.TestCase):
             cache_dir = root / "dev" / "reports" / "session_cache" / "latest"
             cache_dir.mkdir(parents=True)
             pkt = SessionCachePacket(
-                head_sha="abc123", role="implementer", review_state_mtime=42.5,
+                head_sha="abc123",
+                role="implementer",
+                review_state_mtime=42.5,
             )
             (cache_dir / "cache.json").write_text(json.dumps(pkt.to_dict()))
             result = try_cache_hit(
-                root, head_sha="abc123", role="implementer", review_state_mtime=42.5,
+                root,
+                head_sha="abc123",
+                role="implementer",
+                review_state_mtime=42.5,
             )
             self.assertIsNotNone(result)
             self.assertEqual(result.review_state_mtime, 42.5)
@@ -445,7 +504,9 @@ class TestCacheHitMiss(unittest.TestCase):
             root = Path(td)
             pkt = SessionCachePacket(head_sha="xyz", branch="develop")
             write_cache(root, pkt)
-            cache_path = root / "dev" / "reports" / "session_cache" / "latest" / "cache.json"
+            cache_path = (
+                root / "dev" / "reports" / "session_cache" / "latest" / "cache.json"
+            )
             self.assertTrue(cache_path.is_file())
             payload = json.loads(cache_path.read_text())
             self.assertEqual(payload["head_sha"], "xyz")
@@ -493,7 +554,9 @@ class TestBuildFromSources(unittest.TestCase):
         )
         with tempfile.TemporaryDirectory() as td:
             packet = build_from_sources(
-                Path(td), role="implementer", head_sha="sha1",
+                Path(td),
+                role="implementer",
+                head_sha="sha1",
                 sources_override=sources,
             )
             self.assertEqual(packet.branch, "unknown")  # git override returns "unknown"
@@ -503,14 +566,18 @@ class TestBuildFromSources(unittest.TestCase):
             self.assertIn("ack_current=True", packet.key_rules)
             self.assertIsNotNone(packet.authority_snapshot)
             assert packet.authority_snapshot is not None
-            self.assertEqual(packet.authority_snapshot.current_instruction_revision, "rev123")
+            self.assertEqual(
+                packet.authority_snapshot.current_instruction_revision, "rev123"
+            )
             self.assertEqual(packet.authority_snapshot.implementer_ack_state, "current")
 
     def test_build_no_artifacts(self) -> None:
         sources = self._make_sources()
         with tempfile.TemporaryDirectory() as td:
             packet = build_from_sources(
-                Path(td), role="reviewer", head_sha="sha2",
+                Path(td),
+                role="reviewer",
+                head_sha="sha2",
                 sources_override=sources,
             )
             self.assertEqual(packet.role, "reviewer")
@@ -557,7 +624,9 @@ class TestBuildFromSources(unittest.TestCase):
         )
         with tempfile.TemporaryDirectory() as td:
             packet = build_from_sources(
-                Path(td), role="implementer", head_sha="sha3",
+                Path(td),
+                role="implementer",
+                head_sha="sha3",
                 read_model_override=model,
                 sources_override=sources,
             )
@@ -573,9 +642,13 @@ class TestBuildFromSources(unittest.TestCase):
             # v2 fields from read model
             self.assertEqual(packet.resolved_phase, "idle")
             self.assertEqual(packet.operator_interaction_mode, "local_terminal")
-            self.assertEqual(packet.next_recommended_command, "python3 dev/scripts/devctl.py do-it")
+            self.assertEqual(
+                packet.next_recommended_command, "python3 dev/scripts/devctl.py do-it"
+            )
 
-    def test_build_from_sources_prefers_packet_backed_expired_findings_summary(self) -> None:
+    def test_build_from_sources_prefers_packet_backed_expired_findings_summary(
+        self,
+    ) -> None:
         from dev.scripts.devctl.runtime.control_plane_read_model import (
             ControlPlaneReadModel,
         )
@@ -732,6 +805,30 @@ class TestBuildFromSources(unittest.TestCase):
                         },
                     ],
                 },
+                "collaboration": {
+                    "mutation_owner": "claude",
+                    "verification_owner": "codex",
+                    "verification_status": "live",
+                    "watcher_owner": "operator",
+                    "watcher_status": "live",
+                    "actor_authorities": [
+                        {
+                            "actor_id": "claude",
+                            "provider": "claude",
+                            "role": "implementer",
+                            "live": True,
+                            "status": "live",
+                            "source": "test",
+                            "grants": [
+                                {
+                                    "capability": "repo.commit",
+                                    "granted": True,
+                                    "source": "test",
+                                }
+                            ],
+                        }
+                    ],
+                },
             },
         )
 
@@ -764,6 +861,11 @@ class TestBuildFromSources(unittest.TestCase):
         self.assertIn(
             "review.checkpoint",
             reviewer_packet.authority_snapshot.allowed_actions,
+        )
+        self.assertEqual(reviewer_packet.authority_snapshot.mutation_owner, "claude")
+        self.assertEqual(
+            reviewer_packet.authority_snapshot.actor_authorities[0].actor_id,
+            "claude",
         )
 
     def test_build_from_sources_preserves_explicit_recovery_next_command(self) -> None:
@@ -857,7 +959,9 @@ class TestBuildFromSources(unittest.TestCase):
 class TestRepoPackPaths(unittest.TestCase):
     """Paths resolve from active_path_config, not hardcoded literals."""
 
-    @patch("dev.scripts.devctl.commands.governance.session_resume_paths.active_path_config")
+    @patch(
+        "dev.scripts.devctl.commands.governance.session_resume_paths.active_path_config"
+    )
     def test_resolve_source_paths_uses_active_config(self, mock_config) -> None:
         """resolve_source_paths reads review_status_dir_rel from repo-pack config."""
         from dev.scripts.devctl.repo_packs.voiceterm import RepoPathConfig
@@ -866,10 +970,14 @@ class TestRepoPackPaths(unittest.TestCase):
         mock_config.return_value = custom
         with tempfile.TemporaryDirectory() as td:
             paths = resolve_source_paths(Path(td), governance=None)
-            self.assertEqual(paths["review_state"], Path("custom/status/dir/review_state.json"))
+            self.assertEqual(
+                paths["review_state"], Path("custom/status/dir/review_state.json")
+            )
             self.assertEqual(paths["compact"], Path("custom/status/dir/compact.json"))
 
-    @patch("dev.scripts.devctl.commands.governance.session_resume_paths.active_path_config")
+    @patch(
+        "dev.scripts.devctl.commands.governance.session_resume_paths.active_path_config"
+    )
     def test_get_review_state_mtime_uses_config_path(self, mock_config) -> None:
         """get_review_state_mtime resolves the review_state path via repo-pack config."""
         from dev.scripts.devctl.repo_packs.voiceterm import RepoPathConfig
@@ -885,7 +993,9 @@ class TestRepoPackPaths(unittest.TestCase):
             mtime = get_review_state_mtime(root, governance=None)
             self.assertGreater(mtime, 0.0)
 
-    @patch("dev.scripts.devctl.commands.governance.session_resume_paths.active_path_config")
+    @patch(
+        "dev.scripts.devctl.commands.governance.session_resume_paths.active_path_config"
+    )
     def test_get_review_state_mtime_absent_file(self, mock_config) -> None:
         from dev.scripts.devctl.repo_packs.voiceterm import RepoPathConfig
 
@@ -925,12 +1035,16 @@ class TestGovernanceReviewRoot(unittest.TestCase):
             bundle_overrides=BundleOverrides(overrides={}),
         )
 
-    @patch("dev.scripts.devctl.commands.governance.session_resume_paths.active_path_config")
+    @patch(
+        "dev.scripts.devctl.commands.governance.session_resume_paths.active_path_config"
+    )
     def test_governance_review_root_overrides_config(self, mock_config) -> None:
         """When governance has a review_root, paths resolve from that root."""
         from dev.scripts.devctl.repo_packs.voiceterm import RepoPathConfig
 
-        mock_config.return_value = RepoPathConfig(review_status_dir_rel="default/status")
+        mock_config.return_value = RepoPathConfig(
+            review_status_dir_rel="default/status"
+        )
         gov = self._make_governance("custom/governance/review")
         with tempfile.TemporaryDirectory() as td:
             paths = resolve_source_paths(Path(td), governance=gov)
@@ -943,7 +1057,9 @@ class TestGovernanceReviewRoot(unittest.TestCase):
                 Path("custom/governance/review/compact.json"),
             )
 
-    @patch("dev.scripts.devctl.commands.governance.session_resume_paths.active_path_config")
+    @patch(
+        "dev.scripts.devctl.commands.governance.session_resume_paths.active_path_config"
+    )
     def test_empty_governance_review_root_falls_back(self, mock_config) -> None:
         """When governance review_root is empty, repo-pack config is used."""
         from dev.scripts.devctl.repo_packs.voiceterm import RepoPathConfig
@@ -957,7 +1073,9 @@ class TestGovernanceReviewRoot(unittest.TestCase):
                 Path("fallback/dir/review_state.json"),
             )
 
-    @patch("dev.scripts.devctl.commands.governance.session_resume_paths.active_path_config")
+    @patch(
+        "dev.scripts.devctl.commands.governance.session_resume_paths.active_path_config"
+    )
     def test_no_governance_uses_config(self, mock_config) -> None:
         """Without governance, repo-pack config paths are used (backward compat)."""
         from dev.scripts.devctl.repo_packs.voiceterm import RepoPathConfig
@@ -1049,7 +1167,9 @@ _PATCH_ROOT = "dev.scripts.devctl.commands.governance.session_resume.get_repo_ro
 # (dev/scripts/devctl/tests/governance/test_session_resume_support.py).
 # Stub the CLI resolver to None so legacy cases behave like callers that
 # cannot build a SessionContinuityState (for example an empty tempdir).
-_PATCH_CONTINUITY = "dev.scripts.devctl.commands.governance.session_resume._resolve_continuity"
+_PATCH_CONTINUITY = (
+    "dev.scripts.devctl.commands.governance.session_resume._resolve_continuity"
+)
 
 
 class TestRunCommand(unittest.TestCase):
@@ -1063,17 +1183,31 @@ class TestRunCommand(unittest.TestCase):
             mock_root.return_value = root
             receipt_dir = root / "dev" / "reports" / "startup" / "latest"
             receipt_dir.mkdir(parents=True)
-            (receipt_dir / "receipt.json").write_text(json.dumps({
-                "current_branch": "main", "advisory_action": "no_push_needed",
-                "advisory_reason": "clean_worktree", "checkpoint_required": False,
-                "safe_to_continue_editing": True, "startup_authority_ok": True,
-                "review_gate_allows_push": True, "push_action": "no_push_needed",
-            }))
+            (receipt_dir / "receipt.json").write_text(
+                json.dumps(
+                    {
+                        "current_branch": "main",
+                        "advisory_action": "no_push_needed",
+                        "advisory_reason": "clean_worktree",
+                        "checkpoint_required": False,
+                        "safe_to_continue_editing": True,
+                        "startup_authority_ok": True,
+                        "review_gate_allows_push": True,
+                        "push_action": "no_push_needed",
+                    }
+                )
+            )
             args = SimpleNamespace(
-                format="json", output=None, pipe_command=None, pipe_args=None, role="implementer",
+                format="json",
+                output=None,
+                pipe_command=None,
+                pipe_args=None,
+                role="implementer",
             )
             self.assertEqual(run(args), 0)
-            cache_path = root / "dev" / "reports" / "session_cache" / "latest" / "cache.json"
+            cache_path = (
+                root / "dev" / "reports" / "session_cache" / "latest" / "cache.json"
+            )
             self.assertTrue(cache_path.is_file())
 
     @patch(_PATCH_CONTINUITY, return_value=None)
@@ -1086,12 +1220,19 @@ class TestRunCommand(unittest.TestCase):
             cache_dir = root / "dev" / "reports" / "session_cache" / "latest"
             cache_dir.mkdir(parents=True)
             pkt = SessionCachePacket(
-                head_sha="abc123", role="implementer", branch="cached",
-                blockers="none", last_guard_ok=True,
+                head_sha="abc123",
+                role="implementer",
+                branch="cached",
+                blockers="none",
+                last_guard_ok=True,
             )
             (cache_dir / "cache.json").write_text(json.dumps(pkt.to_dict()))
             args = SimpleNamespace(
-                format="summary", output=None, pipe_command=None, pipe_args=None, role="implementer",
+                format="summary",
+                output=None,
+                pipe_command=None,
+                pipe_args=None,
+                role="implementer",
             )
             self.assertEqual(run(args), 0)
 
@@ -1131,19 +1272,27 @@ class TestRunCommand(unittest.TestCase):
 
     @patch(_PATCH_HEAD, return_value="abc123")
     @patch(_PATCH_ROOT)
-    def test_run_md_format_no_artifacts_fails_closed(self, mock_root, mock_head) -> None:
+    def test_run_md_format_no_artifacts_fails_closed(
+        self, mock_root, mock_head
+    ) -> None:
         """No artifacts: session-resume fails closed with non-zero exit."""
         with tempfile.TemporaryDirectory() as td:
             mock_root.return_value = Path(td)
             args = SimpleNamespace(
-                format="md", output=None, pipe_command=None, pipe_args=None, role="implementer",
+                format="md",
+                output=None,
+                pipe_command=None,
+                pipe_args=None,
+                role="implementer",
             )
             self.assertEqual(run(args), 1)
 
     @patch(_PATCH_CONTINUITY, return_value=None)
     @patch(_PATCH_HEAD, return_value="abc123")
     @patch(_PATCH_ROOT)
-    def test_run_bootstrap_format_uses_human_renderer(self, mock_root, mock_head, mock_cont) -> None:
+    def test_run_bootstrap_format_uses_human_renderer(
+        self, mock_root, mock_head, mock_cont
+    ) -> None:
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)
             mock_root.return_value = root
@@ -1166,8 +1315,13 @@ class TestRunCommand(unittest.TestCase):
             self.assertEqual(run(args), 0)
 
     @patch("dev.scripts.devctl.commands.governance.session_resume.build_from_sources")
-    @patch("dev.scripts.devctl.commands.governance.session_resume.load_current_review_state")
-    @patch("dev.scripts.devctl.commands.governance.session_resume.try_cache_hit", return_value=None)
+    @patch(
+        "dev.scripts.devctl.commands.governance.session_resume.load_current_review_state"
+    )
+    @patch(
+        "dev.scripts.devctl.commands.governance.session_resume.try_cache_hit",
+        return_value=None,
+    )
     @patch(_PATCH_CONTINUITY, return_value=None)
     @patch(_PATCH_HEAD, return_value="abc123")
     @patch(_PATCH_ROOT)
@@ -1203,7 +1357,9 @@ class TestRunCommand(unittest.TestCase):
             )
 
     @patch("dev.scripts.devctl.commands.governance.session_resume.build_from_sources")
-    @patch("dev.scripts.devctl.commands.governance.session_resume.load_current_review_state")
+    @patch(
+        "dev.scripts.devctl.commands.governance.session_resume.load_current_review_state"
+    )
     @patch(_PATCH_CONTINUITY, return_value=None)
     @patch(_PATCH_HEAD, return_value="abc123")
     @patch(_PATCH_ROOT)
@@ -1238,7 +1394,9 @@ class TestRunCommand(unittest.TestCase):
                 root,
             )
             self.assertTrue(
-                mock_load_current_review_state.call_args.kwargs["prefer_cached_projection"],
+                mock_load_current_review_state.call_args.kwargs[
+                    "prefer_cached_projection"
+                ],
             )
             mock_build_from_sources.assert_called_once()
             self.assertIs(
@@ -1279,10 +1437,17 @@ class TestBuildGovernedReviewRoot(unittest.TestCase):
         )
 
     @patch("dev.scripts.devctl.commands.governance.session_resume_support.load_sources")
-    @patch("dev.scripts.devctl.commands.governance.session_resume_support.resolve_source_paths")
-    @patch("dev.scripts.devctl.commands.governance.session_resume_support.read_json_artifact")
+    @patch(
+        "dev.scripts.devctl.commands.governance.session_resume_support.resolve_source_paths"
+    )
+    @patch(
+        "dev.scripts.devctl.commands.governance.session_resume_support.read_json_artifact"
+    )
     def test_governed_review_root_loads_from_governed_path(
-        self, mock_read, mock_paths, mock_load,
+        self,
+        mock_read,
+        mock_paths,
+        mock_load,
     ) -> None:
         """When governance has a review_root, review_state loads from that root."""
         mock_load.return_value = {
@@ -1302,11 +1467,15 @@ class TestBuildGovernedReviewRoot(unittest.TestCase):
             "compact": Path("custom_review/compact.json"),
         }
         governed_review_data = {"current_session": {"current_instruction": "governed"}}
-        mock_read.side_effect = lambda p: governed_review_data if "review_state" in str(p) else None
+        mock_read.side_effect = lambda p: (
+            governed_review_data if "review_state" in str(p) else None
+        )
         gov = self._make_governance("custom_review")
         with tempfile.TemporaryDirectory() as td:
             packet = build_from_sources(
-                Path(td), role="implementer", head_sha="abc123",
+                Path(td),
+                role="implementer",
+                head_sha="abc123",
                 governance=gov,
             )
             # Verify resolve_source_paths was called with governance
@@ -1323,17 +1492,31 @@ class TestBuildGovernedReviewRoot(unittest.TestCase):
             gov_dir = root / "custom_review"
             gov_dir.mkdir(parents=True)
             gov_rs = gov_dir / "review_state.json"
-            gov_rs.write_text(json.dumps({
-                "current_session": {"current_instruction": "from governed path"},
-            }))
+            gov_rs.write_text(
+                json.dumps(
+                    {
+                        "current_session": {
+                            "current_instruction": "from governed path"
+                        },
+                    }
+                )
+            )
             # Create a receipt so we don't hit bootstrap_required
             receipt_dir = root / "dev" / "reports" / "startup" / "latest"
             receipt_dir.mkdir(parents=True)
-            (receipt_dir / "receipt.json").write_text(json.dumps({
-                "advisory_action": "continue", "advisory_reason": "ok",
-            }))
+            (receipt_dir / "receipt.json").write_text(
+                json.dumps(
+                    {
+                        "advisory_action": "continue",
+                        "advisory_reason": "ok",
+                    }
+                )
+            )
             packet = build_from_sources(
-                root, role="implementer", head_sha="sha1", governance=gov,
+                root,
+                role="implementer",
+                head_sha="sha1",
+                governance=gov,
             )
             self.assertEqual(packet.current_instruction, "from governed path")
 
@@ -1341,11 +1524,19 @@ class TestBuildGovernedReviewRoot(unittest.TestCase):
 class TestFrozenReviewStatePrecedence(unittest.TestCase):
     """Typed review_state should outrank stale compact data when both exist."""
 
-    @patch("dev.scripts.devctl.commands.governance.session_resume_support.build_control_plane_read_model")
-    @patch("dev.scripts.devctl.commands.governance.session_resume_support.read_json_artifact")
-    @patch("dev.scripts.devctl.commands.governance.session_resume_support.resolve_source_paths")
+    @patch(
+        "dev.scripts.devctl.commands.governance.session_resume_support.build_control_plane_read_model"
+    )
+    @patch(
+        "dev.scripts.devctl.commands.governance.session_resume_support.read_json_artifact"
+    )
+    @patch(
+        "dev.scripts.devctl.commands.governance.session_resume_support.resolve_source_paths"
+    )
     @patch("dev.scripts.devctl.commands.governance.session_resume_support.load_sources")
-    @patch("dev.scripts.devctl.commands.governance.session_resume_support.load_git_state")
+    @patch(
+        "dev.scripts.devctl.commands.governance.session_resume_support.load_git_state"
+    )
     def test_frozen_review_state_overrides_loaded_compact(
         self,
         mock_load_git_state,
@@ -1462,7 +1653,9 @@ class TestNoArtifactFailClosed(unittest.TestCase):
         sources = self._make_sources()
         with tempfile.TemporaryDirectory() as td:
             packet = build_from_sources(
-                Path(td), role="implementer", head_sha="sha1",
+                Path(td),
+                role="implementer",
+                head_sha="sha1",
                 sources_override=sources,
             )
             self.assertEqual(packet.blockers, "bootstrap_required")
@@ -1474,7 +1667,9 @@ class TestNoArtifactFailClosed(unittest.TestCase):
         )
         with tempfile.TemporaryDirectory() as td:
             packet = build_from_sources(
-                Path(td), role="implementer", head_sha="sha1",
+                Path(td),
+                role="implementer",
+                head_sha="sha1",
                 sources_override=sources,
             )
             self.assertEqual(packet.blockers, "none")
@@ -1486,7 +1681,9 @@ class TestNoArtifactFailClosed(unittest.TestCase):
         )
         with tempfile.TemporaryDirectory() as td:
             packet = build_from_sources(
-                Path(td), role="reviewer", head_sha="sha2",
+                Path(td),
+                role="reviewer",
+                head_sha="sha2",
                 sources_override=sources,
             )
             self.assertEqual(packet.blockers, "bootstrap_required")
@@ -1497,7 +1694,9 @@ class TestGovernedCacheHitPath(unittest.TestCase):
 
     @patch(_PATCH_HEAD, return_value="abc123")
     @patch(_PATCH_ROOT)
-    def test_governed_review_root_busts_cache_on_same_head(self, mock_root, mock_head) -> None:
+    def test_governed_review_root_busts_cache_on_same_head(
+        self, mock_root, mock_head
+    ) -> None:
         """Cache built from default path must miss when governed review-root changes."""
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)
@@ -1511,7 +1710,9 @@ class TestGovernedCacheHitPath(unittest.TestCase):
             cache_dir = root / "dev" / "reports" / "session_cache" / "latest"
             cache_dir.mkdir(parents=True)
             pkt = SessionCachePacket(
-                head_sha="abc123", role="implementer", branch="main",
+                head_sha="abc123",
+                role="implementer",
+                branch="main",
                 review_state_mtime=default_rs.stat().st_mtime,
                 current_instruction="stale instruction",
             )
@@ -1530,7 +1731,10 @@ class TestGovernedCacheHitPath(unittest.TestCase):
                 mock_gov.return_value = mock_gov_obj
                 # run() should see different mtime → cache miss → rebuild
                 # Even though HEAD is same, governed review_state has different mtime
-                from dev.scripts.devctl.commands.governance.session_resume_paths import get_review_state_mtime
+                from dev.scripts.devctl.commands.governance.session_resume_paths import (
+                    get_review_state_mtime,
+                )
+
                 governed_mtime = get_review_state_mtime(root, governance=mock_gov_obj)
                 self.assertNotEqual(governed_mtime, pkt.review_state_mtime)
 
@@ -1540,14 +1744,17 @@ class TestRegistration(unittest.TestCase):
 
     def test_in_command_handlers(self) -> None:
         from dev.scripts.devctl.cli import COMMAND_HANDLERS
+
         self.assertIn("session-resume", COMMAND_HANDLERS)
 
     def test_in_listing(self) -> None:
         from dev.scripts.devctl.commands.listing import COMMANDS
+
         self.assertIn("session-resume", COMMANDS)
 
     def test_in_read_only_commands(self) -> None:
         from dev.scripts.devctl.cli import READ_ONLY_COMMANDS
+
         self.assertIn("session-resume", READ_ONLY_COMMANDS)
 
 
@@ -1578,7 +1785,9 @@ class TestLastReviewedSha(unittest.TestCase):
         )
         with tempfile.TemporaryDirectory() as td:
             packet = build_from_sources(
-                Path(td), role="implementer", head_sha="new_head_sha",
+                Path(td),
+                role="implementer",
+                head_sha="new_head_sha",
                 sources_override=sources,
             )
             self.assertEqual(packet.last_reviewed_sha, "abc123def456")
@@ -1597,7 +1806,9 @@ class TestLastReviewedSha(unittest.TestCase):
         )
         with tempfile.TemporaryDirectory() as td:
             packet = build_from_sources(
-                Path(td), role="implementer", head_sha=new_head_sha,
+                Path(td),
+                role="implementer",
+                head_sha=new_head_sha,
                 sources_override=sources,
             )
             self.assertNotEqual(packet.head_sha, packet.last_reviewed_sha)
@@ -1612,7 +1823,9 @@ class TestLastReviewedSha(unittest.TestCase):
         )
         with tempfile.TemporaryDirectory() as td:
             packet = build_from_sources(
-                Path(td), role="implementer", head_sha="some_sha",
+                Path(td),
+                role="implementer",
+                head_sha="some_sha",
                 sources_override=sources,
             )
             self.assertEqual(packet.last_reviewed_sha, "")
@@ -1620,7 +1833,8 @@ class TestLastReviewedSha(unittest.TestCase):
     def test_roundtrip_preserves_last_reviewed_sha(self) -> None:
         """packet_from_mapping preserves last_reviewed_sha across serialization."""
         original = SessionCachePacket(
-            head_sha="new_head", last_reviewed_sha="old_reviewed",
+            head_sha="new_head",
+            last_reviewed_sha="old_reviewed",
         )
         restored = packet_from_mapping(original.to_dict())
         self.assertEqual(restored.last_reviewed_sha, "old_reviewed")
@@ -1630,8 +1844,10 @@ class TestLastReviewedSha(unittest.TestCase):
         from dev.scripts.devctl.commands.governance.session_resume_support import (
             render_markdown,
         )
+
         packet = SessionCachePacket(
-            head_sha="aabbccdd", last_reviewed_sha="11223344",
+            head_sha="aabbccdd",
+            last_reviewed_sha="11223344",
         )
         md = render_markdown(packet)
         self.assertIn("last_reviewed", md)
@@ -1642,13 +1858,17 @@ class TestLastReviewedSha(unittest.TestCase):
         from dev.scripts.devctl.commands.governance.session_resume_support import (
             render_summary,
         )
+
         packet = SessionCachePacket(
-            head_sha="aabbccdd", last_reviewed_sha="11223344",
+            head_sha="aabbccdd",
+            last_reviewed_sha="11223344",
         )
         summary = render_summary(packet)
         self.assertIn("last_reviewed=112233", summary)
 
-    def test_render_bootstrap_reviewer_includes_role_packet_and_diff_range(self) -> None:
+    def test_render_bootstrap_reviewer_includes_role_packet_and_diff_range(
+        self,
+    ) -> None:
         """Bootstrap format gives reviewer-specific commands and diff guidance."""
         from dev.scripts.devctl.commands.governance.session_resume_support import (
             render_bootstrap,
@@ -1735,9 +1955,7 @@ class TestLastReviewedSha(unittest.TestCase):
         from dev.scripts.devctl.commands.governance.session_resume_support import (
             render_bootstrap,
         )
-        from dev.scripts.devctl.runtime.review_state_models import (
-            ReviewCandidateRecord,
-        )
+        from dev.scripts.devctl.runtime.review_state_models import ReviewCandidateRecord
 
         packet = SessionCachePacket(
             role="reviewer",
@@ -1765,7 +1983,6 @@ class TestLastReviewedSha(unittest.TestCase):
         self.assertIn("Prefer frozen review candidate", md)
         self.assertNotIn("Review the exact diff range", md)
 
-
     def test_render_bootstrap_reviewer_status_poll_before_context_graph(self) -> None:
         """Reviewer Run In Order must put review-channel status before context-graph."""
         from dev.scripts.devctl.commands.governance.session_resume_support import (
@@ -1787,7 +2004,23 @@ class TestLastReviewedSha(unittest.TestCase):
             "Reviewer must poll review-channel status before context-graph",
         )
 
-    def test_render_bootstrap_reviewer_conversation_starter_includes_status_poll(self) -> None:
+    def test_render_bootstrap_includes_key_surfaces(self) -> None:
+        from dev.scripts.devctl.commands.governance.session_resume_support import (
+            render_bootstrap,
+        )
+
+        packet = SessionCachePacket(
+            role="reviewer",
+            key_surfaces=("dev/guides/SYSTEM_MAP.md",),
+        )
+
+        md = render_bootstrap(packet)
+
+        self.assertIn("`dev/guides/SYSTEM_MAP.md`", md)
+
+    def test_render_bootstrap_reviewer_conversation_starter_includes_status_poll(
+        self,
+    ) -> None:
         """Reviewer Conversation Starter must mention review-channel status before context-graph."""
         from dev.scripts.devctl.commands.governance.session_resume_support import (
             render_bootstrap,
@@ -1800,7 +2033,7 @@ class TestLastReviewedSha(unittest.TestCase):
         )
 
         md = render_bootstrap(packet)
-        starter_section = md[md.index("### Conversation Starter"):]
+        starter_section = md[md.index("### Conversation Starter") :]
         next_section_idx = starter_section.find("\n### ", 1)
         if next_section_idx > 0:
             starter_section = starter_section[:next_section_idx]
@@ -1846,7 +2079,7 @@ class TestLastReviewedSha(unittest.TestCase):
         )
 
         md = render_bootstrap(packet)
-        run_in_order_section = md[md.index("### Run In Order"):]
+        run_in_order_section = md[md.index("### Run In Order") :]
         next_section_idx = run_in_order_section.find("\n### ", 1)
         if next_section_idx > 0:
             run_in_order_section = run_in_order_section[:next_section_idx]
@@ -1900,9 +2133,7 @@ class TestLastReviewedSha(unittest.TestCase):
         from dev.scripts.devctl.commands.governance.session_resume_support import (
             render_bootstrap,
         )
-        from dev.scripts.devctl.runtime.authority_snapshot_core import (
-            AuthoritySnapshot,
-        )
+        from dev.scripts.devctl.runtime.authority_snapshot_core import AuthoritySnapshot
 
         packet = SessionCachePacket(
             role="implementer",
@@ -1946,19 +2177,30 @@ class TestV2Fields(unittest.TestCase):
         )
 
         model = ControlPlaneReadModel(
-            timestamp="t", branch="b", head_sha="h",
-            worktree_clean=True, ahead_of_upstream=0,
+            timestamp="t",
+            branch="b",
+            head_sha="h",
+            worktree_clean=True,
+            ahead_of_upstream=0,
             resolved_phase="implementing",
-            push_eligible=False, implementation_blocked=False,
-            top_blocker="none", next_action="n/a", next_command="",
+            push_eligible=False,
+            implementation_blocked=False,
+            top_blocker="none",
+            next_action="n/a",
+            next_command="",
             reviewer_mode="single_agent",
             operator_interaction_mode="local_terminal",
-            reviewer_freshness="--", review_accepted=False,
-            last_reviewed_sha="", attention_status="n/a",
+            reviewer_freshness="--",
+            review_accepted=False,
+            last_reviewed_sha="",
+            attention_status="n/a",
             attention_summary="n/a",
-            publisher_running=False, supervisor_running=False,
-            codex_conductor_alive=False, claude_conductor_alive=False,
-            pending_action_requests=0, last_guard_ok=True,
+            publisher_running=False,
+            supervisor_running=False,
+            codex_conductor_alive=False,
+            claude_conductor_alive=False,
+            pending_action_requests=0,
+            last_guard_ok=True,
             check_details=(),
         )
         sources = self._make_sources(
@@ -1966,8 +2208,11 @@ class TestV2Fields(unittest.TestCase):
         )
         with tempfile.TemporaryDirectory() as td:
             packet = build_from_sources(
-                Path(td), role="implementer", head_sha="abc",
-                read_model_override=model, sources_override=sources,
+                Path(td),
+                role="implementer",
+                head_sha="abc",
+                read_model_override=model,
+                sources_override=sources,
             )
             self.assertEqual(packet.resolved_phase, "implementing")
 
@@ -1978,19 +2223,30 @@ class TestV2Fields(unittest.TestCase):
         )
 
         model = ControlPlaneReadModel(
-            timestamp="t", branch="b", head_sha="h",
-            worktree_clean=True, ahead_of_upstream=0,
+            timestamp="t",
+            branch="b",
+            head_sha="h",
+            worktree_clean=True,
+            ahead_of_upstream=0,
             resolved_phase="idle",
-            push_eligible=False, implementation_blocked=False,
-            top_blocker="none", next_action="n/a", next_command="",
+            push_eligible=False,
+            implementation_blocked=False,
+            top_blocker="none",
+            next_action="n/a",
+            next_command="",
             reviewer_mode="active_dual_agent",
             operator_interaction_mode="active_dual_agent",
-            reviewer_freshness="--", review_accepted=False,
-            last_reviewed_sha="", attention_status="n/a",
+            reviewer_freshness="--",
+            review_accepted=False,
+            last_reviewed_sha="",
+            attention_status="n/a",
             attention_summary="n/a",
-            publisher_running=False, supervisor_running=False,
-            codex_conductor_alive=False, claude_conductor_alive=False,
-            pending_action_requests=0, last_guard_ok=True,
+            publisher_running=False,
+            supervisor_running=False,
+            codex_conductor_alive=False,
+            claude_conductor_alive=False,
+            pending_action_requests=0,
+            last_guard_ok=True,
             check_details=(),
         )
         sources = self._make_sources(
@@ -1998,8 +2254,11 @@ class TestV2Fields(unittest.TestCase):
         )
         with tempfile.TemporaryDirectory() as td:
             packet = build_from_sources(
-                Path(td), role="implementer", head_sha="abc",
-                read_model_override=model, sources_override=sources,
+                Path(td),
+                role="implementer",
+                head_sha="abc",
+                read_model_override=model,
+                sources_override=sources,
             )
             self.assertEqual(packet.operator_interaction_mode, "active_dual_agent")
 
@@ -2014,7 +2273,9 @@ class TestV2Fields(unittest.TestCase):
         )
         with tempfile.TemporaryDirectory() as td:
             packet = build_from_sources(
-                Path(td), role="implementer", head_sha="current_sha",
+                Path(td),
+                role="implementer",
+                head_sha="current_sha",
                 sources_override=sources,
             )
             self.assertEqual(packet.head_at_push_time, "pushed_sha_123")
@@ -2028,9 +2289,13 @@ class TestV2Fields(unittest.TestCase):
         )
         with tempfile.TemporaryDirectory() as td:
             packet = build_from_sources(
-                Path(td), role="implementer", head_sha="abc",
+                Path(td),
+                role="implementer",
+                head_sha="abc",
                 sources_override=sources,
-                changed_paths=["dev/scripts/devctl/commands/governance/session_resume_support.py"],
+                changed_paths=[
+                    "dev/scripts/devctl/commands/governance/session_resume_support.py"
+                ],
             )
             self.assertEqual(packet.next_guard_bundle, "bundle.tooling")
 
@@ -2041,7 +2306,9 @@ class TestV2Fields(unittest.TestCase):
         )
         with tempfile.TemporaryDirectory() as td:
             packet = build_from_sources(
-                Path(td), role="implementer", head_sha="abc",
+                Path(td),
+                role="implementer",
+                head_sha="abc",
                 sources_override=sources,
                 changed_paths=["rust/src/bin/voiceterm/main.rs"],
             )
@@ -2054,7 +2321,9 @@ class TestV2Fields(unittest.TestCase):
         )
         with tempfile.TemporaryDirectory() as td:
             packet = build_from_sources(
-                Path(td), role="implementer", head_sha="abc",
+                Path(td),
+                role="implementer",
+                head_sha="abc",
                 sources_override=sources,
                 changed_paths=[],
             )
@@ -2067,21 +2336,30 @@ class TestV2Fields(unittest.TestCase):
         )
 
         model = ControlPlaneReadModel(
-            timestamp="t", branch="b", head_sha="h",
-            worktree_clean=True, ahead_of_upstream=0,
+            timestamp="t",
+            branch="b",
+            head_sha="h",
+            worktree_clean=True,
+            ahead_of_upstream=0,
             resolved_phase="pushing",
-            push_eligible=True, implementation_blocked=False,
+            push_eligible=True,
+            implementation_blocked=False,
             top_blocker="none",
             next_action="run_devctl_push",
             next_command="python3 dev/scripts/devctl.py push --execute",
             reviewer_mode="single_agent",
             operator_interaction_mode="local_terminal",
-            reviewer_freshness="--", review_accepted=True,
-            last_reviewed_sha="", attention_status="n/a",
+            reviewer_freshness="--",
+            review_accepted=True,
+            last_reviewed_sha="",
+            attention_status="n/a",
             attention_summary="n/a",
-            publisher_running=False, supervisor_running=False,
-            codex_conductor_alive=False, claude_conductor_alive=False,
-            pending_action_requests=0, last_guard_ok=True,
+            publisher_running=False,
+            supervisor_running=False,
+            codex_conductor_alive=False,
+            claude_conductor_alive=False,
+            pending_action_requests=0,
+            last_guard_ok=True,
             check_details=(),
         )
         sources = self._make_sources(
@@ -2089,8 +2367,11 @@ class TestV2Fields(unittest.TestCase):
         )
         with tempfile.TemporaryDirectory() as td:
             packet = build_from_sources(
-                Path(td), role="implementer", head_sha="abc",
-                read_model_override=model, sources_override=sources,
+                Path(td),
+                role="implementer",
+                head_sha="abc",
+                read_model_override=model,
+                sources_override=sources,
             )
             self.assertEqual(
                 packet.next_recommended_command,
@@ -2104,21 +2385,30 @@ class TestV2Fields(unittest.TestCase):
         )
 
         model = ControlPlaneReadModel(
-            timestamp="t", branch="b", head_sha="h",
-            worktree_clean=False, ahead_of_upstream=0,
+            timestamp="t",
+            branch="b",
+            head_sha="h",
+            worktree_clean=False,
+            ahead_of_upstream=0,
             resolved_phase="pushing",
-            push_eligible=False, implementation_blocked=False,
+            push_eligible=False,
+            implementation_blocked=False,
             top_blocker="none",
             next_action="run_devctl_push",
             next_command="python3 dev/scripts/devctl.py push --execute",
             reviewer_mode="single_agent",
             operator_interaction_mode="local_terminal",
-            reviewer_freshness="overdue", review_accepted=False,
-            last_reviewed_sha="", attention_status="checkpoint_required",
+            reviewer_freshness="overdue",
+            review_accepted=False,
+            last_reviewed_sha="",
+            attention_status="checkpoint_required",
             attention_summary="checkpoint required",
-            publisher_running=False, supervisor_running=False,
-            codex_conductor_alive=False, claude_conductor_alive=False,
-            pending_action_requests=0, last_guard_ok=True,
+            publisher_running=False,
+            supervisor_running=False,
+            codex_conductor_alive=False,
+            claude_conductor_alive=False,
+            pending_action_requests=0,
+            last_guard_ok=True,
             check_details=(),
         )
         sources = self._make_sources(
@@ -2129,7 +2419,7 @@ class TestV2Fields(unittest.TestCase):
                     "recommended_action": "Cut a checkpoint before continuing.",
                     "recommended_command": (
                         "python3 dev/scripts/devctl.py commit -m "
-                        "\"<descriptive message>\""
+                        '"<descriptive message>"'
                     ),
                 },
                 "current_session": {
@@ -2142,22 +2432,25 @@ class TestV2Fields(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as td:
             packet = build_from_sources(
-                Path(td), role="implementer", head_sha="abc",
-                read_model_override=model, sources_override=sources,
+                Path(td),
+                role="implementer",
+                head_sha="abc",
+                read_model_override=model,
+                sources_override=sources,
             )
 
         self.assertEqual(
             packet.next_recommended_command,
-            "python3 dev/scripts/devctl.py commit -m \"<descriptive message>\"",
+            'python3 dev/scripts/devctl.py commit -m "<descriptive message>"',
         )
         self.assertEqual(
             packet.next_action,
-            "python3 dev/scripts/devctl.py commit -m \"<descriptive message>\"",
+            'python3 dev/scripts/devctl.py commit -m "<descriptive message>"',
         )
         assert packet.authority_snapshot is not None
         self.assertEqual(
             packet.authority_snapshot.next_command,
-            "python3 dev/scripts/devctl.py commit -m \"<descriptive message>\"",
+            'python3 dev/scripts/devctl.py commit -m "<descriptive message>"',
         )
 
     def test_observer_projects_read_only_next_command_fields(self) -> None:
@@ -2167,25 +2460,33 @@ class TestV2Fields(unittest.TestCase):
         )
 
         commit_command = (
-            "python3 dev/scripts/devctl.py commit -m "
-            "\"<descriptive message>\""
+            "python3 dev/scripts/devctl.py commit -m " '"<descriptive message>"'
         )
         model = ControlPlaneReadModel(
-            timestamp="t", branch="b", head_sha="h",
-            worktree_clean=False, ahead_of_upstream=0,
+            timestamp="t",
+            branch="b",
+            head_sha="h",
+            worktree_clean=False,
+            ahead_of_upstream=0,
             resolved_phase="pushing",
-            push_eligible=False, implementation_blocked=False,
+            push_eligible=False,
+            implementation_blocked=False,
             top_blocker="none",
             next_action="run_devctl_push",
             next_command="python3 dev/scripts/devctl.py push --execute",
             reviewer_mode="single_agent",
             operator_interaction_mode="local_terminal",
-            reviewer_freshness="overdue", review_accepted=False,
-            last_reviewed_sha="", attention_status="checkpoint_required",
+            reviewer_freshness="overdue",
+            review_accepted=False,
+            last_reviewed_sha="",
+            attention_status="checkpoint_required",
             attention_summary="checkpoint required",
-            publisher_running=False, supervisor_running=False,
-            codex_conductor_alive=False, claude_conductor_alive=False,
-            pending_action_requests=0, last_guard_ok=True,
+            publisher_running=False,
+            supervisor_running=False,
+            codex_conductor_alive=False,
+            claude_conductor_alive=False,
+            pending_action_requests=0,
+            last_guard_ok=True,
             check_details=(),
         )
         sources = self._make_sources(
@@ -2206,8 +2507,11 @@ class TestV2Fields(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as td:
             packet = build_from_sources(
-                Path(td), role="observer", head_sha="abc",
-                read_model_override=model, sources_override=sources,
+                Path(td),
+                role="observer",
+                head_sha="abc",
+                read_model_override=model,
+                sources_override=sources,
             )
 
         read_only_command = (
@@ -2220,28 +2524,39 @@ class TestV2Fields(unittest.TestCase):
         self.assertEqual(packet.authority_snapshot.actor_role, "observer")
         self.assertEqual(packet.authority_snapshot.next_command, read_only_command)
 
-    def test_authority_snapshot_prefers_coordination_resync_over_push_guidance(self) -> None:
+    def test_authority_snapshot_prefers_coordination_resync_over_push_guidance(
+        self,
+    ) -> None:
         """AuthoritySnapshot stays blocker-aware even when the read model says push."""
         from dev.scripts.devctl.runtime.control_plane_read_model import (
             ControlPlaneReadModel,
         )
 
         model = ControlPlaneReadModel(
-            timestamp="t", branch="b", head_sha="h",
-            worktree_clean=True, ahead_of_upstream=23,
+            timestamp="t",
+            branch="b",
+            head_sha="h",
+            worktree_clean=True,
+            ahead_of_upstream=23,
             resolved_phase="pushing",
-            push_eligible=True, implementation_blocked=False,
+            push_eligible=True,
+            implementation_blocked=False,
             top_blocker="1 pending review packet(s)",
             next_action="run_devctl_push",
             next_command="python3 dev/scripts/devctl.py push --execute",
             reviewer_mode="single_agent",
             operator_interaction_mode="local_terminal",
-            reviewer_freshness="overdue", review_accepted=True,
-            last_reviewed_sha="", attention_status="healthy",
+            reviewer_freshness="overdue",
+            review_accepted=True,
+            last_reviewed_sha="",
+            attention_status="healthy",
             attention_summary="Review loop signals are fresh.",
-            publisher_running=False, supervisor_running=False,
-            codex_conductor_alive=True, claude_conductor_alive=False,
-            pending_action_requests=1, last_guard_ok=True,
+            publisher_running=False,
+            supervisor_running=False,
+            codex_conductor_alive=True,
+            claude_conductor_alive=False,
+            pending_action_requests=1,
+            last_guard_ok=True,
             check_details=(),
         )
         sources = self._make_sources(
@@ -2294,8 +2609,11 @@ class TestV2Fields(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as td:
             packet = build_from_sources(
-                Path(td), role="reviewer", head_sha="abc",
-                read_model_override=model, sources_override=sources,
+                Path(td),
+                role="reviewer",
+                head_sha="abc",
+                read_model_override=model,
+                sources_override=sources,
             )
 
         assert packet.authority_snapshot is not None
@@ -2313,21 +2631,30 @@ class TestV2Fields(unittest.TestCase):
         )
 
         model = ControlPlaneReadModel(
-            timestamp="t", branch="b", head_sha="h",
-            worktree_clean=True, ahead_of_upstream=0,
+            timestamp="t",
+            branch="b",
+            head_sha="h",
+            worktree_clean=True,
+            ahead_of_upstream=0,
             resolved_phase="idle",
-            push_eligible=False, implementation_blocked=False,
+            push_eligible=False,
+            implementation_blocked=False,
             top_blocker="none",
             next_action="model_derived_action",
             next_command="model_derived_command",
             reviewer_mode="single_agent",
             operator_interaction_mode="local_terminal",
-            reviewer_freshness="--", review_accepted=False,
-            last_reviewed_sha="", attention_status="n/a",
+            reviewer_freshness="--",
+            review_accepted=False,
+            last_reviewed_sha="",
+            attention_status="n/a",
             attention_summary="n/a",
-            publisher_running=False, supervisor_running=False,
-            codex_conductor_alive=False, claude_conductor_alive=False,
-            pending_action_requests=0, last_guard_ok=True,
+            publisher_running=False,
+            supervisor_running=False,
+            codex_conductor_alive=False,
+            claude_conductor_alive=False,
+            pending_action_requests=0,
+            last_guard_ok=True,
             check_details=(),
         )
         sources = self._make_sources(
@@ -2338,8 +2665,11 @@ class TestV2Fields(unittest.TestCase):
         )
         with tempfile.TemporaryDirectory() as td:
             packet = build_from_sources(
-                Path(td), role="implementer", head_sha="abc",
-                read_model_override=model, sources_override=sources,
+                Path(td),
+                role="implementer",
+                head_sha="abc",
+                read_model_override=model,
+                sources_override=sources,
             )
             # Advisory comes from read model, not receipt
             self.assertEqual(packet.advisory_action, "model_derived_action")
@@ -2352,21 +2682,30 @@ class TestV2Fields(unittest.TestCase):
         )
 
         model = ControlPlaneReadModel(
-            timestamp="t", branch="b", head_sha="abc",
-            worktree_clean=False, ahead_of_upstream=0,
+            timestamp="t",
+            branch="b",
+            head_sha="abc",
+            worktree_clean=False,
+            ahead_of_upstream=0,
             resolved_phase="reviewing",
-            push_eligible=False, implementation_blocked=False,
+            push_eligible=False,
+            implementation_blocked=False,
             top_blocker="none",
             next_action="review_candidate_present",
             next_command="python3 dev/scripts/devctl.py review-channel --action status --terminal none --format json",
             reviewer_mode="active_dual_agent",
             operator_interaction_mode="active_dual_agent",
-            reviewer_freshness="fresh", review_accepted=False,
-            last_reviewed_sha="oldsha", attention_status="healthy",
+            reviewer_freshness="fresh",
+            review_accepted=False,
+            last_reviewed_sha="oldsha",
+            attention_status="healthy",
             attention_summary="healthy",
-            publisher_running=False, supervisor_running=False,
-            codex_conductor_alive=True, claude_conductor_alive=True,
-            pending_action_requests=0, last_guard_ok=True,
+            publisher_running=False,
+            supervisor_running=False,
+            codex_conductor_alive=True,
+            claude_conductor_alive=True,
+            pending_action_requests=0,
+            last_guard_ok=True,
             check_details=(),
         )
         sources = self._make_sources(
@@ -2396,8 +2735,11 @@ class TestV2Fields(unittest.TestCase):
         )
         with tempfile.TemporaryDirectory() as td:
             packet = build_from_sources(
-                Path(td), role="reviewer", head_sha="abc",
-                read_model_override=model, sources_override=sources,
+                Path(td),
+                role="reviewer",
+                head_sha="abc",
+                read_model_override=model,
+                sources_override=sources,
             )
             assert packet.review_candidate is not None
             self.assertEqual(
@@ -2410,9 +2752,7 @@ class TestV2Fields(unittest.TestCase):
         from dev.scripts.devctl.platform.coordination_snapshot_models import (
             CoordinationSnapshot,
         )
-        from dev.scripts.devctl.runtime.review_state_models import (
-            ReviewCandidateRecord,
-        )
+        from dev.scripts.devctl.runtime.review_state_models import ReviewCandidateRecord
 
         original = SessionCachePacket(
             head_sha="abc",
@@ -2472,6 +2812,7 @@ class TestV2Fields(unittest.TestCase):
         from dev.scripts.devctl.commands.governance.session_resume_support import (
             render_markdown,
         )
+
         packet = SessionCachePacket(
             head_sha="aabbccdd",
             head_at_push_time="11223344",
@@ -2494,6 +2835,7 @@ class TestV2Fields(unittest.TestCase):
         from dev.scripts.devctl.commands.governance.session_resume_support import (
             render_summary,
         )
+
         packet = SessionCachePacket(
             head_sha="aabbccdd",
             head_at_push_time="11223344",
@@ -2554,7 +2896,9 @@ class TestGuardBundleFromReviewScope(unittest.TestCase):
         return_value=[],
     )
     def test_clean_worktree_uses_commit_range(
-        self, mock_local, mock_range,
+        self,
+        mock_local,
+        mock_range,
     ) -> None:
         """Guard bundle resolves from commit range when worktree is clean."""
         old_sha = "aaa111bbb222"
@@ -2568,7 +2912,9 @@ class TestGuardBundleFromReviewScope(unittest.TestCase):
         )
         with tempfile.TemporaryDirectory() as td:
             packet = build_from_sources(
-                Path(td), role="reviewer", head_sha=new_sha,
+                Path(td),
+                role="reviewer",
+                head_sha=new_sha,
                 sources_override=sources,
             )
             # local diffs checked first (empty), then commit-range fallback
@@ -2587,7 +2933,9 @@ class TestGuardBundleFromReviewScope(unittest.TestCase):
         return_value=["rust/src/bin/voiceterm/main.rs"],
     )
     def test_dirty_worktree_takes_priority_over_commit_range(
-        self, mock_local, mock_range,
+        self,
+        mock_local,
+        mock_range,
     ) -> None:
         """Dirty local runtime changes must not be hidden by docs-only commit range."""
         old_sha = "aaa111bbb222"
@@ -2601,7 +2949,9 @@ class TestGuardBundleFromReviewScope(unittest.TestCase):
         )
         with tempfile.TemporaryDirectory() as td:
             packet = build_from_sources(
-                Path(td), role="reviewer", head_sha=new_sha,
+                Path(td),
+                role="reviewer",
+                head_sha=new_sha,
                 sources_override=sources,
             )
             # Local runtime diff takes priority — NOT docs from commit range
@@ -2663,20 +3013,30 @@ class TestReadModelPureProjection(unittest.TestCase):
         )
 
         model = ControlPlaneReadModel(
-            timestamp="t", branch="b", head_sha="h",
-            worktree_clean=True, ahead_of_upstream=0,
+            timestamp="t",
+            branch="b",
+            head_sha="h",
+            worktree_clean=True,
+            ahead_of_upstream=0,
             resolved_phase="idle",
-            push_eligible=False, implementation_blocked=False,
+            push_eligible=False,
+            implementation_blocked=False,
             top_blocker="none",
-            next_action="fix guards", next_command="",
+            next_action="fix guards",
+            next_command="",
             reviewer_mode="single_agent",
             operator_interaction_mode="local_terminal",
-            reviewer_freshness="--", review_accepted=False,
-            last_reviewed_sha="", attention_status="n/a",
+            reviewer_freshness="--",
+            review_accepted=False,
+            last_reviewed_sha="",
+            attention_status="n/a",
             attention_summary="n/a",
-            publisher_running=False, supervisor_running=False,
-            codex_conductor_alive=False, claude_conductor_alive=False,
-            pending_action_requests=0, last_guard_ok=False,
+            publisher_running=False,
+            supervisor_running=False,
+            codex_conductor_alive=False,
+            claude_conductor_alive=False,
+            pending_action_requests=0,
+            last_guard_ok=False,
             check_details=(),
         )
         sources = self._make_sources(
@@ -2688,7 +3048,9 @@ class TestReadModelPureProjection(unittest.TestCase):
         )
         with tempfile.TemporaryDirectory() as td:
             packet = build_from_sources(
-                Path(td), role="implementer", head_sha="abc",
+                Path(td),
+                role="implementer",
+                head_sha="abc",
                 governance=governance,
                 read_model_override=model,
                 sources_override=sources,
@@ -2703,19 +3065,30 @@ class TestReadModelPureProjection(unittest.TestCase):
         )
 
         model = ControlPlaneReadModel(
-            timestamp="t", branch="b", head_sha="h",
-            worktree_clean=False, ahead_of_upstream=0,
+            timestamp="t",
+            branch="b",
+            head_sha="h",
+            worktree_clean=False,
+            ahead_of_upstream=0,
             resolved_phase="idle",
-            push_eligible=False, implementation_blocked=False,
-            top_blocker="none", next_action="commit", next_command="",
+            push_eligible=False,
+            implementation_blocked=False,
+            top_blocker="none",
+            next_action="commit",
+            next_command="",
             reviewer_mode="single_agent",
             operator_interaction_mode="local_terminal",
-            reviewer_freshness="--", review_accepted=False,
-            last_reviewed_sha="", attention_status="n/a",
+            reviewer_freshness="--",
+            review_accepted=False,
+            last_reviewed_sha="",
+            attention_status="n/a",
             attention_summary="n/a",
-            publisher_running=False, supervisor_running=False,
-            codex_conductor_alive=False, claude_conductor_alive=False,
-            pending_action_requests=0, last_guard_ok=True,
+            publisher_running=False,
+            supervisor_running=False,
+            codex_conductor_alive=False,
+            claude_conductor_alive=False,
+            pending_action_requests=0,
+            last_guard_ok=True,
             check_details=(),
         )
         sources = self._make_sources(
@@ -2728,7 +3101,9 @@ class TestReadModelPureProjection(unittest.TestCase):
         )
         with tempfile.TemporaryDirectory() as td:
             packet = build_from_sources(
-                Path(td), role="implementer", head_sha="abc",
+                Path(td),
+                role="implementer",
+                head_sha="abc",
                 governance=governance,
                 read_model_override=model,
                 sources_override=sources,
@@ -2737,13 +3112,17 @@ class TestReadModelPureProjection(unittest.TestCase):
             self.assertEqual(packet.blockers, "checkpoint_required")
             assert packet.authority_snapshot is not None
             self.assertFalse(packet.authority_snapshot.safe_to_continue)
-            self.assertIn("implementation.edit", packet.authority_snapshot.blocked_actions)
+            self.assertIn(
+                "implementation.edit", packet.authority_snapshot.blocked_actions
+            )
 
 
 class TestFrozenReviewStateZrefSafety(unittest.TestCase):
     """Verify getattr-safe access to snapshot_id/zref on frozen review-state stubs."""
 
-    def test_legacy_stub_without_snapshot_id_or_zref_produces_empty_defaults(self) -> None:
+    def test_legacy_stub_without_snapshot_id_or_zref_produces_empty_defaults(
+        self,
+    ) -> None:
         class LegacyFrozenReviewState:
             def to_dict(self) -> dict[str, object]:
                 return {"current_session": {}, "bridge": {}}

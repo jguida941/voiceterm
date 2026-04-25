@@ -10,21 +10,23 @@ import unittest
 from dataclasses import replace
 from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import MagicMock
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from dev.scripts.devctl.cli import build_parser
-from dev.scripts.devctl.commands.governance import startup_context as startup_context_command
+from dev.scripts.devctl.commands.governance import (
+    startup_context as startup_context_command,
+)
 from dev.scripts.devctl.commands.vcs.commit import (
-    _commit_permission_report,
-    _report_commit_shas,
     _build_git_commit_cmd,
+    _commit_permission_report,
     _pipeline_has_checkpoint_snapshot,
     _pipeline_has_validation_plan,
+    _report_commit_shas,
     _resolve_interaction_mode,
     _run_guard_bundle,
     run_commit,
 )
+from dev.scripts.devctl.commands.vcs.commit_guard_bundle import guard_result
 from dev.scripts.devctl.commands.vcs.commit_pipeline_blocking import (
     build_active_pipeline_block_report,
 )
@@ -36,54 +38,46 @@ from dev.scripts.devctl.commands.vcs.commit_preflight import (
 from dev.scripts.devctl.commands.vcs.commit_preflight_support import (
     build_commit_approval_authority,
 )
-from dev.scripts.devctl.commands.vcs.commit_guard_bundle import guard_result
 from dev.scripts.devctl.commands.vcs.governed_executor import GovernedVcsExecutor
 from dev.scripts.devctl.commands.vcs.governed_executor_actions import (
     APPROVAL_PACKET_KIND,
     build_stage_action,
-)
-from dev.scripts.devctl.runtime.remote_commit_pipeline_models import (
-    RemoteCommitPipelineContract,
 )
 from dev.scripts.devctl.commands.vcs.governed_executor_packets import (
     build_commit_approval_decision,
     pipeline_target_ref,
 )
 from dev.scripts.devctl.config import REPO_ROOT
-from dev.scripts.devctl.governance.push_policy import (
-    PushBypassPolicy,
-    PushCheckpointPolicy,
-    PushPolicy,
-    PushPostPushPolicy,
-    PushPreflightPolicy,
-    PushPublicationPolicy,
-)
-from dev.scripts.devctl.tests.vcs._git_helpers import _run_git
-from dev.scripts.devctl.review_channel.events import (
-    post_packet,
-    resolve_artifact_paths,
-    transition_packet,
-)
-from dev.scripts.devctl.review_channel.remote_control_attachment_artifact import (
-    persist_remote_control_attachment,
-)
-from dev.scripts.devctl.review_channel.packet_contract import PacketTransitionRequest
 from dev.scripts.devctl.platform.coordination_snapshot_models import (
     CoordinationActorRecord,
     CoordinationSnapshot,
 )
 from dev.scripts.devctl.repo_packs import active_path_config
+from dev.scripts.devctl.review_channel.events import (
+    post_packet,
+    resolve_artifact_paths,
+    transition_packet,
+)
+from dev.scripts.devctl.review_channel.packet_contract import PacketTransitionRequest
+from dev.scripts.devctl.review_channel.remote_control_attachment_artifact import (
+    persist_remote_control_attachment,
+)
 from dev.scripts.devctl.runtime.commit_permission import CommitPermissionDecision
+from dev.scripts.devctl.runtime.remote_commit_pipeline_models import (
+    RemoteCommitPipelineContract,
+)
+from dev.scripts.devctl.runtime.review_state_packet_models import ReviewPacketState
 from dev.scripts.devctl.runtime.reviewer_runtime_models import (
     RemoteControlAttachmentState,
 )
 from dev.scripts.devctl.runtime.startup_context import ReviewerGateState, StartupContext
-from dev.scripts.devctl.runtime.review_state_packet_models import ReviewPacketState
 from dev.scripts.devctl.runtime.validation_contracts import ValidationPlan
 from dev.scripts.devctl.runtime.work_intake_models import (
     WorkIntakeCoordinationState,
     WorkIntakePacket,
 )
+from dev.scripts.devctl.tests.vcs._git_helpers import _run_git
+from dev.scripts.devctl.tests.vcs._push_policy_helpers import build_test_push_policy
 
 
 def _make_args(**overrides) -> SimpleNamespace:
@@ -133,24 +127,8 @@ def _init_repo(repo_root: Path) -> Path:
     return repo_root
 
 
-def _push_policy() -> PushPolicy:
-    return PushPolicy(
-        policy_path="dev/config/devctl_repo_policy.json",
-        repo_pack_id="test-pack",
-        warnings=(),
-        default_remote="origin",
-        development_branch="develop",
-        release_branch="master",
-        protected_branches=("develop", "master"),
-        allowed_branch_prefixes=("feature/",),
-        preflight=PushPreflightPolicy(),
-        post_push=PushPostPushPolicy(bundle="bundle.post-push"),
-        bypass=PushBypassPolicy(allow_skip_preflight=True),
-        checkpoint=PushCheckpointPolicy(
-            compatibility_projection_paths=("dev/reports/push/latest.json",)
-        ),
-        publication=PushPublicationPolicy(),
-    )
+def _push_policy():
+    return build_test_push_policy()
 
 
 def _executor(repo_root: Path) -> GovernedVcsExecutor:
@@ -213,28 +191,33 @@ def _capture_startup_context_payload(
         captured.update(kwargs["json_payload"])
         return 0
 
-    with patch.object(
-        startup_context_command,
-        "build_startup_context",
-        return_value=ctx,
-    ), patch.object(
-        startup_context_command,
-        "build_startup_authority_report",
-        return_value={
-            "ok": True,
-            "checks_run": 10,
-            "checks_passed": 10,
-            "errors": [],
-            "warnings": [],
-        },
-    ), patch.object(
-        startup_context_command,
-        "write_startup_receipt",
-        return_value=Path("/tmp/startup-receipt.json"),
-    ), patch.object(
-        startup_context_command,
-        "emit_machine_artifact_output",
-        side_effect=_fake_emit,
+    with (
+        patch.object(
+            startup_context_command,
+            "build_startup_context",
+            return_value=ctx,
+        ),
+        patch.object(
+            startup_context_command,
+            "build_startup_authority_report",
+            return_value={
+                "ok": True,
+                "checks_run": 10,
+                "checks_passed": 10,
+                "errors": [],
+                "warnings": [],
+            },
+        ),
+        patch.object(
+            startup_context_command,
+            "write_startup_receipt",
+            return_value=Path("/tmp/startup-receipt.json"),
+        ),
+        patch.object(
+            startup_context_command,
+            "emit_machine_artifact_output",
+            side_effect=_fake_emit,
+        ),
     ):
         rc = startup_context_command.run(args)
 
@@ -242,13 +225,18 @@ def _capture_startup_context_payload(
 
 
 class CommitReportShaTests(unittest.TestCase):
-    def test_report_commit_shas_prefers_content_commit_when_head_is_receipt(self) -> None:
-        with patch(
-            "dev.scripts.devctl.commands.vcs.commit.scan_repo_governance_safely",
-            return_value=None,
-        ), patch(
-            "dev.scripts.devctl.commands.vcs.commit.receipt_commit_parent_sha",
-            return_value="content-sha",
+    def test_report_commit_shas_prefers_content_commit_when_head_is_receipt(
+        self,
+    ) -> None:
+        with (
+            patch(
+                "dev.scripts.devctl.commands.vcs.commit.scan_repo_governance_safely",
+                return_value=None,
+            ),
+            patch(
+                "dev.scripts.devctl.commands.vcs.commit.receipt_commit_parent_sha",
+                return_value="content-sha",
+            ),
         ):
             commit_sha, receipt_commit_sha = _report_commit_shas(
                 repo_root=Path("/tmp/repo"),
@@ -259,12 +247,15 @@ class CommitReportShaTests(unittest.TestCase):
         self.assertEqual(receipt_commit_sha, "receipt-sha")
 
     def test_report_commit_shas_uses_head_when_no_receipt_parent_exists(self) -> None:
-        with patch(
-            "dev.scripts.devctl.commands.vcs.commit.scan_repo_governance_safely",
-            return_value=None,
-        ), patch(
-            "dev.scripts.devctl.commands.vcs.commit.receipt_commit_parent_sha",
-            return_value="",
+        with (
+            patch(
+                "dev.scripts.devctl.commands.vcs.commit.scan_repo_governance_safely",
+                return_value=None,
+            ),
+            patch(
+                "dev.scripts.devctl.commands.vcs.commit.receipt_commit_parent_sha",
+                return_value="",
+            ),
         ):
             commit_sha, receipt_commit_sha = _report_commit_shas(
                 repo_root=Path("/tmp/repo"),
@@ -418,7 +409,9 @@ class TestStartupActionRouting(unittest.TestCase):
 
         self.assertIs(returned_pipeline, pipeline)
         self.assertEqual(warnings, [])
-        self.assertEqual(report["reason"], "active_pipeline_requires_publish_or_recovery")
+        self.assertEqual(
+            report["reason"], "active_pipeline_requires_publish_or_recovery"
+        )
         self.assertEqual(report["pipeline_state"], "push_blocked")
         self.assertEqual(report["recommended_next_action"], "refresh-authorization")
         self.assertEqual(
@@ -620,11 +613,12 @@ class TestStartupActionRouting(unittest.TestCase):
     ) -> None:
         pipeline = SimpleNamespace(
             pipeline_id="pipeline-123",
-            state="push_blocked",
+            state="commit_recorded",
             approval_state="approved",
             commit_sha="abc123",
         )
         stale_view = {
+            "state": "commit_recorded",
             "recommended_next_action": "refresh-authorization",
             "next_command": (
                 "python3 dev/scripts/devctl.py pipeline --action "
@@ -634,9 +628,10 @@ class TestStartupActionRouting(unittest.TestCase):
             "current_head_sha": "abc123",
         }
         refreshed_view = {
-            "recommended_next_action": "abandon",
+            "state": "commit_recorded",
+            "recommended_next_action": "mark-delivered-local",
             "next_command": (
-                'python3 dev/scripts/devctl.py pipeline --action abandon '
+                "python3 dev/scripts/devctl.py pipeline --action mark-delivered-local "
                 '--reason "<descriptive reason>" --format json'
             ),
             "authorized_head_sha": "abc123",
@@ -660,20 +655,20 @@ class TestStartupActionRouting(unittest.TestCase):
         refresh_mock.assert_called_once()
         self.assertEqual(
             report["next_command"],
-            'python3 dev/scripts/devctl.py pipeline --action abandon '
+            "python3 dev/scripts/devctl.py pipeline --action mark-delivered-local "
             '--reason "<descriptive reason>" --format json',
         )
-        self.assertEqual(report["recommended_next_action"], "abandon")
+        self.assertEqual(report["recommended_next_action"], "mark-delivered-local")
         self.assertEqual(
             report["operator_guidance"],
-            "Run `python3 dev/scripts/devctl.py pipeline --action abandon "
+            "Run `python3 dev/scripts/devctl.py pipeline --action mark-delivered-local "
             '--reason "<descriptive reason>" --format json` before creating '
             "another commit.",
         )
         self.assertTrue(report["authorization_refreshed"])
         self.assertEqual(report["refresh_receipt_path"], "/tmp/refresh.json")
 
-    def test_active_pipeline_block_report_abandons_superseded_commit_recorded_pipeline(
+    def test_active_pipeline_block_report_marks_superseded_commit_delivered_local(
         self,
     ) -> None:
         pipeline = SimpleNamespace(
@@ -708,22 +703,24 @@ class TestStartupActionRouting(unittest.TestCase):
                 pipeline=pipeline,
             )
 
-        self.assertEqual(report["recommended_next_action"], "abandon")
+        self.assertEqual(report["recommended_next_action"], "mark-delivered-local")
         self.assertEqual(
             report["next_command"],
-            'python3 dev/scripts/devctl.py pipeline --action abandon '
+            "python3 dev/scripts/devctl.py pipeline --action mark-delivered-local "
             '--reason "<descriptive reason>" --format json',
         )
         self.assertEqual(
             report["operator_guidance"],
-            "Run `python3 dev/scripts/devctl.py pipeline --action abandon "
+            "Run `python3 dev/scripts/devctl.py pipeline --action mark-delivered-local "
             '--reason "<descriptive reason>" --format json` before creating '
             "another commit.",
         )
 
 
 class TestPreCommitHookTemplate(unittest.TestCase):
-    HOOK_PATH = REPO_ROOT / "dev/config/templates/portable_governance_pre_commit_hook.sh"
+    HOOK_PATH = (
+        REPO_ROOT / "dev/config/templates/portable_governance_pre_commit_hook.sh"
+    )
 
     def test_hook_template_exists(self):
         self.assertTrue(self.HOOK_PATH.exists())
@@ -893,7 +890,9 @@ class TestRawGitCommitPermissionHook(unittest.TestCase):
 class TestBuildGitCommitCmd(unittest.TestCase):
     def test_message_only(self):
         args = _make_args(message="fix: resolve bug")
-        self.assertEqual(_build_git_commit_cmd(args), ["git", "commit", "-m", "fix: resolve bug"])
+        self.assertEqual(
+            _build_git_commit_cmd(args), ["git", "commit", "-m", "fix: resolve bug"]
+        )
 
     def test_amend(self):
         args = _make_args(message=None, amend=True)
@@ -970,7 +969,11 @@ class TestValidationPlanDetection(unittest.TestCase):
         )
 
         self.assertTrue(_pipeline_has_validation_plan(pipeline))
-        self.assertFalse(_pipeline_has_validation_plan(SimpleNamespace(intent=SimpleNamespace(validation_plan=None))))
+        self.assertFalse(
+            _pipeline_has_validation_plan(
+                SimpleNamespace(intent=SimpleNamespace(validation_plan=None))
+            )
+        )
 
     def test_pipeline_has_checkpoint_snapshot_accepts_staged_tree_without_validation_plan(
         self,
@@ -1001,13 +1004,16 @@ class TestInteractionModeResolution(unittest.TestCase):
     def test_resolve_interaction_mode_threads_governance_into_read_model(self) -> None:
         repo_root = Path("/tmp/repo")
         governance = SimpleNamespace(bridge_config=SimpleNamespace())
-        with patch(
-            "dev.scripts.devctl.commands.vcs.commit_preflight.scan_repo_governance_safely",
-            return_value=governance,
-        ) as scan_mock, patch(
-            "dev.scripts.devctl.commands.vcs.commit_preflight.build_control_plane_read_model",
-            return_value=SimpleNamespace(operator_interaction_mode="single_agent"),
-        ) as build_model_mock:
+        with (
+            patch(
+                "dev.scripts.devctl.commands.vcs.commit_preflight.scan_repo_governance_safely",
+                return_value=governance,
+            ) as scan_mock,
+            patch(
+                "dev.scripts.devctl.commands.vcs.commit_preflight.build_control_plane_read_model",
+                return_value=SimpleNamespace(operator_interaction_mode="single_agent"),
+            ) as build_model_mock,
+        ):
             self.assertEqual(_resolve_interaction_mode(repo_root), "single_agent")
 
         scan_mock.assert_called_once_with(repo_root)
@@ -1044,7 +1050,9 @@ class TestGovernedCommitPipeline(unittest.TestCase):
             self.assertFalse(stage_result.ok)
             self.assertEqual(stage_result.reason, "staged_scope_missing_dirty_work")
             self.assertIn("tracked.txt", stage_result.warnings)
-            self.assertIn("Stage the intended paths first", stage_result.operator_guidance)
+            self.assertIn(
+                "Stage the intended paths first", stage_result.operator_guidance
+            )
             self.assertFalse(pipeline.pipeline_id)
 
     def test_commit_blocks_dashboard_role_before_staging(self) -> None:
@@ -1060,7 +1068,9 @@ class TestGovernedCommitPipeline(unittest.TestCase):
                 side_effect=lambda _args, report: captured.update(report),
             ):
                 rc = run_commit(
-                    _make_args(message="feat: blocked dashboard commit", role="dashboard"),
+                    _make_args(
+                        message="feat: blocked dashboard commit", role="dashboard"
+                    ),
                     repo_root=repo_root,
                     policy=_push_policy(),
                     executor=_executor(repo_root),
@@ -1356,7 +1366,9 @@ class TestGovernedCommitPipeline(unittest.TestCase):
                 "feat: governed local commit",
             )
 
-    def test_commit_remote_mode_auto_approves_for_active_operator_delegate(self) -> None:
+    def test_commit_remote_mode_auto_approves_for_active_operator_delegate(
+        self,
+    ) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             repo_root = _init_repo(Path(tmpdir) / "repo")
             _persist_remote_operator_attachment(repo_root)
@@ -1375,10 +1387,7 @@ class TestGovernedCommitPipeline(unittest.TestCase):
 
             executor = _executor(repo_root)
             pipeline = executor.load_pipeline()
-            packets = {
-                packet.packet_id: packet
-                for packet in executor._event_packets()
-            }
+            packets = {packet.packet_id: packet for packet in executor._event_packets()}
             self.assertEqual(rc, 0)
             self.assertEqual(pipeline.state, "commit_recorded")
             self.assertEqual(pipeline.approval_state, "approved")
@@ -1493,14 +1502,17 @@ class TestGovernedCommitPipeline(unittest.TestCase):
                 )
             )
 
-            with patch.object(
-                GovernedVcsExecutor,
-                "_event_packets",
-                return_value=(pending_packet,),
-            ), patch(
-                "dev.scripts.devctl.commands.vcs.commit.build_commit_action",
-                side_effect=AssertionError(
-                    "commit action should not be built before approval"
+            with (
+                patch.object(
+                    GovernedVcsExecutor,
+                    "_event_packets",
+                    return_value=(pending_packet,),
+                ),
+                patch(
+                    "dev.scripts.devctl.commands.vcs.commit.build_commit_action",
+                    side_effect=AssertionError(
+                        "commit action should not be built before approval"
+                    ),
                 ),
             ):
                 rc = run_commit(
@@ -1888,13 +1900,16 @@ class TestGovernedCommitPipeline(unittest.TestCase):
             )
 
             replay_guard = MagicMock(return_value=_mock_subprocess_result(0))
-            with patch.object(
-                GovernedVcsExecutor,
-                "_event_packets",
-                return_value=(request_packet, decision_packet),
-            ), patch(
-                "dev.scripts.devctl.commands.vcs.governed_executor_commit_phase.check_commit_packet_gate",
-                return_value=None,
+            with (
+                patch.object(
+                    GovernedVcsExecutor,
+                    "_event_packets",
+                    return_value=(request_packet, decision_packet),
+                ),
+                patch(
+                    "dev.scripts.devctl.commands.vcs.governed_executor_commit_phase.check_commit_packet_gate",
+                    return_value=None,
+                ),
             ):
                 second_rc = run_commit(
                     _make_args(message="feat: replay missing validation receipt"),
@@ -1991,8 +2006,9 @@ class TestGovernedCommitPipeline(unittest.TestCase):
 
 class TestCommitParserEndToEnd(unittest.TestCase):
     def test_parser_accepts_role(self) -> None:
-        from dev.scripts.devctl.sync_parser import add_commit_parser
         import argparse
+
+        from dev.scripts.devctl.sync_parser import add_commit_parser
 
         parser = argparse.ArgumentParser()
         sub = parser.add_subparsers()
@@ -2001,8 +2017,9 @@ class TestCommitParserEndToEnd(unittest.TestCase):
         self.assertEqual(args.role, "dashboard")
 
     def test_parser_accepts_option_passthrough_with_separator(self) -> None:
-        from dev.scripts.devctl.sync_parser import add_commit_parser
         import argparse
+
+        from dev.scripts.devctl.sync_parser import add_commit_parser
 
         parser = argparse.ArgumentParser()
         sub = parser.add_subparsers()
@@ -2012,8 +2029,9 @@ class TestCommitParserEndToEnd(unittest.TestCase):
         self.assertIn("--allow-empty", args.passthrough)
 
     def test_parser_accepts_plain_passthrough(self) -> None:
-        from dev.scripts.devctl.sync_parser import add_commit_parser
         import argparse
+
+        from dev.scripts.devctl.sync_parser import add_commit_parser
 
         parser = argparse.ArgumentParser()
         sub = parser.add_subparsers()

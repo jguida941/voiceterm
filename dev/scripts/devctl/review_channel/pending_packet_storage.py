@@ -7,6 +7,7 @@ import json
 from pathlib import Path
 
 from ..repo_packs import active_path_config
+from ..runtime.review_packet_inbox_liveness import is_live_control_packet
 from .pending_packet_core import partition_live_pending_packets
 from .pending_packet_models import PendingPacketQueueSnapshot
 
@@ -62,15 +63,64 @@ def load_pending_packet_queue(
             existing = packets.get(packet_id)
             if existing is None:
                 continue
-            updated = dict(existing)
-            updated["status"] = event_type.replace("packet_", "")
-            packets[packet_id] = updated
+            packets[packet_id] = _apply_packet_transition_snapshot(
+                existing,
+                event,
+                event_type=event_type,
+            )
 
     pending_packets, stale_packets = partition_live_pending_packets(packets.values())
+    control_packets = [
+        dict(packet)
+        for packet in packets.values()
+        if is_live_control_packet(packet)
+    ]
     return PendingPacketQueueSnapshot(
         pending_packets=tuple(pending_packets),
         stale_packet_count=len(stale_packets),
+        control_packets=tuple(control_packets),
     )
+
+
+def _apply_packet_transition_snapshot(
+    packet: dict[str, object],
+    event: dict[str, object],
+    *,
+    event_type: str,
+) -> dict[str, object]:
+    updated = dict(packet)
+    updated.update(event)
+    updated["latest_event_id"] = event.get("event_id") or packet.get("latest_event_id")
+    updated["status"] = event_type.replace("packet_", "")
+    actor = str((event.get("metadata") or {}).get("actor") or "").strip()
+    transition_time = (
+        event.get("timestamp_utc")
+        or event.get("acked_at_utc")
+        or event.get("execution_started_at_utc")
+        or event.get("applied_at_utc")
+    )
+    if event_type == "packet_acked":
+        updated["acked_by"] = actor or packet.get("to_agent")
+        updated["acked_at_utc"] = transition_time
+    if event_type == "packet_applied":
+        updated["applied_at_utc"] = transition_time
+    if str(packet.get("kind") or "").strip() == "action_request":
+        if not str(updated.get("delivery_emitted_at_utc") or "").strip():
+            updated["delivery_emitted_at_utc"] = (
+                packet.get("delivery_emitted_at_utc")
+                or packet.get("posted_at")
+                or packet.get("timestamp_utc")
+            )
+        if event_type == "packet_acked":
+            updated["execution_started_at_utc"] = transition_time
+            updated["execution_started_by"] = actor or packet.get("to_agent")
+        if (
+            event_type == "packet_applied"
+            and not str(updated.get("execution_started_at_utc") or "").strip()
+        ):
+            updated["execution_started_at_utc"] = transition_time
+            updated["execution_started_by"] = actor or packet.get("to_agent")
+    return updated
 
 
 def assert_no_pending_instruction_rewrite(

@@ -13,10 +13,8 @@ from .authority_snapshot_actions import (
     authority_modes,
     reviewer_provider_from_payload,
 )
-from .authority_snapshot_actor import (
-    authority_actor_identity,
-    authority_actor_role,
-)
+from .authority_snapshot_actor import authority_actor_identity, authority_actor_role
+from .authority_snapshot_actor_authority import project_actor_authorities
 from .authority_snapshot_core import (
     AuthoritySnapshot,
     _coordination_state,
@@ -25,14 +23,14 @@ from .authority_snapshot_core import (
     _string_items,
     summary_next_command,
 )
-from .authority_snapshot_packet_target import select_packet_target
-from .authority_snapshot_provenance import authority_snapshot_provenance_kwargs
 from .authority_snapshot_instructions import (
     AuthorityInstructionInputs,
     current_instruction_for_reviewer,
     instruction_requires_clear,
     resolved_coordination_current_slice,
 )
+from .authority_snapshot_packet_target import select_packet_target
+from .authority_snapshot_provenance import authority_snapshot_provenance_kwargs
 from .review_state_semantics import is_missing_instruction
 
 
@@ -47,6 +45,7 @@ class AuthorityBuildContext:
     decision: Mapping[str, object]
     coordination: Mapping[str, object]
     current_session: Mapping[str, object]
+    queue: Mapping[str, object]
     reviewer_gate: Mapping[str, object]
     reviewer_runtime: Mapping[str, object]
     packet_inbox: Mapping[str, object]
@@ -63,6 +62,7 @@ def _build_authority_context(payload: Mapping[str, object]) -> AuthorityBuildCon
     decision = _mapping(recovery.get("decision"))
     coordination = _mapping(payload.get("coordination"))
     current_session = _mapping(payload.get("current_session"))
+    queue = _mapping(payload.get("queue"))
     reviewer_gate = _mapping(payload.get("reviewer_gate"))
     reviewer_runtime = _mapping(payload.get("reviewer_runtime"))
     packet_inbox = _mapping(payload.get("packet_inbox"))
@@ -76,6 +76,7 @@ def _build_authority_context(payload: Mapping[str, object]) -> AuthorityBuildCon
         decision=decision,
         coordination=coordination,
         current_session=current_session,
+        queue=queue,
         reviewer_gate=reviewer_gate,
         reviewer_runtime=reviewer_runtime,
         packet_inbox=packet_inbox,
@@ -139,6 +140,20 @@ def _resolved_action_sets(
     return routing.allowed_actions, routing.blocked_actions
 
 
+def _implementation_permission(
+    payload: Mapping[str, object],
+    doctor: Mapping[str, object],
+) -> str:
+    work_intake = _mapping(payload.get("work_intake"))
+    coordination = _mapping(work_intake.get("coordination"))
+    return str(
+        payload.get("implementation_permission")
+        or coordination.get("implementation_permission")
+        or ("blocked" if bool(doctor.get("implementation_blocked", False)) else "")
+        or ""
+    ).strip()
+
+
 def build_authority_snapshot(
     payload: Mapping[str, object],
     *,
@@ -181,6 +196,12 @@ def build_authority_snapshot(
             coordination_has_actors=isinstance(context.coordination.get("actors"), list)
             and bool(context.coordination.get("actors")),
             current_instruction=current_instruction,
+            current_instruction_source_packet_id=str(
+                _mapping(context.queue.get("derived_next_instruction_source")).get(
+                    "packet_id"
+                )
+                or ""
+            ).strip(),
             coordination_current_slice=str(
                 context.coordination.get("current_slice") or ""
             ).strip(),
@@ -194,19 +215,14 @@ def build_authority_snapshot(
         attention=context.attention,
         doctor=context.doctor,
     )
-    implementation_permission = str(
-        payload.get("implementation_permission")
-        or _mapping(_mapping(payload.get("work_intake")).get("coordination")).get(
-            "implementation_permission"
-        )
-        or ("blocked" if bool(context.doctor.get("implementation_blocked", False)) else "")
-        or ""
-    ).strip()
+    implementation_permission = _implementation_permission(payload, context.doctor)
     resync_required = bool(context.coordination.get("resync_required", False))
     current_instruction_revision = (
         ""
         if clear_from_packet_truth or is_missing_instruction(current_instruction)
-        else str(context.current_session.get("current_instruction_revision") or "").strip()
+        else str(
+            context.current_session.get("current_instruction_revision") or ""
+        ).strip()
     )
     implementer_ack_state = (
         "missing"
@@ -250,6 +266,11 @@ def build_authority_snapshot(
         current_session=context.current_session,
         clear_from_packet_truth=clear_from_packet_truth,
     )
+    actor_capabilities, actor_authorities = project_actor_authorities(
+        payload=payload,
+        collaboration=collaboration,
+        actor_identity=actor_identity,
+    )
     return AuthoritySnapshot(
         **authority_snapshot_provenance_kwargs(payload),
         coordination_state=coordination_state,
@@ -271,7 +292,9 @@ def build_authority_snapshot(
         current_instruction_revision=current_instruction_revision,
         implementer_ack_state=implementer_ack_state,
         resync_required=resync_required,
-        current_slice=str(coordination_current_slice or current_instruction or "").strip(),
+        current_slice=str(
+            coordination_current_slice or current_instruction or ""
+        ).strip(),
         active_target_path=str(active_target.get("plan_path") or "").strip(),
         allowed_actions=allowed_actions,
         blocked_actions=blocked_actions,
@@ -283,6 +306,8 @@ def build_authority_snapshot(
         ).strip(),
         watcher_owner=str(collaboration.get("watcher_owner") or "").strip(),
         watcher_status=str(collaboration.get("watcher_status") or "inactive").strip(),
+        actor_capabilities=actor_capabilities,
+        actor_authorities=actor_authorities,
     )
 
 

@@ -25,6 +25,9 @@ from dev.scripts.devctl.commands.pipeline.auto_recover_action import (
     run_auto_recover,
 )
 from dev.scripts.devctl.commands.pipeline.command import run as pipeline_run
+from dev.scripts.devctl.commands.pipeline.local_delivery_action import (
+    LOCAL_DELIVERY_RECEIPT_FILENAME,
+)
 from dev.scripts.devctl.commands.pipeline.recover_action import run_recover
 from dev.scripts.devctl.commands.pipeline.refresh_authorization_action import (
     _apply_refresh as apply_refresh_authorization,
@@ -52,6 +55,7 @@ from dev.scripts.devctl.runtime.pipeline_auto_recovery_contracts import (
     CLASSIFICATION_ALREADY_CLEAN,
     CLASSIFICATION_AMBIGUOUS,
     CLASSIFICATION_NEEDS_ABANDON,
+    CLASSIFICATION_NEEDS_MARK_DELIVERED_LOCAL,
     CLASSIFICATION_NEEDS_RECOVER,
     CLASSIFICATION_NEEDS_REFRESH_AUTHORIZATION,
 )
@@ -82,6 +86,19 @@ def _sample_pipeline_payload(
             "approved_by": "operator",
         },
     }
+
+
+def _with_commit_result(payload: dict[str, object]) -> dict[str, object]:
+    updated = dict(payload)
+    updated["commit_result"] = {
+        "schema_version": 1,
+        "contract_id": "ActionResult",
+        "action_id": "vcs.commit",
+        "ok": True,
+        "status": "pass",
+        "reason": "commit_recorded",
+    }
+    return updated
 
 
 class _PipelineFixture:
@@ -263,6 +280,34 @@ class PipelineStatusTests(unittest.TestCase):
             self.assertEqual(
                 view["next_command"],
                 'python3 dev/scripts/devctl.py pipeline --action abandon --reason '
+                '"<descriptive reason>" --format json',
+            )
+        finally:
+            fixture.close()
+
+    def test_status_recommends_local_delivery_when_push_blocked_commit_recorded(
+        self,
+    ) -> None:
+        fixture = _PipelineFixture(fake_head="deadbeef00000000000000000000000000000000")
+        try:
+            expired = "2000-01-01T00:00:00.000000Z"
+            fixture.write_payload(
+                _with_commit_result(
+                    _sample_pipeline_payload(
+                        state="push_blocked",
+                        expires_at_utc=expired,
+                    )
+                )
+            )
+            view = build_status_view(fixture.paths())
+            self.assertTrue(view["authorization_expired"])
+            self.assertEqual(
+                view["recommended_next_action"],
+                "mark-delivered-local",
+            )
+            self.assertEqual(
+                view["next_command"],
+                'python3 dev/scripts/devctl.py pipeline --action mark-delivered-local --reason '
                 '"<descriptive reason>" --format json',
             )
         finally:
@@ -602,6 +647,44 @@ class PipelineAutoRecoverTests(unittest.TestCase):
             mock_refresh.assert_called_once()
             updated = fixture.read_payload()
             self.assertEqual(updated["state"], "abandoned")
+        finally:
+            fixture.close()
+
+    def test_auto_recover_marks_successful_push_blocked_commit_delivered_local(
+        self,
+    ) -> None:
+        fixture = _PipelineFixture(
+            fake_head="deadbeef00000000000000000000000000000000",
+        )
+        try:
+            fixture.write_payload(
+                _with_commit_result(
+                    _sample_pipeline_payload(state="push_blocked")
+                )
+            )
+            with patch(
+                "dev.scripts.devctl.commands.pipeline.local_delivery_action.refresh_pipeline_projections",
+                return_value=[],
+            ) as mock_refresh:
+                result = apply_auto_recover(
+                    paths=fixture.paths(),
+                    operator_actor="codex",
+                )
+
+            self.assertTrue(result["ok"])
+            self.assertEqual(result["chosen_action"], "mark-delivered-local")
+            self.assertEqual(
+                result["classification"]["classification"],
+                CLASSIFICATION_NEEDS_MARK_DELIVERED_LOCAL,
+            )
+            mock_refresh.assert_called_once()
+            updated = fixture.read_payload()
+            self.assertEqual(
+                updated["state"],
+                "delivered_locally_pending_publish",
+            )
+            receipt_path = fixture.receipts_root / LOCAL_DELIVERY_RECEIPT_FILENAME
+            self.assertTrue(receipt_path.exists())
         finally:
             fixture.close()
 

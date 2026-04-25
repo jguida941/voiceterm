@@ -11,6 +11,7 @@ class PendingPacketQueueSnapshot:
 
     pending_packets: tuple[dict[str, object], ...]
     stale_packet_count: int = 0
+    control_packets: tuple[dict[str, object], ...] = ()
 
 
 @dataclass(frozen=True)

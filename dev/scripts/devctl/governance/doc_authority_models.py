@@ -47,6 +47,7 @@ class GovernedDocLayout:
     bridge_path: str
     root_files: tuple[str, ...]
     shared_backlog_path: str = ""
+    connectivity_index_paths: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)

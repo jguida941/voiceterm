@@ -45,6 +45,7 @@ class SessionCachePacketBuildContext:
     review_candidate: ReviewCandidateRecord | None
     attention_payload: dict[str, Any]
     packet_inbox: PacketInboxState | None
+    key_surfaces: tuple[str, ...]
     fields: SessionCachePacketFields
 
 
@@ -113,6 +114,7 @@ def build_session_cache_packet(
             else ""
         ),
         packet_inbox=build_context.packet_inbox,
+        key_surfaces=build_context.key_surfaces,
         provenance=provenance,
     )
 

@@ -5,18 +5,20 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from datetime import datetime, timezone
 
-from .pending_packets import live_pending_packets
+from ..runtime.review_packet_inbox_liveness import is_live_control_packet
 
 
 def select_priority_pending_packet(
     packets: Sequence[object],
 ) -> tuple[dict[str, object] | None, dict[str, object]]:
-    """Select the highest-priority live pending packet plus control metadata."""
-    live_packets = [
-        dict(packet)
-        for packet in live_pending_packets(packets)
-        if isinstance(packet, Mapping)
-    ]
+    """Select the highest-priority live packet plus control metadata.
+
+    Pending packets are the normal actionable queue. Acknowledged action
+    requests with execution-start evidence are still active control state until
+    they are applied/dismissed; dropping them here erases the typed instruction
+    revision while a peer is actively executing the request.
+    """
+    live_packets = _live_control_packets(packets)
     if not live_packets:
         return None, {}
     action_requests = [
@@ -101,6 +103,29 @@ def _action_request_priority_key(packet: Mapping[str, object]) -> tuple[object, 
         _parse_utc(packet.get("posted_at")),
         str(packet.get("packet_id") or "").strip(),
     )
+
+
+def _live_control_packets(packets: Sequence[object]) -> list[dict[str, object]]:
+    """Return packets that should still drive the current instruction."""
+    selected: list[dict[str, object]] = []
+    seen: set[str] = set()
+    for packet in packets:
+        if isinstance(packet, Mapping) and is_live_control_packet(packet):
+            _append_packet(selected, seen, packet)
+    return selected
+
+
+def _append_packet(
+    selected: list[dict[str, object]],
+    seen: set[str],
+    packet: Mapping[str, object],
+) -> None:
+    packet_id = str(packet.get("packet_id") or "").strip()
+    if packet_id and packet_id in seen:
+        return
+    selected.append(dict(packet))
+    if packet_id:
+        seen.add(packet_id)
 
 
 def _is_action_request(packet: Mapping[str, object]) -> bool:

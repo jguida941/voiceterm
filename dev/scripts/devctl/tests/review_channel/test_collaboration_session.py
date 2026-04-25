@@ -56,7 +56,9 @@ def _session_record(
     )
 
 
-def _current_session(*, instruction: str, last_reviewed_scope: str) -> ReviewCurrentSessionState:
+def _current_session(
+    *, instruction: str, last_reviewed_scope: str
+) -> ReviewCurrentSessionState:
     return ReviewCurrentSessionState(
         current_instruction=instruction,
         current_instruction_revision="rev-123",
@@ -226,6 +228,14 @@ def test_build_collaboration_session_marks_dual_agent_exclusive_slice(
     assert session.verification_status == "live"
     assert session.watcher_owner == "claude"
     assert session.watcher_status == "live"
+    claude_authority = next(
+        row for row in session.actor_authorities if row.actor_id == "claude"
+    )
+    assert claude_authority.live is True
+    assert any(
+        grant.capability == "repo.commit" and grant.granted
+        for grant in claude_authority.grants
+    )
 
 
 def test_build_collaboration_session_promotes_active_remote_control_attachment(
@@ -486,9 +496,7 @@ def test_build_collaboration_session_promotes_fresh_local_single_agent_reviewer(
         session_output_root=tmp_path,
     )
 
-    live_providers = {
-        row.provider for row in session.participants if row.live
-    }
+    live_providers = {row.provider for row in session.participants if row.live}
     assert live_providers == {"claude", "codex"}
     review_assignment = next(
         row for row in session.role_assignments if row.role_id == "review_agent"

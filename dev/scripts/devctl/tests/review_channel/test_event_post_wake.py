@@ -399,3 +399,84 @@ def test_run_event_action_attaches_reviewer_wake_for_post(monkeypatch) -> None:
         "packet_id": "pkt-1",
         "requested_action": "restore_reviewer_turn",
     }
+
+
+def test_run_event_action_syncs_bridge_when_post_becomes_instruction(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    bridge_path = tmp_path / "bridge.md"
+    bridge_path.write_text("# Review Bridge\n\nstale\n", encoding="utf-8")
+    observed: dict[str, object] = {}
+
+    review_state_payload = {
+        "queue": {
+            "derived_next_instruction": "- Review the SYSTEM_MAP S0 receipt.",
+            "derived_next_instruction_source": {"packet_id": "pkt-instruction"},
+        },
+        "current_session": {
+            "current_instruction": "- Review the SYSTEM_MAP S0 receipt.",
+            "current_instruction_revision": "rev-s0",
+        },
+    }
+
+    monkeypatch.setattr(
+        "dev.scripts.devctl.commands.review_channel.event_handler.run_post_action",
+        lambda **_kwargs: (
+            {
+                "packet": {
+                    "packet_id": "pkt-instruction",
+                    "to_agent": "claude",
+                    "kind": "instruction",
+                }
+            },
+            0,
+            review_state_payload,
+        ),
+    )
+    monkeypatch.setattr(
+        "dev.scripts.devctl.commands.review_channel.event_handler.maybe_wake_posted_reviewer_packet",
+        lambda **_kwargs: None,
+    )
+    monkeypatch.setattr(
+        "dev.scripts.devctl.commands.review_channel.event_handler.compute_non_audit_worktree_hash",
+        lambda **_kwargs: "b" * 64,
+    )
+
+    def fake_render_bridge_projection(**kwargs):
+        observed["review_state"] = kwargs["review_state"]
+        observed["last_worktree_hash"] = kwargs["last_worktree_hash"]
+        return (
+            "# Review Bridge\n\n## Current Instruction For Claude\n\n"
+            "- Review the SYSTEM_MAP S0 receipt.\n",
+            object(),
+        )
+
+    monkeypatch.setattr(
+        "dev.scripts.devctl.commands.review_channel.event_handler.render_bridge_projection",
+        fake_render_bridge_projection,
+    )
+
+    report, exit_code = _run_event_action(
+        args=SimpleNamespace(action="post"),
+        repo_root=tmp_path,
+        paths={
+            "review_channel_path": tmp_path / "dev/active/review_channel.md",
+            "bridge_path": bridge_path,
+            "artifact_paths": SimpleNamespace(
+                artifact_root=tmp_path / "dev/reports/review_channel"
+            ),
+        },
+    )
+
+    assert exit_code == 0
+    assert report["post_bridge_sync"] == {
+        "synced": True,
+        "reason": "posted_current_instruction",
+        "packet_id": "pkt-instruction",
+    }
+    assert observed["review_state"] == review_state_payload
+    assert observed["last_worktree_hash"] == "b" * 64
+    assert "- Review the SYSTEM_MAP S0 receipt." in bridge_path.read_text(
+        encoding="utf-8"
+    )

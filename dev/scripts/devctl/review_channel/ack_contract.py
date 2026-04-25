@@ -63,3 +63,12 @@ def ack_contract_prompt_line() -> str:
         f"`{ACK_CONTRACT_PRIMARY_EXAMPLE}` or "
         f"`{ACK_CONTRACT_LEGACY_EXAMPLE}`."
     )
+
+
+def packet_ack_is_transport_lifecycle_line() -> str:
+    """Return the packet-vs-implementer ACK invariant for prompt surfaces."""
+    return (
+        "- Packet `ack`/`apply`/`dismiss` is transport lifecycle only; it does "
+        "not satisfy implementer ACK, does not write `Claude Ack`, and does "
+        "not make `implementer_ack_state=current`."
+    )

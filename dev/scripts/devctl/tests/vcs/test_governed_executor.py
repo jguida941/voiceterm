@@ -18,7 +18,11 @@ from dev.scripts.devctl.commands.vcs.governed_executor import (
 from dev.scripts.devctl.commands.vcs.governed_executor_commit_runtime import (
     attention_revision_stale,
     post_commit_execution_handoff,
+)
+from dev.scripts.devctl.commands.vcs.governed_executor_commit_runtime import (
     resolve_commit_execution_target as _resolve_commit_execution_target,
+)
+from dev.scripts.devctl.commands.vcs.governed_executor_commit_runtime import (
     resolve_commit_stage_target as _resolve_commit_stage_target,
 )
 from dev.scripts.devctl.commands.vcs.governed_executor_packets import (
@@ -29,14 +33,6 @@ from dev.scripts.devctl.commands.vcs.governed_executor_phases import (
 )
 from dev.scripts.devctl.commands.vcs.push import build_push_action
 from dev.scripts.devctl.review_channel.event_reducer import load_or_refresh_event_bundle
-from dev.scripts.devctl.governance.push_policy import (
-    PushBypassPolicy,
-    PushCheckpointPolicy,
-    PushPolicy,
-    PushPostPushPolicy,
-    PushPreflightPolicy,
-    PushPublicationPolicy,
-)
 from dev.scripts.devctl.review_channel.events import (
     post_packet,
     resolve_artifact_paths,
@@ -49,19 +45,58 @@ from dev.scripts.devctl.review_channel.packet_contract import (
     PacketTransitionRequest,
     validate_post_request,
 )
+from dev.scripts.devctl.runtime import ActionResult
 from dev.scripts.devctl.runtime.action_contracts import (
     ACTION_RESULT_CONTRACT_ID,
     ACTION_RESULT_SCHEMA_VERSION,
     ActionOutcome,
 )
-from dev.scripts.devctl.runtime import ActionResult
 from dev.scripts.devctl.runtime.remote_commit_pipeline_models import (
     RemoteCommitPipelineContract,
 )
-from dev.scripts.devctl.tests.vcs._git_helpers import _run_git
+from dev.scripts.devctl.runtime.review_state_models import (
+    ActorAuthorityState,
+    CapabilityGrantState,
+)
 from dev.scripts.devctl.tests.test_review_channel_context_refs import (
     _review_channel_text,
 )
+from dev.scripts.devctl.tests.vcs._git_helpers import _run_git
+from dev.scripts.devctl.tests.vcs._push_policy_helpers import build_test_push_policy
+
+
+def _actor_authority(
+    actor_id: str,
+    *,
+    role: str = "implementer",
+    live: bool = True,
+    capabilities: tuple[str, ...] = ("repo.commit",),
+    denied_capabilities: tuple[str, ...] = (),
+) -> ActorAuthorityState:
+    return ActorAuthorityState(
+        actor_id=actor_id,
+        provider=actor_id,
+        role=role,
+        live=live,
+        status="live" if live else "stale",
+        source="test",
+        grants=tuple(
+            CapabilityGrantState(
+                capability=capability,
+                granted=True,
+                source="test",
+            )
+            for capability in capabilities
+        )
+        + tuple(
+            CapabilityGrantState(
+                capability=capability,
+                granted=False,
+                source="test",
+            )
+            for capability in denied_capabilities
+        ),
+    )
 
 
 def test_stage_action_persists_staged_snapshot_hash(tmp_path: Path) -> None:
@@ -88,8 +123,13 @@ def test_stage_action_persists_staged_snapshot_hash(tmp_path: Path) -> None:
     assert pipeline.intent.staged_paths == ("tracked.txt",)
     assert pipeline.intent.validation_plan is not None
     assert pipeline.intent.validation_plan.bundle_id == "bundle.tooling"
-    assert pipeline.intent.validation_plan.staged_tree_hash == pipeline.intent.staged_tree_hash
-    assert (repo_root / "dev/reports/review_channel/latest/commit_pipeline.json").exists()
+    assert (
+        pipeline.intent.validation_plan.staged_tree_hash
+        == pipeline.intent.staged_tree_hash
+    )
+    assert (
+        repo_root / "dev/reports/review_channel/latest/commit_pipeline.json"
+    ).exists()
 
 
 def test_commit_stage_request_allows_pre_pipeline_runtime_target() -> None:
@@ -175,7 +215,9 @@ def test_stage_replaces_stale_same_branch_pipeline_with_old_commit_sha(
     assert pipeline.commit_sha == ""
 
 
-def test_stage_surfaces_write_tree_error_when_git_index_is_blocked(tmp_path: Path) -> None:
+def test_stage_surfaces_write_tree_error_when_git_index_is_blocked(
+    tmp_path: Path,
+) -> None:
     repo_root = _init_repo(tmp_path / "repo")
     (repo_root / "tracked.txt").write_text("updated\n", encoding="utf-8")
     executor = _executor(repo_root)
@@ -431,7 +473,7 @@ def test_stage_attention_revision_ignores_expired_unresolved_only() -> None:
                     "pending_actionable_total": 0,
                 }
             ],
-        }
+        },
     }
 
     with patch(
@@ -462,7 +504,7 @@ def test_stage_attention_revision_blocks_on_live_finding_attention() -> None:
                     "pending_actionable_total": 0,
                 }
             ],
-        }
+        },
     }
 
     with patch(
@@ -581,7 +623,9 @@ def test_commit_posts_runtime_action_request_when_git_index_write_is_blocked(
         return_value=live_writable_lane,
     ):
         result = executor.execute(
-            build_commit_action(repo_pack_id="test-pack", pipeline_id=pipeline.pipeline_id)
+            build_commit_action(
+                repo_pack_id="test-pack", pipeline_id=pipeline.pipeline_id
+            )
         )
 
     bundle = load_or_refresh_event_bundle(
@@ -605,9 +649,14 @@ def test_commit_posts_runtime_action_request_when_git_index_write_is_blocked(
     assert len(action_requests) == 1
     assert action_requests[0]["to_agent"] == "claude"
     assert action_requests[0]["target_kind"] == "runtime"
-    assert action_requests[0]["target_ref"] == f"remote_commit_pipeline:{pipeline.pipeline_id}"
+    assert (
+        action_requests[0]["target_ref"]
+        == f"remote_commit_pipeline:{pipeline.pipeline_id}"
+    )
     assert action_requests[0]["pipeline_generation"] == pipeline.generation_id
-    assert action_requests[0]["staged_snapshot_hash"] == pipeline.intent.staged_tree_hash
+    assert (
+        action_requests[0]["staged_snapshot_hash"] == pipeline.intent.staged_tree_hash
+    )
     assert action_requests[0]["approval_required"] is False
     assert any(
         warning.startswith("commit_execution_request_packet=rev_pkt_")
@@ -655,8 +704,153 @@ def test_commit_execution_target_falls_back_to_writable_reviewer_lane() -> None:
     assert _resolve_commit_execution_target(review_state) == "codex"
 
 
-def test_commit_execution_target_prefers_effective_mode_when_declared_mode_is_stale(
-) -> None:
+def test_commit_execution_target_uses_live_actor_authority_mutation_owner_grant() -> (
+    None
+):
+    review_state = SimpleNamespace(
+        collaboration=SimpleNamespace(
+            reviewer_mode="tools_only",
+            coding_agent="claude",
+            review_agent="codex",
+            mutation_owner="claude",
+            actor_authorities=(
+                _actor_authority("claude", capabilities=("repo.commit",)),
+            ),
+            role_assignments=(
+                SimpleNamespace(
+                    role_id="coding_agent",
+                    provider="claude",
+                    agent_id="claude",
+                    live=True,
+                ),
+            ),
+            participants=(
+                SimpleNamespace(
+                    provider="claude",
+                    agent_id="claude",
+                    role="implementer",
+                    live=True,
+                ),
+            ),
+        ),
+        bridge=SimpleNamespace(
+            implementer_capability=SimpleNamespace(
+                provider="claude",
+                may_edit_repo=False,
+            ),
+            reviewer_capability=SimpleNamespace(
+                provider="codex",
+                may_edit_repo=False,
+            ),
+            effective_reviewer_mode="tools_only",
+            reviewer_mode="tools_only",
+        ),
+    )
+
+    assert _resolve_commit_execution_target(review_state) == "claude"
+
+
+def test_commit_execution_target_ignores_denied_actor_authority_and_falls_back() -> (
+    None
+):
+    review_state = SimpleNamespace(
+        collaboration=SimpleNamespace(
+            reviewer_mode="active_dual_agent",
+            coding_agent="claude",
+            review_agent="codex",
+            mutation_owner="claude",
+            actor_authorities=(
+                _actor_authority(
+                    "claude",
+                    capabilities=(),
+                    denied_capabilities=("repo.commit",),
+                ),
+            ),
+            role_assignments=(
+                SimpleNamespace(
+                    role_id="coding_agent",
+                    provider="claude",
+                    agent_id="claude",
+                    live=True,
+                ),
+            ),
+            participants=(
+                SimpleNamespace(
+                    provider="claude",
+                    agent_id="claude",
+                    role="implementer",
+                    live=True,
+                ),
+            ),
+        ),
+        bridge=SimpleNamespace(
+            implementer_capability=SimpleNamespace(
+                provider="claude",
+                may_edit_repo=True,
+            ),
+            reviewer_capability=SimpleNamespace(
+                provider="codex",
+                may_edit_repo=False,
+            ),
+            effective_reviewer_mode="active_dual_agent",
+            reviewer_mode="active_dual_agent",
+        ),
+    )
+
+    assert _resolve_commit_execution_target(review_state) == "claude"
+
+
+def test_commit_execution_target_does_not_treat_approval_grant_as_mutation() -> None:
+    review_state = SimpleNamespace(
+        collaboration=SimpleNamespace(
+            reviewer_mode="active_dual_agent",
+            coding_agent="claude",
+            review_agent="codex",
+            mutation_owner="claude",
+            actor_authorities=(
+                _actor_authority(
+                    "claude",
+                    role="operator",
+                    capabilities=("approval.commit",),
+                ),
+            ),
+            role_assignments=(
+                SimpleNamespace(
+                    role_id="operator_agent",
+                    provider="claude",
+                    agent_id="claude",
+                    live=True,
+                ),
+            ),
+            participants=(
+                SimpleNamespace(
+                    provider="claude",
+                    agent_id="claude",
+                    role="operator",
+                    live=True,
+                ),
+            ),
+        ),
+        bridge=SimpleNamespace(
+            implementer_capability=SimpleNamespace(
+                provider="claude",
+                may_edit_repo=False,
+            ),
+            reviewer_capability=SimpleNamespace(
+                provider="codex",
+                may_edit_repo=False,
+            ),
+            effective_reviewer_mode="active_dual_agent",
+            reviewer_mode="active_dual_agent",
+        ),
+    )
+
+    assert _resolve_commit_execution_target(review_state) == ""
+
+
+def test_commit_execution_target_prefers_effective_mode_when_declared_mode_is_stale() -> (
+    None
+):
     review_state = SimpleNamespace(
         collaboration=SimpleNamespace(
             reviewer_mode="active_dual_agent",
@@ -690,7 +884,9 @@ def test_commit_execution_target_prefers_effective_mode_when_declared_mode_is_st
     assert _resolve_commit_execution_target(review_state) == "codex"
 
 
-def test_commit_execution_target_role_flipped_codex_as_coder_claude_as_reviewer() -> None:
+def test_commit_execution_target_role_flipped_codex_as_coder_claude_as_reviewer() -> (
+    None
+):
     """Resolver must follow typed roles, not provider names.
 
     Operator architectural rule: either AI can play either typed role.
@@ -934,7 +1130,9 @@ def test_commit_execution_target_fails_closed_without_writable_lane() -> None:
     assert _resolve_commit_execution_target(review_state) == ""
 
 
-def test_commit_execution_target_routes_remote_control_publication_to_implementer() -> None:
+def test_commit_execution_target_routes_remote_control_publication_to_implementer() -> (
+    None
+):
     review_state = SimpleNamespace(
         collaboration=SimpleNamespace(
             reviewer_mode="active_dual_agent",
@@ -983,8 +1181,9 @@ def test_commit_execution_target_routes_remote_control_publication_to_implemente
     assert _resolve_commit_execution_target(review_state) == "claude"
 
 
-def test_commit_execution_target_fails_closed_when_provider_is_live_as_operator_only(
-) -> None:
+def test_commit_execution_target_fails_closed_when_provider_is_live_as_operator_only() -> (
+    None
+):
     review_state = SimpleNamespace(
         collaboration=SimpleNamespace(
             reviewer_mode="active_dual_agent",
@@ -1143,14 +1342,14 @@ def test_commit_stage_target_prefers_implementer_when_reviewer_is_attached() -> 
     """
     review_state = SimpleNamespace(
         collaboration=SimpleNamespace(
-            reviewer_mode="single_agent",
+            reviewer_mode="active_dual_agent",
             coding_agent="claude",
             review_agent="codex",
             role_assignments=(
                 SimpleNamespace(role_id="coding_agent", provider="claude", live=True),
                 SimpleNamespace(role_id="review_agent", provider="codex", live=True),
             ),
-            topology_mode="single_agent",
+            topology_mode="active_dual_agent",
             participants=(
                 SimpleNamespace(
                     provider="claude",
@@ -1177,8 +1376,8 @@ def test_commit_stage_target_prefers_implementer_when_reviewer_is_attached() -> 
                 provider="codex",
                 may_edit_repo=False,
             ),
-            effective_reviewer_mode="single_agent",
-            reviewer_mode="single_agent",
+            effective_reviewer_mode="active_dual_agent",
+            reviewer_mode="active_dual_agent",
         ),
         reviewer_runtime=SimpleNamespace(
             remote_control_attachment=SimpleNamespace(
@@ -1203,14 +1402,14 @@ def test_commit_stage_target_reroutes_reviewer_role_attachment() -> None:
     """
     review_state = SimpleNamespace(
         collaboration=SimpleNamespace(
-            reviewer_mode="single_agent",
+            reviewer_mode="active_dual_agent",
             coding_agent="claude",
             review_agent="codex",
             role_assignments=(
                 SimpleNamespace(role_id="coding_agent", provider="claude", live=True),
                 SimpleNamespace(role_id="review_agent", provider="codex", live=True),
             ),
-            topology_mode="single_agent",
+            topology_mode="active_dual_agent",
             participants=(
                 SimpleNamespace(
                     provider="claude",
@@ -1237,8 +1436,8 @@ def test_commit_stage_target_reroutes_reviewer_role_attachment() -> None:
                 provider="codex",
                 may_edit_repo=False,
             ),
-            effective_reviewer_mode="single_agent",
-            reviewer_mode="single_agent",
+            effective_reviewer_mode="active_dual_agent",
+            reviewer_mode="active_dual_agent",
         ),
         reviewer_runtime=SimpleNamespace(
             remote_control_attachment=SimpleNamespace(
@@ -1253,6 +1452,62 @@ def test_commit_stage_target_reroutes_reviewer_role_attachment() -> None:
     # because provider==review_agent and coding_agent is a separate live
     # writable lane. Without this, stage_commit_pipeline recirculates back
     # to the blocked reviewer (codex).
+    assert _resolve_commit_stage_target(review_state) == "claude"
+
+
+def test_commit_stage_target_reroutes_to_actor_authority_mutation_owner() -> None:
+    review_state = SimpleNamespace(
+        collaboration=SimpleNamespace(
+            reviewer_mode="tools_only",
+            coding_agent="claude",
+            review_agent="codex",
+            mutation_owner="claude",
+            actor_authorities=(
+                _actor_authority("claude", capabilities=("repo.stage",)),
+            ),
+            role_assignments=(
+                SimpleNamespace(role_id="coding_agent", provider="claude", live=True),
+                SimpleNamespace(role_id="review_agent", provider="codex", live=True),
+            ),
+            topology_mode="active_dual_agent",
+            participants=(
+                SimpleNamespace(
+                    provider="claude",
+                    agent_id="claude",
+                    role="implementer",
+                    live=True,
+                    capture_mode="terminal-script",
+                ),
+                SimpleNamespace(
+                    provider="codex",
+                    agent_id="codex",
+                    role="reviewer",
+                    live=True,
+                    capture_mode="remote-control",
+                ),
+            ),
+        ),
+        bridge=SimpleNamespace(
+            implementer_capability=SimpleNamespace(
+                provider="claude",
+                may_edit_repo=False,
+            ),
+            reviewer_capability=SimpleNamespace(
+                provider="codex",
+                may_edit_repo=False,
+            ),
+            effective_reviewer_mode="tools_only",
+            reviewer_mode="tools_only",
+        ),
+        reviewer_runtime=SimpleNamespace(
+            remote_control_attachment=SimpleNamespace(
+                provider="codex",
+                role="reviewer",
+                status="attached",
+            )
+        ),
+    )
+
     assert _resolve_commit_stage_target(review_state) == "claude"
 
 
@@ -1421,8 +1676,9 @@ def test_commit_stage_target_fails_closed_without_remote_control_attachment() ->
     assert _resolve_commit_stage_target(review_state) == ""
 
 
-def test_post_commit_execution_handoff_fails_closed_without_live_writable_target(
-) -> None:
+def test_post_commit_execution_handoff_fails_closed_without_live_writable_target() -> (
+    None
+):
     review_state = SimpleNamespace(
         collaboration=SimpleNamespace(
             reviewer_mode="active_dual_agent",
@@ -1526,7 +1782,9 @@ def test_full_pipeline_commits_and_pushes_to_local_remote(tmp_path: Path) -> Non
     executor.record_guard_result(_passing_guard_result())
     pipeline = executor.load_pipeline()
     assert pipeline.validation_receipt is not None
-    assert pipeline.validation_receipt.plan_id == pipeline.intent.validation_plan.plan_id
+    assert (
+        pipeline.validation_receipt.plan_id == pipeline.intent.validation_plan.plan_id
+    )
     assert pipeline.validation_receipt.checkpoint_sufficient is True
     assert pipeline.validation_receipt.push_sufficient is True
     artifact_paths = resolve_artifact_paths(repo_root=repo_root)
@@ -1584,8 +1842,14 @@ def test_full_pipeline_commits_and_pushes_to_local_remote(tmp_path: Path) -> Non
 
     committed_pipeline = executor.load_pipeline()
     assert committed_pipeline.push_authorization is not None
-    assert committed_pipeline.push_authorization.authorized_head_sha == committed_pipeline.commit_sha
-    assert committed_pipeline.push_authorization.approval_mode == "commit_pipeline_approval"
+    assert (
+        committed_pipeline.push_authorization.authorized_head_sha
+        == committed_pipeline.commit_sha
+    )
+    assert (
+        committed_pipeline.push_authorization.approval_mode
+        == "commit_pipeline_approval"
+    )
     push_result = executor.execute(
         build_push_action(
             repo_pack_id="test-pack",
@@ -1606,7 +1870,9 @@ def test_full_pipeline_commits_and_pushes_to_local_remote(tmp_path: Path) -> Non
     assert remote_head == pushed_pipeline.commit_sha
 
 
-def test_push_override_reissues_publication_authorization_through_pipeline(tmp_path: Path) -> None:
+def test_push_override_reissues_publication_authorization_through_pipeline(
+    tmp_path: Path,
+) -> None:
     repo_root = _init_repo(tmp_path / "repo")
     remote_root = tmp_path / "remote.git"
     _run_git(remote_root.parent, "init", "--bare", str(remote_root))
@@ -1742,13 +2008,14 @@ def test_push_override_reissues_publication_authorization_through_pipeline(tmp_p
     assert pushed_pipeline.push_authorization is not None
     assert pushed_pipeline.push_authorization.approval_mode == "override_push"
     assert pushed_pipeline.push_authorization.review_verdict == "override_push_approved"
-    assert (
-        pushed_pipeline.push_authorization.decision_packet_id
-        == str(override_event["packet_id"])
+    assert pushed_pipeline.push_authorization.decision_packet_id == str(
+        override_event["packet_id"]
     )
 
 
-def test_commit_does_not_reread_startup_publish_gate_after_approval(tmp_path: Path) -> None:
+def test_commit_does_not_reread_startup_publish_gate_after_approval(
+    tmp_path: Path,
+) -> None:
     repo_root = _init_repo(tmp_path / "repo")
     (repo_root / "tracked.txt").write_text("updated\n", encoding="utf-8")
     startup_calls = 0
@@ -1902,7 +2169,9 @@ def test_commit_does_not_refresh_review_projections_after_approval(
         ),
     ):
         commit_result = executor.execute(
-            build_commit_action(repo_pack_id="test-pack", pipeline_id=pipeline.pipeline_id)
+            build_commit_action(
+                repo_pack_id="test-pack", pipeline_id=pipeline.pipeline_id
+            )
         )
 
     committed_pipeline = executor.load_pipeline()
@@ -1989,7 +2258,9 @@ def test_commit_marks_git_invocation_as_governed(tmp_path: Path) -> None:
         side_effect=_capture_commit_args,
     ):
         commit_result = executor.execute(
-            build_commit_action(repo_pack_id="test-pack", pipeline_id=pipeline.pipeline_id)
+            build_commit_action(
+                repo_pack_id="test-pack", pipeline_id=pipeline.pipeline_id
+            )
         )
 
     assert commit_result.ok is True
@@ -2034,26 +2305,8 @@ def _init_repo(repo_root: Path) -> Path:
     return repo_root
 
 
-def _push_policy() -> PushPolicy:
-    return PushPolicy(
-        policy_path="dev/config/devctl_repo_policy.json",
-        repo_pack_id="test-pack",
-        warnings=(),
-        default_remote="origin",
-        development_branch="develop",
-        release_branch="master",
-        protected_branches=("develop", "master"),
-        allowed_branch_prefixes=("feature/",),
-        preflight=PushPreflightPolicy(),
-        post_push=PushPostPushPolicy(bundle="bundle.post-push"),
-        bypass=PushBypassPolicy(allow_skip_preflight=True),
-        checkpoint=PushCheckpointPolicy(
-            compatibility_projection_paths=(
-                "dev/reports/push/latest.json",
-            )
-        ),
-        publication=PushPublicationPolicy(),
-    )
+def _push_policy():
+    return build_test_push_policy()
 
 
 def _startup_context(*, repo_root: Path) -> SimpleNamespace:

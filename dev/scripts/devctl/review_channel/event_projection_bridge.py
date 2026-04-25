@@ -6,7 +6,10 @@ from collections.abc import Mapping
 from dataclasses import asdict
 from hashlib import sha256
 
-from ..runtime.conductor_capability import build_conductor_capability_state
+from ..runtime.conductor_capability import (
+    authority_reviewer_mode,
+    build_conductor_capability_state,
+)
 from ..runtime.review_state_models import ReviewerRuntimeContract
 from .current_session_projection import (
     current_session_mapping,
@@ -116,9 +119,14 @@ def build_event_bridge_state_projection(
     """Build the compatibility bridge-state projection for event-backed flows."""
     current_session = current_session_mapping(review_state)
     collaboration = _mapping(review_state.get("collaboration"))
-    reviewer_mode = str(bridge_liveness.get("reviewer_mode") or "tools_only")
     effective_mode = str(
-        bridge_liveness.get("effective_reviewer_mode") or reviewer_mode
+        bridge_liveness.get("effective_reviewer_mode")
+        or bridge_liveness.get("reviewer_mode")
+        or "tools_only"
+    )
+    reviewer_mode = authority_reviewer_mode(
+        str(bridge_liveness.get("reviewer_mode") or ""),
+        effective_mode,
     )
     reviewer_poll_state = str(
         bridge_liveness.get("reviewer_poll_state")
@@ -290,6 +298,8 @@ def _bridge_snapshot_reviewer_mode(bridge_snapshot: object | None) -> str:
     if not reviewer_mode:
         return ""
     return normalize_reviewer_mode(reviewer_mode).value
+
+
 def _mapping(value: object) -> Mapping[str, object]:
     return value if isinstance(value, Mapping) else {}
 

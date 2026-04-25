@@ -97,6 +97,7 @@ def _governance(
     *,
     review_root: str = "dev/reports/review_channel/latest",
     include_shared_backlog: bool = False,
+    include_system_map: bool = False,
 ) -> ProjectGovernance:
     tracker_entry = PlanRegistryEntry(
         path="dev/active/MASTER_PLAN.md",
@@ -220,6 +221,20 @@ def _governance(
             )
         )
         startup_order.append("backlog.md")
+    if include_system_map:
+        doc_registry_entries.append(
+            DocRegistryEntry(
+                path="dev/guides/SYSTEM_MAP.md",
+                doc_class="guide",
+                authority="reference-only",
+                lifecycle="active",
+                scope="connectivity index",
+                artifact_role="connectivity_index",
+                authority_kind="generated_navigation",
+                system_scope="platform_core",
+                consumer_scope="startup_default",
+            )
+        )
 
     return ProjectGovernance(
         schema_version=PROJECT_GOVERNANCE_SCHEMA_VERSION,
@@ -360,6 +375,24 @@ def test_build_work_intake_packet_prefers_mp_scoped_spec_and_reconciles_review_s
     assert "AGENTS.md" in packet.warm_refs
     assert "dev/reports/review_channel/latest/review_state.json" in packet.warm_refs
     assert "bridge.md" not in packet.warm_refs
+
+
+def test_build_work_intake_packet_includes_connectivity_index_warm_ref(
+    tmp_path: Path,
+) -> None:
+    _write(tmp_path / "AGENTS.md", "# Agents\n")
+    _write(tmp_path / "dev/active/INDEX.md", "# Index\n")
+    _write(tmp_path / "dev/active/MASTER_PLAN.md", "# Tracker\n")
+    _write(tmp_path / "dev/guides/SYSTEM_MAP.md", "# SYSTEM_MAP\n")
+
+    packet = build_work_intake_packet(
+        repo_root=tmp_path,
+        governance=_governance(include_system_map=True),
+        advisory_action="continue_editing",
+        advisory_reason="clean_worktree",
+    )
+
+    assert "dev/guides/SYSTEM_MAP.md" in packet.warm_refs
 
 
 def test_build_work_intake_packet_falls_back_to_tracker_without_review_state(

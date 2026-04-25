@@ -121,6 +121,8 @@ def render_bootstrap(packet: "SessionCachePacket") -> str:
             "- `dev/active/MASTER_PLAN.md`",
         ]
     )
+    for surface in packet.key_surfaces:
+        lines.append(f"- `{surface}`")
     if packet.operator_interaction_mode == "active_dual_agent":
         lines.extend(
             [
@@ -303,5 +305,4 @@ def _role_bootstrap_section(packet: "SessionCachePacket", *, role: str) -> list[
     if role in {"dashboard", "observer"}:
         return _observer_bootstrap_section(packet, role=role)
     return _implementer_bootstrap_section(packet)
-
 

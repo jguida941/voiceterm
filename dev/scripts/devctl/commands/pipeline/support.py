@@ -30,6 +30,12 @@ from ...runtime.pipeline_recovery_receipt import (
     PipelineRecoveryReceipt,
     utc_now_iso,
 )
+from ...runtime.remote_commit_pipeline_state import (
+    RECOVERABLE_PIPELINE_STATES,
+    REFRESHABLE_PIPELINE_STATES,
+    TERMINAL_PIPELINE_STATES,
+    eligible_for_local_delivery,
+)
 from .head_movement import head_has_moved
 
 PIPELINE_FILENAME = "commit_pipeline.json"
@@ -43,23 +49,13 @@ AUTHORIZATION_TTL_MINUTES = 30
 # States where a commit has been recorded but remote publication is not
 # yet acknowledged. These are the states where ``recover`` is allowed to
 # re-bind the authorization to a new HEAD.
-RECOVERABLE_STATES: frozenset[str] = frozenset({
-    "commit_recorded",
-    "push_blocked",
-})
+RECOVERABLE_STATES: frozenset[str] = RECOVERABLE_PIPELINE_STATES
 
 # States where a fresh authorization window is semantically meaningful.
-REFRESHABLE_STATES: frozenset[str] = frozenset({
-    "commit_recorded",
-    "push_blocked",
-    "awaiting_push",
-})
+REFRESHABLE_STATES: frozenset[str] = REFRESHABLE_PIPELINE_STATES
 
 # States that ``abandon`` refuses because there is no live pipeline.
-TERMINAL_STATES: frozenset[str] = frozenset({
-    "push_completed",
-    "abandoned",
-})
+TERMINAL_STATES: frozenset[str] = TERMINAL_PIPELINE_STATES
 
 _PUSH_EXECUTE_COMMAND = "python3 dev/scripts/devctl.py push --execute"
 _PIPELINE_ABANDON_COMMAND = (
@@ -71,6 +67,10 @@ _PIPELINE_RECOVER_COMMAND = (
 )
 _PIPELINE_REFRESH_AUTHORIZATION_COMMAND = (
     "python3 dev/scripts/devctl.py pipeline --action refresh-authorization --format json"
+)
+_PIPELINE_MARK_DELIVERED_LOCAL_COMMAND = (
+    'python3 dev/scripts/devctl.py pipeline --action mark-delivered-local --reason '
+    '"<descriptive reason>" --format json'
 )
 _PIPELINE_STATUS_COMMAND = (
     "python3 dev/scripts/devctl.py pipeline --action status --format json"
@@ -282,10 +282,12 @@ def recommended_next_action(
         receipt_parent_sha=receipt_parent_sha,
     ):
         return "recover"
-    if authorization_is_expired(payload, now=now):
-        return "refresh-authorization"
+    if eligible_for_local_delivery(payload, current_head=current_head):
+        return "mark-delivered-local"
     if state == "push_blocked":
         return "abandon"
+    if authorization_is_expired(payload, now=now):
+        return "refresh-authorization"
     return "none"
 
 
@@ -306,16 +308,14 @@ def recommended_next_command(
         receipt_parent_sha=receipt_parent_sha,
     ):
         return _PIPELINE_RECOVER_COMMAND
+    if eligible_for_local_delivery(payload, current_head=current_head):
+        return _PIPELINE_MARK_DELIVERED_LOCAL_COMMAND
+    if state == "push_blocked":
+        return _PIPELINE_ABANDON_COMMAND
     if authorization_is_expired(payload, now=now):
-        if state == "push_blocked":
-            # `devctl push --execute` can refresh the same-HEAD authorization
-            # window before reusing the governed publish pipeline.
-            return _PUSH_EXECUTE_COMMAND
         return _PIPELINE_REFRESH_AUTHORIZATION_COMMAND
     if state in {"commit_recorded", "push_pending"}:
         return _PUSH_EXECUTE_COMMAND
-    if state == "push_blocked":
-        return _PIPELINE_ABANDON_COMMAND
     if state in RECOVERABLE_STATES:
         return _PIPELINE_STATUS_COMMAND
     return ""

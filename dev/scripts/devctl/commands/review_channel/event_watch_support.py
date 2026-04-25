@@ -90,25 +90,93 @@ def watch_snapshot_signature(
     packets: list[dict[str, object]],
     review_state: object,
     target: str | None = None,
-) -> tuple[frozenset[object], int, str]:
+) -> tuple[object, ...]:
     """Return the watch-stream signature for live and stale queue state."""
     queue = {}
     packet_inbox = {}
+    current_session = {}
+    bridge = {}
     if isinstance(review_state, dict):
         queue = review_state.get("queue", {})
         packet_inbox = review_state.get("packet_inbox", {})
+        current_session = review_state.get("current_session", {})
+        bridge = review_state.get("bridge", {})
     stale_packet_count = 0
     if isinstance(queue, dict):
         stale_packet_count = int(queue.get("stale_packet_count", 0) or 0)
-    packet_ids = frozenset(
-        packet.get("packet_id")
-        for packet in packets
-        if isinstance(packet, dict)
+    packet_transitions = tuple(
+        sorted(
+            _packet_transition_signature(packet)
+            for packet in packets
+            if isinstance(packet, dict)
+        )
     )
     return (
-        packet_ids,
+        packet_transitions,
         stale_packet_count,
         _target_attention_revision(packet_inbox, target=target),
+        _queue_instruction_signature(queue),
+        _current_session_signature(current_session),
+        _bridge_instruction_signature(bridge),
+    )
+
+
+def _packet_transition_signature(packet: dict[str, object]) -> tuple[str, ...]:
+    return tuple(
+        str(packet.get(key) or "").strip()
+        for key in (
+            "packet_id",
+            "latest_event_id",
+            "status",
+            "delivery_observed_at_utc",
+            "delivery_observed_by",
+            "acked_at_utc",
+            "acked_by",
+            "applied_at_utc",
+            "execution_started_at_utc",
+            "execution_started_by",
+        )
+    )
+
+
+def _queue_instruction_signature(queue: object) -> tuple[str, ...]:
+    if not isinstance(queue, dict):
+        return ("", "", "")
+    source = queue.get("derived_next_instruction_source", {})
+    if not isinstance(source, dict):
+        source = {}
+    return (
+        str(queue.get("derived_next_instruction") or "").strip(),
+        str(source.get("packet_id") or "").strip(),
+        str(source.get("control_state") or "").strip(),
+    )
+
+
+def _current_session_signature(current_session: object) -> tuple[str, ...]:
+    if not isinstance(current_session, dict):
+        return ("", "", "", "")
+    return tuple(
+        str(current_session.get(key) or "").strip()
+        for key in (
+            "current_instruction_revision",
+            "implementer_ack_revision",
+            "implementer_ack_state",
+            "implementer_status",
+        )
+    )
+
+
+def _bridge_instruction_signature(bridge: object) -> tuple[str, ...]:
+    if not isinstance(bridge, dict):
+        return ("", "", "", "")
+    return tuple(
+        str(bridge.get(key) or "").strip()
+        for key in (
+            "current_instruction_revision",
+            "implementer_ack_revision",
+            "implementer_ack_state",
+            "reviewer_mode",
+        )
     )
 
 

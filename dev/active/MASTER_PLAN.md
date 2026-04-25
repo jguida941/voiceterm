@@ -165,6 +165,25 @@
   (`AGENTS.md`, `dev/guides/DEVELOPMENT.md`, `dev/scripts/README.md`,
   `dev/scripts/devctl/review_channel/prompt_guards.py`) advertise the new
   action kind so generated instructions agree with the typed contract.
+- 2026-04-24 actor-authority grant slice (MP-355 + MP-377 follow-up):
+  `CollaborationSession` now emits typed `ActorAuthorityState` rows with
+  explicit `CapabilityGrantState` grants for repo mutation, stage handoff,
+  review/checkpoint, observation, and approval. `AuthoritySnapshot` and
+  session-resume preserve those grants, and governed commit target selection
+  prefers the live mutation owner's `repo.commit` grant before compatibility
+  fallbacks. `approval.commit` stays separate from repo mutation, and
+  startup-context now projects orphan-work evidence as a bounded summary so
+  the added typed authority does not break the slim bootstrap budget.
+- 2026-04-24 remote-control liveness split-brain closure (MP-355 + MP-377
+  follow-up): `review-channel status --refresh-bridge-heartbeat-if-stale`
+  now treats a live typed `remote_control_attachment` as continuity evidence
+  when a stale compatibility bridge has drifted to `tools_only`. The status
+  path may refresh the Codex heartbeat, mark that refresh as typed reviewer
+  activity for the remote-control continuity case, and reproject `bridge.md`
+  back to `active_dual_agent`; launch/rollover remain fail-closed on the
+  regular live-bridge contract. Remaining red health stays visible through
+  `attention`, `errors`, and final `bridge_liveness` instead of changing the
+  command-level `ok` contract.
 - `dev/active/review_probes.md` is the review-probe execution spec; implementation tasks stay in this file under `MP-368..MP-375`.
 - `dev/active/portable_code_governance.md` is the narrower engine/adoption
   companion under `MP-376`, not a second main product plan; implementation

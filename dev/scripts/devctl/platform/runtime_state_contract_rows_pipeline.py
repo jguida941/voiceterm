@@ -147,6 +147,26 @@ PIPELINE_STATE_CONTRACTS: tuple[ContractSpec, ...] = (
                 "PushAuthorizationRecord | None",
                 "Frozen publication proof for the current governed commit, when one exists.",
             ),
+            ContractField(
+                "local_delivery_receipt_path",
+                "str",
+                "Receipt proving the commit was delivered locally while publication remains pending.",
+            ),
+            ContractField(
+                "local_delivery_reason",
+                "str",
+                "Operator or auto-recovery rationale for marking local delivery.",
+            ),
+            ContractField(
+                "delivered_at_utc",
+                "str",
+                "UTC timestamp when the pipeline left the active slot as locally delivered.",
+            ),
+            ContractField(
+                "delivered_by",
+                "str",
+                "Actor that recorded local-delivery terminal state.",
+            ),
         ),
         runtime_model=(
             "dev.scripts.devctl.runtime.remote_commit_pipeline_models:"

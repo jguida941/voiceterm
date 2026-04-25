@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, replace
+from dataclasses import asdict, dataclass, replace
 from pathlib import Path
 
 from .collaboration_provider import (
@@ -16,6 +16,7 @@ from ..runtime.review_packet_inbox import (
 )
 from .current_session_attention import has_explicit_packet_truth
 from .current_session_projection import (
+    build_event_current_session,
     current_session_authority_drift_warning,
     instruction_revision_reuse_warning,
     resolve_current_session_authority,
@@ -30,6 +31,7 @@ from .reviewer_runtime_contract import (
     ReviewerRuntimeInputs,
     build_reviewer_runtime_contract,
 )
+from .status_projection_support import build_queue_state
 from ..runtime.review_state_semantics import is_missing_instruction
 
 
@@ -45,6 +47,8 @@ class StatusAuthorityInputs:
     prior_review_state: dict[str, object]
     merged_warnings: list[str]
     merged_errors: list[str]
+    pending_packets: tuple[dict[str, object], ...] = ()
+    stale_packet_count: int = 0
     reviewer_accepted_implementer_state_hash_override: str | None = None
 
 
@@ -52,20 +56,30 @@ def build_status_authority(
     inputs: StatusAuthorityInputs,
 ) -> tuple[object, dict[str, object], object, object]:
     """Build current-session, attention, recovery, and reviewer runtime state."""
+    authority_review_state = _review_state_with_packet_truth(
+        prior_review_state=inputs.prior_review_state,
+        pending_packets=inputs.pending_packets,
+        stale_packet_count=inputs.stale_packet_count,
+    )
     current_session = resolve_current_session_authority(
         snapshot=inputs.bridge_snapshot,
         bridge_liveness=inputs.bridge_liveness,
-        prior_review_state=inputs.prior_review_state,
+        prior_review_state=authority_review_state,
+    )
+    current_session = _overlay_packet_current_session(
+        current_session=current_session,
+        bridge_liveness=inputs.bridge_liveness,
+        review_state=authority_review_state,
     )
     current_session = _normalize_current_session_from_packet_truth(
         current_session=current_session,
-        review_state=inputs.prior_review_state,
+        review_state=authority_review_state,
     )
     _append_status_warning(
         inputs.merged_warnings,
         current_session_authority_drift_warning(
             snapshot=inputs.bridge_snapshot,
-            prior_review_state=inputs.prior_review_state,
+            prior_review_state=authority_review_state,
             bridge_liveness=inputs.bridge_liveness,
         ),
     )
@@ -74,7 +88,7 @@ def build_status_authority(
         instruction_revision_reuse_warning(
             snapshot=inputs.bridge_snapshot,
             bridge_liveness=inputs.bridge_liveness,
-            prior_review_state=inputs.prior_review_state,
+            prior_review_state=authority_review_state,
         ),
     )
     _apply_current_session_fields(
@@ -98,7 +112,7 @@ def build_status_authority(
             session_output_root=inputs.output_root,
             rollover_dir=inputs.output_root.parent / "rollovers",
             bridge_text=inputs.bridge_text,
-            prior_review_state=inputs.prior_review_state,
+            prior_review_state=authority_review_state,
             reviewer_accepted_implementer_state_hash_override=(
                 inputs.reviewer_accepted_implementer_state_hash_override
             ),
@@ -117,6 +131,49 @@ def _operator_interaction_mode(repo_root: Path) -> str:
 def _append_status_warning(warnings: list[str], warning: str) -> None:
     if warning and warning not in warnings:
         warnings.append(warning)
+
+
+def _review_state_with_packet_truth(
+    *,
+    prior_review_state: dict[str, object] | None,
+    pending_packets: tuple[dict[str, object], ...],
+    stale_packet_count: int,
+) -> dict[str, object] | None:
+    if not pending_packets:
+        return prior_review_state
+    resolved_review_state = prior_review_state
+    if isinstance(resolved_review_state, dict) and isinstance(
+        resolved_review_state.get("review_state"), dict
+    ):
+        resolved_review_state = resolved_review_state.get("review_state")
+    review_state = dict(resolved_review_state or {})
+    review_state["packets"] = [dict(packet) for packet in pending_packets]
+    review_state["queue"] = asdict(
+        build_queue_state(
+            None,
+            pending_packets=pending_packets,
+            stale_packet_count=stale_packet_count,
+        )
+    )
+    return review_state
+
+
+def _overlay_packet_current_session(
+    *,
+    current_session,
+    bridge_liveness: dict[str, object],
+    review_state: dict[str, object] | None,
+):
+    if not isinstance(review_state, dict) or not has_explicit_packet_truth(review_state):
+        return current_session
+    packet_session = build_event_current_session(
+        review_state=review_state,
+        bridge_liveness=bridge_liveness,
+        prior_review_state=review_state,
+    )
+    if is_missing_instruction(packet_session.current_instruction):
+        return current_session
+    return packet_session
 
 
 def _normalize_current_session_from_packet_truth(

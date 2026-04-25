@@ -4,30 +4,31 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 
-from .control_state import _int, _mapping, _string
-from .review_state_parse_support import _bool
 from .collaboration_wake_contract import (
     LoopAutonomyState,
     loop_autonomy_contract,
     wake_continuity_contract,
 )
+from .control_state import _int, _mapping, _string
 from .review_state_collaboration_fields import (
     _arbitration_state_from_mapping,
     _delegated_work_from_value,
-    ownership_state_from_mapping,
     _participants_from_value,
     _peer_review_state_from_mapping,
     _ready_gates_from_value,
     _restart_state_from_mapping,
     _role_assignments_from_value,
+    ownership_state_from_mapping,
 )
 from .review_state_collaboration_legacy import _legacy_collaboration_state
+from .review_state_collaboration_models import actor_authorities_from_value
 from .review_state_models import (
     AgentRegistryState,
     CollaborationSessionState,
     ReviewBridgeState,
     ReviewCurrentSessionState,
 )
+from .review_state_parse_support import _bool
 
 
 def collaboration_state_from_payload(
@@ -78,11 +79,13 @@ def collaboration_state_from_payload(
             derived_loop_autonomy = LoopAutonomyState()
         return CollaborationSessionState(
             schema_version=_int(collaboration.get("schema_version")) or 1,
-            contract_id=_string(collaboration.get("contract_id")) or "CollaborationSession",
+            contract_id=_string(collaboration.get("contract_id"))
+            or "CollaborationSession",
             session_id=_string(collaboration.get("session_id"))
             or _string(review.get("session_id"))
             or "review-channel",
-            plan_id=_string(collaboration.get("plan_id")) or _string(review.get("plan_id")),
+            plan_id=_string(collaboration.get("plan_id"))
+            or _string(review.get("plan_id")),
             status=_string(collaboration.get("status")) or "inactive",
             reviewer_mode=reviewer_mode,
             operator_mode=_string(collaboration.get("operator_mode")) or "manual",
@@ -111,8 +114,7 @@ def collaboration_state_from_payload(
             ),
             topology_mode=_string(collaboration.get("topology_mode")) or "single_agent",
             work_ownership_mode=(
-                _string(collaboration.get("work_ownership_mode"))
-                or "exclusive_slice"
+                _string(collaboration.get("work_ownership_mode")) or "exclusive_slice"
             ),
             ownership=ownership_state_from_mapping(
                 _mapping(collaboration.get("ownership"))
@@ -166,6 +168,9 @@ def collaboration_state_from_payload(
             loop_gap_summary=(
                 _string(collaboration.get("loop_gap_summary"))
                 or derived_loop_autonomy.loop_gap_summary
+            ),
+            actor_authorities=actor_authorities_from_value(
+                collaboration.get("actor_authorities")
             ),
         )
     return _legacy_collaboration_state(

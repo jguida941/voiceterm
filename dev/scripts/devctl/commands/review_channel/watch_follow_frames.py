@@ -19,6 +19,9 @@ class WatchFollowFrameSpec:
     stop_reason: str = ""
     conflict: dict[str, object] | None = None
     conflict_state_path: Path | None = None
+    poll_seq: int = 0
+    unchanged_polls: int = 0
+    awaiting_transition: str = ""
 
 
 def build_watch_follow_error_report(
@@ -81,6 +84,12 @@ def _watch_follow_frame(
     )
     if spec.snapshot_seq is not None:
         frame["snapshot_seq"] = spec.snapshot_seq
+    if spec.poll_seq:
+        frame["poll_seq"] = spec.poll_seq
+    if spec.unchanged_polls:
+        frame["unchanged_polls"] = spec.unchanged_polls
+    if spec.awaiting_transition:
+        frame["awaiting_transition"] = spec.awaiting_transition
     if spec.stop_reason:
         frame["stop_reason"] = spec.stop_reason
     if spec.conflict:

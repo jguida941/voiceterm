@@ -5,13 +5,16 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import asdict, dataclass, field
 
+from .authority_snapshot_actor_authority import authority_rows_for_output
+from .authority_snapshot_parse_support import mapping_or_empty as _mapping
+from .authority_snapshot_parse_support import string_items as _string_items
 from .post_checkpoint_dirty_support import (
     COMMIT_CHECKPOINT_COMMAND,
     requires_commit_before_push,
 )
-from .authority_snapshot_parse_support import (
-    mapping_or_empty as _mapping,
-    string_items as _string_items,
+from .review_state_collaboration_models import (
+    ActorAuthorityState,
+    actor_authorities_from_value,
 )
 from .review_state_packet_models import (
     AgentAttentionRecord,
@@ -88,11 +91,17 @@ class AuthoritySnapshot:
     verification_status: str = "inactive"
     watcher_owner: str = ""
     watcher_status: str = "inactive"
+    actor_capabilities: tuple[str, ...] = ()
+    actor_authorities: tuple[ActorAuthorityState, ...] = ()
 
     def to_dict(self) -> dict[str, object]:
         payload = asdict(self)
         payload["allowed_actions"] = list(self.allowed_actions)
         payload["blocked_actions"] = list(self.blocked_actions)
+        payload["actor_capabilities"] = list(self.actor_capabilities)
+        payload["actor_authorities"] = authority_rows_for_output(
+            payload.get("actor_authorities", ())
+        )
         if self.packet_target is None:
             payload.pop("packet_target", None)
         else:
@@ -140,6 +149,8 @@ def authority_snapshot_from_mapping(value: object) -> AuthoritySnapshot | None:
         verification_status=str(value.get("verification_status") or "inactive").strip(),
         watcher_owner=str(value.get("watcher_owner") or "").strip(),
         watcher_status=str(value.get("watcher_status") or "inactive").strip(),
+        actor_capabilities=_string_items(value.get("actor_capabilities")),
+        actor_authorities=actor_authorities_from_value(value.get("actor_authorities")),
     )
 
 
@@ -244,7 +255,9 @@ def summary_next_command(ctx_dict: Mapping[str, object]) -> str:
     if not blockers:
         push_decision = _mapping(ctx_dict.get("push_decision"))
         if str(push_decision.get("action") or "").strip() == "run_devctl_push":
-            next_step_command = str(push_decision.get("next_step_command") or "").strip()
+            next_step_command = str(
+                push_decision.get("next_step_command") or ""
+            ).strip()
             if next_step_command:
                 return next_step_command
         return _CONTEXT_GRAPH_BOOTSTRAP_COMMAND
@@ -275,6 +288,8 @@ def summary_next_command(ctx_dict: Mapping[str, object]) -> str:
     if str(push_decision.get("action") or "").strip() == "await_checkpoint":
         return f"checkpoint current slice, then rerun {_SUMMARY_RERUN_COMMAND}"
     return f"resolve blockers, then rerun {_SUMMARY_RERUN_COMMAND}"
+
+
 def _coordination_state(
     inputs: tuple[str, str, str, bool, str, str, str],
 ) -> str:

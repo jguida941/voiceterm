@@ -9,7 +9,9 @@ from ..runtime.review_state_models import (
 )
 from .collaboration_session_status import _agent_for_role
 
-_WATCHER_CAPTURE_MODES = frozenset({"packet-activity", "packet-watch", "remote-control"})
+_WATCHER_CAPTURE_MODES = frozenset(
+    {"packet-activity", "packet-watch", "remote-control"}
+)
 
 
 def verification_owner(
@@ -47,18 +49,24 @@ def watcher_owner(
         candidates.append(verification_owner)
 
     for candidate in candidates:
-        if owner_status(
-            agent_id=candidate,
-            participants=participants,
-            role_assignments=role_assignments,
-        ) == "live":
+        if (
+            owner_status(
+                agent_id=candidate,
+                participants=participants,
+                role_assignments=role_assignments,
+            )
+            == "live"
+        ):
             return candidate
     for candidate in candidates:
-        if owner_status(
-            agent_id=candidate,
-            participants=participants,
-            role_assignments=role_assignments,
-        ) != "inactive":
+        if (
+            owner_status(
+                agent_id=candidate,
+                participants=participants,
+                role_assignments=role_assignments,
+            )
+            != "inactive"
+        ):
             return candidate
     return ""
 

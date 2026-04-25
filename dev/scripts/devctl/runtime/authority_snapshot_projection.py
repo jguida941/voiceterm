@@ -6,6 +6,10 @@ from typing import NamedTuple
 
 from .authority_snapshot_core import AuthoritySnapshot
 from .collaboration_wake_contract import LoopAutonomyState
+from .review_state_collaboration_models import (
+    actor_authorities_from_value,
+    granted_capabilities_for_actor,
+)
 
 
 class CollaborationWakeFields(NamedTuple):
@@ -64,7 +68,9 @@ def apply_wake_continuity_gate(
         return coordination_state, root_cause, required_action
     if wake_fields.wake_continuity_present and wake_fields.wake_continuity_ok:
         return coordination_state, root_cause, required_action
-    updated_state = "resync_required" if coordination_state == "ready" else coordination_state
+    updated_state = (
+        "resync_required" if coordination_state == "ready" else coordination_state
+    )
     updated_root = root_cause or (
         wake_fields.wake_gap_summary
         or "Active dual-agent mode is missing typed wake continuity truth."
@@ -98,6 +104,13 @@ def build_snapshot_result(
     collaboration: dict[str, object],
     wake_fields: CollaborationWakeFields,
 ) -> AuthoritySnapshot:
+    actor_authorities = actor_authorities_from_value(
+        collaboration.get("actor_authorities")
+    )
+    actor_capabilities = granted_capabilities_for_actor(
+        actor_authorities,
+        actor_identity or str(collaboration.get("mutation_owner") or "").strip(),
+    )
     return AuthoritySnapshot(
         coordination_state=coordination_state,
         root_cause=root_cause,
@@ -126,6 +139,8 @@ def build_snapshot_result(
         ).strip(),
         watcher_owner=str(collaboration.get("watcher_owner") or "").strip(),
         watcher_status=str(collaboration.get("watcher_status") or "inactive").strip(),
+        actor_capabilities=actor_capabilities,
+        actor_authorities=actor_authorities,
         mutation_wake_mode=wake_fields.mutation_wake_mode,
         verification_wake_mode=wake_fields.verification_wake_mode,
         watcher_wake_mode=wake_fields.watcher_wake_mode,

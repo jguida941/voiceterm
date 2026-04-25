@@ -7,7 +7,13 @@ from pathlib import Path
 from typing import Union
 
 from ..runtime.enum_compat import StrEnum
-from .peer_liveness import ReviewerMode, normalize_reviewer_mode, reviewer_mode_is_active
+from .peer_liveness import (
+    CodexPollState,
+    ReviewerFreshness,
+    ReviewerMode,
+    normalize_reviewer_mode,
+    reviewer_mode_is_active,
+)
 
 
 class LaunchTruthState(StrEnum):
@@ -23,9 +29,16 @@ class LaunchTruthState(StrEnum):
 
 def classify_launch_truth(bridge_liveness: dict[str, object]) -> LaunchTruthState:
     """Classify whether the declared dual-agent loop is actually launch-valid."""
-    reviewer_mode = str(bridge_liveness.get("reviewer_mode") or "")
+    reviewer_mode = _declared_reviewer_mode(bridge_liveness)
     if not reviewer_mode_is_active(reviewer_mode):
+        if _typed_dual_agent_runtime_promotes_mode(
+            bridge_liveness,
+            reviewer_mode=reviewer_mode,
+        ):
+            return LaunchTruthState.LIVE
         return LaunchTruthState.INACTIVE
+    if _typed_dual_agent_runtime_is_live(bridge_liveness):
+        return LaunchTruthState.LIVE
     if not (
         bool(bridge_liveness.get("publisher_running"))
         or bool(bridge_liveness.get("reviewer_supervisor_running"))
@@ -47,9 +60,68 @@ def classify_launch_truth(bridge_liveness: dict[str, object]) -> LaunchTruthStat
         return LaunchTruthState.DETACHED_RUNTIME_ONLY
     if claude_conductor_active and not codex_conductor_active:
         return LaunchTruthState.HYBRID_CLAUDE_ONLY
-    if codex_conductor_active and bool(bridge_liveness.get("poll_status_automation_only")):
+    if codex_conductor_active and bool(
+        bridge_liveness.get("poll_status_automation_only")
+    ):
         return LaunchTruthState.AUTOMATION_ONLY
     return LaunchTruthState.LIVE
+
+
+def _typed_dual_agent_runtime_is_live(
+    bridge_liveness: Mapping[str, object],
+) -> bool:
+    providers = set(_string_values(bridge_liveness.get("active_runtime_providers")))
+    providers.update(
+        _string_values(bridge_liveness.get("remote_control_active_providers"))
+    )
+    providers.update(
+        _string_values(bridge_liveness.get("packet_activity_active_providers"))
+    )
+    reviewer_provider = (
+        capability_provider(bridge_liveness, "reviewer_capability") or "codex"
+    )
+    implementer_provider = (
+        capability_provider(bridge_liveness, "implementer_capability") or "claude"
+    )
+    reviewer_live = bool(bridge_liveness.get("reviewer_activity_active")) or (
+        reviewer_provider in providers
+    )
+    implementer_live = implementer_provider in providers or bool(
+        _string_values(bridge_liveness.get("remote_control_active_providers"))
+    )
+    if not reviewer_live or not implementer_live:
+        return False
+    freshness = str(bridge_liveness.get("reviewer_freshness") or "").strip()
+    poll_state = str(bridge_liveness.get("codex_poll_state") or "").strip()
+    return (
+        freshness
+        not in {
+            ReviewerFreshness.MISSING.value,
+            ReviewerFreshness.OVERDUE.value,
+        }
+        and poll_state != CodexPollState.MISSING.value
+    )
+
+
+def _string_values(value: object) -> tuple[str, ...]:
+    if not isinstance(value, (list, tuple, set)):
+        return ()
+    result: list[str] = []
+    for item in value:
+        text = str(item or "").strip().lower()
+        if text and text not in result:
+            result.append(text)
+    return tuple(result)
+
+
+def capability_provider(
+    payload: Mapping[str, object],
+    field_name: str,
+) -> str:
+    capability = payload.get(field_name)
+    if not isinstance(capability, Mapping):
+        return ""
+    return str(capability.get("provider") or "").strip().lower()
 
 
 def build_launch_probe_state(
@@ -79,10 +151,13 @@ def build_launch_probe_state(
 def effective_reviewer_mode(bridge_liveness: Mapping[str, object]) -> str:
     """Return the validated reviewer mode for live-authority consumers."""
 
-    reviewer_mode = normalize_reviewer_mode(
-        str(bridge_liveness.get("reviewer_mode") or "")
-    ).value
+    reviewer_mode = _declared_reviewer_mode(bridge_liveness)
     if not reviewer_mode_is_active(reviewer_mode):
+        if _typed_dual_agent_runtime_promotes_mode(
+            bridge_liveness,
+            reviewer_mode=reviewer_mode,
+        ):
+            return ReviewerMode.ACTIVE_DUAL_AGENT.value
         return reviewer_mode
 
     launch_truth = str(
@@ -92,3 +167,20 @@ def effective_reviewer_mode(bridge_liveness: Mapping[str, object]) -> str:
     if launch_truth == LaunchTruthState.LIVE.value:
         return reviewer_mode
     return ReviewerMode.TOOLS_ONLY.value
+
+
+def _declared_reviewer_mode(bridge_liveness: Mapping[str, object]) -> str:
+    raw_mode = str(bridge_liveness.get("reviewer_mode") or "").strip()
+    if not raw_mode:
+        return ReviewerMode.TOOLS_ONLY.value
+    return normalize_reviewer_mode(raw_mode).value
+
+
+def _typed_dual_agent_runtime_promotes_mode(
+    bridge_liveness: Mapping[str, object],
+    *,
+    reviewer_mode: str,
+) -> bool:
+    if reviewer_mode != ReviewerMode.TOOLS_ONLY.value:
+        return False
+    return _typed_dual_agent_runtime_is_live(bridge_liveness)

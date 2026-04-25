@@ -1,9 +1,16 @@
 """Public review-state runtime contract exports."""
 
+from .remote_commit_pipeline_models import (
+    CommitIntentState,
+    PushAuthorizationRecord,
+    RemoteCommitPipelineContract,
+)
 from .review_state_models import (
+    ActorAuthorityState,
+    AgentAttentionRecord,
     AgentRegistryEntryState,
     AgentRegistryState,
-    AgentAttentionRecord,
+    CapabilityGrantState,
     CollaborationArbitrationState,
     CollaborationParticipantState,
     CollaborationPeerReviewState,
@@ -27,16 +34,13 @@ from .review_state_models import (
     ReviewState,
 )
 from .review_state_parser import review_state_from_payload
-from .remote_commit_pipeline_models import (
-    CommitIntentState,
-    PushAuthorizationRecord,
-    RemoteCommitPipelineContract,
-)
 
 __all__ = [
     "AgentRegistryEntryState",
     "AgentRegistryState",
     "AgentAttentionRecord",
+    "ActorAuthorityState",
+    "CapabilityGrantState",
     "CollaborationArbitrationState",
     "CollaborationParticipantState",
     "CollaborationPeerReviewState",

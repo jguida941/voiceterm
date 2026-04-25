@@ -111,6 +111,7 @@ class SessionResumeAuthorityPayload:
     packet_inbox: SessionResumePacketInboxPayload | None
     next_command: str
     governance: Mapping[str, object] | None = None
+    collaboration: Mapping[str, object] | None = None
 
     def to_dict(self) -> dict[str, object]:
         payload: dict[str, object] = {}
@@ -131,6 +132,8 @@ class SessionResumeAuthorityPayload:
         payload["next_command"] = self.next_command
         if self.governance:
             payload["governance"] = dict(self.governance)
+        if self.collaboration:
+            payload["collaboration"] = dict(self.collaboration)
         return payload
 
 
@@ -147,9 +150,9 @@ def build_session_resume_review_state_context(
     attention_agent = _attention_agent_for_role(payload, role=role)
     packet_inbox = None
     if payload:
-        packet_inbox = packet_inbox_from_review_state(payload) or packet_inbox_from_mapping(
-            payload.get("packet_inbox")
-        )
+        packet_inbox = packet_inbox_from_review_state(
+            payload
+        ) or packet_inbox_from_mapping(payload.get("packet_inbox"))
     open_findings = summarize_packet_attention_open_findings(
         payload,
         fallback=fallback_open_findings,

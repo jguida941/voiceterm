@@ -15,7 +15,7 @@ def control_plane_worktree_clean(
 ) -> bool:
     """Use typed push enforcement when available; otherwise use raw git."""
     push_enforcement = (
-        governance.push_enforcement
+        getattr(governance, "push_enforcement", None)
         if governance is not None
         else None
     )
@@ -29,7 +29,7 @@ def managed_projection_dirty_paths(
 ) -> tuple[str, ...]:
     """Return compatibility-projection dirt from typed push enforcement."""
     push_enforcement = (
-        governance.push_enforcement
+        getattr(governance, "push_enforcement", None)
         if governance is not None
         else None
     )

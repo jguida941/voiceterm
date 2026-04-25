@@ -4,11 +4,14 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 
-from .conductor_capability import normalize_reviewer_mode
+from .conductor_capability import authority_reviewer_mode, resolve_reviewer_mode
 from .control_state import _int, _mapping, _string
-from .review_state_parse_support import _bool
 from .review_state_models import ReviewCurrentSessionState
-from .reviewer_gate_logic import ReviewerRuntimeBlockInputs, reviewer_runtime_block_state
+from .review_state_parse_support import _bool
+from .reviewer_gate_logic import (
+    ReviewerRuntimeBlockInputs,
+    reviewer_runtime_block_state,
+)
 from .reviewer_runtime_models import (
     RemoteControlAttachmentState,
     ReviewerAcceptanceState,
@@ -18,15 +21,6 @@ from .reviewer_runtime_models import (
     ReviewerSessionOwnerState,
     remote_control_attachment_from_mapping,
 )
-
-
-def _resolved_reviewer_mode(*values: object) -> str:
-    """Resolve reviewer mode from ordered values and fail closed to tools_only."""
-    for value in values:
-        raw = _string(value)
-        if raw:
-            return normalize_reviewer_mode(raw)
-    return "tools_only"
 
 
 def reviewer_runtime_state_from_payload(
@@ -84,16 +78,20 @@ def _typed_reviewer_runtime_state(
         reviewer_runtime.get("remote_control_attachment")
     )
     review_accepted = _bool(review_acceptance.get("review_accepted"))
-    reviewer_mode = _resolved_reviewer_mode(
+    reviewer_mode = resolve_reviewer_mode(
         reviewer_runtime.get("reviewer_mode"),
         bridge.get("reviewer_mode"),
         bridge.get("effective_reviewer_mode"),
     )
-    effective_reviewer_mode = _resolved_reviewer_mode(
+    effective_reviewer_mode = resolve_reviewer_mode(
         reviewer_runtime.get("effective_reviewer_mode"),
         bridge.get("effective_reviewer_mode"),
         reviewer_runtime.get("reviewer_mode"),
         bridge.get("reviewer_mode"),
+    )
+    reviewer_mode = authority_reviewer_mode(
+        reviewer_mode,
+        effective_reviewer_mode,
     )
     stale_reason = _stale_reason(
         reviewer_runtime.get("stale_reason"), attention_status=attention_status
@@ -132,7 +130,9 @@ def _typed_reviewer_runtime_state(
         last_poll=ReviewerLastPollState(
             last_codex_poll_utc=_string(last_poll.get("last_codex_poll_utc"))
             or _string(bridge.get("last_codex_poll_utc")),
-            last_codex_poll_age_seconds=_int(last_poll.get("last_codex_poll_age_seconds"))
+            last_codex_poll_age_seconds=_int(
+                last_poll.get("last_codex_poll_age_seconds")
+            )
             or _int(bridge.get("last_codex_poll_age_seconds"))
             or _int(bridge_liveness.get("last_codex_poll_age_seconds")),
             last_reviewer_poll_utc=_string(last_poll.get("last_reviewer_poll_utc"))
@@ -192,13 +192,17 @@ def _bridge_reviewer_runtime_state(
     attention_status: str,
     recovery_command: str,
 ) -> ReviewerRuntimeContract:
-    reviewer_mode = _resolved_reviewer_mode(
+    reviewer_mode = resolve_reviewer_mode(
         bridge.get("reviewer_mode"),
         bridge.get("effective_reviewer_mode"),
     )
-    effective_reviewer_mode = _resolved_reviewer_mode(
+    effective_reviewer_mode = resolve_reviewer_mode(
         bridge.get("effective_reviewer_mode"),
         bridge.get("reviewer_mode"),
+    )
+    reviewer_mode = authority_reviewer_mode(
+        reviewer_mode,
+        effective_reviewer_mode,
     )
     implementer_ack_current = _implementer_ack_current(
         reviewer_runtime={},

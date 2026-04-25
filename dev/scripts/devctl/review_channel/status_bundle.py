@@ -155,7 +155,7 @@ def _build_status_review_state(
             reviewer_accepted_implementer_state_hash_override=(
                 context.reviewer_accepted_implementer_state_hash_override
             ),
-            pending_packets=pending_queue.pending_packets,
+            pending_packets=pending_queue.control_packets,
             stale_packet_count=pending_queue.stale_packet_count,
         ),
         snapshot=snapshot,

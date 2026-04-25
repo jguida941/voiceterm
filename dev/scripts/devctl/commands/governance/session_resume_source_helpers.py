@@ -47,6 +47,7 @@ class AuthorityPayloadInputs:
     packet_inbox: PacketInboxState | None
     next_command: str
     push_governance: dict[str, Any]
+    collaboration: dict[str, Any] | None = None
 
 
 def resolve_open_findings(
@@ -57,7 +58,8 @@ def resolve_open_findings(
 ) -> str:
     try:
         backlog = load_finding_backlog(repo_root=repo_root, governance=governance)
-    except Exception:  # broad-except: allow reason=best-effort backlog summary must degrade to the packet-derived count on load or parse failure. fallback=return fallback
+    # broad-except: allow reason=best-effort backlog summary may fail on partial backlog state fallback=return packet-derived count
+    except Exception:
         return fallback
     if backlog.total_rows <= 0:
         return fallback
@@ -91,6 +93,7 @@ def build_authority_payload(
         ),
         next_command=payload_inputs.next_command,
         governance=payload_inputs.push_governance,
+        collaboration=payload_inputs.collaboration,
     ).to_dict()
 
 
@@ -150,7 +153,9 @@ def extract_review_candidate(
             return candidate
         review_state = payload.get("review_state")
         if isinstance(review_state, dict):
-            candidate = review_candidate_from_mapping(review_state.get("review_candidate"))
+            candidate = review_candidate_from_mapping(
+                review_state.get("review_candidate")
+            )
             if candidate is not None:
                 return candidate
     return None
@@ -197,11 +202,13 @@ def _load_governed_sources(
     if review_state is not None:
         base["review_state"] = review_state.to_dict()
 
-    gov_paths = getattr(_support, "resolve_source_paths")(repo_root, governance=governance)
+    gov_paths = getattr(_support, "resolve_source_paths")(
+        repo_root, governance=governance
+    )
     compact_path = repo_root / gov_paths["compact"]
-    base["compact_json"] = getattr(
-        _support, "read_json_artifact", read_json_artifact
-    )(compact_path)
+    base["compact_json"] = getattr(_support, "read_json_artifact", read_json_artifact)(
+        compact_path
+    )
     return base
 
 
@@ -214,10 +221,14 @@ def _load_session_resume_sources_and_model(
     read_model_override: "ControlPlaneReadModel | None",
     sources_override: dict[str, Any] | None,
 ) -> tuple[dict[str, Any], ControlPlaneReadModel]:
-    sources = sources_override if sources_override is not None else _load_governed_sources(
-        repo_root,
-        governance=governance,
-        review_state=review_state,
+    sources = (
+        sources_override
+        if sources_override is not None
+        else _load_governed_sources(
+            repo_root,
+            governance=governance,
+            review_state=review_state,
+        )
     )
     from . import session_resume_support as _support
 

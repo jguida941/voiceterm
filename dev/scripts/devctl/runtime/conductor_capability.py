@@ -11,11 +11,13 @@ from .role_profile import TandemRole, normalize_tandem_role, role_for_provider
 # named plain ``python`` and pyenv shims that resolve to broken
 # 3.10 both flow through the same portable resolution.
 _DEVCTL_INTERPRETER = devctl_interpreter()
-_STARTUP_CONTEXT_BASE_COMMAND = f"{_DEVCTL_INTERPRETER} dev/scripts/devctl.py startup-context"
-_SESSION_RESUME_BASE_COMMAND = f"{_DEVCTL_INTERPRETER} dev/scripts/devctl.py session-resume"
-_CONTEXT_GRAPH_BOOTSTRAP_COMMAND = (
-    f"{_DEVCTL_INTERPRETER} dev/scripts/devctl.py context-graph --mode bootstrap --format md"
+_STARTUP_CONTEXT_BASE_COMMAND = (
+    f"{_DEVCTL_INTERPRETER} dev/scripts/devctl.py startup-context"
 )
+_SESSION_RESUME_BASE_COMMAND = (
+    f"{_DEVCTL_INTERPRETER} dev/scripts/devctl.py session-resume"
+)
+_CONTEXT_GRAPH_BOOTSTRAP_COMMAND = f"{_DEVCTL_INTERPRETER} dev/scripts/devctl.py context-graph --mode bootstrap --format md"
 _DEFAULT_REVIEWER_MODE = "tools_only"
 _KNOWN_REVIEWER_MODES = {
     "active_dual_agent",
@@ -56,9 +58,7 @@ def build_conductor_capability_state(
     role: str | None = None,
 ) -> ConductorCapabilityState:
     """Return the typed execution capability for one conductor."""
-    resolved_role = (
-        normalize_tandem_role(role) or role_for_provider(provider)
-    ).value
+    resolved_role = (normalize_tandem_role(role) or role_for_provider(provider)).value
     normalized_mode = normalize_reviewer_mode(reviewer_mode)
     if resolved_role == TandemRole.REVIEWER.value:
         return _reviewer_capability(
@@ -92,6 +92,27 @@ def normalize_reviewer_mode(reviewer_mode: str) -> str:
     if normalized in _KNOWN_REVIEWER_MODES:
         return normalized
     return _DEFAULT_REVIEWER_MODE
+
+
+def resolve_reviewer_mode(*values: object) -> str:
+    """Resolve reviewer mode from ordered values and fail closed."""
+    for value in values:
+        raw = str(value or "").strip()
+        if raw:
+            return normalize_reviewer_mode(raw)
+    return _DEFAULT_REVIEWER_MODE
+
+
+def authority_reviewer_mode(
+    reviewer_mode: str,
+    effective_reviewer_mode: str = "",
+) -> str:
+    """Return the reviewer mode that typed authority consumers should trust."""
+    mode = normalize_reviewer_mode(reviewer_mode)
+    effective_mode = normalize_reviewer_mode(effective_reviewer_mode)
+    if effective_mode == "active_dual_agent":
+        return effective_mode
+    return mode
 
 
 def _reviewer_capability(

@@ -18,6 +18,7 @@ class AuthorityInstructionInputs:
     actor_identity: str
     coordination_has_actors: bool
     current_instruction: str
+    current_instruction_source_packet_id: str
     coordination_current_slice: str
 
 
@@ -81,6 +82,9 @@ def instruction_requires_clear(inputs: AuthorityInstructionInputs) -> bool:
     ).strip()
     if not target_packet_id:
         return reviewer_clear
+
+    if target_packet_id == str(inputs.current_instruction_source_packet_id or "").strip():
+        return False
 
     target_agent = str(getattr(inputs.packet_target, "agent", "") or "").strip().lower()
     if not target_agent:

@@ -262,6 +262,10 @@ not authorize a repo-wide cleanup pass outside the bounded execution slice.
    - `bridge.md` `## Action Requests` remains compatibility projection only. It
      may summarize pending action packets, but it must not become a second
      execution queue or parser-owned authority surface.
+   - Packet transport receipts are not implementer ACKs. `ack`, `apply`, and
+     `dismiss` update packet lifecycle only; the implementer ACK contract still
+     requires `Claude Ack` / typed `current_session` evidence for the current
+     instruction revision.
 3. Check and violation evidence
    - Add one typed `CheckResult` owner for per-check execution state plus one
      typed `ViolationRecord` row for normalized file/line/policy/fix detail.

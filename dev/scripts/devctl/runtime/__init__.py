@@ -1,14 +1,5 @@
 """Shared runtime contracts for reusable governance frontends."""
 
-from .auto_mode import (
-    AUTO_MODE_CONTRACT_ID,
-    AUTO_MODE_SCHEMA_VERSION,
-    AutoModeInputs,
-    AutoModePhase,
-    AutoModeState,
-    auto_mode_state_from_mapping,
-    resolve_auto_mode_phase,
-)
 from .action_contracts import (
     ACTION_RESULT_CONTRACT_ID,
     ACTION_RESULT_SCHEMA_VERSION,
@@ -24,6 +15,15 @@ from .action_contracts import (
     typed_action_from_mapping,
     workflow_adapter_from_mapping,
 )
+from .auto_mode import (
+    AUTO_MODE_CONTRACT_ID,
+    AUTO_MODE_SCHEMA_VERSION,
+    AutoModeInputs,
+    AutoModePhase,
+    AutoModeState,
+    auto_mode_state_from_mapping,
+    resolve_auto_mode_phase,
+)
 from .check_result_models import (
     CHECK_RESULT_CONTRACT_ID,
     CHECK_RESULT_SCHEMA_VERSION,
@@ -31,10 +31,7 @@ from .check_result_models import (
     ViolationRecord,
     build_check_result,
 )
-from .check_result_render import (
-    render_check_result_md,
-    render_check_result_text,
-)
+from .check_result_render import render_check_result_md, render_check_result_text
 from .control_plane_read_model import (
     CONTROL_PLANE_READ_MODEL_CONTRACT_ID,
     CONTROL_PLANE_READ_MODEL_SCHEMA_VERSION,
@@ -53,18 +50,19 @@ from .control_state import (
     build_control_state,
     control_state_from_payload,
 )
-from .operator_context import (
-    OperatorContext,
-    OperatorInteractionMode,
-    operator_context_from_mapping,
+from .failure_packet import (
+    FAILURE_PACKET_CONTRACT_ID,
+    FAILURE_PACKET_SCHEMA_VERSION,
+    FailureCase,
+    FailurePacket,
+    collect_failure_packet,
+    failure_packet_from_mapping,
 )
 from .finding_contracts import (
     DECISION_PACKET_CONTRACT_ID,
     DECISION_PACKET_SCHEMA_VERSION,
-    DecisionPacketPolicy,
     FINDING_CONTRACT_ID,
     FINDING_SCHEMA_VERSION,
-    FindingIdentitySeed,
     PROBE_ALLOWLIST_CONTRACT_ID,
     PROBE_ALLOWLIST_SCHEMA_VERSION,
     PROBE_REPORT_CONTRACT_ID,
@@ -80,20 +78,14 @@ from .finding_contracts import (
     REVIEW_PACKET_SCHEMA_VERSION,
     REVIEW_TARGETS_CONTRACT_ID,
     REVIEW_TARGETS_SCHEMA_VERSION,
+    DecisionPacketPolicy,
     DecisionPacketRecord,
+    FindingIdentitySeed,
     FindingRecord,
     build_finding_id,
     decision_packet_from_finding,
     enrich_probe_hint_contract,
     finding_from_probe_hint,
-)
-from .failure_packet import (
-    FAILURE_PACKET_CONTRACT_ID,
-    FAILURE_PACKET_SCHEMA_VERSION,
-    FailureCase,
-    FailurePacket,
-    collect_failure_packet,
-    failure_packet_from_mapping,
 )
 from .guard_finding_contracts import (
     GUARD_RULE_VERSION,
@@ -104,6 +96,11 @@ from .machine_output import (
     clear_machine_output_metrics,
     consume_machine_output_metrics,
     emit_machine_artifact_output,
+)
+from .operator_context import (
+    OperatorContext,
+    OperatorInteractionMode,
+    operator_context_from_mapping,
 )
 from .project_governance import (
     PROJECT_GOVERNANCE_CONTRACT_ID,
@@ -141,10 +138,19 @@ from .project_governance import (
     repo_identity_from_mapping,
     repo_pack_ref_from_mapping,
 )
+from .remote_commit_pipeline_models import (
+    CommitIntentState,
+    PushAuthorizationRecord,
+    RemoteCommitPipelineContract,
+    commit_intent_state_from_mapping,
+    remote_commit_pipeline_contract_from_mapping,
+)
 from .review_state import (
+    ActorAuthorityState,
+    AgentAttentionRecord,
     AgentRegistryEntryState,
     AgentRegistryState,
-    AgentAttentionRecord,
+    CapabilityGrantState,
     CollaborationArbitrationState,
     CollaborationParticipantState,
     CollaborationPeerReviewState,
@@ -161,19 +167,12 @@ from .review_state import (
     RecoveryEvidenceState,
     ReviewAttentionState,
     ReviewBridgeState,
-    ReviewPacketState,
     ReviewCurrentSessionState,
+    ReviewPacketState,
     ReviewQueueState,
     ReviewSessionState,
     ReviewState,
     review_state_from_payload,
-)
-from .remote_commit_pipeline_models import (
-    CommitIntentState,
-    PushAuthorizationRecord,
-    RemoteCommitPipelineContract,
-    commit_intent_state_from_mapping,
-    remote_commit_pipeline_contract_from_mapping,
 )
 from .role_profile import (
     RoleProfile,
@@ -200,6 +199,7 @@ __all__ = [
     "AgentRegistryEntryState",
     "AgentRegistryState",
     "AgentAttentionRecord",
+    "ActorAuthorityState",
     "ApprovalPolicyState",
     "CollaborationArbitrationState",
     "CollaborationParticipantState",
@@ -217,6 +217,7 @@ __all__ = [
     "DocRegistry",
     "DocRegistryEntry",
     "ContextPackRefState",
+    "CapabilityGrantState",
     "CommitIntentState",
     "PacketInboxState",
     "PushAuthorizationRecord",

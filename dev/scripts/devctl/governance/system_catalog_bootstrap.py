@@ -63,6 +63,18 @@ def _startup_bootstrap_commands(
             ),
         ),
         _entry(
+            command_id="system_map_connectivity",
+            label="Typed connectivity index",
+            command="python3 dev/scripts/devctl.py system-map --format md",
+            description="Generated SYSTEM_MAP connectivity snapshot from repo-pack and typed platform contracts.",
+            links=CatalogBootstrapLinks(
+                command_names=("system-map", "render-surfaces"),
+                surface_ids=("system_map_index",),
+                contract_ids=("SystemMapSnapshot", "ConnectivityRegistrySnapshot"),
+                plan_paths=("dev/active/ai_governance_platform.md",),
+            ),
+        ),
+        _entry(
             command_id="session_resume_reviewer",
             label="Reviewer bootstrap packet",
             command=session_resume_command_for_role("reviewer"),

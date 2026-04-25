@@ -9,6 +9,51 @@ from dev.scripts.devctl.runtime import review_state_from_payload
 
 
 class ReviewStateTests(unittest.TestCase):
+    def test_review_state_parser_rebuilds_packet_inbox_from_live_control_packets(self) -> None:
+        state = review_state_from_payload(
+            {
+                "schema_version": 1,
+                "command": "review-channel",
+                "action": "status",
+                "ok": True,
+                "packets": [
+                    {
+                        "packet_id": "rev_pkt_1818",
+                        "status": "acked",
+                        "summary": "Run governed checkpoint",
+                        "kind": "action_request",
+                        "from_agent": "codex",
+                        "to_agent": "claude",
+                        "execution_started_at_utc": "2026-04-25T02:23:03Z",
+                        "expires_at_utc": "2999-01-01T00:00:00Z",
+                    }
+                ],
+                "packet_inbox": {
+                    "attention_revision": "stale",
+                    "agents": [
+                        {
+                            "agent": "claude",
+                            "current_instruction_packet_id": "",
+                            "latest_finding_packet_id": "",
+                            "pending_actionable_packet_ids": [],
+                            "expired_unresolved_packet_ids": [],
+                            "attention_status": "none",
+                            "wake_reason": "",
+                            "required_command": "",
+                            "attention_revision": "stale-claude",
+                            "delivery_state": "idle",
+                        }
+                    ],
+                },
+            }
+        )
+
+        self.assertIsNotNone(state)
+        claude = state.packet_inbox.for_agent("claude")
+        self.assertIsNotNone(claude)
+        self.assertEqual(claude.current_instruction_packet_id, "rev_pkt_1818")
+        self.assertEqual(claude.pending_actionable_packet_ids, ("rev_pkt_1818",))
+
     def test_review_state_from_full_projection_normalizes_packets_and_registry(self) -> None:
         state = review_state_from_payload(
             {

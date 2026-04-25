@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
+import json
 from collections.abc import Mapping
 from dataclasses import asdict, dataclass
 from hashlib import sha256
-import json
 from pathlib import Path
 
 from ...review_channel.handoff import (
@@ -84,7 +84,7 @@ def build_bridge_poll_result(
         open_findings=_section_text(snapshot, "Open Findings"),
         current_instruction=authority.current_instruction,
         current_instruction_revision=authority.current_instruction_revision,
-        reviewer_mode=liveness.reviewer_mode,
+        reviewer_mode=authority.reviewer_mode,
         effective_reviewer_mode=authority.effective_reviewer_mode,
         reviewer_freshness=liveness.reviewer_freshness,
         launch_truth=authority.launch_truth,
@@ -138,7 +138,9 @@ def load_typed_poll_authority(
     """
     bridge_path = paths.bridge_path if isinstance(paths.bridge_path, Path) else None
     review_channel_path = (
-        paths.review_channel_path if isinstance(paths.review_channel_path, Path) else None
+        paths.review_channel_path
+        if isinstance(paths.review_channel_path, Path)
+        else None
     )
     status_dir = paths.status_dir if isinstance(paths.status_dir, Path) else None
     if bridge_path is None or review_channel_path is None or status_dir is None:

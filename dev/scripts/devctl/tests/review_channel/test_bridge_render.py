@@ -20,36 +20,36 @@ from dev.scripts.devctl.commands.review_channel.status_bridge_sync import (
     bridge_current_session_drifted,
     sync_bridge_from_typed_projection_if_needed,
 )
-from dev.scripts.devctl.review_channel.bridge_section_validation import (
-    find_embedded_markdown_headings,
-)
-from dev.scripts.devctl.review_channel.current_session_projection import (
-    bridge_implementer_state_hash,
-)
-from dev.scripts.devctl.review_channel.bridge_projection_metadata import (
-    format_local_poll_time,
-    normalize_poll_time,
-)
-from dev.scripts.devctl.review_channel.bridge_validation_poll_status import (
-    poll_status_is_automation_only_refresh,
-)
-from dev.scripts.devctl.review_channel.handoff import extract_bridge_snapshot
-from dev.scripts.devctl.review_channel.bridge_sanitize import (
-    BRIDGE_SECTION_LINE_LIMITS,
-    sanitize_bridge_sections,
-)
 from dev.scripts.devctl.review_channel.bridge_projection import (
     bridge_hygiene_errors,
     bridge_projection_state_to_dict,
     build_bridge_projection_state,
     render_bridge_projection,
 )
-from dev.scripts.devctl.review_channel.reviewer_state_normalize import (
-    instruction_revision,
+from dev.scripts.devctl.review_channel.bridge_projection_metadata import (
+    format_local_poll_time,
+    normalize_poll_time,
 )
+from dev.scripts.devctl.review_channel.bridge_sanitize import (
+    BRIDGE_SECTION_LINE_LIMITS,
+    sanitize_bridge_sections,
+)
+from dev.scripts.devctl.review_channel.bridge_section_validation import (
+    find_embedded_markdown_headings,
+)
+from dev.scripts.devctl.review_channel.bridge_validation_poll_status import (
+    poll_status_is_automation_only_refresh,
+)
+from dev.scripts.devctl.review_channel.current_session_projection import (
+    bridge_implementer_state_hash,
+)
+from dev.scripts.devctl.review_channel.handoff import extract_bridge_snapshot
 from dev.scripts.devctl.review_channel.promotion_support import (
     InstructionRewriteContext,
     rewrite_instruction_and_metadata,
+)
+from dev.scripts.devctl.review_channel.reviewer_state_normalize import (
+    instruction_revision,
 )
 
 
@@ -280,7 +280,9 @@ def test_render_bridge_projection_drops_transcript_noise_and_extra_sections() ->
     assert bridge_hygiene_errors(rendered) == []
 
 
-def test_render_bridge_projection_recovers_blank_poll_metadata_from_typed_bridge_state() -> None:
+def test_render_bridge_projection_recovers_blank_poll_metadata_from_typed_bridge_state() -> (
+    None
+):
     blank_bridge_text = re.sub(
         r"- Last Codex poll: `[^`]*`",
         "- Last Codex poll: ``",
@@ -319,6 +321,50 @@ def test_render_bridge_projection_recovers_blank_poll_metadata_from_typed_bridge
     ) in rendered
 
 
+def test_render_bridge_projection_prefers_newer_typed_poll_over_stale_bridge() -> (
+    None
+):
+    stale_poll_utc = "2026-04-24T17:05:00Z"
+    fresh_poll_utc = "2026-04-25T13:00:20.439180Z"
+    normalized_fresh_poll_utc = normalize_poll_time(fresh_poll_utc)
+    stale_bridge_text = re.sub(
+        r"- Last Codex poll: `[^`]*`",
+        f"- Last Codex poll: `{stale_poll_utc}`",
+        _bridge_text(),
+    )
+    stale_bridge_text = re.sub(
+        r"- Last Codex poll \(Local [^)]+\): `[^`]*`",
+        "- Last Codex poll (Local America/New_York): `2026-04-24 13:05:00 EDT`",
+        stale_bridge_text,
+    )
+    projection_state = build_bridge_projection_state(
+        bridge_text=stale_bridge_text,
+        bridge_liveness={},
+    )
+
+    rendered, _ = render_bridge_projection(
+        review_state={
+            "_compat": {
+                "bridge_projection": bridge_projection_state_to_dict(
+                    projection_state
+                ),
+            },
+            "bridge": {
+                "last_codex_poll_utc": fresh_poll_utc,
+                "last_reviewer_poll_utc": fresh_poll_utc,
+                "reviewer_mode": "active_dual_agent",
+            },
+        },
+        last_worktree_hash="b" * 64,
+    )
+
+    assert f"- Last Codex poll: `{normalized_fresh_poll_utc}`" in rendered
+    assert (
+        "- Last Codex poll (Local America/New_York): "
+        f"`{format_local_poll_time(normalized_fresh_poll_utc)}`"
+    ) in rendered
+
+
 def test_build_bridge_projection_state_clears_automation_only_poll_status() -> None:
     automation_only_bridge = _bridge_text().replace(
         "- Reviewer heartbeat refreshed through repo-owned tooling.",
@@ -338,7 +384,9 @@ def test_build_bridge_projection_state_clears_automation_only_poll_status() -> N
     )
 
 
-def test_render_bridge_projection_replaces_automation_only_poll_status_with_typed_fallback() -> None:
+def test_render_bridge_projection_replaces_automation_only_poll_status_with_typed_fallback() -> (
+    None
+):
     automation_only_bridge = _bridge_text().replace(
         "- Reviewer heartbeat refreshed through repo-owned tooling.",
         "- Reviewer heartbeat refreshed through repo-owned tooling "
@@ -428,7 +476,9 @@ def test_render_bridge_projection_falls_back_when_fixed_sections_missing() -> No
     assert bridge_hygiene_errors(rendered) == []
 
 
-def test_render_bridge_projection_overrides_stale_compat_sections_with_typed_authority() -> None:
+def test_render_bridge_projection_overrides_stale_compat_sections_with_typed_authority() -> (
+    None
+):
     review_state = _typed_review_state(_bridge_text())
     review_state["current_session"] = {
         "current_instruction": "- typed authority instruction",
@@ -455,7 +505,10 @@ def test_render_bridge_projection_overrides_stale_compat_sections_with_typed_aut
     )
     snapshot = extract_bridge_snapshot(rendered)
 
-    assert snapshot.sections["Current Instruction For Claude"] == "- typed authority instruction"
+    assert (
+        snapshot.sections["Current Instruction For Claude"]
+        == "- typed authority instruction"
+    )
     assert snapshot.sections["Claude Status"] == "- typed status"
     assert snapshot.sections["Claude Ack"] == "- typed ack"
     assert snapshot.sections["Open Findings"] == "- typed finding"
@@ -490,7 +543,9 @@ def test_render_bridge_projection_preserves_nested_instruction_bullets() -> None
     assert f"- Current instruction revision: `{revision}`" in rendered
 
 
-def test_render_bridge_projection_clears_stale_claude_status_when_typed_status_missing() -> None:
+def test_render_bridge_projection_clears_stale_claude_status_when_typed_status_missing() -> (
+    None
+):
     review_state = _typed_review_state(_bridge_text())
     review_state["current_session"] = {
         "current_instruction": "- typed authority instruction",
@@ -507,7 +562,9 @@ def test_render_bridge_projection_clears_stale_claude_status_when_typed_status_m
     assert snapshot.sections["Claude Status"] == "- Status unavailable."
 
 
-def test_render_bridge_projection_clears_stale_instruction_when_typed_instruction_missing() -> None:
+def test_render_bridge_projection_clears_stale_instruction_when_typed_instruction_missing() -> (
+    None
+):
     review_state = _typed_review_state(_bridge_text())
     review_state["current_session"] = {
         "current_instruction": "",
@@ -527,10 +584,14 @@ def test_render_bridge_projection_clears_stale_instruction_when_typed_instructio
     assert snapshot.sections["Current Instruction For Claude"] == (
         "- Await reviewer instruction refresh."
     )
-    assert snapshot.sections["Open Findings"] == "193 expired unresolved review packet(s)"
+    assert (
+        snapshot.sections["Open Findings"] == "193 expired unresolved review packet(s)"
+    )
 
 
-def test_render_bridge_projection_clears_revision_for_missing_instruction_placeholder() -> None:
+def test_render_bridge_projection_clears_revision_for_missing_instruction_placeholder() -> (
+    None
+):
     review_state = _typed_review_state(_bridge_text())
     review_state["current_session"] = {
         "current_instruction": "(missing)",
@@ -551,7 +612,9 @@ def test_render_bridge_projection_clears_revision_for_missing_instruction_placeh
     assert snapshot.metadata.get("current_instruction_revision", "") == ""
 
 
-def test_render_bridge_projection_uses_checkpoint_instruction_when_attention_requires_checkpoint() -> None:
+def test_render_bridge_projection_uses_checkpoint_instruction_when_attention_requires_checkpoint() -> (
+    None
+):
     review_state = _typed_review_state(_bridge_text())
     review_state["current_session"] = {
         "current_instruction": "",
@@ -572,18 +635,23 @@ def test_render_bridge_projection_uses_checkpoint_instruction_when_attention_req
     )
     snapshot = extract_bridge_snapshot(rendered)
 
-    assert "Await reviewer instruction refresh" not in snapshot.sections[
-        "Current Instruction For Claude"
-    ]
-    assert "Cut a checkpoint before continuing to edit." in snapshot.sections[
-        "Current Instruction For Claude"
-    ]
-    assert 'python3 dev/scripts/devctl.py commit -m "<descriptive message>"' in snapshot.sections[
-        "Current Instruction For Claude"
-    ]
-    assert "stale compat instruction" not in snapshot.sections[
-        "Current Instruction For Claude"
-    ]
+    assert (
+        "Await reviewer instruction refresh"
+        not in snapshot.sections["Current Instruction For Claude"]
+    )
+    assert (
+        "Cut a checkpoint before continuing to edit."
+        in snapshot.sections["Current Instruction For Claude"]
+    )
+    assert (
+        'python3 dev/scripts/devctl.py commit -m "<descriptive message>"'
+        in snapshot.sections["Current Instruction For Claude"]
+    )
+    assert (
+        "stale compat instruction"
+        not in snapshot.sections["Current Instruction For Claude"]
+    )
+    assert snapshot.metadata.get("current_instruction_revision", "") == ""
 
 
 def test_render_bridge_projection_tracks_swapped_reviewer_and_implementer() -> None:
@@ -612,7 +680,9 @@ def test_render_bridge_projection_tracks_swapped_reviewer_and_implementer() -> N
     ) in rendered
 
 
-def test_render_bridge_projection_drops_duplicate_packet_heading_and_stays_idempotent() -> None:
+def test_render_bridge_projection_drops_duplicate_packet_heading_and_stays_idempotent() -> (
+    None
+):
     dirty_bridge = _bridge_text().replace(
         "## Last Reviewed Scope",
         "\n".join(
@@ -643,7 +713,9 @@ def test_render_bridge_projection_drops_duplicate_packet_heading_and_stays_idemp
     assert bridge_hygiene_errors(rendered_twice) == []
 
 
-def test_find_embedded_markdown_headings_detects_flat_bridge_contract_violation() -> None:
+def test_find_embedded_markdown_headings_detects_flat_bridge_contract_violation() -> (
+    None
+):
     assert find_embedded_markdown_headings(
         "\n".join(
             [
@@ -703,7 +775,9 @@ def test_instruction_rewrite_rejects_stale_implementer_state_hash() -> None:
         )
 
 
-def test_render_bridge_projection_rejects_embedded_markdown_headings_in_typed_sections() -> None:
+def test_render_bridge_projection_rejects_embedded_markdown_headings_in_typed_sections() -> (
+    None
+):
     review_state = _typed_review_state(_bridge_text())
     review_state["_compat"]["bridge_projection"]["sections"][
         "Current Instruction For Claude"
@@ -746,7 +820,9 @@ def test_render_bridge_projection_includes_full_reviewer_startup_contract() -> N
     assert "repair or relaunch boundary" in rendered
 
 
-def test_review_channel_render_bridge_action_rewrites_live_bridge(tmp_path: Path) -> None:
+def test_review_channel_render_bridge_action_rewrites_live_bridge(
+    tmp_path: Path,
+) -> None:
     root = tmp_path
     review_channel_path = root / "dev/active/review_channel.md"
     review_channel_path.parent.mkdir(parents=True, exist_ok=True)
@@ -907,13 +983,51 @@ def test_status_bridge_sync_does_not_reverse_fresh_bridge_checkpoint(
     )
 
     drifted = bridge_current_session_drifted(
-        ["Live bridge sections drift from persisted typed `current_session` authority."],
+        [
+            "Live bridge sections drift from persisted typed `current_session` authority."
+        ],
         bridge_path=bridge_path,
         review_state_path=review_state_path,
         bridge_liveness={"reviewer_freshness": "fresh"},
     )
 
     assert drifted is False
+
+
+def test_status_bridge_sync_does_not_reverse_newer_reviewer_heartbeat(
+    tmp_path: Path,
+) -> None:
+    root = tmp_path
+    bridge_path = root / "bridge.md"
+    bridge_text = _bridge_text()
+    bridge_text = re.sub(
+        r"- Last Codex poll: `[^`]*`",
+        "- Last Codex poll: `2026-04-24T17:05:00Z`",
+        bridge_text,
+    )
+    bridge_path.write_text(bridge_text, encoding="utf-8")
+    status_dir = root / "dev/reports/review_channel/latest"
+    status_dir.mkdir(parents=True, exist_ok=True)
+    review_state = _typed_review_state(bridge_text)
+    review_state["_compat"]["bridge_projection"]["metadata"][
+        "last_codex_poll_utc"
+    ] = "2026-04-24T17:00:00Z"
+    review_state_path = status_dir / "review_state.json"
+    review_state_path.write_text(json.dumps(review_state, indent=2), encoding="utf-8")
+
+    synced, warning = sync_bridge_from_typed_projection_if_needed(
+        repo_root=root,
+        bridge_path=bridge_path,
+        snapshot=SimpleNamespace(
+            projection_paths=SimpleNamespace(review_state_path=str(review_state_path))
+        ),
+    )
+
+    rewritten = bridge_path.read_text(encoding="utf-8")
+    assert synced is False
+    assert "reviewer-owned bridge heartbeat is newer" in warning
+    assert "- Reviewer mode: `active_dual_agent`" in rewritten
+    assert "- Last Codex poll: `2026-04-24T17:05:00Z`" in rewritten
 
 
 def test_status_bridge_sync_clears_stale_instruction_when_typed_projection_is_blank(
@@ -985,6 +1099,41 @@ def test_status_bridge_sync_prefers_effective_reviewer_mode_from_typed_state(
     assert "- Reviewer mode: `tools_only`" in rewritten
     assert "- Reviewer mode: `active_dual_agent`" not in rewritten
     assert "mode: active_dual_agent" not in rewritten
+
+
+def test_status_bridge_sync_projects_effective_live_mode_over_stale_tools_only(
+    tmp_path: Path,
+) -> None:
+    root = tmp_path
+    bridge_path = root / "bridge.md"
+    original = _bridge_text().replace(
+        "- Reviewer mode: `active_dual_agent`",
+        "- Reviewer mode: `tools_only`",
+    )
+    bridge_path.write_text(original, encoding="utf-8")
+    status_dir = root / "dev/reports/review_channel/latest"
+    status_dir.mkdir(parents=True, exist_ok=True)
+    review_state = _typed_review_state(original)
+    review_state["bridge"] = {
+        "reviewer_mode": "tools_only",
+        "effective_reviewer_mode": "active_dual_agent",
+    }
+    review_state_path = status_dir / "review_state.json"
+    review_state_path.write_text(json.dumps(review_state, indent=2), encoding="utf-8")
+
+    synced, warning = sync_bridge_from_typed_projection_if_needed(
+        repo_root=root,
+        bridge_path=bridge_path,
+        snapshot=SimpleNamespace(
+            projection_paths=SimpleNamespace(review_state_path=str(review_state_path))
+        ),
+    )
+
+    rewritten = bridge_path.read_text(encoding="utf-8")
+    assert synced is True
+    assert warning == ""
+    assert "- Reviewer mode: `active_dual_agent`" in rewritten
+    assert "- Reviewer mode: `tools_only`" not in rewritten
 
 
 def test_build_bridge_success_report_uses_typed_collaboration_runtime_counts() -> None:

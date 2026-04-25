@@ -48,9 +48,12 @@ def _add_preview_fields(
 def _load_bootstrap_links(repo_root: Path) -> dict[str, str | None]:
     """Load doc deep links from the governed surface policy."""
     try:
-        surface_ctx = load_surface_policy(repo_root=repo_root).context
+        policy = load_surface_policy(repo_root=repo_root)
+        surface_ctx = policy.context
+        connectivity_index = _connectivity_index_path(policy.surfaces)
     except (OSError, ValueError):
         surface_ctx = {}
+        connectivity_index = ""
 
     process_doc = str(surface_ctx.get("process_doc", "AGENTS.md"))
     execution_tracker = str(
@@ -59,8 +62,21 @@ def _load_bootstrap_links(repo_root: Path) -> dict[str, str | None]:
     active_registry = str(
         surface_ctx.get("active_registry_doc", "dev/active/INDEX.md")
     )
-    return {
+    links = {
         "sdlc_policy": process_doc,
         "execution_state": execution_tracker,
         "plan_registry": active_registry,
     }
+    if connectivity_index:
+        links["connectivity_index"] = connectivity_index
+    return links
+
+
+def _connectivity_index_path(surfaces: tuple[object, ...]) -> str:
+    for surface in surfaces:
+        if getattr(surface, "surface_type", "") != "connectivity_index":
+            continue
+        output_path = str(getattr(surface, "output_path", "") or "").strip()
+        if output_path:
+            return output_path
+    return ""

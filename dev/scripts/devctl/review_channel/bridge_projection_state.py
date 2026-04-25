@@ -145,8 +145,15 @@ def bridge_projection_metadata_lines(
     metadata = projection_state.metadata
     current_instruction = projection_state.sections["Current Instruction For Claude"]
     current_revision = metadata.get("current_instruction_revision", "").strip()
-    if not current_revision and current_instruction.strip() and not _is_placeholder_instruction(
-        current_instruction
+    typed_instruction_cleared = (
+        metadata.get("current_instruction_explicitly_cleared", "").strip().lower()
+        == "true"
+    )
+    if (
+        not typed_instruction_cleared
+        and not current_revision
+        and current_instruction.strip()
+        and not _is_placeholder_instruction(current_instruction)
     ):
         current_revision = hashlib.sha256(
             current_instruction.strip().encode("utf-8")

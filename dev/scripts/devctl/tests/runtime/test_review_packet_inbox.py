@@ -131,3 +131,34 @@ def test_packet_inbox_indexes_current_instruction_by_target_agent() -> None:
     assert codex is not None
     assert cursor.current_instruction_packet_id == "rev_pkt_cursor_1"
     assert codex.current_instruction_packet_id == ""
+
+
+def test_packet_inbox_keeps_acked_action_request_active_while_executing() -> None:
+    review_state = {
+        "packets": [
+            {
+                "packet_id": "rev_pkt_1818",
+                "status": "acked",
+                "summary": "Run governed checkpoint",
+                "body": "Run governed checkpoint",
+                "kind": "action_request",
+                "from_agent": "codex",
+                "to_agent": "claude",
+                "requested_action": "run_checkpoint",
+                "delivery_observed_at_utc": "2026-04-25T02:22:03Z",
+                "delivery_observed_by": "claude",
+                "execution_started_at_utc": "2026-04-25T02:23:03Z",
+                "execution_started_by": "claude",
+                "expires_at_utc": "2999-01-01T00:00:00Z",
+            }
+        ]
+    }
+
+    packet_inbox = packet_inbox_from_review_state(review_state)
+
+    assert packet_inbox is not None
+    claude = packet_inbox.for_agent("claude")
+    assert claude is not None
+    assert claude.current_instruction_packet_id == "rev_pkt_1818"
+    assert claude.pending_actionable_packet_ids == ("rev_pkt_1818",)
+    assert claude.delivery_state == "seen"

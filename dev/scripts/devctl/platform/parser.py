@@ -46,3 +46,16 @@ def add_system_picture_parser(sub: argparse._SubParsersAction) -> None:
     )
     add_standard_output_arguments(cmd, format_choices=("json", "md"))
     cmd.add_argument("--json-output")
+
+
+def add_system_map_parser(sub: argparse._SubParsersAction) -> None:
+    """Register the `system-map` parser."""
+    cmd = sub.add_parser(
+        "system-map",
+        help="Render the generated SYSTEM_MAP connectivity snapshot",
+    )
+    cmd.add_argument(
+        "--quality-policy",
+        help="Optional repo policy JSON file to resolve.",
+    )
+    add_standard_output_arguments(cmd, format_choices=("json", "md"))

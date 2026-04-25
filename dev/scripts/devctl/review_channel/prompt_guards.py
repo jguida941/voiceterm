@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
-from .ack_contract import ack_contract_prompt_line
+from .ack_contract import (
+    ack_contract_prompt_line,
+    packet_ack_is_transport_lifecycle_line,
+)
 from ..runtime.devctl_interpreter import devctl_interpreter
 from ..runtime.review_state_models import ConductorCapabilityState
 
@@ -142,8 +145,12 @@ def _reviewer_guard_lines(
             "`stage_commit_pipeline`. "
             "Do not write to the `## Action Requests` bridge section directly; "
             "it is a projection-only surface rendered from packet state. "
-            f"{counterpart_provider_name} will execute pending requests on the next packet poll."
+            f"{counterpart_provider_name} will execute pending requests on the next packet poll. "
+            "After posting, keep polling `review-channel --action status` or "
+            "the target watch/inbox lane until the packet is applied, "
+            "dismissed, or reports an explicit blocker."
         ),
+        packet_ack_is_transport_lifecycle_line(),
         (
             f"- If you are waiting on {counterpart_provider_name}-owned progress, ACK changes, or a "
             "fresh diff to review, use the repo-owned `review-channel --action "
@@ -198,10 +205,11 @@ def _implementer_guard_lines(
             "it posts a typed action request via "
             "`PacketPostRequest(kind=\"action_request\")` instead of "
             "waiting. Execute pending requests in order, then transition "
-            "each packet to `completed` or `failed` via the packet "
+            "each packet with `ack`, then `apply` or `dismiss` via the packet "
             "transport. Do not read or write the `## Action Requests` "
             "bridge section directly; it is a projection-only surface."
         ),
+        packet_ack_is_transport_lifecycle_line(),
         (
             "- Before you summarize state for the operator or ask a question "
             "based on rollover/handoff context, re-read the live reviewer-"

@@ -144,6 +144,10 @@ class RemoteCommitPipelineContract:
     zref: str = ""
     worktree_identity: str = ""
     attention_revision_lease: str = ""
+    local_delivery_receipt_path: str = ""
+    local_delivery_reason: str = ""
+    delivered_at_utc: str = ""
+    delivered_by: str = ""
 
     def to_dict(self) -> dict[str, object]:
         payload: dict[str, object] = {}
@@ -192,6 +196,10 @@ class RemoteCommitPipelineContract:
         payload["zref"] = self.zref
         payload["worktree_identity"] = self.worktree_identity
         payload["attention_revision_lease"] = self.attention_revision_lease
+        payload["local_delivery_receipt_path"] = self.local_delivery_receipt_path
+        payload["local_delivery_reason"] = self.local_delivery_reason
+        payload["delivered_at_utc"] = self.delivered_at_utc
+        payload["delivered_by"] = self.delivered_by
         return payload
 
 
@@ -305,6 +313,12 @@ def remote_commit_pipeline_contract_from_mapping(
         attention_revision_lease=coerce_string(
             mapping.get("attention_revision_lease")
         ),
+        local_delivery_receipt_path=coerce_string(
+            mapping.get("local_delivery_receipt_path")
+        ),
+        local_delivery_reason=coerce_string(mapping.get("local_delivery_reason")),
+        delivered_at_utc=coerce_string(mapping.get("delivered_at_utc")),
+        delivered_by=coerce_string(mapping.get("delivered_by")),
     )
 
 

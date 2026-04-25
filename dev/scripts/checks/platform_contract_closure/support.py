@@ -293,6 +293,12 @@ def evaluate_platform_contract_closure(
         if cp_violation is not None:
             violations.append(cp_violation)
 
+    from .typed_state_writer_authority import check_typed_state_writer_authority
+
+    writer_coverage, writer_violations = check_typed_state_writer_authority()
+    coverage_rows.append(writer_coverage)
+    violations.extend(writer_violations)
+
     route_rows: list[dict[str, object]] = []
     for route_check in field_routes.FIELD_ROUTE_CHECKS:
         route_coverage, route_violation = route_check()

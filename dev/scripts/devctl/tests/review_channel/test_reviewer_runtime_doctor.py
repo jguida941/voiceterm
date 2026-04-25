@@ -24,6 +24,11 @@ from dev.scripts.devctl.runtime.remote_commit_pipeline_models import (
 from dev.scripts.devctl.runtime.review_state_models import (
     ReviewAttentionState,
     ReviewCurrentSessionState,
+    ReviewQueueState,
+)
+from dev.scripts.devctl.runtime.review_state_packet_models import (
+    AgentAttentionRecord,
+    PacketInboxState,
 )
 from dev.scripts.devctl.runtime.review_state_collaboration_models import (
     CollaborationArbitrationState,
@@ -472,6 +477,63 @@ def test_attach_reviewer_runtime_snapshot_projects_authority_snapshot() -> None:
 
     doctor_report, _ = build_doctor_report(status_report=report, exit_code=1)
     assert doctor_report["authority_snapshot"]["coordination_state"] == "resync_required"
+
+
+def test_attach_reviewer_runtime_snapshot_preserves_packet_queue_authority() -> None:
+    instruction = "Priority action_request: Run governed checkpoint for actor-authority liveness slice"
+    review_state = SimpleNamespace(
+        reviewer_runtime=_runtime_contract(publish_clear=False),
+        commit_pipeline=RemoteCommitPipelineContract(),
+        current_session=ReviewCurrentSessionState(
+            current_instruction=instruction,
+            current_instruction_revision="rev-live",
+            implementer_status="assigned",
+            implementer_ack="",
+            implementer_ack_revision="",
+            implementer_ack_state="missing",
+        ),
+        queue=ReviewQueueState(
+            pending_total=0,
+            pending_codex=0,
+            pending_claude=0,
+            pending_cursor=0,
+            pending_operator=0,
+            stale_packet_count=778,
+            derived_next_instruction=instruction,
+            derived_next_instruction_source={
+                "packet_id": "rev_pkt_1818",
+                "packet_class": "action_request",
+            },
+        ),
+        packet_inbox=PacketInboxState(
+            attention_revision="attention-1",
+            agents=(
+                AgentAttentionRecord(
+                    agent="claude",
+                    current_instruction_packet_id="rev_pkt_1818",
+                    pending_actionable_packet_ids=("rev_pkt_1818",),
+                    attention_status="wake_required",
+                    wake_reason="action_request_pending",
+                ),
+            ),
+        ),
+        authority_snapshot=None,
+    )
+    report = {
+        "bridge_liveness": {},
+        "publisher": {"running": False},
+        "reviewer_supervisor": {"running": False},
+    }
+
+    attach_reviewer_runtime_snapshot(
+        report,
+        review_state=review_state,
+        attention={},
+    )
+
+    assert report["queue"]["derived_next_instruction_source"]["packet_id"] == "rev_pkt_1818"
+    assert report["authority_snapshot"]["current_instruction_revision"] == "rev-live"
+    assert report["authority_snapshot"]["current_slice"] == instruction
 
 
 def test_build_reviewer_doctor_surface_exposes_visibility_state() -> None:

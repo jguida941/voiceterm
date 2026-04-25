@@ -43,6 +43,7 @@ class GovernedMarkdownScanInputs:
     governed_doc_roots: tuple[str, ...]
     startup_order: tuple[str, ...]
     shared_backlog_path: str = ""
+    connectivity_index_paths: tuple[str, ...] = ()
 
 
 def _is_root_markdown_path(relative_path: str) -> bool:
@@ -82,6 +83,7 @@ def _build_governed_doc_layout(
             else ""
         ),
         root_files=tuple(sorted(root_files)),
+        connectivity_index_paths=inputs.connectivity_index_paths,
     )
 
 

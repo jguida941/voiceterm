@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+from textwrap import dedent
 from unittest.mock import patch
 
 from dev.scripts.checks.platform_contract_closure import field_routes
@@ -12,6 +14,9 @@ from dev.scripts.checks.platform_contract_closure.emitter_parity import (
 )
 from dev.scripts.checks.platform_contract_closure.support import (
     evaluate_platform_contract_closure,
+)
+from dev.scripts.checks.platform_contract_closure.typed_state_writer_authority import (
+    check_typed_state_writer_authority,
 )
 from dev.scripts.devctl.governance.surfaces import (
     RepoPackMetadata,
@@ -52,12 +57,91 @@ def _surface_policy_with_tokens(*tokens: str) -> SurfacePolicy:
         ),
     )
 
+
+def _synthetic_source(tmp_path: Path, rel_path: str, source: str) -> Path:
+    path = tmp_path / rel_path
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(dedent(source).strip() + "\n", encoding="utf-8")
+    return path
+
+
 def test_platform_contract_closure_passes_on_current_blueprint() -> None:
     report = build_report()
     assert report["ok"] is True
     assert report["checked_field_routes"] == 18
     assert report["checked_field_route_families"] == 11
     assert report["violations"] == []
+
+
+def test_typed_state_writer_authority_passes_current_repo() -> None:
+    coverage, violations = check_typed_state_writer_authority()
+    assert coverage["ok"] is True
+    assert violations == ()
+
+
+def test_typed_state_writer_authority_flags_current_session_constructor(
+    tmp_path: Path,
+) -> None:
+    source = _synthetic_source(
+        tmp_path,
+        "dev/scripts/devctl/review_channel/bad_current_session.py",
+        """
+        def bad():
+            return ReviewCurrentSessionState(current_instruction="x")
+        """,
+    )
+    coverage, violations = check_typed_state_writer_authority(python_files=(source,))
+    assert coverage["ok"] is False
+    assert len(violations) == 1
+    assert violations[0]["rule"] == "typed-state-writer-bypass"
+    assert violations[0]["field"] == "ReviewCurrentSessionState"
+
+
+def test_typed_state_writer_authority_flags_current_session_review_state_write(
+    tmp_path: Path,
+) -> None:
+    source = _synthetic_source(
+        tmp_path,
+        "dev/scripts/devctl/review_channel/bad_current_session_write.py",
+        """
+        def bad(review_state):
+            review_state["current_session"] = {"current_instruction": "x"}
+        """,
+    )
+    _coverage, violations = check_typed_state_writer_authority(python_files=(source,))
+    assert len(violations) == 1
+    assert violations[0]["field"] == "current_session"
+
+
+def test_typed_state_writer_authority_flags_reviewer_mode_projection_write(
+    tmp_path: Path,
+) -> None:
+    source = _synthetic_source(
+        tmp_path,
+        "dev/scripts/devctl/review_channel/bad_reviewer_mode.py",
+        """
+        def bad(payload):
+            payload["reviewer_mode"] = "active_dual_agent"
+        """,
+    )
+    _coverage, violations = check_typed_state_writer_authority(python_files=(source,))
+    assert len(violations) == 1
+    assert violations[0]["field"] == "reviewer_mode"
+
+
+def test_typed_state_writer_authority_ignores_test_fixtures(tmp_path: Path) -> None:
+    source = _synthetic_source(
+        tmp_path,
+        "dev/scripts/devctl/tests/bad_fixture.py",
+        """
+        def fixture(payload):
+            payload["reviewer_mode"] = "active_dual_agent"
+            return ReviewCurrentSessionState(current_instruction="x")
+        """,
+    )
+    coverage, violations = check_typed_state_writer_authority(python_files=(source,))
+    assert coverage["ok"] is True
+    assert violations == ()
 
 
 def test_platform_contract_closure_flags_runtime_field_drift() -> None:

@@ -16,6 +16,7 @@ SUPPORTED_ACTIONS: tuple[str, ...] = (
     "status",
     "recover",
     "abandon",
+    "mark-delivered-local",
     "refresh-authorization",
     "auto-recover",
 )
@@ -38,8 +39,8 @@ def add_pipeline_parser(sub: argparse._SubParsersAction) -> None:
         help=(
             "Recovery action. `status` is read-only; `auto-recover` "
             "classifies the pipeline and dispatches the correct "
-            "sub-action; the three explicit sub-actions (recover, "
-            "abandon, refresh-authorization) mutate the pipeline "
+            "sub-action; explicit sub-actions (recover, abandon, "
+            "mark-delivered-local, refresh-authorization) mutate the pipeline "
             "artifact and write a typed receipt."
         ),
     )
@@ -48,8 +49,8 @@ def add_pipeline_parser(sub: argparse._SubParsersAction) -> None:
         default="",
         help=(
             "Operator-supplied reason string. Required (min 10 chars) for "
-            "--action abandon; optional but recorded for recover and "
-            "refresh-authorization."
+            "--action abandon and mark-delivered-local; optional but recorded "
+            "for recover and refresh-authorization."
         ),
     )
     cmd.add_argument(

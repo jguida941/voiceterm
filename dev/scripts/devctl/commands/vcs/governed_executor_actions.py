@@ -11,7 +11,14 @@ from typing import Any
 from ...common import emit_output, write_output
 from ...review_channel.service_identity import worktree_identity_for_repo
 from ...runtime import TypedAction
-from ...runtime.remote_commit_pipeline_models import CommitIntentState, RemoteCommitPipelineContract
+from ...runtime.remote_commit_pipeline_models import (
+    CommitIntentState,
+    RemoteCommitPipelineContract,
+)
+from ...runtime.remote_commit_pipeline_state import (
+    ACTIVE_PIPELINE_STATES,
+    PUSHABLE_PIPELINE_STATES,
+)
 from ...time_utils import utc_timestamp
 from .governed_executor_field_access import string_value
 from .governed_executor_validation import build_validation_plan
@@ -22,19 +29,7 @@ PUSH_ACTION_ID = "vcs.push"
 RECOVER_ACTION_ID = "vcs.pipeline.recover"
 APPROVAL_PACKET_KIND = "commit_approval"
 
-_ACTIVE_PIPELINE_STATES = frozenset(
-    {
-        "drafted",
-        "staged",
-        "guards_running",
-        "guards_passed",
-        "operator_approval_pending",
-        "approved",
-        "commit_pending",
-        "commit_recorded",
-        "push_pending",
-    }
-)
+_ACTIVE_PIPELINE_STATES = ACTIVE_PIPELINE_STATES
 _RECOVERABLE_PIPELINE_STATES = frozenset(
     {
         "",
@@ -44,13 +39,7 @@ _RECOVERABLE_PIPELINE_STATES = frozenset(
         "push_completed",
     }
 )
-_PUSHABLE_PIPELINE_STATES = frozenset(
-    {
-        "commit_recorded",
-        "push_pending",
-        "push_blocked",
-    }
-)
+_PUSHABLE_PIPELINE_STATES = PUSHABLE_PIPELINE_STATES
 
 
 @dataclass(frozen=True, slots=True)

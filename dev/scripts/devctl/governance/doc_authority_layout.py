@@ -48,6 +48,11 @@ def load_governed_doc_layout(
         ),
         bridge_path=governance.bridge_config.bridge_path,
         root_files=tuple(sorted(root_files)),
+        connectivity_index_paths=tuple(
+            entry.path
+            for entry in governance.doc_registry.entries
+            if entry.artifact_role == "connectivity_index"
+        ),
     )
     return GovernedDocLayout(
         repo_root=layout.repo_root,
@@ -60,6 +65,7 @@ def load_governed_doc_layout(
         shared_backlog_path=layout.shared_backlog_path,
         bridge_path=layout.bridge_path,
         root_files=_collect_root_governed_docs(repo_root, layout, policy_path),
+        connectivity_index_paths=layout.connectivity_index_paths,
     )
 def registry_managed(relative_path: str, layout: GovernedDocLayout) -> bool:
     return registry_managed_path(

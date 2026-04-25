@@ -150,6 +150,8 @@ def _build_record(
 
 
 def _artifact_role(*, rel: str, doc_class: str, layout: GovernedDocLayout) -> str:
+    if rel in layout.connectivity_index_paths:
+        return "connectivity_index"
     if rel == layout.bridge_path:
         return "compatibility_projection"
     if rel == layout.docs_authority_path:
@@ -169,6 +171,8 @@ def _artifact_role(*, rel: str, doc_class: str, layout: GovernedDocLayout) -> st
 
 def _authority_kind(*, artifact_role: str, authority: str, doc_class: str) -> str:
     authority_text = authority.strip().lower()
+    if artifact_role == "connectivity_index":
+        return "generated_navigation"
     if artifact_role == "compatibility_projection":
         return "compatibility_only"
     if artifact_role == "shared_backlog":
@@ -203,6 +207,8 @@ def _system_scope(
         return "development_self_hosting"
     if artifact_role == "shared_backlog":
         return "repo_local"
+    if artifact_role == "connectivity_index":
+        return "platform_core"
     if artifact_role in {"plan_registry", "execution_tracker"}:
         return "platform_core"
     if artifact_role == "execution_plan":
@@ -219,6 +225,8 @@ def _system_scope(
 
 
 def _consumer_scope(*, artifact_role: str, system_scope: str) -> str:
+    if artifact_role == "connectivity_index":
+        return "startup_default"
     if artifact_role == "compatibility_projection":
         return "review_runtime"
     if artifact_role == "shared_backlog":

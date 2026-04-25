@@ -24,6 +24,7 @@ VALID_ACTIONS: tuple[str, ...] = (
     "status",
     "recover",
     "abandon",
+    "mark-delivered-local",
     "refresh-authorization",
 )
 

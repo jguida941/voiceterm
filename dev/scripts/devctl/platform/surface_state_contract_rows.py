@@ -298,6 +298,11 @@ SURFACE_STATE_CONTRACTS: tuple[ContractSpec, ...] = (
                 "Canonical packet-attention contract for session bootstrap.",
             ),
             ContractField(
+                "key_surfaces",
+                "tuple[str, ...]",
+                "Startup-visible generated/navigation surfaces such as the connectivity index.",
+            ),
+            ContractField(
                 "provenance",
                 "SurfaceProvenance | None",
                 "Shared proof-tick source provenance copied from the review-state producer.",
@@ -307,7 +312,12 @@ SURFACE_STATE_CONTRACTS: tuple[ContractSpec, ...] = (
             "dev.scripts.devctl.commands.governance.session_resume_support:"
             "SessionCachePacket"
         ),
-        startup_surface_tokens=("last_reviewed_sha", "advisory_action", "blockers"),
+        startup_surface_tokens=(
+            "last_reviewed_sha",
+            "advisory_action",
+            "key_surfaces",
+            "blockers",
+        ),
     ),
 )
 

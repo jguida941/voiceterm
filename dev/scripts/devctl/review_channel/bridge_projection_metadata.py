@@ -61,7 +61,8 @@ def projection_metadata(
     bridge_state: Mapping[str, object],
 ) -> dict[str, str]:
     current_instruction = str(sections.get("Current Instruction For Claude", "")).strip()
-    if _typed_instruction_explicitly_cleared(current_session):
+    typed_instruction_cleared = _typed_instruction_explicitly_cleared(current_session)
+    if typed_instruction_cleared:
         current_revision = ""
     else:
         current_revision = str(
@@ -72,7 +73,8 @@ def projection_metadata(
             or ""
         ).strip()
     if (
-        current_instruction
+        not typed_instruction_cleared
+        and current_instruction
         and not is_missing_instruction(current_instruction)
         and not _is_placeholder_instruction(current_instruction)
     ):
@@ -81,25 +83,27 @@ def projection_metadata(
         ).hexdigest()[:12]
         if not current_revision or current_revision != derived_revision:
             current_revision = derived_revision
-    last_codex_poll_utc = _first_text(
-        snapshot.metadata.get("last_codex_poll_utc"),
+    last_codex_poll_utc = _newest_poll_time(
         bridge_state.get("last_codex_poll_utc"),
         bridge_state.get("last_reviewer_poll_utc"),
         bridge_liveness.get("last_codex_poll_utc"),
         bridge_liveness.get("last_reviewer_poll_utc"),
-    )
-    last_codex_poll_local = _first_text(
-        snapshot.metadata.get("last_codex_poll_local"),
-        bridge_state.get("last_codex_poll_local"),
-        bridge_state.get("last_reviewer_poll_local"),
-        bridge_liveness.get("last_codex_poll_local"),
-        bridge_liveness.get("last_reviewer_poll_local"),
+        snapshot.metadata.get("last_codex_poll_utc"),
     )
     normalized_poll_utc = normalize_poll_time(last_codex_poll_utc)
     if normalized_poll_utc:
         last_codex_poll_utc = normalized_poll_utc
-    if not last_codex_poll_local and last_codex_poll_utc:
-        last_codex_poll_local = format_local_poll_time(last_codex_poll_utc)
+    last_codex_poll_local = (
+        format_local_poll_time(last_codex_poll_utc)
+        if last_codex_poll_utc
+        else _first_text(
+            bridge_state.get("last_codex_poll_local"),
+            bridge_state.get("last_reviewer_poll_local"),
+            bridge_liveness.get("last_codex_poll_local"),
+            bridge_liveness.get("last_reviewer_poll_local"),
+            snapshot.metadata.get("last_codex_poll_local"),
+        )
+    )
     reviewer_mode = resolve_reported_reviewer_mode(
         {
             # Compatibility projections must follow the validated runtime mode
@@ -118,6 +122,9 @@ def projection_metadata(
         "last_codex_poll_local": last_codex_poll_local,
         "reviewer_mode": reviewer_mode,
         "current_instruction_revision": current_revision,
+        "current_instruction_explicitly_cleared": (
+            "true" if typed_instruction_cleared else ""
+        ),
     }
 
 
@@ -134,6 +141,25 @@ def _first_text(*candidates: object) -> str:
         if value:
             return value
     return ""
+
+
+def _newest_poll_time(*candidates: object) -> str:
+    best_text = ""
+    best_parsed: datetime | None = None
+    for candidate in candidates:
+        normalized = normalize_poll_time(str(candidate or ""))
+        if not normalized:
+            continue
+        try:
+            parsed = datetime.strptime(normalized, "%Y-%m-%dT%H:%M:%SZ").replace(
+                tzinfo=timezone.utc
+            )
+        except ValueError:
+            continue
+        if best_parsed is None or parsed > best_parsed:
+            best_parsed = parsed
+            best_text = normalized
+    return best_text or _first_text(*candidates)
 
 
 def _is_placeholder_instruction(current_instruction: str) -> bool:

@@ -16,6 +16,10 @@ from ...runtime.conductor_capability import (
     session_resume_command_for_role,
     startup_context_command_for_role,
 )
+from ...review_channel.ack_contract import (
+    ack_contract_prompt_line,
+    packet_ack_is_transport_lifecycle_line,
+)
 from ...runtime.devctl_interpreter import devctl_interpreter
 
 if TYPE_CHECKING:
@@ -182,7 +186,8 @@ def implementer_bootstrap_section(packet: "SessionCachePacket") -> list[str]:
         "",
         "### Implementer Rules",
         "- Use `Current Instruction For Claude` / typed `current_instruction` as the live work source.",
-        "- Acknowledge the live `instruction_revision` before coding.",
+        ack_contract_prompt_line(),
+        packet_ack_is_transport_lifecycle_line(),
         "- If reviewer-owned state says `hold steady`, `waiting for reviewer promotion`, or governed push/review is still in progress, stay in polling mode instead of mining side work.",
         inbox_rule,
         "- Do not ask the operator whether to continue a permitted probe or pull a pending packet when the typed inbox already provides the next non-destructive step.",

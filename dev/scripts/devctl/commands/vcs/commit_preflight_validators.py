@@ -24,6 +24,7 @@ from .governed_executor_commit_runtime import (
     post_commit_stage_handoff,
 )
 from .governed_executor_git import pipeline_is_stale_for_current_repo
+from ...runtime.remote_commit_pipeline_state import BLOCKING_PIPELINE_STATES
 
 _REUSABLE_PIPELINE_STATES = frozenset(
     {
@@ -35,7 +36,7 @@ _REUSABLE_PIPELINE_STATES = frozenset(
         "commit_pending",
     }
 )
-_PIPELINE_BLOCKING_STATES = frozenset({"commit_recorded", "push_pending", "push_blocked"})
+_PIPELINE_BLOCKING_STATES = BLOCKING_PIPELINE_STATES
 _EXPLICIT_APPROVAL_PIPELINE_STATES = frozenset(
     {
         "guards_passed",

@@ -202,7 +202,31 @@ def _artifact_is_fresh(
     stored_paths = tuple(row["path"] for row in source_rows)
     if stored_paths != current_paths:
         return False
+    if _connectivity_index_registry_stale(payload, layout):
+        return False
     return all(_source_row_matches(repo_root, row) for row in source_rows)
+
+
+def _connectivity_index_registry_stale(
+    payload: Mapping[str, object],
+    layout: "GovernedDocLayout",
+) -> bool:
+    if not layout.connectivity_index_paths:
+        return False
+    registry = coerce_mapping(payload.get("doc_registry"))
+    entries = registry.get("entries")
+    if not isinstance(entries, list):
+        return True
+    roles_by_path = {
+        coerce_string(coerce_mapping(row).get("path")): coerce_string(
+            coerce_mapping(row).get("artifact_role")
+        )
+        for row in entries
+    }
+    return any(
+        roles_by_path.get(path) != "connectivity_index"
+        for path in layout.connectivity_index_paths
+    )
 
 def _artifact_payload(
     repo_root: Path,

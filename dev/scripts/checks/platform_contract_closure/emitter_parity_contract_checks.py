@@ -9,14 +9,16 @@ from dev.scripts.devctl.runtime.review_bridge_field_authority import (
     EVENT_BRIDGE_CLASSIFIED_FIELDS,
 )
 
-_EXPECTED_COMPAT_KEYS = frozenset({
-    "project_id",
-    "runtime",
-    "service_identity",
-    "attach_auth_policy",
-    "doctor",
-    "agents",
-})
+_EXPECTED_COMPAT_KEYS = frozenset(
+    {
+        "project_id",
+        "runtime",
+        "service_identity",
+        "attach_auth_policy",
+        "doctor",
+        "agents",
+    }
+)
 
 _BRIDGE_STATE_EXPECTED_TYPES: dict[str, type] = {
     "overall_state": str,
@@ -96,6 +98,7 @@ def build_synthetic_review_state() -> dict[str, object]:
             "verification_status": "live",
             "watcher_owner": "claude",
             "watcher_status": "live",
+            "actor_authorities": [],
         },
         "packets": [],
         "errors": [],
@@ -126,7 +129,9 @@ def check_bridge_state_keys(
     if coverage["ok"]:
         coverage["detail"] = "Event-backed bridge_state keys match ReviewBridgeState."
         return coverage, None
-    detail = f"bridge_state key drift: missing={missing or 'none'} extra={extra or 'none'}"
+    detail = (
+        f"bridge_state key drift: missing={missing or 'none'} extra={extra or 'none'}"
+    )
     coverage["detail"] = detail
     return coverage, {
         "kind": "emitter_parity",
@@ -200,7 +205,9 @@ def check_compat_field_coverage(
     synthetic: dict[str, object],
     repo_root: Path,
 ) -> tuple[dict[str, object], dict[str, object] | None]:
-    from dev.scripts.devctl.review_channel.event_projection import enrich_event_review_state
+    from dev.scripts.devctl.review_channel.event_projection import (
+        enrich_event_review_state,
+    )
     from dev.scripts.devctl.review_channel.event_projection_enrichment import (
         EventProjectionContext,
     )

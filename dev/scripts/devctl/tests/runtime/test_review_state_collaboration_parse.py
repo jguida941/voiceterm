@@ -5,7 +5,6 @@ from __future__ import annotations
 from dev.scripts.devctl.runtime.control_plane_loop_wake import (
     resolve_control_plane_loop_wake,
 )
-from dev.scripts.devctl.runtime.review_state_parser import review_state_from_payload
 from dev.scripts.devctl.runtime.review_state_collaboration_parse import (
     collaboration_state_from_payload,
 )
@@ -17,6 +16,7 @@ from dev.scripts.devctl.runtime.review_state_models import (
 from dev.scripts.devctl.runtime.review_state_packet_models import (
     AgentRegistryEntryState,
 )
+from dev.scripts.devctl.runtime.review_state_parser import review_state_from_payload
 
 
 def _current_session() -> ReviewCurrentSessionState:
@@ -105,6 +105,24 @@ def test_collaboration_state_from_typed_payload_preserves_wake_fields() -> None:
             "loop_driver_agent": "claude",
             "loop_autonomy_ok": True,
             "loop_gap_summary": "",
+            "actor_authorities": [
+                {
+                    "actor_id": "claude",
+                    "provider": "claude",
+                    "role": "implementer",
+                    "live": True,
+                    "status": "live",
+                    "source": "test",
+                    "grants": [
+                        {
+                            "capability": "repo.commit",
+                            "granted": True,
+                            "source": "test",
+                            "worktree_identity": "main",
+                        }
+                    ],
+                }
+            ],
         },
         review={"session_id": "review-channel"},
         current_session=_current_session(),
@@ -120,12 +138,16 @@ def test_collaboration_state_from_typed_payload_preserves_wake_fields() -> None:
     assert state.loop_wake_interval_seconds == 30
     assert state.loop_driver_agent == "claude"
     assert state.loop_autonomy_ok is True
+    assert state.actor_authorities[0].actor_id == "claude"
+    assert state.actor_authorities[0].grants[0].capability == "repo.commit"
     assert state.participants[0].host_wake_mode == "tick_based"
     assert state.participants[0].wake_interval_seconds == 30
     assert state.participants[0].host_wake_summary == "Phone-polled implementer lane."
 
 
-def test_collaboration_state_legacy_fallback_builds_wake_fields_without_type_error() -> None:
+def test_collaboration_state_legacy_fallback_builds_wake_fields_without_type_error() -> (
+    None
+):
     state = collaboration_state_from_payload(
         collaboration={},
         review={"session_id": "review-channel"},
@@ -180,7 +202,9 @@ def test_collaboration_state_legacy_fallback_builds_wake_fields_without_type_err
     assert state.participants[0].host_wake_mode == "continuous"
 
 
-def test_sparse_collaboration_without_typed_participants_leaves_loop_fields_unset() -> None:
+def test_sparse_collaboration_without_typed_participants_leaves_loop_fields_unset() -> (
+    None
+):
     state = collaboration_state_from_payload(
         collaboration={"review_agent": "codex"},
         review={"session_id": "review-channel"},

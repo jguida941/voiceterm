@@ -9,47 +9,46 @@ from typing import TYPE_CHECKING, Any
 
 from ..platform.coordination_snapshot_models import CoordinationSnapshot
 from .finding_contracts import RejectedRuleTraceRecord, RuleMatchEvidenceRecord
-from .reviewer_runtime_models import (
-    RemoteControlAttachmentState,
-    ReviewerRuntimeContract,
-    has_active_remote_control_attachment,
-)
+from .recovery_authority import RecoveryAuthorityState, derive_recovery_authority
 from .review_state_models import (
     PacketInboxState,
     ReviewAttentionState,
     ReviewCurrentSessionState,
 )
-from .recovery_authority import (
-    RecoveryAuthorityState,
-    derive_recovery_authority,
+from .reviewer_runtime_models import (
+    RemoteControlAttachmentState,
+    ReviewerRuntimeContract,
+    has_active_remote_control_attachment,
 )
 
 if TYPE_CHECKING:
     from .review_state_models import ReviewState
-from .conductor_capability import normalize_reviewer_mode
+
+from .authority_snapshot import AuthoritySnapshot, project_authority_snapshot
+from .conductor_capability import authority_reviewer_mode, normalize_reviewer_mode
 from .control_topology import derive_startup_control_truth
 from .governance_scan import scan_repo_governance_safely
 from .operator_context import is_resolved, resolve_operator_interaction_mode
 from .project_governance import ProjectGovernance
 from .review_state_locator import load_current_review_state
-from .authority_snapshot import AuthoritySnapshot, project_authority_snapshot
-from .startup_advisory_decision import derive_advisory_decision as _derive_advisory_decision
+from .startup_advisory_decision import (
+    derive_advisory_decision as _derive_advisory_decision,
+)
 from .startup_blocker_decision import BlockerSnapshot, derive_startup_blocker
 from .startup_context_projections import (
     bounded_contract_ownership_map,
     build_contract_ownership_map,
     startup_coordination_dict,
+    startup_orphan_snapshot_dict,
 )
 from .startup_governance_projection import startup_governance_dict
-from .startup_review_state import load_startup_review_state as _load_startup_review_state
-from .startup_push_decision import (
-    PushDecisionState,
-    derive_push_decision as _derive_push_decision,
-)
 from .startup_packet_inbox import startup_packet_inbox_dict
+from .startup_push_decision import PushDecisionState
+from .startup_push_decision import derive_push_decision as _derive_push_decision
+from .startup_review_state import (
+    load_startup_review_state as _load_startup_review_state,
+)
 from .startup_signals import load_startup_quality_signals
-from .worktree_orphan_snapshot import OrphanSnapshot
-from .worktree_orphan_snapshot_projection import build_orphan_snapshot_projection
 from .surface_snapshot import build_surface_snapshot_id, build_surface_zref
 from .work_intake import (
     WorkIntakePacket,
@@ -58,6 +57,8 @@ from .work_intake import (
 )
 from .work_intake_coordination import build_work_intake_coordination_state
 from .work_intake_ownership import build_work_intake_ownership_state
+from .worktree_orphan_snapshot import OrphanSnapshot
+from .worktree_orphan_snapshot_projection import build_orphan_snapshot_projection
 
 
 @dataclass(frozen=True, slots=True)
@@ -111,6 +112,7 @@ class StartupContext:
     orphan_snapshot: OrphanSnapshot | None = None
     blocker: BlockerSnapshot = field(default_factory=BlockerSnapshot)
     contract_ownership_map: dict[str, dict[str, object]] = field(default_factory=dict)
+    key_surfaces: tuple[str, ...] = ()
     snapshot_id: str = ""
     zref: str = ""
 
@@ -130,9 +132,7 @@ class StartupContext:
         d["recovery_scope"] = self.recovery_authority.recovery_scope
         d["recovery_authority"] = self.recovery_authority.to_dict()
         d["rule_summary"] = self.rule_summary
-        d["match_evidence"] = [
-            evidence.to_dict() for evidence in self.match_evidence
-        ]
+        d["match_evidence"] = [evidence.to_dict() for evidence in self.match_evidence]
         d["rejected_rule_traces"] = [
             trace.to_dict() for trace in self.rejected_rule_traces
         ]
@@ -143,6 +143,7 @@ class StartupContext:
         d["contract_ownership_map"] = bounded_contract_ownership_map(
             self.contract_ownership_map
         )
+        d["key_surfaces"] = list(self.key_surfaces)
         d["snapshot_id"] = self.snapshot_id
         d["zref"] = self.zref
         if self.product_thesis:
@@ -166,7 +167,7 @@ class StartupContext:
         if self.packet_inbox is not None:
             d["packet_inbox"] = startup_packet_inbox_dict(self.packet_inbox)
         if self.orphan_snapshot is not None:
-            d["orphan_snapshot"] = self.orphan_snapshot.to_dict()
+            d["orphan_snapshot"] = startup_orphan_snapshot_dict(self.orphan_snapshot)
         return d
 
 
@@ -180,7 +181,8 @@ def _detect_reviewer_gate(
     resolved_governance = governance or scan_repo_governance_safely(repo_root)
     gov_interaction_mode = _governance_interaction_mode(resolved_governance)
     typed_gate = _detect_reviewer_gate_from_review_state(
-        review_state, governance_mode=gov_interaction_mode,
+        review_state,
+        governance_mode=gov_interaction_mode,
     )
     if typed_gate is None:
         typed_gate = _detect_reviewer_gate_from_typed_state(
@@ -260,9 +262,7 @@ def _detect_reviewer_gate_from_review_state(
     review_accepted = reviewer_runtime.review_acceptance.review_accepted
     publish_clear = reviewer_runtime.publish_clear
     diagnosis_status = (
-        str(assessment.diagnosis.status or "").strip()
-        if assessment is not None
-        else ""
+        str(assessment.diagnosis.status or "").strip() if assessment is not None else ""
     )
     action_id = (
         str(assessment.decision.action_id or "").strip()
@@ -271,9 +271,7 @@ def _detect_reviewer_gate_from_review_state(
     )
     attachment = reviewer_runtime.remote_control_attachment
     recovery_command = (
-        str(assessment.decision.command or "").strip()
-        if assessment is not None
-        else ""
+        str(assessment.decision.command or "").strip() if assessment is not None else ""
     )
     interaction_mode = _interaction_mode_from_reviewer_mode(
         effective_mode,
@@ -282,6 +280,7 @@ def _detect_reviewer_gate_from_review_state(
     )
     declared_active = normalize_reviewer_mode(mode) == "active_dual_agent"
     effective_active = normalize_reviewer_mode(effective_mode) == "active_dual_agent"
+    gate_mode = authority_reviewer_mode(mode, effective_mode)
     attention_status = str(getattr(attention, "status", "") or "").strip()
     implementation_blocked = reviewer_runtime.implementation_blocked
     implementation_block_reason = reviewer_runtime.implementation_block_reason
@@ -294,10 +293,10 @@ def _detect_reviewer_gate_from_review_state(
     ):
         implementation_blocked = True
         implementation_block_reason = attention_status
-    if not declared_active:
+    if not declared_active and not effective_active:
         return ReviewerGateState(
             bridge_active=False,
-            reviewer_mode=mode,
+            reviewer_mode=gate_mode,
             effective_reviewer_mode=effective_mode,
             review_accepted=True,
             required_checks_status="unknown",
@@ -312,7 +311,7 @@ def _detect_reviewer_gate_from_review_state(
     # the same gate shape; only the not-declared-active case differs above.
     return ReviewerGateState(
         bridge_active=True,
-        reviewer_mode=mode,
+        reviewer_mode=gate_mode,
         effective_reviewer_mode=effective_mode,
         review_accepted=review_accepted,
         required_checks_status="unknown",
@@ -391,8 +390,12 @@ def _load_startup_coordination_snapshot(
     from .coordination_loader import load_coordination_snapshot
 
     snapshot = load_coordination_snapshot(
-        repo_root=repo_root, sources={}, governance=governance,
-        review_state=review_state, reviewer_gate=gate, work_intake=work_intake,
+        repo_root=repo_root,
+        sources={},
+        governance=governance,
+        review_state=review_state,
+        reviewer_gate=gate,
+        work_intake=work_intake,
     )
     if snapshot is not None:
         return snapshot
@@ -401,10 +404,25 @@ def _load_startup_coordination_snapshot(
     return build_coordination_snapshot(
         repo_root=repo_root,
         startup_context=SimpleNamespace(
-            governance=governance, work_intake=work_intake,
+            governance=governance,
+            work_intake=work_intake,
         ),
         review_state=review_state,
     )
+
+
+def _startup_key_surfaces(governance: ProjectGovernance | None) -> tuple[str, ...]:
+    if governance is None:
+        return ()
+    surfaces: list[str] = []
+    for entry in governance.doc_registry.entries:
+        if entry.artifact_role != "connectivity_index":
+            continue
+        if entry.consumer_scope and entry.consumer_scope != "startup_default":
+            continue
+        if entry.path and entry.path not in surfaces:
+            surfaces.append(entry.path)
+    return tuple(surfaces)
 
 
 def _attach_startup_surface_identity(
@@ -413,20 +431,21 @@ def _attach_startup_surface_identity(
     review_state: "ReviewState | None",
     push_decision: PushDecisionState,
 ) -> tuple[PushDecisionState, str, str]:
-    snapshot_id = (
-        str(getattr(review_state, "snapshot_id", "") or "").strip()
-        or build_surface_snapshot_id(
-            reviewer_runtime=(
-                getattr(review_state, "reviewer_runtime", None) if review_state else None
-            ),
-            commit_pipeline=(
-                getattr(review_state, "commit_pipeline", None) if review_state else None
-            ),
-            push_decision=push_decision,
-        )
+    snapshot_id = str(
+        getattr(review_state, "snapshot_id", "") or ""
+    ).strip() or build_surface_snapshot_id(
+        reviewer_runtime=(
+            getattr(review_state, "reviewer_runtime", None) if review_state else None
+        ),
+        commit_pipeline=(
+            getattr(review_state, "commit_pipeline", None) if review_state else None
+        ),
+        push_decision=push_decision,
     )
     head_sha = str(
-        getattr(getattr(governance, "push_enforcement", None), "current_head_commit", "")
+        getattr(
+            getattr(governance, "push_enforcement", None), "current_head_commit", ""
+        )
         or ""
     ).strip()
     zref = build_surface_zref(snapshot_id=snapshot_id, head_sha=head_sha)
@@ -460,6 +479,7 @@ def build_startup_context(
     """
     if repo_root is None:
         from ..config import get_repo_root
+
         repo_root = get_repo_root()
 
     if governance is None:
@@ -572,6 +592,7 @@ def build_startup_context(
         orphan_snapshot=orphan_snapshot,
         blocker=blocker,
         contract_ownership_map=build_contract_ownership_map(),
+        key_surfaces=_startup_key_surfaces(governance),
         snapshot_id=snapshot_id,
         zref=zref,
     )

@@ -9,6 +9,15 @@ from __future__ import annotations
 from collections.abc import Callable
 
 FieldRouteCheck = Callable[[], tuple[dict[str, object], dict[str, object] | None]]
+from .field_routes_control_plane import (
+    check_auto_mode_phase_session_resume_route,
+    check_last_reviewed_sha_compact_route,
+    check_push_eligible_dashboard_route,
+    check_push_eligible_session_resume_route,
+    check_top_blocker_dashboard_route,
+    check_top_blocker_phone_route,
+    check_top_blocker_session_resume_route,
+)
 from .field_routes_decision_packet import (
     check_decision_packet_mode_autonomy_route,
     check_decision_packet_mode_guard_run_route,
@@ -26,16 +35,6 @@ from .field_routes_planning import (
     check_plan_phase_phase_id_startup_route,
     check_plan_task_task_id_startup_route,
 )
-from .field_routes_surface_state import (
-    check_auto_mode_phase_session_resume_route,
-    check_last_reviewed_sha_compact_route,
-    check_push_eligible_dashboard_route,
-    check_push_eligible_session_resume_route,
-    check_top_blocker_dashboard_route,
-    check_top_blocker_phone_route,
-    check_top_blocker_session_resume_route,
-)
-
 
 FIELD_ROUTE_CHECKS: tuple[FieldRouteCheck, ...] = (
     check_finding_ai_instruction_ralph_route,
@@ -78,25 +77,11 @@ FIELD_ROUTE_FAMILY_REGISTRY: dict[tuple[str, str], tuple[str, ...]] = {
         "session_resume",
         "phone",
     ),
-    ("AutoModeState", "phase"): (
-        "session_resume",
-    ),
-    ("PlanPhase", "phase_id"): (
-        "startup_plan_routing",
-    ),
-    ("PlanTask", "task_id"): (
-        "startup_plan_routing",
-    ),
-    ("FindingBacklog", "latest_rows"): (
-        "findings_priority",
-    ),
-    ("FindingBacklog", "open_findings"): (
-        "planning_ir",
-    ),
-    ("FindingBacklog", "open_rows"): (
-        "startup_quality_signals",
-    ),
-    ("SessionCachePacket", "last_reviewed_sha"): (
-        "compact_projection",
-    ),
+    ("AutoModeState", "phase"): ("session_resume",),
+    ("PlanPhase", "phase_id"): ("startup_plan_routing",),
+    ("PlanTask", "task_id"): ("startup_plan_routing",),
+    ("FindingBacklog", "latest_rows"): ("findings_priority",),
+    ("FindingBacklog", "open_findings"): ("planning_ir",),
+    ("FindingBacklog", "open_rows"): ("startup_quality_signals",),
+    ("SessionCachePacket", "last_reviewed_sha"): ("compact_projection",),
 }

@@ -11,27 +11,18 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 from dev.scripts.devctl.cli import COMMAND_HANDLERS, build_parser
-from dev.scripts.devctl.commands.listing import COMMANDS
+from dev.scripts.devctl.commands.governance import (
+    startup_context as startup_context_command,
+)
 from dev.scripts.devctl.commands.governance.startup_context import (
     _machine_summary,
     _render_markdown,
     _render_summary,
 )
-from dev.scripts.devctl.commands.governance import startup_context as startup_context_command
+from dev.scripts.devctl.commands.listing import COMMANDS
 from dev.scripts.devctl.platform.coordination_snapshot_models import (
     CoordinationActorRecord,
     CoordinationSnapshot,
-)
-from dev.scripts.devctl.runtime.startup_context import (
-    ReviewerGateState,
-    StartupContext,
-    blocks_new_implementation,
-    _derive_advisory_action,
-    _derive_push_decision,
-    _detect_reviewer_gate,
-    _interaction_mode_from_reviewer_mode,
-    _load_startup_review_state,
-    build_startup_context,
 )
 from dev.scripts.devctl.runtime.authority_snapshot import (
     AuthoritySnapshot,
@@ -39,15 +30,29 @@ from dev.scripts.devctl.runtime.authority_snapshot import (
     build_authority_snapshot,
     summary_next_command,
 )
-from dev.scripts.devctl.runtime.startup_blocker_decision import BlockerSnapshot
+from dev.scripts.devctl.runtime.conductor_capability import (
+    session_resume_command_for_role,
+)
+from dev.scripts.devctl.runtime.project_governance import (
+    PROJECT_GOVERNANCE_CONTRACT_ID,
+    PROJECT_GOVERNANCE_SCHEMA_VERSION,
+    ArtifactRoots,
+    BridgeConfig,
+    BundleOverrides,
+    DocRegistry,
+    DocRegistryEntry,
+    EnabledChecks,
+    MemoryRoots,
+    PathRoots,
+    PlanRegistryRoots,
+    ProjectGovernance,
+    PushEnforcement,
+    RepoIdentity,
+    RepoPackRef,
+)
 from dev.scripts.devctl.runtime.recovery_authority import (
     RecoveryAuthorityState,
     derive_recovery_authority,
-)
-from dev.scripts.devctl.runtime.reviewer_runtime_models import (
-    RemoteControlAttachmentState,
-    ReviewerRuntimeContract,
-    ReviewerSessionOwnerState,
 )
 from dev.scripts.devctl.runtime.review_state_models import (
     AgentAttentionRecord,
@@ -55,23 +60,22 @@ from dev.scripts.devctl.runtime.review_state_models import (
     ReviewAttentionState,
     ReviewCurrentSessionState,
 )
-from dev.scripts.devctl.runtime.conductor_capability import (
-    session_resume_command_for_role,
+from dev.scripts.devctl.runtime.reviewer_runtime_models import (
+    RemoteControlAttachmentState,
+    ReviewerRuntimeContract,
+    ReviewerSessionOwnerState,
 )
-from dev.scripts.devctl.runtime.project_governance import (
-    ProjectGovernance,
-    PushEnforcement,
-    RepoIdentity,
-    RepoPackRef,
-    PathRoots,
-    PlanRegistryRoots,
-    ArtifactRoots,
-    MemoryRoots,
-    BridgeConfig,
-    EnabledChecks,
-    BundleOverrides,
-    PROJECT_GOVERNANCE_CONTRACT_ID,
-    PROJECT_GOVERNANCE_SCHEMA_VERSION,
+from dev.scripts.devctl.runtime.startup_blocker_decision import BlockerSnapshot
+from dev.scripts.devctl.runtime.startup_context import (
+    ReviewerGateState,
+    StartupContext,
+    _derive_advisory_action,
+    _derive_push_decision,
+    _detect_reviewer_gate,
+    _interaction_mode_from_reviewer_mode,
+    _load_startup_review_state,
+    blocks_new_implementation,
+    build_startup_context,
 )
 from dev.scripts.devctl.runtime.work_intake_models import (
     PlanTargetRef,
@@ -174,7 +178,35 @@ class TestStartupContextBuild(unittest.TestCase):
         self.assertIsNotNone(ctx.governance)
         self.assertTrue(ctx.governance.repo_identity.repo_name)
 
-    def test_authority_snapshot_prefers_recovery_authority_over_startup_routing(self) -> None:
+    def test_to_dict_exposes_key_surfaces(self) -> None:
+        governance = replace(
+            _minimal_governance(),
+            doc_registry=DocRegistry(
+                entries=(
+                    DocRegistryEntry(
+                        path="dev/guides/SYSTEM_MAP.md",
+                        doc_class="guide",
+                        authority="reference-only",
+                        lifecycle="active",
+                        scope="connectivity index",
+                        artifact_role="connectivity_index",
+                        authority_kind="generated_navigation",
+                        system_scope="platform_core",
+                        consumer_scope="startup_default",
+                    ),
+                )
+            ),
+        )
+        ctx = StartupContext(
+            governance=governance,
+            key_surfaces=("dev/guides/SYSTEM_MAP.md",),
+        )
+
+        self.assertEqual(ctx.to_dict()["key_surfaces"], ["dev/guides/SYSTEM_MAP.md"])
+
+    def test_authority_snapshot_prefers_recovery_authority_over_startup_routing(
+        self,
+    ) -> None:
         snapshot = build_authority_snapshot(
             {
                 "next_command": (
@@ -218,10 +250,10 @@ class TestStartupContextBuild(unittest.TestCase):
             'python3 dev/scripts/devctl.py commit -m "checkpoint"',
         )
 
-    def test_authority_snapshot_ignores_shared_instruction_without_codex_packet(self) -> None:
-        shared_instruction = (
-            "Priority action_request: Dogfood split-authority current-slice contradiction"
-        )
+    def test_authority_snapshot_ignores_shared_instruction_without_codex_packet(
+        self,
+    ) -> None:
+        shared_instruction = "Priority action_request: Dogfood split-authority current-slice contradiction"
         snapshot = build_authority_snapshot(
             {
                 "coordination": {
@@ -271,7 +303,69 @@ class TestStartupContextBuild(unittest.TestCase):
         self.assertEqual(snapshot.current_instruction_revision, "")
         self.assertEqual(snapshot.implementer_ack_state, "missing")
 
-    def test_authority_snapshot_uses_typed_reviewer_provider_for_packet_clear(self) -> None:
+    def test_authority_snapshot_keeps_packet_derived_instruction(
+        self,
+    ) -> None:
+        shared_instruction = "Priority action_request: Dogfood split-authority current-slice contradiction"
+        snapshot = build_authority_snapshot(
+            {
+                "coordination": {
+                    "resync_required": False,
+                    "current_slice": shared_instruction,
+                    "active_target": {
+                        "plan_path": "dev/active/ai_governance_platform.md",
+                    },
+                },
+                "current_session": {
+                    "current_instruction": shared_instruction,
+                    "current_instruction_revision": "rev123",
+                    "implementer_ack_state": "missing",
+                },
+                "queue": {
+                    "derived_next_instruction": shared_instruction,
+                    "derived_next_instruction_source": {
+                        "packet_id": "rev_pkt_0523",
+                        "packet_class": "action_request",
+                    },
+                },
+                "packet_inbox": {
+                    "agents": [
+                        {
+                            "agent": "codex",
+                            "current_instruction_packet_id": "",
+                            "pending_actionable_packet_ids": [],
+                            "expired_unresolved_packet_ids": ["rev_pkt_0502"],
+                            "attention_status": "review_needed",
+                            "wake_reason": "expired_unresolved_packet",
+                        },
+                        {
+                            "agent": "claude",
+                            "current_instruction_packet_id": "rev_pkt_0523",
+                            "pending_actionable_packet_ids": ["rev_pkt_0523"],
+                            "expired_unresolved_packet_ids": [],
+                            "attention_status": "wake_required",
+                            "wake_reason": "action_request_pending",
+                        },
+                    ],
+                },
+                "reviewer_gate": {
+                    "reviewer_mode": "single_agent",
+                },
+                "implementation_permission": "active",
+                "attention": {
+                    "status": "review_needed",
+                    "summary": "Expired unresolved review packet remains visible.",
+                },
+            }
+        )
+
+        self.assertEqual(snapshot.current_slice, shared_instruction)
+        self.assertEqual(snapshot.current_instruction_revision, "rev123")
+        self.assertEqual(snapshot.implementer_ack_state, "missing")
+
+    def test_authority_snapshot_uses_typed_reviewer_provider_for_packet_clear(
+        self,
+    ) -> None:
         shared_instruction = "Cursor reviewer owns the instruction state"
         snapshot = build_authority_snapshot(
             {
@@ -360,7 +454,9 @@ class TestStartupContextBuild(unittest.TestCase):
             "python3 dev/scripts/devctl.py push --execute",
         )
 
-    def test_authority_snapshot_clears_missing_instruction_placeholder_revision(self) -> None:
+    def test_authority_snapshot_clears_missing_instruction_placeholder_revision(
+        self,
+    ) -> None:
         snapshot = build_authority_snapshot(
             {
                 "coordination": {
@@ -382,7 +478,9 @@ class TestStartupContextBuild(unittest.TestCase):
         self.assertEqual(snapshot.current_slice, "")
         self.assertNotEqual(snapshot.coordination_state, "handshake_stale")
 
-    def test_authority_snapshot_carries_actor_role_identity_and_allowed_actions(self) -> None:
+    def test_authority_snapshot_carries_actor_role_identity_and_allowed_actions(
+        self,
+    ) -> None:
         snapshot = build_authority_snapshot(
             {
                 "collaboration": {
@@ -391,6 +489,38 @@ class TestStartupContextBuild(unittest.TestCase):
                     "verification_status": "live",
                     "watcher_owner": "claude",
                     "watcher_status": "live",
+                    "actor_authorities": [
+                        {
+                            "actor_id": "codex",
+                            "provider": "codex",
+                            "role": "reviewer",
+                            "live": True,
+                            "status": "live",
+                            "source": "test",
+                            "grants": [
+                                {
+                                    "capability": "review.checkpoint",
+                                    "granted": True,
+                                    "source": "test",
+                                }
+                            ],
+                        },
+                        {
+                            "actor_id": "claude",
+                            "provider": "claude",
+                            "role": "implementer",
+                            "live": True,
+                            "status": "live",
+                            "source": "test",
+                            "grants": [
+                                {
+                                    "capability": "repo.commit",
+                                    "granted": True,
+                                    "source": "test",
+                                }
+                            ],
+                        },
+                    ],
                 },
                 "coordination": {
                     "actors": [
@@ -423,6 +553,12 @@ class TestStartupContextBuild(unittest.TestCase):
         self.assertEqual(snapshot.verification_status, "live")
         self.assertEqual(snapshot.watcher_owner, "claude")
         self.assertEqual(snapshot.watcher_status, "live")
+        self.assertIn("review.checkpoint", snapshot.actor_capabilities)
+        self.assertEqual(snapshot.actor_authorities[1].actor_id, "claude")
+        self.assertEqual(
+            snapshot.to_dict()["actor_authorities"][1]["grants"][0]["capability"],
+            "repo.commit",
+        )
 
     def test_has_reviewer_gate(self) -> None:
         ctx = build_startup_context()
@@ -449,7 +585,9 @@ class TestStartupContextBuild(unittest.TestCase):
             "relaunch_review_loop",
         )
 
-    def test_recovery_authority_allows_relaunch_only_with_dead_process_basis(self) -> None:
+    def test_recovery_authority_allows_relaunch_only_with_dead_process_basis(
+        self,
+    ) -> None:
         review_state = SimpleNamespace(
             recovery_assessment=SimpleNamespace(
                 diagnosis=SimpleNamespace(
@@ -501,15 +639,18 @@ class TestStartupContextBuild(unittest.TestCase):
 
     def test_has_advisory_action(self) -> None:
         ctx = build_startup_context()
-        self.assertIn(ctx.advisory_action, (
-            "continue_editing",
-            "await_review",
-            "checkpoint_before_continue",
-            "checkpoint_allowed",
-            "repair_reviewer_loop",
-            "push_allowed",
-            "no_push_needed",
-        ))
+        self.assertIn(
+            ctx.advisory_action,
+            (
+                "continue_editing",
+                "await_review",
+                "checkpoint_before_continue",
+                "checkpoint_allowed",
+                "repair_reviewer_loop",
+                "push_allowed",
+                "no_push_needed",
+            ),
+        )
         self.assertTrue(ctx.advisory_reason)
 
     def test_has_work_intake(self) -> None:
@@ -517,7 +658,9 @@ class TestStartupContextBuild(unittest.TestCase):
         self.assertIsNotNone(ctx.work_intake)
         self.assertTrue(ctx.work_intake.contract_id)
 
-    def test_projects_implementation_permission_from_control_topology_truth(self) -> None:
+    def test_projects_implementation_permission_from_control_topology_truth(
+        self,
+    ) -> None:
         fake_coordination = SimpleNamespace(
             implementation_permission="active",
             to_dict=lambda: {"implementation_permission": "active"},
@@ -786,13 +929,16 @@ class TestCoordinationParityF1(unittest.TestCase):
         session_c = session.coordination
 
         self.assertIsNotNone(
-            startup_c, "startup-context must carry a coordination snapshot",
+            startup_c,
+            "startup-context must carry a coordination snapshot",
         )
         self.assertIsNotNone(
-            dashboard_c, "dashboard must carry a coordination snapshot",
+            dashboard_c,
+            "dashboard must carry a coordination snapshot",
         )
         self.assertIsNotNone(
-            session_c, "session-resume must carry a coordination snapshot",
+            session_c,
+            "session-resume must carry a coordination snapshot",
         )
         self.assertIsNotNone(
             startup_c.active_target,
@@ -881,7 +1027,10 @@ class TestCLIRegistration(unittest.TestCase):
                 "advisory_reason": "clean_worktree",
                 "reviewer_gate": {},
                 "governance": {
-                    "repo_identity": {"repo_name": "test", "current_branch": "feature/x"},
+                    "repo_identity": {
+                        "repo_name": "test",
+                        "current_branch": "feature/x",
+                    },
                     "memory_roots": {
                         "memory_root": ".claude/memory",
                         "context_store_root": "dev/context",
@@ -901,7 +1050,10 @@ class TestCLIRegistration(unittest.TestCase):
                 "advisory_reason": "clean_worktree",
                 "reviewer_gate": {},
                 "governance": {
-                    "repo_identity": {"repo_name": "test", "current_branch": "feature/x"},
+                    "repo_identity": {
+                        "repo_name": "test",
+                        "current_branch": "feature/x",
+                    },
                 },
                 "quality_signals": {
                     "probe_report": {
@@ -931,7 +1083,10 @@ class TestCLIRegistration(unittest.TestCase):
                 "advisory_reason": "clean_worktree",
                 "reviewer_gate": {},
                 "governance": {
-                    "repo_identity": {"repo_name": "test", "current_branch": "feature/x"},
+                    "repo_identity": {
+                        "repo_name": "test",
+                        "current_branch": "feature/x",
+                    },
                 },
                 "work_intake": {
                     "confidence": "high",
@@ -1025,7 +1180,9 @@ class TestCLIRegistration(unittest.TestCase):
 
         self.assertIn("## Work Intake", rendered)
         self.assertIn("dev/active/platform_authority_loop.md", rendered)
-        self.assertIn("continuity_summary: Land the first startup intake packet.", rendered)
+        self.assertIn(
+            "continuity_summary: Land the first startup intake packet.", rendered
+        )
         self.assertIn("ownership: `concurrent_writer_activity`", rendered)
         self.assertIn(
             "outside_scope_dirty_paths: `dev/scripts/devctl/review_channel/session_state_hints.py`",
@@ -1049,7 +1206,9 @@ class TestCLIRegistration(unittest.TestCase):
             "duplicate_delegated_worktrees: `../codex-voice-wt-a1`",
             rendered,
         )
-        self.assertIn("session_pacing: `high` via `saved_context_graph_snapshot`", rendered)
+        self.assertIn(
+            "session_pacing: `high` via `saved_context_graph_snapshot`", rendered
+        )
         self.assertIn("research_ref_budget: 7", rendered)
         self.assertIn("dependency_edge_count: 5", rendered)
         self.assertIn(
@@ -1073,7 +1232,10 @@ class TestCLIRegistration(unittest.TestCase):
                 "advisory_reason": "clean_worktree",
                 "reviewer_gate": {},
                 "governance": {
-                    "repo_identity": {"repo_name": "test", "current_branch": "feature/x"},
+                    "repo_identity": {
+                        "repo_name": "test",
+                        "current_branch": "feature/x",
+                    },
                 },
                 "coordination": {
                     "active_target": {
@@ -1130,7 +1292,10 @@ class TestCLIRegistration(unittest.TestCase):
                 "advisory_reason": "worktree_dirty_within_budget",
                 "reviewer_gate": {},
                 "governance": {
-                    "repo_identity": {"repo_name": "test", "current_branch": "feature/x"},
+                    "repo_identity": {
+                        "repo_name": "test",
+                        "current_branch": "feature/x",
+                    },
                     "push_enforcement": {
                         "worktree_dirty": True,
                         "worktree_clean": False,
@@ -1209,7 +1374,10 @@ class TestCLIRegistration(unittest.TestCase):
                 ],
                 "reviewer_gate": {},
                 "governance": {
-                    "repo_identity": {"repo_name": "test", "current_branch": "feature/x"},
+                    "repo_identity": {
+                        "repo_name": "test",
+                        "current_branch": "feature/x",
+                    },
                 },
                 "push_decision": {
                     "action": "run_devctl_push",
@@ -1251,7 +1419,10 @@ class TestCLIRegistration(unittest.TestCase):
                 "advisory_reason": "worktree_clean_and_review_accepted",
                 "reviewer_gate": {},
                 "governance": {
-                    "repo_identity": {"repo_name": "test", "current_branch": "feature/x"},
+                    "repo_identity": {
+                        "repo_name": "test",
+                        "current_branch": "feature/x",
+                    },
                 },
                 "push_decision": {
                     "action": "run_devctl_push",
@@ -1272,14 +1443,19 @@ class TestCLIRegistration(unittest.TestCase):
             rendered,
         )
 
-    def test_markdown_surfaces_publication_backlog_when_commits_are_waiting(self) -> None:
+    def test_markdown_surfaces_publication_backlog_when_commits_are_waiting(
+        self,
+    ) -> None:
         rendered = _render_markdown(
             {
                 "advisory_action": "await_review",
                 "advisory_reason": "review_pending_before_push",
                 "reviewer_gate": {},
                 "governance": {
-                    "repo_identity": {"repo_name": "test", "current_branch": "feature/x"},
+                    "repo_identity": {
+                        "repo_name": "test",
+                        "current_branch": "feature/x",
+                    },
                     "push_enforcement": {
                         "worktree_dirty": False,
                         "worktree_clean": True,
@@ -1313,7 +1489,10 @@ class TestCLIRegistration(unittest.TestCase):
                 "advisory_reason": "no_blockers",
                 "reviewer_gate": {},
                 "governance": {
-                    "repo_identity": {"repo_name": "test", "current_branch": "feature/x"},
+                    "repo_identity": {
+                        "repo_name": "test",
+                        "current_branch": "feature/x",
+                    },
                 },
             }
         )
@@ -1338,7 +1517,10 @@ class TestCLIRegistration(unittest.TestCase):
                     "reviewer_mode": "active_dual_agent",
                 },
                 "governance": {
-                    "repo_identity": {"repo_name": "test", "current_branch": "feature/x"},
+                    "repo_identity": {
+                        "repo_name": "test",
+                        "current_branch": "feature/x",
+                    },
                 },
                 "push_decision": {
                     "action": "await_review",
@@ -1369,7 +1551,10 @@ class TestCLIRegistration(unittest.TestCase):
                     "review_accepted": False,
                 },
                 "governance": {
-                    "repo_identity": {"repo_name": "test", "current_branch": "feature/x"},
+                    "repo_identity": {
+                        "repo_name": "test",
+                        "current_branch": "feature/x",
+                    },
                 },
                 "push_decision": {"action": "await_review", "next_step_command": ""},
             }
@@ -1414,7 +1599,9 @@ class TestCLIRegistration(unittest.TestCase):
 
         self.assertEqual(decision.action, "no_push_needed")
         self.assertEqual(decision.reason, "remote_publish_recorded_post_push_pending")
-        self.assertIn("Remote publication already succeeded", decision.next_step_summary)
+        self.assertIn(
+            "Remote publication already succeeded", decision.next_step_summary
+        )
         self.assertIn("dev/reports/push/latest.json", decision.next_step_summary)
 
     def test_push_decision_recovers_blank_target_identity_post_push_failure_for_current_head(
@@ -1452,10 +1639,14 @@ class TestCLIRegistration(unittest.TestCase):
 
         self.assertEqual(decision.action, "no_push_needed")
         self.assertEqual(decision.reason, "remote_publish_recorded_post_push_pending")
-        self.assertIn("Remote publication already succeeded", decision.next_step_summary)
+        self.assertIn(
+            "Remote publication already succeeded", decision.next_step_summary
+        )
         self.assertIn("dev/reports/push/latest.json", decision.next_step_summary)
 
-    def test_push_decision_waits_for_current_head_governed_push_in_progress(self) -> None:
+    def test_push_decision_waits_for_current_head_governed_push_in_progress(
+        self,
+    ) -> None:
         approved_target_identity = "tree-receipt-20260403T010000Z:tree-123"
         governance = _minimal_governance(
             current_branch="feature/x",
@@ -1661,7 +1852,9 @@ class TestCLIRegistration(unittest.TestCase):
         )
         self.assertIn("implementation_permission=suspended", rendered)
 
-    def test_summary_reports_blockers_and_rerun_when_checkpoint_is_required(self) -> None:
+    def test_summary_reports_blockers_and_rerun_when_checkpoint_is_required(
+        self,
+    ) -> None:
         rendered = _render_summary(
             {
                 "advisory_action": "checkpoint_before_continue",
@@ -2173,7 +2366,9 @@ class TestCLIRegistration(unittest.TestCase):
                 self.assertEqual(receipt.push_next_step_command, expected_command)
                 self.assertEqual(receipt.receipt_intent_scope, expected_intent)
 
-    def test_command_json_payload_promotes_checkpoint_booleans_and_summary_inbox(self) -> None:
+    def test_command_json_payload_promotes_checkpoint_booleans_and_summary_inbox(
+        self,
+    ) -> None:
         ctx = StartupContext(
             governance=_minimal_governance(
                 checkpoint_required=True,
@@ -2189,7 +2384,7 @@ class TestCLIRegistration(unittest.TestCase):
                 summary="Checkpoint required before more edits.",
                 recommended_action="checkpoint",
                 recommended_command=(
-                    "python3 dev/scripts/devctl.py commit -m \"checkpoint\""
+                    'python3 dev/scripts/devctl.py commit -m "checkpoint"'
                 ),
             ),
             packet_inbox=PacketInboxState(
@@ -2397,8 +2592,9 @@ class TestReviewerGateSemantics(unittest.TestCase):
         self.assertEqual(gate.required_checks_status, "unknown")
 
     def test_no_bridge_permits_push(self) -> None:
-        from pathlib import Path
         import tempfile
+        from pathlib import Path
+
         with tempfile.TemporaryDirectory() as tmp:
             gate = _detect_reviewer_gate(Path(tmp))
             self.assertTrue(gate.review_gate_allows_push)
@@ -2414,7 +2610,9 @@ class TestReviewerGateSemantics(unittest.TestCase):
             # Acceptance must come from verdict, not mode
             self.assertIsInstance(ctx.reviewer_gate.review_accepted, bool)
 
-    def test_detect_reviewer_gate_requires_typed_review_state_for_bridge_sessions(self) -> None:
+    def test_detect_reviewer_gate_requires_typed_review_state_for_bridge_sessions(
+        self,
+    ) -> None:
         with TemporaryDirectory() as tmp:
             repo_root = Path(tmp)
             self._write_bridge(
@@ -2512,7 +2710,9 @@ class TestAdvisoryAction(unittest.TestCase):
 
         self.assertEqual(decision.action, "await_checkpoint")
         self.assertEqual(decision.reason, "staged_and_unstaged_worktree_present")
-        self.assertIn("both a staged index and unstaged edits", decision.next_step_summary)
+        self.assertIn(
+            "both a staged index and unstaged edits", decision.next_step_summary
+        )
 
     def test_push_decision_waits_for_review_when_clean_but_unaccepted(self) -> None:
         gov = _minimal_governance(worktree_clean=True, worktree_dirty=False)
@@ -2565,7 +2765,9 @@ class TestAdvisoryAction(unittest.TestCase):
         self.assertEqual(action, "repair_reviewer_loop")
         self.assertEqual(reason, "claude_ack_stale")
 
-    def test_post_checkpoint_dirty_worktree_outranks_reviewer_loop_relaunch(self) -> None:
+    def test_post_checkpoint_dirty_worktree_outranks_reviewer_loop_relaunch(
+        self,
+    ) -> None:
         gov = _minimal_governance(
             worktree_clean=False,
             worktree_dirty=True,
@@ -2584,7 +2786,9 @@ class TestAdvisoryAction(unittest.TestCase):
         self.assertEqual(action, "checkpoint_before_continue")
         self.assertEqual(reason, "dirty_after_local_checkpoint")
 
-    def test_summary_next_command_prefers_commit_when_post_checkpoint_dirty(self) -> None:
+    def test_summary_next_command_prefers_commit_when_post_checkpoint_dirty(
+        self,
+    ) -> None:
         payload = {
             "startup_authority": {"ok": False},
             "governance": {
@@ -2629,7 +2833,9 @@ class TestAdvisoryAction(unittest.TestCase):
         self.assertEqual(action, "checkpoint_before_continue")
         self.assertEqual(reason, "concurrent_writer_activity")
 
-    def test_duplicate_delegated_worktree_conflict_blocks_with_same_reason(self) -> None:
+    def test_duplicate_delegated_worktree_conflict_blocks_with_same_reason(
+        self,
+    ) -> None:
         gov = _minimal_governance(worktree_clean=False, worktree_dirty=True)
         gate = ReviewerGateState(
             bridge_active=True,
@@ -2658,7 +2864,9 @@ class TestAdvisoryAction(unittest.TestCase):
     def test_detached_manual_approval_surfaces_push(self) -> None:
         """manual_reviewer_approval + clean + accepted → push_allowed, not continue_editing."""
         gov = _minimal_governance(
-            worktree_clean=True, worktree_dirty=False, ahead_of_upstream_commits=1,
+            worktree_clean=True,
+            worktree_dirty=False,
+            ahead_of_upstream_commits=1,
         )
         gate = ReviewerGateState(
             implementation_blocked=True,
@@ -2673,7 +2881,9 @@ class TestAdvisoryAction(unittest.TestCase):
     def test_detached_hybrid_claude_only_surfaces_push(self) -> None:
         """hybrid_claude_only reason also surfaces push_allowed."""
         gov = _minimal_governance(
-            worktree_clean=True, worktree_dirty=False, ahead_of_upstream_commits=2,
+            worktree_clean=True,
+            worktree_dirty=False,
+            ahead_of_upstream_commits=2,
         )
         gate = ReviewerGateState(
             implementation_blocked=True,
@@ -2688,7 +2898,9 @@ class TestAdvisoryAction(unittest.TestCase):
     def test_non_detached_block_still_repairs_loop(self) -> None:
         """claude_ack_stale is NOT detached — must still repair the loop."""
         gov = _minimal_governance(
-            worktree_clean=True, worktree_dirty=False, ahead_of_upstream_commits=1,
+            worktree_clean=True,
+            worktree_dirty=False,
+            ahead_of_upstream_commits=1,
         )
         gate = ReviewerGateState(
             implementation_blocked=True,
@@ -2703,7 +2915,9 @@ class TestAdvisoryAction(unittest.TestCase):
     def test_detached_push_decision_aligned_with_advisory(self) -> None:
         """Push and advisory surfaces agree for manual_reviewer_approval."""
         gov = _minimal_governance(
-            worktree_clean=True, worktree_dirty=False, ahead_of_upstream_commits=1,
+            worktree_clean=True,
+            worktree_dirty=False,
+            ahead_of_upstream_commits=1,
             upstream_ref="origin/feature/test",
         )
         gate = ReviewerGateState(
@@ -2754,7 +2968,9 @@ class TestAdvisoryAction(unittest.TestCase):
 
     def test_push_allowed(self) -> None:
         gov = _minimal_governance(
-            worktree_clean=True, worktree_dirty=False, ahead_of_upstream_commits=1,
+            worktree_clean=True,
+            worktree_dirty=False,
+            ahead_of_upstream_commits=1,
         )
         gate = ReviewerGateState(review_gate_allows_push=True)
         action, _ = _derive_advisory_action(gov, gate)
@@ -2831,6 +3047,7 @@ class TestTypedReviewStateGatePath(unittest.TestCase):
         # Compute review_accepted the same way the projection does:
         # verdict must match accepted patterns AND findings must be clear.
         import re
+
         _ACCEPTED_RE = re.compile(
             r"^(?:reviewer[- ]accepted|accepted|all\s+green|resolved)\b",
             re.IGNORECASE,
@@ -2839,18 +3056,25 @@ class TestTypedReviewStateGatePath(unittest.TestCase):
             r"^(?:\(none\)|none|no\s+blockers|all\s+clear|all\s+green|resolved)\b",
             re.IGNORECASE,
         )
-        verdict_ok = bool(verdict.strip() and _ACCEPTED_RE.match(verdict.strip().splitlines()[0].lstrip("- ").strip()))
-        finding_lines = [ln.lstrip("- ").strip().lower() for ln in findings.splitlines() if ln.strip()]
-        findings_ok = not finding_lines or all(_CLEAR_RE.match(ln) is not None for ln in finding_lines)
+        verdict_ok = bool(
+            verdict.strip()
+            and _ACCEPTED_RE.match(verdict.strip().splitlines()[0].lstrip("- ").strip())
+        )
+        finding_lines = [
+            ln.lstrip("- ").strip().lower()
+            for ln in findings.splitlines()
+            if ln.strip()
+        ]
+        findings_ok = not finding_lines or all(
+            _CLEAR_RE.match(ln) is not None for ln in finding_lines
+        )
         review_accepted = (
             typed_review_accepted
             if typed_review_accepted is not None
             else verdict_ok and findings_ok
         )
         publish_clear = (
-            typed_publish_clear
-            if typed_publish_clear is not None
-            else review_accepted
+            typed_publish_clear if typed_publish_clear is not None else review_accepted
         )
 
         state_payload = {
@@ -2874,9 +3098,7 @@ class TestTypedReviewStateGatePath(unittest.TestCase):
                 ),
                 "reviewer_freshness": "fresh",
                 "stale_reason": (
-                    ""
-                    if attention_status == "healthy"
-                    else attention_status
+                    "" if attention_status == "healthy" else attention_status
                 ),
                 "last_poll": {
                     "last_codex_poll_utc": "2026-04-02T00:00:00Z",
@@ -2906,9 +3128,7 @@ class TestTypedReviewStateGatePath(unittest.TestCase):
                 "status": attention_status,
             },
             "current_session": {
-                "implementer_ack_state": (
-                    "current" if claude_ack_current else "stale"
-                ),
+                "implementer_ack_state": ("current" if claude_ack_current else "stale"),
                 "open_findings": findings,
             },
         }
@@ -3008,7 +3228,29 @@ class TestTypedReviewStateGatePath(unittest.TestCase):
             self.assertTrue(gate.implementation_blocked)
             self.assertEqual(gate.implementation_block_reason, "runtime_missing")
 
-    def test_typed_path_uses_review_loop_relaunch_reason_for_detached_dual_agent(self) -> None:
+    def test_typed_path_promotes_live_remote_control_mode_over_raw_tools_only(
+        self,
+    ) -> None:
+        """Live typed authority must override stale raw bridge reviewer_mode."""
+        with TemporaryDirectory() as tmp:
+            repo_root = Path(tmp)
+            self._write_bridge_and_typed_state(
+                repo_root,
+                "Needs-review. Checkpoint required.",
+                "- none",
+                reviewer_mode="tools_only",
+                effective_reviewer_mode="active_dual_agent",
+                claude_ack_current=True,
+                attention_status="checkpoint_required",
+            )
+            gate = _detect_reviewer_gate(repo_root)
+            self.assertTrue(gate.bridge_active)
+            self.assertEqual(gate.reviewer_mode, "active_dual_agent")
+            self.assertEqual(gate.effective_reviewer_mode, "active_dual_agent")
+
+    def test_typed_path_uses_review_loop_relaunch_reason_for_detached_dual_agent(
+        self,
+    ) -> None:
         """Detached dual-agent state should request relaunch, not implementer reset."""
         with TemporaryDirectory() as tmp:
             repo_root = Path(tmp)
@@ -3031,7 +3273,9 @@ class TestTypedReviewStateGatePath(unittest.TestCase):
                 "review_loop_relaunch_required",
             )
 
-    def test_typed_path_uses_review_loop_relaunch_reason_for_automation_only_poll(self) -> None:
+    def test_typed_path_uses_review_loop_relaunch_reason_for_automation_only_poll(
+        self,
+    ) -> None:
         """Automation-only reviewer polling should still surface the relaunch reason."""
         with TemporaryDirectory() as tmp:
             repo_root = Path(tmp)
@@ -3098,7 +3342,9 @@ class TestTypedReviewStateGatePath(unittest.TestCase):
         self.assertTrue(gate.review_accepted)
         self.assertTrue(gate.review_gate_allows_push)
 
-    def test_typed_path_does_not_block_when_implementer_was_freshly_reset_pending(self) -> None:
+    def test_typed_path_does_not_block_when_implementer_was_freshly_reset_pending(
+        self,
+    ) -> None:
         with TemporaryDirectory() as tmp:
             repo_root = Path(tmp)
             self._write_bridge_and_typed_state(
@@ -3265,17 +3511,27 @@ class TestPushExclusionPaths(unittest.TestCase):
 
     def test_worktree_change_counts_excludes_bridge(self) -> None:
         from dev.scripts.devctl.governance.push_state import _worktree_change_counts
+
         with TemporaryDirectory() as tmp:
             repo_root = Path(tmp)
             # Simulate a git repo with bridge.md dirty
             import subprocess
+
             subprocess.run(["git", "init"], cwd=tmp, capture_output=True)
-            subprocess.run(["git", "config", "user.email", "test@test.com"], cwd=tmp, capture_output=True)
-            subprocess.run(["git", "config", "user.name", "test"], cwd=tmp, capture_output=True)
+            subprocess.run(
+                ["git", "config", "user.email", "test@test.com"],
+                cwd=tmp,
+                capture_output=True,
+            )
+            subprocess.run(
+                ["git", "config", "user.name", "test"], cwd=tmp, capture_output=True
+            )
             (repo_root / "bridge.md").write_text("initial")
             (repo_root / "code.py").write_text("print('hello')")
             subprocess.run(["git", "add", "."], cwd=tmp, capture_output=True)
-            subprocess.run(["git", "commit", "-m", "init"], cwd=tmp, capture_output=True)
+            subprocess.run(
+                ["git", "commit", "-m", "init"], cwd=tmp, capture_output=True
+            )
             # Modify both files
             (repo_root / "bridge.md").write_text("modified bridge")
             (repo_root / "code.py").write_text("print('modified')")
@@ -3292,6 +3548,7 @@ class TestPushExclusionPaths(unittest.TestCase):
 
     def test_checkpoint_policy_parses_compat_paths(self) -> None:
         from dev.scripts.devctl.governance.push_policy import PushCheckpointPolicy
+
         policy = PushCheckpointPolicy(
             compatibility_projection_paths=("bridge.md",),
         )
@@ -3299,6 +3556,7 @@ class TestPushExclusionPaths(unittest.TestCase):
 
     def test_worktree_change_counts_excludes_advisory_context(self) -> None:
         from dev.scripts.devctl.governance.push_state import _worktree_change_counts
+
         with TemporaryDirectory() as tmp:
             repo_root = Path(tmp)
             import subprocess
@@ -3316,7 +3574,9 @@ class TestPushExclusionPaths(unittest.TestCase):
             )
             (repo_root / "code.py").write_text("print('hello')")
             subprocess.run(["git", "add", "."], cwd=tmp, capture_output=True)
-            subprocess.run(["git", "commit", "-m", "init"], cwd=tmp, capture_output=True)
+            subprocess.run(
+                ["git", "commit", "-m", "init"], cwd=tmp, capture_output=True
+            )
             (repo_root / "convo.md").write_text("scratch context")
 
             dirty, untracked = _worktree_change_counts(repo_root)
@@ -3337,6 +3597,7 @@ class TestPushExclusionPaths(unittest.TestCase):
 
     def test_checkpoint_policy_default_empty(self) -> None:
         from dev.scripts.devctl.governance.push_policy import PushCheckpointPolicy
+
         policy = PushCheckpointPolicy()
         self.assertEqual(policy.compatibility_projection_paths, ())
         self.assertEqual(policy.advisory_context_paths, ())
@@ -3371,20 +3632,23 @@ class TestInteractionModeFromReviewerMode(unittest.TestCase):
 
     def test_governance_mode_takes_precedence(self) -> None:
         result = _interaction_mode_from_reviewer_mode(
-            "single_agent", governance_mode="remote_control",
+            "single_agent",
+            governance_mode="remote_control",
         )
         self.assertEqual(result, "remote_control")
 
     def test_governance_local_terminal_is_honored(self) -> None:
         # explicit local_terminal from governance is authoritative
         result = _interaction_mode_from_reviewer_mode(
-            "active_dual_agent", governance_mode="local_terminal",
+            "active_dual_agent",
+            governance_mode="local_terminal",
         )
         self.assertEqual(result, "local_terminal")
 
     def test_governance_empty_falls_through(self) -> None:
         result = _interaction_mode_from_reviewer_mode(
-            "single_agent", governance_mode="",
+            "single_agent",
+            governance_mode="",
         )
         self.assertEqual(result, "single_agent")
 
@@ -3414,67 +3678,73 @@ class TestReviewerGateOperatorInteractionMode(unittest.TestCase):
         self.assertEqual(gate.operator_interaction_mode, "remote_control")
 
     def test_summary_includes_interaction_mode(self) -> None:
-        rendered = _render_summary({
-            "advisory_action": "continue_editing",
-            "advisory_reason": "clean_worktree",
-            "reviewer_gate": {
-                "implementation_blocked": False,
-                "operator_interaction_mode": "dual_agent",
-            },
-            "startup_authority": {"ok": True},
-            "governance": {
-                "push_enforcement": {
-                    "checkpoint_required": False,
-                    "safe_to_continue_editing": True,
+        rendered = _render_summary(
+            {
+                "advisory_action": "continue_editing",
+                "advisory_reason": "clean_worktree",
+                "reviewer_gate": {
+                    "implementation_blocked": False,
+                    "operator_interaction_mode": "dual_agent",
                 },
-            },
-            "push_decision": {"action": "no_push_needed", "next_step_command": ""},
-        })
+                "startup_authority": {"ok": True},
+                "governance": {
+                    "push_enforcement": {
+                        "checkpoint_required": False,
+                        "safe_to_continue_editing": True,
+                    },
+                },
+                "push_decision": {"action": "no_push_needed", "next_step_command": ""},
+            }
+        )
         self.assertIn("interaction_mode=dual_agent", rendered)
 
     def test_summary_missing_gate_defaults_to_unresolved(self) -> None:
-        rendered = _render_summary({
-            "advisory_action": "continue_editing",
-            "advisory_reason": "clean_worktree",
-            "startup_authority": {"ok": True},
-            "governance": {
-                "push_enforcement": {
-                    "checkpoint_required": False,
-                    "safe_to_continue_editing": True,
+        rendered = _render_summary(
+            {
+                "advisory_action": "continue_editing",
+                "advisory_reason": "clean_worktree",
+                "startup_authority": {"ok": True},
+                "governance": {
+                    "push_enforcement": {
+                        "checkpoint_required": False,
+                        "safe_to_continue_editing": True,
+                    },
                 },
-            },
-            "push_decision": {"action": "no_push_needed", "next_step_command": ""},
-        })
+                "push_decision": {"action": "no_push_needed", "next_step_command": ""},
+            }
+        )
         self.assertIn("interaction_mode=unresolved", rendered)
 
     def test_summary_includes_session_pacing_projection(self) -> None:
-        rendered = _render_summary({
-            "advisory_action": "continue_editing",
-            "advisory_reason": "bounded_slice_ready",
-            "reviewer_gate": {
-                "implementation_blocked": False,
-                "operator_interaction_mode": "single_agent",
-            },
-            "startup_authority": {"ok": True},
-            "governance": {
-                "push_enforcement": {
-                    "checkpoint_required": False,
-                    "safe_to_continue_editing": True,
+        rendered = _render_summary(
+            {
+                "advisory_action": "continue_editing",
+                "advisory_reason": "bounded_slice_ready",
+                "reviewer_gate": {
+                    "implementation_blocked": False,
+                    "operator_interaction_mode": "single_agent",
                 },
-            },
-            "push_decision": {"action": "no_push_needed", "next_step_command": ""},
-            "work_intake": {
-                "session_pacing": {
-                    "complexity_band": "high",
-                    "research_ref_budget": 7,
-                    "focus_file_count": 2,
-                    "dependency_edge_count": 5,
-                    "live_finding_count": 3,
-                    "hot_path_count": 4,
-                    "implementation_trigger": "patch_after_bounded_refs_or_raise_blocker",
+                "startup_authority": {"ok": True},
+                "governance": {
+                    "push_enforcement": {
+                        "checkpoint_required": False,
+                        "safe_to_continue_editing": True,
+                    },
                 },
-            },
-        })
+                "push_decision": {"action": "no_push_needed", "next_step_command": ""},
+                "work_intake": {
+                    "session_pacing": {
+                        "complexity_band": "high",
+                        "research_ref_budget": 7,
+                        "focus_file_count": 2,
+                        "dependency_edge_count": 5,
+                        "live_finding_count": 3,
+                        "hot_path_count": 4,
+                        "implementation_trigger": "patch_after_bounded_refs_or_raise_blocker",
+                    },
+                },
+            }
+        )
         self.assertIn("session_pacing=high/7refs/2files/5deps", rendered)
         self.assertIn("pacing_live_findings=3", rendered)
         self.assertIn("pacing_hot_paths=4", rendered)
@@ -3484,66 +3754,78 @@ class TestReviewerGateOperatorInteractionMode(unittest.TestCase):
         )
 
     def test_summary_includes_plan_routing_projection(self) -> None:
-        rendered = _render_summary({
-            "advisory_action": "continue_editing",
-            "advisory_reason": "bounded_slice_ready",
-            "reviewer_gate": {
-                "implementation_blocked": False,
-                "operator_interaction_mode": "single_agent",
-            },
-            "startup_authority": {"ok": True},
-            "governance": {
-                "push_enforcement": {
-                    "checkpoint_required": False,
-                    "safe_to_continue_editing": True,
+        rendered = _render_summary(
+            {
+                "advisory_action": "continue_editing",
+                "advisory_reason": "bounded_slice_ready",
+                "reviewer_gate": {
+                    "implementation_blocked": False,
+                    "operator_interaction_mode": "single_agent",
                 },
-            },
-            "push_decision": {"action": "no_push_needed", "next_step_command": ""},
-            "work_intake": {
-                "plan_routing": {
-                    "phase_id": "MP377-P0",
-                    "task_id": "MP377-P0-T01",
+                "startup_authority": {"ok": True},
+                "governance": {
+                    "push_enforcement": {
+                        "checkpoint_required": False,
+                        "safe_to_continue_editing": True,
+                    },
                 },
-            },
-        })
+                "push_decision": {"action": "no_push_needed", "next_step_command": ""},
+                "work_intake": {
+                    "plan_routing": {
+                        "phase_id": "MP377-P0",
+                        "task_id": "MP377-P0-T01",
+                    },
+                },
+            }
+        )
 
         self.assertIn("plan_routing=MP377-P0/MP377-P0-T01", rendered)
 
     def test_markdown_includes_plan_routing_projection(self) -> None:
-        rendered = _render_markdown({
-            "advisory_action": "continue_editing",
-            "advisory_reason": "bounded_slice_ready",
-            "reviewer_gate": {
-                "implementation_blocked": False,
-                "operator_interaction_mode": "single_agent",
-            },
-            "startup_authority": {"ok": True},
-            "governance": {
-                "push_enforcement": {
-                    "checkpoint_required": False,
-                    "safe_to_continue_editing": True,
+        rendered = _render_markdown(
+            {
+                "advisory_action": "continue_editing",
+                "advisory_reason": "bounded_slice_ready",
+                "reviewer_gate": {
+                    "implementation_blocked": False,
+                    "operator_interaction_mode": "single_agent",
                 },
-            },
-            "push_decision": {"action": "no_push_needed", "next_step_command": ""},
-            "work_intake": {
-                "routing": {},
-                "plan_routing": {
-                    "phase_id": "MP377-P0",
-                    "phase_title": "Phase P0 - Findings Spine And Plan Authority",
-                    "phase_status": "in_progress",
-                    "task_id": "MP377-P0-T01",
-                    "task_summary": "Implement the canonical backlog reader/writer.",
-                    "task_status": "in_progress",
-                    "task_owner_doc": "dev/active/platform_authority_loop.md",
-                    "dependencies": ["MP377-P0-T00"],
+                "startup_authority": {"ok": True},
+                "governance": {
+                    "push_enforcement": {
+                        "checkpoint_required": False,
+                        "safe_to_continue_editing": True,
+                    },
                 },
-                "session_pacing": {},
-            },
-        })
+                "push_decision": {"action": "no_push_needed", "next_step_command": ""},
+                "work_intake": {
+                    "routing": {},
+                    "plan_routing": {
+                        "phase_id": "MP377-P0",
+                        "phase_title": "Phase P0 - Findings Spine And Plan Authority",
+                        "phase_status": "in_progress",
+                        "task_id": "MP377-P0-T01",
+                        "task_summary": "Implement the canonical backlog reader/writer.",
+                        "task_status": "in_progress",
+                        "task_owner_doc": "dev/active/platform_authority_loop.md",
+                        "dependencies": ["MP377-P0-T00"],
+                    },
+                    "session_pacing": {},
+                },
+            }
+        )
 
-        self.assertIn("- plan_phase: `MP377-P0` | Phase P0 - Findings Spine And Plan Authority | status=`in_progress`", rendered)
-        self.assertIn("- plan_task: `MP377-P0-T01` | Implement the canonical backlog reader/writer. | status=`in_progress`", rendered)
-        self.assertIn("- plan_task_owner_doc: `dev/active/platform_authority_loop.md`", rendered)
+        self.assertIn(
+            "- plan_phase: `MP377-P0` | Phase P0 - Findings Spine And Plan Authority | status=`in_progress`",
+            rendered,
+        )
+        self.assertIn(
+            "- plan_task: `MP377-P0-T01` | Implement the canonical backlog reader/writer. | status=`in_progress`",
+            rendered,
+        )
+        self.assertIn(
+            "- plan_task_owner_doc: `dev/active/platform_authority_loop.md`", rendered
+        )
         self.assertIn("- plan_dependencies: `MP377-P0-T00`", rendered)
 
     def test_machine_summary_includes_coordination_block(self) -> None:

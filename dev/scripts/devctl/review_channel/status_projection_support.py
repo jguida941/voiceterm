@@ -18,6 +18,10 @@ from ..runtime.review_state_models import (
     ReviewState,
 )
 from .projection_provenance import REVIEW_STATE_SOURCE_CONTRACT, STATUS_SOURCE_COMMAND
+from .packet_control_loop import (
+    format_priority_instruction,
+    select_priority_pending_packet,
+)
 from .promotion import PromotionCandidate, promotion_candidate_to_dict
 from .registry_context import AgentRegistryContext
 from .review_candidate import build_review_candidate, review_candidate_error
@@ -200,6 +204,25 @@ def build_queue_state(
     stale_packet_count: int = 0,
 ) -> ReviewQueueState:
     pending_counts = _count_pending_by_target(pending_packets)
+    derived_instruction = ""
+    derived_source: dict[str, object] = {}
+    selected_packet, control_metadata = select_priority_pending_packet(pending_packets)
+    if selected_packet is not None:
+        selection_policy = str(control_metadata.get("selection_policy") or "").strip()
+        derived_instruction = format_priority_instruction(
+            str(selected_packet.get("summary") or "").strip(),
+            selection_policy=selection_policy,
+        )
+        derived_source = {
+            "source_type": "review_packet",
+            "packet_id": str(selected_packet.get("packet_id") or "").strip(),
+            "from_agent": str(selected_packet.get("from_agent") or "").strip(),
+            "to_agent": str(selected_packet.get("to_agent") or "").strip(),
+            **control_metadata,
+        }
+    elif promotion_candidate is not None:
+        derived_instruction = promotion_candidate.instruction
+        derived_source = promotion_candidate_to_dict(promotion_candidate)
     return ReviewQueueState(
         pending_total=sum(pending_counts.values()),
         pending_codex=pending_counts.get("codex", 0),
@@ -207,14 +230,8 @@ def build_queue_state(
         pending_cursor=pending_counts.get("cursor", 0),
         pending_operator=pending_counts.get("operator", 0),
         stale_packet_count=stale_packet_count,
-        derived_next_instruction=(
-            promotion_candidate.instruction if promotion_candidate is not None else ""
-        ),
-        derived_next_instruction_source=(
-            promotion_candidate_to_dict(promotion_candidate)
-            if promotion_candidate is not None
-            else {}
-        ),
+        derived_next_instruction=derived_instruction,
+        derived_next_instruction_source=derived_source,
     )
 
 

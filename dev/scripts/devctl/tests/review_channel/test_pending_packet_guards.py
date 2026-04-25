@@ -21,6 +21,9 @@ from dev.scripts.devctl.review_channel.promotion import (
     promote_bridge_instruction,
     scope_bridge_instruction,
 )
+from dev.scripts.devctl.review_channel.status_projection_support import (
+    build_queue_state,
+)
 
 
 def _bridge_text(*, verdict: str, findings: str, instruction: str) -> str:
@@ -219,6 +222,71 @@ class PendingPacketInstructionRewriteGuardTests(unittest.TestCase):
         self.assertEqual(len(pending), 1)
         self.assertEqual(pending[0]["packet_id"], "rev_pkt_live")
         self.assertEqual(queue.stale_packet_count, 1)
+
+    def test_load_pending_queue_keeps_acked_action_request_as_control_packet(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            now = datetime.now(timezone.utc)
+            _write_packet_events(
+                root,
+                packets=[
+                    {
+                        "schema_version": 1,
+                        "event_id": "rev_evt_0001",
+                        "packet_id": "rev_pkt_control",
+                        "trace_id": "trace_control",
+                        "event_type": "packet_posted",
+                        "status": "pending",
+                        "from_agent": "codex",
+                        "to_agent": "claude",
+                        "kind": "action_request",
+                        "summary": "Run governed checkpoint",
+                        "expires_at_utc": (
+                            now + timedelta(minutes=30)
+                        ).isoformat().replace("+00:00", "Z"),
+                    },
+                    {
+                        "schema_version": 1,
+                        "event_id": "rev_evt_0002",
+                        "packet_id": "rev_pkt_control",
+                        "trace_id": "trace_control",
+                        "event_type": "packet_acked",
+                        "status": "acked",
+                        "from_agent": "codex",
+                        "to_agent": "claude",
+                        "kind": "action_request",
+                        "summary": "Run governed checkpoint",
+                        "execution_started_at_utc": now.isoformat().replace(
+                            "+00:00", "Z"
+                        ),
+                        "execution_started_by": "claude",
+                        "expires_at_utc": (
+                            now + timedelta(minutes=30)
+                        ).isoformat().replace("+00:00", "Z"),
+                    },
+                ],
+            )
+
+            queue = load_pending_packet_queue(root)
+
+        self.assertEqual(queue.pending_packets, ())
+        self.assertEqual(len(queue.control_packets), 1)
+        self.assertEqual(queue.control_packets[0]["packet_id"], "rev_pkt_control")
+        self.assertEqual(queue.control_packets[0]["status"], "acked")
+        self.assertEqual(
+            queue.control_packets[0]["execution_started_by"],
+            "claude",
+        )
+        projected = build_queue_state(None, pending_packets=queue.control_packets)
+        self.assertEqual(projected.pending_total, 0)
+        self.assertEqual(
+            projected.derived_next_instruction,
+            "Priority action_request: Run governed checkpoint",
+        )
+        self.assertEqual(
+            projected.derived_next_instruction_source["control_state"],
+            "in_progress",
+        )
 
     def test_reviewer_guard_ignores_packets_for_other_agents(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

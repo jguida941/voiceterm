@@ -2,21 +2,24 @@
 
 from __future__ import annotations
 
-from dataclasses import asdict
 from collections.abc import Mapping
+from dataclasses import asdict
 
-from ..runtime.review_state_semantics import is_pending_implementer_state
+from ..runtime.conductor_capability import (
+    authority_reviewer_mode,
+    build_conductor_capability_state,
+)
 from ..runtime.review_state_models import (
     CollaborationSessionState,
     ReviewBridgeState,
     ReviewCurrentSessionState,
     ReviewerRuntimeContract,
 )
-from ..runtime.conductor_capability import build_conductor_capability_state
+from ..runtime.review_state_semantics import is_pending_implementer_state
 from ..runtime.role_profile import TandemRole, default_provider_for_role
 from .collaboration_provider import collaboration_provider
-from .launch_truth import classify_launch_truth, effective_reviewer_mode
 from .handoff import BridgeSnapshot
+from .launch_truth import classify_launch_truth, effective_reviewer_mode
 from .peer_liveness import resolve_reported_reviewer_mode
 
 
@@ -51,15 +54,14 @@ def build_typed_bridge_liveness(
     implementer_status = str(
         typed.get("implementer_status") or typed.get("claude_status") or ""
     )
-    implementer_ack = str(
-        typed.get("implementer_ack") or typed.get("claude_ack") or ""
-    )
+    implementer_ack = str(typed.get("implementer_ack") or typed.get("claude_ack") or "")
     reviewer_mode = resolve_reported_reviewer_mode(typed)
     live_provider_ids = _live_participant_providers(collaboration)
     if collaboration is not None:
         typed["active_conductor_providers"] = list(live_provider_ids)
         typed["codex_conductor_active"] = "codex" in live_provider_ids
         typed["claude_conductor_active"] = "claude" in live_provider_ids
+    typed["declared_reviewer_mode"] = reviewer_mode
     typed["reviewer_mode"] = reviewer_mode
     typed["reviewer_poll_state"] = reviewer_poll_state
     typed["codex_poll_state"] = reviewer_poll_state
@@ -67,20 +69,26 @@ def build_typed_bridge_liveness(
     typed["last_codex_poll_utc"] = reviewer_poll_utc
     typed["last_reviewer_poll_age_seconds"] = reviewer_poll_age
     typed["last_codex_poll_age_seconds"] = reviewer_poll_age
+    typed["current_instruction"] = current_session.current_instruction
     typed["current_instruction_revision"] = current_session.current_instruction_revision
     typed["claude_ack_revision"] = current_session.implementer_ack_revision
     typed["claude_ack_current"] = current_session.implementer_ack_state == "current"
-    typed["implementer_status"] = implementer_status or current_session.implementer_status
+    typed["implementer_status"] = (
+        implementer_status or current_session.implementer_status
+    )
     typed["claude_status"] = typed["implementer_status"]
     typed["implementer_ack"] = implementer_ack or current_session.implementer_ack
     typed["claude_ack"] = typed["implementer_ack"]
     typed["implementer_ack_state"] = current_session.implementer_ack_state
     typed["implementer_state_hash"] = current_session.implementer_state_hash
     typed["implementer_ack_revision"] = current_session.implementer_ack_revision
-    typed["implementer_ack_current"] = current_session.implementer_ack_state == "current"
+    typed["implementer_ack_current"] = (
+        current_session.implementer_ack_state == "current"
+    )
     typed["launch_truth"] = classify_launch_truth(typed).value
     typed["effective_reviewer_mode"] = effective_reviewer_mode(typed)
     effective_mode = str(typed.get("effective_reviewer_mode") or reviewer_mode)
+    typed["reviewer_mode"] = authority_reviewer_mode(reviewer_mode, effective_mode)
     reviewer_provider = collaboration_provider(
         collaboration,
         role_id="review_agent",
@@ -142,10 +150,11 @@ def build_review_bridge_state(
 ) -> ReviewBridgeState:
     reviewed_hash_current = bridge_liveness.get("reviewed_hash_current")
     review_needed = bridge_liveness.get("review_needed")
-    reviewer_mode = resolve_reported_reviewer_mode(bridge_liveness)
+    declared_mode = resolve_reported_reviewer_mode(bridge_liveness)
     effective_mode = str(
-        bridge_liveness.get("effective_reviewer_mode") or reviewer_mode
+        bridge_liveness.get("effective_reviewer_mode") or declared_mode
     )
+    reviewer_mode = authority_reviewer_mode(declared_mode, effective_mode)
     reviewer_provider = collaboration_provider(
         collaboration,
         role_id="review_agent",
@@ -159,11 +168,13 @@ def build_review_bridge_state(
     return ReviewBridgeState(
         overall_state=overall_state,
         codex_poll_state=str(bridge_liveness.get("codex_poll_state") or "unknown"),
-        reviewer_freshness=str(
-            bridge_liveness.get("reviewer_freshness") or "unknown"
-        ),
+        reviewer_freshness=str(bridge_liveness.get("reviewer_freshness") or "unknown"),
         reviewer_mode=reviewer_mode,
-        last_codex_poll_utc=str(snapshot.metadata.get("last_codex_poll_utc") or ""),
+        last_codex_poll_utc=str(
+            bridge_liveness.get("last_codex_poll_utc")
+            or snapshot.metadata.get("last_codex_poll_utc")
+            or ""
+        ),
         last_codex_poll_age_seconds=int(
             bridge_liveness.get("last_codex_poll_age_seconds") or 0
         ),
@@ -211,9 +222,7 @@ def build_review_bridge_state(
             snapshot,
             reviewer_runtime=reviewer_runtime,
         ),
-        head_at_push_time=str(
-            snapshot.metadata.get("head_at_push_time") or ""
-        ).strip(),
+        head_at_push_time=str(snapshot.metadata.get("head_at_push_time") or "").strip(),
         implementer_completion_stall=bool(
             bridge_liveness.get("implementer_completion_stall")
         ),

@@ -5,6 +5,7 @@ from __future__ import annotations
 from ...context_graph.render import append_quality_signal_lines
 from ...runtime.work_intake_models import session_pacing_markdown_lines
 from ...runtime.work_intake_plan_routing import plan_routing_markdown_lines
+from ...review_channel.ack_contract import packet_ack_is_transport_lifecycle_line
 from .startup_context_push_render import (
     append_push_decision as _append_push_decision,
     append_push_state as _append_push_state,
@@ -281,6 +282,7 @@ def _append_pending_inbox(lines: list[str], ctx_dict: dict) -> None:
     if not isinstance(agents, list) or not agents:
         return
     lines.append("## Pending Inbox")
+    lines.append(packet_ack_is_transport_lifecycle_line())
     attention_revision = str(packet_inbox.get("attention_revision") or "").strip()
     if attention_revision:
         lines.append(f"- attention_revision: `{attention_revision}`")

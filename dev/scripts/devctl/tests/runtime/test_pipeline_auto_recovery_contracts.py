@@ -31,12 +31,14 @@ from dev.scripts.devctl.commands.pipeline.support import (
 from dev.scripts.devctl.runtime.pipeline_auto_recovery_contracts import (
     CHOSEN_ACTION_ABANDON,
     CHOSEN_ACTION_BAILED,
+    CHOSEN_ACTION_MARK_DELIVERED_LOCAL,
     CHOSEN_ACTION_NONE,
     CHOSEN_ACTION_RECOVER,
     CHOSEN_ACTION_REFRESH_AUTHORIZATION,
     CLASSIFICATION_ALREADY_CLEAN,
     CLASSIFICATION_AMBIGUOUS,
     CLASSIFICATION_NEEDS_ABANDON,
+    CLASSIFICATION_NEEDS_MARK_DELIVERED_LOCAL,
     CLASSIFICATION_NEEDS_RECOVER,
     CLASSIFICATION_NEEDS_REFRESH_AUTHORIZATION,
     PipelineAutoRecoveryClassification,
@@ -73,6 +75,19 @@ def _sample_payload(
             "approved_by": "operator",
         },
     }
+
+
+def _with_commit_result(payload: dict[str, Any]) -> dict[str, Any]:
+    updated = dict(payload)
+    updated["commit_result"] = {
+        "schema_version": 1,
+        "contract_id": "ActionResult",
+        "action_id": "vcs.commit",
+        "ok": True,
+        "status": "pass",
+        "reason": "commit_recorded",
+    }
+    return updated
 
 
 class _PipelineFixture:
@@ -153,6 +168,14 @@ class PipelineClassifierTests(unittest.TestCase):
         result = classify_pipeline(payload, current_head=_DEFAULT_HEAD)
         self.assertEqual(result.classification, CLASSIFICATION_NEEDS_ABANDON)
 
+    def test_successful_push_blocked_commit_maps_to_local_delivery(self) -> None:
+        payload = _with_commit_result(_sample_payload(state="push_blocked"))
+        result = classify_pipeline(payload, current_head=_DEFAULT_HEAD)
+        self.assertEqual(
+            result.classification,
+            CLASSIFICATION_NEEDS_MARK_DELIVERED_LOCAL,
+        )
+
     def test_expired_auth_head_matches_needs_refresh(self) -> None:
         payload = _sample_payload(
             state="commit_recorded",
@@ -211,6 +234,27 @@ class PipelineAutoRecoverRunnerTests(unittest.TestCase):
             self.assertEqual(result["chosen_action"], CHOSEN_ACTION_ABANDON)
             self.assertEqual(result["new_state"], "abandoned")
             # Composite receipt records the sub-receipt.
+            self.assertTrue(result["sub_receipt_path"])
+            self.assertTrue(Path(result["sub_receipt_path"]).exists())
+        finally:
+            fx.close()
+
+    def test_needs_local_delivery_marks_pipeline_delivered_local(self) -> None:
+        fx = _PipelineFixture()
+        try:
+            fx.write_payload(
+                _with_commit_result(_sample_payload(state="push_blocked"))
+            )
+            result = apply_auto_recover(paths=fx.paths())
+            self.assertTrue(result["ok"])
+            self.assertEqual(
+                result["chosen_action"],
+                CHOSEN_ACTION_MARK_DELIVERED_LOCAL,
+            )
+            self.assertEqual(
+                result["new_state"],
+                "delivered_locally_pending_publish",
+            )
             self.assertTrue(result["sub_receipt_path"])
             self.assertTrue(Path(result["sub_receipt_path"]).exists())
         finally:

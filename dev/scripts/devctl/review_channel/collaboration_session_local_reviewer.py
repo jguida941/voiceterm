@@ -53,7 +53,10 @@ def local_reviewer_activity_is_fresh(
         session_output_root=session_output_root,
     ):
         return True
-    return local_reviewer_rollout_is_fresh(reviewer_provider=reviewer_provider)
+    return local_reviewer_rollout_is_fresh(
+        reviewer_provider=reviewer_provider,
+        session_output_root=session_output_root,
+    )
 
 
 def provider_packet_activity_is_fresh(
@@ -75,25 +78,67 @@ def provider_packet_activity_is_fresh(
     return False
 
 
-def local_reviewer_rollout_is_fresh(*, reviewer_provider: str) -> bool:
+def local_reviewer_rollout_is_fresh(
+    *,
+    reviewer_provider: str,
+    session_output_root: Path | None = None,
+) -> bool:
     rollout_path = latest_local_reviewer_rollout_path(
-        reviewer_provider=reviewer_provider
+        reviewer_provider=reviewer_provider,
+        session_output_root=session_output_root,
     )
     if rollout_path is None:
         return False
     try:
-        modified_at = datetime.fromtimestamp(rollout_path.stat().st_mtime, tz=timezone.utc)
+        modified_at = datetime.fromtimestamp(
+            rollout_path.stat().st_mtime, tz=timezone.utc
+        )
     except OSError:
         return False
     rollout_age_seconds = int(max((_utcnow() - modified_at).total_seconds(), 0.0))
     return rollout_age_seconds <= CODEX_POLL_STALE_AFTER_SECONDS
 
 
-def latest_local_reviewer_rollout_path(*, reviewer_provider: str) -> Path | None:
+def latest_local_reviewer_rollout_path(
+    *,
+    reviewer_provider: str,
+    session_output_root: Path | None = None,
+) -> Path | None:
     provider = text(reviewer_provider)
     if not provider:
         return None
+    scoped_rollout = latest_scoped_reviewer_rollout_path(
+        reviewer_provider=provider,
+        session_output_root=session_output_root,
+    )
+    if scoped_rollout is not None:
+        return scoped_rollout
     return discover_latest_session(provider)
+
+
+def latest_scoped_reviewer_rollout_path(
+    *,
+    reviewer_provider: str,
+    session_output_root: Path | None,
+) -> Path | None:
+    if session_output_root is None:
+        return None
+    provider = text(reviewer_provider)
+    if not provider:
+        return None
+    candidates: list[Path] = []
+    for root in (session_output_root, *session_output_root.parents):
+        sessions_dir = root / "sessions"
+        if not sessions_dir.is_dir():
+            continue
+        candidates.extend(
+            path
+            for path in sessions_dir.glob(f"**/rollout-*-{provider}-*.jsonl")
+            if path.is_file()
+        )
+    if not candidates:
+        return None
+    return max(candidates, key=lambda path: path.stat().st_mtime)
 
 
 def resolve_event_log_path(session_output_root: Path | None) -> Path | None:
@@ -171,7 +216,9 @@ def age_seconds(timestamp_utc: str) -> int | None:
         return None
     if observed.tzinfo is None:
         observed = observed.replace(tzinfo=timezone.utc)
-    return int(max((_utcnow() - observed.astimezone(timezone.utc)).total_seconds(), 0.0))
+    return int(
+        max((_utcnow() - observed.astimezone(timezone.utc)).total_seconds(), 0.0)
+    )
 
 
 def text(value: object) -> str:

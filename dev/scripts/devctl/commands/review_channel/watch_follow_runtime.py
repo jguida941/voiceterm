@@ -172,8 +172,11 @@ def run_watch_follow_loop(
             last_report=legacy_kwargs["last_report"],
         )
     stop_reason = "completed"
+    poll_seq = 0
+    unchanged_polls = 0
     while ctx.max_snapshots == 0 or state.emitted_count < ctx.max_snapshots:
         ctx.deps.sleep_fn(ctx.interval)
+        poll_seq += 1
         if not ctx.deps.watch_parent_is_alive_fn(ctx.owner):
             stop_reason = "parent_exit"
             break
@@ -207,6 +210,10 @@ def run_watch_follow_loop(
         )
         state.last_report = report
         changed = cur_signature != state.prev_signature
+        if changed:
+            unchanged_polls = 0
+        else:
+            unchanged_polls += 1
         pipe_rc = emit_watch_frame(
             args=ctx.args,
             deps=ctx.deps,
@@ -219,6 +226,11 @@ def run_watch_follow_loop(
                 status_filter=ctx.status_filter,
                 owner=ctx.owner,
                 snapshots_emitted=state.emitted_count + 1 if changed else state.emitted_count,
+                poll_seq=poll_seq,
+                unchanged_polls=0 if changed else unchanged_polls,
+                awaiting_transition=(
+                    "" if changed else _awaiting_transition_summary(report)
+                ),
             ),
         )
         if pipe_rc != 0:
@@ -246,3 +258,13 @@ def run_watch_follow_loop(
     ):
         stop_reason = "max_follow_snapshots_reached"
     return state, stop_reason
+
+
+def _awaiting_transition_summary(report: dict[str, object]) -> str:
+    packets = report.get("packets")
+    if isinstance(packets, list) and packets:
+        return "packet_status_or_current_instruction_revision_change"
+    queue = report.get("queue")
+    if isinstance(queue, dict) and int(queue.get("pending_total") or 0) > 0:
+        return "packet_delivery_ack_apply_or_expiry_change"
+    return "packet_or_current_session_change"

@@ -14,6 +14,13 @@ from dev.scripts.devctl.review_channel.bridge_validation import (
 from dev.scripts.devctl.review_channel.current_session_projection import (
     build_bridge_current_session,
 )
+from dev.scripts.devctl.review_channel.reviewer_state_normalize import (
+    instruction_revision,
+)
+from dev.scripts.devctl.review_channel.ack_contract import (
+    extract_implementer_ack_revision,
+    packet_ack_is_transport_lifecycle_line,
+)
 from dev.scripts.devctl.review_channel.handoff import extract_bridge_snapshot
 
 
@@ -112,6 +119,13 @@ def test_validate_live_bridge_contract_skips_ack_revision_gate_for_wait_placehol
     assert not any("Claude Ack" in error for error in errors)
 
 
+def test_packet_ack_command_does_not_parse_as_implementer_ack() -> None:
+    text = "review-channel --action ack --packet-id rev_pkt_1818 --actor claude"
+
+    assert extract_implementer_ack_revision(text) == ""
+    assert "transport lifecycle only" in packet_ack_is_transport_lifecycle_line()
+
+
 def test_build_bridge_current_session_accepts_implementer_heading_aliases() -> None:
     snapshot = extract_bridge_snapshot(
         _bridge_text(claude_ack="- acknowledged; instruction-rev: `56bcd5d01510`")
@@ -128,15 +142,18 @@ def test_build_bridge_current_session_accepts_implementer_heading_aliases() -> N
 
 
 def test_build_bridge_projection_state_prefers_typed_current_session_sections() -> None:
+    revision = instruction_revision("- Typed instruction wins.")
     projection_state = build_bridge_projection_state(
-        bridge_text=_bridge_text(claude_ack="- acknowledged; instruction-rev: `deadbeef1234`"),
-        bridge_liveness={"current_instruction_revision": "56bcd5d01510"},
+        bridge_text=_bridge_text(
+            claude_ack="- acknowledged; instruction-rev: `deadbeef1234`"
+        ),
+        bridge_liveness={"current_instruction_revision": revision},
         current_session={
             "current_instruction": "- Typed instruction wins.",
-            "current_instruction_revision": "56bcd5d01510",
+            "current_instruction_revision": revision,
             "implementer_status": "- Typed status wins.",
-            "implementer_ack": "- Acknowledged instruction revision `56bcd5d01510`",
-            "implementer_ack_revision": "56bcd5d01510",
+            "implementer_ack": f"- Acknowledged instruction revision `{revision}`",
+            "implementer_ack_revision": revision,
             "open_findings": "- Typed findings win.",
             "last_reviewed_scope": "- typed/scope.py",
         },
@@ -146,7 +163,7 @@ def test_build_bridge_projection_state_prefers_typed_current_session_sections() 
                 "open_findings": "- Typed findings win.",
             }
         },
-        bridge_state={"current_instruction_revision": "56bcd5d01510"},
+        bridge_state={"current_instruction_revision": revision},
     )
 
     assert projection_state.sections["Current Verdict"] == "- Typed verdict wins."
@@ -154,24 +171,27 @@ def test_build_bridge_projection_state_prefers_typed_current_session_sections() 
     assert projection_state.sections["Claude Status"] == "- Typed status wins."
     assert (
         projection_state.sections["Claude Ack"]
-        == "- Acknowledged instruction revision `56bcd5d01510`"
+        == f"- Acknowledged instruction revision `{revision}`"
     )
     assert (
         projection_state.sections["Current Instruction For Claude"]
         == "- Typed instruction wins."
     )
     assert projection_state.sections["Last Reviewed Scope"] == "- typed/scope.py"
-    assert projection_state.metadata["current_instruction_revision"] == "56bcd5d01510"
+    assert projection_state.metadata["current_instruction_revision"] == revision
 
 
 def test_build_bridge_poll_result_prefers_typed_current_session_authority() -> None:
+    revision = instruction_revision("- Typed instruction wins.")
     result = build_bridge_poll_result(
         _bridge_text(claude_ack="- acknowledged; instruction-rev: `deadbeef1234`"),
         typed_review_state={
             "current_session": {
                 "current_instruction": "- Typed instruction wins.",
-                "current_instruction_revision": "56bcd5d01510",
-                "implementer_ack_revision": "56bcd5d01510",
+                "current_instruction_revision": revision,
+                "implementer_ack": f"- Acknowledged instruction revision `{revision}`",
+                "implementer_ack_revision": revision,
+                "implementer_ack_state": "current",
             },
             "bridge": {
                 "claude_ack_current": True,
@@ -182,8 +202,8 @@ def test_build_bridge_poll_result_prefers_typed_current_session_authority() -> N
     )
 
     assert result.current_instruction == "- Typed instruction wins."
-    assert result.current_instruction_revision == "56bcd5d01510"
-    assert result.claude_ack_revision == "56bcd5d01510"
+    assert result.current_instruction_revision == revision
+    assert result.claude_ack_revision == revision
     assert result.claude_ack_current is True
     assert result.changed_since_last_ack is False
     assert result.reviewed_hash_current is True

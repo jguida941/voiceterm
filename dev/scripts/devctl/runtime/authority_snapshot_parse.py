@@ -7,6 +7,7 @@ from collections.abc import Mapping
 from .authority_snapshot_core import AuthorityPacketTarget, AuthoritySnapshot
 from .authority_snapshot_parse_support import string_items as _string_items
 from .collaboration_wake_contract import LoopAutonomyState
+from .review_state_collaboration_models import actor_authorities_from_value
 from .review_state_packet_models import agent_attention_record_from_mapping
 
 
@@ -50,6 +51,8 @@ def authority_snapshot_from_mapping(value: object) -> AuthoritySnapshot | None:
         verification_status=str(value.get("verification_status") or "inactive").strip(),
         watcher_owner=str(value.get("watcher_owner") or "").strip(),
         watcher_status=str(value.get("watcher_status") or "inactive").strip(),
+        actor_capabilities=_string_items(value.get("actor_capabilities")),
+        actor_authorities=actor_authorities_from_value(value.get("actor_authorities")),
         mutation_wake_mode=str(value.get("mutation_wake_mode") or "unknown").strip()
         or "unknown",
         verification_wake_mode=str(

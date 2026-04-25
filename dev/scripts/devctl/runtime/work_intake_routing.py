@@ -87,6 +87,10 @@ def warm_refs(
     _append_startup_ref(refs, repo_root, governance, governance.plan_registry.tracker_path)
     _append_startup_ref(refs, repo_root, governance, governance.plan_registry.index_path)
     _append_startup_ref(refs, repo_root, governance, governance.docs_authority)
+    for entry in governance.doc_registry.entries:
+        if entry.artifact_role != "connectivity_index":
+            continue
+        _append_startup_ref(refs, repo_root, governance, entry.path)
     _append_existing_ref(
         refs,
         repo_root,

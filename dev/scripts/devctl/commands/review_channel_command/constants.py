@@ -122,6 +122,7 @@ REVIEWER_STATE_ACTION_SET = frozenset(
 )
 FOLLOW_JSON_ACTIONS = frozenset(
     {
+        ReviewChannelAction.POST,
         ReviewChannelAction.WATCH,
         ReviewChannelAction.ENSURE,
         ReviewChannelAction.REVIEWER_HEARTBEAT,

@@ -463,6 +463,11 @@ Portability note:
   prove a remote lane actually saw and started the request instead of only
   inferring from queue length. Prose-only runtime requests stay in packet
   history but are not projected into the bridge execution queue.
+- Packet `ack` / `apply` / `dismiss` is only packet transport lifecycle. It
+  does not write the implementer `Claude Ack` compatibility section and does
+  not satisfy `current_session.implementer_ack_state=current`; that ACK still
+  requires a machine-readable current-instruction revision in the implementer
+  ACK surface.
 - `review-channel --action operator-inbox` is the read-only operator queue
   alias over that same typed packet lane. It fixes `target=operator`,
   defaults to `--status pending`, and intentionally does not stamp
@@ -515,6 +520,14 @@ Portability note:
   downstream control-plane readers must also keep the attached remote provider
   live from typed `remote_control_attachment` authority instead of dropping
   Claude solely because recent typed packet activity has aged out.
+  In remote-control dogfood runs, the explicit
+  `review-channel --action status --refresh-bridge-heartbeat-if-stale` path
+  also uses that typed attachment as continuity evidence when the compatibility
+  bridge has drifted to stale `tools_only`: status may refresh the Codex
+  heartbeat, count that refresh as reviewer activity for this typed
+  remote-control continuity case, and reproject `bridge.md` back to
+  `active_dual_agent`. Fresh launch/rollover still use the stricter
+  live-bridge contract; this is a status-resync path, not a launcher bypass.
 - `review-channel --action reviewer-checkpoint` is the repo-owned review-truth
   write. Use it only after a real review pass to advance the reviewed hash,
   verdict, findings, instruction, and reviewed scope together. Prefer one
@@ -1635,6 +1648,7 @@ Machine-first output note:
 - `dogfood`: explicit dev-mode coverage ledger over live commands, guards, probes, and role lanes; `--record` appends one `DogfoodRun` row to `dev/reports/dogfood/runs.jsonl`, plain `--report` (or no mode flag) refreshes `dev/reports/dogfood/latest/summary.{md,json}`, coverage derives from the live command catalog plus registered `check_*.py` / `probe_*.py` entrypoints instead of fixed counts, and `--record-governance` refreshes a linked `signal_type=dogfood` governance-review row with a stable finding id using the live target path/default classification unless you override it with `--finding-path`, `--governance-check-id`, `--finding-class`, `--recurrence-risk`, or `--prevention-surface`
   - Campaign/system-test rows can also carry `--campaign-id`, `--scenario-id`, `--repo-scope`, `--repo-label`, `--repo-path`, `--topology`, `--lane-role`, repeatable `--live-run-ref`, and repeatable `--governance-finding-id`; the same linkage is rendered in dogfood summaries and copied into linked governance notes for later cross-surface audit.
   - Dogfood records development evidence only. Runtime collaboration roles still come from typed ownership (`CollaborationSession.mutation_owner`, `verification_owner`, `watcher_owner`) and the mirrored `AuthoritySnapshot` fields.
+  - Repo mutation should be authorized through typed actor-authority grants (`repo.commit`, `repo.stage`, `repo.stage_handoff`) on the live mutation owner; approval grants (`approval.commit`) stay separate from repo-write authority.
 - `governance-import-findings`: import external raw findings into the managed external ledger/summary from JSON, JSONL, or compatibility markdown. Use `--input-format md` for `LIVE_RUN.md` (or rely on `.md` / `.markdown` / `.mdown` auto-detection); markdown imports reuse the repo-owned `LIVE_RUN` parser and emit repo-scoped sync ids in the form `<repo_name>:Qnn` so repeated imports collapse by latest section instead of creating cross-repo collisions. `LIVE_RUN.md` stays compatibility evidence only; canonical triage and closeout still flow through the external findings ledger plus `governance-review`.
 - `governance-review`: adjudicated finding ledger for hard-guard/probe outcomes; records reviewed findings plus their systemic disposition into `dev/reports/governance/finding_reviews.jsonl`, writes refreshed `review_summary.{md,json}` artifacts under `dev/reports/governance/latest/`, and gives the repo a durable scoreboard for false-positive rate, fixed findings, deferred debt, architectural absorption choices, observer/self-audit finding types (`signal_type=observer` plus optional `finding_type`), and optional probe-guidance adoption (`guidance_id` / `guidance_followed`). When `--record` uses `--prevention-surface guard` or `--prevention-surface probe`, it also appends a `GuardPromotionCandidate` row to the repo-pack-resolved promotion queue (default `dev/reports/governance/guard_promotion_candidates.jsonl`) and includes the candidate id/path in the refreshed JSON summary for that recorded row.
 - Shared context-escalation packets now also consume bounded recent
@@ -2016,6 +2030,7 @@ Machine-first output note:
 | `push --execute` | validation passed and you want the repo-owned push path instead of ad-hoc `git push` | runs the same policy-driven validation, writes phase-aware latest-push snapshots as the governed run starts (`push_preflight_running`) and becomes ready to publish (`push_pending`), auto-commits a managed projection receipt when preflight leaves only governed receipt/projection artifacts dirty, performs the branch push, writes a `published_remote` artifact snapshot as soon as `git push` succeeds, executes the configured post-push bundle, matches the persisted branch/HEAD/approved-target record against the current tracked upstream or default remote during startup recovery so stale local upstream counts do not trigger duplicate pushes, binds the staged pipeline plus persisted authorization to the exact `worktree_identity` that requested publication so a worker-lane approval cannot be replayed from the primary control lane, emits stderr progress notices when publication is recorded and before each post-push step so long audit bundles stay visibly in the "published, still auditing" phase, and no-ops to the same already-published receipt when a rerun fetch proves `ahead == 0` without reconstructing a stale `push_blocked` commit-pipeline artifact into `push_completed`; `--skip-preflight` / `--skip-post-push` only work when repo policy explicitly allows those bypasses, and the repo-owned default keeps `allow_skip_preflight` closed unless a tracked temporary override is deliberately in force |
 | `render-surfaces --format md` | you need to inspect repo-pack instruction/starter surfaces or validate drift without writing files | resolves `repo_governance.surface_generation` and reports current sync state for each governed surface |
 | `render-surfaces --write --format md` | you changed a repo-pack template, starter stub, or surface-generation policy context | regenerates the governed outputs in place so `docs-check --strict-tooling` and the standalone guard stay green, including `CLAUDE.md`, `bridge.md`, and other compatibility projections rendered from typed state |
+| `system-map --format md` | you need the generated connectivity snapshot that feeds the managed SYSTEM_MAP block | renders the bounded `SystemMapSnapshot` over tracked architecture roots, governed surfaces, and the commands that refresh or validate `dev/guides/SYSTEM_MAP.md` |
 | `hygiene` | before merge on tooling/process work | catches doc/process drift and leaked runtime test processes |
 | `publication-sync --format md` | a paper/site depends on repo evidence and you need to know if it drifted | shows watched-path changes since the last recorded sync and the exact command to record a new baseline after publish |
 | `hygiene --fix` | after local test runs leave Python caches | clears `dev/scripts/**/__pycache__` safely and re-checks hygiene |

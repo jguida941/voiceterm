@@ -177,7 +177,9 @@ def test_watch_snapshot_signature_prefers_target_attention_revision() -> None:
         target="claude",
     )
 
-    assert signature == (frozenset({"pkt-1"}), 3, "claude-rev")
+    assert signature[0] == (("pkt-1", "", "", "", "", "", "", "", "", ""),)
+    assert signature[1] == 3
+    assert signature[2] == "claude-rev"
 
 
 def test_watch_snapshot_signature_falls_back_to_global_attention_revision() -> None:
@@ -198,7 +200,63 @@ def test_watch_snapshot_signature_falls_back_to_global_attention_revision() -> N
         target="claude",
     )
 
-    assert signature == (frozenset({"pkt-1"}), 0, "global-rev")
+    assert signature[0] == (("pkt-1", "", "", "", "", "", "", "", "", ""),)
+    assert signature[1] == 0
+    assert signature[2] == "global-rev"
+
+
+def test_watch_snapshot_signature_changes_on_packet_status_transition() -> None:
+    pending = watch_snapshot_signature(
+        packets=[
+            {
+                "packet_id": "pkt-1",
+                "latest_event_id": "evt-1",
+                "status": "pending",
+            }
+        ],
+        review_state={},
+        target="claude",
+    )
+    acked = watch_snapshot_signature(
+        packets=[
+            {
+                "packet_id": "pkt-1",
+                "latest_event_id": "evt-2",
+                "status": "acked",
+                "acked_at_utc": "2026-04-25T02:00:00Z",
+                "acked_by": "claude",
+            }
+        ],
+        review_state={},
+        target="claude",
+    )
+
+    assert pending != acked
+
+
+def test_watch_snapshot_signature_changes_on_current_instruction_revision() -> None:
+    base = watch_snapshot_signature(
+        packets=[],
+        review_state={
+            "current_session": {
+                "current_instruction_revision": "rev-1",
+                "implementer_ack_state": "missing",
+            }
+        },
+        target="claude",
+    )
+    changed = watch_snapshot_signature(
+        packets=[],
+        review_state={
+            "current_session": {
+                "current_instruction_revision": "rev-2",
+                "implementer_ack_state": "missing",
+            }
+        },
+        target="claude",
+    )
+
+    assert base != changed
 
 
 def test_load_initial_watch_bundle_passes_event_watch_context(monkeypatch) -> None:

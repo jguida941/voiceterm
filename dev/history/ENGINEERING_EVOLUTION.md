@@ -4,7 +4,7 @@
 
 **Status:** Draft v4 (historical design and process record)
 **Audience:** users and developers
-**Last Updated:** 2026-04-23
+**Last Updated:** 2026-04-24
 
 ## At a Glance
 
@@ -36,6 +36,65 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 - [Quick Read (2 min)](#quick-read-2-min)
 - [User Path (5 min)](#user-path-5-min)
 - [Developer Path (15 min)](#developer-path-15-min)
+
+### 2026-04-24 - ActorAuthority grants make mutation authority identity-bound
+
+Fact: the review-channel runtime already carried `mutation_owner`, but commit
+handoff code still had paths that reasoned from reviewer mode or stale
+capability projections. That kept the system vulnerable to the same class of
+mode-flip drift: a role label could move while writable authority looked valid
+for the wrong actor.
+
+Change: `CollaborationSession` now emits additive `ActorAuthorityState` rows
+with explicit `CapabilityGrantState` grants such as `repo.commit`,
+`repo.stage`, `repo.stage_handoff`, `review.checkpoint`, `runtime.observe`,
+and `approval.commit`. `AuthoritySnapshot` and session-resume preserve those
+rows, and governed commit target selection first uses the live mutation
+owner's `repo.commit` grant before falling back to legacy artifacts. Approval
+remains a separate capability, so `approval.commit` does not imply repo
+mutation. Startup-context also keeps orphan-work evidence as a bounded summary
+so typed evidence does not break the slim bootstrap budget.
+
+Evidence:
+- `dev/scripts/devctl/runtime/review_state_collaboration_models.py`
+- `dev/scripts/devctl/review_channel/collaboration_session_lane_owners.py`
+- `dev/scripts/devctl/runtime/authority_snapshot_core.py`
+- `dev/scripts/devctl/commands/governance/session_resume_support.py`
+- `dev/scripts/devctl/commands/vcs/governed_executor_commit_targets.py`
+- `dev/scripts/devctl/runtime/startup_context_projections.py`
+- `dev/scripts/devctl/tests/vcs/test_governed_executor.py`
+- `dev/scripts/devctl/tests/runtime/test_startup_context.py`
+- `dev/scripts/devctl/tests/governance/test_session_resume.py`
+
+### 2026-04-24 - Remote-control status refresh now reasserts Codex liveness from typed authority
+
+Fact: live dogfooding with Claude remote-control exposed a split-brain that was
+narrower than packet delivery. Claude could post typed evidence and Codex could
+ack it, but normal Codex activity in this chat did not automatically refresh
+the reviewer heartbeat/mode. When `bridge.md` had drifted back to
+`tools_only`, `review-channel status --refresh-bridge-heartbeat-if-stale`
+looked only at raw bridge launch validation, saw inactive mode, and refused to
+refresh the stale Codex heartbeat. Claude then saw a stale/non-live Codex even
+while Codex was actively working.
+
+Change: the explicit status refresh path now reads typed remote-control
+continuity before deciding whether a stale `tools_only` bridge may refresh. If
+an active `remote_control_attachment` is present and the Codex poll is stale or
+missing, status may refresh the reviewer heartbeat, mark the fresh heartbeat as
+typed reviewer activity for this remote-control continuity case, and reproject
+`bridge.md` from typed state so the compatibility bridge returns to
+`active_dual_agent`. Launch/rollover still use the stricter fail-closed
+contract and do not get this broad bypass. Status continues to expose
+remaining red health through `attention`, `errors`, and final
+`bridge_liveness` without redefining the command-level `ok` contract.
+
+Evidence:
+- `dev/scripts/devctl/commands/review_channel/bridge_support.py`
+- `dev/scripts/devctl/review_channel/status_projection_runtime_presence.py`
+- `dev/scripts/devctl/commands/review_channel/status.py`
+- `dev/scripts/devctl/tests/review_channel/test_review_channel.py`
+- `dev/scripts/devctl/tests/review_channel/test_bridge_projection_mode_defaults.py`
+- `dev/scripts/devctl/tests/review_channel/test_bridge_render.py`
 
 ### 2026-04-23 - Governed push now receipts managed bridge projection drift before publication
 

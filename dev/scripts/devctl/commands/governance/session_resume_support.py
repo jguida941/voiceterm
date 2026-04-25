@@ -2,53 +2,47 @@
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
+from dataclasses import asdict
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from ...platform.coordination_snapshot_models import (
-    CoordinationSnapshot,
-)
-from ...runtime.control_plane_read_model import (
-    ControlPlaneReadModel,
-    build_control_plane_read_model,
-)
 from ...runtime.authority_snapshot import (
-    AuthoritySnapshot,
     build_authority_snapshot,
     summary_blockers_csv,
     summary_next_command,
 )
-from ...runtime.control_topology import derive_startup_control_truth
-from ...runtime.review_state_parser import review_state_from_payload
-from ...runtime.review_state_models import (
-    PacketInboxState,
-    ReviewCandidateRecord,
-)
-from ...runtime.reviewer_runtime_models import (
-    has_active_remote_control_attachment,
-    remote_control_attachment_from_mapping,
+from ...runtime.control_plane_read_model import (
+    ControlPlaneReadModel,
+    build_control_plane_read_model,
 )
 from ...runtime.control_plane_resolve import (
     load_git_state,
     load_sources,
     read_json_artifact,
 )
-from ...runtime.value_coercion import coerce_bool, coerce_string
+from ...runtime.control_topology import derive_startup_control_truth
+from ...runtime.review_state_parser import review_state_from_payload
+from ...runtime.reviewer_runtime_models import (
+    has_active_remote_control_attachment,
+    remote_control_attachment_from_mapping,
+)
 from ...runtime.surface_provenance import (
     attach_surface_provenance,
     surface_provenance_from_object,
 )
-from ...time_utils import utc_timestamp
+from ...runtime.value_coercion import coerce_bool, coerce_string
 from . import session_resume_git as _session_resume_git
+from .session_resume_authority_payload import build_session_resume_review_state_context
+from .session_resume_cache_packet_builder import (
+    SessionCachePacketBuildContext,
+    SessionCachePacketFields,
+    build_session_cache_packet,
+)
 from .session_resume_packet import (
     SessionCachePacket,
     packet_from_mapping,
     try_cache_hit,
     write_cache,
-)
-from .session_resume_authority_payload import (
-    build_session_resume_review_state_context,
 )
 from .session_resume_paths import (
     get_review_state_mtime,
@@ -61,15 +55,30 @@ from .session_resume_source_helpers import (
     _load_session_resume_sources_and_model,
     _nested_dict,
     _str_field,
+)
+from .session_resume_source_helpers import (
     build_authority_payload as _build_authority_payload,
+)
+from .session_resume_source_helpers import (
     extract_attention_payload as _extract_attention_payload,
-    extract_coordination as _extract_coordination,
+)
+from .session_resume_source_helpers import extract_coordination as _extract_coordination
+from .session_resume_source_helpers import (
     extract_current_session as _extract_current_session,
+)
+from .session_resume_source_helpers import (
     extract_head_at_push_time as _extract_head_at_push_time,
+)
+from .session_resume_source_helpers import (
     extract_recovery_assessment_payload as _extract_recovery_assessment_payload,
+)
+from .session_resume_source_helpers import (
     extract_review_candidate as _extract_review_candidate,
+)
+from .session_resume_source_helpers import (
     resolve_open_findings as _resolve_open_findings,
 )
+
 if TYPE_CHECKING:
     from ...runtime.project_governance import ProjectGovernance
     from ...runtime.review_state_models import ReviewState
@@ -93,95 +102,6 @@ def resolve_guard_bundle(
         changed_paths,
         head_sha=head_sha,
         last_reviewed_sha=last_reviewed_sha,
-    )
-
-@dataclass(frozen=True, slots=True)
-class SessionCachePacketFields:
-    ack_state: str
-    blockers: str
-    current_instruction: str
-    guard_bundle: str
-    head_at_push_time: str
-    instruction_revision: str
-    key_rules: tuple[str, ...]
-    last_reviewed_sha: str
-    next_cmd: str
-    observation_status: str
-    open_findings: str
-    review_state_mtime: float
-    top_blocker: str
-    visible_next_cmd: str
-
-
-@dataclass(frozen=True, slots=True)
-class SessionCachePacketBuildContext:
-    role: str
-    head_sha: str
-    typed_review_state: "ReviewState | None"
-    coordination: CoordinationSnapshot | None
-    authority_snapshot: AuthoritySnapshot | None
-    review_candidate: ReviewCandidateRecord | None
-    attention_payload: dict[str, Any]
-    packet_inbox: PacketInboxState | None
-    fields: SessionCachePacketFields
-
-
-def _build_session_cache_packet(
-    *,
-    model: ControlPlaneReadModel,
-    build_context: SessionCachePacketBuildContext,
-) -> SessionCachePacket:
-    fields = build_context.fields
-    typed_review_state = build_context.typed_review_state
-    snapshot_id = getattr(typed_review_state, "snapshot_id", "") if typed_review_state is not None else ""
-    zref = getattr(typed_review_state, "zref", "") if typed_review_state is not None else ""
-    provenance = (
-        surface_provenance_from_object(typed_review_state)
-        if typed_review_state is not None
-        else None
-    )
-    visible_next_cmd = fields.visible_next_cmd
-    next_cmd = fields.next_cmd
-    return SessionCachePacket(
-        generated_at_utc=utc_timestamp(),
-        role=build_context.role,
-        branch=model.branch,
-        head_sha=build_context.head_sha,
-        snapshot_id=snapshot_id,
-        zref=zref,
-        advisory_action=model.next_action,
-        advisory_reason=fields.top_blocker,
-        blockers=fields.blockers,
-        interaction_mode=model.operator_interaction_mode,
-        current_instruction=fields.current_instruction,
-        instruction_revision=fields.instruction_revision,
-        ack_state=fields.ack_state,
-        open_findings=fields.open_findings,
-        last_guard_ok=model.last_guard_ok,
-        last_reviewed_sha=fields.last_reviewed_sha,
-        review_state_mtime=fields.review_state_mtime,
-        done_summary=next_cmd,
-        next_action=visible_next_cmd,
-        key_rules=fields.key_rules,
-        head_at_push_time=fields.head_at_push_time,
-        operator_interaction_mode=model.operator_interaction_mode,
-        resolved_phase=model.resolved_phase,
-        next_guard_bundle=fields.guard_bundle,
-        next_recommended_command=visible_next_cmd,
-        reviewer_observation_status=fields.observation_status,
-        review_candidate=build_context.review_candidate,
-        remote_control_attachment=getattr(model, "remote_control_attachment", None),
-        coordination=build_context.coordination,
-        authority_snapshot=build_context.authority_snapshot,
-        attention_status=_str_field(build_context.attention_payload, "status") or model.attention_status,
-        attention_summary=_str_field(build_context.attention_payload, "summary") or model.attention_summary,
-        attention_revision=(
-            build_context.packet_inbox.attention_revision
-            if build_context.packet_inbox is not None
-            else ""
-        ),
-        packet_inbox=build_context.packet_inbox,
-        provenance=provenance,
     )
 
 
@@ -225,16 +145,26 @@ def build_from_sources(
     last_reviewed_sha = head_at_push_time = _extract_head_at_push_time(sources)
     review_candidate = _extract_review_candidate(sources)
     guard_bundle = resolve_guard_bundle(
-        repo_root, changed_paths,
-        head_sha=head_sha, last_reviewed_sha=last_reviewed_sha,
+        repo_root,
+        changed_paths,
+        head_sha=head_sha,
+        last_reviewed_sha=last_reviewed_sha,
     )
-    obs_status = model.reviewer_observation.status if model.reviewer_observation is not None else ""
+    obs_status = (
+        model.reviewer_observation.status
+        if model.reviewer_observation is not None
+        else ""
+    )
     coordination = model.coordination or _extract_coordination(
         sources,
         repo_root=repo_root,
         governance=governance,
     )
-    review_state_payload = sources.get("review_state") if isinstance(sources.get("review_state"), dict) else {}
+    review_state_payload = (
+        sources.get("review_state")
+        if isinstance(sources.get("review_state"), dict)
+        else {}
+    )
     typed_review_state = review_state or review_state_from_payload(review_state_payload)
     attention_payload = _extract_attention_payload(
         sources,
@@ -244,21 +174,30 @@ def build_from_sources(
     recovery_payload = _extract_recovery_assessment_payload(sources)
     recovery_command = _str_field(_nested_dict(recovery_payload, "decision"), "command")
     attention_command = _str_field(attention_payload, "recommended_command")
-    next_cmd = recovery_command or attention_command or model.next_command or model.next_action
+    next_cmd = (
+        recovery_command or attention_command or model.next_command or model.next_action
+    )
     review_state_context = build_session_resume_review_state_context(
         review_state_payload,
         fallback_open_findings=_str_field(session, "open_findings"),
         role=role,
     )
     packet_inbox = review_state_context.packet_inbox
+    key_surfaces = _session_key_surfaces(governance)
     open_findings = _resolve_open_findings(
         repo_root=repo_root,
         governance=governance,
         fallback=review_state_context.open_findings,
     )
-    observed_control_topology, implementation_permission = derive_startup_control_truth(
-        typed_review_state
-    ) if typed_review_state is not None else ("", "")
+    observed_control_topology, implementation_permission = (
+        derive_startup_control_truth(typed_review_state)
+        if typed_review_state is not None
+        else ("", "")
+    )
+    collaboration_payload = _collaboration_payload_from_review_state(
+        typed_review_state,
+        review_state_payload,
+    )
     visible_next_cmd = project_packet_next_command_for_role(
         role=role,
         command=next_cmd,
@@ -277,6 +216,7 @@ def build_from_sources(
             packet_inbox=packet_inbox,
             next_command=visible_next_cmd,
             push_governance=push_governance,
+            collaboration=collaboration_payload,
         ),
     )
     _attach_review_state_provenance(authority_payload, typed_review_state)
@@ -297,23 +237,8 @@ def build_from_sources(
         authority_payload,
         caller_role=role,
     )
-    packet_fields = SessionCachePacketFields(
-        ack_state=ack_state,
-        blockers=blockers,
-        current_instruction=current_instruction,
-        guard_bundle=guard_bundle,
-        head_at_push_time=head_at_push_time,
-        instruction_revision=instruction_revision,
-        key_rules=key_rules,
-        last_reviewed_sha=last_reviewed_sha,
-        next_cmd=next_cmd,
-        observation_status=obs_status,
-        open_findings=open_findings,
-        review_state_mtime=rs_mtime,
-        top_blocker=top_blocker,
-        visible_next_cmd=visible_next_cmd,
-    )
-    return _build_session_cache_packet(
+    packet_fields = _packet_fields_from_context(locals())
+    return build_session_cache_packet(
         model=model,
         build_context=SessionCachePacketBuildContext(
             role=role,
@@ -324,9 +249,63 @@ def build_from_sources(
             review_candidate=review_candidate,
             attention_payload=attention_payload,
             packet_inbox=packet_inbox,
+            key_surfaces=key_surfaces,
             fields=packet_fields,
         ),
     )
+
+
+def _session_key_surfaces(governance: "ProjectGovernance | None") -> tuple[str, ...]:
+    if governance is None:
+        return ()
+    surfaces: list[str] = []
+    for entry in governance.doc_registry.entries:
+        if entry.artifact_role != "connectivity_index":
+            continue
+        if entry.consumer_scope and entry.consumer_scope != "startup_default":
+            continue
+        if entry.path and entry.path not in surfaces:
+            surfaces.append(entry.path)
+    return tuple(surfaces)
+
+
+def _packet_fields_from_context(context: dict[str, Any]) -> SessionCachePacketFields:
+    return SessionCachePacketFields(
+        ack_state=str(context["ack_state"]),
+        blockers=str(context["blockers"]),
+        current_instruction=str(context["current_instruction"]),
+        guard_bundle=str(context["guard_bundle"]),
+        head_at_push_time=str(context["head_at_push_time"]),
+        instruction_revision=str(context["instruction_revision"]),
+        key_rules=tuple(context["key_rules"]),
+        last_reviewed_sha=str(context["last_reviewed_sha"]),
+        next_cmd=str(context["next_cmd"]),
+        observation_status=str(context["obs_status"]),
+        open_findings=str(context["open_findings"]),
+        review_state_mtime=float(context["rs_mtime"]),
+        top_blocker=str(context["top_blocker"]),
+        visible_next_cmd=str(context["visible_next_cmd"]),
+    )
+
+
+def _collaboration_payload_from_review_state(
+    typed_review_state: object | None,
+    review_state_payload: dict[str, object],
+) -> dict[str, object]:
+    if typed_review_state is None:
+        return {}
+    collaboration = getattr(typed_review_state, "collaboration", None)
+    if collaboration is not None:
+        return asdict(collaboration)
+    payload_collaboration = review_state_payload.get("collaboration")
+    if isinstance(payload_collaboration, dict):
+        return dict(payload_collaboration)
+    to_dict = getattr(typed_review_state, "to_dict", None)
+    if callable(to_dict):
+        payload = to_dict()
+        if isinstance(payload, dict) and isinstance(payload.get("collaboration"), dict):
+            return dict(payload["collaboration"])
+    return {}
 
 
 def _attach_review_state_provenance(
@@ -341,6 +320,7 @@ def _attach_review_state_provenance(
             provenance=surface_provenance_from_object(typed_review_state),
         )
     )
+
 
 def _push_gate_state(
     *,
@@ -357,7 +337,8 @@ def _push_gate_state(
         push_payload = {
             "checkpoint_required": coerce_bool(receipt.get("checkpoint_required")),
             "safe_to_continue_editing": (
-                True if receipt.get("safe_to_continue_editing") is None
+                True
+                if receipt.get("safe_to_continue_editing") is None
                 else coerce_bool(receipt.get("safe_to_continue_editing"))
             ),
             "checkpoint_reason": _str_field(receipt, "checkpoint_reason"),
@@ -366,11 +347,14 @@ def _push_gate_state(
         return {}, True, False
     return (
         {"push_enforcement": push_payload},
-        True
-        if push_payload.get("safe_to_continue_editing") is None
-        else coerce_bool(push_payload.get("safe_to_continue_editing")),
+        (
+            True
+            if push_payload.get("safe_to_continue_editing") is None
+            else coerce_bool(push_payload.get("safe_to_continue_editing"))
+        ),
         coerce_bool(push_payload.get("checkpoint_required")),
     )
+
 
 def compute_blockers(
     *,
@@ -386,6 +370,7 @@ def compute_blockers(
     if not safe_to_continue:
         parts.append("continuation_blocked")
     return ",".join(parts) if parts else "none"
+
 
 def derive_interaction_mode(
     compact: dict[str, Any] | None,
@@ -417,6 +402,7 @@ def derive_interaction_mode(
         return "single_agent"
     return "unresolved"
 
+
 def derive_next_action(receipt: dict[str, Any] | None, blockers: str) -> str:
     if receipt is None:
         return "run startup-context to generate receipt"
@@ -429,6 +415,7 @@ def derive_next_action(receipt: dict[str, Any] | None, blockers: str) -> str:
     if push_action == "run_devctl_push":
         return "python3 dev/scripts/devctl.py push --execute"
     return "python3 dev/scripts/devctl.py context-graph --mode bootstrap --format md"
+
 
 def distill_key_rules(
     *,
@@ -447,7 +434,13 @@ def distill_key_rules(
     ]
     return tuple(rules)
 
-from .session_resume_render import render_bootstrap, render_markdown, render_summary  # noqa: F401
+
+from .session_resume_render import render_bootstrap  # noqa: F401
+from .session_resume_render import (
+    render_markdown,
+    render_summary,
+)
+
 
 def _resolve_blockers(
     receipt: dict[str, Any] | None,

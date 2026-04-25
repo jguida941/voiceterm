@@ -2,9 +2,47 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 
 from .work_intake_models import WorkIntakeOwnershipState
+
+
+@dataclass(frozen=True, slots=True)
+class CapabilityGrantState:
+    capability: str
+    granted: bool
+    source: str
+    reason: str = ""
+    target_kind: str = ""
+    target_ref: str = ""
+    target_revision: str = ""
+    worktree_identity: str = ""
+    packet_id: str = ""
+    approval_ref: str = ""
+    issued_at_utc: str = ""
+    expires_at_utc: str = ""
+
+
+@dataclass(frozen=True, slots=True)
+class ActorAuthorityState:
+    actor_id: str
+    provider: str
+    role: str
+    live: bool
+    status: str
+    source: str
+    grants: tuple[CapabilityGrantState, ...] = ()
+    source_contract: str = "CollaborationSession"
+    source_identity: dict[str, str] = field(default_factory=dict)
+    snapshot_id: str = ""
+    zref: str = ""
+    generation_id: str = ""
+    worktree_identity: str = ""
+    packet_id: str = ""
+    approval_ref: str = ""
+    issued_at_utc: str = ""
+    expires_at_utc: str = ""
 
 
 @dataclass(frozen=True, slots=True)
@@ -142,3 +180,162 @@ class CollaborationSessionState:
     loop_driver_agent: str = ""
     loop_autonomy_ok: bool = False
     loop_gap_summary: str = ""
+    actor_authorities: tuple[ActorAuthorityState, ...] = ()
+
+
+def actor_authorities_from_value(value: object) -> tuple[ActorAuthorityState, ...]:
+    if not isinstance(value, Sequence) or isinstance(value, (str, bytes)):
+        return ()
+    rows: list[ActorAuthorityState] = []
+    for row in value:
+        mapping = _mapping(row)
+        actor_id = _text(mapping.get("actor_id"))
+        if not actor_id:
+            continue
+        rows.append(
+            ActorAuthorityState(
+                actor_id=actor_id,
+                provider=_text(mapping.get("provider")) or actor_id,
+                role=_text(mapping.get("role")),
+                live=_bool(mapping.get("live")),
+                status=_text(mapping.get("status")) or "unknown",
+                source=_text(mapping.get("source")),
+                grants=capability_grants_from_value(mapping.get("grants")),
+                source_contract=(
+                    _text(mapping.get("source_contract")) or "CollaborationSession"
+                ),
+                source_identity=_dict_of_str(mapping.get("source_identity")),
+                snapshot_id=_text(mapping.get("snapshot_id")),
+                zref=_text(mapping.get("zref")),
+                generation_id=_text(mapping.get("generation_id")),
+                worktree_identity=_text(mapping.get("worktree_identity")),
+                packet_id=_text(mapping.get("packet_id")),
+                approval_ref=_text(mapping.get("approval_ref")),
+                issued_at_utc=_text(mapping.get("issued_at_utc")),
+                expires_at_utc=_text(mapping.get("expires_at_utc")),
+            )
+        )
+    return tuple(rows)
+
+
+def capability_grants_from_value(value: object) -> tuple[CapabilityGrantState, ...]:
+    if not isinstance(value, Sequence) or isinstance(value, (str, bytes)):
+        return ()
+    grants: list[CapabilityGrantState] = []
+    for row in value:
+        mapping = _mapping(row)
+        capability = _text(mapping.get("capability"))
+        if not capability:
+            continue
+        grants.append(
+            CapabilityGrantState(
+                capability=capability,
+                granted=_bool(mapping.get("granted")),
+                source=_text(mapping.get("source")),
+                reason=_text(mapping.get("reason")),
+                target_kind=_text(mapping.get("target_kind")),
+                target_ref=_text(mapping.get("target_ref")),
+                target_revision=_text(mapping.get("target_revision")),
+                worktree_identity=_text(mapping.get("worktree_identity")),
+                packet_id=_text(mapping.get("packet_id")),
+                approval_ref=_text(mapping.get("approval_ref")),
+                issued_at_utc=_text(mapping.get("issued_at_utc")),
+                expires_at_utc=_text(mapping.get("expires_at_utc")),
+            )
+        )
+    return tuple(grants)
+
+
+def actor_authority_for_capability(
+    authorities: tuple[ActorAuthorityState, ...],
+    capability: str,
+    *,
+    preferred_actor: str = "",
+    alternate_capabilities: tuple[str, ...] = (),
+) -> ActorAuthorityState | None:
+    requested = (
+        _normalized(capability),
+        *(_normalized(item) for item in alternate_capabilities),
+    )
+    requested_set = {item for item in requested if item}
+    if not requested_set:
+        return None
+    preferred = _text(preferred_actor)
+    if preferred:
+        for authority in authorities:
+            if not _same_actor(authority, preferred):
+                continue
+            if actor_authority_grants(authority, requested_set):
+                return authority
+        return None
+    for authority in authorities:
+        if actor_authority_grants(authority, requested_set):
+            return authority
+    return None
+
+
+def actor_authority_grants(
+    authority: ActorAuthorityState,
+    capabilities: set[str],
+) -> bool:
+    if not authority.live:
+        return False
+    for grant in authority.grants:
+        if grant.granted and _normalized(grant.capability) in capabilities:
+            return True
+    return False
+
+
+def granted_capabilities_for_actor(
+    authorities: tuple[ActorAuthorityState, ...],
+    actor_id: str,
+) -> tuple[str, ...]:
+    actor = _text(actor_id)
+    if not actor:
+        return ()
+    capabilities: list[str] = []
+    for authority in authorities:
+        if not _same_actor(authority, actor):
+            continue
+        for grant in authority.grants:
+            if grant.granted and grant.capability not in capabilities:
+                capabilities.append(grant.capability)
+    return tuple(capabilities)
+
+
+def _same_actor(authority: ActorAuthorityState, actor_id: str) -> bool:
+    normalized = _normalized(actor_id)
+    return normalized in {
+        _normalized(authority.actor_id),
+        _normalized(authority.provider),
+    }
+
+
+def _mapping(value: object) -> Mapping[str, object]:
+    return value if isinstance(value, Mapping) else {}
+
+
+def _dict_of_str(value: object) -> dict[str, str]:
+    if not isinstance(value, Mapping):
+        return {}
+    return {
+        _text(key): _text(item)
+        for key, item in value.items()
+        if _text(key) and _text(item)
+    }
+
+
+def _text(value: object) -> str:
+    return str(value or "").strip()
+
+
+def _normalized(value: object) -> str:
+    return _text(value).lower()
+
+
+def _bool(value: object) -> bool:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return value != 0
+    return str(value or "").strip().lower() in {"1", "true", "yes", "y", "on"}

@@ -10,8 +10,12 @@ from __future__ import annotations
 
 from pathlib import Path
 import time
+from types import SimpleNamespace
 
 from ...common import emit_output as compat_emit_output
+from ...review_channel.bridge_file import rewrite_bridge_markdown
+from ...review_channel.bridge_projection import render_bridge_projection
+from ...review_channel.core import DEFAULT_BRIDGE_REL
 from ...review_channel.events import (
     artifact_paths_to_dict,
     filter_history_packets,
@@ -27,6 +31,7 @@ from ...review_channel.follow_stream import (
     reset_follow_output,
     validate_follow_json_format,
 )
+from ...review_channel.heartbeat import compute_non_audit_worktree_hash
 from ...review_channel.pending_packets import reconcile_review_state_packet_queue
 from ...review_channel.state import projection_paths_to_dict
 from ...review_channel.watch_lifecycle import (
@@ -147,6 +152,14 @@ def _run_event_action(
         report, exit_code, review_state_payload = run_post_action(context=context)
         packet = report.get("packet")
         if isinstance(packet, dict):
+            bridge_sync = _sync_bridge_after_posted_current_instruction(
+                repo_root=repo_root,
+                paths=paths,
+                packet=packet,
+                review_state_payload=review_state_payload,
+            )
+            if bridge_sync is not None:
+                report["post_bridge_sync"] = bridge_sync
             reviewer_wake = maybe_wake_posted_reviewer_packet(
                 args=args,
                 repo_root=repo_root,
@@ -156,6 +169,13 @@ def _run_event_action(
             )
             if reviewer_wake is not None:
                 report["reviewer_wake"] = reviewer_wake
+        if getattr(args, "follow", False) and exit_code == 0:
+            return _run_watch_follow(
+                args=_post_follow_watch_args(args),
+                repo_root=repo_root,
+                review_channel_path=review_channel_path,
+                artifact_paths=artifact_paths,
+            )
         return report, exit_code
     if args.action in {"ack", "dismiss", "apply"}:
         return run_packet_transition_action(context=context)
@@ -209,6 +229,72 @@ def _run_event_action(
     raise ValueError(f"Unsupported event-backed review-channel action: {args.action}")
 
 
+def _sync_bridge_after_posted_current_instruction(
+    *,
+    repo_root: Path,
+    paths: dict[str, object],
+    packet: dict[str, object],
+    review_state_payload: dict[str, object],
+) -> dict[str, object] | None:
+    """Converge the compatibility bridge when a post becomes the live instruction."""
+    if not _posted_packet_drives_current_instruction(packet, review_state_payload):
+        return None
+    bridge_path = paths.get("bridge_path")
+    if not isinstance(bridge_path, Path):
+        bridge_path = repo_root / DEFAULT_BRIDGE_REL
+    if not bridge_path.is_file():
+        return {
+            "synced": False,
+            "reason": "bridge_missing",
+            "packet_id": str(packet.get("packet_id") or ""),
+        }
+    try:
+        bridge_rel = str(bridge_path.relative_to(repo_root))
+    except ValueError:
+        bridge_rel = DEFAULT_BRIDGE_REL
+    try:
+        worktree_hash = compute_non_audit_worktree_hash(
+            repo_root=repo_root,
+            excluded_rel_paths=(bridge_rel,),
+        )
+
+        def transform(_bridge_text: str) -> str:
+            rendered, _metadata = render_bridge_projection(
+                review_state=review_state_payload,
+                last_worktree_hash=worktree_hash,
+            )
+            return rendered
+
+        rewrite_bridge_markdown(bridge_path, transform=transform)
+    except (OSError, ValueError) as exc:
+        return {
+            "synced": False,
+            "reason": f"sync_failed:{exc}",
+            "packet_id": str(packet.get("packet_id") or ""),
+        }
+    return {
+        "synced": True,
+        "reason": "posted_current_instruction",
+        "packet_id": str(packet.get("packet_id") or ""),
+    }
+
+
+def _posted_packet_drives_current_instruction(
+    packet: dict[str, object],
+    review_state_payload: dict[str, object],
+) -> bool:
+    packet_id = str(packet.get("packet_id") or "").strip()
+    if not packet_id:
+        return False
+    queue = review_state_payload.get("queue")
+    if not isinstance(queue, dict):
+        return False
+    source = queue.get("derived_next_instruction_source")
+    if not isinstance(source, dict):
+        return False
+    return str(source.get("packet_id") or "").strip() == packet_id
+
+
 def _render_event_md(report: dict) -> str:
     """Compatibility wrapper for the moved event-backed markdown renderer."""
     return render_event_md(report)
@@ -247,3 +333,12 @@ def _run_watch_follow(
             sleep_fn=time.sleep,
         ),
     )
+
+
+def _post_follow_watch_args(args) -> SimpleNamespace:
+    """Convert `post --follow` into a target watch over the posted packet lane."""
+    values = dict(vars(args))
+    values["action"] = "watch"
+    values["target"] = str(getattr(args, "to_agent", "") or "")
+    values["status"] = getattr(args, "status", None) or "pending"
+    return SimpleNamespace(**values)

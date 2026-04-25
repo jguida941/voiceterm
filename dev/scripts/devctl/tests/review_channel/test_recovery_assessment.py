@@ -8,11 +8,11 @@ from pathlib import Path
 from unittest.mock import patch
 
 from dev.scripts.devctl.review_channel import collaboration_session as collaboration_mod
-from dev.scripts.devctl.review_channel.remote_control_attachment_artifact import (
-    persist_remote_control_attachment,
-)
 from dev.scripts.devctl.review_channel.recovery_assessment import (
     build_recovery_assessment,
+)
+from dev.scripts.devctl.review_channel.remote_control_attachment_artifact import (
+    persist_remote_control_attachment,
 )
 from dev.scripts.devctl.review_channel.status_projection import _projection_ok
 from dev.scripts.devctl.review_channel.status_projection_helpers import (
@@ -71,7 +71,9 @@ def test_attach_conductor_session_state_degrades_freshness_without_live_reviewer
     assert bridge_liveness["reviewer_freshness"] == "stale"
 
 
-def test_single_agent_inactive_summary_mentions_typed_authority_when_lane_is_live() -> None:
+def test_single_agent_inactive_summary_mentions_typed_authority_when_lane_is_live() -> (
+    None
+):
     assessment = build_recovery_assessment(
         bridge_liveness={
             "reviewer_mode": "single_agent",
@@ -119,6 +121,36 @@ def test_single_agent_active_runtime_reports_real_blocker_instead_of_inactive() 
     )
 
     assert assessment.diagnosis.status == "checkpoint_required"
+
+
+def test_effective_dual_agent_tools_only_bridge_reports_real_blocker() -> None:
+    assessment = build_recovery_assessment(
+        bridge_liveness={
+            "reviewer_mode": "tools_only",
+            "effective_reviewer_mode": "active_dual_agent",
+            "launch_truth": "live",
+            "overall_state": "fresh",
+            "codex_poll_state": "fresh",
+            "reviewer_freshness": "fresh",
+            "publisher_running": True,
+            "reviewer_supervisor_running": False,
+            "review_needed": False,
+            "reviewed_hash_current": True,
+            "claude_status_present": True,
+            "claude_ack_present": True,
+            "claude_ack_current": False,
+            "push_enforcement": {
+                "checkpoint_required": True,
+                "safe_to_continue_editing": False,
+            },
+        },
+        current_session=_current_session(),
+    )
+
+    assert assessment.diagnosis.status == "checkpoint_required"
+    assert "Reviewer mode is not `active_dual_agent`" not in (
+        assessment.diagnosis.root_cause
+    )
 
 
 def test_hybrid_loop_errors_does_not_write_launch_truth_back() -> None:

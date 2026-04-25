@@ -868,6 +868,10 @@ Planned actions:
    Codex/Claude loop, not a demo-only helper. Keep its sleep/poll dependency
    path green because the repo uses that exact watcher to prove dense
    packet-driven collaboration during dogfood runs.
+   Watch signatures must include packet status, ACK/apply timestamps, and
+   current-instruction revision/ACK state so a live agent waiting on Claude or
+   Codex produces visible deltas instead of looking idle while typed state
+   moves.
 
 4. `inbox`
 
@@ -878,6 +882,12 @@ Planned actions:
      --terminal none \
      --format json
    ```
+
+   Use actor-targeted inbox/watches for active lanes:
+   `--target <agent> --actor <same-agent>`. That stamps delivery for live
+   `action_request` packets. Packet `ack` / `apply` / `dismiss` remains packet
+   lifecycle only and does not satisfy the implementer `Claude Ack` revision
+   contract.
 
    Operator-facing read-only alias:
 

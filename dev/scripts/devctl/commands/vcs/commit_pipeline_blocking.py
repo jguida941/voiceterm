@@ -12,6 +12,11 @@ from ..pipeline.support import resolve_pipeline_paths
 from .commit_visibility import commit_visibility_payload
 from .governed_executor_actions import _build_report
 
+_MARK_DELIVERED_LOCAL_COMMAND = (
+    'python3 dev/scripts/devctl.py pipeline --action mark-delivered-local '
+    '--reason "<descriptive reason>" --format json'
+)
+
 
 def build_active_pipeline_block_report(*, repo_root: Path, pipeline) -> dict[str, object]:
     """Return the typed block report for a live publish/recovery pipeline."""
@@ -23,11 +28,8 @@ def build_active_pipeline_block_report(*, repo_root: Path, pipeline) -> dict[str
         pipeline=pipeline,
         status_view=status_view,
     ):
-        recommended_next_action = "abandon"
-        next_command = (
-            'python3 dev/scripts/devctl.py pipeline --action abandon --reason '
-            '"<descriptive reason>" --format json'
-        )
+        recommended_next_action = "mark-delivered-local"
+        next_command = _MARK_DELIVERED_LOCAL_COMMAND
     report = _build_report(
         status="blocked",
         reason="active_pipeline_requires_publish_or_recovery",
@@ -67,6 +69,11 @@ def _load_status_view(*, repo_root: Path) -> tuple[dict[str, object], dict[str, 
 
 def _can_auto_refresh(status_view: dict[str, object]) -> bool:
     """Return True when the active pipeline can self-heal in place."""
+    state = str(
+        status_view.get("state") or status_view.get("pipeline_state") or ""
+    ).strip()
+    if state == "push_blocked":
+        return False
     if str(status_view.get("recommended_next_action") or "").strip() != "refresh-authorization":
         return False
     authorized_head = str(status_view.get("authorized_head_sha") or "").strip()

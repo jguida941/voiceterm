@@ -15,12 +15,14 @@ from typing import Any
 from ...runtime.pipeline_auto_recovery_contracts import (
     CHOSEN_ACTION_ABANDON,
     CHOSEN_ACTION_BAILED,
+    CHOSEN_ACTION_MARK_DELIVERED_LOCAL,
     CHOSEN_ACTION_NONE,
     CHOSEN_ACTION_RECOVER,
     CHOSEN_ACTION_REFRESH_AUTHORIZATION,
     CLASSIFICATION_ALREADY_CLEAN,
     CLASSIFICATION_AMBIGUOUS,
     CLASSIFICATION_NEEDS_ABANDON,
+    CLASSIFICATION_NEEDS_MARK_DELIVERED_LOCAL,
     CLASSIFICATION_NEEDS_RECOVER,
     CLASSIFICATION_NEEDS_REFRESH_AUTHORIZATION,
     PipelineAutoRecoveryClassification,
@@ -35,6 +37,7 @@ from .auto_recover_result import (
     finalize_sub_action,
     render_markdown,
 )
+from .local_delivery_action import _apply_mark_delivered_local
 from .head_movement import (
     head_movement_context,
     managed_receipt_parent_for_current_head,
@@ -48,6 +51,7 @@ from .support import (
     TERMINAL_STATES,
     authorization_is_expired,
     authorization_of,
+    eligible_for_local_delivery,
     load_pipeline_payload,
     pipeline_id_of,
     pipeline_state_of,
@@ -161,9 +165,16 @@ def classify_pipeline(
             **movement_fields,
         )
 
-    # Any ``push_blocked`` pipeline with no HEAD drift is a wedge —
-    # the governed executor has already decided the run can't
-    # complete. Abandon is the only safe forward move.
+    if eligible_for_local_delivery(payload, current_head=current_head):
+        return PipelineAutoRecoveryClassification(
+            classification=CLASSIFICATION_NEEDS_MARK_DELIVERED_LOCAL,
+            reason=f"pipeline_state_{state}_local_commit_delivered",
+            pipeline_state=state,
+            head_has_moved=False,
+            authorization_expired=expired,
+            **movement_fields,
+        )
+
     if state == "push_blocked":
         return PipelineAutoRecoveryClassification(
             classification=CLASSIFICATION_NEEDS_ABANDON,
@@ -299,6 +310,25 @@ def apply_auto_recover(
                 result=sub,
                 receipt_key="receipt_path",
                 reason=reason_override,
+            ),
+        )
+
+    if classification.classification == CLASSIFICATION_NEEDS_MARK_DELIVERED_LOCAL:
+        sub_reason = reason_override or (
+            "auto-recover: local commit delivered; publication remains pending"
+        )
+        sub = _apply_mark_delivered_local(
+            paths=paths,
+            reason=sub_reason,
+            operator_actor=operator_actor,
+        )
+        return finalize_sub_action(
+            context,
+            AutoRecoverySubAction(
+                chosen_action=CHOSEN_ACTION_MARK_DELIVERED_LOCAL,
+                result=sub,
+                receipt_key="receipt_path",
+                reason=sub_reason,
             ),
         )
 

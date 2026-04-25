@@ -84,12 +84,14 @@ class SessionCachePacket:
     attention_summary: str = "n/a"
     attention_revision: str = ""
     packet_inbox: PacketInboxState | None = None
+    key_surfaces: tuple[str, ...] = ()
     provenance: SurfaceProvenance | None = None
 
     def to_dict(self) -> dict[str, object]:
         payload = asdict(self)
         payload.pop("provenance", None)
         payload["key_rules"] = list(self.key_rules)
+        payload["key_surfaces"] = list(self.key_surfaces)
         if self.coordination is not None:
             payload["coordination"] = self.coordination.to_dict()
         if self.authority_snapshot is not None:
@@ -186,5 +188,10 @@ def packet_from_mapping(payload: dict[str, object]) -> SessionCachePacket:
         attention_summary=str(payload.get("attention_summary") or "n/a").strip() or "n/a",
         attention_revision=str(payload.get("attention_revision") or "").strip(),
         packet_inbox=packet_inbox_from_mapping(payload.get("packet_inbox")),
+        key_surfaces=tuple(
+            str(surface).strip()
+            for surface in payload.get("key_surfaces", ())
+            if str(surface).strip()
+        ),
         provenance=surface_provenance_from_mapping(payload),
     )

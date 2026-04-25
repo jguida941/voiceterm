@@ -16,6 +16,7 @@ from .draft_policy_surface import (
     check_router_payload,
     repo_governance_payload,
     surface_generation_context,
+    surface_generation_payload,
 )
 from ..runtime.project_governance import BridgeConfig, PathRoots
 
@@ -32,6 +33,7 @@ class GovernedDocDiscovery:
     governed_doc_roots: tuple[str, ...]
     shared_backlog_path: str
     startup_order: tuple[str, ...]
+    connectivity_index_paths: tuple[str, ...]
 
 def _scan_docs_authority(repo_root: Path, policy: dict[str, Any]) -> str:
     surface_context = surface_generation_context(policy)
@@ -309,6 +311,22 @@ def _scan_startup_order(
     return tuple(c for c in candidates if (repo_root / c).is_file())
 
 
+def _scan_connectivity_index_paths(policy: dict[str, Any]) -> tuple[str, ...]:
+    """Return repo-pack-declared connectivity index outputs."""
+    paths: list[str] = []
+    surfaces = surface_generation_payload(policy).get("surfaces")
+    if not isinstance(surfaces, list):
+        return ()
+    for row in surfaces:
+        surface = row if isinstance(row, dict) else {}
+        if str(surface.get("surface_type", "")).strip() != "connectivity_index":
+            continue
+        path = coerce_relative_path(surface.get("output_path"))
+        if path and path not in paths:
+            paths.append(path)
+    return tuple(paths)
+
+
 def scan_governed_doc_discovery(
     repo_root: Path,
     *,
@@ -346,6 +364,7 @@ def scan_governed_doc_discovery(
         tracker_path=tracker_path,
         path_roots=path_roots,
     )
+    connectivity_index_paths = _scan_connectivity_index_paths(policy)
     return GovernedDocDiscovery(
         docs_authority=docs_authority,
         index_path=index_path,
@@ -355,6 +374,7 @@ def scan_governed_doc_discovery(
         governed_doc_roots=governed_doc_roots,
         shared_backlog_path=shared_backlog_path,
         startup_order=startup_order,
+        connectivity_index_paths=connectivity_index_paths,
     )
 
 

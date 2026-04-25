@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 
-from .conductor_capability import normalize_reviewer_mode
+from .conductor_capability import authority_reviewer_mode, normalize_reviewer_mode
 from .control_state import _int, _mapping, _string, _string_rows
 from .review_state_models import (
     ConductorCapabilityState,
@@ -69,12 +69,8 @@ def conductor_capability_state_from_payload(
         role=_string(mapping.get("role")),
         startup_context_command=_string(mapping.get("startup_context_command")),
         may_edit_repo=_bool(mapping.get("may_edit_repo")),
-        requires_explicit_takeover=_bool(
-            mapping.get("requires_explicit_takeover")
-        ),
-        worker_unavailable_policy=_string(
-            mapping.get("worker_unavailable_policy")
-        ),
+        requires_explicit_takeover=_bool(mapping.get("requires_explicit_takeover")),
+        worker_unavailable_policy=_string(mapping.get("worker_unavailable_policy")),
         queue_policy=_string(mapping.get("queue_policy")),
         takeover_command=_string(mapping.get("takeover_command")),
         status_summary=_string(mapping.get("status_summary")),
@@ -101,12 +97,20 @@ def review_bridge_state_from_payload(
         "reviewer_mode",
         "effective_reviewer_mode",
     )
+    effective_reviewer_mode = _resolved_reviewer_mode(
+        bridge,
+        "effective_reviewer_mode",
+        "reviewer_mode",
+    )
     return ReviewBridgeState(
         overall_state=_string(bridge_liveness.get("overall_state")) or "unknown",
         codex_poll_state=_string(bridge_liveness.get("codex_poll_state")) or "unknown",
         reviewer_freshness=_string(bridge_liveness.get("reviewer_freshness"))
         or "unknown",
-        reviewer_mode=reviewer_mode,
+        reviewer_mode=authority_reviewer_mode(
+            reviewer_mode,
+            effective_reviewer_mode,
+        ),
         last_codex_poll_utc=_string(bridge.get("last_codex_poll_utc")),
         last_codex_poll_age_seconds=_int(
             bridge_liveness.get("last_codex_poll_age_seconds")
@@ -117,7 +121,9 @@ def review_bridge_state_from_payload(
         claude_status=_string(bridge.get("claude_status")),
         claude_ack=_string(bridge.get("claude_ack")),
         claude_ack_current=_bool(bridge.get("claude_ack_current")),
-        current_instruction_revision=_string(bridge.get("current_instruction_revision")),
+        current_instruction_revision=_string(
+            bridge.get("current_instruction_revision")
+        ),
         claude_ack_revision=_string(bridge.get("claude_ack_revision")),
         last_reviewed_scope=_string(bridge.get("last_reviewed_scope")),
         reviewer_poll_state=(
@@ -142,11 +148,7 @@ def review_bridge_state_from_payload(
         implementer_ack_revision=_string(bridge.get("implementer_ack_revision"))
         or _string(bridge.get("claude_ack_revision")),
         launch_truth=_string(bridge.get("launch_truth")),
-        effective_reviewer_mode=_resolved_reviewer_mode(
-            bridge,
-            "effective_reviewer_mode",
-            "reviewer_mode",
-        ),
+        effective_reviewer_mode=effective_reviewer_mode,
         implementer_state_hash=_string(bridge.get("implementer_state_hash")),
         reviewed_hash_current=_optional_bool(bridge, "reviewed_hash_current"),
         review_needed=_optional_bool(bridge, "review_needed"),
@@ -156,7 +158,8 @@ def review_bridge_state_from_payload(
         codex_conductor_active=_bool(bridge.get("codex_conductor_active")),
         claude_conductor_active=_bool(bridge.get("claude_conductor_active")),
         reviewer_capability=conductor_capability_state_from_payload(
-            bridge.get("reviewer_capability") or bridge_liveness.get("reviewer_capability")
+            bridge.get("reviewer_capability")
+            or bridge_liveness.get("reviewer_capability")
         ),
         implementer_capability=conductor_capability_state_from_payload(
             bridge.get("implementer_capability")

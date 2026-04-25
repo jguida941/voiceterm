@@ -217,7 +217,41 @@ def recovery_surface_parity_violations(
                 )
             )
     errors.extend(attention_projection_parity_violations(review_state))
+    errors.extend(queue_current_instruction_parity_violations(review_state))
     return errors
+
+
+def queue_current_instruction_parity_violations(
+    review_state: dict[str, object],
+) -> list[ConvergencePassViolation]:
+    """Ensure the packet queue's active instruction reaches current_session."""
+    expected = _nested(review_state, "queue", "derived_next_instruction").strip()
+    if not expected:
+        return []
+    actual = _nested(review_state, "current_session", "current_instruction").strip()
+    if actual == expected:
+        return []
+    source_packet = _nested(
+        review_state,
+        "queue",
+        "derived_next_instruction_source",
+        "packet_id",
+    )
+    return [
+        ConvergencePassViolation(
+            category="queue_current_instruction_parity",
+            surface="review_state.current_session",
+            field="current_instruction",
+            expected=expected,
+            actual=actual,
+            detail=(
+                "queue/current-session parity mismatch: "
+                f"queue.derived_next_instruction={expected!r} from "
+                f"{source_packet or 'unknown packet'} but "
+                f"current_session.current_instruction={actual!r}"
+            ),
+        )
+    ]
 
 
 def disk_turn_authority_parity_errors(

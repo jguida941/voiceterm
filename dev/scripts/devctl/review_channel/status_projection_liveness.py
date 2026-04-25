@@ -5,9 +5,19 @@ from __future__ import annotations
 from collections.abc import Mapping
 from pathlib import Path
 
+from ..runtime.role_profile import (
+    TandemRole,
+    default_provider_for_role,
+    normalize_tandem_role,
+    role_for_provider,
+)
 from .collaboration_session_local_reviewer import local_reviewer_activity_is_fresh
-from .core import active_conductor_providers
-from .launch_truth import LaunchTruthState, classify_launch_truth, effective_reviewer_mode
+from .launch_truth import (
+    LaunchTruthState,
+    capability_provider,
+    classify_launch_truth,
+    effective_reviewer_mode,
+)
 from .peer_liveness import (
     CodexPollState,
     OverallLivenessState,
@@ -15,15 +25,9 @@ from .peer_liveness import (
     reviewer_mode_is_active,
 )
 from .remote_control_attachment_artifact import load_remote_control_attachments
-from .reviewer_runtime_session_owner import conductor_visibility
 from .session_state_hints import provider_session_state_hint
 from .single_agent_authority import single_agent_lane_has_live_typed_authority
-from ..runtime.role_profile import (
-    TandemRole,
-    default_provider_for_role,
-    normalize_tandem_role,
-    role_for_provider,
-)
+from .status_projection_runtime_presence import sync_local_reviewer_activity_hooks
 
 
 def bridge_liveness_warnings(bridge_liveness: dict[str, object]) -> list[str]:
@@ -36,7 +40,23 @@ def bridge_liveness_warnings(bridge_liveness: dict[str, object]) -> list[str]:
         effective_mode = str(
             bridge_liveness.get("effective_reviewer_mode") or reviewer_mode
         ).strip()
-        if effective_mode == "single_agent":
+        if effective_mode == "active_dual_agent":
+            warnings.append(
+                "Bridge reviewer mode is inactive, but typed reviewer activity "
+                "plus live remote-control runtime promote the effective mode to "
+                "`active_dual_agent`; keep mutation authority on typed "
+                "ActorAuthority grants."
+            )
+        elif activity_provider := str(
+            bridge_liveness.get("reviewer_activity_provider") or ""
+        ).strip():
+            warnings.append(
+                "Bridge reviewer mode is inactive, but typed reviewer packet "
+                f"activity from `{activity_provider}` is fresh enough to prove "
+                "the reviewer is present; keep mutation authority on typed "
+                "ActorAuthority grants."
+            )
+        elif effective_mode == "single_agent":
             if single_agent_lane_has_live_typed_authority(bridge_liveness):
                 warnings.append(
                     "Bridge reviewer mode is `single_agent`; dual-agent "
@@ -58,7 +78,10 @@ def bridge_liveness_warnings(bridge_liveness: dict[str, object]) -> list[str]:
         warnings.append(
             "Reviewer runtime is missing while `active_dual_agent` is still declared. The daemon is treated as missing runtime, not as authority to pause the loop."
         )
-    elif reviewer_freshness == ReviewerFreshness.MISSING or codex_poll_state == CodexPollState.MISSING:
+    elif (
+        reviewer_freshness == ReviewerFreshness.MISSING
+        or codex_poll_state == CodexPollState.MISSING
+    ):
         warnings.append(
             "Bridge liveness is missing: the reviewer heartbeat compatibility field does not expose a usable poll timestamp yet."
         )
@@ -66,11 +89,17 @@ def bridge_liveness_warnings(bridge_liveness: dict[str, object]) -> list[str]:
         warnings.append(
             "Bridge liveness is overdue: the latest reviewer poll timestamp has exceeded the controller escalation threshold."
         )
-    elif reviewer_freshness == ReviewerFreshness.STALE or codex_poll_state == CodexPollState.STALE:
+    elif (
+        reviewer_freshness == ReviewerFreshness.STALE
+        or codex_poll_state == CodexPollState.STALE
+    ):
         warnings.append(
             "Bridge liveness is stale: the latest reviewer poll timestamp is older than the five-minute heartbeat contract."
         )
-    elif reviewer_freshness == ReviewerFreshness.POLL_DUE or codex_poll_state == CodexPollState.POLL_DUE:
+    elif (
+        reviewer_freshness == ReviewerFreshness.POLL_DUE
+        or codex_poll_state == CodexPollState.POLL_DUE
+    ):
         warnings.append(
             "Bridge liveness is due for refresh: the latest reviewer poll timestamp is older than the 2-3 minute reviewer cadence but still within the five-minute heartbeat window."
         )
@@ -90,47 +119,6 @@ def bridge_liveness_warnings(bridge_liveness: dict[str, object]) -> list[str]:
     return warnings
 
 
-def attach_conductor_session_state(
-    *,
-    bridge_liveness: dict[str, object],
-    output_root: Path,
-) -> None:
-    active_providers = list(active_conductor_providers(session_output_root=output_root))
-    for provider in _single_agent_remote_control_providers(
-        bridge_liveness=bridge_liveness,
-        output_root=output_root,
-    ):
-        if provider not in active_providers:
-            active_providers.append(provider)
-    reviewer_provider = _single_agent_local_reviewer_provider(
-        bridge_liveness=bridge_liveness,
-        output_root=output_root,
-    )
-    if reviewer_provider and reviewer_provider not in active_providers:
-        active_providers.append(reviewer_provider)
-    bridge_liveness["active_conductor_providers"] = list(active_providers)
-    bridge_liveness["codex_conductor_active"] = "codex" in active_providers
-    bridge_liveness["claude_conductor_active"] = "claude" in active_providers
-    bridge_liveness["conductor_visibility"] = conductor_visibility(
-        session_output_root=output_root
-    )
-    bridge_liveness["launch_truth"] = classify_launch_truth(bridge_liveness).value
-    _degrade_active_dual_agent_freshness(bridge_liveness)
-    bridge_liveness["effective_reviewer_mode"] = effective_reviewer_mode(
-        bridge_liveness
-    )
-    if (
-        str(bridge_liveness.get("effective_reviewer_mode") or "").strip()
-        == "single_agent"
-        and single_agent_lane_has_live_typed_authority(bridge_liveness)
-    ):
-        bridge_liveness["overall_state"] = OverallLivenessState.SINGLE_AGENT_ACTIVE
-    # Emit typed liveness signals (MP377-P1-T08)
-    bridge_liveness["participant_liveness"] = _build_participant_liveness(
-        bridge_liveness, active_providers
-    )
-
-
 def _degrade_active_dual_agent_freshness(
     bridge_liveness: dict[str, object],
 ) -> None:
@@ -139,7 +127,8 @@ def _degrade_active_dual_agent_freshness(
         return
 
     launch_truth = str(
-        bridge_liveness.get("launch_truth") or classify_launch_truth(bridge_liveness).value
+        bridge_liveness.get("launch_truth")
+        or classify_launch_truth(bridge_liveness).value
     ).strip()
     if launch_truth == LaunchTruthState.LIVE.value:
         return
@@ -173,7 +162,8 @@ def hybrid_loop_errors(bridge_liveness: dict[str, object]) -> list[str]:
     if not reviewer_mode_is_active(reviewer_mode):
         return []
     launch_truth = str(
-        bridge_liveness.get("launch_truth") or classify_launch_truth(bridge_liveness).value
+        bridge_liveness.get("launch_truth")
+        or classify_launch_truth(bridge_liveness).value
     )
     if launch_truth == LaunchTruthState.DETACHED_RUNTIME_ONLY.value:
         return [
@@ -212,28 +202,19 @@ def _single_agent_local_reviewer_provider(
     if reviewer_mode != "single_agent":
         return None
     reviewer_provider = (
-        _capability_provider(bridge_liveness, "reviewer_capability")
+        capability_provider(bridge_liveness, "reviewer_capability")
         or str(bridge_liveness.get("review_agent") or "").strip().lower()
         or default_provider_for_role(TandemRole.REVIEWER)
     )
     if not reviewer_provider:
         return None
+    sync_local_reviewer_activity_hooks()
     if not local_reviewer_activity_is_fresh(
         reviewer_provider=reviewer_provider,
         session_output_root=output_root,
     ):
         return None
     return reviewer_provider
-
-
-def _capability_provider(
-    payload: Mapping[str, object],
-    field_name: str,
-) -> str:
-    capability = payload.get(field_name)
-    if not isinstance(capability, Mapping):
-        return ""
-    return str(capability.get("provider") or "").strip().lower()
 
 
 def _single_agent_remote_control_providers(
@@ -253,7 +234,10 @@ def _single_agent_remote_control_providers(
         output_root=output_root,
         active_only=True,
     ):
-        if normalize_tandem_role(getattr(attachment, "role", "")) == TandemRole.OPERATOR:
+        if (
+            normalize_tandem_role(getattr(attachment, "role", ""))
+            == TandemRole.OPERATOR
+        ):
             continue
         provider = str(attachment.provider or "").strip().lower()
         if provider and provider not in providers:
@@ -289,10 +273,9 @@ def _build_participant_liveness(
         # whichever provider fills the reviewer role, not to "codex".
         poll_age: object = None
         if is_reviewer:
-            poll_age = (
-                bridge_liveness.get("last_reviewer_poll_age_seconds")
-                or bridge_liveness.get(f"last_{normalized}_poll_age_seconds")
-            )
+            poll_age = bridge_liveness.get(
+                "last_reviewer_poll_age_seconds"
+            ) or bridge_liveness.get(f"last_{normalized}_poll_age_seconds")
         signal = classify_participant_liveness(
             provider=normalized,
             role=role,
