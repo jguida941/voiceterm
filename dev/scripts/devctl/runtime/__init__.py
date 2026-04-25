@@ -46,7 +46,6 @@ from .control_state import (
     ControlStateContext,
     ControlStateSources,
     ReviewAgentState,
-    ReviewBridgeState,
     build_control_state,
     control_state_from_payload,
 )

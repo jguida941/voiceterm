@@ -144,9 +144,10 @@ from ..triage.loop_parser import add_triage_loop_parser
 from ..triage.parser import add_findings_priority_parser, add_triage_parser
 from .builders import add_standard_parsers
 
-# Commands that only read repo state and never mutate it. These skip audit
-# event writes and telemetry refresh so devctl works on read-only mounts,
-# containers, and MCP adapters without triggering filesystem writes.
+# Commands that run as status/reporting surfaces from the caller's point of
+# view. They skip audit event writes and telemetry refresh so devctl works on
+# read-only mounts, containers, and MCP adapters without triggering incidental
+# filesystem writes. A few commands still have explicit managed artifact sinks.
 READ_ONLY_COMMANDS: frozenset[str] = frozenset({
     "auto-mode",
     "startup-context",
@@ -178,6 +179,15 @@ ARTIFACT_WRITES_ENV = "DEVCTL_NO_ARTIFACT_WRITES"
 def artifact_writes_suppressed() -> bool:
     """True when incidental artifact writes should be skipped."""
     return os.environ.get(ARTIFACT_WRITES_ENV, "") == "1"
+
+
+def _read_only_command_suppresses_artifact_writes(args) -> bool:
+    """Return whether the dispatcher should set artifact-write suppression."""
+    if args.command not in READ_ONLY_COMMANDS:
+        return False
+    if args.command == "context-graph" and getattr(args, "mode", "") == "bootstrap":
+        return False
+    return True
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -395,7 +405,9 @@ def main() -> int:
     started = time.monotonic()
     return_code = 1
     is_read_only = args.command in READ_ONLY_COMMANDS
-    if is_read_only:
+    suppress_artifact_writes = _read_only_command_suppresses_artifact_writes(args)
+    previous_artifact_write_env = os.environ.get(ARTIFACT_WRITES_ENV)
+    if suppress_artifact_writes:
         os.environ[ARTIFACT_WRITES_ENV] = "1"
     try:
         gate_failure = enforce_startup_gate(args)
@@ -406,7 +418,11 @@ def main() -> int:
         return_code = handler(args)
         return return_code
     finally:
-        os.environ.pop(ARTIFACT_WRITES_ENV, None)
+        if suppress_artifact_writes:
+            if previous_artifact_write_env is None:
+                os.environ.pop(ARTIFACT_WRITES_ENV, None)
+            else:
+                os.environ[ARTIFACT_WRITES_ENV] = previous_artifact_write_env
         duration_seconds = time.monotonic() - started
         if not is_read_only:
             emit_devctl_audit_event(

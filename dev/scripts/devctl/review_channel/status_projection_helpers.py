@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from ..runtime.reviewer_mode_projection import write_effective_reviewer_mode
 from . import status_projection_liveness as _liveness
 from .core import active_conductor_providers as _active_conductor_providers
 from .reviewer_runtime_session_owner import (
@@ -83,8 +84,9 @@ def attach_conductor_session_state(
         bridge_liveness
     ).value
     _liveness._degrade_active_dual_agent_freshness(bridge_liveness)
-    bridge_liveness["effective_reviewer_mode"] = _liveness.effective_reviewer_mode(
-        bridge_liveness
+    write_effective_reviewer_mode(
+        bridge_liveness,
+        _liveness.effective_reviewer_mode(bridge_liveness),
     )
     if str(
         bridge_liveness.get("effective_reviewer_mode") or ""

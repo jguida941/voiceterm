@@ -88,10 +88,10 @@ def execute_push_flow_with_dependencies(
             stages=PushStageTruth(validation_ready=True),
         )
 
-    # Note: ReviewSnapshot refresh is NOT wired here. Code commits carry the
-    # pre-commit projection, and the explicit receipt path is the post-commit
-    # snapshot-only commit (`review-snapshot --receipt-commit`). A pre-push
-    # refresh would only dirty the worktree, not the committed/pushed history.
+    # ReviewSnapshot refresh happens before routed preflight in push.py and is
+    # committed through the managed projection receipt path when it changes the
+    # tracked projection. By the time execution reaches git push, preflight has
+    # already validated the current committed freshness state.
 
     push_cmd = _governed_git_push_cmd(state.remote, state.branch)
     if not state.branch_has_remote:

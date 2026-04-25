@@ -236,6 +236,9 @@ def build_event_bridge_state_projection(
     bridge_state["claude_conductor_active"] = bool(
         bridge_liveness.get("claude_conductor_active")
     )
+    bridge_state["pending_total"] = int(
+        _mapping(review_state.get("queue")).get("pending_total") or 0
+    )
     bridge_state["reviewer_capability"] = asdict(
         build_conductor_capability_state(
             provider=reviewer_provider,

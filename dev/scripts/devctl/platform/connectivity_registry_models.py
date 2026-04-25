@@ -42,6 +42,23 @@ class ConnectivityContractRow:
 
 
 @dataclass(frozen=True, slots=True)
+class MissingConnectionFinding:
+    """One declared reader connection that lacks AST-visible evidence."""
+
+    contract_id: str
+    declared_reader_surface: str
+    expected_evidence_kind: str
+    suggested_wire_locations: tuple[str, ...]
+    classification: str
+    justification: str = ""
+    override_ref: str = ""
+
+    def to_dict(self) -> dict[str, Any]:
+        """Return a JSON-serializable payload."""
+        return asdict(self)
+
+
+@dataclass(frozen=True, slots=True)
 class ConnectivityRegistrySnapshot:
     """Generated read model for typed contract/writer/reader connectivity."""
 
@@ -70,6 +87,10 @@ class ConnectivityRegistrySummary:
     reader_ids: tuple[str, ...]
     governed_surface_ids: tuple[str, ...]
     warning_count: int
+    aspirational_gap_count: int = 0
+    missing_connection_finding_count: int = 0
+    mistakenly_declared_count: int = 0
+    deferred_consumer_count: int = 0
     warnings: tuple[str, ...] = ()
 
     def to_dict(self) -> dict[str, Any]:
@@ -83,4 +104,5 @@ __all__ = [
     "ConnectivityRegistrySummary",
     "ConnectivityRegistrySnapshot",
     "ConnectivityWriterRow",
+    "MissingConnectionFinding",
 ]

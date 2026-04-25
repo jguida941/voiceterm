@@ -203,6 +203,7 @@ jobs:
           CI=1 python3 dev/scripts/checks/check_coderabbit_gate.py --branch master
           CI=1 python3 dev/scripts/checks/check_coderabbit_ralph_gate.py --branch master
           python3 dev/scripts/checks/check_active_plan_sync.py
+          python3 dev/scripts/checks/check_system_picture_freshness.py
           python3 dev/scripts/checks/check_multi_agent_sync.py
           python3 dev/scripts/checks/check_cli_flags_parity.py
           python3 dev/scripts/checks/check_screenshot_integrity.py --stale-days 120

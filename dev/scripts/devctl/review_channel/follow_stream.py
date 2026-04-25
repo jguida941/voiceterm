@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
-from dataclasses import asdict, is_dataclass
 import json
+from dataclasses import asdict, is_dataclass
 from pathlib import Path
 
 from ..common import emit_output
+from ..runtime.reviewer_mode_projection import write_reviewer_mode
 
 
 def validate_follow_json_format(*, action: str, output_format: str) -> None:
@@ -72,7 +73,7 @@ def build_follow_completion_report(
     report["ok"] = ok
     report["follow"] = True
     if reviewer_mode is not None:
-        report["reviewer_mode"] = reviewer_mode
+        write_reviewer_mode(report, reviewer_mode)
     report["snapshots_emitted"] = snapshots_emitted
     report["_already_emitted"] = True
     return report
@@ -106,10 +107,7 @@ def _json_compatible(value: object) -> object:
     if isinstance(value, Path):
         return str(value)
     if isinstance(value, dict):
-        return {
-            str(key): _json_compatible(item)
-            for key, item in value.items()
-        }
+        return {str(key): _json_compatible(item) for key, item in value.items()}
     if isinstance(value, (list, tuple, set, frozenset)):
         return [_json_compatible(item) for item in value]
     return value

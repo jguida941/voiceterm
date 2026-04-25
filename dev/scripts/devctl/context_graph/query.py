@@ -7,6 +7,7 @@ from typing import Any
 
 from ..config import get_repo_root
 from ..governance.push_policy import detect_push_enforcement_state, load_push_policy
+from ..runtime.key_surfaces import load_startup_key_surfaces
 from ..probe_topology.packet import (
     enrich_query_node,
     query_hot_index_ranking_summary,
@@ -256,6 +257,7 @@ def build_bootstrap_context(
         repo_root=repo_root,
     )
     quality_signals = load_bootstrap_quality_signals(repo_root)
+    key_surfaces = load_startup_key_surfaces(repo_root)
 
     return BootstrapContext(
         repo=repo_root.name,
@@ -276,6 +278,7 @@ def build_bootstrap_context(
         usage=_USAGE,
         bootstrap_commands=bootstrap_commands,
         quality_signals=quality_signals,
+        key_surfaces=key_surfaces,
     )
 
 

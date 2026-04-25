@@ -11,10 +11,18 @@ from .operator_context import (
     OperatorInteractionMode,
     operator_context_from_mapping,
 )
+from .review_state_models import ReviewBridgeState
+from .review_state_parse_support import review_bridge_state_from_payload
 from .value_coercion import (
     coerce_int as _int,
+)
+from .value_coercion import (
     coerce_mapping as _mapping,
+)
+from .value_coercion import (
     coerce_string as _string,
+)
+from .value_coercion import (
     coerce_string_items as _string_rows,
 )
 
@@ -23,6 +31,7 @@ from .value_coercion import (
 class ApprovalPolicyState:
     mode: str
     summary: str
+
 
 @dataclass(frozen=True, slots=True)
 class ControlStateSources:
@@ -37,24 +46,6 @@ class ReviewAgentState:
     agent_id: str
     status: str
     role: str
-
-
-@dataclass(frozen=True, slots=True)
-class ReviewBridgeState:
-    overall_state: str
-    codex_poll_state: str
-    reviewer_freshness: str
-    last_codex_poll_utc: str
-    last_worktree_hash: str
-    pending_total: int
-    current_instruction: str
-    open_findings: str
-    claude_status: str
-    claude_ack: str
-    reviewer_poll_state: str = ""
-    last_reviewer_poll_utc: str = ""
-    implementer_status: str = ""
-    implementer_ack: str = ""
 
 
 @dataclass(frozen=True, slots=True)
@@ -179,29 +170,30 @@ def build_control_state(
     )
     approval = _mapping(resolved_context.approval_policy)
     resolved_sources = _mapping(resolved_context.sources)
-    bridge_state = ReviewBridgeState(
-        overall_state=_string(review_liveness.get("overall_state")) or "unknown",
-        codex_poll_state=_string(review_liveness.get("codex_poll_state")) or "unknown",
-        reviewer_freshness=_string(review_liveness.get("reviewer_freshness"))
-        or "unknown",
-        last_codex_poll_utc=_string(review_bridge.get("last_codex_poll_utc")),
-        last_worktree_hash=_string(review_bridge.get("last_worktree_hash")),
-        pending_total=_int(review_queue.get("pending_total")),
-        current_instruction=_string(review_bridge.get("current_instruction")),
-        open_findings=_string(review_bridge.get("open_findings")),
-        claude_status=_string(review_bridge.get("claude_status")),
-        claude_ack=_string(review_bridge.get("claude_ack")),
-        reviewer_poll_state=_string(review_bridge.get("reviewer_poll_state"))
-        or _string(review_liveness.get("reviewer_poll_state"))
-        or _string(review_liveness.get("codex_poll_state"))
-        or "unknown",
-        last_reviewer_poll_utc=_string(review_bridge.get("last_reviewer_poll_utc"))
-        or _string(review_bridge.get("last_codex_poll_utc")),
-        implementer_status=_string(review_bridge.get("implementer_status"))
-        or _string(review_bridge.get("claude_status")),
-        implementer_ack=_string(review_bridge.get("implementer_ack"))
-        or _string(review_bridge.get("claude_ack")),
+    bridge_payload = dict(review_bridge)
+    bridge_payload.update(
+        {
+            "overall_state": (
+                _string(review_liveness.get("overall_state"))
+                or _string(review_bridge.get("overall_state"))
+            ),
+            "codex_poll_state": (
+                _string(review_liveness.get("codex_poll_state"))
+                or _string(review_bridge.get("codex_poll_state"))
+            ),
+            "reviewer_freshness": (
+                _string(review_liveness.get("reviewer_freshness"))
+                or _string(review_bridge.get("reviewer_freshness"))
+            ),
+            "reviewer_poll_state": (
+                _string(review_bridge.get("reviewer_poll_state"))
+                or _string(review_liveness.get("reviewer_poll_state"))
+                or _string(review_liveness.get("codex_poll_state"))
+            ),
+            "pending_total": _int(review_queue.get("pending_total")),
+        }
     )
+    bridge_state = review_bridge_from_mapping(bridge_payload)
     active_run = ActiveRunState(
         plan_id=(
             _string(compact.get("plan_id"))
@@ -331,26 +323,9 @@ def active_runs_from_mapping(value: object) -> tuple[ActiveRunState, ...]:
 
 def review_bridge_from_mapping(value: object) -> ReviewBridgeState:
     mapping = _mapping(value)
-    return ReviewBridgeState(
-        overall_state=_string(mapping.get("overall_state")) or "unknown",
-        codex_poll_state=_string(mapping.get("codex_poll_state")) or "unknown",
-        reviewer_freshness=_string(mapping.get("reviewer_freshness")) or "unknown",
-        last_codex_poll_utc=_string(mapping.get("last_codex_poll_utc")),
-        last_worktree_hash=_string(mapping.get("last_worktree_hash")),
-        pending_total=_int(mapping.get("pending_total")),
-        current_instruction=_string(mapping.get("current_instruction")),
-        open_findings=_string(mapping.get("open_findings")),
-        claude_status=_string(mapping.get("claude_status")),
-        claude_ack=_string(mapping.get("claude_ack")),
-        reviewer_poll_state=_string(mapping.get("reviewer_poll_state"))
-        or _string(mapping.get("codex_poll_state"))
-        or "unknown",
-        last_reviewer_poll_utc=_string(mapping.get("last_reviewer_poll_utc"))
-        or _string(mapping.get("last_codex_poll_utc")),
-        implementer_status=_string(mapping.get("implementer_status"))
-        or _string(mapping.get("claude_status")),
-        implementer_ack=_string(mapping.get("implementer_ack"))
-        or _string(mapping.get("claude_ack")),
+    return review_bridge_state_from_payload(
+        bridge=mapping,
+        bridge_liveness=mapping,
     )
 
 

@@ -2,20 +2,24 @@
 
 from __future__ import annotations
 
-from dataclasses import asdict, is_dataclass
 from collections.abc import Mapping
+from dataclasses import asdict, is_dataclass
 
-from ...runtime.control_topology import derive_startup_control_truth
-from ...runtime.review_state_models import ReviewState
-from ...review_channel.runtime_counts import build_runtime_counts
 from ...review_channel.reviewer_runtime_contract import (
     build_reviewer_doctor_surface,
     reviewer_runtime_contract_to_dict,
 )
+from ...review_channel.runtime_counts import build_runtime_counts
 from ...review_channel.status_projection_bridge_state import (
     build_typed_bridge_liveness,
 )
 from ...runtime.authority_snapshot import project_authority_snapshot
+from ...runtime.control_topology import derive_startup_control_truth
+from ...runtime.review_state_models import ReviewState
+from ...runtime.reviewer_mode_projection import (
+    write_effective_reviewer_mode,
+    write_reviewer_mode,
+)
 
 _AUTHORITY_BOOTSTRAP_COMMAND = (
     "python3 dev/scripts/devctl.py context-graph --mode bootstrap --format md"
@@ -82,7 +86,9 @@ def _attach_phase_zero_parity_fields(
             implementer_ack_state = _text(
                 getattr(authority_snapshot, "implementer_ack_state", "")
             )
-            resync_required = bool(getattr(authority_snapshot, "resync_required", False))
+            resync_required = bool(
+                getattr(authority_snapshot, "resync_required", False)
+            )
             next_command = _text(getattr(authority_snapshot, "next_command", ""))
 
     if reviewer_runtime is not None:
@@ -100,7 +106,9 @@ def _attach_phase_zero_parity_fields(
 
     if coordination is not None:
         report["safe_to_fanout"] = bool(getattr(coordination, "safe_to_fanout", False))
-        report["ownership_status"] = _text(getattr(coordination, "ownership_status", ""))
+        report["ownership_status"] = _text(
+            getattr(coordination, "ownership_status", "")
+        )
         resync_required = bool(getattr(coordination, "resync_required", False))
 
     if current_session is not None:
@@ -111,9 +119,12 @@ def _attach_phase_zero_parity_fields(
             getattr(current_session, "implementer_ack_state", "")
         )
 
-    report["reviewer_mode"] = reviewer_mode or effective_reviewer_mode
-    report["effective_reviewer_mode"] = (
-        effective_reviewer_mode or reviewer_mode or _text(bridge_liveness.get("effective_reviewer_mode"))
+    write_reviewer_mode(report, reviewer_mode or effective_reviewer_mode)
+    write_effective_reviewer_mode(
+        report,
+        effective_reviewer_mode
+        or reviewer_mode
+        or _text(bridge_liveness.get("effective_reviewer_mode")),
     )
     report["current_instruction_revision"] = current_instruction_revision
     report["implementer_ack_state"] = implementer_ack_state
@@ -140,7 +151,9 @@ def attach_reviewer_runtime_snapshot(
         return
     recovery_assessment = getattr(review_state, "recovery_assessment", None)
     review_attention = getattr(review_state, "attention", None)
-    derived_attention = asdict(review_attention) if review_attention is not None else None
+    derived_attention = (
+        asdict(review_attention) if review_attention is not None else None
+    )
     effective_attention = derived_attention or (
         dict(attention) if isinstance(attention, Mapping) else None
     )
@@ -151,9 +164,7 @@ def attach_reviewer_runtime_snapshot(
     if effective_attention is not None:
         report["attention"] = effective_attention
     report["recovery_assessment"] = (
-        asdict(recovery_assessment)
-        if recovery_assessment is not None
-        else None
+        asdict(recovery_assessment) if recovery_assessment is not None else None
     )
     bridge_liveness_report = (
         report.get("bridge_liveness")
@@ -202,9 +213,7 @@ def attach_reviewer_runtime_snapshot(
         attention=effective_attention,
         commit_pipeline=review_state.commit_pipeline,
         push_enforcement=(
-            bridge_liveness.get("push_enforcement")
-            if bridge_liveness
-            else None
+            bridge_liveness.get("push_enforcement") if bridge_liveness else None
         ),
         runtime_state={
             "publisher": publisher,
@@ -215,9 +224,7 @@ def attach_reviewer_runtime_snapshot(
         collaboration=collaboration,
         bridge_liveness=bridge_liveness,
         publisher_running=bool(
-            publisher.get("running")
-            if isinstance(publisher, Mapping)
-            else False
+            publisher.get("running") if isinstance(publisher, Mapping) else False
         ),
         reviewer_supervisor_running=bool(
             reviewer_supervisor.get("running")
@@ -235,10 +242,10 @@ def attach_reviewer_runtime_snapshot(
         else ""
     )
     projected = project_authority_snapshot(report, caller_role="observer")
-    if (
-        fallback_next_command
-        and projected.next_command in {"", _AUTHORITY_BOOTSTRAP_COMMAND}
-    ):
+    if fallback_next_command and projected.next_command in {
+        "",
+        _AUTHORITY_BOOTSTRAP_COMMAND,
+    }:
         project_authority_snapshot(
             report, caller_role="observer", next_command=fallback_next_command
         )

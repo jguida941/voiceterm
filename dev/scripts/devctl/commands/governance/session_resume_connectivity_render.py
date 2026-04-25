@@ -32,6 +32,10 @@ def connectivity_registry_lines(packet: "SessionCachePacket") -> list[str]:
         "- zero_reader_field_count: "
         f"{int(registry.get('zero_reader_field_count') or 0)}"
     )
+    lines.append(
+        "- aspirational_gap_count: "
+        f"{int(registry.get('aspirational_gap_count') or 0)}"
+    )
     _append_registry_id_lines(lines, registry)
     return lines
 
@@ -44,7 +48,8 @@ def connectivity_registry_summary_line(packet: "SessionCachePacket") -> str:
         "connectivity_registry="
         f"{registry.get('connected_contract_count', 0)} contracts/"
         f"{registry.get('source_field_count', 0)} fields/"
-        f"{registry.get('zero_reader_field_count', 0)} zero-reader"
+        f"{registry.get('zero_reader_field_count', 0)} zero-reader/"
+        f"{registry.get('aspirational_gap_count', 0)} aspirational-gap"
     )
 
 

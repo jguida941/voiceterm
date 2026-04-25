@@ -5,7 +5,6 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 
 from .conductor_capability import authority_reviewer_mode, normalize_reviewer_mode
-from .control_state import _int, _mapping, _string, _string_rows
 from .review_state_models import (
     ConductorCapabilityState,
     RecoveryAssessmentState,
@@ -16,6 +15,18 @@ from .review_state_models import (
     ReviewBridgeState,
 )
 from .review_state_semantics import is_pending_implementer_state
+from .value_coercion import (
+    coerce_int as _int,
+)
+from .value_coercion import (
+    coerce_mapping as _mapping,
+)
+from .value_coercion import (
+    coerce_string as _string,
+)
+from .value_coercion import (
+    coerce_string_items as _string_rows,
+)
 
 
 def _bool(value: object) -> bool:
@@ -165,6 +176,7 @@ def review_bridge_state_from_payload(
             bridge.get("implementer_capability")
             or bridge_liveness.get("implementer_capability")
         ),
+        pending_total=_int(bridge.get("pending_total")),
     )
 
 

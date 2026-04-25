@@ -6,7 +6,15 @@ from dataclasses import asdict
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from ...platform.connectivity_registry import build_connectivity_registry_summary
+from ...platform.connectivity_registry import (
+    CONNECTIVITY_REGISTRY_READER_IDS,
+    CONNECTIVITY_REGISTRY_ROW_READER_IDS,
+    build_connectivity_registry_snapshot,
+    summarize_connectivity_registry,
+)
+from ...platform.connectivity_reader_verification import (
+    find_missing_connection_findings,
+)
 from ...runtime.authority_snapshot import (
     build_authority_snapshot,
     summary_blockers_csv,
@@ -273,7 +281,21 @@ def _session_key_surfaces(governance: "ProjectGovernance | None") -> tuple[str, 
 
 
 def _session_connectivity_registry(repo_root: Path) -> dict[str, object]:
-    return build_connectivity_registry_summary(repo_root=repo_root).to_dict()
+    registry = build_connectivity_registry_snapshot(repo_root=repo_root)
+    missing_connection_findings = find_missing_connection_findings(
+        registry=registry,
+        required_reader_ids=CONNECTIVITY_REGISTRY_READER_IDS,
+        row_reader_ids=CONNECTIVITY_REGISTRY_ROW_READER_IDS,
+        repo_root=repo_root,
+    )
+    payload = summarize_connectivity_registry(
+        registry,
+        missing_connection_findings=missing_connection_findings,
+    ).to_dict()
+    payload["connected_contract_ids"] = tuple(
+        contract.contract_id for contract in registry.connected_contracts
+    )
+    return payload
 
 
 def _packet_fields_from_context(context: dict[str, Any]) -> SessionCachePacketFields:

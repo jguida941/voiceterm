@@ -42,6 +42,7 @@ from .push_artifact import (
 )
 from .push_flow import PushFlowDependencies, execute_push_flow_with_dependencies
 from .push_pipeline_state_sync import sync_commit_pipeline_with_push_report
+from .push_preflight_projection import refresh_managed_projections_before_preflight
 from .push_projection_receipt import auto_commit_managed_projection_receipt
 from .push_report import PushStageTruth, render_push_report
 from .push_executor_routing import maybe_run_executor_routed_push
@@ -287,6 +288,13 @@ def _run_fetch_and_preflight(
         return
 
     _sync_bridge_projection_before_preflight(state, repo_root=repo_root)
+    refresh_managed_projections_before_preflight(
+        state,
+        policy,
+        repo_root=repo_root,
+    )
+    if state.errors:
+        return
     preflight_command = build_preflight_shell_command(
         policy,
         remote=state.remote,

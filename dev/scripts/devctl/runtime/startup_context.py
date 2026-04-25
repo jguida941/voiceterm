@@ -8,8 +8,6 @@ from types import SimpleNamespace
 from typing import TYPE_CHECKING, Any
 
 from ..platform.coordination_snapshot_models import CoordinationSnapshot
-from ..platform.connectivity_registry import build_connectivity_registry_summary
-from ..platform.connectivity_registry_models import ConnectivityRegistrySummary
 from .finding_contracts import RejectedRuleTraceRecord, RuleMatchEvidenceRecord
 from .recovery_authority import RecoveryAuthorityState, derive_recovery_authority
 from .review_state_models import (
@@ -30,6 +28,7 @@ from .authority_snapshot import AuthoritySnapshot, project_authority_snapshot
 from .conductor_capability import authority_reviewer_mode, normalize_reviewer_mode
 from .control_topology import derive_startup_control_truth
 from .governance_scan import scan_repo_governance_safely
+from .key_surfaces import startup_key_surfaces
 from .operator_context import is_resolved, resolve_operator_interaction_mode
 from .project_governance import ProjectGovernance
 from .review_state_locator import load_current_review_state
@@ -37,6 +36,7 @@ from .startup_advisory_decision import (
     derive_advisory_decision as _derive_advisory_decision,
 )
 from .startup_blocker_decision import BlockerSnapshot, derive_startup_blocker
+from .startup_connectivity_registry import startup_connectivity_registry
 from .startup_context_projections import (
     bounded_contract_ownership_map,
     build_contract_ownership_map,
@@ -206,19 +206,6 @@ def _governance_interaction_mode(
     if governance is None:
         return ""
     return str(governance.bridge_config.operator_interaction_mode or "").strip()
-
-
-def _connectivity_registry_summary_dict(
-    summary: ConnectivityRegistrySummary,
-) -> dict[str, object]:
-    """Project the typed registry summary into the bounded startup payload."""
-    return summary.to_dict()
-
-
-def _startup_connectivity_registry(repo_root: Path) -> dict[str, object]:
-    return _connectivity_registry_summary_dict(
-        build_connectivity_registry_summary(repo_root=repo_root)
-    )
 
 
 def _review_state_remote_control_attachment(
@@ -437,17 +424,7 @@ def _load_startup_coordination_snapshot(
 
 
 def _startup_key_surfaces(governance: ProjectGovernance | None) -> tuple[str, ...]:
-    if governance is None:
-        return ()
-    surfaces: list[str] = []
-    for entry in governance.doc_registry.entries:
-        if entry.artifact_role != "connectivity_index":
-            continue
-        if entry.consumer_scope and entry.consumer_scope != "startup_default":
-            continue
-        if entry.path and entry.path not in surfaces:
-            surfaces.append(entry.path)
-    return tuple(surfaces)
+    return startup_key_surfaces(governance)
 
 
 def _attach_startup_surface_identity(
@@ -613,7 +590,7 @@ def build_startup_context(
         orphan_snapshot=orphan_snapshot,
         blocker=blocker,
         contract_ownership_map=build_contract_ownership_map(),
-        connectivity_registry=_startup_connectivity_registry(repo_root),
+        connectivity_registry=startup_connectivity_registry(repo_root),
         key_surfaces=_startup_key_surfaces(governance),
         snapshot_id=snapshot_id,
         zref=zref,

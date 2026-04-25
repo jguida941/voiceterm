@@ -421,10 +421,20 @@ class TestBootstrapContext(unittest.TestCase):
         self.assertIsInstance(ctx.bridge_active, bool)
         self.assertIsNotNone(ctx.graph_size)
         self.assertIsNotNone(ctx.key_commands)
+        self.assertIsNotNone(ctx.key_surfaces)
         self.assertIsNotNone(ctx.bootstrap_commands)
         self.assertIsNotNone(ctx.bootstrap_links)
         self.assertIsNotNone(ctx.quality_signals)
         self.assertTrue(ctx.usage)
+
+    @patch(
+        "dev.scripts.devctl.context_graph.query.load_startup_key_surfaces",
+        return_value=("dev/guides/SYSTEM_MAP.md",),
+    )
+    def test_bootstrap_uses_startup_key_surfaces(self, _surfaces_mock) -> None:
+        ctx = build_bootstrap_context(self.nodes, self.edges)
+
+        self.assertEqual(ctx.key_surfaces, ("dev/guides/SYSTEM_MAP.md",))
 
     def test_bootstrap_has_plans(self) -> None:
         ctx = build_bootstrap_context(self.nodes, self.edges)
@@ -480,6 +490,7 @@ class TestBootstrapContext(unittest.TestCase):
                 "key_commands": {},
                 "bootstrap_links": {},
                 "push_enforcement": {},
+                "key_surfaces": ("dev/guides/SYSTEM_MAP.md",),
                 "quality_signals": {
                     "probe_report": {
                         "generated_at": "2026-03-23T00:00:00Z",
@@ -535,6 +546,8 @@ class TestBootstrapContext(unittest.TestCase):
                 "usage": "Use this packet first.",
             }
         )
+        self.assertIn("## Key Surfaces", md)
+        self.assertIn("dev/guides/SYSTEM_MAP.md", md)
         self.assertIn("## Quality Signals", md)
         self.assertIn("**probe-report**", md)
         self.assertIn("guidance hotspot", md)

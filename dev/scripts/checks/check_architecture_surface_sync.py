@@ -145,6 +145,20 @@ def _script_catalog_text(repo_root: Path, cache: dict[str, str]) -> str:
         return catalog_text
     return catalog_text + "\n" + _read_text(repo_root, target, cache)
 
+
+def _bundle_registry_text(repo_root: Path, cache: dict[str, str]) -> str:
+    """Return bundle-registry text, following one compatibility shim target."""
+    registry_text = _read_text(repo_root, BUNDLE_REGISTRY_REL, cache)
+    match = _SHIM_TARGET_RE.search(registry_text)
+    if match is None:
+        return registry_text
+    target = match.group("target").strip()
+    target_path = repo_root / target
+    if not target_path.is_file():
+        return registry_text
+    return registry_text + "\n" + _read_text(repo_root, target, cache)
+
+
 def _violation(
     *,
     path: Path,
@@ -241,8 +255,13 @@ def _validate_check_script(
             )
         )
 
-    bundle_text = _read_text(repo_root, BUNDLE_REGISTRY_REL, cache)
-    if path_text not in bundle_text:
+    bundle_tokens = (
+        path_text,
+        path.name,
+        path.stem.removeprefix("check_"),
+    )
+    bundle_text = _bundle_registry_text(repo_root, cache)
+    if not _contains_any_token(bundle_text, bundle_tokens):
         violations.append(
             _violation(
                 path=path,

@@ -79,6 +79,7 @@ class BootstrapContext:
     usage: str
     bootstrap_commands: list[dict[str, object]] = field(default_factory=list)
     quality_signals: dict[str, object] = field(default_factory=dict)
+    key_surfaces: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)

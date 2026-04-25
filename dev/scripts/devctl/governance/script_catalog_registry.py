@@ -14,6 +14,7 @@ _CHECK_SCRIPT_ENTRIES = (
     ("active_plan_sync", "check_active_plan_sync.py"),
     ("architecture_surface_sync", "check_architecture_surface_sync.py"),
     ("review_snapshot_freshness", "check_review_snapshot_freshness.py"),
+    ("system_picture_freshness", "check_system_picture_freshness.py"),
     ("agents_contract", "check_agents_contract.py"),
     ("agents_bundle_render", "check_agents_bundle_render.py"),
     ("bootstrap", "check_bootstrap.py"),

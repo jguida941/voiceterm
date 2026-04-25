@@ -1419,8 +1419,10 @@ false positives, and fixes real issues — then re-runs CodeRabbit to verify.
 - Policy-gated via `control_plane_policy.json` allowlist
 
 **Cross-architecture guard alignment rules:**
-1. Every new guard script MUST be registered in `dev/scripts/devctl/quality_policy.py` and enabled in `dev/config/devctl_repo_policy.json` when this repo should run it by default.
-2. Every repo-enabled AI guard MUST have a step in `tooling_control_plane.yml`.
+1. Every new guard script MUST be registered in the script catalog and wired
+   through either typed quality-policy or a direct bundle/workflow enforcement
+   lane when this repo should run it by default.
+2. Every repo-enabled hard guard MUST have a step in `tooling_control_plane.yml`.
    The current Phase 3/4 remote-commit surface-convergence closure keeps
    `check_review_snapshot_freshness.py` and
    `check_review_surface_consistency.py` in both
@@ -1712,6 +1714,7 @@ python3 dev/scripts/devctl.py process-cleanup --verify --format md
 python3 dev/scripts/devctl.py docs-check --user-facing
 python3 dev/scripts/devctl.py hygiene
 python3 dev/scripts/checks/check_active_plan_sync.py
+python3 dev/scripts/checks/check_system_picture_freshness.py
 python3 dev/scripts/checks/check_multi_agent_sync.py
 python3 dev/scripts/checks/check_cli_flags_parity.py
 python3 dev/scripts/checks/check_screenshot_integrity.py --stale-days 120
@@ -1754,6 +1757,7 @@ find . -maxdepth 1 -type f -name '--*'
 python3 dev/scripts/devctl.py docs-check --user-facing --since-ref origin/develop
 python3 dev/scripts/devctl.py hygiene
 python3 dev/scripts/checks/check_active_plan_sync.py
+python3 dev/scripts/checks/check_system_picture_freshness.py
 python3 dev/scripts/checks/check_multi_agent_sync.py
 python3 dev/scripts/checks/check_cli_flags_parity.py
 python3 dev/scripts/checks/check_screenshot_integrity.py --stale-days 120
@@ -1818,6 +1822,7 @@ python3 dev/scripts/checks/check_tandem_consistency.py
 python3 dev/scripts/checks/check_governance_closure.py
 python3 dev/scripts/checks/check_package_layout.py --fail-on-baseline-debt --baseline-debt-root dev/scripts/devctl/commands
 python3 dev/scripts/checks/check_active_plan_sync.py
+python3 dev/scripts/checks/check_system_picture_freshness.py
 python3 dev/scripts/checks/check_multi_agent_sync.py
 python3 dev/scripts/checks/check_cli_flags_parity.py
 python3 dev/scripts/checks/check_screenshot_integrity.py --stale-days 120
@@ -1889,6 +1894,7 @@ python3 dev/scripts/checks/check_publication_sync.py --release-branch-aware
 CI=1 python3 dev/scripts/checks/check_coderabbit_gate.py --branch master
 CI=1 python3 dev/scripts/checks/check_coderabbit_ralph_gate.py --branch master
 python3 dev/scripts/checks/check_active_plan_sync.py
+python3 dev/scripts/checks/check_system_picture_freshness.py
 python3 dev/scripts/checks/check_multi_agent_sync.py
 python3 dev/scripts/checks/check_cli_flags_parity.py
 python3 dev/scripts/checks/check_screenshot_integrity.py --stale-days 120
@@ -1938,6 +1944,7 @@ python3 dev/scripts/devctl.py docs-check --user-facing --since-ref origin/develo
 python3 dev/scripts/devctl.py hygiene
 python3 dev/scripts/checks/check_active_plan_sync.py
 python3 dev/scripts/checks/check_review_channel_bridge.py
+python3 dev/scripts/checks/check_system_picture_freshness.py
 python3 dev/scripts/checks/check_multi_agent_sync.py
 python3 dev/scripts/checks/check_cli_flags_parity.py
 python3 dev/scripts/checks/check_screenshot_integrity.py --stale-days 120

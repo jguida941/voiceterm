@@ -714,9 +714,12 @@ Three quality layers matter in practice:
     launcher validates it to gate subsequent actions.  On intentional read-only
     mounts (`DEVCTL_NO_ARTIFACT_WRITES=1`, MCP adapters, containers) the write
     degrades gracefully on `OSError`; other write failures propagate normally.
-    Bootstrap `context-graph` still suppresses its snapshot write when
-    `DEVCTL_NO_ARTIFACT_WRITES=1` is set by the read-only command dispatcher.
-    Explicit `--save-snapshot` on `context-graph` still writes unconditionally.
+    Bootstrap `context-graph` is the exception to dispatcher suppression:
+    normal `context-graph --mode bootstrap` runs persist a managed graph
+    snapshot because `system-picture` uses it for freshness. Explicit
+    external `DEVCTL_NO_ARTIFACT_WRITES=1` still suppresses that bootstrap
+    snapshot on read-only mounts, and explicit `--save-snapshot` on
+    `context-graph` still writes unconditionally.
   - `wait_for_codex_poll_refresh()` in `handoff.py` has two satisfaction paths
     for the post-launch ACK gate: (1) reviewer-owned `Poll Status` text
     changed, or (2) `Last Codex poll` timestamp advanced past the pre-launch
@@ -940,10 +943,10 @@ Three quality layers matter in practice:
   - Read-only command safety: `startup-context` always attempts the receipt
     write (the launcher validates it), but degrades gracefully on `OSError`
     when `DEVCTL_NO_ARTIFACT_WRITES=1` signals an intentional read-only
-    context.  `context-graph --mode bootstrap` and other read-only status
-    commands still suppress snapshot artifact writes via
-    `DEVCTL_NO_ARTIFACT_WRITES`, set automatically by the read-only command
-    dispatcher in `cli.py`. Explicit `--save-snapshot` still writes
+    context.  Normal `context-graph --mode bootstrap` persists the managed
+    graph snapshot used by `system-picture` freshness checks; explicit
+    external `DEVCTL_NO_ARTIFACT_WRITES=1` still suppresses bootstrap snapshot
+    writes for read-only mounts, and explicit `--save-snapshot` still writes
     unconditionally. The launch-poll path in `bridge_launch_control.py` also
     gained a lightweight `observe_launch_state()` helper that reads bridge
     metadata and session state directly instead of triggering a full status
@@ -1071,7 +1074,13 @@ Three quality layers matter in practice:
   `session-resume`, `render-surfaces`, and `check_platform_contract_closure.py`
   should consume `build_connectivity_registry_snapshot` /
   `summarize_connectivity_registry` rather than each rebuilding contract-reader
-  fields independently.
+  fields independently. Do not fix reader-verification failures by silently
+  removing reader declarations: missing AST evidence must surface as a typed
+  `MissingConnectionFinding` with classification `aspirational_gap` unless a
+  committed registry-reader override explicitly classifies it as
+  `mistakenly_declared` or `deferred_consumer` with justification.
+  `aspirational_gap_count` is the closure KPI and should be zero with the full
+  declared reader set present.
   Also add deterministic contract/query proof so the producer and consumer stay
   wired together.
   Keep `startup_surface_tokens` current on every implemented platform
@@ -1218,6 +1227,7 @@ fallback bug into its fix).
    - `python3 dev/scripts/checks/check_serde_compatibility.py`
    - `python3 dev/scripts/checks/check_rust_runtime_panic_policy.py`
    - `python3 dev/scripts/checks/check_review_snapshot_freshness.py`
+   - `python3 dev/scripts/checks/check_system_picture_freshness.py`
    - `python3 dev/scripts/checks/check_review_surface_consistency.py` (enforces that `review_state.attention` matches the canonical projection from `recovery_assessment` when both are present; also validates snapshot/pipeline convergence)
    - For review-candidate / recovery / collaboration-model refactors, also run focused proof on the owning seams:
      `python3 -m pytest dev/scripts/devctl/tests/review_channel/test_review_candidate.py dev/scripts/devctl/tests/review_channel/test_prompt_session_resume.py dev/scripts/devctl/tests/runtime/test_review_state.py dev/scripts/devctl/tests/governance/test_session_resume.py dev/scripts/devctl/tests/governance/test_startup_repair.py dev/scripts/devctl/tests/checks/platform_contract_closure/test_check_platform_contract_closure.py -q --tb=short`
@@ -2217,7 +2227,7 @@ Docs governance guardrails:
   `observed_control_topology` is compared only from explicit control-topology
   fields; `CoordinationSnapshot.observed_topology` remains coordination
   evidence and must not be treated as the remote-control posture.
-- `python3 dev/scripts/checks/check_review_snapshot_freshness.py` blocks stale `dev/audits/REVIEW_SNAPSHOT.md` by comparing the HEAD SHA and generation stamp embedded in the file against the live typed projection. The guard also accepts a final governed receipt commit when the generated snapshot binds to that commit's parent code state, because a file inside a commit cannot contain its own final SHA; that receipt may refresh `dev/audits/REVIEW_SNAPSHOT.md` alone or atomically with the governed `bridge.md` compatibility projection. If non-receipt HEAD or stamp drift occurs, the guard fails and instructs the caller to rerun `devctl review-snapshot --write`; both `tooling_control_plane.yml` and `release_preflight.yml` run it. The managed raw-git path is three-hook automation: `install-git-hooks` installs a pre-commit commit-permission-plus-projection hook, a post-commit receipt hook that calls `devctl review-snapshot --write --receipt-commit`, and a blocking pre-push hook that refuses raw `git push` unless the nested push came from `devctl push --execute`. The pre-commit hook now fails closed when the typed `commit_permission` boundary blocks raw `git commit`, then best-effort refreshes/stages the role-portable `bridge.md` compatibility projection through `review-channel --action status` plus the ReviewSnapshot projection for allowed commits. Governed staging must preserve any already-staged user paths while adding the refreshed snapshot artifact, and `devctl commit` may surface the main content SHA separately from the trailing receipt SHA when that hook lands. `devctl push` accepts that receipt shape when the receipt HEAD's parent matches the active `PushAuthorizationRecord`; it also creates the same managed projection receipt itself when push preflight leaves only governed receipt/projection artifacts such as `bridge.md` dirty, then refreshes the current HEAD before authorization/reporting so green pushes do not hand off tracked projection drift. `devctl push` ignores staged-only "next commit" intent when evaluating push dirt or preflight auto-commit repair, and ignores stale detached pipeline records in `single_agent` mode; active dual-agent and current pipeline targets still require exact typed authorization. The typed snapshot now also carries first-class probe run-state/artifact refs plus current push receipt/authorization refs so external review surfaces can cite emitted evidence instead of only replaying next-command suggestions.
+- `python3 dev/scripts/checks/check_review_snapshot_freshness.py` blocks stale `dev/audits/REVIEW_SNAPSHOT.md` by comparing the HEAD SHA and generation stamp embedded in the file against the live typed projection. The guard also accepts a final governed receipt commit when the generated snapshot binds to that commit's parent code state, because a file inside a commit cannot contain its own final SHA; that receipt may refresh `dev/audits/REVIEW_SNAPSHOT.md` alone or atomically with the governed `bridge.md` compatibility projection. If non-receipt HEAD or stamp drift occurs, the guard fails and instructs the caller to rerun `devctl review-snapshot --write`; both `tooling_control_plane.yml` and `release_preflight.yml` run it. The managed raw-git path is three-hook automation: `install-git-hooks` installs a pre-commit commit-permission-plus-projection hook, a post-commit receipt hook that calls `devctl review-snapshot --write --receipt-commit`, and a blocking pre-push hook that refuses raw `git push` unless the nested push came from `devctl push --execute`. The pre-commit hook now fails closed when the typed `commit_permission` boundary blocks raw `git commit`, then best-effort refreshes/stages the role-portable `bridge.md` compatibility projection through `review-channel --action status` plus the ReviewSnapshot projection for allowed commits. Governed staging must preserve any already-staged user paths while adding the refreshed snapshot artifact, and `devctl commit` may surface the main content SHA separately from the trailing receipt SHA when that hook lands. `devctl push` accepts that receipt shape when the receipt HEAD's parent matches the active `PushAuthorizationRecord`; it now refreshes ReviewSnapshot before routed preflight, commits managed ReviewSnapshot/`bridge.md` projection drift as a receipt before the preflight gate, and then refreshes the current HEAD before authorization/reporting so green pushes do not hand off tracked projection drift. `python3 dev/scripts/checks/check_system_picture_freshness.py` is the companion pre-push freshness gate: it fails stale `SystemPicture` sections and requires the startup and graph sections to be current, which means `startup-context` and `context-graph --mode bootstrap` must be refreshed after each commit before publication. `devctl push` ignores staged-only "next commit" intent when evaluating push dirt or preflight auto-commit repair, and ignores stale detached pipeline records in `single_agent` mode; active dual-agent and current pipeline targets still require exact typed authorization. The typed snapshot now also carries first-class probe run-state/artifact refs plus current push receipt/authorization refs so external review surfaces can cite emitted evidence instead of only replaying next-command suggestions.
 - `devctl` structured status reports for `check`/`triage` now emit UTC timestamps for deterministic run-correlation across local + CI artifacts.
 - `python3 dev/scripts/checks/check_agents_contract.py` validates required `AGENTS.md` SOP sections/bundles/router rows.
 - `python3 dev/scripts/checks/check_active_plan_sync.py` validates `dev/active/INDEX.md` registry coverage, tracker authority, active-doc cross-link integrity, execution-plan metadata/marker/section parity, the typed umbrella-plan phase/task contract, and `MP-*` scope parity between index/spec docs and `MASTER_PLAN`. The same guard now runs in the default AI guard lane, so `devctl check --profile ci` and governed commit bundles no longer rely on docs-only enforcement for plan drift.

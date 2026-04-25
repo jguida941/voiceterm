@@ -431,6 +431,9 @@ jobs:
       - name: Run active-plan sync guard
         run: python3 dev/scripts/checks/check_active_plan_sync.py
 
+      - name: Run system-picture freshness guard
+        run: python3 dev/scripts/checks/check_system_picture_freshness.py
+
       - name: Run multi-agent sync guard
         run: python3 dev/scripts/checks/check_multi_agent_sync.py
 

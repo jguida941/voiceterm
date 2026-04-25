@@ -53,6 +53,7 @@ COMPOSITION_LAYER_NAMES: Final[tuple[str, ...]] = (
 # Guard checks shared across all non-bootstrap bundles.
 _GUARD_CHECKS: Final[tuple[str, ...]] = (
     check_script_shell_command("active_plan_sync"),
+    check_script_shell_command("system_picture_freshness"),
     check_script_shell_command("multi_agent_sync"),
     check_script_shell_command("cli_flags_parity"),
     check_script_shell_command("screenshot_integrity", "--stale-days", "120"),

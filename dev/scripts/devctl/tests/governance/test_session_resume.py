@@ -2044,10 +2044,25 @@ class TestLastReviewedSha(unittest.TestCase):
             payload["connectivity_registry"]["source_contract_count"],
             summary["source_contract_count"],
         )
+        self.assertEqual(
+            payload["connectivity_registry"]["aspirational_gap_count"],
+            0,
+        )
         self.assertIn(
             "session_resume",
             payload["connectivity_registry"]["reader_ids"],
         )
+
+    def test_session_connectivity_registry_projects_contract_ids(self) -> None:
+        from dev.scripts.devctl.config import REPO_ROOT
+        from dev.scripts.devctl.commands.governance.session_resume_support import (
+            _session_connectivity_registry,
+        )
+
+        registry = _session_connectivity_registry(REPO_ROOT)
+
+        self.assertEqual(registry["aspirational_gap_count"], 0)
+        self.assertIn("TypedAction", registry["connected_contract_ids"])
 
     def test_render_bootstrap_reviewer_conversation_starter_includes_status_poll(
         self,

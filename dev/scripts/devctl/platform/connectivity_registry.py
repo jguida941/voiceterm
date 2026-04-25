@@ -10,14 +10,24 @@ from .blueprint import build_platform_blueprint
 from .connectivity_registry_models import (
     ConnectivityContractRow,
     ConnectivityFieldRow,
-    ConnectivityRegistrySummary,
     ConnectivityRegistrySnapshot,
+    ConnectivityRegistrySummary,
     ConnectivityWriterRow,
 )
+from .connectivity_reader_verification import find_missing_connection_findings
 from .contracts import ContractSpec, FrontendSurfaceSpec
 from .policy_paths import resolve_repo_policy_path
 
 CONNECTIVITY_REGISTRY_READER_IDS = (
+    "context_graph",
+    "render_surfaces",
+    "session_resume",
+    "startup_context",
+    "system_map_index",
+    "system_map_renderer",
+)
+
+CONNECTIVITY_REGISTRY_ROW_READER_IDS = (
     "context_graph",
     "render_surfaces",
     "session_resume",
@@ -131,8 +141,8 @@ def _surface_ids_for_contract(
 
 
 def _reader_ids(projection_ids: tuple[str, ...]) -> tuple[str, ...]:
-    """Return registry consumers plus contract-specific projection readers."""
-    return tuple(sorted({*CONNECTIVITY_REGISTRY_READER_IDS, *projection_ids}))
+    """Return per-contract row readers plus contract-specific projection readers."""
+    return tuple(sorted({*CONNECTIVITY_REGISTRY_ROW_READER_IDS, *projection_ids}))
 
 
 def _registry_warnings(
@@ -185,10 +195,14 @@ def resolve_governed_surface_ids(
             surface_ids.append(surface_id)
     return tuple(surface_ids)
 
+
 def summarize_connectivity_registry(
     registry: ConnectivityRegistrySnapshot,
+    *,
+    missing_connection_findings=(),
 ) -> ConnectivityRegistrySummary:
     """Build the bounded summary shared by startup and render surfaces."""
+    findings = tuple(missing_connection_findings)
     field_count = sum(len(contract.fields) for contract in registry.connected_contracts)
     zero_reader_count = sum(
         1
@@ -211,6 +225,22 @@ def summarize_connectivity_registry(
             if reader_id
         }
         | set(registry.governed_surface_ids)
+        | set(CONNECTIVITY_REGISTRY_READER_IDS)
+    )
+    aspirational_gap_count = sum(
+        1
+        for finding in findings
+        if finding.classification == "aspirational_gap"
+    )
+    mistakenly_declared_count = sum(
+        1
+        for finding in findings
+        if finding.classification == "mistakenly_declared"
+    )
+    deferred_consumer_count = sum(
+        1
+        for finding in findings
+        if finding.classification == "deferred_consumer"
     )
     return ConnectivityRegistrySummary(
         schema_version=registry.schema_version,
@@ -222,6 +252,10 @@ def summarize_connectivity_registry(
         reader_ids=tuple(reader_ids),
         governed_surface_ids=registry.governed_surface_ids,
         warning_count=len(registry.warnings),
+        aspirational_gap_count=aspirational_gap_count,
+        missing_connection_finding_count=len(findings),
+        mistakenly_declared_count=mistakenly_declared_count,
+        deferred_consumer_count=deferred_consumer_count,
         warnings=registry.warnings,
     )
 
@@ -232,16 +266,25 @@ def build_connectivity_registry_summary(
     governed_surface_ids: tuple[str, ...] | None = None,
 ) -> ConnectivityRegistrySummary:
     """Build the bounded connectivity-registry summary for consumers."""
+    registry = build_connectivity_registry_snapshot(
+        repo_root=repo_root,
+        governed_surface_ids=governed_surface_ids,
+    )
+    missing_connection_findings = find_missing_connection_findings(
+        registry=registry,
+        required_reader_ids=CONNECTIVITY_REGISTRY_READER_IDS,
+        row_reader_ids=CONNECTIVITY_REGISTRY_ROW_READER_IDS,
+        repo_root=repo_root,
+    )
     return summarize_connectivity_registry(
-        build_connectivity_registry_snapshot(
-            repo_root=repo_root,
-            governed_surface_ids=governed_surface_ids,
-        )
+        registry,
+        missing_connection_findings=missing_connection_findings,
     )
 
 
 __all__ = [
     "CONNECTIVITY_REGISTRY_READER_IDS",
+    "CONNECTIVITY_REGISTRY_ROW_READER_IDS",
     "build_connectivity_registry_snapshot",
     "build_connectivity_registry_summary",
     "resolve_governed_surface_ids",

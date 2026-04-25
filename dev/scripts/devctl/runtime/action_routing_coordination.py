@@ -4,6 +4,10 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 
+from .reviewer_mode_projection import (
+    write_effective_reviewer_mode,
+    write_reviewer_mode,
+)
 from .work_intake_models import (
     WorkIntakeCoordinationState,
     work_intake_coordination_from_mapping,
@@ -35,7 +39,7 @@ def coordination_state(
     if not projected.get("reviewer_mode"):
         reviewer_mode = str(ctx_payload.get("reviewer_mode") or "").strip()
         if reviewer_mode:
-            projected["reviewer_mode"] = reviewer_mode
+            write_reviewer_mode(projected, reviewer_mode)
     if not projected.get("effective_reviewer_mode"):
         effective_mode = str(
             ctx_payload.get("effective_reviewer_mode")
@@ -43,7 +47,7 @@ def coordination_state(
             or ""
         ).strip()
         if effective_mode:
-            projected["effective_reviewer_mode"] = effective_mode
+            write_effective_reviewer_mode(projected, effective_mode)
     return work_intake_coordination_from_mapping(projected)
 
 
@@ -67,6 +71,8 @@ def _owner_from_active_participants(active_participants: tuple[str, ...]) -> str
         if role == "implementer" and actor:
             return actor
     return ""
+
+
 def _mapping(value: object) -> Mapping[str, object]:
     return value if isinstance(value, Mapping) else {}
 

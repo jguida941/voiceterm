@@ -27,6 +27,25 @@ def _append_managed_projection_state(
         lines.append(f"- **managed_projection_dirty_paths**: `{path_text}`")
 
 
+def _append_key_surface_lines(lines: list[str], key_surfaces: list[Any]) -> None:
+    if not key_surfaces:
+        return
+    lines.append("## Key Surfaces")
+    lines.append("")
+    for path in key_surfaces:
+        lines.append(f"- `{path}`")
+    lines.append("")
+
+
+def _append_graph_size_lines(lines: list[str], graph_size: dict[str, Any]) -> None:
+    lines.append(
+        f"**Graph:** {graph_size.get('source_files', 0)} source files, "
+        f"{graph_size.get('guards', 0)} guards, {graph_size.get('probes', 0)} probes, "
+        f"{graph_size.get('active_plans', 0)} plans, {graph_size.get('edges', 0)} edges"
+    )
+    lines.append("")
+
+
 def render_query_result_markdown(result: QueryResult) -> str:
     """Render a QueryResult as human-readable markdown."""
     lines: list[str] = []
@@ -106,11 +125,7 @@ def render_bootstrap_markdown(ctx: dict[str, Any]) -> str:
                  f"**Bridge:** {'active' if ctx.get('bridge_active') else 'inactive'}")
     lines.append("")
 
-    gs = ctx.get("graph_size", {})
-    lines.append(f"**Graph:** {gs.get('source_files', 0)} source files, "
-                 f"{gs.get('guards', 0)} guards, {gs.get('probes', 0)} probes, "
-                 f"{gs.get('active_plans', 0)} plans, {gs.get('edges', 0)} edges")
-    lines.append("")
+    _append_graph_size_lines(lines, ctx.get("graph_size", {}))
 
     snapshot = ctx.get("snapshot", {})
     if snapshot:
@@ -147,6 +162,8 @@ def render_bootstrap_markdown(ctx: dict[str, Any]) -> str:
                 f"{h.get('fan_out', 0)} | {h.get('ranking_summary', '')} |"
             )
         lines.append("")
+
+    _append_key_surface_lines(lines, ctx.get("key_surfaces", []))
 
     bootstrap_commands = ctx.get("bootstrap_commands", [])
     cmds = ctx.get("key_commands", {})

@@ -95,6 +95,12 @@ Current 2026-04-25 SYSTEM_MAP connectivity authority note:
   fails closed when required graph/startup/session/render/SYSTEM_MAP consumers
   or field readers disappear. Future SYSTEM_MAP slices should extend this
   registry rather than creating parallel A->B->C connectivity maps.
+- S4 freshness closure adds a hard `check_system_picture_freshness.py` lane:
+  normal `context-graph --mode bootstrap` now persists the graph snapshot
+  needed by `SystemPicture`, `BootstrapContext` carries the startup
+  `key_surfaces`, and `devctl push` refreshes ReviewSnapshot plus managed
+  projection receipts before routed preflight validates startup/graph
+  freshness.
 
 Current 2026-04-07 portability-by-default closure note:
 - Accept the review verdict as plan state: the architecture is portable by

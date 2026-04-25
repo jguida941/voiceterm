@@ -40,6 +40,7 @@ _BRIDGE_STATE_EXPECTED_TYPES: dict[str, type] = {
     "review_accepted": bool,
     "implementer_completion_stall": bool,
     "publisher_running": bool,
+    "pending_total": int,
 }
 
 

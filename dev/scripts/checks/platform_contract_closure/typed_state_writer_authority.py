@@ -13,6 +13,8 @@ from dev.scripts.devctl.platform.connectivity_registry_models import (
     ConnectivityRegistrySnapshot,
 )
 
+from .ast_helpers import call_name
+
 _CURRENT_SESSION_CONSTRUCTOR_ALLOWLIST = frozenset(
     {
         "dev/scripts/devctl/review_channel/current_session_projection.py",
@@ -35,7 +37,7 @@ _REVIEWER_MODE_WRITE_ALLOWLIST = frozenset(
         "dev/scripts/devctl/review_channel/event_projection_bridge.py",
         "dev/scripts/devctl/review_channel/projection_bundle_parity.py",
         "dev/scripts/devctl/review_channel/status_projection_bridge_state.py",
-        "dev/scripts/devctl/review_channel/status_projection_helpers.py",
+        "dev/scripts/devctl/runtime/reviewer_mode_projection.py",
     }
 )
 
@@ -44,9 +46,13 @@ _REVIEWER_MODE_TARGETS = frozenset(
     {
         "bridge_liveness",
         "bridge_state",
+        "projected",
         "payload",
+        "report",
         "review_state",
         "review_state_payload",
+        "stamp_inputs",
+        "state",
         "typed",
     }
 )
@@ -58,7 +64,11 @@ def check_typed_state_writer_authority(
     python_files: tuple[Path, ...] | None = None,
 ) -> tuple[dict[str, object], tuple[dict[str, object], ...]]:
     """Return coverage and violations for typed review-state writer chokepoints."""
-    files = tuple(python_files) if python_files is not None else _iter_python_files(repo_root)
+    files = (
+        tuple(python_files)
+        if python_files is not None
+        else _iter_python_files(repo_root)
+    )
     violations: list[dict[str, object]] = []
     scanned_files = 0
     registry = build_connectivity_registry_snapshot(repo_root=repo_root)
@@ -150,7 +160,7 @@ class _TypedStateWriterVisitor(ast.NodeVisitor):
 
     def visit_Call(self, node: ast.Call) -> None:  # noqa: N802
         if (
-            _call_name(node.func) == "ReviewCurrentSessionState"
+            call_name(node.func) == "ReviewCurrentSessionState"
             and self.rel_path not in _CURRENT_SESSION_CONSTRUCTOR_ALLOWLIST
         ):
             self.violations.append(
@@ -180,8 +190,13 @@ class _TypedStateWriterVisitor(ast.NodeVisitor):
         self.generic_visit(node)
 
     def _check_assignment_target(self, target: ast.AST) -> None:
-        if not isinstance(target, ast.Subscript):
+        if isinstance(target, ast.Subscript):
+            self._check_subscript_assignment_target(target)
             return
+        if isinstance(target, ast.Attribute):
+            self._check_attribute_assignment_target(target)
+
+    def _check_subscript_assignment_target(self, target: ast.Subscript) -> None:
         key = _literal_subscript_key(target.slice)
         base_name = _base_name(target.value)
         if (
@@ -200,7 +215,6 @@ class _TypedStateWriterVisitor(ast.NodeVisitor):
                     ),
                 )
             )
-            return
         if (
             key in _REVIEWER_MODE_KEYS
             and base_name in _REVIEWER_MODE_TARGETS
@@ -218,13 +232,25 @@ class _TypedStateWriterVisitor(ast.NodeVisitor):
                 )
             )
 
-
-def _call_name(func: ast.AST) -> str:
-    if isinstance(func, ast.Name):
-        return func.id
-    if isinstance(func, ast.Attribute):
-        return func.attr
-    return ""
+    def _check_attribute_assignment_target(self, target: ast.Attribute) -> None:
+        key = target.attr
+        base_name = _base_name(target.value)
+        if (
+            key in _REVIEWER_MODE_KEYS
+            and base_name in _REVIEWER_MODE_TARGETS
+            and self.rel_path not in _REVIEWER_MODE_WRITE_ALLOWLIST
+        ):
+            self.violations.append(
+                _violation(
+                    rel_path=self.rel_path,
+                    line=target.lineno,
+                    field=key,
+                    detail=(
+                        "Reviewer-mode projection attributes must use the approved "
+                        "authority projection chokepoints."
+                    ),
+                )
+            )
 
 
 def _literal_subscript_key(slice_node: ast.AST) -> str:

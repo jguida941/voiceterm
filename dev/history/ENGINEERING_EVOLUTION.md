@@ -62,6 +62,32 @@ Evidence:
 - `dev/scripts/devctl/tests/review_channel/test_packet_outcomes.py`
 - `dev/scripts/devctl/tests/review_channel/test_packet_queue_cleanup.py`
 
+### 2026-04-25 - SYSTEM_MAP freshness gate closes bootstrap/push staleness
+
+Fact: every commit made the generated system-picture startup and graph
+sections stale, while `context-graph --mode bootstrap` was documented as an
+auto-save path but the read-only dispatcher suppressed that snapshot. Governed
+push could then reach preflight with a stale ReviewSnapshot and stale
+SYSTEM_MAP navigation evidence.
+
+Change: normal `context-graph --mode bootstrap` dispatch no longer auto-sets
+`DEVCTL_NO_ARTIFACT_WRITES`, while explicit external suppression still works
+for read-only mounts. `BootstrapContext` now carries the same
+`key_surfaces` registry projection as startup-context. The new
+`check_system_picture_freshness.py` guard fails stale `SystemPicture` sections
+and requires the startup and graph sections to be current, and the guarded push
+flow refreshes ReviewSnapshot plus managed projection receipts before routed
+preflight validates the branch.
+
+Evidence:
+- `dev/scripts/devctl/cli_parser/entrypoint.py`
+- `dev/scripts/devctl/runtime/key_surfaces.py`
+- `dev/scripts/devctl/context_graph/query.py`
+- `dev/scripts/checks/check_system_picture_freshness.py`
+- `dev/scripts/devctl/commands/vcs/push.py`
+- `dev/scripts/devctl/tests/checks/test_check_system_picture_freshness.py`
+- `dev/scripts/devctl/tests/vcs/test_push.py`
+
 ### 2026-04-25 - SYSTEM_MAP connectivity registry became shared runtime authority
 
 Fact: the generated SYSTEM_MAP block had a typed
@@ -88,6 +114,33 @@ Evidence:
 - `dev/scripts/devctl/governance/surfaces.py`
 - `dev/scripts/checks/platform_contract_closure/support.py`
 - `dev/scripts/devctl/tests/context_graph/test_context_graph.py`
+- `dev/scripts/devctl/tests/checks/platform_contract_closure/test_check_platform_contract_closure.py`
+
+### 2026-04-25 - Connectivity reader closure now flags missing wiring instead of deleting declarations
+
+Fact: the first AST reader-verification pass could make the registry look
+green by dropping declared reader surfaces that lacked import or projection
+evidence. That hid aspirational SYSTEM_MAP connectivity instead of driving the
+missing wiring work.
+
+Change: `check_platform_contract_closure.py` now emits typed
+`MissingConnectionFinding` rows for declared readers without AST-visible
+evidence. Findings default to `aspirational_gap`, can only be suppressed by a
+committed registry-reader override classified as `mistakenly_declared` or
+`deferred_consumer` with justification, and surface
+`aspirational_gap_count` as the master KPI. `startup_context` and
+`session_resume` were restored as per-contract row readers and now project
+`connected_contract_ids` from `ConnectivityRegistrySnapshot`, so the full
+reader declaration set remains visible while the current KPI is
+`aspirational_gap_count=0`.
+
+Evidence:
+- `dev/scripts/devctl/platform/connectivity_reader_verification.py`
+- `dev/scripts/devctl/platform/connectivity_registry.py`
+- `dev/scripts/devctl/platform/connectivity_registry_models.py`
+- `dev/scripts/devctl/runtime/startup_context.py`
+- `dev/scripts/devctl/commands/governance/session_resume_support.py`
+- `dev/scripts/checks/platform_contract_closure/connectivity_registry_closure.py`
 - `dev/scripts/devctl/tests/checks/platform_contract_closure/test_check_platform_contract_closure.py`
 
 ### 2026-04-24 - ActorAuthority grants make mutation authority identity-bound

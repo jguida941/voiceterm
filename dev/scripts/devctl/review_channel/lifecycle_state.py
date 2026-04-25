@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any
 
 from ..repo_packs import active_path_config
+from ..runtime.reviewer_mode_projection import write_reviewer_mode
 
 DEFAULT_REVIEW_STATUS_DIR_REL = active_path_config().review_status_dir_rel
 PUBLISHER_HEARTBEAT_FILENAME = "publisher_heartbeat.json"
@@ -141,7 +142,11 @@ def _read_lifecycle_state(
     corrupt_detail: str,
 ) -> dict[str, object]:
     candidate_states: list[tuple[dict[str, object], float]] = []
-    existing_paths = [path for path in _heartbeat_candidate_paths(output_root, filename) if path.exists()]
+    existing_paths = [
+        path
+        for path in _heartbeat_candidate_paths(output_root, filename)
+        if path.exists()
+    ]
     if not existing_paths:
         return {"running": False, "detail": missing_detail}
     for path in existing_paths:
@@ -167,7 +172,10 @@ def _heartbeat_candidate_paths(output_root: Path, filename: str) -> list[Path]:
     stem = Path(filename).stem
     suffix = Path(filename).suffix
     instance_paths = sorted(output_root.glob(f"{stem}.*{suffix}"))
-    return [canonical_path, *[path for path in instance_paths if path != canonical_path]]
+    return [
+        canonical_path,
+        *[path for path in instance_paths if path != canonical_path],
+    ]
 
 
 def _instance_heartbeat_path(
@@ -187,7 +195,9 @@ def _heartbeat_sort_timestamp(
     data: dict[str, object],
     path: Path,
 ) -> float:
-    timestamp_str = str(data.get("stopped_at_utc") or data.get("last_heartbeat_utc") or "")
+    timestamp_str = str(
+        data.get("stopped_at_utc") or data.get("last_heartbeat_utc") or ""
+    )
     timestamp = _parse_heartbeat_timestamp(timestamp_str)
     if timestamp is not None:
         return timestamp.timestamp()
@@ -198,16 +208,18 @@ def _heartbeat_sort_timestamp(
 
 
 def _select_best_heartbeat_state(
-    candidate_states: list[tuple[dict[str, object], float]]
+    candidate_states: list[tuple[dict[str, object], float]],
 ) -> dict[str, object]:
-    running_candidates = [item for item in candidate_states if bool(item[0].get("running"))]
+    running_candidates = [
+        item for item in candidate_states if bool(item[0].get("running"))
+    ]
     selected_pool = running_candidates or candidate_states
     selected_state, _ = max(selected_pool, key=_heartbeat_candidate_sort_key)
     return selected_state
 
 
 def _heartbeat_candidate_sort_key(
-    candidate: tuple[dict[str, object], float]
+    candidate: tuple[dict[str, object], float],
 ) -> tuple[float, int, int]:
     state, timestamp = candidate
     snapshots_emitted = int(state.get("snapshots_emitted", 0) or 0)
@@ -254,7 +266,7 @@ def _heartbeat_state_from_data(
     state["started_at_utc"] = data.get("started_at_utc")
     state["last_heartbeat_utc"] = last_heartbeat_utc
     state["snapshots_emitted"] = data.get("snapshots_emitted", 0)
-    state["reviewer_mode"] = data.get("reviewer_mode", "unknown")
+    write_reviewer_mode(state, data.get("reviewer_mode", "unknown"))
     state["stop_reason"] = stop_reason
     state["stopped_at_utc"] = stopped_at_utc
     state["recoverable"] = bool(data.get("recoverable"))

@@ -62,19 +62,19 @@ def frontend_surfaces() -> tuple[FrontendSurfaceSpec, ...]:
         FrontendSurfaceSpec(
             surface_id="cli",
             authority="canonical execution surface",
-            consumes_contracts=("RepoPack", "TypedAction", "RunRecord", "ArtifactStore"),
+            consumes_contracts=("TypedAction",),
             notes="`devctl` remains the default operator and AI execution path.",
         ),
         FrontendSurfaceSpec(
             surface_id="pyqt6_operator_console",
             authority="thin client",
-            consumes_contracts=("ControlState", "TypedAction", "ArtifactStore"),
+            consumes_contracts=(),
             notes="Desktop UI must project typed backend state, not become a second backend.",
         ),
         FrontendSurfaceSpec(
             surface_id="overlay_tui",
             authority="thin client",
-            consumes_contracts=("ControlState", "TypedAction"),
+            consumes_contracts=(),
             notes=(
                 "VoiceTerm overlay may observe and dispatch typed actions, and may "
                 "optionally host/launch the shared local service without becoming "
@@ -84,13 +84,13 @@ def frontend_surfaces() -> tuple[FrontendSurfaceSpec, ...]:
         FrontendSurfaceSpec(
             surface_id="phone_mobile",
             authority="thin client",
-            consumes_contracts=("ControlState", "RunRecord", "ArtifactStore"),
+            consumes_contracts=(),
             notes="Phone-safe projections should reuse the same state model as desktop and CLI.",
         ),
         FrontendSurfaceSpec(
             surface_id="mcp",
             authority="optional adapter",
-            consumes_contracts=("ControlState", "RunRecord"),
+            consumes_contracts=(),
             notes="MCP remains additive transport, not the release/safety authority.",
         ),
     )

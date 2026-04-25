@@ -6,12 +6,17 @@ from pathlib import Path
 from textwrap import dedent
 from unittest.mock import patch
 
-from dev.scripts.checks.platform_contract_closure import field_routes
-from dev.scripts.checks.platform_contract_closure import field_routes_planning
-from dev.scripts.checks.platform_contract_closure.report import build_report, render_md
+from dev.scripts.checks.platform_contract_closure import (
+    field_routes,
+    field_routes_planning,
+)
+from dev.scripts.checks.platform_contract_closure.connectivity_registry_closure import (
+    check_connectivity_registry_closure,
+)
 from dev.scripts.checks.platform_contract_closure.emitter_parity import (
     check_review_state_emitter_parity as _check_review_state_emitter_parity,
 )
+from dev.scripts.checks.platform_contract_closure.report import build_report, render_md
 from dev.scripts.checks.platform_contract_closure.support import (
     evaluate_platform_contract_closure,
 )
@@ -24,6 +29,15 @@ from dev.scripts.devctl.governance.surfaces import (
     SurfaceSpec,
 )
 from dev.scripts.devctl.platform.blueprint import build_platform_blueprint
+from dev.scripts.devctl.platform.connectivity_registry_models import (
+    ConnectivityContractRow,
+    ConnectivityFieldRow,
+    ConnectivityRegistrySnapshot,
+    ConnectivityWriterRow,
+)
+from dev.scripts.devctl.platform.connectivity_reader_verification import (
+    find_missing_connection_findings,
+)
 from dev.scripts.devctl.tests.checks.platform_contract_test_support import (
     drop_contract_field,
     rewrite_artifact_schema,
@@ -91,6 +105,7 @@ def test_platform_contract_closure_checks_connectivity_registry_consumers() -> N
     row = rows[0]
     assert row["ok"] is True
     assert row["zero_reader_field_count"] == 0
+    assert row["aspirational_gap_count"] == 0
     for reader_id in (
         "context_graph",
         "startup_context",
@@ -99,6 +114,151 @@ def test_platform_contract_closure_checks_connectivity_registry_consumers() -> N
         "system_map_index",
     ):
         assert reader_id in row["observed_reader_ids"]
+        assert reader_id in row["row_reader_ids"]
+    assert row["reader_verification_violation_count"] == 0
+
+
+def test_connectivity_registry_closure_flags_sampled_aspirational_gaps() -> None:
+    contracts = (
+        ("TypedAction", "dev.scripts.devctl.runtime.action_contracts:TypedAction"),
+        ("ArtifactStore", "dev.scripts.devctl.runtime.action_contracts:ArtifactStore"),
+        ("RunRecord", "dev.scripts.devctl.runtime.action_contracts:RunRecord"),
+        (
+            "DecisionPacket",
+            "dev.scripts.devctl.runtime.finding_contracts:DecisionPacketRecord",
+        ),
+        ("ReviewState", "dev.scripts.devctl.runtime.review_state_models:ReviewState"),
+    )
+    registry = ConnectivityRegistrySnapshot(
+        schema_version=1,
+        contract_id="ConnectivityRegistrySnapshot",
+        source_contract_count=len(contracts),
+        governed_surface_ids=(),
+        connected_contracts=tuple(
+            ConnectivityContractRow(
+                contract_id=contract_id,
+                owner_layer="governance_runtime",
+                runtime_model=runtime_model,
+                writer=ConnectivityWriterRow(
+                    writer_id=f"writer:{contract_id}",
+                    path="dev/scripts/devctl/runtime/example.py",
+                    authority_kind="runtime_model",
+                ),
+                fields=(
+                    ConnectivityFieldRow(
+                        field_name="contract_id",
+                        type_hint="str",
+                        field_kind="source",
+                        writer_ids=(f"writer:{contract_id}",),
+                        reader_ids=("pyqt6_operator_console",),
+                    ),
+                ),
+                reader_ids=("pyqt6_operator_console",),
+                projection_ids=("pyqt6_operator_console",),
+            )
+            for contract_id, runtime_model in contracts
+        ),
+    )
+
+    with patch(
+        "dev.scripts.checks.platform_contract_closure.connectivity_registry_closure.build_connectivity_registry_snapshot",
+        return_value=registry,
+    ):
+        coverage, violations = check_connectivity_registry_closure(
+            _surface_policy_with_tokens(
+                "platform-contracts",
+                "render-surfaces",
+                "check_platform_contract_closure.py",
+            )
+        )
+
+    assert coverage["ok"] is False
+    gap_violations = [
+        violation
+        for violation in violations
+        if violation.get("rule") == "aspirational-connectivity-gap"
+    ]
+    assert coverage["aspirational_gap_count"] == 5
+    assert {v["contract_id"] for v in gap_violations} == {
+        "TypedAction",
+        "ArtifactStore",
+        "RunRecord",
+        "DecisionPacket",
+        "ReviewState",
+    }
+    assert all(
+        violation["reader_id"] == "pyqt6_operator_console"
+        for violation in gap_violations
+    )
+    assert all(
+        violation["classification"] == "aspirational_gap"
+        for violation in gap_violations
+    )
+
+
+def test_missing_connection_override_classifies_mistaken_declaration(
+    tmp_path: Path,
+) -> None:
+    override_path = tmp_path / "registry_reader_overrides.json"
+    override_path.write_text(
+        dedent(
+            """
+            {
+              "overrides": [
+                {
+                  "contract_id": "TypedAction",
+                  "reader_id": "pyqt6_operator_console",
+                  "classification": "mistakenly_declared",
+                  "justification": "Synthetic test surface is not a TypedAction consumer."
+                }
+              ]
+            }
+            """
+        ).strip()
+        + "\n",
+        encoding="utf-8",
+    )
+    registry = ConnectivityRegistrySnapshot(
+        schema_version=1,
+        contract_id="ConnectivityRegistrySnapshot",
+        source_contract_count=1,
+        governed_surface_ids=(),
+        connected_contracts=(
+            ConnectivityContractRow(
+                contract_id="TypedAction",
+                owner_layer="governance_runtime",
+                runtime_model="dev.scripts.devctl.runtime.action_contracts:TypedAction",
+                writer=ConnectivityWriterRow(
+                    writer_id="writer:TypedAction",
+                    path="dev/scripts/devctl/runtime/example.py",
+                    authority_kind="runtime_model",
+                ),
+                fields=(
+                    ConnectivityFieldRow(
+                        field_name="contract_id",
+                        type_hint="str",
+                        field_kind="source",
+                        writer_ids=("writer:TypedAction",),
+                        reader_ids=("pyqt6_operator_console",),
+                    ),
+                ),
+                reader_ids=("pyqt6_operator_console",),
+                projection_ids=("pyqt6_operator_console",),
+            ),
+        ),
+    )
+
+    findings = find_missing_connection_findings(
+        registry=registry,
+        required_reader_ids=(),
+        row_reader_ids=(),
+        repo_root=Path.cwd(),
+        override_path=override_path,
+    )
+
+    assert len(findings) == 1
+    assert findings[0].classification == "mistakenly_declared"
+    assert findings[0].justification
 
 
 def test_typed_state_writer_authority_flags_current_session_constructor(
@@ -151,6 +311,22 @@ def test_typed_state_writer_authority_flags_reviewer_mode_projection_write(
     assert violations[0]["field"] == "reviewer_mode"
 
 
+def test_typed_state_writer_authority_flags_reviewer_mode_attribute_write(
+    tmp_path: Path,
+) -> None:
+    source = _synthetic_source(
+        tmp_path,
+        "dev/scripts/devctl/review_channel/bad_reviewer_mode_attr.py",
+        """
+        def bad(bridge_state):
+            bridge_state.reviewer_mode = "active_dual_agent"
+        """,
+    )
+    _coverage, violations = check_typed_state_writer_authority(python_files=(source,))
+    assert len(violations) == 1
+    assert violations[0]["field"] == "reviewer_mode"
+
+
 def test_typed_state_writer_authority_ignores_test_fixtures(tmp_path: Path) -> None:
     source = _synthetic_source(
         tmp_path,
@@ -193,7 +369,9 @@ def test_platform_contract_closure_flags_artifact_schema_drift() -> None:
             "check_platform_contract_closure.py",
         ),
     )
-    schema_violations = [v for v in violations if v.get("rule") == "artifact-schema-drift"]
+    schema_violations = [
+        v for v in violations if v.get("rule") == "artifact-schema-drift"
+    ]
     assert len(schema_violations) == 1
     assert schema_violations[0]["contract_id"] == "ProbeReport"
 
@@ -204,9 +382,13 @@ def test_platform_contract_closure_flags_missing_startup_surface_token() -> None
         blueprint,
         _surface_policy_with_tokens("platform-contracts"),
     )
-    surface_violations = [v for v in violations if v.get("rule") == "missing-startup-surface-token"]
+    surface_violations = [
+        v for v in violations if v.get("rule") == "missing-startup-surface-token"
+    ]
     assert len(surface_violations) == 1
-    assert "check_platform_contract_closure.py" in surface_violations[0]["missing_tokens"]
+    assert (
+        "check_platform_contract_closure.py" in surface_violations[0]["missing_tokens"]
+    )
 
 
 def test_platform_contract_closure_flags_missing_ai_instruction_prompt_route() -> None:
@@ -224,7 +406,9 @@ def test_platform_contract_closure_flags_missing_ai_instruction_prompt_route() -
             ),
         )
 
-    route_violations = [v for v in violations if v.get("rule") == "unconsumed-field-route"]
+    route_violations = [
+        v for v in violations if v.get("rule") == "unconsumed-field-route"
+    ]
     route_violations = [
         v
         for v in route_violations
@@ -234,7 +418,9 @@ def test_platform_contract_closure_flags_missing_ai_instruction_prompt_route() -
     assert route_violations[0]["route_id"] == "ralph_prompt"
 
 
-def test_platform_contract_closure_flags_missing_ai_instruction_autonomy_route() -> None:
+def test_platform_contract_closure_flags_missing_ai_instruction_autonomy_route() -> (
+    None
+):
     blueprint = build_platform_blueprint()
     with patch(
         "dev.scripts.devctl.commands.loop_packet_helpers.load_loop_packet_probe_guidance",
@@ -260,7 +446,9 @@ def test_platform_contract_closure_flags_missing_ai_instruction_autonomy_route()
     assert route_violations[0]["field_name"] == "ai_instruction"
 
 
-def test_platform_contract_closure_flags_missing_ai_instruction_guard_run_route() -> None:
+def test_platform_contract_closure_flags_missing_ai_instruction_guard_run_route() -> (
+    None
+):
     blueprint = build_platform_blueprint()
     with patch(
         "dev.scripts.devctl.commands.guard_run.load_probe_guidance",
@@ -286,12 +474,15 @@ def test_platform_contract_closure_flags_missing_ai_instruction_guard_run_route(
     assert route_violations[0]["field_name"] == "ai_instruction"
 
 
-def test_platform_contract_closure_flags_incomplete_ai_instruction_route_family() -> None:
+def test_platform_contract_closure_flags_incomplete_ai_instruction_route_family() -> (
+    None
+):
     blueprint = build_platform_blueprint()
     reduced_checks = tuple(
         check
         for check in field_routes.FIELD_ROUTE_CHECKS
-        if getattr(check, "__name__", "") != "check_finding_ai_instruction_guard_run_route"
+        if getattr(check, "__name__", "")
+        != "check_finding_ai_instruction_guard_run_route"
     )
     with patch(
         "dev.scripts.checks.platform_contract_closure.support.field_routes.FIELD_ROUTE_CHECKS",
@@ -343,12 +534,15 @@ def test_platform_contract_closure_flags_missing_decision_mode_ralph_route() -> 
     assert route_violations[0]["field_name"] == "decision_mode"
 
 
-def test_platform_contract_closure_flags_incomplete_decision_mode_route_family() -> None:
+def test_platform_contract_closure_flags_incomplete_decision_mode_route_family() -> (
+    None
+):
     blueprint = build_platform_blueprint()
     reduced_checks = tuple(
         check
         for check in field_routes.FIELD_ROUTE_CHECKS
-        if getattr(check, "__name__", "") != "check_decision_packet_mode_guard_run_route"
+        if getattr(check, "__name__", "")
+        != "check_decision_packet_mode_guard_run_route"
     )
     with patch(
         "dev.scripts.checks.platform_contract_closure.support.field_routes.FIELD_ROUTE_CHECKS",
@@ -374,7 +568,9 @@ def test_platform_contract_closure_flags_incomplete_decision_mode_route_family()
     assert family_violations[0]["missing_route_ids"] == ("guard_run_report",)
 
 
-def test_platform_contract_closure_flags_missing_finding_backlog_findings_priority_route() -> None:
+def test_platform_contract_closure_flags_missing_finding_backlog_findings_priority_route() -> (
+    None
+):
     blueprint = build_platform_blueprint()
     original = field_routes_planning._source_contains_any
 
@@ -563,8 +759,8 @@ def test_emitted_artifact_review_state_matches_contract() -> None:
     from pathlib import Path
 
     from dev.scripts.checks.platform_contract_closure.emitter_parity import (
-        _build_synthetic_review_state,
         _BRIDGE_STATE_EXPECTED_TYPES,
+        _build_synthetic_review_state,
     )
     from dev.scripts.devctl.review_channel.event_projection import (
         build_event_bridge_liveness_projection,
@@ -582,7 +778,8 @@ def test_emitted_artifact_review_state_matches_contract() -> None:
     synthetic = _build_synthetic_review_state()
     liveness = build_event_bridge_liveness_projection(synthetic)
     bridge_state = build_event_bridge_state_projection(
-        review_state=synthetic, bridge_liveness=liveness,
+        review_state=synthetic,
+        bridge_liveness=liveness,
     )
     synthetic["bridge"] = bridge_state
 
@@ -634,12 +831,10 @@ def test_emitted_artifact_review_state_matches_contract() -> None:
         set(artifact_collaboration.keys()) - collaboration_fields
     )
     assert not missing_collaboration, (
-        "Artifact review_state.json collaboration missing: "
-        f"{missing_collaboration}"
+        "Artifact review_state.json collaboration missing: " f"{missing_collaboration}"
     )
     assert not extra_collaboration, (
-        "Artifact review_state.json collaboration has extra: "
-        f"{extra_collaboration}"
+        "Artifact review_state.json collaboration has extra: " f"{extra_collaboration}"
     )
 
     # Validate bridge contract fields on the artifact
@@ -704,14 +899,17 @@ def test_auto_mode_phase_route_passes_with_resolved_phase_wired() -> None:
 def test_auto_mode_phase_route_fails_when_renderer_drops_resolved_phase() -> None:
     """The route must fail if the renderer stops referencing resolved_phase."""
     from dev.scripts.checks.platform_contract_closure.field_routes_surface_state import (
-        check_auto_mode_phase_session_resume_route,
         _source_contains_any,
+        check_auto_mode_phase_session_resume_route,
     )
 
     original = _source_contains_any
 
     def _fake_source_check(module_path: str, tokens: tuple[str, ...]) -> bool:
-        if module_path == "dev.scripts.devctl.commands.governance.session_resume_render":
+        if (
+            module_path
+            == "dev.scripts.devctl.commands.governance.session_resume_render"
+        ):
             return False
         return original(module_path, tokens)
 
@@ -729,7 +927,8 @@ def test_auto_mode_phase_route_fails_when_renderer_drops_resolved_phase() -> Non
 
 
 def test_top_blocker_dashboard_route_rejects_docstring_only_package_match(
-    monkeypatch, tmp_path,
+    monkeypatch,
+    tmp_path,
 ) -> None:
     """Regression for F1: a package ``__init__.py`` docstring that merely
     mentions ``top_blocker`` must not satisfy the dashboard field-route proof.
@@ -756,8 +955,7 @@ def test_top_blocker_dashboard_route_rejects_docstring_only_package_match(
         encoding="utf-8",
     )
     (fake_package / "markdown.py").write_text(
-        "def render(snapshot):\n"
-        "    return snapshot.get('other_field', '')\n",
+        "def render(snapshot):\n" "    return snapshot.get('other_field', '')\n",
         encoding="utf-8",
     )
 

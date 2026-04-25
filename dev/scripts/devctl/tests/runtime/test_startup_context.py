@@ -225,10 +225,25 @@ class TestStartupContextBuild(unittest.TestCase):
             payload["connectivity_registry"]["zero_reader_field_count"],
             0,
         )
+        self.assertEqual(
+            payload["connectivity_registry"]["aspirational_gap_count"],
+            0,
+        )
         self.assertIn(
             "startup_context",
             payload["connectivity_registry"]["reader_ids"],
         )
+
+    def test_startup_connectivity_registry_projects_contract_ids(self) -> None:
+        from dev.scripts.devctl.config import REPO_ROOT
+        from dev.scripts.devctl.runtime.startup_connectivity_registry import (
+            startup_connectivity_registry,
+        )
+
+        registry = startup_connectivity_registry(REPO_ROOT)
+
+        self.assertEqual(registry["aspirational_gap_count"], 0)
+        self.assertIn("TypedAction", registry["connected_contract_ids"])
 
     def test_authority_snapshot_prefers_recovery_authority_over_startup_routing(
         self,

@@ -181,6 +181,12 @@
   carry the same bounded summary, `render-surfaces` reports it beside the
   generated SYSTEM_MAP block, and `check_platform_contract_closure.py` fails
   closed when required consumers or field readers disappear.
+- 2026-04-25 S4 SYSTEM_MAP freshness gate slice (rev_pkt_1824 / rev_pkt_1839):
+  `context-graph --mode bootstrap` now persists its managed graph snapshot
+  during normal dispatcher runs, `BootstrapContext.key_surfaces` shares the
+  startup registry source, `check_system_picture_freshness.py` gates stale
+  startup/graph evidence, and `devctl push` refreshes ReviewSnapshot plus
+  managed projection receipts before routed preflight.
 - 2026-04-24 remote-control liveness split-brain closure (MP-355 + MP-377
   follow-up): `review-channel status --refresh-bridge-heartbeat-if-stale`
   now treats a live typed `remote_control_attachment` as continuity evidence
@@ -1117,7 +1123,8 @@
   attempts the receipt write because the launcher validates it, but degrades
   gracefully on `OSError` when `DEVCTL_NO_ARTIFACT_WRITES=1` signals an
   intentional read-only context; `context-graph` suppresses its bootstrap
-  snapshot write when the flag is set; `observe_launch_state()` uses a
+  snapshot write only when the flag is set explicitly; normal bootstrap
+  dispatch persists the graph snapshot; `observe_launch_state()` uses a
   lightweight bridge-metadata path instead of full status refresh), Phase-2 repo-pack/runtime activation that
   fails closed instead of silently falling back to VoiceTerm defaults, one
   repo-pack-owned `ExtensionBundle` that renders project-scoped Codex/Claude/

@@ -11,6 +11,7 @@ from unittest.mock import MagicMock, patch
 
 from dev.scripts.devctl.cli import build_parser
 from dev.scripts.devctl.commands.vcs import push
+from dev.scripts.devctl.commands.vcs import push_preflight_projection
 from dev.scripts.devctl.commands.vcs import push_preflight_commit
 from dev.scripts.devctl.commands.vcs import push_projection_receipt
 from dev.scripts.devctl.commands.vcs.governed_executor_push_result import (
@@ -160,6 +161,13 @@ class PushCommandTests(unittest.TestCase):
         )
         self.projection_receipt_mock = self._projection_receipt_patcher.start()
         self.addCleanup(self._projection_receipt_patcher.stop)
+        self._review_snapshot_refresh_patcher = patch(
+            "dev.scripts.devctl.commands.vcs.push.refresh_managed_projections_before_preflight"
+        )
+        self.review_snapshot_refresh_mock = (
+            self._review_snapshot_refresh_patcher.start()
+        )
+        self.addCleanup(self._review_snapshot_refresh_patcher.stop)
 
     @patch("dev.scripts.devctl.commands.vcs.push_executor_routing.emit_output")
     @patch("dev.scripts.devctl.commands.vcs.push_executor_routing.load_latest_push_report")
@@ -1432,6 +1440,120 @@ class PushBridgeSyncTests(unittest.TestCase):
             state.warnings,
         )
         advisory_mock.assert_called_once()
+
+    def test_run_fetch_and_preflight_refreshes_projection_before_preflight(self) -> None:
+        state = push.PushRunState(branch="feature/demo", remote="origin")
+        policy = make_policy()
+        args = make_args()
+        calls: list[str] = []
+
+        def _runner(name, cmd, cwd=None, env=None):
+            calls.append(name)
+            return {
+                "name": name,
+                "cmd": cmd,
+                "cwd": str(cwd or "."),
+                "returncode": 0,
+                "duration_s": 0.1,
+                "skipped": False,
+            }
+
+        def _append_advisory(warnings, *, repo_root, scan_trigger):
+            del warnings, repo_root, scan_trigger
+            calls.append("orphan-advisory")
+
+        def _sync_bridge(_state, *, repo_root):
+            del _state, repo_root
+            calls.append("bridge-sync")
+
+        def _refresh_projections(_state, _policy, *, repo_root):
+            del _state, _policy, repo_root
+            calls.append("managed-projection-refresh")
+
+        with (
+            patch(
+                "dev.scripts.devctl.commands.vcs.push.remote_branch_exists",
+                return_value=True,
+            ),
+            patch(
+                "dev.scripts.devctl.commands.vcs.push.current_upstream_ref",
+                return_value="origin/feature/demo",
+            ),
+            patch(
+                "dev.scripts.devctl.commands.vcs.push.branch_divergence",
+                return_value={"behind": 0, "ahead": 1, "error": None},
+            ),
+            patch(
+                "dev.scripts.devctl.commands.vcs.push.append_orphan_snapshot_advisory",
+                side_effect=_append_advisory,
+            ),
+            patch(
+                "dev.scripts.devctl.commands.vcs.push._sync_bridge_projection_before_preflight",
+                side_effect=_sync_bridge,
+            ),
+            patch(
+                "dev.scripts.devctl.commands.vcs.push.refresh_managed_projections_before_preflight",
+                side_effect=_refresh_projections,
+            ),
+            patch(
+                "dev.scripts.devctl.commands.vcs.push.build_preflight_shell_command",
+                return_value="python3 dev/scripts/devctl.py check-router --execute",
+            ),
+        ):
+            push._run_fetch_and_preflight(
+                state,
+                policy,
+                args,
+                repo_root=Path("/tmp/repo"),
+                run_cmd_fn=_runner,
+            )
+
+        self.assertEqual(state.errors, [])
+        self.assertEqual(
+            calls,
+            [
+                "git-fetch",
+                "orphan-advisory",
+                "bridge-sync",
+                "managed-projection-refresh",
+                "push-preflight",
+            ],
+        )
+
+    def test_refresh_managed_projections_refreshes_snapshot_then_receipt(self) -> None:
+        state = push.PushRunState(branch="feature/demo", remote="origin")
+        policy = make_policy()
+        calls: list[str] = []
+
+        def _refresh_snapshot(*, repo_root):
+            del repo_root
+            calls.append("review-snapshot-refresh")
+            return ["snapshot warning"]
+
+        def _projection_receipt(_state, _policy, *, repo_root):
+            del _state, _policy, repo_root
+            calls.append("projection-receipt")
+
+        with (
+            patch.object(
+                push_preflight_projection,
+                "refresh_review_snapshot_file",
+                side_effect=_refresh_snapshot,
+            ),
+            patch.object(
+                push_preflight_projection,
+                "auto_commit_managed_projection_receipt",
+                side_effect=_projection_receipt,
+            ),
+        ):
+            push_preflight_projection.refresh_managed_projections_before_preflight(
+                state,
+                policy,
+                repo_root=Path("/tmp/repo"),
+            )
+
+        self.assertEqual(calls, ["review-snapshot-refresh", "projection-receipt"])
+        self.assertEqual(state.warnings, ["snapshot warning"])
 
     def test_sync_bridge_projection_before_preflight_reprojects_active_bridge(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:

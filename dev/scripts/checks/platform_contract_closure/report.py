@@ -80,4 +80,13 @@ def render_md(report: dict[str, object]) -> str:
                 lines.append(f"  extra_fields: {', '.join(extra_fields)}")
             if missing_tokens:
                 lines.append(f"  missing_tokens: {', '.join(missing_tokens)}")
+            classification = violation.get("classification")
+            suggested_wire_locations = violation.get("suggested_wire_locations")
+            if classification:
+                lines.append(f"  classification: {classification}")
+            if suggested_wire_locations:
+                lines.append(
+                    "  suggested_wire_locations: "
+                    + ", ".join(suggested_wire_locations)
+                )
     return "\n".join(lines)

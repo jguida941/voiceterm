@@ -845,12 +845,14 @@ Portability note:
   bootstrap packet remains the bounded graph companion for discovery after that
   startup receipt is refreshed.
 - Both `startup-context` and `context-graph` are classified as read-only
-  commands. When dispatched through the read-only path, the CLI sets
-  `DEVCTL_NO_ARTIFACT_WRITES=1`.  `startup-context` always attempts the
-  receipt write (the launcher validates it to gate subsequent actions) but
-  degrades gracefully on `OSError` in that read-only context.  `context-graph`
-  suppresses its bootstrap snapshot write when the flag is set.  Explicit
-  `--save-snapshot` on `context-graph` still writes unconditionally.
+  commands for audit/telemetry purposes. `startup-context` always attempts the
+  receipt write because the launcher validates it to gate subsequent actions,
+  but degrades gracefully on `OSError` when `DEVCTL_NO_ARTIFACT_WRITES=1`.
+  Normal `context-graph --mode bootstrap` runs persist the managed graph
+  snapshot used by `system-picture` freshness checks; explicit external
+  `DEVCTL_NO_ARTIFACT_WRITES=1` still suppresses that bootstrap snapshot on
+  read-only mounts. Explicit `--save-snapshot` on `context-graph` still writes
+  unconditionally.
 - `observe_launch_state()` in `bridge_launch_control.py` uses a lightweight
   bridge-metadata + session-probe path instead of forcing the full status
   refresh on every launch poll iteration. The heavy path is kept as the
@@ -917,20 +919,23 @@ Portability note:
   `python3 dev/scripts/devctl.py push --execute`. `devctl push` consumes that
   shape directly: a receipt HEAD may satisfy a current
   `PushAuthorizationRecord` through its parent commit, and push preflight now
-  creates that receipt itself when bridge/status reprojection leaves only
-  governed receipt artifacts such as `bridge.md` /
-  `dev/audits/REVIEW_SNAPSHOT.md` dirty. Push reporting, authorization, and
-  pipeline-state sync then operate on the receipt HEAD while preserving the
-  approved content commit as the parent target. Stale detached pipeline records
-  are ignored in `single_agent` mode so an older override cannot strand the
-  branch. When preflight resolved a branch-aware diff base, the same runtime
-  truth is reused for diff-sensitive post-push commands; hook wrappers should
-  not re-derive `origin/develop` on their own. The typed snapshot now also carries
-  first-class probe run state (`state`, `mode`, warning/error counts, summary
-  artifact refs) plus current push receipt/authorization refs so review
-  consumers can follow emitted evidence instead of inferring everything from
-  suggested commands. Active dual-agent and current pipeline publication still
-  require exact typed authorization.
+  refreshes ReviewSnapshot before routed preflight, creates that receipt
+  itself when bridge/status/ReviewSnapshot reprojection leaves only governed
+  receipt artifacts dirty, and then runs the routed guard bundle against the
+  committed freshness state. Push reporting, authorization, and pipeline-state
+  sync then operate on the receipt HEAD while preserving the approved content
+  commit as the parent target. `check_system_picture_freshness.py` is the
+  companion pre-push guard: it fails stale `SystemPicture` sections and
+  requires the startup and graph sections to be current. Stale detached
+  pipeline records are ignored in `single_agent` mode so an older override
+  cannot strand the branch. When preflight resolved a branch-aware diff base,
+  the same runtime truth is reused for diff-sensitive post-push commands; hook
+  wrappers should not re-derive `origin/develop` on their own. The typed
+  snapshot now also carries first-class probe run state (`state`, `mode`,
+  warning/error counts, summary artifact refs) plus current push
+  receipt/authorization refs so review consumers can follow emitted evidence
+  instead of inferring everything from suggested commands. Active dual-agent
+  and current pipeline publication still require exact typed authorization.
 - Portable-authority rule: new reusable runtime/tooling code should resolve
   plan docs, artifact roots, bridge/review state, and generated bootstrap
   instructions through `ProjectGovernance` / repo-pack state instead of
@@ -1138,6 +1143,7 @@ python3 dev/scripts/checks/check_structural_complexity.py
 python3 dev/scripts/checks/check_workflow_shell_hygiene.py
 python3 dev/scripts/checks/check_workflow_action_pinning.py
 python3 dev/scripts/checks/check_guard_enforcement_inventory.py
+python3 dev/scripts/checks/check_system_picture_freshness.py
 python3 dev/scripts/checks/check_bundle_workflow_parity.py
 python3 dev/scripts/checks/check_ide_provider_isolation.py --fail-on-violations
 python3 dev/scripts/checks/check_compat_matrix.py
@@ -1451,8 +1457,10 @@ fan-out, and current `scoped_by` ownership comes from docs-policy rules rather
 than raw substring adjacency alone.
 Bootstrap mode also now writes a typed
 `ContextGraphSnapshot` artifact under `dev/reports/graph_snapshots/` unless
-`DEVCTL_NO_ARTIFACT_WRITES` is set (the read-only command dispatcher sets it
-automatically), in which case the automatic snapshot save is suppressed.
+external `DEVCTL_NO_ARTIFACT_WRITES=1` is set, in which case the automatic
+snapshot save is suppressed for read-only mounts. The CLI no longer sets that
+suppression automatically for normal `context-graph --mode bootstrap` runs,
+because `system-picture` freshness depends on a current graph snapshot.
 Explicit `--save-snapshot` still writes unconditionally. Use
 `--save-snapshot` on other `context-graph` modes when you need the same
 versioned graph baseline. `context-graph --mode diff --from ... --to ...`
@@ -1516,6 +1524,7 @@ summary over the selected snapshot window.
 | `dev/scripts/checks/check_workflow_shell_hygiene.py` | Workflow-shell anti-pattern guard | Blocks fragile inline shell patterns in workflow run blocks (single-match find/head chains, inline Python snippets) across `.yml`/`.yaml` workflows; supports auditable line-level suppressions via `workflow-shell-hygiene: allow=inline-python-c` (or `allow=all`) when a justified exception is required. |
 | `dev/scripts/checks/check_workflow_action_pinning.py` | Workflow action pinning guard | Fails when third-party `uses:` refs are not pinned to full 40-character SHAs (with optional auditable suppressions for justified exceptions). |
 | `dev/scripts/checks/check_guard_enforcement_inventory.py` | Guard enforcement inventory gate | Verifies cataloged quality scripts still have a real enforcement lane through bundle/workflow invocation or an explicit helper/manual/advisory exemption. The guard recognizes the current `docs-check --strict-tooling` family, the AI-guard family owned by `devctl check`, and the review-probe family owned by `devctl check` / `devctl probe-report`, and keeps manual-only/report-only surfaces explicit instead of letting catalog drift silently. When a guard graduates into the shared hard-guard family, wire the same script into typed quality-policy plus bundle/workflow parity in the same change. |
+| `dev/scripts/checks/check_system_picture_freshness.py` | SystemPicture freshness gate | Fails stale generated `SystemPicture` sections and requires the startup and graph sections to be current before publication; refresh with `startup-context` plus `context-graph --mode bootstrap` when HEAD moves. |
 | `dev/scripts/checks/check_governance_closure.py` | Governance self-closure guard | Verifies the governance stack proves itself by requiring registered guards/probes to have tests, requiring default guards to appear in CI workflows, checking CI workflows for timeout coverage, and failing on newly orphaned typed contracts surfaced by `check_contract_connectivity.py`. Supports `--format` and `--output`. |
 | `dev/scripts/checks/check_bundle_workflow_parity.py` | Bundle/workflow parity guard | Verifies registry commands for `bundle.tooling` and `bundle.release` remain present in the owning CI workflows so policy bundles and workflow execution do not silently drift. |
 | `dev/scripts/checks/check_bundle_registry_dry.py` | Bundle-registry DRY guard | Verifies canonical bundle definitions in `bundle_registry.py` use explicit composition layers instead of repeated command lists, validates shim-target authority for the registry entrypoint, and enforces the budget for widely shared commands before composition becomes mandatory. |
@@ -1547,7 +1556,7 @@ summary over the selected snapshot window.
 | `dev/scripts/checks/check_facade_wrappers.py` | Python facade-wrapper non-regression guard | Fails when changed Python files grow facade-heavy modules (files with more than 3 pure-delegation wrappers that just forward all arguments to another function). Tests are excluded; supports `--since-ref/--head-ref` and `--format`. |
 | `dev/scripts/checks/check_god_class.py` | God-class non-regression guard | Fails when changed Rust or Python files introduce classes/impl blocks with excessive method counts (Python: >20 methods or >10 instance vars, Rust: >20 impl methods). Tests are excluded; `#[cfg(test)]` blocks are stripped for Rust scans; supports `--since-ref/--head-ref` and `--format`. |
 | `dev/scripts/checks/check_platform_contract_sync.py` | Platform-contract sync guard | Fails when the shared `platform-contracts` rows drift from the lifecycle/authority spec dataclasses used by the reusable backend blueprint, so field additions like `shutdown_entrypoints` or `forbidden_actions` cannot land in only one layer. Supports `--format`. |
-| `dev/scripts/checks/check_platform_contract_closure.py` | Platform contract-closure guard | Fails when the current executable platform contract families drift across the `platform-contracts` blueprint, shared runtime dataclass models, durable artifact schema metadata, or startup-surface contract-routing tokens (`startup_surface_tokens`). The current bounded scope covers `TypedAction`, `RunRecord`, `ArtifactStore`, `ControlState`, `ReviewState`, `ReviewerRuntimeContract`, `Finding`, `DecisionPacket`, `ProbeReport`, `ReviewPacket`, `ReviewTargets`, `FileTopology`, `ProbeAllowlist`, plus AST-backed consumer-route proofs for `PlanPhase`, `PlanTask`, and `FindingBacklog` so typed planning/backlog models cannot land as dead producer-only seams. Supports `--format`. |
+| `dev/scripts/checks/check_platform_contract_closure.py` | Platform contract-closure guard | Fails when the current executable platform contract families drift across the `platform-contracts` blueprint, shared runtime dataclass models, durable artifact schema metadata, or startup-surface contract-routing tokens (`startup_surface_tokens`). The current bounded scope covers `TypedAction`, `RunRecord`, `ArtifactStore`, `ControlState`, `ReviewState`, `ReviewerRuntimeContract`, `Finding`, `DecisionPacket`, `ProbeReport`, `ReviewPacket`, `ReviewTargets`, `FileTopology`, `ProbeAllowlist`, plus AST-backed consumer-route proofs for `PlanPhase`, `PlanTask`, and `FindingBacklog` so typed planning/backlog models cannot land as dead producer-only seams. Connectivity-registry reader verification emits typed `MissingConnectionFinding` rows instead of silently removing declared readers; `aspirational_gap_count` must stay `0` unless a committed override justifies `mistakenly_declared` or `deferred_consumer`. Supports `--format`. |
 | `dev/scripts/checks/check_contract_connectivity.py` | Contract-connectivity guard | Scans `dev/scripts/devctl/runtime`, `governance`, `platform`, and `app/operator_console` dataclasses, traces importer reachability through Python AST import usage, flags unreferenced or internal-only contracts, purpose-guided semantic duplicates, and raw-dict stranded consumers, and blocks only new findings unless `--absolute` is requested. Supports `--absolute`, `--since-ref`, `--head-ref`, and `--format`. |
 | `dev/scripts/checks/check_startup_authority_contract.py` | Startup-authority contract guard | Validates the live `ProjectGovernance` bootstrap payload by requiring the core startup authority files, non-empty repo identity, plan-registry roots/order, fail-closed checkpoint-budget truth, working-tree-to-index Python import atomicity, and committed-tree (`HEAD`)-to-`HEAD` importer coherence; fresh repos without a first commit skip the committed-tree layer until `HEAD` exists. Supports `--format`. |
 | `dev/scripts/checks/check_mobile_relay_protocol.py` | Mobile relay projection contract guard | Fails when the shared mobile relay payload shape drifts across the Rust/controller emitters, Python projection tooling, and iOS consumer contract. Supports `--since-ref/--head-ref` and `--format`. |

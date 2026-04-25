@@ -31,7 +31,9 @@ class ReadOnlyCommandSetTests(unittest.TestCase):
             "context-graph",
             "review-channel",
             "quality-policy",
+            "orphan-inventory",
             "platform-contracts",
+            "system-map",
             "mcp",
             "dashboard",
             "discover",
@@ -145,6 +147,39 @@ class ArtifactWriteSuppressionTests(unittest.TestCase):
         with patch.dict(cli.COMMAND_HANDLERS, {"list": spy_handler}):
             with patch("sys.argv", ["devctl", "list"]):
                 cli.main()
+
+        self.assertEqual(captured_env.get("val"), "1")
+
+    def test_context_graph_bootstrap_does_not_auto_suppress_artifacts(self) -> None:
+        """Bootstrap graph snapshots are the command's managed freshness artifact."""
+        captured_env: dict[str, str] = {}
+
+        def spy_handler(_args):
+            captured_env["val"] = os.environ.get(ARTIFACT_WRITES_ENV, "")
+            return 0
+
+        with patch.dict(os.environ, {}, clear=False):
+            os.environ.pop(ARTIFACT_WRITES_ENV, None)
+            with patch("dev.scripts.devctl.cli.enforce_startup_gate", return_value=None):
+                with patch.dict(cli.COMMAND_HANDLERS, {"context-graph": spy_handler}):
+                    with patch("sys.argv", ["devctl", "context-graph", "--mode", "bootstrap"]):
+                        cli.main()
+
+        self.assertEqual(captured_env.get("val"), "")
+
+    def test_context_graph_bootstrap_respects_external_suppression(self) -> None:
+        """Explicit DEVCTL_NO_ARTIFACT_WRITES=1 still suppresses bootstrap writes."""
+        captured_env: dict[str, str] = {}
+
+        def spy_handler(_args):
+            captured_env["val"] = os.environ.get(ARTIFACT_WRITES_ENV, "")
+            return 0
+
+        with patch.dict(os.environ, {ARTIFACT_WRITES_ENV: "1"}, clear=False):
+            with patch("dev.scripts.devctl.cli.enforce_startup_gate", return_value=None):
+                with patch.dict(cli.COMMAND_HANDLERS, {"context-graph": spy_handler}):
+                    with patch("sys.argv", ["devctl", "context-graph", "--mode", "bootstrap"]):
+                        cli.main()
 
         self.assertEqual(captured_env.get("val"), "1")
 

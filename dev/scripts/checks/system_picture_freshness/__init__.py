@@ -1,0 +1,1 @@
+"""SystemPicture freshness guard package."""

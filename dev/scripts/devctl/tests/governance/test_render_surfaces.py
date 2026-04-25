@@ -118,6 +118,10 @@ class RenderSurfacesPolicyTests(unittest.TestCase):
             report["connectivity_registry"]["zero_reader_field_count"],
             0,
         )
+        self.assertEqual(
+            report["connectivity_registry"]["aspirational_gap_count"],
+            0,
+        )
         self.assertIn(
             "render_surfaces",
             report["connectivity_registry"]["reader_ids"],

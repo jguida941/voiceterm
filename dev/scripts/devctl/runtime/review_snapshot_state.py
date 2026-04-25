@@ -21,6 +21,7 @@ from .review_snapshot_models_core import (
 )
 from .review_snapshot_models_quality import SnapshotQualitySignals
 from .review_snapshot_utils import as_mapping, coerce_str_tuple
+from .reviewer_mode_projection import write_reviewer_mode
 from .surface_snapshot import build_surface_snapshot_id
 
 
@@ -198,7 +199,9 @@ def build_governance_state(*, startup: Mapping[str, object]) -> SnapshotGovernan
         ),
         current_push_authorization_approved_target_identity=str(
             push_authorization.get("approved_target_identity")
-            or push_enforcement.get("current_push_authorization_approved_target_identity")
+            or push_enforcement.get(
+                "current_push_authorization_approved_target_identity"
+            )
             or ""
         ),
         interaction_mode=str(gate.get("operator_interaction_mode") or "unresolved"),
@@ -232,7 +235,7 @@ def attach_generation_stamp(
     stamp_inputs["head_sha"] = identity.head_sha
     stamp_inputs["tree_hash"] = identity.tree_hash
     stamp_inputs["push_action"] = governance_state.push_action
-    stamp_inputs["reviewer_mode"] = governance_state.reviewer_mode
+    write_reviewer_mode(stamp_inputs, governance_state.reviewer_mode)
     stamp_inputs["pipeline_state"] = governance_state.pipeline_state
     stamp_inputs["commit_count"] = delta.commit_count
     stamp_inputs["governance_open"] = quality.governance_open_findings
