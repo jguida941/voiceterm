@@ -134,6 +134,24 @@ def _build_bridge_text() -> str:
     )
 
 
+def _build_idle_instruction_bridge_text() -> str:
+    return (
+        _build_bridge_text()
+        .replace(
+            "- Current instruction revision: `56bcd5d01510`",
+            "- Current instruction revision: ``",
+        )
+        .replace(
+            "## Current Instruction For Claude\n\n- hold steady",
+            "## Current Instruction For Claude\n\n",
+        )
+        .replace(
+            "## Claude Ack\n\n- acknowledged; instruction-rev: `56bcd5d01510`",
+            "## Claude Ack\n\n",
+        )
+    )
+
+
 def _reviewer_args() -> SimpleNamespace:
     return SimpleNamespace(
         action="reviewer-checkpoint",
@@ -226,6 +244,16 @@ def test_validate_args_rejects_missing_expected_instruction_revision() -> None:
         match="--expected-instruction-revision",
     ):
         _validate_args(args)
+
+
+def test_validate_args_allows_explicit_empty_expected_instruction_revision() -> None:
+    args = _reviewer_args()
+    args.expected_instruction_revision = ""
+    args.verdict = "- accepted"
+    args.open_findings_file = "findings.md"
+    args.instruction_file = "instruction.md"
+
+    _validate_args(args)
 
 
 def test_validate_args_rejects_missing_expected_implementer_state_hash() -> None:
@@ -542,6 +570,68 @@ def test_write_reviewer_checkpoint_rejects_stale_expected_instruction_revision(
                 current_instruction="- next task",
                 reviewed_scope_items=("bridge.md",),
                 expected_instruction_revision="deadbeefcafe",
+            ),
+        )
+
+
+def test_write_reviewer_checkpoint_accepts_empty_expected_instruction_revision_when_idle(
+    tmp_path: Path,
+) -> None:
+    root = tmp_path
+    review_channel_path = root / "dev/active/review_channel.md"
+    review_channel_path.parent.mkdir(parents=True, exist_ok=True)
+    review_channel_path.write_text(_build_review_channel_text(), encoding="utf-8")
+    bridge_path = root / "bridge.md"
+    bridge_path.write_text(_build_idle_instruction_bridge_text(), encoding="utf-8")
+
+    with patch("dev.scripts.devctl.review_channel.state.refresh_status_snapshot"):
+        write_reviewer_checkpoint(
+            repo_root=root,
+            bridge_path=bridge_path,
+            reviewer_mode="active_dual_agent",
+            reason="idle-review-accepted",
+            checkpoint=ReviewerCheckpointUpdate(
+                current_verdict="- accepted",
+                open_findings="- none",
+                current_instruction="",
+                reviewed_scope_items=("bridge.md",),
+                expected_instruction_revision="",
+            ),
+        )
+
+    updated_bridge = bridge_path.read_text(encoding="utf-8")
+    assert "- accepted" in updated_bridge
+    assert "- Current instruction revision: ``" in updated_bridge
+
+
+def test_write_reviewer_checkpoint_rejects_empty_expected_instruction_revision_when_live(
+    tmp_path: Path,
+) -> None:
+    root = tmp_path
+    review_channel_path = root / "dev/active/review_channel.md"
+    review_channel_path.parent.mkdir(parents=True, exist_ok=True)
+    review_channel_path.write_text(_build_review_channel_text(), encoding="utf-8")
+    bridge_path = root / "bridge.md"
+    bridge_path.write_text(_build_bridge_text(), encoding="utf-8")
+
+    with (
+        patch("dev.scripts.devctl.review_channel.state.refresh_status_snapshot"),
+        pytest.raises(
+            ValueError,
+            match="expected current instruction revision `\\(empty\\)`",
+        ),
+    ):
+        write_reviewer_checkpoint(
+            repo_root=root,
+            bridge_path=bridge_path,
+            reviewer_mode="active_dual_agent",
+            reason="idle-review-accepted",
+            checkpoint=ReviewerCheckpointUpdate(
+                current_verdict="- accepted",
+                open_findings="- none",
+                current_instruction="",
+                reviewed_scope_items=("bridge.md",),
+                expected_instruction_revision="",
             ),
         )
 

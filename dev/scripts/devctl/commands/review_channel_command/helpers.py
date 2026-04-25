@@ -57,6 +57,12 @@ def _require_present(args, attr: str, message: str) -> None:
         raise ValueError(message)
 
 
+def _require_provided(args, attr: str, message: str) -> None:
+    """Require one CLI attribute to be present, allowing explicit empty values."""
+    if getattr(args, attr, None) is None:
+        raise ValueError(message)
+
+
 def _require_percentage(flag: str, value: int) -> None:
     """Require a one-to-one-hundred percentage."""
     if value <= 0 or value > 100:
@@ -107,7 +113,7 @@ def _validate_reviewer_checkpoint_args(args) -> None:
                 "or --reviewed-scope-item."
             )
         if reviewer_mode_is_active(getattr(args, "reviewer_mode", None)):
-            _require_present(
+            _require_provided(
                 args,
                 "expected_instruction_revision",
                 "review-channel reviewer-checkpoint requires "
@@ -153,7 +159,7 @@ def _validate_reviewer_checkpoint_args(args) -> None:
         "--reviewed-scope-item is required for review-channel reviewer-checkpoint.",
     )
     if reviewer_mode_is_active(getattr(args, "reviewer_mode", None)):
-        _require_present(
+        _require_provided(
             args,
             "expected_instruction_revision",
             "review-channel reviewer-checkpoint requires "

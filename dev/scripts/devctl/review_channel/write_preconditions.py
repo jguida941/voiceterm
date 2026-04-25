@@ -102,9 +102,9 @@ def assert_expected_instruction_revision(
     action: str,
 ) -> None:
     """Fail closed when a caller tries to mutate stale live instruction state."""
-    expected = (expected_instruction_revision or "").strip()
-    if not expected:
+    if expected_instruction_revision is None:
         return
+    expected = expected_instruction_revision.strip()
     live_revision = current_instruction_revision_from_bridge_text(bridge_text)
     if live_revision == expected:
         return
@@ -116,9 +116,10 @@ def assert_expected_instruction_revision(
     )
     if effective_revision == expected:
         return
+    expected_label = expected or "(empty)"
     raise ValueError(
         f"{action} refused stale bridge write: expected current instruction "
-        f"revision `{expected}`, but live bridge revision is "
+        f"revision `{expected_label}`, but live bridge revision is "
         f"`{live_revision or 'missing'}`"
         + (
             f" (effective typed revision `{effective_revision}`)."
