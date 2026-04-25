@@ -91,6 +91,38 @@ class RenderSurfacesPolicyTests(unittest.TestCase):
             {entry["surface_id"] for entry in report["surfaces"]},
         )
 
+    def test_surface_report_uses_connectivity_registry_summary(self) -> None:
+        from dev.scripts.devctl.platform.connectivity_registry import (
+            build_connectivity_registry_summary,
+        )
+
+        policy = surfaces.load_surface_policy()
+        report = surfaces.build_surface_report(
+            surface_ids=("system_map_index",),
+            allow_missing_local_only=True,
+        )
+        expected = build_connectivity_registry_summary(
+            governed_surface_ids=tuple(surface.surface_id for surface in policy.surfaces)
+        ).to_dict()
+        system_map_surface = report["surfaces"][0]
+
+        self.assertEqual(
+            report["connectivity_registry"]["source_contract_count"],
+            expected["source_contract_count"],
+        )
+        self.assertEqual(
+            system_map_surface["connectivity_registry"]["source_field_count"],
+            expected["source_field_count"],
+        )
+        self.assertEqual(
+            report["connectivity_registry"]["zero_reader_field_count"],
+            0,
+        )
+        self.assertIn(
+            "render_surfaces",
+            report["connectivity_registry"]["reader_ids"],
+        )
+
     def test_claude_surface_renders_blocking_post_edit_verification(self) -> None:
         policy = surfaces.load_surface_policy()
         claude_surface = next(

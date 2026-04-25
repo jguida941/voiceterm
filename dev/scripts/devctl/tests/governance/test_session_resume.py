@@ -2018,6 +2018,37 @@ class TestLastReviewedSha(unittest.TestCase):
 
         self.assertIn("`dev/guides/SYSTEM_MAP.md`", md)
 
+    def test_render_bootstrap_includes_connectivity_registry_summary(self) -> None:
+        from dev.scripts.devctl.commands.governance.session_resume_packet import (
+            SessionCachePacket,
+        )
+        from dev.scripts.devctl.commands.governance.session_resume_support import (
+            render_bootstrap,
+        )
+        from dev.scripts.devctl.platform.connectivity_registry import (
+            build_connectivity_registry_summary,
+        )
+
+        summary = build_connectivity_registry_summary().to_dict()
+        packet = SessionCachePacket(
+            role="reviewer",
+            connectivity_registry=summary,
+        )
+
+        md = render_bootstrap(packet)
+        payload = packet.to_dict()
+
+        self.assertIn("### Connectivity Registry", md)
+        self.assertIn("ConnectivityRegistrySnapshot", md)
+        self.assertEqual(
+            payload["connectivity_registry"]["source_contract_count"],
+            summary["source_contract_count"],
+        )
+        self.assertIn(
+            "session_resume",
+            payload["connectivity_registry"]["reader_ids"],
+        )
+
     def test_render_bootstrap_reviewer_conversation_starter_includes_status_poll(
         self,
     ) -> None:

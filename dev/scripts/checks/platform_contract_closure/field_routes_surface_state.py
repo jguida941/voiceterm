@@ -157,3 +157,75 @@ def _build_violation(
         "rule": "unconsumed-field-route",
         "detail": detail,
     }
+
+
+def _check_top_blocker_dashboard_route() -> (
+    tuple[dict[str, object], dict[str, object] | None]
+):
+    consumer = "dev.scripts.devctl.commands.dashboard_render"
+    coverage = _build_coverage(
+        "ControlPlaneReadModel",
+        "top_blocker",
+        "dashboard",
+        consumer,
+    )
+    if _source_contains_any(consumer, ("top_blocker",)):
+        coverage["detail"] = (
+            "ControlPlaneReadModel.top_blocker is referenced in the "
+            "dashboard render surface."
+        )
+        return coverage, None
+    detail = (
+        "ControlPlaneReadModel.top_blocker is not referenced in the "
+        "dashboard render surface."
+    )
+    coverage["ok"] = False
+    coverage["detail"] = detail
+    return coverage, _build_violation(coverage, detail)
+
+
+def check_top_blocker_dashboard_route() -> (
+    tuple[dict[str, object], dict[str, object] | None]
+):
+    """Verify ControlPlaneReadModel.top_blocker reaches the dashboard."""
+    return _check_top_blocker_dashboard_route()
+
+
+def _check_auto_mode_phase_session_resume_route() -> (
+    tuple[dict[str, object], dict[str, object] | None]
+):
+    model = "dev.scripts.devctl.runtime.control_plane_read_model"
+    consumer = "dev.scripts.devctl.commands.governance.session_resume_support"
+    builder = (
+        "dev.scripts.devctl.commands.governance.session_resume_cache_packet_builder"
+    )
+    renderer = "dev.scripts.devctl.commands.governance.session_resume_render"
+    coverage = _build_coverage("AutoModeState", "phase", "session_resume", consumer)
+    if (
+        _source_contains_any(model, ("auto_state.phase", "resolved_phase"))
+        and (
+            _source_contains_any(consumer, ("resolved_phase",))
+            or _source_contains_any(builder, ("resolved_phase",))
+        )
+        and _source_contains_any(renderer, ("resolved_phase",))
+    ):
+        coverage["detail"] = (
+            "AutoModeState.phase flows through ControlPlaneReadModel.resolved_phase "
+            "into SessionCachePacket.resolved_phase and the session-resume renderer."
+        )
+        return coverage, None
+    detail = (
+        "AutoModeState.phase does not reach the session-resume surface "
+        "through the resolved_phase projection in SessionCachePacket and "
+        "the renderer."
+    )
+    coverage["ok"] = False
+    coverage["detail"] = detail
+    return coverage, _build_violation(coverage, detail)
+
+
+def check_auto_mode_phase_session_resume_route() -> (
+    tuple[dict[str, object], dict[str, object] | None]
+):
+    """Verify AutoModeState.phase reaches session-resume via resolved_phase."""
+    return _check_auto_mode_phase_session_resume_route()

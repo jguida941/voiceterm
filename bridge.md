@@ -78,10 +78,10 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-04-25T14:10:20Z`
-- Last Codex poll (Local America/New_York): `2026-04-25 10:10:20 EDT`
+- Last Codex poll: `2026-04-25T16:51:58Z`
+- Last Codex poll (Local America/New_York): `2026-04-25 12:51:58 EDT`
 - Reviewer mode: `active_dual_agent`
-- Last non-audit worktree hash: `7e9ab180824b852de0bad41d9df9ad28ca83a4ca28350a22dd79b8ff7d3e7272`
+- Last non-audit worktree hash: `bd48c2039f80ae972e7b67c4e4ab564da228a3b823ca36118cd2f0fb93f8094c`
 - Current instruction revision: ``
 
 ## Protocol
@@ -114,7 +114,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Poll Status
 
-- Reviewer heartbeat refreshed through repo-owned tooling (mode: active_dual_agent; reason: manual-review; reviewed-tree: 8be04f9ba0c3).
+- Reviewer state rebuilt from typed review-state projection at 2026-04-25T16:52:07.682760Z.
 
 ## Current Verdict
 
@@ -122,11 +122,11 @@ treat these rules as active workflow instructions immediately.
 
 ## Open Findings
 
-1 pending review packet(s); 465 expired unresolved review packet(s)
+1 pending review packet(s); 464 expired unresolved review packet(s)
 
 ## Claude Status
 
-- Status unavailable.
+inactive
 
 ## Claude Questions
 
@@ -138,7 +138,8 @@ treat these rules as active workflow instructions immediately.
 
 ## Current Instruction For Claude
 
-- Await reviewer instruction refresh.
+- Cut a checkpoint before continuing to edit.
+- Run `python3 dev/scripts/devctl.py commit -m "<descriptive message>"`.
 
 ## Last Reviewed Scope
 

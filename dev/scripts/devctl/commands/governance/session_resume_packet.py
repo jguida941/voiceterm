@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
 from ...platform.coordination_snapshot_models import (
@@ -84,6 +84,7 @@ class SessionCachePacket:
     attention_summary: str = "n/a"
     attention_revision: str = ""
     packet_inbox: PacketInboxState | None = None
+    connectivity_registry: dict[str, object] = field(default_factory=dict)
     key_surfaces: tuple[str, ...] = ()
     provenance: SurfaceProvenance | None = None
 
@@ -91,6 +92,7 @@ class SessionCachePacket:
         payload = asdict(self)
         payload.pop("provenance", None)
         payload["key_rules"] = list(self.key_rules)
+        payload["connectivity_registry"] = dict(self.connectivity_registry)
         payload["key_surfaces"] = list(self.key_surfaces)
         if self.coordination is not None:
             payload["coordination"] = self.coordination.to_dict()
@@ -188,6 +190,7 @@ def packet_from_mapping(payload: dict[str, object]) -> SessionCachePacket:
         attention_summary=str(payload.get("attention_summary") or "n/a").strip() or "n/a",
         attention_revision=str(payload.get("attention_revision") or "").strip(),
         packet_inbox=packet_inbox_from_mapping(payload.get("packet_inbox")),
+        connectivity_registry=_dict_field(payload.get("connectivity_registry")),
         key_surfaces=tuple(
             str(surface).strip()
             for surface in payload.get("key_surfaces", ())
@@ -195,3 +198,9 @@ def packet_from_mapping(payload: dict[str, object]) -> SessionCachePacket:
         ),
         provenance=surface_provenance_from_mapping(payload),
     )
+
+
+def _dict_field(value: object) -> dict[str, object]:
+    if isinstance(value, dict):
+        return dict(value)
+    return {}

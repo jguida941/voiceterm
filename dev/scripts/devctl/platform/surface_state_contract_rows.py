@@ -298,6 +298,11 @@ SURFACE_STATE_CONTRACTS: tuple[ContractSpec, ...] = (
                 "Canonical packet-attention contract for session bootstrap.",
             ),
             ContractField(
+                "connectivity_registry",
+                "dict[str, object]",
+                "Bounded ConnectivityRegistrySnapshot summary shared with startup and render surfaces.",
+            ),
+            ContractField(
                 "key_surfaces",
                 "tuple[str, ...]",
                 "Startup-visible generated/navigation surfaces such as the connectivity index.",

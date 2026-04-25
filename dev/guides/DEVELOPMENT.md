@@ -1060,7 +1060,13 @@ Three quality layers matter in practice:
   Apply the same rule to new plan/finding contracts and discovery aliases:
   when `PlanPhase`, `PlanTask`, `PlanDependency`, `FindingBacklog`, or a new
   task-id query shape becomes live in startup/context-graph/dashboard,
-  add deterministic contract/query proof so the producer and consumer stay
+  the `ConnectivityRegistrySnapshot` summary must stay the shared source for
+  SYSTEM_MAP typed connectivity. `context-graph`, `startup-context`,
+  `session-resume`, `render-surfaces`, and `check_platform_contract_closure.py`
+  should consume `build_connectivity_registry_snapshot` /
+  `summarize_connectivity_registry` rather than each rebuilding contract-reader
+  fields independently.
+  Also add deterministic contract/query proof so the producer and consumer stay
   wired together.
   Keep `startup_surface_tokens` current on every implemented platform
   contract row so startup/bootstrap surfaces project the same inventory the

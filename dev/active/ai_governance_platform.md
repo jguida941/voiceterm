@@ -85,6 +85,17 @@ Current 2026-04-24 actor-authority grant note:
   principal-actor capability checks; full fallback removal remains later
   cutover work after all surfaces prove grant parity.
 
+Current 2026-04-25 SYSTEM_MAP connectivity authority note:
+- `ConnectivityRegistrySnapshot` is now the shared typed source for contract,
+  writer, reader, and generated-surface connectivity. `context-graph` consumes
+  that registry to annotate contract/field nodes and emit reader edges,
+  `startup-context` and `session-resume` carry the same bounded
+  connectivity-registry summary, `render-surfaces` reports it while refreshing
+  the generated SYSTEM_MAP block, and `check_platform_contract_closure.py`
+  fails closed when required graph/startup/session/render/SYSTEM_MAP consumers
+  or field readers disappear. Future SYSTEM_MAP slices should extend this
+  registry rather than creating parallel A->B->C connectivity maps.
+
 Current 2026-04-07 portability-by-default closure note:
 - Accept the review verdict as plan state: the architecture is portable by
   design, but the live system is not yet portable by default. Treat the next

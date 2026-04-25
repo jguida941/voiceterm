@@ -32,6 +32,22 @@ def render_surface_report_markdown(report: dict[str, Any]) -> str:
         lines.extend(["", "## Warnings"])
         for warning in warnings:
             lines.append(f"- {warning}")
+    registry = report.get("connectivity_registry")
+    if isinstance(registry, dict) and registry:
+        lines.extend(["", "## Connectivity Registry"])
+        lines.append(f"- contract_id: `{registry.get('contract_id', '')}`")
+        lines.append(
+            "- connected_contract_count: "
+            f"{registry.get('connected_contract_count', 0)}"
+        )
+        lines.append(
+            "- source_field_count: "
+            f"{registry.get('source_field_count', 0)}"
+        )
+        lines.append(
+            "- zero_reader_field_count: "
+            f"{registry.get('zero_reader_field_count', 0)}"
+        )
     surfaces = report.get("surfaces") or []
     if surfaces:
         lines.extend(["", "## Surfaces"])
@@ -78,6 +94,7 @@ def _evaluate_system_map_surface(
     repo_root: Path,
     write: bool,
 ) -> dict[str, Any]:
+    from ..platform.connectivity_registry import summarize_connectivity_registry
     from ..platform.system_map import (
         build_system_map_snapshot,
         render_system_map_document,
@@ -111,6 +128,9 @@ def _evaluate_system_map_surface(
     entry["exists"] = output_path.exists()
     entry["changed"] = changed
     entry["wrote"] = wrote
+    entry["connectivity_registry"] = summarize_connectivity_registry(
+        snapshot.connectivity_registry
+    ).to_dict()
     entry["diff_preview"] = (
         _diff_preview(current_text, rendered_text)
         if current_text != rendered_text

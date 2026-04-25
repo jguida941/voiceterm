@@ -12,6 +12,8 @@ from dev.scripts.devctl.platform.contracts import (
     PlatformBlueprint,
 )
 from . import field_routes
+from .connectivity_registry_closure import check_connectivity_registry_closure
+from .field_route_families import check_field_route_families
 
 _METADATA_FIELDS = frozenset({"schema_version", "contract_id", "command"})
 _STARTUP_SURFACE_TOKENS = (
@@ -184,72 +186,6 @@ def _check_startup_surfaces(policy: SurfacePolicy) -> tuple[dict[str, object], t
     )
 
 
-def _check_field_route_families(
-    route_rows: tuple[dict[str, object], ...],
-) -> tuple[tuple[dict[str, object], ...], tuple[dict[str, object], ...]]:
-    coverage_rows: list[dict[str, object]] = []
-    violations: list[dict[str, object]] = []
-    observed_route_ids: dict[tuple[str, str], set[str]] = {}
-    passing_route_ids: dict[tuple[str, str], set[str]] = {}
-
-    for row in route_rows:
-        contract_id = str(row.get("contract_id") or "").strip()
-        field_name = str(row.get("field_name") or "").strip()
-        route_id = str(row.get("route_id") or "").strip()
-        if not contract_id or not field_name or not route_id:
-            continue
-        key = (contract_id, field_name)
-        observed_route_ids.setdefault(key, set()).add(route_id)
-        if row.get("ok"):
-            passing_route_ids.setdefault(key, set()).add(route_id)
-
-    for key, expected_ids in field_routes.FIELD_ROUTE_FAMILY_REGISTRY.items():
-        observed = tuple(sorted(observed_route_ids.get(key, set())))
-        passing = tuple(sorted(passing_route_ids.get(key, set())))
-        observed_set = set(observed)
-        passing_set = set(passing)
-        missing_route_ids = tuple(route_id for route_id in expected_ids if route_id not in observed_set)
-        failing_route_ids = tuple(
-            route_id for route_id in expected_ids if route_id in observed_set and route_id not in passing_set
-        )
-        ok = not missing_route_ids and not failing_route_ids
-        coverage_rows.append(
-            {
-                "kind": "field_route_family",
-                "contract_id": key[0],
-                "field_name": key[1],
-                "expected_route_ids": expected_ids,
-                "observed_route_ids": observed,
-                "passing_route_ids": passing,
-                "ok": ok,
-                "detail": (
-                    "All declared consumers for the field route family are wired and verified."
-                    if ok
-                    else "Declared consumers for the field route family are missing or failing."
-                ),
-            }
-        )
-        if ok:
-            continue
-        violations.append(
-            {
-                "kind": "field_route_family",
-                "contract_id": key[0],
-                "field_name": key[1],
-                "rule": "field-route-family-incomplete",
-                "missing_route_ids": missing_route_ids,
-                "failing_route_ids": failing_route_ids,
-                "detail": (
-                    f"Field route family {key[0]}.{key[1]} is incomplete."
-                    f" missing={missing_route_ids or 'none'}"
-                    f" failing={failing_route_ids or 'none'}"
-                ),
-            }
-        )
-
-    return tuple(coverage_rows), tuple(violations)
-
-
 def evaluate_platform_contract_closure(
     blueprint: PlatformBlueprint,
     surface_policy: SurfacePolicy,
@@ -275,6 +211,12 @@ def evaluate_platform_contract_closure(
     coverage, surface_violations = _check_startup_surfaces(surface_policy)
     coverage_rows.append(coverage)
     violations.extend(surface_violations)
+
+    registry_coverage, registry_violations = check_connectivity_registry_closure(
+        surface_policy
+    )
+    coverage_rows.append(registry_coverage)
+    violations.extend(registry_violations)
 
     from .emitter_parity import check_review_state_emitter_parity
 
@@ -307,7 +249,7 @@ def evaluate_platform_contract_closure(
             violations.append(route_violation)
     coverage_rows.extend(route_rows)
 
-    family_coverage, family_violations = _check_field_route_families(tuple(route_rows))
+    family_coverage, family_violations = check_field_route_families(tuple(route_rows))
     coverage_rows.extend(family_coverage)
     violations.extend(family_violations)
 

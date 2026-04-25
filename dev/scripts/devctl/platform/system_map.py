@@ -10,6 +10,7 @@ from typing import Any
 from ..common_io import display_path
 from ..config import REPO_ROOT
 from .connectivity_registry import build_connectivity_registry_snapshot
+from .policy_paths import resolve_repo_policy_path
 from .system_map_models import (
     SystemMapRootSummary,
     SystemMapSnapshot,
@@ -158,10 +159,7 @@ def _resolve_policy_path(
     repo_root: Path,
     policy_path: str | Path | None,
 ) -> Path:
-    if policy_path is not None:
-        candidate = Path(policy_path)
-        return candidate if candidate.is_absolute() else repo_root / candidate
-    return repo_root / "dev/config/devctl_repo_policy.json"
+    return resolve_repo_policy_path(repo_root=repo_root, policy_path=policy_path)
 
 
 def _load_policy(policy_path: Path) -> tuple[dict[str, Any], list[str]]:

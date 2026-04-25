@@ -57,9 +57,30 @@ class ConnectivityRegistrySnapshot:
         return asdict(self)
 
 
+@dataclass(frozen=True, slots=True)
+class ConnectivityRegistrySummary:
+    """Bounded summary carried by startup and render surfaces."""
+
+    schema_version: int
+    contract_id: str
+    source_contract_count: int
+    connected_contract_count: int
+    source_field_count: int
+    zero_reader_field_count: int
+    reader_ids: tuple[str, ...]
+    governed_surface_ids: tuple[str, ...]
+    warning_count: int
+    warnings: tuple[str, ...] = ()
+
+    def to_dict(self) -> dict[str, Any]:
+        """Return a JSON-serializable payload."""
+        return asdict(self)
+
+
 __all__ = [
     "ConnectivityContractRow",
     "ConnectivityFieldRow",
+    "ConnectivityRegistrySummary",
     "ConnectivityRegistrySnapshot",
     "ConnectivityWriterRow",
 ]

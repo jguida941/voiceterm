@@ -10,8 +10,8 @@ from __future__ import annotations
 from collections import defaultdict
 from typing import Any
 
-from ..commands.docs.policy_runtime import resolve_docs_check_policy
 from ..config import get_repo_root
+from ..platform.connectivity_registry import build_connectivity_registry_snapshot
 from ..probe_topology.scan import (
     build_python_module_index,
     build_rust_suffix_index,
@@ -40,12 +40,15 @@ from .models import (
     EDGE_KIND_GUARDS,
     EDGE_KIND_IMPORTS,
     EDGE_KIND_ROUTES_TO,
-    EDGE_KIND_SCOPED_BY,
     NODE_KIND_GUARD,
     NODE_KIND_PROBE,
     NODE_KIND_SOURCE,
     GraphEdge,
     GraphNode,
+)
+from .plan_scope_edges import (
+    _matches_repo_prefix,
+    collect_plan_scope_edges,
 )
 
 # Paths containing these segments are worktree artifacts, not canonical source
@@ -172,14 +175,6 @@ def _collect_registry_nodes(
     return nodes, edges
 
 
-def _matches_repo_prefix(rel_path: str, prefix: str) -> bool:
-    """Return True when one repo-relative file path falls under a repo prefix."""
-    normalized = prefix.strip().strip("/")
-    if not normalized or normalized == ".":
-        return True
-    return rel_path == normalized or rel_path.startswith(f"{normalized}/")
-
-
 def _guard_scope_prefixes(policy, languages: tuple[str, ...]) -> tuple[str, ...]:
     """Resolve repo-relative guard roots from the live quality policy."""
     prefixes: list[str] = []
@@ -230,49 +225,6 @@ def _collect_guard_scope_edges(
     ]
 
 
-def _plan_scope_rule_prefixes() -> dict[str, tuple[str, ...]]:
-    """Return docs-policy trigger prefixes keyed by required active-plan doc."""
-    policy = resolve_docs_check_policy()
-    prefixes_by_doc: dict[str, list[str]] = defaultdict(list)
-    for rule in policy.tooling_doc_requirement_rules:
-        candidate_prefixes = (*rule.trigger_prefixes, *sorted(rule.trigger_exact_paths))
-        for required_doc in rule.required_docs:
-            bucket = prefixes_by_doc[required_doc]
-            for raw_prefix in candidate_prefixes:
-                prefix = str(raw_prefix).replace("\\", "/").strip().strip("/")
-                if not prefix or prefix in bucket:
-                    continue
-                bucket.append(prefix)
-    return {doc: tuple(prefixes) for doc, prefixes in prefixes_by_doc.items()}
-
-
-def _collect_plan_scope_edges(
-    source_nodes: list[GraphNode],
-    plan_nodes: list[GraphNode],
-) -> list[GraphEdge]:
-    """Emit policy-backed active-plan->source scoped_by edges.
-
-    Only uses explicit docs-policy trigger prefixes. Keyword/word-overlap
-    heuristics are deliberately excluded: scoped_by is a typed ownership
-    edge, and the MP-377 contract requires registry-backed authority, not
-    filename guessing.
-    """
-    policy_prefixes = _plan_scope_rule_prefixes()
-    edge_keys: set[tuple[str, str]] = set()
-    for plan_node in plan_nodes:
-        prefixes = list(policy_prefixes.get(plan_node.canonical_pointer_ref, ()))
-        if not prefixes:
-            continue
-        for source_node in source_nodes:
-            ref = source_node.canonical_pointer_ref
-            if any(_matches_repo_prefix(ref, prefix) for prefix in prefixes):
-                edge_keys.add((plan_node.node_id, source_node.node_id))
-
-    return [
-        GraphEdge(source_id=source_id, target_id=target_id, edge_kind=EDGE_KIND_SCOPED_BY)
-        for source_id, target_id in sorted(edge_keys)
-    ]
-
 def build_context_graph(
     *,
     hint_counts: dict[str, int] | None = None,
@@ -288,6 +240,7 @@ def build_context_graph(
     Falls back to empty inputs when the artifact is missing or stale.
     """
     repo_root = get_repo_root()
+    connectivity_registry = build_connectivity_registry_snapshot(repo_root=repo_root)
     nodes: list[GraphNode] = []
     edges: list[GraphEdge] = []
     _deferred_doc_edges: list[tuple[str, str]] = []
@@ -322,7 +275,7 @@ def build_context_graph(
     )
     nodes.extend(probe_nodes)
     edges.extend(probe_edges)
-    edges.extend(_collect_plan_scope_edges(src_nodes, plan_nodes))
+    edges.extend(collect_plan_scope_edges(src_nodes, plan_nodes))
 
     nodes.extend(collect_guide_nodes(repo_root))
 
@@ -333,7 +286,12 @@ def build_context_graph(
     capability_nodes, capability_edges = collect_capability_nodes({node.node_id for node in nodes})
     nodes.extend(capability_nodes)
     edges.extend(capability_edges)
-    contract_nodes, contract_edges = collect_contract_nodes(repo_root, source_node_ids=node_ids, capability_nodes=capability_nodes)
+    contract_nodes, contract_edges = collect_contract_nodes(
+        repo_root,
+        source_node_ids=node_ids,
+        capability_nodes=capability_nodes,
+        connectivity_registry=connectivity_registry,
+    )
     nodes.extend(contract_nodes)
     edges.extend(contract_edges)
 

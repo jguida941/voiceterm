@@ -4,7 +4,7 @@
 
 **Status:** Draft v4 (historical design and process record)
 **Audience:** users and developers
-**Last Updated:** 2026-04-24
+**Last Updated:** 2026-04-25
 
 ## At a Glance
 
@@ -36,6 +36,34 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 - [Quick Read (2 min)](#quick-read-2-min)
 - [User Path (5 min)](#user-path-5-min)
 - [Developer Path (15 min)](#developer-path-15-min)
+
+### 2026-04-25 - SYSTEM_MAP connectivity registry became shared runtime authority
+
+Fact: the generated SYSTEM_MAP block had a typed
+`ConnectivityRegistrySnapshot`, but graph/startup/session/render consumers
+could still drift into separate A->B->C maps. Live dogfood surfaced that as
+hundreds of registry fields with no reader evidence and a mismatch between
+startup/session key surfaces and context-graph discoverability.
+
+Change: `ConnectivityRegistrySnapshot` now declares the required graph,
+startup-context, session-resume, render-surfaces, SYSTEM_MAP, and renderer
+consumers for each source field. `context-graph` consumes that registry to
+annotate contract/field nodes and emit reader edges, startup-context and
+session-resume carry a bounded `connectivity_registry` summary, and
+render-surfaces reports the same summary while validating or writing the
+SYSTEM_MAP managed block. `check_platform_contract_closure.py` now fails when
+required registry consumers or field readers disappear, so future SYSTEM_MAP
+work must extend the shared registry instead of creating parallel maps.
+
+Evidence:
+- `dev/scripts/devctl/platform/connectivity_registry.py`
+- `dev/scripts/devctl/context_graph/contract_nodes.py`
+- `dev/scripts/devctl/runtime/startup_context.py`
+- `dev/scripts/devctl/commands/governance/session_resume_packet.py`
+- `dev/scripts/devctl/governance/surfaces.py`
+- `dev/scripts/checks/platform_contract_closure/support.py`
+- `dev/scripts/devctl/tests/context_graph/test_context_graph.py`
+- `dev/scripts/devctl/tests/checks/platform_contract_closure/test_check_platform_contract_closure.py`
 
 ### 2026-04-24 - ActorAuthority grants make mutation authority identity-bound
 

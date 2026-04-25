@@ -6,6 +6,7 @@ from dataclasses import asdict
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from ...platform.connectivity_registry import build_connectivity_registry_summary
 from ...runtime.authority_snapshot import (
     build_authority_snapshot,
     summary_blockers_csv,
@@ -183,6 +184,7 @@ def build_from_sources(
         role=role,
     )
     packet_inbox = review_state_context.packet_inbox
+    connectivity_registry = _session_connectivity_registry(repo_root)
     key_surfaces = _session_key_surfaces(governance)
     open_findings = _resolve_open_findings(
         repo_root=repo_root,
@@ -249,6 +251,7 @@ def build_from_sources(
             review_candidate=review_candidate,
             attention_payload=attention_payload,
             packet_inbox=packet_inbox,
+            connectivity_registry=connectivity_registry,
             key_surfaces=key_surfaces,
             fields=packet_fields,
         ),
@@ -267,6 +270,10 @@ def _session_key_surfaces(governance: "ProjectGovernance | None") -> tuple[str, 
         if entry.path and entry.path not in surfaces:
             surfaces.append(entry.path)
     return tuple(surfaces)
+
+
+def _session_connectivity_registry(repo_root: Path) -> dict[str, object]:
+    return build_connectivity_registry_summary(repo_root=repo_root).to_dict()
 
 
 def _packet_fields_from_context(context: dict[str, Any]) -> SessionCachePacketFields:

@@ -6,6 +6,10 @@ from ...context_graph.render import append_quality_signal_lines
 from ...runtime.work_intake_models import session_pacing_markdown_lines
 from ...runtime.work_intake_plan_routing import plan_routing_markdown_lines
 from ...review_channel.ack_contract import packet_ack_is_transport_lifecycle_line
+from .startup_context_connectivity_render import (
+    append_connectivity_registry as _append_connectivity_registry,
+)
+from .startup_context_render_format import join_paths as _join_paths
 from .startup_context_push_render import (
     append_push_decision as _append_push_decision,
     append_push_state as _append_push_state,
@@ -47,12 +51,6 @@ def _append_rule_explanation(
             rejected_because = str(row.get("rejected_because") or "").strip()
             if summary and rejected_because:
                 lines.append(f"- rejected_rule: {summary} -> {rejected_because}")
-def _join_paths(paths: list[object], *, limit: int = 4) -> str:
-    cleaned = [str(path).strip() for path in paths if str(path).strip()]
-    if len(cleaned) <= limit:
-        return ", ".join(f"`{path}`" for path in cleaned)
-    head = ", ".join(f"`{path}`" for path in cleaned[:limit])
-    return f"{head}, +{len(cleaned) - limit} more"
 def _append_startup_gate(lines: list[str], ctx_dict: dict) -> None:
     authority = ctx_dict.get("startup_authority", {})
     receipt = ctx_dict.get("startup_receipt", {})
@@ -395,6 +393,7 @@ def render_markdown(ctx_dict: dict) -> str:
     _append_pending_inbox(lines, ctx_dict)
     _append_work_intake(lines, ctx_dict)
     _append_coordination_snapshot(lines, ctx_dict)
+    _append_connectivity_registry(lines, ctx_dict)
     _append_continuity_roots(lines, gov)
 
     append_quality_signal_lines(lines, ctx_dict.get("quality_signals"))

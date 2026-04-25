@@ -79,6 +79,28 @@ def test_typed_state_writer_authority_passes_current_repo() -> None:
     assert violations == ()
 
 
+def test_platform_contract_closure_checks_connectivity_registry_consumers() -> None:
+    report = build_report()
+    rows = [
+        row
+        for row in report["coverage"]
+        if row.get("kind") == "connectivity_registry_closure"
+    ]
+
+    assert len(rows) == 1
+    row = rows[0]
+    assert row["ok"] is True
+    assert row["zero_reader_field_count"] == 0
+    for reader_id in (
+        "context_graph",
+        "startup_context",
+        "session_resume",
+        "render_surfaces",
+        "system_map_index",
+    ):
+        assert reader_id in row["observed_reader_ids"]
+
+
 def test_typed_state_writer_authority_flags_current_session_constructor(
     tmp_path: Path,
 ) -> None:

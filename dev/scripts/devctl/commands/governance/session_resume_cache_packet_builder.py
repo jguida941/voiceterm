@@ -45,6 +45,7 @@ class SessionCachePacketBuildContext:
     review_candidate: ReviewCandidateRecord | None
     attention_payload: dict[str, Any]
     packet_inbox: PacketInboxState | None
+    connectivity_registry: dict[str, object]
     key_surfaces: tuple[str, ...]
     fields: SessionCachePacketFields
 
@@ -114,6 +115,7 @@ def build_session_cache_packet(
             else ""
         ),
         packet_inbox=build_context.packet_inbox,
+        connectivity_registry=build_context.connectivity_registry,
         key_surfaces=build_context.key_surfaces,
         provenance=provenance,
     )

@@ -8,6 +8,7 @@ from typing import Any
 
 from ..common_io import display_path
 from ..config import REPO_ROOT
+from ..platform.connectivity_registry import build_connectivity_registry_summary
 from .repo_policy import load_repo_governance_section
 from .surface_context import derive_surface_context
 from .surface_runtime import evaluate_surface, render_surface_report_markdown
@@ -116,7 +117,11 @@ def build_surface_report(
         )
         for spec in selected
     ]
-    return _build_surface_report_payload(policy, report_surfaces)
+    return _build_surface_report_payload(
+        policy,
+        report_surfaces,
+        repo_root=repo_root,
+    )
 
 
 def _parse_repo_pack_metadata(
@@ -277,6 +282,8 @@ def _build_unknown_surface_report(
 def _build_surface_report_payload(
     policy: SurfacePolicy,
     report_surfaces: list[dict[str, Any]],
+    *,
+    repo_root: Path,
 ) -> dict[str, Any]:
     report: dict[str, Any] = {}
     report["command"] = "render-surfaces"
@@ -288,5 +295,9 @@ def _build_surface_report_payload(
     report["repo_name"] = policy.metadata.repo_name
     report["surface_count"] = len(report_surfaces)
     report["warnings"] = list(policy.warnings)
+    report["connectivity_registry"] = build_connectivity_registry_summary(
+        repo_root=repo_root,
+        governed_surface_ids=tuple(surface.surface_id for surface in policy.surfaces),
+    ).to_dict()
     report["surfaces"] = report_surfaces
     return report

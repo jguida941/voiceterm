@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 from ..config import REPO_ROOT
@@ -9,20 +10,36 @@ from .blueprint import build_platform_blueprint
 from .connectivity_registry_models import (
     ConnectivityContractRow,
     ConnectivityFieldRow,
+    ConnectivityRegistrySummary,
     ConnectivityRegistrySnapshot,
     ConnectivityWriterRow,
 )
 from .contracts import ContractSpec, FrontendSurfaceSpec
+from .policy_paths import resolve_repo_policy_path
+
+CONNECTIVITY_REGISTRY_READER_IDS = (
+    "context_graph",
+    "render_surfaces",
+    "session_resume",
+    "startup_context",
+    "system_map_index",
+    "system_map_renderer",
+)
 
 
 def build_connectivity_registry_snapshot(
     *,
     repo_root: Path = REPO_ROOT,
-    governed_surface_ids: tuple[str, ...] = (),
+    governed_surface_ids: tuple[str, ...] | None = None,
 ) -> ConnectivityRegistrySnapshot:
     """Build a single generated source for typed contract connectivity."""
     blueprint = build_platform_blueprint()
     frontend_surfaces = blueprint.frontend_surfaces
+    resolved_governed_surface_ids = (
+        governed_surface_ids
+        if governed_surface_ids is not None
+        else resolve_governed_surface_ids(repo_root=repo_root)
+    )
     rows = tuple(
         _contract_row(
             contract,
@@ -37,7 +54,7 @@ def build_connectivity_registry_snapshot(
         contract_id="ConnectivityRegistrySnapshot",
         source_contract_count=len(blueprint.shared_contracts),
         connected_contracts=rows,
-        governed_surface_ids=tuple(sorted(governed_surface_ids)),
+        governed_surface_ids=tuple(sorted(resolved_governed_surface_ids)),
         warnings=warnings,
     )
 
@@ -53,13 +70,14 @@ def _contract_row(
         contract.contract_id,
         frontend_surfaces=frontend_surfaces,
     )
+    reader_ids = _reader_ids(projection_ids)
     fields = tuple(
         ConnectivityFieldRow(
             field_name=field.name,
             type_hint=field.type_hint,
             field_kind="source",
             writer_ids=(writer.writer_id,),
-            reader_ids=projection_ids,
+            reader_ids=reader_ids,
             projection_ids=projection_ids,
         )
         for field in contract.required_fields
@@ -71,7 +89,7 @@ def _contract_row(
         writer=writer,
         fields=fields,
         projection_ids=projection_ids,
-        reader_ids=projection_ids,
+        reader_ids=reader_ids,
     )
 
 
@@ -112,6 +130,11 @@ def _surface_ids_for_contract(
     )
 
 
+def _reader_ids(projection_ids: tuple[str, ...]) -> tuple[str, ...]:
+    """Return registry consumers plus contract-specific projection readers."""
+    return tuple(sorted({*CONNECTIVITY_REGISTRY_READER_IDS, *projection_ids}))
+
+
 def _registry_warnings(
     rows: tuple[ConnectivityContractRow, ...],
 ) -> tuple[str, ...]:
@@ -130,4 +153,97 @@ def _registry_warnings(
     return tuple(warnings)
 
 
-__all__ = ["build_connectivity_registry_snapshot"]
+def resolve_governed_surface_ids(
+    *,
+    repo_root: Path = REPO_ROOT,
+    policy_path: str | Path | None = None,
+) -> tuple[str, ...]:
+    """Return repo-pack governed surface ids from repo policy, if available."""
+    resolved_policy_path = resolve_repo_policy_path(
+        repo_root=repo_root,
+        policy_path=policy_path,
+    )
+    try:
+        payload = json.loads(resolved_policy_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return ()
+    repo_governance = payload.get("repo_governance")
+    if not isinstance(repo_governance, dict):
+        return ()
+    surface_generation = repo_governance.get("surface_generation")
+    if not isinstance(surface_generation, dict):
+        return ()
+    surfaces = surface_generation.get("surfaces")
+    if not isinstance(surfaces, list):
+        return ()
+    surface_ids: list[str] = []
+    for entry in surfaces:
+        if not isinstance(entry, dict):
+            continue
+        surface_id = str(entry.get("id") or "").strip()
+        if surface_id and surface_id not in surface_ids:
+            surface_ids.append(surface_id)
+    return tuple(surface_ids)
+
+def summarize_connectivity_registry(
+    registry: ConnectivityRegistrySnapshot,
+) -> ConnectivityRegistrySummary:
+    """Build the bounded summary shared by startup and render surfaces."""
+    field_count = sum(len(contract.fields) for contract in registry.connected_contracts)
+    zero_reader_count = sum(
+        1
+        for contract in registry.connected_contracts
+        for field in contract.fields
+        if not field.reader_ids
+    )
+    reader_ids = sorted(
+        {
+            reader_id
+            for contract in registry.connected_contracts
+            for reader_id in (*contract.reader_ids, *contract.projection_ids)
+            if reader_id
+        }
+        | {
+            reader_id
+            for contract in registry.connected_contracts
+            for field in contract.fields
+            for reader_id in (*field.reader_ids, *field.projection_ids)
+            if reader_id
+        }
+        | set(registry.governed_surface_ids)
+    )
+    return ConnectivityRegistrySummary(
+        schema_version=registry.schema_version,
+        contract_id=registry.contract_id,
+        source_contract_count=registry.source_contract_count,
+        connected_contract_count=len(registry.connected_contracts),
+        source_field_count=field_count,
+        zero_reader_field_count=zero_reader_count,
+        reader_ids=tuple(reader_ids),
+        governed_surface_ids=registry.governed_surface_ids,
+        warning_count=len(registry.warnings),
+        warnings=registry.warnings,
+    )
+
+
+def build_connectivity_registry_summary(
+    *,
+    repo_root: Path = REPO_ROOT,
+    governed_surface_ids: tuple[str, ...] | None = None,
+) -> ConnectivityRegistrySummary:
+    """Build the bounded connectivity-registry summary for consumers."""
+    return summarize_connectivity_registry(
+        build_connectivity_registry_snapshot(
+            repo_root=repo_root,
+            governed_surface_ids=governed_surface_ids,
+        )
+    )
+
+
+__all__ = [
+    "CONNECTIVITY_REGISTRY_READER_IDS",
+    "build_connectivity_registry_snapshot",
+    "build_connectivity_registry_summary",
+    "resolve_governed_surface_ids",
+    "summarize_connectivity_registry",
+]

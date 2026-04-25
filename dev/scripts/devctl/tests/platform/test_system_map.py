@@ -11,6 +11,10 @@ from dev.scripts.devctl.platform.system_map import (
     build_system_map_snapshot,
     render_system_map_document,
 )
+from dev.scripts.devctl.platform.connectivity_registry import (
+    CONNECTIVITY_REGISTRY_READER_IDS,
+    summarize_connectivity_registry,
+)
 
 
 def test_system_map_snapshot_counts_architecture_roots(tmp_path: Path) -> None:
@@ -73,3 +77,12 @@ def test_system_map_registry_declares_single_source_writers() -> None:
         for field in contract.fields:
             assert field.field_kind == "source"
             assert len(field.writer_ids) == 1
+
+
+def test_system_map_registry_summary_declares_required_consumers() -> None:
+    snapshot = build_system_map_snapshot()
+    summary = summarize_connectivity_registry(snapshot.connectivity_registry)
+
+    assert summary.zero_reader_field_count == 0
+    for reader_id in CONNECTIVITY_REGISTRY_READER_IDS:
+        assert reader_id in summary.reader_ids

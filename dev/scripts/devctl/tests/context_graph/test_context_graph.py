@@ -310,6 +310,36 @@ class TestContextGraphQuery(unittest.TestCase):
                 f"{term} should be indexed as a typed contract node",
             )
 
+    def test_connectivity_registry_projects_contract_reader_edges(self) -> None:
+        registry_nodes = [
+            node for node in self.nodes if node.label == "ConnectivityRegistrySnapshot"
+        ]
+        self.assertTrue(registry_nodes, "registry snapshot should be queryable")
+        registry_metadata = registry_nodes[0].metadata
+        self.assertIn("startup_context", registry_metadata.get("reader_ids", []))
+        self.assertIn("render_surfaces", registry_metadata.get("reader_ids", []))
+
+        registry_node_ids = {node.node_id for node in registry_nodes}
+        self.assertTrue(
+            any(
+                edge.source_id in registry_node_ids
+                and edge.target_id == "capability:startup_context"
+                and edge.edge_kind == EDGE_KIND_RELATED_TO
+                for edge in self.edges
+            ),
+            "registry snapshot should connect to the startup-context consumer",
+        )
+        self.assertTrue(
+            any(
+                node.node_kind == NODE_KIND_TYPED_CONTRACT
+                and node.label == "SessionCachePacket"
+                and node.metadata.get("connectivity_registry_contract_id")
+                == "ConnectivityRegistrySnapshot"
+                for node in self.nodes
+            ),
+            "contract nodes should be annotated from ConnectivityRegistrySnapshot",
+        )
+
     def test_contract_alias_query_resolves_snake_case(self) -> None:
         result = query_context_graph("session_pacing", self.nodes, self.edges)
         self.assertNotEqual(result.confidence, "no_match")

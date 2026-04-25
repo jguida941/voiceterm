@@ -204,6 +204,32 @@ class TestStartupContextBuild(unittest.TestCase):
 
         self.assertEqual(ctx.to_dict()["key_surfaces"], ["dev/guides/SYSTEM_MAP.md"])
 
+    def test_to_dict_exposes_connectivity_registry_summary(self) -> None:
+        from dev.scripts.devctl.platform.connectivity_registry import (
+            build_connectivity_registry_summary,
+        )
+
+        summary = build_connectivity_registry_summary().to_dict()
+        ctx = StartupContext(connectivity_registry=summary)
+        payload = ctx.to_dict()
+
+        self.assertEqual(
+            payload["connectivity_registry"]["contract_id"],
+            "ConnectivityRegistrySnapshot",
+        )
+        self.assertEqual(
+            payload["connectivity_registry"]["source_contract_count"],
+            summary["source_contract_count"],
+        )
+        self.assertEqual(
+            payload["connectivity_registry"]["zero_reader_field_count"],
+            0,
+        )
+        self.assertIn(
+            "startup_context",
+            payload["connectivity_registry"]["reader_ids"],
+        )
+
     def test_authority_snapshot_prefers_recovery_authority_over_startup_routing(
         self,
     ) -> None:

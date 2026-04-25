@@ -17,6 +17,10 @@ from ...runtime.conductor_capability import (
     startup_context_command_for_role,
 )
 from ...runtime.devctl_interpreter import devctl_interpreter
+from .session_resume_connectivity_render import (
+    connectivity_registry_lines as _connectivity_registry_lines,
+    connectivity_registry_summary_line as _connectivity_registry_summary_line,
+)
 from .session_resume_render_role_sections import (
     implementer_bootstrap_section as _implementer_bootstrap_section,
     implementer_provider_id as _implementer_provider_id,
@@ -123,6 +127,7 @@ def render_bootstrap(packet: "SessionCachePacket") -> str:
     )
     for surface in packet.key_surfaces:
         lines.append(f"- `{surface}`")
+    lines.extend(_connectivity_registry_lines(packet))
     if packet.operator_interaction_mode == "active_dual_agent":
         lines.extend(
             [
@@ -188,6 +193,7 @@ def render_markdown(packet: "SessionCachePacket") -> str:
         )
     if packet.next_guard_bundle:
         lines.append(f"- **guard_bundle**: {packet.next_guard_bundle}")
+    lines.extend(_connectivity_registry_lines(packet))
     lines.append("")
     if packet.current_instruction:
         lines.append("### Current instruction")
@@ -266,6 +272,7 @@ def render_summary(packet: "SessionCachePacket") -> str:
             if packet.packet_inbox is not None
             else "pending_inbox=0"
         ),
+        _connectivity_registry_summary_line(packet),
         (
             f"resync_required={packet.coordination.resync_required}"
             if packet.coordination is not None
@@ -305,4 +312,3 @@ def _role_bootstrap_section(packet: "SessionCachePacket", *, role: str) -> list[
     if role in {"dashboard", "observer"}:
         return _observer_bootstrap_section(packet, role=role)
     return _implementer_bootstrap_section(packet)
-

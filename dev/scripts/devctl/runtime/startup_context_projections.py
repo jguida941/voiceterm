@@ -13,6 +13,15 @@ from ..platform.contract_definitions import shared_contracts
 from ..platform.coordination_snapshot_models import CoordinationSnapshot
 from .worktree_orphan_snapshot import OrphanSnapshot
 
+_OWNER_LAYER_STARTUP_PRIORITY_CONTRACTS = frozenset(
+    {
+        "CollaborationSession",
+        "RemoteCommitPipelineContract",
+        "ReviewState",
+        "WorkIntakePacket",
+    }
+)
+
 
 def build_contract_ownership_map() -> dict[str, dict[str, object]]:
     """Return the full contract-ownership map used by ``build_startup_context``."""
@@ -32,24 +41,17 @@ def build_contract_ownership_map() -> dict[str, dict[str, object]]:
 def bounded_contract_ownership_map(
     ownership: dict[str, dict[str, object]],
 ) -> dict[str, dict[str, object]]:
-    """Serialize a slim startup-facing contract ownership projection."""
+    """Serialize the priority startup-facing contract ownership projection."""
     bounded: dict[str, dict[str, object]] = {}
     for contract_id, payload in ownership.items():
+        if contract_id not in _OWNER_LAYER_STARTUP_PRIORITY_CONTRACTS:
+            continue
         row: dict[str, object] = {}
         owner_layer = str(payload.get("owner_layer") or "").strip()
         if owner_layer:
             row["owner_layer"] = owner_layer
         runtime_model = str(payload.get("runtime_model") or "").strip()
-        if (
-            contract_id
-            in {
-                "ReviewState",
-                "RemoteCommitPipelineContract",
-                "WorkIntakePacket",
-                "CollaborationSession",
-            }
-            and runtime_model
-        ):
+        if runtime_model:
             row["runtime_model"] = runtime_model
         token_count = int(payload.get("startup_surface_token_count") or 0)
         if token_count > 0:

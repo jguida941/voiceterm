@@ -57,7 +57,8 @@ def ack_revision_requirement_message() -> str:
 def ack_contract_prompt_line() -> str:
     """Return the implementer-facing ACK wording shared by prompt surfaces."""
     return (
-        "- In the implementer ACK section (`Claude Ack` compatibility heading), "
+        "- Acknowledge the live `instruction_revision` before coding. In the "
+        "implementer ACK section (`Claude Ack` compatibility heading), "
         "acknowledge the current instruction revision with one machine-readable "
         "line. Accepted forms include "
         f"`{ACK_CONTRACT_PRIMARY_EXAMPLE}` or "

@@ -8,6 +8,8 @@ from types import SimpleNamespace
 from typing import TYPE_CHECKING, Any
 
 from ..platform.coordination_snapshot_models import CoordinationSnapshot
+from ..platform.connectivity_registry import build_connectivity_registry_summary
+from ..platform.connectivity_registry_models import ConnectivityRegistrySummary
 from .finding_contracts import RejectedRuleTraceRecord, RuleMatchEvidenceRecord
 from .recovery_authority import RecoveryAuthorityState, derive_recovery_authority
 from .review_state_models import (
@@ -112,6 +114,7 @@ class StartupContext:
     orphan_snapshot: OrphanSnapshot | None = None
     blocker: BlockerSnapshot = field(default_factory=BlockerSnapshot)
     contract_ownership_map: dict[str, dict[str, object]] = field(default_factory=dict)
+    connectivity_registry: dict[str, object] = field(default_factory=dict)
     key_surfaces: tuple[str, ...] = ()
     snapshot_id: str = ""
     zref: str = ""
@@ -143,6 +146,7 @@ class StartupContext:
         d["contract_ownership_map"] = bounded_contract_ownership_map(
             self.contract_ownership_map
         )
+        d["connectivity_registry"] = dict(self.connectivity_registry)
         d["key_surfaces"] = list(self.key_surfaces)
         d["snapshot_id"] = self.snapshot_id
         d["zref"] = self.zref
@@ -202,6 +206,27 @@ def _governance_interaction_mode(
     if governance is None:
         return ""
     return str(governance.bridge_config.operator_interaction_mode or "").strip()
+
+
+def _connectivity_registry_summary_dict(
+    summary: ConnectivityRegistrySummary,
+) -> dict[str, object]:
+    """Project the typed registry summary into the bounded startup payload."""
+    return summary.to_dict()
+
+
+def _startup_connectivity_registry(repo_root: Path) -> dict[str, object]:
+    return _connectivity_registry_summary_dict(
+        build_connectivity_registry_summary(repo_root=repo_root)
+    )
+
+
+def _review_state_remote_control_attachment(
+    review_state: "ReviewState | None",
+) -> RemoteControlAttachmentState | None:
+    if review_state is None:
+        return None
+    return review_state.reviewer_runtime.remote_control_attachment
 
 
 def _detect_reviewer_gate_from_typed_state(
@@ -578,11 +603,7 @@ def build_startup_context(
         reviewer_runtime=(
             review_state.reviewer_runtime if review_state is not None else None
         ),
-        remote_control_attachment=(
-            review_state.reviewer_runtime.remote_control_attachment
-            if review_state is not None
-            else None
-        ),
+        remote_control_attachment=_review_state_remote_control_attachment(review_state),
         attention=(review_state.attention if review_state is not None else None),
         current_session=(
             review_state.current_session if review_state is not None else None
@@ -592,6 +613,7 @@ def build_startup_context(
         orphan_snapshot=orphan_snapshot,
         blocker=blocker,
         contract_ownership_map=build_contract_ownership_map(),
+        connectivity_registry=_startup_connectivity_registry(repo_root),
         key_surfaces=_startup_key_surfaces(governance),
         snapshot_id=snapshot_id,
         zref=zref,

@@ -174,6 +174,13 @@
   fallbacks. `approval.commit` stays separate from repo mutation, and
   startup-context now projects orphan-work evidence as a bounded summary so
   the added typed authority does not break the slim bootstrap budget.
+- 2026-04-25 SYSTEM_MAP typed connectivity authority slice (MP-377 S0.5):
+  `ConnectivityRegistrySnapshot` is now the shared A->B->C source for contract
+  writers, fields, readers, and generated surfaces. `context-graph` consumes
+  it for contract/field reader edges, `startup-context` and `session-resume`
+  carry the same bounded summary, `render-surfaces` reports it beside the
+  generated SYSTEM_MAP block, and `check_platform_contract_closure.py` fails
+  closed when required consumers or field readers disappear.
 - 2026-04-24 remote-control liveness split-brain closure (MP-355 + MP-377
   follow-up): `review-channel status --refresh-bridge-heartbeat-if-stale`
   now treats a live typed `remote_control_attachment` as continuity evidence
