@@ -118,11 +118,11 @@ treat these rules as active workflow instructions immediately.
 
 ## Current Verdict
 
-- Accepted: Slice 0 reviewer-checkpoint projection convergence fix is committed in a135d84a with receipt 5c1aa56b.
+- reviewer state unavailable
 
 ## Open Findings
 
-- None for this checkpoint. rev_pkt_1917 is acknowledged for follow-up; no unread packet blocks this publish decision.
+475 expired unresolved review packet(s)
 
 ## Claude Status
 

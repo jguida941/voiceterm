@@ -5,14 +5,14 @@
 ## Quick status
 
 - Branch: `feature/governance-quality-sweep`
-- HEAD: `5c1aa56b5f64` — Refresh external review snapshot for a135d84a
-- Tree hash: `eb1fa82c0dd0`
-- Generation stamp: `snap-c5b63e64d72f`
-- Generated at (UTC): 2026-04-26T03:07:44Z
+- HEAD: `2913955031dc` — Refresh external review snapshot for 6c510184
+- Tree hash: `f0077d2183ae`
+- Generation stamp: `snap-033273cde9c2`
+- Generated at (UTC): 2026-04-26T03:12:36Z
 - Push decision: `await_review` — review_pending_before_push
 - Reviewer mode: `active_dual_agent` (interaction: `remote_control`)
 - Pipeline state: `n/a` (approval: `n/a`)
-- Delta since last snapshot: 24 commits, 48 files, +2951/-1465
+- Delta since last snapshot: 24 commits, 37 files, +1969/-1340
 - Governance findings: 116 open / 88 fixed / 218 total
 - Probe hints: 0 total across 0 files scanned
 
@@ -54,9 +54,9 @@ adopters arrive.
 - Remote: `https://github.com/jguida941/voiceterm.git`
 - Default branch: `master`
 - Current branch: `feature/governance-quality-sweep`
-- HEAD SHA: `5c1aa56b5f6472ef17c16e6b5f1f42ef89382da6`
+- HEAD SHA: `2913955031dc91d4ab005ce1d3677679e922d524`
 - HEAD author: Justin Guida
-- HEAD timestamp (UTC): 2026-04-25T23:06:45-04:00
+- HEAD timestamp (UTC): 2026-04-25T23:11:57-04:00
 
 ## 2. Governance state
 
@@ -71,7 +71,7 @@ adopters arrive.
 - latest_push_report: `dev/reports/push/latest.json`
 - latest_push_report_state: `blocked` (push_preflight_running)
 - publication_backlog: urgent
-- publication_guidance: 37 local commit(s) waiting for governed push once review is accepted.
+- publication_guidance: 39 local commit(s) waiting for governed push once review is accepted.
 
 ### Reviewer runtime
 - reviewer_mode: `active_dual_agent`
@@ -91,12 +91,12 @@ adopters arrive.
 
 ## 3. Delta — what changed since the previous snapshot
 
-Range: last 24 commits ending at `5c1aa56b5f64`
+Range: last 24 commits ending at `2913955031dc`
 
 - commits: 24
-- files changed: 48
-- insertions: +2951
-- deletions: -1465
+- files changed: 37
+- insertions: +1969
+- deletions: -1340
 - bundle classes touched: docs, tooling
 - authority surfaces touched: 7 file(s)
 
@@ -104,47 +104,45 @@ Range: last 24 commits ending at `5c1aa56b5f64`
 
 | # | SHA | Subject | Files | +/- | Bundle | Risk |
 |---|---|---|---|---|---|---|
-| 1 | `5c1aa56b` | Refresh external review snapshot for a135d84a | 2 | +65/-61 | docs |  |
-| 2 | `a135d84a` | Slice 0 reviewer-checkpoint projection convergence fix per… | 5 | +154/-64 | tooling |  |
-| 3 | `92e433c1` | Refresh external review snapshot for 5b461819 | 2 | +48/-48 | docs |  |
-| 4 | `5b461819` | Refresh external review snapshot for 434468cf | 1 | +5/-5 | docs |  |
-| 5 | `434468cf` | Refresh external review snapshot for 900fd702 | 2 | +53/-50 | docs |  |
-| 6 | `900fd702` | Refresh external review snapshot for 7bca9f66 | 2 | +65/-65 | docs |  |
-| 7 | `7bca9f66` | Slice 0 runtime agreement + watch-follow discipline per Pla… | 11 | +196/-66 | tooling |  |
-| 8 | `ddd4dbee` | Refresh external review snapshot for c5321b27 | 1 | +4/-4 | docs |  |
-| 9 | `c5321b27` | Refresh external review snapshot for e918a6c1 | 2 | +52/-52 | docs |  |
-| 10 | `e918a6c1` | Refresh external review snapshot for 92bb69a3 | 1 | +5/-5 | docs |  |
-| 11 | `92bb69a3` | Refresh external review snapshot for b1d68bf4 | 2 | +85/-94 | docs |  |
-| 12 | `b1d68bf4` | Refresh external review snapshot for a811a874 | 2 | +60/-60 | docs |  |
-| 13 | `a811a874` | Refresh SYSTEM_MAP.md generated counts per rev_pkt_1909 (Sl… | 3 | +75/-85 | docs |  |
-| 14 | `82dc701a` | Refresh external review snapshot for 0045e2fb | 1 | +4/-4 | docs |  |
-| 15 | `0045e2fb` | Refresh external review snapshot for a04cd92e | 2 | +47/-44 | docs |  |
-| 16 | `a04cd92e` | Refresh external review snapshot for 3c78537b | 2 | +53/-50 | docs |  |
-| 17 | `3c78537b` | Refresh external review snapshot for 7aeefff3 | 2 | +84/-92 | docs |  |
-| 18 | `7aeefff3` | Slice 0 review-channel stop-loop fix per Plan 4.1 (rev_pkt_… | 8 | +130/-71 | tooling |  |
-| 19 | `7fa9122d` | Refresh external review snapshot for 7bdf0df3 | 2 | +85/-108 | docs |  |
-| 20 | `7bdf0df3` | Slice 0 sub-fix: enforce headless terminal discipline in re… | 22 | +591/-207 | tooling |  |
-| 21 | `c0a3b117` | Refresh external review snapshot for d2f0b725 | 1 | +3/-3 | docs |  |
-| 22 | `d2f0b725` | Refresh external review snapshot for 1a0e8673 | 2 | +50/-47 | docs |  |
-| 23 | `1a0e8673` | Refresh external review snapshot for 580855f7 | 2 | +74/-80 | docs |  |
-| 24 | `580855f7` | Slice 0 + Slice A foundation per Plan 4.1 | 20 | +963/-100 | tooling |  |
+| 1 | `29139550` | Refresh external review snapshot for 6c510184 | 1 | +6/-6 | docs |  |
+| 2 | `6c510184` | Refresh external review snapshot for 5c1aa56b | 2 | +49/-49 | docs |  |
+| 3 | `5c1aa56b` | Refresh external review snapshot for a135d84a | 2 | +65/-61 | docs |  |
+| 4 | `a135d84a` | Slice 0 reviewer-checkpoint projection convergence fix per… | 5 | +154/-64 | tooling |  |
+| 5 | `92e433c1` | Refresh external review snapshot for 5b461819 | 2 | +48/-48 | docs |  |
+| 6 | `5b461819` | Refresh external review snapshot for 434468cf | 1 | +5/-5 | docs |  |
+| 7 | `434468cf` | Refresh external review snapshot for 900fd702 | 2 | +53/-50 | docs |  |
+| 8 | `900fd702` | Refresh external review snapshot for 7bca9f66 | 2 | +65/-65 | docs |  |
+| 9 | `7bca9f66` | Slice 0 runtime agreement + watch-follow discipline per Pla… | 11 | +196/-66 | tooling |  |
+| 10 | `ddd4dbee` | Refresh external review snapshot for c5321b27 | 1 | +4/-4 | docs |  |
+| 11 | `c5321b27` | Refresh external review snapshot for e918a6c1 | 2 | +52/-52 | docs |  |
+| 12 | `e918a6c1` | Refresh external review snapshot for 92bb69a3 | 1 | +5/-5 | docs |  |
+| 13 | `92bb69a3` | Refresh external review snapshot for b1d68bf4 | 2 | +85/-94 | docs |  |
+| 14 | `b1d68bf4` | Refresh external review snapshot for a811a874 | 2 | +60/-60 | docs |  |
+| 15 | `a811a874` | Refresh SYSTEM_MAP.md generated counts per rev_pkt_1909 (Sl… | 3 | +75/-85 | docs |  |
+| 16 | `82dc701a` | Refresh external review snapshot for 0045e2fb | 1 | +4/-4 | docs |  |
+| 17 | `0045e2fb` | Refresh external review snapshot for a04cd92e | 2 | +47/-44 | docs |  |
+| 18 | `a04cd92e` | Refresh external review snapshot for 3c78537b | 2 | +53/-50 | docs |  |
+| 19 | `3c78537b` | Refresh external review snapshot for 7aeefff3 | 2 | +84/-92 | docs |  |
+| 20 | `7aeefff3` | Slice 0 review-channel stop-loop fix per Plan 4.1 (rev_pkt_… | 8 | +130/-71 | tooling |  |
+| 21 | `7fa9122d` | Refresh external review snapshot for 7bdf0df3 | 2 | +85/-108 | docs |  |
+| 22 | `7bdf0df3` | Slice 0 sub-fix: enforce headless terminal discipline in re… | 22 | +591/-207 | tooling |  |
+| 23 | `c0a3b117` | Refresh external review snapshot for d2f0b725 | 1 | +3/-3 | docs |  |
+| 24 | `d2f0b725` | Refresh external review snapshot for 1a0e8673 | 2 | +50/-47 | docs |  |
 
 ### Files
 
 | Path | Bundle | +/- |
 |---|---|---|
-| `AGENTS.md` | docs | +5/-1 |
-| `bridge.md` | docs | +135/-135 |
-| `dev/active/MASTER_PLAN.md` | tooling | +17/-1 |
-| `dev/active/ai_governance_platform.md` | tooling | +33/-1 |
-| `dev/audits/AUTOMATION_DEBT_REGISTER.md` | tooling | +5/-0 |
-| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1095/-1127 |
-| `dev/guides/DEVELOPMENT.md` | docs | +12/-2 |
-| `dev/guides/SYSTEM_MAP.md` | docs | +4/-4 |
-| `dev/history/ENGINEERING_EVOLUTION.md` | tooling | +49/-1 |
-| `dev/scripts/README.md` | tooling | +13/-1 |
-| `dev/scripts/devctl/cli_parser/entrypoint.py` | tooling | +7/-0 |
-| `dev/scripts/devctl/commands/reporting/dogfood_governance.py` | tooling | +21/-28 |
+| `AGENTS.md` | docs | +4/-0 |
+| `bridge.md` | docs | +134/-134 |
+| `dev/active/MASTER_PLAN.md` | tooling | +5/-1 |
+| `dev/active/ai_governance_platform.md` | tooling | +8/-1 |
+| `dev/audits/AUTOMATION_DEBT_REGISTER.md` | tooling | +1/-0 |
+| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1023/-1053 |
+| `dev/guides/DEVELOPMENT.md` | docs | +5/-2 |
+| `dev/guides/SYSTEM_MAP.md` | docs | +3/-3 |
+| `dev/history/ENGINEERING_EVOLUTION.md` | tooling | +22/-0 |
+| `dev/scripts/README.md` | tooling | +5/-0 |
 | `dev/scripts/devctl/commands/review_channel/_recover.py` | tooling | +12/-5 |
 | `dev/scripts/devctl/commands/review_channel/bridge_handler.py` | tooling | +24/-0 |
 | `dev/scripts/devctl/commands/review_channel/launcher_discipline.py` | tooling | +23/-8 |
@@ -152,10 +150,6 @@ Range: last 24 commits ending at `5c1aa56b5f64`
 | `dev/scripts/devctl/commands/review_channel/watch_follow_frames.py` | tooling | +10/-3 |
 | `dev/scripts/devctl/commands/review_channel/watch_follow_runtime.py` | tooling | +15/-0 |
 | `dev/scripts/devctl/commands/review_channel/watch_follow_state.py` | tooling | +1/-0 |
-| `dev/scripts/devctl/commands/vcs/commit.py` | tooling | +17/-0 |
-| `dev/scripts/devctl/commands/vcs/commit_visibility.py` | tooling | +64/-17 |
-| `dev/scripts/devctl/commands/vcs/push_diagnostics.py` | tooling | +141/-0 |
-| `dev/scripts/devctl/commands/vcs/push_report.py` | tooling | +22/-0 |
 | `dev/scripts/devctl/review_channel/attention_helpers.py` | tooling | +2/-0 |
 | `dev/scripts/devctl/review_channel/bridge_projection_instruction.py` | tooling | +38/-0 |
 | `dev/scripts/devctl/review_channel/bridge_projection_metadata.py` | tooling | +9/-22 |
@@ -168,12 +162,14 @@ Range: last 24 commits ending at `5c1aa56b5f64`
 | `dev/scripts/devctl/review_channel/status_snapshot_authority.py` | tooling | +38/-83 |
 | `dev/scripts/devctl/review_channel/watch_lifecycle.py` | tooling | +9/-2 |
 | `dev/scripts/devctl/runtime/advisory_next_action_role_filter.py` | tooling | +5/-0 |
-| `dev/scripts/devctl/runtime/platform_finding_ingest.py` | tooling | +264/-0 |
 | `dev/scripts/devctl/tests/review_channel/test_bridge_projection_mode_defaults.py` | tooling | +17/-0 |
 | `dev/scripts/devctl/tests/review_channel/test_current_session_projection.py` | tooling | +55/-3 |
 | `dev/scripts/devctl/tests/review_channel/test_launch_script.py` | tooling | +18/-0 |
 | `dev/scripts/devctl/tests/review_channel/test_review_channel.py` | tooling | +111/-0 |
-| _8 more files trimmed_ | | |
+| `dev/scripts/devctl/tests/review_channel/test_reviewer_runtime_contract.py` | tooling | +80/-0 |
+| `dev/scripts/devctl/tests/review_channel/test_status_snapshot_authority.py` | tooling | +93/-0 |
+| `dev/scripts/devctl/tests/review_channel/test_watch_lifecycle.py` | tooling | +4/-0 |
+| `dev/scripts/devctl/tests/runtime/test_action_routing.py` | tooling | +17/-0 |
 
 ## 4. Quality signals
 
@@ -244,6 +240,10 @@ Recent findings:
 
 ### Per-commit rationale
 
+- **`29139550`** — Refresh external review snapshot for 6c510184
+  - evolution: Fact: live dogfood showed expired-pending review packets accumulating even when Codex had addressed the substance in code or follow-up packets. The queue already hid expired pending rows from actionable inbox counts, bu…
+- **`6c510184`** — Refresh external review snapshot for 5c1aa56b
+  - evolution: Fact: live dogfood showed expired-pending review packets accumulating even when Codex had addressed the substance in code or follow-up packets. The queue already hid expired pending rows from actionable inbox counts, bu…
 - **`5c1aa56b`** — Refresh external review snapshot for a135d84a
   - evolution: Fact: live dogfood showed expired-pending review packets accumulating even when Codex had addressed the substance in code or follow-up packets. The queue already hid expired pending rows from actionable inbox counts, bu…
 - **`a135d84a`** — Slice 0 reviewer-checkpoint projection convergence fix per Plan 4.1 (rev_pkt_1918)
@@ -299,13 +299,6 @@ Recent findings:
   - evolution: Fact: live dogfood showed expired-pending review packets accumulating even when Codex had addressed the substance in code or follow-up packets. The queue already hid expired pending rows from actionable inbox counts, bu…
 - **`d2f0b725`** — Refresh external review snapshot for 1a0e8673
   - evolution: Fact: live dogfood showed expired-pending review packets accumulating even when Codex had addressed the substance in code or follow-up packets. The queue already hid expired pending rows from actionable inbox counts, bu…
-- **`1a0e8673`** — Refresh external review snapshot for 580855f7
-  - evolution: Fact: live dogfood showed expired-pending review packets accumulating even when Codex had addressed the substance in code or follow-up packets. The queue already hid expired pending rows from actionable inbox counts, bu…
-- **`580855f7`** — Slice 0 + Slice A foundation per Plan 4.1
-  - Slice 0 — Runtime diagnostics (no model rebuild per Plan 4.1 required edit):
-  - - Diagnostic clarity in commit/push render path: clearer states for git-failed
-  -   vs git-landed-but-receipt-pending vs publication-awaiting-review
-  - evolution: Fact: live dogfood showed expired-pending review packets accumulating even when Codex had addressed the substance in code or follow-up packets. The queue already hid expired pending rows from actionable inbox counts, bu…
 ### Active MP scope (from MASTER_PLAN.md)
 
 - contract slice for MP-355 plus the temporary markdown-swarm operating mode
@@ -340,4 +333,4 @@ Recent findings:
 
 ---
 
-Projection produced by `devctl review-snapshot`. Generation stamp `snap-c5b63e64d72f` binds this file to HEAD `5c1aa56b5f64`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
+Projection produced by `devctl review-snapshot`. Generation stamp `snap-033273cde9c2` binds this file to HEAD `2913955031dc`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
