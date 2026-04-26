@@ -82,7 +82,7 @@ treat these rules as active workflow instructions immediately.
 - Last Codex poll (Local America/New_York): `2026-04-25 23:06:46 EDT`
 - Reviewer mode: `active_dual_agent`
 - Last non-audit worktree hash: `3940274abf247937f0952b44f2ed88fd421a205544c30fa58606971e8f2cb1f3`
-- Current instruction revision: `8ed5d5b347b8`
+- Current instruction revision: ``
 
 ## Protocol
 
@@ -126,7 +126,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Claude Status
 
-- Status unavailable.
+waiting_for_ack
 
 ## Claude Questions
 
@@ -138,7 +138,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Current Instruction For Claude
 
-Priority action_request: Stage and commit reviewer-checkpoint projection convergence fix
+- Await reviewer instruction refresh.
 
 ## Last Reviewed Scope
 
