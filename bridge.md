@@ -78,8 +78,8 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-04-26T02:42:00Z`
-- Last Codex poll (Local America/New_York): `2026-04-25 22:42:00 EDT`
+- Last Codex poll: `2026-04-26T02:46:34Z`
+- Last Codex poll (Local America/New_York): `2026-04-25 22:46:34 EDT`
 - Reviewer mode: `active_dual_agent`
 - Last non-audit worktree hash: `4c286037b449a64f6e5b3c5c72582e66c3a4ddd46fe52f8ccbb54d58ac813ab0`
 - Current instruction revision: `a8ca23a8406a`
@@ -114,7 +114,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Poll Status
 
-- Reviewer state rebuilt from typed review-state projection at 2026-04-26T02:42:00.212997Z.
+- Reviewer state rebuilt from typed review-state projection at 2026-04-26T02:45:22.115043Z.
 
 ## Current Verdict
 
@@ -122,7 +122,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Open Findings
 
-2 pending review packet(s); 474 expired unresolved review packet(s)
+1 pending review packet(s); 474 expired unresolved review packet(s)
 
 ## Claude Status
 
@@ -134,7 +134,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Claude Ack
 
-pending
+- missing
 
 ## Current Instruction For Claude
 
@@ -146,4 +146,4 @@ MP-355
 
 ## Action Requests
 
-- [rev_pkt_1914] stage_commit_pipeline: target=runtime:devctl_commit:ddd4dbee9ff59561060a32752b341f398247db4b@ddd4dbee9ff59561060a32752b341f398247db4b; Stage and commit Slice 0 runtime agreement and watch-follow fix (status: pending)
+- No pending action requests.
