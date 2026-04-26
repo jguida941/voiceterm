@@ -5,14 +5,14 @@
 ## Quick status
 
 - Branch: `feature/governance-quality-sweep`
-- HEAD: `a63ca2ed9abf` — Refresh external review snapshot for bc3ef241
-- Tree hash: `714924d793d1`
-- Generation stamp: `snap-2188f3f6b02f`
-- Generated at (UTC): 2026-04-26T19:25:21Z
-- Push decision: `await_checkpoint` — staged_index_budget_exceeded
+- HEAD: `bbd8deaa17dd` — Fix governed-push receipt-chain authorization for managed bridge/ReviewSnapshot commits (rev_pkt_1951; closes rev_pkt_1947 Issue 1)
+- Tree hash: `76a554fad1eb`
+- Generation stamp: `snap-34cccb7ef89c`
+- Generated at (UTC): 2026-04-26T19:26:58Z
+- Push decision: `await_review` — review_pending_before_push
 - Reviewer mode: `active_dual_agent` (interaction: `remote_control`)
 - Pipeline state: `n/a` (approval: `n/a`)
-- Delta since last snapshot: 24 commits, 21 files, +1795/-1235
+- Delta since last snapshot: 24 commits, 37 files, +2620/-1418
 - Governance findings: 116 open / 88 fixed / 218 total
 - Probe hints: 0 total across 0 files scanned
 
@@ -54,34 +54,30 @@ adopters arrive.
 - Remote: `https://github.com/jguida941/voiceterm.git`
 - Default branch: `master`
 - Current branch: `feature/governance-quality-sweep`
-- HEAD SHA: `a63ca2ed9abff32d387c16677a41b67855f04123`
+- HEAD SHA: `bbd8deaa17dda364e51ae6b5bf9c60e395ea1353`
 - HEAD author: Justin Guida
-- HEAD timestamp (UTC): 2026-04-26T13:36:32-04:00
+- HEAD timestamp (UTC): 2026-04-26T15:26:47-04:00
 
 ## 2. Governance state
 
 ### Push decision
-- action: `await_checkpoint`
-- reason: staged_index_budget_exceeded
+- action: `await_review`
+- reason: review_pending_before_push
 - push_eligible_now: False
-- worktree_clean: False
-- staged_path_count: 19
+- worktree_clean: True
+- staged_path_count: 0
 - unstaged_path_count: 0
 - next_step_command: `python3 dev/scripts/devctl.py review-channel --action status --terminal none --format json`
 - latest_push_report: `dev/reports/push/latest.json`
 - latest_push_report_state: `published_remote` (post_push_bundle_pending)
-- current_push_authorization: `push-auth-20260426T171057661535Z` (valid=False)
-- authorized_head_commit: `e2cb0860f170caf04cf4cd71f66902d7e56927e4`
-- approved_target_identity: `tree-receipt-20260426T171057661535Z:a7581fab6b3c39badb8077b1b8248c71c5177c20`
 - publication_backlog: urgent
-- publication_guidance: 66 local commit(s) waiting for governed push once the current slice is checkpoint-clean.
+- publication_guidance: 67 local commit(s) waiting for governed push once review is accepted.
 
 ### Reviewer runtime
 - reviewer_mode: `active_dual_agent`
 - reviewer_freshness: unknown
 - reviewer_publish_clear: False
 - interaction_mode: `remote_control`
-- implementation_blocked: yes — checkpoint_required
 
 ### Remote commit pipeline
 - state: `n/a`
@@ -91,60 +87,72 @@ adopters arrive.
 - active plan: **AI Governance Platform Plan**
 - plan path: `dev/active/ai_governance_platform.md`
 - active MP scope: `MP-377`
-- advisory: `checkpoint_before_continue` — staged_index_budget_exceeded
-- checkpoint_required: **yes**
+- advisory: `await_review` — review_pending_before_push
 
 ## 3. Delta — what changed since the previous snapshot
 
-Range: last 24 commits ending at `a63ca2ed9abf`
+Range: last 24 commits ending at `bbd8deaa17dd`
 
 - commits: 24
-- files changed: 21
-- insertions: +1795
-- deletions: -1235
+- files changed: 37
+- insertions: +2620
+- deletions: -1418
 - bundle classes touched: docs, tooling
-- authority surfaces touched: 5 file(s)
+- authority surfaces touched: 6 file(s)
 
 ### Commits
 
 | # | SHA | Subject | Files | +/- | Bundle | Risk |
 |---|---|---|---|---|---|---|
-| 1 | `a63ca2ed` | Refresh external review snapshot for bc3ef241 | 1 | +2/-2 | docs |  |
-| 2 | `bc3ef241` | Refresh external review snapshot for 4865ff7a | 2 | +42/-42 | docs |  |
-| 3 | `4865ff7a` | Refresh external review snapshot for 6891dc56 | 2 | +42/-42 | docs |  |
-| 4 | `6891dc56` | Refresh external review snapshot for 15d0ac55 | 2 | +47/-53 | docs |  |
-| 5 | `15d0ac55` | Refresh external review snapshot for a1def993 | 1 | +4/-4 | docs |  |
-| 6 | `a1def993` | Refresh external review snapshot for cf808b89 | 2 | +51/-48 | docs |  |
-| 7 | `cf808b89` | Refresh external review snapshot for f0f06bbf | 1 | +3/-3 | docs |  |
-| 8 | `f0f06bbf` | Refresh external review snapshot for e2cb0860 | 1 | +47/-44 | tooling |  |
-| 9 | `e2cb0860` | Refresh external review snapshot for 4a127654 | 2 | +55/-57 | docs |  |
-| 10 | `4a127654` | Refresh SYSTEM_MAP.md devctl file count after Slice 0 commit | 2 | +54/-69 | tooling |  |
-| 11 | `17e823af` | Refresh external review snapshot for 5d64e13b | 2 | +51/-45 | docs |  |
-| 12 | `5d64e13b` | Refresh external review snapshot for 083f2ece | 2 | +77/-63 | docs |  |
-| 13 | `083f2ece` | Fix review-channel recovery authority deadlock | 15 | +397/-132 | tooling |  |
-| 14 | `1f3b6c89` | Refresh external review snapshot for 572d9aa6 | 2 | +53/-50 | docs |  |
-| 15 | `572d9aa6` | Refresh external review snapshot for c5f0be73 | 2 | +59/-59 | docs |  |
-| 16 | `c5f0be73` | Slice 0 reviewer acceptance convergence fix per Plan 4.1 (r… | 4 | +222/-76 | tooling |  |
-| 17 | `4837fbd7` | Refresh external review snapshot for 3ed07cd2 | 2 | +54/-55 | docs |  |
-| 18 | `3ed07cd2` | Refresh external review snapshot for 6c79d515 | 2 | +50/-50 | docs |  |
-| 19 | `6c79d515` | Refresh external review snapshot for 5523a504 | 2 | +56/-53 | docs |  |
-| 20 | `5523a504` | Refresh external review snapshot for 7fb219fa | 2 | +57/-54 | docs |  |
-| 21 | `7fb219fa` | Slice 0 push receipt freshness-loop fix per Plan 4.1 (rev_p… | 5 | +243/-83 | tooling |  |
-| 22 | `4f5344aa` | Refresh external review snapshot for 3737089c | 1 | +41/-38 | tooling |  |
-| 23 | `3737089c` | Refresh external review snapshot for 3b6b0aa2 | 1 | +46/-74 | tooling |  |
-| 24 | `3b6b0aa2` | Refresh external review snapshot for b169224e | 1 | +42/-39 | tooling |  |
+| 1 | `bbd8deaa` | Fix governed-push receipt-chain authorization for managed b… | 20 | +867/-222 | tooling |  |
+| 2 | `a63ca2ed` | Refresh external review snapshot for bc3ef241 | 1 | +2/-2 | docs |  |
+| 3 | `bc3ef241` | Refresh external review snapshot for 4865ff7a | 2 | +42/-42 | docs |  |
+| 4 | `4865ff7a` | Refresh external review snapshot for 6891dc56 | 2 | +42/-42 | docs |  |
+| 5 | `6891dc56` | Refresh external review snapshot for 15d0ac55 | 2 | +47/-53 | docs |  |
+| 6 | `15d0ac55` | Refresh external review snapshot for a1def993 | 1 | +4/-4 | docs |  |
+| 7 | `a1def993` | Refresh external review snapshot for cf808b89 | 2 | +51/-48 | docs |  |
+| 8 | `cf808b89` | Refresh external review snapshot for f0f06bbf | 1 | +3/-3 | docs |  |
+| 9 | `f0f06bbf` | Refresh external review snapshot for e2cb0860 | 1 | +47/-44 | tooling |  |
+| 10 | `e2cb0860` | Refresh external review snapshot for 4a127654 | 2 | +55/-57 | docs |  |
+| 11 | `4a127654` | Refresh SYSTEM_MAP.md devctl file count after Slice 0 commit | 2 | +54/-69 | tooling |  |
+| 12 | `17e823af` | Refresh external review snapshot for 5d64e13b | 2 | +51/-45 | docs |  |
+| 13 | `5d64e13b` | Refresh external review snapshot for 083f2ece | 2 | +77/-63 | docs |  |
+| 14 | `083f2ece` | Fix review-channel recovery authority deadlock | 15 | +397/-132 | tooling |  |
+| 15 | `1f3b6c89` | Refresh external review snapshot for 572d9aa6 | 2 | +53/-50 | docs |  |
+| 16 | `572d9aa6` | Refresh external review snapshot for c5f0be73 | 2 | +59/-59 | docs |  |
+| 17 | `c5f0be73` | Slice 0 reviewer acceptance convergence fix per Plan 4.1 (r… | 4 | +222/-76 | tooling |  |
+| 18 | `4837fbd7` | Refresh external review snapshot for 3ed07cd2 | 2 | +54/-55 | docs |  |
+| 19 | `3ed07cd2` | Refresh external review snapshot for 6c79d515 | 2 | +50/-50 | docs |  |
+| 20 | `6c79d515` | Refresh external review snapshot for 5523a504 | 2 | +56/-53 | docs |  |
+| 21 | `5523a504` | Refresh external review snapshot for 7fb219fa | 2 | +57/-54 | docs |  |
+| 22 | `7fb219fa` | Slice 0 push receipt freshness-loop fix per Plan 4.1 (rev_p… | 5 | +243/-83 | tooling |  |
+| 23 | `4f5344aa` | Refresh external review snapshot for 3737089c | 1 | +41/-38 | tooling |  |
+| 24 | `3737089c` | Refresh external review snapshot for 3b6b0aa2 | 1 | +46/-74 | tooling |  |
 
 ### Files
 
 | Path | Bundle | +/- |
 |---|---|---|
-| `bridge.md` | docs | +90/-90 |
-| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1035/-1057 |
+| `AGENTS.md` | docs | +9/-4 |
+| `bridge.md` | docs | +101/-101 |
+| `dev/active/MASTER_PLAN.md` | tooling | +15/-0 |
+| `dev/active/ai_governance_platform.md` | tooling | +30/-0 |
+| `dev/audits/AUTOMATION_DEBT_REGISTER.md` | tooling | +3/-0 |
+| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1045/-1068 |
+| `dev/guides/DEVELOPMENT.md` | docs | +5/-4 |
 | `dev/guides/SYSTEM_MAP.md` | docs | +1/-1 |
+| `dev/history/ENGINEERING_EVOLUTION.md` | tooling | +22/-0 |
+| `dev/scripts/README.md` | tooling | +8/-5 |
+| `dev/scripts/devctl/commands/pipeline/head_movement.py` | tooling | +13/-3 |
 | `dev/scripts/devctl/commands/review_channel/bridge_support.py` | tooling | +32/-0 |
 | `dev/scripts/devctl/commands/review_channel/status_bridge_sync.py` | tooling | +2/-0 |
-| `dev/scripts/devctl/commands/vcs/push_preflight_projection.py` | tooling | +68/-2 |
+| `dev/scripts/devctl/commands/vcs/push.py` | tooling | +30/-24 |
+| `dev/scripts/devctl/commands/vcs/push_flow.py` | tooling | +16/-3 |
+| `dev/scripts/devctl/commands/vcs/push_pipeline_state_sync.py` | tooling | +16/-6 |
+| `dev/scripts/devctl/commands/vcs/push_preflight_projection.py` | tooling | +186/-7 |
 | `dev/scripts/devctl/commands/vcs/push_projection_receipt.py` | tooling | +4/-2 |
+| `dev/scripts/devctl/governance/push_state.py` | tooling | +29/-17 |
+| `dev/scripts/devctl/governance/push_state_authorization.py` | tooling | +23/-11 |
 | `dev/scripts/devctl/review_channel/attention_classify.py` | tooling | +2/-1 |
 | `dev/scripts/devctl/review_channel/attention_recovery_projection.py` | tooling | +20/-0 |
 | `dev/scripts/devctl/review_channel/bridge_projection_instruction.py` | tooling | +1/-0 |
@@ -154,11 +162,14 @@ Range: last 24 commits ending at `a63ca2ed9abf`
 | `dev/scripts/devctl/review_channel/recover_support.py` | tooling | +2/-1 |
 | `dev/scripts/devctl/review_channel/recovery_decision.py` | tooling | +36/-49 |
 | `dev/scripts/devctl/review_channel/reviewer_runtime_contract.py` | tooling | +34/-12 |
+| `dev/scripts/devctl/runtime/push_authorization.py` | tooling | +30/-19 |
+| `dev/scripts/devctl/runtime/review_snapshot_refresh.py` | tooling | +51/-4 |
 | `dev/scripts/devctl/tests/review_channel/test_bridge_render.py` | tooling | +32/-4 |
 | `dev/scripts/devctl/tests/review_channel/test_recovery_assessment.py` | tooling | +59/-0 |
 | `dev/scripts/devctl/tests/review_channel/test_review_channel.py` | tooling | +84/-0 |
 | `dev/scripts/devctl/tests/review_channel/test_reviewer_runtime_contract.py` | tooling | +123/-0 |
-| `dev/scripts/devctl/tests/vcs/test_push.py` | tooling | +103/-1 |
+| `dev/scripts/devctl/tests/runtime/test_push_authorization.py` | tooling | +111/-5 |
+| `dev/scripts/devctl/tests/vcs/test_push.py` | tooling | +378/-52 |
 
 ## 4. Quality signals
 
@@ -207,6 +218,7 @@ Recent findings:
 
 ### Targeted hints
 
+- **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/runtime/review_snapshot_refresh.py`) — Review contract-level invariants for this file
 - **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/commands/review_channel/bridge_support.py`) — Review contract-level invariants for this file
 - **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/review_channel/bridge_projection_instruction.py`) — Review contract-level invariants for this file
 - **authority_surface**: Typed authority surface touched (`dev/scripts/devctl/review_channel/bridge_projection_metadata.py`) — Review contract-level invariants for this file
@@ -227,6 +239,8 @@ Recent findings:
 
 ### Per-commit rationale
 
+- **`bbd8deaa`** — Fix governed-push receipt-chain authorization for managed bridge/ReviewSnapshot commits (rev_pkt_1951; closes rev_pkt_1947 Issue 1)
+  - evolution: Fact: live Plan 4.1 dogfood exposed a bad remote-control recovery route. `review-channel status` recommended `recover --recover-provider claude --terminal terminal-app` while the active operator mode was remote-control,…
 - **`a63ca2ed`** — Refresh external review snapshot for bc3ef241
   - evolution: Fact: live Plan 4.1 dogfood exposed a bad remote-control recovery route. `review-channel status` recommended `recover --recover-provider claude --terminal terminal-app` while the active operator mode was remote-control,…
 - **`bc3ef241`** — Refresh external review snapshot for 4865ff7a
@@ -276,8 +290,6 @@ Recent findings:
   - evolution: Fact: live Plan 4.1 dogfood exposed a bad remote-control recovery route. `review-channel status` recommended `recover --recover-provider claude --terminal terminal-app` while the active operator mode was remote-control,…
 - **`3737089c`** — Refresh external review snapshot for 3b6b0aa2
   - evolution: Fact: live Plan 4.1 dogfood exposed a bad remote-control recovery route. `review-channel status` recommended `recover --recover-provider claude --terminal terminal-app` while the active operator mode was remote-control,…
-- **`3b6b0aa2`** — Refresh external review snapshot for b169224e
-  - evolution: Fact: live Plan 4.1 dogfood exposed a bad remote-control recovery route. `review-channel status` recommended `recover --recover-provider claude --terminal terminal-app` while the active operator mode was remote-control,…
 ### Active MP scope (from MASTER_PLAN.md)
 
 - contract slice for MP-355 plus the temporary markdown-swarm operating mode
@@ -296,7 +308,7 @@ Recent findings:
 - open governance findings: 116
 
 ### Startup advisories
-- checkpoint_before_continue: staged_index_budget_exceeded
+- await_review: review_pending_before_push
 
 ### Stale warnings
 - Keep editing the current slice.
@@ -312,4 +324,4 @@ Recent findings:
 
 ---
 
-Projection produced by `devctl review-snapshot`. Generation stamp `snap-2188f3f6b02f` binds this file to HEAD `a63ca2ed9abf`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
+Projection produced by `devctl review-snapshot`. Generation stamp `snap-34cccb7ef89c` binds this file to HEAD `bbd8deaa17dd`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
