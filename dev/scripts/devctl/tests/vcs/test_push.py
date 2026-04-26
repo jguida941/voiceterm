@@ -1533,6 +1533,7 @@ class PushBridgeSyncTests(unittest.TestCase):
         def _projection_receipt(_state, _policy, *, repo_root):
             del _state, _policy, repo_root
             calls.append("projection-receipt")
+            return {"ok": True, "committed": False, "paths": ()}
 
         with (
             patch.object(
@@ -1546,7 +1547,7 @@ class PushBridgeSyncTests(unittest.TestCase):
                 side_effect=_projection_receipt,
             ),
         ):
-            push_preflight_projection.refresh_managed_projections_before_preflight(
+            result = push_preflight_projection.refresh_managed_projections_before_preflight(
                 state,
                 policy,
                 repo_root=Path("/tmp/repo"),
@@ -1554,6 +1555,107 @@ class PushBridgeSyncTests(unittest.TestCase):
 
         self.assertEqual(calls, ["review-snapshot-refresh", "projection-receipt"])
         self.assertEqual(state.warnings, ["snapshot warning"])
+        self.assertEqual(
+            result,
+            {
+                "ok": True,
+                "receipt_committed": False,
+                "paths": (),
+                "snapshot_warning_count": 1,
+            },
+        )
+
+    def test_refresh_managed_projections_refreshes_system_picture_after_receipt(self) -> None:
+        state = push.PushRunState(branch="feature/demo", remote="origin")
+        policy = make_policy()
+        calls: list[str] = []
+
+        def _runner(name, cmd, cwd=None, env=None):
+            del cmd, cwd, env
+            calls.append(name)
+            return {
+                "name": name,
+                "cmd": [],
+                "cwd": ".",
+                "returncode": 0,
+                "duration_s": 0.1,
+                "skipped": False,
+            }
+
+        with (
+            patch.object(
+                push_preflight_projection,
+                "refresh_review_snapshot_file",
+                return_value=[],
+            ),
+            patch.object(
+                push_preflight_projection,
+                "auto_commit_managed_projection_receipt",
+                return_value={"ok": True, "committed": True, "paths": ("bridge.md",)},
+            ),
+        ):
+            result = push_preflight_projection.refresh_managed_projections_before_preflight(
+                state,
+                policy,
+                repo_root=Path("/tmp/repo"),
+                command_runner=_runner,
+            )
+
+        self.assertEqual(result["receipt_committed"], True)
+        self.assertEqual(
+            calls,
+            ["push-refresh-startup-context", "push-refresh-context-graph"],
+        )
+        self.assertIn(
+            "Refreshed startup-context and context-graph after managed projection "
+            "receipt before push preflight.",
+            state.warnings,
+        )
+
+    def test_refresh_managed_projections_blocks_when_system_picture_refresh_fails(self) -> None:
+        state = push.PushRunState(branch="feature/demo", remote="origin")
+        policy = make_policy()
+        calls: list[str] = []
+
+        def _runner(name, cmd, cwd=None, env=None):
+            del cmd, cwd, env
+            calls.append(name)
+            return {
+                "name": name,
+                "cmd": [],
+                "cwd": ".",
+                "returncode": 1 if name == "push-refresh-startup-context" else 0,
+                "duration_s": 0.1,
+                "skipped": False,
+            }
+
+        with (
+            patch.object(
+                push_preflight_projection,
+                "refresh_review_snapshot_file",
+                return_value=[],
+            ),
+            patch.object(
+                push_preflight_projection,
+                "auto_commit_managed_projection_receipt",
+                return_value={"ok": True, "committed": True, "paths": ("bridge.md",)},
+            ),
+        ):
+            push_preflight_projection.refresh_managed_projections_before_preflight(
+                state,
+                policy,
+                repo_root=Path("/tmp/repo"),
+                command_runner=_runner,
+            )
+
+        self.assertEqual(calls, ["push-refresh-startup-context"])
+        self.assertEqual(
+            state.errors,
+            [
+                "Managed projection receipt moved HEAD, but startup-context "
+                "refresh failed before push preflight."
+            ],
+        )
 
     def test_sync_bridge_projection_before_preflight_reprojects_active_bridge(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:

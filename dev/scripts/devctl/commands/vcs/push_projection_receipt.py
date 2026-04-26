@@ -15,7 +15,7 @@ def auto_commit_managed_projection_receipt(
     policy,
     *,
     repo_root: Path = REPO_ROOT,
-) -> None:
+) -> dict[str, object]:
     """Commit dirty generated projection artifacts before a governed push.
 
     This intentionally handles only managed receipt artifacts such as
@@ -31,11 +31,12 @@ def auto_commit_managed_projection_receipt(
                 "Committed managed projection receipt "
                 f"{commit_sha[:12]} for {', '.join(paths)} before push."
             )
-        return
+        return result
     reason = str(result.get("reason", "projection_receipt_failed"))
     detail = str(result.get("error", "") or "").strip()
     suffix = f": {detail}" if detail else ""
     state.errors.append(f"Managed projection receipt failed: {reason}{suffix}")
+    return result
 
 
 def _commit_projection_receipt_if_needed(
@@ -151,6 +152,7 @@ def _commit_staged_projection_receipt(
     return {
         "ok": True,
         "reason": "projection_receipt_committed",
+        "committed": True,
         "commit_sha": commit_sha,
         "paths": staged_paths,
     }
