@@ -229,6 +229,65 @@ def test_detached_dual_agent_checkpoint_budget_prefers_governed_commit() -> None
     assert "dev/scripts/devctl.py commit -m" in assessment.decision.command
 
 
+def test_missing_reviewer_conductor_recommends_pair_relaunch() -> None:
+    assessment = build_recovery_assessment(
+        bridge_liveness={
+            "reviewer_mode": "active_dual_agent",
+            "overall_state": "waiting_on_peer",
+            "codex_poll_state": "fresh",
+            "publisher_running": True,
+            "reviewer_supervisor_running": True,
+            "active_conductor_providers": [],
+            "codex_conductor_active": False,
+            "claude_conductor_active": False,
+            "claude_status_present": False,
+            "claude_ack_present": False,
+            "claude_ack_current": False,
+            "review_needed": False,
+            "reviewed_hash_current": True,
+            "reviewer_freshness": "fresh",
+            "current_instruction_revision": "rev-123",
+            "last_reviewed_scope_present": True,
+        },
+        current_session=_current_session(),
+    )
+
+    assert assessment.diagnosis.status == "review_loop_relaunch_required"
+    assert assessment.decision.action_id == "relaunch_review_loop"
+    assert "review-channel --action launch" in assessment.decision.command
+    assert "recover" not in assessment.decision.command
+
+
+def test_cached_live_launch_truth_projects_pair_relaunch_when_recover_ineligible() -> None:
+    assessment = build_recovery_assessment(
+        bridge_liveness={
+            "reviewer_mode": "active_dual_agent",
+            "overall_state": "waiting_on_peer",
+            "codex_poll_state": "fresh",
+            "launch_truth": "live",
+            "publisher_running": True,
+            "reviewer_supervisor_running": True,
+            "active_conductor_providers": [],
+            "codex_conductor_active": False,
+            "claude_conductor_active": False,
+            "claude_status_present": False,
+            "claude_ack_present": False,
+            "claude_ack_current": False,
+            "review_needed": False,
+            "reviewed_hash_current": True,
+            "reviewer_freshness": "fresh",
+            "current_instruction_revision": "rev-123",
+            "last_reviewed_scope_present": True,
+        },
+        current_session=_current_session(),
+    )
+
+    assert assessment.diagnosis.status == "review_loop_relaunch_required"
+    assert assessment.decision.action_id == "relaunch_review_loop"
+    assert "review-channel --action launch" in assessment.decision.command
+    assert "recover" not in assessment.decision.command
+
+
 def test_single_agent_warning_mentions_typed_authority_when_lane_is_live() -> None:
     warnings = bridge_liveness_warnings(
         {

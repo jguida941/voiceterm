@@ -11,7 +11,7 @@ from .bridge_projection_instruction import (
     is_placeholder_instruction as _is_placeholder_instruction,
     typed_instruction_explicitly_cleared as _typed_instruction_explicitly_cleared,
 )
-from .peer_liveness import resolve_reported_reviewer_mode
+from .peer_liveness import resolve_reported_reviewer_mode, reviewer_mode_is_active
 from ..runtime.review_state_semantics import is_missing_instruction
 
 _LOCAL_TIME_FORMAT = "%Y-%m-%d %H:%M:%S %Z"
@@ -104,19 +104,29 @@ def projection_metadata(
             snapshot.metadata.get("last_codex_poll_local"),
         )
     )
-    reviewer_mode = resolve_reported_reviewer_mode(
+    effective_reviewer_mode = resolve_reported_reviewer_mode(
         {
-            # Compatibility projections must follow the validated runtime mode
-            # once typed state has downgraded a dead dual-agent loop.
             "reviewer_mode": _first_text(
                 bridge_liveness.get("effective_reviewer_mode"),
                 bridge_state.get("effective_reviewer_mode"),
+            )
+        }
+    )
+    declared_reviewer_mode = resolve_reported_reviewer_mode(
+        {
+            "reviewer_mode": _first_text(
                 bridge_liveness.get("reviewer_mode"),
                 bridge_state.get("reviewer_mode"),
                 snapshot.metadata.get("reviewer_mode"),
-            ),
+            )
         }
     )
+    if reviewer_mode_is_active(declared_reviewer_mode) and not reviewer_mode_is_active(
+        effective_reviewer_mode
+    ):
+        reviewer_mode = declared_reviewer_mode
+    else:
+        reviewer_mode = effective_reviewer_mode or declared_reviewer_mode
     return {
         "last_codex_poll_utc": last_codex_poll_utc,
         "last_codex_poll_local": last_codex_poll_local,

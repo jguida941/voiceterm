@@ -66,6 +66,8 @@ def reviewer_mode_projection_drifted(
     current = resolve_reported_reviewer_mode(
         {"reviewer_mode": snapshot_metadata.get("reviewer_mode")}
     )
+    if reviewer_mode_is_active(current) and not reviewer_mode_is_active(expected):
+        return False
     return current != expected
 
 

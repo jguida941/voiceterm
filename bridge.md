@@ -78,11 +78,11 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-04-26T13:05:12Z`
-- Last Codex poll (Local America/New_York): `2026-04-26 09:05:12 EDT`
-- Reviewer mode: `active_dual_agent`
-- Last non-audit worktree hash: `08bff339206dbae23b921e433c71bc4d17f24d7f4a789e57608321c458f5c336`
-- Current instruction revision: `acc6e287cf84`
+- Last Codex poll: `2026-04-26T14:38:28Z`
+- Last Codex poll (Local America/New_York): `2026-04-26 10:38:28 EDT`
+- Reviewer mode: `tools_only`
+- Last non-audit worktree hash: `e1d3349c820ee2bcf9d68977fe4022b3dab8a96b17180b989f7249f25853914a`
+- Current instruction revision: `e88a737b12be`
 
 ## Protocol
 
@@ -114,7 +114,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Poll Status
 
-- Reviewer heartbeat refreshed through repo-owned tooling (mode: active_dual_agent; reason: ensure-follow; reviewed-tree: 08bff339206d).
+- Reviewer state rebuilt from typed review-state projection at 2026-04-26T14:38:39.229268Z.
 
 ## Current Verdict
 
@@ -126,7 +126,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Claude Status
 
-- Status unavailable.
+waiting_for_ack
 
 ## Claude Questions
 
@@ -134,16 +134,16 @@ treat these rules as active workflow instructions immediately.
 
 ## Claude Ack
 
-- missing
+pending
 
 ## Current Instruction For Claude
 
-Priority action_request: Stage and commit reviewer acceptance convergence fix
+Priority action_request: Stage and commit Slice 0 recovery authority fix
 
 ## Last Reviewed Scope
 
-MP-355
+- (missing)
 
 ## Action Requests
 
-- No pending action requests.
+- [rev_pkt_1936] stage_commit_pipeline: target=runtime:devctl_commit:1f3b6c89472f866f4699cbd832305954c3ba986c@1f3b6c89472f866f4699cbd832305954c3ba986c; Stage and commit Slice 0 recovery authority fix (status: pending)

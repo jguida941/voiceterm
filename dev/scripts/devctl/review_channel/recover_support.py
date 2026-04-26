@@ -10,6 +10,7 @@ from ..approval_mode import normalize_approval_mode
 from ..runtime.role_profile import TandemRole
 from ..time_utils import utc_timestamp
 from .ack_contract import ACK_REVISION_REQUIREMENT_PREFIX
+from .conductor_authority import normalize_provider_names
 from .core import active_conductor_providers
 from .handoff import extract_bridge_snapshot, summarize_bridge_liveness
 from .peer_liveness import AttentionStatus, reviewer_mode_is_active
@@ -127,7 +128,7 @@ def validate_live_reviewer_session_for_recover(
 ) -> str | None:
     """Fail closed unless the current reviewer conductor is already live."""
     active_providers = active_conductor_providers(session_output_root=status_dir)
-    if reviewer_provider in active_providers:
+    if reviewer_provider in normalize_provider_names(active_providers):
         return None
     return (
         f"review-channel recover requires a live repo-owned {reviewer_provider.title()} conductor session. "

@@ -1652,6 +1652,58 @@ class ReviewChannelHelperTests(unittest.TestCase):
         self.assertFalse(any("Claude Status" in error for error in errors))
         self.assertFalse(any("Claude Ack" in error for error in errors))
 
+    def test_bridge_launch_state_resets_implementer_owned_launch_blockers(
+        self,
+    ) -> None:
+        from dev.scripts.devctl.commands.review_channel.bridge_support import (
+            bridge_launch_state,
+        )
+        from dev.scripts.devctl.review_channel.bridge_runtime_state import (
+            BridgeStateContext,
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            review_channel_path = root / "dev/active/review_channel.md"
+            review_channel_path.parent.mkdir(parents=True, exist_ok=True)
+            review_channel_path.write_text(
+                _build_review_channel_text(),
+                encoding="utf-8",
+            )
+            bridge_path = root / "bridge.md"
+            bridge_path.write_text(
+                _build_bridge_text(
+                    claude_status="- Status unavailable.",
+                    claude_ack="pending",
+                ),
+                encoding="utf-8",
+            )
+            status_dir = root / "dev/reports/review_channel/latest"
+            status_dir.mkdir(parents=True)
+            args = SimpleNamespace(
+                action="launch",
+                execution_mode="markdown-bridge",
+                refresh_bridge_heartbeat_if_stale=False,
+                dry_run=False,
+            )
+
+            result = bridge_launch_state(
+                args=args,
+                context=BridgeStateContext(
+                    repo_root=root,
+                    review_channel_path=review_channel_path,
+                    bridge_path=bridge_path,
+                    status_dir=status_dir,
+                ),
+                bridge_actions={"launch", "rollover"},
+                build_bridge_guard_report_fn=lambda **_: {"ok": True},
+            )
+
+            updated = bridge_path.read_text(encoding="utf-8")
+            self.assertIn("## Claude Status\n\n- pending", updated)
+            self.assertIn("## Claude Ack\n\n- pending", updated)
+            self.assertEqual(result.claude_lanes[0].provider, "claude")
+
     def test_validate_live_bridge_contract_requires_ack_instruction_revision(
         self,
     ) -> None:
@@ -6181,6 +6233,38 @@ class ReviewChannelWatchFollowTests(unittest.TestCase):
 
         self.assertEqual(attention["status"], "implementer_relaunch_required")
         self.assertIn("recover", attention["recommended_command"])
+
+    def test_attention_relaunches_pair_when_reviewer_conductor_is_missing(
+        self,
+    ) -> None:
+        from dev.scripts.devctl.review_channel.attention import derive_bridge_attention
+
+        liveness = {
+            "overall_state": "waiting_on_peer",
+            "codex_poll_state": "fresh",
+            "reviewer_mode": "active_dual_agent",
+            "claude_status_present": False,
+            "claude_ack_present": False,
+            "claude_ack_current": False,
+            "review_needed": False,
+            "reviewed_hash_current": True,
+            "implementer_completion_stall": False,
+            "implementer_state_pending": False,
+            "publisher_running": True,
+            "reviewer_supervisor_running": True,
+            "reviewer_freshness": "fresh",
+            "current_instruction_revision": "abcd1234ef56",
+            "last_reviewed_scope_present": True,
+            "active_conductor_providers": [],
+            "codex_conductor_active": False,
+            "claude_conductor_active": False,
+        }
+
+        attention = derive_bridge_attention(liveness)
+
+        self.assertEqual(attention["status"], "review_loop_relaunch_required")
+        self.assertIn("review-channel --action launch", attention["recommended_command"])
+        self.assertNotIn("recover", attention["recommended_command"])
 
     def test_attention_prefers_relaunch_over_implementer_reset_when_loop_is_detached(
         self,

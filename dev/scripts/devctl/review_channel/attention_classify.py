@@ -19,6 +19,7 @@ from .attention_helpers import (
     relaunch_required_contract_error,
 )
 from .attention_implementer_relaunch import classify_implementer_relaunch
+from .attention_recovery_projection import project_recover_ineligible_status
 from .launch_truth import LaunchTruthState, classify_launch_truth
 from .peer_liveness import (
     CODEX_POLL_OVERDUE_AFTER_SECONDS,
@@ -393,5 +394,5 @@ def classify_attention_status(
     for classifier in classifiers:
         status = classifier(ctx)
         if status is not None:
-            return status
+            return project_recover_ineligible_status(status, ctx)
     return AttentionStatus.HEALTHY

@@ -10,6 +10,7 @@ PLACEHOLDER_INSTRUCTION_MARKERS = (
     "stop at a safe boundary",
     "relaunch before compaction",
     "await reviewer instruction refresh",
+    "cut a checkpoint before continuing to edit",
 )
 
 

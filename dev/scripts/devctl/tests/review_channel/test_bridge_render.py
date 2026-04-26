@@ -18,6 +18,7 @@ from dev.scripts.devctl.commands.review_channel.bridge_render import (
 )
 from dev.scripts.devctl.commands.review_channel.status_bridge_sync import (
     bridge_current_session_drifted,
+    reviewer_mode_projection_drifted,
     sync_bridge_from_typed_projection_if_needed,
 )
 from dev.scripts.devctl.review_channel.bridge_projection import (
@@ -1030,6 +1031,34 @@ def test_status_bridge_sync_does_not_reverse_newer_reviewer_heartbeat(
     assert "- Last Codex poll: `2026-04-24T17:05:00Z`" in rewritten
 
 
+def test_reviewer_mode_drift_does_not_demote_active_bridge_mode() -> None:
+    drifted = reviewer_mode_projection_drifted(
+        snapshot_metadata={"reviewer_mode": "active_dual_agent"},
+        review_state_payload={
+            "bridge": {
+                "reviewer_mode": "active_dual_agent",
+                "effective_reviewer_mode": "tools_only",
+            },
+        },
+    )
+
+    assert drifted is False
+
+
+def test_reviewer_mode_drift_promotes_remote_control_effective_mode() -> None:
+    drifted = reviewer_mode_projection_drifted(
+        snapshot_metadata={"reviewer_mode": "tools_only"},
+        review_state_payload={
+            "bridge": {
+                "reviewer_mode": "tools_only",
+                "effective_reviewer_mode": "active_dual_agent",
+            },
+        },
+    )
+
+    assert drifted is True
+
+
 def test_status_bridge_sync_clears_stale_instruction_when_typed_projection_is_blank(
     tmp_path: Path,
 ) -> None:
@@ -1068,7 +1097,7 @@ def test_status_bridge_sync_clears_stale_instruction_when_typed_projection_is_bl
     assert "stale compat instruction" not in rewritten
 
 
-def test_status_bridge_sync_prefers_effective_reviewer_mode_from_typed_state(
+def test_status_bridge_sync_does_not_demote_active_bridge_mode_from_effective_state(
     tmp_path: Path,
 ) -> None:
     root = tmp_path
@@ -1096,9 +1125,8 @@ def test_status_bridge_sync_prefers_effective_reviewer_mode_from_typed_state(
     rewritten = bridge_path.read_text(encoding="utf-8")
     assert synced is True
     assert warning == ""
-    assert "- Reviewer mode: `tools_only`" in rewritten
-    assert "- Reviewer mode: `active_dual_agent`" not in rewritten
-    assert "mode: active_dual_agent" not in rewritten
+    assert "- Reviewer mode: `active_dual_agent`" in rewritten
+    assert "- Reviewer mode: `tools_only`" not in rewritten
 
 
 def test_status_bridge_sync_projects_effective_live_mode_over_stale_tools_only(

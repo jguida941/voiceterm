@@ -7,6 +7,10 @@ from pathlib import Path
 from typing import Union
 
 from ..runtime.enum_compat import StrEnum
+from .conductor_authority import (
+    conductor_signal_present,
+    live_reviewer_conductor_present,
+)
 from .peer_liveness import (
     CodexPollState,
     ReviewerFreshness,
@@ -44,17 +48,9 @@ def classify_launch_truth(bridge_liveness: dict[str, object]) -> LaunchTruthStat
         or bool(bridge_liveness.get("reviewer_supervisor_running"))
     ):
         return LaunchTruthState.RUNTIME_MISSING
-    conductor_signal_present = any(
-        key in bridge_liveness
-        for key in (
-            "active_conductor_providers",
-            "codex_conductor_active",
-            "claude_conductor_active",
-        )
-    )
-    if not conductor_signal_present:
+    if not conductor_signal_present(bridge_liveness):
         return LaunchTruthState.LIVE
-    codex_conductor_active = bool(bridge_liveness.get("codex_conductor_active"))
+    codex_conductor_active = live_reviewer_conductor_present(bridge_liveness)
     claude_conductor_active = bool(bridge_liveness.get("claude_conductor_active"))
     if not codex_conductor_active and not claude_conductor_active:
         return LaunchTruthState.DETACHED_RUNTIME_ONLY

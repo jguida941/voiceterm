@@ -5,8 +5,10 @@ from __future__ import annotations
 from collections.abc import Callable
 from pathlib import Path
 
+from ...review_channel.bridge_file import rewrite_bridge_markdown
 from ...review_channel.bridge_runtime_state import BridgeStateContext, BridgeStateResult
 from ...review_channel.bridge_validation import validate_launch_bridge_state
+from ...review_channel.instruction_reset import reset_implementer_sections
 from ...review_channel.core import (
     build_bridge_guard_report,
     ensure_launcher_prereqs,
@@ -122,6 +124,20 @@ def bridge_launch_state(
             bridge_snapshot,
             liveness=bridge_liveness_state,
         )
+        if _launch_blockers_are_implementer_owned(launch_state_errors):
+            updated_text = rewrite_bridge_markdown(
+                context.bridge_path,
+                transform=reset_implementer_sections,
+            )
+            bridge_snapshot = extract_bridge_snapshot(updated_text)
+            bridge_liveness_state = summarize_bridge_liveness(
+                bridge_snapshot,
+                current_worktree_hash=current_hash,
+            )
+            launch_state_errors = validate_launch_bridge_state(
+                bridge_snapshot,
+                liveness=bridge_liveness_state,
+            )
         if launch_state_errors:
             raise ValueError(
                 "Fresh conductor bootstrap requires a live bridge "
@@ -140,6 +156,22 @@ def bridge_launch_state(
         cursor_lanes=cursor_lanes,
         bridge_heartbeat_refresh=bridge_refresh,
         reviewer_state_write=reviewer_state_write,
+    )
+
+
+_IMPLEMENTER_OWNED_LAUNCH_ERROR_PREFIXES = (
+    "Missing live implementer status compatibility section",
+    "Missing live implementer ACK compatibility section",
+    "Live implementer ACK (`Claude Ack` compatibility heading)",
+    "Implementer status/ack compatibility sections (`Claude Status` / ",
+)
+
+
+def _launch_blockers_are_implementer_owned(errors: list[str]) -> bool:
+    """Return True only when pair launch can safely reset Claude-owned sections."""
+    return bool(errors) and all(
+        error.startswith(_IMPLEMENTER_OWNED_LAUNCH_ERROR_PREFIXES)
+        for error in errors
     )
 
 
