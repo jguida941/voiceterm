@@ -82,7 +82,7 @@ treat these rules as active workflow instructions immediately.
 - Last Codex poll (Local America/New_York): `2026-04-25 21:53:34 EDT`
 - Reviewer mode: `active_dual_agent`
 - Last non-audit worktree hash: `26d9a1c68ea2be19e017371d6130b187b9d2b310edc7ec67ed4ce25e355e5cef`
-- Current instruction revision: `57e82d9e3270`
+- Current instruction revision: ``
 
 ## Protocol
 
@@ -126,7 +126,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Claude Status
 
-- Status unavailable.
+inactive
 
 ## Claude Questions
 
@@ -138,7 +138,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Current Instruction For Claude
 
-Priority action_request: Stage and commit Slice 0 review-channel stop-loop fix
+- Await reviewer instruction refresh.
 
 ## Last Reviewed Scope
 
