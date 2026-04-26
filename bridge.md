@@ -82,7 +82,7 @@ treat these rules as active workflow instructions immediately.
 - Last Codex poll (Local America/New_York): `2026-04-25 22:05:53 EDT`
 - Reviewer mode: `active_dual_agent`
 - Last non-audit worktree hash: `c036c2c3aa33bf999633350526dd7c416c60b7a97f54bd8b21b6e078ca670b90`
-- Current instruction revision: `c87f413ea984`
+- Current instruction revision: ``
 
 ## Protocol
 
@@ -126,7 +126,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Claude Status
 
-- Status unavailable.
+assigned
 
 ## Claude Questions
 
@@ -138,7 +138,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Current Instruction For Claude
 
-Priority action_request: Regenerate instruction surfaces and rerun governed push
+- Await reviewer instruction refresh.
 
 ## Last Reviewed Scope
 
