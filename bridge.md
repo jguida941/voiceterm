@@ -78,8 +78,8 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-04-26T03:03:41Z`
-- Last Codex poll (Local America/New_York): `2026-04-25 23:03:41 EDT`
+- Last Codex poll: `2026-04-26T03:06:46Z`
+- Last Codex poll (Local America/New_York): `2026-04-25 23:06:46 EDT`
 - Reviewer mode: `active_dual_agent`
 - Last non-audit worktree hash: `3940274abf247937f0952b44f2ed88fd421a205544c30fa58606971e8f2cb1f3`
 - Current instruction revision: `8ed5d5b347b8`
@@ -122,7 +122,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Open Findings
 
-2 pending review packet(s); 475 expired unresolved review packet(s)
+1 pending review packet(s); 475 expired unresolved review packet(s)
 
 ## Claude Status
 
@@ -134,7 +134,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Claude Ack
 
-pending
+- missing
 
 ## Current Instruction For Claude
 
@@ -146,4 +146,4 @@ MP-355
 
 ## Action Requests
 
-- [rev_pkt_1918] stage_commit_pipeline: target=runtime:devctl_commit:92e433c172455d12e4ce40e9cbac87aad136558b@92e433c172455d12e4ce40e9cbac87aad136558b; Stage and commit reviewer-checkpoint projection convergence fix (status: pending)
+- No pending action requests.
