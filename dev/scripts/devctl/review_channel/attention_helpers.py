@@ -6,11 +6,13 @@ from .ack_contract import ACK_REVISION_REQUIREMENT_PREFIX
 
 _NON_REVIEWER_CONTRACT_ERROR_PREFIXES = (
     ACK_REVISION_REQUIREMENT_PREFIX,
+    "Live implementer ACK (`Claude Ack` compatibility heading) must include `instruction-rev: <current revision>`",
     "Live implementer ACK (`Claude Ack` compatibility heading) revision does not match the current reviewer instruction revision.",
     "Implementer status/ack compatibility sections (`Claude Status` / ",
 )
 _RESETTABLE_IMPLEMENTER_ERROR_PREFIXES = (
     ACK_REVISION_REQUIREMENT_PREFIX,
+    "Live implementer ACK (`Claude Ack` compatibility heading) must include `instruction-rev: <current revision>`",
     "Live implementer ACK (`Claude Ack` compatibility heading) revision does not match the current reviewer instruction revision.",
     "Implementer status/ack compatibility sections (`Claude Status` / ",
     "Reviewer mode is `active_dual_agent` but no live repo-owned Codex or Claude conductor sessions are present.",

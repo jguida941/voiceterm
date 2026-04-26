@@ -95,6 +95,7 @@ PLACEHOLDER_STATUS_MARKERS = (
     "placeholder",
     "not started",
     "pending",
+    "missing",
 )
 IDLE_FINDING_MARKERS = (
     "(none)",

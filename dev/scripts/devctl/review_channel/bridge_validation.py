@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from .ack_contract import ack_revision_requirement_message
 from ..runtime.review_state_semantics import is_pending_implementer_state
 from .bridge_validation_acceptance import review_acceptance_projection
 from .bridge_validation_poll_status import (
@@ -102,10 +103,7 @@ def validate_live_bridge_contract(snapshot) -> list[str]:
                 "so Claude ACK freshness can be checked."
             )
         elif not liveness.claude_ack_revision:
-            errors.append(
-                "Live implementer ACK (`Claude Ack` compatibility heading) must "
-                "include `instruction-rev: <current revision>` in active bridge mode."
-            )
+            errors.append(ack_revision_requirement_message())
         elif not liveness.claude_ack_current:
             errors.append(
                 "Live implementer ACK (`Claude Ack` compatibility heading) revision "

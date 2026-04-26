@@ -213,14 +213,16 @@ def build_event_current_session(
     current_instruction_revision = str(
         bridge_liveness.get("current_instruction_revision") or ""
     )
+    reused_prior_instruction = False
     if (
         not current_instruction
         and prior_session is not None
         and not clear_from_packet_truth
     ):
         current_instruction = prior_session.current_instruction
+        reused_prior_instruction = True
         current_instruction_revision = (
-            current_instruction_revision or prior_session.current_instruction_revision
+            prior_session.current_instruction_revision or current_instruction_revision
         )
     current_instruction, current_instruction_revision = _canonicalize_instruction_state(
         current_instruction,
@@ -269,6 +271,14 @@ def build_event_current_session(
         dict(bridge_liveness),
         provider=implementer_provider,
     )
+    open_findings = event_open_findings(review_state)
+    last_reviewed_scope = str(
+        _mapping(review_state.get("review")).get("plan_id") or ""
+    )
+    if reused_prior_instruction and prior_session is not None:
+        if open_findings == "none" and prior_session.open_findings:
+            open_findings = prior_session.open_findings
+        last_reviewed_scope = last_reviewed_scope or prior_session.last_reviewed_scope
     return ReviewCurrentSessionState(
         current_instruction=current_instruction,
         current_instruction_revision=current_instruction_revision,
@@ -288,10 +298,8 @@ def build_event_current_session(
         ),
         implementer_session_state=str(implementer_hint.get("state") or ""),
         implementer_session_hint=str(implementer_hint.get("summary") or ""),
-        open_findings=event_open_findings(review_state),
-        last_reviewed_scope=str(
-            _mapping(review_state.get("review")).get("plan_id") or ""
-        ),
+        open_findings=open_findings,
+        last_reviewed_scope=last_reviewed_scope,
     )
 
 

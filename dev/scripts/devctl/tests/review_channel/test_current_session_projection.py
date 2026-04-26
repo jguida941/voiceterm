@@ -132,7 +132,8 @@ def test_build_event_current_session_uses_registry_without_compat_agents() -> No
 
     assert state.current_instruction == "Fix the producer parity gap."
     assert state.implementer_status == "active"
-    assert state.implementer_ack == "acknowledged"
+    assert state.implementer_ack == ""
+    assert state.implementer_ack_state == "missing"
     assert state.last_reviewed_scope == "MP-355"
 
 
@@ -493,9 +494,9 @@ def test_build_event_current_session_clears_prior_instruction_when_queue_is_empt
 
     assert state.current_instruction == "Keep the checkpoint lane stable."
     assert state.current_instruction_revision == "typed-rev-999"
-    assert state.implementer_ack == "acknowledged"
+    assert state.implementer_ack == ""
     assert state.implementer_ack_revision == ""
-    assert state.implementer_ack_state == "stale"
+    assert state.implementer_ack_state == "missing"
     assert state.implementer_status == "active"
 
 

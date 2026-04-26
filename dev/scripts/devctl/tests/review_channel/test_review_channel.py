@@ -5988,6 +5988,39 @@ class ReviewChannelWatchFollowTests(unittest.TestCase):
         )
         self.assertEqual(attention["status"], "bridge_contract_error")
 
+    def test_attention_routes_ack_contract_error_to_implementer_ack_state(self) -> None:
+        from dev.scripts.devctl.review_channel.ack_contract import (
+            ack_revision_requirement_message,
+        )
+        from dev.scripts.devctl.review_channel.attention import derive_bridge_attention
+
+        liveness = {
+            "overall_state": "waiting_on_peer",
+            "codex_poll_state": "fresh",
+            "reviewer_mode": "active_dual_agent",
+            "claude_status_present": True,
+            "claude_ack_present": True,
+            "claude_ack_current": False,
+            "review_needed": False,
+            "reviewed_hash_current": True,
+            "implementer_completion_stall": False,
+            "publisher_running": True,
+            "reviewer_supervisor_running": True,
+            "reviewer_freshness": "fresh",
+            "codex_conductor_active": True,
+            "claude_conductor_active": True,
+            "current_instruction": "- Cut a checkpoint.",
+            "current_instruction_revision": "abc12345def6",
+            "last_reviewed_scope_present": True,
+        }
+
+        attention = derive_bridge_attention(
+            liveness,
+            contract_errors=[ack_revision_requirement_message()],
+        )
+
+        self.assertEqual(attention["status"], "claude_ack_stale")
+
     def test_attention_treats_pending_implementer_reset_as_waiting_on_peer(
         self,
     ) -> None:
@@ -16332,6 +16365,16 @@ class TestPlaceholderStatusDetection(unittest.TestCase):
         liveness = summarize_bridge_liveness(snapshot)
         self.assertTrue(liveness.claude_status_present)
         self.assertTrue(liveness.claude_ack_present)
+
+    def test_liveness_treats_missing_claude_ack_placeholder_as_absent(self) -> None:
+        snapshot = self._make_snapshot(
+            claude_status="- waiting_for_ack",
+            claude_ack="- missing",
+        )
+        liveness = summarize_bridge_liveness(snapshot)
+        self.assertTrue(liveness.claude_status_present)
+        self.assertFalse(liveness.claude_ack_present)
+        self.assertFalse(liveness.claude_ack_current)
 
     def test_launch_validation_rejects_placeholder_claude_sections(self) -> None:
         snapshot = self._make_snapshot(
