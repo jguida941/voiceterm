@@ -3104,6 +3104,11 @@ class ReviewChannelWatchFollowTests(unittest.TestCase):
         second = json.loads(emitted[2])
         exited = json.loads(emitted[3])
         self.assertEqual(started["frame_type"], "watch_started")
+        self.assertNotIn("parent_pid", started["watcher"])
+        self.assertEqual(
+            started["watcher"]["stop_command"],
+            f"kill {started['watcher']['pid']}",
+        )
         self.assertEqual(first["snapshot_seq"], 0)
         self.assertEqual(second["snapshot_seq"], 1)
         self.assertEqual(first["frame_type"], "watch_snapshot")
@@ -3179,6 +3184,69 @@ class ReviewChannelWatchFollowTests(unittest.TestCase):
         )
         self.assertEqual(exited["frame_type"], "watch_exit")
         self.assertEqual(exited["stop_reason"], "keyboard_interrupt")
+
+    def test_watch_follow_exits_on_inactivity_timeout(self) -> None:
+        args = self._build_follow_args(
+            max_follow_snapshots=0,
+            follow_interval_seconds=10,
+            follow_inactivity_timeout_seconds=20,
+        )
+        bundle = _build_event_bundle_for_test(["pkt-1"])
+        emitted: list[str] = []
+
+        def fake_emit_output(
+            content: str,
+            *,
+            output_path: str | None,
+            pipe_command: str | None,
+            pipe_args: list[str] | None,
+            announce_output_path: bool = True,
+            writer=None,
+            stdout_content: str | None = None,
+            piper=None,
+            additional_outputs=None,
+        ) -> int:
+            emitted.append(content)
+            return 0
+
+        with (
+            patch.object(
+                review_channel_follow_stream,
+                "emit_output",
+                side_effect=fake_emit_output,
+            ),
+            patch.object(review_channel_event_handler.time, "sleep", return_value=None),
+            patch.object(
+                review_channel_event_handler,
+                "load_or_refresh_event_bundle",
+                return_value=bundle,
+            ),
+            patch.object(
+                review_channel_event_handler,
+                "refresh_event_bundle",
+                return_value=bundle,
+            ),
+        ):
+            report, rc = review_channel_event_handler._run_watch_follow(
+                args=args,
+                repo_root=Path("/tmp/repo"),
+                review_channel_path=Path("/tmp/repo/dev/active/review_channel.md"),
+                artifact_paths=bundle.artifact_paths,
+            )
+
+        self.assertEqual(rc, 0)
+        self.assertTrue(report["_already_emitted"])
+        self.assertEqual(report["snapshots_emitted"], 1)
+        self.assertEqual(len(emitted), 5)
+        heartbeats = [json.loads(emitted[2]), json.loads(emitted[3])]
+        exited = json.loads(emitted[4])
+        self.assertEqual(
+            [frame["frame_type"] for frame in heartbeats],
+            ["watch_heartbeat", "watch_heartbeat"],
+        )
+        self.assertEqual([frame["unchanged_polls"] for frame in heartbeats], [1, 2])
+        self.assertEqual(exited["frame_type"], "watch_exit")
+        self.assertEqual(exited["stop_reason"], "inactivity_timeout")
 
     def test_watch_follow_honors_explicit_follow_interval_seconds(self) -> None:
         args = self._build_follow_args(

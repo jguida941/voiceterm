@@ -5,6 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
+from ...review_channel.watch_lifecycle import WATCHER_KILL_WARNING
+
 
 @dataclass(frozen=True)
 class WatchFollowFrameSpec:
@@ -106,14 +108,19 @@ def _watcher_payload(
     if owner is not None:
         return {
             "pid": owner.pid,
-            "parent_pid": owner.parent_pid,
             "state_path": str(owner.state_path),
             "started_at_utc": owner.started_at_utc,
+            "stop_command": f"kill {owner.pid}",
+            "supervisor_warning": WATCHER_KILL_WARNING,
         }
     conflict = conflict or {}
+    pid = int(conflict.get("pid", 0) or 0)
     return {
-        "pid": int(conflict.get("pid", 0) or 0),
-        "parent_pid": int(conflict.get("parent_pid", 0) or 0),
+        "pid": pid,
         "state_path": str(conflict_state_path or ""),
         "started_at_utc": str(conflict.get("started_at_utc") or ""),
+        "stop_command": str(conflict.get("stop_command") or f"kill {pid}").strip(),
+        "supervisor_warning": str(
+            conflict.get("supervisor_warning") or WATCHER_KILL_WARNING
+        ).strip(),
     }

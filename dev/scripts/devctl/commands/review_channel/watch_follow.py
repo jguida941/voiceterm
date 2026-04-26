@@ -74,6 +74,7 @@ def run_watch_follow(
         owner=owner,
         interval=watch_follow_interval_seconds(args),
         max_snapshots=getattr(args, "max_follow_snapshots", 0) or 0,
+        inactivity_timeout_seconds=watch_follow_inactivity_timeout_seconds(args),
         deps=deps,
     )
 
@@ -83,3 +84,8 @@ def watch_follow_interval_seconds(args) -> int:
     if configured > 0:
         return max(1, configured)
     return max(5, (getattr(args, "stale_minutes", 30) * 60) // 6)
+
+
+def watch_follow_inactivity_timeout_seconds(args) -> int:
+    configured = int(getattr(args, "follow_inactivity_timeout_seconds", 0) or 0)
+    return max(0, configured)

@@ -24,6 +24,7 @@ class WatchFollowRuntimeContext:
     owner: object
     interval: int
     max_snapshots: int
+    inactivity_timeout_seconds: int
     deps: object
 
 

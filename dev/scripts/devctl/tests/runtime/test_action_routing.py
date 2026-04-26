@@ -58,6 +58,23 @@ def test_build_startup_action_routing_filters_mutating_observer_command() -> Non
     assert "vcs.push" in decision.blocked_actions
 
 
+def test_build_startup_action_routing_filters_runtime_control_observer_command() -> None:
+    decision = build_startup_action_routing(
+        {
+            "implementation_permission": "blocked",
+            "coordination": {"resync_required": True},
+        },
+        next_command=(
+            "python3 dev/scripts/devctl.py review-channel --action ensure "
+            "--follow --terminal none --format json --execution-mode markdown-bridge "
+            "--follow-inactivity-timeout-seconds 0"
+        ),
+        caller_role="observer",
+    )
+
+    assert decision.next_command == READ_ONLY_NEXT_COMMAND
+
+
 def test_build_startup_action_routing_blocks_when_work_intake_requires_resync() -> None:
     payload = {
         "work_intake": {

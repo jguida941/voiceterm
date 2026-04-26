@@ -12,6 +12,11 @@ from typing import TextIO
 from .lifecycle_state import _pid_is_alive
 from .watch_paths import watch_key, watch_state_path
 
+WATCHER_KILL_WARNING = (
+    "Kill only the watcher pid unless you intentionally want to terminate the "
+    "launching CLI session."
+)
+
 
 @dataclass(frozen=True)
 class WatchLifecycleOwner:
@@ -44,12 +49,13 @@ class WatchLifecycleState:
     target: str
     status_filter: str
     pid: int
-    parent_pid: int
     started_at_utc: str
     last_heartbeat_utc: str
     snapshots_emitted: int
     stop_reason: str
     stopped_at_utc: str
+    stop_command: str
+    supervisor_warning: str
 
 
 def claim_watch_lifecycle(
@@ -168,12 +174,13 @@ def _write_watch_state(
             target=owner.target,
             status_filter=owner.status_filter,
             pid=owner.pid,
-            parent_pid=owner.parent_pid,
             started_at_utc=owner.started_at_utc,
             last_heartbeat_utc=last_heartbeat_utc,
             snapshots_emitted=snapshots_emitted,
             stop_reason=stop_reason,
             stopped_at_utc=stopped_at_utc,
+            stop_command=f"kill {owner.pid}",
+            supervisor_warning=WATCHER_KILL_WARNING,
         )
     )
     owner.lock_handle.seek(0)

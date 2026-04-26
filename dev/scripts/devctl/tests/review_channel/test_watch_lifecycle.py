@@ -8,6 +8,7 @@ import unittest
 from pathlib import Path
 
 from dev.scripts.devctl.review_channel.watch_lifecycle import (
+    WATCHER_KILL_WARNING,
     claim_watch_lifecycle,
     release_watch_lifecycle,
     watch_state_path,
@@ -54,6 +55,9 @@ class WatchLifecycleTests(unittest.TestCase):
             self.assertEqual(payload["snapshots_emitted"], 1)
             self.assertEqual(payload["stop_reason"], "keyboard_interrupt")
             self.assertEqual(payload["last_heartbeat_utc"], "2026-04-14T15:00:03Z")
+            self.assertNotIn("parent_pid", payload)
+            self.assertEqual(payload["stop_command"], f"kill {payload['pid']}")
+            self.assertEqual(payload["supervisor_warning"], WATCHER_KILL_WARNING)
 
 
 if __name__ == "__main__":

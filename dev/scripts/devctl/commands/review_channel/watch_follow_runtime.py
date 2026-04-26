@@ -140,6 +140,7 @@ def run_claimed_watch_follow(
             ok=stop_reason in {
                 "completed",
                 "keyboard_interrupt",
+                "inactivity_timeout",
                 "max_follow_snapshots_reached",
             },
         ),
@@ -161,6 +162,10 @@ def run_watch_follow_loop(
             owner=legacy_kwargs["owner"],
             interval=legacy_kwargs["interval"],
             max_snapshots=legacy_kwargs["max_snapshots"],
+            inactivity_timeout_seconds=legacy_kwargs.get(
+                "inactivity_timeout_seconds",
+                0,
+            ),
             deps=legacy_kwargs["deps"],
         )
     if state is None:
@@ -174,6 +179,7 @@ def run_watch_follow_loop(
     stop_reason = "completed"
     poll_seq = 0
     unchanged_polls = 0
+    unchanged_elapsed_seconds = 0
     while ctx.max_snapshots == 0 or state.emitted_count < ctx.max_snapshots:
         ctx.deps.sleep_fn(ctx.interval)
         poll_seq += 1
@@ -212,8 +218,10 @@ def run_watch_follow_loop(
         changed = cur_signature != state.prev_signature
         if changed:
             unchanged_polls = 0
+            unchanged_elapsed_seconds = 0
         else:
             unchanged_polls += 1
+            unchanged_elapsed_seconds += ctx.interval
         pipe_rc = emit_watch_frame(
             args=ctx.args,
             deps=ctx.deps,
@@ -251,6 +259,13 @@ def run_watch_follow_loop(
             snapshots_emitted=state.emitted_count,
             heartbeat_utc=ctx.deps.utc_timestamp_fn(),
         )
+        if (
+            not changed
+            and ctx.inactivity_timeout_seconds > 0
+            and unchanged_elapsed_seconds >= ctx.inactivity_timeout_seconds
+        ):
+            stop_reason = "inactivity_timeout"
+            break
     if (
         stop_reason == "completed"
         and ctx.max_snapshots != 0
