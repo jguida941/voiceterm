@@ -6,7 +6,10 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from ...runtime.review_snapshot_refresh import receipt_commit_parent_sha
+from ...runtime.review_snapshot_refresh import (
+    receipt_commit_ancestor_shas,
+    receipt_commit_parent_sha,
+)
 
 HEAD_MOVEMENT_AUTHORIZED = "authorized_head"
 HEAD_MOVEMENT_MANAGED_RECEIPT = "managed_receipt"
@@ -37,8 +40,15 @@ def managed_receipt_parent_for_current_head(
         current_head=current_head,
         governance=None,
     )
-    if parent_sha in _pipeline_head_candidates(payload):
-        return parent_sha
+    candidates = _pipeline_head_candidates(payload)
+    receipt_ancestors = receipt_commit_ancestor_shas(
+        repo_root=repo_root,
+        current_head=current_head,
+        governance=None,
+    )
+    for candidate in (*receipt_ancestors, parent_sha):
+        if candidate in candidates:
+            return candidate
     return ""
 
 

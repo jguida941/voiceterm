@@ -210,6 +210,7 @@ Release-governance note:
 | Where is the 2026-04-17 commit/push next-command convergence closure documented (same-HEAD active pipeline blocks auto-refresh authorization, commit preflight emits exact next commands, and commit permission reports project recovery fields at top level)? | `dev/history/ENGINEERING_EVOLUTION.md` 2026-04-17 entry "Active commit/push pipeline blocks now self-heal same-HEAD authorization and project exact next commands" |
 | Where is the 2026-04-22 stale-pipeline auto-recovery closure documented (`devctl pipeline --action auto-recover` classifies abandon/recover/refresh/no-op/ambiguous and writes `PipelineAutoRecoveryReceipt`)? | `dev/scripts/devctl/commands/pipeline/auto_recover_action.py` and `dev/scripts/devctl/commands/pipeline/auto_recover_result.py` for runtime behavior, `dev/scripts/devctl/runtime/pipeline_auto_recovery_contracts.py` for typed contracts, plus `dev/history/ENGINEERING_EVOLUTION.md` 2026-04-22 entry "Pipeline auto-recover removes stale-pipeline manual selection" |
 | Where is the 2026-04-23 ADR-008 governed projection cleanup closure documented (`devctl push` commits bridge-only managed projection drift as a receipt before publication, and pipeline status treats that receipt HEAD as managed movement)? | `dev/scripts/devctl/commands/vcs/push_projection_receipt.py` for the narrow receipt helper, `dev/scripts/devctl/runtime/review_snapshot_refresh.py` for bridge-only receipt recognition, `dev/scripts/devctl/commands/pipeline/head_movement.py` / `status_action.py` for receipt-aware pipeline HEAD movement, and `dev/history/ENGINEERING_EVOLUTION.md` 2026-04-23 entries "Governed push now receipts managed bridge projection drift before publication" and "Pipeline status now distinguishes managed receipt HEAD movement" |
+| Where is the 2026-04-26 governed-push receipt-chain closure documented (`devctl push`, pipeline status, startup push state, and push authorization all accept contiguous managed bridge/ReviewSnapshot receipt commits above the authorized content commit and refresh typed projection bundles after receipt movement)? | `dev/scripts/devctl/runtime/review_snapshot_refresh.py` for receipt-chain detection, `dev/scripts/devctl/runtime/push_authorization.py` / `dev/scripts/devctl/governance/push_state_authorization.py` for authorization matching, `dev/scripts/devctl/commands/vcs/push_preflight_projection.py` for post-receipt projection refresh, and `dev/history/ENGINEERING_EVOLUTION.md` 2026-04-26 entry "Governed push accepts managed receipt chains before publication" |
 | Where is the Ralph guardrail remediation/control-plane plan? | `dev/active/ralph_guardrail_control_plane.md` |
 | Where is the heuristic review-probe execution plan? | `dev/active/review_probes.md` |
 | Where is the code-shape expansion research companion (readability, coupling, AI-specific, information-theoretic probes/guards)? | `dev/active/code_shape_expansion.md` (subordinate evidence/calibration companion feeding `dev/active/review_probes.md` Phase 5b+, not a second execution authority) |
@@ -1442,10 +1443,14 @@ false positives, and fixes real issues — then re-runs CodeRabbit to verify.
    unless the nested push came from `devctl push --execute`, so raw commits
    still produce the same receipt shape while raw publication stays on the
    governed path. The governed push path accepts that receipt shape when the
-   receipt HEAD's parent matches the active
-   `PushAuthorizationRecord`; stale detached pipeline records are ignored in
-   `single_agent` mode, while active dual-agent and current pipeline targets
-   still require exact typed authorization. The typed ReviewSnapshot surface
+   receipt HEAD, or any contiguous managed bridge/ReviewSnapshot receipt
+   ancestor above it, leads back to the active `PushAuthorizationRecord`;
+   stale detached pipeline records are ignored in `single_agent` mode, while
+   active dual-agent and current pipeline targets still require exact typed
+   authorization. After a managed receipt moves HEAD, `devctl push` refreshes
+   the event-backed review-channel projection bundle plus startup/context-graph
+   surfaces before trusting preflight or publication authorization. The typed
+   ReviewSnapshot surface
    now also carries first-class probe run-state/artifact refs plus current
    push receipt/authorization refs so external review consumers can cite
    emitted evidence instead of command-only prose.

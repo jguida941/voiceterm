@@ -3310,6 +3310,22 @@ Phase metadata: phase_id=MP377-P0; owner_doc=`dev/active/ai_governance_platform.
       owner_doc: `dev/active/ai_governance_platform.md`
       status: `done`
       depends_on: `MP377-P0-T01`, `MP377-P0-T04`
+- [x] `MP377-P0-T07` Stabilize governed push after managed projection receipts: receipt chains must not invalidate their own `PushAuthorizationRecord`, and receipt-time projection refresh must keep review-state, compact, commit-pipeline, startup, and context-graph surfaces on one proof tick before preflight/publication checks.
+      owner_doc: `dev/active/remote_commit_pipeline.md`
+      status: `done`
+      depends_on: `MP377-P0-T05`
+- [ ] `MP377-P0-T08` Extend `PlatformFindingIngest` for finding durability without distraction: every review-channel finding and ad-hoc capture must mirror into `FindingBacklog` / `governance-review` with severity, plan anchor, evidence ref, lifecycle outcome, stale-pending visibility, dashboard counts, startup `quality_signals.open_findings_summary`, and findings-priority ordering. This extends the existing finding spine only.
+      owner_doc: `dev/active/ai_governance_platform.md`
+      status: `in_progress`
+      depends_on: `MP377-P0-T01`, `MP377-P0-T06`
+- [ ] `MP377-P0-T09` Add `CodexAgentPollLoop` as the consumer loop for Codex-targeted packets: poll `review-channel inbox --target codex --status pending` on cadence, handle findings at slice-boundary/non-critical cadence, route action_requests through typed preconditions, emit dogfood rows per tick, and write superseded outcomes for satisfied asks through the Slice B reducer.
+      owner_doc: `dev/active/remote_control_runtime.md`
+      status: `queued`
+      depends_on: `MP377-P0-T08`, `MP377-P1-T06`
+- [ ] `MP377-P0-T10` Extend remote-control caller authority for automation-loop mode switching and session spawning: an automation_loop caller with an operator-scope stamp must be able to request `launch`, `recover`, reviewer-mode changes, and `spawn_codex_implementer` through existing caller-class policy, `agent_lane.permissions`, and `review-channel --action launch` typed contracts without requiring a local TTY prompt.
+      owner_doc: `dev/active/remote_control_runtime.md`
+      status: `queued`
+      depends_on: `MP377-P0-T05`, `MP377-P1-T08`
 
 ### Phase P1 - Typed Plan Ingestion And Registry Projection
 
@@ -5639,6 +5655,20 @@ working on `MP-377`.
   Remote-control recovery also now fails closed before local Terminal.app UI
   can appear, keeping Claude/operator remote-control lanes on typed headless
   commands rather than invisible local prompts.
+- 2026-04-26 Plan 4.1 Slice 0 governed-push closeout:
+  the live push blocker is now narrowed to fresh approval rather than
+  self-invalidating state. Managed bridge/ReviewSnapshot receipt chains are
+  read as authorized movement when they descend from the approved commit, and
+  push preflight refreshes event-backed review-channel projections after a
+  receipt commit before proof-tick parity checks run. Keep the next work in
+  the existing Plan 4.1 spine: extend `PlatformFindingIngest` /
+  `FindingBacklog` / `governance-review` / `findings-priority` /
+  `AutoModeState` / dashboard / `startup-context.quality_signals` for
+  finding durability with non-distraction; add `CodexAgentPollLoop` as the
+  Slice A consumer of Codex-targeted packets and dogfood ticks; extend
+  caller-class policy plus `review-channel --action launch` for remote-control
+  mode switching and implementer spawning. Do not introduce parallel finding,
+  scheduling, or launcher systems.
 - 2026-04-18 consolidation-plan authoring follow-up:
   `MP-377` now explicitly absorbs the one-plan consolidation campaign instead
   of spawning another active plan. The new bounded lane is `MP-388..MP-397`:

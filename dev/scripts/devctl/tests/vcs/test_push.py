@@ -10,10 +10,12 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 from dev.scripts.devctl.cli import build_parser
-from dev.scripts.devctl.commands.vcs import push
-from dev.scripts.devctl.commands.vcs import push_preflight_projection
-from dev.scripts.devctl.commands.vcs import push_preflight_commit
-from dev.scripts.devctl.commands.vcs import push_projection_receipt
+from dev.scripts.devctl.commands.vcs import (
+    push,
+    push_preflight_commit,
+    push_preflight_projection,
+    push_projection_receipt,
+)
 from dev.scripts.devctl.commands.vcs.governed_executor_push_result import (
     project_push_report,
 )
@@ -157,7 +159,7 @@ class PushCommandTests(unittest.TestCase):
         self.preflight_status_mock = self._preflight_status_patcher.start()
         self.addCleanup(self._preflight_status_patcher.stop)
         self._projection_receipt_patcher = patch(
-            "dev.scripts.devctl.commands.vcs.push.auto_commit_managed_projection_receipt"
+            "dev.scripts.devctl.commands.vcs.push_preflight_projection.auto_commit_managed_projection_receipt"
         )
         self.projection_receipt_mock = self._projection_receipt_patcher.start()
         self.addCleanup(self._projection_receipt_patcher.stop)
@@ -170,7 +172,9 @@ class PushCommandTests(unittest.TestCase):
         self.addCleanup(self._review_snapshot_refresh_patcher.stop)
 
     @patch("dev.scripts.devctl.commands.vcs.push_executor_routing.emit_output")
-    @patch("dev.scripts.devctl.commands.vcs.push_executor_routing.load_latest_push_report")
+    @patch(
+        "dev.scripts.devctl.commands.vcs.push_executor_routing.load_latest_push_report"
+    )
     @patch("dev.scripts.devctl.commands.vcs.push.remote_exists", return_value=True)
     @patch("dev.scripts.devctl.commands.vcs.push.collect_git_status")
     @patch("dev.scripts.devctl.commands.vcs.push.load_push_policy")
@@ -213,13 +217,17 @@ class PushCommandTests(unittest.TestCase):
         fake_executor.execute.assert_called_once()
         emit_output_mock.assert_called_once()
 
-    @patch("dev.scripts.devctl.commands.vcs.push_pipeline_recovery.apply_refresh_authorization")
+    @patch(
+        "dev.scripts.devctl.commands.vcs.push_pipeline_recovery.apply_refresh_authorization"
+    )
     @patch(
         "dev.scripts.devctl.commands.vcs.push_pipeline_recovery.current_head_commit_sha",
         return_value="abc123",
     )
     @patch("dev.scripts.devctl.commands.vcs.push_executor_routing.emit_output")
-    @patch("dev.scripts.devctl.commands.vcs.push_executor_routing.load_latest_push_report")
+    @patch(
+        "dev.scripts.devctl.commands.vcs.push_executor_routing.load_latest_push_report"
+    )
     @patch("dev.scripts.devctl.commands.vcs.push.remote_exists", return_value=True)
     @patch("dev.scripts.devctl.commands.vcs.push.collect_git_status")
     @patch("dev.scripts.devctl.commands.vcs.push.load_push_policy")
@@ -285,8 +293,13 @@ class PushCommandTests(unittest.TestCase):
         apply_refresh_authorization_mock.assert_called_once()
         fake_executor.execute.assert_called_once()
 
-    @patch("dev.scripts.devctl.commands.vcs.push_executor_routing.emit_output", return_value=7)
-    @patch("dev.scripts.devctl.commands.vcs.push_executor_routing.load_latest_push_report")
+    @patch(
+        "dev.scripts.devctl.commands.vcs.push_executor_routing.emit_output",
+        return_value=7,
+    )
+    @patch(
+        "dev.scripts.devctl.commands.vcs.push_executor_routing.load_latest_push_report"
+    )
     @patch("dev.scripts.devctl.commands.vcs.push.remote_exists", return_value=True)
     @patch("dev.scripts.devctl.commands.vcs.push.collect_git_status")
     @patch("dev.scripts.devctl.commands.vcs.push.load_push_policy")
@@ -328,7 +341,9 @@ class PushCommandTests(unittest.TestCase):
         self.assertEqual(rc, 7)
 
     @patch("dev.scripts.devctl.commands.vcs.push_executor_routing.emit_output")
-    @patch("dev.scripts.devctl.commands.vcs.push_executor_routing.load_latest_push_report")
+    @patch(
+        "dev.scripts.devctl.commands.vcs.push_executor_routing.load_latest_push_report"
+    )
     @patch("dev.scripts.devctl.commands.vcs.push.remote_exists", return_value=True)
     @patch("dev.scripts.devctl.commands.vcs.push.collect_git_status")
     @patch("dev.scripts.devctl.commands.vcs.push.load_push_policy")
@@ -478,6 +493,63 @@ class PushCommandTests(unittest.TestCase):
         self.assertEqual(state["recommended_action"], "commit_before_push")
         self.assertEqual(state["checkpoint_reason"], "within_dirty_budget")
         self.assertEqual(state["publication_backlog_state"], "none")
+
+    def test_detect_push_enforcement_matches_authorized_receipt_chain(self) -> None:
+        def _fake_git_stdout(_repo_root, *cmd):
+            values = {
+                ("rev-parse", "--git-path", "hooks/pre-push"): "",
+                ("rev-parse", "--abbrev-ref", "HEAD"): "feature/demo",
+                ("rev-parse", "HEAD"): "receipt-2",
+                (
+                    "rev-parse",
+                    "--abbrev-ref",
+                    "--symbolic-full-name",
+                    "@{u}",
+                ): "origin/feature/demo",
+                ("rev-list", "--count", "origin/feature/demo..HEAD"): "1",
+                ("status", "--porcelain", "--untracked-files=all"): "",
+            }
+            return values.get(cmd, "")
+
+        pipeline = SimpleNamespace(
+            approved_target_identity="tree-receipt-20260403T010000Z:tree-123",
+            worktree_identity="",
+            push_authorization=SimpleNamespace(
+                authorization_id="push-auth-20260403T010000Z",
+                approval_mode="commit_pipeline_approval",
+                authorized_head_sha="head-old",
+                expires_at_utc="",
+                approved_target_identity="tree-receipt-20260403T010000Z:tree-123",
+                worktree_identity="",
+                guard_status="pass",
+            ),
+        )
+
+        with (
+            patch(
+                "dev.scripts.devctl.governance.push_state.lookup_push_receipt",
+                return_value=None,
+            ),
+            patch(
+                "dev.scripts.devctl.governance.push_state.load_latest_push_report",
+                return_value=None,
+            ),
+            patch(
+                "dev.scripts.devctl.governance.push_state.load_remote_commit_pipeline_contract",
+                return_value=pipeline,
+            ),
+            patch(
+                "dev.scripts.devctl.governance.push_state.receipt_commit_ancestor_shas",
+                return_value=("receipt-1", "head-old"),
+            ),
+            patch(
+                "dev.scripts.devctl.governance.push_state._git_stdout",
+                side_effect=_fake_git_stdout,
+            ),
+        ):
+            state = detect_push_enforcement_state(make_policy())
+
+        self.assertTrue(state["current_push_authorization_matches_current_head"])
 
     @patch(
         "dev.scripts.devctl.governance.push_state.lookup_push_receipt",
@@ -823,9 +895,7 @@ class PushCommandTests(unittest.TestCase):
     )
     @patch(
         "dev.scripts.devctl.governance.push_state.load_remote_commit_pipeline_contract",
-        return_value=SimpleNamespace(
-            approved_target_identity=""
-        ),
+        return_value=SimpleNamespace(approved_target_identity=""),
     )
     @patch(
         "dev.scripts.devctl.governance.push_state.load_latest_push_report",
@@ -960,7 +1030,9 @@ class PushCommandTests(unittest.TestCase):
         "dev.scripts.devctl.commands.vcs.push.branch_divergence",
         return_value={"behind": 0, "ahead": 2, "error": None},
     )
-    @patch("dev.scripts.devctl.commands.vcs.push.remote_branch_exists", return_value=True)
+    @patch(
+        "dev.scripts.devctl.commands.vcs.push.remote_branch_exists", return_value=True
+    )
     @patch("dev.scripts.devctl.commands.vcs.push.remote_exists", return_value=True)
     @patch("dev.scripts.devctl.commands.vcs.push.load_push_policy")
     @patch("dev.scripts.devctl.commands.vcs.push.collect_git_status")
@@ -1022,7 +1094,9 @@ class PushCommandTests(unittest.TestCase):
         )
         payload = json.loads(write_output_mock.call_args.args[0])
         self.assertEqual(payload["status"], "validation_ready")
-        self.assertEqual(payload["artifacts"]["latest_json"], "dev/reports/push/latest.json")
+        self.assertEqual(
+            payload["artifacts"]["latest_json"], "dev/reports/push/latest.json"
+        )
         self.assertEqual(
             payload["push_authorization_id"],
             "push-auth-20260403T010000Z",
@@ -1055,7 +1129,9 @@ class PushCommandTests(unittest.TestCase):
         "dev.scripts.devctl.commands.vcs.push.branch_divergence",
         return_value={"behind": 0, "ahead": 0, "error": None},
     )
-    @patch("dev.scripts.devctl.commands.vcs.push.remote_branch_exists", return_value=True)
+    @patch(
+        "dev.scripts.devctl.commands.vcs.push.remote_branch_exists", return_value=True
+    )
     @patch("dev.scripts.devctl.commands.vcs.push.remote_exists", return_value=True)
     @patch("dev.scripts.devctl.commands.vcs.push.load_push_policy")
     @patch("dev.scripts.devctl.commands.vcs.push.collect_git_status")
@@ -1113,7 +1189,9 @@ class PushCommandTests(unittest.TestCase):
         "dev.scripts.devctl.commands.vcs.push.branch_divergence",
         return_value={"behind": 0, "ahead": 0, "error": None},
     )
-    @patch("dev.scripts.devctl.commands.vcs.push.remote_branch_exists", return_value=True)
+    @patch(
+        "dev.scripts.devctl.commands.vcs.push.remote_branch_exists", return_value=True
+    )
     @patch("dev.scripts.devctl.commands.vcs.push.remote_exists", return_value=True)
     @patch("dev.scripts.devctl.commands.vcs.push.load_push_policy")
     @patch("dev.scripts.devctl.commands.vcs.push.collect_git_status")
@@ -1169,7 +1247,9 @@ class PushCommandTests(unittest.TestCase):
         "dev.scripts.devctl.commands.vcs.push.build_preflight_shell_command",
         return_value="python3 dev/scripts/devctl.py check-router --since-ref origin/develop --execute",
     )
-    @patch("dev.scripts.devctl.commands.vcs.push.remote_branch_exists", return_value=False)
+    @patch(
+        "dev.scripts.devctl.commands.vcs.push.remote_branch_exists", return_value=False
+    )
     @patch("dev.scripts.devctl.commands.vcs.push.remote_exists", return_value=True)
     @patch("dev.scripts.devctl.commands.vcs.push.load_push_policy")
     @patch("dev.scripts.devctl.commands.vcs.push.collect_git_status")
@@ -1243,7 +1323,15 @@ class PushCommandTests(unittest.TestCase):
         self.assertEqual(rc, 0)
         executed = [call.args[1] for call in run_cmd_mock.call_args_list]
         self.assertIn(
-            ["git", "-c", "devctl.governed-push=true", "push", "--set-upstream", "origin", "feature/demo"],
+            [
+                "git",
+                "-c",
+                "devctl.governed-push=true",
+                "push",
+                "--set-upstream",
+                "origin",
+                "feature/demo",
+            ],
             executed,
         )
         _post_push_commands_mock.assert_called_once_with(
@@ -1253,7 +1341,9 @@ class PushCommandTests(unittest.TestCase):
         )
         payload = json.loads(write_output_mock.call_args.args[0])
         self.assertEqual(payload["status"], "post_push_green")
-        self.assertEqual(payload["artifacts"]["latest_json"], "dev/reports/push/latest.json")
+        self.assertEqual(
+            payload["artifacts"]["latest_json"], "dev/reports/push/latest.json"
+        )
         self.assertEqual(
             payload["push_authorization_mode"],
             "commit_pipeline_approval",
@@ -1320,7 +1410,9 @@ class PushCommandTests(unittest.TestCase):
         "dev.scripts.devctl.commands.vcs.push.branch_divergence",
         return_value={"behind": 0, "ahead": 1, "error": None},
     )
-    @patch("dev.scripts.devctl.commands.vcs.push.remote_branch_exists", return_value=True)
+    @patch(
+        "dev.scripts.devctl.commands.vcs.push.remote_branch_exists", return_value=True
+    )
     @patch("dev.scripts.devctl.commands.vcs.push.remote_exists", return_value=True)
     @patch("dev.scripts.devctl.commands.vcs.push.load_push_policy")
     @patch("dev.scripts.devctl.commands.vcs.push.collect_git_status")
@@ -1441,7 +1533,9 @@ class PushBridgeSyncTests(unittest.TestCase):
         )
         advisory_mock.assert_called_once()
 
-    def test_run_fetch_and_preflight_refreshes_projection_before_preflight(self) -> None:
+    def test_run_fetch_and_preflight_refreshes_projection_before_preflight(
+        self,
+    ) -> None:
         state = push.PushRunState(branch="feature/demo", remote="origin")
         policy = make_policy()
         args = make_args()
@@ -1547,10 +1641,12 @@ class PushBridgeSyncTests(unittest.TestCase):
                 side_effect=_projection_receipt,
             ),
         ):
-            result = push_preflight_projection.refresh_managed_projections_before_preflight(
-                state,
-                policy,
-                repo_root=Path("/tmp/repo"),
+            result = (
+                push_preflight_projection.refresh_managed_projections_before_preflight(
+                    state,
+                    policy,
+                    repo_root=Path("/tmp/repo"),
+                )
             )
 
         self.assertEqual(calls, ["review-snapshot-refresh", "projection-receipt"])
@@ -1565,7 +1661,9 @@ class PushBridgeSyncTests(unittest.TestCase):
             },
         )
 
-    def test_refresh_managed_projections_refreshes_system_picture_after_receipt(self) -> None:
+    def test_refresh_managed_projections_refreshes_system_picture_after_receipt(
+        self,
+    ) -> None:
         state = push.PushRunState(branch="feature/demo", remote="origin")
         policy = make_policy()
         calls: list[str] = []
@@ -1594,11 +1692,13 @@ class PushBridgeSyncTests(unittest.TestCase):
                 return_value={"ok": True, "committed": True, "paths": ("bridge.md",)},
             ),
         ):
-            result = push_preflight_projection.refresh_managed_projections_before_preflight(
-                state,
-                policy,
-                repo_root=Path("/tmp/repo"),
-                command_runner=_runner,
+            result = (
+                push_preflight_projection.refresh_managed_projections_before_preflight(
+                    state,
+                    policy,
+                    repo_root=Path("/tmp/repo"),
+                    command_runner=_runner,
+                )
             )
 
         self.assertEqual(result["receipt_committed"], True)
@@ -1612,7 +1712,91 @@ class PushBridgeSyncTests(unittest.TestCase):
             state.warnings,
         )
 
-    def test_refresh_managed_projections_blocks_when_system_picture_refresh_fails(self) -> None:
+    def test_receipt_refresh_updates_event_bundle_before_system_picture(self) -> None:
+        state = push.PushRunState(branch="feature/demo", remote="origin")
+        calls: list[str] = []
+
+        def _runner(name, cmd, cwd=None, env=None):
+            del cmd, cwd, env
+            calls.append(name)
+            return {
+                "name": name,
+                "cmd": [],
+                "cwd": ".",
+                "returncode": 0,
+                "duration_s": 0.1,
+                "skipped": False,
+            }
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            repo_root = Path(tmp_dir)
+            review_channel_path = repo_root / "dev/active/review_channel.md"
+            event_log_path = (
+                repo_root / "dev/reports/review_channel/events/trace.ndjson"
+            )
+            state_path = repo_root / "dev/reports/review_channel/state/latest.json"
+            projections_root = (
+                repo_root / "dev/reports/review_channel/projections/latest"
+            )
+            review_channel_path.parent.mkdir(parents=True, exist_ok=True)
+            event_log_path.parent.mkdir(parents=True, exist_ok=True)
+            review_channel_path.write_text("# Review Channel\n", encoding="utf-8")
+            event_log_path.write_text("", encoding="utf-8")
+
+            def _load_or_refresh_event_bundle(**kwargs):
+                self.assertEqual(kwargs["repo_root"], repo_root)
+                calls.append("event-bundle")
+                return SimpleNamespace()
+
+            with (
+                patch.object(
+                    push_preflight_projection,
+                    "active_path_config",
+                    return_value=SimpleNamespace(
+                        review_channel_rel="dev/active/review_channel.md",
+                        bridge_rel="bridge.md",
+                        review_status_dir_rel="dev/reports/review_channel/latest",
+                    ),
+                ),
+                patch.object(
+                    push_preflight_projection,
+                    "resolve_artifact_paths",
+                    return_value=SimpleNamespace(
+                        event_log_path=str(event_log_path),
+                        state_path=str(state_path),
+                        projections_root=str(projections_root),
+                    ),
+                ),
+                patch.object(
+                    push_preflight_projection,
+                    "load_or_refresh_event_bundle",
+                    side_effect=_load_or_refresh_event_bundle,
+                ),
+            ):
+                push_preflight_projection.refresh_runtime_surfaces_after_projection_receipt(
+                    state,
+                    command_runner=_runner,
+                    repo_root=repo_root,
+                    next_step_label="push preflight",
+                )
+
+        self.assertEqual(
+            calls,
+            [
+                "event-bundle",
+                "push-refresh-startup-context",
+                "push-refresh-context-graph",
+            ],
+        )
+        self.assertIn(
+            "Refreshed review-channel projections after managed projection receipt "
+            "before push preflight.",
+            state.warnings,
+        )
+
+    def test_refresh_managed_projections_blocks_when_system_picture_refresh_fails(
+        self,
+    ) -> None:
         state = push.PushRunState(branch="feature/demo", remote="origin")
         policy = make_policy()
         calls: list[str] = []
@@ -1657,17 +1841,26 @@ class PushBridgeSyncTests(unittest.TestCase):
             ],
         )
 
-    def test_sync_bridge_projection_before_preflight_reprojects_active_bridge(self) -> None:
+    def test_sync_bridge_projection_before_preflight_reprojects_active_bridge(
+        self,
+    ) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             repo_root = Path(tmp_dir)
             bridge_path = repo_root / "bridge.md"
             review_channel_path = repo_root / "dev" / "active" / "review_channel.md"
             review_state_path = (
-                repo_root / "dev" / "reports" / "review_channel" / "latest" / "review_state.json"
+                repo_root
+                / "dev"
+                / "reports"
+                / "review_channel"
+                / "latest"
+                / "review_state.json"
             )
             bridge_path.write_text("# Review Bridge\n", encoding="utf-8")
             review_channel_path.parent.mkdir(parents=True, exist_ok=True)
-            review_channel_path.write_text("# active review channel\n", encoding="utf-8")
+            review_channel_path.write_text(
+                "# active review channel\n", encoding="utf-8"
+            )
             review_state_path.parent.mkdir(parents=True, exist_ok=True)
             review_state_path.write_text("{}", encoding="utf-8")
             state = push.PushRunState()
@@ -2005,7 +2198,9 @@ class PushBridgeSyncTests(unittest.TestCase):
         "dev.scripts.devctl.commands.vcs.push.build_preflight_shell_command",
         return_value="python3 dev/scripts/devctl.py check-router --since-ref origin/develop --execute",
     )
-    @patch("dev.scripts.devctl.commands.vcs.push.remote_branch_exists", return_value=False)
+    @patch(
+        "dev.scripts.devctl.commands.vcs.push.remote_branch_exists", return_value=False
+    )
     @patch("dev.scripts.devctl.commands.vcs.push.remote_exists", return_value=True)
     @patch("dev.scripts.devctl.commands.vcs.push.load_push_policy")
     @patch("dev.scripts.devctl.commands.vcs.push.collect_git_status")
@@ -2092,7 +2287,9 @@ class PushBridgeSyncTests(unittest.TestCase):
         "dev.scripts.devctl.commands.vcs.push.build_preflight_shell_command",
         return_value="python3 dev/scripts/devctl.py check-router --since-ref origin/develop --execute",
     )
-    @patch("dev.scripts.devctl.commands.vcs.push.remote_branch_exists", return_value=False)
+    @patch(
+        "dev.scripts.devctl.commands.vcs.push.remote_branch_exists", return_value=False
+    )
     @patch("dev.scripts.devctl.commands.vcs.push.remote_exists", return_value=True)
     @patch("dev.scripts.devctl.commands.vcs.push.load_push_policy")
     @patch("dev.scripts.devctl.commands.vcs.push.collect_git_status")
@@ -2175,7 +2372,10 @@ class PushBridgeSyncTests(unittest.TestCase):
 
     @patch("dev.scripts.devctl.commands.vcs.push.persist_published_remote_snapshot")
     @patch("dev.scripts.devctl.commands.vcs.push.persist_push_progress_snapshot")
-    @patch("dev.scripts.devctl.commands.vcs.push.current_head_commit_sha", return_value="abc123")
+    @patch(
+        "dev.scripts.devctl.commands.vcs.push.current_head_commit_sha",
+        return_value="abc123",
+    )
     @patch("dev.scripts.devctl.commands.vcs.push.write_output")
     @patch(
         "dev.scripts.devctl.commands.vcs.push.build_post_push_commands",
@@ -2189,7 +2389,9 @@ class PushBridgeSyncTests(unittest.TestCase):
         "dev.scripts.devctl.commands.vcs.push.build_preflight_shell_command",
         return_value="python3 dev/scripts/devctl.py check-router --since-ref origin/develop --execute",
     )
-    @patch("dev.scripts.devctl.commands.vcs.push.remote_branch_exists", return_value=False)
+    @patch(
+        "dev.scripts.devctl.commands.vcs.push.remote_branch_exists", return_value=False
+    )
     @patch("dev.scripts.devctl.commands.vcs.push.remote_exists", return_value=True)
     @patch("dev.scripts.devctl.commands.vcs.push.load_push_policy")
     @patch("dev.scripts.devctl.commands.vcs.push.collect_git_status")
@@ -2302,7 +2504,9 @@ class PushBridgeSyncTests(unittest.TestCase):
         "dev.scripts.devctl.commands.vcs.push.branch_divergence",
         return_value={"behind": 0, "ahead": 1, "error": None},
     )
-    @patch("dev.scripts.devctl.commands.vcs.push.remote_branch_exists", return_value=True)
+    @patch(
+        "dev.scripts.devctl.commands.vcs.push.remote_branch_exists", return_value=True
+    )
     @patch("dev.scripts.devctl.commands.vcs.push.remote_exists", return_value=True)
     @patch("dev.scripts.devctl.commands.vcs.push.load_push_policy")
     @patch("dev.scripts.devctl.commands.vcs.push.collect_git_status")
@@ -2375,7 +2579,9 @@ class PushBridgeSyncTests(unittest.TestCase):
         payload = json.loads(write_output_mock.call_args.args[0])
         self.assertEqual(payload["status"], "post_push_green")
 
-    def test_execute_push_flow_emits_publication_and_post_push_progress_notices(self) -> None:
+    def test_execute_push_flow_emits_publication_and_post_push_progress_notices(
+        self,
+    ) -> None:
         state = push.PushRunState(
             branch="feature/demo",
             remote="origin",
@@ -2469,7 +2675,9 @@ class PushBridgeSyncTests(unittest.TestCase):
             "Post-push step 2/2 failed with rc=1.",
         )
 
-    def test_build_preflight_shell_command_prefers_remote_branch_when_it_exists(self) -> None:
+    def test_build_preflight_shell_command_prefers_remote_branch_when_it_exists(
+        self,
+    ) -> None:
         policy = make_policy()
 
         command = push.build_preflight_shell_command(
@@ -2484,7 +2692,9 @@ class PushBridgeSyncTests(unittest.TestCase):
 
         self.assertIn("--since-ref origin/feature/demo", command)
 
-    def test_build_post_push_commands_rewrites_since_ref_for_runtime_scope(self) -> None:
+    def test_build_post_push_commands_rewrites_since_ref_for_runtime_scope(
+        self,
+    ) -> None:
         commands = build_post_push_commands(
             make_policy(),
             since_ref="origin/feature/demo",
@@ -2521,6 +2731,7 @@ class PushReceiptTests(unittest.TestCase):
 
     def setUp(self) -> None:
         import tempfile
+
         self._tmpdir = tempfile.mkdtemp()
         self._repo_root = Path(self._tmpdir)
         # Create the push report directory structure expected by repo pack
@@ -2531,6 +2742,7 @@ class PushReceiptTests(unittest.TestCase):
 
     def tearDown(self) -> None:
         import shutil
+
         shutil.rmtree(self._tmpdir, ignore_errors=True)
 
     @patch(
@@ -2560,7 +2772,9 @@ class PushReceiptTests(unittest.TestCase):
     @patch(
         "dev.scripts.devctl.commands.vcs.push_artifact.active_path_config",
     )
-    def test_append_push_receipt_appends_multiple_entries(self, path_config_mock) -> None:
+    def test_append_push_receipt_appends_multiple_entries(
+        self, path_config_mock
+    ) -> None:
         from dev.scripts.devctl.commands.vcs.push_artifact import append_push_receipt
 
         path_config_mock.return_value = SimpleNamespace(
@@ -2612,7 +2826,9 @@ class PushReceiptTests(unittest.TestCase):
     @patch(
         "dev.scripts.devctl.commands.vcs.push_artifact.active_path_config",
     )
-    def test_lookup_push_receipt_returns_none_for_nonmatching(self, path_config_mock) -> None:
+    def test_lookup_push_receipt_returns_none_for_nonmatching(
+        self, path_config_mock
+    ) -> None:
         from dev.scripts.devctl.commands.vcs.push_artifact import (
             append_push_receipt,
             lookup_push_receipt,
@@ -2864,7 +3080,9 @@ class PushPipelineStateSyncTests(unittest.TestCase):
             )
 
             self.assertTrue(synced)
-            persisted = load_remote_commit_pipeline_contract(output_root=projections_root)
+            persisted = load_remote_commit_pipeline_contract(
+                output_root=projections_root
+            )
             legacy = load_remote_commit_pipeline_contract(
                 output_root=repo_root / "dev/reports/review_channel/latest"
             )
@@ -2921,7 +3139,9 @@ class PushPipelineStateSyncTests(unittest.TestCase):
 
             self.assertTrue(synced)
             receipt_parent_mock.assert_called_once()
-            persisted = load_remote_commit_pipeline_contract(output_root=projections_root)
+            persisted = load_remote_commit_pipeline_contract(
+                output_root=projections_root
+            )
             self.assertEqual(persisted.state, "push_completed")
             self.assertIsNotNone(persisted.push_result)
             self.assertEqual(persisted.push_result.reason, "push_completed")
@@ -2963,7 +3183,9 @@ class PushPipelineStateSyncTests(unittest.TestCase):
             )
 
             self.assertFalse(synced)
-            persisted = load_remote_commit_pipeline_contract(output_root=projections_root)
+            persisted = load_remote_commit_pipeline_contract(
+                output_root=projections_root
+            )
             self.assertEqual(persisted.state, "push_pending")
             self.assertIsNone(persisted.push_result)
             self.assertEqual(persisted.push_report_path, "")
@@ -3055,7 +3277,9 @@ class PushPipelineStateSyncTests(unittest.TestCase):
             )
 
             self.assertTrue(synced)
-            persisted = load_remote_commit_pipeline_contract(output_root=projections_root)
+            persisted = load_remote_commit_pipeline_contract(
+                output_root=projections_root
+            )
             legacy = load_remote_commit_pipeline_contract(
                 output_root=repo_root / "dev/reports/review_channel/latest"
             )

@@ -9,6 +9,7 @@ from ..repo_packs import active_path_config
 from ..review_channel.remote_commit_pipeline_artifact import (
     load_remote_commit_pipeline_contract,
 )
+from ..runtime.review_snapshot_refresh import receipt_commit_ancestor_shas
 from .push_policy import PushCheckpointPolicy
 
 
@@ -50,6 +51,11 @@ def current_push_authorization_state(
         current_head_commit=current_head_commit,
         current_approved_target_identity=current_approved_target_identity,
         current_worktree_identity=current_worktree_identity,
+        managed_receipt_ancestor_commits=receipt_commit_ancestor_shas(
+            repo_root=repo_root,
+            current_head=current_head_commit,
+            governance=None,
+        ),
     )
 
 
@@ -59,6 +65,7 @@ def push_authorization_state_from_pipeline(
     current_head_commit: str,
     current_approved_target_identity: str,
     current_worktree_identity: str,
+    managed_receipt_ancestor_commits: tuple[str, ...] = (),
 ) -> tuple[str, str, str, str, str, str, bool, bool, bool, bool]:
     """Return the current push-authorization summary for one pipeline object."""
     authorization = (
@@ -67,22 +74,21 @@ def push_authorization_state_from_pipeline(
     if authorization is None:
         return ("", "", "", "", "", "", False, False, False, False)
     authorized_head_commit = str(authorization.authorized_head_sha or "").strip()
-    approved_target_identity = str(
-        authorization.approved_target_identity or ""
-    ).strip()
-    approved_worktree_identity = str(
-        authorization.worktree_identity or ""
-    ).strip()
+    approved_target_identity = str(authorization.approved_target_identity or "").strip()
+    approved_worktree_identity = str(authorization.worktree_identity or "").strip()
     matches_current_head = bool(
         current_head_commit
         and authorized_head_commit
-        and current_head_commit == authorized_head_commit
+        and (
+            _same_commit(current_head_commit, authorized_head_commit)
+            or any(
+                _same_commit(ancestor, authorized_head_commit)
+                for ancestor in managed_receipt_ancestor_commits
+            )
+        )
     )
     matches_current_approved_target = bool(
-        (
-            not current_approved_target_identity
-            and not approved_target_identity
-        )
+        (not current_approved_target_identity and not approved_target_identity)
         or (
             current_approved_target_identity
             and approved_target_identity
@@ -116,6 +122,12 @@ def push_authorization_state_from_pipeline(
         matches_current_worktree,
         valid,
     )
+
+
+def _same_commit(left: str, right: str) -> bool:
+    left = str(left or "").strip()
+    right = str(right or "").strip()
+    return bool(left and right and (left.startswith(right) or right.startswith(left)))
 
 
 def checkpoint_reason(

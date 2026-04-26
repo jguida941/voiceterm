@@ -50,6 +50,21 @@ def execute_push_flow(state: "PushRunState", policy, args) -> PushFlowOutcome:
     )
 
 
+def bind_command_runner_to_repo(command_runner, repo_root):
+    """Return a command runner that ignores caller cwd and uses repo_root."""
+
+    def repo_bound_runner(
+        name: str,
+        cmd: list[str],
+        cwd=None,
+        env: dict[str, str] | None = None,
+    ) -> dict[str, object]:
+        del cwd
+        return command_runner(name, cmd, cwd=repo_root, env=env)
+
+    return repo_bound_runner
+
+
 def execute_push_flow_with_dependencies(
     state: "PushRunState",
     policy,
@@ -192,9 +207,7 @@ def run_post_push_bundle(
     total_commands = len(commands)
     for index, command in enumerate(commands, start=1):
         if progress_notice_fn is not None:
-            progress_notice_fn(
-                f"Post-push step {index}/{total_commands}: {command}"
-            )
+            progress_notice_fn(f"Post-push step {index}/{total_commands}: {command}")
         step = run_cmd_fn(
             f"push-post-{index:02d}",
             ["bash", "-lc", command],

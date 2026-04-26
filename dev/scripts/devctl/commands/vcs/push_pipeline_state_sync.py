@@ -12,8 +12,11 @@ from ...review_channel.remote_commit_pipeline_artifact import (
     load_remote_commit_pipeline_contract,
     persist_remote_commit_pipeline_contract,
 )
-from ...runtime.review_snapshot_refresh import receipt_commit_parent_sha
 from ...runtime.remote_commit_pipeline_models import RemoteCommitPipelineContract
+from ...runtime.review_snapshot_refresh import (
+    receipt_commit_ancestor_shas,
+    receipt_commit_parent_sha,
+)
 from .governed_executor_push_result import project_push_report
 
 
@@ -28,7 +31,9 @@ def sync_commit_pipeline_with_push_report(
     action_id: str = "vcs.push",
 ) -> bool:
     """Persist push-result truth onto the current matching pipeline artifact."""
-    projections_root = Path(resolve_artifact_paths(repo_root=repo_root).projections_root)
+    projections_root = Path(
+        resolve_artifact_paths(repo_root=repo_root).projections_root
+    )
     pipeline = load_remote_commit_pipeline_contract(output_root=projections_root)
     if not _pipeline_matches_current_push(
         repo_root=repo_root,
@@ -93,12 +98,17 @@ def _pipeline_matches_current_push(
         return False
     pipeline_commit = str(pipeline.commit_sha or "").strip()
     if current_head_commit and pipeline_commit != current_head_commit:
+        receipt_ancestors = receipt_commit_ancestor_shas(
+            repo_root=repo_root,
+            current_head=current_head_commit,
+            governance=None,
+        )
         receipt_parent = receipt_commit_parent_sha(
             repo_root=repo_root,
             current_head=current_head_commit,
             governance=None,
         )
-        if not receipt_parent or pipeline_commit != receipt_parent:
+        if pipeline_commit not in (*receipt_ancestors, receipt_parent):
             return False
     pipeline_target_identity = str(pipeline.approved_target_identity or "").strip()
     if (
@@ -124,7 +134,7 @@ def _persist_pipeline_contract(
 
 def _pipeline_artifact_relpath(*, repo_root: Path, projections_root: Path) -> str:
     return str(
-        (projections_root / "commit_pipeline.json").resolve().relative_to(
-            repo_root.resolve()
-        )
+        (projections_root / "commit_pipeline.json")
+        .resolve()
+        .relative_to(repo_root.resolve())
     )

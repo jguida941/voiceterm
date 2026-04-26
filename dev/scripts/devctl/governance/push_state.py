@@ -7,8 +7,8 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 
 from ..commands.vcs.push_artifact import (
-    load_latest_push_report,
     latest_push_report_relpath,
+    load_latest_push_report,
     lookup_push_receipt,
 )
 from ..config import REPO_ROOT
@@ -17,25 +17,32 @@ from ..review_channel.remote_commit_pipeline_artifact import (
     load_remote_commit_pipeline_contract,
 )
 from ..review_channel.service_identity import worktree_identity_for_repo
-from .push_publication import build_publication_backlog_state
+from ..runtime.review_snapshot_refresh import receipt_commit_ancestor_shas
 from .push_policy import PushCheckpointPolicy, PushPolicy
-from .push_state_models import PushDecisionInputs, PushEnforcementSnapshot
+from .push_publication import build_publication_backlog_state
 from .push_state_authorization import (
     approved_target_identity_from_pipeline as _approved_target_identity_from_pipeline,
-    checkpoint_reason as _checkpoint_reason,
+)
+from .push_state_authorization import checkpoint_reason as _checkpoint_reason
+from .push_state_authorization import (
     push_authorization_state_from_pipeline as _push_authorization_state_from_pipeline,
 )
 from .push_state_git import (
     WorktreeChangeCounts,
-    git_stdout as _git_stdout,
-    parse_worktree_change_summary,
-    worktree_change_counts as _worktree_change_counts,
 )
+from .push_state_git import git_stdout as _git_stdout
+from .push_state_git import (
+    parse_worktree_change_summary,
+)
+from .push_state_git import worktree_change_counts as _worktree_change_counts
+from .push_state_models import PushDecisionInputs, PushEnforcementSnapshot
+from .push_state_projection_drift import matching_excluded_paths
 from .push_state_selection import (
     PushProjectionInputs,
+)
+from .push_state_selection import (
     load_push_report_projections as _load_push_report_projections,
 )
-from .push_state_projection_drift import matching_excluded_paths
 
 
 def _worktree_change_summary(
@@ -227,7 +234,8 @@ def detect_push_enforcement_state(
     worktree_clean = not worktree_dirty
     checkpoint_required = (
         dirty_path_count >= policy.checkpoint.max_dirty_paths_before_checkpoint
-        or untracked_path_count >= policy.checkpoint.max_untracked_paths_before_checkpoint
+        or untracked_path_count
+        >= policy.checkpoint.max_untracked_paths_before_checkpoint
     )
     safe_to_continue_editing = not checkpoint_required
     receipt = lookup_push_receipt(
@@ -361,10 +369,7 @@ def _recommended_action_and_checkpoint_reason(
     inputs: PushDecisionInputs,
 ) -> tuple[str, str]:
     if inputs.checkpoint_required:
-        if (
-            inputs.staged_path_count
-            >= inputs.max_dirty_paths_before_checkpoint
-        ):
+        if inputs.staged_path_count >= inputs.max_dirty_paths_before_checkpoint:
             return "checkpoint_before_continue", "staged_index_budget_exceeded"
         return "checkpoint_before_continue", _checkpoint_reason(
             dirty_path_count=inputs.dirty_path_count,
@@ -409,19 +414,24 @@ def _detect_runtime_inputs(
     pipeline = load_remote_commit_pipeline_contract(
         output_root=repo_root / active_path_config().review_status_dir_rel
     )
-    current_approved_target_identity = _approved_target_identity_from_pipeline(
-        pipeline
-    )
+    current_approved_target_identity = _approved_target_identity_from_pipeline(pipeline)
     authorization_state = _push_authorization_state_from_pipeline(
         pipeline=pipeline,
         current_head_commit=current_head_commit,
         current_approved_target_identity=current_approved_target_identity,
         current_worktree_identity=current_worktree_identity,
+        managed_receipt_ancestor_commits=receipt_commit_ancestor_shas(
+            repo_root=repo_root,
+            current_head=current_head_commit,
+            governance=None,
+        ),
     )
     upstream_ref = current_upstream_ref(repo_root=repo_root)
     ahead: int | None = None
     if upstream_ref:
-        ahead_text = _git_stdout(repo_root, "rev-list", "--count", f"{upstream_ref}..HEAD")
+        ahead_text = _git_stdout(
+            repo_root, "rev-list", "--count", f"{upstream_ref}..HEAD"
+        )
         ahead = int(ahead_text) if ahead_text.isdigit() else None
     hook_installed = hook_path.is_file()
     return _PushRuntimeInputs(
@@ -439,7 +449,9 @@ def _detect_runtime_inputs(
         current_push_authorization_approved_target_identity=authorization_state[4],
         current_push_authorization_approved_worktree_identity=authorization_state[5],
         current_push_authorization_matches_current_head=authorization_state[6],
-        current_push_authorization_matches_current_approved_target=authorization_state[7],
+        current_push_authorization_matches_current_approved_target=authorization_state[
+            7
+        ],
         current_push_authorization_matches_current_worktree=authorization_state[8],
         current_push_authorization_valid=authorization_state[9],
         upstream_ref=upstream_ref,

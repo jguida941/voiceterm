@@ -59,6 +59,28 @@ Evidence:
 - `dev/scripts/devctl/tests/review_channel/test_status_snapshot_authority.py`
 - `dev/scripts/devctl/tests/review_channel/test_launch_script.py`
 
+### 2026-04-26 - Governed push accepts managed receipt chains before publication
+
+Fact: Plan 4.1 Slice 0 dogfood exposed a governed-push self-invalidation loop.
+`devctl push` could refresh managed bridge/ReviewSnapshot projections, commit a
+receipt, move `HEAD` past the approved `PushAuthorizationRecord`, and then fail
+its own publication gate or later review-surface consistency checks.
+
+Change: push authorization, pipeline status, and push-state readers now treat a
+contiguous chain of managed projection receipt commits as managed movement when
+one ancestor matches the approved authorization anchor. The guarded push flow
+also refreshes event-backed review-channel projection bundles after receipt
+commits before preflight or publication authorization consumes proof-tick and
+snapshot state.
+
+Evidence:
+- `dev/scripts/devctl/runtime/review_snapshot_refresh.py`
+- `dev/scripts/devctl/runtime/push_authorization.py`
+- `dev/scripts/devctl/commands/pipeline/head_movement.py`
+- `dev/scripts/devctl/commands/vcs/push_preflight_projection.py`
+- `dev/scripts/devctl/tests/runtime/test_push_authorization.py`
+- `dev/scripts/devctl/tests/vcs/test_push.py`
+
 ### 2026-04-26 - Plan 4.1 starts with report diagnostics and finding ingest
 
 Fact: the connected AI platform campaign needed runtime surfaces to agree

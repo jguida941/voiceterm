@@ -24,8 +24,7 @@ Callers fold the warnings into their existing ``ActionResult.warnings``.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import TYPE_CHECKING
-from typing import Protocol
+from typing import TYPE_CHECKING, Protocol
 
 from ..config import REPO_ROOT
 from ..repo_packs import active_path_config
@@ -182,10 +181,57 @@ def receipt_commit_parent_sha(
     current_head: str = "HEAD",
     governance: _GovernanceWithArtifactRoots | None = None,
 ) -> str:
-    """Return a governed receipt commit's parent when HEAD matches the shape."""
+    """Return the content parent behind governed receipt commits.
+
+    Receipt commits may stack when push preflight refreshes bridge/snapshot
+    projections more than once before publication. Treat the whole contiguous
+    receipt chain as managed movement and return the first non-receipt parent.
+    """
+    ancestors = receipt_commit_ancestor_shas(
+        repo_root=repo_root,
+        current_head=current_head,
+        governance=governance,
+    )
+    return ancestors[-1] if ancestors else ""
+
+
+def receipt_commit_ancestor_shas(
+    *,
+    repo_root: Path = REPO_ROOT,
+    current_head: str = "HEAD",
+    governance: _GovernanceWithArtifactRoots | None = None,
+) -> tuple[str, ...]:
+    """Return each parent in a contiguous governed receipt chain."""
+    target = str(current_head or "").strip() or "HEAD"
+    seen: set[str] = set()
+    ancestors: list[str] = []
+    for _ in range(32):
+        if target in seen:
+            return tuple(ancestors)
+        seen.add(target)
+        next_parent = _single_receipt_commit_parent_sha(
+            repo_root=repo_root,
+            current_head=target,
+            governance=governance,
+        )
+        if not next_parent:
+            return tuple(ancestors)
+        ancestors.append(next_parent)
+        target = next_parent
+    return tuple(ancestors)
+
+
+def _single_receipt_commit_parent_sha(
+    *,
+    repo_root: Path,
+    current_head: str,
+    governance: _GovernanceWithArtifactRoots | None,
+) -> str:
+    """Return HEAD^ when one commit is a governed snapshot receipt."""
     try:
         from .vcs import run_git_capture
-    except Exception:  # broad-except: allow reason=receipt-parent helper must fail closed when git runtime helpers are unavailable fallback=return empty parent SHA
+    # broad-except: allow reason=receipt-parent helper must fail closed when git runtime helpers are unavailable fallback=return empty parent SHA
+    except Exception:
         return ""
 
     target = str(current_head or "").strip() or "HEAD"
@@ -243,6 +289,7 @@ def _resolve_receipt_snapshot_target(
 
 
 __all__ = [
+    "receipt_commit_ancestor_shas",
     "receipt_artifact_relpaths",
     "receipt_commit_parent_sha",
     "refresh_and_stage_review_snapshot",

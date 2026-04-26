@@ -203,6 +203,21 @@
   recommend headless `--terminal none`, and explicit visible Terminal.app
   launch/recover requests fail closed before any local prompt or profile lookup
   the remote operator cannot see.
+- 2026-04-26 Plan 4.1 Slice 0 governed-push closeout (MP-377):
+  `devctl push` now treats a contiguous chain of managed bridge/ReviewSnapshot
+  receipt commits as authorized movement when any ancestor matches the
+  `PushAuthorizationRecord` commit, and refreshes event-backed
+  review-channel projections after receipt commits before preflight or
+  publication authorization reads them. This closes the live
+  `head_changed_after_authorization` / proof-tick zref cascade that left the
+  branch 66 commits ahead, while still requiring a fresh governed approval when
+  the authorization window itself expires. Queue the remaining Plan 4.1
+  additions through existing surfaces: FindingBacklog/governance-review/
+  findings-priority/AutoModeState/dashboard/startup-context for
+  finding-durability without distraction, `CodexAgentPollLoop` as a Slice A
+  consumer of review-channel packets and dogfood ticks, and remote-control
+  launch/recover/mode switching as caller-class + `review-channel --action
+  launch` typed-contract work rather than a parallel automation launcher.
 - 2026-04-24 remote-control liveness split-brain closure (MP-355 + MP-377
   follow-up): `review-channel status --refresh-bridge-heartbeat-if-stale`
   now treats a live typed `remote_control_attachment` as continuity evidence

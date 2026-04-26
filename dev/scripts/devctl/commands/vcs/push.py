@@ -20,10 +20,10 @@ from ...governance.push_routing import (
 from ...governance.push_state import current_head_commit_sha, current_upstream_ref
 from ...repo_packs import active_path_config
 from ...review_channel.core import bridge_is_active
+from ...review_channel.service_identity import worktree_identity_for_repo
 from ...review_channel.state import refresh_status_snapshot
 from ...runtime import TypedAction
 from ...runtime.push_authorization import publication_authorization_decision
-from ...review_channel.service_identity import worktree_identity_for_repo
 from ...runtime.vcs import (
     branch_divergence,
     remote_branch_exists,
@@ -33,28 +33,34 @@ from ...runtime.vcs import (
 from ..review_channel.status_bridge_sync import (
     sync_bridge_from_typed_projection_if_needed as _sync_bridge_from_typed_projection_if_needed,
 )
+from .governed_executor_actions import build_push_action
+from .orphan_snapshot_advisory import append_orphan_snapshot_advisory
 from .push_artifact import (
     append_push_receipt,
-    load_latest_push_report,
     latest_push_report_relpath,
+    load_latest_push_report,
     persist_latest_push_report,
     serialize_push_report,
 )
-from .push_flow import PushFlowDependencies, execute_push_flow_with_dependencies
-from .push_pipeline_state_sync import sync_commit_pipeline_with_push_report
-from .push_preflight_projection import refresh_managed_projections_before_preflight
-from .push_projection_receipt import auto_commit_managed_projection_receipt
-from .push_report import PushStageTruth, render_push_report
 from .push_executor_routing import maybe_run_executor_routed_push
+from .push_flow import (
+    PushFlowDependencies,
+    bind_command_runner_to_repo,
+    execute_push_flow_with_dependencies,
+)
+from .push_pipeline_state_sync import sync_commit_pipeline_with_push_report
+from .push_preflight_projection import (
+    refresh_managed_projections_before_preflight,
+    refresh_preflight_generated_changes_before_authorization,
+)
+from .push_report import PushStageTruth, render_push_report
 from .push_snapshot import (
     PushReportContext,
     build_push_report_payload,
-    persist_push_progress_snapshot,
     persist_published_remote_snapshot,
+    persist_push_progress_snapshot,
 )
 from .push_worktree_changes import blocking_dirty_paths
-from .governed_executor_actions import build_push_action
-from .orphan_snapshot_advisory import append_orphan_snapshot_advisory
 
 REQUESTED_BY = "devctl.push"
 
@@ -89,7 +95,9 @@ def _load_run_state(
     repo_root: Path = REPO_ROOT,
 ) -> PushRunState:
     state = PushRunState()
-    state.remote = str(args.remote or policy.default_remote).strip() or policy.default_remote
+    state.remote = (
+        str(args.remote or policy.default_remote).strip() or policy.default_remote
+    )
     state.current_worktree_identity = worktree_identity_for_repo(repo_root)
     state.warnings.extend(policy.warnings)
     _append_bypass_policy_errors(state, policy, args)
@@ -106,7 +114,9 @@ def _load_run_state(
     if state.branch == "HEAD":
         state.errors.append("Detached HEAD is not supported. Check out a branch first.")
     if state.dirty_paths:
-        state.errors.append("Working tree has uncommitted changes. Commit or stash before push.")
+        state.errors.append(
+            "Working tree has uncommitted changes. Commit or stash before push."
+        )
     if state.branch in policy.protected_branches:
         state.errors.extend(_protected_branch_errors(state.branch, policy))
     if state.branch and not _matches_allowed_prefixes(
@@ -326,9 +336,13 @@ def _record_divergence(
     state.ahead = int(divergence["ahead"] or 0)
     behind = int(divergence["behind"] or 0)
     if behind > 0:
-        state.errors.append(f"Branch `{branch}` is behind {remote}/{branch}; sync it before push.")
+        state.errors.append(
+            f"Branch `{branch}` is behind {remote}/{branch}; sync it before push."
+        )
         return False
     return True
+
+
 def _push_exclusion_paths(policy) -> tuple[str, ...]:
     return (
         *policy.checkpoint.compatibility_projection_paths,
@@ -433,12 +447,11 @@ def run_push_action(
         run_cmd_fn=run_cmd_fn,
     )
     if run_cmd_fn is None:
-        from .push_preflight_commit import auto_commit_preflight_generated_changes
-        auto_commit_preflight_generated_changes(state, resolved_policy, repo_root=repo_root)
-        auto_commit_managed_projection_receipt(
+        refresh_preflight_generated_changes_before_authorization(
             state,
             resolved_policy,
             repo_root=repo_root,
+            command_runner=run_cmd,
         )
         head_commit = current_head_commit_sha(repo_root=repo_root)
     _append_publication_authorization_errors(
@@ -479,20 +492,13 @@ def run_push_action(
         if build_post_push_commands_fn is None
         else build_post_push_commands_fn
     )
-    def repo_bound_runner(
-        name: str,
-        cmd: list[str],
-        cwd=None,
-        env: dict[str, str] | None = None,
-    ) -> dict[str, object]:
-        del cwd
-        return command_runner(name, cmd, cwd=repo_root, env=env)
+
     outcome = execute_push_flow_with_dependencies(
         state,
         resolved_policy,
         args,
         PushFlowDependencies(
-            run_cmd_fn=repo_bound_runner,
+            run_cmd_fn=bind_command_runner_to_repo(command_runner, repo_root),
             build_post_push_commands_fn=post_push_commands,
             published_remote_snapshot_fn=lambda reason, operator_guidance, partial_progress: (
                 persist_published_remote_snapshot(

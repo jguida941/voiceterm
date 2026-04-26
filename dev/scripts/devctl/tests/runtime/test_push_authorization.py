@@ -7,6 +7,9 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
+from dev.scripts.devctl.governance.push_state_authorization import (
+    push_authorization_state_from_pipeline,
+)
 from dev.scripts.devctl.runtime.action_contracts import ActionOutcome
 from dev.scripts.devctl.runtime.push_authorization import (
     _snapshot_only_receipt_parent_sha,
@@ -102,7 +105,9 @@ def test_publication_authorization_allows_current_head_with_stale_reviewer_runti
 
 @patch("dev.scripts.devctl.runtime.push_authorization.scan_repo_governance")
 @patch("dev.scripts.devctl.runtime.push_authorization.load_review_state")
-@patch("dev.scripts.devctl.runtime.push_authorization._snapshot_only_receipt_parent_sha")
+@patch(
+    "dev.scripts.devctl.runtime.push_authorization._snapshot_only_receipt_parent_sha"
+)
 @patch("dev.scripts.devctl.runtime.push_authorization.current_head_commit_sha")
 @patch("dev.scripts.devctl.runtime.push_authorization._load_pipeline")
 def test_publication_authorization_blocks_when_head_changes_after_authorization(
@@ -126,7 +131,9 @@ def test_publication_authorization_blocks_when_head_changes_after_authorization(
 
 @patch("dev.scripts.devctl.runtime.push_authorization.scan_repo_governance")
 @patch("dev.scripts.devctl.runtime.push_authorization.load_review_state")
-@patch("dev.scripts.devctl.runtime.push_authorization._snapshot_only_receipt_parent_sha")
+@patch(
+    "dev.scripts.devctl.runtime.push_authorization._snapshot_only_receipt_parent_sha"
+)
 @patch("dev.scripts.devctl.runtime.push_authorization.current_head_commit_sha")
 @patch("dev.scripts.devctl.runtime.push_authorization._load_pipeline")
 def test_publication_authorization_allows_snapshot_only_receipt_head(
@@ -148,7 +155,50 @@ def test_publication_authorization_allows_snapshot_only_receipt_head(
     assert decision.push_authorization is not None
 
 
-def test_snapshot_only_receipt_parent_sha_accepts_bridge_receipt(tmp_path: Path) -> None:
+@patch("dev.scripts.devctl.runtime.push_authorization.scan_repo_governance")
+@patch("dev.scripts.devctl.runtime.push_authorization.load_review_state")
+@patch("dev.scripts.devctl.runtime.push_authorization.receipt_commit_ancestor_shas")
+@patch(
+    "dev.scripts.devctl.runtime.push_authorization._snapshot_only_receipt_parent_sha"
+)
+@patch("dev.scripts.devctl.runtime.push_authorization.current_head_commit_sha")
+@patch("dev.scripts.devctl.runtime.push_authorization._load_pipeline")
+def test_publication_authorization_allows_managed_receipt_chain(
+    load_pipeline_mock,
+    current_head_mock,
+    snapshot_parent_mock,
+    snapshot_ancestors_mock,
+    load_review_state_mock,
+    _scan_governance_mock,
+) -> None:
+    load_review_state_mock.return_value = _review_state()
+    current_head_mock.return_value = "head-receipt-2"
+    snapshot_parent_mock.return_value = "head-old"
+    snapshot_ancestors_mock.return_value = ("head-receipt-1", "head-old")
+    load_pipeline_mock.return_value = _pipeline(authorized_head_sha="head-old")
+
+    decision = publication_authorization_decision(repo_root=Path("/tmp/repo"))
+
+    assert decision.authorized is True
+    assert decision.reason == "push_authorization_snapshot_receipt_current"
+    assert decision.push_authorization is not None
+
+
+def test_push_authorization_state_matches_receipt_chain_ancestor() -> None:
+    state = push_authorization_state_from_pipeline(
+        pipeline=_pipeline(authorized_head_sha="head-old"),
+        current_head_commit="head-receipt-2",
+        current_approved_target_identity="tree-receipt-20260403T010000Z:tree-123",
+        current_worktree_identity="",
+        managed_receipt_ancestor_commits=("head-receipt-1", "head-old"),
+    )
+
+    assert state[6] is True
+
+
+def test_snapshot_only_receipt_parent_sha_accepts_bridge_receipt(
+    tmp_path: Path,
+) -> None:
     repo_root = tmp_path / "repo"
     repo_root.mkdir()
     _init_git_repo(repo_root)
@@ -189,7 +239,9 @@ def test_snapshot_only_receipt_parent_sha_accepts_bridge_receipt(tmp_path: Path)
     assert parent.startswith(parent_head)
 
 
-def test_snapshot_receipt_parent_sha_accepts_bridge_only_receipt(tmp_path: Path) -> None:
+def test_snapshot_receipt_parent_sha_accepts_bridge_only_receipt(
+    tmp_path: Path,
+) -> None:
     repo_root = tmp_path / "repo"
     repo_root.mkdir()
     _init_git_repo(repo_root)
@@ -225,9 +277,63 @@ def test_snapshot_receipt_parent_sha_accepts_bridge_only_receipt(tmp_path: Path)
     assert parent.startswith(parent_head)
 
 
+def test_snapshot_receipt_parent_sha_walks_managed_receipt_chain(
+    tmp_path: Path,
+) -> None:
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    _init_git_repo(repo_root)
+
+    snapshot_path = repo_root / "dev/audits/REVIEW_SNAPSHOT.md"
+    snapshot_path.parent.mkdir(parents=True, exist_ok=True)
+    snapshot_path.write_text("# Seed snapshot\n", encoding="utf-8")
+    (repo_root / "bridge.md").write_text("seed bridge\n", encoding="utf-8")
+    _git(repo_root, "add", "dev/audits/REVIEW_SNAPSHOT.md", "bridge.md")
+    _git(repo_root, "commit", "-m", "Seed receipt artifacts")
+
+    (repo_root / "code.py").write_text("print('governed')\n", encoding="utf-8")
+    _git(repo_root, "add", "code.py")
+    _git(repo_root, "commit", "-m", "Code change")
+
+    content_head = _git_output(repo_root, "rev-parse", "HEAD")
+    content_short = _git_output(repo_root, "rev-parse", "--short", "HEAD")
+    snapshot_path.write_text("# Receipt snapshot 1\n", encoding="utf-8")
+    _git(repo_root, "add", "dev/audits/REVIEW_SNAPSHOT.md")
+    _git(
+        repo_root,
+        "commit",
+        "-m",
+        f"Refresh external review snapshot for {content_short}",
+    )
+
+    first_receipt_short = _git_output(repo_root, "rev-parse", "--short", "HEAD")
+    (repo_root / "bridge.md").write_text("receipt bridge refresh 2\n", encoding="utf-8")
+    _git(repo_root, "add", "bridge.md")
+    _git(
+        repo_root,
+        "commit",
+        "-m",
+        f"Refresh external review snapshot for {first_receipt_short}",
+    )
+
+    parent = _snapshot_only_receipt_parent_sha(
+        repo_root=repo_root,
+        current_head=_git_output(repo_root, "rev-parse", "HEAD"),
+        governance=SimpleNamespace(
+            artifact_roots=SimpleNamespace(
+                review_snapshot_path="dev/audits/REVIEW_SNAPSHOT.md"
+            )
+        ),
+    )
+
+    assert parent.startswith(content_head)
+
+
 @patch("dev.scripts.devctl.runtime.push_authorization.scan_repo_governance")
 @patch("dev.scripts.devctl.runtime.push_authorization.load_review_state")
-@patch("dev.scripts.devctl.runtime.push_authorization._snapshot_only_receipt_parent_sha")
+@patch(
+    "dev.scripts.devctl.runtime.push_authorization._snapshot_only_receipt_parent_sha"
+)
 @patch("dev.scripts.devctl.runtime.push_authorization.current_head_commit_sha")
 @patch("dev.scripts.devctl.runtime.push_authorization._load_pipeline")
 def test_publication_authorization_ignores_stale_pipeline_in_single_agent_mode(

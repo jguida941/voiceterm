@@ -9,16 +9,19 @@ from ..governance.draft import scan_repo_governance
 from ..governance.push_state import current_head_commit_sha
 from ..governance.push_state_support import is_expired
 from ..repo_packs import active_path_config
-from ..review_channel.service_identity import worktree_identity_for_repo
 from ..review_channel.remote_commit_pipeline_artifact import (
     load_remote_commit_pipeline_contract,
 )
+from ..review_channel.service_identity import worktree_identity_for_repo
 from .action_contracts import ActionOutcome
 from .conductor_capability import normalize_reviewer_mode
-from .review_snapshot_refresh import receipt_commit_parent_sha
 from .remote_commit_pipeline_models import (
     PushAuthorizationRecord,
     RemoteCommitPipelineContract,
+)
+from .review_snapshot_refresh import (
+    receipt_commit_ancestor_shas,
+    receipt_commit_parent_sha,
 )
 from .review_state_locator import load_review_state
 
@@ -53,11 +56,24 @@ def publication_authorization_decision(
         current_head=current_head,
         governance=governance,
     )
+    snapshot_receipt_ancestors = receipt_commit_ancestor_shas(
+        repo_root=repo_root,
+        current_head=current_head,
+        governance=governance,
+    )
+    if snapshot_receipt_parent and not any(
+        _same_commit(candidate, snapshot_receipt_parent)
+        for candidate in snapshot_receipt_ancestors
+    ):
+        snapshot_receipt_ancestors = (
+            *snapshot_receipt_ancestors,
+            snapshot_receipt_parent,
+        )
     authorization_required = _authorization_required(
         review_state=review_state,
         pipeline=pipeline,
         current_head=current_head,
-        snapshot_receipt_parent=snapshot_receipt_parent,
+        snapshot_receipt_ancestors=snapshot_receipt_ancestors,
     )
     if not authorization_required:
         return PublicationAuthorizationDecision(
@@ -84,7 +100,7 @@ def publication_authorization_decision(
         pipeline=pipeline,
         current_head=current_head,
         current_worktree_identity=current_worktree_identity,
-        snapshot_receipt_parent=snapshot_receipt_parent,
+        snapshot_receipt_ancestors=snapshot_receipt_ancestors,
     )
     if blocked_decision is not None:
         return blocked_decision
@@ -116,7 +132,7 @@ def _validate_authorization_record(
     pipeline: RemoteCommitPipelineContract,
     current_head: str,
     current_worktree_identity: str,
-    snapshot_receipt_parent: str,
+    snapshot_receipt_ancestors: tuple[str, ...],
 ) -> tuple[bool, PublicationAuthorizationDecision | None]:
     authorized_via_snapshot_receipt = False
     if (
@@ -124,9 +140,9 @@ def _validate_authorization_record(
         and current_head
         and authorization.authorized_head_sha != current_head
     ):
-        authorized_via_snapshot_receipt = _same_commit(
-            snapshot_receipt_parent,
-            authorization.authorized_head_sha,
+        authorized_via_snapshot_receipt = any(
+            _same_commit(candidate, authorization.authorized_head_sha)
+            for candidate in snapshot_receipt_ancestors
         )
         if not authorized_via_snapshot_receipt:
             return False, _blocked_authorization_decision(
@@ -247,7 +263,7 @@ def _authorization_required(
     review_state,
     pipeline: RemoteCommitPipelineContract,
     current_head: str,
-    snapshot_receipt_parent: str,
+    snapshot_receipt_ancestors: tuple[str, ...],
 ) -> bool:
     if _active_dual_agent_review(review_state):
         return True
@@ -255,7 +271,7 @@ def _authorization_required(
         return _pipeline_targets_current_publication(
             pipeline=pipeline,
             current_head=current_head,
-            snapshot_receipt_parent=snapshot_receipt_parent,
+            snapshot_receipt_ancestors=snapshot_receipt_ancestors,
         )
     return False
 
@@ -264,23 +280,18 @@ def _active_dual_agent_review(review_state) -> bool:
     if review_state is None:
         return False
     runtime = getattr(review_state, "reviewer_runtime", None)
-    declared_mode = normalize_reviewer_mode(
-        getattr(runtime, "reviewer_mode", "")
-    )
+    declared_mode = normalize_reviewer_mode(getattr(runtime, "reviewer_mode", ""))
     effective_mode = normalize_reviewer_mode(
         getattr(runtime, "effective_reviewer_mode", "")
     )
-    return (
-        declared_mode == "active_dual_agent"
-        or effective_mode == "active_dual_agent"
-    )
+    return declared_mode == "active_dual_agent" or effective_mode == "active_dual_agent"
 
 
 def _pipeline_targets_current_publication(
     *,
     pipeline: RemoteCommitPipelineContract,
     current_head: str,
-    snapshot_receipt_parent: str,
+    snapshot_receipt_ancestors: tuple[str, ...],
 ) -> bool:
     authorization = pipeline.push_authorization
     authorized_head = (
@@ -289,7 +300,7 @@ def _pipeline_targets_current_publication(
     return any(
         _same_commit(candidate, current)
         for candidate in (pipeline.commit_sha, authorized_head)
-        for current in (current_head, snapshot_receipt_parent)
+        for current in (current_head, *snapshot_receipt_ancestors)
     )
 
 
