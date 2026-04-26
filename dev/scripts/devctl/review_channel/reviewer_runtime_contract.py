@@ -176,6 +176,16 @@ def _review_acceptance_state(
             reviewer_accepted_implementer_state_hash_override
         ),
     )
+    if reviewer_accepted_implementer_state_hash_override and snapshot is not None:
+        current_verdict, open_findings, review_accepted = review_acceptance_projection(
+            snapshot
+        )
+        return ReviewerAcceptanceState(
+            current_verdict=current_verdict,
+            open_findings=open_findings,
+            review_accepted=review_accepted,
+            reviewer_accepted_implementer_state_hash=accepted_impl_hash,
+        )
     prior_acceptance = _prior_review_acceptance_state(prior_review_state)
     if prior_acceptance is not None:
         return ReviewerAcceptanceState(

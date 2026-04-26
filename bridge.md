@@ -78,11 +78,11 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-04-26T02:51:20Z`
-- Last Codex poll (Local America/New_York): `2026-04-25 22:51:20 EDT`
+- Last Codex poll: `2026-04-26T03:03:41Z`
+- Last Codex poll (Local America/New_York): `2026-04-25 23:03:41 EDT`
 - Reviewer mode: `active_dual_agent`
-- Last non-audit worktree hash: `4c286037b449a64f6e5b3c5c72582e66c3a4ddd46fe52f8ccbb54d58ac813ab0`
-- Current instruction revision: ``
+- Last non-audit worktree hash: `3940274abf247937f0952b44f2ed88fd421a205544c30fa58606971e8f2cb1f3`
+- Current instruction revision: `8ed5d5b347b8`
 
 ## Protocol
 
@@ -114,7 +114,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Poll Status
 
-- Reviewer state rebuilt from typed review-state projection at 2026-04-26T02:51:40.520500Z.
+- Reviewer checkpoint updated through repo-owned tooling (mode: active_dual_agent; reason: publish-checkpoint-no-next-architecture; observed-tree: 4c286037b449; reviewed-tree: 4c286037b449; instruction-rev: 2e4c06eda58e).
 
 ## Current Verdict
 
@@ -122,7 +122,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Open Findings
 
-475 expired unresolved review packet(s)
+2 pending review packet(s); 475 expired unresolved review packet(s)
 
 ## Claude Status
 
@@ -134,11 +134,11 @@ treat these rules as active workflow instructions immediately.
 
 ## Claude Ack
 
-- missing
+pending
 
 ## Current Instruction For Claude
 
-- Await reviewer instruction refresh.
+Priority action_request: Stage and commit reviewer-checkpoint projection convergence fix
 
 ## Last Reviewed Scope
 
@@ -146,4 +146,4 @@ MP-355
 
 ## Action Requests
 
-- No pending action requests.
+- [rev_pkt_1918] stage_commit_pipeline: target=runtime:devctl_commit:92e433c172455d12e4ce40e9cbac87aad136558b@92e433c172455d12e4ce40e9cbac87aad136558b; Stage and commit reviewer-checkpoint projection convergence fix (status: pending)
