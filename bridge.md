@@ -78,11 +78,11 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-04-25T23:47:53Z`
-- Last Codex poll (Local America/New_York): `2026-04-25 19:47:53 EDT`
+- Last Codex poll: `2026-04-26T00:43:43Z`
+- Last Codex poll (Local America/New_York): `2026-04-25 20:43:43 EDT`
 - Reviewer mode: `active_dual_agent`
-- Last non-audit worktree hash: `402e678f2315422126f9c894378e1497729891d3a8e6d11e06d44a2780f387b4`
-- Current instruction revision: `e133eeadcc8e`
+- Last non-audit worktree hash: `e7d75d9bc5859efbcbcfc9589785e95b11ee78db28eaaac356690306814da4f3`
+- Current instruction revision: `582310a3dab1`
 
 ## Protocol
 
@@ -114,7 +114,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Poll Status
 
-- Reviewer state rebuilt from typed review-state projection at 2026-04-25T23:39:00.702620Z.
+- Reviewer state rebuilt from typed review-state projection at 2026-04-25T23:53:46.941073Z.
 
 ## Current Verdict
 
@@ -122,11 +122,11 @@ treat these rules as active workflow instructions immediately.
 
 ## Open Findings
 
-472 expired unresolved review packet(s)
+2 pending review packet(s); 472 expired unresolved review packet(s)
 
 ## Claude Status
 
-assigned
+- Status unavailable.
 
 ## Claude Questions
 
@@ -134,11 +134,11 @@ assigned
 
 ## Claude Ack
 
-- missing
+pending
 
 ## Current Instruction For Claude
 
-Priority action_request: Run governed commit staging from remote-control lane
+Priority action_request: Run governed checkpoint for Plan 4.1 Slice 0/A staged work
 
 ## Last Reviewed Scope
 
@@ -146,4 +146,4 @@ MP-355
 
 ## Action Requests
 
-- No pending action requests.
+- [rev_pkt_1892] stage_commit_pipeline: target=runtime:devctl_commit:e05ba55a25586f0c870dd7c9ef0aa3fb22012ae7@e05ba55a25586f0c870dd7c9ef0aa3fb22012ae7; Run governed checkpoint for Plan 4.1 Slice 0/A staged work (status: pending)

@@ -5,14 +5,14 @@
 ## Quick status
 
 - Branch: `feature/governance-quality-sweep`
-- HEAD: `e05ba55a2558` — Refresh external review snapshot for 44459afd
-- Tree hash: `c618c02b9bb5`
-- Generation stamp: `snap-9224ec1096ee`
-- Generated at (UTC): 2026-04-26T00:42:01Z
-- Push decision: `await_checkpoint` — staged_index_budget_exceeded
+- HEAD: `580855f7f63e` — Slice 0 + Slice A foundation per Plan 4.1
+- Tree hash: `4845dee93aae`
+- Generation stamp: `snap-c70570353385`
+- Generated at (UTC): 2026-04-26T00:44:15Z
+- Push decision: `await_review` — checkpoint_required
 - Reviewer mode: `active_dual_agent` (interaction: `remote_control`)
 - Pipeline state: `n/a` (approval: `n/a`)
-- Delta since last snapshot: 25 commits, 220 files, +15768/-4865
+- Delta since last snapshot: 24 commits, 227 files, +16278/-4729
 - Governance findings: 116 open / 88 fixed / 218 total
 - Probe hints: 0 total across 0 files scanned
 
@@ -54,33 +54,31 @@ adopters arrive.
 - Remote: `https://github.com/jguida941/voiceterm.git`
 - Default branch: `master`
 - Current branch: `feature/governance-quality-sweep`
-- HEAD SHA: `e05ba55a25586f0c870dd7c9ef0aa3fb22012ae7`
+- HEAD SHA: `580855f7f63e430c45b4119dfb4d36971e2cd8a8`
 - HEAD author: Justin Guida
-- HEAD timestamp (UTC): 2026-04-25T19:49:04-04:00
+- HEAD timestamp (UTC): 2026-04-25T20:44:03-04:00
 
 ## 2. Governance state
 
 ### Push decision
-- action: `await_checkpoint`
-- reason: staged_index_budget_exceeded
+- action: `await_review`
+- reason: checkpoint_required
 - push_eligible_now: False
-- worktree_clean: False
-- staged_path_count: 20
+- worktree_clean: True
+- staged_path_count: 0
 - unstaged_path_count: 0
 - next_step_command: `python3 dev/scripts/devctl.py review-channel --action status --terminal none --format json`
 - latest_push_report: `dev/reports/push/latest.json`
 - latest_push_report_state: `blocked` (validation_failed)
-- current_push_authorization: `push-auth-20260425T234736530238Z` (valid=False)
-- authorized_head_commit: `44459afda6bb4d06e7a6493e17faefa6aa00fafd`
-- approved_target_identity: `tree-receipt-20260425T234736530238Z:589006c4f9817354aa03577b19f9d8b90ea8b04b`
 - publication_backlog: urgent
-- publication_guidance: 13 local commit(s) waiting for governed push once the current slice is checkpoint-clean.
+- publication_guidance: 14 local commit(s) waiting for governed push once review is accepted.
 
 ### Reviewer runtime
 - reviewer_mode: `active_dual_agent`
 - reviewer_freshness: unknown
 - reviewer_publish_clear: False
 - interaction_mode: `remote_control`
+- implementation_blocked: yes — checkpoint_required
 
 ### Remote commit pipeline
 - state: `n/a`
@@ -90,17 +88,16 @@ adopters arrive.
 - active plan: **AI Governance Platform Plan**
 - plan path: `dev/active/ai_governance_platform.md`
 - active MP scope: `MP-377`
-- advisory: `checkpoint_before_continue` — staged_index_budget_exceeded
-- checkpoint_required: **yes**
+- advisory: `repair_reviewer_loop` — checkpoint_required
 
 ## 3. Delta — what changed since the previous snapshot
 
-Range: last 25 commits ending at `e05ba55a2558`
+Range: last 24 commits ending at `580855f7f63e`
 
-- commits: 25
-- files changed: 220
-- insertions: +15768
-- deletions: -4865
+- commits: 24
+- files changed: 227
+- insertions: +16278
+- deletions: -4729
 - bundle classes touched: docs, tooling
 - risk add-ons triggered: Parser / ANSI boundary
 - authority surfaces touched: 18 file(s)
@@ -109,31 +106,30 @@ Range: last 25 commits ending at `e05ba55a2558`
 
 | # | SHA | Subject | Files | +/- | Bundle | Risk |
 |---|---|---|---|---|---|---|
-| 1 | `e05ba55a` | Refresh external review snapshot for 44459afd | 2 | +51/-48 | docs |  |
-| 2 | `44459afd` | Refresh external review snapshot for ab3efdb5 | 2 | +57/-65 | docs |  |
-| 3 | `ab3efdb5` | Allow idle reviewer checkpoint revisions | 4 | +157/-57 | tooling |  |
-| 4 | `9081e70f` | Refresh external review snapshot for 3ffc6309 | 1 | +3/-3 | docs |  |
-| 5 | `3ffc6309` | Refresh external review snapshot for 39154ae4 | 2 | +49/-49 | docs |  |
-| 6 | `39154ae4` | Refresh external review snapshot for db4ed1cf | 2 | +66/-72 | docs |  |
-| 7 | `db4ed1cf` | Refresh external review snapshot for d0d35dc1 | 1 | +4/-4 | docs |  |
-| 8 | `d0d35dc1` | Refresh external review snapshot for e3f98adb | 2 | +46/-43 | docs |  |
-| 9 | `e3f98adb` | Refresh external review snapshot for 1366e4ed | 2 | +55/-55 | docs |  |
-| 10 | `1366e4ed` | Refresh external review snapshot for 9962a164 | 1 | +4/-4 | docs |  |
-| 11 | `9962a164` | Refresh external review snapshot for 3f173cdc | 1 | +53/-50 | tooling |  |
-| 12 | `3f173cdc` | Refresh external review snapshot for d44ecc03 | 2 | +89/-88 | docs |  |
-| 13 | `d44ecc03` | Slice Y: smart-flag-not-remove for connectivity registry re… | 64 | +2163/-347 | tooling |  |
-| 14 | `7e988deb` | Refresh external review snapshot for 2d03ae2c | 1 | +3/-3 | docs |  |
-| 15 | `2d03ae2c` | Refresh external review snapshot for f6ab149a | 2 | +70/-71 | docs |  |
-| 16 | `f6ab149a` | Land S2 packet outcome ledger (rev_pkt_1822, receipt rev_pk… | 16 | +666/-132 | tooling | Parser / ANSI boundary |
-| 17 | `8438f8c1` | Refresh external review snapshot for 0a00d0e3 | 1 | +5/-5 | docs |  |
-| 18 | `0a00d0e3` | Refresh external review snapshot for 62ad3234 | 2 | +83/-82 | docs |  |
-| 19 | `62ad3234` | Land S0.5 connectivity registry shared-loader + cleanup (re… | 42 | +1319/-319 | tooling |  |
-| 20 | `40a1fb61` | Refresh external review snapshot for f68c4ad9 | 2 | +118/-99 | docs |  |
-| 21 | `f68c4ad9` | Checkpoint S0 connectivity foundation + integration cleanup… | 147 | +8481/-2967 | tooling | Parser / ANSI boundary |
-| 22 | `5d1c0ccf` | Checkpoint actor-authority liveness slice (rev_pkt_1818) | 15 | +1767/-60 | tooling |  |
-| 23 | `30fb4c55` | Refresh external review snapshot for 75d4bf8f | 1 | +6/-6 | docs |  |
-| 24 | `75d4bf8f` | Refresh external review snapshot for 71385e9d | 2 | +71/-73 | docs |  |
-| 25 | `71385e9d` | Add inactivity-watchdog to conductor wrapper (path 1 fix) | 5 | +382/-163 | tooling |  |
+| 1 | `580855f7` | Slice 0 + Slice A foundation per Plan 4.1 | 20 | +963/-100 | tooling |  |
+| 2 | `e05ba55a` | Refresh external review snapshot for 44459afd | 2 | +51/-48 | docs |  |
+| 3 | `44459afd` | Refresh external review snapshot for ab3efdb5 | 2 | +57/-65 | docs |  |
+| 4 | `ab3efdb5` | Allow idle reviewer checkpoint revisions | 4 | +157/-57 | tooling |  |
+| 5 | `9081e70f` | Refresh external review snapshot for 3ffc6309 | 1 | +3/-3 | docs |  |
+| 6 | `3ffc6309` | Refresh external review snapshot for 39154ae4 | 2 | +49/-49 | docs |  |
+| 7 | `39154ae4` | Refresh external review snapshot for db4ed1cf | 2 | +66/-72 | docs |  |
+| 8 | `db4ed1cf` | Refresh external review snapshot for d0d35dc1 | 1 | +4/-4 | docs |  |
+| 9 | `d0d35dc1` | Refresh external review snapshot for e3f98adb | 2 | +46/-43 | docs |  |
+| 10 | `e3f98adb` | Refresh external review snapshot for 1366e4ed | 2 | +55/-55 | docs |  |
+| 11 | `1366e4ed` | Refresh external review snapshot for 9962a164 | 1 | +4/-4 | docs |  |
+| 12 | `9962a164` | Refresh external review snapshot for 3f173cdc | 1 | +53/-50 | tooling |  |
+| 13 | `3f173cdc` | Refresh external review snapshot for d44ecc03 | 2 | +89/-88 | docs |  |
+| 14 | `d44ecc03` | Slice Y: smart-flag-not-remove for connectivity registry re… | 64 | +2163/-347 | tooling |  |
+| 15 | `7e988deb` | Refresh external review snapshot for 2d03ae2c | 1 | +3/-3 | docs |  |
+| 16 | `2d03ae2c` | Refresh external review snapshot for f6ab149a | 2 | +70/-71 | docs |  |
+| 17 | `f6ab149a` | Land S2 packet outcome ledger (rev_pkt_1822, receipt rev_pk… | 16 | +666/-132 | tooling | Parser / ANSI boundary |
+| 18 | `8438f8c1` | Refresh external review snapshot for 0a00d0e3 | 1 | +5/-5 | docs |  |
+| 19 | `0a00d0e3` | Refresh external review snapshot for 62ad3234 | 2 | +83/-82 | docs |  |
+| 20 | `62ad3234` | Land S0.5 connectivity registry shared-loader + cleanup (re… | 42 | +1319/-319 | tooling |  |
+| 21 | `40a1fb61` | Refresh external review snapshot for f68c4ad9 | 2 | +118/-99 | docs |  |
+| 22 | `f68c4ad9` | Checkpoint S0 connectivity foundation + integration cleanup… | 147 | +8481/-2967 | tooling | Parser / ANSI boundary |
+| 23 | `5d1c0ccf` | Checkpoint actor-authority liveness slice (rev_pkt_1818) | 15 | +1767/-60 | tooling |  |
+| 24 | `30fb4c55` | Refresh external review snapshot for 75d4bf8f | 1 | +6/-6 | docs |  |
 
 ### Files
 
@@ -141,19 +137,20 @@ Range: last 25 commits ending at `e05ba55a2558`
 |---|---|---|
 | `.github/workflows/release_preflight.yml` | tooling | +1/-0 |
 | `.github/workflows/tooling_control_plane.yml` | tooling | +3/-0 |
-| `AGENTS.md` | docs | +16/-2 |
-| `bridge.md` | docs | +97/-96 |
-| `dev/active/MASTER_PLAN.md` | tooling | +43/-1 |
-| `dev/active/ai_governance_platform.md` | tooling | +31/-1 |
+| `AGENTS.md` | docs | +17/-3 |
+| `bridge.md` | docs | +94/-93 |
+| `dev/active/MASTER_PLAN.md` | tooling | +55/-1 |
+| `dev/active/ai_governance_platform.md` | tooling | +56/-1 |
 | `dev/active/remote_commit_pipeline.md` | tooling | +5/-0 |
 | `dev/active/remote_control_runtime.md` | tooling | +4/-0 |
 | `dev/active/review_channel.md` | tooling | +10/-0 |
-| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1179/-1185 |
+| `dev/audits/AUTOMATION_DEBT_REGISTER.md` | tooling | +4/-0 |
+| `dev/audits/REVIEW_SNAPSHOT.md` | tooling | +1095/-1097 |
 | `dev/config/devctl_repo_policy.json` | tooling | +16/-0 |
-| `dev/guides/DEVELOPMENT.md` | docs | +48/-10 |
-| `dev/guides/SYSTEM_MAP.md` | docs | +84/-22 |
-| `dev/history/ENGINEERING_EVOLUTION.md` | tooling | +167/-2 |
-| `dev/scripts/README.md` | tooling | +57/-25 |
+| `dev/guides/DEVELOPMENT.md` | docs | +55/-10 |
+| `dev/guides/SYSTEM_MAP.md` | docs | +85/-23 |
+| `dev/history/ENGINEERING_EVOLUTION.md` | tooling | +194/-3 |
+| `dev/scripts/README.md` | tooling | +65/-26 |
 | `dev/scripts/checks/check_architecture_surface_sync.py` | tooling | +21/-2 |
 | `dev/scripts/checks/check_system_picture_freshness.py` | tooling | +15/-0 |
 | `dev/scripts/checks/package_layout/instruction_surface_sync.py` | tooling | +1/-1 |
@@ -173,13 +170,12 @@ Range: last 25 commits ending at `e05ba55a2558`
 | `dev/scripts/checks/system_picture_freshness/__init__.py` | tooling | +1/-0 |
 | `dev/scripts/checks/system_picture_freshness/command.py` | tooling | +154/-0 |
 | `dev/scripts/devctl/bundles/registry.py` | tooling | +1/-0 |
-| `dev/scripts/devctl/cli_parser/entrypoint.py` | tooling | +30/-6 |
+| `dev/scripts/devctl/cli_parser/entrypoint.py` | tooling | +37/-6 |
 | `dev/scripts/devctl/cli_parser/pipeline.py` | tooling | +5/-4 |
 | `dev/scripts/devctl/commands/governance/session_resume_authority_payload.py` | tooling | +6/-3 |
 | `dev/scripts/devctl/commands/governance/session_resume_cache_packet_builder.py` | tooling | +125/-0 |
 | `dev/scripts/devctl/commands/governance/session_resume_connectivity_render.py` | tooling | +71/-1 |
-| `dev/scripts/devctl/commands/governance/session_resume_packet.py` | tooling | +17/-1 |
-| _180 more files trimmed_ | | |
+| _187 more files trimmed_ | | |
 
 ## 4. Quality signals
 
@@ -273,6 +269,11 @@ Recent findings:
 
 ### Per-commit rationale
 
+- **`580855f7`** — Slice 0 + Slice A foundation per Plan 4.1
+  - Slice 0 — Runtime diagnostics (no model rebuild per Plan 4.1 required edit):
+  - - Diagnostic clarity in commit/push render path: clearer states for git-failed
+  -   vs git-landed-but-receipt-pending vs publication-awaiting-review
+  - evolution: Fact: live dogfood showed expired-pending review packets accumulating even when Codex had addressed the substance in code or follow-up packets. The queue already hid expired pending rows from actionable inbox counts, bu…
 - **`e05ba55a`** — Refresh external review snapshot for 44459afd
   - evolution: Fact: live dogfood showed expired-pending review packets accumulating even when Codex had addressed the substance in code or follow-up packets. The queue already hid expired pending rows from actionable inbox counts, bu…
 - **`44459afd`** — Refresh external review snapshot for ab3efdb5
@@ -336,12 +337,6 @@ Recent findings:
   - evolution: Fact: the review-channel runtime already carried `mutation_owner`, but commit handoff code still had paths that reasoned from reviewer mode or stale capability projections. That kept the system vulnerable to the same cl…
 - **`30fb4c55`** — Refresh external review snapshot for 75d4bf8f
   - evolution: Fact: the review-channel runtime already carried `mutation_owner`, but commit handoff code still had paths that reasoned from reviewer mode or stale capability projections. That kept the system vulnerable to the same cl…
-- **`75d4bf8f`** — Refresh external review snapshot for 71385e9d
-  - evolution: Fact: the review-channel runtime already carried `mutation_owner`, but commit handoff code still had paths that reasoned from reviewer mode or stale capability projections. That kept the system vulnerable to the same cl…
-- **`71385e9d`** — Add inactivity-watchdog to conductor wrapper (path 1 fix)
-  - Branch: feature/governance-quality-sweep
-  - Operator-authorized commit at 2026-04-24T08:55Z (per-action scope: 'commit + push the watchdog slice (4 modified + 3 new files...) on feature/governance-quality-sweep, then rollover --recover-provider codex to verify the new conductor uses the watchdog template').
-  - evolution: Fact: the review-channel runtime already carried `mutation_owner`, but commit handoff code still had paths that reasoned from reviewer mode or stale capability projections. That kept the system vulnerable to the same cl…
 ### Active MP scope (from MASTER_PLAN.md)
 
 - contract slice for MP-355 plus the temporary markdown-swarm operating mode
@@ -360,11 +355,10 @@ Recent findings:
 - open governance findings: 116
 
 ### Startup advisories
-- checkpoint_before_continue: staged_index_budget_exceeded
+- repair_reviewer_loop: checkpoint_required
 
 ### Stale warnings
-- Keep editing the current slice.
-- Move straight to the governed push path.
+- Cut a checkpoint before doing anything else.
 
 ### Open gap rows
 - **governance_open** (`dev/active/MASTER_PLAN.md`): plan_authority_gap: 
@@ -376,4 +370,4 @@ Recent findings:
 
 ---
 
-Projection produced by `devctl review-snapshot`. Generation stamp `snap-9224ec1096ee` binds this file to HEAD `e05ba55a2558`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
+Projection produced by `devctl review-snapshot`. Generation stamp `snap-c70570353385` binds this file to HEAD `580855f7f63e`; if they drift, the freshness guard will fail CI. When the latest commit only refreshes this generated snapshot, the guard accepts this file as bound to that commit's parent code state.
