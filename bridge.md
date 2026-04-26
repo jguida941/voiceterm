@@ -78,11 +78,11 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-04-26T01:55:56Z`
-- Last Codex poll (Local America/New_York): `2026-04-25 21:55:56 EDT`
+- Last Codex poll: `2026-04-26T02:02:07Z`
+- Last Codex poll (Local America/New_York): `2026-04-25 22:02:07 EDT`
 - Reviewer mode: `tools_only`
 - Last non-audit worktree hash: `26d9a1c68ea2be19e017371d6130b187b9d2b310edc7ec67ed4ce25e355e5cef`
-- Current instruction revision: ``
+- Current instruction revision: `c87f413ea984`
 
 ## Protocol
 
@@ -114,7 +114,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Poll Status
 
-- Reviewer state rebuilt from typed review-state projection at 2026-04-26T01:56:20.369003Z.
+- Reviewer state rebuilt from typed review-state projection at 2026-04-26T02:02:24.911296Z.
 
 ## Current Verdict
 
@@ -122,11 +122,11 @@ treat these rules as active workflow instructions immediately.
 
 ## Open Findings
 
-472 expired unresolved review packet(s)
+2 pending review packet(s); 472 expired unresolved review packet(s)
 
 ## Claude Status
 
-- Status unavailable.
+waiting_for_ack
 
 ## Claude Questions
 
@@ -134,16 +134,16 @@ treat these rules as active workflow instructions immediately.
 
 ## Claude Ack
 
-- missing
+pending
 
 ## Current Instruction For Claude
 
-- Await reviewer instruction refresh.
+Priority action_request: Regenerate instruction surfaces and rerun governed push
 
 ## Last Reviewed Scope
 
-MP-355
+- (missing)
 
 ## Action Requests
 
-- No pending action requests.
+- [rev_pkt_1909] stage_commit_pipeline: target=runtime:devctl_commit:82dc701a7aba3c5ba83c96c6c30020fed82d9bb8@82dc701a7aba3c5ba83c96c6c30020fed82d9bb8; Regenerate instruction surfaces and rerun governed push (status: pending)
