@@ -78,8 +78,8 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-04-26T03:06:46Z`
-- Last Codex poll (Local America/New_York): `2026-04-25 23:06:46 EDT`
+- Last Codex poll: `2026-04-26T03:10:09Z`
+- Last Codex poll (Local America/New_York): `2026-04-25 23:10:09 EDT`
 - Reviewer mode: `active_dual_agent`
 - Last non-audit worktree hash: `3940274abf247937f0952b44f2ed88fd421a205544c30fa58606971e8f2cb1f3`
 - Current instruction revision: ``
@@ -114,19 +114,19 @@ treat these rules as active workflow instructions immediately.
 
 ## Poll Status
 
-- Reviewer checkpoint updated through repo-owned tooling (mode: active_dual_agent; reason: publish-checkpoint-no-next-architecture; observed-tree: 4c286037b449; reviewed-tree: 4c286037b449; instruction-rev: 2e4c06eda58e).
+- Reviewer checkpoint updated through repo-owned tooling (mode: active_dual_agent; reason: publish-checkpoint-after-rev-pkt-1918; observed-tree: 3940274abf24; reviewed-tree: 3940274abf24; instruction-rev: 2e4c06eda58e).
 
 ## Current Verdict
 
-- reviewer state unavailable
+- Accepted: Slice 0 reviewer-checkpoint projection convergence fix is committed in a135d84a with receipt 5c1aa56b.
 
 ## Open Findings
 
-1 pending review packet(s); 475 expired unresolved review packet(s)
+- None for this checkpoint. rev_pkt_1917 is acknowledged for follow-up; no unread packet blocks this publish decision.
 
 ## Claude Status
 
-waiting_for_ack
+- Status unavailable.
 
 ## Claude Questions
 
