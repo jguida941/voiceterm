@@ -13,6 +13,9 @@ from types import SimpleNamespace
 from dev.scripts.devctl.commands.review_channel._publisher import (
     resolve_auto_poll_cadence,
 )
+from dev.scripts.devctl.commands.review_channel.launcher_discipline import (
+    validate_visible_launch_in_local_mode,
+)
 from dev.scripts.devctl.review_channel.launch_script import build_session_script
 from dev.scripts.devctl.review_channel.launch_authority import (
     NON_RESTARTABLE_LAUNCH_AUTHORITY_EXIT_CODE,
@@ -369,6 +372,21 @@ class TestResolveTerminalMode(unittest.TestCase):
 
     def test_local_default_is_visible(self) -> None:
         self.assertEqual(resolve_terminal_mode(), "terminal-app")
+
+    def test_remote_control_visible_terminal_launch_is_denied(self) -> None:
+        verdict = validate_visible_launch_in_local_mode(
+            interaction_mode="remote_control",
+            terminal_arg="terminal-app",
+        )
+        self.assertFalse(verdict.allowed)
+        self.assertEqual(verdict.denial_reason, "visible_launch_in_remote_control")
+
+    def test_local_terminal_visible_terminal_launch_is_allowed(self) -> None:
+        verdict = validate_visible_launch_in_local_mode(
+            interaction_mode="local_terminal",
+            terminal_arg="terminal-app",
+        )
+        self.assertTrue(verdict.allowed)
 
 
 class TestRecoveryCommands(unittest.TestCase):

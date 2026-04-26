@@ -7,17 +7,14 @@ import hashlib
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 
-from ..runtime.review_state_semantics import is_missing_instruction
+from .bridge_projection_instruction import (
+    is_placeholder_instruction as _is_placeholder_instruction,
+    typed_instruction_explicitly_cleared as _typed_instruction_explicitly_cleared,
+)
 from .peer_liveness import resolve_reported_reviewer_mode
+from ..runtime.review_state_semantics import is_missing_instruction
 
 _LOCAL_TIME_FORMAT = "%Y-%m-%d %H:%M:%S %Z"
-_PLACEHOLDER_INSTRUCTION_MARKERS = (
-    "stop at a safe boundary",
-    "relaunch before compaction",
-    "await reviewer instruction refresh",
-)
-
-
 def local_tz() -> ZoneInfo:
     """Return the display timezone from the active repo-pack config."""
     from ..repo_packs import active_path_config
@@ -61,7 +58,10 @@ def projection_metadata(
     bridge_state: Mapping[str, object],
 ) -> dict[str, str]:
     current_instruction = str(sections.get("Current Instruction For Claude", "")).strip()
-    typed_instruction_cleared = _typed_instruction_explicitly_cleared(current_session)
+    typed_instruction_cleared = _typed_instruction_explicitly_cleared(
+        current_session,
+        projected_instruction=current_instruction,
+    )
     if typed_instruction_cleared:
         current_revision = ""
     else:
@@ -127,14 +127,6 @@ def projection_metadata(
         ),
     }
 
-
-def _typed_instruction_explicitly_cleared(current_session: Mapping[str, object]) -> bool:
-    if "current_instruction" not in current_session:
-        return False
-    instruction = str(current_session.get("current_instruction") or "").strip()
-    return is_missing_instruction(instruction)
-
-
 def _first_text(*candidates: object) -> str:
     for candidate in candidates:
         value = str(candidate or "").strip()
@@ -160,8 +152,3 @@ def _newest_poll_time(*candidates: object) -> str:
             best_parsed = parsed
             best_text = normalized
     return best_text or _first_text(*candidates)
-
-
-def _is_placeholder_instruction(current_instruction: str) -> bool:
-    normalized = str(current_instruction or "").strip().lower()
-    return any(marker in normalized for marker in _PLACEHOLDER_INSTRUCTION_MARKERS)

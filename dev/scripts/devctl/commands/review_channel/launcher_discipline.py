@@ -100,22 +100,26 @@ def validate_visible_launch_in_local_mode(
       module-level constants defined alongside the verdict tests) so
       typed surfaces and dashboards can branch on it.
 
-    Decision rules (in evaluation order):
+Decision rules (in evaluation order):
 
     1. ``terminal_arg`` is malformed (not ``terminal-app`` or ``none``) ->
        DENIED with ``invalid_terminal_arg``. Fail-closed catch.
-    2. ``terminal_arg == "terminal-app"`` -> ALLOWED. Visible Terminal is
-       always safe; the only thing this gate cares about is the headless
-       case.
-    3. ``terminal_arg == "none"`` AND
+    2. ``terminal_arg == "terminal-app"`` AND
+       ``interaction_mode == "remote_control"`` -> DENIED with
+       ``visible_launch_in_remote_control``. The remote operator will not see
+       the local macOS provider prompt; route through the typed remote-control
+       lane instead.
+    3. ``terminal_arg == "terminal-app"`` -> ALLOWED. Visible Terminal is
+       safe for local operator modes.
+    4. ``terminal_arg == "none"`` AND
        ``interaction_mode == "remote_control"`` -> ALLOWED. Remote
        operator legitimately needs headless because they cannot open a
        local Terminal window.
-    4. ``terminal_arg == "none"`` AND
+    5. ``terminal_arg == "none"`` AND
        ``interaction_mode in {"local_terminal", "unresolved", ""}`` AND
        no override -> DENIED with ``headless_launch_in_local_mode``. This is
        the F21 trap.
-    5. Anything else hitting ``terminal_arg == "none"`` (unknown
+    6. Anything else hitting ``terminal_arg == "none"`` (unknown
        interaction_mode value not covered above) -> DENIED with
        ``headless_launch_unknown_interaction_mode``. Fail-closed default
        so a future enum value cannot silently bypass the gate.
@@ -133,10 +137,21 @@ def validate_visible_launch_in_local_mode(
                 " of the two supported values (`terminal-app` or `none`)."
             ),
         )
+    normalized_mode = (interaction_mode or "").strip()
     if normalized_terminal == "terminal-app":
+        if normalized_mode == _HEADLESS_PERMITTED_INTERACTION_MODE:
+            return LauncherDisciplineVerdict(
+                allowed=False,
+                denial_reason="visible_launch_in_remote_control",
+                operator_message=(
+                    "Refusing visible Terminal.app launch because typed "
+                    "interaction_mode is `remote_control`. The remote operator "
+                    "will not see local provider prompts; use `--terminal none` "
+                    "or route the action through the attached remote-control lane."
+                ),
+            )
         return LauncherDisciplineVerdict(allowed=True)
     # From here down: terminal_arg == "none" (headless launch requested).
-    normalized_mode = (interaction_mode or "").strip()
     if normalized_mode == _HEADLESS_PERMITTED_INTERACTION_MODE:
         return LauncherDisciplineVerdict(allowed=True)
     if normalized_mode in _VISIBLE_REQUIRED_INTERACTION_MODES:

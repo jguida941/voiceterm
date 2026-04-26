@@ -40,7 +40,11 @@ Current 2026-04-05 terminal/visibility closure note:
   contract must expose typed visibility (`reviewer_runtime.conductor_visibility`
   plus reviewer `session_owner.session_visibility`) so operators and AI can
   detect hidden conductor state without reverse-engineering `terminal_window_id`
-  nulls or guessing from detached heartbeats.
+  nulls or guessing from detached heartbeats. When typed liveness proves an
+  attached remote-control provider, explicit visible Terminal.app launch or
+  recover requests are invalid even if the CLI flag says `terminal-app`; the
+  launcher must reject them before local Terminal profile lookup or provider
+  prompts.
 
 Current 2026-04-06 shared-violation convergence note:
 - `MP-381` has started as a bounded contract-first slice rather than a broad
@@ -5632,6 +5636,9 @@ working on `MP-377`.
   evidence justifies default recording. Continue with default-on dogfood
   evidence, per-guard finding emission, packet-lifecycle reconciliation, and
   the Slice 0 runtime-agreement diagnostic tracked in ADR-010 through ADR-013.
+  Remote-control recovery also now fails closed before local Terminal.app UI
+  can appear, keeping Claude/operator remote-control lanes on typed headless
+  commands rather than invisible local prompts.
 - 2026-04-18 consolidation-plan authoring follow-up:
   `MP-377` now explicitly absorbs the one-plan consolidation campaign instead
   of spawning another active plan. The new bounded lane is `MP-388..MP-397`:

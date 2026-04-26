@@ -137,8 +137,11 @@ Use docs like this:
   so codex sessions ack pending operator-authority packets before any
   reviewer-bootstrap or code reading. Typed conductor-stall observations
   for any wedge that escapes prevention live in
-  `dev/scripts/devctl/review_channel/stall_diagnostics.py` (typed
-  `ConductorStallDiagnosis` reader over codex rollout JSONL).
+  `dev/scripts/devctl/review_channel/stall_diagnostics.py`
+  (`ConductorStallDiagnosis` reader over codex rollout JSONL). Typed
+  remote-control liveness also means status/doctor must recommend
+  `--terminal none`, and explicit visible Terminal.app launch/recover requests
+  must be rejected before local Terminal profile lookup or provider prompts.
 - The `ensure-follow` reviewer-wake path
   (`dev/scripts/devctl/review_channel/reviewer_follow_guard.py::launch_waiting_reviewer_conductor`)
   shares the same auto-elevation seam, so a remote-control reviewer

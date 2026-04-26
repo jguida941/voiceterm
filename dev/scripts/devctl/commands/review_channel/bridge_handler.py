@@ -28,6 +28,7 @@ from .bridge_action_support import (
     BridgePromotionContext,
     attach_service_identity,
     post_session_lifecycle_event,
+    resolve_launch_interaction_mode,
     resolve_promotion_and_terminal_state,
     validate_live_launch_conflicts,
 )
@@ -44,6 +45,7 @@ from .bridge_launch_control import (
     prepare_rollover_bundle,
     validate_launch_request_discipline,
 )
+from .launcher_discipline import enforce_launch_request_discipline
 from ..review_channel_bridge_render import build_bridge_success_report, render_bridge_md
 from .bridge_support import (
     apply_scope_if_requested as apply_bridge_scope_if_requested,
@@ -212,6 +214,27 @@ def _build_bridge_report(
     return report, exit_code
 
 
+def _maybe_enforce_terminal_app_launch_discipline(
+    *,
+    args,
+    repo_root: Path,
+) -> None:
+    if (
+        args.action not in LAUNCH_GUARDED_ACTIONS
+        or str(getattr(args, "terminal", "") or "") != "terminal-app"
+    ):
+        return
+    interaction_mode = resolve_launch_interaction_mode(
+        repo_root=repo_root,
+        args_fallback=str(getattr(args, "operator_interaction_mode", "") or ""),
+    )
+    enforce_launch_request_discipline(
+        repo_root=repo_root,
+        interaction_mode=interaction_mode,
+        terminal_arg="terminal-app",
+    )
+
+
 def _run_bridge_action(
     *,
     args,
@@ -265,6 +288,7 @@ def _run_bridge_action(
         bridge_actions=LAUNCH_GUARDED_ACTIONS,
         bridge_liveness=bridge_state.bridge_liveness,
     )
+    _maybe_enforce_terminal_app_launch_discipline(args=args, repo_root=repo_root)
     promotion, terminal_profile_applied, warnings = resolve_promotion_and_terminal_state(
         args=args,
         context=BridgePromotionContext(

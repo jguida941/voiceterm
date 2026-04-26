@@ -189,9 +189,20 @@ def _build_recover_sessions(
     assert isinstance(bridge_path, Path)
     assert isinstance(review_channel_path, Path)
     assert isinstance(status_dir, Path)
+    interaction_mode = resolve_launch_interaction_mode(
+        repo_root=repo_root,
+        args_fallback=str(getattr(args, "operator_interaction_mode", "") or ""),
+    )
+    terminal = str(getattr(args, "terminal", "none") or "none")
+    if terminal == "terminal-app":
+        enforce_launch_request_discipline(
+            repo_root=repo_root,
+            interaction_mode=interaction_mode,
+            terminal_arg=terminal,
+        )
     available_profiles = (
         list_terminal_profiles()
-        if getattr(args, "terminal", "none") == "terminal-app"
+        if terminal == "terminal-app"
         else []
     )
     terminal_profile_applied = resolve_terminal_profile_name(
@@ -200,10 +211,6 @@ def _build_recover_sessions(
     )
     current_instruction_revision = str(
         status_snapshot.bridge_liveness.get("current_instruction_revision") or ""
-    )
-    interaction_mode = resolve_launch_interaction_mode(
-        repo_root=repo_root,
-        args_fallback=str(getattr(args, "operator_interaction_mode", "") or ""),
     )
     sessions = build_launch_sessions(
         request=LaunchSessionRequest(

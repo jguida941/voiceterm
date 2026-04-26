@@ -337,6 +337,23 @@ def test_projection_metadata_prefers_effective_mode_over_declared_mode() -> None
     assert metadata["reviewer_mode"] == "tools_only"
 
 
+def test_projection_metadata_keeps_checkpoint_instruction_revision() -> None:
+    metadata = projection_metadata(
+        snapshot=BridgeSnapshot(metadata={}, sections={}),
+        bridge_liveness={},
+        sections={
+            "Current Instruction For Claude": (
+                "- Cut a checkpoint before continuing to edit."
+            )
+        },
+        current_session={"current_instruction": "", "current_instruction_revision": ""},
+        bridge_state={},
+    )
+
+    assert metadata["current_instruction_revision"]
+    assert metadata["current_instruction_explicitly_cleared"] == ""
+
+
 def test_bridge_projection_metadata_lines_fail_closed_to_tools_only() -> None:
     lines = bridge_projection_metadata_lines(
         BridgeProjectionState(

@@ -37,6 +37,28 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 - [User Path (5 min)](#user-path-5-min)
 - [Developer Path (15 min)](#developer-path-15-min)
 
+### 2026-04-26 - Remote-control recover no longer opens invisible local Claude prompts
+
+Fact: live Plan 4.1 dogfood exposed a bad remote-control recovery route.
+`review-channel status` recommended
+`recover --recover-provider claude --terminal terminal-app` while the active
+operator mode was remote-control, so the recovery path opened a local macOS
+Terminal.app Claude prompt that the attached remote Claude/operator lane could
+not see.
+
+Change: bridge-backed status authority now prefers typed remote-control
+liveness over local governance defaults when building recovery assessment
+commands. Launcher discipline also refuses visible Terminal.app launch/recover
+requests when `interaction_mode=remote_control`, before any provider prompt can
+open. Remote-control recovery must stay headless or travel through typed packet
+/ attachment lanes.
+
+Evidence:
+- `dev/scripts/devctl/review_channel/status_snapshot_authority.py`
+- `dev/scripts/devctl/commands/review_channel/launcher_discipline.py`
+- `dev/scripts/devctl/tests/review_channel/test_status_snapshot_authority.py`
+- `dev/scripts/devctl/tests/review_channel/test_launch_script.py`
+
 ### 2026-04-26 - Plan 4.1 starts with report diagnostics and finding ingest
 
 Fact: the connected AI platform campaign needed runtime surfaces to agree

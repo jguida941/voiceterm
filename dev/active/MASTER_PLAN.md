@@ -198,7 +198,11 @@
   non-read-only devctl commands after audit emission while excluding read-only,
   dogfood/governance-recursive, and artifact-only commands. ADR-010 through
   ADR-013 track the remaining default-on/per-guard/post-commit/runtime-agreement
-  automation before enforcement.
+  automation before enforcement. The same Slice 0 runtime agreement work now
+  treats attached remote-control liveness as launch authority: status/doctor
+  recommend headless `--terminal none`, and explicit visible Terminal.app
+  launch/recover requests fail closed before any local prompt or profile lookup
+  the remote operator cannot see.
 - 2026-04-24 remote-control liveness split-brain closure (MP-355 + MP-377
   follow-up): `review-channel status --refresh-bridge-heartbeat-if-stale`
   now treats a live typed `remote_control_attachment` as continuity evidence

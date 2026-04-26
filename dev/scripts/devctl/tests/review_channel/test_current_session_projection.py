@@ -1307,6 +1307,49 @@ def test_normalize_current_session_from_packet_truth_clears_missing_instruction_
     assert normalized.implementer_ack_state == "missing"
 
 
+def test_normalize_current_session_from_packet_truth_preserves_checkpoint_instruction() -> None:
+    normalized = _normalize_current_session_from_packet_truth(
+        current_session=ReviewCurrentSessionState(
+            current_instruction="- Cut a checkpoint before continuing to edit.",
+            current_instruction_revision="rev-checkpoint",
+            implementer_status="working",
+            implementer_ack="acknowledged",
+            implementer_ack_revision="rev-checkpoint",
+            implementer_ack_state="stale",
+            implementer_state_hash="state-hash",
+            implementer_session_state="",
+            implementer_session_hint="",
+            open_findings="none",
+            last_reviewed_scope="MP-400",
+        ),
+        review_state={
+            "attention": {"status": "checkpoint_required"},
+            "collaboration": {
+                "coding_agent": "claude",
+            },
+            "packet_inbox": {
+                "agents": [
+                    {
+                        "agent": "claude",
+                        "current_instruction_packet_id": "",
+                        "pending_actionable_packet_ids": [],
+                        "expired_unresolved_packet_ids": [],
+                        "wake_reason": "",
+                    }
+                ]
+            },
+        },
+    )
+
+    assert normalized.current_instruction == (
+        "- Cut a checkpoint before continuing to edit."
+    )
+    assert normalized.current_instruction_revision == "rev-checkpoint"
+    assert normalized.implementer_ack == "acknowledged"
+    assert normalized.implementer_ack_revision == "rev-checkpoint"
+    assert normalized.implementer_ack_state == "stale"
+
+
 def test_build_event_current_session_uses_nondefault_coding_provider_for_instruction_packet_truth() -> None:
     state = build_event_current_session(
         review_state={
@@ -1391,6 +1434,14 @@ def test_normalize_current_session_from_packet_truth_uses_nondefault_coding_prov
         review_state={
             "collaboration": {
                 "coding_agent": "cursor",
+            },
+            "queue": {
+                "derived_next_instruction": "Cursor owns this active instruction.",
+                "derived_next_instruction_source": {
+                    "packet_id": "rev_pkt_cursor_1",
+                    "kind": "instruction",
+                    "to_agent": "cursor",
+                },
             },
             "packet_inbox": {
                 "agents": [

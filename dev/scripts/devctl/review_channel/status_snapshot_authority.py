@@ -2,26 +2,20 @@
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, replace
+from dataclasses import asdict, dataclass
 from pathlib import Path
 
-from .collaboration_provider import (
-    coding_provider_from_review_state,
-    reviewer_provider_from_review_state,
-)
 from ..runtime.governance_scan import scan_repo_governance_safely
-from ..runtime.review_packet_inbox import (
-    packet_inbox_from_review_state,
-    summarize_packet_attention_open_findings,
-)
 from .current_session_attention import has_explicit_packet_truth
+from .current_session_packet_normalize import (
+    normalize_current_session_from_packet_truth as _normalize_current_session_from_packet_truth,
+)
 from .current_session_projection import (
     build_event_current_session,
     current_session_authority_drift_warning,
     instruction_revision_reuse_warning,
     resolve_current_session_authority,
 )
-from .current_session_support import compute_implementer_state_hash
 from .handoff import BridgeSnapshot
 from .recovery_assessment import (
     build_recovery_assessment,
@@ -32,6 +26,7 @@ from .reviewer_runtime_contract import (
     build_reviewer_runtime_contract,
 )
 from .status_projection_support import build_queue_state
+from ..runtime.operator_context import derive_operator_interaction_mode
 from ..runtime.review_state_semantics import is_missing_instruction
 
 
@@ -99,7 +94,11 @@ def build_status_authority(
         bridge_liveness=inputs.bridge_liveness,
         current_session=current_session,
         contract_errors=inputs.merged_errors,
-        operator_interaction_mode=_operator_interaction_mode(inputs.repo_root),
+        operator_interaction_mode=_operator_interaction_mode(
+            inputs.repo_root,
+            review_state_payload=authority_review_state,
+            bridge_liveness=inputs.bridge_liveness,
+        ),
     )
     attention = recovery_assessment_to_attention_payload(recovery_assessment)
     reviewer_runtime = build_reviewer_runtime_contract(
@@ -121,11 +120,35 @@ def build_status_authority(
     return current_session, attention, recovery_assessment, reviewer_runtime
 
 
-def _operator_interaction_mode(repo_root: Path) -> str:
+def _operator_interaction_mode(
+    repo_root: Path,
+    *,
+    review_state_payload: dict[str, object] | None = None,
+    bridge_liveness: dict[str, object] | None = None,
+) -> str:
     governance = scan_repo_governance_safely(repo_root)
-    if governance is None:
-        return ""
-    return str(governance.bridge_config.operator_interaction_mode or "").strip()
+    bridge = bridge_liveness or {}
+    if _bridge_has_remote_control_attachment(bridge):
+        return "remote_control"
+    reviewer_mode = str(
+        bridge.get("effective_reviewer_mode") or bridge.get("reviewer_mode") or ""
+    ).strip()
+    return derive_operator_interaction_mode(
+        governance=governance,
+        review_state_payload=review_state_payload,
+        receipt=None,
+        reviewer_mode=reviewer_mode,
+    )
+
+
+def _bridge_has_remote_control_attachment(bridge_liveness: dict[str, object]) -> bool:
+    providers = bridge_liveness.get("remote_control_active_providers")
+    if isinstance(providers, (list, tuple, set)):
+        return any(str(provider or "").strip() for provider in providers)
+    attachment = bridge_liveness.get("remote_control_attachment")
+    if isinstance(attachment, dict):
+        return str(attachment.get("status") or "").strip() == "attached"
+    return False
 
 
 def _append_status_warning(warnings: list[str], warning: str) -> None:
@@ -175,74 +198,6 @@ def _overlay_packet_current_session(
         return current_session
     return packet_session
 
-
-def _normalize_current_session_from_packet_truth(
-    *,
-    current_session,
-    review_state: dict[str, object] | None,
-):
-    if current_session is None:
-        return current_session
-    resolved_review_state = review_state
-    if isinstance(resolved_review_state, dict) and isinstance(
-        resolved_review_state.get("review_state"), dict
-    ):
-        resolved_review_state = resolved_review_state.get("review_state")
-    packet_truth_present = bool(
-        isinstance(resolved_review_state, dict)
-        and has_explicit_packet_truth(resolved_review_state)
-    )
-    packet_inbox = (
-        packet_inbox_from_review_state(resolved_review_state)
-        if packet_truth_present
-        else None
-    )
-    implementer_provider = coding_provider_from_review_state(resolved_review_state)
-    reviewer_provider = reviewer_provider_from_review_state(resolved_review_state)
-    record = (
-        packet_inbox.for_agent(implementer_provider)
-        if packet_inbox is not None
-        else None
-    )
-    clear_instruction = bool(
-        record is not None
-        and not str(record.current_instruction_packet_id or "").strip()
-    )
-    packet_attention_present = record is not None
-    missing_instruction = is_missing_instruction(current_session.current_instruction)
-    clear_current_instruction = clear_instruction or missing_instruction
-    cleared_ack = "" if clear_current_instruction else current_session.implementer_ack
-    return replace(
-        current_session,
-        current_instruction=(
-            "" if clear_current_instruction else current_session.current_instruction
-        ),
-        current_instruction_revision=(
-            ""
-            if clear_current_instruction
-            else current_session.current_instruction_revision
-        ),
-        implementer_ack=cleared_ack,
-        implementer_ack_revision=(
-            ""
-            if clear_current_instruction
-            else current_session.implementer_ack_revision
-        ),
-        implementer_ack_state=(
-            "missing"
-            if clear_current_instruction
-            else current_session.implementer_ack_state
-        ),
-        implementer_state_hash=compute_implementer_state_hash(
-            implementer_status=current_session.implementer_status,
-            implementer_ack=cleared_ack,
-        ),
-        open_findings=summarize_packet_attention_open_findings(
-            resolved_review_state,
-            fallback="" if packet_attention_present else current_session.open_findings,
-            agent=reviewer_provider,
-        ),
-    )
 def _apply_current_session_fields(
     *,
     bridge_liveness: dict[str, object],

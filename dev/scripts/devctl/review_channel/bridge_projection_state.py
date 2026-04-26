@@ -7,6 +7,9 @@ import hashlib
 from dataclasses import asdict, dataclass
 
 from .bridge_projection_contract import BRIDGE_SECTION_ORDER
+from .bridge_projection_instruction import (
+    is_placeholder_instruction as _is_placeholder_instruction,
+)
 from .bridge_projection_metadata import (
     format_local_poll_time as _format_local_poll_time,
     projection_metadata as _projection_metadata,
@@ -26,12 +29,6 @@ from .bridge_projection_validation import (
 from .bridge_validation_poll_status import poll_status_is_automation_only_refresh
 from .handoff import BridgeSnapshot, extract_bridge_snapshot
 from .pending_packets import live_pending_packets
-
-_PLACEHOLDER_INSTRUCTION_MARKERS = (
-    "stop at a safe boundary",
-    "relaunch before compaction",
-    "await reviewer instruction refresh",
-)
 
 @dataclass(frozen=True)
 class BridgeProjectionState:
@@ -173,8 +170,3 @@ def bridge_projection_metadata_lines(
         f"- Last non-audit worktree hash: `{last_worktree_hash}`",
         f"- Current instruction revision: `{current_revision}`",
     ]
-
-
-def _is_placeholder_instruction(current_instruction: str) -> bool:
-    normalized = str(current_instruction or "").strip().lower()
-    return any(marker in normalized for marker in _PLACEHOLDER_INSTRUCTION_MARKERS)

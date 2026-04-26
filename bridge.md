@@ -78,11 +78,11 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-04-26T00:45:45Z`
-- Last Codex poll (Local America/New_York): `2026-04-25 20:45:45 EDT`
+- Last Codex poll: `2026-04-26T01:25:38Z`
+- Last Codex poll (Local America/New_York): `2026-04-25 21:25:38 EDT`
 - Reviewer mode: `active_dual_agent`
-- Last non-audit worktree hash: `e7d75d9bc5859efbcbcfc9589785e95b11ee78db28eaaac356690306814da4f3`
-- Current instruction revision: `582310a3dab1`
+- Last non-audit worktree hash: `45190402f8d0dbf9f7191dba299e48010cc778b31106c1befd71daaf4bd86527`
+- Current instruction revision: ``
 
 ## Protocol
 
@@ -114,7 +114,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Poll Status
 
-- Reviewer heartbeat refreshed through repo-owned tooling (mode: active_dual_agent; reason: ensure-follow; reviewed-tree: e7d75d9bc585).
+- Reviewer checkpoint updated through repo-owned tooling (mode: active_dual_agent; reason: slice-0-A-acceptance; observed-tree: e7d75d9bc585; reviewed-tree: e7d75d9bc585; instruction-rev: 582310a3dab1).
 
 ## Current Verdict
 
@@ -122,11 +122,11 @@ treat these rules as active workflow instructions immediately.
 
 ## Open Findings
 
-2 pending review packet(s); 472 expired unresolved review packet(s)
+472 expired unresolved review packet(s)
 
 ## Claude Status
 
-implementing
+- Status unavailable.
 
 ## Claude Questions
 
@@ -134,11 +134,12 @@ implementing
 
 ## Claude Ack
 
-pending
+- missing
 
 ## Current Instruction For Claude
 
-Priority action_request: Run governed checkpoint for Plan 4.1 Slice 0/A staged work
+- Cut a checkpoint before continuing to edit.
+- Run `python3 dev/scripts/devctl.py commit -m "<descriptive message>"`.
 
 ## Last Reviewed Scope
 
@@ -146,4 +147,4 @@ MP-355
 
 ## Action Requests
 
-- [rev_pkt_1892] stage_commit_pipeline: target=runtime:devctl_commit:e05ba55a25586f0c870dd7c9ef0aa3fb22012ae7@e05ba55a25586f0c870dd7c9ef0aa3fb22012ae7; Run governed checkpoint for Plan 4.1 Slice 0/A staged work (status: pending)
+- No pending action requests.

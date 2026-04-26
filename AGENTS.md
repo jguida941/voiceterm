@@ -51,6 +51,10 @@ Portable-platform rule:
   remote-control continuity must be derived from typed governance/review-state
   evidence rather than launcher env vars alone, so receipt commits do not make
   different runtime readers disagree about whether the loop is still valid.
+  When typed liveness proves an attached remote-control provider, status/doctor
+  recovery commands must stay headless (`--terminal none`), and launch/recover
+  paths must fail closed before any local Terminal.app prompt or profile lookup
+  that the remote operator cannot see.
 - Collaboration-role posture must also stay on typed runtime authority:
   `CollaborationSession` / `AuthoritySnapshot` decide mutation, verification,
   and watcher/dashboard ownership. `devctl dogfood` remains development-only
