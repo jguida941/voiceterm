@@ -176,16 +176,28 @@ def _review_acceptance_state(
             reviewer_accepted_implementer_state_hash_override
         ),
     )
-    if reviewer_accepted_implementer_state_hash_override and snapshot is not None:
+    bridge_acceptance = None
+    if snapshot is not None:
         current_verdict, open_findings, review_accepted = review_acceptance_projection(
             snapshot
         )
-        return ReviewerAcceptanceState(
+        bridge_acceptance = ReviewerAcceptanceState(
             current_verdict=current_verdict,
             open_findings=open_findings,
             review_accepted=review_accepted,
             reviewer_accepted_implementer_state_hash=accepted_impl_hash,
         )
+    if (
+        reviewer_accepted_implementer_state_hash_override
+        and bridge_acceptance is not None
+    ):
+        return bridge_acceptance
+    if _fresh_bridge_checkpoint_overrides_prior(
+        bridge_acceptance=bridge_acceptance,
+        bridge_liveness=bridge_liveness,
+    ):
+        assert bridge_acceptance is not None
+        return bridge_acceptance
     prior_acceptance = _prior_review_acceptance_state(prior_review_state)
     if prior_acceptance is not None:
         return ReviewerAcceptanceState(
@@ -199,16 +211,8 @@ def _review_acceptance_state(
                 or prior_acceptance.reviewer_accepted_implementer_state_hash
             ),
         )
-    if snapshot is not None:
-        current_verdict, open_findings, review_accepted = review_acceptance_projection(
-            snapshot
-        )
-        return ReviewerAcceptanceState(
-            current_verdict=current_verdict,
-            open_findings=open_findings,
-            review_accepted=review_accepted,
-            reviewer_accepted_implementer_state_hash=accepted_impl_hash,
-        )
+    if bridge_acceptance is not None:
+        return bridge_acceptance
     open_findings = current_session.open_findings or str(
         bridge_liveness.get("open_findings") or ""
     )
@@ -217,6 +221,24 @@ def _review_acceptance_state(
         open_findings=open_findings,
         review_accepted=bool(bridge_liveness.get("review_accepted")),
         reviewer_accepted_implementer_state_hash=accepted_impl_hash,
+    )
+
+
+def _fresh_bridge_checkpoint_overrides_prior(
+    *,
+    bridge_acceptance: ReviewerAcceptanceState | None,
+    bridge_liveness: Mapping[str, object],
+) -> bool:
+    return bool(
+        bridge_acceptance is not None
+        and str(bridge_liveness.get("last_checkpoint_action") or "").strip()
+        == "reviewer-checkpoint"
+        and not bool(bridge_liveness.get("review_needed"))
+        and bridge_liveness.get("reviewed_hash_current") is not False
+        and (
+            bridge_acceptance.current_verdict.strip()
+            or bridge_acceptance.open_findings.strip()
+        )
     )
 
 

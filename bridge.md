@@ -78,11 +78,11 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-04-26T12:23:36Z`
-- Last Codex poll (Local America/New_York): `2026-04-26 08:23:36 EDT`
-- Reviewer mode: `tools_only`
-- Last non-audit worktree hash: `e9469c6590a738584fbdb4d4e14e75f87cf8661bd2b463f81185e735120fd6d6`
-- Current instruction revision: ``
+- Last Codex poll: `2026-04-26T12:59:35Z`
+- Last Codex poll (Local America/New_York): `2026-04-26 08:59:35 EDT`
+- Reviewer mode: `active_dual_agent`
+- Last non-audit worktree hash: `08bff339206dbae23b921e433c71bc4d17f24d7f4a789e57608321c458f5c336`
+- Current instruction revision: `acc6e287cf84`
 
 ## Protocol
 
@@ -114,7 +114,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Poll Status
 
-- Reviewer state rebuilt from typed review-state projection at 2026-04-26T12:23:53.562211Z.
+- Reviewer state rebuilt from typed review-state projection at 2026-04-26T12:59:42.856628Z.
 
 ## Current Verdict
 
@@ -122,11 +122,11 @@ treat these rules as active workflow instructions immediately.
 
 ## Open Findings
 
-477 expired unresolved review packet(s)
+1 pending review packet(s); 477 expired unresolved review packet(s)
 
 ## Claude Status
 
-- Status unavailable.
+waiting_for_ack
 
 ## Claude Questions
 
@@ -138,11 +138,11 @@ treat these rules as active workflow instructions immediately.
 
 ## Current Instruction For Claude
 
-- Await reviewer instruction refresh.
+Priority action_request: Stage and commit reviewer acceptance convergence fix
 
 ## Last Reviewed Scope
 
-MP-355
+- (missing)
 
 ## Action Requests
 
