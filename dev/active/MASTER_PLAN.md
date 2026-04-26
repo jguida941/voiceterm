@@ -187,6 +187,18 @@
   startup registry source, `check_system_picture_freshness.py` gates stale
   startup/graph evidence, and `devctl push` refreshes ReviewSnapshot plus
   managed projection receipts before routed preflight.
+- 2026-04-26 Connected AI Platform Plan 4.1 Slice 0/A start (MP-377):
+  commit/push reports now carry explicit diagnostics for git commit failure,
+  landed-commit receipt/projection pending state, review-gated publication,
+  remote publication, and post-push state. `PlatformFindingIngest` is the
+  shared FindingBacklog/governance-review seam for dogfood findings,
+  `devctl dogfood --record-governance` routes through it, and the dispatcher
+  has an opt-in fail-open finalization hook
+  (`DEVCTL_PLATFORM_FINDING_INGEST_AUTO_RECORD=1`) that auto-records failed
+  non-read-only devctl commands after audit emission while excluding read-only,
+  dogfood/governance-recursive, and artifact-only commands. ADR-010 through
+  ADR-013 track the remaining default-on/per-guard/post-commit/runtime-agreement
+  automation before enforcement.
 - 2026-04-24 remote-control liveness split-brain closure (MP-355 + MP-377
   follow-up): `review-channel status --refresh-bridge-heartbeat-if-stale`
   now treats a live typed `remote_control_attachment` as continuity evidence

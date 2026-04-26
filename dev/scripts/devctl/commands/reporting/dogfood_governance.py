@@ -5,23 +5,20 @@ from __future__ import annotations
 from pathlib import Path
 
 from ...config import get_repo_root
-from ...governance.guard_promotion_queue import (
-    append_guard_promotion_candidate_from_review,
-    resolve_guard_promotion_queue_path,
-)
+from ...governance.guard_promotion_queue import resolve_guard_promotion_queue_path
 from ...governance_review.log import (
-    build_governance_review_report,
     resolve_governance_review_log_path,
     resolve_governance_review_summary_root,
 )
-from ...governance_review.render import write_governance_review_summary
 from ...runtime.dogfood_governance import (
-    build_dogfood_governance_input,
     default_dogfood_governance_verdict,
     resolve_dogfood_target_path,
 )
 from ...runtime.dogfood_models import DogfoodRecord
-from ...runtime.finding_backlog import record_finding_backlog_row
+from ...runtime.platform_finding_ingest import (
+    DogfoodFindingIngestOptions,
+    PlatformFindingIngest,
+)
 
 
 def governance_validation_error(args) -> str | None:
@@ -77,9 +74,14 @@ def maybe_record_governance_closeout(
             f"--target-kind {recorded_row.target_kind} "
             f"--target-id {recorded_row.target_id}"
         )
-    write_result = record_finding_backlog_row(
-        review_input=build_dogfood_governance_input(
-            recorded_row,
+    ingest_result = PlatformFindingIngest(
+        repo_root=get_repo_root(),
+        governance_log_path=governance_log_path,
+        governance_summary_root=governance_summary_root,
+        promotion_queue_path=promotion_queue_path,
+    ).record_dogfood_result(
+        recorded_row,
+        options=DogfoodFindingIngestOptions(
             finding_id=getattr(args, "finding_id", None),
             check_id=getattr(args, "governance_check_id", None),
             file_path=getattr(args, "finding_path", None),
@@ -94,25 +96,13 @@ def maybe_record_governance_closeout(
             prevention_surface=getattr(args, "prevention_surface", None),
             waiver_reason=getattr(args, "waiver_reason", None),
             verdict=dogfood_governance_verdict(args),
-            repo_root=get_repo_root(),
         ),
-        repo_root=get_repo_root(),
-        governance=None,
-        log_path=governance_log_path,
     )
-    promotion_candidate = append_guard_promotion_candidate_from_review(
-        write_result.row,
-        queue_path=promotion_queue_path,
+    return (
+        ingest_result.row,
+        ingest_result.summary_paths or {},
+        ingest_result.promotion_candidate,
     )
-    governance_report = build_governance_review_report(
-        log_path=governance_log_path,
-        max_rows=5000,
-    )
-    governance_paths = write_governance_review_summary(
-        governance_report,
-        summary_root=governance_summary_root,
-    )
-    return write_result.row, governance_paths, promotion_candidate
 
 
 def has_governance_closeout(args) -> bool:
@@ -132,7 +122,10 @@ def has_governance_closeout(args) -> bool:
     )
     if bool(getattr(args, "record_governance", False)):
         return True
-    if any(str(getattr(args, field_name, "") or "").strip() for field_name in scalar_fields):
+    if any(
+        str(getattr(args, field_name, "") or "").strip()
+        for field_name in scalar_fields
+    ):
         return True
     return getattr(args, "finding_line", None) is not None
 

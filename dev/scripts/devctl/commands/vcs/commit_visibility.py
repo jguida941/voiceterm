@@ -23,22 +23,13 @@ def commit_visibility_payload(pipeline) -> dict[str, object]:
     pipeline_pending = state in _COMMIT_PENDING_PIPELINE_STATES
     commit_phase = state or "unknown"
     commit_progress = f"pipeline_state:{state or 'unknown'}"
+    git_commit_state = _git_commit_state(pipeline, state=state)
+    publication_state = _publication_state(pipeline, state=state)
+    post_commit_state = _post_commit_state(pipeline, state=state)
     if not pipeline_id:
         pipeline_pending = False
         commit_phase = "idle"
         commit_progress = "no_active_pipeline"
-    elif approval_state == "approved" or state in {"approved", "commit_pending"}:
-        pipeline_pending = True
-        commit_phase = "ready_to_commit"
-        commit_progress = "approval_recorded_waiting_for_commit"
-    elif state == "operator_approval_pending" or approval_state == "pending":
-        pipeline_pending = True
-        commit_phase = "awaiting_operator_approval"
-        commit_progress = "guarded_pipeline_waiting_for_operator_approval"
-    elif state in {"staged", "guards_running", "guards_passed"}:
-        pipeline_pending = True
-        commit_phase = "preflight"
-        commit_progress = "building_guarded_commit_pipeline"
     elif state == "commit_recorded":
         pipeline_pending = False
         commit_phase = "committed"
@@ -63,8 +54,64 @@ def commit_visibility_payload(pipeline) -> dict[str, object]:
         pipeline_pending = False
         commit_phase = "push_blocked"
         commit_progress = "publication_requires_recovery"
-    return {
-        "pipeline_pending": pipeline_pending,
-        "commit_phase": commit_phase,
-        "commit_progress": commit_progress,
-    }
+    elif approval_state == "approved" or state in {"approved", "commit_pending"}:
+        pipeline_pending = True
+        commit_phase = "ready_to_commit"
+        commit_progress = "approval_recorded_waiting_for_commit"
+    elif state == "operator_approval_pending" or approval_state == "pending":
+        pipeline_pending = True
+        commit_phase = "awaiting_operator_approval"
+        commit_progress = "guarded_pipeline_waiting_for_operator_approval"
+    elif state in {"staged", "guards_running", "guards_passed"}:
+        pipeline_pending = True
+        commit_phase = "preflight"
+        commit_progress = "building_guarded_commit_pipeline"
+    payload: dict[str, object] = {}
+    payload["pipeline_pending"] = pipeline_pending
+    payload["commit_phase"] = commit_phase
+    payload["commit_progress"] = commit_progress
+    payload["git_commit_state"] = git_commit_state
+    payload["post_commit_state"] = post_commit_state
+    payload["publication_state"] = publication_state
+    return payload
+
+
+def _git_commit_state(pipeline, *, state: str) -> str:
+    commit_sha = str(getattr(pipeline, "commit_sha", "") or "").strip()
+    if commit_sha:
+        return "landed"
+    commit_result = getattr(pipeline, "commit_result", None)
+    reason = str(getattr(commit_result, "reason", "") or "").strip()
+    ok = getattr(commit_result, "ok", None)
+    if ok is False or reason in {"commit_failed", "git_index_write_blocked"}:
+        return "failed"
+    if state in {"commit_pending", "approved"}:
+        return "pending"
+    return "not_started"
+
+
+def _post_commit_state(pipeline, *, state: str) -> str:
+    if _git_commit_state(pipeline, state=state) == "failed":
+        return "blocked_by_commit_failure"
+    if state == "commit_recorded":
+        return "commit_recorded_projection_pending"
+    if state == "push_pending":
+        return "publication_pending"
+    if state == "push_completed":
+        return "complete"
+    if state == "push_blocked" and str(getattr(pipeline, "commit_sha", "") or "").strip():
+        return "publication_blocked_after_commit"
+    return "not_started"
+
+
+def _publication_state(pipeline, *, state: str) -> str:
+    commit_sha = str(getattr(pipeline, "commit_sha", "") or "").strip()
+    if state == "push_completed":
+        return "published"
+    if state in {"commit_recorded", "push_pending"} and commit_sha:
+        return "awaiting_governed_push"
+    if state == "push_blocked" and commit_sha:
+        return "blocked_after_commit"
+    if state == "push_blocked":
+        return "blocked_before_commit"
+    return "not_ready"

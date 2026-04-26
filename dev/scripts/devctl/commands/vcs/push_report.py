@@ -8,6 +8,7 @@ from typing import Any
 
 from ...governance.push_policy import PushPolicy
 from ...runtime.check_result_models import build_check_result
+from .push_diagnostics import build_push_diagnostic
 
 
 @dataclass(frozen=True, slots=True)
@@ -78,6 +79,14 @@ def build_push_report(inputs: PushReportInputs) -> dict[str, Any]:
     report["push_step"] = inputs.push_step
     report["post_push_steps"] = inputs.post_push_steps
     report["push_stages"] = asdict(inputs.push_stages)
+    report["push_diagnostic"] = build_push_diagnostic(
+        execute=inputs.execute,
+        push_stages=inputs.push_stages,
+        reason=str(inputs.action_result.get("reason") or ""),
+        errors=inputs.errors,
+        push_step=inputs.push_step,
+        post_push_steps=inputs.post_push_steps,
+    )
     report["policy"] = _build_policy_summary(inputs.policy)
     report["typed_action"] = inputs.typed_action
     report["action_result"] = inputs.action_result
@@ -161,6 +170,19 @@ def render_push_report(report: dict[str, Any]) -> str:
         lines.append(f"- validation_ready: {push_stages.get('validation_ready')}")
         lines.append(f"- published_remote: {push_stages.get('published_remote')}")
         lines.append(f"- post_push_green: {push_stages.get('post_push_green')}")
+    diagnostic = report.get("push_diagnostic") or {}
+    if diagnostic:
+        lines.append("")
+        lines.append("## Push Diagnostic")
+        lines.append("")
+        for key in (
+            "summary",
+            "validation_state",
+            "publication_state",
+            "git_push_state",
+            "post_push_state",
+        ):
+            lines.append(f"- {key}: {diagnostic.get(key)}")
     typed_action = report.get("typed_action") or {}
     if typed_action:
         lines.append("")

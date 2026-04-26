@@ -218,12 +218,29 @@ def run_commit(
         **commit_visibility_payload(pipeline),
         commit_sha=commit_sha,
         receipt_commit_sha=receipt_commit_sha or None,
+        receipt_projection_state=(
+            "receipt_commit_recorded"
+            if receipt_commit_sha
+            else _receipt_projection_state(
+                commit_ok=commit_result.ok,
+                commit_sha=commit_sha,
+            )
+        ),
         operator_guidance=commit_result.operator_guidance,
         interaction_mode=resolved_mode,
         warnings=[*stage_warnings, *commit_result.warnings],
     )
     _emit_report(args, report)
     return 0 if commit_result.ok else 1
+
+
+def _receipt_projection_state(*, commit_ok: bool, commit_sha: str) -> str:
+    """Return the report-only post-commit receipt/projection state."""
+    if not commit_ok:
+        return "not_started"
+    if commit_sha:
+        return "receipt_projection_pending_or_not_required"
+    return "commit_not_recorded"
 
 
 def run(args) -> int:

@@ -5618,6 +5618,20 @@ prefer the typed phase/task entries before any free-form backlog bullets.
 Use this section as the single "left off here" surface for fresh AI sessions
 working on `MP-377`.
 
+- 2026-04-26 Connected AI Platform Plan 4.1 Slice 0/A start:
+  runtime-reporting cleanup is the active bounded route, not a broad rebuild.
+  `commit_visibility_payload()` now orders committed/push-pending states ahead
+  of approved-state fallback and emits `git_commit_state`,
+  `post_commit_state`, and `publication_state`; `devctl commit` adds
+  `receipt_projection_state`; `devctl push` adds a `push_diagnostic` section
+  that distinguishes review-gated publication, git push failure, remote
+  publication with post-push pending, and fully green push. Slice A now has
+  `PlatformFindingIngest` as the canonical dogfood -> governance-review ->
+  `FindingBacklog` write seam, and dispatcher auto-ingest is opt-in/fail-open
+  behind `DEVCTL_PLATFORM_FINDING_INGEST_AUTO_RECORD=1` until report-only
+  evidence justifies default recording. Continue with default-on dogfood
+  evidence, per-guard finding emission, packet-lifecycle reconciliation, and
+  the Slice 0 runtime-agreement diagnostic tracked in ADR-010 through ADR-013.
 - 2026-04-18 consolidation-plan authoring follow-up:
   `MP-377` now explicitly absorbs the one-plan consolidation campaign instead
   of spawning another active plan. The new bounded lane is `MP-388..MP-397`:
@@ -7782,6 +7796,17 @@ Execution order for this section:
 
 ## Progress Log
 
+- 2026-04-26: Began the Connected AI Platform Plan 4.1 runtime-agreement
+  campaign with the bounded Slice 0/A pieces that can land safely now.
+  Commit/push reports gained machine-readable diagnostic fields so operators
+  can distinguish git commit failure, landed commit with receipt/projection
+  pending, review-gated publication, remote publication, and post-push state.
+  Added `PlatformFindingIngest` over `FindingBacklog` / governance-review,
+  moved dogfood governance closeout onto that seam, and wired an opt-in
+  dispatcher finalization hook for failed non-read-only devctl commands after
+  audit emission. Automation Debt Register rows ADR-010 through ADR-013 hold
+  the remaining default-on, per-guard, packet-classifier, and runtime-agreement
+  automation before any enforcement.
 - 2026-04-23: Partially closed ADR-005 in the MP-377 runtime-authority lane.
   `dev/scripts/devctl/runtime/advisory_next_action_role_filter.py` is now the
   shared read-only role projection for advisory next commands, and

@@ -137,6 +137,7 @@ from ..reports_cleanup_parser import add_reports_cleanup_parser
 from ..review_channel.parser import add_review_channel_parser
 from ..rollout_tail_parser import add_rollout_tail_parser
 from ..runtime.machine_output import clear_machine_output_metrics, consume_machine_output_metrics
+from ..runtime.platform_finding_ingest import maybe_auto_ingest_devctl_result
 from ..runtime.startup_gate import enforce_startup_gate
 from ..security.parser import add_security_parser
 from ..sync_parser import add_commit_parser, add_push_parser, add_sync_parser
@@ -432,6 +433,12 @@ def main() -> int:
                 duration_seconds=duration_seconds,
                 argv=sys.argv[1:],
                 machine_output=consume_machine_output_metrics(),
+            )
+            maybe_auto_ingest_devctl_result(
+                command=args.command,
+                returncode=return_code,
+                argv=sys.argv[1:],
+                read_only=is_read_only,
             )
         if not is_read_only and args.command != "data-science":
             maybe_auto_refresh_data_science(command=args.command)

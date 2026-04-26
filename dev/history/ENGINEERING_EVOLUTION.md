@@ -4,7 +4,7 @@
 
 **Status:** Draft v4 (historical design and process record)
 **Audience:** users and developers
-**Last Updated:** 2026-04-25
+**Last Updated:** 2026-04-26
 
 ## At a Glance
 
@@ -36,6 +36,32 @@ What makes this hard: VoiceTerm must keep PTY correctness, HUD responsiveness, S
 - [Quick Read (2 min)](#quick-read-2-min)
 - [User Path (5 min)](#user-path-5-min)
 - [Developer Path (15 min)](#developer-path-15-min)
+
+### 2026-04-26 - Plan 4.1 starts with report diagnostics and finding ingest
+
+Fact: the connected AI platform campaign needed runtime surfaces to agree
+before wider schema/spine work. The immediate gap was narrower than another
+architecture pass: commit/push reports could blur git commit failure,
+landed-commit receipt/projection state, review-gated publication, and
+post-push progress, while dogfood failures still depended on manual
+governance-review closeout.
+
+Change: governed commit visibility now emits explicit `git_commit_state`,
+`post_commit_state`, `publication_state`, and `receipt_projection_state`.
+Governed push reports add `push_diagnostic` with validation, publication,
+git-push, post-push, and summary fields. `PlatformFindingIngest` is the shared
+dogfood -> governance-review -> `FindingBacklog` seam; `dogfood
+--record-governance` uses it, and an opt-in fail-open dispatcher finalization
+hook can record failed non-read-only devctl commands after audit emission.
+
+Evidence:
+- `dev/scripts/devctl/commands/vcs/commit_visibility.py`
+- `dev/scripts/devctl/commands/vcs/push_report.py`
+- `dev/scripts/devctl/runtime/platform_finding_ingest.py`
+- `dev/scripts/devctl/cli_parser/entrypoint.py`
+- `dev/scripts/devctl/tests/vcs/test_commit_visibility.py`
+- `dev/scripts/devctl/tests/vcs/test_push_report.py`
+- `dev/scripts/devctl/tests/runtime/test_platform_finding_ingest.py`
 
 ### 2026-04-25 - Review-channel history gained a typed packet outcome ledger
 

@@ -27,10 +27,20 @@ class CliAuditEventTests(unittest.TestCase):
                 },
                 clear=False,
             ):
-                with patch("sys.argv", ["devctl", "status", "--format", "json"]):
+                with (
+                    patch("sys.argv", ["devctl", "status", "--format", "json"]),
+                    patch.object(
+                        cli,
+                        "maybe_auto_ingest_devctl_result",
+                    ) as ingest_mock,
+                ):
                     rc = cli.main()
 
             self.assertEqual(rc, 0)
+            ingest_mock.assert_called_once()
+            self.assertEqual(ingest_mock.call_args.kwargs["command"], "status")
+            self.assertEqual(ingest_mock.call_args.kwargs["returncode"], 0)
+            self.assertFalse(ingest_mock.call_args.kwargs["read_only"])
             rows = log_path.read_text(encoding="utf-8").strip().splitlines()
             self.assertGreaterEqual(len(rows), 1)
             last_row = json.loads(rows[-1])

@@ -2072,6 +2072,13 @@ Structured audit/event ledgers are separate from that handoff surface:
   correlation; plain
   `python3 dev/scripts/devctl.py governance-review --record --signal-type dogfood`
   remains the manual fallback for later closeout or reclassification.
+  `PlatformFindingIngest` is the shared write seam underneath the linked
+  dogfood/governance closeout. The dispatcher also has an opt-in,
+  fail-open Slice A finalization hook:
+  `DEVCTL_PLATFORM_FINDING_INGEST_AUTO_RECORD=1` records failed non-read-only
+  devctl commands as `signal_type=dogfood` findings after audit emission.
+  It skips read-only commands, dogfood/governance recursion, and artifact-only
+  refreshes, and `DEVCTL_PLATFORM_FINDING_INGEST_DISABLE=1` disables it.
   Dogfood is the development proof ledger, not the runtime role switch:
   review-channel/startup/session-resume should derive who mutates, who
   verifies, and who owns the watcher/dashboard lane from typed
