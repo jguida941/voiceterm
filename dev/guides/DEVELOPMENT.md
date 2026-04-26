@@ -246,7 +246,11 @@ operator packet flow, but `remote_control` without that delegation and other
 non-auto-approved lanes must still stop at `operator_approval_pending` before
 the `vcs.commit` phase. Apply or reuse the typed decision first, then rerun
 the command from a fresh startup/review receipt instead of expecting the same
-invocation to cross the approval boundary.
+invocation to cross the approval boundary. When a typed packet is posted after
+the last startup refresh, governed stage/commit preflight now reruns the
+existing `startup-context --format summary` receipt writer before failing on
+`attention_revision_stale`; it still blocks if that refresh cannot prove the
+current packet-attention revision.
 Push cleanliness now blocks only on unstaged or untracked dirt. Staged-only
 "next commit" intent is allowed so `devctl push --execute` and its
 preflight auto-commit repair path do not loop on already-approved work just

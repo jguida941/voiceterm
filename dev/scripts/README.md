@@ -447,6 +447,11 @@ Portability note:
   `next_command` directly instead of emitting free-form prose. Same-HEAD
   expired `push_blocked` pipelines now self-heal that authorization window in
   the block path and point operators straight at `devctl push --execute`.
+  If a typed packet lands after the operator's last startup refresh, governed
+  stage/commit preflight now reruns the existing `startup-context --format
+  summary` receipt writer before failing on `attention_revision_stale`; the
+  stale gate remains fail-closed only when that refresh cannot prove current
+  packet attention.
 - `review-channel --action post --kind action_request` is the event-backed
   source for bridge `## Action Requests`, but executable requests are
   fail-closed on typed runtime binding. Use `--requested-action run_check`,

@@ -31,6 +31,9 @@ from dev.scripts.devctl.commands.vcs.governed_executor_packets import (
 from dev.scripts.devctl.commands.vcs.governed_executor_phases import (
     _attention_revision_block,
 )
+from dev.scripts.devctl.commands.vcs.governed_executor_commit_runtime import (
+    StartupContextRefreshResult,
+)
 from dev.scripts.devctl.commands.vcs.push import build_push_action
 from dev.scripts.devctl.review_channel.event_reducer import load_or_refresh_event_bundle
 from dev.scripts.devctl.review_channel.events import (
@@ -522,6 +525,100 @@ def test_stage_attention_revision_blocks_on_live_finding_attention() -> None:
     assert result["reason"] == "attention_revision_stale"
 
 
+def test_stage_attention_revision_auto_refreshes_receipt_before_block(
+    tmp_path: Path,
+) -> None:
+    repo_root = _init_repo(tmp_path / "repo")
+    (repo_root / "tracked.txt").write_text("updated\n", encoding="utf-8")
+    receipt_revision = {"value": "receipt-rev"}
+    executor = _executor(
+        repo_root,
+        startup_context_fn=lambda *, repo_root: _startup_context_with_attention(
+            attention_revision="live-rev",
+            owner="codex",
+            agent="codex",
+            wake_reason="finding_pending",
+        ),
+    )
+
+    def _refresh_startup_receipt(**_kwargs):
+        receipt_revision["value"] = "live-rev"
+        return StartupContextRefreshResult(ok=True, warnings=("refreshed",))
+
+    with (
+        patch(
+            "dev.scripts.devctl.commands.vcs.governed_executor_stage_attention.load_startup_receipt",
+            side_effect=lambda **_kwargs: SimpleNamespace(
+                attention_revision=receipt_revision["value"]
+            ),
+        ),
+        patch(
+            "dev.scripts.devctl.commands.vcs.governed_executor_stage_attention."
+            "refresh_startup_context_receipt_before_vcs_preflight",
+            side_effect=_refresh_startup_receipt,
+        ) as refresh_mock,
+    ):
+        result = executor.execute(
+            build_stage_action(
+                repo_pack_id="test-pack",
+                paths=("tracked.txt",),
+                commit_message_draft="feat: update tracked file",
+                push_requested=True,
+                guard_profile="bundle.tooling",
+                work_intake_ref="MP-377",
+            )
+        )
+
+    assert result.ok is True
+    assert result.reason == "pipeline_staged"
+    refresh_mock.assert_called_once()
+
+
+def test_stage_attention_revision_blocks_when_startup_refresh_fails(
+    tmp_path: Path,
+) -> None:
+    repo_root = _init_repo(tmp_path / "repo")
+    (repo_root / "tracked.txt").write_text("updated\n", encoding="utf-8")
+    executor = _executor(
+        repo_root,
+        startup_context_fn=lambda *, repo_root: _startup_context_with_attention(
+            attention_revision="live-rev",
+            owner="codex",
+            agent="codex",
+            wake_reason="finding_pending",
+        ),
+    )
+
+    with (
+        patch(
+            "dev.scripts.devctl.commands.vcs.governed_executor_stage_attention.load_startup_receipt",
+            return_value=SimpleNamespace(attention_revision="receipt-rev"),
+        ),
+        patch(
+            "dev.scripts.devctl.commands.vcs.governed_executor_stage_attention."
+            "refresh_startup_context_receipt_before_vcs_preflight",
+            return_value=StartupContextRefreshResult(
+                ok=False,
+                warnings=("startup-context refresh failed",),
+            ),
+        ),
+    ):
+        result = executor.execute(
+            build_stage_action(
+                repo_pack_id="test-pack",
+                paths=("tracked.txt",),
+                commit_message_draft="feat: update tracked file",
+                push_requested=True,
+                guard_profile="bundle.tooling",
+                work_intake_ref="MP-377",
+            )
+        )
+
+    assert result.ok is False
+    assert result.reason == "startup_context_refresh_failed"
+    assert result.warnings == ("startup-context refresh failed",)
+
+
 def test_stage_attention_revision_ignores_other_agents_actionable_packets() -> None:
     action = SimpleNamespace(action_id="vcs.stage")
     startup_context = {
@@ -620,6 +717,9 @@ def test_commit_posts_runtime_action_request_when_git_index_write_is_blocked(
         ),
     ), patch(
         "dev.scripts.devctl.commands.vcs.governed_executor_commit_phase.runtime_load_live_review_state",
+        return_value=live_writable_lane,
+    ), patch(
+        "dev.scripts.devctl.commands.vcs.governed_executor_commit_runtime.load_live_review_state",
         return_value=live_writable_lane,
     ):
         result = executor.execute(
@@ -2328,6 +2428,31 @@ def _startup_context(*, repo_root: Path) -> SimpleNamespace:
         advisory_action="checkpoint_allowed",
         advisory_reason="worktree_dirty_within_budget",
     )
+
+
+def _startup_context_with_attention(
+    *,
+    attention_revision: str,
+    owner: str,
+    agent: str,
+    wake_reason: str,
+) -> SimpleNamespace:
+    ctx = _startup_context(repo_root=Path("."))
+    ctx.work_intake = SimpleNamespace(
+        coordination=SimpleNamespace(active_implementation_owner=owner)
+    )
+    ctx.packet_inbox = SimpleNamespace(
+        attention_revision=attention_revision,
+        agents=(
+            SimpleNamespace(
+                agent=agent,
+                attention_status="review_needed",
+                wake_reason=wake_reason,
+                pending_actionable_total=0,
+            ),
+        ),
+    )
+    return ctx
 
 
 def _passing_guard_result() -> ActionResult:

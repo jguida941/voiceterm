@@ -17,6 +17,10 @@ from .governed_executor_field_access import (
     string_field,
 )
 from .governed_executor_git import pipeline_is_stale_for_current_repo
+from .governed_executor_commit_runtime import (
+    StartupContextRefreshResult,
+    refresh_startup_context_receipt_before_vcs_preflight,
+)
 
 ResultBuilder = Callable[..., ActionResult]
 
@@ -57,6 +61,9 @@ def check_stage_preconditions(
         repo_root=repo_root,
         startup_context=startup_context,
         result_builder=result_builder,
+        refresh_startup_receipt_fn=(
+            refresh_startup_context_receipt_before_vcs_preflight
+        ),
     )
     if attention_block is not None:
         return attention_block
@@ -87,6 +94,9 @@ def attention_revision_block(
     repo_root: Path,
     startup_context: Any,
     result_builder: ResultBuilder,
+    refresh_startup_receipt_fn: (
+        Callable[..., StartupContextRefreshResult] | None
+    ) = None,
 ) -> ActionResult | None:
     packet_inbox = field(startup_context, "packet_inbox")
     current_attention_revision = string_field(packet_inbox, "attention_revision")
@@ -104,6 +114,29 @@ def attention_revision_block(
     receipt = load_startup_receipt(repo_root=repo_root)
     if receipt is not None and receipt.attention_revision == current_attention_revision:
         return None
+    if refresh_startup_receipt_fn is not None:
+        refresh_result = refresh_startup_receipt_fn(
+            repo_root=repo_root,
+            next_step_label="stage preflight",
+        )
+        if not refresh_result.ok:
+            return result_builder(
+                action_id=action.action_id,
+                ok=False,
+                status=ActionOutcome.FAIL,
+                reason="startup_context_refresh_failed",
+                operator_guidance=(
+                    "The governed stage preflight could not refresh "
+                    "`startup-context`; repair that command before staging more work."
+                ),
+                warnings=refresh_result.warnings,
+            )
+        refreshed_receipt = load_startup_receipt(repo_root=repo_root)
+        if (
+            refreshed_receipt is not None
+            and refreshed_receipt.attention_revision == current_attention_revision
+        ):
+            return None
     return result_builder(
         action_id=action.action_id,
         ok=False,

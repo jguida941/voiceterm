@@ -7842,9 +7842,12 @@ Execution order for this section:
   Added `PlatformFindingIngest` over `FindingBacklog` / governance-review,
   moved dogfood governance closeout onto that seam, and wired an opt-in
   dispatcher finalization hook for failed non-read-only devctl commands after
-  audit emission. Automation Debt Register rows ADR-010 through ADR-013 hold
-  the remaining default-on, per-guard, packet-classifier, and runtime-agreement
-  automation before any enforcement.
+  audit emission. The same campaign closed the attention-revision self-stale
+  loop exposed by typed dogfood finding packets: governed stage/commit
+  preflight now refreshes the existing startup receipt before failing on
+  `attention_revision_stale`. Automation Debt Register rows ADR-010 through
+  ADR-013 hold the remaining default-on, per-guard, packet-classifier, and
+  runtime-agreement automation before any enforcement.
 - 2026-04-23: Partially closed ADR-005 in the MP-377 runtime-authority lane.
   `dev/scripts/devctl/runtime/advisory_next_action_role_filter.py` is now the
   shared read-only role projection for advisory next commands, and

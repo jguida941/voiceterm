@@ -7,7 +7,6 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
 
-from ...review_channel.events import post_packet, resolve_artifact_paths
 from ...runtime import ActionResult, TypedAction
 from ...runtime.action_contracts import ActionOutcome
 from ...runtime.remote_commit_pipeline_models import RemoteCommitPipelineContract
@@ -19,11 +18,12 @@ from .governed_executor_commit_runtime import (
     attention_revision_stale as runtime_attention_revision_stale,
     live_attention_revision as runtime_live_attention_revision,
     load_live_review_state as runtime_load_live_review_state,
+    post_commit_execution_handoff as runtime_post_commit_execution_handoff,
+    refresh_and_recheck_attention_revision as runtime_refresh_and_recheck_attention_revision,
     resolve_commit_execution_target as runtime_resolve_commit_execution_target,
 )
 from .governed_executor_field_access import bool_field, string_value
 from .governed_executor_git import head_commit, index_tree_hash
-from .governed_executor_packets import build_commit_execution_request
 from .governed_executor_phases import (
     _git_index_failure_guidance,
     _git_index_failure_reason,
@@ -89,16 +89,13 @@ def execute_commit(
         pipeline=pipeline,
         context=context,
     )
-    if runtime_attention_revision_stale(
-        repo_root=context.repo_root,
-        review_channel_path=context.review_channel_path,
-        held_lease=pipeline.attention_revision_lease,
-    ):
-        return _attention_revision_stale_result(
-            action_id=action.action_id,
-            context=context,
-            pipeline=pipeline,
-        )
+    attention_block = _attention_revision_preflight_block(
+        action_id=action.action_id,
+        context=context,
+        pipeline=pipeline,
+    )
+    if attention_block is not None:
+        return attention_block
     pending_block = check_commit_packet_gate(
         repo_root=context.repo_root,
         review_channel_path=context.review_channel_path,
@@ -221,38 +218,49 @@ def _acquire_attention_revision_lease(
     return leased
 
 
-def _post_commit_execution_handoff(
+def _attention_revision_preflight_block(
     *,
-    pipeline: RemoteCommitPipelineContract,
+    action_id: str,
     context: CommitPipelineContext,
-) -> tuple[str, str, str]:
-    review_state = runtime_load_live_review_state(
+    pipeline: RemoteCommitPipelineContract,
+) -> ActionResult | None:
+    if not runtime_attention_revision_stale(
         repo_root=context.repo_root,
         review_channel_path=context.review_channel_path,
+        held_lease=pipeline.attention_revision_lease,
+    ):
+        return None
+    attention_decision = runtime_refresh_and_recheck_attention_revision(
+        repo_root=context.repo_root,
+        review_channel_path=context.review_channel_path,
+        held_lease=pipeline.attention_revision_lease,
+        next_step_label="commit preflight",
+        stale_check_fn=runtime_attention_revision_stale,
     )
-    target_agent = runtime_resolve_commit_execution_target(review_state)
-    if not target_agent or context.review_channel_path is None:
-        return "", "", ""
-    artifact_paths = resolve_artifact_paths(repo_root=context.repo_root)
-    try:
-        _, event = post_packet(
-            repo_root=context.repo_root,
-            review_channel_path=context.review_channel_path,
-            artifact_paths=artifact_paths,
-            request=build_commit_execution_request(
-                pipeline,
-                to_agent=target_agent,
-                body=(
-                    "The current lane hit `.git/index.lock` permission denial "
-                    "while running the already-approved governed commit. "
-                    "Resume the same runtime-bound pipeline from the writable "
-                    "lane without restaging."
+    if attention_decision.status == "refresh_failed":
+        return _commit_block_result(
+            action_id=action_id,
+            context=context,
+            blocked=CommitBlock(
+                pipeline=replace(
+                    pipeline,
+                    state="push_blocked",
+                    blocked_reason="startup_context_refresh_failed",
+                ),
+                reason="startup_context_refresh_failed",
+                guidance=(
+                    "The governed commit preflight could not refresh "
+                    "`startup-context`; repair that command before committing."
                 ),
             ),
         )
-    except (OSError, ValueError) as exc:
-        return target_agent, "", f"commit_execution_request_failed: {exc}"
-    return target_agent, str(event.get("packet_id") or "").strip(), ""
+    if attention_decision.status == "stale":
+        return _attention_revision_stale_result(
+            action_id=action_id,
+            context=context,
+            pipeline=pipeline,
+        )
+    return None
 
 
 def _attention_revision_stale_result(
@@ -320,9 +328,12 @@ def _commit_failure_result(
     handoff_target = ""
     handoff_error = ""
     if failure_reason == "git_index_write_blocked":
-        handoff_target, handoff_packet_id, handoff_error = _post_commit_execution_handoff(
-            pipeline=pending_pipeline,
-            context=context,
+        handoff_target, handoff_packet_id, handoff_error = (
+            runtime_post_commit_execution_handoff(
+                repo_root=context.repo_root,
+                review_channel_path=context.review_channel_path,
+                pipeline=pending_pipeline,
+            )
         )
         if handoff_packet_id and handoff_target:
             failure_guidance = (

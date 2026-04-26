@@ -59,6 +59,29 @@ Evidence:
 - `dev/scripts/devctl/tests/review_channel/test_status_snapshot_authority.py`
 - `dev/scripts/devctl/tests/review_channel/test_launch_script.py`
 
+### 2026-04-26 - Governed commit refreshes startup attention before stale gates
+
+Fact: typed dogfood findings must travel as review-channel packets, but posting
+a finding between `startup-context` refresh and `devctl commit` changed the
+packet attention revision and made the commit pipeline fail closed on
+`attention_revision_stale`. The failure was correct for stale startup evidence,
+but it created a circular dependency: the durable typed finding path invalidated
+the publication path needed to fix or record the finding.
+
+Change: governed VCS preflight now reuses the existing
+`startup-context --format summary` receipt writer when the stale-attention gate
+would otherwise block. Stage preflight refreshes the startup receipt, reloads
+it, and only blocks if the receipt still does not match live packet attention.
+Commit preflight does the same before emitting `attention_revision_stale`, while
+the approval-time attention lease still protects already-approved commit
+windows from self-invalidating typed writes.
+
+Evidence:
+- `dev/scripts/devctl/commands/vcs/governed_executor_commit_runtime.py`
+- `dev/scripts/devctl/commands/vcs/governed_executor_stage_attention.py`
+- `dev/scripts/devctl/commands/vcs/governed_executor_commit_phase.py`
+- `dev/scripts/devctl/tests/vcs/test_governed_executor.py`
+
 ### 2026-04-26 - Governed push accepts managed receipt chains before publication
 
 Fact: Plan 4.1 Slice 0 dogfood exposed a governed-push self-invalidation loop.

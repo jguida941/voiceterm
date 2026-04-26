@@ -202,7 +202,10 @@
   treats attached remote-control liveness as launch authority: status/doctor
   recommend headless `--terminal none`, and explicit visible Terminal.app
   launch/recover requests fail closed before any local prompt or profile lookup
-  the remote operator cannot see.
+  the remote operator cannot see. Governed stage/commit preflight also now
+  refreshes the existing startup receipt before failing on
+  `attention_revision_stale`, so typed dogfood finding packets do not stale the
+  commit path they are meant to protect.
 - 2026-04-26 Plan 4.1 Slice 0 governed-push closeout (MP-377):
   `devctl push` now treats a contiguous chain of managed bridge/ReviewSnapshot
   receipt commits as authorized movement when any ancestor matches the

@@ -2,8 +2,12 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from pathlib import Path
+import sys
+from typing import Callable
 
+from ...common import run_cmd
 from ...review_channel.event_reducer import load_or_refresh_event_bundle
 from ...review_channel.events import post_packet, resolve_artifact_paths
 from ...runtime.remote_commit_pipeline_models import RemoteCommitPipelineContract
@@ -23,6 +27,108 @@ from .governed_executor_packets import (
     build_commit_execution_request,
     build_commit_stage_request,
 )
+
+
+CommandRunner = Callable[[str, list[str], Path], dict[str, object]]
+
+
+@dataclass(frozen=True, slots=True)
+class StartupContextRefreshResult:
+    """Outcome of the startup-context receipt refresh preflight step."""
+
+    ok: bool
+    warnings: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
+class AttentionRevisionRefreshDecision:
+    """Decision after refreshing startup receipt and rechecking attention."""
+
+    status: str
+    warnings: tuple[str, ...] = ()
+
+
+def refresh_startup_context_receipt_before_vcs_preflight(
+    *,
+    repo_root: Path,
+    next_step_label: str,
+    command_runner: CommandRunner | None = None,
+) -> StartupContextRefreshResult:
+    """Run the existing startup-context command so its receipt matches live attention."""
+    entrypoint = repo_root / "dev/scripts/devctl.py"
+    if not entrypoint.is_file():
+        return StartupContextRefreshResult(ok=True)
+    runner = command_runner or _run_startup_context_command
+    step = runner(
+        "commit-refresh-startup-context",
+        [
+            sys.executable,
+            "dev/scripts/devctl.py",
+            "startup-context",
+            "--format",
+            "summary",
+        ],
+        repo_root,
+    )
+    returncode_value = step.get("returncode", 1)
+    returncode = int(returncode_value) if returncode_value is not None else 1
+    if returncode == 0:
+        return StartupContextRefreshResult(
+            ok=True,
+            warnings=(
+                f"Refreshed startup-context receipt before {next_step_label}.",
+            ),
+        )
+    detail = str(step.get("failure_output") or step.get("error") or "").strip()
+    warning = (
+        f"startup-context refresh failed before {next_step_label}"
+        f" (exit {returncode})"
+    )
+    if detail:
+        warning = f"{warning}: {detail}"
+    return StartupContextRefreshResult(ok=False, warnings=(warning,))
+
+
+def refresh_and_recheck_attention_revision(
+    *,
+    repo_root: Path,
+    review_channel_path: Path | None,
+    held_lease: str,
+    next_step_label: str,
+    stale_check_fn: Callable[..., bool] | None = None,
+) -> AttentionRevisionRefreshDecision:
+    """Refresh startup receipt once, then rerun the stale-attention check."""
+    refresh_result = refresh_startup_context_receipt_before_vcs_preflight(
+        repo_root=repo_root,
+        next_step_label=next_step_label,
+    )
+    if not refresh_result.ok:
+        return AttentionRevisionRefreshDecision(
+            status="refresh_failed",
+            warnings=refresh_result.warnings,
+        )
+    check_fn = stale_check_fn or attention_revision_stale
+    if check_fn(
+        repo_root=repo_root,
+        review_channel_path=review_channel_path,
+        held_lease=held_lease,
+    ):
+        return AttentionRevisionRefreshDecision(
+            status="stale",
+            warnings=refresh_result.warnings,
+        )
+    return AttentionRevisionRefreshDecision(
+        status="fresh",
+        warnings=refresh_result.warnings,
+    )
+
+
+def _run_startup_context_command(
+    name: str,
+    command: list[str],
+    cwd: Path,
+) -> dict[str, object]:
+    return run_cmd(name, command, cwd=cwd, live_output=False)
 
 
 def attention_revision_stale(
