@@ -897,12 +897,12 @@ Portability note:
   embedded in the file against the live typed projection. A final commit that
   changes the generated snapshot, or the snapshot plus the governed
   `bridge.md` compatibility projection, is also accepted when the embedded
-  snapshot binds to that receipt commit's parent code state, because a file
-  inside a commit cannot contain its own final SHA. Whenever non-receipt HEAD
-  moves or the typed generation
-  stamp changes without a snapshot rewrite, the guard fails and instructs the
-  caller to rerun
-  `python3 dev/scripts/devctl.py review-snapshot --write`. Both
+  snapshot binds to that receipt commit's parent code state, or to any
+  ancestor in a contiguous governed bridge/ReviewSnapshot receipt chain,
+  because a file inside a commit cannot contain its own final SHA. Whenever
+  non-receipt HEAD moves or the typed generation stamp changes without a
+  snapshot rewrite, the guard fails and instructs the caller to rerun
+  `python3 dev/scripts/devctl.py review-snapshot --write --receipt-commit`. Both
   `tooling_control_plane.yml` and `release_preflight.yml` enforce it. The
   managed raw-git hook path is now explicit three-hook automation:
   `devctl install-git-hooks` installs the pre-commit
@@ -921,11 +921,13 @@ Portability note:
   `PushAuthorizationRecord` through the contiguous managed
   bridge/ReviewSnapshot receipt chain back to the approved content commit, and
   push preflight now refreshes ReviewSnapshot before routed preflight, creates
-  that receipt itself when bridge/status/ReviewSnapshot reprojection leaves
-  only governed receipt artifacts dirty, refreshes the event-backed
-  review-channel projection bundle plus startup/context-graph surfaces after
-  managed receipt movement, and then runs the routed guard bundle against the
-  committed freshness state. Push reporting, authorization, and pipeline-state
+  managed projection receipts when bridge/status/ReviewSnapshot reprojection
+  leaves only governed receipt artifacts dirty, runs
+  `review-snapshot --write --receipt-commit` when that batch moves `HEAD`,
+  refreshes the event-backed review-channel projection bundle plus
+  startup/context-graph surfaces after managed receipt movement, and then runs
+  the routed guard bundle against the committed freshness state. Push
+  reporting, authorization, and pipeline-state
   sync then operate on the receipt HEAD while preserving the approved content
   commit as the parent target. `check_system_picture_freshness.py` is the
   companion pre-push guard: it fails stale `SystemPicture` sections and

@@ -1704,11 +1704,131 @@ class PushBridgeSyncTests(unittest.TestCase):
         self.assertEqual(result["receipt_committed"], True)
         self.assertEqual(
             calls,
-            ["push-refresh-startup-context", "push-refresh-context-graph"],
+            [
+                "push-refresh-startup-context",
+                "push-refresh-context-graph",
+                "push-refresh-review-snapshot-receipt",
+            ],
         )
         self.assertIn(
             "Refreshed startup-context and context-graph after managed projection "
             "receipt before push preflight.",
+            state.warnings,
+        )
+
+    def test_refresh_managed_projections_runs_snapshot_receipt_after_head_movement(
+        self,
+    ) -> None:
+        state = push.PushRunState(branch="feature/demo", remote="origin")
+        policy = make_policy()
+        calls: list[str] = []
+
+        def _runner(name, cmd, cwd=None, env=None):
+            del cmd, cwd, env
+            calls.append(name)
+            return {
+                "name": name,
+                "cmd": [],
+                "cwd": ".",
+                "returncode": 0,
+                "duration_s": 0.1,
+                "skipped": False,
+            }
+
+        with (
+            patch.object(
+                push_preflight_projection,
+                "refresh_review_snapshot_file",
+                return_value=[],
+            ),
+            patch.object(
+                push_preflight_projection,
+                "auto_commit_managed_projection_receipt",
+                return_value={"ok": True, "committed": True, "paths": ("bridge.md",)},
+            ),
+            patch.object(
+                push_preflight_projection,
+                "_current_head_sha",
+                side_effect=["receipt-before", "snapshot-receipt"],
+            ),
+        ):
+            result = (
+                push_preflight_projection.refresh_managed_projections_before_preflight(
+                    state,
+                    policy,
+                    repo_root=Path("/tmp/repo"),
+                    command_runner=_runner,
+                )
+            )
+
+        self.assertEqual(result["snapshot_receipt_committed"], True)
+        self.assertEqual(result["snapshot_receipt_commit_sha"], "snapshot-receipt")
+        self.assertEqual(
+            calls,
+            [
+                "push-refresh-startup-context",
+                "push-refresh-context-graph",
+                "push-refresh-review-snapshot-receipt",
+                "push-refresh-startup-context",
+                "push-refresh-context-graph",
+            ],
+        )
+        self.assertIn(
+            "Committed ReviewSnapshot freshness receipt snapshot-rec before push preflight.",
+            state.warnings,
+        )
+
+    def test_generated_preflight_commit_gets_snapshot_receipt_before_authorization(
+        self,
+    ) -> None:
+        state = push.PushRunState(branch="feature/demo", remote="origin")
+        policy = make_policy()
+        calls: list[str] = []
+
+        def _runner(name, cmd, cwd=None, env=None):
+            del cmd, cwd, env
+            calls.append(name)
+            return {
+                "name": name,
+                "cmd": [],
+                "cwd": ".",
+                "returncode": 0,
+                "duration_s": 0.1,
+                "skipped": False,
+            }
+
+        with (
+            patch.object(
+                push_preflight_projection,
+                "auto_commit_preflight_generated_changes",
+            ),
+            patch.object(
+                push_preflight_projection,
+                "auto_commit_managed_projection_receipt",
+                return_value={"ok": True, "committed": False, "paths": ()},
+            ),
+            patch.object(
+                push_preflight_projection,
+                "_current_head_sha",
+                side_effect=[
+                    "before-generated",
+                    "after-generated",
+                    "after-generated",
+                    "snapshot-receipt",
+                ],
+            ),
+        ):
+            push_preflight_projection.refresh_preflight_generated_changes_before_authorization(
+                state,
+                policy,
+                repo_root=Path("/tmp/repo"),
+                command_runner=_runner,
+            )
+
+        self.assertEqual(calls, ["push-refresh-review-snapshot-receipt"])
+        self.assertIn(
+            "Committed ReviewSnapshot freshness receipt snapshot-rec before "
+            "publication authorization.",
             state.warnings,
         )
 
@@ -1952,6 +2072,9 @@ class PushBridgeSyncTests(unittest.TestCase):
         self.assertIn("Repo policy blocks `--skip-post-push`", payload["errors"][0])
 
     @patch("dev.scripts.devctl.commands.vcs.push.write_output")
+    @patch(
+        "dev.scripts.devctl.commands.vcs.push.refresh_preflight_generated_changes_before_authorization"
+    )
     @patch("dev.scripts.devctl.commands.vcs.push.remote_exists", return_value=True)
     @patch("dev.scripts.devctl.commands.vcs.push.load_push_policy")
     @patch("dev.scripts.devctl.commands.vcs.push.collect_git_status")
@@ -1962,6 +2085,7 @@ class PushBridgeSyncTests(unittest.TestCase):
         collect_git_status_mock,
         load_policy_mock,
         _remote_exists_mock,
+        refresh_generated_mock,
         write_output_mock,
     ) -> None:
         collect_git_status_mock.return_value = {
@@ -1977,6 +2101,7 @@ class PushBridgeSyncTests(unittest.TestCase):
         payload = json.loads(write_output_mock.call_args.args[0])
         self.assertEqual(payload["status"], "blocked")
         self.assertIn("Working tree has uncommitted changes", payload["errors"][0])
+        refresh_generated_mock.assert_not_called()
 
     @patch("dev.scripts.devctl.commands.vcs.push_preflight_commit.run_git_capture")
     @patch("dev.scripts.devctl.commands.vcs.push_preflight_commit.collect_git_status")

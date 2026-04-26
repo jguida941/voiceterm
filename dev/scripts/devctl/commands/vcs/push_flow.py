@@ -103,10 +103,10 @@ def execute_push_flow_with_dependencies(
             stages=PushStageTruth(validation_ready=True),
         )
 
-    # ReviewSnapshot refresh happens before routed preflight in push.py and is
-    # committed through the managed projection receipt path when it changes the
-    # tracked projection. By the time execution reaches git push, preflight has
-    # already validated the current committed freshness state.
+    # ReviewSnapshot refresh happens before routed preflight in push.py. Managed
+    # projection receipts move HEAD first, then the snapshot receipt refresh
+    # binds the external-review file to that contiguous receipt chain before
+    # freshness guards and publication authorization consume it.
 
     push_cmd = _governed_git_push_cmd(state.remote, state.branch)
     if not state.branch_has_remote:

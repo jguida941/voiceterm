@@ -12,6 +12,7 @@ from ...review_channel.event_reducer import load_or_refresh_event_bundle
 from ...review_channel.event_store import resolve_artifact_paths
 from ...review_channel.state import refresh_status_snapshot
 from ...runtime.review_snapshot_refresh import refresh_review_snapshot_file
+from ...runtime.vcs import run_git_capture
 from .push_preflight_commit import auto_commit_preflight_generated_changes
 from .push_projection_receipt import auto_commit_managed_projection_receipt
 
@@ -47,6 +48,25 @@ def refresh_managed_projections_before_preflight(
             repo_root=repo_root,
             next_step_label="push preflight",
         )
+        if getattr(state, "errors", ()):
+            return result
+        snapshot_receipt = auto_commit_review_snapshot_freshness_receipt(
+            state,
+            command_runner=run_cmd if command_runner is None else command_runner,
+            repo_root=repo_root,
+            next_step_label="push preflight",
+        )
+        result["snapshot_receipt_committed"] = bool(snapshot_receipt.get("committed"))
+        result["snapshot_receipt_commit_sha"] = str(
+            snapshot_receipt.get("commit_sha", "") or ""
+        )
+        if snapshot_receipt.get("committed") and not getattr(state, "errors", ()):
+            refresh_runtime_surfaces_after_projection_receipt(
+                state,
+                command_runner=run_cmd if command_runner is None else command_runner,
+                repo_root=repo_root,
+                next_step_label="push preflight snapshot receipt",
+            )
     return result
 
 
@@ -124,7 +144,59 @@ def auto_commit_managed_projection_receipt_before_authorization(
             repo_root=repo_root,
             next_step_label="publication authorization",
         )
+        if not state.errors:
+            auto_commit_review_snapshot_freshness_receipt(
+                state,
+                command_runner=command_runner,
+                repo_root=repo_root,
+                next_step_label="publication authorization",
+            )
     return receipt_result
+
+
+def auto_commit_review_snapshot_freshness_receipt(
+    state,
+    *,
+    command_runner=run_cmd,
+    repo_root: Path,
+    next_step_label: str,
+) -> dict[str, object]:
+    """Run the governed snapshot receipt command after managed HEAD movement."""
+    before_head = _current_head_sha(repo_root=repo_root)
+    step = command_runner(
+        "push-refresh-review-snapshot-receipt",
+        [
+            sys.executable,
+            "dev/scripts/devctl.py",
+            "review-snapshot",
+            "--write",
+            "--receipt-commit",
+            "--format",
+            "json",
+        ],
+        cwd=repo_root,
+    )
+    if step.get("returncode", 1) != 0:
+        detail = str(step.get("failure_output") or step.get("error") or "").strip()
+        suffix = f": {detail}" if detail else ""
+        state.errors.append(
+            f"ReviewSnapshot receipt refresh failed before {next_step_label}{suffix}"
+        )
+        return {"ok": False, "committed": False, "step": step}
+
+    after_head = _current_head_sha(repo_root=repo_root)
+    committed = bool(after_head and after_head != before_head)
+    if committed:
+        state.warnings.append(
+            "Committed ReviewSnapshot freshness receipt "
+            f"{after_head[:12]} before {next_step_label}."
+        )
+    return {
+        "ok": True,
+        "committed": committed,
+        "commit_sha": after_head if committed else "",
+        "step": step,
+    }
 
 
 def refresh_preflight_generated_changes_before_authorization(
@@ -135,13 +207,29 @@ def refresh_preflight_generated_changes_before_authorization(
     command_runner=run_cmd,
 ) -> None:
     """Commit preflight-generated drift and refresh projection receipts."""
+    before_generated_commit = _current_head_sha(repo_root=repo_root)
     auto_commit_preflight_generated_changes(state, policy, repo_root=repo_root)
-    auto_commit_managed_projection_receipt_before_authorization(
+    generated_commit_moved_head = (
+        bool(before_generated_commit)
+        and _current_head_sha(repo_root=repo_root) != before_generated_commit
+    )
+    receipt_result = auto_commit_managed_projection_receipt_before_authorization(
         state,
         policy,
         repo_root=repo_root,
         command_runner=command_runner,
     )
+    if (
+        generated_commit_moved_head
+        and not state.errors
+        and not _receipt_result_committed(receipt_result)
+    ):
+        auto_commit_review_snapshot_freshness_receipt(
+            state,
+            command_runner=command_runner,
+            repo_root=repo_root,
+            next_step_label="publication authorization",
+        )
 
 
 def _receipt_result_committed(receipt_result: object) -> bool:
@@ -150,6 +238,11 @@ def _receipt_result_committed(receipt_result: object) -> bool:
     return bool(receipt_result.get("committed")) or bool(
         str(receipt_result.get("commit_sha", "") or "").strip()
     )
+
+
+def _current_head_sha(*, repo_root: Path) -> str:
+    code, stdout, _ = run_git_capture(["rev-parse", "HEAD"], repo_root=repo_root)
+    return stdout.strip() if code == 0 else ""
 
 
 def _refresh_review_channel_projection_bundle_after_projection_receipt(
@@ -201,6 +294,7 @@ def _refresh_review_channel_projection_bundle_after_projection_receipt(
 
 __all__ = [
     "auto_commit_managed_projection_receipt_before_authorization",
+    "auto_commit_review_snapshot_freshness_receipt",
     "refresh_managed_projections_before_preflight",
     "refresh_preflight_generated_changes_before_authorization",
     "refresh_runtime_surfaces_after_projection_receipt",

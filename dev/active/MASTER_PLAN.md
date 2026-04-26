@@ -1347,8 +1347,9 @@
   --write --receipt-commit` refuses non-snapshot dirty state and creates a
   governed receipt commit bound to the current code HEAD; that receipt may
   carry `dev/audits/REVIEW_SNAPSHOT.md` alone or atomically with `bridge.md`,
-  and freshness/push authorization both bind it back to the parent code
-  commit instead of treating the receipt as a fresh approval target, while
+  and freshness/push authorization both bind it back to the parent code commit
+  or another ancestor in a contiguous managed receipt chain instead of treating
+  the receipt as a fresh approval target, while
   `install-git-hooks` installs the pre-commit projection hook, the
   post-commit receipt hook that invokes that typed path with hook recursion
   disabled, and a blocking pre-push hook that forces raw publication back

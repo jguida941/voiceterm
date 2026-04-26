@@ -446,7 +446,7 @@ def run_push_action(
         repo_root=repo_root,
         run_cmd_fn=run_cmd_fn,
     )
-    if run_cmd_fn is None:
+    if run_cmd_fn is None and not state.errors:
         refresh_preflight_generated_changes_before_authorization(
             state,
             resolved_policy,

@@ -176,6 +176,134 @@ def test_build_report_accepts_receipt_commit_with_snapshot_and_bridge(
     assert str(report["snapshot_only_parent_head"]).startswith(parent_head)
 
 
+def test_build_report_accepts_snapshot_bound_to_receipt_chain_ancestor(
+    tmp_path: Path,
+) -> None:
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    _init_git_repo(repo_root)
+
+    snapshot_path = repo_root / "dev/audits/REVIEW_SNAPSHOT.md"
+    snapshot_path.parent.mkdir(parents=True, exist_ok=True)
+    snapshot_path.write_text("# Seed snapshot\n", encoding="utf-8")
+    bridge_path = repo_root / "bridge.md"
+    bridge_path.write_text("seed bridge\n", encoding="utf-8")
+    subprocess.run(
+        ["git", "add", "dev/audits/REVIEW_SNAPSHOT.md", "bridge.md"],
+        cwd=repo_root,
+        check=True,
+        capture_output=True,
+    )
+    subprocess.run(
+        ["git", "commit", "-m", "Seed receipt artifacts"],
+        cwd=repo_root,
+        check=True,
+        capture_output=True,
+    )
+
+    (repo_root / "code.py").write_text("print('governed')\n", encoding="utf-8")
+    subprocess.run(
+        ["git", "add", "code.py"],
+        cwd=repo_root,
+        check=True,
+        capture_output=True,
+    )
+    subprocess.run(
+        ["git", "commit", "-m", "Code change"],
+        cwd=repo_root,
+        check=True,
+        capture_output=True,
+    )
+    content_short = _git_output(repo_root, "rev-parse", "--short", "HEAD")
+
+    bridge_path.write_text("receipt bridge refresh 1\n", encoding="utf-8")
+    subprocess.run(
+        ["git", "add", "bridge.md"],
+        cwd=repo_root,
+        check=True,
+        capture_output=True,
+    )
+    subprocess.run(
+        [
+            "git",
+            "commit",
+            "-m",
+            f"Refresh external review snapshot for {content_short}",
+        ],
+        cwd=repo_root,
+        check=True,
+        capture_output=True,
+    )
+    first_receipt = _git_output(repo_root, "rev-parse", "HEAD")
+    first_receipt_short = _git_output(repo_root, "rev-parse", "--short", "HEAD")
+
+    snapshot_path.write_text(
+        "\n".join(
+            [
+                "# Example — Review Snapshot",
+                "",
+                "## Quick status",
+                "",
+                "- Branch: `feature/test`",
+                f"- HEAD: `{first_receipt_short}` — Managed receipt",
+                "- Tree hash: `deadbeef1234`",
+                "- Generation stamp: `snap-receiptchain`",
+                "- Generated at (UTC): 2026-04-07T20:00:00Z",
+                "",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    subprocess.run(
+        ["git", "add", "dev/audits/REVIEW_SNAPSHOT.md"],
+        cwd=repo_root,
+        check=True,
+        capture_output=True,
+    )
+    subprocess.run(
+        [
+            "git",
+            "commit",
+            "-m",
+            f"Refresh external review snapshot for {first_receipt_short}",
+        ],
+        cwd=repo_root,
+        check=True,
+        capture_output=True,
+    )
+
+    bridge_path.write_text("receipt bridge refresh 2\n", encoding="utf-8")
+    subprocess.run(
+        ["git", "add", "bridge.md"],
+        cwd=repo_root,
+        check=True,
+        capture_output=True,
+    )
+    subprocess.run(
+        [
+            "git",
+            "commit",
+            "-m",
+            "Refresh external review snapshot for "
+            f"{_git_output(repo_root, 'rev-parse', '--short', 'HEAD')}",
+        ],
+        cwd=repo_root,
+        check=True,
+        capture_output=True,
+    )
+
+    report = build_report(
+        repo_root=repo_root,
+        live_head_sha=_git_output(repo_root, "rev-parse", "HEAD"),
+        live_generation_stamp="snap-live-different",
+    )
+
+    assert report["ok"] is True
+    assert report["errors"] == []
+    assert report["snapshot_receipt_chain_match"] is True
+    assert first_receipt in report["snapshot_receipt_ancestor_heads"]
+
+
 def test_build_report_fails_when_head_line_missing(tmp_path: Path) -> None:
     report = build_report(
         repo_root=tmp_path,

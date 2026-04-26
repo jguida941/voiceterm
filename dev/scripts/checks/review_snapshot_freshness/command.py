@@ -75,25 +75,32 @@ def build_report(
 
     embedded_head = _extract_match(_HEAD_LINE_RE, snapshot_text)
     embedded_stamp = _extract_match(_GENERATION_LINE_RE, snapshot_text)
-    current_head = live_head_sha if live_head_sha is not None else _current_head(repo_root)
+    current_head = (
+        live_head_sha if live_head_sha is not None else _current_head(repo_root)
+    )
     current_stamp = (
         live_generation_stamp
         if live_generation_stamp is not None
         else _current_generation_stamp(repo_root)
     )
-    snapshot_parent = (
-        live_snapshot_parent_sha
-        if live_snapshot_parent_sha is not None
-        else _snapshot_only_parent_sha(
+    snapshot_receipt_ancestors = (
+        (live_snapshot_parent_sha,)
+        if live_snapshot_parent_sha is not None and live_snapshot_parent_sha
+        else _snapshot_receipt_ancestor_shas(
             repo_root,
             snapshot_rel,
             governance=governance,
         )
     )
-    snapshot_only_parent_match = bool(
+    snapshot_parent = (
+        snapshot_receipt_ancestors[-1] if snapshot_receipt_ancestors else ""
+    )
+    snapshot_receipt_chain_match = bool(
         embedded_head
-        and snapshot_parent
-        and snapshot_parent.startswith(embedded_head.strip())
+        and any(
+            _sha_prefix_matches(ancestor, embedded_head)
+            for ancestor in snapshot_receipt_ancestors
+        )
     )
 
     if not embedded_head:
@@ -101,8 +108,8 @@ def build_report(
         errors.append("snapshot_header_missing_head: HEAD line not found in snapshot")
     elif (
         current_head
-        and not current_head.startswith(embedded_head.strip())
-        and not snapshot_only_parent_match
+        and not _sha_prefix_matches(current_head, embedded_head)
+        and not snapshot_receipt_chain_match
     ):
         ok = False
         errors.append(
@@ -119,7 +126,7 @@ def build_report(
     elif (
         current_stamp
         and embedded_stamp.strip() != current_stamp
-        and not snapshot_only_parent_match
+        and not snapshot_receipt_chain_match
     ):
         ok = False
         errors.append(
@@ -137,7 +144,9 @@ def build_report(
         "live_head": current_head or "",
         "live_generation_stamp": current_stamp or "",
         "snapshot_only_parent_head": snapshot_parent or "",
-        "snapshot_only_parent_match": snapshot_only_parent_match,
+        "snapshot_receipt_ancestor_heads": snapshot_receipt_ancestors,
+        "snapshot_only_parent_match": snapshot_receipt_chain_match,
+        "snapshot_receipt_chain_match": snapshot_receipt_chain_match,
         "errors": errors,
     }
 
@@ -148,7 +157,8 @@ def _load_governance(repo_root: Path) -> object | None:
         from devctl.runtime.governance_scan import scan_repo_governance_safely
 
         return scan_repo_governance_safely(repo_root)
-    except Exception:  # broad-except: allow reason=optional governance discovery must not abort the snapshot freshness guard on partially configured repos fallback=return None
+    # broad-except: allow reason=optional governance discovery must not abort the snapshot freshness guard on partially configured repos fallback=return None
+    except Exception:
         return None
 
 
@@ -177,7 +187,8 @@ def _read_snapshot_text(snapshot_path: Path) -> str | None:
 def _current_head(repo_root: Path) -> str:
     try:
         from devctl.runtime.vcs import run_git_capture
-    except Exception:  # broad-except: allow reason=guard entrypoint import must degrade cleanly when runtime packaging is unavailable fallback=return empty HEAD
+    # broad-except: allow reason=guard entrypoint import must degrade cleanly when runtime packaging is unavailable fallback=return empty HEAD
+    except Exception:
         return ""
     code, stdout, _ = run_git_capture(["rev-parse", "HEAD"], repo_root=repo_root)
     return stdout.strip() if code == 0 else ""
@@ -186,11 +197,13 @@ def _current_head(repo_root: Path) -> str:
 def _current_generation_stamp(repo_root: Path) -> str:
     try:
         from devctl.runtime.review_snapshot import build_review_snapshot
-    except Exception:  # broad-except: allow reason=guard entrypoint import must degrade cleanly when runtime packaging is unavailable fallback=return empty generation stamp
+    # broad-except: allow reason=guard entrypoint import must degrade cleanly when runtime packaging is unavailable fallback=return empty generation stamp
+    except Exception:
         return ""
     try:
         snapshot = build_review_snapshot(repo_root=repo_root)
-    except Exception:  # broad-except: allow reason=snapshot rendering may fail on partial artifacts or transient repo state fallback=return empty generation stamp
+    # broad-except: allow reason=snapshot rendering may fail on partial artifacts or transient repo state fallback=return empty generation stamp
+    except Exception:
         return ""
     return snapshot.identity.generation_stamp
 
@@ -202,16 +215,39 @@ def _snapshot_only_parent_sha(
     governance: object | None,
 ) -> str:
     """Return HEAD^ when HEAD is a governed snapshot receipt commit."""
+    ancestors = _snapshot_receipt_ancestor_shas(
+        repo_root,
+        snapshot_rel,
+        governance=governance,
+    )
+    return ancestors[-1] if ancestors else ""
+
+
+def _snapshot_receipt_ancestor_shas(
+    repo_root: Path,
+    snapshot_rel: str,
+    *,
+    governance: object | None,
+) -> tuple[str, ...]:
+    """Return the contiguous governed receipt chain above live HEAD."""
     del snapshot_rel
     try:
-        from devctl.runtime.review_snapshot_refresh import receipt_commit_parent_sha
-    except Exception:  # broad-except: allow reason=guard entrypoint import must degrade cleanly when receipt runtime helpers are unavailable fallback=return empty parent SHA
-        return ""
-    return receipt_commit_parent_sha(
+        from devctl.runtime.review_snapshot_refresh import receipt_commit_ancestor_shas
+    # broad-except: allow reason=guard entrypoint import must degrade cleanly when receipt runtime helpers are unavailable fallback=return empty receipt chain
+    except Exception:
+        return ()
+    return receipt_commit_ancestor_shas(
         repo_root=repo_root,
         current_head="HEAD",
         governance=governance,
     )
+
+
+def _sha_prefix_matches(candidate: str, embedded: str) -> bool:
+    """Return true when two SHA strings agree at either available precision."""
+    left = str(candidate or "").strip()
+    right = str(embedded or "").strip()
+    return bool(left and right and (left.startswith(right) or right.startswith(left)))
 
 
 def _extract_match(pattern: re.Pattern[str], text: str) -> str:

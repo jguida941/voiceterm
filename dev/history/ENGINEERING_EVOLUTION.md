@@ -71,13 +71,19 @@ contiguous chain of managed projection receipt commits as managed movement when
 one ancestor matches the approved authorization anchor. The guarded push flow
 also refreshes event-backed review-channel projection bundles after receipt
 commits before preflight or publication authorization consumes proof-tick and
-snapshot state.
+snapshot state. The follow-up `rev_pkt_1955` closure extends the same receipt
+chain contract to `check_review_snapshot_freshness`: the guard accepts a
+snapshot bound to any ancestor in the contiguous managed receipt chain, and
+`devctl push` runs `review-snapshot --write --receipt-commit` inside the
+managed preflight/autocommit batch whenever that batch moves `HEAD`.
 
 Evidence:
 - `dev/scripts/devctl/runtime/review_snapshot_refresh.py`
 - `dev/scripts/devctl/runtime/push_authorization.py`
 - `dev/scripts/devctl/commands/pipeline/head_movement.py`
 - `dev/scripts/devctl/commands/vcs/push_preflight_projection.py`
+- `dev/scripts/checks/review_snapshot_freshness/command.py`
+- `dev/scripts/devctl/tests/checks/test_check_review_snapshot_freshness.py`
 - `dev/scripts/devctl/tests/runtime/test_push_authorization.py`
 - `dev/scripts/devctl/tests/vcs/test_push.py`
 

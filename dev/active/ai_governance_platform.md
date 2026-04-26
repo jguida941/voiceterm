@@ -3310,7 +3310,7 @@ Phase metadata: phase_id=MP377-P0; owner_doc=`dev/active/ai_governance_platform.
       owner_doc: `dev/active/ai_governance_platform.md`
       status: `done`
       depends_on: `MP377-P0-T01`, `MP377-P0-T04`
-- [x] `MP377-P0-T07` Stabilize governed push after managed projection receipts: receipt chains must not invalidate their own `PushAuthorizationRecord`, and receipt-time projection refresh must keep review-state, compact, commit-pipeline, startup, and context-graph surfaces on one proof tick before preflight/publication checks.
+- [x] `MP377-P0-T07` Stabilize governed push after managed projection receipts: receipt chains must not invalidate their own `PushAuthorizationRecord` or ReviewSnapshot freshness gate, and receipt-time projection plus snapshot receipt refresh must keep review-state, compact, commit-pipeline, startup, and context-graph surfaces on one proof tick before preflight/publication checks.
       owner_doc: `dev/active/remote_commit_pipeline.md`
       status: `done`
       depends_on: `MP377-P0-T05`
@@ -5659,8 +5659,9 @@ working on `MP-377`.
   the live push blocker is now narrowed to fresh approval rather than
   self-invalidating state. Managed bridge/ReviewSnapshot receipt chains are
   read as authorized movement when they descend from the approved commit, and
-  push preflight refreshes event-backed review-channel projections after a
-  receipt commit before proof-tick parity checks run. Keep the next work in
+  push preflight refreshes event-backed review-channel projections plus the
+  ReviewSnapshot receipt after receipt commits before proof-tick parity and
+  snapshot-freshness checks run. Keep the next work in
   the existing Plan 4.1 spine: extend `PlatformFindingIngest` /
   `FindingBacklog` / `governance-review` / `findings-priority` /
   `AutoModeState` / dashboard / `startup-context.quality_signals` for
