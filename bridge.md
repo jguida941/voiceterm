@@ -126,7 +126,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Claude Status
 
-inactive
+- Status unavailable.
 
 ## Claude Questions
 
