@@ -30,6 +30,34 @@ class SystemPictureSection:
 
 
 @dataclass(frozen=True, slots=True)
+class SystemPictureFreshnessContext:
+    """HEAD identities that generated SystemPicture sections may accept."""
+
+    current_head: str = ""
+    accepted_head_shas: tuple[str, ...] = ()
+
+    def matches(self, candidate: str) -> bool:
+        """Return true when a surface was captured on HEAD or a managed ancestor."""
+        clean_candidate = str(candidate or "").strip()
+        if not clean_candidate:
+            return False
+        for accepted in self.fresh_heads:
+            if _sha_prefix_matches(clean_candidate, accepted):
+                return True
+        return False
+
+    @property
+    def fresh_heads(self) -> tuple[str, ...]:
+        """Return current HEAD plus deduped managed receipt-chain ancestors."""
+        heads: list[str] = []
+        for value in (self.current_head, *self.accepted_head_shas):
+            clean = str(value or "").strip()
+            if clean and clean not in heads:
+                heads.append(clean)
+        return tuple(heads)
+
+
+@dataclass(frozen=True, slots=True)
 class SystemPictureSnapshot:
     """Canonical machine-readable system-picture snapshot."""
 
@@ -52,3 +80,13 @@ class SystemPictureSnapshot:
         payload = asdict(self)
         payload["sections"] = [section.to_dict() for section in self.sections]
         return payload
+
+
+def _sha_prefix_matches(candidate: str, accepted: str) -> bool:
+    left = str(candidate or "").strip()
+    right = str(accepted or "").strip()
+    return bool(
+        left
+        and right
+        and (left.startswith(right) or right.startswith(left))
+    )

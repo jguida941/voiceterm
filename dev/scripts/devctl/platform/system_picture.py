@@ -36,6 +36,7 @@ from .coordination_snapshot import build_coordination_snapshot
 from .system_picture_models import (
     SYSTEM_PICTURE_CONTRACT_ID,
     SYSTEM_PICTURE_SCHEMA_VERSION,
+    SystemPictureFreshnessContext,
     SystemPictureSnapshot,
 )
 from .system_picture_render import (
@@ -129,6 +130,11 @@ def build_system_picture_snapshot(
         or getattr(startup_receipt, "head_commit_sha", "")
         or ""
     )
+    freshness = _build_freshness_context(
+        repo_root=resolved_root,
+        current_head=head_commit,
+        governance=resolved_governance,
+    )
     tree_hash = compute_non_audit_worktree_hash(
         repo_root=resolved_root,
         excluded_rel_paths=(),
@@ -153,15 +159,15 @@ def build_system_picture_snapshot(
     sections = [
         build_startup_section(
             repo_root=resolved_root,
-            head_commit=head_commit,
             startup_context=startup_context,
             startup_authority=startup_authority,
             startup_receipt=startup_receipt,
             startup_receipt_file=startup_receipt_file,
+            freshness=freshness,
         ),
         build_graph_section(
             repo_root=resolved_root,
-            head_commit=head_commit,
+            freshness=freshness,
             snapshot_paths=snapshot_paths,
             load_snapshot_fn=load_context_graph_snapshot,
             format_path_fn=format_context_graph_snapshot_path,
@@ -223,6 +229,44 @@ def build_system_picture_snapshot(
         stale_section_count=stale_count,
         missing_section_count=missing_count,
         sections=tuple(sections),
+    )
+
+
+def _build_freshness_context(
+    *,
+    repo_root: Path,
+    current_head: str,
+    governance: object | None,
+) -> SystemPictureFreshnessContext:
+    """Build the SystemPicture freshness context from managed receipt authority."""
+    clean_head = str(current_head or "").strip()
+    try:
+        ancestors = _receipt_commit_ancestor_shas(
+            repo_root=repo_root,
+            current_head=clean_head or "HEAD",
+            governance=governance,
+        )
+    except (ImportError, OSError, RuntimeError, ValueError):
+        ancestors = ()
+    return SystemPictureFreshnessContext(
+        current_head=clean_head,
+        accepted_head_shas=tuple(str(sha or "").strip() for sha in ancestors if sha),
+    )
+
+
+def _receipt_commit_ancestor_shas(
+    *,
+    repo_root: Path,
+    current_head: str,
+    governance: object | None,
+) -> tuple[str, ...]:
+    """Wrapper around the shared ReviewSnapshot receipt-chain classifier."""
+    from ..runtime.review_snapshot_refresh import receipt_commit_ancestor_shas
+
+    return receipt_commit_ancestor_shas(
+        repo_root=repo_root,
+        current_head=current_head,
+        governance=governance,
     )
 
 

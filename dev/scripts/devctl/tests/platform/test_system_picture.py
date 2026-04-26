@@ -24,8 +24,13 @@ from dev.scripts.devctl.runtime.control_plane_read_model_support import (
     ControlPlaneReadModelOptions,
 )
 from dev.scripts.devctl.platform.system_picture_models import (
+    SystemPictureFreshnessContext,
     SystemPictureSection,
     SystemPictureSnapshot,
+)
+from dev.scripts.devctl.platform.system_picture_sections import (
+    build_graph_section,
+    build_startup_section,
 )
 
 
@@ -366,6 +371,87 @@ def test_build_system_picture_snapshot_reads_typed_sources() -> None:
     assert sections["governance_review"].summary["total_findings"] == 8
     assert sections["external_findings"].summary["unique_repo_count"] == 2
     assert sections["data_science"].summary["total_events"] == 25
+
+
+def test_required_sections_accept_managed_receipt_chain_heads(tmp_path: Path) -> None:
+    startup_context = SimpleNamespace(
+        governance=SimpleNamespace(
+            push_enforcement=SimpleNamespace(
+                ahead_of_upstream_commits=0,
+                checkpoint_required=False,
+                safe_to_continue_editing=True,
+            ),
+        ),
+        reviewer_gate=SimpleNamespace(
+            implementation_blocked=False,
+            implementation_block_reason="",
+            review_gate_allows_push=True,
+        ),
+        push_decision=SimpleNamespace(
+            action="no_push_needed",
+            reason="managed_projection_drift_only",
+            push_eligible_now=False,
+            publication_backlog=SimpleNamespace(backlog_state="none"),
+            publication_guidance="",
+        ),
+        advisory_action="await_review",
+        advisory_reason="review_pending_before_push",
+    )
+    freshness = SystemPictureFreshnessContext(
+        current_head="receipt-two",
+        accepted_head_shas=("receipt-one", "content-head"),
+    )
+    startup_section = build_startup_section(
+        repo_root=tmp_path,
+        startup_context=startup_context,
+        startup_authority={"ok": True, "errors": (), "warnings": ()},
+        startup_receipt=SimpleNamespace(
+            head_commit_sha="content-head",
+            generated_at_utc="2026-04-26T20:30:00Z",
+        ),
+        startup_receipt_file=tmp_path / "dev/reports/startup/latest/receipt.json",
+        freshness=freshness,
+    )
+
+    graph_snapshot = SimpleNamespace(
+        branch="feature/system-picture",
+        commit_hash="receipt-one",
+        node_count=10,
+        edge_count=20,
+        nodes_by_kind={"guard": 1, "probe": 2, "plan": 3},
+        temperature_distribution=SimpleNamespace(average=0.42),
+        generated_at_utc="2026-04-26T20:31:00Z",
+    )
+    graph_section = build_graph_section(
+        repo_root=tmp_path,
+        freshness=freshness,
+        snapshot_paths=(tmp_path / "dev/reports/graph_snapshots/latest.json",),
+        load_snapshot_fn=lambda _path: graph_snapshot,
+        format_path_fn=lambda path: str(path.relative_to(tmp_path)),
+    )
+
+    assert startup_section.status == "current"
+    assert startup_section.summary["startup_receipt_fresh"] is True
+    assert startup_section.summary["startup_receipt_head"] == "content-head"
+    assert graph_section.status == "current"
+    assert graph_section.summary["commit_hash"] == "receipt-one"
+
+
+def test_managed_receipt_freshness_heads_dedupes_live_head() -> None:
+    from dev.scripts.devctl.platform import system_picture as system_picture_module
+
+    with patch.object(
+        system_picture_module,
+        "_receipt_commit_ancestor_shas",
+        return_value=("receipt-one", "content-head"),
+    ):
+        context = system_picture_module._build_freshness_context(
+            repo_root=Path("/tmp/repo"),
+            current_head="receipt-two",
+            governance=None,
+        )
+
+    assert context.fresh_heads == ("receipt-two", "receipt-one", "content-head")
 
 
 def test_system_picture_command_writes_artifacts_and_receipt() -> None:

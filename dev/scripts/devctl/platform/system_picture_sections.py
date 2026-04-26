@@ -13,7 +13,10 @@ from pathlib import Path
 from typing import Any
 
 from ..common_io import display_path
-from .system_picture_models import SystemPictureSection
+from .system_picture_models import (
+    SystemPictureFreshnessContext,
+    SystemPictureSection,
+)
 
 _STARTUP_CONTEXT_COMMAND = (
     "python3 dev/scripts/devctl.py startup-context --format summary"
@@ -29,20 +32,24 @@ _REVIEW_STATUS_COMMAND = (
 def build_startup_section(
     *,
     repo_root: Path,
-    head_commit: str,
     startup_context: Any,
     startup_authority: dict[str, object],
     startup_receipt: Any,
     startup_receipt_file: Path,
+    freshness: SystemPictureFreshnessContext,
 ) -> SystemPictureSection:
     """Build the startup-authority section from pre-fetched startup data."""
     governance = getattr(startup_context, "governance", None)
     push = getattr(governance, "push_enforcement", None)
     reviewer_gate = getattr(startup_context, "reviewer_gate", None)
+    if startup_receipt is not None:
+        startup_receipt_head = str(
+            getattr(startup_receipt, "head_commit_sha", "") or ""
+        ).strip()
+    else:
+        startup_receipt_head = ""
     receipt_fresh = bool(
-        startup_receipt is not None
-        and str(getattr(startup_receipt, "head_commit_sha", "") or "").strip()
-        == str(head_commit or "").strip()
+        startup_receipt is not None and freshness.matches(startup_receipt_head)
     )
     notes: list[str] = []
     if startup_receipt is None:
@@ -97,6 +104,7 @@ def build_startup_section(
             startup_authority.get("warnings", ()) or ()
         ),
         "startup_receipt_present": startup_receipt is not None,
+        "startup_receipt_head": startup_receipt_head,
         "startup_receipt_fresh": receipt_fresh,
     }
     return _build_section(
@@ -118,7 +126,7 @@ def build_startup_section(
 def build_graph_section(
     *,
     repo_root: Path,
-    head_commit: str,
+    freshness: SystemPictureFreshnessContext,
     snapshot_paths: list[Path] | tuple[Path, ...],
     load_snapshot_fn: Any,
     format_path_fn: Any,
@@ -144,9 +152,10 @@ def build_graph_section(
         )
     latest_path = snapshot_paths[-1]
     snapshot = load_snapshot_fn(latest_path)
+    snapshot_commit = str(getattr(snapshot, "commit_hash", "") or "").strip()
     status = (
         "current"
-        if not head_commit or snapshot.commit_hash == head_commit
+        if not freshness.current_head or freshness.matches(snapshot_commit)
         else "stale"
     )
     notes: tuple[str, ...] = ()
@@ -157,7 +166,7 @@ def build_graph_section(
         )
     summary = {
         "branch": snapshot.branch,
-        "commit_hash": snapshot.commit_hash,
+        "commit_hash": snapshot_commit,
         "node_count": snapshot.node_count,
         "edge_count": snapshot.edge_count,
         "guard_count": int(snapshot.nodes_by_kind.get("guard", 0)),
