@@ -78,10 +78,10 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-04-26T01:25:38Z`
-- Last Codex poll (Local America/New_York): `2026-04-25 21:25:38 EDT`
+- Last Codex poll: `2026-04-26T01:34:57Z`
+- Last Codex poll (Local America/New_York): `2026-04-25 21:34:57 EDT`
 - Reviewer mode: `active_dual_agent`
-- Last non-audit worktree hash: `45190402f8d0dbf9f7191dba299e48010cc778b31106c1befd71daaf4bd86527`
+- Last non-audit worktree hash: `2e7a162f9b20487bfb70f3abef42ad40f38caeb229c05fc83f2972da81479cfc`
 - Current instruction revision: ``
 
 ## Protocol
@@ -114,7 +114,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Poll Status
 
-- Reviewer checkpoint updated through repo-owned tooling (mode: active_dual_agent; reason: slice-0-A-acceptance; observed-tree: e7d75d9bc585; reviewed-tree: e7d75d9bc585; instruction-rev: 582310a3dab1).
+- Reviewer state rebuilt from typed review-state projection at 2026-04-26T01:34:42.370629Z.
 
 ## Current Verdict
 
@@ -138,8 +138,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Current Instruction For Claude
 
-- Cut a checkpoint before continuing to edit.
-- Run `python3 dev/scripts/devctl.py commit -m "<descriptive message>"`.
+- Await reviewer instruction refresh.
 
 ## Last Reviewed Scope
 
