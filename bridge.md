@@ -78,11 +78,11 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-04-27T18:53:08Z`
-- Last Codex poll (Local America/New_York): `2026-04-27 14:53:08 EDT`
+- Last Codex poll: `2026-04-27T18:56:50Z`
+- Last Codex poll (Local America/New_York): `2026-04-27 14:56:50 EDT`
 - Reviewer mode: `active_dual_agent`
 - Last non-audit worktree hash: `31fe60bdfe29ff4301c0f2df8ad46bfe0af46255498943395d7f4a48728bd471`
-- Current instruction revision: `d4e6849b4cb8`
+- Current instruction revision: ``
 
 ## Protocol
 
@@ -114,7 +114,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Poll Status
 
-- Reviewer state rebuilt from typed review-state projection at 2026-04-27T17:36:51.890881Z.
+- Reviewer state rebuilt from typed review-state projection at 2026-04-27T18:56:10.495020Z.
 
 ## Current Verdict
 
@@ -122,7 +122,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Open Findings
 
-2 pending review packet(s); 487 expired unresolved review packet(s)
+1 pending review packet(s); 487 expired unresolved review packet(s)
 
 ## Claude Status
 
@@ -134,11 +134,11 @@ treat these rules as active workflow instructions immediately.
 
 ## Claude Ack
 
-pending
+- missing
 
 ## Current Instruction For Claude
 
-Priority action_request: Supersedes rev_pkt_2039: stage push_findings noqa rationale tweak
+- Await reviewer instruction refresh.
 
 ## Last Reviewed Scope
 
@@ -146,4 +146,4 @@ MP-355
 
 ## Action Requests
 
-- [rev_pkt_2044] stage_commit_pipeline: target=runtime:devctl_commit:dc4863ead71ef2800571241baf11f693392d160b@dc4863ead71ef2800571241baf11f693392d160b; Supersedes rev_pkt_2039: stage push_findings noqa rationale tweak (status: pending)
+- No pending action requests.
