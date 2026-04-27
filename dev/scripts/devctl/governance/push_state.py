@@ -17,7 +17,6 @@ from ..review_channel.remote_commit_pipeline_artifact import (
     load_remote_commit_pipeline_contract,
 )
 from ..review_channel.service_identity import worktree_identity_for_repo
-from ..runtime.review_snapshot_refresh import receipt_commit_ancestor_shas
 from .push_policy import PushCheckpointPolicy, PushPolicy
 from .push_publication import build_publication_backlog_state
 from .push_state_authorization import (
@@ -37,6 +36,13 @@ from .push_state_git import (
 from .push_state_git import worktree_change_counts as _worktree_change_counts
 from .push_state_models import PushDecisionInputs, PushEnforcementSnapshot
 from .push_state_projection_drift import matching_excluded_paths
+from .push_state_receipts import (
+    AheadCommitClassification,
+    classify_ahead_commits,
+    dedupe_paths,
+    managed_receipt_ancestor_shas,
+    managed_projection_exclusion_paths,
+)
 from .push_state_selection import (
     PushProjectionInputs,
 )
@@ -101,6 +107,15 @@ def _build_push_enforcement_snapshot(
         raw_git_push_guarded=inputs.runtime.raw_git_push_guarded,
         upstream_ref=inputs.runtime.upstream_ref,
         ahead_of_upstream_commits=inputs.runtime.ahead_of_upstream_commits,
+        ahead_of_upstream_source_commits=(
+            inputs.ahead_classification.source_commits
+        ),
+        ahead_of_upstream_managed_receipt_commits=(
+            inputs.ahead_classification.managed_receipt_commits
+        ),
+        ahead_of_upstream_unclassified_commits=(
+            inputs.ahead_classification.unclassified_commits
+        ),
         dirty_path_count=inputs.dirty_path_count,
         untracked_path_count=inputs.untracked_path_count,
         staged_path_count=inputs.staged_path_count,
@@ -210,8 +225,9 @@ def detect_push_enforcement_state(
 ) -> dict[str, object]:
     """Return repo-owned push/checkpoint state for startup/runtime surfaces."""
     runtime = _detect_runtime_inputs(policy=policy, repo_root=repo_root)
-    excluded_paths = (
-        *policy.checkpoint.compatibility_projection_paths,
+    managed_projection_paths = managed_projection_exclusion_paths(policy)
+    excluded_paths = dedupe_paths(
+        *managed_projection_paths,
         *policy.checkpoint.advisory_context_paths,
     )
     change_counts = _worktree_change_summary(
@@ -224,7 +240,7 @@ def detect_push_enforcement_state(
     unstaged_path_count = change_counts.unstaged_path_count
     managed_projection_dirty_paths = matching_excluded_paths(
         change_counts.excluded_paths,
-        policy.checkpoint.compatibility_projection_paths,
+        managed_projection_paths,
     )
     advisory_context_dirty_paths = matching_excluded_paths(
         change_counts.excluded_paths,
@@ -291,11 +307,18 @@ def detect_push_enforcement_state(
         recommend_after_ahead_commits=policy.publication.recommend_after_ahead_commits,
         urgent_after_ahead_commits=policy.publication.urgent_after_ahead_commits,
     )
+    ahead_classification = classify_ahead_commits(
+        repo_root=repo_root,
+        upstream_ref=runtime.upstream_ref,
+        ahead_of_upstream_commits=runtime.ahead_of_upstream_commits,
+        git_stdout=_git_stdout,
+    )
     snapshot = _build_push_enforcement_snapshot(
         policy=policy,
         repo_root=repo_root,
         inputs=_PushEnforcementSnapshotInputs(
             runtime=runtime,
+            ahead_classification=ahead_classification,
             publication_backlog=publication_backlog,
             latest_push_report=latest_push_report,
             selected_push_report_state=selected_push_report_state,
@@ -322,6 +345,7 @@ def detect_push_enforcement_state(
 @dataclass(frozen=True, slots=True)
 class _PushEnforcementSnapshotInputs:
     runtime: "_PushRuntimeInputs"
+    ahead_classification: "AheadCommitClassification"
     publication_backlog: object
     latest_push_report: object
     selected_push_report_state: object
@@ -420,10 +444,9 @@ def _detect_runtime_inputs(
         current_head_commit=current_head_commit,
         current_approved_target_identity=current_approved_target_identity,
         current_worktree_identity=current_worktree_identity,
-        managed_receipt_ancestor_commits=receipt_commit_ancestor_shas(
+        managed_receipt_ancestor_commits=managed_receipt_ancestor_shas(
             repo_root=repo_root,
             current_head=current_head_commit,
-            governance=None,
         ),
     )
     upstream_ref = current_upstream_ref(repo_root=repo_root)

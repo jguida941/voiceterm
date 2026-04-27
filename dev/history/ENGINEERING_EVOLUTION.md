@@ -87,6 +87,33 @@ Evidence:
 - `dev/scripts/checks/check_typed_enum_connectivity.py`
 - `dev/audits/AUTOMATION_DEBT_REGISTER.md` ADR-021
 
+### 2026-04-27 - Startup push-state now shares governed receipt projection classification
+
+Fact: the `rev_pkt_2008` publication attempt landed locally but push preflight
+failed in `startup-authority-contract-guard` with
+`ahead_of_upstream_commits=10` and `dirty_path_count=1`. There was no hidden
+threshold at 10; the guard failed because startup push-state treated the live
+`dev/audits/REVIEW_SNAPSHOT.md` refresh as authored dirty work, while governed
+push already classified the same file as a managed projection receipt.
+
+Change: startup push-state now excludes the same managed receipt artifact set
+used by governed push (`bridge.md` plus the configured ReviewSnapshot path)
+when computing source dirty counts. `PushEnforcement` also carries
+source-vs-managed-receipt ahead counts so a long local receipt chain remains
+visible as publication backlog without being confused with uncommitted source
+edits. The startup guard still fails closed for real source dirt after a local
+checkpoint.
+
+Evidence:
+- `dev/scripts/devctl/governance/push_state.py`
+- `dev/scripts/devctl/governance/push_state_receipts.py`
+- `dev/scripts/devctl/governance/push_state_models.py`
+- `dev/scripts/devctl/runtime/project_governance_push.py`
+- `dev/scripts/devctl/runtime/project_governance_push_ahead.py`
+- `dev/scripts/devctl/runtime/review_snapshot_refresh.py`
+- `dev/scripts/devctl/tests/vcs/test_push.py`
+- `dev/audits/AUTOMATION_DEBT_REGISTER.md` ADR-022
+
 ### 2026-04-27 - Governed push receipts policy-owned generated surfaces before docs gates
 
 Fact: after bridge and ReviewSnapshot receipt automation landed, the push

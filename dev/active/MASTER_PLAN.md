@@ -97,6 +97,14 @@
   bundle, and centralizes `OperatorInteractionMode` launch/approval policy in
   `operator_context.py` so enum values connect to runtime decisions before
   later Slice C enforcement promotion.
+- 2026-04-27 startup push-state managed receipt classification (MP-377):
+  startup authority now uses the same managed receipt artifact set as
+  governed push when counting dirty paths, so live `REVIEW_SNAPSHOT.md` or
+  `bridge.md` projection refreshes do not masquerade as authored source edits
+  after a local checkpoint. `push_enforcement` also separates unpublished
+  source commits from managed receipt commits so publication-backlog pressure
+  stays visible without turning receipt accumulation into a source-work
+  blocker.
 - 2026-04-23 session-resume bootstrap repair (also under MP-377):
   `session-resume --role reviewer|implementer` now calls
   `ControlPlaneReadModel` through `ControlPlaneReadModelOptions` for

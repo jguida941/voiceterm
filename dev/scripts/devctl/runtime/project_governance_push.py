@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from collections.abc import Mapping
 
 from ..governance.push_policy import PushPublicationPolicy
+from .project_governance_push_ahead import ahead_commit_kwargs
 from .project_governance_push_counts import worktree_change_counts_from_payload
 from .project_governance_push_projection import push_projection_inputs_from_payload
 from .value_coercion import (
@@ -30,6 +31,9 @@ class PushEnforcement:
     raw_git_push_guarded: bool = False
     upstream_ref: str = ""
     ahead_of_upstream_commits: int | None = None
+    ahead_of_upstream_source_commits: int | None = None
+    ahead_of_upstream_managed_receipt_commits: int = 0
+    ahead_of_upstream_unclassified_commits: int | None = None
     dirty_path_count: int = 0
     untracked_path_count: int = 0
     staged_path_count: int = 0
@@ -218,6 +222,7 @@ def push_enforcement_from_mapping(
         raw_git_push_guarded=coerce_bool(payload.get("raw_git_push_guarded")),
         upstream_ref=projection_inputs.upstream_ref,
         ahead_of_upstream_commits=ahead,
+        **ahead_commit_kwargs(payload),
         dirty_path_count=change_counts.dirty_path_count,
         untracked_path_count=change_counts.untracked_path_count,
         staged_path_count=change_counts.staged_path_count,

@@ -78,11 +78,11 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-04-27T14:35:24Z`
-- Last Codex poll (Local America/New_York): `2026-04-27 10:35:24 EDT`
+- Last Codex poll: `2026-04-27T15:10:28Z`
+- Last Codex poll (Local America/New_York): `2026-04-27 11:10:28 EDT`
 - Reviewer mode: `active_dual_agent`
-- Last non-audit worktree hash: `f913ee33f9929e3c8128d782784fcf66fb53658cc262860add353e0a1752985e`
-- Current instruction revision: ``
+- Last non-audit worktree hash: `69a5c5b805e624c64143032f9f85f7c18a13401f5c3eb50a0d34ee5cd41972c9`
+- Current instruction revision: `f1f1e9b516fa`
 
 ## Protocol
 
@@ -122,7 +122,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Open Findings
 
-476 expired unresolved review packet(s)
+1 pending review packet(s); 476 expired unresolved review packet(s)
 
 ## Claude Status
 
@@ -134,11 +134,11 @@ treat these rules as active workflow instructions immediately.
 
 ## Claude Ack
 
-- missing
+pending
 
 ## Current Instruction For Claude
 
-- Await reviewer instruction refresh.
+Priority action_request: Codex 13 combined governed publication handoff
 
 ## Last Reviewed Scope
 
@@ -146,4 +146,4 @@ MP-355
 
 ## Action Requests
 
-- No pending action requests.
+- [rev_pkt_2013] stage_commit_pipeline: target=runtime:devctl_commit:3db9f243aef7c27c506ed518a3c00e706b6b8755@3db9f243aef7c27c506ed518a3c00e706b6b8755; Codex 13 combined governed publication handoff (status: pending)

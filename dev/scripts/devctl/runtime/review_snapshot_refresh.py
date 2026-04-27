@@ -273,6 +273,22 @@ def _single_receipt_commit_parent_sha(
     return parent_sha.strip()
 
 
+def is_managed_receipt_commit(
+    *,
+    repo_root: Path = REPO_ROOT,
+    current_head: str = "HEAD",
+    governance: _GovernanceWithArtifactRoots | None = None,
+) -> bool:
+    """Return True when one commit is a governed managed-receipt commit."""
+    return bool(
+        _single_receipt_commit_parent_sha(
+            repo_root=repo_root,
+            current_head=current_head,
+            governance=governance,
+        )
+    )
+
+
 def receipt_artifact_relpaths(
     governance: _GovernanceWithArtifactRoots | None,
 ) -> tuple[str, ...]:
@@ -325,6 +341,7 @@ def _resolve_receipt_snapshot_target(
 
 __all__ = [
     "GENERATED_SURFACE_RECEIPT_SUBJECT_PREFIX",
+    "is_managed_receipt_commit",
     "receipt_commit_ancestor_shas",
     "receipt_artifact_relpaths",
     "receipt_commit_parent_sha",

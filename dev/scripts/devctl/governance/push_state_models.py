@@ -19,6 +19,9 @@ class PushEnforcementSnapshot:
     raw_git_push_guarded: bool
     upstream_ref: str
     ahead_of_upstream_commits: int | None
+    ahead_of_upstream_source_commits: int | None
+    ahead_of_upstream_managed_receipt_commits: int
+    ahead_of_upstream_unclassified_commits: int | None
     dirty_path_count: int
     untracked_path_count: int
     staged_path_count: int

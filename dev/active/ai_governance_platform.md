@@ -75,6 +75,14 @@ Current 2026-04-23 ADR-008 managed projection drift note:
   HEAD before publication authorization, and lets the pipeline match that
   receipt HEAD back to the approved content commit. Remaining ADR-008-adjacent
   work is prompt-routing clarity, not green-push projection cleanup.
+- The third closure keeps startup authority on that same contract. The
+  repo-owned `push_enforcement` snapshot now excludes both bridge and
+  ReviewSnapshot receipt artifacts from source dirty counts and emits
+  `ahead_of_upstream_source_commits`,
+  `ahead_of_upstream_managed_receipt_commits`, and
+  `ahead_of_upstream_unclassified_commits` so a long local receipt chain is
+  visible as publication backlog without becoming evidence of uncommitted
+  source work.
 
 Current 2026-04-24 actor-authority grant note:
 - The next mutation-authority slice keeps the portable platform boundary
@@ -5717,6 +5725,15 @@ working on `MP-377`.
   shared governance bundle. The first live run reports three disconnected
   `ActionKind` packet values as Slice C retirement evidence, not a blocker for
   this publication.
+- 2026-04-27 startup push-state managed receipt classification:
+  the `rev_pkt_2008` publication attempt exposed a read-side split between
+  governed push and startup authority. Push preflight already owned
+  `bridge.md` and `REVIEW_SNAPSHOT.md` as managed receipt artifacts, but
+  `push_enforcement` only excluded the configured bridge compatibility path
+  from dirty-source counting. Startup authority now reuses the same managed
+  receipt artifact contract for dirty-path classification and projects
+  unpublished commits as source vs managed-receipt counts, keeping projection
+  refresh churn advisory while real authored dirt remains blocking.
 - 2026-04-26 Plan 4.1 Slice 0 governed-push closeout:
   the live push blocker is now narrowed to fresh approval rather than
   self-invalidating state. Managed bridge/ReviewSnapshot receipt chains are

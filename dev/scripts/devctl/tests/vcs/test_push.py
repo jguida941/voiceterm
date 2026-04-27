@@ -708,6 +708,82 @@ class PushCommandTests(unittest.TestCase):
         return_value=None,
     )
     @patch(
+        "dev.scripts.devctl.governance.push_state._git_stdout",
+        side_effect=[
+            "",
+            "feature/demo",
+            "abc123",
+            "origin/feature/demo",
+            "2",
+            " M dev/audits/REVIEW_SNAPSHOT.md\n",
+        ],
+    )
+    def test_detect_push_enforcement_treats_review_snapshot_as_managed_projection(
+        self,
+        _git_stdout_mock,
+        _lookup_receipt_mock,
+    ) -> None:
+        state = detect_push_enforcement_state(make_policy())
+
+        self.assertFalse(state["worktree_dirty"])
+        self.assertTrue(state["worktree_clean"])
+        self.assertEqual(state["dirty_path_count"], 0)
+        self.assertEqual(state["excluded_path_count"], 1)
+        self.assertEqual(
+            state["managed_projection_dirty_paths"],
+            ("dev/audits/REVIEW_SNAPSHOT.md",),
+        )
+        self.assertEqual(state["recommended_action"], "use_devctl_push")
+
+    @patch(
+        "dev.scripts.devctl.governance.push_state_receipts.is_managed_receipt_commit",
+        side_effect=lambda *, repo_root, current_head: current_head
+        in {"receipt-1", "receipt-2"},
+    )
+    @patch(
+        "dev.scripts.devctl.governance.push_state.lookup_push_receipt",
+        return_value=None,
+    )
+    @patch("dev.scripts.devctl.governance.push_state._git_stdout")
+    def test_detect_push_enforcement_classifies_ahead_receipts_separately(
+        self,
+        git_stdout_mock,
+        _lookup_receipt_mock,
+        _receipt_classifier_mock,
+    ) -> None:
+        def _fake_git_stdout(_repo_root, *cmd):
+            values = {
+                ("rev-parse", "--git-path", "hooks/pre-push"): "",
+                ("rev-parse", "--abbrev-ref", "HEAD"): "feature/demo",
+                ("rev-parse", "HEAD"): "source-2",
+                (
+                    "rev-parse",
+                    "--abbrev-ref",
+                    "--symbolic-full-name",
+                    "@{u}",
+                ): "origin/feature/demo",
+                ("rev-list", "--count", "origin/feature/demo..HEAD"): "4",
+                ("status", "--porcelain", "--untracked-files=all"): "",
+                ("rev-list", "--reverse", "origin/feature/demo..HEAD"): (
+                    "source-1\nreceipt-1\nreceipt-2\nsource-2\n"
+                ),
+            }
+            return values.get(cmd, "")
+
+        git_stdout_mock.side_effect = _fake_git_stdout
+
+        state = detect_push_enforcement_state(make_policy())
+
+        self.assertEqual(state["ahead_of_upstream_commits"], 4)
+        self.assertEqual(state["ahead_of_upstream_source_commits"], 2)
+        self.assertEqual(state["ahead_of_upstream_managed_receipt_commits"], 2)
+        self.assertEqual(state["ahead_of_upstream_unclassified_commits"], 0)
+
+    @patch(
+        "dev.scripts.devctl.governance.push_state.lookup_push_receipt",
+        return_value=None,
+    )
+    @patch(
         "dev.scripts.devctl.governance.push_state.latest_push_report_relpath",
         return_value="dev/reports/push/latest.json",
     )
