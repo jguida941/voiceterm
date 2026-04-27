@@ -78,11 +78,11 @@ treat these rules as active workflow instructions immediately.
     `review-channel --action implementer-wait` path only under an explicit
     reviewer-owned wait state.
 
-- Last Codex poll: `2026-04-27T18:28:06Z`
-- Last Codex poll (Local America/New_York): `2026-04-27 14:28:06 EDT`
+- Last Codex poll: `2026-04-27T18:53:08Z`
+- Last Codex poll (Local America/New_York): `2026-04-27 14:53:08 EDT`
 - Reviewer mode: `active_dual_agent`
-- Last non-audit worktree hash: `40d12870e5ed382a79e26c2cc660365dbce37be08852dcfa6c32a4f38ef26a22`
-- Current instruction revision: `3a5d0fc5ab66`
+- Last non-audit worktree hash: `31fe60bdfe29ff4301c0f2df8ad46bfe0af46255498943395d7f4a48728bd471`
+- Current instruction revision: `d4e6849b4cb8`
 
 ## Protocol
 
@@ -122,7 +122,7 @@ treat these rules as active workflow instructions immediately.
 
 ## Open Findings
 
-7 pending review packet(s); 484 expired unresolved review packet(s)
+2 pending review packet(s); 487 expired unresolved review packet(s)
 
 ## Claude Status
 
@@ -138,7 +138,7 @@ pending
 
 ## Current Instruction For Claude
 
-Priority action_request: Final stage_commit_pipeline for rev_pkt_2035 Plan 4.1 bundle
+Priority action_request: Supersedes rev_pkt_2039: stage push_findings noqa rationale tweak
 
 ## Last Reviewed Scope
 
@@ -147,5 +147,3 @@ MP-355
 ## Action Requests
 
 - [rev_pkt_2044] stage_commit_pipeline: target=runtime:devctl_commit:dc4863ead71ef2800571241baf11f693392d160b@dc4863ead71ef2800571241baf11f693392d160b; Supersedes rev_pkt_2039: stage push_findings noqa rationale tweak (status: pending)
-- [rev_pkt_2043] stage_commit_pipeline: target=runtime:devctl_commit:dc4863ead71ef2800571241baf11f693392d160b@dc4863ead71ef2800571241baf11f693392d160b; Supersedes rev_pkt_2039: stage push_findings split for publication (status: pending)
-- [rev_pkt_2039] stage_commit_pipeline: target=runtime:devctl_commit:dc4863ead71ef2800571241baf11f693392d160b@dc4863ead71ef2800571241baf11f693392d160b; Final stage_commit_pipeline for rev_pkt_2035 Plan 4.1 bundle (status: pending)
